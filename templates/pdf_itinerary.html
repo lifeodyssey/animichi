@@ -1,13 +1,13 @@
 <!-- PDF Itinerary Template -->
 <div class="content-page">
-    <h2 class="section-title">行程安排 / Itinerary</h2>
+    <h2 class="section-title">Itinerary</h2>
 
     <!-- Origin -->
     <div class="itinerary-item">
         <div class="point-header">
             <div class="point-number" style="background: #E74C3C;">🚉</div>
             <div>
-                <div class="point-name-cn">起点: {{ session.station.name }}</div>
+                <div class="point-name-cn">Origin: {{ session.station.name }}</div>
                 {% if session.station.city %}
                 <div class="point-name-jp">{{ session.station.city }}, {{ session.station.prefecture }}</div>
                 {% endif %}
@@ -35,7 +35,7 @@
             <div>
                 <div class="bangumi-title">{{ segment.point.bangumi_title }}</div>
                 <div class="bangumi-episode">
-                    第{{ segment.point.episode }}集 {{ segment.point.time_formatted }}
+                    Episode {{ segment.point.episode }} {{ segment.point.time_formatted }}
                 </div>
             </div>
         </div>
@@ -56,7 +56,7 @@
                 <div class="transport-mode">{{ segment.transport.mode }}</div>
                 <div class="transport-details">
                     {{ segment.transport.distance_meters }}m •
-                    {{ segment.transport.duration_minutes }}分钟 •
+                    {{ segment.transport.duration_minutes }} min •
                     {{ segment.transport.instructions }}
                 </div>
                 {% if segment.transport.transit_details %}
@@ -72,9 +72,9 @@
 
         <!-- Cumulative Stats -->
         <div class="cumulative-info">
-            <strong>累计:</strong>
+            <strong>Cumulative:</strong>
             {{ "%.1f"|format(segment.cumulative_distance_km) }} km •
-            {{ segment.cumulative_duration_minutes }} 分钟
+            {{ segment.cumulative_duration_minutes }} min
         </div>
 
         <!-- Screenshot -->
@@ -91,19 +91,19 @@
 
     <!-- Summary -->
     <div style="margin-top: 30px; padding: 20px; background: #F0F4F8; border-radius: 8px;">
-        <h3 style="margin-bottom: 12px; color: #667eea;">总结 / Summary</h3>
+        <h3 style="margin-bottom: 12px; color: #667eea;">Summary</h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
             <div>
-                <strong>总景点数:</strong> {{ session.route.segments|length }} 个
+                <strong>Total points:</strong> {{ session.route.segments|length }}
             </div>
             <div>
-                <strong>总距离:</strong> {{ "%.1f"|format(session.route.total_distance_km) }} km
+                <strong>Total distance:</strong> {{ "%.1f"|format(session.route.total_distance_km) }} km
             </div>
             <div>
-                <strong>总时间:</strong> {{ session.route.total_duration_formatted }}
+                <strong>Total time:</strong> {{ session.route.total_duration_formatted }}
             </div>
             <div>
-                <strong>动漫作品:</strong> {{ session.nearby_bangumi|length }} 部
+                <strong>Anime works:</strong> {{ session.nearby_bangumi|length }}
             </div>
         </div>
     </div>

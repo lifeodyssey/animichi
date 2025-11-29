@@ -1,6 +1,6 @@
 <!-- PDF Bangumi Sections Template -->
 <div class="content-page">
-    <h2 class="section-title">动漫作品 / Anime Works</h2>
+    <h2 class="section-title">Anime Works</h2>
 
     {% for bangumi in session.nearby_bangumi %}
     {% if bangumi.id in session.selected_bangumi_ids %}
@@ -17,7 +17,7 @@
                 <p class="bangumi-title-jp">{{ bangumi.title }}</p>
             </div>
             <div class="bangumi-points-count">
-                {{ bangumi.points_count }} 个景点
+                {{ bangumi.points_count }} points
             </div>
         </div>
 
@@ -33,8 +33,8 @@
                     {{ segment.point.cn_name }} / {{ segment.point.name }}
                 </div>
                 <div style="color: #7F8C8D; font-size: 13px; margin-top: 4px;">
-                    📺 第{{ segment.point.episode }}集 {{ segment.point.time_formatted }}
-                    • 📍 景点 #{{ segment.order }}
+                    📺 Episode {{ segment.point.episode }} {{ segment.point.time_formatted }}
+                    • 📍 Point #{{ segment.order }}
                 </div>
 
                 {% if segment.point.screenshot_url %}

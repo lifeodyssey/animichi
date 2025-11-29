@@ -23,7 +23,8 @@ Follow TDD STRICTLY, EVERY MODIFICATION NEED FOLOW TDD, CLEAN CODE, SOLID, KISS
 
 ### 1. Planning & Staging
 
-Break complex work into 3-5 stages. Document in `IMPLEMENTATION_PLAN.md`:
+Break complex work into 3-5 stages. Capture the plan in a lightweight
+Markdown file (for example `docs/dev_plan.md`):
 
 ```markdown
 ## Stage N: [Name]
@@ -33,7 +34,7 @@ Break complex work into 3-5 stages. Document in `IMPLEMENTATION_PLAN.md`:
 **Status**: [Not Started|In Progress|Complete]
 ```
 - Update status as you progress
-- Remove file when all stages are done
+- Delete the temporary plan file once all stages are complete
 
 ### 2. Implementation Flow
 

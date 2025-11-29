@@ -6,7 +6,7 @@ Provides liveness and readiness probes for deployment monitoring.
 
 import asyncio
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any
 
 from utils.logger import get_logger
 
@@ -17,7 +17,7 @@ VERSION = "1.0.0"
 BUILD_DATE = datetime.now().isoformat()
 
 
-async def health_check() -> Dict[str, Any]:
+async def health_check() -> dict[str, Any]:
     """
     Basic health check for liveness probe.
 
@@ -29,13 +29,14 @@ async def health_check() -> Dict[str, Any]:
         "version": VERSION,
         "timestamp": datetime.now().isoformat(),
         "components": {
-            "agents": 7,
-            "tools": 2
-        }
+            "adk_agents": 7,  # 3 LlmAgents + 4 BaseAgents
+            "workflow_steps": 5,  # Sequential workflow with 5 steps
+            "tools": 7,  # PilgrimageWorkflow + 6 utility tools
+        },
     }
 
 
-async def readiness_check() -> Dict[str, Any]:
+async def readiness_check() -> dict[str, Any]:
     """
     Readiness check that verifies external service connections.
 
@@ -45,7 +46,7 @@ async def readiness_check() -> Dict[str, Any]:
     results = {
         "status": "ready",
         "timestamp": datetime.now().isoformat(),
-        "services": {}
+        "services": {},
     }
 
     # Check each service
@@ -62,7 +63,7 @@ async def readiness_check() -> Dict[str, Any]:
             is_healthy = await check_func()
             results["services"][service_name] = {
                 "status": "healthy" if is_healthy else "unhealthy",
-                "checked_at": datetime.now().isoformat()
+                "checked_at": datetime.now().isoformat(),
             }
             if not is_healthy:
                 all_healthy = False
@@ -70,7 +71,7 @@ async def readiness_check() -> Dict[str, Any]:
             results["services"][service_name] = {
                 "status": "error",
                 "error": str(e),
-                "checked_at": datetime.now().isoformat()
+                "checked_at": datetime.now().isoformat(),
             }
             all_healthy = False
 
@@ -79,22 +80,29 @@ async def readiness_check() -> Dict[str, Any]:
 
 
 async def _check_agents() -> bool:
-    """Check if agents can be imported and initialized."""
+    """Check if ADK agents can be imported and initialized."""
     try:
-        from agents import (
-            OrchestratorAgent,
-            SearchAgent,
-            WeatherAgent,
-            FilterAgent,
-            POIAgent,
-            RouteAgent,
-            TransportAgent
+        from adk_agents.seichijunrei_bot._workflows.bangumi_search_workflow import (
+            bangumi_search_workflow,
         )
-        # Quick instantiation check
-        _ = OrchestratorAgent()
+        from adk_agents.seichijunrei_bot._workflows.route_planning_workflow import (
+            route_planning_workflow,
+        )
+        from adk_agents.seichijunrei_bot.agent import root_agent
+
+        # Verify root agent is configured with the expected name
+        assert root_agent.name == "seichijunrei_bot"
+
+        # Verify it wires the two-stage workflows as sub-agents
+        sub_agent_names = {
+            agent.name for agent in getattr(root_agent, "sub_agents", [])
+        }
+        assert bangumi_search_workflow.name in sub_agent_names
+        assert route_planning_workflow.name in sub_agent_names
+
         return True
     except Exception as e:
-        logger.error("Agent check failed", error=str(e))
+        logger.error("ADK agent check failed", error=str(e))
         return False
 
 
@@ -102,6 +110,7 @@ async def _check_tools() -> bool:
     """Check if tools can be imported and initialized."""
     try:
         from tools import MapGeneratorTool, PDFGeneratorTool
+
         # Quick instantiation check
         _ = MapGeneratorTool()
         _ = PDFGeneratorTool()
@@ -114,11 +123,8 @@ async def _check_tools() -> bool:
 async def _check_domain() -> bool:
     """Check if domain entities are working."""
     try:
-        from domain.entities import (
-            Coordinates,
-            Station,
-            PilgrimageSession
-        )
+        from domain.entities import Coordinates, PilgrimageSession, Station
+
         # Quick validation check
         coords = Coordinates(latitude=35.6896, longitude=139.7006)
         station = Station(name="Test", coordinates=coords)
@@ -129,7 +135,7 @@ async def _check_domain() -> bool:
         return False
 
 
-async def startup_check() -> Dict[str, Any]:
+async def startup_check() -> dict[str, Any]:
     """
     Comprehensive startup check.
 
@@ -144,7 +150,7 @@ async def startup_check() -> Dict[str, Any]:
         "startup_status": "ok" if readiness["status"] == "ready" else "failed",
         "health": health,
         "readiness": readiness,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
 
     if result["startup_status"] == "ok":

@@ -42,10 +42,10 @@ dev:
 
 # Run locally
 run:
-	uv run adk run agent.py
+	uv run adk run adk_agents/seichijunrei_bot
 
 web:
-	uv run adk web agent.py
+	@bash scripts/start_adk_web.sh
 
 # Testing
 test:

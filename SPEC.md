@@ -1,808 +1,292 @@
-# Seichijunrei Bot - Technical Specification
+# Seichijunrei Bot – Technical Specification
 
-## 项目概述
+## 1. Project Overview
 
-**项目名称**: Seichijunrei Bot (圣地巡礼机器人)
-**项目类型**: Concierge Agent (个人旅行助手)
-**目标用户**: 动漫爱好者、圣地巡礼旅行者
-**截止日期**: 2025年12月1日
+- **Project name**: Seichijunrei Bot
+- **Track**: Concierge Agents (travel assistant)
+- **Target users**: Anime fans and anime–pilgrimage travellers
+- **Context**: Google ADK Capstone project
 
-### 问题陈述
-
-动漫圣地巡礼是一种新兴的旅行方式，爱好者希望探访动画作品中的真实取景地。然而，当前存在以下痛点：
-
-1. **信息分散**: 圣地信息散落在各个网站和社区，难以系统性获取
-2. **路线规划困难**: 多个圣地之间如何高效访问，避免走回头路
-3. **交通信息缺失**: 不清楚使用何种交通方式最优
-4. **时效性差**: 天气、营业时间等实时信息难以获取
-
-### 解决方案
-
-构建一个智能多Agent系统，通过以下方式解决上述问题：
-
-- 基于地理位置自动搜索周边动漫圣地
-- 智能过滤用户已观看的作品
-- 生成最优不走回头路的访问路线
-- 提供详细的交通方式建议
-- 查询实时天气和营业时间
-- 导出可打印的巡礼手册PDF和可视化地图
+The goal is to build an agent that helps users plan anime pilgrimage trips:
+starting from a metro station, the system finds nearby anime locations,
+optimises a route, suggests transport, and produces shareable outputs (map +
+PDF guide).
 
 ---
 
-## 功能需求
+## 2. Problem Statement
 
-### 核心功能 (MVP)
+Anime pilgrimage (visiting real‑world locations that appear in anime) is
+increasingly popular, but today travellers face several challenges:
 
-#### F1. 地理位置搜索
-- **输入**: 地铁站名称（例: "新宿站"、"涉谷站"、"秋叶原站"）
-- **处理**:
-  - 将地铁站名称转换为GPS坐标
-  - 搜索该坐标周边指定范围内（例如5km）的所有动漫圣地
-  - 按距离排序番剧列表
-- **输出**: 周边番剧列表，包含：
-  - 番剧名称（中文/原名）
-  - 封面图片
-  - 圣地数量
-  - 距离地铁站的直线距离
-
-#### F2. 用户偏好过滤
-- **输入**: 用户选择已观看的番剧（多选）
-- **处理**:
-  - 展示番剧列表供用户选择
-  - 过滤掉未观看的番剧对应的圣地
-- **输出**: 用户感兴趣的圣地点位列表
-
-#### F3. 路线规划
-- **算法**: 贪心最近邻算法
-  - 从起点（地铁站）出发
-  - 每次选择距当前位置最近的未访问圣地
-  - 直到所有圣地访问完毕
-- **输出**: 有序的访问路线，包含每个圣地的：
-  - 序号（第1站、第2站...）
-  - 圣地名称（中文/日文）
-  - 所属番剧
-  - 对应场景（第X集 XX:XX）
-  - GPS坐标
-  - 动画场景截图
-
-### 扩展功能
-
-#### F4. 交通方式建议
-- **数据源**: Google Maps Directions API
-- **处理**:
-  - 为路线中每两个相邻圣地计算最优交通方式
-  - 考虑步行、地铁、公交三种方式
-  - 选择时间最短或综合成本最低的方案
-- **输出**: 每段路线的：
-  - 推荐交通方式
-  - 预计时间
-  - 距离
-  - 步行时具体路线指引
-
-#### F5. 天气查询
-- **数据源**: 天气API或Google Search
-- **处理**: 查询巡礼当天的天气预报
-- **输出**:
-  - 温度范围
-  - 降水概率
-  - 出行建议（是否适合户外巡礼）
-
-#### F6. 营业时间查询
-- **数据源**: Google Places API 或 Web Search
-- **处理**:
-  - 查询圣地附近商业设施的营业时间
-  - 优化访问顺序（避开闭店时间）
-- **输出**: 每个圣地的建议访问时段
-
-#### F7. 地图可视化
-- **输出格式**: HTML交互式地图
-- **内容**:
-  - 地铁站起点标记
-  - 所有圣地的标记点（不同颜色区分番剧）
-  - 连接路线的折线
-  - 点击标记显示详细信息（番剧名、场景截图）
-- **可选**: 导出Google Maps导航链接
-
-#### F8. PDF手册生成
-- **输出格式**: 可打印的PDF文档
-- **内容**:
-  - 封面（巡礼日期、地点、包含的番剧）
-  - 路线总览（地图缩略图）
-  - 每个圣地的详细页：
-    - 序号和名称
-    - 所属番剧和集数
-    - 动画场景截图
-    - GPS坐标
-    - 从上一站的交通方式和时间
-  - 附录：天气信息、注意事项
+1. **Scattered information** – locations and maps are spread across fan sites
+   and communities, with no unified interface.
+2. **Route planning complexity** – manually ordering dozens of locations
+   without back‑tracking is tedious.
+3. **Transport uncertainty** – it is hard to know when to walk, take the
+   subway or use buses for each segment.
+4. **Poor timeliness** – weather and opening‑hours information is not
+   integrated into route planning.
 
 ---
 
-## Multi-Agent架构设计
+## 3. Solution Overview
 
-### Agent职责划分
+Seichijunrei Bot is a deterministic multi‑agent workflow built on Google ADK.
+Given a natural‑language query such as:
 
-```
-┌─────────────────────────────────────┐
-│   Orchestrator Agent (主控Agent)      │
-│   - 管理整体流程                       │
-│   - 协调各子Agent                      │
-│   - 维护会话状态                       │
-└──────────┬──────────────────────────┘
-           │
-           ├──→ [并行] SearchAgent
-           │          - 搜索周边番剧
-           │          - 调用Anitabi API
-           │
-           ├──→ [并行] WeatherAgent
-           │          - 查询天气信息
-           │
-           ├──→ FilterAgent
-           │          - 询问用户偏好
-           │          - 过滤番剧列表
-           │
-           ├──→ RouteAgent
-           │          - 计算最优路线
-           │          - 执行最近邻算法
-           │
-           ├──→ [并行] TransportAgent
-           │          - 查询交通方式
-           │          - 每段路线的导航信息
-           │
-           ├──→ [并行] POIAgent
-           │          - 查询营业时间
-           │          - 优化访问时段
-           │
-           ├──→ MapGeneratorTool
-           │          - 生成可视化地图
-           │
-           └──→ PDFGeneratorTool
-                      - 生成巡礼手册PDF
-```
+> “I’m at Shinjuku Station and want to visit Your Name locations.”
 
-### Agent详细定义
+the system:
 
-#### 1. Orchestrator Agent (主控)
+1. Extracts the anime title and starting station from the text.
+2. Resolves the station to coordinates.
+3. Fetches nearby anime pilgrimage points from Anitabi.
+4. Filters and ranks the points.
+5. Optimises a route that minimises back‑tracking.
+6. Calls Google Maps to enrich the route with transport details.
+7. Optionally fetches weather information.
+8. Generates an interactive HTML map and a PDF pilgrimage guide.
 
-**职责**:
-- 接收用户输入（地铁站名称）
-- 编排其他Agent的执行顺序
-- 管理会话状态（记住用户选择、当前位置）
-- 汇总结果并呈现给用户
-
-**输入**:
-- 用户输入的地铁站名称
-
-**输出**:
-- 完整的巡礼计划（路线、地图、PDF）
-
-**状态管理**:
-- 当前地铁站GPS坐标
-- 用户已选择的番剧列表
-- 计算好的路线数据
-
-#### 2. SearchAgent (搜索Agent)
-
-**职责**:
-- 将地铁站名称转换为GPS坐标
-- 调用Anitabi API搜索周边番剧
-- 计算每个番剧与地铁站的距离
-
-**输入**:
-- 地铁站名称
-- 搜索半径（默认5km）
-
-**输出**:
-```json
-{
-  "station": {
-    "name": "新宿站",
-    "coordinates": [35.6896, 139.7006]
-  },
-  "bangumi_list": [
-    {
-      "id": "115908",
-      "title": "你的名字",
-      "cn_title": "你的名字",
-      "cover_url": "https://...",
-      "distance_km": 1.2,
-      "points_count": 15,
-      "points": [
-        {
-          "id": "point_001",
-          "name": "新宿御苑",
-          "cn_name": "新宿御苑",
-          "coordinates": [35.6851, 139.7100],
-          "episode": 12,
-          "time_seconds": 345,
-          "screenshot_url": "https://..."
-        }
-      ]
-    }
-  ]
-}
-```
-
-**依赖API**:
-- Anitabi API: `/bangumi/{id}/lite` 和 `/bangumi/{id}/points/detail`
-- 地理编码服务（地铁站名→GPS坐标）
-
-#### 3. FilterAgent (过滤Agent)
-
-**职责**:
-- 向用户展示番剧列表
-- 收集用户已观看的番剧
-- 过滤圣地列表
-
-**输入**:
-- SearchAgent输出的番剧列表
-
-**输出**:
-```json
-{
-  "selected_bangumi_ids": ["115908", "126461"],
-  "filtered_points": [
-    // 仅包含用户已观看番剧的圣地
-  ]
-}
-```
-
-**交互方式**:
-- 多选对话框或列表界面
-- 显示番剧封面和名称
-- 用户可勾选已观看的番剧
-
-#### 4. RouteAgent (路线规划Agent)
-
-**职责**:
-- 使用贪心最近邻算法计算最优访问顺序
-- 确保不走回头路
-
-**输入**:
-- 起点坐标（地铁站）
-- 圣地列表（含GPS坐标）
-
-**算法**:
-```
-1. current_location = 起点坐标
-2. unvisited = 所有圣地
-3. route = []
-4. while unvisited 不为空:
-     nearest = 找到距离current_location最近的圣地
-     route.append(nearest)
-     unvisited.remove(nearest)
-     current_location = nearest的坐标
-5. return route
-```
-
-**输出**:
-```json
-{
-  "route": [
-    {
-      "order": 1,
-      "point": {/* 圣地详情 */},
-      "distance_from_previous": 1200,  // 单位:米
-      "cumulative_distance": 1200
-    },
-    {
-      "order": 2,
-      "point": {/* 圣地详情 */},
-      "distance_from_previous": 800,
-      "cumulative_distance": 2000
-    }
-  ],
-  "total_distance_km": 5.8,
-  "estimated_time_minutes": 120
-}
-```
-
-#### 5. TransportAgent (交通Agent)
-
-**职责**:
-- 为路线中每两个相邻点查询最优交通方式
-- 提供详细的导航指引
-
-**输入**:
-- RouteAgent输出的有序路线
-
-**输出**:
-```json
-{
-  "route_with_transport": [
-    {
-      "order": 1,
-      "from": "新宿站",
-      "to": "新宿御苑",
-      "transport": {
-        "mode": "walk",  // walk / subway / bus
-        "duration_minutes": 15,
-        "distance_meters": 1200,
-        "instructions": "步行约15分钟，沿甲州街道向南..."
-      }
-    },
-    {
-      "order": 2,
-      "from": "新宿御苑",
-      "to": "代代木公园",
-      "transport": {
-        "mode": "subway",
-        "duration_minutes": 12,
-        "line": "东京地铁丸之内线",
-        "stops": 3,
-        "fare_yen": 200,
-        "instructions": "乘坐丸之内线（池袋方向），3站后在新宿三丁目下车"
-      }
-    }
-  ]
-}
-```
-
-**依赖API**:
-- Google Maps Directions API
-
-#### 6. WeatherAgent (天气Agent)
-
-**职责**:
-- 查询当天或未来天气预报
-- 提供出行建议
-
-**输入**:
-- 巡礼日期（默认今天）
-- 地点（地铁站所在城市）
-
-**输出**:
-```json
-{
-  "date": "2025-11-20",
-  "location": "东京新宿",
-  "weather": {
-    "condition": "晴天",
-    "temperature_high": 18,
-    "temperature_low": 12,
-    "precipitation_chance": 10,
-    "wind_speed_kmh": 15
-  },
-  "recommendation": "天气适宜，建议穿着舒适，携带轻便外套"
-}
-```
-
-**依赖API**:
-- Google Search 或 天气API
-
-#### 7. POIAgent (景点信息Agent)
-
-**职责**:
-- 查询圣地的营业时间、门票等信息
-- 标注需要预约或有特殊开放时间的地点
-
-**输入**:
-- 圣地列表
-
-**输出**:
-```json
-{
-  "points_info": [
-    {
-      "point_id": "point_001",
-      "name": "新宿御苑",
-      "opening_hours": "9:00-16:30",
-      "closed_days": ["周一"],
-      "admission_fee": "500日元",
-      "notes": "最后入园时间16:00，需购票"
-    }
-  ]
-}
-```
-
-**依赖API**:
-- Google Places API 或 Web Search
-
-### 自定义工具 (Custom Tools)
-
-#### Tool 1: MapGeneratorTool
-
-**功能**: 生成包含路线的交互式地图
-
-**输入**:
-- 起点坐标
-- 圣地列表（含坐标）
-- 路线顺序
-
-**输出**:
-- HTML文件（包含交互式地图）
-- 可选：Google Maps链接
-
-**地图元素**:
-- 地铁站起点标记（蓝色图标）
-- 圣地标记（不同番剧用不同颜色）
-- 路线折线（带箭头表示方向）
-- 点击标记显示Popup：
-  - 圣地名称
-  - 所属番剧
-  - 动画场景截图缩略图
-  - 对应集数和时间
-
-**技术实现**:
-- **库选择**: Leafmap with ipyleaflet backend
-- **核心API**:
-  - `m = leafmap.Map(center=[lat, lon], zoom=13)` - 创建地图实例
-  - `m.add_marker(location, popup, icon)` - 添加标记点
-  - `m.add_polyline(locations, color, weight)` - 添加路线折线
-  - `m.add_basemap()` - 支持多种底图切换（OpenStreetMap, Stamen Terrain等）
-- **交互功能**:
-  - 内置缩放、平移控件
-  - 图层切换控件（可按番剧显示/隐藏圣地）
-  - 绘图工具（用户可标注自己的兴趣点）
-- **导出选项**:
-  - `m.to_html('map.html')` - 导出HTML文件
-  - 如性能需要，可切换到 folium backend（API几乎完全兼容）
-
-#### Tool 2: PDFGeneratorTool
-
-**功能**: 生成可打印的巡礼手册PDF
-
-**输入**:
-- 路线数据
-- 交通信息
-- 天气信息
-- 地图图片
-
-**输出**:
-- PDF文件
-
-**PDF结构**:
-1. 封面页
-   - 标题："XXX圣地巡礼手册"
-   - 日期
-   - 起点地铁站
-   - 包含番剧名称和封面
-2. 路线总览页
-   - 地图缩略图
-   - 基本信息（总距离、预计时间、圣地数量）
-   - 天气信息
-3. 详细页（每个圣地一页或半页）
-   - 序号和名称
-   - 所属番剧
-   - 动画场景截图
-   - GPS坐标
-   - 从上一站的交通方式
-   - 营业时间和门票信息
-4. 附录
-   - 紧急联系方式
-   - 注意事项
-   - 完整地图
+The workflow is implemented as a `SequentialAgent` with embedded
+`ParallelAgent` stages for efficiency and clarity.
 
 ---
 
-## 数据模型
+## 4. Functional Requirements
 
-### 实体定义
+### 4.1 Core features (MVP)
 
-#### Station (地铁站)
-```json
-{
-  "name": "新宿站",
-  "coordinates": {
-    "latitude": 35.6896,
-    "longitude": 139.7006
-  },
-  "city": "东京",
-  "prefecture": "东京都"
-}
-```
+#### F1. Location search
 
-#### Bangumi (番剧)
-```json
-{
-  "id": "115908",
-  "title": "君の名は。",
-  "cn_title": "你的名字",
-  "cover_url": "https://image.anitabi.cn/...",
-  "primary_color": "#FF6B9D",
-  "city": "东京",
-  "points_count": 15
-}
-```
+- **Input**: station name (for example `"Shinjuku Station"`, `"Akihabara"`).
+- **Processing**:
+  - Geocode the station name to GPS coordinates.
+  - Query Anitabi for anime works near those coordinates within a given radius
+    (default 5 km).
+  - Aggregate and sort works by distance and number of points.
+- **Output**: list of nearby works, including:
+  - work ID and title (original and localized titles where available)
+  - cover image URL
+  - number of pilgrimage points
+  - distance from the origin station.
 
-#### Point (圣地)
-```json
-{
-  "id": "point_001",
-  "name": "新宿御苑",
-  "cn_name": "新宿御苑",
-  "coordinates": {
-    "latitude": 35.6851,
-    "longitude": 139.7100
-  },
-  "bangumi_id": "115908",
-  "episode": 12,
-  "time_seconds": 345,
-  "screenshot_url": "https://image.anitabi.cn/...",
-  "address": "东京都新宿区内藤町11",
-  "opening_hours": "9:00-16:30",
-  "admission_fee": "500日元"
-}
-```
+#### F2. User preference filtering
 
-#### Route (路线)
-```json
-{
-  "start_location": {/* Station */},
-  "date": "2025-11-20",
-  "segments": [
-    {
-      "order": 1,
-      "from": {/* Station or Point */},
-      "to": {/* Point */},
-      "distance_meters": 1200,
-      "transport": {
-        "mode": "walk",
-        "duration_minutes": 15,
-        "instructions": "..."
-      }
-    }
-  ],
-  "total_distance_km": 5.8,
-  "estimated_duration_minutes": 180,
-  "weather": {/* Weather */}
-}
-```
+- **Input**: list of works returned by F1 and the user’s selection of shows
+  they have watched.
+- **Processing**:
+  - Present works to the user (via chat or UI).
+  - Keep only points from selected works.
+- **Output**: filtered list of pilgrimage points that match user preferences.
 
----
+#### F3. Route planning
 
-## 用户交互流程
+- **Algorithm**: greedy nearest‑neighbour.
+  - Start from the station.
+  - Repeatedly visit the nearest unvisited point.
+  - Continue until all selected points are visited.
+- **Output**: ordered route that includes, for each point:
+  - sequence number (1st stop, 2nd stop, …)
+  - point name
+  - associated work
+  - episode and timestamp of the scene
+  - GPS coordinates
+  - minimal metadata for rendering on maps/PDF.
 
-### 完整流程图
+### 4.2 Extended features
 
-```
-[用户输入] 我在新宿站
-    ↓
-[SearchAgent] 搜索新宿周边5km的番剧
-    ↓
-[展示结果] 找到20部番剧，共150个圣地
-    ↓
-[FilterAgent] 请选择你看过的番剧
-    - [ ] 你的名字 (15个圣地)
-    - [x] 天气之子 (12个圣地)
-    - [ ] 言叶之庭 (8个圣地)
-    - [x] 秒速5厘米 (10个圣地)
-    ...
-    ↓
-[确认] 你选择了5部番剧，共45个圣地
-    ↓
-[RouteAgent] 计算最优路线...
-    ↓
-[并行执行]
-    ├─ [TransportAgent] 查询交通方式
-    ├─ [WeatherAgent] 查询天气
-    └─ [POIAgent] 查询营业时间
-    ↓
-[汇总结果]
-    - 路线：新宿站 → 圣地1 → 圣地2 → ... → 圣地45
-    - 总距离：6.5km
-    - 预计时间：3小时30分钟
-    - 天气：晴天，18°C
-    ↓
-[生成输出]
-    ├─ [MapGeneratorTool] 生成HTML地图
-    └─ [PDFGeneratorTool] 生成PDF手册
-    ↓
-[展示给用户]
-    - 查看交互式地图：map.html
-    - 下载巡礼手册：pilgrimage_guide.pdf
-    - Google Maps导航：https://maps.google.com/...
-```
+#### F4. Transport suggestions
+
+- **Data source**: Google Maps Directions API.
+- **Processing**:
+  - For each consecutive pair of points, query Directions API.
+  - Evaluate walking, transit and other modes as appropriate.
+  - Prefer shortest realistic travel time or best combined cost.
+- **Output**: for each leg:
+  - transport mode (walk, subway, bus, etc.)
+  - estimated duration and distance
+  - optional step‑by‑step instructions
+  - optional transit metadata (line, stops, fare).
+
+#### F5. Weather
+
+- **Data source**: OpenWeatherMap (or equivalent).
+- **Processing**:
+  - Fetch current or forecast weather for the pilgrimage area.
+  - Normalise into a small summary object for display.
+- **Output**:
+  - condition (e.g. “clear”, “rain”)
+  - temperature range
+  - precipitation chance
+  - simple recommendation (for example “bring a light jacket”).
+
+#### F6. Opening‑hours / POI enrichment (optional)
+
+- **Data sources**: Google Places API or web search.
+- **Processing**:
+  - For points that map to venues (parks, shrines, cafes, etc.), query for
+    opening hours and admission fees.
+  - Use this data to adjust recommended visiting order where possible.
+- **Output**: per‑point POI details such as:
+  - opening hours
+  - closed days
+  - admission fee
+  - additional notes.
+
+#### F7. Map visualisation
+
+- **Output**: interactive HTML map generated with Folium.
+- **Content**:
+  - origin station marker
+  - numbered markers for each pilgrimage point
+  - colour coding by work
+  - polyline representing the route
+  - popups with work name, episode, time and screenshot.
+
+#### F8. PDF guide generation
+
+- **Output**: printable PDF document built from Jinja2 + Playwright.
+- **Content**:
+  - cover page (station, date, list of works)
+  - route overview with map thumbnail
+  - detailed itinerary (per stop):
+    - order and names
+    - work and episode information
+    - screenshot (if available)
+    - GPS and transport details
+  - optional weather summary and notes.
 
 ---
 
-## API集成需求
+## 5. Multi‑Agent Architecture
 
-### 1. Anitabi API
+### 5.1 Agent roles
 
-**Base URL**: `https://api.anitabi.cn/`
+At the ADK level, the workflow is decomposed as follows:
 
-**端点1**: 获取番剧基础信息
-- `GET /bangumi/{subjectID}/lite`
-- 返回：番剧信息 + 最多10个圣地
+1. **ExtractionAgent (LlmAgent)**
+   - Input: user query string.
+   - Output: `bangumi_name`, `location` fields in session state.
 
-**端点2**: 获取完整圣地列表
-- `GET /bangumi/{subjectID}/points/detail?haveImage=true`
-- 返回：所有圣地详细信息
+2. **BangumiSearchAgent (LlmAgent)**
+   - Input: `bangumi_name` from state.
+   - Tool: `search_bangumi_subjects`.
+   - Output: chosen `bangumi_id`, titles, confidence score.
 
-**图片URL处理**:
-- 缩略图：`?plan=h160`
-- 中等清晰度：`?plan=h360`
-- 原图：去掉query参数
+3. **LocationSearchAgent (LlmAgent)**
+   - Input: `location` from state.
+   - Tool: `search_anitabi_bangumi_near_station`.
+   - Output: `station` struct and `user_coordinates`.
 
-### 2. 地图服务API
+4. **PointsSearchAgent (BaseAgent)**
+   - Input: `bangumi_id`, `user_coordinates`.
+   - Client: `AnitabiClient`.
+   - Output: list of raw pilgrimage points.
 
-**需求**:
-- 地理编码：地铁站名称 → GPS坐标
-- 路线规划：两点间最优交通方式（步行/公交/地铁）
-- 地图展示：在地图上标记点位和路线
+5. **PointsFilteringAgent (BaseAgent)**
+   - Input: list of points plus user preferences.
+   - Output: filtered and possibly ranked list of points.
 
-**建议服务**: Google Maps Platform
-- Geocoding API
-- Directions API
-- Maps JavaScript API / Static Maps API
+6. **RouteOptimizationAgent (BaseAgent)**
+   - Input: filtered points list.
+   - Output: `route` object with ordered segments and cumulative stats.
 
-### 3. 天气服务API
+7. **TransportAgent (BaseAgent)**
+   - Input: `route`, `user_coordinates`, `station`.
+   - Client: `GoogleMapsClient`.
+   - Output: enriched `route` with transport information and `final_plan`.
 
-**需求**:
-- 查询指定日期和地点的天气预报
-- 返回：温度、降水、风速
+8. **WeatherAgent (BaseAgent, optional)**
+   - Input: `user_coordinates` or station city.
+   - Client: `WeatherClient`.
+   - Output: `weather` struct.
 
-**建议服务**:
-- Google Search API (通过搜索获取天气)
-- OpenWeatherMap API
-- 其他天气API
+The orchestrator is a `SequentialAgent` named `seichijunrei_bot` that wires
+these agents into a deterministic flow, with `ParallelAgent` groupings for:
 
-### 4. 景点信息API
+- **ParallelSearch** – `BangumiSearchAgent` + `LocationSearchAgent`
+- **ParallelEnrichment** – `WeatherAgent` + `RouteOptimizationAgent`
 
-**需求**:
-- 查询指定地点的营业时间
-- 查询门票价格
-- 查询是否需要预约
+### 5.2 Session state
 
-**建议服务**:
-- Google Places API
-- Web Search (通过搜索获取)
+All agents read and write a shared state dictionary
+(`ctx.session.state`), which includes fields such as:
 
----
+- `user_query: str`
+- `bangumi_name: str | None`
+- `location: str | None`
+- `bangumi_id: int | None`
+- `station: dict | None`
+- `user_coordinates: { latitude: float, longitude: float }`
+- `points: list[dict]`
+- `route: dict | None`
+- `weather: dict | None`
+- `final_plan: dict | None`
 
-## 错误处理和边界情况
-
-### 错误场景
-
-1. **用户输入无效地铁站名称**
-   - 处理：提示用户重新输入，提供附近地铁站建议
-
-2. **搜索不到任何番剧**
-   - 处理：提示该区域暂无圣地数据，建议扩大搜索范围
-
-3. **用户未选择任何番剧**
-   - 处理：提示至少选择一部番剧
-
-4. **API调用失败**
-   - 处理：重试3次，失败后降级处理（使用缓存或提示用户稍后再试）
-
-5. **圣地数量过多（>50个）**
-   - 处理：提示用户是否按番剧或距离筛选，避免路线过长
-
-6. **交通API返回无可用路线**
-   - 处理：仅显示直线距离，标注"需自行规划"
-
-### 边界情况
-
-- **搜索半径**: 默认5km，可配置为1-20km
-- **最大圣地数**: 建议不超过50个（一天内可完成）
-- **超时处理**: 所有API调用设置10秒超时
-- **并发限制**: 并行Agent不超过5个同时执行
+The detailed schema and type expectations are defined in
+`docs/adk_migration_spec.md` and `adk_agents/seichijunrei_bot/_schemas.py`.
 
 ---
 
-## 课程要求映射
+## 6. Data Sources
 
-本项目满足课程的以下关键概念要求（至少3个）：
+- **Anitabi**
+  - Anime pilgrimage database with work metadata and location points.
+  - Used for work discovery and point retrieval.
 
-### 1. Multi-agent System ✅
+- **Bangumi API**
+  - Anime/manga metadata and search.
+  - Used to normalise titles and resolve Bangumi IDs.
 
-**使用的Agent类型**:
-- **Sequential Agents**: Orchestrator → SearchAgent → FilterAgent → RouteAgent（顺序执行）
-- **Parallel Agents**: TransportAgent + WeatherAgent + POIAgent（并行执行）
+- **Google Maps Platform**
+  - Geocoding API – station name → coordinates.
+  - Directions API – routing and travel time / mode suggestions.
 
-**总计**: 7个Agent（1个主控 + 6个子Agent）
-
-### 2. Tools ✅
-
-**Custom Tools**:
-- MapGeneratorTool（地图生成）
-- PDFGeneratorTool（PDF生成）
-
-**OpenAPI Tools**:
-- Google Maps APIs（Geocoding, Directions, Maps）
-- Google Places API
-- Anitabi API（RESTful API）
-
-**Built-in Tools**:
-- Google Search（天气查询）
-
-### 3. Sessions & Memory ✅
-
-**Session Management**:
-- 使用会话服务保存：
-  - 用户当前位置（地铁站）
-  - 用户选择的番剧列表
-  - 计算好的路线数据
-
-**状态持久化**:
-- 会话期间保持状态，支持多轮对话
-- 用户可修改选择后重新计算路线
-
-### 4. Observability ✅
-
-**Logging**:
-- 记录每个Agent的执行开始/结束时间
-- 记录API调用和响应时间
-- 记录错误和警告
-
-**Tracing**:
-- 追踪完整的请求流程（从用户输入到最终输出）
-- 每个Agent的输入输出日志
-
-### 5. Agent Deployment ✅ (Bonus +5分)
-
-**部署平台**: Google Agent Engine 或 Cloud Run
-
-**部署内容**:
-- 完整的Multi-Agent系统
-- 所有API集成
-- 输出文件存储（地图、PDF）
-
-### 6. Effective Use of Gemini ✅ (Bonus +5分)
-
-**使用场景**:
-- 至少一个子Agent使用Gemini作为推理引擎
-- 例如：FilterAgent使用Gemini理解用户的自然语言偏好
+- **Weather API (OpenWeatherMap or similar)**
+  - Current and forecast weather for the pilgrimage area.
 
 ---
 
-## 成功标准
+## 7. Non‑Functional Requirements
 
-### MVP (最小可行产品)
+- **Deterministic behaviour**
+  - Workflow order and tool calls are fixed by design.
+  - LLM agents use typed output schemas to minimise ambiguity.
 
-- [ ] 能够根据地铁站名称搜索周边番剧
-- [ ] 能够询问用户偏好并过滤结果
-- [ ] 能够生成不走回头路的访问路线
-- [ ] 输出包含圣地名称、番剧、场景信息
+- **Observability**
+  - Structured logging via `structlog`.
+  - Per‑step timing and rich context (session ID, bangumi ID, etc.).
+  - Optional integration with external monitoring.
 
-### 完整版本
+- **Testability**
+  - Unit tests for domain entities, clients and tools.
+  - Separate integration tests for real API calls.
 
-- [ ] 所有核心功能 (F1-F3) 实现
-- [ ] 至少3个扩展功能 (F4-F8) 实现
-- [ ] 生成交互式地图
-- [ ] 生成PDF手册
-- [ ] 提供交通方式建议
-- [ ] Multi-agent架构完整实现
-- [ ] 满足课程至少3个关键概念要求
-- [ ] 部署到云端（Bonus）
-
-### 质量标准
-
-- [ ] 代码包含详细注释
-- [ ] README文档完整
-- [ ] 错误处理健全
-- [ ] 日志记录完整
-- [ ] 用户交互流畅
+- **Extensibility**
+  - Additional agents (for example, POI enrichment) can plug into the same
+    session state without breaking the core workflow.
 
 ---
 
-## 附录：技术实现清单
+## 8. Capstone Evaluation Mapping (Informal)
 
-以下部分记录技术选型决策：
+- **Multi‑agent system**
+  - Multiple LlmAgents and BaseAgents composed via Sequential/Parallel agents.
 
-- [ ] 编程语言和版本
-- [ ] Agent开发框架
-- [ ] LLM模型选择
-- [x] **地图可视化库**: Leafmap (latest version)
-  - **包管理器**: uv (`uv add leafmap`)
-  - **推荐后端**: ipyleaflet（最丰富的交互功能，支持双向Widget交互）
-  - **备选后端**: folium（更简单的实现，可按需切换）
-  - **核心优势**:
-    - 6个绘图后端可选（ipyleaflet, folium, plotly, pydeck, kepler.gl, heremap）
-    - 468个内置地理处理工具（通过WhiteboxTools）
-    - 一行代码创建地图：`m = leafmap.Map()`
-    - 支持大规模数据（通过Google Earth Engine集成）
-  - **技术理由**: 最大化灵活性，如某个后端性能不佳可无缝切换；内置GIS工具便于未来添加高级功能（地形分析、路线计算等）
-- [ ] PDF生成库
-- [ ] 部署平台和配置
-- [ ] 依赖包列表
-- [ ] 环境配置说明
+- **Tools**
+  - Custom tools for Bangumi and Anitabi.
+  - HTTP clients and map/PDF generators.
 
----
+- **Sessions & memory**
+  - Shared, structured session state across the workflow.
 
-**文档版本**: 1.0
-**创建日期**: 2025-11-20
-**最后更新**: 2025-11-20
-**作者**: Zhenjia Zhou
+- **Observability**
+  - Rich logging, timing and simple health checks.
+
+- **Deployment**
+  - Designed to be deployed as an ADK Web app and via ADK CLI.
+
+This specification should provide enough detail for contributors and reviewers
+to understand the intended behaviour, interfaces and architecture of
+Seichijunrei Bot. 

@@ -38,6 +38,10 @@ dependencies = [
     # Observability
     "structlog>=23.0.0",
     "rich>=13.0.0",
+
+    # Google Cloud & ADK
+    "google-cloud-aiplatform[adk,agent_engines]>=1.111",
+    "google-adk>=1.0.0",
 ]
 
 [project.optional-dependencies]
