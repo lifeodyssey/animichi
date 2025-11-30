@@ -28,7 +28,6 @@ ENV/
 env/
 
 # uv
-uv.lock
 .python-version
 
 # pytest
