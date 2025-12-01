@@ -190,25 +190,7 @@ class Route(BaseModel):
         return groups
 
 
-class Weather(BaseModel):
-    """Weather information for the pilgrimage day."""
-
-    date: str
-    location: str
-    condition: str
-    temperature_high: int
-    temperature_low: int
-    precipitation_chance: int = Field(..., ge=0, le=100)
-    wind_speed_kmh: int = Field(..., ge=0)
-    recommendation: str
-
-    @property
-    def temperature_range(self) -> str:
-        """Format temperature range."""
-        return f"{self.temperature_low}°C - {self.temperature_high}°C"
-
-
-class PilgrimageSession(BaseModel):
+class SeichijunreiSession(BaseModel):
     """User session state."""
 
     session_id: str
@@ -218,7 +200,6 @@ class PilgrimageSession(BaseModel):
     nearby_bangumi: list[Bangumi] = Field(default_factory=list)
     points: list[Point] = Field(default_factory=list)
     route: Route | None = None
-    weather: Weather | None = None
 
     # NEW: Bangumi-specific fields for direct bangumi search
     bangumi_id: int | None = None

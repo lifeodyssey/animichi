@@ -56,7 +56,6 @@ outputs/
 
 # Test outputs
 test_results.json
-*.evalset.json
 
 # Secrets
 .env

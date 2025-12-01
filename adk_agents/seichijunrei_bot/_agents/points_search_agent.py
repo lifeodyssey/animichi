@@ -1,9 +1,9 @@
-"""ADK BaseAgent for fetching ALL pilgrimage points from Anitabi.
+"""ADK BaseAgent for fetching ALL seichijunrei points from Anitabi.
 
 In the simplified Capstone architecture this agent:
 
 - Reads the selected bangumi ID from session state
-- Fetches all pilgrimage points for that bangumi from Anitabi
+- Fetches all seichijunrei points for that bangumi from Anitabi
 - Writes them to state under the `all_points` key (no filtering)
 
 Downstream, PointsSelectionAgent (LlmAgent) is responsible for selecting
@@ -23,7 +23,7 @@ from utils.logger import get_logger
 
 
 class PointsSearchAgent(BaseAgent):
-    """Fetch all pilgrimage points for the selected bangumi from Anitabi."""
+    """Fetch all seichijunrei points for the selected bangumi from Anitabi."""
 
     model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
 

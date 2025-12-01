@@ -107,13 +107,23 @@ async def _check_agents() -> bool:
 
 
 async def _check_tools() -> bool:
-    """Check if tools can be imported and initialized."""
+    """Check if core ADK tools can be imported."""
     try:
-        from tools import MapGeneratorTool, PDFGeneratorTool
+        from adk_agents.seichijunrei_bot.tools import (
+            get_anitabi_points,
+            get_bangumi_subject,
+            search_anitabi_bangumi_near_station,
+            search_bangumi_subjects,
+            translate_tool,
+        )
 
-        # Quick instantiation check
-        _ = MapGeneratorTool()
-        _ = PDFGeneratorTool()
+        # Quick attribute / callability checks
+        assert callable(search_bangumi_subjects)
+        assert callable(get_bangumi_subject)
+        assert callable(get_anitabi_points)
+        assert callable(search_anitabi_bangumi_near_station)
+        assert translate_tool is not None
+
         return True
     except Exception as e:
         logger.error("Tool check failed", error=str(e))
@@ -123,12 +133,12 @@ async def _check_tools() -> bool:
 async def _check_domain() -> bool:
     """Check if domain entities are working."""
     try:
-        from domain.entities import Coordinates, PilgrimageSession, Station
+        from domain.entities import Coordinates, SeichijunreiSession, Station
 
         # Quick validation check
         coords = Coordinates(latitude=35.6896, longitude=139.7006)
         station = Station(name="Test", coordinates=coords)
-        PilgrimageSession(session_id="health-check", station=station)
+        SeichijunreiSession(session_id="health-check", station=station)
         return True
     except Exception as e:
         logger.error("Domain check failed", error=str(e))

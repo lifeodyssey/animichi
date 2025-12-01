@@ -12,7 +12,7 @@ def plan_route(
     points: list[dict],
 ) -> dict:
     """
-    Generate a simplified pilgrimage route plan for the selected anime.
+    Generate a simplified seichijunrei route plan for the selected anime.
 
     This custom tool is intentionally lightweight: it delegates to
     SimpleRoutePlanner to sort points heuristically and to build a

@@ -115,8 +115,8 @@ jobs:
 
       - name: Verify imports
         run: |
-          uv run python -c "from tools import MapGeneratorTool, PDFGeneratorTool; print('Tools OK')"
-          uv run python -c "from domain.entities import PilgrimageSession; print('Domain OK')"
+          uv run python -c "from adk_agents.seichijunrei_bot.agent import root_agent; print('Root agent OK:', root_agent.name)"
+          uv run python -c "from domain.entities import SeichijunreiSession; print('Domain OK')"
           uv run python -c "from clients.anitabi import AnitabiClient; from clients.bangumi import BangumiClient; print('Clients OK')"
 
       - name: Build package

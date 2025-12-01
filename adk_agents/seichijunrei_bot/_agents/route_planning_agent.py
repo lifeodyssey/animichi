@@ -2,7 +2,7 @@
 
 This agent sits at the end of Stage 2:
     - Reads the user's starting location and selected anime
-    - Reads the selected pilgrimage points chosen by PointsSelectionAgent
+    - Reads the selected seichijunrei points chosen by PointsSelectionAgent
     - Calls the custom `plan_route` FunctionTool to produce a RoutePlan
     - Persists the result in session state under `route_plan`
 """
@@ -17,12 +17,12 @@ route_planning_agent = LlmAgent(
     model="gemini-2.0-flash",
     tools=[plan_route_tool],
     instruction="""
-    You are a 聖地巡礼 route design assistant responsible for generating a complete itinerary suggestion based on the already "curated" pilgrimage points.
+    You are a 聖地巡礼 route design assistant responsible for generating a complete itinerary suggestion based on the already "curated" seichijunrei points.
 
     You can access from session state:
     - extraction_result.location: User's starting point location (string)
     - selected_bangumi.bangumi_title: Anime Japanese title
-    - points_selection_result.selected_points: The 8-12 pilgrimage points already selected
+    - points_selection_result.selected_points: The 8-12 seichijunrei points already selected
     - points_selection_result.selection_rationale: Reasoning for why these points were chosen
 
     Your tasks:

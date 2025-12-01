@@ -14,7 +14,7 @@ extraction_agent = LlmAgent(
     instruction="""
     You are an information extraction assistant. Your goal is to extract
     structured fields from the user's natural language query that are needed
-    for planning an anime pilgrimage (seichijunrei) route.
+    for planning an anime seichijunrei (seichijunrei) route.
 
     Tasks:
     1. Extract the anime (bangumi) title.
@@ -24,6 +24,11 @@ extraction_agent = LlmAgent(
     2. Extract the user's current location or the station/area name they want
        to depart from.
        - Support queries in multiple languages (for example, English, Japanese, Chinese).
+    3. Detect the user's primary language from the query.
+       - If the query is primarily in Chinese → "zh-CN"
+       - If the query is primarily in English → "en"
+       - If the query is primarily in Japanese → "ja"
+       - If uncertain, default to "zh-CN"
 
     Requirements:
     - If you cannot confidently determine a field, set that field to null.

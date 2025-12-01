@@ -1,12 +1,12 @@
-"""ADK LlmAgent for intelligent selection of pilgrimage points.
+"""ADK LlmAgent for intelligent selection of seichijunrei points.
 
 This agent is the core of the simplified Capstone design: instead of
 hard-coding distance-based filtering in a BaseAgent, it lets the LLM
-select 8–12 of the most suitable pilgrimage points from the full list
+select 8–12 of the most suitable seichijunrei points from the full list
 returned by Anitabi.
 
 Input state (read-only for this agent):
-    - all_points: list of all available pilgrimage points for the bangumi
+    - all_points: list of all available seichijunrei points for the bangumi
     - extraction_result.location: user origin / starting area
     - selected_bangumi.bangumi_title: anime title for context
 
@@ -25,7 +25,7 @@ points_selection_agent = LlmAgent(
     name="PointsSelectionAgent",
     model="gemini-2.0-flash",
     instruction="""
-    You are a 聖地巡礼 planning assistant who needs to intelligently select the 8-12 most suitable points for this trip from all candidate pilgrimage points.
+    You are a 聖地巡礼 planning assistant who needs to intelligently select the 8-12 most suitable points for this trip from all candidate seichijunrei points.
 
     You can access the following information from the session state:
     - all_points: List of all 聖地巡礼 points for the current bangumi on Anitabi (typically 10-50 points)

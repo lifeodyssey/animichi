@@ -1,4 +1,4 @@
-"""Pydantic schemas for structured LlmAgent outputs in the pilgrimage workflow.
+"""Pydantic schemas for structured LlmAgent outputs in the seichijunrei workflow.
 
 These schemas enforce strict JSON structure and enable automatic type validation
 when used with LlmAgent's output_schema parameter. This ensures downstream
@@ -21,6 +21,14 @@ class ExtractionResult(BaseModel):
         description=(
             "User's current location or the station/area name they want to depart from."
         )
+    )
+    user_language: str = Field(
+        default="zh-CN",
+        description=(
+            "Detected user language from the query. "
+            "Use ISO-like codes: 'zh-CN' for Chinese, 'en' for English, 'ja' for Japanese. "
+            "Default to 'zh-CN' if uncertain."
+        ),
     )
 
 
@@ -122,7 +130,7 @@ class UserSelectionResult(BaseModel):
 
 
 class SelectedPoint(BaseModel):
-    """A single selected pilgrimage point from all_points.
+    """A single selected seichijunrei point from all_points.
 
     This model defines the structure of points selected by PointsSelectionAgent.
     Using an explicit Pydantic model instead of dict avoids the Gemini API's
@@ -172,7 +180,7 @@ class SelectedPoint(BaseModel):
 
 
 class PointsSelectionResult(BaseModel):
-    """LLM-driven intelligent selection over all available pilgrimage points.
+    """LLM-driven intelligent selection over all available seichijunrei points.
 
     Uses SelectedPoint model instead of dict to avoid Gemini API's
     additionalProperties limitation.
@@ -180,7 +188,7 @@ class PointsSelectionResult(BaseModel):
 
     selected_points: list[SelectedPoint] = Field(
         default_factory=list,
-        description="Selected pilgrimage points (8-12 items) taken from all_points.",
+        description="Selected seichijunrei points (8-12 items) taken from all_points.",
     )
     selection_rationale: str = Field(
         description="2-3 sentence explanation of why these points were chosen."
@@ -200,7 +208,7 @@ class RoutePlan(BaseModel):
     """Final user-facing route planning result."""
 
     recommended_order: list[str] = Field(
-        description="Recommended ordered list of point names for the pilgrimage route."
+        description="Recommended ordered list of point names for the seichijunrei route."
     )
     route_description: str = Field(
         description="Full natural language description of the route."

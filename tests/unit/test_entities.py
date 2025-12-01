@@ -12,14 +12,13 @@ from domain.entities import (
     Coordinates,
     InvalidStationError,
     NoBangumiFoundError,
-    PilgrimageSession,
     Point,
     Route,
     RouteSegment,
+    SeichijunreiSession,
     Station,
     TooManyPointsError,
     TransportInfo,
-    Weather,
 )
 
 
@@ -446,76 +445,12 @@ class TestRoute:
         assert len(groups["BG002"]) == 2  # Last 2 points
 
 
-class TestWeather:
-    """Test Weather entity."""
-
-    def test_create_weather(self):
-        """Test creating weather information."""
-        weather = Weather(
-            date="2025-11-20",
-            location="Tokyo",
-            condition="Partly Cloudy",
-            temperature_high=22,
-            temperature_low=15,
-            precipitation_chance=20,
-            wind_speed_kmh=10,
-            recommendation="Good weather for walking, bring light jacket",
-        )
-        assert weather.date == "2025-11-20"
-        assert weather.condition == "Partly Cloudy"
-        assert weather.temperature_high == 22
-        assert weather.temperature_low == 15
-        assert weather.precipitation_chance == 20
-
-    def test_temperature_range(self):
-        """Test temperature range formatting."""
-        weather = Weather(
-            date="2025-11-20",
-            location="Tokyo",
-            condition="Sunny",
-            temperature_high=25,
-            temperature_low=18,
-            precipitation_chance=0,
-            wind_speed_kmh=5,
-            recommendation="Perfect day",
-        )
-        assert weather.temperature_range == "18°C - 25°C"
-
-    def test_weather_validation(self):
-        """Test weather data validation."""
-        # Precipitation chance must be 0-100
-        with pytest.raises(ValueError):
-            Weather(
-                date="2025-11-20",
-                location="Tokyo",
-                condition="Rain",
-                temperature_high=20,
-                temperature_low=15,
-                precipitation_chance=101,
-                wind_speed_kmh=10,
-                recommendation="Test",
-            )
-
-        # Wind speed must be non-negative
-        with pytest.raises(ValueError):
-            Weather(
-                date="2025-11-20",
-                location="Tokyo",
-                condition="Windy",
-                temperature_high=20,
-                temperature_low=15,
-                precipitation_chance=10,
-                wind_speed_kmh=-5,
-                recommendation="Test",
-            )
-
-
-class TestPilgrimageSession:
-    """Test PilgrimageSession entity."""
+class TestSeichijunreiSession:
+    """Test SeichijunreiSession entity."""
 
     def test_create_session(self):
         """Test creating a pilgrimage session."""
-        session = PilgrimageSession(session_id="test-session-123")
+        session = SeichijunreiSession(session_id="test-session-123")
         assert session.session_id == "test-session-123"
         assert session.station is None
         assert session.selected_bangumi_ids == []
@@ -523,7 +458,6 @@ class TestPilgrimageSession:
         assert session.nearby_bangumi == []
         assert session.points == []
         assert session.route is None
-        assert session.weather is None
         assert isinstance(session.created_at, datetime)
         assert isinstance(session.updated_at, datetime)
 
@@ -542,7 +476,7 @@ class TestPilgrimageSession:
             points_count=10,
         )
 
-        session = PilgrimageSession(
+        session = SeichijunreiSession(
             session_id="test-session-456",
             station=station,
             selected_bangumi_ids=["BG001", "BG002"],
@@ -557,7 +491,7 @@ class TestPilgrimageSession:
 
     def test_session_update_timestamp(self):
         """Test updating session timestamp."""
-        session = PilgrimageSession(session_id="test-session-789")
+        session = SeichijunreiSession(session_id="test-session-789")
         original_updated = session.updated_at
 
         # Small delay to ensure timestamp changes
@@ -571,15 +505,15 @@ class TestPilgrimageSession:
     def test_search_radius_validation(self):
         """Test search radius validation."""
         # Valid ranges
-        PilgrimageSession(session_id="test", search_radius_km=1.0)
-        PilgrimageSession(session_id="test", search_radius_km=20.0)
+        SeichijunreiSession(session_id="test", search_radius_km=1.0)
+        SeichijunreiSession(session_id="test", search_radius_km=20.0)
 
         # Invalid ranges
         with pytest.raises(ValueError):
-            PilgrimageSession(session_id="test", search_radius_km=0.5)
+            SeichijunreiSession(session_id="test", search_radius_km=0.5)
 
         with pytest.raises(ValueError):
-            PilgrimageSession(session_id="test", search_radius_km=21.0)
+            SeichijunreiSession(session_id="test", search_radius_km=21.0)
 
 
 class TestDomainExceptions:

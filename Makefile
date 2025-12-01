@@ -38,7 +38,6 @@ install:
 
 dev:
 	uv sync --dev
-	uv run playwright install chromium
 
 # Run locally
 run:

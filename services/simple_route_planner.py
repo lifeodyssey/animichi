@@ -25,7 +25,7 @@ class SimpleRoutePlanner:
         points: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """
-        Generate a simple pilgrimage route plan.
+        Generate a simple seichijunrei route plan.
 
         Args:
             origin: User's starting location (free-form string).

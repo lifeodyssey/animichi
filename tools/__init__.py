@@ -1,7 +1,7 @@
-"""Output generation tools for pilgrimage planning."""
+"""Utility package placeholder for Seichijunrei Bot.
 
-from .base import BaseTool
-from .map_generator import MapGeneratorTool
-from .pdf_generator import PDFGeneratorTool
+Previously contained map/PDF output tools; those have been removed to
+keep the core project focused on conversational route planning.
+"""
 
-__all__ = ["BaseTool", "MapGeneratorTool", "PDFGeneratorTool"]
+__all__: list[str] = []

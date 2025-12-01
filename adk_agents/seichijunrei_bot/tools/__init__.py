@@ -11,6 +11,8 @@ from clients.anitabi import AnitabiClient
 from clients.bangumi import BangumiClient
 from utils.logger import get_logger
 
+from .translation import translate_tool
+
 logger = get_logger(__name__)
 
 
@@ -99,7 +101,7 @@ async def get_bangumi_subject(subject_id: int) -> dict:
 
 async def get_anitabi_points(bangumi_id: str) -> dict:
     """
-    Get Anitabi pilgrimage points for a specific bangumi.
+    Get Anitabi seichijunrei points for a specific bangumi.
 
     Args:
         bangumi_id: Bangumi identifier used by Anitabi.
@@ -223,4 +225,5 @@ __all__ = [
     "get_bangumi_subject",
     "get_anitabi_points",
     "search_anitabi_bangumi_near_station",
+    "translate_tool",
 ]
