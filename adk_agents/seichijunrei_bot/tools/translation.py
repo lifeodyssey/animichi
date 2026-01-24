@@ -1,14 +1,14 @@
 """Translation tool for bangumi titles using Gemini LLM.
 
 This module defines an async translation function and wraps it in a
-FunctionTool so it can be used by ADK LlmAgents. It is intentionally
-kept stateless and side-effect free (other than logging), following
-ADK best practices for tools.
+FunctionTool so it can be used by ADK LlmAgents. It delegates to the
+application layer use case following clean architecture patterns.
 """
 
 from google.adk.tools import FunctionTool
-from google.generativeai import GenerativeModel
 
+from application.use_cases import TranslateText
+from infrastructure.gateways import GeminiTranslationGateway
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -36,39 +36,17 @@ async def translate_text(
         }
     """
     try:
-        if target_language == "ja":
-            # No-op for Japanese: return original text directly.
-            return {
-                "original": text,
-                "translated": text,
-                "target_language": target_language,
-                "success": True,
-                "error": None,
-            }
-
-        # Use Gemini to perform translation. Keep model name aligned with the
-        # rest of the project (non-experimental variant).
-        model = GenerativeModel("gemini-2.0-flash")
-
-        prompt = f"""Translate the following {context} to {target_language}:
-
-Original: {text}
-
-Requirements:
-- Provide natural, fluent translation
-- For anime titles, use official translations if known
-- Preserve meaning and tone
-- Return ONLY the translated text, no explanations
-
-Translation:"""
-
-        response = model.generate_content(prompt)
-        translated = (response.text or "").strip()
+        use_case = TranslateText(translator=GeminiTranslationGateway())
+        translated = await use_case(
+            text=text,
+            target_language=target_language,
+            context=context,
+        )
 
         logger.info(
             "Translation completed",
-            original=text,
-            translated=translated,
+            original=text[:100] if text else "",
+            translated=translated[:100] if translated else "",
             target_language=target_language,
         )
 
@@ -80,15 +58,14 @@ Translation:"""
             "error": None,
         }
 
-    except Exception as exc:  # pragma: no cover - defensive logging path
+    except Exception as exc:
         logger.error(
             "Translation failed",
-            text=text,
+            text=text[:100] if text else "",
             target_language=target_language,
             error=str(exc),
             exc_info=True,
         )
-        # Fallback: return original text so the agent can continue.
         return {
             "original": text,
             "translated": text,
