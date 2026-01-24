@@ -1,7 +1,12 @@
 # Seichijunrei Bot - Makefile
 # Convenience commands for development, testing, and deployment
 
-.PHONY: help install dev test lint format check clean run deploy health
+.PHONY: help install dev test lint format check clean run deploy health smoke a2ui-web
+
+# Use a project-local cache directory for uv to avoid permission issues in
+# restricted environments (CI, sandboxes). Can be overridden by env.
+UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
+export UV_CACHE_DIR
 
 # Default target
 help:
@@ -12,6 +17,7 @@ help:
 	@echo "  make dev         Install all dependencies (including dev)"
 	@echo "  make run         Run the agent locally with ADK"
 	@echo "  make web         Run the agent with ADK web interface"
+	@echo "  make a2a         Run the A2A server (port 8080)"
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test        Run unit tests"
@@ -62,6 +68,17 @@ test-integration:
 # Health checks
 health:
 	uv run python health.py
+
+smoke:
+	uv run python scripts/smoke_test.py
+
+# A2UI (experimental)
+a2ui-web:
+	./.venv/bin/python -m interfaces.a2ui_web.server
+
+# A2A Server
+a2a:
+	uv run uvicorn interfaces.a2a_server.main:app --port 8080 --reload
 
 # Code quality
 lint:

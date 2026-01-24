@@ -8,7 +8,6 @@
 - [Two-Stage Conversation Flow](#two-stage-conversation-flow)
 - [Session State Management](#session-state-management)
 - [Data Flow](#data-flow)
-- [Architecture Diagrams](#architecture-diagrams)
 - [Key Design Principles](#key-design-principles)
 - [File Structure](#file-structure)
 
@@ -70,7 +69,7 @@ The Seichijunrei system implements a **hierarchical agent architecture** with co
 The system consists of **10 distinct agents** organized into 2 main workflows:
 
 #### Root Level
-- **Root Agent** (`seichijunrei_bot`): Entry point and conditional router
+- **Root Agent** (`seichijunrei_bot`): Deterministic router (`RouteStateMachineAgent`, `BaseAgent`)
 
 #### Stage 1: Bangumi Search Workflow
 1. **ExtractionAgent**: Extracts user intent (bangumi name, location, language)
@@ -83,7 +82,7 @@ The system consists of **10 distinct agents** organized into 2 main workflows:
 4. **UserSelectionAgent**: Parses user's anime selection
 5. **PointsSearchAgent**: Fetches all pilgrimage points from Anitabi API
 6. **PointsSelectionAgent**: Intelligently selects 8-12 best points
-7. **RoutePlanningAgent**: Generates optimized route plan
+7. **RoutePlanningAgent**: Deterministic BaseAgent (calls `PlanRoute` / `SimpleRoutePlanner`) and writes `route_plan`
 8. **RoutePresentationAgent**: Converts route to natural language
 
 ---
@@ -131,6 +130,7 @@ The system uses three types of ADK agents:
 
 **Examples**:
 - `PointsSearchAgent`: Custom async implementation for Anitabi API
+- `RouteStateMachineAgent`: Deterministic router (Stage 1/2 + reset/back)
 
 ---
 
@@ -160,13 +160,13 @@ Bot: "找到 3 部与 '镰仓' 相关的动画作品，请选择：
 
 ### Stage 2: Route Planning
 
-**Trigger**: User provides selection (automatically when `bangumi_candidates` exists in session)
+**Trigger**: User provides a selection (e.g. a number/ordinal) while `bangumi_candidates` exists in session
 
 **Process**:
 1. Parse user's selection with confidence scoring (UserSelectionAgent)
 2. Fetch ALL pilgrimage points from Anitabi API (PointsSearchAgent)
 3. LLM selects 8-12 best points considering feasibility and importance (PointsSelectionAgent)
-4. Generate optimized route using SimpleRoutePlanner (RoutePlanningAgent)
+4. Generate optimized route using SimpleRoutePlanner (RoutePlanningAgent, deterministic)
 5. Present route with detailed descriptions (RoutePresentationAgent)
 
 **Output**: Natural language route description with practical information
@@ -193,9 +193,24 @@ Bot: "为您规划了镰仓《灌篮高手》（スラムダンク）圣地巡�
 The Root Agent acts as a pure router, automatically triggering workflows based on session state:
 
 ```python
+# Special commands
+if user_text in {"reset", "restart", ...}:
+    clear_all_state()
+    return prompt_for_new_query()
+
+if session_state.bangumi_candidates is not None and user_text in {"back", ...}:
+    clear_stage2_state()
+    return re_present_candidates()
+
 if session_state.bangumi_candidates is None:
     # Execute Stage 1: Bangumi Search
     # → ExtractionAgent, BangumiCandidatesAgent, UserPresentationAgent
+    return bangumi_search_workflow
+
+# If candidates exist but user input does NOT look like a selection,
+# treat it as a brand new query and restart Stage 1.
+if not looks_like_selection(user_text):
+    clear_all_state()
     return bangumi_search_workflow
 
 # Execute Stage 2: Route Planning
@@ -223,7 +238,9 @@ The system maintains the following key state variables throughout the conversati
 
 ### State Lifecycle
 
-See [State Diagram](./architecture/state_diagram.md) for detailed state transitions.
+State transitions are driven by `RouteStateMachineAgent` routing rules and the
+presence/absence of keys in session state. Use `adk_agents/seichijunrei_bot/_state.py`
+as the single source of truth for key names.
 
 ### Session Persistence
 
@@ -284,80 +301,6 @@ All data schemas are defined in `adk_agents/seichijunrei_bot/_schemas.py`:
 - `UserSelectionResult`: User's anime selection
 - `PointsSelectionResult`: Selected pilgrimage points
 - `RoutePlan`: Optimized route structure
-
----
-
-## Architecture Diagrams
-
-### 1. Agent Interaction Flow
-
-Visual representation of how agents interact and pass data.
-
-**View**: [docs/architecture/agent_flow.md](./architecture/agent_flow.md)
-
-```mermaid
-flowchart TD
-    %% Seichijunrei Agent Architecture - Interaction Flow
-
-    classDef llmAgent fill:#e1f5ff,stroke:#01579b,stroke-width:2px
-    classDef seqAgent fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef baseAgent fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef workflow fill:#e8f5e9,stroke:#1b5e20,stroke-width:3px
-    classDef schema fill:#fff9c4,stroke:#f57f17,stroke-width:1px
-
-    Start([User Input]) --> RootAgent[Root Agent<br/>seichijunrei_bot<br/>LlmAgent]
-    RootAgent -->|No candidates| Stage1{Stage 1:<br/>Bangumi Search}
-    RootAgent -->|Has candidates,<br/>no selection| Wait[Wait for<br/>User Selection]
-    RootAgent -->|Has selection| Stage2{Stage 2:<br/>Route Planning}
-
-    Stage1 --> ExtractionAgent[ExtractionAgent<br/>LlmAgent<br/>Output: ExtractionResult]
-    ExtractionAgent --> BangumiCandidates[BangumiCandidatesAgent<br/>SequentialAgent]
-    BangumiCandidates --> BangumiSearcher[_bangumi_searcher<br/>Calls API]
-    BangumiSearcher --> BangumiFormatter[_candidates_formatter<br/>Format Top 3-5]
-    BangumiFormatter --> UserPresentation[UserPresentationAgent<br/>LlmAgent<br/>Natural Language Output]
-    UserPresentation --> Output1([Present Candidates<br/>to User]):::schema
-
-    Stage2 --> UserSelection[UserSelectionAgent<br/>LlmAgent<br/>Output: UserSelectionResult]
-    UserSelection --> PointsSearch[PointsSearchAgent<br/>BaseAgent<br/>Fetch ALL Points]
-    PointsSearch --> PointsSelection[PointsSelectionAgent<br/>LlmAgent<br/>Select 8-12 Best Points]
-    PointsSelection --> RoutePlanning[RoutePlanningAgent<br/>LlmAgent<br/>Output: RoutePlan]
-    RoutePlanning --> RoutePresentation[RoutePresentationAgent<br/>LlmAgent<br/>Natural Language Output]
-    RoutePresentation --> Output2([Present Route Plan<br/>to User]):::schema
-
-    class ExtractionAgent,UserPresentation,UserSelection,PointsSelection,RoutePlanning,RoutePresentation,RootAgent llmAgent
-    class BangumiCandidates seqAgent
-    class PointsSearch baseAgent
-    class Stage1,Stage2 workflow
-```
-
-### 2. Sequence Diagram
-
-Detailed message passing and timing between agents.
-
-**View**: [docs/architecture/agent_sequence.puml](./architecture/agent_sequence.puml)
-
-**Generate PNG**:
-```bash
-plantuml docs/architecture/agent_sequence.puml
-```
-
-### 3. State Transition Diagram
-
-Session state lifecycle and transitions.
-
-**View**: [docs/architecture/state_diagram.md](./architecture/state_diagram.md)
-
-### 4. Interactive Visualization
-
-Click and explore the agent architecture interactively.
-
-**View**: Open [docs/architecture/interactive_flow.html](./architecture/interactive_flow.html) in your browser
-
-**Features**:
-- Click nodes to see detailed agent information
-- Zoom and pan to explore
-- Color-coded by agent type
-- Shows all data flows and dependencies
 
 ---
 
@@ -447,8 +390,11 @@ workflow = SequentialAgent(agents=[searcher, formatter])
 adk_agents/seichijunrei_bot/
 ├── agent.py                          # Root agent definition
 ├── _schemas.py                       # All Pydantic schemas
+├── _state.py                         # Session state keys (shared contract)
+├── skills.py                         # Skill registry (workflow contracts)
 │
 ├── _agents/                          # Individual agent definitions
+│   ├── route_state_machine_agent.py # Root router (deterministic)
 │   ├── extraction_agent.py          # Stage 1: Intent extraction
 │   ├── bangumi_candidates_agent.py  # Stage 1: Search + format
 │   ├── user_presentation_agent.py   # Stage 1: Present candidates
@@ -466,11 +412,6 @@ adk_agents/seichijunrei_bot/
 │   ├── __init__.py                  # Tool exports
 │   ├── route_planning.py            # Route planning tool
 │   └── translation.py               # Translation tool
-│
-├── services/                         # Business logic
-│   ├── bangumi_service.py           # Bangumi API client
-│   ├── anitabi_service.py           # Anitabi API client
-│   └── route_planner.py             # Route optimization
 │
 └── .adk/                             # ADK configuration
     └── eval_history/                 # Evaluation results
@@ -493,23 +434,11 @@ adk dev
 adk dev --session-id my-session
 ```
 
-### Generating Architecture Diagrams
-
-```bash
-# Run the diagram generator
-python3 generate_architecture_diagram.py
-
-# Output will be in docs/architecture/
-```
-
 ### Testing
 
 ```bash
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/agents/test_extraction_agent.py
+# Run unit tests
+pytest tests/unit/ -v
 
 # Run with ADK evaluation
 adk eval --evalset *.evalset.json
@@ -528,11 +457,9 @@ adk eval --evalset *.evalset.json
 ### Internal Documentation
 
 - [README.md](../README.md) - Project overview and setup
-- [DEPLOYMENT.md](./DEPLOYMENT.md) - Deployment guide
-- [Agent Flow Diagram](./architecture/agent_flow.md)
-- [Sequence Diagram](./architecture/agent_sequence.puml)
-- [State Diagram](./architecture/state_diagram.md)
-- [Interactive Visualization](./architecture/interactive_flow.html)
+- [DEPLOYMENT.md](../DEPLOYMENT.md) - Deployment guide
+- [DOCS.adk.md](../DOCS.adk.md) - Documentation policy (keep small)
+- [TODO.adk.md](../TODO.adk.md) - ADK-focused backlog
 
 ---
 
@@ -540,7 +467,7 @@ adk eval --evalset *.evalset.json
 
 ### Version 1.0.0 (Current)
 - Initial architecture documentation
-- Complete agent system with 10 agents
+- Complete agent system (see `adk_agents/seichijunrei_bot/_agents/`)
 - Two-stage conversation flow
 - Multilingual support (CN, EN, JP)
 - Intelligent point selection with LLM reasoning
@@ -548,5 +475,5 @@ adk eval --evalset *.evalset.json
 
 ---
 
-**Last Updated**: 2025-12-01
+**Last Updated**: 2026-01-23
 **Maintained By**: Zhenjia Zhou

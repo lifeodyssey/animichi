@@ -8,20 +8,17 @@ Provides methods to:
 """
 
 from clients.base import BaseHTTPClient
+from clients.errors import APIError, NotFoundError
 from config.settings import get_settings
 from domain.entities import (
-    APIError,
     Bangumi,
     Coordinates,
-    InvalidStationError,
-    NoBangumiFoundError,
     Point,
     Station,
 )
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
-settings = get_settings()
 
 
 class AnitabiClient(BaseHTTPClient):
@@ -52,8 +49,11 @@ class AnitabiClient(BaseHTTPClient):
             rate_limit_calls: Number of calls allowed per period
             rate_limit_period: Rate limit period in seconds
         """
+        if base_url is None:
+            base_url = get_settings().anitabi_api_url
+
         super().__init__(
-            base_url=base_url or settings.anitabi_api_url,
+            base_url=base_url,
             api_key=api_key,
             timeout=30,
             max_retries=3,
@@ -109,8 +109,9 @@ class AnitabiClient(BaseHTTPClient):
 
             # Parse response
             if not response.get("data"):
-                raise NoBangumiFoundError(
-                    f"No anime locations found within {radius_km}km of {station.name}"
+                raise NotFoundError(
+                    f"No anime locations found within {radius_km}km of {station.name}",
+                    resource_type="bangumi",
                 )
 
             # Convert to domain entities
@@ -146,7 +147,7 @@ class AnitabiClient(BaseHTTPClient):
 
             return bangumi_list
 
-        except NoBangumiFoundError:
+        except NotFoundError:
             raise
         except APIError:
             raise
@@ -330,7 +331,7 @@ class AnitabiClient(BaseHTTPClient):
             Station entity with coordinates
 
         Raises:
-            InvalidStationError: If station not found
+            NotFoundError: If station not found
             APIError: On API communication failure
         """
         try:
@@ -346,7 +347,9 @@ class AnitabiClient(BaseHTTPClient):
             # Check if station found
             data = response.get("data")
             if not data:
-                raise InvalidStationError(f"Station not found: {station_name}")
+                raise NotFoundError(
+                    f"Station not found: {station_name}", resource_type="station"
+                )
 
             # Convert to domain entity
             station = Station(
@@ -364,7 +367,7 @@ class AnitabiClient(BaseHTTPClient):
 
             return station
 
-        except InvalidStationError:
+        except NotFoundError:
             raise
         except APIError:
             raise
