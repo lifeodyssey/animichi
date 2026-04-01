@@ -49,6 +49,7 @@ def create_http_app(
     app.router.add_get("/", _handle_root)
     app.router.add_get("/healthz", _handle_health)
     app.router.add_post("/v1/runtime", _handle_runtime)
+    app.router.add_post("/v1/runtime/stream", _handle_runtime_stream)
     app.router.add_post("/v1/feedback", _handle_feedback)
 
     if runtime_api is not None:
@@ -139,6 +140,68 @@ async def _handle_runtime(request: web.Request) -> web.Response:
     )
 
 
+async def _handle_runtime_stream(request: web.Request) -> web.StreamResponse:
+    runtime_api = request.app[_RUNTIME_API_KEY]
+
+    try:
+        raw_payload = await request.json()
+    except (json.JSONDecodeError, ValueError):
+        return web.json_response(
+            {
+                "error": {
+                    "code": "invalid_json",
+                    "message": "Request body must be valid JSON.",
+                }
+            },
+            status=400,
+        )
+
+    try:
+        api_request = PublicAPIRequest.model_validate(raw_payload)
+    except ValidationError as exc:
+        return web.json_response(
+            {
+                "error": {
+                    "code": "invalid_request",
+                    "message": "Request payload did not match the public API schema.",
+                    "details": json.loads(exc.json()),
+                }
+            },
+            status=422,
+        )
+
+    resp = web.StreamResponse()
+    resp.headers["Content-Type"] = "text/event-stream; charset=utf-8"
+    resp.headers["Cache-Control"] = "no-cache"
+    resp.headers["X-Accel-Buffering"] = "no"
+    resp.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
+    resp.headers["Access-Control-Allow-Credentials"] = "true"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+
+    await resp.prepare(request)
+
+    async def emit(event: str, data: dict[str, Any]) -> None:
+        payload = json.dumps({"event": event, **data}, ensure_ascii=False)
+        await resp.write(f"data: {payload}\n\n".encode("utf-8"))
+
+    async def on_step(tool: str, status: str, data: dict[str, Any]) -> None:
+        await emit("step", {"tool": tool, "status": status})
+
+    try:
+        await emit("planning", {"status": "running"})
+        response = await runtime_api.handle(api_request, on_step=on_step)
+        await emit("done", response.model_dump(mode="json"))
+    except Exception as exc:
+        await emit("error", {"message": str(exc)})
+    finally:
+        try:
+            await resp.write_eof()
+        except ConnectionResetError:
+            pass
+
+    return resp
+
+
 def _json_dumps(obj: object) -> str:
     """JSON encoder that handles datetime and other non-standard types."""
     import datetime as dt
@@ -159,7 +222,7 @@ def _runtime_context(
 ):
     async def context(app: web.Application):
         runtime_db = db or _build_supabase_client(settings)
-        runtime_session_store = session_store or _build_session_store(settings)
+        runtime_session_store = session_store or _build_session_store()
 
         await _call_optional_async(runtime_db, "connect")
         app[_RUNTIME_API_KEY] = RuntimeAPI(
@@ -203,7 +266,7 @@ async def _cors_middleware(
         resp = await handler(request)
     resp.headers["Access-Control-Allow-Origin"] = "*"
     resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, OPTIONS"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     return resp
 
 
@@ -246,24 +309,8 @@ def _build_supabase_client(settings: Settings) -> SupabaseClient:
     return SupabaseClient(dsn)
 
 
-def _build_session_store(settings: Settings) -> SessionStore:
-    if settings.session_store_backend == "memory":
-        return create_session_store("memory")
-    if settings.session_store_backend == "redis":
-        return create_session_store(
-            "redis",
-            host=settings.redis_session_host,
-            port=settings.redis_session_port,
-            db=settings.redis_session_db,
-            password=settings.redis_session_password,
-            prefix=settings.redis_session_prefix,
-            ttl_seconds=settings.session_ttl_seconds,
-        )
-    return create_session_store(
-        "firestore",
-        project_id=settings.google_cloud_project,
-        collection_name=settings.firestore_session_collection,
-    )
+def _build_session_store() -> SessionStore:
+    return create_session_store()
 
 
 async def _call_optional_async(target: Any, method_name: str) -> None:

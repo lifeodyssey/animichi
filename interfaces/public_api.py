@@ -6,6 +6,7 @@ RPC adapters can wrap without depending directly on internal pipeline types.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from time import perf_counter
 from typing import Any, Literal
@@ -96,9 +97,13 @@ class RuntimeAPI:
         session_store: SessionStore | None = None,
     ) -> None:
         self._db = db
-        self._session_store = session_store or create_session_store("memory")
+        self._session_store = session_store or create_session_store()
 
-    async def handle(self, request: PublicAPIRequest) -> PublicAPIResponse:
+    async def handle(
+        self,
+        request: PublicAPIRequest,
+        on_step: Callable[[str, str, dict[str, Any]], Awaitable[None]] | None = None,
+    ) -> PublicAPIResponse:
         """Execute the runtime pipeline and normalize its output."""
         session_id = request.session_id or uuid4().hex
         started_at = perf_counter()
@@ -113,6 +118,7 @@ class RuntimeAPI:
 
             try:
                 previous_state = await self._load_session_state(session_id)
+                context_block = _build_context_block(previous_state)
                 result: PipelineResult | None = None
 
                 try:
@@ -121,6 +127,8 @@ class RuntimeAPI:
                         self._db,
                         model=request.model,
                         locale=request.locale,
+                        context=context_block,
+                        on_step=on_step,
                     )
                 except ApplicationError as exc:
                     span.record_exception(exc)
@@ -151,6 +159,8 @@ class RuntimeAPI:
                     previous_state,
                     request=request,
                     response=response,
+                    result_context_delta=
+                        _extract_context_delta(result) if result is not None else None,
                 )
 
                 route_record = None
@@ -331,7 +341,11 @@ def _pipeline_result_to_public_response(
         status=str(final_output.get("status", "ok" if result.success else "error")),
         intent=result.intent,
         message=str(final_output.get("message") or ""),
-        data=dict(final_output.get("data") or {}),
+        data={
+            k: final_output[k]
+            for k in ("results", "route")
+            if final_output.get(k) is not None
+        },
         errors=errors,
         ui=ui,
     )
@@ -375,6 +389,7 @@ def _build_updated_session_state(
     *,
     request: PublicAPIRequest,
     response: PublicAPIResponse,
+    result_context_delta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     interactions = list(previous_state["interactions"])
     interactions.append(
@@ -384,6 +399,7 @@ def _build_updated_session_state(
             "status": response.status,
             "success": response.success,
             "created_at": datetime.now(UTC).isoformat(),
+            "context_delta": result_context_delta or {},
         }
     )
     interactions = interactions[-_MAX_INTERACTIONS:]
@@ -450,6 +466,61 @@ def _serialize_step_result(step: StepResult) -> dict[str, Any]:
         "success": step.success,
         "error": step.error,
         "data": step.data,
+    }
+
+
+def _extract_context_delta(result: PipelineResult) -> dict[str, Any]:
+    delta: dict[str, Any] = {
+        "bangumi_id": None,
+        "anime_title": None,
+        "location": None,
+    }
+    for step in result.step_results:
+        if not step.success or not step.data:
+            continue
+        if step.tool == "resolve_anime":
+            delta["bangumi_id"] = step.data.get("bangumi_id")
+            delta["anime_title"] = step.data.get("title")
+        elif step.tool == "search_bangumi" and delta["bangumi_id"] is None:
+            delta["bangumi_id"] = step.data.get("bangumi_id")
+    for plan_step in result.plan.steps:
+        if plan_step.tool.value == "search_nearby" and plan_step.params.get("location"):
+            delta["location"] = plan_step.params["location"]
+            break
+    return delta
+
+
+def _build_context_block(session_state: dict[str, Any]) -> dict[str, Any] | None:
+    interactions = session_state.get("interactions") or []
+    if not interactions:
+        return None
+
+    current_bangumi_id = None
+    current_anime_title = None
+    last_location = None
+    visited_bangumi_ids: list[str] = []
+
+    for interaction in reversed(interactions):
+        delta = interaction.get("context_delta") or {}
+        bangumi_id = delta.get("bangumi_id")
+        if current_bangumi_id is None and bangumi_id:
+            current_bangumi_id = bangumi_id
+            current_anime_title = delta.get("anime_title")
+        location = delta.get("location")
+        if last_location is None and location:
+            last_location = location
+        if bangumi_id and bangumi_id not in visited_bangumi_ids:
+            visited_bangumi_ids.append(bangumi_id)
+
+    if not current_bangumi_id and not last_location and not visited_bangumi_ids:
+        return None
+
+    return {
+        "current_bangumi_id": current_bangumi_id,
+        "current_anime_title": current_anime_title,
+        "last_location": last_location,
+        "last_intent": session_state.get("last_intent"),
+        "visited_bangumi_ids": visited_bangumi_ids,
     }
 
 
