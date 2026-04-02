@@ -55,6 +55,7 @@
     "logo_text": "聖地巡礼",
     "new_chat": "+ 新しい会話",
     "recent": "最近の検索",
+    "rename_hint": "ダブルクリックで編集",
     "spots": "{count}スポット",
     "footer": "巡礼者"
   },
@@ -79,6 +80,12 @@
     "spots": "{count}スポット",
     "no_coords": "⚠ {count}件の座標なし",
     "episode": "第{ep}話"
+  },
+  "selection": {
+    "count": "{count}件を選択中",
+    "placeholder": "出発地…",
+    "route": "ルート化",
+    "clear": "クリア"
   },
   "clarification": {
     "examples_label": "例えば：",

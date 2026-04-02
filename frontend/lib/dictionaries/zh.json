@@ -55,6 +55,7 @@
     "logo_text": "圣地巡礼",
     "new_chat": "+ 新对话",
     "recent": "最近搜索",
+    "rename_hint": "双击即可重命名",
     "spots": "{count}个景点",
     "footer": "巡礼者"
   },
@@ -79,6 +80,12 @@
     "spots": "{count}个景点",
     "no_coords": "⚠ {count}个缺少坐标",
     "episode": "第{ep}集"
+  },
+  "selection": {
+    "count": "已选{count}个",
+    "placeholder": "出发地…",
+    "route": "规划路线",
+    "clear": "清除"
   },
   "clarification": {
     "examples_label": "例如：",

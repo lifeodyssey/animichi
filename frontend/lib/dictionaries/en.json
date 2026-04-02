@@ -55,6 +55,7 @@
     "logo_text": "Seichijunrei",
     "new_chat": "+ New chat",
     "recent": "Recent searches",
+    "rename_hint": "Double-click to rename",
     "spots": "{count} spots",
     "footer": "Pilgrim"
   },
@@ -79,6 +80,12 @@
     "spots": "{count} stops",
     "no_coords": "⚠ {count} missing coordinates",
     "episode": "Ep. {ep}"
+  },
+  "selection": {
+    "count": "{count} selected",
+    "placeholder": "Departure…",
+    "route": "Route",
+    "clear": "Clear"
   },
   "clarification": {
     "examples_label": "For example:",

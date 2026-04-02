@@ -10,8 +10,12 @@ export type Intent =
   | "search_bangumi"
   | "search_nearby"
   | "plan_route"
+  | "plan_selected"
+  | "answer_question"
+  | "greet_user"
   | "general_qa"
-  | "unclear";
+  | "unclear"
+  | "unknown";
 
 // ── Row-level types (SQL result rows) ──────────────────────────────────────
 
@@ -89,6 +93,8 @@ export interface RuntimeRequest {
   locale?: "ja" | "zh" | "en";
   model?: string | null;
   include_debug?: boolean;
+  selected_point_ids?: string[];
+  origin?: string | null;
 }
 
 export interface PublicAPIError {
@@ -109,6 +115,14 @@ export interface RouteHistoryRecord {
   point_count: number;
   status: string;
   created_at: string; // ISO 8601
+}
+
+export interface ConversationRecord {
+  session_id: string;
+  title: string | null;
+  first_query: string;
+  created_at: string; // ISO 8601
+  updated_at: string; // ISO 8601
 }
 
 export interface UIDescriptor {
