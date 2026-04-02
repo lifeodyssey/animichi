@@ -7,6 +7,7 @@ templates. Steps communicate via context dict (each step deposits its output).
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,6 +15,7 @@ import structlog
 
 from agents.models import ExecutionPlan, PlanStep, RetrievalRequest, ToolName
 from agents.retriever import RetrievalResult, Retriever
+from agents.sql_agent import resolve_location
 from infrastructure.gateways.bangumi import BangumiClientGateway
 
 logger = structlog.get_logger(__name__)
@@ -88,7 +90,12 @@ class ExecutorAgent:
         self._retriever = Retriever(db)
         self._db = db
 
-    async def execute(self, plan: ExecutionPlan) -> PipelineResult:
+    async def execute(
+        self,
+        plan: ExecutionPlan,
+        context_block: dict[str, Any] | None = None,
+        on_step: Callable[[str, str, dict[str, Any]], Awaitable[None]] | None = None,
+    ) -> PipelineResult:
         """Execute all steps in the plan and return a PipelineResult.
 
         Args:
@@ -101,9 +108,15 @@ class ExecutorAgent:
         result = PipelineResult(intent=primary_tool, plan=plan)
         locale = getattr(plan, "locale", "ja")
         context: dict[str, Any] = {"locale": locale}
+        if context_block and context_block.get("last_location"):
+            context["last_location"] = context_block["last_location"]
 
         for step in plan.steps:
+            if on_step is not None:
+                await on_step(step.tool.value, "running", {})
             step_result = await self._execute_step(step, context)
+            if on_step is not None:
+                await on_step(step.tool.value, "done", step_result.data or {})
             result.step_results.append(step_result)
 
             tool = getattr(step, "tool", None)
@@ -131,6 +144,7 @@ class ExecutorAgent:
             ToolName.SEARCH_BANGUMI: self._execute_search_bangumi,
             ToolName.SEARCH_NEARBY: self._execute_search_nearby,
             ToolName.PLAN_ROUTE: self._execute_plan_route,
+            ToolName.GREET_USER: self._execute_greet_user,
             ToolName.ANSWER_QUESTION: self._execute_answer_question,
         }.get(tool)
 
@@ -240,7 +254,8 @@ class ExecutorAgent:
                 tool="plan_route", success=False, error="No points to route"
             )
 
-        ordered = _nearest_neighbor_sort(rows)
+        origin = step.params.get("origin") or context.get("last_location")
+        ordered = await _nearest_neighbor_sort(rows, origin=origin)
         with_coords = [r for r in rows if r.get("latitude") and r.get("longitude")]
         return StepResult(
             tool="plan_route",
@@ -270,6 +285,19 @@ class ExecutorAgent:
             },
         )
 
+    async def _execute_greet_user(
+        self, step: PlanStep, context: dict[str, Any]
+    ) -> StepResult:
+        """Return an ephemeral greeting/identity response (no retrieval)."""
+        return StepResult(
+            tool="greet_user",
+            success=True,
+            data={
+                "message": step.params.get("message", ""),
+                "status": "info",
+            },
+        )
+
     # ── Output builder ────────────────────────────────────────────────────────
 
     def _build_output(
@@ -281,6 +309,7 @@ class ExecutorAgent:
         )
         route_data = context.get(ToolName.PLAN_ROUTE.value)
         qa_data = context.get(ToolName.ANSWER_QUESTION.value)
+        greet_data = context.get(ToolName.GREET_USER.value)
 
         count = (query_data or {}).get("row_count", 0)
         is_empty = count == 0
@@ -303,6 +332,9 @@ class ExecutorAgent:
         if qa_data:
             output["message"] = qa_data.get("message", "")
             output["status"] = qa_data.get("status", "info")
+        if greet_data:
+            output["message"] = greet_data.get("message", "")
+            output["status"] = greet_data.get("status", "info")
         if not result.success:
             output["errors"] = [r.error for r in result.step_results if r.error]
         return output
@@ -320,6 +352,7 @@ def _infer_primary_tool(plan: ExecutionPlan) -> str:
         ToolName.SEARCH_BANGUMI,
         ToolName.SEARCH_NEARBY,
         ToolName.ANSWER_QUESTION,
+        ToolName.GREET_USER,
     ):
         if priority in tools:
             return priority.value
@@ -345,7 +378,9 @@ def _build_query_payload(retrieval: RetrievalResult) -> dict[str, Any]:
     }
 
 
-def _nearest_neighbor_sort(rows: list[dict]) -> list[dict]:
+async def _nearest_neighbor_sort(
+    rows: list[dict], origin: str | None = None
+) -> list[dict]:
     """Sort points by nearest-neighbor heuristic. O(n²), fine for <100 points."""
     if len(rows) <= 1:
         return list(rows)
@@ -354,8 +389,24 @@ def _nearest_neighbor_sort(rows: list[dict]) -> list[dict]:
     if not with_coords:
         return list(rows)
 
-    ordered = [with_coords[0]]
-    remaining = with_coords[1:]
+    origin_coords = await resolve_location(origin) if origin else None
+    remaining = list(with_coords)
+    ordered: list[dict] = []
+
+    if origin_coords is not None:
+        origin_lat, origin_lon = origin_coords
+        start_index = min(
+            range(len(remaining)),
+            key=lambda index: (
+                float(remaining[index]["latitude"]) - origin_lat
+            )
+            ** 2
+            + (float(remaining[index]["longitude"]) - origin_lon) ** 2,
+        )
+        ordered.append(remaining.pop(start_index))
+    else:
+        ordered.append(remaining.pop(0))
+
     while remaining:
         last = ordered[-1]
         last_lat, last_lon = float(last["latitude"]), float(last["longitude"])

@@ -10,6 +10,7 @@ interface MessageListProps {
   onActivate?: (messageId: string) => void;
   activeMessageId?: string | null;
   onOpenDrawer?: () => void;
+  onSuggest?: (text: string) => void;
 }
 
 export default function MessageList({
@@ -17,8 +18,9 @@ export default function MessageList({
   onActivate,
   activeMessageId,
   onOpenDrawer,
+  onSuggest,
 }: MessageListProps) {
-  const { chat: t } = useDict();
+  const { chat: t, clarification } = useDict();
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,10 +29,36 @@ export default function MessageList({
 
   if (messages.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-xs font-light text-[var(--color-muted-fg)] opacity-50">
-          {t.placeholder}
-        </p>
+      <div className="flex flex-1 items-center justify-center px-6 py-8">
+        <div className="w-full max-w-md rounded-[28px] border border-[var(--color-border)] bg-[color-mix(in_oklab,var(--color-card)_88%,white)] p-6 shadow-[0_24px_80px_rgba(15,23,42,0.06)]">
+          <div className="space-y-3">
+            <p className="font-[family-name:var(--app-font-display)] text-3xl text-[var(--color-fg)]">
+              {t.welcome_title}
+            </p>
+            <p className="text-sm font-light leading-7 text-[var(--color-fg)]">
+              {t.welcome_subtitle}
+            </p>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-2.5">
+            {clarification.suggestions.map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => onSuggest?.(s.query)}
+                className="flex items-center justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 text-left text-sm font-light text-[var(--color-fg)] transition-colors hover:border-[var(--color-primary)]/50 hover:text-[var(--color-primary)]"
+                style={{ transitionDuration: "var(--duration-fast)" }}
+              >
+                <span>{s.label}</span>
+                <span aria-hidden>→</span>
+              </button>
+            ))}
+          </div>
+
+          <p className="mt-5 text-xs font-light leading-6 text-[var(--color-muted-fg)]">
+            {t.welcome_helper}
+          </p>
+        </div>
       </div>
     );
   }

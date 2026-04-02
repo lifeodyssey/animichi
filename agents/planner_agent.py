@@ -31,9 +31,13 @@ Your job: understand the user's request and output a structured execution plan.
   Find pilgrimage locations near a station, city, or area.
   Use when the user asks about a geographic area rather than a specific anime.
 
-- plan_route(params: {})
+- plan_route(origin: str | None = None)
   Sort the results of a preceding search_bangumi step into an optimal walking order.
-  Only include this after a search_bangumi step.
+  Include origin when the user names a starting point.
+
+- greet_user(message: str)
+  For greetings and identity questions about Seichijunrei itself.
+  Fill the message field with a short, localized introduction and 2-3 example asks.
 
 - answer_question(answer: str)
   For general QA about anime pilgrimage (etiquette, tips, etc.).
@@ -47,15 +51,43 @@ Your job: understand the user's request and output a structured execution plan.
 3. plan_route is ONLY for explicit route/itinerary requests (ルート, 路线, route,
    行程, 回る, plan a route, walking order). Merely asking for "spots" or
    "locations" or "pilgrimage sites" does NOT need plan_route — that is search_bangumi.
-4. Set locale in the plan to match the user's language.
-5. Keep plans minimal — the fewest steps that satisfy the request.
-6. Fill reasoning with your chain-of-thought (for logging/debugging).
+4. If the user names a departure point, put it in plan_route.origin.
+   If no new origin is provided and the context block has last_location,
+   you may leave origin null — runtime will reuse the remembered location.
+5. Use greet_user(message: str) for greetings such as hi, hello, 你好, こんにちは.
+6. Use greet_user(message: str) for identity questions such as 你是谁, what are you,
+   and what can you do.
+7. Do not use it for real pilgrimage queries, even if they begin with a greeting.
+   Example: 你好，宇治站附近有哪些取景地？ should be search_nearby.
+   Example: hello, plan a route for Your Name in Tokyo should be a real search/route plan.
+8. For pure greetings or identity asks, emit exactly one greet_user step.
+   Keep params.message to roughly 2-4 sentences.
+9. Set locale in the plan to match the user's language.
+10. Keep plans minimal — the fewest steps that satisfy the request.
+11. Fill reasoning with your chain-of-thought (for logging/debugging).
 
 ## locale values
 - "ja" for Japanese queries
 - "zh" for Chinese queries
 - "en" for English queries
 """
+
+
+def _format_context_block(context: dict[str, Any]) -> str:
+    lines = ["[context]"]
+    if context.get("current_anime_title"):
+        bangumi_id = context.get("current_bangumi_id", "")
+        lines.append(
+            f"anime: {context['current_anime_title']} (bangumi_id: {bangumi_id})"
+        )
+    if context.get("last_location"):
+        lines.append(f"last_location: {context['last_location']}")
+    if context.get("last_intent"):
+        lines.append(f"last_intent: {context['last_intent']}")
+    visited_ids = context.get("visited_bangumi_ids") or []
+    if visited_ids:
+        lines.append(f"visited_ids: {', '.join(visited_ids)}")
+    return "\n".join(lines)
 
 
 class ReActPlannerAgent:
@@ -72,8 +104,14 @@ class ReActPlannerAgent:
             retries=2,
         )
 
-    async def create_plan(self, text: str, locale: str = "ja") -> ExecutionPlan:
+    async def create_plan(
+        self,
+        text: str,
+        locale: str = "ja",
+        context: dict[str, Any] | None = None,
+    ) -> ExecutionPlan:
         """Generate an ExecutionPlan from user text."""
-        prompt = f"[locale={locale}] {text}"
+        context_prefix = _format_context_block(context) + "\n" if context else ""
+        prompt = f"{context_prefix}[locale={locale}] {text}"
         result = await self._agent.run(prompt)
         return result.output

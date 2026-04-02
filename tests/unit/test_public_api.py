@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from agents.executor_agent import PipelineResult
+from agents.executor_agent import PipelineResult, StepResult
 from agents.models import ExecutionPlan, PlanStep, ToolName
 from application.errors import InvalidInputError
 from infrastructure.session.memory import InMemorySessionStore
@@ -37,7 +37,7 @@ def _make_result(
         "success": True,
         "status": "empty",
         "message": "該当する巡礼地が見つかりませんでした。",
-        "data": {"results": {"rows": [], "row_count": 0}},
+        "results": {"rows": [], "row_count": 0},
     }
     return result
 
@@ -46,7 +46,7 @@ def _make_result(
 def _mock_pipeline():
     """Mock run_pipeline — the ReActPlannerAgent requires an LLM."""
 
-    async def _fake(text, db, *, model=None, locale="ja"):
+    async def _fake(text, db, *, model=None, locale="ja", context=None, on_step=None):
         return _make_result(locale=locale)
 
     with patch("interfaces.public_api.run_pipeline", side_effect=_fake):
@@ -95,6 +95,113 @@ class TestPublicAPIRequest:
     def test_rejects_blank_text(self) -> None:
         with pytest.raises(ValidationError):
             PublicAPIRequest(text="   ")
+
+
+class TestContextExtraction:
+    def test_extract_context_delta_from_resolve_anime(self) -> None:
+        result = _make_result(
+            steps=[
+                PlanStep(
+                    tool=ToolName.RESOLVE_ANIME,
+                    params={"title": "響け！ユーフォニアム"},
+                )
+            ]
+        )
+        result.step_results = [
+            StepResult(
+                tool="resolve_anime",
+                success=True,
+                data={"bangumi_id": "253", "title": "響け！ユーフォニアム"},
+            )
+        ]
+
+        from interfaces.public_api import _extract_context_delta
+
+        delta = _extract_context_delta(result)
+        assert delta["bangumi_id"] == "253"
+        assert delta["anime_title"] == "響け！ユーフォニアム"
+        assert delta["location"] is None
+
+    def test_extract_context_delta_from_search_nearby(self) -> None:
+        plan = ExecutionPlan(
+            steps=[PlanStep(tool=ToolName.SEARCH_NEARBY, params={"location": "宇治"})],
+            reasoning="test",
+            locale="ja",
+        )
+        result = PipelineResult(intent="search_nearby", plan=plan)
+        result.step_results = [
+            StepResult(
+                tool="search_nearby",
+                success=True,
+                data={"rows": []},
+            )
+        ]
+
+        from interfaces.public_api import _extract_context_delta
+
+        delta = _extract_context_delta(result)
+        assert delta["location"] == "宇治"
+        assert delta["bangumi_id"] is None
+
+    def test_extract_context_delta_empty_on_failure(self) -> None:
+        result = _make_result()
+        result.step_results = [
+            StepResult(
+                tool="resolve_anime",
+                success=False,
+                error="not found",
+            )
+        ]
+
+        from interfaces.public_api import _extract_context_delta
+
+        delta = _extract_context_delta(result)
+        assert delta == {"bangumi_id": None, "anime_title": None, "location": None}
+
+    def test_build_context_block_from_interactions(self) -> None:
+        state = {
+            "interactions": [
+                {
+                    "text": "京吹",
+                    "intent": "search_bangumi",
+                    "status": "ok",
+                    "success": True,
+                    "created_at": "2026-04-01T00:00:00",
+                    "context_delta": {
+                        "bangumi_id": "253",
+                        "anime_title": "響け！ユーフォニアム",
+                        "location": None,
+                    },
+                },
+                {
+                    "text": "附近",
+                    "intent": "search_nearby",
+                    "status": "ok",
+                    "success": True,
+                    "created_at": "2026-04-01T00:01:00",
+                    "context_delta": {
+                        "bangumi_id": None,
+                        "anime_title": None,
+                        "location": "宇治",
+                    },
+                },
+            ],
+            "last_intent": "search_nearby",
+        }
+
+        from interfaces.public_api import _build_context_block
+
+        block = _build_context_block(state)
+        assert block["current_bangumi_id"] == "253"
+        assert block["current_anime_title"] == "響け！ユーフォニアム"
+        assert block["last_location"] == "宇治"
+        assert block["last_intent"] == "search_nearby"
+        assert "253" in block["visited_bangumi_ids"]
+
+    def test_build_context_block_returns_none_when_empty(self) -> None:
+        from interfaces.public_api import _build_context_block
+
+        assert _build_context_block({"interactions": [], "last_intent": None}) is None
 
 
 class TestRuntimeAPI:
@@ -150,33 +257,31 @@ class TestRuntimeAPI:
                 "success": True,
                 "status": "ok",
                 "message": "ルートを作成しました。",
-                "data": {
-                    "results": {
-                        "rows": [{"id": "1", "bangumi_id": "115908"}],
-                        "row_count": 1,
-                    },
-                    "route": {
-                        "ordered_points": [
-                            {
-                                "id": "1",
-                                "name": "A",
-                                "latitude": 34.88,
-                                "longitude": 135.80,
-                            },
-                            {
-                                "id": "2",
-                                "name": "B",
-                                "latitude": 34.89,
-                                "longitude": 135.81,
-                            },
-                        ],
-                        "point_count": 2,
-                    },
+                "results": {
+                    "rows": [{"id": "1", "bangumi_id": "115908"}],
+                    "row_count": 1,
+                },
+                "route": {
+                    "ordered_points": [
+                        {
+                            "id": "1",
+                            "name": "A",
+                            "latitude": 34.88,
+                            "longitude": 135.80,
+                        },
+                        {
+                            "id": "2",
+                            "name": "B",
+                            "latitude": 34.89,
+                            "longitude": 135.81,
+                        },
+                    ],
+                    "point_count": 2,
                 },
             },
         )
 
-        async def _fake(text, db, *, model=None, locale="ja"):
+        async def _fake(text, db, *, model=None, locale="ja", context=None, on_step=None):
             return result
 
         with patch("interfaces.public_api.run_pipeline", side_effect=_fake):
@@ -206,7 +311,7 @@ class TestRuntimeAPI:
             },
         )
 
-        async def fake_run_pipeline(text, db, *, model=None, locale="ja"):
+        async def fake_run_pipeline(text, db, *, model=None, locale="ja", context=None, on_step=None):
             return result
 
         monkeypatch.setattr("interfaces.public_api.run_pipeline", fake_run_pipeline)
@@ -237,7 +342,7 @@ class TestRuntimeAPI:
             },
         )
 
-        async def _fake(text, db, *, model=None, locale="ja"):
+        async def _fake(text, db, *, model=None, locale="ja", context=None, on_step=None):
             return result
 
         with patch("interfaces.public_api.run_pipeline", side_effect=_fake):
@@ -318,7 +423,7 @@ class TestLocalePassthrough:
             },
         )
 
-        async def _fake(text, db, *, model=None, locale="ja"):
+        async def _fake(text, db, *, model=None, locale="ja", context=None, on_step=None):
             return result
 
         with patch("interfaces.public_api.run_pipeline", side_effect=_fake):
@@ -341,7 +446,7 @@ class TestLocalePassthrough:
             },
         )
 
-        async def _fake(text, db, *, model=None, locale="ja"):
+        async def _fake(text, db, *, model=None, locale="ja", context=None, on_step=None):
             return result
 
         with patch("interfaces.public_api.run_pipeline", side_effect=_fake):

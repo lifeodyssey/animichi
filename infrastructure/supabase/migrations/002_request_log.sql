@@ -1,3 +1,7 @@
+-- DEPRECATED: Legacy SQL snapshot retained for reference/bootstrap only.
+-- Canonical migrations now live under `supabase/migrations/`.
+-- Do not add new schema changes here.
+
 -- Request log for eval flywheel.
 -- Written after every /v1/runtime response. Never blocks the response.
 -- plan_steps JSONB stores the list of tool/step names in execution order.
@@ -14,7 +18,8 @@ CREATE TABLE IF NOT EXISTS request_log (
     latency_ms  INTEGER
 );
 
+ALTER TABLE request_log ENABLE ROW LEVEL SECURITY;
+
 CREATE INDEX IF NOT EXISTS idx_request_log_created ON request_log (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_request_log_locale  ON request_log (locale);
 CREATE INDEX IF NOT EXISTS idx_request_log_intent  ON request_log (intent);
-
