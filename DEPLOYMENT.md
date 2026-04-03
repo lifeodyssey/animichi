@@ -6,6 +6,8 @@ The repository now ships a deployable backend service:
 
 - `interfaces/http_service.py` exposes `GET /healthz`
 - `interfaces/http_service.py` exposes `POST /v1/runtime`
+- `interfaces/http_service.py` exposes `POST /v1/runtime/stream` (SSE)
+- `interfaces/http_service.py` exposes `POST /v1/feedback`
 - `Dockerfile` packages the runtime into a single container image
 
 The deployment target is intentionally thin. The service wraps the existing
@@ -30,19 +32,13 @@ Default bind settings:
 - `SUPABASE_DB_URL`
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_ANON_KEY` (required by the Worker for JWT validation)
 - `ANITABI_API_URL`
 - provider credentials for the configured model backend
 
-Optional session backend configuration:
+Session storage:
 
-- `SESSION_STORE_BACKEND=memory|redis|firestore`
-- `SESSION_TTL_SECONDS`
-- `REDIS_SESSION_HOST`
-- `REDIS_SESSION_PORT`
-- `REDIS_SESSION_DB`
-- `REDIS_SESSION_PASSWORD`
-- `REDIS_SESSION_PREFIX`
-- `FIRESTORE_SESSION_COLLECTION`
+- the backend currently uses the in-memory session store only
 
 Optional observability configuration:
 
@@ -68,7 +64,6 @@ docker run --rm -p 8080:8080 \
   -e SUPABASE_URL \
   -e SUPABASE_SERVICE_ROLE_KEY \
   -e ANITABI_API_URL \
-  -e GOOGLE_MAPS_API_KEY \
   -e GEMINI_API_KEY \
   seichijunrei-runtime
 ```

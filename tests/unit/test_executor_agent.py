@@ -6,6 +6,7 @@ import pytest
 
 from agents.executor_agent import ExecutorAgent, _infer_primary_tool
 from agents.models import ExecutionPlan, PlanStep, ToolName
+from agents.retriever import RetrievalResult, RetrievalStrategy
 
 
 @pytest.fixture
@@ -149,6 +150,39 @@ class TestExecutorAgentExecute:
         assert ("answer_question", "running") in events
         assert ("answer_question", "done") in events
 
+    async def test_search_bangumi_passes_force_refresh_to_retriever(self, mock_db):
+        plan = _plan(
+            PlanStep(
+                tool=ToolName.SEARCH_BANGUMI,
+                params={"bangumi_id": "115908", "force_refresh": True},
+            )
+        )
+        executor = ExecutorAgent(mock_db)
+        executor._retriever.execute = AsyncMock(
+            return_value=RetrievalResult(
+                strategy=RetrievalStrategy.SQL,
+                rows=[],
+                row_count=0,
+            )
+        )
+
+        await executor.execute(plan)
+
+        request = executor._retriever.execute.await_args.args[0]
+        assert request.force_refresh is True
+
+    async def test_execute_reports_step_progress(self, mock_db):
+        plan = _plan(
+            PlanStep(tool=ToolName.SEARCH_BANGUMI, params={"bangumi_id": "115908"})
+        )
+        executor = ExecutorAgent(mock_db)
+        on_step = AsyncMock()
+
+        await executor.execute(plan, on_step=on_step)
+
+        assert on_step.await_args_list[0].args[:2] == ("search_bangumi", "running")
+        assert on_step.await_args_list[1].args[:2] == ("search_bangumi", "done")
+
     def test_infer_primary_tool_includes_greet_user(self):
         plan = _plan(
             PlanStep(tool=ToolName.GREET_USER, params={"message": "Hello there"})
@@ -163,3 +197,53 @@ class TestExecutorAgentExecute:
         )
 
         assert _infer_primary_tool(plan) == "search_nearby"
+
+
+class TestPlanSelected:
+    async def test_routes_provided_point_ids(self, mock_db):
+        mock_db.get_points_by_ids = AsyncMock(
+            return_value=[
+                {
+                    "id": "far",
+                    "latitude": 10.0,
+                    "longitude": 10.0,
+                    "name": "Far",
+                    "bangumi_id": "253",
+                },
+                {
+                    "id": "near",
+                    "latitude": 0.05,
+                    "longitude": 0.05,
+                    "name": "Near",
+                    "bangumi_id": "253",
+                },
+            ]
+        )
+        plan = _plan(
+            PlanStep(
+                tool=ToolName.PLAN_SELECTED,
+                params={"point_ids": ["far", "near"], "origin": "宇治駅"},
+            )
+        )
+        executor = ExecutorAgent(mock_db)
+
+        with patch(
+            "agents.executor_agent.resolve_location",
+            new=AsyncMock(return_value=(0.0, 0.0)),
+        ):
+            result = await executor.execute(plan)
+
+        assert result.intent == "plan_selected"
+        assert result.success
+        route = result.final_output.get("route", {})
+        assert route.get("point_count") == 2
+        assert route.get("ordered_points", [])[0]["id"] == "near"
+        mock_db.get_points_by_ids.assert_awaited_once_with(["far", "near"])
+
+    async def test_returns_error_when_no_point_ids(self, mock_db):
+        plan = _plan(PlanStep(tool=ToolName.PLAN_SELECTED, params={"point_ids": []}))
+
+        result = await ExecutorAgent(mock_db).execute(plan)
+
+        assert result.intent == "plan_selected"
+        assert not result.success

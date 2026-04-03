@@ -12,11 +12,14 @@ stable boundaries, current entry points, and active plans only.
 | Document | Purpose |
 |----------|---------|
 | `README.md` | Repo entry point and current usage |
+| `AGENTS.md` | Repo-wide guardrails for agentic coding tools |
+| `CLAUDE.md` | Agent guide for this repo (architecture + constraints) |
 | `docs/ARCHITECTURE.md` | Current v2 runtime architecture |
 | `DEPLOYMENT.md` | Intended deployment shape for v2 |
 | `task_plan.md` | Main task tracker |
 | `progress.md` | Session log |
 | `findings.md` | Current design findings and rationale |
+| `frontend/AGENTS.md` | Frontend-specific agent rules (Next.js static export) |
 
 ## Rules
 
@@ -37,7 +40,7 @@ stable boundaries, current entry points, and active plans only.
 | SQL retrieval | `agents/sql_agent.py` |
 | Configuration | `config/settings.py` |
 | Auth middleware | `src/worker.js` |
-| DB schema | `infrastructure/supabase/migrations/` |
+| DB schema | `supabase/migrations/` |
 | Frontend component registry | `frontend/components/generative/registry.ts` |
 | Design tokens | `frontend/app/globals.css` |
 
