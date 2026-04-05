@@ -15,6 +15,12 @@ import structlog
 
 from backend.agents.models import ExecutionPlan, PlanStep, RetrievalRequest, ToolName
 from backend.agents.retriever import RetrievalResult, Retriever
+from backend.agents.route_export import build_google_maps_url, build_ics_calendar
+from backend.agents.route_optimizer import (
+    build_timed_itinerary,
+    cluster_by_location,
+    validate_coordinates,
+)
 from backend.agents.sql_agent import resolve_location
 from backend.infrastructure.gateways.bangumi import BangumiClientGateway
 from backend.infrastructure.supabase.client import SupabaseClient
@@ -48,6 +54,9 @@ _MESSAGES: dict[tuple[str, str], str] = {
     ("unclear", "ja"): "もう少し具体的に教えていただけますか？",
     ("unclear", "zh"): "能再具体一些吗？",
     ("unclear", "en"): "Could you be more specific?",
+    ("clarify", "ja"): "",
+    ("clarify", "zh"): "",
+    ("clarify", "en"): "",
 }
 
 
@@ -157,6 +166,7 @@ class ExecutorAgent:
                 ToolName.PLAN_SELECTED: self._execute_plan_selected,
                 ToolName.GREET_USER: self._execute_greet_user,
                 ToolName.ANSWER_QUESTION: self._execute_answer_question,
+                ToolName.CLARIFY: self._execute_clarify,
             }.get(tool)
 
         if handler is None:
@@ -272,6 +282,75 @@ class ExecutorAgent:
             error=retrieval.error,
         )
 
+    async def _optimize_route(
+        self,
+        rows: list[dict[str, object]],
+        params: dict[str, object],
+        origin: str | None,
+    ) -> StepResult:
+        """Shared route optimization logic for plan_route and plan_selected."""
+        # 1. Validate coordinates
+        valid_rows, _invalid = validate_coordinates(rows)
+        if not valid_rows:
+            return StepResult(
+                tool="plan_route", success=False, error="No valid coordinates"
+            )
+
+        # 2. Cluster by location
+        clusters = cluster_by_location(valid_rows, threshold_m=50.0)
+
+        # 3. Read pacing/start_time from params (wizard re-optimization) or defaults
+        pacing_raw = params.get("pacing")
+        pacing = (
+            pacing_raw
+            if isinstance(pacing_raw, str)
+            and pacing_raw in ("chill", "normal", "packed")
+            else "normal"
+        )
+        start_raw = params.get("start_time")
+        start_time = start_raw if isinstance(start_raw, str) else "09:00"
+
+        # 4. Build timed itinerary (includes nearest-neighbor sort internally)
+        try:
+            itinerary = build_timed_itinerary(
+                clusters, start_time=start_time, pacing=pacing
+            )
+        except ValueError as e:
+            return StepResult(tool="plan_route", success=False, error=str(e))
+
+        # 5. Build exports
+        gmaps_url = build_google_maps_url(itinerary.stops)
+        ics = build_ics_calendar(itinerary)
+        itinerary.export_google_maps_url = gmaps_url
+        itinerary.export_ics = ics
+
+        # 6. Build backward-compat ordered_points (flat list from all cluster points)
+        ordered_points: list[dict[str, object]] = []
+        for stop in itinerary.stops:
+            ordered_points.extend(stop.points)
+        _rewrite_image_urls(ordered_points)
+
+        with_coords = [r for r in rows if r.get("latitude") and r.get("longitude")]
+
+        return StepResult(
+            tool="plan_route",
+            success=True,
+            data={
+                "ordered_points": ordered_points,
+                "timed_itinerary": itinerary.model_dump(mode="json"),
+                "point_count": len(ordered_points),
+                "status": "ok",
+                "summary": {
+                    "point_count": len(ordered_points),
+                    "with_coordinates": len(with_coords),
+                    "without_coordinates": len(rows) - len(with_coords),
+                    "clusters": len(clusters),
+                    "total_minutes": itinerary.total_minutes,
+                    "total_distance_m": itinerary.total_distance_m,
+                },
+            },
+        )
+
     async def _execute_plan_route(
         self, step: PlanStep, context: dict[str, object]
     ) -> StepResult:
@@ -289,22 +368,22 @@ class ExecutorAgent:
         params = step.params or {}
         origin_raw = params.get("origin") or context.get("last_location")
         origin = origin_raw if isinstance(origin_raw, str) else None
-        ordered = await _nearest_neighbor_sort(rows, origin=origin)
-        with_coords = [r for r in rows if r.get("latitude") and r.get("longitude")]
-        return StepResult(
-            tool="plan_route",
-            success=True,
-            data={
-                "ordered_points": ordered,
-                "point_count": len(ordered),
-                "status": "ok",
-                "summary": {
-                    "point_count": len(ordered),
-                    "with_coordinates": len(with_coords),
-                    "without_coordinates": len(rows) - len(with_coords),
-                },
-            },
-        )
+
+        # Resolve origin for geocoding clarification before optimizing
+        if origin:
+            resolved = await resolve_location(origin)
+            if isinstance(resolved, list):
+                return StepResult(
+                    tool="clarify",
+                    success=True,
+                    data={
+                        "question": f"「{origin}」に複数の候補があります。どちらですか？",
+                        "options": [c.label for c in resolved],
+                        "status": "needs_clarification",
+                    },
+                )
+
+        return await self._optimize_route(rows, params, origin)
 
     async def _execute_plan_selected(
         self, step: PlanStep, context: dict[str, object]
@@ -332,28 +411,15 @@ class ExecutorAgent:
                 error="get_points_by_ids not available",
             )
 
-        rows = [dict(row) for row in await get_points_by_ids(point_ids)]
+        rows: list[dict[str, object]] = [
+            dict(row) for row in await get_points_by_ids(point_ids)
+        ]
         origin_raw = params.get("origin") or context.get("last_location")
         origin = origin_raw if isinstance(origin_raw, str) else None
-        ordered = await _nearest_neighbor_sort(rows, origin=origin)
-        with_coords = [
-            row for row in ordered if row.get("latitude") and row.get("longitude")
-        ]
-
-        return StepResult(
-            tool="plan_selected",
-            success=True,
-            data={
-                "ordered_points": ordered,
-                "point_count": len(ordered),
-                "status": "empty" if not ordered else "ok",
-                "summary": {
-                    "point_count": len(ordered),
-                    "with_coordinates": len(with_coords),
-                    "without_coordinates": len(ordered) - len(with_coords),
-                },
-            },
-        )
+        result = await self._optimize_route(rows, params, origin)
+        # Override tool name to plan_selected for output builder
+        result.tool = "plan_selected"
+        return result
 
     async def _execute_answer_question(
         self, step: PlanStep, context: dict[str, object]
@@ -366,6 +432,30 @@ class ExecutorAgent:
             data={
                 "message": params.get("answer", ""),
                 "status": "info",
+            },
+        )
+
+    async def _execute_clarify(
+        self, step: PlanStep, context: dict[str, object]
+    ) -> StepResult:
+        """Return a clarification question to the user (no retrieval)."""
+        params = step.params or {}
+        question = params.get("question")
+        if not isinstance(question, str):
+            question = ""
+        raw_options = params.get("options")
+        options: list[str] = (
+            [str(o) for o in raw_options if isinstance(o, str)]
+            if isinstance(raw_options, list)
+            else []
+        )
+        return StepResult(
+            tool="clarify",
+            success=True,
+            data={
+                "question": question,
+                "options": options,
+                "status": "needs_clarification",
             },
         )
 
@@ -398,11 +488,13 @@ class ExecutorAgent:
         )
         qa_data = context.get(ToolName.ANSWER_QUESTION.value)
         greet_data = context.get(ToolName.GREET_USER.value)
+        clarify_data = context.get(ToolName.CLARIFY.value)
 
         query_payload = query_data if isinstance(query_data, dict) else {}
         route_payload = route_data if isinstance(route_data, dict) else {}
         qa_payload = qa_data if isinstance(qa_data, dict) else {}
         greet_payload = greet_data if isinstance(greet_data, dict) else {}
+        clarify_payload = clarify_data if isinstance(clarify_data, dict) else {}
 
         count = int(query_payload.get("row_count", 0) or 0)
         if count == 0 and route_payload:
@@ -430,6 +522,11 @@ class ExecutorAgent:
         if greet_payload:
             output["message"] = greet_payload.get("message", "")
             output["status"] = greet_payload.get("status", "info")
+        if clarify_payload:
+            output["intent"] = "clarify"
+            output["message"] = clarify_payload.get("question", "")
+            output["status"] = "needs_clarification"
+            output["options"] = clarify_payload.get("options", [])
         if not result.success:
             output["errors"] = [r.error for r in result.step_results if r.error]
         return output
@@ -443,6 +540,7 @@ def _infer_primary_tool(plan: ExecutionPlan) -> str:
     raw_tools = [getattr(s, "tool", None) for s in plan.steps]
     tools_filtered: list[ToolName] = [t for t in raw_tools if isinstance(t, ToolName)]
     for priority in (
+        ToolName.CLARIFY,
         ToolName.PLAN_ROUTE,
         ToolName.PLAN_SELECTED,
         ToolName.SEARCH_BANGUMI,
@@ -455,12 +553,26 @@ def _infer_primary_tool(plan: ExecutionPlan) -> str:
     return str(tools_filtered[0].value) if tools_filtered else "unknown"
 
 
+def _rewrite_image_urls(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Rewrite Anitabi image URLs to go through our CF proxy."""
+    for row in rows:
+        url = row.get("screenshot_url")
+        if not isinstance(url, str) or not url:
+            continue
+        if "image.anitabi.cn/" in url:
+            row["screenshot_url"] = url.replace("https://image.anitabi.cn/", "/img/")
+        elif url.startswith("screenshot/"):
+            row["screenshot_url"] = f"/img/{url}"
+    return rows
+
+
 def _build_query_payload(retrieval: RetrievalResult) -> dict[str, object]:
     metadata = dict(retrieval.metadata)
     empty = retrieval.row_count == 0
+    rows = _rewrite_image_urls(retrieval.rows)
     return {
-        "rows": retrieval.rows,
-        "items": retrieval.rows,
+        "rows": rows,
+        "items": rows,
         "row_count": retrieval.row_count,
         "strategy": retrieval.strategy.value,
         "metadata": metadata,
@@ -472,44 +584,3 @@ def _build_query_payload(retrieval: RetrievalResult) -> dict[str, object]:
             "cache": metadata.get("cache", "miss"),
         },
     }
-
-
-async def _nearest_neighbor_sort(
-    rows: list[dict], origin: str | None = None
-) -> list[dict]:
-    """Sort points by nearest-neighbor heuristic. O(n²), fine for <100 points."""
-    if len(rows) <= 1:
-        return list(rows)
-    with_coords = [r for r in rows if r.get("latitude") and r.get("longitude")]
-    without_coords = [r for r in rows if not (r.get("latitude") and r.get("longitude"))]
-    if not with_coords:
-        return list(rows)
-
-    origin_coords = await resolve_location(origin) if origin else None
-    remaining = list(with_coords)
-    ordered: list[dict] = []
-
-    if origin_coords is not None:
-        origin_lat, origin_lon = origin_coords
-        start_index = min(
-            range(len(remaining)),
-            key=lambda index: (float(remaining[index]["latitude"]) - origin_lat) ** 2
-            + (float(remaining[index]["longitude"]) - origin_lon) ** 2,
-        )
-        ordered.append(remaining.pop(start_index))
-    else:
-        ordered.append(remaining.pop(0))
-
-    while remaining:
-        last = ordered[-1]
-        last_lat, last_lon = float(last["latitude"]), float(last["longitude"])
-        best_idx, best_dist = 0, float("inf")
-        for i, c in enumerate(remaining):
-            d = (float(c["latitude"]) - last_lat) ** 2 + (
-                float(c["longitude"]) - last_lon
-            ) ** 2
-            if d < best_dist:
-                best_dist, best_idx = d, i
-        ordered.append(remaining.pop(best_idx))
-
-    return ordered + without_coords

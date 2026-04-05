@@ -19,13 +19,17 @@ import structlog
 
 from backend.agents.base import create_agent, get_default_model
 from backend.agents.models import ResolvedLocation, RetrievalRequest
+from backend.infrastructure.gateways.geocoding import (
+    GeocodingCandidate,
+    GoogleGeocodingGateway,
+)
 from backend.infrastructure.supabase.client import SupabaseClient
 
 logger = structlog.get_logger(__name__)
 
-# Default row limits
-_DEFAULT_LIMIT = 20
-_DEFAULT_LOCATION_LIMIT = 20
+# Default row limits — geo queries use a safety cap; bangumi/route queries are uncapped.
+_DEFAULT_GEO_LIMIT = 500
+_DEFAULT_LOCATION_LIMIT = 200
 _DEFAULT_ROUTE_RADIUS_M = 50_000  # 50 km — typical day-trip transit radius in Japan
 
 # Reusable runtime projection for point rows returned to the executor/UI.
@@ -112,11 +116,18 @@ Rules:
 """
 
 
-async def resolve_location(name: str) -> tuple[float, float] | None:
+async def resolve_location(
+    name: str,
+) -> tuple[float, float] | list[GeocodingCandidate] | None:
     """Resolve a location name to coordinates.
 
-    First tries exact match in KNOWN_LOCATIONS, then falls back to LLM
-    for fuzzy matching (e.g. 宇治站 → 宇治, 东京站 → 東京駅).
+    Returns:
+        - ``(lat, lng)`` when a single unambiguous match is found
+        - ``list[GeocodingCandidate]`` (len > 1) when multiple candidates exist
+          and the caller should ask the user to choose
+        - ``None`` when nothing matches
+
+    Resolution order: exact dict → LLM fuzzy → Google Geocoding (candidates).
     """
     # Exact match
     coords = KNOWN_LOCATIONS.get(name)
@@ -139,6 +150,24 @@ async def resolve_location(name: str) -> tuple[float, float] | None:
             return KNOWN_LOCATIONS[matched]
     except Exception as exc:
         logger.warning("location_resolve_llm_failed", input=name, error=str(exc))
+
+    # Google Geocoding API fallback — may return multiple candidates
+    try:
+        candidates = await GoogleGeocodingGateway().geocode_candidates(name)
+        if len(candidates) == 1:
+            c = candidates[0]
+            logger.info("location_resolved_by_geocoding", input=name, label=c.label)
+            return (c.lat, c.lng)
+        if len(candidates) > 1:
+            logger.info(
+                "location_ambiguous",
+                input=name,
+                count=len(candidates),
+                labels=[c.label for c in candidates],
+            )
+            return list(candidates)
+    except Exception as exc:
+        logger.warning("location_geocoding_failed", input=name, error=str(exc))
 
     return None
 
@@ -195,8 +224,7 @@ class SQLAgent:
                 f"SELECT {_POINT_RUNTIME_COLUMNS} "
                 f"FROM points p JOIN bangumi b ON p.bangumi_id = b.id "
                 f"WHERE p.bangumi_id = $1 AND p.episode = $2 "
-                f"ORDER BY p.time_seconds "
-                f"LIMIT {_DEFAULT_LIMIT}"
+                f"ORDER BY p.time_seconds"
             )
             query_params: list[object] = [bangumi_id, episode]
         else:
@@ -204,8 +232,7 @@ class SQLAgent:
                 f"SELECT {_POINT_RUNTIME_COLUMNS} "
                 f"FROM points p JOIN bangumi b ON p.bangumi_id = b.id "
                 f"WHERE p.bangumi_id = $1 "
-                f"ORDER BY p.episode, p.time_seconds "
-                f"LIMIT {_DEFAULT_LIMIT}"
+                f"ORDER BY p.episode, p.time_seconds"
             )
             query_params = [bangumi_id]
 
@@ -231,7 +258,7 @@ class SQLAgent:
             f"FROM points p JOIN bangumi b ON p.bangumi_id = b.id "
             f"WHERE ST_DWithin({_POINT_GEOGRAPHY}, ST_MakePoint($1, $2)::geography, $3) "
             f"ORDER BY distance_m "
-            f"LIMIT {_DEFAULT_LOCATION_LIMIT}"
+            f"LIMIT {_DEFAULT_GEO_LIMIT}"
         )
         query_params: list[object] = [lon, lat, radius_m]
         return await self._run(sql, query_params)
@@ -255,8 +282,7 @@ class SQLAgent:
                 f"FROM points p JOIN bangumi b ON p.bangumi_id = b.id "
                 f"WHERE p.bangumi_id = $3 "
                 f"AND ST_DWithin({_POINT_GEOGRAPHY}, ST_MakePoint($1, $2)::geography, $4) "
-                f"ORDER BY distance_m "
-                f"LIMIT {_DEFAULT_LIMIT}"
+                f"ORDER BY distance_m"
             )
             query_params: list[object] = [lon, lat, bangumi_id, radius_m]
         else:
@@ -264,8 +290,7 @@ class SQLAgent:
                 f"SELECT {_POINT_RUNTIME_COLUMNS} "
                 f"FROM points p JOIN bangumi b ON p.bangumi_id = b.id "
                 f"WHERE p.bangumi_id = $1 "
-                f"ORDER BY p.episode, p.time_seconds "
-                f"LIMIT {_DEFAULT_LIMIT}"
+                f"ORDER BY p.episode, p.time_seconds"
             )
             query_params = [bangumi_id]
 

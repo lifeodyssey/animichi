@@ -92,7 +92,7 @@ DB is source of truth. No hardcoded anime list in code.
 
 ### Auth
 
-Auth is enforced in the Cloudflare Worker (`src/worker.js`) before reaching the container.
+Auth is enforced in the Cloudflare Worker (`worker/worker.js`) before reaching the container.
 
 - Human users: `Authorization: Bearer <supabase_jwt>` (magic-link session)
 - Agent/CLI users: `Authorization: Bearer sk_<hex>` (API key — stored as SHA-256 hash in `api_keys` table)
@@ -143,9 +143,17 @@ Design tokens (`frontend/app/globals.css`):
 
 - Container: Python aiohttp service via `Dockerfile` → uploaded to Cloudflare during `wrangler deploy`
 - Frontend: Next.js static export (`output: 'export'`) → `frontend/out/` → CF ASSETS binding
-- Worker: `src/worker.js` — routes `/v1/*` to container, static to ASSETS, enforces auth
+- Worker: `worker/worker.js` — routes `/v1/*` to container, static to ASSETS, enforces auth
 - Deploy: GitHub Actions `deploy.yml` (or local `npx wrangler@4 deploy`)
 - DB migrations: apply `supabase/migrations/` in order before each deploy (see `DEPLOYMENT.md`)
+
+## gstack
+
+Use `/browse` from gstack for all web browsing. Never use `mcp__claude-in-chrome__*` tools.
+
+Available skills: /office-hours, /plan-ceo-review, /plan-eng-review, /plan-design-review, /design-consultation, /design-shotgun, /design-html, /review, /ship, /land-and-deploy, /canary, /benchmark, /browse, /connect-chrome, /qa, /qa-only, /design-review, /setup-browser-cookies, /setup-deploy, /retro, /investigate, /document-release, /codex, /cso, /autoplan, /plan-devex-review, /devex-review, /careful, /freeze, /guard, /unfreeze, /gstack-upgrade, /learn.
+
+If gstack skills aren't working, run `cd ~/.claude/skills/gstack && ./setup` to rebuild.
 
 ## Working Expectations
 
@@ -154,3 +162,23 @@ Design tokens (`frontend/app/globals.css`):
 - ExecutorAgent must not make LLM calls — use static `_MESSAGES` templates
 - Adding a new UI component = register in `frontend/components/generative/registry.ts` only
 - Run `make check` before and after any change
+
+## Skill routing
+
+When the user's request matches an available skill, ALWAYS invoke it using the Skill
+tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
+The skill has specialized workflows that produce better results than ad-hoc answers.
+
+Key routing rules:
+- Product ideas, "is this worth building", brainstorming → invoke office-hours
+- Bugs, errors, "why is this broken", 500 errors → invoke investigate
+- Ship, deploy, push, create PR → invoke ship
+- QA, test the site, find bugs → invoke qa
+- Code review, check my diff → invoke review
+- Update docs after shipping → invoke document-release
+- Weekly retro → invoke retro
+- Design system, brand → invoke design-consultation
+- Visual audit, design polish → invoke design-review
+- Architecture review → invoke plan-eng-review
+- Save progress, checkpoint, resume → invoke checkpoint
+- Code quality, health check → invoke health

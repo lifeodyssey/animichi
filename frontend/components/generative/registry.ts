@@ -4,6 +4,7 @@ import { isQAData, isRouteData, isSearchData } from "../../lib/types";
 import PilgrimageGrid from "./PilgrimageGrid";
 import NearbyMap from "./NearbyMap";
 import RouteVisualization from "./RouteVisualization";
+import RoutePlannerWizard from "./RoutePlannerWizard";
 import GeneralAnswer from "./GeneralAnswer";
 import Clarification from "./Clarification";
 
@@ -25,12 +26,24 @@ export const COMPONENT_REGISTRY: Record<string, ComponentRenderer> = {
     isRouteData(response.data)
       ? createElement(RouteVisualization, { data: response.data })
       : null,
+  RoutePlannerWizard: (response) =>
+    isRouteData(response.data)
+      ? createElement(RoutePlannerWizard, { data: response.data })
+      : null,
   GeneralAnswer: (response) =>
     isQAData(response.data)
       ? createElement(GeneralAnswer, { data: response.data })
       : null,
-  Clarification: (response, onSuggest) =>
-    createElement(Clarification, { message: response.message, onSuggest }),
+  Clarification: (response, onSuggest) => {
+    const data = response.data as unknown as Record<string, unknown>;
+    const options =
+      Array.isArray(data?.options) ? (data.options as string[]) : undefined;
+    return createElement(Clarification, {
+      message: response.message,
+      options,
+      onSuggest,
+    });
+  },
 };
 
 export function intentToComponent(intent: string): string {
@@ -47,6 +60,7 @@ export function intentToComponent(intent: string): string {
     case "general_qa":
     case "answer_question":
       return "GeneralAnswer";
+    case "clarify":
     case "unclear":
     default:
       return "Clarification";
@@ -57,6 +71,7 @@ export const VISUAL_COMPONENTS = new Set([
   "PilgrimageGrid",
   "NearbyMap",
   "RouteVisualization",
+  "RoutePlannerWizard",
 ]);
 
 export function isVisualResponse(response: RuntimeResponse | null): boolean {
