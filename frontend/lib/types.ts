@@ -119,7 +119,7 @@ export interface TimedItinerary {
   spot_count: number;
   pacing: "chill" | "normal" | "packed";
   start_time: string;
-  export_google_maps_url: string | string[];
+  export_google_maps_url: string[];
   export_ics: string;
 }
 
@@ -152,6 +152,8 @@ export interface PublicAPIError {
 export interface StepEvent {
   tool: string;
   status: "running" | "done";
+  thought?: string;
+  observation?: string;
 }
 
 export interface RouteHistoryRecord {
@@ -198,6 +200,8 @@ export interface RuntimeResponse {
 
 // ── Frontend-only types ────────────────────────────────────────────────────
 
+export type ErrorCode = "stream_error" | "timeout" | "rate_limit" | "generic";
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -206,6 +210,7 @@ export interface ChatMessage {
   loading?: boolean;
   timestamp: number;
   steps?: StepEvent[];
+  errorCode?: ErrorCode;
 }
 
 // ── Type guards ────────────────────────────────────────────────────────────

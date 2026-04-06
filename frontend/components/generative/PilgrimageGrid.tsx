@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import type { SearchResultData, PilgrimagePoint } from "../../lib/types";
 import { useDict } from "../../lib/i18n-context";
 import { usePointSelectionContext } from "../../contexts/PointSelectionContext";
+import { resolveUnknownName } from "../../lib/japanRegions";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 
@@ -82,7 +83,11 @@ function PilgrimageCard({
 
       <div className="pb-2 pt-1.5">
         <p className="truncate text-xs font-light text-[var(--color-fg)]">
-          {point.name_cn || point.name}
+          {(point.name_cn && point.name_cn !== "不明" ? point.name_cn : null)
+            || (point.name && point.name !== "不明" ? point.name : null)
+            || resolveUnknownName(point.latitude, point.longitude)
+            || point.name_cn
+            || point.name}
         </p>
       </div>
     </button>
@@ -207,8 +212,8 @@ export default function PilgrimageGrid({ data }: PilgrimageGridProps) {
 
       <Tabs defaultValue="episode">
         <TabsList variant="line">
-          <TabsTrigger value="episode">按集数</TabsTrigger>
-          <TabsTrigger value="area">按地区</TabsTrigger>
+          <TabsTrigger value="episode">{t.tab_episode}</TabsTrigger>
+          <TabsTrigger value="area">{t.tab_area}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="episode">
@@ -216,7 +221,7 @@ export default function PilgrimageGrid({ data }: PilgrimageGridProps) {
             {episodeGroups.map(([key, points]) => (
               <GroupSection
                 key={key}
-                label={key === "__other__" ? "その他" : `EP ${key}`}
+                label={key === "__other__" ? (t.other_label) : `EP ${key}`}
                 count={points.length}
                 points={points}
                 episodeLabel={t.episode}
@@ -232,7 +237,9 @@ export default function PilgrimageGrid({ data }: PilgrimageGridProps) {
             {areaGroups.map(([key, points]) => (
               <GroupSection
                 key={key}
-                label={key === "__unknown__" ? "不明" : key}
+                label={key === "__unknown__"
+                  ? (resolveUnknownName(points[0].latitude, points[0].longitude) ?? t.unknown_area)
+                  : key}
                 count={points.length}
                 points={points}
                 episodeLabel={t.episode}

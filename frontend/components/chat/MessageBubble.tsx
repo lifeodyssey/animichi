@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { ChatMessage, RuntimeResponse, StepEvent } from "../../lib/types";
+import type { ChatMessage, ErrorCode, RouteData, RuntimeResponse } from "../../lib/types";
+import ThinkingProcess from "./ThinkingProcess";
 import { isQAData, isRouteData, isSearchData } from "../../lib/types";
 import { isVisualResponse } from "../generative/registry";
 import { submitFeedback } from "../../lib/api";
@@ -15,6 +16,7 @@ interface MessageBubbleProps {
   onActivate?: (messageId: string) => void;
   isActive?: boolean;
   onOpenDrawer?: () => void;
+  onRetry?: () => void;
 }
 
 export default function MessageBubble({
@@ -23,8 +25,10 @@ export default function MessageBubble({
   onActivate,
   isActive = false,
   onOpenDrawer,
+  onRetry,
 }: MessageBubbleProps) {
-  const { chat: t } = useDict();
+  const dict = useDict();
+  const t = dict.chat;
 
   if (message.role === "user") {
     return (
@@ -49,7 +53,9 @@ export default function MessageBubble({
       </p>
 
       {message.loading ? (
-        <StepTrace steps={message.steps ?? []} />
+        <ThinkingProcess steps={message.steps ?? []} isStreaming={true} />
+      ) : message.errorCode ? (
+        <ErrorDisplay errorCode={message.errorCode} errorDict={dict.error} onRetry={onRetry} />
       ) : (
         <>
           {message.text && (
@@ -64,6 +70,7 @@ export default function MessageBubble({
                 messageId={message.id}
                 onActivate={onActivate}
                 onOpenDrawer={onOpenDrawer}
+                cardDict={dict.card}
               />
               <ResultAnchor
                 label={t.anchor_results.replace(
@@ -86,46 +93,40 @@ export default function MessageBubble({
   );
 }
 
-const STEP_LABELS: Record<string, string> = {
-  resolve_anime: "动漫识别",
-  search_bangumi: "搜索取景地",
-  search_nearby: "搜索附近景点",
-  plan_route: "规划路线",
-  answer_question: "生成回答",
-};
-
-function StepTrace({ steps }: { steps: StepEvent[] }) {
-  if (steps.length === 0) {
-    return (
-      <div className="relative h-px w-16 overflow-hidden bg-[var(--color-border)]">
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(90deg, transparent, var(--color-primary), transparent)",
-            animation: "shimmer 1.4s ease-in-out infinite",
-          }}
-        />
-      </div>
-    );
+function mapErrorToKey(code: ErrorCode): "stream" | "timeout" | "rate_limit" | "generic" {
+  switch (code) {
+    case "stream_error": return "stream";
+    case "timeout": return "timeout";
+    case "rate_limit": return "rate_limit";
+    default: return "generic";
   }
+}
 
+function ErrorDisplay({
+  errorCode,
+  errorDict,
+  onRetry,
+}: {
+  errorCode: ErrorCode;
+  errorDict: { stream: string; timeout: string; rate_limit: string; generic: string; retry: string };
+  onRetry?: () => void;
+}) {
+  const key = mapErrorToKey(errorCode);
   return (
-    <div className="flex flex-col gap-1">
-      {steps.map((step) => (
-        <span
-          key={`${step.tool}-${step.status}`}
-          className="text-[10px] text-[var(--color-muted-fg)] transition-opacity"
-          style={{ opacity: step.status === "done" ? 0.6 : 1 }}
+    <div className="flex items-center gap-2 text-sm">
+      <span className="text-red-600">{errorDict[key]}</span>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="text-[var(--color-primary)] hover:underline text-sm"
         >
-          {step.status === "done" ? "✓" : "●"}{" "}
-          {STEP_LABELS[step.tool] ?? step.tool}
-        </span>
-      ))}
+          {errorDict.retry}
+        </button>
+      )}
     </div>
   );
 }
-
 function canShowAnchor(response: RuntimeResponse): boolean {
   return isVisualResponse(response);
 }
@@ -143,55 +144,107 @@ function InlineSummaryCard({
   messageId,
   onActivate,
   onOpenDrawer,
+  cardDict,
 }: {
   response: RuntimeResponse;
   messageId: string;
   onActivate?: (messageId: string) => void;
   onOpenDrawer?: () => void;
+  cardDict: { view_details: string; view_full_route: string; spots_count: string };
 }) {
-  const data = response.data;
-  if (!isSearchData(data)) return null;
+  const inlineData = response.data;
 
-  const rows = data.results.rows;
-  if (rows.length === 0) return null;
+  // Search result inline card
+  if (isSearchData(inlineData)) {
+    const data = inlineData;
+    const rows = data.results.rows;
+    if (rows.length === 0) return null;
 
-  const animeTitle = rows[0]?.title_cn || rows[0]?.title || "";
-  const count = data.results.row_count ?? rows.length;
-  const thumbnails = rows.filter((r) => r.screenshot_url).slice(0, 3);
+    const animeTitle = rows[0]?.title_cn || rows[0]?.title || "";
+    const count = data.results.row_count ?? rows.length;
+    const thumbnails = rows.filter((r) => r.screenshot_url).slice(0, 3);
 
-  return (
-    <Card size="sm" className="w-fit max-w-[280px] bg-[var(--color-card)]">
-      <CardContent className="space-y-2">
-        <p className="text-xs font-medium text-[var(--color-fg)]">
-          {animeTitle} — <span className="text-[var(--color-muted-fg)]">{count}処の聖地</span>
-        </p>
-        {thumbnails.length > 0 && (
-          <div className="flex gap-1">
-            {thumbnails.map((point) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={point.id}
-                src={point.screenshot_url!}
-                alt={point.name_cn || point.name}
-                className="h-12 w-16 rounded-sm object-cover"
-                loading="lazy"
-              />
-            ))}
+    return (
+      <Card size="sm" className="w-fit max-w-[280px] bg-[var(--color-card)]">
+        <CardContent className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg text-[var(--color-primary)]">◈</span>
+            <p className="text-xs font-medium text-[var(--color-fg)]">
+              {animeTitle} — <span className="text-[var(--color-muted-fg)]">{cardDict.spots_count.replace("{count}", String(count))}</span>
+            </p>
           </div>
-        )}
-        <Button
-          variant="outline"
-          size="xs"
-          onClick={() => {
-            onActivate?.(messageId);
-            onOpenDrawer?.();
-          }}
-        >
-          詳細を見る
-        </Button>
-      </CardContent>
-    </Card>
-  );
+          {thumbnails.length > 0 && (
+            <div className="flex gap-1">
+              {thumbnails.map((point) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={point.id}
+                  src={point.screenshot_url!}
+                  alt={point.name_cn || point.name}
+                  className="h-12 w-16 rounded-sm object-cover"
+                  loading="lazy"
+                />
+              ))}
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => {
+              onActivate?.(messageId);
+              onOpenDrawer?.();
+            }}
+          >
+            {cardDict.view_details} →
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Route result inline card
+  if ("route" in inlineData) {
+    const routeData = inlineData as unknown as RouteData;
+    const route = routeData.route;
+    const spotCount = route.point_count ?? route.ordered_points.length;
+    const itinerary = route.timed_itinerary;
+    const distance = itinerary
+      ? `${(itinerary.total_distance_m / 1000).toFixed(1)} km`
+      : "";
+    const duration = itinerary ? `${itinerary.total_minutes}min` : "";
+    const routeTitle =
+      route.ordered_points[0]?.title_cn ||
+      route.ordered_points[0]?.title ||
+      "";
+
+    return (
+      <Card size="sm" className="w-fit max-w-[320px] bg-[var(--color-card)]">
+        <CardContent className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🗺️</span>
+            <span className="text-xs font-medium text-[var(--color-fg)]">
+              {routeTitle}
+            </span>
+          </div>
+          <p className="text-[11px] text-[var(--color-muted-fg)]">
+            {spotCount} spots{distance ? ` · ${distance}` : ""}{duration ? ` · ~${duration}` : ""}
+          </p>
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => {
+              onActivate?.(messageId);
+              onOpenDrawer?.();
+            }}
+          >
+            {cardDict.view_full_route} →
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return null;
 }
 
 function ResultAnchor({

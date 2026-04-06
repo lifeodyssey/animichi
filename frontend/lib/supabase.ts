@@ -13,7 +13,13 @@ export function getSupabaseClient(): SupabaseClient | null {
     return supabaseClient;
   }
 
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+  try {
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { flowType: "implicit" },
+    });
+  } catch {
+    supabaseClient = null;
+  }
   return supabaseClient;
 }
 

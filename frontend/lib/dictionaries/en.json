@@ -4,8 +4,10 @@
     "description": "Find anime pilgrimage spots and plan your route"
   },
   "landing": {
-    "hero": "Anime Pilgrimage,",
+    "hero": "聖地巡礼",
     "hero_accent": "The Journey",
+    "subtitle": "Discover anime pilgrimage spots. Plan your route.",
+    "cta": "Get started",
     "features": ["◈ Real-location Search", "◎ Route Planner", "↗ By Series"]
   },
   "auth": {
@@ -31,6 +33,9 @@
     "callback_redirect_hint": "You will be redirected automatically after the session is restored.",
     "callback_error_hint": "Please request a fresh magic link and try again.",
     "callback_open": "Open workspace",
+    "verifying": "Verifying your login...",
+    "link_expired": "This login link has expired.",
+    "request_new_link": "Request a new login link",
     "check_email_heading": "Check your email",
     "check_email_body": "Click the link in your inbox to sign in.",
     "back_to_login": "Back"
@@ -39,6 +44,7 @@
     "placeholder": "Find pilgrimage spots or plan a route…",
     "send": "Send",
     "thinking": "Thinking…",
+    "thought_complete": "Done",
     "bot_name": "Seichijunrei",
     "bot_icon": "聖",
     "feedback_sent": "✓ Feedback sent",
@@ -48,7 +54,8 @@
     "anchor_results": "{count} results",
     "welcome_title": "Seichijunrei",
     "welcome_subtitle": "Search by anime, explore spots near a place, or ask for a pilgrimage route that fits your trip.",
-    "welcome_helper": "You can also just say hi and ask what I can help with."
+    "welcome_helper": "You can also just say hi and ask what I can help with.",
+    "empty_hint": "Search for anime pilgrimage spots or plan a route"
   },
   "sidebar": {
     "logo_icon": "聖",
@@ -57,6 +64,7 @@
     "recent": "Recent searches",
     "rename_hint": "Double-click to rename",
     "spots": "{count} spots",
+    "route_history": "Route History",
     "footer": "Pilgrim"
   },
   "header": {
@@ -73,7 +81,11 @@
   "grid": {
     "no_results": "No results found. Try a different anime title.",
     "count": "{count} spots",
-    "episode": "Ep. {ep}"
+    "episode": "Ep. {ep}",
+    "tab_episode": "By Episode",
+    "tab_area": "By Area",
+    "other_label": "Other",
+    "unknown_area": "Unknown"
   },
   "route": {
     "no_results": "Could not create a route.",
@@ -86,6 +98,19 @@
     "placeholder": "Departure…",
     "route": "Route",
     "clear": "Clear"
+  },
+  "card": {
+    "view_details": "View details",
+    "view_full_route": "View full route",
+    "results_count": "{count} results",
+    "spots_count": "{count} spots"
+  },
+  "error": {
+    "stream": "Connection interrupted. Please try again.",
+    "timeout": "Request timed out. Please try a simpler query.",
+    "rate_limit": "Daily limit reached. Resets at midnight.",
+    "generic": "Something went wrong. Please try again.",
+    "retry": "Retry"
   },
   "clarification": {
     "examples_label": "For example:",

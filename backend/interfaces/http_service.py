@@ -58,6 +58,8 @@ def create_http_app(
     app.router.add_post("/v1/runtime/stream", _handle_runtime_stream)
     app.router.add_get("/v1/conversations", _handle_get_conversations)
     app.router.add_patch("/v1/conversations/{session_id}", _handle_patch_conversation)
+    app.router.add_get("/v1/conversations/{session_id}/messages", _handle_get_messages)
+    app.router.add_get("/v1/routes", _handle_get_routes)
     app.router.add_post("/v1/feedback", _handle_feedback)
 
     if runtime_api is not None:
@@ -192,7 +194,7 @@ async def _handle_runtime_stream(request: web.Request) -> web.StreamResponse:
     resp.headers["Access-Control-Allow-Origin"] = cors_origin
     resp.headers["Access-Control-Allow-Credentials"] = "true"
     resp.headers["Access-Control-Allow-Headers"] = (
-        "Content-Type, Authorization, X-User-Id"
+        "Content-Type, Authorization, X-User-Id, X-User-Type"
     )
 
     await resp.prepare(request)
@@ -201,17 +203,42 @@ async def _handle_runtime_stream(request: web.Request) -> web.StreamResponse:
         payload = json.dumps({"event": event, **data}, ensure_ascii=False)
         await resp.write(f"event: {event}\ndata: {payload}\n\n".encode())
 
-    async def on_step(tool: str, status: str, data: dict[str, object]) -> None:
-        await emit("step", {"tool": tool, "status": status, "data": data})
+    async def on_step(
+        tool: str,
+        status: str,
+        data: dict[str, object],
+        thought: str = "",
+        observation: str = "",
+    ) -> None:
+        await emit(
+            "step",
+            {
+                "tool": tool,
+                "status": status,
+                "thought": thought,
+                "observation": observation,
+                "data": data,
+            },
+        )
 
     try:
         await emit("planning", {"status": "running"})
         response = await runtime_api.handle(
-            api_request, user_id=user_id, on_step=on_step
+            api_request,
+            user_id=user_id,
+            on_step=on_step,
         )
         await emit("done", response.model_dump(mode="json"))
     except Exception as exc:
-        await emit("error", {"message": str(exc)})
+        # Sanitize error — never expose raw Python exceptions
+        logger.exception("sse_pipeline_error", error=str(exc))
+        await emit(
+            "error",
+            {
+                "code": "internal_error",
+                "message": "Something went wrong. Please try again.",
+            },
+        )
     finally:
         try:
             await resp.write_eof()
@@ -241,7 +268,9 @@ def _runtime_context(
 ) -> Callable[[web.Application], AsyncIterator[None]]:
     async def context(app: web.Application) -> AsyncIterator[None]:
         runtime_db = db or _build_supabase_client(settings)
-        runtime_session_store = session_store or _build_session_store()
+        runtime_session_store = session_store or _build_session_store(
+            cast(SupabaseClient, runtime_db)
+        )
 
         await _call_optional_async(runtime_db, "connect")
         app[_RUNTIME_API_KEY] = RuntimeAPI(
@@ -286,12 +315,13 @@ async def _cors_middleware(
         resp = web.Response(status=204)
     else:
         resp = await handler(request)
-    origin = request.app[_SETTINGS_KEY].cors_allowed_origin
-    resp.headers["Access-Control-Allow-Origin"] = origin
-    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, OPTIONS"
-    resp.headers["Access-Control-Allow-Headers"] = (
-        "Content-Type, Authorization, X-User-Id"
-    )
+    if "Access-Control-Allow-Origin" not in resp.headers:
+        origin = request.app[_SETTINGS_KEY].cors_allowed_origin
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = (
+            "Content-Type, Authorization, X-User-Id, X-User-Type"
+        )
     return resp
 
 
@@ -334,8 +364,10 @@ def _build_supabase_client(settings: Settings) -> SupabaseClient:
     return SupabaseClient(dsn)
 
 
-def _build_session_store() -> SessionStore:
-    return create_session_store()
+def _build_session_store(
+    db: SupabaseClient | None = None,
+) -> SessionStore:
+    return create_session_store(db=db)
 
 
 async def _call_optional_async(target: object, method_name: str) -> None:
@@ -437,6 +469,61 @@ async def _handle_patch_conversation(request: web.Request) -> web.Response:
         )
 
     return web.json_response({"ok": True}, dumps=_json_dumps)
+
+
+async def _handle_get_messages(request: web.Request) -> web.Response:
+    """Return chat messages for a conversation, verifying ownership."""
+    session_id = request.match_info["session_id"]
+    user_id = request.headers.get("X-User-Id") or None
+    if not user_id:
+        return web.json_response(
+            {
+                "error": {
+                    "code": "missing_user_id",
+                    "message": "X-User-Id header required.",
+                }
+            },
+            status=400,
+        )
+
+    db = request.app.get(_DB_KEY)
+    get_conversation = getattr(db, "get_conversation", None)
+    if get_conversation is None:
+        return web.json_response({"error": "not_found"}, status=404)
+
+    conv = await get_conversation(session_id)
+    if not conv or conv.get("user_id") != user_id:
+        return web.json_response({"error": "not_found"}, status=404)
+
+    get_messages = getattr(db, "get_messages", None)
+    if get_messages is None:
+        return web.json_response({"messages": []}, dumps=_json_dumps)
+
+    messages = await get_messages(session_id)
+    return web.json_response({"messages": messages}, dumps=_json_dumps)
+
+
+async def _handle_get_routes(request: web.Request) -> web.Response:
+    """Return route history for the authenticated user."""
+    user_id = request.headers.get("X-User-Id") or None
+    if not user_id:
+        return web.json_response(
+            {
+                "error": {
+                    "code": "missing_user_id",
+                    "message": "X-User-Id header required.",
+                }
+            },
+            status=400,
+        )
+
+    db = request.app.get(_DB_KEY)
+    get_user_routes = getattr(db, "get_user_routes", None)
+    if get_user_routes is None:
+        return web.json_response({"routes": []}, dumps=_json_dumps)
+
+    routes = await get_user_routes(user_id)
+    return web.json_response({"routes": routes}, dumps=_json_dumps)
 
 
 async def _handle_feedback(request: web.Request) -> web.Response:

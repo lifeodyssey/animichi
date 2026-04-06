@@ -4,8 +4,10 @@
     "description": "アニメ聖地を探す・ルートを計画する"
   },
   "landing": {
-    "hero": "動漫聖地，",
+    "hero": "聖地巡礼",
     "hero_accent": "巡礼の路",
+    "subtitle": "聖地を探す、ルートを計画する",
+    "cta": "始める",
     "features": ["◈ 実写ロケ地検索", "◎ 最適ルート生成", "↗ 作品別一覧"]
   },
   "auth": {
@@ -31,6 +33,9 @@
     "callback_redirect_hint": "セッション復元後に自動的にリダイレクトされます。",
     "callback_error_hint": "新しいマジックリンクをリクエストして再試行してください。",
     "callback_open": "ワークスペースを開く",
+    "verifying": "ログインを確認中...",
+    "link_expired": "このログインリンクは期限切れです。",
+    "request_new_link": "新しいリンクをリクエスト",
     "check_email_heading": "メールをご確認ください",
     "check_email_body": "送信されたリンクをクリックしてログインしてください。",
     "back_to_login": "戻る"
@@ -39,6 +44,7 @@
     "placeholder": "聖地を探す・ルートを計画する…",
     "send": "送信",
     "thinking": "考え中…",
+    "thought_complete": "完了",
     "bot_name": "聖地巡礼",
     "bot_icon": "聖",
     "feedback_sent": "✓ フィードバック送信済み",
@@ -48,7 +54,8 @@
     "anchor_results": "{count}件の結果",
     "welcome_title": "聖地巡礼",
     "welcome_subtitle": "作品から聖地を探したり、場所ごとに近くのスポットを見たり、巡礼ルートをまとめて計画できます。",
-    "welcome_helper": "まずは挨拶して、何ができるか聞いてみても大丈夫です。"
+    "welcome_helper": "まずは挨拶して、何ができるか聞いてみても大丈夫です。",
+    "empty_hint": "聖地を検索するか、ルートを計画しましょう"
   },
   "sidebar": {
     "logo_icon": "聖",
@@ -57,6 +64,7 @@
     "recent": "最近の検索",
     "rename_hint": "ダブルクリックで編集",
     "spots": "{count}スポット",
+    "route_history": "ルート履歴",
     "footer": "巡礼者"
   },
   "header": {
@@ -73,7 +81,11 @@
   "grid": {
     "no_results": "見つかりませんでした。別の作品名で試してください。",
     "count": "{count}件",
-    "episode": "第{ep}話"
+    "episode": "第{ep}話",
+    "tab_episode": "集数別",
+    "tab_area": "地域別",
+    "other_label": "その他",
+    "unknown_area": "不明"
   },
   "route": {
     "no_results": "ルートを作成できませんでした。",
@@ -86,6 +98,19 @@
     "placeholder": "出発地…",
     "route": "ルート化",
     "clear": "クリア"
+  },
+  "card": {
+    "view_details": "詳細を見る",
+    "view_full_route": "ルートを見る",
+    "results_count": "{count}件の結果",
+    "spots_count": "{count}処の聖地"
+  },
+  "error": {
+    "stream": "接続が中断されました。もう一度お試しください。",
+    "timeout": "リクエストがタイムアウトしました。",
+    "rate_limit": "本日の上限に達しました。深夜にリセットされます。",
+    "generic": "エラーが発生しました。もう一度お試しください。",
+    "retry": "再試行"
   },
   "clarification": {
     "examples_label": "例えば：",

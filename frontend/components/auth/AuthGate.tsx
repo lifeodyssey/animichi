@@ -1,30 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 import { useDict } from "../../lib/i18n-context";
+import { getSupabaseClient } from "../../lib/supabase";
 import AppShell from "../layout/AppShell";
 
 type Tab = "waitlist" | "login";
-
-let supabaseClient: SupabaseClient | null | undefined;
-
-function getSupabaseClient() {
-  if (supabaseClient !== undefined) return supabaseClient;
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    supabaseClient = null;
-    return supabaseClient;
-  }
-
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { flowType: 'implicit' },
-  });
-  return supabaseClient;
-}
 
 export default function AuthGate() {
   const dict = useDict();
@@ -110,7 +92,7 @@ export default function AuthGate() {
     <div className="flex min-h-screen flex-col bg-[var(--color-bg)] lg:flex-row">
 
       {/* ── Left panel: brand ────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col justify-between px-10 py-12 lg:px-16 lg:py-16">
+      <div className="flex flex-1 flex-col justify-between px-6 py-8 sm:px-10 sm:py-12 lg:px-16 lg:py-16">
 
         {/* Logo */}
         <div className="flex flex-col gap-0.5">
@@ -123,13 +105,12 @@ export default function AuthGate() {
         </div>
 
         {/* Hero copy */}
-        <div className="space-y-6 py-12 lg:py-0">
-          <h1 className="font-[family-name:var(--app-font-display)] text-4xl font-semibold leading-snug text-[var(--color-fg)] lg:text-5xl">
-            {land.hero}<br />
-            <span className="text-[var(--color-primary)]">{land.hero_accent}</span>
+        <div className="space-y-4 py-8 sm:space-y-6 sm:py-12 lg:py-0">
+          <h1 className="font-[family-name:var(--app-font-display)] text-3xl font-semibold leading-snug text-[var(--color-fg)] sm:text-4xl lg:text-5xl">
+            聖地巡礼
           </h1>
-          <p className="max-w-sm text-sm font-light leading-relaxed text-[var(--color-muted-fg)]">
-            {dict.chat.welcome_subtitle}
+          <p className="mt-2 text-base text-[var(--color-text-secondary)] sm:text-lg">
+            {land.subtitle}
           </p>
 
           {/* Feature pills */}
@@ -146,8 +127,8 @@ export default function AuthGate() {
         </div>
 
         {/* Footer note */}
-        <p className="text-[11px] font-light text-[var(--color-border)]">
-          {t.subtitle} · {new Date().getFullYear()}
+        <p className="hidden text-xs text-[var(--color-muted-fg)]/40 py-4 sm:block">
+          聖地巡礼
         </p>
       </div>
 
@@ -156,7 +137,7 @@ export default function AuthGate() {
       <div className="h-px bg-[var(--color-border)] lg:hidden" />
 
       {/* ── Right panel: auth form ────────────────────────────────── */}
-      <div className="flex w-full flex-col justify-center px-10 py-12 lg:w-[420px] lg:px-16 lg:py-16">
+      <div className="flex w-full flex-col justify-center px-6 py-8 sm:px-10 sm:py-12 lg:w-[420px] lg:px-16 lg:py-16">
 
         <div className="mb-8">
           <h2 className="text-base font-medium text-[var(--color-fg)]">

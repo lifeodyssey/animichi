@@ -18,6 +18,18 @@ interface SidebarProps {
   activeSessionId: string | null;
   onNewChat: () => void;
   onRenameConversation: (sessionId: string, title: string) => void;
+  onSelectConversation?: (sessionId: string) => void;
+  routes?: RouteHistoryEntry[];
+  onCollapse?: () => void;
+}
+
+interface RouteHistoryEntry {
+  id: string;
+  bangumi_id: string;
+  bangumi_title: string | null;
+  origin_station: string | null;
+  point_count: number;
+  created_at: string;
 }
 
 const LOCALE_LABELS: Record<Locale, string> = {
@@ -31,11 +43,13 @@ function ConversationItem({
   record,
   renameHint,
   onRename,
+  onClick,
 }: {
   active: boolean;
   record: ConversationRecord;
   renameHint: string;
   onRename: (sessionId: string, title: string) => void;
+  onClick?: (sessionId: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(getConversationDisplayTitle(record));
@@ -106,6 +120,7 @@ function ConversationItem({
           : "border-transparent hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-sidebar-accent)]",
       ].join(" ")}
       style={{ transitionDuration: "var(--duration-fast)" }}
+      onClick={editing ? undefined : () => onClick?.(record.session_id)}
       onDoubleClick={editing ? undefined : handleDoubleClick}
       title={editing ? undefined : renameHint}
     >
@@ -132,11 +147,26 @@ function ConversationItem({
   );
 }
 
+/** Deduplicate conversations by session_id, keeping the first occurrence. */
+function deduplicateConversations(
+  conversations: ConversationRecord[],
+): ConversationRecord[] {
+  const seen = new Set<string>();
+  return conversations.filter((record) => {
+    if (seen.has(record.session_id)) return false;
+    seen.add(record.session_id);
+    return true;
+  });
+}
+
 export default function Sidebar({
   conversations,
   activeSessionId,
   onNewChat,
   onRenameConversation,
+  onSelectConversation,
+  routes,
+  onCollapse,
 }: SidebarProps) {
   const { sidebar: t } = useDict();
   const locale = useLocale();
@@ -144,8 +174,8 @@ export default function Sidebar({
 
   return (
     <aside className="hidden w-[240px] shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-sidebar)] lg:flex">
-      {/* Logo — 聖地巡礼 + seichijunrei romaji */}
-      <div className="flex h-16 items-center border-b border-[var(--color-sidebar-border)] px-5">
+      {/* Logo + collapse toggle */}
+      <div className="flex h-16 items-center justify-between border-b border-[var(--color-sidebar-border)] px-5">
         <div className="flex flex-col gap-0.5">
           <span className="font-[family-name:var(--app-font-display)] text-lg font-semibold leading-none text-[var(--color-fg)]">
             聖地巡礼
@@ -154,9 +184,21 @@ export default function Sidebar({
             seichijunrei
           </span>
         </div>
+        {onCollapse && (
+          <button
+            onClick={onCollapse}
+            className="rounded-lg p-2 hover:bg-[var(--color-primary)]/5 transition"
+            style={{ transitionDuration: "var(--duration-fast)" }}
+            aria-label="Collapse sidebar"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M3 5h14M3 10h14M3 15h14" />
+            </svg>
+          </button>
+        )}
       </div>
 
-      {/* New chat button — flat, editorial */}
+      {/* New chat button */}
       <div className="px-4 pt-4">
         <button
           onClick={onNewChat}
@@ -174,33 +216,50 @@ export default function Sidebar({
             <p className="pb-3 text-[10px] font-medium uppercase tracking-widest text-[var(--color-sidebar-fg)] opacity-60">
               {t.recent}
             </p>
-            {conversations.map((record) => (
+            {deduplicateConversations(conversations).map((record) => (
               <ConversationItem
                 key={record.session_id}
                 active={record.session_id === activeSessionId}
                 record={record}
                 renameHint={t.rename_hint}
                 onRename={onRenameConversation}
+                onClick={onSelectConversation}
               />
             ))}
           </>
         )}
       </div>
 
-      {/* Footer — language switcher + diamond mark */}
+      {/* Route history */}
+      {routes && routes.length > 0 && (
+        <div className="border-t border-[var(--color-sidebar-border)] px-4 pt-3">
+          <p className="pb-2 text-[10px] font-medium uppercase tracking-widest text-[var(--color-sidebar-fg)] opacity-60">
+            {t.route_history ?? "Route History"}
+          </p>
+          <ul className="max-h-32 space-y-0.5 overflow-y-auto">
+            {routes.map((route) => (
+              <li key={route.id}>
+                <div className="truncate py-1.5 text-xs font-light text-[var(--color-sidebar-accent-fg)]">
+                  {route.bangumi_title ?? route.bangumi_id} &mdash;{" "}
+                  {t.spots?.replace("{count}", String(route.point_count)) ??
+                    `${route.point_count} spots`}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Footer — 44px locale switcher buttons */}
       <div className="border-t border-[var(--color-sidebar-border)] px-5 py-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {LOCALES.map((l) => (
             <button
               key={l}
               type="button"
               onClick={() => setLocale(l)}
-              className={[
-                "text-[10px] font-light tracking-wide transition",
-                locale === l
-                  ? "text-[var(--color-primary)]"
-                  : "text-[var(--color-muted-fg)] hover:text-[var(--color-fg)]",
-              ].join(" ")}
+              data-active={locale === l}
+              className="min-h-[44px] min-w-[44px] rounded-full px-3 py-2 text-[10px] font-light tracking-wide transition data-[active=true]:bg-[var(--color-primary)] data-[active=true]:text-white hover:bg-[var(--color-primary)]/10"
               style={{ transitionDuration: "var(--duration-fast)" }}
             >
               {LOCALE_LABELS[l]}

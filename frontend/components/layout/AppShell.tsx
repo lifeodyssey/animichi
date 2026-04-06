@@ -6,16 +6,25 @@ import { useSession } from "../../hooks/useSession";
 import { createMessageId, useChat } from "../../hooks/useChat";
 import { usePointSelection } from "../../hooks/usePointSelection";
 import { useLocale } from "../../lib/i18n-context";
-import { buildSelectedRouteActionText, sendSelectedRoute } from "../../lib/api";
+import {
+  buildSelectedRouteActionText,
+  fetchConversationMessages,
+  fetchRouteHistory,
+  sendSelectedRoute,
+} from "../../lib/api";
+import type { RouteHistoryEntry } from "../../lib/api";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { PointSelectionContext } from "../../contexts/PointSelectionContext";
 import { isVisualResponse } from "../generative/registry";
+import { isRouteData, isSearchData, type RuntimeResponse } from "../../lib/types";
 import Sidebar from "./Sidebar";
 import ChatHeader from "./ChatHeader";
 import MessageList from "../chat/MessageList";
 import ChatInput from "../chat/ChatInput";
-import ResultPanel from "./ResultPanel";
 import ResultDrawer from "./ResultDrawer";
+import { SlideOverPanel } from "./SlideOverPanel";
+import { FullscreenOverlay } from "./FullscreenOverlay";
+import GenerativeUIRenderer from "../generative/GenerativeUIRenderer";
 
 export default function AppShell() {
   const locale = useLocale();
@@ -39,15 +48,18 @@ export default function AppShell() {
     useConversationHistory();
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [chatWidth, setChatWidth] = useState(360);
+  const [routes, setRoutes] = useState<RouteHistoryEntry[]>([]);
   const [routeSending, setRouteSending] = useState(false);
-  const chatWidthRef = useRef(chatWidth);
-  const dragState = useRef<{ startX: number; startWidth: number } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [slideOverOpen, setSlideOverOpen] = useState(false);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const lastSyncedResponseIdRef = useRef<string | null>(null);
   const routeAbortRef = useRef<AbortController | null>(null);
   const isSending = sending || routeSending;
 
-  useEffect(() => { chatWidthRef.current = chatWidth; }, [chatWidth]);
+  useEffect(() => {
+    fetchRouteHistory().then(setRoutes).catch(() => {});
+  }, []);
 
   const latestConversationResponse = useMemo(
     () => {
@@ -86,20 +98,8 @@ export default function AppShell() {
     lastSyncedResponseIdRef.current = latestConversationResponse.responseId;
   }, [latestConversationResponse, upsertConversation]);
 
-  // The most recent message that has a backend response
-  const latestResponseMessage = useMemo(
-    () => [...messages].reverse().find((m) => m.response) ?? null,
-    [messages],
-  );
-
-  // Panel opens only when the LATEST response is visual; closes on text replies
-  const latestVisualResponseMessage =
-    latestResponseMessage?.response && isVisualResponse(latestResponseMessage.response)
-      ? latestResponseMessage
-      : null;
-
-  // User may have explicitly pinned an older visual message via ◈
-  const selectedVisualMessage = useMemo(
+  // Click-to-open only: no auto-open for visual responses (Task 12)
+  const activeMessage = useMemo(
     () =>
       activeMessageId
         ? (messages.find(
@@ -109,12 +109,7 @@ export default function AppShell() {
     [activeMessageId, messages],
   );
 
-  const hasVisualResponse = selectedVisualMessage !== null || latestVisualResponseMessage !== null;
-  // ResultPanel opens only when the user explicitly clicks the ◈ anchor
-  const activeMessage = selectedVisualMessage ?? null;
-
   const activeResponse = activeMessage?.response ?? null;
-  const activeResultMessageId = activeMessage?.id ?? null;
 
   const defaultOrigin = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -127,6 +122,55 @@ export default function AppShell() {
     return "";
   }, [messages]);
 
+  // Determine overlay type from active response
+  const openOverlayForResponse = useCallback((response: RuntimeResponse | null) => {
+    if (!response) return;
+    if (isRouteData(response.data)) {
+      setFullscreenOpen(true);
+      setSlideOverOpen(false);
+    } else if (isSearchData(response.data)) {
+      setSlideOverOpen(true);
+      setFullscreenOpen(false);
+    } else {
+      setSlideOverOpen(true);
+      setFullscreenOpen(false);
+    }
+  }, []);
+
+  const handleConversationSelect = useCallback(
+    async (selectedSessionId: string) => {
+      if (selectedSessionId === sessionId) return;
+      routeAbortRef.current?.abort();
+      routeAbortRef.current = null;
+      setRouteSending(false);
+      clearChat();
+      clearSelectedPoints();
+      setActiveMessageId(null);
+      setDrawerOpen(false);
+      setSlideOverOpen(false);
+      setFullscreenOpen(false);
+      setSessionId(selectedSessionId);
+      lastSyncedResponseIdRef.current = null;
+
+      try {
+        const msgs = await fetchConversationMessages(selectedSessionId);
+        const hydrated = msgs.map((m, i) => ({
+          id: `hydrated-${i}-${Date.now()}`,
+          role: m.role,
+          text: m.content,
+          response: m.data ? (m.data as unknown as RuntimeResponse) : undefined,
+          timestamp: new Date(m.timestamp).getTime(),
+        }));
+        if (hydrated.length > 0) {
+          appendMessages(...hydrated);
+        }
+      } catch {
+        // Best-effort hydration; silent on failure
+      }
+    },
+    [appendMessages, clearChat, clearSelectedPoints, sessionId, setSessionId],
+  );
+
   const handleNewChat = useCallback(() => {
     routeAbortRef.current?.abort();
     routeAbortRef.current = null;
@@ -137,17 +181,39 @@ export default function AppShell() {
     lastSyncedResponseIdRef.current = null;
     setActiveMessageId(null);
     setDrawerOpen(false);
+    setSlideOverOpen(false);
+    setFullscreenOpen(false);
   }, [clearChat, clearSelectedPoints, clearSession]);
 
   const handleActivate = useCallback((messageId: string) => {
-    setActiveMessageId((current) => (current === messageId ? null : messageId));
-  }, []);
+    setActiveMessageId((current) => {
+      const newId = current === messageId ? null : messageId;
+      if (newId) {
+        // Find the message to determine which overlay to open
+        const msg = messages.find((m) => m.id === newId);
+        if (msg?.response) {
+          if (isMobile) {
+            setDrawerOpen(true);
+          } else {
+            openOverlayForResponse(msg.response);
+          }
+        }
+      } else {
+        setSlideOverOpen(false);
+        setFullscreenOpen(false);
+        setDrawerOpen(false);
+      }
+      return newId;
+    });
+  }, [isMobile, messages, openOverlayForResponse]);
 
   const handleSend = useCallback(
     (text: string) => {
       clearSelectedPoints();
       setActiveMessageId(null);
       setDrawerOpen(false);
+      setSlideOverOpen(false);
+      setFullscreenOpen(false);
       send(text);
     },
     [clearSelectedPoints, send],
@@ -182,6 +248,8 @@ export default function AppShell() {
       clearSelectedPoints();
       setActiveMessageId(null);
       setDrawerOpen(false);
+      setSlideOverOpen(false);
+      setFullscreenOpen(false);
       appendMessages(userMessage, placeholder);
       setRouteSending(true);
 
@@ -242,19 +310,14 @@ export default function AppShell() {
     ],
   );
 
-  const handleDividerPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    dragState.current = { startX: e.clientX, startWidth: chatWidthRef.current };
-    e.currentTarget.setPointerCapture(e.pointerId);
+  const handleCloseSlideOver = useCallback(() => {
+    setSlideOverOpen(false);
+    setActiveMessageId(null);
   }, []);
 
-  const handleDividerPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragState.current) return;
-    const delta = e.clientX - dragState.current.startX;
-    setChatWidth(Math.min(520, Math.max(280, dragState.current.startWidth + delta)));
-  }, []);
-
-  const handleDividerPointerUp = useCallback(() => {
-    dragState.current = null;
+  const handleCloseFullscreen = useCallback(() => {
+    setFullscreenOpen(false);
+    setActiveMessageId(null);
   }, []);
 
   const handleOpenDrawer = useCallback(() => {
@@ -264,42 +327,37 @@ export default function AppShell() {
   return (
     <PointSelectionContext.Provider value={{ selectedIds, toggle, clear: clearSelectedPoints }}>
       <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
-        {!isMobile && (
+        {/* Sidebar — collapsible on desktop, hidden on mobile */}
+        {!isMobile && sidebarOpen && (
           <Sidebar
             conversations={conversations}
             activeSessionId={sessionId}
             onNewChat={handleNewChat}
             onRenameConversation={renameConversation}
+            onSelectConversation={handleConversationSelect}
+            routes={routes}
+            onCollapse={() => setSidebarOpen(false)}
           />
         )}
 
-        <main
-          className={`flex min-h-0 flex-col bg-[var(--color-bg)] ${
-            !isMobile && hasVisualResponse
-              ? "shrink-0 border-r border-[var(--color-border)]"
-              : "flex-1"
-          }`}
-          style={
-            !isMobile
-              ? {
-                  flexBasis: hasVisualResponse ? `${chatWidth}px` : "0px",
-                  transition: "flex-basis var(--duration-base) var(--ease-out-expo)",
-                }
-              : undefined
-          }
-        >
-          <ChatHeader onNewChat={isMobile ? handleNewChat : undefined} />
+        {/* Main chat area — takes full width */}
+        <main className="flex min-h-0 flex-1 flex-col bg-[var(--color-bg)]">
+          <ChatHeader
+            onNewChat={isMobile ? handleNewChat : undefined}
+            onMenuToggle={!sidebarOpen || isMobile ? () => setSidebarOpen((s) => !s) : undefined}
+          />
           <MessageList
             messages={messages}
             onActivate={handleActivate}
-            activeMessageId={activeResultMessageId}
+            activeMessageId={activeMessageId}
             onOpenDrawer={isMobile ? handleOpenDrawer : undefined}
             onSuggest={handleSend}
           />
           <ChatInput onSend={handleSend} disabled={isSending} />
         </main>
 
-        {isMobile ? (
+        {/* Mobile: vaul bottom sheet */}
+        {isMobile && (
           <ResultDrawer
             response={activeResponse}
             open={drawerOpen}
@@ -309,26 +367,26 @@ export default function AppShell() {
             defaultOrigin={defaultOrigin}
             loading={isSending}
           />
-        ) : hasVisualResponse && (
-          <>
-            <div
-              onPointerDown={handleDividerPointerDown}
-              onPointerMove={handleDividerPointerMove}
-              onPointerUp={handleDividerPointerUp}
-              className="w-1 shrink-0 cursor-col-resize bg-[var(--color-border)] transition-colors hover:bg-[var(--color-primary)]"
-              style={{
-                transitionDuration: "var(--duration-fast)",
-                animation: "panel-slide-in var(--duration-base) var(--ease-out-expo) both",
-              }}
-            />
-            <ResultPanel
-              activeResponse={activeResponse}
-              onSuggest={handleSend}
-              onRouteSelected={handleRouteSelected}
-              defaultOrigin={defaultOrigin}
-              loading={isSending}
-            />
-          </>
+        )}
+
+        {/* Desktop: Slide-over for search results */}
+        {!isMobile && (
+          <SlideOverPanel open={slideOverOpen} onClose={handleCloseSlideOver} loading={isSending && slideOverOpen}>
+            {activeResponse && (
+              <GenerativeUIRenderer response={activeResponse} onSuggest={handleSend} />
+            )}
+          </SlideOverPanel>
+        )}
+
+        {/* Desktop: Fullscreen for route results */}
+        {!isMobile && (
+          <FullscreenOverlay open={fullscreenOpen} onClose={handleCloseFullscreen}>
+            {activeResponse && (
+              <div className="h-full">
+                <GenerativeUIRenderer response={activeResponse} onSuggest={handleSend} />
+              </div>
+            )}
+          </FullscreenOverlay>
         )}
       </div>
     </PointSelectionContext.Provider>

@@ -92,6 +92,7 @@ _BANGUMI_COLUMNS = frozenset(
         "rating",
         "points_count",
         "primary_color",
+        "city",
     }
 )
 _POINT_COLUMNS = frozenset(
@@ -257,6 +258,29 @@ class SupabaseClient:
             f"ON CONFLICT (id) DO UPDATE SET {update_set}"
         )
         await self.pool.execute(sql, bangumi_id, *fields.values())
+
+    async def get_bangumi_by_area(
+        self, lat: float, lng: float, radius_m: int = 50000
+    ) -> list[dict[str, object]]:
+        """Find bangumi whose known points are near a location."""
+        rows = await self.pool.fetch(
+            """SELECT DISTINCT b.id AS bangumi_id, b.title AS bangumi_title, b.city
+               FROM points p
+               JOIN bangumi b ON p.bangumi_id = b.id
+               WHERE ST_DWithin(
+                   COALESCE(
+                       p.location,
+                       ST_SetSRID(ST_MakePoint(p.longitude, p.latitude), 4326)::geography
+                   ),
+                   ST_MakePoint($1, $2)::geography,
+                   $3
+               )
+               LIMIT 10""",
+            lng,
+            lat,
+            radius_m,
+        )
+        return [dict(r) for r in rows]
 
     async def find_bangumi_by_title(self, title: str) -> str | None:
         """Find a bangumi ID by matching title or title_cn."""
@@ -691,6 +715,107 @@ class SupabaseClient:
             operation="insert_request_log",
         )
         return str(row["id"])
+
+    # --- Conversation messages ---
+
+    async def insert_message(
+        self,
+        session_id: str,
+        role: str,
+        content: str,
+        response_data: dict[str, object] | None = None,
+    ) -> None:
+        """Persist a chat message to conversation_messages."""
+        await self.pool.execute(
+            """INSERT INTO conversation_messages (session_id, role, content, response_data)
+               VALUES ($1, $2, $3, $4::jsonb)""",
+            session_id,
+            role,
+            content,
+            json.dumps(response_data) if response_data else None,
+        )
+
+    async def get_messages(
+        self, session_id: str, limit: int = 100
+    ) -> list[dict[str, object]]:
+        """Fetch chat messages for a conversation."""
+        rows = await self.pool.fetch(
+            """SELECT role, content, response_data, created_at
+               FROM conversation_messages
+               WHERE session_id = $1
+               ORDER BY created_at ASC
+               LIMIT $2""",
+            session_id,
+            limit,
+        )
+        return [dict(r) for r in rows]
+
+    async def get_conversation(self, session_id: str) -> dict[str, object] | None:
+        """Fetch a single conversation by session_id."""
+        row = await self.pool.fetchrow(
+            "SELECT session_id, user_id, title, first_query, created_at, updated_at FROM conversations WHERE session_id = $1",
+            session_id,
+        )
+        return dict(row) if row else None
+
+    # --- Session state ---
+
+    async def upsert_session_state(
+        self, session_id: str, state: dict[str, object]
+    ) -> None:
+        """Persist session state as JSONB."""
+        await self.pool.execute(
+            """INSERT INTO sessions (id, state, updated_at)
+               VALUES ($1, $2::jsonb, now())
+               ON CONFLICT (id)
+               DO UPDATE SET state = $2::jsonb, updated_at = now()""",
+            session_id,
+            json.dumps(state, default=str),
+        )
+
+    async def get_session_state(self, session_id: str) -> dict[str, object] | None:
+        """Load session state."""
+        row = await self.pool.fetchrow(
+            "SELECT state FROM sessions WHERE id = $1",
+            session_id,
+        )
+        if row and row["state"]:
+            raw = row["state"]
+            if isinstance(raw, str):
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict):
+                    return parsed
+                return None
+            if isinstance(raw, Mapping):
+                return dict(raw)
+            return None
+        return None
+
+    async def delete_session_state(self, session_id: str) -> None:
+        """Delete session state by session ID."""
+        await self.pool.execute("DELETE FROM sessions WHERE id = $1", session_id)
+
+    # --- Route history ---
+
+    async def get_user_routes(
+        self, user_id: str, limit: int = 20
+    ) -> list[dict[str, object]]:
+        """Fetch route history for a user via their conversations."""
+        rows = await self.pool.fetch(
+            """SELECT r.id, r.bangumi_id, r.origin_station,
+                      array_length(r.point_ids, 1) AS point_count,
+                      r.created_at,
+                      b.title AS bangumi_title
+               FROM routes r
+               JOIN conversations c ON r.session_id = c.session_id
+               LEFT JOIN bangumi b ON r.bangumi_id = b.id
+               WHERE c.user_id = $1
+               ORDER BY r.created_at DESC
+               LIMIT $2""",
+            user_id,
+            limit,
+        )
+        return [dict(r) for r in rows]
 
     async def fetch_bad_feedback(self, *, limit: int = 100) -> list[dict[str, object]]:
         """Return rows from feedback table where rating = 'bad'."""

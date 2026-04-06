@@ -2,31 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { createClient, type EmailOtpType, type SupabaseClient } from "@supabase/supabase-js";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { useDict } from "../../lib/i18n-context";
-
-let supabaseClient: SupabaseClient | null | undefined;
-
-function getSupabaseClient() {
-  if (supabaseClient !== undefined) return supabaseClient;
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    supabaseClient = null;
-    return supabaseClient;
-  }
-
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { flowType: 'implicit' },
-  });
-  return supabaseClient;
-}
+import { getSupabaseClient } from "../../lib/supabase";
 
 export function AuthCallbackPage() {
   const t = useDict().auth;
-  const [status, setStatus] = useState<string>(t.callback_loading);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,7 +50,6 @@ export function AuthCallbackPage() {
         if (cancelled) return;
         const message = authError instanceof Error ? authError.message : t.callback_error;
         setError(message);
-        setStatus(message);
       }
     }
 
@@ -77,24 +57,36 @@ export function AuthCallbackPage() {
     return () => { cancelled = true; };
   }, [t]);
 
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--color-bg)] px-6">
-      <div className="w-full max-w-md rounded-[28px] border border-[var(--color-border)] bg-[var(--color-card)] p-8 shadow-sm">
-        <p className="text-sm uppercase tracking-[0.24em] text-[var(--color-muted-fg)]">
-          Seichijunrei
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[var(--color-fg)]">
-          {status}
+  if (error) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-bg)] px-6">
+        <h1 className="font-[family-name:var(--app-font-display)] text-3xl font-semibold text-[var(--color-fg)]">
+          聖地巡礼
         </h1>
-        <p className="mt-4 text-sm leading-7 text-[var(--color-muted-fg)]">
-          {error ? t.callback_error_hint : t.callback_redirect_hint}
+        <p className="mt-6 text-sm text-[var(--color-muted-fg)]">
+          {t.link_expired}
         </p>
         <Link
           href="/"
-          className="mt-6 inline-flex rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white"
+          className="mt-4 text-sm text-[var(--color-primary)] hover:underline"
         >
-          {t.callback_open}
+          {t.request_new_link}
         </Link>
+      </main>
+    );
+  }
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-bg)] px-6">
+      <h1 className="font-[family-name:var(--app-font-display)] text-3xl font-semibold text-[var(--color-fg)]">
+        聖地巡礼
+      </h1>
+      <div className="mt-6 flex items-center gap-2 text-sm text-[var(--color-muted-fg)]">
+        <span
+          className="inline-block h-4 w-4 rounded-full border-2 border-[var(--color-primary)] border-t-transparent"
+          style={{ animation: "spin 0.8s linear infinite" }}
+        />
+        <span>{t.verifying}</span>
       </div>
     </main>
   );
