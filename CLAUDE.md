@@ -6,7 +6,7 @@ This file provides guidance to Claude Code when working in this repository.
 
 Seichijunrei is an anime pilgrimage search and route planning service.
 
-**Implementation status:** Core runtime + Cloudflare deploy path are in place. Active work (and any remaining TODOs) lives in `task_plan.md` and `docs/superpowers/plans/`.
+**Implementation status:** Core runtime + Cloudflare deploy path are in place. Active work (and any remaining TODOs) lives in `docs/iterations/iter5/task_plan.md` and `docs/superpowers/plans/`.
 
 ## Current Commands
 
@@ -80,7 +80,7 @@ DB is source of truth. No hardcoded anime list in code.
 ### Interfaces
 
 - `backend/interfaces/public_api.py` — Stable facade over `run_pipeline`; session persistence; route history; `ui` field in response; request logging
-- `backend/interfaces/http_service.py` — aiohttp service: `/healthz`, `/v1/runtime`, `/v1/feedback`
+- `backend/interfaces/fastapi_service.py` — FastAPI service: `/healthz`, `/v1/runtime`, `/v1/runtime/stream`, `/v1/feedback`, conversations, routes
 
 ### Infrastructure
 
@@ -141,11 +141,20 @@ Design tokens (`frontend/app/globals.css`):
 
 ## Deployment
 
-- Container: Python aiohttp service via `Dockerfile` → uploaded to Cloudflare during `wrangler deploy`
+- Container: Python FastAPI service via `Dockerfile` → uploaded to Cloudflare during `wrangler deploy`
 - Frontend: Next.js static export (`output: 'export'`) → `frontend/out/` → CF ASSETS binding
 - Worker: `worker/worker.js` — routes `/v1/*` to container, static to ASSETS, enforces auth
 - Deploy: GitHub Actions `deploy.yml` (or local `npx wrangler@4 deploy`)
-- DB migrations: apply `supabase/migrations/` in order before each deploy (see `DEPLOYMENT.md`)
+- DB migrations: apply `supabase/migrations/` in order before each deploy (see `docs/ops/deployment.md`)
+
+## File Placement
+
+- Keep runtime entrypoints at the repository root or under `backend/interfaces/`
+- Keep root runtime-critical files in place: `Dockerfile`, `Makefile`, `pyproject.toml`, `wrangler.toml`, `package.json`
+- Put operational docs under `docs/ops/`
+- Put iteration artifacts under `docs/iterations/`
+- Keep implementation plans under `docs/superpowers/plans/`
+- Leave short compatibility stubs when moving long-lived docs that may still be linked externally
 
 ## gstack
 
