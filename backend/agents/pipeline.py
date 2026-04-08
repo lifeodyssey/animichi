@@ -69,8 +69,62 @@ async def react_loop(
             has_done=react_step.done is not None,
         )
 
-        # 2. If done, yield final event and stop
+        # 2. If done, check if we actually searched before stopping
         if react_step.done is not None:
+            # Guard: if we resolved an anime but never searched, inject search_bangumi
+            has_resolve = any(
+                r.tool == "resolve_anime" and r.success for r in accumulated_results
+            )
+            has_search = any(
+                r.tool in ("search_bangumi", "search_nearby")
+                for r in accumulated_results
+            )
+            if has_resolve and not has_search:
+                resolve_data = next(
+                    (
+                        r.data
+                        for r in accumulated_results
+                        if r.tool == "resolve_anime"
+                        and r.success
+                        and isinstance(r.data, dict)
+                    ),
+                    None,
+                )
+                bangumi_id = resolve_data.get("bangumi_id") if resolve_data else None
+                if bangumi_id:
+                    logger.info(
+                        "react_guard_inject_search_after_done", bangumi_id=bangumi_id
+                    )
+                    search_step = PlanStep(
+                        tool=ToolName.SEARCH_BANGUMI,
+                        params={"bangumi_id": bangumi_id},
+                    )
+                    yield ReactStepEvent(
+                        type="step",
+                        thought="Guard: planner stopped early, injecting search_bangumi",
+                        tool="search_bangumi",
+                        status="running",
+                    )
+                    search_result = await executor._execute_step(
+                        search_step, executor_context
+                    )
+                    accumulated_results.append(search_result)
+                    if search_result.success and hasattr(search_step, "tool"):
+                        executor_context[search_step.tool.value] = search_result.data
+                    search_obs = ExecutorAgent.format_observation(search_result)
+                    history.append(search_obs)
+                    yield ReactStepEvent(
+                        type="step",
+                        thought="Guard: search_bangumi completed",
+                        tool="search_bangumi",
+                        status="done",
+                        observation=search_obs.summary,
+                        data=search_result.data
+                        if isinstance(search_result.data, dict)
+                        else {},
+                        step_result=search_result,
+                    )
+
             yield ReactStepEvent(
                 type="done",
                 thought=react_step.thought,
@@ -255,18 +309,25 @@ async def run_pipeline(
     result = PipelineResult(intent=intent, plan=plan)
     result.step_results = all_step_results
 
-    # Build final_output from the last successful step's data
+    # Build final_output keyed so _pipeline_result_to_public_response can find it.
+    # Search results go under "results", route data under "route", others spread flat.
     last_data: dict[str, object] = {}
     for sr in reversed(all_step_results):
         if sr.success and isinstance(sr.data, dict):
             last_data = sr.data
             break
 
+    is_empty = not last_data or last_data.get("row_count", -1) == 0
     result.final_output = {
         "success": bool(all_step_results and all_step_results[-1].success),
-        "status": "ok" if all_step_results else "empty",
+        "status": "empty" if is_empty else "ok",
         "message": final_message,
-        **last_data,
     }
+    if intent in ("search_bangumi", "search_nearby"):
+        result.final_output["results"] = last_data
+    elif intent in ("plan_route", "plan_selected"):
+        result.final_output["route"] = last_data
+    else:
+        result.final_output.update(last_data)
 
     return result

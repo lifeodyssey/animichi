@@ -128,6 +128,43 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Keyframes — Landing hero */
+
+@keyframes seichi-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes seichi-pin-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px oklch(60% 0.148 240 / 0.25); }
+  50%      { box-shadow: 0 0 0 10px oklch(60% 0.148 240 / 0.05); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.85) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes float-arrow {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(6px); }
+}
+
 /* Keyframes */
 
 @keyframes breathe {
@@ -154,6 +191,17 @@
 @keyframes pulse-skeleton {
   0%, 100% { opacity: 0.4; }
   50%       { opacity: 1;   }
+}
+
+@keyframes seichi-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--color-card) 25%, var(--color-muted) 50%, var(--color-card) 75%);
+  background-size: 200% 100%;
+  animation: seichi-shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
 }
 
 /* Base */
@@ -208,6 +256,39 @@ a { color: inherit; }
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ── Touch targets (opt-in via data attribute, auto for standalone interactive elements) ── */
+/* Apply 44px minimum to primary interactive elements, but NOT to compact variants inside components */
+input:not([type="hidden"]), select, textarea {
+  min-height: 44px;
+}
+/* Standalone buttons and links get 44px tap area via padding, not forced min-height */
+/* Use .touch-target class or data-touch attribute for explicit opt-in */
+.touch-target, [data-touch] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* ── Focus visible ── */
+:focus-visible:not(:has(:focus-visible)) {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ── Hover lift for cards ── */
+.hover-lift {
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px oklch(20% 0.025 238 / 0.06);
+}
+
+/* ── Input focus glow ── */
+input:focus, textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px oklch(60% 0.148 240 / 0.1);
 }
 
 @layer base {
