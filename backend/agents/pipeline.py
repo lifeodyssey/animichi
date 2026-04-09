@@ -9,11 +9,10 @@ import structlog
 from pydantic_ai.models import Model
 
 from backend.agents.executor_agent import ExecutorAgent, PipelineResult, StepResult
+from backend.agents.intent_classifier import classify_intent
 from backend.agents.models import (
     ExecutionPlan,
     Observation,
-    PlanStep,
-    ToolName,
 )
 from backend.agents.planner_agent import ReActPlannerAgent
 
@@ -48,17 +47,27 @@ async def react_loop(
     """ReAct loop: planner thinks → executor acts → observe → repeat.
 
     Yields ReactStepEvent for each step (for SSE streaming).
+    The planner's output_validator enforces step prerequisites and rejects
+    premature "done" signals — no deterministic guards needed here.
     """
     history: list[Observation] = []
+    failure_count = 0
     accumulated_results: list[StepResult] = []
     executor_context: dict[str, object] = {"locale": locale}
     if context and context.get("last_location"):
         executor_context["last_location"] = context["last_location"]
 
+    # Classify intent once for the entire loop
+    classified_intent, _confidence = classify_intent(text, locale)
+
     for turn in range(max_steps):
-        # 1. Planner thinks
+        # 1. Planner thinks (output_validator enforces prerequisites)
         react_step = await planner.step(
-            text=text, locale=locale, context=context, history=history
+            text=text,
+            locale=locale,
+            context=context,
+            history=history,
+            classified_intent=classified_intent,
         )
 
         logger.info(
@@ -69,62 +78,8 @@ async def react_loop(
             has_done=react_step.done is not None,
         )
 
-        # 2. If done, check if we actually searched before stopping
+        # 2. If done, yield final event
         if react_step.done is not None:
-            # Guard: if we resolved an anime but never searched, inject search_bangumi
-            has_resolve = any(
-                r.tool == "resolve_anime" and r.success for r in accumulated_results
-            )
-            has_search = any(
-                r.tool in ("search_bangumi", "search_nearby")
-                for r in accumulated_results
-            )
-            if has_resolve and not has_search:
-                resolve_data = next(
-                    (
-                        r.data
-                        for r in accumulated_results
-                        if r.tool == "resolve_anime"
-                        and r.success
-                        and isinstance(r.data, dict)
-                    ),
-                    None,
-                )
-                bangumi_id = resolve_data.get("bangumi_id") if resolve_data else None
-                if bangumi_id:
-                    logger.info(
-                        "react_guard_inject_search_after_done", bangumi_id=bangumi_id
-                    )
-                    search_step = PlanStep(
-                        tool=ToolName.SEARCH_BANGUMI,
-                        params={"bangumi_id": bangumi_id},
-                    )
-                    yield ReactStepEvent(
-                        type="step",
-                        thought="Guard: planner stopped early, injecting search_bangumi",
-                        tool="search_bangumi",
-                        status="running",
-                    )
-                    search_result = await executor._execute_step(
-                        search_step, executor_context
-                    )
-                    accumulated_results.append(search_result)
-                    if search_result.success and hasattr(search_step, "tool"):
-                        executor_context[search_step.tool.value] = search_result.data
-                    search_obs = ExecutorAgent.format_observation(search_result)
-                    history.append(search_obs)
-                    yield ReactStepEvent(
-                        type="step",
-                        thought="Guard: search_bangumi completed",
-                        tool="search_bangumi",
-                        status="done",
-                        observation=search_obs.summary,
-                        data=search_result.data
-                        if isinstance(search_result.data, dict)
-                        else {},
-                        step_result=search_result,
-                    )
-
             yield ReactStepEvent(
                 type="done",
                 thought=react_step.thought,
@@ -139,64 +94,6 @@ async def react_loop(
             tool_name = (
                 step.tool.value if hasattr(step.tool, "value") else str(step.tool)
             )
-
-            # ── Deterministic guard: ensure resolve_anime before search_bangumi ──
-            has_resolved = any(o.tool == "resolve_anime" for o in history)
-            if (
-                tool_name == "search_bangumi"
-                and not has_resolved
-                and not (step.params or {}).get("bangumi_id")
-            ):
-                logger.info("react_guard_inject_resolve_anime", query=text)
-                resolve_step = PlanStep(
-                    tool=ToolName.RESOLVE_ANIME,
-                    params={"title": text},
-                )
-
-                # Yield running event for injected step
-                yield ReactStepEvent(
-                    type="step",
-                    thought="Guard: injecting resolve_anime before search_bangumi",
-                    tool="resolve_anime",
-                    status="running",
-                )
-
-                # Execute the injected resolve_anime
-                resolve_result = await executor._execute_step(
-                    resolve_step, executor_context
-                )
-                accumulated_results.append(resolve_result)
-
-                if resolve_result.success and hasattr(resolve_step, "tool"):
-                    executor_context[resolve_step.tool.value] = resolve_result.data
-
-                resolve_obs = ExecutorAgent.format_observation(resolve_result)
-                history.append(resolve_obs)
-
-                yield ReactStepEvent(
-                    type="step",
-                    thought="Guard: resolve_anime completed",
-                    tool="resolve_anime",
-                    status="done",
-                    observation=resolve_obs.summary,
-                    data=(
-                        resolve_result.data
-                        if isinstance(resolve_result.data, dict)
-                        else {}
-                    ),
-                    step_result=resolve_result,
-                )
-
-                if not resolve_result.success:
-                    yield ReactStepEvent(
-                        type="error",
-                        thought="Guard: resolve_anime failed",
-                        message=(
-                            f"Could not resolve anime title: {resolve_result.error}"
-                        ),
-                    )
-                    return
-            # ── End guard ──
 
             # Yield "running" event
             yield ReactStepEvent(
@@ -213,6 +110,7 @@ async def react_loop(
             # Update executor context (same as original pipeline)
             if step_result.success and hasattr(step, "tool"):
                 executor_context[step.tool.value] = step_result.data
+                failure_count = 0  # reset on success
 
             # Format observation for planner
             obs = ExecutorAgent.format_observation(step_result)
@@ -229,14 +127,29 @@ async def react_loop(
                 step_result=step_result,
             )
 
-            # If step failed, stop the loop
+            # If step failed, let planner recover
             if not step_result.success:
+                failure_count += 1
+                if failure_count >= 2:
+                    yield ReactStepEvent(
+                        type="error",
+                        thought="Too many consecutive failures",
+                        message=(
+                            f"Stopped after {failure_count} failures. "
+                            f"Last: {step_result.error}"
+                        ),
+                    )
+                    return
+                # Planner already has the failure observation in history
+                # Just yield a failed step event and continue the loop
                 yield ReactStepEvent(
-                    type="error",
+                    type="step",
                     thought=react_step.thought,
-                    message=f"Step {tool_name} failed: {step_result.error}",
+                    tool=tool_name,
+                    status="failed",
+                    observation=obs.summary,
                 )
-                return
+                continue
 
             # If clarify, pause and wait for user input
             if tool_name == "clarify":
@@ -268,7 +181,8 @@ async def run_pipeline(
     model: Model | str | None = None,
     locale: str = "ja",
     context: dict[str, object] | None = None,
-    on_step: Callable[[str, str, dict[str, object]], Awaitable[None]] | None = None,
+    on_step: Callable[[str, str, dict[str, object], str, str], Awaitable[None]]
+    | None = None,
 ) -> PipelineResult:
     """Backward-compatible wrapper: runs ReAct loop and collects into PipelineResult."""
     planner = ReActPlannerAgent(model)
@@ -285,7 +199,9 @@ async def run_pipeline(
         context=context,
     ):
         if on_step is not None and event.type == "step":
-            await on_step(event.tool, event.status, event.data)
+            await on_step(
+                event.tool, event.status, event.data, event.thought, event.observation
+            )
 
         if event.step_result is not None:
             all_step_results.append(event.step_result)
@@ -294,12 +210,25 @@ async def run_pipeline(
             final_message = event.message
 
     # Build a PipelineResult from accumulated results
-    # Infer intent from the last successful tool execution
+    # Infer intent via priority: route > search > fallback (order-independent)
+    _INTENT_PRIORITY: dict[str, int] = {
+        "plan_route": 0,
+        "plan_selected": 1,
+        "search_nearby": 2,
+        "search_bangumi": 3,
+        "answer_question": 4,
+        "clarify": 5,
+        "greet_user": 6,
+        "resolve_anime": 7,
+    }
     intent = "answer_question"
-    for sr in reversed(all_step_results):
-        if sr.success and sr.tool not in ("resolve_anime", "greet_user"):
-            intent = sr.tool
-            break
+    best_priority = _INTENT_PRIORITY.get("answer_question", 99)
+    for sr in all_step_results:
+        if sr.success:
+            p = _INTENT_PRIORITY.get(sr.tool, 99)
+            if p < best_priority:
+                intent = sr.tool
+                best_priority = p
 
     plan = ExecutionPlan(
         steps=[],  # ReAct doesn't produce a pre-computed plan
