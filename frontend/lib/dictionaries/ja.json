@@ -113,7 +113,9 @@
     "tab_episode": "集数別",
     "tab_area": "地域別",
     "other_label": "その他",
-    "unknown_area": "不明"
+    "unknown_area": "不明",
+    "empty_hint": "聖地を探してみよう",
+    "empty_subtitle": "アニメのタイトルを入力すると、聖地巡礼スポットがここに表示されます"
   },
   "route": {
     "no_results": "ルートを作成できませんでした。",
@@ -139,6 +141,16 @@
     "rate_limit": "本日の上限に達しました。深夜にリセットされます。",
     "generic": "エラーが発生しました。もう一度お試しください。",
     "retry": "再試行"
+  },
+  "welcome_screen": {
+    "tagline": "アニメの舞台を探して、巡礼ルートを作ろう",
+    "action_search": "作品で探す",
+    "action_search_desc": "アニメのタイトルから聖地を検索",
+    "action_nearby": "近くの聖地",
+    "action_nearby_desc": "現在地の周辺にあるスポットを表示",
+    "action_route": "ルートを作成",
+    "action_route_desc": "行きたいスポットで巡礼ルートを組む",
+    "popular_label": "人気の作品"
   },
   "clarification": {
     "examples_label": "例えば：",

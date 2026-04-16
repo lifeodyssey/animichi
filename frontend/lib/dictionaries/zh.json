@@ -113,7 +113,9 @@
     "tab_episode": "按集数",
     "tab_area": "按地区",
     "other_label": "其他",
-    "unknown_area": "未知"
+    "unknown_area": "未知",
+    "empty_hint": "来探索圣地吧",
+    "empty_subtitle": "输入动漫标题，巡礼地点将显示在这里"
   },
   "route": {
     "no_results": "无法创建路线。",
@@ -139,6 +141,16 @@
     "rate_limit": "已达今日上限，将于午夜重置。",
     "generic": "出了点问题，请重试。",
     "retry": "重试"
+  },
+  "welcome_screen": {
+    "tagline": "探索动漫圣地，踏上巡礼之旅",
+    "action_search": "搜索作品",
+    "action_search_desc": "通过动漫名称搜索取景地",
+    "action_nearby": "附近圣地",
+    "action_nearby_desc": "查看当前位置附近的取景地",
+    "action_route": "创建路线",
+    "action_route_desc": "按心仪景点规划巡礼路线",
+    "popular_label": "热门作品"
   },
   "clarification": {
     "examples_label": "例如：",

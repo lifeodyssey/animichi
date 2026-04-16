@@ -113,7 +113,9 @@
     "tab_episode": "By Episode",
     "tab_area": "By Area",
     "other_label": "Other",
-    "unknown_area": "Unknown"
+    "unknown_area": "Unknown",
+    "empty_hint": "Discover pilgrimage spots",
+    "empty_subtitle": "Search for an anime title and pilgrimage locations will appear here"
   },
   "route": {
     "no_results": "Could not create a route.",
@@ -139,6 +141,16 @@
     "rate_limit": "Daily limit reached. Resets at midnight.",
     "generic": "Something went wrong. Please try again.",
     "retry": "Retry"
+  },
+  "welcome_screen": {
+    "tagline": "Find anime filming locations and plan your pilgrimage route",
+    "action_search": "Search by anime",
+    "action_search_desc": "Find pilgrimage spots by anime title",
+    "action_nearby": "Nearby spots",
+    "action_nearby_desc": "Show spots near your current location",
+    "action_route": "Plan a route",
+    "action_route_desc": "Build a pilgrimage route with your chosen spots",
+    "popular_label": "Popular anime"
   },
   "clarification": {
     "examples_label": "For example:",
