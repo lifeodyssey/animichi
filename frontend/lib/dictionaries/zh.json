@@ -32,28 +32,43 @@
     "feat_series": "按作品浏览",
     "feat_series_desc": "按动漫作品浏览所有取景地。",
     "login": "登录",
-    "join_beta": "加入测试",
     "pin_yourname": "你的名字 · 新宿",
     "pin_euphonium": "吹响上低音号 · 宇治",
-    "pin_violet": "紫罗兰永恒花园 · 京都"
+    "pin_violet": "紫罗兰永恒花园 · 京都",
+    "landing": {
+      "hero_title": "聖地巡礼",
+      "hero_subtitle": "探索动漫圣地，踏上巡礼之旅",
+      "search_placeholder": "搜索动漫圣地...",
+      "stats_spots": "取景地",
+      "stats_anime": "动漫",
+      "stats_prefectures": "都道府县",
+      "step1_title": "搜索作品",
+      "step1_desc": "通过动漫名称搜索取景地",
+      "step2_title": "发现景点",
+      "step2_desc": "在地图上确认实际位置",
+      "step3_title": "规划路线",
+      "step3_desc": "自动生成最优巡礼路线",
+      "gallery_title": "热门作品",
+      "gallery_sub": "从经典到最新，圣地巡礼必选",
+      "steps_title": "三步开始巡礼",
+      "steps_sub": "输入作品名，其余交给我们。",
+      "scroll_hint": "向下滚动",
+      "login": "登录",
+      "search_button": "搜索"
+    }
   },
   "auth": {
     "title": "圣地巡礼",
     "subtitle": "内测版",
-    "tab_waitlist": "申请内测",
     "tab_login": "登录",
     "email_label": "邮箱地址",
     "email_placeholder": "you@example.com",
     "submitting": "提交中...",
-    "btn_waitlist": "申请内测资格",
     "btn_login": "发送登录链接",
     "loading": "加载中...",
     "already_registered": "该邮箱已经注册过了。",
     "not_configured": "登录配置尚未完成，请联系管理员确认。",
     "error": "错误: {message}",
-    "waitlist_success": "注册成功！审核通过后会发送登录链接。",
-    "not_registered": "该邮箱未申请内测，请先提交申请。",
-    "pending_review": "正在审核中，请耐心等待。",
     "magic_link_sent": "登录链接已发送到您的邮箱，请查收。",
     "callback_loading": "正在完成登录...",
     "callback_error": "无法确认登录链接。",
@@ -152,8 +167,17 @@
     "action_route_desc": "按心仪景点规划巡礼路线",
     "popular_label": "热门作品"
   },
+  "location": {
+    "use_current": "使用当前位置",
+    "enter_station": "输入站名",
+    "acquiring": "正在获取位置...",
+    "denied": "位置权限被拒绝",
+    "timeout": "位置获取超时",
+    "not_supported": "您的浏览器不支持定位功能"
+  },
   "clarification": {
     "examples_label": "例如：",
+    "search_all": "搜索所有作品",
     "suggestions": [
       {
         "label": "按作品搜索",
@@ -167,6 +191,7 @@
         "label": "规划路线",
         "query": "从新宿出发去你的名字取景地的路线"
       }
-    ]
+    ],
+    "spot_label": "景点"
   }
 }

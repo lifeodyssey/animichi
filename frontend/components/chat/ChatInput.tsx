@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import { useDict, useLocale } from "../../lib/i18n-context";
+import LocationPrompt from "./LocationPrompt";
 
 interface QuickAction {
   icon: string;
@@ -13,13 +14,24 @@ interface ChatInputProps {
   onSend: (text: string) => void;
   disabled?: boolean;
   showQuickActions?: boolean;
+  onLocationAcquired?: (lat: number, lng: number) => void;
 }
 
-export default function ChatInput({ onSend, disabled, showQuickActions }: ChatInputProps) {
-  const { chat: t, landing_hero: lh } = useDict();
+export default function ChatInput({
+  onSend,
+  disabled,
+  showQuickActions,
+  onLocationAcquired,
+}: ChatInputProps) {
+  const dict = useDict();
+  const { chat: t, landing_hero: lh } = dict;
   const locale = useLocale();
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+
+  const geoSupported =
+    typeof navigator !== "undefined" && !!navigator.geolocation;
 
   function adjustHeight() {
     const el = textareaRef.current;
@@ -57,6 +69,16 @@ export default function ChatInput({ onSend, disabled, showQuickActions }: ChatIn
 
   const hasText = text.trim().length > 0;
 
+  function handleCoordsAcquired(lat: number, lng: number) {
+    setShowLocationPrompt(false);
+    onLocationAcquired?.(lat, lng);
+  }
+
+  function handleStationSubmit(station: string) {
+    setShowLocationPrompt(false);
+    onSend(station);
+  }
+
   const quickActions: QuickAction[] = [
     { icon: "\u2726", label: lh.feat_search, query: lh.chat_placeholder },
     { icon: "\u25CE", label: lh.feat_route, query: locale === "ja" ? "ルートを計画して" : locale === "zh" ? "帮我规划路线" : "Plan a route for me" },
@@ -72,7 +94,7 @@ export default function ChatInput({ onSend, disabled, showQuickActions }: ChatIn
               key={action.label}
               type="button"
               onClick={() => onSend(action.query)}
-              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--color-border)] bg-white px-4 text-sm text-[var(--color-fg)] transition-colors hover:border-[var(--color-primary)]/50 hover:text-[var(--color-primary)]"
+              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-4 text-sm text-[var(--color-fg)] transition-colors hover:border-[var(--color-primary)]/50 hover:text-[var(--color-primary)]"
               style={{ minHeight: "44px", transitionDuration: "var(--duration-fast)" }}
             >
               <span>{action.icon}</span>
@@ -81,10 +103,34 @@ export default function ChatInput({ onSend, disabled, showQuickActions }: ChatIn
           ))}
         </div>
       )}
+      {showLocationPrompt && (
+        <LocationPrompt
+          onCoords={handleCoordsAcquired}
+          onStation={handleStationSubmit}
+          onDismiss={() => setShowLocationPrompt(false)}
+          dict={dict}
+          locale={locale}
+        />
+      )}
       <div
-        className="mx-auto flex w-full max-w-[680px] items-end gap-2 rounded-2xl border border-[var(--color-border)] bg-white p-3 shadow-sm transition focus-within:border-[var(--color-primary)]"
+        className="mx-auto flex w-full max-w-[680px] items-end gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3 shadow-sm transition focus-within:border-[var(--color-primary)]"
         style={{ transitionDuration: "var(--duration-fast)" }}
       >
+        {geoSupported && (
+          <button
+            type="button"
+            onClick={() => setShowLocationPrompt((v) => !v)}
+            aria-label="location"
+            className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full text-[var(--color-muted-fg)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-primary)]"
+            style={{ transitionDuration: "var(--duration-fast)" }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+              <circle cx="12" cy="12" r="9" strokeDasharray="2 4" />
+            </svg>
+          </button>
+        )}
         <textarea
           ref={textareaRef}
           aria-label={t.placeholder}
@@ -100,7 +146,7 @@ export default function ChatInput({ onSend, disabled, showQuickActions }: ChatIn
         <button
           onClick={handleSubmit}
           disabled={disabled || !hasText}
-          className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full transition-colors duration-150 disabled:bg-gray-200 disabled:text-gray-400 bg-[var(--color-primary)] text-white hover:opacity-90"
+          className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full transition-colors duration-150 disabled:bg-[var(--color-muted)] disabled:text-[var(--color-muted-fg)] bg-[var(--color-primary)] text-white hover:opacity-90"
           aria-label={t.send}
         >
           {disabled ? (

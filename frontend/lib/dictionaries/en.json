@@ -32,28 +32,43 @@
     "feat_series": "By Series",
     "feat_series_desc": "Browse locations organized by anime.",
     "login": "Log in",
-    "join_beta": "Join beta",
     "pin_yourname": "Your Name · Shinjuku",
     "pin_euphonium": "Euphonium · Uji",
-    "pin_violet": "Violet Evergarden · Kyoto"
+    "pin_violet": "Violet Evergarden · Kyoto",
+    "landing": {
+      "hero_title": "聖地巡礼",
+      "hero_subtitle": "Find anime filming locations and plan your pilgrimage route",
+      "search_placeholder": "Search anime pilgrimage spots...",
+      "stats_spots": "spots",
+      "stats_anime": "anime",
+      "stats_prefectures": "prefectures",
+      "step1_title": "Search by anime",
+      "step1_desc": "Find pilgrimage spots by anime title",
+      "step2_title": "Discover spots",
+      "step2_desc": "Confirm real locations on the map",
+      "step3_title": "Plan your route",
+      "step3_desc": "Auto-generate the optimal pilgrimage route",
+      "gallery_title": "Popular anime",
+      "gallery_sub": "From classics to new releases",
+      "steps_title": "3 steps to start your pilgrimage",
+      "steps_sub": "Just enter an anime title — we handle the rest.",
+      "scroll_hint": "Scroll down",
+      "login": "Log in",
+      "search_button": "Search"
+    }
   },
   "auth": {
     "title": "Seichijunrei",
     "subtitle": "Internal beta",
-    "tab_waitlist": "Join beta",
     "tab_login": "Log in",
     "email_label": "Email address",
     "email_placeholder": "you@example.com",
     "submitting": "Sending...",
-    "btn_waitlist": "Request access",
     "btn_login": "Send login link",
     "loading": "Loading...",
     "already_registered": "This email is already registered.",
     "not_configured": "Sign-in is not configured yet.",
     "error": "Error: {message}",
-    "waitlist_success": "Registered! We'll send your login link once approved.",
-    "not_registered": "This email isn't registered for the beta. Please sign up first.",
-    "pending_review": "Your application is under review. Please wait.",
     "magic_link_sent": "Login link sent — check your inbox.",
     "callback_loading": "Completing sign-in...",
     "callback_error": "Could not verify the sign-in link.",
@@ -152,8 +167,17 @@
     "action_route_desc": "Build a pilgrimage route with your chosen spots",
     "popular_label": "Popular anime"
   },
+  "location": {
+    "use_current": "Use current location",
+    "enter_station": "Enter station name",
+    "acquiring": "Acquiring location...",
+    "denied": "Location access denied",
+    "timeout": "Location request timed out",
+    "not_supported": "Your browser does not support geolocation"
+  },
   "clarification": {
     "examples_label": "For example:",
+    "search_all": "Search all titles",
     "suggestions": [
       {
         "label": "Search by anime",
@@ -167,6 +191,7 @@
         "label": "Plan a route",
         "query": "Plan a route for Hibike Euphonium spots from Kyoto"
       }
-    ]
+    ],
+    "spot_label": "spots"
   }
 }
