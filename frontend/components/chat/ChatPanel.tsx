@@ -6,6 +6,7 @@ import type { Dict, Locale } from "../../lib/i18n";
 import WelcomeScreen from "./WelcomeScreen";
 import MessageList from "./MessageList";
 import ChatInput from "../chat/ChatInput";
+import { cn } from "../../lib/utils";
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -20,10 +21,6 @@ interface ChatPanelProps {
   isMobile?: boolean;
 }
 
-/**
- * 360px chat panel — shows WelcomeScreen when no messages, MessageList otherwise.
- * The WelcomeScreen is replaced by the message list after the first message is sent.
- */
 export default function ChatPanel({
   messages,
   sending,
@@ -33,7 +30,6 @@ export default function ChatPanel({
   onSend,
   onActivate,
   onOpenDrawer,
-  onSuggest,
   isMobile = false,
 }: ChatPanelProps) {
   const isEmpty = messages.length === 0;
@@ -51,7 +47,13 @@ export default function ChatPanel({
   }
 
   return (
-    <div className="flex min-h-0 w-[360px] shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-bg)]">
+    <div
+      className={cn(
+        "flex min-h-0 flex-col border-[var(--color-border)] bg-[var(--color-bg)]",
+        isMobile
+          ? "h-full w-full border-r-0"
+          : "w-[360px] shrink-0 border-r",
+      )}>
       {isEmpty ? (
         <div className="flex min-h-0 flex-1 overflow-y-auto">
           <WelcomeScreen onSend={handleSend} dict={dict} locale={locale} />
@@ -62,7 +64,6 @@ export default function ChatPanel({
           onActivate={onActivate}
           activeMessageId={activeMessageId}
           onOpenDrawer={isMobile ? onOpenDrawer : undefined}
-          onSuggest={onSuggest ?? handleSend}
         />
       )}
       <ChatInput

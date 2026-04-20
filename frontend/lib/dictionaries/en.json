@@ -58,8 +58,8 @@
     }
   },
   "auth": {
-    "title": "Seichijunrei",
-    "subtitle": "Internal beta",
+    "title": "Log in",
+    "subtitle": "Enter your email to receive a login link",
     "tab_login": "Log in",
     "email_label": "Email address",
     "email_placeholder": "you@example.com",
@@ -81,6 +81,16 @@
     "check_email_heading": "Check your email",
     "check_email_body": "Click the link in your inbox to sign in.",
     "back_to_login": "Back"
+  },
+  "thinking": {
+    "resolve_anime": "Resolving anime title...",
+    "search_bangumi": "Searching pilgrimage spots...",
+    "search_nearby": "Searching nearby spots...",
+    "plan_route": "Planning route...",
+    "plan_selected": "Planning route...",
+    "greet_user": "Responding...",
+    "answer_question": "Answering...",
+    "clarify": "Checking details..."
   },
   "chat": {
     "placeholder": "Find pilgrimage spots or plan a route…",

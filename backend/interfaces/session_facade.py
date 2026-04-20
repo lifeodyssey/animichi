@@ -6,6 +6,7 @@ compaction, title generation, and selected-point plan construction.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 import structlog
@@ -14,6 +15,7 @@ from backend.agents.base import create_agent, get_default_model
 from backend.agents.executor_agent import PipelineResult
 from backend.agents.models import ExecutionPlan, PlanStep, ToolName
 from backend.infrastructure.session import SessionStore
+from backend.infrastructure.supabase.client import SupabaseClient
 from backend.interfaces.schemas import PublicAPIRequest
 
 logger = structlog.get_logger(__name__)
@@ -22,6 +24,18 @@ COMPACT_THRESHOLD = 8
 COMPACT_KEEP_RECENT = 2
 MAX_INTERACTIONS = 20
 MAX_ROUTE_HISTORY = 10
+
+
+@dataclass(frozen=True)
+class SessionUpdate:
+    """Bundles all response fields needed to update session state."""
+
+    request: PublicAPIRequest
+    response_intent: str
+    response_status: str
+    response_success: bool
+    response_message: str = field(default="")
+    context_delta: dict[str, object] | None = field(default=None)
 
 
 def normalize_session_state(state: dict[str, object] | None) -> dict[str, object]:
@@ -54,25 +68,19 @@ def normalize_session_state(state: dict[str, object] | None) -> dict[str, object
 
 def build_updated_session_state(
     previous_state: dict[str, object],
-    *,
-    request: PublicAPIRequest,
-    response_intent: str,
-    response_status: str,
-    response_success: bool,
-    response_message: str = "",
-    context_delta: dict[str, object] | None = None,
+    update: SessionUpdate,
 ) -> dict[str, object]:
     """Append the current interaction and return the updated session state."""
     raw = previous_state["interactions"]
     interactions = list(raw) if isinstance(raw, list) else []
     interactions.append(
         {
-            "text": request.text,
-            "intent": response_intent,
-            "status": response_status,
-            "success": response_success,
+            "text": update.request.text,
+            "intent": update.response_intent,
+            "status": update.response_status,
+            "success": update.response_success,
             "created_at": datetime.now(UTC).isoformat(),
-            "context_delta": context_delta or {},
+            "context_delta": update.context_delta or {},
         }
     )
     interactions = interactions[-MAX_INTERACTIONS:]
@@ -80,9 +88,9 @@ def build_updated_session_state(
     return {
         **previous_state,
         "interactions": interactions,
-        "last_intent": response_intent,
-        "last_status": response_status,
-        "last_message": response_message,
+        "last_intent": update.response_intent,
+        "last_status": update.response_status,
+        "last_message": update.response_message,
         "updated_at": datetime.now(UTC).isoformat(),
     }
 
@@ -397,14 +405,13 @@ async def generate_and_save_title(
     except Exception:
         logger.warning("conversation_title_generation_failed", session_id=session_id)
 
-    update_conversation_title = getattr(db, "update_conversation_title", None)
-    if update_conversation_title is None:
+    if not isinstance(db, SupabaseClient):
         return
 
     try:
-        await update_conversation_title(session_id, title, user_id=user_id)
+        await db.session.update_conversation_title(session_id, title, user_id=user_id)
     except TypeError:
-        await update_conversation_title(session_id, title)
+        await db.session.update_conversation_title(session_id, title)
     except Exception:
         logger.warning("update_conversation_title_failed", session_id=session_id)
 
