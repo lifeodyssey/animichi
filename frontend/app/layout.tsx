@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { LocaleProvider } from "../lib/i18n-context";
+import MSWProvider from "../mocks/MSWProvider";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import {
@@ -65,6 +66,22 @@ export default function RootLayout({
       className={cn("h-full antialiased", "font-sans", geist.variable)}
       suppressHydrationWarning
     >
+
+      <head>
+        {/* Preload Mapbox GL JS — starts download before any map component mounts */}
+        <link
+          rel="preload"
+          href="https://api.mapbox.com/mapbox-gl-js/v3.22.0/mapbox-gl.js"
+          as="script"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="https://api.mapbox.com/mapbox-gl-js/v3.22.0/mapbox-gl.css"
+          as="style"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <script
           type="application/ld+json"
@@ -80,7 +97,9 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
-        <LocaleProvider>{children}</LocaleProvider>
+        <MSWProvider>
+          <LocaleProvider>{children}</LocaleProvider>
+        </MSWProvider>
       </body>
     </html>
   );

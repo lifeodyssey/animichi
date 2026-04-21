@@ -8,6 +8,19 @@
   --app-font-mono: "SFMono-Regular", "IBM Plex Mono", monospace;
   --app-font-display: "Shippori Mincho B1", "Hiragino Mincho ProN", Georgia, serif;
 
+  /* Brand — 鸟居朱色 (logo and branding only) */
+  --color-brand:      oklch(58% 0.19 28);
+  --color-brand-soft: oklch(94% 0.02 25);
+
+  /* Radius — systematic 3-level scale */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+
+  /* Walk segments */
+  --color-walk-bg: oklch(92% 0.02 145);
+  --color-walk-fg: oklch(35% 0.06 145);
+
   /* Palette — 京吹夏季 · 白水手 × 天蓝裙 × 铜管金 */
   --color-bg:      oklch(98% 0.008 218);
   --color-fg:      oklch(20% 0.025 238);
@@ -251,6 +264,27 @@ a { color: inherit; }
   touch-action: none;
 }
 
+/* Leaflet popup z-index — above filter chips and selection bar */
+.leaflet-popup {
+  z-index: 1000 !important;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: var(--r-md) !important;
+  box-shadow: 0 4px 16px oklch(20% 0.02 238 / 0.12) !important;
+}
+.leaflet-pane {
+  z-index: 1 !important;
+}
+.leaflet-top, .leaflet-bottom {
+  z-index: 2 !important;
+}
+
+/* Chat popup entrance */
+@keyframes popup-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -272,9 +306,14 @@ input:not([type="hidden"]), select, textarea {
 }
 
 /* ── Focus visible ── */
-:focus-visible:not(:has(:focus-visible)) {
+:focus-visible:not(:has(:focus-visible)):not(textarea):not(input) {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+/* textarea/input inside a focus-within container should not show their own outline */
+textarea:focus-visible,
+input:focus-visible {
+  outline: none;
 }
 
 /* ── Icon sidebar nav button hover ── */
