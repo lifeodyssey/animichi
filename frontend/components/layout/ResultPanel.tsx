@@ -3,13 +3,15 @@
 import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import type { RuntimeResponse, PilgrimagePoint, SearchResultData } from "../../lib/types";
-import { isSearchData } from "../../lib/types";
+import { isSearchData, isRouteData } from "../../lib/types";
 import { usePointSelectionContext } from "../../contexts/PointSelectionContext";
 import { useDict } from "../../lib/i18n-context";
+import { haversineKm } from "../../lib/geo";
 import { useSuggest } from "../../contexts/SuggestContext";
-import SelectionBar from "../generative/SelectionBar";
 import GenerativeUIRenderer from "../generative/GenerativeUIRenderer";
+import RouteConfirm from "../generative/RouteConfirm";
 import { PhotoCard } from "../generative/PhotoCard";
+import SpotDetail from "../generative/SpotDetail";
 import { ResultPanelToolbar } from "./ResultPanelToolbar";
 import type { FilterMode } from "./ResultPanelToolbar";
 import { ResultPanelEmptyState } from "./ResultPanelEmptyState";
@@ -32,67 +34,9 @@ type ViewMode = "grid" | "map";
 
 interface ResultPanelProps {
   activeResponse: RuntimeResponse | null;
-  onSuggest?: (text: string) => void;
-  onRouteSelected?: (origin: string) => void;
+  onRouteConfirmed?: (orderedIds: string[], origin: string) => void;
   defaultOrigin?: string;
   loading?: boolean;
-  /** Collapse result panel → chat-focused mode. */
-  onCollapse?: () => void;
-  /** Expand result panel → full-screen mode. */
-  onExpand?: () => void;
-  /** Whether the panel is currently in full-screen mode. */
-  isFullScreen?: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Layout controls — collapse / expand buttons at top of result panel
-// ---------------------------------------------------------------------------
-
-function LayoutControls({
-  onCollapse,
-  onExpand,
-  isFullScreen,
-}: {
-  onCollapse?: () => void;
-  onExpand?: () => void;
-  isFullScreen?: boolean;
-}) {
-  if (!onCollapse && !onExpand) return null;
-  return (
-    <div className="flex shrink-0 items-center justify-end gap-1 border-b border-[var(--color-border)] px-3 py-1.5">
-      {onExpand && !isFullScreen && (
-        <button
-          type="button"
-          onClick={onExpand}
-          aria-label="Expand result panel"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-muted-fg)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-fg)]"
-        >
-          {/* Expand / maximize icon */}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <polyline points="15 3 21 3 21 9" />
-            <polyline points="9 21 3 21 3 15" />
-            <line x1="21" y1="3" x2="14" y2="10" />
-            <line x1="3" y1="21" x2="10" y2="14" />
-          </svg>
-        </button>
-      )}
-      {onCollapse && (
-        <button
-          type="button"
-          onClick={onCollapse}
-          aria-label="Collapse result panel"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-muted-fg)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-fg)]"
-        >
-          {/* Collapse / panel-right icon */}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <line x1="15" y1="3" x2="15" y2="21" />
-            <polyline points="10 8 6 12 10 16" />
-          </svg>
-        </button>
-      )}
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -136,16 +80,6 @@ const KNOWN_AREAS: { name: string; lat: number; lng: number; r: number }[] = [
   { name: "奈良", lat: 34.685, lng: 135.805, r: 10 },
   { name: "神戸", lat: 34.690, lng: 135.195, r: 12 },
 ];
-
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 function pointArea(p: PilgrimagePoint): string {
   for (const area of KNOWN_AREAS) {
@@ -208,9 +142,10 @@ interface GridContentProps {
   points: PilgrimagePoint[];
   selectedIds: Set<string>;
   onToggle: (id: string) => void;
+  onDetail?: (point: PilgrimagePoint) => void;
 }
 
-function GridContent({ points, selectedIds, onToggle }: GridContentProps) {
+function GridContent({ points, selectedIds, onToggle, onDetail }: GridContentProps) {
   return (
     <div className="flex-1 overflow-y-auto p-4">
       <div
@@ -226,6 +161,7 @@ function GridContent({ points, selectedIds, onToggle }: GridContentProps) {
             point={point}
             selected={selectedIds.has(point.id)}
             onToggle={onToggle}
+            onDetail={onDetail}
           />
         ))}
       </div>
@@ -239,12 +175,9 @@ function GridContent({ points, selectedIds, onToggle }: GridContentProps) {
 
 export default function ResultPanel({
   activeResponse,
-  onRouteSelected,
+  onRouteConfirmed,
   defaultOrigin,
   loading,
-  onCollapse,
-  onExpand,
-  isFullScreen,
 }: ResultPanelProps) {
   const onSuggest = useSuggest();
   const { selectedIds, toggle, clear } = usePointSelectionContext();
@@ -252,12 +185,30 @@ export default function ResultPanel({
   const [filterMode, setFilterMode] = useState<FilterMode>("episode");
   const [activeEpRange, setActiveEpRange] = useState<string | null>(null);
   const [activeArea, setActiveArea] = useState<string | null>(null);
+  const [confirmMode, setConfirmMode] = useState(false);
+  const [detailPoint, setDetailPoint] = useState<PilgrimagePoint | null>(null);
+
+  // Reset confirm mode and detail view when response changes (e.g. new search triggered).
+  // Track prev response identity in state to trigger reset without useEffect + setState
+  // or ref access during render.
+  const [prevResponse, setPrevResponse] = useState(activeResponse);
+  if (prevResponse !== activeResponse) {
+    setPrevResponse(activeResponse);
+    if (confirmMode) setConfirmMode(false);
+    if (detailPoint !== null) setDetailPoint(null);
+  }
 
   // Extract search points from the response (when available).
   const searchPoints = useMemo<PilgrimagePoint[]>(() => {
     if (!activeResponse || !isSearchData(activeResponse.data)) return [];
     return (activeResponse.data as SearchResultData).results.rows;
   }, [activeResponse]);
+
+  // Selected points as full PilgrimagePoint[] objects (for RouteConfirm).
+  const selectedPoints = useMemo<PilgrimagePoint[]>(
+    () => searchPoints.filter((p) => selectedIds.has(p.id)),
+    [searchPoints, selectedIds],
+  );
 
   // Episode range filter chips — only built when episode data exists.
   const epRanges = useMemo(() => buildEpRanges(searchPoints), [searchPoints]);
@@ -307,6 +258,44 @@ export default function ResultPanel({
     prewarmMapbox();
     const isEmpty = searchPoints.length === 0;
 
+    // ── Confirm mode: show RouteConfirm instead of grid/map ──────────────
+    if (confirmMode) {
+      return (
+        <section
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]"
+          style={{ animation: "slide-in-right 0.3s ease-out" }}
+        >
+          <RouteConfirm
+            points={selectedPoints}
+            defaultOrigin={defaultOrigin ?? ""}
+            onConfirm={(ids, origin) => {
+              setConfirmMode(false);
+              onRouteConfirmed?.(ids, origin);
+            }}
+            onBack={() => setConfirmMode(false)}
+          />
+        </section>
+      );
+    }
+
+    // ── Detail mode: show SpotDetail for a single point ─────────────────
+    if (detailPoint) {
+      return (
+        <section
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]"
+          style={{ animation: "slide-in-right 0.3s ease-out" }}
+        >
+          <SpotDetail
+            point={detailPoint}
+            onBack={() => setDetailPoint(null)}
+            onSelect={(id) => { toggle(id); setDetailPoint(null); }}
+            isSelected={selectedIds.has(detailPoint.id)}
+            nearbyPoints={searchPoints}
+          />
+        </section>
+      );
+    }
+
     return (
       <section
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]"
@@ -336,6 +325,7 @@ export default function ResultPanel({
             points={visiblePoints}
             selectedIds={selectedIds}
             onToggle={toggle}
+            onDetail={setDetailPoint}
           />
         ) : (
           <div className="relative flex-1 overflow-hidden">
@@ -364,9 +354,9 @@ export default function ResultPanel({
             </span>
             <button
               type="button"
-              onClick={() => onRouteSelected?.(defaultOrigin ?? "")}
+              onClick={() => setConfirmMode(true)}
               disabled={loading || selectedIds.size < 2}
-              className="ml-auto flex h-9 items-center gap-2 rounded-[var(--r-md)] bg-[var(--color-primary)] px-5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="ml-auto flex h-11 items-center gap-2 rounded-[var(--r-md)] bg-[var(--color-primary)] px-5 text-sm font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               规划路线
             </button>
@@ -383,8 +373,22 @@ export default function ResultPanel({
     );
   }
 
+  // ── Route results: full-bleed (no padding) for horizontal split layout ────
+  if (isRouteData(activeResponse.data)) {
+    return (
+      <section
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]"
+        style={{ animation: "slide-in-right 0.3s ease-out" }}
+      >
+        <div className="flex-1 overflow-hidden">
+          <GenerativeUIRenderer response={activeResponse} onSuggest={onSuggest} />
+        </div>
+      </section>
+    );
+  }
+
   // ── Other response types: fall through to GenerativeUIRenderer ────────────
-  // (route results, QA, greet, etc.) — keep existing GenerativeUI path.
+  // (QA, greet, etc.) — keep existing GenerativeUI path with padding.
   return (
     <section
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]"

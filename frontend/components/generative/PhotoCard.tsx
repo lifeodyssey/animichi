@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import type { PilgrimagePoint } from "../../lib/types";
@@ -12,7 +13,7 @@ export function EpisodeBadge({ episode }: { episode: number | null }) {
   const { grid: t } = useDict();
   if (episode == null) return null;
   return (
-    <span className="absolute left-2 top-2 rounded-[5px] bg-black/55 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[var(--color-bg)] backdrop-blur-[4px]">
+    <span className="absolute left-2 top-2 rounded-[5px] bg-[var(--color-fg)]/55 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[var(--color-bg)] backdrop-blur-[4px]">
       {t.episode.replace("{ep}", String(episode))}
     </span>
   );
@@ -26,13 +27,14 @@ interface PhotoCardProps {
   point: PilgrimagePoint;
   selected: boolean;
   onToggle: (id: string) => void;
+  onDetail?: (point: PilgrimagePoint) => void;
 }
 
-export function PhotoCard({ point, selected, onToggle }: PhotoCardProps) {
+export function PhotoCard({ point, selected, onToggle, onDetail }: PhotoCardProps) {
   return (
     <div
       className={cn(
-        "group relative cursor-pointer overflow-hidden rounded-[10px] border-2 bg-[var(--color-card)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
+        "group relative cursor-pointer overflow-hidden rounded-[var(--r-lg)] border-2 bg-[var(--color-card)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
         selected ? "border-[var(--color-primary)]" : "border-transparent"
       )}
       onClick={() => onToggle(point.id)}
@@ -46,6 +48,15 @@ export function PhotoCard({ point, selected, onToggle }: PhotoCardProps) {
         }
       }}
     >
+      {/* Detail button — visible on hover */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onDetail?.(point); }}
+        className="absolute left-2 top-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-bg)] text-[var(--color-muted-fg)] opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-[var(--color-primary)]"
+        aria-label="查看详情"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      </button>
       {/* Image — 16/10 aspect ratio */}
       <div className="relative aspect-[16/10] overflow-hidden">
         {point.screenshot_url ? (

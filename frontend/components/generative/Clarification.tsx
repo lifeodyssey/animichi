@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState } from "react";
@@ -24,11 +25,11 @@ export default function Clarification({
   const hasCandidates = candidates !== undefined && candidates.length > 0;
   const hasOptions = options !== undefined && options.length > 0;
 
-  // If we have candidate objects, render the card layout
+  // If we have candidate objects, render the vertical card layout
   if (hasCandidates) {
     return (
-      <div className="space-y-5 py-2">
-        <p className="max-w-[65ch] text-sm font-light leading-loose text-[var(--color-fg)]">
+      <div className="space-y-3">
+        <p className="text-sm font-light leading-relaxed text-[var(--color-fg)]">
           {message}
         </p>
         <div className="flex flex-col gap-2">
@@ -49,45 +50,45 @@ export default function Clarification({
     );
   }
 
-  // If we have plain string options (legacy), render tappable option buttons
+  // If we have plain string options (legacy), convert to candidate-like cards
   if (hasOptions) {
+    const syntheticCandidates: ClarifyCandidate[] = options.map((opt) => ({
+      title: opt,
+      cover_url: null,
+      spot_count: 0,
+      city: "",
+    }));
     return (
-      <div className="space-y-5 py-2">
-        <p className="max-w-[65ch] text-sm font-light leading-loose text-[var(--color-fg)]">
+      <div className="space-y-3">
+        <p className="text-sm font-light leading-relaxed text-[var(--color-fg)]">
           {message}
         </p>
-        <div className="flex flex-wrap gap-x-4 gap-y-2">
-          {options.map((option) => (
-            <button
-              key={option}
-              onClick={() => onSuggest?.(option)}
-              className="rounded-md border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-1.5 text-xs font-light text-[var(--color-fg)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-              style={{ transitionDuration: "var(--duration-fast)" }}
-            >
-              {option}
-            </button>
+        <div className="flex flex-col gap-2">
+          {syntheticCandidates.map((c) => (
+            <CandidateCard
+              key={c.title}
+              candidate={c}
+              onSelect={() => onSuggest?.(c.title)}
+            />
           ))}
         </div>
       </div>
     );
   }
 
-  // Default fallback: suggestion buttons from dictionary
+  // Default fallback: suggestion buttons from dictionary as candidate-like cards
   return (
-    <div className="space-y-5 py-2">
-      <p className="max-w-[65ch] text-sm font-light leading-loose text-[var(--color-fg)]">
+    <div className="space-y-3">
+      <p className="text-sm font-light leading-relaxed text-[var(--color-fg)]">
         {message}
       </p>
-      <div className="flex flex-wrap gap-x-6 gap-y-2">
+      <div className="flex flex-col gap-2">
         {t.suggestions.map((s) => (
-          <button
+          <FallbackSuggestionCard
             key={s.label}
-            onClick={() => onSuggest?.(s.query)}
-            className="text-xs font-light text-[var(--color-primary)] underline-offset-2 transition hover:underline"
-            style={{ transitionDuration: "var(--duration-fast)" }}
-          >
-            {s.label} →
-          </button>
+            label={s.label}
+            onSelect={() => onSuggest?.(s.query)}
+          />
         ))}
       </div>
     </div>
@@ -113,14 +114,15 @@ function CandidateCard({
       type="button"
       onClick={onSelect}
       aria-label={candidate.title}
-      className="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-3 text-left transition-all hover:border-[var(--color-primary)] hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
+      className="flex items-center gap-3 rounded-[var(--r-lg)] border border-[var(--color-border)] bg-[var(--color-card)] p-3 text-left transition-all hover:border-[var(--color-primary)] hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
       style={{
         transitionDuration: "var(--duration-fast)",
         transitionTimingFunction: "var(--ease-out-quint)",
+        minHeight: 44,
       }}
     >
-      {/* Thumbnail */}
-      <span className="relative flex h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-[var(--color-muted)]">
+      {/* Thumbnail — enlarged for better anime cover visibility */}
+      <span className="relative flex h-14 w-11 shrink-0 overflow-hidden rounded-[var(--r-lg)] bg-[var(--color-muted)]">
         {candidate.cover_url && !imgError ? (
           <img
             src={candidate.cover_url}
@@ -135,12 +137,19 @@ function CandidateCard({
 
       {/* Text */}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-medium text-[var(--color-fg)]">
+        <span
+          className="truncate text-sm font-medium text-[var(--color-fg)]"
+          style={{ fontFamily: "var(--app-font-display)" }}
+        >
           {candidate.title}
         </span>
-        <span className="text-[11px] text-[var(--color-muted-fg)]">
-          {candidate.spot_count} {t.spot_label ?? "spots"} · {candidate.city}
-        </span>
+        {(candidate.spot_count > 0 || candidate.city) && (
+          <span className="text-[11px] text-[var(--color-muted-fg)]">
+            {candidate.spot_count > 0 && <>{candidate.spot_count} {t.spot_label ?? "spots"}</>}
+            {candidate.spot_count > 0 && candidate.city && " · "}
+            {candidate.city}
+          </span>
+        )}
       </span>
 
       {/* Arrow */}
@@ -148,7 +157,7 @@ function CandidateCard({
         className="shrink-0 text-base text-[var(--color-primary)] transition-transform"
         style={{ transitionDuration: "var(--duration-fast)" }}
       >
-        ›
+        →
       </span>
     </button>
   );
@@ -178,20 +187,26 @@ function SearchAllCard({
       type="button"
       onClick={handleClick}
       aria-label={label}
-      className="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-3 text-left transition-all hover:border-[var(--color-primary)] hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
+      className="flex items-center gap-3 rounded-[var(--r-lg)] border border-[var(--color-border)] bg-[var(--color-card)] p-3 text-left transition-all hover:border-[var(--color-primary)] hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
       style={{
         transitionDuration: "var(--duration-fast)",
         transitionTimingFunction: "var(--ease-out-quint)",
+        minHeight: 44,
       }}
     >
       {/* Icon */}
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-muted)] text-sm">
+      <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-[var(--r-lg)] bg-[var(--color-muted)] text-sm">
         {"\uD83D\uDD0D"}
       </span>
 
       {/* Text */}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-medium text-[var(--color-fg)]">{label}</span>
+        <span
+          className="truncate text-sm font-medium text-[var(--color-fg)]"
+          style={{ fontFamily: "var(--app-font-display)" }}
+        >
+          {label}
+        </span>
       </span>
 
       {/* Arrow */}
@@ -199,7 +214,56 @@ function SearchAllCard({
         className="shrink-0 text-base text-[var(--color-primary)] transition-transform"
         style={{ transitionDuration: "var(--duration-fast)" }}
       >
-        ›
+        →
+      </span>
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// FallbackSuggestionCard — used when there are no options or candidates
+// ---------------------------------------------------------------------------
+
+function FallbackSuggestionCard({
+  label,
+  onSelect,
+}: {
+  label: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-label={label}
+      className="flex items-center gap-3 rounded-[var(--r-lg)] border border-[var(--color-border)] bg-[var(--color-card)] p-3 text-left transition-all hover:border-[var(--color-primary)] hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
+      style={{
+        transitionDuration: "var(--duration-fast)",
+        transitionTimingFunction: "var(--ease-out-quint)",
+        minHeight: 44,
+      }}
+    >
+      {/* Emoji icon instead of cover */}
+      <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-[var(--r-lg)] bg-[var(--color-muted)] text-sm">
+        {"\uD83C\uDFAC"}
+      </span>
+
+      {/* Text */}
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span
+          className="truncate text-sm font-medium text-[var(--color-fg)]"
+          style={{ fontFamily: "var(--app-font-display)" }}
+        >
+          {label}
+        </span>
+      </span>
+
+      {/* Arrow */}
+      <span
+        className="shrink-0 text-base text-[var(--color-primary)] transition-transform"
+        style={{ transitionDuration: "var(--duration-fast)" }}
+      >
+        →
       </span>
     </button>
   );

@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 /**
@@ -203,13 +204,27 @@ export default function BaseMap({
           closeOnClick={false}
           offset={isRouteMode ? 16 : 36}
         >
-          <div style={{ padding: "4px 2px", fontFamily: "var(--app-font-body)" }}>
+          <div style={{ fontFamily: "var(--app-font-body)", minWidth: 160 }}>
+            {popupPoint.screenshot_url && (
+              <img
+                src={popupPoint.screenshot_url}
+                alt={popupPoint.name}
+                style={{
+                  width: "100%",
+                  height: 80,
+                  objectFit: "cover",
+                  borderRadius: "var(--r-sm)",
+                  marginBottom: 6,
+                  display: "block",
+                }}
+              />
+            )}
             <strong style={{ fontSize: 13 }}>
               {isRouteMode && route ? `${route.findIndex((p) => p.id === popupPoint.id) + 1}. ` : ""}
               {popupPoint.name_cn || popupPoint.name}
             </strong>
             <br />
-            <span style={{ fontSize: 12, color: "#666" }}>
+            <span style={{ fontSize: 12, color: "oklch(45% 0.032 228)" }}>
               {popupPoint.title_cn || popupPoint.title}
               {popupPoint.episode != null ? ` · 第${popupPoint.episode}話` : ""}
             </span>
