@@ -11,39 +11,17 @@ from backend.agents.models import ExecutionPlan, PlanStep, ToolName
 from backend.infrastructure.session.memory import InMemorySessionStore
 from backend.infrastructure.supabase.client import SupabaseClient
 from backend.interfaces.public_api import PublicAPIRequest, RuntimeAPI
-
-
-def _make_result(
-    intent: str = "search_bangumi",
-    locale: str = "ja",
-    steps: list[PlanStep] | None = None,
-    final_output: dict | None = None,
-) -> PipelineResult:
-    """Build a fake PipelineResult for tests that mock run_pipeline."""
-    plan = ExecutionPlan(
-        reasoning="test",
-        locale=locale,
-        steps=steps
-        or [PlanStep(tool=ToolName.SEARCH_BANGUMI, params={"bangumi": "123"})],
-    )
-    result = PipelineResult(intent=intent, plan=plan)
-    result.final_output = final_output or {
-        "success": True,
-        "status": "empty",
-        "message": "該当する巡礼地が見つかりませんでした。",
-        "results": {"rows": [], "row_count": 0},
-    }
-    return result
+from backend.tests.unit.conftest_public_api import (
+    install_mock_pipeline,
+)
+from backend.tests.unit.conftest_public_api import (
+    make_result as _make_result,
+)
 
 
 @pytest.fixture(autouse=True)
 def _mock_pipeline(monkeypatch):
-    """Mock run_pipeline — the ReActPlannerAgent requires an LLM."""
-
-    async def _fake(text, db, *, model=None, locale="ja", context=None, on_step=None):
-        return _make_result(locale=locale)
-
-    monkeypatch.setattr("backend.interfaces.public_api.run_pipeline", _fake)
+    install_mock_pipeline(monkeypatch)
 
 
 @pytest.fixture
@@ -73,8 +51,15 @@ class TestGreetUserEphemeral:
         result.final_output = {"success": True, "status": "info", "message": "Hello!"}
 
         async def _fake(
-            text, db, *, model=None, locale="ja", context=None, on_step=None
+            *,
+            text: str,
+            db: object,
+            model: object | None = None,
+            locale: str = "ja",
+            context: dict[str, object] | None = None,
+            on_step: object | None = None,
         ):
+            _ = (text, db, model, locale, context, on_step)
             return result
 
         db = MagicMock()
@@ -90,7 +75,9 @@ class TestGreetUserEphemeral:
         session_store.delete = AsyncMock()
         session_store.close = AsyncMock()
 
-        with patch("backend.interfaces.public_api.run_pipeline", side_effect=_fake):
+        with patch(
+            "backend.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
+        ):
             api = RuntimeAPI(db=db, session_store=session_store)
             response = await api.handle(PublicAPIRequest(text="hi"), user_id="u1")
 
@@ -138,24 +125,16 @@ class TestRuntimeAPISession:
 
 
 class TestConversationPersistence:
-    async def test_first_interaction_schedules_title_generation(self, mock_db):
-        scheduled: list[object] = []
-
-        def _capture_task(coro: object) -> MagicMock:
-            scheduled.append(coro)
-            close = getattr(coro, "close", None)
-            if callable(close):
-                close()
-            return MagicMock()
-
+    async def test_first_interaction_generates_title_in_response(self, mock_db):
         with patch(
-            "backend.interfaces.public_api.asyncio.create_task",
-            side_effect=_capture_task,
+            "backend.interfaces.persistence.generate_and_save_title",
+            return_value="京吹の聖地",
         ):
             api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
-            await api.handle(PublicAPIRequest(text="京吹"), user_id="u1")
+            response = await api.handle(PublicAPIRequest(text="京吹"), user_id="u1")
 
-        assert len(scheduled) == 1
+        assert response is not None
+        assert response.generated_title == "京吹の聖地"
 
     async def test_does_not_schedule_title_generation_for_existing_session(
         self,
@@ -184,7 +163,7 @@ class TestConversationPersistence:
             },
         )
 
-        with patch("backend.interfaces.public_api.asyncio.create_task") as create_task:
+        with patch("backend.interfaces.persistence.asyncio.create_task") as create_task:
             api = RuntimeAPI(mock_db, session_store=store)
             await api.handle(
                 PublicAPIRequest(text="京吹", session_id=session_id),
@@ -214,11 +193,20 @@ class TestUserMemoryUpsert:
         ]
 
         async def _fake(
-            text, db, *, model=None, locale="ja", context=None, on_step=None
+            *,
+            text: str,
+            db: object,
+            model: object | None = None,
+            locale: str = "ja",
+            context: dict[str, object] | None = None,
+            on_step: object | None = None,
         ):
+            _ = (text, db, model, locale, context, on_step)
             return result
 
-        with patch("backend.interfaces.public_api.run_pipeline", side_effect=_fake):
+        with patch(
+            "backend.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
+        ):
             api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
             await api.handle(PublicAPIRequest(text="響け"), user_id="u1")
 
@@ -275,7 +263,7 @@ class TestCompactThresholdTrigger:
             return MagicMock()
 
         with patch(
-            "backend.interfaces.public_api.asyncio.create_task",
+            "backend.interfaces.persistence.asyncio.create_task",
             side_effect=_capture_task,
         ):
             api = RuntimeAPI(mock_db, session_store=store)
