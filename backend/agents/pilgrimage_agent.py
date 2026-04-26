@@ -13,7 +13,7 @@ Separation rationale:
 
 from __future__ import annotations
 
-from pydantic_ai import Agent
+from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.output import ToolOutput
 
 from backend.agents.base import resolve_model
@@ -45,9 +45,16 @@ Never fabricate locations, coordinates, or routes — always use tool outputs.
 
 ### Anime search (most common)
 1. Call resolve_anime(title) FIRST to get a bangumi_id
-2. If resolve_anime returns "ambiguous": true with multiple candidates → \
-you MUST call clarify() with those candidates. Do NOT guess.
-3. If resolve_anime returns a single bangumi_id → call search_bangumi(bangumi_id)
+2. resolve_anime always returns a "candidates" list of matching anime works.
+   Evaluate whether the user's query is specific enough:
+   - If "ambiguous": true → call clarify() with the candidates. Do NOT guess.
+   - If a single bangumi_id is returned BUT the user's query is vague/short
+     (e.g. "凉宫", "fate", "響け") AND candidates contains multiple works →
+     call clarify() to let the user pick. A 2-character query is almost
+     certainly ambiguous even if the system found a "best match".
+   - If the query is specific (e.g. "涼宮ハルヒの憂鬱", "Your Name",
+     "響け！ユーフォニアム") → proceed with search_bangumi(bangumi_id).
+3. When in doubt, clarify. It's better to ask than to show wrong results.
 
 ### Location/nearby search
 - Call search_nearby(location, radius) when the user mentions a place name
@@ -100,3 +107,44 @@ pilgrimage_agent = Agent(
     instructions=_INSTRUCTIONS,
     retries=2,
 )
+
+
+@pilgrimage_agent.output_validator  # type: ignore[arg-type]
+async def validate_output(
+    ctx: RunContext[RuntimeDeps],
+    output: (
+        ClarifyResponseModel
+        | SearchResponseModel
+        | RouteResponseModel
+        | QAResponseModel
+        | GreetingResponseModel
+    ),
+) -> (
+    ClarifyResponseModel
+    | SearchResponseModel
+    | RouteResponseModel
+    | QAResponseModel
+    | GreetingResponseModel
+):
+    """Reject fabricated responses that skip required tool calls.
+
+    Only enforced when the agent actually executed steps (has step records).
+    TestModel runs with no tools produce no steps, so the validator skips.
+    """
+    if not ctx.deps.steps:
+        return output
+    tool_state = ctx.deps.tool_state
+    if isinstance(output, SearchResponseModel):
+        tool_key = str(output.intent)
+        if tool_key not in tool_state:
+            raise ModelRetry(
+                f"You returned a search response but never called {tool_key}. "
+                "Call the search tool first, then return the response."
+            )
+    if isinstance(output, RouteResponseModel):
+        if "plan_route" not in tool_state and "plan_selected" not in tool_state:
+            raise ModelRetry(
+                "You returned a route response but never called plan_route. "
+                "Call plan_route first, then return the response."
+            )
+    return output

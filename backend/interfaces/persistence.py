@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 
 import structlog
 
-from backend.agents.executor_agent import PipelineResult
+from backend.agents.agent_result import AgentResult
 from backend.infrastructure.session import SessionStore
 from backend.infrastructure.supabase.client import SupabaseClient
 from backend.interfaces.schemas import (
@@ -19,13 +19,10 @@ from backend.interfaces.schemas import (
     PublicAPIResponse,
 )
 from backend.interfaces.session_facade import (
-    COMPACT_THRESHOLD,
     MAX_ROUTE_HISTORY,
     SessionUpdate,
     build_session_summary,
     build_updated_session_state,
-    compact_session_interactions,
-    generate_and_save_title,
     normalize_session_state,
 )
 
@@ -55,7 +52,7 @@ async def persist_result(
     session_store: SessionStore,
     session_id: str,
     request: PublicAPIRequest,
-    result: PipelineResult | None,
+    result: AgentResult | None,
     response: PublicAPIResponse,
     context_delta: dict[str, object],
     previous_state: dict[str, object],
@@ -113,16 +110,17 @@ async def persist_result(
         persist_user_only=not response.success,
     )
 
-    raw_ints = session_state.get("interactions")
-    interaction_count = len(raw_ints) if isinstance(raw_ints, list) else 0
-    if interaction_count >= COMPACT_THRESHOLD:
-        _spawn_background(
-            compact_session_interactions(
-                session_id,
-                session_state,
-                session_store,
-            )
-        )
+    # TODO: re-enable session compaction with proper async task management
+    # raw_ints = session_state.get("interactions")
+    # interaction_count = len(raw_ints) if isinstance(raw_ints, list) else 0
+    # if interaction_count >= COMPACT_THRESHOLD:
+    #     _spawn_background(
+    #         compact_session_interactions(
+    #             session_id,
+    #             session_state,
+    #             session_store,
+    #         )
+    #     )
 
     return session_state, True, generated_title
 
@@ -147,7 +145,7 @@ async def persist_messages(
     db: object,
     session_id: str,
     user_text: str,
-    result: PipelineResult | None,
+    result: AgentResult | None,
     response: PublicAPIResponse,
     persist_user_only: bool = False,
 ) -> None:
@@ -168,7 +166,6 @@ async def persist_messages(
         response_data = {
             "intent": result.intent,
             "success": result.success,
-            "final_output": result.final_output,
         }
     await _safe_insert_message(
         insert_message,
@@ -205,7 +202,7 @@ async def persist_user_state(
     user_id: str | None,
     request: PublicAPIRequest,
     response: PublicAPIResponse,
-    result: PipelineResult | None,
+    result: AgentResult | None,
     context_delta: dict[str, object],
     previous_state: dict[str, object],
 ) -> str | None:
@@ -219,19 +216,24 @@ async def persist_user_state(
             await db.session.upsert_conversation(session_id, user_id, request.text)
         except _PERSIST_ERRORS:
             logger.warning("upsert_conversation_failed", session_id=session_id)
-        else:
-            raw_prev_ints = previous_state.get("interactions")
-            is_first_interaction = (
-                len(raw_prev_ints) == 0 if isinstance(raw_prev_ints, list) else True
-            )
-            if is_first_interaction:
-                generated_title = await generate_and_save_title(
-                    session_id=session_id,
-                    first_query=request.text,
-                    response_message=response.message,
-                    db=db,
-                    user_id=user_id,
-                )
+        # TODO: re-enable when conversation history feature is fully wired
+        # else:
+        #     raw_prev_ints = previous_state.get("interactions")
+        #     is_first_interaction = (
+        #         len(raw_prev_ints) == 0
+        #         if isinstance(raw_prev_ints, list) else True
+        #     )
+        #     if is_first_interaction:
+        #         generated_title = request.text.strip()[:20] or request.text[:20]
+        #         _spawn_background(
+        #             generate_and_save_title(
+        #                 session_id=session_id,
+        #                 first_query=request.text,
+        #                 response_message=response.message,
+        #                 db=db,
+        #                 user_id=user_id,
+        #             )
+        #         )
 
     bangumi_id = context_delta.get("bangumi_id")
     if not isinstance(bangumi_id, str) or not isinstance(db, SupabaseClient):
@@ -275,7 +277,7 @@ async def maybe_persist_route(
     db: object,
     session_id: str,
     request: PublicAPIRequest,
-    result: PipelineResult,
+    result: AgentResult,
     response: PublicAPIResponse,
 ) -> dict[str, object] | None:
     if not response.success or result.intent != "plan_route":
@@ -353,8 +355,8 @@ def build_response_session(
     return session, route_history
 
 
-def get_plan_params(result: PipelineResult) -> dict[str, object]:
-    for step in result.plan.steps:
+def get_plan_params(result: AgentResult) -> dict[str, object]:
+    for step in result.steps:
         if step.params:
             return dict(step.params)
     return {}
@@ -373,22 +375,7 @@ def infer_bangumi_id(results: object) -> str | None:
     return str(bangumi_id) if bangumi_id is not None else None
 
 
-def extract_plan_steps(result: PipelineResult | None) -> list[str] | None:
+def extract_plan_steps(result: AgentResult | None) -> list[str] | None:
     if result is None:
         return None
-
-    steps: list[str] = []
-    for step in getattr(result.plan, "steps", []) or []:
-        tool = getattr(step, "tool", None)
-        if tool is not None:
-            steps.append(getattr(tool, "value", str(tool)))
-            continue
-
-        step_type = getattr(step, "step_type", None)
-        if step_type is not None:
-            steps.append(getattr(step_type, "value", str(step_type)))
-            continue
-
-        steps.append(str(step))
-
-    return steps
+    return [step.tool for step in result.steps]

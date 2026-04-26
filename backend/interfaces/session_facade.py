@@ -11,9 +11,8 @@ from datetime import UTC, datetime
 
 import structlog
 
+from backend.agents.agent_result import AgentResult, StepRecord
 from backend.agents.base import create_agent, get_default_model
-from backend.agents.executor_agent import PipelineResult
-from backend.agents.models import ExecutionPlan, PlanStep, ToolName
 from backend.infrastructure.session import SessionStore
 from backend.infrastructure.supabase.client import SupabaseClient
 from backend.interfaces.schemas import PublicAPIRequest
@@ -221,23 +220,12 @@ def build_context_block(
     return block
 
 
-def _extract_from_search_bangumi(
-    plan_step: PlanStep,
-    step_result: object,
+def _extract_from_search_step(
+    step: StepRecord,
     bangumi_id: str | None,
 ) -> tuple[str | None, str | None, dict[str, object]]:
-    """Extract bangumi_id, anime_title, and last_search_data from a search_bangumi step.
-
-    Returns:
-        (bangumi_id, anime_title, last_search_data)
-    """
-    from backend.agents.executor_agent import StepResult  # local import avoids circular
-
-    sr = step_result if isinstance(step_result, StepResult) else None
-    data: dict[str, object] = {}
-    if sr is not None:
-        data = sr.data if isinstance(sr.data, dict) else {}
-
+    """Extract bangumi_id, anime_title, and last_search_data from a search step."""
+    data = step.data if isinstance(step.data, dict) else {}
     last_search_data: dict[str, object] = data
     resolved_bangumi_id = bangumi_id
     anime_title: str | None = None
@@ -251,47 +239,39 @@ def _extract_from_search_bangumi(
         )
     if resolved_bangumi_id is None:
         resolved_bangumi_id = as_str_or_none(
-            plan_step.params.get("bangumi_id") or plan_step.params.get("bangumi")
+            step.params.get("bangumi_id") or step.params.get("bangumi")
         )
 
     return resolved_bangumi_id, anime_title, last_search_data
 
 
-def extract_context_delta(result: PipelineResult) -> dict[str, object]:
-    """Extract bangumi_id / anime_title / location / last_search_data from step results."""
+def extract_context_delta(result: AgentResult) -> dict[str, object]:
+    """Extract bangumi_id / anime_title / location / last_search_data from steps."""
     bangumi_id: str | None = None
     anime_title: str | None = None
     location: str | None = None
     last_search_data: dict[str, object] | None = None
 
-    for step_result in result.step_results:
-        if step_result.tool != "resolve_anime" or not step_result.success:
+    for step in result.steps:
+        if step.tool == "resolve_anime" and step.success:
+            data = step.data if isinstance(step.data, dict) else {}
+            bangumi_id = as_str_or_none(data.get("bangumi_id"))
+            anime_title = as_str_or_none(data.get("title") or data.get("anime_title"))
+            break
+
+    for step in result.steps:
+        if not step.success:
             continue
-
-        data = step_result.data if isinstance(step_result.data, dict) else {}
-        bangumi_id = as_str_or_none(data.get("bangumi_id"))
-        anime_title = as_str_or_none(data.get("title") or data.get("anime_title"))
-        break
-
-    for plan_step, step_result in zip(
-        result.plan.steps, result.step_results, strict=False
-    ):
-        if not step_result.success:
-            continue
-
-        if step_result.tool == "search_nearby" and location is None:
-            location = as_str_or_none(plan_step.params.get("location"))
-
-        if step_result.tool != "search_bangumi":
-            continue
-
-        new_bangumi_id, new_anime_title, last_search_data = (
-            _extract_from_search_bangumi(plan_step, step_result, bangumi_id)
-        )
-        if bangumi_id is None:
-            bangumi_id = new_bangumi_id
-        if anime_title is None:
-            anime_title = new_anime_title
+        if step.tool == "search_nearby" and location is None:
+            location = as_str_or_none(step.params.get("location"))
+        if step.tool == "search_bangumi":
+            new_bid, new_title, last_search_data = _extract_from_search_step(
+                step, bangumi_id
+            )
+            if bangumi_id is None:
+                bangumi_id = new_bid
+            if anime_title is None:
+                anime_title = new_title
 
     context_delta: dict[str, object] = {}
     if bangumi_id is not None:
@@ -416,24 +396,6 @@ async def generate_and_save_title(
         logger.warning("update_conversation_title_failed", session_id=session_id)
 
     return title
-
-
-def build_selected_points_plan(request: PublicAPIRequest) -> ExecutionPlan:
-    """Build a synthetic ``ExecutionPlan`` for user-selected point routing."""
-    point_ids = list(request.selected_point_ids or [])
-    return ExecutionPlan(
-        steps=[
-            PlanStep(
-                tool=ToolName.PLAN_SELECTED,
-                params={
-                    "point_ids": point_ids,
-                    "origin": request.origin,
-                },
-            )
-        ],
-        reasoning="User selected specific points for routing.",
-        locale=request.locale,
-    )
 
 
 def as_str_or_none(value: object) -> str | None:

@@ -14,9 +14,10 @@ from uuid import uuid4
 import structlog
 from pydantic_ai.models import Model
 
-from backend.agents.executor_agent import ExecutorAgent, PipelineResult
+from backend.agents.agent_result import AgentResult
 from backend.agents.pilgrimage_runner import run_pilgrimage_agent
 from backend.agents.runtime_deps import OnStep
+from backend.agents.selected_route import execute_selected_route
 from backend.agents.translation import translate_text
 from backend.application.errors import ApplicationError, ErrorCode
 from backend.domain.ports import DatabasePort
@@ -34,8 +35,8 @@ from backend.interfaces.persistence import (
     persist_result,
 )
 from backend.interfaces.response_builder import (
+    agent_result_to_response,
     application_error_response,
-    pipeline_result_to_public_response,
 )
 from backend.interfaces.schemas import (
     PublicAPIError,
@@ -44,7 +45,6 @@ from backend.interfaces.schemas import (
 )
 from backend.interfaces.session_facade import (
     build_context_block,
-    build_selected_points_plan,
     extract_context_delta,
     normalize_session_state,
 )
@@ -115,7 +115,7 @@ class RuntimeAPI:
                     user_id=user_id,
                 )
 
-            result: PipelineResult | None = None
+            result: AgentResult | None = None
             user_message_persisted = False
             try:
                 previous_state, context = await self._load_session(
@@ -222,17 +222,17 @@ class RuntimeAPI:
         effective_model: Model | str | None,
         on_step: OnStep | None,
         span: object,
-    ) -> tuple[PipelineResult | None, PublicAPIResponse, dict[str, object]]:
+    ) -> tuple[AgentResult | None, PublicAPIResponse, dict[str, object]]:
         """Run the pipeline (or synthetic plan) and map result to response."""
         context_delta: dict[str, object] = {}
-        synthetic_plan = (
-            build_selected_points_plan(request) if request.selected_point_ids else None
-        )
+        has_selected = bool(request.selected_point_ids)
         try:
-            if synthetic_plan is not None:
-                result: PipelineResult = await ExecutorAgent(self._db).execute(
-                    synthetic_plan,
-                    context_block=context,
+            if has_selected:
+                result = await execute_selected_route(
+                    point_ids=list(request.selected_point_ids or []),
+                    origin=request.origin,
+                    locale=request.locale,
+                    db=self._db,
                     on_step=on_step,
                 )
             else:
@@ -271,7 +271,7 @@ class RuntimeAPI:
                 context_delta,
             )
         await _apply_translation_gate(result, request.locale, on_step)
-        response = pipeline_result_to_public_response(
+        response = agent_result_to_response(
             result,
             include_debug=request.include_debug,
         )
@@ -283,7 +283,7 @@ class RuntimeAPI:
         *,
         session_id: str | None,
         request: PublicAPIRequest,
-        result: PipelineResult | None,
+        result: AgentResult | None,
         response: PublicAPIResponse | None,
         elapsed_ms: float,
         intent: str,
@@ -344,16 +344,16 @@ async def handle_public_request(
 
 
 async def _apply_translation_gate(
-    result: PipelineResult,
+    result: AgentResult,
     locale: str,
     on_step: OnStep | None,
 ) -> None:
-    """Translate the pipeline message when its language mismatches *locale*."""
-    final = result.final_output
-    if not final:
-        return
-    message = final.get("message")
-    if not isinstance(message, str) or not message:
+    """Translate the agent message when its language mismatches *locale*.
+
+    Mutates the output model's ``message`` field in place.
+    """
+    message = result.message
+    if not message:
         return
     detected = detect_language(message)
     if detected == locale:
@@ -362,7 +362,8 @@ async def _apply_translation_gate(
         await on_step("translate", "running", {}, "", "")
     try:
         translated = await translate_text(message, target_locale=locale)
-        final["message"] = translated
+        # Mutate the output model's message field
+        object.__setattr__(result.output, "message", translated)
     except (OSError, RuntimeError, ValueError, TypeError):
         logger.warning("translation_gate_failed", locale=locale)
     if on_step is not None:

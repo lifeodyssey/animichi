@@ -1,6 +1,6 @@
-"""Shared agent types — single source of truth for plan and retrieval models.
+"""Shared agent types — single source of truth for tool and retrieval models.
 
-No LLM logic here. These models cross boundaries (planner -> executor -> retriever).
+No LLM logic here. These models cross boundaries (agent -> handlers -> retriever).
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 
 class ToolName(str, Enum):
-    """Tool names used in ExecutionPlan steps."""
+    """Tool identifiers used by the pilgrimage agent and handlers."""
 
     RESOLVE_ANIME = "resolve_anime"
     SEARCH_BANGUMI = "search_bangumi"
@@ -24,68 +24,12 @@ class ToolName(str, Enum):
     CLARIFY = "clarify"
 
 
-# Declarative step dependency graph.
-# Key = tool that has prerequisites, Value = list of tools that must succeed first.
-# The result_validator reads this to enforce prerequisites before tool execution.
-STEP_DEPENDENCIES: dict[ToolName, list[ToolName]] = {
-    ToolName.SEARCH_BANGUMI: [ToolName.RESOLVE_ANIME],
-    ToolName.PLAN_ROUTE: [ToolName.SEARCH_BANGUMI],
-    ToolName.PLAN_SELECTED: [],
-    ToolName.SEARCH_NEARBY: [],
-    ToolName.RESOLVE_ANIME: [],
-    ToolName.GREET_USER: [],
-    ToolName.ANSWER_QUESTION: [],
-    ToolName.CLARIFY: [],
-}
-
-
 class PlanStep(BaseModel):
-    """One step in an execution plan produced by ReActPlannerAgent."""
+    """A tool invocation with parameters, used by handler functions."""
 
     tool: ToolName
     params: dict[str, object] = Field(default_factory=dict)
     parallel: bool = False
-
-
-class ExecutionPlan(BaseModel):
-    """Structured output of ReActPlannerAgent — consumed by ExecutorAgent."""
-
-    steps: list[PlanStep]
-    reasoning: str
-    locale: str = "ja"
-
-
-class DoneSignal(BaseModel):
-    """Planner signals that it has enough information to respond."""
-
-    message: str = Field(description="Final message to show the user")
-
-
-class Observation(BaseModel):
-    """Executor's result fed back to the planner as an observation."""
-
-    tool: str
-    success: bool
-    summary: str = Field(description="1-2 sentence summary of the step result")
-    data_keys: list[str] = Field(
-        default_factory=list,
-        description="Top-level keys available in step result data",
-    )
-
-
-class ReactStep(BaseModel):
-    """One turn of the ReAct loop — the planner's output per iteration.
-
-    Either `action` (execute a tool) or `done` (finish) must be set, not both.
-    """
-
-    thought: str = Field(description="Chain-of-thought reasoning for this step")
-    action: PlanStep | None = Field(
-        default=None, description="Tool to execute (None if done)"
-    )
-    done: DoneSignal | None = Field(
-        default=None, description="Signal to finish (None if action)"
-    )
 
 
 class RetrievalRequest(BaseModel):

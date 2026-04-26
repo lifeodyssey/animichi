@@ -15,6 +15,7 @@ export function useChat(
   sessionId: string | null,
   onSessionId: (id: string) => void,
   locale?: RuntimeRequest["locale"],
+  onTitleUpdate?: (sessionId: string, title: string) => void,
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sending, setSending] = useState(false);
@@ -103,6 +104,12 @@ export function useChat(
           onSessionId(response.session_id);
         }
 
+        // TODO: re-enable when conversation history title generation is wired back
+        // const effectiveSessionId = response.session_id ?? sessionId;
+        // if (response.generated_title && effectiveSessionId) {
+        //   onTitleUpdate?.(effectiveSessionId, response.generated_title);
+        // }
+
         setMessages((prev) =>
           prev.map((m) =>
             m.id === placeholderId
@@ -131,7 +138,7 @@ export function useChat(
         if (abortRef.current === controller) abortRef.current = null;
       }
     },
-    [sessionId, sending, onSessionId, locale],
+    [sessionId, sending, onSessionId, locale, onTitleUpdate],
   );
 
   const clear = useCallback(() => {

@@ -1,15 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useConversationHistory } from "../../hooks/useConversationHistory";
+// import { useConversationHistory } from "../../hooks/useConversationHistory";
 import { useSession } from "../../hooks/useSession";
 import { useChat } from "../../hooks/useChat";
 import { usePointSelection } from "../../hooks/usePointSelection";
 import { useLocale, useDict } from "../../lib/i18n-context";
 import { useLayoutMode } from "../../hooks/useLayoutMode";
 import { useRouteSelection } from "../../hooks/useRouteSelection";
-import { useSessionHydration } from "../../hooks/useSessionHydration";
-import { useConversationSync } from "../../hooks/useConversationSync";
+// import { useSessionHydration } from "../../hooks/useSessionHydration";
+// import { useConversationSync } from "../../hooks/useConversationSync";
 import { PointSelectionContext } from "../../contexts/PointSelectionContext";
 import { SuggestContext } from "../../contexts/SuggestContext";
 import { isVisualResponse } from "../generative/registry";
@@ -18,7 +18,9 @@ import { cn } from "../../lib/utils";
 import IconSidebar from "./IconSidebar";
 import ChatPanel from "../chat/ChatPanel";
 import ResultSheet from "./ResultSheet";
-import ConversationDrawer from "./ConversationDrawer";
+// import ConversationDrawer from "./ConversationDrawer";
+// TODO: re-enable when conversation history feature is ready
+// import DesktopConversationSidebar from "./DesktopConversationSidebar";
 import ResultPanel from "./ResultPanel";
 import ChatPopup from "../chat/ChatPopup";
 
@@ -59,6 +61,13 @@ export default function AppShell() {
   const locale = useLocale();
   const dict = useDict();
   const { sessionId, setSessionId, clearSession } = useSession();
+  // const { conversations, upsert: upsertConversation, rename: renameConversation } = useConversationHistory();
+
+  const handleTitleUpdate = useCallback(
+    (_sid: string, _title: string) => { /* conversation history disabled */ },
+    [],
+  );
+
   const {
     messages,
     send,
@@ -67,17 +76,16 @@ export default function AppShell() {
     appendMessages,
     replaceMessage,
     removeMessage,
-  } = useChat(sessionId, setSessionId, locale);
+  } = useChat(sessionId, setSessionId, locale, handleTitleUpdate);
   const { selectedIds, toggle, clear: clearSelectedPoints } = usePointSelection();
-  const { conversations, upsert: upsertConversation } = useConversationHistory();
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
+  // const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatPopupOpen, setChatPopupOpen] = useState(false);
 
-  useSessionHydration({ sessionId, clearSession, appendMessages });
-  useConversationSync({ messages, upsertConversation });
+  // useSessionHydration({ sessionId, clearSession, appendMessages });
+  // useConversationSync({ messages, upsertConversation });
 
   const activeMessage = useMemo(
     () => activeMessageId
@@ -165,11 +173,21 @@ export default function AppShell() {
     setSidebarOpen(false);
   }, [abortRoute, clearChat, clearSelectedPoints, clearSession]);
 
+  // const handleSelectConversation = useCallback(
+  //   (id: string) => {
+  //     clearChat();
+  //     clearSelectedPoints();
+  //     setActiveMessageId(null);
+  //     setDrawerOpen(false);
+  //     setSessionId(id);
+  //   },
+  //   [clearChat, clearSelectedPoints, setSessionId],
+  // );
+
   const handleSidebarSection = useCallback(
-    (section: "history" | "favorites" | "settings") => {
+    (_section: "history" | "favorites" | "settings") => {
       setSidebarOpen(false);
-      if (section === "history") setConversationDrawerOpen(true);
-      // favorites and settings: TODO — placeholder for now
+      // conversation history disabled — history drawer removed
     },
     [],
   );
@@ -189,6 +207,14 @@ export default function AppShell() {
               onSectionClick={handleSidebarSection}
             />
           )}
+
+          {/* TODO: re-enable when conversation history feature is ready */}
+          {/* <DesktopConversationSidebar
+            conversations={conversations}
+            activeSessionId={sessionId}
+            onSelectConversation={handleSelectConversation}
+            onNewChat={handleNewChat}
+          /> */}
 
           {/* ── Tablet/mobile sidebar: overlay ─────���───────────────────── */}
           {showOverlaySidebar && sidebarOpen && (
@@ -259,25 +285,21 @@ export default function AppShell() {
             />
           )}
 
-          {/* ── Conversation history drawer ─────────────────────────────── */}
-          <ConversationDrawer
+          {/* ── Conversation history drawer (disabled) ─────────────────── */}
+          {/* <ConversationDrawer
             open={conversationDrawerOpen}
             onClose={() => setConversationDrawerOpen(false)}
             conversations={conversations}
             activeSessionId={sessionId}
             onSelectConversation={(id) => {
               setConversationDrawerOpen(false);
-              clearChat();
-              clearSelectedPoints();
-              setActiveMessageId(null);
-              setDrawerOpen(false);
-              setSessionId(id);
+              handleSelectConversation(id);
             }}
             onNewChat={() => {
               setConversationDrawerOpen(false);
               handleNewChat();
             }}
-          />
+          /> */}
 
           {/* ── Draggable chat popup — visible when results exist ── */}
           {mode !== "chat" && activeResponse && (
