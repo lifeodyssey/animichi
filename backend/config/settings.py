@@ -131,8 +131,8 @@ class Settings(BaseSettings):
 
     # Agent model
     default_agent_model: str = Field(
-        default="openai:gemini-3-pro-preview@https://api.zetatechs.com/v1",
-        description="Default primary LLM model via Zeta (100% eval, Gemini 3 Pro)",
+        default="openai:deepseek-v4-pro@https://api.deepseek.com",
+        description="Default primary LLM model (DeepSeek V4 Pro)",
     )
     fallback_agent_model: str | None = Field(
         default="openai:gpt-5.4",
@@ -143,7 +143,7 @@ class Settings(BaseSettings):
         description="Second fallback LLM model (disabled by default)",
     )
     openai_compat_base_url: str = Field(
-        default="https://api.univibe.cc/openai",
+        default="https://api.univibe.cc/openai/v1",
         description="Base URL for the OpenAI-compatible provider",
     )
 

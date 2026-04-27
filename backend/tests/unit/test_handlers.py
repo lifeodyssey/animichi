@@ -285,6 +285,106 @@ class FakeRetrievalResult:
             self.strategy = RetrievalStrategy.SQL
 
 
+class TestResolveAnimeClarifyFastPath:
+    """AC: resolve_anime matches title against previous clarify candidates."""
+
+    async def test_exact_match_returns_bangumi_id(self) -> None:
+        context: dict[str, object] = {
+            "pending_clarify": True,
+            "resolve_candidates": [
+                {
+                    "title": "涼宮ハルヒの憂鬱",
+                    "bangumi_id": "100",
+                    "cover_url": "",
+                    "city": "",
+                },
+                {
+                    "title": "涼宮ハルヒの消失",
+                    "bangumi_id": "101",
+                    "cover_url": "",
+                    "city": "",
+                },
+            ],
+        }
+        step = _step(ToolName.RESOLVE_ANIME, {"title": "涼宮ハルヒの憂鬱"})
+
+        result = await execute_resolve(step, context, MagicMock(), None)
+
+        assert result.success is True
+        assert result.data["bangumi_id"] == "100"
+        assert result.data["title"] == "涼宮ハルヒの憂鬱"
+
+    async def test_no_pending_clarify_skips_fast_path(self) -> None:
+        """Without pending_clarify flag, candidates are not checked."""
+        db = _mock_supabase()
+        db.bangumi.find_all_by_title = AsyncMock(return_value=[])
+        db.bangumi.find_bangumi_by_title = AsyncMock(return_value=None)
+        db.bangumi.upsert_bangumi_title = AsyncMock()
+
+        context: dict[str, object] = {
+            "resolve_candidates": [
+                {"title": "涼宮ハルヒの憂鬱", "bangumi_id": "100"},
+            ],
+        }
+        mock_gw = MagicMock()
+        mock_gw.search_subject = AsyncMock(return_value=[])
+        step = _step(ToolName.RESOLVE_ANIME, {"title": "涼宮ハルヒの憂鬱"})
+
+        with patch(
+            "backend.agents.handlers.resolve_anime.BangumiClientGateway",
+            return_value=mock_gw,
+        ):
+            result = await execute_resolve(step, context, db, None)
+
+        # Falls through to normal path (no DB/API match → fail)
+        assert result.success is False
+
+    async def test_no_match_falls_through(self) -> None:
+        """Title not in candidates → normal resolve path."""
+        db = _mock_supabase()
+        db.bangumi.find_all_by_title = AsyncMock(return_value=[])
+        db.bangumi.find_bangumi_by_title = AsyncMock(return_value=None)
+        db.bangumi.upsert_bangumi_title = AsyncMock()
+
+        context: dict[str, object] = {
+            "pending_clarify": True,
+            "resolve_candidates": [
+                {"title": "涼宮ハルヒの憂鬱", "bangumi_id": "100"},
+            ],
+        }
+        mock_gw = MagicMock()
+        mock_gw.search_subject = AsyncMock(return_value=[])
+        step = _step(ToolName.RESOLVE_ANIME, {"title": "完全別の作品"})
+
+        with patch(
+            "backend.agents.handlers.resolve_anime.BangumiClientGateway",
+            return_value=mock_gw,
+        ):
+            result = await execute_resolve(step, context, db, None)
+
+        # Falls through — not in candidates, no DB/API match
+        assert result.success is False
+
+    async def test_case_insensitive_match(self) -> None:
+        context: dict[str, object] = {
+            "pending_clarify": True,
+            "resolve_candidates": [
+                {
+                    "title": "Your Name",
+                    "bangumi_id": "200",
+                    "cover_url": "",
+                    "city": "",
+                },
+            ],
+        }
+        step = _step(ToolName.RESOLVE_ANIME, {"title": "your name"})
+
+        result = await execute_resolve(step, context, MagicMock(), None)
+
+        assert result.success is True
+        assert result.data["bangumi_id"] == "200"
+
+
 class TestSearchBangumi:
     async def test_returns_results(self) -> None:
         fake_result = FakeRetrievalResult(
@@ -609,3 +709,110 @@ class TestOptimizeRoute:
 
         assert result.success is True
         assert result.data["cover_url"] == "https://example.com/cover.jpg"
+
+
+# ---------------------------------------------------------------------------
+# _run_handler — SSE error detail
+# ---------------------------------------------------------------------------
+
+
+class TestRunHandlerEmitsErrorDetail:
+    """When a handler fails, the SSE step event must include error detail."""
+
+    async def test_emits_error_in_step_data_on_failure(self) -> None:
+        from backend.agents.pilgrimage_tools import _run_handler
+
+        emitted: list[tuple[str, str, dict[str, object], str, str]] = []
+
+        async def fake_on_step(
+            tool: str,
+            status: str,
+            data: dict[str, object],
+            thought: str = "",
+            observation: str = "",
+        ) -> None:
+            emitted.append((tool, status, data, thought, observation))
+
+        deps = MagicMock()
+        deps.on_step = fake_on_step
+        deps.tool_state = {}
+        deps.steps = []
+        deps.retriever = None
+        deps.db = MagicMock()
+
+        ctx = MagicMock()
+        ctx.deps = deps
+
+        error_msg = "Validation failed: missing bangumi_id"
+
+        async def failing_handler(
+            step: object, state: object, db: object, retriever: object
+        ) -> HandlerResult:
+            return HandlerResult.fail("plan_route", error_msg)
+
+        await _run_handler(
+            ctx,
+            tool=ToolName.PLAN_ROUTE,
+            params={},
+            handler=failing_handler,
+        )
+
+        failed_events = [
+            (t, s, d, th, obs) for t, s, d, th, obs in emitted if s == "failed"
+        ]
+        assert len(failed_events) == 1
+
+        _, _, data, _, observation = failed_events[0]
+        assert data["error"] == error_msg
+        assert observation == error_msg
+
+    async def test_emits_error_preserves_partial_data(self) -> None:
+        from backend.agents.pilgrimage_tools import _run_handler
+
+        emitted: list[tuple[str, str, dict[str, object], str, str]] = []
+
+        async def fake_on_step(
+            tool: str,
+            status: str,
+            data: dict[str, object],
+            thought: str = "",
+            observation: str = "",
+        ) -> None:
+            emitted.append((tool, status, data, thought, observation))
+
+        deps = MagicMock()
+        deps.on_step = fake_on_step
+        deps.tool_state = {}
+        deps.steps = []
+        deps.retriever = None
+        deps.db = MagicMock()
+
+        ctx = MagicMock()
+        ctx.deps = deps
+
+        async def failing_handler_with_data(
+            step: object, state: object, db: object, retriever: object
+        ) -> HandlerResult:
+            return HandlerResult(
+                tool="resolve_anime",
+                success=False,
+                data={"partial": "data"},
+                error="Could not resolve",
+            )
+
+        await _run_handler(
+            ctx,
+            tool=ToolName.RESOLVE_ANIME,
+            params={"title": "unknown"},
+            handler=failing_handler_with_data,
+        )
+
+        failed_events = [
+            (t, s, d, th, obs) for t, s, d, th, obs in emitted if s == "failed"
+        ]
+        assert len(failed_events) == 1
+
+        _, _, data, _, observation = failed_events[0]
+        assert data["error"] == "Could not resolve"
+        assert data["partial"] == "data"
+        assert observation == "Could not resolve"
