@@ -7,10 +7,12 @@ and the tool module can import the agent object without circular deps.
 from __future__ import annotations
 
 import structlog
+from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
 
 import backend.agents.pilgrimage_tools as _tools  # noqa: F401
+import backend.agents.web_tools as _web_tools  # noqa: F401
 from backend.agents.agent_result import AgentResult
 
 # Importing pilgrimage_tools triggers @tool registrations on the agent.
@@ -50,6 +52,9 @@ def _seed_tool_state(deps: RuntimeDeps, context: dict[str, object] | None) -> No
         value = raw.get(key)
         if isinstance(value, dict):
             deps.tool_state[key] = value
+    # Fallback: if raw itself looks like search results, populate directly
+    if "rows" in raw and "search_bangumi" not in deps.tool_state:
+        deps.tool_state["search_bangumi"] = raw
 
 
 async def run_pilgrimage_agent(
@@ -59,6 +64,7 @@ async def run_pilgrimage_agent(
     locale: str,
     model: Model | str | None = None,
     context: dict[str, object] | None = None,
+    message_history: list[ModelMessage] | None = None,
     on_step: OnStep | None = None,
     model_settings: ModelSettings | None = None,
 ) -> AgentResult:
@@ -78,6 +84,7 @@ async def run_pilgrimage_agent(
         deps=deps,
         model=model,
         model_settings=model_settings,
+        message_history=message_history or [],
     )
     raw_output = run_result.output
     if isinstance(raw_output, str):
@@ -89,6 +96,7 @@ async def run_pilgrimage_agent(
         output=raw_output,
         steps=list(deps.steps),
         tool_state=dict(deps.tool_state),
+        new_messages=list(run_result.new_messages()),
     )
     logger.info(
         "pilgrimage_agent_complete",

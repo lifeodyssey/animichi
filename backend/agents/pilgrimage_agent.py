@@ -14,6 +14,12 @@ Separation rationale:
 from __future__ import annotations
 
 from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ToolReturnPart,
+    UserPromptPart,
+)
 from pydantic_ai.output import ToolOutput
 
 from backend.agents.base import resolve_model
@@ -25,6 +31,9 @@ from backend.agents.runtime_models import (
     RouteResponseModel,
     SearchResponseModel,
 )
+
+COMPACT_THRESHOLD = 40  # ~5 turns × 8 messages/turn
+_KEEP_RECENT = 8  # Keep latest turn fully uncompressed
 
 _INSTRUCTIONS = """\
 You are the runtime agent for Seichijunrei (聖地巡礼), an anime pilgrimage search \
@@ -69,10 +78,10 @@ Never fabricate locations, coordinates, or routes — always use tool outputs.
 
 ### Route planning
 - When the user asks for a route/itinerary/walking plan:
-  1. Call resolve_anime first
-  2. Call search_bangumi to get points
-  3. Call plan_route to create the optimized route
-  ALL THREE steps are required. Do not stop after search.
+  1. If previous search results exist in the conversation history (you already
+     searched for this anime), call plan_route directly.
+  2. Otherwise: resolve_anime → search_bangumi → plan_route (all three steps).
+  Do not stop after search — always follow through to plan_route.
 
 ### Greetings vs QA
 - greet_user: "hi", "hello", "你好", "こんにちは", "你是谁", "what can you do?",
@@ -105,7 +114,155 @@ User: "haruhi spots" → web_search("Haruhi Suzumiya anime") → resolve_anime �
   - The user is asking about a recent anime (2024+)
   - You are uncertain whether the DB data is comprehensive
 - Enrich your response: mention if web search found additional spots not in DB
+
+### Conversation context
+You have access to the conversation history from previous turns. Use it to:
+- Understand references like "that anime", "show me a route", "换一个"
+- Avoid re-clarifying when the user already selected an option
+- Continue multi-step workflows (search → route) without re-asking
+Do NOT repeat information the user has already seen.
 """
+
+
+def _compact_tool_results(messages: list[ModelMessage]) -> list[ModelMessage]:
+    """Compress old tool return content, keep latest turns intact."""
+    if len(messages) <= COMPACT_THRESHOLD:
+        return messages
+    cutoff = len(messages) - _KEEP_RECENT
+    result: list[ModelMessage] = []
+    for i, msg in enumerate(messages):
+        if i >= cutoff or not isinstance(msg, ModelRequest):
+            result.append(msg)
+            continue
+        result.append(_compress_request(msg))
+    return result
+
+
+def _compress_request(msg: ModelRequest) -> ModelRequest:
+    """Replace large ToolReturnParts with compact placeholders."""
+    new_parts = [
+        _compress_tool_return(p) if isinstance(p, ToolReturnPart) else p
+        for p in msg.parts
+    ]
+    return ModelRequest(parts=new_parts, instructions=msg.instructions)
+
+
+def _compress_tool_return(part: ToolReturnPart) -> ToolReturnPart:
+    content_str = str(part.content)
+    if len(content_str) <= 200:
+        return part
+    summary = _summarize_tool_content(part.tool_name, part.content)
+    return ToolReturnPart(
+        tool_name=part.tool_name,
+        content=summary,
+        tool_call_id=part.tool_call_id,
+    )
+
+
+def _summarize_tool_content(tool_name: str, content: object) -> str:
+    """Extract key info from tool result for compressed history."""
+    data = _parse_content_to_dict(content)
+    if data is None:
+        return f"[{tool_name}: completed]"
+    if tool_name in ("search_bangumi", "search_nearby"):
+        return _summarize_search(tool_name, data)
+    if tool_name == "resolve_anime":
+        return _summarize_resolve(data)
+    if tool_name == "clarify":
+        return _summarize_clarify(data)
+    if tool_name == "plan_route":
+        return _summarize_plan(data)
+    return f"[{tool_name}: completed]"
+
+
+def _parse_content_to_dict(content: object) -> dict[str, object] | None:
+    if isinstance(content, dict):
+        return content
+    if not isinstance(content, str):
+        return None
+    import json
+
+    try:
+        parsed = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if isinstance(parsed, dict):
+        return parsed
+    return None
+
+
+def _summarize_search(tool_name: str, data: dict[str, object]) -> str:
+    row_count = data.get("row_count", data.get("note", ""))
+    title = _extract_anime_title(data)
+    suffix = f" for {title}" if title else ""
+    return f"[{tool_name}: found {row_count} spots{suffix}]"
+
+
+def _extract_anime_title(data: dict[str, object]) -> str:
+    metadata = data.get("metadata", {})
+    if isinstance(metadata, dict):
+        title = metadata.get("anime_title", "")
+        if isinstance(title, str) and title:
+            return title
+    preview = data.get("preview", [])
+    if isinstance(preview, list) and preview:
+        first = preview[0] if isinstance(preview[0], dict) else {}
+        if isinstance(first, dict):
+            name = first.get("name", "")
+            if isinstance(name, str):
+                return name
+    return ""
+
+
+def _summarize_resolve(data: dict[str, object]) -> str:
+    if data.get("ambiguous"):
+        candidates = data.get("candidates", [])
+        count = len(candidates) if isinstance(candidates, list) else 0
+        return f"[resolve_anime: ambiguous, {count} candidates]"
+    bid = data.get("bangumi_id", "")
+    title = data.get("title", "")
+    return f"[resolve_anime: resolved to {title} (id={bid})]"
+
+
+def _summarize_clarify(data: dict[str, object]) -> str:
+    question = str(data.get("question", ""))[:50]
+    return f"[clarify: asked '{question}']"
+
+
+def _summarize_plan(data: dict[str, object]) -> str:
+    point_count = data.get("point_count", 0)
+    return f"[plan_route: planned route with {point_count} stops]"
+
+
+def _sliding_window(messages: list[ModelMessage]) -> list[ModelMessage]:
+    """Keep last ~COMPACT_THRESHOLD messages, slicing on turn boundaries."""
+    if len(messages) <= COMPACT_THRESHOLD:
+        return messages
+    turn_starts = _find_turn_starts(messages)
+    if not turn_starts:
+        return messages[-COMPACT_THRESHOLD:]
+    return messages[_pick_keep_from(turn_starts, len(messages)) :]
+
+
+def _find_turn_starts(messages: list[ModelMessage]) -> list[int]:
+    """Return indices of messages containing a UserPromptPart."""
+    return [
+        i
+        for i, msg in enumerate(messages)
+        if isinstance(msg, ModelRequest)
+        and any(isinstance(p, UserPromptPart) for p in msg.parts)
+    ]
+
+
+def _pick_keep_from(turn_starts: list[int], total: int) -> int:
+    """Find the earliest turn start within COMPACT_THRESHOLD of the end."""
+    keep_from = turn_starts[-1]
+    for start in reversed(turn_starts):
+        if total - start <= COMPACT_THRESHOLD:
+            keep_from = start
+        else:
+            break
+    return keep_from
 
 
 pilgrimage_agent = Agent(
@@ -120,7 +277,59 @@ pilgrimage_agent = Agent(
     ],
     instructions=_INSTRUCTIONS,
     retries=2,
+    history_processors=[_compact_tool_results, _sliding_window],
 )
+
+
+@pilgrimage_agent.instructions
+def _inject_session_context(ctx: RunContext[RuntimeDeps]) -> str:
+    """Inject current session state as dynamic context for multi-turn."""
+    state = ctx.deps.tool_state
+    parts: list[str] = []
+    _add_resolve_context(state, parts)
+    _add_search_context(state, parts)
+    _add_nearby_context(state, parts)
+    _add_clarify_context(state, parts)
+    if not parts:
+        return ""
+    return "\n## Current session state\n" + "\n".join(f"- {p}" for p in parts)
+
+
+def _add_resolve_context(state: dict[str, object], parts: list[str]) -> None:
+    resolve_data = state.get("resolve_anime")
+    if not isinstance(resolve_data, dict):
+        return
+    title = resolve_data.get("title", "")
+    bid = resolve_data.get("bangumi_id", "")
+    if title:
+        parts.append(f"Current anime: {title} (bangumi_id={bid})")
+
+
+def _add_search_context(state: dict[str, object], parts: list[str]) -> None:
+    search_data = state.get("search_bangumi")
+    if not isinstance(search_data, dict):
+        return
+    row_count = search_data.get("row_count", 0)
+    metadata = search_data.get("metadata", {})
+    title = metadata.get("anime_title", "") if isinstance(metadata, dict) else ""
+    suffix = f" for {title}" if title else ""
+    parts.append(f"Search results available: {row_count} spots{suffix}")
+
+
+def _add_nearby_context(state: dict[str, object], parts: list[str]) -> None:
+    search_nearby = state.get("search_nearby")
+    if not isinstance(search_nearby, dict):
+        return
+    row_count = search_nearby.get("row_count", 0)
+    parts.append(f"Nearby search results available: {row_count} spots")
+
+
+def _add_clarify_context(state: dict[str, object], parts: list[str]) -> None:
+    if state.get("pending_clarify"):
+        parts.append(
+            "Previous turn ended with clarification "
+            "— user's response is the current message"
+        )
 
 
 @pilgrimage_agent.output_validator  # type: ignore[arg-type]

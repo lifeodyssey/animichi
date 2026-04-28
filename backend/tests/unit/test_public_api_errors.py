@@ -162,9 +162,10 @@ class TestRuntimeAPIErrors:
             model: object | None = None,
             locale: str = "ja",
             context: dict[str, object] | None = None,
+            message_history: object | None = None,
             on_step: object | None = None,
         ) -> AgentResult:
-            _ = (text, db, model, locale, context, on_step)
+            _ = (text, db, model, locale, context, message_history, on_step)
             return result
 
         with patch(
@@ -202,6 +203,23 @@ class TestRuntimeAPIErrors:
         assert response.success is False
         assert response.intent == "unknown"
         assert response.errors[0].code == "internal_error"
+
+    async def test_handle_returns_friendly_message_on_provider_error(self, mock_db):
+        """502/503 errors should return user-friendly provider_error, not generic failure."""
+        api = RuntimeAPI(mock_db)
+
+        with patch(
+            "backend.interfaces.public_api.run_pilgrimage_agent",
+            new=AsyncMock(
+                side_effect=RuntimeError("502 Bad Gateway: Network unstable")
+            ),
+        ):
+            response = await api.handle(PublicAPIRequest(text="秒速5厘米的取景地在哪"))
+
+        assert response.success is False
+        assert response.status == "provider_error"
+        assert "unavailable" in response.message.lower()
+        assert response.errors[0].code == "provider_error"
 
     async def test_handle_returns_timeout_when_agent_exceeds_limit(
         self, mock_db, monkeypatch
