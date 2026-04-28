@@ -272,5 +272,19 @@
       }
     ],
     "spot_label": "スポット"
+  },
+  "search_preview": {
+    "title": "{query} の聖地",
+    "subtitle": "{count} スポットが見つかりました",
+    "no_results": "該当する聖地が見つかりませんでした",
+    "no_results_hint": "作品名を確認してもう一度検索してみてください",
+    "showing_preview": "{shown} 件を表示中（全 {total} 件）",
+    "login_for_more": "すべてのスポットを見るにはログインしてください",
+    "login_button": "ログインして全件表示",
+    "back_to_home": "トップに戻る",
+    "spot_label": "スポット",
+    "episode_label": "EP{ep}",
+    "loading": "検索中...",
+    "error": "検索に失敗しました。もう一度お試しください。"
   }
 }

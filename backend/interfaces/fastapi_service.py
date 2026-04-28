@@ -36,6 +36,7 @@ from backend.interfaces.routes.conversations import router as conversations_rout
 from backend.interfaces.routes.feedback import router as feedback_router
 from backend.interfaces.routes.health import router as health_router
 from backend.interfaces.routes.runtime import router as runtime_router
+from backend.interfaces.routes.search_preview import router as search_preview_router
 
 # Re-export _call_optional_async for test backward compatibility.
 _call_optional_async = call_optional_async
@@ -114,6 +115,7 @@ def create_fastapi_app(
     app.include_router(feedback_router)
     app.include_router(conversations_router)
     app.include_router(bangumi_router)
+    app.include_router(search_preview_router)
     return app
 
 
