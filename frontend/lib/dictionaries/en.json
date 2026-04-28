@@ -272,5 +272,19 @@
       }
     ],
     "spot_label": "spots"
+  },
+  "search_preview": {
+    "title": "{query} pilgrimage spots",
+    "subtitle": "{count} spots found",
+    "no_results": "No pilgrimage spots found",
+    "no_results_hint": "Check the anime title and try again",
+    "showing_preview": "Showing {shown} of {total}",
+    "login_for_more": "Log in to see all spots",
+    "login_button": "Log in for full results",
+    "back_to_home": "Back to home",
+    "spot_label": "spot",
+    "episode_label": "EP{ep}",
+    "loading": "Searching...",
+    "error": "Search failed. Please try again."
   }
 }
