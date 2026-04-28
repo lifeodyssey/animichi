@@ -22,7 +22,7 @@ export function AuthCallbackPage() {
         // on client init, so getSession() already returns the session.
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          if (!cancelled) window.location.replace("/");
+          if (!cancelled) window.location.replace("/chat");
           return;
         }
 
@@ -45,7 +45,7 @@ export function AuthCallbackPage() {
           throw new Error(t.callback_error);
         }
 
-        if (!cancelled) window.location.replace("/");
+        if (!cancelled) window.location.replace("/chat");
       } catch (authError) {
         if (cancelled) return;
         const message = authError instanceof Error ? authError.message : t.callback_error;
