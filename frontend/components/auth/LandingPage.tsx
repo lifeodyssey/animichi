@@ -1,26 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { useDict, useLocale } from "../../lib/i18n-context";
+import Link from "next/link";
+import { useDict, useLocale, useSetLocale } from "../../lib/i18n-context";
 import { useScrollReveal } from "../../hooks/useScrollReveal";
-import {
-  FLOAT_CARDS,
-  ANIME_GALLERY,
-  FLOAT_CARD_STYLES,
-  FLOAT_DELAYS,
-  handleImageError,
-} from "./LandingData";
+import { ANIME_GALLERY, handleImageError } from "./LandingData";
 
-interface LandingPageProps { onOpenAuth: () => void }
+interface LandingPageProps {
+  onOpenAuth: () => void;
+}
+
+/* ── Type scale (Perfect Fourth 1.333) ──────────────────────────────── */
+// xs: 12px — captions, legal
+// sm: 14px — secondary, metadata
+// base: 16px — body
+// lg: 21px — lead text
+// xl: 28px — section headings
+// 2xl: 38px — display (mobile)
+// 3xl: clamp(48px, 7vw, 72px) — hero display
+
+const LOCALE_LABELS = { ja: "日本語", zh: "中文", en: "English" } as const;
+const LOCALE_CYCLE: Array<"ja" | "zh" | "en"> = ["ja", "zh", "en"];
 
 export default function LandingPage({ onOpenAuth }: LandingPageProps) {
   const dict = useDict();
   const landing = dict.landing_hero.landing;
   const locale = useLocale();
+  const setLocale = useSetLocale();
   const addRevealRef = useScrollReveal();
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); onOpenAuth(); };
+  const [heroFailed, setHeroFailed] = useState(false);
 
   return (
     <div
@@ -28,268 +36,267 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
       style={{ fontFamily: "var(--app-font-body)" }}
       lang={locale}
     >
-      {/* ── Sticky Header ── */}
+      {/* ── Header ── */}
       <header
-        className="fixed inset-x-0 top-0 z-50 flex items-center justify-between border-b px-4 py-3 sm:px-8"
+        className="fixed inset-x-0 top-0 z-50 flex items-center justify-between px-5 py-4 sm:px-8"
         style={{
-          background: "color-mix(in oklch, var(--color-bg) 85%, transparent)",
-          backdropFilter: "blur(16px)",
-          borderColor: "color-mix(in oklch, var(--color-border) 30%, transparent)",
+          background: "var(--color-bg)",
+          borderBottom: "1px solid var(--color-border)",
           animation: "seichi-fade-down 0.5s ease-out",
         }}
       >
         <div
-          style={{
-            fontFamily: "var(--app-font-display)",
-            fontSize: 20,
-            fontWeight: 600,
-            letterSpacing: "0.03em",
-            lineHeight: 1.2,
-          }}
+          className="flex items-baseline gap-3"
+          style={{ fontFamily: "var(--app-font-display)" }}
         >
-          聖地巡礼
-          <span
-            className="block text-[10px] font-light tracking-[2.5px] text-[var(--color-muted-fg)]"
-            style={{ fontFamily: "var(--app-font-body)" }}
-          >
+          <span className="text-[28px] font-bold tracking-[0.02em] text-[var(--color-fg)]">
+            聖地巡礼
+          </span>
+          <span className="text-[12px] tracking-[2px] text-[var(--color-muted-fg)]">
             seichijunrei
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onOpenAuth}
-            className="min-h-[44px] rounded-md px-4 py-1.5 text-[13px] text-[var(--color-muted-fg)] transition-colors hover:bg-[var(--color-muted)]"
-            style={{ fontFamily: "var(--app-font-body)" }}
-          >
-            {landing.login}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onOpenAuth}
+          className="rounded-lg px-5 py-2.5 text-[14px] font-medium text-[var(--color-fg)] transition-colors hover:bg-[var(--color-card)]"
+          style={{ border: "1px solid var(--color-border)" }}
+        >
+          {landing.login}
+        </button>
       </header>
-      {/* ── Section 1: HERO ── */}
+
+      {/* ── Hero ── */}
       <section
         data-testid="hero-section"
-        className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden pt-[60px]"
+        className="relative overflow-hidden pt-[72px]"
       >
+        {/* Background wash */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 900px 900px at 50% 45%, oklch(93% 0.020 220), var(--color-bg))",
+              "linear-gradient(160deg, oklch(90% 0.03 220) 0%, var(--color-bg) 50%)",
           }}
         />
-        {/* ── Floating photo cards ── */}
-        <div
-          data-testid="floating-cards"
-          className="pointer-events-none absolute inset-0 overflow-hidden"
-        >
-          {FLOAT_CARDS.map((card) => (
-            <div
-              key={card.cls}
-              className="absolute overflow-hidden rounded-xl"
-              style={{
-                ...FLOAT_CARD_STYLES[card.cls],
-                boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
-                opacity: 0,
-                transform: `rotate(${card.rotate})`,
-                animation: `seichi-float-in 0.8s ease-out ${FLOAT_DELAYS[card.cls]} forwards`,
-              }}
+
+        <div className="relative z-[2] mx-auto flex min-h-[calc(100vh-72px)] max-w-[1200px] flex-col justify-center gap-12 px-5 sm:px-8 lg:flex-row lg:items-center lg:gap-16">
+          {/* ── Left column: text ── */}
+          <div
+            className="flex max-w-[500px] shrink-0 flex-col"
+            style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1)" }}
+          >
+            <h1
+              className="font-[family-name:var(--app-font-display)] text-[clamp(48px,7vw,72px)] font-bold leading-[1.05] text-[var(--color-fg)]"
             >
-              <img
-                src={card.src}
-                alt={card.label}
-                width={160}
-                height={108}
-                loading="lazy"
-                className="h-full w-full object-cover"
-                onError={handleImageError}
-              />
-              <div
-                className="absolute inset-x-0 bottom-0 px-2.5 py-1.5 text-[10px] font-medium text-white"
-                style={{
-                  background: "linear-gradient(transparent, rgba(0,0,0,0.6))",
-                  letterSpacing: "0.3px",
-                }}
-              >
-                {card.label}
-                <span className="ml-1 opacity-70" style={{ fontSize: 9 }}>
-                  {card.ep}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-        {/* ── Hero center content ── */}
-        <div className="relative z-[5] max-w-[560px] px-6 text-center">
-          <h1
-            className="font-[family-name:var(--app-font-display)] text-[clamp(56px,10vw,88px)] font-extrabold tracking-[0.04em] leading-[1.1] text-[var(--color-fg)]"
-            style={{ animation: "seichi-fade-up 0.8s ease-out" }}
-          >
-            {landing.hero_title}
-          </h1>
-          <p
-            className="mt-3 text-[18px] font-light leading-relaxed text-[var(--color-muted-fg)]"
-            style={{ animation: "seichi-fade-up 0.8s ease-out 0.1s backwards" }}
-          >
-            {landing.hero_subtitle}
-          </p>
-          {/* Search bar */}
-          <form
-            onSubmit={handleSearchSubmit}
-            className="mt-8 flex overflow-hidden rounded-[12px] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-[0_4px_24px_rgba(0,0,0,0.05)] transition-shadow focus-within:border-[var(--color-primary)] focus-within:shadow-[0_4px_28px_rgba(74,130,220,0.15)]"
-            style={{
-              animation: "seichi-fade-up 0.8s ease-out 0.2s backwards",
-              transitionDuration: "300ms",
-            }}
-          >
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={landing.search_placeholder}
-              className="min-h-[52px] flex-1 border-none bg-transparent px-5 text-[15px] text-[var(--color-fg)] outline-none placeholder:text-[var(--color-border)]"
-              style={{ fontFamily: "var(--app-font-body)" }}
-            />
+              {landing.hero_title}
+            </h1>
+
+            <p
+              className="mt-5 max-w-[38ch] text-[18px] leading-[1.6] text-[var(--color-muted-fg)]"
+              style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.08s backwards" }}
+            >
+              {landing.hero_subtitle}
+            </p>
+
             <button
-              type="submit"
-              className="min-h-[52px] min-w-[44px] bg-[var(--color-primary)] px-6 text-[14px] font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
-              style={{ fontFamily: "var(--app-font-body)" }}
+              type="button"
+              onClick={onOpenAuth}
+              className="mt-8 inline-flex w-fit min-h-[52px] items-center gap-2.5 rounded-xl bg-[var(--color-primary)] px-8 text-[16px] font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
+              style={{
+                fontFamily: "var(--app-font-body)",
+                animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.16s backwards",
+              }}
             >
               {landing.search_button}
+              <span aria-hidden="true" className="text-[18px]">→</span>
             </button>
-          </form>
-        </div>
-        {/* ── Stats ── */}
-        <div
-          className="relative z-[5] mt-12 flex gap-12 sm:gap-12"
-          style={{ animation: "seichi-fade-up 0.8s ease-out 0.4s backwards" }}
-        >
-          {([["2,400+", landing.stats_spots], ["180+", landing.stats_anime], ["47", landing.stats_prefectures]] as const).map(([num, label]) => (
-            <div key={num} className="text-center">
-              <div className="font-[family-name:var(--app-font-display)] text-[32px] font-semibold text-[var(--color-primary)]">
-                {num}
-              </div>
-              <div className="mt-0.5 text-[11px] text-[var(--color-muted-fg)]">{label}</div>
-            </div>
-          ))}
-        </div>
-        {/* ── Scroll cue ── */}
-        <div
-          className="absolute bottom-7 z-[5] flex flex-col items-center gap-1 text-[11px] text-[var(--color-muted-fg)]"
-          style={{ animation: "seichi-fade-up 1s ease-out 0.8s backwards" }}
-        >
-          <span>{landing.scroll_hint}</span>
-          <span
-            className="text-base"
-            style={{ animation: "seichi-bounce 2.5s ease-in-out infinite" }}
-          >
-            ↓
-          </span>
-        </div>
-      </section>
-      {/* ── Section 2: 3-step How It Works ── */}
-      <section
-        data-testid="steps-section"
-        className="mx-auto max-w-[960px] px-5 py-[80px] sm:px-8"
-      >
-        <h2
-          ref={addRevealRef}
-          className="seichi-reveal font-[family-name:var(--app-font-display)] text-center text-[28px]"
-        >
-          {landing.steps_title}
-        </h2>
-        <p
-          ref={addRevealRef}
-          className="seichi-reveal mb-12 mt-2 text-center text-sm text-[var(--color-muted-fg)]"
-        >
-          {landing.steps_sub}
-        </p>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-          {(
-            [
-              { num: "1", title: landing.step1_title, desc: landing.step1_desc },
-              { num: "2", title: landing.step2_title, desc: landing.step2_desc },
-              { num: "3", title: landing.step3_title, desc: landing.step3_desc },
-            ] as const
-          ).map((step, i) => (
+
+            {/* Stats — left-aligned, compact */}
             <div
-              key={step.num}
-              ref={addRevealRef}
-              className="seichi-reveal-pop rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-[28px_24px] transition-transform hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
-              style={{ animationDelay: `${i * 0.1}s` }}
+              className="mt-12 flex gap-8"
+              style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.24s backwards" }}
             >
-              <div className="mb-3.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-primary)] text-[13px] font-semibold text-[var(--color-primary-fg)]">
-                {step.num}
+              {(
+                [
+                  ["2,400+", landing.stats_spots],
+                  ["180+", landing.stats_anime],
+                  ["47", landing.stats_prefectures],
+                ] as const
+              ).map(([num, label]) => (
+                <div key={num}>
+                  <div
+                    className="font-[family-name:var(--app-font-display)] text-[28px] font-bold tabular-nums text-[var(--color-fg)]"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {num}
+                  </div>
+                  <div className="text-[14px] text-[var(--color-muted-fg)]">
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Right column: comparison image ── */}
+          {!heroFailed && (
+            <div
+              className="relative hidden min-w-0 flex-1 lg:block"
+              style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.12s backwards" }}
+            >
+              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-[var(--color-card)]">
+                <img
+                  src="/images/hero-reality.jpg"
+                  alt="実写 — Reality"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  onError={() => setHeroFailed(true)}
+                />
+                <div
+                  className="absolute inset-0"
+                  style={{ clipPath: "polygon(42% 0, 100% 0, 100% 100%, 58% 100%)" }}
+                >
+                  <img
+                    src="/images/hero-anime.jpg"
+                    alt="アニメ — Anime"
+                    className="h-full w-full object-cover"
+                    onError={() => setHeroFailed(true)}
+                  />
+                </div>
+                {/* Diagonal divider */}
+                <div
+                  className="pointer-events-none absolute inset-y-0"
+                  style={{
+                    left: "50%",
+                    width: "2px",
+                    background: "oklch(98% 0.008 218 / 0.8)",
+                    transform: "rotate(1.5deg)",
+                  }}
+                />
+                {/* Tags */}
+                <div
+                  className="absolute bottom-4 left-4 rounded-lg px-3 py-1.5 text-[12px] font-semibold tracking-wide text-white uppercase"
+                  style={{ background: "oklch(20% 0.02 238 / 0.7)", backdropFilter: "blur(8px)" }}
+                >
+                  Reality
+                </div>
+                <div
+                  className="absolute bottom-4 right-4 rounded-lg px-3 py-1.5 text-[12px] font-semibold tracking-wide text-white uppercase"
+                  style={{ background: "oklch(60% 0.148 240 / 0.85)", backdropFilter: "blur(8px)" }}
+                >
+                  Anime
+                </div>
               </div>
-              <h3 className="font-[family-name:var(--app-font-display)] text-[16px]">
-                {step.title}
-              </h3>
-              <p className="mt-2 text-[13px] leading-relaxed text-[var(--color-muted-fg)]">
-                {step.desc}
+              <p className="mt-3 text-[14px] text-[var(--color-muted-fg)]">
+                <span className="font-[family-name:var(--app-font-display)] font-medium text-[var(--color-fg)]">
+                  君の名は。
+                </span>
+                {" "}— 須賀神社 · 新宿区
               </p>
             </div>
-          ))}
+          )}
         </div>
       </section>
-      {/* ── Section 3: Anime Gallery ── */}
+
+      {/* ── Gallery ── */}
       <section
         data-testid="gallery-section"
-        className="mx-auto max-w-[960px] px-5 pb-[80px] sm:px-8"
+        className="mx-auto max-w-[1200px] px-5 pb-24 pt-16 sm:px-8 sm:pt-24"
       >
-        <h2
-          ref={addRevealRef}
-          className="seichi-reveal font-[family-name:var(--app-font-display)] text-center text-[28px]"
-        >
-          {landing.gallery_title}
-        </h2>
-        <p
-          ref={addRevealRef}
-          className="seichi-reveal mb-12 mt-2 text-center text-sm text-[var(--color-muted-fg)]"
-        >
-          {landing.gallery_sub}
-        </p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mb-10 max-w-[480px]">
+          <h2
+            ref={addRevealRef}
+            className="seichi-reveal font-[family-name:var(--app-font-display)] text-[28px] font-bold text-[var(--color-fg)]"
+          >
+            {landing.gallery_title}
+          </h2>
+          <p
+            ref={addRevealRef}
+            className="seichi-reveal mt-2 text-[16px] leading-relaxed text-[var(--color-muted-fg)]"
+          >
+            {landing.gallery_sub}
+          </p>
+        </div>
+
+        {/*
+          Masonry-style grid for portrait covers:
+          - First card is hero-sized (spans 2 cols, taller)
+          - Others are uniform portrait cards
+          - 3 cols on desktop, 2 on mobile
+        */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 sm:gap-4">
           {ANIME_GALLERY.map((anime, i) => (
-            <div
+            <Link
               key={anime.bangumiId}
+              href={`/search?q=${encodeURIComponent(anime.title)}`}
               ref={addRevealRef}
-              className="seichi-reveal-pop anime-card group relative cursor-pointer overflow-hidden rounded-[10px]"
-              style={{ aspectRatio: "3/2", animationDelay: `${i * 0.05}s` }}
-              onClick={onOpenAuth}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") onOpenAuth();
+              className={[
+                "seichi-reveal-pop group relative overflow-hidden rounded-xl bg-[var(--color-card)]",
+                i === 0 ? "col-span-2 row-span-2" : "",
+              ].join(" ")}
+              style={{
+                aspectRatio: i === 0 ? "3/4" : "2/3",
+                animationDelay: `${i * 0.04}s`,
               }}
             >
               <img
-                src={`https://image.anitabi.cn/bangumi/${anime.bangumiId}.jpg?plan=h160`}
+                src={`/images/bangumi/${anime.bangumiId}.jpg`}
                 alt={anime.title}
-                width={240}
-                height={160}
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                loading={i < 4 ? "eager" : "lazy"}
+                className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.04]"
+                style={{ transitionTimingFunction: "cubic-bezier(0.16,1,0.3,1)" }}
                 onError={handleImageError}
               />
+              {/* Gradient scrim */}
               <div
-                className="absolute inset-0 flex flex-col justify-end p-3"
-                style={{ background: "linear-gradient(transparent 40%, rgba(0,0,0,0.65))" }}
+                className="absolute inset-0 flex flex-col justify-end p-4"
+                style={{
+                  background: "linear-gradient(to top, oklch(15% 0.02 238 / 0.75) 0%, transparent 50%)",
+                }}
               >
-                <div className="font-[family-name:var(--app-font-display)] text-[13px] font-semibold text-white">
+                <span
+                  className={[
+                    "font-[family-name:var(--app-font-display)] font-bold text-white",
+                    i === 0 ? "text-[22px]" : "text-[15px]",
+                  ].join(" ")}
+                >
                   {anime.title}
-                </div>
-                <div className="mt-0.5 text-[10px] text-white/70">
+                </span>
+                <span
+                  className={[
+                    "mt-0.5 text-white/60",
+                    i === 0 ? "text-[14px]" : "text-[12px]",
+                  ].join(" ")}
+                >
                   {anime.count}
-                </div>
+                </span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
+
       {/* ── Footer ── */}
-      <footer className="border-t border-[var(--color-border)] py-7 text-center text-[11px] text-[var(--color-muted-fg)]">
-        <span style={{ fontFamily: "var(--app-font-display)" }}>聖地巡礼</span>{" "}
-        · seichijunrei
+      <footer className="border-t border-[var(--color-border)] px-5 py-10 sm:px-8">
+        <div className="mx-auto flex max-w-[1200px] items-center justify-between">
+          <div className="flex items-baseline gap-2 text-[14px] text-[var(--color-muted-fg)]">
+            <span className="font-[family-name:var(--app-font-display)] font-medium">
+              聖地巡礼
+            </span>
+            <span className="opacity-40">·</span>
+            <span>seichijunrei</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const idx = LOCALE_CYCLE.indexOf(locale as "ja" | "zh" | "en");
+              setLocale(LOCALE_CYCLE[(idx + 1) % LOCALE_CYCLE.length]);
+            }}
+            className="text-[14px] text-[var(--color-muted-fg)] transition-colors hover:text-[var(--color-fg)]"
+          >
+            {LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] ?? "English"}
+          </button>
+        </div>
       </footer>
     </div>
   );
