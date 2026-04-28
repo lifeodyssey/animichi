@@ -78,10 +78,10 @@ export const ANIME_GALLERY: AnimeGalleryItem[] = [
   { bangumiId: "115908", title: "響け！ユーフォニアム", count: "156 スポット · 宇治市" },
   { bangumiId: "160209", title: "君の名は。", count: "89 スポット · 新宿/飛騨" },
   { bangumiId: "269235", title: "天気の子", count: "72 スポット · 東京" },
-  { bangumiId: "485", title: "涼宮ハルヒの憂鬱", count: "134 スポット · 西宮市" },
+  { bangumiId: "328609", title: "ぼっち・ざ・ろっく！", count: "45 スポット · 下北沢" },
   { bangumiId: "1424", title: "けいおん！", count: "98 スポット · 京都/豊郷" },
   { bangumiId: "362577", title: "すずめの戸締まり", count: "65 スポット · 九州〜東北" },
-  { bangumiId: "55113", title: "たまこまーけっと", count: "47 スポット · 出町柳" },
+  { bangumiId: "100444", title: "四月は君の嘘", count: "38 スポット · 練馬/横浜" },
   { bangumiId: "27364", title: "氷菓", count: "82 スポット · 高山市" },
 ];
 

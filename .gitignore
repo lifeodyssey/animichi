@@ -89,8 +89,10 @@ skills-lock.json
 
 # Misc
 images/
+!frontend/public/images/
 *.pen
 .next/
+.open-next/
 .wrangler/
 .venv
 node_modules
