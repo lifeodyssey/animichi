@@ -24,3 +24,6 @@ export { fetchRouteHistory } from "./routes";
 export type { RouteHistoryEntry } from "./routes";
 
 export { submitFeedback } from "./feedback";
+
+export { fetchSearchPreview } from "./search-preview";
+export type { SearchPreviewResponse } from "./search-preview";

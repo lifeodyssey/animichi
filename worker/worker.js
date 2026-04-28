@@ -216,7 +216,13 @@ export default {
       return env.ASSETS.fetch(request);
     }
 
-    // All /v1/* routes require authentication.
+    // Public API routes — no auth required, forwarded directly to container.
+    if (pathname === "/v1/search/preview" || pathname === "/v1/bangumi/popular") {
+      const id = env.CONTAINER.idFromName("default");
+      return env.CONTAINER.get(id).fetch(request);
+    }
+
+    // All other /v1/* routes require authentication.
     const auth = await authenticate(request, env);
     if (!auth.ok) {
       return new Response(

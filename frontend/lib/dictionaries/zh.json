@@ -272,5 +272,19 @@
       }
     ],
     "spot_label": "景点"
+  },
+  "search_preview": {
+    "title": "{query} 的圣地",
+    "subtitle": "找到 {count} 个取景地",
+    "no_results": "没有找到相关圣地",
+    "no_results_hint": "请确认作品名后再试一次",
+    "showing_preview": "展示 {shown} 个（共 {total} 个）",
+    "login_for_more": "登录后查看全部取景地",
+    "login_button": "登录查看全部",
+    "back_to_home": "返回首页",
+    "spot_label": "取景地",
+    "episode_label": "第{ep}集",
+    "loading": "搜索中...",
+    "error": "搜索失败，请重试。"
   }
 }
