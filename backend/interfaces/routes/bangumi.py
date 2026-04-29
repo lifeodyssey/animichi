@@ -32,6 +32,74 @@ async def handle_bangumi_popular(
     return _json_response({"bangumi": rows})
 
 
+@router.get("/{bangumi_id}/guide")
+async def handle_bangumi_guide(
+    request: Request,
+    bangumi_id: str,
+) -> JSONResponse:
+    """Public anime pilgrimage guide — all spots, no auth required."""
+    db = _require_supabase(_get_db_from_request(request))
+    bangumi = await db.bangumi.get_bangumi(bangumi_id)
+    if not bangumi:
+        raise HTTPException(status_code=404, detail="Bangumi not found.")
+
+    all_points = await db.points.get_points_by_bangumi(bangumi_id)
+
+    def _float(val: object) -> float:
+        if isinstance(val, (int, float)):
+            return float(val)
+        return 0.0
+
+    spots = [
+        {
+            "id": str(p.get("id", "")),
+            "name": p.get("name", ""),
+            "name_cn": p.get("name_cn"),
+            "episode": p.get("episode"),
+            "time_seconds": p.get("time_seconds"),
+            "screenshot_url": p.get("image") or p.get("screenshot_url"),
+            "bangumi_id": bangumi_id,
+            "latitude": _float(p.get("latitude")),
+            "longitude": _float(p.get("longitude")),
+        }
+        for p in all_points
+    ]
+
+    lats: list[float] = [
+        s["latitude"]
+        for s in spots
+        if isinstance(s["latitude"], float) and s["latitude"] != 0.0
+    ]
+    lngs: list[float] = [
+        s["longitude"]
+        for s in spots
+        if isinstance(s["longitude"], float) and s["longitude"] != 0.0
+    ]
+    bounds = (
+        {
+            "north": max(lats),
+            "south": min(lats),
+            "east": max(lngs),
+            "west": min(lngs),
+        }
+        if lats and lngs
+        else None
+    )
+
+    return _json_response(
+        {
+            "bangumi_id": bangumi_id,
+            "title": bangumi.get("title"),
+            "title_cn": bangumi.get("title_cn"),
+            "cover_url": bangumi.get("cover_url"),
+            "city": bangumi.get("city"),
+            "spot_count": len(spots),
+            "spots": spots,
+            "bounds": bounds,
+        }
+    )
+
+
 @router.get("/nearby")
 async def handle_bangumi_nearby(
     request: Request,

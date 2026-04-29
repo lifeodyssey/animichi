@@ -2,7 +2,7 @@
 
 import { useEffect, useReducer } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useDict, useLocale } from "../../lib/i18n-context";
 import { fetchSearchPreview } from "../../lib/api";
 import type { SearchPreviewResponse } from "../../lib/api";
@@ -27,6 +27,7 @@ function reducer(_state: State, action: Action): State {
 
 export default function SearchPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const query = searchParams.get("q") ?? "";
   const dict = useDict();
   const t = dict.search_preview;
@@ -43,7 +44,14 @@ export default function SearchPage() {
     dispatch({ type: "fetch" });
 
     fetchSearchPreview(query, locale, controller.signal)
-      .then((res) => dispatch({ type: "done", data: res }))
+      .then((res) => {
+        const bangumiId = res.results.metadata?.bangumi_id;
+        if (bangumiId && res.results.status === "ok") {
+          router.replace(`/anime/${bangumiId}`);
+          return;
+        }
+        dispatch({ type: "done", data: res });
+      })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         dispatch({ type: "error" });

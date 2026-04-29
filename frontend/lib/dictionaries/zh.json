@@ -286,5 +286,17 @@
     "episode_label": "第{ep}集",
     "loading": "搜索中...",
     "error": "搜索失败，请重试。"
+  },
+  "anime_guide": {
+    "spots_label": "{count} 个取景地",
+    "plan_route": "用 AI 规划巡礼路线",
+    "plan_route_sub": "登录后自动生成最优路线",
+    "back_to_home": "返回首页",
+    "not_found": "未找到该作品",
+    "not_found_hint": "请从首页浏览作品列表",
+    "loading": "加载中...",
+    "error": "加载失败",
+    "episode_label": "第{ep}集",
+    "map_label": "圣地地图"
   }
 }

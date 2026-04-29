@@ -286,5 +286,17 @@
     "episode_label": "EP{ep}",
     "loading": "Searching...",
     "error": "Search failed. Please try again."
+  },
+  "anime_guide": {
+    "spots_label": "{count} spots",
+    "plan_route": "Plan route with AI",
+    "plan_route_sub": "Log in to auto-generate the optimal pilgrimage route",
+    "back_to_home": "Back to home",
+    "not_found": "Anime not found",
+    "not_found_hint": "Browse anime from the home page",
+    "loading": "Loading...",
+    "error": "Failed to load",
+    "episode_label": "EP{ep}",
+    "map_label": "Pilgrimage map"
   }
 }

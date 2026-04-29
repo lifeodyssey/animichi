@@ -175,14 +175,14 @@ describe("Landing page — structure", () => {
     expect(all.length).toBeGreaterThanOrEqual(2); // header + footer
   });
 
-  it("gallery cards link to search pages", () => {
+  it("gallery cards link to anime guide pages", () => {
     const { container } = renderLanding(jaFull);
     const galleryLinks = container.querySelectorAll(
       "[data-testid='gallery-section'] a",
     );
     expect(galleryLinks.length).toBe(8);
     const firstHref = galleryLinks[0].getAttribute("href");
-    expect(firstHref).toContain("/search?q=");
+    expect(firstHref).toContain("/anime/");
   });
 
   it("does not render search input (no fake search bar)", () => {

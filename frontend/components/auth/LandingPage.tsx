@@ -228,7 +228,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
           {ANIME_GALLERY.map((anime, i) => (
             <Link
               key={anime.bangumiId}
-              href={`/search?q=${encodeURIComponent(anime.title)}`}
+              href={`/anime/${anime.bangumiId}`}
               ref={addRevealRef}
               className={[
                 "seichi-reveal-pop group relative overflow-hidden rounded-xl bg-[var(--color-card)]",
