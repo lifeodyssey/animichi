@@ -297,6 +297,8 @@
     "loading": "読み込み中...",
     "error": "読み込みに失敗しました",
     "episode_label": "EP{ep}",
-    "map_label": "聖地マップ"
+    "map_label": "聖地マップ",
+    "episode_tab": "集数",
+    "area_tab": "エリア"
   }
 }
