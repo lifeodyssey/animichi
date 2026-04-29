@@ -127,6 +127,33 @@ function groupByArea(spots: PilgrimagePoint[], bangumiCity?: string | null): Spo
   }));
 }
 
+/** Merge spots with the same name + coordinates. Keeps first screenshot, collects all episodes. */
+function deduplicateSpots(spots: PilgrimagePoint[]): PilgrimagePoint[] {
+  const map = new Map<string, PilgrimagePoint>();
+  for (const s of spots) {
+    const key = `${s.name}|${Math.round(s.latitude * 1000)}|${Math.round(s.longitude * 1000)}`;
+    if (!map.has(key)) {
+      map.set(key, { ...s });
+    }
+    // Could merge episodes here if we had an episodes[] field
+  }
+  return [...map.values()];
+}
+
+/** Pick ~1 representative spot per episode group for the filmstrip (max 12). */
+function selectFilmstripSpots(spots: PilgrimagePoint[], maxCount: number = 12): PilgrimagePoint[] {
+  const withScreenshot = spots.filter((s) => s.screenshot_url);
+  if (withScreenshot.length <= maxCount) return withScreenshot;
+
+  // Pick evenly spaced samples
+  const step = Math.max(1, Math.floor(withScreenshot.length / maxCount));
+  const selected: PilgrimagePoint[] = [];
+  for (let i = 0; i < withScreenshot.length && selected.length < maxCount; i += step) {
+    selected.push(withScreenshot[i]);
+  }
+  return selected;
+}
+
 function shouldDefaultToEpisode(spots: PilgrimagePoint[]): boolean {
   const withEp = spots.filter((s) => s.episode != null && s.episode > 0);
   return withEp.length > spots.length * 0.4;
@@ -161,7 +188,8 @@ export default function AnimeGuidePage() {
     return () => controller.abort();
   }, [bangumiId]);
 
-  const spots = useMemo(() => data?.spots ?? [], [data]);
+  const spots = useMemo(() => deduplicateSpots(data?.spots ?? []), [data]);
+  const filmstripSpots = useMemo(() => selectFilmstripSpots(spots), [spots]);
   const title = data?.title ?? "";
   const titleCn = data?.title_cn;
   const displayTitle = locale === "zh" && titleCn ? titleCn : title;
@@ -271,7 +299,7 @@ export default function AnimeGuidePage() {
           {/* Filmstrip */}
           {spots.length > 0 && (
             <div style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.1s backwards" }}>
-              <Filmstrip points={spots} />
+              <Filmstrip points={filmstripSpots} />
             </div>
           )}
 
