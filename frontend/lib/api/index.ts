@@ -27,3 +27,6 @@ export { submitFeedback } from "./feedback";
 
 export { fetchSearchPreview } from "./search-preview";
 export type { SearchPreviewResponse } from "./search-preview";
+
+export { fetchAnimeGuide } from "./guide";
+export type { AnimeGuideResponse } from "./guide";
