@@ -297,6 +297,8 @@
     "loading": "Loading...",
     "error": "Failed to load",
     "episode_label": "EP{ep}",
-    "map_label": "Pilgrimage map"
+    "map_label": "Pilgrimage map",
+    "episode_tab": "Episode",
+    "area_tab": "Area"
   }
 }

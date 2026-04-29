@@ -50,8 +50,8 @@ export default function SpotCard(props: SpotCardProps) {
         )}
         <EpBadge episode={point.episode} />
       </div>
-      <div className="p-2.5">
-        <div className="truncate text-[13px] font-medium text-[var(--color-fg)]">
+      <div className="px-3 py-3">
+        <div className="truncate text-[14px] font-medium text-[var(--color-fg)]">
           {point.name}
         </div>
       </div>

@@ -16,7 +16,7 @@ export default function Filmstrip({ points }: FilmstripProps) {
 
   return (
     <div
-      className="flex gap-3 overflow-x-auto px-5 py-3 sm:px-8"
+      className="flex gap-4 overflow-x-auto px-5 py-5 sm:px-8"
       style={{
         WebkitMaskImage: "linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)",
         maskImage: "linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)",
@@ -29,7 +29,7 @@ export default function Filmstrip({ points }: FilmstripProps) {
           <div
             key={point.id}
             className="relative flex-shrink-0 overflow-hidden rounded-xl"
-            style={{ width: 200 }}
+            style={{ width: 280 }}
           >
             <div className="aspect-[16/9]">
               <img
@@ -41,7 +41,7 @@ export default function Filmstrip({ points }: FilmstripProps) {
               />
             </div>
             <div
-              className="absolute inset-x-0 bottom-0 px-2.5 py-2 text-[11px] font-medium text-white"
+              className="absolute inset-x-0 bottom-0 px-3 py-2.5 text-[12px] font-medium text-white"
               style={{ background: "linear-gradient(transparent, oklch(15% 0.02 238 / 0.75))" }}
             >
               {name}
