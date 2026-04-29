@@ -8,6 +8,7 @@ import { useDict, useLocale } from "../../../lib/i18n-context";
 import { fetchAnimeGuide } from "../../../lib/api";
 import type { AnimeGuideResponse } from "../../../lib/api";
 import type { PilgrimagePoint } from "../../../lib/types";
+import { useScrollReveal } from "../../../hooks/useScrollReveal";
 import SharedHeader from "../../../components/layout/SharedHeader";
 import SharedFooter from "../../../components/layout/SharedFooter";
 import Filmstrip from "../../../components/spots/Filmstrip";
@@ -166,6 +167,7 @@ export default function AnimeGuidePage() {
   const dict = useDict();
   const t = dict.anime_guide;
   const locale = useLocale() as "ja" | "zh" | "en";
+  const addRevealRef = useScrollReveal();
 
   const [{ data, status }, dispatch] = useReducer(reducer, {
     data: null,
@@ -296,10 +298,16 @@ export default function AnimeGuidePage() {
             </div>
           </section>
 
-          {/* Filmstrip */}
-          {spots.length > 0 && (
-            <div style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.1s backwards" }}>
-              <Filmstrip points={filmstripSpots} />
+          {/* Filmstrip — gradient bridge from hero to content */}
+          {filmstripSpots.length > 0 && (
+            <div
+              className="pb-4"
+              style={{
+                background: "linear-gradient(180deg, oklch(93% 0.02 220) 0%, var(--color-bg) 100%)",
+                animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.1s backwards",
+              }}
+            >
+              <Filmstrip points={filmstripSpots} label={t.filmstrip_label} />
             </div>
           )}
 
@@ -357,6 +365,7 @@ export default function AnimeGuidePage() {
                   count={group.points.length}
                   points={group.points}
                   defaultOpen={i === 0}
+                  revealRef={addRevealRef}
                 />
               ))}
             </div>
