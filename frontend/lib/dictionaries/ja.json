@@ -299,6 +299,8 @@
     "episode_label": "EP{ep}",
     "map_label": "聖地マップ",
     "episode_tab": "集数",
-    "area_tab": "エリア"
+    "area_tab": "エリア",
+    "filmstrip_label": "聖地シーン",
+    "show_all": "すべて表示（{count}件）"
   }
 }
