@@ -30,15 +30,15 @@ export default function SpotGroup({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex w-full items-center justify-between py-3.5 text-left"
+        className="flex w-full items-center justify-between rounded-lg py-4 text-left transition-colors hover:bg-[var(--color-card)]"
       >
         <h3
-          className="flex items-center gap-2 text-[15px] font-semibold text-[var(--color-fg)]"
+          className="flex items-center gap-2.5 text-[16px] font-semibold text-[var(--color-fg)]"
           style={{ fontFamily: "var(--app-font-display)" }}
         >
           {title}
         </h3>
-        <span className="flex items-center gap-2 text-[12px] text-[var(--color-muted-fg)]">
+        <span className="flex items-center gap-2 text-[13px] text-[var(--color-muted-fg)]">
           {count} spots
           <span className="text-[10px]">{open ? "▼" : "▶"}</span>
         </span>
@@ -46,7 +46,7 @@ export default function SpotGroup({
 
       {open && (
         <div
-          className="grid grid-cols-2 gap-2.5 pb-4 sm:grid-cols-3 lg:grid-cols-4"
+          className="grid grid-cols-1 gap-4 pb-6 sm:grid-cols-2 lg:grid-cols-3"
           style={{ animation: "seichi-fade-up 0.3s cubic-bezier(0.16,1,0.3,1)" }}
         >
           {points.map((point) =>

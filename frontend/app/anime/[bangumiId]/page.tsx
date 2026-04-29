@@ -217,7 +217,7 @@ export default function AnimeGuidePage() {
         <>
           {/* Hero */}
           <section
-            className="px-5 pb-4 pt-8 sm:px-8"
+            className="px-5 pb-8 pt-10 sm:px-8 sm:pb-10 sm:pt-14"
             style={{
               background: "linear-gradient(160deg, oklch(90% 0.03 220), var(--color-bg))",
               animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1)",
@@ -232,18 +232,18 @@ export default function AnimeGuidePage() {
                 {t.back_to_home}
               </Link>
 
-              <div className="flex items-start gap-5">
+              <div className="flex items-start gap-6">
                 {data.cover_url && (
                   <img
                     src={data.cover_url}
                     alt={displayTitle}
-                    width={80}
-                    height={113}
-                    className="h-[113px] w-[80px] shrink-0 rounded-lg object-cover sm:h-[140px] sm:w-[100px]"
+                    width={140}
+                    height={198}
+                    className="h-[160px] w-[113px] shrink-0 rounded-lg object-cover shadow-md sm:h-[198px] sm:w-[140px] lg:h-[240px] lg:w-[170px]"
                   />
                 )}
                 <div>
-                  <h1 className="font-[family-name:var(--app-font-display)] text-[clamp(24px,5vw,36px)] font-bold leading-[1.1] text-[var(--color-fg)]">
+                  <h1 className="font-[family-name:var(--app-font-display)] text-[clamp(28px,4.5vw,42px)] font-bold leading-[1.1] text-[var(--color-fg)]">
                     {displayTitle}
                   </h1>
                   {titleCn && locale !== "zh" && (
@@ -252,7 +252,7 @@ export default function AnimeGuidePage() {
                   {locale === "zh" && title !== titleCn && (
                     <p className="mt-1 text-[14px] text-[var(--color-muted-fg)]">{title}</p>
                   )}
-                  <div className="mt-3 flex items-center gap-3 text-[14px] text-[var(--color-muted-fg)]">
+                  <div className="mt-4 flex items-center gap-3 text-[15px] text-[var(--color-muted-fg)]">
                     <span className="font-semibold text-[var(--color-fg)]">
                       {t.spots_label.replace("{count}", String(data.spot_count))}
                     </span>
@@ -275,14 +275,14 @@ export default function AnimeGuidePage() {
             </div>
           )}
 
-          <main className="mx-auto max-w-[1200px] px-5 pb-12 sm:px-8">
+          <main className="mx-auto max-w-[1200px] px-5 pb-16 sm:px-8 sm:pb-20">
             {/* Map */}
             {spots.length > 0 && (
               <div
-                className="mb-4 mt-4 overflow-hidden rounded-2xl border border-[var(--color-border)]"
+                className="mb-6 mt-6 overflow-hidden rounded-2xl border border-[var(--color-border)] shadow-sm"
                 style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.15s backwards" }}
               >
-                <div className="h-[280px] sm:h-[380px]">
+                <div className="h-[320px] sm:h-[420px] lg:h-[480px]">
                   <LazyMap points={spots} height="100%" scrollWheelZoom={false} />
                 </div>
               </div>
@@ -290,11 +290,11 @@ export default function AnimeGuidePage() {
 
             {/* CTA */}
             <div
-              className="mb-8 rounded-xl bg-[var(--color-card)] p-5 sm:flex sm:items-center sm:justify-between sm:p-7"
+              className="mb-10 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-6 shadow-sm sm:flex sm:items-center sm:justify-between sm:p-8"
               style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.2s backwards" }}
             >
               <div>
-                <p className="text-[16px] font-medium text-[var(--color-fg)]">{t.plan_route}</p>
+                <p className="text-[18px] font-semibold text-[var(--color-fg)]">{t.plan_route}</p>
                 <p className="mt-1 text-[14px] text-[var(--color-muted-fg)]">{t.plan_route_sub}</p>
               </div>
               <Link
@@ -312,7 +312,12 @@ export default function AnimeGuidePage() {
                 className="mb-4"
                 style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.25s backwards" }}
               >
-                <GroupToggle value={groupMode} onChange={setGroupMode} />
+                <GroupToggle
+                  value={groupMode}
+                  onChange={setGroupMode}
+                  episodeLabel={t.episode_tab}
+                  areaLabel={t.area_tab}
+                />
               </div>
             )}
 

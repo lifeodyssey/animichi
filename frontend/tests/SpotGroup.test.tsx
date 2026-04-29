@@ -61,7 +61,7 @@ describe("SpotGroup", () => {
 
 describe("GroupToggle", () => {
   it("renders episode and area options", () => {
-    render(<GroupToggle value="episode" onChange={vi.fn()} />);
+    render(<GroupToggle value="episode" onChange={vi.fn()} episodeLabel="Episode" areaLabel="Area" />);
     expect(screen.getByRole("button", { name: /集数|Episode/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /エリア|Area/i })).toBeInTheDocument();
   });
@@ -69,13 +69,13 @@ describe("GroupToggle", () => {
   it("calls onChange when toggled", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<GroupToggle value="episode" onChange={onChange} />);
+    render(<GroupToggle value="episode" onChange={onChange} episodeLabel="Episode" areaLabel="Area" />);
     await user.click(screen.getByRole("button", { name: /エリア|Area/i }));
     expect(onChange).toHaveBeenCalledWith("area");
   });
 
   it("marks active option", () => {
-    render(<GroupToggle value="area" onChange={vi.fn()} />);
+    render(<GroupToggle value="area" onChange={vi.fn()} episodeLabel="Episode" areaLabel="Area" />);
     const areaBtn = screen.getByRole("button", { name: /エリア|Area/i });
     expect(areaBtn.className).toContain("primary");
   });
