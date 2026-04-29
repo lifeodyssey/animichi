@@ -286,5 +286,17 @@
     "episode_label": "EP{ep}",
     "loading": "検索中...",
     "error": "検索に失敗しました。もう一度お試しください。"
+  },
+  "anime_guide": {
+    "spots_label": "{count} スポット",
+    "plan_route": "AIで巡礼ルートを計画",
+    "plan_route_sub": "ログインして最適なルートを自動生成",
+    "back_to_home": "トップに戻る",
+    "not_found": "作品が見つかりませんでした",
+    "not_found_hint": "トップページから作品を探してみてください",
+    "loading": "読み込み中...",
+    "error": "読み込みに失敗しました",
+    "episode_label": "EP{ep}",
+    "map_label": "聖地マップ"
   }
 }

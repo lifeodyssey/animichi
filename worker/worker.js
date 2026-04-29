@@ -217,7 +217,10 @@ export default {
     }
 
     // Public API routes — no auth required, forwarded directly to container.
-    if (pathname === "/v1/search/preview" || pathname === "/v1/bangumi/popular") {
+    const isPublicAPI = pathname === "/v1/search/preview"
+      || pathname === "/v1/bangumi/popular"
+      || /^\/v1\/bangumi\/[^/]+\/guide$/.test(pathname);
+    if (isPublicAPI) {
       const id = env.CONTAINER.idFromName("default");
       return env.CONTAINER.get(id).fetch(request);
     }
