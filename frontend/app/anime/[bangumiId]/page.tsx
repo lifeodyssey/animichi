@@ -51,22 +51,64 @@ interface SpotGroupData {
 }
 
 function groupByEpisode(spots: PilgrimagePoint[]): SpotGroupData[] {
-  const map = new Map<number, PilgrimagePoint[]>();
+  const withEp = new Map<number, PilgrimagePoint[]>();
+  const noEp: PilgrimagePoint[] = [];
   for (const s of spots) {
-    const ep = s.episode ?? 0;
-    const arr = map.get(ep) ?? [];
-    arr.push(s);
-    map.set(ep, arr);
+    const ep = s.episode;
+    if (ep != null && ep > 0) {
+      const arr = withEp.get(ep) ?? [];
+      arr.push(s);
+      withEp.set(ep, arr);
+    } else {
+      noEp.push(s);
+    }
   }
-  const sorted = [...map.entries()].sort(([a], [b]) => a - b);
-  return sorted.map(([ep, points]) => ({
+  const sorted = [...withEp.entries()].sort(([a], [b]) => a - b);
+  const groups: SpotGroupData[] = sorted.map(([ep, points]) => ({
     key: `ep-${ep}`,
-    title: ep > 0 ? `第 ${ep} 話` : "その他",
+    title: `第 ${ep} 話`,
     points,
   }));
+  // "Other" group goes last, not first
+  if (noEp.length > 0) {
+    groups.push({ key: "ep-other", title: "その他", points: noEp });
+  }
+  return groups;
 }
 
-function groupByArea(spots: PilgrimagePoint[]): SpotGroupData[] {
+/** Map lat/lng to a rough Japanese region name. */
+const REGIONS: Array<{ lat: [number, number]; lng: [number, number]; name: string }> = [
+  { lat: [35.6, 35.8], lng: [139.6, 139.9], name: "東京" },
+  { lat: [34.6, 35.1], lng: [135.4, 135.9], name: "京都・宇治" },
+  { lat: [34.6, 34.8], lng: [135.0, 135.5], name: "大阪・神戸" },
+  { lat: [34.6, 34.9], lng: [135.2, 135.5], name: "西宮・阪神" },
+  { lat: [36.1, 36.3], lng: [137.1, 137.3], name: "飛騨高山" },
+  { lat: [35.0, 35.2], lng: [135.7, 136.0], name: "滋賀" },
+  { lat: [33.5, 34.0], lng: [130.0, 131.5], name: "九州" },
+  { lat: [35.3, 35.5], lng: [139.4, 139.7], name: "横浜" },
+  { lat: [34.9, 35.1], lng: [136.8, 137.0], name: "名古屋" },
+];
+
+function areaName(points: PilgrimagePoint[]): string {
+  // Use origin field if available
+  for (const p of points) {
+    if (p.origin && p.origin.trim()) return p.origin.trim();
+  }
+  // Match against known regions
+  const first = points[0];
+  if (!first) return "その他";
+  for (const r of REGIONS) {
+    if (first.latitude >= r.lat[0] && first.latitude <= r.lat[1]
+      && first.longitude >= r.lng[0] && first.longitude <= r.lng[1]) {
+      return r.name;
+    }
+  }
+  // Fallback: use spot name as hint
+  const names = points.slice(0, 3).map((p) => p.name).join("・");
+  return names.length > 20 ? `${names.slice(0, 18)}…` : names;
+}
+
+function groupByArea(spots: PilgrimagePoint[], bangumiCity?: string | null): SpotGroupData[] {
   const map = new Map<string, PilgrimagePoint[]>();
   for (const s of spots) {
     const lat = Math.round((s.latitude || 0) * 10) / 10;
@@ -79,7 +121,8 @@ function groupByArea(spots: PilgrimagePoint[]): SpotGroupData[] {
   const sorted = [...map.entries()].sort(([, a], [, b]) => b.length - a.length);
   return sorted.map(([key, points], i) => ({
     key: `area-${key}`,
-    title: `エリア ${i + 1}（${points.length} spots）`,
+    // First (largest) group uses bangumi city name if available
+    title: i === 0 && bangumiCity ? bangumiCity : areaName(points),
     points,
   }));
 }
@@ -133,8 +176,8 @@ export default function AnimeGuidePage() {
   useEffect(() => { setGroupMode(defaultMode); }, [defaultMode]);
 
   const groups = useMemo(
-    () => (groupMode === "episode" ? groupByEpisode(spots) : groupByArea(spots)),
-    [spots, groupMode],
+    () => (groupMode === "episode" ? groupByEpisode(spots) : groupByArea(spots, data?.city)),
+    [spots, groupMode, data?.city],
   );
 
   return (
