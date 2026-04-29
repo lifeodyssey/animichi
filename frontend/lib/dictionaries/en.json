@@ -299,6 +299,8 @@
     "episode_label": "EP{ep}",
     "map_label": "Pilgrimage map",
     "episode_tab": "Episode",
-    "area_tab": "Area"
+    "area_tab": "Area",
+    "filmstrip_label": "Pilgrimage scenes",
+    "show_all": "Show all ({count})"
   }
 }

@@ -1,24 +1,33 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
+/**
+ * Scroll-reveal hook. Returns a ref callback that observes elements for
+ * viewport entry and adds the `seichi-visible` class once visible.
+ *
+ * Works with dynamically rendered content: each ref callback call
+ * immediately starts observing the element via a persistent observer.
+ */
 export function useScrollReveal(): (el: HTMLElement | null) => void {
-  const revealRefs = useRef<(HTMLElement | null)[]>([]);
+  const obsRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
-    const obs = new IntersectionObserver(
+    obsRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((e) => {
-          if (e.isIntersecting) e.target.classList.add("seichi-visible");
+          if (e.isIntersecting) {
+            e.target.classList.add("seichi-visible");
+            obsRef.current?.unobserve(e.target);
+          }
         });
       },
-      { threshold: 0.15 },
+      { threshold: 0.12 },
     );
-    revealRefs.current.forEach((el) => el && obs.observe(el));
-    return () => obs.disconnect();
+    return () => obsRef.current?.disconnect();
   }, []);
 
-  return (el: HTMLElement | null) => {
-    if (el && !revealRefs.current.includes(el)) revealRefs.current.push(el);
-  };
+  return useCallback((el: HTMLElement | null) => {
+    if (el && obsRef.current) obsRef.current.observe(el);
+  }, []);
 }

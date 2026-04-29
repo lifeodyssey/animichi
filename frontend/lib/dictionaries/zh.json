@@ -299,6 +299,8 @@
     "episode_label": "第{ep}集",
     "map_label": "圣地地图",
     "episode_tab": "集数",
-    "area_tab": "地区"
+    "area_tab": "地区",
+    "filmstrip_label": "圣地场景",
+    "show_all": "查看全部（{count}个）"
   }
 }
