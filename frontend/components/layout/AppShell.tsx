@@ -1,15 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-// import { useConversationHistory } from "../../hooks/useConversationHistory";
 import { useSession } from "../../hooks/useSession";
 import { useChat } from "../../hooks/useChat";
 import { usePointSelection } from "../../hooks/usePointSelection";
 import { useLocale, useDict } from "../../lib/i18n-context";
 import { useLayoutMode } from "../../hooks/useLayoutMode";
 import { useRouteSelection } from "../../hooks/useRouteSelection";
-// import { useSessionHydration } from "../../hooks/useSessionHydration";
-// import { useConversationSync } from "../../hooks/useConversationSync";
 import { PointSelectionContext } from "../../contexts/PointSelectionContext";
 import { SuggestContext } from "../../contexts/SuggestContext";
 import { isVisualResponse } from "../generative/registry";
@@ -18,14 +15,11 @@ import { cn } from "../../lib/utils";
 import IconSidebar from "./IconSidebar";
 import ChatPanel from "../chat/ChatPanel";
 import ResultSheet from "./ResultSheet";
-// import ConversationDrawer from "./ConversationDrawer";
-// TODO: re-enable when conversation history feature is ready
-// import DesktopConversationSidebar from "./DesktopConversationSidebar";
 import ResultPanel from "./ResultPanel";
 import ChatPopup from "../chat/ChatPopup";
 
 // ---------------------------------------------------------------------------
-// Sidebar overlay — used on tablet / mobile when sidebar is toggled open
+// Sidebar overlay — tablet / mobile
 // ---------------------------------------------------------------------------
 
 function SidebarOverlay({
@@ -54,14 +48,13 @@ function SidebarOverlay({
 }
 
 // ---------------------------------------------------------------------------
-// AppShell — adaptive layout shell
+// AppShell — map-first adaptive layout
 // ---------------------------------------------------------------------------
 
 export default function AppShell() {
   const locale = useLocale();
   const dict = useDict();
   const { sessionId, setSessionId, clearSession } = useSession();
-  // const { conversations, upsert: upsertConversation, rename: renameConversation } = useConversationHistory();
 
   const handleTitleUpdate = useCallback(
     (_sid: string, _title: string) => { /* conversation history disabled */ },
@@ -80,12 +73,8 @@ export default function AppShell() {
   const { selectedIds, toggle, clear: clearSelectedPoints } = usePointSelection();
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  // const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatPopupOpen, setChatPopupOpen] = useState(false);
-
-  // useSessionHydration({ sessionId, clearSession, appendMessages });
-  // useConversationSync({ messages, upsertConversation });
 
   const activeMessage = useMemo(
     () => activeMessageId
@@ -96,12 +85,12 @@ export default function AppShell() {
 
   const activeResponse = activeMessage?.response ?? null;
 
-  // ── Adaptive layout ──────────���──────────────────────────────────────────
+  // ── Adaptive layout ──
   const layout = useLayoutMode(activeResponse !== null, activeMessageId);
-  const { mode, isMobile, isTablet } = layout;
-  // Treat SSR/test default (all media queries false) as desktop.
+  const { isMobile, isTablet } = layout;
   const showPermanentSidebar = !isMobile && !isTablet;
   const showOverlaySidebar = isMobile || isTablet;
+  const hasResults = activeResponse !== null;
 
   const defaultOrigin = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -113,8 +102,6 @@ export default function AppShell() {
   }, [messages]);
 
   // Auto-activate latest visual response + open chat popup on desktop
-  // Route results: popup starts minimized (pill) — user's focus is on map + timeline
-  // Search results: popup auto-opens — user may want to refine immediately
   useEffect(() => {
     if (messages.length === 0) return;
     const last = messages[messages.length - 1];
@@ -135,6 +122,7 @@ export default function AppShell() {
       clearSelectedPoints();
       setActiveMessageId(null);
       setDrawerOpen(false);
+      setChatPopupOpen(true); // Open chat popup when user sends
       send(text, coords);
     },
     [clearSelectedPoints, send],
@@ -171,23 +159,12 @@ export default function AppShell() {
     setActiveMessageId(null);
     setDrawerOpen(false);
     setSidebarOpen(false);
+    setChatPopupOpen(false);
   }, [abortRoute, clearChat, clearSelectedPoints, clearSession]);
-
-  // const handleSelectConversation = useCallback(
-  //   (id: string) => {
-  //     clearChat();
-  //     clearSelectedPoints();
-  //     setActiveMessageId(null);
-  //     setDrawerOpen(false);
-  //     setSessionId(id);
-  //   },
-  //   [clearChat, clearSelectedPoints, setSessionId],
-  // );
 
   const handleSidebarSection = useCallback(
     (_section: "history" | "favorites" | "settings") => {
       setSidebarOpen(false);
-      // conversation history disabled — history drawer removed
     },
     [],
   );
@@ -200,7 +177,7 @@ export default function AppShell() {
       <PointSelectionContext.Provider value={{ selectedIds, toggle, clear: clearSelectedPoints }}>
         <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
 
-          {/* ── Desktop sidebar: always visible ────────────────────────── */}
+          {/* ── Desktop sidebar ── */}
           {showPermanentSidebar && (
             <IconSidebar
               onNewChat={handleNewChat}
@@ -208,15 +185,7 @@ export default function AppShell() {
             />
           )}
 
-          {/* TODO: re-enable when conversation history feature is ready */}
-          {/* <DesktopConversationSidebar
-            conversations={conversations}
-            activeSessionId={sessionId}
-            onSelectConversation={handleSelectConversation}
-            onNewChat={handleNewChat}
-          /> */}
-
-          {/* ── Tablet/mobile sidebar: overlay ─────���───────────────────── */}
+          {/* ── Tablet/mobile sidebar overlay ── */}
           {showOverlaySidebar && sidebarOpen && (
             <SidebarOverlay onClose={() => setSidebarOpen(false)}>
               <IconSidebar
@@ -226,20 +195,12 @@ export default function AppShell() {
             </SidebarOverlay>
           )}
 
-          {/* ── Content area: adaptive layout ──────────────────────────── */}
-          <div className="flex min-w-0 flex-1 overflow-hidden">
+          {/* ── Main content: map-first layout ── */}
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
 
-            {/* Chat panel — visible in chat + split modes */}
-            {mode !== "full-result" && (
-              <div
-                data-testid="chat-panel"
-                className={cn(
-                  "flex min-h-0 flex-col",
-                  isMobile && "flex-1",
-                  !isMobile && mode === "chat" && "flex-1",
-                  !isMobile && mode === "split" && "w-[340px] shrink-0",
-                )}
-              >
+            {/* Mobile: chat panel when no results */}
+            {isMobile && !hasResults && (
+              <div data-testid="chat-panel" className="flex min-h-0 flex-1 flex-col">
                 <ChatPanel
                   messages={messages}
                   sending={isSending}
@@ -248,20 +209,22 @@ export default function AppShell() {
                   locale={locale}
                   onSend={handleSend}
                   onActivate={handleActivate}
-                  onOpenDrawer={isMobile ? () => setDrawerOpen(true) : undefined}
+                  onOpenDrawer={() => setDrawerOpen(true)}
                   isMobile={isMobile}
-                  layoutMode={isMobile ? "chat" : mode}
+                  layoutMode="chat"
                   onMenuOpen={showOverlaySidebar ? () => setSidebarOpen(true) : undefined}
                 />
               </div>
             )}
 
-            {/* Result panel — visible in split + full-result modes (desktop/tablet only) */}
-            {!isMobile && mode !== "chat" && (
+            {/* Desktop: result panel always visible (full width) */}
+            {!isMobile && (
               <div
                 data-testid="result-panel"
-                className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-                style={{ animation: "panel-slide-in 0.3s var(--ease-out-expo)" }}
+                className={cn(
+                  "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                  hasResults && "animate-[panel-slide-in_0.3s_var(--ease-out-expo)]",
+                )}
               >
                 <ResultPanel
                   activeResponse={activeResponse}
@@ -271,9 +234,21 @@ export default function AppShell() {
                 />
               </div>
             )}
+
+            {/* Mobile: result panel when results exist */}
+            {isMobile && hasResults && (
+              <div data-testid="result-panel" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <ResultPanel
+                  activeResponse={activeResponse}
+                  onRouteConfirmed={handleRouteConfirmed}
+                  defaultOrigin={defaultOrigin}
+                  loading={isSending}
+                />
+              </div>
+            )}
           </div>
 
-          {/* ── Mobile result sheet ─────────────────────────────────────── */}
+          {/* ── Mobile result sheet ── */}
           {isMobile && (
             <ResultSheet
               response={activeResponse}
@@ -285,34 +260,16 @@ export default function AppShell() {
             />
           )}
 
-          {/* ── Conversation history drawer (disabled) ─────────────────── */}
-          {/* <ConversationDrawer
-            open={conversationDrawerOpen}
-            onClose={() => setConversationDrawerOpen(false)}
-            conversations={conversations}
-            activeSessionId={sessionId}
-            onSelectConversation={(id) => {
-              setConversationDrawerOpen(false);
-              handleSelectConversation(id);
-            }}
-            onNewChat={() => {
-              setConversationDrawerOpen(false);
-              handleNewChat();
-            }}
-          /> */}
-
-          {/* ── Draggable chat popup — visible when results exist ── */}
-          {mode !== "chat" && activeResponse && (
-            <ChatPopup
-              open={chatPopupOpen}
-              onClose={() => setChatPopupOpen((prev) => !prev)}
-              messages={messages}
-              sending={isSending}
-              activeMessageId={activeMessageId}
-              onSend={handleSend}
-              onActivate={handleActivate}
-            />
-          )}
+          {/* ── Chat popup — always available ── */}
+          <ChatPopup
+            open={chatPopupOpen}
+            onClose={() => setChatPopupOpen((prev) => !prev)}
+            messages={messages}
+            sending={isSending}
+            activeMessageId={activeMessageId}
+            onSend={handleSend}
+            onActivate={handleActivate}
+          />
         </div>
       </PointSelectionContext.Provider>
     </SuggestContext.Provider>
