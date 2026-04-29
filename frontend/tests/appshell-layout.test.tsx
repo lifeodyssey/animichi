@@ -1,16 +1,13 @@
 /**
- * Unit tests for AppShell layout structure and interactions.
- * AC: renders 3 columns on wide viewport (icon-sidebar + chat + result-panel)
- * AC: clicking new chat button clears chat state
- * AC: clicking history button opens conversation drawer
+ * Unit tests for AppShell layout — map-first adaptive layout.
+ * AC: desktop renders sidebar + result panel (full width), chat as popup
+ * AC: mobile renders chat panel when no results
+ * AC: clicking new chat button clears state
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import AppShell from "../components/layout/AppShell";
 
-// Mock child components that use network or complex browser APIs.
-// ChatPanel, ResultPanel, ResultSheet, ConversationDrawer all use network hooks
-// internally and are covered by their own test files.
 vi.mock("../components/chat/ChatPanel", () => ({
   default: () => <div data-testid="mock-chat-panel" />,
 }));
@@ -20,19 +17,11 @@ vi.mock("../components/layout/ResultPanel", () => ({
 vi.mock("../components/layout/ResultSheet", () => ({
   default: () => null,
 }));
-vi.mock("../components/layout/ConversationDrawer", () => ({
-  default: ({ open, onNewChat }: { open: boolean; onNewChat: () => void }) =>
-    open ? (
-      <div data-testid="conversation-drawer">
-        <button onClick={onNewChat}>new chat from drawer</button>
-      </div>
-    ) : null,
-}));
-vi.mock("../components/layout/DesktopConversationSidebar", () => ({
-  default: () => <div data-testid="desktop-conversation-sidebar" />,
+vi.mock("../components/chat/ChatPopup", () => ({
+  default: ({ open }: { open: boolean }) =>
+    <div data-testid="mock-chat-popup" data-open={open} />,
 }));
 
-// Essential hook mocks: hooks that require browser APIs (localStorage, fetch, SSE).
 vi.mock("../hooks/useSession", () => ({
   useSession: () => ({
     sessionId: null,
@@ -54,14 +43,6 @@ vi.mock("../hooks/useChat", () => ({
   createMessageId: () => "test-id",
 }));
 
-vi.mock("../hooks/useConversationHistory", () => ({
-  useConversationHistory: () => ({
-    conversations: [],
-    upsert: vi.fn(),
-    rename: vi.fn(),
-  }),
-}));
-
 vi.mock("../hooks/usePointSelection", () => ({
   usePointSelection: () => ({
     selectedIds: new Set(),
@@ -75,44 +56,41 @@ vi.mock("../lib/i18n-context", () => ({
   useDict: () => ({}),
 }));
 
+// Desktop viewport: all media queries return false (SSR default = desktop)
 vi.mock("../hooks/useMediaQuery", () => ({
   useMediaQuery: () => false,
 }));
 
-describe("AppShell layout", () => {
+describe("AppShell desktop layout", () => {
   afterEach(() => cleanup());
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+  beforeEach(() => vi.clearAllMocks());
 
   it("renders without crashing", () => {
     const { container } = render(<AppShell />);
     expect(container.firstChild).toBeInTheDocument();
   });
 
-  it("renders icon sidebar on desktop viewport", () => {
+  it("renders icon sidebar on desktop", () => {
     render(<AppShell />);
     expect(screen.getByTestId("icon-sidebar")).toBeInTheDocument();
   });
 
-  it("renders the chat panel", () => {
+  it("renders result panel on desktop (map-first layout)", () => {
     render(<AppShell />);
-    expect(screen.getByTestId("chat-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("result-panel")).toBeInTheDocument();
   });
 
-  it("does not render the result panel in chat mode (no active result)", () => {
+  it("does not render chat panel on desktop (chat is popup)", () => {
     render(<AppShell />);
-    expect(screen.queryByTestId("result-panel")).toBeNull();
+    expect(screen.queryByTestId("chat-panel")).toBeNull();
   });
 
-  it("renders sidebar + chat on desktop with no active result", () => {
-    const { container } = render(<AppShell />);
-    expect(container.querySelector("[data-testid='icon-sidebar']")).toBeInTheDocument();
-    expect(container.querySelector("[data-testid='chat-panel']")).toBeInTheDocument();
-    expect(container.querySelector("[data-testid='result-panel']")).toBeNull();
+  it("renders chat popup component", () => {
+    render(<AppShell />);
+    expect(screen.getByTestId("mock-chat-popup")).toBeInTheDocument();
   });
 
-  it("does not render old 240px text sidebar", () => {
+  it("does not render old text sidebar", () => {
     const { container } = render(<AppShell />);
     expect(container.querySelector("[data-testid='text-sidebar']")).toBeNull();
   });
@@ -120,31 +98,20 @@ describe("AppShell layout", () => {
 
 describe("AppShell interactions", () => {
   afterEach(() => cleanup());
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+  beforeEach(() => vi.clearAllMocks());
 
-  it("clicking the New chat button does not crash and leaves layout intact", () => {
+  it("clicking New chat button does not crash", () => {
     render(<AppShell />);
     const newChatBtn = screen.getByRole("button", { name: /新对话/i });
     fireEvent.click(newChatBtn);
     expect(screen.getByTestId("icon-sidebar")).toBeInTheDocument();
   });
-
-  // Conversation history feature disabled — drawer removed from AppShell
-  // it("clicking the History button opens the conversation drawer", () => {
-  //   render(<AppShell />);
-  //   expect(screen.queryByTestId("conversation-drawer")).toBeNull();
-  //   const historyBtn = screen.getByRole("button", { name: /历史/i });
-  //   fireEvent.click(historyBtn);
-  //   expect(screen.getByTestId("conversation-drawer")).toBeInTheDocument();
-  // });
 });
 
 describe("AppShell mobile layout", () => {
   afterEach(() => cleanup());
 
-  it("renders without crashing in mobile viewport", () => {
+  it("renders without crashing", () => {
     const { container } = render(<AppShell />);
     expect(container.firstChild).toBeInTheDocument();
   });
