@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useDict, useLocale, useSetLocale } from "../../lib/i18n-context";
+import { useDict, useLocale } from "../../lib/i18n-context";
 import { useScrollReveal } from "../../hooks/useScrollReveal";
 import { ANIME_GALLERY, handleImageError } from "./LandingData";
+import SharedHeader from "../layout/SharedHeader";
+import SharedFooter from "../layout/SharedFooter";
 
 interface LandingPageProps {
   onOpenAuth: () => void;
@@ -19,14 +21,10 @@ interface LandingPageProps {
 // 2xl: 38px — display (mobile)
 // 3xl: clamp(48px, 7vw, 72px) — hero display
 
-const LOCALE_LABELS = { ja: "日本語", zh: "中文", en: "English" } as const;
-const LOCALE_CYCLE: Array<"ja" | "zh" | "en"> = ["ja", "zh", "en"];
-
 export default function LandingPage({ onOpenAuth }: LandingPageProps) {
   const dict = useDict();
   const landing = dict.landing_hero.landing;
   const locale = useLocale();
-  const setLocale = useSetLocale();
   const addRevealRef = useScrollReveal();
   const [heroFailed, setHeroFailed] = useState(false);
 
@@ -36,35 +34,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
       style={{ fontFamily: "var(--app-font-body)" }}
       lang={locale}
     >
-      {/* ── Header ── */}
-      <header
-        className="fixed inset-x-0 top-0 z-50 flex items-center justify-between px-5 py-4 sm:px-8"
-        style={{
-          background: "var(--color-bg)",
-          borderBottom: "1px solid var(--color-border)",
-          animation: "seichi-fade-down 0.5s ease-out",
-        }}
-      >
-        <div
-          className="flex items-baseline gap-3"
-          style={{ fontFamily: "var(--app-font-display)" }}
-        >
-          <span className="text-[28px] font-bold tracking-[0.02em] text-[var(--color-fg)]">
-            聖地巡礼
-          </span>
-          <span className="text-[12px] tracking-[2px] text-[var(--color-muted-fg)]">
-            seichijunrei
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={onOpenAuth}
-          className="rounded-lg px-5 py-2.5 text-[14px] font-medium text-[var(--color-fg)] transition-colors hover:bg-[var(--color-card)]"
-          style={{ border: "1px solid var(--color-border)" }}
-        >
-          {landing.login}
-        </button>
-      </header>
+      <SharedHeader onLogin={onOpenAuth} position="fixed" />
 
       {/* ── Hero ── */}
       <section
@@ -257,7 +227,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                 <span
                   className={[
                     "font-[family-name:var(--app-font-display)] font-bold text-white",
-                    i === 0 ? "text-[22px]" : "text-[15px]",
+                    i === 0 ? "text-[24px]" : "text-[16px]",
                   ].join(" ")}
                 >
                   {anime.title}
@@ -276,28 +246,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
         </div>
       </section>
 
-      {/* ── Footer ── */}
-      <footer className="border-t border-[var(--color-border)] px-5 py-10 sm:px-8">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between">
-          <div className="flex items-baseline gap-2 text-[14px] text-[var(--color-muted-fg)]">
-            <span className="font-[family-name:var(--app-font-display)] font-medium">
-              聖地巡礼
-            </span>
-            <span className="opacity-40">·</span>
-            <span>seichijunrei</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              const idx = LOCALE_CYCLE.indexOf(locale as "ja" | "zh" | "en");
-              setLocale(LOCALE_CYCLE[(idx + 1) % LOCALE_CYCLE.length]);
-            }}
-            className="text-[14px] text-[var(--color-muted-fg)] transition-colors hover:text-[var(--color-fg)]"
-          >
-            {LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] ?? "English"}
-          </button>
-        </div>
-      </footer>
+      <SharedFooter />
     </div>
   );
 }

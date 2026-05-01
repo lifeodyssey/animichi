@@ -1,9 +1,7 @@
 "use client";
 
 import { useLocale, useSetLocale } from "../../lib/i18n-context";
-
-const LOCALE_LABELS = { ja: "日本語", zh: "中文", en: "English" } as const;
-const LOCALE_CYCLE: Array<"ja" | "zh" | "en"> = ["ja", "zh", "en"];
+import { LOCALE_LABELS, LOCALES } from "../../lib/i18n";
 
 export default function SharedFooter() {
   const locale = useLocale();
@@ -25,12 +23,12 @@ export default function SharedFooter() {
         <button
           type="button"
           onClick={() => {
-            const idx = LOCALE_CYCLE.indexOf(locale as "ja" | "zh" | "en");
-            setLocale(LOCALE_CYCLE[(idx + 1) % LOCALE_CYCLE.length]);
+            const idx = LOCALES.indexOf(locale as (typeof LOCALES)[number]);
+            setLocale(LOCALES[(idx + 1) % LOCALES.length]);
           }}
           className="text-[14px] text-[var(--color-muted-fg)] transition-colors hover:text-[var(--color-fg)]"
         >
-          {LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] ?? "English"}
+          {LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] ?? "EN"}
         </button>
       </div>
     </footer>

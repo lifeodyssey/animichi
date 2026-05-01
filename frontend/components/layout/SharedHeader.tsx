@@ -2,21 +2,26 @@
 
 import Link from "next/link";
 import { useDict } from "../../lib/i18n-context";
+import { cn } from "../../lib/utils";
 
 interface SharedHeaderProps {
   onLogin?: () => void;
   loginHref?: string;
+  position?: "sticky" | "fixed";
 }
 
-export default function SharedHeader({ onLogin, loginHref }: SharedHeaderProps) {
+export default function SharedHeader({ onLogin, loginHref, position = "sticky" }: SharedHeaderProps) {
   const t = useDict().landing_hero.landing;
 
   return (
     <header
-      className="sticky top-0 z-50 flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4 sm:px-8"
+      className={cn(
+        "inset-x-0 top-0 z-50 flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4 sm:px-8",
+        position === "fixed" ? "fixed" : "sticky",
+      )}
       style={{
         background: "var(--color-bg)",
-        boxShadow: "0 1px 3px oklch(20% 0.02 238 / 0.04)",
+        boxShadow: "0 1px 3px oklch(20% 0.02 240 / 0.04)",
         animation: "seichi-fade-down 0.5s ease-out",
       }}
     >
@@ -37,8 +42,7 @@ export default function SharedHeader({ onLogin, loginHref }: SharedHeaderProps) 
         <button
           type="button"
           onClick={onLogin}
-          className="rounded-lg px-5 py-2.5 text-[14px] font-medium text-[var(--color-fg)] transition-colors hover:bg-[var(--color-card)]"
-          style={{ border: "1px solid color-mix(in oklch, var(--color-border) 60%, transparent)" }}
+          className="rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-[14px] font-medium text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
         >
           {t.login}
         </button>
@@ -47,8 +51,7 @@ export default function SharedHeader({ onLogin, loginHref }: SharedHeaderProps) 
       {!onLogin && loginHref && (
         <Link
           href={loginHref}
-          className="rounded-lg px-5 py-2.5 text-[14px] font-medium text-[var(--color-fg)] transition-colors hover:bg-[var(--color-card)]"
-          style={{ border: "1px solid color-mix(in oklch, var(--color-border) 60%, transparent)" }}
+          className="rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-[14px] font-medium text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
         >
           {t.login}
         </Link>
