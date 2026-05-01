@@ -19,6 +19,7 @@ interface SpotGroupProps {
   points: PilgrimagePoint[];
   defaultOpen?: boolean;
   showAllLabel?: string;
+  spotsCountLabel?: string;
   revealRef?: (el: HTMLElement | null) => void;
   selectedIds?: Set<string>;
   onToggle?: (id: string) => void;
@@ -37,6 +38,7 @@ export default function SpotGroup({
   points,
   defaultOpen = false,
   showAllLabel,
+  spotsCountLabel,
   revealRef,
   selectedIds,
   onToggle,
@@ -70,7 +72,7 @@ export default function SpotGroup({
             {title}
           </span>
           <span className="ml-auto mr-2 text-[14px] font-normal text-[var(--color-muted-fg)]">
-            {count} spots
+            {spotsCountLabel ? spotsCountLabel.replace("{count}", String(count)) : `${count} spots`}
           </span>
         </AccordionTrigger>
         <AccordionContent>
