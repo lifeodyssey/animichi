@@ -61,7 +61,7 @@ export function SortableItem({ point, index, onRemove }: SortableItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className="group flex items-center gap-3 rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2.5"
+      className="group flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5"
     >
       {/* Drag handle — Fix 8: always-visible grip, animated on hover */}
       <button
@@ -81,7 +81,7 @@ export function SortableItem({ point, index, onRemove }: SortableItemProps) {
           alt=""
           width={48}
           height={36}
-          className="h-9 w-12 shrink-0 rounded-[var(--r-sm)] object-cover"
+          className="h-9 w-12 shrink-0 rounded-sm object-cover"
           loading="lazy"
         />
       )}
@@ -89,19 +89,18 @@ export function SortableItem({ point, index, onRemove }: SortableItemProps) {
       {/* Index + name + episode */}
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <span
-          className="shrink-0 text-sm text-[var(--color-muted-fg)]"
+          className="shrink-0 text-sm text-muted-foreground"
           style={{ fontVariantNumeric: "tabular-nums" }}
         >
           {index + 1}.
         </span>
         <span
-          className="truncate text-sm text-[var(--color-fg)]"
-          style={{ fontFamily: "var(--app-font-display)" }}
+          className="truncate text-sm text-foreground font-display"
         >
           {displayName}
         </span>
         {typeof point.episode === "number" && point.episode > 0 && (
-          <span className="shrink-0 rounded-[var(--r-sm)] bg-[var(--color-muted)] px-1.5 py-0.5 text-xs text-[var(--color-muted-fg)]">
+          <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             EP {point.episode}
           </span>
         )}
@@ -111,7 +110,7 @@ export function SortableItem({ point, index, onRemove }: SortableItemProps) {
       <button
         type="button"
         onClick={() => onRemove(point.id)}
-        className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[var(--r-sm)] text-[var(--color-muted-fg)] opacity-40 transition-opacity hover:bg-[var(--color-muted)] hover:text-[var(--color-fg)] group-hover:opacity-100 focus-visible:opacity-100"
+        className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-40 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
         aria-label={`${t.remove_label} ${displayName}`}
       >
         <svg

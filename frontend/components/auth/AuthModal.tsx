@@ -34,50 +34,50 @@ export default function AuthModal({
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="relative mx-4 w-full max-w-[420px] rounded-xl bg-[var(--color-bg)] p-8 shadow-2xl"
+        className="relative mx-4 w-full max-w-[420px] rounded-xl bg-background p-8 shadow-2xl"
         style={{ animation: "seichi-fade-up 0.3s ease-out" }}
       >
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 min-h-[44px] min-w-[44px] text-[var(--color-muted-fg)] hover:text-[var(--color-fg)]"
+          className="absolute right-4 top-4 min-h-[44px] min-w-[44px] text-muted-foreground hover:text-foreground"
           aria-label="Close"
         >
           ✕
         </button>
 
         <div className="mb-8">
-          <h2 className="text-base font-medium text-[var(--color-fg)]">
+          <h2 className="text-base font-medium text-foreground">
             {t.title}
           </h2>
-          <p className="mt-1 text-xs font-light text-[var(--color-muted-fg)]">
+          <p className="mt-1 text-xs font-light text-muted-foreground">
             {t.subtitle}
           </p>
         </div>
 
         {sent ? (
-          <div className="space-y-4">
-            <p className="text-sm font-medium text-[var(--color-fg)]">
+          <div className="flex flex-col gap-4">
+            <p className="text-sm font-medium text-foreground">
               {t.check_email_heading}
             </p>
-            <p className="text-xs leading-relaxed text-[var(--color-muted-fg)]">
+            <p className="text-xs leading-relaxed text-muted-foreground">
               {t.check_email_body}
             </p>
             <button
               type="button"
               onClick={onBack}
-              className="min-h-[44px] text-xs underline text-[var(--color-muted-fg)]"
+              className="min-h-[44px] text-xs underline text-muted-foreground"
             >
               {t.back_to_login}
             </button>
           </div>
         ) : (
           <>
-            <form onSubmit={onSubmit} className="space-y-4">
-              <div className="space-y-1.5">
+            <form onSubmit={onSubmit} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="auth-email"
-                  className="text-xs font-medium text-[var(--color-muted-fg)]"
+                  className="text-xs font-medium text-muted-foreground"
                 >
                   {t.email_label}
                 </label>
@@ -88,14 +88,14 @@ export default function AuthModal({
                   value={email}
                   onChange={(e) => onEmailChange(e.target.value)}
                   placeholder={t.email_placeholder}
-                  className="w-full border-b border-[var(--color-border)] bg-transparent py-2 text-sm text-[var(--color-fg)] placeholder:text-[var(--color-border)] focus:border-[var(--color-primary)] focus:outline-none"
+                  className="w-full border-b border-border bg-transparent py-2 text-sm text-foreground placeholder:text-border focus:border-primary focus:outline-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={submitting || !authConfigured}
-                className="min-h-[44px] w-full rounded-lg bg-[var(--color-primary)] py-2.5 text-xs font-medium text-[var(--color-primary-fg)] transition hover:opacity-90 disabled:opacity-40"
+                className="min-h-[44px] w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-primary-fg transition hover:opacity-90 disabled:opacity-40"
                 style={{ transitionDuration: "var(--duration-fast)" }}
               >
                 {submitting ? t.submitting : t.btn_login}
@@ -103,7 +103,7 @@ export default function AuthModal({
             </form>
 
             {effectiveStatus && (
-              <p className="mt-5 text-xs font-light leading-relaxed text-[var(--color-muted-fg)]">
+              <p className="mt-5 text-xs font-light leading-relaxed text-muted-foreground">
                 {effectiveStatus}
               </p>
             )}

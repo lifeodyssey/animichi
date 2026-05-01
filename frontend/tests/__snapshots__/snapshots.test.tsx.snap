@@ -6,13 +6,13 @@ exports[`Snapshot: FallbackList > renders fallback list with route data 1`] = `
     class="flex-1 overflow-auto p-4"
   >
     <ol
-      class="space-y-2"
+      class="flex flex-col gap-2"
     >
       <li
-        class="flex items-center gap-2 text-sm text-[var(--color-fg)]"
+        class="flex items-center gap-2 text-sm text-foreground"
       >
         <span
-          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs font-bold text-[var(--color-primary-fg)]"
+          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-fg"
         >
           1
         </span>
@@ -33,7 +33,7 @@ exports[`Snapshot: GeneralAnswer > renders QA data 1`] = `
     class="py-2"
   >
     <p
-      class="max-w-[65ch] text-sm font-light leading-loose text-[var(--color-fg)]"
+      class="max-w-[65ch] text-sm font-light leading-loose text-foreground"
     >
       テスト回答です。
     </p>
@@ -45,7 +45,7 @@ exports[`Snapshot: NearbyBubble > renders nearby bubble 1`] = `
 <div>
   <div>
     <p
-      class="text-sm font-light leading-loose text-[var(--color-fg)]"
+      class="text-sm font-light leading-loose text-foreground"
     >
       半径 1km 以内に 1 作品の 1 か所の聖地が見つかりました
     </p>
@@ -53,8 +53,7 @@ exports[`Snapshot: NearbyBubble > renders nearby bubble 1`] = `
       class="mt-3 flex flex-col gap-2"
     >
       <button
-        class="flex w-full items-center gap-3 rounded-[var(--r-md)] border border-[var(--color-border)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-muted)]"
-        style="min-height: 44px;"
+        class="flex min-h-11 w-full items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left transition-colors hover:bg-muted"
         type="button"
       >
         <span
@@ -64,7 +63,7 @@ exports[`Snapshot: NearbyBubble > renders nearby bubble 1`] = `
         />
         <img
           alt=""
-          class="h-8 w-10 shrink-0 rounded-[var(--r-sm)] object-cover"
+          class="h-8 w-10 shrink-0 rounded-sm object-cover"
           src="https://example.com/img.jpg"
           style="background: var(--color-muted);"
         />
@@ -72,32 +71,30 @@ exports[`Snapshot: NearbyBubble > renders nearby bubble 1`] = `
           class="flex min-w-0 flex-1 flex-col gap-0.5"
         >
           <span
-            class="truncate text-sm text-[var(--color-fg)]"
-            style="font-family: var(--app-font-display);"
+            class="truncate text-sm text-foreground font-display"
           >
             響け！ユーフォニアム
           </span>
           <span
-            class="text-xs text-[var(--color-muted-fg)]"
+            class="text-xs text-muted-foreground"
           >
             1 聖地 · 最寄り 0m
           </span>
         </span>
         <span
           aria-hidden="true"
-          class="shrink-0 text-sm text-[var(--color-muted-fg)]"
+          class="shrink-0 text-sm text-muted-foreground"
         >
           →
         </span>
       </button>
     </div>
     <button
-      class="mt-3 flex w-full items-center gap-3 rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-muted)]"
-      style="min-height: 44px;"
+      class="mt-3 flex min-h-11 w-full items-center gap-3 rounded-md border border-border bg-background px-4 transition-colors hover:border-primary hover:bg-muted"
       type="button"
     >
       <span
-        class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs text-[var(--color-primary-fg)]"
+        class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-primary-fg"
       >
         <svg
           fill="none"
@@ -113,12 +110,12 @@ exports[`Snapshot: NearbyBubble > renders nearby bubble 1`] = `
         </svg>
       </span>
       <span
-        class="flex-1 text-left text-sm text-[var(--color-fg)]"
+        class="flex-1 text-left text-sm text-foreground"
       >
         全 1 聖地を表示
       </span>
       <span
-        class="text-sm text-[var(--color-muted-fg)]"
+        class="text-sm text-muted-foreground"
       >
         →
       </span>
@@ -130,11 +127,11 @@ exports[`Snapshot: NearbyBubble > renders nearby bubble 1`] = `
 exports[`Snapshot: NearbyBubbleWrapper > renders with search data 1`] = `
 <div>
   <div
-    class="max-w-[480px] rounded-2xl rounded-bl bg-[var(--color-card)] px-4 py-3"
+    class="max-w-[480px] rounded-2xl rounded-bl bg-card px-4 py-3"
   >
     <div>
       <p
-        class="text-sm font-light leading-loose text-[var(--color-fg)]"
+        class="text-sm font-light leading-loose text-foreground"
       >
         半径 1km 以内に 1 作品の 1 か所の聖地が見つかりました
       </p>
@@ -142,8 +139,7 @@ exports[`Snapshot: NearbyBubbleWrapper > renders with search data 1`] = `
         class="mt-3 flex flex-col gap-2"
       >
         <button
-          class="flex w-full items-center gap-3 rounded-[var(--r-md)] border border-[var(--color-border)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-muted)]"
-          style="min-height: 44px;"
+          class="flex min-h-11 w-full items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left transition-colors hover:bg-muted"
           type="button"
         >
           <span
@@ -153,7 +149,7 @@ exports[`Snapshot: NearbyBubbleWrapper > renders with search data 1`] = `
           />
           <img
             alt=""
-            class="h-8 w-10 shrink-0 rounded-[var(--r-sm)] object-cover"
+            class="h-8 w-10 shrink-0 rounded-sm object-cover"
             src="https://example.com/img.jpg"
             style="background: var(--color-muted);"
           />
@@ -161,32 +157,30 @@ exports[`Snapshot: NearbyBubbleWrapper > renders with search data 1`] = `
             class="flex min-w-0 flex-1 flex-col gap-0.5"
           >
             <span
-              class="truncate text-sm text-[var(--color-fg)]"
-              style="font-family: var(--app-font-display);"
+              class="truncate text-sm text-foreground font-display"
             >
               響け！ユーフォニアム
             </span>
             <span
-              class="text-xs text-[var(--color-muted-fg)]"
+              class="text-xs text-muted-foreground"
             >
               1 聖地 · 最寄り 0m
             </span>
           </span>
           <span
             aria-hidden="true"
-            class="shrink-0 text-sm text-[var(--color-muted-fg)]"
+            class="shrink-0 text-sm text-muted-foreground"
           >
             →
           </span>
         </button>
       </div>
       <button
-        class="mt-3 flex w-full items-center gap-3 rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-muted)]"
-        style="min-height: 44px;"
+        class="mt-3 flex min-h-11 w-full items-center gap-3 rounded-md border border-border bg-background px-4 transition-colors hover:border-primary hover:bg-muted"
         type="button"
       >
         <span
-          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs text-[var(--color-primary-fg)]"
+          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-primary-fg"
         >
           <svg
             fill="none"
@@ -202,12 +196,12 @@ exports[`Snapshot: NearbyBubbleWrapper > renders with search data 1`] = `
           </svg>
         </span>
         <span
-          class="flex-1 text-left text-sm text-[var(--color-fg)]"
+          class="flex-1 text-left text-sm text-foreground"
         >
           全 1 聖地を表示
         </span>
         <span
-          class="text-sm text-[var(--color-muted-fg)]"
+          class="text-sm text-muted-foreground"
         >
           →
         </span>
@@ -221,13 +215,13 @@ exports[`Snapshot: PhotoCard > renders photo card 1`] = `
 <div>
   <div
     aria-pressed="false"
-    class="group relative cursor-pointer overflow-hidden rounded-[var(--r-lg)] border-2 bg-[var(--color-card)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg border-transparent"
+    class="group relative cursor-pointer overflow-hidden rounded-lg border-2 bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg border-transparent"
     role="button"
     tabindex="0"
   >
     <button
       aria-label="查看详情"
-      class="absolute left-2 top-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-bg)] text-[var(--color-muted-fg)] opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-[var(--color-primary)]"
+      class="absolute left-2 top-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-primary"
       type="button"
     >
       <svg
@@ -269,7 +263,7 @@ exports[`Snapshot: PhotoCard > renders photo card 1`] = `
         width="320"
       />
       <span
-        class="absolute left-2 top-2 rounded-[5px] bg-[var(--color-fg)]/55 px-2 py-0.5 text-xs font-semibold tracking-wide text-[var(--color-bg)] backdrop-blur-[4px]"
+        class="absolute left-2 top-2 rounded-[5px] bg-foreground/55 px-2 py-0.5 text-xs font-semibold tracking-wide text-background backdrop-blur-[4px]"
       >
         第1話
       </span>
@@ -278,12 +272,12 @@ exports[`Snapshot: PhotoCard > renders photo card 1`] = `
       class="px-3 py-2.5"
     >
       <p
-        class="truncate text-sm font-medium text-[var(--color-fg)]"
+        class="truncate text-sm font-medium text-foreground"
       >
         宇治駅
       </p>
       <p
-        class="mt-0.5 truncate text-xs text-[var(--color-muted-fg)]"
+        class="mt-0.5 truncate text-xs text-muted-foreground"
       >
         響け！ユーフォニアム
       </p>
@@ -295,12 +289,12 @@ exports[`Snapshot: PhotoCard > renders photo card 1`] = `
 exports[`Snapshot: ResultAnchor > renders anchor button 1`] = `
 <div>
   <button
-    class="group/anchor flex w-full max-w-[320px] items-center gap-3 rounded-xl border p-3 text-left transition-all border-[var(--color-border)] bg-[var(--color-card)] hover:border-[var(--color-primary)]/60 hover:-translate-y-0.5 hover:shadow-sm"
+    class="group/anchor flex w-full max-w-[320px] items-center gap-3 rounded-xl border p-3 text-left transition-all border-border bg-card hover:border-primary/60 hover:-translate-y-0.5 hover:shadow-sm"
     style="transition-duration: var(--duration-fast); transition-timing-function: var(--ease-out-quint);"
     type="button"
   >
     <span
-      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--r-lg)] bg-[var(--color-primary)] text-sm text-[var(--color-primary-fg)]"
+      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm text-primary-fg"
     >
       📍
     </span>
@@ -308,18 +302,18 @@ exports[`Snapshot: ResultAnchor > renders anchor button 1`] = `
       class="flex min-w-0 flex-1 flex-col gap-0.5"
     >
       <span
-        class="truncate text-xs font-medium text-[var(--color-fg)]"
+        class="truncate text-xs font-medium text-foreground"
       >
         3件の結果
       </span>
       <span
-        class="text-xs text-[var(--color-muted-fg)]"
+        class="text-xs text-muted-foreground"
       >
         タップして表示
       </span>
     </span>
     <span
-      class="shrink-0 text-sm text-[var(--color-muted-fg)] transition-transform group-hover/anchor:translate-x-0.5"
+      class="shrink-0 text-sm text-muted-foreground transition-transform group-hover/anchor:translate-x-0.5"
       style="transition-duration: var(--duration-fast);"
     >
       ›
@@ -337,8 +331,7 @@ exports[`Snapshot: SpotDetail > renders spot detail page 1`] = `
       class="flex w-[55%] shrink-0 flex-col overflow-y-auto p-5"
     >
       <button
-        class="mb-3 flex items-center gap-1 text-sm text-[var(--color-muted-fg)] transition-colors hover:text-[var(--color-primary)]"
-        style="min-height: 44px;"
+        class="mb-3 flex min-h-11 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary"
         type="button"
       >
         <svg
@@ -357,8 +350,7 @@ exports[`Snapshot: SpotDetail > renders spot detail page 1`] = `
         戻る
       </button>
       <div
-        class="w-full overflow-hidden rounded-[var(--r-lg)]"
-        style="aspect-ratio: 4/3;"
+        class="w-full overflow-hidden rounded-lg aspect-[4/3]"
       >
         <img
           alt="宇治駅"
@@ -369,19 +361,18 @@ exports[`Snapshot: SpotDetail > renders spot detail page 1`] = `
         />
       </div>
       <h2
-        class="mt-3 font-[family-name:var(--app-font-display)] text-lg font-bold leading-tight text-[var(--color-fg)]"
+        class="mt-3 font-display text-lg font-bold leading-tight text-foreground"
       >
         宇治站
       </h2>
       <p
-        class="mt-1 text-sm text-[var(--color-muted-fg)]"
+        class="mt-1 text-sm text-muted-foreground"
       >
         吹响！上低音号
          · 第1話
       </p>
       <p
-        class="mt-1 text-xs text-[var(--color-muted-fg)]"
-        style="font-variant-numeric: tabular-nums;"
+        class="mt-1 text-xs tabular-nums text-muted-foreground"
       >
         📸 スクリーンショット時刻:
          
@@ -391,13 +382,13 @@ exports[`Snapshot: SpotDetail > renders spot detail page 1`] = `
         class="mt-5 flex flex-wrap gap-3"
       >
         <button
-          class="flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-md)] bg-[var(--color-primary)] px-5 text-sm font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
+          class="flex min-h-[44px] items-center gap-1.5 rounded-md bg-primary px-5 text-sm font-semibold text-primary-fg transition-opacity hover:opacity-90"
           type="button"
         >
           聖地を選択
         </button>
         <a
-          class="flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-md)] border border-[var(--color-border)] px-5 text-sm font-medium text-[var(--color-fg)] transition-colors hover:bg-[var(--color-muted)]"
+          class="flex min-h-[44px] items-center gap-1.5 rounded-md border border-border px-5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
           href="https://www.google.com/maps?q=34.88,135.8"
           rel="noopener noreferrer"
           target="_blank"
@@ -407,11 +398,10 @@ exports[`Snapshot: SpotDetail > renders spot detail page 1`] = `
       </div>
     </div>
     <div
-      class="flex w-[45%] flex-col gap-4 overflow-y-auto border-l border-[var(--color-border)] p-5"
+      class="flex w-[45%] flex-col gap-4 overflow-y-auto border-l border-border p-5"
     >
       <div
-        class="w-full overflow-hidden rounded-[var(--r-lg)]"
-        style="height: 280px;"
+        class="w-full overflow-hidden rounded-lg h-[280px]"
       >
         <div
           data-testid="dynamic-stub"

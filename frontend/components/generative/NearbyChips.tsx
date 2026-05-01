@@ -1,6 +1,7 @@
 "use client";
 
 import type { PilgrimagePoint } from "../../lib/types";
+import { cn } from "@/lib/utils";
 import { colorValue } from "../../lib/color";
 
 // ---------------------------------------------------------------------------
@@ -130,7 +131,7 @@ export default function NearbyChips({
           >
             <span
               data-testid="chip-dot"
-              className={`h-2 w-2 shrink-0 rounded-full ${color.dot}`}
+              className={cn("h-2 w-2 shrink-0 rounded-full", color.dot)}
               style={dotInlineStyle(color)}
               aria-hidden="true"
             />

@@ -122,9 +122,8 @@ export default function ChatInput({
               key={action.label}
               type="button"
               onClick={() => onSend(action.query)}
-              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 text-sm text-[var(--color-fg)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+              className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-background px-4 text-sm text-foreground transition-colors hover:border-primary hover:text-primary"
               style={{
-                minHeight: "44px",
                 transitionDuration: "var(--duration-fast)",
               }}
             >
@@ -148,7 +147,7 @@ export default function ChatInput({
 
       {/* Input bar — clean, editorial, not a chat widget */}
       <div
-        className="mx-auto flex w-full max-w-[520px] items-end gap-2 rounded-[var(--r-lg)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2.5 transition-colors focus-within:border-[var(--color-primary)]"
+        className="mx-auto flex w-full max-w-[520px] items-end gap-2 rounded-lg border border-border bg-background px-4 py-2.5 transition-colors focus-within:border-primary"
         style={{ transitionDuration: "var(--duration-fast)" }}
       >
         {/* Location — subtle, secondary */}
@@ -157,7 +156,7 @@ export default function ChatInput({
             type="button"
             onClick={() => setShowLocationPrompt((v) => !v)}
             aria-label="location"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--r-sm)] text-[var(--color-muted-fg)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-primary)]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
             style={{ transitionDuration: "var(--duration-fast)" }}
           >
             <svg
@@ -187,15 +186,15 @@ export default function ChatInput({
           placeholder={placeholder}
           rows={1}
           disabled={disabled}
-          className="flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none focus:outline-none focus-visible:outline-none placeholder:text-[var(--color-muted-fg)] disabled:opacity-50"
-          style={{ minHeight: "24px", maxHeight: "120px" }}
+          className="flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none focus:outline-none focus-visible:outline-none placeholder:text-muted-foreground disabled:opacity-50"
+          style={{ maxHeight: "120px", minHeight: "24px" }}
         />
 
         {/* Send — appears only when content exists or sending */}
         <button
           onClick={handleSubmit}
           disabled={disabled || !hasText}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--r-md)] transition-all duration-150"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-all duration-150"
           style={{
             opacity: hasText || disabled ? 1 : 0.3,
             background: hasText

@@ -25,13 +25,12 @@ export default function DesktopConversationSidebar({
 
   return (
     <div
-      className="hidden lg:flex flex-col border-r border-[var(--color-border)] bg-[var(--color-bg)] shrink-0"
-      style={{ width: 260 }}
+      className="hidden w-[260px] lg:flex flex-col border-r border-border bg-background shrink-0"
       data-testid="desktop-conversation-sidebar"
     >
       {/* Header */}
-      <div className="flex h-14 items-center border-b border-[var(--color-border)] px-4 shrink-0">
-        <span className="font-[family-name:var(--app-font-display)] text-base font-semibold text-[var(--color-fg)]">
+      <div className="flex h-14 items-center border-b border-border px-4 shrink-0">
+        <span className="font-display text-base font-semibold text-foreground">
           {t.title}
         </span>
       </div>
@@ -41,7 +40,7 @@ export default function DesktopConversationSidebar({
         <button
           data-testid="desktop-sidebar-new-chat"
           onClick={onNewChat}
-          className="w-full rounded-lg border border-[var(--color-border)] py-2 text-left text-sm font-light text-[var(--color-fg)] px-3 hover:bg-[var(--color-muted)] transition"
+          className="w-full rounded-lg border border-border py-2 text-left text-sm font-light text-foreground px-3 hover:bg-muted transition"
         >
           {t.new_chat}
         </button>

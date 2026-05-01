@@ -32,13 +32,13 @@ export function ResultPanelEmptyState() {
 
         {/* Message */}
         <p
-          className="font-[family-name:var(--app-font-display)] text-lg font-semibold text-[var(--color-fg)]"
+          className="font-display text-lg font-semibold text-foreground"
           style={{ opacity: 0.7 }}
         >
           {grid.empty_hint ?? "聖地を探してみよう"}
         </p>
 
-        <p className="max-w-[240px] text-xs font-light leading-relaxed text-[var(--color-muted-fg)]">
+        <p className="max-w-[240px] text-xs font-light leading-relaxed text-muted-foreground">
           {grid.empty_subtitle ?? "アニメのタイトルを入力すると、聖地巡礼スポットがここに表示されます"}
         </p>
 
@@ -47,7 +47,7 @@ export function ResultPanelEmptyState() {
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]"
+              className="h-1.5 w-1.5 rounded-full bg-primary"
               style={{
                 opacity: 0.4,
                 animation: `pulse 1.5s ease-in-out ${i * 0.3}s infinite`,

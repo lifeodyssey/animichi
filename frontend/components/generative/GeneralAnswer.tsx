@@ -9,7 +9,7 @@ interface GeneralAnswerProps {
 export default function GeneralAnswer({ data }: GeneralAnswerProps) {
   return (
     <div className="py-2">
-      <p className="max-w-[65ch] text-sm font-light leading-loose text-[var(--color-fg)]">
+      <p className="max-w-[65ch] text-sm font-light leading-loose text-foreground">
         {data.message}
       </p>
     </div>

@@ -52,10 +52,9 @@ export default function SpotGroup({
 
   return (
     <Accordion defaultValue={defaultOpen ? [title] : []}>
-      <AccordionItem value={title} className="border-b border-[var(--color-border)]">
+      <AccordionItem value={title} className="border-b border-border">
         <AccordionTrigger
-          className="flex w-full items-center justify-between rounded-lg px-2 py-4 text-left text-base font-semibold text-[var(--color-fg)] transition-colors hover:bg-[var(--color-card)] hover:no-underline"
-          style={{ fontFamily: "var(--app-font-display)" }}
+          className="flex w-full items-center justify-between rounded-lg px-2 py-4 text-left text-base font-semibold text-foreground transition-colors hover:bg-card hover:no-underline font-display"
         >
           <span className="flex items-center gap-2.5">
             {thumb && (
@@ -63,6 +62,8 @@ export default function SpotGroup({
                 <img
                   src={thumb}
                   alt=""
+                  width={28}
+                  height={28}
                   className="h-full w-full object-cover"
                   loading="lazy"
                   onError={handleImageError}
@@ -71,7 +72,7 @@ export default function SpotGroup({
             )}
             {title}
           </span>
-          <span className="ml-auto mr-2 text-sm font-normal text-[var(--color-muted-fg)]">
+          <span className="ml-auto mr-2 text-sm font-normal text-muted-foreground">
             {spotsCountLabel ? spotsCountLabel.replace("{count}", String(count)) : `${count} spots`}
           </span>
         </AccordionTrigger>
@@ -101,7 +102,7 @@ export default function SpotGroup({
             <button
               type="button"
               onClick={() => setShowAll(true)}
-              className="mx-2 mb-4 w-[calc(100%-16px)] rounded-lg border border-dashed border-[var(--color-border)] py-3 text-sm font-medium text-[var(--color-muted-fg)] transition-colors hover:bg-[var(--color-primary-soft,var(--color-card))] hover:text-[var(--color-fg)]"
+              className="mx-2 mb-4 w-[calc(100%-16px)] rounded-lg border border-dashed border-border py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-[var(--color-primary-soft,var(--color-card))] hover:text-foreground"
             >
               {showAllLabel
                 ? showAllLabel.replace("{count}", String(count))

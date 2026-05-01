@@ -33,10 +33,10 @@ export default function MobileTimelineDrawer({ itinerary, data }: MobileTimeline
     <Drawer.Root open={open} onOpenChange={setOpen} snapPoints={[0.4, 0.9]} fadeFromIndex={1}>
       <Drawer.Trigger asChild>
         <button
-          className="shrink-0 w-full flex items-center justify-center gap-2 border-t border-[var(--color-border)] bg-[var(--color-card)] py-2 text-xs text-[var(--color-muted-fg)]"
+          className="shrink-0 w-full flex items-center justify-center gap-2 border-t border-border bg-card py-2 text-xs text-muted-foreground"
           aria-label="タイムラインを開く"
         >
-          <span className="font-medium text-[var(--color-fg)]">
+          <span className="font-medium text-foreground">
             {itinerary ? `タイムライン · ${itinerary.spot_count}スポット` : "スポット一覧"}
           </span>
           <span className="opacity-50">▲</span>
@@ -46,16 +46,16 @@ export default function MobileTimelineDrawer({ itinerary, data }: MobileTimeline
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40" />
         <Drawer.Content
-          className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl bg-[var(--color-card)] border-t border-[var(--color-border)] max-h-[90vh] outline-none"
+          className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl bg-card border-t border-border max-h-[90vh] outline-none"
           aria-label="タイムライン"
         >
           <div className="flex justify-center pt-3 pb-1 shrink-0">
-            <div className="w-10 h-1 rounded-full bg-[var(--color-muted-fg)] opacity-40" />
+            <div className="w-10 h-1 rounded-full bg-muted-foreground opacity-40" />
           </div>
           <div className="flex-1 overflow-y-auto min-h-0">
             {itinerary ? (
               <>
-                <h3 className="px-4 py-2 text-xs font-semibold tracking-wide text-[var(--color-muted-fg)] font-[family-name:var(--app-font-display)]">
+                <h3 className="px-4 py-2 text-xs font-semibold tracking-wide text-muted-foreground font-display">
                   タイムライン
                 </h3>
                 <RouteTimeline itinerary={itinerary} />
@@ -65,7 +65,7 @@ export default function MobileTimelineDrawer({ itinerary, data }: MobileTimeline
             )}
           </div>
           {itinerary && (
-            <div className="shrink-0 flex gap-2 px-4 py-3 border-t border-[var(--color-border)]">
+            <div className="shrink-0 flex gap-2 px-4 py-3 border-t border-border">
               <Button variant="outline" size="sm" className="flex-1" onClick={exportGoogleMaps}>
                 📍 Maps
               </Button>

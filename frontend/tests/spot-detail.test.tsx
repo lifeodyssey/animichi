@@ -132,8 +132,8 @@ describe("SpotDetail", () => {
     );
     const selectBtn = screen.getByText(zhDict.spot_detail.select);
     expect(selectBtn).toBeInTheDocument();
-    // Primary button has bg-[var(--color-primary)] in className
-    expect(selectBtn.closest("button")?.className).toContain("bg-[var(--color-primary)]");
+    // Primary button has bg-primary in className
+    expect(selectBtn.closest("button")?.className).toContain("bg-primary");
   });
 
   it('shows "selected" state with outline styling when selected', () => {
@@ -147,10 +147,10 @@ describe("SpotDetail", () => {
     );
     const selectedBtn = screen.getByText(zhDict.spot_detail.selected);
     expect(selectedBtn).toBeInTheDocument();
-    // Outline button has border-[var(--color-primary)] but not bg-[var(--color-primary)]
+    // Outline button has border-primary but not bg-primary
     const btnClass = selectedBtn.closest("button")?.className ?? "";
-    expect(btnClass).toContain("border-[var(--color-primary)]");
-    expect(btnClass).not.toContain("bg-[var(--color-primary)]");
+    expect(btnClass).toContain("border-primary");
+    expect(btnClass).not.toContain("bg-primary");
   });
 
   it("shows nearby points list (up to 5)", () => {

@@ -171,7 +171,7 @@ export default function BaseMap({
               <div
                 style={{
                   width: 28, height: 28, borderRadius: "50%",
-                  background: isSelected ? "oklch(58% 0.19 28)" : "oklch(60% 0.148 240)",
+                  background: isSelected ? "var(--color-marker-active)" : "var(--color-primary)",
                   color: "white", fontWeight: 600, fontSize: 14,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   boxShadow: "0 2px 6px rgba(0,0,0,0.3)", border: "2px solid white",
@@ -189,7 +189,7 @@ export default function BaseMap({
               >
                 <path
                   d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z"
-                  fill={isSelected ? "oklch(58% 0.19 28)" : "oklch(60% 0.148 240)"}
+                  fill={isSelected ? "var(--color-marker-active)" : "var(--color-primary)"}
                 />
                 <circle cx="12" cy="12" r="5" fill="white" />
               </svg>
@@ -208,27 +208,23 @@ export default function BaseMap({
           closeOnClick={false}
           offset={isRouteMode ? 16 : 36}
         >
-          <div style={{ fontFamily: "var(--app-font-body)", minWidth: 160 }}>
+          <div className="min-w-40 font-sans">
             {popupPoint.screenshot_url && (
               <img
                 src={popupPoint.screenshot_url}
                 alt={popupPoint.name}
+                className="mb-1.5 block h-20 w-full object-cover"
                 style={{
-                  width: "100%",
-                  height: 80,
-                  objectFit: "cover",
-                  borderRadius: "var(--r-sm)",
-                  marginBottom: 6,
-                  display: "block",
+                  borderRadius: "var(--radius-sm)",
                 }}
               />
             )}
-            <strong style={{ fontSize: 13 }}>
+            <strong className="text-sm">
               {isRouteMode && route ? `${route.findIndex((p) => p.id === popupPoint.id) + 1}. ` : ""}
               {popupPoint.name_cn || popupPoint.name}
             </strong>
             <br />
-            <span style={{ fontSize: 12, color: "oklch(45% 0.032 228)" }}>
+            <span className="text-xs" style={{ color: "oklch(45% 0.032 228)" }}>
               {popupPoint.title_cn || popupPoint.title}
               {popupPoint.episode != null ? ` · 第${popupPoint.episode}話` : ""}
             </span>

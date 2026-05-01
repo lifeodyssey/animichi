@@ -19,7 +19,7 @@ export default function Filmstrip({ points, label }: FilmstripProps) {
   return (
     <div className="pb-2 pt-5">
       {label && (
-        <p className="mb-3 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-muted-fg)] sm:px-8">
+        <p className="mb-3 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground sm:px-8">
           {label}
         </p>
       )}
@@ -36,21 +36,22 @@ export default function Filmstrip({ points, label }: FilmstripProps) {
           return (
             <div
               key={point.id}
-              className="relative flex-shrink-0 overflow-hidden rounded-xl"
-              style={{ width: 280 }}
+              className="relative w-[280px] flex-shrink-0 overflow-hidden rounded-xl"
             >
               <div className="aspect-[16/9]">
                 <img
                   src={point.screenshot_url!}
                   alt={name}
+                  width={280}
+                  height={158}
                   loading="lazy"
                   className="h-full w-full object-cover"
                   onError={handleImageError}
                 />
               </div>
               <div
-                className="absolute inset-x-0 bottom-0 px-3 py-2.5 text-xs font-medium text-white"
-                style={{ background: "linear-gradient(transparent, oklch(15% 0.02 238 / 0.75))" }}
+                className="absolute inset-x-0 bottom-0 truncate px-3 py-2.5 text-xs font-medium text-white"
+                style={{ background: "linear-gradient(transparent, var(--color-overlay-image))" }}
               >
                 {name}
               </div>

@@ -41,7 +41,7 @@ function LoadingSkeleton() {
       {[80, 55, 65].map((w) => (
         <div
           key={w}
-          className="h-3 rounded-sm bg-[var(--color-muted)]"
+          className="h-3 rounded-sm bg-muted"
           style={{
             width: `${w}%`,
             animation: "pulse-skeleton 1.6s ease-in-out infinite",
@@ -49,7 +49,7 @@ function LoadingSkeleton() {
         />
       ))}
       <div
-        className="mt-2 h-32 w-full rounded-sm bg-[var(--color-muted)]"
+        className="mt-2 h-32 w-full rounded-sm bg-muted"
         style={{ animation: "pulse-skeleton 1.6s ease-in-out infinite 0.2s" }}
       />
     </div>
@@ -62,7 +62,7 @@ function NoResults() {
   const { grid: t } = useDict();
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
-      <p className="text-sm text-[var(--color-muted-fg)]">{t.no_results}</p>
+      <p className="text-sm text-muted-foreground">{t.no_results}</p>
     </div>
   );
 }
@@ -132,7 +132,7 @@ export default function ResultPanel({
   // ── Loading state ─────────────────────────────────────────────────────────
   if (!activeResponse && loading) {
     return (
-      <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]">
+      <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
         {/* layout controls + old selection bar removed */}
         <LoadingSkeleton />
       </section>
@@ -142,7 +142,7 @@ export default function ResultPanel({
   // ── No active response (empty / welcome state) ────────────────────────────
   if (!activeResponse) {
     return (
-      <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]">
+      <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
         {/* layout controls + old selection bar removed */}
         <ResultPanelEmptyState />
       </section>
@@ -159,7 +159,7 @@ export default function ResultPanel({
     if (confirmMode) {
       return (
         <section
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
           style={{ animation: "slide-in-right 0.3s ease-out" }}
         >
           <RouteConfirm
@@ -179,7 +179,7 @@ export default function ResultPanel({
     if (detailPoint) {
       return (
         <section
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
           style={{ animation: "slide-in-right 0.3s ease-out" }}
         >
           <SpotDetail
@@ -195,7 +195,7 @@ export default function ResultPanel({
 
     return (
       <section
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]"
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
         style={{ animation: "slide-in-right 0.3s ease-out" }}
       >
         {/* layout controls + old selection bar removed */}
@@ -227,8 +227,8 @@ export default function ResultPanel({
         ) : (
           <div className="relative flex-1 overflow-hidden">
             {/* Map skeleton — shown while Mapbox GL JS initializes */}
-            <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-muted)]" style={{ zIndex: 0 }}>
-              <div className="flex flex-col items-center gap-2 text-[var(--color-muted-fg)]">
+            <div className="absolute inset-0 flex items-center justify-center bg-muted" style={{ zIndex: 0 }}>
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ animation: "breathe 2s ease-in-out infinite" }}>
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
@@ -243,24 +243,24 @@ export default function ResultPanel({
         {/* Bottom selection bar — visible in both grid and map when items selected */}
         {selectedIds.size > 0 && (
           <div
-            className="flex shrink-0 items-center gap-3 border-t border-[var(--color-border)] bg-[var(--color-card)] px-6 py-3"
+            className="flex shrink-0 items-center gap-3 border-t border-border bg-card px-6 py-3"
             style={{ animation: "slide-up 0.2s var(--ease-out-expo)" }}
           >
-            <span className="text-sm font-medium text-[var(--color-fg)]">
+            <span className="text-sm font-medium text-foreground">
               {rp.selected.replace("{count}", String(selectedIds.size))}
             </span>
             <button
               type="button"
               onClick={() => setConfirmMode(true)}
               disabled={loading || selectedIds.size < 2}
-              className="ml-auto flex h-11 items-center gap-2 rounded-[var(--r-md)] bg-[var(--color-primary)] px-5 text-sm font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="ml-auto flex h-11 items-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-fg transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {rp.plan_route}
             </button>
             <button
               type="button"
               onClick={clear}
-              className="text-sm text-[var(--color-muted-fg)] transition-colors hover:text-[var(--color-fg)]"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               {rp.clear}
             </button>
@@ -274,7 +274,7 @@ export default function ResultPanel({
   if (isRouteData(activeResponse.data)) {
     return (
       <section
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]"
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
         style={{ animation: "slide-in-right 0.3s ease-out" }}
       >
         <div className="flex-1 overflow-hidden">
@@ -288,7 +288,7 @@ export default function ResultPanel({
   // (QA, greet, etc.) — keep existing GenerativeUI path with padding.
   return (
     <section
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
       style={{ animation: "slide-in-right 0.3s ease-out" }}
     >
       <div className="flex-1 overflow-y-auto p-6">

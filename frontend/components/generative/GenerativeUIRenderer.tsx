@@ -17,7 +17,7 @@ export default function GenerativeUIRenderer({
 
   if (!renderer) {
     return (
-      <p className="text-sm text-[var(--color-muted-fg)]">
+      <p className="text-sm text-muted-foreground">
         Unknown component: {componentName}
       </p>
     );

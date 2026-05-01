@@ -11,13 +11,13 @@ export default function ChatHeader({ onNewChat, onMenuToggle }: ChatHeaderProps)
   const { header: t, sidebar: s } = useDict();
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-[var(--color-border)] px-5">
+    <header className="flex h-14 items-center justify-between border-b border-border px-5">
       <div className="flex items-center gap-2">
         {onMenuToggle && (
           <button
             type="button"
             onClick={onMenuToggle}
-            className="rounded-lg p-2 hover:bg-[var(--color-primary)]/5 transition"
+            className="rounded-lg p-2 hover:bg-primary/5 transition"
             style={{ transitionDuration: "var(--duration-fast)" }}
             aria-label="Toggle sidebar"
           >
@@ -26,7 +26,7 @@ export default function ChatHeader({ onNewChat, onMenuToggle }: ChatHeaderProps)
             </svg>
           </button>
         )}
-        <h1 className="font-[family-name:var(--app-font-display)] text-sm font-semibold text-[var(--color-fg)]">
+        <h1 className="font-display text-sm font-semibold text-foreground">
           {t.title}
         </h1>
       </div>
@@ -34,7 +34,7 @@ export default function ChatHeader({ onNewChat, onMenuToggle }: ChatHeaderProps)
         <button
           type="button"
           onClick={onNewChat}
-          className="rounded-md px-3 py-1.5 text-xs font-light text-[var(--color-primary)] transition hover:bg-[var(--color-muted)]"
+          className="rounded-md px-3 py-1.5 text-xs font-light text-primary transition hover:bg-muted"
           style={{ transitionDuration: "var(--duration-fast)" }}
         >
           {s.new_chat}

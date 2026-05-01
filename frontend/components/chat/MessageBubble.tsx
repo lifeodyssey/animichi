@@ -36,7 +36,7 @@ export default function MessageBubble({
         className="flex justify-end"
         style={{ animation: "slide-up-fade 300ms var(--ease-out-quint) both" }}
       >
-        <div className="max-w-[70%] rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-normal text-[var(--color-primary-fg)]">
+        <div className="max-w-[70%] rounded-xl bg-primary px-4 py-2.5 text-sm font-normal text-primary-fg">
           {message.text}
         </div>
       </div>
@@ -56,7 +56,7 @@ export default function MessageBubble({
       style={{ animation: "slide-up-fade 300ms var(--ease-out-quint) both" }}
       aria-live={message.loading ? "polite" : undefined}
     >
-      <p className="text-xs font-medium uppercase tracking-widest text-[var(--color-muted-fg)] opacity-40">
+      <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground opacity-40">
         {t.bot_name}
       </p>
 
@@ -71,7 +71,7 @@ export default function MessageBubble({
       ) : (
         <>
           {message.text && (
-            <p className="text-sm font-light leading-loose text-[var(--color-fg)]">
+            <p className="text-sm font-light leading-loose text-foreground">
               {message.text}
             </p>
           )}
@@ -115,12 +115,12 @@ function ErrorDisplay({
   const key = mapErrorToKey(errorCode);
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="text-[var(--color-error-fg)]">{errorDict[key]}</span>
+      <span className="text-error-fg">{errorDict[key]}</span>
       {onRetry && (
         <button
           type="button"
           onClick={onRetry}
-          className="text-[var(--color-primary)] hover:underline text-sm"
+          className="text-primary hover:underline text-sm"
         >
           {errorDict.retry}
         </button>

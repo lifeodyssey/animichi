@@ -59,18 +59,18 @@ export default function ChatPanel({
   return (
     <div
       className={cn(
-        "flex min-h-0 flex-1 w-full flex-col bg-[var(--color-bg)]",
-        !isMobile && layoutMode === "split" && "border-r border-[var(--color-border)]",
+        "flex min-h-0 flex-1 w-full flex-col bg-background",
+        !isMobile && layoutMode === "split" && "border-r border-border",
       )}
     >
       {/* Tablet/mobile menu bar */}
       {onMenuOpen && (
-        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-[var(--color-border)] px-3">
+        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
           <button
             type="button"
             onClick={onMenuOpen}
             aria-label="Menu"
-            className="flex h-11 w-11 items-center justify-center rounded-[var(--r-lg)] text-[var(--color-muted-fg)] transition-colors hover:bg-[var(--color-muted)]"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
               <line x1="3" y1="6" x2="21" y2="6" />
@@ -78,7 +78,7 @@ export default function ChatPanel({
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <span className="font-[family-name:var(--app-font-display)] text-sm font-bold text-[var(--color-primary)]">
+          <span className="font-display text-sm font-bold text-primary">
             聖
           </span>
         </div>
