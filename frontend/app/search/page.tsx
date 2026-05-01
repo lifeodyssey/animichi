@@ -84,7 +84,9 @@ export default function SearchPage() {
 
         {/* ── Title area ── */}
         {query && (
-          <div className="mb-10">
+          <div
+            className="entrance-up-fast mb-10"
+          >
             <h1 className="font-display text-[clamp(28px,5vw,42px)] font-bold leading-[1.1] text-foreground">
               {t.title.replace("{query}", query)}
             </h1>
@@ -122,8 +124,7 @@ export default function SearchPage() {
         {status === "loading" && (
           <div className="flex items-center gap-3 py-16 text-base text-muted-foreground">
             <span
-              className="inline-block h-4 w-4 rounded-full border-2 border-primary border-t-transparent"
-              style={{ animation: "spin 0.8s linear infinite" }}
+              className="spin-loading inline-block h-4 w-4 rounded-full border-2 border-primary border-t-transparent"
             />
             {t.loading}
           </div>
@@ -163,10 +164,11 @@ export default function SearchPage() {
         {/* ── Results list ── */}
         {rows.length > 0 && (
           <div className="flex flex-col gap-3">
-            {rows.map((point: PilgrimagePoint) => (
+            {rows.map((point: PilgrimagePoint, i: number) => (
               <div
                 key={point.id}
-                className="flex gap-4 rounded-xl border border-border bg-background p-4 transition-colors hover:bg-card"
+                className="entrance-up-fast flex gap-4 rounded-xl border border-border bg-background p-4 transition-colors hover:bg-card"
+                style={{ animationDelay: `${i * 0.04}s` }}
               >
                 {/* Thumbnail */}
                 {point.screenshot_url && (

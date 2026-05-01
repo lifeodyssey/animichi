@@ -144,10 +144,17 @@ supabase stop                     # cleanup
 - No bare `str` for IDs/statuses — use NewType, Literal, or Enum
 - No `Any` — use `object` + `isinstance()` narrowing; Protocol for duck-typing, `cast()` at library boundaries (details: @docs/typing-rules.md)
 
-### Design Tokens
-- See `frontend/AGENTS.md` for full token list and component conventions
-- No `bg-white` → `bg-[var(--color-bg)]`; no `bg-gray-*` → `bg-[var(--color-muted)]`
-- No hardcoded Tailwind palette colors — use CSS variables from globals.css
+### CSS Rules (auto-enforced)
+- Read `frontend/DESIGN.md` before any design or UI work — it is the design system source of truth
+- Tokens defined in `frontend/app/globals.css :root`; registered in `@theme inline` for Tailwind utilities
+- Use semantic Tailwind classes: `bg-primary`, `text-foreground`, `border-border` — never `bg-[var(--color-*)]`
+- Never use `style={{ }}` for values that have Tailwind equivalents (colors, spacing, font, radius, opacity)
+- Never use `space-y-*` / `space-x-*` — use `flex flex-col gap-*` (shadcn rule)
+- Never use template literal className ternaries — use `cn()` from `@/lib/utils`
+- Never hardcode `oklch()` / hex in components — extract to CSS variable if used 2+ times
+- Extract repeated animation strings to CSS classes in `globals.css` (`.entrance-up`, `.entrance-slide-right`, etc.)
+- Use shadcn `<Skeleton>` for loading states — never hand-written `animate-pulse` divs
+- Run `/css-audit` before committing frontend changes to catch remaining smells
 
 ### Test Quality
 - No timing-dependent assertions — mock the clock

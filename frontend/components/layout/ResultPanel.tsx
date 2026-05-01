@@ -159,8 +159,7 @@ export default function ResultPanel({
     if (confirmMode) {
       return (
         <section
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
-          style={{ animation: "slide-in-right 0.3s ease-out" }}
+          className="entrance-slide-right flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
         >
           <RouteConfirm
             points={selectedPoints}
@@ -179,8 +178,7 @@ export default function ResultPanel({
     if (detailPoint) {
       return (
         <section
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
-          style={{ animation: "slide-in-right 0.3s ease-out" }}
+          className="entrance-slide-right flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
         >
           <SpotDetail
             point={detailPoint}
@@ -195,8 +193,7 @@ export default function ResultPanel({
 
     return (
       <section
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
-        style={{ animation: "slide-in-right 0.3s ease-out" }}
+        className="entrance-slide-right flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
       >
         {/* layout controls + old selection bar removed */}
 
@@ -229,7 +226,7 @@ export default function ResultPanel({
             {/* Map skeleton — shown while Mapbox GL JS initializes */}
             <div className="absolute inset-0 flex items-center justify-center bg-muted" style={{ zIndex: 0 }}>
               <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ animation: "breathe 2s ease-in-out infinite" }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="animate-breathe">
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
@@ -274,8 +271,7 @@ export default function ResultPanel({
   if (isRouteData(activeResponse.data)) {
     return (
       <section
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
-        style={{ animation: "slide-in-right 0.3s ease-out" }}
+        className="entrance-slide-right flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
       >
         <div className="flex-1 overflow-hidden">
           <GenerativeUIRenderer response={activeResponse} onSuggest={onSuggest} />
@@ -288,8 +284,7 @@ export default function ResultPanel({
   // (QA, greet, etc.) — keep existing GenerativeUI path with padding.
   return (
     <section
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
-      style={{ animation: "slide-in-right 0.3s ease-out" }}
+      className="entrance-slide-right flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
     >
       <div className="flex-1 overflow-y-auto p-6">
         <GenerativeUIRenderer response={activeResponse} onSuggest={onSuggest} />

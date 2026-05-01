@@ -211,11 +211,8 @@ export default function ChatInput({
               {([0, 0.2, 0.4] as const).map((delay) => (
                 <span
                   key={delay}
-                  className="inline-block h-1 w-1 rounded-full bg-current"
-                  style={{
-                    animation: "breathe 1.2s ease-in-out infinite",
-                    animationDelay: `${delay}s`,
-                  }}
+                  className="inline-block h-1 w-1 rounded-full bg-current animate-breathe"
+                  style={{ animationDelay: `${delay}s` }}
                 />
               ))}
             </span>

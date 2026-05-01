@@ -28,13 +28,12 @@ export default function SharedHeader({
   return (
     <header
       className={cn(
-        "inset-x-0 top-0 z-50 border-b border-border px-5 sm:px-8",
+        "entrance-down inset-x-0 top-0 z-50 border-b border-border px-5 sm:px-8",
         position === "fixed" ? "fixed" : "sticky",
       )}
       style={{
         background: "var(--color-card)",
         boxShadow: "var(--shadow-sm)",
-        animation: "seichi-fade-down 0.5s ease-out",
       }}
     >
       <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between">

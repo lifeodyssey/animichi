@@ -52,8 +52,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
         <div className="relative z-[2] mx-auto flex min-h-[calc(100vh-72px)] max-w-[1200px] flex-col justify-center gap-12 px-5 sm:px-8 lg:flex-row lg:items-center lg:gap-16">
           {/* ── Left column: text ── */}
           <div
-            className="flex max-w-[500px] shrink-0 flex-col"
-            style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1)" }}
+            className="entrance-up flex max-w-[500px] shrink-0 flex-col"
           >
             <h1
               className="font-display text-[clamp(48px,7vw,72px)] font-bold leading-[1.05] text-foreground"
@@ -62,8 +61,8 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
             </h1>
 
             <p
-              className="mt-5 max-w-[38ch] text-lg leading-[1.6] text-muted-foreground"
-              style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.08s backwards" }}
+              className="entrance-up mt-5 max-w-[38ch] text-lg leading-[1.6] text-muted-foreground"
+              style={{ animationDelay: "0.08s" }}
             >
               {landing.hero_subtitle}
             </p>
@@ -71,10 +70,8 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
             <button
               type="button"
               onClick={onOpenAuth}
-              className="mt-8 inline-flex w-fit min-h-[52px] items-center gap-2.5 rounded-xl bg-primary px-8 text-base font-semibold text-primary-fg transition-opacity hover:opacity-90"
-              style={{
-                animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.16s backwards",
-              }}
+              className="entrance-up mt-8 inline-flex w-fit min-h-[52px] items-center gap-2.5 rounded-xl bg-primary px-8 text-base font-semibold text-primary-fg transition-opacity hover:opacity-90"
+              style={{ animationDelay: "0.16s" }}
             >
               {landing.search_button}
               <span aria-hidden="true" className="text-lg">→</span>
@@ -82,8 +79,8 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
 
             {/* Stats — left-aligned, compact */}
             <div
-              className="mt-12 flex gap-8"
-              style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.24s backwards" }}
+              className="entrance-up mt-12 flex gap-8"
+              style={{ animationDelay: "0.24s" }}
             >
               {(
                 [
@@ -110,8 +107,8 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
           {/* ── Right column: comparison image ── */}
           {!heroFailed && (
             <div
-              className="relative hidden min-w-0 flex-1 lg:block"
-              style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.12s backwards" }}
+              className="entrance-up relative hidden min-w-0 flex-1 lg:block"
+              style={{ animationDelay: "0.12s" }}
             >
               <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-card">
                 <img
