@@ -3,13 +3,13 @@
 @import "shadcn/tailwind.css";
 
 :root {
-  --app-font-body: var(--font-outfit, "Outfit"), var(--font-noto, "Noto Sans SC"), "Hiragino Sans", system-ui, sans-serif;
+  --app-font-body: var(--font-noto-sans, "Noto Sans JP"), var(--font-noto, "Noto Sans SC"), "Hiragino Sans", system-ui, sans-serif;
   --app-font-mono: "SFMono-Regular", "IBM Plex Mono", monospace;
-  --app-font-display: var(--font-shippori, "Shippori Mincho B1"), "Hiragino Mincho ProN", "Georgia", serif;
+  --app-font-display: var(--font-noto-serif, "Noto Serif JP"), "Hiragino Mincho ProN", "Georgia", serif;
 
-  /* Brand — 鸟居朱色 (logo and branding only) */
-  --color-brand:      oklch(58% 0.19 28);
-  --color-brand-soft: oklch(94% 0.02 25);
+  /* Brand — 聖地巡礼 light blue */
+  --color-brand:      oklch(72% 0.100 240);
+  --color-brand-soft: oklch(95% 0.020 240);
 
   /* Radius — systematic 3-level scale */
   --r-sm: 4px;
@@ -20,29 +20,29 @@
   --color-walk-bg: oklch(92% 0.02 145);
   --color-walk-fg: oklch(35% 0.06 145);
 
-  /* Palette — 京吹夏季 · 白水手 × 天蓝裙 × 铜管金 */
-  --color-bg:      oklch(98% 0.008 218);
-  --color-fg:      oklch(20% 0.025 238);
-  --color-card:    oklch(95% 0.012 215);
-  --color-card-fg: oklch(20% 0.025 238);
-  --color-muted:   oklch(91% 0.016 218);
-  --color-muted-fg: oklch(54% 0.032 228);
-  --color-border:  oklch(85% 0.022 222);
-  --color-input:   oklch(85% 0.022 222);
+  /* Palette — リズと青い鳥 · light blue · WCAG AA verified */
+  --color-bg:      oklch(98% 0.004 240);
+  --color-fg:      oklch(20% 0.020 240);
+  --color-card:    oklch(100% 0 0);
+  --color-card-fg: oklch(20% 0.020 240);
+  --color-muted:   oklch(90% 0.010 240);
+  --color-muted-fg: oklch(45% 0.020 240);
+  --color-border:  oklch(78% 0.015 240);
+  --color-input:   oklch(56% 0.020 240);
 
-  --color-primary:    oklch(60% 0.148 240);
-  --color-primary-fg: oklch(99% 0.004 220);
+  --color-primary:    oklch(72% 0.100 240);
+  --color-primary-fg: oklch(25% 0.040 240);
 
-  --color-secondary:    oklch(91% 0.016 218);
-  --color-secondary-fg: oklch(20% 0.025 238);
+  --color-secondary:    oklch(95% 0.008 240);
+  --color-secondary-fg: oklch(20% 0.020 240);
 
   /* Sidebar */
-  --color-sidebar:           oklch(96% 0.010 216);
-  --color-sidebar-fg:        oklch(54% 0.032 228);
-  --color-sidebar-border:    oklch(85% 0.022 222);
-  --color-sidebar-accent:    oklch(88% 0.028 230);
-  --color-sidebar-accent-fg: oklch(20% 0.025 238);
-  --color-sidebar-active:    oklch(93% 0.025 240);
+  --color-sidebar:           oklch(96% 0.006 240);
+  --color-sidebar-fg:        oklch(45% 0.020 240);
+  --color-sidebar-border:    oklch(78% 0.015 240);
+  --color-sidebar-accent:    oklch(90% 0.020 240);
+  --color-sidebar-accent-fg: oklch(20% 0.020 240);
+  --color-sidebar-active:    oklch(93% 0.015 240);
 
   /* Semantic */
   --color-info:       oklch(88% 0.035 240);
