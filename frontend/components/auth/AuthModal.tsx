@@ -34,8 +34,7 @@ export default function AuthModal({
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="relative mx-4 w-full max-w-[420px] rounded-xl bg-background p-8 shadow-2xl"
-        style={{ animation: "seichi-fade-up 0.3s ease-out" }}
+        className="entrance-up-quick relative mx-4 w-full max-w-[420px] rounded-xl bg-background p-8 shadow-2xl"
       >
         <button
           type="button"

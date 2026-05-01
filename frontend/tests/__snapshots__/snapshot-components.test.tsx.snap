@@ -165,8 +165,7 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
         class="flex flex-1 items-center justify-center px-6 py-8"
       >
         <div
-          class="w-full max-w-md rounded-[28px] border border-border bg-[color-mix(in_oklab,var(--color-card)_88%,white)] p-6 shadow-hero"
-          style="animation: slide-up-fade 400ms var(--ease-out-quint) both;"
+          class="entrance-message-slow w-full max-w-md rounded-[28px] border border-border bg-[color-mix(in_oklab,var(--color-card)_88%,white)] p-6 shadow-hero"
         >
           <div
             class="flex flex-col gap-3"
@@ -186,8 +185,8 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
             class="mt-5 flex flex-col gap-2.5"
           >
             <button
-              class="flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
-              style="transition-duration: var(--duration-fast); animation: slide-up-fade 350ms var(--ease-out-quint) 100ms both;"
+              class="entrance-message flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              style="transition-duration: var(--duration-fast); animation-delay: 100ms;"
               type="button"
             >
               <span>
@@ -200,8 +199,8 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
               </span>
             </button>
             <button
-              class="flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
-              style="transition-duration: var(--duration-fast); animation: slide-up-fade 350ms var(--ease-out-quint) 160ms both;"
+              class="entrance-message flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              style="transition-duration: var(--duration-fast); animation-delay: 160ms;"
               type="button"
             >
               <span>
@@ -214,8 +213,8 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
               </span>
             </button>
             <button
-              class="flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
-              style="transition-duration: var(--duration-fast); animation: slide-up-fade 350ms var(--ease-out-quint) 220ms both;"
+              class="entrance-message flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              style="transition-duration: var(--duration-fast); animation-delay: 220ms;"
               type="button"
             >
               <span>
@@ -229,8 +228,8 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
             </button>
           </div>
           <p
-            class="mt-5 text-xs font-light leading-6 text-muted-foreground"
-            style="animation: slide-up-fade 350ms var(--ease-out-quint) 320ms both;"
+            class="entrance-message mt-5 text-xs font-light leading-6 text-muted-foreground"
+            style="animation-delay: 320ms;"
           >
             まずは挨拶して、何ができるか聞いてみても大丈夫です。
           </p>
@@ -542,11 +541,11 @@ exports[`Snapshot: MessageList > renders a list of messages 1`] = `
       class="mx-auto flex w-full max-w-2xl flex-col gap-5 px-5"
     >
       <div
-        style="animation: slide-up-fade 300ms var(--ease-out-quint) 0ms both;"
+        class="entrance-message"
+        style="animation-delay: 0ms;"
       >
         <div
-          class="flex justify-end"
-          style="animation: slide-up-fade 300ms var(--ease-out-quint) both;"
+          class="entrance-message flex justify-end"
         >
           <div
             class="max-w-[70%] rounded-xl bg-primary px-4 py-2.5 text-sm font-normal text-primary-fg"
@@ -556,11 +555,11 @@ exports[`Snapshot: MessageList > renders a list of messages 1`] = `
         </div>
       </div>
       <div
-        style="animation: slide-up-fade 300ms var(--ease-out-quint) 40ms both;"
+        class="entrance-message"
+        style="animation-delay: 40ms;"
       >
         <div
-          class="group flex flex-col gap-2.5"
-          style="animation: slide-up-fade 300ms var(--ease-out-quint) both;"
+          class="entrance-message group flex flex-col gap-2.5"
         >
           <p
             class="text-xs font-medium uppercase tracking-widest text-muted-foreground opacity-40"
