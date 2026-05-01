@@ -25,7 +25,7 @@ function EpBadge({ episode }: { episode: number | null }) {
   const { grid: t } = useDict();
   if (episode == null || episode <= 0) return null;
   return (
-    <span className="absolute left-2 top-2 rounded-[5px] px-2 py-0.5 text-xs font-semibold tracking-wide text-white" style={{ background: "var(--color-overlay-soft)", backdropFilter: "blur(4px)" }}>
+    <span className="ep-badge absolute left-2 top-2 rounded-[5px] px-2 py-0.5 text-xs font-semibold tracking-wide text-white">
       {t.episode.replace("{ep}", String(episode))}
     </span>
   );

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { Component, useEffect, useMemo, useReducer, useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -14,6 +15,32 @@ import SharedFooter from "../../../components/layout/SharedFooter";
 import Filmstrip from "../../../components/spots/Filmstrip";
 import SpotGroup from "../../../components/spots/SpotGroup";
 import GroupToggle from "../../../components/spots/GroupToggle";
+
+/* ── Map Error Boundary ── */
+
+class MapErrorBoundary extends Component<{ children: ReactNode; fallbackText: string }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode; fallbackText: string }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error("Map failed to load:", error, info);
+  }
+  render(): ReactNode {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-2 bg-secondary/50 text-sm text-muted-foreground">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>{this.props.fallbackText}</span>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const LazyMap = dynamic(() => import("../../../components/map/BaseMap"), {
   ssr: false,
@@ -205,10 +232,35 @@ export default function AnimeGuidePage() {
     () => (shouldDefaultToEpisode(spots) ? "episode" : "area"),
     [spots],
   );
-  const [groupMode, setGroupMode] = useState<"episode" | "area">(defaultMode);
 
-  // Reset group mode when data changes
-  useEffect(() => { setGroupMode(defaultMode); }, [defaultMode]);
+  // Restore group mode from sessionStorage (P1: persist across navigation)
+  const storageKey = `guide-${bangumiId}`;
+  const resolvedDefault = useMemo(() => {
+    if (typeof window === "undefined") return defaultMode;
+    const saved = sessionStorage.getItem(storageKey);
+    if (saved === "episode" || saved === "area") return saved;
+    return defaultMode;
+  }, [defaultMode, storageKey]);
+  const [groupMode, setGroupMode] = useState<"episode" | "area">(resolvedDefault);
+
+  // Persist group mode changes
+  const handleGroupModeChange = (mode: "episode" | "area") => {
+    setGroupMode(mode);
+    sessionStorage.setItem(storageKey, mode);
+  };
+
+  // Restore scroll position on back-navigation
+  useEffect(() => {
+    const scrollKey = `${storageKey}-scroll`;
+    const savedY = sessionStorage.getItem(scrollKey);
+    if (savedY && status === "done") {
+      requestAnimationFrame(() => window.scrollTo(0, Number(savedY)));
+      sessionStorage.removeItem(scrollKey);
+    }
+    const saveScroll = () => sessionStorage.setItem(scrollKey, String(window.scrollY));
+    window.addEventListener("beforeunload", saveScroll);
+    return () => window.removeEventListener("beforeunload", saveScroll);
+  }, [storageKey, status]);
 
   const groups = useMemo(
     () => (groupMode === "episode" ? groupByEpisode(spots, t.episode_group, t.other_group) : groupByArea(spots, locale, t.other_group, data?.city)),
@@ -322,7 +374,9 @@ export default function AnimeGuidePage() {
                 style={{ animationDelay: "0.15s" }}
               >
                 <div className="h-[320px] sm:h-[420px] lg:h-[480px]">
-                  <LazyMap points={spots} height="100%" scrollWheelZoom={false} />
+                  <MapErrorBoundary fallbackText={t.map_unavailable ?? "Map unavailable — view spot locations below"}>
+                    <LazyMap points={spots} height="100%" scrollWheelZoom={false} />
+                  </MapErrorBoundary>
                 </div>
               </div>
             )}
@@ -338,6 +392,7 @@ export default function AnimeGuidePage() {
               </div>
               <Link
                 href={`/chat?q=${encodeURIComponent(locale === "zh" && titleCn ? titleCn : title)}`}
+                onClick={() => sessionStorage.setItem(`${storageKey}-scroll`, String(window.scrollY))}
                 className="mt-3 inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-primary px-7 text-sm font-semibold text-primary-fg transition-opacity hover:opacity-90 sm:mt-0"
               >
                 {t.plan_route}
@@ -353,7 +408,7 @@ export default function AnimeGuidePage() {
               >
                 <GroupToggle
                   value={groupMode}
-                  onChange={setGroupMode}
+                  onChange={handleGroupModeChange}
                   episodeLabel={t.episode_tab}
                   areaLabel={t.area_tab}
                 />
