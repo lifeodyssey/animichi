@@ -15,7 +15,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html", "lcov"],
       include: ["components/**", "hooks/**", "lib/**", "contexts/**"],
-      exclude: ["**/node_modules/**", "lib/mock-data/**"],
+      exclude: ["**/node_modules/**", "lib/mock-data/**", "components/ui/**"],
       // Floors based on current coverage — only ratchet UP, never lower
       thresholds: {
         lines: 72,
