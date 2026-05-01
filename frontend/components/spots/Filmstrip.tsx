@@ -23,41 +23,52 @@ export default function Filmstrip({ points, label }: FilmstripProps) {
           {label}
         </p>
       )}
-      <div
-        className="flex gap-4 overflow-x-auto px-5 pb-5 sm:px-8"
-        style={{
-          WebkitMaskImage: "linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)",
-          maskImage: "linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)",
-          scrollbarWidth: "none",
-        }}
-      >
-        {withScreenshots.map((point) => {
-          const name = locale === "zh" && point.name_cn ? point.name_cn : point.name;
-          return (
-            <div
-              key={point.id}
-              className="relative w-[280px] flex-shrink-0 overflow-hidden rounded-xl"
-            >
-              <div className="aspect-[16/9]">
-                <img
-                  src={point.screenshot_url!}
-                  alt={name}
-                  width={280}
-                  height={158}
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                  onError={handleImageError}
-                />
-              </div>
+      <div className="relative">
+        <div
+          className="flex gap-4 overflow-x-auto px-5 pb-5 sm:px-8"
+          style={{
+            WebkitMaskImage: "linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)",
+            maskImage: "linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)",
+            scrollbarWidth: "none",
+          }}
+        >
+          {withScreenshots.map((point) => {
+            const name = locale === "zh" && point.name_cn ? point.name_cn : point.name;
+            return (
               <div
-                className="absolute inset-x-0 bottom-0 truncate px-3 py-2.5 text-xs font-medium text-white"
-                style={{ background: "linear-gradient(transparent, var(--color-overlay-image))" }}
+                key={point.id}
+                className="relative w-[280px] flex-shrink-0 overflow-hidden rounded-xl"
               >
-                {name}
+                <div className="aspect-[16/9]">
+                  <img
+                    src={point.screenshot_url!}
+                    alt={name}
+                    width={280}
+                    height={158}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                    onError={handleImageError}
+                  />
+                </div>
+                <div
+                  className="absolute inset-x-0 bottom-0 truncate px-3 py-2.5 text-xs font-medium text-white"
+                  style={{ background: "linear-gradient(transparent, var(--color-overlay-image))" }}
+                >
+                  {name}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+        {withScreenshots.length > 2 && (
+          <div
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-lg text-primary opacity-50 sm:hidden"
+            aria-hidden="true"
+            style={{ animation: "float-arrow 1.5s ease-in-out infinite" }}
+          >
+            →
+          </div>
+        )}
       </div>
     </div>
   );

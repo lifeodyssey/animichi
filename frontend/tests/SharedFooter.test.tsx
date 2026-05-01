@@ -27,13 +27,15 @@ describe("SharedFooter", () => {
 
   it("renders locale button with current locale label", () => {
     render(<SharedFooter />);
-    expect(screen.getByRole("button", { name: "日本語" })).toBeInTheDocument();
+    const btn = screen.getByRole("button", { name: /change language/i });
+    expect(btn).toBeInTheDocument();
+    expect(btn).toHaveTextContent("日本語");
   });
 
   it("cycles locale on click", async () => {
     const user = userEvent.setup();
     render(<SharedFooter />);
-    await user.click(screen.getByRole("button", { name: "日本語" }));
+    await user.click(screen.getByRole("button", { name: /change language/i }));
     expect(mockSetLocale).toHaveBeenCalledWith("zh");
   });
 

@@ -304,6 +304,7 @@
     "show_all": "すべての {count} スポットを表示",
     "episode_group": "第 {ep} 話",
     "other_group": "その他",
-    "spots_count": "{count} スポット"
+    "spots_count": "{count} スポット",
+    "map_unavailable": "マップを読み込めませんでした — 下のスポット一覧をご覧ください"
   }
 }

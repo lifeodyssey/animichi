@@ -304,6 +304,7 @@
     "show_all": "Show all {count} spots",
     "episode_group": "Episode {ep}",
     "other_group": "Other",
-    "spots_count": "{count} spots"
+    "spots_count": "{count} spots",
+    "map_unavailable": "Map unavailable — view spot locations below"
   }
 }
