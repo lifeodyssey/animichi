@@ -83,8 +83,7 @@ export function AuthCallbackPage() {
       </h1>
       <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
         <span
-          className="inline-block h-4 w-4 rounded-full border-2 border-primary border-t-transparent"
-          style={{ animation: "spin 0.8s linear infinite" }}
+          className="spin-loading inline-block h-4 w-4 rounded-full border-2 border-primary border-t-transparent"
         />
         <span>{t.verifying}</span>
       </div>

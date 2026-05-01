@@ -94,7 +94,9 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
       />
 
       {/* ── Content overlay — centered vertically ────────────── */}
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6">
+      <div
+        className="entrance-up relative z-10 flex flex-1 flex-col items-center justify-center px-6"
+      >
         {/* Logo */}
         <div className="mb-2">
           <svg viewBox="0 0 72 72" width="36" height="36" fill="none" className="mx-auto" aria-hidden>

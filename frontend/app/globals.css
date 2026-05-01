@@ -405,6 +405,20 @@ input:focus, textarea:focus {
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* ── Entrance animation classes ── */
+.entrance-up       { animation: seichi-fade-up 0.7s var(--ease-out-expo) backwards; }
+.entrance-up-fast  { animation: seichi-fade-up 0.5s var(--ease-out-expo) backwards; }
+.entrance-up-quick { animation: seichi-fade-up 0.3s ease-out backwards; }
+.entrance-down     { animation: seichi-fade-down 0.5s ease-out; }
+.entrance-slide-right { animation: slide-in-right 0.3s ease-out; }
+.entrance-message  { animation: slide-up-fade 300ms var(--ease-out-quint) both; }
+.entrance-message-slow { animation: slide-up-fade 400ms var(--ease-out-quint) both; }
+
+/* Continuous animations */
+.animate-breathe   { animation: breathe 2s ease-in-out infinite; }
+.spin-loading      { animation: spin 0.8s linear infinite; }
+
+/* Scroll-triggered reveal classes */
 .seichi-reveal,
 .seichi-reveal-pop { opacity: 0; }
 .seichi-reveal.seichi-visible {

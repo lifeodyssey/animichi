@@ -224,7 +224,7 @@ export default function AnimeGuidePage() {
       {/* Loading */}
       {status === "loading" && (
         <div className="flex items-center justify-center py-32 text-base text-muted-foreground" role="status" aria-label={t.loading}>
-          <span className="mr-3 inline-block h-4 w-4 rounded-full border-2 border-primary border-t-transparent" style={{ animation: "spin 0.8s linear infinite" }} />
+          <span className="spin-loading mr-3 inline-block h-4 w-4 rounded-full border-2 border-primary border-t-transparent" />
           {t.loading}
         </div>
       )}
@@ -251,10 +251,9 @@ export default function AnimeGuidePage() {
         <>
           {/* Hero */}
           <section
-            className="px-5 pb-8 pt-10 sm:px-8 sm:pb-10 sm:pt-14"
+            className="entrance-up px-5 pb-8 pt-10 sm:px-8 sm:pb-10 sm:pt-14"
             style={{
               background: "linear-gradient(160deg, var(--color-gradient-soft), var(--color-bg))",
-              animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1)",
             }}
           >
             <div className="mx-auto max-w-[1200px]">
@@ -305,10 +304,10 @@ export default function AnimeGuidePage() {
           {/* Filmstrip — gradient bridge from hero to content */}
           {filmstripSpots.length > 0 && (
             <div
-              className="pb-4"
+              className="entrance-up pb-4"
               style={{
                 background: "linear-gradient(180deg, var(--color-gradient-hero) 0%, var(--color-bg) 100%)",
-                animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.1s backwards",
+                animationDelay: "0.1s",
               }}
             >
               <Filmstrip points={filmstripSpots} label={t.filmstrip_label} />
@@ -319,8 +318,8 @@ export default function AnimeGuidePage() {
             {/* Map */}
             {spots.length > 0 && (
               <div
-                className="mb-6 mt-6 overflow-hidden rounded-2xl border border-border shadow-sm"
-                style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.15s backwards" }}
+                className="entrance-up mb-6 mt-6 overflow-hidden rounded-2xl border border-border shadow-sm"
+                style={{ animationDelay: "0.15s" }}
               >
                 <div className="h-[320px] sm:h-[420px] lg:h-[480px]">
                   <LazyMap points={spots} height="100%" scrollWheelZoom={false} />
@@ -330,8 +329,8 @@ export default function AnimeGuidePage() {
 
             {/* CTA */}
             <div
-              className="mb-10 rounded-2xl border border-border bg-card p-6 shadow-sm sm:flex sm:items-center sm:justify-between sm:p-8"
-              style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.2s backwards" }}
+              className="entrance-up mb-10 rounded-2xl border border-border bg-card p-6 shadow-sm sm:flex sm:items-center sm:justify-between sm:p-8"
+              style={{ animationDelay: "0.2s" }}
             >
               <div>
                 <p className="text-lg font-semibold text-foreground">{t.plan_route}</p>
@@ -349,8 +348,8 @@ export default function AnimeGuidePage() {
             {/* Group toggle + spot groups */}
             {groups.length > 1 && (
               <div
-                className="mb-4"
-                style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.25s backwards" }}
+                className="entrance-up mb-4"
+                style={{ animationDelay: "0.25s" }}
               >
                 <GroupToggle
                   value={groupMode}
@@ -361,7 +360,7 @@ export default function AnimeGuidePage() {
               </div>
             )}
 
-            <div style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.3s backwards" }}>
+            <div className="entrance-up" style={{ animationDelay: "0.3s" }}>
               {groups.map((group, i) => (
                 <SpotGroup
                   key={group.key}

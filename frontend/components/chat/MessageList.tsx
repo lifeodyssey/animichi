@@ -31,8 +31,7 @@ export default function MessageList({
     return (
       <div className="flex flex-1 items-center justify-center px-6 py-8">
         <div
-          className="w-full max-w-md rounded-[28px] border border-border bg-[color-mix(in_oklab,var(--color-card)_88%,white)] p-6 shadow-hero"
-          style={{ animation: "slide-up-fade 400ms var(--ease-out-quint) both" }}
+          className="entrance-message-slow w-full max-w-md rounded-[28px] border border-border bg-[color-mix(in_oklab,var(--color-card)_88%,white)] p-6 shadow-hero"
         >
           <div className="flex flex-col gap-3">
             <p className="font-display text-3xl text-foreground">
@@ -49,10 +48,10 @@ export default function MessageList({
                 key={s.label}
                 type="button"
                 onClick={() => onSuggest(s.query)}
-                className="flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                className="entrance-message flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
                 style={{
                   transitionDuration: "var(--duration-fast)",
-                  animation: `slide-up-fade 350ms var(--ease-out-quint) ${100 + idx * 60}ms both`,
+                  animationDelay: `${100 + idx * 60}ms`,
                 }}
               >
                 <span>{s.label}</span>
@@ -62,8 +61,8 @@ export default function MessageList({
           </div>
 
           <p
-            className="mt-5 text-xs font-light leading-6 text-muted-foreground"
-            style={{ animation: "slide-up-fade 350ms var(--ease-out-quint) 320ms both" }}
+            className="entrance-message mt-5 text-xs font-light leading-6 text-muted-foreground"
+            style={{ animationDelay: "320ms" }}
           >
             {t.welcome_helper}
           </p>
@@ -85,9 +84,8 @@ export default function MessageList({
         {messages.map((msg, idx) => (
           <div
             key={msg.id}
-            style={{
-              animation: `slide-up-fade 300ms var(--ease-out-quint) ${Math.min(idx * 40, 200)}ms both`,
-            }}
+            className="entrance-message"
+            style={{ animationDelay: `${Math.min(idx * 40, 200)}ms` }}
           >
             <MessageBubble
               message={msg}
