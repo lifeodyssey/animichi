@@ -115,7 +115,7 @@ export default function ChatPopup({
         onPointerDown={handlePillPointerDown}
         onPointerMove={handlePillPointerMove}
         onPointerUp={handlePillPointerUp}
-        className="fixed z-50 flex h-11 items-center gap-2 rounded-full bg-[var(--color-primary)] px-4 text-sm font-medium text-[var(--color-primary-fg)] shadow-lg"
+        className="fixed z-50 flex h-11 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-fg shadow-lg"
         style={{
           bottom: `${72 - pos.y}px`,
           right: `${24 - pos.x}px`,
@@ -134,32 +134,31 @@ export default function ChatPopup({
 
   return (
     <div
-      className="fixed z-50 flex flex-col overflow-hidden border border-[var(--color-border)] bg-[var(--color-bg)]"
+      className="fixed z-50 flex flex-col overflow-hidden border border-border bg-background"
       style={{
         bottom: `${72 - pos.y}px`,
         right: `${24 - pos.x}px`,
         width: "340px",
         height: "420px",
-        borderRadius: "var(--r-lg)",
-        boxShadow: "0 8px 32px oklch(20% 0.02 238 / 0.18)",
+        borderRadius: "var(--radius-lg)",
+        boxShadow: "var(--shadow-lg)",
         animation: pos.x === 0 && pos.y === 0 ? "popup-enter 0.2s var(--ease-out-expo)" : undefined,
       }}
     >
       {/* Header — drag handle */}
       <div
-        className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] px-4 py-2.5"
+        className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5"
         style={{ cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
         <div className="flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="text-[var(--color-muted-fg)]" aria-hidden>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="text-muted-foreground" aria-hidden>
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
           <h3
-            className="select-none text-sm font-semibold text-[var(--color-fg)]"
-            style={{ fontFamily: "var(--app-font-display)" }}
+            className="select-none text-sm font-semibold text-foreground font-display"
           >
             {t.title}
           </h3>
@@ -180,7 +179,7 @@ export default function ChatPopup({
             type="button"
             onClick={onClose}
             aria-label={t.close}
-            className="flex h-9 w-9 items-center justify-center rounded-[var(--r-sm)] text-[var(--color-muted-fg)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-fg)]"
+            className="flex h-9 w-9 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
               <line x1="18" y1="6" x2="6" y2="18" />

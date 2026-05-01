@@ -35,8 +35,7 @@ function AnimeNearbyCard({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-[var(--r-md)] border border-[var(--color-border)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-muted)]"
-      style={{ minHeight: 44 }}
+      className="flex min-h-11 w-full items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left transition-colors hover:bg-muted"
     >
       <span
         className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -47,23 +46,22 @@ function AnimeNearbyCard({
         <img
           src={imageUrl}
           alt=""
-          className="h-8 w-10 shrink-0 rounded-[var(--r-sm)] object-cover"
+          className="h-8 w-10 shrink-0 rounded-sm object-cover"
           style={{ background: "var(--color-muted)" }}
           onError={() => setImgError(true)}
         />
       ) : null}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span
-          className="truncate text-sm text-[var(--color-fg)]"
-          style={{ fontFamily: "var(--app-font-display)" }}
+          className="truncate text-sm text-foreground font-display"
         >
           {title}
         </span>
-        <span className="text-xs text-[var(--color-muted-fg)]">
+        <span className="text-xs text-muted-foreground">
           {spotsDistanceLabel}
         </span>
       </span>
-      <span className="shrink-0 text-sm text-[var(--color-muted-fg)]" aria-hidden="true">
+      <span className="shrink-0 text-sm text-muted-foreground" aria-hidden="true">
         →
       </span>
     </button>
@@ -123,7 +121,7 @@ export default function NearbyBubble({ data, onSuggest }: NearbyBubbleProps) {
 
   return (
     <div>
-      <p className="text-sm font-light leading-loose text-[var(--color-fg)]">
+      <p className="text-sm font-light leading-loose text-foreground">
         {nt.summary
           .replace("{radius}", radius)
           .replace("{count}", String(groupsWithDistance.length))
@@ -148,14 +146,13 @@ export default function NearbyBubble({ data, onSuggest }: NearbyBubbleProps) {
       <button
         type="button"
         onClick={() => onSuggest?.(nt.show_all_nearby)}
-        className="mt-3 flex w-full items-center gap-3 rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-muted)]"
-        style={{ minHeight: 44 }}
+        className="mt-3 flex min-h-11 w-full items-center gap-3 rounded-md border border-border bg-background px-4 transition-colors hover:border-primary hover:bg-muted"
       >
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs text-[var(--color-primary-fg)]">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-primary-fg">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </span>
-        <span className="flex-1 text-left text-sm text-[var(--color-fg)]">{nt.view_all.replace("{total}", String(total))}</span>
-        <span className="text-sm text-[var(--color-muted-fg)]">→</span>
+        <span className="flex-1 text-left text-sm text-foreground">{nt.view_all.replace("{total}", String(total))}</span>
+        <span className="text-sm text-muted-foreground">→</span>
       </button>
     </div>
   );

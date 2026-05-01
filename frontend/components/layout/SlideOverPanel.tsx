@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface SlideOverPanelProps {
   open: boolean;
@@ -30,14 +32,13 @@ export function SlideOverPanel({ open, onClose, children, loading }: SlideOverPa
       )}
       {/* Panel */}
       <div
-        className={`fixed top-0 right-0 z-50 h-full w-[520px] max-w-[90vw] bg-[var(--color-bg)]
-          shadow-xl border-l border-[var(--color-border)]
-          transition-transform duration-200 ease-out
-          ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={cn("fixed top-0 right-0 z-50 h-full w-[520px] max-w-[90vw] bg-background shadow-xl border-l border-border transition-transform duration-200 ease-out",
+          open ? "translate-x-0" : "translate-x-full"
+        )}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 rounded-full bg-[var(--color-bg)]/80 p-2 shadow hover:bg-[var(--color-bg)] transition"
+          className="absolute top-4 right-4 z-10 rounded-full bg-background/80 p-2 shadow hover:bg-background transition"
           style={{ transitionDuration: "var(--duration-fast)" }}
           aria-label="Close"
         >
@@ -47,11 +48,11 @@ export function SlideOverPanel({ open, onClose, children, loading }: SlideOverPa
         </button>
         <div className="h-full overflow-y-auto p-6 pt-14">
           {loading ? (
-            <div className="space-y-4 animate-pulse">
-              <div className="h-6 bg-[var(--color-muted)] rounded w-3/4" />
-              <div className="h-48 bg-[var(--color-muted)] rounded" />
-              <div className="h-4 bg-[var(--color-muted)] rounded w-1/2" />
-              <div className="h-4 bg-[var(--color-muted)] rounded w-2/3" />
+            <div className="flex flex-col gap-4">
+              <Skeleton className="h-6 w-3/4" />
+              <Skeleton className="h-48 w-full" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-2/3" />
             </div>
           ) : (
             children

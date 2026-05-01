@@ -11,10 +11,6 @@
   --color-brand:      oklch(72% 0.100 240);
   --color-brand-soft: oklch(95% 0.020 240);
 
-  /* Radius — systematic 3-level scale */
-  --r-sm: 4px;
-  --r-md: 8px;
-  --r-lg: 12px;
 
   /* Walk segments */
   --color-walk-bg: oklch(92% 0.02 145);
@@ -61,6 +57,25 @@
   --duration-base:  250ms;
   --duration-slow:  400ms;
 
+  /* Shadows — tinted toward brand hue 240 */
+  --shadow-xs:   0 1px 2px oklch(20% 0.02 240 / 0.03);
+  --shadow-sm:   0 1px 3px oklch(20% 0.02 240 / 0.04);
+  --shadow-md:   0 4px 24px oklch(20% 0.02 240 / 0.08);
+  --shadow-lg:   0 8px 32px oklch(20% 0.02 240 / 0.18);
+  --shadow-hero: 0 24px 80px oklch(20% 0.025 238 / 0.06);
+
+  /* Overlay — dark scrim for modals/badges/image captions */
+  --color-overlay:       oklch(20% 0.02 238 / 0.7);
+  --color-overlay-soft:  oklch(20% 0.02 240 / 0.55);
+  --color-overlay-image: oklch(15% 0.02 238 / 0.75);
+
+  /* Active marker (coral) — route selected state */
+  --color-marker-active: oklch(58% 0.19 28);
+
+  /* Gradient palette */
+  --color-gradient-soft: oklch(90% 0.03 220);
+  --color-gradient-hero: oklch(93% 0.02 220);
+
   /* shadcn aliases — map to 京吹夏季 palette */
   --background: var(--color-bg);
   --foreground: var(--color-fg);
@@ -103,6 +118,31 @@
   --font-mono: var(--app-font-mono);
   --font-display: var(--app-font-display);
   --font-heading: var(--app-font-display);
+
+  /* Custom app tokens — enables bg-brand, text-primary-fg, etc. */
+  --color-brand: var(--color-brand);
+  --color-brand-soft: var(--color-brand-soft);
+  --color-primary-fg: var(--color-primary-fg);
+  --color-sidebar-active: var(--color-sidebar-active);
+  --color-error-fg: var(--color-error-fg);
+
+  /* Shadows — enables shadow-sm, shadow-lg, etc. */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-hero: var(--shadow-hero);
+
+  /* Overlay + marker + gradient colors */
+  --color-overlay: var(--color-overlay);
+  --color-overlay-soft: var(--color-overlay-soft);
+  --color-marker-active: var(--color-marker-active);
+  --color-gradient-soft: var(--color-gradient-soft);
+  --color-gradient-hero: var(--color-gradient-hero);
+  --color-success-fg: var(--color-success-fg);
+  --color-warning-fg: var(--color-warning-fg);
+
+  /* shadcn tokens */
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -132,9 +172,9 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
@@ -274,7 +314,7 @@ a { color: inherit; }
   z-index: 1000 !important;
 }
 .leaflet-popup-content-wrapper {
-  border-radius: var(--r-md) !important;
+  border-radius: 8px !important;
   box-shadow: 0 4px 16px oklch(20% 0.02 238 / 0.12) !important;
 }
 .leaflet-pane {

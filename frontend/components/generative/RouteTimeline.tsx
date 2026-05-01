@@ -2,6 +2,7 @@
 
 import type { TimedItinerary, TimedStop, TransitLeg } from "../../lib/types";
 import { useDict } from "../../lib/i18n-context";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -64,27 +65,24 @@ export default function RouteTimeline({
             {/* ── Stop row ── */}
             <button
               type="button"
-              className="flex w-full cursor-pointer gap-[14px] rounded-[var(--r-md)] text-left transition-colors duration-150 hover:bg-[var(--color-card)]"
-              style={{ paddingBottom: 2 }}
+              className="flex w-full cursor-pointer gap-[14px] rounded-md pb-0.5 text-left transition-colors duration-150 hover:bg-card"
               onClick={() => onStopClick?.(stop.cluster_id)}
             >
               {/* Left: time column (56px, right-aligned) */}
               <div
-                className="shrink-0 pt-[2px] text-right"
-                style={{ width: 56, fontVariantNumeric: "tabular-nums" }}
+                className="w-14 shrink-0 pt-[2px] text-right tabular-nums"
               >
-                <div className="text-sm font-medium text-[var(--color-fg)]">
+                <div className="text-sm font-medium text-foreground">
                   {stop.arrive}
                 </div>
-                <div className="text-xs text-[var(--color-muted-fg)]">
+                <div className="text-xs text-muted-foreground">
                   {stop.dwell_minutes} 分
                 </div>
               </div>
 
               {/* Center: dot column (24px) */}
               <div
-                className="flex shrink-0 flex-col items-center"
-                style={{ width: 24 }}
+                className="flex w-6 shrink-0 flex-col items-center"
               >
                 <div
                   className="shrink-0 rounded-full"
@@ -105,34 +103,28 @@ export default function RouteTimeline({
                 />
                 {!isLast && (
                   <div
-                    className="flex-1 bg-[var(--color-border)]"
-                    style={{ width: 2 }}
+                    className="w-0.5 flex-1 bg-border"
                   />
                 )}
               </div>
 
               {/* Right: content column — Fix 6: stronger active highlight */}
               <div
-                className={`min-w-0 flex-1 ${
+                className={cn("min-w-0 flex-1",
                   isActive
-                    ? "rounded-[var(--r-md)]"
-                    : ""
-                }`}
+                    ? "rounded-md p-2 -m-2 mb-0.5"
+                    : "pb-1.5"
+                )}
                 style={
                   isActive
-                    ? {
-                        padding: 8,
-                        margin: "-8px",
-                        marginBottom: 2,
-                        background: "oklch(94% 0.03 25)",
-                      }
-                    : { paddingBottom: 6 }
+                    ? { background: "oklch(94% 0.03 25)" }
+                    : undefined
                 }
               >
-                <div className="mb-0.5 font-[family-name:var(--app-font-display)] text-sm font-semibold text-[var(--color-fg)]">
+                <div className="mb-0.5 font-display text-sm font-semibold text-foreground">
                   {stop.name}
                 </div>
-                <div className="mb-1.5 text-xs text-[var(--color-muted-fg)]">
+                <div className="mb-1.5 text-xs text-muted-foreground">
                   {episode != null ? `EP ${episode} · ` : ""}
                   {rt.timeline_spots.replace("{count}", String(stop.photo_count))}
                 </div>
@@ -142,8 +134,7 @@ export default function RouteTimeline({
                     alt={stop.name}
                     width={72}
                     height={48}
-                    className="rounded-[var(--r-sm)] bg-[var(--color-muted)] object-cover"
-                    style={{ width: 72, height: 48 }}
+                    className="h-12 w-[72px] rounded-sm bg-muted object-cover"
                     loading="lazy"
                   />
                 )}
@@ -153,39 +144,33 @@ export default function RouteTimeline({
             {/* ── Walk segment — Fix 5: visually prominent ── */}
             {leg && (
               <div
-                className="flex gap-[14px]"
-                style={{ padding: "8px 0" }}
+                className="flex gap-[14px] py-2"
               >
                 {/* Left: empty 56px spacer */}
-                <div className="shrink-0" style={{ width: 56 }} />
+                <div className="w-14 shrink-0" />
 
                 {/* Center: dashed line — wider + more opaque */}
                 <div
-                  className="flex shrink-0 justify-center"
-                  style={{ width: 24 }}
+                  className="flex w-6 shrink-0 justify-center"
                 >
                   <div
                     style={{
-                      width: 3,
-                      minHeight: 28,
                       background:
                         "repeating-linear-gradient(to bottom, oklch(35% 0.06 145 / 0.7) 0 4px, transparent 4px 8px)",
                     }}
+                    className="w-[3px] min-h-7"
                   />
                 </div>
 
                 {/* Walk pill — bolder, more saturated */}
                 <div
-                  className="inline-flex items-center gap-1 rounded-[var(--r-md)]"
+                  className="inline-flex items-center gap-1 rounded-md px-3.5 py-1.5 text-sm font-semibold"
                   style={{
-                    padding: "6px 14px",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    background: "oklch(89% 0.04 145)",
-                    color: "oklch(30% 0.10 145)",
+                    background: "var(--color-walk-bg)",
+                    color: "var(--color-walk-fg)",
                   }}
                 >
-                  <span style={{ fontSize: 15 }}>🚶</span> {leg.duration_minutes} 分 · {fmtDist(leg.distance_m)}
+                  <span className="text-base">🚶</span> {leg.duration_minutes} 分 · {fmtDist(leg.distance_m)}
                 </div>
               </div>
             )}
@@ -193,18 +178,18 @@ export default function RouteTimeline({
             {/* ── Discovery card — shown for walks > 5 min ── */}
             {leg && leg.duration_minutes > 5 && (
               <div className="flex gap-[14px]">
-                <div style={{ width: 56 }} className="shrink-0" />
-                <div style={{ width: 24 }} className="flex shrink-0 justify-center">
-                  <div style={{ width: 3, minHeight: 16, opacity: 0.3, background: "var(--color-border)" }} />
+                <div className="w-14 shrink-0" />
+                <div className="flex w-6 shrink-0 justify-center">
+                  <div className="w-[3px] min-h-4 opacity-30" style={{ background: "var(--color-border)" }} />
                 </div>
                 <div
-                  className="flex-1 rounded-[var(--r-md)] p-3"
-                  style={{ background: "var(--color-walk-bg, oklch(89% 0.04 145))", cursor: "pointer" }}
+                  className="flex-1 rounded-md p-3"
+                  style={{ background: "var(--color-walk-bg)", cursor: "pointer" }}
                 >
-                  <p style={{ fontSize: 13, fontWeight: 500, color: "var(--color-walk-fg, oklch(30% 0.10 145))", marginBottom: 2 }}>
+                  <p className="mb-0.5 text-sm font-medium" style={{ color: "var(--color-walk-fg)" }}>
                     {rt.timeline_nearby}
                   </p>
-                  <p style={{ fontSize: 12, color: "var(--color-muted-fg)" }}>
+                  <p className="text-xs" style={{ color: "var(--color-muted-fg)" }}>
                     {rt.timeline_nearby_sub}
                   </p>
                 </div>

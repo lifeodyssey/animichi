@@ -43,21 +43,20 @@ export default function ConversationDrawer({
 
       {/* Drawer panel */}
       <div
-        className="fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--color-bg)] shadow-xl"
-        style={{ width: 280 }}
+        className="fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col bg-background shadow-xl"
         role="dialog"
         aria-label="Conversation history"
       >
         {/* Header */}
-        <div className="flex h-14 items-center justify-between border-b border-[var(--color-border)] px-4 shrink-0">
+        <div className="flex h-14 items-center justify-between border-b border-border px-4 shrink-0">
           <span
-            className="font-[family-name:var(--app-font-display)] text-base font-semibold text-[var(--color-fg)]"
+            className="font-display text-base font-semibold text-foreground"
           >
             {t.title}
           </span>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 hover:bg-[var(--color-muted)] transition"
+            className="rounded-lg p-1.5 hover:bg-muted transition"
             aria-label={t.close}
           >
             <svg
@@ -78,7 +77,7 @@ export default function ConversationDrawer({
         <div className="px-4 pt-4 pb-2 shrink-0">
           <button
             onClick={() => { onNewChat(); onClose(); }}
-            className="w-full rounded-lg border border-[var(--color-border)] py-2 text-left text-sm font-light text-[var(--color-fg)] px-3 hover:bg-[var(--color-muted)] transition"
+            className="w-full rounded-lg border border-border py-2 text-left text-sm font-light text-foreground px-3 hover:bg-muted transition"
           >
             {t.new_chat}
           </button>

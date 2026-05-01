@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useDict } from "../../lib/i18n-context";
 import { formatDistanceOpt } from "../../lib/geo";
 import { usePointSelectionContext } from "../../contexts/PointSelectionContext";
+import { cn } from "@/lib/utils";
 import NearbyChips, { groupByAnime } from "./NearbyChips";
 
 const LazyBaseMap = dynamic(() => import("../map/BaseMap"), { ssr: false });
@@ -31,7 +32,7 @@ export default function NearbyMap({ data }: NearbyMapProps) {
 
   if (results.status === "empty" || sorted.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center rounded-[var(--r-lg)] border border-[var(--color-border)] p-4 text-sm text-[var(--color-muted-fg)]">
+      <div className="flex h-full items-center justify-center rounded-lg border border-border p-4 text-sm text-muted-foreground">
         {t.no_results}
       </div>
     );
@@ -45,7 +46,7 @@ export default function NearbyMap({ data }: NearbyMapProps) {
       : sorted;
 
   return (
-    <div className="flex h-full flex-row gap-0 overflow-hidden rounded-[var(--r-lg)] border border-[var(--color-border)]">
+    <div className="flex h-full flex-row gap-0 overflow-hidden rounded-lg border border-border">
       {/* Map side — 55% */}
       <div className="relative" style={{ flex: "0 0 55%" }}>
         <LazyBaseMap
@@ -57,10 +58,10 @@ export default function NearbyMap({ data }: NearbyMapProps) {
       </div>
 
       {/* List side — 45% */}
-      <div className="flex min-w-0 flex-1 flex-col border-l border-[var(--color-border)]">
+      <div className="flex min-w-0 flex-1 flex-col border-l border-border">
         {/* Header + chips */}
-        <div className="space-y-2 border-b border-[var(--color-border)] px-4 py-3">
-          <p className="text-xs text-[var(--color-muted-fg)]">
+        <div className="flex flex-col gap-2 border-b border-border px-4 py-3">
+          <p className="text-xs text-muted-foreground">
             {t.count.replace("{count}", String(results.row_count))}
           </p>
           <NearbyChips
@@ -71,7 +72,7 @@ export default function NearbyMap({ data }: NearbyMapProps) {
         </div>
 
         {/* Scrollable list */}
-        <div className="flex-1 overflow-y-auto divide-y divide-[var(--color-border)]">
+        <div className="flex-1 overflow-y-auto divide-y divide-border">
           {filtered.map((point: PilgrimagePoint) => {
             const isSelected = selectedIds.has(point.id);
             return (
@@ -80,31 +81,30 @@ export default function NearbyMap({ data }: NearbyMapProps) {
                 type="button"
                 onClick={() => toggle(point.id)}
                 aria-pressed={isSelected}
-                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${
+                className={cn("flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left transition",
                   isSelected
-                    ? "bg-[var(--color-primary)]/10"
-                    : "hover:bg-[var(--color-muted)]"
-                }`}
-                style={{ transitionDuration: "var(--duration-fast)", minHeight: 44 }}
+                    ? "bg-primary/10"
+                    : "hover:bg-muted"
+                )}
+                style={{ transitionDuration: "var(--duration-fast)" }}
               >
                 {/* Thumbnail */}
                 {point.screenshot_url && (
                   <img
                     src={point.screenshot_url}
                     alt=""
-                    className="h-9 w-12 shrink-0 rounded-[var(--r-sm)] object-cover"
+                    className="h-9 w-12 shrink-0 rounded-sm object-cover"
                   />
                 )}
 
                 {/* Text */}
                 <div className="min-w-0 flex-1">
                   <p
-                    className="truncate text-sm font-medium text-[var(--color-fg)]"
-                    style={{ fontFamily: "var(--app-font-display)" }}
+                    className="truncate text-sm font-medium text-foreground font-display"
                   >
                     {point.name_cn || point.name}
                   </p>
-                  <p className="truncate text-xs text-[var(--color-muted-fg)]">
+                  <p className="truncate text-xs text-muted-foreground">
                     {point.title_cn || point.title}
                   </p>
                 </div>
@@ -112,8 +112,7 @@ export default function NearbyMap({ data }: NearbyMapProps) {
                 {/* Distance badge */}
                 {point.distance_m != null && (
                   <span
-                    className="shrink-0 text-xs font-medium text-[var(--color-primary)]"
-                    style={{ fontVariantNumeric: "tabular-nums" }}
+                    className="shrink-0 text-xs tabular-nums font-medium text-primary"
                   >
                     {formatDistanceOpt(point.distance_m)}
                   </span>

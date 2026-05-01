@@ -37,16 +37,16 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[var(--color-bg)]">
-        <div className="text-[var(--color-muted-fg)]">Loading...</div>
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }
 
   if (!session) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[var(--color-bg)]">
-        <div className="text-[var(--color-muted-fg)]">Redirecting...</div>
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-muted-foreground">Redirecting...</div>
       </div>
     );
   }

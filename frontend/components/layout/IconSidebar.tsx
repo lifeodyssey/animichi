@@ -37,15 +37,15 @@ function NavButton({ label, active = false, onClick, children }: NavButtonProps)
       data-active={active ? "true" : "false"}
       onClick={onClick}
       className={cn(
-        "group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--r-md)] border-none cursor-pointer transition-colors duration-150",
+        "group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-md border-none cursor-pointer transition-colors duration-150",
         active
-          ? "bg-[var(--color-sidebar-active)] text-[var(--color-primary)]"
-          : "bg-transparent text-[var(--color-muted-fg)] hover:bg-[var(--color-muted)]"
+          ? "bg-sidebar-active text-primary"
+          : "bg-transparent text-muted-foreground hover:bg-muted"
       )}
     >
       {children}
       {/* Hover tooltip */}
-      <span className="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-[var(--r-sm)] bg-[var(--color-fg)] px-2.5 py-1 text-xs font-medium text-[var(--color-bg)] opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-20">
+      <span className="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-foreground px-2.5 py-1 text-xs font-medium text-background opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-20">
         {label}
       </span>
     </button>
@@ -60,14 +60,14 @@ export default function IconSidebar({
   return (
     <aside
       data-testid="icon-sidebar"
-      className="flex w-[60px] min-w-[60px] flex-col items-center gap-1 border-r border-[var(--color-border)] bg-[var(--color-bg)] py-3"
+      className="flex w-[60px] min-w-[60px] flex-col items-center gap-1 border-r border-border bg-background py-3"
     >
       {/* Torii logo — brand-soft bg, 44x44 rounded square */}
       <button
         type="button"
         aria-label="聖地巡礼 home"
         onClick={onNewChat}
-        className="group relative mb-3 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-[var(--r-lg)] border-none bg-[var(--color-brand-soft)] transition-transform duration-150 hover:scale-105"
+        className="group relative mb-3 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border-none bg-brand-soft transition-transform duration-150 hover:scale-105"
       >
         <svg viewBox="0 0 72 72" width="28" height="28" fill="none" aria-hidden>
           <rect x="12" y="16" width="48" height="5" rx="2.5" fill="var(--color-brand)" />

@@ -108,9 +108,8 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
 
         {/* Title */}
         <h1
-          className="mb-1 text-center text-[28px] font-bold leading-tight text-white"
+          className="mb-1 text-center text-[28px] font-bold leading-tight text-white font-display"
           style={{
-            fontFamily: "var(--app-font-display)",
             textShadow: "0 2px 16px oklch(20% 0.02 238 / 0.4)",
           }}
         >
@@ -134,7 +133,7 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
             placeholder={placeholder}
             className="h-[52px] flex-1 rounded-[26px] border-none bg-white/90 px-5 text-base text-[var(--fg)] shadow-lg outline-none backdrop-blur-sm placeholder:text-[var(--muted-fg)] focus:bg-white"
             style={{
-              boxShadow: "0 4px 24px oklch(20% 0.02 238 / 0.2)",
+              boxShadow: "var(--shadow-md)",
               transition: "background 0.15s, box-shadow 0.15s",
             }}
           />
@@ -183,7 +182,7 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
                 width={52}
                 height={72}
                 loading="lazy"
-                className="h-[72px] w-[52px] rounded-[var(--r-md)] border border-white/15 object-cover transition-transform duration-150 group-hover:scale-110"
+                className="h-[72px] w-[52px] rounded-md border border-white/15 object-cover transition-transform duration-150 group-hover:scale-110"
               />
               <span className="max-w-[52px] truncate text-xs text-white/50 group-hover:text-white/80">
                 {item.title.length > 5 ? `${item.title.slice(0, 4)}…` : item.title}

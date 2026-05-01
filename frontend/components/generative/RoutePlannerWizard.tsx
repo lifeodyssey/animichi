@@ -5,6 +5,7 @@ import { useState, useMemo } from "react";
 import type { RouteData, TimedItinerary } from "../../lib/types";
 import { useRouteExport } from "../../hooks/useRouteExport";
 import { useDict } from "../../lib/i18n-context";
+import { cn } from "@/lib/utils";
 import RouteTimeline from "./RouteTimeline";
 
 // ---------------------------------------------------------------------------
@@ -106,7 +107,7 @@ export default function RoutePlannerWizard({
   return (
     <div className="flex h-full overflow-hidden">
       {/* ── Left: Map (45%) ── */}
-      <div className="relative flex-[0_0_45%] border-r border-[var(--color-border)]">
+      <div className="relative flex-[0_0_45%] border-r border-border">
         <LazyBaseMap
           points={points}
           route={points}
@@ -118,13 +119,12 @@ export default function RoutePlannerWizard({
       {/* ── Right: Timeline panel (55%) ── */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header bar */}
-        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--color-border)] px-4 py-2.5">
+        <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
           {onBack && (
             <button
               type="button"
               onClick={onBack}
-              className="flex items-center gap-1 rounded-[var(--r-sm)] bg-transparent px-2 py-1 text-sm text-[var(--color-primary)] hover:bg-[var(--color-muted)]"
-              style={{ minHeight: 44 }}
+              className="flex items-center gap-1 rounded-sm bg-transparent px-2 py-1 text-sm text-primary hover:bg-muted"
             >
               <svg
                 width="16"
@@ -148,19 +148,17 @@ export default function RoutePlannerWizard({
                 alt=""
                 width={40}
                 height={40}
-                className="rounded-[var(--r-md)] object-cover"
-                style={{ width: 40, height: 40 }}
+                className="h-10 w-10 rounded-md object-cover"
               />
             )}
             <div className="min-w-0">
               <div
-                className="truncate font-[family-name:var(--app-font-display)] text-[var(--color-fg)]"
-                style={{ fontSize: 16, fontWeight: 700 }}
+                className="truncate font-display text-base font-bold text-foreground"
               >
                 {animeTitle}
               </div>
               {points[0]?.title && points[0]?.title_cn && points[0].title !== points[0].title_cn && (
-                <div className="truncate text-xs text-[var(--color-muted-fg)]">
+                <div className="truncate text-xs text-muted-foreground">
                   {points[0].title}
                 </div>
               )}
@@ -170,20 +168,17 @@ export default function RoutePlannerWizard({
 
         {/* Stats bar — narrative headline */}
         <div
-          className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-card)]"
-          style={{ padding: "12px 16px" }}
+          className="shrink-0 border-b border-border bg-card px-4 py-3"
         >
           <div className="flex items-end justify-between gap-4">
             <div className="min-w-0">
               <div
-                className="font-[family-name:var(--app-font-display)] text-[var(--color-fg)]"
-                style={{ fontSize: 16, fontWeight: 600 }}
+                className="font-display text-base font-semibold text-foreground"
               >
                 {rt.pilgrimage_title.replace("{count}", String(spotCount))}
               </div>
               <div
-                className="mt-0.5 text-[var(--color-muted-fg)]"
-                style={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}
+                className="mt-0.5 text-sm tabular-nums text-muted-foreground"
               >
                 {rt.stats_detail
                   .replace("{h}", String(hours))
@@ -201,19 +196,18 @@ export default function RoutePlannerWizard({
                     key={opt.key}
                     type="button"
                     onClick={() => setPacing(opt.key)}
-                    className={`rounded-[var(--r-md)] border text-xs font-medium ${
+                    className={cn("min-h-11 rounded-md border px-3 py-1 text-xs font-medium",
                       pacing === opt.key
-                        ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-fg)]"
-                        : "border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-muted-fg)]"
-                    }`}
-                    style={{ padding: "4px 12px", minHeight: 44 }}
+                        ? "border-primary bg-primary text-primary-fg"
+                        : "border-border bg-background text-muted-foreground"
+                    )}
                   >
                     {opt.label}
                   </button>
                 ))}
               </div>
               <div
-                className="mt-1 text-right text-[var(--color-muted-fg)]"
+                className="mt-1 text-right text-muted-foreground"
                 style={{ fontSize: 11 }}
               >
                 {paceOptions.find((o) => o.key === pacing)?.desc}
@@ -232,20 +226,18 @@ export default function RoutePlannerWizard({
         </div>
 
         {/* Export bar */}
-        <div className="flex shrink-0 items-center gap-2 border-t border-[var(--color-border)] px-4 py-2">
+        <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-2">
           <button
             type="button"
             onClick={exportGoogleMaps}
-            className="flex flex-1 items-center justify-center rounded-[var(--r-md)] bg-[var(--color-primary)] text-sm font-semibold text-[var(--color-primary-fg)]"
-            style={{ height: 36, minWidth: 44 }}
+            className="flex h-9 min-w-11 flex-1 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-fg"
           >
             {rt.export_gmaps}
           </button>
           <button
             type="button"
             onClick={exportIcs}
-            className="rounded-[var(--r-md)] border border-[var(--color-border)] bg-transparent text-sm text-[var(--color-muted-fg)]"
-            style={{ height: 36, minWidth: 44, padding: "0 12px" }}
+            className="h-9 min-w-11 rounded-md border border-border bg-transparent px-3 text-sm text-muted-foreground"
           >
             {rt.export_ics}
           </button>
@@ -253,8 +245,7 @@ export default function RoutePlannerWizard({
             <button
               type="button"
               onClick={onExpandChat}
-              className="flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] text-sm font-medium text-[var(--color-primary-fg)]"
-              style={{ height: 36, padding: "0 14px", minWidth: 44 }}
+              className="flex h-9 min-w-11 items-center gap-1.5 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-fg"
             >
               <svg
                 viewBox="0 0 24 24"

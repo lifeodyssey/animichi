@@ -37,8 +37,8 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[var(--color-bg)]">
-        <div className="text-[var(--color-muted-fg)]">{t.loading}</div>
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-muted-foreground">{t.loading}</div>
       </div>
     );
   }

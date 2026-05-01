@@ -59,16 +59,16 @@ export function AuthCallbackPage() {
 
   if (error) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-bg)] px-6">
-        <h1 className="font-[family-name:var(--app-font-display)] text-3xl font-semibold text-[var(--color-fg)]">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6">
+        <h1 className="font-display text-3xl font-semibold text-foreground">
           聖地巡礼
         </h1>
-        <p className="mt-6 text-sm text-[var(--color-muted-fg)]">
+        <p className="mt-6 text-sm text-muted-foreground">
           {t.link_expired}
         </p>
         <Link
           href="/"
-          className="mt-4 text-sm text-[var(--color-primary)] hover:underline"
+          className="mt-4 text-sm text-primary hover:underline"
         >
           {t.request_new_link}
         </Link>
@@ -77,13 +77,13 @@ export function AuthCallbackPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-bg)] px-6">
-      <h1 className="font-[family-name:var(--app-font-display)] text-3xl font-semibold text-[var(--color-fg)]">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6">
+      <h1 className="font-display text-3xl font-semibold text-foreground">
         聖地巡礼
       </h1>
-      <div className="mt-6 flex items-center gap-2 text-sm text-[var(--color-muted-fg)]">
+      <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
         <span
-          className="inline-block h-4 w-4 rounded-full border-2 border-[var(--color-primary)] border-t-transparent"
+          className="inline-block h-4 w-4 rounded-full border-2 border-primary border-t-transparent"
           style={{ animation: "spin 0.8s linear infinite" }}
         />
         <span>{t.verifying}</span>

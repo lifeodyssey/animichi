@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 
 const BaseMap = dynamic(() => import("../../../components/map/BaseMap"), { ssr: false });
@@ -55,48 +56,43 @@ export default function MapBenchPage() {
   }, []);
 
   return (
-    <div style={{ padding: "24px", fontFamily: "var(--app-font-body)", maxWidth: 1200, margin: "0 auto" }}>
-      <h1 style={{ fontFamily: "var(--app-font-display)", fontSize: 24, marginBottom: 8 }}>
+    <div className="mx-auto max-w-[1200px] p-6 font-sans">
+      <h1 className="mb-2 font-display text-2xl">
         Mapbox GL JS 性能测试
       </h1>
-      <p style={{ fontSize: 14, color: "var(--color-muted-fg)", marginBottom: 24 }}>
+      <p className="mb-6 text-sm text-muted-foreground">
         Mapbox GL (vector tiles, GPU 渲染)。对比 3 种地图样式的加载速度。12 个标记点。
       </p>
 
       <button
         onClick={handleStart}
-        style={{
-          padding: "8px 24px", borderRadius: 8,
-          background: "var(--color-primary)", color: "white",
-          border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer",
-          marginBottom: 24,
-        }}
+        className="mb-6 cursor-pointer rounded-lg border-none bg-primary px-6 py-2 text-sm font-semibold text-primary-fg"
       >
         {running ? "重新测试" : "开始测试"}
       </button>
 
       {/* Results table */}
       {results.length > 0 && (
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24, fontSize: 14 }}>
+        <table className="mb-6 w-full border-collapse text-sm">
           <thead>
-            <tr style={{ borderBottom: "2px solid var(--color-border)" }}>
-              <th style={{ textAlign: "left", padding: "8px 12px" }}>Style</th>
-              <th style={{ textAlign: "right", padding: "8px 12px" }}>加载时间 (ms)</th>
-              <th style={{ textAlign: "left", padding: "8px 12px" }}>评价</th>
+            <tr className="border-b-2 border-border">
+              <th className="px-3 py-2 text-left">Style</th>
+              <th className="px-3 py-2 text-right">加载时间 (ms)</th>
+              <th className="px-3 py-2 text-left">评价</th>
             </tr>
           </thead>
           <tbody>
             {results
               .sort((a, b) => a.loadMs - b.loadMs)
               .map((r, i) => (
-                <tr key={r.styleId} style={{ borderBottom: "1px solid var(--color-border)" }}>
-                  <td style={{ padding: "8px 12px", fontWeight: i === 0 ? 600 : 400 }}>
+                <tr key={r.styleId} className="border-b border-border">
+                  <td className={cn("px-3 py-2", i === 0 && "font-semibold")}>
                     {i === 0 ? "🏆 " : ""}{STYLES.find((s) => s.id === r.styleId)?.label}
                   </td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                  <td className="px-3 py-2 text-right tabular-nums">
                     {r.loadMs}ms
                   </td>
-                  <td style={{ padding: "8px 12px", color: "var(--color-muted-fg)" }}>
+                  <td className="px-3 py-2 text-muted-foreground">
                     {r.loadMs < 800 ? "快" : r.loadMs < 2000 ? "一般" : "慢"}
                   </td>
                 </tr>
@@ -107,12 +103,12 @@ export default function MapBenchPage() {
 
       {/* Maps side by side */}
       {running && (
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${STYLES.length}, 1fr)`, gap: 16 }}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${STYLES.length}, 1fr)` }}>
           {STYLES.map((style) => (
-            <div key={style.id} style={{ border: "1px solid var(--color-border)", borderRadius: 12, overflow: "hidden" }}>
-              <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--color-border)", fontSize: 13, fontWeight: 600 }}>
+            <div key={style.id} className="overflow-hidden rounded-lg border border-border">
+              <div className="border-b border-border px-3 py-2 text-sm font-semibold">
                 {style.label}
-                <span style={{ fontWeight: 400, color: "var(--color-muted-fg)", marginLeft: 8 }}>
+                <span className="ml-2 font-normal text-muted-foreground">
                   {results.find((r) => r.styleId === style.id)
                     ? `${results.find((r) => r.styleId === style.id)?.loadMs}ms`
                     : "加载中…"}

@@ -7,6 +7,7 @@ import { usePointSelectionContext } from "../../contexts/PointSelectionContext";
 import { resolveUnknownName } from "../../lib/japanRegions";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import SourceBadge from "./SourceBadge";
 
 const PilgrimageCard = memo(function PilgrimageCard({
@@ -30,16 +31,16 @@ const PilgrimageCard = memo(function PilgrimageCard({
       type="button"
       onClick={onToggle}
       aria-pressed={selected}
-      className={`group relative overflow-hidden rounded-[var(--r-md)] border bg-[var(--color-muted)] text-left transition-all ${
+      className={cn("group relative overflow-hidden rounded-md border bg-muted text-left transition-all",
         selected
-          ? "border-[var(--color-primary)] shadow-sm"
-          : "border-[var(--color-border)] hover:border-[var(--color-primary)] hover:-translate-y-0.5 hover:shadow-md"
-      }`}
+          ? "border-primary shadow-sm"
+          : "border-border hover:border-primary hover:-translate-y-0.5 hover:shadow-md"
+      )}
       style={{ transitionDuration: "var(--duration-fast)" }}
     >
       {/* Selection checkmark */}
       {selected && (
-        <span className="absolute right-1.5 top-1.5 z-10 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[var(--color-primary)] text-xs font-bold text-[var(--color-primary-fg)] shadow-sm">
+        <span className="absolute right-1.5 top-1.5 z-10 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-fg shadow-sm">
           ✓
         </span>
       )}
@@ -57,9 +58,9 @@ const PilgrimageCard = memo(function PilgrimageCard({
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-[var(--color-muted)]">
+          <div className="flex h-full w-full items-center justify-center bg-muted">
             <span
-              className="select-none font-[family-name:var(--app-font-display)] text-2xl"
+              className="select-none font-display text-2xl"
               style={{ color: "color-mix(in oklch, var(--color-fg) 12%, transparent)" }}
             >
               聖
@@ -118,17 +119,17 @@ function GroupSection({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         className="flex items-center gap-2 text-left"
       >
-        <span className="text-xs text-[var(--color-muted-fg)] transition-transform" style={{ display: "inline-block", transform: open ? "rotate(90deg)" : "rotate(0deg)" }}>
+        <span className="text-xs text-muted-foreground transition-transform" style={{ display: "inline-block", transform: open ? "rotate(90deg)" : "rotate(0deg)" }}>
           ▶
         </span>
-        <span className="text-xs font-medium text-[var(--color-fg)]">{label}</span>
+        <span className="text-xs font-medium text-foreground">{label}</span>
         <Badge variant="secondary" className="text-xs">{count}</Badge>
       </button>
       {open && (
@@ -192,8 +193,8 @@ export default function PilgrimageGrid({ data }: PilgrimageGridProps) {
 
   if (results.status === "empty" || results.rows.length === 0) {
     return (
-      <div className="space-y-4">
-        <div className="py-8 text-sm font-light text-[var(--color-muted-fg)]">
+      <div className="flex flex-col gap-4">
+        <div className="py-8 text-sm font-light text-muted-foreground">
           {t.no_results}
         </div>
         <div className="grid grid-cols-2 gap-2 p-4">
@@ -212,15 +213,15 @@ export default function PilgrimageGrid({ data }: PilgrimageGridProps) {
     || "";
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       {/* Editorial section header */}
       <div className="flex items-baseline gap-4">
         {animeTitle && (
-          <h2 className="font-[family-name:var(--app-font-display)] text-lg font-semibold text-[var(--color-fg)]">
+          <h2 className="font-display text-lg font-semibold text-foreground">
             {animeTitle}
           </h2>
         )}
-        <span className="text-xs font-light text-[var(--color-muted-fg)]">
+        <span className="text-xs font-light text-muted-foreground">
           {t.count.replace("{count}", String(results.row_count))}
         </span>
       </div>
@@ -232,7 +233,7 @@ export default function PilgrimageGrid({ data }: PilgrimageGridProps) {
         </TabsList>
 
         <TabsContent value="episode">
-          <div className="space-y-4 pt-3">
+          <div className="flex flex-col gap-4 pt-3">
             {episodeGroups.map(([key, points]) => (
               <GroupSection
                 key={key}
@@ -248,7 +249,7 @@ export default function PilgrimageGrid({ data }: PilgrimageGridProps) {
         </TabsContent>
 
         <TabsContent value="area">
-          <div className="space-y-4 pt-3">
+          <div className="flex flex-col gap-4 pt-3">
             {areaGroups.map(([key, points]) => (
               <GroupSection
                 key={key}

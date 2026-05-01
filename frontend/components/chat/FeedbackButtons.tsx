@@ -37,19 +37,19 @@ export default function FeedbackButtons({ message, userQuery }: FeedbackButtonsP
 
   if (state === "submitted") {
     return (
-      <p className="text-xs text-[var(--color-muted-fg)] opacity-60">
+      <p className="text-xs text-muted-foreground opacity-60">
         {t.feedback_sent}
       </p>
     );
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <div className="flex gap-0.5 opacity-50 transition-opacity md:opacity-0 md:group-hover:opacity-50 md:group-focus-within:opacity-50 hover:!opacity-100" style={{ transitionDuration: "var(--duration-fast)" }}>
         <button
           aria-label={t.feedback_good_title}
           onClick={() => handleFeedback("good")}
-          className="flex h-[44px] w-[44px] items-center justify-center rounded text-base text-[var(--color-muted-fg)] transition hover:text-[var(--color-fg)]"
+          className="flex h-[44px] w-[44px] items-center justify-center rounded text-base text-muted-foreground transition hover:text-foreground"
           title={t.feedback_good_title}
         >
           👍
@@ -57,7 +57,7 @@ export default function FeedbackButtons({ message, userQuery }: FeedbackButtonsP
         <button
           aria-label={t.feedback_bad_title}
           onClick={() => handleFeedback("bad")}
-          className="flex h-[44px] w-[44px] items-center justify-center rounded text-base text-[var(--color-muted-fg)] transition hover:text-[var(--color-fg)]"
+          className="flex h-[44px] w-[44px] items-center justify-center rounded text-base text-muted-foreground transition hover:text-foreground"
           title={t.feedback_bad_title}
         >
           👎
@@ -71,11 +71,11 @@ export default function FeedbackButtons({ message, userQuery }: FeedbackButtonsP
             onChange={(e) => setComment(e.target.value)}
             placeholder={t.feedback_placeholder}
             aria-label={t.feedback_placeholder}
-            className="flex-1 border-b border-[var(--color-border)] bg-transparent px-0 py-1 text-xs outline-none focus:border-[var(--color-primary)]"
+            className="flex-1 border-b border-border bg-transparent px-0 py-1 text-xs outline-none focus:border-primary"
           />
           <button
             onClick={() => handleFeedback("bad")}
-            className="text-xs font-medium text-[var(--color-primary)]"
+            className="text-xs font-medium text-primary"
           >
             {t.send}
           </button>

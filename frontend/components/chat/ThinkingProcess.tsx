@@ -38,7 +38,7 @@ export default function ThinkingProcess({
   if (steps.length === 0) {
     if (!isStreaming) return null;
     return (
-      <div className="mb-2 flex items-center gap-1.5 text-xs text-[var(--color-muted-fg)]">
+      <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
         <span className="animate-pulse">{"\uD83E\uDDE0"}</span>
         <span>{t?.thinking || "Thinking..."}</span>
       </div>
@@ -57,7 +57,7 @@ export default function ThinkingProcess({
       {/* Main status line — user-friendly labels, not raw LLM thoughts */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 text-xs text-[var(--color-muted-fg)] hover:text-[var(--color-fg)] transition-colors"
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         style={{ transitionDuration: "var(--duration-fast)" }}
       >
         <span className={isStreaming ? "animate-pulse" : ""}>
@@ -81,7 +81,7 @@ export default function ThinkingProcess({
 
       {/* Expanded: tool steps as compact sub-items */}
       {expanded && (
-        <div className="mt-1.5 ml-4 border-l-2 border-[var(--color-border)] pl-3 space-y-1">
+        <div className="mt-1.5 ml-4 flex flex-col gap-1 border-l-2 border-border pl-3">
           {steps.map((step, i) => {
             const icon = TOOL_ICONS[step.tool] || "\u2699\uFE0F";
             const isFailed = step.status === "failed";
@@ -94,8 +94,8 @@ export default function ThinkingProcess({
                   <span
                     className={
                       isRunning
-                        ? "text-[var(--color-primary)] animate-pulse"
-                        : "text-[var(--color-muted-fg)]"
+                        ? "text-primary animate-pulse"
+                        : "text-muted-foreground"
                     }
                     style={
                       isFailed
@@ -106,7 +106,7 @@ export default function ThinkingProcess({
                     {toolLabels[step.tool as keyof typeof toolLabels] || step.tool}
                   </span>
                   <span
-                    className={isRunning ? "text-[var(--color-primary)]" : ""}
+                    className={isRunning ? "text-primary" : ""}
                     style={{
                       color: isFailed
                         ? "var(--color-error-fg)"
