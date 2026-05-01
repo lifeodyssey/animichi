@@ -12,7 +12,6 @@ import type { PilgrimagePoint } from "../../../lib/types";
 import { useScrollReveal } from "../../../hooks/useScrollReveal";
 import SharedHeader from "../../../components/layout/SharedHeader";
 import SharedFooter from "../../../components/layout/SharedFooter";
-import Filmstrip from "../../../components/spots/Filmstrip";
 import SpotGroup from "../../../components/spots/SpotGroup";
 import GroupToggle from "../../../components/spots/GroupToggle";
 
@@ -173,20 +172,6 @@ function deduplicateSpots(spots: PilgrimagePoint[]): PilgrimagePoint[] {
   return [...map.values()];
 }
 
-/** Pick ~1 representative spot per episode group for the filmstrip (max 12). */
-function selectFilmstripSpots(spots: PilgrimagePoint[], maxCount: number = 12): PilgrimagePoint[] {
-  const withScreenshot = spots.filter((s) => s.screenshot_url);
-  if (withScreenshot.length <= maxCount) return withScreenshot;
-
-  // Pick evenly spaced samples
-  const step = Math.max(1, Math.floor(withScreenshot.length / maxCount));
-  const selected: PilgrimagePoint[] = [];
-  for (let i = 0; i < withScreenshot.length && selected.length < maxCount; i += step) {
-    selected.push(withScreenshot[i]);
-  }
-  return selected;
-}
-
 function shouldDefaultToEpisode(spots: PilgrimagePoint[]): boolean {
   const withEp = spots.filter((s) => s.episode != null && s.episode > 0);
   return withEp.length > spots.length * 0.4;
@@ -223,7 +208,6 @@ export default function AnimeGuidePage() {
   }, [bangumiId]);
 
   const spots = useMemo(() => deduplicateSpots(data?.spots ?? []), [data]);
-  const filmstripSpots = useMemo(() => selectFilmstripSpots(spots), [spots]);
   const title = data?.title ?? "";
   const titleCn = data?.title_cn;
   const displayTitle = locale === "zh" && titleCn ? titleCn : title;
@@ -352,19 +336,6 @@ export default function AnimeGuidePage() {
               </div>
             </div>
           </section>
-
-          {/* Filmstrip — gradient bridge from hero to content */}
-          {filmstripSpots.length > 0 && (
-            <div
-              className="entrance-up pb-4"
-              style={{
-                background: "linear-gradient(180deg, var(--color-gradient-hero) 0%, var(--color-bg) 100%)",
-                animationDelay: "0.1s",
-              }}
-            >
-              <Filmstrip points={filmstripSpots} label={t.filmstrip_label} />
-            </div>
-          )}
 
           <main className="mx-auto max-w-[1200px] px-5 pb-16 sm:px-8 sm:pb-20">
             {/* Map */}
