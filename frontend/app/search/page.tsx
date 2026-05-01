@@ -8,6 +8,7 @@ import { fetchSearchPreview } from "../../lib/api";
 import type { SearchPreviewResponse } from "../../lib/api";
 import type { PilgrimagePoint } from "../../lib/types";
 import { handleImageError } from "../../components/auth/LandingData";
+import SharedHeader from "../../components/layout/SharedHeader";
 
 type Status = "idle" | "loading" | "done" | "error";
 
@@ -70,24 +71,7 @@ export default function SearchPage() {
       className="min-h-screen bg-[var(--color-bg)]"
       style={{ fontFamily: "var(--app-font-body)" }}
     >
-      {/* ── Header ── */}
-      <header
-        className="sticky top-0 z-50 flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4 sm:px-8"
-        style={{ background: "var(--color-bg)" }}
-      >
-        <Link
-          href="/"
-          className="flex items-baseline gap-3"
-          style={{ fontFamily: "var(--app-font-display)" }}
-        >
-          <span className="text-[24px] font-bold tracking-[0.02em] text-[var(--color-fg)]">
-            聖地巡礼
-          </span>
-          <span className="text-[12px] tracking-[2px] text-[var(--color-muted-fg)]">
-            seichijunrei
-          </span>
-        </Link>
-      </header>
+      <SharedHeader loginHref="/?login=true" />
 
       <main className="mx-auto max-w-[960px] px-5 py-10 sm:px-8 sm:py-16">
         {/* ── Back link ── */}
