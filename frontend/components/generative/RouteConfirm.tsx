@@ -96,18 +96,18 @@ export default function RouteConfirm({
   );
 
   return (
-    <div className="flex h-full flex-col bg-[var(--color-bg)]">
+    <div className="flex h-full flex-col bg-background">
       {/* Fix 8: grip hover animation */}
       <style>{`
         .group:hover .grip-handle > div { color: oklch(60% 0.148 240 / 0.6) !important; }
       `}</style>
 
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <div className="flex shrink-0 items-center border-b border-[var(--color-border)] px-4 py-3">
+      <div className="flex shrink-0 items-center border-b border-border px-4 py-3">
         <button
           type="button"
           onClick={onBack}
-          className="flex h-[44px] items-center gap-1 text-sm text-[var(--color-muted-fg)] transition-colors hover:text-[var(--color-fg)]"
+          className="flex h-[44px] items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <svg
             width="16"
@@ -125,8 +125,7 @@ export default function RouteConfirm({
           {t.back}
         </button>
         <span
-          className="flex-1 text-center text-base font-semibold text-[var(--color-fg)]"
-          style={{ fontFamily: "var(--app-font-display)" }}
+          className="flex-1 text-center text-base font-semibold text-foreground font-display"
         >
           {t.title}
         </span>
@@ -135,8 +134,8 @@ export default function RouteConfirm({
       </div>
 
       {/* ── Departure input ─────────────────────────────────────────── */}
-      <div className="shrink-0 border-b border-[var(--color-border)] px-4 py-3">
-        <label className="mb-1 block text-xs text-[var(--color-muted-fg)]">
+      <div className="shrink-0 border-b border-border px-4 py-3">
+        <label className="mb-1 block text-xs text-muted-foreground">
           {t.departure_label}
         </label>
         <input
@@ -144,7 +143,7 @@ export default function RouteConfirm({
           value={origin}
           onChange={(e) => setOrigin(e.target.value)}
           placeholder={t.departure_placeholder}
-          className="h-[44px] w-full rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-fg)] outline-none transition-colors placeholder:text-[var(--color-muted-fg)] focus:border-[var(--color-primary)]"
+          className="h-[44px] w-full rounded-md border border-border bg-card px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
         />
       </div>
 
@@ -172,7 +171,7 @@ export default function RouteConfirm({
         </DndContext>
 
         {orderedPoints.length === 0 && (
-          <p className="py-8 text-center text-sm text-[var(--color-muted-fg)]">
+          <p className="py-8 text-center text-sm text-muted-foreground">
             {t.empty}
           </p>
         )}
@@ -182,7 +181,7 @@ export default function RouteConfirm({
       {lastRemoved && (
         <div className="shrink-0 px-4 pb-2" role="status" aria-live="polite">
           <div
-            className="flex items-center justify-between rounded-[var(--r-md)] px-4 py-2"
+            className="flex items-center justify-between rounded-md px-4 py-2"
             style={{ background: "var(--color-fg)", color: "var(--color-bg)", fontSize: 13 }}
           >
             <span>{t.removed.replace("{name}", lastRemoved.point.name_cn || lastRemoved.point.name)}</span>
@@ -205,16 +204,16 @@ export default function RouteConfirm({
       )}
 
       {/* ── Summary + confirm — Fix 9 & 10 ──────────────────────────── */}
-      <div className="shrink-0 border-t border-[var(--color-border)] bg-[var(--color-card)] px-4 py-4">
+      <div className="shrink-0 border-t border-border bg-card px-4 py-4">
         <div className="mb-3 text-center">
           <div
-            className="font-[family-name:var(--app-font-display)] text-[var(--color-fg)]"
+            className="font-display text-foreground"
             style={{ fontSize: 14 }}
           >
             {t.summary.replace("{count}", String(orderedPoints.length))}
           </div>
           <div
-            className="mt-0.5 text-[var(--color-muted-fg)]"
+            className="mt-0.5 text-muted-foreground"
             style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}
           >
             {t.estimate
@@ -226,7 +225,7 @@ export default function RouteConfirm({
           type="button"
           onClick={handleConfirm}
           disabled={!canConfirm}
-          className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[var(--r-md)] bg-[var(--color-primary)] text-sm font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="flex h-[44px] w-full items-center justify-center gap-2 rounded-md bg-primary text-sm font-semibold text-primary-fg transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           <svg
             width="16"

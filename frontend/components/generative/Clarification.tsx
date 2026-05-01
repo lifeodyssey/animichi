@@ -27,8 +27,8 @@ export default function Clarification({
   // If we have candidate objects, render the vertical card layout
   if (hasCandidates) {
     return (
-      <div className="space-y-3">
-        <p className="text-sm font-light leading-relaxed text-[var(--color-fg)]">
+      <div className="flex flex-col gap-3">
+        <p className="text-sm font-light leading-relaxed text-foreground">
           {message}
         </p>
         <div className="flex flex-col gap-2">
@@ -58,8 +58,8 @@ export default function Clarification({
       city: "",
     }));
     return (
-      <div className="space-y-3">
-        <p className="text-sm font-light leading-relaxed text-[var(--color-fg)]">
+      <div className="flex flex-col gap-3">
+        <p className="text-sm font-light leading-relaxed text-foreground">
           {message}
         </p>
         <div className="flex flex-col gap-2">
@@ -77,8 +77,8 @@ export default function Clarification({
 
   // Default fallback: suggestion buttons from dictionary as candidate-like cards
   return (
-    <div className="space-y-3">
-      <p className="text-sm font-light leading-relaxed text-[var(--color-fg)]">
+    <div className="flex flex-col gap-3">
+      <p className="text-sm font-light leading-relaxed text-foreground">
         {message}
       </p>
       <div className="flex flex-col gap-2">
@@ -113,7 +113,7 @@ function CandidateCard({
       type="button"
       onClick={onSelect}
       aria-label={candidate.title}
-      className="flex items-center gap-3 rounded-[var(--r-lg)] border border-[var(--color-border)] bg-[var(--color-card)] p-3 text-left transition-all hover:border-[var(--color-primary)] hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
+      className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-all hover:border-primary hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
       style={{
         transitionDuration: "var(--duration-fast)",
         transitionTimingFunction: "var(--ease-out-quint)",
@@ -121,7 +121,7 @@ function CandidateCard({
       }}
     >
       {/* Thumbnail — enlarged for better anime cover visibility */}
-      <span className="relative flex h-14 w-11 shrink-0 overflow-hidden rounded-[var(--r-lg)] bg-[var(--color-muted)]">
+      <span className="relative flex h-14 w-11 shrink-0 overflow-hidden rounded-lg bg-muted">
         {candidate.cover_url && !imgError ? (
           <img
             src={candidate.cover_url}
@@ -137,13 +137,12 @@ function CandidateCard({
       {/* Text */}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span
-          className="truncate text-sm font-medium text-[var(--color-fg)]"
-          style={{ fontFamily: "var(--app-font-display)" }}
+          className="truncate text-sm font-medium text-foreground font-display"
         >
           {candidate.title}
         </span>
         {(candidate.spot_count > 0 || candidate.city) && (
-          <span className="text-xs text-[var(--color-muted-fg)]">
+          <span className="text-xs text-muted-foreground">
             {candidate.spot_count > 0 && <>{candidate.spot_count} {t.spot_label ?? "spots"}</>}
             {candidate.spot_count > 0 && candidate.city && " · "}
             {candidate.city}
@@ -153,7 +152,7 @@ function CandidateCard({
 
       {/* Arrow */}
       <span
-        className="shrink-0 text-base text-[var(--color-primary)] transition-transform"
+        className="shrink-0 text-base text-primary transition-transform"
         style={{ transitionDuration: "var(--duration-fast)" }}
       >
         →
@@ -186,7 +185,7 @@ function SearchAllCard({
       type="button"
       onClick={handleClick}
       aria-label={label}
-      className="flex items-center gap-3 rounded-[var(--r-lg)] border border-[var(--color-border)] bg-[var(--color-card)] p-3 text-left transition-all hover:border-[var(--color-primary)] hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
+      className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-all hover:border-primary hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
       style={{
         transitionDuration: "var(--duration-fast)",
         transitionTimingFunction: "var(--ease-out-quint)",
@@ -194,15 +193,14 @@ function SearchAllCard({
       }}
     >
       {/* Icon */}
-      <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-[var(--r-lg)] bg-[var(--color-muted)] text-sm">
+      <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-lg bg-muted text-sm">
         {"\uD83D\uDD0D"}
       </span>
 
       {/* Text */}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span
-          className="truncate text-sm font-medium text-[var(--color-fg)]"
-          style={{ fontFamily: "var(--app-font-display)" }}
+          className="truncate text-sm font-medium text-foreground font-display"
         >
           {label}
         </span>
@@ -210,7 +208,7 @@ function SearchAllCard({
 
       {/* Arrow */}
       <span
-        className="shrink-0 text-base text-[var(--color-primary)] transition-transform"
+        className="shrink-0 text-base text-primary transition-transform"
         style={{ transitionDuration: "var(--duration-fast)" }}
       >
         →
@@ -235,7 +233,7 @@ function FallbackSuggestionCard({
       type="button"
       onClick={onSelect}
       aria-label={label}
-      className="flex items-center gap-3 rounded-[var(--r-lg)] border border-[var(--color-border)] bg-[var(--color-card)] p-3 text-left transition-all hover:border-[var(--color-primary)] hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
+      className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-all hover:border-primary hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
       style={{
         transitionDuration: "var(--duration-fast)",
         transitionTimingFunction: "var(--ease-out-quint)",
@@ -243,15 +241,14 @@ function FallbackSuggestionCard({
       }}
     >
       {/* Emoji icon instead of cover */}
-      <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-[var(--r-lg)] bg-[var(--color-muted)] text-sm">
+      <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-lg bg-muted text-sm">
         {"\uD83C\uDFAC"}
       </span>
 
       {/* Text */}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span
-          className="truncate text-sm font-medium text-[var(--color-fg)]"
-          style={{ fontFamily: "var(--app-font-display)" }}
+          className="truncate text-sm font-medium text-foreground font-display"
         >
           {label}
         </span>
@@ -259,7 +256,7 @@ function FallbackSuggestionCard({
 
       {/* Arrow */}
       <span
-        className="shrink-0 text-base text-[var(--color-primary)] transition-transform"
+        className="shrink-0 text-base text-primary transition-transform"
         style={{ transitionDuration: "var(--duration-fast)" }}
       >
         →
@@ -274,7 +271,7 @@ function FallbackSuggestionCard({
 
 function PlaceholderThumbnail() {
   return (
-    <span className="flex h-full w-full items-center justify-center text-[var(--color-muted-fg)]">
+    <span className="flex h-full w-full items-center justify-center text-muted-foreground">
       {"\uD83C\uDFAC"}
     </span>
   );

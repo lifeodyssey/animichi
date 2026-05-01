@@ -30,8 +30,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
 
   return (
     <div
-      className="min-h-screen overflow-x-hidden bg-[var(--color-bg)]"
-      style={{ fontFamily: "var(--app-font-body)" }}
+      className="min-h-screen overflow-x-hidden bg-background font-sans"
       lang={locale}
     >
       <SharedHeader onLogin={onOpenAuth} position="fixed" />
@@ -46,7 +45,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "linear-gradient(160deg, oklch(90% 0.03 220) 0%, var(--color-bg) 50%)",
+              "linear-gradient(160deg, var(--color-gradient-soft) 0%, var(--color-bg) 50%)",
           }}
         />
 
@@ -57,13 +56,13 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
             style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1)" }}
           >
             <h1
-              className="font-[family-name:var(--app-font-display)] text-[clamp(48px,7vw,72px)] font-bold leading-[1.05] text-[var(--color-fg)]"
+              className="font-display text-[clamp(48px,7vw,72px)] font-bold leading-[1.05] text-foreground"
             >
               {landing.hero_title}
             </h1>
 
             <p
-              className="mt-5 max-w-[38ch] text-lg leading-[1.6] text-[var(--color-muted-fg)]"
+              className="mt-5 max-w-[38ch] text-lg leading-[1.6] text-muted-foreground"
               style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.08s backwards" }}
             >
               {landing.hero_subtitle}
@@ -72,9 +71,8 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
             <button
               type="button"
               onClick={onOpenAuth}
-              className="mt-8 inline-flex w-fit min-h-[52px] items-center gap-2.5 rounded-xl bg-[var(--color-primary)] px-8 text-base font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
+              className="mt-8 inline-flex w-fit min-h-[52px] items-center gap-2.5 rounded-xl bg-primary px-8 text-base font-semibold text-primary-fg transition-opacity hover:opacity-90"
               style={{
-                fontFamily: "var(--app-font-body)",
                 animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.16s backwards",
               }}
             >
@@ -96,12 +94,12 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
               ).map(([num, label]) => (
                 <div key={num}>
                   <div
-                    className="font-[family-name:var(--app-font-display)] text-[28px] font-bold tabular-nums text-[var(--color-fg)]"
+                    className="font-display text-[28px] font-bold tabular-nums text-foreground"
                     style={{ fontVariantNumeric: "tabular-nums" }}
                   >
                     {num}
                   </div>
-                  <div className="text-sm text-[var(--color-muted-fg)]">
+                  <div className="text-sm text-muted-foreground">
                     {label}
                   </div>
                 </div>
@@ -115,7 +113,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
               className="relative hidden min-w-0 flex-1 lg:block"
               style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.12s backwards" }}
             >
-              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-[var(--color-card)]">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-card">
                 <img
                   src="/images/hero-reality.jpg"
                   alt="実写 — Reality"
@@ -146,7 +144,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                 {/* Tags */}
                 <div
                   className="absolute bottom-4 left-4 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide text-white uppercase"
-                  style={{ background: "oklch(20% 0.02 238 / 0.7)", backdropFilter: "blur(8px)" }}
+                  style={{ background: "var(--color-overlay)", backdropFilter: "blur(8px)" }}
                 >
                   Reality
                 </div>
@@ -157,8 +155,8 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                   Anime
                 </div>
               </div>
-              <p className="mt-3 text-sm text-[var(--color-muted-fg)]">
-                <span className="font-[family-name:var(--app-font-display)] font-medium text-[var(--color-fg)]">
+              <p className="mt-3 text-sm text-muted-foreground">
+                <span className="font-display font-medium text-foreground">
                   君の名は。
                 </span>
                 {" "}— 須賀神社 · 新宿区
@@ -176,13 +174,13 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
         <div className="mb-10 max-w-[480px]">
           <h2
             ref={addRevealRef}
-            className="seichi-reveal font-[family-name:var(--app-font-display)] text-[28px] font-bold text-[var(--color-fg)]"
+            className="seichi-reveal font-display text-[28px] font-bold text-foreground"
           >
             {landing.gallery_title}
           </h2>
           <p
             ref={addRevealRef}
-            className="seichi-reveal mt-2 text-base leading-relaxed text-[var(--color-muted-fg)]"
+            className="seichi-reveal mt-2 text-base leading-relaxed text-muted-foreground"
           >
             {landing.gallery_sub}
           </p>
@@ -201,7 +199,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
               href={`/anime/${anime.bangumiId}`}
               ref={addRevealRef}
               className={[
-                "seichi-reveal-pop group relative overflow-hidden rounded-xl bg-[var(--color-card)]",
+                "seichi-reveal-pop group relative overflow-hidden rounded-xl bg-card",
                 i === 0 ? "col-span-2 row-span-2" : "",
               ].join(" ")}
               style={{
@@ -221,12 +219,12 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
               <div
                 className="absolute inset-0 flex flex-col justify-end p-4"
                 style={{
-                  background: "linear-gradient(to top, oklch(15% 0.02 238 / 0.75) 0%, transparent 50%)",
+                  background: "linear-gradient(to top, var(--color-overlay-image) 0%, transparent 50%)",
                 }}
               >
                 <span
                   className={[
-                    "font-[family-name:var(--app-font-display)] font-bold text-white",
+                    "font-display font-bold text-white",
                     i === 0 ? "text-2xl" : "text-base",
                   ].join(" ")}
                 >

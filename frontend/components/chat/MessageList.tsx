@@ -31,14 +31,14 @@ export default function MessageList({
     return (
       <div className="flex flex-1 items-center justify-center px-6 py-8">
         <div
-          className="w-full max-w-md rounded-[28px] border border-[var(--color-border)] bg-[color-mix(in_oklab,var(--color-card)_88%,white)] p-6 shadow-[0_24px_80px_oklch(20%_0.025_238_/_0.06)]"
+          className="w-full max-w-md rounded-[28px] border border-border bg-[color-mix(in_oklab,var(--color-card)_88%,white)] p-6 shadow-hero"
           style={{ animation: "slide-up-fade 400ms var(--ease-out-quint) both" }}
         >
-          <div className="space-y-3">
-            <p className="font-[family-name:var(--app-font-display)] text-3xl text-[var(--color-fg)]">
+          <div className="flex flex-col gap-3">
+            <p className="font-display text-3xl text-foreground">
               {t.welcome_title}
             </p>
-            <p className="text-sm font-light leading-7 text-[var(--color-fg)]">
+            <p className="text-sm font-light leading-7 text-foreground">
               {t.welcome_subtitle}
             </p>
           </div>
@@ -49,7 +49,7 @@ export default function MessageList({
                 key={s.label}
                 type="button"
                 onClick={() => onSuggest(s.query)}
-                className="flex items-center justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 text-left text-sm font-light text-[var(--color-fg)] transition-colors hover:border-[var(--color-primary)]/50 hover:text-[var(--color-primary)]"
+                className="flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
                 style={{
                   transitionDuration: "var(--duration-fast)",
                   animation: `slide-up-fade 350ms var(--ease-out-quint) ${100 + idx * 60}ms both`,
@@ -62,7 +62,7 @@ export default function MessageList({
           </div>
 
           <p
-            className="mt-5 text-xs font-light leading-6 text-[var(--color-muted-fg)]"
+            className="mt-5 text-xs font-light leading-6 text-muted-foreground"
             style={{ animation: "slide-up-fade 350ms var(--ease-out-quint) 320ms both" }}
           >
             {t.welcome_helper}
@@ -81,7 +81,7 @@ export default function MessageList({
 
   return (
     <div className="flex-1 overflow-y-auto py-6">
-      <div className="mx-auto w-full max-w-2xl space-y-5 px-5">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-5">
         {messages.map((msg, idx) => (
           <div
             key={msg.id}

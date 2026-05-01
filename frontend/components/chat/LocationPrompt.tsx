@@ -69,7 +69,7 @@ export default function LocationPrompt({
 
   return (
     <div
-      className="mx-auto mb-2 flex max-w-[680px] flex-col gap-2 rounded-[var(--r-lg)] border border-[var(--color-border)] bg-[var(--color-card)] p-3 shadow-sm"
+      className="mx-auto mb-2 flex max-w-[680px] flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm"
       role="region"
       aria-label="location prompt"
     >
@@ -80,7 +80,7 @@ export default function LocationPrompt({
               <button
                 type="button"
                 onClick={handleUseCurrentLocation}
-                className="flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-1.5 text-sm text-[var(--color-fg)] transition-colors hover:border-[var(--color-primary)]/50 hover:text-[var(--color-primary)]"
+                className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:border-primary/50 hover:text-primary"
                 style={{ transitionDuration: "var(--duration-fast)" }}
               >
                 <span aria-hidden="true">📍</span>
@@ -90,7 +90,7 @@ export default function LocationPrompt({
                 <button
                   type="button"
                   onClick={handleEnterStation}
-                  className="flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-1.5 text-sm text-[var(--color-fg)] transition-colors hover:border-[var(--color-primary)]/50 hover:text-[var(--color-primary)]"
+                  className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:border-primary/50 hover:text-primary"
                   style={{ transitionDuration: "var(--duration-fast)" }}
                 >
                   {t.enter_station}
@@ -100,7 +100,7 @@ export default function LocationPrompt({
           )}
 
           {isAcquiring && (
-            <span className="text-sm text-[var(--color-muted-fg)]">
+            <span className="text-sm text-muted-foreground">
               {t.acquiring}
             </span>
           )}
@@ -110,7 +110,7 @@ export default function LocationPrompt({
           type="button"
           onClick={onDismiss}
           aria-label="dismiss location prompt"
-          className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--color-muted-fg)] hover:bg-[var(--color-muted)] hover:text-[var(--color-fg)]"
+          className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M2 2l8 8M10 2l-8 8" />
@@ -119,7 +119,7 @@ export default function LocationPrompt({
       </div>
 
       {(geoState.kind === "denied" || geoState.kind === "timeout") && (
-        <p className="text-xs text-[var(--color-muted-fg)]">
+        <p className="text-xs text-muted-foreground">
           {geoState.kind === "denied" ? t.denied : t.timeout}
         </p>
       )}
@@ -132,12 +132,12 @@ export default function LocationPrompt({
             value={stationValue}
             onChange={(e) => setStationValue(e.target.value)}
             placeholder={t.enter_station}
-            className="flex-1 rounded-[var(--r-lg)] border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-1.5 text-sm outline-none focus:border-[var(--color-primary)] placeholder:text-[var(--color-muted-fg)]"
+            className="flex-1 rounded-lg border border-border bg-card px-3 py-1.5 text-sm outline-none focus:border-primary placeholder:text-muted-foreground"
           />
           <button
             type="submit"
             disabled={!stationValue.trim()}
-            className="rounded-[var(--r-lg)] bg-[var(--color-primary)] px-3 py-1.5 text-sm text-[var(--color-primary-fg)] disabled:opacity-40"
+            className="rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-40"
           >
             OK
           </button>

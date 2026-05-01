@@ -28,12 +28,12 @@ export default function SharedHeader({
   return (
     <header
       className={cn(
-        "inset-x-0 top-0 z-50 border-b border-[var(--color-border)] px-5 sm:px-8",
+        "inset-x-0 top-0 z-50 border-b border-border px-5 sm:px-8",
         position === "fixed" ? "fixed" : "sticky",
       )}
       style={{
         background: "var(--color-card)",
-        boxShadow: "0 1px 3px oklch(20% 0.02 240 / 0.04)",
+        boxShadow: "var(--shadow-sm)",
         animation: "seichi-fade-down 0.5s ease-out",
       }}
     >
@@ -42,13 +42,12 @@ export default function SharedHeader({
         <div className="flex items-center gap-6">
           <Link
             href="/"
-            className="flex items-baseline gap-2"
-            style={{ fontFamily: "var(--app-font-display)" }}
+            className="flex items-baseline gap-2 font-display"
           >
-            <span className="text-lg font-bold tracking-[0.02em] text-[var(--color-fg)]">
+            <span className="text-lg font-bold tracking-[0.02em] text-foreground">
               聖地巡礼
             </span>
-            <span className="hidden text-xs tracking-[1.5px] text-[var(--color-muted-fg)] sm:inline">
+            <span className="hidden text-xs tracking-[1.5px] text-muted-foreground sm:inline">
               seichijunrei
             </span>
           </Link>
@@ -63,8 +62,8 @@ export default function SharedHeader({
                   className={cn(
                     "rounded-md px-3 py-1.5 text-sm transition-colors",
                     item.active
-                      ? "font-medium text-[var(--color-fg)] bg-[var(--color-secondary)]"
-                      : "text-[var(--color-muted-fg)] hover:text-[var(--color-fg)] hover:bg-[var(--color-secondary)]",
+                      ? "font-medium text-foreground bg-secondary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary",
                   )}
                 >
                   {item.label}
@@ -79,7 +78,7 @@ export default function SharedHeader({
           <button
             type="button"
             onClick={onLogin}
-            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
           >
             {t.login}
           </button>
@@ -88,7 +87,7 @@ export default function SharedHeader({
         {!onLogin && loginHref && (
           <Link
             href={loginHref}
-            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
           >
             {t.login}
           </Link>

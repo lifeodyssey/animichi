@@ -149,14 +149,9 @@ describe("Clarification (card layout with candidates)", () => {
     const { container } = renderClarification({
       candidates: [CANDIDATE_WITH_COVER, CANDIDATE_NO_COVER, CANDIDATE_SECONDARY],
     });
-    // Each title span has fontFamily set to var(--app-font-display)
-    // At least the candidate titles should use display font via inline style
-    // The component uses inline style fontFamily: "var(--app-font-display)"
-    const displayFontSpans = container.querySelectorAll("[style]");
-    const withDisplayFont = Array.from(displayFontSpans).filter((el) =>
-      (el as HTMLElement).style.fontFamily?.includes("app-font-display"),
-    );
-    // 3 candidates + 1 search-all card = at least 4 title spans
+    // Title spans use the font-display Tailwind class
+    const withDisplayFont = container.querySelectorAll(".font-display");
+    // 3 candidates + 1 search-all card = at least 3 title spans
     expect(withDisplayFont.length).toBeGreaterThanOrEqual(3);
   });
 });
@@ -216,10 +211,8 @@ describe("Clarification (fallback, no options/candidates)", () => {
 
   it("fallback suggestion cards use display font for labels", () => {
     const { container } = renderClarification({});
-    const displayFontSpans = Array.from(container.querySelectorAll("[style]")).filter((el) =>
-      (el as HTMLElement).style.fontFamily?.includes("app-font-display"),
-    );
+    const withDisplayFont = container.querySelectorAll(".font-display");
     // At least one suggestion card should use display font
-    expect(displayFontSpans.length).toBeGreaterThanOrEqual(1);
+    expect(withDisplayFont.length).toBeGreaterThanOrEqual(1);
   });
 });

@@ -25,10 +25,10 @@ export function ConversationItem({ record, isActive, onSelect }: ConversationIte
       data-testid={`conversation-item-${record.session_id}`}
       data-active={isActive || undefined}
       className={[
-        "mb-0.5 flex items-start gap-2 rounded-[var(--r-lg)] px-3 py-2.5 cursor-pointer transition",
+        "mb-0.5 flex items-start gap-2 rounded-lg px-3 py-2.5 cursor-pointer transition",
         isActive
-          ? "bg-[var(--color-primary)] text-[var(--color-primary-fg)]"
-          : "hover:bg-[var(--color-muted)]",
+          ? "bg-primary text-primary-fg"
+          : "hover:bg-muted",
       ].join(" ")}
       onClick={onSelect}
     >
@@ -39,7 +39,7 @@ export function ConversationItem({ record, isActive, onSelect }: ConversationIte
         <p
           className={[
             "truncate text-xs font-medium",
-            isActive ? "text-[var(--color-primary-fg)]" : "text-[var(--color-fg)]",
+            isActive ? "text-primary-fg" : "text-foreground",
           ].join(" ")}
         >
           {displayTitle.length > 25
@@ -50,7 +50,7 @@ export function ConversationItem({ record, isActive, onSelect }: ConversationIte
           <p
             className={[
               "mt-0.5 text-xs",
-              isActive ? "text-[var(--color-primary-fg)] opacity-70" : "text-[var(--color-muted-fg)] opacity-60",
+              isActive ? "text-primary-fg opacity-70" : "text-muted-foreground opacity-60",
             ].join(" ")}
           >
             {meta}
@@ -66,7 +66,7 @@ export function EmptyConversations() {
   return (
     <div
       data-testid="conversation-drawer-empty"
-      className="flex flex-col items-center justify-center h-32 gap-2 text-[var(--color-muted-fg)]"
+      className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground"
     >
       <span className="text-2xl" aria-hidden="true">{"\u{1F5FE}"}</span>
       <p className="text-xs text-center">
@@ -94,7 +94,7 @@ export function ConversationList({
 
   return (
     <>
-      <p className="pb-2 text-xs font-medium uppercase tracking-widest text-[var(--color-muted-fg)] opacity-60">
+      <p className="pb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground opacity-60">
         {t.recent}
       </p>
       {conversations.map((record) => (

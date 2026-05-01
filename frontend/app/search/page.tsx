@@ -68,8 +68,7 @@ export default function SearchPage() {
 
   return (
     <div
-      className="min-h-screen bg-[var(--color-bg)]"
-      style={{ fontFamily: "var(--app-font-body)" }}
+      className="min-h-screen bg-background font-sans"
     >
       <SharedHeader loginHref="/?login=true" />
 
@@ -77,7 +76,7 @@ export default function SearchPage() {
         {/* ── Back link ── */}
         <Link
           href="/"
-          className="mb-8 inline-flex items-center gap-1.5 text-sm text-[var(--color-muted-fg)] transition-colors hover:text-[var(--color-fg)]"
+          className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <span aria-hidden="true">←</span>
           {t.back_to_home}
@@ -86,7 +85,7 @@ export default function SearchPage() {
         {/* ── Title area ── */}
         {query && (
           <div className="mb-10">
-            <h1 className="font-[family-name:var(--app-font-display)] text-[clamp(28px,5vw,42px)] font-bold leading-[1.1] text-[var(--color-fg)]">
+            <h1 className="font-display text-[clamp(28px,5vw,42px)] font-bold leading-[1.1] text-foreground">
               {t.title.replace("{query}", query)}
             </h1>
             {meta?.cover_url && (
@@ -98,11 +97,11 @@ export default function SearchPage() {
                   onError={handleImageError}
                 />
                 <div>
-                  <div className="text-base font-medium text-[var(--color-fg)]">
+                  <div className="text-base font-medium text-foreground">
                     {meta.anime_title}
                   </div>
                   {meta.anime_title_cn && meta.anime_title_cn !== meta.anime_title && (
-                    <div className="text-sm text-[var(--color-muted-fg)]">
+                    <div className="text-sm text-muted-foreground">
                       {meta.anime_title_cn}
                     </div>
                   )}
@@ -110,7 +109,7 @@ export default function SearchPage() {
               </div>
             )}
             {status === "done" && !isEmpty && (
-              <p className="mt-3 text-sm text-[var(--color-muted-fg)]">
+              <p className="mt-3 text-sm text-muted-foreground">
                 {t.showing_preview
                   .replace("{shown}", String(rows.length))
                   .replace("{total}", String(total))}
@@ -121,9 +120,9 @@ export default function SearchPage() {
 
         {/* ── Loading ── */}
         {status === "loading" && (
-          <div className="flex items-center gap-3 py-16 text-base text-[var(--color-muted-fg)]">
+          <div className="flex items-center gap-3 py-16 text-base text-muted-foreground">
             <span
-              className="inline-block h-4 w-4 rounded-full border-2 border-[var(--color-primary)] border-t-transparent"
+              className="inline-block h-4 w-4 rounded-full border-2 border-primary border-t-transparent"
               style={{ animation: "spin 0.8s linear infinite" }}
             />
             {t.loading}
@@ -133,10 +132,10 @@ export default function SearchPage() {
         {/* ── Error ── */}
         {status === "error" && (
           <div className="py-16 text-center">
-            <p className="text-base text-[var(--color-muted-fg)]">{t.error}</p>
+            <p className="text-base text-muted-foreground">{t.error}</p>
             <Link
               href="/"
-              className="mt-4 inline-block text-sm text-[var(--color-primary)] hover:underline"
+              className="mt-4 inline-block text-sm text-primary hover:underline"
             >
               {t.back_to_home}
             </Link>
@@ -146,15 +145,15 @@ export default function SearchPage() {
         {/* ── Empty results ── */}
         {isEmpty && (
           <div className="py-16 text-center">
-            <p className="text-lg font-medium text-[var(--color-fg)]">
+            <p className="text-lg font-medium text-foreground">
               {t.no_results}
             </p>
-            <p className="mt-2 text-sm text-[var(--color-muted-fg)]">
+            <p className="mt-2 text-sm text-muted-foreground">
               {t.no_results_hint}
             </p>
             <Link
               href="/"
-              className="mt-6 inline-block text-sm text-[var(--color-primary)] hover:underline"
+              className="mt-6 inline-block text-sm text-primary hover:underline"
             >
               {t.back_to_home}
             </Link>
@@ -163,11 +162,11 @@ export default function SearchPage() {
 
         {/* ── Results list ── */}
         {rows.length > 0 && (
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             {rows.map((point: PilgrimagePoint) => (
               <div
                 key={point.id}
-                className="flex gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4 transition-colors hover:bg-[var(--color-card)]"
+                className="flex gap-4 rounded-xl border border-border bg-background p-4 transition-colors hover:bg-card"
               >
                 {/* Thumbnail */}
                 {point.screenshot_url && (
@@ -183,10 +182,10 @@ export default function SearchPage() {
                 )}
                 {/* Details */}
                 <div className="min-w-0 flex-1">
-                  <div className="text-base font-medium text-[var(--color-fg)]">
+                  <div className="text-base font-medium text-foreground">
                     {locale === "zh" && point.name_cn ? point.name_cn : point.name}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[var(--color-muted-fg)]">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                     {point.episode != null && (
                       <span>{t.episode_label.replace("{ep}", String(point.episode))}</span>
                     )}
@@ -199,13 +198,13 @@ export default function SearchPage() {
 
         {/* ── Login CTA ── */}
         {status === "done" && rows.length > 0 && total > rows.length && (
-          <div className="mt-10 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-8 text-center">
-            <p className="text-base text-[var(--color-muted-fg)]">
+          <div className="mt-10 rounded-xl border border-border bg-card p-8 text-center">
+            <p className="text-base text-muted-foreground">
               {t.login_for_more}
             </p>
             <Link
               href="/?login=true"
-              className="mt-4 inline-flex min-h-[48px] items-center rounded-xl bg-[var(--color-primary)] px-8 text-base font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
+              className="mt-4 inline-flex min-h-[48px] items-center rounded-xl bg-primary px-8 text-base font-semibold text-primary-fg transition-opacity hover:opacity-90"
             >
               {t.login_button}
             </Link>
@@ -215,12 +214,12 @@ export default function SearchPage() {
         {/* ── No query ── */}
         {!query && (
           <div className="py-16 text-center">
-            <p className="text-lg font-medium text-[var(--color-fg)]">
+            <p className="text-lg font-medium text-foreground">
               {t.no_results_hint}
             </p>
             <Link
               href="/"
-              className="mt-4 inline-block text-sm text-[var(--color-primary)] hover:underline"
+              className="mt-4 inline-block text-sm text-primary hover:underline"
             >
               {t.back_to_home}
             </Link>

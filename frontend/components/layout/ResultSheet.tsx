@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Drawer } from "vaul";
 import type { RuntimeResponse } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
 import GenerativeUIRenderer from "../generative/GenerativeUIRenderer";
 import { usePointSelectionContext } from "../../contexts/PointSelectionContext";
 import { useSuggest } from "../../contexts/SuggestContext";
@@ -40,15 +41,13 @@ export default function ResultSheet({
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 z-40 bg-black/60" />
         <Drawer.Content
-          className="fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-[var(--color-card)] border-t border-[var(--color-border)]"
-          style={{ borderRadius: "16px 16px 0 0", maxHeight: "90vh" }}
+          className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[90vh] flex-col rounded-t-2xl bg-card border-t border-border"
           aria-label="Result panel"
           role="region"
         >
           <Drawer.Handle
             data-drag-handle
-            className="mx-auto mt-3 mb-2 shrink-0 rounded-full bg-[var(--color-muted-fg)] opacity-40"
-            style={{ width: 36, height: 4 }}
+            className="mx-auto mt-3 mb-2 h-1 w-9 shrink-0 rounded-full bg-muted-foreground opacity-40"
           />
 
           {selectedIds.size > 0 && (
@@ -65,10 +64,10 @@ export default function ResultSheet({
             {response ? (
               <GenerativeUIRenderer response={response} onSuggest={onSuggest} />
             ) : loading ? (
-              <div className="space-y-4 animate-pulse">
-                <div className="h-6 bg-[var(--color-muted)] rounded w-3/4" />
-                <div className="h-48 bg-[var(--color-muted)] rounded" />
-                <div className="h-4 bg-[var(--color-muted)] rounded w-1/2" />
+              <div className="flex flex-col gap-4">
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-48 w-full" />
+                <Skeleton className="h-4 w-1/2" />
               </div>
             ) : null}
           </div>

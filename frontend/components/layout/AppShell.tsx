@@ -175,7 +175,7 @@ export default function AppShell() {
   return (
     <SuggestContext.Provider value={{ onSuggest: handleSend }}>
       <PointSelectionContext.Provider value={{ selectedIds, toggle, clear: clearSelectedPoints }}>
-        <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
+        <div className="flex h-screen overflow-hidden bg-background">
 
           {/* ── Desktop sidebar ── */}
           {showPermanentSidebar && (

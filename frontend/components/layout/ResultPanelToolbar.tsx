@@ -23,14 +23,14 @@ interface ResultPanelToolbarProps {
 
 function chipClass(active: boolean): string {
   return active
-    ? "bg-[var(--color-primary)] text-[var(--color-bg)] border-[var(--color-primary)]"
-    : "bg-[var(--color-bg)] text-[var(--color-muted-fg)] border-[var(--color-border)]";
+    ? "bg-primary text-background border-primary"
+    : "bg-background text-muted-foreground border-border";
 }
 
 function tabClass(active: boolean): string {
   return active
-    ? "text-[var(--color-fg)] border-b-2 border-[var(--color-primary)]"
-    : "text-[var(--color-muted-fg)] border-b-2 border-transparent";
+    ? "text-foreground border-b-2 border-primary"
+    : "text-muted-foreground border-b-2 border-transparent";
 }
 
 export function ResultPanelToolbar({
@@ -51,7 +51,7 @@ export function ResultPanelToolbar({
   const onChipChange = filterMode === "episode" ? onEpRangeChange : onAreaChange;
 
   return (
-    <div className="flex shrink-0 flex-col border-b border-[var(--color-border)] bg-[var(--color-bg)]">
+    <div className="flex shrink-0 flex-col border-b border-border bg-background">
       {/* Tab row: 按集数 | 按地区 + view toggle */}
       <div className="flex items-center gap-0 px-4 pt-1">
         <button
@@ -78,15 +78,15 @@ export function ResultPanelToolbar({
         <div className="flex-1" />
 
         {/* Grid / map pill toggle */}
-        <div className="flex shrink-0 gap-0.5 rounded-[var(--r-lg)] bg-[var(--color-card)] p-0.5">
+        <div className="flex shrink-0 gap-0.5 rounded-lg bg-card p-0.5">
           <button
             type="button"
             onClick={() => onViewChange("grid")}
             className={cn(
-              "flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-md)] px-3.5 py-2.5 text-xs font-medium transition-all duration-150",
+              "flex min-h-[44px] items-center gap-1.5 rounded-md px-3.5 py-2.5 text-xs font-medium transition-all duration-150",
               view === "grid"
-                ? "bg-[var(--color-bg)] text-[var(--color-fg)] shadow-[0_1px_3px_oklch(0%_0_0_/_0.08)]"
-                : "bg-transparent text-[var(--color-muted-fg)]",
+                ? "bg-background text-foreground shadow-sm"
+                : "bg-transparent text-muted-foreground",
             )}
           >
             <span>📷</span>
@@ -96,10 +96,10 @@ export function ResultPanelToolbar({
             type="button"
             onClick={() => onViewChange("map")}
             className={cn(
-              "flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-md)] px-3.5 py-2.5 text-xs font-medium transition-all duration-150",
+              "flex min-h-[44px] items-center gap-1.5 rounded-md px-3.5 py-2.5 text-xs font-medium transition-all duration-150",
               view === "map"
-                ? "bg-[var(--color-bg)] text-[var(--color-fg)] shadow-[0_1px_3px_oklch(0%_0_0_/_0.08)]"
-                : "bg-transparent text-[var(--color-muted-fg)]",
+                ? "bg-background text-foreground shadow-sm"
+                : "bg-transparent text-muted-foreground",
             )}
           >
             <span>🗺</span>
