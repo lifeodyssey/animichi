@@ -102,7 +102,7 @@ export default function SpotGroup({
             <button
               type="button"
               onClick={() => setShowAll(true)}
-              className="mx-2 mb-4 w-[calc(100%-16px)] rounded-lg border border-dashed border-border py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-[var(--color-primary-soft,var(--color-card))] hover:text-foreground"
+              className="mx-2 mb-4 w-[calc(100%-16px)] rounded-lg border border-primary/30 bg-primary/5 py-3 text-sm font-medium text-primary transition-colors hover:bg-primary/10 hover:text-foreground"
             >
               {showAllLabel
                 ? showAllLabel.replace("{count}", String(count))
