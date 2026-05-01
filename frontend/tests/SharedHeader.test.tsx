@@ -1,5 +1,6 @@
 /**
- * SharedHeader — unified header for Landing, Guide, and Search pages.
+ * SharedHeader — unified header for all pages.
+ * TDD: tests written first per /impeccable craft + /frontend-tdd.
  */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -20,12 +21,19 @@ vi.mock("next/link", () => ({
 import SharedHeader from "@/components/layout/SharedHeader";
 
 describe("SharedHeader", () => {
+  // ── Brand ──
   it("renders brand logo linking to home", () => {
     render(<SharedHeader />);
     const logo = screen.getByRole("link", { name: /聖地巡礼/i });
     expect(logo).toHaveAttribute("href", "/");
   });
 
+  it("renders brand tagline 'seichijunrei'", () => {
+    render(<SharedHeader />);
+    expect(screen.getByText("seichijunrei")).toBeInTheDocument();
+  });
+
+  // ── Login button ──
   it("renders login button when onLogin provided", () => {
     const onLogin = vi.fn();
     render(<SharedHeader onLogin={onLogin} />);
@@ -46,14 +54,58 @@ describe("SharedHeader", () => {
     expect(onLogin).toHaveBeenCalledTimes(1);
   });
 
-  it("renders as header element with sticky positioning", () => {
-    const { container } = render(<SharedHeader />);
-    const header = container.querySelector("header");
-    expect(header).not.toBeNull();
-  });
-
   it("hides login when neither onLogin nor loginHref provided", () => {
     render(<SharedHeader />);
     expect(screen.queryByText("Log in")).not.toBeInTheDocument();
+  });
+
+  // ── Structure ──
+  it("renders as header element", () => {
+    const { container } = render(<SharedHeader />);
+    expect(container.querySelector("header")).not.toBeNull();
+  });
+
+  it("uses sticky positioning by default", () => {
+    const { container } = render(<SharedHeader />);
+    const header = container.querySelector("header");
+    expect(header?.className).toContain("sticky");
+  });
+
+  it("uses fixed positioning when position='fixed'", () => {
+    const { container } = render(<SharedHeader position="fixed" />);
+    const header = container.querySelector("header");
+    expect(header?.className).toContain("fixed");
+  });
+
+  // ── Navigation ──
+  it("renders nav links when provided", () => {
+    render(
+      <SharedHeader
+        navItems={[
+          { label: "Guide", href: "/anime/123", active: true },
+          { label: "Map", href: "/map" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("Guide")).toBeInTheDocument();
+    expect(screen.getByText("Map")).toBeInTheDocument();
+  });
+
+  it("marks active nav item", () => {
+    render(
+      <SharedHeader
+        navItems={[
+          { label: "Guide", href: "/anime/123", active: true },
+          { label: "Map", href: "/map" },
+        ]}
+      />,
+    );
+    const guideLink = screen.getByText("Guide").closest("a");
+    expect(guideLink?.getAttribute("aria-current")).toBe("page");
+  });
+
+  it("does not render nav when no navItems provided", () => {
+    render(<SharedHeader />);
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
 });
