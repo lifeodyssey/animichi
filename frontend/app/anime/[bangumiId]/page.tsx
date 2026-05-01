@@ -77,38 +77,44 @@ function groupByEpisode(spots: PilgrimagePoint[], epLabel: string, otherLabel: s
 }
 
 /** Map lat/lng to a rough Japanese region name. */
-const REGIONS: Array<{ lat: [number, number]; lng: [number, number]; name: string }> = [
-  { lat: [35.6, 35.8], lng: [139.6, 139.9], name: "東京" },
-  { lat: [34.6, 35.1], lng: [135.4, 135.9], name: "京都・宇治" },
-  { lat: [34.6, 34.8], lng: [135.0, 135.5], name: "大阪・神戸" },
-  { lat: [34.6, 34.9], lng: [135.2, 135.5], name: "西宮・阪神" },
-  { lat: [36.1, 36.3], lng: [137.1, 137.3], name: "飛騨高山" },
-  { lat: [35.0, 35.2], lng: [135.7, 136.0], name: "滋賀" },
-  { lat: [33.5, 34.0], lng: [130.0, 131.5], name: "九州" },
-  { lat: [35.3, 35.5], lng: [139.4, 139.7], name: "横浜" },
-  { lat: [34.9, 35.1], lng: [136.8, 137.0], name: "名古屋" },
+interface RegionEntry {
+  lat: [number, number];
+  lng: [number, number];
+  ja: string;
+  zh: string;
+  en: string;
+}
+
+const REGIONS: RegionEntry[] = [
+  { lat: [35.6, 35.8], lng: [139.6, 139.9], ja: "東京", zh: "东京", en: "Tokyo" },
+  { lat: [34.6, 35.1], lng: [135.4, 135.9], ja: "京都・宇治", zh: "京都・宇治", en: "Kyoto / Uji" },
+  { lat: [34.6, 34.8], lng: [135.0, 135.5], ja: "大阪・神戸", zh: "大阪・神户", en: "Osaka / Kobe" },
+  { lat: [34.6, 34.9], lng: [135.2, 135.5], ja: "西宮・阪神", zh: "西宫・阪神", en: "Nishinomiya" },
+  { lat: [36.1, 36.3], lng: [137.1, 137.3], ja: "飛騨高山", zh: "飞驒高山", en: "Hida Takayama" },
+  { lat: [35.0, 35.2], lng: [135.7, 136.0], ja: "滋賀", zh: "滋贺", en: "Shiga" },
+  { lat: [33.5, 34.0], lng: [130.0, 131.5], ja: "九州", zh: "九州", en: "Kyushu" },
+  { lat: [35.3, 35.5], lng: [139.4, 139.7], ja: "横浜", zh: "横滨", en: "Yokohama" },
+  { lat: [34.9, 35.1], lng: [136.8, 137.0], ja: "名古屋", zh: "名古屋", en: "Nagoya" },
 ];
 
-function areaName(points: PilgrimagePoint[]): string {
-  // Use origin field if available
+function areaName(points: PilgrimagePoint[], locale: string, otherLabel: string): string {
   for (const p of points) {
     if (p.origin && p.origin.trim()) return p.origin.trim();
   }
-  // Match against known regions
   const first = points[0];
-  if (!first) return "その他";
+  if (!first) return otherLabel;
+  const lang = (locale === "zh" ? "zh" : locale === "en" ? "en" : "ja") as keyof Pick<RegionEntry, "ja" | "zh" | "en">;
   for (const r of REGIONS) {
     if (first.latitude >= r.lat[0] && first.latitude <= r.lat[1]
       && first.longitude >= r.lng[0] && first.longitude <= r.lng[1]) {
-      return r.name;
+      return r[lang];
     }
   }
-  // Fallback: use spot name as hint
-  const names = points.slice(0, 3).map((p) => p.name).join("・");
+  const names = points.slice(0, 3).map((p) => locale === "zh" && p.name_cn ? p.name_cn : p.name).join("・");
   return names.length > 20 ? `${names.slice(0, 18)}…` : names;
 }
 
-function groupByArea(spots: PilgrimagePoint[], bangumiCity?: string | null): SpotGroupData[] {
+function groupByArea(spots: PilgrimagePoint[], locale: string, otherLabel: string, bangumiCity?: string | null): SpotGroupData[] {
   const map = new Map<string, PilgrimagePoint[]>();
   for (const s of spots) {
     const lat = Math.round((s.latitude || 0) * 10) / 10;
@@ -122,7 +128,7 @@ function groupByArea(spots: PilgrimagePoint[], bangumiCity?: string | null): Spo
   return sorted.map(([key, points], i) => ({
     key: `area-${key}`,
     // First (largest) group uses bangumi city name if available
-    title: i === 0 && bangumiCity ? bangumiCity : areaName(points),
+    title: i === 0 && bangumiCity ? bangumiCity : areaName(points, locale, otherLabel),
     points,
   }));
 }
@@ -205,8 +211,8 @@ export default function AnimeGuidePage() {
   useEffect(() => { setGroupMode(defaultMode); }, [defaultMode]);
 
   const groups = useMemo(
-    () => (groupMode === "episode" ? groupByEpisode(spots, t.episode_group, t.other_group) : groupByArea(spots, data?.city)),
-    [spots, groupMode, data?.city, t.episode_group, t.other_group],
+    () => (groupMode === "episode" ? groupByEpisode(spots, t.episode_group, t.other_group) : groupByArea(spots, locale, t.other_group, data?.city)),
+    [spots, groupMode, locale, data?.city, t.episode_group, t.other_group],
   );
 
   return (
