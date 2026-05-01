@@ -301,6 +301,9 @@
     "episode_tab": "集数",
     "area_tab": "エリア",
     "filmstrip_label": "聖地シーン",
-    "show_all": "すべて表示（{count}件）"
+    "show_all": "すべての {count} スポットを表示",
+    "episode_group": "第 {ep} 話",
+    "other_group": "その他",
+    "spots_count": "{count} スポット"
   }
 }
