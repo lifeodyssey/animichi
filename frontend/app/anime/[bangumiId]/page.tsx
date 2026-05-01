@@ -281,7 +281,7 @@ export default function AnimeGuidePage() {
                   {locale === "zh" && title !== titleCn && (
                     <p className="mt-1 text-[14px] text-[var(--color-muted-fg)]">{title}</p>
                   )}
-                  <div className="mt-4 flex items-center gap-3 text-[15px] text-[var(--color-muted-fg)]">
+                  <div className="mt-4 flex items-center gap-3 text-[14px] text-[var(--color-muted-fg)]">
                     <span className="font-semibold text-[var(--color-fg)]">
                       {t.spots_label.replace("{count}", String(data.spot_count))}
                     </span>
@@ -334,7 +334,7 @@ export default function AnimeGuidePage() {
               </div>
               <Link
                 href={`/chat?q=${encodeURIComponent(locale === "zh" && titleCn ? titleCn : title)}`}
-                className="mt-3 inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-[var(--color-primary)] px-7 text-[15px] font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90 sm:mt-0"
+                className="mt-3 inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-[var(--color-primary)] px-7 text-[14px] font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90 sm:mt-0"
               >
                 {t.plan_route}
                 <span aria-hidden="true">→</span>
