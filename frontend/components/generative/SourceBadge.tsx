@@ -77,7 +77,7 @@ export default function SourceBadge({
       {showEpisodeBadge && (
         <span
           data-testid="episode-badge"
-          className="absolute bottom-2 left-2 select-none pointer-events-none rounded-sm px-1.5 py-0.5 text-[10px] leading-snug"
+          className="absolute bottom-2 left-2 select-none pointer-events-none rounded-sm px-1.5 py-0.5 text-xs leading-snug"
           style={{
             backgroundColor: "color-mix(in oklch, var(--color-fg) 60%, transparent)",
             color: "color-mix(in oklch, var(--color-bg) 85%, transparent)",

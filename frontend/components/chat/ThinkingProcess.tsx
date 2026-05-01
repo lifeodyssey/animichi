@@ -70,13 +70,13 @@ export default function ThinkingProcess({
         </span>
         {failedSteps.length > 0 && !isStreaming && (
           <span
-            className="text-[10px]"
+            className="text-xs"
             style={{ color: "var(--color-error-fg)" }}
           >
             ({failedSteps.length} failed)
           </span>
         )}
-        <span className="text-[10px]">{expanded ? "\u25BC" : "\u25B6"}</span>
+        <span className="text-xs">{expanded ? "\u25BC" : "\u25B6"}</span>
       </button>
 
       {/* Expanded: tool steps as compact sub-items */}
@@ -120,7 +120,7 @@ export default function ThinkingProcess({
                 </div>
                 {step.observation && !isRunning && (
                   <div
-                    className="ml-5 text-[11px]"
+                    className="ml-5 text-xs"
                     style={
                       isFailed
                         ? { color: "var(--color-error-fg)" }

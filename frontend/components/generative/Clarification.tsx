@@ -143,7 +143,7 @@ function CandidateCard({
           {candidate.title}
         </span>
         {(candidate.spot_count > 0 || candidate.city) && (
-          <span className="text-[11px] text-[var(--color-muted-fg)]">
+          <span className="text-xs text-[var(--color-muted-fg)]">
             {candidate.spot_count > 0 && <>{candidate.spot_count} {t.spot_label ?? "spots"}</>}
             {candidate.spot_count > 0 && candidate.city && " · "}
             {candidate.city}

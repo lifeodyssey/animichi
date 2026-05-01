@@ -32,7 +32,7 @@ export default function SelectionBar({
 
   return (
     <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--color-border)] bg-[var(--color-card)] px-5 py-2.5">
-      <span className="shrink-0 text-[11px] font-medium text-[var(--color-primary)]">
+      <span className="shrink-0 text-xs font-medium text-[var(--color-primary)]">
         {t.count.replace("{count}", String(count))}
       </span>
       <input
@@ -51,7 +51,7 @@ export default function SelectionBar({
       <button
         type="button"
         onClick={handleRoute}
-        className="shrink-0 rounded-[var(--r-sm)] bg-[var(--color-primary)] px-3 py-1 text-[11px] font-medium text-[var(--color-primary-fg)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        className="shrink-0 rounded-[var(--r-sm)] bg-[var(--color-primary)] px-3 py-1 text-xs font-medium text-[var(--color-primary-fg)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         style={{ transitionDuration: "var(--duration-fast)" }}
         disabled={disabled || count === 0}
       >

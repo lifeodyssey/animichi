@@ -54,7 +54,7 @@ export default function SpotGroup({
     <Accordion defaultValue={defaultOpen ? [title] : []}>
       <AccordionItem value={title} className="border-b border-[var(--color-border)]">
         <AccordionTrigger
-          className="flex w-full items-center justify-between rounded-lg px-2 py-4 text-left text-[16px] font-semibold text-[var(--color-fg)] transition-colors hover:bg-[var(--color-card)] hover:no-underline"
+          className="flex w-full items-center justify-between rounded-lg px-2 py-4 text-left text-base font-semibold text-[var(--color-fg)] transition-colors hover:bg-[var(--color-card)] hover:no-underline"
           style={{ fontFamily: "var(--app-font-display)" }}
         >
           <span className="flex items-center gap-2.5">
@@ -71,7 +71,7 @@ export default function SpotGroup({
             )}
             {title}
           </span>
-          <span className="ml-auto mr-2 text-[14px] font-normal text-[var(--color-muted-fg)]">
+          <span className="ml-auto mr-2 text-sm font-normal text-[var(--color-muted-fg)]">
             {spotsCountLabel ? spotsCountLabel.replace("{count}", String(count)) : `${count} spots`}
           </span>
         </AccordionTrigger>
@@ -101,7 +101,7 @@ export default function SpotGroup({
             <button
               type="button"
               onClick={() => setShowAll(true)}
-              className="mx-2 mb-4 w-[calc(100%-16px)] rounded-lg border border-dashed border-[var(--color-border)] py-3 text-[14px] font-medium text-[var(--color-muted-fg)] transition-colors hover:bg-[var(--color-primary-soft,var(--color-card))] hover:text-[var(--color-fg)]"
+              className="mx-2 mb-4 w-[calc(100%-16px)] rounded-lg border border-dashed border-[var(--color-border)] py-3 text-sm font-medium text-[var(--color-muted-fg)] transition-colors hover:bg-[var(--color-primary-soft,var(--color-card))] hover:text-[var(--color-fg)]"
             >
               {showAllLabel
                 ? showAllLabel.replace("{count}", String(count))
