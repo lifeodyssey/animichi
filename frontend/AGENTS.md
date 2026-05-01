@@ -54,4 +54,8 @@ Output mode is `output: 'export'` (static site). No server-side Next.js features
 (`next/headers`, `cookies()`, Route Handlers with dynamic responses).
 
 `npm run build` writes static output to `out/` (served by the Cloudflare Worker via the `ASSETS` binding).
+## Design System
+
+Before any design or UI work, read `DESIGN.md` in this directory. It contains the complete visual identity specification (colors, typography, spacing, components, do's and don'ts) in Google's open DESIGN.md format. The authoritative token values live in `app/globals.css :root`.
+
 <!-- END:nextjs-agent-rules -->
