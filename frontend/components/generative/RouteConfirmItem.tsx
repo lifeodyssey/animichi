@@ -101,7 +101,7 @@ export function SortableItem({ point, index, onRemove }: SortableItemProps) {
           {displayName}
         </span>
         {typeof point.episode === "number" && point.episode > 0 && (
-          <span className="shrink-0 rounded-[var(--r-sm)] bg-[var(--color-muted)] px-1.5 py-0.5 text-[11px] text-[var(--color-muted-fg)]">
+          <span className="shrink-0 rounded-[var(--r-sm)] bg-[var(--color-muted)] px-1.5 py-0.5 text-xs text-[var(--color-muted-fg)]">
             EP {point.episode}
           </span>
         )}

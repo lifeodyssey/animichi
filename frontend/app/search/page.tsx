@@ -77,7 +77,7 @@ export default function SearchPage() {
         {/* ── Back link ── */}
         <Link
           href="/"
-          className="mb-8 inline-flex items-center gap-1.5 text-[14px] text-[var(--color-muted-fg)] transition-colors hover:text-[var(--color-fg)]"
+          className="mb-8 inline-flex items-center gap-1.5 text-sm text-[var(--color-muted-fg)] transition-colors hover:text-[var(--color-fg)]"
         >
           <span aria-hidden="true">←</span>
           {t.back_to_home}
@@ -98,11 +98,11 @@ export default function SearchPage() {
                   onError={handleImageError}
                 />
                 <div>
-                  <div className="text-[16px] font-medium text-[var(--color-fg)]">
+                  <div className="text-base font-medium text-[var(--color-fg)]">
                     {meta.anime_title}
                   </div>
                   {meta.anime_title_cn && meta.anime_title_cn !== meta.anime_title && (
-                    <div className="text-[14px] text-[var(--color-muted-fg)]">
+                    <div className="text-sm text-[var(--color-muted-fg)]">
                       {meta.anime_title_cn}
                     </div>
                   )}
@@ -110,7 +110,7 @@ export default function SearchPage() {
               </div>
             )}
             {status === "done" && !isEmpty && (
-              <p className="mt-3 text-[14px] text-[var(--color-muted-fg)]">
+              <p className="mt-3 text-sm text-[var(--color-muted-fg)]">
                 {t.showing_preview
                   .replace("{shown}", String(rows.length))
                   .replace("{total}", String(total))}
@@ -121,7 +121,7 @@ export default function SearchPage() {
 
         {/* ── Loading ── */}
         {status === "loading" && (
-          <div className="flex items-center gap-3 py-16 text-[16px] text-[var(--color-muted-fg)]">
+          <div className="flex items-center gap-3 py-16 text-base text-[var(--color-muted-fg)]">
             <span
               className="inline-block h-4 w-4 rounded-full border-2 border-[var(--color-primary)] border-t-transparent"
               style={{ animation: "spin 0.8s linear infinite" }}
@@ -133,10 +133,10 @@ export default function SearchPage() {
         {/* ── Error ── */}
         {status === "error" && (
           <div className="py-16 text-center">
-            <p className="text-[16px] text-[var(--color-muted-fg)]">{t.error}</p>
+            <p className="text-base text-[var(--color-muted-fg)]">{t.error}</p>
             <Link
               href="/"
-              className="mt-4 inline-block text-[14px] text-[var(--color-primary)] hover:underline"
+              className="mt-4 inline-block text-sm text-[var(--color-primary)] hover:underline"
             >
               {t.back_to_home}
             </Link>
@@ -146,15 +146,15 @@ export default function SearchPage() {
         {/* ── Empty results ── */}
         {isEmpty && (
           <div className="py-16 text-center">
-            <p className="text-[18px] font-medium text-[var(--color-fg)]">
+            <p className="text-lg font-medium text-[var(--color-fg)]">
               {t.no_results}
             </p>
-            <p className="mt-2 text-[14px] text-[var(--color-muted-fg)]">
+            <p className="mt-2 text-sm text-[var(--color-muted-fg)]">
               {t.no_results_hint}
             </p>
             <Link
               href="/"
-              className="mt-6 inline-block text-[14px] text-[var(--color-primary)] hover:underline"
+              className="mt-6 inline-block text-sm text-[var(--color-primary)] hover:underline"
             >
               {t.back_to_home}
             </Link>
@@ -183,10 +183,10 @@ export default function SearchPage() {
                 )}
                 {/* Details */}
                 <div className="min-w-0 flex-1">
-                  <div className="text-[15px] font-medium text-[var(--color-fg)]">
+                  <div className="text-base font-medium text-[var(--color-fg)]">
                     {locale === "zh" && point.name_cn ? point.name_cn : point.name}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-[var(--color-muted-fg)]">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[var(--color-muted-fg)]">
                     {point.episode != null && (
                       <span>{t.episode_label.replace("{ep}", String(point.episode))}</span>
                     )}
@@ -200,12 +200,12 @@ export default function SearchPage() {
         {/* ── Login CTA ── */}
         {status === "done" && rows.length > 0 && total > rows.length && (
           <div className="mt-10 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-8 text-center">
-            <p className="text-[16px] text-[var(--color-muted-fg)]">
+            <p className="text-base text-[var(--color-muted-fg)]">
               {t.login_for_more}
             </p>
             <Link
               href="/?login=true"
-              className="mt-4 inline-flex min-h-[48px] items-center rounded-xl bg-[var(--color-primary)] px-8 text-[15px] font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
+              className="mt-4 inline-flex min-h-[48px] items-center rounded-xl bg-[var(--color-primary)] px-8 text-base font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
             >
               {t.login_button}
             </Link>
@@ -215,12 +215,12 @@ export default function SearchPage() {
         {/* ── No query ── */}
         {!query && (
           <div className="py-16 text-center">
-            <p className="text-[18px] font-medium text-[var(--color-fg)]">
+            <p className="text-lg font-medium text-[var(--color-fg)]">
               {t.no_results_hint}
             </p>
             <Link
               href="/"
-              className="mt-4 inline-block text-[14px] text-[var(--color-primary)] hover:underline"
+              className="mt-4 inline-block text-sm text-[var(--color-primary)] hover:underline"
             >
               {t.back_to_home}
             </Link>

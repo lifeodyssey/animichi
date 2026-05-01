@@ -37,7 +37,7 @@ export default function FeedbackButtons({ message, userQuery }: FeedbackButtonsP
 
   if (state === "submitted") {
     return (
-      <p className="text-[10px] text-[var(--color-muted-fg)] opacity-60">
+      <p className="text-xs text-[var(--color-muted-fg)] opacity-60">
         {t.feedback_sent}
       </p>
     );

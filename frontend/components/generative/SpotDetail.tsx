@@ -101,27 +101,27 @@ export default function SpotDetail({
 
         {/* Spot name */}
         <h2
-          className="mt-3 font-[family-name:var(--app-font-display)] text-[20px] font-bold leading-tight text-[var(--color-fg)]"
+          className="mt-3 font-[family-name:var(--app-font-display)] text-lg font-bold leading-tight text-[var(--color-fg)]"
         >
           {point.name_cn || point.name}
         </h2>
 
         {/* Anime info */}
-        <p className="mt-1 text-[14px] text-[var(--color-muted-fg)]">
+        <p className="mt-1 text-sm text-[var(--color-muted-fg)]">
           {point.title_cn || point.title || ""}
           {point.episode != null ? ` · ${t.episode.replace("{ep}", String(point.episode))}` : ""}
         </p>
 
         {/* Address */}
         {point.address && (
-          <p className="mt-2 text-[12px] text-[var(--color-muted-fg)]">
+          <p className="mt-2 text-xs text-[var(--color-muted-fg)]">
             {t.address_label} {point.address}
           </p>
         )}
 
         {/* Timestamp */}
         <p
-          className="mt-1 text-[12px] text-[var(--color-muted-fg)]"
+          className="mt-1 text-xs text-[var(--color-muted-fg)]"
           style={{ fontVariantNumeric: "tabular-nums" }}
         >
           {t.timestamp_label} {formatTime(point.time_seconds)}
@@ -167,7 +167,7 @@ export default function SpotDetail({
         {nearby.length > 0 && (
           <div>
             <h3
-              className="text-[13px] font-semibold text-[var(--color-fg)]"
+              className="text-sm font-semibold text-[var(--color-fg)]"
               style={{ fontFamily: "var(--app-font-display)" }}
             >
               {t.nearby_title}
@@ -176,13 +176,13 @@ export default function SpotDetail({
               {nearby.map((p) => (
                 <li
                   key={p.id}
-                  className="flex items-baseline justify-between gap-2 text-[13px]"
+                  className="flex items-baseline justify-between gap-2 text-sm"
                 >
                   <span className="truncate text-[var(--color-fg)]">
                     {p.name_cn || p.name}
                   </span>
                   <span
-                    className="shrink-0 text-[12px] text-[var(--color-muted-fg)]"
+                    className="shrink-0 text-xs text-[var(--color-muted-fg)]"
                     style={{ fontVariantNumeric: "tabular-nums" }}
                   >
                     {formatDistance(p.dist)}

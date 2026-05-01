@@ -37,7 +37,7 @@ export default function ResultAnchor({
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-xs font-medium text-[var(--color-fg)]">{label}</span>
-        <span className="text-[11px] text-[var(--color-muted-fg)]">{subtitle}</span>
+        <span className="text-xs text-[var(--color-muted-fg)]">{subtitle}</span>
       </span>
       <span className="shrink-0 text-sm text-[var(--color-muted-fg)] transition-transform group-hover/anchor:translate-x-0.5" style={{ transitionDuration: "var(--duration-fast)" }}>
         {"\u203A"}

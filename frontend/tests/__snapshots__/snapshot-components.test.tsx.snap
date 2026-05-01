@@ -564,7 +564,7 @@ exports[`Snapshot: MessageList > renders a list of messages 1`] = `
           style="animation: slide-up-fade 300ms var(--ease-out-quint) both;"
         >
           <p
-            class="text-[8px] font-medium uppercase tracking-widest text-[var(--color-muted-fg)] opacity-40"
+            class="text-xs font-medium uppercase tracking-widest text-[var(--color-muted-fg)] opacity-40"
           >
             聖地巡礼
           </p>
@@ -652,13 +652,13 @@ exports[`Snapshot: ResultPanelToolbar > renders toolbar with tabs and chips 1`] 
       class="flex items-center gap-0 px-4 pt-1"
     >
       <button
-        class="min-h-[44px] px-3 py-2.5 text-[12px] font-medium transition-colors text-[var(--color-fg)] border-b-2 border-[var(--color-primary)]"
+        class="min-h-[44px] px-3 py-2.5 text-xs font-medium transition-colors text-[var(--color-fg)] border-b-2 border-[var(--color-primary)]"
         type="button"
       >
         集数別
       </button>
       <button
-        class="min-h-[44px] px-3 py-2.5 text-[12px] font-medium transition-colors text-[var(--color-muted-fg)] border-b-2 border-transparent"
+        class="min-h-[44px] px-3 py-2.5 text-xs font-medium transition-colors text-[var(--color-muted-fg)] border-b-2 border-transparent"
         type="button"
       >
         地域別
@@ -670,7 +670,7 @@ exports[`Snapshot: ResultPanelToolbar > renders toolbar with tabs and chips 1`] 
         class="flex shrink-0 gap-0.5 rounded-[var(--r-lg)] bg-[var(--color-card)] p-0.5"
       >
         <button
-          class="flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-md)] px-3.5 py-2.5 text-[12px] font-medium transition-all duration-150 bg-[var(--color-bg)] text-[var(--color-fg)] shadow-[0_1px_3px_oklch(0%_0_0_/_0.08)]"
+          class="flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-md)] px-3.5 py-2.5 text-xs font-medium transition-all duration-150 bg-[var(--color-bg)] text-[var(--color-fg)] shadow-[0_1px_3px_oklch(0%_0_0_/_0.08)]"
           type="button"
         >
           <span>
@@ -679,7 +679,7 @@ exports[`Snapshot: ResultPanelToolbar > renders toolbar with tabs and chips 1`] 
           グリッド
         </button>
         <button
-          class="flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-md)] px-3.5 py-2.5 text-[12px] font-medium transition-all duration-150 bg-transparent text-[var(--color-muted-fg)]"
+          class="flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-md)] px-3.5 py-2.5 text-xs font-medium transition-all duration-150 bg-transparent text-[var(--color-muted-fg)]"
           type="button"
         >
           <span>
@@ -693,19 +693,19 @@ exports[`Snapshot: ResultPanelToolbar > renders toolbar with tabs and chips 1`] 
       class="flex items-center gap-1.5 overflow-x-auto px-4 py-1.5"
     >
       <button
-        class="shrink-0 rounded-[18px] border px-3 py-1 text-[11px] font-medium transition-all duration-150 bg-[var(--color-primary)] text-[var(--color-bg)] border-[var(--color-primary)]"
+        class="shrink-0 rounded-[18px] border px-3 py-1 text-xs font-medium transition-all duration-150 bg-[var(--color-primary)] text-[var(--color-bg)] border-[var(--color-primary)]"
         type="button"
       >
         すべて
       </button>
       <button
-        class="shrink-0 rounded-[18px] border px-3 py-1 text-[11px] font-medium transition-all duration-150 bg-[var(--color-bg)] text-[var(--color-muted-fg)] border-[var(--color-border)]"
+        class="shrink-0 rounded-[18px] border px-3 py-1 text-xs font-medium transition-all duration-150 bg-[var(--color-bg)] text-[var(--color-muted-fg)] border-[var(--color-border)]"
         type="button"
       >
         EP 1-4
       </button>
       <button
-        class="shrink-0 rounded-[18px] border px-3 py-1 text-[11px] font-medium transition-all duration-150 bg-[var(--color-bg)] text-[var(--color-muted-fg)] border-[var(--color-border)]"
+        class="shrink-0 rounded-[18px] border px-3 py-1 text-xs font-medium transition-all duration-150 bg-[var(--color-bg)] text-[var(--color-muted-fg)] border-[var(--color-border)]"
         type="button"
       >
         EP 5-8
@@ -770,7 +770,7 @@ exports[`Snapshot: RouteVisualization > renders with route data 1`] = `
               class="flex items-center gap-2.5 px-3 py-2.5"
             >
               <div
-                class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold bg-[var(--color-primary)] text-[var(--color-primary-fg)]"
+                class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold bg-[var(--color-primary)] text-[var(--color-primary-fg)]"
               >
                 1
               </div>
@@ -783,7 +783,7 @@ exports[`Snapshot: RouteVisualization > renders with route data 1`] = `
                   宇治站
                 </p>
                 <p
-                  class="text-[10px] text-[var(--color-muted-fg)]"
+                  class="text-xs text-[var(--color-muted-fg)]"
                 >
                   第1話
                 </p>
@@ -856,7 +856,7 @@ exports[`Snapshot: ThinkingProcess > renders with steps 1`] = `
         resolve_anime
       </span>
       <span
-        class="text-[10px]"
+        class="text-xs"
       >
         ▶
       </span>

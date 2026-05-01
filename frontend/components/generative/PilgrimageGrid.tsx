@@ -39,7 +39,7 @@ const PilgrimageCard = memo(function PilgrimageCard({
     >
       {/* Selection checkmark */}
       {selected && (
-        <span className="absolute right-1.5 top-1.5 z-10 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[var(--color-primary)] text-[11px] font-bold text-[var(--color-primary-fg)] shadow-sm">
+        <span className="absolute right-1.5 top-1.5 z-10 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[var(--color-primary)] text-xs font-bold text-[var(--color-primary-fg)] shadow-sm">
           ✓
         </span>
       )}
@@ -88,7 +88,7 @@ const PilgrimageCard = memo(function PilgrimageCard({
               || point.name}
           </span>
           {point.episode != null && point.episode > 0 && (
-            <span className="ml-1 shrink-0 text-[11px] text-white/70">
+            <span className="ml-1 shrink-0 text-xs text-white/70">
               EP{point.episode}
             </span>
           )}
@@ -125,11 +125,11 @@ function GroupSection({
         aria-expanded={open}
         className="flex items-center gap-2 text-left"
       >
-        <span className="text-[10px] text-[var(--color-muted-fg)] transition-transform" style={{ display: "inline-block", transform: open ? "rotate(90deg)" : "rotate(0deg)" }}>
+        <span className="text-xs text-[var(--color-muted-fg)] transition-transform" style={{ display: "inline-block", transform: open ? "rotate(90deg)" : "rotate(0deg)" }}>
           ▶
         </span>
         <span className="text-xs font-medium text-[var(--color-fg)]">{label}</span>
-        <Badge variant="secondary" className="text-[10px]">{count}</Badge>
+        <Badge variant="secondary" className="text-xs">{count}</Badge>
       </button>
       {open && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">

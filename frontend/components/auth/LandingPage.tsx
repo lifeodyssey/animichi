@@ -63,7 +63,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
             </h1>
 
             <p
-              className="mt-5 max-w-[38ch] text-[18px] leading-[1.6] text-[var(--color-muted-fg)]"
+              className="mt-5 max-w-[38ch] text-lg leading-[1.6] text-[var(--color-muted-fg)]"
               style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.08s backwards" }}
             >
               {landing.hero_subtitle}
@@ -72,14 +72,14 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
             <button
               type="button"
               onClick={onOpenAuth}
-              className="mt-8 inline-flex w-fit min-h-[52px] items-center gap-2.5 rounded-xl bg-[var(--color-primary)] px-8 text-[16px] font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
+              className="mt-8 inline-flex w-fit min-h-[52px] items-center gap-2.5 rounded-xl bg-[var(--color-primary)] px-8 text-base font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
               style={{
                 fontFamily: "var(--app-font-body)",
                 animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.16s backwards",
               }}
             >
               {landing.search_button}
-              <span aria-hidden="true" className="text-[18px]">→</span>
+              <span aria-hidden="true" className="text-lg">→</span>
             </button>
 
             {/* Stats — left-aligned, compact */}
@@ -101,7 +101,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                   >
                     {num}
                   </div>
-                  <div className="text-[14px] text-[var(--color-muted-fg)]">
+                  <div className="text-sm text-[var(--color-muted-fg)]">
                     {label}
                   </div>
                 </div>
@@ -145,19 +145,19 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                 />
                 {/* Tags */}
                 <div
-                  className="absolute bottom-4 left-4 rounded-lg px-3 py-1.5 text-[12px] font-semibold tracking-wide text-white uppercase"
+                  className="absolute bottom-4 left-4 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide text-white uppercase"
                   style={{ background: "oklch(20% 0.02 238 / 0.7)", backdropFilter: "blur(8px)" }}
                 >
                   Reality
                 </div>
                 <div
-                  className="absolute bottom-4 right-4 rounded-lg px-3 py-1.5 text-[12px] font-semibold tracking-wide text-white uppercase"
+                  className="absolute bottom-4 right-4 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide text-white uppercase"
                   style={{ background: "oklch(60% 0.148 240 / 0.85)", backdropFilter: "blur(8px)" }}
                 >
                   Anime
                 </div>
               </div>
-              <p className="mt-3 text-[14px] text-[var(--color-muted-fg)]">
+              <p className="mt-3 text-sm text-[var(--color-muted-fg)]">
                 <span className="font-[family-name:var(--app-font-display)] font-medium text-[var(--color-fg)]">
                   君の名は。
                 </span>
@@ -182,7 +182,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
           </h2>
           <p
             ref={addRevealRef}
-            className="seichi-reveal mt-2 text-[16px] leading-relaxed text-[var(--color-muted-fg)]"
+            className="seichi-reveal mt-2 text-base leading-relaxed text-[var(--color-muted-fg)]"
           >
             {landing.gallery_sub}
           </p>
@@ -227,7 +227,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                 <span
                   className={[
                     "font-[family-name:var(--app-font-display)] font-bold text-white",
-                    i === 0 ? "text-[24px]" : "text-[16px]",
+                    i === 0 ? "text-2xl" : "text-base",
                   ].join(" ")}
                 >
                   {anime.title}
@@ -235,7 +235,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                 <span
                   className={[
                     "mt-0.5 text-white/60",
-                    i === 0 ? "text-[14px]" : "text-[12px]",
+                    i === 0 ? "text-sm" : "text-xs",
                   ].join(" ")}
                 >
                   {anime.count}

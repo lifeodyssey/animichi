@@ -49,7 +49,7 @@ export function ConversationItem({ record, isActive, onSelect }: ConversationIte
         {meta && (
           <p
             className={[
-              "mt-0.5 text-[10px]",
+              "mt-0.5 text-xs",
               isActive ? "text-[var(--color-primary-fg)] opacity-70" : "text-[var(--color-muted-fg)] opacity-60",
             ].join(" ")}
           >
@@ -94,7 +94,7 @@ export function ConversationList({
 
   return (
     <>
-      <p className="pb-2 text-[10px] font-medium uppercase tracking-widest text-[var(--color-muted-fg)] opacity-60">
+      <p className="pb-2 text-xs font-medium uppercase tracking-widest text-[var(--color-muted-fg)] opacity-60">
         {t.recent}
       </p>
       {conversations.map((record) => (
