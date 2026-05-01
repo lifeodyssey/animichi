@@ -58,7 +58,7 @@ export function ResultPanelToolbar({
           type="button"
           onClick={() => onFilterModeChange("episode")}
           className={cn(
-            "min-h-[44px] px-3 py-2.5 text-[12px] font-medium transition-colors",
+            "min-h-[44px] px-3 py-2.5 text-xs font-medium transition-colors",
             tabClass(filterMode === "episode"),
           )}
         >
@@ -68,7 +68,7 @@ export function ResultPanelToolbar({
           type="button"
           onClick={() => onFilterModeChange("area")}
           className={cn(
-            "min-h-[44px] px-3 py-2.5 text-[12px] font-medium transition-colors",
+            "min-h-[44px] px-3 py-2.5 text-xs font-medium transition-colors",
             tabClass(filterMode === "area"),
           )}
         >
@@ -83,7 +83,7 @@ export function ResultPanelToolbar({
             type="button"
             onClick={() => onViewChange("grid")}
             className={cn(
-              "flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-md)] px-3.5 py-2.5 text-[12px] font-medium transition-all duration-150",
+              "flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-md)] px-3.5 py-2.5 text-xs font-medium transition-all duration-150",
               view === "grid"
                 ? "bg-[var(--color-bg)] text-[var(--color-fg)] shadow-[0_1px_3px_oklch(0%_0_0_/_0.08)]"
                 : "bg-transparent text-[var(--color-muted-fg)]",
@@ -96,7 +96,7 @@ export function ResultPanelToolbar({
             type="button"
             onClick={() => onViewChange("map")}
             className={cn(
-              "flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-md)] px-3.5 py-2.5 text-[12px] font-medium transition-all duration-150",
+              "flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-md)] px-3.5 py-2.5 text-xs font-medium transition-all duration-150",
               view === "map"
                 ? "bg-[var(--color-bg)] text-[var(--color-fg)] shadow-[0_1px_3px_oklch(0%_0_0_/_0.08)]"
                 : "bg-transparent text-[var(--color-muted-fg)]",
@@ -115,7 +115,7 @@ export function ResultPanelToolbar({
             type="button"
             onClick={() => onChipChange(null)}
             className={cn(
-              "shrink-0 rounded-[18px] border px-3 py-1 text-[11px] font-medium transition-all duration-150",
+              "shrink-0 rounded-[18px] border px-3 py-1 text-xs font-medium transition-all duration-150",
               chipClass(activeChip === null),
             )}
           >
@@ -127,7 +127,7 @@ export function ResultPanelToolbar({
               key={chip}
               onClick={() => onChipChange(chip)}
               className={cn(
-                "shrink-0 rounded-[18px] border px-3 py-1 text-[11px] font-medium transition-all duration-150",
+                "shrink-0 rounded-[18px] border px-3 py-1 text-xs font-medium transition-all duration-150",
                 chipClass(activeChip === chip),
               )}
             >

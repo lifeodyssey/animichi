@@ -25,7 +25,7 @@ function EpBadge({ episode }: { episode: number | null }) {
   const { grid: t } = useDict();
   if (episode == null || episode <= 0) return null;
   return (
-    <span className="absolute left-2 top-2 rounded-[5px] px-2 py-0.5 text-[12px] font-semibold tracking-wide text-white" style={{ background: "oklch(20% 0.02 240 / 0.55)", backdropFilter: "blur(4px)" }}>
+    <span className="absolute left-2 top-2 rounded-[5px] px-2 py-0.5 text-xs font-semibold tracking-wide text-white" style={{ background: "oklch(20% 0.02 240 / 0.55)", backdropFilter: "blur(4px)" }}>
       {t.episode.replace("{ep}", String(episode))}
     </span>
   );
@@ -51,7 +51,7 @@ export default function SpotCard(props: SpotCardProps) {
         <EpBadge episode={point.episode} />
       </div>
       <div className="px-3 py-3">
-        <div className="truncate text-[14px] font-medium text-[var(--color-fg)]">
+        <div className="truncate text-sm font-medium text-[var(--color-fg)]">
           {point.name}
         </div>
       </div>

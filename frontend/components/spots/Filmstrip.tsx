@@ -19,7 +19,7 @@ export default function Filmstrip({ points, label }: FilmstripProps) {
   return (
     <div className="pb-2 pt-5">
       {label && (
-        <p className="mb-3 px-5 text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted-fg)] sm:px-8">
+        <p className="mb-3 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-muted-fg)] sm:px-8">
           {label}
         </p>
       )}
@@ -49,7 +49,7 @@ export default function Filmstrip({ points, label }: FilmstripProps) {
                 />
               </div>
               <div
-                className="absolute inset-x-0 bottom-0 px-3 py-2.5 text-[12px] font-medium text-white"
+                className="absolute inset-x-0 bottom-0 px-3 py-2.5 text-xs font-medium text-white"
                 style={{ background: "linear-gradient(transparent, oklch(15% 0.02 238 / 0.75))" }}
               >
                 {name}

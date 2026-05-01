@@ -50,7 +50,7 @@ export default function RouteVisualization({ data }: RouteVisualizationProps) {
               {t.spots.replace("{count}", String(route.point_count))}
             </p>
             {route.summary?.without_coordinates ? (
-              <p className="text-[10px] text-[var(--color-warning-fg)]">
+              <p className="text-xs text-[var(--color-warning-fg)]">
                 {t.no_coords.replace("{count}", String(route.summary.without_coordinates))}
               </p>
             ) : null}
@@ -64,7 +64,7 @@ export default function RouteVisualization({ data }: RouteVisualizationProps) {
             {points.map((point, idx) => (
               <div key={point.id} className="flex items-center gap-2.5 px-3 py-2.5">
                 <div
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                     idx === 0
                       ? "bg-[var(--color-primary)] text-[var(--color-primary-fg)]"
                       : "bg-[var(--color-muted)] text-[var(--color-fg)]"
@@ -76,7 +76,7 @@ export default function RouteVisualization({ data }: RouteVisualizationProps) {
                   <p className="truncate text-xs font-medium text-[var(--color-fg)]">
                     {point.name_cn || point.name}
                   </p>
-                  <p className="text-[10px] text-[var(--color-muted-fg)]">
+                  <p className="text-xs text-[var(--color-muted-fg)]">
                     {t.episode.replace("{ep}", String(point.episode))}
                   </p>
                 </div>

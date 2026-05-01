@@ -45,10 +45,10 @@ export default function SharedHeader({
             className="flex items-baseline gap-2"
             style={{ fontFamily: "var(--app-font-display)" }}
           >
-            <span className="text-[18px] font-bold tracking-[0.02em] text-[var(--color-fg)]">
+            <span className="text-lg font-bold tracking-[0.02em] text-[var(--color-fg)]">
               聖地巡礼
             </span>
-            <span className="hidden text-[12px] tracking-[1.5px] text-[var(--color-muted-fg)] sm:inline">
+            <span className="hidden text-xs tracking-[1.5px] text-[var(--color-muted-fg)] sm:inline">
               seichijunrei
             </span>
           </Link>
@@ -61,7 +61,7 @@ export default function SharedHeader({
                   href={item.href}
                   aria-current={item.active ? "page" : undefined}
                   className={cn(
-                    "rounded-md px-3 py-1.5 text-[14px] transition-colors",
+                    "rounded-md px-3 py-1.5 text-sm transition-colors",
                     item.active
                       ? "font-medium text-[var(--color-fg)] bg-[var(--color-secondary)]"
                       : "text-[var(--color-muted-fg)] hover:text-[var(--color-fg)] hover:bg-[var(--color-secondary)]",
@@ -79,7 +79,7 @@ export default function SharedHeader({
           <button
             type="button"
             onClick={onLogin}
-            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-[14px] font-medium text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
+            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
           >
             {t.login}
           </button>
@@ -88,7 +88,7 @@ export default function SharedHeader({
         {!onLogin && loginHref && (
           <Link
             href={loginHref}
-            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-[14px] font-medium text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
+            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary-fg)] transition-opacity hover:opacity-90"
           >
             {t.login}
           </Link>

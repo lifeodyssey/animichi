@@ -18,7 +18,7 @@ import GroupToggle from "../../../components/spots/GroupToggle";
 const LazyMap = dynamic(() => import("../../../components/map/BaseMap"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full items-center justify-center bg-[var(--color-card)] text-[14px] text-[var(--color-muted-fg)]">
+    <div className="flex h-full items-center justify-center bg-[var(--color-card)] text-sm text-[var(--color-muted-fg)]">
       Loading map…
     </div>
   ),
@@ -224,7 +224,7 @@ export default function AnimeGuidePage() {
 
       {/* Loading */}
       {status === "loading" && (
-        <div className="flex items-center justify-center py-32 text-[16px] text-[var(--color-muted-fg)]" role="status" aria-label={t.loading}>
+        <div className="flex items-center justify-center py-32 text-base text-[var(--color-muted-fg)]" role="status" aria-label={t.loading}>
           <span className="mr-3 inline-block h-4 w-4 rounded-full border-2 border-[var(--color-primary)] border-t-transparent" style={{ animation: "spin 0.8s linear infinite" }} />
           {t.loading}
         </div>
@@ -233,17 +233,17 @@ export default function AnimeGuidePage() {
       {/* Not found */}
       {status === "not_found" && (
         <div className="py-32 text-center">
-          <p className="text-[18px] font-medium text-[var(--color-fg)]">{t.not_found}</p>
-          <p className="mt-2 text-[14px] text-[var(--color-muted-fg)]">{t.not_found_hint}</p>
-          <Link href="/" className="mt-6 inline-block text-[14px] text-[var(--color-primary)] hover:underline">{t.back_to_home}</Link>
+          <p className="text-lg font-medium text-[var(--color-fg)]">{t.not_found}</p>
+          <p className="mt-2 text-sm text-[var(--color-muted-fg)]">{t.not_found_hint}</p>
+          <Link href="/" className="mt-6 inline-block text-sm text-[var(--color-primary)] hover:underline">{t.back_to_home}</Link>
         </div>
       )}
 
       {/* Error */}
       {status === "error" && (
         <div className="py-32 text-center">
-          <p className="text-[16px] text-[var(--color-muted-fg)]">{t.error}</p>
-          <Link href="/" className="mt-4 inline-block text-[14px] text-[var(--color-primary)] hover:underline">{t.back_to_home}</Link>
+          <p className="text-base text-[var(--color-muted-fg)]">{t.error}</p>
+          <Link href="/" className="mt-4 inline-block text-sm text-[var(--color-primary)] hover:underline">{t.back_to_home}</Link>
         </div>
       )}
 
@@ -261,7 +261,7 @@ export default function AnimeGuidePage() {
             <div className="mx-auto max-w-[1200px]">
               <Link
                 href="/"
-                className="mb-4 inline-flex items-center gap-1.5 text-[14px] text-[var(--color-muted-fg)] transition-colors hover:text-[var(--color-fg)]"
+                className="mb-4 inline-flex items-center gap-1.5 text-sm text-[var(--color-muted-fg)] transition-colors hover:text-[var(--color-fg)]"
               >
                 <span aria-hidden="true">←</span>
                 {t.back_to_home}
@@ -282,12 +282,12 @@ export default function AnimeGuidePage() {
                     {displayTitle}
                   </h1>
                   {titleCn && locale !== "zh" && (
-                    <p className="mt-1 text-[14px] text-[var(--color-muted-fg)]">{titleCn}</p>
+                    <p className="mt-1 text-sm text-[var(--color-muted-fg)]">{titleCn}</p>
                   )}
                   {locale === "zh" && title !== titleCn && (
-                    <p className="mt-1 text-[14px] text-[var(--color-muted-fg)]">{title}</p>
+                    <p className="mt-1 text-sm text-[var(--color-muted-fg)]">{title}</p>
                   )}
-                  <div className="mt-4 flex items-center gap-3 text-[14px] text-[var(--color-muted-fg)]">
+                  <div className="mt-4 flex items-center gap-3 text-sm text-[var(--color-muted-fg)]">
                     <span className="font-semibold text-[var(--color-fg)]">
                       {t.spots_label.replace("{count}", String(data.spot_count))}
                     </span>
@@ -335,12 +335,12 @@ export default function AnimeGuidePage() {
               style={{ animation: "seichi-fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.2s backwards" }}
             >
               <div>
-                <p className="text-[18px] font-semibold text-[var(--color-fg)]">{t.plan_route}</p>
-                <p className="mt-1 text-[14px] text-[var(--color-muted-fg)]">{t.plan_route_sub}</p>
+                <p className="text-lg font-semibold text-[var(--color-fg)]">{t.plan_route}</p>
+                <p className="mt-1 text-sm text-[var(--color-muted-fg)]">{t.plan_route_sub}</p>
               </div>
               <Link
                 href={`/chat?q=${encodeURIComponent(locale === "zh" && titleCn ? titleCn : title)}`}
-                className="mt-3 inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-[var(--color-primary)] px-7 text-[14px] font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90 sm:mt-0"
+                className="mt-3 inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-[var(--color-primary)] px-7 text-sm font-semibold text-[var(--color-primary-fg)] transition-opacity hover:opacity-90 sm:mt-0"
               >
                 {t.plan_route}
                 <span aria-hidden="true">→</span>

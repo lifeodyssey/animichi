@@ -151,7 +151,7 @@ export default function NearbyBubble({ data, onSuggest }: NearbyBubbleProps) {
         className="mt-3 flex w-full items-center gap-3 rounded-[var(--r-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-muted)]"
         style={{ minHeight: 44 }}
       >
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] text-[var(--color-primary-fg)]">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs text-[var(--color-primary-fg)]">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </span>
         <span className="flex-1 text-left text-sm text-[var(--color-fg)]">{nt.view_all.replace("{total}", String(total))}</span>
