@@ -301,6 +301,9 @@
     "episode_tab": "集数",
     "area_tab": "地区",
     "filmstrip_label": "圣地场景",
-    "show_all": "查看全部（{count}个）"
+    "show_all": "显示全部 {count} 个取景地",
+    "episode_group": "第 {ep} 集",
+    "other_group": "其他",
+    "spots_count": "{count} 个取景地"
   }
 }

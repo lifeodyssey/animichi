@@ -301,6 +301,9 @@
     "episode_tab": "Episode",
     "area_tab": "Area",
     "filmstrip_label": "Pilgrimage scenes",
-    "show_all": "Show all ({count})"
+    "show_all": "Show all {count} spots",
+    "episode_group": "Episode {ep}",
+    "other_group": "Other",
+    "spots_count": "{count} spots"
   }
 }

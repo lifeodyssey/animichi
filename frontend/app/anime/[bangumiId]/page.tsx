@@ -51,7 +51,7 @@ interface SpotGroupData {
   points: PilgrimagePoint[];
 }
 
-function groupByEpisode(spots: PilgrimagePoint[]): SpotGroupData[] {
+function groupByEpisode(spots: PilgrimagePoint[], epLabel: string, otherLabel: string): SpotGroupData[] {
   const withEp = new Map<number, PilgrimagePoint[]>();
   const noEp: PilgrimagePoint[] = [];
   for (const s of spots) {
@@ -67,12 +67,11 @@ function groupByEpisode(spots: PilgrimagePoint[]): SpotGroupData[] {
   const sorted = [...withEp.entries()].sort(([a], [b]) => a - b);
   const groups: SpotGroupData[] = sorted.map(([ep, points]) => ({
     key: `ep-${ep}`,
-    title: `第 ${ep} 話`,
+    title: epLabel.replace("{ep}", String(ep)),
     points,
   }));
-  // "Other" group goes last, not first
   if (noEp.length > 0) {
-    groups.push({ key: "ep-other", title: "その他", points: noEp });
+    groups.push({ key: "ep-other", title: otherLabel, points: noEp });
   }
   return groups;
 }
@@ -206,8 +205,8 @@ export default function AnimeGuidePage() {
   useEffect(() => { setGroupMode(defaultMode); }, [defaultMode]);
 
   const groups = useMemo(
-    () => (groupMode === "episode" ? groupByEpisode(spots) : groupByArea(spots, data?.city)),
-    [spots, groupMode, data?.city],
+    () => (groupMode === "episode" ? groupByEpisode(spots, t.episode_group, t.other_group) : groupByArea(spots, data?.city)),
+    [spots, groupMode, data?.city, t.episode_group, t.other_group],
   );
 
   return (
@@ -366,6 +365,8 @@ export default function AnimeGuidePage() {
                   points={group.points}
                   defaultOpen={i === 0}
                   revealRef={addRevealRef}
+                  showAllLabel={t.show_all}
+                  spotsCountLabel={t.spots_count}
                 />
               ))}
             </div>
