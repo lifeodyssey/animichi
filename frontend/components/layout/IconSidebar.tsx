@@ -70,11 +70,11 @@ export default function IconSidebar({
         className="group relative mb-3 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border-none bg-brand-soft transition-transform duration-150 hover:scale-105"
       >
         <svg viewBox="0 0 72 72" width="28" height="28" fill="none" aria-hidden>
-          <rect x="12" y="16" width="48" height="5" rx="2.5" fill="var(--color-brand)" />
-          <rect x="8" y="14" width="56" height="3" rx="1.5" fill="var(--color-brand)" />
-          <rect x="16" y="21" width="5" height="35" rx="1" fill="var(--color-brand)" />
-          <rect x="51" y="21" width="5" height="35" rx="1" fill="var(--color-brand)" />
-          <rect x="12" y="30" width="48" height="3" rx="1.5" fill="var(--color-brand)" opacity=".5" />
+          <rect x="12" y="16" width="48" height="5" rx="2.5" fill="var(--color-torii)" />
+          <rect x="8" y="14" width="56" height="3" rx="1.5" fill="var(--color-torii)" />
+          <rect x="16" y="21" width="5" height="35" rx="1" fill="var(--color-torii)" />
+          <rect x="51" y="21" width="5" height="35" rx="1" fill="var(--color-torii)" />
+          <rect x="12" y="30" width="48" height="3" rx="1.5" fill="var(--color-torii)" opacity=".5" />
           <rect x="2" y="2" width="7" height="1.5" rx=".75" fill="var(--color-muted-fg)" />
           <rect x="2" y="2" width="1.5" height="7" rx=".75" fill="var(--color-muted-fg)" />
           <rect x="63" y="2" width="7" height="1.5" rx=".75" fill="var(--color-muted-fg)" />
