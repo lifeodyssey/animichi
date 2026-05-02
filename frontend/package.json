@@ -17,6 +17,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@opennextjs/cloudflare": "^1.19.4",
+    "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.0",
     "@tanstack/react-virtual": "^3.13.24",
     "class-variance-authority": "^0.7.1",

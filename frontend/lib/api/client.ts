@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "../supabase";
+import { createClient } from "../supabase/browser";
 
 export const RUNTIME_URL =
   (process.env.NEXT_PUBLIC_RUNTIME_URL ?? "").replace(/\/$/, "");
@@ -45,7 +45,7 @@ export function hydrateResponseData(
 }
 
 export async function getAuthHeaders(): Promise<Record<string, string>> {
-  const supabase = getSupabaseClient();
+  const supabase = createClient();
   if (!supabase) return {};
 
   const { data: { session } } = await supabase.auth.getSession();

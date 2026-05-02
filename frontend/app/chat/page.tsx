@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import { getSupabaseClient } from "../../lib/supabase";
+import { createClient } from "../../lib/supabase/browser";
 import { useDict } from "../../lib/i18n-context";
 import AppShell from "../../components/layout/AppShell";
 
 export default function ChatPage() {
   const router = useRouter();
   const t = useDict().auth;
-  const authClient = getSupabaseClient();
+  const authClient = createClient();
 
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(!!authClient);
