@@ -41,8 +41,15 @@ export default function SharedHeader({
         <div className="flex items-center gap-6">
           <Link
             href="/"
-            className="flex items-baseline gap-2 font-display"
+            className="flex items-center gap-2 font-display"
           >
+            <svg viewBox="0 0 72 72" width="22" height="22" fill="none" className="shrink-0" aria-hidden="true">
+              <rect x="12" y="16" width="48" height="5" rx="2.5" fill="var(--color-brand)" />
+              <rect x="8" y="14" width="56" height="3" rx="1.5" fill="var(--color-brand)" />
+              <rect x="16" y="21" width="5" height="35" rx="1" fill="var(--color-brand)" />
+              <rect x="51" y="21" width="5" height="35" rx="1" fill="var(--color-brand)" />
+              <rect x="12" y="30" width="48" height="3" rx="1.5" fill="var(--color-brand)" opacity=".5" />
+            </svg>
             <span className="text-lg font-bold tracking-[0.02em] text-foreground">
               聖地巡礼
             </span>
