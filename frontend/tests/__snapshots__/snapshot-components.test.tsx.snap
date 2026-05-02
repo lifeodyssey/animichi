@@ -328,7 +328,7 @@ exports[`Snapshot: IconSidebar > renders with nav buttons 1`] = `
         width="28"
       >
         <rect
-          fill="var(--color-brand)"
+          fill="var(--color-torii)"
           height="5"
           rx="2.5"
           width="48"
@@ -336,7 +336,7 @@ exports[`Snapshot: IconSidebar > renders with nav buttons 1`] = `
           y="16"
         />
         <rect
-          fill="var(--color-brand)"
+          fill="var(--color-torii)"
           height="3"
           rx="1.5"
           width="56"
@@ -344,7 +344,7 @@ exports[`Snapshot: IconSidebar > renders with nav buttons 1`] = `
           y="14"
         />
         <rect
-          fill="var(--color-brand)"
+          fill="var(--color-torii)"
           height="35"
           rx="1"
           width="5"
@@ -352,7 +352,7 @@ exports[`Snapshot: IconSidebar > renders with nav buttons 1`] = `
           y="21"
         />
         <rect
-          fill="var(--color-brand)"
+          fill="var(--color-torii)"
           height="35"
           rx="1"
           width="5"
@@ -360,7 +360,7 @@ exports[`Snapshot: IconSidebar > renders with nav buttons 1`] = `
           y="21"
         />
         <rect
-          fill="var(--color-brand)"
+          fill="var(--color-torii)"
           height="3"
           opacity=".5"
           rx="1.5"
