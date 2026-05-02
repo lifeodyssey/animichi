@@ -7,12 +7,12 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example";
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
 
 let api: typeof import("../lib/api");
-let supabase: (typeof import("../lib/supabase"))["supabase"];
+let supabase: NonNullable<ReturnType<typeof import("../lib/supabase/browser").createClient>>;
 
 beforeAll(async () => {
   api = await import("../lib/api");
-  const supabaseModule = await import("../lib/supabase");
-  supabase = supabaseModule.supabase;
+  const { createClient } = await import("../lib/supabase/browser");
+  supabase = createClient()!;
 });
 
 function setAccessToken(token: string | null) {

@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { getSupabaseClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/browser";
 import ApiKeysPage from "@/components/settings/ApiKeysPage";
 
 export default function SettingsPage() {
-  const authClient = getSupabaseClient();
+  const authClient = createClient();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(() => authClient !== null);
 

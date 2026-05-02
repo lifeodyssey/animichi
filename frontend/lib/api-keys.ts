@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "./supabase";
+import { createClient } from "./supabase/browser";
 
 export interface ApiKey {
   id: string;
@@ -9,7 +9,7 @@ export interface ApiKey {
 }
 
 function requireSupabaseClient() {
-  const supabase = getSupabaseClient();
+  const supabase = createClient();
   if (!supabase) {
     throw new Error("Supabase public client is not configured.");
   }

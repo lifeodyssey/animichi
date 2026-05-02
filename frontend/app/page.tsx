@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getSupabaseClient } from "../lib/supabase";
+import { createClient } from "../lib/supabase/browser";
 import { useDict } from "../lib/i18n-context";
 import LandingPage from "../components/auth/LandingPage";
 import AuthModal from "../components/auth/AuthModal";
@@ -11,7 +11,7 @@ export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useDict().auth;
-  const authClient = getSupabaseClient();
+  const authClient = createClient();
   const authConfigured = !!authClient;
 
   const [showAuthModal, setShowAuthModal] = useState(
