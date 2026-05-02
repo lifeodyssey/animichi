@@ -44,6 +44,7 @@ export default function SpotGroup({
   onToggle,
 }: SpotGroupProps) {
   const [showAll, setShowAll] = useState(false);
+  const [openItems, setOpenItems] = useState<string[]>(defaultOpen ? [title] : []);
   const isSelectMode = selectedIds !== undefined && onToggle !== undefined;
 
   const hasMore = points.length > PREVIEW_COUNT;
@@ -51,7 +52,7 @@ export default function SpotGroup({
   const thumb = leadThumb(points);
 
   return (
-    <Accordion defaultValue={defaultOpen ? [title] : []}>
+    <Accordion value={openItems} onValueChange={setOpenItems}>
       <AccordionItem value={title} className="border-b border-border">
         <AccordionTrigger
           className="flex w-full items-center justify-between rounded-lg px-2 py-4 text-left text-base font-semibold text-foreground transition-colors hover:bg-card hover:no-underline font-display"
