@@ -80,7 +80,9 @@
     "request_new_link": "请求新的登录链接",
     "check_email_heading": "请查收邮件",
     "check_email_body": "点击邮件中的链接即可登录。",
-    "back_to_login": "返回"
+    "back_to_login": "返回",
+    "login_page_subtitle": "输入邮箱，开始你的圣地巡礼之旅",
+    "link_expired_error": "登录链接已过期，请重试。"
   },
   "thinking": {
     "resolve_anime": "正在确认动漫标题…",

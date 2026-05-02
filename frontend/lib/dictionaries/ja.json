@@ -80,7 +80,9 @@
     "request_new_link": "新しいリンクをリクエスト",
     "check_email_heading": "メールをご確認ください",
     "check_email_body": "送信されたリンクをクリックしてログインしてください。",
-    "back_to_login": "戻る"
+    "back_to_login": "戻る",
+    "login_page_subtitle": "メールアドレスで聖地巡礼をはじめましょう",
+    "link_expired_error": "ログインリンクの有効期限が切れました。もう一度お試しください。"
   },
   "thinking": {
     "resolve_anime": "アニメタイトルを確認中…",
