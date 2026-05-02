@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../lib/supabase/browser";
 import { useDict } from "../lib/i18n-context";
+import { detectLocale } from "../lib/i18n";
 import LandingPage from "../components/auth/LandingPage";
 import AuthModal from "../components/auth/AuthModal";
 
@@ -14,6 +15,7 @@ export default function Home() {
   const authClient = createClient();
   const authConfigured = !!authClient;
 
+  const redirect = searchParams.get("redirect") ?? "/chat";
   const [showAuthModal, setShowAuthModal] = useState(
     searchParams.get("login") === "true",
   );
@@ -22,12 +24,13 @@ export default function Home() {
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
 
+  // If already logged in and ?login=true, go to redirect target
   useEffect(() => {
     if (!authClient) return;
     authClient.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace("/chat");
+      if (session) router.replace(redirect);
     });
-  }, [authClient, router]);
+  }, [authClient, router, redirect]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -35,9 +38,13 @@ export default function Home() {
     setSubmitting(true);
     setStatus(null);
     const normalizedEmail = email.trim().toLowerCase();
+    const locale = detectLocale();
     const { error } = await authClient.auth.signInWithOtp({
       email: normalizedEmail,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback/` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/confirm?redirect=${encodeURIComponent(redirect)}`,
+        data: { locale },
+      },
     });
     if (error) {
       setStatus(t.error.replace("{message}", error.message));
