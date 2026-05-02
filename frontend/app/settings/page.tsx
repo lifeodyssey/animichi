@@ -1,55 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/browser";
 import ApiKeysPage from "@/components/settings/ApiKeysPage";
 
+/**
+ * Settings page — protected by middleware.ts (session cookie required).
+ * No client-side auth check needed.
+ */
 export default function SettingsPage() {
-  const authClient = createClient();
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(() => authClient !== null);
-
-  useEffect(() => {
-    if (!authClient) {
-      return;
-    }
-
-    authClient.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = authClient.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [authClient]);
-
-  useEffect(() => {
-    if (!loading && !session) {
-      window.location.href = "/";
-    }
-  }, [loading, session]);
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-muted-foreground">Redirecting...</div>
-      </div>
-    );
-  }
-
   return <ApiKeysPage />;
 }
