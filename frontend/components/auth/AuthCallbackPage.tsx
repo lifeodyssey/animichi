@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { useDict } from "../../lib/i18n-context";
-import { getSupabaseClient } from "../../lib/supabase";
+import { createClient } from "../../lib/supabase/browser";
 
 export function AuthCallbackPage() {
   const t = useDict().auth;
@@ -15,7 +15,7 @@ export function AuthCallbackPage() {
 
     async function completeAuth() {
       try {
-        const supabase = getSupabaseClient();
+        const supabase = createClient();
         if (!supabase) throw new Error(t.not_configured);
 
         // Implicit flow: Supabase auto-extracts access_token from the URL hash

@@ -23,8 +23,8 @@ vi.mock("@/lib/i18n-context", () => ({
 }));
 
 // --- Supabase mock ---
-vi.mock("@/lib/supabase", () => ({
-  getSupabaseClient: vi.fn(),
+vi.mock("@/lib/supabase/browser", () => ({
+  createClient: vi.fn(),
 }));
 
 // AppShell not under test
@@ -89,12 +89,12 @@ function makeSupabaseClient(signInResult: { error: null | { message: string } } 
 
 async function setupMocks(dict: Dict, supabaseClient: ReturnType<typeof makeSupabaseClient> | null) {
   const { useDict, useLocale, useSetLocale } = await import("@/lib/i18n-context");
-  const { getSupabaseClient } = await import("@/lib/supabase");
+  const { createClient } = await import("@/lib/supabase/browser");
 
   (useDict as ReturnType<typeof vi.fn>).mockReturnValue(dict);
   (useLocale as ReturnType<typeof vi.fn>).mockReturnValue("ja");
   (useSetLocale as ReturnType<typeof vi.fn>).mockReturnValue(vi.fn());
-  (getSupabaseClient as ReturnType<typeof vi.fn>).mockReturnValue(supabaseClient);
+  (createClient as ReturnType<typeof vi.fn>).mockReturnValue(supabaseClient);
 }
 
 // ──────────────────────────────────────────────
@@ -149,12 +149,12 @@ describe("Login modal — auth not configured", () => {
   it("shows not_configured error message when auth is unconfigured -> unit", async () => {
     // When supabase is null, loading starts false immediately
     const { useDict, useLocale, useSetLocale } = await import("@/lib/i18n-context");
-    const { getSupabaseClient } = await import("@/lib/supabase");
+    const { createClient } = await import("@/lib/supabase/browser");
 
     (useDict as ReturnType<typeof vi.fn>).mockReturnValue(dict);
     (useLocale as ReturnType<typeof vi.fn>).mockReturnValue("ja");
     (useSetLocale as ReturnType<typeof vi.fn>).mockReturnValue(vi.fn());
-    (getSupabaseClient as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (createClient as ReturnType<typeof vi.fn>).mockReturnValue(null);
 
     const { default: AuthGate } = await import("@/components/auth/AuthGate");
     render(<AuthGate />);
@@ -201,11 +201,11 @@ describe("Login modal — Chinese (zh)", () => {
 
   async function setupZh() {
     const { useDict, useLocale, useSetLocale } = await import("@/lib/i18n-context");
-    const { getSupabaseClient } = await import("@/lib/supabase");
+    const { createClient } = await import("@/lib/supabase/browser");
     (useDict as ReturnType<typeof vi.fn>).mockReturnValue(dict);
     (useLocale as ReturnType<typeof vi.fn>).mockReturnValue("zh");
     (useSetLocale as ReturnType<typeof vi.fn>).mockReturnValue(vi.fn());
-    (getSupabaseClient as ReturnType<typeof vi.fn>).mockReturnValue(makeSupabaseClient());
+    (createClient as ReturnType<typeof vi.fn>).mockReturnValue(makeSupabaseClient());
   }
 
   it("shows 登录 as modal title -> unit", async () => {
@@ -237,11 +237,11 @@ describe("Login modal — English (en)", () => {
 
   async function setupEn() {
     const { useDict, useLocale, useSetLocale } = await import("@/lib/i18n-context");
-    const { getSupabaseClient } = await import("@/lib/supabase");
+    const { createClient } = await import("@/lib/supabase/browser");
     (useDict as ReturnType<typeof vi.fn>).mockReturnValue(dict);
     (useLocale as ReturnType<typeof vi.fn>).mockReturnValue("en");
     (useSetLocale as ReturnType<typeof vi.fn>).mockReturnValue(vi.fn());
-    (getSupabaseClient as ReturnType<typeof vi.fn>).mockReturnValue(makeSupabaseClient());
+    (createClient as ReturnType<typeof vi.fn>).mockReturnValue(makeSupabaseClient());
   }
 
   it("shows Log in as modal title -> unit", async () => {

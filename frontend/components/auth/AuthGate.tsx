@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { useDict } from "../../lib/i18n-context";
-import { getSupabaseClient } from "../../lib/supabase";
+import { createClient } from "../../lib/supabase/browser";
 import AppShell from "../layout/AppShell";
 import LandingPage from "./LandingPage";
 import AuthModal from "./AuthModal";
 
 export default function AuthGate() {
   const t = useDict().auth;
-  const authClient = getSupabaseClient();
+  const authClient = createClient();
   const authConfigured = !!authClient;
 
   const [session, setSession] = useState<Session | null>(null);
