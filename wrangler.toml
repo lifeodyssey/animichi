@@ -1,16 +1,22 @@
-# Cloudflare Workers + Containers configuration
+# Cloudflare Workers + Containers + OpenNext (Next.js SSR)
 # https://developers.cloudflare.com/workers/containers/
+# https://opennext.js.org/cloudflare
+#
+# Architecture:
+#   custom-worker.js → intercepts /v1/* (container proxy) + /img/* (image proxy)
+#                    → passes everything else to OpenNext (Next.js SSR + middleware)
+#   middleware.ts    → auth for pages (/chat, /settings) + API routes (/v1/*)
 #
 # Required GitHub Secrets:
 #   CLOUDFLARE_API_TOKEN       — Wrangler deploy auth
 #   CLOUDFLARE_ACCOUNT_ID      — Cloudflare account target
 #
-# Worker-only runtime secrets (used by worker/worker.js at the edge):
+# Edge runtime secrets (used by middleware.ts and custom-worker.js):
 #   SUPABASE_URL               — https://<project>.supabase.co
 #   SUPABASE_ANON_KEY          — Public anon key for JWT validation
-#   SUPABASE_SERVICE_ROLE_KEY  — Service role for hashed API-key lookup
+#   SUPABASE_SERVICE_ROLE_KEY  — Service role for sk_ API key lookup
 #
-# Container runtime secrets (explicitly allowlisted in worker/worker.js):
+# Container runtime secrets (forwarded to Python backend):
 #   SUPABASE_DB_URL            — postgres://... for asyncpg
 #   DEEPSEEK_API_KEY           — primary agent model key (DeepSeek V4 Pro)
 #   GEMINI_API_KEY             — optional fallback model provider key
@@ -20,31 +26,25 @@
 #   LOGFIRE_TOKEN              — optional observability token
 #   CORS_ALLOWED_ORIGIN        — backend CORS allowlist
 #
-# Frontend build-time envs are injected by GitHub Actions, not wrangler.toml:
+# Frontend build-time envs (injected by GitHub Actions):
 #   NEXT_PUBLIC_SUPABASE_URL
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY
-#
-# Future optional container env (documented only until backend wiring exists):
-#   CLOUDFLARE_AI_GATEWAY_URL
 
 name = "seichijunrei"
 compatibility_date = "2025-03-01"
-main = "worker/worker.js"
+compatibility_flags = ["nodejs_compat"]
+main = "worker/entry.js"
 
 routes = [
   { pattern = "seichijunrei.zhenjia.org/*", zone_name = "zhenjia.org" }
 ]
 
 [assets]
-directory = "./frontend/out"
+directory = ".open-next/assets"
 binding = "ASSETS"
-run_worker_first = ["/healthz", "/v1/*", "/img/*"]
 
 [[containers]]
 class_name = "RuntimeContainer"
-# Local dev and CI both build from the checked-in Dockerfile.
-# `wrangler deploy` uploads the image to Cloudflare's registry; this repo does
-# not hand off a GHCR image digest.
 image = "./Dockerfile"
 max_instances = 3
 
