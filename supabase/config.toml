@@ -15,3 +15,15 @@ major_version = 17
 [studio]
 enabled = true
 port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[auth.email.template.magic_link]
+subject = "聖地巡礼 — ログイン / 登录 / Log in"
+content_path = "./templates/magic-link.html"
