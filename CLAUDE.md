@@ -13,7 +13,7 @@ Implementation status: Core runtime + Cloudflare deploy path in place. PydanticA
 - Runtime entry: `backend/interfaces/fastapi_service.py` → `public_api.py` → `agents/pilgrimage_runner.py`
 - Shared types: `backend/agents/models.py`
 - Frontend tokens: `frontend/app/globals.css`
-- Deploy wiring: `wrangler.toml` + `worker/worker.js`
+- Deploy wiring: `wrangler.toml` + `worker/entry.js`
 - Frontend conventions: `frontend/AGENTS.md`
 - Detailed architecture: `docs/ARCHITECTURE.md`
 - Deployment ops: `docs/ops/deployment.md`
@@ -30,7 +30,7 @@ backend/              # Python runtime
   tests/              # unit, integration, eval
 frontend/             # Next.js static export
 supabase/migrations/  # DDL migrations (timestamp-ordered)
-worker/worker.js      # Cloudflare Worker (auth + routing)
+worker/entry.js       # CF Worker entry (container proxy + image proxy → OpenNext)
 ```
 
 ## Commands
@@ -83,7 +83,7 @@ See `docs/ARCHITECTURE.md` for full details.
 
 - Orchestration: single PydanticAI agent (`pilgrimage_agent`) with typed output; selected-route path bypasses agent
 - Tools use `ModelRetry` guards to reject invalid LLM parameters; `output_validator` rejects fabricated responses
-- Auth: enforced at Cloudflare Worker edge; container trusts forwarded headers
+- Auth: Next.js middleware (cookie-based for pages, JWT/sk_ for API); container trusts forwarded headers
 - Frontend: Next.js static export (`output: "export"`); no server-only features
 - No `Any` in Python — use `object` + `isinstance()` at trust boundaries
 - New UI component = register in `frontend/components/generative/registry.ts` only
