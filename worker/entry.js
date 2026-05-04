@@ -76,59 +76,49 @@ export class RuntimeContainer extends Container {
   }
 }
 
+async function handleImageProxy(request, pathname, ctx) {
+  const imagePath = pathname.slice(5);
+  if (!imagePath || imagePath.includes("..")) {
+    return new Response("Bad request", { status: 400 });
+  }
+
+  const cacheKey = new Request(request.url, request);
+  const cached = await caches.default.match(cacheKey);
+  if (cached) return cached;
+
+  const upstream = await fetch(`https://image.anitabi.cn/${imagePath}`, {
+    headers: { "User-Agent": "Seichijunrei/1.0" },
+  });
+
+  if (!upstream.ok) {
+    return new Response(upstream.body, {
+      status: upstream.status,
+      headers: { "Content-Type": upstream.headers.get("Content-Type") || "image/jpeg" },
+    });
+  }
+
+  const headers = new Headers(upstream.headers);
+  headers.set("Cache-Control", "public, max-age=604800, s-maxage=2592000");
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.delete("Set-Cookie");
+
+  const response = new Response(upstream.body, { status: 200, headers });
+  ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+  return response;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const { pathname } = new URL(request.url);
 
-    // ── Health check — bypass Next.js for fast container probe ──
     if (pathname === "/healthz") {
-      const id = env.CONTAINER.idFromName("default");
-      return env.CONTAINER.get(id).fetch(request);
+      return env.CONTAINER.get(env.CONTAINER.idFromName("default")).fetch(request);
     }
 
-    // /v1/* routes go through OpenNext → middleware.ts (auth) → API route handler (container proxy)
-
-    // ── Image proxy: /img/* → anitabi CDN ──
     if (pathname.startsWith("/img/")) {
-      const imagePath = pathname.slice(5);
-      if (!imagePath || imagePath.includes("..")) {
-        return new Response("Bad request", { status: 400 });
-      }
-
-      const upstreamUrl = `https://image.anitabi.cn/${imagePath}`;
-      const cacheKey = new Request(request.url, request);
-      const cache = caches.default;
-      const cached = await cache.match(cacheKey);
-      if (cached) return cached;
-
-      const upstream = await fetch(upstreamUrl, {
-        headers: { "User-Agent": "Seichijunrei/1.0" },
-      });
-
-      if (!upstream.ok) {
-        return new Response(upstream.body, {
-          status: upstream.status,
-          headers: {
-            "Content-Type":
-              upstream.headers.get("Content-Type") || "image/jpeg",
-          },
-        });
-      }
-
-      const headers = new Headers(upstream.headers);
-      headers.set(
-        "Cache-Control",
-        "public, max-age=604800, s-maxage=2592000",
-      );
-      headers.set("Access-Control-Allow-Origin", "*");
-      headers.delete("Set-Cookie");
-
-      const response = new Response(upstream.body, { status: 200, headers });
-      ctx.waitUntil(cache.put(cacheKey, response.clone()));
-      return response;
+      return handleImageProxy(request, pathname, ctx);
     }
 
-    // ── Everything else: Next.js SSR via OpenNext ──
     return nextHandler.fetch(request, env, ctx);
   },
 };
