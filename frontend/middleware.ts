@@ -138,11 +138,11 @@ export async function middleware(request: NextRequest) {
     }
 
     // Inject identity headers, strip raw token
-    const response = NextResponse.next();
-    response.headers.set("X-User-Id", auth.userId!);
-    response.headers.set("X-User-Type", token.startsWith("sk_") ? "agent" : "human");
-    response.headers.delete("Authorization");
-    return response;
+    const headers = new Headers(request.headers);
+    headers.delete("Authorization");
+    headers.set("X-User-Id", auth.userId!);
+    headers.set("X-User-Type", token.startsWith("sk_") ? "agent" : "human");
+    return NextResponse.next({ request: { headers } });
   }
 
   // ── Page routes ──
