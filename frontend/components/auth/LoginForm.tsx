@@ -37,9 +37,13 @@ export default function LoginForm({ redirect, initialError }: LoginFormProps) {
 
   if (sent) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col items-center gap-4 py-2">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary" aria-hidden="true">
+          <rect x="2" y="4" width="20" height="16" rx="2" />
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+        </svg>
         <p className="text-sm font-medium text-foreground">{t.check_email_heading}</p>
-        <p className="text-xs leading-relaxed text-muted-foreground">{t.check_email_body}</p>
+        <p className="text-center text-xs leading-relaxed text-muted-foreground">{t.check_email_body}</p>
         <button
           type="button"
           onClick={() => { setSent(false); setError(null); }}
@@ -64,18 +68,26 @@ export default function LoginForm({ redirect, initialError }: LoginFormProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder={t.email_placeholder}
-          className="w-full border-b border-border bg-transparent py-2 text-sm text-foreground placeholder:text-border focus:border-primary focus:outline-none"
+          className="w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         />
       </div>
+      <p className="text-[11px] leading-relaxed text-muted-foreground/70">{t.magic_link_hint}</p>
       <button
         type="submit"
         disabled={submitting || !supabase}
-        className="min-h-[44px] w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-primary-fg transition duration-150 hover:opacity-90 disabled:opacity-40"
+        className="relative min-h-[44px] w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-primary-fg transition duration-150 hover:opacity-90 disabled:opacity-40"
       >
+        {submitting && (
+          <span className="absolute left-1/2 top-1/2 -translate-x-[calc(50%+3em)] -translate-y-1/2">
+            <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-fg border-t-transparent" />
+          </span>
+        )}
         {submitting ? t.submitting : t.btn_login}
       </button>
       {error && (
-        <p className="text-xs font-light leading-relaxed text-muted-foreground">{error}</p>
+        <p role="alert" className="text-xs font-medium leading-relaxed text-[oklch(50%_0.15_25)]">
+          {error}
+        </p>
       )}
     </form>
   );
