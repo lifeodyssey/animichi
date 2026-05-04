@@ -301,10 +301,7 @@ export default function AnimeGuidePage() {
         <>
           {/* Hero */}
           <section
-            className="entrance-up px-5 pb-8 pt-10 sm:px-8 sm:pb-10 sm:pt-14"
-            style={{
-              background: "linear-gradient(160deg, var(--color-gradient-soft), var(--color-bg))",
-            }}
+            className="entrance-up bg-gradient-soft px-5 pb-8 pt-10 sm:px-8 sm:pb-10 sm:pt-14"
           >
             <div className="mx-auto max-w-[1200px]">
               <Link
