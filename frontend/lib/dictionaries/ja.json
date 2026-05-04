@@ -82,7 +82,8 @@
     "check_email_body": "送信されたリンクをクリックしてログインしてください。",
     "back_to_login": "戻る",
     "login_page_subtitle": "メールアドレスで聖地巡礼をはじめましょう",
-    "link_expired_error": "ログインリンクの有効期限が切れました。もう一度お試しください。"
+    "link_expired_error": "ログインリンクの有効期限が切れました。もう一度お試しください。",
+    "back_to_home": "トップに戻る"
   },
   "thinking": {
     "resolve_anime": "アニメタイトルを確認中…",

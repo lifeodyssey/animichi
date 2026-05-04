@@ -416,6 +416,7 @@ input:focus, textarea:focus {
 }
 
 /* ── Entrance animation classes ── */
+.bg-gradient-soft  { background: linear-gradient(160deg, var(--color-gradient-soft), var(--color-bg)); }
 .entrance-up       { animation: seichi-fade-up 0.7s var(--ease-out-expo) backwards; }
 .entrance-up-fast  { animation: seichi-fade-up 0.5s var(--ease-out-expo) backwards; }
 .entrance-up-quick { animation: seichi-fade-up 0.3s ease-out backwards; }

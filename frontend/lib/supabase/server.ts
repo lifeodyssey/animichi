@@ -2,62 +2,38 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/**
- * Create a Supabase server client for Next.js middleware.
- * Reads/writes session cookies on the request/response pair.
- */
+function getEnv(): { url: string; key: string } {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_ANON_KEY env vars");
+  return { url, key };
+}
+
+function cookieAdapter(request: NextRequest, response: NextResponse) {
+  return {
+    getAll: () => request.cookies.getAll().map((c) => ({ name: c.name, value: c.value })),
+    setAll: (cookies: { name: string; value: string; options?: object }[]) => {
+      for (const { name, value, options } of cookies) {
+        response.cookies.set(name, value, options);
+      }
+    },
+  };
+}
+
 export function createMiddlewareClient(request: NextRequest): {
   supabase: SupabaseClient;
   response: NextResponse;
 } {
+  const { url, key } = getEnv();
   const response = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () =>
-          request.cookies.getAll().map((c) => ({
-            name: c.name,
-            value: c.value,
-          })),
-        setAll: (cookies) => {
-          for (const { name, value, options } of cookies) {
-            response.cookies.set(name, value, options);
-          }
-        },
-      },
-    },
-  );
-
+  const supabase = createServerClient(url, key, { cookies: cookieAdapter(request, response) });
   return { supabase, response };
 }
 
-/**
- * Create a Supabase server client for Route Handlers.
- * Reads cookies from the request, writes to the response.
- */
 export function createRouteHandlerClient(
   request: NextRequest,
   response: NextResponse,
 ): SupabaseClient {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () =>
-          request.cookies.getAll().map((c) => ({
-            name: c.name,
-            value: c.value,
-          })),
-        setAll: (cookies) => {
-          for (const { name, value, options } of cookies) {
-            response.cookies.set(name, value, options);
-          }
-        },
-      },
-    },
-  );
+  const { url, key } = getEnv();
+  return createServerClient(url, key, { cookies: cookieAdapter(request, response) });
 }
