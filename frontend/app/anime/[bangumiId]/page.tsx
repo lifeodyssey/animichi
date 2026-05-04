@@ -4,16 +4,18 @@ import { Component, useEffect, useMemo, useReducer, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useDict, useLocale } from "../../../lib/i18n-context";
 import { fetchAnimeGuide } from "../../../lib/api";
 import type { AnimeGuideResponse } from "../../../lib/api";
 import type { PilgrimagePoint } from "../../../lib/types";
 import { useScrollReveal } from "../../../hooks/useScrollReveal";
+import { createClient } from "../../../lib/supabase/browser";
 import SharedHeader from "../../../components/layout/SharedHeader";
 import SharedFooter from "../../../components/layout/SharedFooter";
 import SpotGroup from "../../../components/spots/SpotGroup";
 import GroupToggle from "../../../components/spots/GroupToggle";
+import LoginModal from "../../../components/auth/LoginModal";
 
 /* ── Map Error Boundary ── */
 
@@ -181,10 +183,22 @@ function shouldDefaultToEpisode(spots: PilgrimagePoint[]): boolean {
 
 export default function AnimeGuidePage() {
   const { bangumiId } = useParams<{ bangumiId: string }>();
+  const router = useRouter();
   const dict = useDict();
   const t = dict.anime_guide;
   const locale = useLocale() as "ja" | "zh" | "en";
   const addRevealRef = useScrollReveal();
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Check session on mount
+  useEffect(() => {
+    const supabase = createClient();
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+    });
+  }, []);
 
   const [{ data, status }, dispatch] = useReducer(reducer, {
     data: null,
@@ -361,14 +375,22 @@ export default function AnimeGuidePage() {
                 <p className="text-lg font-semibold text-foreground">{t.plan_route}</p>
                 <p className="mt-1 text-sm text-muted-foreground">{t.plan_route_sub}</p>
               </div>
-              <Link
-                href={`/chat?q=${encodeURIComponent(locale === "zh" && titleCn ? titleCn : title)}`}
-                onClick={() => sessionStorage.setItem(`${storageKey}-scroll`, String(window.scrollY))}
+              <button
+                type="button"
+                onClick={() => {
+                  sessionStorage.setItem(`${storageKey}-scroll`, String(window.scrollY));
+                  const q = encodeURIComponent(locale === "zh" && titleCn ? titleCn : title);
+                  if (isLoggedIn) {
+                    router.push(`/chat?q=${q}`);
+                  } else {
+                    setShowLoginModal(true);
+                  }
+                }}
                 className="mt-3 inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-primary px-7 text-sm font-semibold text-primary-fg transition-opacity hover:opacity-90 sm:mt-0"
               >
                 {t.plan_route}
                 <span aria-hidden="true">→</span>
-              </Link>
+              </button>
             </div>
 
             {/* Group toggle + spot groups */}
@@ -404,6 +426,12 @@ export default function AnimeGuidePage() {
 
           <SharedFooter />
         </>
+      )}
+      {showLoginModal && (
+        <LoginModal
+          redirect={`/chat?q=${encodeURIComponent(locale === "zh" && titleCn ? titleCn : title)}`}
+          onClose={() => setShowLoginModal(false)}
+        />
       )}
     </div>
   );
