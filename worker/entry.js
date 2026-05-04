@@ -41,12 +41,21 @@ const CONTAINER_ENV_KEYS = [
   "OPENAI_COMPAT_API_KEY",
 ];
 
+const CONTAINER_REQUIRED_KEYS = ["DEEPSEEK_API_KEY", "SUPABASE_DB_URL"];
+
 function buildContainerEnvVars(env) {
   const envVars = {
     APP_ENV: "production",
     SERVICE_HOST: "0.0.0.0",
     SERVICE_PORT: "8080",
   };
+  for (const key of CONTAINER_REQUIRED_KEYS) {
+    const value = env[key];
+    if (typeof value !== "string" || value.length === 0) {
+      throw new Error(`Missing required container env: ${key}`);
+    }
+    envVars[key] = value;
+  }
   for (const key of CONTAINER_ENV_KEYS) {
     const value = env[key];
     if (typeof value === "string" && value.length > 0) {
@@ -71,11 +80,13 @@ export default {
   async fetch(request, env, ctx) {
     const { pathname } = new URL(request.url);
 
-    // ── Container proxy: /healthz and /v1/* ──
-    if (pathname === "/healthz" || pathname.startsWith("/v1/")) {
+    // ── Health check — bypass Next.js for fast container probe ──
+    if (pathname === "/healthz") {
       const id = env.CONTAINER.idFromName("default");
       return env.CONTAINER.get(id).fetch(request);
     }
+
+    // /v1/* routes go through OpenNext → middleware.ts (auth) → API route handler (container proxy)
 
     // ── Image proxy: /img/* → anitabi CDN ──
     if (pathname.startsWith("/img/")) {

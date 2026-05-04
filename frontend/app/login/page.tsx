@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabase/browser";
 import { useDict } from "../../lib/i18n-context";
 import { detectLocale } from "../../lib/i18n";
+import { safeRedirect } from "../../lib/safe-redirect";
 
 const ToriiIcon = () => (
   <svg viewBox="0 0 72 72" width="40" height="40" fill="none" aria-hidden="true">
@@ -20,7 +21,7 @@ const ToriiIcon = () => (
 export default function LoginPage() {
   const t = useDict().auth;
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") ?? "/";
+  const redirect = safeRedirect(searchParams.get("redirect"), "/");
   const urlError = searchParams.get("error");
 
   const [email, setEmail] = useState("");

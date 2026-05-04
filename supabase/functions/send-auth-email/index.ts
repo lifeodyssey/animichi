@@ -78,15 +78,25 @@ function buildHtml(locale: string, confirmUrl: string): string {
 </html>`;
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function safeRedirect(to: string | undefined): string {
+  if (!to || !to.startsWith("/") || to.startsWith("//")) return "/chat";
+  return to;
+}
+
 Deno.serve(async (req) => {
   const payload = (await req.json()) as AuthEmailPayload;
   const locale = payload.user.user_metadata.locale ?? "en";
   const t = TEMPLATES[locale] ?? TEMPLATES.en;
 
   const { token_hash, redirect_to, email_action_type } = payload.email_data;
-  const confirmUrl = `${SITE_URL}/auth/confirm?token_hash=${token_hash}&type=${email_action_type}&redirect=${encodeURIComponent(redirect_to || "/chat")}`;
+  const safeTarget = safeRedirect(redirect_to);
+  const confirmUrl = `${SITE_URL}/auth/confirm?token_hash=${token_hash}&type=${email_action_type}&redirect=${encodeURIComponent(safeTarget)}`;
 
-  const html = buildHtml(locale, confirmUrl);
+  const html = buildHtml(locale, escapeHtml(confirmUrl));
 
   // Use Supabase's built-in email sending by returning the email content.
   // The hook response tells Supabase to send the email with our custom content.
