@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../lib/supabase/browser";
 import { useDict } from "../lib/i18n-context";
 import { detectLocale } from "../lib/i18n";
+import { safeRedirect } from "../lib/safe-redirect";
 import LandingPage from "../components/auth/LandingPage";
 import AuthModal from "../components/auth/AuthModal";
 
@@ -15,7 +16,7 @@ export default function Home() {
   const authClient = createClient();
   const authConfigured = !!authClient;
 
-  const redirect = searchParams.get("redirect") ?? "/chat";
+  const redirect = safeRedirect(searchParams.get("redirect"));
   const [showAuthModal, setShowAuthModal] = useState(
     searchParams.get("login") === "true",
   );
