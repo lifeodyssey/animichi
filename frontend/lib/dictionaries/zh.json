@@ -82,7 +82,8 @@
     "check_email_body": "点击邮件中的链接即可登录。",
     "back_to_login": "返回",
     "login_page_subtitle": "输入邮箱，开始你的圣地巡礼之旅",
-    "link_expired_error": "登录链接已过期，请重试。"
+    "link_expired_error": "登录链接已过期，请重试。",
+    "back_to_home": "返回首页"
   },
   "thinking": {
     "resolve_anime": "正在确认动漫标题…",

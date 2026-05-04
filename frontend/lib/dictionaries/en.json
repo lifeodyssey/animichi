@@ -82,7 +82,8 @@
     "check_email_body": "Click the link in your inbox to sign in.",
     "back_to_login": "Back",
     "login_page_subtitle": "Enter your email to start your anime pilgrimage",
-    "link_expired_error": "Login link has expired. Please try again."
+    "link_expired_error": "Login link has expired. Please try again.",
+    "back_to_home": "Back to home"
   },
   "thinking": {
     "resolve_anime": "Resolving anime title...",
