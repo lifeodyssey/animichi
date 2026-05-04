@@ -85,7 +85,7 @@ export default function LoginForm({ redirect, initialError }: LoginFormProps) {
         {submitting ? t.submitting : t.btn_login}
       </button>
       {error && (
-        <p role="alert" className="text-xs font-medium leading-relaxed text-[oklch(50%_0.15_25)]">
+        <p role="alert" className="text-xs font-medium leading-relaxed text-error-fg">
           {error}
         </p>
       )}

@@ -14,7 +14,7 @@ interface LoginModalProps {
 export default function LoginModal({ redirect, onClose }: LoginModalProps) {
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--color-overlay-soft)] backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
