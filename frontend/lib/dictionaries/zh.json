@@ -83,7 +83,8 @@
     "back_to_login": "返回",
     "login_page_subtitle": "输入邮箱，开始你的圣地巡礼之旅",
     "link_expired_error": "登录链接已过期，请重试。",
-    "back_to_home": "返回首页"
+    "back_to_home": "返回首页",
+    "magic_link_hint": "无需密码，我们会发送一个安全链接到你的邮箱"
   },
   "thinking": {
     "resolve_anime": "正在确认动漫标题…",
