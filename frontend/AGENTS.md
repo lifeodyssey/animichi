@@ -34,8 +34,8 @@ CSS variables (defined in `app/globals.css`):
 --color-border:  oklch(85% 0.022 222)
 --color-primary: oklch(60% 0.148 240)   /* cornflower blue */
 
---app-font-display: "Shippori Mincho B1", Georgia, serif
---app-font-body:    "Outfit", system-ui, sans-serif
+--app-font-display: "Noto Serif JP", Georgia, serif
+--app-font-body:    "Noto Sans JP", system-ui, sans-serif
 ```
 
 Use CSS variables, not Tailwind color classes, for brand colors.
