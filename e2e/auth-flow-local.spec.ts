@@ -56,6 +56,60 @@ test.describe("Auth flow — email-based login", () => {
     expect(page.url()).toContain("/chat");
   });
 
+  test("Email content matches browser locale — English", async ({ browser }) => {
+    const ctx = await browser.newContext({ locale: "en-US" });
+    const page = await ctx.newPage();
+    const testEmail = getTestEmail();
+    const beforeSend = new Date();
+
+    await page.goto("/login?redirect=/chat");
+    await page.getByLabel(/email/i).fill(testEmail);
+    await page.getByRole("button", { name: /send/i }).click();
+    await expect(page.getByText(/check.*email/i)).toBeVisible({ timeout: 10_000 });
+
+    const email = await waitForEmail(testEmail, beforeSend);
+    expect(email.subject).toContain("Seichijunrei");
+    expect(email.html).toContain("Log in");
+    expect(email.html).toContain("seichijunrei");
+    await ctx.close();
+  });
+
+  test("Email content matches browser locale — Japanese", async ({ browser }) => {
+    const ctx = await browser.newContext({ locale: "ja-JP" });
+    const page = await ctx.newPage();
+    const testEmail = getTestEmail();
+    const beforeSend = new Date();
+
+    await page.goto("/login?redirect=/chat");
+    await page.getByLabel(/メールアドレス|email/i).fill(testEmail);
+    await page.getByRole("button", { name: /送信|send/i }).click();
+    await expect(page.getByText(/メール.*確認|check.*email/i)).toBeVisible({ timeout: 10_000 });
+
+    const email = await waitForEmail(testEmail, beforeSend);
+    expect(email.subject).toContain("ログイン");
+    expect(email.html).toContain("ログインする");
+    expect(email.html).toContain("聖地巡礼");
+    await ctx.close();
+  });
+
+  test("Email content matches browser locale — Chinese", async ({ browser }) => {
+    const ctx = await browser.newContext({ locale: "zh-CN" });
+    const page = await ctx.newPage();
+    const testEmail = getTestEmail();
+    const beforeSend = new Date();
+
+    await page.goto("/login?redirect=/chat");
+    await page.getByLabel(/邮箱|email/i).fill(testEmail);
+    await page.getByRole("button", { name: /发送|send/i }).click();
+    await expect(page.getByText(/查收|check.*email/i)).toBeVisible({ timeout: 10_000 });
+
+    const email = await waitForEmail(testEmail, beforeSend);
+    expect(email.subject).toContain("登录");
+    expect(email.html).toContain("点击登录");
+    expect(email.html).toContain("聖地巡礼");
+    await ctx.close();
+  });
+
   test("Guide CTA → login modal → email → redirect to /chat with query", async ({ page }) => {
     const testEmail = getTestEmail();
     const beforeSend = new Date();
