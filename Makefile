@@ -1,6 +1,6 @@
 # Seichijunrei Agent - Makefile
 
-.PHONY: help install dev serve test test-all test-cov test-integration test-eval lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset fe-lint fe-typecheck fe-test fe-test-cov fe-build fe-check check-all
+.PHONY: help install dev serve test test-all test-cov test-integration test-eval lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset fe-lint fe-typecheck fe-test fe-test-cov fe-build fe-check check-all e2e-setup e2e e2e-public
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -31,6 +31,11 @@ help:
 	@echo "  make db-list     Show Supabase migration status"
 	@echo "  make db-push-dry  Dry-run Supabase migrations"
 	@echo "  make db-push     Apply Supabase migrations"
+	@echo ""
+	@echo "E2E Testing:"
+	@echo "  make e2e-setup   Start Supabase + Edge Function + seed data"
+	@echo "  make e2e         Run all Playwright E2E tests"
+	@echo "  make e2e-public  Run E2E tests that don't need email"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean       Remove build artifacts and caches"
@@ -122,6 +127,19 @@ db-push:
 
 db-reset:
 	supabase db reset
+
+# ── E2E Testing ──────────────────────────────────────────────
+
+e2e-setup:
+	bash scripts/e2e-setup.sh
+
+e2e:
+	cd e2e && npx playwright test
+
+e2e-public:
+	cd e2e && npx playwright test public-pages.spec.ts middleware-redirect.spec.ts login-modal.spec.ts
+
+# ── Setup ────────────────────────────────────────────────────
 
 setup: dev
 	@echo ""

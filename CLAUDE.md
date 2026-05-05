@@ -46,6 +46,9 @@ make lint             # ruff check + format check
 make format           # ruff auto-format + fix
 make typecheck        # mypy strict
 make check            # lint + typecheck + test
+make e2e-setup        # start Supabase + Edge Function + seed data
+make e2e              # run all Playwright E2E tests
+make e2e-public       # E2E tests that don't need email (fast)
 ```
 
 Frontend: `cd frontend && npm ci && npm run dev`
