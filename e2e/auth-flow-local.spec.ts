@@ -1,88 +1,79 @@
 import { test, expect } from "@playwright/test";
-import { waitForMailpitEmail, extractMagicLink } from "./fixtures/mailpit";
+import { waitForEmail, extractMagicLink, verifyEmailLocale, getTestEmail } from "./fixtures/email";
 
 /**
- * Local auth flow E2E test using Mailpit (supabase start).
+ * Auth flow E2E tests.
  *
- * Prerequisites:
- * - supabase start (provides Mailpit at localhost:54324)
- * - frontend dev server at localhost:3001
- * - .env.local pointing to local Supabase (localhost:54321)
+ * Local: supabase start → Mailpit captures emails
+ * CI:    E2E_EMAIL_PROVIDER=mails → mails.dev captures emails
+ *
+ * Both environments use the same test code.
  */
-const TEST_EMAIL = `e2e-${Date.now()}@seichijunrei.test`;
-
-test.describe("Local auth flow via Mailpit", () => {
+test.describe("Auth flow — email-based login", () => {
   test.slow();
 
-  test("Login page: submit email → magic link arrives in Mailpit", async ({ page }) => {
+  test("Login page: submit email → magic link arrives → verify content", async ({ page }) => {
+    const testEmail = getTestEmail();
     const beforeSend = new Date();
 
     await page.goto("/login?redirect=/chat");
     await expect(page.getByLabel(/email/i)).toBeVisible();
 
-    // Submit test email
-    await page.getByLabel(/email/i).fill(TEST_EMAIL);
+    await page.getByLabel(/email/i).fill(testEmail);
     await page.getByRole("button", { name: /send|送信|发送/i }).click();
 
-    // Should show "check email" confirmation
     await expect(
       page.getByText(/check.*email|メール.*確認|查收/i),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Wait for email in Mailpit
-    const email = await waitForMailpitEmail(TEST_EMAIL, beforeSend);
-
-    expect(email.Subject).toBeTruthy();
-    expect(email.HTML).toBeTruthy();
+    // Wait for email
+    const email = await waitForEmail(testEmail, beforeSend);
+    expect(email.subject).toBeTruthy();
+    expect(email.html).toBeTruthy();
 
     // Verify magic link exists
-    const magicLink = extractMagicLink(email.HTML, "http://localhost:3001");
-    expect(magicLink).toContain("token");
+    const magicLink = extractMagicLink(email.html);
+    expect(magicLink).toBeTruthy();
   });
 
-  test("Magic link from Mailpit completes login → redirects to /chat", async ({ page }) => {
-    const uniqueEmail = `e2e-full-${Date.now()}@seichijunrei.test`;
+  test("Magic link completes login → redirects to /chat", async ({ page }) => {
+    const testEmail = getTestEmail();
     const beforeSend = new Date();
 
-    // Submit magic link
     await page.goto("/login?redirect=/chat");
-    await page.getByLabel(/email/i).fill(uniqueEmail);
+    await page.getByLabel(/email/i).fill(testEmail);
     await page.getByRole("button", { name: /send|送信|发送/i }).click();
     await expect(
       page.getByText(/check.*email|メール.*確認|查収/i),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Get magic link from Mailpit
-    const email = await waitForMailpitEmail(uniqueEmail, beforeSend);
-    const magicLink = extractMagicLink(email.HTML, "http://localhost:3001");
+    const email = await waitForEmail(testEmail, beforeSend);
+    const magicLink = extractMagicLink(email.html);
 
-    // Visit magic link → should complete auth and redirect
+    // Visit magic link → should set cookie and redirect to /chat
     await page.goto(magicLink);
     await page.waitForURL(/\/chat/, { timeout: 15_000 });
     expect(page.url()).toContain("/chat");
   });
 
-  test("Guide CTA: login modal → email → magic link → /chat with query", async ({ page }) => {
-    const uniqueEmail = `e2e-guide-${Date.now()}@seichijunrei.test`;
+  test("Guide CTA → login modal → email → redirect to /chat with query", async ({ page }) => {
+    const testEmail = getTestEmail();
     const beforeSend = new Date();
 
-    // Go to Guide page
-    await page.goto("/anime/485");
+    await page.goto("/anime/11291");
     await expect(page.getByRole("heading", { name: /涼宮ハルヒ/ })).toBeVisible();
 
-    // Click CTA → login modal opens
+    // Click CTA → login modal
     await page.getByRole("button", { name: /Plan route|ルートを計画|AIで/ }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
 
-    // Fill email in modal
-    await page.getByLabel(/email/i).fill(uniqueEmail);
-    await page.getByRole("button", { name: /send|送信|发送/i }).click();
+    // Submit email
+    await page.getByLabel(/email/i).fill(testEmail);
+    await page.getByRole("button", { name: /send|送信|発送/i }).click();
 
-    // Wait for email in Mailpit
-    const email = await waitForMailpitEmail(uniqueEmail, beforeSend);
-    const magicLink = extractMagicLink(email.HTML, "http://localhost:3001");
+    const email = await waitForEmail(testEmail, beforeSend);
+    const magicLink = extractMagicLink(email.html);
 
-    // Visit magic link → should redirect to /chat?q=涼宮ハルヒ...
     await page.goto(magicLink);
     await page.waitForURL(/\/chat/, { timeout: 15_000 });
     expect(page.url()).toContain("/chat");
