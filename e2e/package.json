@@ -1,0 +1,13 @@
+{
+  "name": "seichijunrei-e2e",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:public": "playwright test public-pages.spec.ts middleware-redirect.spec.ts login-modal.spec.ts",
+    "test:auth": "playwright test auth-flow.spec.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}
