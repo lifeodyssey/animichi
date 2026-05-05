@@ -21,6 +21,14 @@ enabled = true
 site_url = "http://localhost:3001"
 additional_redirect_urls = ["http://localhost:3001/**"]
 
+[auth.hook.send_email]
+enabled = true
+uri = "http://host.docker.internal:54321/functions/v1/send-auth-email"
+secrets = "v1,whsec_XPpi8KvcJSYljVFVhzxH9qG+NxqPU6UGRM8mAgeCGDA="
+
+[functions.send-auth-email]
+verify_jwt = false
+
 [auth.email]
 enable_signup = true
 enable_confirmations = false
