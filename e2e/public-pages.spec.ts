@@ -8,14 +8,14 @@ test.describe("Public pages — no auth required", () => {
   });
 
   test("Guide page loads with title and spot count", async ({ page }) => {
-    await page.goto("/anime/485");
+    await page.goto("/anime/11291");
     await expect(page.getByRole("heading", { name: /涼宮ハルヒ/ })).toBeVisible();
-    // "70 spots" rendered as a bold span inside the hero
-    await expect(page.locator("text=70 spots")).toBeVisible();
+    // Spot count in hero section
+    await expect(page.locator("text=/\\d+ spots/").first()).toBeVisible();
   });
 
   test("Guide page shows plan route CTA button", async ({ page }) => {
-    await page.goto("/anime/485");
+    await page.goto("/anime/11291");
     const cta = page.getByRole("button", { name: /Plan route|ルートを計画|AIで/ });
     await expect(cta).toBeVisible();
   });

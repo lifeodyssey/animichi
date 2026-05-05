@@ -31,7 +31,7 @@ test.describe("Middleware auth redirect", () => {
     await page.waitForLoadState("domcontentloaded");
     expect(page.url()).not.toContain("/login");
 
-    await page.goto("/anime/485");
+    await page.goto("/anime/11291");
     await page.waitForLoadState("domcontentloaded");
     expect(page.url()).not.toContain("/login");
   });

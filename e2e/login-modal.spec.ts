@@ -18,7 +18,7 @@ test.describe("Login modal on Landing and Guide pages", () => {
   });
 
   test("Guide: Plan route CTA opens login modal when not logged in", async ({ page }) => {
-    await page.goto("/anime/485");
+    await page.goto("/anime/11291");
     // Wait for page to load
     await expect(page.getByRole("heading", { name: /涼宮ハルヒ/ })).toBeVisible();
     // Click CTA
@@ -28,7 +28,7 @@ test.describe("Login modal on Landing and Guide pages", () => {
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
     // Should still be on the Guide page (not redirected)
-    expect(page.url()).toContain("/anime/485");
+    expect(page.url()).toContain("/anime/11291");
   });
 
   test("Login modal shows magic link hint text", async ({ page }) => {
