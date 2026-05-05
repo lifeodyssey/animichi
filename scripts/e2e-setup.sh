@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# E2E Test Environment Setup
+# Starts all services needed for local E2E testing:
+# - Supabase (DB + Auth + Mailpit + Edge Runtime)
+# - Edge Function (send-auth-email hook)
+# - Seed test data
+# - Frontend dev server
+#
+# Usage: make e2e-setup    (or: bash scripts/e2e-setup.sh)
+# Run tests: make e2e      (or: cd e2e && npm test)
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+echo "=== 1/5 Starting Supabase ==="
+supabase stop 2>/dev/null || true
+sleep 2
+docker rm -f $(docker ps -aq --filter "name=supabase") 2>/dev/null || true
+sleep 2
+supabase start --exclude vector,analytics --ignore-health-check
+echo ""
+
+echo "=== 2/5 Seeding test data ==="
+docker exec -i supabase_db_seichijunrei-agent psql -U postgres < backend/tests/fixtures/seed.sql
+echo ""
+
+echo "=== 3/5 Serving Edge Function ==="
+# Kill any existing serve processes
+pkill -f "functions serve" 2>/dev/null || true
+sleep 1
+supabase functions serve send-auth-email --no-verify-jwt &
+sleep 5
+echo ""
+
+echo "=== 4/5 Installing E2E dependencies ==="
+cd e2e && npm ci 2>/dev/null || npm install && cd ..
+echo ""
+
+echo "=== 5/5 Checking frontend ==="
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ | grep -q 200; then
+  echo "Frontend already running on :3001"
+else
+  echo "Start frontend: cd frontend && npm run dev -- -p 3001"
+  echo "(Make sure .env.local points to local Supabase: http://127.0.0.1:54321)"
+fi
+echo ""
+
+echo "========================================="
+echo "E2E environment ready!"
+echo ""
+echo "Run tests:  make e2e"
+echo "Run headed:  cd e2e && npm run test:headed"
+echo "Mailpit UI:  http://localhost:54324"
+echo "========================================="
