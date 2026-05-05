@@ -27,4 +27,4 @@ enable_confirmations = false
 
 [auth.email.template.magic_link]
 subject = "聖地巡礼 — ログイン / 登录 / Log in"
-content_path = "./templates/magic-link.html"
+content_path = "supabase/templates/magic-link.html"
