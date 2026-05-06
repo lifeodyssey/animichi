@@ -1,6 +1,6 @@
 # Seichijunrei Agent - Makefile
 
-.PHONY: help install dev serve test test-all test-cov test-integration test-eval lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset fe-lint fe-typecheck fe-test fe-test-cov fe-build fe-check check-all e2e-setup e2e e2e-public
+.PHONY: help install dev serve test test-all test-cov test-integration test-eval lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset fe-lint fe-typecheck fe-test fe-test-cov fe-build fe-check check-all e2e-setup e2e e2e-public local-login
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -138,6 +138,9 @@ e2e:
 
 e2e-public:
 	cd e2e && npx playwright test public-pages.spec.ts middleware-redirect.spec.ts login-modal.spec.ts
+
+local-login:
+	bash scripts/local-login.sh
 
 # ── Setup ────────────────────────────────────────────────────
 
