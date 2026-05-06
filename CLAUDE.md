@@ -135,6 +135,20 @@ cd frontend && npm run dev
 supabase stop                     # cleanup
 ```
 
+### E2E Testing (Playwright)
+
+```bash
+make e2e-setup        # one command: Supabase + seed + Edge Function + deps
+make e2e              # run all 18 Playwright tests (serial, ~16s)
+make e2e-public       # run 12 tests that don't need email (fast)
+```
+
+E2E tests live in `e2e/` (separate package.json, Playwright).
+Requires: `supabase start` + `supabase functions serve send-auth-email --no-verify-jwt`
+Frontend `.env.local` must point to local Supabase (`http://127.0.0.1:54321`).
+Test data: `backend/tests/fixtures/seed.sql` (18 anime, 43 spots).
+Mailpit UI: `http://localhost:54324` (view captured emails).
+
 ## Code Quality Standards
 
 ### 1-10-50 Rule
