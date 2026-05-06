@@ -16,6 +16,11 @@ major_version = 17
 enabled = true
 port = 54323
 
+[inbucket]
+enabled = true
+port = 54324
+smtp_port = 54325
+
 [auth]
 enabled = true
 site_url = "http://localhost:3001"
