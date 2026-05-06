@@ -9,7 +9,7 @@ import { waitForEmail, extractMagicLink, verifyEmailLocale, getTestEmail } from 
  *
  * Both environments use the same test code.
  */
-test.describe("Auth flow — email-based login", () => {
+test.describe.serial("Auth flow — email-based login", () => {
   test.slow();
 
   test("Login page: submit email → magic link arrives → verify content", async ({ page }) => {
