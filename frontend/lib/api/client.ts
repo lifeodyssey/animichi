@@ -7,7 +7,7 @@ export const RUNTIME_URL =
 export function parseResponseData(raw: unknown): Record<string, unknown> | null {
   if (!raw) return null;
   if (typeof raw === "string") {
-    try { return JSON.parse(raw) as Record<string, unknown>; } catch { return null; }
+    try { return JSON.parse(raw) as Record<string, unknown>; } catch (err) { console.warn("parseResponseData: invalid JSON", err); return null; }
   }
   if (typeof raw === "object") return raw as Record<string, unknown>;
   return null;
@@ -78,10 +78,11 @@ export async function fetchPopularBangumi(): Promise<PopularBangumiEntry[]> {
     const res = await fetch(`${RUNTIME_URL}/v1/bangumi/popular`, {
       headers: await getAuthHeaders(),
     });
-    if (!res.ok) return [];
+    if (!res.ok) { console.warn("fetchPopularBangumi: HTTP", res.status); return []; }
     const data: { bangumi: PopularBangumiEntry[] } = await res.json();
     return data.bangumi ?? [];
-  } catch {
+  } catch (err) {
+    console.warn("fetchPopularBangumi failed", err);
     return [];
   }
 }
