@@ -24,10 +24,13 @@
   --color-muted:   oklch(90% 0.010 240);
   --color-muted-fg: oklch(45% 0.020 240);
   --color-border:  oklch(78% 0.015 240);
+  --color-border-input: oklch(56% 0.020 240);
   --color-input:   oklch(56% 0.020 240);
 
   --color-primary:    oklch(72% 0.100 240);
   --color-primary-fg: oklch(25% 0.040 240);
+  --color-primary-deep: oklch(46% 0.100 240);
+  --color-primary-soft: oklch(95% 0.020 240);
 
   --color-secondary:    oklch(95% 0.008 240);
   --color-secondary-fg: oklch(20% 0.020 240);
@@ -87,7 +90,7 @@
   --popover: var(--color-card);
   --popover-foreground: var(--color-card-fg);
   --primary: var(--color-primary);
-  --primary-foreground: oklch(98% 0.008 218);
+  --primary-foreground: var(--color-primary-fg);
   --secondary: var(--color-secondary);
   --secondary-foreground: var(--color-secondary-fg);
   --muted: var(--color-muted);
@@ -98,7 +101,7 @@
   --border: var(--color-border);
   --input: var(--color-border);
   --ring: var(--color-primary);
-  --chart-1: oklch(60% 0.148 240);
+  --chart-1: var(--color-primary);
   --chart-2: oklch(55% 0.12 200);
   --chart-3: oklch(65% 0.10 160);
   --chart-4: oklch(70% 0.08 120);
@@ -107,7 +110,7 @@
   --sidebar: var(--color-sidebar);
   --sidebar-foreground: var(--color-sidebar-fg);
   --sidebar-primary: var(--color-primary);
-  --sidebar-primary-foreground: oklch(98% 0.008 218);
+  --sidebar-primary-foreground: var(--color-primary-fg);
   --sidebar-accent: var(--color-sidebar-accent);
   --sidebar-accent-foreground: var(--color-sidebar-accent-fg);
   --sidebar-border: var(--color-sidebar-border);
@@ -193,8 +196,8 @@
 }
 
 @keyframes seichi-pin-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px oklch(60% 0.148 240 / 0.25); }
-  50%      { box-shadow: 0 0 0 10px oklch(60% 0.148 240 / 0.05); }
+  0%, 100% { box-shadow: 0 0 0 3px oklch(72% 0.100 240 / 0.25); }
+  50%      { box-shadow: 0 0 0 10px oklch(72% 0.100 240 / 0.05); }
 }
 
 @keyframes fade-in {
@@ -289,45 +292,6 @@ h1, h2, h3 {
 
 a { color: inherit; }
 
-/* Leaflet numbered markers */
-.marker-number {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-}
-.marker-number.active {
-  background: oklch(0.5 0.2 30);
-  transform: scale(1.2);
-}
-
-/* Prevent browser zoom on Leaflet map container (Task 27) */
-.leaflet-container {
-  touch-action: none;
-}
-
-/* Leaflet popup z-index — above filter chips and selection bar */
-.leaflet-popup {
-  z-index: 1000 !important;
-}
-.leaflet-popup-content-wrapper {
-  border-radius: 8px !important;
-  box-shadow: 0 4px 16px oklch(20% 0.02 238 / 0.12) !important;
-}
-.leaflet-pane {
-  z-index: 1 !important;
-}
-.leaflet-top, .leaflet-bottom {
-  z-index: 2 !important;
-}
-
 /* Chat popup entrance */
 @keyframes popup-enter {
   from { opacity: 0; transform: translateY(12px) scale(0.97); }
@@ -341,7 +305,10 @@ a { color: inherit; }
     transition: none !important;
   }
   .seichi-reveal,
-  .seichi-reveal-pop { opacity: 1 !important; }
+  .seichi-reveal-pop,
+  .entrance-up,
+  .entrance-down,
+  .entrance-slide-right { opacity: 1 !important; }
 }
 
 /* ── Touch targets (opt-in via data attribute, auto for standalone interactive elements) ── */
@@ -390,7 +357,7 @@ input:focus-visible {
 /* ── Input focus glow ── */
 input:focus, textarea:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px oklch(60% 0.148 240 / 0.1);
+  box-shadow: 0 0 0 3px oklch(72% 0.100 240 / 0.1);
 }
 
 /* ── Landing page keyframes ── */
@@ -417,16 +384,16 @@ input:focus, textarea:focus {
 
 /* ── Entrance animation classes ── */
 .bg-gradient-soft  { background: linear-gradient(160deg, var(--color-gradient-soft), var(--color-bg)); }
-.entrance-up       { animation: seichi-fade-up 0.7s var(--ease-out-expo) backwards; }
+.entrance-up       { opacity: 0; animation: seichi-fade-up 0.5s var(--ease-out-expo) both; }
 .entrance-up-fast  { animation: seichi-fade-up 0.5s var(--ease-out-expo) backwards; }
 .entrance-up-quick { animation: seichi-fade-up 0.3s ease-out backwards; }
-.entrance-down     { animation: seichi-fade-down 0.5s ease-out; }
-.entrance-slide-right { animation: slide-in-right 0.3s ease-out; }
+.entrance-down     { opacity: 0; animation: seichi-fade-down 0.3s var(--ease-out-expo) both; }
+.entrance-slide-right { opacity: 0; animation: panel-slide-in 0.3s var(--ease-out-expo) both; }
 .entrance-message  { animation: slide-up-fade 300ms var(--ease-out-quint) both; }
 .entrance-message-slow { animation: slide-up-fade 400ms var(--ease-out-quint) both; }
 
 /* Continuous animations */
-.animate-breathe   { animation: breathe 2s ease-in-out infinite; }
+.animate-breathe   { animation: breathe 1.2s ease-in-out infinite; }
 .spin-loading      { animation: spin 0.8s linear infinite; }
 
 /* Scroll-triggered reveal classes */

@@ -7,13 +7,15 @@ all differ from your training data. Read the relevant guide in
 
 ## Component Architecture
 
-Three-column layout: `AppShell` (sidebar + chat + result panel).
+SharedHeader + split panel layout: `AppShell` (header + chat + result panel).
 
 Key components and their responsibilities:
 - `components/layout/AppShell.tsx` — layout root; owns `activeMessageId` state
+- `components/layout/SharedHeader.tsx` — site-wide header with torii logo + brand; right side accepts children
 - `components/layout/ResultPanel.tsx` — right column; renders active result
 - `components/layout/ConversationDrawer.tsx` — mobile bottom sheet (vaul); conversation history
 - `components/layout/ResultSheet.tsx` — mobile result sheet
+- `components/icons/ToriiIcon.tsx` — shared torii gate SVG, uses --color-brand
 - `components/generative/registry.ts` — `COMPONENT_REGISTRY`; add new components here
 - `components/generative/GenerativeUIRenderer.tsx` — registry lookup; entry point for all results
 - `components/chat/MessageBubble.tsx` — bot messages: text + `◈` anchor only (no inline results)
@@ -22,17 +24,18 @@ Key components and their responsibilities:
 
 ## Design System
 
-Light theme — no dark mode toggle. Palette is 京吹夏季 (Kyoto summer, KyoAni-inspired).
+Light theme — no dark mode toggle. Palette is リズと青い鳥 (light blue, KyoAni-inspired).
 
 CSS variables (defined in `app/globals.css`):
 ```css
---color-bg:      oklch(98% 0.008 218)   /* near-white */
---color-fg:      oklch(20% 0.025 238)   /* near-black */
---color-card:    oklch(95% 0.012 215)
---color-muted:   oklch(91% 0.016 218)
---color-muted-fg: oklch(54% 0.032 228)
---color-border:  oklch(85% 0.022 222)
---color-primary: oklch(60% 0.148 240)   /* cornflower blue */
+--color-bg:      oklch(98% 0.004 240)   /* near-white */
+--color-fg:      oklch(20% 0.020 240)   /* near-black */
+--color-card:    oklch(100% 0 0)
+--color-muted:   oklch(90% 0.010 240)
+--color-muted-fg: oklch(45% 0.020 240)
+--color-border:  oklch(78% 0.015 240)
+--color-primary: oklch(72% 0.100 240)   /* light blue */
+--color-primary-fg: oklch(25% 0.040 240) /* dark text on light blue */
 
 --app-font-display: "Noto Serif JP", Georgia, serif
 --app-font-body:    "Noto Sans JP", system-ui, sans-serif
