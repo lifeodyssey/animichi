@@ -1,13 +1,13 @@
 /**
- * Unit tests for AppShell layout — map-first adaptive layout.
- * AC: desktop renders sidebar + result panel (full width), chat as popup
- * AC: mobile renders chat panel when no results
- * AC: clicking new chat button clears state
+ * Unit tests for AppShell layout structure and interactions.
+ * AC: renders SharedHeader + chat panel on desktop
+ * AC: clicking new chat button clears chat state
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import AppShell from "../components/layout/AppShell";
 
+// Mock child components that use network or complex browser APIs.
 vi.mock("../components/chat/ChatPanel", () => ({
   default: () => <div data-testid="mock-chat-panel" />,
 }));
@@ -17,11 +17,8 @@ vi.mock("../components/layout/ResultPanel", () => ({
 vi.mock("../components/layout/ResultSheet", () => ({
   default: () => null,
 }));
-vi.mock("../components/chat/ChatPopup", () => ({
-  default: ({ open }: { open: boolean }) =>
-    <div data-testid="mock-chat-popup" data-open={open} />,
-}));
 
+// Essential hook mocks: hooks that require browser APIs (localStorage, fetch, SSE).
 vi.mock("../hooks/useSession", () => ({
   useSession: () => ({
     sessionId: null,
@@ -53,15 +50,20 @@ vi.mock("../hooks/usePointSelection", () => ({
 
 vi.mock("../lib/i18n-context", () => ({
   useLocale: () => "ja",
-  useDict: () => ({}),
+  useDict: () => ({
+    sidebar: { new_chat: "+ 新しい会話" },
+    drawer: { title: "履歴" },
+    chat: { welcome_title: "聖地巡礼" },
+    welcome_screen: { tagline: "test" },
+    landing_hero: { landing: { login: "Log in" } },
+  }),
 }));
 
-// Desktop viewport: all media queries return false (SSR default = desktop)
 vi.mock("../hooks/useMediaQuery", () => ({
   useMediaQuery: () => false,
 }));
 
-describe("AppShell desktop layout", () => {
+describe("AppShell layout", () => {
   afterEach(() => cleanup());
   beforeEach(() => vi.clearAllMocks());
 
@@ -70,41 +72,38 @@ describe("AppShell desktop layout", () => {
     expect(container.firstChild).toBeInTheDocument();
   });
 
-  it("renders icon sidebar on desktop", () => {
+  it("renders the SharedHeader with brand name", () => {
     render(<AppShell />);
-    expect(screen.getByTestId("icon-sidebar")).toBeInTheDocument();
+    expect(screen.getByText("聖地巡礼")).toBeInTheDocument();
   });
 
-  it("renders result panel on desktop (map-first layout)", () => {
+  it("renders the chat panel", () => {
     render(<AppShell />);
-    expect(screen.getByTestId("result-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("chat-panel")).toBeInTheDocument();
   });
 
-  it("does not render chat panel on desktop (chat is popup)", () => {
+  it("does not render result panel when no active result", () => {
     render(<AppShell />);
-    expect(screen.queryByTestId("chat-panel")).toBeNull();
+    expect(screen.queryByTestId("result-panel")).toBeNull();
   });
 
-  it("renders chat popup component", () => {
-    render(<AppShell />);
-    expect(screen.getByTestId("mock-chat-popup")).toBeInTheDocument();
-  });
-
-  it("does not render old text sidebar", () => {
+  it("does not render old icon sidebar or chat popup", () => {
     const { container } = render(<AppShell />);
-    expect(container.querySelector("[data-testid='text-sidebar']")).toBeNull();
+    expect(container.querySelector("[data-testid='icon-sidebar']")).toBeNull();
   });
 });
 
 describe("AppShell interactions", () => {
   afterEach(() => cleanup());
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-  it("clicking New chat button does not crash", () => {
+  it("clicking the New chat button does not crash", () => {
     render(<AppShell />);
-    const newChatBtn = screen.getByRole("button", { name: /新对话/i });
+    const newChatBtn = screen.getByText("新しい会話");
     fireEvent.click(newChatBtn);
-    expect(screen.getByTestId("icon-sidebar")).toBeInTheDocument();
+    expect(screen.getByTestId("chat-panel")).toBeInTheDocument();
   });
 });
 

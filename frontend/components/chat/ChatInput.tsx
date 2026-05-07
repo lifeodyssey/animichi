@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import { useDict, useLocale } from "../../lib/i18n-context";
 import { CHAT_INPUT_QUERIES } from "../../lib/quick-actions";
+import { cn } from "../../lib/utils";
 import LocationPrompt from "./LocationPrompt";
 
 interface QuickAction {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   query: string;
 }
@@ -92,9 +93,33 @@ export default function ChatInput({
 
   const queries = CHAT_INPUT_QUERIES[locale];
   const quickActions: QuickAction[] = [
-    { icon: "\u2726", label: lh.feat_search, query: lh.chat_placeholder },
-    { icon: "\u25CE", label: lh.feat_route, query: queries.route },
-    { icon: "\u2197", label: lh.feat_series, query: queries.popular },
+    {
+      icon: (
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      ),
+      label: lh.feat_search,
+      query: lh.chat_placeholder,
+    },
+    {
+      icon: (
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <polygon points="3 11 22 2 13 21 11 13 3 11" />
+        </svg>
+      ),
+      label: lh.feat_route,
+      query: queries.route,
+    },
+    {
+      icon: (
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+        </svg>
+      ),
+      label: lh.feat_series,
+      query: queries.popular,
+    },
   ];
 
   // Locale-aware placeholder
@@ -192,18 +217,16 @@ export default function ChatInput({
 
         {/* Send — appears only when content exists or sending */}
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={disabled || !hasText}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-all duration-150"
-          style={{
-            opacity: hasText || disabled ? 1 : 0.3,
-            background: hasText
-              ? "var(--color-primary)"
-              : "var(--color-muted)",
-            color: hasText
-              ? "white"
-              : "var(--color-muted-fg)",
-          }}
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-all duration-150",
+            hasText
+              ? "bg-primary text-primary-fg"
+              : "bg-muted text-muted-foreground",
+            !(hasText || disabled) && "opacity-30",
+          )}
           aria-label={t.send}
         >
           {disabled ? (

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useDict } from "../../lib/i18n-context";
 import { cn } from "../../lib/utils";
+import ToriiIcon from "../icons/ToriiIcon";
 
 export interface NavItem {
   label: string;
@@ -11,13 +12,27 @@ export interface NavItem {
 }
 
 interface SharedHeaderProps {
+  /** Custom content for the right side of the header. */
+  children?: React.ReactNode;
+  /** Login button callback (landing page). */
   onLogin?: () => void;
+  /** Login link href (search/anime pages). */
   loginHref?: string;
+  /** Sticky (scrolls with content) or fixed (always on top). */
   position?: "sticky" | "fixed";
+  /** Navigation items (guide pages). */
   navItems?: NavItem[];
 }
 
+/**
+ * SharedHeader — site-wide header with torii logo + brand name.
+ *
+ * Used on all pages (landing, guide, login, chat). The right side
+ * is customizable via children — public pages pass login buttons,
+ * chat page passes New/History/Settings.
+ */
 export default function SharedHeader({
+  children,
   onLogin,
   loginHref,
   position = "sticky",
@@ -28,32 +43,22 @@ export default function SharedHeader({
   return (
     <header
       className={cn(
-        "entrance-down inset-x-0 top-0 z-50 border-b border-border px-5 sm:px-8",
+        "entrance-down inset-x-0 top-0 z-50 border-b border-border bg-card px-4 sm:px-6",
         position === "fixed" ? "fixed" : "sticky",
       )}
-      style={{
-        background: "var(--color-card)",
-        boxShadow: "var(--shadow-sm)",
-      }}
     >
-      <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between">
-        {/* ── Left: logo + nav ── */}
+      <div className="mx-auto flex h-12 items-center justify-between">
+        {/* ── Left: torii logo + brand + nav ── */}
         <div className="flex items-center gap-6">
           <Link
             href="/"
             className="flex items-center gap-2 font-display"
           >
-            <svg viewBox="0 0 72 72" width="22" height="22" fill="none" className="shrink-0" aria-hidden="true">
-              <rect x="12" y="16" width="48" height="5" rx="2.5" fill="var(--color-torii)" />
-              <rect x="8" y="14" width="56" height="3" rx="1.5" fill="var(--color-torii)" />
-              <rect x="16" y="21" width="5" height="35" rx="1" fill="var(--color-torii)" />
-              <rect x="51" y="21" width="5" height="35" rx="1" fill="var(--color-torii)" />
-              <rect x="12" y="30" width="48" height="3" rx="1.5" fill="var(--color-torii)" opacity=".5" />
-            </svg>
-            <span className="text-lg font-bold tracking-[0.02em] text-foreground">
+            <ToriiIcon size={20} />
+            <span className="text-sm font-bold text-foreground">
               聖地巡礼
             </span>
-            <span className="hidden text-xs tracking-[1.5px] text-muted-foreground sm:inline">
+            <span className="hidden text-[10px] tracking-[1.2px] text-muted-foreground sm:inline">
               seichijunrei
             </span>
           </Link>
@@ -79,8 +84,14 @@ export default function SharedHeader({
           )}
         </div>
 
-        {/* ── Right: login ── */}
-        {onLogin && (
+        {/* ── Right: children or login ── */}
+        {children && (
+          <div className="flex items-center gap-1.5">
+            {children}
+          </div>
+        )}
+
+        {!children && onLogin && (
           <button
             type="button"
             onClick={onLogin}
@@ -90,7 +101,7 @@ export default function SharedHeader({
           </button>
         )}
 
-        {!onLogin && loginHref && (
+        {!children && !onLogin && loginHref && (
           <Link
             href={loginHref}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"

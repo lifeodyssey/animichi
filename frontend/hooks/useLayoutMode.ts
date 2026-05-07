@@ -48,9 +48,9 @@ export function useLayoutMode(hasVisualResult: boolean, resetKey?: unknown): Lay
 
   const [userOverride, setUserOverride] = useState<LayoutMode | null>(null);
 
-  // Auto mode: chat when no results, full-result when results exist.
-  // Per DESIGN.md: content takes full width, chat becomes a popup toggle.
-  const autoMode: LayoutMode = hasVisualResult ? "full-result" : "chat";
+  // Auto mode: chat when no results, split when results exist.
+  // Split shows chat + result side by side without requiring popup.
+  const autoMode: LayoutMode = hasVisualResult ? "split" : "chat";
 
   // User override takes precedence over auto.
   const mode = userOverride ?? autoMode;
