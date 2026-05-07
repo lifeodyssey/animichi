@@ -1,5 +1,10 @@
-import AuthGate from "../components/auth/AuthGate";
+import { Suspense } from "react";
+import HomeContent from "./HomeContent";
 
 export default function Home() {
-  return <AuthGate />;
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
+  );
 }
