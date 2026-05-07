@@ -15,6 +15,11 @@ export function createClient(): SupabaseClient | null {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
 
-  client = createBrowserClient(url, key);
+  try {
+    client = createBrowserClient(url, key);
+  } catch (err) {
+    console.error("Failed to create Supabase client", err);
+    return null;
+  }
   return client;
 }

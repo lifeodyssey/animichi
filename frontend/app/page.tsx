@@ -20,9 +20,11 @@ export default function Home() {
   // If already logged in, go to redirect target
   useEffect(() => {
     if (!authClient) return;
-    authClient.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace(redirect);
-    });
+    authClient.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (session) router.replace(redirect);
+      })
+      .catch(() => { /* session check failed — stay on landing */ });
   }, [authClient, router, redirect]);
 
   return (
