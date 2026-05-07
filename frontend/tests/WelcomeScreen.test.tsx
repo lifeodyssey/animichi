@@ -1,10 +1,10 @@
 /**
- * AC: Empty state shows WelcomeScreen with logo, tagline, 3 quick-action cards, anime chips.
+ * AC: Empty state shows WelcomeScreen with logo, tagline, 3 quick-action chips, anime covers.
  * AC: After first message sent, WelcomeScreen replaced by message list.
- * AC: Quick-action card tap sends corresponding query.
- * AC: /v1/bangumi/popular returns empty — anime chips hidden, quick actions visible.
+ * AC: Quick-action chip tap fills input instead of sending.
+ * AC: /v1/bangumi/popular returns empty — anime covers fallback, chips visible.
  * AC: /v1/bangumi/popular network failure — WelcomeScreen renders without crash.
- * AC: Welcome tagline and quick-action labels render in ja, zh, en.
+ * AC: Welcome tagline and chip labels render in ja, zh, en.
  */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
@@ -16,7 +16,6 @@ import jaDict from "@/lib/dictionaries/ja.json";
 import zhDict from "@/lib/dictionaries/zh.json";
 import enDict from "@/lib/dictionaries/en.json";
 
-// Build the full ja/zh/en dicts cast to Dict (they all have welcome_screen after our additions)
 const jaFull = jaDict as unknown as Dict;
 const zhFull = zhDict as unknown as Dict;
 const enFull = enDict as unknown as Dict;
@@ -32,9 +31,9 @@ function renderWelcomeScreen(
 }
 
 describe("WelcomeScreen", () => {
-  it("renders the logo with display font text", () => {
+  it("renders the tagline as heading", () => {
     renderWelcomeScreen();
-    expect(screen.getByText("聖地巡礼")).toBeInTheDocument();
+    expect(screen.getByText(jaFull.welcome_screen.tagline)).toBeInTheDocument();
   });
 
   it("renders the tagline in Japanese", () => {
@@ -44,34 +43,33 @@ describe("WelcomeScreen", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders 3 quick-action cards", () => {
+  it("renders 3 quick-action chips with i18n labels", () => {
     renderWelcomeScreen();
-    // Component uses inline locale strings, not dict.welcome_screen
-    expect(screen.getByText("聖地を検索")).toBeInTheDocument();
-    expect(screen.getByText("近くの聖地")).toBeInTheDocument();
-    expect(screen.getByText("ルート計画")).toBeInTheDocument();
+    // Labels come from dict.welcome_screen.action_*
+    expect(screen.getByText(jaFull.welcome_screen.action_search)).toBeInTheDocument();
+    expect(screen.getByText(jaFull.welcome_screen.action_nearby)).toBeInTheDocument();
+    expect(screen.getByText(jaFull.welcome_screen.action_route)).toBeInTheDocument();
   });
 
-  it("quick-action card tap calls onSend with the correct query", () => {
-    const onSend = vi.fn();
-    renderWelcomeScreen(onSend);
-    fireEvent.click(screen.getByText("聖地を検索"));
-    expect(onSend).toHaveBeenCalledOnce();
-    expect(onSend).toHaveBeenCalledWith("君の名は の聖地を教えて");
+  it("quick-action chip fills input instead of sending", () => {
+    renderWelcomeScreen();
+    fireEvent.click(screen.getByText(jaFull.welcome_screen.action_search));
+    const input = screen.getByPlaceholderText(/アニメ名を入力/);
+    expect(input).toHaveValue("君の名は の聖地を教えて");
   });
 
-  it("nearby quick-action sends corresponding ja query", () => {
-    const onSend = vi.fn();
-    renderWelcomeScreen(onSend);
-    fireEvent.click(screen.getByText("近くの聖地"));
-    expect(onSend).toHaveBeenCalledWith("現在地の近くにある聖地を教えて");
+  it("nearby chip fills input with nearby query", () => {
+    renderWelcomeScreen();
+    fireEvent.click(screen.getByText(jaFull.welcome_screen.action_nearby));
+    const input = screen.getByPlaceholderText(/アニメ名を入力/);
+    expect(input).toHaveValue("現在地の近くにある聖地を教えて");
   });
 
-  it("route quick-action sends corresponding ja query", () => {
-    const onSend = vi.fn();
-    renderWelcomeScreen(onSend);
-    fireEvent.click(screen.getByText("ルート計画"));
-    expect(onSend).toHaveBeenCalledWith("響け！ユーフォニアム の聖地を巡るルートを作って");
+  it("route chip fills input with route query", () => {
+    renderWelcomeScreen();
+    fireEvent.click(screen.getByText(jaFull.welcome_screen.action_route));
+    const input = screen.getByPlaceholderText(/アニメ名を入力/);
+    expect(input).toHaveValue("響け！ユーフォニアム の聖地を巡るルートを作って");
   });
 
   it("renders anime cover chips when bangumi popular data loads", async () => {
@@ -79,13 +77,15 @@ describe("WelcomeScreen", () => {
       http.get("http://localhost:8000/v1/bangumi/popular", () => {
         return HttpResponse.json({
           bangumi: [
-            { bangumi_id: "bg-001", title: "响け", cover_url: null },
+            { bangumi_id: "bg-001", title: "响け", cover_url: "https://example.com/cover.jpg" },
+            { bangumi_id: "bg-002", title: "テスト2", cover_url: "https://example.com/c2.jpg" },
+            { bangumi_id: "bg-003", title: "テスト3", cover_url: "https://example.com/c3.jpg" },
+            { bangumi_id: "bg-004", title: "テスト4", cover_url: "https://example.com/c4.jpg" },
           ],
         });
       }),
     );
     renderWelcomeScreen();
-    // The popular anime title should appear as a cover chip
     const chip = await screen.findByTitle("响け");
     expect(chip).toBeInTheDocument();
   });
@@ -96,12 +96,11 @@ describe("WelcomeScreen", () => {
         return HttpResponse.json({ bangumi: [] });
       }),
     );
-    // Should render without throwing
     expect(() => renderWelcomeScreen()).not.toThrow();
-    // Quick actions still visible
-    expect(screen.getByText("聖地を検索")).toBeInTheDocument();
-    // Fallback covers should appear when list is empty
-    expect(screen.getByTitle("響け！ユーフォニアム")).toBeInTheDocument();
+    expect(screen.getByText(jaFull.welcome_screen.action_search)).toBeInTheDocument();
+    // Fallback covers appear after loading finishes
+    const cover = await screen.findByTitle("響け！ユーフォニアム");
+    expect(cover).toBeInTheDocument();
   });
 
   it("does not crash on /v1/bangumi/popular network failure", async () => {
@@ -111,7 +110,7 @@ describe("WelcomeScreen", () => {
       }),
     );
     expect(() => renderWelcomeScreen()).not.toThrow();
-    expect(screen.getByText("聖地を検索")).toBeInTheDocument();
+    expect(screen.getByText(jaFull.welcome_screen.action_search)).toBeInTheDocument();
   });
 
   it("renders tagline in Chinese when zh dict provided", () => {
@@ -128,15 +127,15 @@ describe("WelcomeScreen", () => {
 
   it("renders quick-action labels in Chinese", () => {
     renderWelcomeScreen(vi.fn(), zhFull, "zh");
-    expect(screen.getByText("搜索取景地")).toBeInTheDocument();
-    expect(screen.getByText("我附近有什么")).toBeInTheDocument();
-    expect(screen.getByText("规划路线")).toBeInTheDocument();
+    expect(screen.getByText(zhFull.welcome_screen.action_search)).toBeInTheDocument();
+    expect(screen.getByText(zhFull.welcome_screen.action_nearby)).toBeInTheDocument();
+    expect(screen.getByText(zhFull.welcome_screen.action_route)).toBeInTheDocument();
   });
 
   it("renders quick-action labels in English", () => {
     renderWelcomeScreen(vi.fn(), enFull, "en");
-    expect(screen.getByText("Search spots")).toBeInTheDocument();
-    expect(screen.getByText("Near me")).toBeInTheDocument();
-    expect(screen.getByText("Plan route")).toBeInTheDocument();
+    expect(screen.getByText(enFull.welcome_screen.action_search)).toBeInTheDocument();
+    expect(screen.getByText(enFull.welcome_screen.action_nearby)).toBeInTheDocument();
+    expect(screen.getByText(enFull.welcome_screen.action_route)).toBeInTheDocument();
   });
 });

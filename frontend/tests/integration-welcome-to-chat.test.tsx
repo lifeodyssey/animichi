@@ -3,10 +3,10 @@
  *
  * Tests the multi-component flow:
  * - ChatPanel renders WelcomeScreen when messages are empty
- * - User types in the WelcomeScreen input
- * - Submitting calls onSend with the correct text
+ * - User types in the WelcomeScreen input and submits
+ * - Clicking a chip fills the input instead of sending
  *
- * Mocks: i18n-context
+ * Mocks: i18n-context, detectLocale
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -19,6 +19,12 @@ import type { Dict } from "@/lib/i18n";
 import defaultDict from "@/lib/dictionaries/ja.json";
 
 const jaFull = defaultDict as unknown as Dict;
+
+// Force ja locale in tests — jsdom navigator.languages defaults to ["en-US"]
+vi.mock("@/lib/i18n", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/i18n")>();
+  return { ...actual, detectLocale: () => "ja" as const };
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -58,9 +64,7 @@ describe("Integration: Welcome screen to chat transition", () => {
   it("shows WelcomeScreen when messages array is empty", () => {
     renderChatPanel([]);
 
-    // WelcomeScreen shows the title "聖地巡礼"
-    expect(screen.getByText("聖地巡礼")).toBeInTheDocument();
-    // And the tagline from ja dict
+    // Tagline is now the heading
     expect(
       screen.getByText("アニメの舞台を探して、巡礼ルートを作ろう"),
     ).toBeInTheDocument();
@@ -69,7 +73,6 @@ describe("Integration: Welcome screen to chat transition", () => {
   it("WelcomeScreen has a text input for typing queries", () => {
     renderChatPanel([]);
 
-    // The input should be present with the Japanese placeholder
     const input = screen.getByPlaceholderText(
       /アニメ名を入力/,
     );
@@ -89,7 +92,6 @@ describe("Integration: Welcome screen to chat transition", () => {
     await user.keyboard("{Enter}");
 
     await waitFor(() => {
-      // onSend is called from ChatPanel.handleSend which adds coords param
       expect(onSend).toHaveBeenCalledWith("君の名は の聖地", null);
     });
   });
@@ -105,7 +107,6 @@ describe("Integration: Welcome screen to chat transition", () => {
 
     await user.type(input, "響け！ユーフォニアム");
 
-    // Find the send button by its aria-label (ja dict: "送信")
     const sendBtn = screen.getByRole("button", { name: defaultDict.chat.send });
     await user.click(sendBtn);
 
@@ -114,22 +115,16 @@ describe("Integration: Welcome screen to chat transition", () => {
     });
   });
 
-  it("clicking a suggestion chip calls onSend with the chip query", async () => {
+  it("clicking a suggestion chip fills the input instead of sending", async () => {
     const user = userEvent.setup();
-    const onSend = vi.fn();
-    renderChatPanel([], onSend);
+    renderChatPanel([]);
 
-    // Chip labels in ja locale
-    const searchChip = screen.getByText("聖地を検索");
+    const searchChip = screen.getByText(jaFull.welcome_screen.action_search);
     await user.click(searchChip);
 
-    await waitFor(() => {
-      // The chip sends the locale-specific query string
-      expect(onSend).toHaveBeenCalledWith(
-        "君の名は の聖地を教えて",
-        null,
-      );
-    });
+    // Chip fills the WelcomeScreen input
+    const input = screen.getByPlaceholderText(/アニメ名を入力/);
+    expect(input).toHaveValue("君の名は の聖地を教えて");
   });
 
   it("does not submit when input is empty", async () => {
@@ -141,7 +136,6 @@ describe("Integration: Welcome screen to chat transition", () => {
       /アニメ名を入力/,
     );
 
-    // Try Enter with empty input
     await user.click(input);
     await user.keyboard("{Enter}");
 
@@ -159,9 +153,8 @@ describe("Integration: Welcome screen to chat transition", () => {
     ];
     renderChatPanel(messages);
 
-    // Title should not be present — WelcomeScreen is gone
-    expect(screen.queryByText("聖地巡礼")).not.toBeInTheDocument();
-    // The user message should render
+    // Tagline (used as heading in welcome) should not be present
+    expect(screen.queryByText(jaFull.welcome_screen.tagline)).not.toBeInTheDocument();
     expect(screen.getByText("テストメッセージ")).toBeInTheDocument();
   });
 });

@@ -31,7 +31,7 @@ export default function MessageList({
     return (
       <div className="flex flex-1 items-center justify-center px-6 py-8">
         <div
-          className="entrance-message-slow w-full max-w-md rounded-[28px] border border-border bg-[color-mix(in_oklab,var(--color-card)_88%,white)] p-6 shadow-hero"
+          className="entrance-message-slow w-full max-w-md rounded-[28px] border border-border bg-[color-mix(in_oklab,var(--color-card)_88%,var(--color-bg))] p-6 shadow-hero"
         >
           <div className="flex flex-col gap-3">
             <p className="font-display text-3xl text-foreground">
