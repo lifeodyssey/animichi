@@ -21,8 +21,6 @@ interface ChatPanelProps {
   isMobile?: boolean;
   /** Adaptive layout mode — controls width and centering. */
   layoutMode?: LayoutMode;
-  /** Opens the sidebar overlay (tablet/mobile). */
-  onMenuOpen?: () => void;
 }
 
 export default function ChatPanel({
@@ -36,7 +34,6 @@ export default function ChatPanel({
   onOpenDrawer,
   isMobile = false,
   layoutMode = "chat",
-  onMenuOpen,
 }: ChatPanelProps) {
   const isEmpty = messages.length === 0;
   const [acquiredCoords, setAcquiredCoords] = useState<{
@@ -63,31 +60,10 @@ export default function ChatPanel({
         !isMobile && layoutMode === "split" && "border-r border-border",
       )}
     >
-      {/* Tablet/mobile menu bar */}
-      {onMenuOpen && (
-        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
-          <button
-            type="button"
-            onClick={onMenuOpen}
-            aria-label="Menu"
-            className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-          <span className="font-display text-sm font-bold text-primary">
-            聖
-          </span>
-        </div>
-      )}
-
       {/* Content area */}
       <div className="flex min-h-0 flex-1 flex-col">
         {isEmpty ? (
-          /* Welcome screen: fills entire content area, no scroll */
+          /* Welcome screen: fills entire content area, has its own input */
           <WelcomeScreen onSend={handleSend} dict={dict} locale={locale} />
         ) : (
           /* Messages: centered at comfortable reading width */
@@ -111,7 +87,7 @@ export default function ChatPanel({
             <ChatInput
               onSend={handleSend}
               disabled={sending}
-              showQuickActions={isMobile && isEmpty}
+              showQuickActions={false}
               onLocationAcquired={handleLocationAcquired}
             />
           </div>

@@ -40,7 +40,8 @@ function renderChatPanel(
 describe("ChatPanel", () => {
   it("renders WelcomeScreen when messages are empty", () => {
     renderChatPanel([]);
-    expect(screen.getByText("聖地巡礼")).toBeInTheDocument();
+    // Tagline is now the heading in WelcomeScreen
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
   });
 
   it("renders message text when messages are non-empty", () => {
@@ -50,7 +51,7 @@ describe("ChatPanel", () => {
 
   it("does not render WelcomeScreen when messages are non-empty", () => {
     renderChatPanel([makeMessage("m1", "user", "テストメッセージ")]);
-    expect(screen.queryByText("聖地巡礼")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
   });
 
   describe("typing and sending a message", () => {
