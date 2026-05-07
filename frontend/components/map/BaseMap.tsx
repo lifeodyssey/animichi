@@ -172,9 +172,9 @@ export default function BaseMap({
                 style={{
                   width: 28, height: 28, borderRadius: "50%",
                   background: isSelected ? "var(--color-marker-active)" : "var(--color-primary)",
-                  color: "white", fontWeight: 600, fontSize: 14,
+                  color: "var(--color-primary-fg)", fontWeight: 600, fontSize: 14,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.3)", border: "2px solid white",
+                  boxShadow: "0 2px 6px oklch(20% 0.02 240 / 0.3)", border: "2px solid var(--color-card)",
                   cursor: "pointer",
                 }}
               >
@@ -191,7 +191,7 @@ export default function BaseMap({
                   d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z"
                   fill={isSelected ? "var(--color-marker-active)" : "var(--color-primary)"}
                 />
-                <circle cx="12" cy="12" r="5" fill="white" />
+                <circle cx="12" cy="12" r="5" fill="var(--color-card)" />
               </svg>
             )}
           </Marker>
@@ -224,7 +224,7 @@ export default function BaseMap({
               {popupPoint.name_cn || popupPoint.name}
             </strong>
             <br />
-            <span className="text-xs" style={{ color: "oklch(45% 0.032 228)" }}>
+            <span className="text-xs" style={{ color: "var(--color-muted-fg)" }}>
               {popupPoint.title_cn || popupPoint.title}
               {popupPoint.episode != null ? ` · 第${popupPoint.episode}話` : ""}
             </span>
@@ -238,7 +238,7 @@ export default function BaseMap({
           <Layer
             type="line"
             paint={{
-              "line-color": "oklch(58% 0.19 28)",
+              "line-color": "var(--color-brand)",
               "line-width": 3,
               "line-opacity": 0.8,
             }}

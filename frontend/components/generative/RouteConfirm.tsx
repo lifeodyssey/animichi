@@ -99,7 +99,7 @@ export default function RouteConfirm({
     <div className="flex h-full flex-col bg-background">
       {/* Fix 8: grip hover animation */}
       <style>{`
-        .group:hover .grip-handle > div { color: oklch(60% 0.148 240 / 0.6) !important; }
+        .group:hover .grip-handle > div { color: oklch(72% 0.100 240 / 0.6) !important; }
       `}</style>
 
       {/* ── Header ──────────────────────────────────────────────────── */}
