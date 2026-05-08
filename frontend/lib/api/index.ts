@@ -8,10 +8,7 @@ export {
   buildSelectedRouteActionText,
   sendMessage,
   sendSelectedRoute,
-  sendMessageStream,
-  parseSSEChunk,
 } from "./runtime";
-export type { StreamEventPayload } from "./runtime";
 
 export {
   fetchConversations,
