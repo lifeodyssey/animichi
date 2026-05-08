@@ -1,21 +1,44 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useChat } from "@ai-sdk/react";
 import { useSession } from "../../hooks/useSession";
-import { useChat } from "../../hooks/useChat";
 import { usePointSelection } from "../../hooks/usePointSelection";
 import { useLocale, useDict } from "../../lib/i18n-context";
 import { useLayoutMode } from "../../hooks/useLayoutMode";
 import { useRouteSelection } from "../../hooks/useRouteSelection";
+import { useChatTransport } from "../../hooks/useChatTransport";
 import { PointSelectionContext } from "../../contexts/PointSelectionContext";
 import { SuggestContext } from "../../contexts/SuggestContext";
 import { isVisualResponse } from "../generative/registry";
 import { isRouteData } from "../../lib/types";
 import { cn } from "../../lib/utils";
+import type { ChatMessage } from "../../lib/types";
+import type { UIMessage } from "ai";
 import SharedHeader from "./SharedHeader";
 import ChatPanel from "../chat/ChatPanel";
 import ResultSheet from "./ResultSheet";
 import ResultPanel from "./ResultPanel";
+import type { SeichijunreiMessage } from "../../lib/types/chat";
+
+// ---------------------------------------------------------------------------
+// Compatibility bridge: map AI SDK UIMessage → legacy ChatMessage shape.
+// TEMPORARY — Card C will update ChatPanel/MessageList to consume
+// UIMessage.parts directly, at which point this function is removed.
+// ---------------------------------------------------------------------------
+function toCompatMessage(msg: UIMessage): ChatMessage {
+  const text = msg.parts
+    .filter((p): p is { type: "text"; text: string } => p.type === "text")
+    .map((p) => p.text)
+    .join("");
+  return {
+    id: msg.id,
+    role: msg.role as "user" | "assistant",
+    text,
+    timestamp: Date.now(),
+    loading: false,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // AppShell — adaptive layout shell
@@ -29,29 +52,35 @@ export default function AppShell() {
   const dict = useDict();
   const { sessionId, setSessionId, clearSession } = useSession();
 
-  const handleTitleUpdate = useCallback(
-    (_sid: string, _title: string) => { /* conversation history disabled */ },
-    [],
-  );
+  const transport = useChatTransport(sessionId, locale);
 
-  const {
-    messages,
-    send,
-    sending,
-    clear: clearChat,
-    appendMessages,
-    replaceMessage,
-    removeMessage,
-  } = useChat(sessionId, setSessionId, locale, handleTitleUpdate);
+  const { messages, sendMessage, status, setMessages, stop } = useChat<SeichijunreiMessage>({
+    transport,
+    onFinish: ({ message }) => {
+      const sid = (message as SeichijunreiMessage).metadata?.session_id;
+      if (sid) setSessionId(sid);
+    },
+  });
+
+  const sending = status === "streaming" || status === "submitted";
+
   const { selectedIds, toggle, clear: clearSelectedPoints } = usePointSelection();
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // For the transition period, downstream components still expect ChatMessage[].
+  // Map UIMessage → ChatMessage via toCompatMessage. Card C will update
+  // ChatPanel and MessageList to consume UIMessage.parts directly.
+  const legacyMessages = useMemo(
+    () => messages.map(toCompatMessage),
+    [messages],
+  );
+
   const activeMessage = useMemo(
     () => activeMessageId
-      ? (messages.find((m) => m.id === activeMessageId && m.response && isVisualResponse(m.response)) ?? null)
+      ? (legacyMessages.find((m) => m.id === activeMessageId && m.response && isVisualResponse(m.response)) ?? null)
       : null,
-    [activeMessageId, messages],
+    [activeMessageId, legacyMessages],
   );
 
   const activeResponse = activeMessage?.response ?? null;
@@ -61,18 +90,18 @@ export default function AppShell() {
   const { mode, isMobile } = layout;
 
   const defaultOrigin = useMemo(() => {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const routeHistory = messages[index]?.response?.route_history ?? [];
+    for (let index = legacyMessages.length - 1; index >= 0; index -= 1) {
+      const routeHistory = legacyMessages[index]?.response?.route_history ?? [];
       const origin = routeHistory.find((entry) => entry.origin_station)?.origin_station;
       if (origin) return origin;
     }
     return "";
-  }, [messages]);
+  }, [legacyMessages]);
 
   // Auto-activate latest visual response
   useEffect(() => {
-    if (messages.length === 0) return;
-    const last = messages[messages.length - 1];
+    if (legacyMessages.length === 0) return;
+    const last = legacyMessages[legacyMessages.length - 1];
     if (last.role !== "assistant" || last.loading || !last.response) return;
     if (!isVisualResponse(last.response)) return;
     const id = last.id;
@@ -81,16 +110,16 @@ export default function AppShell() {
       setActiveMessageId(id);
       if (mobile) setDrawerOpen(true);
     });
-  }, [messages, isMobile]);
+  }, [legacyMessages, isMobile]);
 
   const handleSend = useCallback(
-    (text: string, coords?: { lat: number; lng: number } | null) => {
+    (text: string, _coords?: { lat: number; lng: number } | null) => {
       clearSelectedPoints();
       setActiveMessageId(null);
       setDrawerOpen(false);
-      send(text, coords);
+      sendMessage({ text });
     },
-    [clearSelectedPoints, send],
+    [clearSelectedPoints, sendMessage],
   );
 
   const handleActivate = useCallback((messageId: string) => {
@@ -101,6 +130,18 @@ export default function AppShell() {
       return newId;
     });
   }, [isMobile]);
+
+  // Route selection still uses the legacy ChatMessage-based API.
+  // We provide stub helpers until route selection is migrated in a later card.
+  const appendMessages = useCallback((..._msgs: ChatMessage[]) => {
+    // No-op during transition
+  }, []);
+  const replaceMessage = useCallback((_id: string, _updater: (m: ChatMessage) => ChatMessage) => {
+    // No-op during transition
+  }, []);
+  const removeMessage = useCallback((_id: string) => {
+    // No-op during transition
+  }, []);
 
   const { routeSending, handleRouteSelected, handleRouteConfirmed, abortRoute } = useRouteSelection({
     selectedIds,
@@ -118,12 +159,13 @@ export default function AppShell() {
 
   const handleNewChat = useCallback(() => {
     abortRoute();
-    clearChat();
+    stop();
+    setMessages([]);
     clearSelectedPoints();
     clearSession();
     setActiveMessageId(null);
     setDrawerOpen(false);
-  }, [abortRoute, clearChat, clearSelectedPoints, clearSession]);
+  }, [abortRoute, stop, setMessages, clearSelectedPoints, clearSession]);
 
   const isSending = sending || routeSending;
   const isRouteResult = activeResponse?.data ? isRouteData(activeResponse.data) : false;
@@ -164,7 +206,7 @@ export default function AppShell() {
                 )}
               >
                 <ChatPanel
-                  messages={messages}
+                  messages={legacyMessages}
                   sending={isSending}
                   activeMessageId={activeMessageId}
                   dict={dict}
