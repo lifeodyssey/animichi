@@ -32,6 +32,7 @@ from backend.interfaces.routes._middleware import (
     register_observability_middleware,
 )
 from backend.interfaces.routes.bangumi import router as bangumi_router
+from backend.interfaces.routes.chat import router as chat_router
 from backend.interfaces.routes.conversations import router as conversations_router
 from backend.interfaces.routes.feedback import router as feedback_router
 from backend.interfaces.routes.health import router as health_router
@@ -112,6 +113,7 @@ def create_fastapi_app(
     register_observability_middleware(app)
     app.include_router(health_router)
     app.include_router(runtime_router)
+    app.include_router(chat_router)
     app.include_router(feedback_router)
     app.include_router(conversations_router)
     app.include_router(bangumi_router)
