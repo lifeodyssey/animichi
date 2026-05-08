@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { ChatMessage } from "../../lib/types";
+import type { UIMessage, ChatStatus } from "ai";
 import { useDict } from "../../lib/i18n-context";
 import { useSuggest } from "../../contexts/SuggestContext";
 import MessageBubble from "./MessageBubble";
 
 interface MessageListProps {
-  messages: ChatMessage[];
+  messages: UIMessage[];
   onActivate?: (messageId: string) => void;
   activeMessageId?: string | null;
   onOpenDrawer?: () => void;
+  /** Chat status from useChat — used to determine if the last message is streaming. */
+  status?: ChatStatus;
 }
 
 export default function MessageList({
@@ -18,6 +20,7 @@ export default function MessageList({
   onActivate,
   activeMessageId,
   onOpenDrawer,
+  status,
 }: MessageListProps) {
   const { chat: t, clarification } = useDict();
   const onSuggest = useSuggest();
@@ -71,31 +74,29 @@ export default function MessageList({
     );
   }
 
-  const precedingUserText: string[] = [];
-  let lastUserText = "";
-  messages.forEach((m) => {
-    precedingUserText.push(lastUserText);
-    if (m.role === "user") lastUserText = m.text;
-  });
+  const isStreaming = status === "streaming" || status === "submitted";
 
   return (
     <div className="flex-1 overflow-y-auto py-6">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-5">
-        {messages.map((msg, idx) => (
-          <div
-            key={msg.id}
-            className="entrance-message"
-            style={{ animationDelay: `${Math.min(idx * 40, 200)}ms` }}
-          >
-            <MessageBubble
-              message={msg}
-              userQuery={msg.role === "assistant" ? precedingUserText[idx] : undefined}
-              onActivate={onActivate}
-              isActive={msg.id === activeMessageId}
-              onOpenDrawer={onOpenDrawer}
-            />
-          </div>
-        ))}
+        {messages.map((msg, idx) => {
+          const isLast = idx === messages.length - 1;
+          return (
+            <div
+              key={msg.id}
+              className="entrance-message"
+              style={{ animationDelay: `${Math.min(idx * 40, 200)}ms` }}
+            >
+              <MessageBubble
+                message={msg}
+                onActivate={onActivate}
+                isActive={msg.id === activeMessageId}
+                onOpenDrawer={onOpenDrawer}
+                isStreaming={isLast && isStreaming}
+              />
+            </div>
+          );
+        })}
         <div ref={endRef} />
       </div>
     </div>
