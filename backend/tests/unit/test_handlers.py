@@ -156,10 +156,16 @@ class TestResolveAnime:
                 },
             ]
         )
+        mock_gateway = MagicMock()
+        mock_gateway.search_subject = AsyncMock(return_value=[])
         step = _step(ToolName.RESOLVE_ANIME, {"title": "凉宫"})
 
         # DB already has >1 match → returns ambiguous before hitting API
-        result = await execute_resolve(step, {}, db, None)
+        with patch(
+            "backend.agents.handlers.resolve_anime.BangumiClientGateway",
+            return_value=mock_gateway,
+        ):
+            result = await execute_resolve(step, {}, db, None)
 
         assert result.success is True
         assert result.data["ambiguous"] is True
