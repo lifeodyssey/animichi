@@ -15,11 +15,6 @@ describe("api module barrel exports", () => {
     expect(typeof mod.sendSelectedRoute).toBe("function");
   });
 
-  it("exports sendMessageStream", async () => {
-    const mod = await import("@/lib/api");
-    expect(typeof mod.sendMessageStream).toBe("function");
-  });
-
   it("exports submitFeedback", async () => {
     const mod = await import("@/lib/api");
     expect(typeof mod.submitFeedback).toBe("function");

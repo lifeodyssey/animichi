@@ -26,23 +26,6 @@ function setAccessToken(token: string | null) {
   });
 }
 
-function createStream(chunks: string[]): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-  let index = 0;
-
-  return new ReadableStream<Uint8Array>({
-    pull(controller) {
-      if (index >= chunks.length) {
-        controller.close();
-        return;
-      }
-
-      controller.enqueue(encoder.encode(chunks[index]));
-      index += 1;
-    },
-  });
-}
-
 function buildRuntimeResponse(overrides: Partial<RuntimeResponse> = {}): RuntimeResponse {
   return {
     success: true,
@@ -191,70 +174,4 @@ it("sendSelectedRoute posts selected ids, origin, locale, and auth", async () =>
     selected_point_ids: ["point-1", "point-2"],
     origin: "Uji Station",
   });
-});
-
-it("sendMessageStream parses SSE frames that use event lines", async () => {
-  setAccessToken("token-123");
-  const response = buildRuntimeResponse({
-    session_id: "sess-event-lines",
-    message: "Route ready",
-  });
-  const seenSteps: Array<{ tool: string; status: "running" | "done" | "failed" }> = [];
-
-  global.fetch = (async () =>
-    ({
-      ok: true,
-      body: createStream([
-        'event: step\ndata: {"tool":"resolve_points","status":"running"}\n\n',
-        'event: step\ndata: {"tool":"resolve_points","status":"done"}\n\n',
-        `event: done\ndata: ${JSON.stringify(response)}\n\n`,
-      ]),
-    }) as Response) as typeof fetch;
-
-  const result = await api.sendMessageStream(
-    "make a route",
-    "sess-legacy",
-    "en",
-    (tool, status) => {
-      seenSteps.push({ tool, status });
-    },
-  );
-
-  expect(seenSteps).toEqual([
-    { tool: "resolve_points", status: "running" },
-    { tool: "resolve_points", status: "done" },
-  ]);
-  expect(result).toEqual(response);
-});
-
-it("sendMessageStream keeps supporting legacy JSON event payloads", async () => {
-  setAccessToken("token-123");
-  const response = buildRuntimeResponse({
-    session_id: "sess-legacy-json",
-    message: "Legacy stream parsed",
-  });
-  const seenSteps: Array<{ tool: string; status: "running" | "done" | "failed" }> = [];
-
-  global.fetch = (async () =>
-    ({
-      ok: true,
-      body: createStream([
-        'data: {"event":"step","tool":"search_bangumi","status":"running"}\n\n',
-        `data: ${JSON.stringify({ event: "done", ...response })}\n\n`,
-      ]),
-    }) as Response) as typeof fetch;
-
-  const result = await api.sendMessageStream(
-    "legacy parser",
-    "sess-legacy",
-    "en",
-    (tool, status) => {
-      seenSteps.push({ tool, status });
-    },
-  );
-
-  expect(seenSteps).toEqual([
-    { tool: "search_bangumi", status: "running" },
-  ]);
-  expect(result).toEqual(response);
 });

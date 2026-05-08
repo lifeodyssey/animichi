@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { buildSelectedRouteActionText, sendSelectedRoute } from "../lib/api";
-import { createMessageId } from "./useChat";
+import { createMessageId } from "../lib/message-id";
 import type { ChatMessage, RuntimeResponse } from "../lib/types";
 import type { Locale } from "../lib/i18n";
 
