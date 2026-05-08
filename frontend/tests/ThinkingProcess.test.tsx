@@ -1,37 +1,58 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import ThinkingProcess from "../components/chat/ThinkingProcess";
-import type { StepEvent } from "../lib/types";
+import type { DynamicToolUIPart } from "ai";
 import defaultDict from "../lib/dictionaries/ja.json";
 
 vi.mock("@/lib/i18n-context", () => ({
   useDict: () => defaultDict,
 }));
 
-const makeStep = (
-  tool: string,
-  status: StepEvent["status"] = "done",
-  observation?: string,
-): StepEvent => ({ tool, status, observation });
+function makeToolPart(
+  toolName: string,
+  state: DynamicToolUIPart["state"],
+  overrides: Partial<DynamicToolUIPart> = {},
+): DynamicToolUIPart {
+  const base = {
+    type: "dynamic-tool" as const,
+    toolName,
+    toolCallId: `call-${toolName}-${Math.random().toString(36).slice(2, 8)}`,
+  };
+
+  switch (state) {
+    case "input-streaming":
+      return { ...base, state, input: undefined, ...overrides } as DynamicToolUIPart;
+    case "input-available":
+      return { ...base, state, input: {}, ...overrides } as DynamicToolUIPart;
+    case "output-available":
+      return { ...base, state, input: {}, output: {}, ...overrides } as DynamicToolUIPart;
+    case "output-error":
+      return { ...base, state, input: {}, errorText: "Error occurred", ...overrides } as DynamicToolUIPart;
+    default:
+      return { ...base, state, input: {}, ...overrides } as DynamicToolUIPart;
+  }
+}
 
 describe("ThinkingProcess", () => {
-  it("renders step labels from the thinking dict when steps are provided", () => {
-    const steps: StepEvent[] = [
-      makeStep("resolve_anime", "done", "Found anime"),
-      makeStep("search_bangumi", "done", "Found 5 spots"),
+  it("renders tool labels from the thinking dict when tool parts are provided", () => {
+    const toolParts = [
+      makeToolPart("resolve_anime", "output-available"),
+      makeToolPart("search_bangumi", "output-available"),
     ];
-    render(<ThinkingProcess steps={steps} isStreaming={false} />);
+    render(<ThinkingProcess toolParts={toolParts} isStreaming={false} />);
 
-    // The collapsed summary shows observations joined by arrows
-    expect(screen.getByText(/Found anime/)).toBeInTheDocument();
-    expect(screen.getByText(/Found 5 spots/)).toBeInTheDocument();
+    // The collapsed summary shows tool labels joined by arrows
+    const resolveLabel = defaultDict.thinking.resolve_anime;
+    const searchLabel = defaultDict.thinking.search_bangumi;
+    expect(screen.getByText(new RegExp(resolveLabel))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(searchLabel))).toBeInTheDocument();
   });
 
   it("shows streaming indicator when isStreaming=true", () => {
-    const steps: StepEvent[] = [makeStep("resolve_anime", "running")];
-    render(<ThinkingProcess steps={steps} isStreaming={true} />);
+    const toolParts = [makeToolPart("resolve_anime", "input-available")];
+    render(<ThinkingProcess toolParts={toolParts} isStreaming={true} />);
 
-    // When streaming with steps, the brain emoji should have animate-pulse class
+    // When streaming with tool parts, the brain emoji should have animate-pulse class
     const brainElements = screen.getAllByText("\uD83E\uDDE0");
     const pulsingBrain = brainElements.find((el) =>
       el.className.includes("animate-pulse"),
@@ -39,9 +60,9 @@ describe("ThinkingProcess", () => {
     expect(pulsingBrain).toBeDefined();
   });
 
-  it("does not show streaming indicator when isStreaming=false and steps are done", () => {
-    const steps: StepEvent[] = [makeStep("resolve_anime", "done", "OK")];
-    render(<ThinkingProcess steps={steps} isStreaming={false} />);
+  it("does not show streaming indicator when isStreaming=false and tools are done", () => {
+    const toolParts = [makeToolPart("resolve_anime", "output-available")];
+    render(<ThinkingProcess toolParts={toolParts} isStreaming={false} />);
 
     const brainElements = screen.getAllByText("\uD83E\uDDE0");
     // When not streaming, the brain emoji should NOT have animate-pulse
@@ -51,87 +72,83 @@ describe("ThinkingProcess", () => {
     expect(pulsingBrain).toBeUndefined();
   });
 
-  it("renders tool icon emoji for each step when expanded", () => {
-    const steps: StepEvent[] = [
-      makeStep("resolve_anime", "done", "OK"),
-      makeStep("plan_route", "done", "Route planned"),
+  it("renders tool names when expanded", () => {
+    const toolParts = [
+      makeToolPart("resolve_anime", "output-available"),
+      makeToolPart("plan_route", "output-available"),
     ];
-    render(<ThinkingProcess steps={steps} isStreaming={true} />);
+    render(<ThinkingProcess toolParts={toolParts} isStreaming={true} />);
 
     // Component starts expanded when isStreaming=true
-    // resolve_anime icon is magnifying glass
-    expect(screen.getByText("\uD83D\uDD0D")).toBeInTheDocument();
-    // plan_route icon is world map
-    expect(screen.getByText("\uD83D\uDDFA\uFE0F")).toBeInTheDocument();
+    const resolveLabel = defaultDict.thinking.resolve_anime;
+    const planLabel = defaultDict.thinking.plan_route;
+    // Labels should appear in the expanded list
+    const allText = screen.getAllByText(new RegExp(resolveLabel));
+    expect(allText.length).toBeGreaterThan(0);
+    expect(screen.getAllByText(new RegExp(planLabel)).length).toBeGreaterThan(0);
   });
 
-  it("shows the thinking label from dict when streaming with no steps", () => {
-    render(<ThinkingProcess steps={[]} isStreaming={true} />);
+  it("shows the thinking label from dict when streaming with no tool parts", () => {
+    render(<ThinkingProcess toolParts={[]} isStreaming={true} />);
     expect(
       screen.getByText(defaultDict.chat.thinking),
     ).toBeInTheDocument();
   });
 
-  it("returns null when no steps and not streaming", () => {
+  it("returns null when no tool parts and not streaming", () => {
     const { container } = render(
-      <ThinkingProcess steps={[]} isStreaming={false} />,
+      <ThinkingProcess toolParts={[]} isStreaming={false} />,
     );
     expect(container.innerHTML).toBe("");
   });
 
   it("expands and collapses on button click", () => {
-    const steps: StepEvent[] = [
-      makeStep("resolve_anime", "done", "Found"),
-      makeStep("search_bangumi", "done", "Searched"),
+    const toolParts = [
+      makeToolPart("resolve_anime", "output-available"),
+      makeToolPart("search_bangumi", "output-available"),
     ];
     // isStreaming=false => starts collapsed
-    render(<ThinkingProcess steps={steps} isStreaming={false} />);
+    render(<ThinkingProcess toolParts={toolParts} isStreaming={false} />);
 
-    // Collapsed: step labels from dict should not be visible (only summary)
-    expect(screen.queryByText("\uD83D\uDD0D")).not.toBeInTheDocument();
+    // Collapsed: expanded list should not be visible (only summary)
+    // The border-l-2 div is the expanded content
+    expect(document.querySelector(".border-l-2")).toBeNull();
 
     // Click to expand
     fireEvent.click(screen.getByRole("button"));
 
-    // Now tool icons should appear
-    expect(screen.getByText("\uD83D\uDD0D")).toBeInTheDocument();
-    expect(screen.getByText("\uD83D\uDCCD")).toBeInTheDocument();
+    // Now expanded content should appear
+    expect(document.querySelector(".border-l-2")).not.toBeNull();
   });
 
-  it("shows failed count when steps have failures", () => {
-    const steps: StepEvent[] = [
-      makeStep("resolve_anime", "failed", "Error occurred"),
+  it("shows failed count when tool parts have failures", () => {
+    const toolParts = [
+      makeToolPart("resolve_anime", "output-error"),
     ];
-    render(<ThinkingProcess steps={steps} isStreaming={false} />);
+    render(<ThinkingProcess toolParts={toolParts} isStreaming={false} />);
 
     expect(screen.getByText("(1 failed)")).toBeInTheDocument();
   });
 
-  it("shows warning icon for failed step observation when expanded", () => {
-    const steps: StepEvent[] = [
-      makeStep("resolve_anime", "failed", "Title not found in database"),
+  it("shows error text for failed tool when expanded", () => {
+    const toolParts = [
+      makeToolPart("resolve_anime", "output-error", { errorText: "Title not found in database" } as Partial<DynamicToolUIPart>),
     ];
-    render(<ThinkingProcess steps={steps} isStreaming={true} />);
+    render(<ThinkingProcess toolParts={toolParts} isStreaming={true} />);
 
-    // Failed observation should show warning sign, not arrow
+    // Failed observation should show warning sign
     expect(
       screen.getByText(/\u26A0.*Title not found in database/),
     ).toBeInTheDocument();
-    // Should NOT show arrow for failed steps
-    expect(
-      screen.queryByText(/\u2192.*Title not found in database/),
-    ).not.toBeInTheDocument();
   });
 
-  it("shows arrow icon for successful step observation when expanded", () => {
-    const steps: StepEvent[] = [
-      makeStep("resolve_anime", "done", "Found 3 results"),
+  it("shows checkmark for successful tool when expanded", () => {
+    const toolParts = [
+      makeToolPart("resolve_anime", "output-available"),
     ];
-    render(<ThinkingProcess steps={steps} isStreaming={true} />);
+    render(<ThinkingProcess toolParts={toolParts} isStreaming={true} />);
 
-    // Successful observation should show arrow, not warning
-    expect(
-      screen.getByText(/\u2192.*Found 3 results/),
-    ).toBeInTheDocument();
+    // Successful tool should show checkmark
+    expect(screen.getByText("\u2713")).toBeInTheDocument();
   });
 });

@@ -1,19 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import type { ChatMessage } from "../../lib/types";
+import type { DynamicToolUIPart } from "ai";
+import type { RuntimeResponse } from "../../lib/types";
 import { submitFeedback } from "../../lib/api";
 import { useDict } from "../../lib/i18n-context";
 
 interface FeedbackButtonsProps {
-  message: ChatMessage;
-  userQuery: string;
+  messageId: string;
+  toolParts: DynamicToolUIPart[];
+  userQuery?: string;
 }
 
-export default function FeedbackButtons({ message, userQuery }: FeedbackButtonsProps) {
+export default function FeedbackButtons({ messageId: _messageId, toolParts, userQuery }: FeedbackButtonsProps) {
   const { chat: t } = useDict();
   const [state, setState] = useState<"idle" | "commenting" | "submitted">("idle");
   const [comment, setComment] = useState("");
+
+  // Extract session_id and intent from the first completed tool output
+  const firstOutput = toolParts.find((p) => p.state === "output-available");
+  const response = firstOutput?.state === "output-available"
+    ? asRuntimeResponse(firstOutput.output)
+    : null;
+  const sessionId = response?.session_id ?? null;
+  const intent = response?.intent ?? "unknown";
 
   async function handleFeedback(rating: "good" | "bad") {
     if (rating === "bad" && state === "idle") {
@@ -23,9 +33,9 @@ export default function FeedbackButtons({ message, userQuery }: FeedbackButtonsP
 
     try {
       await submitFeedback({
-        session_id: message.response?.session_id,
-        query_text: userQuery,
-        intent: message.response?.intent ?? "unknown",
+        session_id: sessionId,
+        query_text: userQuery ?? "",
+        intent,
         rating,
         comment: comment || undefined,
       });
@@ -52,7 +62,7 @@ export default function FeedbackButtons({ message, userQuery }: FeedbackButtonsP
           className="flex h-[44px] w-[44px] items-center justify-center rounded text-base text-muted-foreground transition hover:text-foreground"
           title={t.feedback_good_title}
         >
-          👍
+          {"\uD83D\uDC4D"}
         </button>
         <button
           aria-label={t.feedback_bad_title}
@@ -60,7 +70,7 @@ export default function FeedbackButtons({ message, userQuery }: FeedbackButtonsP
           className="flex h-[44px] w-[44px] items-center justify-center rounded text-base text-muted-foreground transition hover:text-foreground"
           title={t.feedback_bad_title}
         >
-          👎
+          {"\uD83D\uDC4E"}
         </button>
       </div>
       {state === "commenting" && (
@@ -83,4 +93,11 @@ export default function FeedbackButtons({ message, userQuery }: FeedbackButtonsP
       )}
     </div>
   );
+}
+
+function asRuntimeResponse(output: unknown): RuntimeResponse | null {
+  if (typeof output !== "object" || output === null) return null;
+  const obj = output as Record<string, unknown>;
+  if (typeof obj.intent !== "string") return null;
+  return obj as unknown as RuntimeResponse;
 }

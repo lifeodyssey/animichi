@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import type { ChatMessage } from "../../lib/types";
+import type { UIMessage } from "ai";
 import { useDict } from "../../lib/i18n-context";
 import MessageList from "./MessageList";
 import ChatInput from "./ChatInput";
@@ -9,7 +9,7 @@ import ChatInput from "./ChatInput";
 interface ChatPopupProps {
   open: boolean;
   onClose: () => void;
-  messages: ChatMessage[];
+  messages: UIMessage[];
   sending: boolean;
   activeMessageId: string | null;
   onSend: (text: string, coords?: { lat: number; lng: number } | null) => void;

@@ -1,137 +1,112 @@
 "use client";
 
-import type { ChatMessage, ErrorCode, RuntimeResponse } from "../../lib/types";
-import { isQAData, isRouteData, isSearchData, isClarifyData } from "../../lib/types";
-import { isVisualResponse } from "../generative/registry";
+import type { UIMessage, DynamicToolUIPart } from "ai";
 import { useDict } from "../../lib/i18n-context";
 import ThinkingProcess from "./ThinkingProcess";
-import ClarificationBubble from "./ClarificationBubble";
-import NearbyBubbleWrapper from "./NearbyBubbleWrapper";
-import ResultAnchor from "./ResultAnchor";
+import ToolPartRenderer from "./ToolPartRenderer";
 import FeedbackButtons from "./FeedbackButtons";
 
 interface MessageBubbleProps {
-  message: ChatMessage;
-  userQuery?: string;
+  message: UIMessage;
   onActivate?: (messageId: string) => void;
   isActive?: boolean;
   onOpenDrawer?: () => void;
-  onRetry?: () => void;
+  isStreaming?: boolean;
 }
 
 export default function MessageBubble({
   message,
-  userQuery,
   onActivate,
   isActive = false,
   onOpenDrawer,
-  onRetry,
+  isStreaming = false,
 }: MessageBubbleProps) {
   const dict = useDict();
   const t = dict.chat;
 
   if (message.role === "user") {
+    const text = message.parts
+      .filter((p): p is { type: "text"; text: string } => p.type === "text")
+      .map((p) => p.text)
+      .join("");
+
     return (
-      <div
-        className="entrance-message flex justify-end"
-      >
+      <div className="entrance-message flex justify-end">
         <div className="max-w-[70%] rounded-xl bg-primary px-4 py-2.5 text-sm font-normal text-primary-fg">
-          {message.text}
+          {text}
         </div>
       </div>
     );
   }
 
-  const isClarification =
-    message.response != null && isClarifyData(message.response.data);
-  const isNearby =
-    message.response != null &&
-    message.response.intent === "search_nearby" &&
-    isSearchData(message.response.data);
+  // Assistant message — render each part
+  const toolParts = message.parts.filter(
+    (p): p is DynamicToolUIPart => p.type === "dynamic-tool",
+  );
+
+  const hasToolOutput = toolParts.some(
+    (p) => p.state === "output-available",
+  );
 
   return (
     <div
       className="entrance-message group flex flex-col gap-2.5"
-      aria-live={message.loading ? "polite" : undefined}
+      aria-live={isStreaming ? "polite" : undefined}
     >
       <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground opacity-40">
         {t.bot_name}
       </p>
 
-      {message.loading ? (
-        <ThinkingProcess steps={message.steps ?? []} isStreaming={true} />
-      ) : message.errorCode ? (
-        <ErrorDisplay errorCode={message.errorCode} errorDict={dict.error} onRetry={onRetry} />
-      ) : isNearby && message.response != null ? (
-        <NearbyBubbleWrapper response={message.response} />
-      ) : isClarification && message.response != null ? (
-        <ClarificationBubble response={message.response} />
-      ) : (
-        <>
-          {message.text && (
-            <p className="text-sm font-light leading-loose text-foreground">
-              {message.text}
+      {/* Thinking indicator — shows tool execution progress */}
+      {toolParts.length > 0 && (
+        <ThinkingProcess toolParts={toolParts} isStreaming={isStreaming} />
+      )}
+
+      {/* No tool parts and streaming — show bare thinking indicator */}
+      {toolParts.length === 0 && isStreaming && !hasTextContent(message) && (
+        <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="animate-pulse">{"\uD83E\uDDE0"}</span>
+          <span>{t?.thinking || "Thinking..."}</span>
+        </div>
+      )}
+
+      {/* Render each part */}
+      {message.parts.map((part, i) => {
+        if (part.type === "text" && part.text) {
+          return (
+            <p key={`text-${i}`} className="text-sm font-light leading-loose text-foreground">
+              {part.text}
             </p>
-          )}
-          {message.response && isVisualResponse(message.response) && (
-            <ResultAnchor
-              label={t.anchor_results.replace("{count}", String(getResultCount(message.response)))}
-              subtitle={t.tap_to_view}
+          );
+        }
+
+        if (part.type === "dynamic-tool") {
+          return (
+            <ToolPartRenderer
+              key={part.toolCallId}
+              part={part}
               messageId={message.id}
               onActivate={onActivate}
               isActive={isActive}
               onOpenDrawer={onOpenDrawer}
             />
-          )}
-          {message.response && !message.loading && (
-            <FeedbackButtons message={message} userQuery={userQuery ?? ""} />
-          )}
-        </>
+          );
+        }
+
+        // Reasoning, step-start, source parts — skip for now
+        return null;
+      })}
+
+      {/* Feedback buttons — only shown when streaming is done and there's content */}
+      {!isStreaming && hasToolOutput && (
+        <FeedbackButtons messageId={message.id} toolParts={toolParts} />
       )}
     </div>
   );
 }
 
-function mapErrorToKey(code: ErrorCode): "stream" | "timeout" | "rate_limit" | "generic" {
-  switch (code) {
-    case "stream_error": return "stream";
-    case "timeout": return "timeout";
-    case "rate_limit": return "rate_limit";
-    default: return "generic";
-  }
-}
-
-function ErrorDisplay({
-  errorCode,
-  errorDict,
-  onRetry,
-}: {
-  errorCode: ErrorCode;
-  errorDict: { stream: string; timeout: string; rate_limit: string; generic: string; retry: string };
-  onRetry?: () => void;
-}) {
-  const key = mapErrorToKey(errorCode);
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <span className="text-error-fg">{errorDict[key]}</span>
-      {onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="text-primary hover:underline text-sm"
-        >
-          {errorDict.retry}
-        </button>
-      )}
-    </div>
+function hasTextContent(message: UIMessage): boolean {
+  return message.parts.some(
+    (p) => p.type === "text" && p.text.trim().length > 0,
   );
-}
-
-function getResultCount(response: RuntimeResponse): number {
-  const data = response.data;
-  if (data == null) return 0;
-  if (isQAData(data)) return 1;
-  if (isRouteData(data)) return data.route.point_count ?? data.route.ordered_points.length;
-  if (isSearchData(data)) return data.results.row_count ?? data.results.rows.length;
-  return 0;
 }

@@ -8,18 +8,18 @@ import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ChatPanel from "@/components/chat/ChatPanel";
 import { LocaleProvider } from "@/lib/i18n-context";
-import type { ChatMessage } from "@/lib/types";
+import type { UIMessage } from "ai";
 import type { Dict } from "@/lib/i18n";
 import jaDict from "@/lib/dictionaries/ja.json";
 
 const jaFull = jaDict as unknown as Dict;
 
-function makeMessage(id: string, role: "user" | "assistant", text: string): ChatMessage {
-  return { id, role, text, timestamp: Date.now() };
+function makeMessage(id: string, role: "user" | "assistant", text: string): UIMessage {
+  return { id, role, parts: [{ type: "text", text }] };
 }
 
 function renderChatPanel(
-  messages: ChatMessage[],
+  messages: UIMessage[],
   onSend = vi.fn(),
 ) {
   return render(

@@ -1,33 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import type { StepEvent } from "../../lib/types";
+import type { DynamicToolUIPart } from "ai";
 import { useDict } from "../../lib/i18n-context";
 
 interface ThinkingProcessProps {
-  steps: StepEvent[];
+  toolParts: DynamicToolUIPart[];
   isStreaming: boolean;
 }
 
-const TOOL_ICONS: Record<string, string> = {
-  resolve_anime: "\uD83D\uDD0D",
-  search_bangumi: "\uD83D\uDCCD",
-  search_nearby: "\uD83D\uDCCD",
-  plan_route: "\uD83D\uDDFA\uFE0F",
-  plan_selected: "\uD83D\uDDFA\uFE0F",
-  greet_user: "\uD83D\uDC4B",
-  answer_question: "\uD83D\uDCAC",
-  clarify: "\u2753",
-};
+type ToolState = DynamicToolUIPart["state"];
 
-const STATUS_INDICATOR: Record<string, string> = {
-  running: "\u23F3",
-  done: "\u2713",
-  failed: "\u2717",
-};
+const COMPLETED_STATES = new Set<ToolState>(["output-available", "output-denied"]);
+const FAILED_STATES = new Set<ToolState>(["output-error"]);
+const RUNNING_STATES = new Set<ToolState>(["input-streaming", "input-available", "approval-requested", "approval-responded"]);
 
 export default function ThinkingProcess({
-  steps,
+  toolParts,
   isStreaming,
 }: ThinkingProcessProps) {
   const [expanded, setExpanded] = useState(isStreaming);
@@ -35,7 +24,7 @@ export default function ThinkingProcess({
   const t = dict.chat;
   const toolLabels = dict.thinking;
 
-  if (steps.length === 0) {
+  if (toolParts.length === 0) {
     if (!isStreaming) return null;
     return (
       <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -45,19 +34,20 @@ export default function ThinkingProcess({
     );
   }
 
-  // Summary for collapsed state
-  const completedSteps = steps.filter((s) => s.status === "done");
-  const failedSteps = steps.filter((s) => s.status === "failed");
-  const summary = completedSteps
-    .map((s) => s.observation || s.tool)
+  const completed = toolParts.filter((p) => COMPLETED_STATES.has(p.state));
+  const failed = toolParts.filter((p) => FAILED_STATES.has(p.state));
+
+  const summary = completed
+    .map((p) => toolLabels[p.toolName as keyof typeof toolLabels] || p.toolName)
     .join(" \u2192 ");
+
+  const lastPart = toolParts[toolParts.length - 1];
 
   return (
     <div className="mb-2">
-      {/* Main status line — user-friendly labels, not raw LLM thoughts */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
         style={{ transitionDuration: "var(--duration-fast)" }}
       >
         <span className={isStreaming ? "animate-pulse" : ""}>
@@ -65,32 +55,27 @@ export default function ThinkingProcess({
         </span>
         <span>
           {isStreaming
-            ? toolLabels[steps[steps.length - 1]?.tool as keyof typeof toolLabels] || t?.thinking || "Thinking..."
+            ? toolLabels[lastPart.toolName as keyof typeof toolLabels] || t?.thinking || "Thinking..."
             : summary || t?.thought_complete || "Done"}
         </span>
-        {failedSteps.length > 0 && !isStreaming && (
-          <span
-            className="text-xs"
-            style={{ color: "var(--color-error-fg)" }}
-          >
-            ({failedSteps.length} failed)
+        {failed.length > 0 && !isStreaming && (
+          <span className="text-xs text-error-fg">
+            ({failed.length} failed)
           </span>
         )}
         <span className="text-xs">{expanded ? "\u25BC" : "\u25B6"}</span>
       </button>
 
-      {/* Expanded: tool steps as compact sub-items */}
       {expanded && (
         <div className="mt-1.5 ml-4 flex flex-col gap-1 border-l-2 border-border pl-3">
-          {steps.map((step, i) => {
-            const icon = TOOL_ICONS[step.tool] || "\u2699\uFE0F";
-            const isFailed = step.status === "failed";
-            const isRunning = step.status === "running";
+          {toolParts.map((part) => {
+            const isFailed = FAILED_STATES.has(part.state);
+            const isRunning = RUNNING_STATES.has(part.state);
+            const label = toolLabels[part.toolName as keyof typeof toolLabels] || part.toolName;
 
             return (
-              <div key={`${step.tool}-${i}`} className="text-xs">
+              <div key={part.toolCallId} className="text-xs">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-4 text-center">{icon}</span>
                   <span
                     className={
                       isRunning
@@ -103,7 +88,7 @@ export default function ThinkingProcess({
                         : undefined
                     }
                   >
-                    {toolLabels[step.tool as keyof typeof toolLabels] || step.tool}
+                    {label}
                   </span>
                   <span
                     className={isRunning ? "text-primary" : ""}
@@ -115,19 +100,15 @@ export default function ThinkingProcess({
                           : "var(--color-success-fg)",
                     }}
                   >
-                    {STATUS_INDICATOR[step.status] || ""}
+                    {isFailed ? "\u2717" : isRunning ? "\u23F3" : "\u2713"}
                   </span>
                 </div>
-                {step.observation && !isRunning && (
+                {isFailed && part.state === "output-error" && (
                   <div
                     className="ml-5 text-xs"
-                    style={
-                      isFailed
-                        ? { color: "var(--color-error-fg)" }
-                        : { color: "var(--color-muted-fg)" }
-                    }
+                    style={{ color: "var(--color-error-fg)" }}
                   >
-                    {isFailed ? "\u26A0" : "\u2192"} {step.observation}
+                    {"\u26A0"} {part.errorText}
                   </div>
                 )}
               </div>
