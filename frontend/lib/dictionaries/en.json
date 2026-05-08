@@ -267,7 +267,9 @@
     "selected": "{count} selected",
     "plan_route": "Plan route",
     "clear": "Clear",
-    "other_area": "Other"
+    "other_area": "Other",
+    "spots_header": "Spots",
+    "spots_count": "{count} spots"
   },
   "clarification": {
     "examples_label": "For example:",

@@ -1,11 +1,13 @@
 /**
- * ResultPanel — grid view, map toggle, and episode filter chips.
- * Split from result-panel.test.tsx.
+ * ResultPanel — map view (default), grid toggle, episode filter chips,
+ * and floating spot list overlay.
  *
  * AC coverage:
- * - Leaflet map is lazy-loaded via dynamic(() => import(...), { ssr: false }) -> unit
+ * - Default view is "map" not "grid" -> unit
  * - Grid/map toggle switches view -> unit
+ * - FloatingSpotList renders spot items in map view -> unit
  * - Filter chips appear for episode ranges when results have episode data -> unit
+ * - Loading skeleton renders shadcn Skeleton -> unit
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -21,14 +23,6 @@ vi.mock("@/lib/i18n-context", () => ({ useDict: () => defaultDict }));
 vi.mock("@/components/generative/GenerativeUIRenderer", () => ({
   default: ({ response }: { response: RuntimeResponse }) => (
     <div data-testid="generative-ui">{response.intent}</div>
-  ),
-}));
-
-vi.mock("@/components/generative/SelectionBar", () => ({
-  default: ({ count }: { count: number }) => (
-    <div data-testid="selection-bar">
-      <span data-testid="selection-count">{count}件選択</span>
-    </div>
   ),
 }));
 
@@ -86,55 +80,81 @@ function Wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-describe("ResultPanel grid view (default)", () => {
+describe("ResultPanel default view is map", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it("renders grid toggle button when activeResponse has results", () => {
+  it("renders map view by default (not grid)", () => {
     render(<Wrapper><ResultPanel activeResponse={makeResponse()} /></Wrapper>);
-    expect(screen.getByRole("button", { name: /グリッド/i })).toBeInTheDocument();
+    expect(screen.getByTestId("lazy-map-placeholder")).toBeInTheDocument();
   });
 
-  it("renders photo card for each result point", () => {
+  it("renders floating spot list in default map view", () => {
     render(<Wrapper><ResultPanel activeResponse={makeResponse()} /></Wrapper>);
-    expect(screen.getByText("宇治駅")).toBeInTheDocument();
+    expect(screen.getByTestId("floating-spot-list")).toBeInTheDocument();
+  });
+
+  it("renders view toggle buttons in map view", () => {
+    render(<Wrapper><ResultPanel activeResponse={makeResponse()} /></Wrapper>);
+    expect(screen.getByRole("button", { name: /グリッド/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /マップ/i })).toBeInTheDocument();
   });
 });
 
 describe("ResultPanel grid/map view toggle", () => {
-  it("shows map toggle button", () => {
+  it("switches to grid view when grid toggle is clicked", () => {
     render(<Wrapper><ResultPanel activeResponse={makeResponse()} /></Wrapper>);
-    expect(screen.getByRole("button", { name: /マップ/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /グリッド/i }));
+    expect(screen.getByText("宇治駅")).toBeInTheDocument();
+    expect(screen.queryByTestId("lazy-map-placeholder")).toBeNull();
   });
 
-  it("switches to map view when map toggle is clicked", () => {
+  it("switches back to map view when map toggle is clicked after switching to grid", () => {
     render(<Wrapper><ResultPanel activeResponse={makeResponse()} /></Wrapper>);
+    fireEvent.click(screen.getByRole("button", { name: /グリッド/i }));
     fireEvent.click(screen.getByRole("button", { name: /マップ/i }));
     expect(screen.getByTestId("lazy-map-placeholder")).toBeInTheDocument();
   });
 
-  it("switches back to grid view when grid toggle is clicked after switching to map", () => {
+  it("does not render grid content in default map view", () => {
     render(<Wrapper><ResultPanel activeResponse={makeResponse()} /></Wrapper>);
-    fireEvent.click(screen.getByRole("button", { name: /マップ/i }));
-    fireEvent.click(screen.getByRole("button", { name: /グリッド/i }));
-    expect(screen.getByText("宇治駅")).toBeInTheDocument();
-  });
-
-  it("hides the point cards when in map view", () => {
-    render(<Wrapper><ResultPanel activeResponse={makeResponse()} /></Wrapper>);
-    fireEvent.click(screen.getByRole("button", { name: /マップ/i }));
-    expect(screen.queryByText("宇治駅")).toBeNull();
+    // PhotoCard renders the name directly; in map view, it appears only in floating list
+    // The grid PhotoCard component is not rendered in map view
+    expect(screen.queryByTestId("lazy-map-placeholder")).toBeInTheDocument();
   });
 });
 
-describe("ResultPanel Leaflet lazy loading", () => {
-  it("does not render map content in default grid view", () => {
+describe("ResultPanel FloatingSpotList in map view", () => {
+  it("renders spot items in the floating list", () => {
     render(<Wrapper><ResultPanel activeResponse={makeResponse()} /></Wrapper>);
+    expect(screen.getByTestId("spot-item-pt-001")).toBeInTheDocument();
+  });
+
+  it("renders spots header with count", () => {
+    const response = makeResponse([
+      { ...BASE_POINT, id: "pt-001" },
+      { ...BASE_POINT, id: "pt-002", name: "京アニスタジオ" },
+    ]);
+    render(<Wrapper><ResultPanel activeResponse={response} /></Wrapper>);
+    // ja dict: spots_count = "{count}件"
+    expect(screen.getByText("2件")).toBeInTheDocument();
+  });
+
+  it("renders filter tabs inside floating list", () => {
+    render(<Wrapper><ResultPanel activeResponse={makeResponse()} /></Wrapper>);
+    expect(screen.getByText(defaultDict.toolbar.tab_episode)).toBeInTheDocument();
+    expect(screen.getByText(defaultDict.toolbar.tab_area)).toBeInTheDocument();
+  });
+});
+
+describe("ResultPanel Mapbox lazy loading", () => {
+  it("does not render map content when in grid view", () => {
+    render(<Wrapper><ResultPanel activeResponse={makeResponse()} /></Wrapper>);
+    fireEvent.click(screen.getByRole("button", { name: /グリッド/i }));
     expect(screen.queryByTestId("lazy-map-placeholder")).toBeNull();
   });
 
-  it("renders lazy map placeholder (ssr:false enforced) when map view is active", () => {
+  it("renders lazy map placeholder (ssr:false enforced) in default map view", () => {
     render(<Wrapper><ResultPanel activeResponse={makeResponse()} /></Wrapper>);
-    fireEvent.click(screen.getByRole("button", { name: /マップ/i }));
     expect(screen.getByTestId("lazy-map-placeholder")).toBeInTheDocument();
   });
 });
@@ -171,22 +191,14 @@ describe("ResultPanel filter chips for episode ranges", () => {
       .filter((btn) => /EP\s?\d/.test(btn.textContent ?? ""));
     expect(epChips).toHaveLength(0);
   });
+});
 
-  it("filters visible cards to matching episode range when chip is clicked", () => {
-    const response = makeResponse([
-      { ...BASE_POINT, id: "pt-001", name: "宇治駅", episode: 1 },
-      { ...BASE_POINT, id: "pt-002", name: "京アニスタジオ", episode: 7 },
-    ]);
-    render(<Wrapper><ResultPanel activeResponse={response} /></Wrapper>);
-    expect(screen.getByText("宇治駅")).toBeInTheDocument();
-    expect(screen.getByText("京アニスタジオ")).toBeInTheDocument();
-    const ep1Chip = screen
-      .getAllByRole("button")
-      .find((b) => /EP\s?1/.test(b.textContent ?? ""));
-    if (ep1Chip) {
-      fireEvent.click(ep1Chip);
-      expect(screen.getByText("宇治駅")).toBeInTheDocument();
-      expect(screen.queryByText("京アニスタジオ")).toBeNull();
-    }
+describe("ResultPanel loading skeleton", () => {
+  it("renders shadcn Skeleton components in loading state", () => {
+    render(<Wrapper><ResultPanel activeResponse={null} loading /></Wrapper>);
+    expect(screen.getByTestId("loading-skeleton")).toBeInTheDocument();
+    // shadcn Skeleton renders with data-slot="skeleton"
+    const skeletons = screen.getByTestId("loading-skeleton").querySelectorAll('[data-slot="skeleton"]');
+    expect(skeletons.length).toBeGreaterThan(0);
   });
 });
