@@ -3,7 +3,7 @@
 import type { UIMessage, DynamicToolUIPart } from "ai";
 import { useDict } from "../../lib/i18n-context";
 import ThinkingProcess from "./ThinkingProcess";
-import ToolPartRenderer from "./ToolPartRenderer";
+import { PipelineCard } from "./ToolPartRenderer";
 import FeedbackButtons from "./FeedbackButtons";
 
 interface MessageBubbleProps {
@@ -39,14 +39,20 @@ export default function MessageBubble({
     );
   }
 
-  // Assistant message — render each part
+  // Assistant message — collect tool parts for pipeline card
   const toolParts = message.parts.filter(
     (p): p is DynamicToolUIPart => p.type === "dynamic-tool",
+  );
+
+  const textParts = message.parts.filter(
+    (p): p is { type: "text"; text: string } => p.type === "text" && !!p.text,
   );
 
   const hasToolOutput = toolParts.some(
     (p) => p.state === "output-available",
   );
+
+  const showPreThinking = isStreaming && toolParts.length === 0 && textParts.length === 0;
 
   return (
     <div
@@ -57,56 +63,31 @@ export default function MessageBubble({
         {t.bot_name}
       </p>
 
-      {/* Thinking indicator — shows tool execution progress */}
+      {/* Pre-tool thinking indicator */}
+      {showPreThinking && <ThinkingProcess isStreaming />}
+
+      {/* Pipeline card — groups all tool parts into a single progress view */}
       {toolParts.length > 0 && (
-        <ThinkingProcess toolParts={toolParts} isStreaming={isStreaming} />
+        <PipelineCard
+          parts={toolParts}
+          messageId={message.id}
+          onActivate={onActivate}
+          isActive={isActive}
+          onOpenDrawer={onOpenDrawer}
+        />
       )}
 
-      {/* No tool parts and streaming — show bare thinking indicator */}
-      {toolParts.length === 0 && isStreaming && !hasTextContent(message) && (
-        <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className="animate-pulse">{"\uD83E\uDDE0"}</span>
-          <span>{t?.thinking || "Thinking..."}</span>
-        </div>
-      )}
-
-      {/* Render each part */}
-      {message.parts.map((part, i) => {
-        if (part.type === "text" && part.text) {
-          return (
-            <p key={`text-${i}`} className="text-sm font-light leading-loose text-foreground">
-              {part.text}
-            </p>
-          );
-        }
-
-        if (part.type === "dynamic-tool") {
-          return (
-            <ToolPartRenderer
-              key={part.toolCallId}
-              part={part}
-              messageId={message.id}
-              onActivate={onActivate}
-              isActive={isActive}
-              onOpenDrawer={onOpenDrawer}
-            />
-          );
-        }
-
-        // Reasoning, step-start, source parts — skip for now
-        return null;
-      })}
+      {/* Text parts */}
+      {textParts.map((part, i) => (
+        <p key={`text-${i}`} className="text-sm font-light leading-loose text-foreground">
+          {part.text}
+        </p>
+      ))}
 
       {/* Feedback buttons — only shown when streaming is done and there's content */}
       {!isStreaming && hasToolOutput && (
         <FeedbackButtons messageId={message.id} toolParts={toolParts} />
       )}
     </div>
-  );
-}
-
-function hasTextContent(message: UIMessage): boolean {
-  return message.parts.some(
-    (p) => p.type === "text" && p.text.trim().length > 0,
   );
 }

@@ -289,14 +289,30 @@ exports[`Snapshot: PhotoCard > renders photo card 1`] = `
 exports[`Snapshot: ResultAnchor > renders anchor button 1`] = `
 <div>
   <button
-    class="group/anchor flex w-full max-w-[320px] items-center gap-3 rounded-xl border p-3 text-left transition-all border-border bg-card hover:border-primary/60 hover:-translate-y-0.5 hover:shadow-sm"
-    style="transition-duration: var(--duration-fast); transition-timing-function: var(--ease-out-quint);"
+    class="group/anchor flex w-full max-w-[320px] items-center gap-3 rounded-xl border p-3 text-left transition-all duration-150 border-border bg-card hover:border-primary/60 hover:-translate-y-0.5 hover:shadow-sm"
     type="button"
   >
     <span
-      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm text-primary-fg"
+      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10"
     >
-      📍
+      <svg
+        class="h-4 w-4 text-primary"
+        fill="none"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="1.5"
+        viewBox="0 0 16 16"
+      >
+        <path
+          d="M8 1.5A4.5 4.5 0 0 0 3.5 6c0 3.5 4.5 8.5 4.5 8.5s4.5-5 4.5-8.5A4.5 4.5 0 0 0 8 1.5Z"
+        />
+        <circle
+          cx="8"
+          cy="6"
+          r="1.5"
+        />
+      </svg>
     </span>
     <span
       class="flex min-w-0 flex-1 flex-col gap-0.5"
@@ -313,8 +329,7 @@ exports[`Snapshot: ResultAnchor > renders anchor button 1`] = `
       </span>
     </span>
     <span
-      class="shrink-0 text-sm text-muted-foreground transition-transform group-hover/anchor:translate-x-0.5"
-      style="transition-duration: var(--duration-fast);"
+      class="shrink-0 text-sm text-muted-foreground transition-transform duration-150 group-hover/anchor:translate-x-0.5"
     >
       ›
     </span>

@@ -94,7 +94,18 @@
     "plan_selected": "正在规划路线…",
     "greet_user": "正在回复…",
     "answer_question": "正在回答…",
-    "clarify": "正在确认细节…"
+    "clarify": "正在确认细节…",
+    "done_resolve_anime": "标题确认",
+    "done_search_bangumi": "取景地搜索",
+    "done_search_nearby": "附近搜索",
+    "done_plan_route": "路线规划",
+    "done_plan_selected": "路线规划",
+    "done_answer_question": "回答",
+    "done_clarify": "确认",
+    "value_spots": "{count}个取景地",
+    "value_route": "{count}个地点",
+    "value_done": "完成",
+    "pre_thinking": "思考中…"
   },
   "chat": {
     "placeholder": "搜索取景地 · 规划巡礼路线…",
