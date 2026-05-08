@@ -14,7 +14,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ChatPanel from "@/components/chat/ChatPanel";
 import { LocaleProvider } from "@/lib/i18n-context";
-import type { ChatMessage } from "@/lib/types";
+import type { UIMessage } from "ai";
 import type { Dict } from "@/lib/i18n";
 import defaultDict from "@/lib/dictionaries/ja.json";
 
@@ -31,7 +31,7 @@ vi.mock("@/lib/i18n", async (importOriginal) => {
 // ---------------------------------------------------------------------------
 
 function renderChatPanel(
-  messages: ChatMessage[],
+  messages: UIMessage[],
   onSend = vi.fn(),
 ) {
   return {
@@ -143,12 +143,11 @@ describe("Integration: Welcome screen to chat transition", () => {
   });
 
   it("does not show WelcomeScreen when messages are present", () => {
-    const messages: ChatMessage[] = [
+    const messages: UIMessage[] = [
       {
         id: "m1",
         role: "user",
-        text: "テストメッセージ",
-        timestamp: Date.now(),
+        parts: [{ type: "text", text: "テストメッセージ" }],
       },
     ];
     renderChatPanel(messages);

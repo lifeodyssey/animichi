@@ -13,7 +13,8 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import ClarificationBubble from "@/components/chat/ClarificationBubble";
 import ResultAnchor from "@/components/chat/ResultAnchor";
 import FeedbackButtons from "@/components/chat/FeedbackButtons";
-import type { RuntimeResponse, ChatMessage } from "@/lib/types";
+import type { RuntimeResponse } from "@/lib/types";
+import type { DynamicToolUIPart } from "ai";
 import enDict from "@/lib/dictionaries/en.json";
 
 vi.mock("@/lib/i18n-context", () => ({
@@ -62,30 +63,15 @@ function makeRuntimeResponse(overrides: Partial<RuntimeResponse> = {}): RuntimeR
   };
 }
 
-function makeBotMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
+function makeToolPart(output: unknown): DynamicToolUIPart {
   return {
-    id: "msg-001",
-    role: "assistant",
-    text: "Here are results",
-    loading: false,
-    timestamp: 1700000000000,
-    response: makeRuntimeResponse({
-      status: "ok",
-      intent: "search_bangumi",
-      data: {
-        results: {
-          rows: [],
-          row_count: 3,
-          strategy: "sql",
-          status: "ok",
-        },
-        message: "Found results",
-        status: "ok",
-      },
-    }),
-    steps: [],
-    ...overrides,
-  };
+    type: "dynamic-tool",
+    toolName: "search_bangumi",
+    toolCallId: "call-001",
+    state: "output-available",
+    input: {},
+    output,
+  } as DynamicToolUIPart;
 }
 
 // ---------------------------------------------------------------------------
@@ -205,10 +191,10 @@ describe("ResultAnchor", () => {
 
 describe("FeedbackButtons", () => {
   it("renders good and bad feedback buttons", () => {
-    const message = makeBotMessage();
+    const toolParts = [makeToolPart(makeRuntimeResponse({ intent: "search_bangumi", status: "ok" }))];
     render(
       <I18nTestWrapper>
-        <FeedbackButtons message={message} userQuery="find spots" />
+        <FeedbackButtons messageId="msg-001" toolParts={toolParts} userQuery="find spots" />
       </I18nTestWrapper>,
     );
     expect(screen.getByLabelText(/good response/i)).toBeInTheDocument();
@@ -216,10 +202,10 @@ describe("FeedbackButtons", () => {
   });
 
   it("shows comment input when bad button clicked", () => {
-    const message = makeBotMessage();
+    const toolParts = [makeToolPart(makeRuntimeResponse({ intent: "search_bangumi", status: "ok" }))];
     render(
       <I18nTestWrapper>
-        <FeedbackButtons message={message} userQuery="find spots" />
+        <FeedbackButtons messageId="msg-001" toolParts={toolParts} userQuery="find spots" />
       </I18nTestWrapper>,
     );
     fireEvent.click(screen.getByLabelText(/bad response/i));
@@ -227,10 +213,10 @@ describe("FeedbackButtons", () => {
   });
 
   it("shows submitted state after good feedback", async () => {
-    const message = makeBotMessage();
+    const toolParts = [makeToolPart(makeRuntimeResponse({ intent: "search_bangumi", status: "ok" }))];
     render(
       <I18nTestWrapper>
-        <FeedbackButtons message={message} userQuery="find spots" />
+        <FeedbackButtons messageId="msg-001" toolParts={toolParts} userQuery="find spots" />
       </I18nTestWrapper>,
     );
     fireEvent.click(screen.getByLabelText(/good response/i));

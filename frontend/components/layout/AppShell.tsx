@@ -13,8 +13,8 @@ import { SuggestContext } from "../../contexts/SuggestContext";
 import { isVisualResponse } from "../generative/registry";
 import { isRouteData } from "../../lib/types";
 import { cn } from "../../lib/utils";
-import type { ChatMessage } from "../../lib/types";
 import type { UIMessage } from "ai";
+import type { ChatMessage, RuntimeResponse } from "../../lib/types";
 import SharedHeader from "./SharedHeader";
 import ChatPanel from "../chat/ChatPanel";
 import ResultSheet from "./ResultSheet";
@@ -22,22 +22,24 @@ import ResultPanel from "./ResultPanel";
 import type { SeichijunreiMessage } from "../../lib/types/chat";
 
 // ---------------------------------------------------------------------------
-// Compatibility bridge: map AI SDK UIMessage → legacy ChatMessage shape.
-// TEMPORARY — Card C will update ChatPanel/MessageList to consume
-// UIMessage.parts directly, at which point this function is removed.
+// Helpers to extract RuntimeResponse from UIMessage tool parts.
 // ---------------------------------------------------------------------------
-function toCompatMessage(msg: UIMessage): ChatMessage {
-  const text = msg.parts
-    .filter((p): p is { type: "text"; text: string } => p.type === "text")
-    .map((p) => p.text)
-    .join("");
-  return {
-    id: msg.id,
-    role: msg.role as "user" | "assistant",
-    text,
-    timestamp: Date.now(),
-    loading: false,
-  };
+
+function extractResponse(msg: UIMessage): RuntimeResponse | null {
+  for (const part of msg.parts) {
+    if (part.type !== "dynamic-tool") continue;
+    if (part.state !== "output-available") continue;
+    const output = part.output;
+    if (typeof output === "object" && output !== null && "intent" in output) {
+      return output as RuntimeResponse;
+    }
+  }
+  return null;
+}
+
+function extractVisualResponse(msg: UIMessage): RuntimeResponse | null {
+  const response = extractResponse(msg);
+  return response && isVisualResponse(response) ? response : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,49 +70,46 @@ export default function AppShell() {
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // For the transition period, downstream components still expect ChatMessage[].
-  // Map UIMessage → ChatMessage via toCompatMessage. Card C will update
-  // ChatPanel and MessageList to consume UIMessage.parts directly.
-  const legacyMessages = useMemo(
-    () => messages.map(toCompatMessage),
-    [messages],
-  );
-
-  const activeMessage = useMemo(
+  const activeResponse = useMemo(
     () => activeMessageId
-      ? (legacyMessages.find((m) => m.id === activeMessageId && m.response && isVisualResponse(m.response)) ?? null)
+      ? (messages
+          .filter((m) => m.id === activeMessageId)
+          .map(extractVisualResponse)
+          .find((r) => r !== null) ?? null)
       : null,
-    [activeMessageId, legacyMessages],
+    [activeMessageId, messages],
   );
-
-  const activeResponse = activeMessage?.response ?? null;
 
   // ── Adaptive layout ─────────────────────────────────────────────────
   const layout = useLayoutMode(activeResponse !== null, activeMessageId);
   const { mode, isMobile } = layout;
 
   const defaultOrigin = useMemo(() => {
-    for (let index = legacyMessages.length - 1; index >= 0; index -= 1) {
-      const routeHistory = legacyMessages[index]?.response?.route_history ?? [];
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const response = extractResponse(messages[index]);
+      const routeHistory = response?.route_history ?? [];
       const origin = routeHistory.find((entry) => entry.origin_station)?.origin_station;
       if (origin) return origin;
     }
     return "";
-  }, [legacyMessages]);
+  }, [messages]);
 
   // Auto-activate latest visual response
   useEffect(() => {
-    if (legacyMessages.length === 0) return;
-    const last = legacyMessages[legacyMessages.length - 1];
-    if (last.role !== "assistant" || last.loading || !last.response) return;
-    if (!isVisualResponse(last.response)) return;
+    if (messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.role !== "assistant") return;
+    // Don't activate while streaming
+    if (sending) return;
+    const visual = extractVisualResponse(last);
+    if (!visual) return;
     const id = last.id;
     const mobile = isMobile;
     queueMicrotask(() => {
       setActiveMessageId(id);
       if (mobile) setDrawerOpen(true);
     });
-  }, [legacyMessages, isMobile]);
+  }, [messages, isMobile, sending]);
 
   const handleSend = useCallback(
     (text: string, _coords?: { lat: number; lng: number } | null) => {
@@ -131,17 +130,10 @@ export default function AppShell() {
     });
   }, [isMobile]);
 
-  // Route selection still uses the legacy ChatMessage-based API.
-  // We provide stub helpers until route selection is migrated in a later card.
-  const appendMessages = useCallback((..._msgs: ChatMessage[]) => {
-    // No-op during transition
-  }, []);
-  const replaceMessage = useCallback((_id: string, _updater: (m: ChatMessage) => ChatMessage) => {
-    // No-op during transition
-  }, []);
-  const removeMessage = useCallback((_id: string) => {
-    // No-op during transition
-  }, []);
+  // Route selection — stub helpers until route selection is migrated.
+  const appendMessages = useCallback((..._msgs: ChatMessage[]) => {}, []);
+  const replaceMessage = useCallback((_id: string, _updater: (m: ChatMessage) => ChatMessage) => {}, []);
+  const removeMessage = useCallback((_id: string) => {}, []);
 
   const { routeSending, handleRouteSelected, handleRouteConfirmed, abortRoute } = useRouteSelection({
     selectedIds,
@@ -206,7 +198,7 @@ export default function AppShell() {
                 )}
               >
                 <ChatPanel
-                  messages={legacyMessages}
+                  messages={messages}
                   sending={isSending}
                   activeMessageId={activeMessageId}
                   dict={dict}
@@ -216,6 +208,7 @@ export default function AppShell() {
                   onOpenDrawer={isMobile ? () => setDrawerOpen(true) : undefined}
                   isMobile={isMobile}
                   layoutMode={isMobile ? "chat" : mode}
+                  status={status}
                 />
               </div>
             )}

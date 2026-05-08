@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ChatMessage } from "../../lib/types";
+import type { UIMessage, ChatStatus } from "ai";
 import type { Dict, Locale } from "../../lib/i18n";
 import type { LayoutMode } from "../../hooks/useLayoutMode";
 import WelcomeScreen from "./WelcomeScreen";
@@ -10,7 +10,7 @@ import ChatInput from "../chat/ChatInput";
 import { cn } from "../../lib/utils";
 
 interface ChatPanelProps {
-  messages: ChatMessage[];
+  messages: UIMessage[];
   sending: boolean;
   activeMessageId: string | null;
   dict: Dict;
@@ -21,6 +21,8 @@ interface ChatPanelProps {
   isMobile?: boolean;
   /** Adaptive layout mode — controls width and centering. */
   layoutMode?: LayoutMode;
+  /** Chat status from useChat — forwarded to MessageList for streaming detection. */
+  status?: ChatStatus;
 }
 
 export default function ChatPanel({
@@ -34,6 +36,7 @@ export default function ChatPanel({
   onOpenDrawer,
   isMobile = false,
   layoutMode = "chat",
+  status,
 }: ChatPanelProps) {
   const isEmpty = messages.length === 0;
   const [acquiredCoords, setAcquiredCoords] = useState<{
@@ -76,6 +79,7 @@ export default function ChatPanel({
               onActivate={onActivate}
               activeMessageId={activeMessageId}
               onOpenDrawer={isMobile ? onOpenDrawer : undefined}
+              status={status}
             />
           </div>
         )}

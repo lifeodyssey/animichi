@@ -4,16 +4,26 @@
  *
  * AC coverage:
  * - needs_clarification status renders inline in MessageBubble -> unit
+ *
+ * Note: With UIMessage.parts, clarification is rendered via ToolPartRenderer
+ * when a "clarify" tool part is present. This test verifies that the tool
+ * part triggers the Clarification component through the full MessageBubble
+ * render path.
  */
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import MessageBubble from "@/components/chat/MessageBubble";
-import type { ChatMessage, RuntimeResponse, ClarifyCandidate } from "@/lib/types";
+import type { UIMessage, DynamicToolUIPart } from "ai";
+import type { ClarifyCandidate, RuntimeResponse } from "@/lib/types";
 import defaultDict from "@/lib/dictionaries/ja.json";
 
 vi.mock("@/lib/i18n-context", () => ({
   useDict: () => defaultDict,
+}));
+
+vi.mock("@/contexts/SuggestContext", () => ({
+  useSuggest: () => vi.fn(),
 }));
 
 const CANDIDATE_WITH_COVER: ClarifyCandidate = {
@@ -52,35 +62,46 @@ function makeClarifyResponse(candidates: ClarifyCandidate[] = [CANDIDATE_WITH_CO
   };
 }
 
-function makeBotMessage(response: RuntimeResponse): ChatMessage {
+function makeClarifyMessage(candidates: ClarifyCandidate[]): UIMessage {
+  const response = makeClarifyResponse(candidates);
+  const toolPart: DynamicToolUIPart = {
+    type: "dynamic-tool",
+    toolName: "clarify",
+    toolCallId: "call-clarify-001",
+    state: "output-available",
+    input: {},
+    output: response,
+  } as DynamicToolUIPart;
+
   return {
     id: "msg-001",
     role: "assistant",
-    text: "どちらの作品ですか？",
-    response,
-    loading: false,
-    timestamp: Date.now(),
+    parts: [
+      { type: "text", text: "どちらの作品ですか？" },
+      toolPart,
+    ],
   };
 }
 
 describe("MessageBubble needs_clarification rendering", () => {
-  it("renders Clarification inline for needs_clarification status", () => {
-    const message = makeBotMessage(makeClarifyResponse([CANDIDATE_WITH_COVER]));
+  it("renders clarification text for needs_clarification response", () => {
+    const message = makeClarifyMessage([CANDIDATE_WITH_COVER]);
     render(<MessageBubble message={message} />);
-    expect(screen.getByText(/どちらの作品ですか/)).toBeInTheDocument();
+    // Text part + clarification component both render the message,
+    // so we check that at least one element contains it.
+    const matches = screen.getAllByText(/どちらの作品ですか/);
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders candidate cards inside MessageBubble for needs_clarification", () => {
-    const message = makeBotMessage(
-      makeClarifyResponse([CANDIDATE_WITH_COVER, CANDIDATE_NO_COVER]),
-    );
+  it("renders candidate buttons inside MessageBubble for needs_clarification", () => {
+    const message = makeClarifyMessage([CANDIDATE_WITH_COVER, CANDIDATE_NO_COVER]);
     render(<MessageBubble message={message} />);
     expect(screen.getByRole("button", { name: /涼宮ハルヒの憂鬱/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /涼宮ハルヒの消失/ })).toBeInTheDocument();
   });
 
   it("does NOT render the result anchor for needs_clarification responses", () => {
-    const message = makeBotMessage(makeClarifyResponse([CANDIDATE_WITH_COVER]));
+    const message = makeClarifyMessage([CANDIDATE_WITH_COVER]);
     render(<MessageBubble message={message} />);
     const anchorBtn = screen.queryByRole("button", { name: /件の結果|results/ });
     expect(anchorBtn).toBeNull();

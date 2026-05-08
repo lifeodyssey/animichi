@@ -107,12 +107,19 @@ describe("Snapshot: FullscreenOverlay", () => {
 // ── Chat components ──────────────────────────────────────────
 
 describe("Snapshot: ThinkingProcess", () => {
-  it("renders with steps", async () => {
+  it("renders with tool parts", async () => {
     const { default: ThinkingProcess } = await import("@/components/chat/ThinkingProcess");
     const { container } = render(
       <ThinkingProcess
-        steps={[
-          { tool: "resolve_anime", status: "done" },
+        toolParts={[
+          {
+            type: "dynamic-tool" as const,
+            toolName: "resolve_anime",
+            toolCallId: "call-001",
+            state: "output-available" as const,
+            input: {},
+            output: {},
+          } as import("ai").DynamicToolUIPart,
         ]}
         isStreaming={false}
       />,
@@ -127,8 +134,8 @@ describe("Snapshot: MessageList", () => {
     const { container } = render(
       <MessageList
         messages={[
-          { id: "m1", role: "user", text: "テスト", timestamp: Date.now() },
-          { id: "m2", role: "assistant", text: "回答", timestamp: Date.now() },
+          { id: "m1", role: "user", parts: [{ type: "text", text: "テスト" }] },
+          { id: "m2", role: "assistant", parts: [{ type: "text", text: "回答" }] },
         ]}
         onActivate={() => {}}
         activeMessageId={null}
