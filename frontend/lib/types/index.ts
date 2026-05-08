@@ -31,6 +31,8 @@ export type {
 
 export type { ErrorCode, ChatMessage } from "./components";
 
+export type { SeichijunreiMetadata, SeichijunreiMessage } from "./chat";
+
 // ── Type guards ────────────────────────────────────────────────────────────
 
 import type { RuntimeResponse } from "./api";

@@ -27,6 +27,31 @@ vi.mock("../hooks/useSession", () => ({
   }),
 }));
 
+// Mock the ai package (UIMessage type used in toCompatMessage)
+vi.mock("ai", () => ({}));
+
+// Mock the useChatTransport hook (extracted from AppShell)
+vi.mock("../hooks/useChatTransport", () => ({
+  useChatTransport: () => ({}),
+}));
+
+// Mock the Vercel AI SDK useChat hook
+const mockSendMessage = vi.fn();
+const mockStop = vi.fn();
+const mockSetMessages = vi.fn();
+
+vi.mock("@ai-sdk/react", () => ({
+  useChat: () => ({
+    messages: [],
+    sendMessage: mockSendMessage,
+    status: "ready" as const,
+    setMessages: mockSetMessages,
+    stop: mockStop,
+    error: undefined,
+  }),
+}));
+
+// Keep the old useChat mock so useRouteSelection's import of createMessageId works
 vi.mock("../hooks/useChat", () => ({
   useChat: () => ({
     messages: [],
@@ -104,6 +129,14 @@ describe("AppShell interactions", () => {
     const newChatBtn = screen.getByText("新しい会話");
     fireEvent.click(newChatBtn);
     expect(screen.getByTestId("chat-panel")).toBeInTheDocument();
+  });
+
+  it("clicking New chat calls stop and setMessages to clear", () => {
+    render(<AppShell />);
+    const newChatBtn = screen.getByText("新しい会話");
+    fireEvent.click(newChatBtn);
+    expect(mockStop).toHaveBeenCalled();
+    expect(mockSetMessages).toHaveBeenCalledWith([]);
   });
 });
 
