@@ -15,13 +15,14 @@ const transportState: { sessionId: string | null; locale: Locale } = {
   locale: "ja",
 };
 
-/** Singleton transport — the body closure reads transportState at request time. */
+/** Singleton transport — session/locale passed via headers, not body.
+ *  Body is reserved for the Vercel AI SDK's RequestData format. */
 const chatTransport = new DefaultChatTransport({
   api: `${RUNTIME_URL}/v1/chat`,
-  headers: () => getAuthHeaders(),
-  body: () => ({
-    session_id: transportState.sessionId,
-    locale: transportState.locale,
+  headers: async () => ({
+    ...(await getAuthHeaders()),
+    "x-session-id": transportState.sessionId ?? "",
+    "x-locale": transportState.locale,
   }),
 });
 
