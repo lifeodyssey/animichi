@@ -3,7 +3,9 @@
  * Split from result-panel.test.tsx.
  *
  * AC coverage:
- * - Selection bar slides up when 1+ points selected, shows count and route button -> unit
+ * - SelectionBar appears when 1+ points selected -> unit
+ * - SelectionBar shows when spots selected in both map and grid views -> unit
+ * - Clear button calls context clear -> unit
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -21,8 +23,6 @@ vi.mock("@/components/generative/GenerativeUIRenderer", () => ({
     <div data-testid="generative-ui">{response.intent}</div>
   ),
 }));
-
-// SelectionBar is no longer used in ResultPanel's bottom bar; it renders inline.
 
 vi.mock("next/dynamic", () => ({
   default: (_loader: unknown, opts?: { ssr?: boolean }) => {
@@ -95,6 +95,7 @@ describe("ResultPanel selection bar", () => {
         <ResultPanel activeResponse={makeResponse()} />
       </Wrapper>,
     );
+    expect(screen.getByTestId("selection-bar")).toBeInTheDocument();
     // ja dict: "選択中 {count} 件"
     expect(screen.getByText(/選択中 1 件/)).toBeInTheDocument();
   });
@@ -129,15 +130,19 @@ describe("ResultPanel selection bar", () => {
     expect(clear).toHaveBeenCalledOnce();
   });
 
-  it("selection bar persists when toggling between grid and map views", () => {
+  it("selection bar persists when toggling between map and grid views", () => {
     render(
       <Wrapper selectedIds={new Set(["pt-001"])}>
         <ResultPanel activeResponse={makeResponse()} />
       </Wrapper>,
     );
-    fireEvent.click(screen.getByRole("button", { name: /マップ/i }));
-    expect(screen.getByText(/選択中 1 件/)).toBeInTheDocument();
+    // Default is map view; selection bar should be visible
+    expect(screen.getByTestId("selection-bar")).toBeInTheDocument();
+    // Switch to grid
     fireEvent.click(screen.getByRole("button", { name: /グリッド/i }));
-    expect(screen.getByText(/選択中 1 件/)).toBeInTheDocument();
+    expect(screen.getByTestId("selection-bar")).toBeInTheDocument();
+    // Switch back to map
+    fireEvent.click(screen.getByRole("button", { name: /マップ/i }));
+    expect(screen.getByTestId("selection-bar")).toBeInTheDocument();
   });
 });

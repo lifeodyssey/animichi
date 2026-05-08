@@ -267,7 +267,9 @@
     "selected": "已选 {count} 个",
     "plan_route": "规划路线",
     "clear": "清除",
-    "other_area": "其他"
+    "other_area": "其他",
+    "spots_header": "景点",
+    "spots_count": "{count}个"
   },
   "clarification": {
     "examples_label": "例如：",

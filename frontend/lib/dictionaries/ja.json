@@ -267,7 +267,9 @@
     "selected": "選択中 {count} 件",
     "plan_route": "ルートを計画",
     "clear": "クリア",
-    "other_area": "その他"
+    "other_area": "その他",
+    "spots_header": "スポット",
+    "spots_count": "{count}件"
   },
   "clarification": {
     "examples_label": "例えば：",
