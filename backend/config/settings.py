@@ -147,11 +147,8 @@ class Settings(BaseSettings):
         description="Base URL for the OpenAI-compatible provider",
     )
 
-    # Migrations
-    auto_migrate: bool = Field(
-        default=True,
-        description="Run pending DB migrations on startup (set false in production)",
-    )
+    # Migrations are managed by Supabase CLI (supabase db push).
+    # No application-level migration runner needed.
 
     # CORS
     cors_allowed_origin: str = Field(
