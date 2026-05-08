@@ -149,13 +149,17 @@ describe("Integration: Search results flow", () => {
     vi.clearAllMocks();
   });
 
-  it("renders ResultPanel with cards for each point", () => {
+  it("renders ResultPanel with cards for each point in grid view", async () => {
+    const user = userEvent.setup();
     const response = makeSearchResponse(POINTS);
     render(
       <StatefulWrapper>
         <ResultPanel activeResponse={response} />
       </StatefulWrapper>,
     );
+
+    // Default view is map; switch to grid to see PhotoCards
+    await user.click(screen.getByRole("button", { name: /グリッド/i }));
 
     // Each point name should appear in the grid
     expect(screen.getByText("宇治駅")).toBeInTheDocument();
@@ -171,6 +175,9 @@ describe("Integration: Search results flow", () => {
         <ResultPanel activeResponse={response} />
       </StatefulWrapper>,
     );
+
+    // Switch to grid view (default is map)
+    await user.click(screen.getByRole("button", { name: /グリッド/i }));
 
     // No selection bar initially
     expect(screen.queryByText(/選択中/)).not.toBeInTheDocument();
@@ -194,6 +201,9 @@ describe("Integration: Search results flow", () => {
         <ResultPanel activeResponse={response} />
       </StatefulWrapper>,
     );
+
+    // Switch to grid view (default is map)
+    await user.click(screen.getByRole("button", { name: /グリッド/i }));
 
     // Select first card
     const allButtons = screen.getAllByRole("button", { pressed: false });
@@ -222,6 +232,9 @@ describe("Integration: Search results flow", () => {
         <ResultPanel activeResponse={response} onRouteConfirmed={onRouteConfirmed} />
       </StatefulWrapper>,
     );
+
+    // Switch to grid view (default is map)
+    await user.click(screen.getByRole("button", { name: /グリッド/i }));
 
     // Select first and second cards
     const allButtons = screen.getAllByRole("button", { pressed: false });
@@ -252,6 +265,9 @@ describe("Integration: Search results flow", () => {
       </StatefulWrapper>,
     );
 
+    // Switch to grid view (default is map)
+    await user.click(screen.getByRole("button", { name: /グリッド/i }));
+
     // Select first card
     const allButtons = screen.getAllByRole("button", { pressed: false });
     const firstCard = allButtons.find((c) => c.textContent?.includes("宇治駅"));
@@ -275,6 +291,9 @@ describe("Integration: Search results flow", () => {
         <ResultPanel activeResponse={response} />
       </StatefulWrapper>,
     );
+
+    // Switch to grid view (default is map)
+    await user.click(screen.getByRole("button", { name: /グリッド/i }));
 
     // Select one card
     const allButtons = screen.getAllByRole("button", { pressed: false });

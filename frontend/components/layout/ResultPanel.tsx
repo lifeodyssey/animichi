@@ -13,7 +13,11 @@ import SpotDetail from "../generative/SpotDetail";
 import { ResultPanelToolbar } from "./ResultPanelToolbar";
 import type { FilterMode } from "./ResultPanelToolbar";
 import { ResultPanelEmptyState } from "./ResultPanelEmptyState";
+import { ResultPanelSkeleton } from "./ResultPanelSkeleton";
 import { GridContent } from "./ResultGridContent";
+import { FloatingSpotList } from "./FloatingSpotList";
+import { SelectionBar } from "./SelectionBar";
+import { MapViewToggle } from "./MapViewToggle";
 import { epRangeLabel, buildEpRanges, buildAreasI18n, pointAreaI18n } from "./ResultPanelHelpers";
 import { prewarmMapbox } from "../map/prewarm";
 
@@ -31,29 +35,6 @@ interface ResultPanelProps {
   onRouteConfirmed?: (orderedIds: string[], origin: string) => void;
   defaultOrigin?: string;
   loading?: boolean;
-}
-
-// Loading skeleton
-
-function LoadingSkeleton() {
-  return (
-    <div className="flex w-full flex-1 flex-col gap-4 p-6">
-      {[80, 55, 65].map((w) => (
-        <div
-          key={w}
-          className="h-3 rounded-sm bg-muted"
-          style={{
-            width: `${w}%`,
-            animation: "pulse-skeleton 1.6s ease-in-out infinite",
-          }}
-        />
-      ))}
-      <div
-        className="mt-2 h-32 w-full rounded-sm bg-muted"
-        style={{ animation: "pulse-skeleton 1.6s ease-in-out infinite 0.2s" }}
-      />
-    </div>
-  );
 }
 
 // No-results state
@@ -78,7 +59,7 @@ export default function ResultPanel({
   const { result_panel: rp } = useDict();
   const onSuggest = useSuggest();
   const { selectedIds, toggle, clear } = usePointSelectionContext();
-  const [view, setView] = useState<ViewMode>("grid");
+  const [view, setView] = useState<ViewMode>("map");
   const [filterMode, setFilterMode] = useState<FilterMode>("episode");
   const [activeEpRange, setActiveEpRange] = useState<string | null>(null);
   const [activeArea, setActiveArea] = useState<string | null>(null);
@@ -125,16 +106,11 @@ export default function ResultPanel({
     return searchPoints.filter((p) => pointAreaI18n(p, rp.other_area) === activeArea);
   }, [searchPoints, filterMode, activeEpRange, activeArea, rp.other_area]);
 
-  // Old SelectionBar and LayoutControls removed — selection bar is now
-  // inside PilgrimageGrid (bottom-fixed), and layout controls are not needed
-  // in full-result mode per DESIGN.md.
-
   // ── Loading state ─────────────────────────────────────────────────────────
   if (!activeResponse && loading) {
     return (
       <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
-        {/* layout controls + old selection bar removed */}
-        <LoadingSkeleton />
+        <ResultPanelSkeleton />
       </section>
     );
   }
@@ -143,7 +119,6 @@ export default function ResultPanel({
   if (!activeResponse) {
     return (
       <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
-        {/* layout controls + old selection bar removed */}
         <ResultPanelEmptyState />
       </section>
     );
@@ -191,12 +166,68 @@ export default function ResultPanel({
       );
     }
 
+    // ── Map view ────────────────────────────────────────────────────────
+    if (view === "map" && !isEmpty) {
+      return (
+        <section
+          className="entrance-slide-right flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
+        >
+          <div className="relative flex-1 overflow-hidden">
+            {/* Map skeleton — shown while Mapbox GL JS initializes */}
+            <div className="absolute inset-0 flex items-center justify-center bg-muted">
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="animate-breathe">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <span className="text-xs">{rp.map_loading}</span>
+              </div>
+            </div>
+
+            {/* Mapbox GL map */}
+            <LazyMap points={visiblePoints} selectedIds={selectedIds} onToggle={toggle} />
+
+            {/* Floating spot list overlay — left side */}
+            <FloatingSpotList
+              points={searchPoints}
+              visiblePoints={visiblePoints}
+              selectedIds={selectedIds}
+              onToggle={toggle}
+              onPointClick={setDetailPoint}
+              filterMode={filterMode}
+              onFilterModeChange={setFilterMode}
+              epRanges={epRanges}
+              areas={areas}
+              activeEpRange={activeEpRange}
+              activeArea={activeArea}
+              onEpRangeChange={setActiveEpRange}
+              onAreaChange={setActiveArea}
+              totalCount={searchPoints.length}
+            />
+
+            {/* View toggle overlay — top-right */}
+            <MapViewToggle view={view} onViewChange={setView} />
+
+            {/* Selection bar overlay — bottom */}
+            {selectedIds.size > 0 && (
+              <SelectionBar
+                count={selectedIds.size}
+                onPlanRoute={() => setConfirmMode(true)}
+                onClear={clear}
+                disabled={loading}
+                hasFloatingList
+              />
+            )}
+          </div>
+        </section>
+      );
+    }
+
+    // ── Grid view (or empty) ────────────────────────────────────────────
     return (
       <section
-        className="entrance-slide-right flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
+        className="entrance-slide-right relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background"
       >
-        {/* layout controls + old selection bar removed */}
-
         {/* Toolbar: filter chips + view toggle */}
         <ResultPanelToolbar
           view={view}
@@ -214,54 +245,23 @@ export default function ResultPanel({
         {/* Content area */}
         {isEmpty ? (
           <NoResults />
-        ) : view === "grid" ? (
+        ) : (
           <GridContent
             points={visiblePoints}
             selectedIds={selectedIds}
             onToggle={toggle}
             onDetail={setDetailPoint}
           />
-        ) : (
-          <div className="relative flex-1 overflow-hidden">
-            {/* Map skeleton — shown while Mapbox GL JS initializes */}
-            <div className="absolute inset-0 flex items-center justify-center bg-muted" style={{ zIndex: 0 }}>
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="animate-breathe">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                <span className="text-xs">{rp.map_loading}</span>
-              </div>
-            </div>
-            <LazyMap points={visiblePoints} selectedIds={selectedIds} onToggle={toggle} />
-          </div>
         )}
 
-        {/* Bottom selection bar — visible in both grid and map when items selected */}
+        {/* Selection bar — bottom overlay for grid */}
         {selectedIds.size > 0 && (
-          <div
-            className="flex shrink-0 items-center gap-3 border-t border-border bg-card px-6 py-3"
-            style={{ animation: "slide-up 0.2s var(--ease-out-expo)" }}
-          >
-            <span className="text-sm font-medium text-foreground">
-              {rp.selected.replace("{count}", String(selectedIds.size))}
-            </span>
-            <button
-              type="button"
-              onClick={() => setConfirmMode(true)}
-              disabled={loading || selectedIds.size < 2}
-              className="ml-auto flex h-11 items-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-fg transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {rp.plan_route}
-            </button>
-            <button
-              type="button"
-              onClick={clear}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {rp.clear}
-            </button>
-          </div>
+          <SelectionBar
+            count={selectedIds.size}
+            onPlanRoute={() => setConfirmMode(true)}
+            onClear={clear}
+            disabled={loading}
+          />
         )}
       </section>
     );
