@@ -50,7 +50,10 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
     { bangumi_id: "362577", title: "すずめの戸締まり", cover_url: ANIME_COVERS["362577"] },
   ];
 
-  const withCovers = popular.filter((p) => p.cover_url);
+  // Only trust cover URLs from known CDN domains — API data may contain placeholder URLs
+  const isValidCoverUrl = (url: string | null | undefined): boolean =>
+    !!url && (url.includes("anitabi.cn") || url.includes("bangumi.tv"));
+  const withCovers = popular.filter((p) => isValidCoverUrl(p.cover_url));
   const covers = withCovers.length >= 4
     ? withCovers.slice(0, 5)
     : fallbackCovers.slice(0, 5);
