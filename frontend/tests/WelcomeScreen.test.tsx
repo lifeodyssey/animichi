@@ -77,10 +77,10 @@ describe("WelcomeScreen", () => {
       http.get("http://localhost:8000/v1/bangumi/popular", () => {
         return HttpResponse.json({
           bangumi: [
-            { bangumi_id: "bg-001", title: "响け", cover_url: "https://example.com/cover.jpg" },
-            { bangumi_id: "bg-002", title: "テスト2", cover_url: "https://example.com/c2.jpg" },
-            { bangumi_id: "bg-003", title: "テスト3", cover_url: "https://example.com/c3.jpg" },
-            { bangumi_id: "bg-004", title: "テスト4", cover_url: "https://example.com/c4.jpg" },
+            { bangumi_id: "bg-001", title: "响け", cover_url: "https://image.anitabi.cn/bangumi/bg-001.jpg" },
+            { bangumi_id: "bg-002", title: "テスト2", cover_url: "https://image.anitabi.cn/bangumi/bg-002.jpg" },
+            { bangumi_id: "bg-003", title: "テスト3", cover_url: "https://image.anitabi.cn/bangumi/bg-003.jpg" },
+            { bangumi_id: "bg-004", title: "テスト4", cover_url: "https://image.anitabi.cn/bangumi/bg-004.jpg" },
           ],
         });
       }),
