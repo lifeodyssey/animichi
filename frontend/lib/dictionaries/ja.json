@@ -94,7 +94,18 @@
     "plan_selected": "ルートを計画中…",
     "greet_user": "応答中…",
     "answer_question": "回答中…",
-    "clarify": "詳細を確認中…"
+    "clarify": "詳細を確認中…",
+    "done_resolve_anime": "タイトル確認",
+    "done_search_bangumi": "聖地検索",
+    "done_search_nearby": "付近の検索",
+    "done_plan_route": "ルート計画",
+    "done_plan_selected": "ルート計画",
+    "done_answer_question": "回答",
+    "done_clarify": "確認",
+    "value_spots": "{count}件の聖地",
+    "value_route": "{count}か所",
+    "value_done": "完了",
+    "pre_thinking": "考え中…"
   },
   "chat": {
     "placeholder": "聖地を探す・ルートを計画する…",

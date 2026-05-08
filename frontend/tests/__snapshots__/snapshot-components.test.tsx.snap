@@ -833,29 +833,21 @@ exports[`Snapshot: SlideOverPanel > renders when open 1`] = `
 </div>
 `;
 
-exports[`Snapshot: ThinkingProcess > renders with tool parts 1`] = `
+exports[`Snapshot: ThinkingProcess > renders pre-tool streaming indicator 1`] = `
 <div>
   <div
-    class="mb-2"
+    class="flex items-center gap-2 py-1"
+    data-testid="thinking-indicator"
   >
-    <button
-      class="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-      style="transition-duration: var(--duration-fast);"
+    <div
+      class="animate-pulse bg-muted h-2 w-2 rounded-full"
+      data-slot="skeleton"
+    />
+    <span
+      class="text-xs text-muted-foreground"
     >
-      <span
-        class=""
-      >
-        🧠
-      </span>
-      <span>
-        アニメタイトルを確認中…
-      </span>
-      <span
-        class="text-xs"
-      >
-        ▶
-      </span>
-    </button>
+      考え中…
+    </span>
   </div>
 </div>
 `;

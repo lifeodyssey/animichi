@@ -107,22 +107,10 @@ describe("Snapshot: FullscreenOverlay", () => {
 // ── Chat components ──────────────────────────────────────────
 
 describe("Snapshot: ThinkingProcess", () => {
-  it("renders with tool parts", async () => {
+  it("renders pre-tool streaming indicator", async () => {
     const { default: ThinkingProcess } = await import("@/components/chat/ThinkingProcess");
     const { container } = render(
-      <ThinkingProcess
-        toolParts={[
-          {
-            type: "dynamic-tool" as const,
-            toolName: "resolve_anime",
-            toolCallId: "call-001",
-            state: "output-available" as const,
-            input: {},
-            output: {},
-          } as import("ai").DynamicToolUIPart,
-        ]}
-        isStreaming={false}
-      />,
+      <ThinkingProcess isStreaming />,
     );
     expect(container).toMatchSnapshot();
   });

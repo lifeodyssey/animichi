@@ -94,7 +94,18 @@
     "plan_selected": "Planning route...",
     "greet_user": "Responding...",
     "answer_question": "Answering...",
-    "clarify": "Checking details..."
+    "clarify": "Checking details...",
+    "done_resolve_anime": "Title confirmed",
+    "done_search_bangumi": "Spot search",
+    "done_search_nearby": "Nearby search",
+    "done_plan_route": "Route plan",
+    "done_plan_selected": "Route plan",
+    "done_answer_question": "Answer",
+    "done_clarify": "Confirmed",
+    "value_spots": "{count} spots",
+    "value_route": "{count} stops",
+    "value_done": "Done",
+    "pre_thinking": "Thinking..."
   },
   "chat": {
     "placeholder": "Find pilgrimage spots or plan a route…",
