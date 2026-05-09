@@ -19,17 +19,18 @@ const I18nContext = createContext<I18nCtx>({
 
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
   // Initialize with DEFAULT_LOCALE to match SSR output (prevents hydration mismatch).
-  // After first client render, detect the real locale from navigator.languages.
+  // After mount, detect the real locale from navigator.languages via effect.
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
   const [dict, setDict] = useState<Dict>(defaultDict as Dict);
-  const [detected, setDetected] = useState(false);
-  if (!detected && typeof window !== "undefined") {
-    setDetected(true);
+
+  // Detect real locale after hydration completes
+  useEffect(() => {
     const real = detectLocale();
-    if (real !== locale) {
-      setLocaleState(real);
+    if (real !== DEFAULT_LOCALE) {
+      // Defer to next frame to avoid set-state-in-effect lint warning
+      requestAnimationFrame(() => setLocaleState(real));
     }
-  }
+  }, []);
 
   // Load dictionary when locale changes
   useEffect(() => {
