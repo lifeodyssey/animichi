@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useDict } from "../../lib/i18n-context";
 import type { ClarifyCandidate } from "../../lib/types";
@@ -123,9 +124,12 @@ function CandidateCard({
       {/* Thumbnail — enlarged for better anime cover visibility */}
       <span className="relative flex h-14 w-11 shrink-0 overflow-hidden rounded-lg bg-muted">
         {candidate.cover_url && !imgError ? (
-          <img
+          <Image
+            unoptimized
             src={candidate.cover_url}
             alt={candidate.title}
+            width={44}
+            height={56}
             className="h-full w-full object-cover"
             onError={() => setImgError(true)}
           />
