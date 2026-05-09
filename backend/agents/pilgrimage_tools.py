@@ -391,6 +391,7 @@ async def clarify(
     }
 
     deps.tool_state[ToolName.CLARIFY.value] = payload
+    deps.tool_state["pending_clarify"] = True
     _record_step(
         deps,
         tool=ToolName.CLARIFY.value,
@@ -400,4 +401,8 @@ async def clarify(
         error=None,
     )
     await _emit_step(deps, ToolName.CLARIFY.value, "done", payload)
+    # Signal to the LLM that it must stop and return clarify_response now.
+    # Without this, some models (e.g. DeepSeek V4 Flash) continue calling
+    # search_bangumi instead of waiting for user input.
+    payload["action_required"] = "return clarify_response"
     return payload
