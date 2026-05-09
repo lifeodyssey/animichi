@@ -88,11 +88,19 @@ export default function ResultPanel({
     [searchPoints, selectedIds],
   );
 
-  // Episode range filter chips — only built when episode data exists.
+  // Episode range filter chips — empty for movies (no episode data).
   const epRanges = useMemo(() => buildEpRanges(searchPoints), [searchPoints]);
+  const hasEpisodes = epRanges.length > 0;
 
   // Area filter chips — derived from coordinates.
   const areas = useMemo(() => buildAreasI18n(searchPoints, rp.other_area), [searchPoints, rp.other_area]);
+
+  // Default to area filter for movies (no episode data).
+  const [prevHasEpisodes, setPrevHasEpisodes] = useState(hasEpisodes);
+  if (prevHasEpisodes !== hasEpisodes) {
+    setPrevHasEpisodes(hasEpisodes);
+    if (!hasEpisodes && filterMode === "episode") setFilterMode("area");
+  }
 
   // Filtered points based on active filter mode + selection.
   const visiblePoints = useMemo<PilgrimagePoint[]>(() => {
@@ -203,6 +211,7 @@ export default function ResultPanel({
               onEpRangeChange={setActiveEpRange}
               onAreaChange={setActiveArea}
               totalCount={searchPoints.length}
+              hasEpisodes={hasEpisodes}
             />
 
             {/* View toggle overlay — top-right */}

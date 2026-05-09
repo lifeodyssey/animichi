@@ -2,10 +2,13 @@
 
 Uses the official dispatch_request pattern:
 https://pydantic.dev/docs/ai/integrations/ui/vercel-ai/
+
+Detects clarify context from message history to prevent re-clarification.
 """
 
 from __future__ import annotations
 
+import json
 from typing import Annotated, cast
 
 import structlog
@@ -28,6 +31,59 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/v1", tags=["chat"])
 
 
+def _detect_clarify_context(body: bytes) -> dict[str, object]:
+    """Scan Vercel SDK request body for pending clarify state.
+
+    If the last assistant message contains a clarify tool call with
+    candidates, the current user message is a clarify selection.
+    Returns tool_state entries to pre-populate on deps.
+    """
+    try:
+        data = json.loads(body)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+    messages = data.get("messages")
+    if not isinstance(messages, list) or len(messages) < 2:
+        return {}
+
+    # Find the last assistant message before the current user message
+    last_assistant = None
+    for msg in reversed(messages):
+        role = msg.get("role", "")
+        if role == "assistant":
+            last_assistant = msg
+            break
+
+    if last_assistant is None:
+        return {}
+
+    # Check parts for a clarify tool call
+    parts = last_assistant.get("parts") or last_assistant.get("content")
+    if not isinstance(parts, list):
+        return {}
+
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        # Vercel SDK v6: tool parts have type "tool-{name}"
+        part_type = part.get("type", "")
+        tool_name = part.get("toolName", "")
+        if tool_name == "clarify" or part_type == "tool-clarify":
+            output = part.get("output") or part.get("result")
+            if isinstance(output, dict):
+                candidates = output.get("candidates") or output.get("options")
+                if isinstance(candidates, list):
+                    return {
+                        "pending_clarify": True,
+                        "resolve_candidates": candidates,
+                    }
+            # Even without parseable output, mark as pending
+            return {"pending_clarify": True}
+
+    return {}
+
+
 @router.post("/chat")
 async def handle_chat(
     request: Request,
@@ -43,6 +99,12 @@ async def handle_chat(
     if locale not in ("ja", "zh", "en"):
         locale = "ja"
 
+    # Read body once — Starlette caches it so dispatch_request can re-read
+    body = await request.body()
+
+    # Detect clarify context from message history
+    clarify_ctx = _detect_clarify_context(body)
+
     runtime_api = _get_runtime_api(request)
     db = cast(DatabasePort, runtime_api._db)
 
@@ -52,6 +114,11 @@ async def handle_chat(
         query="",  # extracted from messages by the agent
         retriever=Retriever(db),
     )
+
+    # Pre-populate tool_state with clarify context if detected
+    if clarify_ctx:
+        deps.tool_state.update(clarify_ctx)
+        logger.info("chat_clarify_context_detected", clarify_ctx=clarify_ctx)
 
     return await VercelAIAdapter.dispatch_request(
         request,

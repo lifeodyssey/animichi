@@ -55,7 +55,7 @@ def test_search_response_model_accepts_rows_and_nearby_groups() -> None:
                         "episode": 1,
                         "time_seconds": -1,
                         "screenshot_url": "",
-                        "bangumi_id": "120632",
+                        "bangumi_id": "115908",
                         "latitude": 34.889,
                         "longitude": 135.807,
                         "title": "響け！ユーフォニアム",
@@ -70,7 +70,7 @@ def test_search_response_model_accepts_rows_and_nearby_groups() -> None:
                 "metadata": {"radius_m": 5000},
                 "nearby_groups": [
                     {
-                        "bangumi_id": "120632",
+                        "bangumi_id": "115908",
                         "title": "響け！ユーフォニアム",
                         "cover_url": "",
                         "points_count": 1,
@@ -113,7 +113,7 @@ def test_route_response_model_requires_timed_itinerary() -> None:
                         "episode": -1,
                         "time_seconds": -1,
                         "screenshot_url": "",
-                        "bangumi_id": "120632",
+                        "bangumi_id": "115908",
                         "latitude": 34.889,
                         "longitude": 135.807,
                     }
