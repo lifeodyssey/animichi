@@ -25,12 +25,52 @@ import type { SeichijunreiMessage } from "../../lib/types/chat";
 // Helpers to extract RuntimeResponse from UIMessage tool parts.
 // ---------------------------------------------------------------------------
 
+/** Tool names whose output contains visual search/route results. */
+const VISUAL_TOOL_NAMES = new Set([
+  "search_bangumi", "search_by_bangumi", "search_nearby", "search_by_location",
+  "plan_route", "plan_selected",
+]);
+
 function extractResponse(msg: UIMessage): RuntimeResponse | null {
   for (const part of msg.parts) {
-    if (part.type !== "dynamic-tool") continue;
-    if (part.state !== "output-available") continue;
-    const output = part.output;
-    if (typeof output === "object" && output !== null && "intent" in output) {
+    // Match both dynamic-tool and tool-{name} (AI SDK v6 static tool parts)
+    const isDynamic = part.type === "dynamic-tool";
+    const isToolPart = typeof part.type === "string" && part.type.startsWith("tool-");
+    if (!isDynamic && !isToolPart) continue;
+    const p = part as Record<string, unknown>;
+    if (p.state !== "output-available") continue;
+    const output = p.output;
+    if (typeof output !== "object" || output === null) continue;
+
+    // PydanticAI dispatch_request streams raw tool outputs.
+    // Wrap them in a RuntimeResponse shape for the result panel.
+    const toolName = (p.toolName as string) ?? (typeof part.type === "string" ? part.type.replace("tool-", "") : "");
+    if (VISUAL_TOOL_NAMES.has(toolName)) {
+      const raw = output as Record<string, unknown>;
+      // search_bangumi returns {rows, row_count, status}
+      if (Array.isArray(raw.rows)) {
+        return {
+          success: true,
+          status: "ok",
+          intent: "search_bangumi",
+          message: "",
+          data: { results: { rows: raw.rows as object[], row_count: (raw.row_count as number) ?? (raw.rows as unknown[]).length } },
+        } as RuntimeResponse;
+      }
+      // plan_route returns {ordered_points, point_count, ...}
+      if (Array.isArray(raw.ordered_points)) {
+        return {
+          success: true,
+          status: "ok",
+          intent: "plan_route",
+          message: "",
+          data: { route: raw },
+        } as RuntimeResponse;
+      }
+    }
+
+    // Legacy format: output already has intent field
+    if ("intent" in output) {
       return output as RuntimeResponse;
     }
   }

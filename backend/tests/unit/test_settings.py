@@ -1,5 +1,7 @@
 """Unit tests for application settings and configuration."""
 
+import pytest
+
 from backend.config.settings import Settings
 
 
@@ -105,6 +107,7 @@ class TestAPIKeyValidation:
         missing = settings.validate_api_keys()
         assert missing == []
 
+    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_validate_api_keys_missing_openai_compat_when_fallback_enabled(self):
         """Fallback provider requires compat config when using openai fallback."""
         settings = Settings(

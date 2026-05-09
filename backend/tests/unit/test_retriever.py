@@ -126,9 +126,9 @@ class TestRetrievalExecution:
     @pytest.mark.asyncio
     async def test_sql_db_miss_triggers_write_through_fallback(self, mock_db):
         cache = ResponseCache(default_ttl_seconds=60, cleanup_interval_seconds=0)
-        mock_db.pool.fetch.side_effect = [
-            [],
-            [{"id": "p1", "bangumi_id": "115908", "title": "響け！ユーフォニアム"}],
+        # API-first: DB is queried once after API write-through
+        mock_db.pool.fetch.return_value = [
+            {"id": "p1", "bangumi_id": "115908", "title": "響け！ユーフォニアム"},
         ]
         fetch_bangumi_points = AsyncMock(return_value=[_make_point()])
         get_bangumi_subject = AsyncMock(
@@ -154,7 +154,7 @@ class TestRetrievalExecution:
 
         assert result.success
         assert result.strategy == RetrievalStrategy.SQL
-        assert result.metadata["data_origin"] == "fallback"
+        assert result.metadata["data_origin"] == "api"
         assert result.metadata["write_through"] is True
         fetch_bangumi_points.assert_awaited_once_with("115908")
         get_bangumi_subject.assert_awaited_once_with(115908)
@@ -164,7 +164,7 @@ class TestRetrievalExecution:
         assert written_rows[0]["latitude"] == 34.8843
         assert written_rows[0]["longitude"] == 135.7997
         assert written_rows[0]["location"] == "POINT(135.7997 34.8843)"
-        assert mock_db.pool.fetch.await_count == 2
+        assert mock_db.pool.fetch.await_count == 1
 
     @pytest.mark.asyncio
     async def test_hybrid_merges_sql_and_geo_results(self, mock_db):
@@ -192,9 +192,9 @@ class TestRetrievalExecution:
     @pytest.mark.asyncio
     async def test_hybrid_db_miss_falls_back_then_merges_geo(self, mock_db):
         cache = ResponseCache(default_ttl_seconds=60, cleanup_interval_seconds=0)
-        mock_db.pool.fetch.side_effect = [
-            [],
-            [{"id": "p1", "bangumi_id": "115908", "name": "A"}],
+        # API-first: single DB query after write-through
+        mock_db.pool.fetch.return_value = [
+            {"id": "p1", "bangumi_id": "115908", "name": "A"},
         ]
         mock_db.points.search_points_by_location.return_value = [
             {"id": "p1", "bangumi_id": "115908", "distance_m": 80},
@@ -217,7 +217,7 @@ class TestRetrievalExecution:
 
         assert result.success
         assert result.strategy == RetrievalStrategy.HYBRID
-        assert result.metadata["data_origin"] == "fallback"
+        assert result.metadata["data_origin"] == "api"
         assert result.rows[0]["distance_m"] == 80
         mock_db.points.upsert_points_batch.assert_awaited_once()
 
@@ -266,18 +266,14 @@ class TestForceRefresh:
             force_refresh=True,
         )
         sql_agent = MagicMock()
+        # API-first: single DB query after write-through returns updated data
         sql_agent.execute = AsyncMock(
-            side_effect=[
-                SQLResult(
-                    query="SELECT 1", params=[], rows=[{"id": "p1"}], row_count=1
-                ),
-                SQLResult(
-                    query="SELECT 1",
-                    params=[],
-                    rows=[{"id": "p1"}, {"id": "p2"}],
-                    row_count=2,
-                ),
-            ]
+            return_value=SQLResult(
+                query="SELECT 1",
+                params=[],
+                rows=[{"id": "p1"}, {"id": "p2"}],
+                row_count=2,
+            )
         )
         fetch_bangumi_points = AsyncMock(return_value=[_make_point(point_id="p2")])
         get_bangumi_subject = AsyncMock(
@@ -300,7 +296,8 @@ class TestForceRefresh:
         assert result.row_count == 2
 
     @pytest.mark.asyncio
-    async def test_no_force_refresh_returns_existing_rows_immediately(self, mock_db):
+    async def test_api_first_always_calls_api_even_without_force_refresh(self, mock_db):
+        """API-first: always fetches from API regardless of force_refresh."""
         from backend.agents.sql_agent import SQLResult
 
         request = RetrievalRequest(tool="search_bangumi", bangumi_id="115908")
@@ -313,14 +310,16 @@ class TestForceRefresh:
                 row_count=1,
             )
         )
-        fetch_bangumi_points = AsyncMock()
+        fetch_bangumi_points = AsyncMock(return_value=[_make_point()])
         retriever = Retriever(
             mock_db,
             sql_agent=sql_agent,
             fetch_bangumi_points=fetch_bangumi_points,
+            get_bangumi_subject=AsyncMock(return_value={"name": "Test"}),
         )
 
-        result, _ = await retriever._execute_sql_with_fallback(request)
+        result, meta = await retriever._execute_sql_with_fallback(request)
 
-        fetch_bangumi_points.assert_not_awaited()
+        fetch_bangumi_points.assert_awaited_once()
         assert result.row_count == 1
+        assert meta["data_origin"] == "api"

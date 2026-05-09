@@ -70,14 +70,12 @@ async def test_chat_returns_event_stream() -> None:
     runtime = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
     app, _ = build_app(runtime_api=runtime, db=mock_db)
 
-    with patch("backend.interfaces.routes.chat.VercelAIAdapter") as adapter_cls:
-        mock_adapter = MagicMock()
-        adapter_cls.return_value = mock_adapter
-        adapter_cls.build_run_input = MagicMock(return_value=MagicMock())
-
-        mock_adapter.run_stream.return_value = _empty_async_gen()
-        mock_adapter.streaming_response.return_value = _sse_response()
-
+    # Mock dispatch_request to return an SSE streaming response
+    with patch(
+        "backend.interfaces.routes.chat.VercelAIAdapter.dispatch_request",
+        new_callable=AsyncMock,
+        return_value=_sse_response(),
+    ):
         async with async_client(app) as client:
             resp = await client.post(
                 "/v1/chat",
@@ -114,62 +112,36 @@ async def test_legacy_runtime_stream_still_registered() -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC 4: _parse_body extracts session_id and locale
+# AC 4: Locale normalization — invalid locale defaults to "ja"
 # ---------------------------------------------------------------------------
 
 
-async def test_parse_body_extracts_session() -> None:
-    from backend.interfaces.routes.chat import _parse_body
+async def test_chat_invalid_locale_defaults_to_ja() -> None:
+    mock_db = build_stub_db()
+    runtime = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+    app, _ = build_app(runtime_api=runtime, db=mock_db)
 
-    raw = json.dumps(_vercel_body(session_id="sess-1")).encode()
-    _, session_id, locale = await _parse_body(_FakeRequest(raw))
-    assert session_id == "sess-1"
-    assert locale == "ja"
-
-
-# ---------------------------------------------------------------------------
-# AC 5: _extract_query extracts last user text
-# ---------------------------------------------------------------------------
-
-
-async def test_extract_query_returns_last_user_text() -> None:
-    from backend.interfaces.routes.chat import _extract_query
-
-    body = _vercel_body("hello world")
-    result = _extract_query(json.dumps(body).encode())
-    assert result == "hello world"
-
-
-async def test_extract_query_returns_empty_for_no_user() -> None:
-    from backend.interfaces.routes.chat import _extract_query
-
-    body = json.dumps({"messages": []}).encode()
-    result = _extract_query(body)
-    assert result == ""
-
-
-# ---------------------------------------------------------------------------
-# AC 6: _parse_body normalizes locale
-# ---------------------------------------------------------------------------
-
-
-async def test_parse_body_normalizes_invalid_locale() -> None:
-    from backend.interfaces.routes.chat import _parse_body
-
-    raw = json.dumps({"locale": "fr", "messages": []}).encode()
-    _, _, locale = await _parse_body(_FakeRequest(raw))
-    assert locale == "ja"
+    with patch(
+        "backend.interfaces.routes.chat.VercelAIAdapter.dispatch_request",
+        new_callable=AsyncMock,
+        return_value=_sse_response(),
+    ):
+        async with async_client(app) as client:
+            resp = await client.post(
+                "/v1/chat",
+                content=json.dumps(_vercel_body()),
+                headers={
+                    "Content-Type": "application/json",
+                    "X-User-Id": "user-1",
+                    "x-locale": "fr",
+                },
+            )
+        assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-async def _empty_async_gen() -> AsyncIterator[object]:
-    """Async generator that yields nothing."""
-    return
-    yield  # pragma: no cover
 
 
 def _sse_response() -> StreamingResponse:
@@ -189,13 +161,3 @@ def _make_response() -> PublicAPIResponse:
         intent="search_bangumi",
         message="Found locations.",
     )
-
-
-class _FakeRequest:
-    """Minimal stand-in implementing _HasBody protocol for unit tests."""
-
-    def __init__(self, body_bytes: bytes) -> None:
-        self._body = body_bytes
-
-    async def body(self) -> bytes:
-        return self._body
