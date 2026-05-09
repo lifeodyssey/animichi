@@ -33,7 +33,7 @@ async function handleApiAuth(request: NextRequest) {
   return NextResponse.next({ request: { headers } });
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/v1/")) {

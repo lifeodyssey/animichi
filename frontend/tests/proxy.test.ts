@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock @supabase/ssr before importing middleware
+// Mock @supabase/ssr before importing proxy
 vi.mock("@supabase/ssr", () => ({
   createServerClient: vi.fn(() => ({
     auth: {
@@ -40,7 +40,7 @@ function makeRequest(path: string, headers: Record<string, string> = {}): { next
   };
 }
 
-describe("middleware", () => {
+describe("proxy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
@@ -54,8 +54,8 @@ describe("middleware", () => {
       auth: { getUser: mockGetUser },
     });
 
-    const { middleware } = await import("../middleware");
-    await middleware(makeRequest("/") as never);
+    const { proxy } = await import("../proxy");
+    await proxy(makeRequest("/") as never);
 
     expect(mockRedirect).not.toHaveBeenCalled();
   });
@@ -68,8 +68,8 @@ describe("middleware", () => {
       auth: { getUser: mockGetUser },
     });
 
-    const { middleware } = await import("../middleware");
-    await middleware(makeRequest("/chat") as never);
+    const { proxy } = await import("../proxy");
+    await proxy(makeRequest("/chat") as never);
 
     expect(mockRedirect).toHaveBeenCalled();
     const redirectUrl = mockRedirect.mock.calls[0][0] as URL;
@@ -85,8 +85,8 @@ describe("middleware", () => {
       auth: { getUser: mockGetUser },
     });
 
-    const { middleware } = await import("../middleware");
-    await middleware(makeRequest("/chat") as never);
+    const { proxy } = await import("../proxy");
+    await proxy(makeRequest("/chat") as never);
 
     expect(mockRedirect).not.toHaveBeenCalled();
     expect(mockNext).toHaveBeenCalled();
@@ -94,8 +94,8 @@ describe("middleware", () => {
 
   it("allows public API routes without auth", async () => {
     vi.resetModules();
-    const { middleware } = await import("../middleware");
-    await middleware(makeRequest("/v1/bangumi/popular") as never);
+    const { proxy } = await import("../proxy");
+    await proxy(makeRequest("/v1/bangumi/popular") as never);
 
     expect(mockNext).toHaveBeenCalled();
     expect(mockJson).not.toHaveBeenCalled();
@@ -103,8 +103,8 @@ describe("middleware", () => {
 
   it("returns 401 for protected API routes without Bearer token", async () => {
     vi.resetModules();
-    const { middleware } = await import("../middleware");
-    await middleware(makeRequest("/v1/runtime") as never);
+    const { proxy } = await import("../proxy");
+    await proxy(makeRequest("/v1/runtime") as never);
 
     expect(mockJson).toHaveBeenCalledWith(
       { error: { code: "unauthorized", message: "Valid credentials required." } },
