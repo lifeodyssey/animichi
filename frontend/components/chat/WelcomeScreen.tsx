@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Dict, Locale } from "../../lib/i18n";
 import { fetchPopularBangumi, type PopularBangumiEntry } from "../../lib/api";
@@ -57,6 +58,14 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
   const covers = withCovers.length >= 4
     ? withCovers.slice(0, 5)
     : fallbackCovers.slice(0, 5);
+
+  // Returning user detection — lazy initializer reads localStorage synchronously (no effect needed)
+  const [isReturning] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const visited = localStorage.getItem("seichijunrei_visited");
+    if (!visited) localStorage.setItem("seichijunrei_visited", "1");
+    return !!visited;
+  });
 
   const placeholder =
     locale === "zh"
@@ -123,12 +132,12 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
         <ToriiIcon size={40} />
       </div>
 
-      {/* Tagline as title — more useful than repeating brand name */}
+      {/* Tagline — personalized for returning users */}
       <h1
         className="entrance-up mb-6 max-w-[20ch] text-center font-display text-2xl font-bold leading-snug text-foreground"
         style={{ animationDelay: "0.05s" }}
       >
-        {ws.tagline}
+        {isReturning ? (ws.tagline_returning ?? ws.tagline) : ws.tagline}
       </h1>
 
       {/* Pill search input — shadcn Input + send button */}
@@ -203,12 +212,12 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
                   aria-label={item.title}
                 >
                   {item.cover_url ? (
-                    <img
+                    <Image
+                      unoptimized
                       src={item.cover_url}
                       alt={item.title}
                       width={64}
                       height={88}
-                      loading="lazy"
                       className="h-[88px] w-[64px] rounded-md border border-border object-cover transition-transform group-hover:-translate-y-0.5"
                       style={{ transitionDuration: "var(--duration-fast)" }}
                     />
@@ -217,8 +226,15 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
                       {item.title.charAt(0)}
                     </div>
                   )}
-                  <span className="max-w-[64px] truncate text-[11px] text-muted-foreground transition-colors group-hover:text-foreground">
-                    {item.title.length > 7 ? `${item.title.slice(0, 6)}…` : item.title}
+                  <span className="flex max-w-[64px] flex-col items-center gap-0.5">
+                    <span className="truncate text-[11px] text-muted-foreground transition-colors group-hover:text-foreground">
+                      {item.title.length > 7 ? `${item.title.slice(0, 6)}…` : item.title}
+                    </span>
+                    {(item.points_count ?? 0) > 0 && (
+                      <span className="text-[9px] text-muted-foreground/70">
+                        {item.points_count} spots
+                      </span>
+                    )}
                   </span>
                 </button>
               ))}

@@ -201,6 +201,7 @@
   },
   "welcome_screen": {
     "tagline": "探索动漫圣地，踏上巡礼之旅",
+    "tagline_returning": "欢迎回来，下一站去哪？",
     "action_search": "搜索作品",
     "action_search_desc": "通过动漫名称搜索取景地",
     "action_nearby": "附近圣地",

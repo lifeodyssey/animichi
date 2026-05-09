@@ -201,6 +201,7 @@
   },
   "welcome_screen": {
     "tagline": "アニメの舞台を探して、巡礼ルートを作ろう",
+    "tagline_returning": "おかえりなさい。次はどこへ？",
     "action_search": "作品で探す",
     "action_search_desc": "アニメのタイトルから聖地を検索",
     "action_nearby": "近くの聖地",
