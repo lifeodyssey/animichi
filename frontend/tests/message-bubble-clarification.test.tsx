@@ -15,7 +15,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import MessageBubble from "@/components/chat/MessageBubble";
 import type { UIMessage, DynamicToolUIPart } from "ai";
-import type { ClarifyCandidate, RuntimeResponse } from "@/lib/types";
+import type { ClarifyCandidate } from "@/lib/types";
 import defaultDict from "@/lib/dictionaries/ja.json";
 
 vi.mock("@/lib/i18n-context", () => ({
@@ -40,37 +40,31 @@ const CANDIDATE_NO_COVER: ClarifyCandidate = {
   city: "西宮市",
 };
 
-function makeClarifyResponse(candidates: ClarifyCandidate[] = [CANDIDATE_WITH_COVER]): RuntimeResponse {
+/** PydanticAI raw clarify tool output format. */
+function makeClarifyOutput(candidates: ClarifyCandidate[] = [CANDIDATE_WITH_COVER]) {
   return {
-    success: true,
+    question: "どちらの作品ですか？",
+    options: candidates.map((c) => c.title),
+    candidates: candidates.map((c) => ({
+      title: c.title,
+      bangumi_id: "12345",
+      cover_url: c.cover_url,
+      points_count: c.spot_count,
+      city: c.city,
+    })),
     status: "needs_clarification",
-    intent: "clarify",
-    session_id: "s-001",
-    message: "どちらの作品ですか？",
-    data: {
-      intent: "clarify",
-      confidence: 0.8,
-      status: "needs_clarification",
-      message: "どちらの作品ですか？",
-      question: "どちらの作品ですか？",
-      options: candidates.map((c) => c.title),
-      candidates,
-    },
-    session: { interaction_count: 1, route_history_count: 0 },
-    route_history: [],
-    errors: [],
   };
 }
 
 function makeClarifyMessage(candidates: ClarifyCandidate[]): UIMessage {
-  const response = makeClarifyResponse(candidates);
+  const output = makeClarifyOutput(candidates);
   const toolPart: DynamicToolUIPart = {
     type: "dynamic-tool",
     toolName: "clarify",
     toolCallId: "call-clarify-001",
     state: "output-available",
     input: {},
-    output: response,
+    output,
   } as DynamicToolUIPart;
 
   return {
