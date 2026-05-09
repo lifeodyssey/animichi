@@ -131,19 +131,15 @@ class Settings(BaseSettings):
 
     # Agent model
     default_agent_model: str = Field(
-        default="openai:deepseek-v4-pro@https://api.deepseek.com",
-        description="Default primary LLM model (DeepSeek V4 Pro)",
+        default="deepseek:deepseek-v4-flash",
+        description="Default primary LLM model (DeepSeek V4 Flash)",
     )
     fallback_agent_model: str | None = Field(
-        default="openai:gpt-5.4",
+        default=None,
         description="Fallback LLM model when the default provider fails",
     )
-    fallback_agent_model_2: str | None = Field(
-        default=None,
-        description="Second fallback LLM model (disabled by default)",
-    )
     openai_compat_base_url: str = Field(
-        default="https://api.univibe.cc/openai/v1",
+        default="https://api.xiaomimimo.com/v1",
         description="Base URL for the OpenAI-compatible provider",
     )
 
@@ -250,7 +246,6 @@ class Settings(BaseSettings):
         all_models = [
             self.default_agent_model,
             self.fallback_agent_model,
-            self.fallback_agent_model_2,
         ]
         uses_gemini = any(_is_gemini_model(m) for m in all_models)
         if uses_gemini and not self.gemini_api_key:

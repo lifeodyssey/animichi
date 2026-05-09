@@ -1,24 +1,12 @@
 """Base agent configuration for Pydantic AI agents.
 
-Provides shared configuration and factory functions for creating
-model-agnostic agents. The model is selected via config, defaulting
-to Gemini but supporting OpenAI/Anthropic/Ollama.
-
-Usage:
-    from backend.agents.base import create_agent, get_default_model
-
-    agent = create_agent(
-        get_default_model(),
-        system_prompt="You are a travel assistant.",
-        output_type=MyOutputModel,
-    )
-    result = await agent.run("Plan a trip to Kamakura")
+Model resolution: deepseek: → DeepSeekProvider (native),
+openai: → OpenAI-compat with per-domain API key routing.
 """
 
 from __future__ import annotations
 
 import os
-import threading
 from typing import TypeVar, overload
 from urllib.parse import urlparse
 
@@ -26,226 +14,115 @@ import httpx
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.models import Model
-from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.models.fallback import FallbackModel
-from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.anthropic import AnthropicProvider
-from pydantic_ai.providers.google import GoogleProvider
+from pydantic_ai.providers.deepseek import DeepSeekProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
 T = TypeVar("T", bound=BaseModel)
 
-# Fallback when settings don't specify a model
-_FALLBACK_MODEL = "openai:deepseek-v4-pro@https://api.deepseek.com"
+_FALLBACK_MODEL = "deepseek:deepseek-v4-flash"
 
 
 def _build_http_client() -> httpx.AsyncClient:
-    """Build an HTTP client that ignores shell proxy env vars.
-
-    Uses trust_env=False to scope proxy bypass to provider clients only,
-    without mutating process-wide os.environ.
-    """
+    """HTTP client that ignores shell proxy env vars."""
     from backend.config import get_settings
 
     timeout = float(get_settings().timeout_seconds)
     return httpx.AsyncClient(trust_env=False, timeout=timeout)
 
 
-_GOOGLE_MODEL_LOCK = threading.Lock()
-
-_PROXY_VARS = (
-    "HTTP_PROXY",
-    "HTTPS_PROXY",
-    "ALL_PROXY",
-    "http_proxy",
-    "https_proxy",
-    "all_proxy",
-)
-
-
-def _normalize_gemini_model(model_name: str) -> GoogleModel:
-    """Build a GoogleModel from a repo config string.
-
-    Note: Google genai SDK creates an internal sync httpx client that reads
-    process proxy env vars. We temporarily save and clear them during
-    construction, then restore after. Thread-safe via lock.
-    """
-    from backend.config import get_settings
-
-    with _GOOGLE_MODEL_LOCK:
-        saved = {k: os.environ.pop(k) for k in _PROXY_VARS if k in os.environ}
-        try:
-            normalized = model_name.removeprefix("google-gla:")
-            provider = GoogleProvider(
-                api_key=get_settings().gemini_api_key or None,
-                http_client=_build_http_client(),
-            )
-            model = GoogleModel(normalized, provider=provider)
-        finally:
-            os.environ.update(saved)
-    return model
-
-
-def _resolve_api_key_for_base_url(base_url: str) -> str | None:
-    """Resolve the best API key for a given base URL.
-
-    Checks MIMO_API_KEY for mimo endpoints, then falls back to
-    OPENAI_COMPAT_API_KEY from settings.
-    """
-    mimo_url = os.environ.get("MIMO_BASE_URL", "")
-    if mimo_url and base_url.rstrip("/").startswith(mimo_url.rstrip("/")):
-        key = os.environ.get("MIMO_API_KEY")
-        if key:
-            return key
-    # Match by domain for inline @url specs — use proper URL parsing
+def _resolve_api_key(base_url: str) -> str | None:
+    """Match a base URL to the right API key env var by domain."""
     host = urlparse(base_url).hostname or ""
-    domain_keys: list[tuple[str, str]] = [
+    domain_keys = [
         ("xiaomimimo.com", "MIMO_API_KEY"),
         ("deepseek.com", "DEEPSEEK_API_KEY"),
-        ("zetatechs.com", "ZETA_API_KEY"),
     ]
     for domain, env_var in domain_keys:
         if host == domain or host.endswith(f".{domain}"):
-            key = os.environ.get(env_var)
-            if key:
-                return key
-    return None
+            return os.environ.get(env_var)
+    from backend.config import get_settings
+
+    return get_settings().openai_compat_api_key or None
 
 
-def _parse_openai_compat_model(
-    spec: str, *, base_url_override: str | None = None, api_key: str | None = None
-) -> OpenAIChatModel:
-    """Build an OpenAI-compatible model from a spec string."""
-    base_url: str | None
-    has_inline_url = "@" in spec
-    if has_inline_url:
-        name, inline_base_url = spec.split("@", 1)
-        base_url = inline_base_url
-    else:
-        name = spec
-        base_url = base_url_override
-    model_name = name.removeprefix("openai:")
-    if not base_url:
-        raise ValueError("OpenAI-compatible model requires a base URL")
-    # When the spec has an inline @url, prefer URL-specific key over the
-    # generic settings key — different providers need different keys.
-    url_specific_key = _resolve_api_key_for_base_url(base_url)
-    resolved_key = (
-        url_specific_key
-        if (has_inline_url and url_specific_key)
-        else (api_key or url_specific_key)
-    )
-    provider = OpenAIProvider(
-        base_url=base_url,
-        api_key=resolved_key or None,
-        http_client=_build_http_client(),
-    )
-    # DeepSeek V4 models route through their reasoner backend which
-    # rejects tool_choice='required'. Use 'auto' instead.
-    # Thinking mode is disabled to avoid reasoning_content roundtrip issues
-    # in multi-turn conversations (PydanticAI issue #5193).
-    profile = None
-    if model_name.startswith("deepseek-v4"):
-        from pydantic_ai.profiles.openai import OpenAIModelProfile
-
-        profile = OpenAIModelProfile(openai_supports_tool_choice_required=False)
-        from pydantic_ai.models.openai import OpenAIChatModelSettings
-
-        ds_settings = OpenAIChatModelSettings(
-            extra_body={"thinking": {"type": "disabled"}}
+def _parse_model(spec: str) -> Model:
+    """Parse a model spec string into a concrete Model."""
+    if spec.startswith("deepseek:"):
+        name = spec.removeprefix("deepseek:")
+        provider = DeepSeekProvider(
+            api_key=os.environ.get("DEEPSEEK_API_KEY"),
+            http_client=_build_http_client(),
         )
-        return OpenAIChatModel(
-            model_name, provider=provider, profile=profile, settings=ds_settings
+        return OpenAIChatModel(name, provider=provider)
+
+    if spec.startswith("openai:"):
+        raw = spec.removeprefix("openai:")
+        if "@" in raw:
+            name, base_url = raw.split("@", 1)
+        else:
+            from backend.config import get_settings
+
+            name, base_url = raw, get_settings().openai_compat_base_url
+        oai_provider = OpenAIProvider(
+            base_url=base_url,
+            api_key=_resolve_api_key(base_url),
+            http_client=_build_http_client(),
         )
-    return OpenAIChatModel(model_name, provider=provider, profile=profile)
+        return OpenAIChatModel(name, provider=oai_provider)
 
-
-def _parse_anthropic_model(spec: str) -> AnthropicModel:
-    """Build an Anthropic model, supporting optional @base_url override."""
-    name = spec.removeprefix("anthropic:")
-    base_url: str | None = None
-    if "@" in name:
-        name, base_url = name.split("@", 1)
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if base_url is None:
-        base_url = os.environ.get("ANTHROPIC_BASE_URL")
-    provider = AnthropicProvider(
-        base_url=base_url,
-        api_key=api_key,
-        http_client=_build_http_client(),
-    )
-    return AnthropicModel(name, provider=provider)
+    raise ValueError(f"Unsupported model spec: {spec}")
 
 
 def parse_model_spec(
     model: Model | str, *, use_settings_fallbacks: bool = False
 ) -> Model:
-    """Resolve a configured model string or instance into a concrete Model."""
-    from backend.config import get_settings
-
+    """Public API for resolving a model spec string."""
     if not isinstance(model, str):
         return model
-
-    settings = get_settings()
-    primary: Model
-    if model.startswith("google-gla:") or model.startswith("gemini"):
-        primary = _normalize_gemini_model(model)
-    elif model.startswith("openai:"):
-        primary = _parse_openai_compat_model(
-            model,
-            base_url_override=settings.openai_compat_base_url,
-            api_key=settings.openai_compat_api_key,
-        )
-    elif model.startswith("anthropic:"):
-        primary = _parse_anthropic_model(model)
-    else:
-        raise ValueError(f"Unsupported model spec: {model}")
-
+    primary = _parse_model(model)
     if not use_settings_fallbacks:
         return primary
+    from backend.config import get_settings
 
-    fallback_specs: list[str] = []
-    fb1 = settings.fallback_agent_model
-    if fb1 and fb1 != model:
-        fallback_specs.append(fb1)
-    fb2 = getattr(settings, "fallback_agent_model_2", None)
-    if isinstance(fb2, str) and fb2 and fb2 != model and fb2 not in fallback_specs:
-        fallback_specs.append(fb2)
-
-    if not fallback_specs:
-        return primary
-
-    fallback_models = [
-        parse_model_spec(spec, use_settings_fallbacks=False) for spec in fallback_specs
-    ]
-    return FallbackModel(primary, *fallback_models)
+    fb = get_settings().fallback_agent_model
+    if fb and fb != model:
+        return FallbackModel(primary, _parse_model(fb))
+    return primary
 
 
 def get_default_model() -> Model:
-    """Get the default agent model chain from settings, with fallback."""
+    """Build the default model with optional fallback chain."""
     from backend.config import get_settings
 
     settings = get_settings()
-    model_spec = settings.default_agent_model or _FALLBACK_MODEL
-    return parse_model_spec(model_spec, use_settings_fallbacks=True)
+    primary = _parse_model(settings.default_agent_model or _FALLBACK_MODEL)
+
+    fallbacks: list[Model] = []
+    if settings.fallback_agent_model:
+        fallbacks.append(_parse_model(settings.fallback_agent_model))
+
+    if not fallbacks:
+        return primary
+    return FallbackModel(primary, *fallbacks)
 
 
 def resolve_model(model: Model | str | None) -> Model:
-    """Resolve an explicit or default model to a concrete runtime Model."""
+    """Resolve an explicit or default model."""
     if model is None:
         return get_default_model()
-    return parse_model_spec(model, use_settings_fallbacks=False)
+    if isinstance(model, str):
+        return _parse_model(model)
+    return model
 
 
 def describe_model(model: object) -> str:
-    """Return a human-readable model description for logs and telemetry."""
+    """Human-readable model description for logs."""
     if isinstance(model, FallbackModel):
-        return f"fallback({', '.join(item.model_name for item in model.models)})"
+        return f"fallback({', '.join(m.model_name for m in model.models)})"
     label = getattr(model, "model_name", None)
-    if isinstance(label, str) and label:
-        return label
-    return type(model).__name__
+    return label if isinstance(label, str) and label else type(model).__name__
 
 
 @overload
@@ -254,7 +131,7 @@ def create_agent(
     *,
     system_prompt: str = "",
     output_type: type[T],
-    retries: int = 2,
+    tool_retries: int = 2,
 ) -> Agent[None, T]: ...
 
 
@@ -264,7 +141,7 @@ def create_agent(
     *,
     system_prompt: str = "",
     output_type: None = None,
-    retries: int = 2,
+    tool_retries: int = 2,
 ) -> Agent[None, str]: ...
 
 
@@ -273,28 +150,15 @@ def create_agent(
     *,
     system_prompt: str = "",
     output_type: type[T] | None = None,
-    retries: int = 2,
+    tool_retries: int = 2,
 ) -> Agent[None, T] | Agent[None, str]:
-    """Create a Pydantic AI agent with the given configuration.
-
-    Args:
-        model: Model identifier or pydantic-ai Model instance. Uses settings default if None.
-        system_prompt: System prompt for the agent.
-        output_type: Pydantic model for structured output. If None, returns str.
-        retries: Number of retries on failure.
-    Returns:
-        A configured Pydantic AI Agent instance.
-    """
-    selected_model: Model = resolve_model(model)
+    """Create a Pydantic AI agent with the given configuration."""
+    selected = resolve_model(model)
     if output_type is None:
-        return Agent(
-            selected_model,
-            system_prompt=system_prompt,
-            retries=retries,
-        )
+        return Agent(selected, system_prompt=system_prompt, tool_retries=tool_retries)
     return Agent(
-        selected_model,
+        selected,
         system_prompt=system_prompt,
         output_type=output_type,
-        retries=retries,
+        tool_retries=tool_retries,
     )

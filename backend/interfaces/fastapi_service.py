@@ -100,7 +100,14 @@ def create_fastapi_app(
         allow_origins=[resolved_settings.cors_allowed_origin],
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "X-User-Id", "X-User-Type"],
+        allow_headers=[
+            "Content-Type",
+            "Authorization",
+            "X-User-Id",
+            "X-User-Type",
+            "x-session-id",
+            "x-locale",
+        ],
     )
     register_exception_handlers(app)
     register_observability_middleware(app)

@@ -21,7 +21,7 @@ from backend.agents.retrievers.geo import (
 from backend.agents.retrievers.hybrid import merge_rows_preserving_order
 from backend.agents.retrievers.sql import (
     execute_sql_with_fallback,
-    should_try_db_miss_fallback,
+    should_try_api,
 )
 
 __all__ = [
@@ -35,7 +35,7 @@ __all__ = [
     "persist_points",
     "point_to_db_row",
     "records_to_dicts",
-    "should_try_db_miss_fallback",
+    "should_try_api",
     "subject_to_bangumi_fields",
     "update_bangumi_points_count",
     "write_through_bangumi_points",
