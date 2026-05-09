@@ -212,13 +212,15 @@ class TestSessionContextInjection:
         assert "76 spots" in result
         assert "涼宮ハルヒの憂鬱" in result
 
-    def test_empty_state_returns_empty(self) -> None:
+    def test_empty_state_has_locale_only(self) -> None:
         from backend.agents.pilgrimage_agent import _inject_session_context
 
         ctx = MagicMock()
         ctx.deps.tool_state = {}
+        ctx.deps.locale = "ja"
         result = _inject_session_context(ctx)
-        assert result == ""
+        assert "RESPOND ONLY in Japanese" in result
+        assert "resolve" not in result.lower() or "Current anime" not in result
 
     def test_injects_resolve_context(self) -> None:
         from backend.agents.pilgrimage_agent import _inject_session_context

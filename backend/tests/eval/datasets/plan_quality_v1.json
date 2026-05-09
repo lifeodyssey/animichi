@@ -1385,7 +1385,7 @@
     "query": "そのルートを作って",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "262243"
+      "current_bangumi_id": "160209"
     },
     "expected_steps": [
       "plan_route"
@@ -1398,7 +1398,7 @@
     "query": "近くの他の聖地も教えて",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "120632"
+      "current_bangumi_id": "115908"
     },
     "expected_steps": [
       "search_nearby"
@@ -1411,7 +1411,7 @@
     "query": "もっと詳しく教えて",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "227543"
+      "current_bangumi_id": "183878"
     },
     "expected_steps": [
       "answer_question"
@@ -1424,7 +1424,7 @@
     "query": "3番目と5番目のスポットだけでルートを作って",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "120632",
+      "current_bangumi_id": "115908",
       "point_ids": [
         "p1",
         "p2",
@@ -1444,7 +1444,7 @@
     "query": "今度はけいおん！の聖地を探して",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "262243"
+      "current_bangumi_id": "160209"
     },
     "expected_steps": [
       "resolve_anime",
@@ -1459,7 +1459,7 @@
     "query": "帮我规划那些地点的路线",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "262243"
+      "current_bangumi_id": "160209"
     },
     "expected_steps": [
       "plan_route"
@@ -1472,7 +1472,7 @@
     "query": "附近还有别的圣地吗",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "120632"
+      "current_bangumi_id": "115908"
     },
     "expected_steps": [
       "search_nearby"
@@ -1485,7 +1485,7 @@
     "query": "只选第1和第3个地点规划路线",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "227543",
+      "current_bangumi_id": "183878",
       "point_ids": [
         "p1",
         "p2",
@@ -1503,7 +1503,7 @@
     "query": "能详细介绍一下吗",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "120632"
+      "current_bangumi_id": "115908"
     },
     "expected_steps": [
       "answer_question"
@@ -1516,7 +1516,7 @@
     "query": "换一个，查查灌篮高手的",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "262243"
+      "current_bangumi_id": "160209"
     },
     "expected_steps": [
       "resolve_anime",
@@ -1531,7 +1531,7 @@
     "query": "now plan a route for those spots",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "262243"
+      "current_bangumi_id": "160209"
     },
     "expected_steps": [
       "plan_route"
@@ -1544,7 +1544,7 @@
     "query": "are there other anime spots nearby?",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "120632"
+      "current_bangumi_id": "115908"
     },
     "expected_steps": [
       "search_nearby"
@@ -1557,7 +1557,7 @@
     "query": "just pick spots 2 and 4 and make a route",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "227543",
+      "current_bangumi_id": "183878",
       "point_ids": [
         "p1",
         "p2",
@@ -1589,7 +1589,7 @@
     "query": "actually search for Demon Slayer instead",
     "context": {
       "last_intent": "search_bangumi",
-      "current_bangumi_id": "262243"
+      "current_bangumi_id": "160209"
     },
     "expected_steps": [
       "resolve_anime",

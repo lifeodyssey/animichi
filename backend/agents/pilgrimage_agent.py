@@ -282,17 +282,23 @@ pilgrimage_agent = Agent(
 )
 
 
+_LOCALE_NAMES = {"ja": "Japanese", "zh": "Simplified Chinese", "en": "English"}
+
+
 @pilgrimage_agent.instructions
 def _inject_session_context(ctx: RunContext[RuntimeDeps]) -> str:
-    """Inject current session state as dynamic context for multi-turn."""
-    state = ctx.deps.tool_state
+    """Inject locale enforcement and current session state for multi-turn."""
     parts: list[str] = []
+
+    # Locale enforcement — first for prominence
+    lang = _LOCALE_NAMES.get(ctx.deps.locale, "Japanese")
+    parts.append(f"RESPOND ONLY in {lang}. Do NOT use other languages.")
+
+    state = ctx.deps.tool_state
     _add_resolve_context(state, parts)
     _add_search_context(state, parts)
     _add_nearby_context(state, parts)
     _add_clarify_context(state, parts)
-    if not parts:
-        return ""
     return "\n## Current session state\n" + "\n".join(f"- {p}" for p in parts)
 
 

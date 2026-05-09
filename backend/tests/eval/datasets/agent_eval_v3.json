@@ -15,7 +15,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -59,7 +59,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -169,7 +169,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -213,7 +213,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -301,7 +301,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -345,7 +345,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -455,7 +455,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "ヴァイオレット・エヴァーガーデン",
-      "bangumi_id": "227543",
+      "bangumi_id": "183878",
       "db_state": "hit_sparse",
       "difficulty": "easy",
       "notes": "only 1 point in DB"
@@ -521,7 +521,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "ヴァイオレット・エヴァーガーデン",
-      "bangumi_id": "227543",
+      "bangumi_id": "183878",
       "db_state": "hit_sparse",
       "difficulty": "easy",
       "notes": ""
@@ -587,7 +587,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "ヴァイオレット・エヴァーガーデン",
-      "bangumi_id": "227543",
+      "bangumi_id": "183878",
       "db_state": "hit_sparse",
       "difficulty": "easy",
       "notes": ""
@@ -1380,7 +1380,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "API may fail"
@@ -1402,7 +1402,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "API may fail"
@@ -1424,7 +1424,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "API may fail"
@@ -1446,7 +1446,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "API may fail"
@@ -1468,7 +1468,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "API may fail"
@@ -1490,7 +1490,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "Chinese title needs translation"
@@ -1512,7 +1512,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -1578,7 +1578,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "English title needs translation"
@@ -1820,7 +1820,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "ja locale but zh query"
@@ -1842,7 +1842,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "ja locale but en query"
@@ -1974,7 +1974,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": "zh locale, zh query"
@@ -2040,7 +2040,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "zh locale but ja query"
@@ -2194,7 +2194,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": "en locale, en query"
@@ -2238,7 +2238,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "ヴァイオレット・エヴァーガーデン",
-      "bangumi_id": "227543",
+      "bangumi_id": "183878",
       "db_state": "hit_sparse",
       "difficulty": "easy",
       "notes": ""
@@ -2260,7 +2260,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "en locale but ja query"
@@ -2282,7 +2282,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "en locale but zh query"
@@ -4541,7 +4541,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -4564,7 +4564,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -4633,7 +4633,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -4656,7 +4656,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -4725,7 +4725,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -4748,7 +4748,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -4962,7 +4962,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -4984,7 +4984,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -5116,7 +5116,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -5138,7 +5138,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -5247,7 +5247,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -5269,7 +5269,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -5400,7 +5400,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "origin specified"
@@ -5444,7 +5444,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -5510,7 +5510,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -5532,7 +5532,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -5620,7 +5620,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -5642,7 +5642,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -5731,7 +5731,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "ヴァイオレット・エヴァーガーデン",
-      "bangumi_id": "227543",
+      "bangumi_id": "183878",
       "db_state": "hit_sparse",
       "difficulty": "hard",
       "notes": "only 1 point"
@@ -5800,7 +5800,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "ヴァイオレット・エヴァーガーデン",
-      "bangumi_id": "227543",
+      "bangumi_id": "183878",
       "db_state": "hit_sparse",
       "difficulty": "hard",
       "notes": ""
@@ -5846,7 +5846,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "ヴァイオレット・エヴァーガーデン",
-      "bangumi_id": "227543",
+      "bangumi_id": "183878",
       "db_state": "hit_sparse",
       "difficulty": "hard",
       "notes": ""
@@ -6275,7 +6275,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": "greeting + anime query"
@@ -6337,7 +6337,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -6399,7 +6399,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -6441,7 +6441,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -7488,7 +7488,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632",
+          "bangumi_id": "115908",
           "results": [
             {
               "id": "p004"
@@ -7507,7 +7507,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": "route after search"
@@ -7528,7 +7528,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243",
+          "bangumi_id": "160209",
           "results": [
             {
               "id": "p001"
@@ -7547,7 +7547,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -7685,7 +7685,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632",
+          "bangumi_id": "115908",
           "results": [
             {
               "id": "p004"
@@ -7704,7 +7704,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -7725,7 +7725,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243",
+          "bangumi_id": "160209",
           "results": [
             {
               "id": "p001"
@@ -7744,7 +7744,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -7882,7 +7882,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632",
+          "bangumi_id": "115908",
           "results": [
             {
               "id": "p004"
@@ -7901,7 +7901,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -7922,7 +7922,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243",
+          "bangumi_id": "160209",
           "results": [
             {
               "id": "p001"
@@ -7941,7 +7941,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -8079,7 +8079,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       }
     },
@@ -8107,7 +8107,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632"
+          "bangumi_id": "115908"
         }
       }
     },
@@ -8135,7 +8135,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       }
     },
@@ -8163,7 +8163,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       }
     },
@@ -8191,7 +8191,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632"
+          "bangumi_id": "115908"
         }
       }
     },
@@ -8219,7 +8219,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       }
     },
@@ -8275,7 +8275,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       }
     },
@@ -8303,7 +8303,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632"
+          "bangumi_id": "115908"
         }
       }
     },
@@ -8331,7 +8331,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       }
     },
@@ -8358,7 +8358,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632"
+          "bangumi_id": "115908"
         }
       },
       "last_location": "宇治市"
@@ -8384,7 +8384,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       },
       "last_location": "東京都"
@@ -8436,7 +8436,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632"
+          "bangumi_id": "115908"
         }
       },
       "last_location": "宇治市"
@@ -8462,7 +8462,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       },
       "last_location": "東京都"
@@ -8488,7 +8488,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632"
+          "bangumi_id": "115908"
         }
       },
       "last_location": "宇治市"
@@ -8514,7 +8514,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       },
       "last_location": "東京都"
@@ -8566,14 +8566,14 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       }
     },
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": "continue previous search"
@@ -8593,14 +8593,14 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632"
+          "bangumi_id": "115908"
         }
       }
     },
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -8620,14 +8620,14 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       }
     },
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -8674,14 +8674,14 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       }
     },
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -8701,14 +8701,14 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632"
+          "bangumi_id": "115908"
         }
       }
     },
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -8729,7 +8729,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243",
+          "bangumi_id": "160209",
           "results": [
             {
               "id": "p001"
@@ -8747,7 +8747,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "refine origin"
@@ -8768,7 +8768,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632",
+          "bangumi_id": "115908",
           "results": [
             {
               "id": "p004"
@@ -8786,7 +8786,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -8807,7 +8807,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243",
+          "bangumi_id": "160209",
           "results": [
             {
               "id": "p001"
@@ -8825,7 +8825,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -8846,7 +8846,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632",
+          "bangumi_id": "115908",
           "results": [
             {
               "id": "p004"
@@ -8864,7 +8864,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -8885,7 +8885,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243",
+          "bangumi_id": "160209",
           "results": [
             {
               "id": "p001"
@@ -8903,7 +8903,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -8924,7 +8924,7 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632",
+          "bangumi_id": "115908",
           "results": [
             {
               "id": "p004"
@@ -8942,7 +8942,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -9188,7 +9188,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "GPS route to Eupho spots"
@@ -9214,7 +9214,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -9266,7 +9266,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -9292,7 +9292,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -9370,7 +9370,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -9396,7 +9396,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
@@ -9443,14 +9443,14 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632"
+          "bangumi_id": "115908"
         }
       }
     },
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": "session context"
@@ -9471,14 +9471,14 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       }
     },
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -9527,14 +9527,14 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632"
+          "bangumi_id": "115908"
         }
       }
     },
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -9555,14 +9555,14 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       }
     },
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -9583,14 +9583,14 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "120632"
+          "bangumi_id": "115908"
         }
       }
     },
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -9639,14 +9639,14 @@
     "context": {
       "last_search_data": {
         "search_bangumi": {
-          "bangumi_id": "262243"
+          "bangumi_id": "160209"
         }
       }
     },
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -10026,7 +10026,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "English title"
@@ -10048,7 +10048,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "ヴァイオレット・エヴァーガーデン",
-      "bangumi_id": "227543",
+      "bangumi_id": "183878",
       "db_state": "hit_sparse",
       "difficulty": "medium",
       "notes": ""
@@ -10374,7 +10374,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "mixed zh+ja"
@@ -10443,7 +10443,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "mixed ja+en"
@@ -10466,7 +10466,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "mixed zh+en"
@@ -10529,7 +10529,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -10609,7 +10609,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": ""
@@ -10675,7 +10675,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "hard",
       "notes": "ja title with zh locale"
@@ -10808,7 +10808,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": "verify response in ja"
@@ -10850,7 +10850,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": "verify response in zh"
@@ -10892,7 +10892,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "easy",
       "notes": "verify response in en"
@@ -11109,7 +11109,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "zh query, ja locale"
@@ -11153,7 +11153,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "ja query, zh locale"
@@ -11197,7 +11197,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "zh query, en locale"
@@ -11241,7 +11241,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "ja query, en locale"
@@ -11286,7 +11286,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "hard",
       "notes": "romanized title"
@@ -11309,7 +11309,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "hard",
       "notes": ""
@@ -11332,7 +11332,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "hard",
       "notes": ""
@@ -11378,7 +11378,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "hard",
       "notes": ""
@@ -11401,7 +11401,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "hard",
       "notes": ""
@@ -11470,7 +11470,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "hard",
       "notes": "abbreviation"
@@ -11628,7 +11628,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "hard",
       "notes": "typo: は→わ"
@@ -11674,7 +11674,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "hard",
       "notes": "typo: 字→子"
@@ -11720,7 +11720,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "君の名は。",
-      "bangumi_id": "262243",
+      "bangumi_id": "160209",
       "db_state": "hit_complete",
       "difficulty": "hard",
       "notes": "typo: name→naem"
@@ -11789,7 +11789,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "響け！ユーフォニアム",
-      "bangumi_id": "120632",
+      "bangumi_id": "115908",
       "db_state": "hit_complete",
       "difficulty": "hard",
       "notes": "truncated title"
@@ -11835,7 +11835,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "ヴァイオレット・エヴァーガーデン",
-      "bangumi_id": "227543",
+      "bangumi_id": "183878",
       "db_state": "hit_sparse",
       "difficulty": "hard",
       "notes": "truncated Chinese title"
@@ -11881,7 +11881,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "ヴァイオレット・エヴァーガーデン",
-      "bangumi_id": "227543",
+      "bangumi_id": "183878",
       "db_state": "hit_sparse",
       "difficulty": "hard",
       "notes": "partial title"
@@ -13113,7 +13113,7 @@
     "selected_point_ids": null,
     "metadata": {
       "anime": "ヴァイオレット・エヴァーガーデン",
-      "bangumi_id": "227543",
+      "bangumi_id": "183878",
       "db_state": "hit_sparse",
       "difficulty": "medium",
       "notes": "mixed en+ja"

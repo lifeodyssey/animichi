@@ -140,6 +140,104 @@ async def test_chat_invalid_locale_defaults_to_ja() -> None:
 
 
 # ---------------------------------------------------------------------------
+# AC 5: Clarify context detection from message history
+# ---------------------------------------------------------------------------
+
+
+class TestDetectClarifyContext:
+    def test_empty_body(self) -> None:
+        from backend.interfaces.routes.chat import _detect_clarify_context
+
+        assert _detect_clarify_context(b"") == {}
+
+    def test_no_assistant_message(self) -> None:
+        from backend.interfaces.routes.chat import _detect_clarify_context
+
+        body = json.dumps(
+            {"messages": [{"role": "user", "parts": [{"type": "text", "text": "hi"}]}]}
+        ).encode()
+        assert _detect_clarify_context(body) == {}
+
+    def test_assistant_without_clarify(self) -> None:
+        from backend.interfaces.routes.chat import _detect_clarify_context
+
+        body = json.dumps(
+            {
+                "messages": [
+                    {"role": "user", "parts": [{"type": "text", "text": "京吹"}]},
+                    {
+                        "role": "assistant",
+                        "parts": [{"type": "text", "text": "Here are results"}],
+                    },
+                    {"role": "user", "parts": [{"type": "text", "text": "more"}]},
+                ]
+            }
+        ).encode()
+        assert _detect_clarify_context(body) == {}
+
+    def test_detects_clarify_with_candidates(self) -> None:
+        from backend.interfaces.routes.chat import _detect_clarify_context
+
+        body = json.dumps(
+            {
+                "messages": [
+                    {"role": "user", "parts": [{"type": "text", "text": "凉宫"}]},
+                    {
+                        "role": "assistant",
+                        "parts": [
+                            {
+                                "type": "tool-clarify",
+                                "toolName": "clarify",
+                                "output": {
+                                    "question": "Which one?",
+                                    "candidates": [
+                                        {
+                                            "title": "涼宮ハルヒの憂鬱",
+                                            "bangumi_id": "485",
+                                        },
+                                        {
+                                            "title": "涼宮ハルヒの消失",
+                                            "bangumi_id": "3375",
+                                        },
+                                    ],
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "role": "user",
+                        "parts": [{"type": "text", "text": "涼宮ハルヒの憂鬱"}],
+                    },
+                ]
+            }
+        ).encode()
+        result = _detect_clarify_context(body)
+        assert result["pending_clarify"] is True
+        assert len(result["resolve_candidates"]) == 2
+
+    def test_detects_clarify_without_output(self) -> None:
+        from backend.interfaces.routes.chat import _detect_clarify_context
+
+        body = json.dumps(
+            {
+                "messages": [
+                    {"role": "user", "parts": [{"type": "text", "text": "fate"}]},
+                    {
+                        "role": "assistant",
+                        "parts": [{"type": "tool-clarify", "toolName": "clarify"}],
+                    },
+                    {
+                        "role": "user",
+                        "parts": [{"type": "text", "text": "Fate/stay night"}],
+                    },
+                ]
+            }
+        ).encode()
+        result = _detect_clarify_context(body)
+        assert result["pending_clarify"] is True
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 

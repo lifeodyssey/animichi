@@ -26,6 +26,8 @@ export interface FloatingSpotListProps {
   onEpRangeChange: (range: string | null) => void;
   onAreaChange: (area: string | null) => void;
   totalCount: number;
+  /** False for movies — hides the episode filter tab. */
+  hasEpisodes?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,6 +147,7 @@ export function FloatingSpotList({
   onEpRangeChange,
   onAreaChange,
   totalCount,
+  hasEpisodes = true,
 }: FloatingSpotListProps) {
   const { result_panel: rp, toolbar: t } = useDict();
   const activeRef = useRef<HTMLDivElement>(null);
@@ -173,20 +176,22 @@ export function FloatingSpotList({
         </span>
       </div>
 
-      {/* Filter tabs (compact) */}
+      {/* Filter tabs (compact) — episode tab hidden for movies */}
       <div className="flex shrink-0 items-center gap-0 border-b border-border px-2">
-        <button
-          type="button"
-          onClick={() => onFilterModeChange("episode")}
-          className={cn(
-            "px-2 py-1.5 text-[10px] font-medium transition-colors",
-            filterMode === "episode"
-              ? "text-foreground border-b border-primary"
-              : "text-muted-foreground",
-          )}
-        >
-          {t.tab_episode}
-        </button>
+        {hasEpisodes && (
+          <button
+            type="button"
+            onClick={() => onFilterModeChange("episode")}
+            className={cn(
+              "px-2 py-1.5 text-[10px] font-medium transition-colors",
+              filterMode === "episode"
+                ? "text-foreground border-b border-primary"
+                : "text-muted-foreground",
+            )}
+          >
+            {t.tab_episode}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onFilterModeChange("area")}
