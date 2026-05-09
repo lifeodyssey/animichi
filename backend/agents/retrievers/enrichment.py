@@ -8,6 +8,7 @@ from collections.abc import Awaitable, Callable, Mapping
 import structlog
 
 from backend.clients.anitabi import AnitabiClient
+from backend.clients.errors import APIError
 from backend.domain.entities import Point
 
 logger = structlog.get_logger(__name__)
@@ -61,7 +62,7 @@ async def fetch_bangumi_lite(bangumi_id: str) -> dict[str, object] | None:
     try:
         async with AnitabiClient() as client:
             return await client.get_bangumi_lite(bangumi_id)
-    except (OSError, RuntimeError, ValueError) as exc:
+    except (OSError, RuntimeError, ValueError, APIError) as exc:
         logger.warning(
             "bangumi_lite_fetch_failed",
             bangumi_id=bangumi_id,
@@ -80,7 +81,7 @@ async def load_bangumi_metadata(
             raise RuntimeError("Bangumi subject fallback is not configured")
         subject_id = int(bangumi_id)
         subject = await get_bangumi_subject(subject_id)
-    except (OSError, RuntimeError, ValueError) as exc:
+    except (OSError, RuntimeError, ValueError, APIError) as exc:
         logger.warning(
             "bangumi_metadata_fallback_to_minimal",
             bangumi_id=bangumi_id,
@@ -170,7 +171,7 @@ async def write_through_bangumi_points(
                 "fallback_status": "disabled",
             }
         points = await fetch_bangumi_points(bangumi_id)
-    except (OSError, RuntimeError, ValueError) as exc:
+    except (OSError, RuntimeError, ValueError, APIError) as exc:
         logger.warning(
             "bangumi_fallback_fetch_failed",
             bangumi_id=bangumi_id,
