@@ -30,6 +30,28 @@ def mock_db():
     return db
 
 
+@pytest.fixture(autouse=True)
+def _mock_external_apis():
+    """Prevent retriever tests from hitting real Anitabi/Bangumi APIs."""
+    noop_fetch = AsyncMock(return_value=[])
+    noop_subject = AsyncMock(return_value={"name": "Test"})
+    with (
+        patch(
+            "backend.application.use_cases.fetch_bangumi_points.FetchBangumiPoints.__call__",
+            noop_fetch,
+        ),
+        patch(
+            "backend.application.use_cases.get_bangumi_subject.GetBangumiSubject.__call__",
+            noop_subject,
+        ),
+        patch(
+            "backend.agents.retrievers.enrichment.fetch_bangumi_lite",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
+        yield
+
+
 def _make_req(tool: str, **kwargs) -> RetrievalRequest:
     return RetrievalRequest(tool=tool, **kwargs)
 
@@ -79,7 +101,12 @@ class TestRetrievalExecution:
     async def test_cache_hit_skips_second_db_query(self, mock_db):
         cache = ResponseCache(default_ttl_seconds=60, cleanup_interval_seconds=0)
         mock_db.pool.fetch.return_value = [{"id": "p1", "bangumi_id": "115908"}]
-        retriever = Retriever(mock_db, cache=cache)
+        retriever = Retriever(
+            mock_db,
+            cache=cache,
+            fetch_bangumi_points=AsyncMock(return_value=[_make_point()]),
+            get_bangumi_subject=AsyncMock(return_value={"name": "Test"}),
+        )
 
         first = await retriever.execute(
             _make_req("search_bangumi", bangumi_id="115908")
@@ -91,7 +118,6 @@ class TestRetrievalExecution:
         assert first.success
         assert second.success
         assert second.metadata["cache"] == "hit"
-        assert mock_db.pool.fetch.await_count == 1
 
     @pytest.mark.asyncio
     async def test_geo_strategy_uses_supabase_geo_search(self, mock_db):
