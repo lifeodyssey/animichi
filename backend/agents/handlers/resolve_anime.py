@@ -121,7 +121,7 @@ async def execute(
         api_results = await gateway.search_subject(
             keyword=title, subject_type=2, max_results=5
         )
-    except (OSError, RuntimeError, ValueError):
+    except (OSError, RuntimeError, ValueError, Exception):
         pass
 
     # 3. Merge DB + API, deduplicate by bangumi_id
