@@ -667,14 +667,14 @@ class TestQueryPayload:
                 rows=[
                     {
                         "id": "p1",
-                        "bangumi_id": "120632",
+                        "bangumi_id": "115908",
                         "title": "響け！ユーフォニアム",
                         "cover_url": "https://example.com/eupho.jpg",
                         "distance_m": 100.0,
                     },
                     {
                         "id": "p2",
-                        "bangumi_id": "120632",
+                        "bangumi_id": "115908",
                         "title": "響け！ユーフォニアム",
                         "cover_url": "https://example.com/eupho.jpg",
                         "distance_m": 250.0,
@@ -686,7 +686,7 @@ class TestQueryPayload:
         )
 
         assert payload["metadata"]["radius_m"] == 5000
-        assert payload["nearby_groups"][0]["bangumi_id"] == "120632"
+        assert payload["nearby_groups"][0]["bangumi_id"] == "115908"
         assert payload["nearby_groups"][0]["points_count"] == 2
         assert payload["nearby_groups"][0]["closest_distance_m"] == pytest.approx(100.0)
 

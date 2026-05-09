@@ -74,13 +74,21 @@ See `docs/ARCHITECTURE.md` for full details.
 
 | Tool | Description |
 |---|---|
-| `resolve_anime` | DB-first title→bangumi_id; API fallback; write-through |
+| `resolve_anime` | API-first title→bangumi_id; DB cache; write-through |
 | `search_bangumi` | Retriever → points by bangumi_id |
 | `search_nearby` | Geo retrieval by location + radius |
 | `plan_route` | Nearest-neighbor route ordering |
 | `greet_user` | Ephemeral greeting/identity response |
 | `answer_question` | QA pass-through |
 | `clarify` | Disambiguation when query is ambiguous |
+
+## External API Reference
+
+Full docs in `docs/api-reference/`. Key facts:
+
+- **Anitabi** (`api.anitabi.cn`): Pilgrimage point data. Uses **Bangumi.tv subject IDs**. `GET /bangumi/{id}/lite` for metadata, `GET /bangumi/{id}/points/detail?haveImage=true` for full point list. Images at `image.anitabi.cn`. CC BY-NC-SA 4.0.
+- **Bangumi** (`api.bgm.tv`): Anime metadata (title, cover, rating, eps). `GET /search/subject/{keywords}?type=2` for search, `GET /subject/{id}` for detail. `eps=1` → movie, `eps>1` → TV.
+- Both APIs share the same subject ID system. Our DB uses these IDs as primary keys.
 
 ## Guardrails
 

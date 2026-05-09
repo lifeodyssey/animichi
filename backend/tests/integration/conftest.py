@@ -59,7 +59,7 @@ _NEARBY_POINTS = [
         id="pt-uji-1",
         name="宇治桥",
         title="響け！ユーフォニアム",
-        bangumi_id="120632",
+        bangumi_id="115908",
         distance_m=280.0,
         latitude=34.889,
         longitude=135.807,
@@ -69,7 +69,7 @@ _NEARBY_POINTS = [
         id="pt-uji-2",
         name="京阪宇治站",
         title="響け！ユーフォニアム",
-        bangumi_id="120632",
+        bangumi_id="115908",
         distance_m=460.0,
         latitude=34.891,
         longitude=135.81,
@@ -79,7 +79,7 @@ _NEARBY_POINTS = [
 
 _NEARBY_GROUPS = [
     NearbyGroupModel(
-        bangumi_id="120632",
+        bangumi_id="115908",
         title="響け！ユーフォニアム",
         cover_url="https://example.com/eupho.jpg",
         points_count=2,

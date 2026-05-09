@@ -156,7 +156,7 @@ async def resolve_anime(ctx: RunContext[RuntimeDeps], title: str) -> dict[str, o
 
     Call this FIRST whenever the user mentions an anime by name.
 
-    Returns on success: {"bangumi_id": "262243", "title": "君の名は。", "candidates": [...]}
+    Returns on success: {"bangumi_id": "160209", "title": "君の名は。", "candidates": [...]}
     Returns on ambiguity: {"ambiguous": true, "candidates": [{"title": ..., "bangumi_id": ...}, ...]}
     Returns on failure: {"error": "Could not resolve anime: 'xyz'"}
 
