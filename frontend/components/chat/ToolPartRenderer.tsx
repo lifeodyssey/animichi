@@ -24,8 +24,17 @@ const VISUAL_TOOLS = new Set([
   "plan_selected",
 ]);
 
-/** Tool names that should never appear in the pipeline. */
-const SKIP_PIPELINE = new Set(["greet_user"]);
+/** Tool names that should never appear in the pipeline.
+ *  Includes PydanticAI structured output tools (*_response) that are
+ *  internal to the agent and not meaningful pipeline steps. */
+const SKIP_PIPELINE = new Set([
+  "greet_user",
+  "search_response",
+  "clarify_response",
+  "route_response",
+  "qa_response",
+  "greeting_response",
+]);
 
 // ---------------------------------------------------------------------------
 // SVG Icons per tool
@@ -107,6 +116,10 @@ function renderToolIcon(toolName: string, className: string): React.ReactNode {
       return <QuestionIcon className={className} />;
     case "answer_question":
     case "general_qa":
+      return <ChatBubbleIcon className={className} />;
+    case "web_search":
+      return <SearchIcon className={className} />;
+    case "search_response":
       return <ChatBubbleIcon className={className} />;
     default:
       return <SearchIcon className={className} />;
@@ -438,9 +451,35 @@ export default function ToolPartRenderer({
 function asRuntimeResponse(output: unknown): RuntimeResponse | null {
   if (typeof output !== "object" || output === null) return null;
   const obj = output as Record<string, unknown>;
-  if (typeof obj.intent !== "string") return null;
-  if (typeof obj.message !== "string") return null;
-  return obj as unknown as RuntimeResponse;
+
+  // Legacy format: output already has intent field
+  if (typeof obj.intent === "string" && typeof obj.message === "string") {
+    return obj as unknown as RuntimeResponse;
+  }
+
+  // PydanticAI raw tool output: search_bangumi returns {rows, row_count}
+  if (Array.isArray(obj.rows)) {
+    return {
+      success: true,
+      status: "ok",
+      intent: "search_bangumi",
+      message: "",
+      data: { results: { rows: obj.rows as object[], row_count: (obj.row_count as number) ?? (obj.rows as unknown[]).length } },
+    } as RuntimeResponse;
+  }
+
+  // PydanticAI raw tool output: plan_route returns {ordered_points, ...}
+  if (Array.isArray(obj.ordered_points)) {
+    return {
+      success: true,
+      status: "ok",
+      intent: "plan_route",
+      message: "",
+      data: { route: obj },
+    } as RuntimeResponse;
+  }
+
+  return null;
 }
 
 function getResultCount(response: RuntimeResponse): number {

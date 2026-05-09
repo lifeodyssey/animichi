@@ -1,6 +1,8 @@
 "use client";
 
 import type { UIMessage, DynamicToolUIPart } from "ai";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useDict } from "../../lib/i18n-context";
 import ThinkingProcess from "./ThinkingProcess";
 import { PipelineCard } from "./ToolPartRenderer";
@@ -39,10 +41,23 @@ export default function MessageBubble({
     );
   }
 
-  // Assistant message — collect tool parts for pipeline card
-  const toolParts = message.parts.filter(
-    (p): p is DynamicToolUIPart => p.type === "dynamic-tool",
-  );
+  // Assistant message — collect tool parts for pipeline card.
+  // AI SDK v6 tool parts use "tool-{toolName}" format (e.g. "tool-clarify").
+  // We normalize them to DynamicToolUIPart shape for PipelineCard.
+  const toolParts: DynamicToolUIPart[] = [];
+  for (const p of message.parts) {
+    if (p.type === "dynamic-tool") {
+      toolParts.push(p as DynamicToolUIPart);
+    } else if (typeof p.type === "string" && p.type.startsWith("tool-")) {
+      // SDK v6 static tool part — extract toolName from type prefix
+      const part = p as Record<string, unknown>;
+      toolParts.push({
+        ...part,
+        type: "dynamic-tool",
+        toolName: (part.toolName as string) ?? p.type.replace("tool-", ""),
+      } as DynamicToolUIPart);
+    }
+  }
 
   const textParts = message.parts.filter(
     (p): p is { type: "text"; text: string } => p.type === "text" && !!p.text,
@@ -51,6 +66,10 @@ export default function MessageBubble({
   const hasToolOutput = toolParts.some(
     (p) => p.state === "output-available",
   );
+
+  // While streaming, hide text if tools exist — prevents flicker as
+  // multi-step agent interleaves text and tool parts across steps.
+  const showText = !isStreaming || toolParts.length === 0;
 
   const showPreThinking = isStreaming && toolParts.length === 0 && textParts.length === 0;
 
@@ -77,11 +96,11 @@ export default function MessageBubble({
         />
       )}
 
-      {/* Text parts */}
-      {textParts.map((part, i) => (
-        <p key={`text-${i}`} className="text-sm font-light leading-loose text-foreground">
-          {part.text}
-        </p>
+      {/* Text parts — rendered as markdown, hidden while tools are running */}
+      {showText && textParts.map((part, i) => (
+        <div key={`text-${i}`} className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary">
+          <Markdown remarkPlugins={[remarkGfm]}>{part.text}</Markdown>
+        </div>
       ))}
 
       {/* Feedback buttons — only shown when streaming is done and there's content */}

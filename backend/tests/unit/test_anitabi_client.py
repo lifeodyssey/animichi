@@ -187,6 +187,7 @@ class TestAnitabiClient:
     # -- get_station_info tests --
 
     @pytest.mark.asyncio
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     async def test_get_station_info_success(self, client, mock_station_response):
         """Test successful station information lookup."""
         with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
@@ -204,6 +205,7 @@ class TestAnitabiClient:
             assert station.city == "東京都"
 
     @pytest.mark.asyncio
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     async def test_get_station_info_not_found(self, client):
         """Test station lookup with unknown station name."""
         with patch.object(client, "get", new_callable=AsyncMock) as mock_get:

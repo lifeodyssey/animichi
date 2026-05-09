@@ -566,11 +566,13 @@ exports[`Snapshot: MessageList > renders a list of messages 1`] = `
           >
             聖地巡礼
           </p>
-          <p
-            class="text-sm font-light leading-loose text-foreground"
+          <div
+            class="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary"
           >
-            回答
-          </p>
+            <p>
+              回答
+            </p>
+          </div>
         </div>
       </div>
       <div />

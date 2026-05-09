@@ -382,7 +382,7 @@ async def compact_session_interactions(
             "Summarize the session in 1-2 sentences. Capture what the user was "
             "researching and keep the same language as the interaction text."
         ),
-        retries=1,
+        tool_retries=1,
     )
     try:
         result = await agent.run("\n".join(prompt_lines))
@@ -431,7 +431,7 @@ async def generate_and_save_title(
                 "Generate a very short conversation title (<=15 characters) in the "
                 "same language as the query. Output only the title."
             ),
-            retries=1,
+            tool_retries=1,
         )
         result = await agent.run(
             f"Query: {first_query}\nResponse summary: {response_message[:200]}"

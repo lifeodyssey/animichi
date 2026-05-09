@@ -276,7 +276,7 @@ pilgrimage_agent = Agent(
         ToolOutput(GreetingResponseModel, name="greeting_response"),
     ],
     instructions=_INSTRUCTIONS,
-    retries=2,
+    tool_retries=2,
     history_processors=[_compact_tool_results, _sliding_window],
 )
 

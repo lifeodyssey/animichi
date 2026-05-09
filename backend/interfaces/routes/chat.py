@@ -39,7 +39,6 @@ async def handle_chat(
     x-locale) so the body is reserved for the SDK's RequestData format.
     dispatch_request handles body parsing, agent execution, and streaming.
     """
-    session_id = request.headers.get("x-session-id") or None
     locale = request.headers.get("x-locale", "ja")
     if locale not in ("ja", "zh", "en"):
         locale = "ja"

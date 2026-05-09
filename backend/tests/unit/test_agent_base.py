@@ -1,56 +1,71 @@
-"""Unit tests for shared agent model parsing and fallback construction."""
+"""Unit tests for agent model resolution and fallback chain."""
 
 from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
 from pydantic_ai.models.fallback import FallbackModel
-from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel
 
-from backend.agents.base import describe_model, parse_model_spec, resolve_model
+from backend.agents.base import describe_model, resolve_model
 from backend.config.settings import Settings
+
+
+@pytest.fixture(autouse=True)
+def _mock_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
+    monkeypatch.setenv("MIMO_API_KEY", "test-mimo-key")
 
 
 def _test_settings() -> Settings:
     return Settings(
-        gemini_api_key="test-gemini-key",
-        openai_compat_api_key="test-openai-compat-key",
-        openai_compat_base_url="https://api.univibe.cc/openai",
-        default_agent_model="openai:deepseek-v4-pro@https://api.deepseek.com",
-        fallback_agent_model="openai:gpt-5.4",
-        fallback_agent_model_2=None,
+        openai_compat_api_key="test-key",
+        openai_compat_base_url="https://api.xiaomimimo.com/v1",
+        default_agent_model="deepseek:deepseek-v4-flash",
+        fallback_agent_model="openai:mimo-v2.5@https://api.xiaomimimo.com/v1",
     )
 
 
-class TestParseModelSpec:
-    def test_parse_gemini_model(self) -> None:
-        model = parse_model_spec("google-gla:gemini-3.1-pro-preview")
-        assert isinstance(model, GoogleModel)
-        assert model.model_name == "gemini-3.1-pro-preview"
-
-    def test_parse_openai_compat_model(self) -> None:
-        model = parse_model_spec(
-            "openai:gpt-5.4@https://api.univibe.cc/openai",
-            use_settings_fallbacks=False,
-        )
+class TestResolveModel:
+    def test_deepseek_model(self) -> None:
+        with patch("backend.config.get_settings", return_value=_test_settings()):
+            model = resolve_model("deepseek:deepseek-v4-flash")
         assert isinstance(model, OpenAIChatModel)
-        assert model.model_name == "gpt-5.4"
+        assert model.model_name == "deepseek-v4-flash"
 
-    def test_resolve_model_uses_default_fallback_chain(self) -> None:
+    def test_openai_compat_model(self) -> None:
+        with patch("backend.config.get_settings", return_value=_test_settings()):
+            model = resolve_model("openai:mimo-v2.5@https://api.xiaomimimo.com/v1")
+        assert isinstance(model, OpenAIChatModel)
+        assert model.model_name == "mimo-v2.5"
+
+    def test_default_uses_fallback_chain(self) -> None:
         with patch("backend.config.get_settings", return_value=_test_settings()):
             model = resolve_model(None)
         assert isinstance(model, FallbackModel)
         assert len(model.models) == 2
-        assert model.models[0].model_name == "deepseek-v4-pro"
-        assert model.models[1].model_name == "gpt-5.4"
+        assert model.models[0].model_name == "deepseek-v4-flash"
+        assert model.models[1].model_name == "mimo-v2.5"
 
-    def test_explicit_model_does_not_add_default_fallback(self) -> None:
+    def test_explicit_model_skips_fallback(self) -> None:
         with patch("backend.config.get_settings", return_value=_test_settings()):
-            model = resolve_model("google-gla:gemini-3.1-pro-preview")
-        assert isinstance(model, GoogleModel)
+            model = resolve_model("deepseek:deepseek-v4-flash")
+        assert isinstance(model, OpenAIChatModel)
 
-    def test_describe_model_for_fallback(self) -> None:
+    def test_unsupported_spec_raises(self) -> None:
+        with pytest.raises(ValueError, match="Unsupported model spec"):
+            with patch("backend.config.get_settings", return_value=_test_settings()):
+                resolve_model("unknown:model")
+
+
+class TestDescribeModel:
+    def test_single_model(self) -> None:
+        with patch("backend.config.get_settings", return_value=_test_settings()):
+            model = resolve_model("deepseek:deepseek-v4-flash")
+        assert describe_model(model) == "deepseek-v4-flash"
+
+    def test_fallback_model(self) -> None:
         with patch("backend.config.get_settings", return_value=_test_settings()):
             model = resolve_model(None)
-        assert describe_model(model) == "fallback(deepseek-v4-pro, gpt-5.4)"
+        assert describe_model(model) == "fallback(deepseek-v4-flash, mimo-v2.5)"
