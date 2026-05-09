@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useDict } from "../../lib/i18n-context";
 
 interface SelectionBarProps {
@@ -19,11 +19,14 @@ export default function SelectionBar({
   disabled = false,
 }: SelectionBarProps) {
   const { selection: t } = useDict();
+  // Derive origin from defaultOrigin prop; user can override via input.
+  // Using a ref to track the previous default avoids calling setState in an effect.
   const [origin, setOrigin] = useState(defaultOrigin);
-
-  useEffect(() => {
+  const [prevDefault, setPrevDefault] = useState(defaultOrigin);
+  if (defaultOrigin !== prevDefault) {
+    setPrevDefault(defaultOrigin);
     setOrigin(defaultOrigin);
-  }, [defaultOrigin]);
+  }
 
   const handleRoute = () => {
     if (disabled || count === 0) return;
