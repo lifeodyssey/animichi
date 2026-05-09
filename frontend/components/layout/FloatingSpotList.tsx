@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useDict } from "../../lib/i18n-context";
@@ -75,9 +76,12 @@ function SpotItem({
     >
       {/* Thumbnail */}
       {point.screenshot_url ? (
-        <img
+        <Image
+          unoptimized
           src={point.screenshot_url}
           alt={point.name_cn ?? point.name}
+          width={36}
+          height={36}
           className="h-9 w-9 shrink-0 rounded-md object-cover"
         />
       ) : (

@@ -201,6 +201,7 @@
   },
   "welcome_screen": {
     "tagline": "Find anime filming locations and plan your pilgrimage route",
+    "tagline_returning": "Welcome back. Where to next?",
     "action_search": "Search by anime",
     "action_search_desc": "Find pilgrimage spots by anime title",
     "action_nearby": "Nearby spots",

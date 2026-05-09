@@ -6,7 +6,7 @@
  * AC: /v1/bangumi/popular network failure — WelcomeScreen renders without crash.
  * AC: Welcome tagline and chip labels render in ja, zh, en.
  */
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { server } from "./mocks/server";
@@ -31,6 +31,10 @@ function renderWelcomeScreen(
 }
 
 describe("WelcomeScreen", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("renders the tagline as heading", () => {
     renderWelcomeScreen();
     expect(screen.getByText(jaFull.welcome_screen.tagline)).toBeInTheDocument();

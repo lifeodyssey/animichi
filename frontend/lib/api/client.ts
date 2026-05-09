@@ -67,6 +67,8 @@ export interface PopularBangumiEntry {
   bangumi_id: string;
   title: string;
   cover_url: string | null;
+  points_count?: number;
+  city?: string;
 }
 
 /**
