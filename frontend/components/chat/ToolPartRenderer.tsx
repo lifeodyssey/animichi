@@ -1,7 +1,7 @@
 "use client";
 
 import type { DynamicToolUIPart } from "ai";
-import { isSearchData, isRouteData, isClarifyData } from "../../lib/types";
+import { isSearchData, isRouteData } from "../../lib/types";
 import type { RuntimeResponse } from "../../lib/types";
 import { isVisualResponse } from "../generative/registry";
 import { useSuggest } from "../../contexts/SuggestContext";
@@ -385,11 +385,12 @@ function InlineToolOutput({
   onSuggest: (text: string) => void;
 }) {
   if (part.state !== "output-available") return null;
-  const response = asRuntimeResponse(part.output);
-  if (!response) return null;
+  const raw = part.output as Record<string, unknown> | null;
+  if (!raw) return null;
 
   if (part.toolName === "search_nearby" || part.toolName === "search_by_location") {
-    if (!isSearchData(response.data)) return null;
+    const response = asRuntimeResponse(raw);
+    if (!response || !isSearchData(response.data)) return null;
     return (
       <div className="max-w-[480px] rounded-2xl rounded-bl bg-card px-4 py-3">
         <NearbyBubble data={response.data} onSuggest={onSuggest} />
@@ -398,13 +399,24 @@ function InlineToolOutput({
   }
 
   if (part.toolName === "clarify") {
-    const clarifyData = isClarifyData(response.data) ? response.data : null;
+    // PydanticAI raw output: {question, options, candidates, status}
+    const question = typeof raw.question === "string" ? raw.question : "";
+    const rawOptions = Array.isArray(raw.options) ? (raw.options as string[]) : undefined;
+    const rawCandidates = Array.isArray(raw.candidates)
+      ? (raw.candidates as Array<Record<string, unknown>>).map((c) => ({
+          title: String(c.title ?? ""),
+          bangumi_id: String(c.bangumi_id ?? ""),
+          cover_url: (c.cover_url as string | null) ?? null,
+          spot_count: Number(c.points_count ?? c.spot_count ?? 0),
+          city: String(c.city ?? ""),
+        }))
+      : undefined;
     return (
       <div className="max-w-[480px] rounded-2xl rounded-bl bg-card px-4 py-3">
         <Clarification
-          message={response.message}
-          options={clarifyData?.options}
-          candidates={clarifyData?.candidates}
+          message={question}
+          options={rawOptions}
+          candidates={rawCandidates}
           onSuggest={onSuggest}
         />
       </div>
