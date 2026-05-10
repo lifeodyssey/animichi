@@ -152,13 +152,16 @@ dev-local:
 	else \
 		echo "✓ Data exists ($$COUNT bangumi)"; \
 	fi
-	@# 4. Start backend with .env (background, daemonized)
+	@# 4. Start Edge Function for auth emails (with local SITE_URL)
+	@supabase functions serve send-auth-email --no-verify-jwt --env-file supabase/.env.local > /tmp/seichijunrei-edge.log 2>&1 & echo $$! > /tmp/seichijunrei-edge.pid
+	@echo "✓ Edge Function started (SITE_URL=http://localhost:3001)"
+	@# 5. Start backend with .env (background, daemonized)
 	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) uv run uvicorn backend.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080 > /tmp/seichijunrei-backend.log 2>&1 & echo $$! > /tmp/seichijunrei-backend.pid
-	@# 5. Wait for backend health
+	@# 6. Wait for backend health
 	@echo "Waiting for backend..."
 	@for i in $$(seq 1 60); do curl -s http://localhost:8080/healthz >/dev/null 2>&1 && break || sleep 2; done
 	@curl -s http://localhost:8080/healthz >/dev/null 2>&1 && echo "✓ Backend ready on :8080" || (echo "✗ Backend failed — check /tmp/seichijunrei-backend.log" && exit 1)
-	@# 6. Start frontend on :3001 (matching config.toml site_url)
+	@# 7. Start frontend on :3001 (matching config.toml site_url)
 	@cd frontend && npm run dev > /tmp/seichijunrei-frontend.log 2>&1 & echo $$! > /tmp/seichijunrei-frontend.pid
 	@sleep 3
 	@echo "✓ Frontend starting on :3001"
@@ -173,6 +176,7 @@ dev-local:
 
 dev-stop:
 	@echo "Stopping local dev services..."
+	@-test -f /tmp/seichijunrei-edge.pid && kill $$(cat /tmp/seichijunrei-edge.pid) 2>/dev/null && rm /tmp/seichijunrei-edge.pid && echo "✓ Edge Function stopped" || true
 	@-test -f /tmp/seichijunrei-backend.pid && kill $$(cat /tmp/seichijunrei-backend.pid) 2>/dev/null && rm /tmp/seichijunrei-backend.pid && echo "✓ Backend stopped" || true
 	@-test -f /tmp/seichijunrei-frontend.pid && kill $$(cat /tmp/seichijunrei-frontend.pid) 2>/dev/null && rm /tmp/seichijunrei-frontend.pid && echo "✓ Frontend stopped" || true
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
