@@ -46,11 +46,13 @@ for m in d['messages']:
 " 2>/dev/null)
 
   if [ -n "$LINK" ]; then
+    # Rewrite production URL to local — Edge Function may default to prod SITE_URL
+    LOCAL_LINK=$(echo "$LINK" | sed 's|https://seichijunrei\.zhenjia\.org|http://localhost:3001|g')
     echo ""
     echo "✅ Magic link found!"
     echo ""
     echo "Opening in browser..."
-    open "$LINK" 2>/dev/null || echo "Open this URL: $LINK"
+    open "$LOCAL_LINK" 2>/dev/null || echo "Open this URL: $LOCAL_LINK"
     exit 0
   fi
   sleep 1
