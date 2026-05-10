@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import subprocess
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
@@ -12,6 +15,13 @@ from backend.interfaces.routes._deps import (
 )
 
 router = APIRouter(tags=["health"])
+
+# Capture git info at module load time (once, at startup)
+_STARTED_AT = datetime.now(UTC).isoformat()
+_GIT_COMMIT = (
+    subprocess.getoutput("git rev-parse --short HEAD 2>/dev/null") or "unknown"
+)
+_GIT_BRANCH = subprocess.getoutput("git branch --show-current 2>/dev/null") or "unknown"
 
 
 @router.get("/")
@@ -37,6 +47,9 @@ async def handle_health(request: Request) -> JSONResponse:
     payload = {
         "status": "ok",
         "service": "seichijunrei-runtime",
+        "git_commit": _GIT_COMMIT,
+        "git_branch": _GIT_BRANCH,
+        "started_at": _STARTED_AT,
         "app_env": settings.app_env,
         "observability_enabled": settings.observability_enabled,
         "db_adapter": type(getattr(runtime_api, "_db", None)).__name__,

@@ -18,10 +18,10 @@ Error Hierarchy:
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class ErrorCode(str, Enum):
+class ErrorCode(StrEnum):
     """Standardized error codes for application errors.
 
     These codes provide a stable API for error handling across

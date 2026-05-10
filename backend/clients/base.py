@@ -14,7 +14,7 @@ Cache integration lives in ``cache_mixin``, retry orchestration in
 
 import asyncio
 from collections.abc import Mapping, Sequence
-from enum import Enum
+from enum import StrEnum
 from types import TracebackType
 from typing import Self, TypeAlias
 from urllib.parse import urlparse
@@ -116,7 +116,7 @@ def _wrap_transport_error(exc: Exception, timeout: int) -> APIError:
     return APIError(f"Unexpected error: {str(exc)}")
 
 
-class HTTPMethod(str, Enum):
+class HTTPMethod(StrEnum):
     """HTTP request methods."""
 
     GET = "GET"
