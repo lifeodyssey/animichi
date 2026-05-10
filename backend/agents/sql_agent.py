@@ -39,7 +39,7 @@ _POINT_COORD_COLUMNS = (
 )
 _POINT_RUNTIME_COLUMNS = (
     "p.id, p.bangumi_id, p.name, p.name_cn, p.episode, p.time_seconds, "
-    "p.image AS screenshot_url, p.origin, "
+    "p.image AS screenshot_url, p.origin, p.city, "
     f"{_POINT_COORD_COLUMNS}, "
     "b.title, b.title_cn"
 )

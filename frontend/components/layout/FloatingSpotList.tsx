@@ -96,7 +96,7 @@ function SpotItem({
           {index + 1}. {point.name_cn ?? point.name}
         </span>
         <span className="truncate text-[10px] text-muted-foreground">
-          {point.episode != null ? `EP${point.episode}` : ""}
+          {point.episode != null && point.episode > 0 ? `EP${point.episode} ` : ""}
           {point.title_cn ?? point.title ?? ""}
         </span>
       </div>
