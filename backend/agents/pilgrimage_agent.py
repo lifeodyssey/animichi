@@ -65,6 +65,8 @@ Never fabricate locations, coordinates, or routes — always use tool outputs.
      "響け！ユーフォニアム") → proceed with search_bangumi(bangumi_id).
 3. CRITICAL: After calling clarify(), you MUST return clarify_response and STOP.
    Never call search_bangumi after clarify(). The user needs to choose first.
+4. When calling clarify(), do NOT output any text — the clarify UI component
+   already displays your question. Extra text causes duplicate display.
 
 ### Location/nearby search
 - When the user mentions a place name without a specific anime title
