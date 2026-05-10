@@ -67,9 +67,11 @@ export default function MessageBubble({
     (p) => p.state === "output-available",
   );
 
-  // While streaming, hide text if tools exist — prevents flicker as
-  // multi-step agent interleaves text and tool parts across steps.
-  const showText = !isStreaming || toolParts.length === 0;
+  // While streaming, always hide assistant text — our agent calls tools
+  // before producing final text, so showing text during streaming causes
+  // flicker (text appears → tool call arrives → text hides → text reappears).
+  // Text appears all at once when streaming completes.
+  const showText = !isStreaming;
 
   const showPreThinking = isStreaming && toolParts.length === 0 && textParts.length === 0;
 

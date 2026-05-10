@@ -22,6 +22,30 @@ def _safe_int(value: object) -> int:
     return int(value) if isinstance(value, (int, float)) else 0
 
 
+def _is_strong_match(query: str, candidate_title: str) -> bool:
+    """Check if query closely matches a candidate title (case-insensitive).
+
+    Returns True when the query is specific enough that clarification
+    would be annoying — e.g. "響け！ユーフォニアム" should match the
+    first series directly, not trigger clarify for all seasons.
+
+    Short queries (<4 chars for ASCII, <3 chars for CJK) are never strong
+    matches — "fate", "凉宫" are too vague.
+    """
+    q = query.strip().lower()
+    t = candidate_title.strip().lower()
+    if not q or not t:
+        return False
+    # Exact match is always strong
+    if t == q:
+        return True
+    # For prefix matching, the query must cover most of the title
+    # to avoid "fate" matching "fate/stay night" (too vague)
+    if t.startswith(q) and len(q) >= len(t) * 0.7:
+        return True
+    return False
+
+
 def _build_candidates(matches: list[dict[str, object]]) -> list[dict[str, object]]:
     """Build candidate list from DB or API matches."""
     return [
@@ -160,7 +184,32 @@ async def execute(
             },
         )
 
-    # Multiple candidates — let the agent decide whether to clarify
+    # Multiple candidates — check for a strong match before marking ambiguous
+    best = merged[0]
+    best_title = str(best.get("title") or best.get("name", ""))
+    best_bid = str(best.get("id", ""))
+
+    if _is_strong_match(title, best_title) and best_bid:
+        # Strong match — return as resolved with all candidates for context
+        logger.info(
+            "resolve_anime_best_match",
+            title=title,
+            bangumi_id=best_bid,
+            candidate_count=len(candidates),
+        )
+        if best_bid not in {str(m.get("id", "")) for m in db_matches}:
+            await upsert_bangumi_title(title, best_bid)
+        return HandlerResult.ok(
+            _TOOL,
+            {
+                "bangumi_id": best_bid,
+                "title": best_title,
+                "candidates": candidates,
+                "best_match": True,
+            },
+        )
+
+    # No strong match — let the agent decide whether to clarify
     logger.info(
         "resolve_anime_multiple",
         title=title,
