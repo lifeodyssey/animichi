@@ -114,7 +114,7 @@ test.describe.serial("Auth flow — email-based login", () => {
     const testEmail = getTestEmail();
     const beforeSend = new Date();
 
-    await page.goto("/anime/11291");
+    await page.goto("/anime/485");
     await expect(page.getByRole("heading", { name: /涼宮ハルヒ/ })).toBeVisible();
 
     // Click CTA → login modal

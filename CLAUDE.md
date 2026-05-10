@@ -36,8 +36,10 @@ worker/entry.js       # CF Worker entry (container proxy + image proxy → OpenN
 ## Commands
 
 ```bash
-make dev              # setup
-make serve            # backend :8080 + frontend :3000
+make dev-local        # one-command: Supabase + backend + frontend (:3001)
+make dev-stop         # stop backend + frontend (Supabase stays)
+make local-login      # open browser with magic link login
+make dev              # install all deps (including dev)
 make test             # unit tests
 make test-integration # integration tests
 make test-all         # unit + integration

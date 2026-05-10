@@ -5,13 +5,13 @@ No LLM logic here. These models cross boundaries (agent -> handlers -> retriever
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
-class ToolName(str, Enum):
+class ToolName(StrEnum):
     """Tool identifiers used by the pilgrimage agent and handlers."""
 
     RESOLVE_ANIME = "resolve_anime"
