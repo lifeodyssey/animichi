@@ -41,6 +41,7 @@ _POINT_COLUMNS = frozenset(
         "origin",
         "origin_url",
         "location",
+        "city",
     }
 )
 

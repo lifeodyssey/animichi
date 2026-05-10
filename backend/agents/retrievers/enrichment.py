@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 
+import reverse_geocoder as rg
 import structlog
 
 from backend.clients.anitabi import AnitabiClient
@@ -14,8 +15,17 @@ from backend.domain.entities import Point
 logger = structlog.get_logger(__name__)
 
 
-def point_to_db_row(point: Point) -> dict[str, object]:
-    return {
+def _geocode_points(points: list[Point]) -> dict[str, str]:
+    """Batch reverse-geocode points to city names. Returns {point_id: city}."""
+    if not points:
+        return {}
+    coords = [(p.coordinates.latitude, p.coordinates.longitude) for p in points]
+    results = rg.search(coords)
+    return {p.id: r["name"] for p, r in zip(points, results, strict=False)}
+
+
+def point_to_db_row(point: Point, city: str | None = None) -> dict[str, object]:
+    row: dict[str, object] = {
         "id": point.id,
         "bangumi_id": point.bangumi_id,
         "name": point.name,
@@ -31,6 +41,9 @@ def point_to_db_row(point: Point) -> dict[str, object]:
             f"POINT({point.coordinates.longitude} {point.coordinates.latitude})"
         ),
     }
+    if city is not None:
+        row["city"] = city
+    return row
 
 
 def subject_to_bangumi_fields(
@@ -107,7 +120,8 @@ async def persist_points(db: object, points: list[Point]) -> None:
 
     if not isinstance(db, SupabaseClient):
         return
-    rows = [point_to_db_row(point) for point in points]
+    city_map = _geocode_points(points)
+    rows = [point_to_db_row(p, city=city_map.get(p.id)) for p in points]
     await db.points.upsert_points_batch(rows)
 
 
