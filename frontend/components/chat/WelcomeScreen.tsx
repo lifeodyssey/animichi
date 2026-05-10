@@ -59,13 +59,13 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
     ? withCovers.slice(0, 5)
     : fallbackCovers.slice(0, 5);
 
-  // Returning user detection — lazy initializer reads localStorage synchronously (no effect needed)
-  const [isReturning] = useState(() => {
-    if (typeof window === "undefined") return false;
+  // Returning user detection — start false (matches SSR), detect after mount.
+  const [isReturning, setIsReturning] = useState(false);
+  useEffect(() => {
     const visited = localStorage.getItem("seichijunrei_visited");
-    if (!visited) localStorage.setItem("seichijunrei_visited", "1");
-    return !!visited;
-  });
+    if (visited) requestAnimationFrame(() => setIsReturning(true));
+    else localStorage.setItem("seichijunrei_visited", "1");
+  }, []);
 
   const placeholder =
     locale === "zh"
