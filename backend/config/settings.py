@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     )
 
     # API Keys
+    deepseek_api_key: str = Field(default="", description="DeepSeek API key (required)")
     gemini_api_key: str = Field(default="", description="Gemini API key for LLM agents")
     openai_compat_api_key: str = Field(
         default="",
@@ -179,6 +180,21 @@ class Settings(BaseSettings):
         if v not in valid_levels:
             raise ValueError(f"Invalid log level: {v}. Must be one of {valid_levels}")
         return v
+
+    @model_validator(mode="after")
+    def validate_required_env(self) -> "Settings":
+        """Fail fast with clear errors if critical env vars are missing."""
+        missing: list[str] = []
+        if not self.supabase_db_url:
+            missing.append("SUPABASE_DB_URL")
+        if not self.deepseek_api_key:
+            missing.append("DEEPSEEK_API_KEY")
+        if missing:
+            raise ValueError(
+                f"Missing required environment variables: {', '.join(missing)}. "
+                "Check your .env file or run from the project root."
+            )
+        return self
 
     @property
     def is_production(self) -> bool:
