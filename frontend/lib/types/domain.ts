@@ -34,6 +34,7 @@ export interface PilgrimagePoint {
   title_cn?: string | null;  // anime title (CN)
   distance_m?: number | null; // present only in geo searches
   origin?: string | null;
+  city?: string | null;        // reverse-geocoded city name (e.g. "Tokyo", "Takayama")
 }
 
 // ── Response-level types (intent-specific data shapes) ─────────────────────

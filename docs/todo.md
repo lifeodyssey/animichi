@@ -246,3 +246,11 @@ GET /v1/runtime
 | 5 | Later | — | URL state for /chat |
 
 Branch: `feat/ssr-cloudflare` (worktree at `.claude/worktrees/ssr-migration/`)
+
+## Area Grouping TODOs
+
+- [ ] **City names in Japanese** — reverse-geocoder returns English (Tokyo, Takayama, Uji). Either maintain an eng→jp mapping dict, or use GeoNames alternateNames data to get Japanese names.
+- [ ] **Tokyo ward-level precision** — reverse-geocoder returns "Tokyo" for all 23 wards. For finer granularity (新宿区 vs 渋谷区), consider:
+  - Nominatim API (free, rate-limited, called once during write-through)
+  - Japan municipality GeoJSON + geopip point-in-polygon
+  - jageocoder (20GB, most precise but heavy)
