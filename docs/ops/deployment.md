@@ -224,3 +224,24 @@ WAF rollback:
 - default session storage is in-memory unless a distributed backend is introduced later
 - OpenTelemetry exporters are opt-in and disabled by default
 - AI Gateway is documented but not yet wired in backend provider configuration
+
+## Post-deploy Runbook (feat/ssr-cloudflare merge)
+
+After merging feat/ssr-cloudflare to main and tagging:
+
+1. **Apply DB migrations** — Supabase CLI auto-applies on deploy:
+   - `20260509200000_fix_wrong_bangumi_ids.sql` — delete wrong seed IDs
+   - `20260510170000_add_bangumi_platform.sql` — add platform column
+   - `20260510180000_add_points_city.sql` — add city column to points
+
+2. **Backfill city for existing points** — one-time, run after migrations:
+   ```bash
+   SUPABASE_DB_URL=<production_dsn> uv run python -m backend.scripts.backfill_city
+   ```
+   This reverse-geocodes all points with `city IS NULL` using GeoNames data (~12MB).
+   Expected: ~1000+ points across ~50 cities. Takes <30 seconds.
+
+3. **Verify** — check a few bangumi:
+   ```sql
+   SELECT city, count(*) FROM points GROUP BY city ORDER BY count DESC LIMIT 10;
+   ```
