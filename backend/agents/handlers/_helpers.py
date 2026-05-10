@@ -39,7 +39,16 @@ class RoutePlanParams:
 
 
 def rewrite_image_urls(rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    """Rewrite Anitabi image URLs to go through our CF proxy."""
+    """Rewrite Anitabi image URLs to go through our CF proxy.
+
+    In development mode (no CF Worker), keep the original Anitabi URLs
+    so images load directly from the CDN.
+    """
+    import os
+
+    if os.environ.get("APP_ENV", "development") == "development":
+        return rows
+
     for row in rows:
         url = row.get("screenshot_url")
         if not isinstance(url, str) or not url:
