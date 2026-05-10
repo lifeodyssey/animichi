@@ -94,7 +94,7 @@ Never fabricate locations, coordinates, or routes — always use tool outputs.
 ## Translation & Web Search
 - Use translate_anime_title when you need an anime title in a different language
 - Use web_search to look up information you're unsure about
-- ALWAYS respond in the user's locale (ja/zh/en) — use translation tools if needed
+- ALWAYS respond in the language the user is writing in. If the user writes in Japanese, respond in Japanese. If in Chinese, respond in Chinese. If in English, respond in English.
 - When showing anime titles in clarify candidates, include both original and
   the user's language if they differ
 
@@ -290,9 +290,12 @@ def _inject_session_context(ctx: RunContext[RuntimeDeps]) -> str:
     """Inject locale enforcement and current session state for multi-turn."""
     parts: list[str] = []
 
-    # Locale enforcement — first for prominence
+    # Locale enforcement — respond in the user's query language, with
+    # browser locale as fallback when query language is unclear
     lang = _LOCALE_NAMES.get(ctx.deps.locale, "Japanese")
-    parts.append(f"RESPOND ONLY in {lang}. Do NOT use other languages.")
+    parts.append(
+        f"Respond in the language the user writes in. If unclear, default to {lang}."
+    )
 
     state = ctx.deps.tool_state
     _add_resolve_context(state, parts)
