@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import cast
 
 import structlog
@@ -43,7 +43,7 @@ _SHARED_RETRIEVAL_CACHE = ResponseCache(default_ttl_seconds=_DEFAULT_CACHE_TTL_S
 _merge_rows_preserving_order = merge_rows_preserving_order
 
 
-class RetrievalStrategy(str, Enum):
+class RetrievalStrategy(StrEnum):
     """Supported retrieval strategies."""
 
     SQL = "sql"

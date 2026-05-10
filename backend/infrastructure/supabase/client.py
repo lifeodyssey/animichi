@@ -7,6 +7,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 from typing import cast
 
@@ -56,8 +57,13 @@ class SupabaseClient:
         """Create the connection pool and initialise repositories."""
         if self._pool is not None:
             return
-        self._pool = await asyncpg.create_pool(
-            self._dsn, min_size=self._min_pool_size, max_size=self._max_pool_size
+        self._pool = await asyncio.wait_for(
+            asyncpg.create_pool(
+                self._dsn,
+                min_size=self._min_pool_size,
+                max_size=self._max_pool_size,
+            ),
+            timeout=15,
         )
         self._init_repos(self._pool)
         logger.info("supabase_connected", pool_size=self._max_pool_size)
