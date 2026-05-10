@@ -41,6 +41,7 @@ dependencies = [
     "ddgs>=9.14.1",
     "pydantic-ai-guardrails>=0.2.2",
     "logfire[fastapi,httpx]>=4.29.0",
+    "reverse-geocoder>=1.5.1",
 ]
 
 [project.scripts]
@@ -124,6 +125,7 @@ exclude_lines = [
 [tool.mypy]
 python_version = "3.11"
 plugins = ["pydantic.mypy"]
+mypy_path = "backend/typestubs"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

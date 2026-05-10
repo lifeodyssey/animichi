@@ -1,5 +1,4 @@
 import type { PilgrimagePoint } from "../../lib/types";
-import { haversineKm } from "../../lib/geo";
 
 // ---------------------------------------------------------------------------
 // Episode-range helpers
@@ -34,32 +33,17 @@ export function buildEpRanges(points: PilgrimagePoint[]): string[] {
 // Area helpers — derive region from coordinates
 // ---------------------------------------------------------------------------
 
-/** Known areas with center coordinates and radius (km). */
-export const KNOWN_AREAS: { name: string; lat: number; lng: number; r: number }[] = [
-  { name: "宇治", lat: 34.888, lng: 135.802, r: 4 },
-  { name: "伏見", lat: 34.930, lng: 135.764, r: 5 },
-  { name: "京都市", lat: 34.985, lng: 135.758, r: 12 },
-  { name: "大阪", lat: 34.686, lng: 135.520, r: 15 },
-  { name: "奈良", lat: 34.685, lng: 135.805, r: 10 },
-  { name: "神戸", lat: 34.690, lng: 135.195, r: 12 },
-];
+// ---------------------------------------------------------------------------
+// Area helpers — use reverse-geocoded city field from backend
+// ---------------------------------------------------------------------------
 
-function pointArea(p: PilgrimagePoint): string | null {
-  for (const area of KNOWN_AREAS) {
-    if (haversineKm(p.latitude, p.longitude, area.lat, area.lng) <= area.r) {
-      return area.name;
-    }
-  }
-  return null;
-}
-
-/** Build area labels, using `otherLabel` for points not matching any known area. */
+/** Build area labels from point.city, using `otherLabel` for unknown. */
 export function buildAreasI18n(points: PilgrimagePoint[], otherLabel: string): string[] {
   const areas = new Set<string>();
-  for (const p of points) areas.add(pointArea(p) ?? otherLabel);
+  for (const p of points) areas.add(p.city || otherLabel);
   return Array.from(areas).sort((a, b) => a.localeCompare(b));
 }
 
 export function pointAreaI18n(p: PilgrimagePoint, otherLabel: string): string {
-  return pointArea(p) ?? otherLabel;
+  return p.city || otherLabel;
 }
