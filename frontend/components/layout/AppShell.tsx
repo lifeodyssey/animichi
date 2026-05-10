@@ -134,22 +134,22 @@ export default function AppShell() {
     return "";
   }, [messages]);
 
-  // Auto-activate latest visual response
+  // Auto-activate latest visual response — activates as soon as search
+  // results arrive (even during streaming) so the map appears immediately.
   useEffect(() => {
     if (messages.length === 0) return;
     const last = messages[messages.length - 1];
     if (last.role !== "assistant") return;
-    // Don't activate while streaming
-    if (sending) return;
     const visual = extractVisualResponse(last);
     if (!visual) return;
     const id = last.id;
+    if (activeMessageId === id) return; // already active
     const mobile = isMobile;
     queueMicrotask(() => {
       setActiveMessageId(id);
       if (mobile) setDrawerOpen(true);
     });
-  }, [messages, isMobile, sending]);
+  }, [messages, isMobile, activeMessageId]);
 
   const handleSend = useCallback(
     (text: string, _coords?: { lat: number; lng: number } | null) => {

@@ -67,13 +67,12 @@ export default function MessageBubble({
     (p) => p.state === "output-available",
   );
 
-  // While streaming, always hide assistant text — our agent calls tools
-  // before producing final text, so showing text during streaming causes
-  // flicker (text appears → tool call arrives → text hides → text reappears).
-  // Text appears all at once when streaming completes.
-  const showText = !isStreaming;
-
   const showPreThinking = isStreaming && toolParts.length === 0 && textParts.length === 0;
+
+  // Index of the first tool part — pipeline card renders at this position.
+  const firstToolIndex = message.parts.findIndex(
+    (p) => p.type === "dynamic-tool" || (typeof p.type === "string" && p.type.startsWith("tool-")),
+  );
 
   return (
     <div
@@ -87,23 +86,30 @@ export default function MessageBubble({
       {/* Pre-tool thinking indicator */}
       {showPreThinking && <ThinkingProcess isStreaming />}
 
-      {/* Pipeline card — groups all tool parts into a single progress view */}
-      {toolParts.length > 0 && (
-        <PipelineCard
-          parts={toolParts}
-          messageId={message.id}
-          onActivate={onActivate}
-          isActive={isActive}
-          onOpenDrawer={onOpenDrawer}
-        />
-      )}
-
-      {/* Text parts — rendered as markdown, hidden while tools are running */}
-      {showText && textParts.map((part, i) => (
-        <div key={`text-${i}`} className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary">
-          <Markdown remarkPlugins={[remarkGfm]}>{part.text}</Markdown>
-        </div>
-      ))}
+      {/* Parts in natural SSE order — pipeline card at first tool position */}
+      {message.parts.map((part, i) => {
+        if (part.type === "text" && (part as { text: string }).text) {
+          return (
+            <div key={`text-${i}`} className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary">
+              <Markdown remarkPlugins={[remarkGfm]}>{(part as { text: string }).text}</Markdown>
+            </div>
+          );
+        }
+        // Render pipeline card once, at the position of the first tool part
+        if (i === firstToolIndex && toolParts.length > 0) {
+          return (
+            <PipelineCard
+              key="pipeline"
+              parts={toolParts}
+              messageId={message.id}
+              onActivate={onActivate}
+              isActive={isActive}
+              onOpenDrawer={onOpenDrawer}
+            />
+          );
+        }
+        return null;
+      })}
 
       {/* Feedback buttons — only shown when streaming is done and there's content */}
       {!isStreaming && hasToolOutput && (
