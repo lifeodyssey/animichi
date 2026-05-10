@@ -1,13 +1,9 @@
 """
-Bangumi API client for anime/manga metadata.
+Bangumi API v0 client for anime/manga metadata.
 
-Official API: https://bangumi.github.io/api/
-Provides methods to:
-- Search for anime/manga by keyword
-- Retrieve subject details by ID
+API docs: https://bangumi.github.io/api/
+Uses the v0 API which provides richer data (platform, tags, series).
 """
-
-import urllib.parse
 
 from backend.clients.base import BaseHTTPClient, JSONDict, expect_json_object
 from backend.clients.errors import APIError
@@ -17,22 +13,16 @@ logger = get_logger(__name__)
 
 
 class BangumiClient(BaseHTTPClient):
-    """
-    Client for the Bangumi metadata API.
+    """Client for the Bangumi v0 metadata API.
 
     Provides access to anime/manga metadata including:
-    - Subject search by keyword
-    - Subject details by ID
-    - Ratings and reviews
-
-    Note: Search endpoints do NOT require authentication.
+    - Subject search by keyword (POST /v0/search/subjects)
+    - Subject details by ID (GET /v0/subjects/{id})
     """
 
-    # API Constants
     BANGUMI_API_BASE = "https://api.bgm.tv"
     USER_AGENT = "Seichijunrei/1.0 (https://github.com/lifeodyssey/Seichijunrei-agent)"
 
-    # Subject Types
     TYPE_BOOK = 1
     TYPE_ANIME = 2
     TYPE_MUSIC = 3
@@ -46,26 +36,16 @@ class BangumiClient(BaseHTTPClient):
         rate_limit_calls: int = 30,
         rate_limit_period: float = 60.0,
     ):
-        """
-        Initialize Bangumi API client.
-
-        Args:
-            base_url: Override base URL (default: https://api.bgm.tv)
-            use_cache: Whether to cache GET responses (default: True)
-            rate_limit_calls: Number of calls allowed per period
-            rate_limit_period: Rate limit period in seconds
-        """
         super().__init__(
             base_url=base_url or self.BANGUMI_API_BASE,
-            api_key=None,  # No API key needed for search
+            api_key=None,
             timeout=10,
             max_retries=3,
             rate_limit_calls=rate_limit_calls,
             rate_limit_period=rate_limit_period,
             use_cache=use_cache,
-            cache_ttl_seconds=86400,  # Cache for 24 hours
+            cache_ttl_seconds=86400,
         )
-
         logger.info(
             "Bangumi client initialized",
             base_url=self.base_url,
@@ -76,33 +56,17 @@ class BangumiClient(BaseHTTPClient):
     async def search_subject(
         self, keyword: str, subject_type: int = TYPE_ANIME, max_results: int = 10
     ) -> list[JSONDict]:
-        """
-        Search for subjects by keyword.
+        """Search for subjects by keyword via v0 API.
 
-        Args:
-            keyword: Search keyword (anime/manga name)
-            subject_type: Type filter (1=book, 2=anime, 3=music, 4=game, 6=real)
-            max_results: Maximum results to return (1-20)
+        Uses POST /v0/search/subjects with JSON body.
 
         Returns:
-            List of subject dictionaries with id, name, name_cn, type, images, etc.
-
-        Raises:
-            APIError: On API communication failure
-            ValueError: On invalid parameters
-
-        Example:
-            >>> client = BangumiClient()
-            >>> results = await client.search_subject("Your Name")
-            >>> print(results[0]["name_cn"])
-            'Your Name.'
+            List of subject dicts with id, name, name_cn, platform, images, etc.
         """
-        # Validate parameters
         if not keyword or not keyword.strip():
             raise ValueError("Keyword cannot be empty")
-
-        if not 1 <= max_results <= 20:
-            raise ValueError("max_results must be between 1 and 20")
+        if not 1 <= max_results <= 25:
+            raise ValueError("max_results must be between 1 and 25")
 
         try:
             logger.info(
@@ -112,59 +76,47 @@ class BangumiClient(BaseHTTPClient):
                 max_results=max_results,
             )
 
-            # URL encode the keyword
-            encoded_keyword = urllib.parse.quote(keyword)
-
-            # Make API request
-            raw = await self.get(
-                f"/search/subject/{encoded_keyword}",
-                params={"type": subject_type, "max_results": max_results},
+            raw = await self.post(
+                "/v0/search/subjects",
+                json_data={
+                    "keyword": keyword,
+                    "filter": {"type": [subject_type]},
+                    "limit": max_results,
+                },
                 headers={"User-Agent": self.USER_AGENT},
             )
 
-            # Narrow JSONValue → JSONDict, then extract results list
             data = expect_json_object(raw, context="search_subject")
-            raw_list = data.get("list", [])
+            raw_list = data.get("data", [])
             results: list[JSONDict] = []
             for item in raw_list if isinstance(raw_list, list) else []:
                 if isinstance(item, dict):
                     results.append(item)
 
             logger.info(
-                "Bangumi search completed", keyword=keyword, results_count=len(results)
+                "Bangumi search completed",
+                keyword=keyword,
+                results_count=len(results),
             )
-
             return results
 
         except APIError:
-            # Re-raise API errors
             raise
 
         except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.error(
-                "Bangumi search failed", keyword=keyword, error=str(e), exc_info=True
+                "Bangumi search failed",
+                keyword=keyword,
+                error=str(e),
+                exc_info=True,
             )
             raise APIError(f"Bangumi search failed: {str(e)}") from e
 
     async def get_subject(self, subject_id: int) -> JSONDict:
-        """
-        Get detailed information about a subject by ID.
+        """Get subject details via v0 API.
 
-        Args:
-            subject_id: Bangumi subject ID
-
-        Returns:
-            Subject details dictionary
-
-        Raises:
-            APIError: On API communication failure
-            ValueError: On invalid subject_id
-
-        Example:
-            >>> client = BangumiClient()
-            >>> subject = await client.get_subject(160209)
-            >>> print(subject["name"])
-            'Kimi no Na wa.'
+        Uses GET /v0/subjects/{id}. Returns full metadata including
+        platform (TV/剧场版/OVA/Web), total_episodes, tags, series.
         """
         if subject_id <= 0:
             raise ValueError("subject_id must be positive")
@@ -173,7 +125,8 @@ class BangumiClient(BaseHTTPClient):
             logger.info("Fetching bangumi subject details", subject_id=subject_id)
 
             raw = await self.get(
-                f"/subject/{subject_id}", headers={"User-Agent": self.USER_AGENT}
+                f"/v0/subjects/{subject_id}",
+                headers={"User-Agent": self.USER_AGENT},
             )
             subject = expect_json_object(raw, context="get_subject")
 
@@ -181,8 +134,8 @@ class BangumiClient(BaseHTTPClient):
                 "Bangumi subject fetched",
                 subject_id=subject_id,
                 name=subject.get("name"),
+                platform=subject.get("platform"),
             )
-
             return subject
 
         except APIError:

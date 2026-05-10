@@ -23,6 +23,7 @@ _BANGUMI_COLUMNS = frozenset(
         "points_count",
         "primary_color",
         "city",
+        "platform",
     }
 )
 _POINT_COLUMNS = frozenset(
