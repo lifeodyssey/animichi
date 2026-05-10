@@ -254,3 +254,7 @@ Branch: `feat/ssr-cloudflare` (worktree at `.claude/worktrees/ssr-migration/`)
   - Nominatim API (free, rate-limited, called once during write-through)
   - Japan municipality GeoJSON + geopip point-in-polygon
   - jageocoder (20GB, most precise but heavy)
+
+## Deployment TODO
+
+- [ ] **Post-deploy: run city backfill** — After merging feat/ssr-cloudflare and tagging, run `SUPABASE_DB_URL=<prod_dsn> uv run python -m backend.scripts.backfill_city` to populate points.city column. See `docs/ops/deployment.md` runbook for full steps.
