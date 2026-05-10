@@ -32,9 +32,9 @@ class TestBangumiClient:
 
     @pytest.fixture
     def mock_search_response(self):
-        """Mock response for subject search."""
+        """Mock response for v0 subject search (POST /v0/search/subjects)."""
         return {
-            "list": [
+            "data": [
                 {
                     "id": 12345,
                     "name": "Your Name",
@@ -93,9 +93,9 @@ class TestBangumiClient:
 
     @pytest.mark.asyncio
     async def test_search_subject_success(self, client, mock_search_response):
-        """Test successful subject search."""
-        with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_search_response
+        """Test successful subject search via v0 POST endpoint."""
+        with patch.object(client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_search_response
 
             results = await client.search_subject("Your Name")
 
@@ -104,17 +104,20 @@ class TestBangumiClient:
             assert results[0]["name_cn"] == "你的名字"
             assert results[1]["name"] == "Weathering with You"
 
-            # Verify the API call
-            mock_get.assert_called_once()
-            call_args = mock_get.call_args
-            assert "/search/subject/Your%20Name" in call_args[0][0]
-            assert call_args[1]["params"]["type"] == BangumiClient.TYPE_ANIME
+            # Verify the API call uses v0 endpoint
+            mock_post.assert_called_once()
+            call_args = mock_post.call_args
+            assert "/v0/search/subjects" in call_args[0][0]
+            assert call_args[1]["json_data"]["keyword"] == "Your Name"
+            assert call_args[1]["json_data"]["filter"]["type"] == [
+                BangumiClient.TYPE_ANIME
+            ]
 
     @pytest.mark.asyncio
     async def test_search_subject_empty_results(self, client):
         """Test search with no results."""
-        with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = {"list": []}
+        with patch.object(client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = {"data": []}
 
             results = await client.search_subject("NonexistentAnime12345")
 
@@ -133,34 +136,36 @@ class TestBangumiClient:
     @pytest.mark.asyncio
     async def test_search_subject_invalid_max_results(self, client):
         """Test search with invalid max_results raises ValueError."""
-        with pytest.raises(ValueError, match="max_results must be between 1 and 20"):
+        with pytest.raises(ValueError, match="max_results must be between 1 and 25"):
             await client.search_subject("Your Name", max_results=0)
 
-        with pytest.raises(ValueError, match="max_results must be between 1 and 20"):
-            await client.search_subject("Your Name", max_results=25)
+        with pytest.raises(ValueError, match="max_results must be between 1 and 25"):
+            await client.search_subject("Your Name", max_results=30)
 
-        with pytest.raises(ValueError, match="max_results must be between 1 and 20"):
+        with pytest.raises(ValueError, match="max_results must be between 1 and 25"):
             await client.search_subject("Your Name", max_results=-1)
 
     @pytest.mark.asyncio
     async def test_search_subject_with_custom_type(self, client, mock_search_response):
         """Test search with custom subject type."""
-        with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_search_response
+        with patch.object(client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_search_response
 
             await client.search_subject(
                 "Attack on Titan", subject_type=BangumiClient.TYPE_BOOK, max_results=5
             )
 
-            call_args = mock_get.call_args
-            assert call_args[1]["params"]["type"] == BangumiClient.TYPE_BOOK
-            assert call_args[1]["params"]["max_results"] == 5
+            call_args = mock_post.call_args
+            assert call_args[1]["json_data"]["filter"]["type"] == [
+                BangumiClient.TYPE_BOOK
+            ]
+            assert call_args[1]["json_data"]["limit"] == 5
 
     @pytest.mark.asyncio
     async def test_search_subject_api_error(self, client):
         """Test search handles API errors properly."""
-        with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.side_effect = APIError("API connection failed")
+        with patch.object(client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.side_effect = APIError("API connection failed")
 
             with pytest.raises(APIError, match="API connection failed"):
                 await client.search_subject("Your Name")
@@ -168,8 +173,8 @@ class TestBangumiClient:
     @pytest.mark.asyncio
     async def test_search_subject_unexpected_error(self, client):
         """Test search handles unexpected errors."""
-        with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.side_effect = RuntimeError("Unexpected error")
+        with patch.object(client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.side_effect = RuntimeError("Unexpected error")
 
             with pytest.raises(APIError, match="Bangumi search failed"):
                 await client.search_subject("Your Name")
@@ -177,12 +182,12 @@ class TestBangumiClient:
     @pytest.mark.asyncio
     async def test_search_subject_user_agent(self, client, mock_search_response):
         """Test that User-Agent header is set correctly."""
-        with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_search_response
+        with patch.object(client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_search_response
 
             await client.search_subject("Your Name")
 
-            call_args = mock_get.call_args
+            call_args = mock_post.call_args
             assert "User-Agent" in call_args[1]["headers"]
             assert "Seichijunrei" in call_args[1]["headers"]["User-Agent"]
 
@@ -202,7 +207,7 @@ class TestBangumiClient:
             # Verify the API call
             mock_get.assert_called_once()
             call_args = mock_get.call_args
-            assert "/subject/12345" in call_args[0][0]
+            assert "/v0/subjects/12345" in call_args[0][0]
 
     @pytest.mark.asyncio
     async def test_get_subject_invalid_id(self, client):
@@ -255,8 +260,8 @@ class TestBangumiClient:
             assert client is not None
 
             # Verify client can make requests within context
-            with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
-                mock_get.return_value = mock_search_response
+            with patch.object(client, "post", new_callable=AsyncMock) as mock_post:
+                mock_post.return_value = mock_search_response
                 results = await client.search_subject("Test")
                 assert len(results) == 2
 
@@ -267,15 +272,15 @@ class TestBangumiClient:
     @pytest.mark.asyncio
     async def test_rate_limiting(self, client, mock_search_response):
         """Test that rate limiting is applied."""
-        with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_search_response
+        with patch.object(client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_search_response
 
             # Make multiple requests rapidly
             for i in range(5):
                 await client.search_subject(f"Test {i}")
 
             # Should have made all requests (rate limiter should allow them)
-            assert mock_get.call_count == 5
+            assert mock_post.call_count == 5
 
     @pytest.mark.asyncio
     async def test_caching_behavior(self, client, mock_search_response):
@@ -287,17 +292,12 @@ class TestBangumiClient:
         assert client._cache is not None
 
     @pytest.mark.asyncio
-    async def test_search_subject_url_encoding(self, client, mock_search_response):
-        """Test that search keywords are properly URL encoded."""
-        with patch.object(client, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_search_response
+    async def test_search_subject_keyword_in_body(self, client, mock_search_response):
+        """Test that search keyword is sent in JSON body (v0 API)."""
+        with patch.object(client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_search_response
 
-            # Test with special characters and Japanese
             await client.search_subject("けいおん！ K-ON!")
 
-            call_args = mock_get.call_args
-            # URL should be encoded
-            assert (
-                "%E3%81%91%E3%81%84%E3%81%8A%E3%82%93" in call_args[0][0]
-                or "けいおん" in call_args[0][0]
-            )
+            call_args = mock_post.call_args
+            assert call_args[1]["json_data"]["keyword"] == "けいおん！ K-ON!"

@@ -71,6 +71,7 @@ async def fetch_bangumi_metadata(client: BangumiClient, subject_id: int) -> dict
         "summary": (raw.get("summary") or "")[:2000],
         "eps_count": raw.get("total_episodes") or raw.get("eps") or 0,
         "rating": rating_obj.get("score"),
+        "platform": raw.get("platform"),
         "points_count": 0,  # will be updated after points seed
     }
 

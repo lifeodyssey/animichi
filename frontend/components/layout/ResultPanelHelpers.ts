@@ -16,7 +16,8 @@ export function epRangeLabel(ep: number): string {
 export function buildEpRanges(points: PilgrimagePoint[]): string[] {
   const ranges = new Set<string>();
   for (const p of points) {
-    if (p.episode != null) {
+    // ep=0 means "no episode" (Anitabi uses 0 for movies/unspecified)
+    if (p.episode != null && p.episode > 0) {
       ranges.add(epRangeLabel(p.episode));
     }
   }

@@ -45,6 +45,7 @@ def subject_to_bangumi_fields(
     if not isinstance(rating_obj, Mapping):
         rating_obj = {}
     title = subject.get("name") or subject.get("name_cn") or "Unknown"
+    platform = subject.get("platform")
     return {
         "title": title,
         "title_cn": subject.get("name_cn") or title,
@@ -54,6 +55,7 @@ def subject_to_bangumi_fields(
         "eps_count": subject.get("total_episodes") or subject.get("eps") or 0,
         "rating": rating_obj.get("score"),
         "points_count": points_count,
+        "platform": str(platform) if platform else None,
     }
 
 
