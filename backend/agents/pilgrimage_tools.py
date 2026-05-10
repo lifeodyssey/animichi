@@ -143,8 +143,9 @@ async def _run_handler(
             observation=result.error or "",
         )
 
-    # Return compact summary to LLM; full data stays in tool_state + SSE
-    return _summarize_for_llm(tool, result.data) if result.data else {}
+    # Return full data — Vercel AI SDK streams tool output directly to frontend,
+    # which needs rows[] for the ResultPanel map + spot list.
+    return result.data if result.data else {}
 
 
 # ── Tool registrations ────────────────────────────────────────────────

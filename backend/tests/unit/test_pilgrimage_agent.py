@@ -219,8 +219,8 @@ class TestSessionContextInjection:
         ctx.deps.tool_state = {}
         ctx.deps.locale = "ja"
         result = _inject_session_context(ctx)
-        assert "RESPOND ONLY in Japanese" in result
-        assert "resolve" not in result.lower() or "Current anime" not in result
+        assert "default to Japanese" in result
+        assert "Current anime" not in result
 
     def test_injects_resolve_context(self) -> None:
         from backend.agents.pilgrimage_agent import _inject_session_context
