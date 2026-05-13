@@ -19,14 +19,14 @@ type Story = StoryObj<typeof meta>;
 
 export const AnimeScreenshot: Story = {
   args: {
-    screenshotUrl: "https://image.anitabi.cn/bangumi/51/ep/00/202012210230491.jpg",
+    screenshotUrl: "https://image.anitabi.cn/points/51/5c4dgq9t5_1673198683058.jpg?plan=h160",
     episode: 3,
   },
 };
 
 export const UserPhoto: Story = {
   args: {
-    screenshotUrl: "https://image.anitabi.cn/user/abc123/photo.jpg",
+    screenshotUrl: "https://image.anitabi.cn/points/51/5c4dgq9dw_1673198683976.jpg?plan=h160",
     episode: null,
   },
 };
@@ -40,14 +40,14 @@ export const EpisodeBadgeOnly: Story = {
 
 export const NoEpisode: Story = {
   args: {
-    screenshotUrl: "https://image.anitabi.cn/bangumi/51/ep/00/example.jpg",
+    screenshotUrl: "https://image.anitabi.cn/points/51/5c4dgq9g7_1673198685092.jpg?plan=h160",
     episode: null,
   },
 };
 
 export const CustomEpisodeLabel: Story = {
   args: {
-    screenshotUrl: "https://image.anitabi.cn/bangumi/51/ep/00/example.jpg",
+    screenshotUrl: "https://image.anitabi.cn/points/51/5c4dgq9g7_1673198685092.jpg?plan=h160",
     episode: 12,
     episodeLabel: "第12話",
   },
