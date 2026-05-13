@@ -1,15 +1,28 @@
 import type { RuntimeResponse, PilgrimagePoint } from "@/lib/types";
 
+// --- Real anitabi CDN images (verified accessible) ---
+
+const IMAGES = [
+  "https://image.anitabi.cn/points/51/5c4dgq9t5_1673198683058.jpg?plan=h160",
+  "https://image.anitabi.cn/points/51/5c4dgq9dw_1673198683976.jpg?plan=h160",
+  "https://image.anitabi.cn/points/51/5c4dgq9g7_1673198685092.jpg?plan=h160",
+  "https://image.anitabi.cn/points/51/5c4dgq9lp_1673198685770.jpg?plan=h160",
+  "https://image.anitabi.cn/points/51/5c4dgq9fk_1673198686837.jpg?plan=h160",
+  "https://image.anitabi.cn/points/51/5c4dgqa0x_1673198688962.jpg?plan=h160",
+];
+
+const COVER_URL = "https://image.anitabi.cn/bangumi/51.jpg";
+
 // --- Point factory ---
 
-function makePoint(overrides: Partial<PilgrimagePoint> & { id: string }): PilgrimagePoint {
+function makePoint(overrides: Partial<PilgrimagePoint> & { id: string }, imgIndex = 0): PilgrimagePoint {
   return {
     name: "宇治橋",
     name_cn: "宇治桥",
     episode: 1,
     time_seconds: 120,
-    screenshot_url: "https://image.anitabi.cn/bangumi/51/ep/00/202012210230491-20110320.jpg",
-    bangumi_id: "51",
+    screenshot_url: IMAGES[imgIndex % IMAGES.length],
+    bangumi_id: "265059",
     latitude: 34.8891,
     longitude: 135.8074,
     title: "響け！ユーフォニアム",
@@ -23,11 +36,11 @@ function makePoint(overrides: Partial<PilgrimagePoint> & { id: string }): Pilgri
 // --- Point sets ---
 
 export const POINTS_UJI: PilgrimagePoint[] = [
-  makePoint({ id: "p1", name: "宇治橋", episode: 1, city: "宇治" }),
-  makePoint({ id: "p2", name: "京阪宇治駅", episode: 1, city: "宇治" }),
-  makePoint({ id: "p3", name: "宇治神社", episode: 3, city: "宇治" }),
-  makePoint({ id: "p4", name: "北宇治高校", episode: 1, city: "宇治" }),
-  makePoint({ id: "p5", name: "真柴豆腐店", episode: 5, city: "宇治" }),
+  makePoint({ id: "p1", name: "宇治橋", episode: 1, city: "宇治" }, 0),
+  makePoint({ id: "p2", name: "京阪宇治駅", episode: 1, city: "宇治" }, 1),
+  makePoint({ id: "p3", name: "宇治神社", episode: 3, city: "宇治" }, 2),
+  makePoint({ id: "p4", name: "北宇治高校", episode: 1, city: "宇治" }, 3),
+  makePoint({ id: "p5", name: "真柴豆腐店", episode: 5, city: "宇治" }, 4),
 ];
 
 export const POINTS_MIXED_AREAS: PilgrimagePoint[] = [
@@ -46,7 +59,7 @@ export const POINTS_MANY: PilgrimagePoint[] = Array.from({ length: 60 }, (_, i) 
     city: ["宇治", "京都", "高山", "東京"][i % 4],
     latitude: 34.88 + (i % 10) * 0.01,
     longitude: 135.80 + (i % 10) * 0.01,
-  }),
+  }, i),
 );
 
 // --- Response factories ---
@@ -69,7 +82,7 @@ export function makeSearchResponse(
         metadata: {
           anime_title: points[0]?.title ?? "",
           anime_title_cn: points[0]?.title_cn ?? "",
-          cover_url: "https://image.anitabi.cn/bangumi/51.jpg",
+          cover_url: COVER_URL,
           data_origin: "db",
         },
         summary: { count: points.length, source: "db", cache: "miss" },
@@ -89,7 +102,7 @@ export function makeRouteResponse(points: PilgrimagePoint[]): RuntimeResponse {
       route: {
         ordered_points: points,
         point_count: points.length,
-        cover_url: "https://image.anitabi.cn/bangumi/51.jpg",
+        cover_url: COVER_URL,
         anime_title: points[0]?.title ?? "",
         anime_title_cn: points[0]?.title_cn ?? "",
         status: "ok",

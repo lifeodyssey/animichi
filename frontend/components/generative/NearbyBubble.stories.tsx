@@ -26,7 +26,7 @@ function makeNearbyData(overrides?: Partial<SearchResultData["results"]>): Searc
       metadata: { radius_m: 1000 },
       nearby_groups: [
         { bangumi_id: "51", title: "響け！ユーフォニアム", cover_url: "https://image.anitabi.cn/bangumi/51.jpg", points_count: 5, closest_distance_m: 120 },
-        { bangumi_id: "317", title: "君の名は。", cover_url: "https://image.anitabi.cn/bangumi/317.jpg", points_count: 2, closest_distance_m: 650 },
+        { bangumi_id: "1424", title: "けいおん！", cover_url: "https://image.anitabi.cn/bangumi/1424.jpg", points_count: 2, closest_distance_m: 650 },
       ],
       ...overrides,
     },

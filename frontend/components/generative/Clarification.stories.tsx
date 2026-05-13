@@ -18,7 +18,7 @@ export const WithCandidates: Story = {
     candidates: [
       { title: "響け！ユーフォニアム", cover_url: "https://image.anitabi.cn/bangumi/51.jpg", spot_count: 12, city: "宇治" },
       { title: "響け！ユーフォニアム2", cover_url: "https://image.anitabi.cn/bangumi/140001.jpg", spot_count: 8, city: "宇治" },
-      { title: "リズと青い鳥", cover_url: "https://image.anitabi.cn/bangumi/207879.jpg", spot_count: 5, city: "宇治" },
+      { title: "リズと青い鳥", cover_url: "https://image.anitabi.cn/bangumi/1424.jpg", spot_count: 5, city: "宇治" },
     ],
   },
 };
