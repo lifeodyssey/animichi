@@ -33,14 +33,23 @@ function extractResponse(msg: UIMessage): RuntimeResponse | null {
     const isToolPart = typeof part.type === "string" && part.type.startsWith("tool-");
     if (!isDynamic && !isToolPart) continue;
     const p = part as Record<string, unknown>;
-    if (p.state !== "output-available") continue;
-    const output = p.output;
-    if (typeof output !== "object" || output === null) continue;
 
-    // PydanticAI structured output tools (search_response, route_response, etc.)
-    // have an "intent" field — this is the agent's final output.
-    if ("intent" in output) {
-      return output as RuntimeResponse;
+    // PydanticAI output tools (search_response, route_response, etc.)
+    // stream their structured data as tool "input" (the arguments to the
+    // output tool call), NOT as tool "output". The tool output is just
+    // "Final result processed." from PydanticAI internals.
+    //
+    // States: input-streaming → input-available → output-available
+    // We check "input" field which has the structured data with "intent".
+    const input = p.input as Record<string, unknown> | undefined;
+    if (input && typeof input === "object" && "intent" in input) {
+      return input as unknown as RuntimeResponse;
+    }
+
+    // Fallback: check output field (for compatibility)
+    const output = p.output as Record<string, unknown> | undefined;
+    if (output && typeof output === "object" && "intent" in output) {
+      return output as unknown as RuntimeResponse;
     }
   }
   return null;
