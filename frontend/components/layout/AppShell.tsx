@@ -28,25 +28,30 @@ import type { SeichijunreiMessage } from "../../lib/types/chat";
 /** Tool names whose output contains visual search/route results. */
 
 function extractResponse(msg: UIMessage): RuntimeResponse | null {
+  // Prefer DataChunk from on_complete — it merges the LLM's output metadata
+  // (intent, message) with tool_state data (full rows/route).
+  for (const part of msg.parts) {
+    if (part.type === "data-response") {
+      const p = part as Record<string, unknown>;
+      const data = p.data as Record<string, unknown> | undefined;
+      if (data && typeof data === "object" && "intent" in data) {
+        return data as unknown as RuntimeResponse;
+      }
+    }
+  }
+
+  // Fallback: read from tool input/output (during streaming, before on_complete)
   for (const part of msg.parts) {
     const isDynamic = part.type === "dynamic-tool";
     const isToolPart = typeof part.type === "string" && part.type.startsWith("tool-");
     if (!isDynamic && !isToolPart) continue;
     const p = part as Record<string, unknown>;
 
-    // PydanticAI output tools (search_response, route_response, etc.)
-    // stream their structured data as tool "input" (the arguments to the
-    // output tool call), NOT as tool "output". The tool output is just
-    // "Final result processed." from PydanticAI internals.
-    //
-    // States: input-streaming → input-available → output-available
-    // We check "input" field which has the structured data with "intent".
     const input = p.input as Record<string, unknown> | undefined;
     if (input && typeof input === "object" && "intent" in input) {
       return input as unknown as RuntimeResponse;
     }
 
-    // Fallback: check output field (for compatibility)
     const output = p.output as Record<string, unknown> | undefined;
     if (output && typeof output === "object" && "intent" in output) {
       return output as unknown as RuntimeResponse;

@@ -101,3 +101,30 @@ describe("MessageBubble needs_clarification rendering", () => {
     expect(anchorBtn).toBeNull();
   });
 });
+
+describe("MessageBubble data-response summary rendering", () => {
+  it("renders message from data-response DataChunk", () => {
+    const message: UIMessage = {
+      id: "msg-dr-001",
+      role: "assistant",
+      parts: [
+        { type: "data-response", data: { intent: "search_bangumi", message: "宇治市で5件の聖地を見つけました", data: {} } } as unknown as UIMessage["parts"][number],
+      ],
+    };
+    render(<MessageBubble message={message} />);
+    expect(screen.getByText(/宇治市で5件の聖地を見つけました/)).toBeInTheDocument();
+  });
+
+  it("does NOT render summary when data-response has no message", () => {
+    const message: UIMessage = {
+      id: "msg-dr-002",
+      role: "assistant",
+      parts: [
+        { type: "data-response", data: { intent: "search_bangumi", message: "", data: {} } } as unknown as UIMessage["parts"][number],
+      ],
+    };
+    render(<MessageBubble message={message} />);
+    const proseBlocks = document.querySelectorAll(".prose");
+    expect(proseBlocks.length).toBe(0);
+  });
+});
