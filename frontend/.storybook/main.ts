@@ -3,6 +3,7 @@ import path from "node:path";
 
 const config: StorybookConfig = {
   stories: ["../components/**/*.stories.@(ts|tsx)"],
+  staticDirs: ["../public"],
   framework: {
     name: "@storybook/react-vite",
     options: {},
