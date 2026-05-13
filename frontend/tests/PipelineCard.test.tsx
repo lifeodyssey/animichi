@@ -162,6 +162,15 @@ describe("PipelineCard", () => {
     expect(text).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
   });
 
+  it("hides result anchor when isActive is true (ResultPanel already open)", () => {
+    const output = makeSearchOutput(70);
+    const parts = [
+      makeToolPart("search_bangumi", "output-available", { output } as Partial<DynamicToolUIPart>),
+    ];
+    render(<PipelineCard parts={parts} messageId="msg-1" isActive />);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("does not use animate-pulse class", () => {
     const parts = [makeToolPart("resolve_anime", "input-available")];
     render(<PipelineCard parts={parts} messageId="msg-1" />);

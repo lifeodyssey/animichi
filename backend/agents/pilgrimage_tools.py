@@ -15,6 +15,7 @@ import structlog
 from pydantic_ai import ModelRetry, RunContext
 
 from backend.agents.agent_result import StepRecord
+from backend.agents.geo_names import localized_city_name
 from backend.agents.handlers import (
     HandlerResult,
     execute_answer_question,
@@ -62,6 +63,18 @@ def _record_step(
     deps.steps.append(
         StepRecord(tool=tool, success=success, params=params, data=data, error=error)
     )
+
+
+def _localize_city_names(data: dict[str, object], locale: str) -> None:
+    """Translate English city names in rows to the user's locale in-place."""
+    if locale == "en":
+        return
+    rows = data.get("rows")
+    if not isinstance(rows, list):
+        return
+    for row in rows:
+        if isinstance(row, dict) and isinstance(row.get("city"), str):
+            row["city"] = localized_city_name(row["city"], locale)
 
 
 def _summarize_for_llm(tool: ToolName, data: dict[str, object]) -> dict[str, object]:
@@ -129,6 +142,7 @@ async def _run_handler(
     )
 
     if result.success and result.data:
+        _localize_city_names(result.data, deps.locale)
         deps.tool_state[tool.value] = result.data
         await _emit_step(deps, tool.value, "done", result.data)
     else:

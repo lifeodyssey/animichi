@@ -75,7 +75,7 @@ async def test_chat_returns_event_stream() -> None:
         "backend.interfaces.routes.chat.VercelAIAdapter.dispatch_request",
         new_callable=AsyncMock,
         return_value=_sse_response(),
-    ):
+    ) as mock_dispatch:
         async with async_client(app) as client:
             resp = await client.post(
                 "/v1/chat",
@@ -88,6 +88,9 @@ async def test_chat_returns_event_stream() -> None:
 
         assert resp.status_code == 200
         assert "text/event-stream" in resp.headers.get("content-type", "")
+        # on_complete callback must be passed for DataChunk emission
+        call_kwargs = mock_dispatch.call_args.kwargs
+        assert callable(call_kwargs["on_complete"])
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +238,54 @@ class TestDetectClarifyContext:
         ).encode()
         result = _detect_clarify_context(body)
         assert result["pending_clarify"] is True
+
+
+# ---------------------------------------------------------------------------
+# AC 6: _on_complete yields DataChunk for structured output
+# ---------------------------------------------------------------------------
+
+
+class TestOnComplete:
+    async def test_yields_data_chunk_with_merged_tool_state(self) -> None:
+        from backend.interfaces.routes.chat import _make_on_complete
+
+        mock_deps = MagicMock()
+        mock_deps.tool_state = {
+            "search_bangumi": {
+                "rows": [{"id": "p1", "name": "宇治橋", "city": "宇治"}],
+                "row_count": 1,
+            }
+        }
+
+        mock_output = MagicMock()
+        mock_output.model_dump.return_value = {
+            "intent": "search_bangumi",
+            "message": "Found spots",
+            "data": {"results": {"rows": [], "row_count": 0}},
+        }
+        mock_result = MagicMock()
+        mock_result.output = mock_output
+
+        on_complete = _make_on_complete(mock_deps)
+        chunks = [chunk async for chunk in on_complete(mock_result)]
+        assert len(chunks) == 1
+        assert chunks[0].type == "data-response"
+        assert chunks[0].data["intent"] == "search_bangumi"
+        # Data should be merged from tool_state, wrapped under "results"
+        assert len(chunks[0].data["data"]["results"]["rows"]) == 1
+        assert chunks[0].data["data"]["results"]["rows"][0]["city"] == "宇治"
+
+    async def test_no_chunk_for_plain_output(self) -> None:
+        from backend.interfaces.routes.chat import _make_on_complete
+
+        mock_deps = MagicMock()
+        mock_deps.tool_state = {}
+        mock_result = MagicMock()
+        mock_result.output = "just a string"
+
+        on_complete = _make_on_complete(mock_deps)
+        chunks = [chunk async for chunk in on_complete(mock_result)]
+        assert len(chunks) == 0
 
 
 # ---------------------------------------------------------------------------
