@@ -9,11 +9,14 @@ Detects clarify context from message history to prevent re-clarification.
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator, Callable
 from typing import Annotated, cast
 
 import structlog
 from fastapi import APIRouter, Depends, Request
+from pydantic_ai.run import AgentRunResult
 from pydantic_ai.ui.vercel_ai import VercelAIAdapter
+from pydantic_ai.ui.vercel_ai.response_types import BaseChunk, DataChunk
 from starlette.responses import Response
 
 from backend.agents.pilgrimage_runner import pilgrimage_agent
@@ -84,6 +87,40 @@ def _detect_clarify_context(body: bytes) -> dict[str, object]:
     return {}
 
 
+def _make_on_complete(
+    deps: RuntimeDeps,
+) -> Callable[[AgentRunResult[object]], AsyncIterator[BaseChunk]]:
+    """Create an on_complete callback that merges tool_state into the output.
+
+    The LLM's output tool (search_response etc.) has intent + message but
+    empty data rows. The actual rows live in deps.tool_state, populated by
+    the search/route tool handlers. We merge them here so the frontend
+    gets a single DataChunk with the complete response.
+    """
+
+    async def _on_complete(
+        result: AgentRunResult[object],
+    ) -> AsyncIterator[BaseChunk]:
+        output = result.output
+        if not hasattr(output, "model_dump"):
+            return
+        data = output.model_dump(mode="json")
+
+        # Merge full tool_state data into the output's empty data section.
+        # Wrap under "results" or "route" to match response_builder.py convention.
+        intent = data.get("intent", "")
+        tool_data = deps.tool_state.get(intent)
+        if isinstance(tool_data, dict) and isinstance(data.get("data"), dict):
+            if intent in ("plan_route", "plan_selected"):
+                data["data"] = {"route": tool_data}
+            else:
+                data["data"] = {"results": tool_data}
+
+        yield DataChunk(type="data-response", data=data)
+
+    return _on_complete
+
+
 @router.post("/chat")
 async def handle_chat(
     request: Request,
@@ -125,4 +162,5 @@ async def handle_chat(
         agent=pilgrimage_agent,
         deps=deps,
         sdk_version=6,
+        on_complete=_make_on_complete(deps),
     )

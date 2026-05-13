@@ -351,8 +351,8 @@ export function PipelineCard({
         );
       })}
 
-      {/* Result anchors */}
-      {anchorParts.map((part) => {
+      {/* Result anchors — hidden when ResultPanel is already active */}
+      {!isActive && anchorParts.map((part) => {
         if (part.state !== "output-available") return null;
         const response = asRuntimeResponse(part.output);
         if (!response) return null;

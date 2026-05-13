@@ -63,6 +63,19 @@ export default function MessageBubble({
     (p): p is { type: "text"; text: string } => p.type === "text" && !!p.text,
   );
 
+  // Extract summary message from DataChunk (on_complete data-response)
+  const dataResponseMessage = (() => {
+    for (const p of message.parts) {
+      if (p.type === "data-response") {
+        const data = (p as Record<string, unknown>).data as Record<string, unknown> | undefined;
+        if (data && typeof data.message === "string" && data.message) {
+          return data.message;
+        }
+      }
+    }
+    return null;
+  })();
+
   const hasToolOutput = toolParts.some(
     (p) => p.state === "output-available",
   );
@@ -110,6 +123,13 @@ export default function MessageBubble({
         }
         return null;
       })}
+
+      {/* Agent summary message from data-response DataChunk */}
+      {dataResponseMessage && (
+        <div className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary">
+          <Markdown remarkPlugins={[remarkGfm]}>{dataResponseMessage}</Markdown>
+        </div>
+      )}
 
       {/* Feedback buttons — only shown when streaming is done and there's content */}
       {!isStreaming && hasToolOutput && (

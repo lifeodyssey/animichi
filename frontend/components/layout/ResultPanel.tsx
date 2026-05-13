@@ -79,7 +79,7 @@ export default function ResultPanel({
   // Extract search points from the response (when available).
   const searchPoints = useMemo<PilgrimagePoint[]>(() => {
     if (!activeResponse || !isSearchData(activeResponse.data)) return [];
-    return (activeResponse.data as SearchResultData).results.rows;
+    return (activeResponse.data as SearchResultData).results.rows ?? [];
   }, [activeResponse]);
 
   // Selected points as full PilgrimagePoint[] objects (for RouteConfirm).
