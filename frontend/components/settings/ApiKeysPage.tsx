@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createApiKey, listApiKeys, revokeApiKey } from "@/lib/api-keys";
 import type { ApiKey } from "@/lib/api-keys";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function ApiKeysPage() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
@@ -54,19 +56,21 @@ export default function ApiKeysPage() {
       </p>
 
       <form onSubmit={handleCreate} className="mb-8 flex gap-2">
-        <input
+        <Input
           value={newKeyName}
           onChange={(e) => setNewKeyName(e.target.value)}
           placeholder="Key name (e.g. My CLI Agent)"
-          className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          className="flex-1"
+          size="sm"
         />
-        <button
+        <Button
           type="submit"
+          variant="primary"
+          size="sm"
           disabled={creating || !newKeyName.trim()}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg disabled:opacity-50"
         >
           {creating ? "Creating..." : "Create key"}
-        </button>
+        </Button>
       </form>
 
       {newRawKey && (
@@ -77,12 +81,14 @@ export default function ApiKeysPage() {
           <code className="block break-all rounded bg-background p-3 text-xs text-foreground">
             {newRawKey}
           </code>
-          <button
+          <Button
+            variant="link"
+            size="xs"
             onClick={() => navigator.clipboard.writeText(newRawKey)}
-            className="mt-2 text-xs text-muted-foreground hover:text-primary"
+            className="mt-2"
           >
             Copy to clipboard
-          </button>
+          </Button>
         </div>
       )}
 
@@ -104,12 +110,14 @@ export default function ApiKeysPage() {
                   )}
                 </p>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="xs"
                 onClick={() => handleRevoke(key.id)}
-                className="ml-4 text-xs text-muted-foreground hover:text-red-400"
+                className="ml-4 text-destructive hover:text-destructive"
               >
                 Revoke
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

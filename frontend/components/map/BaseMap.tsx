@@ -174,7 +174,7 @@ export default function BaseMap({
                   background: isSelected ? "var(--color-marker-active)" : "var(--color-primary)",
                   color: "var(--color-primary-fg)", fontWeight: 600, fontSize: 14,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: "0 2px 6px oklch(20% 0.02 240 / 0.3)", border: "2px solid var(--color-card)",
+                  boxShadow: "0 2px 6px rgba(61, 52, 40, 0.3)", border: "2px solid var(--color-card)",
                   cursor: "pointer",
                 }}
               >

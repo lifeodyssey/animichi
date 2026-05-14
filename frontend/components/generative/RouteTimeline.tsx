@@ -94,7 +94,7 @@ export default function RouteTimeline({
                       : "var(--color-primary)",
                     zIndex: 1,
                     boxShadow: isFirst
-                      ? "0 0 0 4px oklch(72% 0.100 240 / 0.15)"
+                      ? "0 0 0 4px rgba(241, 143, 67, 0.15)"
                       : undefined,
                     animation: isActive
                       ? "dot-pulse 0.6s ease-out 1"

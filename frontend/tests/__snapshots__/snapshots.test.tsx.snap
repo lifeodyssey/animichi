@@ -53,7 +53,9 @@ exports[`Snapshot: NearbyBubble > renders nearby bubble 1`] = `
       class="mt-3 flex flex-col gap-2"
     >
       <button
-        class="flex min-h-11 w-full items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left transition-colors hover:bg-muted"
+        class="group/button inline-flex shrink-0 items-center whitespace-nowrap tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-transparent text-foreground border-border hover:border-primary hover:text-primary active:text-[var(--color-primary-active)] h-11 text-sm w-full justify-start gap-4 px-5 py-4 font-normal"
+        data-slot="button"
+        tabindex="0"
         type="button"
       >
         <span
@@ -63,12 +65,11 @@ exports[`Snapshot: NearbyBubble > renders nearby bubble 1`] = `
         />
         <img
           alt=""
-          class="h-8 w-10 shrink-0 rounded-sm object-cover"
+          class="h-8 w-10 shrink-0 rounded-sm object-cover bg-muted"
           src="https://example.com/img.jpg"
-          style="background: var(--color-muted);"
         />
         <span
-          class="flex min-w-0 flex-1 flex-col gap-0.5"
+          class="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
         >
           <span
             class="truncate text-sm text-foreground font-display"
@@ -90,11 +91,13 @@ exports[`Snapshot: NearbyBubble > renders nearby bubble 1`] = `
       </button>
     </div>
     <button
-      class="mt-3 flex min-h-11 w-full items-center gap-3 rounded-md border border-border bg-background px-4 transition-colors hover:border-primary hover:bg-muted"
+      class="group/button inline-flex shrink-0 items-center whitespace-nowrap tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background text-foreground border-border hover:border-primary hover:text-primary hover:translate-y-[-1px] active:translate-y-0 h-11 text-sm mt-3 w-full justify-start gap-4 px-5 py-4 font-normal"
+      data-slot="button"
+      tabindex="0"
       type="button"
     >
       <span
-        class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-primary-fg"
+        class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground"
       >
         <svg
           fill="none"
@@ -139,7 +142,9 @@ exports[`Snapshot: NearbyBubbleWrapper > renders with search data 1`] = `
         class="mt-3 flex flex-col gap-2"
       >
         <button
-          class="flex min-h-11 w-full items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left transition-colors hover:bg-muted"
+          class="group/button inline-flex shrink-0 items-center whitespace-nowrap tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-transparent text-foreground border-border hover:border-primary hover:text-primary active:text-[var(--color-primary-active)] h-11 text-sm w-full justify-start gap-4 px-5 py-4 font-normal"
+          data-slot="button"
+          tabindex="0"
           type="button"
         >
           <span
@@ -149,12 +154,11 @@ exports[`Snapshot: NearbyBubbleWrapper > renders with search data 1`] = `
           />
           <img
             alt=""
-            class="h-8 w-10 shrink-0 rounded-sm object-cover"
+            class="h-8 w-10 shrink-0 rounded-sm object-cover bg-muted"
             src="https://example.com/img.jpg"
-            style="background: var(--color-muted);"
           />
           <span
-            class="flex min-w-0 flex-1 flex-col gap-0.5"
+            class="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
           >
             <span
               class="truncate text-sm text-foreground font-display"
@@ -176,11 +180,13 @@ exports[`Snapshot: NearbyBubbleWrapper > renders with search data 1`] = `
         </button>
       </div>
       <button
-        class="mt-3 flex min-h-11 w-full items-center gap-3 rounded-md border border-border bg-background px-4 transition-colors hover:border-primary hover:bg-muted"
+        class="group/button inline-flex shrink-0 items-center whitespace-nowrap tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background text-foreground border-border hover:border-primary hover:text-primary hover:translate-y-[-1px] active:translate-y-0 h-11 text-sm mt-3 w-full justify-start gap-4 px-5 py-4 font-normal"
+        data-slot="button"
+        tabindex="0"
         type="button"
       >
         <span
-          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-primary-fg"
+          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground"
         >
           <svg
             fill="none"
@@ -213,15 +219,16 @@ exports[`Snapshot: NearbyBubbleWrapper > renders with search data 1`] = `
 
 exports[`Snapshot: PhotoCard > renders photo card 1`] = `
 <div>
-  <div
+  <button
     aria-pressed="false"
-    class="group relative cursor-pointer overflow-hidden rounded-lg border-2 bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg border-transparent"
-    role="button"
-    tabindex="0"
+    class="group relative cursor-pointer overflow-hidden rounded-lg border-2 bg-card text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg border-transparent"
+    type="button"
   >
     <button
       aria-label="查看详情"
-      class="absolute left-2 top-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-primary"
+      class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 absolute left-2 top-2 z-10 rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+      data-slot="button"
+      tabindex="0"
       type="button"
     >
       <svg
@@ -282,14 +289,16 @@ exports[`Snapshot: PhotoCard > renders photo card 1`] = `
         響け！ユーフォニアム
       </p>
     </div>
-  </div>
+  </button>
 </div>
 `;
 
 exports[`Snapshot: ResultAnchor > renders anchor button 1`] = `
 <div>
   <button
-    class="group/anchor flex w-full max-w-[320px] items-center gap-3 rounded-xl border p-3 text-left transition-all duration-150 border-border bg-card hover:border-primary/60 hover:-translate-y-0.5 hover:shadow-sm"
+    class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background text-foreground border-border hover:border-primary hover:text-primary hover:translate-y-[-1px] active:translate-y-0 text-sm group/anchor h-auto w-full max-w-[320px] gap-3 rounded-xl p-3 text-left"
+    data-slot="button"
+    tabindex="0"
     type="button"
   >
     <span
@@ -346,7 +355,9 @@ exports[`Snapshot: SpotDetail > renders spot detail page 1`] = `
       class="flex w-[55%] shrink-0 flex-col overflow-y-auto p-5"
     >
       <button
-        class="mb-3 flex min-h-11 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary"
+        class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-transparent text-primary border-transparent underline-offset-4 hover:underline h-8 gap-1 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5 mb-3"
+        data-slot="button"
+        tabindex="0"
         type="button"
       >
         <svg
@@ -397,16 +408,21 @@ exports[`Snapshot: SpotDetail > renders spot detail page 1`] = `
         class="mt-5 flex flex-wrap gap-3"
       >
         <button
-          class="flex min-h-[44px] items-center gap-1.5 rounded-md bg-primary px-5 text-sm font-semibold text-primary-fg transition-opacity hover:opacity-90"
+          class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-card text-foreground border-card shadow-[0_5px_0_0_var(--color-3d-shadow)] hover:translate-y-[-1px] hover:shadow-[0_6px_0_0_var(--color-3d-shadow)] active:translate-y-[2px] active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-11 gap-1.5 px-6 text-sm"
+          data-slot="button"
+          tabindex="0"
           type="button"
         >
           聖地を選択
         </button>
         <a
-          class="flex min-h-[44px] items-center gap-1.5 rounded-md border border-border px-5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background text-foreground border-border hover:border-primary hover:text-primary hover:translate-y-[-1px] active:translate-y-0 h-11 gap-1.5 px-6 text-sm"
+          data-slot="button"
           href="https://www.google.com/maps?q=34.88,135.8"
           rel="noopener noreferrer"
+          tabindex="0"
           target="_blank"
+          type="button"
         >
           マップで見る
         </a>

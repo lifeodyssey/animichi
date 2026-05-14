@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { useDict } from "../../lib/i18n-context";
+import { Button } from "@/components/ui/button";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,22 +42,24 @@ export function SelectionBar({
         {rp.selected.replace("{count}", String(count))}
       </span>
 
-      <button
-        type="button"
+      <Button
+        variant="link"
+        size="xs"
         onClick={onClear}
-        className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+        className="text-muted-foreground hover:text-foreground"
       >
         {rp.clear}
-      </button>
+      </Button>
 
-      <button
-        type="button"
+      <Button
+        variant="primary"
+        size="sm"
         onClick={onPlanRoute}
         disabled={disabled || count < 2}
-        className="ml-auto flex items-center gap-1 rounded-md bg-primary px-4 py-1.5 text-xs font-semibold text-primary-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="ml-auto"
       >
         {rp.plan_route}
-      </button>
+      </Button>
     </div>
   );
 }

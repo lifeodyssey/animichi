@@ -3,6 +3,7 @@
 import type { PilgrimagePoint } from "../../lib/types";
 import { cn } from "@/lib/utils";
 import { colorValue } from "../../lib/color";
+import { Button } from "@/components/ui/button";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,7 +50,7 @@ function chipInlineStyles(color: (typeof CHIP_COLORS)[number], isActive: boolean
   const accent = colorValue(color.hue, color.chroma, 55);
   const border = colorValue(color.hue, color.chroma * 0.4, 82);
   if (isActive) {
-    return { backgroundColor: accent, borderColor: accent, color: "oklch(99% 0.005 240)" };
+    return { backgroundColor: accent, borderColor: accent, color: "#fff" };
   }
   return { backgroundColor: "transparent", borderColor: border, color: accent };
 }
@@ -118,16 +119,13 @@ export default function NearbyChips({
         const isActive = activeId === group.bangumi_id;
 
         return (
-          <button
+          <Button
             key={group.bangumi_id}
-            type="button"
+            variant="chip"
+            size="xs"
             aria-pressed={isActive}
             onClick={() => onSelect(isActive ? null : group.bangumi_id)}
-            className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors"
-            style={{
-              transitionDuration: "var(--duration-fast, 150ms)",
-              ...chipInlineStyles(color, isActive),
-            }}
+            style={chipInlineStyles(color, isActive)}
           >
             <span
               data-testid="chip-dot"
@@ -137,7 +135,7 @@ export default function NearbyChips({
             />
             <span className="max-w-[120px] truncate">{group.title}</span>
             <span className="shrink-0 opacity-80">{group.points_count}</span>
-          </button>
+          </Button>
         );
       })}
     </div>

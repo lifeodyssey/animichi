@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 
 interface FullscreenOverlayProps {
   open: boolean;
@@ -22,16 +23,17 @@ export function FullscreenOverlay({ open, onClose, children }: FullscreenOverlay
 
   return (
     <div className="fixed inset-0 z-50 bg-background animate-in fade-in duration-200">
-      <button
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={onClose}
-        className="absolute top-4 right-4 z-10 rounded-full bg-background/80 backdrop-blur p-2 shadow-md hover:bg-background transition"
-        style={{ transitionDuration: "var(--duration-fast)" }}
+        className="absolute top-4 right-4 z-10 rounded-full bg-background/80 backdrop-blur shadow-md"
         aria-label="Close"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M4 4l8 8M12 4l-8 8" />
         </svg>
-      </button>
+      </Button>
       {children}
     </div>
   );

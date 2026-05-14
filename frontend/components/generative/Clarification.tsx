@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { useDict } from "../../lib/i18n-context";
 import type { ClarifyCandidate } from "../../lib/types";
+import { Button } from "@/components/ui/button";
 
 export type { ClarifyCandidate };
 
@@ -31,6 +32,9 @@ export default function Clarification({
       <div className="flex flex-col gap-3">
         <p className="text-sm font-light leading-relaxed text-foreground">
           {message}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {t.candidates_hint}
         </p>
         <div className="flex flex-col gap-2">
           {candidates.map((candidate) => (
@@ -110,16 +114,12 @@ function CandidateCard({
   const { clarification: t } = useDict();
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
+      size="md"
       onClick={onSelect}
       aria-label={candidate.title}
-      className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-all hover:border-primary hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
-      style={{
-        transitionDuration: "var(--duration-fast)",
-        transitionTimingFunction: "var(--ease-out-quint)",
-        minHeight: 44,
-      }}
+      className="w-full justify-start gap-3 p-5 font-normal hover:-translate-y-0.5 hover:border-primary hover:shadow-sm active:translate-y-0"
     >
       {/* Thumbnail — enlarged for better anime cover visibility */}
       <span className="relative flex h-14 w-11 shrink-0 overflow-hidden rounded-lg bg-muted">
@@ -139,7 +139,7 @@ function CandidateCard({
       </span>
 
       {/* Text */}
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
         <span
           className="truncate text-sm font-medium text-foreground font-display"
         >
@@ -155,13 +155,10 @@ function CandidateCard({
       </span>
 
       {/* Arrow */}
-      <span
-        className="shrink-0 text-base text-primary transition-transform"
-        style={{ transitionDuration: "var(--duration-fast)" }}
-      >
+      <span className="shrink-0 text-base text-primary">
         →
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -185,16 +182,12 @@ function SearchAllCard({
   }
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
+      size="md"
       onClick={handleClick}
       aria-label={label}
-      className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-all hover:border-primary hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
-      style={{
-        transitionDuration: "var(--duration-fast)",
-        transitionTimingFunction: "var(--ease-out-quint)",
-        minHeight: 44,
-      }}
+      className="w-full justify-start gap-3 p-5 font-normal hover:-translate-y-0.5 hover:border-primary hover:shadow-sm active:translate-y-0"
     >
       {/* Icon */}
       <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-lg bg-muted text-sm">
@@ -202,7 +195,7 @@ function SearchAllCard({
       </span>
 
       {/* Text */}
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
         <span
           className="truncate text-sm font-medium text-foreground font-display"
         >
@@ -211,13 +204,10 @@ function SearchAllCard({
       </span>
 
       {/* Arrow */}
-      <span
-        className="shrink-0 text-base text-primary transition-transform"
-        style={{ transitionDuration: "var(--duration-fast)" }}
-      >
+      <span className="shrink-0 text-base text-primary">
         →
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -233,16 +223,12 @@ function FallbackSuggestionCard({
   onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
+      size="md"
       onClick={onSelect}
       aria-label={label}
-      className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-all hover:border-primary hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0"
-      style={{
-        transitionDuration: "var(--duration-fast)",
-        transitionTimingFunction: "var(--ease-out-quint)",
-        minHeight: 44,
-      }}
+      className="w-full justify-start gap-3 p-5 font-normal hover:-translate-y-0.5 hover:border-primary hover:shadow-sm active:translate-y-0"
     >
       {/* Emoji icon instead of cover */}
       <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-lg bg-muted text-sm">
@@ -250,7 +236,7 @@ function FallbackSuggestionCard({
       </span>
 
       {/* Text */}
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
         <span
           className="truncate text-sm font-medium text-foreground font-display"
         >
@@ -259,13 +245,10 @@ function FallbackSuggestionCard({
       </span>
 
       {/* Arrow */}
-      <span
-        className="shrink-0 text-base text-primary transition-transform"
-        style={{ transitionDuration: "var(--duration-fast)" }}
-      >
+      <span className="shrink-0 text-base text-primary">
         →
       </span>
-    </button>
+    </Button>
   );
 }
 

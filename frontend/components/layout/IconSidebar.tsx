@@ -13,6 +13,7 @@
 
 import type { MouseEvent } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export type SidebarSection = "history" | "favorites" | "settings";
 
@@ -31,16 +32,17 @@ interface NavButtonProps {
 
 function NavButton({ label, active = false, onClick, children }: NavButtonProps) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="icon"
       aria-label={label}
       data-active={active ? "true" : "false"}
       onClick={onClick}
       className={cn(
-        "group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-md border-none cursor-pointer transition-colors duration-150",
+        "group relative shrink-0",
         active
           ? "bg-sidebar-active text-primary"
-          : "bg-transparent text-muted-foreground hover:bg-muted"
+          : "text-muted-foreground"
       )}
     >
       {children}
@@ -48,7 +50,7 @@ function NavButton({ label, active = false, onClick, children }: NavButtonProps)
       <span className="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-foreground px-2.5 py-1 text-xs font-medium text-background opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-20">
         {label}
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -63,11 +65,12 @@ export default function IconSidebar({
       className="flex w-[60px] min-w-[60px] flex-col items-center gap-1 border-r border-border bg-background py-3"
     >
       {/* Torii logo — brand-soft bg, 44x44 rounded square */}
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         aria-label="聖地巡礼 home"
         onClick={onNewChat}
-        className="group relative mb-3 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border-none bg-brand-soft transition-transform duration-150 hover:scale-105"
+        className="group relative mb-3 shrink-0 rounded-lg bg-brand-soft transition-transform duration-150 hover:scale-105 hover:bg-brand-soft"
       >
         <svg viewBox="0 0 72 72" width="28" height="28" fill="none" aria-hidden>
           <rect x="12" y="16" width="48" height="5" rx="2.5" fill="var(--color-torii)" />
@@ -80,7 +83,7 @@ export default function IconSidebar({
           <rect x="63" y="2" width="7" height="1.5" rx=".75" fill="var(--color-muted-fg)" />
           <rect x="68.5" y="2" width="1.5" height="7" rx=".75" fill="var(--color-muted-fg)" />
         </svg>
-      </button>
+      </Button>
 
       {/* New chat */}
       <NavButton label="新对话" active={false} onClick={onNewChat}>

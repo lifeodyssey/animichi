@@ -17,24 +17,21 @@ export function ResultPanelEmptyState() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 80% 70% at 50% 50%, oklch(93% 0.025 240 / 0.15), transparent 70%)",
+            "radial-gradient(ellipse 80% 70% at 50% 50%, rgba(241, 143, 67, 0.08), transparent 70%)",
         }}
       />
 
       <div className="relative flex flex-col items-center gap-4 text-center">
-        {/* Icon */}
-        <div
-          className="flex h-16 w-16 items-center justify-center rounded-2xl"
-          style={{ background: "oklch(90% 0.04 240 / 0.3)" }}
-        >
-          <span className="text-2xl">🗾</span>
+        {/* Search icon */}
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-soft">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
         </div>
 
         {/* Message */}
-        <p
-          className="font-display text-lg font-semibold text-foreground"
-          style={{ opacity: 0.7 }}
-        >
+        <p className="font-display text-lg font-semibold text-foreground opacity-70">
           {grid.empty_hint ?? "聖地を探してみよう"}
         </p>
 

@@ -3,6 +3,7 @@
 import type { PilgrimagePoint } from "../../lib/types";
 import { useDict } from "../../lib/i18n-context";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 // ---------------------------------------------------------------------------
 // EpisodeBadge
@@ -31,31 +32,25 @@ interface PhotoCardProps {
 
 export function PhotoCard({ point, selected, onToggle, onDetail }: PhotoCardProps) {
   return (
-    <div
+    <button
+      type="button"
       className={cn(
-        "group relative cursor-pointer overflow-hidden rounded-lg border-2 bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
+        "group relative cursor-pointer overflow-hidden rounded-lg border-2 bg-card text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
         selected ? "border-primary" : "border-transparent"
       )}
       onClick={() => onToggle(point.id)}
-      role="button"
-      tabIndex={0}
       aria-pressed={selected}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onToggle(point.id);
-        }
-      }}
     >
       {/* Detail button — visible on hover */}
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={(e) => { e.stopPropagation(); onDetail?.(point); }}
-        className="absolute left-2 top-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-primary"
+        className="absolute left-2 top-2 z-10 rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
         aria-label="查看详情"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      </button>
+      </Button>
       {/* Image — 16/10 aspect ratio */}
       <div className="relative aspect-[16/10] overflow-hidden">
         {point.screenshot_url ? (
@@ -87,6 +82,6 @@ export function PhotoCard({ point, selected, onToggle, onDetail }: PhotoCardProp
           </p>
         )}
       </div>
-    </div>
+    </button>
   );
 }

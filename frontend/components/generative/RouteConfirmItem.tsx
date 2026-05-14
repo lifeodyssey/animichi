@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { PilgrimagePoint } from "../../lib/types";
 import { useDict } from "../../lib/i18n-context";
+import { Button } from "@/components/ui/button";
 
 // ---------------------------------------------------------------------------
 // Drag handle — 2×3 grid of small dots
@@ -61,18 +62,19 @@ export function SortableItem({ point, index, onRemove }: SortableItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className="group flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5"
+      className="group flex items-center gap-3 rounded-md border border-border bg-card px-5 py-3.5"
     >
       {/* Drag handle — Fix 8: always-visible grip, animated on hover */}
-      <button
-        type="button"
-        className="grip-handle flex h-[44px] w-[44px] shrink-0 cursor-grab items-center justify-center active:cursor-grabbing"
+      <Button
+        variant="ghost"
+        size="icon"
+        className="grip-handle shrink-0 cursor-grab active:cursor-grabbing"
         aria-label="Drag to reorder"
         {...attributes}
         {...listeners}
       >
         <DragGrip />
-      </button>
+      </Button>
 
       {/* Thumbnail */}
       {point.screenshot_url && (
@@ -107,10 +109,11 @@ export function SortableItem({ point, index, onRemove }: SortableItemProps) {
       </div>
 
       {/* Remove button — always partially visible, full on hover/focus */}
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => onRemove(point.id)}
-        className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-40 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+        className="shrink-0 text-muted-foreground opacity-40 transition-opacity hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
         aria-label={`${t.remove_label} ${displayName}`}
       >
         <svg
@@ -127,7 +130,7 @@ export function SortableItem({ point, index, onRemove }: SortableItemProps) {
           <line x1="18" y1="6" x2="6" y2="18" />
           <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
-      </button>
+      </Button>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useDict } from "../../lib/i18n-context";
 import { formatDistance } from "../../lib/geo";
 import { groupByAnime, CHIP_COLORS } from "./NearbyChips";
 import { colorValue } from "../../lib/color";
+import { Button } from "@/components/ui/button";
 
 interface NearbyBubbleProps {
   data: SearchResultData;
@@ -32,10 +33,11 @@ function AnimeNearbyCard({
   const dotColor = colorValue(color.hue, color.chroma, 55);
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
+      size="md"
       onClick={onClick}
-      className="flex min-h-11 w-full items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left transition-colors hover:bg-muted"
+      className="w-full justify-start gap-4 px-5 py-4 font-normal"
     >
       <span
         className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -46,12 +48,11 @@ function AnimeNearbyCard({
         <img
           src={imageUrl}
           alt=""
-          className="h-8 w-10 shrink-0 rounded-sm object-cover"
-          style={{ background: "var(--color-muted)" }}
+          className="h-8 w-10 shrink-0 rounded-sm object-cover bg-muted"
           onError={() => setImgError(true)}
         />
       ) : null}
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
         <span
           className="truncate text-sm text-foreground font-display"
         >
@@ -64,7 +65,7 @@ function AnimeNearbyCard({
       <span className="shrink-0 text-sm text-muted-foreground" aria-hidden="true">
         →
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -143,17 +144,18 @@ export default function NearbyBubble({ data, onSuggest }: NearbyBubbleProps) {
         ))}
       </div>
 
-      <button
-        type="button"
+      <Button
+        variant="default"
+        size="md"
         onClick={() => onSuggest?.(nt.show_all_nearby)}
-        className="mt-3 flex min-h-11 w-full items-center gap-3 rounded-md border border-border bg-background px-4 transition-colors hover:border-primary hover:bg-muted"
+        className="mt-3 w-full justify-start gap-4 px-5 py-4 font-normal"
       >
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-primary-fg">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </span>
         <span className="flex-1 text-left text-sm text-foreground">{nt.view_all.replace("{total}", String(total))}</span>
         <span className="text-sm text-muted-foreground">→</span>
-      </button>
+      </Button>
     </div>
   );
 }

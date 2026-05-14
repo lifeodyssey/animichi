@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "../../lib/utils";
+import { Button } from "../ui/button";
 
 // ---------------------------------------------------------------------------
 // ResultAnchor — soft white card with SVG pin icon
@@ -41,17 +42,16 @@ export default function ResultAnchor({
   onOpenDrawer,
 }: ResultAnchorProps) {
   return (
-    <button
+    <Button
       type="button"
+      variant="default"
       onClick={() => {
         onActivate?.(messageId);
         onOpenDrawer?.();
       }}
       className={cn(
-        "group/anchor flex w-full max-w-[320px] items-center gap-3 rounded-xl border p-3 text-left transition-all duration-150",
-        isActive
-          ? "border-primary bg-primary/5 shadow-sm"
-          : "border-border bg-card hover:border-primary/60 hover:-translate-y-0.5 hover:shadow-sm",
+        "group/anchor h-auto w-full max-w-[320px] gap-3 rounded-xl p-3 text-left",
+        isActive && "border-primary bg-primary/5 shadow-sm",
       )}
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
@@ -64,6 +64,6 @@ export default function ResultAnchor({
       <span className="shrink-0 text-sm text-muted-foreground transition-transform duration-150 group-hover/anchor:translate-x-0.5">
         {"\u203A"}
       </span>
-    </button>
+    </Button>
   );
 }

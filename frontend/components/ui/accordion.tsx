@@ -1,7 +1,12 @@
+"use client"
+
 import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion"
+import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+
+/* ── Base-UI Accordion (used by SpotGroup etc.) ── */
 
 function Accordion({ className, ...props }: AccordionPrimitive.Root.Props) {
   return (
@@ -69,4 +74,71 @@ function AccordionContent({
   )
 }
 
-export { Accordion, AccordionItem, AccordionTrigger, AccordionContent }
+/* ── Animal Island CollapseCard (FAQ-style, CSS Grid collapse) ── */
+
+export interface CollapseCardProps {
+  question: React.ReactNode
+  answer: React.ReactNode
+  defaultExpanded?: boolean
+  disabled?: boolean
+  className?: string
+}
+
+const CollapseCard = React.forwardRef<HTMLDivElement, CollapseCardProps>(
+  ({ question, answer, defaultExpanded = false, disabled = false, className }, ref) => {
+    const [expanded, setExpanded] = React.useState(defaultExpanded)
+
+    return (
+      <div
+        ref={ref}
+        data-slot="collapse-card"
+        className={cn(
+          "relative overflow-hidden rounded-[18px] border-2 border-border bg-background transition-colors duration-[var(--duration-base)]",
+          disabled && "cursor-not-allowed opacity-60",
+          className,
+        )}
+      >
+        <button
+          type="button"
+          className={cn(
+            "flex w-full items-center gap-3 border-none bg-transparent px-6 py-4 text-left",
+            disabled ? "cursor-not-allowed" : "cursor-pointer",
+          )}
+          onClick={() => !disabled && setExpanded((v) => !v)}
+          disabled={disabled}
+          aria-expanded={expanded}
+        >
+          <span
+            className={cn(
+              "flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-lg font-bold leading-none text-white shadow-[0_2px_4px_rgba(25,200,185,0.3)] transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)]",
+              expanded && "rotate-180",
+            )}
+          >
+            {expanded ? "\u2212" : "+"}
+          </span>
+          <span className="flex-1 text-base font-semibold leading-[1.4] text-foreground">
+            {question}
+          </span>
+        </button>
+        <div
+          className={cn(
+            "grid transition-[grid-template-rows] duration-300 ease-[var(--ease-animal)] will-change-[grid-template-rows]",
+            expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+          )}
+        >
+          <div
+            className={cn(
+              "overflow-hidden px-6 text-sm leading-[1.7] text-muted-foreground transition-[padding] duration-[var(--duration-base)] ease-[var(--ease-animal)]",
+              expanded && "pb-6",
+            )}
+          >
+            {answer}
+          </div>
+        </div>
+      </div>
+    )
+  },
+)
+CollapseCard.displayName = "CollapseCard"
+
+export { Accordion, AccordionItem, AccordionTrigger, AccordionContent, CollapseCard }

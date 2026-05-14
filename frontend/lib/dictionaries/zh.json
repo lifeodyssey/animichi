@@ -127,7 +127,10 @@
     "welcome_subtitle": "可以按作品找动漫取景地、按地点探索附近场景，或者帮你规划一条顺路巡礼路线。",
     "welcome_helper": "也可以先打个招呼，问我能帮你做什么。",
     "empty_hint": "搜索动漫圣地或规划路线",
-    "tap_to_view": "点击查看结果"
+    "tap_to_view": "点击查看结果",
+    "error_message": "回复时出现了错误。",
+    "retry": "重试",
+    "send_hint": "按 Enter 发送"
   },
   "sidebar": {
     "logo_icon": "圣",
@@ -208,7 +211,11 @@
     "action_nearby_desc": "查看当前位置附近的取景地",
     "action_route": "创建路线",
     "action_route_desc": "按心仪景点规划巡礼路线",
-    "popular_label": "热门作品"
+    "popular_label": "热门作品",
+    "tips_label": "使用方法",
+    "tip_search": "🔍 输入动漫名称搜索圣地",
+    "tip_nearby": "📍 通过定位查找附近圣地",
+    "tip_route": "🗺️ 从选中的景点创建路线"
   },
   "location": {
     "use_current": "使用当前位置",
@@ -239,7 +246,8 @@
     "summary": "{count} 个圣地等你探访",
     "estimate": "预计步行 {distance}km，约 {time} 分钟可以走完",
     "start": "开始规划路线",
-    "remove_label": "移除"
+    "remove_label": "移除",
+    "min_points_warning": "路线至少需要2个景点"
   },
   "chat_popup": {
     "continue": "继续对话…",
@@ -279,6 +287,7 @@
   "clarification": {
     "examples_label": "例如：",
     "search_all": "搜索所有作品",
+    "candidates_hint": "找到了多个同名作品，请选择您要查找的作品。",
     "suggestions": [
       {
         "label": "按作品搜索",

@@ -1,21 +1,42 @@
 "use client";
 
-import { useState, useRef, useEffect, type KeyboardEvent } from "react";
+import { useState, useRef, type KeyboardEvent } from "react";
 import { useDict, useLocale } from "../../lib/i18n-context";
-import { CHAT_INPUT_QUERIES } from "../../lib/quick-actions";
 import { cn } from "../../lib/utils";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import LocationPrompt from "./LocationPrompt";
 
-interface QuickAction {
-  icon: React.ReactNode;
-  label: string;
-  query: string;
-}
+const SEARCH_ICON = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+
+const SEND_ICON = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+  </svg>
+);
+
+const DELAYS = [0, 0.2, 0.4] as const;
+
+const LOADING_DOTS = (
+  <span className="flex items-center gap-0.5">
+    {DELAYS.map((delay) => (
+      <span
+        key={delay}
+        className="inline-block h-1 w-1 rounded-full bg-current animate-breathe"
+        style={{ animationDelay: `${delay}s` }}
+      />
+    ))}
+  </span>
+);
 
 interface ChatInputProps {
   onSend: (text: string) => void;
   disabled?: boolean;
-  showQuickActions?: boolean;
   onLocationAcquired?: (lat: number, lng: number) => void;
   /** Override the default locale-aware placeholder text. */
   placeholderOverride?: string;
@@ -26,45 +47,19 @@ interface ChatInputProps {
  *
  * Design direction: clean single-line input with a subtle border.
  * Send button appears only when there's content (progressive disclosure).
- * Location button is secondary — small icon, not prominent.
- * On the welcome screen this is the conversational entry point.
  */
 export default function ChatInput({
   onSend,
   disabled,
-  showQuickActions,
   onLocationAcquired,
   placeholderOverride,
 }: ChatInputProps) {
   const dict = useDict();
-  const { chat: t, landing_hero: lh } = dict;
+  const { chat: t } = dict;
   const locale = useLocale();
   const [text, setText] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
-
-  const geoSupported =
-    typeof navigator !== "undefined" && !!navigator.geolocation;
-
-  function adjustHeight() {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    const maxHeightPx = 120;
-    const clampedHeight = Math.min(el.scrollHeight, maxHeightPx);
-    el.style.height = `${clampedHeight}px`;
-    el.style.overflowY = el.scrollHeight > maxHeightPx ? "auto" : "hidden";
-  }
-
-  useEffect(adjustHeight, [text]);
-
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(adjustHeight);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   function handleSubmit() {
     if (!text.trim() || disabled) return;
@@ -72,8 +67,8 @@ export default function ChatInput({
     setText("");
   }
 
-  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
+  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
       e.preventDefault();
       handleSubmit();
     }
@@ -91,37 +86,6 @@ export default function ChatInput({
     onSend(station);
   }
 
-  const queries = CHAT_INPUT_QUERIES[locale];
-  const quickActions: QuickAction[] = [
-    {
-      icon: (
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-      ),
-      label: lh.feat_search,
-      query: lh.chat_placeholder,
-    },
-    {
-      icon: (
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <polygon points="3 11 22 2 13 21 11 13 3 11" />
-        </svg>
-      ),
-      label: lh.feat_route,
-      query: queries.route,
-    },
-    {
-      icon: (
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
-        </svg>
-      ),
-      label: lh.feat_series,
-      query: queries.popular,
-    },
-  ];
-
   // Locale-aware placeholder
   const placeholder = placeholderOverride ?? (
     locale === "zh"
@@ -131,34 +95,13 @@ export default function ChatInput({
         : "アニメ名を入力、または旅の計画を…"
   );
 
+  const sendContent = disabled ? LOADING_DOTS : SEND_ICON;
+
   return (
     <div
       className="px-4 pb-4 pt-2"
       style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
     >
-      {/* Mobile quick actions */}
-      {showQuickActions && (
-        <div
-          className="mx-auto mb-2 flex max-w-[520px] gap-2 overflow-x-auto pb-1"
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
-          {quickActions.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              onClick={() => onSend(action.query)}
-              className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-background px-4 text-sm text-foreground transition-colors hover:border-primary hover:text-primary"
-              style={{
-                transitionDuration: "var(--duration-fast)",
-              }}
-            >
-              <span>{action.icon}</span>
-              <span>{action.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* Location prompt overlay */}
       {showLocationPrompt && (
         <LocationPrompt
@@ -170,92 +113,47 @@ export default function ChatInput({
         />
       )}
 
-      {/* Input bar — clean, editorial, not a chat widget */}
-      <div
-        className="mx-auto flex w-full max-w-[520px] items-end gap-2 rounded-lg border border-border bg-background px-4 py-2.5 transition-colors focus-within:border-primary"
-        style={{ transitionDuration: "var(--duration-fast)" }}
-      >
-        {/* Location — subtle, secondary */}
-        {geoSupported && (
-          <button
-            type="button"
-            onClick={() => setShowLocationPrompt((v) => !v)}
-            aria-label="location"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
-            style={{ transitionDuration: "var(--duration-fast)" }}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-          </button>
-        )}
-
-        {/* Textarea — auto-grows, single line default */}
-        <textarea
-          ref={textareaRef}
-          aria-label={placeholder}
+      {/* Input bar */}
+      <div className="mx-auto flex w-full max-w-[520px] items-center gap-2">
+        <Input
+          ref={inputRef}
+          size="lg"
+          prefix={SEARCH_ICON}
+          type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          rows={1}
+          aria-label={placeholder}
           disabled={disabled}
-          className="flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none focus:outline-none focus-visible:outline-none placeholder:text-muted-foreground disabled:opacity-50"
-          style={{ maxHeight: "120px", minHeight: "24px" }}
+          className="flex-1"
         />
-
-        {/* Send — appears only when content exists or sending */}
-        <button
+        <Button
           type="button"
+          variant="primary"
+          size="icon"
           onClick={handleSubmit}
           disabled={disabled || !hasText}
-          className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-all duration-150",
-            hasText
-              ? "bg-primary text-primary-fg"
-              : "bg-muted text-muted-foreground",
-            !(hasText || disabled) && "opacity-30",
-          )}
           aria-label={t.send}
+          className={cn(!hasText && !disabled && "opacity-30")}
         >
-          {disabled ? (
-            <span className="flex items-center gap-0.5">
-              {([0, 0.2, 0.4] as const).map((delay) => (
-                <span
-                  key={delay}
-                  className="inline-block h-1 w-1 rounded-full bg-current animate-breathe"
-                  style={{ animationDelay: `${delay}s` }}
-                />
-              ))}
-            </span>
-          ) : (
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          )}
-        </button>
+          {sendContent}
+        </Button>
       </div>
+
+      {/* Status feedback while AI is responding */}
+      {disabled && (
+        <p className="mt-1 text-center text-xs text-muted-foreground animate-pulse">
+          {t.thinking}
+        </p>
+      )}
+
+      {/* Keyboard shortcut hint — desktop only */}
+      {!disabled && (
+        <p className="mt-1 hidden text-center text-xs text-muted-foreground opacity-50 md:block">
+          {t.send_hint ?? "Press Enter to send"}
+        </p>
+      )}
     </div>
   );
 }

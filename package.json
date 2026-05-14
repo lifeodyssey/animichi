@@ -9,7 +9,10 @@
     "@cloudflare/containers": "^0.0.25"
   },
   "devDependencies": {
+    "@storybook/react": "^10.3.6",
+    "@storybook/react-vite": "^10.3.6",
     "@tailwindcss/postcss": "^4.2.2",
+    "storybook": "^10.3.6",
     "tailwindcss": "^4.2.2"
   }
 }
