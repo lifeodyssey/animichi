@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface SlideOverPanelProps {
@@ -36,16 +37,17 @@ export function SlideOverPanel({ open, onClose, children, loading }: SlideOverPa
           open ? "translate-x-0" : "translate-x-full"
         )}
       >
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 rounded-full bg-background/80 p-2 shadow hover:bg-background transition"
-          style={{ transitionDuration: "var(--duration-fast)" }}
+          className="absolute top-4 right-4 z-10 rounded-full bg-background/80 shadow"
           aria-label="Close"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M4 4l8 8M12 4l-8 8" />
           </svg>
-        </button>
+        </Button>
         <div className="h-full overflow-y-auto p-6 pt-14">
           {loading ? (
             <div className="flex flex-col gap-4">

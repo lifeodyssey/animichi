@@ -7,6 +7,7 @@ import { useScrollReveal } from "../../hooks/useScrollReveal";
 import { ANIME_GALLERY, handleImageError } from "./LandingData";
 import SharedHeader from "../layout/SharedHeader";
 import SharedFooter from "../layout/SharedFooter";
+import { Button } from "@/components/ui/button";
 
 interface LandingPageProps {
   onOpenAuth: () => void;
@@ -67,15 +68,16 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
               {landing.hero_subtitle}
             </p>
 
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="lg"
               onClick={onOpenAuth}
-              className="entrance-up mt-8 inline-flex w-fit min-h-[52px] items-center gap-2.5 rounded-xl bg-primary px-8 text-base font-semibold text-primary-fg transition-opacity hover:opacity-90"
+              className="entrance-up mt-8 w-fit gap-2.5"
               style={{ animationDelay: "0.16s" }}
             >
               {landing.search_button}
               <span aria-hidden="true" className="text-lg">→</span>
-            </button>
+            </Button>
 
             {/* Stats — left-aligned, compact */}
             <div
@@ -134,7 +136,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                   style={{
                     left: "50%",
                     width: "2px",
-                    background: "oklch(98% 0.008 218 / 0.8)",
+                    background: "rgba(255, 255, 255, 0.8)",
                     transform: "rotate(1.5deg)",
                   }}
                 />
@@ -147,7 +149,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                 </div>
                 <div
                   className="absolute bottom-4 right-4 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide text-white uppercase"
-                  style={{ background: "oklch(60% 0.148 240 / 0.85)", backdropFilter: "blur(8px)" }}
+                  style={{ background: "var(--color-overlay)", backdropFilter: "blur(8px)" }}
                 >
                   Anime
                 </div>

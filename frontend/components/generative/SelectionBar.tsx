@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useDict } from "../../lib/i18n-context";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface SelectionBarProps {
   count: number;
@@ -38,7 +40,7 @@ export default function SelectionBar({
       <span className="shrink-0 text-xs font-medium text-primary">
         {t.count.replace("{count}", String(count))}
       </span>
-      <input
+      <Input
         value={origin}
         onChange={(event) => setOrigin(event.target.value)}
         aria-label={t.placeholder}
@@ -48,27 +50,26 @@ export default function SelectionBar({
           }
         }}
         placeholder={t.placeholder}
-        className="min-w-0 flex-1 rounded-sm bg-muted px-2 py-1 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
+        size="sm"
+        className="min-w-0 flex-1"
         disabled={disabled}
       />
-      <button
-        type="button"
+      <Button
+        variant="primary"
+        size="sm"
         onClick={handleRoute}
-        className="shrink-0 rounded-sm bg-primary px-3 py-1 text-xs font-medium text-primary-fg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-        style={{ transitionDuration: "var(--duration-fast)" }}
         disabled={disabled || count === 0}
       >
         {t.route}
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        variant="link"
+        size="sm"
         onClick={onClear}
-        className="shrink-0 text-xs text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-        style={{ transitionDuration: "var(--duration-fast)" }}
         disabled={disabled}
       >
         {t.clear}
-      </button>
+      </Button>
     </div>
   );
 }

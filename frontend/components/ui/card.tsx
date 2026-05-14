@@ -1,18 +1,62 @@
 import * as React from "react"
 
+import { cva, type VariantProps } from "class-variance-authority"
+
 import { cn } from "@/lib/utils"
+
+const cardVariants = cva(
+  "group/card flex flex-col gap-4 font-medium transition-all duration-300",
+  {
+    variants: {
+      variant: {
+        default:
+          "cursor-pointer rounded-[20px] px-6 py-4 hover:-translate-y-0.5",
+        title:
+          "px-8 py-3 font-semibold [border-radius:40px_35px_45px_38px_/_38px_45px_35px_40px]",
+        dashed:
+          "rounded-[20px] border-2 border-dashed px-6 py-4 shadow-none hover:border-border-hover",
+      },
+      color: {
+        default: "bg-card text-foreground",
+        "app-yellow": "bg-nook-yellow text-foreground",
+        "app-teal": "bg-nook-teal text-white",
+        "app-red": "bg-nook-red text-white",
+      },
+    },
+    compoundVariants: [
+      { variant: "title", color: "default", className: "bg-[var(--color-surface)]" },
+      {
+        variant: "dashed",
+        color: "default",
+        className: "bg-[var(--color-surface)] border-border-light",
+      },
+    ],
+    defaultVariants: {
+      variant: "default",
+      color: "default",
+    },
+  }
+)
+
+type CardProps = React.ComponentProps<"div"> &
+  VariantProps<typeof cardVariants> & {
+    size?: "default" | "sm"
+  }
 
 function Card({
   className,
+  variant = "default",
+  color = "default",
   size = "default",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: CardProps) {
   return (
     <div
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-4 overflow-hidden rounded-xl bg-card py-4 text-sm text-card-foreground ring-1 ring-foreground/10 has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        cardVariants({ variant, color }),
+        size === "sm" && "gap-3 py-3",
         className
       )}
       {...props}
@@ -25,7 +69,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-4 group-data-[size=sm]/card:px-3 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-4 group-data-[size=sm]/card:[.border-b]:pb-3",
+        "group/card-header @container/card-header grid auto-rows-min items-start gap-1 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto]",
         className
       )}
       {...props}
@@ -38,7 +82,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-title"
       className={cn(
-        "font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",
+        "font-heading text-base leading-snug font-semibold group-data-[size=sm]/card:text-sm",
         className
       )}
       {...props}
@@ -50,7 +94,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-sm opacity-70", className)}
       {...props}
     />
   )
@@ -73,7 +117,7 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-content"
-      className={cn("px-4 group-data-[size=sm]/card:px-3", className)}
+      className={cn("text-sm", className)}
       {...props}
     />
   )
@@ -84,7 +128,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-footer"
       className={cn(
-        "flex items-center rounded-b-xl border-t bg-muted/50 p-4 group-data-[size=sm]/card:p-3",
+        "flex items-center border-t border-current/10 pt-4",
         className
       )}
       {...props}
@@ -100,4 +144,5 @@ export {
   CardAction,
   CardDescription,
   CardContent,
+  cardVariants,
 }

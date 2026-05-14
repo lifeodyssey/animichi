@@ -2,6 +2,8 @@
 
 import { useState, useRef, type FormEvent } from "react";
 import type { Dict, Locale } from "../../lib/i18n";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 
 type GeoState =
   | { kind: "idle" }
@@ -77,24 +79,24 @@ export default function LocationPrompt({
         <div className="flex gap-2">
           {!isAcquiring && geoState.kind !== "ok" && (
             <>
-              <button
+              <Button
                 type="button"
+                variant="chip"
+                size="sm"
                 onClick={handleUseCurrentLocation}
-                className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:border-primary/50 hover:text-primary"
-                style={{ transitionDuration: "var(--duration-fast)" }}
               >
                 <span aria-hidden="true">📍</span>
                 {t.use_current}
-              </button>
+              </Button>
               {!showStationInput && (
-                <button
+                <Button
                   type="button"
+                  variant="chip"
+                  size="sm"
                   onClick={handleEnterStation}
-                  className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:border-primary/50 hover:text-primary"
-                  style={{ transitionDuration: "var(--duration-fast)" }}
                 >
                   {t.enter_station}
-                </button>
+                </Button>
               )}
             </>
           )}
@@ -106,16 +108,18 @@ export default function LocationPrompt({
           )}
         </div>
 
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={onDismiss}
           aria-label="dismiss location prompt"
-          className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="ml-2 h-6 w-6"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M2 2l8 8M10 2l-8 8" />
           </svg>
-        </button>
+        </Button>
       </div>
 
       {(geoState.kind === "denied" || geoState.kind === "timeout") && (
@@ -126,21 +130,23 @@ export default function LocationPrompt({
 
       {showStationInput && geoState.kind !== "acquiring" && (
         <form onSubmit={handleStationSubmit} className="flex gap-2">
-          <input
+          <Input
             ref={stationInputRef}
+            size="sm"
             type="text"
             value={stationValue}
             onChange={(e) => setStationValue(e.target.value)}
             placeholder={t.enter_station}
-            className="flex-1 rounded-lg border border-border bg-card px-3 py-1.5 text-sm outline-none focus:border-primary placeholder:text-muted-foreground"
+            className="flex-1"
           />
-          <button
+          <Button
             type="submit"
+            variant="primary"
+            size="sm"
             disabled={!stationValue.trim()}
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-40"
           >
             OK
-          </button>
+          </Button>
         </form>
       )}
     </div>

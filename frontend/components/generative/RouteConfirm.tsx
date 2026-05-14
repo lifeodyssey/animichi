@@ -15,6 +15,8 @@ import type { PilgrimagePoint } from "../../lib/types";
 import { useDict } from "../../lib/i18n-context";
 import { haversineKm } from "../../lib/geo";
 import { SortableItem } from "./RouteConfirmItem";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -99,15 +101,16 @@ export default function RouteConfirm({
     <div className="flex h-full flex-col bg-background">
       {/* Fix 8: grip hover animation */}
       <style>{`
-        .group:hover .grip-handle > div { color: oklch(72% 0.100 240 / 0.6) !important; }
+        .group:hover .grip-handle > div { color: rgba(241, 143, 67, 0.6) !important; }
       `}</style>
 
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="flex shrink-0 items-center border-b border-border px-4 py-3">
-        <button
-          type="button"
+        <Button
+          variant="link"
+          size="sm"
           onClick={onBack}
-          className="flex h-[44px] items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="h-[44px] gap-1"
         >
           <svg
             width="16"
@@ -123,7 +126,7 @@ export default function RouteConfirm({
             <polyline points="15 18 9 12 15 6" />
           </svg>
           {t.back}
-        </button>
+        </Button>
         <span
           className="flex-1 text-center text-base font-semibold text-foreground font-display"
         >
@@ -134,16 +137,15 @@ export default function RouteConfirm({
       </div>
 
       {/* ── Departure input ─────────────────────────────────────────── */}
-      <div className="shrink-0 border-b border-border px-4 py-3">
+      <div className="shrink-0 border-b border-border px-5 py-4">
         <label className="mb-1 block text-xs text-muted-foreground">
           {t.departure_label}
         </label>
-        <input
+        <Input
           type="text"
           value={origin}
           onChange={(e) => setOrigin(e.target.value)}
           placeholder={t.departure_placeholder}
-          className="h-[44px] w-full rounded-md border border-border bg-card px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
         />
       </div>
 
@@ -175,6 +177,12 @@ export default function RouteConfirm({
             {t.empty}
           </p>
         )}
+
+        {orderedPoints.length === 1 && (
+          <p className="px-1 pt-2 text-xs text-warning-fg">
+            {t.min_points_warning}
+          </p>
+        )}
       </div>
 
       {/* ── Undo toast ───────────────────────────────────────────────── */}
@@ -195,7 +203,7 @@ export default function RouteConfirm({
                 });
                 setLastRemoved(null);
               }}
-              style={{ fontWeight: 600, marginLeft: 12, color: "oklch(80% 0.12 240)" }}
+              style={{ fontWeight: 600, marginLeft: 12, color: "var(--color-secondary)" }}
             >
               {t.undo}
             </button>
@@ -221,11 +229,11 @@ export default function RouteConfirm({
               .replace("{time}", String(Math.max(1, Math.round((totalDistanceKm / 4) * 60))))}
           </div>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={handleConfirm}
           disabled={!canConfirm}
-          className="flex h-[44px] w-full items-center justify-center gap-2 rounded-md bg-primary text-sm font-semibold text-primary-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="w-full"
         >
           <svg
             width="16"
@@ -242,7 +250,7 @@ export default function RouteConfirm({
             <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
           </svg>
           {t.start}
-        </button>
+        </Button>
       </div>
     </div>
   );

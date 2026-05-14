@@ -91,7 +91,6 @@ export default function ChatPanel({
             <ChatInput
               onSend={handleSend}
               disabled={sending}
-              showQuickActions={false}
               onLocationAcquired={handleLocationAcquired}
             />
           </div>

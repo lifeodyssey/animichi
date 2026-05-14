@@ -3,6 +3,7 @@
 import type { ConversationRecord } from "@/lib/types";
 import { ConversationList } from "./ConversationListShared";
 import { useDict } from "../../lib/i18n-context";
+import { Button } from "@/components/ui/button";
 
 interface ConversationDrawerProps {
   open: boolean;
@@ -54,9 +55,10 @@ export default function ConversationDrawer({
           >
             {t.title}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="rounded-lg p-1.5 hover:bg-muted transition"
             aria-label={t.close}
           >
             <svg
@@ -70,17 +72,19 @@ export default function ConversationDrawer({
             >
               <path d="M4 4l10 10M14 4L4 14" />
             </svg>
-          </button>
+          </Button>
         </div>
 
         {/* New chat */}
         <div className="px-4 pt-4 pb-2 shrink-0">
-          <button
+          <Button
+            variant="default"
+            size="md"
             onClick={() => { onNewChat(); onClose(); }}
-            className="w-full rounded-lg border border-border py-2 text-left text-sm font-light text-foreground px-3 hover:bg-muted transition"
+            className="w-full justify-start"
           >
             {t.new_chat}
-          </button>
+          </Button>
         </div>
 
         {/* Conversation list */}

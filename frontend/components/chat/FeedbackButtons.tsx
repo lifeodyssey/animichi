@@ -5,6 +5,8 @@ import type { DynamicToolUIPart } from "ai";
 import type { RuntimeResponse } from "../../lib/types";
 import { submitFeedback } from "../../lib/api";
 import { useDict } from "../../lib/i18n-context";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 
 interface FeedbackButtonsProps {
   messageId: string;
@@ -56,39 +58,48 @@ export default function FeedbackButtons({ messageId: _messageId, toolParts, user
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-0.5 opacity-50 transition-opacity md:opacity-0 md:group-hover:opacity-50 md:group-focus-within:opacity-50 hover:!opacity-100" style={{ transitionDuration: "var(--duration-fast)" }}>
-        <button
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
           aria-label={t.feedback_good_title}
           onClick={() => handleFeedback("good")}
-          className="flex h-[44px] w-[44px] items-center justify-center rounded text-base text-muted-foreground transition hover:text-foreground"
+          className="h-11 w-11 text-base text-muted-foreground hover:text-foreground"
           title={t.feedback_good_title}
         >
           {"\uD83D\uDC4D"}
-        </button>
-        <button
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
           aria-label={t.feedback_bad_title}
           onClick={() => handleFeedback("bad")}
-          className="flex h-[44px] w-[44px] items-center justify-center rounded text-base text-muted-foreground transition hover:text-foreground"
+          className="h-11 w-11 text-base text-muted-foreground hover:text-foreground"
           title={t.feedback_bad_title}
         >
           {"\uD83D\uDC4E"}
-        </button>
+        </Button>
       </div>
       {state === "commenting" && (
         <div className="flex gap-2">
-          <input
+          <Input
+            size="sm"
             type="text"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder={t.feedback_placeholder}
             aria-label={t.feedback_placeholder}
-            className="flex-1 border-b border-border bg-transparent px-0 py-1 text-xs outline-none focus:border-primary"
+            className="flex-1"
           />
-          <button
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
             onClick={() => handleFeedback("bad")}
-            className="text-xs font-medium text-primary"
           >
             {t.send}
-          </button>
+          </Button>
         </div>
       )}
     </div>

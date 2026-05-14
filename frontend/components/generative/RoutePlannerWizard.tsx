@@ -5,7 +5,7 @@ import { useState, useMemo } from "react";
 import type { RouteData, TimedItinerary } from "../../lib/types";
 import { useRouteExport } from "../../hooks/useRouteExport";
 import { useDict } from "../../lib/i18n-context";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import RouteTimeline from "./RouteTimeline";
 
 // ---------------------------------------------------------------------------
@@ -121,10 +121,10 @@ export default function RoutePlannerWizard({
         {/* Header bar */}
         <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
           {onBack && (
-            <button
-              type="button"
+            <Button
+              variant="link"
+              size="sm"
               onClick={onBack}
-              className="flex items-center gap-1 rounded-sm bg-transparent px-2 py-1 text-sm text-primary hover:bg-muted"
             >
               <svg
                 width="16"
@@ -139,7 +139,7 @@ export default function RoutePlannerWizard({
                 <polyline points="15 18 9 12 15 6" />
               </svg>
               {rt.back_edit}
-            </button>
+            </Button>
           )}
           <div className="flex items-center gap-3">
             {coverUrl && (
@@ -192,18 +192,15 @@ export default function RoutePlannerWizard({
             <div className="shrink-0">
               <div className="flex gap-1">
                 {paceOptions.map((opt) => (
-                  <button
+                  <Button
                     key={opt.key}
-                    type="button"
+                    variant="chip"
+                    size="sm"
+                    aria-pressed={pacing === opt.key}
                     onClick={() => setPacing(opt.key)}
-                    className={cn("min-h-11 rounded-md border px-3 py-1 text-xs font-medium",
-                      pacing === opt.key
-                        ? "border-primary bg-primary text-primary-fg"
-                        : "border-border bg-background text-muted-foreground"
-                    )}
                   >
                     {opt.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
               <div
@@ -227,25 +224,27 @@ export default function RoutePlannerWizard({
 
         {/* Export bar */}
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-2">
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={exportGoogleMaps}
-            className="flex h-9 min-w-11 flex-1 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-fg"
+            className="flex-1"
           >
             {rt.export_gmaps}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={exportIcs}
-            className="h-9 min-w-11 rounded-md border border-border bg-transparent px-3 text-sm text-muted-foreground"
           >
             {rt.export_ics}
-          </button>
+          </Button>
           {onExpandChat && (
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               onClick={onExpandChat}
-              className="flex h-9 min-w-11 items-center gap-1.5 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-fg"
+              className="rounded-full"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -260,7 +259,7 @@ export default function RoutePlannerWizard({
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
               {rt.chat_label}
-            </button>
+            </Button>
           )}
         </div>
       </div>

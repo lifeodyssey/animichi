@@ -5,6 +5,19 @@ const meta = {
   title: "UI/Badge",
   component: Badge,
   tags: ["autodocs"],
+  argTypes: {
+    variant: {
+      control: "select",
+      options: [
+        "default",
+        "secondary",
+        "destructive",
+        "outline",
+        "ghost",
+        "link",
+      ],
+    },
+  },
 } satisfies Meta<typeof Badge>;
 
 export default meta;
@@ -26,4 +39,22 @@ export const Outline: Story = {
 
 export const Ghost: Story = {
   args: { variant: "ghost", children: "劇場版" },
+};
+
+export const Link: Story = {
+  args: { variant: "link", children: "詳細を見る" },
+};
+
+export const AllVariants: Story = {
+  name: "All Variants",
+  render: () => (
+    <div className="flex flex-wrap gap-2">
+      <Badge variant="default">EP 1-4</Badge>
+      <Badge variant="secondary">宇治</Badge>
+      <Badge variant="destructive">未訪問</Badge>
+      <Badge variant="outline">京都府</Badge>
+      <Badge variant="ghost">劇場版</Badge>
+      <Badge variant="link">詳細を見る</Badge>
+    </div>
+  ),
 };

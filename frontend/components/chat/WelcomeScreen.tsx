@@ -1,13 +1,65 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import React, { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Dict, Locale } from "../../lib/i18n";
 import { fetchPopularBangumi, type PopularBangumiEntry } from "../../lib/api";
 import { popularSpotQuery } from "../../lib/quick-actions";
 import { ANIME_COVERS } from "../../lib/mock-data";
+import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import ToriiIcon from "../icons/ToriiIcon";
+
+/* ── Module-level constants (stable references, never re-created) ── */
+
+const FALLBACK_COVERS: PopularBangumiEntry[] = [
+  { bangumi_id: "115908", title: "響け！ユーフォニアム", cover_url: ANIME_COVERS["115908"] },
+  { bangumi_id: "160209", title: "君の名は。", cover_url: ANIME_COVERS["160209"] },
+  { bangumi_id: "269235", title: "天気の子", cover_url: ANIME_COVERS["269235"] },
+  { bangumi_id: "485", title: "涼宮ハルヒの憂鬱", cover_url: ANIME_COVERS["485"] },
+  { bangumi_id: "1424", title: "けいおん！", cover_url: ANIME_COVERS["1424"] },
+  { bangumi_id: "362577", title: "すずめの戸締まり", cover_url: ANIME_COVERS["362577"] },
+];
+
+const SEARCH_ICON = (
+  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+
+const NEARBY_ICON = (
+  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <circle cx="12" cy="10" r="3" />
+  </svg>
+);
+
+const ROUTE_ICON = (
+  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polygon points="3 11 22 2 13 21 11 13 3 11" />
+  </svg>
+);
+
+function getChipData(locale: Locale, ws: Dict["welcome_screen"]) {
+  return [
+    {
+      label: ws.action_search,
+      query: locale === "zh" ? "你的名字的取景地在哪" : locale === "en" ? "Show me anime spots for Your Name" : "君の名は の聖地を教えて",
+      icon: SEARCH_ICON,
+    },
+    {
+      label: ws.action_nearby,
+      query: locale === "zh" ? "告诉我附近的动漫取景地" : locale === "en" ? "Find anime spots near me" : "現在地の近くにある聖地を教えて",
+      icon: NEARBY_ICON,
+    },
+    {
+      label: ws.action_route,
+      query: locale === "zh" ? "帮我规划吹响上低音号的巡礼路线" : locale === "en" ? "Plan a pilgrimage route for Sound! Euphonium" : "響け！ユーフォニアム の聖地を巡るルートを作って",
+      icon: ROUTE_ICON,
+    },
+  ];
+}
 
 interface WelcomeScreenProps {
   onSend: (text: string) => void;
@@ -37,19 +89,13 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     fetchPopularBangumi()
-      .then((data) => { setPopular(data); setLoading(false); })
-      .catch(() => { setPopular([]); setLoading(false); });
+      .then((data) => { if (!cancelled) setPopular(data); })
+      .catch(() => { if (!cancelled) setPopular([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
-
-  const fallbackCovers: PopularBangumiEntry[] = [
-    { bangumi_id: "115908", title: "響け！ユーフォニアム", cover_url: ANIME_COVERS["115908"] },
-    { bangumi_id: "160209", title: "君の名は。", cover_url: ANIME_COVERS["160209"] },
-    { bangumi_id: "269235", title: "天気の子", cover_url: ANIME_COVERS["269235"] },
-    { bangumi_id: "485", title: "涼宮ハルヒの憂鬱", cover_url: ANIME_COVERS["485"] },
-    { bangumi_id: "1424", title: "けいおん！", cover_url: ANIME_COVERS["1424"] },
-    { bangumi_id: "362577", title: "すずめの戸締まり", cover_url: ANIME_COVERS["362577"] },
-  ];
 
   // Only trust cover URLs from known CDN domains — API data may contain placeholder URLs
   const isValidCoverUrl = (url: string | null | undefined): boolean =>
@@ -57,15 +103,16 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
   const withCovers = popular.filter((p) => isValidCoverUrl(p.cover_url));
   const covers = withCovers.length >= 4
     ? withCovers.slice(0, 5)
-    : fallbackCovers.slice(0, 5);
+    : FALLBACK_COVERS.slice(0, 5);
 
-  // Returning user detection — start false (matches SSR), detect after mount.
-  const [isReturning, setIsReturning] = useState(false);
-  useEffect(() => {
+  // Returning user detection — ref avoids sync setState in effect.
+  const [isReturning] = useState(() => {
+    if (typeof window === "undefined") return false;
     const visited = localStorage.getItem("seichijunrei_visited");
-    if (visited) requestAnimationFrame(() => setIsReturning(true));
-    else localStorage.setItem("seichijunrei_visited", "1");
-  }, []);
+    if (visited) return true;
+    localStorage.setItem("seichijunrei_visited", "1");
+    return false;
+  });
 
   const placeholder =
     locale === "zh"
@@ -93,37 +140,7 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
     inputRef.current?.focus();
   }
 
-  const chipData = [
-    {
-      label: ws.action_search,
-      query: locale === "zh" ? "你的名字的取景地在哪" : locale === "en" ? "Show me anime spots for Your Name" : "君の名は の聖地を教えて",
-      icon: (
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-      ),
-    },
-    {
-      label: ws.action_nearby,
-      query: locale === "zh" ? "告诉我附近的动漫取景地" : locale === "en" ? "Find anime spots near me" : "現在地の近くにある聖地を教えて",
-      icon: (
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-          <circle cx="12" cy="10" r="3" />
-        </svg>
-      ),
-    },
-    {
-      label: ws.action_route,
-      query: locale === "zh" ? "帮我规划吹响上低音号的巡礼路线" : locale === "en" ? "Plan a pilgrimage route for Sound! Euphonium" : "響け！ユーフォニアム の聖地を巡るルートを作って",
-      icon: (
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <polygon points="3 11 22 2 13 21 11 13 3 11" />
-        </svg>
-      ),
-    },
-  ];
+  const chipData = React.useMemo(() => getChipData(locale, ws), [locale, ws]);
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 pb-4">
@@ -140,31 +157,39 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
         {isReturning ? (ws.tagline_returning ?? ws.tagline) : ws.tagline}
       </h1>
 
-      {/* Pill search input — shadcn Input + send button */}
+      {/* Pill search input — Input + send button */}
       <div
-        className="entrance-up mb-4 flex w-full max-w-[520px] items-center gap-2 rounded-full border border-border bg-background py-1.5 pl-5 pr-1.5 transition-colors focus-within:border-primary"
+        className="entrance-up mb-4 flex w-full max-w-[520px] items-center gap-2"
         style={{ animationDelay: "0.1s" }}
       >
         <Input
           ref={inputRef}
+          size="lg"
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="h-10 flex-1 border-0 bg-transparent px-0 text-sm shadow-none outline-none ring-0 placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:border-0"
+          prefix={
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          }
+          className="flex-1"
         />
-        <button
+        <Button
           type="button"
+          variant="primary"
+          size="icon"
           onClick={handleSubmit}
           disabled={!query.trim()}
           aria-label={dict.chat.send}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-fg transition-opacity disabled:opacity-40"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <polygon points="22 2 15 22 11 13 2 9 22 2" />
           </svg>
-        </button>
+        </Button>
       </div>
 
       {/* Quick-action chips — fill input, don't send directly */}
@@ -173,16 +198,16 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
         style={{ animationDelay: "0.15s" }}
       >
         {chipData.map((chip) => (
-          <button
+          <Button
             key={chip.label}
             type="button"
+            variant="chip"
+            size="sm"
             onClick={() => handleChipClick(chip.query)}
-            className="flex items-center gap-1.5 rounded-full border border-border bg-background px-4 py-2 text-xs text-muted-foreground transition-colors hover:border-primary hover:bg-card hover:text-primary"
-            style={{ transitionDuration: "var(--duration-fast)" }}
           >
             <span className="text-primary">{chip.icon}</span>
             {chip.label}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -203,11 +228,12 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
                 </div>
               ))
             : covers.map((item, idx) => (
-                <button
+                <Button
                   key={`${item.bangumi_id}-${idx}`}
                   type="button"
+                  variant="ghost"
                   onClick={() => handleChipClick(popularSpotQuery(item.title, locale))}
-                  className="group flex shrink-0 flex-col items-center gap-1.5"
+                  className="group flex h-auto shrink-0 flex-col items-center gap-1.5 border-transparent px-0 py-0"
                   title={item.title}
                   aria-label={item.title}
                 >
@@ -236,9 +262,20 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
                       </span>
                     )}
                   </span>
-                </button>
+                </Button>
               ))}
         </div>
+      </div>
+
+      {/* Tips — progressive disclosure for first-time users */}
+      <div
+        className="entrance-up mt-8 flex flex-col gap-1 text-xs text-muted-foreground"
+        style={{ animationDelay: "0.25s" }}
+      >
+        <p className="text-center font-medium">{ws.tips_label}</p>
+        <p>{ws.tip_search}</p>
+        <p>{ws.tip_nearby}</p>
+        <p>{ws.tip_route}</p>
       </div>
     </div>
   );

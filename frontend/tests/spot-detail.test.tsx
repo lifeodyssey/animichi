@@ -132,8 +132,8 @@ describe("SpotDetail", () => {
     );
     const selectBtn = screen.getByText(zhDict.spot_detail.select);
     expect(selectBtn).toBeInTheDocument();
-    // Primary button has bg-primary in className
-    expect(selectBtn.closest("button")?.className).toContain("bg-primary");
+    // Primary button variant uses bg-card with 3D shadow
+    expect(selectBtn.closest("button")?.className).toContain("bg-card");
   });
 
   it('shows "selected" state with outline styling when selected', () => {
