@@ -16,10 +16,6 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
-export const WithQuickActions: Story = {
-  args: { showQuickActions: true },
-};
-
 export const Disabled: Story = {
   args: { disabled: true },
 };
@@ -30,7 +26,6 @@ export const WithPlaceholderOverride: Story = {
 
 export const WithLocationCallback: Story = {
   args: {
-    showQuickActions: true,
     onLocationAcquired: fn(),
   },
 };

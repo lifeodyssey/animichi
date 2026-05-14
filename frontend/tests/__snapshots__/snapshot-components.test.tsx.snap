@@ -18,14 +18,24 @@ exports[`Snapshot: ApiKeysPage > renders settings page 1`] = `
     <form
       class="mb-8 flex gap-2"
     >
-      <input
-        class="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-        placeholder="Key name (e.g. My CLI Agent)"
-        value=""
-      />
+      <div
+        class="inline-flex items-center w-full bg-card rounded-[var(--r-pill)] border-[2.5px] border-border shadow-[0_3px_0_0_var(--color-input-shadow)] transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] hover:border-[var(--color-border-hover)] hover:shadow-[0_3px_0_0_var(--color-border)] focus-within:border-focus focus-within:shadow-[0_3px_0_0_var(--color-input-shadow),var(--shadow-focus-glow)] has-[:disabled]:bg-muted has-[:disabled]:border-input-shadow has-[:disabled]:shadow-none has-[:disabled]:opacity-60 has-[:disabled]:cursor-not-allowed h-8 px-5 text-xs flex-1"
+        data-slot="input-wrapper"
+      >
+        <input
+          class="flex-1 w-full min-w-0 border-none outline-none bg-transparent text-foreground font-medium tracking-[0.01em] placeholder:text-muted-foreground placeholder:font-normal disabled:cursor-not-allowed disabled:text-[var(--color-border)] file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground"
+          data-slot="input"
+          id="base-ui-_r_2_"
+          placeholder="Key name (e.g. My CLI Agent)"
+          value=""
+        />
+      </div>
       <button
-        class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg disabled:opacity-50"
+        class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-card text-foreground border-card shadow-[0_5px_0_0_var(--color-3d-shadow)] hover:translate-y-[-1px] hover:shadow-[0_6px_0_0_var(--color-3d-shadow)] active:translate-y-[2px] active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-8 gap-1 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5"
+        data-disabled=""
+        data-slot="button"
         disabled=""
+        tabindex="0"
         type="submit"
       >
         Create key
@@ -55,8 +65,9 @@ exports[`Snapshot: ChatHeader > renders without crashing 1`] = `
       </h1>
     </div>
     <button
-      class="rounded-md px-3 py-1.5 text-xs font-light text-primary transition hover:bg-muted"
-      style="transition-duration: var(--duration-fast);"
+      class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-transparent text-primary border-transparent underline-offset-4 hover:underline h-8 gap-1 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5"
+      data-slot="button"
+      tabindex="0"
       type="button"
     >
       + 新しい会話
@@ -129,7 +140,9 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
         </div>
         <button
           aria-label="チャットを閉じる"
-          class="flex h-9 w-9 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-transparent text-foreground border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-9 w-9"
+          data-slot="button"
+          tabindex="0"
           type="button"
         >
           <svg
@@ -185,8 +198,10 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
             class="mt-5 flex flex-col gap-2.5"
           >
             <button
-              class="entrance-message flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
-              style="transition-duration: var(--duration-fast); animation-delay: 100ms;"
+              class="group/button inline-flex shrink-0 items-center whitespace-nowrap tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background text-foreground border-border hover:border-primary hover:text-primary hover:translate-y-[-1px] active:translate-y-0 gap-1.5 entrance-message h-auto justify-between rounded-2xl px-4 py-3 text-left text-sm font-light"
+              data-slot="button"
+              style="animation-delay: 100ms;"
+              tabindex="0"
               type="button"
             >
               <span>
@@ -199,8 +214,10 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
               </span>
             </button>
             <button
-              class="entrance-message flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
-              style="transition-duration: var(--duration-fast); animation-delay: 160ms;"
+              class="group/button inline-flex shrink-0 items-center whitespace-nowrap tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background text-foreground border-border hover:border-primary hover:text-primary hover:translate-y-[-1px] active:translate-y-0 gap-1.5 entrance-message h-auto justify-between rounded-2xl px-4 py-3 text-left text-sm font-light"
+              data-slot="button"
+              style="animation-delay: 160ms;"
+              tabindex="0"
               type="button"
             >
               <span>
@@ -213,8 +230,10 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
               </span>
             </button>
             <button
-              class="entrance-message flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
-              style="transition-duration: var(--duration-fast); animation-delay: 220ms;"
+              class="group/button inline-flex shrink-0 items-center whitespace-nowrap tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background text-foreground border-border hover:border-primary hover:text-primary hover:translate-y-[-1px] active:translate-y-0 gap-1.5 entrance-message h-auto justify-between rounded-2xl px-4 py-3 text-left text-sm font-light"
+              data-slot="button"
+              style="animation-delay: 220ms;"
+              tabindex="0"
               type="button"
             >
               <span>
@@ -240,20 +259,57 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
       class="px-4 pb-4 pt-2"
     >
       <div
-        class="mx-auto flex w-full max-w-[520px] items-end gap-2 rounded-lg border border-border bg-background px-4 py-2.5 transition-colors focus-within:border-primary"
-        style="transition-duration: var(--duration-fast);"
+        class="mx-auto flex w-full max-w-[520px] items-center gap-2"
       >
-        <textarea
-          aria-label="会話を続ける…"
-          class="flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none focus:outline-none focus-visible:outline-none placeholder:text-muted-foreground disabled:opacity-50"
-          placeholder="会話を続ける…"
-          rows="1"
-          style="max-height: 120px; min-height: 24px; height: 0px; overflow-y: hidden;"
-        />
+        <div
+          class="inline-flex items-center w-full bg-card rounded-[var(--r-pill)] border-border shadow-[0_3px_0_0_var(--color-input-shadow)] transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] hover:border-[var(--color-border-hover)] hover:shadow-[0_3px_0_0_var(--color-border)] focus-within:border-focus focus-within:shadow-[0_3px_0_0_var(--color-input-shadow),var(--shadow-focus-glow)] has-[:disabled]:bg-muted has-[:disabled]:border-input-shadow has-[:disabled]:shadow-none has-[:disabled]:opacity-60 has-[:disabled]:cursor-not-allowed h-12 px-6 text-base border-[3px] flex-1"
+          data-slot="input-wrapper"
+        >
+          <span
+            class="inline-flex shrink-0 items-center text-muted-foreground mr-1.5"
+            data-slot="input-prefix"
+          >
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="16"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="16"
+            >
+              <circle
+                cx="11"
+                cy="11"
+                r="8"
+              />
+              <line
+                x1="21"
+                x2="16.65"
+                y1="21"
+                y2="16.65"
+              />
+            </svg>
+          </span>
+          <input
+            aria-label="会話を続ける…"
+            class="flex-1 w-full min-w-0 border-none outline-none bg-transparent text-foreground font-medium tracking-[0.01em] placeholder:text-muted-foreground placeholder:font-normal disabled:cursor-not-allowed disabled:text-[var(--color-border)] file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground"
+            data-slot="input"
+            id="base-ui-_r_0_"
+            placeholder="会話を続ける…"
+            type="text"
+            value=""
+          />
+        </div>
         <button
           aria-label="送信"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-all duration-150 bg-muted text-muted-foreground opacity-30"
+          class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-card text-foreground border-card shadow-[0_5px_0_0_var(--color-3d-shadow)] hover:translate-y-[-1px] hover:shadow-[0_6px_0_0_var(--color-3d-shadow)] active:translate-y-[2px] active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-11 w-11 opacity-30"
+          data-disabled=""
+          data-slot="button"
           disabled=""
+          tabindex="0"
           type="button"
         >
           <svg
@@ -273,6 +329,11 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
           </svg>
         </button>
       </div>
+      <p
+        class="mt-1 hidden text-center text-xs text-muted-foreground opacity-50 md:block"
+      >
+        Enter で送信
+      </p>
     </div>
   </div>
 </div>
@@ -285,8 +346,10 @@ exports[`Snapshot: FullscreenOverlay > renders when open 1`] = `
   >
     <button
       aria-label="Close"
-      class="absolute top-4 right-4 z-10 rounded-full bg-background/80 backdrop-blur p-2 shadow-md hover:bg-background transition"
-      style="transition-duration: var(--duration-fast);"
+      class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 text-foreground border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 absolute top-4 right-4 z-10 rounded-full bg-background/80 backdrop-blur shadow-md"
+      data-slot="button"
+      tabindex="0"
+      type="button"
     >
       <svg
         fill="none"
@@ -317,7 +380,9 @@ exports[`Snapshot: IconSidebar > renders with nav buttons 1`] = `
   >
     <button
       aria-label="聖地巡礼 home"
-      class="group relative mb-3 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border-none bg-brand-soft transition-transform duration-150 hover:scale-105"
+      class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 text-foreground border-transparent active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 group relative mb-3 shrink-0 rounded-lg bg-brand-soft transition-transform duration-150 hover:scale-105 hover:bg-brand-soft"
+      data-slot="button"
+      tabindex="0"
       type="button"
     >
       <svg
@@ -404,8 +469,10 @@ exports[`Snapshot: IconSidebar > renders with nav buttons 1`] = `
     </button>
     <button
       aria-label="新对话"
-      class="group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-md border-none cursor-pointer transition-colors duration-150 bg-transparent text-muted-foreground hover:bg-muted"
+      class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-transparent border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 group relative shrink-0 text-muted-foreground"
       data-active="false"
+      data-slot="button"
+      tabindex="0"
       type="button"
     >
       <svg
@@ -434,8 +501,10 @@ exports[`Snapshot: IconSidebar > renders with nav buttons 1`] = `
     </button>
     <button
       aria-label="历史"
-      class="group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-md border-none cursor-pointer transition-colors duration-150 bg-transparent text-muted-foreground hover:bg-muted"
+      class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-transparent border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 group relative shrink-0 text-muted-foreground"
       data-active="false"
+      data-slot="button"
+      tabindex="0"
       type="button"
     >
       <svg
@@ -467,8 +536,10 @@ exports[`Snapshot: IconSidebar > renders with nav buttons 1`] = `
     </button>
     <button
       aria-label="收藏"
-      class="group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-md border-none cursor-pointer transition-colors duration-150 bg-transparent text-muted-foreground hover:bg-muted"
+      class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-transparent border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 group relative shrink-0 text-muted-foreground"
       data-active="false"
+      data-slot="button"
+      tabindex="0"
       type="button"
     >
       <svg
@@ -498,8 +569,10 @@ exports[`Snapshot: IconSidebar > renders with nav buttons 1`] = `
     />
     <button
       aria-label="设置"
-      class="group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-md border-none cursor-pointer transition-colors duration-150 bg-transparent text-muted-foreground hover:bg-muted"
+      class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-transparent border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 group relative shrink-0 text-muted-foreground"
       data-active="false"
+      data-slot="button"
+      tabindex="0"
       type="button"
     >
       <svg
@@ -588,24 +661,40 @@ exports[`Snapshot: ResultPanelEmptyState > renders empty state 1`] = `
   >
     <div
       class="pointer-events-none absolute inset-0"
-      style="background: radial-gradient(80% 70% at 50% 50%, oklch(0.93 0.025 240 / 0.15), transparent 70%);"
+      style="background: radial-gradient(80% 70% at 50% 50%, rgba(241, 143, 67, 0.08), transparent 70%);"
     />
     <div
       class="relative flex flex-col items-center gap-4 text-center"
     >
       <div
-        class="flex h-16 w-16 items-center justify-center rounded-2xl"
-        style="background: oklch(0.9 0.04 240 / 0.3);"
+        class="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-soft"
       >
-        <span
-          class="text-2xl"
+        <svg
+          aria-hidden="true"
+          fill="none"
+          height="28"
+          stroke="var(--color-primary)"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.8"
+          viewBox="0 0 24 24"
+          width="28"
         >
-          🗾
-        </span>
+          <circle
+            cx="11"
+            cy="11"
+            r="8"
+          />
+          <line
+            x1="21"
+            x2="16.65"
+            y1="21"
+            y2="16.65"
+          />
+        </svg>
       </div>
       <p
-        class="font-display text-lg font-semibold text-foreground"
-        style="opacity: 0.7;"
+        class="font-display text-lg font-semibold text-foreground opacity-70"
       >
         聖地を探してみよう
       </p>
@@ -652,13 +741,17 @@ exports[`Snapshot: ResultPanelToolbar > renders toolbar with tabs and chips 1`] 
       class="flex items-center gap-0 px-4 pt-1"
     >
       <button
-        class="min-h-[44px] px-3 py-2.5 text-xs font-medium transition-colors text-foreground border-b-2 border-primary"
+        class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-8 gap-1 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5 min-h-[44px] rounded-none text-foreground border-b-2 border-primary"
+        data-slot="button"
+        tabindex="0"
         type="button"
       >
         集数別
       </button>
       <button
-        class="min-h-[44px] px-3 py-2.5 text-xs font-medium transition-colors text-muted-foreground border-b-2 border-transparent"
+        class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-8 gap-1 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5 min-h-[44px] rounded-none text-muted-foreground border-b-2 border-transparent"
+        data-slot="button"
+        tabindex="0"
         type="button"
       >
         地域別
@@ -670,7 +763,10 @@ exports[`Snapshot: ResultPanelToolbar > renders toolbar with tabs and chips 1`] 
         class="flex shrink-0 gap-0.5 rounded-lg bg-card p-0.5"
       >
         <button
-          class="flex min-h-[44px] items-center gap-1.5 rounded-md px-3.5 py-2.5 text-xs font-medium transition-all duration-150 bg-background text-foreground shadow-sm"
+          aria-pressed="true"
+          class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-full border-border aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary hover:border-primary active:translate-y-px active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-8 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5 gap-1.5 bg-background text-foreground shadow-sm"
+          data-slot="button"
+          tabindex="0"
           type="button"
         >
           <span>
@@ -679,7 +775,10 @@ exports[`Snapshot: ResultPanelToolbar > renders toolbar with tabs and chips 1`] 
           グリッド
         </button>
         <button
-          class="flex min-h-[44px] items-center gap-1.5 rounded-md px-3.5 py-2.5 text-xs font-medium transition-all duration-150 bg-transparent text-muted-foreground"
+          aria-pressed="false"
+          class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-full aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary hover:border-primary active:translate-y-px active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-8 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5 gap-1.5 bg-transparent text-muted-foreground border-transparent shadow-none"
+          data-slot="button"
+          tabindex="0"
           type="button"
         >
           <span>
@@ -693,19 +792,28 @@ exports[`Snapshot: ResultPanelToolbar > renders toolbar with tabs and chips 1`] 
       class="flex items-center gap-1.5 overflow-x-auto px-4 py-1.5"
     >
       <button
-        class="shrink-0 rounded-[18px] border px-3 py-1 text-xs font-medium transition-all duration-150 bg-primary text-background border-primary"
+        aria-pressed="true"
+        class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-full bg-background text-foreground border-border shadow-[0_2px_0_0_var(--color-3d-shadow)] aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary hover:border-primary active:translate-y-px active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-7 gap-1 px-3 text-xs [&_svg:not([class*='size-'])]:size-3 shrink-0"
+        data-slot="button"
+        tabindex="0"
         type="button"
       >
         すべて
       </button>
       <button
-        class="shrink-0 rounded-[18px] border px-3 py-1 text-xs font-medium transition-all duration-150 bg-background text-muted-foreground border-border"
+        aria-pressed="false"
+        class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-full bg-background text-foreground border-border shadow-[0_2px_0_0_var(--color-3d-shadow)] aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary hover:border-primary active:translate-y-px active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-7 gap-1 px-3 text-xs [&_svg:not([class*='size-'])]:size-3 shrink-0"
+        data-slot="button"
+        tabindex="0"
         type="button"
       >
         EP 1-4
       </button>
       <button
-        class="shrink-0 rounded-[18px] border px-3 py-1 text-xs font-medium transition-all duration-150 bg-background text-muted-foreground border-border"
+        aria-pressed="false"
+        class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-full bg-background text-foreground border-border shadow-[0_2px_0_0_var(--color-3d-shadow)] aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary hover:border-primary active:translate-y-px active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-7 gap-1 px-3 text-xs [&_svg:not([class*='size-'])]:size-3 shrink-0"
+        data-slot="button"
+        tabindex="0"
         type="button"
       >
         EP 5-8
@@ -741,7 +849,7 @@ exports[`Snapshot: RouteVisualization > renders with route data 1`] = `
           </p>
         </div>
         <button
-          class="group/button inline-flex shrink-0 items-center justify-center border bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3"
+          class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-transparent text-foreground border-border hover:border-primary hover:text-primary active:text-[var(--color-primary-active)] h-7 gap-1 px-3 text-xs [&_svg:not([class*='size-'])]:size-3"
           data-slot="button"
           tabindex="0"
           type="button"
@@ -757,7 +865,7 @@ exports[`Snapshot: RouteVisualization > renders with route data 1`] = `
       >
         <div
           class="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 base-ui-disable-scrollbar"
-          data-id="base-ui-_r_0_-viewport"
+          data-id="base-ui-_r_1_-viewport"
           data-slot="scroll-area-viewport"
           role="presentation"
           style="overflow: scroll;"
@@ -807,8 +915,10 @@ exports[`Snapshot: SlideOverPanel > renders when open 1`] = `
   >
     <button
       aria-label="Close"
-      class="absolute top-4 right-4 z-10 rounded-full bg-background/80 p-2 shadow hover:bg-background transition"
-      style="transition-duration: var(--duration-fast);"
+      class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 text-foreground border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 absolute top-4 right-4 z-10 rounded-full bg-background/80 shadow"
+      data-slot="button"
+      tabindex="0"
+      type="button"
     >
       <svg
         fill="none"
@@ -842,7 +952,7 @@ exports[`Snapshot: ThinkingProcess > renders pre-tool streaming indicator 1`] = 
     data-testid="thinking-indicator"
   >
     <div
-      class="animate-pulse bg-muted h-2 w-2 rounded-full"
+      class="skeleton h-2 w-2 rounded-full"
       data-slot="skeleton"
     />
     <span

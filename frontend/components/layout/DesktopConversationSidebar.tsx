@@ -3,6 +3,7 @@
 import type { ConversationRecord } from "@/lib/types";
 import { ConversationList } from "./ConversationListShared";
 import { useDict } from "../../lib/i18n-context";
+import { Button } from "@/components/ui/button";
 
 interface DesktopConversationSidebarProps {
   conversations: ConversationRecord[];
@@ -37,13 +38,15 @@ export default function DesktopConversationSidebar({
 
       {/* New chat */}
       <div className="px-4 pt-4 pb-2 shrink-0">
-        <button
+        <Button
+          variant="default"
+          size="md"
           data-testid="desktop-sidebar-new-chat"
           onClick={onNewChat}
-          className="w-full rounded-lg border border-border py-2 text-left text-sm font-light text-foreground px-3 hover:bg-muted transition"
+          className="w-full justify-start"
         >
           {t.new_chat}
-        </button>
+        </Button>
       </div>
 
       {/* Conversation list */}

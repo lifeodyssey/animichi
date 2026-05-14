@@ -15,6 +15,21 @@ const meta = {
   title: "UI/Card",
   component: Card,
   tags: ["autodocs"],
+  argTypes: {
+    variant: {
+      control: "select",
+      options: ["default", "title", "dashed"],
+    },
+    color: {
+      control: "select",
+      options: [
+        "default",
+        "app-yellow",
+        "app-teal",
+        "app-red",
+      ],
+    },
+  },
 } satisfies Meta<typeof Card>;
 
 export default meta;
@@ -30,6 +45,27 @@ export const Default: Story = {
       <CardContent>
         <p>「響け！ユーフォニアム」の聖地スポットです。</p>
       </CardContent>
+    </Card>
+  ),
+};
+
+export const TitleVariant: Story = {
+  render: () => (
+    <Card variant="title" className="w-72">
+      <CardHeader>
+        <CardTitle>響け！ユーフォニアム</CardTitle>
+      </CardHeader>
+    </Card>
+  ),
+};
+
+export const DashedVariant: Story = {
+  render: () => (
+    <Card variant="dashed" className="w-72">
+      <CardHeader>
+        <CardTitle>スポットを追加</CardTitle>
+        <CardDescription>ここにスポットをドラッグ</CardDescription>
+      </CardHeader>
     </Card>
   ),
 };
@@ -78,6 +114,42 @@ export const Small: Story = {
       <CardContent>
         <p>日本三古橋のひとつ。</p>
       </CardContent>
+    </Card>
+  ),
+};
+
+export const NookPhoneColors: Story = {
+  name: "NookPhone Color Palette",
+  render: () => {
+    const colors = [
+      "default",
+      "app-yellow",
+      "app-teal",
+      "app-red",
+    ] as const;
+    return (
+      <div className="grid grid-cols-2 gap-4">
+        {colors.map((color) => (
+          <Card key={color} color={color} className="w-48">
+            <CardHeader>
+              <CardTitle>{color}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>NookPhone</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  },
+};
+
+export const TealTitleCard: Story = {
+  render: () => (
+    <Card variant="title" color="app-teal" className="w-72">
+      <CardHeader>
+        <CardTitle>聖地巡礼マップ</CardTitle>
+      </CardHeader>
     </Card>
   ),
 };

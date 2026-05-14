@@ -32,15 +32,17 @@ export default function MobileTimelineDrawer({ itinerary, data }: MobileTimeline
   return (
     <Drawer.Root open={open} onOpenChange={setOpen} snapPoints={[0.4, 0.9]} fadeFromIndex={1}>
       <Drawer.Trigger asChild>
-        <button
-          className="shrink-0 w-full flex items-center justify-center gap-2 border-t border-border bg-card py-2 text-xs text-muted-foreground"
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0 w-full rounded-none border-t border-border bg-card"
           aria-label="タイムラインを開く"
         >
           <span className="font-medium text-foreground">
             {itinerary ? `タイムライン · ${itinerary.spot_count}スポット` : "スポット一覧"}
           </span>
           <span className="opacity-50">▲</span>
-        </button>
+        </Button>
       </Drawer.Trigger>
 
       <Drawer.Portal>

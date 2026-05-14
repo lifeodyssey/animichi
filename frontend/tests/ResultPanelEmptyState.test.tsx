@@ -18,9 +18,10 @@ describe("ResultPanelEmptyState", () => {
     expect(screen.getByText(defaultDict.grid.empty_subtitle)).toBeInTheDocument();
   });
 
-  it("renders the map icon", () => {
-    render(<ResultPanelEmptyState />);
-    expect(screen.getByText("\uD83D\uDDFE")).toBeInTheDocument();
+  it("renders the search icon SVG", () => {
+    const { container } = render(<ResultPanelEmptyState />);
+    const svg = container.querySelector("svg");
+    expect(svg).toBeInTheDocument();
   });
 
   it("renders pulsing dot indicators", () => {

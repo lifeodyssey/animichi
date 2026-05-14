@@ -7,6 +7,8 @@ import { usePointSelectionContext } from "../../contexts/PointSelectionContext";
 import { resolveUnknownName } from "../../lib/japanRegions";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import SourceBadge from "./SourceBadge";
 
@@ -120,18 +122,19 @@ function GroupSection({
 
   return (
     <div className="flex flex-col gap-2">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="xs"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex items-center gap-2 text-left"
+        className="w-fit justify-start gap-2"
       >
         <span className="text-xs text-muted-foreground transition-transform" style={{ display: "inline-block", transform: open ? "rotate(90deg)" : "rotate(0deg)" }}>
           ▶
         </span>
         <span className="text-xs font-medium text-foreground">{label}</span>
         <Badge variant="secondary" className="text-xs">{count}</Badge>
-      </button>
+      </Button>
       {open && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {points.map((point) => (
@@ -199,7 +202,7 @@ export default function PilgrimageGrid({ data }: PilgrimageGridProps) {
         </div>
         <div className="grid grid-cols-2 gap-2 p-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="skeleton aspect-[4/3]" />
+            <Skeleton key={i} className="aspect-[4/3]" />
           ))}
         </div>
       </div>

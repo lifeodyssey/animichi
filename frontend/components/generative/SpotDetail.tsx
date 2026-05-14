@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import type { PilgrimagePoint } from "../../lib/types";
 import { useDict } from "../../lib/i18n-context";
 import { haversineM, formatDistance } from "../../lib/geo";
+import { Button } from "@/components/ui/button";
 
 // ---------------------------------------------------------------------------
 // Lazy BaseMap — Mapbox GL requires window
@@ -68,14 +69,15 @@ export default function SpotDetail({
       {/* ── Left column (55%) ──────────────────────────────────────────── */}
       <div className="flex w-[55%] shrink-0 flex-col overflow-y-auto p-5">
         {/* Back button */}
-        <button
-          type="button"
+        <Button
+          variant="link"
+          size="sm"
           onClick={onBack}
-          className="mb-3 flex min-h-11 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-primary"
+          className="mb-3"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
           {t.back}
-        </button>
+        </Button>
 
         {/* Large screenshot */}
         <div className="w-full overflow-hidden rounded-lg aspect-[4/3]">
@@ -127,26 +129,25 @@ export default function SpotDetail({
 
         {/* Action buttons */}
         <div className="mt-5 flex flex-wrap gap-3">
-          <button
-            type="button"
+          <Button
+            variant={isSelected ? "outline" : "primary"}
             onClick={() => onSelect?.(point.id)}
-            className={
-              isSelected
-                ? "flex min-h-[44px] items-center gap-1.5 rounded-md border border-primary px-5 text-sm font-semibold text-primary transition-opacity hover:opacity-80"
-                : "flex min-h-[44px] items-center gap-1.5 rounded-md bg-primary px-5 text-sm font-semibold text-primary-fg transition-opacity hover:opacity-90"
-            }
           >
             {isSelected ? t.selected : t.select}
-          </button>
+          </Button>
 
-          <a
-            href={googleMapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex min-h-[44px] items-center gap-1.5 rounded-md border border-border px-5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          <Button
+            variant="default"
+            render={
+              <a
+                href={googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              />
+            }
           >
             {t.view_on_map}
-          </a>
+          </Button>
         </div>
       </div>
 

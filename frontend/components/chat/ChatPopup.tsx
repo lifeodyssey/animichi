@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { UIMessage } from "ai";
 import { useDict } from "../../lib/i18n-context";
+import { Button } from "../ui/button";
 import MessageList from "./MessageList";
 import ChatInput from "./ChatInput";
 
@@ -109,13 +110,14 @@ export default function ChatPopup({
   // Minimized state — draggable floating pill to reopen
   if (!open) {
     return (
-      <button
+      <Button
         type="button"
+        variant="primary"
         onClick={handlePillClick}
         onPointerDown={handlePillPointerDown}
         onPointerMove={handlePillPointerMove}
         onPointerUp={handlePillPointerUp}
-        className="fixed z-50 flex h-11 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-fg shadow-lg"
+        className="fixed z-50 rounded-full shadow-lg"
         style={{
           bottom: `${72 - pos.y}px`,
           right: `${24 - pos.x}px`,
@@ -128,7 +130,7 @@ export default function ChatPopup({
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
         {t.continue}
-      </button>
+      </Button>
     );
   }
 
@@ -175,17 +177,19 @@ export default function ChatPopup({
               <span className="block h-1 w-1 rounded-full bg-current" />
             </div>
           </div>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={onClose}
             aria-label={t.close}
-            className="flex h-9 w-9 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="h-9 w-9"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
-          </button>
+          </Button>
         </div>
       </div>
 

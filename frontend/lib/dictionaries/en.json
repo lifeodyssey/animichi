@@ -127,7 +127,10 @@
     "welcome_subtitle": "Search by anime, explore spots near a place, or ask for a pilgrimage route that fits your trip.",
     "welcome_helper": "You can also just say hi and ask what I can help with.",
     "empty_hint": "Search for anime pilgrimage spots or plan a route",
-    "tap_to_view": "Tap to view results"
+    "tap_to_view": "Tap to view results",
+    "error_message": "Something went wrong while responding.",
+    "retry": "Retry",
+    "send_hint": "Press Enter to send"
   },
   "sidebar": {
     "logo_icon": "聖",
@@ -208,7 +211,11 @@
     "action_nearby_desc": "Show spots near your current location",
     "action_route": "Plan a route",
     "action_route_desc": "Build a pilgrimage route with your chosen spots",
-    "popular_label": "Popular anime"
+    "popular_label": "Popular anime",
+    "tips_label": "How to use",
+    "tip_search": "🔍 Search for pilgrimage spots by anime name",
+    "tip_nearby": "📍 Find nearby spots using your location",
+    "tip_route": "🗺️ Build a route from selected spots"
   },
   "location": {
     "use_current": "Use current location",
@@ -239,7 +246,8 @@
     "summary": "{count} spots waiting for you",
     "estimate": "~{distance}km walk, about {time} min",
     "start": "Start Route Planning",
-    "remove_label": "Remove"
+    "remove_label": "Remove",
+    "min_points_warning": "A route needs at least 2 spots"
   },
   "chat_popup": {
     "continue": "Continue chat…",
@@ -279,6 +287,7 @@
   "clarification": {
     "examples_label": "For example:",
     "search_all": "Search all titles",
+    "candidates_hint": "Multiple titles matched. Please select the one you're looking for.",
     "suggestions": [
       {
         "label": "Search by anime",

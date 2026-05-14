@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { UIMessage, ChatStatus } from "ai";
 import { useDict } from "../../lib/i18n-context";
 import { useSuggest } from "../../contexts/SuggestContext";
+import { Button } from "../ui/button";
 import MessageBubble from "./MessageBubble";
 
 interface MessageListProps {
@@ -47,19 +48,19 @@ export default function MessageList({
 
           <div className="mt-5 flex flex-col gap-2.5">
             {clarification.suggestions.map((s, idx) => (
-              <button
+              <Button
                 key={s.label}
                 type="button"
+                variant="default"
                 onClick={() => onSuggest(s.query)}
-                className="entrance-message flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 text-left text-sm font-light text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                className="entrance-message h-auto justify-between rounded-2xl px-4 py-3 text-left text-sm font-light"
                 style={{
-                  transitionDuration: "var(--duration-fast)",
                   animationDelay: `${100 + idx * 60}ms`,
                 }}
               >
                 <span>{s.label}</span>
                 <span aria-hidden>→</span>
-              </button>
+              </Button>
             ))}
           </div>
 

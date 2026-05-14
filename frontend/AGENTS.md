@@ -24,24 +24,29 @@ Key components and their responsibilities:
 
 ## Design System
 
-Light theme — no dark mode toggle. Palette is リズと青い鳥 (light blue, KyoAni-inspired).
+Light theme — no dark mode toggle. Palette is 動森キャンプ (Animal Crossing x Yuru Camp, warm cream/brown).
 
 CSS variables (defined in `app/globals.css`):
 ```css
---color-bg:      oklch(98% 0.004 240)   /* near-white */
---color-fg:      oklch(20% 0.020 240)   /* near-black */
---color-card:    oklch(100% 0 0)
---color-muted:   oklch(90% 0.010 240)
---color-muted-fg: oklch(45% 0.020 240)
---color-border:  oklch(78% 0.015 240)
---color-primary: oklch(72% 0.100 240)   /* light blue */
---color-primary-fg: oklch(25% 0.040 240) /* dark text on light blue */
+--color-bg:        #ffffff              /* white page background */
+--color-fg:        #725d42              /* warm brown text */
+--color-card:      #faf8f3              /* cream surfaces */
+--color-muted:     #f0e8d8              /* disabled/skeleton */
+--color-muted-fg:  #9f927d              /* secondary text */
+--color-border:    #c4b89e              /* warm border */
+--color-primary:   #19c8b9              /* teal — interactive */
+--color-primary-fg: #ffffff             /* white text on teal */
+--color-cta:       #f0b429              /* gold — important actions */
+--color-focus:     #ffcc00              /* yellow focus ring */
+--shadow-3d:       #bdaea0              /* 3D bottom shadow */
 
 --app-font-display: "Noto Serif JP", Georgia, serif
---app-font-body:    "Noto Sans JP", system-ui, sans-serif
+--app-font-body:    "Nunito", "Zen Maru Gothic", "Noto Sans SC", system-ui, sans-serif
 ```
 
 Use CSS variables, not Tailwind color classes, for brand colors.
+All interactive elements (buttons, inputs, chips) are pill-shaped (50px radius).
+Buttons use 3D bottom shadow (`0 5px 0 0 #bdaea0`), not color saturation, for hierarchy.
 
 ## API Calls
 

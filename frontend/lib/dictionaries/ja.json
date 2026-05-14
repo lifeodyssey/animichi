@@ -127,7 +127,10 @@
     "welcome_subtitle": "作品から聖地を探したり、場所ごとに近くのスポットを見たり、巡礼ルートをまとめて計画できます。",
     "welcome_helper": "まずは挨拶して、何ができるか聞いてみても大丈夫です。",
     "empty_hint": "聖地を検索するか、ルートを計画しましょう",
-    "tap_to_view": "タップして結果を表示"
+    "tap_to_view": "タップして結果を表示",
+    "error_message": "応答中にエラーが発生しました。",
+    "retry": "再試行",
+    "send_hint": "Enter で送信"
   },
   "sidebar": {
     "logo_icon": "聖",
@@ -208,7 +211,11 @@
     "action_nearby_desc": "現在地の周辺にあるスポットを表示",
     "action_route": "ルートを作成",
     "action_route_desc": "行きたいスポットで巡礼ルートを組む",
-    "popular_label": "人気の作品"
+    "popular_label": "人気の作品",
+    "tips_label": "使い方",
+    "tip_search": "🔍 アニメ名を入力して聖地を探す",
+    "tip_nearby": "📍 近くの聖地を位置情報で検索",
+    "tip_route": "🗺️ 選んだスポットからルートを作成"
   },
   "location": {
     "use_current": "現在地を使う",
@@ -239,7 +246,8 @@
     "summary": "{count} か所の聖地が待っています",
     "estimate": "徒歩 {distance}km、約 {time} 分",
     "start": "ルート計画を開始",
-    "remove_label": "削除"
+    "remove_label": "削除",
+    "min_points_warning": "ルートには2つ以上のスポットが必要です"
   },
   "chat_popup": {
     "continue": "会話を続ける…",
@@ -279,6 +287,7 @@
   "clarification": {
     "examples_label": "例えば：",
     "search_all": "全作品まとめて検索",
+    "candidates_hint": "似た名前の作品が複数見つかりました。お探しの作品を選んでください。",
     "suggestions": [
       {
         "label": "作品名で探す",
