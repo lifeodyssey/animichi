@@ -84,7 +84,7 @@ export default function SpotCard(props: SpotCardProps) {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-background">
+    <div className="overflow-hidden rounded-xl border-2 border-border bg-background">
       {content}
     </div>
   );

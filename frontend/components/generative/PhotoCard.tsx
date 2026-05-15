@@ -36,7 +36,7 @@ export function PhotoCard({ point, selected, onToggle, onDetail }: PhotoCardProp
       type="button"
       className={cn(
         "group relative cursor-pointer overflow-hidden rounded-lg border-2 bg-card text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
-        selected ? "border-primary" : "border-transparent"
+        selected ? "border-primary" : "border-border"
       )}
       onClick={() => onToggle(point.id)}
       aria-pressed={selected}

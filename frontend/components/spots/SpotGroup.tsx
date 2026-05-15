@@ -53,9 +53,9 @@ export default function SpotGroup({
 
   return (
     <Accordion value={openItems} onValueChange={setOpenItems}>
-      <AccordionItem value={title} className="border-b border-border">
+      <AccordionItem value={title} className="border-b-2 border-border">
         <AccordionTrigger
-          className="flex w-full items-center justify-between rounded-lg px-2 py-4 text-left text-base font-semibold text-foreground transition-colors hover:bg-card hover:no-underline font-display"
+          className="flex w-full items-center justify-between rounded-lg px-6 py-4 text-left text-lg font-semibold text-foreground transition-colors hover:bg-card hover:no-underline font-display"
         >
           <span className="flex items-center gap-2.5">
             {thumb && (

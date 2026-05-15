@@ -46,6 +46,13 @@ export const English: Story = {
   args: { placeholderOverride: "Type an anime name, or describe your trip…" },
 };
 
+/** Long text — tests overflow with a very long placeholder */
+export const LongText: Story = {
+  args: {
+    placeholderOverride: "これは非常に長いプレースホルダーテキストです。入力欄がどのように表示されるかをテストするために使用します。溢れた場合の表示を確認してください。",
+  },
+};
+
 /** Dark background context — simulates overlay on hero */
 export const OnDarkBackground: Story = {
   decorators: [

@@ -10,7 +10,7 @@ const cardVariants = cva(
     variants: {
       variant: {
         default:
-          "cursor-pointer rounded-[20px] px-6 py-4 hover:-translate-y-0.5",
+          "cursor-pointer rounded-[20px] px-6 py-4 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)]",
         title:
           "px-8 py-3 font-semibold [border-radius:40px_35px_45px_38px_/_38px_45px_35px_40px]",
         dashed:

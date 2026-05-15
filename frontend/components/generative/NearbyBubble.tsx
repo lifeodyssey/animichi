@@ -37,7 +37,7 @@ function AnimeNearbyCard({
       variant="outline"
       size="md"
       onClick={onClick}
-      className="w-full justify-start gap-4 px-5 py-4 font-normal"
+      className="w-full justify-start gap-4 px-5 py-4 font-normal hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 transition-all duration-150 ease-[var(--ease-animal)]"
     >
       <span
         className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -52,7 +52,7 @@ function AnimeNearbyCard({
           onError={() => setImgError(true)}
         />
       ) : null}
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+      <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
         <span
           className="truncate text-sm text-foreground font-display"
         >

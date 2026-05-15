@@ -198,7 +198,7 @@ function PipelineStep({
       {/* Icon */}
       <span
         className={cn(
-          "flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg",
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
           stepState === "running" && "bg-primary",
           stepState === "done" && "bg-primary/10",
           stepState === "error" && "bg-destructive/10",
@@ -209,7 +209,7 @@ function PipelineStep({
       </span>
 
       {/* Content */}
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-3 pt-1">
         {stepState === "running" && (
           <>
             <span className="text-xs font-medium text-foreground">{runningLabel}</span>

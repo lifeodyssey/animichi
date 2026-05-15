@@ -50,8 +50,10 @@ export default function ResultAnchor({
         onOpenDrawer?.();
       }}
       className={cn(
-        "group/anchor h-auto w-full max-w-[320px] gap-3 rounded-xl p-3 text-left",
-        isActive && "border-primary bg-primary/5 shadow-sm",
+        "group/anchor h-auto w-full max-w-[320px] gap-3 rounded-xl p-4 text-left",
+        "shadow-[var(--shadow-card)] transition-all duration-200 ease-[var(--ease-animal)]",
+        "hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)]",
+        isActive && "border-primary bg-primary/5",
       )}
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">

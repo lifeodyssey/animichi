@@ -64,7 +64,7 @@ export default function FeedbackButtons({ messageId: _messageId, toolParts, user
           size="icon"
           aria-label={t.feedback_good_title}
           onClick={() => handleFeedback("good")}
-          className="h-11 w-11 text-base text-muted-foreground hover:text-foreground"
+          className="h-11 w-11 text-base text-muted-foreground hover:-translate-y-px hover:text-foreground"
           title={t.feedback_good_title}
         >
           {"\uD83D\uDC4D"}
@@ -75,7 +75,7 @@ export default function FeedbackButtons({ messageId: _messageId, toolParts, user
           size="icon"
           aria-label={t.feedback_bad_title}
           onClick={() => handleFeedback("bad")}
-          className="h-11 w-11 text-base text-muted-foreground hover:text-foreground"
+          className="h-11 w-11 text-base text-muted-foreground hover:-translate-y-px hover:text-foreground"
           title={t.feedback_bad_title}
         >
           {"\uD83D\uDC4E"}
