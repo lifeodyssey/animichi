@@ -93,13 +93,19 @@
   --duration-base:  250ms;
   --duration-slow:  400ms;
 
+  /* ── Component heights — Animal Island size scale ── */
+  --height-sm:   32px;
+  --height-base: 40px;
+  --height-lg:   48px;
+
   /* ── Shadows — warm brown tint ── */
   --shadow-xs:   0 1px 2px rgba(61, 52, 40, 0.04);
   --shadow-sm:   0 2px 4px rgba(61, 52, 40, 0.06);
   --shadow-md:   0 3px 10px rgba(61, 52, 40, 0.10);
   --shadow-lg:   0 8px 24px rgba(61, 52, 40, 0.14);
   --shadow-hero: 0 24px 80px rgba(61, 52, 40, 0.08);
-  --shadow-card: 0 4px 10px rgba(107, 92, 67, 0.12);
+  --shadow-card: 0 4px 10px rgba(107, 92, 67, 0.32);
+  --shadow-card-hover: 0 8px 24px rgba(114, 93, 66, 0.15);
 
   /* ── Component shadows ── */
   --shadow-switch-off: inset 0 2px 4px rgba(114, 93, 66, 0.15);
@@ -196,6 +202,7 @@
   --shadow-lg: var(--shadow-lg);
   --shadow-hero: var(--shadow-hero);
   --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
   --shadow-3d-sm: var(--shadow-3d-sm);
   --shadow-3d-md: var(--shadow-3d-md);
   --shadow-3d-lg: var(--shadow-3d-lg);
@@ -331,6 +338,30 @@
   0% { transform: scale(0.4); opacity: 0; }
   60% { transform: scale(1.2); }
   100% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Animal Island — button loading stripe ── */
+@keyframes animal-btn-loading {
+  0%   { background-position: 0 0; }
+  100% { background-position: -28.28px 0; }
+}
+.btn-loading {
+  background: #0ec4b6;
+  border: 4px solid #4de2da;
+  color: #fff;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #0ec4b6, #0ec4b6 10px,
+    #01b0a7 10px, #01b0a7 20px
+  );
+  background-size: 28.28px 28.28px;
+  animation: animal-btn-loading 1s linear infinite;
+}
+
+/* ── Animal Island — content fade-up entry ── */
+@keyframes animal-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes seichi-shimmer {

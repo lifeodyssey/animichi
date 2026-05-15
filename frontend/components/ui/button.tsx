@@ -12,7 +12,7 @@ const buttonVariants = cva(
     "rounded-[var(--r-pill)] border-2 border-transparent",
     "transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)]",
     "outline-none select-none",
-    "focus-visible:outline-2 focus-visible:outline-[var(--color-focus)] focus-visible:outline-offset-2",
+    "focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2",
     "disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none",
     "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   ].join(" "),
@@ -27,9 +27,10 @@ const buttonVariants = cva(
         ].join(" "),
         default: [
           "bg-background text-foreground border-border",
+          "shadow-[0_5px_0_0_var(--color-3d-shadow)]",
           "hover:border-primary hover:text-primary",
-          "hover:translate-y-[-1px]",
-          "active:translate-y-0",
+          "hover:translate-y-[-1px] hover:shadow-[0_6px_0_0_var(--color-3d-shadow)]",
+          "active:translate-y-[2px] active:shadow-[0_1px_0_0_var(--color-3d-shadow)]",
         ].join(" "),
         cta: [
           "bg-[var(--color-cta)] text-[var(--color-cta-fg)] border-[var(--color-cta)]",
@@ -39,8 +40,8 @@ const buttonVariants = cva(
         ].join(" "),
         outline: [
           "bg-transparent text-foreground border-border",
-          "hover:border-primary hover:text-primary",
-          "active:text-[var(--color-primary-active)]",
+          "hover:border-primary hover:text-primary hover:-translate-y-px",
+          "active:translate-y-0 active:text-[var(--color-primary-active)]",
         ].join(" "),
         ghost: [
           "bg-transparent text-foreground border-transparent",
@@ -84,12 +85,23 @@ function Button({
   className,
   variant = "default",
   size = "md",
+  loading,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props &
+  VariantProps<typeof buttonVariants> & { loading?: boolean }) {
+  const has3dLoading =
+    loading &&
+    (variant === "primary" || variant === "cta" || variant === "danger")
+
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      disabled={loading || props.disabled}
+      className={cn(
+        buttonVariants({ variant, size }),
+        has3dLoading && "btn-loading",
+        className,
+      )}
       {...props}
     />
   )

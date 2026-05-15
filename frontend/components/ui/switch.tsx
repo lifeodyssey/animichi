@@ -67,7 +67,7 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
       >
         <span
           className={cn(
-            "absolute flex items-center justify-center rounded-full border-[2.5px] bg-card transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)]",
+            "absolute flex items-center justify-center rounded-full border-[2.5px] bg-card -translate-y-0.5 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)]",
             isSmall ? "top-px size-3.5" : "top-0.5 size-[21px]",
             isChecked
               ? "border-success-fg"

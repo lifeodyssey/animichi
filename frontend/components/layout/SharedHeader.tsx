@@ -43,7 +43,7 @@ export default function SharedHeader({
   return (
     <header
       className={cn(
-        "entrance-down inset-x-0 top-0 z-50 border-b border-border bg-card px-4 sm:px-6",
+        "entrance-down inset-x-0 top-0 z-50 border-b-2 border-border bg-card px-4 sm:px-6",
         position === "fixed" ? "fixed" : "sticky",
       )}
     >
@@ -52,13 +52,13 @@ export default function SharedHeader({
         <div className="flex items-center gap-6">
           <Link
             href="/"
-            className="flex items-center gap-2 font-display"
+            className="flex items-center gap-3 font-display"
           >
             <ToriiIcon size={20} />
             <span className="text-sm font-bold text-foreground">
               聖地巡礼
             </span>
-            <span className="hidden text-[10px] tracking-[1.2px] text-muted-foreground sm:inline">
+            <span className="hidden text-xs tracking-[1.2px] text-muted-foreground sm:inline">
               seichijunrei
             </span>
           </Link>

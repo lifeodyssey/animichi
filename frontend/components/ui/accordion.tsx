@@ -110,7 +110,7 @@ const CollapseCard = React.forwardRef<HTMLDivElement, CollapseCardProps>(
         >
           <span
             className={cn(
-              "flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-lg font-bold leading-none text-white shadow-[0_2px_4px_rgba(25,200,185,0.3)] transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)]",
+              "flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold leading-none shadow-[0_2px_4px_rgba(25,200,185,0.3)] transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)]",
               expanded && "rotate-180",
             )}
           >

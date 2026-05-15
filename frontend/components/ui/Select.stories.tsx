@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
+import { userEvent, within } from "storybook/test";
 import { Select } from "./select";
 
 const meta = {
@@ -85,4 +86,14 @@ function SelectMany() {
 
 export const ManyOptions: Story = {
   render: () => <SelectMany />,
+};
+
+/** Open — shows the soft yellow (#FFEEA0) dropdown panel */
+export const Open: Story = {
+  render: () => <SelectDefault />,
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByText("地域を選択");
+    await userEvent.click(trigger);
+  },
 };

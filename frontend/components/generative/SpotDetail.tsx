@@ -170,7 +170,7 @@ export default function SpotDetail({
             >
               {t.nearby_title}
             </h3>
-            <ul className="mt-2 flex flex-col gap-1.5">
+            <ul className="mt-2 flex flex-col gap-2">
               {nearby.map((p) => (
                 <li
                   key={p.id}
