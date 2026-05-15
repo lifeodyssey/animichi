@@ -9,18 +9,17 @@ const inputWrapperVariants = cva(
     "inline-flex items-center w-full",
     "bg-card rounded-[var(--r-pill)]",
     "border-[2.5px] border-border",
-    "shadow-[0_3px_0_0_var(--color-input-shadow)]",
     "transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)]",
-    "hover:border-[var(--color-border-hover)] hover:shadow-[0_3px_0_0_var(--color-border)]",
+    "hover:-translate-y-px hover:border-[var(--color-border-hover)] hover:shadow-[0_3px_0_0_var(--color-border)]",
     "focus-within:border-focus focus-within:shadow-[0_3px_0_0_var(--color-input-shadow),var(--shadow-focus-glow)]",
     "has-[:disabled]:bg-muted has-[:disabled]:border-input-shadow has-[:disabled]:shadow-none has-[:disabled]:opacity-60 has-[:disabled]:cursor-not-allowed",
   ].join(" "),
   {
     variants: {
       size: {
-        sm: "h-8 px-5 text-xs",
-        md: "h-10 px-6 text-sm",
-        lg: "h-12 px-6 text-base border-[3px]",
+        sm: "h-8 px-5 text-xs shadow-[0_2px_0_0_var(--color-input-shadow)]",
+        md: "h-10 px-6 text-sm shadow-[0_3px_0_0_var(--color-input-shadow)]",
+        lg: "h-12 px-6 text-base border-[3px] shadow-[0_4px_0_0_var(--color-input-shadow)]",
       },
       status: {
         error: "border-destructive shadow-[0_3px_0_0_color-mix(in_oklch,var(--destructive),black_20%)] hover:border-error-fg hover:shadow-[0_3px_0_0_color-mix(in_oklch,var(--destructive),black_20%)]",

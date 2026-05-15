@@ -15,7 +15,7 @@ function Tabs({
       data-slot="tabs"
       data-orientation={orientation}
       className={cn(
-        "group/tabs overflow-hidden rounded-3xl border-2 border-border-light bg-background",
+        "group/tabs overflow-hidden rounded-3xl border-2 border-border bg-card",
         "data-horizontal:flex-col",
         className
       )}
@@ -67,7 +67,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         "hover:bg-primary/10",
         "focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none",
         "disabled:pointer-events-none disabled:opacity-50",
-        "data-active:bg-primary data-active:font-semibold data-active:text-primary-foreground",
+        "data-active:bg-[#0CC0B5] data-active:font-semibold data-active:text-[#FFF9E3] data-active:shadow-[0_3px_0_0_rgba(61,52,40,0.08)]",
         "group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className

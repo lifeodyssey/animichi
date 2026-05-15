@@ -198,7 +198,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
               href={`/anime/${anime.bangumiId}`}
               ref={addRevealRef}
               className={[
-                "seichi-reveal-pop group relative overflow-hidden rounded-xl bg-card",
+                "seichi-reveal-pop group relative overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)] transition-all duration-300 ease-[var(--ease-animal)] hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)]",
                 i === 0 ? "col-span-2 row-span-2" : "",
               ].join(" ")}
               style={{

@@ -47,7 +47,7 @@ export default function ChatInputV2({
       style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
     >
       <div
-        className="mx-auto flex w-full items-center gap-2.5 rounded-full bg-[var(--color-bg)] px-4"
+        className="mx-auto flex w-full items-center gap-2.5 rounded-full bg-[var(--color-bg)] px-4 transition-shadow duration-[var(--duration-fast)] focus-within:ring-2 focus-within:ring-focus"
         style={{
           height: "44px",
           boxShadow:
@@ -91,7 +91,7 @@ export default function ChatInputV2({
         <button
           onClick={handleSubmit}
           disabled={disabled || !hasText}
-          className="flex shrink-0 items-center justify-center rounded-full transition-all"
+          className="flex shrink-0 items-center justify-center rounded-full shadow-[var(--shadow-3d-md)] transition-all duration-150 ease-[var(--ease-animal)] hover:-translate-y-px active:translate-y-0.5 active:shadow-[var(--shadow-3d-sm)]"
           style={{
             width: hasText || disabled ? "30px" : "0px",
             height: "30px",
@@ -101,8 +101,6 @@ export default function ChatInputV2({
               ? "var(--color-primary)"
               : "var(--color-muted)",
             color: hasText ? "white" : "var(--color-muted-fg)",
-            transitionDuration: "var(--duration-base)",
-            transitionTimingFunction: "var(--ease-out-quint)",
           }}
           aria-label="送信"
         >

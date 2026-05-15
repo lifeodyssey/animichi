@@ -173,6 +173,7 @@ Mailpit UI: `http://localhost:54324` (view captured emails).
 
 ### CSS Rules (auto-enforced)
 - Read `frontend/DESIGN.md` before any design or UI work — it is the design system source of truth
+- Animal Island UI reference: `docs/design/animal-island-ref/` (4 docs: color, typography, interaction, component specs) — read before component redesign work
 - Tokens defined in `frontend/app/globals.css :root`; registered in `@theme inline` for Tailwind utilities
 - Use semantic Tailwind classes: `bg-primary`, `text-foreground`, `border-border` — never `bg-[var(--color-*)]`
 - Never use `style={{ }}` for values that have Tailwind equivalents (colors, spacing, font, radius, opacity)

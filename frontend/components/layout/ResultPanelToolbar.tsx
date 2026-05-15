@@ -46,7 +46,7 @@ export function ResultPanelToolbar({
   const onChipChange = filterMode === "episode" ? onEpRangeChange : onAreaChange;
 
   return (
-    <div className="flex shrink-0 flex-col border-b border-border bg-background">
+    <div className="flex shrink-0 flex-col border-b-2 border-border bg-background">
       {/* Tab row: 按集数 | 按地区 + view toggle */}
       <div className="flex items-center gap-0 px-4 pt-1">
         <Button
@@ -111,7 +111,7 @@ export function ResultPanelToolbar({
 
       {/* Filter chips row */}
       {chips.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto px-4 py-1.5">
+        <div className="flex items-center gap-3 overflow-x-auto px-4 py-1.5">
           <Button
             variant="chip"
             size="xs"

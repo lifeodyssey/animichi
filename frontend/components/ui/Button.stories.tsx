@@ -125,6 +125,14 @@ export const DisabledDanger: Story = {
   args: { variant: "danger", children: "削除する", disabled: true },
 };
 
+export const Loading: Story = {
+  args: {
+    variant: "primary",
+    loading: true,
+    children: "Loading...",
+  },
+};
+
 /* ── Gallery ── */
 
 export const AllVariants: Story = {

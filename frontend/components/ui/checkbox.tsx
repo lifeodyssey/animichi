@@ -23,9 +23,9 @@ export interface CheckboxGroupProps {
 }
 
 const sizeMap = {
-  small: { box: "size-[18px] rounded-[10px]", check: "size-2.5", label: "text-sm" },
-  middle: { box: "size-[22px] rounded-[12px]", check: "size-3", label: "text-base" },
-  large: { box: "size-7 rounded-[14px]", check: "size-4", label: "text-lg" },
+  small: { box: "size-[18px] rounded-[10px]", border: "border-2", check: "size-2.5", label: "text-sm" },
+  middle: { box: "size-[22px] rounded-[12px]", border: "border-[2.5px]", check: "size-3", label: "text-base" },
+  large: { box: "size-7 rounded-[14px]", border: "border-[3px]", check: "size-4", label: "text-lg" },
 } as const
 
 const EMPTY_VALUES: Array<string | number> = []
@@ -43,7 +43,7 @@ function CheckboxOptionItem({ opt, isChecked, isDisabled, size: s, onToggle }: C
     <label
       key={String(opt.value)}
       className={cn(
-        "inline-flex cursor-pointer select-none items-center gap-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)]",
+        "inline-flex cursor-pointer select-none items-center gap-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] hover:-translate-y-px",
         isDisabled && "cursor-not-allowed opacity-55",
       )}
       onClick={onToggle}
@@ -59,10 +59,11 @@ function CheckboxOptionItem({ opt, isChecked, isDisabled, size: s, onToggle }: C
           }
         }}
         className={cn(
-          "relative inline-flex shrink-0 items-center justify-center border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)]",
+          "relative inline-flex shrink-0 items-center justify-center transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)]",
           s.box,
+          s.border,
           isChecked
-            ? "border-[var(--color-primary-active)] bg-secondary"
+            ? "border-[var(--color-primary-active)] bg-primary"
             : "border-border bg-card",
           isDisabled && "border-border bg-muted",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",

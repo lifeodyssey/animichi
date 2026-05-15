@@ -68,14 +68,14 @@ export default function LoginForm({ redirect, initialError }: LoginFormProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder={t.email_placeholder}
-          className="w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          className="w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 shadow-[0_3px_0_0_var(--color-input-shadow)] transition-all duration-150 ease-[var(--ease-animal)] hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         />
       </div>
       <p className="text-[11px] leading-relaxed text-muted-foreground/70">{t.magic_link_hint}</p>
       <button
         type="submit"
         disabled={submitting || !supabase}
-        className="relative min-h-[44px] w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-primary-fg transition duration-150 hover:opacity-90 disabled:opacity-40"
+        className="relative min-h-[44px] w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-primary-fg shadow-[var(--shadow-3d-lg)] transition-all duration-150 ease-[var(--ease-animal)] hover:-translate-y-px hover:opacity-90 active:translate-y-[2px] active:shadow-none disabled:opacity-40 disabled:shadow-none"
       >
         {submitting && (
           <span className="absolute left-1/2 top-1/2 -translate-x-[calc(50%+3em)] -translate-y-1/2">

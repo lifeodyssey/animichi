@@ -44,6 +44,13 @@ const meta = {
   title: "Chat/FeedbackButtons",
   component: FeedbackButtons,
   tags: ["autodocs"],
+  decorators: [
+    (Story) => (
+      <div className="group p-4">
+        <Story />
+      </div>
+    ),
+  ],
   args: {
     messageId: "msg-001",
     userQuery: "響け！ユーフォニアムの聖地を教えて",

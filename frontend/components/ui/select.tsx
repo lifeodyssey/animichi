@@ -100,7 +100,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         {open && (
           <div
             className={cn(
-              "absolute z-50 rounded-[28px] bg-[var(--color-cta)] py-3 animate-[fade-in_200ms_ease]",
+              "absolute z-50 rounded-[28px] bg-[#FFEEA0] py-3 animate-[fade-in_200ms_ease]",
               flipUpRef.current ? "bottom-full mb-1.5" : "top-full mt-1.5",
               "left-0 min-w-full",
             )}
