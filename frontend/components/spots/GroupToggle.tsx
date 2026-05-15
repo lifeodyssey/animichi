@@ -13,16 +13,16 @@ interface GroupToggleProps {
 
 export default function GroupToggle({ value, onChange, episodeLabel, areaLabel }: GroupToggleProps) {
   return (
-    <div className="flex w-fit overflow-hidden rounded-lg border border-border">
+    <div className="flex w-fit overflow-hidden rounded-[var(--r-pill)] border-2 border-border shadow-[0_3px_0_0_var(--color-3d-shadow)]">
       <button
         type="button"
         onClick={() => onChange("episode")}
         aria-label={episodeLabel}
         aria-pressed={value === "episode"}
-        className={cn("px-5 py-2 text-sm font-medium transition-colors",
+        className={cn("px-5 py-2 text-sm font-medium transition-[background-color,color,box-shadow] duration-150",
           value === "episode"
-            ? "bg-primary text-primary-fg"
-            : "text-muted-foreground hover:bg-card"
+            ? "bg-primary text-primary-fg shadow-[inset_0_2px_4px_var(--shadow-inset-active)]"
+            : "text-muted-foreground hover:bg-card active:translate-y-px"
         )}
       >
         {episodeLabel}
@@ -32,10 +32,10 @@ export default function GroupToggle({ value, onChange, episodeLabel, areaLabel }
         onClick={() => onChange("area")}
         aria-label={areaLabel}
         aria-pressed={value === "area"}
-        className={cn("border-l border-border px-5 py-2 text-sm font-medium transition-colors",
+        className={cn("border-l-2 border-border px-5 py-2 text-sm font-medium transition-[background-color,color,box-shadow] duration-150",
           value === "area"
-            ? "bg-primary text-primary-fg"
-            : "text-muted-foreground hover:bg-card"
+            ? "bg-primary text-primary-fg shadow-[inset_0_2px_4px_var(--shadow-inset-active)]"
+            : "text-muted-foreground hover:bg-card active:translate-y-px"
         )}
       >
         {areaLabel}

@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState, useMemo } from "react";
+import Link from "next/link";
 import type { SearchResultData, PilgrimagePoint } from "../../lib/types";
 import { useDict } from "../../lib/i18n-context";
 import { usePointSelectionContext } from "../../contexts/PointSelectionContext";
@@ -215,6 +216,11 @@ export default function PilgrimageGrid({ data }: PilgrimageGridProps) {
     || results.rows[0]?.title
     || "";
 
+  const bangumiId = results.rows[0]?.bangumi_id
+    ?? (typeof results.metadata?.bangumi_id === "string"
+      ? results.metadata.bangumi_id
+      : null);
+
   return (
     <div className="flex flex-col gap-5">
       {/* Editorial section header */}
@@ -227,6 +233,14 @@ export default function PilgrimageGrid({ data }: PilgrimageGridProps) {
         <span className="text-xs font-light text-muted-foreground">
           {t.count.replace("{count}", String(results.row_count))}
         </span>
+        {bangumiId && (
+          <Link
+            href={`/anime/${bangumiId}`}
+            className="text-sm text-primary hover:underline"
+          >
+            {t.view_guide}
+          </Link>
+        )}
       </div>
 
       <Tabs defaultValue="episode">

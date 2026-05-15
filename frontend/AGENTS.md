@@ -58,10 +58,11 @@ headers: { Authorization: `Bearer ${session?.access_token}` }
 
 ## Build
 
-Output mode is `output: 'export'` (static site). No server-side Next.js features
-(`next/headers`, `cookies()`, Route Handlers with dynamic responses).
+Output mode is SSR via `@opennextjs/cloudflare`. Server Components, `generateMetadata()`,
+and ISR-style `{ next: { revalidate } }` are supported. Dynamic routes (`[bangumiId]`)
+work without `generateStaticParams` — pages are rendered on-demand at the edge.
 
-`npm run build` writes static output to `out/` (served by the Cloudflare Worker via the `ASSETS` binding).
+`npm run build` produces an OpenNext bundle deployed to Cloudflare Workers.
 ## Design System
 
 Before any design or UI work, read `DESIGN.md` in this directory. It contains the complete visual identity specification (colors, typography, spacing, components, do's and don'ts) in Google's open DESIGN.md format. The authoritative token values live in `app/globals.css :root`.

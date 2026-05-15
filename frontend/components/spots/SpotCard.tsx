@@ -74,8 +74,8 @@ export default function SpotCard(props: SpotCardProps) {
           }
         }}
         className={cn(
-          "cursor-pointer overflow-hidden rounded-xl border-2 bg-background transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
-          props.selected ? "border-primary" : "border-transparent",
+          "cursor-pointer overflow-hidden rounded-xl border-2 bg-background shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)]",
+          props.selected ? "border-primary" : "border-border",
         )}
       >
         {content}
@@ -84,7 +84,7 @@ export default function SpotCard(props: SpotCardProps) {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border-2 border-border bg-background">
+    <div className="overflow-hidden rounded-xl border-2 border-border bg-background shadow-[var(--shadow-card)]">
       {content}
     </div>
   );
