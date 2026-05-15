@@ -107,7 +107,7 @@ export function makeRouteResponse(points: PilgrimagePoint[]): RuntimeResponse {
         anime_title_cn: points[0]?.title_cn ?? "",
         status: "ok",
         summary: { count: points.length, source: "db", cache: "miss" },
-        timed_itinerary: { legs: [], total_walk_minutes: 0, start_time: "09:00" },
+        timed_itinerary: { stops: [], legs: [], total_walk_minutes: 0, total_minutes: 0, start_time: "09:00", pacing: "normal" as const },
       },
     },
   } as unknown as RuntimeResponse;
