@@ -143,7 +143,7 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
   const chipData = React.useMemo(() => getChipData(locale, ws), [locale, ws]);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 pb-4">
+    <div className="flex flex-1 flex-col items-center justify-center bg-background px-6 pb-4">
       {/* Torii logo */}
       <div className="entrance-up mb-3">
         <ToriiIcon size={40} />

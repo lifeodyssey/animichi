@@ -65,7 +65,7 @@ exports[`Snapshot: NearbyBubble > renders nearby bubble 1`] = `
         />
         <img
           alt=""
-          class="h-8 w-10 shrink-0 rounded-sm object-cover bg-muted"
+          class="h-10 w-12 shrink-0 rounded-sm object-cover bg-muted"
           src="https://example.com/img.jpg"
         />
         <span
@@ -84,7 +84,7 @@ exports[`Snapshot: NearbyBubble > renders nearby bubble 1`] = `
         </span>
         <span
           aria-hidden="true"
-          class="shrink-0 text-sm text-muted-foreground"
+          class="shrink-0 text-base text-primary"
         >
           →
         </span>
@@ -154,7 +154,7 @@ exports[`Snapshot: NearbyBubbleWrapper > renders with search data 1`] = `
           />
           <img
             alt=""
-            class="h-8 w-10 shrink-0 rounded-sm object-cover bg-muted"
+            class="h-10 w-12 shrink-0 rounded-sm object-cover bg-muted"
             src="https://example.com/img.jpg"
           />
           <span
@@ -173,7 +173,7 @@ exports[`Snapshot: NearbyBubbleWrapper > renders with search data 1`] = `
           </span>
           <span
             aria-hidden="true"
-            class="shrink-0 text-sm text-muted-foreground"
+            class="shrink-0 text-base text-primary"
           >
             →
           </span>

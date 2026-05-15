@@ -46,7 +46,8 @@ const meta = {
   tags: ["autodocs"],
   decorators: [
     (Story) => (
-      <div className="group p-4">
+      <div className="group p-4" style={{ opacity: 1 }}>
+        <style>{`.group > div > div { opacity: 1 !important; }`}</style>
         <Story />
       </div>
     ),

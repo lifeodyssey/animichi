@@ -47,7 +47,7 @@ export default function SharedHeader({
         position === "fixed" ? "fixed" : "sticky",
       )}
     >
-      <div className="mx-auto flex h-12 items-center justify-between">
+      <div className="mx-auto flex h-14 items-center justify-between">
         {/* ── Left: torii logo + brand + nav ── */}
         <div className="flex items-center gap-6">
           <Link
