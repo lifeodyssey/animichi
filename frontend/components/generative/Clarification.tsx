@@ -36,7 +36,7 @@ export default function Clarification({
         <p className="text-xs text-muted-foreground">
           {t.candidates_hint}
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {candidates.map((candidate) => (
             <CandidateCard
               key={candidate.title}
@@ -67,7 +67,7 @@ export default function Clarification({
         <p className="text-sm font-light leading-relaxed text-foreground">
           {message}
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {syntheticCandidates.map((c) => (
             <CandidateCard
               key={c.title}
@@ -139,7 +139,7 @@ function CandidateCard({
       </span>
 
       {/* Text */}
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+      <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
         <span
           className="truncate text-sm font-medium text-foreground font-display"
         >
@@ -195,7 +195,7 @@ function SearchAllCard({
       </span>
 
       {/* Text */}
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+      <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
         <span
           className="truncate text-sm font-medium text-foreground font-display"
         >
@@ -236,7 +236,7 @@ function FallbackSuggestionCard({
       </span>
 
       {/* Text */}
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+      <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
         <span
           className="truncate text-sm font-medium text-foreground font-display"
         >
