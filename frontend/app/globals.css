@@ -108,6 +108,7 @@
   --shadow-card-hover: 0 8px 24px rgba(114, 93, 66, 0.15);
 
   /* ── Component shadows ── */
+  --shadow-inset-active: rgba(0, 0, 0, 0.1);
   --shadow-switch-off: inset 0 2px 4px rgba(114, 93, 66, 0.15);
   --shadow-switch-on:  inset 0 2px 4px rgba(90, 158, 30, 0.2);
   --shadow-focus-glow: 0 0 0 3px rgba(255, 204, 0, 0.25);

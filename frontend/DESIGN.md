@@ -1,18 +1,22 @@
 ---
 version: alpha
 name: Seichijunrei
-description: Anime pilgrimage spot search and route planning service — リズと青い鳥 light blue palette, WCAG AA verified
+description: Anime pilgrimage spot search and route planning service — 動森キャンプ warm cream palette, WCAG AA verified
 colors:
-  bg: "#f6f9fb"
-  fg: "#0e171e"
-  card: "#ffffff"
-  muted: "#d8dfe4"
-  muted-fg: "#4c575f"
-  border: "#afb9c0"
-  primary: "#67addd"
-  primary-fg: "#0e2433"
-  secondary: "#eaeff3"
-  brand-soft: "#e3f1fb"
+  bg: "#ffffff"
+  fg: "#725d42"
+  card: "#faf8f3"
+  muted: "#f0e8d8"
+  muted-fg: "#9f927d"
+  border: "#c4b89e"
+  primary: "#19c8b9"
+  primary-fg: "#ffffff"
+  cta: "#f0b429"
+  cta-fg: "#5c4813"
+  secondary: "#e0f7f5"
+  focus: "#ffcc00"
+  brand: "oklch(58% 0.19 28)"
+  3d-shadow: "#bdaea0"
   marker-active: "#d33c33"
   success: "#cadeca"
   success-fg: "#003306"
@@ -20,10 +24,6 @@ colors:
   error-fg: "#4c0f15"
   warning: "#f6d9b2"
   warning-fg: "#411f00"
-  walk-bg: "#dde8dd"
-  walk-fg: "#254326"
-  gradient-soft: "#c9e3ec"
-  gradient-hero: "#daebf1"
 typography:
   display:
     fontFamily: Noto Serif JP
@@ -37,31 +37,31 @@ typography:
     fontWeight: 700
     lineHeight: 1.2
   subheading:
-    fontFamily: Noto Sans JP
+    fontFamily: Nunito
     fontSize: 18px
     fontWeight: 600
     lineHeight: 1.3
   body:
-    fontFamily: Noto Sans JP
+    fontFamily: Nunito
     fontSize: 16px
-    fontWeight: 300
+    fontWeight: 400
     lineHeight: 1.6
   body-sm:
-    fontFamily: Noto Sans JP
+    fontFamily: Nunito
     fontSize: 14px
     fontWeight: 400
     lineHeight: 1.5
   caption:
-    fontFamily: Noto Sans JP
+    fontFamily: Nunito
     fontSize: 12px
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: 0.02em
 rounded:
-  sm: 4px
-  md: 8px
-  lg: 12px
-  full: 9999px
+  sm: 12px
+  md: 18px
+  lg: 24px
+  pill: 50px
 spacing:
   unit: 4px
   xs: 4px
@@ -72,141 +72,169 @@ spacing:
   section: 48px
 components:
   button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.primary-fg}"
-    typography: "{typography.body-sm}"
-    rounded: "{rounded.lg}"
-    height: 44px
-    padding: 0 20px
-  button-primary-hover:
-    backgroundColor: "{colors.primary}"
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.fg}"
+    rounded: "{rounded.pill}"
+    height: 48px
+    padding: 0 32px
+    boxShadow: "0 5px 0 0 {colors.3d-shadow}"
+  button-cta:
+    backgroundColor: "{colors.cta}"
+    textColor: "{colors.cta-fg}"
+    rounded: "{rounded.pill}"
+    height: 48px
+    padding: 0 32px
+    boxShadow: "0 5px 0 0 {colors.3d-shadow}"
   button-outline:
     backgroundColor: transparent
-    textColor: "{colors.primary}"
-    rounded: "{rounded.lg}"
-    height: 44px
+    textColor: "{colors.fg}"
+    border: "2px solid {colors.border}"
+    rounded: "{rounded.pill}"
+    height: 40px
     padding: 0 20px
   card-spot:
     backgroundColor: "{colors.card}"
     textColor: "{colors.fg}"
-    rounded: "{rounded.lg}"
+    rounded: "{rounded.md}"
+    boxShadow: "{shadows.card}"
   badge-episode:
-    backgroundColor: "{colors.overlay-soft}"
+    backgroundColor: "rgba(0,0,0,0.55)"
     textColor: "#ffffff"
     typography: "{typography.caption}"
     rounded: "{rounded.sm}"
     padding: 2px 8px
+    backdropFilter: "blur(4px)"
   header:
-    backgroundColor: "{colors.bg}"
-    height: 56px
-  group-toggle:
     backgroundColor: "{colors.card}"
-    rounded: "{rounded.lg}"
+    height: 56px
+    borderBottom: "2px solid {colors.border}"
+  group-toggle:
+    rounded: "{rounded.pill}"
+    boxShadow: "0 3px 0 0 {colors.3d-shadow}"
+    border: "2px solid {colors.border}"
 ---
 
 ## Overview
 
 Seichijunrei is an anime pilgrimage (聖地巡礼) spot search and route planning service. Users discover meaningful scenes from anime, see them on a map, and turn selected spots into a realistic walking route.
 
-The interface feels like a **pilgrimage planning studio** — cinematic, editorial, and dependable. It reduces blank-page anxiety and replaces it with momentum: users feel oriented, inspired, and ready to go out.
+The interface feels like a **high-quality travel planning tool** — warm, cozy, and practical. It reduces blank-page anxiety and replaces it with momentum: users feel oriented, inspired, and ready to go out.
 
-**Brand personality:** cinematic, editorial, dependable
-**Anti-references:** generic SaaS dashboards, "AI chat assistant" aesthetics, heavy card stacks, purple gradients
+**Brand personality:** warm, cozy, practical
+**Aesthetic:** 動森キャンプ (Animal Crossing x Yuru Camp)
+**Anti-references:** generic SaaS dashboards, "AI chat assistant" chrome, cyan-on-dark, purple gradients, glassmorphism
 
 ## Colors
 
-The palette is inspired by **リズと青い鳥** (Liz and the Blue Bird) — a light blue, airy aesthetic verified against WCAG AA contrast requirements.
+The palette is inspired by **動森キャンプ** — warm cream and brown tones with teal interactive accents and gold CTAs, verified against WCAG AA contrast requirements.
 
-- **Primary** (`primary`): Light blue used for CTAs and interactive elements. Text on primary buttons uses dark foreground (`primary-fg`) for WCAG AA compliance — not white text.
-- **Background** (`bg`): Near-white with a subtle blue tint. Never pure white.
-- **Foreground** (`fg`): Near-black with blue undertone. Never pure black.
-- **Muted** (`muted` / `muted-fg`): For secondary text, placeholders, and subtle backgrounds.
-- **Marker Active** (`marker-active`): Coral/orange for selected route markers on the map — distinct from the blue palette for clear visual separation.
-- **Walk Segment** (`walk-bg` / `walk-fg`): Soft green for walking segments in route timelines.
-- **Status colors** follow the same hue-tinting approach: green for success, red for error, amber for warning.
+Three-layer color system:
+- **90% Ground** (cream/brown): Page bg white, card surfaces cream, warm brown text
+- **8% Interactive** (teal #19c8b9): Buttons, links, active states, toggles
+- **2% Emphasis** (gold #f0b429): Important actions, key CTAs
 
-All neutrals are tinted toward hue 240 (blue) for subconscious cohesion with the brand.
+Key tokens:
+- **Background** (`bg`): Pure white (#ffffff). Clean page surface.
+- **Card** (`card`): Warm cream (#faf8f3). Component surfaces.
+- **Foreground** (`fg`): Warm brown (#725d42). Primary text. Never pure black.
+- **Muted** (`muted` / `muted-fg`): #f0e8d8 / #9f927d. Secondary text, disabled states.
+- **Primary** (`primary`): Teal (#19c8b9). Interactive elements — buttons, links, active indicators.
+- **CTA** (`cta`): Gold (#f0b429). High-importance actions only.
+- **Focus** (`focus`): Yellow (#ffcc00). Game-style focus ring.
+- **3D Shadow** (`3d-shadow`): Earthy (#bdaea0). Bottom shadow on buttons and inputs.
+- **Brand**: Torii vermillion (oklch(58% 0.19 28)). Logo only — never in UI surfaces.
+
+All neutrals are tinted warm (toward brown hue) for subconscious cohesion with the brand.
 
 ## Typography
 
-Two font families from the Noto family:
+Four font families for warmth and CJK support:
 
-- **Display / Headings:** Noto Serif JP (weights 400, 600, 700) — editorial presence for anime titles and section headings
-- **Body / UI:** Noto Sans JP (weights 300, 400, 500, 600, 700) — clean readability for all interface text
-- **Chinese fallback:** Noto Sans SC for zh locale
-- **Latin fallback:** Geist for system UI elements
+- **Display / Headings:** Noto Serif JP (weights 400, 600, 700) — editorial authority
+- **Body Latin:** Nunito (weights 300-700) — rounded, friendly
+- **Body CJK:** Zen Maru Gothic + Noto Sans SC — consistent CJK rendering
+- **Mono:** IBM Plex Mono — technical data only
 
-Type scale follows **Perfect Fourth (1.333 ratio)**: 12 / 14 / 16 / 18 / 24 / 28 / 42 / 72px. Body text uses light weight (300) for the airy feel; headings use bold (700) for contrast.
-
-Sizing uses Tailwind rem tokens (`text-xs` through `text-4xl`), never hardcoded pixel values.
+Type scale follows **Perfect Fourth (1.333 ratio)**: 12 / 14 / 16 / 18 / 24 / 28 / 42 / 72px. Body text uses weight 400; headings use bold (700).
 
 ## Layout & Spacing
 
-**Adaptive hybrid layout** — the interface reshapes based on state, not fixed columns:
-- **Chat-focused** (no results): chat centered at ~640px reading width
-- **Split** (results arrive): chat narrows, result panel slides in as primary focus
-- **Mobile** (<768px): single column with bottom sheet for results
+**Adaptive hybrid layout** — the interface reshapes based on state:
+- **Landing** (`/`): Hero with anime gallery, public
+- **Guide** (`/anime/[id]`): Cover + map + grouped spots, public
+- **Chat** (`/chat`): Three-column (sidebar + chat + results), protected
+- **Mobile** (<768px): Single column with bottom sheet for results
 
-Spacing follows a 4px base grid via Tailwind's default scale. Content areas max out at 1200px (`max-w-[1200px]`). Card grids use `gap-4` (16px) between items.
+Spacing follows a 4px base grid. Content areas max out at 1200px. Card grids use `gap-4` (16px) between items.
 
 Touch targets are 44px minimum for all interactive elements (WCAG requirement for outdoor/mobile use).
 
 ## Elevation & Depth
 
-Shadows are **hue-tinted toward blue (240)** for cohesion, using five levels:
+The 動森キャンプ depth system uses **3D bottom shadows** for tactile feel, not traditional elevation:
 
-- `shadow-xs`: Subtle header shadow (1px blur)
-- `shadow-sm`: Card hover, toolbar active state (3px blur)
-- `shadow-md`: Floating panels, chat popup (24px blur)
-- `shadow-lg`: Modals, elevated cards (32px blur)
-- `shadow-hero`: Hero welcome card (80px blur)
+- **3D shadow** (`0 5px 0 0 #bdaea0`): Primary buttons, inputs. Pressed state removes shadow + translateY(2-3px).
+- **Card shadow** (`--shadow-card`): `0 4px 10px rgba(107, 92, 67, 0.32)`. Cards, containers.
+- **Card hover** (`--shadow-card-hover`): `0 8px 24px rgba(114, 93, 66, 0.15)`. Elevated hover state.
+- **Hero shadow** (`--shadow-hero`): `0 24px 80px rgba(61, 52, 40, 0.08)`. Hero welcome card.
 
-No pure black shadows — all use `oklch(20% 0.02 240 / alpha)`.
-
-Overlays use three levels: `overlay` (0.7 alpha for modals), `overlay-soft` (0.55 for badges/scrims), `overlay-image` (0.75 for text-over-image gradients).
+No pure black shadows — all use warm brown tints for cohesion.
 
 ## Shapes
 
-Border radius uses a 3-level scale:
-- `sm` (4px): Badges, small tags, inline elements
-- `md` (8px): Buttons, inputs, cards
-- `lg` (12px): Large cards, panels, containers
-- `full` (9999px): Pills, avatar circles
+Border radius uses a 4-level scale — large and rounded throughout:
+- `sm` (12px): Badges, small elements
+- `md` (18px): Cards, panels
+- `lg` (24px): Large containers, map
+- `pill` (50px): All interactive elements — buttons, inputs, chips, toggles
+
+Borders are 2px throughout (header, footer, cards, accordions, toggles) for tactile depth matching the 3D shadow system.
 
 ## Components
 
 ### Buttons
-Primary buttons use light blue background with **dark text** (`primary-fg` on `primary`). This is intentional — white text on light blue fails WCAG AA. Outline buttons invert this: `primary` border/text on transparent background.
+Button hierarchy is via **shadow depth, not color saturation**:
+- **Primary**: Cream bg + brown text + 3D bottom shadow. The default.
+- **CTA**: Gold bg + dark text + 3D shadow. For important actions only.
+- **Outline**: 2px border + no shadow. Secondary actions.
+- **Ghost**: No border, no shadow. Tertiary/nav actions.
+
+All buttons are pill-shaped (50px radius). Hover lifts 1px (`translateY(-1px)`). Active presses down (`translateY(2px)`, shadow shrinks).
 
 ### Spot Cards
-Anime screenshot with episode badge overlay. Badge uses `overlay-soft` background with white text and `backdrop-filter: blur(4px)`. Card name truncates with ellipsis.
+Anime screenshot with episode badge overlay. Badge uses backdrop-blur on photo. Card has `--shadow-card` base. In select mode, hover lifts with shadow transition. In browse mode, static (no hover lift — no click handler).
 
 ### Group Toggle
-Segmented control for switching between episode/area grouping. Uses `primary` background + `primary-fg` text for active state, `muted-foreground` for inactive.
+Pill-shaped segmented control with 3D bottom shadow. Active state uses teal background + inset shadow. Inactive state: muted text, hover reveals cream background.
 
 ### Route Timeline
-Vertical timeline with dots, dashed walk segments (green), and stop cards. Active stop pulses with `dot-pulse` animation. Walk segments use `walk-bg`/`walk-fg` tokens.
+Vertical timeline with dots, dashed walk segments, and stop cards.
 
-### Filmstrip
-Horizontal scroll strip of anime scene screenshots with gradient overlay for name labels. Edge-fade mask prevents hard scroll cutoff.
+### Map
+Rounded container (24px radius) with 2px border and card shadow. Loading uses skeleton shimmer. Error shows fallback with location icon.
 
 ## Do's and Don'ts
 
 ### Do
 - Use design tokens from `globals.css` — never hardcode colors
-- Use Tailwind utility classes (`bg-primary`, `text-foreground`) not arbitrary values
+- Use semantic Tailwind classes (`bg-primary`, `text-foreground`) not arbitrary CSS variable values
 - Use `cn()` for conditional className logic
 - Use `flex gap-*` for spacing between siblings
 - Use shadcn Skeleton for loading states
+- Use property-specific transitions (`transition-[transform,box-shadow]`)
 - Let photography and map textures carry visual weight
 - Keep the UI quiet — panels appear when there is content, not before
+- Use 2px borders consistently
 
 ### Don't
-- Use `space-y-*` or `space-x-*` (shadcn rule: use `gap-*`)
+- Use `space-y-*` or `space-x-*` (use `gap-*`)
+- Use `transition-all` (specify exact properties)
 - Use template literal ternaries for className (use `cn()`)
-- Hardcode oklch/hex values in component files
+- Hardcode oklch/hex values in component files (extract to CSS variable)
+- Use `style={{}}` for values with Tailwind equivalents
 - Use `animate-pulse` divs for loading (use Skeleton component)
 - Add generic SaaS purple gradients or "AI assistant" chrome
-- Put white text on the light blue primary color (fails WCAG)
 - Use bounce or elastic easing — use `ease-out-quint` or `ease-out-expo`
 - Add dark mode (light-only by design decision)
+- Use gradient text or glassmorphism
+- Use side-stripe borders (border-left > 1px as accent)

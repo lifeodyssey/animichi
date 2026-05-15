@@ -8,7 +8,7 @@ export default function SharedFooter() {
   const setLocale = useSetLocale();
 
   return (
-    <footer className="border-t border-border px-5 py-10 sm:px-8">
+    <footer className="border-t-2 border-border px-5 py-10 sm:px-8">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between">
         <div className="flex items-baseline gap-2 text-sm text-muted-foreground">
           <span

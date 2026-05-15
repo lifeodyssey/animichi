@@ -130,7 +130,8 @@
     "tap_to_view": "Tap to view results",
     "error_message": "Something went wrong while responding.",
     "retry": "Retry",
-    "send_hint": "Press Enter to send"
+    "send_hint": "Press Enter to send",
+    "back_to_guide": "Back to guide"
   },
   "sidebar": {
     "logo_icon": "聖",
@@ -162,7 +163,8 @@
     "other_label": "Other",
     "unknown_area": "Unknown",
     "empty_hint": "Discover pilgrimage spots",
-    "empty_subtitle": "Search for an anime title and pilgrimage locations will appear here"
+    "empty_subtitle": "Search for an anime title and pilgrimage locations will appear here",
+    "view_guide": "View full pilgrimage guide →"
   },
   "route": {
     "no_results": "Could not create a route.",
@@ -336,6 +338,9 @@
     "episode_group": "Episode {ep}",
     "other_group": "Other",
     "spots_count": "{count} spots",
-    "map_unavailable": "Map unavailable — view spot locations below"
+    "map_unavailable": "Map unavailable — view spot locations below",
+    "meta_title": "{title} Pilgrimage Guide | Seichijunrei",
+    "meta_description": "{count} pilgrimage spots for {title} — {city}. Plan routes with AI.",
+    "meta_description_no_city": "{count} pilgrimage spots for {title}. Plan routes with AI."
   }
 }

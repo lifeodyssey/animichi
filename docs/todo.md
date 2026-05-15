@@ -247,6 +247,24 @@ GET /v1/runtime
 
 Branch: `feat/ssr-cloudflare` (worktree at `.claude/worktrees/ssr-migration/`)
 
+## Design Polish TODOs (from 動森キャンプ redesign review, 2026-05-15)
+
+- [ ] **FeedbackButtons visibility** — Still invisible at desktop width due to `md:opacity-0 md:group-hover:opacity-50`. Story fixed with CSS override but component itself needs a proper fix (always show after response settled, not just on hover).
+- [ ] **MessageBubble + ResultAnchor style inconsistency** — User flagged these as visually mismatched. ResultAnchor padding/shadow updated but bubble shape and anchor card still feel disconnected.
+- [ ] **Clarification card spacing** — Cards still feel cramped despite gap-2→gap-3. May need more padding inside cards or larger gap.
+- [ ] **NearbyBubble spacing** — Same cramped feeling. Text gap increased but overall card density too high.
+- [ ] **RouteConfirm spacing** — Sortable item gap increased but still feels tight compared to animal-island reference.
+- [ ] **FloatingSpotList visual quality** — User said "感觉不好看". Needs layout/spacing/visual rework.
+- [ ] **ResultPanelToolbar visual quality** — User said "感觉不好看". Chip gap increased but overall toolbar design needs attention.
+- [ ] **SharedHeader size** — User asked "会不会太小". Height increased to h-14 but may need further review.
+- [ ] **Landing page background color** — User said "底色直接用这个黄色感觉ai味太浓了". Cream background may be too warm/obvious.
+
+## AppShell Redesign TODOs (from design brief, 2026-05-15)
+
+- [ ] **History management decision** — Thread-per-anime vs Search History vs hybrid. Build prototype of both, let user test.
+- [ ] **Artifact empty state** — What to show when no search yet. Options: recommended anime gallery, Japan illustration, warm pattern. TBD.
+- [ ] **Chat column resizable** — Support drag-to-resize between chat and artifact columns.
+
 ## Area Grouping TODOs
 
 - [ ] **City names in Japanese** — reverse-geocoder returns English (Tokyo, Takayama, Uji). Either maintain an eng→jp mapping dict, or use GeoNames alternateNames data to get Japanese names.
