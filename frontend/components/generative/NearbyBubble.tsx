@@ -48,7 +48,7 @@ function AnimeNearbyCard({
         <img
           src={imageUrl}
           alt=""
-          className="h-8 w-10 shrink-0 rounded-sm object-cover bg-muted"
+          className="h-10 w-12 shrink-0 rounded-sm object-cover bg-muted"
           onError={() => setImgError(true)}
         />
       ) : null}
@@ -62,7 +62,7 @@ function AnimeNearbyCard({
           {spotsDistanceLabel}
         </span>
       </span>
-      <span className="shrink-0 text-sm text-muted-foreground" aria-hidden="true">
+      <span className="shrink-0 text-base text-primary" aria-hidden="true">
         →
       </span>
     </Button>

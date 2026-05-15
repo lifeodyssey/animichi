@@ -20,18 +20,6 @@ export function MapViewToggle({ view, onViewChange }: MapViewToggleProps) {
     <div className="absolute right-3 top-3 z-10 flex gap-1 rounded-lg bg-card p-0.5 shadow-md">
       <button
         type="button"
-        onClick={() => onViewChange("grid")}
-        className={cn(
-          "flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-150",
-          view === "grid"
-            ? "bg-card text-foreground shadow-sm"
-            : "bg-transparent text-muted-foreground",
-        )}
-      >
-        {t.grid}
-      </button>
-      <button
-        type="button"
         onClick={() => onViewChange("map")}
         className={cn(
           "flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-150",
@@ -41,6 +29,18 @@ export function MapViewToggle({ view, onViewChange }: MapViewToggleProps) {
         )}
       >
         {t.map}
+      </button>
+      <button
+        type="button"
+        onClick={() => onViewChange("grid")}
+        className={cn(
+          "flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-150",
+          view === "grid"
+            ? "bg-card text-foreground shadow-sm"
+            : "bg-transparent text-muted-foreground",
+        )}
+      >
+        {t.grid}
       </button>
     </div>
   );
