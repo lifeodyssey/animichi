@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { useSession } from "../../hooks/useSession";
 import { usePointSelection } from "../../hooks/usePointSelection";
@@ -72,7 +72,11 @@ function extractVisualResponse(msg: UIMessage): RuntimeResponse | null {
 // Mobile:  SharedHeader + full-screen ChatPanel + ResultSheet bottom drawer
 // ---------------------------------------------------------------------------
 
-export default function AppShell() {
+interface AppShellProps {
+  initialQuery?: string;
+}
+
+export default function AppShell({ initialQuery }: AppShellProps) {
   const locale = useLocale();
   const dict = useDict();
   const { sessionId, setSessionId, clearSession } = useSession();
@@ -144,6 +148,14 @@ export default function AppShell() {
     [clearSelectedPoints, sendMessage],
   );
 
+  // Auto-send initial query from ?q= param (e.g. guide page CTA)
+  const autoSentRef = useRef(false);
+  useEffect(() => {
+    if (!initialQuery || autoSentRef.current || messages.length > 0) return;
+    autoSentRef.current = true;
+    handleSend(initialQuery);
+  }, [initialQuery, messages.length, handleSend]);
+
   const handleActivate = useCallback((messageId: string) => {
     setActiveMessageId((current) => {
       const newId = current === messageId ? null : messageId;
@@ -192,6 +204,16 @@ export default function AppShell() {
 
           {/* ── SharedHeader with chat actions ───────────────────── */}
           <SharedHeader>
+            {initialQuery && (
+              <button
+                type="button"
+                onClick={() => window.history.back()}
+                className="flex h-8 items-center gap-1.5 rounded-md px-3 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <span aria-hidden>←</span>
+                {dict.chat.back_to_guide ?? "Back"}
+              </button>
+            )}
             <button
               type="button"
               onClick={handleNewChat}
@@ -203,7 +225,6 @@ export default function AppShell() {
               </svg>
               {dict.sidebar.new_chat.replace(/^\+\s*/, "")}
             </button>
-            {/* History + Settings hidden until features are implemented */}
           </SharedHeader>
 
           {/* ── Content area: adaptive layout ──────────────────── */}

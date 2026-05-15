@@ -130,7 +130,8 @@
     "tap_to_view": "点击查看结果",
     "error_message": "回复时出现了错误。",
     "retry": "重试",
-    "send_hint": "按 Enter 发送"
+    "send_hint": "按 Enter 发送",
+    "back_to_guide": "返回指南"
   },
   "sidebar": {
     "logo_icon": "圣",
@@ -162,7 +163,8 @@
     "other_label": "其他",
     "unknown_area": "未知",
     "empty_hint": "来探索圣地吧",
-    "empty_subtitle": "输入动漫标题，巡礼地点将显示在这里"
+    "empty_subtitle": "输入动漫标题，巡礼地点将显示在这里",
+    "view_guide": "查看完整圣地指南 →"
   },
   "route": {
     "no_results": "无法创建路线。",
@@ -336,6 +338,9 @@
     "episode_group": "第 {ep} 集",
     "other_group": "其他",
     "spots_count": "{count} 个取景地",
-    "map_unavailable": "地图加载失败 — 请查看下方取景地列表"
+    "map_unavailable": "地图加载失败 — 请查看下方取景地列表",
+    "meta_title": "{title} 圣地巡礼指南 | Seichijunrei",
+    "meta_description": "{title}的圣地 {count} 个取景地 — {city}。AI 路线规划。",
+    "meta_description_no_city": "{title}的圣地 {count} 个取景地。AI 路线规划。"
   }
 }

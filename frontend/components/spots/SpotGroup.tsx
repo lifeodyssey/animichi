@@ -10,6 +10,7 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "../ui/accordion";
+import { Button } from "../ui/button";
 
 const PREVIEW_COUNT = 6;
 
@@ -100,15 +101,18 @@ export default function SpotGroup({
             ))}
           </div>
           {hasMore && !showAll && (
-            <button
-              type="button"
-              onClick={() => setShowAll(true)}
-              className="mx-2 mb-4 w-[calc(100%-16px)] rounded-lg border border-primary/30 bg-primary/5 py-3 text-sm font-medium text-primary transition-colors hover:bg-primary/10 hover:text-foreground"
-            >
-              {showAllLabel
-                ? showAllLabel.replace("{count}", String(count))
-                : `Show all ${count} spots`}
-            </button>
+            <div className="mx-2 mb-4">
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => setShowAll(true)}
+                className="w-full"
+              >
+                {showAllLabel
+                  ? showAllLabel.replace("{count}", String(count))
+                  : `Show all ${count} spots`}
+              </Button>
+            </div>
           )}
         </AccordionContent>
       </AccordionItem>

@@ -130,7 +130,8 @@
     "tap_to_view": "タップして結果を表示",
     "error_message": "応答中にエラーが発生しました。",
     "retry": "再試行",
-    "send_hint": "Enter で送信"
+    "send_hint": "Enter で送信",
+    "back_to_guide": "ガイドに戻る"
   },
   "sidebar": {
     "logo_icon": "聖",
@@ -162,7 +163,8 @@
     "other_label": "その他",
     "unknown_area": "不明",
     "empty_hint": "聖地を探してみよう",
-    "empty_subtitle": "アニメのタイトルを入力すると、聖地巡礼スポットがここに表示されます"
+    "empty_subtitle": "アニメのタイトルを入力すると、聖地巡礼スポットがここに表示されます",
+    "view_guide": "作品の聖地ガイドを見る →"
   },
   "route": {
     "no_results": "ルートを作成できませんでした。",
@@ -336,6 +338,9 @@
     "episode_group": "第 {ep} 話",
     "other_group": "その他",
     "spots_count": "{count} スポット",
-    "map_unavailable": "マップを読み込めませんでした — 下のスポット一覧をご覧ください"
+    "map_unavailable": "マップを読み込めませんでした — 下のスポット一覧をご覧ください",
+    "meta_title": "{title} 聖地巡礼ガイド | Seichijunrei",
+    "meta_description": "{title}の聖地 {count} スポット — {city}。AIでルート計画も。",
+    "meta_description_no_city": "{title}の聖地 {count} スポット。AIでルート計画も。"
   }
 }

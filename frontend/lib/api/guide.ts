@@ -22,9 +22,13 @@ export interface AnimeGuideResponse {
  */
 export async function fetchAnimeGuide(
   bangumiId: string,
+  locale?: string,
   signal?: AbortSignal,
 ): Promise<AnimeGuideResponse | null> {
-  const res = await fetch(`${RUNTIME_URL}/v1/bangumi/${bangumiId}/guide`, {
+  const url = locale
+    ? `${RUNTIME_URL}/v1/bangumi/${bangumiId}/guide?locale=${encodeURIComponent(locale)}`
+    : `${RUNTIME_URL}/v1/bangumi/${bangumiId}/guide`;
+  const res = await fetch(url, {
     signal,
   });
   if (res.status === 404) return null;

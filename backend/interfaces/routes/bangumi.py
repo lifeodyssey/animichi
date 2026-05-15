@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
+from backend.agents.geo_names import localized_city_name
 from backend.interfaces.routes._deps import (
     TrustedAuthContext,
     _get_db_from_request,
@@ -36,6 +37,7 @@ async def handle_bangumi_popular(
 async def handle_bangumi_guide(
     request: Request,
     bangumi_id: str,
+    locale: Annotated[str, Query()] = "ja",
 ) -> JSONResponse:
     """Public anime pilgrimage guide — all spots, no auth required."""
     db = _require_supabase(_get_db_from_request(request))
@@ -61,6 +63,7 @@ async def handle_bangumi_guide(
             "bangumi_id": bangumi_id,
             "latitude": _float(p.get("latitude")),
             "longitude": _float(p.get("longitude")),
+            "city": p.get("city"),
         }
         for p in all_points
     ]
@@ -86,13 +89,25 @@ async def handle_bangumi_guide(
         else None
     )
 
+    for spot in spots:
+        raw_city = spot.get("city", "")
+        if isinstance(raw_city, str) and raw_city:
+            spot["city"] = localized_city_name(raw_city, locale)
+
+    raw_top_city = bangumi.get("city")
+    top_city = (
+        localized_city_name(raw_top_city, locale)
+        if isinstance(raw_top_city, str) and raw_top_city
+        else raw_top_city
+    )
+
     return _json_response(
         {
             "bangumi_id": bangumi_id,
             "title": bangumi.get("title"),
             "title_cn": bangumi.get("title_cn"),
             "cover_url": bangumi.get("cover_url"),
-            "city": bangumi.get("city"),
+            "city": top_city,
             "spot_count": len(spots),
             "spots": spots,
             "bounds": bounds,
