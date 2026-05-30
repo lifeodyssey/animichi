@@ -342,6 +342,16 @@
   100% { transform: scale(1); opacity: 1; }
 }
 
+/* ── FoxGuide — idle float animation (suppressed by prefers-reduced-motion) ── */
+@keyframes fox-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+.fox-idle {
+  animation: fox-float 3s var(--ease-out-quint) infinite;
+}
+
 /* ── Animal Island — button loading stripe ── */
 @keyframes animal-btn-loading {
   0%   { background-position: 0 0; }
@@ -416,6 +426,7 @@ a { color: inherit; }
   .entrance-up,
   .entrance-down,
   .entrance-slide-right { opacity: 1 !important; }
+  .fox-idle { animation: none !important; }
 }
 
 /* ── Touch targets (opt-in via data attribute, auto for standalone interactive elements) ── */
