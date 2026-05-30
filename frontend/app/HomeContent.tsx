@@ -16,6 +16,7 @@ export default function HomeContent() {
   const [showLoginModal, setShowLoginModal] = useState(
     searchParams.get("login") === "true",
   );
+  const [pendingRedirect, setPendingRedirect] = useState(redirect);
 
   // Only auto-redirect when an explicit ?redirect= param is present
   // (e.g. from a protected page). Otherwise logged-in users stay on landing.
@@ -28,12 +29,20 @@ export default function HomeContent() {
       .catch(() => { /* session check failed — stay on landing */ });
   }, [authClient, router, redirect, searchParams]);
 
+  function handleOpenAuth(query?: string) {
+    if (query) {
+      const encoded = encodeURIComponent(query);
+      setPendingRedirect(`/chat?q=${encoded}`);
+    }
+    setShowLoginModal(true);
+  }
+
   return (
     <>
-      <LandingPage onOpenAuth={() => setShowLoginModal(true)} />
+      <LandingPage onOpenAuth={handleOpenAuth} />
       {showLoginModal && (
         <LoginModal
-          redirect={redirect}
+          redirect={pendingRedirect}
           onClose={() => setShowLoginModal(false)}
         />
       )}
