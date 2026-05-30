@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "animal-island-ui/style/core";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @plugin "@tailwindcss/typography";
@@ -515,6 +516,41 @@ input:focus, textarea:focus {
 
 @media (max-width: 768px) {
   [data-testid="floating-cards"] > div:nth-child(n+3) { display: none; }
+}
+
+/* CTA variant — uses animal-island-ui warning gold token */
+.animal-btn.animal-btn-cta {
+  background: var(--animal-warning-color);
+  border-color: var(--animal-warning-color);
+  color: var(--animal-text-color);
+  box-shadow: 0 5px 0 0 var(--animal-warning-color-active);
+}
+.animal-btn.animal-btn-cta:hover:not(:disabled) {
+  background: var(--animal-warning-color-hover);
+  border-color: var(--animal-warning-color-hover);
+  box-shadow: 0 6px 0 0 var(--animal-warning-color-active);
+}
+.animal-btn.animal-btn-cta:active:not(:disabled) {
+  box-shadow: 0 1px 0 0 var(--animal-warning-color-active);
+}
+
+/* Chip variant — small pill toggle */
+.animal-btn-chip {
+  --animal-button-bg: var(--color-bg);
+  --animal-button-border: var(--color-border);
+  --animal-button-text: var(--color-fg);
+  --animal-button-shadow-size: 2px;
+}
+.animal-btn-chip[aria-pressed="true"] {
+  --animal-button-bg: var(--color-primary);
+  --animal-button-border: var(--color-primary);
+  --animal-button-text: var(--color-primary-fg);
+}
+
+/* Icon-only square button */
+.animal-btn-icon-only {
+  width: var(--animal-button-height);
+  padding: 0;
 }
 
 @layer base {
