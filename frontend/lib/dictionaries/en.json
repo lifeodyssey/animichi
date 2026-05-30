@@ -68,7 +68,23 @@
       "hero_real_label": "Real",
       "hero_route_preview": "ROUTE PREVIEW",
       "hero_auth_hint": "Log in only when you want to save or sync.",
-      "walking_route": "Walking route"
+      "walking_route": "Walking route",
+      "hiw_title": "From scene memory to walkable plan.",
+      "hiw_sub": "Seichijunrei turns a title, place, or nearby location into a practical route.",
+      "hiw_step1_title": "Search an anime or place",
+      "hiw_step1_desc": "Find your favorite title, a station, or explore what's nearby.",
+      "hiw_step2_title": "Compare scene and real spot",
+      "hiw_step2_desc": "See the scene and the real location side by side to spot the details.",
+      "hiw_step3_title": "Choose stops that matter",
+      "hiw_step3_desc": "Pick the places you want to see: must-sees, hidden gems, and photo spots.",
+      "hiw_step4_title": "Walk a realistic route",
+      "hiw_step4_desc": "Get a time-aware walking route you can follow on the day.",
+      "popular_title": "Popular pilgrimage routes",
+      "popular_sub": "Hand-picked places loved by fans, ready to turn into a route.",
+      "popular_empty": "No routes yet",
+      "popular_view_all": "View all routes",
+      "popular_half_day": "half-day",
+      "popular_spot_count": "{count} spots"
     }
   },
   "auth": {

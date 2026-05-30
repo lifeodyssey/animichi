@@ -68,7 +68,23 @@
       "hero_real_label": "現実",
       "hero_route_preview": "ROUTE PREVIEW",
       "hero_auth_hint": "保存・同期するときだけログイン",
-      "walking_route": "徒歩ルート"
+      "walking_route": "徒歩ルート",
+      "hiw_title": "場面の記憶から、歩けるルートへ",
+      "hiw_sub": "作品名・駅名・スポットを入力するだけ。あとはおまかせ。",
+      "hiw_step1_title": "アニメや場所を検索",
+      "hiw_step1_desc": "作品名・駅名・都市名で聖地を検索",
+      "hiw_step2_title": "場面と現実を比較",
+      "hiw_step2_desc": "アニメカットと実写を並べて確認",
+      "hiw_step3_title": "行きたいスポットを選ぶ",
+      "hiw_step3_desc": "地図で気になるスポットを選択",
+      "hiw_step4_title": "現実的なルートを歩く",
+      "hiw_step4_desc": "時間を考慮した徒歩ルートを生成",
+      "popular_title": "人気の巡礼ルート",
+      "popular_sub": "ファンに人気の聖地をルート化。すぐ出発できます。",
+      "popular_empty": "まだルートがありません",
+      "popular_view_all": "すべてのルートを見る",
+      "popular_half_day": "半日",
+      "popular_spot_count": "{count}スポット"
     }
   },
   "auth": {
