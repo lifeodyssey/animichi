@@ -60,7 +60,15 @@
       "steps_sub": "输入作品名，其余交给我们。",
       "scroll_hint": "向下滚动",
       "login": "登录",
-      "search_button": "开始巡礼"
+      "search_button": "开始巡礼",
+      "hero_examples": ["你的名字", "吹响吧！上低音号", "天气之子"],
+      "hero_nearby": "附近景点",
+      "hero_location_label": "须贺神社台阶 · 新宿",
+      "hero_anime_label": "动漫",
+      "hero_real_label": "现实",
+      "hero_route_preview": "路线预览",
+      "hero_auth_hint": "仅在想保存或同步时登录",
+      "walking_route": "步行路线"
     }
   },
   "auth": {

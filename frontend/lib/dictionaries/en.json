@@ -60,7 +60,15 @@
       "steps_sub": "Just enter an anime title — we handle the rest.",
       "scroll_hint": "Scroll down",
       "login": "Log in",
-      "search_button": "Start Exploring"
+      "search_button": "Start Exploring",
+      "hero_examples": ["Your Name", "Kimi no Na wa", "Euphonium"],
+      "hero_nearby": "Nearby spots",
+      "hero_location_label": "Suga Shrine Steps · Shinjuku",
+      "hero_anime_label": "Anime",
+      "hero_real_label": "Real",
+      "hero_route_preview": "ROUTE PREVIEW",
+      "hero_auth_hint": "Log in only when you want to save or sync.",
+      "walking_route": "Walking route"
     }
   },
   "auth": {
