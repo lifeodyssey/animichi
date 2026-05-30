@@ -24,10 +24,10 @@ export function FullscreenOverlay({ open, onClose, children }: FullscreenOverlay
   return (
     <div className="fixed inset-0 z-50 bg-background animate-in fade-in duration-200">
       <Button
-        variant="ghost"
-        size="icon"
+        ghost
+        size="small"
         onClick={onClose}
-        className="absolute top-4 right-4 z-10 rounded-full bg-background/80 backdrop-blur shadow-md"
+        className="animal-btn-icon-only absolute top-4 right-4 z-10 rounded-full bg-background/80 backdrop-blur shadow-md"
         aria-label="Close"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

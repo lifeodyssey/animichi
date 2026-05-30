@@ -66,9 +66,9 @@ export function SortableItem({ point, index, onRemove }: SortableItemProps) {
     >
       {/* Drag handle — Fix 8: always-visible grip, animated on hover */}
       <Button
-        variant="ghost"
-        size="icon"
-        className="grip-handle shrink-0 cursor-grab active:cursor-grabbing"
+        ghost
+        size="small"
+        className="animal-btn-icon-only grip-handle shrink-0 cursor-grab active:cursor-grabbing"
         aria-label="Drag to reorder"
         {...attributes}
         {...listeners}
@@ -110,10 +110,10 @@ export function SortableItem({ point, index, onRemove }: SortableItemProps) {
 
       {/* Remove button — always partially visible, full on hover/focus */}
       <Button
-        variant="ghost"
-        size="icon"
+        ghost
+        size="small"
         onClick={() => onRemove(point.id)}
-        className="shrink-0 text-muted-foreground opacity-40 transition-opacity hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+        className="animal-btn-icon-only shrink-0 text-muted-foreground opacity-40 transition-opacity hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
         aria-label={`${t.remove_label} ${displayName}`}
       >
         <svg

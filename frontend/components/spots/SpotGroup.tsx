@@ -103,8 +103,8 @@ export default function SpotGroup({
           {hasMore && !showAll && (
             <div className="mx-2 mb-4">
               <Button
-                variant="outline"
-                size="md"
+                type="dashed"
+                size="middle"
                 onClick={() => setShowAll(true)}
                 className="w-full"
               >

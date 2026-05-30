@@ -59,23 +59,21 @@ export default function FeedbackButtons({ messageId: _messageId, toolParts, user
     <div className="flex flex-col gap-2">
       <div className="flex gap-0.5 opacity-50 transition-opacity md:opacity-0 md:group-hover:opacity-50 md:group-focus-within:opacity-50 hover:!opacity-100" style={{ transitionDuration: "var(--duration-fast)" }}>
         <Button
-          type="button"
-          variant="ghost"
-          size="icon"
+          ghost
+          size="small"
           aria-label={t.feedback_good_title}
           onClick={() => handleFeedback("good")}
-          className="h-11 w-11 text-base text-muted-foreground hover:-translate-y-px hover:text-foreground"
+          className="animal-btn-icon-only h-11 w-11 text-base text-muted-foreground hover:-translate-y-px hover:text-foreground"
           title={t.feedback_good_title}
         >
           {"\uD83D\uDC4D"}
         </Button>
         <Button
-          type="button"
-          variant="ghost"
-          size="icon"
+          ghost
+          size="small"
           aria-label={t.feedback_bad_title}
           onClick={() => handleFeedback("bad")}
-          className="h-11 w-11 text-base text-muted-foreground hover:-translate-y-px hover:text-foreground"
+          className="animal-btn-icon-only h-11 w-11 text-base text-muted-foreground hover:-translate-y-px hover:text-foreground"
           title={t.feedback_bad_title}
         >
           {"\uD83D\uDC4E"}
@@ -83,8 +81,8 @@ export default function FeedbackButtons({ messageId: _messageId, toolParts, user
       </div>
       {state === "commenting" && (
         <div className="flex gap-2">
-          <Input
-            size="sm"
+          <Input shadow
+            size="small"
             type="text"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
@@ -93,9 +91,8 @@ export default function FeedbackButtons({ messageId: _messageId, toolParts, user
             className="flex-1"
           />
           <Button
-            type="button"
-            variant="link"
-            size="sm"
+            type="link"
+            size="small"
             onClick={() => handleFeedback("bad")}
           >
             {t.send}

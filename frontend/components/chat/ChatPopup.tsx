@@ -111,8 +111,7 @@ export default function ChatPopup({
   if (!open) {
     return (
       <Button
-        type="button"
-        variant="primary"
+        type="primary"
         onClick={handlePillClick}
         onPointerDown={handlePillPointerDown}
         onPointerMove={handlePillPointerMove}
@@ -178,12 +177,11 @@ export default function ChatPopup({
             </div>
           </div>
           <Button
-            type="button"
-            variant="ghost"
-            size="icon"
+            ghost
+            size="small"
             onClick={onClose}
             aria-label={t.close}
-            className="h-9 w-9"
+            className="animal-btn-icon-only h-9 w-9"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
               <line x1="18" y1="6" x2="6" y2="18" />

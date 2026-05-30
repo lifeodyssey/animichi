@@ -70,8 +70,8 @@ export default function SpotDetail({
       <div className="flex w-[55%] shrink-0 flex-col overflow-y-auto p-5">
         {/* Back button */}
         <Button
-          variant="link"
-          size="sm"
+          type="link"
+          size="small"
           onClick={onBack}
           className="mb-3"
         >
@@ -130,24 +130,21 @@ export default function SpotDetail({
         {/* Action buttons */}
         <div className="mt-5 flex flex-wrap gap-3">
           <Button
-            variant={isSelected ? "outline" : "primary"}
+            type={isSelected ? "dashed" : "primary"}
             onClick={() => onSelect?.(point.id)}
           >
             {isSelected ? t.selected : t.select}
           </Button>
 
-          <Button
-            variant="default"
-            render={
-              <a
-                href={googleMapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              />
-            }
+          <a
+            href={googleMapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
           >
-            {t.view_on_map}
-          </Button>
+            <Button type="default">
+              {t.view_on_map}
+            </Button>
+          </a>
         </div>
       </div>
 

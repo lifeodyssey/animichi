@@ -50,8 +50,8 @@ export function ResultPanelToolbar({
       {/* Tab row: 按集数 | 按地区 + view toggle */}
       <div className="flex items-center gap-0 px-4 pt-1">
         <Button
-          variant="ghost"
-          size="sm"
+          ghost
+          size="small"
           onClick={() => onFilterModeChange("episode")}
           className={cn(
             "min-h-[44px] rounded-none",
@@ -61,8 +61,8 @@ export function ResultPanelToolbar({
           {t.tab_episode}
         </Button>
         <Button
-          variant="ghost"
-          size="sm"
+          ghost
+          size="small"
           onClick={() => onFilterModeChange("area")}
           className={cn(
             "min-h-[44px] rounded-none",
@@ -77,12 +77,12 @@ export function ResultPanelToolbar({
         {/* Grid / map pill toggle */}
         <div className="flex shrink-0 gap-0.5 rounded-lg bg-card p-0.5">
           <Button
-            variant="chip"
-            size="sm"
+            type="default"
+            size="small"
             aria-pressed={view === "grid"}
             onClick={() => onViewChange("grid")}
             className={cn(
-              "gap-1.5",
+              "animal-btn-chip gap-1.5",
               view === "grid"
                 ? "bg-background text-foreground shadow-sm"
                 : "bg-transparent text-muted-foreground border-transparent shadow-none",
@@ -92,12 +92,12 @@ export function ResultPanelToolbar({
             {t.grid}
           </Button>
           <Button
-            variant="chip"
-            size="sm"
+            type="default"
+            size="small"
             aria-pressed={view === "map"}
             onClick={() => onViewChange("map")}
             className={cn(
-              "gap-1.5",
+              "animal-btn-chip gap-1.5",
               view === "map"
                 ? "bg-background text-foreground shadow-sm"
                 : "bg-transparent text-muted-foreground border-transparent shadow-none",
@@ -113,22 +113,22 @@ export function ResultPanelToolbar({
       {chips.length > 0 && (
         <div className="flex items-center gap-3 overflow-x-auto px-4 py-1.5">
           <Button
-            variant="chip"
-            size="xs"
+            type="default"
+            size="small"
             aria-pressed={activeChip === null}
             onClick={() => onChipChange(null)}
-            className="shrink-0"
+            className="animal-btn-chip shrink-0"
           >
             {t.all}
           </Button>
           {chips.map((chip) => (
             <Button
-              variant="chip"
-              size="xs"
+              type="default"
+              size="small"
               key={chip}
               aria-pressed={activeChip === chip}
               onClick={() => onChipChange(chip)}
-              className="shrink-0"
+              className="animal-btn-chip shrink-0"
             >
               {chip}
             </Button>

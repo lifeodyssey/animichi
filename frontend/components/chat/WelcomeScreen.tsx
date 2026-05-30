@@ -162,9 +162,9 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
         className="entrance-up mb-4 flex w-full max-w-[520px] items-center gap-2"
         style={{ animationDelay: "0.1s" }}
       >
-        <Input
+        <Input shadow
           ref={inputRef}
-          size="lg"
+          size="large"
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -179,9 +179,8 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
           className="flex-1"
         />
         <Button
-          type="button"
-          variant="primary"
-          size="icon"
+          type="primary"
+          size="small" className="animal-btn-icon-only"
           onClick={handleSubmit}
           disabled={!query.trim()}
           aria-label={dict.chat.send}
@@ -200,9 +199,8 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
         {chipData.map((chip) => (
           <Button
             key={chip.label}
-            type="button"
-            variant="chip"
-            size="sm"
+            type="default" className="animal-btn-chip"
+            size="small"
             onClick={() => handleChipClick(chip.query)}
           >
             <span className="text-primary">{chip.icon}</span>
@@ -230,8 +228,7 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
             : covers.map((item, idx) => (
                 <Button
                   key={`${item.bangumi_id}-${idx}`}
-                  type="button"
-                  variant="ghost"
+                  ghost
                   onClick={() => handleChipClick(popularSpotQuery(item.title, locale))}
                   className="group flex h-auto shrink-0 flex-col items-center gap-1.5 border-transparent px-0 py-0"
                   title={item.title}

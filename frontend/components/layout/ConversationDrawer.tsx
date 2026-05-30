@@ -56,8 +56,8 @@ export default function ConversationDrawer({
             {t.title}
           </span>
           <Button
-            variant="ghost"
-            size="icon"
+            ghost
+            size="small" className="animal-btn-icon-only"
             onClick={onClose}
             aria-label={t.close}
           >
@@ -78,8 +78,8 @@ export default function ConversationDrawer({
         {/* New chat */}
         <div className="px-4 pt-4 pb-2 shrink-0">
           <Button
-            variant="default"
-            size="md"
+            type="default"
+            size="middle"
             onClick={() => { onNewChat(); onClose(); }}
             className="w-full justify-start"
           >

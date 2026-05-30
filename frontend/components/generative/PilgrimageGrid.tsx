@@ -124,8 +124,8 @@ function GroupSection({
   return (
     <div className="flex flex-col gap-2">
       <Button
-        variant="ghost"
-        size="xs"
+        ghost
+        size="small"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         className="w-fit justify-start gap-2"

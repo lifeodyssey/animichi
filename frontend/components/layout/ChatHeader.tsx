@@ -16,8 +16,8 @@ export default function ChatHeader({ onNewChat, onMenuToggle }: ChatHeaderProps)
       <div className="flex items-center gap-2">
         {onMenuToggle && (
           <Button
-            variant="ghost"
-            size="icon"
+            ghost
+            size="small" className="animal-btn-icon-only"
             onClick={onMenuToggle}
             aria-label="Toggle sidebar"
           >
@@ -32,8 +32,8 @@ export default function ChatHeader({ onNewChat, onMenuToggle }: ChatHeaderProps)
       </div>
       {onNewChat && (
         <Button
-          variant="link"
-          size="sm"
+          type="link"
+          size="small"
           onClick={onNewChat}
         >
           {s.new_chat}

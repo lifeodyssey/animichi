@@ -81,7 +81,7 @@ export const WithFooter: Story = {
         <p>EP 3のオープニングシーンに登場する世界遺産。</p>
       </CardContent>
       <CardFooter>
-        <Button size="sm">ルートに追加</Button>
+        <Button size="small">ルートに追加</Button>
       </CardFooter>
     </Card>
   ),

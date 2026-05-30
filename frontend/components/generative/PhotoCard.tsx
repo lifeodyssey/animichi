@@ -43,10 +43,10 @@ export function PhotoCard({ point, selected, onToggle, onDetail }: PhotoCardProp
     >
       {/* Detail button — visible on hover */}
       <Button
-        variant="ghost"
-        size="icon"
+        ghost
+        size="small"
         onClick={(e) => { e.stopPropagation(); onDetail?.(point); }}
-        className="absolute left-2 top-2 z-10 rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+        className="animal-btn-icon-only absolute left-2 top-2 z-10 rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
         aria-label="查看详情"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>

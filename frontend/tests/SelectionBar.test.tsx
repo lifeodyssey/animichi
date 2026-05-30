@@ -94,7 +94,7 @@ describe("SelectionBar", () => {
 
   it("route button is disabled when count is 0", () => {
     renderBar({ count: 0 });
-    const routeBtn = screen.getByText("ルート化");
+    const routeBtn = screen.getByRole("button", { name: "ルート化" });
     expect(routeBtn).toBeDisabled();
   });
 

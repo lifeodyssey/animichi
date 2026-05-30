@@ -33,13 +33,13 @@ interface NavButtonProps {
 function NavButton({ label, active = false, onClick, children }: NavButtonProps) {
   return (
     <Button
-      variant="ghost"
-      size="icon"
+      ghost
+      size="small"
       aria-label={label}
       data-active={active ? "true" : "false"}
       onClick={onClick}
       className={cn(
-        "group relative shrink-0",
+        "animal-btn-icon-only group relative shrink-0",
         active
           ? "bg-sidebar-active text-primary"
           : "text-muted-foreground"
@@ -66,11 +66,11 @@ export default function IconSidebar({
     >
       {/* Torii logo — brand-soft bg, 44x44 rounded square */}
       <Button
-        variant="ghost"
-        size="icon"
+        ghost
+        size="small"
         aria-label="聖地巡礼 home"
         onClick={onNewChat}
-        className="group relative mb-3 shrink-0 rounded-lg bg-brand-soft transition-transform duration-150 hover:scale-105 hover:bg-brand-soft"
+        className="animal-btn-icon-only group relative mb-3 shrink-0 rounded-lg bg-brand-soft transition-transform duration-150 hover:scale-105 hover:bg-brand-soft"
       >
         <svg viewBox="0 0 72 72" width="28" height="28" fill="none" aria-hidden>
           <rect x="12" y="16" width="48" height="5" rx="2.5" fill="var(--color-torii)" />

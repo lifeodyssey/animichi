@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useDict } from "../../lib/i18n-context";
 import { cn } from "../../lib/utils";
 import ToriiIcon from "../icons/ToriiIcon";
+import { Button } from "@/components/ui/button";
 
 export interface NavItem {
   label: string;
@@ -43,24 +44,29 @@ export default function SharedHeader({
   return (
     <header
       className={cn(
-        "entrance-down inset-x-0 top-0 z-50 border-b-2 border-border bg-card px-4 sm:px-6",
-        position === "fixed" ? "fixed" : "sticky",
+        "entrance-down inset-x-0 top-0 z-50 px-4 sm:px-8",
+        position === "fixed" ? "fixed pt-3" : "sticky",
       )}
     >
-      <div className="mx-auto flex h-14 items-center justify-between">
+      <div className={cn(
+        "mx-auto flex h-16 max-w-[1300px] items-center justify-between rounded-[var(--r-lg)] px-5",
+        position === "fixed" ? "bg-card/80 border border-border/50 shadow-sm backdrop-blur-md" : "bg-card border-b-2 border-border",
+      )}>
         {/* ── Left: torii logo + brand + nav ── */}
         <div className="flex items-center gap-6">
           <Link
             href="/"
-            className="flex items-center gap-3 font-display"
+            className="flex items-center gap-2.5"
           >
-            <ToriiIcon size={20} />
-            <span className="text-sm font-bold text-foreground">
-              聖地巡礼
-            </span>
-            <span className="hidden text-xs tracking-[1.2px] text-muted-foreground sm:inline">
-              seichijunrei
-            </span>
+            <ToriiIcon size={24} />
+            <div className="flex flex-col">
+              <span className="text-[10px] tracking-[1px] text-muted-foreground">
+                Seichijunrei
+              </span>
+              <span className="font-display text-sm font-bold leading-tight text-foreground">
+                聖地巡礼
+              </span>
+            </div>
           </Link>
 
           {navItems && navItems.length > 0 && (
@@ -92,21 +98,21 @@ export default function SharedHeader({
         )}
 
         {!children && onLogin && (
-          <button
-            type="button"
+          <Button
+            type="primary"
+            size="small"
+            className="animal-btn-cta"
             onClick={onLogin}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
           >
             {t.login}
-          </button>
+          </Button>
         )}
 
         {!children && !onLogin && loginHref && (
-          <Link
-            href={loginHref}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
-          >
-            {t.login}
+          <Link href={loginHref}>
+            <Button type="primary" size="small" className="animal-btn-cta">
+              {t.login}
+            </Button>
           </Link>
         )}
       </div>

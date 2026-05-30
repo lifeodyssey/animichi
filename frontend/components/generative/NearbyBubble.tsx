@@ -34,8 +34,8 @@ function AnimeNearbyCard({
 
   return (
     <Button
-      variant="outline"
-      size="md"
+      type="dashed"
+      size="middle"
       onClick={onClick}
       className="w-full justify-start gap-4 px-5 py-4 font-normal hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 transition-all duration-150 ease-[var(--ease-animal)]"
     >
@@ -145,8 +145,8 @@ export default function NearbyBubble({ data, onSuggest }: NearbyBubbleProps) {
       </div>
 
       <Button
-        variant="default"
-        size="md"
+        type="default"
+        size="middle"
         onClick={() => onSuggest?.(nt.show_all_nearby)}
         className="mt-3 w-full justify-start gap-4 px-5 py-4 font-normal"
       >

@@ -115,9 +115,9 @@ export default function ChatInput({
 
       {/* Input bar */}
       <div className="mx-auto flex w-full max-w-[520px] items-center gap-2">
-        <Input
+        <Input shadow
           ref={inputRef}
-          size="lg"
+          size="large"
           prefix={SEARCH_ICON}
           type="text"
           value={text}
@@ -129,13 +129,12 @@ export default function ChatInput({
           className="flex-1"
         />
         <Button
-          type="button"
-          variant="primary"
-          size="icon"
+          type="primary"
+          size="small"
           onClick={handleSubmit}
           disabled={disabled || !hasText}
           aria-label={t.send}
-          className={cn(!hasText && !disabled && "opacity-30")}
+          className={cn("animal-btn-icon-only", !hasText && !disabled && "opacity-30")}
         >
           {sendContent}
         </Button>
