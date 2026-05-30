@@ -17,15 +17,16 @@ export default function Home() {
     searchParams.get("login") === "true",
   );
 
-  // If already logged in, go to redirect target
+  // Only auto-redirect when an explicit ?redirect= param is present
+  // (e.g. from a protected page). Otherwise logged-in users stay on landing.
   useEffect(() => {
-    if (!authClient) return;
+    if (!authClient || !searchParams.get("redirect")) return;
     authClient.auth.getSession()
       .then(({ data: { session } }) => {
         if (session) router.replace(redirect);
       })
       .catch(() => { /* session check failed — stay on landing */ });
-  }, [authClient, router, redirect]);
+  }, [authClient, router, redirect, searchParams]);
 
   return (
     <>

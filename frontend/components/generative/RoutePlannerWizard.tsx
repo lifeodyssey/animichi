@@ -122,8 +122,8 @@ export default function RoutePlannerWizard({
         <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
           {onBack && (
             <Button
-              variant="link"
-              size="sm"
+              type="link"
+              size="small"
               onClick={onBack}
             >
               <svg
@@ -194,8 +194,8 @@ export default function RoutePlannerWizard({
                 {paceOptions.map((opt) => (
                   <Button
                     key={opt.key}
-                    variant="chip"
-                    size="sm"
+                    type="default" className="animal-btn-chip"
+                    size="small"
                     aria-pressed={pacing === opt.key}
                     onClick={() => setPacing(opt.key)}
                   >
@@ -225,24 +225,24 @@ export default function RoutePlannerWizard({
         {/* Export bar */}
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-2">
           <Button
-            variant="primary"
-            size="sm"
+            type="primary"
+            size="small"
             onClick={exportGoogleMaps}
             className="flex-1"
           >
             {rt.export_gmaps}
           </Button>
           <Button
-            variant="outline"
-            size="sm"
+            type="dashed"
+            size="small"
             onClick={exportIcs}
           >
             {rt.export_ics}
           </Button>
           {onExpandChat && (
             <Button
-              variant="primary"
-              size="sm"
+              type="primary"
+              size="small"
               onClick={onExpandChat}
               className="rounded-full"
             >

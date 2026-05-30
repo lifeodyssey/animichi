@@ -43,8 +43,7 @@ export default function ResultAnchor({
 }: ResultAnchorProps) {
   return (
     <Button
-      type="button"
-      variant="default"
+      type="default"
       onClick={() => {
         onActivate?.(messageId);
         onOpenDrawer?.();

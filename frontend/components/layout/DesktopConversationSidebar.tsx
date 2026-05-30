@@ -39,8 +39,8 @@ export default function DesktopConversationSidebar({
       {/* New chat */}
       <div className="px-4 pt-4 pb-2 shrink-0">
         <Button
-          variant="default"
-          size="md"
+          type="default"
+          size="middle"
           data-testid="desktop-sidebar-new-chat"
           onClick={onNewChat}
           className="w-full justify-start"

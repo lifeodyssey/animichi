@@ -40,7 +40,7 @@ export default function SelectionBar({
       <span className="shrink-0 text-xs font-medium text-primary">
         {t.count.replace("{count}", String(count))}
       </span>
-      <Input
+      <Input shadow
         value={origin}
         onChange={(event) => setOrigin(event.target.value)}
         aria-label={t.placeholder}
@@ -50,21 +50,21 @@ export default function SelectionBar({
           }
         }}
         placeholder={t.placeholder}
-        size="sm"
+        size="small"
         className="min-w-0 flex-1"
         disabled={disabled}
       />
       <Button
-        variant="primary"
-        size="sm"
+        type="primary"
+        size="small"
         onClick={handleRoute}
         disabled={disabled || count === 0}
       >
         {t.route}
       </Button>
       <Button
-        variant="link"
-        size="sm"
+        type="link"
+        size="small"
         onClick={onClear}
         disabled={disabled}
       >

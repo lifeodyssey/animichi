@@ -22,6 +22,39 @@ Key components and their responsibilities:
 
 **Adding a new result component:** register in `registry.ts` only. No other file changes needed.
 
+### Component Ownership Table
+
+`components/ui/` is split into two categories. Call sites always import from `@/components/ui/*`; the shim is the swap point.
+
+**Package-backed (shims) — thin 2-line re-exports from `animal-island-ui`:**
+
+| File | Package export | Package API notes |
+|---|---|---|
+| `button.tsx` | `Button`, `ButtonProps`, `ButtonType`, `ButtonSize` | `type` prop (not `variant`): `primary\|default\|dashed\|text\|link`; sizes: `small\|middle\|large`; `danger`/`ghost`/`loading`/`block` booleans |
+| `input.tsx` | `Input`, `InputProps`, `InputSize` | `size`: `small\|middle\|large`; `prefix`/`suffix`/`allowClear`/`status`/`shadow` |
+| `select.tsx` | `Select`, `SelectProps`, `SelectOption` | |
+| `switch.tsx` | `Switch`, `SwitchProps`, `SwitchSize` | `size`: `small\|default`; `checkedChildren`/`unCheckedChildren`/`onChange(checked)` |
+| `typewriter.tsx` | `Typewriter`, `TypewriterProps` | |
+
+**App-owned (local composites) — Radix/base-ui implementations; NOT migration targets:**
+
+| File | Why local |
+|---|---|
+| `card.tsx` | Radix-style compound component (`CardHeader`/`CardTitle`/`CardContent`/`CardFooter`/`CardAction`) with app-specific `variant`/`color`/`size` props; package Card has a different API shape |
+| `sheet.tsx` | base-ui `Dialog` composite for slide-over panels; package has no `Sheet` equivalent |
+| `checkbox.tsx` | `CheckboxGroup` with `options[]` pattern and app size/direction props; documented as app layer |
+| `tabs.tsx` | base-ui `Tabs` composite with `variant="line"` and app styling; package Tabs has different composition |
+| `accordion.tsx` | `CollapseCard` FAQ pattern; not in package exports |
+| `badge.tsx` | base-ui `useRender` badge with app-specific variants (`default\|secondary\|destructive\|outline\|ghost\|link`) |
+| `skeleton.tsx` | Simple `animate-pulse` div; no package equivalent |
+| `tooltip.tsx` | base-ui Tooltip composite |
+| `scroll-area.tsx` | Radix ScrollArea |
+| `separator.tsx` | Radix Separator |
+| `toggle.tsx` / `toggle-group.tsx` | Radix Toggle/ToggleGroup |
+| `image-compare.tsx` | Draggable split-view slider (app-specific) |
+
+**Rule:** when the package exports a primitive the app needs and the API is losslessly compatible, use a shim. When the app needs composition APIs (compound components, Radix primitives, app-specific variants) that the package does not export, keep it local and annotate here. Do not churn app-owned components in future migration passes without explicit approval.
+
 ## Design System
 
 Light theme — no dark mode toggle. Palette is 動森キャンプ (Animal Crossing x Yuru Camp, warm cream/brown).
@@ -68,3 +101,11 @@ work without `generateStaticParams` — pages are rendered on-demand at the edge
 Before any design or UI work, read `DESIGN.md` in this directory. It contains the complete visual identity specification (colors, typography, spacing, components, do's and don'ts) in Google's open DESIGN.md format. The authoritative token values live in `app/globals.css :root`.
 
 <!-- END:nextjs-agent-rules -->
+
+<!-- CLAUDE_CODE_MIGRATION_START:-Documents-Seichijunrei-agent-.claude-worktrees-ssr-migration-frontend-CLAUDE.md -->
+# Migrated Claude Code Project Instructions
+
+Source: `~/Documents/Seichijunrei-agent/.claude/worktrees/ssr-migration/frontend/CLAUDE.md`
+
+@AGENTS.md
+<!-- CLAUDE_CODE_MIGRATION_END:-Documents-Seichijunrei-agent-.claude-worktrees-ssr-migration-frontend-CLAUDE.md -->

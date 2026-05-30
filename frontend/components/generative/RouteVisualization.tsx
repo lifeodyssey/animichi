@@ -56,7 +56,7 @@ export default function RouteVisualization({ data }: RouteVisualizationProps) {
               </p>
             ) : null}
           </div>
-          <Button variant="outline" size="xs" onClick={handleOpenGoogleMaps}>
+          <Button type="dashed" size="small" onClick={handleOpenGoogleMaps}>
             {t.export_gmaps}
           </Button>
         </div>

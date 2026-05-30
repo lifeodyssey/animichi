@@ -50,8 +50,7 @@ export default function MessageList({
             {clarification.suggestions.map((s, idx) => (
               <Button
                 key={s.label}
-                type="button"
-                variant="default"
+                type="default"
                 onClick={() => onSuggest(s.query)}
                 className="entrance-message h-auto justify-between rounded-2xl px-4 py-3 text-left text-sm font-light"
                 style={{

@@ -115,8 +115,8 @@ function CandidateCard({
 
   return (
     <Button
-      variant="outline"
-      size="md"
+      type="dashed"
+      size="middle"
       onClick={onSelect}
       aria-label={candidate.title}
       className="w-full justify-start gap-3 p-5 font-normal hover:-translate-y-0.5 hover:border-primary hover:shadow-sm active:translate-y-0"
@@ -183,8 +183,8 @@ function SearchAllCard({
 
   return (
     <Button
-      variant="outline"
-      size="md"
+      type="dashed"
+      size="middle"
       onClick={handleClick}
       aria-label={label}
       className="w-full justify-start gap-3 p-5 font-normal hover:-translate-y-0.5 hover:border-primary hover:shadow-sm active:translate-y-0"
@@ -224,8 +224,8 @@ function FallbackSuggestionCard({
 }) {
   return (
     <Button
-      variant="outline"
-      size="md"
+      type="dashed"
+      size="middle"
       onClick={onSelect}
       aria-label={label}
       className="w-full justify-start gap-3 p-5 font-normal hover:-translate-y-0.5 hover:border-primary hover:shadow-sm active:translate-y-0"

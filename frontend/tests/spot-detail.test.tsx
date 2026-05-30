@@ -132,8 +132,8 @@ describe("SpotDetail", () => {
     );
     const selectBtn = screen.getByText(zhDict.spot_detail.select);
     expect(selectBtn).toBeInTheDocument();
-    // Primary button variant uses bg-card with 3D shadow
-    expect(selectBtn.closest("button")?.className).toContain("bg-card");
+    // Primary button variant uses animal-island-ui's primary class
+    expect(selectBtn.closest("button")?.className).toContain("animal-btn-primary");
   });
 
   it('shows "selected" state with outline styling when selected', () => {
@@ -147,10 +147,10 @@ describe("SpotDetail", () => {
     );
     const selectedBtn = screen.getByText(zhDict.spot_detail.selected);
     expect(selectedBtn).toBeInTheDocument();
-    // Outline button has border-primary but not bg-primary
+    // Dashed button variant uses animal-island-ui's dashed class
     const btnClass = selectedBtn.closest("button")?.className ?? "";
-    expect(btnClass).toContain("border-primary");
-    expect(btnClass).not.toContain("bg-primary");
+    expect(btnClass).toContain("animal-btn-dashed");
+    expect(btnClass).not.toContain("animal-btn-primary");
   });
 
   it("shows nearby points list (up to 5)", () => {

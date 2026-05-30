@@ -43,8 +43,8 @@ export function SelectionBar({
       </span>
 
       <Button
-        variant="link"
-        size="xs"
+        type="link"
+        size="small"
         onClick={onClear}
         className="text-muted-foreground hover:text-foreground"
       >
@@ -52,8 +52,8 @@ export function SelectionBar({
       </Button>
 
       <Button
-        variant="primary"
-        size="sm"
+        type="primary"
+        size="small"
         onClick={onPlanRoute}
         disabled={disabled || count < 2}
         className="ml-auto"
