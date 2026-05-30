@@ -55,6 +55,14 @@ Key components and their responsibilities:
 
 **Rule:** when the package exports a primitive the app needs and the API is losslessly compatible, use a shim. When the app needs composition APIs (compound components, Radix primitives, app-specific variants) that the package does not export, keep it local and annotate here. Do not churn app-owned components in future migration passes without explicit approval.
 
+## Token Ownership
+
+The package `animal-island-ui` owns the `--animal-*` primitive token layer, delivered via `animal-island-ui/style/core` (imported at line 2 of `app/globals.css`). The app's `globals.css :root` defines the `--color-*` semantic alias layer on top.
+
+Alignment contract: the equality between selected `--color-*` tokens and their `--animal-*` counterparts is asserted by `tests/design-token-alignment.test.ts`. This test must remain green; a package upgrade that shifts a primitive token value will fail CI before reaching production. See `DESIGN.md` "Token Alignment Map" for the full mapping table.
+
+**Rule:** never delete or rename an `--animal-*` reference in `globals.css` without updating the contract test. Never change a `--color-*` value that is documented as equal to an `--animal-*` value without checking the current package value first.
+
 ## Design System
 
 Light theme — no dark mode toggle. Palette is 動森キャンプ (Animal Crossing x Yuru Camp, warm cream/brown).
