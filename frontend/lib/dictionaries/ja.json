@@ -84,7 +84,18 @@
       "popular_empty": "まだルートがありません",
       "popular_view_all": "すべてのルートを見る",
       "popular_half_day": "半日",
-      "popular_spot_count": "{count}スポット"
+      "popular_spot_count": "{count}スポット",
+      "ss_title": "先に計画して。保存したいと思ったらログイン。",
+      "ss_sub": "場面、スポット、徒歩ルートをデバイス間で引き継げます。",
+      "ss_feature1": "お気に入りスポットを保存",
+      "ss_feature2": "出発前にスマホへ同期",
+      "ss_feature3": "以前の巡礼に戻る",
+      "ss_card_title": "ルートを保存する",
+      "ss_card_sub": "安全なリンクをメールでお送りします。パスワード不要。",
+      "ss_email_placeholder": "you@example.com",
+      "ss_send_cta": "ログインリンクを送る",
+      "ss_save_cta": "ルートを保存",
+      "ss_browse_cta": "このまま探す"
     }
   },
   "auth": {
