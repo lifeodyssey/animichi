@@ -84,7 +84,18 @@
       "popular_empty": "暂无路线",
       "popular_view_all": "查看全部路线",
       "popular_half_day": "半天",
-      "popular_spot_count": "{count}个圣地"
+      "popular_spot_count": "{count}个圣地",
+      "ss_title": "先规划，值得保存时再登录。",
+      "ss_sub": "场景、选中的打卡点和步行路线跨设备保留。",
+      "ss_feature1": "收藏喜爱的打卡点",
+      "ss_feature2": "出发前同步到手机",
+      "ss_feature3": "返回之前的巡礼",
+      "ss_card_title": "保存路线",
+      "ss_card_sub": "我们将发送安全链接到您的邮箱。无需密码。",
+      "ss_email_placeholder": "you@example.com",
+      "ss_send_cta": "发送登录链接",
+      "ss_save_cta": "保存路线",
+      "ss_browse_cta": "继续浏览"
     }
   },
   "auth": {

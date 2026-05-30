@@ -7,6 +7,7 @@ import SharedFooter from "../layout/SharedFooter";
 import LandingHero from "./LandingHero";
 import { LandingHowItWorks } from "./LandingHowItWorks";
 import { LandingPopularRoutes } from "./LandingPopularRoutes";
+import { LandingSaveSync } from "./LandingSaveSync";
 
 interface LandingPageProps {
   onOpenAuth: (query?: string) => void;
@@ -32,7 +33,10 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
         <LandingPopularRoutes items={ANIME_GALLERY} onOpenAuth={onOpenAuth} />
       </div>
 
-      {/* B3 section will be inserted here */}
+      {/* ═══════ SECTION 4: SAVE-SYNC (48px top spacing) ═══════ */}
+      <div className="mt-12">
+        <LandingSaveSync onOpenAuth={onOpenAuth} />
+      </div>
 
       <SharedFooter />
     </div>
