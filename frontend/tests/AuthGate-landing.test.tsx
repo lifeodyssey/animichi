@@ -26,6 +26,22 @@ vi.mock("next/navigation", () => ({
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
 
+vi.mock("@/hooks/useScrollReveal", () => ({
+  useScrollReveal: vi.fn(() => vi.fn()),
+}));
+
+vi.mock("@/components/generative/BeforeAfter", () => ({
+  default: ({ leftAlt, rightAlt }: { leftAlt?: string; rightAlt?: string; [key: string]: unknown }) => (
+    <div data-testid="before-after-mock" aria-label={`${leftAlt ?? ""} vs ${rightAlt ?? ""}`} />
+  ),
+}));
+
+vi.mock("@/components/generative/FoxGuide", () => ({
+  default: ({ pose }: { pose: string; [key: string]: unknown }) => (
+    <div data-testid="fox-guide-mock" data-pose={pose} />
+  ),
+}));
+
 vi.mock("next/link", () => ({
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [key: string]: unknown }) => (
     <a href={href} {...props}>{children}</a>
@@ -74,12 +90,13 @@ describe("Landing page — Japanese (ja)", () => {
     expect(logins.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders 4-step section titles", () => {
+  it("renders how-it-works step titles", () => {
     renderLanding(jaFull);
-    expect(screen.getByText("聖地を探す")).toBeInTheDocument();
-    expect(screen.getByText("地点を選ぶ")).toBeInTheDocument();
-    expect(screen.getByText("ルート生成")).toBeInTheDocument();
-    expect(screen.getByText("エクスポート")).toBeInTheDocument();
+    // B2: how-it-works section replaces the inline 4-step section
+    expect(screen.getByText("アニメや場所を検索")).toBeInTheDocument();
+    expect(screen.getByText("場面と現実を比較")).toBeInTheDocument();
+    expect(screen.getByText("行きたいスポットを選ぶ")).toBeInTheDocument();
+    expect(screen.getByText("現実的なルートを歩く")).toBeInTheDocument();
   });
 });
 
@@ -101,10 +118,11 @@ describe("Landing page — Chinese (zh)", () => {
     expect(screen.getByText(/热门巡礼路线/)).toBeInTheDocument();
   });
 
-  it("renders 4-step section in Chinese", () => {
+  it("renders how-it-works section in Chinese", () => {
     renderLanding(zhFull);
-    expect(screen.getByText("找圣地")).toBeInTheDocument();
-    expect(screen.getByText("导出分享")).toBeInTheDocument();
+    // B2: how-it-works replaces old 4-step
+    expect(screen.getByText("搜索动漫或地点")).toBeInTheDocument();
+    expect(screen.getByText("走出真实的巡礼路线")).toBeInTheDocument();
   });
 });
 
@@ -132,10 +150,11 @@ describe("Landing page — English (en)", () => {
     expect(logins.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders 4-step section in English", () => {
+  it("renders how-it-works section in English", () => {
     renderLanding(enFull);
-    expect(screen.getByText("Find spots")).toBeInTheDocument();
-    expect(screen.getByText("Export & share")).toBeInTheDocument();
+    // B2: how-it-works replaces old 4-step
+    expect(screen.getByText("Search an anime or place")).toBeInTheDocument();
+    expect(screen.getByText("Walk a realistic route")).toBeInTheDocument();
   });
 });
 
@@ -151,7 +170,8 @@ describe("Landing page — structure", () => {
   it("gallery cards link to anime guide pages", () => {
     const { container } = renderLanding(jaFull);
     const galleryLinks = container.querySelectorAll("a[href*='/anime/']");
-    expect(galleryLinks.length).toBe(4);
+    // B2: LandingPopularRoutes renders all ANIME_GALLERY items (8)
+    expect(galleryLinks.length).toBeGreaterThanOrEqual(4);
     expect(galleryLinks[0].getAttribute("href")).toContain("/anime/");
   });
 

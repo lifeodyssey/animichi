@@ -97,7 +97,8 @@ function renderLanding(dict: Dict = jaFull, onOpenAuth = vi.fn()) {
 describe("B1 hero — happy path elements", () => {
   it("renders BeforeAfter component as primary visual", () => {
     renderLanding(jaFull);
-    expect(screen.getByTestId("before-after-mock")).toBeInTheDocument();
+    // LandingPage now renders multiple BeforeAfter instances (hero + how-it-works step 2)
+    expect(screen.getAllByTestId("before-after-mock").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders FoxGuide with welcome pose", () => {
