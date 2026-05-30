@@ -23,6 +23,22 @@ globalThis.IntersectionObserver = class IntersectionObserver {
 // scrollIntoView is not implemented in jsdom
 window.HTMLElement.prototype.scrollIntoView = function () {};
 
+// matchMedia polyfill — used by FoxGuide (prefers-reduced-motion)
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  configurable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }),
+});
+
 // Suppress mapbox-gl Worker error in jsdom (no WebGL/Worker support)
 globalThis.Worker = class Worker {
   constructor() {}
