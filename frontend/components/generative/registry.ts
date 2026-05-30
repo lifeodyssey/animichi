@@ -8,6 +8,7 @@ import RouteVisualization from "./RouteVisualization";
 import RoutePlannerWizard from "./RoutePlannerWizard";
 import GeneralAnswer from "./GeneralAnswer";
 import Clarification from "./Clarification";
+import BeforeAfter from "./BeforeAfter";
 
 export type ComponentRenderer = (
   response: RuntimeResponse,
@@ -15,6 +16,15 @@ export type ComponentRenderer = (
 ) => ReactNode;
 
 export const COMPONENT_REGISTRY: Record<string, ComponentRenderer> = {
+  BeforeAfter: (response) => {
+    const firstScreenshot = isSearchData(response.data)
+      ? (response.data.results.rows[0]?.screenshot_url ?? "")
+      : "";
+    return createElement(BeforeAfter, {
+      leftSrc: firstScreenshot,
+      rightSrc: "",
+    });
+  },
   PilgrimageGrid: (response) =>
     isSearchData(response.data)
       ? createElement(PilgrimageGrid, { data: response.data })

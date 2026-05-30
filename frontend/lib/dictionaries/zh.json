@@ -326,6 +326,10 @@
     "loading": "搜索中...",
     "error": "搜索失败，请重试。"
   },
+  "before_after": {
+    "anime_label": "动画",
+    "real_label": "实景"
+  },
   "anime_guide": {
     "spots_label": "{count} 个取景地",
     "plan_route": "用 AI 规划巡礼路线",
