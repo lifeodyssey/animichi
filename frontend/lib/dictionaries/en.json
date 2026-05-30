@@ -84,7 +84,18 @@
       "popular_empty": "No routes yet",
       "popular_view_all": "View all routes",
       "popular_half_day": "half-day",
-      "popular_spot_count": "{count} spots"
+      "popular_spot_count": "{count} spots",
+      "ss_title": "Plan first. Log in only when the route is worth saving.",
+      "ss_sub": "Your scenes, selected stops, and walking plan stay together across devices.",
+      "ss_feature1": "Save favorite spots",
+      "ss_feature2": "Sync to mobile before you leave",
+      "ss_feature3": "Return to previous pilgrimages",
+      "ss_card_title": "Save your route",
+      "ss_card_sub": "We'll email you a secure link. No password needed.",
+      "ss_email_placeholder": "you@example.com",
+      "ss_send_cta": "Send login link",
+      "ss_save_cta": "Save my route",
+      "ss_browse_cta": "Keep browsing"
     }
   },
   "auth": {
