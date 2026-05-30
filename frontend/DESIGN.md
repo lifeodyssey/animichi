@@ -238,3 +238,17 @@ Rounded container (24px radius) with 2px border and card shadow. Loading uses sk
 - Add dark mode (light-only by design decision)
 - Use gradient text or glassmorphism
 - Use side-stripe borders (border-left > 1px as accent)
+
+## Token Alignment Map (package = source of truth)
+
+`animal-island-ui/dist/core.css` defines the `--animal-*` primitive layer. `app/globals.css :root` defines the `--color-*` semantic alias layer. The following equalities are locked and CI-guarded by `tests/design-token-alignment.test.ts`.
+
+| App token (`--color-*`) | Package token (`--animal-*`) | Relationship | Value |
+|---|---|---|---|
+| `--color-primary` | `--animal-primary-color` | literal equality | `#19c8b9` |
+| `--color-error-fg` | `--animal-error-color-active` | literal equality | `#c94444` |
+| CTA button background | `--animal-warning-color` | direct reference | `#f5c31c` (package-owned) |
+
+Note on CTA: `--color-cta` (`#f0b429`) is an app-defined alias used for non-button CTA tokens (e.g. text labels). The `.animal-btn-cta` class in `globals.css` consumes `var(--animal-warning-color)` directly, making the rendered button color package-owned. If the package changes `--animal-warning-color`, the CTA button color changes automatically; update `--color-cta` in globals.css to match if the semantic alias should track it.
+
+When upgrading `animal-island-ui`, run `npm run test -- --run tests/design-token-alignment.test.ts` immediately. A test failure means a primitive token value changed and the semantic layer must be reconciled.
