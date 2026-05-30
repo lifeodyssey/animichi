@@ -121,8 +121,8 @@ export default function NearbyChips({
         return (
           <Button
             key={group.bangumi_id}
-            variant="chip"
-            size="xs"
+            type="default" className="animal-btn-chip"
+            size="small"
             aria-pressed={isActive}
             onClick={() => onSelect(isActive ? null : group.bangumi_id)}
             style={chipInlineStyles(color, isActive)}

@@ -107,8 +107,8 @@ export default function RouteConfirm({
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="flex shrink-0 items-center border-b border-border px-4 py-3">
         <Button
-          variant="link"
-          size="sm"
+          type="link"
+          size="small"
           onClick={onBack}
           className="h-[44px] gap-1"
         >
@@ -141,7 +141,7 @@ export default function RouteConfirm({
         <label className="mb-1 block text-xs text-muted-foreground">
           {t.departure_label}
         </label>
-        <Input
+        <Input shadow
           type="text"
           value={origin}
           onChange={(e) => setOrigin(e.target.value)}
@@ -230,7 +230,7 @@ export default function RouteConfirm({
           </div>
         </div>
         <Button
-          variant="primary"
+          type="primary"
           onClick={handleConfirm}
           disabled={!canConfirm}
           className="w-full"

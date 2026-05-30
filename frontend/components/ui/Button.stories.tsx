@@ -7,14 +7,16 @@ const meta = {
   component: Button,
   tags: ["autodocs"],
   argTypes: {
-    variant: {
+    type: {
       control: "select",
-      options: ["primary", "default", "cta", "outline", "ghost", "link", "chip", "danger"],
+      options: ["primary", "default", "dashed", "text", "link"],
     },
     size: {
       control: "select",
-      options: ["xs", "sm", "md", "lg", "icon"],
+      options: ["small", "middle", "large"],
     },
+    danger: { control: "boolean" },
+    ghost: { control: "boolean" },
     disabled: { control: "boolean" },
   },
 } satisfies Meta<typeof Button>;
@@ -22,78 +24,71 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/* ── Variants ── */
+/* ── Types ── */
 
 export const Primary: Story = {
-  args: { variant: "primary", children: "ルートを計画" },
-};
-
-export const CTA: Story = {
-  args: { variant: "cta", children: "確認する" },
+  args: { type: "primary", children: "ルートを計画" },
 };
 
 export const Default: Story = {
-  args: { variant: "default", children: "聖地を探す" },
+  args: { type: "default", children: "聖地を探す" },
 };
 
-export const Outline: Story = {
-  args: { variant: "outline", children: "詳細を見る" },
+export const Dashed: Story = {
+  args: { type: "dashed", children: "スポットを追加" },
 };
 
-export const Ghost: Story = {
-  args: { variant: "ghost", children: "キャンセル" },
+export const TextType: Story = {
+  name: "Text",
+  args: { type: "text", children: "キャンセル" },
 };
 
 export const Link: Story = {
-  args: { variant: "link", children: "もっと見る" },
+  args: { type: "link", children: "もっと見る" },
 };
 
-export const Chip: Story = {
-  args: { variant: "chip", children: "京都府", "aria-pressed": false },
-};
-
-export const ChipActive: Story = {
-  name: "Chip (Active)",
-  args: { variant: "chip", children: "宇治市", "aria-pressed": true },
+export const Ghost: Story = {
+  args: { ghost: true, children: "詳細を見る" },
 };
 
 export const Danger: Story = {
-  args: { variant: "danger", children: "削除する" },
+  args: { danger: true, children: "削除する" },
+};
+
+export const DangerGhost: Story = {
+  name: "Danger + Ghost",
+  args: { danger: true, ghost: true, children: "削除する" },
 };
 
 /* ── Sizes ── */
 
-export const ExtraSmall: Story = {
-  args: { size: "xs", children: "保存" },
-};
-
 export const Small: Story = {
-  args: { size: "sm", children: "保存" },
+  args: { size: "small", children: "保存" },
 };
 
-export const Medium: Story = {
-  args: { size: "md", children: "聖地巡礼を始める" },
+export const Middle: Story = {
+  args: { size: "middle", children: "聖地巡礼を始める" },
 };
 
 export const Large: Story = {
-  args: { size: "lg", children: "聖地巡礼を始める" },
+  args: { size: "large", children: "聖地巡礼を始める" },
 };
 
-export const Icon: Story = {
+export const WithIcon: Story = {
+  name: "With Icon Prop",
   args: {
-    size: "icon",
-    variant: "outline",
-    children: <Search className="size-4" />,
-    "aria-label": "検索",
+    type: "primary",
+    icon: <Search className="size-4" />,
+    children: "検索",
   },
 };
 
-/* ── With Icons ── */
+/* ── With children icons ── */
 
 export const WithLeadingIcon: Story = {
   name: "With Leading Icon",
   args: {
-    variant: "primary",
+    type: "primary",
     children: (
       <>
         <MapPin className="size-4" /> スポットを追加
@@ -105,7 +100,7 @@ export const WithLeadingIcon: Story = {
 export const WithTrailingIcon: Story = {
   name: "With Trailing Icon",
   args: {
-    variant: "outline",
+    type: "default",
     children: (
       <>
         Google Maps <ExternalLink className="size-3.5" />
@@ -117,36 +112,38 @@ export const WithTrailingIcon: Story = {
 /* ── States ── */
 
 export const Disabled: Story = {
-  args: { variant: "primary", children: "送信中…", disabled: true },
-};
-
-export const DisabledDanger: Story = {
-  name: "Disabled (Danger)",
-  args: { variant: "danger", children: "削除する", disabled: true },
+  args: { type: "primary", children: "送信中…", disabled: true },
 };
 
 export const Loading: Story = {
   args: {
-    variant: "primary",
+    type: "primary",
     loading: true,
     children: "Loading...",
   },
 };
 
+export const Block: Story = {
+  args: {
+    type: "primary",
+    block: true,
+    children: "全幅ボタン",
+  },
+};
+
 /* ── Gallery ── */
 
-export const AllVariants: Story = {
-  name: "All Variants",
+export const AllTypes: Story = {
+  name: "All Types",
   render: () => (
     <div className="flex flex-wrap items-center gap-3">
-      <Button variant="primary">Primary</Button>
-      <Button variant="cta">CTA 確認</Button>
-      <Button variant="default">Default</Button>
-      <Button variant="outline">Outline</Button>
-      <Button variant="ghost">Ghost</Button>
-      <Button variant="link">Link</Button>
-      <Button variant="chip">Chip</Button>
-      <Button variant="danger">
+      <Button type="primary">Primary</Button>
+      <Button type="default">Default</Button>
+      <Button type="dashed">Dashed</Button>
+      <Button type="text">Text</Button>
+      <Button type="link">Link</Button>
+      <Button ghost>Ghost</Button>
+      <Button danger>
         <Trash2 className="size-4" /> Danger
       </Button>
     </div>
@@ -157,13 +154,10 @@ export const AllSizes: Story = {
   name: "All Sizes",
   render: () => (
     <div className="flex flex-wrap items-end gap-3">
-      <Button size="xs">xs</Button>
-      <Button size="sm">sm</Button>
-      <Button size="md">md</Button>
-      <Button size="lg">lg</Button>
-      <Button size="icon" variant="outline" aria-label="Fav">
-        <Heart className="size-4" />
-      </Button>
+      <Button size="small">small</Button>
+      <Button size="middle">middle</Button>
+      <Button size="large">large</Button>
+      <Button type="default" icon={<Heart className="size-4" />} aria-label="Fav" />
     </div>
   ),
 };

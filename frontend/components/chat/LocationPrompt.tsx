@@ -80,9 +80,8 @@ export default function LocationPrompt({
           {!isAcquiring && geoState.kind !== "ok" && (
             <>
               <Button
-                type="button"
-                variant="chip"
-                size="sm"
+                type="default" className="animal-btn-chip"
+                size="small"
                 onClick={handleUseCurrentLocation}
               >
                 <span aria-hidden="true">📍</span>
@@ -90,9 +89,8 @@ export default function LocationPrompt({
               </Button>
               {!showStationInput && (
                 <Button
-                  type="button"
-                  variant="chip"
-                  size="sm"
+                  type="default" className="animal-btn-chip"
+                  size="small"
                   onClick={handleEnterStation}
                 >
                   {t.enter_station}
@@ -109,12 +107,11 @@ export default function LocationPrompt({
         </div>
 
         <Button
-          type="button"
-          variant="ghost"
-          size="icon"
+          ghost
+          size="small"
           onClick={onDismiss}
           aria-label="dismiss location prompt"
-          className="ml-2 h-6 w-6"
+          className="animal-btn-icon-only ml-2 h-6 w-6"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M2 2l8 8M10 2l-8 8" />
@@ -130,9 +127,9 @@ export default function LocationPrompt({
 
       {showStationInput && geoState.kind !== "acquiring" && (
         <form onSubmit={handleStationSubmit} className="flex gap-2">
-          <Input
+          <Input shadow
             ref={stationInputRef}
-            size="sm"
+            size="small"
             type="text"
             value={stationValue}
             onChange={(e) => setStationValue(e.target.value)}
@@ -140,9 +137,9 @@ export default function LocationPrompt({
             className="flex-1"
           />
           <Button
-            type="submit"
-            variant="primary"
-            size="sm"
+            htmlType="submit"
+            type="primary"
+            size="small"
             disabled={!stationValue.trim()}
           >
             OK

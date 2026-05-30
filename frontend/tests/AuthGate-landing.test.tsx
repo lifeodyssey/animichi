@@ -1,7 +1,7 @@
 /**
- * Unit tests for Landing page (redesigned)
+ * Unit tests for Landing page (v2 — animal-island-ui redesign)
  *
- * AC: Landing hero text, stats labels, gallery render in all 3 locales -> unit
+ * AC: Landing hero headline, search input, gallery, 4-step section in all 3 locales -> unit
  * AC: No session / first visit — landing renders with all sections visible -> unit (jsdom)
  */
 import { describe, it, expect, vi } from "vitest";
@@ -21,13 +21,11 @@ vi.mock("@/lib/i18n-context", () => ({
   useSetLocale: vi.fn(() => vi.fn()),
 }));
 
-// Mock next/navigation for Link and useRouter
 vi.mock("next/navigation", () => ({
   useRouter: vi.fn(() => ({ replace: vi.fn(), push: vi.fn() })),
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
 
-// Mock next/link
 vi.mock("next/link", () => ({
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [key: string]: unknown }) => (
     <a href={href} {...props}>{children}</a>
@@ -45,66 +43,52 @@ function renderLanding(dict: Dict = jaFull) {
 // ── Locale: Japanese ──
 
 describe("Landing page — Japanese (ja)", () => {
-  it("renders the hero title", () => {
+  it("renders the hero headline", () => {
     renderLanding(jaFull);
-    const headings = screen.getAllByText("聖地巡礼");
-    expect(headings.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/アニメの場面を/)).toBeInTheDocument();
   });
 
-  it("renders hero subtitle", () => {
+  it("renders hero lead text", () => {
     renderLanding(jaFull);
-    expect(
-      screen.getByText("アニメの舞台を探して、巡礼ルートを作ろう"),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/作品名・駅名・都市名を入力/)).toBeInTheDocument();
   });
 
-  it("renders CTA button with honest text", () => {
+  it("renders CTA button", () => {
     renderLanding(jaFull);
     expect(screen.getByText("巡礼を始める")).toBeInTheDocument();
   });
 
-  it("renders spot count stat label", () => {
+  it("renders search input with placeholder", () => {
     renderLanding(jaFull);
-    expect(screen.getByText("スポット")).toBeInTheDocument();
-  });
-
-  it("renders anime count stat label", () => {
-    renderLanding(jaFull);
-    const elements = screen.getAllByText("作品");
-    expect(elements.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("renders prefecture stat label", () => {
-    renderLanding(jaFull);
-    expect(screen.getByText("都道府県")).toBeInTheDocument();
-  });
-
-  it("renders stat numbers", () => {
-    renderLanding(jaFull);
-    expect(screen.getByText("2,400+")).toBeInTheDocument();
-    expect(screen.getByText("180+")).toBeInTheDocument();
-    expect(screen.getByText("47")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("作品名・駅名・都市名を入力")).toBeInTheDocument();
   });
 
   it("renders gallery title", () => {
     renderLanding(jaFull);
-    expect(screen.getByText("人気作品")).toBeInTheDocument();
+    expect(screen.getByText(/人気の巡礼ルート/)).toBeInTheDocument();
   });
 
   it("renders login button", () => {
     renderLanding(jaFull);
-    expect(screen.getByText("ログイン")).toBeInTheDocument();
+    const logins = screen.getAllByText("ログイン");
+    expect(logins.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders 4-step section titles", () => {
+    renderLanding(jaFull);
+    expect(screen.getByText("聖地を探す")).toBeInTheDocument();
+    expect(screen.getByText("地点を選ぶ")).toBeInTheDocument();
+    expect(screen.getByText("ルート生成")).toBeInTheDocument();
+    expect(screen.getByText("エクスポート")).toBeInTheDocument();
   });
 });
 
 // ── Locale: Chinese ──
 
 describe("Landing page — Chinese (zh)", () => {
-  it("renders hero subtitle in Chinese", () => {
+  it("renders hero headline in Chinese", () => {
     renderLanding(zhFull);
-    expect(
-      screen.getByText("探索动漫圣地，踏上巡礼之旅"),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/把动画场景/)).toBeInTheDocument();
   });
 
   it("renders CTA in Chinese", () => {
@@ -112,27 +96,24 @@ describe("Landing page — Chinese (zh)", () => {
     expect(screen.getByText("开始巡礼")).toBeInTheDocument();
   });
 
-  it("renders spot stat label in Chinese", () => {
-    renderLanding(zhFull);
-    expect(screen.getByText("取景地")).toBeInTheDocument();
-  });
-
   it("renders gallery title in Chinese", () => {
     renderLanding(zhFull);
-    expect(screen.getByText("热门作品")).toBeInTheDocument();
+    expect(screen.getByText(/热门巡礼路线/)).toBeInTheDocument();
+  });
+
+  it("renders 4-step section in Chinese", () => {
+    renderLanding(zhFull);
+    expect(screen.getByText("找圣地")).toBeInTheDocument();
+    expect(screen.getByText("导出分享")).toBeInTheDocument();
   });
 });
 
 // ── Locale: English ──
 
 describe("Landing page — English (en)", () => {
-  it("renders hero subtitle in English", () => {
+  it("renders hero headline in English", () => {
     renderLanding(enFull);
-    expect(
-      screen.getByText(
-        "Find anime filming locations and plan your pilgrimage route",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Turn anime scenes/)).toBeInTheDocument();
   });
 
   it("renders CTA in English", () => {
@@ -140,58 +121,42 @@ describe("Landing page — English (en)", () => {
     expect(screen.getByText("Start Exploring")).toBeInTheDocument();
   });
 
-  it("renders spot stat label in English", () => {
-    renderLanding(enFull);
-    expect(screen.getByText("spots")).toBeInTheDocument();
-  });
-
   it("renders gallery title in English", () => {
     renderLanding(enFull);
-    expect(screen.getByText("Popular anime")).toBeInTheDocument();
+    expect(screen.getByText(/Popular pilgrimage routes/)).toBeInTheDocument();
   });
 
   it("renders login button in English", () => {
     renderLanding(enFull);
-    expect(screen.getByText("Log in")).toBeInTheDocument();
+    const logins = screen.getAllByText("Log in");
+    expect(logins.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders 4-step section in English", () => {
+    renderLanding(enFull);
+    expect(screen.getByText("Find spots")).toBeInTheDocument();
+    expect(screen.getByText("Export & share")).toBeInTheDocument();
   });
 });
 
 // ── Structural ──
 
 describe("Landing page — structure", () => {
-  it("hero section is present", () => {
-    const { container } = renderLanding(jaFull);
-    expect(container.querySelector("[data-testid='hero-section']")).not.toBeNull();
-  });
-
-  it("gallery section is present", () => {
-    const { container } = renderLanding(jaFull);
-    expect(container.querySelector("[data-testid='gallery-section']")).not.toBeNull();
-  });
-
-  it("renders footer with brand name", () => {
+  it("renders header + footer brand name", () => {
     renderLanding(jaFull);
     const all = screen.getAllByText("聖地巡礼");
-    expect(all.length).toBeGreaterThanOrEqual(2); // header + footer
+    expect(all.length).toBeGreaterThanOrEqual(2);
   });
 
   it("gallery cards link to anime guide pages", () => {
     const { container } = renderLanding(jaFull);
-    const galleryLinks = container.querySelectorAll(
-      "[data-testid='gallery-section'] a",
-    );
-    expect(galleryLinks.length).toBe(8);
-    const firstHref = galleryLinks[0].getAttribute("href");
-    expect(firstHref).toContain("/anime/");
+    const galleryLinks = container.querySelectorAll("a[href*='/anime/']");
+    expect(galleryLinks.length).toBe(4);
+    expect(galleryLinks[0].getAttribute("href")).toContain("/anime/");
   });
 
-  it("does not render search input (no fake search bar)", () => {
+  it("renders view-all button", () => {
     renderLanding(jaFull);
-    expect(screen.queryByPlaceholderText("アニメの聖地を探す...")).not.toBeInTheDocument();
-  });
-
-  it("does not render 3-step section (removed)", () => {
-    const { container } = renderLanding(jaFull);
-    expect(container.querySelector("[data-testid='steps-section']")).toBeNull();
+    expect(screen.getByText(/すべてのルートを見る/)).toBeInTheDocument();
   });
 });

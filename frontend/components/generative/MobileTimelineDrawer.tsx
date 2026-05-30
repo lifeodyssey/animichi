@@ -33,8 +33,8 @@ export default function MobileTimelineDrawer({ itinerary, data }: MobileTimeline
     <Drawer.Root open={open} onOpenChange={setOpen} snapPoints={[0.4, 0.9]} fadeFromIndex={1}>
       <Drawer.Trigger asChild>
         <Button
-          variant="ghost"
-          size="sm"
+          ghost
+          size="small"
           className="shrink-0 w-full rounded-none border-t border-border bg-card"
           aria-label="タイムラインを開く"
         >
@@ -68,10 +68,10 @@ export default function MobileTimelineDrawer({ itinerary, data }: MobileTimeline
           </div>
           {itinerary && (
             <div className="shrink-0 flex gap-2 px-4 py-3 border-t border-border">
-              <Button variant="outline" size="sm" className="flex-1" onClick={exportGoogleMaps}>
+              <Button type="dashed" size="small" className="flex-1" onClick={exportGoogleMaps}>
                 📍 Maps
               </Button>
-              <Button variant="outline" size="sm" className="flex-1" onClick={exportIcs}>
+              <Button type="dashed" size="small" className="flex-1" onClick={exportIcs}>
                 📅 Cal
               </Button>
             </div>

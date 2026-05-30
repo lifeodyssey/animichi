@@ -301,8 +301,8 @@ export default function AnimeGuideClient({ initialData, bangumiId }: AnimeGuideC
                 <p className="mt-1 text-sm text-muted-foreground">{t.plan_route_sub}</p>
               </div>
               <Button
-                variant="cta"
-                size="lg"
+                type="primary"
+                size="large"
                 onClick={() => {
                   sessionStorage.setItem(`${storageKey}-scroll`, String(window.scrollY));
                   const q = encodeURIComponent(locale === "zh" && titleCn ? titleCn : title);
@@ -312,7 +312,7 @@ export default function AnimeGuideClient({ initialData, bangumiId }: AnimeGuideC
                     setShowLoginModal(true);
                   }
                 }}
-                className="mt-3 sm:mt-0"
+                className="animal-btn-cta mt-3 sm:mt-0"
               >
                 {t.plan_route}
                 <span aria-hidden="true">→</span>

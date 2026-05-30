@@ -40,7 +40,7 @@ describe("LoginPage", () => {
     render(<LoginPage />);
 
     expect(screen.getByText("聖地巡礼")).toBeDefined();
-    expect(screen.getByText("seichijunrei")).toBeDefined();
+    expect(screen.getByText("Seichijunrei")).toBeDefined();
   });
 
   it("renders login form with email input and submit button", async () => {

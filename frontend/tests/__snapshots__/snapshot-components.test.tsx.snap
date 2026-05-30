@@ -18,27 +18,23 @@ exports[`Snapshot: ApiKeysPage > renders settings page 1`] = `
     <form
       class="mb-8 flex gap-2"
     >
-      <div
-        class="inline-flex items-center w-full bg-card rounded-[var(--r-pill)] border-[2.5px] border-border transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] hover:-translate-y-px hover:border-[var(--color-border-hover)] hover:shadow-[0_3px_0_0_var(--color-border)] focus-within:border-focus focus-within:shadow-[0_3px_0_0_var(--color-input-shadow),var(--shadow-focus-glow)] has-[:disabled]:bg-muted has-[:disabled]:border-input-shadow has-[:disabled]:shadow-none has-[:disabled]:opacity-60 has-[:disabled]:cursor-not-allowed h-8 px-5 text-xs shadow-[0_2px_0_0_var(--color-input-shadow)] flex-1"
-        data-slot="input-wrapper"
+      <span
+        class="animal-input-wrapper animal-input-small flex-1"
       >
         <input
-          class="flex-1 w-full min-w-0 border-none outline-none bg-transparent text-foreground font-medium tracking-[0.01em] placeholder:text-muted-foreground placeholder:font-normal disabled:cursor-not-allowed disabled:text-[var(--color-border)] file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground"
-          data-slot="input"
-          id="base-ui-_r_2_"
+          class="animal-input-control"
           placeholder="Key name (e.g. My CLI Agent)"
           value=""
         />
-      </div>
+      </span>
       <button
-        class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-card text-foreground border-card shadow-[0_5px_0_0_var(--color-3d-shadow)] hover:translate-y-[-1px] hover:shadow-[0_6px_0_0_var(--color-3d-shadow)] active:translate-y-[2px] active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-8 gap-1 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5"
-        data-disabled=""
-        data-slot="button"
+        class="animal-btn animal-btn-primary animal-btn-small"
         disabled=""
-        tabindex="0"
         type="submit"
       >
-        Create key
+        <span>
+          Create key
+        </span>
       </button>
     </form>
     <p
@@ -65,12 +61,12 @@ exports[`Snapshot: ChatHeader > renders without crashing 1`] = `
       </h1>
     </div>
     <button
-      class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-transparent text-primary border-transparent underline-offset-4 hover:underline h-8 gap-1 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5"
-      data-slot="button"
-      tabindex="0"
+      class="animal-btn animal-btn-link animal-btn-small"
       type="button"
     >
-      + 新しい会話
+      <span>
+        + 新しい会話
+      </span>
     </button>
   </header>
 </div>
@@ -140,34 +136,34 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
         </div>
         <button
           aria-label="チャットを閉じる"
-          class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-transparent text-foreground border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-9 w-9"
-          data-slot="button"
-          tabindex="0"
+          class="animal-btn animal-btn-default animal-btn-small animal-btn-ghost animal-btn-icon-only h-9 w-9"
           type="button"
         >
-          <svg
-            aria-hidden="true"
-            fill="none"
-            height="14"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-width="2"
-            viewBox="0 0 24 24"
-            width="14"
-          >
-            <line
-              x1="18"
-              x2="6"
-              y1="6"
-              y2="18"
-            />
-            <line
-              x1="6"
-              x2="18"
-              y1="6"
-              y2="18"
-            />
-          </svg>
+          <span>
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="14"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="14"
+            >
+              <line
+                x1="18"
+                x2="6"
+                y1="6"
+                y2="18"
+              />
+              <line
+                x1="6"
+                x2="18"
+                y1="6"
+                y2="18"
+              />
+            </svg>
+          </span>
         </button>
       </div>
     </div>
@@ -198,51 +194,51 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
             class="mt-5 flex flex-col gap-2.5"
           >
             <button
-              class="group/button inline-flex shrink-0 items-center whitespace-nowrap tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background text-foreground border-border shadow-[0_5px_0_0_var(--color-3d-shadow)] hover:border-primary hover:text-primary hover:translate-y-[-1px] hover:shadow-[0_6px_0_0_var(--color-3d-shadow)] active:translate-y-[2px] active:shadow-[0_1px_0_0_var(--color-3d-shadow)] gap-1.5 entrance-message h-auto justify-between rounded-2xl px-4 py-3 text-left text-sm font-light"
-              data-slot="button"
+              class="animal-btn animal-btn-default animal-btn-middle entrance-message h-auto justify-between rounded-2xl px-4 py-3 text-left text-sm font-light"
               style="animation-delay: 100ms;"
-              tabindex="0"
               type="button"
             >
               <span>
-                作品名で探す
-              </span>
-              <span
-                aria-hidden="true"
-              >
-                →
+                <span>
+                  作品名で探す
+                </span>
+                <span
+                  aria-hidden="true"
+                >
+                  →
+                </span>
               </span>
             </button>
             <button
-              class="group/button inline-flex shrink-0 items-center whitespace-nowrap tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background text-foreground border-border shadow-[0_5px_0_0_var(--color-3d-shadow)] hover:border-primary hover:text-primary hover:translate-y-[-1px] hover:shadow-[0_6px_0_0_var(--color-3d-shadow)] active:translate-y-[2px] active:shadow-[0_1px_0_0_var(--color-3d-shadow)] gap-1.5 entrance-message h-auto justify-between rounded-2xl px-4 py-3 text-left text-sm font-light"
-              data-slot="button"
+              class="animal-btn animal-btn-default animal-btn-middle entrance-message h-auto justify-between rounded-2xl px-4 py-3 text-left text-sm font-light"
               style="animation-delay: 160ms;"
-              tabindex="0"
               type="button"
             >
               <span>
-                場所で探す
-              </span>
-              <span
-                aria-hidden="true"
-              >
-                →
+                <span>
+                  場所で探す
+                </span>
+                <span
+                  aria-hidden="true"
+                >
+                  →
+                </span>
               </span>
             </button>
             <button
-              class="group/button inline-flex shrink-0 items-center whitespace-nowrap tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background text-foreground border-border shadow-[0_5px_0_0_var(--color-3d-shadow)] hover:border-primary hover:text-primary hover:translate-y-[-1px] hover:shadow-[0_6px_0_0_var(--color-3d-shadow)] active:translate-y-[2px] active:shadow-[0_1px_0_0_var(--color-3d-shadow)] gap-1.5 entrance-message h-auto justify-between rounded-2xl px-4 py-3 text-left text-sm font-light"
-              data-slot="button"
+              class="animal-btn animal-btn-default animal-btn-middle entrance-message h-auto justify-between rounded-2xl px-4 py-3 text-left text-sm font-light"
               style="animation-delay: 220ms;"
-              tabindex="0"
               type="button"
             >
               <span>
-                ルートを作る
-              </span>
-              <span
-                aria-hidden="true"
-              >
-                →
+                <span>
+                  ルートを作る
+                </span>
+                <span
+                  aria-hidden="true"
+                >
+                  →
+                </span>
               </span>
             </button>
           </div>
@@ -261,13 +257,11 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
       <div
         class="mx-auto flex w-full max-w-[520px] items-center gap-2"
       >
-        <div
-          class="inline-flex items-center w-full bg-card rounded-[var(--r-pill)] border-border transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] hover:-translate-y-px hover:border-[var(--color-border-hover)] hover:shadow-[0_3px_0_0_var(--color-border)] focus-within:border-focus focus-within:shadow-[0_3px_0_0_var(--color-input-shadow),var(--shadow-focus-glow)] has-[:disabled]:bg-muted has-[:disabled]:border-input-shadow has-[:disabled]:shadow-none has-[:disabled]:opacity-60 has-[:disabled]:cursor-not-allowed h-12 px-6 text-base border-[3px] shadow-[0_4px_0_0_var(--color-input-shadow)] flex-1"
-          data-slot="input-wrapper"
+        <span
+          class="animal-input-wrapper animal-input-large flex-1"
         >
           <span
-            class="inline-flex shrink-0 items-center text-muted-foreground mr-1.5"
-            data-slot="input-prefix"
+            class="animal-input-prefix"
           >
             <svg
               aria-hidden="true"
@@ -295,38 +289,35 @@ exports[`Snapshot: ChatPopup > renders when open 1`] = `
           </span>
           <input
             aria-label="会話を続ける…"
-            class="flex-1 w-full min-w-0 border-none outline-none bg-transparent text-foreground font-medium tracking-[0.01em] placeholder:text-muted-foreground placeholder:font-normal disabled:cursor-not-allowed disabled:text-[var(--color-border)] file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground"
-            data-slot="input"
-            id="base-ui-_r_0_"
+            class="animal-input-control"
             placeholder="会話を続ける…"
             type="text"
             value=""
           />
-        </div>
+        </span>
         <button
           aria-label="送信"
-          class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-card text-foreground border-card shadow-[0_5px_0_0_var(--color-3d-shadow)] hover:translate-y-[-1px] hover:shadow-[0_6px_0_0_var(--color-3d-shadow)] active:translate-y-[2px] active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-11 w-11 opacity-30"
-          data-disabled=""
-          data-slot="button"
+          class="animal-btn animal-btn-primary animal-btn-small animal-btn-icon-only opacity-30"
           disabled=""
-          tabindex="0"
           type="button"
         >
-          <svg
-            aria-hidden="true"
-            fill="none"
-            height="16"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            viewBox="0 0 24 24"
-            width="16"
-          >
-            <polygon
-              points="22 2 15 22 11 13 2 9 22 2"
-            />
-          </svg>
+          <span>
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="16"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="16"
+            >
+              <polygon
+                points="22 2 15 22 11 13 2 9 22 2"
+              />
+            </svg>
+          </span>
         </button>
       </div>
       <p
@@ -346,24 +337,24 @@ exports[`Snapshot: FullscreenOverlay > renders when open 1`] = `
   >
     <button
       aria-label="Close"
-      class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 text-foreground border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 absolute top-4 right-4 z-10 rounded-full bg-background/80 backdrop-blur shadow-md"
-      data-slot="button"
-      tabindex="0"
+      class="animal-btn animal-btn-default animal-btn-small animal-btn-ghost animal-btn-icon-only absolute top-4 right-4 z-10 rounded-full bg-background/80 backdrop-blur shadow-md"
       type="button"
     >
-      <svg
-        fill="none"
-        height="16"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-width="2"
-        viewBox="0 0 16 16"
-        width="16"
-      >
-        <path
-          d="M4 4l8 8M12 4l-8 8"
-        />
-      </svg>
+      <span>
+        <svg
+          fill="none"
+          height="16"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-width="2"
+          viewBox="0 0 16 16"
+          width="16"
+        >
+          <path
+            d="M4 4l8 8M12 4l-8 8"
+          />
+        </svg>
+      </span>
     </button>
     <p>
       Overlay content
@@ -380,187 +371,187 @@ exports[`Snapshot: IconSidebar > renders with nav buttons 1`] = `
   >
     <button
       aria-label="聖地巡礼 home"
-      class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 text-foreground border-transparent active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 group relative mb-3 shrink-0 rounded-lg bg-brand-soft transition-transform duration-150 hover:scale-105 hover:bg-brand-soft"
-      data-slot="button"
-      tabindex="0"
+      class="animal-btn animal-btn-default animal-btn-small animal-btn-ghost animal-btn-icon-only group relative mb-3 shrink-0 rounded-lg bg-brand-soft transition-transform duration-150 hover:scale-105 hover:bg-brand-soft"
       type="button"
     >
-      <svg
-        aria-hidden="true"
-        fill="none"
-        height="28"
-        viewBox="0 0 72 72"
-        width="28"
-      >
-        <rect
-          fill="var(--color-torii)"
-          height="5"
-          rx="2.5"
-          width="48"
-          x="12"
-          y="16"
-        />
-        <rect
-          fill="var(--color-torii)"
-          height="3"
-          rx="1.5"
-          width="56"
-          x="8"
-          y="14"
-        />
-        <rect
-          fill="var(--color-torii)"
-          height="35"
-          rx="1"
-          width="5"
-          x="16"
-          y="21"
-        />
-        <rect
-          fill="var(--color-torii)"
-          height="35"
-          rx="1"
-          width="5"
-          x="51"
-          y="21"
-        />
-        <rect
-          fill="var(--color-torii)"
-          height="3"
-          opacity=".5"
-          rx="1.5"
-          width="48"
-          x="12"
-          y="30"
-        />
-        <rect
-          fill="var(--color-muted-fg)"
-          height="1.5"
-          rx=".75"
-          width="7"
-          x="2"
-          y="2"
-        />
-        <rect
-          fill="var(--color-muted-fg)"
-          height="7"
-          rx=".75"
-          width="1.5"
-          x="2"
-          y="2"
-        />
-        <rect
-          fill="var(--color-muted-fg)"
-          height="1.5"
-          rx=".75"
-          width="7"
-          x="63"
-          y="2"
-        />
-        <rect
-          fill="var(--color-muted-fg)"
-          height="7"
-          rx=".75"
-          width="1.5"
-          x="68.5"
-          y="2"
-        />
-      </svg>
+      <span>
+        <svg
+          aria-hidden="true"
+          fill="none"
+          height="28"
+          viewBox="0 0 72 72"
+          width="28"
+        >
+          <rect
+            fill="var(--color-torii)"
+            height="5"
+            rx="2.5"
+            width="48"
+            x="12"
+            y="16"
+          />
+          <rect
+            fill="var(--color-torii)"
+            height="3"
+            rx="1.5"
+            width="56"
+            x="8"
+            y="14"
+          />
+          <rect
+            fill="var(--color-torii)"
+            height="35"
+            rx="1"
+            width="5"
+            x="16"
+            y="21"
+          />
+          <rect
+            fill="var(--color-torii)"
+            height="35"
+            rx="1"
+            width="5"
+            x="51"
+            y="21"
+          />
+          <rect
+            fill="var(--color-torii)"
+            height="3"
+            opacity=".5"
+            rx="1.5"
+            width="48"
+            x="12"
+            y="30"
+          />
+          <rect
+            fill="var(--color-muted-fg)"
+            height="1.5"
+            rx=".75"
+            width="7"
+            x="2"
+            y="2"
+          />
+          <rect
+            fill="var(--color-muted-fg)"
+            height="7"
+            rx=".75"
+            width="1.5"
+            x="2"
+            y="2"
+          />
+          <rect
+            fill="var(--color-muted-fg)"
+            height="1.5"
+            rx=".75"
+            width="7"
+            x="63"
+            y="2"
+          />
+          <rect
+            fill="var(--color-muted-fg)"
+            height="7"
+            rx=".75"
+            width="1.5"
+            x="68.5"
+            y="2"
+          />
+        </svg>
+      </span>
     </button>
     <button
       aria-label="新对话"
-      class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-transparent border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 group relative shrink-0 text-muted-foreground"
+      class="animal-btn animal-btn-default animal-btn-small animal-btn-ghost animal-btn-icon-only group relative shrink-0 text-muted-foreground"
       data-active="false"
-      data-slot="button"
-      tabindex="0"
       type="button"
     >
-      <svg
-        aria-hidden="true"
-        fill="none"
-        height="18"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="1.8"
-        viewBox="0 0 24 24"
-        width="18"
-      >
-        <path
-          d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-        />
-        <path
-          d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-        />
-      </svg>
-      <span
-        class="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-foreground px-2.5 py-1 text-xs font-medium text-background opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-20"
-      >
-        新对话
+      <span>
+        <svg
+          aria-hidden="true"
+          fill="none"
+          height="18"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.8"
+          viewBox="0 0 24 24"
+          width="18"
+        >
+          <path
+            d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+          />
+          <path
+            d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+          />
+        </svg>
+        <span
+          class="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-foreground px-2.5 py-1 text-xs font-medium text-background opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-20"
+        >
+          新对话
+        </span>
       </span>
     </button>
     <button
       aria-label="历史"
-      class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-transparent border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 group relative shrink-0 text-muted-foreground"
+      class="animal-btn animal-btn-default animal-btn-small animal-btn-ghost animal-btn-icon-only group relative shrink-0 text-muted-foreground"
       data-active="false"
-      data-slot="button"
-      tabindex="0"
       type="button"
     >
-      <svg
-        aria-hidden="true"
-        fill="none"
-        height="18"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="1.8"
-        viewBox="0 0 24 24"
-        width="18"
-      >
-        <polyline
-          points="12 8 12 12 14 14"
-        />
-        <path
-          d="M3.05 11a9 9 0 1 0 .5-4.5"
-        />
-        <polyline
-          points="3 3 3 9 9 9"
-        />
-      </svg>
-      <span
-        class="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-foreground px-2.5 py-1 text-xs font-medium text-background opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-20"
-      >
-        历史
+      <span>
+        <svg
+          aria-hidden="true"
+          fill="none"
+          height="18"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.8"
+          viewBox="0 0 24 24"
+          width="18"
+        >
+          <polyline
+            points="12 8 12 12 14 14"
+          />
+          <path
+            d="M3.05 11a9 9 0 1 0 .5-4.5"
+          />
+          <polyline
+            points="3 3 3 9 9 9"
+          />
+        </svg>
+        <span
+          class="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-foreground px-2.5 py-1 text-xs font-medium text-background opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-20"
+        >
+          历史
+        </span>
       </span>
     </button>
     <button
       aria-label="收藏"
-      class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-transparent border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 group relative shrink-0 text-muted-foreground"
+      class="animal-btn animal-btn-default animal-btn-small animal-btn-ghost animal-btn-icon-only group relative shrink-0 text-muted-foreground"
       data-active="false"
-      data-slot="button"
-      tabindex="0"
       type="button"
     >
-      <svg
-        aria-hidden="true"
-        fill="none"
-        height="18"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="1.8"
-        viewBox="0 0 24 24"
-        width="18"
-      >
-        <path
-          d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"
-        />
-      </svg>
-      <span
-        class="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-foreground px-2.5 py-1 text-xs font-medium text-background opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-20"
-      >
-        收藏
+      <span>
+        <svg
+          aria-hidden="true"
+          fill="none"
+          height="18"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.8"
+          viewBox="0 0 24 24"
+          width="18"
+        >
+          <path
+            d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"
+          />
+        </svg>
+        <span
+          class="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-foreground px-2.5 py-1 text-xs font-medium text-background opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-20"
+        >
+          收藏
+        </span>
       </span>
     </button>
     <div
@@ -569,36 +560,36 @@ exports[`Snapshot: IconSidebar > renders with nav buttons 1`] = `
     />
     <button
       aria-label="设置"
-      class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-transparent border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 group relative shrink-0 text-muted-foreground"
+      class="animal-btn animal-btn-default animal-btn-small animal-btn-ghost animal-btn-icon-only group relative shrink-0 text-muted-foreground"
       data-active="false"
-      data-slot="button"
-      tabindex="0"
       type="button"
     >
-      <svg
-        aria-hidden="true"
-        fill="none"
-        height="18"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="1.8"
-        viewBox="0 0 24 24"
-        width="18"
-      >
-        <circle
-          cx="12"
-          cy="12"
-          r="3"
-        />
-        <path
-          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
-        />
-      </svg>
-      <span
-        class="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-foreground px-2.5 py-1 text-xs font-medium text-background opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-20"
-      >
-        设置
+      <span>
+        <svg
+          aria-hidden="true"
+          fill="none"
+          height="18"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.8"
+          viewBox="0 0 24 24"
+          width="18"
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="3"
+          />
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+          />
+        </svg>
+        <span
+          class="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-foreground px-2.5 py-1 text-xs font-medium text-background opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-20"
+        >
+          设置
+        </span>
       </span>
     </button>
   </aside>
@@ -741,20 +732,20 @@ exports[`Snapshot: ResultPanelToolbar > renders toolbar with tabs and chips 1`] 
       class="flex items-center gap-0 px-4 pt-1"
     >
       <button
-        class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-8 gap-1 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5 min-h-[44px] rounded-none text-foreground border-b-2 border-primary"
-        data-slot="button"
-        tabindex="0"
+        class="animal-btn animal-btn-default animal-btn-small animal-btn-ghost min-h-[44px] rounded-none text-foreground border-b-2 border-primary"
         type="button"
       >
-        集数別
+        <span>
+          集数別
+        </span>
       </button>
       <button
-        class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-8 gap-1 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5 min-h-[44px] rounded-none text-muted-foreground border-b-2 border-transparent"
-        data-slot="button"
-        tabindex="0"
+        class="animal-btn animal-btn-default animal-btn-small animal-btn-ghost min-h-[44px] rounded-none text-muted-foreground border-b-2 border-transparent"
         type="button"
       >
-        地域別
+        <span>
+          地域別
+        </span>
       </button>
       <div
         class="flex-1"
@@ -764,27 +755,27 @@ exports[`Snapshot: ResultPanelToolbar > renders toolbar with tabs and chips 1`] 
       >
         <button
           aria-pressed="true"
-          class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-full border-border aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary hover:border-primary active:translate-y-px active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-8 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5 gap-1.5 bg-background text-foreground shadow-sm"
-          data-slot="button"
-          tabindex="0"
+          class="animal-btn animal-btn-default animal-btn-small animal-btn-chip gap-1.5 bg-background text-foreground shadow-sm"
           type="button"
         >
           <span>
-            📷
+            <span>
+              📷
+            </span>
+            グリッド
           </span>
-          グリッド
         </button>
         <button
           aria-pressed="false"
-          class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-full aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary hover:border-primary active:translate-y-px active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-8 px-4 text-xs [&_svg:not([class*='size-'])]:size-3.5 gap-1.5 bg-transparent text-muted-foreground border-transparent shadow-none"
-          data-slot="button"
-          tabindex="0"
+          class="animal-btn animal-btn-default animal-btn-small animal-btn-chip gap-1.5 bg-transparent text-muted-foreground border-transparent shadow-none"
           type="button"
         >
           <span>
-            🗺
+            <span>
+              🗺
+            </span>
+            マップ
           </span>
-          マップ
         </button>
       </div>
     </div>
@@ -793,30 +784,30 @@ exports[`Snapshot: ResultPanelToolbar > renders toolbar with tabs and chips 1`] 
     >
       <button
         aria-pressed="true"
-        class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-full bg-background text-foreground border-border shadow-[0_2px_0_0_var(--color-3d-shadow)] aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary hover:border-primary active:translate-y-px active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-7 gap-1 px-3 text-xs [&_svg:not([class*='size-'])]:size-3 shrink-0"
-        data-slot="button"
-        tabindex="0"
+        class="animal-btn animal-btn-default animal-btn-small animal-btn-chip shrink-0"
         type="button"
       >
-        すべて
+        <span>
+          すべて
+        </span>
       </button>
       <button
         aria-pressed="false"
-        class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-full bg-background text-foreground border-border shadow-[0_2px_0_0_var(--color-3d-shadow)] aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary hover:border-primary active:translate-y-px active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-7 gap-1 px-3 text-xs [&_svg:not([class*='size-'])]:size-3 shrink-0"
-        data-slot="button"
-        tabindex="0"
+        class="animal-btn animal-btn-default animal-btn-small animal-btn-chip shrink-0"
         type="button"
       >
-        EP 1-4
+        <span>
+          EP 1-4
+        </span>
       </button>
       <button
         aria-pressed="false"
-        class="group/button inline-flex items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-full bg-background text-foreground border-border shadow-[0_2px_0_0_var(--color-3d-shadow)] aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary hover:border-primary active:translate-y-px active:shadow-[0_1px_0_0_var(--color-3d-shadow)] h-7 gap-1 px-3 text-xs [&_svg:not([class*='size-'])]:size-3 shrink-0"
-        data-slot="button"
-        tabindex="0"
+        class="animal-btn animal-btn-default animal-btn-small animal-btn-chip shrink-0"
         type="button"
       >
-        EP 5-8
+        <span>
+          EP 5-8
+        </span>
       </button>
     </div>
   </div>
@@ -849,12 +840,12 @@ exports[`Snapshot: RouteVisualization > renders with route data 1`] = `
           </p>
         </div>
         <button
-          class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] rounded-[var(--r-pill)] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-transparent text-foreground border-border hover:border-primary hover:text-primary hover:-translate-y-px active:translate-y-0 active:text-[var(--color-primary-active)] h-7 gap-1 px-3 text-xs [&_svg:not([class*='size-'])]:size-3"
-          data-slot="button"
-          tabindex="0"
+          class="animal-btn animal-btn-dashed animal-btn-small"
           type="button"
         >
-          Google Maps で開く
+          <span>
+            Google Maps で開く
+          </span>
         </button>
       </div>
       <div
@@ -865,7 +856,7 @@ exports[`Snapshot: RouteVisualization > renders with route data 1`] = `
       >
         <div
           class="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 base-ui-disable-scrollbar"
-          data-id="base-ui-_r_1_-viewport"
+          data-id="base-ui-_r_0_-viewport"
           data-slot="scroll-area-viewport"
           role="presentation"
           style="overflow: scroll;"
@@ -915,24 +906,24 @@ exports[`Snapshot: SlideOverPanel > renders when open 1`] = `
   >
     <button
       aria-label="Close"
-      class="group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold tracking-[0.02em] border-2 transition-all duration-[var(--duration-base)] ease-[var(--ease-animal)] outline-none select-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 text-foreground border-transparent hover:bg-muted active:bg-[color-mix(in_oklch,var(--color-muted),black_5%)] h-11 w-11 absolute top-4 right-4 z-10 rounded-full bg-background/80 shadow"
-      data-slot="button"
-      tabindex="0"
+      class="animal-btn animal-btn-default animal-btn-small animal-btn-ghost animal-btn-icon-only absolute top-4 right-4 z-10 rounded-full bg-background/80 shadow"
       type="button"
     >
-      <svg
-        fill="none"
-        height="16"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-width="2"
-        viewBox="0 0 16 16"
-        width="16"
-      >
-        <path
-          d="M4 4l8 8M12 4l-8 8"
-        />
-      </svg>
+      <span>
+        <svg
+          fill="none"
+          height="16"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-width="2"
+          viewBox="0 0 16 16"
+          width="16"
+        >
+          <path
+            d="M4 4l8 8M12 4l-8 8"
+          />
+        </svg>
+      </span>
     </button>
     <div
       class="h-full overflow-y-auto p-6 pt-14"

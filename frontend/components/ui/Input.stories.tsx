@@ -9,7 +9,7 @@ const meta = {
   argTypes: {
     size: {
       control: "select",
-      options: ["sm", "md", "lg"],
+      options: ["small", "middle", "large"],
     },
     status: {
       control: "select",
@@ -35,15 +35,15 @@ export const WithValue: Story = {
 /* ── Sizes ── */
 
 export const Small: Story = {
-  args: { size: "sm", placeholder: "Small input" },
+  args: { size: "small", placeholder: "Small input" },
 };
 
-export const Medium: Story = {
-  args: { size: "md", placeholder: "Medium input" },
+export const Middle: Story = {
+  args: { size: "middle", placeholder: "Middle input" },
 };
 
 export const Large: Story = {
-  args: { size: "lg", placeholder: "Large input" },
+  args: { size: "large", placeholder: "Large input" },
 };
 
 /* ── With prefix / suffix ── */
@@ -74,6 +74,14 @@ export const WithPrefixAndSuffix: Story = {
       </button>
     ),
     defaultValue: "京都",
+  },
+};
+
+export const AllowClear: Story = {
+  name: "Allow Clear",
+  args: {
+    allowClear: true,
+    defaultValue: "京都府宇治市",
   },
 };
 
@@ -112,9 +120,9 @@ export const AllSizes: Story = {
   name: "All Sizes",
   render: () => (
     <div className="flex flex-col gap-3 max-w-sm">
-      <Input size="sm" placeholder="Small" prefix={<Search className="size-3.5" />} />
-      <Input size="md" placeholder="Medium" prefix={<Search className="size-4" />} />
-      <Input size="lg" placeholder="Large" prefix={<Search className="size-5" />} />
+      <Input size="small" placeholder="Small" prefix={<Search className="size-3.5" />} />
+      <Input size="middle" placeholder="Middle" prefix={<Search className="size-4" />} />
+      <Input size="large" placeholder="Large" prefix={<Search className="size-5" />} />
     </div>
   ),
 };

@@ -56,17 +56,17 @@ export default function ApiKeysPage() {
       </p>
 
       <form onSubmit={handleCreate} className="mb-8 flex gap-2">
-        <Input
+        <Input shadow
           value={newKeyName}
           onChange={(e) => setNewKeyName(e.target.value)}
           placeholder="Key name (e.g. My CLI Agent)"
           className="flex-1"
-          size="sm"
+          size="small"
         />
         <Button
-          type="submit"
-          variant="primary"
-          size="sm"
+          htmlType="submit"
+          type="primary"
+          size="small"
           disabled={creating || !newKeyName.trim()}
         >
           {creating ? "Creating..." : "Create key"}
@@ -82,8 +82,8 @@ export default function ApiKeysPage() {
             {newRawKey}
           </code>
           <Button
-            variant="link"
-            size="xs"
+            type="link"
+            size="small"
             onClick={() => navigator.clipboard.writeText(newRawKey)}
             className="mt-2"
           >
@@ -111,8 +111,8 @@ export default function ApiKeysPage() {
                 </p>
               </div>
               <Button
-                variant="ghost"
-                size="xs"
+                ghost
+                size="small"
                 onClick={() => handleRevoke(key.id)}
                 className="ml-4 text-destructive hover:text-destructive"
               >

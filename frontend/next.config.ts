@@ -12,7 +12,8 @@ const nextConfig: NextConfig = {
   turbopack: {
     // Root must include the animal-island-ui package path (file: symlink outside project)
     // so turbopack can resolve asset url() references in the package CSS.
-    root: path.resolve(frontendRoot, "../../../../../.."),
+    // LCA of frontend and animal-island-ui-tailwind is /Users/.../Documents (5 levels up).
+    root: path.resolve(frontendRoot, "../../../../../"),
   },
 };
 

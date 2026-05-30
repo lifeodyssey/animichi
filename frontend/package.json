@@ -14,6 +14,7 @@
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
+    "animal-island-ui": "file:../../../../../animal-island-ui-tailwind",
     "@ai-sdk/react": "^3.0.178",
     "@base-ui/react": "^1.4.1",
     "@dnd-kit/core": "^6.3.1",
@@ -58,6 +59,12 @@
     "typescript": "^6.0.3",
     "vitest": "^4.1.5",
     "vitest-axe": "^0.1.0"
+  },
+  "overrides": {
+    "animal-island-ui": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    }
   },
   "msw": {
     "workerDirectory": [
