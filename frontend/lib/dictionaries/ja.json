@@ -326,6 +326,10 @@
     "loading": "検索中...",
     "error": "検索に失敗しました。もう一度お試しください。"
   },
+  "before_after": {
+    "anime_label": "アニメ",
+    "real_label": "実景"
+  },
   "anime_guide": {
     "spots_label": "{count} スポット",
     "plan_route": "AIで巡礼ルートを計画",

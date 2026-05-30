@@ -326,6 +326,10 @@
     "loading": "Searching...",
     "error": "Search failed. Please try again."
   },
+  "before_after": {
+    "anime_label": "Anime",
+    "real_label": "Real"
+  },
   "anime_guide": {
     "spots_label": "{count} spots",
     "plan_route": "Plan route with AI",
