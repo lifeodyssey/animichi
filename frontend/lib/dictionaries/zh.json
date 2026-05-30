@@ -68,7 +68,23 @@
       "hero_real_label": "现实",
       "hero_route_preview": "路线预览",
       "hero_auth_hint": "仅在想保存或同步时登录",
-      "walking_route": "步行路线"
+      "walking_route": "步行路线",
+      "hiw_title": "从场景记忆到可行走路线",
+      "hiw_sub": "输入作品名、地点或附近位置，生成实用巡礼路线。",
+      "hiw_step1_title": "搜索动漫或地点",
+      "hiw_step1_desc": "输入作品名、车站或探索附近",
+      "hiw_step2_title": "对比场景与现实",
+      "hiw_step2_desc": "将动漫截图与实景并排对比",
+      "hiw_step3_title": "选择想去的打卡点",
+      "hiw_step3_desc": "挑选必打卡地、隐藏景点和拍照点",
+      "hiw_step4_title": "走出真实的巡礼路线",
+      "hiw_step4_desc": "生成考虑时间的步行路线",
+      "popular_title": "热门巡礼路线",
+      "popular_sub": "粉丝喜爱的圣地精选，随时可以开走。",
+      "popular_empty": "暂无路线",
+      "popular_view_all": "查看全部路线",
+      "popular_half_day": "半天",
+      "popular_spot_count": "{count}个圣地"
     }
   },
   "auth": {
