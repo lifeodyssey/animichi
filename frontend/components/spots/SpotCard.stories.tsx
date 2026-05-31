@@ -44,6 +44,23 @@ export const NoImage: Story = {
   },
 };
 
+export const BrokenImage: Story = {
+  args: {
+    point: { ...POINTS_UJI[0], screenshot_url: "https://broken.example/404.jpg" },
+    mode: "browse",
+  },
+};
+
+export const LongName: Story = {
+  args: {
+    point: {
+      ...POINTS_UJI[0],
+      name: "京都コンサートホール前の長い名前のスポット — ここは特に長い名前を持つ聖地巡礼スポットです",
+    },
+    mode: "browse",
+  },
+};
+
 export const WithEpisodeBadge: Story = {
   args: {
     point: { ...POINTS_UJI[2], episode: 5 },

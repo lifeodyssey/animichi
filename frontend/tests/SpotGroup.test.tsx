@@ -7,7 +7,18 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/lib/i18n-context", () => ({
-  useDict: vi.fn(() => ({ grid: { episode: "EP{ep}" } })),
+  useDict: vi.fn(() => ({
+    grid: { episode: "EP{ep}" },
+    spot_list: {
+      empty_title: "No spots found",
+      empty_hint: "Try refining your search",
+      empty_retry: "Search again",
+      empty_refine: "Refine query",
+      walking_route: "Walking route",
+      ep_badge: "Ep. {ep}",
+      photo_missing: "No photo",
+    },
+  })),
   useLocale: vi.fn(() => "ja"),
 }));
 
