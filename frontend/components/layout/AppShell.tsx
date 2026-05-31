@@ -202,13 +202,13 @@ export default function AppShell({ initialQuery }: AppShellProps) {
       <PointSelectionContext.Provider value={{ selectedIds, toggle, clear: clearSelectedPoints }}>
         <div className="flex h-screen flex-col overflow-hidden bg-background">
 
-          {/* ── SharedHeader with chat actions ───────────────────── */}
-          <SharedHeader>
+          {/* ── SharedHeader — unified app nav (variant="app") ─── */}
+          <SharedHeader variant="app">
             {initialQuery && (
               <button
                 type="button"
                 onClick={() => window.history.back()}
-                className="flex h-8 items-center gap-1.5 rounded-md px-3 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                className="flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
                 <span aria-hidden>←</span>
                 {dict.chat.back_to_guide ?? "Back"}
@@ -217,7 +217,7 @@ export default function AppShell({ initialQuery }: AppShellProps) {
             <button
               type="button"
               onClick={handleNewChat}
-              className="flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[11px] font-medium text-primary-fg transition-opacity hover:opacity-90"
+              className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3 text-[11px] font-medium text-primary-fg transition-opacity hover:opacity-90"
             >
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
                 <line x1="12" y1="5" x2="12" y2="19" />

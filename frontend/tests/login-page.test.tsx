@@ -26,6 +26,7 @@ const mockSearchParams = new URLSearchParams();
 vi.mock("next/navigation", () => ({
   useSearchParams: () => mockSearchParams,
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  usePathname: () => "/login",
 }));
 
 describe("LoginPage", () => {
@@ -80,6 +81,7 @@ describe("LoginPage", () => {
     vi.doMock("next/navigation", () => ({
       useSearchParams: () => mockSearchParams,
       useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+      usePathname: () => "/login",
     }));
 
     const { default: LoginPage } = await import("@/app/login/page");

@@ -15,7 +15,7 @@ export default function LoginContent() {
 
   return (
     <div className="bg-gradient-soft flex min-h-[100svh] flex-col">
-      <SharedHeader loginHref={undefined} />
+      <SharedHeader variant="guest" />
 
       <main className="flex flex-1 flex-col items-center justify-center px-4 pb-16">
         <div className="entrance-up w-full max-w-[380px]">

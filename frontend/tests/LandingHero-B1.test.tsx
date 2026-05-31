@@ -27,6 +27,7 @@ vi.mock("@/lib/i18n-context", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: vi.fn(() => ({ replace: vi.fn(), push: vi.fn() })),
   useSearchParams: vi.fn(() => new URLSearchParams()),
+  usePathname: vi.fn(() => "/"),
 }));
 
 vi.mock("next/link", () => ({

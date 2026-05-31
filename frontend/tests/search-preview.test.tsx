@@ -18,6 +18,7 @@ vi.mock("@/lib/i18n-context", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: vi.fn(() => ({ replace: vi.fn(), push: vi.fn() })),
   useSearchParams: vi.fn(() => new URLSearchParams("q=響け！ユーフォニアム")),
+  usePathname: vi.fn(() => "/search"),
 }));
 
 vi.mock("next/link", () => ({
