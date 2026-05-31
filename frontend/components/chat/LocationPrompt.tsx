@@ -4,6 +4,7 @@ import { useState, useRef, type FormEvent } from "react";
 import type { Dict, Locale } from "../../lib/i18n";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import FoxGuide from "../generative/FoxGuide";
 
 type GeoState =
   | { kind: "idle" }
@@ -27,6 +28,7 @@ export default function LocationPrompt({
   dict,
 }: LocationPromptProps) {
   const t = dict.location;
+  const tf = dict.fox_guide;
   const [geoState, setGeoState] = useState<GeoState>({ kind: "idle" });
   const [showStationInput, setShowStationInput] = useState(false);
   const [stationValue, setStationValue] = useState("");
@@ -42,7 +44,6 @@ export default function LocationPrompt({
         onCoords(lat, lng);
       },
       (error) => {
-        // error.code: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
         if (error.code === 3) {
           setGeoState({ kind: "timeout" });
         } else {
@@ -60,6 +61,11 @@ export default function LocationPrompt({
     setTimeout(() => stationInputRef.current?.focus(), 0);
   }
 
+  function handleSkip() {
+    setShowStationInput(true);
+    setTimeout(() => stationInputRef.current?.focus(), 0);
+  }
+
   function handleStationSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const value = stationValue.trim();
@@ -68,42 +74,31 @@ export default function LocationPrompt({
   }
 
   const isAcquiring = geoState.kind === "acquiring";
+  const isIdle = geoState.kind === "idle";
 
   return (
     <div
-      className="mx-auto mb-2 flex max-w-[680px] flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm"
+      className="mx-auto mb-2 flex max-w-[680px] flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm"
       role="region"
       aria-label="location prompt"
     >
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          {!isAcquiring && geoState.kind !== "ok" && (
-            <>
-              <Button
-                type="default" className="animal-btn-chip"
-                size="small"
-                onClick={handleUseCurrentLocation}
-              >
-                <span aria-hidden="true">📍</span>
-                {t.use_current}
-              </Button>
-              {!showStationInput && (
-                <Button
-                  type="default" className="animal-btn-chip"
-                  size="small"
-                  onClick={handleEnterStation}
-                >
-                  {t.enter_station}
-                </Button>
-              )}
-            </>
-          )}
+      {/* Header row: fox + title + dismiss */}
+      <div className="flex items-start gap-3">
+        <div className="relative h-20 w-20 shrink-0">
+          <FoxGuide
+            pose="welcome"
+            size="sm"
+            surface="permission"
+          />
+        </div>
 
-          {isAcquiring && (
-            <span className="text-sm text-muted-foreground">
-              {t.acquiring}
-            </span>
-          )}
+        <div className="flex flex-1 flex-col gap-0.5">
+          <p className="text-sm font-semibold text-foreground font-display">
+            {tf.permission_title}
+          </p>
+          <p className="text-xs font-light leading-relaxed text-muted-foreground">
+            {tf.permission_body}
+          </p>
         </div>
 
         <Button
@@ -111,7 +106,7 @@ export default function LocationPrompt({
           size="small"
           onClick={onDismiss}
           aria-label="dismiss location prompt"
-          className="animal-btn-icon-only ml-2 h-6 w-6"
+          className="animal-btn-icon-only ml-1 h-6 w-6 shrink-0"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M2 2l8 8M10 2l-8 8" />
@@ -119,15 +114,56 @@ export default function LocationPrompt({
         </Button>
       </div>
 
+      {/* Action buttons: allow / skip / manual */}
+      {isIdle && !showStationInput && (
+        <div className="flex flex-col gap-2">
+          <Button
+            type="primary"
+            size="small"
+            onClick={handleUseCurrentLocation}
+            className="w-full"
+          >
+            <span aria-hidden="true">📍</span>
+            {tf.permission_allow}
+          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="default"
+              size="small"
+              onClick={handleEnterStation}
+              className="flex-1 animal-btn-chip"
+            >
+              {tf.permission_manual}
+            </Button>
+            <Button
+              type="default"
+              size="small"
+              onClick={handleSkip}
+              aria-label={tf.permission_skip}
+              className="flex-1 animal-btn-chip"
+            >
+              {tf.permission_skip}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {isAcquiring && (
+        <span className="text-sm text-muted-foreground">
+          {t.acquiring}
+        </span>
+      )}
+
       {(geoState.kind === "denied" || geoState.kind === "timeout") && (
         <p className="text-xs text-muted-foreground">
           {geoState.kind === "denied" ? t.denied : t.timeout}
         </p>
       )}
 
-      {showStationInput && geoState.kind !== "acquiring" && (
+      {showStationInput && !isAcquiring && (
         <form onSubmit={handleStationSubmit} className="flex gap-2">
-          <Input shadow
+          <Input
+            shadow
             ref={stationInputRef}
             size="small"
             type="text"
