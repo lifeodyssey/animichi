@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("send-auth-email error:", err);
-    return new Response(JSON.stringify({ error: String(err) }), {
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
