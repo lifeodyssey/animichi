@@ -133,7 +133,7 @@ translation_agent: Agent[TranslationDeps, str] = Agent(
     output_type=str,
     instructions=_TRANSLATION_INSTRUCTIONS,
     tools=[duckduckgo_search_tool()],
-    tool_retries=1,
+    retries=1,
 )
 
 

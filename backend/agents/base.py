@@ -155,10 +155,10 @@ def create_agent(
     """Create a Pydantic AI agent with the given configuration."""
     selected = resolve_model(model)
     if output_type is None:
-        return Agent(selected, system_prompt=system_prompt, tool_retries=tool_retries)
+        return Agent(selected, system_prompt=system_prompt, retries=tool_retries)
     return Agent(
         selected,
         system_prompt=system_prompt,
         output_type=output_type,
-        tool_retries=tool_retries,
+        retries=tool_retries,
     )
