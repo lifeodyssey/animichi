@@ -58,7 +58,7 @@ route_planner_agent: Agent[None, AreaSplitResult] = Agent(
     resolve_model(None),
     output_type=AreaSplitResult,
     instructions=_SPLIT_INSTRUCTIONS,
-    tool_retries=1,
+    retries=1,
 )
 
 
