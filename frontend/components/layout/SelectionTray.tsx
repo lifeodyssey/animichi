@@ -126,7 +126,7 @@ export function SelectionTray({
           onClick={() => setCollapsed((prev) => !prev)}
           className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {collapsed ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
         </button>
 
         {/* Count summary */}
@@ -134,8 +134,8 @@ export function SelectionTray({
           {countText}
         </span>
 
-        {/* Divider */}
-        <span className="h-4 w-px bg-border" />
+        {/* Divider — only shown when chips are present */}
+        {count > 0 && <span className="h-4 w-px bg-border" />}
 
         {/* Chips area */}
         <div

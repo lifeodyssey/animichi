@@ -189,8 +189,8 @@ describe("Integration: Search results flow", () => {
     expect(card).toBeDefined();
     await user.click(card!);
 
-    // Selection bar should now appear with count 1
-    expect(screen.getByText(/選択中 1 件/)).toBeInTheDocument();
+    // Selection tray should now appear with count 1
+    expect(screen.getByText(/1件選択中/)).toBeInTheDocument();
   });
 
   it("selecting two cards enables the route plan button", async () => {
@@ -215,12 +215,12 @@ describe("Integration: Search results flow", () => {
     const secondCard = remainingButtons.find((c) => c.textContent?.includes("平等院"));
     await user.click(secondCard!);
 
-    // Selection bar should show count 2
-    expect(screen.getByText(/選択中 2 件/)).toBeInTheDocument();
+    // Selection tray should show count 2
+    expect(screen.getByText(/2件選択中/)).toBeInTheDocument();
 
     // Route plan button should be enabled
-    const routeBtn = screen.getByText("ルートを計画");
-    expect(routeBtn.closest("button")).not.toBeDisabled();
+    const routeBtn = screen.getByTestId("plan-route-btn");
+    expect(routeBtn).not.toBeDisabled();
   });
 
   it("clicking ルートを計画 opens RouteConfirm with selected points", async () => {
@@ -245,8 +245,8 @@ describe("Integration: Search results flow", () => {
     const secondCard = remainingButtons.find((c) => c.textContent?.includes("平等院"));
     await user.click(secondCard!);
 
-    // Click "ルートを計画"
-    const routeBtn = screen.getByText("ルートを計画");
+    // Click plan route (using testid since button text is "ルートを作成")
+    const routeBtn = screen.getByTestId("plan-route-btn");
     await user.click(routeBtn);
 
     // RouteConfirm should now render — it has the "ルート確認" title
@@ -272,7 +272,7 @@ describe("Integration: Search results flow", () => {
     const allButtons = screen.getAllByRole("button", { pressed: false });
     const firstCard = allButtons.find((c) => c.textContent?.includes("宇治駅"));
     await user.click(firstCard!);
-    expect(screen.getByText(/選択中 1 件/)).toBeInTheDocument();
+    expect(screen.getByText(/1件選択中/)).toBeInTheDocument();
 
     // Click again to deselect (now it has aria-pressed=true)
     const selectedCards = screen.getAllByRole("button", { pressed: true });
@@ -301,7 +301,7 @@ describe("Integration: Search results flow", () => {
     await user.click(firstCard!);
 
     // Route plan button should be disabled with only 1 selection
-    const routeBtn = screen.getByText("ルートを計画");
-    expect(routeBtn.closest("button")).toBeDisabled();
+    const routeBtn = screen.getByTestId("plan-route-btn");
+    expect(routeBtn).toBeDisabled();
   });
 });

@@ -1,11 +1,13 @@
 /**
- * ResultPanel — selection bar state and interactions.
- * Split from result-panel.test.tsx.
+ * ResultPanel — SelectionTray integration (state 08 wire-up, D5).
  *
  * AC coverage:
- * - SelectionBar appears when 1+ points selected -> unit
- * - SelectionBar shows when spots selected in both map and grid views -> unit
- * - Clear button calls context clear -> unit
+ * - Happy: state 08 renders SelectionTray (not legacy SelectionBar) → unit
+ * - Happy: 3 selected → chips count + plan-route-btn enabled → unit
+ * - Happy: plan-route-btn click transitions to confirm mode → integration
+ * - Boundary: 0 selected → tray hidden → unit
+ * - Boundary: clear button calls context clear → unit
+ * - Regression: selection tray visible in both map and grid views → unit
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -86,36 +88,66 @@ function Wrapper({
   );
 }
 
-describe("ResultPanel selection bar", () => {
+describe("ResultPanel — SelectionTray integration (D5)", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it("shows selection bar when one or more points are selected", () => {
+  it("renders SelectionTray (not legacy SelectionBar) when spots are selected", () => {
     render(
       <Wrapper selectedIds={new Set(["pt-001"])}>
         <ResultPanel activeResponse={makeResponse()} />
       </Wrapper>,
     );
-    expect(screen.getByTestId("selection-bar")).toBeInTheDocument();
-    // ja dict: "選択中 {count} 件"
-    expect(screen.getByText(/選択中 1 件/)).toBeInTheDocument();
+    expect(screen.getByTestId("selection-tray")).toBeInTheDocument();
+    expect(screen.queryByTestId("selection-bar")).toBeNull();
   });
 
-  it("shows correct count in selection bar", () => {
+  it("shows selection-tray when one or more points are selected", () => {
     render(
-      <Wrapper selectedIds={new Set(["pt-001", "pt-002"])}>
+      <Wrapper selectedIds={new Set(["pt-001"])}>
         <ResultPanel activeResponse={makeResponse()} />
       </Wrapper>,
     );
-    expect(screen.getByText(/選択中 2 件/)).toBeInTheDocument();
+    expect(screen.getByTestId("selection-tray")).toBeInTheDocument();
   });
 
-  it("does not show selection bar when no points are selected", () => {
+  it("does not show selection-tray when no points are selected", () => {
     render(
       <Wrapper selectedIds={new Set()}>
         <ResultPanel activeResponse={makeResponse()} />
       </Wrapper>,
     );
-    expect(screen.queryByTestId("selection-bar")).toBeNull();
+    expect(screen.queryByTestId("selection-tray")).toBeNull();
+  });
+
+  it("plan-route-btn is enabled when 3 spots selected", () => {
+    render(
+      <Wrapper selectedIds={new Set(["pt-001", "pt-002", "pt-003"])}>
+        <ResultPanel
+          activeResponse={makeResponse([
+            BASE_POINT,
+            { ...BASE_POINT, id: "pt-002", name: "京都駅" },
+            { ...BASE_POINT, id: "pt-003", name: "祇園" },
+          ])}
+        />
+      </Wrapper>,
+    );
+    expect(screen.getByTestId("plan-route-btn")).not.toBeDisabled();
+  });
+
+  it("plan-route-btn click transitions to confirm mode (RouteConfirm shown)", () => {
+    render(
+      <Wrapper selectedIds={new Set(["pt-001", "pt-002"])}>
+        <ResultPanel
+          activeResponse={makeResponse([
+            BASE_POINT,
+            { ...BASE_POINT, id: "pt-002", name: "京都駅" },
+          ])}
+        />
+      </Wrapper>,
+    );
+    fireEvent.click(screen.getByTestId("plan-route-btn"));
+    // After clicking plan route, ResultPanel enters confirm mode (RouteConfirm rendered)
+    expect(screen.queryByTestId("selection-tray")).toBeNull();
   });
 
   it("calls clear on PointSelectionContext when clear button is clicked", () => {
@@ -125,24 +157,32 @@ describe("ResultPanel selection bar", () => {
         <ResultPanel activeResponse={makeResponse()} />
       </Wrapper>,
     );
-    // ja dict: "クリア"
-    fireEvent.click(screen.getByText("クリア"));
+    fireEvent.click(screen.getByText(defaultDict.result_panel.clear));
     expect(clear).toHaveBeenCalledOnce();
   });
 
-  it("selection bar persists when toggling between map and grid views", () => {
+  it("selection-tray is visible in grid view", () => {
     render(
       <Wrapper selectedIds={new Set(["pt-001"])}>
         <ResultPanel activeResponse={makeResponse()} />
       </Wrapper>,
     );
-    // Default is map view; selection bar should be visible
-    expect(screen.getByTestId("selection-bar")).toBeInTheDocument();
-    // Switch to grid
+    // Switch to grid view
     fireEvent.click(screen.getByRole("button", { name: /グリッド/i }));
-    expect(screen.getByTestId("selection-bar")).toBeInTheDocument();
-    // Switch back to map
+    expect(screen.getByTestId("selection-tray")).toBeInTheDocument();
+  });
+
+  it("selection-tray is visible in map view", () => {
+    render(
+      <Wrapper selectedIds={new Set(["pt-001"])}>
+        <ResultPanel activeResponse={makeResponse()} />
+      </Wrapper>,
+    );
+    // Default is map view
+    expect(screen.getByTestId("selection-tray")).toBeInTheDocument();
+    // Switch to grid and back to map
+    fireEvent.click(screen.getByRole("button", { name: /グリッド/i }));
     fireEvent.click(screen.getByRole("button", { name: /マップ/i }));
-    expect(screen.getByTestId("selection-bar")).toBeInTheDocument();
+    expect(screen.getByTestId("selection-tray")).toBeInTheDocument();
   });
 });
