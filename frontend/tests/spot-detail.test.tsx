@@ -103,25 +103,25 @@ describe("SpotDetail", () => {
     expect(screen.getByText(/3/)).toBeInTheDocument();
   });
 
-  it("shows screenshot image with correct src", () => {
-    render(
+  it("shows anime screenshot in BeforeAfter left side with correct src", () => {
+    const { container } = render(
       <SpotDetail point={MAIN_POINT} onBack={vi.fn()} />,
     );
-    const img = screen.getByAltText("宇治橋");
-    expect(img).toBeInTheDocument();
-    expect(img.getAttribute("src")).toBe("https://example.com/uji-bridge.jpg");
+    const img = container.querySelector("[data-testid='left-img']");
+    expect(img).not.toBeNull();
+    expect(img?.getAttribute("src")).toBe("https://example.com/uji-bridge.jpg");
   });
 
-  it("shows placeholder when screenshot_url is null", () => {
+  it("shows left placeholder when screenshot_url is null", () => {
     const noScreenshot = makePoint("pt-no-img", { name: "テスト", name_cn: "测试" });
-    render(
+    const { container } = render(
       <SpotDetail point={noScreenshot} onBack={vi.fn()} />,
     );
-    // No img with alt text
-    expect(screen.queryByAltText("テスト")).toBeNull();
+    const placeholder = container.querySelector("[data-testid='left-placeholder']");
+    expect(placeholder).not.toBeNull();
   });
 
-  it('shows "select" button with primary styling when not selected', () => {
+  it('shows "add to route" button with primary styling when not selected', () => {
     render(
       <SpotDetail
         point={MAIN_POINT}
@@ -130,13 +130,13 @@ describe("SpotDetail", () => {
         isSelected={false}
       />,
     );
-    const selectBtn = screen.getByText(zhDict.spot_detail.select);
+    const selectBtn = screen.getByText(zhDict.spot_detail.add_spot);
     expect(selectBtn).toBeInTheDocument();
     // Primary button variant uses animal-island-ui's primary class
     expect(selectBtn.closest("button")?.className).toContain("animal-btn-primary");
   });
 
-  it('shows "selected" state with outline styling when selected', () => {
+  it('shows "remove from route" state with dashed styling when selected', () => {
     render(
       <SpotDetail
         point={MAIN_POINT}
@@ -145,7 +145,7 @@ describe("SpotDetail", () => {
         isSelected={true}
       />,
     );
-    const selectedBtn = screen.getByText(zhDict.spot_detail.selected);
+    const selectedBtn = screen.getByText(zhDict.spot_detail.remove_spot);
     expect(selectedBtn).toBeInTheDocument();
     // Dashed button variant uses animal-island-ui's dashed class
     const btnClass = selectedBtn.closest("button")?.className ?? "";
@@ -189,7 +189,7 @@ describe("SpotDetail", () => {
     expect(onBack).toHaveBeenCalledOnce();
   });
 
-  it("calls onSelect with point id when select is clicked", () => {
+  it("calls onSelect with point id when add-to-route is clicked", () => {
     const onSelect = vi.fn();
     render(
       <SpotDetail
@@ -199,7 +199,7 @@ describe("SpotDetail", () => {
         isSelected={false}
       />,
     );
-    fireEvent.click(screen.getByText(zhDict.spot_detail.select));
+    fireEvent.click(screen.getByText(zhDict.spot_detail.add_spot));
     expect(onSelect).toHaveBeenCalledOnce();
     expect(onSelect).toHaveBeenCalledWith("pt-001");
   });

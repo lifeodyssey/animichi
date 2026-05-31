@@ -277,10 +277,11 @@
     "episode": "第{ep}話",
     "address_label": "📍 住所:",
     "timestamp_label": "📸 スクリーンショット時刻:",
-    "select": "聖地を選択",
-    "selected": "✓ 選択済み",
+    "add_spot": "ルートに追加",
+    "remove_spot": "ルートから削除",
     "view_on_map": "マップで見る",
-    "nearby_title": "近くの聖地"
+    "nearby_title": "近くの聖地",
+    "comparison_title": "アニメ vs 実景"
   },
   "route_confirm": {
     "back": "選択に戻る",
