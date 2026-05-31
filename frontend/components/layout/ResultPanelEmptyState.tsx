@@ -1,14 +1,38 @@
 "use client";
 
 import { useDict } from "../../lib/i18n-context";
+import { ErrorRetryTicket } from "../generative/ErrorRetryTicket";
+
+export interface ResultPanelEmptyStateProps {
+  /** When true, renders the error-retry-ticket instead of the empty state. */
+  isError?: boolean;
+  onRetry?: () => void;
+  onEditQuery?: () => void;
+}
 
 /**
  * Empty state for the result panel when no search has been made yet.
  * Shows a centered message with gradient background and pulsing dots.
+ * When isError=true, renders the error-retry-ticket (state 12 error path).
  * Design reference: variant-G-empty-states.html
  */
-export function ResultPanelEmptyState() {
+export function ResultPanelEmptyState({
+  isError = false,
+  onRetry,
+  onEditQuery,
+}: ResultPanelEmptyStateProps) {
   const { grid } = useDict();
+
+  if (isError) {
+    return (
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-6">
+        <ErrorRetryTicket
+          onRetry={onRetry ?? (() => {})}
+          onEditQuery={onEditQuery}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">

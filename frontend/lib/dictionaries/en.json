@@ -410,5 +410,30 @@
     "walking_route": "Walking route",
     "ep_badge": "Ep. {ep}",
     "photo_missing": "No photo"
+  },
+  "error_retry_ticket": {
+    "heading": "Please try again",
+    "body": "Something went wrong while planning. Your input is still here.",
+    "retry": "Retry",
+    "edit_query": "Edit query",
+    "restart": "Start over",
+    "report": "Report issue",
+    "stamp_alt": "Torii stamp"
+  },
+  "recent_route_card": {
+    "resume_label": "Resume",
+    "spots_count": "{count} spots",
+    "no_spots": "No spots",
+    "thumbnail_alt": "Thumbnail for {title}",
+    "placeholder_alt": "Route placeholder",
+    "updated": "Updated {when}"
+  },
+  "chat_summary_card": {
+    "area_label": "Area",
+    "duration_label": "Duration",
+    "transport_label": "Transport",
+    "spots_label": "Spots",
+    "view_details": "View plan details",
+    "adopt_plan": "Adopt this plan"
   }
 }
