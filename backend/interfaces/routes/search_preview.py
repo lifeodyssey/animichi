@@ -46,11 +46,8 @@ async def handle_search_preview(
     locale: str = "ja",
 ) -> JSONResponse:
     """Anonymous search preview. Returns up to 5 points for a query."""
-    client_ip = (
-        request.headers.get("CF-Connecting-IP") or request.client.host
-        if request.client
-        else "unknown"
-    )
+    client_host = request.client.host if request.client else "unknown"
+    client_ip = request.headers.get("CF-Connecting-IP") or client_host
     _check_rate_limit(client_ip)
 
     query = q.strip()
