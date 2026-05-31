@@ -24,6 +24,9 @@ dependencies = [
     # Async/HTTP
     "aiohttp>=3.13.5",
     "httpx>=0.28.0",
+    # Security floors for transitive deps (CVE-2026-45409, PYSEC-2026-161)
+    "idna>=3.15",
+    "starlette>=1.0.1",
     # Observability
     "structlog>=25.0.0",
     "rich>=14.0.0",
@@ -32,7 +35,12 @@ dependencies = [
     # Google Generative AI (model-agnostic, used by pydantic-ai)
     "google-genai>=1.16.0",
     # v2: Agent Framework
-    "pydantic-ai>=1.92.0",
+    # KNOWN SECURITY ITEM: CVE-2026-46678 is fixed in pydantic-ai >=1.99.0, but
+    # that release renames Agent(tool_retries=) -> retries and removes
+    # history_processors from Agent.__init__ — a core retry + context-compaction
+    # API change that needs eval verification before adopting. Held at 1.92.0
+    # pending a dedicated migration; do not bump without re-running model evals.
+    "pydantic-ai>=1.92.0,<1.93.0",
     # v2: Database (Postgres + PostGIS)
     "asyncpg>=0.31.0",
     # HTTP runtime adapter
