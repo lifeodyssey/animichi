@@ -25,6 +25,23 @@ export const Default: Story = {
   },
 };
 
+export const WithRealPhoto: Story = {
+  args: {
+    point: {
+      ...POINTS_UJI[0],
+      real_photo_url: "/images/landing/kimi-stairs-comparison-vertical-v2.jpg",
+    },
+    nearbyPoints: POINTS_UJI,
+  },
+};
+
+export const AnimeOnly: Story = {
+  args: {
+    point: { ...POINTS_UJI[0], real_photo_url: null },
+    nearbyPoints: POINTS_UJI,
+  },
+};
+
 export const Selected: Story = {
   args: {
     point: POINTS_UJI[0],
@@ -35,7 +52,7 @@ export const Selected: Story = {
 
 export const NoImage: Story = {
   args: {
-    point: { ...POINTS_UJI[1], screenshot_url: null },
+    point: { ...POINTS_UJI[1], screenshot_url: null, real_photo_url: null },
     nearbyPoints: POINTS_UJI,
   },
 };

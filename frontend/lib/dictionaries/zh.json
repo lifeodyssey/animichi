@@ -277,10 +277,11 @@
     "episode": "第{ep}集",
     "address_label": "📍 地址:",
     "timestamp_label": "📸 截图时间:",
-    "select": "选择此圣地",
-    "selected": "✓ 已选择",
+    "add_spot": "加入路线",
+    "remove_spot": "从路线移除",
     "view_on_map": "在地图中查看",
-    "nearby_title": "附近的其他圣地"
+    "nearby_title": "附近的其他圣地",
+    "comparison_title": "动画 vs 实景"
   },
   "route_confirm": {
     "back": "返回选择",

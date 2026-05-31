@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { PilgrimagePoint } from "../../lib/types";
 import { useDict } from "../../lib/i18n-context";
 import { haversineM, formatDistance } from "../../lib/geo";
 import { Button } from "@/components/ui/button";
+import BeforeAfter from "./BeforeAfter";
 
 // ---------------------------------------------------------------------------
 // Lazy BaseMap — Mapbox GL requires window
@@ -37,6 +38,40 @@ interface SpotDetailProps {
 }
 
 // ---------------------------------------------------------------------------
+// NearbyList sub-component
+// ---------------------------------------------------------------------------
+
+function NearbyList({
+  nearby,
+  title,
+}: {
+  nearby: (PilgrimagePoint & { dist: number })[];
+  title: string;
+}) {
+  if (nearby.length === 0) return null;
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-foreground font-display">
+        {title}
+      </h3>
+      <ul className="mt-2 flex flex-col gap-2">
+        {nearby.map((p) => (
+          <li
+            key={p.id}
+            className="flex items-baseline justify-between gap-2 text-sm"
+          >
+            <span className="truncate text-foreground">{p.name_cn || p.name}</span>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+              {formatDistance(p.dist)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // SpotDetail
 // ---------------------------------------------------------------------------
 
@@ -47,9 +82,17 @@ export default function SpotDetail({
   isSelected,
   nearbyPoints,
 }: SpotDetailProps) {
-  const { spot_detail: t } = useDict();
+  const { spot_detail: t, before_after: ba } = useDict();
 
-  // 5 closest other points, sorted by distance
+  const pending = useRef(false);
+
+  const handleSelect = useCallback(() => {
+    if (pending.current) return;
+    pending.current = true;
+    onSelect?.(point.id);
+    requestAnimationFrame(() => { pending.current = false; });
+  }, [onSelect, point.id]);
+
   const nearby = useMemo(() => {
     if (!nearbyPoints) return [];
     return nearbyPoints
@@ -68,7 +111,6 @@ export default function SpotDetail({
     <div className="flex h-full min-h-0 flex-1 overflow-hidden">
       {/* ── Left column (55%) ──────────────────────────────────────────── */}
       <div className="flex w-[55%] shrink-0 flex-col overflow-y-auto p-5">
-        {/* Back button */}
         <Button
           type="link"
           size="small"
@@ -79,31 +121,20 @@ export default function SpotDetail({
           {t.back}
         </Button>
 
-        {/* Large screenshot */}
-        <div className="w-full overflow-hidden rounded-lg aspect-[4/3]">
-          {point.screenshot_url ? (
-            <img
-              src={point.screenshot_url}
-              alt={point.name}
-              width={400}
-              height={300}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <path d="m21 15-5-5L5 21" />
-              </svg>
-            </div>
-          )}
-        </div>
+        {/* BeforeAfter — anime↔real first-class block */}
+        <BeforeAfter
+          leftSrc={point.screenshot_url ?? ""}
+          rightSrc={point.real_photo_url ?? ""}
+          leftAlt={point.name_cn || point.name}
+          rightAlt={point.name_cn || point.name}
+          leftLabel={ba.anime_label}
+          rightLabel={ba.real_label}
+          draggable
+          className="w-full"
+        />
 
         {/* Spot name */}
-        <h2
-          className="mt-3 font-display text-lg font-bold leading-tight text-foreground"
-        >
+        <h2 className="mt-3 font-display text-lg font-bold leading-tight text-foreground">
           {point.name_cn || point.name}
         </h2>
 
@@ -121,9 +152,7 @@ export default function SpotDetail({
         )}
 
         {/* Timestamp */}
-        <p
-          className="mt-1 text-xs tabular-nums text-muted-foreground"
-        >
+        <p className="mt-1 text-xs tabular-nums text-muted-foreground">
           {t.timestamp_label} {formatTime(point.time_seconds)}
         </p>
 
@@ -131,9 +160,9 @@ export default function SpotDetail({
         <div className="mt-5 flex flex-wrap gap-3">
           <Button
             type={isSelected ? "dashed" : "primary"}
-            onClick={() => onSelect?.(point.id)}
+            onClick={handleSelect}
           >
-            {isSelected ? t.selected : t.select}
+            {isSelected ? t.remove_spot : t.add_spot}
           </Button>
 
           <a
@@ -160,32 +189,7 @@ export default function SpotDetail({
         </div>
 
         {/* Nearby spots */}
-        {nearby.length > 0 && (
-          <div>
-            <h3
-              className="text-sm font-semibold text-foreground font-display"
-            >
-              {t.nearby_title}
-            </h3>
-            <ul className="mt-2 flex flex-col gap-2">
-              {nearby.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-baseline justify-between gap-2 text-sm"
-                >
-                  <span className="truncate text-foreground">
-                    {p.name_cn || p.name}
-                  </span>
-                  <span
-                    className="shrink-0 text-xs tabular-nums text-muted-foreground"
-                  >
-                    {formatDistance(p.dist)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <NearbyList nearby={nearby} title={t.nearby_title} />
       </div>
     </div>
   );

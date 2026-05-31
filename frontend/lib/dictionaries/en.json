@@ -277,10 +277,11 @@
     "episode": "Ep. {ep}",
     "address_label": "📍 Address:",
     "timestamp_label": "📸 Screenshot time:",
-    "select": "Select this spot",
-    "selected": "✓ Selected",
+    "add_spot": "Add to route",
+    "remove_spot": "Remove from route",
     "view_on_map": "View on map",
-    "nearby_title": "Nearby spots"
+    "nearby_title": "Nearby spots",
+    "comparison_title": "Anime vs Reality"
   },
   "route_confirm": {
     "back": "Back to selection",
