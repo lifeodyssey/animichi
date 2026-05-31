@@ -38,12 +38,13 @@ export default defineConfig({
       reporter: ["text", "html", "lcov"],
       include: ["components/**", "hooks/**", "lib/**", "contexts/**"],
       exclude: ["**/node_modules/**", "lib/mock-data/**", "components/ui/**", "**/*.stories.tsx"],
-      // Floors based on current coverage — only ratchet UP, never lower
+      // Floors based on current coverage — only ratchet UP, never lower.
+      // Ratcheted up after the Animal Island redesign (Waves 0–3) added well-tested components.
       thresholds: {
-        lines: 72,
-        statements: 68,
-        functions: 61, // temporarily lowered — DesktopConversationSidebar tests disabled
-        branches: 59,
+        lines: 73,
+        statements: 69,
+        functions: 65,
+        branches: 60,
       },
     },
   },
