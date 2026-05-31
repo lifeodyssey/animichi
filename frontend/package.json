@@ -78,7 +78,10 @@
     "animal-island-ui": {
       "react": "$react",
       "react-dom": "$react-dom"
-    }
+    },
+    "postcss": ">=8.5.10",
+    "ws": ">=8.21.0",
+    "qs": ">=6.15.2"
   },
   "msw": {
     "workerDirectory": [
