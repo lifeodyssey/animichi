@@ -327,6 +327,16 @@
     "spots_header": "Spots",
     "spots_count": "{count} spots"
   },
+  "selection_tray": {
+    "count": "{count} selected",
+    "plan_route": "Plan Route",
+    "clear": "Clear selection",
+    "empty_prompt": "Select spots from the map",
+    "remove_chip": "Remove {name}",
+    "overflow_more": "+{count} more",
+    "collapse": "Collapse tray",
+    "expand": "Expand tray"
+  },
   "clarification": {
     "examples_label": "For example:",
     "search_all": "Search all titles",

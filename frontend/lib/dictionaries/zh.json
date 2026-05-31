@@ -327,6 +327,16 @@
     "spots_header": "景点",
     "spots_count": "{count}个"
   },
+  "selection_tray": {
+    "count": "已选 {count} 个",
+    "plan_route": "规划路线",
+    "clear": "清除选择",
+    "empty_prompt": "请在地图上选择景点",
+    "remove_chip": "删除{name}",
+    "overflow_more": "+{count}个",
+    "collapse": "收起托盘",
+    "expand": "展开托盘"
+  },
   "clarification": {
     "examples_label": "例如：",
     "search_all": "搜索所有作品",
