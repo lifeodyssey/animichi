@@ -21,6 +21,7 @@ const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush, replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/anime/123",
 }));
 
 // Mock supabase

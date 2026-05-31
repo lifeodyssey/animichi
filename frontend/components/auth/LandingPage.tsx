@@ -18,7 +18,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background font-sans" lang={locale}>
-      <SharedHeader onLogin={onOpenAuth} position="fixed" />
+      <SharedHeader variant="guest" onLogin={onOpenAuth} position="fixed" />
 
       {/* ═══════ SECTION 1: HERO ═══════ */}
       <LandingHero onOpenAuth={onOpenAuth} />

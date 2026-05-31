@@ -435,5 +435,13 @@
     "spots_label": "圣地数量",
     "view_details": "查看规划详情",
     "adopt_plan": "采用此规划"
+  },
+  "app_nav": {
+    "map": "地图",
+    "spots": "景点",
+    "records": "旅行记录",
+    "collection": "收藏",
+    "menu": "菜单",
+    "close": "关闭"
   }
 }

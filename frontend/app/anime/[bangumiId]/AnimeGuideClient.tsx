@@ -221,7 +221,7 @@ export default function AnimeGuideClient({ initialData, bangumiId }: AnimeGuideC
 
   return (
     <div className="min-h-screen bg-background font-sans">
-      <SharedHeader loginHref="/?login=true" />
+      <SharedHeader variant="guest" loginHref="/?login=true" />
 
       {status === "not_found" && (
         <div className="py-32 text-center">
