@@ -168,7 +168,7 @@ describe("D4 i18n: drawer/saved labels localized", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: new RegExp(defaultDict.drawer.new_chat.replace(/[+]/g, "\\+"), "i") }),
+      screen.getByRole("button", { name: defaultDict.drawer.new_chat }),
     ).toBeInTheDocument();
   });
 
