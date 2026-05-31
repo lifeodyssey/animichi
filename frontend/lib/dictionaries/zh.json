@@ -38,13 +38,12 @@
     "landing": {
       "hero_title": "聖地巡礼",
       "hero_subtitle": "探索动漫圣地，踏上巡礼之旅",
-      "search_placeholder": "搜索动漫圣地...",
+      "search_placeholder": "输入作品名、车站或城市",
       "stats_spots": "取景地",
       "stats_anime": "动漫",
       "stats_prefectures": "都道府县",
       "hero_headline": "把动画场景，\n变成今天能走的路线",
       "hero_lead": "输入作品名、车站或城市，\n找到取景地并生成巡礼路线。",
-      "search_placeholder": "输入作品名、车站或城市",
       "step1_title": "找圣地",
       "step1_desc": "搜索作品或地点\n发现取景地",
       "step2_title": "选地点",
@@ -61,7 +60,11 @@
       "scroll_hint": "向下滚动",
       "login": "登录",
       "search_button": "开始巡礼",
-      "hero_examples": ["你的名字", "吹响吧！上低音号", "天气之子"],
+      "hero_examples": [
+        "你的名字",
+        "吹响吧！上低音号",
+        "天气之子"
+      ],
       "hero_nearby": "附近景点",
       "hero_location_label": "须贺神社台阶 · 新宿",
       "hero_anime_label": "动漫",
@@ -397,5 +400,14 @@
     "meta_title": "{title} 圣地巡礼指南 | Seichijunrei",
     "meta_description": "{title}的圣地 {count} 个取景地 — {city}。AI 路线规划。",
     "meta_description_no_city": "{title}的圣地 {count} 个取景地。AI 路线规划。"
+  },
+  "spot_list": {
+    "empty_title": "未找到圣地",
+    "empty_hint": "请尝试修改搜索条件或使用其他动漫标题",
+    "empty_retry": "重新搜索",
+    "empty_refine": "修改条件",
+    "walking_route": "步行路线",
+    "ep_badge": "第{ep}话",
+    "photo_missing": "暂无图片"
   }
 }
