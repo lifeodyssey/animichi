@@ -88,6 +88,9 @@ jobs:
     name: Backend Tests
     runs-on: ubuntu-latest
     needs: backend-quality
+    env:
+      SUPABASE_DB_URL: "postgresql://postgres:postgres@localhost:54322/postgres"
+      DEEPSEEK_API_KEY: "test-key"
     steps:
       - uses: actions/checkout@v6
 
