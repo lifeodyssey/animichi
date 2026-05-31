@@ -60,13 +60,15 @@ describe("LocationPrompt", () => {
   it("renders 'use current location' and 'enter station' options in ja locale", () => {
     renderPrompt();
     expect(screen.getByText("現在地を使う")).toBeInTheDocument();
-    expect(screen.getByText("駅名を入力")).toBeInTheDocument();
+    // D3: "enter station" is now the manual-entry button
+    expect(screen.getByText("場所を入力する")).toBeInTheDocument();
   });
 
   it("renders translated options in en locale", () => {
     renderPrompt({ locale: "en" }, enFull);
     expect(screen.getByText("Use current location")).toBeInTheDocument();
-    expect(screen.getByText("Enter station name")).toBeInTheDocument();
+    // D3: manual entry button uses fox_guide.permission_manual
+    expect(screen.getByText("Enter a place")).toBeInTheDocument();
   });
 
   it("shows acquiring message while geolocation is pending", async () => {
@@ -154,7 +156,8 @@ describe("LocationPrompt", () => {
     const onStation = vi.fn();
     renderPrompt({ onStation });
 
-    await userEvent.click(screen.getByText("駅名を入力"));
+    // D3: "enter station" is now the manual-entry button with new label
+    await userEvent.click(screen.getByText("場所を入力する"));
     const input = screen.getByRole("textbox");
     await userEvent.type(input, "宇治駅");
     fireEvent.submit(input.closest("form")!);

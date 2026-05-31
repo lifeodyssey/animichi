@@ -2,6 +2,7 @@
 
 import { useDict } from "../../lib/i18n-context";
 import { ErrorRetryTicket } from "../generative/ErrorRetryTicket";
+import FoxGuide from "../generative/FoxGuide";
 
 export interface ResultPanelEmptyStateProps {
   /** When true, renders the error-retry-ticket instead of the empty state. */
@@ -46,12 +47,13 @@ export function ResultPanelEmptyState({
       />
 
       <div className="relative flex flex-col items-center gap-4 text-center">
-        {/* Search icon */}
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-soft">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+        {/* Fox guide — traveler pose for the no-results / empty state (inline flow wrapper) */}
+        <div className="relative mb-2 h-[200px] w-[200px] shrink-0">
+          <FoxGuide
+            pose="traveler"
+            size="lg"
+            surface="empty"
+          />
         </div>
 
         {/* Message */}

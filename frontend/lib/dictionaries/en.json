@@ -444,5 +444,15 @@
     "collection": "Collection",
     "menu": "Menu",
     "close": "Close"
+  },
+  "fox_guide": {
+    "agent_working": "AI is building your route…",
+    "no_results": "No pilgrimage spots matched your search",
+    "no_results_suggestion": "Try different keywords or a broader area",
+    "permission_title": "Find spots near you?",
+    "permission_body": "Allow location access to show pilgrimage spots close to where you are.",
+    "permission_allow": "Use current location",
+    "permission_skip": "Skip",
+    "permission_manual": "Enter a place"
   }
 }
