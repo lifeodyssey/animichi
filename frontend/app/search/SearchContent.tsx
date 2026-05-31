@@ -68,7 +68,7 @@ export default function SearchContent() {
 
   return (
     <div className="min-h-screen bg-background font-sans">
-      <SharedHeader loginHref="/?login=true" />
+      <SharedHeader variant="guest" loginHref="/?login=true" />
 
       <main className="mx-auto max-w-[960px] px-5 py-10 sm:px-8 sm:py-16">
         <Link

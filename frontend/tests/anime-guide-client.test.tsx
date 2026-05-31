@@ -25,6 +25,7 @@ vi.mock("@/lib/i18n-context", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/anime/123",
 }));
 
 vi.mock("@/lib/supabase/browser", () => ({

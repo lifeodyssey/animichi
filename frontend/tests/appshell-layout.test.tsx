@@ -7,6 +7,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import AppShell from "../components/layout/AppShell";
 
+vi.mock("next/navigation", () => ({ usePathname: () => "/chat" }));
+
 // Mock child components that use network or complex browser APIs.
 vi.mock("../components/chat/ChatPanel", () => ({
   default: () => <div data-testid="mock-chat-panel" />,
@@ -81,6 +83,14 @@ vi.mock("../lib/i18n-context", () => ({
     chat: { welcome_title: "聖地巡礼" },
     welcome_screen: { tagline: "test" },
     landing_hero: { landing: { login: "Log in" } },
+    app_nav: {
+      map: "マップ",
+      spots: "スポット",
+      records: "旅の記録",
+      collection: "コレクション",
+      menu: "メニュー",
+      close: "閉じる",
+    },
   }),
 }));
 
