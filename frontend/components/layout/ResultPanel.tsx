@@ -16,7 +16,8 @@ import { ResultPanelEmptyState } from "./ResultPanelEmptyState";
 import { ResultPanelSkeleton } from "./ResultPanelSkeleton";
 import { GridContent } from "./ResultGridContent";
 import { FloatingSpotList } from "./FloatingSpotList";
-import { SelectionBar } from "./SelectionBar";
+import { SelectionTray } from "./SelectionTray";
+import type { TraySpot } from "./SelectionTray";
 import { MapViewToggle } from "./MapViewToggle";
 import { epRangeLabel, buildEpRanges, buildAreasI18n, pointAreaI18n } from "./ResultPanelHelpers";
 import { prewarmMapbox } from "../map/prewarm";
@@ -86,6 +87,12 @@ export default function ResultPanel({
   const selectedPoints = useMemo<PilgrimagePoint[]>(
     () => searchPoints.filter((p) => selectedIds.has(p.id)),
     [searchPoints, selectedIds],
+  );
+
+  // TraySpot[] for SelectionTray — id + name only.
+  const traySpots = useMemo<TraySpot[]>(
+    () => selectedPoints.map((p) => ({ id: p.id, name: p.name })),
+    [selectedPoints],
   );
 
   // Episode range filter chips — empty for movies (no episode data).
@@ -217,14 +224,14 @@ export default function ResultPanel({
             {/* View toggle overlay — top-right */}
             <MapViewToggle view={view} onViewChange={setView} />
 
-            {/* Selection bar overlay — bottom */}
+            {/* Selection tray overlay — bottom */}
             {selectedIds.size > 0 && (
-              <SelectionBar
-                count={selectedIds.size}
+              <SelectionTray
+                spots={traySpots}
                 onPlanRoute={() => setConfirmMode(true)}
+                onRemove={(id) => toggle(id)}
                 onClear={clear}
                 disabled={loading}
-                hasFloatingList
               />
             )}
           </div>
@@ -263,11 +270,12 @@ export default function ResultPanel({
           />
         )}
 
-        {/* Selection bar — bottom overlay for grid */}
+        {/* Selection tray — bottom for grid */}
         {selectedIds.size > 0 && (
-          <SelectionBar
-            count={selectedIds.size}
+          <SelectionTray
+            spots={traySpots}
             onPlanRoute={() => setConfirmMode(true)}
+            onRemove={(id) => toggle(id)}
             onClear={clear}
             disabled={loading}
           />
