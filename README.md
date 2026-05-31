@@ -12,7 +12,7 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/Seichijunrei-agent)](https://github.com/lifeodyssey/Seichijunrei-agent/commits/main)
 [![GitHub stars](https://img.shields.io/github/stars/lifeodyssey/Seichijunrei-agent?style=flat)](https://github.com/lifeodyssey/Seichijunrei-agent)
 
-[**Try it live**](https://seichijunrei.zhenjia.org) | [Architecture](docs/ARCHITECTURE.md) | [Deployment](docs/ops/deployment.md)
+[**Try it live**](https://seichijunrei.zhenjia.dev) | [Architecture](docs/ARCHITECTURE.md) | [Deployment](docs/ops/deployment.md)
 
 [English](README.md) | [日本語](README.ja.md) | [中文](README.zh.md)
 
@@ -109,7 +109,7 @@ async def main() -> None:
 
 **HTTP (API key):**
 ```bash
-curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
+curl -X POST https://seichijunrei.zhenjia.dev/v1/runtime \
   -H 'Authorization: Bearer sk_your_key_here' \
   -H 'Content-Type: application/json' \
   -d '{"text":"吹響の聖地","locale":"ja"}'
