@@ -327,6 +327,16 @@
     "spots_header": "スポット",
     "spots_count": "{count}件"
   },
+  "selection_tray": {
+    "count": "{count}件選択中",
+    "plan_route": "ルートを作成",
+    "clear": "選択をクリア",
+    "empty_prompt": "地図からスポットを選んでください",
+    "remove_chip": "{name}を削除",
+    "overflow_more": "+{count}件",
+    "collapse": "トレイを折りたたむ",
+    "expand": "トレイを展開"
+  },
   "clarification": {
     "examples_label": "例えば：",
     "search_all": "全作品まとめて検索",
