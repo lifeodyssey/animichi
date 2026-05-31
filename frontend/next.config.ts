@@ -10,10 +10,7 @@ const frontendRoot = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   turbopack: {
-    // Root must include the animal-island-ui package path (file: symlink outside project)
-    // so turbopack can resolve asset url() references in the package CSS.
-    // LCA of frontend and animal-island-ui-tailwind is /Users/.../Documents (5 levels up).
-    root: path.resolve(frontendRoot, "../../../../../"),
+    root: frontendRoot,
   },
 };
 
