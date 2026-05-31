@@ -444,5 +444,15 @@
     "collection": "コレクション",
     "menu": "メニュー",
     "close": "閉じる"
+  },
+  "fox_guide": {
+    "agent_working": "AIがルートを作成しています…",
+    "no_results": "条件に合う聖地が見つかりませんでした",
+    "no_results_suggestion": "条件を変えて、もう一度試してみましょう",
+    "permission_title": "近くの聖地を探しますか？",
+    "permission_body": "位置情報を使って、あなたのいる場所の近くの聖地を表示します。",
+    "permission_allow": "現在地を使う",
+    "permission_skip": "スキップ",
+    "permission_manual": "場所を入力する"
   }
 }

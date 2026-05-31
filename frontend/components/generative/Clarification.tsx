@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useDict } from "../../lib/i18n-context";
 import type { ClarifyCandidate } from "../../lib/types";
 import { Button } from "@/components/ui/button";
+import FoxGuide from "./FoxGuide";
 
 export type { ClarifyCandidate };
 
@@ -29,7 +30,14 @@ export default function Clarification({
   // If we have candidate objects, render the vertical card layout
   if (hasCandidates) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="relative flex flex-col gap-3">
+        {/* Fox guide — ai-navigator pose for the clarification / disambiguation state */}
+        <FoxGuide
+          pose="ai-navigator"
+          size="sm"
+          surface="loading"
+          className="-top-2 right-0"
+        />
         <p className="text-sm font-light leading-relaxed text-foreground">
           {message}
         </p>
@@ -82,7 +90,14 @@ export default function Clarification({
 
   // Default fallback: suggestion buttons from dictionary as candidate-like cards
   return (
-    <div className="flex flex-col gap-3">
+    <div className="relative flex flex-col gap-3">
+      {/* Fox guide — traveler pose for the fallback/uncertain state (no clear candidates) */}
+      <FoxGuide
+        pose="traveler"
+        size="sm"
+        surface="empty"
+        className="-top-2 right-0"
+      />
       <p className="text-sm font-light leading-relaxed text-foreground">
         {message}
       </p>

@@ -658,31 +658,20 @@ exports[`Snapshot: ResultPanelEmptyState > renders empty state 1`] = `
       class="relative flex flex-col items-center gap-4 text-center"
     >
       <div
-        class="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-soft"
+        class="relative mb-2 h-[200px] w-[200px] shrink-0"
       >
-        <svg
+        <div
           aria-hidden="true"
-          fill="none"
-          height="28"
-          stroke="var(--color-primary)"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="1.8"
-          viewBox="0 0 24 24"
-          width="28"
+          class="pointer-events-none absolute select-none w-[200px] h-[200px] fox-idle"
         >
-          <circle
-            cx="11"
-            cy="11"
-            r="8"
+          <img
+            alt=""
+            class="h-full w-full object-contain"
+            height="200"
+            src="/images/landing/fox-guide-v2/fox-d-backpack-traveler.png"
+            width="200"
           />
-          <line
-            x1="21"
-            x2="16.65"
-            y1="21"
-            y2="16.65"
-          />
-        </svg>
+        </div>
       </div>
       <p
         class="font-display text-lg font-semibold text-foreground opacity-70"

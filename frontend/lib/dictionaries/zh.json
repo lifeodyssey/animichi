@@ -444,5 +444,15 @@
     "collection": "收藏",
     "menu": "菜单",
     "close": "关闭"
+  },
+  "fox_guide": {
+    "agent_working": "AI 正在为你规划路线…",
+    "no_results": "没有找到符合条件的圣地",
+    "no_results_suggestion": "试试换个关键词或扩大搜索范围",
+    "permission_title": "要搜索附近的圣地吗？",
+    "permission_body": "允许获取位置信息，将为你显示附近的圣地。",
+    "permission_allow": "使用当前位置",
+    "permission_skip": "跳过",
+    "permission_manual": "输入地点"
   }
 }

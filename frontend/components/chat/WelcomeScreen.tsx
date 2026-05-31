@@ -9,6 +9,7 @@ import { ANIME_COVERS } from "../../lib/mock-data";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import ToriiIcon from "../icons/ToriiIcon";
+import FoxGuide from "../generative/FoxGuide";
 
 /* ── Module-level constants (stable references, never re-created) ── */
 
@@ -143,7 +144,15 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
   const chipData = React.useMemo(() => getChipData(locale, ws), [locale, ws]);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center bg-background px-6 pb-4">
+    <div className="relative flex flex-1 flex-col items-center justify-center bg-background px-6 pb-4">
+      {/* Fox guide — welcome pose, decorative, bottom-right of welcome area */}
+      <FoxGuide
+        pose="welcome"
+        size="lg"
+        surface="welcome"
+        className="bottom-4 right-4 opacity-80"
+      />
+
       {/* Torii logo */}
       <div className="entrance-up mb-3">
         <ToriiIcon size={40} />
