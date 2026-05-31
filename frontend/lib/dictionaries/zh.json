@@ -410,5 +410,30 @@
     "walking_route": "步行路线",
     "ep_badge": "第{ep}话",
     "photo_missing": "暂无图片"
+  },
+  "error_retry_ticket": {
+    "heading": "请再试一次",
+    "body": "规划过程中出了点问题，您的输入内容仍然保留。",
+    "retry": "重试",
+    "edit_query": "编辑问题",
+    "restart": "重新开始",
+    "report": "报告问题",
+    "stamp_alt": "鸟居印章"
+  },
+  "recent_route_card": {
+    "resume_label": "继续",
+    "spots_count": "{count} 个圣地",
+    "no_spots": "暂无圣地",
+    "thumbnail_alt": "{title} 缩略图",
+    "placeholder_alt": "路线占位图",
+    "updated": "更新于 {when}"
+  },
+  "chat_summary_card": {
+    "area_label": "区域",
+    "duration_label": "所需时间",
+    "transport_label": "交通方式",
+    "spots_label": "圣地数量",
+    "view_details": "查看规划详情",
+    "adopt_plan": "采用此规划"
   }
 }

@@ -410,5 +410,30 @@
     "walking_route": "徒歩ルート",
     "ep_badge": "Ep. {ep}",
     "photo_missing": "写真なし"
+  },
+  "error_retry_ticket": {
+    "heading": "もう一度お試しください",
+    "body": "プラン作成中に問題が発生しました。入力内容はそのまま使えます。",
+    "retry": "再試行",
+    "edit_query": "質問を編集",
+    "restart": "最初から",
+    "report": "問題を報告",
+    "stamp_alt": "鳥居の印章"
+  },
+  "recent_route_card": {
+    "resume_label": "続きから",
+    "spots_count": "{count} スポット",
+    "no_spots": "スポットなし",
+    "thumbnail_alt": "{title} のサムネイル",
+    "placeholder_alt": "ルートのプレースホルダー",
+    "updated": "最終更新：{when}"
+  },
+  "chat_summary_card": {
+    "area_label": "エリア",
+    "duration_label": "所要時間",
+    "transport_label": "移動手段",
+    "spots_label": "スポット数",
+    "view_details": "プランの詳細を見る",
+    "adopt_plan": "このプランを採用"
   }
 }
