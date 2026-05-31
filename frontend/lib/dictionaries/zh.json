@@ -227,7 +227,8 @@
     "chat_label": "对话",
     "timeline_spots": "{count} 个圣地",
     "timeline_nearby": "📍 附近还有其他动漫圣地",
-    "timeline_nearby_sub": "途中可能会经过其他作品的取景地"
+    "timeline_nearby_sub": "途中可能会经过其他作品的取景地",
+    "timeline_empty": "此行程暂无景点"
   },
   "selection": {
     "count": "已选{count}个",

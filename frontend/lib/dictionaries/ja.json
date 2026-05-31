@@ -227,7 +227,8 @@
     "chat_label": "チャット",
     "timeline_spots": "{count} 聖地",
     "timeline_nearby": "📍 付近に他のアニメ聖地があります",
-    "timeline_nearby_sub": "途中で別の作品のロケ地を通るかもしれません"
+    "timeline_nearby_sub": "途中で別の作品のロケ地を通るかもしれません",
+    "timeline_empty": "このルートにスポットがありません"
   },
   "selection": {
     "count": "{count}件を選択中",
