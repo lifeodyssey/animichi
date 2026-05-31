@@ -219,6 +219,10 @@
   --color-success-fg: var(--color-success-fg);
   --color-warning-fg: var(--color-warning-fg);
 
+  /* Walk segment tokens — enables bg-walk-bg, text-walk-fg */
+  --color-walk-bg: var(--color-walk-bg);
+  --color-walk-fg: var(--color-walk-fg);
+
   /* NookPhone accent palette */
   --color-nook-yellow: var(--color-nook-yellow);
   --color-nook-teal: var(--color-nook-teal);
@@ -385,6 +389,15 @@
   background-size: 200% 100%;
   animation: seichi-shimmer 1.5s ease-in-out infinite;
   border-radius: 8px;
+}
+
+/* ── Timeline — dashed walk rail segment ── */
+.timeline-walk-dash {
+  background: repeating-linear-gradient(
+    to bottom,
+    oklch(35% 0.06 145 / 0.7) 0 4px,
+    transparent 4px 8px
+  );
 }
 
 /* Base */

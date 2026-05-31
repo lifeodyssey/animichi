@@ -227,7 +227,8 @@
     "chat_label": "Chat",
     "timeline_spots": "{count} spots",
     "timeline_nearby": "📍 Other anime spots nearby",
-    "timeline_nearby_sub": "You may pass locations from other series along the way"
+    "timeline_nearby_sub": "You may pass locations from other series along the way",
+    "timeline_empty": "No stops in this itinerary"
   },
   "selection": {
     "count": "{count} selected",
