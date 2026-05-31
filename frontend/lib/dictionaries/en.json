@@ -38,13 +38,12 @@
     "landing": {
       "hero_title": "聖地巡礼",
       "hero_subtitle": "Find anime filming locations and plan your pilgrimage route",
-      "search_placeholder": "Search anime pilgrimage spots...",
+      "search_placeholder": "Enter anime, station, or city",
       "stats_spots": "spots",
       "stats_anime": "anime",
       "stats_prefectures": "prefectures",
       "hero_headline": "Turn anime scenes\ninto today's walking route",
       "hero_lead": "Enter an anime title, station, or city.\nFind the real locations and plan your route.",
-      "search_placeholder": "Enter anime, station, or city",
       "step1_title": "Find spots",
       "step1_desc": "Search by anime title\nor location",
       "step2_title": "Pick locations",
@@ -61,7 +60,11 @@
       "scroll_hint": "Scroll down",
       "login": "Log in",
       "search_button": "Start Exploring",
-      "hero_examples": ["Your Name", "Kimi no Na wa", "Euphonium"],
+      "hero_examples": [
+        "Your Name",
+        "Kimi no Na wa",
+        "Euphonium"
+      ],
       "hero_nearby": "Nearby spots",
       "hero_location_label": "Suga Shrine Steps · Shinjuku",
       "hero_anime_label": "Anime",
@@ -397,5 +400,14 @@
     "meta_title": "{title} Pilgrimage Guide | Seichijunrei",
     "meta_description": "{count} pilgrimage spots for {title} — {city}. Plan routes with AI.",
     "meta_description_no_city": "{count} pilgrimage spots for {title}. Plan routes with AI."
+  },
+  "spot_list": {
+    "empty_title": "No spots found",
+    "empty_hint": "Try refining your search or use a different anime title",
+    "empty_retry": "Search again",
+    "empty_refine": "Refine query",
+    "walking_route": "Walking route",
+    "ep_badge": "Ep. {ep}",
+    "photo_missing": "No photo"
   }
 }

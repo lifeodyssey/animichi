@@ -38,13 +38,12 @@
     "landing": {
       "hero_title": "聖地巡礼",
       "hero_subtitle": "アニメの舞台を探して、巡礼ルートを作ろう",
-      "search_placeholder": "アニメの聖地を探す...",
+      "search_placeholder": "作品名・駅名・都市名を入力",
       "stats_spots": "スポット",
       "stats_anime": "作品",
       "stats_prefectures": "都道府県",
       "hero_headline": "アニメの場面を、\n今日歩けるルートに変える",
       "hero_lead": "作品名・駅名・都市名を入力して、\n聖地を見つけてルートを作ろう。",
-      "search_placeholder": "作品名・駅名・都市名を入力",
       "step1_title": "聖地を探す",
       "step1_desc": "作品名や地名で\n聖地を検索",
       "step2_title": "地点を選ぶ",
@@ -61,7 +60,11 @@
       "scroll_hint": "下にスクロール",
       "login": "ログイン",
       "search_button": "巡礼を始める",
-      "hero_examples": ["君の名は。", "響け！ユーフォニアム", "天気の子"],
+      "hero_examples": [
+        "君の名は。",
+        "響け！ユーフォニアム",
+        "天気の子"
+      ],
       "hero_nearby": "Nearby spots",
       "hero_location_label": "須賀神社階段 · 新宿",
       "hero_anime_label": "アニメ",
@@ -397,5 +400,14 @@
     "meta_title": "{title} 聖地巡礼ガイド | Seichijunrei",
     "meta_description": "{title}の聖地 {count} スポット — {city}。AIでルート計画も。",
     "meta_description_no_city": "{title}の聖地 {count} スポット。AIでルート計画も。"
+  },
+  "spot_list": {
+    "empty_title": "スポットが見つかりません",
+    "empty_hint": "検索条件を変えるか、別のアニメ名でお試しください",
+    "empty_retry": "再検索",
+    "empty_refine": "条件を変更",
+    "walking_route": "徒歩ルート",
+    "ep_badge": "Ep. {ep}",
+    "photo_missing": "写真なし"
   }
 }

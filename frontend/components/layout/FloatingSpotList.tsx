@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useDict } from "../../lib/i18n-context";
 import type { PilgrimagePoint } from "../../lib/types";
 import type { FilterMode } from "./ResultPanelToolbar";
+import { SpotListEmpty } from "./SpotListEmpty";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,6 +30,8 @@ export interface FloatingSpotListProps {
   totalCount: number;
   /** False for movies — hides the episode filter tab. */
   hasEpisodes?: boolean;
+  onRetry?: () => void;
+  onRefine?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -39,6 +42,43 @@ function chipClass(active: boolean): string {
   return active
     ? "bg-primary text-background border-primary"
     : "bg-background text-muted-foreground border-border";
+}
+
+// ---------------------------------------------------------------------------
+// SpotThumb — thumbnail with broken-image fallback, stable 36×36 size
+// ---------------------------------------------------------------------------
+
+function SpotThumb({
+  url,
+  alt,
+  index,
+}: {
+  url: string | null;
+  alt: string;
+  index: number;
+}) {
+  const [broken, setBroken] = useState(false);
+
+  if (!url || broken) {
+    return (
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">
+        {index + 1}
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      unoptimized
+      src={url}
+      alt={alt}
+      width={36}
+      height={36}
+      loading="lazy"
+      className="h-9 w-9 shrink-0 rounded-md object-cover"
+      onError={() => setBroken(true)}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -75,20 +115,11 @@ function SpotItem({
       tabIndex={0}
     >
       {/* Thumbnail */}
-      {point.screenshot_url ? (
-        <Image
-          unoptimized
-          src={point.screenshot_url}
-          alt={point.name_cn ?? point.name}
-          width={36}
-          height={36}
-          className="h-9 w-9 shrink-0 rounded-md object-cover"
-        />
-      ) : (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">
-          {index + 1}
-        </div>
-      )}
+      <SpotThumb
+        url={point.screenshot_url}
+        alt={point.name_cn ?? point.name}
+        index={index}
+      />
 
       {/* Text */}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -152,6 +183,8 @@ export function FloatingSpotList({
   onAreaChange,
   totalCount,
   hasEpisodes = true,
+  onRetry,
+  onRefine,
 }: FloatingSpotListProps) {
   const { result_panel: rp, toolbar: t } = useDict();
   const activeRef = useRef<HTMLDivElement>(null);
@@ -241,21 +274,25 @@ export function FloatingSpotList({
 
       {/* Scrollable spot list */}
       <div className="flex-1 overflow-y-auto px-1 py-1">
-        {visiblePoints.map((point, idx) => (
-          <div
-            key={point.id}
-            ref={point.id === activePointId ? activeRef : undefined}
-          >
-            <SpotItem
-              point={point}
-              index={idx}
-              selected={selectedIds.has(point.id)}
-              active={point.id === activePointId}
-              onToggle={onToggle}
-              onClick={onPointClick}
-            />
-          </div>
-        ))}
+        {visiblePoints.length === 0 ? (
+          <SpotListEmpty onRetry={onRetry} onRefine={onRefine} />
+        ) : (
+          visiblePoints.map((point, idx) => (
+            <div
+              key={point.id}
+              ref={point.id === activePointId ? activeRef : undefined}
+            >
+              <SpotItem
+                point={point}
+                index={idx}
+                selected={selectedIds.has(point.id)}
+                active={point.id === activePointId}
+                onToggle={onToggle}
+                onClick={onPointClick}
+              />
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
