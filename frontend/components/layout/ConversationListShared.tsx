@@ -4,62 +4,92 @@ import type { ConversationRecord } from "@/lib/types";
 import { getConversationDisplayTitle } from "../../lib/conversation-history";
 import { relativeTime } from "../../lib/time-utils";
 import { useDict } from "../../lib/i18n-context";
+import { RecentRouteCard } from "@/components/generative/RecentRouteCard";
+import { cn } from "@/lib/utils";
 
-/** Route-related keywords used to select the pin icon. */
+/** Route-related keywords used to select card style vs plain item. */
 const ROUTE_KEYWORDS = /route|ルート|路线|plan|計画|计划/i;
 
-interface ConversationItemProps {
+// ---------------------------------------------------------------------------
+// SafeConversationCard — renders a single record; falls back gracefully
+// ---------------------------------------------------------------------------
+
+interface SafeConversationCardProps {
   record: ConversationRecord;
   isActive: boolean;
   onSelect: () => void;
 }
 
-export function ConversationItem({ record, isActive, onSelect }: ConversationItemProps) {
+export function SafeConversationCard({
+  record,
+  isActive,
+  onSelect,
+}: SafeConversationCardProps) {
   const displayTitle = getConversationDisplayTitle(record);
-  const icon = ROUTE_KEYWORDS.test(record.first_query) ? "\u{1F4CD}" : "\u{1F5FE}";
-  const meta = relativeTime(record.updated_at);
+  const isRoute = ROUTE_KEYWORDS.test(record.first_query);
+  const updatedWhen = relativeTime(record.updated_at) || "-";
+
+  if (isRoute) {
+    return (
+      <div
+        data-testid={`conversation-item-${record.session_id}`}
+        data-active={isActive || undefined}
+        className="mb-2"
+      >
+        <RecentRouteCard
+          title={displayTitle}
+          locations={[]}
+          spotCount={0}
+          updatedWhen={updatedWhen}
+          onClick={onSelect}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div
-      key={record.session_id}
+    <button
+      type="button"
       data-testid={`conversation-item-${record.session_id}`}
       data-active={isActive || undefined}
-      className={[
-        "mb-0.5 flex items-start gap-2 rounded-lg px-3 py-2.5 cursor-pointer transition",
-        isActive
-          ? "bg-primary text-primary-fg"
-          : "hover:bg-muted",
-      ].join(" ")}
       onClick={onSelect}
+      className={cn(
+        "mb-0.5 flex w-full items-start gap-2 rounded-lg px-3 py-2.5 text-left",
+        "cursor-pointer transition",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1",
+        isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted",
+      )}
     >
       <span className="mt-0.5 shrink-0 text-sm leading-none" aria-hidden="true">
-        {icon}
+        {"\u{1F5FE}"}
       </span>
       <div className="min-w-0 flex-1">
         <p
-          className={[
+          className={cn(
             "truncate text-xs font-medium",
-            isActive ? "text-primary-fg" : "text-foreground",
-          ].join(" ")}
+            isActive ? "text-primary-foreground" : "text-foreground",
+          )}
         >
-          {displayTitle.length > 25
-            ? displayTitle.slice(0, 25) + "\u2026"
-            : displayTitle}
+          {displayTitle.length > 25 ? displayTitle.slice(0, 25) + "…" : displayTitle}
         </p>
-        {meta && (
+        {updatedWhen && (
           <p
-            className={[
-              "mt-0.5 text-xs",
-              isActive ? "text-primary-fg opacity-70" : "text-muted-foreground opacity-60",
-            ].join(" ")}
+            className={cn(
+              "mt-0.5 text-xs opacity-60",
+              isActive ? "text-primary-foreground" : "text-muted-foreground",
+            )}
           >
-            {meta}
+            {updatedWhen}
           </p>
         )}
       </div>
-    </div>
+    </button>
   );
 }
+
+// ---------------------------------------------------------------------------
+// EmptyConversations
+// ---------------------------------------------------------------------------
 
 export function EmptyConversations() {
   const { drawer: t } = useDict();
@@ -69,12 +99,14 @@ export function EmptyConversations() {
       className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground"
     >
       <span className="text-2xl" aria-hidden="true">{"\u{1F5FE}"}</span>
-      <p className="text-xs text-center">
-        {t.empty}
-      </p>
+      <p className="text-xs text-center">{t.empty}</p>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// ConversationList
+// ---------------------------------------------------------------------------
 
 interface ConversationListProps {
   conversations: ConversationRecord[];
@@ -90,15 +122,16 @@ export function ConversationList({
   onItemClick,
 }: ConversationListProps) {
   const { drawer: t } = useDict();
-  if (conversations.length === 0) return <EmptyConversations />;
+  const valid = conversations.filter((r) => Boolean(r.session_id));
+  if (valid.length === 0) return <EmptyConversations />;
 
   return (
     <>
       <p className="pb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground opacity-60">
         {t.recent}
       </p>
-      {conversations.map((record) => (
-        <ConversationItem
+      {valid.map((record) => (
+        <SafeConversationCard
           key={record.session_id}
           record={record}
           isActive={record.session_id === activeSessionId}
@@ -111,3 +144,6 @@ export function ConversationList({
     </>
   );
 }
+
+// Legacy compat shim — kept for any consumers that imported ConversationItem before D4
+export { SafeConversationCard as ConversationItem };
