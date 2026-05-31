@@ -32,6 +32,7 @@ function SelectDefault() {
 }
 
 export const Default: Story = {
+  args: { options: [] },
   render: () => <SelectDefault />,
 };
 
@@ -47,10 +48,12 @@ function SelectWithValue() {
 }
 
 export const WithValue: Story = {
+  args: { options: [] },
   render: () => <SelectWithValue />,
 };
 
 export const Disabled: Story = {
+  args: { options: [] },
   render: () => (
     <Select
       options={regionOptions}
@@ -85,11 +88,13 @@ function SelectMany() {
 }
 
 export const ManyOptions: Story = {
+  args: { options: [] },
   render: () => <SelectMany />,
 };
 
 /** Open — shows the soft yellow (#FFEEA0) dropdown panel */
 export const Open: Story = {
+  args: { options: [] },
   render: () => <SelectDefault />,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
     const canvas = within(canvasElement);
