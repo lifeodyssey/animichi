@@ -34,6 +34,7 @@ export const Disabled: Story = {
 };
 
 export const FAQGroup: Story = {
+  args: { question: "", answer: "" },
   render: () => (
     <div className="flex w-80 flex-col gap-2">
       <CollapseCard

@@ -88,5 +88,6 @@ function ControlledCheckbox() {
 }
 
 export const Controlled: Story = {
+  args: { options: [] },
   render: () => <ControlledCheckbox />,
 };
