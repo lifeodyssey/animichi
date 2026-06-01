@@ -2,15 +2,11 @@
 
 import type React from "react";
 
-/** Shared image-error fallback: hides <img> and applies gradient to parent. */
+/** Shared image-error fallback: hides <img> and applies warm muted bg to parent. */
 export function handleImageError(e: React.SyntheticEvent<HTMLImageElement>) {
   const target = e.currentTarget;
   target.style.display = "none";
-  const parent = target.parentElement;
-  if (parent) {
-    parent.style.background =
-      "linear-gradient(135deg, oklch(88% 0.04 240), oklch(82% 0.06 260))";
-  }
+  target.parentElement?.classList.add("img-error-bg");
 }
 
 /* ── Anitabi floating photo cards ── */

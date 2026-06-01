@@ -62,7 +62,7 @@ function MagicLinkCard({
     <div
       className={cn(
         "w-full max-w-sm rounded-2xl border border-border bg-card p-6",
-        "shadow-[var(--shadow-popup)]",
+        "shadow-lg",
       )}
       role="region"
       aria-label={cardTitle}
@@ -83,7 +83,7 @@ function MagicLinkCard({
           className={cn(
             "w-full rounded-full border border-border bg-background px-4 py-2.5",
             "text-[13px] text-foreground placeholder:text-muted-foreground",
-            "shadow-[var(--shadow-3d)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]",
+            "shadow-3d-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus",
           )}
         />
         <button
@@ -93,7 +93,7 @@ function MagicLinkCard({
           className={cn(
             "flex h-11 w-full items-center justify-center rounded-full",
             "bg-cta text-[13px] font-semibold text-cta-foreground",
-            "shadow-[var(--shadow-3d)] transition-transform active:translate-y-0.5",
+            "shadow-3d-lg transition-transform active:translate-y-0.5",
             isPending && "cursor-not-allowed opacity-60",
           )}
           data-testid="ss-save-cta"
@@ -135,7 +135,7 @@ export function LandingSaveSync({ onOpenAuth }: LandingSaveSyncProps) {
   return (
     <section
       data-testid="save-sync-section"
-      className="bg-card px-5 py-16 sm:px-8"
+      className="border-t border-border bg-card px-5 pb-20 pt-16 sm:px-8 sm:pb-24 sm:pt-20"
     >
       <div className="mx-auto max-w-[1100px]">
         <div className="flex flex-col items-center gap-12 lg:flex-row lg:items-start lg:gap-16">
