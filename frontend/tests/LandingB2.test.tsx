@@ -211,23 +211,25 @@ describe("LandingPopularRoutes — image error fallback", () => {
   });
 
   it("handleImageError hides the img element", () => {
+    const added: string[] = [];
     const target = {
       style: { display: "" } as CSSStyleDeclaration,
-      parentElement: { style: { background: "" } } as unknown as HTMLElement,
+      parentElement: { classList: { add: (c: string) => added.push(c) } } as unknown as HTMLElement,
     };
     const event = { currentTarget: target } as unknown as React.SyntheticEvent<HTMLImageElement>;
     handleImageError(event);
     expect(target.style.display).toBe("none");
   });
 
-  it("handleImageError applies gradient fallback to parent", () => {
+  it("handleImageError applies warm muted class to parent", () => {
+    const added: string[] = [];
     const target = {
       style: { display: "" } as CSSStyleDeclaration,
-      parentElement: { style: { background: "" } } as unknown as HTMLElement,
+      parentElement: { classList: { add: (c: string) => added.push(c) } } as unknown as HTMLElement,
     };
     const event = { currentTarget: target } as unknown as React.SyntheticEvent<HTMLImageElement>;
     handleImageError(event);
-    expect(target.parentElement!.style.background).toContain("linear-gradient");
+    expect(added).toContain("img-error-bg");
   });
 
   it("handleImageError does not throw when parentElement is null", () => {

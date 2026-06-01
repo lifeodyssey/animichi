@@ -30,7 +30,7 @@ function LocationStamps({ count }: { count: string }) {
     <div className="flex items-center gap-1.5">
       <MapPin size={11} className="shrink-0 text-primary" aria-hidden="true" />
       <span className="text-[11px] text-muted-foreground">{location}</span>
-      <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+      <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-[12px] font-medium text-muted-foreground">
         {spots}
       </span>
     </div>
@@ -43,7 +43,7 @@ function TagRow({ tags }: { tags: string[] }) {
       {tags.map((tag) => (
         <span
           key={tag}
-          className="rounded-full border border-border bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
+          className="rounded-full border border-border bg-background px-2 py-0.5 text-[12px] text-muted-foreground"
         >
           {tag}
         </span>
@@ -70,8 +70,8 @@ function RouteCard({
       className={cn(
         "seichi-reveal-pop group flex flex-col overflow-hidden rounded-[18px]",
         "border border-border bg-card",
-        "transition-all duration-300 ease-[var(--ease-animal)]",
-        "hover:-translate-y-1.5 hover:shadow-[var(--shadow-card)]",
+        "transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-expo)]",
+        "hover:-translate-y-1.5 hover:shadow-card",
       )}
       style={{ animationDelay: `${index * 0.06}s` }}
       aria-label={item.title}
@@ -128,7 +128,7 @@ export function LandingPopularRoutes({ items, onOpenAuth: _onOpenAuth }: Landing
   const addRevealRef = useScrollReveal();
 
   return (
-    <section className="bg-background px-5 py-12 sm:px-8">
+    <section className="bg-background px-5 pb-16 pt-14 sm:px-8 sm:pb-20 sm:pt-16">
       <div className="mx-auto max-w-[1100px]">
         {/* Header row */}
         <div

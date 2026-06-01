@@ -108,6 +108,9 @@
   --shadow-card: 0 4px 10px rgba(107, 92, 67, 0.32);
   --shadow-card-hover: 0 8px 24px rgba(114, 93, 66, 0.15);
 
+  /* ── Popup / modal elevation ── */
+  --shadow-popup: 0 8px 32px rgba(114, 93, 66, 0.15);
+
   /* ── Component shadows ── */
   --shadow-inset-active: rgba(0, 0, 0, 0.1);
   --shadow-switch-off: inset 0 2px 4px rgba(114, 93, 66, 0.15);
@@ -205,6 +208,7 @@
   --shadow-hero: var(--shadow-hero);
   --shadow-card: var(--shadow-card);
   --shadow-card-hover: var(--shadow-card-hover);
+  --shadow-popup: var(--shadow-popup);
   --shadow-3d-sm: var(--shadow-3d-sm);
   --shadow-3d-md: var(--shadow-3d-md);
   --shadow-3d-lg: var(--shadow-3d-lg);
@@ -482,6 +486,11 @@ input:focus-visible {
 .hover-lift:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-card);
+}
+
+/* ── Image error fallback — warm muted bg (replaces cold-blue inline gradient) ── */
+.img-error-bg {
+  background: var(--color-muted);
 }
 
 /* ── Input focus glow — game yellow ── */
