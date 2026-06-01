@@ -160,16 +160,14 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
 
       {/* Tagline — personalized for returning users */}
       <h1
-        className="entrance-up mb-6 max-w-[20ch] text-center font-display text-2xl font-bold leading-snug text-foreground"
-        style={{ animationDelay: "0.05s" }}
+        className="entrance-up entrance-delay-1 mb-6 max-w-[20ch] text-balance text-center font-display text-[28px] font-bold leading-snug text-foreground"
       >
         {isReturning ? (ws.tagline_returning ?? ws.tagline) : ws.tagline}
       </h1>
 
       {/* Pill search input — Input + send button */}
       <div
-        className="entrance-up mb-4 flex w-full max-w-[520px] items-center gap-2"
-        style={{ animationDelay: "0.1s" }}
+        className="entrance-up entrance-delay-2 mb-4 flex w-full max-w-[520px] items-center gap-2"
       >
         <Input shadow
           ref={inputRef}
@@ -202,8 +200,7 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
 
       {/* Quick-action chips — fill input, don't send directly */}
       <div
-        className="entrance-up mb-7 flex flex-wrap justify-center gap-2"
-        style={{ animationDelay: "0.15s" }}
+        className="entrance-up entrance-delay-3 mb-8 flex flex-wrap justify-center gap-2"
       >
         {chipData.map((chip) => (
           <Button
@@ -218,28 +215,27 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
         ))}
       </div>
 
-      {/* Popular anime covers — larger, readable titles */}
+      {/* Popular anime covers — poster row with hover lift */}
       <div
-        className="entrance-up flex flex-col items-center"
-        style={{ animationDelay: "0.2s" }}
+        className="entrance-up entrance-delay-4 flex flex-col items-center"
       >
-        <span className="mb-2.5 text-[10px] uppercase tracking-[1px] text-muted-foreground">
+        <span className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
           {ws.popular_label}
         </span>
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           {loading
             ? Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex shrink-0 flex-col items-center gap-1.5">
-                  <div className="skeleton h-[88px] w-[64px]" />
-                  <div className="skeleton h-3 w-12" />
+                <div key={i} className="flex shrink-0 flex-col items-center gap-2">
+                  <div className="skeleton h-[100px] w-[72px] rounded-md" />
+                  <div className="skeleton h-3 w-14" />
                 </div>
               ))
             : covers.map((item, idx) => (
-                <Button
+                <button
                   key={`${item.bangumi_id}-${idx}`}
-                  ghost
+                  type="button"
                   onClick={() => handleChipClick(popularSpotQuery(item.title, locale))}
-                  className="group flex h-auto shrink-0 flex-col items-center gap-1.5 border-transparent px-0 py-0"
+                  className="group flex shrink-0 flex-col items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   title={item.title}
                   aria-label={item.title}
                 >
@@ -248,37 +244,28 @@ export default function WelcomeScreen({ onSend, dict, locale }: WelcomeScreenPro
                       unoptimized
                       src={item.cover_url}
                       alt={item.title}
-                      width={64}
-                      height={88}
-                      className="h-[88px] w-[64px] rounded-md border border-border object-cover transition-transform group-hover:-translate-y-0.5"
-                      style={{ transitionDuration: "var(--duration-fast)" }}
+                      width={72}
+                      height={100}
+                      className="h-[100px] w-[72px] rounded-md border border-border object-cover transition-transform duration-150 group-hover:-translate-y-1 group-hover:shadow-card"
                     />
                   ) : (
-                    <div className="flex h-[88px] w-[64px] items-center justify-center rounded-md border border-border bg-card text-lg text-muted-foreground">
+                    <div className="img-error-bg flex h-[100px] w-[72px] items-center justify-center rounded-md border border-border text-lg text-muted-foreground">
                       {item.title.charAt(0)}
                     </div>
                   )}
-                  <span className="flex max-w-[64px] flex-col items-center gap-0.5">
-                    <span className="truncate text-[11px] text-muted-foreground transition-colors group-hover:text-foreground">
-                      {item.title.length > 7 ? `${item.title.slice(0, 6)}…` : item.title}
-                    </span>
-                    {(item.points_count ?? 0) > 0 && (
-                      <span className="text-[9px] text-muted-foreground/70">
-                        {item.points_count} spots
-                      </span>
-                    )}
+                  <span className="max-w-[72px] truncate text-xs text-muted-foreground transition-colors group-hover:text-foreground">
+                    {item.title.length > 7 ? `${item.title.slice(0, 6)}…` : item.title}
                   </span>
-                </Button>
+                </button>
               ))}
         </div>
       </div>
 
-      {/* Tips — progressive disclosure for first-time users */}
+      {/* Tips — compact, first-time only, subdued */}
       <div
-        className="entrance-up mt-8 flex flex-col gap-1 text-xs text-muted-foreground"
-        style={{ animationDelay: "0.25s" }}
+        className="entrance-up entrance-delay-5 mt-8 flex flex-col gap-1.5 text-center text-xs text-muted-foreground"
       >
-        <p className="text-center font-medium">{ws.tips_label}</p>
+        <p className="font-semibold text-foreground/60">{ws.tips_label}</p>
         <p>{ws.tip_search}</p>
         <p>{ws.tip_nearby}</p>
         <p>{ws.tip_route}</p>
