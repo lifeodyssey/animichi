@@ -234,45 +234,49 @@ export default function AnimeGuideClient({ initialData, bangumiId }: AnimeGuideC
       {status === "done" && initialData && (
         <>
           {/* Hero */}
-          <section className="entrance-up bg-gradient-soft px-5 pb-8 pt-10 sm:px-8 sm:pb-10 sm:pt-14">
+          <section className="entrance-up bg-gradient-soft px-5 pb-10 pt-10 sm:px-8 sm:pb-12 sm:pt-14">
             <div className="mx-auto max-w-[1200px]">
               <Link
                 href="/"
-                className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 <span aria-hidden="true">←</span>
                 {t.back_to_home}
               </Link>
 
-              <div className="flex items-start gap-6">
+              <div className="flex items-end gap-6 sm:gap-8">
                 {initialData.cover_url && (
-                  <img
-                    src={initialData.cover_url}
-                    alt={displayTitle}
-                    width={140}
-                    height={198}
-                    className="h-[160px] w-[113px] shrink-0 rounded-lg object-cover shadow-[var(--shadow-card)] sm:h-[198px] sm:w-[140px] lg:h-[240px] lg:w-[170px]"
-                  />
+                  <div className="relative shrink-0">
+                    <img
+                      src={initialData.cover_url}
+                      alt={displayTitle}
+                      width={140}
+                      height={198}
+                      className="h-[160px] w-[113px] rounded-xl object-cover shadow-card sm:h-[210px] sm:w-[148px] lg:h-[252px] lg:w-[178px]"
+                    />
+                    {/* Film-frame corner accents */}
+                    <span className="pointer-events-none absolute left-1.5 top-1.5 h-4 w-4 rounded-tl-[5px] border-l-2 border-t-2 border-muted-foreground/40" aria-hidden="true" />
+                    <span className="pointer-events-none absolute right-1.5 top-1.5 h-4 w-4 rounded-tr-[5px] border-r-2 border-t-2 border-muted-foreground/40" aria-hidden="true" />
+                    <span className="pointer-events-none absolute bottom-1.5 left-1.5 h-4 w-4 rounded-bl-[5px] border-b-2 border-l-2 border-muted-foreground/40" aria-hidden="true" />
+                    <span className="pointer-events-none absolute bottom-1.5 right-1.5 h-4 w-4 rounded-br-[5px] border-b-2 border-r-2 border-muted-foreground/40" aria-hidden="true" />
+                  </div>
                 )}
-                <div>
-                  <h1 className="font-display text-[clamp(28px,4.5vw,42px)] font-bold leading-[1.1] text-foreground">
+                <div className="pb-1">
+                  <h1 className="font-display text-3xl font-bold leading-[1.1] text-fg-heading sm:text-4xl lg:text-5xl">
                     {displayTitle}
                   </h1>
                   {titleCn && locale !== "zh" && (
-                    <p className="mt-1 text-sm text-muted-foreground">{titleCn}</p>
+                    <p className="mt-1.5 text-sm text-muted-foreground">{titleCn}</p>
                   )}
                   {locale === "zh" && title !== titleCn && (
-                    <p className="mt-1 text-sm text-muted-foreground">{title}</p>
+                    <p className="mt-1.5 text-sm text-muted-foreground">{title}</p>
                   )}
-                  <div className="mt-4 flex items-center gap-3 text-sm text-muted-foreground">
-                    <span className="font-semibold text-foreground">
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+                    <span className="rounded-sm bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary-deep">
                       {t.spots_label.replace("{count}", String(initialData.spot_count))}
                     </span>
                     {initialData.city && (
-                      <>
-                        <span className="opacity-40">·</span>
-                        <span>{initialData.city}</span>
-                      </>
+                      <span className="text-muted-foreground">{initialData.city}</span>
                     )}
                   </div>
                 </div>
@@ -283,7 +287,7 @@ export default function AnimeGuideClient({ initialData, bangumiId }: AnimeGuideC
           <main className="mx-auto max-w-[1200px] px-5 pb-16 sm:px-8 sm:pb-20">
             {spots.length > 0 && (
               <div
-                className="entrance-up mb-6 mt-6 overflow-hidden rounded-2xl border-2 border-border shadow-[var(--shadow-card)] [animation-delay:0.15s]"
+                className="entrance-up mb-6 mt-6 overflow-hidden rounded-2xl border border-border shadow-card [animation-delay:0.15s]"
               >
                 <div className="h-[320px] sm:h-[420px] lg:h-[480px]">
                   <MapErrorBoundary fallbackText={t.map_unavailable ?? "Map unavailable — view spot locations below"}>
@@ -294,11 +298,11 @@ export default function AnimeGuideClient({ initialData, bangumiId }: AnimeGuideC
             )}
 
             <div
-              className="entrance-up mb-10 rounded-2xl border-2 border-border bg-card p-6 shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)] sm:flex sm:items-center sm:justify-between sm:p-8 [animation-delay:0.2s]"
+              className="entrance-up mb-10 rounded-2xl border border-border bg-card p-6 shadow-card transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover sm:flex sm:items-center sm:justify-between sm:p-7 [animation-delay:0.2s]"
             >
               <div>
-                <p className="text-lg font-semibold text-foreground">{t.plan_route}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{t.plan_route_sub}</p>
+                <p className="font-display text-xl font-bold text-fg-heading">{t.plan_route}</p>
+                <p className="mt-1 max-w-sm text-sm leading-relaxed text-muted-foreground">{t.plan_route_sub}</p>
               </div>
               <Button
                 type="primary"
@@ -312,10 +316,10 @@ export default function AnimeGuideClient({ initialData, bangumiId }: AnimeGuideC
                     setShowLoginModal(true);
                   }
                 }}
-                className="animal-btn-cta mt-3 sm:mt-0"
+                className="animal-btn-cta mt-4 shrink-0 sm:mt-0 sm:ml-6"
               >
                 {t.plan_route}
-                <span aria-hidden="true">→</span>
+                <span aria-hidden="true" className="ml-1">→</span>
               </Button>
             </div>
 

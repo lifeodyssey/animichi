@@ -37,7 +37,7 @@ function Thumbnail({ url, name }: { url: string | null; name: string }) {
 
   if (!url || broken) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-muted text-xs text-muted-foreground">
+      <div className="img-error-bg flex h-full w-full items-center justify-center text-xs text-muted-foreground">
         {t.photo_missing}
       </div>
     );
@@ -65,10 +65,13 @@ export default function SpotCard(props: SpotCardProps) {
         <Thumbnail url={point.screenshot_url} name={point.name} />
         <EpBadge episode={point.episode} />
       </div>
-      <div className="px-3 py-3">
-        <div className="truncate text-sm font-medium text-foreground">
+      <div className="px-3 pb-3 pt-2.5">
+        <div className="truncate text-sm font-semibold leading-snug text-foreground">
           {point.name}
         </div>
+        {point.name_cn && point.name_cn !== point.name && (
+          <div className="mt-0.5 truncate text-xs text-muted-foreground">{point.name_cn}</div>
+        )}
       </div>
     </>
   );
@@ -87,7 +90,7 @@ export default function SpotCard(props: SpotCardProps) {
           }
         }}
         className={cn(
-          "cursor-pointer overflow-hidden rounded-xl border-2 bg-background shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)]",
+          "cursor-pointer overflow-hidden rounded-xl border-2 bg-card shadow-card transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover",
           props.selected ? "border-primary" : "border-border",
         )}
       >
@@ -97,7 +100,7 @@ export default function SpotCard(props: SpotCardProps) {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border-2 border-border bg-background shadow-[var(--shadow-card)]">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover">
       {content}
     </div>
   );
