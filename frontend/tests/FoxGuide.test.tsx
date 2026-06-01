@@ -2,7 +2,7 @@
  * FoxGuide unit tests — Task A5
  *
  * AC coverage:
- * - Happy: pose="welcome" renders fox-a-city-guide.png; each pose maps to correct asset -> unit
+ * - Happy: pose="welcome" renders fox-a-city-guide.webp; each pose maps to correct asset -> unit
  * - Boundary: fox is aria-hidden (not announced); prefers-reduced-motion disables idle animation -> unit
  * - Error: unknown pose returns null at runtime -> unit
  * - Type policy: only valid FoxSurface values accepted (verified by tsc, not at runtime)
