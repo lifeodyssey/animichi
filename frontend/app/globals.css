@@ -395,6 +395,16 @@
   border-radius: 8px;
 }
 
+/* ── Hero — bottom-weighted vignette overlay ── */
+.hero-vignette {
+  background: linear-gradient(
+    to top,
+    rgba(30, 23, 15, 0.72) 0%,
+    rgba(30, 23, 15, 0.35) 45%,
+    transparent 75%
+  );
+}
+
 /* ── Timeline — dashed walk rail segment ── */
 .timeline-walk-dash {
   background: repeating-linear-gradient(
