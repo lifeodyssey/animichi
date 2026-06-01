@@ -668,7 +668,7 @@ exports[`Snapshot: ResultPanelEmptyState > renders empty state 1`] = `
             alt=""
             class="h-full w-full object-contain"
             height="200"
-            src="/images/landing/fox-guide-v2/fox-d-backpack-traveler.png"
+            src="/images/landing/fox-guide-v2/fox-d-backpack-traveler.webp"
             width="200"
           />
         </div>

@@ -41,11 +41,11 @@ interface FoxGuideProps {
 // ---------------------------------------------------------------------------
 
 const POSE_ASSET: Record<FoxPose, string> = {
-  "welcome":      "/images/landing/fox-guide-v2/fox-a-city-guide.png",
-  "ai-navigator": "/images/landing/fox-guide-v2/fox-c-ai-navigator.png",
-  "compare":      "/images/landing/fox-guide-v2/fox-e-scene-compare.png",
-  "traveler":     "/images/landing/fox-guide-v2/fox-d-backpack-traveler.png",
-  "icon-mark":    "/images/landing/fox-guide-v2/fox-f-icon-mark.png",
+  "welcome":      "/images/landing/fox-guide-v2/fox-a-city-guide.webp",
+  "ai-navigator": "/images/landing/fox-guide-v2/fox-c-ai-navigator.webp",
+  "compare":      "/images/landing/fox-guide-v2/fox-e-scene-compare.webp",
+  "traveler":     "/images/landing/fox-guide-v2/fox-d-backpack-traveler.webp",
+  "icon-mark":    "/images/landing/fox-guide-v2/fox-f-icon-mark.webp",
 };
 
 const SIZE_DIMS: Record<FoxSize, { w: number; h: number; cls: string }> = {
