@@ -54,18 +54,18 @@ export default function SpotGroup({
 
   return (
     <Accordion value={openItems} onValueChange={setOpenItems}>
-      <AccordionItem value={title} className="border-b-2 border-border">
+      <AccordionItem value={title} className="border-b border-border">
         <AccordionTrigger
-          className="flex w-full items-center justify-between rounded-lg px-6 py-4 text-left text-lg font-semibold text-foreground transition-colors hover:bg-card hover:no-underline font-display"
+          className="flex w-full items-center justify-between rounded-lg px-5 py-4 text-left font-display text-base font-semibold text-fg-heading transition-colors hover:bg-card hover:no-underline sm:text-lg"
         >
-          <span className="flex items-center gap-2.5">
+          <span className="flex items-center gap-3">
             {thumb && (
-              <span className="inline-block h-7 w-7 shrink-0 overflow-hidden rounded-[6px]">
+              <span className="inline-block h-8 w-8 shrink-0 overflow-hidden rounded-lg">
                 <img
                   src={thumb}
                   alt=""
-                  width={28}
-                  height={28}
+                  width={32}
+                  height={32}
                   className="h-full w-full object-cover"
                   loading="lazy"
                   onError={handleImageError}
@@ -74,12 +74,12 @@ export default function SpotGroup({
             )}
             {title}
           </span>
-          <span className="ml-auto mr-2 text-sm font-normal text-muted-foreground">
+          <span className="ml-auto mr-3 shrink-0 rounded-sm bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
             {spotsCountLabel ? spotsCountLabel.replace("{count}", String(count)) : `${count} spots`}
           </span>
         </AccordionTrigger>
         <AccordionContent>
-          <div className="grid grid-cols-1 gap-4 px-2 pb-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 px-2 pb-5 pt-1 sm:grid-cols-2 lg:grid-cols-3">
             {visiblePoints.map((point, i) => (
               <div
                 key={point.id}

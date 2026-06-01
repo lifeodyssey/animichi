@@ -13,7 +13,7 @@ interface GroupToggleProps {
 
 export default function GroupToggle({ value, onChange, episodeLabel, areaLabel }: GroupToggleProps) {
   return (
-    <div className="flex w-fit overflow-hidden rounded-[var(--r-pill)] border-2 border-border shadow-[0_3px_0_0_var(--color-3d-shadow)]">
+    <div className="flex w-fit overflow-hidden rounded-2xl border border-border shadow-3d-sm">
       <button
         type="button"
         onClick={() => onChange("episode")}
