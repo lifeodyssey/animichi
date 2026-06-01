@@ -14,21 +14,23 @@ interface LoginModalProps {
 export default function LoginModal({ redirect, onClose }: LoginModalProps) {
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--color-overlay-soft)] backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-overlay-soft backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         role="dialog"
         aria-label="Login"
-        className="entrance-up-quick relative mx-4 w-full max-w-[420px] rounded-xl bg-background p-8 shadow-2xl"
+        className="entrance-up-quick relative mx-4 w-full max-w-[420px] rounded-lg bg-card p-8 shadow-popup"
       >
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 min-h-[44px] min-w-[44px] text-muted-foreground hover:text-foreground"
+          className="absolute right-3 top-3 flex h-[44px] w-[44px] items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
           aria-label="Close"
         >
-          ✕
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M3 3l10 10M13 3L3 13" />
+          </svg>
         </button>
         <LoginForm redirect={redirect} />
       </div>
