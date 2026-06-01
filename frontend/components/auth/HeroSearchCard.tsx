@@ -35,7 +35,7 @@ export default function HeroSearchCard({
   return (
     <div
       data-testid="route-preview"
-      className="overflow-hidden rounded-[24px] border border-border bg-card/95 shadow-[var(--shadow-popup)] backdrop-blur-sm"
+      className="overflow-hidden rounded-[24px] border border-border bg-card/95 shadow-popup backdrop-blur-sm"
     >
       {/* Route preview header */}
       <RoutePreviewBar locationLabel={locationLabel} routePreviewLabel={routePreviewLabel} />
@@ -57,8 +57,8 @@ export default function HeroSearchCard({
             className={cn(
               "w-full rounded-[50px] border border-border bg-background py-2.5 pl-9 pr-4",
               "text-[13px] text-foreground placeholder:text-muted-foreground",
-              "shadow-[0_3px_0_0_var(--shadow-3d)]",
-              "focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-1",
+              "shadow-3d-sm",
+              "focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-1",
               "transition-shadow duration-150",
             )}
           />
@@ -91,7 +91,7 @@ export default function HeroSearchCard({
           onClick={() => onChip(nearbyLabel)}
           className="flex items-center gap-1.5 rounded-[50px] border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm transition-shadow hover:shadow-md"
         >
-          <MapPin size={11} className="text-[var(--color-error-fg)]" aria-hidden="true" />
+          <MapPin size={11} className="text-error-fg" aria-hidden="true" />
           {nearbyLabel}
         </button>
         <p className="text-[11px] text-muted-foreground">{authHint}</p>
@@ -111,7 +111,7 @@ function RoutePreviewBar({
 }) {
   return (
     <div className="relative border-b border-border bg-muted/50 px-4 py-3">
-      <p className="text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+      <p className="text-center text-[12px] font-bold uppercase tracking-widest text-muted-foreground">
         {routePreviewLabel}
       </p>
       <div className="relative mt-2 flex items-center justify-between px-6">
@@ -155,7 +155,7 @@ function ExampleChips({
           type="button"
           data-testid={`example-chip-${ex}`}
           onClick={() => onChip(ex)}
-          className="rounded-[50px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-foreground shadow-sm transition-all hover:-translate-y-px hover:border-primary hover:text-primary hover:shadow-md"
+          className="rounded-[50px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-foreground shadow-sm transition-[transform,box-shadow,border-color,color] duration-150 hover:-translate-y-px hover:border-primary hover:text-primary hover:shadow-md"
         >
           {ex}
         </button>

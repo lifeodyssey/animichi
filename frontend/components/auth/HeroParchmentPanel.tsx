@@ -33,7 +33,7 @@ export default function HeroParchmentPanel({ headline, lead }: HeroParchmentPane
         <h1 className="font-display text-[clamp(28px,4.5vw,52px)] font-bold leading-[1.15] text-foreground whitespace-pre-line text-balance">
           {headline}
         </h1>
-        <p className="mt-5 text-[15px] leading-[1.8] text-foreground/75 whitespace-pre-line">
+        <p className="mt-5 text-[16px] leading-[1.8] text-muted-foreground whitespace-pre-line">
           {lead}
         </p>
       </div>

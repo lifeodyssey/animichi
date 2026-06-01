@@ -23,20 +23,14 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
       {/* ═══════ SECTION 1: HERO ═══════ */}
       <LandingHero onOpenAuth={onOpenAuth} />
 
-      {/* ═══════ SECTION 2: HOW IT WORKS (48px top spacing) ═══════ */}
-      <div className="mt-12">
-        <LandingHowItWorks />
-      </div>
+      {/* ═══════ SECTION 2: HOW IT WORKS ═══════ */}
+      <LandingHowItWorks />
 
-      {/* ═══════ SECTION 3: POPULAR ROUTES (48px top spacing) ═══════ */}
-      <div className="mt-12">
-        <LandingPopularRoutes items={ANIME_GALLERY} onOpenAuth={onOpenAuth} />
-      </div>
+      {/* ═══════ SECTION 3: POPULAR ROUTES ═══════ */}
+      <LandingPopularRoutes items={ANIME_GALLERY} onOpenAuth={onOpenAuth} />
 
-      {/* ═══════ SECTION 4: SAVE-SYNC (48px top spacing) ═══════ */}
-      <div className="mt-12">
-        <LandingSaveSync onOpenAuth={onOpenAuth} />
-      </div>
+      {/* ═══════ SECTION 4: SAVE-SYNC ═══════ */}
+      <LandingSaveSync onOpenAuth={onOpenAuth} />
 
       <SharedFooter />
     </div>
