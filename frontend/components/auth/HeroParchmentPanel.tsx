@@ -1,42 +1,67 @@
 "use client";
 
+import { Card, Divider } from "animal-island-ui";
+
 interface HeroParchmentPanelProps {
   headline: string;
   lead: string;
+  authHint: string;
 }
 
 /**
- * Left parchment panel of the hero: cream background with headline + lead copy
- * and decorative stamp illustrations. Matches 01-hero-corrected.png left half.
+ * Organic cream parchment panel — floats over the BeforeAfter hero.
+ * Uses library Card type="title" for blob-radius corners.
+ * Matches the left panel of 01-hero-corrected.png.
  */
-export default function HeroParchmentPanel({ headline, lead }: HeroParchmentPanelProps) {
+export default function HeroParchmentPanel({
+  headline,
+  lead,
+  authHint,
+}: HeroParchmentPanelProps) {
   return (
-    <div className="entrance-up relative flex shrink-0 flex-col justify-center bg-card px-10 py-20 lg:w-[42%] lg:px-16 lg:py-0">
-      {/* Decorative stamp — Mt. Fuji (top-left) */}
-      <div className="absolute left-8 top-24 opacity-20 lg:left-10 lg:top-28" aria-hidden="true">
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-          <ellipse cx="32" cy="52" rx="28" ry="6" fill="var(--color-border)" />
-          <path d="M32 8L10 50h44L32 8z" fill="var(--color-muted-fg)" opacity="0.6" />
-          <path d="M24 28L32 8l8 20-4-2-4 2-4-2z" fill="var(--color-bg)" />
-        </svg>
+    <Card
+      type="title"
+      className="entrance-up pointer-events-none relative max-w-[420px] cursor-default px-8 py-7 lg:px-10 lg:py-9"
+    >
+      {/* Decorative leaf — top left */}
+      <span
+        className="absolute -top-4 left-6 text-[22px] select-none"
+        aria-hidden="true"
+      >
+        🌿
+      </span>
+
+      <h1 className="font-display text-[clamp(22px,3.8vw,40px)] font-bold leading-[1.2] text-fg-heading whitespace-pre-line text-balance">
+        {headline}
+      </h1>
+
+      {/* Decorative plant divider */}
+      <div className="my-4">
+        <Divider type="dashed-brown" />
       </div>
 
-      {/* Decorative stamp — leaf (bottom-right) */}
-      <div className="absolute bottom-24 right-8 opacity-[0.15] lg:bottom-32 lg:right-12" aria-hidden="true">
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-          <path d="M8 40 C8 40 14 10 32 8 C32 8 42 30 24 38 C24 38 16 42 8 40z" fill="var(--color-primary)" opacity="0.5" />
-          <path d="M8 40 L24 20" stroke="var(--color-primary)" strokeWidth="1.5" opacity="0.4" />
-        </svg>
-      </div>
+      <p className="text-[14px] leading-[1.75] text-muted-foreground whitespace-pre-line">
+        {lead}
+      </p>
 
-      <div className="relative max-w-[480px]">
-        <h1 className="font-display text-[clamp(28px,4.5vw,52px)] font-bold leading-[1.15] text-foreground whitespace-pre-line text-balance">
-          {headline}
-        </h1>
-        <p className="mt-5 text-[16px] leading-[1.8] text-muted-foreground whitespace-pre-line">
-          {lead}
-        </p>
-      </div>
-    </div>
+      {/* Auth hint */}
+      <p className="mt-5 flex items-center gap-1.5 text-[12px] text-muted-foreground">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+        {authHint}
+      </p>
+    </Card>
   );
 }
