@@ -4,6 +4,15 @@
 @import "shadcn/tailwind.css";
 @plugin "@tailwindcss/typography";
 
+/* Explicit content sources — Next auto-detects these, but Storybook's Vite
+   PostCSS context does not, so it generated only a subset of utilities and
+   responsive variants (lg:*) silently failed. Listing them fixes both. */
+@source "../components";
+@source "../app";
+@source "../lib";
+@source "../hooks";
+@source "../contexts";
+
 :root {
   /* ── Typography ── */
   --app-font-body: var(--font-nunito, "Nunito"), var(--font-noto, "Noto Sans SC"), var(--font-zen, "Zen Maru Gothic"), "Hiragino Sans", system-ui, sans-serif;
@@ -56,6 +65,14 @@
   --color-cta:          #f0b429;
   --color-cta-fg:       #4a3520;
   --color-cta-hover:    #e5a820;
+
+  /* ── Explore — committed pumpkin orange, primary marketing CTA (mockup-locked).
+       Gold (#f0b429) sat too low and read as disabled; orange is the real action
+       color and ties to the fox + torii warmth. ── */
+  --color-explore:        oklch(67% 0.17 47);   /* ≈ #e8742e */
+  --color-explore-hover:  oklch(63% 0.172 45);  /* darker on hover */
+  --color-explore-active: oklch(53% 0.15 43);   /* 3D bottom shadow */
+  --color-explore-fg:     oklch(99% 0.012 80);  /* warm off-white text */
 
   /* ── Focus — game yellow ── */
   --color-focus:      #ffcc00;
@@ -194,6 +211,10 @@
   --color-3d-shadow: var(--color-3d-shadow);
   --color-input-shadow: var(--color-input-shadow);
   --color-fg-heading: var(--color-fg-heading);
+  --color-explore: var(--color-explore);
+  --color-explore-hover: var(--color-explore-hover);
+  --color-explore-active: var(--color-explore-active);
+  --color-explore-fg: var(--color-explore-fg);
   --color-border-hover: var(--color-border-hover);
   --color-border-light: var(--color-border-light);
   --color-input-disabled: var(--color-input-disabled);
@@ -596,6 +617,101 @@ input:focus, textarea:focus {
   --animal-button-border: var(--color-primary);
   --animal-button-text: var(--color-primary-fg);
 }
+
+/* ── Explore CTA — solid pumpkin orange, 3D depth (mockup primary action) ── */
+.btn-explore {
+  background: var(--color-explore);
+  color: var(--color-explore-fg);
+  border: none;
+  border-radius: 50px;
+  box-shadow: 0 4px 0 0 var(--color-explore-active);
+  transition: transform var(--duration-fast) var(--ease-out-expo),
+    box-shadow var(--duration-fast) var(--ease-out-expo),
+    background var(--duration-fast) var(--ease-out-expo);
+}
+.btn-explore:hover:not(:disabled) {
+  background: var(--color-explore-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 0 0 var(--color-explore-active);
+}
+.btn-explore:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 var(--color-explore-active);
+}
+.btn-explore:disabled {
+  background: var(--color-muted);
+  color: var(--color-muted-fg);
+  box-shadow: 0 4px 0 0 var(--color-input-shadow);
+  cursor: not-allowed;
+}
+
+/* ── Travel-journal paper surface — warm parchment, real grain, lifts off page ── */
+.paper-surface {
+  position: relative;
+  /* fiber hatch baked into the surface (frees ::before for the stacked sheet) */
+  background:
+    repeating-linear-gradient(96deg, rgba(150, 128, 92, 0.05) 0 1px, transparent 1px 5px),
+    radial-gradient(circle at 16% 10%, rgba(255, 253, 247, 0.95), transparent 46%),
+    radial-gradient(circle at 92% 94%, rgba(214, 198, 166, 0.5), transparent 52%),
+    var(--color-card);
+  /* deeper warm edge + faint dark ring so the card holds against sky/photo grounds */
+  border: 1.5px solid #b09f7e;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.75) inset,
+    0 0 0 1px rgba(60, 46, 28, 0.10),
+    0 3px 6px rgba(50, 36, 18, 0.20),
+    0 26px 52px -22px rgba(62, 46, 26, 0.62);
+}
+
+/* Stacked journal pages — a tilted sheet peeking from behind (::before, so it
+   never collides with .paper-fold::after; both can apply to one card) */
+.paper-stack { position: relative; }
+.paper-stack::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: #efe5cf;
+  border: 1.5px solid #b09f7e;
+  transform: rotate(-2.8deg) translate(-9px, 9px);
+  box-shadow: 0 20px 40px -20px rgba(62, 46, 26, 0.5);
+}
+
+/* Recessed input well — reads as carved below the paper surface */
+.input-well {
+  box-shadow:
+    inset 0 2px 4px rgba(96, 76, 48, 0.16),
+    inset 0 0 0 1px rgba(176, 159, 126, 0.5);
+}
+
+/* Folded top-right corner — a turned page leaf */
+.paper-fold {
+  position: relative;
+}
+.paper-fold::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(
+    225deg,
+    var(--color-bg) 0 50%,
+    rgba(150, 132, 100, 0.45) 50% 52%,
+    transparent 52%
+  );
+  border-bottom-left-radius: 6px;
+}
+
+/* Rubber-stamp / postmark ink look — vermillion shrine ink, pressed but readable */
+.stamp-ink {
+  color: var(--color-torii);
+  opacity: 0.72;
+  mix-blend-mode: multiply;
+}
+.stamp-ink--indigo { color: #3a5169; }
 
 /* Icon-only square button */
 .animal-btn-icon-only {

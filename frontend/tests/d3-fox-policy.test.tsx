@@ -57,11 +57,11 @@ describe("D3 Happy — WelcomeScreen fox", () => {
     localStorage.clear();
   });
 
-  it("renders a FoxGuide image with fox-a-city-guide (welcome pose)", () => {
+  it("renders a FoxGuide image with fox-welcome (welcome pose)", () => {
     const { container } = render(
       <WelcomeScreen onSend={vi.fn()} dict={jaFull} locale="ja" />,
     );
-    const foxImg = container.querySelector("img[src*='fox-a-city-guide']");
+    const foxImg = container.querySelector("img[src*='fox-welcome']");
     expect(foxImg).toBeInTheDocument();
   });
 });
@@ -77,7 +77,7 @@ vi.mock("@/lib/i18n-context", () => ({
 }));
 
 describe("D3 Happy — Clarification fox", () => {
-  it("renders fox-c-ai-navigator when candidates are provided (disambiguation state 04)", () => {
+  it("renders fox-thinking when candidates are provided (disambiguation state 04)", () => {
     const { container } = render(
       <Clarification
         message="どの作品ですか？"
@@ -85,18 +85,18 @@ describe("D3 Happy — Clarification fox", () => {
         onSuggest={vi.fn()}
       />,
     );
-    const foxImg = container.querySelector("img[src*='fox-c-ai-navigator']");
+    const foxImg = container.querySelector("img[src*='fox-thinking']");
     expect(foxImg).toBeInTheDocument();
   });
 
-  it("renders fox-d-backpack-traveler in the fallback state (no candidates/options)", () => {
+  it("renders fox-traveler in the fallback state (no candidates/options)", () => {
     const { container } = render(
       <Clarification
         message="どの作品ですか？"
         onSuggest={vi.fn()}
       />,
     );
-    const foxImg = container.querySelector("img[src*='fox-d-backpack-traveler']");
+    const foxImg = container.querySelector("img[src*='fox-traveler']");
     expect(foxImg).toBeInTheDocument();
   });
 });
@@ -107,10 +107,10 @@ describe("D3 Happy — Clarification fox", () => {
 
 import { ResultPanelEmptyState } from "@/components/layout/ResultPanelEmptyState";
 
-describe("D3 Happy — ResultPanelEmptyState fox (traveler)", () => {
-  it("renders a FoxGuide image with fox-d-backpack-traveler", () => {
+describe("D3 Happy — ResultPanelEmptyState fox (curious)", () => {
+  it("renders a FoxGuide image with fox-curious", () => {
     const { container } = render(<ResultPanelEmptyState />);
-    const foxImg = container.querySelector("img[src*='fox-d-backpack-traveler']");
+    const foxImg = container.querySelector("img[src*='fox-curious']");
     expect(foxImg).toBeInTheDocument();
   });
 
@@ -143,9 +143,9 @@ function renderLocationPrompt(overrides: Partial<React.ComponentProps<typeof Loc
 }
 
 describe("D3 Happy — LocationPrompt fox (permission surface)", () => {
-  it("renders a FoxGuide image with fox-a-city-guide (welcome pose on permission surface)", () => {
+  it("renders a FoxGuide image with fox-welcome (welcome pose on permission surface)", () => {
     const { container } = renderLocationPrompt();
-    const foxImg = container.querySelector("img[src*='fox-a-city-guide']");
+    const foxImg = container.querySelector("img[src*='fox-welcome']");
     expect(foxImg).toBeInTheDocument();
   });
 

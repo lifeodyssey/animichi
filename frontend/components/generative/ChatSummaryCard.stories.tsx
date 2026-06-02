@@ -49,7 +49,7 @@ export const WithFoxAvatar: Story = {
     transport: "徒歩・近鉄",
     spotCount: 9,
     timestamp: "14:05 PM",
-    foxSrc: "/images/landing/fox-guide-v2/fox-a-city-guide.png",
+    foxSrc: "/images/landing/fox-guide-v3/fox-welcome.webp",
     onViewDetails: () => {},
     onAdoptPlan: () => {},
   },

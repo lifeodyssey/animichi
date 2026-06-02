@@ -22,10 +22,12 @@ export type FoxSurface =
 
 export type FoxPose =
   | "welcome"
-  | "ai-navigator"
-  | "compare"
+  | "guide"
   | "traveler"
-  | "icon-mark";
+  | "thinking"
+  | "cheer"
+  | "curious"
+  | "oops";
 
 export type FoxSize = "sm" | "md" | "lg";
 
@@ -41,11 +43,13 @@ interface FoxGuideProps {
 // ---------------------------------------------------------------------------
 
 const POSE_ASSET: Record<FoxPose, string> = {
-  "welcome":      "/images/landing/fox-guide-v2/fox-a-city-guide.webp",
-  "ai-navigator": "/images/landing/fox-guide-v2/fox-c-ai-navigator.webp",
-  "compare":      "/images/landing/fox-guide-v2/fox-e-scene-compare.webp",
-  "traveler":     "/images/landing/fox-guide-v2/fox-d-backpack-traveler.webp",
-  "icon-mark":    "/images/landing/fox-guide-v2/fox-f-icon-mark.webp",
+  "welcome":  "/images/landing/fox-guide-v3/fox-welcome.webp",
+  "guide":    "/images/landing/fox-guide-v3/fox-guide.webp",
+  "traveler": "/images/landing/fox-guide-v3/fox-traveler.webp",
+  "thinking": "/images/landing/fox-guide-v3/fox-thinking.webp",
+  "cheer":    "/images/landing/fox-guide-v3/fox-cheer.webp",
+  "curious":  "/images/landing/fox-guide-v3/fox-curious.webp",
+  "oops":     "/images/landing/fox-guide-v3/fox-oops.webp",
 };
 
 const SIZE_DIMS: Record<FoxSize, { w: number; h: number; cls: string }> = {

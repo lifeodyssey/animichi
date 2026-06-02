@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import RouteLine from "@/components/landing/decor/RouteLine";
+import LocationBadge from "@/components/landing/decor/LocationBadge";
+import LeafSprig from "@/components/landing/decor/LeafSprig";
+import TicketStub from "@/components/landing/decor/TicketStub";
+import FoxGuide from "@/components/generative/FoxGuide";
 import { useDict } from "../../lib/i18n-context";
 import { useScrollReveal } from "../../hooks/useScrollReveal";
 import { type AnimeGalleryItem, handleImageError } from "./LandingData";
-
-// ── Route card tags derived from gallery metadata ──────────────────────────
 
 const ROUTE_TAGS: Record<string, string[]> = {
   "115908": ["school", "river"],
@@ -20,37 +23,12 @@ const ROUTE_TAGS: Record<string, string[]> = {
   "27364": ["old town", "nature"],
 };
 
-// ── Sub-components ─────────────────────────────────────────────────────────
-
-function LocationStamps({ count }: { count: string }) {
-  const parts = count.split("·");
-  const location = parts[1]?.trim() ?? "";
-  const spots = parts[0]?.trim() ?? "";
-  return (
-    <div className="flex items-center gap-1.5">
-      <MapPin size={11} className="shrink-0 text-primary" aria-hidden="true" />
-      <span className="text-[11px] text-muted-foreground">{location}</span>
-      <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-[12px] font-medium text-muted-foreground">
-        {spots}
-      </span>
-    </div>
-  );
+function splitCount(count: string): { spots: string; place: string } {
+  const [spots, place] = count.split("·");
+  return { spots: spots?.trim() ?? count, place: place?.trim() ?? "" };
 }
 
-function TagRow({ tags }: { tags: string[] }) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {tags.map((tag) => (
-        <span
-          key={tag}
-          className="rounded-full border border-border bg-background px-2 py-0.5 text-[12px] text-muted-foreground"
-        >
-          {tag}
-        </span>
-      ))}
-    </div>
-  );
-}
+// ── Route card ───────────────────────────────────────────────────────────────
 
 function RouteCard({
   item,
@@ -62,21 +40,20 @@ function RouteCard({
   addRevealRef: (el: HTMLElement | null) => void;
 }) {
   const tags = ROUTE_TAGS[item.bangumiId] ?? [];
+  const { spots, place } = splitCount(item.count);
 
   return (
     <Link
       href={`/anime/${item.bangumiId}`}
       ref={addRevealRef}
       className={cn(
-        "seichi-reveal-pop group flex flex-col overflow-hidden rounded-[18px]",
-        "border border-border bg-card",
-        "transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-expo)]",
+        "seichi-reveal-pop group flex flex-col overflow-hidden rounded-[18px] border border-border bg-card",
+        "transition-[transform,box-shadow] duration-300 ease-[var(--ease-out-expo)]",
         "hover:-translate-y-1.5 hover:shadow-card",
       )}
       style={{ animationDelay: `${index * 0.06}s` }}
       aria-label={item.title}
     >
-      {/* Cover image */}
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         <img
           src={`/images/bangumi/${item.bangumiId}.jpg`}
@@ -85,22 +62,43 @@ function RouteCard({
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
           onError={handleImageError}
         />
-        {/* Compare icon badge */}
-        <div className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-full bg-card/90 shadow-sm">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-            <path d="M4 2L1 7L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/60" />
-            <path d="M10 2L13 7L10 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/60" />
+        {place ? (
+          <LocationBadge name={place} className="absolute right-2 top-2" />
+        ) : null}
+        {/* Compare seam handle */}
+        <div className="absolute left-1/2 top-1/2 flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-background bg-card/90 shadow-sm">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M4 2L1 7L4 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/55" />
+            <path d="M10 2L13 7L10 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/55" />
           </svg>
         </div>
+        <span
+          className="pointer-events-none absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 bg-background/70"
+          aria-hidden="true"
+        />
       </div>
 
-      {/* Card body */}
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <h3 className="font-display text-[14px] font-bold leading-snug text-foreground">
+      <div className="flex flex-1 flex-col gap-2.5 p-4">
+        <h3 className="font-display text-[15px] font-bold leading-snug text-fg-heading">
           {item.title}
         </h3>
-        <LocationStamps count={item.count} />
-        <TagRow tags={tags} />
+        <p className="text-[12px] font-medium text-muted-foreground">
+          <span className="text-fg">{spots}</span>
+          {place ? ` · ${place}` : ""}
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="rounded-[10px] border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+        <div className="mt-auto pt-1">
+          <RouteLine />
+        </div>
       </div>
     </Link>
   );
@@ -111,6 +109,26 @@ function EmptyRoutes({ emptyText }: { emptyText: string }) {
     <div className="col-span-full flex flex-col items-center gap-3 py-16 text-center">
       <span className="text-[40px]" aria-hidden="true">🗺️</span>
       <p className="text-[14px] text-muted-foreground">{emptyText}</p>
+    </div>
+  );
+}
+
+// ── Browse-before-login banner ───────────────────────────────────────────────
+
+function BrowseBanner({ note }: { note: string }) {
+  return (
+    <div className="paper-surface relative mt-12 flex items-center gap-5 overflow-visible rounded-[20px] px-6 py-5 sm:px-8">
+      <div className="relative hidden h-16 w-24 shrink-0 sm:block">
+        <FoxGuide pose="traveler" size="lg" surface="welcome" className="-top-16 left-0" />
+      </div>
+      <p className="flex-1 text-[13px] leading-relaxed text-muted-foreground">
+        <span className="font-display text-[15px] font-bold text-fg-heading">
+          Start browsing before login.
+        </span>
+        <br />
+        {note}
+      </p>
+      <TicketStub label="Let's go!" rotate={5} className="hidden shrink-0 sm:flex" />
     </div>
   );
 }
@@ -129,46 +147,44 @@ export function LandingPopularRoutes({ items, onOpenAuth: _onOpenAuth }: Landing
 
   return (
     <section className="bg-background px-5 pb-16 pt-14 sm:px-8 sm:pb-20 sm:pt-16">
-      <div className="mx-auto max-w-[1100px]">
-        {/* Header row */}
+      <div className="mx-auto max-w-[1120px]">
         <div
           ref={addRevealRef}
-          className="seichi-reveal mb-8 flex flex-wrap items-end justify-between gap-4"
+          className="seichi-reveal mb-9 flex flex-wrap items-end justify-between gap-4"
         >
-          <div>
-            <h2 className="font-display text-[clamp(20px,3vw,26px)] font-bold text-foreground">
-              {t.popular_title}
-            </h2>
-            <p className="mt-1 max-w-[480px] text-[13px] leading-relaxed text-muted-foreground">
-              {t.popular_sub}
-            </p>
+          <div className="flex items-start gap-2">
+            <div>
+              <h2 className="font-display text-[clamp(22px,3.2vw,30px)] font-bold text-fg-heading">
+                {t.popular_title}
+              </h2>
+              <p className="mt-1.5 max-w-[480px] text-[13px] leading-relaxed text-muted-foreground">
+                {t.popular_sub}
+              </p>
+            </div>
+            <LeafSprig size={26} className="mt-1 hidden sm:block" />
           </div>
           <Link
             href="/anime"
-            className="text-[13px] font-medium text-primary underline-offset-2 hover:underline"
+            className="inline-flex items-center gap-1.5 rounded-[50px] border border-border bg-card px-4 py-2 text-[13px] font-bold text-fg shadow-3d-sm transition-transform hover:-translate-y-0.5"
           >
-            {t.popular_view_all} →
+            {t.popular_view_all}
+            <ArrowRight size={14} aria-hidden="true" />
           </Link>
         </div>
 
-        {/* Grid */}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {items.length === 0 ? (
             <EmptyRoutes emptyText={t.popular_empty} />
           ) : (
-            items.map((item, i) => (
-              <RouteCard key={item.bangumiId} item={item} index={i} addRevealRef={addRevealRef} />
-            ))
+            items
+              .slice(0, 4)
+              .map((item, i) => (
+                <RouteCard key={item.bangumiId} item={item} index={i} addRevealRef={addRevealRef} />
+              ))
           )}
         </div>
 
-        {/* Browse before login prompt */}
-        <p
-          ref={addRevealRef}
-          className="seichi-reveal mt-8 text-center text-[12px] text-muted-foreground"
-        >
-          {t.hero_auth_hint}
-        </p>
+        <BrowseBanner note={t.hero_auth_hint} />
       </div>
     </section>
   );

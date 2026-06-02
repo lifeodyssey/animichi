@@ -50,7 +50,7 @@ export function ResultPanelEmptyState({
         {/* Fox guide — traveler pose for the no-results / empty state (inline flow wrapper) */}
         <div className="relative mb-2 h-[200px] w-[200px] shrink-0">
           <FoxGuide
-            pose="traveler"
+            pose="curious"
             size="lg"
             surface="empty"
           />

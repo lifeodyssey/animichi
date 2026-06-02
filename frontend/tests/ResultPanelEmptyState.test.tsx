@@ -18,9 +18,9 @@ describe("ResultPanelEmptyState", () => {
     expect(screen.getByText(defaultDict.grid.empty_subtitle)).toBeInTheDocument();
   });
 
-  it("renders the FoxGuide traveler image (replaces search icon SVG in D3)", () => {
+  it("renders the FoxGuide curious image (replaces search icon SVG in D3)", () => {
     const { container } = render(<ResultPanelEmptyState />);
-    const foxImg = container.querySelector("img[src*='fox-d-backpack-traveler']");
+    const foxImg = container.querySelector("img[src*='fox-curious']");
     expect(foxImg).toBeInTheDocument();
   });
 
