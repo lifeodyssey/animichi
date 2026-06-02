@@ -2,8 +2,8 @@
 
 import { useLocale } from "../../lib/i18n-context";
 import { ANIME_GALLERY } from "./LandingData";
-import SharedHeader from "../layout/SharedHeader";
 import SharedFooter from "../layout/SharedFooter";
+import LandingHeader from "./LandingHeader";
 import LandingHero from "./LandingHero";
 import { LandingHowItWorks } from "./LandingHowItWorks";
 import { LandingPopularRoutes } from "./LandingPopularRoutes";
@@ -17,20 +17,26 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
   const locale = useLocale();
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background font-sans" lang={locale}>
-      <SharedHeader variant="guest" onLogin={onOpenAuth} position="fixed" />
+    <div id="top" className="overflow-x-hidden bg-background font-sans" lang={locale}>
+      <LandingHeader onLogin={onOpenAuth} />
 
       {/* ═══════ SECTION 1: HERO ═══════ */}
       <LandingHero onOpenAuth={onOpenAuth} />
 
       {/* ═══════ SECTION 2: HOW IT WORKS ═══════ */}
-      <LandingHowItWorks />
+      <div id="how-it-works">
+        <LandingHowItWorks />
+      </div>
 
       {/* ═══════ SECTION 3: POPULAR ROUTES ═══════ */}
-      <LandingPopularRoutes items={ANIME_GALLERY} onOpenAuth={onOpenAuth} />
+      <div id="popular-routes">
+        <LandingPopularRoutes items={ANIME_GALLERY} onOpenAuth={onOpenAuth} />
+      </div>
 
       {/* ═══════ SECTION 4: SAVE-SYNC ═══════ */}
-      <LandingSaveSync onOpenAuth={onOpenAuth} />
+      <div id="save-sync">
+        <LandingSaveSync onOpenAuth={onOpenAuth} />
+      </div>
 
       <SharedFooter />
     </div>

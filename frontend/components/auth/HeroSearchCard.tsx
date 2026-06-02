@@ -1,7 +1,7 @@
 "use client";
 
-import { Search, MapPin, Navigation } from "lucide-react";
-import { Card, Divider } from "animal-island-ui";
+import { MapPin, Navigation } from "lucide-react";
+import RouteLine from "@/components/landing/decor/RouteLine";
 import { cn } from "@/lib/utils";
 
 interface HeroSearchCardProps {
@@ -13,11 +13,13 @@ interface HeroSearchCardProps {
   placeholder: string;
   ctaLabel: string;
   nearbyLabel: string;
-  authHint: string;
-  locationLabel: string;
-  routePreviewLabel: string;
 }
 
+/**
+ * Right hero card — a field-journal plan page on the same parchment as the left
+ * panel. The labelled scene→place route is the card's identity (not a footnote);
+ * a recessed input well and a raised orange CTA build depth within the surface.
+ */
 export default function HeroSearchCard({
   query,
   onQueryChange,
@@ -27,34 +29,31 @@ export default function HeroSearchCard({
   placeholder,
   ctaLabel,
   nearbyLabel,
-  locationLabel,
-  routePreviewLabel,
 }: HeroSearchCardProps) {
-  const isEmpty = !query.trim();
-
   return (
-    <Card
+    <div
       data-testid="route-preview"
-      className="cursor-default overflow-visible px-5 pb-5 pt-4"
+      className="paper-surface paper-stack paper-fold relative rotate-[1.2deg] cursor-default rounded-[22px] px-6 pb-6 pt-5"
     >
-      {/* Route preview bar */}
-      <RoutePreviewBar
-        locationLabel={locationLabel}
-        routePreviewLabel={routePreviewLabel}
-      />
-
-      {/* Divider between preview and search */}
-      <div className="my-3">
-        <Divider type="dashed-teal" />
+      {/* Route identity — the scene → real-place spine, labelled so it reads */}
+      <div className="px-1">
+        <p className="text-center text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground">
+          Scene → real place
+        </p>
+        <RouteLine stops={1} className="mt-1.5" />
+        <div className="mt-0.5 flex justify-between px-1 text-[10px] font-semibold">
+          <span className="text-primary">anime scene</span>
+          <span className="text-marker-active">real spot</span>
+        </div>
       </div>
 
-      {/* Pill search input */}
-      <div className="relative flex items-center">
-        <Search
-          size={15}
-          className="pointer-events-none absolute left-4 text-muted-foreground"
-          aria-hidden="true"
-        />
+      <svg viewBox="0 0 240 6" className="mx-auto mt-3 h-1.5 w-full text-border" preserveAspectRatio="none" fill="none" aria-hidden="true">
+        <path d="M2 3 C40 1.5, 80 4.5, 120 3 C160 1.5, 200 4.5, 238 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+
+      {/* Recessed search input */}
+      <div className="relative mt-3 flex items-center">
+        <MapPin size={16} className="pointer-events-none absolute left-4 text-primary" aria-hidden="true" />
         <input
           type="text"
           value={query}
@@ -62,130 +61,46 @@ export default function HeroSearchCard({
           onKeyDown={(e) => e.key === "Enter" && onSearch(query)}
           placeholder={placeholder}
           className={cn(
-            "w-full rounded-[50px] border border-border bg-background py-3 pl-10 pr-4",
-            "text-[13px] text-foreground placeholder:text-muted-foreground",
-            "shadow-3d-sm",
-            "focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-1",
-            "transition-shadow duration-150",
+            "input-well w-full rounded-[50px] border border-border bg-background/90 py-3.5 pl-11 pr-4",
+            "text-[14px] text-foreground placeholder:text-muted-foreground",
+            "focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-1 transition-shadow",
           )}
         />
       </div>
 
-      {/* Big orange CTA */}
+      {/* Raised orange CTA */}
       <button
         type="button"
-        disabled={isEmpty}
         onClick={() => onSearch(query)}
-        className={cn(
-          "animal-btn animal-btn-cta",
-          "mt-3 flex w-full items-center justify-center gap-2 rounded-[50px] py-3 text-[15px] font-bold",
-          isEmpty && "cursor-not-allowed opacity-50",
-        )}
+        className="btn-explore mt-2.5 flex w-full items-center justify-center gap-2 py-3.5 text-[15px] font-bold"
         aria-label={ctaLabel}
       >
-        <Navigation size={15} aria-hidden="true" />
+        <Navigation size={16} aria-hidden="true" />
         {ctaLabel}
       </button>
 
-      {/* Example chips */}
-      <ExampleChips examples={examples} onChip={onChip} />
-
-      {/* Nearby button */}
-      <button
-        type="button"
-        onClick={() => onChip(nearbyLabel)}
-        className="mt-2 flex items-center gap-1.5 rounded-[50px] border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm transition-shadow hover:shadow-md"
-      >
-        <MapPin size={11} className="text-error-fg" aria-hidden="true" />
-        {nearbyLabel}
-      </button>
-    </Card>
-  );
-}
-
-// ── Route preview (dashed arc + pins) ────────────────────────────────────────
-
-function RoutePreviewBar({
-  locationLabel,
-  routePreviewLabel,
-}: {
-  locationLabel: string;
-  routePreviewLabel: string;
-}) {
-  return (
-    <div className="relative">
-      <p className="text-center text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-        {routePreviewLabel}
-      </p>
-      <div className="relative mt-2.5 flex items-center justify-between px-4">
-        <RoutePin color="var(--color-primary)" />
-        <svg
-          className="absolute inset-x-10 top-2 h-7 w-[calc(100%-5rem)]"
-          viewBox="0 0 300 28"
-          fill="none"
-          preserveAspectRatio="none"
-        >
-          <path
-            d="M0 22 C50 4,100 24,160 10 C220 -4,270 18,300 12"
-            stroke="var(--color-primary)"
-            strokeWidth="2.5"
-            strokeDasharray="8 5"
-            strokeLinecap="round"
-            opacity="0.65"
-          />
-        </svg>
-        <RoutePin color="var(--color-error-fg)" />
-      </div>
-      <p className="mt-1 text-center text-[11px] font-medium text-foreground">
-        {locationLabel}
-      </p>
-    </div>
-  );
-}
-
-function RoutePin({ color }: { color: string }) {
-  return (
-    <svg
-      width="22"
-      height="28"
-      viewBox="0 0 36 46"
-      fill="none"
-      aria-hidden="true"
-      className="relative z-10 shrink-0"
-    >
-      <path
-        d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 28 18 28s18-14.5 18-28C36 8.06 27.94 0 18 0z"
-        fill={color}
-      />
-      <circle cx="18" cy="17" r="7" fill="var(--color-bg)" />
-    </svg>
-  );
-}
-
-// ── Example chips ─────────────────────────────────────────────────────────────
-
-function ExampleChips({
-  examples,
-  onChip,
-}: {
-  examples: string[];
-  onChip: (example: string) => void;
-}) {
-  if (!examples.length) return null;
-
-  return (
-    <div className="mt-3 flex flex-wrap gap-2">
-      {examples.map((ex) => (
+      {/* Example chips — warm-tinted, asymmetric */}
+      <div className="mt-4 flex flex-wrap gap-2">
+        {examples.map((ex) => (
+          <button
+            key={ex}
+            type="button"
+            data-testid={`example-chip-${ex}`}
+            onClick={() => onChip(ex)}
+            className="rounded-[50px] border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-fg shadow-sm transition-[transform,box-shadow,border-color,color] duration-150 hover:-translate-y-px hover:border-explore hover:text-explore hover:shadow-md"
+          >
+            {ex}
+          </button>
+        ))}
         <button
-          key={ex}
           type="button"
-          data-testid={`example-chip-${ex}`}
-          onClick={() => onChip(ex)}
-          className="rounded-[50px] border border-border bg-background px-3 py-1.5 text-[12px] font-medium text-foreground shadow-sm transition-[transform,box-shadow,border-color,color] duration-150 hover:-translate-y-px hover:border-primary hover:text-primary hover:shadow-md"
+          onClick={() => onChip(nearbyLabel)}
+          className="flex items-center gap-1.5 rounded-[50px] border border-explore/40 bg-explore/10 px-3 py-1.5 text-[12px] font-semibold text-explore shadow-sm transition-transform hover:-translate-y-px"
         >
-          {ex}
+          <MapPin size={12} aria-hidden="true" />
+          {nearbyLabel}
         </button>
-      ))}
+      </div>
     </div>
   );
 }

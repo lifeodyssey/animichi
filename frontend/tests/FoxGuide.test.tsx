@@ -36,34 +36,40 @@ beforeEach(() => stubMatchMedia(false));
 // ---------------------------------------------------------------------------
 
 describe("FoxGuide — pose asset mapping", () => {
-  it("renders img with src containing fox-a-city-guide when pose is welcome", () => {
+  it("renders img with src containing fox-welcome when pose is welcome", () => {
     const { container } = render(<FoxGuide pose="welcome" size="md" surface="welcome" />);
     const img = container.querySelector("img");
-    expect(img?.getAttribute("src")).toContain("fox-a-city-guide");
+    expect(img?.getAttribute("src")).toContain("fox-welcome");
   });
 
-  it("renders img with src containing fox-c-ai-navigator when pose is ai-navigator", () => {
-    const { container } = render(<FoxGuide pose="ai-navigator" size="md" surface="loading" />);
+  it("renders img with src containing fox-guide when pose is guide", () => {
+    const { container } = render(<FoxGuide pose="guide" size="md" surface="welcome" />);
     const img = container.querySelector("img");
-    expect(img?.getAttribute("src")).toContain("fox-c-ai-navigator");
+    expect(img?.getAttribute("src")).toContain("fox-guide");
   });
 
-  it("renders img with src containing fox-e-scene-compare when pose is compare", () => {
-    const { container } = render(<FoxGuide pose="compare" size="md" surface="welcome" />);
+  it("renders img with src containing fox-thinking when pose is thinking", () => {
+    const { container } = render(<FoxGuide pose="thinking" size="md" surface="loading" />);
     const img = container.querySelector("img");
-    expect(img?.getAttribute("src")).toContain("fox-e-scene-compare");
+    expect(img?.getAttribute("src")).toContain("fox-thinking");
   });
 
-  it("renders img with src containing fox-d-backpack-traveler when pose is traveler", () => {
+  it("renders img with src containing fox-traveler when pose is traveler", () => {
     const { container } = render(<FoxGuide pose="traveler" size="md" surface="empty" />);
     const img = container.querySelector("img");
-    expect(img?.getAttribute("src")).toContain("fox-d-backpack-traveler");
+    expect(img?.getAttribute("src")).toContain("fox-traveler");
   });
 
-  it("renders img with src containing fox-f-icon-mark when pose is icon-mark", () => {
-    const { container } = render(<FoxGuide pose="icon-mark" size="sm" surface="welcome" />);
+  it("renders img with src containing fox-curious when pose is curious", () => {
+    const { container } = render(<FoxGuide pose="curious" size="sm" surface="empty" />);
     const img = container.querySelector("img");
-    expect(img?.getAttribute("src")).toContain("fox-f-icon-mark");
+    expect(img?.getAttribute("src")).toContain("fox-curious");
+  });
+
+  it("renders img with src containing fox-cheer when pose is cheer", () => {
+    const { container } = render(<FoxGuide pose="cheer" size="md" surface="welcome" />);
+    const img = container.querySelector("img");
+    expect(img?.getAttribute("src")).toContain("fox-cheer");
   });
 });
 
@@ -165,7 +171,7 @@ describe("FoxGuide — FoxSurface type whitelist", () => {
   it("accepts surface='loading'", () => {
     const surface: FoxSurface = "loading";
     expect(() =>
-      render(<FoxGuide pose="ai-navigator" size="md" surface={surface} />),
+      render(<FoxGuide pose="thinking" size="md" surface={surface} />),
     ).not.toThrow();
   });
 });
