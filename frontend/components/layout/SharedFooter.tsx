@@ -2,22 +2,20 @@
 
 import { useLocale, useSetLocale } from "../../lib/i18n-context";
 import { LOCALE_LABELS, LOCALES } from "../../lib/i18n";
+import LeafSprig from "../landing/decor/LeafSprig";
 
 export default function SharedFooter() {
   const locale = useLocale();
   const setLocale = useSetLocale();
 
   return (
-    <footer className="border-t border-border px-5 py-6 sm:px-8">
+    <footer className="border-t border-border bg-card px-5 py-7 sm:px-8">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between">
-        <div className="flex items-baseline gap-2 text-sm text-muted-foreground">
-          <span
-            className="font-medium font-display"
-          >
-            聖地巡礼
-          </span>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <LeafSprig size={20} className="-rotate-12" />
+          <span className="font-display font-bold text-fg">聖地巡礼</span>
           <span className="opacity-40">·</span>
-          <span>seichijunrei</span>
+          <span className="font-mono text-[12px] tracking-wide">seichijunrei</span>
         </div>
         <button
           type="button"

@@ -31,9 +31,9 @@ export default function Clarification({
   if (hasCandidates) {
     return (
       <div className="relative flex flex-col gap-3">
-        {/* Fox guide — ai-navigator pose for the clarification / disambiguation state */}
+        {/* Fox guide — thinking pose for the clarification / disambiguation state */}
         <FoxGuide
-          pose="ai-navigator"
+          pose="thinking"
           size="sm"
           surface="loading"
           className="-top-2 right-0"

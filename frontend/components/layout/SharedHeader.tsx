@@ -1,10 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDict } from "../../lib/i18n-context";
 import { cn } from "../../lib/utils";
-import ToriiIcon from "../icons/ToriiIcon";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { APP_NAV_ITEMS, isNavActive } from "@/lib/nav";
@@ -136,12 +136,7 @@ function LoginCTA({
 }) {
   if (onLogin) {
     return (
-      <Button
-        type="primary"
-        size="small"
-        className="animal-btn-cta"
-        onClick={onLogin}
-      >
+      <Button type="default" size="small" onClick={onLogin}>
         {label}
       </Button>
     );
@@ -149,7 +144,7 @@ function LoginCTA({
   if (loginHref) {
     return (
       <Link href={loginHref}>
-        <Button type="primary" size="small" className="animal-btn-cta">
+        <Button type="default" size="small">
           {label}
         </Button>
       </Link>
@@ -203,7 +198,13 @@ export default function SharedHeader({
         {/* ── Left: logo + (app) desktop nav ── */}
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <ToriiIcon size={24} />
+            <Image
+              src="/images/logo/logo.png"
+              alt=""
+              width={30}
+              height={30}
+              className="shrink-0"
+            />
             <div className="flex flex-col">
               <span className="text-[10px] tracking-[1px] text-muted-foreground">
                 Seichijunrei

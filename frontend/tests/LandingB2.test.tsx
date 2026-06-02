@@ -101,9 +101,11 @@ describe("LandingHowItWorks — happy path", () => {
     expect(screen.getByText(t.hiw_step2_title)).toBeInTheDocument();
   });
 
-  it("renders BeforeAfter stub for step 2 (compare-scene step)", () => {
+  it("renders a scene comparison for step 2 (compare-scene step)", () => {
     renderHowItWorks();
-    expect(screen.getByTestId("before-after-stub")).toBeInTheDocument();
+    // Step 2 now shows an inline anime↔real mini-compare with corner labels.
+    expect(screen.getByText("Anime")).toBeInTheDocument();
+    expect(screen.getByText("Real")).toBeInTheDocument();
   });
 
   it("renders step 3 and step 4 titles", () => {

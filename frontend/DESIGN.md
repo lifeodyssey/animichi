@@ -139,7 +139,8 @@ Key tokens:
 - **Foreground** (`fg`): Warm brown (#725d42). Primary text. Never pure black.
 - **Muted** (`muted` / `muted-fg`): #f0e8d8 / #9f927d. Secondary text, disabled states.
 - **Primary** (`primary`): Teal (#19c8b9). Interactive elements — buttons, links, active indicators.
-- **CTA** (`cta`): Gold (#f0b429). High-importance actions only.
+- **Explore** (`explore`): Pumpkin orange (`oklch(67% 0.17 47)` ≈ #e8742e). The primary marketing action color — `Start Exploring`, `Save my route`, `Send login link`. Use `.btn-explore` (solid orange + 3D bottom shadow). Ties to the fox mascot and torii warmth. Reserved for the single dominant action per surface; the header Login stays a quiet cream pill.
+- **CTA** (`cta`): Gold (#f0b429). Secondary emphasis / in-app key actions. Note: on marketing/landing surfaces, prefer `explore` orange — gold read as low-contrast "disabled" at hero scale.
 - **Focus** (`focus`): Yellow (#ffcc00). Game-style focus ring.
 - **3D Shadow** (`3d-shadow`): Earthy (#bdaea0). Bottom shadow on buttons and inputs.
 - **Brand**: Torii vermillion (oklch(58% 0.19 28)). Logo only — never in UI surfaces.
