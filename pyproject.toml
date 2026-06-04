@@ -22,7 +22,7 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "python-dotenv>=1.2.2",
     # Async/HTTP
-    "aiohttp>=3.13.5",
+    "aiohttp>=3.14.0",  # GHSA: floor lifted past 3.13.x (open dependabot alert)
     "httpx>=0.28.0",
     # Security floors for transitive deps (CVE-2026-45409, PYSEC-2026-161)
     "idna>=3.15",
