@@ -51,30 +51,40 @@ Key components and their responsibilities:
 
 | File | Package export | Package API notes |
 |---|---|---|
-| `button.tsx` | `Button`, `ButtonProps`, `ButtonType`, `ButtonSize` | `type` prop (not `variant`): `primary\|default\|dashed\|text\|link`; sizes: `small\|middle\|large`; `danger`/`ghost`/`loading`/`block` booleans |
-| `input.tsx` | `Input`, `InputProps`, `InputSize` | `size`: `small\|middle\|large`; `prefix`/`suffix`/`allowClear`/`status`/`shadow` |
-| `select.tsx` | `Select`, `SelectProps`, `SelectOption` | |
-| `switch.tsx` | `Switch`, `SwitchProps`, `SwitchSize` | `size`: `small\|default`; `checkedChildren`/`unCheckedChildren`/`onChange(checked)` |
-| `typewriter.tsx` | `Typewriter`, `TypewriterProps` | |
+| `button.tsx` | `Button`, `ButtonProps`, `ButtonType`, `ButtonSize` | `type` (not `variant`): `primary\|default\|dashed\|text\|link`; sizes `small\|middle\|large`; `danger`/`ghost`/`loading`/`block` booleans. **Used app-wide (~32 call sites)** — `animal-island-ui` is NOT just a token layer, it supplies the Button/Input primitives. |
+| `input.tsx` | `Input`, `InputProps`, `InputSize` | `size`: `small\|middle\|large`; `prefix`/`suffix`/`allowClear`/`status`/`shadow`. ~7 call sites. |
+| `typewriter.tsx` | `Typewriter`, `TypewriterProps` | 1 call site. |
 
-**App-owned (local composites) — Radix/base-ui implementations; NOT migration targets:**
+**App-owned (local composites) — unstyled primitive (base-ui / Radix) + tokens:**
 
 | File | Why local |
 |---|---|
-| `card.tsx` | Radix-style compound component (`CardHeader`/`CardTitle`/`CardContent`/`CardFooter`/`CardAction`) with app-specific `variant`/`color`/`size` props; package Card has a different API shape |
-| `sheet.tsx` | base-ui `Dialog` composite for slide-over panels; package has no `Sheet` equivalent |
-| `checkbox.tsx` | `CheckboxGroup` with `options[]` pattern and app size/direction props; documented as app layer |
-| `tabs.tsx` | base-ui `Tabs` composite with `variant="line"` and app styling; package Tabs has different composition |
-| `accordion.tsx` | `CollapseCard` FAQ pattern; not in package exports |
-| `badge.tsx` | base-ui `useRender` badge with app-specific variants (`default\|secondary\|destructive\|outline\|ghost\|link`) |
-| `skeleton.tsx` | Simple `animate-pulse` div; no package equivalent |
-| `tooltip.tsx` | base-ui Tooltip composite |
+| `sheet.tsx` | base-ui `Dialog` composite for slide-over panels |
+| `tabs.tsx` | base-ui `Tabs` composite, `variant="line"` + app styling |
+| `accordion.tsx` | `CollapseCard` FAQ pattern |
+| `badge.tsx` | base-ui `useRender` badge with app variants |
 | `scroll-area.tsx` | Radix ScrollArea |
-| `separator.tsx` | Radix Separator |
-| `toggle.tsx` / `toggle-group.tsx` | Radix Toggle/ToggleGroup |
-| `image-compare.tsx` | Draggable split-view slider (app-specific) |
+| `skeleton.tsx` | simple `animate-pulse` div |
+| `chip.tsx` | example-suggestion pill, cva tone dot (hero) |
+| `pill.tsx` | frosted label pill: `hint` / `corner` / `tag` variants |
+| `search-bar.tsx` | hero search field + flush `ExploreButton` in one pill |
+| `explore-button.tsx` | pumpkin CTA — cva sizes + Radix `Slot` `asChild` |
 
-**Rule:** when the package exports a primitive the app needs and the API is losslessly compatible, use a shim. When the app needs composition APIs (compound components, Radix primitives, app-specific variants) that the package does not export, keep it local and annotate here. Do not churn app-owned components in future migration passes without explicit approval.
+**Primitive direction (decided 2026-06):** new unstyled primitives use **Radix Primitives**.
+The existing base-ui composites (sheet, tabs, accordion, badge) are a *planned* base-ui→Radix
+migration, **deferred** (behaviour-preserving infra; touches chat/app pages, not the homepage).
+Dead `@radix-ui/*` deps (`checkbox`/`select`/`switch`/`radio-group`/`tooltip`/`accordion`/`tabs`;
+keep `slot`) should be pruned **during** that migration. Do NOT adopt a pre-styled library
+(Radix Themes / HeroUI / MUI): this is a brand-led product, so unstyled-primitive + tokens (the
+shadcn model) is the chosen shape. Dropping `animal-island-ui` is a real migration (re-implement
+Button/Input), not a token move — undecided, deferred.
+
+**Cleanup log (2026-06):** homepage stripped to the hero screen only; removed unused ui/
+orphans (`card`, `checkbox`, `select`, `switch`, `separator`, `toggle`, `toggle-group`,
+`tooltip`, `image-compare`) + the lower landing sections.
+
+**Rule:** reach for the `animal-island-ui` shim only for a lossless primitive (Button / Input);
+otherwise compose locally on an unstyled primitive + tokens and annotate here.
 
 ## Token Ownership
 
