@@ -1,8 +1,8 @@
 /**
- * Unit tests for Landing page (v2 — animal-island-ui redesign)
+ * Unit tests for the Landing page (hero screen only).
  *
- * AC: Landing hero headline, search input, gallery, 4-step section in all 3 locales -> unit
- * AC: No session / first visit — landing renders with all sections visible -> unit (jsdom)
+ * AC: hero headline, lead, CTA, search input, login render in all 3 locales -> unit
+ * AC: No session / first visit — landing renders the hero + header/footer -> unit (jsdom)
  */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -80,24 +80,10 @@ describe("Landing page — Japanese (ja)", () => {
     expect(screen.getByPlaceholderText("作品名・駅名・都市名を入力")).toBeInTheDocument();
   });
 
-  it("renders gallery title", () => {
-    renderLanding(jaFull);
-    expect(screen.getByText(/人気の巡礼ルート/)).toBeInTheDocument();
-  });
-
   it("renders login button", () => {
     renderLanding(jaFull);
     const logins = screen.getAllByText("ログイン");
     expect(logins.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("renders how-it-works step titles", () => {
-    renderLanding(jaFull);
-    // B2: how-it-works section replaces the inline 4-step section
-    expect(screen.getByText("アニメや場所を検索")).toBeInTheDocument();
-    expect(screen.getByText("場面と現実を比較")).toBeInTheDocument();
-    expect(screen.getByText("行きたいスポットを選ぶ")).toBeInTheDocument();
-    expect(screen.getByText("現実的なルートを歩く")).toBeInTheDocument();
   });
 });
 
@@ -112,18 +98,6 @@ describe("Landing page — Chinese (zh)", () => {
   it("renders CTA in Chinese", () => {
     renderLanding(zhFull);
     expect(screen.getByText("开始巡礼")).toBeInTheDocument();
-  });
-
-  it("renders gallery title in Chinese", () => {
-    renderLanding(zhFull);
-    expect(screen.getByText(/热门巡礼路线/)).toBeInTheDocument();
-  });
-
-  it("renders how-it-works section in Chinese", () => {
-    renderLanding(zhFull);
-    // B2: how-it-works replaces old 4-step
-    expect(screen.getByText("搜索动漫或地点")).toBeInTheDocument();
-    expect(screen.getByText("走出真实的巡礼路线")).toBeInTheDocument();
   });
 });
 
@@ -140,22 +114,10 @@ describe("Landing page — English (en)", () => {
     expect(screen.getByText("Start Exploring")).toBeInTheDocument();
   });
 
-  it("renders gallery title in English", () => {
-    renderLanding(enFull);
-    expect(screen.getByText(/Popular pilgrimage routes/)).toBeInTheDocument();
-  });
-
   it("renders login button in English", () => {
     renderLanding(enFull);
     const logins = screen.getAllByText("Log in");
     expect(logins.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("renders how-it-works section in English", () => {
-    renderLanding(enFull);
-    // B2: how-it-works replaces old 4-step
-    expect(screen.getByText("Search an anime or place")).toBeInTheDocument();
-    expect(screen.getByText("Walk a realistic route")).toBeInTheDocument();
   });
 });
 
@@ -166,18 +128,5 @@ describe("Landing page — structure", () => {
     renderLanding(jaFull);
     const all = screen.getAllByText("聖地巡礼");
     expect(all.length).toBeGreaterThanOrEqual(2);
-  });
-
-  it("gallery cards link to anime guide pages", () => {
-    const { container } = renderLanding(jaFull);
-    const galleryLinks = container.querySelectorAll("a[href*='/anime/']");
-    // B2: LandingPopularRoutes renders all ANIME_GALLERY items (8)
-    expect(galleryLinks.length).toBeGreaterThanOrEqual(4);
-    expect(galleryLinks[0].getAttribute("href")).toContain("/anime/");
-  });
-
-  it("renders view-all button", () => {
-    renderLanding(jaFull);
-    expect(screen.getByText(/すべてのルートを見る/)).toBeInTheDocument();
   });
 });
