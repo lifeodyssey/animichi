@@ -72,7 +72,7 @@
       "hero_route_preview": "路线预览",
       "hero_auth_hint": "仅在想保存或同步时登录",
       "walking_route": "步行路线",
-      "hiw_title": "从场景记忆到可行走路线",
+      "hiw_title": "一个作品名，如何变成路线",
       "hiw_sub": "输入作品名、地点或附近位置，生成实用巡礼路线。",
       "hiw_step1_title": "搜索动漫或地点",
       "hiw_step1_desc": "输入作品名、车站或探索附近",
@@ -98,7 +98,12 @@
       "ss_email_placeholder": "you@example.com",
       "ss_send_cta": "发送登录链接",
       "ss_save_cta": "保存路线",
-      "ss_browse_cta": "继续浏览"
+      "ss_browse_cta": "继续浏览",
+      "ss_email_hint": "请检查 @ 后面的部分(如 example.com)。你也可以直接继续浏览。",
+      "ss_email_hint_at": "邮箱需要包含 @(如 you@example.com)。你也可以直接继续浏览。",
+      "ss_magiclink_q": "什么是 magic link？",
+      "ss_magiclink_a": "我们会把一键登录链接发到你的邮箱,无需记住密码。邮箱只用于发送这个链接。",
+      "hero_continue": "继续上次的浏览"
     }
   },
   "auth": {

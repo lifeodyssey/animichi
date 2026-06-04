@@ -1,3 +1,4 @@
+// no-design-target: design-system primitive / sub-component below the hero blueprint granularity
 import type { Meta, StoryObj } from "@storybook/react";
 import { Search, Heart, MapPin, Trash2, ExternalLink } from "lucide-react";
 import { Button } from "./button";
