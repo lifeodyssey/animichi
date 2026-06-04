@@ -276,3 +276,10 @@ Branch: `feat/ssr-cloudflare` (worktree at `.claude/worktrees/ssr-migration/`)
 ## Deployment TODO
 
 - [ ] **Post-deploy: run city backfill** — After merging feat/ssr-cloudflare and tagging, run `SUPABASE_DB_URL=<prod_dsn> uv run python -m backend.scripts.backfill_city` to populate points.city column. See `docs/ops/deployment.md` runbook for full steps.
+
+## Tooling TODOs
+
+- [ ] **Migrate npm → pnpm** (decided 2026-06-04) — switch the frontend package manager to pnpm (faster installs, disk-efficient via hard links, strict node_modules that surfaces phantom deps; first-class Next.js / OpenNext / Cloudflare support). Chosen over yarn (classic is legacy, berry PnP fights Next.js/native deps), Bun (we deploy to CF Workers via OpenNext, not the Bun runtime, so its main draw is moot and native deps like mapbox-gl/leaflet are riskier), and vlt (too new for production).
+  - **Do this AFTER** the current dependency-security work (#182) and the `feat/ssr-cloudflare` redesign land, so the migration doesn't rebase-fight the big PRs.
+  - **Touches:** replace `frontend/package-lock.json` with `pnpm-lock.yaml`; CI `npm ci` → `pnpm install --frozen-lockfile`; Dockerfile / OpenNext build commands; contributor onboarding docs; verify the `overrides` block in `package.json` carries over to pnpm's `pnpm.overrides`.
+  - **Note:** this is an ergonomics upgrade, not a bugfix — npm works fine today; the win is install speed + dependency strictness.
