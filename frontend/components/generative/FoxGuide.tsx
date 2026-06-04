@@ -27,9 +27,11 @@ export type FoxPose =
   | "thinking"
   | "cheer"
   | "curious"
-  | "oops";
+  | "oops"
+  | "peek"
+  | "lean";
 
-export type FoxSize = "sm" | "md" | "lg";
+export type FoxSize = "sm" | "md" | "lg" | "xl";
 
 interface FoxGuideProps {
   pose: FoxPose;
@@ -50,12 +52,16 @@ const POSE_ASSET: Record<FoxPose, string> = {
   "cheer":    "/images/landing/fox-guide-v3/fox-cheer.webp",
   "curious":  "/images/landing/fox-guide-v3/fox-curious.webp",
   "oops":     "/images/landing/fox-guide-v3/fox-oops.webp",
+  "peek":     "/images/landing/fox-guide-v3/fox-peek.webp",
+  // Pure-vector pose (traced via raster-to-svg); served unoptimized below.
+  "lean":     "/images/landing/fox-guide-v3/svg/med/fox-lean.svg",
 };
 
 const SIZE_DIMS: Record<FoxSize, { w: number; h: number; cls: string }> = {
   sm: { w: 80,  h: 80,  cls: "w-20 h-20" },
   md: { w: 128, h: 128, cls: "w-32 h-32" },
   lg: { w: 200, h: 200, cls: "w-[200px] h-[200px]" },
+  xl: { w: 280, h: 280, cls: "w-[280px] h-[280px]" },
 };
 
 function getReducedMotion(): boolean {
@@ -103,6 +109,7 @@ export default function FoxGuide({ pose, size, className }: FoxGuideProps) {
         alt=""
         width={w}
         height={h}
+        unoptimized={src.endsWith(".svg")}
         className="h-full w-full object-contain"
       />
     </div>

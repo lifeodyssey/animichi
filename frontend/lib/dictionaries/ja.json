@@ -72,7 +72,7 @@
       "hero_route_preview": "ROUTE PREVIEW",
       "hero_auth_hint": "保存・同期するときだけログイン",
       "walking_route": "徒歩ルート",
-      "hiw_title": "場面の記憶から、歩けるルートへ",
+      "hiw_title": "作品名が、ルートになるまで",
       "hiw_sub": "作品名・駅名・スポットを入力するだけ。あとはおまかせ。",
       "hiw_step1_title": "アニメや場所を検索",
       "hiw_step1_desc": "作品名・駅名・都市名で聖地を検索",
@@ -98,7 +98,12 @@
       "ss_email_placeholder": "you@example.com",
       "ss_send_cta": "ログインリンクを送る",
       "ss_save_cta": "ルートを保存",
-      "ss_browse_cta": "このまま探す"
+      "ss_browse_cta": "このまま探す",
+      "ss_email_hint": "@ のあとの部分（例: example.com）をご確認ください。このまま探すこともできます。",
+      "ss_email_hint_at": "メールアドレスには @ が必要です（例: you@example.com）。このまま探すこともできます。",
+      "ss_magiclink_q": "マジックリンクとは？",
+      "ss_magiclink_a": "ワンタップでログインできるリンクをメールでお送りします。パスワードは不要です。メールはこのリンクの送信にのみ使います。",
+      "hero_continue": "前回の続きから"
     }
   },
   "auth": {

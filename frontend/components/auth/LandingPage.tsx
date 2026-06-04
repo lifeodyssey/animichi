@@ -17,7 +17,7 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
   const locale = useLocale();
 
   return (
-    <div id="top" className="overflow-x-hidden bg-background font-sans" lang={locale}>
+    <div id="top" className="overflow-x-hidden bg-[var(--animal-bg-color-content)] font-sans" lang={locale}>
       <LandingHeader onLogin={onOpenAuth} />
 
       {/* ═══════ SECTION 1: HERO ═══════ */}

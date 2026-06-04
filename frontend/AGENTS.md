@@ -5,6 +5,27 @@ This version has breaking changes — APIs, conventions, and file structure may
 all differ from your training data. Read the relevant guide in
 `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 
+## Storybook stories — MANDATORY design tab
+
+Every `*.stories.tsx` MUST wire the `@storybook/addon-designs` Design tab so the
+component can be reviewed against its blueprint, side by side:
+
+```ts
+parameters: {
+  design: { type: "image", url: "/design-targets/<target>.png" },
+},
+```
+
+- If a blueprint region exists for the component, crop it into
+  `public/design-targets/` and point `design.url` at it.
+- If no target exists yet, add a literal `// no-design-target: <reason>` comment
+  in the story so the omission is a deliberate, reviewed choice — never a slip.
+
+This is NOT optional. A story created or edited without either a `design`
+parameter or the `// no-design-target` escape is a defect — applies to you and to
+any sub-agent you dispatch to write stories. Reference:
+`components/auth/LandingHeader.stories.tsx`.
+
 ## Component Architecture
 
 SharedHeader + split panel layout: `AppShell` (header + chat + result panel).

@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
-import { Bookmark, Smartphone, History, Mail } from "lucide-react";
+import { useState, useCallback, useTransition, useId } from "react";
+import { Bookmark, Smartphone, History, Mail, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { ExploreButton } from "@/components/ui/explore-button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import RouteLine from "@/components/landing/decor/RouteLine";
 import Stamp from "@/components/landing/decor/Stamp";
 import TicketStub from "@/components/landing/decor/TicketStub";
@@ -72,6 +75,9 @@ function NotebookCard() {
 
 const FEATURE_ICONS = [Bookmark, Smartphone, History];
 
+/** Shape check only — advisory, never blocks submit (the field is a teaser). */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function Features({ labels }: { labels: string[] }) {
   return (
     <div className="flex flex-wrap gap-x-7 gap-y-4">
@@ -93,6 +99,10 @@ function SaveCard({
   cardTitle,
   cardSub,
   emailPlaceholder,
+  emailHint,
+  emailHintAt,
+  magiclinkQ,
+  magiclinkA,
   saveCta,
   browseCta,
   onSave,
@@ -100,12 +110,24 @@ function SaveCard({
   cardTitle: string;
   cardSub: string;
   emailPlaceholder: string;
+  emailHint: string;
+  emailHintAt: string;
+  magiclinkQ: string;
+  magiclinkA: string;
   saveCta: string;
   browseCta: string;
   onSave: () => void;
 }) {
   const [email, setEmail] = useState("");
+  const [touched, setTouched] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const hintId = useId();
+
+  // Advisory only: a typo is flagged after blur, but submit is never blocked —
+  // the field is an optional teaser and "Save my route" always opens the modal.
+  const showHint = touched && email.trim() !== "" && !EMAIL_RE.test(email.trim());
+  // Pinpoint the most common fault so recovery guidance is specific, not generic.
+  const hintMessage = email.includes("@") ? emailHint : emailHintAt;
 
   const handleSend = useCallback(
     (e: React.FormEvent) => {
@@ -121,43 +143,65 @@ function SaveCard({
       <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{cardSub}</p>
 
       <form onSubmit={handleSend} className="mt-4 flex flex-col gap-3">
-        <div className="relative flex items-center">
-          <Mail size={15} className="pointer-events-none absolute left-4 text-muted-foreground" aria-hidden="true" />
-          <input
+        <div className="flex flex-col gap-1.5">
+          <Input
             type="email"
             name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => setTouched(true)}
             placeholder={emailPlaceholder}
             aria-label={emailPlaceholder}
+            aria-invalid={showHint || undefined}
+            aria-describedby={showHint ? hintId : undefined}
+            status={showHint ? "warning" : undefined}
             inputMode="email"
             autoComplete="email"
-            className="w-full rounded-[50px] border border-border bg-background py-3 pl-11 pr-4 text-[13px] text-foreground placeholder:text-muted-foreground shadow-3d-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            prefix={<Mail size={15} aria-hidden="true" />}
+            shadow
+            size="large"
           />
+          {showHint && (
+            <p id={hintId} role="status" className="text-[12px] leading-snug text-warning-fg">
+              {hintMessage}
+            </p>
+          )}
         </div>
-        <div className="flex gap-3">
-          <button
+        <div className="flex flex-col gap-2.5">
+          <ExploreButton
             type="submit"
             disabled={isPending}
             aria-busy={isPending}
-            className={cn(
-              "btn-explore flex flex-1 items-center justify-center gap-2 py-3 text-[13px] font-bold",
-              isPending && "opacity-70",
-            )}
+            className={cn("w-full py-3 text-[13px]", isPending && "opacity-70")}
             data-testid="ss-save-cta"
           >
             {saveCta}
-          </button>
-          <button
-            type="button"
-            onClick={onSave}
-            className="flex-1 rounded-[50px] border border-border bg-background py-3 text-[13px] font-bold text-fg shadow-3d-sm transition-transform hover:-translate-y-0.5"
+          </ExploreButton>
+          <a
+            href="#popular-routes"
+            className="text-center text-[13px] font-semibold text-muted-foreground underline-offset-4 transition-colors hover:text-fg hover:underline"
             data-testid="ss-browse-cta"
           >
             {browseCta}
-          </button>
+          </a>
         </div>
       </form>
+
+      <TooltipProvider delay={120}>
+        <Tooltip>
+          <TooltipTrigger
+            type="button"
+            className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-muted-foreground underline-offset-2 hover:text-fg hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            data-testid="ss-magiclink-trigger"
+          >
+            <Info size={13} aria-hidden="true" />
+            {magiclinkQ}
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[260px] text-left leading-relaxed">
+            {magiclinkA}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }
@@ -200,6 +244,10 @@ export function LandingSaveSync({ onOpenAuth }: LandingSaveSyncProps) {
               cardTitle={t.ss_card_title}
               cardSub={t.ss_card_sub}
               emailPlaceholder={t.ss_email_placeholder}
+              emailHint={t.ss_email_hint}
+              emailHintAt={t.ss_email_hint_at}
+              magiclinkQ={t.ss_magiclink_q}
+              magiclinkA={t.ss_magiclink_a}
               saveCta={t.ss_save_cta}
               browseCta={t.ss_browse_cta}
               onSave={onOpenAuth}
