@@ -1,18 +1,19 @@
 "use client";
 
 import { useLocale } from "../../lib/i18n-context";
-import { ANIME_GALLERY } from "./LandingData";
 import SharedFooter from "../layout/SharedFooter";
 import LandingHeader from "./LandingHeader";
 import LandingHero from "./LandingHero";
-import { LandingHowItWorks } from "./LandingHowItWorks";
-import { LandingPopularRoutes } from "./LandingPopularRoutes";
-import { LandingSaveSync } from "./LandingSaveSync";
 
 interface LandingPageProps {
   onOpenAuth: (query?: string) => void;
 }
 
+/**
+ * LandingPage — currently the HERO screen only. The lower sections (how-it-works,
+ * popular routes, save-sync) were removed pending a redesign; they will be rebuilt
+ * later. Keep this composition minimal until then.
+ */
 export default function LandingPage({ onOpenAuth }: LandingPageProps) {
   const locale = useLocale();
 
@@ -20,23 +21,8 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
     <div id="top" className="overflow-x-hidden bg-[var(--animal-bg-color-content)] font-sans" lang={locale}>
       <LandingHeader onLogin={onOpenAuth} />
 
-      {/* ═══════ SECTION 1: HERO ═══════ */}
+      {/* ═══════ HERO (the only section for now) ═══════ */}
       <LandingHero onOpenAuth={onOpenAuth} />
-
-      {/* ═══════ SECTION 2: HOW IT WORKS ═══════ */}
-      <div id="how-it-works">
-        <LandingHowItWorks />
-      </div>
-
-      {/* ═══════ SECTION 3: POPULAR ROUTES ═══════ */}
-      <div id="popular-routes">
-        <LandingPopularRoutes items={ANIME_GALLERY} onOpenAuth={onOpenAuth} />
-      </div>
-
-      {/* ═══════ SECTION 4: SAVE-SYNC ═══════ */}
-      <div id="save-sync">
-        <LandingSaveSync onOpenAuth={onOpenAuth} />
-      </div>
 
       <SharedFooter />
     </div>
