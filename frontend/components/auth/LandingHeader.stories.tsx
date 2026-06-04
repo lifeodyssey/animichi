@@ -3,7 +3,7 @@ import { fn } from "storybook/test";
 import LandingHeader from "./LandingHeader";
 
 const meta = {
-  title: "Landing/Hero/1 Header",
+  title: "Landing/Hero/Header",
   component: LandingHeader,
   parameters: {
     layout: "fullscreen",
