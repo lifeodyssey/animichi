@@ -14,6 +14,7 @@ Separation rationale:
 from __future__ import annotations
 
 from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai.capabilities import ProcessHistory
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -277,7 +278,10 @@ pilgrimage_agent = Agent(
     ],
     instructions=_INSTRUCTIONS,
     retries=2,
-    history_processors=[_compact_tool_results, _sliding_window],
+    capabilities=[
+        ProcessHistory(_compact_tool_results),
+        ProcessHistory(_sliding_window),
+    ],
 )
 
 
