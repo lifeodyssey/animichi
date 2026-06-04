@@ -105,3 +105,14 @@ node_modules
 .sandbox-venv/
 .remember/
 frontend/.env.local.bak
+
+# Agent / tool scratch dirs (not source)
+.codex/
+.baoyu-skills/
+.impeccable/
+frontend/.impeccable/
+
+# Large design-probe / mockup image artifacts (kept on disk, not in git)
+docs/design/redesign-probes/
+docs/mockups/
+docs/mockups/previous-design-contact-sheet.jpg

@@ -137,11 +137,11 @@ describe("LandingSaveSync — CTA opens login modal (integration)", () => {
     expect(onOpenAuth).toHaveBeenCalledTimes(1);
   });
 
-  it("browse CTA button calls onOpenAuth when clicked", () => {
+  it("browse CTA is a quiet link to the routes section (no auth)", () => {
     const onOpenAuth = vi.fn();
     renderSaveSync(jaFull, onOpenAuth);
-    fireEvent.click(screen.getByTestId("ss-browse-cta"));
-    expect(onOpenAuth).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("ss-browse-cta")).toHaveAttribute("href", "#popular-routes");
+    expect(onOpenAuth).not.toHaveBeenCalled();
   });
 
   it("save CTA does not throw when clicked without email input", () => {

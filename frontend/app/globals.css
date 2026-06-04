@@ -32,6 +32,7 @@
   /* ── Walk segments ── */
   --color-walk-bg: #e6f5e0;
   --color-walk-fg: #4a7a3a;
+  --color-leaf: #7fae6b;   /* muted leaf green — example-chip dot, step marker, sprigs */
 
   /* ── Palette — 動森キャンプ · warm parchment × ゆるキャン橙 × 動森 teal ── */
   --color-bg:      #ffffff;
@@ -84,6 +85,9 @@
   --shadow-3d-sm:   0 2px 0 0 var(--color-3d-shadow);
   --shadow-3d-md:   0 4px 0 0 var(--color-3d-shadow);
   --shadow-3d-lg:   0 5px 0 0 var(--color-3d-shadow);
+  /* hero scene card (SceneFrameCard) + draped-fox overlay shadows */
+  --shadow-scene-card: 0 22px 50px -18px rgba(70, 52, 30, 0.50);
+  --shadow-fox:        0 7px 5px rgba(70, 52, 30, 0.25);
 
   /* ── Sidebar (warm) ── */
   --color-sidebar:           #f0e8d8;
@@ -215,6 +219,7 @@
   --color-explore-hover: var(--color-explore-hover);
   --color-explore-active: var(--color-explore-active);
   --color-explore-fg: var(--color-explore-fg);
+  --color-leaf: var(--color-leaf);
   --color-border-hover: var(--color-border-hover);
   --color-border-light: var(--color-border-light);
   --color-input-disabled: var(--color-input-disabled);

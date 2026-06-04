@@ -62,8 +62,8 @@
       "search_button": "Start Exploring",
       "hero_examples": [
         "Your Name",
-        "Kimi no Na wa",
-        "Euphonium"
+        "Euphonium",
+        "Weathering with You"
       ],
       "hero_nearby": "Nearby spots",
       "hero_location_label": "Suga Shrine Steps · Shinjuku",
@@ -72,7 +72,7 @@
       "hero_route_preview": "ROUTE PREVIEW",
       "hero_auth_hint": "Log in only when you want to save or sync.",
       "walking_route": "Walking route",
-      "hiw_title": "From scene memory to walkable plan.",
+      "hiw_title": "How a title becomes a route",
       "hiw_sub": "Seichijunrei turns a title, place, or nearby location into a practical route.",
       "hiw_step1_title": "Search an anime or place",
       "hiw_step1_desc": "Find your favorite title, a station, or explore what's nearby.",
@@ -98,7 +98,12 @@
       "ss_email_placeholder": "you@example.com",
       "ss_send_cta": "Send login link",
       "ss_save_cta": "Save my route",
-      "ss_browse_cta": "Keep browsing"
+      "ss_browse_cta": "Keep browsing",
+      "ss_email_hint": "Check the part after @, like example.com. You can keep browsing too.",
+      "ss_email_hint_at": "An email needs an @, like you@example.com. You can keep browsing too.",
+      "ss_magiclink_q": "What's a magic link?",
+      "ss_magiclink_a": "We email you a one-tap sign-in link, so there's no password to remember. Your email is only used to send that link.",
+      "hero_continue": "Continue where you left off"
     }
   },
   "auth": {

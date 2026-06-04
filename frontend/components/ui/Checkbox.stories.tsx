@@ -1,3 +1,4 @@
+// no-design-target: design-system primitive / sub-component below the hero blueprint granularity
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
 import { CheckboxGroup } from "./checkbox";
