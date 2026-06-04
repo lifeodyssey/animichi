@@ -35,3 +35,9 @@ export const English: Story = {
     </div>
   ),
 };
+
+export const WithoutFox: Story = {
+  name: "Without fox",
+  args: { ...English.args, showFox: false },
+  render: English.render,
+};

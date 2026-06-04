@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import SceneFrameCard from "./SceneFrameCard";
 
 const meta = {
-  title: "Landing/SceneCard/SceneFrameCard",
+  title: "Landing/Hero/SceneCard/Frame",
   component: SceneFrameCard,
   parameters: {
     layout: "centered",

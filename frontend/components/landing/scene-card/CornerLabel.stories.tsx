@@ -1,25 +1,51 @@
-// no-design-target: design-system primitive / sub-component below the hero blueprint granularity
+// no-design-target: atomic scene-card sub-label; in isolation it has no standalone
+// blueprint crop — it is reviewed in context under Landing/Hero/SceneCard.
 import type { Meta, StoryObj } from "@storybook/react";
 import CornerLabel from "./CornerLabel";
 
 const meta = {
-  title: "Landing/SceneCard/CornerLabel",
+  title: "Landing/Hero/SceneCard/CornerLabel",
   component: CornerLabel,
-  parameters: {
-    layout: "centered",
-  },
+  parameters: { layout: "centered" },
 } satisfies Meta<typeof CornerLabel>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {
+/** A faux photo region so the absolutely-positioned label has a frame to float over. */
+function Photo({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative h-[140px] w-[340px] overflow-hidden rounded-[18px] bg-muted">
+      {children}
+    </div>
+  );
+}
+
+export const AnimeLeft: Story = {
   args: { side: "left", tone: "anime", text: "Anime" },
   render: (args) => (
-    <div
-      style={{ position: "relative", width: 320, height: 120, background: "var(--color-muted)" }}
-    >
+    <Photo>
       <CornerLabel {...args} />
-    </div>
+    </Photo>
+  ),
+};
+
+export const RealRight: Story = {
+  args: { side: "right", tone: "real", text: "Real" },
+  render: (args) => (
+    <Photo>
+      <CornerLabel {...args} />
+    </Photo>
+  ),
+};
+
+export const BothCorners: Story = {
+  name: "Both corners (anime ↔ real)",
+  args: { side: "left", tone: "anime", text: "Anime" },
+  render: () => (
+    <Photo>
+      <CornerLabel side="left" tone="anime" text="Anime" />
+      <CornerLabel side="right" tone="real" text="Real" />
+    </Photo>
   ),
 };
