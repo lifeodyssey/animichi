@@ -12,8 +12,8 @@ export default function SharedFooter() {
   const setLocale = useSetLocale();
 
   return (
-    <footer className="border-t border-border bg-card px-5 py-7 sm:px-8">
-      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-4">
+    <footer className="border-t border-border bg-card px-5 py-4 sm:px-8">
+      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Image src="/images/logo/logo.png" alt="" width={22} height={22} />
           <span className="font-display font-bold text-fg">聖地巡礼</span>
@@ -21,15 +21,8 @@ export default function SharedFooter() {
           <span className="font-mono text-[12px] tracking-wide">seichijunrei</span>
         </div>
         <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <a href="#popular-routes" className={LINK_CLASS}>
-            Popular routes
-          </a>
-          <a href="#how-it-works" className={LINK_CLASS}>
-            How it works
-          </a>
-          <a href="#save-sync" className={LINK_CLASS}>
-            Save &amp; sync
-          </a>
+          {/* Section links (Popular routes / How it works / Save & sync) are hidden
+              until those landing sections are rebuilt — their anchors are dead for now. */}
           <a
             href="https://github.com/lifeodyssey/Seichijunrei-agent"
             target="_blank"
