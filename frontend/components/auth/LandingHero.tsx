@@ -19,7 +19,7 @@ export default function LandingHero({ onOpenAuth }: LandingHeroProps) {
   const t = dict.landing_hero.landing;
 
   return (
-    <section className="relative flex min-h-[calc(100vh-72px)] items-center overflow-hidden bg-[var(--animal-bg-color-content)] px-5 py-12 sm:px-8">
+    <section className="relative flex flex-1 items-center overflow-hidden bg-background px-5 py-8 sm:px-8">
       <RouteBackdrop />
 
       <div className="relative z-10 mx-auto grid w-full max-w-[1240px] items-start gap-10 lg:grid-cols-[1.04fr_0.96fr] lg:gap-16">
@@ -32,7 +32,7 @@ export default function LandingHero({ onOpenAuth }: LandingHeroProps) {
           realLabel={t.hero_real_label}
           locationName={t.hero_location_label ?? "須賀神社 階段"}
           locationArea={t.hero_route_preview ?? "Shinjuku, Tokyo"}
-          className="lg:mx-0 [animation-delay:80ms]"
+          className="mt-10 lg:mt-24 lg:mx-0 [animation-delay:80ms]"
         />
       </div>
     </section>
@@ -40,13 +40,18 @@ export default function LandingHero({ onOpenAuth }: LandingHeroProps) {
 }
 
 /**
- * RouteBackdrop — faint hand-drawn "route" texture. Kept warm-neutral and low
- * opacity on purpose: teal is reserved for interactive/foreground elements, so
- * the backdrop reads as quiet paper texture, not a competing accent layer. Two
- * gentle dashed curves sit in the lower band (clear of the headline) with a few
- * matching pins, all on one dash cadence.
+ * RouteBackdrop — a single hand-drawn "travel route" sweeping across the lower
+ * band of the hero: a fine dotted path with map pins that ends at a gold
+ * destination pin. Warm brown (`--color-muted-fg`) so it reads as an intentional
+ * journal route on the white page, not a competing accent — teal stays reserved
+ * for interactive/foreground elements. One confident line beats two faint ones.
  */
 function RouteBackdrop() {
+  const pins: Array<{ x: number; y: number; gold?: boolean }> = [
+    { x: 300, y: 602 },
+    { x: 720, y: 548 },
+    { x: 1150, y: 504, gold: true },
+  ];
   return (
     <svg
       className="pointer-events-none absolute inset-0 h-full w-full"
@@ -54,12 +59,22 @@ function RouteBackdrop() {
       fill="none"
       aria-hidden="true"
     >
-      <path d="M-20 470 C240 410 380 540 620 488 C880 432 1020 560 1300 500" stroke="var(--color-border)" strokeWidth="2" strokeDasharray="2 9" strokeLinecap="round" opacity="0.4" />
-      <path d="M-20 690 C260 740 430 600 700 660 C960 716 1100 580 1340 640" stroke="var(--color-border)" strokeWidth="2" strokeDasharray="2 9" strokeLinecap="round" opacity="0.28" />
-      {[[380, 503], [760, 650], [1200, 498]].map(([x, y], i) => (
-        <g key={i} transform={`translate(${x - 7} ${y - 18})`} opacity="0.38">
-          <path d="M7 0C3.13 0 0 3.13 0 7c0 5.25 7 11 7 11s7-5.75 7-11C14 3.13 10.87 0 7 0z" fill="var(--color-border)" />
-          <circle cx="7" cy="6.8" r="2.6" fill="var(--animal-bg-color-content)" />
+      <path
+        d="M-40 548 C200 486 360 614 620 540 C880 468 1060 596 1500 486"
+        stroke="var(--color-muted-fg)"
+        strokeWidth="2.5"
+        strokeDasharray="1.5 12"
+        strokeLinecap="round"
+        opacity="0.6"
+      />
+      <circle cx="120" cy="566" r="5" stroke="var(--color-muted-fg)" strokeWidth="2.5" opacity="0.55" />
+      {pins.map(({ x, y, gold }, i) => (
+        <g key={i} transform={`translate(${x - 9} ${y - 24})`} opacity={gold ? 0.92 : 0.6}>
+          <path
+            d="M9 0C4.03 0 0 4.03 0 9c0 6.75 9 15 9 15s9-8.25 9-15C18 4.03 13.97 0 9 0z"
+            fill={gold ? "var(--color-cta)" : "var(--color-muted-fg)"}
+          />
+          <circle cx="9" cy="8.7" r="3.2" fill="var(--color-bg)" />
         </g>
       ))}
     </svg>
