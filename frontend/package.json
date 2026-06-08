@@ -29,7 +29,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@supabase/ssr": "^0.10.3",
-    "@supabase/supabase-js": "^2.105.3",
+    "@supabase/supabase-js": "^2.107.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-virtual": "^3.13.24",
     "ai": "^6.0.176",
@@ -38,7 +38,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "gsap": "^3.15.0",
-    "lucide-react": "^1.14.0",
+    "lucide-react": "^1.17.0",
     "mapbox-gl": "^3.23.1",
     "next": "^16.2.6",
     "react": "^19.2.6",
@@ -70,9 +70,9 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.6",
     "jsdom": "^29.1.1",
-    "msw": "^2.14.5",
+    "msw": "^2.14.6",
     "storybook": "^10.4.1",
-    "tailwindcss": "^4.2.4",
+    "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5",
     "vitest-axe": "^0.1.0"
@@ -84,7 +84,9 @@
     },
     "postcss": ">=8.5.10",
     "ws": ">=8.21.0",
-    "qs": ">=6.15.2"
+    "qs": ">=6.15.2",
+    "fast-uri": ">=3.1.2",
+    "hono": ">=4.12.16"
   },
   "msw": {
     "workerDirectory": [
