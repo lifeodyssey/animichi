@@ -28,11 +28,21 @@ Three judgement tiers, in order:
 1. **Geometry gate (algorithmic).** `score.py` over rect IoU, centroid distance,
    size ratio, overlap/containment. Authority for "is each region in the right
    place and size."
-2. **Measurable-style gate (algorithmic).** Read from `getComputedStyle` on the
-   measured nodes and compare against tokens: color, background, border-radius,
-   box-shadow, font-family/size/weight, z-index ordering. These are checkable
-   without an LLM and were missing from v1. They catch "passes geometry but looks
-   wrong" for everything that reduces to a CSS value.
+2. **Style gate (algorithmic, with a target oracle).** The target is an image,
+   not a DOM, so the gate must first DERIVE target style from pixels before it can
+   compare — otherwise it would assert the rendered DOM against its own tokens
+   (tautology). Scoped honestly to what pixels + computed style can actually
+   ground:
+   - **Colour / background (pixel-derived).** Sample the target region's dominant
+     and median colour, excluding text and photo sub-regions via the same masks;
+     snap to the nearest design token within a ΔE tolerance; compare against the
+     measured node's `getComputedStyle` colour. Mismatch beyond tolerance fails.
+   - **Token-lint (code-side).** The rendered node must use design-system tokens
+     (CSS variables), not raw hex / px, for colour / radius / shadow. Deterministic.
+   - **NOT pixel-extractable** (font family, exact shadow blur, z-order,
+     sub-pixel radius): the gate does **not** assert these. They move to the
+     human-review gate. The gate covers only what it can verify; it never fakes a
+     style judgement it cannot ground in the target.
 3. **Human-review gate (one explicit stop).** Whatever neither gate can score —
    overall taste, illustration fidelity, emotional fit. Generated edits are NOT
    considered shippable until a human approves at this gate. The skill surfaces
@@ -204,11 +214,51 @@ Segmenter (Grounded-SAM) · Classifier · Vectorizer (raster-to-svg) · Measurer
 Scaffold driver · Scorer (score.py: geometry + style gates) · Transaction/loop
 (dry-run, snapshot, rollback, idempotent emit).
 
+## Deferred to implementation plan — required deliverables
+
+This is a design spec: it fixes contracts and behaviour. The following must be
+produced as executable schemas, formulas, and fixtures during `writing-plans`,
+**before** any code. They are tracked here so they are not lost (each is a real
+gap raised by Codex's second review; the design decision is settled, the
+executable form is the plan's job):
+
+- **Mapping resolver** — algorithm from SAM candidate mask → `componentId`:
+  prompt IDs, confidence ranking, alias precedence, `instanceId` assignment for
+  cardinality `n`, overlap tie-breakers; validator fixtures for duplicate,
+  missing-required, and ambiguous-mask cases (so fail-closed doesn't dead-stop on
+  ordinary duplicates).
+- **Knob conversion contract** — typed knob schema with source-file ownership;
+  exact normalized-delta → px/rem/breakpoint formulas; clamp/error semantics;
+  same-`drivenBy` conflict resolution; named parent/sibling invariants; fixture
+  tests proving "this delta produces exactly this source diff."
+- **Classifier spec** — feature definitions, weights/decision-tree, thresholds,
+  output schema, a calibration corpus, and the recorded human-override manifest
+  path for UNCERTAIN regions.
+- **Style-gate oracle tests** — golden fixtures: image-derived target colour vs
+  DOM computed colour, ΔE tolerances, text/asset exclusion masks.
+- **Coordinate transform** — full both-axis transform between target natural-image
+  space and rendered DOM space (viewport capture rect, scroll offset, CSS
+  transforms, DPR, aspect-ratio handling); SAM-mask → DOM-rect → score-input
+  round-trip tests. Stamp tool/schema versions (`render.cjs`, `score.py`,
+  `target_extract.py`, padding/rounding) on every artifact, not just
+  `manifestVersion`.
+- **Transaction model** — clean or isolated temp worktree for gate execution;
+  per-artifact ownership manifest with checksums; atomic writes; exact rollback
+  behaviour for tracked, untracked, and pre-existing user files (orphan cleanup
+  must check ownership+checksum, never delete by `componentId` alone).
+
 ## Review log
 
-- 2026-06-09 Codex adversarial-review (verdict: needs-attention) raised 6 issues:
-  fragile naming equality, geometry-only judge, non-executable parametric
-  contract, underspecified classifier, no rollback/idempotency, coordinate-system
-  skew. All six folded into this revision (mapping manifest, three-tier judge +
-  measurable-style gate, knob contract, specified classifier, iteration-safety
-  section, canonical coordinate/version section).
+- 2026-06-09 Codex adversarial-review #1 (needs-attention) — 6 issues: fragile
+  naming equality, geometry-only judge, non-executable parametric contract,
+  underspecified classifier, no rollback/idempotency, coordinate skew. Folded into
+  the mapping manifest, three-tier judge, knob contract, classifier, iteration-
+  safety, and coordinate/version sections.
+- 2026-06-09 Codex adversarial-review #2 (needs-attention) — the 6 became deeper:
+  the revision settled the contracts but Codex wanted executable schemas/formulas/
+  fixtures. One genuine design hole fixed here: the style gate now defines a
+  pixel-derived **target oracle** (sample target colour → token) and honestly
+  scopes out what pixels can't ground (font/shadow/z-order → human gate). The
+  remaining five are schema/fixture-level and are moved to "Deferred to
+  implementation plan — required deliverables" above (the correct phase for them),
+  rather than looped on in the design.
