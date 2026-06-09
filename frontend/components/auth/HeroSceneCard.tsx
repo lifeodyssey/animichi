@@ -45,7 +45,7 @@ export default function HeroSceneCard({
   className,
 }: HeroSceneCardProps) {
   return (
-    <div className={cn("entrance-up relative mx-auto w-full max-w-[560px]", className)}>
+    <div className={cn("entrance-up relative mx-auto w-full max-w-[740px]", className)}>
       <SceneFrameCard
         animeSrc={animeSrc}
         realSrc={realSrc}
@@ -65,7 +65,7 @@ export default function HeroSceneCard({
             pose="lean"
             size="xl"
             surface="welcome"
-            className="-top-[12.5rem] -right-[13%] z-30 !h-[256px] !w-[335px] [filter:drop-shadow(var(--shadow-fox))]"
+            className="-top-[10rem] -right-[6%] z-30 !h-[154px] !w-[202px] [filter:drop-shadow(var(--shadow-fox))]"
           />
         ) : null}
       </SceneFrameCard>
