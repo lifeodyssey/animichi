@@ -36,15 +36,16 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
-      include: ["components/**", "hooks/**", "lib/**", "contexts/**"],
-      exclude: ["**/node_modules/**", "lib/mock-data/**", "components/ui/**", "**/*.stories.tsx"],
+      include: ["components/**", "lib/**"],
+      exclude: ["**/node_modules/**", "components/ui/**", "**/*.stories.tsx"],
       // Floors based on current coverage — only ratchet UP, never lower.
-      // Ratcheted up after the hero re-implementation (journal-card hero) landed tested components.
+      // Ratcheted up after the homepage-only cleanup (non-landing pages removed);
+      // measured: lines 88.7, functions 72.6, branches 86.6.
       thresholds: {
-        lines: 77,
-        statements: 74,
-        functions: 70,
-        branches: 64,
+        lines: 85,
+        statements: 82,
+        functions: 71,
+        branches: 80,
       },
     },
   },

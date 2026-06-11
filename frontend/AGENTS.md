@@ -28,20 +28,19 @@ any sub-agent you dispatch to write stories. Reference:
 
 ## Component Architecture
 
-SharedHeader + split panel layout: `AppShell` (header + chat + result panel).
+**Homepage-only since the 2026-06 cleanup.** All post-login pages (chat, search,
+anime guide, settings) and their component trees (`components/chat`, `components/map`,
+`components/spots`, `components/settings`, the generative registry, the AppShell
+layout family, `lib/api`, `hooks/`) were deleted; rebuild them fresh when those
+pages return. What remains:
 
-Key components and their responsibilities:
-- `components/layout/AppShell.tsx` — layout root; owns `activeMessageId` state
-- `components/layout/SharedHeader.tsx` — site-wide header with torii logo + brand; right side accepts children
-- `components/layout/ResultPanel.tsx` — right column; renders active result
-- `components/layout/ConversationDrawer.tsx` — mobile bottom sheet (vaul); conversation history
-- `components/layout/ResultSheet.tsx` — mobile result sheet
+- `app/page.tsx` → `HomeContent` → `components/landing/LandingPage` (hero screen)
+- `components/landing/*` — Hero, HeroCopy, ShowcaseCard (fox + photo frame), RouteTrail
+- `components/auth/` — LandingHeader, LoginModal, LoginForm; `app/login` + `app/auth/*` routes
+- `components/layout/` — SharedFooter (homepage), SharedHeader (login page)
+- `components/generative/FoxGuide.tsx` — the fox mascot (used by ShowcaseCard)
 - `components/icons/ToriiIcon.tsx` — shared torii gate SVG, uses --color-brand
-- `components/generative/registry.ts` — `COMPONENT_REGISTRY`; add new components here
-- `components/generative/GenerativeUIRenderer.tsx` — registry lookup; entry point for all results
-- `components/chat/MessageBubble.tsx` — bot messages: text + `◈` anchor only (no inline results)
-
-**Adding a new result component:** register in `registry.ts` only. No other file changes needed.
+- `proxy.ts` + `lib/auth/` — Next middleware: session refresh + /v1 JWT gate
 
 ### Component Ownership Table
 
