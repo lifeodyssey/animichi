@@ -81,7 +81,10 @@ Button/Input), not a token move — undecided, deferred.
 
 **Cleanup log (2026-06):** homepage stripped to the hero screen only; removed unused ui/
 orphans (`card`, `checkbox`, `select`, `switch`, `separator`, `toggle`, `toggle-group`,
-`tooltip`, `image-compare`) + the lower landing sections.
+`tooltip`, `image-compare`) + the lower landing sections. Hero rebuilt as the journal-card
+composition aligned to the generated redraw (`agent-review/hero-redraw.png`);
+`components/landing/scene-card/` (`SceneFrameCard`, `CornerLabel`) removed — the centre
+seam + corner tags now live inside `HeroSceneCard`.
 
 **Rule:** reach for the `animal-island-ui` shim only for a lossless primitive (Button / Input);
 otherwise compose locally on an unstyled primitive + tokens and annotate here.
