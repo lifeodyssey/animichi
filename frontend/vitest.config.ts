@@ -39,12 +39,12 @@ export default defineConfig({
       include: ["components/**", "hooks/**", "lib/**", "contexts/**"],
       exclude: ["**/node_modules/**", "lib/mock-data/**", "components/ui/**", "**/*.stories.tsx"],
       // Floors based on current coverage — only ratchet UP, never lower.
-      // Ratcheted up after the Animal Island redesign (Waves 0–3) added well-tested components.
+      // Ratcheted up after the hero re-implementation (journal-card hero) landed tested components.
       thresholds: {
-        lines: 73,
-        statements: 69,
-        functions: 65,
-        branches: 60,
+        lines: 77,
+        statements: 74,
+        functions: 70,
+        branches: 64,
       },
     },
   },

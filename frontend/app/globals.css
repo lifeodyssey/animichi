@@ -35,12 +35,12 @@
   --color-leaf: #7fae6b;   /* muted leaf green — example-chip dot, step marker, sprigs */
 
   /* ── Palette — 動森キャンプ · warm parchment × ゆるキャン橙 × 動森 teal ── */
-  --color-bg:      #ffffff;
+  --color-bg:      #f7f1e6;
   --color-fg:      #725d42;
-  --color-card:    rgb(247, 243, 223);
+  --color-card:    rgb(241, 232, 215);
   --color-surface: #faf8f3;
   --color-card-fg: #725d42;
-  --color-muted:   #f0e8d8;
+  --color-muted:   #e8ddc8;
   --color-muted-fg: #9f927d;
   --color-fg-heading: #794f27;
   --color-border:  #c4b89e;
@@ -177,8 +177,6 @@
   --border: var(--color-border);
   --input: var(--color-border);
   --ring: var(--color-focus);
-  --color-cta: var(--color-cta);
-  --color-cta-fg: var(--color-cta-fg);
   --chart-1: var(--color-primary);
   --chart-2: var(--color-secondary);
   --chart-3: #8ac68a;
@@ -204,6 +202,8 @@
   --font-heading: var(--app-font-display);
 
   /* Custom app tokens — enables bg-brand, text-primary-fg, etc. */
+  --color-fg: var(--color-fg);
+  --color-cta: var(--color-cta);
   --color-brand: var(--color-brand);
   --color-brand-soft: var(--color-brand-soft);
   --color-primary-fg: var(--color-primary-fg);

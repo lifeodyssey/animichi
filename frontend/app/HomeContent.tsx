@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../lib/supabase/browser";
 import { safeRedirect } from "../lib/safe-redirect";
-import LandingPage from "../components/auth/LandingPage";
+import LandingPage from "../components/landing/LandingPage";
 import LoginModal from "../components/auth/LoginModal";
 
 export default function HomeContent() {

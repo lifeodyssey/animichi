@@ -17,8 +17,9 @@ export interface SearchBarProps {
 }
 
 /**
- * SearchBar — the hero's combined search field: a leading search glyph, a flush
- * text field, and the pumpkin ExploreButton, all inside one shared pill.
+ * SearchBar — the hero's combined search field (redraw element 7): a leading
+ * search glyph, a flush text field, and the pumpkin ExploreButton, all inside
+ * one chunky shared pill sized to the redraw (~72px tall).
  *
  * It intentionally hosts a bare <input> rather than the animal-island-ui Input:
  * the library Input renders its own bordered/pill wrapper, which would double up
@@ -38,11 +39,11 @@ export function SearchBar({
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 rounded-[50px] border border-border bg-background p-1.5 shadow-3d-sm",
+        "flex items-center gap-1.5 rounded-[50px] border border-border bg-background p-2 shadow-3d-sm",
         className,
       )}
     >
-      <Search size={17} className="ml-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <Search size={19} className="ml-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <input
         ref={inputRef}
         type="text"
@@ -52,17 +53,9 @@ export function SearchBar({
         placeholder={placeholder}
         aria-label={placeholder}
         aria-keyshortcuts="/"
-        className="min-w-0 flex-1 bg-transparent px-2 py-2.5 text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+        className="min-w-0 flex-1 bg-transparent px-2 py-3 text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none"
       />
-      {!value && (
-        <kbd
-          aria-hidden="true"
-          className="mr-1 inline-flex h-6 select-none items-center rounded-[7px] border border-border bg-muted px-1.5 font-mono text-[12px] font-semibold leading-none text-muted-foreground max-sm:hidden"
-        >
-          /
-        </kbd>
-      )}
-      <ExploreButton onClick={onSubmit} className="shrink-0">
+      <ExploreButton size="xl" onClick={onSubmit} className="shrink-0">
         {ctaLabel}
       </ExploreButton>
     </div>
