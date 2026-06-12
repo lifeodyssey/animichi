@@ -23,7 +23,7 @@ export default function Hero({ onOpenAuth }: HeroProps) {
     <section className="relative flex-1 overflow-hidden bg-background">
       <RouteTrail />
 
-      <div className="relative z-10 mx-auto grid w-full max-w-[1416px] gap-10 px-6 pb-10 pt-11 sm:px-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:items-start lg:gap-14">
+      <div className="relative z-10 mx-auto grid w-full max-w-[1416px] grid-cols-1 gap-10 px-6 pb-10 pt-11 sm:px-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:items-start lg:gap-14">
         <HeroCopy onSearch={onOpenAuth} />
 
         <ShowcaseCard

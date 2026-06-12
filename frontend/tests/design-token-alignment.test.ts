@@ -49,6 +49,24 @@ describe("A2: Token-alignment contract — package is source of truth", () => {
       expect(appValue).toBe(pkgValue);
     });
 
+    it("--color-bg equals --animal-bg-color (ground #f8f8f0)", () => {
+      const appValue = extractTokenValue(globalsContent, "--color-bg");
+      const pkgValue = extractTokenValue(packageContent, "--animal-bg-color");
+
+      expect(appValue).toBeTruthy();
+      expect(pkgValue).toBeTruthy();
+      expect(appValue).toBe(pkgValue);
+    });
+
+    it("--color-card equals --animal-bg-color-content (surface #f7f3df)", () => {
+      const appValue = extractTokenValue(globalsContent, "--color-card");
+      const pkgValue = extractTokenValue(packageContent, "--animal-bg-color-content");
+
+      expect(appValue).toBeTruthy();
+      expect(pkgValue).toBeTruthy();
+      expect(appValue).toBe(pkgValue);
+    });
+
     it("CTA button class in globals.css directly references var(--animal-warning-color)", () => {
       // --color-cta is an app-managed token; the animal-btn-cta rule consumes the
       // package token directly so the rendered CTA color is always from the package.
