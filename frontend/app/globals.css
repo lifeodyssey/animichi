@@ -22,6 +22,9 @@
   /* ── Brand — 鸟居朱色 (logo and branding only) ── */
   --color-brand:      oklch(58% 0.19 28);
   --color-brand-soft: oklch(94% 0.02 25);
+  /* Vermillion for TEXT (eyebrow) — darkened a notch for AA ≥4.5 on the
+     ground; the logo keeps --color-brand. */
+  --color-brand-text: oklch(55% 0.185 28);
 
   /* ── Radius — Animal Island scale (rounded, friendly) ── */
   --r-sm:   12px;
@@ -35,12 +38,16 @@
   --color-leaf: #7fae6b;   /* muted leaf green — example-chip dot, step marker, sprigs */
 
   /* ── Palette — 動森キャンプ · warm parchment × ゆるキャン橙 × 動森 teal ── */
-  --color-bg:      #f7f1e6;
+  /* Three-layer ground (DESIGN.md / upstream v0.9.5): ground #f8f8f0 →
+     content surfaces #f7f3df → photography. Values are literal copies of
+     --animal-bg-color / --animal-bg-color-content (CI-locked by
+     tests/design-token-alignment.test.ts). */
+  --color-bg:      #f8f8f0;
   --color-fg:      #725d42;
-  --color-card:    rgb(241, 232, 215);
+  --color-card:    #f7f3df;
   --color-surface: #faf8f3;
   --color-card-fg: #725d42;
-  --color-muted:   #e8ddc8;
+  --color-muted:   #f0e8d8;
   --color-muted-fg: #9f927d;
   --color-fg-heading: #794f27;
   --color-border:  #c4b89e;
@@ -157,6 +164,14 @@
   --color-nook-yellow:     #f7cd67;
   --color-nook-teal:       #82d5bb;
   --color-nook-red:        #fc736d;
+  --color-nook-pink:       #f8a6b2;
+  /* AA text + game-press shadow pairs for NookPhone tiles (DESIGN.md accent tier) */
+  --color-nook-teal-fg:       #2f4f42;
+  --color-nook-yellow-fg:     #794f27;
+  --color-nook-pink-fg:       #6b323d;
+  --color-nook-teal-shadow:   #4fae8f;
+  --color-nook-yellow-shadow: #dbb04a;
+  --color-nook-pink-shadow:   #e2879a;
 
   /* ── shadcn aliases — map to 動森キャンプ palette ── */
   --background: var(--color-bg);
@@ -257,6 +272,11 @@
   --color-nook-yellow: var(--color-nook-yellow);
   --color-nook-teal: var(--color-nook-teal);
   --color-nook-red: var(--color-nook-red);
+  --color-nook-pink: var(--color-nook-pink);
+  --color-nook-teal-fg: var(--color-nook-teal-fg);
+  --color-nook-yellow-fg: var(--color-nook-yellow-fg);
+  --color-nook-pink-fg: var(--color-nook-pink-fg);
+  --color-brand-text: var(--color-brand-text);
 
   /* shadcn tokens */
   --color-sidebar-ring: var(--sidebar-ring);
@@ -451,9 +471,13 @@ html, body {
 
 body { min-height: 100%; }
 
-h1, h2, h3 {
-  font-family: var(--app-font-display);
-  font-weight: 700;
+/* Headings ride the rounded family at heavier weights (DESIGN.md: the
+   display serif is retired). Layered so utility classes can override. */
+@layer base {
+  h1, h2, h3 {
+    font-family: var(--app-font-body);
+    font-weight: 700;
+  }
 }
 
 ::selection {
