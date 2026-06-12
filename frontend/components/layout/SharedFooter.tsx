@@ -39,7 +39,7 @@ export default function SharedFooter() {
             const idx = LOCALES.indexOf(locale as (typeof LOCALES)[number]);
             setLocale(LOCALES[(idx + 1) % LOCALES.length]);
           }}
-          className={cn("flex items-center gap-1.5", LINK_CLASS)}
+          className={cn("flex min-w-11 items-center justify-center gap-1.5", LINK_CLASS)}
           aria-label="Change language (日本語 / 中文 / English)"
           title="Change language"
         >
