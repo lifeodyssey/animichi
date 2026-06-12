@@ -3,21 +3,19 @@ import { fn } from "storybook/test";
 import HeroCopy from "./HeroCopy";
 
 const meta = {
-  title: "Landing/HeroCopy",
+  title: "Landing/Hero/Copy",
   component: HeroCopy,
   parameters: {
     layout: "fullscreen",
-    // Target design attached via @storybook/addon-designs — shows in the "Design" tab.
-    design: {
-      type: "image",
-      url: "/design-targets/landing-hero-intro.png",
-    },
+    // Design tab: the left intro column, from the live build.
+    design: { type: "image", url: "/design-targets/landing-hero-intro.png" },
   },
 } satisfies Meta<typeof HeroCopy>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** Eyebrow → Nunito-800 headline → lead → search pill → pastel example chips. */
 export const Default: Story = {
   args: { onSearch: fn() },
   render: (args) => (
