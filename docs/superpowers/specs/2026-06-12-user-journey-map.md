@@ -147,7 +147,32 @@
 2. **第二用户判据**:≥1 个朋友独立走完一条路线并主动发出分享物
 3. **回流判据**:从分享物链接进来的新会话 > 0(环的第一圈)
 
-## 6. 未决事项
+## 6. 走查产出补遗(2026-06-12 屏幕级走查 + user flows 定案)
+
+走查资产:`user-flows.html`(产品内页面流程图 ×5 + IA 总览)、
+`journey-walkthrough.html`(手机 12 步)、`journey-walkthrough-desktop.html`
+(桌面 9 帧)、`route-page.html`(路线详情页)——designs 目录。
+
+- **Route 是核心对象**:产品的家不是会话列表,是「マイルート」。Route 五视图:
+  右栏卡片(桌面工作台)/ 地图轨迹+路线 pill(索引)/ `/routes/:id` 详情页(家,
+  QR 落地点,随旅程变形:预习版→现场入口→纪念版)/ `/walk`(现场态)/
+  `/share`(对外只读版)
+- **页面清单**(user-flows.html 附表):4 个新页面缺 spec——作品公开页
+  `/anime/:id`、公开路线页 `/share/:routeId`、我的路线 `/routes`、歩くモード
+  `/routes/:id/walk`;路线详情页已有 mockup
+- **chat 新入口 A2b**(引用路线进入)已写入 states spec
+- **登录卖点 = 跨设备带路线**:桌面排 → QR/同账号 → 手机走;P5 墙立在「保存」
+- **三层消化 + Route 地图升格**(右栏橱窗 ≤6 卡;路线 pill 常驻一切地图)已写入
+  states spec §H
+- **多图分层露出**:站(50m)→ 机位(10m)→ カット;详情页 filmstrip 折叠
+  (代表帧×3 + "+N")→ 全屏机位浏览器 → 歩くモード当前站展开为待复刻构图清单
+  (拍到一张勾一张,喂しおり完成率)
+- **离线与认证策略**:route bundle 预载(JSON+帧图+静态地图);**看缓存路线
+  不需要在线鉴权,写/同步才要**;现场 token 过期不锁内容,打卡本地排队回网同步
+- **PWA(scope 收窄)**:只做"歩くモード的离线壳"(manifest+SW 缓存 route
+  bundle+A2HS),不做全 app 离线——J14 的兑现载体
+
+## 7. 未决事项
 
 - J16 同行协作的形态与时机(共同编辑路线/同步打卡;当前假设只读分享 URL)
 - J17 历史路线形态(thread-per-anime vs search history,todo 在案)
