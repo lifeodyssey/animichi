@@ -89,11 +89,47 @@ TanStack Start 迁移(后端落地后议)· all-in CF/D1(可选终态)· Code Sa
 cluster_by_location 算法(union-find,port 到 worker)· KNOWN_LOCATIONS(圏命名)·
 sql_agent 概念(守卫式灵活查询)· city backfill(归入 Enrich 段)
 
-## 6. 未决事项
+## 6. 未决事项(2026-06-13 五路调研后更新)
 
-1. agent 框架终决:AI SDK+Zod 自建守卫(默认)vs Mastra —— 由 spike 裁决
-2. system-design §4 开放问题 Q1-Q5(同步快路径阈值、重算频率、别名种子、
-   会话存储归属、raw 保留期)—— 实现计划期定
-3. eval 跑分器:Vitest 自建(默认,无供应商)vs Braintrust(promptfoo 已被
-   OpenAI 收购,不选)
-4. 监控/可观测:重写时定(logfire 的 TS 等价物)
+1. ~~agent 框架~~ **已由证据裁决:AI SDK v5**(Mastra 经 CloudflareDeployer 的 SSE
+   被缓冲 TTFB~10s,issue #13584 open——打在 R2 流式心脏上,出局);spike 降级为
+   7 项风险验证(见 §7)
+2. system-design §4 开放问题 Q1-Q5 —— 实现计划期定
+3. ~~eval 跑分器~~ **已定:Evalite**(v0.19,Vitest 原生;API 稳定性存疑则换
+   `@getsentry/vitest-evals`;promptfoo 被 OpenAI 收购不选;Langfuse 在 Workers
+   上 OTel 不通,同平台联动证伪)
+4. ~~可观测~~ **已定:`@pydantic/logfire-cf-workers`** —— 与 Python Logfire 同
+   dashboard,观测栈零迁移连续;AI SDK `experimental_telemetry` 的 OTel spans 自动捕获
+5. Protomaps OSM 日文标注质量 —— spike 顺带实测
+6. Serwist 与 OpenNext 的 sw.js 路径兼容 —— PWA 卡实测
+
+## 7. 框架选型总表(五路并行调研定案,2026-06-13)
+
+> 标尺:实现难度最低。证据与坑详见调研记录(designs 目录会话产物)。
+
+| system-design 框 | 选型 | 关键坑/备注 |
+|---|---|---|
+| HTTP 框架 | **Hono** | Workers 事实标准;SSE 用原生 ReadableStream 绕开一切中间件缓冲 |
+| 端到端类型 | **oRPC** | 原生 OpenAPI 输出 → 未来 RN 白拿(R10);Hono RPC 大型化有类型推断拖垮 CI 的实锤 |
+| DB 访问 | **Drizzle(只查询)+ Hyperdrive + supabase migrations 保留** | Hyperdrive 连 5432 直连,勿叠 Supavisor 6543;PostGIS 走 `sql` tagged template;官方认证共存模式 |
+| 认证 | **jose JWKS 本地验签(Workers)+ @supabase/ssr 原样(Next)** | 勿用 getUser()(每请求打 GoTrue);JWKS 缓存 10 分钟 |
+| Agent | **AI SDK v5 + Zod + execute 内守卫** | v5 校验失败默认即 tool-error part 回喂(ModelRetry 软路径开箱有);repairToolCall 有 bug #8240 勿依赖;DeepSeek 用 `@ai-sdk/deepseek`(仅 deepseek-chat 支持工具) |
+| 流式 | **createUIMessageStream + useChat DefaultChatTransport** | v5 不再传 api URL,要配 transport;有 Ably 生产案例 |
+| 数据管线 | **Workflows(多步摄入)+ Queues(扇出)+ Cron** | step.do 断点续跑;本地 Local Explorer(2026-04 起);singleflight = ingest_jobs 唯一约束自查 |
+| OG 图 | **satori + resvg-wasm** | 四坑:WASM 静态 import / 远程图转 base64 / 仅 PNG / 带 UA 头;Noto Sans JP 放 R2;需付费 Workers |
+| 地图 | **MapLibre + Protomaps PMTiles on R2** | 无 token 无按请求费;静态首屏 mbgl-renderer 渲 PNG 存 R2;**离线地图改每站静态 PNG**(iOS 50MB 上限,矢量切片塞不下) |
+| PWA | **Serwist** | 需 `next build --webpack`(Turbopack 不兼容);打卡队列 = idb + online/visibilitychange 前台 flush(iOS 无 Background Sync);**7 天未开全清 → 出发前夜屏负责重载 bundle** |
+| 测试 | **vitest-pool-workers** | Workflows 内省 v0.9+;AI SDK 的 node 兼容进 spike 验证 |
+| Eval | **Evalite + GH Actions threshold gate** | 617 JSON 直读;baseline 写成 `threshold: { average: 0.54 }` 断言 |
+| 观测 | **@pydantic/logfire-cf-workers + experimental_telemetry** | 与 Python Logfire 同 dashboard(迁移期双栈对照);nodejs_compat 必开 |
+| Monorepo | **pnpm workspaces 单用** | ≥5 包或 CI>30s 再上 turbo;`workspace:*`×wrangler 打包待实测 |
+
+### Spike 风险验证清单(7 项,全过即转正)
+
+1. repairToolCall 在 DeepSeek+Workers 是否触发(bug #8240)
+2. Workers SSE → useChat 工具步骤逐帧可见(R2 命门)
+3. 自定义 transport 带 Bearer token 过 jose 验签
+4. 10 轮对话 + prepareStep 压缩后工具链上下文不丢
+5. deepseek-chat 七工具多步顺序稳定(防无限循环)
+6. AI SDK 在 vitest-pool-workers 里跑得动(node 兼容 flag)
+7. logfire-cf-workers 捕获 experimental_telemetry spans(观测白拿验真)
