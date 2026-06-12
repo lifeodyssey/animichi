@@ -11,7 +11,7 @@ const meta = {
   argTypes: {
     size: {
       control: "select",
-      options: ["sm", "md", "lg"],
+      options: ["sm", "md", "lg", "xl"],
     },
   },
   args: { onClick: fn() },
@@ -36,6 +36,12 @@ export const Large: Story = {
   args: { size: "lg", children: "ルートを保存" },
 };
 
+/** xl — the chunky hero search CTA ("Start Exploring", 19px bold for AA at 3:1). */
+export const ExtraLarge: Story = {
+  name: "Extra large (hero CTA)",
+  args: { size: "xl", children: "Start Exploring" },
+};
+
 export const AllSizes: Story = {
   name: "All Sizes",
   render: (args) => (
@@ -48,6 +54,9 @@ export const AllSizes: Story = {
       </ExploreButton>
       <ExploreButton {...args} size="lg">
         lg
+      </ExploreButton>
+      <ExploreButton {...args} size="xl">
+        xl
       </ExploreButton>
     </div>
   ),
