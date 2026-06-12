@@ -1,3 +1,5 @@
+> **⚠️ STALE (2026-06-12):** distilled from pre-v0.9.5 upstream. Superseded by `frontend/DESIGN.md` (transcribed from upstream v0.9.5) and the live upstream docs at https://github.com/guokaigdg/animal-island-ui (`skill/SKILL.md` · `DESIGN_PROMPT.md` · `PROMPT.md`). Local mirror: `~/Documents/animal-island-ui-upstream-original`. On conflict, upstream source wins.
+
 # Color System + 3D Depth
 
 Reference distilled from [animal-island-ui](https://github.com/guokaigdg/animal-island-ui) (MIT). Values are exact pixel/hex from source. Adaptation notes compare against our `globals.css`.
