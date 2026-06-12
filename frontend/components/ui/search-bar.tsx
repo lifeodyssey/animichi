@@ -39,7 +39,7 @@ export function SearchBar({
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 rounded-[50px] border border-border bg-background p-2 shadow-3d-sm",
+        "flex items-center gap-1.5 rounded-[50px] border border-border bg-card p-2 shadow-3d-sm",
         className,
       )}
     >
@@ -53,7 +53,7 @@ export function SearchBar({
         placeholder={placeholder}
         aria-label={placeholder}
         aria-keyshortcuts="/"
-        className="min-w-0 flex-1 bg-transparent px-2 py-3 text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+        className="min-w-0 flex-1 bg-transparent px-2 py-3 text-[16px] text-foreground placeholder:font-normal placeholder:text-fg focus:outline-none"
       />
       <ExploreButton size="xl" onClick={onSubmit} className="shrink-0">
         {ctaLabel}
