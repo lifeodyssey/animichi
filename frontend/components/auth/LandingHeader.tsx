@@ -37,7 +37,7 @@ export default function LandingHeader({ onLogin }: LandingHeaderProps) {
         <button
           type="button"
           onClick={onLogin}
-          className="flex items-center gap-1.5 rounded-[50px] bg-focus px-6 py-3 text-[15px] font-extrabold text-fg-heading shadow-[0_4px_0_0_var(--color-focus-dark)] transition-transform duration-150 hover:-translate-y-px active:translate-y-[2px] active:shadow-[0_1px_0_0_var(--color-focus-dark)]"
+          className="flex items-center gap-1.5 rounded-[50px] border border-border bg-card px-6 py-3 text-[15px] font-bold text-fg shadow-3d-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-px"
         >
           <User size={16} aria-hidden="true" />
           {t.login}

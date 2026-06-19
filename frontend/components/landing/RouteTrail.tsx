@@ -36,7 +36,7 @@ const GROUND_PATH = "M -20 592 C 240 582, 480 602, 740 592 S 1140 578, 1460 592"
 export default function RouteTrail() {
   return (
     <svg
-      className="pointer-events-none absolute inset-0 hidden h-full w-full lg:block"
+      className="pointer-events-none absolute inset-0 h-full w-full"
       viewBox="0 0 1440 600"
       preserveAspectRatio="none"
       fill="none"
