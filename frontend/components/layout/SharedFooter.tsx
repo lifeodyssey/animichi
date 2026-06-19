@@ -5,8 +5,7 @@ import { LOCALE_LABELS, LOCALES } from "../../lib/i18n";
 import Image from "next/image";
 import { cn } from "../../lib/utils";
 
-const LINK_CLASS =
-  "inline-flex min-h-[44px] items-center text-[15px] text-fg transition-colors hover:text-fg-heading";
+const LINK_CLASS = "text-[15px] text-fg/75 transition-colors hover:text-foreground";
 
 export default function SharedFooter() {
   const locale = useLocale();
@@ -15,7 +14,7 @@ export default function SharedFooter() {
   return (
     <footer className="border-t border-border bg-background px-5 py-5 sm:px-8">
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-2">
-        <div className="flex items-center gap-2 text-[15px] text-fg">
+        <div className="flex items-center gap-2 text-[15px] text-fg/75">
           <Image src="/images/logo/logo.png" alt="" width={24} height={24} />
           <span className="font-display font-bold text-fg">聖地巡礼</span>
           <span className="opacity-40">·</span>
@@ -39,7 +38,7 @@ export default function SharedFooter() {
             const idx = LOCALES.indexOf(locale as (typeof LOCALES)[number]);
             setLocale(LOCALES[(idx + 1) % LOCALES.length]);
           }}
-          className={cn("flex min-w-11 items-center justify-center gap-1.5", LINK_CLASS)}
+          className={cn("flex items-center gap-1.5", LINK_CLASS)}
           aria-label="Change language (日本語 / 中文 / English)"
           title="Change language"
         >

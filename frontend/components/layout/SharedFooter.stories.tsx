@@ -6,8 +6,6 @@ const meta = {
   component: SharedFooter,
   parameters: {
     layout: "fullscreen",
-    // Design tab: the footer bar cropped from the live homepage build.
-    design: { type: "image", url: "/design-targets/landing-hero-footer.png" },
     docs: {
       description: {
         component:
