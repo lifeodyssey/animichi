@@ -12,7 +12,7 @@ const exploreButtonVariants = cva(
         sm: "px-5 py-2 text-[13px]",
         md: "px-6 py-2.5 text-[14px]",
         lg: "px-6 py-3 text-[15px]",
-        xl: "px-7 py-3 text-[19px]",
+        xl: "px-7 py-3.5 text-[16px]",
       },
     },
     defaultVariants: { size: "md" },

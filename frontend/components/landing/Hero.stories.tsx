@@ -7,19 +7,22 @@ const meta = {
   component: Hero,
   parameters: {
     layout: "fullscreen",
-    // Design tab: the hero band (header/footer cropped away), from the live build.
-    design: { type: "image", url: "/design-targets/landing-hero-section.png" },
+    // Target design attached via @storybook/addon-designs — shows in the "Design" tab.
+    // Hero band of the approved redraw (header/footer cropped away).
+    design: {
+      type: "image",
+      url: "/design-targets/landing-hero-section.png",
+    },
   },
 } satisfies Meta<typeof Hero>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The assembled hero band: copy column + showcase card over the route trail. */
 export const Default: Story = {
   args: { onOpenAuth: fn() },
   render: (args) => (
-    <div className="flex min-h-[760px] flex-col bg-background">
+    <div className="flex min-h-[720px] flex-col">
       <Hero {...args} />
     </div>
   ),
