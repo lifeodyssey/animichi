@@ -43,11 +43,13 @@ export interface CatalogContext {
 /** Base builder carrying the Catalog context so handlers can read `context.db`. */
 const base = os.$context<CatalogContext>();
 
-/** search(query, origin?) -> { rows, synced_at } */
+/** search(query, origin?) -> { rows, synced_at }; an alias miss resolves+ingests on demand. */
 const search = base
   .route({ method: "POST", path: "/search" })
   .input(type<{ query: string; origin?: Origin }>())
-  .handler(async ({ input, context }) => searchHandler(searchDb(context.db), input));
+  .handler(async ({ input, context }) =>
+    searchHandler(searchDb(context.db), input, context.fetchImpl),
+  );
 
 /** spots(bangumi_id, origin?) -> { point, distance_m? }; missing work -> 404. */
 const spots = base

@@ -6,9 +6,13 @@
  * to a `work_id` (a Bangumi subject id), then returns that work's `points`
  * joined to its `bangumi` metadata for the anime title.
  *
- * On an alias miss this returns `{ rows: [] }`: the Bangumi-API-miss live-ingest
- * fallback (resolve-on-demand) is a LATER wave — search here is read-only over
- * what the ingest pipeline already published.
+ * On an alias MISS (an uncovered work) this resolves the title on demand: it
+ * asks the Bangumi search API for the best-match subject id, then ingests that
+ * work end-to-end and returns its freshly-published points. The agent stays
+ * upstream-free — only the catalog ever touches Anitabi/Bangumi. A title that
+ * Bangumi can't resolve (or whose ingest is in-progress/empty/failed) yields
+ * `{ rows: [] }`. The L1 fast-preview tier and SSE ingest-progress streaming are
+ * FOLLOW-UPS; this is the synchronous miss -> resolve -> ingest -> return path.
  *
  * Output mirrors the oRPC contract `SearchResult` / `PilgrimagePoint`. The wire
  * shapes (`Origin` / `PilgrimagePoint`) come from `../types` — the single
@@ -21,6 +25,8 @@ import { desc, eq } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import { aliases, bangumi, points } from "../db/schema";
 import { normalizeAlias } from "../lib/alias";
+import { ingestWork } from "../ingest/orchestrator";
+import { fetchBangumiSearch, type FetchLike } from "../ingest/sources";
 import type { Origin, PilgrimagePoint } from "../types";
 
 export type { Origin, PilgrimagePoint };
@@ -44,18 +50,27 @@ export interface WorkPointRow {
 /**
  * The minimal DB surface `search` depends on. `CatalogDb` (the production
  * Drizzle client) satisfies it via `searchDb(db)`; tests inject a fake.
+ *
+ * `resolveAndIngest` is the on-demand miss path: resolve the title via the
+ * Bangumi search API, then ingest the work end-to-end. It returns the ingested
+ * work's id on `status:"ingested"`, else null (no-result / in-progress / empty /
+ * failed) so the handler can short-circuit to empty rows.
  */
 export interface SearchDb {
   workIdForAlias(aliasNormalized: string): Promise<string | undefined>;
   pointsForWork(workId: string): Promise<WorkPointRow[]>;
+  resolveAndIngest(query: string, fetchImpl?: FetchLike): Promise<string | null>;
 }
 
 /** Resolve a free-text query to a work's pilgrimage points. */
 export async function search(
   db: SearchDb,
   input: { query: string; origin?: Origin },
+  fetchImpl?: FetchLike,
 ): Promise<{ rows: PilgrimagePoint[]; synced_at: string }> {
-  const workId = await db.workIdForAlias(normalizeAlias(input.query));
+  const workId =
+    (await db.workIdForAlias(normalizeAlias(input.query))) ??
+    (await db.resolveAndIngest(input.query, fetchImpl));
   if (!workId) {
     return { rows: [], synced_at: new Date().toISOString() };
   }
@@ -104,7 +119,20 @@ export function searchDb(db: CatalogDb): SearchDb {
   return {
     workIdForAlias: (normalized) => firstWorkId(db, normalized),
     pointsForWork: (workId) => selectPoints(db, workId),
+    resolveAndIngest: (query, fetchImpl) => resolveAndIngest(db, query, fetchImpl),
   };
+}
+
+/** Bangumi-resolve the uncovered title, then ingest it; the work id, else null. */
+async function resolveAndIngest(
+  db: CatalogDb,
+  query: string,
+  fetchImpl?: FetchLike,
+): Promise<string | null> {
+  const bangumiId = await fetchBangumiSearch(query, { fetchImpl });
+  if (!bangumiId) return null;
+  const result = await ingestWork(db, bangumiId, { fetchImpl });
+  return result.status === "ingested" ? bangumiId : null;
 }
 
 /** Exact-match the normalized alias -> the highest-priority work id. */
