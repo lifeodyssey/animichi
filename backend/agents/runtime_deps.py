@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 from backend.agents.agent_result import StepRecord
 from backend.agents.retriever import Retriever
+from backend.clients.catalog_client import CatalogClientProtocol
 from backend.domain.ports import DatabasePort
 from backend.infrastructure.gateways.bangumi import BangumiClientGateway
 
@@ -21,6 +22,9 @@ class RuntimeDeps:
     locale: str
     query: str
 
+    # Catalog read path. When set, the data tools route through this client
+    # instead of the DB Retriever / upstream APIs (hybrid architecture seam).
+    catalog: CatalogClientProtocol | None = None
     gateway: BangumiClientGateway = field(default_factory=BangumiClientGateway)
     retriever: Retriever | None = None
     on_step: OnStep | None = None

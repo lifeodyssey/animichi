@@ -20,11 +20,11 @@ Seeding policy (mirrors the eval's DataCompleteness baseline):
   - Unknown titles / coordinates / point ids return empty results (search/nearby)
     or raise ``APIError`` (spots), matching how the real client signals "no data".
 
-NOTE (W2-A1): production agent code does NOT yet route through CatalogClient — the
-PydanticAI tools still call handlers -> Retriever -> DB. Wiring the live agent run
-to this mock requires a production seam (inject the catalog client into the agent
-deps / handlers) and is the job of card W2-A1. Until then this mock is exercised
-directly by ``test_agent_eval_mock.py``.
+NOTE (W2-A1, landed): the production seam now exists. ``RuntimeDeps`` carries an
+optional ``catalog`` client and the four data tools route through it, so this mock
+can be injected directly into ``run_pilgrimage_agent`` (see
+``test_agent_eval_mock_runtime.py``). It satisfies
+``backend.clients.catalog_client.CatalogClientProtocol``.
 """
 
 from __future__ import annotations

@@ -19,6 +19,7 @@ Endpoint convention: ``{base_url}/catalog/<method>`` (POST, JSON body).
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Protocol, runtime_checkable
 
 import httpx
 from pydantic import BaseModel, Field
@@ -36,6 +37,7 @@ __all__ = [
     "TimedStop",
     "TransitLeg",
     "CatalogClient",
+    "CatalogClientProtocol",
 ]
 
 
@@ -67,6 +69,26 @@ class Route(BaseModel):
     anime_title: str = ""
     anime_title_cn: str = ""
     timed_itinerary: TimedItinerary = Field(default_factory=TimedItinerary)
+
+
+@runtime_checkable
+class CatalogClientProtocol(Protocol):
+    """Structural contract for the Catalog read path (search/spots/nearby/route).
+
+    Both the live :class:`CatalogClient` and the test ``MockCatalogClient``
+    satisfy this Protocol, so the agent depends on the abstraction — never on a
+    concrete client, the DB, or upstream Anitabi/Bangumi clients.
+    """
+
+    async def search(self, query: str) -> list[PilgrimagePoint]: ...
+
+    async def spots(self, bangumi_id: str) -> PilgrimagePoint: ...
+
+    async def nearby(
+        self, lat: float, lng: float, *, radius_m: int = 2000
+    ) -> list[PilgrimagePoint]: ...
+
+    async def route(self, point_ids: list[str]) -> Route: ...
 
 
 class CatalogClient:

@@ -9,14 +9,12 @@ and seeded so resolvable cases return data and unknown ones return empty.
 Scope (deliberately small — NOT the full 617-case suite): ~5 representative
 cases covering search (ja/zh/en), nearby, route, and an unknown-title miss.
 
-WIRING STATUS (W2-A1):
-    The live PydanticAI agent run (``run_pilgrimage_agent``) cannot yet be pointed
-    at this mock: its tools call handlers -> Retriever -> DatabasePort, and there
-    is no seam to inject a CatalogClient into ``RuntimeDeps`` or the handlers.
-    Adding that seam is production work owned by card W2-A1. Once it lands, the
-    cases below can be promoted to drive ``run_pilgrimage_agent`` with the mock
-    injected, using ``EVAL_MODEL`` (MiMo) for the LLM. Until then this validates
-    the mock contract + the catalog data layer the eval will depend on.
+WIRING STATUS (W2-A1, landed):
+    The data-tool -> CatalogClient seam now exists: ``run_pilgrimage_agent`` accepts
+    a ``catalog`` client and the four data tools route through it (see
+    ``backend.agents.pilgrimage_tools``). This module validates the mock contract +
+    the catalog data layer directly; the LIVE agent run driven against this mock
+    lives in ``test_agent_eval_mock_runtime.py``.
 """
 
 from __future__ import annotations
