@@ -18,7 +18,7 @@
 /** Minimal fetch surface we depend on; satisfied by the global `fetch`. */
 export type FetchLike = (
   input: string,
-  init?: { headers?: Record<string, string> },
+  init?: { method?: string; headers?: Record<string, string>; body?: string },
 ) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
 
 /** Injectable knobs for the source fetchers (defaulted for prod). */
@@ -61,10 +61,56 @@ export async function fetchBangumiSubject(
   return expectObject(body);
 }
 
+/**
+ * Resolve a free-text title to its best-match Bangumi subject id, or null.
+ *
+ * Mirrors the Python client (`backend/clients/bangumi.py:search_subject`):
+ * POST {base}/v0/search/subjects with `{keyword, filter:{type:[2]}}`, then takes
+ * the FIRST entry of the `data` list — Bangumi returns hits in relevance order,
+ * so the head is the best match (same pick the Python resolve path uses).
+ */
+export async function fetchBangumiSearch(
+  keywords: string,
+  cfg: SourceConfig = {},
+): Promise<string | null> {
+  const base = cfg.bangumiBaseUrl ?? BANGUMI_BASE;
+  const body = JSON.stringify({ keyword: keywords, filter: { type: [BANGUMI_TYPE_ANIME] } });
+  const json = await postJson(`${base}/v0/search/subjects`, body, cfg.fetchImpl);
+  return bestSubjectId(json);
+}
+
+/** Bangumi subject type for anime (v0 `filter.type`); matches the Python client. */
+const BANGUMI_TYPE_ANIME = 2;
+
+/** Read the id of the first `data[]` entry from a Bangumi search body, else null. */
+function bestSubjectId(body: unknown): string | null {
+  if (!isObject(body)) return null;
+  const list = body["data"];
+  if (!Array.isArray(list)) return null;
+  const first = list.find(isObject);
+  return first ? subjectId(first) : null;
+}
+
+/** Coerce a subject's `id` (number or numeric string) to a string id, else null. */
+function subjectId(subject: Record<string, unknown>): string | null {
+  const id = subject["id"];
+  if (typeof id === "number") return String(id);
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
 /** GET + JSON-decode with status guarding; throws on a non-2xx response. */
 async function fetchJson(url: string, fetchImpl?: FetchLike): Promise<unknown> {
   const doFetch = fetchImpl ?? (fetch as unknown as FetchLike);
   const res = await doFetch(url, { headers: { "User-Agent": USER_AGENT } });
+  if (!res.ok) throw new Error(`Upstream fetch failed (${res.status}): ${url}`);
+  return res.json();
+}
+
+/** POST a JSON body + JSON-decode with status guarding; throws on a non-2xx response. */
+async function postJson(url: string, body: string, fetchImpl?: FetchLike): Promise<unknown> {
+  const doFetch = fetchImpl ?? (fetch as unknown as FetchLike);
+  const headers = { "User-Agent": USER_AGENT, "Content-Type": "application/json" };
+  const res = await doFetch(url, { method: "POST", headers, body });
   if (!res.ok) throw new Error(`Upstream fetch failed (${res.status}): ${url}`);
   return res.json();
 }
