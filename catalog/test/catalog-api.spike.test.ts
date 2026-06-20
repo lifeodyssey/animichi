@@ -1,7 +1,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import pg from "pg";
 import { makeDb, type CatalogDb } from "../src/db/client";
@@ -49,10 +49,14 @@ const REMOTE_BLOCKS = [
   },
 ];
 const INGEST_BLOCKS = [
+  { from: "CREATE TABLE IF NOT EXISTS ingest_jobs (", to: ");" },
   { from: "CREATE TABLE IF NOT EXISTS cluster_version (", to: ");" },
+  { from: "CREATE UNIQUE INDEX IF NOT EXISTS uq_cluster_version_one_current", to: ";" },
   { from: "CREATE TABLE IF NOT EXISTS aliases (", to: ");" },
   { from: "CREATE TABLE IF NOT EXISTS series_edges (", to: ");" },
   { from: "CREATE TABLE IF NOT EXISTS leg_cache (", to: ");" },
+  { from: "CREATE TABLE IF NOT EXISTS raw_anitabi (", to: ");" },
+  { from: "CREATE TABLE IF NOT EXISTS raw_bangumi (", to: ");" },
 ];
 
 let db: CatalogDb;
@@ -167,6 +171,11 @@ beforeAll(async () => {
   await seed();
 }, 120_000);
 
+afterEach(() => {
+  // Undo any per-test `global.fetch` stub so non-ingest tests stay offline-safe.
+  vi.restoreAllMocks();
+});
+
 afterAll(async () => {
   // Close BOTH pools before killing the container so in-flight sockets don't
   // surface as an unhandled "Connection terminated" rejection: the test harness
@@ -257,5 +266,52 @@ describe("Catalog API end-to-end (Hono app + OpenAPIHandler + Drizzle/PostGIS)",
     expect(out.ordered_points.length).toBe(out.point_count);
     expect(out.timed_itinerary.stops.length).toBeGreaterThan(0);
     expect(out.timed_itinerary.total_minutes).toBeGreaterThan(0);
+  });
+});
+
+// A brand-new work id (not in seed()) so ingest exercises the full fetch ->
+// raw -> enrich -> publish pass against the real container DB.
+const NEW_WORK_ID = "10380"; // Bangumi subject id (K-On!)
+const NEW_TITLE = "けいおん！";
+
+/** Stub upstream JSON for the NEW work: a Bangumi subject + two Anitabi points. */
+function stubUpstream(): void {
+  const stub = vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes("/v0/subjects/")) return jsonResponse({ name: NEW_TITLE, name_cn: "轻音少女" });
+    if (url.includes("/points/detail")) return jsonResponse(ANITABI_POINTS);
+    throw new Error(`unexpected upstream url: ${url}`);
+  });
+  vi.stubGlobal("fetch", stub);
+}
+
+/** Build a minimal fetch `Response` carrying `body` as JSON. */
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+const ANITABI_POINTS = [
+  { id: "sakuragaoka-gate", name: "桜が丘高校 正門", lat: 34.6571, lng: 135.9486, ep: 1, s: 30 },
+  { id: "toyosato-hall", name: "豊郷小学校 講堂", lat: 35.205, lng: 136.2401, ep: 2, s: 90 },
+];
+
+describe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> search)", () => {
+  it("POST /ingest publishes the work, then /search returns the fresh points", async () => {
+    stubUpstream();
+
+    const ingested = await call<{ status: string; version?: number; point_count?: number }>(
+      "ingest",
+      { bangumi_id: NEW_WORK_ID },
+    );
+    expect(ingested.status).toBe("ingested");
+    expect(ingested.version).toBe(1);
+    expect(ingested.point_count).toBe(ANITABI_POINTS.length);
+
+    const found = await call<{ rows: ApiPoint[] }>("search", { query: NEW_TITLE });
+    expect(found.rows.map((r) => r.id).sort()).toEqual(["sakuragaoka-gate", "toyosato-hall"]);
+    expect(found.rows.every((r) => r.bangumi_id === NEW_WORK_ID)).toBe(true);
   });
 });

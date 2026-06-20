@@ -4,7 +4,8 @@ import { search as searchHandler, searchDb } from "./api/search";
 import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
 import { nearby as nearbyHandler } from "./api/nearby";
 import { route as routeHandler } from "./api/route";
-import type { Origin, Pacing } from "./types";
+import { ingestWork, type IngestResult as OrchestratorResult } from "./ingest/orchestrator";
+import type { IngestResult, Origin, Pacing } from "./types";
 
 /**
  * Catalog oRPC router — the 4 read methods wired to their real handlers.
@@ -28,9 +29,15 @@ import type { Origin, Pacing } from "./types";
  * shapes below MUST stay in lockstep with packages/contract/src.
  */
 
-/** Per-request oRPC context: the Drizzle client for this invocation. */
+/**
+ * Per-request oRPC context: the Drizzle client for this invocation, plus the
+ * `fetch` the `ingest` method uses to reach upstream Anitabi/Bangumi. `index.ts`
+ * injects the real global `fetch` in prod; tests inject a stub so ingest never
+ * hits the network. Defaults to global `fetch` when omitted.
+ */
 export interface CatalogContext {
   db: CatalogDb;
+  fetchImpl?: typeof fetch;
 }
 
 /** Base builder carrying the Catalog context so handlers can read `context.db`. */
@@ -60,6 +67,25 @@ const route = base
   .input(type<{ point_ids: string[]; origin?: Origin; pacing?: Pacing }>())
   .handler(async ({ input, context }) => routeHandler(context.db, input));
 
+/** ingest(bangumi_id) -> IngestResult; fetch-and-publish a not-yet-cataloged work. */
+const ingest = base
+  .route({ method: "POST", path: "/ingest" })
+  .input(type<{ bangumi_id: string }>())
+  .handler(async ({ input, context }) =>
+    toIngestResult(
+      await ingestWork(context.db, input.bangumi_id, { fetchImpl: context.fetchImpl }),
+    ),
+  );
+
+/** Map the orchestrator union (camelCase) onto the snake_case wire shape. */
+function toIngestResult(result: OrchestratorResult): IngestResult {
+  if (result.status === "ingested") {
+    return { status: "ingested", version: result.version, point_count: result.pointCount };
+  }
+  if (result.status === "in_progress") return { status: "in_progress" };
+  return { status: result.status, reason: result.reason };
+}
+
 /** Run `spots`, translating a no-points work into an oRPC 404 (else 500). */
 async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Origin }) {
   try {
@@ -70,6 +96,6 @@ async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Or
   }
 }
 
-export const catalogRouter = { search, spots, nearby, route };
+export const catalogRouter = { search, spots, nearby, route, ingest };
 
 export type CatalogRouter = typeof catalogRouter;

@@ -7,7 +7,7 @@
 
 import { oc } from "@orpc/contract";
 import { z } from "zod";
-import { Origin, PilgrimagePoint, Pacing, Route } from "./models.js";
+import { IngestResult, Origin, PilgrimagePoint, Pacing, Route } from "./models.js";
 
 /** search(query, origin?) -> { rows, synced_at } */
 export const SearchInput = z.object({
@@ -56,6 +56,12 @@ export const RouteInput = z.object({
 });
 export type RouteInput = z.infer<typeof RouteInput>;
 
+/** ingest(bangumi_id) -> IngestResult */
+export const IngestInput = z.object({
+  bangumi_id: z.string(),
+});
+export type IngestInput = z.infer<typeof IngestInput>;
+
 export const catalogContract = {
   search: oc
     .route({ method: "POST", path: "/catalog/search", summary: "Search pilgrimage points by anime title" })
@@ -73,6 +79,10 @@ export const catalogContract = {
     .route({ method: "POST", path: "/catalog/route", summary: "Plan an ordered, timed route over selected points" })
     .input(RouteInput)
     .output(Route),
+  ingest: oc
+    .route({ method: "POST", path: "/catalog/ingest", summary: "Ingest a not-yet-cataloged work on demand by bangumi id" })
+    .input(IngestInput)
+    .output(IngestResult),
 };
 
 export type CatalogContract = typeof catalogContract;
