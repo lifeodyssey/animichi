@@ -10,11 +10,24 @@ Browser
   ├─ static paths ───────────────────────────────▶ Cloudflare ASSETS
   ├─ /img/* ─────────────────────────────────────▶ Worker image proxy/cache
   ├─ /healthz ───────────────────────────────────▶ Worker → RuntimeContainer → FastAPI service
+  ├─ /catalog/* ─────────────────────────────────▶ Worker → CATALOG service binding → catalog Worker
+  │                                                          └─ Postgres/PostGIS via Hyperdrive (`HYPERDRIVE`)
   └─ /v1/* ── auth at Worker edge ───────────────▶ Worker → RuntimeContainer → FastAPI service
                                                             ├─ Supabase Postgres (`SUPABASE_DB_URL`)
                                                             ├─ Anitabi API (`ANITABI_API_URL`)
+                                                            ├─ catalog read path (`CATALOG_API_URL` → /catalog/*)
                                                             └─ Gemini provider (`GEMINI_API_KEY`)
 ```
+
+The hybrid topology runs two Workers. The main `seichijunrei` Worker
+(`worker/entry.js`) routes `/catalog/*` to the separate `catalog` Worker
+(`catalog/wrangler.toml`) via a wrangler service binding (`env.CATALOG.fetch`).
+The Python agent in the container cannot use that JS-only binding, so it reaches
+the catalog over the public origin: `CATALOG_API_URL` (forwarded into the
+container as a plain var) points at the deployed host, and `CatalogClient` POSTs
+to `{CATALOG_API_URL}/catalog/<method>`, which the main Worker forwards to the
+catalog Worker. Deploy order: catalog Worker first (so `service = "catalog"`
+resolves), then the main Worker.
 
 - `interfaces/fastapi_service.py` exposes `GET /healthz`
 - `interfaces/fastapi_service.py` exposes `POST /v1/runtime`

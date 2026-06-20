@@ -241,6 +241,29 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
+      # Deploy the catalog Worker FIRST: the main worker's [[services]] binding
+      # (service = "catalog") only resolves once the catalog service exists.
+      # The catalog Worker reaches Postgres via its [[hyperdrive]] binding in
+      # prod; until that is provisioned, set DATABASE_URL with
+      # `wrangler secret put DATABASE_URL` (add it to the `secrets:` block below).
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: catalog/package-lock.json
+
+      - run: npm ci
+        working-directory: catalog
+
+      - name: Deploy catalog Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.79.0"
+          workingDirectory: catalog
+          command: deploy
+
       - name: Deploy via Wrangler (edge + container)
         uses: cloudflare/wrangler-action@v4
         with:
