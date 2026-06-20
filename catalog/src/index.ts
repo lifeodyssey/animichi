@@ -69,7 +69,9 @@ app.use("/catalog/*", async (c, next) => {
   }
   const { matched, response } = await apiHandler.handle(c.req.raw, {
     prefix: "/catalog",
-    context: { db: await dbFor(connStr) },
+    // Inject the runtime's real `fetch` so the `ingest` method reaches upstream
+    // Anitabi/Bangumi in prod; tests stub the global `fetch` to stay offline.
+    context: { db: await dbFor(connStr), fetchImpl: fetch },
   });
   if (matched) {
     return c.newResponse(response.body, response);

@@ -96,6 +96,20 @@ export const TimedItinerary = z.object({
 export type TimedItinerary = z.infer<typeof TimedItinerary>;
 
 /**
+ * Outcome of an on-demand ingest call.
+ * Discriminated union over `status`, mirroring `IngestResult` in
+ * catalog/src/ingest/orchestrator.ts. `version` + `point_count` are present only
+ * for `ingested`; `reason` carries the cause for `empty` / `failed`.
+ */
+export const IngestResult = z.object({
+  status: z.enum(["ingested", "in_progress", "empty", "failed"]),
+  version: z.number().int().optional(),
+  point_count: z.number().int().optional(),
+  reason: z.string().optional(),
+});
+export type IngestResult = z.infer<typeof IngestResult>;
+
+/**
  * An ordered, timed pilgrimage route.
  * Mirrors RouteModel in runtime_models.py.
  */
