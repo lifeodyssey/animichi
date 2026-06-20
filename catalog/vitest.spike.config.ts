@@ -14,5 +14,8 @@ export default defineConfig({
     environment: "node",
     testTimeout: 60_000,
     hookTimeout: 120_000,
+    // Each spike manages its own Docker PostGIS container; run files serially so
+    // they don't spin containers concurrently and contend for resources/ports.
+    fileParallelism: false,
   },
 });
