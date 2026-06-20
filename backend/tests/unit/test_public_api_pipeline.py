@@ -106,6 +106,7 @@ class TestRuntimeAPIExecution:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ):
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
@@ -164,6 +165,7 @@ class TestRuntimeAPIExecution:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ):
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
@@ -204,6 +206,7 @@ class TestRuntimeAPIExecution:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ) -> AgentResult:
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
@@ -336,6 +339,7 @@ class TestTranslationGate:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ) -> AgentResult:
             return result
 
@@ -402,6 +406,7 @@ class TestTranslationGate:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ) -> AgentResult:
             return result
 

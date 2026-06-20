@@ -61,6 +61,7 @@ class TestGreetUserEphemeral:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ):
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
@@ -198,6 +199,7 @@ class TestUserMemoryUpsert:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ):
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
