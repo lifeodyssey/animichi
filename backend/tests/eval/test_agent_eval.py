@@ -42,6 +42,9 @@ load_dotenv(Path(__file__).parents[3] / ".env")
 
 _DEFAULT_MODEL_ID = "openai:deepseek-v4-pro@https://api.deepseek.com"
 _EVAL_MODEL_ID = os.environ.get("EVAL_MODEL", _DEFAULT_MODEL_ID)
+# Lower EVAL_CONCURRENCY when the agent makes in-request external API calls
+# (e.g. Anitabi write-through) that rate-limit/timeout under high concurrency.
+_EVAL_CONCURRENCY = int(os.environ.get("EVAL_CONCURRENCY", "10"))
 
 
 def _make_model(model_id: str | None = None) -> object:
@@ -340,7 +343,7 @@ async def test_agent(real_db: object) -> None:
     report = await agent_dataset.evaluate(
         task,
         name=f"agent_{_EVAL_MODEL_ID}",
-        max_concurrency=10,
+        max_concurrency=_EVAL_CONCURRENCY,
         retry_task={
             "stop": stop_after_attempt(2),
             "wait": wait_exponential(min=1, max=5),
@@ -417,7 +420,7 @@ if __name__ == "__main__":
         report = await agent_dataset.evaluate(
             task,
             name=f"agent_{mid}",
-            max_concurrency=10,
+            max_concurrency=_EVAL_CONCURRENCY,
             retry_task={
                 "stop": stop_after_attempt(2),
                 "wait": wait_exponential(min=1, max=5),
