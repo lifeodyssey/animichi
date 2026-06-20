@@ -23,6 +23,7 @@ from backend.agents.runtime_deps import OnStep
 from backend.agents.selected_route import execute_selected_route
 from backend.agents.translation import translate_text
 from backend.application.errors import ApplicationError, ErrorCode
+from backend.clients.catalog_client import CatalogClientProtocol
 from backend.domain.ports import DatabasePort
 from backend.infrastructure.observability import (
     get_runtime_tracer,
@@ -90,9 +91,11 @@ class RuntimeAPI:
         db: object,
         *,
         session_store: SessionStore | None = None,
+        catalog: CatalogClientProtocol | None = None,
     ) -> None:
         self._db = db
         self._session_store = session_store or create_session_store()
+        self._catalog = catalog
 
     async def handle(
         self,
@@ -253,6 +256,7 @@ class RuntimeAPI:
                         context=context,
                         message_history=message_history,
                         on_step=on_step,
+                        catalog=self._catalog,
                     ),
                     timeout=AGENT_TIMEOUT_SECONDS,
                 )

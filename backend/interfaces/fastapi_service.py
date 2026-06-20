@@ -9,6 +9,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.clients.catalog_client import CatalogClient
 from backend.config.settings import Settings, get_settings
 from backend.infrastructure.observability import (
     setup_observability,
@@ -39,6 +40,11 @@ from backend.interfaces.routes.search_preview import router as search_preview_ro
 
 # Re-export _call_optional_async for test backward compatibility.
 _call_optional_async = call_optional_async
+
+
+def build_catalog_client(settings: Settings) -> CatalogClient:
+    """Construct the shared Catalog read-path client from settings."""
+    return CatalogClient(base_url=settings.catalog_api_url)
 
 
 def create_fastapi_app(
@@ -81,8 +87,12 @@ def create_fastapi_app(
         # Migrations are managed by Supabase CLI (`supabase db push` in CI/CD).
         # Local dev: `supabase start` applies migrations automatically.
         # See: deploy.yml and https://supabase.com/docs/guides/deployment/database-migrations
+        catalog_client = build_catalog_client(resolved_settings)
+        app.state.catalog_client = catalog_client
         app.state.runtime_api = RuntimeAPI(
-            runtime_db, session_store=runtime_session_store
+            runtime_db,
+            session_store=runtime_session_store,
+            catalog=catalog_client,
         )
         app.state.db_client = runtime_db
         try:
