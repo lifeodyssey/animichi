@@ -6,11 +6,35 @@ Each model corresponds to a stage in the frontend journey.
 
 from __future__ import annotations
 
+import json
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 from backend.agents.models import TimedItinerary
+
+
+def _coerce_json_object(v: object) -> object:
+    """Coerce a stringified-JSON value back into an object.
+
+    Some reasoning models (e.g. MiMo) serialize a nested object field as a JSON
+    string instead of a nested object; parse it so Pydantic can validate it.
+    """
+    if not isinstance(v, str):
+        return v
+    try:
+        return json.loads(v)
+    except (ValueError, TypeError):
+        return v
+
+
+class _DataCoercionMixin(BaseModel):
+    """Coerce a stringified-JSON ``data`` field back into an object."""
+
+    @field_validator("data", mode="before", check_fields=False)
+    @classmethod
+    def _coerce_data(cls, v: object) -> object:
+        return _coerce_json_object(v)
 
 
 class ClarifyCandidateModel(BaseModel):
@@ -31,7 +55,7 @@ class ClarifyDataModel(BaseModel):
     candidates: list[ClarifyCandidateModel] = Field(default_factory=list)
 
 
-class ClarifyResponseModel(BaseModel):
+class ClarifyResponseModel(_DataCoercionMixin):
     """Full response for clarify stage."""
 
     intent: Literal["clarify"]
@@ -131,7 +155,7 @@ class SearchDataModel(BaseModel):
     results: ResultsMetaModel
 
 
-class SearchResponseModel(BaseModel):
+class SearchResponseModel(_DataCoercionMixin):
     """Full response for search stage."""
 
     intent: Literal["search_bangumi", "search_nearby"]
@@ -159,7 +183,7 @@ class RouteDataModel(BaseModel):
     route: RouteModel
 
 
-class RouteResponseModel(BaseModel):
+class RouteResponseModel(_DataCoercionMixin):
     """Full response for route stage."""
 
     intent: Literal["plan_route", "plan_selected"]
@@ -175,7 +199,7 @@ class QADataModel(BaseModel):
     message: str = ""
 
 
-class QAResponseModel(BaseModel):
+class QAResponseModel(_DataCoercionMixin):
     """Full response for QA stage."""
 
     intent: Literal["general_qa"]
@@ -184,7 +208,7 @@ class QAResponseModel(BaseModel):
     ui: dict[str, str] = Field(default_factory=dict)
 
 
-class GreetingResponseModel(BaseModel):
+class GreetingResponseModel(_DataCoercionMixin):
     """Full response for greeting stage."""
 
     intent: Literal["greet_user"]
