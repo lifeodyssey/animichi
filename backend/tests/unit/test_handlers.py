@@ -726,7 +726,7 @@ class TestRunHandlerEmitsErrorDetail:
     """When a handler fails, the SSE step event must include error detail."""
 
     async def test_emits_error_in_step_data_on_failure(self) -> None:
-        from backend.agents.pilgrimage_tools import _run_handler
+        from backend.agents.tool_runtime import _run_handler
 
         emitted: list[tuple[str, str, dict[str, object], str, str]] = []
 
@@ -773,7 +773,7 @@ class TestRunHandlerEmitsErrorDetail:
         assert observation == error_msg
 
     async def test_emits_error_preserves_partial_data(self) -> None:
-        from backend.agents.pilgrimage_tools import _run_handler
+        from backend.agents.tool_runtime import _run_handler
 
         emitted: list[tuple[str, str, dict[str, object], str, str]] = []
 

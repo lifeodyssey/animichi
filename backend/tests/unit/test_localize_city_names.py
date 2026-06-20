@@ -1,6 +1,6 @@
-"""Unit tests for _localize_city_names in pilgrimage_tools."""
+"""Unit tests for _localize_city_names in tool_runtime."""
 
-from backend.agents.pilgrimage_tools import _localize_city_names
+from backend.agents.tool_runtime import _localize_city_names
 
 
 class TestLocalizeCityNames:

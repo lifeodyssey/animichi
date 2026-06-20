@@ -1,23 +1,26 @@
 """Tool registrations for the PydanticAI pilgrimage agent.
 
 Each ``@pilgrimage_agent.tool`` is a deterministic wrapper around a handler
-(DB/retriever/route), keeping tool docs close to the LLM-facing contract.
+(DB/retriever/route) or the catalog seam, keeping tool docs close to the
+LLM-facing contract.
 
-Import this module after ``pilgrimage_agent`` is created so the decorators
-can attach to it.
+Step/plumbing helpers live in ``tool_runtime``; the catalog seam lives in
+``catalog_tools``. Import this module after ``pilgrimage_agent`` is created so
+the decorators can attach to it.
 """
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
-
 import structlog
 from pydantic_ai import ModelRetry, RunContext
 
-from backend.agents.agent_result import StepRecord
-from backend.agents.geo_names import localized_city_name
+from backend.agents.catalog_tools import (
+    _bangumi_search_query,
+    _run_catalog_nearby,
+    _run_catalog_route,
+    _run_catalog_search,
+)
 from backend.agents.handlers import (
-    HandlerResult,
     execute_answer_question,
     execute_greet_user,
     execute_plan_route,
@@ -25,145 +28,12 @@ from backend.agents.handlers import (
     execute_search_bangumi,
     execute_search_nearby,
 )
-from backend.agents.models import PlanStep, ToolName
+from backend.agents.models import ToolName
 from backend.agents.pilgrimage_agent import pilgrimage_agent
-from backend.agents.retriever import Retriever
 from backend.agents.runtime_deps import RuntimeDeps
-from backend.agents.tools import enrich_clarify_candidates
+from backend.agents.tool_runtime import _run_handler, run_clarify
 
 logger = structlog.get_logger(__name__)
-
-
-# ── Internal helpers ──────────────────────────────────────────────────
-
-
-async def _emit_step(
-    deps: RuntimeDeps,
-    tool: str,
-    status: str,
-    data: dict[str, object],
-    *,
-    thought: str = "",
-    observation: str = "",
-) -> None:
-    if deps.on_step is None:
-        return
-    await deps.on_step(tool, status, data, thought, observation)
-
-
-def _record_step(
-    deps: RuntimeDeps,
-    *,
-    tool: str,
-    success: bool,
-    params: dict[str, object],
-    data: dict[str, object] | None,
-    error: str | None,
-) -> None:
-    deps.steps.append(
-        StepRecord(tool=tool, success=success, params=params, data=data, error=error)
-    )
-
-
-def _localize_city_names(data: dict[str, object], locale: str) -> None:
-    """Translate English city names in rows to the user's locale in-place."""
-    if locale == "en":
-        return
-    rows = data.get("rows")
-    if not isinstance(rows, list):
-        return
-    for row in rows:
-        if isinstance(row, dict) and isinstance(row.get("city"), str):
-            row["city"] = localized_city_name(row["city"], locale)
-
-
-def _summarize_for_llm(tool: ToolName, data: dict[str, object]) -> dict[str, object]:
-    """Return a compact summary of tool results for the LLM.
-
-    Full data is kept in tool_state and SSE events for the frontend.
-    The LLM only needs enough context to decide its next action.
-    """
-    if tool not in (ToolName.SEARCH_BANGUMI, ToolName.SEARCH_NEARBY):
-        return data
-
-    rows = data.get("rows")
-    if not isinstance(rows, list) or len(rows) <= 5:
-        return data
-
-    row_count = data.get("row_count", len(rows))
-    metadata = data.get("metadata")
-    title = ""
-    if isinstance(metadata, dict):
-        title = str(metadata.get("anime_title", "") or "")
-
-    preview_rows = [
-        {k: row[k] for k in ("name", "episode") if k in row}
-        for row in rows[:5]
-        if isinstance(row, dict)
-    ]
-    return {
-        "row_count": row_count,
-        "status": data.get("status", "ok"),
-        "metadata": metadata,
-        "preview": preview_rows,
-        "note": f"Found {row_count} pilgrimage spots{' for ' + title if title else ''}. "
-        "Full data is available — proceed to return a search_response.",
-    }
-
-
-async def _run_handler(
-    ctx: RunContext[RuntimeDeps],
-    *,
-    tool: ToolName,
-    params: dict[str, object],
-    handler: Callable[
-        [PlanStep, dict[str, object], object, object], Awaitable[HandlerResult]
-    ],
-) -> dict[str, object]:
-    deps = ctx.deps
-    await _emit_step(deps, tool.value, "running", {})
-
-    retriever = deps.retriever or Retriever(deps.db)
-    deps.retriever = retriever
-    result = await handler(
-        PlanStep(tool=tool, params=params),
-        deps.tool_state,
-        deps.db,
-        retriever,
-    )
-
-    _record_step(
-        deps,
-        tool=tool.value,
-        success=result.success,
-        params=params,
-        data=result.data if result.data else None,
-        error=result.error,
-    )
-
-    if result.success and result.data:
-        _localize_city_names(result.data, deps.locale)
-        deps.tool_state[tool.value] = result.data
-        await _emit_step(deps, tool.value, "done", result.data)
-    else:
-        error_data: dict[str, object] = {"error": result.error or "Unknown error"}
-        if result.data:
-            error_data.update(result.data)
-        await _emit_step(
-            deps,
-            tool.value,
-            "failed",
-            error_data,
-            observation=result.error or "",
-        )
-
-    # Return compact summary to LLM so it has context space to generate
-    # a search_response output with message summary. Full rows stay in
-    # tool_state for the search_response output tool to reference.
-    return _summarize_for_llm(tool, result.data) if result.data else {}
-
-
-# ── Tool registrations ────────────────────────────────────────────────
 
 
 @pilgrimage_agent.tool
@@ -188,10 +58,19 @@ async def resolve_anime(ctx: RunContext[RuntimeDeps], title: str) -> dict[str, o
         title: The anime title in any language. Examples: "君の名は", "你的名字",
                "Your Name", "響け", "凉宫"
     """
+    params: dict[str, object] = {"title": title}
+    if ctx.deps.catalog is not None:
+        return await _run_catalog_search(
+            ctx,
+            ctx.deps.catalog,
+            tool=ToolName.RESOLVE_ANIME,
+            query=title,
+            params=params,
+        )
     return await _run_handler(
         ctx,
         tool=ToolName.RESOLVE_ANIME,
-        params={"title": title},
+        params=params,
         handler=execute_resolve_anime,
     )
 
@@ -238,6 +117,15 @@ async def search_bangumi(
         "bangumi_id": resolved_id,
         "bangumi": resolved_id,
     }
+    if ctx.deps.catalog is not None:
+        query = _bangumi_search_query(ctx.deps.tool_state, resolved_id)
+        return await _run_catalog_search(
+            ctx,
+            ctx.deps.catalog,
+            tool=ToolName.SEARCH_BANGUMI,
+            query=query,
+            params=params,
+        )
     return await _run_handler(
         ctx,
         tool=ToolName.SEARCH_BANGUMI,
@@ -270,6 +158,10 @@ async def search_nearby(
     params: dict[str, object] = {"location": location}
     if radius > 0:
         params["radius"] = radius
+    if ctx.deps.catalog is not None:
+        return await _run_catalog_nearby(
+            ctx, ctx.deps.catalog, location=location, radius=radius, params=params
+        )
     return await _run_handler(
         ctx,
         tool=ToolName.SEARCH_NEARBY,
@@ -317,6 +209,8 @@ async def plan_route(
         params["pacing"] = pacing
     if start_time:
         params["start_time"] = start_time
+    if ctx.deps.catalog is not None:
+        return await _run_catalog_route(ctx, ctx.deps.catalog, params=params)
     return await _run_handler(
         ctx,
         tool=ToolName.PLAN_ROUTE,
@@ -394,31 +288,4 @@ async def clarify(
         options: List of candidate anime titles to show the user.
                  Example: ["涼宮ハルヒの憂鬱", "涼宮ハルヒの消失"]
     """
-    deps = ctx.deps
-    normalized_options = list(options) if options else []
-    await _emit_step(deps, ToolName.CLARIFY.value, "running", {})
-
-    candidates = await enrich_clarify_candidates(deps, normalized_options)
-    payload: dict[str, object] = {
-        "question": question,
-        "options": normalized_options,
-        "candidates": candidates,
-        "status": "needs_clarification",
-    }
-
-    deps.tool_state[ToolName.CLARIFY.value] = payload
-    deps.tool_state["pending_clarify"] = True
-    _record_step(
-        deps,
-        tool=ToolName.CLARIFY.value,
-        success=True,
-        params={"question": question, "options": normalized_options},
-        data=payload,
-        error=None,
-    )
-    await _emit_step(deps, ToolName.CLARIFY.value, "done", payload)
-    # Signal to the LLM that it must stop and return clarify_response now.
-    # Without this, some models (e.g. DeepSeek V4 Flash) continue calling
-    # search_bangumi instead of waiting for user input.
-    payload["action_required"] = "return clarify_response"
-    return payload
+    return await run_clarify(ctx.deps, question=question, options=options)
