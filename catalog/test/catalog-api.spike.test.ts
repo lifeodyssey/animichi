@@ -285,6 +285,41 @@ function stubUpstream(): void {
   vi.stubGlobal("fetch", stub);
 }
 
+// A second uncovered work, reached via the search MISS path (Bangumi search ->
+// resolve id -> ingest -> return). Distinct from NEW_WORK_ID so the two ingest
+// E2Es don't collide in the shared container DB.
+const MISS_WORK_ID = "100020"; // Bangumi subject id (Hibike! Euphonium)
+const MISS_TITLE = "響け！ユーフォニアム";
+
+/**
+ * Stub upstream JSON for the search-miss work: the Bangumi SEARCH (POST
+ * /v0/search/subjects) resolves the title to MISS_WORK_ID, then the subject +
+ * Anitabi points feed the on-demand ingest. Records calls so the test can prove
+ * the SECOND search is an alias hit (no re-resolve, no re-ingest).
+ */
+function stubSearchMiss(): { urls: string[] } {
+  const urls: string[] = [];
+  const stub = vi.fn(async (input: string | URL | Request) => {
+    urls.push(String(input));
+    return searchMissResponse(String(input));
+  });
+  vi.stubGlobal("fetch", stub);
+  return { urls };
+}
+
+/** Route a stubbed upstream URL to its canned response for the search-miss flow. */
+function searchMissResponse(url: string): Response {
+  if (url.includes("/v0/search/subjects")) return jsonResponse({ data: [{ id: Number(MISS_WORK_ID), name: MISS_TITLE }] });
+  if (url.includes("/v0/subjects/")) return jsonResponse({ name: MISS_TITLE, name_cn: "吹响吧！上低音号" });
+  if (url.includes("/points/detail")) return jsonResponse(MISS_POINTS);
+  throw new Error(`unexpected upstream url: ${url}`);
+}
+
+const MISS_POINTS = [
+  { id: "uji-bridge", name: "宇治橋", lat: 34.8915, lng: 135.8078, ep: 1, s: 45 },
+  { id: "keihan-uji", name: "京阪宇治駅", lat: 34.8908, lng: 135.8112, ep: 1, s: 80 },
+];
+
 /** Build a minimal fetch `Response` carrying `body` as JSON. */
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -313,5 +348,21 @@ describe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> s
     const found = await call<{ rows: ApiPoint[] }>("search", { query: NEW_TITLE });
     expect(found.rows.map((r) => r.id).sort()).toEqual(["sakuragaoka-gate", "toyosato-hall"]);
     expect(found.rows.every((r) => r.bangumi_id === NEW_WORK_ID)).toBe(true);
+  });
+});
+
+describe("Catalog search miss -> Bangumi resolve -> on-demand ingest -> points", () => {
+  it("an UNCOVERED title resolves+ingests on first search, then is an alias hit on the second", async () => {
+    const { urls } = stubSearchMiss();
+
+    const first = await call<{ rows: ApiPoint[] }>("search", { query: MISS_TITLE });
+    expect(first.rows.map((r) => r.id).sort()).toEqual(["keihan-uji", "uji-bridge"]);
+    expect(first.rows.every((r) => r.bangumi_id === MISS_WORK_ID)).toBe(true);
+    expect(urls.some((u) => u.includes("/v0/search/subjects"))).toBe(true);
+
+    const searchCallsAfterFirst = urls.length;
+    const second = await call<{ rows: ApiPoint[] }>("search", { query: MISS_TITLE });
+    expect(second.rows.map((r) => r.id).sort()).toEqual(["keihan-uji", "uji-bridge"]);
+    expect(urls.length).toBe(searchCallsAfterFirst); // alias hit: no re-resolve, no re-ingest
   });
 });
