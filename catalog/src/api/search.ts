@@ -21,9 +21,8 @@
  * they are re-exported so existing consumers keep importing them from here.
  */
 
-import { desc, eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
-import { aliases, bangumi, points } from "../db/schema";
 import { normalizeAlias } from "../lib/alias";
 import { ingestWork } from "../ingest/orchestrator";
 import { fetchBangumiSearch, type FetchLike } from "../ingest/sources";
@@ -44,7 +43,8 @@ export interface WorkPointRow {
   longitude: number;
   title: string | null;
   title_cn: string | null;
-  synced_at: Date | null;
+  // workerd's raw pg returns timestamptz as a string (Node parses it to Date) — accept both.
+  synced_at: Date | string | null;
 }
 
 /**
@@ -108,10 +108,11 @@ function meta(r: WorkPointRow): Partial<PilgrimagePoint> {
   };
 }
 
-/** `synced_at` from the work's `bangumi.updated_at`, else now. */
+/** `synced_at` from the work's `bangumi.updated_at`, else now. Accepts a Date or
+ * a raw timestamptz string (workerd's pg driver does not parse it to a Date). */
 function syncedAt(rows: WorkPointRow[]): string {
   const stamp = rows[0]?.synced_at;
-  return (stamp ?? new Date()).toISOString();
+  return stamp ? new Date(stamp).toISOString() : new Date().toISOString();
 }
 
 /** Build the production `SearchDb` over a Drizzle `CatalogDb`. */
@@ -135,35 +136,23 @@ async function resolveAndIngest(
   return result.status === "ingested" ? bangumiId : null;
 }
 
-/** Exact-match the normalized alias -> the highest-priority work id. */
+/** Exact-match the normalized alias -> the highest-priority work id.
+ * Raw `sql` (not the Drizzle query builder) — the builder hangs under workerd. */
 async function firstWorkId(db: CatalogDb, normalized: string): Promise<string | undefined> {
-  const found = await db
-    .select({ workId: aliases.workId })
-    .from(aliases)
-    .where(eq(aliases.aliasNormalized, normalized))
-    .orderBy(desc(aliases.priority))
-    .limit(1);
-  return found[0]?.workId;
+  const result = await db.execute(
+    sql`SELECT work_id FROM aliases WHERE alias_normalized = ${normalized} ORDER BY priority DESC LIMIT 1`,
+  );
+  return (result.rows as Array<{ work_id: string }>)[0]?.work_id;
 }
 
 /** Select the work's points joined to its bangumi title metadata. */
 async function selectPoints(db: CatalogDb, workId: string): Promise<WorkPointRow[]> {
-  return db
-    .select({
-      id: points.id,
-      name: points.name,
-      name_cn: points.nameCn,
-      bangumi_id: points.bangumiId,
-      episode: points.episode,
-      time_seconds: points.timeSeconds,
-      image: points.image,
-      latitude: points.latitude,
-      longitude: points.longitude,
-      title: bangumi.title,
-      title_cn: bangumi.titleCn,
-      synced_at: bangumi.updatedAt,
-    })
-    .from(points)
-    .leftJoin(bangumi, eq(points.bangumiId, bangumi.id))
-    .where(eq(points.bangumiId, workId));
+  const result = await db.execute(sql`
+    SELECT p.id, p.name, p.name_cn, p.bangumi_id, p.episode, p.time_seconds,
+           p.image, p.latitude, p.longitude, b.title, b.title_cn,
+           b.updated_at AS synced_at
+    FROM points p LEFT JOIN bangumi b ON p.bangumi_id = b.id
+    WHERE p.bangumi_id = ${workId}
+  `);
+  return result.rows as unknown as WorkPointRow[];
 }
