@@ -117,3 +117,4 @@ docs/design/redesign-probes/
 docs/mockups/
 docs/mockups/previous-design-contact-sheet.jpg
 backend/tests/eval/results/agent_openai-mimo-*
+*.tsbuildinfo
