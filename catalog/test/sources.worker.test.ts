@@ -1,0 +1,86 @@
+import { describe, expect, it } from "vitest";
+import {
+  fetchAnitabiPoints,
+  fetchBangumiSubject,
+  type FetchLike,
+} from "../src/ingest/sources";
+
+/**
+ * Unit tests for the upstream source fetchers (catalog/src/ingest/sources.ts).
+ *
+ * An injected mock `fetch` keeps these off the network: each test feeds a
+ * canned response and asserts (a) the endpoint/params match the ported Python
+ * clients and (b) the body parses into the typed raw shape. Pure I/O wiring;
+ * named *.worker.test.ts so the vitest-pool-workers config picks it up.
+ */
+
+/** Build a mock FetchLike that records the URL and returns a canned JSON body. */
+function mockFetch(
+  body: unknown,
+  opts: { ok?: boolean; status?: number } = {},
+): { fetch: FetchLike; urls: string[] } {
+  const urls: string[] = [];
+  const fetch: FetchLike = async (url) => {
+    urls.push(url);
+    return {
+      ok: opts.ok ?? true,
+      status: opts.status ?? 200,
+      json: async () => body,
+    };
+  };
+  return { fetch, urls };
+}
+
+describe("fetchAnitabiPoints", () => {
+  it("hits /{id}/points/detail?haveImage=true and parses a {points:[...]} body", async () => {
+    const { fetch, urls } = mockFetch({
+      points: [{ id: "p1", name: "鷲宮神社", geo: [36.1, 139.6] }],
+    });
+    const points = await fetchAnitabiPoints("lucky-star", {
+      fetchImpl: fetch,
+      anitabiBaseUrl: "https://anitabi.test",
+    });
+    expect(urls[0]).toBe("https://anitabi.test/lucky-star/points/detail?haveImage=true");
+    expect(points).toHaveLength(1);
+    expect(points[0]?.id).toBe("p1");
+  });
+
+  it("parses a bare-array response shape", async () => {
+    const { fetch } = mockFetch([{ id: "p1" }, { id: "p2" }]);
+    const points = await fetchAnitabiPoints("x", { fetchImpl: fetch });
+    expect(points).toHaveLength(2);
+  });
+
+  it("defaults to the api.anitabi.cn/bangumi base (matches the Python client)", async () => {
+    const { fetch, urls } = mockFetch({ points: [] });
+    await fetchAnitabiPoints("3302", { fetchImpl: fetch });
+    expect(urls[0]).toBe(
+      "https://api.anitabi.cn/bangumi/3302/points/detail?haveImage=true",
+    );
+  });
+
+  it("throws on a non-2xx upstream status", async () => {
+    const { fetch } = mockFetch(null, { ok: false, status: 503 });
+    await expect(fetchAnitabiPoints("x", { fetchImpl: fetch })).rejects.toThrow("503");
+  });
+});
+
+describe("fetchBangumiSubject", () => {
+  it("hits /v0/subjects/{id} and parses the subject object", async () => {
+    const { fetch, urls } = mockFetch({ id: 3302, name: "らき☆すた", eps: 24 });
+    const subject = await fetchBangumiSubject("3302", {
+      fetchImpl: fetch,
+      bangumiBaseUrl: "https://bgm.test",
+    });
+    expect(urls[0]).toBe("https://bgm.test/v0/subjects/3302");
+    expect(subject.name).toBe("らき☆すた");
+    expect(subject.eps).toBe(24);
+  });
+
+  it("throws when the subject response is not a JSON object", async () => {
+    const { fetch } = mockFetch([1, 2, 3]);
+    await expect(fetchBangumiSubject("x", { fetchImpl: fetch })).rejects.toThrow(
+      "JSON object",
+    );
+  });
+});
