@@ -30,6 +30,7 @@ repos:
         name: frontend typecheck
         entry: bash -c 'cd frontend && npx tsc --noEmit'
         language: system
+        files: ^frontend/
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
 
@@ -37,6 +38,7 @@ repos:
         name: frontend lint
         entry: bash -c 'cd frontend && npx eslint .'
         language: system
+        files: ^frontend/
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
 
@@ -44,6 +46,7 @@ repos:
         name: frontend tests + coverage (lines>=60%)
         entry: bash -c 'cd frontend && npx vitest run --coverage'
         language: system
+        files: ^frontend/
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
 
