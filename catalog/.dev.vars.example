@@ -1,0 +1,6 @@
+# Local `wrangler dev` env for the catalog Worker. Copy to `.dev.vars` (git-ignored).
+# wrangler dev loads .dev.vars automatically; src/index.ts reads DATABASE_URL when
+# the HYPERDRIVE binding is absent (local dev / no Hyperdrive).
+#
+# Point at local Supabase Postgres (from `supabase start`):
+DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres

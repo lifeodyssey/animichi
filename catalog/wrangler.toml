@@ -3,10 +3,17 @@ main = "src/index.ts"
 compatibility_date = "2025-09-23"
 compatibility_flags = ["nodejs_compat"]
 
-# Hyperdrive is prod-only (binds the Worker to a pooled Postgres connection).
-# Locally we cannot exercise this binding, so the SPIKE connects directly to
-# Postgres via `postgres`/`pg` to validate the Drizzle + PostGIS query path.
-# Uncomment and fill `id` after `wrangler hyperdrive create` for prod.
+# Hyperdrive binds the Worker to a pooled Postgres connection in production.
+# src/index.ts reads env.HYPERDRIVE.connectionString first, falling back to
+# env.DATABASE_URL when the binding is absent (local dev / tests).
+#
+# Provision once, then fill `id` below (it is a config id, not a secret):
+#   wrangler hyperdrive create catalog-pg \
+#     --connection-string="postgres://USER:PASS@HOST:5432/DB"
+#   # → prints: ✅ Created ... id: <hyperdrive-id>
+#
+# Uncomment after `id` is known. While commented out, prod falls back to the
+# DATABASE_URL secret (set via `wrangler secret put DATABASE_URL`).
 # [[hyperdrive]]
 # binding = "HYPERDRIVE"
 # id = "<hyperdrive-id>"
@@ -14,5 +21,16 @@ compatibility_flags = ["nodejs_compat"]
 [observability]
 enabled = true
 
+# NOTE: keep this block to ENVIRONMENT only. The vitest-pool-workers test env
+# reads [vars]; test/worker.worker.test.ts asserts that /catalog/* returns 503
+# ("catalog database not configured") precisely because neither HYPERDRIVE nor
+# DATABASE_URL is set here. Do NOT add DATABASE_URL to [vars].
 [vars]
 ENVIRONMENT = "development"
+
+# Local `wrangler dev` Postgres connection (used when HYPERDRIVE is unbound).
+# DATABASE_URL is NOT placed in [vars] (it would break the no-DB 503 test and is
+# environment-specific). Instead create catalog/.dev.vars (git-ignored) with:
+#   DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
+# wrangler dev loads .dev.vars automatically. For prod without Hyperdrive set:
+#   wrangler secret put DATABASE_URL
