@@ -25,6 +25,7 @@ from backend.agents.runtime_deps import RuntimeDeps
 from backend.domain.ports import DatabasePort
 from backend.interfaces.routes._deps import (
     TrustedAuthContext,
+    _get_catalog_client,
     _get_runtime_api,
     _require_trusted_user,
 )
@@ -150,6 +151,7 @@ async def handle_chat(
         locale=locale,
         query="",  # extracted from messages by the agent
         retriever=Retriever(db),
+        catalog=_get_catalog_client(request),
     )
 
     # Pre-populate tool_state with clarify context if detected

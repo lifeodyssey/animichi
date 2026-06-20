@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     anitabi_api_url: str = Field(
         default="https://api.anitabi.cn/bangumi", description="Anitabi API base URL"
     )
+    catalog_api_url: str = Field(
+        default="http://localhost:8787",
+        description="Catalog service base URL (read path for resolved spot data)",
+    )
 
     # Optional Google Cloud configuration used by Google-backed integrations.
     google_cloud_project: str | None = Field(

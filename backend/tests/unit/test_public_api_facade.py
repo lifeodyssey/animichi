@@ -68,6 +68,7 @@ class TestHandlePublicRequest:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ) -> AgentResult:
             _ = (text, db, locale, context, message_history, on_step)
             captured["model"] = model
@@ -136,6 +137,7 @@ class TestLocalePassthrough:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ) -> AgentResult:
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
@@ -166,6 +168,7 @@ class TestLocalePassthrough:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ) -> AgentResult:
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
@@ -198,6 +201,7 @@ class TestBuildContextBlockWithUserMemory:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ) -> AgentResult:
             _ = (text, db, model, locale, message_history, on_step)
             captured["context"] = context
@@ -233,6 +237,7 @@ class TestOriginCoordinatesWiredToContext:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ) -> AgentResult:
             _ = (text, db, model, locale, message_history, on_step)
             captured["context"] = context
@@ -264,6 +269,7 @@ class TestOriginCoordinatesWiredToContext:
             context: dict[str, object] | None = None,
             message_history: object | None = None,
             on_step: object | None = None,
+            catalog: object | None = None,
         ) -> AgentResult:
             _ = (text, db, model, locale, message_history, on_step)
             captured["context"] = context

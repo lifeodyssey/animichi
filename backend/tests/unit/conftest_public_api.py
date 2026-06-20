@@ -114,6 +114,7 @@ def make_fake_agent(
         context: dict[str, object] | None = None,
         message_history: object | None = None,
         on_step: object | None = None,
+        catalog: object | None = None,
     ) -> AgentResult:
         _ = (text, db, model, context, message_history, on_step)
         if result_fn is not None:

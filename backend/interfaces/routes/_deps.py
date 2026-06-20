@@ -13,6 +13,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
 
+from backend.clients.catalog_client import CatalogClientProtocol
 from backend.config.settings import Settings
 from backend.infrastructure.session import SessionStore, create_session_store
 from backend.infrastructure.supabase.client import SupabaseClient
@@ -98,6 +99,11 @@ def _get_settings_from_request(request: Request) -> Settings:
 
 def _get_db_from_request(request: Request) -> object:
     return cast(object, getattr(request.app.state, "db_client", None))
+
+
+def _get_catalog_client(request: Request) -> CatalogClientProtocol | None:
+    catalog = getattr(request.app.state, "catalog_client", None)
+    return cast("CatalogClientProtocol | None", catalog)
 
 
 def _require_supabase(db: object) -> SupabaseClient:
