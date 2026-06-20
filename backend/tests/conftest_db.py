@@ -41,20 +41,21 @@ SKIP_EXTENSIONS = {"vector"}
 def _filter_migration_lines(sql: str) -> str:
     """Remove pgvector-specific lines from migration SQL.
 
-    Line-based: removes CREATE EXTENSION vector, embedding column defs,
-    and individual lines containing vector ops. Multi-line statement
-    cleanup (e.g. dangling CREATE INDEX) is handled at the statement level.
+    Removes the standalone CREATE EXTENSION vector statement and neutralizes
+    pgvector column types (vector(N) -> TEXT) in place. Vector-op statements
+    (HNSW index) are dropped later at the statement level.
     """
     lines = sql.split("\n")
     filtered: list[str] = []
     for line in lines:
         stripped = line.strip()
-        # Skip CREATE EXTENSION ... vector
+        # Skip CREATE EXTENSION ... vector (standalone statement, safe to drop)
         if re.match(r"CREATE EXTENSION.*\bvector\b", stripped, re.IGNORECASE):
             continue
-        # Skip embedding vector(...) column definitions
-        if re.search(r"\bembedding\s+vector\s*\(", stripped, re.IGNORECASE):
-            continue
+        # Neutralize pgvector column TYPE in place. Dropping the whole line would
+        # swallow a trailing ';' when the vector column ends a multi-column
+        # ALTER/CREATE, merging it with the next statement (syntax error).
+        line = re.sub(r"\bvector\s*\(\s*\d+\s*\)", "TEXT", line, flags=re.IGNORECASE)
         filtered.append(line)
 
     result = "\n".join(filtered)
