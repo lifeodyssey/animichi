@@ -1,0 +1,29 @@
+{
+  "name": "catalog",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Seichijunrei Catalog service — Cloudflare Workers + Hono + oRPC over Postgres/PostGIS",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "npm run test:worker && npm run test:spike",
+    "test:worker": "vitest run --config vitest.config.ts",
+    "test:spike": "vitest run --config vitest.spike.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@orpc/server": "^1.9.7",
+    "drizzle-orm": "^0.44.6",
+    "hono": "^4.9.10",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.16.18",
+    "@cloudflare/workers-types": "^4.20251001.0",
+    "pg": "^8.16.3",
+    "@types/pg": "^8.15.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.103.0"
+  }
+}
