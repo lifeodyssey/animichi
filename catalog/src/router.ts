@@ -1,87 +1,74 @@
-import { os, type } from "@orpc/server";
+import { ORPCError, os, type } from "@orpc/server";
+import type { CatalogDb } from "./db/client";
+import { search as searchHandler, searchDb } from "./api/search";
+import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
+import { nearby as nearbyHandler } from "./api/nearby";
+import { route as routeHandler } from "./api/route";
+import type { Origin, Pacing } from "./types";
 
 /**
- * Catalog oRPC router — 4 stub methods returning mock data.
+ * Catalog oRPC router — the 4 read methods wired to their real handlers.
  *
- * These are intentionally stubs for the scaffold + spike card. Their input
- * field names and output envelopes conform to the single source of truth in
- * packages/contract (search / spots / nearby / route). Later cards wire these
- * to the real Drizzle + PostGIS queries (validated by the spike test).
+ * Served via `OpenAPIHandler` (see `index.ts`), so requests and responses are
+ * PLAIN JSON matching `packages/contract/openapi.json` and the Python
+ * `CatalogClient`: a POST body of `{query}` / `{bangumi_id}` / `{lat,lng,radius_m}`
+ * / `{point_ids}`, and a top-level `{rows, synced_at}` / `{point, distance_m?}` /
+ * `Route` response (NOT the `{json: ...}` envelope the RPCHandler used).
  *
- * `type<T>()` is oRPC's built-in passthrough validator — it gives us typed
- * inputs/outputs without pulling the contract's zod schemas into the spike.
- * The shapes below MUST stay in lockstep with packages/contract/src.
+ * Each procedure declares `.route({method:"POST", path:"/<method>"})`; mounted
+ * under the `/catalog` prefix this yields the contract paths `/catalog/search`,
+ * `/catalog/spots`, `/catalog/nearby`, `/catalog/route`.
+ *
+ * Each procedure reads the per-request `db` from the oRPC context (set in
+ * `index.ts` from the Hyperdrive/DATABASE_URL connection) and delegates to the
+ * committed `src/api/*` handlers, which run the Drizzle + PostGIS queries.
+ *
+ * `type<T>()` is oRPC's built-in passthrough validator — it gives typed inputs
+ * without pulling the contract's zod schemas into the Worker bundle. The input
+ * shapes below MUST stay in lockstep with packages/contract/src.
  */
 
-/** A single pilgrimage point row — mirrors PilgrimagePoint in packages/contract. */
-export interface PilgrimagePoint {
-  id: string;
-  name: string;
-  bangumi_id: string;
-  screenshot_url: string;
-  latitude: number;
-  longitude: number;
-  distance_m?: number;
+/** Per-request oRPC context: the Drizzle client for this invocation. */
+export interface CatalogContext {
+  db: CatalogDb;
 }
 
-const MOCK_POINTS: PilgrimagePoint[] = [
-  {
-    id: "spot-1",
-    name: "鷲宮神社",
-    bangumi_id: "1",
-    screenshot_url: "",
-    latitude: 36.1019,
-    longitude: 139.6586,
-  },
-  {
-    id: "spot-2",
-    name: "大洗磯前神社",
-    bangumi_id: "2",
-    screenshot_url: "",
-    latitude: 36.3142,
-    longitude: 140.5876,
-  },
-];
+/** Base builder carrying the Catalog context so handlers can read `context.db`. */
+const base = os.$context<CatalogContext>();
 
 /** search(query, origin?) -> { rows, synced_at } */
-const search = os
-  .input(type<{ query: string; origin?: unknown }>())
-  .handler(async () => {
-    return { rows: MOCK_POINTS, synced_at: new Date(0).toISOString() };
-  });
+const search = base
+  .route({ method: "POST", path: "/search" })
+  .input(type<{ query: string; origin?: Origin }>())
+  .handler(async ({ input, context }) => searchHandler(searchDb(context.db), input));
 
-/** spots(bangumi_id, origin?) -> { point, distance_m? } */
-const spots = os
-  .input(type<{ bangumi_id: string; origin?: unknown }>())
-  .handler(async ({ input }) => {
-    const point =
-      MOCK_POINTS.find((p) => p.bangumi_id === input.bangumi_id) ?? MOCK_POINTS[0];
-    return { point };
-  });
+/** spots(bangumi_id, origin?) -> { point, distance_m? }; missing work -> 404. */
+const spots = base
+  .route({ method: "POST", path: "/spots" })
+  .input(type<{ bangumi_id: string; origin?: Origin }>())
+  .handler(async ({ input, context }) => callSpots(context.db, input));
 
 /** nearby(lat, lng, radius_m) -> { rows } */
-const nearby = os
+const nearby = base
+  .route({ method: "POST", path: "/nearby" })
   .input(type<{ lat: number; lng: number; radius_m: number }>())
-  .handler(async () => {
-    return { rows: MOCK_POINTS };
-  });
+  .handler(async ({ input, context }) => nearbyHandler(context.db, input));
 
 /** route(point_ids, origin?, pacing?) -> Route */
-const route = os
-  .input(type<{ point_ids: string[]; origin?: unknown; pacing?: string }>())
-  .handler(async ({ input }) => {
-    const ordered = MOCK_POINTS.filter((p) => input.point_ids.includes(p.id));
-    return {
-      ordered_points: ordered,
-      point_count: ordered.length,
-      timed_itinerary: {
-        stops: [],
-        legs: [],
-        total_minutes: 0,
-        total_distance_m: 0,
-      },
-    };
-  });
+const route = base
+  .route({ method: "POST", path: "/route" })
+  .input(type<{ point_ids: string[]; origin?: Origin; pacing?: Pacing }>())
+  .handler(async ({ input, context }) => routeHandler(context.db, input));
+
+/** Run `spots`, translating a no-points work into an oRPC 404 (else 500). */
+async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Origin }) {
+  try {
+    return await spotsHandler(db, input);
+  } catch (err) {
+    if (err instanceof SpotNotFoundError) throw new ORPCError("NOT_FOUND", { message: err.message });
+    throw err;
+  }
+}
 
 export const catalogRouter = { search, spots, nearby, route };
 

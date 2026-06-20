@@ -12,16 +12,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@orpc/openapi": "^1.9.7",
     "@orpc/server": "^1.9.7",
+    "@types/pg": "^8.15.6",
     "drizzle-orm": "^0.44.6",
     "hono": "^4.9.10",
-    "postgres": "^3.4.7"
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.16.18",
     "@cloudflare/workers-types": "^4.20251001.0",
-    "pg": "^8.16.3",
-    "@types/pg": "^8.15.6",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0",
     "wrangler": "^4.103.0"

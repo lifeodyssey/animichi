@@ -14,51 +14,19 @@
 
 import type { LocationCluster } from "./clustering";
 import { haversine } from "./geo";
+import type { Pacing, TimedItinerary, TimedStop, TransitLeg } from "../types";
 
 /**
- * Output types mirror `packages/contract/src/models.ts` field-for-field
- * (TimedStop / TransitLeg / TimedItinerary / Pacing). Defined locally rather
- * than imported — the same convention `src/router.ts` follows to keep the
- * Worker bundle free of the contract's zod runtime. These MUST stay in
- * lockstep with packages/contract/src/models.ts.
+ * The wire shapes this kernel produces (`TimedStop` / `TransitLeg` /
+ * `TimedItinerary` / `Pacing`) live in `../types` — the single in-Worker mirror
+ * of `packages/contract/src/models.ts`. `import type` erases at compile time, so
+ * the contract's zod runtime stays out of the Worker bundle. Re-exported here so
+ * existing kernel consumers keep importing them from `lib/route`.
  */
+export type { Pacing, TimedItinerary, TimedStop, TransitLeg };
 
-/** Pacing for route itineraries — mirrors `Pacing` in packages/contract. */
-export type Pacing = "chill" | "normal" | "packed";
-
-/** A stop with arrival/departure + dwell — mirrors `TimedStop`. */
-export interface TimedStop {
-  cluster_id: string;
-  name: string;
-  arrive: string; // "HH:MM"
-  depart: string; // "HH:MM"
-  dwell_minutes: number;
-  lat: number;
-  lng: number;
-  photo_count: number;
-}
-
-/** A walk segment between two stops — mirrors `TransitLeg`. */
-export interface TransitLeg {
-  from_id: string;
-  to_id: string;
-  mode: "walk";
-  duration_minutes: number;
-  distance_m: number;
-}
-
-/** A complete timed route — mirrors `TimedItinerary`. */
-export interface TimedItinerary {
-  stops: TimedStop[];
-  legs: TransitLeg[];
-  total_minutes: number;
-  total_distance_m: number;
-  spot_count?: number;
-  pacing?: Pacing;
-  start_time?: string; // "HH:MM"
-}
-
-/** Cluster-center origin for nearest-neighbor start. Mirrors Python `origin`. */
+/** Cluster-center origin for nearest-neighbor start (the coordinate form of the
+ * contract `Origin`). Mirrors Python `origin`. */
 export interface Origin {
   lat: number;
   lng: number;
