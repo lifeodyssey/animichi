@@ -5,7 +5,11 @@
 
 ## 0. 使命
 
-把聖地巡礼后端**全新重写**成"数据平台为核心 + Route 为家 + agent 为只读消费者"的形态,**Python 原地**(FastAPI/asyncpg/PydanticAI),**不切 TS**。**完整交付 Phase 1(Walk 子集),一个功能都不能落下**,用最严格的工程标准,e2e 真实验证,eval parity gate 兜底。本次**只动后端,不碰前端**。
+把聖地巡礼后端**全新重写**成**混合微服务**(用户定案 2026-06-20,覆盖原"Python 原地单体/不切 TS"):
+- **Agent 服务 = Python**(PydanticAI;LLM 工具链最成熟):薄只读 LLM 编排,7 工具是 Catalog 契约的客户端,拥有 operational 数据。
+- **Catalog 服务 = Cloudflare Workers(TS)** + 原生原语(Queues/Cron/Durable Objects/R2/Hyperdrive):数据平台 Ingest→Enrich→Publish + 4 读 API + 媒体,catalog 唯一真理源。
+- **契约 = oRPC/OpenAPI typed**;跨服务只走契约,**DB-per-service**(Catalog 写 catalog 表 / Agent 写 operational 表,共置 Supabase 不互伸手)。
+**完整交付 Phase 1(Walk 子集),一个功能都不能落下**,最严格工程标准,e2e 真实验证,新 agent 过 eval parity gate(对在档 DeepSeek 参照)。**只动后端,不碰前端**。
 
 ## 1. 权威文档(冲突时优先级从高到低)
 
