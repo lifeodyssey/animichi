@@ -71,6 +71,20 @@ export interface TimedItinerary {
   export_ics?: string;
 }
 
+/**
+ * Outcome of an on-demand ingest — mirrors `IngestResult` in the contract.
+ *
+ * This is the WIRE shape (snake_case `point_count`), distinct from the
+ * orchestrator's internal `IngestResult` (camelCase `pointCount`); the router
+ * maps the orchestrator union onto this flat object before serializing.
+ */
+export interface IngestResult {
+  status: "ingested" | "in_progress" | "empty" | "failed";
+  version?: number;
+  point_count?: number;
+  reason?: string;
+}
+
 /** An ordered, timed pilgrimage route — mirrors `Route` in the contract. */
 export interface Route {
   id?: string;

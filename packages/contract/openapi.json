@@ -653,6 +653,69 @@
           }
         }
       }
+    },
+    "/catalog/ingest": {
+      "post": {
+        "operationId": "ingest",
+        "summary": "Ingest a not-yet-cataloged work on demand by bangumi id",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bangumi_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "bangumi_id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "ingested",
+                        "in_progress",
+                        "empty",
+                        "failed"
+                      ],
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "point_count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
