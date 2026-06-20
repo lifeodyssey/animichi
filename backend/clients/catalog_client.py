@@ -12,6 +12,7 @@ Field names, paths, and response envelopes mirror the single source of truth in
   - spots(bangumi_id, origin?)    -> {"point": {...}, "distance_m"?: float}
   - nearby(lat, lng, radius_m)    -> {"rows": [...]}
   - route(point_ids, origin?, pacing?) -> Route
+  - ingest(bangumi_id)            -> IngestResult
 
 Endpoint convention: ``{base_url}/catalog/<method>`` (POST, JSON body).
 """
@@ -19,7 +20,7 @@ Endpoint convention: ``{base_url}/catalog/<method>`` (POST, JSON body).
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 import httpx
 from pydantic import BaseModel, Field
@@ -33,6 +34,7 @@ from backend.clients.retry import request_with_retry
 __all__ = [
     "PilgrimagePoint",
     "Route",
+    "IngestResult",
     "TimedItinerary",
     "TimedStop",
     "TransitLeg",
@@ -71,6 +73,19 @@ class Route(BaseModel):
     timed_itinerary: TimedItinerary = Field(default_factory=TimedItinerary)
 
 
+class IngestResult(BaseModel):
+    """Outcome of an on-demand ingest, mirroring the contract IngestResult.
+
+    Discriminated by ``status``: ``version`` + ``point_count`` are set only for
+    ``ingested``; ``reason`` carries the cause for ``empty`` / ``failed``.
+    """
+
+    status: Literal["ingested", "in_progress", "empty", "failed"]
+    version: int = -1
+    point_count: int = -1
+    reason: str = ""
+
+
 @runtime_checkable
 class CatalogClientProtocol(Protocol):
     """Structural contract for the Catalog read path (search/spots/nearby/route).
@@ -89,6 +104,8 @@ class CatalogClientProtocol(Protocol):
     ) -> list[PilgrimagePoint]: ...
 
     async def route(self, point_ids: list[str]) -> Route: ...
+
+    async def ingest(self, bangumi_id: str) -> IngestResult: ...
 
 
 class CatalogClient:
@@ -127,6 +144,11 @@ class CatalogClient:
         """Plan an ordered, timed route across the given points."""
         payload = await self._rpc("route", {"point_ids": point_ids})
         return Route.model_validate(payload)
+
+    async def ingest(self, bangumi_id: str) -> IngestResult:
+        """Ingest a not-yet-cataloged work on demand by its bangumi id."""
+        payload = await self._rpc("ingest", {"bangumi_id": bangumi_id})
+        return IngestResult.model_validate(payload)
 
     async def _rpc(self, method: str, body: Mapping[str, object]) -> JSONValue:
         """POST ``body`` to the method endpoint and return the parsed JSON."""
