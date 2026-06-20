@@ -1,11 +1,20 @@
 // Worker entry point — routes requests before OpenNext handles them.
-// Intercepts /v1/* (container proxy) and /img/* (image proxy) before
-// passing all other requests to the OpenNext-generated Next.js handler.
+// Intercepts /healthz, /img/* (image proxy), and /catalog/* (catalog service)
+// before passing all other requests to the OpenNext-generated Next.js handler.
 //
-// Auth for /v1/* is handled by Next.js middleware.ts (session cookie +
-// JWT + sk_ key validation). This worker only proxies to the container.
+// /catalog/* is forwarded to the separate catalog Worker via the CATALOG
+// service binding (see wrangler.toml [[services]]). This serves the frontend
+// read APIs (search/spots/nearby/route) over plain JSON.
+//
+// /v1/* (the agent runtime) is handled by the Next.js middleware.ts inside the
+// OpenNext handler (session cookie + JWT + sk_ key validation), which proxies
+// to the RuntimeContainer. This worker only intercepts the kinds above.
+//
+// The pathname -> kind decision lives in worker/router.js so it can be
+// unit-tested without the OpenNext build artifact.
 import { Container } from "@cloudflare/containers";
 import nextHandler from "./.open-next/worker.js";
+import { routeKindFor } from "./router.js";
 
 // Re-export Durable Object handlers required by OpenNext cache features.
 export { DOQueueHandler, DOShardedTagCache } from "./.open-next/worker.js";
@@ -14,6 +23,7 @@ const CONTAINER_ENV_KEYS = [
   "DEEPSEEK_API_KEY",
   "SUPABASE_DB_URL",
   "ANITABI_API_URL",
+  "CATALOG_API_URL",
   "APP_ENV",
   "CACHE_TTL_SECONDS",
   "CORS_ALLOWED_ORIGIN",
@@ -110,13 +120,18 @@ async function handleImageProxy(request, pathname, ctx) {
 export default {
   async fetch(request, env, ctx) {
     const { pathname } = new URL(request.url);
+    const kind = routeKindFor(pathname);
 
-    if (pathname === "/healthz") {
+    if (kind === "healthz") {
       return env.CONTAINER.get(env.CONTAINER.idFromName("default")).fetch(request);
     }
 
-    if (pathname.startsWith("/img/")) {
+    if (kind === "image") {
       return handleImageProxy(request, pathname, ctx);
+    }
+
+    if (kind === "catalog") {
+      return env.CATALOG.fetch(request);
     }
 
     return nextHandler.fetch(request, env, ctx);
