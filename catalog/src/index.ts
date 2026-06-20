@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { catalogRouter } from "./router";
 import type { CatalogDb } from "./db/client";
+import { serveImage } from "./media/img";
 
 export interface Env {
   ENVIRONMENT?: string;
@@ -9,6 +10,8 @@ export interface Env {
   HYPERDRIVE?: { connectionString: string };
   /** Plain Postgres connection string (local/test fallback when no Hyperdrive). */
   DATABASE_URL?: string;
+  /** R2 bucket for lazy-cached pilgrimage point photos (see media/img.ts). */
+  MEDIA_BUCKET?: R2Bucket;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -57,6 +60,27 @@ export async function closeDbPools(): Promise<void> {
   }
   dbPools.clear();
 }
+
+// Lazy-R2 image serving for pilgrimage point photos. Registered BEFORE the
+// /catalog/* oRPC middleware so Hono matches this concrete route first (the
+// oRPC handler has no /img procedure and would otherwise 404/503). Topology:
+// the main worker (worker/entry.js) intercepts top-level /img/* for the raw
+// Anitabi CDN proxy and forwards /catalog/* to this Worker's CATALOG service
+// binding — so the cached-photo route MUST live under /catalog/img/ to be
+// reachable; a bare /img here would never be hit through the main worker.
+// First hit pulls origin → stores in R2 → records media_assets → serves bytes;
+// later hits serve from R2; a gone origin tombstones and serves a 404 fallback.
+app.get("/catalog/img/:pointId", async (c) => {
+  const connStr = connectionString(c.env);
+  const bucket = c.env?.MEDIA_BUCKET;
+  if (!connStr || !bucket) {
+    return c.json({ error: "catalog media not configured" }, 503);
+  }
+  return serveImage(
+    { db: await dbFor(connStr), bucket, fetchImpl: fetch },
+    c.req.param("pointId"),
+  );
+});
 
 // Mount the oRPC router under /catalog/* (search / spots / nearby / route).
 // This matches the path convention in packages/contract (/catalog/<method>)
