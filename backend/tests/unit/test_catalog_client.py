@@ -1,14 +1,20 @@
 """Unit tests for the Catalog service client skeleton.
 
 Response envelopes mirror packages/contract:
-  search -> {rows, synced_at}, spots -> {point, distance_m?}, nearby -> {rows}.
+  search -> {rows, synced_at}, spots -> {point, distance_m?}, nearby -> {rows},
+  ingest -> {status, version?, point_count?, reason?}.
 """
 
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from backend.clients.catalog_client import CatalogClient, PilgrimagePoint, Route
+from backend.clients.catalog_client import (
+    CatalogClient,
+    IngestResult,
+    PilgrimagePoint,
+    Route,
+)
 
 _POINT = {"id": "p1", "name": "Uji Bridge", "latitude": 34.89, "longitude": 135.80}
 
@@ -91,3 +97,37 @@ async def test_route_parses_route(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(route, Route)
     assert route.point_count == 1
     assert client.post.call_args.kwargs["json"] == {"point_ids": ["p1"]}
+
+
+async def test_ingest_parses_ingested(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ingest() reads the {status, version, point_count} envelope when ingested."""
+    _mock_httpx(monkeypatch, {"status": "ingested", "version": 3, "point_count": 7})
+
+    result = await CatalogClient("http://catalog.test").ingest("10380")
+
+    assert result == IngestResult(status="ingested", version=3, point_count=7)
+
+
+async def test_ingest_posts_bangumi_id_to_catalog_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ingest() POSTs {bangumi_id} to /catalog/ingest."""
+    client = _mock_httpx(monkeypatch, {"status": "in_progress"})
+
+    await CatalogClient("http://catalog.test").ingest("10380")
+
+    url, kwargs = client.post.call_args.args[0], client.post.call_args.kwargs
+    assert url == "http://catalog.test/catalog/ingest"
+    assert kwargs["json"] == {"bangumi_id": "10380"}
+
+
+async def test_ingest_parses_empty_with_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ingest() carries the reason for a non-ingested status (empty/failed)."""
+    _mock_httpx(monkeypatch, {"status": "empty", "reason": "no points"})
+
+    result = await CatalogClient("http://catalog.test").ingest("999")
+
+    assert result.status == "empty"
+    assert result.reason == "no points"
