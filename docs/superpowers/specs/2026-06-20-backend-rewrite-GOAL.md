@@ -28,6 +28,8 @@
 6. **全新重写 agent,但确定性内核 port 不重写**:union-find 50m 聚类、最近邻、计时行程(`route_optimizer.py:34-315`)、series-aware 15km 逻辑——移植,不从零写。
 7. **单写者结构性保证**:Postgres 双角色 `app`(catalog SELECT-only + operational RW)/ `pipeline`(catalog 唯一写者)。
 8. **SSoT**:Anitabi/Bangumi 为正本,Supabase 为服务副本;响应带 `synced_at`。
+9. **DDD 分层**:bounded contexts = Catalog / Routing / Conversation。`domain/`(entities/value objects/aggregates/domain services)**纯 Python,无 SQL、无 I/O、无 pydantic-ai**;`application/` 依赖 repository 端口(Protocol);**所有 SQL 只活在 `infrastructure/` 的 repository 实现里**(typed + 集中 row→Pydantic 映射)。SQL 是被封装的领域复杂度,不是债。
+10. **依赖决策(审计定案)**:保留 asyncpg 裸 SQL,**不引入 ORM**(PostGIS/pgvector/高级 SQL 任何 ORM 都强迫 drop-to-raw,SQLAlchemy/SQLModel 还付 greenlet 税);删 4 个幽灵/死依赖(`python-dotenv`/`google-genai`/`pydantic-ai-guardrails`/`opentelemetry-*`);HTTP 客户端合并到 **httpx**(删 aiohttp);CVE pin 移到 lock 文件。
 
 ## 3. 质量标准(最严格)
 
@@ -43,8 +45,9 @@
 
 - **三层**:unit(mock)+ integration(testcontainer Postgres/PostGIS)+ e2e。
 - **e2e 必须通过**:用**充足的本地(testcontainer + 真/mock 上游)或线上 API(真 Anitabi/Bangumi/DeepSeek)**测试覆盖,不允许"理论上能跑"。
-- **eval parity gate**:617 案例各指标相对 Wave 0 baseline 跌幅 **≤10%** 才算过。
-  - baseline:IntentMatch 0.538 / DataCompleteness 0.476 / ResponseLocale 0.597 / ToolExecution 0.998 / StepEfficiency 0.922。
+- **eval parity gate**:**新 agent** 的 eval 各指标相对**在档 DeepSeek baseline** 跌幅 **≤10%** 才算过。
+  - 参照 baseline(DeepSeek,已在档):IntentMatch 0.538 / DataCompleteness 0.476 / ResponseLocale 0.597 / ToolExecution 0.998 / StepEfficiency 0.922。
+  - **不重跑旧 agent/替身模型的 baseline**(用户定:eval set 随重写平移,旧 baseline 是一次性丢弃品)。parity gate 在 Wave 4(新 agent + 平移 eval)就位时对着在档参照建;harness 已修可跑(评测新 agent 用)。
 - **e2e 关键路径(全部自动化断言)**:
   1. cron/CLI 预收录一作品 → `GET /v1/search` 命中 → `POST /v1/routes` 出 `timed_itinerary` → `GET /v1/routes/{id}/bundle` 离线包。
   2. `POST /v1/chat`(SSE)查**未收录**作品 → L1<1s 前菜 → L2≤8s 同步摄入 → SSE 原地升级卡片。
@@ -68,7 +71,7 @@
 
 ## 6. 执行波次(Phase 1 全集,全部做完)
 
-- **Wave 0 · baseline**:`make test-eval`(617 agent + 62 translation)落档;`make test-cov`。Gate:baseline 落档后方可改 agent。
+- **Wave 0 · baseline 参照(✅ 完成)**:eval harness 6 层 bug 已修可跑(commits `5c5eb60`/`f318cc0`,`make check` 绿,单测覆盖率 84.23% line-rate)。parity 参照 = **在档 DeepSeek baseline**(§4 数值)。**不重跑替身模型 baseline**(用户定,丢弃品);新 agent 的 parity gate 在 Wave 4 对着参照建。Gate 解除。
 - **Wave 1 · 数据表 + 双角色**:migration 拆 catalog/operational;建 `ingest_jobs`(work_id PK)/`cluster_version`/`route_snapshots`/`aliases`/`series_edges`/`leg_cache`/`raw_anitabi`/`raw_bangumi`/`media_assets`;GRANT `app` SELECT-only on catalog,`pipeline` writer。
 - **Wave 2 · catalog 管线 + worker**:`catalog/ingest`(jobs singleflight / raw_store / sources:anitabi·bangumi·aliases)+ `enrich`(cluster=port union-find / city_backfill / alias_pipeline 4 源 NFKC / quality / series=port 15km)+ `publish`(versioning 原子切换 / snapshots / catalog_repo 只读)+ `worker/loop`(Postgres-queue `FOR UPDATE SKIP LOCKED` + `LISTEN/NOTIFY` + `stage` 幂等续跑)+ `worker/cron`(APScheduler:周 dump / 6h 增量 / 预收录 top10-20 + ~235 eval-miss / R2 LRU 清扫)。
 - **Wave 3 · 4 API**:`api/routes/{search,spots,routes,bundle}` — FastAPI,只读 catalog via `catalog_repo`,PostGIS `ST_DWithin`,错误码→HTTP 映射,响应带 `synced_at`。
