@@ -28,11 +28,14 @@
 
 ## 2. CHANGE — 按 ADR 决策一在 Python 内重构(非换栈)
 
+> ⚠ 边界修正(13-agent 核验):"只读纪律"仅对**目录表(catalog:bangumi/points)**;运营/会话表写入合法保留——`persist_result` 请求内写 5 表,且响应体从写后状态构建(public_api.py:163-167),不可推迟。
+
 | 旧行为 | 位置 | 新职责架构(Python 内) |
 |---|---|---|
-| agent 请求期调 Anitabi/Bangumi + 顺手写库 | pilgrimage_tools.py:170-280;resolve_anime.py | **Catalog 拆出**:新建 Python 摄入管线;工具改为**只读服务表**,删请求期 API 回退+写穿 |
-| best-effort 散落写库 | persistence.py | 写入收敛到管线;app DB 角色 SELECT-only 结构性保证(single-writer) |
+| agent 请求期**无条件**调 Anitabi/Bangumi + **无条件写穿** | sql.py:44-57;resolve_anime.py:145,176,201 | **Catalog 拆出**:新建 Python 摄入管线;工具改为**只读目录表**,删请求期 API + 写穿(删 sql.py:44-48)|
+| 运营写入(routes/sessions/messages/user_memory)| persistence.py:100-118 | **保留请求内写入**(响应依赖);仅显式化错误处理,不推迟 |
 | 无摄入并发控制 | — | **singleflight**:`ingest_jobs(work_id)` 唯一约束 + 负缓存 |
+| ~235 miss/sparse eval 靠写穿供数 | agent_eval_v3.json | 预摄入这些 bangumi,否则 DataCompleteness(0.476)回归 |
 | 无原子发布 | — | **版本绑定**:`cluster_version` + `route_snapshots`,版本指针切换 |
 | 无成本闸 | pilgrimage_runner.py | **LLM 闸**:per-session token 预算 + 工具调用上限 + 超限降级普通搜索 |
 | 编排臃肿/静默吞错 | public_api.py(479)、session_facade.py(463) | 按职责拆分;丢数据的静默吞错改为显式处理 |

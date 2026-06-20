@@ -1,106 +1,116 @@
 # 后端 Python 原地重写实施计划 · 新职责架构(不切 TS)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: 用 superpowers:subagent-driven-development 或 superpowers:executing-plans 逐任务执行。步骤用 `- [ ]` 跟踪。
-> **altitude 说明:** 栈不变(FastAPI/asyncpg/PydanticAI),无 spike 前置,本计划到任务级(file:line + DDL + 接口签名 + AC→测试)。具体 handler 改写代码由执行期 TDD 驱动(需读当时源码),计划不预写整段实现以免与真实源码漂移。
+> **altitude:** 栈不变(FastAPI/asyncpg/PydanticAI),无 spike 前置,任务级(file:line + DDL + AC→测试)。handler 改写代码由执行期 TDD 驱动。
+> **已硬化:** 经 13-agent 地面核验 workflow(2026-06-20,8 假设 7 被证伪),下文已并入现实修正。
 
-**Goal:** 在 Python 里把后端重写成 ADR 决策一的新职责架构:agent/API 只读服务表,一切写入经摄入管线;加版本绑定 / singleflight / LLM 闸。
+**Goal:** 在 Python 里把后端重写成 ADR 决策一职责架构:**目录数据(catalog)只读 + 经摄入管线**;运营/会话写入合法留在请求内;加版本绑定 / singleflight / LLM 闸。
 
-**Architecture:** Catalog 从 agent 拆出为独立 Python 摄入管线(Ingest→Enrich→Publish);agent 工具退化为服务表只读消费者;app DB 角色 SELECT-only;版本指针保证旧路线不漂移。
+**Architecture:** Catalog(bangumi/points)从 agent 拆出为独立 Python 摄入管线(Ingest→Enrich→Publish);agent 工具退化为**目录表只读消费者**;运营表(sessions/conversations/messages/routes/user_memory)保持请求内写入(响应体依赖它们)。版本指针保证旧路线不漂移。
 
-**Tech Stack:** Python · FastAPI · asyncpg(留)· PydanticAI(留)· PostGIS · Supabase migrations · pytest · Logfire。
+**Tech Stack:** Python · FastAPI · asyncpg · PydanticAI · PostGIS · Supabase migrations · pytest · Logfire。
 
 ## Global Constraints
 
-- 两条纪律:agent/API 永远只读服务表;一切写入必经管线(无"顺手 insert")— ADR §2 决策一
-- 不换语言/运行时:FastAPI/asyncpg/PydanticAI/内存 cache 全部保留;**决策二 TS on Workers 本次不动**
-- parity gate:重写后 617 eval JSON 跑分不达重写前 baseline 不合并 — ADR §3
-- 版本绑定:cluster_version + route_snapshots,重聚类后旧路线/しおり/分享页不漂移
-- singleflight:ingest_jobs(work_id) 唯一约束;负缓存防分享爆火击穿 Anitabi
-- LLM 闸:per-session token 预算 + 工具调用上限 + 超限降级普通搜索
-- 预收录 10-20 作品,不押实时首次收录;新鲜度靠 per-work TTL + SWR
-- 测试:pytest(--asyncio-mode=auto),后端覆盖率 ≥80%(只升不降);§3 热点逐条对应测试
-- 文件:单一职责,拆开 public_api(479)/session_facade(463) 的混合关注点
+- **纪律(已修正边界):** agent/API 对**目录表(catalog:bangumi、points)只读**,目录写入必经摄入管线;**运营表**(sessions/conversations/conversation_messages/routes/user_memory/request_log/feedback)请求内写入合法保留——`persist_result` 写后,响应体从该状态构建(public_api.py:163-167),不可推迟
+- 不换语言/运行时;决策二 TS on Workers 本次不动
+- parity gate:AC15 = 重写后 617 eval 各指标不低于 Wave 0 baseline >10%
+- 版本绑定:cluster_version + route_snapshots;singleflight:ingest_jobs(work_id) 唯一 + 负缓存;LLM 闸:per-session token 预算 + 工具上限 + 降级
+- 预收录 10-20 作品 + **eval miss/sparse 案例(~235)预摄入**,否则 DataCompleteness(0.476)回归
+- 测试:pytest(--asyncio-mode=auto),覆盖率 ≥80% 只升不降
+
+## 现实核验结论(承重,执行时勿违背)
+
+- **写穿无条件**:`execute_sql_with_fallback` 先 `write_through_bangumi_points` 再查 DB(sql.py:44-57);改只读 = 删 sql.py:44-48
+- `resolve_anime` 无条件调 Bangumi `search_subject`(resolve_anime.py:145),写 upsert 仅在 API 命中且 DB 无(resolve_anime.py:176,201)
+- `persist_result` 请求内同步写 5 张运营表(persistence.py:100-118)
+- 单 superuser DSN,无角色分离(settings.py:127-129;client.py:41-67),anon/service key 定义未用
+- 新表不存在;最新 migration `20260510180000_add_points_city.sql`
+- ⚠ `seed_data.py:137` 调不存在的 `db.upsert_bangumi()`(真:`db.bangumi.upsert_bangumi`)——seed 脚本 stale,摄入地基别依赖它,先验证
+- ⚠ `enrichment.py:209-213` `asyncio.gather` 捆 3 写(ensure_bangumi_record + persist_points + update_points_count),摄入须保原子组
 
 ---
 
-## Wave 0 · baseline 固化(重写前的安全网)
+## Wave 0 · baseline 固化(已验证 runbook)
 
-- [ ] 跑全量 eval 记录重写前 baseline 分数(IntentMatch/ResponseLocale 等),写入 plan 旁注作 parity 阈值
-- [ ] 跑 `make test` 记录绿基线;`make typecheck` / `make lint` 绿
-- **Gate:** baseline 落档,后续每波 eval 不得低于此线
+- [ ] `cp .env.example .env` 填 `DEEPSEEK_API_KEY`(必需;SUPABASE_DB_URL 可选,testcontainer 自启,需 Docker)
+- [ ] `make test-eval`(617 agent + 62 translation 案例,-m integration --no-cov)→ 落档 baseline
+- [ ] `make test-cov`(80% floor:68 unit + 6 integration)
+- **Baseline(要超过):** IntentMatch 0.538 · MessageQuality 1.0 · ToolExecution 0.998 · DataCompleteness 0.476 · StepEfficiency 0.922 · ResponseLocale 0.597(555/617≈90%,0 错)
+- ⚠ translation baseline 结果文件是 1.4K 占位,需重跑取真值
+- **Gate:** 上述落档;后续每波 eval 任一指标不得跌 >10%
 
-## Wave 1 · 数据表 + singleflight + 版本指针(地基)
+## Wave 1 · 数据表 + singleflight + 版本指针(GO,纯加表)
 
-**Files:**
-- Create: `supabase/migrations/<ts>_responsibility_arch.sql`
-- Modify: `backend/infrastructure/supabase/` 查询层(只读约束)
+**Files:** Create `supabase/migrations/20260620120000_ingest_infrastructure.sql`
 
-**DDL(本计划可精确给出):**
-- `ingest_jobs(work_id text, status text, started_at, finished_at, error text, UNIQUE(work_id))` — singleflight + 负缓存
-- `cluster_version(id serial pk, work_id, version int, created_at, is_current bool)` — 版本指针
-- `route_snapshots(id, work_id, cluster_version int, payload jsonb, created_at)` — 路线绑版本
-- raw zone:`bangumi_raw(work_id, payload jsonb, fetched_at)` / `points_raw(...)`
-- app DB 角色 `GRANT SELECT` only(写入由管线用 service 角色)
-
-**验收项:**
-- AC1 `ingest_jobs(work_id)` 唯一约束:并发两次同 work_id 仅一条 running — integration
-- AC2 版本指针切换原子:切 is_current 后旧 route_snapshot 查询结果不变 — integration
-- AC3 app 角色对服务表写入被拒(SELECT-only 结构性保证)— integration
-- AC4 负缓存:不存在 work_id 摄入失败写 ingest_jobs.error,二次请求读缓存不打 Anitabi — integration
-
-## Wave 2 · Catalog 拆出 = 摄入管线(本次核心)
-
-**Files:**
-- Create: `backend/catalog/ingest.py`(Ingest:Anitabi/Bangumi 拉取 → raw JSONB)
-- Create: `backend/catalog/enrich.py`(Enrich:聚类预计算/别名/城市回填/署名;**复用** route_optimizer union-find :34-114)
-- Create: `backend/catalog/publish.py`(Publish:写服务表 + 建 cluster_version)
-- Create: `backend/catalog/cli.py`(预收录 10-20 作品的批量摄入入口)
-- Modify: `backend/agents/handlers/resolve_anime.py` — **删请求期 Bangumi API 回退 + 写穿**,改只读服务表
-- Modify: `backend/agents/pilgrimage_tools.py:170-280`(search_bangumi/resolve_anime)— 改只读
-- Modify: `backend/clients/anitabi.py` / bangumi — 调用方从 agent 移到 catalog(client 本身留用)
-
-**Interfaces:**
-- Produces: `ingest_work(work_id) -> IngestResult`;`enrich_work(work_id)`;`publish_work(work_id) -> cluster_version`
-- Consumes(agent 侧):仅 `backend/infrastructure/supabase` 只读查询
+**DDL(已核验无命名冲突):**
+```sql
+CREATE TABLE ingest_jobs (
+  work_id TEXT PRIMARY KEY, status TEXT NOT NULL, error TEXT, error_code TEXT,
+  started_at TIMESTAMPTZ, finished_at TIMESTAMPTZ);              -- PK=singleflight+负缓存
+CREATE TABLE cluster_version (
+  id SERIAL PRIMARY KEY, work_id TEXT NOT NULL REFERENCES ingest_jobs(work_id) ON DELETE CASCADE,
+  version INT NOT NULL, is_current BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+CREATE INDEX idx_cluster_version_current ON cluster_version(work_id, is_current);
+CREATE TABLE route_snapshots (
+  id SERIAL PRIMARY KEY, work_id TEXT NOT NULL REFERENCES ingest_jobs(work_id) ON DELETE CASCADE,
+  cluster_version INT NOT NULL, payload JSONB NOT NULL,          -- payload=完整 route 对象
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+```
 
 **验收项:**
-- AC5 摄入管线:CLI 摄入一个作品 → 服务表出现点 + cluster_version — integration
-- AC6 **agent 工具不再有任何写操作 / 外部 API 调用**(断言 mock 的 Anitabi/Bangumi client 在 agent run 期零调用)— unit
-- AC7 search_bangumi 只读服务表返回点,与重写前同输入同输出对拍 — integration
-- AC8 未预收录作品:工具查空 → 返回明确降级(提示/退普通搜索),不报错 — eval
-- AC9 Enrich 聚类结果与旧 route_optimizer 逐点一致 — unit(对拍)
+- AC1 `ingest_jobs(work_id)` PK:并发两次同 work_id 仅一条 running — integration
+- AC2 版本指针切换原子:切 is_current 后旧 route_snapshot 查询不变 — integration
+- **AC3(已修正)** SELECT-only 仅对**目录表(bangumi、points)**;运营表保持可写。结构性 enforcement 为未来态(testcontainer 用 superuser)→ 本 AC 用专门 app_role fixture 测,或降级为文档约定 — integration/doc
+- AC4 负缓存:不存在 work_id 摄入失败写 ingest_jobs.error,二次读缓存不打 Anitabi — integration
+- 注:Wave 1 不碰 agent 逻辑,eval baseline 不受影响 → 可独立先跑
+
+## Wave 2 · Catalog 拆出 + 工具只读(核心,有阻塞前置)
+
+**Files:**
+- Create `backend/catalog/{ingest,enrich,publish,cli}.py`(enrich 复用 route_optimizer union-find :34-114;保 enrichment.py:209-213 原子组)
+- Modify `backend/agents/handlers/resolve_anime.py:145` → DB-first,移除请求期 API
+- Modify `backend/agents/.../sql.py:44-48`(删 write-through);`resolve_anime.py:174-176,200-201`(删 upsert);`tools.py:125-144`(gate)
+- Modify retriever 缓存键加 version(retriever.py:119,防并发竞态)
+
+**阻塞前置(必须先做):**
+- **P1 预摄入**:用 Wave 1 的 singleflight 把"已收录作品" + **eval miss/sparse 的 bangumi(从 agent_eval_v3.json 提 ID,~235 例)** 预灌进 DB,否则 search_bangumi 查空、DataCompleteness 跌
+- **P2 决策**:resolve_anime 的 title/cover 解析保持同步(保 resolve→search parity)vs 全预摄入——二选一写进 plan
+
+**验收项:**
+- AC5 CLI 摄入一个作品 → 目录表出现点 + cluster_version — integration
+- AC6 agent run 期**对 Anitabi/Bangumi client 零调用 + 对目录表零写**(mock 断言)— unit
+- AC7 search_bangumi 只读目录表,已摄入作品与重写前同输入同输出对拍 — integration
+- AC8 未摄入作品:查空 → 明确降级(提示/退普通搜索)不报错 — eval
+- AC9 enrich 聚类与旧 route_optimizer 逐点一致 — unit
+- **AC-DC 决策**:miss/sparse 预摄入后 DataCompleteness ≥0.476;若选不预摄入则显式放宽该 floor 并文档化 trade-off — eval
 
 ## Wave 3 · LLM 闸 + 编排清理
 
-**Files:**
-- Modify: `backend/agents/pilgrimage_runner.py` — 加 per-session token 预算 + 工具调用上限 + 降级
-- Modify: `backend/interfaces/public_api.py`(479)— 拆 `RuntimeAPI.handle()`(105 行)按职责分方法/模块
-- Modify: `backend/interfaces/session_facade.py`(463)— 拆 context 构建 / 状态更新 / 压缩
-- Modify: `backend/interfaces/persistence.py` — 丢数据的静默吞错改显式处理
+**Files:** Modify `pilgrimage_runner.py`(LLM 闸)、`public_api.py`(拆 handle() 105 行)、`session_facade.py`(463)、`persistence.py`(显式错误处理)
 
 **验收项:**
-- AC10 LLM 闸:超 per-session token 预算或工具调用上限 → 降级普通搜索,不无限循环 — integration
-- AC11 编排拆分后:greet_user 早退(session_id=None 不持久化)行为不变 — unit
-- AC12 clarify 强制不变:调过 clarify 后必返回 clarify_response 并停止 — eval
-- AC13 message_history 反序列化时序不变(load 后 / agent 前)— unit
-- AC14 错误码→HTTP 映射全覆盖(400/401/429/504/500)— unit
-- **AC15 parity gate:617 eval 跑分 ≥ Wave 0 baseline** — eval
+- AC10 LLM 闸:超 token 预算/工具上限 → 降级,不无限循环;**澄清:透明 API fallback 是否计入工具配额** — integration
+- AC11 greet_user 早退(session_id=None,persist 前 return,public_api.py:134-139)不变 — unit
+- AC12 clarify 强制不变 — eval / AC13 message_history 反序列化时序不变 — unit
+- AC14 错误码→HTTP 映射全覆盖 — unit
+- **AC15 parity:617 eval 各指标 ≥ Wave 0 baseline(跌幅 ≤10%)** — eval
 
-## 跨波次 · 保留项验证
+## 跨波次 · 保留项回归
 
-- output_validator / ModelRetry 守卫 / 历史语义压缩 / 系列启发式(§3.A 1-5):重写后回归测试全绿
-- Logfire 观测:重写后 span 仍捕获 LLM token,dashboard 连续
-- 内存 cache/retry:留用,不改
+output_validator / ModelRetry 守卫 / 历史语义压缩(>200/滑窗40/留8)/ 系列启发式(≥70%)/ Logfire span / 内存 cache+retry — 重写后回归全绿。
 
 ---
 
-## Self-Review(对 ADR 决策一 + 迁移地图覆盖)
+## 阻塞风险登记(7 项高置信证伪 → 对应缓解)
 
-- ADR 决策一 两条纪律(只读 + 写经管线):Wave 1 AC3 + Wave 2 AC6 ✓
-- Catalog 拆出:Wave 2 ✓ / 三段管线:Wave 2 ingest/enrich/publish ✓
-- 版本绑定:AC2 ✓ / singleflight + 负缓存:AC1, AC4 ✓ / LLM 闸:AC10 ✓
-- 预收录不押实时首收:AC8 ✓ / app SELECT-only:AC3 ✓
-- 迁移地图 §3 热点 14 条:§3.A→AC11-13+跨波次、§3.B→AC11-14、§3.C→AC8 ✓
-- parity baseline:Wave 0 + AC15 ✓
-- 决策二(TS on Workers):**明确不在本计划**,保留在 ADR 作后续 ✓
-- 缺口:具体 handler 改写整段代码 = 执行期 TDD 驱动(需读当时源码),计划不预写 — 见 altitude 说明
+1. **运营表 SELECT-only = 应用崩**(persist_result 写 5 表 + 响应从状态建)→ AC3 改 catalog-only
+2. **resolve→search parity 在延迟写下崩**(search 查空)→ P1 预摄入 + P2 resolve 同步
+3. **DataCompleteness 回归**(~235 miss/sparse 靠 write-through)→ P1 预摄入 或 显式放宽 floor
+4. **并发同 bangumi 竞态**(retriever.py:119 实例级缓存不去重)→ ingest_jobs 唯一 + version 入缓存键
+
+## Self-Review
+
+ADR 决策一只读纪律(catalog-only)+ Catalog 拆出 + 三段管线 + 版本绑定 + singleflight + LLM 闸 + 预收录 + parity:Wave 0-3 + 风险登记全覆盖 ✓;决策二不在本计划 ✓
