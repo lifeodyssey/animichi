@@ -20,9 +20,9 @@ from pydantic_ai.ui.vercel_ai.response_types import BaseChunk, DataChunk
 from starlette.responses import Response
 
 from backend.agents.pilgrimage_runner import pilgrimage_agent
-from backend.agents.retriever import Retriever
 from backend.agents.runtime_deps import RuntimeDeps
 from backend.domain.ports import DatabasePort
+from backend.interfaces.public_api import default_catalog_client
 from backend.interfaces.routes._deps import (
     TrustedAuthContext,
     _get_catalog_client,
@@ -150,8 +150,7 @@ async def handle_chat(
         db=db,
         locale=locale,
         query="",  # extracted from messages by the agent
-        retriever=Retriever(db),
-        catalog=_get_catalog_client(request),
+        catalog=_get_catalog_client(request) or default_catalog_client(),
     )
 
     # Pre-populate tool_state with clarify context if detected

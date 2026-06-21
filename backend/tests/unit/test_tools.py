@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from backend.agents.runtime_deps import RuntimeDeps
 from backend.agents.tools import enrich_clarify_candidates
+from backend.tests.eval.mock_catalog_client import MockCatalogClient
 
 
 async def test_enrich_clarify_candidates_keeps_order_and_defaults() -> None:
@@ -29,7 +30,7 @@ async def test_enrich_clarify_candidates_keeps_order_and_defaults() -> None:
             },
         ]
     )
-    deps = RuntimeDeps(db=db, locale="zh", query="q")
+    deps = RuntimeDeps(db=db, locale="zh", query="q", catalog=MockCatalogClient())
 
     candidates = await enrich_clarify_candidates(
         deps, ["凉宫春日的忧郁", "凉宫春日的消失"]
@@ -71,7 +72,9 @@ async def test_enrich_clarify_candidates_falls_back_to_gateway_and_writes_throug
             }
         }
     )
-    deps = RuntimeDeps(db=db, locale="zh", query="q", gateway=gateway)
+    deps = RuntimeDeps(
+        db=db, locale="zh", query="q", gateway=gateway, catalog=MockCatalogClient()
+    )
 
     candidates = await enrich_clarify_candidates(deps, ["凉宫春日的忧郁"])
 
