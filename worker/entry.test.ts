@@ -42,3 +42,13 @@ test("catalogOutbound forwards container requests to the CATALOG binding", async
   assert.equal(await res.text(), "cat");
   assert.equal(received, req);
 });
+
+test("/img/* routes to the image proxy (bad path → 400, not OpenNext)", async () => {
+  const app = createWorkerApp({ nextHandler: stubNext });
+  // "a..b" survives URL normalization (dots not adjacent to slashes) and trips
+  // handleImageProxy's ".." guard → 400, proving the request reached the image
+  // handler rather than falling through to OpenNext (which would return "next").
+  const res = await app.request("/img/a..b", {}, {}, stubCtx);
+  assert.equal(res.status, 400);
+  assert.notEqual(await res.text(), "next");
+});
