@@ -7,10 +7,11 @@ import { nearby } from "../src/api/nearby";
  *
  * No Docker: `findPointsWithinRadius` (the ST_DWithin primitive) is already
  * integration-tested against real PostGIS in geo-query.spike.test.ts. Here we
- * fake the two reads `nearby()` performs — the geo helper's `db.execute(sql)`
- * and the detail-load's `db.select().from().where()` — to drive the handler's
- * radius→PilgrimagePoint mapping in isolation. Named *.worker.test.ts so the
- * existing vitest-pool-workers config picks it up; the logic is runtime-agnostic.
+ * fake the two `db.execute(sql)` reads `nearby()` performs — the geo helper's
+ * radius read (ST_DWithin) and the detail-load's id IN read — distinguishing
+ * them by query text, to drive the handler's radius→PilgrimagePoint mapping in
+ * isolation. Named *.worker.test.ts so the existing vitest-pool-workers config
+ * picks it up; the logic is runtime-agnostic.
  *
  * Fixture: two points near Washinomiya, returned nearest-first by the geo read.
  */
@@ -25,11 +26,11 @@ interface GeoRow {
 
 interface DetailRow {
   id: string;
-  bangumiId: string | null;
-  nameCn: string | null;
+  bangumi_id: string | null;
+  name_cn: string | null;
   image: string | null;
   episode: number | null;
-  timeSeconds: number | null;
+  time_seconds: number | null;
   origin: string | null;
 }
 
@@ -39,17 +40,18 @@ const GEO: GeoRow[] = [
 ];
 
 const DETAILS: DetailRow[] = [
-  { id: "washinomiya", bangumiId: "lucky-star", nameCn: "鹫宫神社", image: "https://img/w.jpg", episode: 1, timeSeconds: 12, origin: "anitabi" },
-  { id: "satte", bangumiId: "lucky-star", nameCn: null, image: null, episode: null, timeSeconds: null, origin: null },
+  { id: "washinomiya", bangumi_id: "lucky-star", name_cn: "鹫宫神社", image: "https://img/w.jpg", episode: 1, time_seconds: 12, origin: "anitabi" },
+  { id: "satte", bangumi_id: "lucky-star", name_cn: null, image: null, episode: null, time_seconds: null, origin: null },
 ];
 
-/** Minimal CatalogDb double: `execute` feeds the geo helper, `select` feeds loadDetails. */
+/** Minimal CatalogDb double: both reads are `db.execute(sql)`. The ST_DWithin
+ * radius read returns geo rows; the detail-load IN read returns detail rows. */
 function fakeDb(geo: GeoRow[], details: DetailRow[]): CatalogDb {
-  const where = () => Promise.resolve(details);
-  const from = () => ({ where });
   return {
-    execute: () => Promise.resolve({ rows: geo }),
-    select: () => ({ from }),
+    execute: (query: unknown) => {
+      const isDetail = JSON.stringify(query).includes("name_cn");
+      return Promise.resolve({ rows: isDetail ? details : geo });
+    },
   } as unknown as CatalogDb;
 }
 

@@ -24,6 +24,7 @@
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import { normalizeAlias } from "../lib/alias";
+import { optional } from "../lib/optional";
 import { ingestWork } from "../ingest/orchestrator";
 import { fetchBangumiSearch, type FetchLike } from "../ingest/sources";
 import type { Origin, PilgrimagePoint } from "../types";
@@ -99,13 +100,13 @@ function geo(r: WorkPointRow): Pick<PilgrimagePoint, "latitude" | "longitude"> {
 
 /** Optional metadata fields, omitted when null. */
 function meta(r: WorkPointRow): Partial<PilgrimagePoint> {
-  return {
-    ...(r.name_cn != null ? { name_cn: r.name_cn } : {}),
-    ...(r.episode != null ? { episode: r.episode } : {}),
-    ...(r.time_seconds != null ? { time_seconds: r.time_seconds } : {}),
-    ...(r.title != null ? { title: r.title } : {}),
-    ...(r.title_cn != null ? { title_cn: r.title_cn } : {}),
-  };
+  return optional({
+    name_cn: r.name_cn,
+    episode: r.episode,
+    time_seconds: r.time_seconds,
+    title: r.title,
+    title_cn: r.title_cn,
+  });
 }
 
 /** `synced_at` from the work's `bangumi.updated_at`, else now. Accepts a Date or
