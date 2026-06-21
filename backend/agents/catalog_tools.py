@@ -27,6 +27,8 @@ from backend.agents.tool_runtime import (
 )
 from backend.clients.catalog_client import CatalogClientProtocol, PilgrimagePoint
 
+_NO_DATA_ERROR = "No catalog data"
+
 
 async def _store_catalog_result(
     deps: RuntimeDeps,
@@ -43,14 +45,14 @@ async def _store_catalog_result(
         success=success,
         params=params,
         data=payload or None,
-        error=None if success else "No catalog data",
+        error=None if success else _NO_DATA_ERROR,
     )
     if success:
         _localize_city_names(payload, deps.locale)
         deps.tool_state[tool.value] = payload
         await _emit_step(deps, tool.value, "done", payload)
         return _summarize_for_llm(tool, payload)
-    await _emit_step(deps, tool.value, "failed", {"error": "No catalog data"})
+    await _emit_step(deps, tool.value, "failed", {"error": _NO_DATA_ERROR})
     return {}
 
 

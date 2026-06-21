@@ -26,6 +26,11 @@ def _point_to_row(point: PilgrimagePoint) -> dict[str, object]:
     return point.model_dump(mode="json")
 
 
+def _rows_from_points(points: list[PilgrimagePoint]) -> list[dict[str, object]]:
+    """Serialize points to proxy-rewritten row dicts (shared search/route shape)."""
+    return rewrite_image_urls([_point_to_row(p) for p in points])
+
+
 def _search_metadata(points: list[PilgrimagePoint]) -> dict[str, object]:
     """Derive anime title/cover metadata from the first point, if any."""
     if not points:
@@ -44,7 +49,7 @@ def build_search_payload(
     points: list[PilgrimagePoint], *, tool: SearchTool
 ) -> dict[str, object]:
     """Shape catalog points into the search/nearby tool_state payload."""
-    rows = rewrite_image_urls([_point_to_row(p) for p in points])
+    rows = _rows_from_points(points)
     empty = not rows
     return {
         "rows": rows,
@@ -103,7 +108,7 @@ def build_resolve_payload(points: list[PilgrimagePoint]) -> dict[str, object]:
 
 def build_route_payload(route: Route) -> dict[str, object]:
     """Shape a catalog Route into the plan_route tool_state payload."""
-    ordered = rewrite_image_urls([_point_to_row(p) for p in route.ordered_points])
+    ordered = _rows_from_points(route.ordered_points)
     itinerary = route.timed_itinerary
     return {
         "ordered_points": ordered,
