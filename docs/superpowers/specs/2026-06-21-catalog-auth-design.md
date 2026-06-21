@@ -69,3 +69,11 @@ ingest **无公网端点**;只 ① catalog 内 cron(预收录/增量)② agent s
 3. catalog 部署:无公开路由(wrangler 配置 + 部署核对)。
 4. 前端:确认读调 `/v1/{search,spots,routes,bundle}`(若仍调旧 catalog 直连路径则切回 /v1)。
 5. 测试:路由+认证单测、outbound→binding、catalog-无公网负向断言。
+
+## 落地核对(部署时验证私有性)
+
+- [ ] `node --test worker/entry.test.ts` 绿:`/catalog/*` 落到 OpenNext(非 binding)。
+- [ ] 部署后 `curl -i https://<prod-domain>/catalog/search -d '{}'` → 404/不可达(经 OpenNext,非 binding)→ 公网 catalog 洞已堵。
+- [ ] chat 全链:`POST /v1/chat` → agent → 容器经 `catalog.internal` outbound→binding → catalog 真数据(私网路径通)。
+- [ ] catalog Worker 仍无 route(`catalog/wrangler.toml` 无 `route`/`workers_dev`),只 `[[services]] CATALOG` binding 可达。
+- [ ] X-User 透传不变:`/v1/*` 经 proxy.ts 验 Supabase → 容器信任 `X-User-Id`(本次未碰)。
