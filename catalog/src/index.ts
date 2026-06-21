@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { catalogRouter } from "./router";
 import type { CatalogDb } from "./db/client";
@@ -30,6 +30,23 @@ const apiHandler = new OpenAPIHandler(catalogRouter);
 /** The Postgres connection string for this request: Hyperdrive in prod, else DATABASE_URL. */
 function connectionString(env?: Env): string | undefined {
   return env?.HYPERDRIVE?.connectionString ?? env?.DATABASE_URL;
+}
+
+/**
+ * This request's `ExecutionContext.waitUntil`, bound for the search miss path to
+ * background the full ingest. `c.executionCtx` THROWS when Hono has no execution
+ * context (some test/integration harnesses dispatch without one) — guard it so
+ * the handler degrades to the synchronous fallback instead of 500ing.
+ */
+function waitUntilFor(
+  c: Context<{ Bindings: Env }>,
+): ((p: Promise<unknown>) => void) | undefined {
+  try {
+    const ctx = c.executionCtx;
+    return ctx.waitUntil.bind(ctx);
+  } catch {
+    return undefined;
+  }
 }
 
 // One Drizzle client (pool) per connection string, reused across requests.
@@ -95,7 +112,10 @@ app.use("/catalog/*", async (c, next) => {
     prefix: "/catalog",
     // Inject the runtime's real `fetch` so the `ingest` method reaches upstream
     // Anitabi/Bangumi in prod; tests stub the global `fetch` to stay offline.
-    context: { db: await dbFor(connStr), fetchImpl: fetch },
+    // `waitUntil` (bound from the Worker ExecutionContext) lets the search miss
+    // path return an L1 preview immediately and run the full ingest in the
+    // background, so the request never blocks past the workerd limit.
+    context: { db: await dbFor(connStr), fetchImpl: fetch, waitUntil: waitUntilFor(c) },
   });
   if (matched) {
     return c.newResponse(response.body, response);

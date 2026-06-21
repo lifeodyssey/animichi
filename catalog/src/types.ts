@@ -58,6 +58,20 @@ export interface TransitLeg {
   distance_m: number;
 }
 
+/**
+ * The `search` response — mirrors `SearchResult` in the contract.
+ *
+ * `partial` is set when `rows` are an L1 preview (the first ~10 points from the
+ * Anitabi `/lite` endpoint, returned immediately while the full ingest runs in
+ * the background) rather than the work's fully-published point set. Absent on a
+ * normal alias-hit response.
+ */
+export interface SearchResult {
+  rows: PilgrimagePoint[];
+  synced_at: string;
+  partial?: boolean;
+}
+
 /** A complete timed route — mirrors `TimedItinerary`. */
 export interface TimedItinerary {
   stops: TimedStop[];

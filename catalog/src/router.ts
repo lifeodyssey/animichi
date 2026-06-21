@@ -34,21 +34,33 @@ import type { IngestResult, Origin, Pacing } from "./types";
  * `fetch` the `ingest` method uses to reach upstream Anitabi/Bangumi. `index.ts`
  * injects the real global `fetch` in prod; tests inject a stub so ingest never
  * hits the network. Defaults to global `fetch` when omitted.
+ *
+ * `waitUntil` is the Worker `ExecutionContext.waitUntil` (bound per request in
+ * `index.ts`): it extends the request's lifetime so a backgrounded promise
+ * (the search miss path's FULL ingest) runs to completion AFTER the response is
+ * sent — instead of blocking it past the workerd request limit. Optional: when
+ * absent (tests, older callers) the search path falls back to running the full
+ * ingest synchronously.
  */
 export interface CatalogContext {
   db: CatalogDb;
   fetchImpl?: typeof fetch;
+  waitUntil?: (promise: Promise<unknown>) => void;
 }
 
 /** Base builder carrying the Catalog context so handlers can read `context.db`. */
 const base = os.$context<CatalogContext>();
 
-/** search(query, origin?) -> { rows, synced_at }; an alias miss resolves+ingests on demand. */
+/** search(query, origin?) -> { rows, synced_at, partial? }; an alias miss returns
+ * an L1 preview and backgrounds the full ingest via `context.waitUntil`. */
 const search = base
   .route({ method: "POST", path: "/search" })
   .input(type<{ query: string; origin?: Origin }>())
   .handler(async ({ input, context }) =>
-    searchHandler(searchDb(context.db), input, context.fetchImpl),
+    searchHandler(searchDb(context.db), input, {
+      fetchImpl: context.fetchImpl,
+      waitUntil: context.waitUntil,
+    }),
   );
 
 /** spots(bangumi_id, origin?) -> { point, distance_m? }; missing work -> 404. */

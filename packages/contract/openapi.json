@@ -122,6 +122,9 @@
                     },
                     "synced_at": {
                       "type": "string"
+                    },
+                    "partial": {
+                      "type": "boolean"
                     }
                   },
                   "required": [

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  fetchAnitabiLite,
   fetchAnitabiPoints,
   fetchBangumiSubject,
   type FetchLike,
@@ -62,6 +63,41 @@ describe("fetchAnitabiPoints", () => {
   it("throws on a non-2xx upstream status", async () => {
     const { fetch } = mockFetch(null, { ok: false, status: 503 });
     await expect(fetchAnitabiPoints("x", { fetchImpl: fetch })).rejects.toThrow("503");
+  });
+});
+
+describe("fetchAnitabiLite", () => {
+  it("hits /{id}/lite and returns litePoints + the total point count", async () => {
+    const { fetch, urls } = mockFetch({
+      pointsLength: 68,
+      litePoints: [{ id: "p1", name: "宇治橋", geo: [34.89, 135.8] }],
+    });
+    const lite = await fetchAnitabiLite("10380", {
+      fetchImpl: fetch,
+      anitabiBaseUrl: "https://anitabi.test",
+    });
+    expect(urls[0]).toBe("https://anitabi.test/10380/lite");
+    expect(lite.total).toBe(68);
+    expect(lite.points).toHaveLength(1);
+    expect(lite.points[0]?.id).toBe("p1");
+  });
+
+  it("defaults to the api.anitabi.cn/bangumi base", async () => {
+    const { fetch, urls } = mockFetch({ pointsLength: 0, litePoints: [] });
+    await fetchAnitabiLite("3302", { fetchImpl: fetch });
+    expect(urls[0]).toBe("https://api.anitabi.cn/bangumi/3302/lite");
+  });
+
+  it("returns an empty preview defensively when litePoints is missing", async () => {
+    const { fetch } = mockFetch({ id: 3302 });
+    const lite = await fetchAnitabiLite("3302", { fetchImpl: fetch });
+    expect(lite.points).toEqual([]);
+    expect(lite.total).toBe(0);
+  });
+
+  it("throws on a non-2xx upstream status", async () => {
+    const { fetch } = mockFetch(null, { ok: false, status: 503 });
+    await expect(fetchAnitabiLite("x", { fetchImpl: fetch })).rejects.toThrow("503");
   });
 });
 

@@ -9,7 +9,7 @@ import { oc } from "@orpc/contract";
 import { z } from "zod";
 import { IngestResult, Origin, PilgrimagePoint, Pacing, Route } from "./models.js";
 
-/** search(query, origin?) -> { rows, synced_at } */
+/** search(query, origin?) -> { rows, synced_at, partial? } */
 export const SearchInput = z.object({
   query: z.string(),
   origin: Origin.optional(),
@@ -19,6 +19,10 @@ export type SearchInput = z.infer<typeof SearchInput>;
 export const SearchResult = z.object({
   rows: z.array(PilgrimagePoint),
   synced_at: z.string(),
+  // True when `rows` are an L1 preview (Anitabi `/lite`, first ~10 points)
+  // returned immediately on an alias miss while the full ingest runs in the
+  // background. Absent on a normal alias-hit (fully-published) response.
+  partial: z.boolean().optional(),
 });
 export type SearchResult = z.infer<typeof SearchResult>;
 
