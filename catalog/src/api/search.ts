@@ -6,13 +6,19 @@
  * to a `work_id` (a Bangumi subject id), then returns that work's `points`
  * joined to its `bangumi` metadata for the anime title.
  *
- * On an alias MISS (an uncovered work) this resolves the title on demand: it
- * asks the Bangumi search API for the best-match subject id, then ingests that
- * work end-to-end and returns its freshly-published points. The agent stays
- * upstream-free — only the catalog ever touches Anitabi/Bangumi. A title that
- * Bangumi can't resolve (or whose ingest is in-progress/empty/failed) yields
- * `{ rows: [] }`. The L1 fast-preview tier and SSE ingest-progress streaming are
- * FOLLOW-UPS; this is the synchronous miss -> resolve -> ingest -> return path.
+ * On an alias MISS (an uncovered work) this is TIERED so workerd never blocks on
+ * the full ingest (fetch ~68 points + enrich + publish exceeds the request
+ * limit -> a hung 500):
+ *   - resolve the title to a Bangumi subject id (fast);
+ *   - fetch the Anitabi `/lite` preview (the first ~10 points, fast) and return
+ *     those IMMEDIATELY as the L1 preview, flagged `partial:true`;
+ *   - schedule the FULL `ingestWork` in the background via the request's
+ *     `ExecutionContext.waitUntil`, so the response returns before it finishes.
+ * When no `waitUntil` is available (tests / integration harnesses without an
+ * execution context) it FALLS BACK to running the full ingest synchronously —
+ * the prior behavior — so nothing breaks. The agent stays upstream-free; only
+ * the catalog ever touches Anitabi/Bangumi. A title Bangumi can't resolve (or
+ * whose lite preview is empty) yields `{ rows: [] }`.
  *
  * Output mirrors the oRPC contract `SearchResult` / `PilgrimagePoint`. The wire
  * shapes (`Origin` / `PilgrimagePoint`) come from `../types` — the single
@@ -26,10 +32,30 @@ import type { CatalogDb } from "../db/client";
 import { normalizeAlias } from "../lib/alias";
 import { optional } from "../lib/optional";
 import { ingestWork } from "../ingest/orchestrator";
-import { fetchBangumiSearch, type FetchLike } from "../ingest/sources";
+import {
+  fetchAnitabiLite,
+  fetchBangumiSearch,
+  type AnitabiPoint,
+  type FetchLike,
+} from "../ingest/sources";
 import type { Origin, PilgrimagePoint } from "../types";
 
 export type { Origin, PilgrimagePoint };
+
+/** A resolved-but-uncovered work: its Bangumi id + the L1 lite preview points. */
+export interface MissPreview {
+  workId: string;
+  points: PilgrimagePoint[];
+}
+
+/** Knobs for the search miss path: the injectable `fetch` + the background hook. */
+export interface SearchOptions {
+  fetchImpl?: FetchLike;
+  /** `ExecutionContext.waitUntil` — when set, the full ingest runs in the
+   * background and an L1 preview returns immediately; when absent the full
+   * ingest runs synchronously (the prior behavior). */
+  waitUntil?: (promise: Promise<unknown>) => void;
+}
 
 /** A point row joined to its parent work's title, as read from Postgres. */
 export interface WorkPointRow {
@@ -52,31 +78,75 @@ export interface WorkPointRow {
  * The minimal DB surface `search` depends on. `CatalogDb` (the production
  * Drizzle client) satisfies it via `searchDb(db)`; tests inject a fake.
  *
- * `resolveAndIngest` is the on-demand miss path: resolve the title via the
- * Bangumi search API, then ingest the work end-to-end. It returns the ingested
- * work's id on `status:"ingested"`, else null (no-result / in-progress / empty /
- * failed) so the handler can short-circuit to empty rows.
+ * The miss path is split into two so the handler can return the fast preview
+ * before the slow ingest finishes:
+ *   - `resolvePreview`: resolve the title via Bangumi search, then fetch the
+ *     Anitabi `/lite` preview (first ~10 points). Returns the work id + preview
+ *     points, or null (unresolvable / empty preview) so the handler returns
+ *     empty rows. FAST — no enrich/publish.
+ *   - `runFullIngest`: the full `ingestWork` (fetch all points -> enrich ->
+ *     publish), run in the background via `waitUntil` (or synchronously in the
+ *     fallback). The published points then serve subsequent (alias-hit) reads.
  */
 export interface SearchDb {
   workIdForAlias(aliasNormalized: string): Promise<string | undefined>;
   pointsForWork(workId: string): Promise<WorkPointRow[]>;
-  resolveAndIngest(query: string, fetchImpl?: FetchLike): Promise<string | null>;
+  resolvePreview(query: string, fetchImpl?: FetchLike): Promise<MissPreview | null>;
+  runFullIngest(workId: string, fetchImpl?: FetchLike): Promise<void>;
+}
+
+/** The search response: rows + freshness, plus `partial` when these are an L1 preview. */
+export interface SearchResult {
+  rows: PilgrimagePoint[];
+  synced_at: string;
+  partial?: boolean;
 }
 
 /** Resolve a free-text query to a work's pilgrimage points. */
 export async function search(
   db: SearchDb,
   input: { query: string; origin?: Origin },
-  fetchImpl?: FetchLike,
-): Promise<{ rows: PilgrimagePoint[]; synced_at: string }> {
-  const workId =
-    (await db.workIdForAlias(normalizeAlias(input.query))) ??
-    (await db.resolveAndIngest(input.query, fetchImpl));
-  if (!workId) {
-    return { rows: [], synced_at: new Date().toISOString() };
-  }
+  opts: SearchOptions = {},
+): Promise<SearchResult> {
+  const workId = await db.workIdForAlias(normalizeAlias(input.query));
+  if (workId) return hitResult(db, workId);
+  return missResult(db, input.query, opts);
+}
+
+/** Alias HIT: return the work's published points from the catalog (no preview/ingest). */
+async function hitResult(db: SearchDb, workId: string): Promise<SearchResult> {
   const rows = await db.pointsForWork(workId);
   return { rows: rows.map(toPoint), synced_at: syncedAt(rows) };
+}
+
+/** Alias MISS: resolve + L1 preview now, full ingest in the background (or sync fallback). */
+async function missResult(
+  db: SearchDb,
+  query: string,
+  opts: SearchOptions,
+): Promise<SearchResult> {
+  const preview = await db.resolvePreview(query, opts.fetchImpl);
+  if (!preview) return emptyResult();
+  if (!opts.waitUntil) return syncFallback(db, preview, opts.fetchImpl);
+  opts.waitUntil(db.runFullIngest(preview.workId, opts.fetchImpl));
+  return { rows: preview.points, synced_at: new Date().toISOString(), partial: true };
+}
+
+/** No `waitUntil`: run the full ingest synchronously, then read the published points. */
+async function syncFallback(
+  db: SearchDb,
+  preview: MissPreview,
+  fetchImpl?: FetchLike,
+): Promise<SearchResult> {
+  await db.runFullIngest(preview.workId, fetchImpl);
+  const rows = await db.pointsForWork(preview.workId);
+  if (rows.length > 0) return { rows: rows.map(toPoint), synced_at: syncedAt(rows) };
+  return { rows: preview.points, synced_at: new Date().toISOString(), partial: true };
+}
+
+/** The empty-result shape (unresolvable title / empty preview). */
+function emptyResult(): SearchResult {
+  return { rows: [], synced_at: new Date().toISOString() };
 }
 
 /** Map a joined DB row to the contract `PilgrimagePoint` shape. */
@@ -121,20 +191,83 @@ export function searchDb(db: CatalogDb): SearchDb {
   return {
     workIdForAlias: (normalized) => firstWorkId(db, normalized),
     pointsForWork: (workId) => selectPoints(db, workId),
-    resolveAndIngest: (query, fetchImpl) => resolveAndIngest(db, query, fetchImpl),
+    resolvePreview: (query, fetchImpl) => resolvePreview(query, fetchImpl),
+    runFullIngest: (workId, fetchImpl) => runFullIngest(db, workId, fetchImpl),
   };
 }
 
-/** Bangumi-resolve the uncovered title, then ingest it; the work id, else null. */
-async function resolveAndIngest(
-  db: CatalogDb,
+/** Resolve an uncovered title to its Bangumi id + the fast Anitabi `/lite`
+ * preview points; null when Bangumi can't resolve it, the preview is empty, or
+ * an upstream call fails. An upstream hiccup must NOT 500 the search — it
+ * degrades to empty rows, the same resilience the prior ingest-backed path had. */
+async function resolvePreview(
   query: string,
   fetchImpl?: FetchLike,
-): Promise<string | null> {
+): Promise<MissPreview | null> {
+  try {
+    return await resolvePreviewUnsafe(query, fetchImpl);
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve id -> lite preview; may throw on an upstream error (caller guards). */
+async function resolvePreviewUnsafe(
+  query: string,
+  fetchImpl?: FetchLike,
+): Promise<MissPreview | null> {
   const bangumiId = await fetchBangumiSearch(query, { fetchImpl });
   if (!bangumiId) return null;
-  const result = await ingestWork(db, bangumiId, { fetchImpl });
-  return result.status === "ingested" ? bangumiId : null;
+  const lite = await fetchAnitabiLite(bangumiId, { fetchImpl });
+  if (lite.points.length === 0) return null;
+  return { workId: bangumiId, points: lite.points.map((p) => litePoint(p, bangumiId)) };
+}
+
+/** The FULL ingest (fetch all points -> enrich -> publish); swallows the result
+ * (it is fire-and-forget on `waitUntil`, and synchronous callers re-read the DB). */
+async function runFullIngest(
+  db: CatalogDb,
+  workId: string,
+  fetchImpl?: FetchLike,
+): Promise<void> {
+  await ingestWork(db, workId, { fetchImpl });
+}
+
+/** Map one Anitabi `/lite` point (official geo[] schema) to a `PilgrimagePoint`. */
+function litePoint(p: AnitabiPoint, bangumiId: string): PilgrimagePoint {
+  const [lat, lng] = liteGeo(p["geo"]);
+  return {
+    id: liteStr(p["id"]),
+    name: liteStr(p["name"]),
+    bangumi_id: bangumiId,
+    screenshot_url: liteImage(p["image"]),
+    latitude: lat,
+    longitude: lng,
+    ...optional({ episode: liteInt(p["ep"]), time_seconds: liteInt(p["s"]) }),
+  };
+}
+
+/** Read `geo: [lat, lng]` as numbers; [0, 0] when absent/short. */
+function liteGeo(raw: unknown): [number, number] {
+  if (!Array.isArray(raw) || raw.length < 2) return [0, 0];
+  return [Number(raw[0]) || 0, Number(raw[1]) || 0];
+}
+
+/** Resolve a lite point image, prefixing the Anitabi CDN host for relative paths. */
+function liteImage(raw: unknown): string {
+  const url = liteStr(raw);
+  if (url.startsWith("/")) return `https://image.anitabi.cn${url}`;
+  return url;
+}
+
+/** Coerce an unknown to a string ("" when absent). */
+function liteStr(raw: unknown): string {
+  return typeof raw === "string" ? raw : "";
+}
+
+/** Coerce an unknown to a finite integer, else null (so `optional` omits it). */
+function liteInt(raw: unknown): number | null {
+  return typeof raw === "number" && Number.isFinite(raw) ? Math.trunc(raw) : null;
 }
 
 /** Exact-match the normalized alias -> the highest-priority work id.
