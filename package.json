@@ -9,7 +9,8 @@
     "deploy": "npm run build:frontend && npx wrangler deploy"
   },
   "dependencies": {
-    "@cloudflare/containers": "^0.3.7"
+    "@cloudflare/containers": "^0.3.7",
+    "hono": "^4.9.10"
   },
   "devDependencies": {
     "@storybook/react": "^10.3.6",
