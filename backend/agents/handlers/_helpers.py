@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from backend.agents.handlers.result import HandlerResult
-from backend.agents.retriever import RetrievalResult
 from backend.agents.route_export import build_google_maps_url, build_ics_calendar
 from backend.agents.route_optimizer import (
     build_timed_itinerary,
@@ -112,28 +111,6 @@ def _build_nearby_groups(rows: list[dict[str, object]]) -> list[dict[str, object
                 group["closest_distance_m"] = normalized_distance
 
     return list(groups.values())
-
-
-def build_query_payload(retrieval: RetrievalResult) -> dict[str, object]:
-    """Build a query result payload from a RetrievalResult."""
-    metadata = dict(retrieval.metadata)
-    empty = retrieval.row_count == 0
-    rows = rewrite_image_urls(retrieval.rows)
-    return {
-        "rows": rows,
-        "items": rows,
-        "row_count": retrieval.row_count,
-        "strategy": retrieval.strategy.value,
-        "metadata": metadata,
-        "nearby_groups": _build_nearby_groups(rows),
-        "status": "empty" if empty else "ok",
-        "empty": empty,
-        "summary": {
-            "count": retrieval.row_count,
-            "source": metadata.get("data_origin", metadata.get("source", "db")),
-            "cache": metadata.get("cache", "miss"),
-        },
-    }
 
 
 def _parse_coordinate_origin(origin: str | None) -> tuple[float, float] | None:
