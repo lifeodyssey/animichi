@@ -41,10 +41,10 @@ routes = [
 
 # Plain (non-secret) vars forwarded into the RuntimeContainer (Python agent).
 # CATALOG_API_URL is the base the agent's CatalogClient POSTs to as
-# `{CATALOG_API_URL}/catalog/<method>`. The container cannot use the CF service
-# binding (that is JS-only), so it reaches the catalog Worker over the public
-# origin: the main Worker routes /catalog/* to the CATALOG binding. Override per
-# environment if the catalog Worker is exposed on a different host.
+# `{CATALOG_API_URL}/catalog/<method>`. The container reaches catalog over the
+# private hostname `catalog.internal`, intercepted by RuntimeContainer.outboundByHost
+# → env.CATALOG binding (in-datacenter, no public internet round-trip).
+# There is NO public /catalog/* route on the main Worker.
 [vars]
 CATALOG_API_URL = "https://seichijunrei.zhenjia.org"
 
@@ -53,11 +53,11 @@ directory = ".open-next/assets"
 binding = "ASSETS"
 
 # Catalog read-path service (search/spots/nearby/route).
-# /catalog/* is forwarded from worker/entry.js via env.CATALOG.fetch(request)
-# to the separately-deployed "catalog" Worker (catalog/wrangler.toml).
+# This binding is reached ONLY via RuntimeContainer.outboundByHost["catalog.internal"]
+# — the container intercepts outbound requests to catalog.internal and routes them
+# to env.CATALOG (in-datacenter hop, no public internet, no extra auth surface).
 # The catalog Worker must be deployed first (its name = "catalog" must match
-# the `service` field below). This binding is an in-datacenter hop — no public
-# network round-trip and no extra auth surface.
+# the `service` field below). There is NO public /catalog/* route on the main Worker.
 [[services]]
 binding = "CATALOG"
 service = "catalog"
