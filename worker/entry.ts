@@ -42,6 +42,13 @@ export class RuntimeContainer extends Container {
 
 // Container -> catalog over a private hostname, intercepted here and routed to
 // the CATALOG service binding (no public internet). Host matches CATALOG_API_URL.
+//
+// Deny-by-default: with enableInternet = true and no catch-all in outboundByHost,
+// every container outbound EXCEPT catalog.internal goes to the public internet by
+// design (the agent calls Anitabi, Bangumi, and LLM APIs directly). Catalog's
+// privacy rests entirely on this exact host match — any FUTURE internal-only
+// service MUST be added to outboundByHost explicitly; it will NOT be private
+// otherwise.
 RuntimeContainer.outboundByHost = {
   "catalog.internal": (request: Request, env: Env) => catalogOutbound(request, env),
 };
