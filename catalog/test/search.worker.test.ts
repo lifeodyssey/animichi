@@ -36,6 +36,7 @@ const ROW: WorkPointRow = {
   longitude: 139.6586,
   title: "らき☆すた",
   title_cn: "幸运星",
+  cover_url: "https://image.anitabi.cn/cover1.jpg",
   synced_at: new Date("2026-06-20T00:00:00.000Z"),
 };
 
@@ -122,6 +123,7 @@ describe("search (alias hit)", () => {
       longitude: 139.6586,
       title: "らき☆すた",
       title_cn: "幸运星",
+      cover_url: "https://image.anitabi.cn/cover1.jpg",
     });
   });
 
@@ -154,6 +156,7 @@ describe("search (alias hit)", () => {
       image: null,
       title: null,
       title_cn: null,
+      cover_url: null,
       synced_at: null,
     };
     const { db } = fakeDb({ "lucky star": { workId: "1", rows: [bare] } });

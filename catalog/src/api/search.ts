@@ -70,6 +70,7 @@ export interface WorkPointRow {
   longitude: number;
   title: string | null;
   title_cn: string | null;
+  cover_url: string | null;
   // workerd's raw pg returns timestamptz as a string (Node parses it to Date) — accept both.
   synced_at: Date | string | null;
 }
@@ -176,6 +177,7 @@ function meta(r: WorkPointRow): Partial<PilgrimagePoint> {
     time_seconds: r.time_seconds,
     title: r.title,
     title_cn: r.title_cn,
+    cover_url: r.cover_url,
   });
 }
 
@@ -284,7 +286,7 @@ async function selectPoints(db: CatalogDb, workId: string): Promise<WorkPointRow
   const result = await db.execute(sql`
     SELECT p.id, p.name, p.name_cn, p.bangumi_id, p.episode, p.time_seconds,
            p.image, p.latitude, p.longitude, b.title, b.title_cn,
-           b.updated_at AS synced_at
+           b.cover_url, b.updated_at AS synced_at
     FROM points p LEFT JOIN bangumi b ON p.bangumi_id = b.id
     WHERE p.bangumi_id = ${workId}
   `);
