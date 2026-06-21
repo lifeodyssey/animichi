@@ -33,7 +33,7 @@
 name = "seichijunrei"
 compatibility_date = "2025-03-01"
 compatibility_flags = ["nodejs_compat"]
-main = "worker/entry.js"
+main = "worker/entry.ts"
 
 routes = [
   { pattern = "seichijunrei.zhenjia.org/*", zone_name = "zhenjia.org" }
