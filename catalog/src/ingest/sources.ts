@@ -39,6 +39,17 @@ export type AnitabiPoint = Record<string, unknown>;
 /** A raw Bangumi subject object (kept verbatim for the raw zone). */
 export type BangumiSubject = Record<string, unknown>;
 
+/**
+ * The fast L1 preview from Anitabi's `/lite` endpoint: the FIRST ~10 points
+ * (`litePoints`, official geo[] schema) plus `total` (the work's full point
+ * count, from `pointsLength`). One small fetch — the basis of the search miss
+ * path's immediate preview before the full ingest backgrounds.
+ */
+export interface AnitabiLite {
+  points: AnitabiPoint[];
+  total: number;
+}
+
 /** Fetch the raw pilgrimage point list for a bangumi id from Anitabi. */
 export async function fetchAnitabiPoints(
   bangumiId: string,
@@ -48,6 +59,39 @@ export async function fetchAnitabiPoints(
   const url = `${base}/${bangumiId}/points/detail?haveImage=true`;
   const body = await fetchJson(url, cfg.fetchImpl);
   return normalizePoints(body);
+}
+
+/**
+ * Fetch the FAST L1 preview for a bangumi id from Anitabi's `/lite` endpoint.
+ *
+ * `/{id}/lite` returns metadata plus `litePoints` (the first ~10 points, the
+ * official geo[] schema: `id`, `name`, `image`, `ep`, `s`, `geo`) and
+ * `pointsLength` (the total point count). This is a single small response —
+ * cheap enough to return inline as a preview while the full
+ * `/points/detail` ingest runs in the background. Defensive: a missing/garbage
+ * body yields an empty preview rather than throwing.
+ */
+export async function fetchAnitabiLite(
+  bangumiId: string,
+  cfg: SourceConfig = {},
+): Promise<AnitabiLite> {
+  const base = cfg.anitabiBaseUrl ?? ANITABI_BASE;
+  const body = await fetchJson(`${base}/${bangumiId}/lite`, cfg.fetchImpl);
+  return parseLite(body);
+}
+
+/** Read `litePoints` + `pointsLength` from a `/lite` body; empty on any miss. */
+function parseLite(body: unknown): AnitabiLite {
+  if (!isObject(body)) return { points: [], total: 0 };
+  const raw = body["litePoints"];
+  const points = Array.isArray(raw) ? raw.filter(isObject) : [];
+  return { points, total: liteTotal(body, points.length) };
+}
+
+/** Coerce `pointsLength` to a non-negative count; fall back to the preview size. */
+function liteTotal(body: Record<string, unknown>, fallback: number): number {
+  const len = body["pointsLength"];
+  return typeof len === "number" && Number.isFinite(len) && len >= 0 ? len : fallback;
 }
 
 /** Fetch the raw subject metadata for a bangumi id from Bangumi v0. */

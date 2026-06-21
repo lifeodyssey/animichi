@@ -307,9 +307,13 @@ function stubSearchMiss(): { urls: string[] } {
   return { urls };
 }
 
-/** Route a stubbed upstream URL to its canned response for the search-miss flow. */
+/** Route a stubbed upstream URL to its canned response for the search-miss flow.
+ * The miss path now resolves the id, fetches the Anitabi `/lite` preview, then
+ * (synchronously here, since the Node harness has no ExecutionContext.waitUntil)
+ * runs the full ingest off `/points/detail`. */
 function searchMissResponse(url: string): Response {
   if (url.includes("/v0/search/subjects")) return jsonResponse({ data: [{ id: Number(MISS_WORK_ID), name: MISS_TITLE }] });
+  if (url.includes("/lite")) return jsonResponse({ pointsLength: MISS_POINTS.length, litePoints: MISS_POINTS });
   if (url.includes("/v0/subjects/")) return jsonResponse({ name: MISS_TITLE, name_cn: "吹响吧！上低音号" });
   if (url.includes("/points/detail")) return jsonResponse(MISS_POINTS);
   throw new Error(`unexpected upstream url: ${url}`);
