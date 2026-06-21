@@ -44,7 +44,7 @@ async def test_enrich_clarify_candidates_keeps_order_and_defaults() -> None:
     assert candidates[1]["spot_count"] == 0
 
 
-async def test_enrich_clarify_candidates_falls_back_to_gateway_and_writes_through() -> (
+async def test_enrich_clarify_candidates_falls_back_to_catalog_and_writes_through() -> (
     None
 ):
     db = MagicMock()
@@ -52,7 +52,7 @@ async def test_enrich_clarify_candidates_falls_back_to_gateway_and_writes_throug
     db.bangumi.find_candidate_details_by_titles = AsyncMock(
         return_value=[
             {
-                "title": "凉宫春日的忧郁",
+                "title": "你的名字",
                 "bangumi_id": None,
                 "cover_url": "",
                 "points_count": 0,
@@ -63,21 +63,13 @@ async def test_enrich_clarify_candidates_falls_back_to_gateway_and_writes_throug
     db.bangumi.upsert_bangumi_title = AsyncMock(return_value=None)
     db.bangumi.upsert_bangumi = AsyncMock(return_value=None)
 
-    gateway = MagicMock()
-    gateway.search_by_title = AsyncMock(return_value="999")
-    gateway.get_subject = AsyncMock(
-        return_value={
-            "images": {
-                "large": "https://example.com/c.jpg",
-            }
-        }
-    )
-    deps = RuntimeDeps(
-        db=db, locale="zh", query="q", gateway=gateway, catalog=MockCatalogClient()
-    )
+    deps = RuntimeDeps(db=db, locale="zh", query="q", catalog=MockCatalogClient())
 
-    candidates = await enrich_clarify_candidates(deps, ["凉宫春日的忧郁"])
+    candidates = await enrich_clarify_candidates(deps, ["你的名字"])
 
-    assert candidates[0]["cover_url"] == "https://example.com/c.jpg"
-    db.bangumi.upsert_bangumi_title.assert_awaited_once_with("凉宫春日的忧郁", "999")
+    # The catalog's first hit carries the bangumi_id (160209), cover, and the
+    # work's point count — no Bangumi gateway is consulted.
+    assert candidates[0]["cover_url"] == "https://example.test/cover/160209.jpg"
+    assert candidates[0]["spot_count"] == 2
+    db.bangumi.upsert_bangumi_title.assert_awaited_once_with("你的名字", "160209")
     db.bangumi.upsert_bangumi.assert_awaited()

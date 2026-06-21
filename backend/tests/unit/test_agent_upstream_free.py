@@ -1,14 +1,18 @@
-"""Guard: the agent's data-tool seam makes ZERO upstream calls.
+"""Guard: the agent makes ZERO upstream calls.
 
-GOAL §7 ("旧 agent 上游调用已删净") requires the four data tools to route only
-through the injected :class:`CatalogClientProtocol`. This locks that invariant
-two ways:
+GOAL §7 ("旧 agent 上游调用已删净") requires every agent path — the four data
+tools AND clarify candidate enrichment — to route only through the injected
+:class:`CatalogClientProtocol`. This locks that invariant three ways:
 
-  1. Static: ``pilgrimage_tools`` / ``catalog_tools`` / ``tool_runtime`` import
-     no upstream client (Anitabi/Bangumi gateways), no DB Retriever, and no
-     legacy data handlers. The clarify enrichment gateway lives in ``tools``,
-     not in these three modules.
-  2. Behavioural: a data tool with no catalog injected raises rather than
+  1. Static: ``pilgrimage_tools`` / ``catalog_tools`` / ``tool_runtime`` /
+     ``tools`` import no upstream client (Anitabi/Bangumi gateways), no DB
+     Retriever, and no legacy data handlers. With clarify rewired onto the
+     catalog, ``tools`` joins the seam — the agent has no remaining gateway
+     touch.
+  2. Static: no seam module references a ``deps.gateway`` attribute (the field
+     no longer exists on ``RuntimeDeps``; this also catches a reintroduced
+     gateway hop before it can compile).
+  3. Behavioural: a data tool with no catalog injected raises rather than
      silently falling back to the DB/Retriever path.
 """
 
@@ -25,9 +29,10 @@ from backend.agents.runtime_deps import RuntimeDeps
 from backend.clients.catalog_client import CatalogClientProtocol
 from backend.domain.ports import DatabasePort
 
-# Modules that form the catalog-only data-tool seam. These must stay free of any
-# upstream/DB read path.
-_SEAM_MODULES = ("pilgrimage_tools", "catalog_tools", "tool_runtime")
+# Modules that form the catalog-only agent seam. These must stay free of any
+# upstream/DB read path. ``tools`` (clarify enrichment) is included now that it
+# resolves via the catalog instead of the Bangumi gateway.
+_SEAM_MODULES = ("pilgrimage_tools", "catalog_tools", "tool_runtime", "tools")
 
 # Substrings that, if imported by a seam module, mean an upstream/DB read path
 # leaked back in.
@@ -42,10 +47,15 @@ _FORBIDDEN_IMPORT_FRAGMENTS = (
 )
 
 
+def _seam_tree(module_name: str) -> ast.Module:
+    """Parse a seam module's source into an AST."""
+    path = Path(__file__).parents[2] / "agents" / f"{module_name}.py"
+    return ast.parse(path.read_text(encoding="utf-8"))
+
+
 def _imported_names(module_name: str) -> list[str]:
     """Collect every dotted import target referenced by a seam module."""
-    path = Path(__file__).parents[2] / "agents" / f"{module_name}.py"
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+    tree = _seam_tree(module_name)
     names: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -57,12 +67,29 @@ def _imported_names(module_name: str) -> list[str]:
     return names
 
 
+def _gateway_attribute_accesses(module_name: str) -> list[str]:
+    """Find every ``<expr>.gateway`` attribute access in a seam module."""
+    tree = _seam_tree(module_name)
+    return [
+        node.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute) and node.attr == "gateway"
+    ]
+
+
 @pytest.mark.parametrize("module_name", _SEAM_MODULES)
 def test_seam_module_has_no_upstream_imports(module_name: str) -> None:
-    """No data-tool module imports an upstream gateway, Retriever, or handler."""
+    """No seam module imports an upstream gateway, Retriever, or handler."""
     imported = "\n".join(_imported_names(module_name))
     leaked = [frag for frag in _FORBIDDEN_IMPORT_FRAGMENTS if frag in imported]
     assert not leaked, f"{module_name} leaked upstream imports: {leaked}"
+
+
+@pytest.mark.parametrize("module_name", _SEAM_MODULES)
+def test_seam_module_never_touches_deps_gateway(module_name: str) -> None:
+    """No seam module reads ``deps.gateway`` — clarify routes via the catalog."""
+    accesses = _gateway_attribute_accesses(module_name)
+    assert not accesses, f"{module_name} accessed a .gateway attribute: {accesses}"
 
 
 class _ExplodingDB:
