@@ -46,7 +46,7 @@ routes = [
 # → env.CATALOG binding (in-datacenter, no public internet round-trip).
 # There is NO public /catalog/* route on the main Worker.
 [vars]
-CATALOG_API_URL = "https://seichijunrei.zhenjia.org"
+CATALOG_API_URL = "http://catalog.internal"
 
 [assets]
 directory = ".open-next/assets"
