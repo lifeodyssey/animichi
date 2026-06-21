@@ -1,6 +1,7 @@
 {
   "name": "seichijunrei-cloudflare-worker",
   "private": true,
+  "engines": { "node": ">=24" },
   "scripts": {
     "build:frontend": "npm --prefix frontend run build",
     "deploy": "npm run build:frontend && npx wrangler deploy"
