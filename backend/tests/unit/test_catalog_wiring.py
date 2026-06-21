@@ -43,7 +43,12 @@ async def test_runtime_api_forwards_catalog_to_agent() -> None:
     assert runner.await_args.kwargs["catalog"] is catalog
 
 
-async def test_runtime_api_defaults_catalog_to_none() -> None:
+async def test_runtime_api_defaults_catalog_to_real_client() -> None:
+    """With no client injected, RuntimeAPI still forwards a real CatalogClient.
+
+    The agent is catalog-only, so the runner must always receive a client; the
+    default is a real CatalogClient built from settings (never ``None``).
+    """
     db = build_stub_db()
     api = RuntimeAPI(db, session_store=InMemorySessionStore())
     request = PublicAPIRequest(text="hello", locale="ja")
@@ -54,7 +59,7 @@ async def test_runtime_api_defaults_catalog_to_none() -> None:
     ) as runner:
         await api.handle(request)
 
-    assert runner.await_args.kwargs["catalog"] is None
+    assert isinstance(runner.await_args.kwargs["catalog"], CatalogClient)
 
 
 def test_settings_has_catalog_api_url_default() -> None:

@@ -1,9 +1,9 @@
 """Step/plumbing helpers shared by the pilgrimage agent tool registrations.
 
-These wrap the cross-cutting concerns every data tool needs: emitting SSE
-steps, recording :class:`StepRecord` entries, locale-aware city renaming, and
-compacting tool results for the LLM. ``_run_handler`` is the DB/retriever path
-shared by the legacy data tools; the catalog seam lives in ``catalog_tools``.
+These wrap the cross-cutting concerns every tool needs: emitting SSE steps,
+recording :class:`StepRecord` entries, locale-aware city renaming, and
+compacting tool results for the LLM. ``_run_ephemeral`` runs the upstream-free
+greet/qa handlers; the catalog read path lives in ``catalog_tools``.
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ from backend.agents.agent_result import StepRecord
 from backend.agents.geo_names import localized_city_name
 from backend.agents.handlers import HandlerResult
 from backend.agents.models import PlanStep, ToolName
-from backend.agents.retriever import Retriever
 from backend.agents.runtime_deps import RuntimeDeps
 from backend.agents.tools import enrich_clarify_candidates
 
@@ -95,7 +94,7 @@ def _summarize_for_llm(tool: ToolName, data: dict[str, object]) -> dict[str, obj
     }
 
 
-async def _run_handler(
+async def _run_ephemeral(
     ctx: RunContext[RuntimeDeps],
     *,
     tool: ToolName,
@@ -104,16 +103,19 @@ async def _run_handler(
         [PlanStep, dict[str, object], object, object], Awaitable[HandlerResult]
     ],
 ) -> dict[str, object]:
+    """Run an upstream-free handler (greet/qa) and record/emit its result.
+
+    Ephemeral handlers echo their LLM-supplied payload and never touch the DB,
+    Retriever, or upstream gateways, so ``None`` is passed for both data deps.
+    """
     deps = ctx.deps
     await _emit_step(deps, tool.value, "running", {})
 
-    retriever = deps.retriever or Retriever(deps.db)
-    deps.retriever = retriever
     result = await handler(
         PlanStep(tool=tool, params=params),
         deps.tool_state,
-        deps.db,
-        retriever,
+        None,
+        None,
     )
 
     _record_step(
@@ -141,9 +143,6 @@ async def _run_handler(
             observation=result.error or "",
         )
 
-    # Return compact summary to LLM so it has context space to generate
-    # a search_response output with message summary. Full rows stay in
-    # tool_state for the search_response output tool to reference.
     return _summarize_for_llm(tool, result.data) if result.data else {}
 
 

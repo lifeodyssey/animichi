@@ -17,7 +17,6 @@ from backend.agents.agent_result import AgentResult
 
 # Importing pilgrimage_tools triggers @tool registrations on the agent.
 from backend.agents.pilgrimage_agent import pilgrimage_agent  # noqa: F401
-from backend.agents.retriever import Retriever
 from backend.agents.runtime_deps import OnStep, RuntimeDeps
 from backend.clients.catalog_client import CatalogClientProtocol
 from backend.domain.ports import DatabasePort
@@ -63,24 +62,22 @@ async def run_pilgrimage_agent(
     text: str,
     db: DatabasePort,
     locale: str,
+    catalog: CatalogClientProtocol,
     model: Model | str | None = None,
     context: dict[str, object] | None = None,
     message_history: list[ModelMessage] | None = None,
     on_step: OnStep | None = None,
     model_settings: ModelSettings | None = None,
-    catalog: CatalogClientProtocol | None = None,
 ) -> AgentResult:
     """Run the main agent and return AgentResult.
 
-    When ``catalog`` is provided, the data tools route through the Catalog
-    service instead of the DB Retriever (hybrid architecture seam).
+    The data tools route exclusively through the injected ``catalog`` client;
+    the agent makes no upstream calls (no DB Retriever, no Anitabi/Bangumi).
     """
-    retriever = Retriever(db)
     deps = RuntimeDeps(
         db=db,
         locale=locale,
         query=text,
-        retriever=retriever,
         on_step=on_step,
         catalog=catalog,
     )

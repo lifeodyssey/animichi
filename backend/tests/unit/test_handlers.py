@@ -718,15 +718,15 @@ class TestOptimizeRoute:
 
 
 # ---------------------------------------------------------------------------
-# _run_handler — SSE error detail
+# _run_ephemeral — SSE error detail
 # ---------------------------------------------------------------------------
 
 
-class TestRunHandlerEmitsErrorDetail:
-    """When a handler fails, the SSE step event must include error detail."""
+class TestRunEphemeralEmitsErrorDetail:
+    """When an ephemeral handler fails, the SSE step event must carry detail."""
 
     async def test_emits_error_in_step_data_on_failure(self) -> None:
-        from backend.agents.tool_runtime import _run_handler
+        from backend.agents.tool_runtime import _run_ephemeral
 
         emitted: list[tuple[str, str, dict[str, object], str, str]] = []
 
@@ -743,7 +743,6 @@ class TestRunHandlerEmitsErrorDetail:
         deps.on_step = fake_on_step
         deps.tool_state = {}
         deps.steps = []
-        deps.retriever = None
         deps.db = MagicMock()
 
         ctx = MagicMock()
@@ -756,7 +755,7 @@ class TestRunHandlerEmitsErrorDetail:
         ) -> HandlerResult:
             return HandlerResult.fail("plan_route", error_msg)
 
-        await _run_handler(
+        await _run_ephemeral(
             ctx,
             tool=ToolName.PLAN_ROUTE,
             params={},
@@ -773,7 +772,7 @@ class TestRunHandlerEmitsErrorDetail:
         assert observation == error_msg
 
     async def test_emits_error_preserves_partial_data(self) -> None:
-        from backend.agents.tool_runtime import _run_handler
+        from backend.agents.tool_runtime import _run_ephemeral
 
         emitted: list[tuple[str, str, dict[str, object], str, str]] = []
 
@@ -790,7 +789,6 @@ class TestRunHandlerEmitsErrorDetail:
         deps.on_step = fake_on_step
         deps.tool_state = {}
         deps.steps = []
-        deps.retriever = None
         deps.db = MagicMock()
 
         ctx = MagicMock()
@@ -806,7 +804,7 @@ class TestRunHandlerEmitsErrorDetail:
                 error="Could not resolve",
             )
 
-        await _run_handler(
+        await _run_ephemeral(
             ctx,
             tool=ToolName.RESOLVE_ANIME,
             params={"title": "unknown"},

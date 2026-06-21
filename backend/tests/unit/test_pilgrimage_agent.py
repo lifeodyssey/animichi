@@ -13,6 +13,7 @@ from backend.agents.runtime_models import (
     RouteResponseModel,
     SearchResponseModel,
 )
+from backend.tests.eval.mock_catalog_client import MockCatalogClient
 
 
 async def test_run_pilgrimage_agent_returns_clarify_agent_result() -> None:
@@ -45,6 +46,7 @@ async def test_run_pilgrimage_agent_returns_clarify_agent_result() -> None:
         db=db,
         locale="zh",
         model=model,
+        catalog=MockCatalogClient(),
     )
 
     assert result.intent == "clarify"
@@ -80,6 +82,7 @@ async def test_run_pilgrimage_agent_returns_search_agent_result() -> None:
         db=db,
         locale="zh",
         model=model,
+        catalog=MockCatalogClient(),
     )
 
     assert result.intent == "search_nearby"
@@ -111,6 +114,7 @@ async def test_run_pilgrimage_agent_returns_route_agent_result() -> None:
         db=db,
         locale="zh",
         model=model,
+        catalog=MockCatalogClient(),
     )
 
     assert result.intent == "plan_route"
@@ -135,6 +139,7 @@ async def test_run_pilgrimage_agent_returns_qa_agent_result() -> None:
         db=db,
         locale="zh",
         model=model,
+        catalog=MockCatalogClient(),
     )
 
     assert result.intent == "general_qa"
@@ -167,6 +172,7 @@ async def test_run_agent_passes_message_history() -> None:
         locale="zh",
         model=model,
         message_history=history,
+        catalog=MockCatalogClient(),
     )
 
     assert result.intent == "general_qa"
@@ -191,6 +197,7 @@ async def test_agent_result_captures_new_messages() -> None:
         db=db,
         locale="zh",
         model=model,
+        catalog=MockCatalogClient(),
     )
 
     assert isinstance(result.new_messages, list)
