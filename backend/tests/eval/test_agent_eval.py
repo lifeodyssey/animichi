@@ -351,7 +351,7 @@ async def test_agent(real_db: object) -> None:
         name=f"agent_{_EVAL_MODEL_ID}",
         max_concurrency=_EVAL_CONCURRENCY,
         retry_task={
-            "stop": stop_after_attempt(2),
+            "stop": stop_after_attempt(int(os.environ.get("EVAL_TASK_RETRIES", "2"))),
             "wait": wait_exponential(min=1, max=5),
         },
     )
