@@ -176,7 +176,11 @@ class ResponseLocale(Evaluator[AgentInput, AgentResult]):
 
 # ── Load dataset ─────────────────────────────────────────────────────
 
-_DATASET_PATH = Path(__file__).parent / "datasets" / "agent_eval_v3.json"
+_DATASET_PATH = (
+    Path(__file__).parent
+    / "datasets"
+    / os.environ.get("EVAL_DATASET", "agent_eval_v3.json")
+)
 
 
 def _str_list(row: dict[str, object], key: str) -> list[str]:
