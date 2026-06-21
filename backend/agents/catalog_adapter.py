@@ -1,14 +1,13 @@
 """Adapt typed Catalog models into the agent's tool-state payload shapes.
 
-The data tools used to call handlers -> Retriever -> DB and receive dict payloads
-shaped by ``handlers._helpers.build_query_payload`` / ``optimize_route``. In the
-hybrid architecture those tools call the Catalog service and receive typed
-``PilgrimagePoint`` / ``Route`` models instead. This module re-shapes those typed
-models into the SAME dict payloads, so the response builder, ``_summarize_for_llm``
-and the output_validator keep working unchanged.
+The data tools call the Catalog service and receive typed
+``PilgrimagePoint`` / ``Route`` models. This module re-shapes those typed
+models into the dict payloads consumed by the response builder,
+``_summarize_for_llm`` and the output_validator, so they keep working unchanged.
 
 No DB, no upstream Anitabi/Bangumi clients are imported here — only deterministic
-shaping helpers shared with the legacy handlers.
+shaping helpers (``_build_nearby_groups`` / ``rewrite_image_urls`` /
+``optimize_route``) shared with the live route/answer handlers.
 """
 
 from __future__ import annotations
