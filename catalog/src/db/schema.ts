@@ -92,13 +92,3 @@ export const seriesEdges = pgTable("series_edges", {
   toWorkId: text("to_work_id").notNull(),
   relation: text("relation").notNull(),
 });
-
-// 20260620230000 — walk-leg duration/distance cache (ORS -> Google).
-export const legCache = pgTable("leg_cache", {
-  fromCluster: text("from_cluster").notNull(),
-  toCluster: text("to_cluster").notNull(),
-  mode: text("mode").notNull(),
-  durationMinutes: doublePrecision("duration_minutes"),
-  distanceM: doublePrecision("distance_m"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});

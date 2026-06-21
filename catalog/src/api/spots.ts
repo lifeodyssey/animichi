@@ -17,6 +17,7 @@
 import type { CatalogDb } from "../db/client";
 import { sql } from "drizzle-orm";
 import { haversine } from "../lib/geo";
+import { optional } from "../lib/optional";
 import type { Origin, PilgrimagePoint } from "../types";
 
 export type { Origin, PilgrimagePoint };
@@ -59,13 +60,12 @@ function toPoint(r: PointRow): PilgrimagePoint {
   return {
     id: r.id,
     name: r.name,
-    ...(r.name_cn ? { name_cn: r.name_cn } : {}),
     bangumi_id: r.bangumi_id,
-    ...(r.episode != null ? { episode: r.episode } : {}),
-    ...(r.time_seconds != null ? { time_seconds: r.time_seconds } : {}),
     screenshot_url: r.image ?? "",
     latitude: Number(r.latitude),
     longitude: Number(r.longitude),
+    ...(r.name_cn ? { name_cn: r.name_cn } : {}),
+    ...optional({ episode: r.episode, time_seconds: r.time_seconds }),
   };
 }
 
