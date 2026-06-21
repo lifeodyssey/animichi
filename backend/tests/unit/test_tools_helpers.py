@@ -7,12 +7,14 @@ from unittest.mock import AsyncMock, MagicMock
 from backend.agents.runtime_deps import RuntimeDeps
 from backend.agents.tools import (
     _candidate_from_row,
+    _catalog_fallback,
+    _catalog_search,
     _db_lookup,
-    _fetch_cover,
-    _gateway_fallback,
+    _minimal_candidate,
     _write_through,
     enrich_clarify_candidates,
 )
+from backend.clients.catalog_client import CatalogClientProtocol, PilgrimagePoint
 from backend.tests.eval.mock_catalog_client import MockCatalogClient
 
 
@@ -64,46 +66,57 @@ def test_candidate_from_row_with_empty_data() -> None:
     assert c["city"] == ""
 
 
-async def test_fetch_cover_returns_large_image() -> None:
-    deps = RuntimeDeps(
-        db=MagicMock(), locale="zh", query="q", catalog=MockCatalogClient()
-    )
-    deps.gateway = MagicMock()
-    deps.gateway.get_subject = AsyncMock(
-        return_value={"images": {"large": "https://img.example.com/large.jpg"}}
-    )
-    result = await _fetch_cover(deps, "12345")
-    assert result == "https://img.example.com/large.jpg"
+class _FailingCatalog:
+    """A CatalogClientProtocol double whose search raises (transient failure)."""
+
+    async def search(self, query: str) -> list[PilgrimagePoint]:
+        raise OSError("catalog unreachable")
+
+    async def spots(self, bangumi_id: str) -> PilgrimagePoint:
+        raise OSError("catalog unreachable")
+
+    async def nearby(
+        self, lat: float, lng: float, *, radius_m: int = 2000
+    ) -> list[PilgrimagePoint]:
+        raise OSError("catalog unreachable")
+
+    async def route(self, point_ids: list[str]) -> object:
+        raise OSError("catalog unreachable")
+
+    async def ingest(self, bangumi_id: str) -> object:
+        raise OSError("catalog unreachable")
 
 
-async def test_fetch_cover_returns_none_on_error() -> None:
-    deps = RuntimeDeps(
-        db=MagicMock(), locale="zh", query="q", catalog=MockCatalogClient()
-    )
-    deps.gateway = MagicMock()
-    deps.gateway.get_subject = AsyncMock(side_effect=OSError("timeout"))
-    result = await _fetch_cover(deps, "12345")
-    assert result is None
+def test_minimal_candidate_shape() -> None:
+    c = _minimal_candidate("test")
+    assert c == {"title": "test", "cover_url": None, "spot_count": 0, "city": ""}
 
 
-async def test_fetch_cover_returns_none_for_non_digit_id() -> None:
-    deps = RuntimeDeps(
-        db=MagicMock(), locale="zh", query="q", catalog=MockCatalogClient()
-    )
-    result = await _fetch_cover(deps, "not-a-number")
-    assert result is None
+async def test_catalog_search_returns_empty_on_error() -> None:
+    catalog: CatalogClientProtocol = _FailingCatalog()
+    deps = RuntimeDeps(db=MagicMock(), locale="zh", query="q", catalog=catalog)
+    result = await _catalog_search(deps, "test")
+    assert result == []
 
 
-async def test_gateway_fallback_returns_minimal_on_error() -> None:
-    deps = RuntimeDeps(
-        db=MagicMock(spec=[]), locale="zh", query="q", catalog=MockCatalogClient()
-    )
-    deps.gateway = MagicMock()
-    deps.gateway.search_by_title = AsyncMock(side_effect=OSError("fail"))
-    result = await _gateway_fallback(deps, "test")
+async def test_catalog_fallback_returns_minimal_on_error() -> None:
+    catalog: CatalogClientProtocol = _FailingCatalog()
+    deps = RuntimeDeps(db=MagicMock(spec=[]), locale="zh", query="q", catalog=catalog)
+    result = await _catalog_fallback(deps, "test")
     assert result["title"] == "test"
     assert result["cover_url"] is None
     assert result["spot_count"] == 0
+
+
+async def test_catalog_fallback_resolves_via_catalog() -> None:
+    db = MagicMock()
+    db.bangumi.upsert_bangumi_title = AsyncMock(return_value=None)
+    db.bangumi.upsert_bangumi = AsyncMock(return_value=None)
+    deps = RuntimeDeps(db=db, locale="zh", query="q", catalog=MockCatalogClient())
+    result = await _catalog_fallback(deps, "你的名字")
+    assert result["cover_url"] == "https://example.test/cover/160209.jpg"
+    assert result["spot_count"] == 2
+    db.bangumi.upsert_bangumi_title.assert_awaited_once_with("你的名字", "160209")
 
 
 async def test_write_through_logs_on_upsert_error() -> None:

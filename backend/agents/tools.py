@@ -9,10 +9,11 @@ from __future__ import annotations
 import structlog
 
 from backend.agents.runtime_deps import RuntimeDeps
+from backend.clients.catalog_client import PilgrimagePoint
 
 logger = structlog.get_logger(__name__)
 
-# Gateway/DB calls can raise these on transient failures.
+# Catalog/DB calls can raise these on transient failures.
 _IO_ERRORS = (OSError, RuntimeError, ValueError)
 
 
@@ -21,7 +22,8 @@ async def enrich_clarify_candidates(
 ) -> list[dict[str, object]]:
     """Enrich clarify candidate titles with cover/city/spot_count.
 
-    DB-first → gateway fallback → write-through (best-effort).
+    DB-first → Catalog fallback → write-through (best-effort). The clarify path
+    is catalog-only: it never calls an upstream Anitabi/Bangumi gateway.
 
     When no enrichment data is available, returns safe minimal candidates.
     """
@@ -39,7 +41,7 @@ async def enrich_clarify_candidates(
             candidates.append(_candidate_from_row(title, row))
             continue
 
-        fallback = await _gateway_fallback(deps, title)
+        fallback = await _catalog_fallback(deps, title)
         candidates.append(fallback)
 
     return candidates
@@ -84,42 +86,42 @@ def _candidate_from_row(title: str, row: dict[str, object]) -> dict[str, object]
     }
 
 
-async def _gateway_fallback(deps: RuntimeDeps, title: str) -> dict[str, object]:
-    """Resolve via Bangumi gateway and write-through (best-effort)."""
-    fallback_cover_url: str | None = None
-    resolved_id: str | None = None
-    try:
-        resolved_id = await deps.gateway.search_by_title(title)
-    except _IO_ERRORS:
-        logger.warning("clarify_gateway_search_failed", title=title)
+async def _catalog_fallback(deps: RuntimeDeps, title: str) -> dict[str, object]:
+    """Resolve via the Catalog service and write-through (best-effort).
 
-    if resolved_id is not None:
-        fallback_cover_url = await _fetch_cover(deps, resolved_id)
-        await _write_through(deps, title, resolved_id, fallback_cover_url)
+    The first search hit carries the candidate's ``bangumi_id`` + ``cover_url``;
+    ``spot_count`` is the number of points the catalog returned for the work.
+    Catalog errors degrade gracefully to a minimal candidate, matching the
+    prior gateway-fallback resilience.
+    """
+    points = await _catalog_search(deps, title)
+    first = points[0] if points else None
 
+    if first is None:
+        return _minimal_candidate(title)
+
+    cover_url = first.cover_url or None
+    await _write_through(deps, title, first.bangumi_id, cover_url)
     return {
         "title": title,
-        "cover_url": fallback_cover_url,
-        "spot_count": 0,
+        "cover_url": cover_url,
+        "spot_count": len(points),
         "city": "",
     }
 
 
-async def _fetch_cover(deps: RuntimeDeps, bangumi_id: str) -> str | None:
-    """Fetch cover URL from the gateway subject endpoint."""
+async def _catalog_search(deps: RuntimeDeps, title: str) -> list[PilgrimagePoint]:
+    """Search the Catalog for a title; empty list on any error (best-effort)."""
     try:
-        subject_id = int(bangumi_id) if bangumi_id.isdigit() else None
-        if subject_id is None:
-            return None
-        raw = await deps.gateway.get_subject(subject_id)
-        images = raw.get("images")
-        if isinstance(images, dict):
-            url = images.get("large") or images.get("common")
-            if isinstance(url, str) and url:
-                return url
-    except (ValueError, OSError, RuntimeError):
-        logger.warning("clarify_cover_fetch_failed", bangumi_id=bangumi_id)
-    return None
+        return await deps.catalog.search(title)
+    except _IO_ERRORS:
+        logger.warning("clarify_catalog_search_failed", title=title)
+        return []
+
+
+def _minimal_candidate(title: str) -> dict[str, object]:
+    """A safe candidate when the catalog yields no enrichment data."""
+    return {"title": title, "cover_url": None, "spot_count": 0, "city": ""}
 
 
 async def _write_through(
