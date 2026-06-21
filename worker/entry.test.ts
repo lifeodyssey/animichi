@@ -6,6 +6,8 @@ const stubNext = {
   fetch: async () => new Response("next", { status: 200 }),
 };
 
+const stubCtx = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
+
 test("GET /healthz reaches the container, not OpenNext", async () => {
   const app = createWorkerApp({ nextHandler: stubNext });
   let containerHit = false;
@@ -22,13 +24,13 @@ test("GET /healthz reaches the container, not OpenNext", async () => {
 
 test("/catalog/* is NOT publicly routed (falls through to OpenNext)", async () => {
   const app = createWorkerApp({ nextHandler: stubNext });
-  const res = await app.request("/catalog/search", { method: "POST" }, {});
+  const res = await app.request("/catalog/search", { method: "POST" }, {}, stubCtx);
   assert.equal(await res.text(), "next"); // hits OpenNext (404-able), never env.CATALOG
 });
 
 test("unknown path falls through to OpenNext", async () => {
   const app = createWorkerApp({ nextHandler: stubNext });
-  const res = await app.request("/anything", {}, {});
+  const res = await app.request("/anything", {}, {}, stubCtx);
   assert.equal(await res.text(), "next");
 });
 

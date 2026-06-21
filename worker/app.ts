@@ -51,10 +51,6 @@ export function createWorkerApp(deps: { nextHandler: NextHandler }): Hono<{ Bind
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
   );
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
-  app.all("*", (c) => {
-    let ctx: ExecutionContext;
-    try { ctx = c.executionCtx; } catch { ctx = { waitUntil: () => {}, passThroughOnException: () => {} } as ExecutionContext; }
-    return deps.nextHandler.fetch(c.req.raw, c.env, ctx);
-  });
+  app.all("*", (c) => deps.nextHandler.fetch(c.req.raw, c.env, c.executionCtx));
   return app;
 }
