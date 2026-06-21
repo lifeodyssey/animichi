@@ -5,12 +5,15 @@ from __future__ import annotations
 from backend.agents.pilgrimage_runner import _seed_tool_state
 from backend.agents.runtime_deps import RuntimeDeps
 from backend.interfaces.response_builder import _status_from_payload
+from backend.tests.eval.mock_catalog_client import MockCatalogClient
 
 
 def test_seed_tool_state_sets_locale() -> None:
     from unittest.mock import MagicMock
 
-    deps = RuntimeDeps(db=MagicMock(), locale="zh", query="test")
+    deps = RuntimeDeps(
+        db=MagicMock(), locale="zh", query="test", catalog=MockCatalogClient()
+    )
     _seed_tool_state(deps, None)
     assert deps.tool_state["locale"] == "zh"
 
@@ -18,7 +21,9 @@ def test_seed_tool_state_sets_locale() -> None:
 def test_seed_tool_state_with_context() -> None:
     from unittest.mock import MagicMock
 
-    deps = RuntimeDeps(db=MagicMock(), locale="ja", query="test")
+    deps = RuntimeDeps(
+        db=MagicMock(), locale="ja", query="test", catalog=MockCatalogClient()
+    )
     context = {
         "last_location": "宇治",
         "origin_lat": 34.886,
@@ -39,7 +44,9 @@ def test_seed_tool_state_with_context() -> None:
 def test_seed_tool_state_ignores_non_string_location() -> None:
     from unittest.mock import MagicMock
 
-    deps = RuntimeDeps(db=MagicMock(), locale="en", query="test")
+    deps = RuntimeDeps(
+        db=MagicMock(), locale="en", query="test", catalog=MockCatalogClient()
+    )
     _seed_tool_state(deps, {"last_location": 123})
     assert "last_location" not in deps.tool_state
 
@@ -47,7 +54,9 @@ def test_seed_tool_state_ignores_non_string_location() -> None:
 def test_seed_tool_state_ignores_non_dict_search_data() -> None:
     from unittest.mock import MagicMock
 
-    deps = RuntimeDeps(db=MagicMock(), locale="en", query="test")
+    deps = RuntimeDeps(
+        db=MagicMock(), locale="en", query="test", catalog=MockCatalogClient()
+    )
     _seed_tool_state(deps, {"last_search_data": "not_a_dict"})
     assert "search_bangumi" not in deps.tool_state
 
@@ -55,7 +64,12 @@ def test_seed_tool_state_ignores_non_dict_search_data() -> None:
 def test_seed_tool_state_restores_clarify_context() -> None:
     from unittest.mock import MagicMock
 
-    deps = RuntimeDeps(db=MagicMock(), locale="zh", query="涼宮ハルヒの憂鬱")
+    deps = RuntimeDeps(
+        db=MagicMock(),
+        locale="zh",
+        query="涼宮ハルヒの憂鬱",
+        catalog=MockCatalogClient(),
+    )
     context: dict[str, object] = {
         "pending_clarify": True,
         "resolve_candidates": [
@@ -74,7 +88,9 @@ def test_seed_tool_state_restores_clarify_context() -> None:
 def test_seed_tool_state_omits_clarify_when_absent() -> None:
     from unittest.mock import MagicMock
 
-    deps = RuntimeDeps(db=MagicMock(), locale="en", query="test")
+    deps = RuntimeDeps(
+        db=MagicMock(), locale="en", query="test", catalog=MockCatalogClient()
+    )
     _seed_tool_state(deps, {"last_location": "Uji"})
     assert "pending_clarify" not in deps.tool_state
     assert "resolve_candidates" not in deps.tool_state
@@ -84,7 +100,9 @@ def test_seed_tool_state_restores_flat_search_data() -> None:
     """last_search_data with 'rows' key populates search_bangumi directly."""
     from unittest.mock import MagicMock
 
-    deps = RuntimeDeps(db=MagicMock(), locale="en", query="plan route")
+    deps = RuntimeDeps(
+        db=MagicMock(), locale="en", query="plan route", catalog=MockCatalogClient()
+    )
     context: dict[str, object] = {
         "last_search_data": {
             "rows": [{"bangumi_id": "485", "name": "北高校"}],

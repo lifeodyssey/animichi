@@ -245,6 +245,7 @@ def make_agent_task(db: object, model: object | None = None) -> object:
                 db=db,
             )
         from backend.agents.pilgrimage_runner import run_pilgrimage_agent
+        from backend.interfaces.public_api import default_catalog_client
 
         return await run_pilgrimage_agent(
             text=inp.query,
@@ -252,6 +253,7 @@ def make_agent_task(db: object, model: object | None = None) -> object:
             model=resolved_model,
             locale=inp.locale,
             context=inp.context,
+            catalog=default_catalog_client(),
         )
 
     return task

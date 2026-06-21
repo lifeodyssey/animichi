@@ -23,7 +23,8 @@ from backend.agents.runtime_deps import OnStep
 from backend.agents.selected_route import execute_selected_route
 from backend.agents.translation import translate_text
 from backend.application.errors import ApplicationError, ErrorCode
-from backend.clients.catalog_client import CatalogClientProtocol
+from backend.clients.catalog_client import CatalogClient, CatalogClientProtocol
+from backend.config.settings import get_settings
 from backend.domain.ports import DatabasePort
 from backend.infrastructure.observability import (
     get_runtime_tracer,
@@ -67,6 +68,16 @@ logger = structlog.get_logger(__name__)
 
 AGENT_TIMEOUT_SECONDS: float = 90.0
 
+
+def default_catalog_client() -> CatalogClient:
+    """Build the default Catalog read-path client from settings.
+
+    Used when no client is injected so the catalog-only agent always has a
+    client to route through; production injects one explicitly via the lifespan.
+    """
+    return CatalogClient(base_url=get_settings().catalog_api_url)
+
+
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 _KANA_RE = re.compile(r"[\u3040-\u30ff]")
 
@@ -95,7 +106,7 @@ class RuntimeAPI:
     ) -> None:
         self._db = db
         self._session_store = session_store or create_session_store()
-        self._catalog = catalog
+        self._catalog: CatalogClientProtocol = catalog or default_catalog_client()
 
     async def handle(
         self,

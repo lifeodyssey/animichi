@@ -1,10 +1,12 @@
 """Tool registrations for the PydanticAI pilgrimage agent.
 
-Each ``@pilgrimage_agent.tool`` is a deterministic wrapper around a handler
-(DB/retriever/route) or the catalog seam, keeping tool docs close to the
-LLM-facing contract.
+The four data tools (resolve_anime / search_bangumi / search_nearby /
+plan_route) are catalog-only: they route exclusively through the injected
+:class:`CatalogClientProtocol` and make ZERO upstream calls (no DB Retriever,
+no Anitabi/Bangumi gateways). The ephemeral tools (greet_user / general_qa /
+clarify) echo LLM-supplied payloads without any read path.
 
-Step/plumbing helpers live in ``tool_runtime``; the catalog seam lives in
+Step/plumbing helpers live in ``tool_runtime``; the catalog read path lives in
 ``catalog_tools``. Import this module after ``pilgrimage_agent`` is created so
 the decorators can attach to it.
 """
@@ -20,20 +22,25 @@ from backend.agents.catalog_tools import (
     _run_catalog_route,
     _run_catalog_search,
 )
-from backend.agents.handlers import (
-    execute_answer_question,
-    execute_greet_user,
-    execute_plan_route,
-    execute_resolve_anime,
-    execute_search_bangumi,
-    execute_search_nearby,
-)
+from backend.agents.handlers import execute_answer_question, execute_greet_user
 from backend.agents.models import ToolName
 from backend.agents.pilgrimage_agent import pilgrimage_agent
 from backend.agents.runtime_deps import RuntimeDeps
-from backend.agents.tool_runtime import _run_handler, run_clarify
+from backend.agents.tool_runtime import _run_ephemeral, run_clarify
+from backend.clients.catalog_client import CatalogClientProtocol
 
 logger = structlog.get_logger(__name__)
+
+
+def _require_catalog(deps: RuntimeDeps) -> CatalogClientProtocol:
+    """Return the catalog client or fail loudly if it was never injected.
+
+    The agent is catalog-only: data tools must never fall back to the DB
+    Retriever or upstream gateways, so a missing client is a wiring error.
+    """
+    if deps.catalog is None:
+        raise RuntimeError("catalog client not configured")
+    return deps.catalog
 
 
 @pilgrimage_agent.tool
@@ -59,19 +66,12 @@ async def resolve_anime(ctx: RunContext[RuntimeDeps], title: str) -> dict[str, o
                "Your Name", "響け", "凉宫"
     """
     params: dict[str, object] = {"title": title}
-    if ctx.deps.catalog is not None:
-        return await _run_catalog_search(
-            ctx,
-            ctx.deps.catalog,
-            tool=ToolName.RESOLVE_ANIME,
-            query=title,
-            params=params,
-        )
-    return await _run_handler(
+    return await _run_catalog_search(
         ctx,
+        _require_catalog(ctx.deps),
         tool=ToolName.RESOLVE_ANIME,
+        query=title,
         params=params,
-        handler=execute_resolve_anime,
     )
 
 
@@ -117,20 +117,14 @@ async def search_bangumi(
         "bangumi_id": resolved_id,
         "bangumi": resolved_id,
     }
-    if ctx.deps.catalog is not None:
-        query = _bangumi_search_query(ctx.deps.tool_state, resolved_id)
-        return await _run_catalog_search(
-            ctx,
-            ctx.deps.catalog,
-            tool=ToolName.SEARCH_BANGUMI,
-            query=query,
-            params=params,
-        )
-    return await _run_handler(
+    catalog = _require_catalog(ctx.deps)
+    query = _bangumi_search_query(ctx.deps.tool_state, resolved_id)
+    return await _run_catalog_search(
         ctx,
+        catalog,
         tool=ToolName.SEARCH_BANGUMI,
+        query=query,
         params=params,
-        handler=execute_search_bangumi,
     )
 
 
@@ -158,15 +152,12 @@ async def search_nearby(
     params: dict[str, object] = {"location": location}
     if radius > 0:
         params["radius"] = radius
-    if ctx.deps.catalog is not None:
-        return await _run_catalog_nearby(
-            ctx, ctx.deps.catalog, location=location, radius=radius, params=params
-        )
-    return await _run_handler(
+    return await _run_catalog_nearby(
         ctx,
-        tool=ToolName.SEARCH_NEARBY,
+        _require_catalog(ctx.deps),
+        location=location,
+        radius=radius,
         params=params,
-        handler=execute_search_nearby,
     )
 
 
@@ -209,14 +200,7 @@ async def plan_route(
         params["pacing"] = pacing
     if start_time:
         params["start_time"] = start_time
-    if ctx.deps.catalog is not None:
-        return await _run_catalog_route(ctx, ctx.deps.catalog, params=params)
-    return await _run_handler(
-        ctx,
-        tool=ToolName.PLAN_ROUTE,
-        params=params,
-        handler=execute_plan_route,
-    )
+    return await _run_catalog_route(ctx, _require_catalog(ctx.deps), params=params)
 
 
 @pilgrimage_agent.tool
@@ -233,7 +217,7 @@ async def greet_user(ctx: RunContext[RuntimeDeps], message: str) -> dict[str, ob
         message: A friendly introduction in the user's language (2-4 sentences).
                  Include 2-3 example queries the user can try.
     """
-    return await _run_handler(
+    return await _run_ephemeral(
         ctx,
         tool=ToolName.GREET_USER,
         params={"message": message},
@@ -257,7 +241,7 @@ async def general_qa(ctx: RunContext[RuntimeDeps], answer: str) -> dict[str, obj
     Args:
         answer: Your helpful answer about pilgrimage in the user's language.
     """
-    return await _run_handler(
+    return await _run_ephemeral(
         ctx,
         tool=ToolName.ANSWER_QUESTION,
         params={"answer": answer},
