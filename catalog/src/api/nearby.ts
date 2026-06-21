@@ -1,6 +1,5 @@
-import { inArray } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
-import { points } from "../db/schema";
 import { findPointsWithinRadius, type NearbyPoint } from "../lib/geo-query";
 import type { PilgrimagePoint } from "../types";
 
@@ -32,21 +31,21 @@ export interface NearbyInput {
 /** The point columns the geo helper omits, keyed by id for the merge step. */
 interface PointDetail {
   id: string;
-  bangumiId: string | null;
-  nameCn: string | null;
+  bangumi_id: string | null;
+  name_cn: string | null;
   image: string | null;
   episode: number | null;
-  timeSeconds: number | null;
+  time_seconds: number | null;
   origin: string | null;
 }
 
 const merge = (near: NearbyPoint, d?: PointDetail): PilgrimagePoint => ({
   id: near.id,
   name: near.name,
-  name_cn: d?.nameCn ?? undefined,
-  bangumi_id: d?.bangumiId ?? "",
+  name_cn: d?.name_cn ?? undefined,
+  bangumi_id: d?.bangumi_id ?? "",
   episode: d?.episode ?? undefined,
-  time_seconds: d?.timeSeconds ?? undefined,
+  time_seconds: d?.time_seconds ?? undefined,
   screenshot_url: d?.image ?? "",
   latitude: near.latitude,
   longitude: near.longitude,
@@ -54,19 +53,16 @@ const merge = (near: NearbyPoint, d?: PointDetail): PilgrimagePoint => ({
   distance_m: near.distanceM,
 });
 
-const detailColumns = {
-  id: points.id,
-  bangumiId: points.bangumiId,
-  nameCn: points.nameCn,
-  image: points.image,
-  episode: points.episode,
-  timeSeconds: points.timeSeconds,
-  origin: points.origin,
-};
-
+/** The point detail columns for `ids`. Raw `sql` (the Drizzle query builder
+ * hangs under workerd), matching the IN pattern in api/route.ts. */
 async function loadDetails(db: CatalogDb, ids: string[]): Promise<Map<string, PointDetail>> {
   if (ids.length === 0) return new Map();
-  const rows = await db.select(detailColumns).from(points).where(inArray(points.id, ids));
+  const result = await db.execute(sql`
+    SELECT id, bangumi_id, name_cn, image, episode, time_seconds, origin
+    FROM points
+    WHERE id IN (${sql.join(ids, sql`, `)})
+  `);
+  const rows = result.rows as unknown as PointDetail[];
   return new Map(rows.map((r) => [r.id, r]));
 }
 

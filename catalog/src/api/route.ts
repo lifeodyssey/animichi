@@ -18,6 +18,7 @@
 import { sql } from "drizzle-orm";
 import type { ClusterablePoint, LocationCluster } from "../lib/clustering";
 import { clusterByLocation } from "../lib/clustering";
+import { optional } from "../lib/optional";
 import type { Origin as KernelOrigin, Pacing, TimedItinerary } from "../lib/route";
 import { buildTimedItinerary } from "../lib/route";
 import type { Origin, PilgrimagePoint, Route } from "../types";
@@ -125,18 +126,6 @@ function scalarFields(r: PointRow): Omit<PilgrimagePoint, "latitude" | "longitud
       cover_url: r.cover_url,
     }),
   };
-}
-
-/** Strip `null`/`undefined` from each value type — present entries only. */
-type Defined<T> = { [K in keyof T]?: Exclude<T[K], null | undefined> };
-
-/** Keep only present (non-null/undefined) entries — drops absent DB columns. */
-function optional<T extends Record<string, unknown>>(fields: T): Defined<T> {
-  const out: Defined<T> = {};
-  for (const [k, v] of Object.entries(fields)) {
-    if (v !== null && v !== undefined) out[k as keyof T] = v as Defined<T>[keyof T];
-  }
-  return out;
 }
 
 /** Kernel itinerary options: pacing + the coordinate form of Origin only. */
