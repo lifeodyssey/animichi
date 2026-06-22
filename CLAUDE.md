@@ -28,7 +28,7 @@ backend/              # Python runtime
   infrastructure/     # External adapters (DB, observability, gateways)
   interfaces/         # API surface (fastapi_service, public_api)
   tests/              # unit, integration, eval
-frontend/             # Next.js static export
+frontend/             # Next.js OpenNext-SSR (.open-next/); TanStack Start rebuild planned
 supabase/migrations/  # DDL migrations (timestamp-ordered)
 worker/entry.js       # CF Worker entry (container proxy + image proxy → OpenNext)
 ```
@@ -97,7 +97,7 @@ Full docs in `docs/api-reference/`. Key facts:
 - Orchestration: single PydanticAI agent (`pilgrimage_agent`) with typed output; selected-route path bypasses agent
 - Tools use `ModelRetry` guards to reject invalid LLM parameters; `output_validator` rejects fabricated responses
 - Auth: Next.js middleware (cookie-based for pages, JWT/sk_ for API); container trusts forwarded headers
-- Frontend: Next.js static export (`output: "export"`); no server-only features
+- Frontend: Next.js OpenNext-SSR (`.open-next/` via next.config side-effect, NOT `output: export`); TanStack Start rebuild (SPA+SSG) planned
 - No `Any` in Python — use `object` + `isinstance()` at trust boundaries
 - New UI component = register in `frontend/components/generative/registry.ts` only
 - Run `make check` before and after any change
@@ -119,7 +119,7 @@ git tag v1.x.x && git push origin v1.x.x  # triggers deploy
 Flow: CI green → Tester validates on main → Tester tags → CI deploys to production.
 
 - Container: FastAPI via Dockerfile → Cloudflare container
-- Frontend: static export → `frontend/out/` → CF ASSETS binding
+- Frontend: OpenNext-SSR build → `.open-next/` (worker.js + assets) → CF ASSETS binding (`.open-next/assets`); TanStack rebuild will switch to `.output/public`
 - Worker: routes `/v1/*` to container, static to ASSETS
 - DB migrations: applied during deploy step
 
@@ -304,7 +304,7 @@ backend/              # Python runtime
   infrastructure/     # External adapters (DB, observability, gateways)
   interfaces/         # API surface (fastapi_service, public_api)
   tests/              # unit, integration, eval
-frontend/             # Next.js static export
+frontend/             # Next.js OpenNext-SSR (.open-next/); TanStack Start rebuild planned
 supabase/migrations/  # DDL migrations (timestamp-ordered)
 worker/entry.js       # CF Worker entry (container proxy + image proxy → OpenNext)
 ```
@@ -373,7 +373,7 @@ Full docs in `docs/api-reference/`. Key facts:
 - Orchestration: single PydanticAI agent (`pilgrimage_agent`) with typed output; selected-route path bypasses agent
 - Tools use `ModelRetry` guards to reject invalid LLM parameters; `output_validator` rejects fabricated responses
 - Auth: Next.js middleware (cookie-based for pages, JWT/sk_ for API); container trusts forwarded headers
-- Frontend: Next.js static export (`output: "export"`); no server-only features
+- Frontend: Next.js OpenNext-SSR (`.open-next/` via next.config side-effect, NOT `output: export`); TanStack Start rebuild (SPA+SSG) planned
 - No `Any` in Python — use `object` + `isinstance()` at trust boundaries
 - New UI component = register in `frontend/components/generative/registry.ts` only
 - Run `make check` before and after any change
@@ -395,7 +395,7 @@ git tag v1.x.x && git push origin v1.x.x  # triggers deploy
 Flow: CI green → Tester validates on main → Tester tags → CI deploys to production.
 
 - Container: FastAPI via Dockerfile → Cloudflare container
-- Frontend: static export → `frontend/out/` → CF ASSETS binding
+- Frontend: OpenNext-SSR build → `.open-next/` (worker.js + assets) → CF ASSETS binding (`.open-next/assets`); TanStack rebuild will switch to `.output/public`
 - Worker: routes `/v1/*` to container, static to ASSETS
 - DB migrations: applied during deploy step
 

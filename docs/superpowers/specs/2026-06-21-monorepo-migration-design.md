@@ -1,94 +1,63 @@
-# 裸 monorepo → 受管 monorepo 迁移设计
+# 受管 monorepo 迁移设计(修订版 · 部署真相 spike 后)
 
-> 设计稿(2026-06-21,brainstorm 一路聊定)。把"几个项目恰好在一个 repo"升级成"pnpm 工作区管理、共享包真 import、apps/workers/packages 分层"。
+> 设计稿。**2026-06-22 大改**:经只读"部署真相 + 迁移就绪" spike(7 路并行调查 + opus 综合)解了早先评审的 C1-C4,并按风险重排为 P0-P6。原版(假设静态导出、一次性挪全部目录、立即上 pnpm)**已废**——与真实部署严重不符。
 
-## 目标
+## 部署真相(spike 确认)
 
-消除当前裸 monorepo 的三个病:① 契约**手抄漂移**(catalog types / Python models / contract 三份各自演化)② 主 Worker **混在根包 + 部署编排**里 ③ 前端↔worker **无共享 TS 的家**(A′ 的验证模块无处放)。
+- **前端是 OpenNext-SSR,不是静态导出**(CLAUDE.md/AGENTS.md "static export `output:export`" 是**陈旧错误**,与现实矛盾)。
+- OpenNext 产物(`.open-next/worker.js` + `.open-next/assets`)由 `frontend/next.config.ts` 的 `initOpenNextCloudflareForDev()` **模块加载副作用**产出(非 `opennextjs-cloudflare` CLI)。`worker/entry.ts:2` import 这个产物。**管线能跑但隐式/脆弱**。
+- 两条部署路,都以 **root `wrangler.toml`** 为中心(`main=worker/entry.ts`、`[assets]=.open-next/assets`、`[[services]] catalog`、`[[containers]] RuntimeContainer image=./Dockerfile`):
+  - 手动(`deploy.yml`,workflow_dispatch):`next build` → `supabase db push` → root `wrangler deploy`。**不部署 catalog Worker**。
+  - tag(`ci.yml`,`v*`):catalog 先(workingDirectory: catalog)→ root(含容器)。
+- 3 份 wrangler:只 **root** 被部署用;`frontend/wrangler.jsonc`=本地 dev 脚手架(死);`catalog/wrangler.toml`=独立 Worker(tag 路)。
+- 栈 = npm + 各叶 `package-lock.json`,**无 workspace 字段**(文件夹式 monorepo)。7 处 CI cache 硬编码 `cache:npm`。
 
-## 现状(裸 monorepo)
+## C1-C4 裁决(spike 后)
 
-- 一个 git repo,多个包,**无 workspace 工具**;各装各的 node_modules;`@seichijunrei/contract` **没被 import,被手抄**。
-- `frontend/`(Next,独立包)、`catalog/`(TS Worker,独立包)、`worker/`(主 Worker = 根包 `seichijunrei-cloudflare-worker` 的代码 + 部署编排)、`backend/`(Python agent,uv)、`packages/contract/`(SoT,手抄)、`e2e/`(Playwright,独立包)。
-
-## 关键决策(已定)
-
-| 决策 | 选择 | 理由 |
+| 项 | 状态 | 要点 |
 |---|---|---|
-| 包管理器 | **pnpm workspaces** | monorepo 首选,`workspace:*` 链接最干净(用户指定) |
-| 布局 | **apps/ + workers/ + packages/** 三分 | apps=非-Worker 部署物;workers=两个 CF Worker 归类;packages=共享库 |
-| 两个 Worker | edge / catalog **保持两个独立部署单元** | catalog 私有化靠 service binding(Worker→Worker);合一个会重新公网暴露 catalog(毁掉刚做的认证)+ bundle 超限 + 失去独立部署/DDD 边界。仅**目录**归到 workers/ 下 |
-| Python | 搬 **apps/agent + 重命名 backend→agent** | 最对称;codemod `from backend.`→`from agent.`(用户选定,接受 churn) |
-| 契约 | TS 侧 **真 import** `@s/contract`;Python 侧从 **openapi.json codegen** | 根治手抄漂移;Python 不能 import TS |
-| 共享 auth | `packages/auth`(无 Next 依赖的 verify) | A′ 的家;web + edge 共享单一认证 |
-| 测试 | 跟包走 + e2e 顶层 + TS 摆法统一 | 现已基本对,顺手收敛 |
+| C1 OpenNext vs 静态导出 | **解决** | 确认 OpenNext-SSR;管线隐式但能跑;"静态导出"假设错。 |
+| C2 web↔edge 经 .open-next 耦合 | **解决(确认硬耦合)** | `worker/entry.ts` import `.open-next/worker.js` + `[assets]=.open-next/assets`。**OpenNext 在就拆不开 web/edge**——只有 TanStack rebuild(P4)斩断 import 才解。 |
+| C3 Python 重命名清单 | **changed(全清单)** | 558 imports/203 文件 + 23+ 配置(pyproject 7、pytest 3、pre-commit 9、Makefile 11、ci.yml 9、codacy、e2e 脚本)。 |
+| C4 重命名断容器 | **解决** | Dockerfile:41 CMD、:16 COPY、pyproject:76 hatch packages、:53 entry;apps/agent 移动需 Docker build-context 含 apps/(故 P1 就地、P6 才挪)。 |
+| 新:Python 契约 codegen | **open→决策** | codegen 会把 sentinel 默认(episode=-1 等)退成 Optional,改验证语义。**保手写 Pydantic 模型,不 codegen**。 |
+| 新:pnpm 硬刺 | **open→决策** | vitest-pool-workers/wrangler/OpenNext 要扁平 node_modules(`.npmrc node-linker=hoisted`);frontend 有 npm alias + 6 overrides;7 CI cache 要换。**P4 去掉 OpenNext 后再做(P5)**。 |
 
-## 目标结构
+## 关键排期洞察
+
+TanStack rebuild(分支 `docs/frontend-rebuild-plan`)会让 **C1/C2 自动 moot**(去 OpenNext、斩 .open-next import、worker 变纯路由 + `[assets]→.output/public`)——但 **rebuild 尚未开始**(main 仍 Next 16.2.3,无 apps/web),且 gated 在后端 eval parity。**edge worker 的认证契约(X-User 头、/v1+/img 路由)是穿越 rebuild 的稳定接缝**——后端工作不必等前端。
+
+⟹ **能现在安全做的 = P0-P3(都不碰 OpenNext/TanStack);P4-P6 hard-blocked,必须等 rebuild**。
+
+## 目标结构(最终态,P4-P6 后)
 
 ```
-/
-├── apps/
-│   ├── web/            Next.js              (← frontend/)
-│   └── agent/          Python agent,包名 agent (← backend/,backend→agent codemod)
-├── workers/
-│   ├── edge/           主 Worker 网关         (← worker/ + 根包的 worker 部分,成独立包)
-│   └── catalog/        Catalog Worker        (← catalog/)
-├── packages/
-│   ├── contract/       oRPC SoT(真 import)  (← packages/contract/)
-│   └── auth/           无 Next 的 verifyJwt/verifyApiKey(A′ 用,本迁移仅 scaffold)
-├── e2e/                跨服务 E2E(留顶层)
-├── supabase/  scripts/
-├── pnpm-workspace.yaml  声明 apps/*  workers/*  packages/*
-├── .npmrc               hoisting 配置(Next/wrangler/vitest 兼容)
-└── package.json         工作区根:只编排(无业务代码)
+apps/{web(TanStack), agent(Python)} + workers/{edge, catalog} + packages/{contract, auth} + e2e/ + supabase/
+pnpm-workspace.yaml + .npmrc(node-linker=hoisted)
 ```
+当前只走到 P1-P3(agent 就地重命名、契约卫生、catalog 部署补齐);apps/workers/packages + pnpm = P4-P6。
 
-`apps/agent`(Python)**不进 pnpm 工作区**(无 package.json,uv 工具链),只是目录归位。
+## 阶段计划(P0-P6;每阶段保持可部署)
 
-## 分阶段迁移(每阶段结束:app 仍可部署 + `make check`/各包测试绿)
+### Do-now(无 OpenNext/TanStack 耦合)
+- **P0 修陈旧文档(近零风险,doc-only)**:CLAUDE.md/AGENTS.md 的"static export `output:export`/frontend/out"→ 改为 OpenNext-SSR(`.open-next/`,next.config 副作用)现实 + 注明 TanStack rebuild 计划;记 3-wrangler 分工、手动/tag 部署差异、`.open-next` build-order 依赖。**防后续 agent 按假象行动。**
+- **P1 Python `backend`→`agent` 就地重命名(不移 apps/)**:`git mv backend agent` → codemod 558 imports → 改 23+ 配置(按 C3 清单)→ Dockerfile CMD:41/COPY:16(→agent,暂留 root)→ `make check` + 全 CI。**不移 apps/,避开 Docker build-context 重构**(留 P6)。
+- **P2 oRPC 契约卫生(不 codegen)**:加 CI 字段-parity 检查(`@seichijunrei/contract` ↔ `catalog/src/types.ts`)+ lint 强制 catalog 用 `import type` + 文档化 Python sentinel 分歧故意性。**不引入 openapi→Python codegen**。
+- **P3 catalog 部署补进 deploy.yml**:手动部署补 catalog-first(对齐 ci.yml)+ Dockerfile-exists 校验。闭合"手动部署对 stale catalog 失败"的洞。
 
-### Phase 0 — pnpm 工作区底座(不挪目录)
-- 加 `pnpm-workspace.yaml`(就地声明 `frontend`、`catalog`、`worker`... 先按现路径)。
-- 删各 `package-lock.json`,`pnpm install` 生成 `pnpm-lock.yaml`。
-- `.npmrc`:`node-linker=hoisted`(或 `shamefully-hoist=true`)保 Next/wrangler/vitest 兼容(pnpm 严格 node_modules 会绊倒部分工具)。
-- CI:`npm ci`→`pnpm install --frozen-lockfile`,`npm run X`→`pnpm X`,setup-node 加 pnpm。
-- **验证**:各包 build + test 绿;`wrangler deploy --dry-run`(需 .open-next)或至少 typecheck/test 绿。
+### Deferred(hard-blocked,等 rebuild)
+- **P4 TanStack Start 前端 rebuild(去 OpenNext)**:scaffold SPA+SSG→`.output/public`;斩 `worker/entry.ts` 的 .open-next import;`[assets]→.output/public`;保 edge JWT 验证 + /v1//img//healthz。**这才真正解 C1/C2**。gated 在后端 eval parity;协调式 cutover(entry.ts 与 [assets] 同翻)。
+- **P5 pnpm workspaces**:`pnpm-workspace.yaml` + `.npmrc node-linker=hoisted` + 迁 frontend overrides/alias + 7 CI cache 换 pnpm。**P4 去 OpenNext 后做**(少一个扁平-node_modules 消费者)。
+- **P6 agent→apps/agent + web→apps/web(最终布局)**:挪目录 + Dockerfile COPY apps/agent + build-context 含 apps/。**与 P4/P5 一起,让 apps/* 布局一次定型**。
 
-### Phase 1 — contract 变真 import(先治手抄,低风险高价值)
-- `packages/contract` 设 `name: @s/contract`、正确 `exports`。
-- catalog、(未来 edge)把手抄的 `types.ts` 改成 `import { ... } from "@s/contract"`(`workspace:*` 依赖)。
-- Python:加 `openapi.json → agent 模型` 的 codegen(datamodel-code-generator),生成物替换手抄的 `catalog_client.py` 模型。**(可作为 fast-follow,不阻塞结构迁移)**
-- **验证**:catalog typecheck + Python mypy/test 绿;契约只剩一份真相。
+## 硬阻塞
 
-### Phase 2 — TS 目录归位(逐个搬,搬一个验一个)
-- `frontend/` → `apps/web/`:改 wrangler `build:frontend` 路径、`.open-next/assets` 路径、CI、Storybook/vitest 配置里的相对路径。
-- `catalog/` → `workers/catalog/`:改 catalog wrangler、CI、`packages/contract` 相对引用(workspace 后变包名,无所谓路径)。
-- `worker/` → `workers/edge/`:**最大改动**——把根包的 worker 部分(hono/@cloudflare/containers 依赖 + entry.ts/app.ts)抽成 `workers/edge` 独立包;根 `package.json` 退化为纯工作区管理器;根 `wrangler.toml` 的 `main`/`assets`/`[[services]]`/`[[containers]]` 迁到 `workers/edge/wrangler.toml`。
-- 更新 `pnpm-workspace.yaml` 为最终 `apps/* workers/* packages/*`。
-- **验证**:每搬一个,该 Worker `wrangler deploy --dry-run` + 测试绿。
-
-### Phase 3 — Python 归位 + 重命名
-- `backend/` → `apps/agent/`;codemod `from backend.`→`from agent.`、`import backend`→`import agent`(全仓,含 tests)。
-- 改 `pytest.ini` testpaths、`Dockerfile`(容器构建上下文 + 入口路径)、`Makefile`、CI、`wrangler.toml [[containers]] image` 路径。
-- **验证**:`mypy` + `pytest`(全量)绿;容器 `docker build` 通;CONTAINER 部署路径正确。
-
-### Phase 4 — 共享 auth scaffold + 测试收敛
-- `packages/auth` scaffold:无 Next 依赖的 `verifyJwt`/`verifyApiKey` 接口骨架(**A′ 在后续单独实现逻辑**;本迁移只立包 + 占位 + 测试位)。
-- TS 单测摆法统一(挑一种:挨源码 或 包内 `test/`),runner 收敛策略落档。
-- **验证**:全绿。
-
-## 风险与回滚
-
-- **最高风险**:Phase 2 的 edge 抽包 + wrangler/deploy 路径迁移;pnpm hoisting 绊 Next/wrangler/vitest;Phase 3 的 Python codemod。
-- **缓解**:逐阶段、逐目录搬,每步 `make check` + `wrangler deploy --dry-run` + 该包测试;每步独立 commit,坏了可单步 revert。**全程保持仓库可部署**(不在中途留半迁移态过夜)。
-- **部署冻结**:迁移期间不打 deploy tag,直到 Phase 2/3 全绿 + 一次成功的 dry-run。
+- **拆 web/edge** 需 P4(OpenNext .open-next import);P4 前 C2 解不了。
+- **apps/agent 移动** 需 Docker build-context 含 apps/ → P1 先就地重命名,P6 才挪。
+- TanStack rebuild(P4)gated 在后端 eval parity 且未开始 → C1/C2 在此前保持 live。
+- pnpm(P5)与 OpenNext/wrangler/vitest-pool-workers 扁平-node_modules 冲突 → 排在 P4 后。
+- WATCH:手动 deploy.yml 不部署 catalog(P3 修);OpenNext build 隐式(next.config 副作用,若断则 `next build` 出 .next/ 而非 .open-next/,部署期才炸)。
 
 ## 不在范围
 
-- **A′ 认证逻辑本身**:本迁移只 scaffold `packages/auth`;A′ 落地是后续独立卡(落进新结构)。
-- `/v1→容器` 修复(A′ 的一部分):排查已完成(根因 bc394ea),修复随 A′。
-- 业务功能、parity gate、prod 部署:不动。
-
-## 落地后收益
-
-单一契约真相源(手抄绝迹)+ edge 成干净独立包 + A′ 有家(单一认证)+ apps/workers/packages 一眼看清边界 + pnpm 跨包 build/test 一条命令。
+A′ 认证(已完成)、业务功能、parity gate、prod 部署时机。
