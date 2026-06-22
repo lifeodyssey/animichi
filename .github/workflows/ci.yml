@@ -82,6 +82,29 @@ jobs:
           supabase migration list --db-url "$SUPABASE_DB_URL"
           supabase db push --dry-run --db-url "$SUPABASE_DB_URL"
 
+  catalog-quality:
+    name: Catalog Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: catalog/package-lock.json
+
+      - run: npm ci
+        working-directory: catalog
+
+      - name: Type check
+        run: npx tsc --noEmit
+        working-directory: catalog
+
+      - name: Worker tests (no-db)
+        run: npm run test:worker
+        working-directory: catalog
+
   # ── Stage 2: Tests + Build (parallel, gated by Stage 1) ───
 
   backend-test:
