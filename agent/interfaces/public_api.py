@@ -12,8 +12,10 @@ from time import perf_counter
 from typing import cast
 from uuid import uuid4
 
+import httpx
 import structlog
 from pydantic_ai import ModelMessagesTypeAdapter
+from pydantic_ai.exceptions import FallbackExceptionGroup, ModelHTTPError
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 
@@ -67,6 +69,26 @@ __all__ = [
 logger = structlog.get_logger(__name__)
 
 AGENT_TIMEOUT_SECONDS: float = 90.0
+
+
+def _is_provider_error(exc: BaseException) -> bool:
+    """Detect transient provider errors by exception type, not string scanning."""
+    if isinstance(exc, ModelHTTPError):
+        return exc.status_code in (429, 502, 503)
+    if isinstance(exc, FallbackExceptionGroup):
+        return True
+    if isinstance(exc, httpx.TransportError):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code in (429, 502, 503)
+    return False
+
+
+def _span_record_exception(span: object, exc: BaseException) -> None:
+    """Best-effort span exception recording (OpenTelemetry compatible)."""
+    record_exc = getattr(span, "record_exception", None)
+    if callable(record_exc):
+        record_exc(exc)
 
 
 def default_catalog_client() -> CatalogClient:
@@ -272,9 +294,7 @@ class RuntimeAPI:
                     timeout=AGENT_TIMEOUT_SECONDS,
                 )
         except TimeoutError:
-            record_exc = getattr(span, "record_exception", None)
-            if callable(record_exc):
-                record_exc(TimeoutError("agent timed out"))
+            _span_record_exception(span, TimeoutError("agent timed out"))
             logger.warning("agent_timeout", text=request.text[:50])
             return (
                 None,
@@ -293,30 +313,12 @@ class RuntimeAPI:
                 context_delta,
             )
         except ApplicationError as exc:
-            record_exc = getattr(span, "record_exception", None)
-            if callable(record_exc):
-                record_exc(exc)
+            _span_record_exception(span, exc)
             return None, application_error_response(exc), context_delta
         except Exception as exc:
+            _span_record_exception(span, exc)
             error_msg = str(exc)
-            exc_type = type(exc).__name__.lower()
-            search_text = f"{exc_type} {error_msg}".lower()
-            is_provider_error = any(
-                k in search_text
-                for k in (
-                    "502",
-                    "503",
-                    "rate limit",
-                    "network",
-                    "modelhttperror",
-                    "fallbackmodel",
-                    "fallbackexceptiongroup",
-                )
-            )
-            record_exc = getattr(span, "record_exception", None)
-            if callable(record_exc):
-                record_exc(exc)
-            if is_provider_error:
+            if _is_provider_error(exc):
                 logger.warning("provider_error", error=error_msg[:200])
                 return (
                     None,
