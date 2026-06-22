@@ -47,6 +47,71 @@ def build_catalog_client(settings: Settings) -> CatalogClient:
     return CatalogClient(base_url=settings.catalog_api_url)
 
 
+@asynccontextmanager
+async def _lifespan_with_runtime_api(
+    app: FastAPI,
+    resolved_settings: Settings,
+    runtime_api: RuntimeAPI,
+    db: object | None,
+) -> AsyncIterator[None]:
+    """Lifespan branch: runtime_api provided externally (test / injection)."""
+    app.state.runtime_api = runtime_api
+    resolved_db = db if db is not None else getattr(runtime_api, "_db", None)
+    if resolved_db is not None:
+        app.state.db_client = resolved_db
+    try:
+        yield
+    finally:
+        if resolved_settings.observability_enabled:
+            shutdown_observability()
+
+
+def _resolve_session_store(
+    session_store: SessionStore | None,
+    runtime_db: object,
+) -> SessionStore:
+    """Resolve the session store from the provided store or the DB client."""
+    if session_store is not None:
+        return session_store
+    if isinstance(runtime_db, SupabaseClient):
+        return build_session_store(runtime_db)
+    raise RuntimeError(
+        "create_fastapi_app(..., db=...) requires session_store"
+        " for non-Supabase db adapters."
+    )
+
+
+@asynccontextmanager
+async def _lifespan_build_runtime(
+    app: FastAPI,
+    resolved_settings: Settings,
+    db: object | None,
+    session_store: SessionStore | None,
+) -> AsyncIterator[None]:
+    """Lifespan branch: build RuntimeAPI from scratch (normal startup)."""
+    runtime_db = db if db is not None else build_supabase_client(resolved_settings)
+    runtime_session_store = _resolve_session_store(session_store, runtime_db)
+    await call_optional_async(runtime_db, "connect")
+    # Migrations are managed by Supabase CLI (`supabase db push` in CI/CD).
+    # Local dev: `supabase start` applies migrations automatically.
+    # See: deploy.yml and https://supabase.com/docs/guides/deployment/database-migrations
+    catalog_client = build_catalog_client(resolved_settings)
+    app.state.catalog_client = catalog_client
+    app.state.runtime_api = RuntimeAPI(
+        runtime_db,
+        session_store=runtime_session_store,
+        catalog=catalog_client,
+    )
+    app.state.db_client = runtime_db
+    try:
+        yield
+    finally:
+        await call_optional_async(runtime_session_store, "close")
+        await call_optional_async(runtime_db, "close")
+        if resolved_settings.observability_enabled:
+            shutdown_observability()
+
+
 def create_fastapi_app(
     *,
     runtime_api: RuntimeAPI | None = None,
@@ -63,45 +128,13 @@ def create_fastapi_app(
         if resolved_settings.observability_enabled:
             setup_observability(resolved_settings)
         if runtime_api is not None:
-            app.state.runtime_api = runtime_api
-            resolved_db = db if db is not None else getattr(runtime_api, "_db", None)
-            if resolved_db is not None:
-                app.state.db_client = resolved_db
-            try:
+            async with _lifespan_with_runtime_api(
+                app, resolved_settings, runtime_api, db
+            ):
                 yield
-            finally:
-                if resolved_settings.observability_enabled:
-                    shutdown_observability()
             return
-        runtime_db = db if db is not None else build_supabase_client(resolved_settings)
-        if session_store is not None:
-            runtime_session_store = session_store
-        elif isinstance(runtime_db, SupabaseClient):
-            runtime_session_store = build_session_store(runtime_db)
-        else:
-            raise RuntimeError(
-                "create_fastapi_app(..., db=...) requires session_store"
-                " for non-Supabase db adapters."
-            )
-        await call_optional_async(runtime_db, "connect")
-        # Migrations are managed by Supabase CLI (`supabase db push` in CI/CD).
-        # Local dev: `supabase start` applies migrations automatically.
-        # See: deploy.yml and https://supabase.com/docs/guides/deployment/database-migrations
-        catalog_client = build_catalog_client(resolved_settings)
-        app.state.catalog_client = catalog_client
-        app.state.runtime_api = RuntimeAPI(
-            runtime_db,
-            session_store=runtime_session_store,
-            catalog=catalog_client,
-        )
-        app.state.db_client = runtime_db
-        try:
+        async with _lifespan_build_runtime(app, resolved_settings, db, session_store):
             yield
-        finally:
-            await call_optional_async(runtime_session_store, "close")
-            await call_optional_async(runtime_db, "close")
-            if resolved_settings.observability_enabled:
-                shutdown_observability()
 
     app = FastAPI(lifespan=lifespan)
     setup_logfire(resolved_settings, app=app)
