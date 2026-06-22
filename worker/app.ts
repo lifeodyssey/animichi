@@ -72,17 +72,17 @@ async function handleImageProxy(request: Request, ctx: ExecutionContext): Promis
  * only via the container outboundByHost binding, never the public internet). */
 export function createWorkerApp(deps: {
   nextHandler: NextHandler;
-  authenticate?: (request: Request, env: Env) => Promise<AuthResult>;
+  authenticate?: (request: Request, env: Env, ctx: ExecutionContext) => Promise<AuthResult>;
 }): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
-  const authenticate = deps.authenticate ?? ((req, env) => realAuthenticate(req, env));
+  const authenticate = deps.authenticate ?? ((req, env, ctx) => realAuthenticate(req, env, fetch, ctx));
   app.get("/healthz", (c) =>
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
   );
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
   app.all("/v1/*", async (c) => {
     if (isPublicV1(new URL(c.req.url).pathname)) return forwardV1(c.env, c.req.raw);
-    const auth = await authenticate(c.req.raw, c.env);
+    const auth = await authenticate(c.req.raw, c.env, c.executionCtx);
     if (!auth.ok) {
       return c.json({ error: { code: "unauthorized", message: "Valid credentials required." } }, 401);
     }
