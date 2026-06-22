@@ -37,6 +37,15 @@ class RoutePlanParams:
         return cls(origin=origin, pacing=pacing, start_time=start_time)
 
 
+def _rewrite_url(url: str) -> str:
+    """Rewrite a single Anitabi image URL to go through our CF proxy."""
+    if "image.anitabi.cn/" in url:
+        return url.replace("https://image.anitabi.cn/", "/img/")
+    if url.startswith("screenshot/"):
+        return f"/img/{url}"
+    return url
+
+
 def rewrite_image_urls(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     """Rewrite Anitabi image URLs to go through our CF proxy.
 
@@ -48,15 +57,12 @@ def rewrite_image_urls(rows: list[dict[str, object]]) -> list[dict[str, object]]
     if os.environ.get("APP_ENV", "development") == "development":
         return rows
 
-    for row in rows:
+    out = list(rows)
+    for row in out:
         url = row.get("screenshot_url")
-        if not isinstance(url, str) or not url:
-            continue
-        if "image.anitabi.cn/" in url:
-            row["screenshot_url"] = url.replace("https://image.anitabi.cn/", "/img/")
-        elif url.startswith("screenshot/"):
-            row["screenshot_url"] = f"/img/{url}"
-    return rows
+        if isinstance(url, str) and url:
+            row["screenshot_url"] = _rewrite_url(url)
+    return out
 
 
 def _row_title(row: dict[str, object]) -> str:
@@ -69,52 +75,67 @@ def _row_title(row: dict[str, object]) -> str:
     return ""
 
 
+def _normalize_distance(row: dict[str, object]) -> float | None:
+    """Extract and normalize a distance_m value from a row dict."""
+    distance_m = row.get("distance_m")
+    return float(distance_m) if isinstance(distance_m, int | float) else None
+
+
+def _init_group(
+    row: dict[str, object], bangumi_id: str, normalized_distance: float | None
+) -> dict[str, object]:
+    """Create a new group dict from the first matching row."""
+    cover = row.get("cover_url")
+    return {
+        "bangumi_id": bangumi_id,
+        "title": _row_title(row),
+        "cover_url": cover if isinstance(cover, str) else None,
+        "points_count": 1,
+        "closest_distance_m": normalized_distance,
+    }
+
+
+def _update_group(
+    group: dict[str, object],
+    row: dict[str, object],
+    normalized_distance: float | None,
+) -> None:
+    """Update an existing group with data from a subsequent matching row."""
+    raw_count = group["points_count"]
+    group["points_count"] = (
+        int(raw_count) if isinstance(raw_count, (int, float)) else 0
+    ) + 1
+    if not group.get("title"):
+        group["title"] = _row_title(row)
+    if group.get("cover_url") is None and isinstance(row.get("cover_url"), str):
+        group["cover_url"] = row["cover_url"]
+    if normalized_distance is None:
+        return
+    current = group.get("closest_distance_m")
+    group["closest_distance_m"] = (
+        min(float(current), normalized_distance)
+        if isinstance(current, int | float)
+        else normalized_distance
+    )
+
+
 def _build_nearby_groups(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     groups: dict[str, dict[str, object]] = {}
     for row in rows:
         bangumi_id = row.get("bangumi_id")
         if not isinstance(bangumi_id, str) or not bangumi_id:
             continue
-
+        dist = _normalize_distance(row)
         group = groups.get(bangumi_id)
-        distance_m = row.get("distance_m")
-        normalized_distance = (
-            float(distance_m) if isinstance(distance_m, int | float) else None
-        )
         if group is None:
-            groups[bangumi_id] = {
-                "bangumi_id": bangumi_id,
-                "title": _row_title(row),
-                "cover_url": row.get("cover_url")
-                if isinstance(row.get("cover_url"), str)
-                else None,
-                "points_count": 1,
-                "closest_distance_m": normalized_distance,
-            }
-            continue
-
-        raw_count = group["points_count"]
-        group["points_count"] = (
-            int(raw_count) if isinstance(raw_count, (int, float)) else 0
-        ) + 1
-        if not group.get("title"):
-            group["title"] = _row_title(row)
-        if group.get("cover_url") is None and isinstance(row.get("cover_url"), str):
-            group["cover_url"] = row["cover_url"]
-        current_distance = group.get("closest_distance_m")
-        if normalized_distance is not None:
-            if isinstance(current_distance, int | float):
-                group["closest_distance_m"] = min(
-                    float(current_distance), normalized_distance
-                )
-            else:
-                group["closest_distance_m"] = normalized_distance
-
+            groups[bangumi_id] = _init_group(row, bangumi_id, dist)
+        else:
+            _update_group(group, row, dist)
     return list(groups.values())
 
 
 def _parse_coordinate_origin(origin: str | None) -> tuple[float, float] | None:
-    """Parse a coordinate origin encoded as "lat,lng"."""
+    """Parse a coordinate origin encoded as \"lat,lng\"."""
     if origin is None:
         return None
 
