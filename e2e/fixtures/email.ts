@@ -46,7 +46,8 @@ async function waitMails(since: Date): Promise<ReceivedEmail> {
   const start = Date.now();
   while (Date.now() - start < MAX_WAIT) {
     try {
-      const raw = execFileSync("mails", ["inbox", "--json", "--limit", "1"], {
+      const mailsBin = "/usr/local/bin/mails";
+      const raw = execFileSync(mailsBin, ["inbox", "--json", "--limit", "1"], {
         encoding: "utf-8",
         timeout: 10_000,
         env: { ...process.env, PATH: "/usr/local/bin:/usr/bin:/bin" },
