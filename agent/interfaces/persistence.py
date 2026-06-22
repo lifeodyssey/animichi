@@ -13,8 +13,12 @@ import structlog
 from pydantic_core import to_jsonable_python
 
 from agent.agents.agent_result import AgentResult
+from agent.domain.ports import (
+    get_routes_repo,
+    get_session_repo,
+    get_user_memory_repo,
+)
 from agent.infrastructure.session import SessionStore
-from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.schemas import (
     PublicAPIRequest,
     PublicAPIResponse,
@@ -193,13 +197,14 @@ async def persist_session(
 ) -> None:
     await session_store.set(session_id, session_state)
 
-    if isinstance(db, SupabaseClient):
+    session_repo = get_session_repo(db)
+    if session_repo is not None:
         metadata = {
             "intent": response.intent,
             "status": response.status,
             "updated_at": session_state["updated_at"],
         }
-        await db.session.upsert_session(session_id, session_state, metadata=metadata)
+        await session_repo.upsert_session(session_id, session_state, metadata=metadata)
 
 
 async def persist_user_state(
@@ -218,9 +223,10 @@ async def persist_user_state(
         return None
 
     generated_title: str | None = None
-    if isinstance(db, SupabaseClient):
+    session_repo = get_session_repo(db)
+    if session_repo is not None:
         try:
-            await db.session.upsert_conversation(session_id, user_id, request.text)
+            await session_repo.upsert_conversation(session_id, user_id, request.text)
         except _PERSIST_ERRORS:
             logger.warning("upsert_conversation_failed", session_id=session_id)
         # TODO: re-enable when conversation history feature is fully wired
@@ -243,13 +249,16 @@ async def persist_user_state(
         #         )
 
     bangumi_id = context_delta.get("bangumi_id")
-    if not isinstance(bangumi_id, str) or not isinstance(db, SupabaseClient):
+    if not isinstance(bangumi_id, str):
+        return generated_title
+    user_memory_repo = get_user_memory_repo(db)
+    if user_memory_repo is None:
         return generated_title
 
     anime_title_raw = context_delta.get("anime_title")
     anime_title = anime_title_raw if isinstance(anime_title_raw, str) else None
     try:
-        await db.user_memory.upsert_user_memory(
+        await user_memory_repo.upsert_user_memory(
             user_id,
             bangumi_id=bangumi_id,
             anime_title=anime_title,
@@ -261,11 +270,14 @@ async def persist_user_state(
 
 
 async def load_user_memory(db: object, user_id: str | None) -> dict[str, object] | None:
-    if not user_id or not isinstance(db, SupabaseClient):
+    if not user_id:
+        return None
+    user_memory_repo = get_user_memory_repo(db)
+    if user_memory_repo is None:
         return None
 
     try:
-        result = await db.user_memory.get_user_memory(user_id)
+        result = await user_memory_repo.get_user_memory(user_id)
         return dict(result) if result else None
     except _PERSIST_ERRORS:
         logger.warning("get_user_memory_failed", user_id=user_id)
@@ -333,8 +345,9 @@ async def maybe_persist_route(
         "created_at": datetime.now(UTC).isoformat(),
     }
 
-    if isinstance(db, SupabaseClient):
-        route_id = await db.routes.save_route(
+    routes_repo = get_routes_repo(db)
+    if routes_repo is not None:
+        route_id = await routes_repo.save_route(
             session_id,
             bangumi_id,
             point_ids,

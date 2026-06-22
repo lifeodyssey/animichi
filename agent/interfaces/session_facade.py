@@ -13,8 +13,8 @@ import structlog
 
 from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.base import create_agent, get_default_model
+from agent.domain.ports import get_session_repo
 from agent.infrastructure.session import SessionStore
-from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.schemas import PublicAPIRequest
 
 logger = structlog.get_logger(__name__)
@@ -442,13 +442,14 @@ async def generate_and_save_title(
     except (OSError, RuntimeError, ValueError):
         logger.warning("conversation_title_generation_failed", session_id=session_id)
 
-    if not isinstance(db, SupabaseClient):
+    session_repo = get_session_repo(db)
+    if session_repo is None:
         return title
 
     try:
-        await db.session.update_conversation_title(session_id, title, user_id=user_id)
+        await session_repo.update_conversation_title(session_id, title, user_id=user_id)
     except TypeError:
-        await db.session.update_conversation_title(session_id, title)
+        await session_repo.update_conversation_title(session_id, title)
     except (OSError, RuntimeError):
         logger.warning("update_conversation_title_failed", session_id=session_id)
 
