@@ -13,7 +13,8 @@ the implementation types for structural subtyping to work.
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+import asyncio
+from typing import Protocol, cast, runtime_checkable
 
 
 class BangumiRepo(Protocol):
@@ -71,3 +72,108 @@ class DatabasePort(Protocol):
 
     @property
     def points(self) -> PointsRepo: ...
+
+
+class SessionRepo(Protocol):
+    """Session-related DB operations used by persistence helpers."""
+
+    async def upsert_session(
+        self,
+        session_id: str,
+        session_state: dict[str, object],
+        *,
+        metadata: dict[str, object] | None = None,
+    ) -> None: ...
+
+    async def upsert_conversation(
+        self,
+        session_id: str,
+        user_id: str,
+        text: str,
+    ) -> None: ...
+
+    async def update_conversation_title(
+        self,
+        session_id: str,
+        title: str,
+        *,
+        user_id: str | None = None,
+    ) -> None: ...
+
+
+class UserMemoryRepo(Protocol):
+    """User memory DB operations used by persistence helpers."""
+
+    async def get_user_memory(
+        self,
+        user_id: str,
+    ) -> dict[str, object] | None: ...
+
+    async def upsert_user_memory(
+        self,
+        user_id: str,
+        *,
+        bangumi_id: str | None = None,
+        anime_title: str | None = None,
+    ) -> None: ...
+
+
+class RoutesRepo(Protocol):
+    """Route persistence operations used by persistence helpers."""
+
+    async def save_route(
+        self,
+        session_id: str,
+        bangumi_id: str,
+        point_ids: list[str],
+        data: dict[str, object],
+        *,
+        origin_station: str | None = None,
+        origin_lat: float | None = None,
+        origin_lon: float | None = None,
+    ) -> str | None: ...
+
+
+def get_session_repo(db: object) -> SessionRepo | None:
+    """Return the session repo if *db* exposes one with async upsert_session."""
+    session = getattr(db, "session", None)
+    if session is None:
+        return None
+    if not asyncio.iscoroutinefunction(getattr(session, "upsert_session", None)):
+        return None
+    return cast(SessionRepo, session)
+
+
+def get_user_memory_repo(db: object) -> UserMemoryRepo | None:
+    """Return the user_memory repo if *db* exposes one with async get_user_memory."""
+    user_memory = getattr(db, "user_memory", None)
+    if user_memory is None:
+        return None
+    if not asyncio.iscoroutinefunction(getattr(user_memory, "get_user_memory", None)):
+        return None
+    return cast(UserMemoryRepo, user_memory)
+
+
+def get_routes_repo(db: object) -> RoutesRepo | None:
+    """Return the routes repo if *db* exposes one with async save_route."""
+    routes = getattr(db, "routes", None)
+    if routes is None:
+        return None
+    if not asyncio.iscoroutinefunction(getattr(routes, "save_route", None)):
+        return None
+    return cast(RoutesRepo, routes)
+
+
+def has_session_repo(db: object) -> bool:
+    """Return True if *db* exposes a session repo."""
+    return get_session_repo(db) is not None
+
+
+def has_user_memory_repo(db: object) -> bool:
+    """Return True if *db* exposes a user_memory repo."""
+    return get_user_memory_repo(db) is not None
+
+
+def has_routes_repo(db: object) -> bool:
+    """Return True if *db* exposes a routes repo."""
+    return get_routes_repo(db) is not None
