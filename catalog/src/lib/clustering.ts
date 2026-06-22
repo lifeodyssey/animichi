@@ -51,8 +51,8 @@ function union(parent: number[], rank: number[], a: number, b: number): void {
     [ra, rb] = [rb, ra];
   }
   parent[rb] = ra;
-  if (rank[ra]! === rank[rb]!) {
-    rank[ra]! += 1;
+  if (rank[ra] === rank[rb]) {
+    rank[ra] = (rank[ra] ?? 0) + 1;
   }
 }
 
@@ -113,7 +113,7 @@ function buildClusters<P extends ClusterablePoint>(
   for (const indices of groups.values()) {
     clusters.push(makeCluster(points, indices));
   }
-  clusters.sort((a, b) => (a.clusterId < b.clusterId ? -1 : a.clusterId > b.clusterId ? 1 : 0));
+  clusters.sort((a, b) => a.clusterId.localeCompare(b.clusterId));
   return clusters;
 }
 
@@ -124,7 +124,7 @@ function makeCluster<P extends ClusterablePoint>(
   const members = indices.map((i) => points[i]!);
   const sumLat = members.reduce((acc, p) => acc + p.latitude, 0);
   const sumLng = members.reduce((acc, p) => acc + p.longitude, 0);
-  const ids = members.map((p) => p.id).sort();
+  const ids = members.map((p) => p.id).sort((a, b) => a.localeCompare(b));
   return {
     centerLat: sumLat / members.length,
     centerLng: sumLng / members.length,
