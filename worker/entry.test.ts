@@ -71,6 +71,16 @@ test("/v1 public route -> container, no auth called", async () => {
   assert.equal(authCalled, false);
 });
 
+test("/v1 guide route (regex) is public -> container, no auth, client X-User stripped", async () => {
+  let authCalled = false;
+  const app = createWorkerApp({ nextHandler: stubNext, authenticate: async () => { authCalled = true; return { ok: false }; } });
+  const cap: { req?: Request } = {};
+  const res = await app.request("/v1/bangumi/12345/guide", { headers: { "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
+  assert.equal(await res.text(), "container");
+  assert.equal(authCalled, false);
+  assert.equal(cap.req?.headers.get("X-User-Id"), null);
+});
+
 test("/v1 authed route without creds -> 401, container not hit", async () => {
   const app = createWorkerApp({ nextHandler: stubNext, authenticate: async () => ({ ok: false }) });
   const cap: { req?: Request } = {};
