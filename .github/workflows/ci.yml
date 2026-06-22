@@ -33,13 +33,13 @@ jobs:
       - run: uv sync --all-extras
 
       - name: Format check
-        run: uv run ruff format --check backend/
+        run: uv run ruff format --check agent/
 
       - name: Lint
-        run: uv run ruff check backend/
+        run: uv run ruff check agent/
 
       - name: Type check
-        run: uv run mypy backend/agents/ backend/interfaces/ backend/domain/ backend/infrastructure/ backend/clients/
+        run: uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
 
   frontend-quality:
     name: Frontend Quality
@@ -103,21 +103,21 @@ jobs:
       - run: uv sync --all-extras
 
       - name: Unit tests (coverage >= 80%)
-        run: uv run pytest backend/tests/unit/ -v --cov --cov-report=xml --cov-fail-under=80
+        run: uv run pytest agent/tests/unit/ -v --cov --cov-report=xml --cov-fail-under=80
 
       - name: Integration tests (testcontainer)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: >-
-          uv run pytest backend/tests/integration/ -v --no-cov
+          uv run pytest agent/tests/integration/ -v --no-cov
           -k "not test_frontend_contracts and not test_e2e_smoke"
         env:
           ZETA_API_KEY: ${{ secrets.ZETA_API_KEY }}
 
       - name: Verify imports
         run: |
-          uv run python -c "from backend.interfaces.fastapi_service import create_fastapi_app; print('fastapi OK')"
-          uv run python -c "from backend.domain.entities import Point; print('domain OK')"
-          uv run python -c "from backend.agents.pilgrimage_runner import run_pilgrimage_agent; print('pilgrimage_agent OK')"
+          uv run python -c "from agent.interfaces.fastapi_service import create_fastapi_app; print('fastapi OK')"
+          uv run python -c "from agent.domain.entities import Point; print('domain OK')"
+          uv run python -c "from agent.agents.pilgrimage_runner import run_pilgrimage_agent; print('pilgrimage_agent OK')"
 
       - name: Upload coverage
         uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
@@ -203,13 +203,13 @@ jobs:
       - run: uv sync --all-extras
 
       - name: Run agent eval
-        run: uv run pytest backend/tests/eval/test_agent_eval.py -v -m integration --no-cov -x
+        run: uv run pytest agent/tests/eval/test_agent_eval.py -v -m integration --no-cov -x
         env:
           EVAL_MODEL: openai:deepseek-v4-pro@https://api.deepseek.com
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
 
       - name: Run translation eval
-        run: uv run pytest backend/tests/eval/test_translation.py -v -m integration --no-cov -x
+        run: uv run pytest agent/tests/eval/test_translation.py -v -m integration --no-cov -x
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
 
@@ -318,8 +318,8 @@ jobs:
       - name: Run E2E smoke tests
         run: >-
           uv run pytest
-          backend/tests/integration/test_e2e_smoke.py
-          backend/tests/integration/test_frontend_contracts.py
+          agent/tests/integration/test_e2e_smoke.py
+          agent/tests/integration/test_frontend_contracts.py
           -v --no-cov
         env:
           SEICHI_API_URL: ${{ secrets.SEICHI_API_URL }}

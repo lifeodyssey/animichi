@@ -13,6 +13,6 @@ exclude_paths:
   - "frontend/public/**"
   - "frontend/coverage/**"
   - "frontend/out/**"
-  - "backend/tests/eval/**"
+  - "agent/tests/eval/**"
   - "docs/**"
   - "**/*.snap"

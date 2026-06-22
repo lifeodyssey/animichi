@@ -98,8 +98,8 @@ make db-diff NAME=x    # ローカル変更から diff を生成
 
 **Python（直接呼び出し）：**
 ```python
-from backend.agents.pilgrimage_runner import run_pilgrimage_agent
-from backend.infrastructure.supabase.client import SupabaseClient
+from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.infrastructure.supabase.client import SupabaseClient
 
 async def main() -> None:
     async with SupabaseClient(db_url) as db:
@@ -117,7 +117,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 
 **Python クライアント：**
 ```python
-from backend.clients.python.seichijunrei_client import SeichijunreiClient
+from agent.clients.python.seichijunrei_client import SeichijunreiClient
 
 client = SeichijunreiClient(api_key="sk_your_key_here")
 result = client.search("Hibike Euphonium locations", locale="en")

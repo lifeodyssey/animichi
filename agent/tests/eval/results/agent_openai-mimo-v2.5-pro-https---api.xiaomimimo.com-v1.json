@@ -1,0 +1,136 @@
+{
+  "model": "openai:mimo-v2.5-pro@https://api.xiaomimimo.com/v1",
+  "case_count": 6,
+  "evaluated_count": 5,
+  "errored_count": 1,
+  "scores": {
+    "IntentMatch": 1.0,
+    "MessageQuality": 1.0,
+    "ToolExecution": 1.0,
+    "DataCompleteness": 1.0,
+    "StepEfficiency": 1.0,
+    "ResponseLocale": 0.6
+  },
+  "cases": [
+    {
+      "id": "A1_ja_001",
+      "scores": {
+        "IntentMatch": 1.0,
+        "MessageQuality": 1.0,
+        "ToolExecution": 1.0,
+        "DataCompleteness": 1.0,
+        "StepEfficiency": 1.0,
+        "ResponseLocale": 1.0
+      },
+      "intent": "search_bangumi",
+      "message": "「君の名は。」の聖地を94件見つけました！東京の須賀神社階段や新宿御苑、飛騨古川、そして糸守町のモデルとなった岐阜のロケ地など、全国各地に点在しています。マップで確認してみてください。",
+      "message_locale": "ja",
+      "steps": [
+        "resolve_anime",
+        "search_bangumi"
+      ],
+      "step_count": 2,
+      "query": "君の名は。の聖地を教えて",
+      "locale": "ja",
+      "expected_stages": [
+        "search_bangumi"
+      ]
+    },
+    {
+      "id": "A1_zh_001",
+      "scores": {
+        "IntentMatch": 1.0,
+        "MessageQuality": 1.0,
+        "ToolExecution": 1.0,
+        "DataCompleteness": 1.0,
+        "StepEfficiency": 1.0,
+        "ResponseLocale": 0.0
+      },
+      "intent": "search_bangumi",
+      "message": "《你的名字。》（君の名は。）是新海�的经典作品，圣地主要分布在东京、岐阜县飞驒和长野县�的访。数据库暂未收录该作品的精确坐标，但根据网络资料，以下是主要圣地巡礼地点：\n\n🗼 **东京都**\n- **信浓町站前路口** — 瀧寻找三葉的经典场景\n- **神田明神** — 剧中结缘神社的原型\n- **新宿御苑前** — 瀧与奥寺前辈约会场景\n- **国立新美术馆（六本木）** — 约会场景\n- **L",
+      "message_locale": "ja",
+      "steps": [
+        "resolve_anime",
+        "search_bangumi",
+        "search_bangumi"
+      ],
+      "step_count": 3,
+      "query": "你的名字的圣地在哪里",
+      "locale": "zh",
+      "expected_stages": [
+        "search_bangumi"
+      ]
+    },
+    {
+      "id": "A1_en_001",
+      "scores": {
+        "IntentMatch": 1.0,
+        "MessageQuality": 1.0,
+        "ToolExecution": 1.0,
+        "DataCompleteness": 1.0,
+        "StepEfficiency": 1.0,
+        "ResponseLocale": 0.0
+      },
+      "intent": "search_bangumi",
+      "message": "Here are the pilgrimage spots for **Your Name (君の名は。)**. Our database didn't have this data, so I compiled these from web research — one of the most iconic pilgrimage anime of all time!",
+      "message_locale": "ja",
+      "steps": [
+        "resolve_anime",
+        "search_bangumi",
+        "search_bangumi"
+      ],
+      "step_count": 3,
+      "query": "Where are the pilgrimage spots for Your Name",
+      "locale": "en",
+      "expected_stages": [
+        "search_bangumi"
+      ]
+    },
+    {
+      "id": "E1_ja_001",
+      "scores": {
+        "IntentMatch": 1.0,
+        "MessageQuality": 1.0,
+        "ToolExecution": 1.0,
+        "DataCompleteness": 1.0,
+        "StepEfficiency": 1.0,
+        "ResponseLocale": 1.0
+      },
+      "intent": "greet_user",
+      "message": "こんにちは！聖地巡礼アプリへようこそ🎌 お探しのアニメの聖地を教えていただければ、実際の舞台となった場所を検索して、巡礼ルートの作成もお手伝いできますよ！\n\n試してみてください：\n• 「君の名は。の聖地を教えて」\n• 「宇治駅の近くに聖地はある？」\n• 「響け！ユーフォニアムの巡礼ルートを作って」",
+      "message_locale": "ja",
+      "steps": [
+        "greet_user"
+      ],
+      "step_count": 1,
+      "query": "こんにちは",
+      "locale": "ja",
+      "expected_stages": [
+        "greet_user"
+      ]
+    },
+    {
+      "id": "F1_ja_001",
+      "scores": {
+        "IntentMatch": 1.0,
+        "MessageQuality": 1.0,
+        "ToolExecution": 1.0,
+        "DataCompleteness": 1.0,
+        "StepEfficiency": 1.0,
+        "ResponseLocale": 1.0
+      },
+      "intent": "general_qa",
+      "message": "聖地巡礼を楽しむための注意事項をまとめました：\n\n**🙏 マナー・エチケット**\n- **私有地への立入禁止**：撮影場所が個人宅や敷地内の場合は、許可なく立ち入らないでください。外から静かに撮影しましょう。\n- **近隣住民への配慮**：大声で騒いだり、長時間同じ場所に居座ったりしないようにしましょう。地元の方々の生活を尊重することが大切です。\n- **ゴミの持ち帰り**：撮影場所にゴミを残さな",
+      "message_locale": "ja",
+      "steps": [
+        "answer_question"
+      ],
+      "step_count": 1,
+      "query": "聖地巡礼の注意事項",
+      "locale": "ja",
+      "expected_stages": [
+        "general_qa"
+      ]
+    }
+  ]
+}
