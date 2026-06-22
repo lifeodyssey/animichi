@@ -63,6 +63,13 @@ jobs:
           wranglerVersion: "4.79.0"
           workingDirectory: catalog
           command: deploy
+          # Catalog reaches Postgres via env.DATABASE_URL until a [[hyperdrive]]
+          # binding is provisioned (src/index.ts falls back to DATABASE_URL).
+          # Sourced from the existing SUPABASE_DB_URL secret.
+          secrets: |
+            DATABASE_URL
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
 
       # ── Verify Dockerfile exists before root deploy ──
       - run: test -f Dockerfile
