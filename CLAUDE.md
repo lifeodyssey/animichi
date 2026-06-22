@@ -10,8 +10,8 @@ Implementation status: Core runtime + Cloudflare deploy path in place. PydanticA
 
 ## Source Of Truth
 
-- Runtime entry: `backend/interfaces/fastapi_service.py` → `public_api.py` → `agents/pilgrimage_runner.py`
-- Shared types: `backend/agents/models.py`
+- Runtime entry: `agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/pilgrimage_runner.py`
+- Shared types: `agent/agents/models.py`
 - Frontend tokens: `frontend/app/globals.css`
 - Deploy wiring: `wrangler.toml` + `worker/entry.js`
 - Frontend conventions: `frontend/AGENTS.md`
@@ -22,12 +22,14 @@ Implementation status: Core runtime + Cloudflare deploy path in place. PydanticA
 ## Directory Structure
 
 ```
-backend/              # Python runtime
+agent/                # Python runtime
   agents/             # AI agent (pilgrimage_agent, tools, runner, retriever)
   domain/             # Entities, value objects, LLM schemas
   infrastructure/     # External adapters (DB, observability, gateways)
   interfaces/         # API surface (fastapi_service, public_api)
   tests/              # unit, integration, eval
+catalog/              # Cloudflare Worker: anime catalog REST API (TypeScript)
+packages/contract/    # Shared oRPC contract types (catalog ↔ agent)
 frontend/             # Next.js OpenNext-SSR (.open-next/); TanStack Start rebuild planned
 supabase/migrations/  # DDL migrations (timestamp-ordered)
 worker/entry.js       # CF Worker entry (container proxy + image proxy → OpenNext)
@@ -156,7 +158,7 @@ make e2e-public       # run 12 tests that don't need email (fast)
 E2E tests live in `e2e/` (separate package.json, Playwright).
 Requires: `supabase start` + `supabase functions serve send-auth-email --no-verify-jwt`
 Frontend `.env.local` must point to local Supabase (`http://127.0.0.1:54321`).
-Test data: `backend/tests/fixtures/seed.sql` (18 anime, 43 spots).
+Test data: `agent/tests/fixtures/seed.sql` (18 anime, 43 spots).
 Mailpit UI: `http://localhost:54324` (view captured emails).
 
 ## Code Quality Standards
@@ -244,7 +246,7 @@ Reviewer verifies: `ac_total == ac_with_test`.
 
 ## File Placement
 
-- Runtime: repo root or `backend/interfaces/`
+- Runtime: repo root or `agent/interfaces/`
 - Docs: `docs/ops/` (ops), `docs/superpowers/plans/` (cards), `docs/superpowers/specs/` (specs)
 - NEVER save working files to root folder
 
@@ -286,8 +288,8 @@ Implementation status: Core runtime + Cloudflare deploy path in place. PydanticA
 
 ## Source Of Truth
 
-- Runtime entry: `backend/interfaces/fastapi_service.py` → `public_api.py` → `agents/pilgrimage_runner.py`
-- Shared types: `backend/agents/models.py`
+- Runtime entry: `agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/pilgrimage_runner.py`
+- Shared types: `agent/agents/models.py`
 - Frontend tokens: `frontend/app/globals.css`
 - Deploy wiring: `wrangler.toml` + `worker/entry.js`
 - Frontend conventions: `frontend/AGENTS.md`
@@ -298,12 +300,14 @@ Implementation status: Core runtime + Cloudflare deploy path in place. PydanticA
 ## Directory Structure
 
 ```
-backend/              # Python runtime
+agent/                # Python runtime
   agents/             # AI agent (pilgrimage_agent, tools, runner, retriever)
   domain/             # Entities, value objects, LLM schemas
   infrastructure/     # External adapters (DB, observability, gateways)
   interfaces/         # API surface (fastapi_service, public_api)
   tests/              # unit, integration, eval
+catalog/              # Cloudflare Worker: anime catalog REST API (TypeScript)
+packages/contract/    # Shared oRPC contract types (catalog ↔ agent)
 frontend/             # Next.js OpenNext-SSR (.open-next/); TanStack Start rebuild planned
 supabase/migrations/  # DDL migrations (timestamp-ordered)
 worker/entry.js       # CF Worker entry (container proxy + image proxy → OpenNext)
@@ -432,7 +436,7 @@ make e2e-public       # run 12 tests that don't need email (fast)
 E2E tests live in `e2e/` (separate package.json, Playwright).
 Requires: `supabase start` + `supabase functions serve send-auth-email --no-verify-jwt`
 Frontend `.env.local` must point to local Supabase (`http://127.0.0.1:54321`).
-Test data: `backend/tests/fixtures/seed.sql` (18 anime, 43 spots).
+Test data: `agent/tests/fixtures/seed.sql` (18 anime, 43 spots).
 Mailpit UI: `http://localhost:54324` (view captured emails).
 
 ## Code Quality Standards
@@ -520,7 +524,7 @@ Reviewer verifies: `ac_total == ac_with_test`.
 
 ## File Placement
 
-- Runtime: repo root or `backend/interfaces/`
+- Runtime: repo root or `agent/interfaces/`
 - Docs: `docs/ops/` (ops), `docs/superpowers/plans/` (cards), `docs/superpowers/specs/` (specs)
 - NEVER save working files to root folder
 
