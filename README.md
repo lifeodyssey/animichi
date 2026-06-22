@@ -92,7 +92,7 @@ Apply migrations in a dedicated deploy step, not at application startup.
 
 **Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-See [`backend/config/settings.py`](backend/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
+See [`agent/config/settings.py`](agent/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
 
 ## Example Usage
 
@@ -125,7 +125,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 ## Repository Map
 
-- `backend/` — Python runtime: agents, interfaces, infrastructure, tests, and tools
+- `agent/` — Python runtime: agents, interfaces, infrastructure, tests, and tools
 - `frontend/` — Next.js static-export frontend and UI components
 - `worker/` — Cloudflare Worker entrypoint for auth and request routing
 - `supabase/` — schema migrations and Supabase project assets
