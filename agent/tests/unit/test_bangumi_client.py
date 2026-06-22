@@ -202,7 +202,7 @@ class TestBangumiClient:
             assert subject["id"] == 12345
             assert subject["name"] == "Kimi no Na wa."
             assert subject["name_cn"] == "你的名字"
-            assert subject["rating"]["score"] == 8.5
+            assert subject["rating"]["score"] == pytest.approx(8.5)
 
             # Verify the API call
             mock_get.assert_called_once()
