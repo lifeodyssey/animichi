@@ -44,11 +44,13 @@ export interface EnrichResult {
 export async function enrichWork(db: CatalogDb, workId: string): Promise<EnrichResult> {
   const bangumi = parseBangumi(workId, await readRaw(db, "raw_bangumi", workId));
   const points = parseAnitabiPoints(workId, await readRaw(db, "raw_anitabi", workId));
-  await upsertBangumi(db, bangumi);
-  await upsertPoints(db, points);
   logClusters(workId, points);
-  await upsertAliases(db, workId, bangumi);
-  return { version: await publishVersion(db, workId), pointCount: points.length };
+  return db.transaction(async (tx) => {
+    await upsertBangumi(tx, bangumi);
+    await upsertPoints(tx, points);
+    await upsertAliases(tx, workId, bangumi);
+    return { version: await publishVersion(tx, workId), pointCount: points.length };
+  });
 }
 
 /** Read a raw-zone payload for the work; throw if the row is absent. */
