@@ -9,11 +9,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock README.md /app/
+COPY apps/agent/pyproject.toml apps/agent/uv.lock /app/
 
 RUN uv sync --no-dev --no-install-project
 
-COPY backend /app/backend
+COPY apps/agent/agent /app/agent
 
 RUN uv sync --no-dev
 
@@ -38,4 +38,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"SERVICE_PORT\", \"8080\")}/healthz', timeout=3)"
 
-CMD ["python", "-m", "backend.interfaces.fastapi_service"]
+CMD ["python", "-m", "agent.interfaces.fastapi_service"]
