@@ -50,11 +50,21 @@ export interface AnitabiLite {
   total: number;
 }
 
+const BANGUMI_ID_RE = /^\d+$/;
+
+/** Throw if `bangumiId` is not a pure numeric string (prevents path injection). */
+function assertBangumiId(bangumiId: string): void {
+  if (!BANGUMI_ID_RE.test(bangumiId)) {
+    throw new Error(`Invalid bangumi_id: "${bangumiId}" — must match /^\\d+$/`);
+  }
+}
+
 /** Fetch the raw pilgrimage point list for a bangumi id from Anitabi. */
 export async function fetchAnitabiPoints(
   bangumiId: string,
   cfg: SourceConfig = {},
 ): Promise<AnitabiPoint[]> {
+  assertBangumiId(bangumiId);
   const base = cfg.anitabiBaseUrl ?? ANITABI_BASE;
   const url = `${base}/${bangumiId}/points/detail?haveImage=true`;
   const body = await fetchJson(url, cfg.fetchImpl);
@@ -75,6 +85,7 @@ export async function fetchAnitabiLite(
   bangumiId: string,
   cfg: SourceConfig = {},
 ): Promise<AnitabiLite> {
+  assertBangumiId(bangumiId);
   const base = cfg.anitabiBaseUrl ?? ANITABI_BASE;
   const body = await fetchJson(`${base}/${bangumiId}/lite`, cfg.fetchImpl);
   return parseLite(body);
@@ -99,6 +110,7 @@ export async function fetchBangumiSubject(
   bangumiId: string,
   cfg: SourceConfig = {},
 ): Promise<BangumiSubject> {
+  assertBangumiId(bangumiId);
   const base = cfg.bangumiBaseUrl ?? BANGUMI_BASE;
   const url = `${base}/v0/subjects/${bangumiId}`;
   const body = await fetchJson(url, cfg.fetchImpl);

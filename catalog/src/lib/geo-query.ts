@@ -48,17 +48,22 @@ const toPoint = (r: NearbyRow): NearbyPoint => ({
   distanceM: Number(r.distance_m),
 });
 
+const MAX_RADIUS_M = 50_000;
+const MAX_RESULTS = 200;
+
 /** Points within `radiusM` meters of (lat,lng), nearest first, with `distanceM`. */
 export async function findPointsWithinRadius(
   db: CatalogDb,
   q: NearbyQuery,
 ): Promise<NearbyPoint[]> {
+  const clampedRadius = Math.min(q.radiusM, MAX_RADIUS_M);
   const c = center(q);
   const result = await db.execute(sql`
     SELECT id, name, latitude, longitude, ST_Distance(location, ${c}) AS distance_m
     FROM points
-    WHERE ST_DWithin(location, ${c}, ${q.radiusM})
+    WHERE ST_DWithin(location, ${c}, ${clampedRadius})
     ORDER BY location <-> ${c}
+    LIMIT ${MAX_RESULTS}
   `);
   return (result.rows as unknown as NearbyRow[]).map(toPoint);
 }
