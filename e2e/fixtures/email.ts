@@ -49,6 +49,7 @@ async function waitMails(since: Date): Promise<ReceivedEmail> {
       const raw = execFileSync("mails", ["inbox", "--json", "--limit", "1"], {
         encoding: "utf-8",
         timeout: 10_000,
+        env: { ...process.env, PATH: "/usr/local/bin:/usr/bin:/bin" },
       });
       const messages = JSON.parse(raw) as { subject: string; html: string; text: string; date: string }[];
       if (messages.length > 0 && new Date(messages[0].date) > since) {
@@ -75,8 +76,8 @@ export function extractMagicLink(html: string): string {
     /href="([^"]*\/auth\/v1\/verify[^"]*)"/,
   ];
   for (const p of patterns) {
-    const match = html.match(p);
-    if (match) return match[1].replace(/&amp;/g, "&");
+    const match = p.exec(html);
+    if (match) return match[1].replaceAll("&amp;", "&");
   }
   throw new Error("No magic link found in email HTML");
 }
