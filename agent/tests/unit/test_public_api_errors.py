@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
+from pydantic_ai.exceptions import ModelHTTPError
 
 from agent.agents.agent_result import AgentResult
 from agent.application.errors import InvalidInputError
@@ -211,9 +212,7 @@ class TestRuntimeAPIErrors:
 
         with patch(
             "agent.interfaces.public_api.run_pilgrimage_agent",
-            new=AsyncMock(
-                side_effect=RuntimeError("502 Bad Gateway: Network unstable")
-            ),
+            new=AsyncMock(side_effect=ModelHTTPError(502, "test-model")),
         ):
             response = await api.handle(PublicAPIRequest(text="秒速5厘米的取景地在哪"))
 
