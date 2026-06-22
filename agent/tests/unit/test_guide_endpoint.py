@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
+import pytest
+
 from agent.tests.unit.conftest_fastapi import async_client, build_app, build_stub_db
 
 
@@ -125,10 +127,10 @@ async def test_guide_bounds_computed_correctly() -> None:
         resp = await client.get("/v1/bangumi/485/guide")
 
     bounds = resp.json()["bounds"]
-    assert bounds["north"] == 36.0
-    assert bounds["south"] == 34.0
-    assert bounds["east"] == 136.0
-    assert bounds["west"] == 134.0
+    assert bounds["north"] == pytest.approx(36.0)
+    assert bounds["south"] == pytest.approx(34.0)
+    assert bounds["east"] == pytest.approx(136.0)
+    assert bounds["west"] == pytest.approx(134.0)
 
 
 # ---- AC 5: Spots include screenshot_url mapped from image ----

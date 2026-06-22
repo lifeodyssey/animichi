@@ -71,12 +71,12 @@ async def handle_bangumi_guide(
     lats: list[float] = [
         s["latitude"]
         for s in spots
-        if isinstance(s["latitude"], float) and s["latitude"] != 0.0
+        if isinstance(s["latitude"], float) and abs(s["latitude"]) > 0
     ]
     lngs: list[float] = [
         s["longitude"]
         for s in spots
-        if isinstance(s["longitude"], float) and s["longitude"] != 0.0
+        if isinstance(s["longitude"], float) and abs(s["longitude"]) > 0
     ]
     bounds = (
         {
