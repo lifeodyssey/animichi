@@ -53,30 +53,30 @@ serve:
 	uv run seichijunrei-api
 
 test:
-	$(PYTEST) backend/tests/unit/ -v
+	$(PYTEST) agent/tests/unit/ -v
 
 test-all:
-	$(PYTEST) backend/tests/unit backend/tests/integration -v
+	$(PYTEST) agent/tests/unit agent/tests/integration -v
 
 test-cov:
-	$(PYTEST) backend/tests/unit/ -v --cov --cov-report=html --cov-report=term-missing
+	$(PYTEST) agent/tests/unit/ -v --cov --cov-report=html --cov-report=term-missing
 
 test-integration:
-	$(PYTEST) backend/tests/integration/ -v --no-cov
+	$(PYTEST) agent/tests/integration/ -v --no-cov
 
 test-eval:
-	$(PYTEST) backend/tests/eval/test_agent_eval.py backend/tests/eval/test_translation.py -v -m integration --no-cov
+	$(PYTEST) agent/tests/eval/test_agent_eval.py agent/tests/eval/test_translation.py -v -m integration --no-cov
 
 lint:
-	uv run ruff check backend/
-	uv run ruff format --check backend/
+	uv run ruff check agent/
+	uv run ruff format --check agent/
 
 format:
-	uv run ruff format backend/
-	uv run ruff check --fix backend/
+	uv run ruff format agent/
+	uv run ruff check --fix agent/
 
 typecheck:
-	uv run mypy backend/agents/ backend/interfaces/ backend/domain/ backend/infrastructure/ backend/clients/
+	uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
 
 check: lint typecheck test test-integration
 
@@ -147,7 +147,7 @@ dev-local:
 	@# 3. Seed data if bangumi table is empty
 	@COUNT=$$(docker exec supabase_db_seichijunrei-agent psql -U postgres -d postgres -tAc "SELECT count(*) FROM bangumi" 2>/dev/null || echo "0"); \
 	if [ "$$COUNT" = "0" ]; then \
-		docker exec -i supabase_db_seichijunrei-agent psql -U postgres -d postgres < backend/tests/fixtures/seed.sql; \
+		docker exec -i supabase_db_seichijunrei-agent psql -U postgres -d postgres < agent/tests/fixtures/seed.sql; \
 		echo "✓ Seed data applied"; \
 	else \
 		echo "✓ Data exists ($$COUNT bangumi)"; \
@@ -156,7 +156,7 @@ dev-local:
 	@supabase functions serve send-auth-email --no-verify-jwt --env-file supabase/.env.local > /tmp/seichijunrei-edge.log 2>&1 & echo $$! > /tmp/seichijunrei-edge.pid
 	@echo "✓ Edge Function started (SITE_URL=http://localhost:3001)"
 	@# 5. Start backend with .env (background, daemonized)
-	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) uv run uvicorn backend.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080 > /tmp/seichijunrei-backend.log 2>&1 & echo $$! > /tmp/seichijunrei-backend.pid
+	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) uv run uvicorn agent.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080 > /tmp/seichijunrei-backend.log 2>&1 & echo $$! > /tmp/seichijunrei-backend.pid
 	@# 6. Wait for backend health
 	@echo "Waiting for backend..."
 	@for i in $$(seq 1 60); do curl -s http://localhost:8080/healthz >/dev/null 2>&1 && break || sleep 2; done
