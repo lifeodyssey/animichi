@@ -184,6 +184,6 @@ function buildPointRow(
 /** Resolve the point image URL, expanding Anitabi's leading-slash paths. */
 function pointImage(item: Record<string, unknown>): string | null {
   const url = pickStr(item, ["image", "screenshot"]);
-  if (url && url.startsWith("/")) return `${IMAGE_BASE}${url}`;
+  if (url?.startsWith("/")) return `${IMAGE_BASE}${url}`;
   return url;
 }

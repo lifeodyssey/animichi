@@ -34,17 +34,17 @@ export interface Origin {
 
 const DWELL_MULTIPLIERS: Record<Pacing, number> = {
   chill: 1.5,
-  normal: 1.0,
+  normal: 1,
   packed: 0.6,
 };
 
 const TRANSIT_BUFFERS: Record<Pacing, number> = {
   chill: 1.2,
-  normal: 1.0,
+  normal: 1,
   packed: 0.8,
 };
 
-const WALKING_SPEED_M_PER_MIN = 80.0;
+const WALKING_SPEED_M_PER_MIN = 80;
 const VALID_PACING: ReadonlySet<string> = new Set(["chill", "normal", "packed"]);
 
 /** Python `round()` — round-half-to-even (banker's), unlike `Math.round`. */
@@ -68,7 +68,8 @@ function byDistThenId(lat: number, lng: number, digits: number) {
   return (a: LocationCluster, b: LocationCluster): number => {
     const da = pyRound(distTo(a, lat, lng), digits);
     const db = pyRound(distTo(b, lat, lng), digits);
-    return da !== db ? da - db : a.clusterId < b.clusterId ? -1 : a.clusterId > b.clusterId ? 1 : 0;
+    if (da !== db) return da - db;
+    return a.clusterId.localeCompare(b.clusterId);
   };
 }
 
@@ -78,7 +79,7 @@ function seedOrder(clusters: LocationCluster[], origin?: Origin): LocationCluste
   if (origin) {
     remaining.sort(byDistThenId(origin.lat, origin.lng, 15));
   } else {
-    remaining.sort((a, b) => (a.clusterId < b.clusterId ? -1 : a.clusterId > b.clusterId ? 1 : 0));
+    remaining.sort((a, b) => a.clusterId.localeCompare(b.clusterId));
   }
   return remaining;
 }
@@ -92,7 +93,7 @@ function pickNext(remaining: LocationCluster[], current: LocationCluster): Locat
     (c) => Math.abs(distTo(c, current.centerLat, current.centerLng) - bestDist) < 0.01,
   );
   if (tied.length <= 1) return best;
-  tied.sort((a, b) => (a.clusterId < b.clusterId ? -1 : a.clusterId > b.clusterId ? 1 : 0));
+  tied.sort((a, b) => a.clusterId.localeCompare(b.clusterId));
   return tied[0]!;
 }
 
@@ -109,7 +110,7 @@ export function orderNearestNeighbor(
   const remaining = seedOrder(clusters, origin);
   const result: LocationCluster[] = [remaining.shift()!];
   while (remaining.length > 0) {
-    const next = pickNext(remaining, result[result.length - 1]!);
+    const next = pickNext(remaining, result.at(-1)!);
     remaining.splice(remaining.indexOf(next), 1);
     result.push(next);
   }
@@ -242,7 +243,7 @@ function finalizeItinerary(
   return {
     stops,
     legs,
-    total_minutes: minutesBetween(stops[0]!.arrive, stops[stops.length - 1]!.depart),
+    total_minutes: minutesBetween(stops[0]!.arrive, stops.at(-1)!.depart),
     total_distance_m: pyRound(totalDistance, 1),
     spot_count: stops.length,
     pacing,
