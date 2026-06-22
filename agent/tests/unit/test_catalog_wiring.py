@@ -70,10 +70,10 @@ def test_settings_has_catalog_api_url_default() -> None:
 def test_app_factory_builds_catalog_client() -> None:
     from agent.interfaces.fastapi_service import build_catalog_client
 
-    settings = Settings(catalog_api_url="http://catalog.test")
+    settings = Settings(catalog_api_url="https://catalog.test")
     client = build_catalog_client(settings)
     assert isinstance(client, CatalogClient)
-    assert client._base_url == "http://catalog.test"
+    assert client._base_url == "https://catalog.test"
 
 
 def _vercel_body() -> dict[str, object]:

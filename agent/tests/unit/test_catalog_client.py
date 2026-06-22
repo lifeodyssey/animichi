@@ -41,7 +41,7 @@ async def test_search_parses_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     """search() reads the {rows, synced_at} envelope into PilgrimagePoint models."""
     _mock_httpx(monkeypatch, {"rows": [_POINT], "synced_at": "2026-06-21T00:00:00Z"})
 
-    points = await CatalogClient("http://catalog.test").search("響け")
+    points = await CatalogClient("https://catalog.test").search("響け")
 
     assert points == [
         PilgrimagePoint(id="p1", name="Uji Bridge", latitude=34.89, longitude=135.80)
@@ -54,10 +54,10 @@ async def test_search_posts_query_to_catalog_path(
     """search() POSTs {query} to /catalog/search."""
     client = _mock_httpx(monkeypatch, {"rows": [], "synced_at": ""})
 
-    await CatalogClient("http://catalog.test").search("響け")
+    await CatalogClient("https://catalog.test").search("響け")
 
     url, kwargs = client.post.call_args.args[0], client.post.call_args.kwargs
-    assert url == "http://catalog.test/catalog/search"
+    assert url == "https://catalog.test/catalog/search"
     assert kwargs["json"] == {"query": "響け"}
 
 
@@ -65,7 +65,7 @@ async def test_spots_parses_single_point(monkeypatch: pytest.MonkeyPatch) -> Non
     """spots() reads the {point, distance_m?} envelope into one PilgrimagePoint."""
     _mock_httpx(monkeypatch, {"point": _POINT, "distance_m": 120.0})
 
-    point = await CatalogClient("http://catalog.test").spots("115908")
+    point = await CatalogClient("https://catalog.test").spots("115908")
 
     assert point == PilgrimagePoint(
         id="p1", name="Uji Bridge", latitude=34.89, longitude=135.80
@@ -76,7 +76,7 @@ async def test_nearby_parses_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     """nearby() reads the {rows} envelope and POSTs lat/lng/radius_m."""
     client = _mock_httpx(monkeypatch, {"rows": [_POINT]})
 
-    points = await CatalogClient("http://catalog.test").nearby(
+    points = await CatalogClient("https://catalog.test").nearby(
         34.89, 135.80, radius_m=500
     )
 
@@ -92,7 +92,7 @@ async def test_route_parses_route(monkeypatch: pytest.MonkeyPatch) -> None:
     """route() validates the Route envelope and POSTs point_ids."""
     client = _mock_httpx(monkeypatch, {"ordered_points": [_POINT], "point_count": 1})
 
-    route = await CatalogClient("http://catalog.test").route(["p1"])
+    route = await CatalogClient("https://catalog.test").route(["p1"])
 
     assert isinstance(route, Route)
     assert route.point_count == 1
@@ -103,7 +103,7 @@ async def test_ingest_parses_ingested(monkeypatch: pytest.MonkeyPatch) -> None:
     """ingest() reads the {status, version, point_count} envelope when ingested."""
     _mock_httpx(monkeypatch, {"status": "ingested", "version": 3, "point_count": 7})
 
-    result = await CatalogClient("http://catalog.test").ingest("10380")
+    result = await CatalogClient("https://catalog.test").ingest("10380")
 
     assert result == IngestResult(status="ingested", version=3, point_count=7)
 
@@ -114,10 +114,10 @@ async def test_ingest_posts_bangumi_id_to_catalog_path(
     """ingest() POSTs {bangumi_id} to /catalog/ingest."""
     client = _mock_httpx(monkeypatch, {"status": "in_progress"})
 
-    await CatalogClient("http://catalog.test").ingest("10380")
+    await CatalogClient("https://catalog.test").ingest("10380")
 
     url, kwargs = client.post.call_args.args[0], client.post.call_args.kwargs
-    assert url == "http://catalog.test/catalog/ingest"
+    assert url == "https://catalog.test/catalog/ingest"
     assert kwargs["json"] == {"bangumi_id": "10380"}
 
 
@@ -127,7 +127,7 @@ async def test_ingest_parses_empty_with_reason(
     """ingest() carries the reason for a non-ingested status (empty/failed)."""
     _mock_httpx(monkeypatch, {"status": "empty", "reason": "no points"})
 
-    result = await CatalogClient("http://catalog.test").ingest("999")
+    result = await CatalogClient("https://catalog.test").ingest("999")
 
     assert result.status == "empty"
     assert result.reason == "no points"
