@@ -35,6 +35,35 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/v1", tags=["chat"])
 
 
+def _find_last_assistant_message(messages: list[object]) -> dict[str, object] | None:
+    """Scan reversed messages list, return the last assistant msg dict or None."""
+    for msg in reversed(messages):
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("role") == "assistant":
+            return msg
+    return None
+
+
+def _scan_parts_for_clarify(parts: list[object]) -> dict[str, object] | None:
+    """Scan parts list for a clarify tool call, return tool_state dict or None."""
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        part_type = part.get("type", "")
+        tool_name = part.get("toolName", "")
+        if tool_name != "clarify" and part_type != "tool-clarify":
+            continue
+        output = part.get("output") or part.get("result")
+        if not isinstance(output, dict):
+            return {"pending_clarify": True}
+        candidates = output.get("candidates") or output.get("options")
+        if isinstance(candidates, list):
+            return {"pending_clarify": True, "resolve_candidates": candidates}
+        return {"pending_clarify": True}
+    return None
+
+
 def _detect_clarify_context(body: bytes) -> dict[str, object]:
     """Scan Vercel SDK request body for pending clarify state.
 
@@ -51,41 +80,15 @@ def _detect_clarify_context(body: bytes) -> dict[str, object]:
     if not isinstance(messages, list) or len(messages) < 2:
         return {}
 
-    # Find the last assistant message before the current user message
-    last_assistant = None
-    for msg in reversed(messages):
-        role = msg.get("role", "")
-        if role == "assistant":
-            last_assistant = msg
-            break
-
+    last_assistant = _find_last_assistant_message(messages)
     if last_assistant is None:
         return {}
 
-    # Check parts for a clarify tool call
     parts = last_assistant.get("parts") or last_assistant.get("content")
     if not isinstance(parts, list):
         return {}
 
-    for part in parts:
-        if not isinstance(part, dict):
-            continue
-        # Vercel SDK v6: tool parts have type "tool-{name}"
-        part_type = part.get("type", "")
-        tool_name = part.get("toolName", "")
-        if tool_name == "clarify" or part_type == "tool-clarify":
-            output = part.get("output") or part.get("result")
-            if isinstance(output, dict):
-                candidates = output.get("candidates") or output.get("options")
-                if isinstance(candidates, list):
-                    return {
-                        "pending_clarify": True,
-                        "resolve_candidates": candidates,
-                    }
-            # Even without parseable output, mark as pending
-            return {"pending_clarify": True}
-
-    return {}
+    return _scan_parts_for_clarify(parts) or {}
 
 
 def _make_on_complete(
