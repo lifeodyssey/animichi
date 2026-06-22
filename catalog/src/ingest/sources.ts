@@ -55,7 +55,7 @@ const BANGUMI_ID_RE = /^\d+$/;
 /** Throw if `bangumiId` is not a pure numeric string (prevents path injection). */
 function assertBangumiId(bangumiId: string): void {
   if (!BANGUMI_ID_RE.test(bangumiId)) {
-    throw new Error(`Invalid bangumi_id: "${bangumiId}" — must match /^\\d+$/`);
+    throw new Error(String.raw`Invalid bangumi_id: "${bangumiId}" — must match /^\d+$/`);
   }
 }
 
