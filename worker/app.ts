@@ -1,14 +1,39 @@
 /// <reference types="@cloudflare/workers-types" />
 import { Hono } from "hono";
+import { authenticate as realAuthenticate, type AuthResult } from "./auth.ts";
 
 export interface Env {
   CATALOG: { fetch: (req: Request) => Promise<Response> };
   CONTAINER: DurableObjectNamespace;
+  SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
   [key: string]: unknown;
 }
 
 interface NextHandler {
   fetch: (req: Request, env: unknown, ctx: ExecutionContext) => Promise<Response>;
+}
+
+const PUBLIC_V1 = ["/v1/search/preview", "/v1/bangumi/popular"];
+function isPublicV1(pathname: string): boolean {
+  return PUBLIC_V1.includes(pathname) || /^\/v1\/bangumi\/[^/]+\/guide$/.test(pathname);
+}
+
+/** Forward a /v1 request to the container's default instance. Always strips
+ * client-supplied X-User-* (anti-forgery); on authed paths also strips
+ * Authorization and injects the worker-verified identity. */
+function forwardV1(env: Env, request: Request, auth?: { userId: string; userType: string }): Promise<Response> {
+  const headers = new Headers(request.headers);
+  headers.delete("X-User-Id");
+  headers.delete("X-User-Type");
+  if (auth) {
+    headers.delete("Authorization");
+    headers.set("X-User-Id", auth.userId);
+    headers.set("X-User-Type", auth.userType);
+  }
+  const forwarded = new Request(request, { headers });
+  return env.CONTAINER.get(env.CONTAINER.idFromName("default")).fetch(forwarded);
 }
 
 /** Forward a container-originated catalog request to the private CATALOG binding
@@ -45,12 +70,24 @@ async function handleImageProxy(request: Request, ctx: ExecutionContext): Promis
 
 /** The main Worker app. NOTE: no /catalog/* route — catalog is private (reached
  * only via the container outboundByHost binding, never the public internet). */
-export function createWorkerApp(deps: { nextHandler: NextHandler }): Hono<{ Bindings: Env }> {
+export function createWorkerApp(deps: {
+  nextHandler: NextHandler;
+  authenticate?: (request: Request, env: Env) => Promise<AuthResult>;
+}): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
+  const authenticate = deps.authenticate ?? ((req, env) => realAuthenticate(req, env));
   app.get("/healthz", (c) =>
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
   );
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
+  app.all("/v1/*", async (c) => {
+    if (isPublicV1(new URL(c.req.url).pathname)) return forwardV1(c.env, c.req.raw);
+    const auth = await authenticate(c.req.raw, c.env);
+    if (!auth.ok) {
+      return c.json({ error: { code: "unauthorized", message: "Valid credentials required." } }, 401);
+    }
+    return forwardV1(c.env, c.req.raw, { userId: auth.userId, userType: auth.userType });
+  });
   app.all("*", (c) => deps.nextHandler.fetch(c.req.raw, c.env, c.executionCtx));
   return app;
 }
