@@ -97,6 +97,12 @@ jobs:
       - run: npm ci
         working-directory: catalog
 
+      # The contract-parity test imports packages/contract/src (which imports
+      # @orpc/contract + zod). tsc resolves those from packages/contract's own
+      # node_modules, so install them here too (no workspace yet — see P5).
+      - run: npm install
+        working-directory: packages/contract
+
       - name: Type check
         run: npx tsc --noEmit
         working-directory: catalog
