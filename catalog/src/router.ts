@@ -75,11 +75,20 @@ const nearby = base
   .input(type<{ lat: number; lng: number; radius_m: number }>())
   .handler(async ({ input, context }) => nearbyHandler(context.db, input));
 
+const MAX_ROUTE_POINT_IDS = 500;
+
 /** route(point_ids, origin?, pacing?) -> Route */
 const route = base
   .route({ method: "POST", path: "/route" })
   .input(type<{ point_ids: string[]; origin?: Origin; pacing?: Pacing }>())
-  .handler(async ({ input, context }) => routeHandler(context.db, input));
+  .handler(async ({ input, context }) => {
+    if (input.point_ids.length > MAX_ROUTE_POINT_IDS) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: `point_ids length ${input.point_ids.length} exceeds maximum of ${MAX_ROUTE_POINT_IDS}`,
+      });
+    }
+    return routeHandler(context.db, input);
+  });
 
 /** ingest(bangumi_id) -> IngestResult; fetch-and-publish a not-yet-cataloged work. */
 const ingest = base

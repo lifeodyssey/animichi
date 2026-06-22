@@ -32,23 +32,46 @@ function mockFetch(
   return { fetch, urls };
 }
 
+describe("bangumi_id validation", () => {
+  it("rejects non-numeric bangumi_id in fetchAnitabiPoints", async () => {
+    const { fetch } = mockFetch({});
+    await expect(fetchAnitabiPoints("abc/123", { fetchImpl: fetch })).rejects.toThrow(
+      "Invalid bangumi_id",
+    );
+  });
+
+  it("rejects non-numeric bangumi_id in fetchAnitabiLite", async () => {
+    const { fetch } = mockFetch({});
+    await expect(fetchAnitabiLite("../etc", { fetchImpl: fetch })).rejects.toThrow(
+      "Invalid bangumi_id",
+    );
+  });
+
+  it("rejects non-numeric bangumi_id in fetchBangumiSubject", async () => {
+    const { fetch } = mockFetch({});
+    await expect(fetchBangumiSubject("not-a-number", { fetchImpl: fetch })).rejects.toThrow(
+      "Invalid bangumi_id",
+    );
+  });
+});
+
 describe("fetchAnitabiPoints", () => {
   it("hits /{id}/points/detail?haveImage=true and parses a {points:[...]} body", async () => {
     const { fetch, urls } = mockFetch({
       points: [{ id: "p1", name: "鷲宮神社", geo: [36.1, 139.6] }],
     });
-    const points = await fetchAnitabiPoints("lucky-star", {
+    const points = await fetchAnitabiPoints("2461", {
       fetchImpl: fetch,
       anitabiBaseUrl: "https://anitabi.test",
     });
-    expect(urls[0]).toBe("https://anitabi.test/lucky-star/points/detail?haveImage=true");
+    expect(urls[0]).toBe("https://anitabi.test/2461/points/detail?haveImage=true");
     expect(points).toHaveLength(1);
     expect(points[0]?.id).toBe("p1");
   });
 
   it("parses a bare-array response shape", async () => {
     const { fetch } = mockFetch([{ id: "p1" }, { id: "p2" }]);
-    const points = await fetchAnitabiPoints("x", { fetchImpl: fetch });
+    const points = await fetchAnitabiPoints("3302", { fetchImpl: fetch });
     expect(points).toHaveLength(2);
   });
 
@@ -62,7 +85,7 @@ describe("fetchAnitabiPoints", () => {
 
   it("throws on a non-2xx upstream status", async () => {
     const { fetch } = mockFetch(null, { ok: false, status: 503 });
-    await expect(fetchAnitabiPoints("x", { fetchImpl: fetch })).rejects.toThrow("503");
+    await expect(fetchAnitabiPoints("3302", { fetchImpl: fetch })).rejects.toThrow("503");
   });
 });
 
@@ -97,7 +120,7 @@ describe("fetchAnitabiLite", () => {
 
   it("throws on a non-2xx upstream status", async () => {
     const { fetch } = mockFetch(null, { ok: false, status: 503 });
-    await expect(fetchAnitabiLite("x", { fetchImpl: fetch })).rejects.toThrow("503");
+    await expect(fetchAnitabiLite("3302", { fetchImpl: fetch })).rejects.toThrow("503");
   });
 });
 
@@ -115,7 +138,7 @@ describe("fetchBangumiSubject", () => {
 
   it("throws when the subject response is not a JSON object", async () => {
     const { fetch } = mockFetch([1, 2, 3]);
-    await expect(fetchBangumiSubject("x", { fetchImpl: fetch })).rejects.toThrow(
+    await expect(fetchBangumiSubject("3302", { fetchImpl: fetch })).rejects.toThrow(
       "JSON object",
     );
   });
