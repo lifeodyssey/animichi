@@ -52,3 +52,52 @@ test("/img/* routes to the image proxy (bad path → 400, not OpenNext)", async 
   assert.equal(res.status, 400);
   assert.notEqual(await res.text(), "next");
 });
+
+function envWithContainer(captured: { req?: Request }) {
+  return {
+    CONTAINER: {
+      idFromName: () => "id",
+      get: () => ({ fetch: async (r: Request) => { captured.req = r; return new Response("container"); } }),
+    },
+  } as never;
+}
+
+test("/v1 public route -> container, no auth called", async () => {
+  let authCalled = false;
+  const app = createWorkerApp({ nextHandler: stubNext, authenticate: async () => { authCalled = true; return { ok: false }; } });
+  const cap: { req?: Request } = {};
+  const res = await app.request("/v1/bangumi/popular", {}, envWithContainer(cap), stubCtx);
+  assert.equal(await res.text(), "container");
+  assert.equal(authCalled, false);
+});
+
+test("/v1 authed route without creds -> 401, container not hit", async () => {
+  const app = createWorkerApp({ nextHandler: stubNext, authenticate: async () => ({ ok: false }) });
+  const cap: { req?: Request } = {};
+  const res = await app.request("/v1/chat", { method: "POST" }, envWithContainer(cap), stubCtx);
+  assert.equal(res.status, 401);
+  assert.equal(cap.req, undefined);
+});
+
+test("/v1 authed route with valid creds -> container gets X-User, no Authorization", async () => {
+  const app = createWorkerApp({ nextHandler: stubNext, authenticate: async () => ({ ok: true, userId: "u1", userType: "human" }) });
+  const cap: { req?: Request } = {};
+  await app.request("/v1/chat", { method: "POST", headers: { Authorization: "Bearer jwt" } }, envWithContainer(cap), stubCtx);
+  assert.equal(cap.req?.headers.get("X-User-Id"), "u1");
+  assert.equal(cap.req?.headers.get("X-User-Type"), "human");
+  assert.equal(cap.req?.headers.get("Authorization"), null);
+});
+
+test("client-forged X-User-Id is stripped on authed route (worker value wins)", async () => {
+  const app = createWorkerApp({ nextHandler: stubNext, authenticate: async () => ({ ok: true, userId: "real", userType: "human" }) });
+  const cap: { req?: Request } = {};
+  await app.request("/v1/chat", { method: "POST", headers: { Authorization: "Bearer jwt", "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
+  assert.equal(cap.req?.headers.get("X-User-Id"), "real");
+});
+
+test("client-forged X-User-Id is stripped on PUBLIC route too", async () => {
+  const app = createWorkerApp({ nextHandler: stubNext, authenticate: async () => ({ ok: false }) });
+  const cap: { req?: Request } = {};
+  await app.request("/v1/bangumi/popular", { headers: { "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
+  assert.equal(cap.req?.headers.get("X-User-Id"), null);
+});
