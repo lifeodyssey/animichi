@@ -8,6 +8,7 @@ the result with the same plumbing the legacy path uses (``tool_runtime``).
 
 from __future__ import annotations
 
+import httpx
 from pydantic_ai import ModelRetry, RunContext
 
 from agent.agents.catalog_adapter import (
@@ -26,8 +27,10 @@ from agent.agents.tool_runtime import (
     _summarize_for_llm,
 )
 from agent.clients.catalog_client import CatalogClientProtocol, PilgrimagePoint
+from agent.clients.errors import APIError
 
 _NO_DATA_ERROR = "No catalog data"
+_TRANSIENT_ERRORS = (APIError, httpx.TransportError, httpx.TimeoutException)
 
 
 async def _store_catalog_result(
@@ -66,7 +69,10 @@ async def _run_catalog_search(
 ) -> dict[str, object]:
     """Resolve/search via catalog.search() and store the shaped payload."""
     await _emit_step(ctx.deps, tool.value, "running", {})
-    points = await catalog.search(query)
+    try:
+        points = await catalog.search(query)
+    except _TRANSIENT_ERRORS as exc:
+        raise ModelRetry(f"Catalog search unavailable, please retry. ({exc})") from exc
     payload = _shape_search_or_resolve(tool, points)
     return await _store_catalog_result(
         ctx.deps, tool=tool, params=params, payload=payload, success=bool(payload)
@@ -130,7 +136,10 @@ async def _run_catalog_nearby(
             "Ask the user for a more specific station or city name."
         )
     await _emit_step(ctx.deps, ToolName.SEARCH_NEARBY.value, "running", {})
-    points = await catalog.nearby(coords[0], coords[1], radius_m=radius or 5000)
+    try:
+        points = await catalog.nearby(coords[0], coords[1], radius_m=radius or 5000)
+    except _TRANSIENT_ERRORS as exc:
+        raise ModelRetry(f"Catalog nearby unavailable, please retry. ({exc})") from exc
     payload = build_search_payload(points, tool="search_nearby")
     return await _store_catalog_result(
         ctx.deps,
@@ -168,7 +177,10 @@ async def _run_catalog_route(
             "search_nearby first, then call plan_route."
         )
     await _emit_step(ctx.deps, ToolName.PLAN_ROUTE.value, "running", {})
-    route = await catalog.route(point_ids)
+    try:
+        route = await catalog.route(point_ids)
+    except _TRANSIENT_ERRORS as exc:
+        raise ModelRetry(f"Catalog route unavailable, please retry. ({exc})") from exc
     payload = build_route_payload(route)
     return await _store_catalog_result(
         ctx.deps,
