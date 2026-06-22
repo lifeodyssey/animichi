@@ -11,10 +11,10 @@
 #   CLOUDFLARE_API_TOKEN       — Wrangler deploy auth
 #   CLOUDFLARE_ACCOUNT_ID      — Cloudflare account target
 #
-# Edge runtime secrets (used by middleware.ts and custom-worker.js):
-#   SUPABASE_URL               — https://<project>.supabase.co
-#   SUPABASE_ANON_KEY          — Public anon key for JWT validation
-#   SUPABASE_SERVICE_ROLE_KEY  — Service role for sk_ API key lookup
+# Edge runtime secrets (used by middleware.ts and worker/auth.ts for /v1 auth):
+#   SUPABASE_URL               — https://<project>.supabase.co (set via wrangler secret put)
+#   SUPABASE_ANON_KEY          — Public anon key for JWT validation (set via wrangler secret put)
+#   SUPABASE_SERVICE_ROLE_KEY  — Service role for sk_ API key lookup (set via wrangler secret put)
 #
 # Container runtime secrets (forwarded to Python backend):
 #   SUPABASE_DB_URL            — postgres://... for asyncpg
