@@ -92,7 +92,7 @@ make db-diff NAME=x    # ローカル変更から diff を生成
 
 **オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-詳細は [`backend/config/settings.py`](backend/config/settings.py) と [`.env.example`](.env.example) を参照してください。
+詳細は [`agent/config/settings.py`](agent/config/settings.py) と [`.env.example`](.env.example) を参照してください。
 
 ## 使用例
 
@@ -125,7 +125,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 ## リポジトリ構成マップ
 
-- `backend/` — Python ランタイム本体。agents、interfaces、infrastructure、tests、tools を含む
+- `agent/` — Python ランタイム本体。agents、interfaces、infrastructure、tests、tools を含む
 - `frontend/` — Next.js 静的エクスポートのフロントエンドと UI コンポーネント
 - `worker/` — 認証とリクエストルーティングを担う Cloudflare Worker
 - `supabase/` — スキーママイグレーションと Supabase プロジェクト資産
