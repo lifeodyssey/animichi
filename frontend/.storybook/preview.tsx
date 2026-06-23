@@ -25,7 +25,7 @@ const mswHandlers = [
 ];
 
 const worker = setupWorker(...mswHandlers);
-worker.start({ onUnhandledRequest: "bypass", quiet: true });
+void worker.start({ onUnhandledRequest: "bypass", quiet: true });
 
 // next/font/google doesn't work in Storybook — load Google Fonts via CSS @import.
 const fontStyle = document.createElement("style");

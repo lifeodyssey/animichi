@@ -21,7 +21,7 @@ function makePoint(overrides: Partial<PilgrimagePoint> & { id: string }, imgInde
     name_cn: "宇治桥",
     episode: 1,
     time_seconds: 120,
-    screenshot_url: IMAGES[imgIndex % IMAGES.length],
+    screenshot_url: IMAGES[imgIndex % IMAGES.length] ?? null,
     bangumi_id: "265059",
     latitude: 34.8891,
     longitude: 135.8074,
@@ -54,9 +54,9 @@ export const POINTS_MIXED_AREAS: PilgrimagePoint[] = [
 export const POINTS_MANY: PilgrimagePoint[] = Array.from({ length: 60 }, (_, i) =>
   makePoint({
     id: `pm${String(i).padStart(3, "0")}`,
-    name: `スポット ${i + 1}`,
+    name: `スポット ${String(i + 1)}`,
     episode: (i % 12) + 1,
-    city: ["宇治", "京都", "高山", "東京"][i % 4],
+    city: ["宇治", "京都", "高山", "東京"][i % 4] ?? null,
     latitude: 34.88 + (i % 10) * 0.01,
     longitude: 135.80 + (i % 10) * 0.01,
   }, i),
@@ -66,7 +66,7 @@ export const POINTS_MANY: PilgrimagePoint[] = Array.from({ length: 60 }, (_, i) 
 
 export function makeSearchResponse(
   points: PilgrimagePoint[],
-  message = `${points.length}件の聖地が見つかりました`,
+  message = `${String(points.length)}件の聖地が見つかりました`,
 ): RuntimeResponse {
   return {
     success: true,
@@ -97,7 +97,7 @@ export function makeRouteResponse(points: PilgrimagePoint[]): RuntimeResponse {
     success: true,
     status: "ok",
     intent: "plan_route",
-    message: `${points.length}箇所のルートを計画しました`,
+    message: `${String(points.length)}箇所のルートを計画しました`,
     data: {
       route: {
         ordered_points: points,

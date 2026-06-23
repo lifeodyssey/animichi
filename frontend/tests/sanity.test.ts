@@ -24,6 +24,6 @@ describe("vitest sanity", () => {
   it("error response has errors array", () => {
     expect(ERROR_RESPONSE.success).toBe(false);
     expect(ERROR_RESPONSE.errors).toHaveLength(1);
-    expect(ERROR_RESPONSE.errors[0].code).toBe("INTERNAL_ERROR");
+    expect(ERROR_RESPONSE.errors[0]?.code).toBe("INTERNAL_ERROR");
   });
 });

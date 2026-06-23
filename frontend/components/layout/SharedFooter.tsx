@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useSetLocale } from "../../lib/i18n-context";
-import { LOCALE_LABELS, LOCALES } from "../../lib/i18n";
+import { DEFAULT_LOCALE, LOCALE_LABELS, LOCALES } from "../../lib/i18n";
 import Image from "next/image";
 import { cn } from "../../lib/utils";
 
@@ -35,15 +35,15 @@ export default function SharedFooter() {
         <button
           type="button"
           onClick={() => {
-            const idx = LOCALES.indexOf(locale as (typeof LOCALES)[number]);
-            setLocale(LOCALES[(idx + 1) % LOCALES.length]);
+            const idx = LOCALES.indexOf(locale);
+            setLocale(LOCALES[(idx + 1) % LOCALES.length] ?? DEFAULT_LOCALE);
           }}
           className={cn("flex items-center gap-1.5", LINK_CLASS)}
           aria-label="Change language (日本語 / 中文 / English)"
           title="Change language"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          {LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] ?? "EN"}
+          {LOCALE_LABELS[locale]}
         </button>
       </div>
     </footer>

@@ -43,7 +43,7 @@ export default function HomeContent() {
       {showLoginModal && (
         <LoginModal
           redirect={pendingRedirect}
-          onClose={() => setShowLoginModal(false)}
+          onClose={() => { setShowLoginModal(false); }}
         />
       )}
     </>

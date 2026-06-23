@@ -14,7 +14,11 @@ function cookieAdapter(request: NextRequest, response: NextResponse) {
     getAll: () => request.cookies.getAll().map((c) => ({ name: c.name, value: c.value })),
     setAll: (cookies: { name: string; value: string; options?: object }[]) => {
       for (const { name, value, options } of cookies) {
-        response.cookies.set(name, value, options);
+        if (options) {
+          response.cookies.set(name, value, options);
+        } else {
+          response.cookies.set(name, value);
+        }
       }
     },
   };
@@ -35,5 +39,8 @@ export function createRouteHandlerClient(
   response: NextResponse,
 ): SupabaseClient {
   const { url, key } = getEnv();
-  return createServerClient(url, key, { cookies: cookieAdapter(request, response) });
+  const supabase = createServerClient(url, key, {
+    cookies: cookieAdapter(request, response),
+  });
+  return supabase;
 }
