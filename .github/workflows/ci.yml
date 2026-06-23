@@ -95,10 +95,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-          cache-dependency-path: catalog/package-lock.json
+          cache-dependency-path: workers/catalog/package-lock.json
 
       - run: npm ci
-        working-directory: catalog
+        working-directory: workers/catalog
 
       # The contract-parity test imports packages/contract/src (which imports
       # @orpc/contract + zod). tsc resolves those from packages/contract's own
@@ -108,11 +108,11 @@ jobs:
 
       - name: Type check
         run: npx tsc --noEmit
-        working-directory: catalog
+        working-directory: workers/catalog
 
       - name: Worker tests (no-db)
         run: npm run test:worker
-        working-directory: catalog
+        working-directory: workers/catalog
 
   # ── Stage 2: Tests + Build (parallel, gated by Stage 1) ───
 
@@ -288,10 +288,10 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-          cache-dependency-path: catalog/package-lock.json
+          cache-dependency-path: workers/catalog/package-lock.json
 
       - run: npm ci
-        working-directory: catalog
+        working-directory: workers/catalog
 
       - name: Deploy catalog Worker
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
@@ -299,7 +299,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4.79.0"
-          workingDirectory: catalog
+          workingDirectory: workers/catalog
           command: deploy
           # Catalog reaches Postgres via env.DATABASE_URL until a [[hyperdrive]]
           # binding is provisioned (src/index.ts falls back to DATABASE_URL).
