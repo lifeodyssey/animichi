@@ -14,7 +14,7 @@
  * consistent with the ingest/raw-store cards owning all mutations.
  */
 import { sql } from "drizzle-orm";
-import type { CatalogDb } from "../db/client";
+import type { CatalogDb, DbExecutor } from "../db/client";
 
 /** Publish a new version for a work; returns the new version number. */
 export async function publishVersion(db: CatalogDb, workId: string): Promise<number> {
@@ -27,7 +27,7 @@ export async function publishVersion(db: CatalogDb, workId: string): Promise<num
 }
 
 /** Compute max(version)+1 for the work (1 when none exist yet). */
-async function nextVersion(tx: CatalogDb, workId: string): Promise<number> {
+async function nextVersion(tx: DbExecutor, workId: string): Promise<number> {
   const rows = (
     await tx.execute(
       sql`SELECT COALESCE(MAX(version), 0) + 1 AS next FROM cluster_version WHERE work_id = ${workId}`,
@@ -37,14 +37,14 @@ async function nextVersion(tx: CatalogDb, workId: string): Promise<number> {
 }
 
 /** Flip the work's current row (if any) to is_current=false. */
-async function flipCurrentOff(tx: CatalogDb, workId: string): Promise<void> {
+async function flipCurrentOff(tx: DbExecutor, workId: string): Promise<void> {
   await tx.execute(
     sql`UPDATE cluster_version SET is_current = FALSE WHERE work_id = ${workId} AND is_current`,
   );
 }
 
 /** Insert the new version as the single current row for the work. */
-async function insertCurrent(tx: CatalogDb, workId: string, version: number): Promise<void> {
+async function insertCurrent(tx: DbExecutor, workId: string, version: number): Promise<void> {
   await tx.execute(
     sql`INSERT INTO cluster_version (work_id, version, is_current) VALUES (${workId}, ${version}, TRUE)`,
   );

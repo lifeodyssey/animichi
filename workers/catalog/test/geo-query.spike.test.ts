@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import pg from "pg";
-import { makeDb, type CatalogDb } from "../src/db/client";
+import { makeDb, makeNeonSql, type CatalogDb } from "../src/db/client";
 import { findPointsWithinRadius } from "../src/lib/geo-query";
 
 /**
@@ -41,6 +41,7 @@ const REMOTE_BLOCKS = [
 ];
 
 let db: CatalogDb;
+let neonSql: ReturnType<typeof makeNeonSql>;
 
 function sh(cmd: string): string {
   return execSync(cmd, { stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
@@ -106,14 +107,13 @@ beforeAll(async () => {
   startContainer();
   await waitForReady();
   db = makeDb(CONN);
+  neonSql = makeNeonSql(CONN);
   await db.execute(sql`CREATE EXTENSION IF NOT EXISTS postgis`);
   await db.execute(sql.raw(buildPointsDdl()));
   await seedPoints();
 }, 120_000);
 
 afterAll(async () => {
-  const client = (db as unknown as { $client?: pg.Pool }).$client;
-  if (client) await client.end().catch(() => {});
   try {
     sh(`docker rm -f ${CONTAINER}`);
   } catch {
@@ -123,7 +123,7 @@ afterAll(async () => {
 
 describe("findPointsWithinRadius — PostGIS ST_DWithin read primitive", () => {
   it("returns only points inside a 10km radius of Washinomiya", async () => {
-    const rows = await findPointsWithinRadius(db, {
+    const rows = await findPointsWithinRadius(neonSql, {
       lat: 36.1019,
       lng: 139.6586,
       radiusM: 10_000,
@@ -134,14 +134,14 @@ describe("findPointsWithinRadius — PostGIS ST_DWithin read primitive", () => {
   });
 
   it("excludes far Oarai at 10km but includes it (nearest-first) at 200km", async () => {
-    const near = await findPointsWithinRadius(db, {
+    const near = await findPointsWithinRadius(neonSql, {
       lat: 36.1019,
       lng: 139.6586,
       radiusM: 10_000,
     });
     expect(near.map((r) => r.id)).not.toContain("oarai");
 
-    const wide = await findPointsWithinRadius(db, {
+    const wide = await findPointsWithinRadius(neonSql, {
       lat: 36.1019,
       lng: 139.6586,
       radiusM: 200_000,
