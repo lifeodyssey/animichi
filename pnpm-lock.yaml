@@ -279,6 +279,46 @@ importers:
 
   worker: {}
 
+  workers/catalog:
+    dependencies:
+      '@neondatabase/serverless':
+        specifier: ^1.1.0
+        version: 1.1.0
+      '@orpc/openapi':
+        specifier: ^1.9.7
+        version: 1.14.6(@opentelemetry/api@1.9.1)(ws@8.21.0)
+      '@orpc/server':
+        specifier: ^1.9.7
+        version: 1.14.6(@opentelemetry/api@1.9.1)(ws@8.21.0)
+      '@types/pg':
+        specifier: ^8.15.6
+        version: 8.20.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@cloudflare/workers-types@4.20260623.1)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.22.0)
+      hono:
+        specifier: '>=4.12.16'
+        version: 4.12.27
+      pg:
+        specifier: ^8.16.3
+        version: 8.22.0
+    devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: ^0.16.18
+        version: 0.16.18(@cloudflare/workers-types@4.20260623.1)(@vitest/runner@4.1.9)(@vitest/snapshot@4.1.9)(vitest@4.1.9)
+      '@cloudflare/workers-types':
+        specifier: ^4.20251001.0
+        version: 4.20260623.1
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@25.9.4)(@vitest/coverage-v8@4.1.9)(jsdom@29.1.1(@noble/hashes@1.8.0))(msw@2.14.6(@types/node@25.9.4)(typescript@5.9.3))(vite@8.0.16(@types/node@25.9.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.22.4)(yaml@2.9.0))
+      wrangler:
+        specifier: ^4.103.0
+        version: 4.103.0(@cloudflare/workers-types@4.20260623.1)
+
 packages:
 
   '@adobe/css-tools@4.5.0':
@@ -1431,6 +1471,10 @@ packages:
     peerDependencies:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
+
+  '@neondatabase/serverless@1.1.0':
+    resolution: {integrity: sha512-r3ZZhRjEcfEdKIZnoB1RusNgvHuaBRqfCzV4Gi+5A9yUX0S4HTws/ASWqt13wL4y4I+0rqsWGdA2w7EQXHi3+Q==}
+    engines: {node: '>=19.0.0'}
 
   '@next/env@16.2.9':
     resolution: {integrity: sha512-ki5VxxXfzD/9TDe13wyeTKIjQTAwBVpnr8KhRDUr8ltMUq1/NBpWNT5tiPoxiGl+PHM4X2ahSOiPk6iAimIzPg==}
@@ -8232,6 +8276,8 @@ snapshots:
       '@tybys/wasm-util': 0.10.3
     optional: true
 
+  '@neondatabase/serverless@1.1.0': {}
+
   '@next/env@16.2.9': {}
 
   '@next/eslint-plugin-next@16.2.9':
@@ -10565,6 +10611,14 @@ snapshots:
   dotenv@16.6.1: {}
 
   dotenv@17.4.2: {}
+
+  drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260623.1)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.22.0):
+    optionalDependencies:
+      '@cloudflare/workers-types': 4.20260623.1
+      '@neondatabase/serverless': 1.1.0
+      '@opentelemetry/api': 1.9.1
+      '@types/pg': 8.20.0
+      pg: 8.22.0
 
   drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260623.1)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.22.0):
     optionalDependencies:

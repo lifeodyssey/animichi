@@ -1,19 +1,18 @@
-import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
-import pg from "pg";
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
+import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
+import type { SQL } from "drizzle-orm";
 import * as schema from "./schema";
 
-/**
- * Drizzle client factory for the Catalog service.
- *
- * Uses drizzle-orm/node-postgres over a `pg` Pool — the driver validated by the
- * PostGIS spike (catalog/test/postgis.spike.test.ts). In production the same
- * code path runs against a Cloudflare Hyperdrive connection string; locally it
- * points at the Supabase/testcontainer Postgres. The caller owns the connection
- * string so prod can swap in Hyperdrive without touching this module.
- */
-export type CatalogDb = NodePgDatabase<typeof schema>;
+export type CatalogDb = NeonHttpDatabase<typeof schema>;
+export type NeonSql = NeonQueryFunction<false, false>;
+/** Minimal structural type for functions that only call `.execute()` (db or tx). */
+export type DbExecutor = { execute: (query: SQL) => Promise<{ rows: unknown[] }> };
 
 export function makeDb(connStr: string): CatalogDb {
-  const pool = new pg.Pool({ connectionString: connStr });
-  return drizzle(pool, { schema });
+  const sql = neon(connStr);
+  return drizzle(sql, { schema });
+}
+
+export function makeNeonSql(connStr: string): NeonSql {
+  return neon(connStr);
 }
