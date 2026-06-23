@@ -23,13 +23,10 @@ compatibility_flags = ["nodejs_compat"]
 # stores the bytes here once, and records the asset in media_assets; later hits
 # stream straight from R2 (see src/media/img.ts).
 #
-# Provision once, then uncomment (bucket name is config, not a secret):
-#   wrangler r2 bucket create catalog-media
-# While commented out, MEDIA_BUCKET is unbound and the route returns a clean 503
-# ("catalog media not configured"), mirroring the no-DB 503 guard.
-# [[r2_buckets]]
-# binding = "MEDIA_BUCKET"
-# bucket_name = "catalog-media"
+# R2 bucket provisioned by Pulumi (infra/index.ts) as `catalog-media`.
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "catalog-media"
 
 [observability]
 enabled = true
