@@ -121,3 +121,5 @@ backend/tests/eval/results/agent_openai-mimo-*
 
 # Catalog TS service source — re-include (root lib/ rule is too broad)
 !catalog/src/lib/
+!workers/catalog/src/lib/
+!workers/catalog/src/lib/**
