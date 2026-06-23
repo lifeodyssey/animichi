@@ -1,6 +1,8 @@
 # Platform Monorepo + CF-native 组件独立部署 + Pulumi IaC 设计
 
 > 2026-06-23。把仓库重构成 **platform monorepo**(apps + workers + packages + infra-as-code + 共享 CI),让每个组件按 **Cloudflare 最佳实践**独立部署。本次**先搞后端**(catalog / agent 容器 / edge)+ 必要的前端**部署**解耦;前端**代码重写**(TanStack/P4)押后。Pulumi(state on R2)现在就上。
+>
+> **更新 2026-06-23**:DB 改用 **Neon**(免费 branching)+ **Supabase 降为 auth-only** — 见 [`2026-06-23-multi-env-neon-supabase-design.md`](./2026-06-23-multi-env-neon-supabase-design.md)。本 spec 中所有"Supabase pg / Hyperdrive→Supabase"改为 **Hyperdrive→Neon**;新增 **staging** Pulumi stack;auth 仍 Supabase(edge JWT 验证不变)。
 
 ## §0 背景与动机
 
