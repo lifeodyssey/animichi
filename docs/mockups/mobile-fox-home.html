@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Seichijunrei Mobile Fox Home</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #fffaf0;
+        --ink: #725d42;
+        --muted: #927f63;
+        --card: #faf8f3;
+        --border: #c4b89e;
+        --brand: oklch(58% 0.19 28);
+        --teal: #19c8b9;
+        --gold: #f0b429;
+        --gold-ink: #5c4813;
+        --shadow-3d: #bdaea0;
+        --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        width: 100%;
+        width: 100dvw;
+        overflow-x: hidden;
+      }
+
+      body {
+        margin: 0;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at 50% 0%, rgba(25, 200, 185, 0.14), transparent 34rem),
+          #f3ead8;
+        color: var(--ink);
+        font-family:
+          Nunito,
+          "Zen Maru Gothic",
+          "Noto Sans JP",
+          "Hiragino Sans",
+          system-ui,
+          sans-serif;
+      }
+
+      .home {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        width: 100%;
+        max-width: 430px;
+        min-height: 100svh;
+        background: var(--bg);
+      }
+
+      .sky,
+      .scene,
+      .wash {
+        position: absolute;
+        inset: 0;
+      }
+
+      .scene {
+        z-index: -3;
+        background-image: url("./mobile-fox-home-assets/shrine-approach.png");
+        background-size: cover;
+        background-position: center top;
+        transform-origin: 50% 39%;
+        will-change: transform;
+      }
+
+      .wash {
+        z-index: -2;
+        background:
+          linear-gradient(180deg, rgba(255, 250, 240, 0) 0 45%, rgba(255, 250, 240, 0.78) 76%, rgba(255, 250, 240, 0.98) 100%),
+          radial-gradient(circle at 78% 84%, rgba(240, 180, 41, 0.18), transparent 10rem),
+          radial-gradient(circle at 15% 72%, rgba(25, 200, 185, 0.13), transparent 8rem);
+      }
+
+      .topbar {
+        position: relative;
+        z-index: 8;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: max(18px, env(safe-area-inset-top)) 18px 0;
+      }
+
+      .brandmark {
+        display: inline-grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 16px;
+        background: #faf0e6;
+        box-shadow: 0 4px 0 var(--shadow-3d);
+      }
+
+      .brandmark svg {
+        width: 29px;
+        height: 29px;
+      }
+
+      .login {
+        min-height: 44px;
+        padding: 0 16px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(250, 248, 243, 0.9);
+        color: var(--ink);
+        font: inherit;
+        font-weight: 800;
+        box-shadow: 0 4px 0 var(--shadow-3d);
+      }
+
+      .logo-text {
+        position: absolute;
+        left: 68px;
+        top: max(25px, calc(env(safe-area-inset-top) + 7px));
+        color: rgba(114, 93, 66, 0.86);
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: 0;
+      }
+
+      .gate {
+        position: absolute;
+        z-index: 1;
+        left: 50%;
+        top: 21%;
+        width: 54%;
+        opacity: 0;
+        transform: translateX(-50%) translateY(28px) scale(0.42);
+        transform-origin: 50% 50%;
+        filter: drop-shadow(0 14px 10px rgba(70, 52, 30, 0.16));
+        will-change: transform, opacity;
+      }
+
+      .route-line {
+        position: absolute;
+        z-index: 2;
+        left: 14%;
+        right: 8%;
+        bottom: 31%;
+        height: 28%;
+        color: rgba(25, 200, 185, 0.88);
+        opacity: 0;
+        will-change: opacity;
+      }
+
+      .route-reveal {
+        transform-box: fill-box;
+        transform-origin: 0 100%;
+      }
+
+      .fox {
+        position: absolute;
+        z-index: 4;
+        pointer-events: none;
+        user-select: none;
+      }
+
+      .fox-actor {
+        left: 8%;
+        bottom: 23%;
+        width: 38%;
+        aspect-ratio: 1 / 1.14;
+        opacity: 0;
+        transform-origin: 52% 86%;
+        will-change: transform, opacity;
+      }
+
+      .fox-frame {
+        position: absolute;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        opacity: 0;
+        transform-origin: 50% 92%;
+        will-change: transform, opacity;
+      }
+
+      .fox-frame.is-active {
+        opacity: 1;
+      }
+
+      .wave-arc {
+        position: absolute;
+        left: 53%;
+        top: 21%;
+        display: block;
+        width: 23%;
+        height: 23%;
+        border: 3px solid rgba(240, 180, 41, 0.72);
+        border-left-color: transparent;
+        border-bottom-color: transparent;
+        border-radius: 50%;
+        transform: rotate(-24deg);
+        opacity: 0;
+        will-change: transform, opacity;
+      }
+
+      .bubble {
+        position: absolute;
+        z-index: 6;
+        right: 36%;
+        bottom: 45%;
+        min-width: 98px;
+        padding: 10px 14px;
+        border: 1px solid rgba(196, 184, 158, 0.88);
+        border-radius: 18px 18px 6px 18px;
+        background: rgba(250, 248, 243, 0.96);
+        color: var(--ink);
+        font-size: 18px;
+        font-weight: 900;
+        box-shadow: 0 5px 0 var(--shadow-3d);
+        opacity: 0;
+        transform: translateY(14px) scale(0.92);
+        will-change: transform, opacity;
+      }
+
+      .headline {
+        position: absolute;
+        z-index: 7;
+        left: 22px;
+        right: 22px;
+        bottom: calc(116px + env(safe-area-inset-bottom));
+        opacity: 0;
+        transform: translateY(20px);
+        will-change: transform, opacity;
+      }
+
+      .headline p {
+        max-width: 25ch;
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 800;
+        line-height: 1.45;
+      }
+
+      h1 {
+        max-width: 8ch;
+        margin: 0;
+        color: var(--ink);
+        font-family:
+          "Noto Serif JP",
+          "Hiragino Mincho ProN",
+          Georgia,
+          serif;
+        font-size: clamp(46px, 15vw, 64px);
+        line-height: 0.98;
+        letter-spacing: 0;
+        text-wrap: balance;
+      }
+
+      .cta-row {
+        position: absolute;
+        z-index: 8;
+        left: 18px;
+        right: 18px;
+        bottom: calc(22px + env(safe-area-inset-bottom));
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        opacity: 0;
+        transform: translateY(22px);
+        will-change: transform, opacity;
+      }
+
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+        min-height: 54px;
+        padding: 0 22px;
+        border: 1px solid #d39a13;
+        border-radius: 999px;
+        background: var(--gold);
+        color: var(--gold-ink);
+        text-decoration: none;
+        font-size: 16px;
+        font-weight: 950;
+        box-shadow: 0 6px 0 #b78a22;
+        touch-action: manipulation;
+        transition:
+          transform 150ms var(--ease-out-quint),
+          box-shadow 150ms var(--ease-out-quint);
+      }
+
+      .cta:active {
+        transform: translateY(4px);
+        box-shadow: 0 2px 0 #b78a22;
+      }
+
+      .cta:focus-visible,
+      .login:focus-visible {
+        outline: 2px solid #ffcc00;
+        outline-offset: 3px;
+      }
+
+      .stamp {
+        position: relative;
+        flex: 0 0 70px;
+        height: 54px;
+        color: var(--teal);
+      }
+
+      .stickers {
+        position: absolute;
+        z-index: 3;
+        right: 3%;
+        bottom: 30%;
+        width: 30%;
+        color: rgba(114, 93, 66, 0.84);
+        opacity: 0;
+        transform: rotate(8deg) translateY(14px);
+        will-change: transform, opacity;
+      }
+
+      @media (min-width: 720px) {
+        body {
+          min-height: 100svh;
+          padding: 28px;
+        }
+
+        .home {
+          min-height: min(900px, calc(100svh - 56px));
+          border: 1px solid rgba(196, 184, 158, 0.85);
+          border-radius: 32px;
+          box-shadow: 0 24px 42px rgba(70, 52, 30, 0.2);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition-duration: 1ms !important;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .scene {
+          transform: scale(1.18) translateY(-4%);
+        }
+
+        .gate,
+        .route-line {
+          display: none;
+        }
+
+        .fox-actor,
+        .bubble,
+        .headline,
+        .cta-row,
+        .stickers {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      html.reduced-motion .scene {
+        transform: scale(1.18) translateY(-4%);
+      }
+
+      html.reduced-motion .gate,
+      html.reduced-motion .route-line {
+        display: none;
+      }
+
+      html.reduced-motion .fox-actor,
+      html.reduced-motion .bubble,
+      html.reduced-motion .headline,
+      html.reduced-motion .cta-row,
+      html.reduced-motion .stickers {
+        visibility: visible;
+        opacity: 1;
+        transform: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="home" aria-label="Seichijunrei mobile home animation">
+      <div class="scene" aria-hidden="true"></div>
+      <div class="wash" aria-hidden="true"></div>
+
+      <header class="topbar">
+        <div class="brandmark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="img">
+            <path fill="var(--brand)" d="M12 15h40v8H12zM18 25h8v28h-8zM38 25h8v28h-8zM8 10h48v7H8z" />
+            <path fill="none" stroke="#725d42" stroke-linecap="round" stroke-width="4" d="M14 48h36M20 54h24" />
+            <path fill="none" stroke="#19c8b9" stroke-linecap="round" stroke-width="3" d="M16 32c8 3 16 3 32 0" />
+          </svg>
+        </div>
+        <div class="logo-text">Seichijunrei</div>
+        <button class="login" type="button">ログイン</button>
+      </header>
+
+      <svg class="route-line" viewBox="0 0 220 210" aria-hidden="true">
+        <defs>
+          <clipPath id="routeReveal">
+            <rect class="route-reveal" x="0" y="0" width="220" height="210" />
+          </clipPath>
+        </defs>
+        <g clip-path="url(#routeReveal)">
+          <path class="route-path" d="M8 186 C 28 158, 42 151, 68 147 S 101 119, 114 98 S 148 78, 171 58 S 194 33, 214 18" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-dasharray="2 14" />
+          <g fill="#f0b429" stroke="#725d42" stroke-width="3">
+            <circle cx="8" cy="186" r="8" />
+            <circle cx="114" cy="98" r="8" />
+            <circle cx="214" cy="18" r="8" />
+          </g>
+        </g>
+      </svg>
+
+      <svg class="gate" viewBox="0 0 360 300" aria-hidden="true">
+        <path fill="#5b3d28" d="M42 55h276l-12 24H54z" opacity=".9" />
+        <path fill="var(--brand)" d="M26 72h308v25H26zM71 118h218v24H71zM96 142h38v126H96zM226 142h38v126h-38z" />
+        <path fill="#8e3e29" d="M91 97h178v25H91zM96 142h38v19H96zM226 142h38v19h-38z" />
+        <path fill="#2f2a22" d="M92 268h46v18H92zM222 268h46v18h-46z" />
+        <path fill="none" stroke="#f1d48b" stroke-linecap="round" stroke-width="7" d="M123 130c32 23 83 23 114 0" />
+        <path fill="#f1d48b" d="M147 145h8v18h-8zM178 150h8v22h-8zM208 145h8v18h-8z" />
+      </svg>
+
+      <section class="fox fox-actor" aria-hidden="true">
+        <img class="fox-frame is-active" data-frame="fox-welcome.webp" src="./mobile-fox-home-assets/fox-welcome.webp" alt="" />
+        <img class="fox-frame" data-frame="fox-cheer.webp" src="./mobile-fox-home-assets/fox-cheer.webp" alt="" />
+        <img class="fox-frame" data-frame="fox-curious.webp" src="./mobile-fox-home-assets/fox-curious.webp" alt="" />
+        <img class="fox-frame" data-frame="fox-traveler.webp" src="./mobile-fox-home-assets/fox-traveler.webp" alt="" />
+        <img class="fox-frame" data-frame="fox-trot.webp" src="./mobile-fox-home-assets/fox-trot.webp" alt="" />
+        <img class="fox-frame" data-frame="fox-guide.webp" src="./mobile-fox-home-assets/fox-guide.webp" alt="" />
+        <img class="fox-frame" data-frame="fox-peek.webp" src="./mobile-fox-home-assets/fox-peek.webp" alt="" />
+        <span class="wave-arc" aria-hidden="true"></span>
+      </section>
+
+      <div class="bubble" aria-hidden="true">这边！</div>
+
+      <svg class="stickers" viewBox="0 0 180 120" aria-hidden="true">
+        <g transform="rotate(-9 57 51)">
+          <rect x="13" y="13" width="76" height="76" rx="8" fill="#faf8f3" stroke="#8c6b3e" stroke-width="3" />
+          <rect x="22" y="22" width="58" height="43" rx="4" fill="#d7e8df" />
+          <path fill="none" stroke="#19c8b9" stroke-width="6" d="M20 65h60" />
+          <path fill="#725d42" d="M26 36h48v7H26zM31 46h38v6H31z" opacity=".45" />
+        </g>
+        <g transform="rotate(8 120 51)">
+          <rect x="91" y="7" width="76" height="80" rx="8" fill="#faf8f3" stroke="#8c6b3e" stroke-width="3" />
+          <rect x="100" y="17" width="58" height="47" rx="4" fill="#ead4a3" />
+          <path fill="var(--brand)" d="M117 22h24v8h-24zM121 31h5v25h-5zM134 31h5v25h-5z" />
+        </g>
+        <path fill="#f0b429" stroke="#8c6b3e" stroke-width="3" d="M74 88c26-18 42-15 75-4-22 15-45 20-75 4z" />
+        <path fill="none" stroke="#19c8b9" stroke-linecap="round" stroke-width="5" d="M48 100c28-22 55-22 86 0" />
+      </svg>
+
+      <section class="headline" aria-labelledby="home-title">
+        <p>好きな作品から、行ける場所へ。地図と写真で迷わず巡ろう。</p>
+        <h1 id="home-title">聖地巡礼</h1>
+      </section>
+
+      <div class="cta-row">
+        <a class="cta" href="#start">巡礼をはじめる</a>
+        <svg class="stamp" viewBox="0 0 80 64" aria-hidden="true">
+          <path fill="#faf8f3" stroke="#c4b89e" stroke-width="3" d="M7 14h48c8 0 14 6 14 14v16c0 8-6 14-14 14H7z" />
+          <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="5" d="M20 40c7-13 16-19 30-22" />
+          <path fill="currentColor" d="M54 14l12 5-10 8z" />
+        </svg>
+      </div>
+    </main>
+    <script src="./mobile-fox-home-assets/gsap.min.js"></script>
+    <script>
+      (() => {
+        const labels = ["hello", "depart", "gate", "turn", "final"];
+        const params = new URLSearchParams(window.location.search);
+        const requestedLabel = params.get("label");
+        const requestedState = params.get("state");
+        const reduceQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const foxFrames = Array.from(document.querySelectorAll(".fox-frame"));
+        const frameSets = {
+          hello: ["fox-welcome.webp", "fox-cheer.webp", "fox-welcome.webp", "fox-curious.webp", "fox-welcome.webp", "fox-cheer.webp"],
+          walk: ["fox-traveler.webp", "fox-trot.webp", "fox-traveler.webp", "fox-trot.webp", "fox-traveler.webp", "fox-trot.webp", "fox-traveler.webp", "fox-trot.webp"],
+          turn: ["fox-traveler.webp", "fox-guide.webp", "fox-peek.webp", "fox-welcome.webp", "fox-peek.webp", "fox-guide.webp"],
+        };
+        const labelFrames = {
+          hello: "fox-welcome.webp",
+          depart: "fox-traveler.webp",
+          gate: "fox-traveler.webp",
+          turn: "fox-guide.webp",
+          final: "fox-peek.webp",
+        };
+
+        function setFoxFrame(file) {
+          foxFrames.forEach((frame) => {
+            const active = frame.dataset.frame === file;
+            frame.classList.toggle("is-active", active);
+            if (window.gsap) {
+              gsap.set(frame, { autoAlpha: active ? 1 : 0 });
+            } else {
+              frame.style.opacity = active ? "1" : "0";
+            }
+          });
+        }
+
+        function queueFrames(tl, at, frames, duration) {
+          const step = duration / frames.length;
+          frames.forEach((file, index) => {
+            const position = typeof at === "number" ? at + index * step : `${at}+=${(index * step).toFixed(3)}`;
+            tl.call(setFoxFrame, [file], position);
+          });
+        }
+
+        function showFinalState() {
+          setFoxFrame("fox-peek.webp");
+          document.documentElement.classList.add("reduced-motion");
+        }
+
+        function buildTimeline() {
+          const tl = gsap.timeline({
+            defaults: { ease: "power3.out" },
+            paused: true,
+          });
+
+          gsap.set(".scene", { scale: 1, yPercent: 0, transformOrigin: "50% 39%" });
+          gsap.set(".gate", { xPercent: -50, y: 28, scale: 0.42, autoAlpha: 0, transformOrigin: "50% 50%" });
+          gsap.set(".route-line", { autoAlpha: 0 });
+          gsap.set(".route-reveal", { scaleX: 0 });
+          gsap.set(".fox-actor", { autoAlpha: 0, xPercent: 0, y: 18, rotation: -4, scale: 0.94, transformOrigin: "52% 86%" });
+          gsap.set(".fox-frame", { y: 0, rotation: 0, transformOrigin: "50% 92%" });
+          gsap.set(".wave-arc", { autoAlpha: 0, rotation: -24, scale: 1, transformOrigin: "50% 50%" });
+          gsap.set(".bubble", { autoAlpha: 0, y: 14, scale: 0.92, transformOrigin: "86% 100%" });
+          gsap.set([".headline", ".cta-row"], { autoAlpha: 0, y: 22 });
+          gsap.set(".stickers", { autoAlpha: 0, y: 14, rotation: 8, transformOrigin: "55% 70%" });
+
+          queueFrames(tl, 0, frameSets.hello, 1.45);
+          queueFrames(tl, 1.5, frameSets.walk, 3.0);
+          queueFrames(tl, 6.6, frameSets.turn, 1.4);
+
+          tl.addLabel("hello", 0)
+            .to(".fox-actor", { autoAlpha: 1, y: 0, rotation: 0, scale: 1, duration: 0.5 }, "hello")
+            .to(".fox-actor", { rotation: 3, y: -4, duration: 0.22, repeat: 3, yoyo: true, ease: "sine.inOut" }, "hello+=0.35")
+            .to(".wave-arc", { autoAlpha: 1, rotation: 2, scale: 1.15, duration: 0.22, repeat: 3, yoyo: true, ease: "sine.inOut" }, "hello+=0.35")
+            .addLabel("depart", 1.5)
+            .to(".wave-arc", { autoAlpha: 0, y: -8, duration: 0.24 }, "depart")
+            .to(".route-line", { autoAlpha: 0.82, duration: 0.25 }, "depart+=0.05")
+            .to(".route-reveal", { scaleX: 1, duration: 2.2, ease: "power2.inOut" }, "depart+=0.05")
+            .to(".fox-actor", { xPercent: 150, y: -150, scale: 0.5, rotation: 0, duration: 3.0, ease: "none" }, "depart")
+            .to(".fox-frame", { y: -6, rotation: 2, duration: 0.24, repeat: 11, yoyo: true, ease: "sine.inOut" }, "depart")
+            .addLabel("gate", 4.2)
+            .to(".scene", { scale: 1.22, yPercent: -5, duration: 2.4, ease: "power3.inOut" }, "gate")
+            .to(".gate", { autoAlpha: 0.95, y: -16, scale: 2.22, duration: 1.6, ease: "power3.inOut" }, "gate")
+            .to(".route-line", { autoAlpha: 0, duration: 0.4 }, "gate+=0.2")
+            .to(".fox-actor", { autoAlpha: 0, duration: 0.4 }, "gate+=0.9")
+            .to(".gate", { autoAlpha: 0, y: -36, scale: 3.1, duration: 0.8, ease: "power3.in" }, "gate+=1.55")
+            .addLabel("turn", 6.6)
+            .set(".fox-actor", { xPercent: 132, y: -26, scale: 1.18, rotation: 3 }, "turn")
+            .to(".fox-actor", { autoAlpha: 1, xPercent: 121, y: -18, scale: 1.12, rotation: 0, duration: 0.65 }, "turn")
+            .to(".bubble", { autoAlpha: 1, y: 0, scale: 1, duration: 0.45 }, "turn+=0.18")
+            .addLabel("final", 8)
+            .call(setFoxFrame, ["fox-peek.webp"], "final")
+            .to(".headline", { autoAlpha: 1, y: 0, duration: 0.55 }, "final")
+            .to(".stickers", { autoAlpha: 0.96, y: 0, rotation: 5, duration: 0.55 }, "final+=0.08")
+            .to(".cta-row", { autoAlpha: 1, y: 0, duration: 0.55 }, "final+=0.18");
+
+          return tl;
+        }
+
+        if (!window.gsap || reduceQuery.matches) {
+          showFinalState();
+          return;
+        }
+
+        const mm = gsap.matchMedia();
+        mm.add(
+          {
+            standardMotion: "(prefers-reduced-motion: no-preference)",
+            reduceMotion: "(prefers-reduced-motion: reduce)",
+          },
+          (context) => {
+            if (context.conditions.reduceMotion) {
+              showFinalState();
+              return undefined;
+            }
+
+            const timeline = buildTimeline();
+            window.mobileFoxHome = {
+              timeline,
+              labels,
+              seek(label) {
+                if (labels.includes(label)) {
+                  timeline.pause(label);
+                  setFoxFrame(labelFrames[label]);
+                }
+              },
+            };
+
+            if (requestedState === "final") {
+              timeline.progress(1).pause();
+              setFoxFrame(labelFrames.final);
+            } else if (requestedLabel && labels.includes(requestedLabel)) {
+              timeline.seek(requestedLabel).pause();
+              setFoxFrame(labelFrames[requestedLabel]);
+            } else {
+              timeline.play(0);
+            }
+
+            return () => timeline.kill();
+          },
+        );
+      })();
+    </script>
+  </body>
+</html>
