@@ -1,12 +1,32 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import tseslint from "typescript-eslint";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  ...tseslint.configs.strictTypeChecked,
+  ...tseslint.configs.stylisticTypeChecked,
+  {
+    languageOptions: {
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: [
+            "*.mjs",
+            ".storybook/*.ts",
+            ".storybook/*.tsx",
+            ".storybook/mocks/*.ts",
+          ],
+        },
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
   {
     rules: {
+      complexity: ["error", 10],
+      "max-depth": ["error", 2],
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
@@ -26,6 +46,14 @@ const eslintConfig = defineConfig([
     rules: {
       "@typescript-eslint/no-require-imports": "off",
     },
+  },
+  // Config + Storybook files are linted via the default project, so their
+  // imports resolve to `any`. Type-aware rules produce false positives there
+  // (unsafe-assignment / misused-spread on library `any` types), so disable the
+  // type-checked rule set for these build-tooling files only.
+  {
+    files: ["*.mjs", "*.config.ts", ".storybook/**/*.ts", ".storybook/**/*.tsx"],
+    extends: [tseslint.configs.disableTypeChecked],
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([

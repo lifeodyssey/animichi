@@ -55,9 +55,9 @@ import { useDict } from "@/lib/i18n-context";
 import LandingPage from "@/components/landing/LandingPage";
 import ShowcaseCard from "@/components/landing/ShowcaseCard";
 
-const jaFull = jaDict as unknown as Dict;
-const enFull = enDict as unknown as Dict;
-const zhFull = zhDict as unknown as Dict;
+const jaFull = jaDict;
+const enFull = enDict;
+const zhFull = zhDict;
 const tja = jaDict.landing_hero.landing;
 
 function renderLanding(dict: Dict = jaFull, onOpenAuth = vi.fn()) {
@@ -148,7 +148,7 @@ describe("landing — showcase card variants", () => {
 });
 
 describe("landing — example chips", () => {
-  const examples = (tja.hero_examples as string[]).slice(0, 3);
+  const examples = (tja.hero_examples).slice(0, 3);
 
   it("renders the example chips from the dictionary", () => {
     renderLanding(jaFull);
@@ -160,9 +160,10 @@ describe("landing — example chips", () => {
   it("fills the search input and triggers the search path when a chip is tapped", () => {
     const onOpenAuth = vi.fn();
     renderLanding(jaFull, onOpenAuth);
-    fireEvent.click(screen.getByRole("button", { name: examples[0] }));
-    expect(screen.getByRole("textbox")).toHaveValue(examples[0]);
-    expect(onOpenAuth).toHaveBeenCalledWith(examples[0]);
+    const [firstExample = ""] = examples;
+    fireEvent.click(screen.getByRole("button", { name: firstExample }));
+    expect(screen.getByRole("textbox")).toHaveValue(firstExample);
+    expect(onOpenAuth).toHaveBeenCalledWith(firstExample);
   });
 
   it("renders the hero without chips when the example list is empty", () => {
@@ -172,10 +173,10 @@ describe("landing — example chips", () => {
         ...jaFull.landing_hero,
         landing: { ...jaFull.landing_hero.landing, hero_examples: [] as string[] },
       },
-    } as unknown as Dict;
+    };
     renderLanding(dictNoExamples);
     expect(screen.getByRole("textbox")).toBeInTheDocument();
-    expect(screen.queryByText(tja.hero_examples[0])).not.toBeInTheDocument();
+    expect(screen.queryByText(tja.hero_examples[0] ?? "")).not.toBeInTheDocument();
   });
 });
 

@@ -21,7 +21,7 @@ export default function HeroCopy({ onSearch }: HeroCopyProps) {
   const dict = useDict();
   const t = dict.landing_hero.landing;
   const [query, setQuery] = useState("");
-  const examples = ((t.hero_examples ?? []) as string[]).slice(0, 3);
+  const examples = t.hero_examples.slice(0, 3);
 
   const submit = () => {
     const q = query.trim();
@@ -59,7 +59,7 @@ export default function HeroCopy({ onSearch }: HeroCopyProps) {
         <p className="text-[12px] font-semibold text-muted-foreground">{t.hero_try_example}</p>
         <div className="mt-2.5 flex flex-wrap gap-2.5">
           {examples.map((ex) => (
-            <Chip key={ex} tone="teal" className="px-4 py-2.5 text-[14px]" onClick={() => tapChip(ex)}>
+            <Chip key={ex} tone="teal" className="px-4 py-2.5 text-[14px]" onClick={() => { tapChip(ex); }}>
               {ex}
             </Chip>
           ))}

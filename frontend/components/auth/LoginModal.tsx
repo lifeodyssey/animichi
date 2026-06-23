@@ -19,7 +19,7 @@ export default function LoginModal({ redirect, onClose }: LoginModalProps) {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => { document.removeEventListener("keydown", onKey); };
   }, [onClose]);
 
   return (

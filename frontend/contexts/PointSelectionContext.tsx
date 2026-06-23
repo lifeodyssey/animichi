@@ -10,8 +10,12 @@ export interface PointSelectionContextValue {
 
 const defaultValue: PointSelectionContextValue = {
   selectedIds: new Set<string>(),
-  toggle: () => {},
-  clear: () => {},
+  toggle: () => {
+    // Default no-op: overridden by the provider.
+  },
+  clear: () => {
+    // Default no-op: overridden by the provider.
+  },
 };
 
 export const PointSelectionContext =
