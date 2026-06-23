@@ -41,47 +41,47 @@ import type {
 } from "../src/types";
 
 // --- PilgrimagePoint ---
-const _pp_a: ContractPilgrimagePoint = null;
+const _pp_a: ContractPilgrimagePoint = null as unknown as ContractPilgrimagePoint;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- intentional type parity check
 const _pp_b: LocalPilgrimagePoint = null as unknown as ContractPilgrimagePoint;
 
 // --- TimedStop ---
-const _ts_a: ContractTimedStop = null;
+const _ts_a: ContractTimedStop = null as unknown as ContractTimedStop;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- intentional type parity check
 const _ts_b: LocalTimedStop = null as unknown as ContractTimedStop;
 
 // --- TransitLeg ---
-const _tl_a: ContractTransitLeg = null;
+const _tl_a: ContractTransitLeg = null as unknown as ContractTransitLeg;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- intentional type parity check
 const _tl_b: LocalTransitLeg = null as unknown as ContractTransitLeg;
 
 // --- TimedItinerary ---
-const _ti_a: ContractTimedItinerary = null;
+const _ti_a: ContractTimedItinerary = null as unknown as ContractTimedItinerary;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- intentional type parity check
 const _ti_b: LocalTimedItinerary = null as unknown as ContractTimedItinerary;
 
 // --- IngestResult ---
-const _ir_a: ContractIngestResult = null;
+const _ir_a: ContractIngestResult = null as unknown as ContractIngestResult;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- intentional type parity check
 const _ir_b: LocalIngestResult = null as unknown as ContractIngestResult;
 
 // --- Route ---
-const _r_a: ContractRoute = null;
+const _r_a: ContractRoute = null as unknown as ContractRoute;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- intentional type parity check
 const _r_b: LocalRoute = null as unknown as ContractRoute;
 
 // --- Pacing ---
-const _pac_a: ContractPacing = null;
+const _pac_a: ContractPacing = null as unknown as ContractPacing;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- intentional type parity check
 const _pac_b: LocalPacing = null as unknown as ContractPacing;
 
 // --- Origin ---
-const _orig_a: ContractOrigin = null;
+const _orig_a: ContractOrigin = null as unknown as ContractOrigin;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- intentional type parity check
 const _orig_b: LocalOrigin = null as unknown as ContractOrigin;
 
 // --- SearchResult (from contract.ts, not models.ts) ---
-const _sr_a: ContractSearchResult = null;
+const _sr_a: ContractSearchResult = null as unknown as ContractSearchResult;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- intentional type parity check
 const _sr_b: LocalSearchResult = null as unknown as ContractSearchResult;
 
