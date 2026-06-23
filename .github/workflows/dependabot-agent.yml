@@ -43,12 +43,12 @@ jobs:
         id: backend
         continue-on-error: true
         run: |
-          uv run ruff format --check backend/
-          uv run ruff check backend/
-          uv run mypy backend/agents/ backend/interfaces/ backend/domain/ backend/infrastructure/ backend/clients/
-          uv run pytest backend/tests/unit/ -v --no-cov
-          uv run python -c "from backend.agents.pipeline import run_pipeline; print('pipeline OK')"
-          uv run python -c "from backend.interfaces.fastapi_service import create_fastapi_app; print('fastapi OK')"
+          uv run ruff format --check agent/
+          uv run ruff check agent/
+          uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
+          uv run pytest agent/tests/unit/ -v --no-cov
+          uv run python -c "from agent.agents.pipeline import run_pipeline; print('pipeline OK')"
+          uv run python -c "from agent.interfaces.fastapi_service import create_fastapi_app; print('fastapi OK')"
 
       # ── Node setup ──
       - uses: actions/setup-node@v6
@@ -114,7 +114,7 @@ jobs:
 
             Your task:
             1. Run the failing checks to see the exact errors:
-               - Backend: uv run ruff check backend/ && uv run mypy backend/agents/ backend/interfaces/ backend/domain/ backend/infrastructure/ backend/clients/ && uv run pytest backend/tests/unit/ -v --no-cov
+               - Backend: uv run ruff check agent/ && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ && uv run pytest agent/tests/unit/ -v --no-cov
                - Frontend: cd frontend && npm ci && npm run lint && npx tsc --noEmit
             2. Analyze the errors — they are likely caused by breaking changes in the upgraded dependency
             3. Fix the code to work with the new dependency version
@@ -142,10 +142,10 @@ jobs:
       - name: Final verification
         id: final-check
         run: |
-          uv run ruff check backend/
-          uv run mypy backend/agents/ backend/interfaces/ backend/domain/ backend/infrastructure/ backend/clients/
-          uv run pytest backend/tests/unit/ -v --no-cov
-          uv run python -c "from backend.agents.pipeline import run_pipeline; print('pipeline OK')"
+          uv run ruff check agent/
+          uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
+          uv run pytest agent/tests/unit/ -v --no-cov
+          uv run python -c "from agent.agents.pipeline import run_pipeline; print('pipeline OK')"
           cd frontend && npm ci && npm run lint && npx tsc --noEmit && npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"

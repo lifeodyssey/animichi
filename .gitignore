@@ -56,6 +56,7 @@ outputs/
 *.pdf
 *.html
 !templates/*.html
+!supabase/templates/*.html
 !docs/mockups/**/*.html
 
 # Test outputs
@@ -89,8 +90,10 @@ skills-lock.json
 
 # Misc
 images/
+!frontend/public/images/
 *.pen
 .next/
+.open-next/
 .wrangler/
 .venv
 node_modules
@@ -102,3 +105,19 @@ node_modules
 .sandbox-venv/
 .remember/
 frontend/.env.local.bak
+
+# Agent / tool scratch dirs (not source)
+.codex/
+.baoyu-skills/
+.impeccable/
+frontend/.impeccable/
+
+# Large design-probe / mockup image artifacts (kept on disk, not in git)
+docs/design/redesign-probes/
+docs/mockups/
+docs/mockups/previous-design-contact-sheet.jpg
+backend/tests/eval/results/agent_openai-mimo-*
+*.tsbuildinfo
+
+# Catalog TS service source — re-include (root lib/ rule is too broad)
+!catalog/src/lib/

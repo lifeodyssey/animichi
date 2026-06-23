@@ -1,0 +1,13 @@
+{
+  "case_count": 6,
+  "evaluated_count": 5,
+  "model": "openai:mimo-v2.5-pro@https://api.xiaomimimo.com/v1",
+  "scores": {
+    "DataCompleteness": 1.0,
+    "IntentMatch": 1.0,
+    "MessageQuality": 1.0,
+    "ResponseLocale": 0.6,
+    "StepEfficiency": 0.9,
+    "ToolExecution": 1.0
+  }
+}

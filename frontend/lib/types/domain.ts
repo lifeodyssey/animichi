@@ -25,7 +25,8 @@ export interface PilgrimagePoint {
   name_cn: string | null; // Chinese name
   episode: number | null;
   time_seconds: number | null;
-  screenshot_url: string | null; // Anitabi public URL
+  screenshot_url: string | null; // Anitabi public URL (anime frame)
+  real_photo_url?: string | null; // Real-world photo for BeforeAfter comparison
   address?: string | null;       // legacy/demo-only field
   bangumi_id: string | null;
   latitude: number;
@@ -34,6 +35,7 @@ export interface PilgrimagePoint {
   title_cn?: string | null;  // anime title (CN)
   distance_m?: number | null; // present only in geo searches
   origin?: string | null;
+  city?: string | null;        // reverse-geocoded city name (e.g. "Tokyo", "Takayama")
 }
 
 // ── Response-level types (intent-specific data shapes) ─────────────────────

@@ -1,0 +1,724 @@
+{
+  "info": {
+    "title": "Seichijunrei Catalog Service",
+    "version": "0.1.0",
+    "description": "Read methods of the TS Catalog service, consumed by the Python Agent service."
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/catalog/search": {
+      "post": {
+        "operationId": "search",
+        "summary": "Search pilgrimage points by anime title",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  },
+                  "origin": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "lat": {
+                            "type": "number"
+                          },
+                          "lng": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "lat",
+                          "lng"
+                        ]
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "name_cn": {
+                            "type": "string"
+                          },
+                          "bangumi_id": {
+                            "type": "string"
+                          },
+                          "episode": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "time_seconds": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "screenshot_url": {
+                            "type": "string"
+                          },
+                          "latitude": {
+                            "type": "number"
+                          },
+                          "longitude": {
+                            "type": "number"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "title_cn": {
+                            "type": "string"
+                          },
+                          "distance_m": {
+                            "type": "number"
+                          },
+                          "origin": {
+                            "type": "string"
+                          },
+                          "cover_url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "bangumi_id",
+                          "screenshot_url",
+                          "latitude",
+                          "longitude"
+                        ]
+                      }
+                    },
+                    "synced_at": {
+                      "type": "string"
+                    },
+                    "partial": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "rows",
+                    "synced_at"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/spots": {
+      "post": {
+        "operationId": "spots",
+        "summary": "Fetch a single pilgrimage point, optionally with distance",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bangumi_id": {
+                    "type": "string"
+                  },
+                  "origin": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "lat": {
+                            "type": "number"
+                          },
+                          "lng": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "lat",
+                          "lng"
+                        ]
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "bangumi_id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "point": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "name_cn": {
+                          "type": "string"
+                        },
+                        "bangumi_id": {
+                          "type": "string"
+                        },
+                        "episode": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "time_seconds": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "screenshot_url": {
+                          "type": "string"
+                        },
+                        "latitude": {
+                          "type": "number"
+                        },
+                        "longitude": {
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "title_cn": {
+                          "type": "string"
+                        },
+                        "distance_m": {
+                          "type": "number"
+                        },
+                        "origin": {
+                          "type": "string"
+                        },
+                        "cover_url": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "bangumi_id",
+                        "screenshot_url",
+                        "latitude",
+                        "longitude"
+                      ]
+                    },
+                    "distance_m": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "point"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/nearby": {
+      "post": {
+        "operationId": "nearby",
+        "summary": "Find pilgrimage points within a radius",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lat": {
+                    "type": "number"
+                  },
+                  "lng": {
+                    "type": "number"
+                  },
+                  "radius_m": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "lat",
+                  "lng",
+                  "radius_m"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "name_cn": {
+                            "type": "string"
+                          },
+                          "bangumi_id": {
+                            "type": "string"
+                          },
+                          "episode": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "time_seconds": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "screenshot_url": {
+                            "type": "string"
+                          },
+                          "latitude": {
+                            "type": "number"
+                          },
+                          "longitude": {
+                            "type": "number"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "title_cn": {
+                            "type": "string"
+                          },
+                          "distance_m": {
+                            "type": "number"
+                          },
+                          "origin": {
+                            "type": "string"
+                          },
+                          "cover_url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "bangumi_id",
+                          "screenshot_url",
+                          "latitude",
+                          "longitude"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "rows"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/route": {
+      "post": {
+        "operationId": "route",
+        "summary": "Plan an ordered, timed route over selected points",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "point_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "origin": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "lat": {
+                            "type": "number"
+                          },
+                          "lng": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "lat",
+                          "lng"
+                        ]
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "pacing": {
+                    "enum": [
+                      "chill",
+                      "normal",
+                      "packed"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "point_ids"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "ordered_points": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "name_cn": {
+                            "type": "string"
+                          },
+                          "bangumi_id": {
+                            "type": "string"
+                          },
+                          "episode": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "time_seconds": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "screenshot_url": {
+                            "type": "string"
+                          },
+                          "latitude": {
+                            "type": "number"
+                          },
+                          "longitude": {
+                            "type": "number"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "title_cn": {
+                            "type": "string"
+                          },
+                          "distance_m": {
+                            "type": "number"
+                          },
+                          "origin": {
+                            "type": "string"
+                          },
+                          "cover_url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "bangumi_id",
+                          "screenshot_url",
+                          "latitude",
+                          "longitude"
+                        ]
+                      }
+                    },
+                    "point_count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "cover_url": {
+                      "type": "string"
+                    },
+                    "anime_title": {
+                      "type": "string"
+                    },
+                    "anime_title_cn": {
+                      "type": "string"
+                    },
+                    "timed_itinerary": {
+                      "type": "object",
+                      "properties": {
+                        "stops": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "cluster_id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "arrive": {
+                                "type": "string"
+                              },
+                              "depart": {
+                                "type": "string"
+                              },
+                              "dwell_minutes": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "lat": {
+                                "type": "number"
+                              },
+                              "lng": {
+                                "type": "number"
+                              },
+                              "photo_count": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "cluster_id",
+                              "name",
+                              "arrive",
+                              "depart",
+                              "dwell_minutes",
+                              "lat",
+                              "lng",
+                              "photo_count"
+                            ]
+                          }
+                        },
+                        "legs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "from_id": {
+                                "type": "string"
+                              },
+                              "to_id": {
+                                "type": "string"
+                              },
+                              "mode": {
+                                "enum": [
+                                  "walk"
+                                ],
+                                "type": "string"
+                              },
+                              "duration_minutes": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "distance_m": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "from_id",
+                              "to_id",
+                              "mode",
+                              "duration_minutes",
+                              "distance_m"
+                            ]
+                          }
+                        },
+                        "total_minutes": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "total_distance_m": {
+                          "type": "number"
+                        },
+                        "spot_count": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "pacing": {
+                          "enum": [
+                            "chill",
+                            "normal",
+                            "packed"
+                          ],
+                          "type": "string"
+                        },
+                        "start_time": {
+                          "type": "string"
+                        },
+                        "export_google_maps_url": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "export_ics": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "stops",
+                        "legs",
+                        "total_minutes",
+                        "total_distance_m"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ordered_points",
+                    "point_count",
+                    "timed_itinerary"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/ingest": {
+      "post": {
+        "operationId": "ingest",
+        "summary": "Ingest a not-yet-cataloged work on demand by bangumi id",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bangumi_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "bangumi_id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "ingested",
+                        "in_progress",
+                        "empty",
+                        "failed"
+                      ],
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "point_count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

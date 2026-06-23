@@ -27,7 +27,7 @@ jobs:
       - run: npm ci
         working-directory: frontend
 
-      - name: Build static export
+      - name: Build frontend (OpenNext-SSR)
         run: npm run build
         working-directory: frontend
         env:
@@ -45,9 +45,38 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
-      # ── Deploy to Cloudflare ──
+      # ── Deploy catalog Worker FIRST (before root, as root's [[services]] binding depends on it) ──
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: catalog/package-lock.json
+
+      - run: npm ci
+        working-directory: catalog
+
+      - name: Deploy catalog Worker
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.79.0"
+          workingDirectory: catalog
+          command: deploy
+          # Catalog reaches Postgres via env.DATABASE_URL until a [[hyperdrive]]
+          # binding is provisioned (src/index.ts falls back to DATABASE_URL).
+          # Sourced from the existing SUPABASE_DB_URL secret.
+          secrets: |
+            DATABASE_URL
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # ── Verify Dockerfile exists before root deploy ──
+      - run: test -f Dockerfile
+
+      # ── Deploy root (edge + container) ──
       - name: Deploy via Wrangler
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

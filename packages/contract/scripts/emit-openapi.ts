@@ -1,0 +1,42 @@
+/**
+ * Emit an OpenAPI 3.1 JSON spec from the Catalog oRPC contract.
+ *
+ * Output: packages/contract/openapi.json
+ * The Python client is generated / typed from this spec.
+ *
+ * Run: npm run emit:openapi
+ */
+
+import { writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { OpenAPIGenerator } from "@orpc/openapi";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { catalogContract } from "../src/contract.js";
+
+const generator = new OpenAPIGenerator({
+  schemaConverters: [new ZodToJsonSchemaConverter()],
+});
+
+const spec = await generator.generate(catalogContract, {
+  info: {
+    title: "Seichijunrei Catalog Service",
+    version: "0.1.0",
+    description:
+      "Read methods of the TS Catalog service, consumed by the Python Agent service.",
+  },
+});
+
+const outPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "openapi.json",
+);
+
+writeFileSync(outPath, `${JSON.stringify(spec, null, 2)}\n`, "utf8");
+
+const methods = Object.keys(catalogContract);
+const schemaNames = Object.keys(spec.components?.schemas ?? {});
+process.stdout.write(`Wrote ${outPath}\n`);
+process.stdout.write(`Methods: ${methods.join(", ")}\n`);
+process.stdout.write(`Schemas: ${schemaNames.join(", ") || "(inlined)"}\n`);

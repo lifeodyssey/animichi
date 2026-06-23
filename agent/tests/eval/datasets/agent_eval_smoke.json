@@ -1,0 +1,127 @@
+[
+  {
+    "id": "A1_ja_001",
+    "path": "exact_db_api_ok",
+    "tier": "happy",
+    "query": "君の名は。の聖地を教えて",
+    "locale": "ja",
+    "acceptable_stages": [
+      "search_bangumi"
+    ],
+    "expected_data_keys": [
+      "results"
+    ],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "anime": "君の名は。",
+      "bangumi_id": "160209",
+      "db_state": "hit_complete",
+      "difficulty": "easy",
+      "notes": ""
+    }
+  },
+  {
+    "id": "A1_zh_001",
+    "path": "exact_db_api_ok",
+    "tier": "happy",
+    "query": "你的名字的圣地在哪里",
+    "locale": "zh",
+    "acceptable_stages": [
+      "search_bangumi"
+    ],
+    "expected_data_keys": [
+      "results"
+    ],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "anime": "君の名は。",
+      "bangumi_id": "160209",
+      "db_state": "hit_complete",
+      "difficulty": "easy",
+      "notes": ""
+    }
+  },
+  {
+    "id": "A1_en_001",
+    "path": "exact_db_api_ok",
+    "tier": "happy",
+    "query": "Where are the pilgrimage spots for Your Name",
+    "locale": "en",
+    "acceptable_stages": [
+      "search_bangumi"
+    ],
+    "expected_data_keys": [
+      "results"
+    ],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "anime": "君の名は。",
+      "bangumi_id": "160209",
+      "db_state": "hit_complete",
+      "difficulty": "easy",
+      "notes": ""
+    }
+  },
+  {
+    "id": "A5_ja_001",
+    "path": "exact_api_multi",
+    "tier": "happy",
+    "query": "ガンダムの聖地巡礼",
+    "locale": "ja",
+    "acceptable_stages": [
+      "clarify"
+    ],
+    "expected_data_keys": [
+      "question",
+      "options",
+      "status",
+      "candidates"
+    ],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "miss",
+      "difficulty": "medium",
+      "notes": "multiple Gundam series"
+    }
+  },
+  {
+    "id": "E1_ja_001",
+    "path": "pure_greeting",
+    "tier": "happy",
+    "query": "こんにちは",
+    "locale": "ja",
+    "acceptable_stages": [
+      "greet_user"
+    ],
+    "expected_data_keys": [],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "none",
+      "difficulty": "easy",
+      "notes": ""
+    }
+  },
+  {
+    "id": "F1_ja_001",
+    "path": "pilgrimage_tips",
+    "tier": "happy",
+    "query": "聖地巡礼の注意事項",
+    "locale": "ja",
+    "acceptable_stages": [
+      "general_qa"
+    ],
+    "expected_data_keys": [],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "none",
+      "difficulty": "easy",
+      "notes": ""
+    }
+  }
+]

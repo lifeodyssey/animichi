@@ -15,3 +15,29 @@ major_version = 17
 [studio]
 enabled = true
 port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+smtp_port = 54325
+
+[auth]
+enabled = true
+site_url = "http://localhost:3001"
+additional_redirect_urls = ["http://localhost:3001/**"]
+
+[auth.hook.send_email]
+enabled = true
+uri = "http://host.docker.internal:54321/functions/v1/send-auth-email"
+secrets = "v1,whsec_XPpi8KvcJSYljVFVhzxH9qG+NxqPU6UGRM8mAgeCGDA="
+
+[functions.send-auth-email]
+verify_jwt = false
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[auth.email.template.magic_link]
+subject = "聖地巡礼 — ログイン / 登录 / Log in"
+content_path = "supabase/templates/magic-link.html"
