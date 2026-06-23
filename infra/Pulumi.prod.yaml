@@ -1,7 +1,5 @@
-encryptionsalt: v1:kx1t0BNjDwA=:v1:ZJApjT+yWCxM9mc2:W2R7az2k0eLnXK7HG8Fo7xNaB3fhiA==
+encryptionsalt: v1:KbxFY4PcDAU=:v1:zUPTwPBmCoBGAZML:CGmWmA6+du+4NMo4GLbWJ8c9efmH4g==
 config:
-  seichijunrei-infra:cloudflareAccountId: 021233c1880a43aa68565496100e1f8c
-  catalog:databaseUrl:
-    secure: v1:XtMHHIPDoLL4+a7C:iOKzwqkPF/1StZKkf1gDAD/AZzWMI7lkzqVkIhi8G6698Vjm2Q0AveonmpIMFIOOBwe0/K2TiPfTkTnj5AOOHKaGlqQZdkVm
   seichijunrei-infra:catalogDatabaseUrl:
-    secure: v1:tJty0DzBNd7gzEs9:uA3x0Dy2kQWS8UNOxetq7ZflPchEuTw7+qjwh/mDVYqRdeUIz4pyL3OevFIhH2SVcTOwojHks1jtWKToEp/3TvPYPN9QdY5Q
+    secure: v1:+pBUAY5DQexxcppn:PAx1EPqfroMHknjsk87vPP6usmoP2x8BlHMuxeNZs339sXPDS7Dr5LzwAyqHuRAncHPPEJ6OTuzgB2VF7F33TMoICpGfkC8oHEKm4aNt0mIrmaOOiaJ8ewt42hh3LGQhLJKqGaC9GLOvC7OsilRaZpGzOPdDNk8Quw5BeuYAvXM8fOUdoZvtsaRqI7X0H93VzFLcVf+eu3S64jO5n/jkF9k=
+  seichijunrei-infra:cloudflareAccountId: 021233c1880a43aa68565496100e1f8c
