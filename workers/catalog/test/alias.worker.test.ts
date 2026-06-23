@@ -59,7 +59,9 @@ describe("rankAliases (dedup by normalized form, highest source wins)", () => {
       { alias: "響け！ユーフォニアム", source: Source.Bangumi },
     ]);
     expect(ranked).toHaveLength(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
     expect(ranked[0]!.source).toBe(Source.Bangumi);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
     expect(ranked[0]!.priority).toBe(SOURCE_PRIORITY[Source.Bangumi]);
   });
 
@@ -69,8 +71,10 @@ describe("rankAliases (dedup by normalized form, highest source wins)", () => {
       { alias: "fate", source: Source.AniDB },
     ]);
     expect(ranked).toHaveLength(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
     expect(ranked[0]!.alias_normalized).toBe("fate");
     // AniDB (30) outranks Moegirl (20).
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
     expect(ranked[0]!.source).toBe(Source.AniDB);
   });
 
@@ -79,7 +83,9 @@ describe("rankAliases (dedup by normalized form, highest source wins)", () => {
       { alias: "  Re:Zero  ", source: Source.Bangumi },
       { alias: "re:zero", source: Source.Moegirl },
     ]);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
     expect(ranked[0]!.alias).toBe("  Re:Zero  ");
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
     expect(ranked[0]!.alias_normalized).toBe("re:zero");
   });
 

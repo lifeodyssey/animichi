@@ -15,26 +15,39 @@ import {
  * vitest-pool-workers config picks it up; no Docker, no DB.
  */
 
+const SEQUEL_CHAIN: SeriesEdge[] = [
+  { fromWorkId: "A", toWorkId: "B", relation: "sequel" },
+  { fromWorkId: "B", toWorkId: "C", relation: "sequel" },
+];
+
+function assertExcludesCharacter(): void {
+  const edges: SeriesEdge[] = [
+    { fromWorkId: "A", toWorkId: "B", relation: "sequel" },
+    { fromWorkId: "B", toWorkId: "C", relation: "character" },
+  ];
+  expect([...walkSeries(edges, "A")].sort()).toEqual(["A", "B"]);
+  expect(walkSeries(edges, "A").has("C")).toBe(false);
+}
+
+function assertSameSeriesRelations(): void {
+  expect([...SAME_SERIES_RELATIONS].sort()).toEqual([
+    "prequel", "same_setting", "sequel", "side_story", "summary",
+  ]);
+  expect(SAME_SERIES_RELATIONS.has("character")).toBe(false);
+}
+
 describe("walkSeries (series.ts)", () => {
   it("returns just the start node when there are no edges", () => {
     expect([...walkSeries([], "A")]).toEqual(["A"]);
   });
 
   it("walks a linear sequel chain A->B->C into one component", () => {
-    const edges: SeriesEdge[] = [
-      { fromWorkId: "A", toWorkId: "B", relation: "sequel" },
-      { fromWorkId: "B", toWorkId: "C", relation: "sequel" },
-    ];
-    expect([...walkSeries(edges, "A")].sort()).toEqual(["A", "B", "C"]);
+    expect([...walkSeries(SEQUEL_CHAIN, "A")].sort()).toEqual(["A", "B", "C"]);
   });
 
   it("traverses edges in reverse: starting from C reaches A", () => {
-    const edges: SeriesEdge[] = [
-      { fromWorkId: "A", toWorkId: "B", relation: "sequel" },
-      { fromWorkId: "B", toWorkId: "C", relation: "sequel" },
-    ];
     // C has no outgoing edge; only reverse traversal reaches B then A.
-    expect([...walkSeries(edges, "C")].sort()).toEqual(["A", "B", "C"]);
+    expect([...walkSeries(SEQUEL_CHAIN, "C")].sort()).toEqual(["A", "B", "C"]);
   });
 
   it("is cycle-safe: A->B->A does not loop forever", () => {
@@ -45,15 +58,7 @@ describe("walkSeries (series.ts)", () => {
     expect([...walkSeries(edges, "A")].sort()).toEqual(["A", "B"]);
   });
 
-  it("excludes non-series relations: a 'character' edge does not merge components", () => {
-    const edges: SeriesEdge[] = [
-      { fromWorkId: "A", toWorkId: "B", relation: "sequel" },
-      // C is linked to B only by a character relation -> stays separate.
-      { fromWorkId: "B", toWorkId: "C", relation: "character" },
-    ];
-    expect([...walkSeries(edges, "A")].sort()).toEqual(["A", "B"]);
-    expect(walkSeries(edges, "A").has("C")).toBe(false);
-  });
+  it("excludes non-series relations: a 'character' edge does not merge components", assertExcludesCharacter);
 
   it("merges via side_story / summary / same_setting relations", () => {
     const edges: SeriesEdge[] = [
@@ -64,14 +69,5 @@ describe("walkSeries (series.ts)", () => {
     expect([...walkSeries(edges, "A")].sort()).toEqual(["A", "B", "C", "D"]);
   });
 
-  it("SAME_SERIES_RELATIONS is the documented set and excludes character", () => {
-    expect([...SAME_SERIES_RELATIONS].sort()).toEqual([
-      "prequel",
-      "same_setting",
-      "sequel",
-      "side_story",
-      "summary",
-    ]);
-    expect(SAME_SERIES_RELATIONS.has("character")).toBe(false);
-  });
+  it("SAME_SERIES_RELATIONS is the documented set and excludes character", assertSameSeriesRelations);
 });

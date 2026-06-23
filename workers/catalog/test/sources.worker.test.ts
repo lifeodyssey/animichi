@@ -21,13 +21,13 @@ function mockFetch(
   opts: { ok?: boolean; status?: number } = {},
 ): { fetch: FetchLike; urls: string[] } {
   const urls: string[] = [];
-  const fetch: FetchLike = async (url) => {
+  const fetch: FetchLike = (url) => {
     urls.push(url);
-    return {
+    return Promise.resolve({
       ok: opts.ok ?? true,
       status: opts.status ?? 200,
-      json: async () => body,
-    };
+      json: () => Promise.resolve(body),
+    });
   };
   return { fetch, urls };
 }

@@ -27,7 +27,7 @@ const CONTAINER = "catalog-enrich-postgis";
 const IMAGE = "postgis/postgis:16-3.4";
 const PG_PORT = 55437;
 const PG_PASSWORD = "enrich";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${PG_PORT}/postgres`;
+const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
 
 const REMOTE_SCHEMA = "../../supabase/migrations/20260402120000_remote_schema.sql";
 const INGEST_SCHEMA = "../../supabase/migrations/20260620230000_ingest_infrastructure.sql";
@@ -91,7 +91,7 @@ function startContainer(): void {
   if (existing) sh(`docker rm -f ${CONTAINER}`);
   sh(
     `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${PG_PORT}:5432 ${IMAGE}`,
+      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
   );
 }
 
@@ -106,7 +106,7 @@ async function waitForReady(): Promise<void> {
       return;
     } catch (err) {
       lastErr = err;
-      await probe.end().catch(() => {});
+      await probe.end().catch(() => { /* noop */ });
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
@@ -139,14 +139,14 @@ async function pointCount(workId: string): Promise<number> {
     await db.execute(
       sql`SELECT COUNT(*)::int AS n FROM points WHERE bangumi_id = ${workId}`,
     )
-  ).rows as Array<{ n: number }>;
+  ).rows as { n: number }[];
   return rows[0]?.n ?? 0;
 }
 
 async function locationWkt(pointId: string): Promise<string | null> {
   const rows = (
     await db.execute(sql`SELECT ST_AsText(location) AS wkt FROM points WHERE id = ${pointId}`)
-  ).rows as Array<{ wkt: string | null }>;
+  ).rows as { wkt: string | null }[];
   return rows[0]?.wkt ?? null;
 }
 
@@ -155,7 +155,7 @@ async function currentVersion(workId: string): Promise<number | undefined> {
     await db.execute(
       sql`SELECT version FROM cluster_version WHERE work_id = ${workId} AND is_current`,
     )
-  ).rows as Array<{ version: number }>;
+  ).rows as { version: number }[];
   return rows[0]?.version;
 }
 
@@ -164,7 +164,7 @@ async function allVersions(workId: string): Promise<number[]> {
     await db.execute(
       sql`SELECT version FROM cluster_version WHERE work_id = ${workId} ORDER BY version`,
     )
-  ).rows as Array<{ version: number }>;
+  ).rows as { version: number }[];
   return rows.map((r) => r.version);
 }
 
@@ -179,13 +179,42 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const client = (db as unknown as { $client?: pg.Pool }).$client;
-  if (client) await client.end().catch(() => {});
+  if (client) await client.end().catch(() => { /* noop */ });
   try {
     sh(`docker rm -f ${CONTAINER}`);
   } catch {
     /* container already gone */
   }
 });
+
+async function assertEnrichBangumiRow(): Promise<void> {
+  const rows = (
+    await db.execute(
+      sql`SELECT title, title_cn, cover_url, rating, eps_count, air_date
+          FROM bangumi WHERE id = 'lucky-star'`,
+    )
+  ).rows as { title: string; title_cn: string; cover_url: string; rating: number; eps_count: number; air_date: string }[];
+  const row = rows[0];
+  expect(row?.title).toBe("らき☆すた");
+  expect(row?.title_cn).toBe("幸运星");
+  expect(row?.cover_url).toBe("https://lain.bgm.tv/pic/cover/l/lucky.jpg");
+  expect(Number(row?.rating)).toBeCloseTo(8.1, 1);
+  expect(row?.eps_count).toBe(24);
+  expect(row?.air_date).toBe("2007-04-08");
+}
+
+async function assertEnrichAliases(): Promise<void> {
+  const rows = (
+    await db.execute(
+      sql`SELECT alias, alias_normalized, source FROM aliases
+          WHERE work_id = 'lucky-star' ORDER BY alias_normalized`,
+    )
+  ).rows as { alias: string; alias_normalized: string; source: string }[];
+  const normalized = rows.map((r) => r.alias_normalized);
+  expect(normalized).toContain("らき☆すた".normalize("NFKC").toLowerCase());
+  expect(normalized).toContain("幸运星");
+  expect(rows.every((r) => r.source === "bangumi")).toBe(true);
+}
 
 describe("enrichWork composes raw zone -> enriched catalog -> publish", () => {
   it("returns the published version and point count", async () => {
@@ -194,28 +223,7 @@ describe("enrichWork composes raw zone -> enriched catalog -> publish", () => {
     expect(result.pointCount).toBe(3);
   });
 
-  it("writes the bangumi row parsed from the raw subject", async () => {
-    const rows = (
-      await db.execute(
-        sql`SELECT title, title_cn, cover_url, rating, eps_count, air_date
-            FROM bangumi WHERE id = 'lucky-star'`,
-      )
-    ).rows as Array<{
-      title: string;
-      title_cn: string;
-      cover_url: string;
-      rating: number;
-      eps_count: number;
-      air_date: string;
-    }>;
-    const row = rows[0];
-    expect(row?.title).toBe("らき☆すた");
-    expect(row?.title_cn).toBe("幸运星");
-    expect(row?.cover_url).toBe("https://lain.bgm.tv/pic/cover/l/lucky.jpg");
-    expect(Number(row?.rating)).toBeCloseTo(8.1, 1);
-    expect(row?.eps_count).toBe(24);
-    expect(row?.air_date).toBe("2007-04-08");
-  });
+  it("writes the bangumi row parsed from the raw subject", assertEnrichBangumiRow);
 
   it("writes points with coords and trigger-derived geography location", async () => {
     expect(await pointCount("lucky-star")).toBe(3);
@@ -226,22 +234,11 @@ describe("enrichWork composes raw zone -> enriched catalog -> publish", () => {
   it("expands leading-slash Anitabi image paths to the CDN host", async () => {
     const rows = (
       await db.execute(sql`SELECT image FROM points WHERE id = 'p-washinomiya'`)
-    ).rows as Array<{ image: string }>;
+    ).rows as { image: string }[];
     expect(rows[0]?.image).toBe("https://image.anitabi.cn/2024/shrine.jpg");
   });
 
-  it("writes normalized aliases from the bangumi titles", async () => {
-    const rows = (
-      await db.execute(
-        sql`SELECT alias, alias_normalized, source FROM aliases
-            WHERE work_id = 'lucky-star' ORDER BY alias_normalized`,
-      )
-    ).rows as Array<{ alias: string; alias_normalized: string; source: string }>;
-    const normalized = rows.map((r) => r.alias_normalized);
-    expect(normalized).toContain("らき☆すた".normalize("NFKC").toLowerCase());
-    expect(normalized).toContain("幸运星");
-    expect(rows.every((r) => r.source === "bangumi")).toBe(true);
-  });
+  it("writes normalized aliases from the bangumi titles", assertEnrichAliases);
 
   it("publishes a current cluster_version", async () => {
     expect(await currentVersion("lucky-star")).toBe(1);

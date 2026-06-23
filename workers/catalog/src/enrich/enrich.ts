@@ -61,9 +61,11 @@ async function readRaw(
 ): Promise<unknown> {
   const rows = (
     await db.execute(sql`SELECT payload FROM ${sql.raw(table)} WHERE work_id = ${workId}`)
-  ).rows as Array<{ payload: unknown }>;
+  ).rows as { payload: unknown }[];
   if (rows.length === 0) throw new Error(`No ${table} payload for work ${workId}`);
-  return rows[0]!.payload;
+  const first = rows[0];
+  if (first === undefined) throw new Error(`No ${table} payload for work ${workId}`);
+  return first.payload;
 }
 
 /** UPSERT the `bangumi` row keyed by id (re-enrich overwrites in place). */
@@ -103,7 +105,7 @@ async function upsertPoint(db: DbExecutor, row: PointRow): Promise<void> {
 /** Compute 50m clusters (no cluster_id column to persist) and log the count. */
 function logClusters(workId: string, points: PointRow[]): number {
   const clusters = clusterByLocation(points, 50);
-  console.info(`enrich ${workId}: ${points.length} points -> ${clusters.length} clusters`);
+  console.info(`enrich ${workId}: ${String(points.length)} points -> ${String(clusters.length)} clusters`);
   return clusters.length;
 }
 

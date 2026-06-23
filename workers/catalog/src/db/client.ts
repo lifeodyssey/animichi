@@ -6,7 +6,7 @@ import * as schema from "./schema";
 export type CatalogDb = NeonHttpDatabase<typeof schema>;
 export type NeonSql = NeonQueryFunction<false, false>;
 /** Minimal structural type for functions that only call `.execute()` (db or tx). */
-export type DbExecutor = { execute: (query: SQL) => Promise<{ rows: unknown[] }> };
+export interface DbExecutor { execute: (query: SQL) => Promise<{ rows: unknown[] }> }
 
 export function makeDb(connStr: string): CatalogDb {
   const sql = neon(connStr);
