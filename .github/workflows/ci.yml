@@ -15,18 +15,43 @@ env:
   NODE_VERSION: "24"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-# ── Stage 1: Quality Gates (all parallel) ────────────────────
-
 jobs:
+
+  # ── Affected detection ────────────────────────────────────────
+
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      catalog: ${{ steps.f.outputs.catalog }}
+      agent: ${{ steps.f.outputs.agent }}
+      frontend: ${{ steps.f.outputs.frontend }}
+      contract: ${{ steps.f.outputs.contract }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: f
+        with:
+          filters: |
+            contract: ['packages/contract/**']
+            catalog: ['workers/catalog/**', 'packages/contract/**']
+            agent: ['apps/agent/**', 'packages/contract/**']
+            frontend: ['frontend/**']
+
+  # ── Stage 1: Quality Gates (all parallel) ────────────────────
+
   backend-quality:
     name: Backend Quality
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.agent == 'true' }}
+    defaults:
+      run:
+        working-directory: apps/agent
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
         with:
-          version: "latest"
+          python: "true"
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
@@ -44,33 +69,29 @@ jobs:
   frontend-quality:
     name: Frontend Quality
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-
-      - run: npm ci
-        working-directory: frontend
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
 
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
         working-directory: frontend
 
       - name: Type check
-        run: npx tsc --noEmit
+        run: pnpm exec tsc --noEmit
         working-directory: frontend
 
   db-validate:
     name: DB Migrations (dry-run)
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.catalog == 'true' || needs.changes.outputs.agent == 'true' }}
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: supabase/setup-cli@v2
         with:
@@ -85,47 +106,38 @@ jobs:
   catalog-quality:
     name: Catalog Quality
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.catalog == 'true' }}
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: catalog/package-lock.json
-
-      - run: npm ci
-        working-directory: catalog
-
-      # The contract-parity test imports packages/contract/src (which imports
-      # @orpc/contract + zod). tsc resolves those from packages/contract's own
-      # node_modules, so install them here too (no workspace yet — see P5).
-      - run: npm install
-        working-directory: packages/contract
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
 
       - name: Type check
-        run: npx tsc --noEmit
-        working-directory: catalog
+        run: pnpm exec tsc --noEmit
+        working-directory: workers/catalog
 
       - name: Worker tests (no-db)
-        run: npm run test:worker
-        working-directory: catalog
+        run: pnpm run test:worker
+        working-directory: workers/catalog
 
   # ── Stage 2: Tests + Build (parallel, gated by Stage 1) ───
 
   backend-test:
     name: Backend Tests
     runs-on: ubuntu-latest
-    needs: backend-quality
+    needs: [changes, backend-quality]
+    if: ${{ needs.changes.outputs.agent == 'true' }}
+    defaults:
+      run:
+        working-directory: apps/agent
     env:
       SUPABASE_DB_URL: "postgresql://postgres:postgres@localhost:54322/postgres"
       DEEPSEEK_API_KEY: "test-key"
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
         with:
-          version: "latest"
+          python: "true"
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
@@ -151,27 +163,20 @@ jobs:
       - name: Upload coverage
         uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
         with:
-          files: ./coverage.xml
+          files: apps/agent/coverage.xml
           fail_ci_if_error: false
 
   frontend-test:
     name: Frontend Tests
     runs-on: ubuntu-latest
-    needs: frontend-quality
+    needs: [changes, frontend-quality]
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-
-      - run: npm ci
-        working-directory: frontend
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
 
       - name: Unit tests (coverage gate)
-        run: npx vitest run --coverage
+        run: pnpm exec vitest run --coverage
         working-directory: frontend
 
       - name: Upload coverage
@@ -184,24 +189,17 @@ jobs:
   frontend-build:
     name: Frontend Build
     runs-on: ubuntu-latest
-    needs: frontend-quality
+    needs: [changes, frontend-quality]
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     permissions:
       contents: read
       actions: write
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-
-      - run: npm ci
-        working-directory: frontend
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
 
       - name: Build static export
-        run: npm run build
+        run: pnpm run build
         working-directory: frontend
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -217,15 +215,16 @@ jobs:
   agent-eval:
     name: Agent Eval (546 cases)
     runs-on: ubuntu-latest
-    needs: backend-quality
-    # Disabled: costs ~$10/run. Enable per-release or manually.
-    if: false
+    needs: [changes, backend-quality]
+    if: ${{ needs.changes.outputs.agent == 'true' && false }}
+    defaults:
+      run:
+        working-directory: apps/agent
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
         with:
-          version: "latest"
+          python: "true"
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
@@ -243,6 +242,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
 
   # ── Stage 3: Deploy (tag-triggered, all tests green) ───────
+  # TODO(Wave 4): migrate to cd-*.yml when edge/web decoupled
 
   deploy:
     name: Deploy to Production
@@ -254,7 +254,7 @@ jobs:
       actions: read
     environment: production
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: actions/download-artifact@v8
         with:
@@ -275,14 +275,7 @@ jobs:
       # The catalog Worker reaches Postgres via its [[hyperdrive]] binding in
       # prod; until that is provisioned, set DATABASE_URL with
       # `wrangler secret put DATABASE_URL` (add it to the `secrets:` block below).
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: catalog/package-lock.json
-
-      - run: npm ci
-        working-directory: catalog
+      - uses: ./.github/actions/setup
 
       - name: Deploy catalog Worker
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
@@ -290,7 +283,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4.79.0"
-          workingDirectory: catalog
+          workingDirectory: workers/catalog
           command: deploy
           # Catalog reaches Postgres via env.DATABASE_URL until a [[hyperdrive]]
           # binding is provisioned (src/index.ts falls back to DATABASE_URL).
@@ -340,12 +333,14 @@ jobs:
     needs: deploy
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     continue-on-error: true
+    defaults:
+      run:
+        working-directory: apps/agent
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
         with:
-          version: "latest"
+          python: "true"
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 

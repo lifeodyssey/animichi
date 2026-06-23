@@ -1,15 +1,28 @@
 {
   "name": "seichijunrei-cloudflare-worker",
   "private": true,
+  "packageManager": "pnpm@10.33.2",
   "engines": {
     "node": ">=24"
   },
   "scripts": {
-    "build:frontend": "npm --prefix frontend run build",
-    "deploy": "npm run build:frontend && npx wrangler deploy"
+    "build:frontend": "pnpm --filter ./frontend run build",
+    "deploy": "pnpm run build:frontend && npx wrangler deploy"
   },
   "dependencies": {
     "@cloudflare/containers": "^0.3.7",
     "hono": "^4.9.10"
+  },
+  "pnpm": {
+    "overrides": {
+      "animal-island-ui>react": "^19.2.6",
+      "animal-island-ui>react-dom": "^19.2.6",
+      "postcss": ">=8.5.10",
+      "ws": ">=8.21.0",
+      "qs": ">=6.15.2",
+      "fast-uri": ">=3.1.2",
+      "hono": ">=4.12.16",
+      "esbuild": ">=0.28.1"
+    }
   }
 }
