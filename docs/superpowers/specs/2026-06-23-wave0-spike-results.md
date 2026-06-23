@@ -9,6 +9,7 @@
 | **③ Pulumi 自动 provision CF** | ✅ PASS | `pulumi up`(scoped CF token + local state)自动建成 R2 bucket + DNS + 2 routes,零手动 dashboard。**回答了"能不能用 Pulumi 自己创建"=能**。 | Wave 2+:Pulumi(TS)管 infra;生产 R2 state bucket 也 Pulumi 自建。 |
 | **③b wrangler×Pulumi 边界** | ✅ PASS | `wrangler deploy` 一个 no-route worker 后,2 条 Pulumi-managed route **仍在**(未被清)。 | 分层成立:**route/DNS/R2/Hyperdrive 归 Pulumi,worker 代码+容器归 wrangler**;组件 `wrangler.toml` 不声明 route。 |
 | **④ agent 容器 build+push** | ⏳ 未实测(需本地 Docker) | CF 文档明确:`wrangler deploy` 自动 Docker build → push 到 CF Registry → 部署。 | Wave 3:edge+容器 `wrangler deploy`;实测留 Wave 3(或本地 Docker 起来时补)。 |
+| **⑤ Neon 扛得住 schema(multi-env 补验)** | ✅ PASS | 在 Neon project `animichi`(pg **18.4**)建 spike branch,asyncpg 实测:`pgvector 0.8.1`(含 **HNSW** 索引 + cosine)、`postgis 3.6`(`ST_DWithin`)、`pgcrypto` **全 work**;`vector(1024)` + `geography` 列 OK;branch 建/连/删验隔离。Neon 是 drop-in 且版本更新。 | Wave 2/3:catalog/operational 迁 Neon,后端 asyncpg/Hyperdrive 连 Neon `DATABASE_URL`(production branch)。 |
 
 ## 关键发现(写回设计)
 1. **前端 Node middleware 阻塞 OpenNext** → `proxy.ts` 的 `/v1` auth gate 在 route-based 架构里冗余,移 edge Worker;剩余 session-refresh 改 edge-runtime。(强化 ii 解耦方向。)
