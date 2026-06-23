@@ -92,14 +92,14 @@ make db-diff NAME=x    # 从本地变更生成 diff
 
 **可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-详见 [`backend/config/settings.py`](backend/config/settings.py) 和 [`.env.example`](.env.example)。
+详见 [`agent/config/settings.py`](agent/config/settings.py) 和 [`.env.example`](.env.example)。
 
 ## 使用示例
 
 **Python（直接调用）：**
 ```python
-from backend.agents.pilgrimage_runner import run_pilgrimage_agent
-from backend.infrastructure.supabase.client import SupabaseClient
+from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.infrastructure.supabase.client import SupabaseClient
 
 async def main() -> None:
     async with SupabaseClient(db_url) as db:
@@ -117,7 +117,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 
 **Python 客户端：**
 ```python
-from backend.clients.python.seichijunrei_client import SeichijunreiClient
+from agent.clients.python.seichijunrei_client import SeichijunreiClient
 
 client = SeichijunreiClient(api_key="sk_your_key_here")
 result = client.search("Hibike Euphonium locations", locale="en")
@@ -125,7 +125,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 ## 仓库结构地图
 
-- `backend/` — Python 运行时：agents、interfaces、infrastructure、tests、tools
+- `agent/` — Python 运行时：agents、interfaces、infrastructure、tests、tools
 - `frontend/` — Next.js 静态导出前端与 UI 组件
 - `worker/` — Cloudflare Worker 入口，负责认证与请求路由
 - `supabase/` — schema 迁移与 Supabase 项目资产
