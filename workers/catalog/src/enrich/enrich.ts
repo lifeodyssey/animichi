@@ -23,7 +23,7 @@
  * quality-isolation of low-confidence points.
  */
 import { sql } from "drizzle-orm";
-import type { CatalogDb } from "../db/client";
+import type { CatalogDb, DbExecutor } from "../db/client";
 import { clusterByLocation } from "../lib/clustering";
 import { rankAliases, Source, type RankedAlias, type RawAlias } from "../lib/alias";
 import { publishVersion } from "../publish/versioning";
@@ -49,13 +49,13 @@ export async function enrichWork(db: CatalogDb, workId: string): Promise<EnrichR
     await upsertBangumi(tx, bangumi);
     await upsertPoints(tx, points);
     await upsertAliases(tx, workId, bangumi);
-    return { version: await publishVersion(tx, workId), pointCount: points.length };
+    return { version: await publishVersion(tx as unknown as CatalogDb, workId), pointCount: points.length };
   });
 }
 
 /** Read a raw-zone payload for the work; throw if the row is absent. */
 async function readRaw(
-  db: CatalogDb,
+  db: DbExecutor,
   table: "raw_anitabi" | "raw_bangumi",
   workId: string,
 ): Promise<unknown> {
@@ -67,7 +67,7 @@ async function readRaw(
 }
 
 /** UPSERT the `bangumi` row keyed by id (re-enrich overwrites in place). */
-async function upsertBangumi(db: CatalogDb, row: BangumiRow): Promise<void> {
+async function upsertBangumi(db: DbExecutor, row: BangumiRow): Promise<void> {
   await db.execute(sql`
     INSERT INTO bangumi (id, title, title_cn, cover_url, summary, rating, eps_count, air_date)
     VALUES (${row.id}, ${row.title}, ${row.title_cn}, ${row.cover_url},
@@ -80,12 +80,12 @@ async function upsertBangumi(db: CatalogDb, row: BangumiRow): Promise<void> {
 }
 
 /** UPSERT every point row keyed by id (idempotent re-enrich, no duplicates). */
-async function upsertPoints(db: CatalogDb, rows: PointRow[]): Promise<void> {
+async function upsertPoints(db: DbExecutor, rows: PointRow[]): Promise<void> {
   for (const row of rows) await upsertPoint(db, row);
 }
 
 /** UPSERT one `points` row; the sync_points_coordinates trigger fills location. */
-async function upsertPoint(db: CatalogDb, row: PointRow): Promise<void> {
+async function upsertPoint(db: DbExecutor, row: PointRow): Promise<void> {
   await db.execute(sql`
     INSERT INTO points (id, bangumi_id, name, name_cn, latitude, longitude,
                         image, episode, time_seconds, origin, origin_url)
@@ -108,7 +108,7 @@ function logClusters(workId: string, points: PointRow[]): number {
 }
 
 /** Rank the work's title aliases and UPSERT them into the `aliases` table. */
-async function upsertAliases(db: CatalogDb, workId: string, b: BangumiRow): Promise<void> {
+async function upsertAliases(db: DbExecutor, workId: string, b: BangumiRow): Promise<void> {
   const ranked = rankAliases(titleAliases(b));
   for (const a of ranked) await upsertAlias(db, workId, a);
 }
@@ -121,7 +121,7 @@ function titleAliases(b: BangumiRow): RawAlias[] {
 }
 
 /** UPSERT one alias row keyed by (work_id, alias, source). */
-async function upsertAlias(db: CatalogDb, workId: string, a: RankedAlias): Promise<void> {
+async function upsertAlias(db: DbExecutor, workId: string, a: RankedAlias): Promise<void> {
   await db.execute(sql`
     INSERT INTO aliases (work_id, alias, alias_normalized, source, priority)
     VALUES (${workId}, ${a.alias}, ${a.alias_normalized}, ${a.source}, ${a.priority})

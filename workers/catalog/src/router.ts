@@ -1,5 +1,5 @@
 import { ORPCError, os, type } from "@orpc/server";
-import type { CatalogDb } from "./db/client";
+import type { CatalogDb, NeonSql } from "./db/client";
 import { search as searchHandler, searchDb } from "./api/search";
 import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
 import { nearby as nearbyHandler } from "./api/nearby";
@@ -44,6 +44,7 @@ import type { IngestResult, Origin, Pacing } from "./types";
  */
 export interface CatalogContext {
   db: CatalogDb;
+  neonSql: NeonSql;
   fetchImpl?: typeof fetch;
   waitUntil?: (promise: Promise<unknown>) => void;
 }
@@ -73,7 +74,7 @@ const spots = base
 const nearby = base
   .route({ method: "POST", path: "/nearby" })
   .input(type<{ lat: number; lng: number; radius_m: number }>())
-  .handler(async ({ input, context }) => nearbyHandler(context.db, input));
+  .handler(async ({ input, context }) => nearbyHandler(context.db, context.neonSql, input));
 
 const MAX_ROUTE_POINT_IDS = 500;
 

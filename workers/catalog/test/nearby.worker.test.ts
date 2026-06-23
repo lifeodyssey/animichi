@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CatalogDb } from "../src/db/client";
+import type { CatalogDb, NeonSql } from "../src/db/client";
 import { nearby } from "../src/api/nearby";
 
 /**
@@ -7,11 +7,11 @@ import { nearby } from "../src/api/nearby";
  *
  * No Docker: `findPointsWithinRadius` (the ST_DWithin primitive) is already
  * integration-tested against real PostGIS in geo-query.spike.test.ts. Here we
- * fake the two `db.execute(sql)` reads `nearby()` performs — the geo helper's
- * radius read (ST_DWithin) and the detail-load's id IN read — distinguishing
- * them by query text, to drive the handler's radius→PilgrimagePoint mapping in
- * isolation. Named *.worker.test.ts so the existing vitest-pool-workers config
- * picks it up; the logic is runtime-agnostic.
+ * fake the two reads `nearby()` performs:
+ *   - geo read: via `neonSql` template tag (findPointsWithinRadius)
+ *   - detail read: via `db.execute(sql)` (loadDetails)
+ * Named *.worker.test.ts so the existing vitest-pool-workers config picks it up;
+ * the logic is runtime-agnostic.
  *
  * Fixture: two points near Washinomiya, returned nearest-first by the geo read.
  */
@@ -44,19 +44,23 @@ const DETAILS: DetailRow[] = [
   { id: "satte", bangumi_id: "lucky-star", name_cn: null, image: null, episode: null, time_seconds: null, origin: null },
 ];
 
-/** Minimal CatalogDb double: both reads are `db.execute(sql)`. The ST_DWithin
- * radius read returns geo rows; the detail-load IN read returns detail rows. */
-function fakeDb(geo: GeoRow[], details: DetailRow[]): CatalogDb {
+/** Minimal CatalogDb double: handles the detail-load IN read via db.execute(sql). */
+function fakeDb(details: DetailRow[]): CatalogDb {
   return {
-    execute: (query: unknown) => {
-      const isDetail = JSON.stringify(query).includes("name_cn");
-      return Promise.resolve({ rows: isDetail ? details : geo });
-    },
+    execute: (_query: unknown) => Promise.resolve({ rows: details }),
   } as unknown as CatalogDb;
 }
 
+/** Minimal NeonSql double: returns geo rows for the ST_DWithin read. */
+function fakeNeonSql(geo: GeoRow[]): NeonSql {
+  return Object.assign(
+    (_strings: TemplateStringsArray, ..._values: unknown[]) => Promise.resolve(geo),
+    { transaction: undefined },
+  ) as unknown as NeonSql;
+}
+
 const run = (geo: GeoRow[], details: DetailRow[]) =>
-  nearby(fakeDb(geo, details), { lat: 36.1019, lng: 139.6586, radius_m: 10_000 });
+  nearby(fakeDb(details), fakeNeonSql(geo), { lat: 36.1019, lng: 139.6586, radius_m: 10_000 });
 
 describe("nearby (api/nearby.ts)", () => {
   it("returns rows nearest-first with distance_m carried from the geo read", async () => {
