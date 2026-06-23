@@ -27,6 +27,30 @@ v0.3.0 tag 部署失败:`deploy` job 在 `download-artifact frontend-out` 就挂
 - 栈 = npm + 各叶 `package-lock.json`,无 workspace;Node 24;前端 Next 16 + `@opennextjs/cloudflare`(无 TanStack、无 `apps/`)。
 - 分支 `backend-survey`。
 
+## §0.5 Spike 后重大更新(2026-06-23 · 见 `2026-06-23-wave0-spike-results.md`)
+
+spike 全绿,确认两个架构简化,**改写下面 §1-§5 的 DB 与 agent 部分**:
+
+**① 数据 = Neon + auth = Supabase**(详见 `2026-06-23-multi-env-neon-supabase-design.md`):本 spec 所有"Supabase pg / Hyperdrive→Supabase"改为 **Neon**。
+
+**② agent 容器 → Python Worker**(去容器,本节作废原"agent 容器"设计):
+- agent 变独立 **Python Worker**(Pyodide + `pydantic-ai-slim`),**删 Dockerfile**、**去 Paid container**。
+- edge **不再当容器宿主**(去 `[[containers]]` / `RuntimeContainer` DO);edge 经 **service binding** 调 agent。
+- agent DB = **httpx + Neon HTTP**(Pyodide 无 socket,不用 asyncpg);读 catalog 经 service binding。
+- agent LLM 默认 **MiMo**(`https://api.xiaomimimo.com/v1`,OpenAI-compat provider;DeepSeek 没额度)。
+- agent **import 放 fetch handler 内**(opentelemetry/logfire 在 top-level 调 `os.urandom` 触发 CF global-scope 禁熵;保 logfire 则 fetch 内 import);冷启动 439-550ms。
+- 依赖走 `pyproject.toml`(uv,与 CF `pywrangler` 一致;deps 换 Pyodide-compatible)。
+
+**更新后部署拓扑 — 4 个 Worker,零容器**:
+| Worker | 源 | route | 职责 |
+|---|---|---|---|
+| web | apps/web | `domain/*` | OpenNext |
+| edge | workers/edge | `/v1/*` + `/img/*` | auth gateway + service-binding → agent / catalog |
+| **agent** | apps/agent(**Python Worker**) | 无 public(service binding ← edge) | PydanticAI + httpx(Neon HTTP) + MiMo |
+| catalog | workers/catalog | 无 public(service binding) | Neon 读 API |
+
+部署单元从原"edge + 容器"变为 **edge + agent 两个独立 Worker**(共 4 Worker)。**§1 的"agent 容器挂 edge DO"、§2 的容器改造、§5 Wave 的容器部署步骤全部作废**,改为 agent Python Worker 化(pyproject Pyodide deps + httpx Neon HTTP + MiMo + service binding)。Pulumi 去掉容器/agent-Hyperdrive(agent 走 Neon HTTP);catalog 是否用 Hyperdrive 看 Wave 实测。
+
 ## §1 目标架构
 
 ### 目录布局(platform monorepo)
