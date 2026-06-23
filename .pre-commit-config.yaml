@@ -12,15 +12,15 @@ repos:
     rev: v0.14.0
     hooks:
       - id: ruff
-        args: [--fix, agent/]
+        args: [--fix, apps/agent/agent/]
       - id: ruff-format
-        args: [agent/]
+        args: [apps/agent/agent/]
 
   - repo: local
     hooks:
       - id: mypy
         name: mypy
-        entry: uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
+        entry: bash -c 'cd apps/agent && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/'
         language: system
         types: [python]
         pass_filenames: false
@@ -52,7 +52,7 @@ repos:
 
       - id: backend-test-coverage
         name: backend tests + coverage (lines>=80%)
-        entry: bash -c 'uv run pytest agent/tests/unit/ -q --cov --cov-fail-under=80'
+        entry: bash -c 'cd apps/agent && SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54322/postgres DEEPSEEK_API_KEY=test-key uv run pytest agent/tests/unit/ -q --cov --cov-fail-under=80'
         language: system
         types: [python]
         pass_filenames: false

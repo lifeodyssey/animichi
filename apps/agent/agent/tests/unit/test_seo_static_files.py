@@ -4,7 +4,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
+FRONTEND_DIR = Path(__file__).resolve().parents[5] / "frontend"
 SITE_URL = "https://seichijunrei.zhenjia.org"
 
 
