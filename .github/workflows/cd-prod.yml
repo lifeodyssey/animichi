@@ -1,0 +1,16 @@
+name: CD production
+on:
+  push:
+    tags: ['v*']
+jobs:
+  # MVP: deploy catalog directly on tag push (single component).
+  # Affected-detection via dorny/paths-filter is unreliable on tag events
+  # (no meaningful base ref); add per-component path filtering here when
+  # the project grows to multiple deployable components.
+  catalog:
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: catalog
+      environment: production
+      pulumi_stack: prod
+    secrets: inherit

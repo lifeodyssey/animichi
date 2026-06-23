@@ -1,0 +1,7 @@
+packages:
+  - "frontend"          # 留原地,Wave 4 → apps/web
+  - "worker"            # 留原地,Wave 4 → workers/edge
+  - "workers/*"
+  - "apps/*"
+  - "packages/*"
+  - "e2e"

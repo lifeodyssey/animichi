@@ -9,11 +9,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock README.md /app/
+COPY apps/agent/pyproject.toml apps/agent/uv.lock /app/
 
 RUN uv sync --no-dev --no-install-project
 
-COPY agent /app/agent
+COPY apps/agent/agent /app/agent
 
 RUN uv sync --no-dev
 
