@@ -34,7 +34,9 @@ function find(parent: number[], i: number): number {
   let node = i;
   while (parent[node] !== node) {
     // path compression: point at grandparent
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- union-find indices bounded by n
     parent[node] = parent[parent[node]!]!;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- union-find indices bounded by n
     node = parent[node]!;
   }
   return node;
@@ -47,6 +49,7 @@ function union(parent: number[], rank: number[], a: number, b: number): void {
   if (ra === rb) {
     return;
   }
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- ra/rb are valid indices from find()
   if (rank[ra]! < rank[rb]!) {
     [ra, rb] = [rb, ra];
   }
@@ -80,18 +83,29 @@ export function clusterByLocation<P extends ClusterablePoint>(
 
   // O(n^2) pairwise comparison, same iteration order as Python (i, then j>i).
   for (let i = 0; i < n; i += 1) {
-    const pi = points[i]!;
-    for (let j = i + 1; j < n; j += 1) {
-      const pj = points[j]!;
-      if (
-        haversine(pi.latitude, pi.longitude, pj.latitude, pj.longitude) < radiusM
-      ) {
-        union(parent, rank, i, j);
-      }
-    }
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- index bounded by loop [0, n)
+    pairUnion(parent, rank, points, n, points[i]!, i, radiusM);
   }
 
   return buildClusters(points, parent);
+}
+
+function pairUnion<P extends ClusterablePoint>(
+  parent: number[],
+  rank: number[],
+  points: P[],
+  n: number,
+  pi: P,
+  i: number,
+  radiusM: number,
+): void {
+  for (let j = i + 1; j < n; j += 1) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- index bounded by loop [0, n)
+    const pj = points[j]!;
+    if (haversine(pi.latitude, pi.longitude, pj.latitude, pj.longitude) < radiusM) {
+      union(parent, rank, i, j);
+    }
+  }
 }
 
 function buildClusters<P extends ClusterablePoint>(
@@ -121,6 +135,7 @@ function makeCluster<P extends ClusterablePoint>(
   points: P[],
   indices: number[],
 ): LocationCluster<P> {
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- indices are valid array positions
   const members = indices.map((i) => points[i]!);
   const sumLat = members.reduce((acc, p) => acc + p.latitude, 0);
   const sumLng = members.reduce((acc, p) => acc + p.longitude, 0);
@@ -130,6 +145,7 @@ function makeCluster<P extends ClusterablePoint>(
     centerLng: sumLng / members.length,
     points: members,
     photoCount: members.length,
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- ids is non-empty (at least one member)
     clusterId: ids[0]!,
   };
 }

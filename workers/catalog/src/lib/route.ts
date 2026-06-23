@@ -87,6 +87,7 @@ function seedOrder(clusters: LocationCluster[], origin?: Origin): LocationCluste
 /** Pick the next cluster: nearest to `current`, ties broken by clusterId. */
 function pickNext(remaining: LocationCluster[], current: LocationCluster): LocationCluster {
   remaining.sort(byDistThenId(current.centerLat, current.centerLng, 2));
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- remaining is non-empty (caller guarantees)
   const best = remaining[0]!;
   const bestDist = distTo(best, current.centerLat, current.centerLng);
   const tied = remaining.filter(
@@ -94,6 +95,7 @@ function pickNext(remaining: LocationCluster[], current: LocationCluster): Locat
   );
   if (tied.length <= 1) return best;
   tied.sort((a, b) => a.clusterId.localeCompare(b.clusterId));
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- tied is non-empty (contains at least best)
   return tied[0]!;
 }
 
@@ -108,8 +110,10 @@ export function orderNearestNeighbor(
 ): LocationCluster[] {
   if (clusters.length <= 1) return [...clusters];
   const remaining = seedOrder(clusters, origin);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- remaining is non-empty (length > 1 checked above)
   const result: LocationCluster[] = [remaining.shift()!];
   while (remaining.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- result starts with one element and only grows
     const next = pickNext(remaining, result.at(-1)!);
     remaining.splice(remaining.indexOf(next), 1);
     result.push(next);
@@ -219,13 +223,16 @@ function assembleItinerary(
   let totalDistance = 0;
   let currentTime = startTime;
   for (let i = 0; i < ordered.length; i += 1) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- index bounded by loop [0, ordered.length)
     const cluster = ordered[i]!;
     const stop = makeStop(cluster, currentTime, computeDwellMinutes(cluster.photoCount, pacing));
     stops.push(stop);
     if (i < ordered.length - 1) {
-      const leg = makeLeg(cluster, ordered[i + 1]!, buffer);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- i+1 < ordered.length is guaranteed by the if condition
+      const next = ordered[i + 1]!;
+      const leg = makeLeg(cluster, next, buffer);
       legs.push(leg);
-      totalDistance += haversine(cluster.centerLat, cluster.centerLng, ordered[i + 1]!.centerLat, ordered[i + 1]!.centerLng);
+      totalDistance += haversine(cluster.centerLat, cluster.centerLng, next.centerLat, next.centerLng);
       currentTime = addMinutes(stop.depart, leg.duration_minutes);
     }
   }
@@ -243,6 +250,7 @@ function finalizeItinerary(
   return {
     stops,
     legs,
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- stops is non-empty (assembleItinerary adds at least one stop)
     total_minutes: minutesBetween(stops[0]!.arrive, stops.at(-1)!.depart),
     total_distance_m: pyRound(totalDistance, 1),
     spot_count: stops.length,

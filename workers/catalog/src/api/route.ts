@@ -80,7 +80,10 @@ async function fetchPoints(db: RouteDb, ids: string[]): Promise<ClusterablePilgr
   if (ids.length === 0) return [];
   const result = await db.execute(pointsQuery(ids));
   const byId = indexRows(result.rows as PointRow[]);
-  return ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+  return ids.flatMap((id) => {
+    const val = byId.get(id);
+    return val ? [val] : [];
+  });
 }
 
 /** Index fetched rows by `id` (mapped to points), for ordered reassembly. */
@@ -104,8 +107,8 @@ function pointsQuery(ids: string[]) {
 function toPoint(r: PointRow): ClusterablePilgrimagePoint {
   return {
     ...scalarFields(r),
-    latitude: Number(r.latitude),
-    longitude: Number(r.longitude),
+    latitude: r.latitude,
+    longitude: r.longitude,
   };
 }
 

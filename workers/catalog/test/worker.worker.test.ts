@@ -1,4 +1,4 @@
-import { env } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import app from "../src/index";
 
@@ -13,7 +13,8 @@ describe("catalog Worker (vitest-pool-workers)", () => {
   it("serves /healthz without a database", async () => {
     const res = await app.request("/healthz", {}, env);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { status: string; service: string };
+    const json: unknown = await res.json();
+    const body = json as { status: string; service: string };
     expect(body.status).toBe("ok");
     expect(body.service).toBe("catalog");
   });
@@ -31,7 +32,8 @@ describe("catalog Worker (vitest-pool-workers)", () => {
       env,
     );
     expect(res.status).toBe(503);
-    const body = (await res.json()) as { error: string };
+    const json: unknown = await res.json();
+    const body = json as { error: string };
     expect(body.error).toBe("catalog database not configured");
   });
 });

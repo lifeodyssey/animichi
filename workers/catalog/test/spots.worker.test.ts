@@ -39,25 +39,33 @@ const KAMAKURA: FixtureRow = {
 
 /** Build a fake CatalogDb whose execute() returns the given rows once. */
 function fakeDb(rows: FixtureRow[]): CatalogDb {
-  const fake = { execute: async () => ({ rows }) };
+  const fake = { execute: () => Promise.resolve({ rows }) };
   return fake as unknown as CatalogDb;
 }
 
-describe("spots (api/spots.ts)", () => {
-  it("maps a known bangumi_id row to the contract PilgrimagePoint shape", async () => {
-    const { point } = await spots(fakeDb([KAMAKURA]), { bangumi_id: "100" });
-    expect(point).toEqual({
-      id: "spot-1",
-      name: "鎌倉高校前駅",
-      name_cn: "镰仓高校前站",
-      bangumi_id: "100",
-      episode: 1,
-      time_seconds: 42,
-      screenshot_url: "https://image.anitabi.cn/spot-1.jpg",
-      latitude: 35.3066,
-      longitude: 139.4889,
-    });
+async function assertContractShape(): Promise<void> {
+  const { point } = await spots(fakeDb([KAMAKURA]), { bangumi_id: "100" });
+  expect(point).toEqual({
+    id: "spot-1", name: "鎌倉高校前駅", name_cn: "镰仓高校前站", bangumi_id: "100",
+    episode: 1, time_seconds: 42, screenshot_url: "https://image.anitabi.cn/spot-1.jpg",
+    latitude: 35.3066, longitude: 139.4889,
   });
+}
+
+async function assertNullCoercion(): Promise<void> {
+  const bare: FixtureRow = {
+    id: "spot-2", name: "鷲宮神社", name_cn: null, bangumi_id: "200",
+    episode: null, time_seconds: null, image: null, latitude: 36.1019, longitude: 139.6586,
+  };
+  const { point } = await spots(fakeDb([bare]), { bangumi_id: "200" });
+  expect(point.name_cn).toBeUndefined();
+  expect(point.episode).toBeUndefined();
+  expect(point.time_seconds).toBeUndefined();
+  expect(point.screenshot_url).toBe("");
+}
+
+describe("spots (api/spots.ts)", () => {
+  it("maps a known bangumi_id row to the contract PilgrimagePoint shape", assertContractShape);
 
   it("omits distance_m when no origin is given", async () => {
     const result = await spots(fakeDb([KAMAKURA]), { bangumi_id: "100" });
@@ -65,45 +73,20 @@ describe("spots (api/spots.ts)", () => {
   });
 
   it("computes distance_m via haversine for a lat/lng origin", async () => {
-    const origin = { lat: 35.681236, lng: 139.767125 }; // Tokyo Station
-    const { distance_m } = await spots(fakeDb([KAMAKURA]), {
-      bangumi_id: "100",
-      origin,
-    });
+    const origin = { lat: 35.681236, lng: 139.767125 };
+    const { distance_m } = await spots(fakeDb([KAMAKURA]), { bangumi_id: "100", origin });
     // haversine(35.681236,139.767125, 35.3066,139.4889) ~= 48_680.6 m
     expect(distance_m).toBeCloseTo(48680.64593671334, 4);
   });
 
   it("omits distance_m for a named-place (string) origin", async () => {
-    const result = await spots(fakeDb([KAMAKURA]), {
-      bangumi_id: "100",
-      origin: "東京駅",
-    });
+    const result = await spots(fakeDb([KAMAKURA]), { bangumi_id: "100", origin: "東京駅" });
     expect(result.distance_m).toBeUndefined();
   });
 
-  it("coerces null optional columns to absent / empty per the contract", async () => {
-    const bare: FixtureRow = {
-      id: "spot-2",
-      name: "鷲宮神社",
-      name_cn: null,
-      bangumi_id: "200",
-      episode: null,
-      time_seconds: null,
-      image: null,
-      latitude: 36.1019,
-      longitude: 139.6586,
-    };
-    const { point } = await spots(fakeDb([bare]), { bangumi_id: "200" });
-    expect(point.name_cn).toBeUndefined();
-    expect(point.episode).toBeUndefined();
-    expect(point.time_seconds).toBeUndefined();
-    expect(point.screenshot_url).toBe("");
-  });
+  it("coerces null optional columns to absent / empty per the contract", assertNullCoercion);
 
   it("throws SpotNotFoundError for an unknown bangumi_id (no points)", async () => {
-    await expect(spots(fakeDb([]), { bangumi_id: "999" })).rejects.toBeInstanceOf(
-      SpotNotFoundError,
-    );
+    await expect(spots(fakeDb([]), { bangumi_id: "999" })).rejects.toBeInstanceOf(SpotNotFoundError);
   });
 });

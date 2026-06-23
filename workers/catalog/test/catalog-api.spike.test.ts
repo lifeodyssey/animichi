@@ -33,7 +33,7 @@ const CONTAINER = "catalog-api-e2e"; // unique vs db.spike (catalog-db-postgis)
 const IMAGE = "postgis/postgis:16-3.4";
 const PG_PORT = 55434; // distinct from db.spike (55433), postgis.spike (55432), Supabase (54322)
 const PG_PASSWORD = "dbtest";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${PG_PORT}/postgres`;
+const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
 
 const REMOTE_SCHEMA = "../../supabase/migrations/20260402120000_remote_schema.sql";
 const INGEST_SCHEMA = "../../supabase/migrations/20260620230000_ingest_infrastructure.sql";
@@ -82,7 +82,7 @@ function startContainer(): void {
   if (existing) sh(`docker rm -f ${CONTAINER}`);
   sh(
     `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${PG_PORT}:5432 ${IMAGE}`,
+      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
   );
 }
 
@@ -97,7 +97,7 @@ async function waitForReady(): Promise<void> {
       return;
     } catch (err) {
       lastErr = err;
-      await probe.end().catch(() => {});
+      await probe.end().catch(() => { /* noop */ });
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
@@ -160,7 +160,7 @@ async function call<T>(method: string, payload: unknown, expectStatus = 200): Pr
     { ENVIRONMENT: "test", DATABASE_URL: CONN },
   );
   expect(res.status).toBe(expectStatus);
-  return (await res.json()) as T;
+  return (await res.json());
 }
 
 beforeAll(async () => {
@@ -180,9 +180,9 @@ afterAll(async () => {
   // Close BOTH pools before killing the container so in-flight sockets don't
   // surface as an unhandled "Connection terminated" rejection: the test harness
   // pool (`db`) and the app's per-connection cached pool (via closeDbPools).
-  await closeDbPools();
+  closeDbPools();
   const client = (db as unknown as { $client?: pg.Pool }).$client;
-  if (client) await client.end().catch(() => {});
+  if (client) await client.end().catch(() => { /* noop */ });
   try {
     sh(`docker rm -f ${CONTAINER}`);
   } catch {
@@ -199,74 +199,62 @@ interface ApiPoint {
   distance_m?: number;
 }
 
+async function assertSearchHit(): Promise<void> {
+  const out = await call<{ rows: ApiPoint[]; synced_at: string }>("search", { query: "らき☆すた" });
+  expect(out.rows.map((r) => r.id).sort()).toEqual(["washinomiya", "washinomiya-torii"]);
+  expect(out.rows.every((r) => r.bangumi_id === "lucky-star")).toBe(true);
+  expect(typeof out.synced_at).toBe("string");
+}
+
+async function assertSearchMiss(): Promise<void> {
+  const out = await call<{ rows: ApiPoint[] }>("search", { query: "no-such-anime" });
+  expect(out.rows).toHaveLength(0);
+}
+
+async function assertSpotsHit(): Promise<void> {
+  const out = await call<{ point: ApiPoint; distance_m?: number }>("spots", { bangumi_id: "lucky-star" });
+  expect(out.point.id).toBe("washinomiya");
+  expect(out.point.bangumi_id).toBe("lucky-star");
+}
+
+async function assertSpots404(): Promise<void> {
+  const body = await call<{ code?: string; status?: number }>("spots", { bangumi_id: "no-such-work" }, 404);
+  expect(body.code).toBe("NOT_FOUND");
+}
+
+async function assertNearbyHit(): Promise<void> {
+  const out = await call<{ rows: ApiPoint[] }>("nearby", { lat: 36.1019, lng: 139.6586, radius_m: 1000 });
+  expect(out.rows.map((r) => r.id)).toEqual(["washinomiya", "washinomiya-torii"]);
+  expect(out.rows[0]?.distance_m).toBeGreaterThanOrEqual(0);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
+  expect(out.rows[1]?.distance_m).toBeGreaterThan(out.rows[0]!.distance_m!);
+}
+
+async function assertNearbyMiss(): Promise<void> {
+  const out = await call<{ rows: ApiPoint[] }>("nearby", { lat: 35.0, lng: 135.0, radius_m: 1000 });
+  expect(out.rows).toHaveLength(0);
+}
+
+async function assertRoute(): Promise<void> {
+  const out = await call<{
+    ordered_points: ApiPoint[];
+    point_count: number;
+    timed_itinerary: { stops: unknown[]; legs: unknown[]; total_minutes: number; total_distance_m: number };
+  }>("route", { point_ids: ["washinomiya", "washinomiya-torii"] });
+  expect(out.point_count).toBeGreaterThan(0);
+  expect(out.ordered_points.length).toBe(out.point_count);
+  expect(out.timed_itinerary.stops.length).toBeGreaterThan(0);
+  expect(out.timed_itinerary.total_minutes).toBeGreaterThan(0);
+}
+
 describe("Catalog API end-to-end (Hono app + OpenAPIHandler + Drizzle/PostGIS)", () => {
-  it("search resolves the seeded alias to the work's points (plain-JSON wire)", async () => {
-    const out = await call<{ rows: ApiPoint[]; synced_at: string }>("search", {
-      query: "らき☆すた",
-    });
-    expect(out.rows.map((r) => r.id).sort()).toEqual(["washinomiya", "washinomiya-torii"]);
-    expect(out.rows.every((r) => r.bangumi_id === "lucky-star")).toBe(true);
-    expect(typeof out.synced_at).toBe("string");
-  });
-
-  it("search returns no rows for an unknown alias", async () => {
-    const out = await call<{ rows: ApiPoint[] }>("search", { query: "no-such-anime" });
-    expect(out.rows).toHaveLength(0);
-  });
-
-  it("spots returns a single representative point for the work (top-level {point})", async () => {
-    const out = await call<{ point: ApiPoint; distance_m?: number }>("spots", {
-      bangumi_id: "lucky-star",
-    });
-    expect(out.point.id).toBe("washinomiya");
-    expect(out.point.bangumi_id).toBe("lucky-star");
-  });
-
-  it("spots 404s when the work has no points", async () => {
-    const body = await call<{ code?: string; status?: number }>(
-      "spots",
-      { bangumi_id: "no-such-work" },
-      404,
-    );
-    expect(body.code).toBe("NOT_FOUND");
-  });
-
-  it("nearby returns points within the radius, nearest first with distance_m", async () => {
-    const out = await call<{ rows: ApiPoint[] }>("nearby", {
-      lat: 36.1019,
-      lng: 139.6586,
-      radius_m: 1000,
-    });
-    expect(out.rows.map((r) => r.id)).toEqual(["washinomiya", "washinomiya-torii"]);
-    expect(out.rows[0]?.distance_m).toBeGreaterThanOrEqual(0);
-    expect(out.rows[1]?.distance_m).toBeGreaterThan(out.rows[0]!.distance_m!);
-  });
-
-  it("nearby excludes points outside the radius", async () => {
-    const out = await call<{ rows: ApiPoint[] }>("nearby", {
-      lat: 35.0,
-      lng: 135.0,
-      radius_m: 1000,
-    });
-    expect(out.rows).toHaveLength(0);
-  });
-
-  it("route returns a timed itinerary over the selected points (top-level Route)", async () => {
-    const out = await call<{
-      ordered_points: ApiPoint[];
-      point_count: number;
-      timed_itinerary: {
-        stops: unknown[];
-        legs: unknown[];
-        total_minutes: number;
-        total_distance_m: number;
-      };
-    }>("route", { point_ids: ["washinomiya", "washinomiya-torii"] });
-    expect(out.point_count).toBeGreaterThan(0);
-    expect(out.ordered_points.length).toBe(out.point_count);
-    expect(out.timed_itinerary.stops.length).toBeGreaterThan(0);
-    expect(out.timed_itinerary.total_minutes).toBeGreaterThan(0);
-  });
+  it("search resolves the seeded alias to the work's points (plain-JSON wire)", assertSearchHit);
+  it("search returns no rows for an unknown alias", assertSearchMiss);
+  it("spots returns a single representative point for the work (top-level {point})", assertSpotsHit);
+  it("spots 404s when the work has no points", assertSpots404);
+  it("nearby returns points within the radius, nearest first with distance_m", assertNearbyHit);
+  it("nearby excludes points outside the radius", assertNearbyMiss);
+  it("route returns a timed itinerary over the selected points (top-level Route)", assertRoute);
 });
 
 // A brand-new work id (not in seed()) so ingest exercises the full fetch ->
@@ -276,10 +264,10 @@ const NEW_TITLE = "けいおん！";
 
 /** Stub upstream JSON for the NEW work: a Bangumi subject + two Anitabi points. */
 function stubUpstream(): void {
-  const stub = vi.fn(async (input: string | URL | Request) => {
-    const url = String(input);
-    if (url.includes("/v0/subjects/")) return jsonResponse({ name: NEW_TITLE, name_cn: "轻音少女" });
-    if (url.includes("/points/detail")) return jsonResponse(ANITABI_POINTS);
+  const stub = vi.fn((input: string | URL | Request) => {
+    const url = input instanceof Request ? input.url : input.toString();
+    if (url.includes("/v0/subjects/")) return Promise.resolve(jsonResponse({ name: NEW_TITLE, name_cn: "轻音少女" }));
+    if (url.includes("/points/detail")) return Promise.resolve(jsonResponse(ANITABI_POINTS));
     throw new Error(`unexpected upstream url: ${url}`);
   });
   vi.stubGlobal("fetch", stub);
@@ -299,9 +287,10 @@ const MISS_TITLE = "響け！ユーフォニアム";
  */
 function stubSearchMiss(): { urls: string[] } {
   const urls: string[] = [];
-  const stub = vi.fn(async (input: string | URL | Request) => {
-    urls.push(String(input));
-    return searchMissResponse(String(input));
+  const stub = vi.fn((input: string | URL | Request) => {
+    const url = input instanceof Request ? input.url : input.toString();
+    urls.push(url);
+    return Promise.resolve(searchMissResponse(url));
   });
   vi.stubGlobal("fetch", stub);
   return { urls };
