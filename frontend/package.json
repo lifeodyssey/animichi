@@ -31,7 +31,7 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
     "@tailwindcss/typography": "^0.5.19",
-    "@tanstack/react-virtual": "^3.13.24",
+    "@tanstack/react-virtual": "^3.14.3",
     "ai": "^6.0.176",
     "animal-island-ui": "npm:animal-island-ui-tailwind@^0.8.3",
     "animal-island-ui-tailwind": "^0.8.4",
