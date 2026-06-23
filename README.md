@@ -92,14 +92,14 @@ Apply migrations in a dedicated deploy step, not at application startup.
 
 **Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-See [`backend/config/settings.py`](backend/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
+See [`agent/config/settings.py`](agent/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
 
 ## Example Usage
 
 **Python (direct):**
 ```python
-from backend.agents.pilgrimage_runner import run_pilgrimage_agent
-from backend.infrastructure.supabase.client import SupabaseClient
+from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.infrastructure.supabase.client import SupabaseClient
 
 async def main() -> None:
     async with SupabaseClient(db_url) as db:
@@ -117,7 +117,7 @@ curl -X POST https://seichijunrei.zhenjia.dev/v1/runtime \
 
 **Python client:**
 ```python
-from backend.clients.python.seichijunrei_client import SeichijunreiClient
+from agent.clients.python.seichijunrei_client import SeichijunreiClient
 
 client = SeichijunreiClient(api_key="sk_your_key_here")
 result = client.search("Hibike Euphonium locations", locale="en")
@@ -125,7 +125,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 ## Repository Map
 
-- `backend/` — Python runtime: agents, interfaces, infrastructure, tests, and tools
+- `agent/` — Python runtime: agents, interfaces, infrastructure, tests, and tools
 - `frontend/` — Next.js static-export frontend and UI components
 - `worker/` — Cloudflare Worker entrypoint for auth and request routing
 - `supabase/` — schema migrations and Supabase project assets

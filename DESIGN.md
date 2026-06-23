@@ -8,10 +8,10 @@
 - **Languages:** ja, zh, en (UI follows browser locale)
 
 ## Aesthetic Direction
-- **Direction:** Editorial/Cinematic — "pilgrimage planning studio"
+- **Direction:** 動森キャンプ (Animal Crossing x Yuru Camp) — warm, tactile, cozy
 - **Decoration level:** Intentional — torii logo, film frame corners, real anime screenshots tell the story. No decorative blobs, no gradients on text, no glassmorphism.
-- **Mood:** The anticipation before a trip. Recognition of a real place from a beloved anime. Warm but structured, serious about craft.
-- **Anti-references:** Generic SaaS dashboards, AI chat assistants with glowing purple gradients, database-first search tools.
+- **Mood:** The anticipation before a trip. Recognition of a real place from a beloved anime. Warm and inviting, like opening a camp guidebook.
+- **Anti-references:** AI-generated warm cream everywhere, generic SaaS dashboards, cold blue palettes, gradient text.
 
 ## Logo
 - Torii gate + film frame corners (SVG)
@@ -25,17 +25,19 @@ All fonts loaded via `next/font/google`, self-hosted in static export. Zero exte
 
 | Role | Font | Weights | Rationale |
 |------|------|---------|-----------|
-| **Display/Headings** | Shippori Mincho B1 | 400, 600, 700, 800 | Japanese aesthetic, editorial authority. Connects to cultural pilgrimage theme. |
-| **Body** | Noto Sans SC + Outfit | 300, 400, 500, 600 | Noto Sans SC for CJK glyphs (consistent rendering). Outfit for Latin/numbers (geometric, clean). |
+| **Display/Headings** | Noto Serif JP | 400, 600, 700 | Editorial authority for page titles and section headers. |
+| **Body (Latin)** | Nunito | 300, 400, 500, 600, 700 | Rounded, friendly geometric sans. Matches the cozy 動森キャンプ aesthetic. |
+| **Body (CJK)** | Noto Sans SC | 300, 400, 500, 700 | Consistent CJK rendering across Chinese/Japanese/Korean. |
+| **Body (Japanese)** | Zen Maru Gothic | 400, 500, 700 | Rounded Japanese sans that pairs with Nunito's warmth. |
 | **Mono** | IBM Plex Mono | 400 | Coordinates, technical data only. Fallback: SFMono-Regular. |
 
-### Type Scale (4 levels, ~1.4× ratio)
+### Type Scale (4 levels, ~1.4x ratio)
 | Level | Size | Font | Weight | Usage |
 |-------|------|------|--------|-------|
-| 1 | 28px | Shippori Mincho B1 | 700 | Page titles, welcome heading |
-| 2 | 20px | Shippori Mincho B1 | 600-700 | Section headers, anime titles, panel headers |
-| 3 | 14px | Noto Sans SC / Outfit | 300-500 | Body text, card names, descriptions, buttons |
-| 4 | 12px | Noto Sans SC / Outfit | 500 | Labels, badges, meta text, timestamps |
+| 1 | 28px | Noto Serif JP | 700 | Page titles, welcome heading |
+| 2 | 20px | Noto Serif JP | 600-700 | Section headers, anime titles, panel headers |
+| 3 | 14px | Nunito / Noto Sans SC / Zen Maru Gothic | 300-500 | Body text, card names, descriptions, buttons |
+| 4 | 12px | Nunito / Noto Sans SC / Zen Maru Gothic | 500 | Labels, badges, meta text, timestamps |
 
 **Rules:**
 - Minimum body text: 12px. Never smaller.
@@ -45,54 +47,62 @@ All fonts loaded via `next/font/google`, self-hosted in static export. Zero exte
 
 ### Font Loading
 ```css
---app-font-display: "Shippori Mincho B1", "Hiragino Mincho ProN", Georgia, serif;
---app-font-body: "Noto Sans SC", "Outfit", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
+--app-font-display: "Noto Serif JP", "Hiragino Mincho ProN", Georgia, serif;
+--app-font-body: "Nunito", "Zen Maru Gothic", "Noto Sans SC", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
 --app-font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
 ```
 All loaded via `next/font` with `display: 'swap'`. Subset to `latin` (CJK loaded on demand by unicode-range).
 
 ## Color
 
-**Approach:** Dual accent — brand vermillion for identity, interactive blue for UI controls.
+**Approach:** Three-layer system — 90% ground (cream/brown), 8% interactive (teal), 2% emphasis (gold). Brand vermillion for logo only.
 
 ### Brand
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--color-brand` | `oklch(58% 0.19 28)` | Logo, active route pin, branding-only elements |
-| `--color-brand-soft` | `oklch(94% 0.02 25)` | Logo background square, brand tint areas |
+| `--color-brand` | `oklch(58% 0.19 28)` | Logo, torii vermillion — branding only |
+| `--color-brand-soft` | `#faf0e6` | Logo background square, brand tint areas |
 
 ### Interactive
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--color-primary` | `oklch(60% 0.148 240)` | Buttons, links, selections, checkmarks, active nav |
-| `--color-primary-fg` | `oklch(99% 0.004 220)` | Text on primary backgrounds |
-| `--color-primary-soft` | `oklch(93% 0.025 240)` | Active nav highlight, selection tint |
+| `--color-primary` | `#19c8b9` | Teal — buttons, links, selections, checkmarks, active nav |
+| `--color-primary-fg` | `#ffffff` | Text on primary teal backgrounds |
+| `--color-primary-soft` | `#e0f7f5` | Active nav highlight, selection tint |
+| `--color-cta` | `#f0b429` | Gold — important actions, key operations |
+| `--color-cta-fg` | `#5c4813` | Dark text on gold backgrounds |
 
-### Neutrals (京吹夏季 palette, blue-tinted)
+### Neutrals (動森キャンプ palette, warm cream/brown)
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--color-bg` | `oklch(98% 0.008 218)` | Page background |
-| `--color-fg` | `oklch(20% 0.025 238)` | Primary text |
-| `--color-card` | `oklch(95% 0.012 215)` | Card/panel backgrounds, AI bubbles |
-| `--color-muted` | `oklch(91% 0.016 218)` | Disabled backgrounds, skeleton base |
-| `--color-muted-fg` | `oklch(45% 0.032 228)` | Secondary text, labels, placeholders |
-| `--color-border` | `oklch(85% 0.022 222)` | Borders, dividers |
+| `--color-bg` | `#ffffff` | Page background (white) |
+| `--color-fg` | `#725d42` | Primary text (warm brown) |
+| `--color-card` | `#faf8f3` | Card/panel/surface backgrounds (cream) |
+| `--color-muted` | `#f0e8d8` | Disabled backgrounds, skeleton base |
+| `--color-muted-fg` | `#9f927d` | Secondary text, labels, placeholders |
+| `--color-border` | `#c4b89e` | Borders, dividers (warm) |
+
+### Shadows & Depth
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--shadow-3d` | `#bdaea0` | 3D bottom shadow on buttons/inputs |
+| `--color-focus` | `#ffcc00` | Yellow focus ring (game-style) |
 
 ### Semantic
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--color-success` / `-fg` | `oklch(88% 0.035 145)` / `oklch(28% 0.09 145)` | Route saved, action completed |
-| `--color-warning` / `-fg` | `oklch(90% 0.06 75)` / `oklch(28% 0.09 75)` | Caution states |
-| `--color-error` / `-fg` | `oklch(90% 0.04 20)` / `oklch(28% 0.09 20)` | Error states, failed requests |
-| `--color-info` / `-fg` | `oklch(88% 0.035 240)` / `oklch(28% 0.08 240)` | Informational hints |
-| `--color-walk-bg` / `-fg` | `oklch(92% 0.02 145)` / `oklch(35% 0.06 145)` | Walking segments in timeline |
+| `--color-success` / `-fg` | `#e8f5e9` / `#2e7d32` | Route saved, action completed |
+| `--color-warning` / `-fg` | `#fff8e1` / `#f57f17` | Caution states |
+| `--color-error` / `-fg` | `#fce4ec` / `#c62828` | Error states, failed requests |
+| `--color-info` / `-fg` | `#e0f7f5` / `#00796b` | Informational hints |
+| `--color-walk-bg` / `-fg` | `#e8f5e9` / `#2e7d32` | Walking segments in timeline |
 
 ### Map Pin Colors
 | Token | Value | Usage |
 |-------|-------|-------|
-| Pin blue | `--color-primary` | Current anime pins |
-| Pin green | `oklch(55% 0.12 145)` | Other anime (K-On!, etc.) |
-| Pin orange | `oklch(55% 0.12 55)` | Other anime (Tamako, etc.) |
+| Pin teal | `--color-primary` | Current anime pins |
+| Pin green | `#4caf50` | Other anime (K-On!, etc.) |
+| Pin orange | `#ff9800` | Other anime (Tamako, etc.) |
 | Pin brand | `--color-brand` | Active/highlighted pin |
 
 ### Dark Mode
@@ -142,13 +152,16 @@ Not supported. Light only. `color-scheme: light` on `<html>`.
 
 ## Border Radius
 
-3-level system. No other values.
+4-level system with large rounded corners throughout.
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--r-sm` | 4px | Small elements: badges, inline tags, confirm items |
-| `--r-md` | 8px | Medium: cards, buttons, chips, inputs, nav items, tooltips |
-| `--r-lg` | 12px | Large: frames, panels, modals, logo square, popup chat |
+| `--r-sm` | 12px | Small elements: badges, inline tags, confirm items |
+| `--r-md` | 18px | Medium: cards, tooltips, panels |
+| `--r-lg` | 24px | Large: frames, modals, popup chat |
+| `--r-pill` | 50px | Pill: buttons, chips, inputs, all interactive elements |
+
+All interactive elements (buttons, inputs, chips) use `--r-pill` (50px) for full pill shape.
 
 ## Motion
 
@@ -168,32 +181,58 @@ Not supported. Light only. `color-scheme: light` on `<html>`.
 - Never `transition: all` — list specific properties
 - Skeleton shimmer: `background-size: 200%`, linear gradient sweep
 
+## Shadows
+
+**3D depth system** — buttons and inputs use bottom shadows to create tactile, game-inspired depth.
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--shadow-3d` | `0 5px 0 0 #bdaea0` | Primary button/input 3D bottom shadow |
+| `--shadow-3d-pressed` | `0 2px 0 0 #bdaea0` | Pressed state (reduced depth) |
+| `--shadow-card` | `0 2px 8px rgba(114,93,66,0.08)` | Card elevation |
+| `--shadow-popup` | `0 8px 32px rgba(114,93,66,0.15)` | Popup chat, modals |
+
+**Rules:**
+- Button hierarchy via shadow depth, NOT color saturation
+- Pressed state: remove shadow + `translateY(3px)` to simulate push
+- Focus ring: `0 0 0 2px #ffcc00` (yellow, game-style)
+
 ## Component Patterns
 
 ### Photo Card (`.gc`)
 - Aspect ratio: 4:3
 - Border: 1px solid --color-border
 - Bottom overlay bar: 32px, dark semi-transparent, name + EP badge
-- Selected: blue border + 22px checkmark circle top-right
+- Selected: teal border + 22px checkmark circle top-right
 - Hover: translateY(-1px) + border-color change
+- Radius: --r-md (18px)
 
 ### Chat Bubble
-- User (right): primary bg, white text, radius 14/14/4/14
-- AI (left): card bg, fg text, radius 14/14/14/4
+- User (right): primary (teal) bg, white text, radius 18/18/4/18
+- AI (left): card (cream) bg, fg text, radius 18/18/18/4
 - Max-width: 85%
 
 ### Chip / Filter
 - Height: auto, padding 4px 12px
 - Border: 1px solid --color-border
-- Active: primary bg, primary-fg text
-- Radius: --r-md (8px)
+- Active: primary (teal) bg, white text
+- Radius: --r-pill (50px)
 
 ### Button
-- Primary: primary bg, primary-fg text, 36px height, radius --r-md
-- Ghost: transparent bg, muted-fg text, 36px height
-- Outline: transparent bg, primary border + text
+- Primary: card (cream) bg, fg text, 40px height, radius --r-pill, 3D bottom shadow
+- CTA: cta (gold) bg, cta-fg text, 40px height, radius --r-pill, 3D bottom shadow
+- Ghost: transparent bg, muted-fg text, 40px height
+- Danger: error bg, white text, 40px height, radius --r-pill, 3D bottom shadow
 - Touch target: minimum 44px
 - `touch-action: manipulation` on all buttons
+- Pressed: `translateY(3px)` + reduced shadow
+
+### Input
+- Background: card (cream)
+- Border: 1px solid --color-border
+- Radius: --r-pill (50px)
+- 3D bottom shadow: `0 5px 0 0 #bdaea0`
+- Focus: yellow ring #ffcc00
 
 ### Timeline Stop
 - Time column: 56px, right-aligned, tabular-nums
@@ -203,12 +242,12 @@ Not supported. Light only. `color-scheme: light` on `<html>`.
 - Active stop: card bg tint (not border-left stripe)
 
 ### Popup Chat
-- Size: 320×380px, radius --r-lg
-- Shadow: `0 8px 32px oklch(20% 0.02 238/.15)`
+- Size: 320x380px, radius --r-lg (24px)
+- Shadow: `0 8px 32px rgba(114,93,66,0.15)`
 - Pointer arrow at bottom-right (CSS triangle)
 - Header: title + close button
 - Body: scrollable messages
-- Footer: input + send button
+- Footer: input (pill) + send button (pill)
 
 ### Map
 - Provider: Leaflet + OpenStreetMap tiles (free, no API key)
@@ -218,11 +257,11 @@ Not supported. Light only. `color-scheme: light` on `<html>`.
 
 ## Accessibility
 
-- `focus-visible` ring (2px solid --color-primary, 2px offset) on all interactive elements
+- `focus-visible` ring (2px solid #ffcc00, 2px offset) on all interactive elements (game-style yellow)
 - All icon buttons: `aria-label`
 - Semantic HTML: `<button>` for actions, `<a>` for navigation
 - Touch targets: minimum 44px
-- Color contrast: muted-fg (45% lightness) on near-white bg exceeds WCAG AA
+- Color contrast: warm brown text (#725d42) on white/cream backgrounds exceeds WCAG AA
 - `<meta name="theme-color">` matches --color-bg
 
 ## Anti-Patterns (Never Do)
@@ -231,12 +270,14 @@ Not supported. Light only. `color-scheme: light` on `<html>`.
 - No border-left > 1px decorative stripes on cards
 - No glassmorphism decoration (functional backdrop-filter for chat OK)
 - No bounce/elastic animations
-- No pure #000 or #fff — use --color-fg and --color-bg
+- No pure #000 text — use --color-fg (warm brown). #fff is OK for --color-bg (page background)
 - No hardcoded Tailwind palette colors — use CSS variables
 - No 11px or smaller text
 - No `transition: all`
 - No emoji as interactive icons (use SVG)
 - No cards inside cards
+- No cold blue palettes — the palette is warm cream/brown
+- No AI-generated warm cream everywhere — be intentional with the three-layer depth
 
 ## Decisions Log
 

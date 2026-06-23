@@ -12,15 +12,15 @@ repos:
     rev: v0.14.0
     hooks:
       - id: ruff
-        args: [--fix, backend/]
+        args: [--fix, agent/]
       - id: ruff-format
-        args: [backend/]
+        args: [agent/]
 
   - repo: local
     hooks:
       - id: mypy
         name: mypy
-        entry: uv run mypy backend/agents/ backend/interfaces/ backend/domain/ backend/infrastructure/ backend/clients/
+        entry: uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
         language: system
         types: [python]
         pass_filenames: false
@@ -30,6 +30,7 @@ repos:
         name: frontend typecheck
         entry: bash -c 'cd frontend && npx tsc --noEmit'
         language: system
+        files: ^frontend/
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
 
@@ -37,6 +38,7 @@ repos:
         name: frontend lint
         entry: bash -c 'cd frontend && npx eslint .'
         language: system
+        files: ^frontend/
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
 
@@ -44,12 +46,13 @@ repos:
         name: frontend tests + coverage (lines>=60%)
         entry: bash -c 'cd frontend && npx vitest run --coverage'
         language: system
+        files: ^frontend/
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
 
       - id: backend-test-coverage
         name: backend tests + coverage (lines>=80%)
-        entry: bash -c 'uv run pytest backend/tests/unit/ -q --cov --cov-fail-under=80'
+        entry: bash -c 'uv run pytest agent/tests/unit/ -q --cov --cov-fail-under=80'
         language: system
         types: [python]
         pass_filenames: false

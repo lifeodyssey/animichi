@@ -38,23 +38,74 @@
     "landing": {
       "hero_title": "聖地巡礼",
       "hero_subtitle": "Find anime filming locations and plan your pilgrimage route",
-      "search_placeholder": "Search anime pilgrimage spots...",
+      "search_placeholder": "Enter anime, station, or city",
       "stats_spots": "spots",
       "stats_anime": "anime",
       "stats_prefectures": "prefectures",
-      "step1_title": "Search by anime",
-      "step1_desc": "Find pilgrimage spots by anime title",
-      "step2_title": "Discover spots",
-      "step2_desc": "Confirm real locations on the map",
-      "step3_title": "Plan your route",
-      "step3_desc": "Auto-generate the optimal pilgrimage route",
-      "gallery_title": "Popular anime",
-      "gallery_sub": "From classics to new releases",
-      "steps_title": "3 steps to start your pilgrimage",
+      "hero_eyebrow": "Anime travel journal",
+      "hero_try_example": "Try an example",
+      "hero_headline": "Turn anime scenes\ninto today's walking route",
+      "hero_lead": "Enter an anime title, station, or city.\nFind the real locations and plan your route.",
+      "step1_title": "Find spots",
+      "step1_desc": "Search by anime title\nor location",
+      "step2_title": "Pick locations",
+      "step2_desc": "Select spots you want\nto visit on the map",
+      "step3_title": "Generate route",
+      "step3_desc": "AI plans the optimal\nroute with time estimates",
+      "step4_title": "Export & share",
+      "step4_desc": "Export to Google Maps\nor calendar (.ics)",
+      "gallery_title": "Popular pilgrimage routes",
+      "gallery_sub": "Compare real and anime scenes. Start walking a route today.",
+      "gallery_all": "View all routes",
+      "steps_title": "4 steps to your pilgrimage",
       "steps_sub": "Just enter an anime title — we handle the rest.",
       "scroll_hint": "Scroll down",
       "login": "Log in",
-      "search_button": "Search"
+      "search_button": "Start Exploring",
+      "hero_examples": [
+        "Your Name",
+        "Euphonium",
+        "Weathering with You"
+      ],
+      "hero_nearby": "Nearby spots",
+      "hero_location_label": "Suga Shrine Steps · Shinjuku",
+      "hero_anime_label": "Anime",
+      "hero_real_label": "Real",
+      "hero_route_preview": "ROUTE PREVIEW",
+      "hero_auth_hint": "Log in only when you want to save or sync.",
+      "walking_route": "Walking route",
+      "hiw_title": "How a title becomes a route",
+      "hiw_sub": "Seichijunrei turns a title, place, or nearby location into a practical route.",
+      "hiw_step1_title": "Search an anime or place",
+      "hiw_step1_desc": "Find your favorite title, a station, or explore what's nearby.",
+      "hiw_step2_title": "Compare scene and real spot",
+      "hiw_step2_desc": "See the scene and the real location side by side to spot the details.",
+      "hiw_step3_title": "Choose stops that matter",
+      "hiw_step3_desc": "Pick the places you want to see: must-sees, hidden gems, and photo spots.",
+      "hiw_step4_title": "Walk a realistic route",
+      "hiw_step4_desc": "Get a time-aware walking route you can follow on the day.",
+      "popular_title": "Popular pilgrimage routes",
+      "popular_sub": "Hand-picked places loved by fans, ready to turn into a route.",
+      "popular_empty": "No routes yet",
+      "popular_view_all": "View all routes",
+      "popular_half_day": "half-day",
+      "popular_spot_count": "{count} spots",
+      "ss_title": "Plan first. Log in only when the route is worth saving.",
+      "ss_sub": "Your scenes, selected stops, and walking plan stay together across devices.",
+      "ss_feature1": "Save favorite spots",
+      "ss_feature2": "Sync to mobile before you leave",
+      "ss_feature3": "Return to previous pilgrimages",
+      "ss_card_title": "Save your route",
+      "ss_card_sub": "We'll email you a secure link. No password needed.",
+      "ss_email_placeholder": "you@example.com",
+      "ss_send_cta": "Send login link",
+      "ss_save_cta": "Save my route",
+      "ss_browse_cta": "Keep browsing",
+      "ss_email_hint": "Check the part after @, like example.com. You can keep browsing too.",
+      "ss_email_hint_at": "An email needs an @, like you@example.com. You can keep browsing too.",
+      "ss_magiclink_q": "What's a magic link?",
+      "ss_magiclink_a": "We email you a one-tap sign-in link, so there's no password to remember. Your email is only used to send that link.",
+      "hero_continue": "Continue where you left off"
     }
   },
   "auth": {
@@ -80,7 +131,11 @@
     "request_new_link": "Request a new login link",
     "check_email_heading": "Check your email",
     "check_email_body": "Click the link in your inbox to sign in.",
-    "back_to_login": "Back"
+    "back_to_login": "Back",
+    "login_page_subtitle": "Enter your email to start your anime pilgrimage",
+    "link_expired_error": "Login link has expired. Please try again.",
+    "back_to_home": "Back to home",
+    "magic_link_hint": "No password needed — we'll email you a secure login link"
   },
   "thinking": {
     "resolve_anime": "Resolving anime title...",
@@ -90,7 +145,22 @@
     "plan_selected": "Planning route...",
     "greet_user": "Responding...",
     "answer_question": "Answering...",
-    "clarify": "Checking details..."
+    "clarify": "Checking details...",
+    "done_resolve_anime": "Title confirmed",
+    "done_search_bangumi": "Spot search",
+    "done_search_nearby": "Nearby search",
+    "done_plan_route": "Route plan",
+    "done_plan_selected": "Route plan",
+    "done_answer_question": "Answer",
+    "done_clarify": "Confirmed",
+    "web_search": "Searching the web...",
+    "done_web_search": "Web search",
+    "search_response": "Building response...",
+    "done_search_response": "Search results",
+    "value_spots": "{count} spots",
+    "value_route": "{count} stops",
+    "value_done": "Done",
+    "pre_thinking": "Thinking..."
   },
   "chat": {
     "placeholder": "Find pilgrimage spots or plan a route…",
@@ -108,7 +178,11 @@
     "welcome_subtitle": "Search by anime, explore spots near a place, or ask for a pilgrimage route that fits your trip.",
     "welcome_helper": "You can also just say hi and ask what I can help with.",
     "empty_hint": "Search for anime pilgrimage spots or plan a route",
-    "tap_to_view": "Tap to view results"
+    "tap_to_view": "Tap to view results",
+    "error_message": "Something went wrong while responding.",
+    "retry": "Retry",
+    "send_hint": "Press Enter to send",
+    "back_to_guide": "Back to guide"
   },
   "sidebar": {
     "logo_icon": "聖",
@@ -140,7 +214,8 @@
     "other_label": "Other",
     "unknown_area": "Unknown",
     "empty_hint": "Discover pilgrimage spots",
-    "empty_subtitle": "Search for an anime title and pilgrimage locations will appear here"
+    "empty_subtitle": "Search for an anime title and pilgrimage locations will appear here",
+    "view_guide": "View full pilgrimage guide →"
   },
   "route": {
     "no_results": "Could not create a route.",
@@ -159,7 +234,8 @@
     "chat_label": "Chat",
     "timeline_spots": "{count} spots",
     "timeline_nearby": "📍 Other anime spots nearby",
-    "timeline_nearby_sub": "You may pass locations from other series along the way"
+    "timeline_nearby_sub": "You may pass locations from other series along the way",
+    "timeline_empty": "No stops in this itinerary"
   },
   "selection": {
     "count": "{count} selected",
@@ -182,13 +258,18 @@
   },
   "welcome_screen": {
     "tagline": "Find anime filming locations and plan your pilgrimage route",
+    "tagline_returning": "Welcome back. Where to next?",
     "action_search": "Search by anime",
     "action_search_desc": "Find pilgrimage spots by anime title",
     "action_nearby": "Nearby spots",
     "action_nearby_desc": "Show spots near your current location",
     "action_route": "Plan a route",
     "action_route_desc": "Build a pilgrimage route with your chosen spots",
-    "popular_label": "Popular anime"
+    "popular_label": "Popular anime",
+    "tips_label": "How to use",
+    "tip_search": "🔍 Search for pilgrimage spots by anime name",
+    "tip_nearby": "📍 Find nearby spots using your location",
+    "tip_route": "🗺️ Build a route from selected spots"
   },
   "location": {
     "use_current": "Use current location",
@@ -203,10 +284,11 @@
     "episode": "Ep. {ep}",
     "address_label": "📍 Address:",
     "timestamp_label": "📸 Screenshot time:",
-    "select": "Select this spot",
-    "selected": "✓ Selected",
+    "add_spot": "Add to route",
+    "remove_spot": "Remove from route",
     "view_on_map": "View on map",
-    "nearby_title": "Nearby spots"
+    "nearby_title": "Nearby spots",
+    "comparison_title": "Anime vs Reality"
   },
   "route_confirm": {
     "back": "Back to selection",
@@ -219,7 +301,8 @@
     "summary": "{count} spots waiting for you",
     "estimate": "~{distance}km walk, about {time} min",
     "start": "Start Route Planning",
-    "remove_label": "Remove"
+    "remove_label": "Remove",
+    "min_points_warning": "A route needs at least 2 spots"
   },
   "chat_popup": {
     "continue": "Continue chat…",
@@ -252,11 +335,24 @@
     "selected": "{count} selected",
     "plan_route": "Plan route",
     "clear": "Clear",
-    "other_area": "Other"
+    "other_area": "Other",
+    "spots_header": "Spots",
+    "spots_count": "{count} spots"
+  },
+  "selection_tray": {
+    "count": "{count} selected",
+    "plan_route": "Plan Route",
+    "clear": "Clear selection",
+    "empty_prompt": "Select spots from the map",
+    "remove_chip": "Remove {name}",
+    "overflow_more": "+{count} more",
+    "collapse": "Collapse tray",
+    "expand": "Expand tray"
   },
   "clarification": {
     "examples_label": "For example:",
     "search_all": "Search all titles",
+    "candidates_hint": "Multiple titles matched. Please select the one you're looking for.",
     "suggestions": [
       {
         "label": "Search by anime",
@@ -272,5 +368,98 @@
       }
     ],
     "spot_label": "spots"
+  },
+  "search_preview": {
+    "title": "{query} pilgrimage spots",
+    "subtitle": "{count} spots found",
+    "no_results": "No pilgrimage spots found",
+    "no_results_hint": "Check the anime title and try again",
+    "showing_preview": "Showing {shown} of {total}",
+    "login_for_more": "Log in to see all spots",
+    "login_button": "Log in for full results",
+    "back_to_home": "Back to home",
+    "spot_label": "spot",
+    "episode_label": "EP{ep}",
+    "loading": "Searching...",
+    "error": "Search failed. Please try again."
+  },
+  "before_after": {
+    "anime_label": "Anime",
+    "real_label": "Real"
+  },
+  "anime_guide": {
+    "spots_label": "{count} spots",
+    "plan_route": "Plan route with AI",
+    "plan_route_sub": "Log in to auto-generate the optimal pilgrimage route",
+    "back_to_home": "Back to home",
+    "not_found": "Anime not found",
+    "not_found_hint": "Browse anime from the home page",
+    "loading": "Loading...",
+    "error": "Failed to load",
+    "episode_label": "EP{ep}",
+    "map_label": "Pilgrimage map",
+    "episode_tab": "Episode",
+    "area_tab": "Area",
+    "filmstrip_label": "Pilgrimage scenes",
+    "show_all": "Show all {count} spots",
+    "episode_group": "Episode {ep}",
+    "other_group": "Other",
+    "spots_count": "{count} spots",
+    "map_unavailable": "Map unavailable — view spot locations below",
+    "meta_title": "{title} Pilgrimage Guide | Seichijunrei",
+    "meta_description": "{count} pilgrimage spots for {title} — {city}. Plan routes with AI.",
+    "meta_description_no_city": "{count} pilgrimage spots for {title}. Plan routes with AI."
+  },
+  "spot_list": {
+    "empty_title": "No spots found",
+    "empty_hint": "Try refining your search or use a different anime title",
+    "empty_retry": "Search again",
+    "empty_refine": "Refine query",
+    "walking_route": "Walking route",
+    "ep_badge": "Ep. {ep}",
+    "photo_missing": "No photo"
+  },
+  "error_retry_ticket": {
+    "heading": "Please try again",
+    "body": "Something went wrong while planning. Your input is still here.",
+    "retry": "Retry",
+    "edit_query": "Edit query",
+    "restart": "Start over",
+    "report": "Report issue",
+    "stamp_alt": "Torii stamp"
+  },
+  "recent_route_card": {
+    "resume_label": "Resume",
+    "spots_count": "{count} spots",
+    "no_spots": "No spots",
+    "thumbnail_alt": "Thumbnail for {title}",
+    "placeholder_alt": "Route placeholder",
+    "updated": "Updated {when}"
+  },
+  "chat_summary_card": {
+    "area_label": "Area",
+    "duration_label": "Duration",
+    "transport_label": "Transport",
+    "spots_label": "Spots",
+    "view_details": "View plan details",
+    "adopt_plan": "Adopt this plan"
+  },
+  "app_nav": {
+    "map": "Map",
+    "spots": "Spots",
+    "records": "Trip Records",
+    "collection": "Collection",
+    "menu": "Menu",
+    "close": "Close"
+  },
+  "fox_guide": {
+    "agent_working": "AI is building your route…",
+    "no_results": "No pilgrimage spots matched your search",
+    "no_results_suggestion": "Try different keywords or a broader area",
+    "permission_title": "Find spots near you?",
+    "permission_body": "Allow location access to show pilgrimage spots close to where you are.",
+    "permission_allow": "Use current location",
+    "permission_skip": "Skip",
+    "permission_manual": "Enter a place"
   }
 }

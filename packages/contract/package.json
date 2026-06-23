@@ -1,0 +1,29 @@
+{
+  "name": "@seichijunrei/contract",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed oRPC contract between the Python Agent service (client) and the TS Catalog service (server). Single source of truth for cross-service types.",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./models": "./src/models.ts",
+    "./contract": "./src/contract.ts"
+  },
+  "scripts": {
+    "emit:openapi": "tsx scripts/emit-openapi.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@orpc/contract": "1.14.6",
+    "@orpc/openapi": "1.14.6",
+    "@orpc/zod": "1.14.6",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
