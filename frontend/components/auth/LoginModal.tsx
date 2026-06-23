@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 import LoginForm from "./LoginForm";
 
 interface LoginModalProps {
@@ -12,10 +14,20 @@ interface LoginModalProps {
  * Used on Guide page for in-context login without leaving the page.
  */
 export default function LoginModal({ redirect, onClose }: LoginModalProps) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <div
+      role="presentation"
       className="fixed inset-0 z-[100] flex items-center justify-center bg-overlay-soft backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
     >
       <div
         role="dialog"

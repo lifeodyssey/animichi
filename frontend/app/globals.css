@@ -35,9 +35,9 @@
   --color-leaf: #7fae6b;   /* muted leaf green — example-chip dot, step marker, sprigs */
 
   /* ── Palette — 動森キャンプ · warm parchment × ゆるキャン橙 × 動森 teal ── */
-  --color-bg:      #f7f1e6;
+  --color-bg:      #f8f8f0;
   --color-fg:      #725d42;
-  --color-card:    rgb(241, 232, 215);
+  --color-card:    #f7f3df;
   --color-surface: #faf8f3;
   --color-card-fg: #725d42;
   --color-muted:   #e8ddc8;
