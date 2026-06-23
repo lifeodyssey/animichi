@@ -13,7 +13,7 @@ jobs:
         id: f
         with:
           filters: |
-            catalog: ['workers/catalog/**', 'packages/contract/**', 'db/migrations/**', 'infra/**']
+            catalog: ['workers/catalog/**', 'packages/contract/**', 'db/migrations/**', 'infra/**', '.github/workflows/_deploy-component.yml', '.github/workflows/cd-staging.yml']
   catalog:
     needs: changes
     if: ${{ needs.changes.outputs.catalog == 'true' }}
