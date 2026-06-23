@@ -24,9 +24,9 @@ import type {
   Route as ContractRoute,
   Pacing as ContractPacing,
   Origin as ContractOrigin,
-} from "../../packages/contract/src/models";
+} from "../../../packages/contract/src/models";
 
-import type { SearchResult as ContractSearchResult } from "../../packages/contract/src/contract";
+import type { SearchResult as ContractSearchResult } from "../../../packages/contract/src/contract";
 
 import type {
   PilgrimagePoint as LocalPilgrimagePoint,
