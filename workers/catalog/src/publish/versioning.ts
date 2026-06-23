@@ -32,8 +32,8 @@ async function nextVersion(tx: DbExecutor, workId: string): Promise<number> {
     await tx.execute(
       sql`SELECT COALESCE(MAX(version), 0) + 1 AS next FROM cluster_version WHERE work_id = ${workId}`,
     )
-  ).rows as Array<{ next: number }>;
-  return Number(rows[0]?.next ?? 1);
+  ).rows as { next: number }[];
+  return rows[0]?.next ?? 1;
 }
 
 /** Flip the work's current row (if any) to is_current=false. */

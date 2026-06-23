@@ -20,19 +20,27 @@ interface PointDetail {
   origin: string | null;
 }
 
-const merge = (near: NearbyPoint, d?: PointDetail): PilgrimagePoint => ({
-  id: near.id,
-  name: near.name,
-  name_cn: d?.name_cn ?? undefined,
-  bangumi_id: d?.bangumi_id ?? "",
-  episode: d?.episode ?? undefined,
-  time_seconds: d?.time_seconds ?? undefined,
-  screenshot_url: d?.image ?? "",
-  latitude: near.latitude,
-  longitude: near.longitude,
-  origin: d?.origin ?? undefined,
-  distance_m: near.distanceM,
-});
+function detailOptionals(d: PointDetail): Partial<PilgrimagePoint> {
+  return {
+    ...(d.name_cn != null && { name_cn: d.name_cn }),
+    ...(d.episode != null && { episode: d.episode }),
+    ...(d.time_seconds != null && { time_seconds: d.time_seconds }),
+    ...(d.origin != null && { origin: d.origin }),
+  };
+}
+
+function merge(near: NearbyPoint, d?: PointDetail): PilgrimagePoint {
+  return {
+    id: near.id,
+    name: near.name,
+    bangumi_id: d?.bangumi_id ?? "",
+    screenshot_url: d?.image ?? "",
+    latitude: near.latitude,
+    longitude: near.longitude,
+    distance_m: near.distanceM,
+    ...(d ? detailOptionals(d) : {}),
+  };
+}
 
 /** The point detail columns for `ids`. Raw `sql` (the Drizzle query builder
  * hangs under workerd), matching the IN pattern in api/route.ts. */

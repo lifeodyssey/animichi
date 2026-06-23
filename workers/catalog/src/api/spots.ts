@@ -62,8 +62,8 @@ function toPoint(r: PointRow): PilgrimagePoint {
     name: r.name,
     bangumi_id: r.bangumi_id,
     screenshot_url: r.image ?? "",
-    latitude: Number(r.latitude),
-    longitude: Number(r.longitude),
+    latitude: r.latitude,
+    longitude: r.longitude,
     ...(r.name_cn ? { name_cn: r.name_cn } : {}),
     ...optional({ episode: r.episode, time_seconds: r.time_seconds }),
   };

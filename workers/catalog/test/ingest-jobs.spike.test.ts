@@ -26,7 +26,7 @@ const CONTAINER = "catalog-ingest-postgis";
 const IMAGE = "postgis/postgis:16-3.4";
 const PG_PORT = 55435;
 const PG_PASSWORD = "ingest";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${PG_PORT}/postgres`;
+const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
 
 const INGEST_SCHEMA = "../../supabase/migrations/20260620230000_ingest_infrastructure.sql";
 
@@ -58,7 +58,7 @@ function startContainer(): void {
   if (existing) sh(`docker rm -f ${CONTAINER}`);
   sh(
     `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${PG_PORT}:5432 ${IMAGE}`,
+      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
   );
 }
 
@@ -73,7 +73,7 @@ async function waitForReady(): Promise<void> {
       return;
     } catch (err) {
       lastErr = err;
-      await probe.end().catch(() => {});
+      await probe.end().catch(() => { /* noop */ });
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
@@ -88,7 +88,7 @@ function buildSubsetDdl(): string {
 async function statusOf(workId: string): Promise<string | undefined> {
   const rows = (
     await db.execute(sql`SELECT status FROM ingest_jobs WHERE work_id = ${workId}`)
-  ).rows as Array<{ status: string }>;
+  ).rows as { status: string }[];
   return rows[0]?.status;
 }
 
@@ -97,7 +97,7 @@ async function runningCount(workId: string): Promise<number> {
     await db.execute(
       sql`SELECT COUNT(*)::int AS n FROM ingest_jobs WHERE work_id = ${workId} AND status = 'running'`,
     )
-  ).rows as Array<{ n: number }>;
+  ).rows as { n: number }[];
   return rows[0]?.n ?? 0;
 }
 
@@ -116,7 +116,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const client = (db as unknown as { $client?: pg.Pool }).$client;
-  if (client) await client.end().catch(() => {});
+  if (client) await client.end().catch(() => { /* noop */ });
   try {
     sh(`docker rm -f ${CONTAINER}`);
   } catch {
@@ -129,7 +129,7 @@ describe("JobStore singleflight over ingest_jobs", () => {
     const results = await Promise.all(
       Array.from({ length: 20 }, () => new JobStore(db).acquire("race-1")),
     );
-    expect(results.filter((won) => won === true)).toHaveLength(1);
+    expect(results.filter((won) => won)).toHaveLength(1);
     expect(await runningCount("race-1")).toBe(1);
   });
 
@@ -166,7 +166,7 @@ describe("raw-store UPSERT round-trip", () => {
     await saveRawAnitabi(db, "raw-a", [{ id: "p1", name: "renamed" }]);
     const rows = (
       await db.execute(sql`SELECT payload FROM raw_anitabi WHERE work_id = 'raw-a'`)
-    ).rows as Array<{ payload: Array<{ name: string }> }>;
+    ).rows as { payload: { name: string }[] }[];
     expect(rows).toHaveLength(1);
     expect(rows[0]?.payload[0]?.name).toBe("renamed");
   });
@@ -175,7 +175,7 @@ describe("raw-store UPSERT round-trip", () => {
     await saveRawBangumi(db, "raw-b", { id: 1, name: "らき☆すた" });
     const rows = (
       await db.execute(sql`SELECT payload FROM raw_bangumi WHERE work_id = 'raw-b'`)
-    ).rows as Array<{ payload: { name: string } }>;
+    ).rows as { payload: { name: string } }[];
     expect(rows[0]?.payload.name).toBe("らき☆すた");
   });
 });

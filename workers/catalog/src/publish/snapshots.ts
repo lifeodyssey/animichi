@@ -42,6 +42,6 @@ export async function getRouteSnapshot(
       WHERE work_id = ${workId} AND cluster_version = ${version}
       ORDER BY id DESC LIMIT 1
     `)
-  ).rows as Array<{ payload: SnapshotPayload }>;
+  ).rows as { payload: SnapshotPayload }[];
   return rows[0]?.payload ?? null;
 }
