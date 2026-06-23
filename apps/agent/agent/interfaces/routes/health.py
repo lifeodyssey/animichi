@@ -19,9 +19,9 @@ router = APIRouter(tags=["health"])
 # Capture git info at module load time (once, at startup)
 _STARTED_AT = datetime.now(UTC).isoformat()
 _GIT_COMMIT = (
-    subprocess.getoutput("git rev-parse --short HEAD 2>/dev/null") or "unknown"
+    subprocess.getoutput("git rev-parse --short HEAD 2>/dev/null") or "unknown"  # noqa: S605,S607 — read-only git metadata at startup
 )
-_GIT_BRANCH = subprocess.getoutput("git branch --show-current 2>/dev/null") or "unknown"
+_GIT_BRANCH = subprocess.getoutput("git branch --show-current 2>/dev/null") or "unknown"  # noqa: S605,S607 — read-only git metadata at startup
 
 
 @router.get("/")

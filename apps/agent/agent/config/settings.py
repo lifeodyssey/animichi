@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     timeout_seconds: int = Field(
         default=120, description="API request timeout (reasoning models need longer)"
     )
-    service_host: str = Field(default="0.0.0.0", description="HTTP service bind host")
+    service_host: str = Field(default="0.0.0.0", description="HTTP service bind host")  # noqa: S104 — container bind-all is intentional
     service_port: int = Field(default=8080, description="HTTP service bind port")
     observability_enabled: bool = Field(
         default=False,
