@@ -15,21 +15,43 @@ env:
   NODE_VERSION: "24"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-# ── Stage 1: Quality Gates (all parallel) ────────────────────
-
 jobs:
+
+  # ── Affected detection ────────────────────────────────────────
+
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      catalog: ${{ steps.f.outputs.catalog }}
+      agent: ${{ steps.f.outputs.agent }}
+      frontend: ${{ steps.f.outputs.frontend }}
+      contract: ${{ steps.f.outputs.contract }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: f
+        with:
+          filters: |
+            contract: ['packages/contract/**']
+            catalog: ['workers/catalog/**', 'packages/contract/**']
+            agent: ['apps/agent/**', 'packages/contract/**']
+            frontend: ['frontend/**']
+
+  # ── Stage 1: Quality Gates (all parallel) ────────────────────
+
   backend-quality:
     name: Backend Quality
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.agent == 'true' }}
     defaults:
       run:
         working-directory: apps/agent
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
         with:
-          version: "latest"
+          python: "true"
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
@@ -47,20 +69,11 @@ jobs:
   frontend-quality:
     name: Frontend Quality
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
-          cache-dependency-path: pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
 
       - name: Lint
         run: pnpm run lint
@@ -73,10 +86,12 @@ jobs:
   db-validate:
     name: DB Migrations (dry-run)
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.catalog == 'true' || needs.changes.outputs.agent == 'true' }}
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: supabase/setup-cli@v2
         with:
@@ -91,20 +106,11 @@ jobs:
   catalog-quality:
     name: Catalog Quality
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.catalog == 'true' }}
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
-          cache-dependency-path: pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
 
       - name: Type check
         run: pnpm exec tsc --noEmit
@@ -119,7 +125,8 @@ jobs:
   backend-test:
     name: Backend Tests
     runs-on: ubuntu-latest
-    needs: backend-quality
+    needs: [changes, backend-quality]
+    if: ${{ needs.changes.outputs.agent == 'true' }}
     defaults:
       run:
         working-directory: apps/agent
@@ -127,11 +134,10 @@ jobs:
       SUPABASE_DB_URL: "postgresql://postgres:postgres@localhost:54322/postgres"
       DEEPSEEK_API_KEY: "test-key"
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
         with:
-          version: "latest"
+          python: "true"
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
@@ -163,21 +169,11 @@ jobs:
   frontend-test:
     name: Frontend Tests
     runs-on: ubuntu-latest
-    needs: frontend-quality
+    needs: [changes, frontend-quality]
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
-          cache-dependency-path: pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
 
       - name: Unit tests (coverage gate)
         run: pnpm exec vitest run --coverage
@@ -193,24 +189,14 @@ jobs:
   frontend-build:
     name: Frontend Build
     runs-on: ubuntu-latest
-    needs: frontend-quality
+    needs: [changes, frontend-quality]
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     permissions:
       contents: read
       actions: write
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
-          cache-dependency-path: pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
 
       - name: Build static export
         run: pnpm run build
@@ -229,18 +215,16 @@ jobs:
   agent-eval:
     name: Agent Eval (546 cases)
     runs-on: ubuntu-latest
-    needs: backend-quality
-    # Disabled: costs ~$10/run. Enable per-release or manually.
-    if: false
+    needs: [changes, backend-quality]
+    if: ${{ needs.changes.outputs.agent == 'true' && false }}
     defaults:
       run:
         working-directory: apps/agent
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
         with:
-          version: "latest"
+          python: "true"
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
@@ -258,6 +242,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
 
   # ── Stage 3: Deploy (tag-triggered, all tests green) ───────
+  # TODO(Wave 4): migrate to cd-*.yml when edge/web decoupled
 
   deploy:
     name: Deploy to Production
@@ -269,7 +254,7 @@ jobs:
       actions: read
     environment: production
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: actions/download-artifact@v8
         with:
@@ -290,17 +275,7 @@ jobs:
       # The catalog Worker reaches Postgres via its [[hyperdrive]] binding in
       # prod; until that is provisioned, set DATABASE_URL with
       # `wrangler secret put DATABASE_URL` (add it to the `secrets:` block below).
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: "pnpm"
-          cache-dependency-path: pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       - name: Deploy catalog Worker
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
@@ -362,11 +337,10 @@ jobs:
       run:
         working-directory: apps/agent
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
         with:
-          version: "latest"
+          python: "true"
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
@@ -381,70 +355,3 @@ jobs:
         env:
           SEICHI_API_URL: ${{ secrets.SEICHI_API_URL }}
           SEICHI_API_KEY: ${{ secrets.SEICHI_API_KEY }}
-
-  # ── Catalog: independent deploy (tag-triggered, path-filtered) ──────────────
-  # Deploys catalog Worker independently of the main deploy job.
-  # Step 1: pulumi up (infra) — ensures R2 media bucket + DATABASE_URL secret
-  #         are provisioned before the worker code lands.
-  # Step 2: wrangler deploy — pushes the worker code (Pulumi owns routes/secrets,
-  #         wrangler owns code; no [[routes]] in wrangler.toml per spec §3).
-  # catalog has NO public route — it is a service-binding target from edge Worker.
-
-  deploy-catalog:
-    name: Deploy Catalog (Neon + R2)
-    runs-on: ubuntu-latest
-    needs: [catalog-quality]
-    if: >-
-      github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') &&
-      (
-        contains(github.event.head_commit.modified, 'workers/catalog/') ||
-        contains(github.event.head_commit.added,    'workers/catalog/') ||
-        contains(github.event.head_commit.modified, 'infra/') ||
-        contains(github.event.head_commit.added,    'infra/')
-      )
-    permissions:
-      contents: read
-    environment: production
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
-          cache-dependency-path: pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Install Pulumi CLI
-        uses: pulumi/actions@df8b6452bfe49571f5d37a7e91d5f66e8afe3c95 # v6
-        with:
-          pulumi-version: "^3"
-
-      - name: Pulumi up (catalog infra — R2 bucket + DATABASE_URL secret)
-        run: pulumi up --yes --stack prod
-        working-directory: infra
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
-
-      - name: Deploy catalog Worker (Neon DATABASE_URL secret)
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.79.0"
-          workingDirectory: workers/catalog
-          command: deploy
-          # DATABASE_URL = Neon production-branch connStr (neon-http, no Hyperdrive).
-          # Pulumi manages the R2 bucket; wrangler injects the connStr as a
-          # Worker secret at deploy time (NEON_CATALOG_DATABASE_URL GH secret).
-          secrets: |
-            DATABASE_URL
-        env:
-          DATABASE_URL: ${{ secrets.NEON_CATALOG_DATABASE_URL }}
