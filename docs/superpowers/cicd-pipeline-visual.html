@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CI/CD Pipeline — 严格质量版(重构后)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system,"Segoe UI",system-ui,sans-serif; background:#0d1117; color:#e6edf3; margin:0 auto; padding:28px; line-height:1.55; max-width:1240px; }
+  h1 { color:#58a6ff; margin:0 0 4px; font-size:26px; }
+  h2 { color:#79c0ff; border-bottom:1px solid #30363d; padding-bottom:6px; margin:36px 0 14px; font-size:18px; }
+  .sub { color:#8b949e; margin:0 0 8px; font-size:13.5px; }
+  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#8b949e; margin:10px 0; }
+  .legend b { font-weight:600; }
+  .tag { display:inline-block; font-size:10px; padding:1px 6px; border-radius:4px; margin-left:5px; vertical-align:middle; }
+  .tag.off { background:#1b3a23; color:#7ee787; border:1px solid #238636; }
+  .tag.cli { background:#3a2f1b; color:#e3b341; border:1px solid #9e6a03; }
+  .grid { display:flex; gap:14px; flex-wrap:wrap; }
+  .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:14px 16px; flex:1; min-width:260px; }
+  .card.py { border-top:3px solid #3fb950; } .card.ts { border-top:3px solid #58a6ff; } .card.sec { border-top:3px solid #f85149; }
+  .card.composite { border-top:3px solid #d29922; } .card.reusable { border-top:3px solid #58a6ff; } .card.deploy { border-top:3px solid #3fb950; }
+  .card h3 { margin:0 0 8px; font-size:14px; }
+  .card .file { font-family:ui-monospace,monospace; font-size:11px; color:#8b949e; margin-bottom:8px; }
+  .item { font-size:12.5px; padding:3px 0; border-bottom:1px solid #21262d; }
+  .item:last-child { border:0; }
+  .item .nm { color:#e6edf3; font-weight:600; }
+  .item .ds { color:#8b949e; }
+  code { font-family:ui-monospace,monospace; background:#0d1117; padding:1px 5px; border-radius:3px; font-size:11.5px; color:#ffa657; }
+  .flow { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; margin:12px 0; }
+  .flow-title { font-weight:bold; margin-bottom:10px; font-size:14px; }
+  .flow-title .trigger { font-family:ui-monospace,monospace; color:#ffa657; }
+  .row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin:5px 0; }
+  .box { background:#21262d; border:1px solid #30363d; border-radius:7px; padding:6px 11px; font-size:12px; white-space:nowrap; }
+  .box.ci { border-color:#1f6feb; } .box.gate { border-color:#f0883e; background:#27211a; }
+  .box.cd { border-color:#238636; background:#13251a; } .box.approve { border-color:#f85149; background:#2a1618; color:#ffa198; }
+  .box.pd { border-color:#a371f7; background:#1d1a2e; }
+  .box small { color:#8b949e; }
+  .arrow { color:#6e7681; font-size:16px; }
+  .skip { color:#f85149; font-size:12px; }
+  table { border-collapse:collapse; width:100%; margin:10px 0; }
+  th,td { border:1px solid #30363d; padding:7px 10px; text-align:left; font-size:12px; vertical-align:top; }
+  th { background:#161b22; color:#79c0ff; }
+  .warn { color:#f0883e; } .x { color:#f85149; } .ok { color:#3fb950; }
+  .tl { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; }
+  .tl .stage { display:flex; gap:12px; align-items:flex-start; margin:8px 0; }
+  .tl .when { font-family:ui-monospace,monospace; color:#d29922; min-width:130px; font-size:12px; }
+  .tl .what { font-size:12.5px; }
+  .tree { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; font-family:ui-monospace,monospace; font-size:12px; color:#c9d1d9; white-space:pre; overflow-x:auto; }
+  .tree .c{color:#d29922;}.tree .r{color:#58a6ff;}.tree .o{color:#7ee787;}.tree .cm{color:#6e7681;}
+</style>
+</head>
+<body>
+
+<h1>CI/CD Pipeline — 严格质量版(重构后)</h1>
+<p class="sub"><code>.github/</code> 当 monorepo:CI+CD 全封进 reusable workflow / composite action,<code>ci.yml</code> 只组合。多维硬闸(lint+type+test 分层+coverage+security)按速度分层、并行、CI 全绿才 CD、prod 人工 approve。有官方 GHA action 用官方+SHA-pin。</p>
+<div class="legend">
+  <span><b style="color:#7ee787">●</b> 官方 action(SHA-pin)</span>
+  <span><b style="color:#e3b341">●</b> run CLI(经 setup composite)</span>
+  <span><b style="color:#f0883e">●</b> needs gate(机器闸)</span>
+  <span><b style="color:#f85149">●</b> human approve(人闸)</span>
+</div>
+
+<h2>① 严格质量栈 — 每组件的多维硬闸</h2>
+<div class="grid">
+  <div class="card py">
+    <h3>Python · agent</h3>
+    <div class="file">_python-ci.yml</div>
+    <div class="item"><span class="nm">Ruff</span> <span class="tag off">official ruff-action</span><br><span class="ds">E/W/F/I/B/C4/UP + <b>C90</b>(复杂度≤10)+ <b>S</b>(security)</span></div>
+    <div class="item"><span class="nm">mypy --strict</span> <span class="tag cli">CLI</span><br><span class="ds">disallow_untyped_defs(保留,pydantic plugin)</span></div>
+    <div class="item"><span class="nm">vulture</span> <span class="tag cli">CLI</span><br><span class="ds">dead code(+whitelist)</span></div>
+    <div class="item"><span class="nm">pip-audit</span> <span class="tag off">official pypa</span><br><span class="ds">依赖 CVE</span></div>
+    <div class="item"><span class="nm">pytest</span> <span class="tag cli">CLI</span><br><span class="ds">unit · cov floor 80% + patch≥95%</span></div>
+  </div>
+  <div class="card ts">
+    <h3>TypeScript · catalog + frontend</h3>
+    <div class="file">_ts-ci.yml / _web-ci.yml</div>
+    <div class="item"><span class="nm">tsc strict</span> <span class="tag cli">CLI</span><br><span class="ds">+ noUncheckedIndexedAccess + exactOptionalPropertyTypes</span></div>
+    <div class="item"><span class="nm">oxlint</span> <span class="tag off">official oxlint-action</span><br><span class="ds">快 pre-pass</span></div>
+    <div class="item"><span class="nm">ESLint</span> <span class="tag cli">CLI</span><br><span class="ds">strictTypeChecked + stylistic + 复杂度 + --max-warnings=0 <b>(catalog 补 lint)</b></span></div>
+    <div class="item"><span class="nm">type-coverage</span> <span class="tag cli">CLI</span><br><span class="ds">--at-least 99(抓 any 泄漏)</span></div>
+    <div class="item"><span class="nm">vitest</span> <span class="tag cli">CLI</span><br><span class="ds">cov floor↑ + patch≥95%(catalog 补 cov)</span></div>
+  </div>
+  <div class="card sec">
+    <h3>安全 · 跨语言</h3>
+    <div class="file">_security.yml</div>
+    <div class="item"><span class="nm">Semgrep</span> <span class="tag cli">CLI</span><br><span class="ds">SAST(官方 action 已废)</span></div>
+    <div class="item"><span class="nm">gitleaks</span> <span class="tag off">official</span> · <span class="nm">TruffleHog</span> <span class="tag off">official</span><br><span class="ds">secret(pre-commit + CI 验真)</span></div>
+    <div class="item"><span class="nm">osv-scanner</span> <span class="tag off">official google</span><br><span class="ds">多语言 lockfile CVE</span></div>
+    <div class="item"><span class="nm">actionlint</span> <span class="tag cli">CLI</span> · <span class="nm">zizmor</span> <span class="tag off">official</span><br><span class="ds">GHA 语义 + 安全</span></div>
+    <div class="item"><span class="nm">sqlfluff</span> <span class="tag cli">CLI</span><br><span class="ds">SQL migration lint</span></div>
+  </div>
+</div>
+
+<h2>② 测试分层(落地 testing-strategy.md)+ coverage</h2>
+<table>
+  <tr><th>层</th><th>工具</th><th>CI 闸</th><th>coverage</th></tr>
+  <tr><td>unit</td><td>pytest / vitest</td><td class="ok">✓ gate-fast</td><td>floor(80%/72%↑)+ patch≥95%</td></tr>
+  <tr><td>integration</td><td><b>testcontainer</b> <code>pgvector/pgvector:pg16</code>(消 vector 偏差)</td><td class="ok">✓ gate-integration(去 continue-on-error)</td><td>floor 50%↑</td></tr>
+  <tr><td>contract</td><td>catalog <code>tsc</code> 编译时 oRPC parity 断言</td><td class="ok">✓</td><td>—</td></tr>
+  <tr><td>api</td><td>FastAPI TestClient + testcontainer</td><td class="ok">✓ gate-integration</td><td>—</td></tr>
+  <tr><td>eval L1 / L2</td><td>deterministic / single-LLM</td><td class="ok">✓ gate-eval</td><td>L1 100% pass · L2 baseline±10pp</td></tr>
+  <tr><td>eval L3 / e2e</td><td>full LLM / Playwright</td><td class="warn">monitor / staging 后</td><td>—</td></tr>
+</table>
+
+<h2>③ Building Blocks(<code>.github/</code> monorepo)</h2>
+<div class="grid">
+  <div class="card composite"><h3>setup</h3><div class="file">actions/setup</div><div class="item ds">pnpm+node(+uv) · 所有 job 复用</div></div>
+  <div class="card reusable"><h3>_python-ci</h3><div class="file">workflow_call</div><div class="item ds">ruff+mypy+vulture+pip-audit+pytest+cov</div></div>
+  <div class="card reusable"><h3>_ts-ci / _web-ci</h3><div class="file">workflow_call</div><div class="item ds">tsc+oxlint+eslint+type-cov+vitest+cov</div></div>
+  <div class="card reusable"><h3>_integration</h3><div class="file">workflow_call</div><div class="item ds">testcontainer(pgvector)+integration+api+contract</div></div>
+  <div class="card reusable"><h3>_security</h3><div class="file">workflow_call</div><div class="item ds">semgrep+gitleaks+trufflehog+osv+actionlint+zizmor+sqlfluff</div></div>
+  <div class="card reusable"><h3>_eval</h3><div class="file">workflow_call</div><div class="item ds">eval L1 + L2</div></div>
+  <div class="card deploy"><h3>_deploy-component</h3><div class="file">workflow_call</div><div class="item ds">atlas→pulumi→wrangler→smoke</div></div>
+  <div class="card deploy"><h3>_post-deploy-test</h3><div class="file">workflow_call · environment+suite</div><div class="item ds">api / e2e / smoke</div></div>
+</div>
+
+<h2>④ orchestrator <code>ci.yml</code> — 三场景</h2>
+<div class="flow">
+  <div class="flow-title">① <span class="trigger">pull_request</span> &nbsp;<small style="color:#8b949e">affected 只跑改的,不部署</small></div>
+  <div class="row"><span class="box">changes</span><span class="arrow">→</span><span class="box ci">ci-agent</span><span class="box ci">ci-catalog</span><span class="box ci">ci-frontend</span><span class="box ci">integration</span><span class="box ci">security</span><span class="box ci">eval</span><span style="color:#8b949e;font-size:11px">(affected)</span><span class="arrow">→</span><span class="skip">✗ 无 deploy</span></div>
+</div>
+<div class="flow">
+  <div class="flow-title">② <span class="trigger">push main</span> &nbsp;<small style="color:#8b949e">全跑 → 自动 staging + 部署后 api/e2e</small></div>
+  <div class="row"><span class="box">changes</span><span class="arrow">→</span><span class="box ci">ci-* · integration · security · eval(全跑)</span><span class="arrow">→</span><span class="box gate">needs 全绿?</span><span class="arrow">→</span><span class="box cd">deploy-staging</span><span class="arrow">→</span><span class="box pd">api+e2e<br><small>on staging</small></span></div>
+  <div class="row" style="margin-left:30px"><span class="skip">└ 任一闸红 → deploy 被 needs 挡</span></div>
+</div>
+<div class="flow">
+  <div class="flow-title">③ <span class="trigger">push tag v*</span> &nbsp;<small style="color:#8b949e">全跑 → 人工 → prod + smoke</small></div>
+  <div class="row"><span class="box">changes</span><span class="arrow">→</span><span class="box ci">ci-*(全跑)</span><span class="arrow">→</span><span class="box gate">needs 全绿?</span><span class="arrow">→</span><span class="box approve">⏸ human approve<br><small>environment=production</small></span><span class="arrow">→</span><span class="box cd">deploy-prod</span><span class="arrow">→</span><span class="box pd">smoke<br><small>on prod</small></span></div>
+</div>
+
+<h2>⑤ 分层 gate(按速度 — 严且快反馈)</h2>
+<div class="tl">
+  <div class="stage"><span class="when">pre-commit &lt;5s</span><span class="what">ruff · oxlint · gitleaks &nbsp;<span class="ds">(本地 hook,挡在 push 前)</span></span></div>
+  <div class="stage"><span class="when">CI PR(并行)</span><span class="what">ci-* + integration + security + eval &nbsp;<span class="ds">— 各自 fail-fast,互不阻塞;秒级(ruff/tsc)先挂、分钟级(testcontainer/type-aware ESLint)并行</span></span></div>
+  <div class="stage"><span class="when">staging 部署后</span><span class="what">api + e2e(on staging) &nbsp;<span class="ds">— 验"部署出来真能跑";红则挡 tag→prod</span></span></div>
+  <div class="stage"><span class="when">prod 部署后</span><span class="what">smoke(on prod) &nbsp;<span class="ds">— core paths;红则告警/回滚</span></span></div>
+</div>
+
+<h2>⑥ 官方 GitHub Action(SHA-pin)</h2>
+<table>
+  <tr><th>工具</th><th>官方 action</th><th>tag</th><th>SHA(前 10)</th></tr>
+  <tr><td>Ruff</td><td><code>astral-sh/ruff-action</code></td><td>v4.0.0</td><td><code>0ce1b0bf8b</code></td></tr>
+  <tr><td>pip-audit</td><td><code>pypa/gh-action-pip-audit</code></td><td>v1.1.0</td><td><code>1220774d90</code></td></tr>
+  <tr><td>gitleaks</td><td><code>gitleaks/gitleaks-action</code></td><td>v3.0.0</td><td><code>e0c47f4f8b</code></td></tr>
+  <tr><td>TruffleHog</td><td><code>trufflesecurity/trufflehog</code></td><td>v3.95.6</td><td><code>30d5bb91af</code></td></tr>
+  <tr><td>osv-scanner</td><td><code>google/osv-scanner-action</code></td><td>v2.3.8</td><td><code>9a49870895</code></td></tr>
+  <tr><td>zizmor</td><td><code>zizmorcore/zizmor-action</code></td><td>v0.5.7</td><td><code>192e21d79a</code></td></tr>
+  <tr><td>oxlint</td><td><code>oxc-project/oxlint-action</code></td><td>v3.1.0</td><td><code>b78c21302e</code></td></tr>
+  <tr><td colspan="4" class="warn">run CLI(无官方 action):Semgrep · actionlint · sqlfluff · mypy · vulture · ESLint · type-coverage · tsc &nbsp;+ 已有官方:Atlas · Pulumi · wrangler · Neon</td></tr>
+</table>
+
+<h2>⑦ <code>.github/</code> 文件树</h2>
+<div class="tree">.github/
+├── actions/
+│   └── <span class="c">setup/action.yml</span>          <span class="cm"># composite: pnpm+node+uv</span>
+└── workflows/
+    ├── <span class="r">_python-ci.yml</span>            <span class="cm"># agent: ruff(action)+mypy+vulture+pip-audit(action)+pytest+cov</span>
+    ├── <span class="r">_ts-ci.yml</span>                <span class="cm"># catalog: tsc+oxlint(action)+eslint+type-cov+vitest</span>
+    ├── <span class="r">_web-ci.yml</span>               <span class="cm"># frontend: 同 + next build</span>
+    ├── <span class="r">_integration.yml</span>          <span class="cm"># testcontainer(pgvector)+integration+api+contract</span>
+    ├── <span class="r">_security.yml</span>             <span class="cm"># semgrep+gitleaks+trufflehog+osv+actionlint+zizmor+sqlfluff</span>
+    ├── <span class="r">_eval.yml</span>                 <span class="cm"># eval L1 + L2</span>
+    ├── <span class="o">_deploy-component.yml</span>     <span class="cm"># atlas→pulumi→wrangler→smoke</span>
+    ├── <span class="o">_post-deploy-test.yml</span>     <span class="cm"># api / e2e / smoke (参数 environment+suite)</span>
+    └── <span style="color:#e6edf3;font-weight:bold">ci.yml</span>                    <span class="cm"># orchestrator: changes + ci-*/integration/security/eval + deploy-*(needs)</span>
+        <span class="cm"># 删: cd-staging.yml, cd-prod.yml</span></div>
+
+</body>
+</html>
