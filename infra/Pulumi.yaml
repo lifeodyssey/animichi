@@ -1,0 +1,3 @@
+name: seichijunrei-infra
+runtime: nodejs
+description: Cloudflare infrastructure (R2, routes, Hyperdrive, DNS, secrets) managed by Pulumi
