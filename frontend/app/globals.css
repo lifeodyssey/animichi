@@ -1,67 +1,164 @@
 @import "tailwindcss";
+@import "animal-island-ui/style/core";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@plugin "@tailwindcss/typography";
+
+/* Explicit content sources — Next auto-detects these, but Storybook's Vite
+   PostCSS context does not, so it generated only a subset of utilities and
+   responsive variants (lg:*) silently failed. Listing them fixes both. */
+@source "../components";
+@source "../app";
+@source "../lib";
+@source "../hooks";
+@source "../contexts";
 
 :root {
-  --app-font-body: var(--font-outfit, "Outfit"), var(--font-noto, "Noto Sans SC"), "Hiragino Sans", system-ui, sans-serif;
+  /* ── Typography ── */
+  --app-font-body: var(--font-nunito, "Nunito"), var(--font-noto, "Noto Sans SC"), var(--font-zen, "Zen Maru Gothic"), "Hiragino Sans", system-ui, sans-serif;
   --app-font-mono: "SFMono-Regular", "IBM Plex Mono", monospace;
-  --app-font-display: var(--font-shippori, "Shippori Mincho B1"), "Hiragino Mincho ProN", "Georgia", serif;
+  --app-font-display: var(--font-noto-serif, "Noto Serif JP"), "Hiragino Mincho ProN", "Georgia", serif;
 
-  /* Brand — 鸟居朱色 (logo and branding only) */
+  /* ── Brand — 鸟居朱色 (logo and branding only) ── */
   --color-brand:      oklch(58% 0.19 28);
   --color-brand-soft: oklch(94% 0.02 25);
 
-  /* Radius — systematic 3-level scale */
-  --r-sm: 4px;
-  --r-md: 8px;
-  --r-lg: 12px;
+  /* ── Radius — Animal Island scale (rounded, friendly) ── */
+  --r-sm:   12px;
+  --r-md:   18px;
+  --r-lg:   24px;
+  --r-pill: 50px;
 
-  /* Walk segments */
-  --color-walk-bg: oklch(92% 0.02 145);
-  --color-walk-fg: oklch(35% 0.06 145);
+  /* ── Walk segments ── */
+  --color-walk-bg: #e6f5e0;
+  --color-walk-fg: #4a7a3a;
+  --color-leaf: #7fae6b;   /* muted leaf green — example-chip dot, step marker, sprigs */
 
-  /* Palette — 京吹夏季 · 白水手 × 天蓝裙 × 铜管金 */
-  --color-bg:      oklch(98% 0.008 218);
-  --color-fg:      oklch(20% 0.025 238);
-  --color-card:    oklch(95% 0.012 215);
-  --color-card-fg: oklch(20% 0.025 238);
-  --color-muted:   oklch(91% 0.016 218);
-  --color-muted-fg: oklch(54% 0.032 228);
-  --color-border:  oklch(85% 0.022 222);
-  --color-input:   oklch(85% 0.022 222);
+  /* ── Palette — 動森キャンプ · warm parchment × ゆるキャン橙 × 動森 teal ── */
+  --color-bg:      #f8f8f0;
+  --color-fg:      #725d42;
+  --color-card:    #f7f3df;
+  --color-surface: #faf8f3;
+  --color-card-fg: #725d42;
+  --color-muted:   #e8ddc8;
+  --color-muted-fg: #9f927d;
+  --color-fg-heading: #794f27;
+  --color-border:  #c4b89e;
+  --color-border-hover: #a89878;
+  --color-border-light: #e8e2d6;
+  --color-border-input: #c4b89e;
+  --color-input:   #c4b89e;
+  --color-input-disabled: #ece8dc;
+  --color-switch-on: #86d67a;
+  --color-switch-off: #d4c9b4;
 
-  --color-primary:    oklch(60% 0.148 240);
-  --color-primary-fg: oklch(99% 0.004 220);
+  --color-primary:      #19c8b9;
+  --color-primary-fg:   #fff;
+  --color-primary-hover: #3dd4c6;
+  --color-primary-active: #50B9AB;
+  --color-primary-deep: #11a89b;
+  --color-primary-soft: #e6f9f6;
 
-  --color-secondary:    oklch(91% 0.016 218);
-  --color-secondary-fg: oklch(20% 0.025 238);
+  --color-secondary:    #f0e8d8;
+  --color-secondary-fg: #725d42;
 
-  /* Sidebar */
-  --color-sidebar:           oklch(96% 0.010 216);
-  --color-sidebar-fg:        oklch(54% 0.032 228);
-  --color-sidebar-border:    oklch(85% 0.022 222);
-  --color-sidebar-accent:    oklch(88% 0.028 230);
-  --color-sidebar-accent-fg: oklch(20% 0.025 238);
-  --color-sidebar-active:    oklch(93% 0.025 240);
+  /* ── CTA — warm gold for important actions ── */
+  --color-cta:          #f0b429;
+  --color-cta-fg:       #4a3520;
+  --color-cta-hover:    #e5a820;
 
-  /* Semantic */
-  --color-info:       oklch(88% 0.035 240);
-  --color-info-fg:    oklch(28% 0.080 240);
-  --color-success:    oklch(88% 0.035 145);
-  --color-success-fg: oklch(28% 0.090 145);
-  --color-warning:    oklch(90% 0.060 75);
-  --color-warning-fg: oklch(28% 0.090 75);
-  --color-error:      oklch(90% 0.040 20);
-  --color-error-fg:   oklch(28% 0.090 20);
+  /* ── Explore — committed pumpkin orange, primary marketing CTA (mockup-locked).
+       Gold (#f0b429) sat too low and read as disabled; orange is the real action
+       color and ties to the fox + torii warmth. ── */
+  --color-explore:        oklch(67% 0.17 47);   /* ≈ #e8742e */
+  --color-explore-hover:  oklch(63% 0.172 45);  /* darker on hover */
+  --color-explore-active: oklch(53% 0.15 43);   /* 3D bottom shadow */
+  --color-explore-fg:     oklch(99% 0.012 80);  /* warm off-white text */
 
-  /* Motion */
+  /* ── Focus — game yellow ── */
+  --color-focus:      #ffcc00;
+  --color-focus-dark: #e0b800;
+
+  /* ── 3D Shadow — Animal Island tactile buttons ── */
+  --color-3d-shadow:    #bdaea0;
+  --color-input-shadow: #d4c9b4;
+  --shadow-3d-sm:   0 2px 0 0 var(--color-3d-shadow);
+  --shadow-3d-md:   0 4px 0 0 var(--color-3d-shadow);
+  --shadow-3d-lg:   0 5px 0 0 var(--color-3d-shadow);
+  /* hero scene card (SceneFrameCard) + draped-fox overlay shadows */
+  --shadow-scene-card: 0 22px 50px -18px rgba(70, 52, 30, 0.50);
+  --shadow-fox:        0 7px 5px rgba(70, 52, 30, 0.25);
+
+  /* ── Sidebar (warm) ── */
+  --color-sidebar:           #f0e8d8;
+  --color-sidebar-fg:        #725d42;
+  --color-sidebar-border:    #c4b89e;
+  --color-sidebar-accent:    #B7C6E5;
+  --color-sidebar-accent-fg: #725d42;
+  --color-sidebar-active:    #B7C6E5;
+
+  /* ── Semantic ── */
+  --color-info:       #dbeafe;
+  --color-info-fg:    #1e40af;
+  --color-success:    #dcfce7;
+  --color-success-fg: #166534;
+  --color-warning:    #fef0b7;
+  --color-warning-fg: #92400e;
+  --color-error:      #fde8e8;
+  --color-error-fg:   #c94444;
+
+  /* ── Motion ── */
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-animal:    cubic-bezier(0.4, 0, 0.2, 1);
   --duration-fast:  150ms;
   --duration-base:  250ms;
   --duration-slow:  400ms;
 
-  /* shadcn aliases — map to 京吹夏季 palette */
+  /* ── Component heights — Animal Island size scale ── */
+  --height-sm:   32px;
+  --height-base: 40px;
+  --height-lg:   48px;
+
+  /* ── Shadows — warm brown tint ── */
+  --shadow-xs:   0 1px 2px rgba(61, 52, 40, 0.04);
+  --shadow-sm:   0 2px 4px rgba(61, 52, 40, 0.06);
+  --shadow-md:   0 3px 10px rgba(61, 52, 40, 0.10);
+  --shadow-lg:   0 8px 24px rgba(61, 52, 40, 0.14);
+  --shadow-hero: 0 24px 80px rgba(61, 52, 40, 0.08);
+  --shadow-card: 0 4px 10px rgba(107, 92, 67, 0.32);
+  --shadow-card-hover: 0 8px 24px rgba(114, 93, 66, 0.15);
+
+  /* ── Popup / modal elevation ── */
+  --shadow-popup: 0 8px 32px rgba(114, 93, 66, 0.15);
+
+  /* ── Component shadows ── */
+  --shadow-inset-active: rgba(0, 0, 0, 0.1);
+  --shadow-switch-off: inset 0 2px 4px rgba(114, 93, 66, 0.15);
+  --shadow-switch-on:  inset 0 2px 4px rgba(90, 158, 30, 0.2);
+  --shadow-focus-glow: 0 0 0 3px rgba(255, 204, 0, 0.25);
+
+  /* ── Overlay — dark scrim for modals/badges/image captions ── */
+  --color-overlay:       rgba(61, 52, 40, 0.7);
+  --color-overlay-soft:  rgba(61, 52, 40, 0.55);
+  --color-overlay-image: rgba(41, 35, 27, 0.75);
+
+  /* ── Torii gate — traditional vermilion red ── */
+  --color-torii: oklch(55% 0.20 25);
+
+  /* ── Active marker (coral) — route selected state ── */
+  --color-marker-active: oklch(58% 0.19 28);
+
+  /* ── Gradient palette (warm) ── */
+  --color-gradient-soft: #f0e8d8;
+  --color-gradient-hero: #f5f0e0;
+
+  /* ── NookPhone card palette (3 active accent colors) ── */
+  --color-nook-yellow:     #f7cd67;
+  --color-nook-teal:       #82d5bb;
+  --color-nook-red:        #fc736d;
+
+  /* ── shadcn aliases — map to 動森キャンプ palette ── */
   --background: var(--color-bg);
   --foreground: var(--color-fg);
   --card: var(--color-card);
@@ -69,31 +166,31 @@
   --popover: var(--color-card);
   --popover-foreground: var(--color-card-fg);
   --primary: var(--color-primary);
-  --primary-foreground: oklch(98% 0.008 218);
+  --primary-foreground: var(--color-primary-fg);
   --secondary: var(--color-secondary);
   --secondary-foreground: var(--color-secondary-fg);
   --muted: var(--color-muted);
-  --muted-foreground: oklch(45% 0.03 238);
+  --muted-foreground: var(--color-muted-fg);
   --accent: var(--color-muted);
   --accent-foreground: var(--color-fg);
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: #e05a5a;
   --border: var(--color-border);
   --input: var(--color-border);
-  --ring: var(--color-primary);
-  --chart-1: oklch(60% 0.148 240);
-  --chart-2: oklch(55% 0.12 200);
-  --chart-3: oklch(65% 0.10 160);
-  --chart-4: oklch(70% 0.08 120);
-  --chart-5: oklch(75% 0.06 80);
+  --ring: var(--color-focus);
+  --chart-1: var(--color-primary);
+  --chart-2: var(--color-secondary);
+  --chart-3: #8ac68a;
+  --chart-4: var(--color-nook-yellow);
+  --chart-5: #b77dee;
   --radius: 0.5rem;
   --sidebar: var(--color-sidebar);
   --sidebar-foreground: var(--color-sidebar-fg);
   --sidebar-primary: var(--color-primary);
-  --sidebar-primary-foreground: oklch(98% 0.008 218);
+  --sidebar-primary-foreground: var(--color-primary-fg);
   --sidebar-accent: var(--color-sidebar-accent);
   --sidebar-accent-foreground: var(--color-sidebar-accent-fg);
   --sidebar-border: var(--color-sidebar-border);
-  --sidebar-ring: var(--color-primary);
+  --sidebar-ring: var(--color-focus);
 }
 
 @theme inline {
@@ -103,6 +200,65 @@
   --font-mono: var(--app-font-mono);
   --font-display: var(--app-font-display);
   --font-heading: var(--app-font-display);
+
+  /* Custom app tokens — enables bg-brand, text-primary-fg, etc. */
+  --color-fg: var(--color-fg);
+  --color-cta: var(--color-cta);
+  --color-brand: var(--color-brand);
+  --color-brand-soft: var(--color-brand-soft);
+  --color-primary-fg: var(--color-primary-fg);
+  --color-primary-deep: var(--color-primary-deep);
+  --color-primary-soft: var(--color-primary-soft);
+  --color-sidebar-active: var(--color-sidebar-active);
+  --color-error-fg: var(--color-error-fg);
+  --color-focus: var(--color-focus);
+  --color-3d-shadow: var(--color-3d-shadow);
+  --color-input-shadow: var(--color-input-shadow);
+  --color-fg-heading: var(--color-fg-heading);
+  --color-explore: var(--color-explore);
+  --color-explore-hover: var(--color-explore-hover);
+  --color-explore-active: var(--color-explore-active);
+  --color-explore-fg: var(--color-explore-fg);
+  --color-leaf: var(--color-leaf);
+  --color-border-hover: var(--color-border-hover);
+  --color-border-light: var(--color-border-light);
+  --color-input-disabled: var(--color-input-disabled);
+  --color-switch-on: var(--color-switch-on);
+  --color-switch-off: var(--color-switch-off);
+
+  /* Shadows — enables shadow-sm, shadow-lg, etc. */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-hero: var(--shadow-hero);
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
+  --shadow-popup: var(--shadow-popup);
+  --shadow-3d-sm: var(--shadow-3d-sm);
+  --shadow-3d-md: var(--shadow-3d-md);
+  --shadow-3d-lg: var(--shadow-3d-lg);
+
+  /* Overlay + marker + gradient colors */
+  --color-torii: var(--color-torii);
+  --color-overlay: var(--color-overlay);
+  --color-overlay-soft: var(--color-overlay-soft);
+  --color-marker-active: var(--color-marker-active);
+  --color-gradient-soft: var(--color-gradient-soft);
+  --color-gradient-hero: var(--color-gradient-hero);
+  --color-success-fg: var(--color-success-fg);
+  --color-warning-fg: var(--color-warning-fg);
+
+  /* Walk segment tokens — enables bg-walk-bg, text-walk-fg */
+  --color-walk-bg: var(--color-walk-bg);
+  --color-walk-fg: var(--color-walk-fg);
+
+  /* NookPhone accent palette */
+  --color-nook-yellow: var(--color-nook-yellow);
+  --color-nook-teal: var(--color-nook-teal);
+  --color-nook-red: var(--color-nook-red);
+
+  /* shadcn tokens */
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -132,13 +288,15 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Radius — Animal Island rounded scale */
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-lg);
+  --radius-2xl: var(--r-pill);
+  --radius-3xl: var(--r-pill);
+  --radius-4xl: var(--r-pill);
 }
 
 /* Keyframes — Landing hero */
@@ -149,8 +307,8 @@
 }
 
 @keyframes seichi-pin-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px oklch(60% 0.148 240 / 0.25); }
-  50%      { box-shadow: 0 0 0 10px oklch(60% 0.148 240 / 0.05); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(241, 143, 67, 0.25); }
+  50%      { box-shadow: 0 0 0 10px rgba(241, 143, 67, 0.05); }
 }
 
 @keyframes fade-in {
@@ -181,9 +339,9 @@
 /* Keyframes */
 
 @keyframes dot-pulse {
-  0% { box-shadow: 0 0 0 0 oklch(58% 0.19 28 / 0.35); }
-  70% { box-shadow: 0 0 0 8px oklch(58% 0.19 28 / 0); }
-  100% { box-shadow: 0 0 0 8px oklch(58% 0.19 28 / 0); }
+  0% { box-shadow: 0 0 0 0 rgba(241, 143, 67, 0.35); }
+  70% { box-shadow: 0 0 0 8px rgba(241, 143, 67, 0); }
+  100% { box-shadow: 0 0 0 8px rgba(241, 143, 67, 0); }
 }
 
 @keyframes breathe {
@@ -212,6 +370,46 @@
   50%       { opacity: 1;   }
 }
 
+@keyframes animal-checkbox-pop {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ── FoxGuide — idle float animation (suppressed by prefers-reduced-motion) ── */
+@keyframes fox-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+.fox-idle {
+  animation: fox-float 3s var(--ease-out-quint) infinite;
+}
+
+/* ── Animal Island — button loading stripe ── */
+@keyframes animal-btn-loading {
+  0%   { background-position: 0 0; }
+  100% { background-position: -28.28px 0; }
+}
+.btn-loading {
+  background: #0ec4b6;
+  border: 4px solid #4de2da;
+  color: #fff;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #0ec4b6, #0ec4b6 10px,
+    #01b0a7 10px, #01b0a7 20px
+  );
+  background-size: 28.28px 28.28px;
+  animation: animal-btn-loading 1s linear infinite;
+}
+
+/* ── Animal Island — content fade-up entry ── */
+@keyframes animal-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes seichi-shimmer {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -223,13 +421,32 @@
   border-radius: 8px;
 }
 
+/* ── Hero — bottom-weighted vignette overlay ── */
+.hero-vignette {
+  background: linear-gradient(
+    to top,
+    rgba(30, 23, 15, 0.72) 0%,
+    rgba(30, 23, 15, 0.35) 45%,
+    transparent 75%
+  );
+}
+
+/* ── Timeline — dashed walk rail segment ── */
+.timeline-walk-dash {
+  background: repeating-linear-gradient(
+    to bottom,
+    oklch(35% 0.06 145 / 0.7) 0 4px,
+    transparent 4px 8px
+  );
+}
+
 /* Base */
 
 html, body {
   background: var(--color-bg);
   color: var(--color-fg);
   font-family: var(--app-font-body);
-  font-weight: 300;
+  font-weight: 500;
 }
 
 body { min-height: 100%; }
@@ -245,45 +462,6 @@ h1, h2, h3 {
 
 a { color: inherit; }
 
-/* Leaflet numbered markers */
-.marker-number {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-}
-.marker-number.active {
-  background: oklch(0.5 0.2 30);
-  transform: scale(1.2);
-}
-
-/* Prevent browser zoom on Leaflet map container (Task 27) */
-.leaflet-container {
-  touch-action: none;
-}
-
-/* Leaflet popup z-index — above filter chips and selection bar */
-.leaflet-popup {
-  z-index: 1000 !important;
-}
-.leaflet-popup-content-wrapper {
-  border-radius: var(--r-md) !important;
-  box-shadow: 0 4px 16px oklch(20% 0.02 238 / 0.12) !important;
-}
-.leaflet-pane {
-  z-index: 1 !important;
-}
-.leaflet-top, .leaflet-bottom {
-  z-index: 2 !important;
-}
-
 /* Chat popup entrance */
 @keyframes popup-enter {
   from { opacity: 0; transform: translateY(12px) scale(0.97); }
@@ -297,7 +475,11 @@ a { color: inherit; }
     transition: none !important;
   }
   .seichi-reveal,
-  .seichi-reveal-pop { opacity: 1 !important; }
+  .seichi-reveal-pop,
+  .entrance-up,
+  .entrance-down,
+  .entrance-slide-right { opacity: 1 !important; }
+  .fox-idle { animation: none !important; }
 }
 
 /* ── Touch targets (opt-in via data attribute, auto for standalone interactive elements) ── */
@@ -312,9 +494,8 @@ input:not([type="hidden"]), select, textarea {
   min-width: 44px;
 }
 
-/* ── Focus visible ── */
 :focus-visible:not(:has(:focus-visible)):not(textarea):not(input) {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 /* textarea/input inside a focus-within container should not show their own outline */
@@ -328,20 +509,33 @@ input:focus-visible {
   background: var(--color-muted) !important;
 }
 
+/* ── Episode badge ── */
+.ep-badge {
+  background: var(--color-overlay-soft);
+  backdrop-filter: blur(4px);
+}
+
 /* ── Hover lift for cards ── */
 .hover-lift {
   transition: transform 150ms ease, box-shadow 150ms ease;
 }
 .hover-lift:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px oklch(20% 0.025 238 / 0.06);
+  box-shadow: var(--shadow-card);
 }
 
-/* ── Input focus glow ── */
-input:focus, textarea:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px oklch(60% 0.148 240 / 0.1);
+/* ── Image error fallback — warm muted bg (replaces cold-blue inline gradient) ── */
+.img-error-bg {
+  background: var(--color-muted);
 }
+
+/* ── Input focus glow — game yellow ── */
+input:focus, textarea:focus {
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 3px rgba(255, 204, 0, 0.15);
+}
+
+/* ── Focus visible — game yellow ring ── */
 
 /* ── Landing page keyframes ── */
 
@@ -365,6 +559,28 @@ input:focus, textarea:focus {
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* ── Entrance animation classes ── */
+.bg-gradient-soft  { background: linear-gradient(160deg, var(--color-gradient-soft), var(--color-bg)); }
+.entrance-up       { opacity: 0; animation: seichi-fade-up 0.5s var(--ease-out-expo) both; }
+.entrance-up-fast  { animation: seichi-fade-up 0.5s var(--ease-out-expo) backwards; }
+.entrance-up-quick { animation: seichi-fade-up 0.3s ease-out backwards; }
+.entrance-down     { opacity: 0; animation: seichi-fade-down 0.3s var(--ease-out-expo) both; }
+.entrance-slide-right { opacity: 0; animation: panel-slide-in 0.3s var(--ease-out-expo) both; }
+.entrance-message  { animation: slide-up-fade 300ms var(--ease-out-quint) both; }
+.entrance-message-slow { animation: slide-up-fade 400ms var(--ease-out-quint) both; }
+
+/* ── Entrance stagger delays — replaces inline style animationDelay ── */
+.entrance-delay-1  { animation-delay: 0.05s; }
+.entrance-delay-2  { animation-delay: 0.10s; }
+.entrance-delay-3  { animation-delay: 0.15s; }
+.entrance-delay-4  { animation-delay: 0.20s; }
+.entrance-delay-5  { animation-delay: 0.25s; }
+
+/* Continuous animations */
+.animate-breathe   { animation: breathe 1.2s ease-in-out infinite; }
+.spin-loading      { animation: spin 0.8s linear infinite; }
+
+/* Scroll-triggered reveal classes */
 .seichi-reveal,
 .seichi-reveal-pop { opacity: 0; }
 .seichi-reveal.seichi-visible {
@@ -376,6 +592,136 @@ input:focus, textarea:focus {
 
 @media (max-width: 768px) {
   [data-testid="floating-cards"] > div:nth-child(n+3) { display: none; }
+}
+
+/* CTA variant — uses animal-island-ui warning gold token */
+.animal-btn.animal-btn-cta {
+  background: var(--animal-warning-color);
+  border-color: var(--animal-warning-color);
+  color: var(--animal-text-color);
+  box-shadow: 0 5px 0 0 var(--animal-warning-color-active);
+}
+.animal-btn.animal-btn-cta:hover:not(:disabled) {
+  background: var(--animal-warning-color-hover);
+  border-color: var(--animal-warning-color-hover);
+  box-shadow: 0 6px 0 0 var(--animal-warning-color-active);
+}
+.animal-btn.animal-btn-cta:active:not(:disabled) {
+  box-shadow: 0 1px 0 0 var(--animal-warning-color-active);
+}
+
+/* Chip variant — small pill toggle */
+.animal-btn-chip {
+  --animal-button-bg: var(--color-bg);
+  --animal-button-border: var(--color-border);
+  --animal-button-text: var(--color-fg);
+  --animal-button-shadow-size: 2px;
+}
+.animal-btn-chip[aria-pressed="true"] {
+  --animal-button-bg: var(--color-primary);
+  --animal-button-border: var(--color-primary);
+  --animal-button-text: var(--color-primary-fg);
+}
+
+/* ── Explore CTA — solid pumpkin orange, 3D depth (mockup primary action) ── */
+.btn-explore {
+  background: var(--color-explore);
+  color: var(--color-explore-fg);
+  border: none;
+  border-radius: 50px;
+  box-shadow: 0 4px 0 0 var(--color-explore-active);
+  transition: transform var(--duration-fast) var(--ease-out-expo),
+    box-shadow var(--duration-fast) var(--ease-out-expo),
+    background var(--duration-fast) var(--ease-out-expo);
+}
+.btn-explore:hover:not(:disabled) {
+  background: var(--color-explore-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 0 0 var(--color-explore-active);
+}
+.btn-explore:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 var(--color-explore-active);
+}
+.btn-explore:disabled {
+  background: var(--color-muted);
+  color: var(--color-muted-fg);
+  box-shadow: 0 4px 0 0 var(--color-input-shadow);
+  cursor: not-allowed;
+}
+
+/* ── Travel-journal paper surface — warm parchment, real grain, lifts off page ── */
+.paper-surface {
+  position: relative;
+  /* fiber hatch baked into the surface (frees ::before for the stacked sheet) */
+  background:
+    repeating-linear-gradient(96deg, rgba(150, 128, 92, 0.05) 0 1px, transparent 1px 5px),
+    radial-gradient(circle at 16% 10%, rgba(255, 253, 247, 0.95), transparent 46%),
+    radial-gradient(circle at 92% 94%, rgba(214, 198, 166, 0.5), transparent 52%),
+    var(--color-card);
+  /* deeper warm edge + faint dark ring so the card holds against sky/photo grounds */
+  border: 1.5px solid #b09f7e;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.75) inset,
+    0 0 0 1px rgba(60, 46, 28, 0.10),
+    0 3px 6px rgba(50, 36, 18, 0.20),
+    0 26px 52px -22px rgba(62, 46, 26, 0.62);
+}
+
+/* Stacked journal pages — a tilted sheet peeking from behind (::before, so it
+   never collides with .paper-fold::after; both can apply to one card) */
+.paper-stack { position: relative; }
+.paper-stack::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: #efe5cf;
+  border: 1.5px solid #b09f7e;
+  transform: rotate(-2.8deg) translate(-9px, 9px);
+  box-shadow: 0 20px 40px -20px rgba(62, 46, 26, 0.5);
+}
+
+/* Recessed input well — reads as carved below the paper surface */
+.input-well {
+  box-shadow:
+    inset 0 2px 4px rgba(96, 76, 48, 0.16),
+    inset 0 0 0 1px rgba(176, 159, 126, 0.5);
+}
+
+/* Folded top-right corner — a turned page leaf */
+.paper-fold {
+  position: relative;
+}
+.paper-fold::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(
+    225deg,
+    var(--color-bg) 0 50%,
+    rgba(150, 132, 100, 0.45) 50% 52%,
+    transparent 52%
+  );
+  border-bottom-left-radius: 6px;
+}
+
+/* Rubber-stamp / postmark ink look — vermillion shrine ink, pressed but readable */
+.stamp-ink {
+  color: var(--color-torii);
+  opacity: 0.72;
+  mix-blend-mode: multiply;
+}
+.stamp-ink--indigo { color: #3a5169; }
+
+/* Icon-only square button */
+.animal-btn-icon-only {
+  width: var(--animal-button-height);
+  padding: 0;
 }
 
 @layer base {

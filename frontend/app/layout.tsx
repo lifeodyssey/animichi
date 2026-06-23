@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { LocaleProvider } from "../lib/i18n-context";
 import MSWProvider from "../mocks/MSWProvider";
-import { Geist, Outfit, Shippori_Mincho_B1, Noto_Sans_SC } from "next/font/google";
+import { Nunito, Noto_Sans_SC, Noto_Serif_JP, Zen_Maru_Gothic } from "next/font/google";
 import { cn } from "@/lib/utils";
 import {
   websiteJsonLd,
@@ -10,10 +10,10 @@ import {
   faqJsonLd,
 } from "@/lib/structured-data";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
-const outfit = Outfit({ subsets: ["latin"], weight: ["300", "400", "500", "600"], variable: "--font-outfit" });
-const shippori = Shippori_Mincho_B1({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-shippori", preload: false });
-const notoSansSC = Noto_Sans_SC({ subsets: ["latin"], weight: ["300", "400", "500", "600"], variable: "--font-noto", preload: false });
+const nunito = Nunito({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-nunito" });
+const notoSansSC = Noto_Sans_SC({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-noto", preload: false });
+const notoSerifJP = Noto_Serif_JP({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-noto-serif", preload: false });
+const zenMaruGothic = Zen_Maru_Gothic({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-zen", preload: false });
 
 const SITE_URL = "https://seichijunrei.zhenjia.org";
 const SITE_TITLE =
@@ -66,7 +66,7 @@ export default function RootLayout({
   return (
     <html
       lang="ja"
-      className={cn("h-full antialiased", "font-sans", geist.variable, outfit.variable, shippori.variable, notoSansSC.variable)}
+      className={cn("h-full antialiased", "font-sans", nunito.variable, notoSansSC.variable, notoSerifJP.variable, zenMaruGothic.variable)}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">

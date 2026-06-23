@@ -38,23 +38,74 @@
     "landing": {
       "hero_title": "聖地巡礼",
       "hero_subtitle": "アニメの舞台を探して、巡礼ルートを作ろう",
-      "search_placeholder": "アニメの聖地を探す...",
+      "search_placeholder": "作品名・駅名・都市名を入力",
       "stats_spots": "スポット",
       "stats_anime": "作品",
       "stats_prefectures": "都道府県",
-      "step1_title": "作品で検索",
-      "step1_desc": "アニメのタイトルから聖地を検索",
-      "step2_title": "スポットを発見",
-      "step2_desc": "実際の場所を地図で確認",
-      "step3_title": "ルートを計画",
-      "step3_desc": "最適な巡礼ルートを自動生成",
-      "gallery_title": "人気作品",
-      "gallery_sub": "聖地巡礼の定番から最新作まで",
-      "steps_title": "3ステップで巡礼",
+      "hero_eyebrow": "アニメ旅行ジャーナル",
+      "hero_try_example": "例から試す",
+      "hero_headline": "アニメの場面を、\n今日歩けるルートに変える",
+      "hero_lead": "作品名・駅名・都市名を入力して、\n聖地を見つけてルートを作ろう。",
+      "step1_title": "聖地を探す",
+      "step1_desc": "作品名や地名で\n聖地を検索",
+      "step2_title": "地点を選ぶ",
+      "step2_desc": "地図上で行きたい\nスポットを選択",
+      "step3_title": "ルート生成",
+      "step3_desc": "AIが最適ルートを\n計画・時間を算出",
+      "step4_title": "エクスポート",
+      "step4_desc": "Google Mapsや\nカレンダーに出力",
+      "gallery_title": "人気の巡礼ルート",
+      "gallery_sub": "実写とアニメの場面比較で、すぐ歩けるルートを見つけよう。",
+      "gallery_all": "すべてのルートを見る",
+      "steps_title": "4ステップで巡礼",
       "steps_sub": "作品名を入力するだけ。あとは全部おまかせ。",
       "scroll_hint": "下にスクロール",
       "login": "ログイン",
-      "search_button": "検索"
+      "search_button": "巡礼を始める",
+      "hero_examples": [
+        "君の名は。",
+        "響け！ユーフォニアム",
+        "天気の子"
+      ],
+      "hero_nearby": "Nearby spots",
+      "hero_location_label": "須賀神社階段 · 新宿",
+      "hero_anime_label": "アニメ",
+      "hero_real_label": "現実",
+      "hero_route_preview": "ROUTE PREVIEW",
+      "hero_auth_hint": "保存・同期するときだけログイン",
+      "walking_route": "徒歩ルート",
+      "hiw_title": "作品名が、ルートになるまで",
+      "hiw_sub": "作品名・駅名・スポットを入力するだけ。あとはおまかせ。",
+      "hiw_step1_title": "アニメや場所を検索",
+      "hiw_step1_desc": "作品名・駅名・都市名で聖地を検索",
+      "hiw_step2_title": "場面と現実を比較",
+      "hiw_step2_desc": "アニメカットと実写を並べて確認",
+      "hiw_step3_title": "行きたいスポットを選ぶ",
+      "hiw_step3_desc": "地図で気になるスポットを選択",
+      "hiw_step4_title": "現実的なルートを歩く",
+      "hiw_step4_desc": "時間を考慮した徒歩ルートを生成",
+      "popular_title": "人気の巡礼ルート",
+      "popular_sub": "ファンに人気の聖地をルート化。すぐ出発できます。",
+      "popular_empty": "まだルートがありません",
+      "popular_view_all": "すべてのルートを見る",
+      "popular_half_day": "半日",
+      "popular_spot_count": "{count}スポット",
+      "ss_title": "先に計画して。保存したいと思ったらログイン。",
+      "ss_sub": "場面、スポット、徒歩ルートをデバイス間で引き継げます。",
+      "ss_feature1": "お気に入りスポットを保存",
+      "ss_feature2": "出発前にスマホへ同期",
+      "ss_feature3": "以前の巡礼に戻る",
+      "ss_card_title": "ルートを保存する",
+      "ss_card_sub": "安全なリンクをメールでお送りします。パスワード不要。",
+      "ss_email_placeholder": "you@example.com",
+      "ss_send_cta": "ログインリンクを送る",
+      "ss_save_cta": "ルートを保存",
+      "ss_browse_cta": "このまま探す",
+      "ss_email_hint": "@ のあとの部分（例: example.com）をご確認ください。このまま探すこともできます。",
+      "ss_email_hint_at": "メールアドレスには @ が必要です（例: you@example.com）。このまま探すこともできます。",
+      "ss_magiclink_q": "マジックリンクとは？",
+      "ss_magiclink_a": "ワンタップでログインできるリンクをメールでお送りします。パスワードは不要です。メールはこのリンクの送信にのみ使います。",
+      "hero_continue": "前回の続きから"
     }
   },
   "auth": {
@@ -80,7 +131,11 @@
     "request_new_link": "新しいリンクをリクエスト",
     "check_email_heading": "メールをご確認ください",
     "check_email_body": "送信されたリンクをクリックしてログインしてください。",
-    "back_to_login": "戻る"
+    "back_to_login": "戻る",
+    "login_page_subtitle": "メールアドレスで聖地巡礼をはじめましょう",
+    "link_expired_error": "ログインリンクの有効期限が切れました。もう一度お試しください。",
+    "back_to_home": "トップに戻る",
+    "magic_link_hint": "パスワード不要 — 安全なログインリンクをメールでお送りします"
   },
   "thinking": {
     "resolve_anime": "アニメタイトルを確認中…",
@@ -90,7 +145,22 @@
     "plan_selected": "ルートを計画中…",
     "greet_user": "応答中…",
     "answer_question": "回答中…",
-    "clarify": "詳細を確認中…"
+    "clarify": "詳細を確認中…",
+    "done_resolve_anime": "タイトル確認",
+    "done_search_bangumi": "聖地検索",
+    "done_search_nearby": "付近の検索",
+    "done_plan_route": "ルート計画",
+    "done_plan_selected": "ルート計画",
+    "done_answer_question": "回答",
+    "done_clarify": "確認",
+    "web_search": "Web検索中…",
+    "done_web_search": "Web検索",
+    "search_response": "結果をまとめ中…",
+    "done_search_response": "検索結果",
+    "value_spots": "{count}件の聖地",
+    "value_route": "{count}か所",
+    "value_done": "完了",
+    "pre_thinking": "考え中…"
   },
   "chat": {
     "placeholder": "聖地を探す・ルートを計画する…",
@@ -108,7 +178,11 @@
     "welcome_subtitle": "作品から聖地を探したり、場所ごとに近くのスポットを見たり、巡礼ルートをまとめて計画できます。",
     "welcome_helper": "まずは挨拶して、何ができるか聞いてみても大丈夫です。",
     "empty_hint": "聖地を検索するか、ルートを計画しましょう",
-    "tap_to_view": "タップして結果を表示"
+    "tap_to_view": "タップして結果を表示",
+    "error_message": "応答中にエラーが発生しました。",
+    "retry": "再試行",
+    "send_hint": "Enter で送信",
+    "back_to_guide": "ガイドに戻る"
   },
   "sidebar": {
     "logo_icon": "聖",
@@ -140,7 +214,8 @@
     "other_label": "その他",
     "unknown_area": "不明",
     "empty_hint": "聖地を探してみよう",
-    "empty_subtitle": "アニメのタイトルを入力すると、聖地巡礼スポットがここに表示されます"
+    "empty_subtitle": "アニメのタイトルを入力すると、聖地巡礼スポットがここに表示されます",
+    "view_guide": "作品の聖地ガイドを見る →"
   },
   "route": {
     "no_results": "ルートを作成できませんでした。",
@@ -159,7 +234,8 @@
     "chat_label": "チャット",
     "timeline_spots": "{count} 聖地",
     "timeline_nearby": "📍 付近に他のアニメ聖地があります",
-    "timeline_nearby_sub": "途中で別の作品のロケ地を通るかもしれません"
+    "timeline_nearby_sub": "途中で別の作品のロケ地を通るかもしれません",
+    "timeline_empty": "このルートにスポットがありません"
   },
   "selection": {
     "count": "{count}件を選択中",
@@ -182,13 +258,18 @@
   },
   "welcome_screen": {
     "tagline": "アニメの舞台を探して、巡礼ルートを作ろう",
+    "tagline_returning": "おかえりなさい。次はどこへ？",
     "action_search": "作品で探す",
     "action_search_desc": "アニメのタイトルから聖地を検索",
     "action_nearby": "近くの聖地",
     "action_nearby_desc": "現在地の周辺にあるスポットを表示",
     "action_route": "ルートを作成",
     "action_route_desc": "行きたいスポットで巡礼ルートを組む",
-    "popular_label": "人気の作品"
+    "popular_label": "人気の作品",
+    "tips_label": "使い方",
+    "tip_search": "🔍 アニメ名を入力して聖地を探す",
+    "tip_nearby": "📍 近くの聖地を位置情報で検索",
+    "tip_route": "🗺️ 選んだスポットからルートを作成"
   },
   "location": {
     "use_current": "現在地を使う",
@@ -203,10 +284,11 @@
     "episode": "第{ep}話",
     "address_label": "📍 住所:",
     "timestamp_label": "📸 スクリーンショット時刻:",
-    "select": "聖地を選択",
-    "selected": "✓ 選択済み",
+    "add_spot": "ルートに追加",
+    "remove_spot": "ルートから削除",
     "view_on_map": "マップで見る",
-    "nearby_title": "近くの聖地"
+    "nearby_title": "近くの聖地",
+    "comparison_title": "アニメ vs 実景"
   },
   "route_confirm": {
     "back": "選択に戻る",
@@ -219,7 +301,8 @@
     "summary": "{count} か所の聖地が待っています",
     "estimate": "徒歩 {distance}km、約 {time} 分",
     "start": "ルート計画を開始",
-    "remove_label": "削除"
+    "remove_label": "削除",
+    "min_points_warning": "ルートには2つ以上のスポットが必要です"
   },
   "chat_popup": {
     "continue": "会話を続ける…",
@@ -252,11 +335,24 @@
     "selected": "選択中 {count} 件",
     "plan_route": "ルートを計画",
     "clear": "クリア",
-    "other_area": "その他"
+    "other_area": "その他",
+    "spots_header": "スポット",
+    "spots_count": "{count}件"
+  },
+  "selection_tray": {
+    "count": "{count}件選択中",
+    "plan_route": "ルートを作成",
+    "clear": "選択をクリア",
+    "empty_prompt": "地図からスポットを選んでください",
+    "remove_chip": "{name}を削除",
+    "overflow_more": "+{count}件",
+    "collapse": "トレイを折りたたむ",
+    "expand": "トレイを展開"
   },
   "clarification": {
     "examples_label": "例えば：",
     "search_all": "全作品まとめて検索",
+    "candidates_hint": "似た名前の作品が複数見つかりました。お探しの作品を選んでください。",
     "suggestions": [
       {
         "label": "作品名で探す",
@@ -272,5 +368,98 @@
       }
     ],
     "spot_label": "スポット"
+  },
+  "search_preview": {
+    "title": "{query} の聖地",
+    "subtitle": "{count} スポットが見つかりました",
+    "no_results": "該当する聖地が見つかりませんでした",
+    "no_results_hint": "作品名を確認してもう一度検索してみてください",
+    "showing_preview": "{shown} 件を表示中（全 {total} 件）",
+    "login_for_more": "すべてのスポットを見るにはログインしてください",
+    "login_button": "ログインして全件表示",
+    "back_to_home": "トップに戻る",
+    "spot_label": "スポット",
+    "episode_label": "EP{ep}",
+    "loading": "検索中...",
+    "error": "検索に失敗しました。もう一度お試しください。"
+  },
+  "before_after": {
+    "anime_label": "アニメ",
+    "real_label": "実景"
+  },
+  "anime_guide": {
+    "spots_label": "{count} スポット",
+    "plan_route": "AIで巡礼ルートを計画",
+    "plan_route_sub": "ログインして最適なルートを自動生成",
+    "back_to_home": "トップに戻る",
+    "not_found": "作品が見つかりませんでした",
+    "not_found_hint": "トップページから作品を探してみてください",
+    "loading": "読み込み中...",
+    "error": "読み込みに失敗しました",
+    "episode_label": "EP{ep}",
+    "map_label": "聖地マップ",
+    "episode_tab": "集数",
+    "area_tab": "エリア",
+    "filmstrip_label": "聖地シーン",
+    "show_all": "すべての {count} スポットを表示",
+    "episode_group": "第 {ep} 話",
+    "other_group": "その他",
+    "spots_count": "{count} スポット",
+    "map_unavailable": "マップを読み込めませんでした — 下のスポット一覧をご覧ください",
+    "meta_title": "{title} 聖地巡礼ガイド | Seichijunrei",
+    "meta_description": "{title}の聖地 {count} スポット — {city}。AIでルート計画も。",
+    "meta_description_no_city": "{title}の聖地 {count} スポット。AIでルート計画も。"
+  },
+  "spot_list": {
+    "empty_title": "スポットが見つかりません",
+    "empty_hint": "検索条件を変えるか、別のアニメ名でお試しください",
+    "empty_retry": "再検索",
+    "empty_refine": "条件を変更",
+    "walking_route": "徒歩ルート",
+    "ep_badge": "Ep. {ep}",
+    "photo_missing": "写真なし"
+  },
+  "error_retry_ticket": {
+    "heading": "もう一度お試しください",
+    "body": "プラン作成中に問題が発生しました。入力内容はそのまま使えます。",
+    "retry": "再試行",
+    "edit_query": "質問を編集",
+    "restart": "最初から",
+    "report": "問題を報告",
+    "stamp_alt": "鳥居の印章"
+  },
+  "recent_route_card": {
+    "resume_label": "続きから",
+    "spots_count": "{count} スポット",
+    "no_spots": "スポットなし",
+    "thumbnail_alt": "{title} のサムネイル",
+    "placeholder_alt": "ルートのプレースホルダー",
+    "updated": "最終更新：{when}"
+  },
+  "chat_summary_card": {
+    "area_label": "エリア",
+    "duration_label": "所要時間",
+    "transport_label": "移動手段",
+    "spots_label": "スポット数",
+    "view_details": "プランの詳細を見る",
+    "adopt_plan": "このプランを採用"
+  },
+  "app_nav": {
+    "map": "マップ",
+    "spots": "スポット",
+    "records": "旅の記録",
+    "collection": "コレクション",
+    "menu": "メニュー",
+    "close": "閉じる"
+  },
+  "fox_guide": {
+    "agent_working": "AIがルートを作成しています…",
+    "no_results": "条件に合う聖地が見つかりませんでした",
+    "no_results_suggestion": "条件を変えて、もう一度試してみましょう",
+    "permission_title": "近くの聖地を探しますか？",
+    "permission_body": "位置情報を使って、あなたのいる場所の近くの聖地を表示します。",
+    "permission_allow": "現在地を使う",
+    "permission_skip": "スキップ",
+    "permission_manual": "場所を入力する"
   }
 }
