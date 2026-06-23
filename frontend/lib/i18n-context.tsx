@@ -12,23 +12,25 @@ interface I18nCtx {
 }
 
 const I18nContext = createContext<I18nCtx>({
-  dict: defaultDict as Dict,
+  dict: defaultDict,
   locale: DEFAULT_LOCALE,
-  setLocale: () => {},
+  setLocale: () => {
+    // Default no-op: overridden by LocaleProvider; safe outside a provider.
+  },
 });
 
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
   // Initialize with DEFAULT_LOCALE to match SSR output (prevents hydration mismatch).
   // After mount, detect the real locale from navigator.languages via effect.
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
-  const [dict, setDict] = useState<Dict>(defaultDict as Dict);
+  const [dict, setDict] = useState<Dict>(defaultDict);
 
   // Detect real locale after hydration completes
   useEffect(() => {
     const real = detectLocale();
     if (real !== DEFAULT_LOCALE) {
       // Defer to next frame to avoid set-state-in-effect lint warning
-      requestAnimationFrame(() => setLocaleState(real));
+      requestAnimationFrame(() => { setLocaleState(real); });
     }
   }, []);
 
@@ -36,8 +38,8 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     document.documentElement.lang = locale;
-    loadDict(locale).then((d) => {
-      if (!cancelled) setDict(d as Dict);
+    void loadDict(locale).then((d) => {
+      if (!cancelled) setDict(d);
     });
     return () => { cancelled = true; };
   }, [locale]);

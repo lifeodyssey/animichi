@@ -19,7 +19,7 @@ export default function LoginForm({ redirect, initialError }: LoginFormProps) {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!supabase) { setError(t.not_configured); return; }
     setSubmitting(true);
@@ -65,7 +65,7 @@ export default function LoginForm({ redirect, initialError }: LoginFormProps) {
         <h2 className="text-xl font-semibold text-foreground">{t.title}</h2>
         <p className="text-sm leading-relaxed text-muted-foreground">{t.subtitle}</p>
       </div>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={(e) => { void handleSubmit(e); }} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <label htmlFor="login-email" className="text-xs font-medium text-muted-foreground">
             {t.email_label}
@@ -75,7 +75,7 @@ export default function LoginForm({ redirect, initialError }: LoginFormProps) {
             type="email"
             required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => { setEmail(e.target.value); }}
             placeholder={t.email_placeholder}
             className="w-full rounded-2xl border border-border bg-card px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 shadow-3d-sm transition-all duration-150 ease-[var(--ease-animal)] hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           />

@@ -107,7 +107,7 @@ function TrailPin({ x, y, tone, scale, tilt = 0 }: TrailPinProps) {
   const body = PIN_BODY[tone];
   const hole = tone === "ink" ? "fill-background" : "fill-primary-fg";
   return (
-    <g transform={`translate(${x - 9 * scale} ${y - 24 * scale}) scale(${scale}) rotate(${tilt} 9 24)`}>
+    <g transform={`translate(${String(x - 9 * scale)} ${String(y - 24 * scale)}) scale(${String(scale)}) rotate(${String(tilt)} 9 24)`}>
       <path
         className={body}
         d="M9 0C4.03 0 0 4.03 0 9c0 6.75 9 15 9 15s9-8.25 9-15C18 4.03 13.97 0 9 0z"

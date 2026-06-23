@@ -8,7 +8,7 @@ import type { UIMessage } from "ai";
 export interface SeichijunreiMetadata {
   session_id?: string;
   intent?: string;
-  route_history?: Array<Record<string, unknown>>;
+  route_history?: Record<string, unknown>[];
   ui?: { component?: string };
 }
 

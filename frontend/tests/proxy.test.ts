@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Mock } from "vitest";
 
 // Mock @supabase/ssr before importing proxy
 vi.mock("@supabase/ssr", () => ({
@@ -40,6 +41,16 @@ function makeRequest(path: string, headers: Record<string, string> = {}): { next
   };
 }
 
+// Retrieve the mocked createServerClient as a plain Mock. Accessing it through
+// this helper (rather than destructuring the typed export) avoids the upstream
+// @deprecated JSDoc on the get/set/remove cookie overload leaking into tests.
+async function getMockedCreateServerClient(): Promise<Mock> {
+  const ssr = (await import("@supabase/ssr")) as unknown as {
+    createServerClient: Mock;
+  };
+  return ssr.createServerClient;
+}
+
 describe("proxy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -48,9 +59,9 @@ describe("proxy", () => {
   });
 
   it("passes through public pages without auth check", async () => {
-    const { createServerClient } = await import("@supabase/ssr");
+    const createServerClient = await getMockedCreateServerClient();
     const mockGetUser = vi.fn().mockResolvedValue({ data: { user: null } });
-    (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue({
+    createServerClient.mockReturnValue({
       auth: { getUser: mockGetUser },
     });
 
@@ -62,9 +73,9 @@ describe("proxy", () => {
 
   it("redirects /chat to /login when no session", async () => {
     vi.resetModules();
-    const { createServerClient } = await import("@supabase/ssr");
+    const createServerClient = await getMockedCreateServerClient();
     const mockGetUser = vi.fn().mockResolvedValue({ data: { user: null } });
-    (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue({
+    createServerClient.mockReturnValue({
       auth: { getUser: mockGetUser },
     });
 
@@ -72,16 +83,16 @@ describe("proxy", () => {
     await proxy(makeRequest("/chat") as never);
 
     expect(mockRedirect).toHaveBeenCalled();
-    const redirectUrl = mockRedirect.mock.calls[0][0] as URL;
+    const redirectUrl = mockRedirect.mock.calls[0]?.[0] as URL;
     expect(redirectUrl.pathname).toBe("/login");
     expect(redirectUrl.searchParams.get("redirect")).toBe("/chat");
   });
 
   it("passes through /chat when session exists", async () => {
     vi.resetModules();
-    const { createServerClient } = await import("@supabase/ssr");
+    const createServerClient = await getMockedCreateServerClient();
     const mockGetUser = vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } });
-    (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue({
+    createServerClient.mockReturnValue({
       auth: { getUser: mockGetUser },
     });
 

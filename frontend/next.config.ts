@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
-initOpenNextCloudflareForDev();
+void initOpenNextCloudflareForDev();
 
 const frontendRoot = path.dirname(fileURLToPath(import.meta.url));
 

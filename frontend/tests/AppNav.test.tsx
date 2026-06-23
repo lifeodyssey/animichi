@@ -152,7 +152,7 @@ describe("SharedHeader active route (AC2 — highlight)", () => {
 // ── AC2 — Guest header shows login CTA, NOT app nav ───────────────────────
 describe("SharedHeader variant=guest (AC2 — login CTA)", () => {
   it("does not render app nav links", () => {
-    render(<SharedHeader variant="guest" onLogin={() => {}} />);
+    render(<SharedHeader variant="guest" onLogin={vi.fn()} />);
     expect(screen.queryByText("マップ")).not.toBeInTheDocument();
     expect(screen.queryByText("スポット")).not.toBeInTheDocument();
   });
