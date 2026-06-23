@@ -1,0 +1,46 @@
+name: deploy-component
+on:
+  workflow_call:
+    inputs:
+      component: { required: true, type: string }
+      environment: { required: true, type: string }
+      pulumi_stack: { required: true, type: string }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup
+      - name: Atlas migrate
+        uses: ariga/atlas-action/migrate/apply@e7cdee90ecc06996f1c055bc01a62f03666cecb4 # v1.15.5
+        with:
+          dir: "file://db/migrations"
+          url: ${{ secrets.NEON_DATABASE_URL }}
+      - name: Pulumi up
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          command: up
+          stack-name: ${{ inputs.pulumi_stack }}
+          work-dir: infra
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.79.0"
+          workingDirectory: workers/${{ inputs.component }}
+          command: deploy
+          secrets: |
+            DATABASE_URL
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      - name: Smoke
+        run: echo "smoke for ${{ inputs.component }}@${{ inputs.environment }} — catalog has no public route; verify via service binding / wrangler tail in follow-up"
+        shell: bash
