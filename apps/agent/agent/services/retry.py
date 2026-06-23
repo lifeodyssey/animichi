@@ -62,12 +62,96 @@ def exponential_backoff_with_jitter(
 
     # Apply jitter to prevent thundering herd
     jitter_range = delay * jitter_factor
-    delay = delay - jitter_range + (random.random() * jitter_range * 2)
+    delay = delay - jitter_range + (random.random() * jitter_range * 2)  # noqa: S311 — non-crypto jitter, not security-sensitive
 
     # Cap at maximum delay (after jitter to ensure we never exceed max)
     delay = min(delay, max_delay)
 
     return max(0, delay)  # Ensure non-negative
+
+
+def _build_retry_config(
+    max_attempts: int | None,
+    base_delay: float | None,
+    max_delay: float | None,
+    exponential_base: float | None,
+    retry_on: tuple[type[Exception], ...] | None,
+    config: RetryConfig | None,
+) -> RetryConfig:
+    """Return a RetryConfig, applying any overrides to the default."""
+    if config is not None:
+        return config
+    cfg = RetryConfig()
+    if max_attempts is not None:
+        cfg.max_attempts = max_attempts
+    if base_delay is not None:
+        cfg.base_delay = base_delay
+    if max_delay is not None:
+        cfg.max_delay = max_delay
+    if exponential_base is not None:
+        cfg.exponential_base = exponential_base
+    if retry_on is not None:
+        cfg.retry_on = retry_on
+    return cfg
+
+
+async def _run_with_retry(
+    func: Callable[P, Awaitable[T]],
+    cfg: RetryConfig,
+    args: P.args,
+    kwargs: P.kwargs,
+) -> T:
+    """Execute func with exponential-backoff retry logic."""
+    last_exception: BaseException | None = None
+    for attempt in range(cfg.max_attempts):
+        try:
+            result = await func(*args, **kwargs)
+            if attempt > 0:
+                logger.info(
+                    "Retry successful",
+                    function=func.__name__,
+                    attempt=attempt + 1,
+                    max_attempts=cfg.max_attempts,
+                )
+            return result
+        except cfg.retry_on as e:
+            last_exception = e
+            if attempt == cfg.max_attempts - 1:
+                logger.error(
+                    "Max retries exceeded",
+                    function=func.__name__,
+                    attempt=attempt + 1,
+                    max_attempts=cfg.max_attempts,
+                    error=str(e),
+                )
+                raise
+            delay = exponential_backoff_with_jitter(
+                attempt=attempt,
+                base_delay=cfg.base_delay,
+                max_delay=cfg.max_delay,
+                exponential_base=cfg.exponential_base,
+                jitter_factor=cfg.jitter_factor,
+            )
+            logger.warning(
+                "Retrying after error",
+                function=func.__name__,
+                attempt=attempt + 1,
+                max_attempts=cfg.max_attempts,
+                delay=f"{delay:.2f}s",
+                error=str(e),
+            )
+            await asyncio.sleep(delay)
+        except Exception as e:
+            logger.error(
+                "Non-retryable exception",
+                function=func.__name__,
+                error=str(e),
+                exc_info=True,
+            )
+            raise
+    if last_exception:
+        raise last_exception
+    raise RuntimeError("retry_async exhausted without raising a captured exception")
 
 
 def retry_async(
@@ -78,105 +162,15 @@ def retry_async(
     retry_on: tuple[type[Exception], ...] | None = None,
     config: RetryConfig | None = None,
 ) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
-    """
-    Async retry decorator with exponential backoff.
-
-    Args:
-        max_attempts: Maximum number of retry attempts
-        base_delay: Base delay between retries
-        max_delay: Maximum delay between retries
-        exponential_base: Base for exponential backoff
-        retry_on: Tuple of exceptions to retry on
-        config: Complete RetryConfig object (overrides other params)
-
-    Returns:
-        Decorated function with retry logic
-    """
-    # Use provided config or create from parameters
-    if config is None:
-        config = RetryConfig()
-        if max_attempts is not None:
-            config.max_attempts = max_attempts
-        if base_delay is not None:
-            config.base_delay = base_delay
-        if max_delay is not None:
-            config.max_delay = max_delay
-        if exponential_base is not None:
-            config.exponential_base = exponential_base
-        if retry_on is not None:
-            config.retry_on = retry_on
+    """Async retry decorator with exponential backoff."""
+    cfg = _build_retry_config(
+        max_attempts, base_delay, max_delay, exponential_base, retry_on, config
+    )
 
     def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            last_exception = None
-
-            for attempt in range(config.max_attempts):
-                try:
-                    # Attempt the function call
-                    result = await func(*args, **kwargs)
-
-                    if attempt > 0:
-                        logger.info(
-                            "Retry successful",
-                            function=func.__name__,
-                            attempt=attempt + 1,
-                            max_attempts=config.max_attempts,
-                        )
-
-                    return result
-
-                except config.retry_on as e:
-                    last_exception = e
-
-                    # Check if we've exhausted retries
-                    if attempt == config.max_attempts - 1:
-                        logger.error(
-                            "Max retries exceeded",
-                            function=func.__name__,
-                            attempt=attempt + 1,
-                            max_attempts=config.max_attempts,
-                            error=str(e),
-                        )
-                        raise
-
-                    # Calculate backoff delay
-                    delay = exponential_backoff_with_jitter(
-                        attempt=attempt,
-                        base_delay=config.base_delay,
-                        max_delay=config.max_delay,
-                        exponential_base=config.exponential_base,
-                        jitter_factor=config.jitter_factor,
-                    )
-
-                    logger.warning(
-                        "Retrying after error",
-                        function=func.__name__,
-                        attempt=attempt + 1,
-                        max_attempts=config.max_attempts,
-                        delay=f"{delay:.2f}s",
-                        error=str(e),
-                    )
-
-                    # Wait before retrying
-                    await asyncio.sleep(delay)
-
-                except Exception as e:
-                    # Don't retry on unexpected exceptions
-                    logger.error(
-                        "Non-retryable exception",
-                        function=func.__name__,
-                        error=str(e),
-                        exc_info=True,
-                    )
-                    raise
-
-            # Should never reach here, but for safety
-            if last_exception:
-                raise last_exception
-            raise RuntimeError(
-                "retry_async exhausted without raising a captured exception"
-            )
+            return await _run_with_retry(func, cfg, args, kwargs)
 
         return wrapper
 

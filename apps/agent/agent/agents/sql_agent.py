@@ -221,7 +221,7 @@ class SQLAgent:
 
         if episode is not None:
             sql = (
-                f"SELECT {_POINT_RUNTIME_COLUMNS} "
+                f"SELECT {_POINT_RUNTIME_COLUMNS} "  # noqa: S608 — module-level constant, not user input
                 f"FROM points p JOIN bangumi b ON p.bangumi_id = b.id "
                 f"WHERE p.bangumi_id = $1 AND p.episode = $2 "
                 f"ORDER BY p.time_seconds"
@@ -229,7 +229,7 @@ class SQLAgent:
             query_params: list[object] = [bangumi_id, episode]
         else:
             sql = (
-                f"SELECT {_POINT_RUNTIME_COLUMNS} "
+                f"SELECT {_POINT_RUNTIME_COLUMNS} "  # noqa: S608 — module-level constant, not user input
                 f"FROM points p JOIN bangumi b ON p.bangumi_id = b.id "
                 f"WHERE p.bangumi_id = $1 "
                 f"ORDER BY p.episode, p.time_seconds"
@@ -253,7 +253,7 @@ class SQLAgent:
 
         lat, lon = coords
         sql = (
-            f"SELECT {_POINT_RUNTIME_COLUMNS}, "
+            f"SELECT {_POINT_RUNTIME_COLUMNS}, "  # noqa: S608 — all interpolated values are module-level constants, not user input
             f"ST_Distance({_POINT_GEOGRAPHY}, ST_MakePoint($1, $2)::geography) AS distance_m "
             f"FROM points p JOIN bangumi b ON p.bangumi_id = b.id "
             f"WHERE ST_DWithin({_POINT_GEOGRAPHY}, ST_MakePoint($1, $2)::geography, $3) "
@@ -277,7 +277,7 @@ class SQLAgent:
             lat, lon = origin_coords
             radius_m = request.radius or _DEFAULT_ROUTE_RADIUS_M
             sql = (
-                f"SELECT {_POINT_RUNTIME_COLUMNS}, "
+                f"SELECT {_POINT_RUNTIME_COLUMNS}, "  # noqa: S608 — all interpolated values are module-level constants, not user input
                 f"ST_Distance({_POINT_GEOGRAPHY}, ST_MakePoint($1, $2)::geography) AS distance_m "
                 f"FROM points p JOIN bangumi b ON p.bangumi_id = b.id "
                 f"WHERE p.bangumi_id = $3 "
@@ -287,7 +287,7 @@ class SQLAgent:
             query_params: list[object] = [lon, lat, bangumi_id, radius_m]
         else:
             sql = (
-                f"SELECT {_POINT_RUNTIME_COLUMNS} "
+                f"SELECT {_POINT_RUNTIME_COLUMNS} "  # noqa: S608 — all interpolated values are module-level constants, not user input
                 f"FROM points p JOIN bangumi b ON p.bangumi_id = b.id "
                 f"WHERE p.bangumi_id = $1 "
                 f"ORDER BY p.episode, p.time_seconds"
