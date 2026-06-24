@@ -31,6 +31,8 @@ jobs:
     environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       # ── api suite ───────────────────────────────────────────────
       # TODO: catalog needs workers.dev/temp-expose to hit its read API;
@@ -39,8 +41,10 @@ jobs:
       - name: API suite (TODO — catalog not publicly reachable)
         if: ${{ inputs.suite == 'api' }}
         shell: bash
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
         run: |
-          echo "::notice title=post-deploy api TODO::catalog needs workers.dev/temp-expose to hit its read API; wire when exposed (${{ inputs.environment }})"
+          echo "::notice title=post-deploy api TODO::catalog needs workers.dev/temp-expose to hit its read API; wire when exposed ($ENVIRONMENT)"
           echo "SKIP: api suite is not wired yet — catalog Worker has no public route."
 
       # ── e2e suite ───────────────────────────────────────────────
@@ -49,8 +53,10 @@ jobs:
       - name: E2E suite (TODO — awaiting edge/web surface)
         if: ${{ inputs.suite == 'e2e' }}
         shell: bash
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
         run: |
-          echo "::notice title=post-deploy e2e TODO::Playwright e2e/ needs the user-facing surface from the Wave 4 frontend rebuild (edge/web); wire when that lands (${{ inputs.environment }})"
+          echo "::notice title=post-deploy e2e TODO::Playwright e2e/ needs the user-facing surface from the Wave 4 frontend rebuild (edge/web); wire when that lands ($ENVIRONMENT)"
           echo "SKIP: e2e suite is not wired yet — no deployed user-facing surface."
 
       # ── smoke suite ─────────────────────────────────────────────
@@ -59,14 +65,18 @@ jobs:
       - name: Smoke suite (TODO — catalog not publicly reachable)
         if: ${{ inputs.suite == 'smoke' }}
         shell: bash
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
         run: |
-          echo "::notice title=post-deploy smoke TODO::catalog needs workers.dev/temp-expose to hit its read API; wire when exposed (${{ inputs.environment }})"
+          echo "::notice title=post-deploy smoke TODO::catalog needs workers.dev/temp-expose to hit its read API; wire when exposed ($ENVIRONMENT)"
           echo "SKIP: smoke suite is not wired yet — catalog Worker has no public route."
 
       # ── guard against unknown suite values ──────────────────────
       - name: Unknown suite guard
         if: ${{ inputs.suite != 'api' && inputs.suite != 'e2e' && inputs.suite != 'smoke' }}
         shell: bash
+        env:
+          SUITE: ${{ inputs.suite }}
         run: |
-          echo "::error title=post-deploy unknown suite::'${{ inputs.suite }}' is not one of api|e2e|smoke"
+          echo "::error title=post-deploy unknown suite::'$SUITE' is not one of api|e2e|smoke"
           exit 1

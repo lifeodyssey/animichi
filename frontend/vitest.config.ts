@@ -30,7 +30,12 @@ export default defineConfig({
     ],
     server: {
       deps: {
-        inline: ["animal-island-ui"],
+        inline: [
+          "animal-island-ui",
+          "react",
+          "react-dom",
+          /^react\/.+/,
+        ],
       },
     },
     coverage: {
@@ -53,10 +58,6 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./"),
       "next/image": path.resolve(__dirname, "./tests/__mocks__/next/image.tsx"),
-      "react": path.resolve(__dirname, "./node_modules/react"),
-      "react-dom": path.resolve(__dirname, "./node_modules/react-dom"),
-      "react/jsx-runtime": path.resolve(__dirname, "./node_modules/react/jsx-runtime"),
-      "react/jsx-dev-runtime": path.resolve(__dirname, "./node_modules/react/jsx-dev-runtime"),
     },
   },
 });
