@@ -20,12 +20,17 @@ from agent.interfaces.routes._deps import (
 router = APIRouter(prefix="/v1", tags=["conversations"])
 
 
+def _unauthorized() -> JSONResponse:
+    return _error_response("unauthorized", "Missing user identity.", status_code=401)
+
+
 @router.get("/conversations")
 async def handle_get_conversations(
     request: Request,
     auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
 ) -> JSONResponse:
-    assert auth.user_id is not None
+    if auth.user_id is None:
+        return _unauthorized()
     db = _require_supabase(_get_db_from_request(request))
     conversations_obj: object = await db.session.get_conversations(auth.user_id)
     return _json_response(conversations_obj)
@@ -38,7 +43,8 @@ async def handle_patch_conversation(
     request: Request,
     auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
 ) -> JSONResponse:
-    assert auth.user_id is not None
+    if auth.user_id is None:
+        return _unauthorized()
     db = _require_supabase(_get_db_from_request(request))
     conversation_obj: object = await db.session.get_conversation(session_id)
     conversation = conversation_obj if isinstance(conversation_obj, dict) else None
@@ -60,7 +66,8 @@ async def handle_get_messages(
     request: Request,
     auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
 ) -> JSONResponse:
-    assert auth.user_id is not None
+    if auth.user_id is None:
+        return _unauthorized()
     db = _require_supabase(_get_db_from_request(request))
     conversation_obj: object = await db.session.get_conversation(session_id)
     conversation = conversation_obj if isinstance(conversation_obj, dict) else None
@@ -80,7 +87,8 @@ async def handle_get_routes(
     request: Request,
     auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
 ) -> JSONResponse:
-    assert auth.user_id is not None
+    if auth.user_id is None:
+        return _unauthorized()
     db = _require_supabase(_get_db_from_request(request))
     routes_obj: object = await db.routes.get_user_routes(auth.user_id)
     return _json_response({"routes": routes_obj})

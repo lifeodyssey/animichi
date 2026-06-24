@@ -25,9 +25,9 @@ interface NearbyRow {
 const toPoint = (r: NearbyRow): NearbyPoint => ({
   id: r.id,
   name: r.name,
-  latitude: Number(r.latitude),
-  longitude: Number(r.longitude),
-  distanceM: Number(r.distance_m),
+  latitude: r.latitude,
+  longitude: r.longitude,
+  distanceM: r.distance_m,
 });
 
 const MAX_RADIUS_M = 50_000;

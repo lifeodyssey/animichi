@@ -1,4 +1,4 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { catalogRouter } from "./router";
 import type { CatalogDb, NeonSql } from "./db/client";
@@ -17,7 +17,7 @@ export interface Env {
 const app = new Hono<{ Bindings: Env }>();
 
 app.get("/healthz", (c) =>
-  c.json({ status: "ok", service: "catalog", env: c.env?.ENVIRONMENT ?? "unknown" }),
+  c.json({ status: "ok", service: "catalog", env: c.env.ENVIRONMENT ?? "unknown" }),
 );
 
 const apiHandler = new OpenAPIHandler(catalogRouter);
@@ -28,7 +28,7 @@ function connectionString(env?: Env): string | undefined {
 }
 
 function waitUntilFor(
-  c: Context<{ Bindings: Env }>,
+  c: { executionCtx: { waitUntil: (p: Promise<unknown>) => void } },
 ): ((p: Promise<unknown>) => void) | undefined {
   try {
     const ctx = c.executionCtx;
@@ -56,13 +56,13 @@ async function dbFor(connStr: string): Promise<DbEntry> {
 }
 
 /** Clear the cached entries — for test teardown (neon-http is stateless, no sockets to close). */
-export async function closeDbPools(): Promise<void> {
+export function closeDbPools(): void {
   dbPools.clear();
 }
 
 app.get("/catalog/img/:pointId", async (c) => {
   const connStr = connectionString(c.env);
-  const bucket = c.env?.MEDIA_BUCKET;
+  const bucket = c.env.MEDIA_BUCKET;
   if (!connStr || !bucket) {
     return c.json({ error: "catalog media not configured" }, 503);
   }

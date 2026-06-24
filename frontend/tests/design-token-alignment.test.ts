@@ -23,7 +23,7 @@ function extractTokenValue(css: string, tokenName: string): string {
     `${tokenName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*:\\s*([^;}{]+?)\\s*;`
   );
   const match = css.match(pattern);
-  return match ? match[1].trim() : "";
+  return match?.[1]?.trim() ?? "";
 }
 
 const globalsContent = readFileSync(GLOBALS_CSS, "utf8");

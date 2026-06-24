@@ -9,11 +9,14 @@ const config: StorybookConfig = {
     name: "@storybook/react-vite",
     options: {},
   },
-  viteFinal: async (config) => {
+  viteFinal: (config) => {
     config.resolve = config.resolve ?? {};
     const root = path.resolve(import.meta.dirname, "..");
+    const existingAlias = Array.isArray(config.resolve.alias)
+      ? {}
+      : config.resolve.alias;
     config.resolve.alias = {
-      ...config.resolve.alias,
+      ...existingAlias,
       "@": root,
       // Deduplicate React — prevents "Invalid hook call" from dual React copies
       "react": path.resolve(root, "node_modules/react"),

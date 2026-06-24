@@ -99,7 +99,7 @@ async function storeAndServe(
 /** Look up the point's origin image URL, expanding leading-slash paths. */
 async function originUrl(db: CatalogDb, pointId: string): Promise<string | null> {
   const result = await db.execute(sql`SELECT image FROM points WHERE id = ${pointId}`);
-  const image = (result.rows as Array<{ image: string | null }>)[0]?.image;
+  const image = (result.rows as { image: string | null }[])[0]?.image;
   if (!image) return null;
   return image.startsWith("/") ? `${IMAGE_BASE}${image}` : image;
 }

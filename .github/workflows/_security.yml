@@ -1,0 +1,132 @@
+name: _security
+
+# Reusable cross-language security workflow.
+# Called by ci.yml orchestrator; always runs (no affected gate).
+# Strict quality stack per cicd-strict-refactor plan (§安全).
+# Official GitHub Actions are SHA-pinned; CLI-only tools run via ./.github/actions/setup.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Secret scanning ──────────────────────────────────────────
+
+  gitleaks:
+    name: gitleaks (secret scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # gitleaks-action v3 is free for personal/public repos (this repo is
+          # lifeodyssey personal). GITLEAKS_LICENSE only needed for orgs.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  trufflehog:
+    name: TruffleHog (verified secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: trufflesecurity/trufflehog@30d5bb91af1a771378349dbbb0c82129392acf70 # v3.95.6
+        with:
+          extra_args: --results=verified --only-verified
+
+  # ── Dependency / lockfile CVE scanning ───────────────────────
+
+  osv-scanner:
+    name: osv-scanner (lockfile CVE)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: google/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --recursive
+            ./
+
+  # ── GitHub Actions security ──────────────────────────────────
+
+  zizmor:
+    name: zizmor (GHA security)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+        with:
+          # Lint the whole workflow tree; do not upload SARIF (no code scanning).
+          advanced-security: false
+
+  actionlint:
+    name: actionlint (GHA semantics)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Download actionlint
+        run: |
+          ACTIONLINT_VERSION="1.7.7"
+          ACTIONLINT_URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -sSfL -o actionlint.tar.gz "${ACTIONLINT_URL}"
+          tar -xzf actionlint.tar.gz actionlint
+          chmod +x actionlint
+        shell: bash
+      - name: Run actionlint
+        run: ./actionlint -color
+        shell: bash
+
+  # ── Static analysis (SAST) ───────────────────────────────────
+
+  semgrep:
+    name: Semgrep (SAST)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+      - name: Install Semgrep
+        run: uv tool install semgrep
+        shell: bash
+      - name: Run Semgrep
+        run: uv tool run semgrep --config p/python --config p/typescript --config p/javascript --error .
+        shell: bash
+
+  # ── SQL migration lint ───────────────────────────────────────
+
+  sqlfluff:
+    name: sqlfluff (SQL lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/agent
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+      - run: uv sync --all-extras
+      # .sqlfluff config lives at repo root; lint the schema dirs we own.
+      - name: Lint migrations (postgres dialect)
+        run: uv run sqlfluff lint ../../db/migrations ../../supabase/neon --dialect postgres

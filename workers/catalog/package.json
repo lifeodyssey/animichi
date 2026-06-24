@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "test": "npm run test:worker && npm run test:spike",
-    "test:worker": "vitest run --config vitest.config.ts",
+    "test:worker": "vitest run --config vitest.config.ts --coverage",
     "test:spike": "vitest run --config vitest.spike.config.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -21,9 +21,13 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.16.18",
     "@cloudflare/workers-types": "^4.20251001.0",
+    "@eslint/js": "^10.0.1",
     "@types/pg": "^8.15.6",
+    "@vitest/coverage-istanbul": "4.1.9",
+    "eslint": "^10.5.0",
     "pg": "^8.16.3",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.62.0",
     "vitest": "^4.1.0",
     "wrangler": "^4.103.0"
   }

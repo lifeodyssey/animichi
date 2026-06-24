@@ -6,7 +6,8 @@ import { beforeAll, afterEach, afterAll } from "vitest";
 // Set the runtime URL to match MSW handlers' base URL
 process.env.NEXT_PUBLIC_RUNTIME_URL = "http://localhost:8000";
 
-// jsdom polyfills for browser APIs used by components
+// jsdom polyfills for browser APIs used by components.
+/* eslint-disable @typescript-eslint/no-empty-function, @typescript-eslint/no-useless-constructor -- jsdom browser-API stubs: these methods/constructors must exist with the native signature but have no behaviour in tests. */
 globalThis.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
@@ -49,10 +50,11 @@ globalThis.Worker = class Worker {
   onmessage = null;
   onerror = null;
 } as unknown as typeof Worker;
+/* eslint-enable @typescript-eslint/no-empty-function, @typescript-eslint/no-useless-constructor */
 
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => { server.listen({ onUnhandledRequest: "error" }); });
 afterEach(() => {
   cleanup();
   server.resetHandlers();
 });
-afterAll(() => server.close());
+afterAll(() => { server.close(); });

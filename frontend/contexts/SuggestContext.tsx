@@ -7,7 +7,9 @@ export interface SuggestContextValue {
 }
 
 const defaultValue: SuggestContextValue = {
-  onSuggest: () => {},
+  onSuggest: () => {
+    // Default no-op: overridden by the provider.
+  },
 };
 
 export const SuggestContext = createContext<SuggestContextValue>(defaultValue);

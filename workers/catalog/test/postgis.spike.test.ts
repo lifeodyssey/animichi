@@ -18,7 +18,7 @@ const CONTAINER = "catalog-spike-postgis";
 const IMAGE = "postgis/postgis:16-3.4";
 const PG_PORT = 55432; // avoid clashing with local Supabase (54322)
 const PG_PASSWORD = "spike";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${PG_PORT}/postgres`;
+const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
 
 let pool: pg.Pool;
 let db: NodePgDatabase;
@@ -32,7 +32,7 @@ function startContainer(): void {
   if (existing) sh(`docker rm -f ${CONTAINER}`);
   sh(
     `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${PG_PORT}:5432 ${IMAGE}`,
+      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
   );
 }
 
@@ -87,7 +87,7 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  if (pool) await pool.end();
+  await pool.end();
   try {
     sh(`docker rm -f ${CONTAINER}`);
   } catch {
@@ -118,7 +118,7 @@ describe("PostGIS ST_DWithin via Drizzle raw sql (Hyperdrive simulated by pg)", 
         )
         ORDER BY distance_m ASC
       `)
-    ).rows as Array<{ id: string; name: string; distance_m: number }>;
+    ).rows as { id: string; name: string; distance_m: number }[];
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.id).toBe("washinomiya");
@@ -141,7 +141,7 @@ describe("PostGIS ST_DWithin via Drizzle raw sql (Hyperdrive simulated by pg)", 
         )
         ORDER BY location <-> ST_SetSRID(ST_MakePoint(${centerLon}, ${centerLat}), 4326)::geography
       `)
-    ).rows as Array<{ id: string }>;
+    ).rows as { id: string }[];
 
     expect(rows.map((r) => r.id)).toEqual(["washinomiya", "oarai"]);
   });

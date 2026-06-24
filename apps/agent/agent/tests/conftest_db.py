@@ -34,7 +34,20 @@ def _docker_available() -> bool:
 MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "supabase" / "migrations"
 SEED_FILE = Path(__file__).parent / "fixtures" / "seed.sql"
 
-# Skip extensions that require special installation in plain postgres
+# Skip extensions that require special installation in plain postgres.
+#
+# Image choice — postgis/postgis:16-3.4 (NOT a postgis+pgvector combo):
+# Our migrations need BOTH PostGIS (geometry/GIST) and pgvector (embedding/HNSW)
+# in the same database, but no MAINTAINED single image ships both:
+#   - postgis/postgis:16-3.4   → PostGIS, no pgvector .so
+#   - pgvector/pgvector:pg16   → pgvector, no PostGIS (no *-postgis tags exist)
+# Only unmaintained personal images combine them, which we will not depend on in
+# CI. So we keep the official PostGIS image and neutralize pgvector lines below
+# (vector(N) -> TEXT, drop CREATE EXTENSION vector / HNSW index statements).
+#
+# CONSEQUENCE: integration tests do NOT exercise real pgvector behaviour
+# (similarity search, HNSW). That path is validated in CD against a real
+# Neon PR-branch database where the pgvector extension is present.
 SKIP_EXTENSIONS = {"vector"}
 
 

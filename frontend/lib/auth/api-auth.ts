@@ -34,7 +34,8 @@ export async function validateApiKey(rawKey: string): Promise<AuthResult> {
     );
     if (!resp.ok) return { ok: false };
     const rows = (await resp.json()) as { user_id: string }[];
-    if (!rows.length) return { ok: false };
+    const row = rows[0];
+    if (!row) return { ok: false };
 
     void fetch(`${supabaseUrl}/rest/v1/api_keys?key_hash=eq.${keyHash}`, {
       method: "PATCH",
@@ -47,7 +48,7 @@ export async function validateApiKey(rawKey: string): Promise<AuthResult> {
       body: JSON.stringify({ last_used_at: new Date().toISOString() }),
     });
 
-    return { ok: true, userId: rows[0].user_id, userType: "agent" };
+    return { ok: true, userId: row.user_id, userType: "agent" };
   } catch {
     return { ok: false };
   }

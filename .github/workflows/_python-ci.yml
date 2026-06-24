@@ -1,0 +1,67 @@
+name: _python-ci
+
+# Reusable Python CI: ruff (lint + format) + mypy strict + vulture + pip-audit + pytest/cov.
+# Called by ci.yml orchestrator. Strict quality stack per cicd-strict-refactor plan.
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: "App directory under apps/ to run CI against"
+        required: false
+        type: string
+        default: "agent"
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  python-ci:
+    name: Python CI (${{ inputs.app }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - run: uv sync --all-extras
+
+      - name: Ruff lint
+        uses: astral-sh/ruff-action@0ce1b0bf8b818ef400413f810f8a11cdbda0034b # v4.0.0
+        with:
+          args: "check"
+          working-directory: apps/${{ inputs.app }}
+
+      - name: Ruff format check
+        run: uv run ruff format --check agent/
+
+      - name: Type check (mypy strict)
+        run: uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
+
+      - name: Dead code (vulture)
+        run: uv run vulture agent/ vulture_whitelist.py
+
+      - name: Dependency audit (pip-audit)
+        uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
+        with:
+          local: true
+          inputs: apps/${{ inputs.app }}
+
+      - name: Unit tests (coverage >= 80%)
+        run: uv run pytest agent/tests/unit/ -v --cov --cov-report=xml --cov-fail-under=80
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
+        with:
+          files: apps/${{ inputs.app }}/coverage.xml
+          fail_ci_if_error: false

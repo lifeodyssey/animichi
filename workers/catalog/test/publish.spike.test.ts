@@ -29,7 +29,7 @@ const CONTAINER = "catalog-publish-postgis";
 const IMAGE = "postgis/postgis:16-3.4";
 const PG_PORT = 55436;
 const PG_PASSWORD = "publish";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${PG_PORT}/postgres`;
+const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
 
 const INGEST_SCHEMA = "../../supabase/migrations/20260620230000_ingest_infrastructure.sql";
 
@@ -60,7 +60,7 @@ function startContainer(): void {
   if (existing) sh(`docker rm -f ${CONTAINER}`);
   sh(
     `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${PG_PORT}:5432 ${IMAGE}`,
+      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
   );
 }
 
@@ -75,7 +75,7 @@ async function waitForReady(): Promise<void> {
       return;
     } catch (err) {
       lastErr = err;
-      await probe.end().catch(() => {});
+      await probe.end().catch(() => { /* noop */ });
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
@@ -92,7 +92,7 @@ async function currentVersions(workId: string): Promise<number[]> {
     await db.execute(
       sql`SELECT version FROM cluster_version WHERE work_id = ${workId} AND is_current ORDER BY version`,
     )
-  ).rows as Array<{ version: number }>;
+  ).rows as { version: number }[];
   return rows.map((r) => r.version);
 }
 
@@ -101,7 +101,7 @@ async function allVersions(workId: string): Promise<number[]> {
     await db.execute(
       sql`SELECT version FROM cluster_version WHERE work_id = ${workId} ORDER BY version`,
     )
-  ).rows as Array<{ version: number }>;
+  ).rows as { version: number }[];
   return rows.map((r) => r.version);
 }
 
@@ -114,7 +114,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const client = (db as unknown as { $client?: pg.Pool }).$client;
-  if (client) await client.end().catch(() => {});
+  if (client) await client.end().catch(() => { /* noop */ });
   try {
     sh(`docker rm -f ${CONTAINER}`);
   } catch {

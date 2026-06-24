@@ -16,6 +16,7 @@ import type { FoxPose, FoxSurface } from "@/components/generative/FoxGuide";
 // jsdom does not implement window.matchMedia — provide a default stub that
 // reports motion allowed (matches = false for the reduce query).
 function stubMatchMedia(reducedMotion: boolean) {
+  /* eslint-disable @typescript-eslint/no-empty-function -- jsdom matchMedia stub: listener methods must exist but do nothing in tests. */
   window.matchMedia = (query: string) => ({
     matches: reducedMotion && query === "(prefers-reduced-motion: reduce)",
     media: query,
@@ -26,9 +27,10 @@ function stubMatchMedia(reducedMotion: boolean) {
     removeEventListener: () => {},
     dispatchEvent: () => false,
   });
+  /* eslint-enable @typescript-eslint/no-empty-function */
 }
 
-beforeEach(() => stubMatchMedia(false));
+beforeEach(() => { stubMatchMedia(false); });
 
 // ---------------------------------------------------------------------------
 // Happy path — pose-to-asset mapping
