@@ -125,112 +125,51 @@ jobs:
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
 
-  # ── Stage 3: Deploy (tag-triggered, all CI green) ────────────
-  # TODO(Wave 5): migrate to _deploy-component.yml + deploy-needs-gate.
+  # ── Stage 3: Deploy (CI-green gated, single-workflow needs gate) ──
+  # All CI jobs are in `needs:` so CI-green gates CD. cd-staging.yml and
+  # cd-prod.yml are deleted — their function lives here now.
 
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [ci-agent, ci-catalog, ci-frontend, security, db-validate]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: read
-      actions: read
-    environment: production
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+  # push main → staging
+  deploy-staging:
+    name: Deploy staging
+    needs: [ci-agent, ci-catalog, ci-frontend, db-validate, security]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: catalog
+      environment: staging
+      pulumi_stack: staging
+    secrets: inherit
+    concurrency: deploy-staging
 
-      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
-        with:
-          version: latest
+  post-staging:
+    name: Post-deploy (staging)
+    needs: deploy-staging
+    uses: ./.github/workflows/_post-deploy-test.yml
+    with:
+      environment: staging
+      suite: api
+    secrets: inherit
 
-      - name: Apply database migrations
-        run: supabase db push --db-url "$SUPABASE_DB_URL"
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+  # tag v* → production (human approve via environment: production in
+  # _deploy-component.yml)
+  deploy-prod:
+    name: Deploy production
+    needs: [ci-agent, ci-catalog, ci-frontend, db-validate, security]
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: catalog
+      environment: production
+      pulumi_stack: prod
+    secrets: inherit
+    concurrency: deploy-prod
 
-      # Deploy the catalog Worker FIRST: the main worker's [[services]] binding
-      # (service = "catalog") only resolves once the catalog service exists.
-      # The catalog Worker reaches Postgres via its [[hyperdrive]] binding in
-      # prod; until that is provisioned, set DATABASE_URL with
-      # `wrangler secret put DATABASE_URL` (add it to the `secrets:` block below).
-      - uses: ./.github/actions/setup
-
-      - name: Deploy catalog Worker
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.79.0"
-          workingDirectory: workers/catalog
-          command: deploy
-          # Catalog reaches Postgres via env.DATABASE_URL until a [[hyperdrive]]
-          # binding is provisioned (src/index.ts falls back to DATABASE_URL).
-          # Sourced from the existing SUPABASE_DB_URL secret.
-          secrets: |
-            DATABASE_URL
-        env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
-
-      - name: Deploy via Wrangler (edge + container)
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.79.0"
-          command: deploy
-          secrets: |
-            SUPABASE_URL
-            SUPABASE_ANON_KEY
-            SUPABASE_SERVICE_ROLE_KEY
-            SUPABASE_DB_URL
-            GEMINI_API_KEY
-            ZETA_API_KEY
-            OPENAI_COMPAT_BASE_URL
-            OPENAI_COMPAT_API_KEY
-            GOOGLE_MAPS_API_KEY
-            LOGFIRE_TOKEN
-            CORS_ALLOWED_ORIGIN
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          ZETA_API_KEY: ${{ secrets.ZETA_API_KEY }}
-          OPENAI_COMPAT_BASE_URL: ${{ vars.OPENAI_COMPAT_BASE_URL || 'https://api.univibe.cc/openai' }}
-          OPENAI_COMPAT_API_KEY: ${{ secrets.OPENAI_COMPAT_API_KEY }}
-          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
-
-  # ── Stage 4: Post-deploy smoke test (after successful deploy) ──
-
-  smoke-test:
-    name: E2E Smoke Test
-    runs-on: ubuntu-latest
-    needs: deploy
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    continue-on-error: true
-    defaults:
-      run:
-        working-directory: apps/agent
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: ./.github/actions/setup
-        with:
-          python: "true"
-
-      - run: uv python install ${{ env.PYTHON_VERSION }}
-
-      - run: uv sync --all-extras
-
-      - name: Run E2E smoke tests
-        run: >-
-          uv run pytest
-          agent/tests/integration/test_e2e_smoke.py
-          agent/tests/integration/test_frontend_contracts.py
-          -v --no-cov
-        env:
-          SEICHI_API_URL: ${{ secrets.SEICHI_API_URL }}
-          SEICHI_API_KEY: ${{ secrets.SEICHI_API_KEY }}
+  post-prod:
+    name: Post-deploy (production)
+    needs: deploy-prod
+    uses: ./.github/workflows/_post-deploy-test.yml
+    with:
+      environment: production
+      suite: smoke
+    secrets: inherit

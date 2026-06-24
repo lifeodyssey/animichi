@@ -1,0 +1,72 @@
+name: post-deploy-test
+
+# Reusable post-deploy test harness. Runs a named test suite against an
+# already-deployed environment. Suites are parameterized and each is a
+# guarded step that no-ops-with-note when the target surface is not yet
+# reachable, so the structure is real and ready to fill once exposed.
+#
+# Wiring status (2026-06-24):
+#   - catalog Worker has NO public route → api/smoke cannot hit its read
+#     API yet. Those suites emit an honest TODO instead of a fabricated pass.
+#   - e2e (Playwright in e2e/) needs the user-facing surface from the Wave 4
+#     frontend rebuild (edge/web) before it can run.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      suite:
+        required: true
+        type: string  # api | e2e | smoke
+
+permissions:
+  contents: read
+
+jobs:
+  post-deploy-test:
+    name: Post-deploy ${{ inputs.suite }} (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # ── api suite ───────────────────────────────────────────────
+      # TODO: catalog needs workers.dev/temp-expose to hit its read API;
+      # wire when exposed. Until then this no-ops with a note rather than
+      # fabricating a passing test.
+      - name: API suite (TODO — catalog not publicly reachable)
+        if: ${{ inputs.suite == 'api' }}
+        shell: bash
+        run: |
+          echo "::notice title=post-deploy api TODO::catalog needs workers.dev/temp-expose to hit its read API; wire when exposed (${{ inputs.environment }})"
+          echo "SKIP: api suite is not wired yet — catalog Worker has no public route."
+
+      # ── e2e suite ───────────────────────────────────────────────
+      # TODO: Playwright e2e/ exists but needs the user-facing surface from
+      # the Wave 4 frontend rebuild (edge/web); wire when that lands.
+      - name: E2E suite (TODO — awaiting edge/web surface)
+        if: ${{ inputs.suite == 'e2e' }}
+        shell: bash
+        run: |
+          echo "::notice title=post-deploy e2e TODO::Playwright e2e/ needs the user-facing surface from the Wave 4 frontend rebuild (edge/web); wire when that lands (${{ inputs.environment }})"
+          echo "SKIP: e2e suite is not wired yet — no deployed user-facing surface."
+
+      # ── smoke suite ─────────────────────────────────────────────
+      # TODO: catalog needs workers.dev/temp-expose to hit its read API;
+      # wire when exposed. Same constraint as the api suite.
+      - name: Smoke suite (TODO — catalog not publicly reachable)
+        if: ${{ inputs.suite == 'smoke' }}
+        shell: bash
+        run: |
+          echo "::notice title=post-deploy smoke TODO::catalog needs workers.dev/temp-expose to hit its read API; wire when exposed (${{ inputs.environment }})"
+          echo "SKIP: smoke suite is not wired yet — catalog Worker has no public route."
+
+      # ── guard against unknown suite values ──────────────────────
+      - name: Unknown suite guard
+        if: ${{ inputs.suite != 'api' && inputs.suite != 'e2e' && inputs.suite != 'smoke' }}
+        shell: bash
+        run: |
+          echo "::error title=post-deploy unknown suite::'${{ inputs.suite }}' is not one of api|e2e|smoke"
+          exit 1
