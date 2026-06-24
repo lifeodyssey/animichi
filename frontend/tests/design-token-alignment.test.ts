@@ -18,7 +18,7 @@ const require = createRequire(import.meta.url);
 
 const ROOT = resolve(__dirname, "..");
 const GLOBALS_CSS = resolve(ROOT, "app/globals.css");
-const PACKAGE_CORE_CSS = require.resolve("animal-island-ui/dist/core.css");
+const PACKAGE_CORE_CSS = require.resolve("animal-island-ui/style/core");
 
 function extractTokenValue(css: string, tokenName: string): string {
   // Match --token-name: value; inside :root or bare declarations

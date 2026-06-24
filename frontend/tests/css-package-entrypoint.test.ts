@@ -17,8 +17,8 @@ const ROOT = resolve(__dirname, "..");
 const GLOBALS_CSS = resolve(ROOT, "app/globals.css");
 // core.css = all --animal-* tokens without decorative asset url() references
 // index.css = core.css + fonts.css (woff2 font-face; handled by next/font in layout.tsx)
-const PACKAGE_CORE_CSS = require.resolve("animal-island-ui/dist/core.css");
-const PACKAGE_INDEX_CSS = require.resolve("animal-island-ui/dist/index.css");
+const PACKAGE_CORE_CSS = require.resolve("animal-island-ui/style/core");
+const PACKAGE_INDEX_CSS = require.resolve("animal-island-ui/style");
 const VENDORED_CSS = resolve(ROOT, "app/animal-island-ui.css");
 
 const globalsContent = readFileSync(GLOBALS_CSS, "utf8");
