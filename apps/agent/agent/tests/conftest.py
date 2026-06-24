@@ -16,6 +16,7 @@ if test_env.exists():
 # Ensure API keys are set before any module-level imports trigger model init
 os.environ.setdefault("DEEPSEEK_API_KEY", "test-key")
 os.environ.setdefault("MIMO_API_KEY", "test-key")
+os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
 
 
 @pytest.fixture(scope="session")
