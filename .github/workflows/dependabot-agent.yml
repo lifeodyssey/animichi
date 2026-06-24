@@ -14,7 +14,7 @@ jobs:
   # ── Stage 1: Quick verify (no AI cost) ────────────────────
   verify:
     name: Verify Upgrade
-    if: github.triggering_actor == 'dependabot[bot]'
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: read

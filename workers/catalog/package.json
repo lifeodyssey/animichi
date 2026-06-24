@@ -19,7 +19,7 @@
     "hono": "^4.9.10"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.18",
+    "@cloudflare/vitest-pool-workers": "^0.16.19",
     "@cloudflare/workers-types": "^4.20251001.0",
     "@eslint/js": "^10.0.1",
     "@types/pg": "^8.15.6",
