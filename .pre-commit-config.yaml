@@ -1,3 +1,6 @@
+# Fast local gate (<5s): ruff · oxlint · gitleaks run on every commit.
+# Heavy checks (mypy, full test suites + coverage) run on pre-push, since CI
+# is the authoritative gate for those — keeps commits fast per best practice.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -16,15 +19,23 @@ repos:
       - id: ruff-format
         args: [apps/agent/agent/]
 
+  # Secret scan — sub-second, official gitleaks pre-commit hook (SHA/tag-pinned).
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
   - repo: local
     hooks:
-      - id: mypy
-        name: mypy
-        entry: bash -c 'cd apps/agent && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/'
+      # Fast TS lint (oxlint). No official oxc-project/oxc pre-commit hook exists,
+      # so run via npx over the real TS sources (workers/catalog + frontend).
+      - id: oxlint
+        name: oxlint (fast TS lint)
+        entry: bash -c 'npx --yes oxlint@latest workers/catalog frontend'
         language: system
-        types: [python]
+        files: ^(workers/catalog|frontend)/
+        types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
-        always_run: true
 
       - id: frontend-typecheck
         name: frontend typecheck
@@ -42,6 +53,16 @@ repos:
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
 
+      # --- pre-push stage: heavy checks. Commits stay fast; CI is authoritative. ---
+      - id: mypy
+        name: mypy
+        entry: bash -c 'cd apps/agent && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/'
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: frontend-test-coverage
         name: frontend tests + coverage (lines>=60%)
         entry: bash -c 'cd frontend && npx vitest run --coverage'
@@ -49,6 +70,7 @@ repos:
         files: ^frontend/
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
+        stages: [pre-push]
 
       - id: backend-test-coverage
         name: backend tests + coverage (lines>=80%)
@@ -56,3 +78,4 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+        stages: [pre-push]
