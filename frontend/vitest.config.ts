@@ -1,6 +1,8 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 
 /** Stub binary asset imports (png/svg/webp/woff2) that animal-island-ui references */
 function assetStubPlugin() {
@@ -53,10 +55,10 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./"),
       "next/image": path.resolve(__dirname, "./tests/__mocks__/next/image.tsx"),
-      "react": path.resolve(__dirname, "./node_modules/react"),
-      "react-dom": path.resolve(__dirname, "./node_modules/react-dom"),
-      "react/jsx-runtime": path.resolve(__dirname, "./node_modules/react/jsx-runtime"),
-      "react/jsx-dev-runtime": path.resolve(__dirname, "./node_modules/react/jsx-dev-runtime"),
+      "react": require.resolve("react"),
+      "react-dom": require.resolve("react-dom"),
+      "react/jsx-runtime": require.resolve("react/jsx-runtime"),
+      "react/jsx-dev-runtime": require.resolve("react/jsx-dev-runtime"),
     },
   },
 });

@@ -5,11 +5,6 @@ on:
   pull_request:
     types: [opened, synchronize]
 
-permissions:
-  contents: write
-  pull-requests: write
-  id-token: write
-
 env:
   PYTHON_VERSION: "3.11"
   NODE_VERSION: "24"
@@ -19,8 +14,10 @@ jobs:
   # ── Stage 1: Quick verify (no AI cost) ────────────────────
   verify:
     name: Verify Upgrade
-    if: github.actor == 'dependabot[bot]'
+    if: github.triggering_actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       backend_ok: ${{ steps.backend.outcome }}
       frontend_ok: ${{ steps.frontend.outcome }}
@@ -28,6 +25,7 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.0
         with:
           ref: ${{ github.head_ref }}
+          persist-credentials: false
 
       # ── Python setup ──
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
@@ -80,14 +78,13 @@ jobs:
     needs: verify
     if: needs.verify.outputs.backend_ok == 'success' && needs.verify.outputs.frontend_ok == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       - name: Comment and auto-merge
         run: |
           gh pr comment "$PR_URL" --body "All checks passed — auto-approved by Dependabot Agent."
           gh pr merge "$PR_URL" --squash --auto
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ── Stage 3: Claude Code fixes if verify failed ──────────
   agent-fix:
@@ -95,11 +92,15 @@ jobs:
     needs: verify
     if: needs.verify.outputs.backend_ok == 'failure' || needs.verify.outputs.frontend_ok == 'failure'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.0
         with:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
       - uses: anthropics/claude-code-action@c54c7d65263ea2a3c2720ea413ab32d56a5d324d # v1
         with:
@@ -155,8 +156,12 @@ jobs:
 
       - name: Report result
         if: always()
+        env:
+          FINAL_CHECK_OUTCOME: ${{ steps.final-check.outcome }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ steps.final-check.outcome }}" == "success" ]; then
+          if [ "$FINAL_CHECK_OUTCOME" == "success" ]; then
             gh pr comment "$PR_URL" --body "$(cat <<'BODY'
           ## ✅ Dependabot Agent — Fixed
 
@@ -175,6 +180,3 @@ jobs:
           )"
             gh pr edit "$PR_URL" --add-label "needs-manual-fix"
           fi
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
