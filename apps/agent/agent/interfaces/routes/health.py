@@ -18,10 +18,19 @@ router = APIRouter(tags=["health"])
 
 # Capture git info at module load time (once, at startup)
 _STARTED_AT = datetime.now(UTC).isoformat()
-_GIT_COMMIT = (
-    subprocess.getoutput("git rev-parse --short HEAD 2>/dev/null") or "unknown"  # noqa: S605,S607 — read-only git metadata at startup
-)
-_GIT_BRANCH = subprocess.getoutput("git branch --show-current 2>/dev/null") or "unknown"  # noqa: S605,S607 — read-only git metadata at startup
+
+
+def _git_short(args: list[str]) -> str:
+    """Run a git command and return stdout stripped, or 'unknown' on failure."""
+    try:
+        result = subprocess.run(args, capture_output=True, text=True, check=False)
+        return result.stdout.strip() or "unknown"
+    except OSError:
+        return "unknown"
+
+
+_GIT_COMMIT = _git_short(["git", "rev-parse", "--short", "HEAD"])
+_GIT_BRANCH = _git_short(["git", "branch", "--show-current"])
 
 
 @router.get("/")

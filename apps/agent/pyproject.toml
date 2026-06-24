@@ -104,6 +104,8 @@ max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
 "agent/tests/**" = ["S101", "S105", "S106", "S108", "S311", "S314", "S607"]
+"agent/config/settings.py" = ["S104"]  # container service must bind 0.0.0.0
+"agent/interfaces/routes/health.py" = ["S603"]  # args is always a hardcoded list, not user input
 
 [tool.coverage.run]
 source = ["agent"]
