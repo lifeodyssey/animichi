@@ -153,6 +153,18 @@ def _extract_clarify_state(
     return candidates, pending
 
 
+def _merge_clarify_state(
+    delta: dict[str, object],
+    resolve_candidates: list[dict[str, object]] | None,
+    pending_clarify: bool,
+) -> tuple[list[dict[str, object]] | None, bool]:
+    """Merge clarify state from a delta into accumulated clarify state."""
+    candidates, pending = _extract_clarify_state(delta)
+    if candidates is not None and resolve_candidates is None:
+        resolve_candidates = candidates
+    return resolve_candidates, pending_clarify or pending
+
+
 def _extract_from_interactions(
     interactions: list[object],
 ) -> _InteractionContext:
@@ -188,8 +200,9 @@ def _extract_from_interactions(
             if isinstance(raw_search, dict):
                 last_search_data = raw_search
 
-        if resolve_candidates is None:
-            resolve_candidates, pending_clarify = _extract_clarify_state(delta)
+        resolve_candidates, pending_clarify = _merge_clarify_state(
+            delta, resolve_candidates, pending_clarify
+        )
 
         if current_bangumi_id and last_location:
             break

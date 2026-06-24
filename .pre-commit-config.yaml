@@ -31,7 +31,7 @@ repos:
       # so run via npx over the real TS sources (workers/catalog + frontend).
       - id: oxlint
         name: oxlint (fast TS lint)
-        entry: bash -c 'npx --yes oxlint@latest workers/catalog frontend'
+        entry: bash -c 'npx --yes oxlint@0.16.11 workers/catalog frontend'
         language: system
         files: ^(workers/catalog|frontend)/
         types_or: [javascript, jsx, ts, tsx]
