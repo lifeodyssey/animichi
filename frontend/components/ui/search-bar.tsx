@@ -48,8 +48,10 @@ export function SearchBar({
         ref={inputRef}
         type="text"
         value={value}
-        onChange={(e) => onValueChange(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && onSubmit()}
+        onChange={(e) => { onValueChange(e.target.value); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSubmit();
+        }}
         placeholder={placeholder}
         aria-label={placeholder}
         aria-keyshortcuts="/"

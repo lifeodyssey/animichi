@@ -10,7 +10,7 @@ function assetStubPlugin() {
       if (/\.(png|jpe?g|webp|gif|woff2?|eot|ttf|otf)$/.test(id)) {
         return { code: "export default '';" };
       }
-      if (/\.svg$/.test(id) && !id.includes("?")) {
+      if (id.endsWith(".svg") && !id.includes("?")) {
         return { code: "export default '';" };
       }
       return undefined;

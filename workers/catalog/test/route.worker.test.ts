@@ -150,17 +150,21 @@ describe("buildTimedItinerary — leg duration scales with pacing buffer (Python
 
   it("chill buffer", () => {
     const r = buildTimedItinerary(far(), { pacing: "chill" });
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
     expect(r.legs[0]!.duration_minutes).toBe(17);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
     expect(r.legs[0]!.distance_m).toBe(1111.9);
     expect(r.total_minutes).toBe(41);
   });
   it("normal buffer", () => {
     const r = buildTimedItinerary(far(), { pacing: "normal" });
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
     expect(r.legs[0]!.duration_minutes).toBe(14);
     expect(r.total_minutes).toBe(30);
   });
   it("packed buffer", () => {
     const r = buildTimedItinerary(far(), { pacing: "packed" });
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
     expect(r.legs[0]!.duration_minutes).toBe(11);
     expect(r.total_minutes).toBe(21);
   });
@@ -188,13 +192,14 @@ describe("buildTimedItinerary — edge cases (Python parity)", () => {
     const r = buildTimedItinerary([mk("a", 35.0, 2, "Solo")], { pacing: "normal" });
     expect(r.legs).toEqual([]);
     expect(r.total_minutes).toBe(8);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
     expect(r.stops[0]!.depart).toBe("09:08");
     expect(r.total_distance_m).toBe(0);
   });
 
   it("throws when given more than 50 clusters", () => {
     const many = Array.from({ length: 51 }, (_, i) =>
-      mk(`p${String(i).padStart(3, "0")}`, 35 + i * 0.001, 1, `P${i}`),
+      mk(`p${String(i).padStart(3, "0")}`, 35 + i * 0.001, 1, `P${String(i)}`),
     );
     expect(() => buildTimedItinerary(many)).toThrow(/max 50/);
   });

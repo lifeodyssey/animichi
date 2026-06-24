@@ -29,5 +29,11 @@ class RuntimeDeps:
     on_step: OnStep | None = None
 
     # Mutable per-run state accumulated during the agent run.
+    # ponytail: mixes two concerns — fixed session fields (origin_lat/lng, locale,
+    # last_location, resolve_candidates, pending_clarify) that should be typed
+    # dataclass fields, plus ToolName-keyed tool results (genuinely dynamic, legit).
+    # Reads are all literal-key. Cleanup (split into typed session state + a
+    # dict[ToolName, ...] results map, ~8 files) deferred to the Wave 3 agent→Worker
+    # runtime rewrite — see memory project_tool_state_followup.
     tool_state: dict[str, object] = field(default_factory=dict)
     steps: list[StepRecord] = field(default_factory=list)

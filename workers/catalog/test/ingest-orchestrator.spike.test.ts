@@ -27,7 +27,7 @@ const CONTAINER = "catalog-orchestrator-postgis";
 const IMAGE = "postgis/postgis:16-3.4";
 const PG_PORT = 55438;
 const PG_PASSWORD = "orchestrator";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${PG_PORT}/postgres`;
+const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
 
 const REMOTE_SCHEMA = "../../supabase/migrations/20260402120000_remote_schema.sql";
 const INGEST_SCHEMA = "../../supabase/migrations/20260620230000_ingest_infrastructure.sql";
@@ -71,14 +71,14 @@ const ANITABI_POINTS = [
 
 /** Build a mock fetchImpl that routes by URL substring to the canned payloads. */
 function makeFetch(points: unknown): FetchLike {
-  return async (url) => {
+  return (url) => {
     const body = url.includes("/points/detail") ? points : BANGUMI_SUBJECT;
-    return { ok: true, status: 200, json: async () => body };
+    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
   };
 }
 
 /** A fetchImpl that throws — simulates an upstream/network failure. */
-const throwingFetch: FetchLike = async () => {
+const throwingFetch: FetchLike = () => {
   throw new Error("upstream exploded");
 };
 
@@ -91,7 +91,7 @@ function makeGatedFetch(gate: Promise<void>): FetchLike {
   return async (url) => {
     await gate;
     const body = url.includes("/points/detail") ? ANITABI_POINTS : BANGUMI_SUBJECT;
-    return { ok: true, status: 200, json: async () => body };
+    return { ok: true, status: 200, json: () => Promise.resolve(body) };
   };
 }
 
@@ -114,7 +114,7 @@ function startContainer(): void {
   if (existing) sh(`docker rm -f ${CONTAINER}`);
   sh(
     `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${PG_PORT}:5432 ${IMAGE}`,
+      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
   );
 }
 
@@ -129,7 +129,7 @@ async function waitForReady(): Promise<void> {
       return;
     } catch (err) {
       lastErr = err;
-      await probe.end().catch(() => {});
+      await probe.end().catch(() => { /* noop */ });
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
@@ -160,14 +160,14 @@ async function applyMigrations(): Promise<void> {
 async function pointCount(workId: string): Promise<number> {
   const rows = (
     await db.execute(sql`SELECT COUNT(*)::int AS n FROM points WHERE bangumi_id = ${workId}`)
-  ).rows as Array<{ n: number }>;
+  ).rows as { n: number }[];
   return rows[0]?.n ?? 0;
 }
 
 async function bangumiExists(workId: string): Promise<boolean> {
   const rows = (
     await db.execute(sql`SELECT 1 FROM bangumi WHERE id = ${workId}`)
-  ).rows as Array<{ "?column?": number }>;
+  ).rows as { "?column?": number }[];
   return rows.length > 0;
 }
 
@@ -176,14 +176,14 @@ async function currentVersion(workId: string): Promise<number | undefined> {
     await db.execute(
       sql`SELECT version FROM cluster_version WHERE work_id = ${workId} AND is_current`,
     )
-  ).rows as Array<{ version: number }>;
+  ).rows as { version: number }[];
   return rows[0]?.version;
 }
 
 async function jobStatus(workId: string): Promise<string | undefined> {
   const rows = (
     await db.execute(sql`SELECT status FROM ingest_jobs WHERE work_id = ${workId}`)
-  ).rows as Array<{ status: string }>;
+  ).rows as { status: string }[];
   return rows[0]?.status;
 }
 
@@ -211,7 +211,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const client = (db as unknown as { $client?: pg.Pool }).$client;
-  if (client) await client.end().catch(() => {});
+  if (client) await client.end().catch(() => { /* noop */ });
   try {
     sh(`docker rm -f ${CONTAINER}`);
   } catch {
@@ -232,7 +232,7 @@ describe("ingestWork end-to-end: acquire -> fetch -> raw -> enrich -> publish", 
 
 describe("ingestWork singleflight: concurrent double ingest", () => {
   it("yields exactly one 'ingested' and one 'in_progress'", async () => {
-    let release: () => void = () => {};
+    let release: () => void = () => { /* placeholder replaced by Promise constructor */ };
     const gate = new Promise<void>((r) => (release = r));
     // Winner parks in fetch (job 'running'); loser's acquire then loses the race.
     const winner = ingestWork(db, "race-work", { fetchImpl: makeGatedFetch(gate) });

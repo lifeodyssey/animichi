@@ -24,7 +24,7 @@ const CONTAINER = "catalog-geoquery-postgis";
 const IMAGE = "postgis/postgis:16-3.4";
 const PG_PORT = 55434;
 const PG_PASSWORD = "geoquery";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${PG_PORT}/postgres`;
+const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
 
 const REMOTE_SCHEMA = "../../supabase/migrations/20260402120000_remote_schema.sql";
 
@@ -60,7 +60,7 @@ function startContainer(): void {
   if (existing) sh(`docker rm -f ${CONTAINER}`);
   sh(
     `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${PG_PORT}:5432 ${IMAGE}`,
+      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
   );
 }
 
@@ -75,7 +75,7 @@ async function waitForReady(): Promise<void> {
       return;
     } catch (err) {
       lastErr = err;
-      await probe.end().catch(() => {});
+      await probe.end().catch(() => { /* noop */ });
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
@@ -113,7 +113,7 @@ beforeAll(async () => {
   await seedPoints();
 }, 120_000);
 
-afterAll(async () => {
+afterAll(() => {
   try {
     sh(`docker rm -f ${CONTAINER}`);
   } catch {

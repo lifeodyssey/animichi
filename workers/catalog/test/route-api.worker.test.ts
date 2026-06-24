@@ -57,35 +57,40 @@ const ROWS: FakeRow[] = [row("a", 35.0, "a.jpg"), row("b", 35.001), row("c", 35.
 /** A typed fake `RouteDb` that returns only the fixture rows whose id is in IN. */
 function fakeDb(rows: FakeRow[]): RouteDb {
   return {
-    execute: async (query) => {
+    execute: (query) => {
       const text = JSON.stringify(query);
       const matched = rows.filter((r) => text.includes(`"${r.id}"`));
-      return { rows: matched };
+      return Promise.resolve({ rows: matched });
     },
   };
 }
 
 const ids = (ps: PilgrimagePoint[]): string[] => ps.map((p) => p.id);
 
+async function assertTimedRoute(): Promise<void> {
+  const r = await route(fakeDb(ROWS), { point_ids: ["a", "b", "c"], pacing: "normal" });
+  expect(r.point_count).toBe(3);
+  expect(r.timed_itinerary.stops.map((s) => s.cluster_id)).toEqual(["a", "b", "c"]);
+  expect(r.timed_itinerary.legs.map((l) => [l.from_id, l.to_id])).toEqual([["a", "b"], ["b", "c"]]);
+  expect(r.timed_itinerary.total_minutes).toBe(26);
+  expect(r.timed_itinerary.total_distance_m).toBe(222.4);
+}
+
+async function assertPointFields(): Promise<void> {
+  const r = await route(fakeDb(ROWS), { point_ids: ["a"] });
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
+  const a = r.ordered_points[0]!;
+  expect(a.screenshot_url).toBe("a.jpg");
+  expect(a.bangumi_id).toBe("k");
+  expect(a.latitude).toBe(35.0);
+  expect(r.timed_itinerary.legs).toEqual([]);
+}
+
 describe("route API handler — fetch -> cluster -> itinerary -> Route", () => {
-  it("plans a timed route with a stop+leg itinerary for the selected ids", async () => {
-    const r = await route(fakeDb(ROWS), { point_ids: ["a", "b", "c"], pacing: "normal" });
-    expect(r.point_count).toBe(3);
-    expect(r.timed_itinerary.stops.map((s) => s.cluster_id)).toEqual(["a", "b", "c"]);
-    expect(r.timed_itinerary.legs.map((l) => [l.from_id, l.to_id])).toEqual([
-      ["a", "b"],
-      ["b", "c"],
-    ]);
-    // 3 single-point clusters: dwell 8 each (24) + 2 walk legs (1+1) = 26.
-    expect(r.timed_itinerary.total_minutes).toBe(26);
-    expect(r.timed_itinerary.total_distance_m).toBe(222.4);
-  });
+  it("plans a timed route with a stop+leg itinerary for the selected ids", assertTimedRoute);
 
   it("returns ordered_points in itinerary order (NN from origin near c -> c,b,a)", async () => {
-    const r = await route(fakeDb(ROWS), {
-      point_ids: ["a", "b", "c"],
-      origin: { lat: 35.0025, lng: 135.0 },
-    });
+    const r = await route(fakeDb(ROWS), { point_ids: ["a", "b", "c"], origin: { lat: 35.0025, lng: 135.0 } });
     expect(ids(r.ordered_points)).toEqual(["c", "b", "a"]);
     expect(r.timed_itinerary.stops.map((s) => s.cluster_id)).toEqual(["c", "b", "a"]);
   });
@@ -103,14 +108,7 @@ describe("route API handler — fetch -> cluster -> itinerary -> Route", () => {
     expect(r.cover_url).toBe("cover.jpg");
   });
 
-  it("maps point fields: screenshot_url from image, coordinates as numbers", async () => {
-    const r = await route(fakeDb(ROWS), { point_ids: ["a"] });
-    const a = r.ordered_points[0]!;
-    expect(a.screenshot_url).toBe("a.jpg");
-    expect(a.bangumi_id).toBe("k");
-    expect(a.latitude).toBe(35.0);
-    expect(r.timed_itinerary.legs).toEqual([]);
-  });
+  it("maps point fields: screenshot_url from image, coordinates as numbers", assertPointFields);
 
   it("unknown ids -> point_count 0 with an empty itinerary", async () => {
     const r = await route(fakeDb(ROWS), { point_ids: ["nope", "missing"] });

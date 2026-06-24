@@ -166,7 +166,7 @@ function identity(r: WorkPointRow): Pick<PilgrimagePoint, "id" | "name" | "bangu
 
 /** Required geo fields. */
 function geo(r: WorkPointRow): Pick<PilgrimagePoint, "latitude" | "longitude"> {
-  return { latitude: Number(r.latitude), longitude: Number(r.longitude) };
+  return { latitude: r.latitude, longitude: r.longitude };
 }
 
 /** Optional metadata fields, omitted when null. */
@@ -237,15 +237,15 @@ async function runFullIngest(
 
 /** Map one Anitabi `/lite` point (official geo[] schema) to a `PilgrimagePoint`. */
 function litePoint(p: AnitabiPoint, bangumiId: string): PilgrimagePoint {
-  const [lat, lng] = liteGeo(p["geo"]);
+  const [lat, lng] = liteGeo(p.geo);
   return {
-    id: liteStr(p["id"]),
-    name: liteStr(p["name"]),
+    id: liteStr(p.id),
+    name: liteStr(p.name),
     bangumi_id: bangumiId,
-    screenshot_url: liteImage(p["image"]),
+    screenshot_url: liteImage(p.image),
     latitude: lat,
     longitude: lng,
-    ...optional({ episode: liteInt(p["ep"]), time_seconds: liteInt(p["s"]) }),
+    ...optional({ episode: liteInt(p.ep), time_seconds: liteInt(p.s) }),
   };
 }
 
@@ -278,7 +278,7 @@ async function firstWorkId(db: CatalogDb, normalized: string): Promise<string | 
   const result = await db.execute(
     sql`SELECT work_id FROM aliases WHERE alias_normalized = ${normalized} ORDER BY priority DESC LIMIT 1`,
   );
-  return (result.rows as Array<{ work_id: string }>)[0]?.work_id;
+  return (result.rows as { work_id: string }[])[0]?.work_id;
 }
 
 /** Select the work's points joined to its bangumi title metadata. */

@@ -67,9 +67,9 @@ function fakeDb(aliasIndex: AliasIndex, miss: MissStubs = {}): Recorder {
   const resolved: string[] = [];
   const ingested: string[] = [];
   const db: SearchDb = {
-    workIdForAlias: async (alias) => recordLookup(lookups, aliasIndex, alias),
-    pointsForWork: async (workId) =>
-      Object.values(aliasIndex).find((e) => e.workId === workId)?.rows ?? [],
+    workIdForAlias: (alias) => Promise.resolve(recordLookup(lookups, aliasIndex, alias)),
+    pointsForWork: (workId) =>
+      Promise.resolve(Object.values(aliasIndex).find((e) => e.workId === workId)?.rows ?? []),
     resolvePreview: async (query) => {
       resolved.push(query);
       return miss.resolvePreview ? miss.resolvePreview(query) : null;
@@ -105,27 +105,34 @@ const PREVIEW_POINT: PilgrimagePoint = {
   episode: 1,
 };
 
-describe("search (alias hit)", () => {
-  it("maps a known alias to PilgrimagePoint rows in contract shape", async () => {
-    const { db } = fakeDb({ "lucky star": { workId: "1", rows: [ROW] } });
-    const result = await search(db, { query: "Lucky Star" });
-    expect(result.rows).toHaveLength(1);
-    expect(result.partial).toBeUndefined();
-    expect(result.rows[0]).toEqual({
-      id: "spot-1",
-      name: "鷲宮神社",
-      name_cn: "鹫宫神社",
-      bangumi_id: "1",
-      episode: 3,
-      time_seconds: 120,
-      screenshot_url: "https://image.anitabi.cn/p1.jpg",
-      latitude: 36.1019,
-      longitude: 139.6586,
-      title: "らき☆すた",
-      title_cn: "幸运星",
-      cover_url: "https://image.anitabi.cn/cover1.jpg",
-    });
+async function assertContractShape(): Promise<void> {
+  const { db } = fakeDb({ "lucky star": { workId: "1", rows: [ROW] } });
+  const result = await search(db, { query: "Lucky Star" });
+  expect(result.rows).toHaveLength(1);
+  expect(result.partial).toBeUndefined();
+  expect(result.rows[0]).toEqual({
+    id: "spot-1", name: "鷲宮神社", name_cn: "鹫宫神社", bangumi_id: "1",
+    episode: 3, time_seconds: 120, screenshot_url: "https://image.anitabi.cn/p1.jpg",
+    latitude: 36.1019, longitude: 139.6586, title: "らき☆すた", title_cn: "幸运星",
+    cover_url: "https://image.anitabi.cn/cover1.jpg",
   });
+}
+
+async function assertNullFieldsOmitted(): Promise<void> {
+  const bare: WorkPointRow = {
+    ...ROW, name_cn: null, episode: null, time_seconds: null,
+    image: null, title: null, title_cn: null, cover_url: null, synced_at: null,
+  };
+  const { db } = fakeDb({ "lucky star": { workId: "1", rows: [bare] } });
+  const result = await search(db, { query: "lucky star" });
+  expect(result.rows[0]).toEqual({
+    id: "spot-1", name: "鷲宮神社", bangumi_id: "1",
+    screenshot_url: "", latitude: 36.1019, longitude: 139.6586,
+  });
+}
+
+describe("search (alias hit)", () => {
+  it("maps a known alias to PilgrimagePoint rows in contract shape", assertContractShape);
 
   it("returns synced_at from the work's bangumi.updated_at", async () => {
     const { db } = fakeDb({ "lucky star": { workId: "1", rows: [ROW] } });
@@ -147,36 +154,14 @@ describe("search (alias hit)", () => {
     expect(lookups).toEqual(["fate"]);
   });
 
-  it("omits optional fields that are null in the DB row", async () => {
-    const bare: WorkPointRow = {
-      ...ROW,
-      name_cn: null,
-      episode: null,
-      time_seconds: null,
-      image: null,
-      title: null,
-      title_cn: null,
-      cover_url: null,
-      synced_at: null,
-    };
-    const { db } = fakeDb({ "lucky star": { workId: "1", rows: [bare] } });
-    const result = await search(db, { query: "lucky star" });
-    expect(result.rows[0]).toEqual({
-      id: "spot-1",
-      name: "鷲宮神社",
-      bangumi_id: "1",
-      screenshot_url: "",
-      latitude: 36.1019,
-      longitude: 139.6586,
-    });
-  });
+  it("omits optional fields that are null in the DB row", assertNullFieldsOmitted);
 });
 
 describe("search (alias miss — L1 preview + background ingest)", () => {
   it("returns the L1 lite preview FAST and schedules the full ingest on waitUntil", async () => {
     const { db, resolved, ingested } = fakeDb(
       {},
-      { resolvePreview: async () => ({ workId: "10380", points: [PREVIEW_POINT] }) },
+      { resolvePreview: () => Promise.resolve({ workId: "10380", points: [PREVIEW_POINT] }) },
     );
     const { waitUntil, scheduled } = waitUntilSpy();
 
@@ -192,7 +177,7 @@ describe("search (alias miss — L1 preview + background ingest)", () => {
   it("the scheduled promise runs the full ingest when awaited", async () => {
     const { db, ingested } = fakeDb(
       {},
-      { resolvePreview: async () => ({ workId: "10380", points: [PREVIEW_POINT] }) },
+      { resolvePreview: () => Promise.resolve({ workId: "10380", points: [PREVIEW_POINT] }) },
     );
     const { waitUntil, scheduled } = waitUntilSpy();
 
@@ -203,7 +188,7 @@ describe("search (alias miss — L1 preview + background ingest)", () => {
   });
 
   it("returns empty rows when the title cannot be resolved to a preview", async () => {
-    const { db, resolved, ingested } = fakeDb({}, { resolvePreview: async () => null });
+    const { db, resolved, ingested } = fakeDb({}, { resolvePreview: () => Promise.resolve(null) });
     const { waitUntil, scheduled } = waitUntilSpy();
 
     const result = await search(db, { query: "unknown anime" }, { waitUntil });
@@ -221,9 +206,10 @@ describe("search (alias miss — synchronous fallback when no waitUntil)", () =>
   it("runs the full ingest synchronously, then returns the published points", async () => {
     const index: AliasIndex = {};
     const { db, ingested } = fakeDb(index, {
-      resolvePreview: async () => ({ workId: "10380", points: [PREVIEW_POINT] }),
-      runFullIngest: async (workId) => {
-        index["__"] = { workId, rows: [{ ...ROW, id: "fresh", bangumi_id: workId }] };
+      resolvePreview: () => Promise.resolve({ workId: "10380", points: [PREVIEW_POINT] }),
+      runFullIngest: (workId) => {
+        index.__ = { workId, rows: [{ ...ROW, id: "fresh", bangumi_id: workId }] };
+        return Promise.resolve();
       },
     });
 
@@ -237,7 +223,7 @@ describe("search (alias miss — synchronous fallback when no waitUntil)", () =>
   it("falls back to the preview when the synchronous ingest published nothing", async () => {
     const { db } = fakeDb(
       {},
-      { resolvePreview: async () => ({ workId: "10380", points: [PREVIEW_POINT] }) },
+      { resolvePreview: () => Promise.resolve({ workId: "10380", points: [PREVIEW_POINT] }) },
     );
 
     const result = await search(db, { query: "けいおん！" });

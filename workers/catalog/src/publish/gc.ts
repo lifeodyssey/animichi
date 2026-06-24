@@ -35,6 +35,6 @@ export async function gcOldVersions(
         )
       RETURNING id
     `)
-  ).rows as Array<{ id: number }>;
+  ).rows as { id: number }[];
   return rows.length;
 }

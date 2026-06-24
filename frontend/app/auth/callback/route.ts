@@ -1,4 +1,3 @@
-import type { EmailOtpType } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { createRouteHandlerClient } from "../../../lib/supabase/server";
 import { safeRedirect } from "../../../lib/safe-redirect";
@@ -19,7 +18,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const token_hash = searchParams.get("token_hash");
-  const type = searchParams.get("type") as EmailOtpType | null;
+  const type = searchParams.get("type");
   const redirect = safeRedirect(searchParams.get("redirect") ?? searchParams.get("next"));
 
   const redirectUrl = new URL(redirect, request.url);
