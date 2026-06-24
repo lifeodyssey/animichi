@@ -1,0 +1,56 @@
+name: _web-ci
+
+# Reusable frontend (Next.js) CI: tsc + oxlint + eslint (strict) + vitest + next build.
+# Called by ci.yml orchestrator.
+
+on:
+  workflow_call: {}
+
+permissions:
+  contents: read
+
+jobs:
+  web-ci:
+    name: Web CI (frontend)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: ./.github/actions/setup
+
+      - name: Type check (tsc)
+        run: pnpm exec tsc --noEmit
+
+      - name: Oxlint (fast pre-pass)
+        uses: oxc-project/oxlint-action@b78c21302e4bc637e83927135c35a6684de1053e # v3.1.0
+        with:
+          working-directory: frontend
+
+      - name: ESLint (strict, zero warnings)
+        run: pnpm exec eslint . --max-warnings=0
+
+      # TODO(type-coverage): type-coverage is not yet configured for the frontend.
+      # Add `type-coverage --at-least 99 --strict` once a dep is wired.
+      # No-op for now so the gate is visible but does not fail the build.
+      - name: Type coverage (TODO — not configured)
+        run: echo "type-coverage not configured yet; skipping (TODO)"
+
+      - name: Unit tests (vitest, coverage gate)
+        run: pnpm exec vitest run --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
+        with:
+          files: frontend/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false
+
+      - name: Build (next build)
+        run: pnpm exec next build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}

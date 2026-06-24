@@ -1,0 +1,51 @@
+name: _ts-ci
+
+# Reusable TypeScript Worker CI: tsc + oxlint + eslint (strict) + vitest.
+# Called by ci.yml orchestrator. component = worker dir under workers/.
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        description: "Worker directory under workers/ to run CI against"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  ts-ci:
+    name: TS CI (${{ inputs.component }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: ./.github/actions/setup
+
+      - name: Install contract deps
+        run: npm install
+        working-directory: packages/contract
+
+      - name: Type check (tsc)
+        run: pnpm exec tsc --noEmit
+        working-directory: workers/${{ inputs.component }}
+
+      - name: Oxlint (fast pre-pass)
+        uses: oxc-project/oxlint-action@b78c21302e4bc637e83927135c35a6684de1053e # v3.1.0
+        with:
+          working-directory: workers/${{ inputs.component }}
+
+      - name: ESLint (strict, zero warnings)
+        run: pnpm exec eslint . --max-warnings=0
+        working-directory: workers/${{ inputs.component }}
+
+      # TODO(type-coverage): type-coverage is not yet configured for this component.
+      # Add `type-coverage --at-least 99 --strict` once a tsconfig + dep are wired.
+      # No-op for now so the gate is visible but does not fail the build.
+      - name: Type coverage (TODO — not configured)
+        run: echo "type-coverage not configured yet; skipping (TODO)"
+
+      - name: Worker tests (vitest)
+        run: pnpm run test:worker
+        working-directory: workers/${{ inputs.component }}

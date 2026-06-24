@@ -37,57 +37,41 @@ jobs:
             agent: ['apps/agent/**', 'packages/contract/**']
             frontend: ['frontend/**']
 
-  # ── Stage 1: Quality Gates (all parallel) ────────────────────
+  # ── Stage 1: Component CI (reusable workflows, all parallel) ──
+  # affected-only on PRs; full run on push/tag.
 
-  backend-quality:
-    name: Backend Quality
-    runs-on: ubuntu-latest
+  ci-agent:
+    name: Agent CI
     needs: changes
-    if: ${{ needs.changes.outputs.agent == 'true' }}
-    defaults:
-      run:
-        working-directory: apps/agent
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: ./.github/actions/setup
-        with:
-          python: "true"
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.agent == 'true' }}
+    uses: ./.github/workflows/_python-ci.yml
+    with:
+      app: agent
+    secrets: inherit
 
-      - run: uv python install ${{ env.PYTHON_VERSION }}
-
-      - run: uv sync --all-extras
-
-      - name: Format check
-        run: uv run ruff format --check agent/
-
-      - name: Lint
-        run: uv run ruff check agent/
-
-      - name: Type check
-        run: uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
-
-  frontend-quality:
-    name: Frontend Quality
-    runs-on: ubuntu-latest
+  ci-catalog:
+    name: Catalog CI
     needs: changes
-    if: ${{ needs.changes.outputs.frontend == 'true' }}
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: ./.github/actions/setup
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.catalog == 'true' }}
+    uses: ./.github/workflows/_ts-ci.yml
+    with:
+      component: catalog
+    secrets: inherit
 
-      - name: Lint
-        run: pnpm run lint
-        working-directory: frontend
+  ci-frontend:
+    name: Frontend CI
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true' }}
+    uses: ./.github/workflows/_web-ci.yml
+    secrets: inherit
 
-      - name: Type check
-        run: pnpm exec tsc --noEmit
-        working-directory: frontend
+  # ── DB migrations (dry-run) ──────────────────────────────────
 
   db-validate:
     name: DB Migrations (dry-run)
     runs-on: ubuntu-latest
     needs: changes
-    if: ${{ needs.changes.outputs.catalog == 'true' || needs.changes.outputs.agent == 'true' }}
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.catalog == 'true' || needs.changes.outputs.agent == 'true' }}
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
@@ -103,120 +87,13 @@ jobs:
           supabase migration list --db-url "$SUPABASE_DB_URL"
           supabase db push --dry-run --db-url "$SUPABASE_DB_URL"
 
-  catalog-quality:
-    name: Catalog Quality
-    runs-on: ubuntu-latest
-    needs: changes
-    if: ${{ needs.changes.outputs.catalog == 'true' }}
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: ./.github/actions/setup
-
-      - name: Type check
-        run: pnpm exec tsc --noEmit
-        working-directory: workers/catalog
-
-      - name: Worker tests (no-db)
-        run: pnpm run test:worker
-        working-directory: workers/catalog
-
-  # ── Stage 2: Tests + Build (parallel, gated by Stage 1) ───
-
-  backend-test:
-    name: Backend Tests
-    runs-on: ubuntu-latest
-    needs: [changes, backend-quality]
-    if: ${{ needs.changes.outputs.agent == 'true' }}
-    defaults:
-      run:
-        working-directory: apps/agent
-    env:
-      SUPABASE_DB_URL: "postgresql://postgres:postgres@localhost:54322/postgres"
-      DEEPSEEK_API_KEY: "test-key"
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: ./.github/actions/setup
-        with:
-          python: "true"
-
-      - run: uv python install ${{ env.PYTHON_VERSION }}
-
-      - run: uv sync --all-extras
-
-      - name: Unit tests (coverage >= 80%)
-        run: uv run pytest agent/tests/unit/ -v --cov --cov-report=xml --cov-fail-under=80
-
-      - name: Integration tests (testcontainer)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: >-
-          uv run pytest agent/tests/integration/ -v --no-cov
-          -k "not test_frontend_contracts and not test_e2e_smoke"
-        env:
-          ZETA_API_KEY: ${{ secrets.ZETA_API_KEY }}
-
-      - name: Verify imports
-        run: |
-          uv run python -c "from agent.interfaces.fastapi_service import create_fastapi_app; print('fastapi OK')"
-          uv run python -c "from agent.domain.entities import Point; print('domain OK')"
-          uv run python -c "from agent.agents.pilgrimage_runner import run_pilgrimage_agent; print('pilgrimage_agent OK')"
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
-        with:
-          files: apps/agent/coverage.xml
-          fail_ci_if_error: false
-
-  frontend-test:
-    name: Frontend Tests
-    runs-on: ubuntu-latest
-    needs: [changes, frontend-quality]
-    if: ${{ needs.changes.outputs.frontend == 'true' }}
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: ./.github/actions/setup
-
-      - name: Unit tests (coverage gate)
-        run: pnpm exec vitest run --coverage
-        working-directory: frontend
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
-        with:
-          files: frontend/coverage/lcov.info
-          flags: frontend
-          fail_ci_if_error: false
-
-  frontend-build:
-    name: Frontend Build
-    runs-on: ubuntu-latest
-    needs: [changes, frontend-quality]
-    if: ${{ needs.changes.outputs.frontend == 'true' }}
-    permissions:
-      contents: read
-      actions: write
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: ./.github/actions/setup
-
-      - name: Build static export
-        run: pnpm run build
-        working-directory: frontend
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: frontend-out
-          path: frontend/out
-          retention-days: 1
+  # ── Agent eval (deferred — see `&& false`) ───────────────────
 
   agent-eval:
     name: Agent Eval (546 cases)
     runs-on: ubuntu-latest
-    needs: [changes, backend-quality]
-    if: ${{ needs.changes.outputs.agent == 'true' && false }}
+    needs: changes
+    if: ${{ (github.event_name != 'pull_request' || needs.changes.outputs.agent == 'true') && false }}
     defaults:
       run:
         working-directory: apps/agent
@@ -241,13 +118,13 @@ jobs:
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
 
-  # ── Stage 3: Deploy (tag-triggered, all tests green) ───────
-  # TODO(Wave 4): migrate to cd-*.yml when edge/web decoupled
+  # ── Stage 3: Deploy (tag-triggered, all CI green) ────────────
+  # TODO(Wave 5): migrate to _deploy-component.yml + deploy-needs-gate.
 
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [backend-test, frontend-test, frontend-build, db-validate]
+    needs: [ci-agent, ci-catalog, ci-frontend, db-validate]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: read
@@ -255,11 +132,6 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - uses: actions/download-artifact@v8
-        with:
-          name: frontend-out
-          path: frontend/out
 
       - uses: supabase/setup-cli@v2
         with:
