@@ -13,9 +13,12 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+
 const ROOT = resolve(__dirname, "..");
 const GLOBALS_CSS = resolve(ROOT, "app/globals.css");
-const PACKAGE_CORE_CSS = resolve(ROOT, "node_modules/animal-island-ui/dist/core.css");
+const PACKAGE_CORE_CSS = require.resolve("animal-island-ui/dist/core.css");
 
 function extractTokenValue(css: string, tokenName: string): string {
   // Match --token-name: value; inside :root or bare declarations
