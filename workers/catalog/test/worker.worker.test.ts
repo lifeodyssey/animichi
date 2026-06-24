@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import app from "../src/index";
+import type { Env } from "../src/index";
 
 /**
  * Proves vitest-pool-workers can run a test inside the workerd runtime that
@@ -23,7 +24,10 @@ describe("catalog Worker (vitest-pool-workers)", () => {
     // Pass a minimal env with no DATABASE_URL or HYPERDRIVE so the guard short-circuits.
     // Using `env` directly would include .dev.vars values (DATABASE_URL) in local dev,
     // which would bypass the guard and return 200 instead of 503.
-    const noDbEnv = { ENVIRONMENT: env.ENVIRONMENT ?? "test" };
+    // Cast env to the app's Env type to access ENVIRONMENT (a [vars] binding not in
+    // the auto-generated Cloudflare.Env type used by cloudflare:workers).
+    const appEnv = env as unknown as Env;
+    const noDbEnv: Env = { ENVIRONMENT: appEnv.ENVIRONMENT ?? "test" };
     const res = await app.request(
       "/catalog/nearby",
       {
