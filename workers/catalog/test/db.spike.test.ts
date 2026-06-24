@@ -28,7 +28,7 @@ const CONTAINER = "catalog-db-postgis";
 const IMAGE = "postgis/postgis:16-3.4";
 const PG_PORT = 55433; // distinct from the spike (55432) and Supabase (54322)
 const PG_PASSWORD = "dbtest";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${PG_PORT}/postgres`;
+const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
 
 const REMOTE_SCHEMA = "../../supabase/migrations/20260402120000_remote_schema.sql";
 const INGEST_SCHEMA = "../../supabase/migrations/20260620230000_ingest_infrastructure.sql";
@@ -75,7 +75,7 @@ function startContainer(): void {
   if (existing) sh(`docker rm -f ${CONTAINER}`);
   sh(
     `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${PG_PORT}:5432 ${IMAGE}`,
+      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
   );
 }
 
@@ -90,7 +90,7 @@ async function waitForReady(): Promise<void> {
       return;
     } catch (err) {
       lastErr = err;
-      await probe.end().catch(() => {});
+      await probe.end().catch(() => { /* noop */ });
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
@@ -149,7 +149,7 @@ afterAll(async () => {
   // surface as an unhandled "Connection terminated" rejection. The pg Pool is
   // exposed via drizzle's `$client`; cast around the workers-types global clash.
   const client = (db as unknown as { $client?: pg.Pool }).$client;
-  if (client) await client.end().catch(() => {});
+  if (client) await client.end().catch(() => { /* noop */ });
   try {
     sh(`docker rm -f ${CONTAINER}`);
   } catch {
@@ -157,69 +157,61 @@ afterAll(async () => {
   }
 });
 
+async function assertBangumiRow(): Promise<void> {
+  const rows = await db.select().from(bangumi).where(eq(bangumi.id, "lucky-star"));
+  expect(rows).toHaveLength(1);
+  const row = rows[0];
+  expect(row?.title).toBe("らき☆すた");
+  expect(row?.titleCn).toBe("幸运星");
+  expect(row?.epsCount).toBe(24);
+  expect(row?.pointsCount).toBe(1);
+  expect(Number(row?.rating)).toBeCloseTo(8.1, 1);
+}
+
+async function assertPointRow(): Promise<void> {
+  const rows = await db.select().from(points).where(eq(points.id, "washinomiya"));
+  expect(rows).toHaveLength(1);
+  const row = rows[0];
+  expect(row?.name).toBe("鷲宮神社");
+  expect(row?.bangumiId).toBe("lucky-star");
+  expect(row?.latitude).toBeCloseTo(36.1019, 4);
+  expect(row?.longitude).toBeCloseTo(139.6586, 4);
+  expect(typeof row?.location).toBe("string");
+  expect(row?.location?.length).toBeGreaterThan(0);
+}
+
+async function assertSchemaRelations(): Promise<void> {
+  const versions = await db.select().from(clusterVersion).where(eq(clusterVersion.workId, "lucky-star"));
+  expect(versions[0]?.version).toBe(1);
+  expect(versions[0]?.isCurrent).toBe(true);
+  const aliasRows = await db.select().from(aliases).where(eq(aliases.workId, "lucky-star"));
+  expect(aliasRows[0]?.aliasNormalized).toBe("らきすた");
+  expect(aliasRows[0]?.priority).toBe(10);
+  const edges = await db.select().from(seriesEdges).where(eq(seriesEdges.fromWorkId, "lucky-star"));
+  expect(edges[0]?.toWorkId).toBe("lucky-star-ova");
+  expect(edges[0]?.relation).toBe("sequel");
+}
+
+async function assertPostgisRadiusRead(): Promise<void> {
+  const centerLat = 36.1019;
+  const centerLon = 139.6586;
+  const rows = (
+    await db.execute(sql`
+      SELECT id
+      FROM points
+      WHERE ST_DWithin(
+        location,
+        ST_SetSRID(ST_MakePoint(${centerLon}, ${centerLat}), 4326)::geography,
+        1000
+      )
+    `)
+  ).rows as { id: string }[];
+  expect(rows.map((r) => r.id)).toEqual(["washinomiya"]);
+}
+
 describe("Catalog Drizzle read schema round-trips against real migrations", () => {
-  it("reads the bangumi row through the typed schema", async () => {
-    const rows = await db.select().from(bangumi).where(eq(bangumi.id, "lucky-star"));
-    expect(rows).toHaveLength(1);
-    const row = rows[0];
-    expect(row?.title).toBe("らき☆すた");
-    expect(row?.titleCn).toBe("幸运星");
-    expect(row?.epsCount).toBe(24);
-    expect(row?.pointsCount).toBe(1);
-    expect(Number(row?.rating)).toBeCloseTo(8.1, 1);
-  });
-
-  it("reads the point row including the trigger-synced geography location", async () => {
-    const rows = await db.select().from(points).where(eq(points.id, "washinomiya"));
-    expect(rows).toHaveLength(1);
-    const row = rows[0];
-    expect(row?.name).toBe("鷲宮神社");
-    expect(row?.bangumiId).toBe("lucky-star");
-    expect(row?.latitude).toBeCloseTo(36.1019, 4);
-    expect(row?.longitude).toBeCloseTo(139.6586, 4);
-    // The DB trigger populated GEOGRAPHY from lat/lon; the custom type returns
-    // the non-null EWKB hex string.
-    expect(typeof row?.location).toBe("string");
-    expect(row?.location?.length).toBeGreaterThan(0);
-  });
-
-  it("reads cluster_version / aliases / series_edges through the schema", async () => {
-    const versions = await db
-      .select()
-      .from(clusterVersion)
-      .where(eq(clusterVersion.workId, "lucky-star"));
-    expect(versions[0]?.version).toBe(1);
-    expect(versions[0]?.isCurrent).toBe(true);
-
-    const aliasRows = await db
-      .select()
-      .from(aliases)
-      .where(eq(aliases.workId, "lucky-star"));
-    expect(aliasRows[0]?.aliasNormalized).toBe("らきすた");
-    expect(aliasRows[0]?.priority).toBe(10);
-
-    const edges = await db
-      .select()
-      .from(seriesEdges)
-      .where(eq(seriesEdges.fromWorkId, "lucky-star"));
-    expect(edges[0]?.toWorkId).toBe("lucky-star-ova");
-    expect(edges[0]?.relation).toBe("sequel");
-  });
-
-  it("supports a PostGIS radius read joining schema columns with raw sql", async () => {
-    const centerLat = 36.1019;
-    const centerLon = 139.6586;
-    const rows = (
-      await db.execute(sql`
-        SELECT id
-        FROM points
-        WHERE ST_DWithin(
-          location,
-          ST_SetSRID(ST_MakePoint(${centerLon}, ${centerLat}), 4326)::geography,
-          1000
-        )
-      `)
-    ).rows as Array<{ id: string }>;
-    expect(rows.map((r) => r.id)).toEqual(["washinomiya"]);
-  });
+  it("reads the bangumi row through the typed schema", assertBangumiRow);
+  it("reads the point row including the trigger-synced geography location", assertPointRow);
+  it("reads cluster_version / aliases / series_edges through the schema", assertSchemaRelations);
+  it("supports a PostGIS radius read joining schema columns with raw sql", assertPostgisRadiusRead);
 });

@@ -160,7 +160,7 @@ async def seed(dry_run: bool = False) -> None:
                 update_set = ", ".join(f"{c} = EXCLUDED.{c}" for c in row.keys())
                 update_set += ", location = EXCLUDED.location"
                 sql = (
-                    f"INSERT INTO points ({', '.join(cols)}) "
+                    f"INSERT INTO points ({', '.join(cols)}) "  # noqa: S608 — cols from allowlisted seed schema, not user input
                     f"VALUES ({placeholders}) "
                     f"ON CONFLICT (id) DO UPDATE SET {update_set}"
                 )

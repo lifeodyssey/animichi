@@ -9,13 +9,12 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { Dict } from "@/lib/i18n";
 import jaDict from "@/lib/dictionaries/ja.json";
 
 const signInWithOtp = vi.fn();
 
 vi.mock("@/lib/i18n-context", () => ({
-  useDict: vi.fn(() => jaDict as unknown as Dict),
+  useDict: vi.fn(() => jaDict),
   useLocale: vi.fn(() => "ja"),
   useSetLocale: vi.fn(() => vi.fn()),
 }));
@@ -46,7 +45,9 @@ beforeEach(() => {
 describe("LoginModal — dismissal", () => {
   it("closes when the backdrop is clicked", () => {
     const onClose = renderModal();
-    fireEvent.click(screen.getByRole("dialog").parentElement as HTMLElement);
+    const backdrop = screen.getByRole("dialog").parentElement;
+    if (!backdrop) throw new Error("dialog has no parent backdrop");
+    fireEvent.click(backdrop);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

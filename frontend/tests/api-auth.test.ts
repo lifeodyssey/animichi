@@ -30,7 +30,7 @@ describe("validateJwt", () => {
   it("returns ok with userId for valid JWT", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ id: "user-123" }),
+      json: () => Promise.resolve({ id: "user-123" }),
     });
 
     const { validateJwt } = await import("../lib/auth/api-auth");
@@ -94,7 +94,7 @@ describe("validateApiKey", () => {
   it("returns ok with userId for valid sk_ key", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => [{ user_id: "agent-456" }],
+      json: () => Promise.resolve([{ user_id: "agent-456" }]),
     });
     // Second fetch: fire-and-forget last_used_at update
     mockFetch.mockResolvedValueOnce({ ok: true });
@@ -103,13 +103,13 @@ describe("validateApiKey", () => {
     const result = await validateApiKey("sk_test_abc123");
 
     expect(result).toEqual({ ok: true, userId: "agent-456", userType: "agent" });
-    expect(mockFetch.mock.calls[0][0]).toContain("/rest/v1/api_keys?key_hash=eq.");
+    expect(mockFetch.mock.calls[0]?.[0]).toContain("/rest/v1/api_keys?key_hash=eq.");
   });
 
   it("returns ok: false for revoked key (empty result)", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => [],
+      json: () => Promise.resolve([]),
     });
 
     const { validateApiKey } = await import("../lib/auth/api-auth");

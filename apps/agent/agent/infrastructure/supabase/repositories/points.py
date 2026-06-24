@@ -106,7 +106,7 @@ class PointsRepository:
         update_set = ", ".join(f"{col} = EXCLUDED.{col}" for col in update_columns)
 
         sql = (
-            f"INSERT INTO points ({', '.join(columns)}) VALUES ({', '.join(placeholders)}) "
+            f"INSERT INTO points ({', '.join(columns)}) VALUES ({', '.join(placeholders)}) "  # noqa: S608 — columns validated against _POINT_COLUMNS allowlist, not user input
             f"ON CONFLICT (id) DO UPDATE SET {update_set}"
         )
         await self._pool.execute(sql, *values)
@@ -128,7 +128,7 @@ class PointsRepository:
         update_set = ", ".join(f"{col} = EXCLUDED.{col}" for col in fields_sample)
 
         sql = (
-            f"INSERT INTO points ({', '.join(columns)}) VALUES ({', '.join(placeholders)}) "
+            f"INSERT INTO points ({', '.join(columns)}) VALUES ({', '.join(placeholders)}) "  # noqa: S608 — columns validated against _POINT_COLUMNS allowlist, not user input
             f"ON CONFLICT (id) DO UPDATE SET {update_set}"
         )
 

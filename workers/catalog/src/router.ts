@@ -85,7 +85,7 @@ const route = base
   .handler(async ({ input, context }) => {
     if (input.point_ids.length > MAX_ROUTE_POINT_IDS) {
       throw new ORPCError("BAD_REQUEST", {
-        message: `point_ids length ${input.point_ids.length} exceeds maximum of ${MAX_ROUTE_POINT_IDS}`,
+        message: `point_ids length ${String(input.point_ids.length)} exceeds maximum of ${String(MAX_ROUTE_POINT_IDS)}`,
       });
     }
     return routeHandler(context.db, input);

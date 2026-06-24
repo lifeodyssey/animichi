@@ -130,8 +130,8 @@ function LoginCTA({
   loginHref,
   label,
 }: {
-  onLogin?: () => void;
-  loginHref?: string;
+  onLogin: (() => void) | undefined;
+  loginHref: string | undefined;
   label: string;
 }) {
   if (onLogin) {
@@ -151,6 +151,98 @@ function LoginCTA({
     );
   }
   return null;
+}
+
+function LegacyNav({ navItems }: { navItems: NavItem[] }) {
+  return (
+    <nav className="hidden items-center gap-1 sm:flex" aria-label="Main">
+      {navItems.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          aria-current={item.active ? "page" : undefined}
+          className={cn(
+            "rounded-md px-3 py-1.5 text-sm transition-colors",
+            item.active
+              ? "bg-secondary font-medium text-foreground"
+              : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+          )}
+        >
+          {item.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function Brand() {
+  return (
+    <Link href="/" className="flex items-center gap-2.5">
+      <Image
+        src="/images/logo/logo.png"
+        alt=""
+        width={30}
+        height={30}
+        className="shrink-0"
+      />
+      <div className="flex flex-col">
+        <span className="text-[10px] tracking-[1px] text-muted-foreground">
+          Seichijunrei
+        </span>
+        <span className="font-display text-sm font-bold leading-tight text-foreground">
+          聖地巡礼
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+interface HeaderSideProps {
+  isApp: boolean;
+  isGuest: boolean;
+  pathname: string;
+  dict: ReturnType<typeof useDict>;
+  navItems: NavItem[] | undefined;
+  children: React.ReactNode;
+  onLogin: (() => void) | undefined;
+  loginHref: string | undefined;
+  loginLabel: string;
+  variant: HeaderVariant | undefined;
+}
+
+function HeaderLeft({ isApp, isGuest, pathname, dict, navItems }: HeaderSideProps) {
+  const showLegacyNav = !isApp && !isGuest && navItems && navItems.length > 0;
+  return (
+    <div className="flex items-center gap-6">
+      <Brand />
+      {isApp && <NavLinks pathname={pathname} dict={dict} className="hidden sm:flex" />}
+      {showLegacyNav && <LegacyNav navItems={navItems} />}
+    </div>
+  );
+}
+
+function HeaderRight({
+  isApp,
+  isGuest,
+  pathname,
+  dict,
+  children,
+  onLogin,
+  loginHref,
+  loginLabel,
+  variant,
+}: HeaderSideProps) {
+  const showLegacyLogin = !variant && !children && (onLogin ?? loginHref);
+  return (
+    <div className="flex items-center gap-1.5">
+      {children}
+      {isApp && <MobileMenuSheet pathname={pathname} dict={dict} />}
+      {isGuest && <LoginCTA onLogin={onLogin} loginHref={loginHref} label={loginLabel} />}
+      {showLegacyLogin && (
+        <LoginCTA onLogin={onLogin} loginHref={loginHref} label={loginLabel} />
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -174,11 +266,21 @@ export default function SharedHeader({
   navItems,
 }: SharedHeaderProps) {
   const dict = useDict();
-  const pathname = usePathname() ?? "";
+  const pathname = usePathname();
   const loginLabel = dict.landing_hero.landing.login;
 
-  const isApp = variant === "app";
-  const isGuest = variant === "guest";
+  const sideProps: HeaderSideProps = {
+    isApp: variant === "app",
+    isGuest: variant === "guest",
+    pathname,
+    dict,
+    navItems,
+    children,
+    onLogin,
+    loginHref,
+    loginLabel,
+    variant,
+  };
 
   return (
     <header
@@ -195,75 +297,8 @@ export default function SharedHeader({
             : "border-b-2 border-border bg-card",
         )}
       >
-        {/* ── Left: logo + (app) desktop nav ── */}
-        <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <Image
-              src="/images/logo/logo.png"
-              alt=""
-              width={30}
-              height={30}
-              className="shrink-0"
-            />
-            <div className="flex flex-col">
-              <span className="text-[10px] tracking-[1px] text-muted-foreground">
-                Seichijunrei
-              </span>
-              <span className="font-display text-sm font-bold leading-tight text-foreground">
-                聖地巡礼
-              </span>
-            </div>
-          </Link>
-
-          {/* App variant — desktop nav (hidden on mobile, shown sm+) */}
-          {isApp && (
-            <NavLinks
-              pathname={pathname}
-              dict={dict}
-              className="hidden sm:flex"
-            />
-          )}
-
-          {/* Legacy navItems support */}
-          {!isApp && !isGuest && navItems && navItems.length > 0 && (
-            <nav className="hidden items-center gap-1 sm:flex" aria-label="Main">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={item.active ? "page" : undefined}
-                  className={cn(
-                    "rounded-md px-3 py-1.5 text-sm transition-colors",
-                    item.active
-                      ? "bg-secondary font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                  )}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          )}
-        </div>
-
-        {/* ── Right: actions ── */}
-        <div className="flex items-center gap-1.5">
-          {/* Children passthrough (AppShell injects new-chat button) */}
-          {children}
-
-          {/* App variant — login CTA hidden, mobile menu shown */}
-          {isApp && <MobileMenuSheet pathname={pathname} dict={dict} />}
-
-          {/* Guest variant — login CTA */}
-          {isGuest && (
-            <LoginCTA onLogin={onLogin} loginHref={loginHref} label={loginLabel} />
-          )}
-
-          {/* Legacy: show login when no variant + no children */}
-          {!variant && !children && (onLogin || loginHref) && (
-            <LoginCTA onLogin={onLogin} loginHref={loginHref} label={loginLabel} />
-          )}
-        </div>
+        <HeaderLeft {...sideProps} />
+        <HeaderRight {...sideProps} />
       </div>
     </header>
   );

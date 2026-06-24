@@ -18,7 +18,7 @@ afterEach(() => {
 
 function mockNavigatorLanguages(languages: readonly string[]): void {
   vi.spyOn(navigator, "languages", "get").mockReturnValue(
-    languages as string[] as unknown as readonly string[],
+    languages,
   );
 }
 
