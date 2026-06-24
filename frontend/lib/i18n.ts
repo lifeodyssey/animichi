@@ -11,7 +11,7 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 
 export function detectLocale(): Locale {
   if (typeof window === "undefined") return DEFAULT_LOCALE;
-  for (const lang of navigator.languages ?? []) {
+  for (const lang of navigator.languages) {
     const code = lang.toLowerCase();
     if (code.startsWith("zh")) return "zh";
     if (code.startsWith("ja")) return "ja";

@@ -24,6 +24,29 @@ from agent.domain.ports import DatabasePort
 logger = structlog.get_logger(__name__)
 
 
+def _seed_geo_coords(tool_state: dict[str, object], context: dict[str, object]) -> None:
+    origin_lat = context.get("origin_lat")
+    origin_lng = context.get("origin_lng")
+    if isinstance(origin_lat, int | float):
+        tool_state["origin_lat"] = float(origin_lat)
+    if isinstance(origin_lng, int | float):
+        tool_state["origin_lng"] = float(origin_lng)
+
+
+def _seed_search_data(
+    tool_state: dict[str, object], context: dict[str, object]
+) -> None:
+    raw = context.get("last_search_data")
+    if not isinstance(raw, dict):
+        return
+    for key in ("search_bangumi", "search_nearby"):
+        value = raw.get(key)
+        if isinstance(value, dict):
+            tool_state[key] = value
+    if "rows" in raw and "search_bangumi" not in tool_state:
+        tool_state["search_bangumi"] = raw
+
+
 def _seed_tool_state(deps: RuntimeDeps, context: dict[str, object] | None) -> None:
     deps.tool_state["locale"] = deps.locale
     if context is None:
@@ -31,30 +54,15 @@ def _seed_tool_state(deps: RuntimeDeps, context: dict[str, object] | None) -> No
     last_location = context.get("last_location")
     if isinstance(last_location, str) and last_location:
         deps.tool_state["last_location"] = last_location
-    origin_lat = context.get("origin_lat")
-    origin_lng = context.get("origin_lng")
-    if isinstance(origin_lat, int | float):
-        deps.tool_state["origin_lat"] = float(origin_lat)
-    if isinstance(origin_lng, int | float):
-        deps.tool_state["origin_lng"] = float(origin_lng)
+    _seed_geo_coords(deps.tool_state, context)
 
-    # Restore resolve candidates from previous clarify turn
     raw_candidates = context.get("resolve_candidates")
     if isinstance(raw_candidates, list) and raw_candidates:
         deps.tool_state["resolve_candidates"] = raw_candidates
     if context.get("pending_clarify") is True:
         deps.tool_state["pending_clarify"] = True
 
-    raw = context.get("last_search_data")
-    if not isinstance(raw, dict):
-        return
-    for key in ("search_bangumi", "search_nearby"):
-        value = raw.get(key)
-        if isinstance(value, dict):
-            deps.tool_state[key] = value
-    # Fallback: if raw itself looks like search results, populate directly
-    if "rows" in raw and "search_bangumi" not in deps.tool_state:
-        deps.tool_state["search_bangumi"] = raw
+    _seed_search_data(deps.tool_state, context)
 
 
 async def run_pilgrimage_agent(

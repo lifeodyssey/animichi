@@ -1,0 +1,22 @@
+# sqlfluff config for hand-written Postgres schema migrations.
+# Scope: db/migrations/ (Atlas) + supabase/neon/ -- the Neon schema we own.
+# EXCLUDED: supabase/migrations/ (Supabase auth-DB history, not ours to restyle).
+#
+# These are consolidated DDL files with deliberate, valid Postgres idioms
+# (column alignment, lowercase extension types, `::jsonb` casts, keyword-named
+# domain columns). We disable cosmetic / idiom-conflicting rules via config
+# rather than scattering per-line `-- noqa`, and keep structural rules active.
+#
+# Rules disabled below and why:
+#   LT01 - whitespace spacing (multi-space column alignment, intentional)
+#   LT02 - indentation (indented `ON ... USING ...` continuation lines)
+#   LT05 - line length (ruff also ignores E501 for this repo)
+#   CP02 - access-method identifiers GIST/HNSW conventionally upper case
+#   CP03 - NOW()/now() mix -- keyword-casing cosmetic only
+#   CP05 - extension type `vector(...)` + `::jsonb` casts conventionally lower
+#   RF04 - keywords used as domain columns (name, location, status, version, comment)
+#   PG01 - CREATE INDEX CONCURRENTLY cannot run in the single init-schema txn
+[sqlfluff]
+dialect = postgres
+large_file_skip_byte_limit = 50000
+exclude_rules = LT01, LT02, LT05, CP02, CP03, CP05, RF04, PG01

@@ -40,7 +40,7 @@ class BangumiRepository:
         placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
         update_set = ", ".join(f"{col} = EXCLUDED.{col}" for col in fields.keys())
         sql = (
-            f"INSERT INTO bangumi ({', '.join(columns)}) VALUES ({placeholders}) "
+            f"INSERT INTO bangumi ({', '.join(columns)}) VALUES ({placeholders}) "  # noqa: S608 — columns validated against _BANGUMI_COLUMNS allowlist, not user input
             f"ON CONFLICT (id) DO UPDATE SET {update_set}"
         )
         await self._pool.execute(sql, bangumi_id, *fields.values())

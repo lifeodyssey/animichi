@@ -94,14 +94,14 @@ export async function fetchAnitabiLite(
 /** Read `litePoints` + `pointsLength` from a `/lite` body; empty on any miss. */
 function parseLite(body: unknown): AnitabiLite {
   if (!isObject(body)) return { points: [], total: 0 };
-  const raw = body["litePoints"];
+  const raw = body.litePoints;
   const points = Array.isArray(raw) ? raw.filter(isObject) : [];
   return { points, total: liteTotal(body, points.length) };
 }
 
 /** Coerce `pointsLength` to a non-negative count; fall back to the preview size. */
 function liteTotal(body: Record<string, unknown>, fallback: number): number {
-  const len = body["pointsLength"];
+  const len = body.pointsLength;
   return typeof len === "number" && Number.isFinite(len) && len >= 0 ? len : fallback;
 }
 
@@ -141,7 +141,7 @@ const BANGUMI_TYPE_ANIME = 2;
 /** Read the id of the first `data[]` entry from a Bangumi search body, else null. */
 function bestSubjectId(body: unknown): string | null {
   if (!isObject(body)) return null;
-  const list = body["data"];
+  const list = body.data;
   if (!Array.isArray(list)) return null;
   const first = list.find(isObject);
   return first ? subjectId(first) : null;
@@ -149,25 +149,25 @@ function bestSubjectId(body: unknown): string | null {
 
 /** Coerce a subject's `id` (number or numeric string) to a string id, else null. */
 function subjectId(subject: Record<string, unknown>): string | null {
-  const id = subject["id"];
+  const id = subject.id;
   if (typeof id === "number") return String(id);
   return typeof id === "string" && id.length > 0 ? id : null;
 }
 
 /** GET + JSON-decode with status guarding; throws on a non-2xx response. */
 async function fetchJson(url: string, fetchImpl?: FetchLike): Promise<unknown> {
-  const doFetch = fetchImpl ?? (fetch as unknown as FetchLike);
+  const doFetch = fetchImpl ?? (fetch);
   const res = await doFetch(url, { headers: { "User-Agent": USER_AGENT } });
-  if (!res.ok) throw new Error(`Upstream fetch failed (${res.status}): ${url}`);
+  if (!res.ok) throw new Error(`Upstream fetch failed (${String(res.status)}): ${url}`);
   return res.json();
 }
 
 /** POST a JSON body + JSON-decode with status guarding; throws on a non-2xx response. */
 async function postJson(url: string, body: string, fetchImpl?: FetchLike): Promise<unknown> {
-  const doFetch = fetchImpl ?? (fetch as unknown as FetchLike);
+  const doFetch = fetchImpl ?? (fetch);
   const headers = { "User-Agent": USER_AGENT, "Content-Type": "application/json" };
   const res = await doFetch(url, { method: "POST", headers, body });
-  if (!res.ok) throw new Error(`Upstream fetch failed (${res.status}): ${url}`);
+  if (!res.ok) throw new Error(`Upstream fetch failed (${String(res.status)}): ${url}`);
   return res.json();
 }
 
@@ -175,7 +175,7 @@ async function postJson(url: string, body: string, fetchImpl?: FetchLike): Promi
 function normalizePoints(body: unknown): AnitabiPoint[] {
   if (Array.isArray(body)) return body.filter(isObject);
   if (!isObject(body)) throw new Error("Unexpected Anitabi response structure");
-  const list = body["data"] ?? body["points"];
+  const list = body.data ?? body.points;
   if (Array.isArray(list)) return list.filter(isObject);
   throw new Error("Unexpected Anitabi response structure");
 }

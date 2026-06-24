@@ -78,6 +78,7 @@ export function walkSeries(edges: SeriesEdge[], startWorkId: string): Set<string
   const visited = new Set<string>([startWorkId]);
   const queue: string[] = [startWorkId];
   while (queue.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- queue is non-empty (while condition)
     const current = queue.shift()!;
     visit(adj.get(current), visited, queue);
   }

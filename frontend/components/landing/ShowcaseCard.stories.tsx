@@ -18,20 +18,24 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+const renderInScene: Story["render"] = (args) => (
+  <div style={{ background: "var(--animal-bg-color-content)", width: 720, padding: "72px 40px" }}>
+    <ShowcaseCard {...args} />
+  </div>
+);
+
+const baseArgs: Story["args"] = {
+  anime: { src: "/images/landing/suga-shrine-anime-source.webp", alt: "Anime" },
+  real: { src: "/images/landing/suga-shrine-reality-perspective-v2.webp", alt: "Real" },
+};
+
 export const English: Story = {
-  args: {
-    anime: { src: "/images/landing/suga-shrine-anime-source.webp", alt: "Anime" },
-    real: { src: "/images/landing/suga-shrine-reality-perspective-v2.webp", alt: "Real" },
-  },
-  render: (args) => (
-    <div style={{ background: "var(--animal-bg-color-content)", width: 720, padding: "72px 40px" }}>
-      <ShowcaseCard {...args} />
-    </div>
-  ),
+  args: baseArgs,
+  render: renderInScene,
 };
 
 export const WithoutFox: Story = {
   name: "Without fox",
-  args: { ...English.args, showFox: false },
-  render: English.render,
+  args: { ...baseArgs, showFox: false },
+  render: renderInScene,
 };

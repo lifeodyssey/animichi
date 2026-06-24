@@ -26,7 +26,7 @@ const CONTAINER = "catalog-media-postgis";
 const IMAGE = "postgis/postgis:16-3.4";
 const PG_PORT = 55438;
 const PG_PASSWORD = "media";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${PG_PORT}/postgres`;
+const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
 
 const REMOTE_SCHEMA = "../../supabase/migrations/20260402120000_remote_schema.sql";
 const INGEST_SCHEMA = "../../supabase/migrations/20260620230000_ingest_infrastructure.sql";
@@ -64,7 +64,7 @@ function startContainer(): void {
   if (existing) sh(`docker rm -f ${CONTAINER}`);
   sh(
     `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${PG_PORT}:5432 ${IMAGE}`,
+      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
   );
 }
 
@@ -79,7 +79,7 @@ async function waitForReady(): Promise<void> {
       return;
     } catch (err) {
       lastErr = err;
-      await probe.end().catch(() => {});
+      await probe.end().catch(() => { /* noop */ });
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
@@ -113,7 +113,7 @@ async function assetOf(pointId: string): Promise<{ r2_key: string | null; tombst
     await db.execute(
       sql`SELECT r2_key, tombstoned FROM media_assets WHERE point_id = ${pointId}`,
     )
-  ).rows as Array<{ r2_key: string | null; tombstoned: boolean }>;
+  ).rows as { r2_key: string | null; tombstoned: boolean }[];
   return rows[0];
 }
 
@@ -121,16 +121,17 @@ async function assetOf(pointId: string): Promise<{ r2_key: string | null; tombst
 function mockBucket(): { bucket: R2Bucket; store: Map<string, { body: ArrayBuffer; contentType: string }> } {
   const store = new Map<string, { body: ArrayBuffer; contentType: string }>();
   const bucket = {
-    async put(key: string, body: ArrayBuffer, opts?: { httpMetadata?: { contentType?: string } }) {
+    put(key: string, body: ArrayBuffer, opts?: { httpMetadata?: { contentType?: string } }) {
       store.set(key, { body, contentType: opts?.httpMetadata?.contentType ?? "image/jpeg" });
+      return Promise.resolve(undefined as unknown as R2Object);
     },
-    async get(key: string) {
+    get(key: string) {
       const hit = store.get(key);
-      if (!hit) return null;
-      return {
+      if (!hit) return Promise.resolve(null);
+      return Promise.resolve({
         httpMetadata: { contentType: hit.contentType },
-        arrayBuffer: async () => hit.body,
-      };
+        arrayBuffer: () => Promise.resolve(hit.body),
+      });
     },
   };
   return { bucket: bucket as unknown as R2Bucket, store };
@@ -139,14 +140,14 @@ function mockBucket(): { bucket: R2Bucket; store: Map<string, { body: ArrayBuffe
 // Call-counting fetch stub returning bytes (status 200) or a status (404/etc).
 function mockFetch(status: number, bytes: Uint8Array): { fetchImpl: ImageFetchLike; calls: () => number } {
   let count = 0;
-  const fetchImpl: ImageFetchLike = async () => {
+  const fetchImpl: ImageFetchLike = () => {
     count += 1;
-    return {
+    return Promise.resolve({
       ok: status >= 200 && status < 300,
       status,
       headers: { get: (n: string) => (n.toLowerCase() === "content-type" ? "image/png" : null) },
-      arrayBuffer: async () => bytes.buffer.slice(0) as ArrayBuffer,
-    };
+      arrayBuffer: () => Promise.resolve(bytes.buffer.slice(0) as ArrayBuffer),
+    });
   };
   return { fetchImpl, calls: () => count };
 }
@@ -161,7 +162,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const client = (db as unknown as { $client?: pg.Pool }).$client;
-  if (client) await client.end().catch(() => {});
+  if (client) await client.end().catch(() => { /* noop */ });
   try {
     sh(`docker rm -f ${CONTAINER}`);
   } catch {

@@ -1,12 +1,21 @@
 coverage:
   status:
+    # Project status = global floor (informational; per-component floors are
+    # enforced inside CI via --cov-fail-under / vitest thresholds). Codecov's
+    # project gate only warns so a small dip never blocks a PR on its own.
     project:
       default:
         target: auto
         threshold: 1%
+        informational: true
+    # Patch status = the hard PR gate. Every PR must cover >= 95% of the lines
+    # it changes. This catches dilution (large diff, few tests) that a global
+    # floor would otherwise mask. Backend keeps its own 80% global floor via
+    # pytest --cov-fail-under=80; this is additive, on changed lines only.
     patch:
       default:
-        target: 75%
+        target: 95%
+        threshold: 0%
 
 ignore:
   - "frontend/components/map/**"  # Mapbox GL requires WebGL — untestable in jsdom

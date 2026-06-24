@@ -97,18 +97,18 @@ function buildBangumiRow(
   return {
     id: workId,
     title,
-    title_cn: asStr(subject["name_cn"]),
-    cover_url: coverFromImages(subject["images"]),
-    summary: asStr(subject["summary"]),
-    rating: ratingScore(subject["rating"]),
-    eps_count: asNum(subject["total_episodes"]) ?? asNum(subject["eps"]),
+    title_cn: asStr(subject.name_cn),
+    cover_url: coverFromImages(subject.images),
+    summary: asStr(subject.summary),
+    rating: ratingScore(subject.rating),
+    eps_count: asNum(subject.total_episodes) ?? asNum(subject.eps),
     air_date: pickStr(subject, ["date", "air_date"]),
   };
 }
 
 /** Extract the numeric score from Bangumi's `rating: {score}` object. */
 function ratingScore(rating: unknown): number | null {
-  if (isObject(rating)) return asNum(rating["score"]);
+  if (isObject(rating)) return asNum(rating.score);
   return asNum(rating);
 }
 
@@ -132,13 +132,13 @@ function pointItems(payload: unknown): Record<string, unknown>[] {
 /** Pull `data`/`points` out of an object-wrapped Anitabi payload. */
 function nestedList(payload: unknown): unknown[] {
   if (!isObject(payload)) return [];
-  const list = payload["data"] ?? payload["points"];
+  const list = payload.data ?? payload.points;
   return Array.isArray(list) ? list : [];
 }
 
 /** Parse one point item, returning null if it lacks id/name/coords. */
 function tryParsePoint(workId: string, item: Record<string, unknown>): PointRow | null {
-  const id = asStr(item["id"]);
+  const id = asStr(item.id);
   const coords = pointCoords(item);
   const name = pickStr(item, ["name", "cn", "cn_name"]);
   if (!id || !coords || !name) return null;
@@ -147,11 +147,11 @@ function tryParsePoint(workId: string, item: Record<string, unknown>): PointRow 
 
 /** Resolve [lat, lng] from the legacy lat/lng pair or the official geo array. */
 function pointCoords(item: Record<string, unknown>): { latitude: number; longitude: number } | null {
-  const geo = item["geo"];
+  const geo = item.geo;
   if (Array.isArray(geo) && geo.length >= 2) {
     return numericCoords(asNum(geo[0]), asNum(geo[1]));
   }
-  return numericCoords(asNum(item["lat"]), asNum(item["lng"]));
+  return numericCoords(asNum(item.lat), asNum(item.lng));
 }
 
 /** Combine a lat/lng pair into a coords object, or null if either is absent. */
@@ -174,9 +174,9 @@ function buildPointRow(
     bangumi_id: workId,
     name_cn: pickStr(item, ["cn", "cn_name"]),
     image: pointImage(item),
-    episode: asNum(item["episode"]) ?? asNum(item["ep"]),
-    time_seconds: asNum(item["time_seconds"]) ?? asNum(item["s"]) ?? 0,
-    origin: asStr(item["origin"]),
+    episode: asNum(item.episode) ?? asNum(item.ep),
+    time_seconds: asNum(item.time_seconds) ?? asNum(item.s) ?? 0,
+    origin: asStr(item.origin),
     origin_url: pickStr(item, ["origin_url", "originURL"]),
   };
 }
