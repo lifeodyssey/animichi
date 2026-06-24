@@ -46,6 +46,13 @@ jobs:
       - name: Type coverage (TODO — not configured)
         run: echo "type-coverage not configured yet; skipping (TODO)"
 
-      - name: Worker tests (vitest)
+      - name: Worker tests (vitest, coverage gate)
         run: pnpm run test:worker
         working-directory: workers/${{ inputs.component }}
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
+        with:
+          files: workers/${{ inputs.component }}/coverage/lcov.info
+          flags: ${{ inputs.component }}
+          fail_ci_if_error: false
