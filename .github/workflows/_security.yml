@@ -61,9 +61,11 @@ jobs:
   zizmor:
     name: zizmor (GHA security)
     runs-on: ubuntu-latest
+    # advanced-security: false (below) → no SARIF upload → security-events not
+    # needed. Requesting it caused startup_failure: a reusable job cannot request
+    # more than the caller (ci.yml) grants (contents: read → security-events: none).
     permissions:
       contents: read
-      security-events: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
