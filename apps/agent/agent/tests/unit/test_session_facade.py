@@ -785,3 +785,48 @@ class TestAsStrOrNone:
 
     def test_zero_returns_string(self) -> None:
         assert as_str_or_none(0) == "0"
+
+
+class TestExtractFromInteractionsClarity:
+    """AC: build_context_block preserves pending_clarify across older deltas."""
+
+    def test_pending_clarify_preserved_from_newer_delta(self) -> None:
+        state = {
+            "interactions": [
+                {
+                    "text": "older",
+                    "context_delta": {"bangumi_id": "99"},
+                },
+                {
+                    "text": "newer",
+                    "context_delta": {"pending_clarify": True},
+                },
+            ],
+            "last_intent": "clarify",
+        }
+        block = build_context_block(state)
+
+        assert block is not None
+        assert block["pending_clarify"] is True
+
+    def test_resolve_candidates_found_from_older_delta(self) -> None:
+        state = {
+            "interactions": [
+                {
+                    "text": "older",
+                    "context_delta": {
+                        "resolve_candidates": [{"title": "A", "bangumi_id": "1"}]
+                    },
+                },
+                {
+                    "text": "newer",
+                    "context_delta": {"bangumi_id": "99"},
+                },
+            ],
+            "last_intent": "clarify",
+        }
+        block = build_context_block(state)
+
+        assert block is not None
+        assert block["resolve_candidates"] is not None
+        assert len(block["resolve_candidates"]) == 1

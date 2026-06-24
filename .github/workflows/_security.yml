@@ -81,7 +81,12 @@ jobs:
         with:
           persist-credentials: false
       - name: Download actionlint
-        run: bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+        run: |
+          ACTIONLINT_VERSION="1.7.7"
+          ACTIONLINT_URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -sSfL -o actionlint.tar.gz "${ACTIONLINT_URL}"
+          tar -xzf actionlint.tar.gz actionlint
+          chmod +x actionlint
         shell: bash
       - name: Run actionlint
         run: ./actionlint -color
