@@ -21,5 +21,23 @@ export default defineConfig({
   ],
   test: {
     include: ["test/**/*.worker.test.ts"],
+    coverage: {
+      // The workerd pool runs JS instrumented in-runtime, so V8 coverage is not
+      // available — istanbul is the supported provider for vitest-pool-workers.
+      provider: "istanbul",
+      include: ["src/**/*.ts"],
+      // Spike-only modules (ingest/enrich/publish/media) are exercised by the
+      // *.spike.test.ts Node suite against a real container, not the workerd
+      // pool, so they are excluded from this worker-runtime coverage scope.
+      exclude: ["src/ingest/**", "src/enrich/**", "src/publish/**", "src/media/**"],
+      reporter: ["text", "lcov"],
+      // Modest starting floor — ratchet UP as worker tests grow (never lower).
+      thresholds: {
+        lines: 60,
+        functions: 60,
+        statements: 60,
+        branches: 50,
+      },
+    },
   },
 });
