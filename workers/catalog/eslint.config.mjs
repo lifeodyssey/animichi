@@ -3,7 +3,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["node_modules/**", ".wrangler/**", "dist/**", "eslint.config.mjs", "vitest.config.ts", "vitest.spike.config.ts"] },
+  { ignores: ["node_modules/**", ".wrangler/**", "dist/**", "coverage/**", "eslint.config.mjs", "vitest.config.ts", "vitest.spike.config.ts"] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
