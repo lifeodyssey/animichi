@@ -102,7 +102,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: false
 
-      - uses: anthropics/claude-code-action@c54c7d65263ea2a3c2720ea413ab32d56a5d324d # v1.0.156
+      - uses: anthropics/claude-code-action@08f3c286ea916b55ee6ed2f2ae2f467d1036881e # v1.0.156
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           model: "claude-sonnet-4-20250514"
