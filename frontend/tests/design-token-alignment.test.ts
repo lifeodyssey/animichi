@@ -4,7 +4,7 @@
  * Strategy: parse CSS files directly — jsdom does not compute custom properties,
  * so getComputedStyle returns empty strings for --custom-property references.
  *
- * The package owns --animal-* primitives via animal-island-ui/dist/core.css.
+ * The package owns --animal-* primitives via animal-island-ui/style/core.
  * The app owns --color-* semantic aliases in app/globals.css :root.
  * Documented equalities and reference relationships are asserted here so a
  * package bump that shifts a token value fails CI rather than silently desyncing.
