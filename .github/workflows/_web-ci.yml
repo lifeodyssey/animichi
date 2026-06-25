@@ -4,7 +4,14 @@ name: _web-ci
 # Called by ci.yml orchestrator.
 
 on:
-  workflow_call: {}
+  workflow_call:
+    secrets:
+      SUPABASE_URL:
+        required: false
+      SUPABASE_ANON_KEY:
+        required: false
+      NEXT_PUBLIC_MAPBOX_TOKEN:
+        required: false
 
 permissions:
   contents: read

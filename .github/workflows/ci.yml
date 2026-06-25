@@ -49,10 +49,6 @@ jobs:
     uses: ./.github/workflows/_python-ci.yml
     with:
       app: agent
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    # Justification: reusable CI sub-workflow requires secrets (DEEPSEEK_API_KEY,
-    # SUPABASE_DB_URL) for test/eval steps. Named-secret interface would require
-    # enumerating all secrets in the sub-workflow signature — impractical at scale.
 
   ci-catalog:
     name: Catalog CI
@@ -61,25 +57,24 @@ jobs:
     uses: ./.github/workflows/_ts-ci.yml
     with:
       component: catalog
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    # Justification: same as ci-agent — sub-workflow needs access to repo secrets.
 
   ci-frontend:
     name: Frontend CI
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true' }}
     uses: ./.github/workflows/_web-ci.yml
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    # Justification: sub-workflow needs SUPABASE_URL, SUPABASE_ANON_KEY,
-    # NEXT_PUBLIC_MAPBOX_TOKEN for next build step.
+    secrets:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
 
   # ── Security (cross-language; always runs, no affected gate) ──
 
   security:
     name: Security
     uses: ./.github/workflows/_security.yml
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    # Justification: security sub-workflow needs GITLEAKS_LICENSE for gitleaks-action.
+    secrets:
+      GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   # ── DB migrations (dry-run) ──────────────────────────────────
 
@@ -152,9 +147,14 @@ jobs:
       component: catalog
       environment: staging
       pulumi_stack: staging
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    # Justification: deploy sub-workflow needs cloud credentials (Cloudflare API
-    # token, Pulumi passphrase) which cannot be enumerated statically.
+    secrets:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     concurrency: deploy-staging
 
   post-staging:
@@ -164,8 +164,6 @@ jobs:
     with:
       environment: staging
       suite: api
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    # Justification: post-deploy test needs API keys for smoke/integration checks.
 
   # tag v* → production (human approve via environment: production in
   # _deploy-component.yml)
@@ -178,8 +176,14 @@ jobs:
       component: catalog
       environment: production
       pulumi_stack: prod
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    # Justification: same as deploy-staging — prod deploy needs cloud credentials.
+    secrets:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     concurrency: deploy-prod
 
   post-prod:
@@ -189,5 +193,3 @@ jobs:
     with:
       environment: production
       suite: smoke
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    # Justification: post-prod smoke test needs service API keys.

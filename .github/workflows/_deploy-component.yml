@@ -5,6 +5,21 @@ on:
       component: { required: true, type: string }
       environment: { required: true, type: string }
       pulumi_stack: { required: true, type: string }
+    secrets:
+      NEON_DATABASE_URL:
+        required: false
+      CLOUDFLARE_API_TOKEN:
+        required: false
+      CLOUDFLARE_ACCOUNT_ID:
+        required: false
+      PULUMI_CONFIG_PASSPHRASE:
+        required: false
+      PULUMI_BACKEND_URL:
+        required: false
+      R2_ACCESS_KEY_ID:
+        required: false
+      R2_SECRET_ACCESS_KEY:
+        required: false
 jobs:
   deploy:
     runs-on: ubuntu-latest
