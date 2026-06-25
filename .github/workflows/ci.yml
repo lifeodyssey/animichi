@@ -28,6 +28,8 @@ jobs:
       contract: ${{ steps.f.outputs.contract }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: f
         with:
@@ -47,7 +49,6 @@ jobs:
     uses: ./.github/workflows/_python-ci.yml
     with:
       app: agent
-    secrets: inherit
 
   ci-catalog:
     name: Catalog CI
@@ -56,21 +57,24 @@ jobs:
     uses: ./.github/workflows/_ts-ci.yml
     with:
       component: catalog
-    secrets: inherit
 
   ci-frontend:
     name: Frontend CI
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true' }}
     uses: ./.github/workflows/_web-ci.yml
-    secrets: inherit
+    secrets:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
 
   # ── Security (cross-language; always runs, no affected gate) ──
 
   security:
     name: Security
     uses: ./.github/workflows/_security.yml
-    secrets: inherit
+    secrets:
+      GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   # ── DB migrations (dry-run) ──────────────────────────────────
 
@@ -83,6 +87,8 @@ jobs:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:
@@ -106,6 +112,8 @@ jobs:
         working-directory: apps/agent
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
         with:
           python: "true"
@@ -139,7 +147,14 @@ jobs:
       component: catalog
       environment: staging
       pulumi_stack: staging
-    secrets: inherit
+    secrets:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     concurrency: deploy-staging
 
   post-staging:
@@ -149,7 +164,6 @@ jobs:
     with:
       environment: staging
       suite: api
-    secrets: inherit
 
   # tag v* → production (human approve via environment: production in
   # _deploy-component.yml)
@@ -162,7 +176,14 @@ jobs:
       component: catalog
       environment: production
       pulumi_stack: prod
-    secrets: inherit
+    secrets:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     concurrency: deploy-prod
 
   post-prod:
@@ -172,4 +193,3 @@ jobs:
     with:
       environment: production
       suite: smoke
-    secrets: inherit

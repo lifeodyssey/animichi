@@ -4,7 +4,14 @@ name: _web-ci
 # Called by ci.yml orchestrator.
 
 on:
-  workflow_call: {}
+  workflow_call:
+    secrets:
+      SUPABASE_URL:
+        required: false
+      SUPABASE_ANON_KEY:
+        required: false
+      NEXT_PUBLIC_MAPBOX_TOKEN:
+        required: false
 
 permissions:
   contents: read
@@ -18,6 +25,8 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
 
@@ -42,7 +51,7 @@ jobs:
         run: pnpm exec vitest run --coverage
 
       - name: Upload coverage
-        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
         with:
           files: frontend/coverage/lcov.info
           flags: frontend
