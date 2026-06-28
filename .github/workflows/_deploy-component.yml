@@ -30,10 +30,13 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - name: Atlas migrate
-        uses: ariga/atlas-action/migrate/apply@e7cdee90ecc06996f1c055bc01a62f03666cecb4 # v1.15.5
-        with:
-          dir: "file://db/migrations"
-          url: ${{ secrets.NEON_DATABASE_URL }}
+        if: ${{ secrets.NEON_DATABASE_URL != '' }}
+        run: |
+          curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
+          chmod +x /usr/local/bin/atlas
+          atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL"
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       - name: Pulumi up
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         with:
