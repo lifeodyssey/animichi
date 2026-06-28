@@ -1,3 +1,4 @@
+# Reusable workflow (called by ci.yml; not triggered directly). '_' prefix = internal.
 name: _web-ci
 
 # Reusable frontend (Next.js) CI: tsc + oxlint + eslint (strict) + vitest + next build.
@@ -18,7 +19,7 @@ permissions:
 
 jobs:
   web-ci:
-    name: Web CI (frontend)
+    name: Web CI
     runs-on: ubuntu-latest
     defaults:
       run:
