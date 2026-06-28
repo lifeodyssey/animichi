@@ -1,3 +1,4 @@
+# Reusable workflow (called by ci.yml; not triggered directly). '_' prefix = internal.
 name: deploy-component
 on:
   workflow_call:
@@ -22,6 +23,7 @@ on:
         required: false
 jobs:
   deploy:
+    name: Deploy
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
@@ -38,7 +40,7 @@ jobs:
           fi
           curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
           chmod +x /usr/local/bin/atlas
-          atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL"
+          atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL" --revisions-schema public
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       - name: Pulumi up
