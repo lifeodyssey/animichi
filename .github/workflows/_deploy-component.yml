@@ -1,3 +1,4 @@
+# Reusable workflow (called by ci.yml; not triggered directly). '_' prefix = internal.
 name: deploy-component
 on:
   workflow_call:
@@ -22,6 +23,7 @@ on:
         required: false
 jobs:
   deploy:
+    name: Deploy
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
@@ -30,10 +32,17 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - name: Atlas migrate
-        uses: ariga/atlas-action/migrate/apply@e7cdee90ecc06996f1c055bc01a62f03666cecb4 # v1.15.5
-        with:
-          dir: "file://db/migrations"
-          url: ${{ secrets.NEON_DATABASE_URL }}
+        # NOTE: secrets context is NOT allowed in step `if:` (GitHub compile-time
+        # error → startup_failure). Guard inside run via the env var instead.
+        run: |
+          if [ -z "$NEON_DATABASE_URL" ]; then
+            echo "NEON_DATABASE_URL not set — skipping atlas migrate"; exit 0
+          fi
+          curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
+          chmod +x /usr/local/bin/atlas
+          atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL" --revisions-schema public
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       - name: Pulumi up
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         with:
