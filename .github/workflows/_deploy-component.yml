@@ -30,8 +30,12 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - name: Atlas migrate
-        if: ${{ secrets.NEON_DATABASE_URL != '' }}
+        # NOTE: secrets context is NOT allowed in step `if:` (GitHub compile-time
+        # error → startup_failure). Guard inside run via the env var instead.
         run: |
+          if [ -z "$NEON_DATABASE_URL" ]; then
+            echo "NEON_DATABASE_URL not set — skipping atlas migrate"; exit 0
+          fi
           curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
           chmod +x /usr/local/bin/atlas
           atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL"
