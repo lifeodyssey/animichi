@@ -3,7 +3,6 @@ name: CI
 on:
   push:
     branches: [main, develop]
-    tags: ['v*']
   pull_request:
     branches: [main]
 
@@ -133,9 +132,10 @@ jobs:
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
 
-  # ── Stage 3: Deploy (CI-green gated, single-workflow needs gate) ──
-  # All CI jobs are in `needs:` so CI-green gates CD. cd-staging.yml and
-  # cd-prod.yml are deleted — their function lives here now.
+  # ── Stage 3: Deploy (CI-green gated, push-main promotion path) ──
+  # Promotion: push main → CI → staging → post-staging (api) → prod (human gate) → post-prod.
+  # A single push to main drives the full pipeline; no separate tag trigger needed.
+  # Human approval is enforced by `environment: production` in _deploy-component.yml.
 
   # push main → staging
   deploy-staging:
@@ -165,12 +165,11 @@ jobs:
       environment: staging
       suite: api
 
-  # tag v* → production (human approve via environment: production in
-  # _deploy-component.yml)
+  # staging validated → production (human approve via environment: production in
+  # _deploy-component.yml). needs: post-staging guarantees staging passed api tests.
   deploy-prod:
     name: Deploy production
-    needs: [ci-agent, ci-catalog, ci-frontend, db-validate, security]
-    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    needs: post-staging
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: catalog
