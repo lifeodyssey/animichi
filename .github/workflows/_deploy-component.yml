@@ -40,7 +40,10 @@ jobs:
           fi
           curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
           chmod +x /usr/local/bin/atlas
-          atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL" --revisions-schema public
+          # --allow-dirty: Neon DBs always carry neon_auth / graphile_* schemas, so the
+          # database is never "clean" by atlas's check. Apply our migrations to public
+          # regardless (revisions tracked in public.atlas_schema_revisions).
+          atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL" --revisions-schema public --allow-dirty
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       - name: Pulumi up
