@@ -17,12 +17,12 @@
 ## 候选方案
 | 方案 | 做法 | 优 | 劣 | 实测 |
 |---|---|---|---|---|
-| **A. atlas.hcl `schemas=["public"]` + `--env neon`** | atlas 正式 schema 限定:只管 + 只检查 public | 干净、不妥协、atlas 正规 scope | 要确认 clean 检查真随 scope 走 | **未测**(被打断) |
+| **A. atlas.hcl `schemas=["public"]` + `--env neon`** | atlas 正式 schema 限定:只管 + 只检查 public | 干净、不妥协、atlas 正规 scope | — | **✅ 已测 CLEAN**(2026-07-01,CI 同款命令连 staging dry-run:not-clean 消除、列出 init migration = create catalog schema + 表) |
 | **B. `--allow-dirty`** | 承认 DB 非空,只把 migration apply 到 public | 一行、确定 work | "明知非空仍 apply",每次 deploy 都带 | 确定有效 |
 | **C. `--baseline <version>`** | 标记基线版本、跳过 clean 检查 | atlas 官方"非空库"做法 | 语义是"已有该 migration 对应的 schema",neon_auth 非我方 migration、不对路 | — |
 
-## 推荐
-**先测 A(1 个 dry-run)**:atlas.hcl 的 `schemas` 是比 search_path 更强的正式 scope,理论上让 atlas 完全无视 neon_auth → clean。**A 成 → 用 A(最干净)。A 不成 → 退 B(`--allow-dirty`,确定能跑,代价是承认 Neon 库永远"非空")**。C 语义不对,排除。
+## 结论(2026-07-01,已实测)
+**采用 A** —— CI 同款命令(`atlas migrate apply --env neon --url <staging> --revisions-schema public --dry-run`)连 staging 验证 CLEAN:not-clean 消除、正确识别 init migration(create catalog schema + 表)。落地:`atlas.hcl schemas=["public"]` + `--env neon` + `--revisions-schema public`,**已撤掉 `--allow-dirty`**(A 证明可行、无需妥协)。B(allow-dirty)是 A 失败时的 fallback(未用),C 语义不对(排除)。
 
 ## 待办(选定后)
 1. 撤掉当前 `_deploy-component.yml` 里的 `--allow-dirty`(我之前加的、你拒过)
