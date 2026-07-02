@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Splash 静态版 · 移动开屏 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Noto+Sans+SC:wght@500;700&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0e8d8; --paper:#f8f8f0; --ink:#794f27; --ink2:#725d42; --soft:#9f927d;
+  --teal:#19c8b9; --brand:#c44a2e; --line:#e8e2d6; --sh2:#d4c9b4;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#e7dfca;font-family:"Zen Maru Gothic","Nunito","Noto Sans SC",sans-serif;color:var(--ink);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 24px 80px;}
+.head{max-width:900px;text-align:center;margin-bottom:28px;}
+.head .ey{font:900 12px Nunito;letter-spacing:.22em;color:var(--soft);}
+.head h1{font-size:26px;font-weight:900;margin:6px 0 6px;}
+.head p{font-size:13px;color:var(--ink2);font-weight:700;line-height:1.8;}
+.row{display:flex;gap:48px;flex-wrap:wrap;justify-content:center;}
+.cell{display:flex;flex-direction:column;gap:10px;align-items:center;}
+.cell .cap{font:900 12.5px Nunito;letter-spacing:.14em;color:var(--ink2);}
+.phone{width:402px;height:874px;border:1.5px solid #c4b89e;border-radius:36px;overflow:hidden;position:relative;box-shadow:0 10px 0 0 var(--sh2);display:flex;flex-direction:column;align-items:center;}
+.phone.day{background:linear-gradient(180deg,#f4f0e2 0%,var(--bg) 55%,#e9dfc8 100%);}
+.phone.night{background:linear-gradient(180deg,#20180e 0%,#241b0f 55%,#1c150c 100%);}
+.sb{width:100%;height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:800 14px Nunito;flex-shrink:0;}
+.phone.day .sb{color:var(--ink);}
+.phone.night .sb{color:#f2e6cf;}
+.sb .dots{display:flex;gap:4px;}
+.sb .dots i{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.7;}
+.mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;width:100%;padding-bottom:56px;}
+.mid img.torii{width:92px;height:92px;display:block;}
+.mid .wm{font:900 12px Nunito;letter-spacing:.34em;color:var(--brand);margin-top:18px;}
+.mid h2{font-size:36px;font-weight:900;letter-spacing:.06em;margin-top:6px;}
+.phone.night .mid h2{color:#f2e6cf;}
+.mid .tag{font-size:14px;font-weight:700;color:var(--soft);margin-top:10px;letter-spacing:.08em;}
+.phone.night .mid .tag{color:#a2916f;}
+.foot{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:14px;padding-bottom:26px;}
+.foot img.fox{width:72px;height:72px;}
+.foot .ground{width:120px;height:6px;border-radius:3px;background:repeating-linear-gradient(90deg,rgba(122,95,61,.30) 0 8px,transparent 8px 18px);}
+.phone.night .foot .ground{background:repeating-linear-gradient(90deg,rgba(242,230,207,.28) 0 8px,transparent 8px 18px);}
+.foot .cr{font:700 9.5px Nunito;color:var(--soft);letter-spacing:.06em;}
+.phone.night .foot .cr{color:#8a7a5c;}
+.foot .bar{width:132px;height:5px;border-radius:3px;background:rgba(122,95,61,.35);margin-top:2px;}
+.phone.night .foot .bar{background:rgba(242,230,207,.3);}
+.note{max-width:820px;margin-top:26px;background:#f7f3df;border:1.5px dashed #c4b89e;border-radius:16px;padding:13px 18px;font-size:12.5px;color:var(--ink2);font-weight:700;line-height:1.9;}
+.note b{color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="ey">SPLASH · STATIC · 402×874</div>
+  <h1>移动端开屏 — 静态版（昼 / 夜）</h1>
+  <p>无动画无 JS：鳥居 mark（朱红＝logo only）+ 品牌字 + 一句 tagline + 狐狸。系统深浅色各一张，即出即走。</p>
+</div>
+
+<div class="row">
+  <div class="cell" data-screen-label="SPL-DAY 开屏·昼">
+    <div class="phone day">
+      <div class="sb"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="mid">
+        <img class="torii" src="assets/torii.svg" alt="">
+        <div class="wm">SEICHIJUNREI</div>
+        <h2>聖地巡礼</h2>
+        <div class="tag">あの画面に、行こう。</div>
+      </div>
+      <div class="foot">
+        <img class="fox" src="assets/fox/fox-stand.svg" alt="">
+        <div class="ground"></div>
+        <div class="cr">画像・座標：Anitabi (CC BY-NC-SA 4.0)</div>
+        <div class="bar"></div>
+      </div>
+    </div>
+    <span class="cap">昼（既定）</span>
+  </div>
+
+  <div class="cell" data-screen-label="SPL-NIGHT 开屏·夜">
+    <div class="phone night">
+      <div class="sb"><span>21:07</span><span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="mid">
+        <img class="torii" src="assets/torii.svg" alt="">
+        <div class="wm">SEICHIJUNREI</div>
+        <h2>聖地巡礼</h2>
+        <div class="tag">あの画面に、行こう。</div>
+      </div>
+      <div class="foot">
+        <img class="fox" src="assets/fox/fox-stand.svg" alt="">
+        <div class="ground"></div>
+        <div class="cr">画像・座標：Anitabi (CC BY-NC-SA 4.0)</div>
+        <div class="bar"></div>
+      </div>
+    </div>
+    <span class="cap">夜（システム連動）</span>
+  </div>
+</div>
+
+<div class="note"><b>规则</b>：跟随系统深浅色（prefers-color-scheme），不放进度条不做动效——开屏≤800ms 就该消失；scene-cut（狐狸小跑转场）只用于「明显去某处」的页面切换，不在开屏出现。旧动效探索存档：<b>Splash - Seichijunrei.html</b>。</div>
+
+</body>
+</html>
