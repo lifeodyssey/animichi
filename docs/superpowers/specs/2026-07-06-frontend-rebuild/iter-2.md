@@ -8,6 +8,7 @@
 - **SD-2(终局,非讨论中)**:用户域数据(路线保存/列表)访问路径是 **API-first**——新建 `workers/users` TS 服务的 oRPC 路由 `/v1/users/*`,数据落 **Neon**,契约进 `packages/contract`;`apps/web` 的 `supabase-js` 仅用于 auth(取 JWT),**不**直连任何数据表,不用 RLS。此前 rev 1-4 版本"当前按 RLS 直连方案撰写"的暂定框架已作废,本文件从一开始就按 SD-2 终局撰写。
 - **SD-3②④**:新用户域表建在 Neon(非 Supabase);既有 `sessions` 表数据迁移到 Neon 是本迭代的独立 story(S2.9)。
 - **`workers/users` 是全新服务**,没有 `workers/catalog` 那样的既有骨架可蹭——S2.8 需要完整参照 `workers/catalog` 的 oRPC+Drizzle+CI+部署模式搭建,不要发明新模式(见主 spec §⑨ 风险登记)。
+- **SEO/GEO 内容归属核证(回填自 SD-27,`2026-07-06-seo-geo-plan.md` §7 迭代映射表)——冲突已标注,未强行裁决**:该落地包的"迭代映射"表把"作品页 TVSeries/Movie JSON-LD + 事实速览块v1 + ImageObject/license + hreflang 起步"标在"2 详情+列表"行下。但本迭代实际交付页面是 `/routes/:id`(路线详情)与 `/routes`(マイルート列表)——两者都是用户私有页,不在 SD-27 A 的页面矩阵内(不 SSR、不进 sitemap、无 hreflang 意义),`/anime/:id` 作品页要到迭代 5 才建。据此判断该表格行归属很可能笔误(应对应"5 発見+首页",/anime/:id 在此交付且 SD-27 明言 programmatic SEO 主战场在迭代 5)。**处理**:相应 SEO story 内容已改落进 `iter-5.md`(S5.1/S5.6),本文件不新增 SEO story;**此判断供 Coordinator/用户复核,未经确认前不视为终局**。
 
 ---
 
@@ -25,6 +26,7 @@
 - 空:平日态(非当天、非完走、部分历史打卡)不显示金条,且保留部分历史✓(活文档不改写历史)-> browser
 - 错误:优先级规则(完走>当天>平日)在路线"既是当天又已完走"时被正确执行(显示完走态,不是两个 banner 同显)-> unit
 - i18n:金条文案与完走徽章文案按 ja/zh/en 渲染 -> unit
+- 生成式组件契约(回填自 SD-13):`GoldBar` 属产品专属生成式组件(inputs §三 A4 目录),若被 Chat generative UI registry 复用,payload 须含 `schema_version` 字段(additive-only 演进,禁破坏性变更)且组件本身 partial-tolerant(缺字段时渲染既定 skeleton slot,不崩溃);Storybook 需建"字段残缺态"+ "旧版 payload 态"两类 story -> unit
 
 **变更文件**:`apps/web/src/routes/routes/$routeId.tsx`、`apps/web/src/components/route-detail/Hero.tsx`、`apps/web/src/components/route-detail/GoldBar.tsx`、`apps/web/src/lib/route-detail/dataState.ts`。
 
@@ -46,6 +48,7 @@
 - 空:尚无打卡记录的路线全部 pin 显示为未访问白底序号,空进度不崩溃 -> browser
 - 错误:快速连续切换(双击)不产生半过渡的破损状态(防抖/守卫)-> browser
 - 多轮:打卡事件发生后 MODE 状态(展開/静息)正确保持,不意外重置 -> integration
+- 生成式组件契约(回填自 SD-13):`MapCard` 属产品专属生成式组件(inputs §三 A4 目录),若被 Chat generative UI registry 复用,payload 须含 `schema_version`(additive-only 演进)且组件 partial-tolerant(点位/pin 数据缺字段时渲染 skeleton slot 而非崩溃);Storybook 需建"字段残缺态"+ "旧版 payload 态"story -> unit
 
 **变更文件**:`apps/web/src/components/route-detail/MapCard.tsx`、`apps/web/src/components/route-detail/ModeToggle.tsx`、`apps/web/src/components/map/RoutePinLayer.tsx`。
 
@@ -150,6 +153,7 @@
 - 错误:若数据异常导致两条路线都标记"今天",UI 强制"金件唯一"规则(取最近更新的一条金框,另一条按普通卡处理,不渲染两张金卡)-> unit
 - i18n:空态文案与卡片标签按 ja/zh/en 渲染 -> unit
 - 多轮:在某条路线上完成一次 Walk 后返回 `/routes`,该卡的完走状态无需手动刷新即正确反映 -> integration
+- 生成式组件契约(回填自 SD-13):`BookshelfCard` 属产品专属生成式组件(inputs §三 A4 目录),若被 Chat generative UI registry 复用,payload 须含 `schema_version`(additive-only 演进)且组件 partial-tolerant(缺字段时渲染 skeleton slot);Storybook 需建"字段残缺态"+ "旧版 payload 态"story -> unit
 
 **变更文件**:`apps/web/src/routes/routes/index.tsx`、`apps/web/src/components/my-routes/BookshelfCard.tsx`、`apps/web/src/components/my-routes/EmptyState.tsx`、`apps/web/src/components/my-routes/MyDeskLayout.tsx`。
 
