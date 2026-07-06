@@ -271,3 +271,19 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 | Step5 BYOK + P8(SD-20,step5 收口) | **定案(BYOK 业界调研背书,原 G7/SD-11 方向证实为标准解)**。key 传递:每请求透传、后端不落盘(request-scope 局部变量,函数返回即释放)——纯客户端直连不成立(会绕过工具循环/validator/旁路,产品退化裸 Chat);客户端「记住」用 sessionStorage/内存态+严格 CSP,**前端不自制加密(安全剧场)**,不引服务端加密存储(跨设备记 key 属 YAGNI)。X3 scrub 强化:**自建 header allowlist 剥离中间件**,不依赖 Logfire 默认(它按字段名正则匹配且显式豁免 gen_ai.input.messages),覆盖请求日志/span/异常序列化三面,三族各写集成测试断言假 key 不出现。**P8 = 严格版解析后 IP 校验,不加域名白名单**(白名单挡死自部署 vLLM/中转商这一 BYOK 核心用例):解析域名→取确定 IP→校验不在私网/环回/链路本地/云元数据(169.254.169.254)段→用该 IP 连接(不重复解析,防 TOCTOU/DNS rebinding)+ 禁自动跟随重定向;CF Workers 原生 fetch 零 SSRF 防护须应用层自建;加容器出口防火墙(block RFC1918+169.254)纵深。血案佐证:vLLM CVE-2026-24779→被 CVE-2026-25960 绕过(parser differential,字符串过滤必错)。配额分层:BYOK 豁免 X4 美元预算,**不豁免**注入防护/output_validator/内容守卫/频率异常检测(防 BYOK 后门绕 Turnstile 打下游 API)。pydantic-ai 落地:单例 Agent + agent.run(model=per-request override),三族 Provider 构造接受 api_key/base_url。迭代1 最小清单:chat.py 接可选凭据 header→局部注入不落盘;_middleware.py header 剥离+三族集成测试;egress_guard.py 解析后 IP 校验+四类用例(IP字面量/域名解析/重定向/IPv6环回);凭据无效错误不回带原始 key;D18 边界回归(BYOK 开启时内部工具仍走服务端自有 key) | 定案 |
 | Step7 Observe/Trace(SD-21) | **定案(用户确认)**:Logfire 全链路(instrument_pydantic_ai+fastapi+httpx)不动。补三件:① PII scrub 挂点 = step5 的 header allowlist 中间件顺带处理 GPS,**P9 坐标进 trace 前砍到小数点后 3 位(百米级)**,存储层(打卡)全精度;② usage/成本已在 span(step6,不重复造);③ 迭代 7 顺手加 trace 按调用方维度切分(Logfire attribute 加字段,A2A 来源可查)| 定案 |
 | Step-flywheel 排期与边界(SD-22,先定框架下节细化方案) | **定案(用户确认)**:五只飞轮共用一个燃料箱=全信号埋点(迭代1的轴)。排期:飞轮1 Agent质量迭代1起转、飞轮2 意图口味攒数据迭代3-5析、飞轮3 UGC数据推迟(先埋schema留位)、飞轮4 SEO增长迭代5、飞轮5 记忆个性化数据够再唤醒。**self-evolve 边界:改进机会自动浮现但入库/写库/改门禁一律人(用户或AI)批准,不做无人自动闭环**(单人维护下坏信号自动传播=失控风险)。迭代1真正建的飞轮零件=全信号埋点+trace→eval case 转换脚本。详细运行手册见下节 SD-23 | 定案 |
+
+## 十一、飞轮运行手册(SD-23,定案 · 用户确认)
+
+统一模板:触发信号 → 数据动作 → 批准关卡 → 成功度量 → 迭代1建什么
+
+**飞轮1 Agent质量(迭代1全速)**:触发=①被动:👎微件/E2立即重选(隐式差评);②主动:周任务扫7天trace捞「低置信/工具重试≥2/output_validator打回/clarify循环≥2」。动作=命中trace经转换脚本→候选eval case{输入,history,期望意图·工具序,实际输出,失败标签}落 eval_candidates 表(不直接进617)。批准=人审(脚本附「为何被捞+建议八族归属」)→通过才进正式集→红→改prompt/工具描述→绿。度量=八族分(IntentMatch 54%↑)、正式集条数、同类失败复发率↓。迭代1建:全埋点+转换脚本+eval_candidates表+👎微件;不建自动入库。
+
+**飞轮2 意图口味(埋点先行,迭代3-5析)**:触发=累积记录「选了哪条候选/改配速/删哪站/E2重选」。动作=聚合高频偏好模式(如70%改きっちり→ゆっくり=默认错;常删步行>15分站=距离权重需调)。批准=改进建议清单→你定改默认值/plan_route权重/few-shot。度量=首版路线被改动比例↓。迭代1:只埋字段,不分析。
+
+**飞轮3 UGC→catalog(推迟,迭代1埋schema留位)**:触发=打卡(GPS+可选照片)、対比図(机位角度)。动作=验证信号:打卡GPS偏离点位>50m→坐标可能有误;多用户同位置打卡但catalog无此点→候选新点位;机位→候选机位数据。批准=⚠️最重审核关,绝不自动写catalog,信号进 catalog_suggestions 表,≥3独立用户同一纠正才生成待人工确认工单。度量=点位坐标准确率、覆盖数↑且零污染事故。迭代1:打卡表预留GPS/照片字段+catalog_suggestions表schema空转;审核管线独立后续工程。护城河=每个走完Walk用户无偿验证/扩充圣地库。细化归任务#7。
+
+**飞轮4 SEO增长(迭代5,增长型)**:触发=catalog新作品/用户新公开路线→自动进sitemap。动作=每页=SEO落地页+GEO可摘引事实块→爬虫收录→引流→更多路线→更多页。批准=X15 catalog质量门(垃圾数据×SEO=垃圾页工厂,发布前过质量校验)。度量=收录页数、自然流量、AI引用率(claude-seo审计)。细化归任务#8。
+
+**飞轮5 记忆个性化(休眠,数据够唤醒)**:触发=飞轮2分析证明跨会话偏好高频复现(数据决定,不拍脑袋)。动作=稳定偏好写profile表→回流注入→agent记得你(主线B跃升)。批准=GEM语义(新增/修正/作废)+用户可见可编辑可删。度量=回流首版满意度、主线B转化。迭代1:无(休眠)。
+
+**共同轴**:全信号埋点(迭代1)。**依赖链**:1立即转→2攒数据→5等2证明偏好复现;3等审核管线;4靠迭代5 SEO。self-evolve=系统攒够证据让用户做有依据的进化决策,非无人闭环。
