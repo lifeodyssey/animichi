@@ -183,7 +183,7 @@
 | D4 | 渲染策略 | **修订**:SPA + 选择性 SSR(G3) | 原 spec 纯 SPA;`wrangler.toml [assets]` 仍指向已不存在的 `./frontend/out`,**下次 tag 部署必挂**;CI frontend-build/upload-artifact 同样按旧假设——迭代 0 必修 |
 | D5/D6 | monorepo + oRPC 契约 | 保留(main 已落地) | agent API 仍是手写 REST;新端点顺手进 contract |
 | D7 | Agent Pyodide Worker 化 | non-goal | 三代设计自我推翻,代码停在第一代(FastAPI 容器);现役 `/v1/*` 稳定,前端照常消费 |
-| D8 | Neon/Supabase 拆分 | non-goal | 未实施;新 enabler 的迁移仍走现行 supabase/migrations |
+| D8 | Neon/Supabase 拆分 | **SD-3 激活(2026-07-06)**:Supabase 收缩为纯 auth,数据归 Neon,渐进执行(见第七节) | 原 06-23 设计被用户确认为终局路线;不再是 non-goal |
 | D9 | Pulumi IaC | non-goal(main 已有 infra/) | 本列车不新增 infra 资源除非 story 需要(R2 桶等按需) |
 | D10 | 多环境 | non-goal | 现状单环境 tag→prod;releasable 定义按此 |
 | D11 | i18n | 保留 | spike 的 Context+字典机制,决策-文档-代码-测试四者一致,直接沿用 |
@@ -209,7 +209,26 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 | X9 | **D7 Pyodide 改判 REJECTED(非 deferred)**:容器 FastAPI + 保温为定案,三代自我推翻的文档在回写 story 中统一收敛并标注 | Decision Log + 迭代 0 文档回写 story |
 | X10 | **平台能力适配层(多端纪律)**:`apps/web/src/platform/` 薄接口(camera/geo/haptics/wake-lock…),组件禁止裸调 `navigator.*`;web 实现打底,Capacitor 实现后插。凡涉及相机(対比図)、定位/震动(Walk)、剪贴板/分享(しおり)的 story,AC 要求经由适配层 -> unit | spec 全局约定一节 + 迭代 1-4 相关 story AC |
 | X11 | **SDK 战略(契约即产品)**:① 自家 web app 一律经 /v1 公开 API 消费能力,禁止私有后门;② oRPC 契约自动出 OpenAPI;③ `@seichijunrei/sdk`(npm)= contract client 薄壳再导出;④ 现有 `backend/clients/python/seichijunrei_client.py` 转正为 Python SDK(手写薄客户端,不上 codegen);⑤ 迭代 7 的 MCP server/A2A 必须是 /v1 的薄适配器,零业务逻辑。①与②是全程纪律,③④⑤落迭代 7 story | G4 补充纪律 + 迭代 7 story 扩充 |
-| X12 | **Agent 去数据化,catalog 成为唯一数据面**(方向性,不进本列车 story):agent 的 resolve_anime/search_bangumi/search_nearby 等数据工具应改为调用 catalog 读 API(经 contract),移除 agent 内嵌 retriever 直连 DB;消除「点位数据 Supabase(agent 读)与 Neon(catalog 写)两份真相」的分叉。agent 只保留会话/编排状态。进 Decision Log + 后续 backend wave;本列车中新建的后端 enabler 归属规则(G4 细化):**catalog 域数据(作品/点位/图片元数据)→ workers/catalog(oRPC);用户域数据(路线/打卡/しおり/分享)→ Supabase 表 + RLS,apps/web 经 supabase-js 直连,zod 行模式镜像进 packages/contract 保持类型共享;禁止往 agent 服务新增任何数据端点**。「自家吃公开 API」纪律(X11)适用于能力面(搜索/规划/发布),用户自有数据走 RLS 是 Supabase 正统架构而非后门;面向第三方的 /v1 用户数据门在迭代 7 随 MCP 一并落地 | Decision Log + G4 enabler 归属规则 |
+| X12 | **Agent 去数据化,catalog 成为唯一数据面**(方向性,不进本列车 story):agent 的 resolve_anime/search_bangumi/search_nearby 等数据工具应改为调用 catalog 读 API(经 contract),移除 agent 内嵌 retriever 直连 DB;消除「点位数据 Supabase(agent 读)与 Neon(catalog 写)两份真相」的分叉。agent 只保留会话/编排状态。进 Decision Log + 后续 backend wave;本列车中新建的后端 enabler 归属规则(G4 细化,SD-2 定案):**catalog 域数据(作品/点位/图片元数据)→ workers/catalog(oRPC);用户域数据(路线保存/列表、打卡、しおり、分享 token)→ /v1/users/* oRPC 路由(workers 上新建 users 模块),后端连 Supabase PG(service role),RLS 保留为纵深防御但不是访问路径;zod 契约进 packages/contract;禁止往 agent 服务新增任何数据端点;apps/web 的 supabase-js 仅用于 auth**。「自家吃公开 API」纪律(X11)全域统一适用;迭代 7 的 SDK/MCP 零改造复用同一契约 | Decision Log + G4 enabler 归属规则 |
 | X13 | **[已撤回 2026-07-06]** 原主张「弃 atlas 收敛为 drizzle-kit」系误判:Drizzle(类型/查询)+ Atlas(schema 迁移)是用户的既定分工,PR #206 摩擦为 Neon 系统 schema 环境问题且已修复。迁移链议题转入 system-design 讨论(SD-1),结论以评审版 Decision Log 为准 | 撤回;见 SD 讨论 |
-| X14 | **edge worker 转正**:worker/worker.js 是无测试纯 JS,而迭代 1 要往里加 Turnstile/配额/匿名信任规则(X5)——顺势迁 TS + 单测覆盖 + 配额/Turnstile 逻辑可测;不等 Wave 4 | 迭代 1 enabler story 的一部分 |
+| X14 | **[核证修正 2026-07-06]** 原假设「worker.js 无测试纯 JS」不成立:现状已是 TS 三件套(worker/entry.ts+app.ts+auth.ts)且有 15 个测试用例;**真实缺口 = 测试从未接入 CI**(根 package.json 无 test script,workflow 零引用)。修正后的要求:迭代 0 CI story 把 worker 测试接入;迭代 1 的 Turnstile/配额/匿名逻辑在其上追加并保持可测 | 迭代 0 CI story + 迭代 1 enabler |
 | X15 | **catalog 数据质量门**:作品公開页/programmatic SEO 上线前,catalog Publish 阶段加行级校验(坐标有效性/去重/話数完整性)+ 数量漂移告警——垃圾数据 × SEO 放大器 = 垃圾页面工厂 | 迭代 5 story 或其 AC |
+
+## 七、SD interview 结论(滚动更新;评审版 Decision Log 以本节为准)
+
+| 轮次 | 结论 | 状态 |
+|---|---|---|
+| SD-0 域名 | 调研代理扫描候选中,animichi.com 为基准对照;CANONICAL_DOMAIN 保持参数化 | 进行中 |
+| SD-1 迁移链 | **双链 + atlas-provider-drizzle**:Neon 侧 Drizzle TS schema(workers/catalog/src/db/schema.ts)为唯一真相 → atlas-provider-drizzle 作期望态 → atlas migrate diff/lint/apply(versioned,db/migrations);Supabase 侧 supabase CLI 不变;边界与 CI 步骤写入 docs/ops/migrations.md(迭代 0 文档回写 story) | 定案 |
+| SD-2 用户域访问 | **API-first 全走 /v1**:用户域 CRUD = workers 上新建 users 模块的 oRPC 路由(/v1/users/*),契约进 packages/contract;apps/web 的 supabase-js 仅用于 auth;RLS 不作为访问路径;迭代 7 SDK/MCP 零改造复用同一契约 | 定案 |
+| SD-3 数据面 | **Supabase 收缩为纯 auth,数据归 Neon**(激活 06-23 D8 设计并升级为终局):① selected_route 的 get_points_by_ids 改走 CatalogClient/Neon,消除同会话跨库混读(迭代 1 enabler,修 bug 性质);② 新建用户域表(路线/打卡/しおり/分享 token)一律生在 Neon,经 SD-1 工具链建表,JWT sub 衔接 auth;③ Supabase 中 catalog 域表(points/bangumi/aliases 等)冻结写入标废,稳定一迭代后删;④ 既有会话/消息/routes 数据迁 Neon 作为迭代 2-3 的独立 story(prod 数据量近零,一次性脚本);⑤ 远期 Neon Auth 成熟后 auth 亦迁、彻底退役 Supabase(future wave,不进本列车) | 定案 |
+| SD-4 agent 运行时 | 等 TS agent SDK 调研代理返回后与用户裁决(X9 悬置) | 等调研 |
+| SD-5 会话状态 | 迭代 1 前端沿用现状端点(Supabase sessions.state JSONB + conversation_messages,best-effort 写);随 SD-3④ 迁 Neon;「best-effort 持久化、无事务保证」记入风险登记 | 定案(默认) |
+| SD-6 edge worker | X14 核证修正:已是 TS + 15 用例,唯一缺口是测试未接 CI → 迭代 0 CI story 接入;Turnstile/配额在其上追加 | 定案 |
+
+### 核证报告要点(2026-07-06,代码级证据)
+- 主张 1 成立且更严重:同一会话内搜索读 Neon、选点成交读 Supabase(apps/agent/agent/agents/selected_route.py:32-35),两库 06-23 fork 后零同步——SD-3① 为修复
+- 主张 2 成立:三链并存且 schema.ts 与 atlas 迁移间无 drizzle-kit,纯人工同步——SD-1 为修复
+- 主张 3 不成立:worker 已是 TS+测试,缺口仅 CI 接线——X14 已修正
+- 主张 4 成立:用户域端点在 agent FastAPI(conversations/routes),旧前端 supabase-js 纯 auth,用户表 RLS 有开关无策略——与 SD-2/SD-3 兼容
+- 附加:session state 与 message_history 分表、独立写路径、best-effort;都在 Supabase(SD-3④ 待迁)
