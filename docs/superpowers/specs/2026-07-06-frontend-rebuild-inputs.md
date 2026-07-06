@@ -237,7 +237,7 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 | SD-9 流式协议 | **三事件 SSE 渐进流**(体验优先,用户委托裁量):`step`(工具进度,驱动管线徽章)+ `output.delta`(partial 校验的类型化输出,generative 组件渐进填充)+ `done`(完整校验 payload 兜底)。三纪律:① 事件 schema 进 packages/contract;② **registry 组件自第一天按 partial-tolerant 设计**(声明可缺字段+skeleton slot);③ 协议可降级(后端只发 step+done 前端零改)。spike 点:判别式联合的 intent 字段序须先到。实现基座 = pydantic-ai run_stream partial validation,扩展现有自建 queue | 定案 |
 | SD-11 BYOK 范围 | **pydantic-ai 原生多 provider**(用户指正:非 TS 世界的每家一套 SDK):首发三族 = OpenAI 兼容(base_url+key 兜底)/ Anthropic / Gemini,per-request model override;X3 scrub 对全族生效;UI = provider 选择 + key(+可选 base_url),归 chat 输入区 G 组 | 定案 |
 
-## 八、agent 架构全维度终稿(SD 补章,2026-07-06)
+## 八、agent 架构补章 I(**状态:提案待议** — 2026-07-06 用户指出未经讨论,自「终稿」降级;逐项经用户确认后方转定案)
 
 - **SD-7 终定(用户确认)**:维持工具循环(native tool-calling,ReAct 血统)+ 类型化终局 + ModelRetry/output_validator 双守卫 + 确定性旁路;意图准确率走 eval-driven 提示词/few-shot/工具描述调优
 - **SD-12 终定**:对外(迭代 7 MCP/A2A)= 任务型能力:resolve_anime / search_points / plan_pilgrimage(anime, constraints),无状态幂等可缓存,Workers 薄适配器 → /v1 同一契约;不暴露 chat 直通
@@ -246,7 +246,7 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 - **P6(新增,进协议契约)**:SSE 断线语义 = 事件带 turn_id+seq;不做流内续传(Last-Event-ID 弃用,一次 run 不可中途恢复);断线后 GET messages 拉终态,生成中断显示 D 系异常态卡片(设计稿已备)
 - 默认项:prompt 保持代码内管理;无内部 skill 框架;运行时无 subagent;MCP client 采用推迟到真实第三方能力需求出现(pydantic-ai 原生支持,随接随用);生产会话抽样评分记 backlog;伪工具怪癖(greet/qa=输出整形器)记录不动
 
-## 九、agent 架构补章 II:模型/subagent/sandbox/guardrails/generative UI(2026-07-06)
+## 九、agent 架构补章 II:模型/subagent/sandbox/guardrails/generative UI(**状态:提案待议**,同上)
 
 - **模型策略**:换主力模型必须过 eval gate(617 套件,重点 locale+intent,score/円 决策);BYOK 只覆盖主循环,内部调用走自有 key;不做模型分层(工具是代码非 LLM 调用,YAGNI)
 - **Subagent 终定**:运行时零 subagent(三判据——上下文隔离/角色特化/LLM级并行——全不满足);SP9=同 agent 带约束重调;开发 harness 的多 agent 与产品 runtime 严格区分
