@@ -24,7 +24,7 @@
 - **Zen Maru Gothic 自行 @import 为硬性 AC**(上游包 v0.9.x 起移除日文字体,产品全日文,漏掉即视觉事故;设计导出 `assets/fonts.css` 可直接 vendor)
 - D7-D10(Agent Pyodide 化 / Neon 迁移 / Pulumi / 多环境)**明示为 non-goal**,本列车不动
 - Capacitor **推迟到环闭合后**(零代码沉没);本列车只保证不做出阻断 Capacitor 的选择(SPA shell 保持、SPA 路由无 server-only 依赖)
-- 域名:用户持有 `animichi.com`(主推荐)与 `aninavi.app`,尚未最终拍板 → spec 用参数 `CANONICAL_DOMAIN` 表示;迭代 0 的 SEO/域名 story 标注「依赖域名落定」(canonical/sitemap host/OG 绝对链接/Supabase magic-link 重定向白名单)
+- 域名:**SD-0 定案(2026-07-06)= `animichi.com`**;`CANONICAL_DOMAIN=animichi.com`,迭代 0 域名 story 解锁(canonical/sitemap host/OG 绝对链接/Supabase magic-link 白名单/aninavi.app 301 或放养);36 候选调研报告见 `2026-07-06-domain-research.md`(kitsunavi.com 为品牌升级备选)
 - 设计导出已提交入库,作为 Tester 的视觉基准(oracle)
 
 ### 用户附加 scope(必须进 spec)
@@ -218,7 +218,7 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 
 | 轮次 | 结论 | 状态 |
 |---|---|---|
-| SD-0 域名 | 调研代理扫描候选中,animichi.com 为基准对照;CANONICAL_DOMAIN 保持参数化 | 进行中 |
+| SD-0 域名 | **animichi.com 定案**;调研报告留档(首推备选 kitsunavi.com 及防御域建议) | 定案 |
 | SD-1 迁移链 | **双链 + atlas-provider-drizzle**:Neon 侧 Drizzle TS schema(workers/catalog/src/db/schema.ts)为唯一真相 → atlas-provider-drizzle 作期望态 → atlas migrate diff/lint/apply(versioned,db/migrations);Supabase 侧 supabase CLI 不变;边界与 CI 步骤写入 docs/ops/migrations.md(迭代 0 文档回写 story) | 定案 |
 | SD-2 用户域访问 | **API-first 全走 /v1**:用户域 CRUD = workers 上新建 users 模块的 oRPC 路由(/v1/users/*),契约进 packages/contract;apps/web 的 supabase-js 仅用于 auth;RLS 不作为访问路径;迭代 7 SDK/MCP 零改造复用同一契约 | 定案 |
 | SD-3 数据面 | **Supabase 收缩为纯 auth,数据归 Neon**(激活 06-23 D8 设计并升级为终局):① selected_route 的 get_points_by_ids 改走 CatalogClient/Neon,消除同会话跨库混读(迭代 1 enabler,修 bug 性质);② 新建用户域表(路线/打卡/しおり/分享 token)一律生在 Neon,经 SD-1 工具链建表,JWT sub 衔接 auth;③ Supabase 中 catalog 域表(points/bangumi/aliases 等)冻结写入标废,稳定一迭代后删;④ 既有会话/消息/routes 数据迁 Neon 作为迭代 2-3 的独立 story(prod 数据量近零,一次性脚本);⑤ 远期 Neon Auth 成熟后 auth 亦迁、彻底退役 Supabase(future wave,不进本列车) | 定案 |
@@ -232,3 +232,7 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 - 主张 3 不成立:worker 已是 TS+测试,缺口仅 CI 接线——X14 已修正
 - 主张 4 成立:用户域端点在 agent FastAPI(conversations/routes),旧前端 supabase-js 纯 auth,用户表 RLS 有开关无策略——与 SD-2/SD-3 兼容
 - 附加:session state 与 message_history 分表、独立写路径、best-effort;都在 Supabase(SD-3④ 待迁)
+| SD-7 认知循环 | **维持单工具循环 + 确定性旁路**(默认定案,用户可推翻):意图准确率走 eval-driven 提示词/工具描述调优(X8 护航),不加路由层、不改 plan-and-execute;UI 增长时优先加确定性旁路(SP8/SP9 即旁路设计) | 定案(默认) |
+| SD-8 会话记忆 | per-session 记忆 + 会话列表(现有 conversations 端点);`user_memory` 表保持休眠记入 Decision Log;続きから(迭代5)只依赖 sessions/routes 列表 | 定案(默认) |
+| SD-9 流式协议 | **三事件 SSE 渐进流**(体验优先,用户委托裁量):`step`(工具进度,驱动管线徽章)+ `output.delta`(partial 校验的类型化输出,generative 组件渐进填充)+ `done`(完整校验 payload 兜底)。三纪律:① 事件 schema 进 packages/contract;② **registry 组件自第一天按 partial-tolerant 设计**(声明可缺字段+skeleton slot);③ 协议可降级(后端只发 step+done 前端零改)。spike 点:判别式联合的 intent 字段序须先到。实现基座 = pydantic-ai run_stream partial validation,扩展现有自建 queue | 定案 |
+| SD-11 BYOK 范围 | **pydantic-ai 原生多 provider**(用户指正:非 TS 世界的每家一套 SDK):首发三族 = OpenAI 兼容(base_url+key 兜底)/ Anthropic / Gemini,per-request model override;X3 scrub 对全族生效;UI = provider 选择 + key(+可选 base_url),归 chat 输入区 G 组 | 定案 |
