@@ -6,7 +6,7 @@
 
 **数据访问路径(定案,SD-2/主 spec §②)**:S3.7 是用户域数据 enabler,经 `workers/users` oRPC(`/v1/users/*`)+ Neon,`apps/web` 的 `supabase-js` 仅用于 auth——此为终局架构,不再有"可能改判"的不确定性。
 
-**[提案待确认] 标注**:S3.3 的 GPS 精度截断(P9)标注为待用户确认,已完整写入 AC,排期前需 Coordinator 过堂(见主 spec §②)。
+**GPS 精度截断(P9,回填自 SD-21,定案)**:P9 在主 spec §② 曾标注"提案待议",已由 SD-21(2026-07-06,用户确认)终定——观测层(Logfire trace)坐标截断至约百米级精度(小数点后 3 位),存储层(打卡记录本身)保持全精度,scrub 逻辑与 X3(BYOK key scrub)共用同一实现点。S3.3 的对应条目从"待确认"转为硬性 AC,且**必须在 Walk 功能上线前生效**(不可作为 Walk 之后的补丁)。
 
 ---
 
@@ -46,11 +46,11 @@
 
 ---
 
-### S3.3 Walk 操作(Maps 深链/打卡/近く sheet)+ 平台适配层 + GPS 精度截断([提案待确认] P9)
+### S3.3 Walk 操作(Maps 深链/打卡/近く sheet)+ 平台适配层 + GPS 精度截断(定案,回填自 SD-21/P9)
 
-**Scope**:「🧭 Mapsで開く」深链(J12)、「✓ ここに来た!」打卡(vibrate+撤销 toast,J13)、「📍 近くにあと N スポット」sheet(J11)——全部经 X10 平台适配层(haptics/geo);精确 GPS 坐标的观测层处理(P9)。
+**Scope**:「🧭 Mapsで開く」深链(J12)、「✓ ここに来た!」打卡(vibrate+撤销 toast,J13)、「📍 近くにあと N スポット」sheet(J11)——全部经 X10 平台适配层(haptics/geo);精确 GPS 坐标的观测层处理(P9,定案见 SD-21)。
 
-**设计依据**:`user-journey.md` §6.5(四件套映射表);`Walk demo.html`(真打卡 vibrate+撤销);主 spec [提案待确认] P9。
+**设计依据**:`user-journey.md` §6.5(四件套映射表);`Walk demo.html`(真打卡 vibrate+撤销);SD-21(定案,取代主 spec 原"提案待确认"标注)。
 
 **核心 AC**:
 - 点击「ここに来た!」触发 `platform.haptics.vibrate()`、进度前进、显示可撤销的 toast(几秒窗口)-> browser
@@ -58,7 +58,7 @@
 - 某站附近无其他作品点位时 sheet 显示空态文案,不是破损空列表 -> browser
 - 撤销窗口内点击撤销正确回退打卡(进度-1、同步队列条目移除)-> integration
 - 经由适配层(X10):打卡震动与"近く"用到的定位一律走 `platform.haptics`/`platform.geo`,不直接调 `navigator.*` -> unit
-- **硬 AC([提案待确认],P9)**:打卡/近く sheet 涉及的精确 GPS 坐标不得进入 Logfire trace——观测层的位置数据在写入 trace 前截断到约百米级精度(如坐标保留 3 位小数);**存储层**(打卡记录本身、供"近く"计算用的实际坐标)保留全精度不受影响;integration test 断言 Logfire 捕获的 span 里坐标字段精度不超过约 100m 对应的小数位数,同时数据库/API 响应里的坐标仍是全精度 -> integration
+- **硬 AC(定案,回填自 SD-21/P9,Walk 上线前必须生效)**:打卡/近く sheet 涉及的精确 GPS 坐标不得进入 Logfire trace——观测层的位置数据在写入 trace 前截断到约百米级精度(坐标保留小数点后 3 位);**存储层**(打卡记录本身、供"近く"计算用的实际坐标)保留全精度不受影响;integration test 断言 Logfire 捕获的 span 里坐标字段精度不超过小数点后 3 位,同时数据库/API 响应里的坐标仍是全精度 -> integration
 
 **Backend enabler**:读写打卡数据(见 S3.7);P9 的 scrub 逻辑与 X3(BYOK scrub)共用同一实现点(观测层剥离/截断中间件)。
 
@@ -74,6 +74,8 @@
 
 **设计依据**:`user-journey.md` §6.5 J10;`Walk demo.html`(透明度滑杆)。
 
+**数据管线衔接(回填自 SD-26,任务#7)**:本 story 用到的动画帧/机位参照图,与 Iteration 4 図搜阶段2(対比図机位精匹配)共享同一份参考图数据管线——两处不重复建索引,建设顺序上谁先落地谁承担管线基础设施,后落地的一方直接复用。若 Iteration 4 阶段2 的参考图索引在本迭代排期时尚未就绪,本 story 先使用当前设计导出的静态帧资源(无索引依赖),阶段2 上线后自动获得更完整的候选帧而不需要重构本组件的渲染逻辑。
+
 **核心 AC**:
 - 从 walk-hero 卡打开「構図をくらべる」显示可用的透明度滑杆对照动画帧 -> browser
 - 无参照帧的站显示 D9 渐变+话数文字兜底,不是空白叠加层 -> browser
@@ -82,7 +84,7 @@
 
 **变更文件**:`apps/web/src/components/walk/CompositionCompare.tsx`。
 
-**依赖**:S3.2。
+**依赖**:S3.2;数据管线与 Iteration 4 図搜阶段2 共享(非强制阻塞依赖,见上方衔接说明)。
 
 ---
 
@@ -182,3 +184,5 @@
 **变更文件**:`scripts/migrate-conversation-messages-to-neon.ts`(新增)、`apps/agent/agent/infrastructure/`(消息读写路径切换到 Neon 客户端)、`supabase/migrations/`(冻结标注)。
 
 **依赖**:S2.9(sessions 迁移,建议先行,便于共享迁移脚本基础设施);S2.8(`workers/users`/Neon 工具链已搭建)。
+
+**归属确认(回填自 SD-3④,待 Coordinator 裁决)**:SD-3④原文一并提及"会话/消息/routes"三类既有数据迁移——会话(sessions)已归 Iteration 2 的 S2.9,消息(conversation_messages)即本 story;但生产环境是否存在迁移前的"routes"历史数据(区别于 Iteration 2 新建的路线保存/列表功能本身)尚未在 iter-2.md/iter-3.md 中见到对应的显式迁移 story。`supabase/migrations/` 下确认存在 route 相关既有表(`20260402124000_operational_tables.sql` 等),故该迁移项可能遗漏,而非"无需迁移"。本文件不越权修改 iter-2.md,此处仅记录待确认事项,交排期该迭代的 Coordinator 核实是否需补一个 S2.x/S3.x 级的 routes 数据迁移 story。
