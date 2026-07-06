@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat 完整状态 · 44態対応 可交互原型 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/index.css">
+<style>
+  :root{
+    --bg:#f5f1e4; --paper:#fffdf5; --ink:#5a3c20; --ink-body:#725d42; --ink-soft:#9f927d;
+    --teal:#1c9b8e; --teal-bright:#19c8b9; --teal-bg:#e6f9f6; --teal-deep:#11857a;
+    --gold:#f5c31c; --gold-deep:#d8a812; --gold-ink:#5c4813; --star:#f0b429;
+    --line:#e8e2d6; --line2:#ded7c6; --content:#f7f3df; --pill:50px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{font-family:"Nunito","Noto Sans SC",sans-serif;color:var(--ink-body);
+    background:
+      radial-gradient(60% 38% at 84% -6%,#e7f1fb 0,rgba(231,241,251,0) 60%),
+      radial-gradient(50% 34% at 10% -2%,#fbe6ef 0,rgba(251,230,239,0) 58%),
+      var(--bg);
+    display:flex;flex-direction:column;height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;}
+  .app{flex:1;display:flex;flex-direction:column;min-height:0;width:100%;}
+  body.mframe{align-items:center;justify-content:center;padding:18px;}
+  body.mframe .app{flex:none;width:402px;max-width:100%;height:min(92vh,864px);border-radius:46px;overflow:hidden;
+    box-shadow:0 0 0 12px #2c2722,0 2px 0 14px #4a4239,0 40px 80px -30px rgba(61,52,40,.55);position:relative;}
+  @media (max-width:520px){ body.mframe{padding:0;} body.mframe .app{width:100%;height:100vh;border-radius:0;box-shadow:none;} }
+
+  /* ===== strict DS palette (toggle) ===== */
+  body.ds{
+    --bg:#f0e8d8; --paper:#f8f8f0; --content:#f7f3df; --ink:#794f27;
+    --teal:#19c8b9; --teal-deep:#11a89b; --line2:#c4b89e;
+    background:#f0e8d8;
+  }
+  body.ds .chip2.orange{background:#fdf1cf;color:#a8801a;border-color:#f6e3a6;box-shadow:0 3px 0 0 #efd98f;}
+
+  /* app bar */
+  .appbar{flex:none;display:flex;align-items:center;gap:13px;padding:13px clamp(16px,4vw,28px);
+    background:var(--paper);border-bottom:2px solid var(--line);z-index:5;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .mk{position:relative;width:40px;height:40px;flex:none;}
+  .brand .mk .torii{width:40px;height:40px;display:block;}
+  .brand .mk .markfox{position:absolute;left:-8px;bottom:-6px;width:24px;height:24px;transform:scaleX(-1);}
+  .brand .tt{display:flex;flex-direction:column;line-height:1.05;}
+  .brand .tt .ja{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:19px;color:var(--ink);}
+  .brand .tt .en{font-size:10.5px;font-weight:800;letter-spacing:1.5px;color:var(--teal);}
+  .grow{flex:1;}
+  .hbtn{display:inline-flex;align-items:center;gap:7px;background:var(--paper);color:var(--ink);border:2px solid var(--line);
+    font-family:inherit;font-weight:800;font-size:13.5px;padding:8px 14px;border-radius:var(--pill);cursor:pointer;box-shadow:0 3px 0 0 #bdaea0;transition:transform .1s,box-shadow .1s;}
+  .hbtn:active{transform:translateY(2px);box-shadow:0 1px 0 0 #bdaea0;}
+  .hbtn svg{width:15px;height:15px;}
+  .ava{width:38px;height:38px;border-radius:50%;background:var(--teal);border:2px solid #fff;box-shadow:0 3px 8px -3px var(--teal);flex:none;}
+
+  /* scroll + thread */
+  .scroll{flex:1;overflow-y:auto;position:relative;}
+  .wrap{max-width:760px;margin:0 auto;padding:26px clamp(16px,4vw,24px) 8px;min-height:100%;display:flex;flex-direction:column;}
+  .thread{display:flex;flex-direction:column;gap:16px;}
+  .row{display:flex;gap:11px;align-items:flex-start;}
+  .row.me{justify-content:flex-end;}
+  @keyframes rowIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+  body.motion .row{animation:rowIn .34s cubic-bezier(.2,.8,.3,1);}
+  .fava{width:38px;height:38px;border-radius:50%;background:var(--teal-bg);border:2px solid #cdeee8;flex:none;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .fava img{width:34px;height:34px;}
+  .bub{max-width:78%;padding:13px 17px;border-radius:20px;font-size:15.5px;line-height:1.62;font-weight:500;}
+  .bub.a{background:var(--content);border:2px solid var(--line);border-top-left-radius:6px;color:var(--ink-body);}
+  .bub.me{background:var(--teal);color:#073f3a;border-top-right-radius:6px;font-weight:600;box-shadow:0 4px 0 0 var(--teal-deep);}
+  .bub b{color:var(--ink);} .bub.me b{color:#052b27;}
+  .from-home{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:800;color:var(--ink-soft);margin-bottom:6px;justify-content:flex-end;}
+  .from-home svg{width:13px;height:13px;}
+  .acol{display:flex;flex-direction:column;max-width:86%;min-width:0;flex:1;}
+  .acol .bub{max-width:100%;}
+
+  /* empty hero */
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:14px 0 30px;}
+  .empty .gfox{width:108px;height:108px;filter:drop-shadow(0 8px 10px #6b563a26);animation:bob 4s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-7px);}}
+  .empty h1{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:27px;color:var(--ink);margin:0;letter-spacing:.5px;}
+  .lead-bub{background:var(--content);border:2px solid var(--line);border-radius:20px;border-top-left-radius:6px;padding:13px 18px;font-size:15px;line-height:1.6;color:var(--ink-body);font-weight:500;max-width:33em;}
+  .sglabel{font-size:12px;font-weight:800;letter-spacing:.5px;color:var(--ink-soft);margin-top:4px;}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:580px;}
+  .chip2{display:inline-flex;align-items:center;gap:8px;border-radius:var(--pill);padding:10px 17px;font-weight:800;font-size:14px;cursor:pointer;border:2px solid transparent;box-shadow:0 3px 0 0 #00000010;transition:transform .12s,box-shadow .12s;font-family:inherit;}
+  .chip2:hover{transform:translateY(-2px);} .chip2:active{transform:translateY(1px);}
+  .chip2 svg{width:16px;height:16px;}
+  .chip2.work{background:var(--paper);border-color:var(--line);color:var(--ink);box-shadow:0 3px 0 0 #e0d8c8;}
+  .chip2.green{background:#e7f4dd;color:#4e7a2c;border-color:#d4ebbf;box-shadow:0 3px 0 0 #cfe4b4;}
+  .chip2.teal{background:var(--teal-bg);color:#0e7c72;border-color:#bfeae3;box-shadow:0 3px 0 0 #b6e0d8;}
+  .chip2.orange{background:#fde9d6;color:#b9682a;border-color:#f6d3a8;box-shadow:0 3px 0 0 #f0c79a;}
+
+  /* ===== B2 pipeline (thinking) ===== */
+  .think{display:flex;flex-direction:column;gap:10px;}
+  .think .dots{display:flex;gap:6px;align-items:center;}
+  .think .dots i{width:9px;height:9px;border-radius:50%;background:var(--teal);opacity:.3;animation:blink 1.1s infinite;}
+  .think .dots i:nth-child(2){animation-delay:.16s;} .think .dots i:nth-child(3){animation-delay:.32s;}
+  @keyframes blink{0%,100%{opacity:.25;transform:translateY(0);}50%{opacity:1;transform:translateY(-3px);}}
+  .foxsub{font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .foxsub b{color:#0e7c72;font-variant-numeric:tabular-nums;}
+  .steps{display:flex;flex-direction:column;gap:8px;margin-top:1px;}
+  .step{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:700;color:var(--ink-soft);transition:color .3s;flex-wrap:wrap;}
+  .step .tick{width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;background:#f0ece2;border:2px solid var(--line);transition:all .3s;}
+  .step .tick svg{width:12px;height:12px;opacity:0;transition:opacity .3s;}
+  .step.done{color:var(--ink-body);} .step.done .tick{background:var(--teal);border-color:var(--teal);} .step.done .tick svg{opacity:1;color:#fff;}
+  .step.now{color:var(--ink);} .step.now .tick{background:var(--teal-bg);border-color:var(--teal);}
+  .step.now .tick::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--teal);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{transform:scale(.7);opacity:.6;}50%{transform:scale(1);opacity:1;}}
+  .srcb{font-size:10px;font-weight:900;letter-spacing:.4px;color:#8a7b66;background:#f0ece2;border-radius:50px;padding:1px 8px;}
+  /* B2c emotion card */
+  .emo{margin-top:4px;border-radius:14px;padding:14px 16px;color:#fff;background:linear-gradient(135deg,#5a6e8f,#b87f7a 60%,#e8b87a);box-shadow:0 10px 22px -14px #5a3c2088;}
+  body.motion .emo{animation:rowIn .5s cubic-bezier(.2,.8,.3,1);}
+  .emo q{display:block;quotes:none;font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:14.5px;line-height:1.75;text-shadow:0 1px 3px #00000055;}
+  .emo span{display:block;margin-top:6px;opacity:.9;font-size:11px;font-weight:800;text-align:right;}
+  /* B4 footprint */
+  .fpline{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12.5px;font-weight:800;color:var(--ink-body);}
+  .fpline .ok{color:#0e7c72;}
+  .fpline .sec{color:var(--ink);font-variant-numeric:tabular-nums;}
+  .fpline button{border:none;background:none;font-family:inherit;font-weight:800;font-size:12px;color:#0e7c72;cursor:pointer;padding:2px 4px;}
+  .think.folded .dots,.think.folded .foxsub{display:none;}
+  .think.folded .steps{display:none;}
+  .think.folded.open .steps{display:flex;margin-top:8px;}
+
+  /* ===== C3a spot group ===== */
+  .gcard{margin-top:13px;background:var(--paper);border:2px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 14px 30px -20px #5a3c2066;}
+  body.motion .gcard.pop{animation:cardPop .4s cubic-bezier(.2,.8,.3,1);}
+  @keyframes cardPop{from{opacity:0;transform:translateY(10px) scale(.985);}to{opacity:1;transform:none;}}
+  .gh{display:flex;align-items:center;gap:9px;padding:12px 15px;border-bottom:2px solid var(--line);background:linear-gradient(180deg,#ffffff55,#00000005);}
+  .gh svg.mi{width:17px;height:17px;color:var(--ink);flex:none;}
+  .gh b{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:15px;color:var(--ink);}
+  .gh .chip{margin-left:auto;font-size:11.5px;font-weight:800;color:#0e7c72;background:var(--teal-bg);border-radius:50px;padding:3px 10px;white-space:nowrap;}
+  .gcard.locked{opacity:.55;pointer-events:none;}
+  .srow{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;}
+  .srow+.srow{border-top:1px dashed var(--line2);}
+  .srow .pcb{width:22px;height:22px;border-radius:7px;border:2px solid var(--line2);background:var(--paper);flex:none;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+  .srow .pcb svg{width:13px;height:13px;color:#fff;opacity:0;}
+  .srow.on .pcb{background:var(--teal);border-color:var(--teal);box-shadow:0 2px 0 0 var(--teal-deep);}
+  .srow.on .pcb svg{opacity:1;}
+  .srow .sth{width:58px;height:42px;border-radius:9px;flex:none;border:2px solid var(--line);position:relative;overflow:hidden;}
+  .srow .sth i{position:absolute;left:4px;bottom:3px;font-style:normal;font-size:8.5px;font-weight:900;color:#fff;background:#00000055;border-radius:6px;padding:1px 5px;letter-spacing:.3px;}
+  .srow .sn2{flex:1;min-width:0;font-weight:800;color:var(--ink);font-size:13.5px;line-height:1.35;}
+  .srow .sn2 span{display:block;font-size:11px;color:var(--ink-soft);font-weight:700;}
+  .srow .pt{font-size:11px;color:var(--ink-soft);font-weight:800;white-space:nowrap;text-align:right;line-height:1.5;}
+  .srow .pt .ph{color:#0e7c72;}
+  .gfoot{display:flex;align-items:center;gap:10px;padding:11px 14px;border-top:2px solid var(--line);}
+  .gfoot .lnk{border:none;background:none;font-family:inherit;font-weight:800;font-size:13px;color:#0e7c72;cursor:pointer;padding:4px 2px;}
+  .gfoot .cnt2{margin-left:auto;font-size:11.5px;font-weight:900;color:var(--ink-soft);}
+
+  /* ===== map card ===== */
+  .mstage{position:relative;height:210px;background:#ebe6d5;}
+  .mstage svg{display:block;width:100%;height:100%;}
+  .mpill{position:absolute;left:10px;bottom:10px;background:var(--gold);color:var(--gold-ink);font-size:11.5px;font-weight:900;border-radius:50px;padding:5px 13px;box-shadow:0 3px 0 0 var(--gold-deep);cursor:pointer;}
+  .mops{position:absolute;right:10px;top:10px;background:#fffdf5e6;color:var(--ink);border:2px solid var(--line);font-family:inherit;font-size:11px;font-weight:800;border-radius:50px;padding:5px 11px;cursor:pointer;box-shadow:0 2px 0 0 #bdaea0;}
+  .mnote{padding:9px 14px;font-size:11px;font-weight:700;color:var(--ink-soft);border-top:2px solid var(--line);display:flex;gap:12px;flex-wrap:wrap;}
+
+  /* ===== TimedItinerary ===== */
+  .itin{margin-top:13px;background:var(--paper);border:2px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 16px 34px -20px #5a3c2077;position:relative;}
+  body.motion .itin.pop{animation:cardPop .4s cubic-bezier(.2,.8,.3,1);}
+  .itin.old{opacity:.55;}
+  .oldtag{position:absolute;top:10px;right:10px;background:#f0ece2;color:#8a7b66;border:1.5px solid #c4b89e;font-size:10.5px;font-weight:900;border-radius:50px;padding:2px 10px;z-index:3;}
+  .ieyebrow{padding:15px 17px 0;font-size:10.5px;letter-spacing:2.2px;font-weight:900;color:var(--ink-soft);}
+  .ititle{padding:3px 17px 0;font-weight:900;font-size:19.5px;color:var(--ink);letter-spacing:.2px;}
+  .ititle .vbadge{font-size:10.5px;font-weight:900;background:#fdf1cf;color:#a8801a;border-radius:50px;padding:2px 8px;margin-left:6px;vertical-align:3px;white-space:nowrap;}
+  .imeta{display:flex;gap:6px;flex-wrap:wrap;padding:9px 17px 13px;border-bottom:2px solid var(--line);align-items:center;}
+  .ipill{font-size:11px;font-weight:900;border-radius:50px;padding:3px 10px;white-space:nowrap;}
+  .ipill.pace-slow{background:#e7f4dd;color:#4e7a2c;}
+  .ipill.pace-mid{background:#fde9d6;color:#b9682a;}
+  .ipill.pace-tight{background:#fdeeee;color:#c94444;}
+  .ipill.plain{background:#f0ece2;color:#7c6c55;}
+  .diffs{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px 0;}
+  .dchip{font-size:11.5px;font-weight:900;border-radius:50px;padding:3px 10px;white-space:nowrap;}
+  .dchip.add{background:#e7f4dd;color:#4e7a2c;border:1.5px solid #d4ebbf;}
+  .dchip.del{background:#fdeeee;color:#c94444;border:1.5px solid #f2c4c4;}
+  .itl{padding:12px 17px 4px;}
+  .irow{display:grid;grid-template-columns:44px 24px 1fr;column-gap:8px;}
+  .irow .tt2{font-weight:900;font-size:12.5px;color:var(--ink);padding-top:2px;font-variant-numeric:tabular-nums;text-align:right;}
+  .irow .trk{position:relative;display:flex;justify-content:center;}
+  .irow .trk::before{content:"";position:absolute;top:2px;bottom:-2px;width:0;border-left:2px dashed var(--line2);}
+  .irow.last .trk::before{bottom:auto;height:8px;}
+  .irow .trk .dot{width:13px;height:13px;border-radius:50%;background:var(--teal);border:2.5px solid #fffdf5;box-shadow:0 0 0 2px var(--teal);z-index:1;margin-top:3px;}
+  .irow .trk .dot.star{background:var(--star);box-shadow:0 0 0 2px var(--star);}
+  .irow .trk .dot.goal{background:var(--gold);box-shadow:0 0 0 2px var(--gold-deep);}
+  .irow .ct2{padding:0 0 13px;min-width:0;}
+  .ct2 .nm2{font-weight:800;font-size:14.5px;color:var(--ink);line-height:1.4;}
+  .nm2 .hstar{color:var(--star);}
+  .nm2 .cutTag{display:inline-block;background:#fdf1cf;color:#a8801a;font-size:10px;font-weight:900;border-radius:8px;padding:1px 7px;margin-left:5px;vertical-align:1px;white-space:nowrap;}
+  .nm2 .stych{font-size:11px;color:var(--ink-soft);font-weight:800;margin-left:6px;white-space:nowrap;}
+  .ct2 .snote{display:block;font-size:11.5px;color:var(--ink-soft);font-weight:700;margin-top:2px;}
+  .sthumb{display:block;width:150px;max-width:100%;aspect-ratio:16/9;border-radius:10px;margin-top:8px;position:relative;overflow:hidden;border:2px solid var(--line);}
+  .sthumb i{position:absolute;left:6px;bottom:5px;font-style:normal;font-size:9px;font-weight:900;color:#fff;background:#00000066;border-radius:6px;padding:1px 6px;letter-spacing:.3px;}
+  .irow.w .ct2{padding:2px 0 13px;}
+  .wpill{display:inline-flex;align-items:center;gap:6px;background:#e7f4dd;color:#4e7a2c;border-radius:50px;padding:4px 12px;font-size:11.5px;font-weight:800;}
+  .wpill svg{width:12px;height:12px;}
+  .ifoot{display:flex;gap:8px;padding:13px 14px;border-top:2px solid var(--line);flex-wrap:wrap;}
+  .rbtn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:none;cursor:pointer;font-family:inherit;font-weight:800;border-radius:var(--pill);padding:11px 16px;font-size:14px;transition:transform .1s,box-shadow .1s,filter .1s;}
+  .rbtn svg{width:15px;height:15px;}
+  .rbtn.gold{background:var(--gold);color:var(--gold-ink);box-shadow:0 4px 0 0 var(--gold-deep);flex:1;min-width:172px;}
+  .rbtn.gold:hover{filter:brightness(1.03);} .rbtn.gold:active{transform:translateY(2px);box-shadow:0 2px 0 0 var(--gold-deep);}
+  .rbtn.ghost{background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;}
+  .rbtn.ghost:active{transform:translateY(2px);box-shadow:0 1px 0 0 #bdaea0;}
+  .rbtn:disabled{opacity:.5;pointer-events:none;}
+  /* followups + feedback */
+  .fups{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px;align-items:center;}
+  .fup{border-radius:var(--pill);padding:9px 15px;font-family:inherit;font-weight:800;font-size:13px;cursor:pointer;background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;transition:transform .12s;}
+  .fup:hover{transform:translateY(-2px);border-color:var(--teal-bright);}
+  .fup:active{transform:translateY(1px);}
+  .fups.used .fup{opacity:.42;pointer-events:none;}
+  .fups.used .fup.chosen{opacity:1;background:var(--teal);color:#fff;border-color:var(--teal);box-shadow:0 3px 0 0 var(--teal-deep);}
+  .fb{width:30px;height:30px;border-radius:50%;border:2px solid var(--line);background:var(--paper);color:var(--ink-soft);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+  .fb svg{width:14px;height:14px;}
+  .fb:hover{color:#0e7c72;border-color:var(--teal-bright);}
+
+  /* ===== C2 clarify ===== */
+  .aclarify{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px;}
+  .cchip{display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;border-radius:16px;padding:9px 15px;font-family:inherit;font-weight:800;font-size:13.5px;cursor:pointer;background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;transition:transform .12s,box-shadow .12s,opacity .2s;text-align:left;}
+  .cchip:hover{transform:translateY(-2px);border-color:var(--teal-bright);}
+  .cchip:active{transform:translateY(1px);box-shadow:0 1px 0 0 #bdaea0;}
+  .cchip .cd{font-size:10.5px;color:var(--ink-soft);font-weight:700;}
+  .aclarify.used .cchip{opacity:.42;pointer-events:none;}
+  .aclarify.used .cchip.chosen{opacity:1;background:var(--teal);color:#fff;border-color:var(--teal);box-shadow:0 3px 0 0 var(--teal-deep);}
+  .aclarify.used .cchip.chosen .cd{color:#dcf7f2;}
+
+  /* ===== C4 location ===== */
+  .locbody{padding:14px 16px;display:flex;gap:12px;align-items:flex-start;}
+  .locbody .li{width:40px;height:40px;border-radius:13px;background:var(--teal-bg);border:2px solid #bfeae3;color:#0e7c72;display:flex;align-items:center;justify-content:center;flex:none;}
+  .locbody .li svg{width:20px;height:20px;}
+  .locbody p{margin:0;font-size:13px;line-height:1.65;font-weight:600;color:var(--ink-body);}
+  .locbody p b{color:var(--ink);}
+  .locacts{display:flex;gap:8px;padding:0 16px 14px;flex-wrap:wrap;}
+  .locok{background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 4px 0 0 #bdaea0;font-weight:800;font-family:inherit;border-radius:var(--pill);padding:11px 18px;font-size:14px;cursor:pointer;transition:transform .1s;}
+  .locok:active{transform:translateY(2px);box-shadow:0 1px 0 0 #bdaea0;}
+  .localt{background:none;border:2px solid var(--line);color:var(--ink-body);font-weight:800;font-family:inherit;border-radius:var(--pill);padding:11px 16px;font-size:13.5px;cursor:pointer;}
+  .locgrant{display:flex;align-items:center;gap:9px;padding:12px 16px;font-size:13px;font-weight:800;color:#0e7c72;}
+  .locgrant svg{width:17px;height:17px;flex:none;}
+
+  /* ===== photo search ===== */
+  .uattach{display:flex;align-items:center;gap:10px;margin-top:9px;background:#ffffff1f;border:1.5px dashed #ffffff70;border-radius:12px;padding:7px 9px;}
+  .uattach .uph{width:76px;aspect-ratio:16/9;border-radius:8px;flex:none;border:1.5px solid #ffffff80;position:relative;overflow:hidden;}
+  .uattach .um{font-size:11.5px;font-weight:800;line-height:1.45;}
+  .uattach .um span{display:block;font-size:10.5px;opacity:.82;font-weight:700;}
+  .cand{display:flex;align-items:center;gap:11px;padding:10px 14px;}
+  .cand+.cand{border-top:1px dashed var(--line2);}
+  .cand .cth{width:78px;aspect-ratio:16/9;border-radius:10px;flex:none;border:2px solid var(--line);position:relative;overflow:hidden;}
+  .cand .cb2{flex:1;min-width:0;}
+  .cand .cb2 b{display:block;font-size:13.5px;color:var(--ink);font-weight:800;}
+  .cand .cb2 span{font-size:11px;color:var(--ink-soft);font-weight:700;}
+  .mbar{display:flex;align-items:center;gap:7px;margin-top:4px;}
+  .mbar .tr{flex:1;max-width:150px;height:6px;border-radius:4px;background:var(--line);overflow:hidden;}
+  .mbar .tr i{display:block;height:100%;border-radius:4px;background:var(--teal);}
+  .mbar em{font-style:normal;font-size:11px;font-weight:900;color:#0e7c72;}
+  .cand .pick{flex:none;border:2px solid var(--line);background:var(--paper);color:var(--ink);font-family:inherit;font-weight:800;font-size:12.5px;border-radius:50px;padding:7px 13px;cursor:pointer;box-shadow:0 3px 0 0 #bdaea0;transition:transform .1s;}
+  .cand .pick:hover{border-color:var(--teal-bright);}
+  .cand .pick:active{transform:translateY(2px);box-shadow:0 1px 0 0 #bdaea0;}
+  .cand.sel .pick{background:var(--teal);color:#fff;border-color:var(--teal);box-shadow:0 3px 0 0 var(--teal-deep);}
+  .cand.dim{opacity:.4;pointer-events:none;}
+  .sstrip{display:flex;gap:8px;padding:12px 14px 0;}
+  .sframe{flex:1;aspect-ratio:16/9;border-radius:12px;border:2px solid var(--line);position:relative;overflow:hidden;}
+  .sframe .tag{position:absolute;left:8px;bottom:7px;font-size:10px;font-weight:900;border-radius:50px;padding:2px 8px;background:#2c2722cc;color:#ffd76a;z-index:2;}
+  .sframe.real .tag{background:#fffdf5d9;color:#5a3c20;}
+  .smeta{padding:11px 15px 4px;display:flex;flex-direction:column;gap:7px;}
+  .smeta .mrow{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;font-weight:700;color:var(--ink-body);line-height:1.5;}
+  .smeta .mrow svg{width:15px;height:15px;flex:none;color:#0e7c72;margin-top:2px;}
+  .smeta .mrow b{color:var(--ink);}
+  .ractions{display:flex;gap:8px;padding:12px 14px;border-top:2px solid var(--line);flex-wrap:wrap;}
+  .rbtn.go{background:#f5c31c;color:#5c4813;box-shadow:0 4px 0 0 #d8a812;}
+  .rbtn.go:active{transform:translateY(2px);box-shadow:0 2px 0 0 #d8a812;}
+  .cstage{position:relative;aspect-ratio:16/9;user-select:none;touch-action:none;cursor:ew-resize;--x:52%;}
+  .cstage .lyr{position:absolute;inset:0;}
+  .cstage .lyr.ani{clip-path:inset(0 calc(100% - var(--x)) 0 0);z-index:1;}
+  .cstage .vbar{position:absolute;top:0;bottom:0;left:var(--x);width:3px;background:#fffdf5;box-shadow:0 0 0 1px #00000026;transform:translateX(-50%);z-index:3;}
+  .cstage .knob{position:absolute;top:50%;left:var(--x);transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:#fffdf5;border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;display:flex;align-items:center;justify-content:center;gap:1px;color:var(--ink);font-weight:900;font-size:11px;z-index:4;}
+  .cstage .tag{position:absolute;top:10px;font-size:10.5px;font-weight:900;border-radius:50px;padding:3px 10px;z-index:2;}
+  .cstage .tag.a{left:10px;background:#2c2722cc;color:#ffd76a;}
+  .cstage .tag.r{right:10px;background:#fffdf5d9;color:#5a3c20;}
+  .cfoot{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:2px solid var(--line);font-size:11.5px;font-weight:700;color:var(--ink-soft);}
+  .cfoot .chip{margin-left:auto;font-size:11px;font-weight:900;color:#0e7c72;background:var(--teal-bg);border-radius:50px;padding:3px 10px;white-space:nowrap;}
+
+  /* ===== failures ===== */
+  .fcard{margin-top:13px;border-radius:18px;padding:16px 18px;display:flex;gap:13px;align-items:flex-start;}
+  body.motion .fcard.pop{animation:cardPop .4s cubic-bezier(.2,.8,.3,1);}
+  .fcard img{width:58px;height:58px;flex:none;}
+  .fcard .fbx{flex:1;min-width:0;}
+  .fcard b.ft{font-family:"Zen Maru Gothic",sans-serif;font-size:15px;display:block;margin-bottom:3px;}
+  .fcard p{margin:0;font-size:13px;line-height:1.6;font-weight:600;}
+  .fcard.err{background:#fdeeee;border:2px solid #f2c4c4;color:#8c4a3c;}
+  .fcard.err b.ft{color:#c94444;}
+  .fcard.nores{background:#fcf8ec;border:2px dashed #c9bfa6;color:var(--ink-body);}
+  .fcard.nores b.ft{color:var(--ink);}
+  .facts{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px;}
+  .fbtn{border:none;font-family:inherit;font-weight:800;font-size:13px;border-radius:50px;padding:9px 15px;cursor:pointer;transition:transform .1s,box-shadow .1s;}
+  .fbtn:active{transform:translateY(2px);}
+  .fbtn.p{background:var(--teal);color:#fff;box-shadow:0 3px 0 0 var(--teal-deep);}
+  .fbtn.g{background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;}
+
+  /* ===== SP sheet ===== */
+  .spdim{position:absolute;inset:0;background:rgba(61,52,40,.42);z-index:50;display:none;}
+  body:not(.mframe) .spdim{position:fixed;}
+  .spdim.on{display:block;}
+  .sp{position:absolute;left:0;right:0;bottom:0;top:7%;background:var(--bg);border-radius:26px 26px 0 0;z-index:51;display:none;flex-direction:column;overflow:hidden;box-shadow:0 -18px 50px -20px #3d3428aa;}
+  body:not(.mframe) .sp{position:fixed;left:50%;transform:translateX(-50%);width:min(680px,96vw);}
+  .sp.on{display:flex;}
+  body.motion .sp.on{animation:spUp .32s cubic-bezier(.2,.8,.3,1);}
+  @keyframes spUp{from{transform:translateY(40px);opacity:0;}to{opacity:1;}}
+  body.motion body:not(.mframe) .sp.on{animation:none;}
+  .sph{flex:none;display:flex;align-items:center;gap:10px;padding:14px 16px 10px;background:var(--bg);}
+  .sph .back{width:38px;height:38px;border-radius:50%;border:2px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 0 0 #bdaea0;}
+  .sph .back svg{width:17px;height:17px;}
+  .sph .t{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:16.5px;color:var(--ink);}
+  .sph .t span{display:block;font-family:"Nunito","Noto Sans SC",sans-serif;font-size:11px;font-weight:800;color:var(--ink-soft);}
+  .sptools{flex:none;display:flex;gap:8px;padding:2px 16px 12px;align-items:center;flex-wrap:wrap;border-bottom:2px solid var(--line);background:var(--bg);}
+  .seg{display:inline-flex;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:3px;box-shadow:0 3px 0 0 #bdaea0;}
+  .seg button{border:none;background:none;font-family:inherit;font-weight:800;font-size:11.5px;color:var(--ink-soft);border-radius:50px;padding:6px 12px;cursor:pointer;}
+  .seg button.on{background:var(--teal);color:#fff;}
+  .ptog{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;color:var(--ink-body);cursor:pointer;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:7px 13px;box-shadow:0 3px 0 0 #bdaea0;}
+  .ptog .sw{width:30px;height:17px;border-radius:50px;background:#d8d0bf;position:relative;transition:background .15s;}
+  .ptog .sw::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:left .15s;}
+  .ptog.on .sw{background:var(--teal);}
+  .ptog.on .sw::after{left:15px;}
+  .splist{flex:1;overflow-y:auto;padding:4px 8px 12px;}
+  .spgh{font-size:11px;font-weight:900;letter-spacing:.6px;color:var(--ink-soft);padding:13px 10px 5px;}
+  .splist .srow{border-radius:14px;}
+  .splist .srow+.srow{border-top:none;}
+  .splist .srow:hover{background:#00000006;}
+  .sptray{flex:none;background:var(--paper);border-top:2px solid var(--line);padding:10px 16px 14px;display:flex;flex-direction:column;gap:9px;}
+  .traychips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;}
+  .traychips::-webkit-scrollbar{height:0;}
+  .tchip{flex:none;display:inline-flex;align-items:center;gap:5px;background:var(--teal-bg);border:1.5px solid #bfeae3;color:#0e7c72;font-size:11px;font-weight:800;border-radius:50px;padding:3px 9px;white-space:nowrap;}
+  .tchip b{cursor:pointer;font-weight:900;}
+  .trayrow{display:flex;gap:9px;align-items:center;flex-wrap:wrap;}
+  .trayrow .ordseg{display:inline-flex;background:var(--bg);border:2px solid var(--line);border-radius:50px;padding:2px;}
+  .trayrow .ordseg button{border:none;background:none;font-family:inherit;font-weight:800;font-size:10.5px;color:var(--ink-soft);border-radius:50px;padding:5px 10px;cursor:pointer;}
+  .trayrow .ordseg button.on{background:var(--teal);color:#fff;}
+  .trayrow .gen2{flex:1;min-width:170px;}
+  .ordnote{font-size:10.5px;font-weight:800;color:#b9682a;}
+
+  /* ===== E2 recompute bar ===== */
+  .rebar{display:none;align-items:center;gap:10px;background:var(--paper);border:2px solid var(--gold);border-radius:16px;padding:9px 10px 9px 14px;margin-bottom:8px;box-shadow:0 8px 20px -12px #5a3c2055;font-weight:800;font-size:13px;color:var(--ink);}
+  .rebar.on{display:flex;}
+  .rebar .rc{flex:1;}
+  .rebar .rc span{color:var(--ink-soft);font-size:11.5px;font-weight:700;display:block;}
+  .rebar button{border:none;font-family:inherit;font-weight:800;font-size:13px;border-radius:50px;padding:9px 16px;cursor:pointer;background:var(--gold);color:var(--gold-ink);box-shadow:0 3px 0 0 var(--gold-deep);}
+  .rebar button:active{transform:translateY(2px);box-shadow:0 1px 0 0 var(--gold-deep);}
+  .rebar button:disabled{opacity:.5;}
+
+  /* ===== ctx (A2b) ===== */
+  .ctx{display:none;align-items:center;gap:9px;background:var(--teal-bg);border:2px solid #bfeae3;border-radius:14px;padding:8px 12px;margin-bottom:8px;font-size:12.5px;font-weight:800;color:#0e7c72;}
+  .ctx.on{display:flex;}
+  .ctx svg{width:15px;height:15px;flex:none;}
+  .ctx .cxx{margin-left:auto;width:26px;height:26px;border-radius:50%;border:none;background:#fffdf5;color:var(--ink-soft);cursor:pointer;font-size:15px;line-height:1;font-family:inherit;}
+
+  /* skeleton */
+  .sk{background:linear-gradient(110deg,#e6dfce 30%,#f3ecdb 50%,#e6dfce 70%);background-size:200% 100%;border-radius:6px;}
+  body.motion .sk{animation:shimmer 1.4s linear infinite;}
+  @keyframes shimmer{to{background-position:-200% 0;}}
+  .skline{height:11px;}
+
+  /* auth modal */
+  .mdim{position:fixed;inset:0;background:rgba(61,52,40,.46);backdrop-filter:blur(2px);z-index:60;display:none;align-items:center;justify-content:center;padding:20px;}
+  .mdim.on{display:flex;}
+  body.motion .mdim.on .authcard{animation:cardPop .32s cubic-bezier(.2,.8,.3,1);}
+  .authcard{width:404px;max-width:100%;background:var(--paper);border:2px solid var(--line);border-radius:28px;padding:28px 30px 24px;box-shadow:0 50px 90px -34px #3d342899;text-align:center;position:relative;}
+  .authcard .x{position:absolute;top:13px;right:15px;width:34px;height:34px;border-radius:50%;border:none;background:var(--bg);color:var(--ink-soft);font-size:20px;cursor:pointer;}
+  .authcard img{width:88px;height:88px;margin:-2px auto 4px;display:block;}
+  .authcard h2{font-family:"Zen Maru Gothic",sans-serif;font-size:21px;color:var(--ink);margin:0 0 6px;}
+  .authcard p{font-size:13.5px;line-height:1.6;color:var(--ink-body);margin:0 0 17px;}
+  .authcard b{color:var(--ink);font-weight:800;}
+  .authcard .field{display:flex;align-items:center;gap:10px;background:var(--bg);border:2.5px solid var(--line);border-radius:15px;padding:12px 14px;margin-bottom:12px;}
+  .authcard .field svg{width:19px;height:19px;color:var(--ink-soft);flex:none;}
+  .authcard .field input{flex:1;border:none;outline:none;background:transparent;font-family:inherit;font-size:15.5px;color:var(--ink);}
+  .authcard .field:focus-within{border-color:var(--teal-bright);}
+  .authcard .big{width:100%;padding:14px;border-radius:15px;border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:15.5px;background:#ffcc00;color:#5c4813;box-shadow:0 4px 0 0 #d8ad00;}
+  .authcard .big:active{transform:translateY(2px);box-shadow:0 2px 0 0 #d8ad00;}
+  .authcard .or{display:flex;align-items:center;gap:12px;margin:15px 0;color:var(--ink-soft);font-size:12px;font-weight:700;}
+  .authcard .or span{flex:1;height:1px;background:var(--line);}
+  .authcard .guest{width:100%;padding:12px;border-radius:15px;cursor:pointer;font-family:inherit;font-weight:800;font-size:14.5px;background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;}
+  .authcard .guest:active{transform:translateY(2px);box-shadow:0 1px 0 0 #bdaea0;}
+  .authcard .note{font-size:11.5px;color:var(--ink-soft);margin:13px 0 0;line-height:1.5;}
+
+  /* toast */
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);z-index:70;background:#2c2722;color:#f3ead8;font-weight:700;font-size:13.5px;border-radius:50px;padding:11px 20px;box-shadow:0 14px 30px -10px #00000077;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;text-align:center;max-width:84vw;}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* composer dock */
+  .dock{flex:none;background:linear-gradient(transparent,var(--bg) 26%);padding:8px clamp(16px,4vw,24px) 16px;position:relative;z-index:6;}
+  .dock .di{max-width:760px;margin:0 auto;}
+  .composer{display:flex;align-items:center;gap:10px;background:var(--paper);border:2px solid var(--line);border-radius:var(--pill);padding:8px 8px 8px 18px;box-shadow:0 12px 28px -16px #5a3c2055;transition:opacity .25s,border-color .15s;}
+  .composer:focus-within{border-color:var(--teal-bright);}
+  .composer.busy{opacity:.75;}
+  .composer .att{width:36px;height:36px;border-radius:50%;border:none;background:var(--bg);color:var(--ink-soft);cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;}
+  .composer .att:hover{color:#0e7c72;}
+  .composer .att svg{width:18px;height:18px;}
+  .composer .ci{flex:1;border:none;outline:none;background:transparent;font-family:inherit;font-size:15.5px;color:var(--ink);min-width:0;}
+  .composer .ci::placeholder{color:var(--ink-soft);}
+  .composer .snd{width:42px;height:42px;border-radius:50%;border:none;background:#d8d0bf;color:#fff;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 0 0 #c4bba6;transition:background .15s,box-shadow .15s,transform .1s;}
+  .composer .snd.on{background:var(--orange);box-shadow:0 3px 0 0 var(--orange-active);}
+  .composer .snd.on:active{transform:translateY(2px);box-shadow:0 1px 0 0 var(--teal-deep);}
+  .composer .snd svg{width:18px;height:18px;}
+  .hint{text-align:center;font-size:11.5px;color:var(--ink-soft);margin:8px 0 0;font-weight:600;}
+
+  /* demo control */
+  .demo{position:fixed;right:16px;bottom:84px;z-index:80;display:flex;align-items:center;gap:6px;background:#2c2722;
+    border-radius:26px;padding:6px 6px 6px 12px;box-shadow:0 12px 28px -10px #00000066;flex-wrap:wrap;justify-content:flex-end;max-width:min(94vw,520px);}
+  .demo .dl{color:#e9dcc5;font-size:11px;font-weight:800;letter-spacing:1px;margin-right:2px;}
+  .demo button{border:none;border-radius:50px;font-family:inherit;font-weight:800;font-size:12px;padding:7px 12px;cursor:pointer;background:#4a4239;color:#f3ead8;}
+  .demo button.on{background:var(--teal);color:#fff;}
+  .demo button.r{background:#5a5047;width:32px;padding:7px 0;}
+  .demo .sep{width:1px;height:20px;background:#ffffff24;margin:0 3px;flex:none;}
+
+  @media (max-width:680px){
+    .appbar .hbtn span{display:none;} .hbtn{padding:8px 11px;}
+    .bub{max-width:88%;} .empty h1{font-size:22px;} .empty .gfox{width:92px;height:92px;}
+    .demo{bottom:80px;right:10px;}
+    .irow{grid-template-columns:40px 22px 1fr;}
+  }
+</style>
+</head>
+<body class="ds">
+<div class="app">
+<header class="appbar">
+  <div class="brand">
+    <span class="mk"><svg class="torii" viewBox="0 0 50 50"><g fill="#c44a2e"><path d="M5 13h40l-3 6H8z"/><path d="M9 19h32l-2 5H11z"/><rect x="13" y="22" width="6" height="25" rx="1.5"/><rect x="31" y="22" width="6" height="25" rx="1.5"/><rect x="11" y="28" width="28" height="5" rx="1.5"/></g></svg><img class="markfox" src="assets/fox/fox-trot.svg" alt=""></span>
+    <span class="tt"><span class="ja">聖地巡礼</span><span class="en">AI GUIDE</span></span>
+  </div>
+  <span class="grow"></span>
+  <button class="hbtn" id="newChat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>新しい会話</span></button>
+  <span class="ava"></span>
+</header>
+
+<div class="scroll" id="scroll">
+  <div class="wrap">
+    <div class="empty" id="empty">
+      <img class="gfox" src="assets/fox/fox-welcome.svg" alt="">
+      <h1>どの聖地へ行きますか？</h1>
+      <div class="lead-bub">こんにちは、コンです！行きたいアニメの聖地を教えてください。<b>作品名・駅名・シーンの写真</b>、なんでもOKです。</div>
+      <span class="sglabel">こんな風に聞けます</span>
+      <div class="chips" id="chips">
+        <button class="chip2 work" data-q="「君の名は。」の聖地に行きたい">「君の名は。」の聖地</button>
+        <button class="chip2 work" data-q="響け！ユーフォニアムの大吉山に行きたい">響け！ユーフォニアム 大吉山</button>
+        <button class="chip2 work" data-q="週末、日帰りでアニメの聖地巡礼がしたい">おすすめを聞く</button>
+      </div>
+      <div class="chips">
+        <button class="chip2 teal" data-q="今いる場所の近くの聖地を教えて"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/></svg>近くの聖地</button>
+        <button class="chip2 orange" data-q="この写真の場所を探して"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-5-5L5 21"/></svg>写真から探す</button>
+        <button class="chip2 green" data-q="人気の聖地ランキングを見たい"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3h14v18l-7-4-7 4z"/></svg>人気ランキング</button>
+      </div>
+    </div>
+    <div class="thread" id="thread"></div>
+  </div>
+
+  <!-- SP SpotPicker sheet (SP1–SP4) -->
+  <div class="spdim" id="spDim"></div>
+  <div class="sp" id="sp">
+    <div class="sph">
+      <button class="back" id="spBack" aria-label="戻る"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <span class="t">聖地を選ぶ · 飛騨エリア<span>『君の名は。』 12件 · 検証済みのみ</span></span>
+    </div>
+    <div class="sptools">
+      <span class="seg" id="spSort">
+        <button data-s="rec" class="on">おすすめ</button><button data-s="cut">カット順</button><button data-s="near">駅から近い順</button>
+      </span>
+      <button class="ptog" id="spPhoto"><span class="sw"></span>写真ありのみ</button>
+    </div>
+    <div class="splist" id="spList"></div>
+    <div class="sptray">
+      <div class="traychips" id="spChips"></div>
+      <div class="trayrow">
+        <span class="ordseg" id="spOrd"><button data-o="auto" class="on">おまかせ順</button><button data-o="story">物語順</button></span>
+        <span class="ordnote" id="spNote" style="display:none;">物語順だと徒歩 +18分</span>
+        <button class="rbtn gold gen2" id="spGen">この5件でルートを組む</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dock">
+  <div class="di">
+    <div class="rebar" id="rebar">
+      <span class="rc"><span id="rebarSub">スポットの選択が変わりました</span><span id="rebarCnt" style="color:var(--ink);font-size:13px;">4件選択中</span></span>
+      <button id="rebarGo">ルートを組み直す</button>
+    </div>
+    <div class="ctx" id="ctx">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>
+      <span>参照中のルート：<b>飛騨古川 半日ルート</b> · 5スポット</span>
+      <button class="cxx" id="ctxX" aria-label="参照を外す">×</button>
+    </div>
+    <div class="composer" id="composer">
+      <button class="att" id="attBtn" title="写真を添付"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-5-5L5 21"/></svg></button>
+      <input class="ci" id="input" placeholder="作品名・駅名・シーンを入力…" autocomplete="off">
+      <button class="snd" id="send" aria-label="送信"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l11 2-11 2z"/></svg></button>
+    </div>
+    <p class="hint" id="hint">AIの案内は誤りを含むことがあります · 現地の最新情報をご確認ください</p>
+  </div>
+</div>
+</div><!-- /.app -->
+
+<!-- auth modal (P5 save wall) -->
+<div class="mdim" id="authDim">
+  <div class="authcard">
+    <button class="x" id="authClose" aria-label="閉じる">×</button>
+    <img src="assets/fox/fox-welcome.svg" alt="">
+    <h2>ルートを保存しよう</h2>
+    <p>メールに<b>ログインリンク</b>をお送りします。パスワード不要。<b>端末をまたいで現地で開けます</b>。</p>
+    <label class="field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg><input placeholder="you@example.com" autocomplete="email"></label>
+    <button class="big">ログインリンクを送信</button>
+    <div class="or"><span></span>または<span></span></div>
+    <button class="guest">ゲストで先に遊ぶ</button>
+    <p class="note">ゲストのルートはこの端末に一時保存。ログインすると永久保存＆共有できます。</p>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- prototype demo control -->
+<div class="demo">
+  <span class="dl">DEMO</span>
+  <button id="mEmpty" class="on">空</button>
+  <button id="mHome">ホーム</button>
+  <button id="mClarify">聞き返し</button>
+  <button id="mPhoto">写真</button>
+  <button id="mNear">近く</button>
+  <button id="mFail">失敗</button>
+  <button id="mEdit">編集</button>
+  <button id="reset" class="r" title="リセット">↺</button>
+  <span class="sep"></span>
+  <button id="pWarm" title="现行（暖）">暖</button>
+  <button id="pDS" class="on" title="DS 厳密">DS</button>
+</div>
+
+<script>
+(function(){
+  var $=function(s){return document.querySelector(s);};
+  var thread=$('#thread'), empty=$('#empty'), scroll=$('#scroll'),
+      input=$('#input'), send=$('#send'), composer=$('#composer'), hint=$('#hint'),
+      ctx=$('#ctx'), rebar=$('#rebar');
+  var busy=false, curMode='empty';
+  var FOX={think:'assets/fox/fox-thinking.svg',guide:'assets/fox/fox-guide.svg',oops:'assets/fox/fox-oops.svg',curious:'assets/fox/fox-curious.svg',cheer:'assets/fox/fox-cheer.svg'};
+  var WALK_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="1.8"/><path d="M12.5 8.5 10 12l2.5 3v5"/><path d="M10 12l-2.5 1.5M12.5 8.5l3 1 2 2.5M12.5 15l3 2 .5 4"/></svg>';
+
+  function scrollDown(){ scroll.scrollTop=scroll.scrollHeight; }
+  function appendRow(node){ thread.appendChild(node); scrollDown(); }
+
+  /* ============ spot registry (君の名は。× 飛騨) ============ */
+  var SPOTS={
+    st:{n:'飛騨古川駅',cut:'第1話 04:12',cutNum:84,stay:15,stayY:25,d:'跨線橋からホームを俯瞰する名カット',g:'linear-gradient(135deg,#cfe3f7,#98b8dc)',photo:1,area:'a',dist:0,thumb:1},
+    seto:{n:'瀬戸川と白壁土蔵街',cut:'第1話 05:30',cutNum:142,stay:15,stayY:20,d:'鯉の泳ぐ用水路ぞいの街並み',g:'linear-gradient(135deg,#d9ecec,#a9cfd1)',photo:1,area:'a',dist:3},
+    aji:{n:'味処古川',cut:'五平餅',cutNum:997,stay:30,stayY:45,d:'テッシー行きつけ · 五平餅で早めの昼',g:'linear-gradient(135deg,#f5dccf,#e0b294)',photo:1,area:'a',dist:4},
+    shinshu:{n:'真宗寺',cut:'第3話 15:48',cutNum:156,stay:15,stayY:20,d:'橋と川面の見返しカット',g:'linear-gradient(135deg,#e6e0f2,#c3b8e0)',photo:1,area:'a',dist:6},
+    enko:{n:'円光寺',cut:'第2話 08:35',cutNum:155,stay:15,stayY:20,d:'瓦屋根の並びと亀の彫刻',g:'linear-gradient(135deg,#e8e4d2,#c8c2a4)',photo:1,area:'a',dist:7},
+    cafe:{n:'壱之町珈琲店',cut:'カフェ',cutNum:998,stay:35,stayY:40,d:'古民家カフェでひと休み',g:'linear-gradient(135deg,#ead9c6,#cbb094)',photo:0,area:'a',dist:6},
+    matsuri:{n:'飛騨古川まつり会館',cut:'資料館',cutNum:999,stay:25,stayY:35,d:'起し太鼓と祭屋台の展示',g:'linear-gradient(135deg,#f3d9d9,#dcadad)',photo:0,area:'a',dist:5},
+    keta:{n:'気多若宮神社',cut:'第8話 41:12',cutNum:201,stay:20,stayY:30,d:'石段と鳥居 · 「糸守」のモデルのひとつ',g:'linear-gradient(135deg,#d7eccf,#a8cf8e)',photo:1,area:'b',dist:12,star:1,thumb:1},
+    lib:{n:'飛騨市図書館',cut:'第8話 43:05',cutNum:118,stay:15,stayY:25,d:'「糸守」を調べた閲覧室 · 撮影は受付で許可制',g:'linear-gradient(135deg,#dfd6f0,#b7a8dd)',photo:1,area:'b',dist:8},
+    sak:{n:'さくら物産館',cut:'組紐',cutNum:996,stay:30,stayY:45,d:'三葉の組紐体験ができる',g:'linear-gradient(135deg,#fbe3ea,#eeb3c6)',photo:0,area:'b',dist:9},
+    ochiai:{n:'落合バス停',cut:'第3話 13:10',cutNum:310,stay:10,stayY:15,d:'山道のバス停 · 待つだけの時間も良い',g:'linear-gradient(135deg,#dde8cf,#b4c896)',photo:1,area:'c',dist:'バス15分'},
+    kado:{n:'角川駅（車窓）',cut:'第7話 17:06',cutNum:402,stay:5,stayY:10,d:'高山本線の車窓から一瞬だけ',g:'linear-gradient(135deg,#d6e4ec,#a9c2d2)',photo:0,area:'c',dist:'電車8分'}
+  };
+  var WALK={'st>aji':[4,'瀬戸川沿いを歩く'],'aji>keta':[9,'白壁土蔵街を抜ける'],'keta>lib':[7,'市街へ下る'],'lib>sak':[6,''],'keta>sak':[10,''],'sak>cafe':[3,''],'lib>cafe':[5,''],'st>seto':[3,''],'seto>aji':[2,''],'aji>shinshu':[3,''],'shinshu>enko':[2,''],'enko>keta':[8,''],'sak>ochiai':[15,'バス移動']};
+  var CANON=['st','aji','keta','lib','sak'];
+  var AREA_NAMES={a:'駅周辺 · 古い街並み',b:'高台・市街',c:'郊外（バス・電車）'};
+  var ORDER_OPT=['st','seto','aji','shinshu','enko','cafe','matsuri','keta','lib','sak','ochiai','kado'];
+
+  /* other works (lite) */
+  var WORKS={
+    '聲の形':{title:'大垣 さんぽルート',eyebrow:'OGAKI · HALF-DAY ROUTE',start:780,reply:'「聲の形」の聖地は大垣に揃ってるよ！水門川沿いをゆっくり歩くコースにしたよ。',stops:[{n:'大垣駅',cut:'第11話 30:33',stay:10},{n:'美登鯉橋',cut:'第2話 38:45',stay:20,star:1,w:[8,'水門川沿い']},{n:'大垣公園',cut:'第4話 37:06',stay:25,w:[7,'']},{n:'四季の広場',cut:'第11話 40:23',stay:20,w:[5,'滝のトンネル']},{n:'奥の細道むすびの地',cut:'記念館',stay:30,w:[8,'']}]},
+    '天気の子':{title:'新宿 半日ルート',eyebrow:'SHINJUKU · HALF-DAY ROUTE',start:840,reply:'「天気の子」の聖地、新宿エリアにまとめたよ！雨の日でも歩きやすい順にしてある。',stops:[{n:'JR新宿駅 東南口',cut:'第10話 26:57',stay:10},{n:'新宿区役所前',cut:'第1話 34:09',stay:15,w:[6,'']},{n:'代々木会館跡',cut:'第6話 20:23',stay:15,star:1,w:[9,'']},{n:'朝陽の坂（田端）',cut:'43:55',stay:20,w:[12,'電車移動あり']},{n:'気象神社（高円寺）',cut:'第3話 34:29',stay:25,w:[15,'電車移動']}]},
+    'ラブライブ':{title:'沼津 さんぽルート',eyebrow:'NUMAZU · DAY ROUTE',start:600,reply:'「ラブライブ!サンシャイン!!」は沼津！海沿いをまわる1日コースだよ。',stops:[{n:'沼津駅',cut:'第6話 38:05',stay:10},{n:'仲見世商店街',cut:'第8話 09:54',stay:30,w:[4,'']},{n:'沼津港',cut:'第5話 07:56',stay:40,star:1,w:[15,'海沿い']},{n:'内浦・三の浦',cut:'第7話 40:03',stay:45,w:[25,'バス移動']},{n:'淡島マリンパーク',cut:'第2話 39:44',stay:60,w:[10,'船で渡る']}]},
+    'ユーフォニアム':{title:'宇治・半日きらめきルート',eyebrow:'UJI · HALF-DAY ROUTE',start:780,reply:'「響け！ユーフォニアム」は宇治だよ！大吉山の展望台も入れた半日コース。',stops:[{n:'京阪宇治駅',cut:'第1話 40:23',stay:10},{n:'宇治橋',cut:'第3話 11:12',stay:15,w:[3,'']},{n:'県神社',cut:'第4話 09:34',stay:15,w:[10,'']},{n:'大吉山展望台',cut:'第9話 23:20',stay:30,star:1,w:[25,'ゆるい登り坂']},{n:'平等院表参道',cut:'第2話 05:58',stay:30,w:[20,'下り']}]}
+  };
+  WORKS['響け']=WORKS['ユーフォニアム'];
+
+  /* ============ itinerary math ============ */
+  function fmt(min){ var h=Math.floor(min/60),m=min%60; return h+':'+(m<10?'0'+m:m); }
+  function buildItin(ids,opts){
+    opts=opts||{};
+    var pace=opts.pace||'mid', t=(opts.startMin!=null?opts.startMin:570), rows=[], walkTot=0;
+    for(var i=0;i<ids.length;i++){
+      var s=SPOTS[ids[i]];
+      var stay=(pace==='slow')?(s.stayY||s.stay+10):s.stay;
+      rows.push({type:'s',t:fmt(t),s:s,stay:stay,star:!!s.star});
+      t+=stay;
+      if(i<ids.length-1){
+        var w=WALK[ids[i]+'>'+ids[i+1]]||[6,''];
+        rows.push({type:'w',min:w[0],note:w[1]});
+        t+=w[0]; walkTot+=w[0];
+      }
+    }
+    return {rows:rows,end:fmt(t),start:fmt(opts.startMin!=null?opts.startMin:570),walk:walkTot,
+      km:(walkTot*0.075).toFixed(1),n:ids.length,pace:pace,ids:ids.slice(),
+      title:opts.title||'飛騨古川 半日ルート',eyebrow:opts.eyebrow||'HIDA-FURUKAWA · HALF-DAY ROUTE',
+      startMin:(opts.startMin!=null?opts.startMin:570)};
+  }
+  function buildItinStops(work){
+    var t=work.start, rows=[], walkTot=0;
+    for(var i=0;i<work.stops.length;i++){
+      var s=work.stops[i];
+      if(i>0){ var w=s.w||[6,'']; rows.push({type:'w',min:w[0],note:w[1]}); t+=w[0]; walkTot+=w[0]; }
+      rows.push({type:'s',t:fmt(t),s:{n:s.n,cut:s.cut,g:'linear-gradient(135deg,#e2e6d6,#c2c8ad)'},stay:s.stay,star:!!s.star});
+      t+=s.stay;
+    }
+    return {rows:rows,end:fmt(t),start:fmt(work.start),walk:walkTot,km:(walkTot*0.075).toFixed(1),
+      n:work.stops.length,pace:'mid',ids:null,title:work.title,eyebrow:work.eyebrow,startMin:work.start};
+  }
+
+  var PACE={slow:['ゆったり','pace-slow'],mid:['ふつう','pace-mid'],tight:['ぎっしり','pace-tight']};
+  function itinHTML(it,opts){
+    opts=opts||{};
+    var h='<div class="itin">';
+    if(opts.old) h+='<span class="oldtag">以前の版</span>';
+    h+='<div class="ieyebrow">'+it.eyebrow+'</div>';
+    h+='<div class="ititle">'+it.title+(opts.v2?'<span class="vbadge">'+(opts.v2===true?'更新版':opts.v2)+'</span>':'')+'</div>';
+    var p=PACE[it.pace]||PACE.mid;
+    h+='<div class="imeta"><span class="ipill '+p[1]+'">'+p[0]+'</span>'
+      +'<span class="ipill plain">'+it.n+'スポット</span>'
+      +'<span class="ipill plain">徒歩'+it.walk+'分 · '+it.km+'km</span>'
+      +'<span class="ipill plain">'+it.start+' → '+it.end+'</span></div>';
+    if(opts.diffs){
+      h+='<div class="diffs">';
+      opts.diffs.forEach(function(d){ h+='<span class="dchip '+d[0]+'">'+(d[0]==='add'?'+ ':'− ')+d[1]+'</span>'; });
+      h+='</div>';
+    }
+    h+='<div class="itl">';
+    it.rows.forEach(function(r){
+      if(r.type==='w'){
+        h+='<div class="irow w"><span class="tt2"></span><span class="trk"></span><span class="ct2"><span class="wpill">'+WALK_SVG+'徒歩'+r.min+'分'+(r.note?' · '+r.note:'')+'</span></span></div>';
+      }else{
+        h+='<div class="irow"><span class="tt2">'+r.t+'</span><span class="trk"><i class="dot'+(r.star?' star':'')+'"></i></span><span class="ct2">'
+          +'<span class="nm2">'+r.s.n+(r.star?' <b class="hstar">★</b>':'')+'<span class="cutTag">'+r.s.cut+'</span><span class="stych">'+r.stay+'分滞在</span></span>'
+          +(r.s.d?'<span class="snote">'+r.s.d+'</span>':'')
+          +(r.s.thumb?'<span class="sthumb" style="background:'+r.s.g+';"><i>'+r.s.cut+' のカット · 参考帧</i></span>':'')
+          +'</span></div>';
+      }
+    });
+    h+='<div class="irow last"><span class="tt2">'+it.end+'</span><span class="trk"><i class="dot goal"></i></span><span class="ct2"><span class="nm2" style="color:#a8801a;">ゴール</span></span></div>';
+    h+='</div>';
+    h+='<div class="ifoot">'
+      +'<button class="rbtn gold" data-act="shiori"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/><path d="M12 8v5M9.5 10.5h5"/></svg>しおりにして共有</button>'
+      +'<button class="rbtn ghost" data-act="maps">Mapsで開く</button>'
+      +'<button class="rbtn ghost" data-act="save">保存する</button>'
+      +'<button class="rbtn ghost" data-act="walkmode">歩くモード</button>'
+      +'</div></div>';
+    return h;
+  }
+  function itinSkeleton(){
+    var rows='';
+    for(var i=0;i<4;i++) rows+='<div style="display:flex;gap:10px;align-items:center;margin:12px 0;"><span class="sk" style="width:36px;height:11px;"></span><span class="sk" style="width:13px;height:13px;border-radius:50%;"></span><span class="sk skline" style="width:'+(48+i*8)+'%;"></span></div>';
+    return '<div class="itin"><div style="padding:15px 17px 13px;border-bottom:2px solid var(--line);"><span class="sk skline" style="width:34%;display:block;"></span><span class="sk" style="width:56%;height:16px;display:block;margin-top:9px;"></span></div><div style="padding:4px 17px 10px;">'+rows+'</div></div>';
+  }
+  function bindItin(card){
+    card.querySelectorAll('[data-act]').forEach(function(b){
+      b.addEventListener('click',function(){
+        var a=b.getAttribute('data-act');
+        if(a==='save') openAuth();
+        else if(a==='shiori') location.href='しおり demo.html';
+        else if(a==='maps') toast('Google Maps 深链（原型ではダミー）');
+        else if(a==='walkmode'){
+          if(window.SceneCut){SceneCut.play({label:'歩くモードへ',holdMs:1500});setTimeout(function(){location.href='Walk demo.html';},1100);}
+          else{location.href='Walk demo.html';}
+        }
+        else toast('歩くモードは Step 1 で設計 · Journey Hub 参照');
+      });
+    });
+  }
+  function supersede(cardEl){
+    if(!cardEl||cardEl.classList.contains('old')) return;
+    cardEl.classList.add('old');
+    cardEl.insertAdjacentHTML('afterbegin','<span class="oldtag">以前の版</span>');
+    cardEl.querySelectorAll('button').forEach(function(b){ b.disabled=true; });
+  }
+
+  /* ============ map card ============ */
+  var MPOS={st:[70,158],seto:[128,118],aji:[185,128],shinshu:[236,96],enko:[292,74],cafe:[212,160],matsuri:[268,178],keta:[356,60],lib:[430,116],sak:[532,88],ochiai:[540,182],kado:[578,40]};
+  function mapSVG(ids,withPath){
+    var h='<svg viewBox="0 0 600 210" preserveAspectRatio="xMidYMid slice">'
+      +'<rect width="600" height="210" fill="#ebe6d5"/>'
+      +'<ellipse cx="120" cy="30" rx="150" ry="52" fill="#dbe7c6"/>'
+      +'<ellipse cx="520" cy="196" rx="180" ry="60" fill="#dbe7c6"/>'
+      +'<path d="M-10 176 C 140 150 260 176 380 150 S 560 120 620 128" fill="none" stroke="#bcdce0" stroke-width="16" stroke-linecap="round" opacity=".85"/>'
+      +'<path d="M-10 70 L 620 30" stroke="#fdfbf2" stroke-width="7" opacity=".7"/>';
+    if(withPath&&ids.length>1){
+      var pts=ids.map(function(id){ var p=MPOS[id]||[300,105]; return p[0]+','+p[1]; }).join(' ');
+      h+='<polyline points="'+pts+'" fill="none" stroke="#8a6f4d" stroke-width="4" stroke-dasharray="2 9" stroke-linecap="round"/>';
+    }
+    ids.forEach(function(id,i){
+      var p=MPOS[id]||[300,105], s=SPOTS[id];
+      if(i===0){
+        h+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="10" fill="#19c8b9" stroke="#fff" stroke-width="2.5"/><text x="'+p[0]+'" y="'+(p[1]+3.5)+'" text-anchor="middle" font-size="9.5" font-weight="900" fill="#fff" font-family="Nunito,sans-serif">出</text>';
+      }else if(s&&s.star){
+        h+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="11" fill="#f0b429" stroke="#fff" stroke-width="2.5"/><text x="'+p[0]+'" y="'+(p[1]+4)+'" text-anchor="middle" font-size="11" font-weight="900" fill="#fff">★</text>';
+      }else{
+        h+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="9" fill="#fff" stroke="#19c8b9" stroke-width="3"/><text x="'+p[0]+'" y="'+(p[1]+3.5)+'" text-anchor="middle" font-size="9.5" font-weight="900" fill="#5a4a32" font-family="Nunito,sans-serif">'+(i+1)+'</text>';
+      }
+    });
+    return h+'</svg>';
+  }
+  function mapHTML(ids,opts){
+    opts=opts||{};
+    return '<div class="gcard"><div class="gh"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg><b>'+(opts.title||'ルートマップ')+'</b><span class="chip">'+(opts.chip||'静的マップ')+'</span></div>'
+      +'<div class="mstage">'+mapSVG(ids,opts.path)+(opts.pill?'<span class="mpill" data-mpill>▸ '+opts.pill+'</span>':'')+'<button class="mops" data-mops>地図を操作 ↗</button></div>'
+      +'<div class="mnote"><span>● 出発</span><span>○ 経由スポット</span><span style="color:#c99a12;">★ ハイライト</span>'+(opts.path?'<span style="color:#8a6f4d;">--- 徒歩ルート</span>':'')+'</div></div>';
+  }
+  function bindMap(card){
+    var ops=card.querySelector('[data-mops]');
+    if(ops) ops.addEventListener('click',function(){ toast('static-first：操作時のみ GL に昇格（原型ではダミー）'); });
+    var pill=card.querySelector('[data-mpill]');
+    if(pill) pill.addEventListener('click',function(){ toast('ルート詳細 /routes/:id は Step 2 で設計'); });
+  }
+
+  /* ============ rows ============ */
+  function userRow(text, fromHome, withPhoto){
+    var r=document.createElement('div'); r.className='row me';
+    var inner='<div class="bub me"></div>';
+    if(fromHome) inner='<div><div class="from-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>ホームから</div><div class="bub me"></div></div>';
+    r.innerHTML=inner;
+    var bub=r.querySelector('.bub'); bub.textContent=text;
+    if(withPhoto){
+      bub.insertAdjacentHTML('beforeend',
+        '<div class="uattach"><span class="uph" style="background:center/cover url(assets/compare/real.jpg);"></span>'
+        +'<span class="um">IMG_2154.png<span>スクリーンショット · 2.1 MB</span></span></div>');
+    }
+    return r;
+  }
+
+  var STEPSETS={
+    route:{label:'ロケ地を調べています',steps:[['タイトル確認','Bangumi'],['聖地スポットを検索','Anitabi'],['歩けるルートを作成','']]},
+    photo:{label:'写真の場所を探しています',steps:[['画像を解析',''],['構図・ランドマークを照合','Anitabi'],['候補スポットを採点','']]},
+    edit:{label:'ルートを更新しています',steps:[['変更点を把握',''],['ルートを再構成',''],['所要時間を再計算','']]},
+    near:{label:'近くの聖地を探しています',steps:[['現在地を確認',''],['半径2kmを検索','Anitabi'],['距離順に並べ替え','']]}
+  };
+  function thinkingRow(kind){
+    var conf=STEPSETS[kind]||STEPSETS.route;
+    var r=document.createElement('div'); r.className='row';
+    var steps='';
+    conf.steps.forEach(function(s,i){
+      steps+='<div class="step" data-s="'+(i+1)+'"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg></span>'+s[0]+(s[1]?' <span class="srcb">'+s[1]+'</span>':'')+'</div>';
+    });
+    r.innerHTML='<span class="fava"><img src="'+FOX.think+'" alt=""></span>'
+      +'<div class="bub a" style="flex:1;max-width:82%;"><div class="think">'
+      +'<div class="dots"><i></i><i></i><i></i><span style="margin-left:7px;font-weight:800;color:var(--teal);font-size:14px;">'+conf.label+'</span></div>'
+      +'<div class="foxsub" data-foxsub style="display:none;"></div>'
+      +'<div class="steps">'+steps+'</div></div></div>';
+    return r;
+  }
+  function setStep(r,n,cls){ var el=r.querySelector('[data-s="'+n+'"]'); if(el) el.className='step '+cls; }
+  function foxCount(r,total){
+    var sub=r.querySelector('[data-foxsub]'); if(!sub) return;
+    sub.style.display='block';
+    sub.innerHTML='コン「いま Anitabi でさがしてるよ… <b>3</b>/'+total+'」';
+    var b=sub.querySelector('b'), v=3;
+    r._iv=setInterval(function(){ v=Math.min(total,v+Math.ceil(Math.random()*4)); b.textContent=v; if(v>=total){ clearInterval(r._iv); } },260);
+  }
+  function addEmo(r){
+    var think=r.querySelector('.think'); if(!think) return;
+    think.insertAdjacentHTML('beforeend','<div class="emo"><q>「まだ会ったことのない君を、探している」</q><span>――『君の名は。』キャッチコピー</span></div>');
+    scrollDown();
+  }
+  /* B4: collapse pipeline into footprint line */
+  function collapseThink(r, parts, sec){
+    if(r._iv) clearInterval(r._iv);
+    var think=r.querySelector('.think'); if(!think) return;
+    var emo=think.querySelector('.emo'); if(emo) emo.remove();
+    var sub=r.querySelector('[data-foxsub]'); if(sub) sub.style.removeProperty('display');
+    think.classList.add('folded');
+    var line=document.createElement('div'); line.className='fpline';
+    var h='<span class="ok">✓</span>';
+    parts.forEach(function(p,i){ h+='<span>'+p+'</span>'+(i<parts.length-1?'<span style="color:var(--ink-soft);">→</span>':''); });
+    h+='<span class="sec">'+sec+'</span><button data-fptg>詳細を見る ▾</button>';
+    line.innerHTML=h;
+    think.insertBefore(line, think.firstChild);
+    line.querySelector('[data-fptg]').addEventListener('click',function(){
+      think.classList.toggle('open');
+      this.textContent=think.classList.contains('open')?'たたむ ▴':'詳細を見る ▾';
+    });
+  }
+
+  function replyRow(fox){
+    var r=document.createElement('div'); r.className='row';
+    r.innerHTML='<span class="fava"><img src="'+(fox||FOX.guide)+'" alt=""></span>'
+      +'<div class="acol"><div class="bub a"><span class="tw"></span></div>'
+      +'<div class="route-mount"></div></div>';
+    return r;
+  }
+  function dotsRow(){
+    var r=document.createElement('div'); r.className='row';
+    r.innerHTML='<span class="fava"><img src="'+FOX.think+'" alt=""></span>'
+      +'<div class="bub a"><div class="think"><div class="dots"><i></i><i></i><i></i></div></div></div>';
+    return r;
+  }
+  function typewrite(el, text, done){
+    var i=0; el.textContent='';
+    var iv=setInterval(function(){
+      el.textContent=text.slice(0,++i); scrollDown();
+      if(i>=text.length){ clearInterval(iv); done&&done(); }
+    }, 22);
+  }
+  function setBusy(b){ busy=b; composer.classList.toggle('busy',b);
+    hint.textContent=b?'回答を生成中です…':'AIの案内は誤りを含むことがあります · 現地の最新情報をご確認ください';
+    if(b){ if(!input.dataset.ph) input.dataset.ph=input.placeholder; input.placeholder='考え中…'; }
+    else{ if(input.dataset.ph){ input.placeholder=input.dataset.ph; delete input.dataset.ph; } refreshSend(); } }
+
+  /* ============ current route state (E2) ============ */
+  var cur={ids:null,card:null,opts:null,groupCard:null};
+  function registerRoute(ids,cardEl,opts){
+    cur.ids=ids?ids.slice():null; cur.card=cardEl; cur.opts=opts||{};
+    syncRebar();
+  }
+  function checkedIds(){
+    if(!cur.groupCard) return null;
+    var out=[];
+    cur.groupCard.querySelectorAll('.srow').forEach(function(rw){ if(rw.classList.contains('on')) out.push(rw.getAttribute('data-id')); });
+    return out;
+  }
+  function syncRebar(){
+    if(!cur.groupCard||!cur.ids){ rebar.classList.remove('on'); return; }
+    var sel=checkedIds();
+    var same=sel.length===cur.ids.length&&sel.every(function(id,i){ return cur.ids.indexOf(id)>=0; })&&cur.ids.every(function(id){ return sel.indexOf(id)>=0; });
+    if(same){ rebar.classList.remove('on'); return; }
+    rebar.classList.add('on');
+    $('#rebarCnt').textContent=sel.length+'件選択中';
+    var go=$('#rebarGo');
+    if(sel.length<2){ go.disabled=true; $('#rebarSub').textContent='2件以上選んでください'; }
+    else{ go.disabled=false; $('#rebarSub').textContent='スポットの選択が変わりました'; }
+  }
+
+  /* ============ C3a spot group ============ */
+  function groupHTML(ids,total,checkedSet){
+    var rows='';
+    ids.forEach(function(id){
+      var s=SPOTS[id], on=checkedSet.indexOf(id)>=0;
+      rows+='<div class="srow'+(on?' on':'')+'" data-id="'+id+'"><span class="pcb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg></span>'
+        +'<span class="sth" style="background:'+s.g+';"><i>'+s.cut+'</i></span>'
+        +'<span class="sn2">'+s.n+'<span>'+s.d+'</span></span>'
+        +'<span class="pt">'+(s.photo?'<span class="ph">写真あり</span><br>':'')+'滞在'+s.stay+'分</span></div>';
+    });
+    return '<div class="gcard"><div class="gh"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><b>見つかった聖地 · 上位6件</b><span class="chip">全'+total+'件</span></div>'
+      +rows
+      +'<div class="gfoot"><button class="lnk" data-all>すべて見る → '+total+'件から選ぶ</button><span class="cnt2" data-gcnt>5件選択中</span></div></div>';
+  }
+  function bindGroup(card){
+    cur.groupCard=card;
+    card.querySelectorAll('.srow').forEach(function(rw){
+      rw.addEventListener('click',function(){
+        rw.classList.toggle('on');
+        var c=card.querySelector('[data-gcnt]'); c.textContent=checkedIds().length+'件選択中';
+        syncRebar();
+      });
+    });
+    card.querySelector('[data-all]').addEventListener('click',function(){ openSP(); });
+  }
+
+  /* E2: recompute (bypass, no agent theater) */
+  $('#rebarGo').addEventListener('click',function(){
+    if(busy) return;
+    var sel=checkedIds(); if(!sel||sel.length<2) return;
+    var ids=ORDER_OPT.filter(function(id){ return sel.indexOf(id)>=0; });
+    rebar.classList.remove('on');
+    setBusy(true);
+    var old=cur.card;
+    var r=document.createElement('div'); r.className='row';
+    r.innerHTML='<span class="fava"><img src="'+FOX.guide+'" alt=""></span>'
+      +'<div class="acol"><div class="bub a"><div class="fpline"><span class="ok">✓</span><span>再計算</span><span class="sec">1.2s</span></div></div><div class="route-mount"></div></div>';
+    appendRow(r);
+    var mount=r.querySelector('.route-mount');
+    mount.innerHTML=itinSkeleton(); scrollDown();
+    setTimeout(function(){
+      supersede(old);
+      var it=buildItin(ids,cur.opts);
+      mount.innerHTML=itinHTML(it);
+      var card=mount.querySelector('.itin'); card.classList.add('pop'); bindItin(card);
+      registerRoute(ids,card,cur.opts);
+      var gc=cur.groupCard&&cur.groupCard.querySelector('[data-gcnt]'); if(gc) gc.textContent=ids.length+'件選択中';
+      scrollDown(); setBusy(false);
+    },1200);
+  });
+
+  /* ============ followup chips (B4 → E1) ============ */
+  function fupsHTML(items){
+    var h='<div class="fups">';
+    items.forEach(function(t,i){ h+='<button class="fup" data-f="'+i+'">'+t+'</button>'; });
+    h+='<button class="fb" data-fb="up" title="よかった"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v11H4V10zM7 11l4.5-7c1.2 0 2 .9 2 2v4h5.2c1.1 0 1.9 1 1.7 2.1l-1.2 6.5c-.2 1-1 1.4-1.9 1.4H7"/></svg></button>'
+      +'<button class="fb" data-fb="dn" title="いまいち"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(180deg);"><path d="M7 10v11H4V10zM7 11l4.5-7c1.2 0 2 .9 2 2v4h5.2c1.1 0 1.9 1 1.7 2.1l-1.2 6.5c-.2 1-1 1.4-1.9 1.4H7"/></svg></button>';
+    return h+'</div>';
+  }
+  function bindFups(box, cb){
+    box.querySelectorAll('.fup').forEach(function(c){
+      c.addEventListener('click',function(){
+        if(box.classList.contains('used')) return;
+        box.classList.add('used'); c.classList.add('chosen');
+        cb(parseInt(c.getAttribute('data-f'),10));
+      });
+    });
+    box.querySelectorAll('.fb').forEach(function(b){
+      b.addEventListener('click',function(){ toast('フィードバックありがとう！'); });
+    });
+  }
+
+  /* E1: refine turn (agent re-plan, old card → 以前の版) */
+  function replan(userText, ids, opts, diffs, replyText){
+    if(busy) return;
+    appendRow(userRow(userText,false));
+    setBusy(true);
+    var d=dotsRow();
+    setTimeout(function(){ appendRow(d); },380);
+    setTimeout(function(){
+      d.remove();
+      var rr=replyRow(); appendRow(rr);
+      typewrite(rr.querySelector('.tw'), replyText, function(){
+        var mount=rr.querySelector('.route-mount');
+        mount.innerHTML=itinSkeleton(); scrollDown();
+        setTimeout(function(){
+          supersede(cur.card);
+          var it=buildItin(ids,opts);
+          mount.innerHTML=itinHTML(it,{v2:true,diffs:diffs});
+          var card=mount.querySelector('.itin'); card.classList.add('pop'); bindItin(card);
+          registerRoute(ids,card,opts);
+          if(cur.groupCard){
+            cur.groupCard.querySelectorAll('.srow').forEach(function(rw){
+              rw.classList.toggle('on', ids.indexOf(rw.getAttribute('data-id'))>=0);
+            });
+            var gc=cur.groupCard.querySelector('[data-gcnt]'); if(gc) gc.textContent=ids.length+'件選択中';
+            syncRebar();
+          }
+          scrollDown(); setBusy(false);
+        },1100);
+      });
+    },1500);
+  }
+
+  /* ============ main flow (君の名は。 C3a+C5 full sequence) ============ */
+  function mainFlow(text, fromHome){
+    hideEmpty();
+    appendRow(userRow(text, fromHome));
+    input.value=''; refreshSend(); setBusy(true);
+    var t0=Date.now();
+    setTimeout(function(){
+      var t=thinkingRow('route'); appendRow(t);
+      setStep(t,1,'now');
+      setTimeout(function(){ setStep(t,1,'done'); setStep(t,2,'now'); foxCount(t,23); },900);
+      setTimeout(function(){ addEmo(t); },3300);
+      setTimeout(function(){ setStep(t,2,'done'); setStep(t,3,'now'); },4100);
+      setTimeout(function(){
+        setStep(t,3,'done');
+        var sec=((Date.now()-t0)/1000).toFixed(1)+'s';
+        setTimeout(function(){
+          collapseThink(t,['タイトル確認','23スポット','ルート作成'],sec);
+          var rr=replyRow(); appendRow(rr);
+          typewrite(rr.querySelector('.tw'),'みつけたよ！『君の名は。』の飛騨エリアは全23スポット。歩いて回りやすい上位6件と、半日ルートの提案がこちら。',function(){
+            var mount=rr.querySelector('.route-mount');
+            /* C3a: spot group */
+            mount.innerHTML=groupHTML(['st','aji','keta','lib','sak','seto'],23,CANON);
+            var gcard=mount.querySelector('.gcard'); gcard.classList.add('pop'); bindGroup(gcard);
+            scrollDown();
+            /* map card */
+            setTimeout(function(){
+              var mdiv=document.createElement('div'); mdiv.innerHTML=mapHTML(CANON,{path:true,pill:'飛騨古川 半日ルート',title:'飛騨古川エリア',chip:'徒歩26分 · 1.9km'});
+              var mc=mdiv.firstChild; mount.appendChild(mc); mc.classList.add('pop'); bindMap(mc); scrollDown();
+              /* C5: TimedItinerary */
+              setTimeout(function(){
+                var skel=document.createElement('div'); skel.innerHTML=itinSkeleton();
+                mount.appendChild(skel.firstChild); scrollDown();
+                setTimeout(function(){
+                  mount.querySelector('.itin').remove();
+                  var it=buildItin(CANON,{});
+                  var idiv=document.createElement('div'); idiv.innerHTML=itinHTML(it);
+                  var card=idiv.firstChild; mount.appendChild(card); card.classList.add('pop'); bindItin(card);
+                  registerRoute(CANON,card,{});
+                  /* followups */
+                  var fdiv=document.createElement('div'); fdiv.innerHTML=fupsHTML(['もっとゆったり','夕方スタートは？','カフェを足して']);
+                  var fbox=fdiv.firstChild; mount.appendChild(fbox); scrollDown();
+                  bindFups(fbox,function(i){
+                    if(i===0){
+                      replan('もっとゆったりにして',cur.ids,{pace:'slow'},null,'滞在をのばして、ゆったりペースにしたよ。ゴールは少し遅くなるけど、そのぶん街歩きが楽しめるはず。');
+                    }else if(i===1){
+                      eveningTurn();
+                    }else{
+                      var ids=cur.ids.slice(); if(ids.indexOf('cafe')<0) ids.push('cafe');
+                      replan('カフェも入れたい',ids,cur.opts,[['add','壱之町珈琲店']],'さくら物産館のあと、徒歩3分の古民家カフェ「壱之町珈琲店」を追加したよ。');
+                    }
+                  });
+                  setBusy(false);
+                },1150);
+              },420);
+            },430);
+          });
+        },430);
+      },5300);
+    },440);
+  }
+
+  /* C1: pure-text turn (no pipeline, no cards) + escalation chips */
+  function eveningTurn(){
+    if(busy) return;
+    appendRow(userRow('夕方スタートは？',false));
+    setBusy(true);
+    var d=dotsRow();
+    setTimeout(function(){ appendRow(d); },380);
+    setTimeout(function(){
+      d.remove();
+      var rr=replyRow(FOX.curious); appendRow(rr);
+      typewrite(rr.querySelector('.tw'),'うーん、夕方は飛騨市図書館が18時で閉まるから、午前スタートのままがおすすめ！どうしても夕方なら、図書館を外して組み直すよ。',function(){
+        var mount=rr.querySelector('.route-mount');
+        mount.innerHTML='<div class="aclarify"><button class="cchip" data-i="0">図書館を外して 16:00 スタート</button><button class="cchip" data-i="1">午前のままでOK</button></div>';
+        scrollDown(); setBusy(false);
+        bindClarify(mount.querySelector('.aclarify'),function(i){
+          if(i===0){
+            var ids=cur.ids.filter(function(x){ return x!=='lib'; });
+            replan('図書館を外して16時スタートで',ids,{pace:cur.opts.pace,startMin:960},[['del','飛騨市図書館']],'16:00 スタートに組み直したよ。図書館は次の機会にとっておこう。');
+          }else{
+            toast('了解！ルートはこのまま');
+          }
+        });
+      });
+    },1100);
+  }
+
+  /* lite flow for other works */
+  function liteFlow(text, fromHome){
+    hideEmpty();
+    var work=null;
+    for(var k in WORKS){ if(text.indexOf(k)>=0){ work=WORKS[k]; break; } }
+    appendRow(userRow(text, fromHome));
+    input.value=''; refreshSend(); setBusy(true);
+    var t0=Date.now();
+    setTimeout(function(){
+      var t=thinkingRow('route'); appendRow(t);
+      setStep(t,1,'now');
+      setTimeout(function(){ setStep(t,1,'done'); setStep(t,2,'now'); foxCount(t,work?18:12); },800);
+      setTimeout(function(){ setStep(t,2,'done'); setStep(t,3,'now'); },2400);
+      setTimeout(function(){
+        setStep(t,3,'done');
+        var sec=((Date.now()-t0)/1000).toFixed(1)+'s';
+        setTimeout(function(){
+          collapseThink(t,['タイトル確認',(work?18:12)+'スポット','ルート作成'],sec);
+          var rr=replyRow(); appendRow(rr);
+          var reply=work?work.reply:'いくつかの聖地が見つかったよ！歩けるルートにまとめたよ。';
+          typewrite(rr.querySelector('.tw'),reply,function(){
+            var mount=rr.querySelector('.route-mount');
+            mount.innerHTML=itinSkeleton(); scrollDown();
+            setTimeout(function(){
+              var it=work?buildItinStops(work):buildItinStops({title:'おすすめ半日ルート',eyebrow:'HALF-DAY ROUTE',start:780,stops:[{n:'最寄り駅',cut:'出発',stay:10},{n:'聖地スポット A',cut:'第2話 10:13',stay:20,w:[6,'']},{n:'聖地スポット B',cut:'第3話 17:26',stay:20,star:1,w:[8,'']},{n:'立ち寄りカフェ',cut:'休憩',stay:30,w:[4,'']}]});
+              mount.innerHTML=itinHTML(it);
+              var card=mount.querySelector('.itin'); card.classList.add('pop'); bindItin(card);
+              registerRoute(null,card,{});
+              scrollDown(); setBusy(false);
+            },1050);
+          });
+        },420);
+      },3600);
+    },440);
+  }
+
+  /* ============ C2 clarify ============ */
+  function clarifyHTML(opts){
+    var h='<div class="aclarify">';
+    opts.forEach(function(o,i){ h+='<button class="cchip" data-i="'+i+'">'+o.t+(o.d?'<span class="cd">'+o.d+'</span>':'')+'</button>'; });
+    return h+'</div>';
+  }
+  function bindClarify(box, cb){
+    box.querySelectorAll('.cchip').forEach(function(c){
+      c.addEventListener('click',function(){
+        if(box.classList.contains('used')) return;
+        box.classList.add('used'); c.classList.add('chosen');
+        cb(parseInt(c.getAttribute('data-i'),10));
+      });
+    });
+  }
+  function clarifyFlow(text){
+    hideEmpty();
+    appendRow(userRow(text,false));
+    input.value=''; refreshSend(); setBusy(true);
+    var d=dotsRow();
+    setTimeout(function(){ appendRow(d); },400);
+    setTimeout(function(){
+      d.remove();
+      var rr=replyRow(FOX.curious); appendRow(rr);
+      typewrite(rr.querySelector('.tw'),'いいね！どの作品の聖地に行く？迷ったら、スポットから自分で選ぶこともできるよ。',function(){
+        var mount=rr.querySelector('.route-mount');
+        mount.innerHTML=clarifyHTML([
+          {t:'『君の名は。』',d:'飛騨古川 · 半日'},
+          {t:'『聲の形』',d:'大垣 · 半日'},
+          {t:'『天気の子』',d:'新宿 · 3時間'},
+          {t:'スポットを自分で選ぶ',d:'飛騨エリア · 12件'}
+        ]);
+        scrollDown(); setBusy(false);
+        bindClarify(mount.querySelector('.aclarify'),function(i){
+          if(i===0) mainFlow('『君の名は。』でお願い！',false);
+          else if(i===1) liteFlow('『聲の形』の聖地に行きたい',false);
+          else if(i===2) liteFlow('『天気の子』の聖地に行きたい',false);
+          else openSP();
+        });
+      });
+    },1300);
+  }
+
+  /* ============ C4 near (LocationPrompt) ============ */
+  var NEAR_SPOTS=[
+    {n:'参宮橋の踏切',d:'『秒速5センチメートル』 · 1.2km',img:'assets/compare/anime.jpg',cut:'劇場版 04:12',photo:1},
+    {n:'新宿駅 東南口',d:'『天気の子』 · 2.1km',g:'linear-gradient(135deg,#f5dccf,#eec3ae)',cut:'第10話 26:57',photo:1},
+    {n:'須賀神社の階段',d:'『君の名は。』 · 3.4km',g:'linear-gradient(135deg,#cfe3f7,#aeccec)',cut:'第7話 27:56',photo:1}
+  ];
+  function nearFlow(text){
+    hideEmpty();
+    appendRow(userRow(text||'今いる場所の近くの聖地を教えて',false));
+    input.value=''; refreshSend(); setBusy(true);
+    var d=dotsRow();
+    setTimeout(function(){ appendRow(d); },380);
+    setTimeout(function(){
+      d.remove();
+      var rr=replyRow(); appendRow(rr);
+      typewrite(rr.querySelector('.tw'),'近くの聖地を探すには、現在地を使わせてね。',function(){
+        var mount=rr.querySelector('.route-mount');
+        mount.innerHTML='<div class="gcard pop">'
+          +'<div class="locbody"><span class="li"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/></svg></span>'
+          +'<p><b>位置情報はこの検索にだけ</b>使うよ。保存もしないし、あとから場所の入力に切り替えることもできる。</p></div>'
+          +'<div class="locacts"><button class="locok" data-lok>位置情報を許可</button><button class="localt" data-lalt>場所を入力する</button></div></div>';
+        scrollDown(); setBusy(false);
+        var card=mount.querySelector('.gcard');
+        card.querySelector('[data-lalt]').addEventListener('click',function(){ input.focus(); toast('駅名やエリア名を入力してね'); });
+        card.querySelector('[data-lok]').addEventListener('click',function(){
+          card.innerHTML='<div class="locgrant"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>現在地：東京・代々木周辺（おおよそ）</div>';
+          setBusy(true);
+          var t=thinkingRow('near'); appendRow(t);
+          setStep(t,1,'done'); setStep(t,2,'now');
+          setTimeout(function(){ setStep(t,2,'done'); setStep(t,3,'now'); },1300);
+          setTimeout(function(){
+            setStep(t,3,'done');
+            collapseThink(t,['現在地確認','半径2km · 7件','距離順'],'2.1s');
+            var rr2=replyRow(); appendRow(rr2);
+            typewrite(rr2.querySelector('.tw'),'近くに7件あったよ！歩いて行ける順に3件をピックアップ。',function(){
+              var m2=rr2.querySelector('.route-mount');
+              var rows='';
+              NEAR_SPOTS.forEach(function(s){
+                rows+='<div class="cand"><span class="cth" style="background:'+(s.img?('center/cover url('+s.img+')'):s.g)+';"></span>'
+                  +'<span class="cb2"><b>'+s.n+'</b><span>'+s.d+'</span></span>'
+                  +'<span class="srcb" style="flex:none;">'+s.cut+'</span></div>';
+              });
+              m2.innerHTML='<div class="gcard"><div class="gh"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/></svg><b>近くの聖地</b><span class="chip">半径2km · 7件中3件</span></div>'+rows
+                +'<div class="gfoot"><button class="lnk" data-plan3>この3件でミニルートを組む</button></div></div>';
+              var gc=m2.querySelector('.gcard'); gc.classList.add('pop'); scrollDown(); setBusy(false);
+              gc.querySelector('[data-plan3]').addEventListener('click',function(){
+                if(busy) return;
+                gc.classList.add('locked');
+                setBusy(true);
+                var rr3=replyRow(); appendRow(rr3);
+                typewrite(rr3.querySelector('.tw'),'よし、2時間のぶらり散歩コースにしたよ。',function(){
+                  var m3=rr3.querySelector('.route-mount');
+                  m3.innerHTML=itinSkeleton(); scrollDown();
+                  setTimeout(function(){
+                    var it=buildItinStops({title:'代々木・新宿 ぶらりルート',eyebrow:'YOYOGI · 2-HOUR WALK',start:840,stops:[
+                      {n:'参宮橋の踏切',cut:'劇場版 04:12',stay:15,star:1},
+                      {n:'新宿駅 東南口',cut:'第10話 26:57',stay:15,w:[18,'甲州街道沿い']},
+                      {n:'須賀神社の階段',cut:'第7話 27:56',stay:20,w:[22,'四谷方面へ']}
+                    ]});
+                    m3.innerHTML=itinHTML(it);
+                    var c3=m3.querySelector('.itin'); c3.classList.add('pop'); bindItin(c3);
+                    registerRoute(null,c3,{});
+                    scrollDown(); setBusy(false);
+                  },1050);
+                });
+              },{once:true});
+            });
+          },2400);
+        },{once:true});
+      });
+    },1100);
+  }
+
+  /* ============ photo flow ============ */
+  var CANDS=[
+    {n:'参宮橋の踏切',d:'『秒速5センチメートル』桜と踏切のカット',m:92,img:'assets/compare/anime.jpg'},
+    {n:'代々木八幡駅前の踏切',d:'小田急線 · 似た構図',m:61,bg:'linear-gradient(135deg,#d7eccf,#bcdcae)'},
+    {n:'経堂４号踏切',d:'柱と遮断機の配置が近い',m:33,bg:'linear-gradient(135deg,#f5dccf,#eec3ae)'}
+  ];
+  function pcardHTML(){
+    var rows='';
+    CANDS.forEach(function(c,i){
+      rows+='<div class="cand" data-i="'+i+'"><span class="cth" style="background:'+(c.img?('center/cover url('+c.img+')'):c.bg)+';"></span>'
+        +'<span class="cb2"><b>'+c.n+'</b><span>'+c.d+'</span>'
+        +'<span class="mbar"><span class="tr"><i style="width:'+c.m+'%;"></i></span><em>'+c.m+'%</em></span></span>'
+        +'<button class="pick">ここだ</button></div>';
+    });
+    return '<div class="gcard"><div class="gh"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-5-5L5 21"/></svg><b>写真検索の候補</b><span class="chip">一致度順 · 3件</span></div>'+rows+'</div>';
+  }
+  function scardHTML(){
+    return '<div class="gcard">'
+      +'<div class="gh"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/></svg><b>参宮橋の踏切</b><span class="chip">『秒速5センチメートル』</span></div>'
+      +'<div class="sstrip"><span class="sframe" style="background:center/cover url(assets/compare/anime.jpg);"><span class="tag">カット 劇場版 04:12</span></span><span class="sframe real" style="background:center/cover url(assets/compare/real.jpg);"><span class="tag">現地の見え方</span></span></div>'
+      +'<div class="smeta">'
+      +'<div class="mrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/></svg><span>東京都渋谷区代々木 · 小田急線「参宮橋」駅から徒歩3分</span></div>'
+      +'<div class="mrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>ベスト機位：<b>踏切の南側から</b> · 桜は4月上旬、朝が順光</span></div>'
+      +'<div class="mrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg><span>マナー：<b>踏切内では立ち止まらない</b> · 住宅街では静かに</span></div>'
+      +'</div>'
+      +'<div class="ractions">'
+      +'<button class="rbtn go" data-s="add" style="min-width:140px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>マイスポットに追加</button>'
+      +'<button class="rbtn ghost" data-s="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>地図で開く</button>'
+      +'<button class="rbtn ghost" data-s="cmp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>アニメと比較</button>'
+      +'</div></div>';
+  }
+  function bindScard(card){
+    var added=false;
+    card.querySelectorAll('[data-s]').forEach(function(b){
+      b.addEventListener('click',function(){
+        var a=b.getAttribute('data-s');
+        if(a==='add'){
+          if(added) return; added=true;
+          b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>追加しました';
+          toast('「参宮橋の踏切」をマイスポットに追加しました');
+        }
+        else if(a==='map') toast('Google Maps を開く（原型ではダミー深链）');
+        else{
+          if(card.parentElement.querySelector('.cmp-done')) return;
+          var mnt=document.createElement('div'); mnt.className='cmp-done'; mnt.innerHTML=cmpHTML();
+          card.parentElement.appendChild(mnt);
+          var g=mnt.querySelector('.gcard'); g.classList.add('pop'); bindCmp(g); scrollDown();
+        }
+      });
+    });
+  }
+  function cmpHTML(){
+    return '<div class="gcard">'
+      +'<div class="gh"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg><b>アニメ ⇄ 実写 比較</b><span class="chip">参宮橋 · 劇場版 04:12</span></div>'
+      +'<div class="cstage"><span class="lyr real" style="background:center/cover url(assets/compare/real.jpg);"></span><span class="lyr ani" style="background:center/cover url(assets/compare/anime.jpg);"></span>'
+      +'<span class="tag a">アニメ</span><span class="tag r">実写</span>'
+      +'<span class="vbar"></span><span class="knob">◂▸</span></div>'
+      +'<div class="cfoot"><span>ハンドルをドラッグして見比べ</span><span class="chip">構図一致 92%</span></div>'
+      +'</div>';
+  }
+  function bindCmp(card){
+    var st=card.querySelector('.cstage');
+    function setX(cx){ var r=st.getBoundingClientRect(); var p=Math.min(92,Math.max(8,(cx-r.left)/r.width*100)); st.style.setProperty('--x',p.toFixed(1)+'%'); }
+    st.addEventListener('pointerdown',function(e){
+      st.setPointerCapture(e.pointerId); setX(e.clientX);
+      var mv=function(ev){ setX(ev.clientX); };
+      var up=function(){ st.removeEventListener('pointermove',mv); st.removeEventListener('pointerup',up); st.removeEventListener('pointercancel',up); };
+      st.addEventListener('pointermove',mv); st.addEventListener('pointerup',up); st.addEventListener('pointercancel',up);
+    });
+  }
+  function photoFlow(text){
+    hideEmpty();
+    appendRow(userRow(text||'この写真の場所、わかりますか？',false,true));
+    input.value=''; refreshSend(); setBusy(true);
+    setTimeout(function(){
+      var t=thinkingRow('photo'); appendRow(t);
+      setStep(t,1,'now');
+      setTimeout(function(){ setStep(t,1,'done'); setStep(t,2,'now'); },800);
+      setTimeout(function(){ setStep(t,2,'done'); setStep(t,3,'now'); },2000);
+      setTimeout(function(){
+        setStep(t,3,'done');
+        setTimeout(function(){
+          collapseThink(t,['画像解析','構図照合','候補3件'],'3.4s');
+          var rr=replyRow(); appendRow(rr);
+          typewrite(rr.querySelector('.tw'),'この写真、見覚えがあるよ！構図の一致度が高い順に3件。',function(){
+            var mount=rr.querySelector('.route-mount');
+            mount.innerHTML=pcardHTML();
+            var card=mount.querySelector('.gcard'); card.classList.add('pop'); scrollDown(); setBusy(false);
+            card.querySelectorAll('.cand .pick').forEach(function(b){
+              b.addEventListener('click',function(){
+                var row=b.closest('.cand');
+                card.querySelectorAll('.cand').forEach(function(c){ if(c!==row) c.classList.add('dim'); });
+                row.classList.add('sel'); b.textContent='選択中';
+                setBusy(true);
+                var rr2=replyRow(); appendRow(rr2);
+                typewrite(rr2.querySelector('.tw'),'参宮橋の踏切だね！スポットの詳細だよ。マイスポットに入れておく？',function(){
+                  var m2=rr2.querySelector('.route-mount');
+                  m2.innerHTML=scardHTML();
+                  var sc=m2.querySelector('.gcard'); sc.classList.add('pop'); bindScard(sc);
+                  scrollDown(); setBusy(false);
+                });
+              },{once:true});
+            });
+          });
+        },420);
+      },3100);
+    },440);
+  }
+
+  /* ============ fail flow (D4 → retry → D3) ============ */
+  function errHTML(){
+    return '<div class="fcard err pop"><img src="'+FOX.oops+'" alt=""><div class="fbx">'
+      +'<b class="ft">通信が不安定みたい</b>'
+      +'<p>ルート情報の取得に失敗しちゃった。電波の良い場所で、もう一度ためしてみて。入力内容は残ってるよ。</p>'
+      +'<div class="facts"><button class="fbtn p" data-f="retry">再試行</button><button class="fbtn g" data-f="later">あとで</button></div>'
+      +'</div></div>';
+  }
+  function noresHTML(){
+    return '<div class="fcard nores pop"><img src="'+FOX.curious+'" alt=""><div class="fbx">'
+      +'<b class="ft">検証済みスポットが 2件しかありません</b>'
+      +'<p>「サマーゴースト」は機位まで検証済みのデータがまだ 2件。<b>ルートを組むには少なすぎる</b>んだ（3件以上で提案できるよ）。登録が増えたらお知らせするね。</p>'
+      +'<div class="facts"><button class="fbtn p" data-f="pop">人気の聖地を見る</button><button class="fbtn g" data-f="photo">写真から探す</button><button class="fbtn g" data-f="input">別の作品を入力</button></div>'
+      +'</div></div>';
+  }
+  function failFlow(text){
+    hideEmpty();
+    appendRow(userRow(text,false));
+    input.value=''; refreshSend(); setBusy(true);
+    setTimeout(function(){
+      var t=thinkingRow('route'); appendRow(t);
+      setStep(t,1,'now');
+      setTimeout(function(){ setStep(t,1,'done'); setStep(t,2,'now'); },700);
+      setTimeout(function(){
+        t.remove();
+        var rr=replyRow(FOX.oops); appendRow(rr);
+        rr.querySelector('.bub').style.display='none';
+        var mount=rr.querySelector('.route-mount'); mount.style.marginTop='0';
+        mount.innerHTML=errHTML(); scrollDown(); setBusy(false);
+        mount.querySelector('[data-f="later"]').addEventListener('click',function(){ toast('入力は保持されています · いつでも再試行できます'); });
+        mount.querySelector('[data-f="retry"]').addEventListener('click',function(){
+          setBusy(true);
+          var t2=thinkingRow('route'); appendRow(t2);
+          setStep(t2,1,'now');
+          setTimeout(function(){ setStep(t2,1,'done'); setStep(t2,2,'now'); },600);
+          setTimeout(function(){ setStep(t2,2,'done'); setStep(t2,3,'now'); },1400);
+          setTimeout(function(){
+            collapseThink(t2,['タイトル確認','2スポット','ルート不成立'],'2.6s');
+            var rr2=replyRow(FOX.curious); appendRow(rr2);
+            typewrite(rr2.querySelector('.tw'),'つながったよ。ただ…うーん、この作品はまだデータが足りないみたい。',function(){
+              var m2=rr2.querySelector('.route-mount');
+              m2.innerHTML=noresHTML(); scrollDown(); setBusy(false);
+              m2.querySelector('[data-f="pop"]').addEventListener('click',function(){ mainFlow('「君の名は。」の聖地に行きたい',false); });
+              m2.querySelector('[data-f="photo"]').addEventListener('click',function(){ photoFlow(null); });
+              m2.querySelector('[data-f="input"]').addEventListener('click',function(){ input.focus(); toast('作品名を入力してください'); });
+            });
+          },2200);
+        },{once:true});
+      },1600);
+    },440);
+  }
+
+  /* ============ A2b edit flow ============ */
+  function editSeed(){
+    hideEmpty();
+    ctx.classList.add('on');
+    input.placeholder='このルートへの変更を伝える…';
+    var rr=replyRow(); appendRow(rr);
+    rr.querySelector('.tw').textContent='保存済みの「飛騨古川 半日ルート」を開いたよ。変えたいところを教えてね。';
+    var mount=rr.querySelector('.route-mount');
+    var it=buildItin(CANON,{});
+    mount.innerHTML=itinHTML(it);
+    var card=mount.querySelector('.itin'); bindItin(card);
+    registerRoute(CANON,card,{});
+    scrollDown();
+    setTimeout(function(){
+      if(curMode!=='edit') return;
+      appendRow(userRow('最後にカフェでひと休みを入れたい',false));
+      setBusy(true);
+      setTimeout(function(){
+        var t=thinkingRow('edit'); appendRow(t);
+        setStep(t,1,'now');
+        setTimeout(function(){ setStep(t,1,'done'); setStep(t,2,'now'); },700);
+        setTimeout(function(){ setStep(t,2,'done'); setStep(t,3,'now'); },1700);
+        setTimeout(function(){
+          collapseThink(t,['変更点把握','再構成','+35分'],'2.8s');
+          var rr2=replyRow(); appendRow(rr2);
+          typewrite(rr2.querySelector('.tw'),'さくら物産館のあと、徒歩3分の古民家カフェ「壱之町珈琲店」を追加したよ。ゴールは 13:40 頃になるよ。',function(){
+            var m2=rr2.querySelector('.route-mount');
+            m2.innerHTML=itinSkeleton(); scrollDown();
+            setTimeout(function(){
+              supersede(cur.card);
+              var ids=CANON.concat(['cafe']);
+              var it2=buildItin(ids,{});
+              m2.innerHTML=itinHTML(it2,{v2:true,diffs:[['add','壱之町珈琲店']]});
+              var c2=m2.querySelector('.itin'); c2.classList.add('pop'); bindItin(c2);
+              registerRoute(ids,c2,{});
+              scrollDown(); setBusy(false);
+            },1100);
+          });
+        },2600);
+      },420);
+    },1600);
+  }
+  $('#ctxX').addEventListener('click',function(){ ctx.classList.remove('on'); toast('ルートの参照を外しました'); });
+
+  /* ============ SP SpotPicker ============ */
+  var spState={sort:'rec',photoOnly:false,sel:{},order:'auto',open:false};
+  CANON.forEach(function(id){ spState.sel[id]=true; });
+  function spSelIds(){ return Object.keys(spState.sel).filter(function(k){ return spState.sel[k]; }); }
+  function renderSP(){
+    var list=$('#spList'); var ids=Object.keys(SPOTS);
+    if(spState.photoOnly) ids=ids.filter(function(id){ return SPOTS[id].photo; });
+    var html='';
+    function rowHTML(id){
+      var s=SPOTS[id], on=!!spState.sel[id];
+      var dist=(typeof s.dist==='number')?('駅から徒歩'+s.dist+'分'):s.dist;
+      return '<div class="srow'+(on?' on':'')+'" data-id="'+id+'"><span class="pcb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg></span>'
+        +'<span class="sth" style="background:'+s.g+';"><i>'+s.cut+'</i></span>'
+        +'<span class="sn2">'+s.n+(s.star?' <b style="color:var(--star);">★</b>':'')+'<span>'+s.d+'</span></span>'
+        +'<span class="pt">'+(s.photo?'<span class="ph">写真あり</span><br>':'')+dist+'</span></div>';
+    }
+    if(spState.sort==='rec'){
+      ['a','b','c'].forEach(function(ar){
+        var group=ORDER_OPT.filter(function(id){ return ids.indexOf(id)>=0&&SPOTS[id].area===ar; });
+        if(!group.length) return;
+        html+='<div class="spgh">'+AREA_NAMES[ar]+' · '+group.length+'件</div>';
+        group.forEach(function(id){ html+=rowHTML(id); });
+      });
+    }else{
+      var sorted=ids.slice().sort(function(x,y){
+        if(spState.sort==='cut') return SPOTS[x].cutNum-SPOTS[y].cutNum;
+        var dx=(typeof SPOTS[x].dist==='number')?SPOTS[x].dist:99, dy=(typeof SPOTS[y].dist==='number')?SPOTS[y].dist:99;
+        return dx-dy;
+      });
+      html+='<div class="spgh">'+(spState.sort==='cut'?'カット登場順':'駅から近い順')+' · '+sorted.length+'件</div>';
+      sorted.forEach(function(id){ html+=rowHTML(id); });
+    }
+    list.innerHTML=html;
+    list.querySelectorAll('.srow').forEach(function(rw){
+      rw.addEventListener('click',function(){
+        var id=rw.getAttribute('data-id');
+        spState.sel[id]=!spState.sel[id];
+        rw.classList.toggle('on',spState.sel[id]);
+        renderTray();
+      });
+    });
+    renderTray();
+  }
+  function renderTray(){
+    var ids=spSelIds();
+    var chips=$('#spChips'); var h='';
+    ORDER_OPT.filter(function(id){ return ids.indexOf(id)>=0; }).forEach(function(id){
+      h+='<span class="tchip">'+SPOTS[id].n+'<b data-x="'+id+'">×</b></span>';
+    });
+    chips.innerHTML=h||'<span style="font-size:11px;font-weight:800;color:var(--ink-soft);">スポットを選んでください</span>';
+    chips.querySelectorAll('[data-x]').forEach(function(x){
+      x.addEventListener('click',function(){
+        spState.sel[x.getAttribute('data-x')]=false; renderSP();
+      });
+    });
+    var gen=$('#spGen');
+    gen.textContent='この'+ids.length+'件でルートを組む';
+    gen.disabled=ids.length<2;
+    $('#spNote').style.display=(spState.order==='story'&&ids.length>3)?'inline':'none';
+  }
+  function openSP(){
+    spState.open=true;
+    $('#spDim').classList.add('on'); $('#sp').classList.add('on');
+    renderSP();
+  }
+  function closeSP(){ spState.open=false; $('#spDim').classList.remove('on'); $('#sp').classList.remove('on'); }
+  $('#spBack').addEventListener('click',closeSP);
+  $('#spDim').addEventListener('click',closeSP);
+  $('#spSort').querySelectorAll('button').forEach(function(b){
+    b.addEventListener('click',function(){
+      $('#spSort').querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on'); spState.sort=b.getAttribute('data-s'); renderSP();
+    });
+  });
+  $('#spPhoto').addEventListener('click',function(){
+    this.classList.toggle('on'); spState.photoOnly=this.classList.contains('on'); renderSP();
+  });
+  $('#spOrd').querySelectorAll('button').forEach(function(b){
+    b.addEventListener('click',function(){
+      $('#spOrd').querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on'); spState.order=b.getAttribute('data-o'); renderTray();
+    });
+  });
+  $('#spGen').addEventListener('click',function(){
+    var ids=spSelIds(); if(ids.length<2) return;
+    var ordered=(spState.order==='story')
+      ? ids.slice().sort(function(x,y){ return SPOTS[x].cutNum-SPOTS[y].cutNum; })
+      : ORDER_OPT.filter(function(id){ return ids.indexOf(id)>=0; });
+    closeSP();
+    hideEmpty();
+    setBusy(true);
+    var rr=replyRow(); appendRow(rr);
+    typewrite(rr.querySelector('.tw'),'いい選び方！この'+ordered.length+'件、'+(spState.order==='story'?'物語の順番':'歩きやすい順')+'で組み立てるね。',function(){
+      var mount=rr.querySelector('.route-mount');
+      mount.innerHTML=itinSkeleton(); scrollDown();
+      setTimeout(function(){
+        var it=buildItin(ordered,{title:'飛騨古川 カスタムルート',eyebrow:'HIDA-FURUKAWA · CUSTOM ROUTE'});
+        mount.innerHTML=itinHTML(it);
+        var card=mount.querySelector('.itin'); card.classList.add('pop'); bindItin(card);
+        registerRoute(ordered,card,{title:'飛騨古川 カスタムルート',eyebrow:'HIDA-FURUKAWA · CUSTOM ROUTE'});
+        scrollDown(); setBusy(false);
+      },1150);
+    });
+  });
+
+  /* ============ misc ============ */
+  function hideEmpty(){ empty.style.display='none'; }
+  var _toastEl,_toastT;
+  function toast(msg){
+    _toastEl=_toastEl||$('#toast');
+    _toastEl.textContent=msg; _toastEl.classList.add('on');
+    clearTimeout(_toastT); _toastT=setTimeout(function(){ _toastEl.classList.remove('on'); },2300);
+  }
+  function openAuth(){ $('#authDim').classList.add('on'); }
+  (function(){
+    var dim=$('#authDim'); if(!dim) return;
+    $('#authClose').addEventListener('click',function(){ dim.classList.remove('on'); });
+    dim.addEventListener('click',function(e){ if(e.target===dim) dim.classList.remove('on'); });
+    dim.querySelector('.big').addEventListener('click',function(){ dim.classList.remove('on'); toast('ログインリンクを送信しました · メールをご確認ください'); });
+    dim.querySelector('.guest').addEventListener('click',function(){ dim.classList.remove('on'); toast('ゲストで続けます · この端末に一時保存'); });
+  })();
+
+  /* ============ dispatch ============ */
+  function dispatch(text, fromHome){
+    if(busy) return;
+    if(/写真|画像/.test(text)) return photoFlow(text);
+    if(/サマーゴースト/.test(text)) return failFlow(text);
+    if(/近く/.test(text)) return nearFlow(text);
+    if(/君の名は/.test(text)) return mainFlow(text, fromHome);
+    var known=false; for(var k in WORKS){ if(text.indexOf(k)>=0){ known=true; break; } }
+    if(known) return liteFlow(text, fromHome);
+    if(/「.+」|『.+』/.test(text)&&/聖地/.test(text)) return failFlow(text);
+    if(/おすすめ|日帰り|どこか|巡礼がしたい/.test(text)) return clarifyFlow(text);
+    return liteFlow(text, fromHome);
+  }
+
+  function refreshSend(){ var v=input.value.trim(); send.classList.toggle('on', !!v && !busy); }
+  input.addEventListener('input',refreshSend);
+  input.addEventListener('keydown',function(e){ if(e.key==='Enter'&&input.value.trim()&&!busy){ dispatch(input.value.trim(),false); } });
+  send.addEventListener('click',function(){ if(input.value.trim()&&!busy) dispatch(input.value.trim(),false); });
+  document.querySelectorAll('.chips .chip2').forEach(function(c){ c.addEventListener('click',function(){ if(!busy) dispatch(c.dataset.q,false); }); });
+  $('#attBtn').addEventListener('click',function(){ if(!busy) photoFlow(null); });
+
+  /* ============ demo modes ============ */
+  var MODE_BTNS={empty:'mEmpty',home:'mHome',clarify:'mClarify',photo:'mPhoto',near:'mNear',fail:'mFail',edit:'mEdit'};
+  function reset(){
+    thread.innerHTML=''; setBusy(false); input.value=''; delete input.dataset.ph; refreshSend();
+    ctx.classList.remove('on'); rebar.classList.remove('on'); closeSP();
+    cur={ids:null,card:null,opts:null,groupCard:null};
+    spState.sel={}; CANON.forEach(function(id){ spState.sel[id]=true; });
+    input.placeholder='作品名・駅名・シーンを入力…';
+    empty.style.display='';
+  }
+  function runMode(m){
+    if(m==='home') mainFlow('「君の名は。」の聖地に行きたい', true);
+    else if(m==='clarify') clarifyFlow('週末、日帰りでアニメの聖地巡礼がしたい');
+    else if(m==='photo') photoFlow(null);
+    else if(m==='near') nearFlow(null);
+    else if(m==='fail') failFlow('「サマーゴースト」の聖地に行きたい');
+    else if(m==='edit') editSeed();
+  }
+  function mode(m){
+    curMode=m;
+    for(var k in MODE_BTNS){ document.getElementById(MODE_BTNS[k]).classList.toggle('on', k===m); }
+    reset(); runMode(m);
+  }
+  for(var k in MODE_BTNS){ (function(kk){ document.getElementById(MODE_BTNS[kk]).addEventListener('click',function(){ mode(kk); }); })(k); }
+  $('#reset').addEventListener('click',function(){ mode(curMode); });
+  $('#newChat').addEventListener('click',function(){ mode('empty'); });
+
+  $('#pWarm').addEventListener('click',function(){ document.body.classList.remove('ds'); this.classList.add('on'); $('#pDS').classList.remove('on'); });
+  $('#pDS').addEventListener('click',function(){ document.body.classList.add('ds'); this.classList.add('on'); $('#pWarm').classList.remove('on'); });
+
+  refreshSend();
+  if((new URLSearchParams(location.search)).has('m')) document.body.classList.add('mframe');
+
+  var _seed=(new URLSearchParams(location.search)).get('q');
+  if(_seed){
+    curMode='home';
+    $('#mEmpty').classList.remove('on'); $('#mHome').classList.add('on');
+    empty.style.display='none';
+    dispatch(_seed, true);
+  }
+
+  (function(){ var p=document.createElement('div'); p.style.cssText='position:absolute;left:-9999px;width:1px;height:1px;animation:rowIn 1s linear;';
+    document.body.appendChild(p); setTimeout(function(){ var a=p.getAnimations&&p.getAnimations()[0]; if(a&&a.currentTime>0) document.body.classList.add('motion'); p.remove(); },130); })();
+})();
+</script>
+<script src="scene-cut.js"></script>
+</body>
+</html>
