@@ -6,7 +6,9 @@
 
 **架构前提**:本迭代复用 Iteration 1 建立的 generative UI registry(组件不变,只是挂载点从"流里"变成"右栏"),不重新设计组件——见 `generative-ui.md`"Phase 2(环闭合后)"与 `spec-chat-page-design.md` §2 的双形态分期决策。
 
-**Generative UI 宪法提醒([提案待确认],见主 spec §②)**:本迭代的 lightbox/草稿编辑/锚点委托等新组件同样应遵守"LLM 只填数据不产 UI 代码、payload URL 只来自白名单来源"的原则(该宪法本身待用户确认,但若确认后,本迭代新增组件也在适用范围内,不需要额外补 story,Reviewer checklist 层面覆盖即可)。
+**Generative UI 宪法(回填自 SD-13,定案)**:主 spec §② 原标注"提案待确认"已由 SD-13(Step1,2026-07-06 用户确认"用业界最佳实践")终定,三条规则对本迭代新增组件同样适用——① **append-only 卡片流**(不改写历史卡,承接设计 E1);② **additive-only 版本化**:组件 payload 携带 `schema_version`,生命周期治理照抄 MCP 弃用策略(Active → Deprecated → Removed,弃用期 ≥12 个月);③ **partial-tolerant 渲染**:组件可缺字段,以 skeleton slot 兜底。`presentation_hint` 是服务端建议值、前端终裁,未知值优雅降级为通用卡片而非报错。
+
+区分适用范围:S6.5(DraftEditMode)、S6.6(AnchorDelegation)是 agent 可能经 `presentation_hint` 选中渲染的 registry 组件,必须从创建起遵守上述版本化规则,并在 Storybook 建立 partial 态 + 旧版 payload 态 story(与 Iteration 1 已建的测试基建共用,见 P10)——已在两条 story 的核心 AC 中补上对应条目。S6.2(常驻地图)/S6.3(Lightbox)/S6.4(分组同步)是纯客户端交互组件,不由 agent payload 决定渲染版本,不受此约束,Reviewer checklist 层面确认区分即可,不需要额外补 story。
 
 ---
 
@@ -90,6 +92,7 @@
 - 快乐路径:点击预选项的「入れ替え」提供 3 个同区域/相近时间成本的邻近候选做局部替换(不是全局重选)-> browser
 - 空:恰好 100 点位的边界情况按一个明确规则(取其一模式)确定性处理,不在两种模式间闪烁 -> unit
 - 错误:替换零邻近候选的项显示明确的"代替候補なし"提示,不是破损的空替换菜单 -> browser
+- 契约治理(回填自 SD-13):该组件 payload 携带 `schema_version`,遵循 additive-only 演进(Active→Deprecated→Removed,弃用期≥12个月);Storybook 建立该组件的 partial-tolerant 态与旧版 payload 态 story -> unit/browser
 
 **变更文件**:`apps/web/src/components/chat/workbench/DraftEditMode.tsx`、`apps/web/src/lib/chat/workbench/nearbySwapCandidates.ts`。
 
@@ -107,6 +110,7 @@
 - 快乐路径:标记 1-3 个锚点后选择"残りはおまかせで埋める"触发 agent 回合(带管线戏),围绕锚点与时间预算补全草稿其余部分 -> integration
 - 空:零锚点直接选"おまかせ"仍产出有效草稿(等效于默认的 agent 预选行为)-> unit
 - 错误:标记的锚点相互不兼容(如时间预算内距离过远)时显示警告 chip,而不是静默生成不可行路线 -> browser
+- 契约治理(回填自 SD-13):该组件 payload 携带 `schema_version`,遵循 additive-only 演进(Active→Deprecated→Removed,弃用期≥12个月);Storybook 建立该组件的 partial-tolerant 态与旧版 payload 态 story -> unit/browser
 
 **变更文件**:`apps/web/src/components/chat/workbench/AnchorDelegation.tsx`。
 
