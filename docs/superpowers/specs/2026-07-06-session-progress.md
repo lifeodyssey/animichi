@@ -60,7 +60,8 @@
 - SD-22/23 五飞轮排期+运行手册+self-evolve边界(人在环批准)
 - SD-24(部分)运行时 subagent/skill/mcp-client 都不扩张
 - SD-25 对外形态=OpenAPI 单一真源+四壳薄适配;顺序 Skill→MCP(FastMCP.from_openapi)→A2A 押后;前置清 dict→Pydantic/tool_state 显式参数;**agent 架构 8 步全绿**
-- SD-26 图搜两阶段=LLM vision 认作品(迭代1)→作品内精匹配机位(迭代4);Anitabi 配对图资产+clarify 降级;embedding 选型待调研
+- SD-26 图搜全定案=两阶段(vision 认作品→系列级候选;emb 粗筛标配+LLM vision 精排主力)+不建 ANN 索引+评测矩阵定终选+反向发现三层(LLM 直认/GPS 附近搜/全库 future)+图搜埋点信号
+- SD-27 SEO/GEO 定案=页面矩阵(点位不独立)+爬虫政策(挡训练放引用放 Agent)+llms-full 砍+MCP-as-GEO+质量门(模板占比)+三语子路径本地化 title(A/B/C 定,落地包草拟中)
 
 ## 四、进行中/待确认(**尚未落 inputs,有损风险最高,务必保全**)
 
@@ -70,13 +71,12 @@ OpenAPI 单一真源 + 四壳薄适配;顺序 Skill→MCP(FastMCP.from_openapi)�
 
 ### 图片搜索(任务 #7)→ 架构与排期**已定案 SD-26**(2026-07-06 晚用户确认,全文在 inputs 第十节)
 
-两阶段(LLM vision 认作品→迭代1;作品内精匹配机位→迭代4)+ clarify 降级。**数据实测修正(2026-07-06)**:Anitabi 仅动画截图、无现实照字段(用户质疑属实,API 抽查君名 68/68 仅 image);飞轮3 打卡照 = 唯一现实参考照来源。
-**唯一剩余待定**:阶段 2 embedding 选型(候选:多模态 LLM embedding / CLIP·DINOv2 / 动漫专用 / LLM vision 直接排序免 embedding)——调研代理(sonnet,2026 跨域/动漫图搜实践)进行中,回来后拍板收 #7。
+**已全部定案**(2026-07-06 晚,含用户三轮质疑修正:real.jpg 不存在/规模系列级 1000+/索引不建;反向发现三层;图搜埋点信号)。全文见 inputs 第十节 SD-26。任务 #1 关闭。
 
 ## 五、剩余排队(TaskList #5/#7/#8)
 
-- **#7 图片搜索**(收尾):架构/排期已定 SD-26,唯余阶段 2 embedding 选型,调研代理进行中。
-- **#8 SEO/GEO 方案**(pending):inputs 已 sketch(迭代0技术SEO地基/迭代4动态OG/迭代5 programmatic SEO+GEO可摘引事实块+AI爬虫策略/迭代7 llms-full+MCP),待展开为正式方案。含 animichi.com 迁移SEO影响、sitemap/JSON-LD细节、claude-seo插件审计工序衔接。
+- **#7 图片搜索**:✅ 全定案(SD-26),关闭。
+- **#8 SEO/GEO 方案**:决策 A/B/C ✅ 定案(SD-27,调研代理背书;llms-full 砍/FAQ schema 砍/MCP-as-GEO 立);剩落地包草拟(任务#9)+ 迭代映射汇总(任务#10)。
 - **批量修订 spec**:把 SD-13~24 决策回填 Planner 的 9 个 spec 文件(它们写于早期,滞后)。
 - **#5 双评审**:Fable 5(reviewer型,审AC质量/releasable/设计权威冲突)+ Codex(codex-rescue,第二视角;注意 codex 大报告易崩,要求增量写文件,崩了从 job log 提取)。
 - **交付**:commit 到 feat/frontend-rebuild + 向用户汇报。
