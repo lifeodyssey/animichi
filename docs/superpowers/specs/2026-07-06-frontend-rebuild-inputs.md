@@ -213,6 +213,7 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 | X13 | **[已撤回 2026-07-06]** 原主张「弃 atlas 收敛为 drizzle-kit」系误判:Drizzle(类型/查询)+ Atlas(schema 迁移)是用户的既定分工,PR #206 摩擦为 Neon 系统 schema 环境问题且已修复。迁移链议题转入 system-design 讨论(SD-1),结论以评审版 Decision Log 为准 | 撤回;见 SD 讨论 |
 | X14 | **[核证修正 2026-07-06]** 原假设「worker.js 无测试纯 JS」不成立:现状已是 TS 三件套(worker/entry.ts+app.ts+auth.ts)且有 15 个测试用例;**真实缺口 = 测试从未接入 CI**(根 package.json 无 test script,workflow 零引用)。修正后的要求:迭代 0 CI story 把 worker 测试接入;迭代 1 的 Turnstile/配额/匿名逻辑在其上追加并保持可测 | 迭代 0 CI story + 迭代 1 enabler |
 | X15 | **catalog 数据质量门**:作品公開页/programmatic SEO 上线前,catalog Publish 阶段加行级校验(坐标有效性/去重/話数完整性)+ 数量漂移告警——垃圾数据 × SEO 放大器 = 垃圾页面工厂 | 迭代 5 story 或其 AC |
+| X16 | **重构授权与纪律(2026-07-06 用户授权)**:重建过程中发现既有代码不合适(违反 CLAUDE.md 规范 / 坏味道 / 与新决策冲突)**可径行重构,无向后兼容义务**(仅保持对外功能,呼应既定 no-backward-compat 原则)。三条纪律:① story 范围内 boy-scout 顺手重构自由;② **结构级重构必须立独立 story/enabler 或记 DD,禁止搭顺风车偷改**;③ 一切重构过 make check + eval 门禁(SD-30),行为回归以测试为证。评审授权:reviewer 可提「建议重构」级意见,不因「旧代码沿用」而收敛。配套:全库 best-practice 审计(2026-07-06 晚派出,聚焦存活代码 apps/agent / workers / packages/contract / worker,排除将被 TanStack 重建替换的 frontend/)产出分级重构 backlog | 全程原则;审计报告归 backlog |
 
 ## 七、SD interview 结论(滚动更新;评审版 Decision Log 以本节为准)
 
