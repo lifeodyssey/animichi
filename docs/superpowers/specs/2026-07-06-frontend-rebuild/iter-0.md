@@ -1,209 +1,209 @@
-# Iteration 0 — 地基(Foundation)
+# Iteration 0 — Foundation
 
-详细度:**全量细化**。Story 数:9(超「3-8」guideline,原因见主 spec §③ 说明:X1 地图 ADR + X8 eval 分层是追加必做项)。
+Detail level: **fully elaborated**. Story count: 9 (exceeds the "3-8" guideline; reason, see main spec §③: X1's map ADR and X8's eval tiering are additional must-do items).
 
-前置条件(不是 story,是外部阻塞):**PR #206(atlas CI 修复)必须先合并**,否则本迭代的 CI 基线不可信。
+Precondition (not a story, an external blocker): **PR #206 (the atlas CI fix) must merge first**, otherwise this iteration's CI baseline can't be trusted.
 
-依赖顺序建议:S0.1(独立)→ S0.2 → {S0.3, S0.4, S0.5} → S0.6 → S0.7 → S0.8 → S0.9(收尾)。
+Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} → S0.6 → S0.7 → S0.8 → S0.9 (wrap-up).
 
-**SD interview 终局结论对本迭代的影响(见主 spec §②,inputs §七全稿 SD-0~SD-11)**:
-- **SD-0(域名,终局)**:`animichi.com` 定案,不再是待定项;S0.8 直接写死该域名,不再参数留白等待用户拍板。`aninavi.app` 做 301 重定向(或视执行时判断值不值得投入,非阻塞)。
-- **SD-1**(迁移链):Neon 侧确认为"双链 + atlas-provider-drizzle"(Drizzle TS schema 唯一真相);S0.9 新增 `docs/ops/migrations.md` 记录边界与 CI 步骤。
-- **SD-6**(edge worker):`worker/` 已是 TS + 16 个测试用例(`entry.test.ts` 11 + `auth.test.ts` 5),核证发现唯一缺口是这些测试从未接入任何 CI job——S0.3 补一个新 CI job,不是从零建测试。
-- **SD-4**(agent 运行时):D7 的 Pyodide 与"TS 重写"两条路径**双双 REJECTED**,终局定案;S0.9 的文档收敛需明确写出这一点(不只是"REJECTED",还要写清"双双")。
-
----
-
-### S0.1 Eval gate 分层(X8)
-
-**用户故事**:作为 Reviewer,我要 PR 触发轻量 smoke eval、nightly 跑全量 617 条,以便在不为每个 PR 付出全量 eval 时间成本的前提下,依然能在合并前抓住 agent 行为回归。
-
-**设计依据**:无视觉画布;依据 inputs §六 X8。
-
-**Releasable 陈述**:本 story 上线后,任何触达 `apps/agent/**` 的 PR 自动跑 5 条 smoke eval 作为必过门禁;617 条全量套件改为 nightly cron + `workflow_dispatch` 手动触发;现有 `if: false` 全关配置消失。
-
-**AC**:
-- 触达 `apps/agent/**` 的 PR 触发 smoke eval job 并在已知良好 commit 上通过 -> integration
-- 只触达 `apps/web/**`(不改 agent 路径)的 PR **不**触发 eval job(path filter 正确排除)-> integration
-- 故意注入一个错误 case 的 smoke 集合会让 job 失败并阻止合并(分支保护必过检查)-> integration
-- nightly cron 在到点时触发全量 617 条(用 workflow schedule 断言,非真等待)-> unit
-
-**变更文件**:`.github/workflows/ci.yml`、新增或修改 agent-eval 相关 job 定义、新增 nightly cron workflow 文件(如 `.github/workflows/agent-eval-nightly.yml`)。
-
-**依赖**:无。
+**How the SD-interview's final conclusions affect this iteration (see main spec §②, inputs §7's full text SD-0~SD-11)**:
+- **SD-0 (domain, finalized)**: `animichi.com` is finalized, no longer pending; S0.8 hardcodes this domain directly rather than leaving a parameter blank awaiting a decision. `aninavi.app` gets a 301 redirect (or, depending on a judgment call at execution time, may not be worth the investment — non-blocking).
+- **SD-1** (migration chain): on the Neon side, confirmed as "dual-chain + atlas-provider-drizzle" (the Drizzle TS schema is the single source of truth); S0.9 adds `docs/ops/migrations.md` to record the boundary and the CI steps.
+- **SD-6** (the edge worker): `worker/` is already TS with 16 test cases (`entry.test.ts`'s 11 + `auth.test.ts`'s 5); verification found the only real gap is that these tests were never wired into any CI job — S0.3 adds a new CI job for this; it isn't building tests from scratch.
+- **SD-4** (the agent runtime): both the Pyodide path and the "TS rewrite" path under D7 are **REJECTED**, finalized; S0.9's documentation consolidation must state this explicitly (not just "REJECTED," but clearly stating "both REJECTED").
 
 ---
 
-### S0.2 apps/web TanStack Start skeleton + pnpm workspace 注册
+### S0.1 Eval gate tiering (X8)
 
-**用户故事**:作为开发者,我要一个已注册进 pnpm workspace、跑通 animal-island-ui-tailwind@1.0.x 的 `apps/web` TanStack Start 骨架,以便后续迭代有地基可建。
+**User story**: As a Reviewer, I want a PR to trigger a lightweight smoke eval, with the full suite running nightly, so I can still catch agent-behavior regressions before merging without paying the full eval suite's time cost on every single PR.
 
-**设计依据**:无具体画布;`docs/DESIGN.md` 作为 token 基线(本 story 只接线,不消费具体 token,S0.5 负责)。
+**Design basis**: no visual canvas; per inputs §6 X8.
 
-**Releasable 陈述**:`pnpm --filter web dev` 能跑起一个品牌化但空白的 TanStack Start app;`pnpm --filter web build` 产出 `.output/`;CI 对其跑 typecheck/lint/test/build。
+**Releasable statement**: once this story ships, any PR touching `apps/agent/**` automatically runs the **L0 smoke suite (~80 cases: one per path + the P0 set in all three languages, backfilled from SD-30, superseding this story's original ad hoc "5-case" framing)** as a required gate; the **L1 full suite (617 cases today, targeted to grow to ~750 over time per SD-30)** moves to a nightly cron + a manual `workflow_dispatch` trigger; the existing all-off `if: false` configuration disappears.
 
 **AC**:
-- 全新 clone + `pnpm install` + `pnpm --filter web build` 成功产出 `.output/server/index.mjs` + `.output/public` -> integration
-- 访问未定义路由渲染品牌化 404(不是浏览器默认空白页)-> browser
-- `animal-island-ui-tailwind` 锁定到一个损坏的 1.0.x 版本时,CI 安装步骤给出清晰的 lockfile 错误而非静默装错版本 -> unit
+- A PR touching `apps/agent/**` triggers the L0 smoke-eval job and it passes on a known-good commit -> integration
+- A PR touching only `apps/web/**` (not the agent path) does **not** trigger the eval job (the path filter correctly excludes it) -> integration
+- Deliberately injecting one broken case into the L0 set fails the job and blocks the merge (a required branch-protection check) -> integration
+- The nightly cron triggers the L1 full suite (617 cases today) on schedule (asserted via the workflow schedule, not a real wait) -> unit
 
-**i18n 范围说明**:i18n 系统由 S0.6 引入,本 story 尚无用户可见文案(骨架空白页),不适用 i18n AC;S0.6 落地后 404 页文案补挂三语。
+**Files changed**: `.github/workflows/ci.yml`, a new or modified agent-eval job definition, a new nightly cron workflow file (e.g., `.github/workflows/agent-eval-nightly.yml`).
 
-**变更文件**:`apps/web/package.json`、`apps/web/vite.config.ts`、`apps/web/app.config.ts`、`apps/web/src/routes/__root.tsx`、`apps/web/src/routes/index.tsx`、`pnpm-workspace.yaml`(新增 `apps/web` 条目;更新 `frontend`/`worker` 的过时"留原地,Wave 4"注释)。
-
-**依赖**:无。
+**Dependencies**: none.
 
 ---
 
-### S0.3 部署链修复 + edge worker CI 接线(回填自 SD-6/X14)
+### S0.2 The apps/web TanStack Start skeleton + pnpm workspace registration
 
-**用户故事**:作为 Coordinator,我要部署管线构建并发布 `apps/web`(而不是已删除的 Next.js frontend),以便重建后 tag 部署继续可用;同时我要 root `worker/` 既有的测试套件真正跑在 CI 里,而不是本地能跑但从未被把关。
+**User story**: As a developer, I want an `apps/web` TanStack Start skeleton that's registered in the pnpm workspace and running `animal-island-ui-tailwind@1.0.x`, so later iterations have a foundation to build on.
 
-**设计依据**:无视觉画布;`worker/entry.ts`/`worker/app.ts` 现状(Planner 核实,见风险登记);SD-6 核证结论。
+**Design basis**: no specific canvas; `docs/DESIGN.md` as the token baseline (this story only wires things up, without consuming specific tokens — that's S0.5's job).
 
-**Releasable 陈述**:推版本 tag 后,`apps/web` 的 TanStack 构建物经既有 Hono 包装 Worker 部署到 Cloudflare;`/healthz`、`/img/*`、`/v1/*` 路由行为不变;`worker/entry.test.ts`+`worker/auth.test.ts`(16 用例)在每个触达 `worker/**` 的 PR 上运行并把关。
+**Releasable statement**: `pnpm --filter web dev` runs a branded but blank TanStack Start app; `pnpm --filter web build` produces `.output/`; CI runs typecheck/lint/test/build against it.
 
 **AC**:
-- `wrangler deploy --dry-run`(或等效 CI 检查)成功引用 `.output/public` 为 assets 目录、`.output/server/index.mjs` 衍生的 handler 作为 catch-all -> integration
-- 访问 apps/web 中不存在的路由仍返回品牌化 404 真实响应,不是 Worker 异常 -> browser
-- 若 `.output/server/index.mjs` 的导出形状与既有 `NextHandler` 接口不匹配,构建/typecheck 阶段显式失败(适配层 TypeError 由单测捕获),而不是静默部署一个坏的 worker -> unit
-- `/v1/*`、`/img/*`、`/healthz` 三类既有路由在切换 catch-all handler 后行为不变(复用/扩展现有 `entry.test.ts`/`app.ts` 测试)-> unit
-- **SD-6 CI 接线**:新增 `ci.yml` job(或复用模式)在 `worker/**` 变更时运行既有 `worker/entry.test.ts`+`worker/auth.test.ts`;Planner 核实此前 `changes` path filter 里没有 `worker/**` 条目,该 job 此前从未被触发过 -> integration
+- A fresh clone + `pnpm install` + `pnpm --filter web build` succeeds and produces `.output/server/index.mjs` + `.output/public` -> integration
+- Visiting an undefined route renders a branded 404 (not the browser's default blank page) -> browser
+- When `animal-island-ui-tailwind` is pinned to a broken 1.0.x version, the CI install step gives a clear lockfile error instead of silently installing the wrong version -> unit
 
-**变更文件**:`wrangler.toml`(`[assets] directory` 改 `.output/public`;移除 `NEXT_PUBLIC_MAPBOX_TOKEN` 相关 secret 引用,见 X1)、`worker/entry.ts`(替换 `nextHandler` 导入 + 适配层)、`.github/workflows/_web-ci.yml`(`working-directory: apps/web`、pnpm、vite build 取代 next build)、`.github/workflows/deploy.yml`(frontend 构建步骤改 apps/web,移除 `NEXT_PUBLIC_MAPBOX_TOKEN` env)、`.github/workflows/ci.yml`(新增 `worker/**` path filter + 对应 job)。
+**i18n scope note**: the i18n system is introduced by S0.6; this story has no user-facing copy yet (a blank skeleton page), so no i18n AC applies here; once S0.6 lands, the 404 page's copy gets trilingual support.
 
-**依赖**:S0.2。
+**Files changed**: `apps/web/package.json`, `apps/web/vite.config.ts`, `apps/web/app.config.ts`, `apps/web/src/routes/__root.tsx`, `apps/web/src/routes/index.tsx`, `pnpm-workspace.yaml` (adds an `apps/web` entry; updates the stale "leave in place, Wave 4" comments on `frontend`/`worker`).
+
+**Dependencies**: none.
 
 ---
 
-### S0.4 地图选型 ADR + spike(X1)
+### S0.3 Deployment-chain fix + edge-worker CI wiring (backfilled from SD-6/X14)
 
-**用户故事**:作为开发者,我要一个跑通的 MapLibre GL + Protomaps(pmtiles on R2)spike,以便 Iteration 1 的 chat 地图卡与后续 Walk 离线能建在已验证的技术栈上,而不是边做边踩坑。
+**User story**: As the Coordinator, I want the deploy pipeline to build and publish `apps/web` (instead of the already-deleted Next.js frontend), so that tag-based deploys keep working after the rebuild; I also want root `worker/`'s existing test suite to actually run in CI, instead of merely passing locally without ever being gated on.
 
-**设计依据**:`user-journey.md` §6.6"地图卡 pin 语言"(视觉规范,与引擎无关);`spec-chat-page-design.md` §4 static-first/GL-on-demand(文中"Mapbox"按 X1 改读 MapLibre)。
+**Design basis**: no visual canvas; the current state of `worker/entry.ts`/`worker/app.ts` (verified by the Planner, see the risk register); the SD-6 verification findings.
 
-**Releasable 陈述**:apps/web 内一个演示路由渲染出挂载了 pmtiles 数据源(取自 R2)的 MapLibre GL 地图,pin 视觉语言(teal/gold 圆点)已按 DESIGN.md token 上色;ADR 文档入库,建立 `docs/adr/` 目录(修复 C 报告"ADR 无统一目录"的缺口)。
-
-**Backend enabler**:新增 R2 bucket `seichijunrei-assets` 并在 `wrangler.toml` 声明 `[[r2_buckets]]` 绑定;`/tiles/*` 前缀存放覆盖至少关西/关东区域的 pmtiles 切片。此为本列车对 D9(Pulumi non-goal)的显式例外(root Worker 直接声明,不经 Pulumi)。
+**Releasable statement**: after pushing a version tag, `apps/web`'s TanStack build artifact deploys to Cloudflare via the existing Hono-wrapped Worker; the `/healthz`, `/img/*`, `/v1/*` route behavior is unchanged; `worker/entry.test.ts`+`worker/auth.test.ts` (16 cases) run and gate every PR touching `worker/**`.
 
 **AC**:
-- spike 路由在正常网络下 3s 内加载出可见瓦片 -> browser
-- 请求超出切片覆盖范围的 bbox 时优雅返回空瓦片(地图显示底色,不是破损瓦片图标)-> browser
-- 模拟 R2 fetch 失败(404/500)时降级为品牌插画静态底图(spec-chat-page-design.md §4 本就存在的选项),不是空白地图 -> browser
+- `wrangler deploy --dry-run` (or an equivalent CI check) successfully references `.output/public` as the assets directory and a handler derived from `.output/server/index.mjs` as the catch-all -> integration
+- Visiting a nonexistent route in apps/web still returns a real, branded 404 response, not a Worker exception -> browser
+- If `.output/server/index.mjs`'s export shape doesn't match the existing `NextHandler` interface, the build/typecheck step fails explicitly (the adapter layer's TypeError is caught by a unit test), rather than silently deploying a broken worker -> unit
+- The three existing route classes `/v1/*`, `/img/*`, `/healthz` behave unchanged after switching the catch-all handler (reusing/extending the existing `entry.test.ts`/`app.ts` tests) -> unit
+- **SD-6 CI wiring**: add a new `ci.yml` job (or reuse the existing pattern) that runs the existing `worker/entry.test.ts`+`worker/auth.test.ts` whenever `worker/**` changes; the Planner verified the previous `changes` path filter had no `worker/**` entry, so this job was never triggered before -> integration
 
-**变更文件**:`docs/adr/0001-map-stack-maplibre-protomaps.md`(新建 ADR 目录)、`wrangler.toml`(`[[r2_buckets]]`)、`apps/web/src/routes/_dev/map-spike.tsx`、`scripts/build-pmtiles.sh`(或等效切片生成脚本)。
+**Files changed**: `wrangler.toml` (`[assets] directory` changes to `.output/public`; remove the `NEXT_PUBLIC_MAPBOX_TOKEN`-related secret reference, see X1), `worker/entry.ts` (replace the `nextHandler` import + an adapter layer), `.github/workflows/_web-ci.yml` (`working-directory: apps/web`, pnpm, a vite build replacing the next build), `.github/workflows/deploy.yml` (the frontend build step switches to apps/web, removing the `NEXT_PUBLIC_MAPBOX_TOKEN` env), `.github/workflows/ci.yml` (a new `worker/**` path filter + corresponding job).
 
-**依赖**:S0.2。**阻塞**:S1.4、S1.5、S2.2、S5.2(所有消费地图的 story 需等本 story 完成)。
+**Dependencies**: S0.2.
 
 ---
 
-### S0.5 DS token 底座 + Zen Maru Gothic + CI 对齐测试
+### S0.4 Map-stack ADR + spike (X1)
 
-**用户故事**:作为开发者,我要 apps/web 接好 animal-island-ui-tailwind@1.0.x 的 token、vendor 好 Zen Maru Gothic、并有 CI 测试断言 token 对齐,以便后续每个组件 story 继承正确且受测试保护的视觉,而不是各画各的。
+**User story**: As a developer, I want a working MapLibre GL + Protomaps (pmtiles on R2) spike, so that Iteration 1's chat map card and the later offline Walk feature can be built on an already-validated stack instead of hitting problems as we go.
 
-**设计依据**:`docs/DESIGN.md`(token 权威,frontmatter 缺 explore/walk/map-* 待回填);`DS 补全 - Chat 桌面.html`(radius-sm=16px 治理规则,S8);`docs/ds-审计.md`(2 处对比度 FAIL,供后续组件级修复引用)。
+**Design basis**: `user-journey.md` §6.6 "map-card pin language" (a visual spec, engine-agnostic); `spec-chat-page-design.md` §4's static-first/GL-on-demand approach (read "Mapbox" in that text as MapLibre per X1).
 
-**Releasable 陈述**:apps/web 的 globals.css 暴露与包 `--animal-*` 原语 1:1 对齐的 `--color-*` 语义 token(含回填的 explore/walk/map-pin-* 系列);任意日文文本渲染 Zen Maru Gothic;CI 测试在包 token 值漂移但语义层未同步时失败。
+**Releasable statement**: a demo route inside apps/web renders a MapLibre GL map mounted with a pmtiles data source (sourced from R2), with the pin visual language (teal/gold dots) colored per the DESIGN.md tokens; the ADR document is checked in, establishing a `docs/adr/` directory (fixing the gap flagged in report C, "no unified ADR directory").
+
+**Backend enabler**: create a new R2 bucket, `seichijunrei-assets`, and declare a `[[r2_buckets]]` binding in `wrangler.toml`; the `/tiles/*` prefix holds pmtiles tiles covering at least the Kansai/Kanto regions. This is an explicit exception to D9 (Pulumi as a non-goal) for this train (a root Worker declaration directly, bypassing Pulumi).
 
 **AC**:
-- 组件渲染日文字符串时计算样式的 `font-family` 命中 Zen Maru Gothic -> unit
-- `DESIGN.md` frontmatter 缺失 explore/walk/map-* 的情况下,这些 token 在运行时仍有已定义的回填默认值(不是 `undefined`)-> unit
-- 把 `animal-island-ui-tailwind` 升到一个改变了 `--animal-primary-color` 值的模拟版本时,token 对齐 CI 测试失败(用 fixture 模拟回归)-> unit
-- a11y:`--color-muted-fg`(原 ~2.8:1)与 teal 底白字(原 ~2.1:1)两个 token 组合在 token 层修正后达到 ≥4.5:1,由对比度计算单测验证 -> unit
+- The spike route loads visible tiles within 3s under normal network conditions -> browser
+- A bbox request outside the tile coverage gracefully returns an empty tile (the map shows its background color, not a broken-tile icon) -> browser
+- Simulating an R2 fetch failure (404/500) degrades to a static, branded illustration basemap (an option that already exists in spec-chat-page-design.md §4), not a blank map -> browser
 
-**变更文件**:`apps/web/src/styles/globals.css`、`apps/web/src/styles/fonts.css`(从 `assets/fonts.css` vendor)、`apps/web/tests/design-token-alignment.test.ts`、`apps/web/package.json`(`animal-island-ui-tailwind@^1.0.16`)。
+**Files changed**: `docs/adr/0001-map-stack-maplibre-protomaps.md` (new, establishing the ADR directory), `wrangler.toml` (`[[r2_buckets]]`), `apps/web/src/routes/_dev/map-spike.tsx`, `scripts/build-pmtiles.sh` (or an equivalent tile-build script).
 
-**依赖**:S0.2。
+**Dependencies**: S0.2. **Blocks**: S1.4, S1.5, S2.2, S5.2 (every story that consumes the map must wait for this one).
 
 ---
 
-### S0.6 Spike 代码搬运(Landing + 登录 modal + i18n + Storybook)
+### S0.5 The DS token foundation + Zen Maru Gothic + a CI alignment test
 
-**用户故事**:作为用户,我要在重建后的站点上看到 Landing 页、带 magic-link 的登录 modal、以及正确的多语言文案,以便迁移不倒退 spike 已经验证过的东西。
+**User story**: As a developer, I want apps/web wired up to `animal-island-ui-tailwind@1.0.x`'s tokens, with Zen Maru Gothic vendored in, and a CI test that asserts token alignment, so that every subsequent component story inherits a correct, test-protected visual language instead of everyone doing their own thing.
 
-**设计依据**:`Landing - Seichijunrei.html`(昼/夜切换、hero、对比滑块、magic-link 表单)。
+**Design basis**: `docs/DESIGN.md` (the token authority; the frontmatter is missing explore/walk/map-*, to be backfilled); `DS 补全 - Chat 桌面.html` (the radius-sm=16px governance rule, S8); `docs/ds-审计.md` (2 contrast-ratio FAILs, for later component-level fixes to reference).
 
-**Releasable 陈述**:`/`(营销落地路由)渲染搬运后的 Landing 页,含昼/夜切换与可用的 magic-link 登录 modal(接 Supabase Auth);locale 切换器在 ja/zh/en 间正常工作;Storybook 跑通搬运后的组件 stories。
+**Releasable statement**: apps/web's globals.css exposes `--color-*` semantic tokens that align 1:1 with the package's `--animal-*` primitives (including a backfilled explore/walk/map-pin-* family); any Japanese text renders in Zen Maru Gothic; a CI test fails whenever the package's token values drift without the semantic layer being kept in sync.
 
 **AC**:
-- 访问 `/` 渲染 Landing hero 与"Start Exploring" CTA,昼/夜切换经 localStorage 持久化 -> browser
-- 空邮箱提交 magic-link 表单显示内联校验提示,不发出请求 -> unit
-- Supabase magic-link 请求失败(网络/5xx)显示品牌化错误文案,不是裸异常 -> browser
-- i18n:切换 locale 到 zh/en 后 Landing 全部文案(hero/CTA/登录表单)重渲染,无硬编码 ja 兜底字符串泄漏 -> unit
+- Rendering a Japanese string resolves a computed `font-family` that hits Zen Maru Gothic -> unit
+- With `DESIGN.md`'s frontmatter missing explore/walk/map-*, those tokens still have a defined fallback default at runtime (not `undefined`) -> unit
+- Bumping `animal-island-ui-tailwind` to a simulated version that changes `--animal-primary-color`'s value fails the token-alignment CI test (using a fixture to simulate the regression) -> unit
+- a11y: after the fix, the two token combinations `--color-muted-fg` (originally ~2.8:1) and white-on-teal (originally ~2.1:1) both reach ≥4.5:1, verified by a contrast-ratio-calculation unit test -> unit
 
-**变更文件**:`apps/web/src/routes/index.tsx`、`apps/web/src/components/landing/*`、`apps/web/src/components/auth/LoginModal.tsx`、`apps/web/src/i18n/*`(字典+context,从 spike 搬运)、`apps/web/.storybook/*`、`apps/web/src/components/**/*.stories.tsx`。
+**Files changed**: `apps/web/src/styles/globals.css`, `apps/web/src/styles/fonts.css` (vendored from `assets/fonts.css`), `apps/web/tests/design-token-alignment.test.ts`, `apps/web/package.json` (`animal-island-ui-tailwind@^1.0.16`).
 
-**依赖**:S0.2、S0.5(token)。
+**Dependencies**: S0.2.
 
 ---
 
-### S0.7 Splash 静态版 + 删除旧 frontend/
+### S0.6 Spike code migration (Landing + login modal + i18n + Storybook)
 
-**用户故事**:作为移动端用户,我要打开 app 时看到一个 ≤800ms、跟随系统昼夜的品牌开屏;作为开发者,我要旧 Next.js frontend 被彻底移除,以便只维护一套前端代码库。
+**User story**: As a user, I want to see the Landing page, a magic-link login modal, and correct multilingual copy on the rebuilt site, so the migration doesn't regress what the spike already validated.
 
-**设计依据**:`Splash 静态版.html`(`.phone.day`/`.phone.night` 两帧,无 JS 无动效,规则"跟随系统·≤800ms·不进 scene-cut")。
+**Design basis**: `Landing - Seichijunrei.html` (day/night toggle, hero, comparison slider, the magic-link form).
 
-**Releasable 陈述**:打开 app 显示静态开屏 ≤800ms 后继续(无 scene-cut 动效,遵守规则);`frontend/` 目录及其 CI/部署接线从仓库中完全删除。
+**Releasable statement**: `/` (the marketing landing route) renders the migrated Landing page, with a day/night toggle and a working magic-link login modal (wired to Supabase Auth); the locale switcher works correctly across ja/zh/en; Storybook runs the migrated components' stories.
 
 **AC**:
-- 系统为浅色模式(或 `prefers-color-scheme: light`)时渲染日间帧,并在 800ms 内完成 -> browser
-- 系统 color-scheme 不可用(旧浏览器)时优雅回退到日间帧默认值,不是未定义态 -> unit
-- 开屏在慢速设备上也不超过 800ms 阻塞(纯 CSS,无 JS 计时器依赖)-> browser
-- 仓库结构性检查:`frontend/` 目录不再存在,CI 不再引用它 -> integration
+- Visiting `/` renders the Landing hero and the "Start Exploring" CTA, with the day/night toggle persisted via localStorage -> browser
+- Submitting the magic-link form with an empty email shows an inline validation message without sending a request -> unit
+- A failed Supabase magic-link request (network/5xx) shows on-brand error copy, not a bare exception -> browser
+- i18n: switching locale to zh/en re-renders all of Landing's copy (hero/CTA/login form), with no hardcoded ja fallback strings leaking through -> unit
 
-**变更文件**:`apps/web/src/routes/__root.tsx`(开屏引导逻辑)、`apps/web/public/splash-day.*`、`apps/web/public/splash-night.*`;**删除**:`frontend/**`;清理 `worker/entry.ts` 中过时的 Next.js 专属注释。
+**Files changed**: `apps/web/src/routes/index.tsx`, `apps/web/src/components/landing/*`, `apps/web/src/components/auth/LoginModal.tsx`, `apps/web/src/i18n/*` (dictionary + context, migrated from the spike), `apps/web/.storybook/*`, `apps/web/src/components/**/*.stories.tsx`.
 
-**依赖**:S0.3(部署链必须先指向 apps/web,删除旧 frontend/ 才安全)。
+**Dependencies**: S0.2, S0.5 (tokens).
 
 ---
 
-### S0.8 SEO/GEO 地基 + 域名定案(`animichi.com`,SD-0)+ Lighthouse CI(回填自 SD-27 + `2026-07-06-seo-geo-plan.md` §3/5/6/7)
+### S0.7 Static splash + deleting the old frontend/
 
-**用户故事**:作为站点所有者,我要重建后的站点自带基础 SEO/GEO 设施(robots/sitemap/hreflang/OG/llms.txt/爬虫可达性)与性能预算门禁,并且这些设施要直接指向真正的生产域名(含认证回调域名),以便搜索引擎与 AI 爬虫可见性、以及性能都不因重建而倒退,也不用等域名"以后再定"就得留一堆占位符。
+**User story**: As a mobile user, I want to see a branded splash screen, ≤800ms, following the system's light/dark setting, when I open the app; as a developer, I want the old Next.js frontend completely removed, so we only maintain one frontend codebase.
 
-**设计依据**:无视觉画布;移植 `apps/agent/agent/tests/unit/test_seo_static_files.py` 的测试基建模式;`docs/superpowers/specs/2026-07-06-seo-geo-plan.md` §3(域名迁移清单)/§5(L3 增长分析)/§6(robots/llms.txt)/§7(迭代映射)。
+**Design basis**: `Splash 静态版.html` (the `.phone.day`/`.phone.night` two frames, no JS, no animation; the rule is "follow the system · ≤800ms · never enters a scene-cut").
 
-**Releasable 陈述**:apps/web 交付 robots.txt(训练爬虫 `GPTBot`/`ClaudeBot`/`Google-Extended` 挡下,搜索/引用/Agent 类爬虫 `OAI-SearchBot`/`Claude-SearchBot`/`Claude-User`/`ChatGPT-User`/`PerplexityBot` 放行,`Sitemap` 指令指向 `https://animichi.com/sitemap.xml`)、sitemap.xml 骨架(含根 URL,预留 IndexNow key 文件)、三语 hreflang+canonical(域名均为 `animichi.com`)、默认 OG 卡(1200x630)+ Twitter summary_large_image、llms.txt v1(**静态一页,不建 llms-full 管线**——回填自 SD-27C 负清单,原稿若曾设想 llms-full 管线在此明确作废);Lighthouse CI 在 LCP>2.5s 或 CLS>0.1 时使构建失败;GSC + Bing Webmaster 双产权验证 + Cloudflare Web Analytics 接入(L3 增长分析基线,不上 GA4);`aninavi.app` 视执行时判断做 301 重定向到 `animichi.com`(非阻塞项)。
-
-**域名迁移清单(回填自 seo-geo-plan §3,全项进本 story,不得遗漏认证回调域名)**:
-1. `animichi.com` 入 Cloudflare、TLS/DNS 就绪
-2. 旧域(seichijunrei.app)全路径 301 → 新域对应路径(Worker redirect 规则;无对应页兜底首页)
-3. GSC 双产权验证 → Change of Address 申报;Bing Webmaster 同步产权验证
-4. canonical/OG/sitemap/robots 全部指向新域,域名走构建环境变量(`CANONICAL_DOMAIN`)
-5. **Supabase auth 回调 URL + magic-link 邮件模板域名更新为 `animichi.com`**(遗漏此项 = 登录事故,不是普通 SEO 缺口,seo-geo-plan §3 原文强调"漏一条=登录事故")
-6. 旧域续费保留 ≥2 年(301 权重传递期,非阻塞,记录为运维待办)
+**Releasable statement**: opening the app shows the static splash and proceeds within ≤800ms (no scene-cut animation, per the rule); the `frontend/` directory and its CI/deploy wiring are completely removed from the repo.
 
 **AC**:
-- robots.txt 对训练爬虫(`GPTBot`/`ClaudeBot`/`Google-Extended`)返回 `Disallow: /`,对搜索/引用/Agent 爬虫(`OAI-SearchBot`/`Claude-SearchBot`/`Claude-User`/`ChatGPT-User`/`PerplexityBot`)返回 `Allow: /`,并含 `Sitemap: https://animichi.com/sitemap.xml`(**SD-0 终局域名,不是占位符**)-> unit
-- sitemap.xml 此刻尚无 anime/route URL(那些在 Iteration 5 加入),但仍是良构 XML 且至少含根 URL(`https://animichi.com/`);IndexNow key 文件按约定路径可访问(为迭代 5 新番 SLA 推送预留)-> unit
-- OG 图缺失/损坏(404)会让 SEO 测试套件失败,而不是静默上线 -> unit
-- i18n:hreflang 标签覆盖 ja/zh/en/x-default,且各语言 title(50-60 显示宽度)/description(120-160)符合边界(沿用旧测试的 CJK 宽度计数逻辑)-> unit
-- **域名收尾(SD-0)**:配置项 `CANONICAL_DOMAIN` 的值直接写 `animichi.com`(变量名保留以便未来换域名,但不再是待定占位符);Supabase magic-link 重定向白名单与邮件模板同步更新为该域名 -> unit
-- **JSON-LD 收缩范围(回填自 SD-27/seo-geo-plan §1,取代原稿"FAQPage"设想)**:首页交付 `Organization`(name=Animichi,`sameAs` 社交档案锚点)+ `WebSite`;所有内容页交付 `BreadcrumbList`;**不实现 FAQPage schema**(已停显,SD-27C 负清单明确排除)-> unit
-- **爬虫可达性硬 AC(回填自 SD-27B/seo-geo-plan §6)**:CF AI Crawl Control 面板人工核查并留证(2026-09-15 起 CF 新站默认挡 Training+Agent 类爬虫,须确认放行名单未被面板覆盖);对上述每个允许爬虫 UA 做 `curl -A "<UA>" https://animichi.com/` 实测,断言无隐形 403 -> integration
-- **L3 增长分析接入**:GSC 与 Bing Webmaster 完成产权验证并提交 sitemap;Cloudflare Web Analytics beacon 已挂载且能在仪表盘看到至少一次 pageview -> integration
+- When the system is in light mode (or `prefers-color-scheme: light`), the day frame renders and completes within 800ms -> browser
+- When the system's color-scheme is unavailable (an older browser), it gracefully falls back to the day frame as the default, not an undefined state -> unit
+- The splash never blocks for more than 800ms even on a slow device (pure CSS, with no dependency on a JS timer) -> browser
+- Repository structural check: the `frontend/` directory no longer exists, and CI no longer references it -> integration
 
-**变更文件**:`apps/web/public/robots.txt`、`apps/web/public/sitemap.xml`、`apps/web/public/llms.txt`、`apps/web/public/<indexnow-key>.txt`、`apps/web/src/routes/__root.tsx`(head meta + CF Web Analytics beacon)、`apps/web/src/lib/structured-data.ts`(Organization+WebSite+BreadcrumbList JSON-LD,移植并去掉 FAQPage)、`apps/web/tests/seo-static-files.test.ts`(移植自 `test_seo_static_files.py`,调整路径 + 新增爬虫 UA 可达性测试)、`.github/workflows/_web-ci.yml`(新增 Lighthouse CI 步骤)、Supabase Auth 重定向白名单 + 邮件模板配置(magic-link,含回调域名)、Worker 301 重定向规则(旧域→新域)。
+**Files changed**: `apps/web/src/routes/__root.tsx` (splash-gating logic), `apps/web/public/splash-day.*`, `apps/web/public/splash-night.*`; **deleted**: `frontend/**`; clean up the stale Next.js-specific comments in `worker/entry.ts`.
 
-**依赖**:S0.2、S0.6(i18n)。**不再有域名依赖阻塞**(SD-0 已终局定案)。
+**Dependencies**: S0.3 (the deploy chain must point at apps/web first before it's safe to delete the old frontend/).
 
 ---
 
-### S0.9 文档回写(矛盾清单 + X5 前瞻声明 + D7 双双 REJECTED 收敛 + migrations.md,回填自 SD-1)
+### S0.8 SEO/GEO foundation + domain finalization (`animichi.com`, SD-0) + Lighthouse CI (backfilled from SD-27 + `2026-07-06-seo-geo-plan.md` §3/5/6/7)
 
-**用户故事**:作为重建后加入项目的开发者,我要 CLAUDE.md/ARCHITECTURE.md/部署文档描述真实的 TanStack/apps-web 架构(而不是过时的 Next.js 引用),并且要有一份权威文档告诉我 Neon/Supabase 两条迁移链的边界在哪,以便不被误导、也不用去问人。
+**User story**: As the site owner, I want the rebuilt site to ship with baseline SEO/GEO infrastructure (robots/sitemap/hreflang/OG/llms.txt/crawler reachability) and a performance-budget gate, and I want that infrastructure to point directly at the real production domain (including the auth-callback domain), so that search-engine and AI-crawler visibility — and performance — don't regress from the rebuild, and so we don't have to leave a pile of placeholders waiting for the domain to be "decided later."
 
-**设计依据**:无。
+**Design basis**: no visual canvas; migrating the test infrastructure pattern from `apps/agent/agent/tests/unit/test_seo_static_files.py`; `docs/superpowers/specs/2026-07-06-seo-geo-plan.md` §3 (the domain-migration checklist)/§5 (L3 growth analytics)/§6 (robots/llms.txt)/§7 (the iteration mapping).
 
-**Releasable 陈述**:`docs/ARCHITECTURE.md`、`docs/todo.md`、`docs/ops/deployment.md`、根 `AGENTS.md`/`CLAUDE.md`、`wrangler.toml` 注释、CI 注释、`docs/testing-strategy.md` 全部改写为描述 apps/web + TanStack Start + MapLibre(不再是 frontend/ + Next.js + OpenNext + Mapbox);D7 被文档标注为**双双 REJECTED**(Pyodide 与 TS 重写皆非,不是"计划中");X5 的 edge 认证模型前瞻声明已写入;新增 `docs/ops/migrations.md`(SD-1)记录 Neon(Drizzle+atlas-provider-drizzle)与 Supabase(supabase CLI)两条迁移链的边界与 CI 步骤。
+**Releasable statement**: apps/web ships robots.txt (blocking training crawlers `GPTBot`/`ClaudeBot`/`Google-Extended`, allowing search/citation/agent crawlers `OAI-SearchBot`/`Claude-SearchBot`/`Claude-User`/`ChatGPT-User`/`PerplexityBot`, with a `Sitemap` directive pointing at `https://animichi.com/sitemap.xml`), a sitemap.xml skeleton (including the root URL, with an IndexNow key file reserved), trilingual hreflang+canonical (all pointing at the `animichi.com` domain), a default OG card (1200x630) + a Twitter summary_large_image card, llms.txt v1 (**a static single page — no llms-full pipeline is built**, backfilled from SD-27C's negative checklist; if the original draft ever envisioned an llms-full pipeline, it is explicitly voided here); Lighthouse CI fails the build when LCP>2.5s or CLS>0.1; dual-property verification with GSC + Bing Webmaster + Cloudflare Web Analytics wired in (the L3 growth-analytics baseline, not GA4); `aninavi.app` gets a 301 redirect to `animichi.com` depending on a judgment call at execution time (non-blocking).
+
+**The domain-migration checklist (backfilled from seo-geo-plan §3; every item goes into this story — the auth-callback domain must not be missed)**:
+1. Onboard `animichi.com` to Cloudflare, with TLS/DNS ready.
+2. 301 every path from the old domain (seichijunrei.app) to the corresponding new-domain path (a Worker redirect rule; anything with no matching page falls back to the homepage).
+3. Dual-property verification in GSC → file a Change of Address; sync property verification in Bing Webmaster too.
+4. canonical/OG/sitemap/robots all point at the new domain, with the domain driven by a build-time environment variable (`CANONICAL_DOMAIN`).
+5. **Update the Supabase auth callback URL + the magic-link email template's domain to `animichi.com`** (missing this item is a login incident, not an ordinary SEO gap — the seo-geo-plan §3 original text stresses "miss one of these and it's a login incident").
+6. Keep the old domain's registration renewed for ≥2 years (the 301 authority-transfer window; non-blocking, logged as an ops to-do).
 
 **AC**:
-- 对 `docs/ARCHITECTURE.md`、`docs/ops/deployment.md` grep "Next.js"/"OpenNext"/"Mapbox" 在回写后返回零命中(仓库卫生测试脚本断言)-> unit
-- `docs/testing-strategy.md` 的覆盖率数字章节改为"apps/web 覆盖率地板见迭代 0 vitest.config.ts 实测值",不是过时的硬编码百分比 -> unit
-- D7 的三代自我推翻文档轨迹被收敛为一段明确标注"双双 REJECTED"(Pyodide + TS 重写)的说明(断言 "REJECTED" 字符串在 `ARCHITECTURE.md` 中同时出现在 "Pyodide" 与 "TS" 重写描述附近)-> unit
-- X5 的目标认证模型("edge 放行匿名+Turnstile+配额标记")作为前瞻声明写入 `docs/ARCHITECTURE.md` 认证章节(S1.8 落地后回填为既成状态,本 story 只声明方向)-> unit
-- **SD-1 新增(回填自 SD-1,双链 + atlas-provider-drizzle 定案;取代原 X13"弃 atlas"的已撤回主张)**:`docs/ops/migrations.md` 存在且至少覆盖三部分内容——Neon 链路(`workers/catalog/src/db/schema.ts` 为唯一真相 → atlas-provider-drizzle 生成期望态 → `atlas migrate diff/lint/apply` versioned 迁移)、Supabase 链路(supabase CLI 不变,不受本次迁移链影响)、CI 步骤对应关系 -> unit
+- robots.txt returns `Disallow: /` for training crawlers (`GPTBot`/`ClaudeBot`/`Google-Extended`) and `Allow: /` for search/citation/agent crawlers (`OAI-SearchBot`/`Claude-SearchBot`/`Claude-User`/`ChatGPT-User`/`PerplexityBot`), and includes `Sitemap: https://animichi.com/sitemap.xml` (**the SD-0 finalized domain, not a placeholder**) -> unit
+- sitemap.xml has no anime/route URLs yet at this point (those are added in Iteration 5), but is still well-formed XML containing at least the root URL (`https://animichi.com/`); the IndexNow key file is reachable at its conventional path (reserved for Iteration 5's new-season SLA push) -> unit
+- A missing/broken (404) OG image fails the SEO test suite rather than shipping silently -> unit
+- i18n: hreflang tags cover ja/zh/en/x-default, and each language's title (50-60 display-width) / description (120-160) stay within bounds (reusing the old test's CJK width-counting logic) -> unit
+- **Domain wrap-up (SD-0)**: the `CANONICAL_DOMAIN` config value is set directly to `animichi.com` (the variable name is kept for a possible future domain change, but it is no longer a pending placeholder); the Supabase magic-link redirect allowlist and email template are updated to this domain in sync -> unit
+- **JSON-LD scope reduction (backfilled from SD-27/seo-geo-plan §1, replacing the original "FAQPage" idea)**: the homepage ships `Organization` (name=Animichi, with `sameAs` social-profile anchors) + `WebSite`; every content page ships `BreadcrumbList`; **FAQPage schema is not implemented** (already discontinued for display; explicitly excluded per SD-27C's negative checklist) -> unit
+- **Hard AC for crawler reachability (backfilled from SD-27B/seo-geo-plan §6)**: manually check the CF AI Crawl Control panel and keep evidence on file (confirming the allowlist hasn't been overridden by the panel, since CF blocks Training+Agent-class crawlers by default for new sites starting 2026-09-15); for each allowed crawler UA above, run a real `curl -A "<UA>" https://animichi.com/` and assert there's no hidden 403 -> integration
+- **L3 growth-analytics wiring**: GSC and Bing Webmaster both complete property verification and submit the sitemap; the Cloudflare Web Analytics beacon is mounted and at least one pageview is visible on the dashboard -> integration
 
-**变更文件**:`docs/ARCHITECTURE.md`、`docs/todo.md`、`docs/ops/deployment.md`、`AGENTS.md`/`CLAUDE.md`、`wrangler.toml`(注释)、`.github/workflows/*.yml`(注释)、`docs/testing-strategy.md`、`docs/ops/migrations.md`(新建)。
+**Files changed**: `apps/web/public/robots.txt`, `apps/web/public/sitemap.xml`, `apps/web/public/llms.txt`, `apps/web/public/<indexnow-key>.txt`, `apps/web/src/routes/__root.tsx` (head meta + the CF Web Analytics beacon), `apps/web/src/lib/structured-data.ts` (Organization+WebSite+BreadcrumbList JSON-LD, migrated with FAQPage dropped), `apps/web/tests/seo-static-files.test.ts` (migrated from `test_seo_static_files.py`, with path adjustments + new crawler-UA reachability tests), `.github/workflows/_web-ci.yml` (a new Lighthouse CI step), the Supabase Auth redirect allowlist + email-template config (magic-link, including the callback domain), a Worker 301 redirect rule (old domain → new domain).
 
-**依赖**:软依赖 S0.3/S0.4(文档应描述已落地的实际状态,不是空中楼阁)。
+**Dependencies**: S0.2, S0.6 (i18n). **No longer blocked on a domain dependency** (SD-0 is now finalized).
+
+---
+
+### S0.9 Documentation backfill (the contradiction checklist + the X5 forward-looking statement + consolidating D7's "both REJECTED" + migrations.md, backfilled from SD-1)
+
+**User story**: As a developer joining the project after the rebuild, I want CLAUDE.md/ARCHITECTURE.md/the deployment docs to describe the real TanStack/apps-web architecture (instead of stale Next.js references), and I want one authoritative document telling me where the boundary sits between the Neon and Supabase migration chains, so I'm not misled and don't have to go ask someone.
+
+**Design basis**: none.
+
+**Releasable statement**: `docs/ARCHITECTURE.md`, `docs/todo.md`, `docs/ops/deployment.md`, the root `AGENTS.md`/`CLAUDE.md`, the `wrangler.toml` comments, the CI comments, and `docs/testing-strategy.md` are all rewritten to describe apps/web + TanStack Start + MapLibre (no longer frontend/ + Next.js + OpenNext + Mapbox); D7 is documented as **both REJECTED** (neither Pyodide nor the TS rewrite — not "in progress"); X5's forward-looking statement about the edge auth model is written in; a new `docs/ops/migrations.md` (SD-1) records the boundary and CI steps between the Neon chain (Drizzle+atlas-provider-drizzle) and the Supabase chain (the supabase CLI).
+
+**AC**:
+- Grepping `docs/ARCHITECTURE.md` and `docs/ops/deployment.md` for "Next.js"/"OpenNext"/"Mapbox" returns zero hits after the rewrite (asserted by a repo-hygiene test script) -> unit
+- `docs/testing-strategy.md`'s coverage-numbers section is rewritten to "see the actual vitest.config.ts values from Iteration 0 for apps/web's coverage floor," not a stale hardcoded percentage -> unit
+- D7's three generations of self-overturned documentation are consolidated into one clear passage explicitly labeled "both REJECTED" (Pyodide + the TS rewrite) (a test asserts the string "REJECTED" appears near both the "Pyodide" and the "TS rewrite" descriptions in `ARCHITECTURE.md`) -> unit
+- X5's target auth model ("the edge lets anonymous+Turnstile+quota-tagged traffic through") is written into `docs/ARCHITECTURE.md`'s auth chapter as a forward-looking statement (to be backfilled as an accomplished-fact description once S1.8 lands; this story only states the direction) -> unit
+- **New from SD-1 (backfilled from SD-1; the dual-chain + atlas-provider-drizzle decision, replacing the original X13 "drop atlas" claim, which has since been withdrawn)**: `docs/ops/migrations.md` exists and covers at least three things — the Neon chain (`workers/catalog/src/db/schema.ts` as the single source of truth → atlas-provider-drizzle generates the desired state → `atlas migrate diff/lint/apply` versioned migrations), the Supabase chain (the supabase CLI, unchanged, unaffected by this migration chain), and the corresponding CI steps -> unit
+
+**Files changed**: `docs/ARCHITECTURE.md`, `docs/todo.md`, `docs/ops/deployment.md`, `AGENTS.md`/`CLAUDE.md`, `wrangler.toml` (comments), `.github/workflows/*.yml` (comments), `docs/testing-strategy.md`, `docs/ops/migrations.md` (new).
+
+**Dependencies**: soft dependency on S0.3/S0.4 (the documentation should describe the actual landed state, not something aspirational).
