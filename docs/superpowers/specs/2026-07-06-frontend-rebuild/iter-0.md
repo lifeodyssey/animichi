@@ -6,7 +6,8 @@
 
 依赖顺序建议:S0.1(独立)→ S0.2 → {S0.3, S0.4, S0.5} → S0.6 → S0.7 → S0.8 → S0.9(收尾)。
 
-**SD interview 终局结论对本迭代的影响(见主 spec §②)**:
+**SD interview 终局结论对本迭代的影响(见主 spec §②,inputs §七全稿 SD-0~SD-11)**:
+- **SD-0(域名,终局)**:`animichi.com` 定案,不再是待定项;S0.8 直接写死该域名,不再参数留白等待用户拍板。`aninavi.app` 做 301 重定向(或视执行时判断值不值得投入,非阻塞)。
 - **SD-1**(迁移链):Neon 侧确认为"双链 + atlas-provider-drizzle"(Drizzle TS schema 唯一真相);S0.9 新增 `docs/ops/migrations.md` 记录边界与 CI 步骤。
 - **SD-6**(edge worker):`worker/` 已是 TS + 16 个测试用例(`entry.test.ts` 11 + `auth.test.ts` 5),核证发现唯一缺口是这些测试从未接入任何 CI job——S0.3 补一个新 CI job,不是从零建测试。
 - **SD-4**(agent 运行时):D7 的 Pyodide 与"TS 重写"两条路径**双双 REJECTED**,终局定案;S0.9 的文档收敛需明确写出这一点(不只是"REJECTED",还要写清"双双")。
@@ -45,7 +46,8 @@
 - 全新 clone + `pnpm install` + `pnpm --filter web build` 成功产出 `.output/server/index.mjs` + `.output/public` -> integration
 - 访问未定义路由渲染品牌化 404(不是浏览器默认空白页)-> browser
 - `animal-island-ui-tailwind` 锁定到一个损坏的 1.0.x 版本时,CI 安装步骤给出清晰的 lockfile 错误而非静默装错版本 -> unit
-- N/A i18n(i18n 系统由 S0.6 引入,本 story 的 404 页文案届时补挂,不在本 story 强求)
+
+**i18n 范围说明**:i18n 系统由 S0.6 引入,本 story 尚无用户可见文案(骨架空白页),不适用 i18n AC;S0.6 落地后 404 页文案补挂三语。
 
 **变更文件**:`apps/web/package.json`、`apps/web/vite.config.ts`、`apps/web/app.config.ts`、`apps/web/src/routes/__root.tsx`、`apps/web/src/routes/index.tsx`、`pnpm-workspace.yaml`(新增 `apps/web` 条目;更新 `frontend`/`worker` 的过时"留原地,Wave 4"注释)。
 
@@ -155,23 +157,24 @@
 
 ---
 
-### S0.8 SEO/GEO 地基 + 域名 + Lighthouse CI
+### S0.8 SEO/GEO 地基 + 域名定案(`animichi.com`,SD-0)+ Lighthouse CI
 
-**用户故事**:作为站点所有者,我要重建后的站点自带基础 SEO/GEO 设施(robots/sitemap/hreflang/OG/llms.txt)与性能预算门禁,以便搜索引擎与 AI 爬虫可见性、以及性能都不因重建而倒退。
+**用户故事**:作为站点所有者,我要重建后的站点自带基础 SEO/GEO 设施(robots/sitemap/hreflang/OG/llms.txt)与性能预算门禁,并且这些设施要直接指向真正的生产域名,以便搜索引擎与 AI 爬虫可见性、以及性能都不因重建而倒退,也不用等域名"以后再定"就得留一堆占位符。
 
 **设计依据**:无视觉画布;移植 `apps/agent/agent/tests/unit/test_seo_static_files.py` 的测试基建模式。
 
-**Releasable 陈述**:apps/web 交付 robots.txt(含 Allow + Sitemap 指令)、sitemap.xml 骨架(含根 URL)、三语 hreflang+canonical、默认 OG 卡(1200x630)+ Twitter summary_large_image、llms.txt v1;Lighthouse CI 在 LCP>2.5s 或 CLS>0.1 时使构建失败。
+**Releasable 陈述**:apps/web 交付 robots.txt(含 Allow + Sitemap 指令,指向 `https://animichi.com/sitemap.xml`)、sitemap.xml 骨架(含根 URL)、三语 hreflang+canonical(域名均为 `animichi.com`)、默认 OG 卡(1200x630)+ Twitter summary_large_image、llms.txt v1;Lighthouse CI 在 LCP>2.5s 或 CLS>0.1 时使构建失败;`aninavi.app` 视执行时判断做 301 重定向到 `animichi.com`(非阻塞项)。
 
 **AC**:
-- robots.txt 含 `Allow: /` 与 `Sitemap: {CANONICAL_DOMAIN}/sitemap.xml` -> unit
-- sitemap.xml 此刻尚无 anime/route URL(那些在 Iteration 5 加入),但仍是良构 XML 且至少含根 URL -> unit
+- robots.txt 含 `Allow: /` 与 `Sitemap: https://animichi.com/sitemap.xml`(**SD-0 终局域名,不是占位符**)-> unit
+- sitemap.xml 此刻尚无 anime/route URL(那些在 Iteration 5 加入),但仍是良构 XML 且至少含根 URL(`https://animichi.com/`)-> unit
 - OG 图缺失/损坏(404)会让 SEO 测试套件失败,而不是静默上线 -> unit
 - i18n:hreflang 标签覆盖 ja/zh/en/x-default,且各语言 title(50-60 显示宽度)/description(120-160)符合边界(沿用旧测试的 CJK 宽度计数逻辑)-> unit
+- **域名收尾(SD-0)**:配置项 `CANONICAL_DOMAIN` 的值直接写 `animichi.com`(变量名保留以便未来换域名,但不再是待定占位符);Supabase magic-link 重定向白名单同步更新为该域名 -> unit
 
-**变更文件**:`apps/web/public/robots.txt`、`apps/web/public/sitemap.xml`、`apps/web/public/llms.txt`、`apps/web/src/routes/__root.tsx`(head meta)、`apps/web/src/lib/structured-data.ts`(WebSite+Organization+FAQPage JSON-LD,移植)、`apps/web/tests/seo-static-files.test.ts`(移植自 `test_seo_static_files.py`,调整路径)、`.github/workflows/_web-ci.yml`(新增 Lighthouse CI 步骤)。
+**变更文件**:`apps/web/public/robots.txt`、`apps/web/public/sitemap.xml`、`apps/web/public/llms.txt`、`apps/web/src/routes/__root.tsx`(head meta)、`apps/web/src/lib/structured-data.ts`(WebSite+Organization+FAQPage JSON-LD,移植)、`apps/web/tests/seo-static-files.test.ts`(移植自 `test_seo_static_files.py`,调整路径)、`.github/workflows/_web-ci.yml`(新增 Lighthouse CI 步骤)、Supabase Auth 重定向白名单配置(magic-link)。
 
-**依赖**:S0.2、S0.6(i18n)。**标注**:域名(`CANONICAL_DOMAIN`)最终值依赖用户拍板(SD-0 仍在调研),开发不阻塞,DNS 切换阻塞。
+**依赖**:S0.2、S0.6(i18n)。**不再有域名依赖阻塞**(SD-0 已终局定案)。
 
 ---
 
