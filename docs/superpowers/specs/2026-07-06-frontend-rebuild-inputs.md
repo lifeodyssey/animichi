@@ -245,3 +245,13 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 - **P3(新增)**:工具执行边界薄中间件 = 计时 + token 成本累计,作为 X4 日预算熔断的数据源(容器累计 → edge 读数);迭代 1 enabler
 - **P6(新增,进协议契约)**:SSE 断线语义 = 事件带 turn_id+seq;不做流内续传(Last-Event-ID 弃用,一次 run 不可中途恢复);断线后 GET messages 拉终态,生成中断显示 D 系异常态卡片(设计稿已备)
 - 默认项:prompt 保持代码内管理;无内部 skill 框架;运行时无 subagent;MCP client 采用推迟到真实第三方能力需求出现(pydantic-ai 原生支持,随接随用);生产会话抽样评分记 backlog;伪工具怪癖(greet/qa=输出整形器)记录不动
+
+## 九、agent 架构补章 II:模型/subagent/sandbox/guardrails/generative UI(2026-07-06)
+
+- **模型策略**:换主力模型必须过 eval gate(617 套件,重点 locale+intent,score/円 决策);BYOK 只覆盖主循环,内部调用走自有 key;不做模型分层(工具是代码非 LLM 调用,YAGNI)
+- **Subagent 终定**:运行时零 subagent(三判据——上下文隔离/角色特化/LLM级并行——全不满足);SP9=同 agent 带约束重调;开发 harness 的多 agent 与产品 runtime 严格区分
+- **P8(安全硬 AC,迭代 1 BYOK story)**:用户可影响的一切出站请求(BYOK base_url、外源 fetch)加 SSRF 出口守卫:https-only + 解析后封禁私网/环回/链路本地/云元数据 IP 段 + 可选 provider 域名白名单 -> integration
+- **P9(隐私,迭代 3 Walk 前生效)**:精确 GPS 坐标不得进 Logfire trace(观测层截断至百米级);存储层(打卡)可全精度;scrub 规则与 X3 同一实现点 -> integration
+- **Guardrails 补条**:用户消息长度/类型上限(输入侧,迭代 1)
+- **Generative UI 宪法(spec 明文)**:LLM 仅能从 registry 选组件+填结构化数据,永不生成 UI 代码;payload 内 URL 仅允许 catalog/白名单来源渲染
+- **P10(契约演进,packages/contract + registry 规范)**:payload 带 schema_version;契约 additive-only 演进;registry 组件按版本降级渲染(承接设计 E1「旧卡降级不改写历史」);Storybook 为每组件建 partial 态 + 旧版 payload 态 story——与 SD-9 partial-tolerant 共用测试基建 -> unit/browser
