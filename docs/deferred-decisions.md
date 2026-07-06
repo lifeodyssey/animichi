@@ -38,6 +38,7 @@
 | DD-22 | 文本向量检索(UGC RAG / 别名语义召回) | SD-29 | 双触发:① UGC 文本语料 ≥5k 条 → 评估 UGC 混合检索(BGE-M3 类多语言候选);② resolve 失败案例经 eval 判定为"语义模糊型"而非"数据缺失型" → 别名向量辅助召回 | 内部 | UGC 条数计数;eval 八族 resolve 失败案例分类标注 | 冻结 |
 | DD-23 | pydantic-evals 迁移(替代手搓 pytest+JSON eval 框架) | SD-30⑨ | 轨迹断言 + bootstrap 统计门控的自建代码规模/维护成本超过阈值(自建 eval 基建 >500 行或维护痛点 ≥2 次/迭代);pydantic-evals 保持 Production/Stable ≥2 个季度 | 内部+外部 | 自建 eval 基建行数 grep;WebSearch "pydantic-evals changelog stability" | 冻结 |
 | DD-24 | iter-3/4 四薄点深度细化:① Walk GPS 实时逻辑(到达判定半径/后台省电/漂移防误判)② 打卡防伪造验证 ③ 対比図拍摄对齐 UX ④ 离线打包边界与体积预算 | spec 详细度热力图讨论(2026-07-06 用户批准:留迭代3 开工前,不提前写死) | **迭代3 排期启动前**(流程节点触发,非信号型);⚠️ **飞轮3 上游质量标记**:四点决定打卡数据可信度与回流照片质量 → 图搜 real2real 唯一解锁源(SD-26),细化时须带迭代1-2 实际学习(定位权限授予率等) | 内部(流程) | 迭代3 排期会人工触发;巡检时核对是否已排期 | 冻结(计划内延迟细化) |
+| DD-25 | durable execution(Cloudflare Workflows——checkpoint/重放式长任务执行) | agent resume/checkpoint 讨论(2026-07-07):现有 run = 秒级全只读幂等,重跑即恢复,run 级 checkpoint 属过度工程;「领域数据即 checkpoint」原则成立 | **首个长时(>60s)或有写副作用的 agent 任务立项时**(如批量导入/UGC 批处理/付费操作)——重跑策略届时失效,需 durable execution;CF Workflows = 零新供应商现成方案 | 内部(流程) | 新工具/任务设计评审时人工触发;巡检核对有无此类任务进了排期 | 冻结 |
 
 ## 埋点缺口汇总(建迭代1 全信号埋点时一并补)
 
