@@ -1,188 +1,212 @@
-# Iteration 3 — 歩く:Walk
+# Iteration 3 — Walk (歩く)
 
-详细度:**开工前细化**(story 清单 + 核心 AC 3-5 条 + enabler + 设计引用;完整模板细节留 Coordinator 排期该迭代前补齐)。Story 数:**9**(原 8 个产品 story + SD-3④ 新增的 S3.9 conversation_messages 数据迁移,见主 spec §③)。
+Detail level: **pre-kickoff refinement** (story list + 3-5 core ACs + enablers + design references; full-template detail is left for the Coordinator to fill in before scheduling this iteration). Story count: **10** (originally 8 product stories + S3.9 `conversation_messages` data migration, added per SD-3④, see main spec §③ + S3.10 OSRM walking-route polylines, added in this patch round, backfilled from SD-28 layer 1).
 
-依赖顺序建议:S3.7(打卡表,独立可先行)→ S3.1 → S3.2 → {S3.3, S3.4} → S3.5 → S3.6 → S3.8(素材可全程并行)。S3.9 可与产品 story 并行。
+Suggested dependency order: S3.7 (check-in table, can start independently) → S3.1 → S3.2 → {S3.3, S3.4} → S3.5 → S3.6 → S3.10 (extends S3.6's offline bundle with route polylines) → S3.8 (asset production can run in parallel throughout). S3.9 can run in parallel with the product stories.
 
-**数据访问路径(定案,SD-2/主 spec §②)**:S3.7 是用户域数据 enabler,经 `workers/users` oRPC(`/v1/users/*`)+ Neon,`apps/web` 的 `supabase-js` 仅用于 auth——此为终局架构,不再有"可能改判"的不确定性。
+**Data access path (confirmed, SD-2 / main spec §②)**: S3.7 is a user-domain data enabler via `workers/users` oRPC (`/v1/users/*`) + Neon; `apps/web`'s `supabase-js` is used only for auth — this is the final architecture, with no remaining "might get overturned" uncertainty.
 
-**GPS 精度截断(P9,回填自 SD-21,定案)**:P9 在主 spec §② 曾标注"提案待议",已由 SD-21(2026-07-06,用户确认)终定——观测层(Logfire trace)坐标截断至约百米级精度(小数点后 3 位),存储层(打卡记录本身)保持全精度,scrub 逻辑与 X3(BYOK key scrub)共用同一实现点。S3.3 的对应条目从"待确认"转为硬性 AC,且**必须在 Walk 功能上线前生效**(不可作为 Walk 之后的补丁)。
-
----
-
-### S3.1 Graduation 转场(F0-F5)
-
-**Scope**:实现从路线详情/chat 跳转进 Walk Mode 时的完整转场 storyboard("明显去某处"的 scene-cut 时刻)。
-
-**设计依据**:`Graduation 转场 - Storyboard.html`(F0 前夜→F1 预备 0-120ms→F2 主移动 120-480ms→F3 落位 480-650ms→F4 完成 650-850ms→F5 边界规则);主 spec §8.4 已采纳。
-
-**核心 AC**:
-- 从路线详情"歩くモードへ"CTA 触发转场,按文档时长(约 850ms 总时长)播放并落地到 Walk Mode -> browser
-- `prefers-reduced-motion` 开启时显示 F5 边界规则规定的瞬切,不强制播放全动画 -> browser
-- 转场中途被打断(如返回键)不留下卡死的覆盖层 -> browser
-- 转场不引入可被 Lighthouse 测出的 CLS 回归 -> browser
-
-**变更文件**:`apps/web/src/components/transitions/GraduationTransition.tsx`、`apps/web/src/routes/routes/$routeId/walk.tsx`(入口接线)。
-
-**依赖**:S2.3(Walk 入口#2 已占位)、S1.5(路线卡 Walk 入口预留位#1)。
+**GPS precision truncation (P9, backfilled from SD-21, confirmed)**: P9 was marked "proposal pending discussion" in main spec §②; it has since been finalized by SD-21 (2026-07-06, user-confirmed) — the observability layer (Logfire traces) truncates coordinates to roughly hundred-meter precision (3 decimal places), the storage layer (the check-in record itself) keeps full precision, and the scrub logic shares the same implementation point as X3 (BYOK key scrub). The corresponding item in S3.3 moves from "unconfirmed" to a hard AC, and **must be in effect before Walk ships** (it cannot land as a post-Walk patch).
 
 ---
 
-### S3.2 Walk Mode 核心 shell
+### S3.1 Graduation transition (F0-F5)
 
-**Scope**:构建 Walk Mode 主屏骨架——进度格、当前站置顶放大卡(walk-hero,大字号站名+当前序号"3/7")、下一站行。
+**Scope**: Implement the full transition storyboard for the jump from the route detail page / chat into Walk Mode (a scene-cut moment for "clearly going somewhere").
 
-**设计依据**:`Walk 状态总览.html`(定稿 W-B′全出血);`Walk demo.html`。
+**Design basis**: `Graduation 转场 - Storyboard.html` (F0 night-before → F1 prep 0-120ms → F2 main move 120-480ms → F3 landing 480-650ms → F4 complete 650-850ms → F5 boundary rules); already adopted in main spec §8.4.
 
-**核心 AC**:
-- 打开某路线的 Walk Mode 显示反映当前打卡数的进度格,以及当前站的 walk-hero 卡 -> browser
-- 零打卡的路线正确显示第 1 站为 hero、进度格全空 -> browser
-- 当前索引站数据缺失/损坏时降级为"情報を読み込めませんでした"卡片,不整屏崩溃 -> browser
-- i18n:"いまここ N/M"与下一站文案按 ja/zh/en 渲染 -> unit
+**Core ACs**:
+- Triggering the transition from the route detail page's "歩くモードへ" CTA plays it for the documented duration (~850ms total) and lands in Walk Mode -> browser
+- With `prefers-reduced-motion` enabled, shows the instant-cut specified by the F5 boundary rules instead of forcing the full animation -> browser
+- Interrupting the transition mid-flight (e.g., back button) doesn't leave a stuck overlay behind -> browser
+- The transition doesn't introduce any CLS regression that Lighthouse can detect -> browser
 
-**变更文件**:`apps/web/src/routes/routes/$routeId/walk.tsx`、`apps/web/src/components/walk/ProgressDots.tsx`、`apps/web/src/components/walk/WalkHero.tsx`、`apps/web/src/components/walk/NextStopRow.tsx`。
+**Changed files**: `apps/web/src/components/transitions/GraduationTransition.tsx`, `apps/web/src/routes/routes/$routeId/walk.tsx` (entry-point wiring).
 
-**依赖**:S3.1。
-
----
-
-### S3.3 Walk 操作(Maps 深链/打卡/近く sheet)+ 平台适配层 + GPS 精度截断(定案,回填自 SD-21/P9)
-
-**Scope**:「🧭 Mapsで開く」深链(J12)、「✓ ここに来た!」打卡(vibrate+撤销 toast,J13)、「📍 近くにあと N スポット」sheet(J11)——全部经 X10 平台适配层(haptics/geo);精确 GPS 坐标的观测层处理(P9,定案见 SD-21)。
-
-**设计依据**:`user-journey.md` §6.5(四件套映射表);`Walk demo.html`(真打卡 vibrate+撤销);SD-21(定案,取代主 spec 原"提案待确认"标注)。
-
-**核心 AC**:
-- 点击「ここに来た!」触发 `platform.haptics.vibrate()`、进度前进、显示可撤销的 toast(几秒窗口)-> browser
-- 「Mapsで開く」通过坐标深链打开系统地图 app -> browser
-- 某站附近无其他作品点位时 sheet 显示空态文案,不是破损空列表 -> browser
-- 撤销窗口内点击撤销正确回退打卡(进度-1、同步队列条目移除)-> integration
-- 经由适配层(X10):打卡震动与"近く"用到的定位一律走 `platform.haptics`/`platform.geo`,不直接调 `navigator.*` -> unit
-- **硬 AC(定案,回填自 SD-21/P9,Walk 上线前必须生效)**:打卡/近く sheet 涉及的精确 GPS 坐标不得进入 Logfire trace——观测层的位置数据在写入 trace 前截断到约百米级精度(坐标保留小数点后 3 位);**存储层**(打卡记录本身、供"近く"计算用的实际坐标)保留全精度不受影响;integration test 断言 Logfire 捕获的 span 里坐标字段精度不超过小数点后 3 位,同时数据库/API 响应里的坐标仍是全精度 -> integration
-
-**Backend enabler**:读写打卡数据(见 S3.7);P9 的 scrub 逻辑与 X3(BYOK scrub)共用同一实现点(观测层剥离/截断中间件)。
-
-**变更文件**:`apps/web/src/components/walk/CheckInButton.tsx`、`apps/web/src/components/walk/MapsDeepLink.tsx`、`apps/web/src/components/walk/NearbySheet.tsx`、`apps/web/src/platform/haptics.ts`、`apps/agent/agent/infrastructure/observability_scrub.py`(新增或扩展,GPS 截断逻辑,若与 S1.11 的 X3 scrub 中间件是同一模块则复用)。
-
-**依赖**:S3.2、S3.7。
+**Dependencies**: S2.3 (Walk entry point #2 already placeholdered), S1.5 (route card's reserved Walk entry-point slot #1).
 
 ---
 
-### S3.4 構図をくらべる
+### S3.2 Walk Mode core shell
 
-**Scope**:机位对照子视图——动画帧半透明叠加 + 透明度滑杆对照实景,场景帧缺失复用 Iteration 1 的 D9 渐变占位模式。
+**Scope**: Build the Walk Mode main-screen skeleton — progress dots, a pinned enlarged card for the current stop (walk-hero, large-type stop name + current index "3/7"), and the next-stop row.
 
-**设计依据**:`user-journey.md` §6.5 J10;`Walk demo.html`(透明度滑杆)。
+**Design basis**: `Walk 状态总览.html` (final W-B′ full-bleed direction); `Walk demo.html`.
 
-**数据管线衔接(回填自 SD-26,任务#7)**:本 story 用到的动画帧/机位参照图,与 Iteration 4 図搜阶段2(対比図机位精匹配)共享同一份参考图数据管线——两处不重复建索引,建设顺序上谁先落地谁承担管线基础设施,后落地的一方直接复用。若 Iteration 4 阶段2 的参考图索引在本迭代排期时尚未就绪,本 story 先使用当前设计导出的静态帧资源(无索引依赖),阶段2 上线后自动获得更完整的候选帧而不需要重构本组件的渲染逻辑。
+**Core ACs**:
+- Opening Walk Mode for a route shows progress dots reflecting the current check-in count, plus the current stop's walk-hero card -> browser
+- A route with zero check-ins correctly shows stop 1 as the hero with all progress dots empty -> browser
+- When the current-index stop's data is missing/corrupted, degrades to a "情報を読み込めませんでした" card instead of crashing the whole screen -> browser
+- i18n: "いまここ N/M" and the next-stop copy render correctly across ja/zh/en -> unit
 
-**核心 AC**:
-- 从 walk-hero 卡打开「構図をくらべる」显示可用的透明度滑杆对照动画帧 -> browser
-- 无参照帧的站显示 D9 渐变+话数文字兜底,不是空白叠加层 -> browser
-- 相机权限被拒绝(若使用实时相机变体)降级为仅静态对照模式,不是死屏 -> browser
-- 经由适配层(X10):相机访问一律走 `platform.camera` -> unit
+**Changed files**: `apps/web/src/routes/routes/$routeId/walk.tsx`, `apps/web/src/components/walk/ProgressDots.tsx`, `apps/web/src/components/walk/WalkHero.tsx`, `apps/web/src/components/walk/NextStopRow.tsx`.
 
-**变更文件**:`apps/web/src/components/walk/CompositionCompare.tsx`。
-
-**依赖**:S3.2;数据管线与 Iteration 4 図搜阶段2 共享(非强制阻塞依赖,见上方衔接说明)。
+**Dependencies**: S3.1.
 
 ---
 
-### S3.5 环境态(強光/夜間/離線)
+### S3.3 Walk actions (Maps deep link / check-in / nearby sheet) + platform adapter layer + GPS precision truncation (confirmed, backfilled from SD-21/P9)
 
-**Scope**:在 S3.2 的核心 shell 之上叠加户外强光(字号更大/对比更高/白底粗边)、夜间、离线三种环境视觉变体。
+**Scope**: The "🧭 Mapsで開く" deep link (J12), the "✓ ここに来た!" check-in (vibrate + undoable toast, J13), and the "📍 近くにあと N スポット" sheet (J11) — all routed through the X10 platform adapter layer (haptics/geo); observability-layer handling of precise GPS coordinates (P9, confirmed per SD-21).
 
-**设计依据**:`user-journey.md` §3.4 现场环境约束(J14);`Walk 状态总览.html` 3 环境态。
+**Design basis**: `user-journey.md` §6.5 (the four-item mapping table); `Walk demo.html` (real check-in vibrate + undo); SD-21 (confirmed, supersedes main spec's original "proposal unconfirmed" tag).
 
-**核心 AC**:
-- 切到户外强光模式时 walk-hero 站名字号与对比度按规格提升 -> browser
-- 夜间模式应用规定的配色变化且不违反 ≥4.5:1 对比度要求 -> browser
-- 无明确环境信号时渲染标准日间变体(默认态)-> browser
-- 离线环境态(无网络)仍用缓存数据渲染完整 shell(与 S3.6 集成),不是网络错误屏 -> browser
+**Core ACs**:
+- Tapping "ここに来た!" triggers `platform.haptics.vibrate()`, advances progress, and shows an undoable toast (a several-second window) -> browser
+- "Mapsで開く" opens the system map app via a coordinate deep link -> browser
+- When a stop has no other anime points nearby, the sheet shows empty-state copy instead of a broken empty list -> browser
+- Tapping undo within the undo window correctly reverts the check-in (progress -1, sync-queue entry removed) -> integration
+- Via the adapter layer (X10): check-in vibration and the geolocation used for "近く" always go through `platform.haptics`/`platform.geo`, never calling `navigator.*` directly -> unit
+- **Hard AC (confirmed, backfilled from SD-21/P9, must be in effect before Walk ships)**: precise GPS coordinates involved in check-in / the nearby sheet must never enter Logfire traces — observability-layer location data is truncated to roughly hundred-meter precision (3 decimal places) before being written to a trace; the **storage layer** (the check-in record itself, and the actual coordinates used for the "近く" computation) keeps full precision, unaffected; an integration test asserts that coordinate fields in Logfire-captured spans never exceed 3 decimal places of precision, while coordinates in database/API responses remain full precision -> integration
 
-**变更文件**:`apps/web/src/components/walk/EnvironmentVariants.tsx`、`apps/web/src/styles/walk-environment.css`。
+**Backend enabler**: reads/writes check-in data (see S3.7); P9's scrub logic shares the same implementation point as X3 (BYOK scrub).
 
-**依赖**:S3.2、S3.6。
+**Changed files**: `apps/web/src/components/walk/CheckInButton.tsx`, `apps/web/src/components/walk/MapsDeepLink.tsx`, `apps/web/src/components/walk/NearbySheet.tsx`, `apps/web/src/platform/haptics.ts`, `apps/agent/agent/infrastructure/observability_scrub.py` (new or extended — GPS truncation logic; reuse it if it's the same module as S1.11's X3 scrub middleware).
 
----
-
-### S3.6 离线一步到位(SW + 缓存 + 打卡队列)
-
-**Scope**:注册 service worker 缓存路线 bundle(JSON+帧图+每站静态地图 PNG,复用 X1 的 pmtiles range-request 基础设施);离线打卡队列(IndexedDB)通过 online/visibilitychange 在恢复联网时 flush;前瞻声明 SW 路由规则,排除未来的 SSR 路由。
-
-**设计依据**:`user-journey.md` §3.4"弱网/离线"约束;G6"一步到位"裁决;X1(pmtiles range 复用)、X7(SW network-first 前瞻规则)。
-
-**核心 AC**:
-- 预缓存路线 bundle 后,飞行模式下打开 Walk Mode 仍渲染完整 shell 与全部站点数据 -> browser
-- 离线打卡在本地排队,联网恢复后经真实网络调用(对 `workers/users` 的 oRPC 端点)flush -> integration
-- 从未预缓存过(从未在线访问过)的路线区段显示明确的"この区間はオフラインで見られません"提示,不是破损 shell -> browser
-- flush 冲突(同一打卡已被另一设备同步)按幂等 upsert key 解决,不产生重复行 -> integration
-- **X7 前瞻规则**:SW 的路由匹配规则表已包含 `/s/:id`、`/anime/:id`(即使这两条路由此刻尚未上线),标记为 network-first、排除出 Walk 离线缓存范围,由单测直接断言路由匹配表内容 -> browser
-
-**Backend enabler**:复用 S3.7 的打卡端点;新增客户端 IndexedDB schema(非后端资源)。
-
-**变更文件**:`apps/web/src/sw.ts`、`apps/web/src/lib/walk/routeBundleCache.ts`、`apps/web/src/lib/walk/offlineCheckinQueue.ts`。
-
-**依赖**:S3.2、S3.3、S0.4(pmtiles range 复用)。
+**Dependencies**: S3.2, S3.7.
 
 ---
 
-### S3.7 打卡持久化后端 enabler(`workers/users` oRPC + Neon,SD-2 定案)
+### S3.4 構図をくらべる (composition comparison)
 
-**Scope**:为打卡记录提供持久化存储与幂等同步支持。
+**Scope**: The shot-comparison sub-view — a semi-transparent overlay of the anime frame plus an opacity slider against the real scene; when a scene frame is missing, reuses Iteration 1's D9 gradient-placeholder pattern.
 
-**设计依据**:无视觉画布。
+**Design basis**: `user-journey.md` §6.5 J10; `Walk demo.html` (opacity slider).
 
-**数据访问路径(定案,SD-2)**:用户域数据,经 `workers/users` oRPC(`/v1/users/*`)+ Neon 访问,不使用 Supabase RLS 直连。
+**Data-pipeline linkage (backfilled from SD-26, task #7)**: The anime frames / shot-angle reference images this story uses share the same reference-image data pipeline as Iteration 4's image-search stage 2 (対比図 shot-angle matching) — the two don't build separate indexes; whichever lands first carries the pipeline infrastructure, and whichever lands second simply reuses it. If Iteration 4 stage 2's reference-image index isn't ready yet when this iteration is scheduled, this story starts out using the static frame assets from the current design export (no index dependency); once stage 2 ships, it automatically gets a fuller set of candidate frames without needing to rework this component's rendering logic.
 
-**Backend enabler(定案)**:Neon 新表 `walk_checkins`(经 SD-1 工具链:Drizzle schema → atlas-provider-drizzle → atlas migrate 建表)——字段:`id`、`route_id` FK、`point_id` FK、`user_id`、`client_id UUID UNIQUE`〔离线幂等用〕、`checked_in_at TIMESTAMPTZ`、`synced_at TIMESTAMPTZ`;`workers/users` 新增 oRPC 路由(如 `users.checkins.upsert`/`users.checkins.list`),鉴权走 JWT bearer;`apps/web` 经 oRPC client 调用(`upsert` 用 `client_id` 做幂等键),不新增 agent 端点;`packages/contract` 新增 `WalkCheckin` zod 契约(输入/输出 schema,而非 RLS 时代设想的"表行镜像")。
+**Core ACs**:
+- Opening "構図をくらべる" from the walk-hero card shows an available opacity slider comparing against the anime frame -> browser
+- A stop with no reference frame shows the D9 gradient + episode-number text fallback, not a blank overlay layer -> browser
+- If camera permission is denied (for the live-camera variant, if used), degrades to static-comparison-only mode, not a dead screen -> browser
+- Via the adapter layer (X10): camera access always goes through `platform.camera` -> unit
 
-**核心 AC**:
-- 经 `workers/users` 的 oRPC 端点插入一条打卡后,随后的读取立即可见 -> integration
-- 零打卡的路线查询返回空数组,不是 null/崩溃 -> unit
-- 重复提交同一个离线排队打卡(相同 `client_id`)在成功同步后是安全的空操作(upsert),不产生重复行 -> integration
-- 鉴权边界:未携带有效 JWT 的请求访问打卡端点一律拒绝,不允许匿名写打卡数据(与 Chat 的匿名放开是两套不同的信任模型)-> unit
+**Changed files**: `apps/web/src/components/walk/CompositionCompare.tsx`.
 
-**变更文件**:`workers/users/src/db/schema.ts`(新增 `walk_checkins` 表定义)、`workers/users/src/api/checkins.ts`(新增)、`packages/contract/src/users-contract.ts`(新增 `WalkCheckin` 契约)、`apps/web/src/lib/data/checkins.ts`(oRPC client 调用封装)。
-
-**依赖**:S2.8(`workers/users` 首次搭建,Iteration 2 完成的地基;本 story 是在其上新增一组端点,不是重新搭建服务)。
+**Dependencies**: S3.2; the data pipeline is shared with Iteration 4's image-search stage 2 (not a hard blocking dependency — see the linkage note above).
 
 ---
 
-### S3.8 Fox 8 帧小跑 sprite 素材(G8)
+### S3.5 Environment variants (強光/夜間/離線 — bright sunlight / night / offline)
 
-**Scope**:按锁定规格生成 8 帧(或 4 帧最小版)小跑循环雪碧图(512×512/帧,透明底,固定地面基线 y=430,不烘焙阴影),接入 CSS `steps()` 动画用于 Graduation/Splash 加载场景。
+**Scope**: Layer three environmental visual variants on top of S3.2's core shell — outdoor bright-sunlight (larger type / higher contrast / thick white borders), night, and offline.
 
-**设计依据**:`fox-walk-spec.md`(全文:8 帧步态表+一致性锁定+生成提示词模板);G8 裁决。
+**Design basis**: `user-journey.md` §3.4's on-the-ground environmental constraints (J14); `Walk 状态总览.html`'s 3 environment states.
 
-**核心 AC**:
-- 生成的雪碧图符合一致性锁定规则(橙毛/奶白口鼻/青蓝围巾、纯侧视朝右、固定基线),与 `fox-trot.svg` 比例做视觉核对 -> browser
-- 若只能做到 4 帧最小版,`steps(4)` 回退仍产生可读的小跑循环(不是卡顿感)-> browser
-- 雪碧图加载失败(404)回退到既有单帧 `fox-trot.svg`,不是破图 -> browser
-- **用户过目收编(G8 强制人工 AC)**:生成素材经用户过目确认后才视为完成 -> browser(人工核验)
+**Core ACs**:
+- Switching to outdoor bright-sunlight mode bumps the walk-hero stop name's type size and contrast per spec -> browser
+- Night mode applies the specified color changes without violating the ≥4.5:1 contrast requirement -> browser
+- With no clear environmental signal, renders the standard daytime variant (the default state) -> browser
+- The offline environment state (no network) still renders the full shell from cached data (integrates with S3.6), not a network-error screen -> browser
 
-**变更文件**:`docs/design/2026-07-06-design-sync/assets/fox/fox-walk-sheet.png`(或 8 张独立 PNG)、`apps/web/src/styles/fox-animation.css`、`apps/web/src/components/transitions/GraduationTransition.tsx`(接入,复用 S3.1)。
+**Changed files**: `apps/web/src/components/walk/EnvironmentVariants.tsx`, `apps/web/src/styles/walk-environment.css`.
 
-**依赖**:无(素材生产可并行);消费方 S3.1、S0.7。
+**Dependencies**: S3.2, S3.6.
 
 ---
 
-### S3.9 conversation_messages 数据迁移 Supabase → Neon(SD-3④)
+### S3.6 Offline in one shot (SW + cache + check-in queue)
 
-**用户故事**:作为运维,我要既有的 `conversation_messages`(与 `sessions`)表数据从 Supabase 迁移到 Neon,以便与 SD-3 的"数据面归 Neon"方向保持一致。
+**Scope**: Register a service worker that caches the route bundle (JSON + frame images + per-stop static map PNGs, reusing X1's pmtiles range-request infrastructure); an offline check-in queue (IndexedDB) that flushes on reconnect via online/visibilitychange; forward-declared SW routing rules that exclude the future SSR routes.
 
-**设计依据**:无视觉画布;SD-3④(prod 数据量近零,一次性脚本)。
+**Design basis**: `user-journey.md` §3.4's "weak network / offline" constraints; the G6 "in one shot" ruling; X1 (pmtiles range reuse), X7 (SW network-first forward-declared rules).
 
-**Backend enabler**:一次性迁移脚本读取 Supabase `conversation_messages` 全量行,在 Neon 建对应表结构(经 SD-1 工具链),写入并核对;迁移完成后 Supabase 侧该表标注冻结;`apps/agent` 的消息读写路径切换到 Neon 客户端。
+**Core ACs**:
+- After the route bundle is pre-cached, opening Walk Mode in airplane mode still renders the full shell and all stop data -> browser
+- Offline check-ins queue locally and flush via a real network call (to `workers/users`'s oRPC endpoint) once connectivity returns -> integration
+- A route segment that was never pre-cached (never visited online) shows a clear "この区間はオフラインで見られません" notice, not a broken shell -> browser
+- Flush conflicts (the same check-in already synced from another device) resolve via an idempotent upsert key, producing no duplicate rows -> integration
+- **X7 forward-declared rule**: the SW's route-matching rule table already includes `/s/:id` and `/anime/:id` (even though these two routes aren't live yet), tagged network-first and excluded from the Walk offline cache scope; a unit test directly asserts the contents of the route-matching table -> browser
 
-**核心 AC**:
-- 快乐路径:迁移脚本运行后,Neon 侧 `conversation_messages` 行数与 Supabase 源表行数一致(全量核对)-> integration
-- 空:Supabase 源表为空(全新环境)时迁移脚本正常空跑,不报错 -> unit
-- 错误:遇到格式不匹配的历史行记录到失败清单并继续处理其余行,不整体中断 -> unit
-- 数据完整性:迁移后随机抽样 10% 行做字段级内容比对(不只是行数),确保消息内容/`parts` 结构未失真 -> integration
+**Backend enabler**: reuses S3.7's check-in endpoint; adds a client-side IndexedDB schema (not a backend resource).
 
-**变更文件**:`scripts/migrate-conversation-messages-to-neon.ts`(新增)、`apps/agent/agent/infrastructure/`(消息读写路径切换到 Neon 客户端)、`supabase/migrations/`(冻结标注)。
+**Changed files**: `apps/web/src/sw.ts`, `apps/web/src/lib/walk/routeBundleCache.ts`, `apps/web/src/lib/walk/offlineCheckinQueue.ts`.
 
-**依赖**:S2.9(sessions 迁移,建议先行,便于共享迁移脚本基础设施);S2.8(`workers/users`/Neon 工具链已搭建)。
+**Dependencies**: S3.2, S3.3, S0.4 (pmtiles range reuse).
 
-**归属确认(回填自 SD-3④,待 Coordinator 裁决)**:SD-3④原文一并提及"会话/消息/routes"三类既有数据迁移——会话(sessions)已归 Iteration 2 的 S2.9,消息(conversation_messages)即本 story;但生产环境是否存在迁移前的"routes"历史数据(区别于 Iteration 2 新建的路线保存/列表功能本身)尚未在 iter-2.md/iter-3.md 中见到对应的显式迁移 story。`supabase/migrations/` 下确认存在 route 相关既有表(`20260402124000_operational_tables.sql` 等),故该迁移项可能遗漏,而非"无需迁移"。本文件不越权修改 iter-2.md,此处仅记录待确认事项,交排期该迭代的 Coordinator 核实是否需补一个 S2.x/S3.x 级的 routes 数据迁移 story。
+---
+
+### S3.7 Check-in persistence backend enabler (`workers/users` oRPC + Neon, confirmed per SD-2)
+
+**Scope**: Provide persistent storage and idempotent sync support for check-in records.
+
+**Design basis**: No visual mockup.
+
+**Data access path (confirmed, SD-2)**: User-domain data, accessed via `workers/users` oRPC (`/v1/users/*`) + Neon, not via a direct Supabase RLS connection.
+
+**Backend enabler (confirmed)**: A new Neon table `walk_checkins` (built via the SD-1 toolchain: Drizzle schema → atlas-provider-drizzle → atlas migrate) — fields: `id`, `route_id` FK, `point_id` FK, `user_id`, `client_id UUID UNIQUE` (for offline idempotency), `checked_in_at TIMESTAMPTZ`, `synced_at TIMESTAMPTZ`; `workers/users` gets new oRPC routes (e.g. `users.checkins.upsert`/`users.checkins.list`), authenticated via JWT bearer; `apps/web` calls them through the oRPC client (`upsert` uses `client_id` as the idempotency key), with no new agent-side endpoints; `packages/contract` gets a new `WalkCheckin` zod contract (input/output schema, rather than the "table-row mirror" the RLS-era design once assumed).
+
+**Core ACs**:
+- After inserting a check-in via `workers/users`'s oRPC endpoint, a subsequent read sees it immediately -> integration
+- Querying a route with zero check-ins returns an empty array, not null/a crash -> unit
+- Resubmitting the same offline-queued check-in (same `client_id`) after it has already synced successfully is a safe no-op (upsert), producing no duplicate rows -> integration
+- Auth boundary: requests to the check-in endpoint without a valid JWT are rejected outright — anonymous check-in writes are never allowed (a different trust model from Chat's anonymous access) -> unit
+
+**Changed files**: `workers/users/src/db/schema.ts` (new `walk_checkins` table definition), `workers/users/src/api/checkins.ts` (new), `packages/contract/src/users-contract.ts` (new `WalkCheckin` contract), `apps/web/src/lib/data/checkins.ts` (oRPC client call wrapper).
+
+**Dependencies**: S2.8 (the initial `workers/users` build-out, completed as part of Iteration 2's groundwork; this story adds a new set of endpoints on top of it, not rebuilding the service).
+
+---
+
+### S3.8 Fox 8-frame trot sprite asset (G8)
+
+**Scope**: Generate an 8-frame (or 4-frame minimum-viable) trotting-loop sprite sheet per the locked spec (512×512/frame, transparent background, fixed ground baseline y=430, no baked-in shadow), and wire it into a CSS `steps()` animation for the Graduation/Splash loading scenes.
+
+**Design basis**: `fox-walk-spec.md` (full document: 8-frame gait table + consistency lock + generation prompt template); the G8 ruling.
+
+**Core ACs**:
+- The generated sprite sheet follows the consistency-lock rules (orange fur / cream muzzle / teal-blue scarf, pure right-facing side view, fixed baseline), visually checked against `fox-trot.svg`'s proportions -> browser
+- If only a 4-frame minimum-viable version can be produced, the `steps(4)` fallback still produces a readable trotting loop (not a stuttering one) -> browser
+- If the sprite sheet fails to load (404), falls back to the existing single-frame `fox-trot.svg`, not a broken image -> browser
+- **User sign-off required (G8 mandatory manual AC)**: generated assets are only considered done once the user has reviewed and signed off on them -> browser (manual verification)
+
+**Changed files**: `docs/design/2026-07-06-design-sync/assets/fox/fox-walk-sheet.png` (or 8 separate PNGs), `apps/web/src/styles/fox-animation.css`, `apps/web/src/components/transitions/GraduationTransition.tsx` (wiring, reuses S3.1).
+
+**Dependencies**: none (asset production can run in parallel); consumed by S3.1, S0.7.
+
+---
+
+### S3.9 `conversation_messages` data migration: Supabase → Neon (SD-3④)
+
+**User story**: As an operator, I need the existing `conversation_messages` (and `sessions`) table data migrated from Supabase to Neon, to align with SD-3's "data plane belongs to Neon" direction.
+
+**Design basis**: No visual mockup; SD-3④ (near-zero prod data volume, one-off script).
+
+**Backend enabler**: A one-off migration script reads all rows from Supabase's `conversation_messages`, creates the corresponding table structure in Neon (via the SD-1 toolchain), writes the data, and verifies it; once migration completes, the Supabase-side table is marked frozen; `apps/agent`'s message read/write path switches to the Neon client.
+
+**Core ACs**:
+- Happy path: after the migration script runs, the Neon-side `conversation_messages` row count matches the Supabase source table's row count (full reconciliation) -> integration
+- Empty: when the Supabase source table is empty (a brand-new environment), the migration script runs cleanly with no rows and doesn't error -> unit
+- Error: historical rows with mismatched formats are logged to a failure list and processing continues for the rest, without aborting the whole run -> unit
+- Data integrity: after migration, a random 10% sample of rows gets field-level content comparison (not just row counts), confirming message content / `parts` structure isn't corrupted -> integration
+
+**Changed files**: `scripts/migrate-conversation-messages-to-neon.ts` (new), `apps/agent/agent/infrastructure/` (message read/write path switches to the Neon client), `supabase/migrations/` (freeze annotation).
+
+**Dependencies**: S2.9 (sessions migration — recommended to go first so the migration-script infrastructure can be shared); S2.8 (`workers/users`/Neon toolchain already built).
+
+**Attribution check (backfilled from SD-3④, pending Coordinator ruling at the time this was written)**: SD-3④'s original text names three categories of existing data to migrate together — "sessions / messages / routes." Sessions (`sessions`) are already covered by Iteration 2's S2.9; messages (`conversation_messages`) are this story. But whether pre-migration "routes" history data exists in production (distinct from the route-save/list *feature* Iteration 2 builds fresh) had no corresponding explicit migration story visible in iter-2.md/iter-3.md at the time. `supabase/migrations/` does confirm pre-existing route-related tables (`20260402124000_operational_tables.sql`, etc.), so this migration item may have been a genuine gap rather than "nothing to migrate." This file does not overstep into modifying iter-2.md; it only records the open question here, for whichever Coordinator schedules that iteration to verify whether an S2.x/S3.x-level routes migration story needs to be added.
+
+**Update (this patch round)**: this question is no longer open. Per the ✅ ruling in `docs/superpowers/specs/2026-07-06-backfill-conflicts.md` (C1 = option a), any pre-existing `routes` rows get folded into S2.9's migration script as one added line — no separate story is opened for it. Landing that line inside S2.9's script is iter-2.md's owner's responsibility; this file's content otherwise stands unchanged.
+
+---
+
+### S3.10 OSRM self-hosted walking-route polylines (backfilled from SD-28 layer 1)
+
+**Scope**: Give Walk Mode real walking-path polyline rendering on the map, plus obstacle-detour detection (cases like two stops that are only ~100m apart in a straight line across a river but require an actual ~1km walk around it), with more precise walking-time estimates as a side benefit. Self-hosted OSRM (or Valhalla), fed by the OSM Geofabrik Japan extract (ODbL license).
+
+**Re-review note (rationale for moving this out of Iteration 1, backfilled from SD-28's final version)**: This capability was originally scoped into Iteration 1, as part of `route_optimizer`'s walking-time estimate. On re-review it moves into this iteration instead. Rationale: on the time-precision axis, the haversine × 1.3 detour coefficient (Iteration 1's layer 0, already shipped) is already good enough for planning-stage estimates — the walking-time error it produces is already smaller than the error inherent in the dwell-time estimate itself. OSRM/Valhalla's real value isn't a more precise number; it's rendering a walking path that actually exists on the map, and catching geography-driven detours (the river/rail blockage case above) — a capability the planning stage (Iteration 1) never needed but the Walk on-the-ground navigation stage does. Shipping it in Iteration 1 would have been over-engineering. This story is scoped to degrade gracefully: if the self-hosted OSRM/Valhalla deployment isn't ready or reachable by ship time, Walk Mode keeps working on the haversine × 1.3 estimate alone (already shipped in Iteration 1) — so this story never blocks this iteration's releasability.
+
+**Design basis**: No visual mockup; `user-journey.md` §6.5 J10/J12 (on-the-ground view / navigation deep link); SD-28 (final version, user-confirmed 2026-07-06).
+
+**Core ACs**:
+- Happy path: the walking path rendered on the Walk Mode map is a real street-following polyline returned by OSRM, not a straight line between two points -> browser
+- River/rail blockage case (e.g., two stops roughly 100m apart in a straight line but requiring an actual ~1km detour on foot) correctly renders the detour path instead of a line cutting through the obstacle -> integration
+- Offline (OSRM unreachable, or this segment's polyline was never cached) Walk Mode falls back to the haversine × 1.3 distance/time estimate instead of blocking core offline functionality (integrates with S3.6) -> unit
+- Data source: the self-hosted OSRM (or Valhalla) instance runs on OSM Geofabrik Japan extract data (ODbL license), with no dependency on any pay-per-call third-party routing API -> integration (deployment-verification in nature)
+
+**Backend enabler**: Self-hosted OSRM/Valhalla instance (infrastructure); exposes a walking-polyline query endpoint consumed by the route detail page and Walk Mode.
+
+**Changed files**: `infra/` (OSRM/Valhalla self-hosted service definition; exact shape left to pre-kickoff refinement), `apps/agent/agent/agents/route_optimizer.py` (wires in the polyline query, supplementing/replacing the existing haversine estimate), `apps/web/src/components/walk/WalkRouteLine.tsx` (new, polyline rendering), `apps/web/src/lib/walk/routeBundleCache.ts` (extended — polyline data joins the same offline-cache bundle, integrates with S3.6).
+
+**Dependencies**: S3.2 (Walk Mode core shell, the rendering host); S3.6 (offline cache — the polyline data rides the same route bundle, extending its cache format).
