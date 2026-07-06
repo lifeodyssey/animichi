@@ -1,10 +1,10 @@
 # Iteration 0 — Foundation
 
-Detail level: **fully elaborated**. Story count: 9 (exceeds the "3-8" guideline; reason, see main spec §③: X1's map ADR and X8's eval tiering are additional must-do items).
+Detail level: **fully elaborated**. Story count: 10 (exceeds the "3-8" guideline; reason, see main spec §③: X1's map ADR and X8's eval tiering are additional must-do items, plus S0.10, the contract-enforcement + hygiene sweep, backfilled from the P3 patch / `docs/superpowers/plans/2026-07-07-refactor-backlog.md`).
 
 Precondition (not a story, an external blocker): **PR #206 (the atlas CI fix) must merge first**, otherwise this iteration's CI baseline can't be trusted.
 
-Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} → S0.6 → S0.7 → S0.8 → S0.9 (wrap-up).
+Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} → S0.6 → S0.7 → S0.8 → S0.9 (wrap-up). **S0.10** (contract enforcement + hygiene sweep) is independent and can run in parallel at any point — no hard dependency; the dead-eval-dataset deletions only soft-touch S0.1's eval gating.
 
 **How the SD-interview's final conclusions affect this iteration (see main spec §②, inputs §7's full text SD-0~SD-11)**:
 - **SD-0 (domain, finalized)**: `animichi.com` is finalized, no longer pending; S0.8 hardcodes this domain directly rather than leaving a parameter blank awaiting a decision. **`aninavi.app` disposition (settled per SD-30 review, Codex P2 / Fable P2-4)**: execute a 301 → `animichi.com` **if the `aninavi.app` domain is actually held at execution time**; otherwise record an explicit no-op in the ops log (`docs/ops/`) — this is a manual-ops decision with an ops-log record, not an executor judgment call left dangling.
@@ -212,3 +212,28 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 **Files changed**: `docs/ARCHITECTURE.md`, `docs/todo.md`, `docs/ops/deployment.md`, `AGENTS.md`/`CLAUDE.md`, `wrangler.toml` (comments), `.github/workflows/*.yml` (comments), `docs/testing-strategy.md`, `docs/ops/migrations.md` (new).
 
 **Dependencies**: soft dependency on S0.3/S0.4 (the documentation should describe the actual landed state, not something aspirational).
+
+---
+
+### S0.10 Contract enforcement + hygiene sweep (backfilled from the P3 patch / `docs/superpowers/plans/2026-07-07-refactor-backlog.md`: F1 + the F2-F6 hygiene batch + dead eval-dataset/TODO cleanup)
+
+**User story**: As the operator maintaining the hybrid backend, I want the catalog worker's public contract enforced at compile time and validated at runtime (so a drift between the router and `@seichijunrei/contract` can't silently ship and so malformed public inputs are rejected at the edge), and I want the accumulated small-debt in the agent package swept out (dead dependencies, dead code, an importlib hack, an official tool we're reimplementing, unreferenced eval fixtures, and stale TODOs), so the rebuild starts from a clean, contract-locked baseline instead of carrying known cruft into every later iteration.
+
+**Design basis**: no visual canvas; `docs/superpowers/plans/2026-07-07-refactor-backlog.md` (the "Scheduled into stories (iter-0)" rows F1 + the hygiene batch), governed by X16 (the refactoring mandate + its three disciplines). X11/SD-2's literal "consume the contract" landing.
+
+**Releasable statement**: `workers/catalog/src/router.ts` is rebuilt on top of `implement(catalogContract)` from `@orpc/server` (with `@seichijunrei/contract` added as a catalog dependency), giving a compile-time shape lock against the shared contract plus runtime zod validation on public inputs; and the agent-package hygiene batch lands — the zombie `pydantic-ai-guardrails` dependency is gone, `reverse-geocoder` moves to a scripts/dev dependency group, the dead `LogContext`/`LogTimer` in `utils/logger.py` are deleted, `asyncpg-stubs` replaces the `importlib` import hack + hand-written `Protocol` shims in `infrastructure/supabase/`, `web_tools.py` adopts the official `pydantic_ai.common_tools.duckduckgo.duckduckgo_search_tool()` (with the SD-19 untrusted-content delimiter wrapping kept **outside** the tool), the 4 unreferenced eval datasets are deleted, and the 2 stale TODOs in `persistence.py` are resolved. No behavior changes for end users; the agent's 7 tools and the catalog's public routes keep the same external shapes.
+
+**AC**:
+- **F1 contract shape lock**: `workers/catalog/src/router.ts` is implemented via `implement(catalogContract)` from `@orpc/server`, with `@seichijunrei/contract` declared in `workers/catalog/package.json`; a deliberately-introduced mismatch between a router handler's return shape and the contract fails the TypeScript build (asserted by a type-level/compile test) -> unit
+- **F1 runtime input validation**: a public catalog route rejects a malformed input payload (e.g., a wrong-typed or out-of-range field) with a zod validation error at the boundary rather than passing it through to the handler -> integration
+- **F2 zombie dependency removed**: `pydantic-ai-guardrails` no longer appears in `apps/agent/pyproject.toml`, and a repo-wide grep confirms zero imports of it (this closes the same dead-dependency finding that iter-1 S1.6/S1.12 carry only as a backstop) -> unit
+- **F3 `reverse-geocoder` relocated**: `reverse-geocoder` is moved out of the agent's production dependencies into a scripts/dev dependency group; the production dependency set no longer includes it (asserted against `pyproject.toml`), and nothing in the production import graph imports it -> unit
+- **F4 dead code deleted**: `LogContext` and `LogTimer` are removed from `apps/agent/agent/utils/logger.py`, and a grep confirms no remaining references anywhere in the package -> unit
+- **F5 `asyncpg-stubs` replaces the importlib hack**: `asyncpg-stubs` is added as a dev dependency, `apps/agent/agent/infrastructure/supabase/client.py`'s `importlib.import_module("asyncpg")` hack and the hand-written `Protocol` shims in `client_types.py` are removed in favour of a direct typed `import asyncpg`, and `mypy --strict` still passes over the module -> unit
+- **F6 official DuckDuckGo tool adopted**: `apps/agent/agent/agents/web_tools.py` uses `pydantic_ai.common_tools.duckduckgo.duckduckgo_search_tool()` instead of the hand-rolled search call, while the SD-19 `<untrusted_web_result>` delimiter + untrusted-content wrapping stays **outside** the tool (a test asserts the tool's raw results are still delimiter-wrapped before entering the model context) -> integration
+- **Dead eval datasets deleted**: the 4 unreferenced fixtures (`apps/agent/agent/tests/eval/datasets/agent_eval_v2.json` / `plan_quality_v1.json` / `agent_eval_smoke.json` / `frontend_flows_v1.json`) are deleted, and a check confirms no test or eval-runner code references them (the L0/L1 suites per SD-30 do not depend on them) -> unit
+- **Stale TODOs resolved**: the 2 TODOs in `apps/agent/agent/interfaces/persistence.py` (lines 124/232 — session compaction and conversation-history wiring) are each either implemented or explicitly converted into a tracked, dated decision comment with no bare `TODO` left; a grep asserts those two bare `TODO` markers are gone -> unit
+
+**Files changed**: `workers/catalog/src/router.ts` (rebuilt on `implement(catalogContract)`), `workers/catalog/package.json` (`@seichijunrei/contract` dependency), `workers/catalog/test/*` (contract shape-lock + input-validation tests), `apps/agent/pyproject.toml` (drop `pydantic-ai-guardrails`, move `reverse-geocoder` to a dev/scripts group, add `asyncpg-stubs`), `apps/agent/agent/utils/logger.py` (delete `LogContext`/`LogTimer`), `apps/agent/agent/infrastructure/supabase/client.py` + `client_types.py` (drop the importlib hack + hand-written Protocols, use `import asyncpg`), `apps/agent/agent/agents/web_tools.py` (official `duckduckgo_search_tool()`, SD-19 wrapping kept outside), `apps/agent/agent/tests/eval/datasets/{agent_eval_v2,plan_quality_v1,agent_eval_smoke,frontend_flows_v1}.json` (deleted), `apps/agent/agent/interfaces/persistence.py` (resolve the 2 TODOs).
+
+**Dependencies**: none (soft-touch on S0.1 for the eval-dataset deletions — coordinate so a deleted fixture isn't referenced by S0.1's L0/L1 gating).
