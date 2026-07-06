@@ -90,7 +90,7 @@ OpenAPI 单一真源 + 四壳薄适配;顺序 Skill→MCP(FastMCP.from_openapi)�
 
 ## 六、恢复时的下一步
 
-全部功能域讨论收口(SD-0~30 + X1-X16 + DD-1~24 + C1-C6,2026-07-06 深夜)。**统一补丁四代理已完成**(A=c8cb452+87811b8 主spec / B=42fabd0 iter-0,1 / C=af43990 iter-2,4,5 / D=d51637f iter-3,6,7:C1/C2/C6 落地 + SD-26补章/28/29/30 回填 + 9 spec 全文英文化),小修四处随后(1ba97ff:S7.1 SD-30 门槛/S7.7 笔误/coarse_screen 改名(D2)/pilgrimage spots 术语)。
+全部功能域讨论收口(SD-0~30 + X1-X17 + DD-1~25 + C1-C6 + spec 收口三件,至 2026-07-07 凌晨)。**统一补丁四代理已完成**(A=c8cb452+87811b8 / B=42fabd0 / C=af43990 / D=d51637f:C1/C2/C6 落地 + SD-26补章/28/29/30 回填 + 9 spec 全文英文化),小修四处(1ba97ff)。**双评审完成**(Codex=c14279d request_changes 1P0+18P1+30P2 / Fable=f49d35d 7P1+7P2+Ratchet表76story·395AC·99.7%标注+热力图 iter-0/1 零thin)。**三轮回修完成**(R1=0213c31 域名 animichi.com+seo-geo 英文化+worker 测试实测16 / R2=37a1a80 iter-2~7 全修 / P3=71464d8 [proposal] 全清零+双路由统一 S1.5/S1.7+S0.10 卫生story)。**代码侧四报告归档**(规范审计 audit-standards.md / 轮子两轮 wheels-opus+wheels-fable(dispute 全采纳,Top3=F1 契约/F7 aiohttp栈/卫生批)→ plans/2026-07-07-refactor-backlog.md 卡片化)。**Loop 整备计划**落 docs/ops/loop-readiness-plan.md + Artifact HTML(未执行待批;含密钥三处轮换警报)。**当前在飞:双复核**(Fable 修复声称审计 / Codex 交叉一致性→2026-07-07-recheck-codex.md);双 approve = spec 定稿 → #5 交付总汇报。
 
 **当前在飞(2026-07-06 ~21:30 发车),共 4 个后台代理**:
 1. **Reviewer(Fable5)**:9 spec 全审(Quality Ratchet 计数/releasable/SD 一致性/C2 重点/**详细度热力图** full-adequate-thin + iter-0/1 thin 清单/翻译抽查)→ 返回文本报告
