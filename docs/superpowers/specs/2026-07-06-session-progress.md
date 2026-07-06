@@ -90,7 +90,15 @@ OpenAPI 单一真源 + 四壳薄适配;顺序 Skill→MCP(FastMCP.from_openapi)�
 
 ## 六、恢复时的下一步
 
-全部功能域讨论收口(SD-0~30 + DD-1~24,2026-07-06 深夜)。回填四代理完成后,统一补丁四代理(C1/C2/C6 + SD-26补章D1-D6/28/29/30 回填 + **9 spec 全文英文化**)进行中。补丁完成 → **双评审**(Fable5 reviewer + Codex codex-rescue 增量写文件防崩),评审新增产出:**详细度热力图**(67 story × full/adequate/thin)+ iter-0/1 thin story 立即补清单(2026-07-06 用户批准);iter-3/4 四薄点(Walk GPS/打卡防伪/対比図对齐/离线打包)= DD-24 留迭代3 开工前。评审意见回修 → 交付总汇报(建议下一步 /iteration-execution)。
+全部功能域讨论收口(SD-0~30 + X1-X16 + DD-1~24 + C1-C6,2026-07-06 深夜)。**统一补丁四代理已完成**(A=c8cb452+87811b8 主spec / B=42fabd0 iter-0,1 / C=af43990 iter-2,4,5 / D=d51637f iter-3,6,7:C1/C2/C6 落地 + SD-26补章/28/29/30 回填 + 9 spec 全文英文化),小修四处随后(1ba97ff:S7.1 SD-30 门槛/S7.7 笔误/coarse_screen 改名(D2)/pilgrimage spots 术语)。
+
+**当前在飞(2026-07-06 ~21:30 发车),共 4 个后台代理**:
+1. **Reviewer(Fable5)**:9 spec 全审(Quality Ratchet 计数/releasable/SD 一致性/C2 重点/**详细度热力图** full-adequate-thin + iter-0/1 thin 清单/翻译抽查)→ 返回文本报告
+2. **Codex 二审**:错位视角(AC 可测性/依赖图断链/跨文件矛盾/冻结项泄漏/数字一致性)→ **增量写入 docs/superpowers/specs/2026-07-06-review-codex.md**(防崩纪律)
+3. **规范审计**(sonnet):存活代码(apps/agent/workers/packages/worker,排除 frontend/)的 CLAUDE.md 规范违反 + 已知债核对 → 分级重构 backlog P0/P1/P2
+4. **轮子审查**(高配):"不该自己写"逐依赖检测(union-find vs ST_ClusterDBSCAN 等)+ 跨 worktree 漂移(backend/ 旧 vs apps/agent/ 新)→ quick-win/story 级清单
+
+**断线恢复指引**:若本会话中断,四代理的结果文件在 scratchpad 的 `tasks/` 目录(`/private/tmp/claude-501/-Users-lumimamini-Documents-Seichijunrei-agent/<session-id>/tasks/*.output`),按修改时间 `ls -t` 找最新五个 .output;其中 Codex 的评审已增量落在 worktree 的 review-codex.md 不依赖 tasks 目录。四份全齐后流程:评审意见回修 → 审计+轮子合并为重构 backlog(X16 三纪律分流)→ **#5 交付总汇报** → 建议 /iteration-execution。
 
 ## 七、后台代理(均已完成,勿重复派)
 
