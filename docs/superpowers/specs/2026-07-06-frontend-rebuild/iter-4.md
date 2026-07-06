@@ -1,12 +1,14 @@
 # Iteration 4 — 残す:しおり
 
-详细度:**开工前细化**。Story 数:7。
+详细度:**开工前细化**。Story 数:9(原 7 个产品/enabler story + SD-26 阶段 2 新增的 S4.8/S4.9,见下)。
 
-依赖顺序建议:S4.5(share token enabler)/ S4.7(R2 enabler)可先行 → S4.1 → S4.2 → S4.3 → S4.4;S4.6 依赖 S4.7。
+依赖顺序建议:S4.5(share token enabler)/ S4.7(R2 enabler)可先行 → S4.1 → S4.2 → S4.3 → S4.4;S4.6 依赖 S4.7。S4.8(图搜阶段2粗筛+精排管线)可与対比図/しおり主线并行开发,共享 S4.7 的图片数据管线;S4.9 依赖 S4.8。
 
 **数据访问路径(定案,SD-2)**:S4.5、S4.7 均经 `workers/users` oRPC + Neon,不使用 Supabase RLS 直连——与主 spec §②"全局约定:用户域数据访问路径"一致。
 
 **图片管线(定案,X6)**:所有用户照片的 resize/压缩/合成一律在客户端 canvas 完成,R2 只存最终成品;分享物默认剥 EXIF(GPS 隐私),EXIF 回传维持 opt-in。
+
+**SD-26 阶段 2(图搜精匹配)排期提醒**:阶段 1(LLM vision 粗认作品)已在迭代 1 交付并可独立 releasable;本迭代交付阶段 2(作品内机位精匹配),与対比図/迭代 3 Walk 机位共享参考图数据管线,顺路建索引边际成本最低(SD-26 定案原文)。
 
 ---
 
@@ -65,20 +67,23 @@
 
 ---
 
-### S4.4 `/s/:id` 动态 OG/Twitter 卡
+### S4.4 动态 OG 渲染管线(1200×630,分享页首发模板)+ 対比図入 image sitemap(回填自 SD-27 seo-geo-plan.md §4)
 
-**Scope**:SSR 生成的 OG meta + 动态渲染的 9:16 竖图(satori+resvg),用于社交链接预览,视觉对齐しおり本体。
+**Scope**(**修订**:此前版本按 `user-journey.md` §6.6 写的"9:16 竖图 satori+resvg しおり视觉"规格已被 SD-27 落地包覆盖——权威规格改为标准 **1200×630** OG 尺寸,文案随页面语言,产物缓存 R2;技术选型(Satori 系 `workers-og` / CF Images)留给 executor 定夺,不锁死实现)。本迭代交付**共享的动态 OG 渲染基础设施**,首个具体模板是 `/s/:id` 分享页(路线缩略图 + 完走站数);作品页模板(cover + 点位数 + 帧对比拼版)因 `/anime/:id` 要到迭代 5 才建,渲染管线在此预留可扩展的模板注册机制,由 `iter-5.md`(S5.1)接入具体作品页模板(不重建管线)。
 
-**设计依据**:`user-journey.md` §6.6"OG 竖图技术与设计"(satori+resvg PNG、封面帧渐变、打卡清单、完成率)。
+**设计依据**:`docs/superpowers/specs/2026-07-06-seo-geo-plan.md` §4"sitemap 体系 + 新番 SLA + 动态 OG";迭代 0 的静态 OG(S0.8)是兜底,本 story 不替换兜底逻辑只叠加动态层。
 
 **核心 AC**:
-- 快乐路径:请求某完走路线的 OG 图端点返回与しおり视觉构图一致的有效 PNG -> integration
+- 快乐路径:请求某完走路线的 OG 图端点返回 1200×630 的有效 PNG,内容为路线缩略图 + 完走站数,文案按请求的页面语言渲染 -> integration
+- 快乐路径:生成的 OG 图片产物缓存进 R2,同一分享 token 的重复请求命中缓存而非重新渲染 -> integration
 - 空:无代表场景帧的路线回退到通用品牌渐变底,不是破图 -> unit
-- 错误:satori/resvg 渲染失败时返回 S0.8 的默认 OG 卡兜底,不是 500 -> integration
+- 错误:OG 渲染失败(渲染器抛错)时返回 S0.8 的默认静态 OG 卡兜底,不是 500 -> integration
+- 扩展性(为 iter-5 接线预留):渲染管线按"模板注册"方式组织(分享页模板为本迭代唯一实现),新增作品页模板时不需改动核心渲染/缓存逻辑 -> unit
+- **対比図入 image sitemap**(回填自 SD-27 seo-geo-plan.md §4/§7):经 S4.7 上传并确认的対比図成品图片,由构建/部署时脚本从 Neon `comparison_uploads` 表自动生成 `sitemap-images.xml` 条目(R2 公开 URL + 关联页面 URL),不是手工维护 -> integration
 
-**变更文件**:`apps/web/src/routes/s/$shareToken/og-image.tsx`(边缘渲染路由)、`apps/web/src/lib/og/renderShioriImage.ts`。
+**变更文件**:`apps/web/src/routes/s/$shareToken/og-image.tsx`(边缘渲染路由,模板化)、`apps/web/src/lib/og/renderOgImage.ts`(通用渲染 + R2 缓存)、`apps/web/src/lib/og/templates/shareRoute.ts`、`scripts/generate-image-sitemap.ts`(新增)。
 
-**依赖**:S4.3。
+**依赖**:S4.3、S4.7(image sitemap 数据源)。
 
 ---
 
@@ -136,3 +141,44 @@
 **变更文件**:`worker/r2Presign.ts`(新增)、`worker/app.ts`(接入路由)、`workers/users/src/db/schema.ts`(新增 `comparison_uploads`)、`workers/users/src/api/uploads.ts`(新增)。
 
 **依赖**:S2.8、S0.4(R2 bucket 已建)。
+
+---
+
+### S4.8 图搜阶段 2:作品内机位精匹配(embedding 粗筛 + LLM vision 精排,回填自 SD-26)
+
+**Scope**:图片搜索两阶段架构(SD-26)的阶段 2——阶段 1(LLM vision 零索引粗认作品)已在迭代 1 交付并独立 releasable;本 story 交付候选已压缩到"单一系列"范围内的机位级精匹配管线。**架构确认(SD-26 定案,数据实测修正后)**:Anitabi 数据 [实测:君の名は。68 点抽查] 仅有动画截图字段,**无现实参考照字段**(origin/originLink 只是截图出处署名)——意味着 anime2real(动画帧↔现实照片)是唯一现存的跨域匹配路径,real2real 同域快路初期不存在。因此:
+- **embedding 粗筛 = 标配但只是初筛**:系列并集(按 series-aware resolve 归属同一系列的全部作品)→ top 20-30 候选。起手模型 **Gemini Embedding 2**,裁 1536 维 + `halfvec` 存储(Neon pgvector);系统自有 key,**不占用 BYOK 配额**(与用户 BYOK key 无关,这是系统内部检索基建)。
+- **LLM vision 精排 = 主力**(不是粗筛的从属环节):对 embedding 粗筛后的候选做 anime2real 推理式比对(而非向量距离),因为只有推理式比对吃得住动画→现实的 domain gap;分批处理,**10-20 张/批**;三个 BYOK provider 族(OpenAI 兼容/Anthropic/Gemini)均需支持 vision 输入。
+- **不建 ANN 索引(明确的非目标,非遗漏)**:当前实测规模——单作品 10~600 点,系列合并 1000+([实测]青ブタ全系列 1031、Summer Pockets 374)——在此规模下 `bangumi_id`/系列过滤后的 pgvector 暴力扫描(brute-force scan)保持毫秒级,远低于 HNSW 等 ANN 索引的收益拐点(5-10 万行量级);`halfvec` + 裁维进一步后移这个拐点。全库跨系列搜索(ANN 索引可能才有必要的场景)是 DD-11/DD-12 冻结项,不进本迭代。
+- **离线 AB 评测矩阵(硬 AC,以实测定终选,不是拍脑袋选模型)**:{Gemini Embedding 2, Qwen3-VL-Embedding(若有托管 API 可用), Voyage 3.5} × {emb-only, LLM-only, 混合} 六(或视 Qwen3-VL 可用性为四)组合的离线评测,产出准确率/延迟/成本对照报告,最终配置写入代码配置(不是继续讨论)。
+
+**设计依据**:无视觉画布(纯后端检索管线);inputs 第十一节 SD-26 行(图片搜索两阶段完整定案文本)。
+
+**核心 AC**:
+- 快乐路径:给定一张查询图片 + 已知系列范围,embedding 粗筛在该系列全部点位(含系列内其他作品的点位并集)中返回 top 20-30 候选,响应时间在可接受范围内(具体阈值由执行者按实测数据定,记入 AC 断言而非猜测)-> integration
+- 快乐路径:embedding 粗筛候选经 LLM vision 精排(分批 10-20 张)后返回排序后的最佳匹配点位 + 置信度 -> integration
+- 空:候选系列 embedding 尚未建库(冷启动/新作品)时,精排管线优雅降级为对该系列全部点位做直接 vision 批量扫描,而不是报错或返回空结果 -> unit
+- 性能门槛(不建 ANN 索引的验证性断言):系列合并规模(≤1200 点位量级)下 pgvector 暴力扫描查询延迟锁定在性能回归测试的阈值内;超过阈值时记录告警并触发 DD-12(ANN 索引)复评,而不是静默劣化 -> integration
+- **离线 AB 评测矩阵(硬 AC)**:执行 {Gemini, Qwen3-VL(若可用), Voyage 3.5} × {emb-only, LLM-only, 混合} 的离线评测,产出量化报告(准确率/延迟/成本),并将报告结论落地为实际使用的模型/策略配置(非文档层面的建议)-> eval
+
+**变更文件**:`apps/agent/agent/infrastructure/vision_search/embeddingIndex.py`(新增,粗筛)、`apps/agent/agent/infrastructure/vision_search/visionRerank.py`(新增,精排)、`apps/agent/agent/tests/eval/vision_search_ab.py`(新增,离线 AB 评测)、Neon `spot_embeddings` 表迁移(`halfvec(1536)` 列,经 SD-1 工具链)。
+
+**依赖**:S4.7(共享的图片数据管线)、迭代 1 的 series-aware resolve(系列归属)。
+
+---
+
+### S4.9 反向发现层 2 完整化 + 飞轮 3 打卡照解锁 real2real 快路(回填自 SD-26)
+
+**Scope**:反向发现三层(SD-26 定案)——现场看到眼熟场景但不知道是哪部作品时的识别路径:层 1(LLM 世界知识直认,迭代 1 已免费获得)→ **层 2(GPS 附近搜粗筛 + vision 精排,本 story 完整化)** → 层 3(全库向量搜,DD-11 冻结未来项)。层 2 的粗筛键在迭代 1 已可用(`search_nearby` 现成工具,改用 `ST_DWithin` 地理查询),本迭代补齐层 2 的**精排**半段(复用 S4.8 的 vision 精排管线),使层 2 成为完整可用的识别路径而非只有粗筛。**飞轮 3 战略资产确认(SD-26 实测修正)**:Anitabi 无现实参考照字段(见 S4.8 背景),意味着**打卡照片是唯一的现实参考照片来源**;本 story 交付"逐点位解锁"机制——某点位累积的打卡照片数量达到阈值后,该点位获得 real2real(现实↔现实)快路(比 anime2real 跨域推理更快更准),否则继续走 S4.8 的 anime2real 路径。
+
+**设计依据**:无视觉画布;inputs 第十一节 SD-26 行"反向发现三层"+ 飞轮运行手册(第十一节)"飞轮3 UGC→catalog"关于打卡照片的战略定位。
+
+**核心 AC**:
+- 快乐路径:查询图片无法被层 1(LLM 世界知识)直接认出作品,但请求携带 GPS 坐标时,层 2 按 `ST_DWithin` 粗筛该坐标附近的候选点位,再交给 S4.8 的 vision 精排管线确认最终匹配 -> integration
+- 空:无 GPS 权限/无坐标数据时,优雅降级为纯层 1 结果(不假装有层 2 候选,不阻断流程)-> unit
+- **real2real 快路解锁**:某点位累积的打卡照片数达到预设阈值后,后续对该点位的识别请求标记为可走 real2real 快路(不同于默认的 anime2real 跨域路径);阈值未达到的点位继续走 S4.8 默认路径 -> integration
+- 埋点完整性(呼应迭代 1 全信号埋点清单,SD-26 五件套在层 2 完整版下的实际记录):`query_type`/`gps_available`/`layer_hit`(应可标记为 2)/`candidates_shown`/`user_confirmed` 五字段在层 2 命中时被正确记录,供 DD-11(层 3 触发判断)未来复检使用 -> unit
+
+**变更文件**:`apps/agent/agent/agents/tools/search_nearby.py`(粗筛键改用 `ST_DWithin`)、`apps/agent/agent/infrastructure/vision_search/real2realUnlock.py`(新增,解锁判定)、`apps/agent/agent/infrastructure/telemetry/visionSearchEvents.py`(五件套埋点扩展)。
+
+**依赖**:S4.8;迭代 1 的 `search_nearby` 工具与图搜埋点五件套(已定义,本 story 补齐层 2 记录路径)。
