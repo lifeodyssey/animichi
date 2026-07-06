@@ -1,0 +1,3 @@
+/* Seichijunrei DS — consumer entry point.
+   Link this single file to get tokens, fonts (@fontsource via CDN) and components. */
+@import url("assets/index.css");
