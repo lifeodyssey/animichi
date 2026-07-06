@@ -287,3 +287,4 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 **飞轮5 记忆个性化(休眠,数据够唤醒)**:触发=飞轮2分析证明跨会话偏好高频复现(数据决定,不拍脑袋)。动作=稳定偏好写profile表→回流注入→agent记得你(主线B跃升)。批准=GEM语义(新增/修正/作废)+用户可见可编辑可删。度量=回流首版满意度、主线B转化。迭代1:无(休眠)。
 
 **共同轴**:全信号埋点(迭代1)。**依赖链**:1立即转→2攒数据→5等2证明偏好复现;3等审核管线;4靠迭代5 SEO。self-evolve=系统攒够证据让用户做有依据的进化决策,非无人闭环。
+| Step8 subagent + mcp-client(SD-24 部分定案) | **定案(逐条过堂)**:① 运行时 subagent 维持现状=仅翻译子 agent(边界干净纯函数);注入隔离子 agent 推迟迭代7评估;**不拆规划/澄清/搜索**(那是意图编排本身,拆出=多一个出错的 LLM 判断点,伤 IntentMatch 54%)。② mcp-client(我方当消费者调第三方 MCP)推迟按需接入,pydantic-ai 原生支持零预建;引入第三方 MCP server 须把工具描述当不可信审查(工具投毒,见 SD-19)。③ 运行时内部 skill 框架(动态装卸工具集)不引入=YAGNI,触发点=工具膨胀到 20+。理由:skill/subagent-fleet/mcp-client 是规模化架构,收益要多团队/多工具域/高并发才兑现,成本立即(各自独立 prompt+eval+失败模式);现阶段 solo+单agent+9工具+意图54%,正确投资是把一个 agent 调好。**待定**:对外 skill/MCP-server 发布形态(用户澄清=「把服务作为 skill 给别人用」,四形态 MCP-server/A2A/Claude-Skill/SDK 区别待调研代理返回)| 部分定案 |
