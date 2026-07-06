@@ -255,3 +255,9 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 - **Guardrails 补条**:用户消息长度/类型上限(输入侧,迭代 1)
 - **Generative UI 宪法(spec 明文)**:LLM 仅能从 registry 选组件+填结构化数据,永不生成 UI 代码;payload 内 URL 仅允许 catalog/白名单来源渲染
 - **P10(契约演进,packages/contract + registry 规范)**:payload 带 schema_version;契约 additive-only 演进;registry 组件按版本降级渲染(承接设计 E1「旧卡降级不改写历史」);Storybook 为每组件建 partial 态 + 旧版 payload 态 story——与 SD-9 partial-tolerant 共用测试基建 -> unit/browser
+
+## 十、SD 补章 III:step-by-step 运行时讨论定案(滚动)
+
+| 步 | 结论 | 状态 |
+|---|---|---|
+| Step1 Generative UI(SD-13) | **哲学 A(语义 payload + 应用自有 registry)定案**,业界 2026-07 调研背书(MCP Apps 成首个 MCP 官方扩展/AI SDK7/A2UI 被收编)。三规则:① append-only 卡片流(E1 落架构);② additive-only 版本化,治理抄 MCP 弃用策略(Active/Deprecated/Removed,≥12 个月);③ partial-tolerant 组件(可缺字段+skeleton slot,Storybook 建半态+旧版态 story)。presentation_hint = 服务端建议值 + 前端终裁 + 未知值优雅降级。**迭代 7 新增 MCP Apps 最小子集**(TimedItinerary 等打包 ui:// 只读卡片,@mcp-ui/server,跨宿主分发;不为 ChatGPT 特有字段过度设计)。web app 自身 registry 保持编译期写死 | **定案(用户确认"用业界最佳实践")** |
