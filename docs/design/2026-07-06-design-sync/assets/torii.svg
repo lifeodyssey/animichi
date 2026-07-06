@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" width="72" height="72" fill="none" role="img" aria-label="Torii gate brand mark">
+  <rect x="12" y="16" width="48" height="5" rx="2.5" fill="#c44a2e"></rect>
+  <rect x="8" y="14" width="56" height="3" rx="1.5" fill="#c44a2e"></rect>
+  <rect x="16" y="21" width="5" height="35" rx="1" fill="#c44a2e"></rect>
+  <rect x="51" y="21" width="5" height="35" rx="1" fill="#c44a2e"></rect>
+  <rect x="12" y="30" width="48" height="3" rx="1.5" fill="#c44a2e" opacity=".5"></rect>
+</svg>
