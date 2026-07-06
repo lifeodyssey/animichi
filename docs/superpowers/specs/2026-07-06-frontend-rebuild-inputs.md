@@ -207,3 +207,5 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 | X7 | **SW 与 SSR 路由绕行规则**:service worker 对 /s/:id、/anime/:id 走 network-first,不得缓存旧 SSR HTML | 迭代 3 SW story + 迭代 4 SSR story 各一条 AC -> browser |
 | X8 | **eval 分层常开**:5 条 smoke eval 进 PR 门禁(agent/ 路径触发),全量 617 条 nightly/手动;取代现在的 `if: false` 全关 | 迭代 0 CI story;迭代 7 依赖它 |
 | X9 | **D7 Pyodide 改判 REJECTED(非 deferred)**:容器 FastAPI + 保温为定案,三代自我推翻的文档在回写 story 中统一收敛并标注 | Decision Log + 迭代 0 文档回写 story |
+| X10 | **平台能力适配层(多端纪律)**:`apps/web/src/platform/` 薄接口(camera/geo/haptics/wake-lock…),组件禁止裸调 `navigator.*`;web 实现打底,Capacitor 实现后插。凡涉及相机(対比図)、定位/震动(Walk)、剪贴板/分享(しおり)的 story,AC 要求经由适配层 -> unit | spec 全局约定一节 + 迭代 1-4 相关 story AC |
+| X11 | **SDK 战略(契约即产品)**:① 自家 web app 一律经 /v1 公开 API 消费能力,禁止私有后门;② oRPC 契约自动出 OpenAPI;③ `@seichijunrei/sdk`(npm)= contract client 薄壳再导出;④ 现有 `backend/clients/python/seichijunrei_client.py` 转正为 Python SDK(手写薄客户端,不上 codegen);⑤ 迭代 7 的 MCP server/A2A 必须是 /v1 的薄适配器,零业务逻辑。①与②是全程纪律,③④⑤落迭代 7 story | G4 补充纪律 + 迭代 7 story 扩充 |
