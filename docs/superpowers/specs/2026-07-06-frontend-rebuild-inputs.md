@@ -222,7 +222,7 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 | SD-1 迁移链 | **双链 + atlas-provider-drizzle**:Neon 侧 Drizzle TS schema(workers/catalog/src/db/schema.ts)为唯一真相 → atlas-provider-drizzle 作期望态 → atlas migrate diff/lint/apply(versioned,db/migrations);Supabase 侧 supabase CLI 不变;边界与 CI 步骤写入 docs/ops/migrations.md(迭代 0 文档回写 story) | 定案 |
 | SD-2 用户域访问 | **API-first 全走 /v1**:用户域 CRUD = workers 上新建 users 模块的 oRPC 路由(/v1/users/*),契约进 packages/contract;apps/web 的 supabase-js 仅用于 auth;RLS 不作为访问路径;迭代 7 SDK/MCP 零改造复用同一契约 | 定案 |
 | SD-3 数据面 | **Supabase 收缩为纯 auth,数据归 Neon**(激活 06-23 D8 设计并升级为终局):① selected_route 的 get_points_by_ids 改走 CatalogClient/Neon,消除同会话跨库混读(迭代 1 enabler,修 bug 性质);② 新建用户域表(路线/打卡/しおり/分享 token)一律生在 Neon,经 SD-1 工具链建表,JWT sub 衔接 auth;③ Supabase 中 catalog 域表(points/bangumi/aliases 等)冻结写入标废,稳定一迭代后删;④ 既有会话/消息/routes 数据迁 Neon 作为迭代 2-3 的独立 story(prod 数据量近零,一次性脚本);⑤ 远期 Neon Auth 成熟后 auth 亦迁、彻底退役 Supabase(future wave,不进本列车) | 定案 |
-| SD-4 agent 运行时 | 等 TS agent SDK 调研代理返回后与用户裁决(X9 悬置) | 等调研 |
+| SD-4 agent 运行时 | **Python FastAPI 容器定案,不再议**(2026-07-06,基于 TS agent SDK 对标调研的知情决定:Vercel AI SDK 50/60 可行但需自养 ~100 行重试基建,pydantic-ai 的 ModelRetry+output_validator 护城河保留)。推论:① X2 容器保温 + 首 token SLO 升级为硬性要求;② 迭代 7 MCP/A2A = Workers 侧薄适配器跨运行时调容器 /v1;③ X9 终稿 = D7 Pyodide REJECTED + TS 重写 REJECTED,容器+保温为终局 | 定案 |
 | SD-5 会话状态 | 迭代 1 前端沿用现状端点(Supabase sessions.state JSONB + conversation_messages,best-effort 写);随 SD-3④ 迁 Neon;「best-effort 持久化、无事务保证」记入风险登记 | 定案(默认) |
 | SD-6 edge worker | X14 核证修正:已是 TS + 15 用例,唯一缺口是测试未接 CI → 迭代 0 CI story 接入;Turnstile/配额在其上追加 | 定案 |
 
