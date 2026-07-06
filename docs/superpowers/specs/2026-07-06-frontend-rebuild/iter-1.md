@@ -125,7 +125,7 @@ Suggested dependency order: S1.1 → S1.2 → {S1.3, S1.4 (depends on S0.4), S1.
 
 ### S1.4 Search content shapes + static map (C3a/C3b)
 
-**User story**: As a user searching for a title's pilgrimage sites, I want a single-cluster result to show top-6 spot cards + a map, and a multi-cluster result to show a nationwide bubble overview, so I'm never overwhelmed by hundreds or thousands of pins.
+**User story**: As a user searching for a title's pilgrimage spots, I want a single-cluster result to show top-6 spot cards + a map, and a multi-cluster result to show a nationwide bubble overview, so I'm never overwhelmed by hundreds or thousands of pins.
 
 **Design basis**: `spec-chat-page-states.md` §C3a/C3b; `spec-chat-page-design.md` §4/§4.1 (volume measurements; the map should be read as MapLibre per X1); `user-journey.md` §4 "the cluster-overview card".
 
@@ -134,7 +134,7 @@ Suggested dependency order: S1.1 → S1.2 → {S1.3, S1.4 (depends on S0.4), S1.
 **AC**:
 - C3a renders the top-6 spot cards sorted by popularity/photo availability (screenshot cover + episode tag + checkbox) + a static map with ≤50 pins -> browser
 - C3b (≥2 clusters or a >50km envelope) renders only bubbles (area ∝ count, white numeric badge); this zoom level never draws individual pins -> browser
-- Empty: 0 spots within view for the search result renders the D2 "0 pilgrimage sites" state (see S1.6), not a silently empty map -> browser
+- Empty: 0 spots within view for the search result renders the D2 "0 pilgrimage spots" state (see S1.6), not a silently empty map -> browser
 - Error: a MapLibre static-tile load failure degrades to a hand-drawn SVG placeholder (D7 state) + a 「地図アプリで開く」 external link -> browser
 - i18n: cluster names and count badges render place names correctly under ja/zh/en -> unit
 
@@ -171,7 +171,7 @@ Suggested dependency order: S1.1 → S1.2 → {S1.3, S1.4 (depends on S0.4), S1.
 
 ### S1.6 Full fallback coverage for exceptions and edge cases (D1-D9) + agent-guardrail tech-debt cleanup + the error-boundary hook (backfilled from SD-18) + the four prompt patches (backfilled from SD-17)
 
-**User story**: As a user who hits any failure mode (recognition failure / 0 pilgrimage sites / stream interruption / timeout / validation rejection / map failure / session expiry / missing scene image), I want an in-character fallback rather than a bare error, so the product never feels "broken"; as an operator, I want tool/agent exceptions uniformly mapped onto these nine cards instead of each erroring out on its own, and I want the agent's own prompt to already be patched against known failure modes.
+**User story**: As a user who hits any failure mode (recognition failure / 0 pilgrimage spots / stream interruption / timeout / validation rejection / map failure / session expiry / missing scene image), I want an in-character fallback rather than a bare error, so the product never feels "broken"; as an operator, I want tool/agent exceptions uniformly mapped onto these nine cards instead of each erroring out on its own, and I want the agent's own prompt to already be patched against known failure modes.
 
 **Design basis**: `spec-chat-page-states.md` §D (the full D1-D9 table); `user-journey.md` §6.8 (copy baseline); main spec inputs §10 Step6 (SD-18) / Step4's final prompt closeout (SD-17).
 
@@ -187,7 +187,7 @@ Suggested dependency order: S1.1 → S1.2 → {S1.3, S1.4 (depends on S0.4), S1.
 - **Length-governance discipline (backfilled from SD-17)**: the prompt's static section (excluding dynamic injections) has a hard ceiling of ≤2K tokens, reviewed every iteration — anything over budget must be cut before anything new is added; cache-ordering discipline places the static section first (so DeepSeek's prefix cache hits) with dynamic injections (JST/fact ledger/session) always placed last; trade-offs are decided solely by eval scores, never by raw token counts.
 
 **AC**:
-- Happy path (i.e., "the fallback itself renders correctly"): simulating each trigger condition renders the prescribed fallback element for D1-D9 respectively (recognition-failure apology + chips, "0 pilgrimage sites" copy + nearby recommendations, a <3-spot route + chips, an inline retry for a mid-stream interruption that preserves already-rendered content, a same-shape retry after a 60s timeout, a generic apology for a validation rejection, an SVG fallback for a map failure, an inline banner that preserves the conversation for session expiry, a gradient placeholder for a 404'd scene image) -> browser
+- Happy path (i.e., "the fallback itself renders correctly"): simulating each trigger condition renders the prescribed fallback element for D1-D9 respectively (recognition-failure apology + chips, "0 pilgrimage spots" copy + nearby recommendations, a <3-spot route + chips, an inline retry for a mid-stream interruption that preserves already-rendered content, a same-shape retry after a 60s timeout, a generic apology for a validation rejection, an SVG fallback for a map failure, an inline banner that preserves the conversation for session expiry, a gradient placeholder for a 404'd scene image) -> browser
 - Empty: D4 (stream interruption) occurring before the first chunk arrives (no content rendered yet) still shows a retry entry point, not a stuck spinner -> browser
 - Error: D6's validation-rejection copy never leaks the underlying `ModelRetry`/`output_validator` technical details (a test asserts the copy doesn't contain these strings) -> unit
 - Multi-turn: D4/D8 (stream interruption / session expiry) both preserve the prior conversation content after recovery, with no message loss -> integration

@@ -23,8 +23,8 @@ Suggested dependency order: S7.1 (eval gate unfreeze, starts independently) → 
 **Design basis**: No visual mockup; X8 (the tiered gate established in S0.1 — this story is a consumer of it).
 
 **Core ACs**:
-- Happy path: before any agent-behavior-surface change in this iteration, capture and record one full 617-case baseline eval run -> eval
-- Happy path: the comparison eval after S7.4/S7.8 ship (even though they're thin adapters / pure type-narrowing) shows `score >= baseline - 10pp` -> eval
+- Happy path: before any agent-behavior-surface change in this iteration, capture and record one full L1 baseline eval run (the official suite, 617→~750 cases per SD-30) -> eval
+- Happy path: the comparison eval after S7.4/S7.8 ship (even though they're thin adapters / pure type-narrowing) shows no significant regression under SD-30's statistical gate (per-tier bootstrap 95% CI + paired comparison; flat point-thresholds retired per SD-30③) -> eval
 - Empty: if this iteration ends up making zero agent-behavior changes (purely Workers-side adapters, zero business logic), the comparison eval passes trivially (nothing to report as a regression) -> eval
 
 **Changed files**: No new business code; mainly CI process execution and eval-report archiving; add a baseline-capture step under `.github/workflows/` if one doesn't already exist.
@@ -134,7 +134,7 @@ This iteration allocates no story/AC/changed files to A2A, and it doesn't count 
 
 **Relationship (backfilled from SD-25①, pending Coordinator confirmation)**: the SDK source file this story promotes and the `scripts/seichijunrei_client.py` inside S7.2's Claude Skill bundle are two distribution faces of the same hand-written client. If the two need to evolve independently down the line (e.g. the skill bundle needs a leaner, trimmed-down version), whether to split their maintenance needs confirming when both stories are scheduled — this file doesn't presume to decide that unilaterally, and records it in the conflicts list.
 
-**Dependencies**: None (can proceed independently); recommended to keep naming consistent with the task-shaped endpoints in S7.3/S7.4.
+**Dependencies**: None (can proceed independently); recommended to keep naming consistent with the task-shaped endpoints in S7.4/S7.5 (S7.3 is the frozen A2A placeholder and has no endpoints of its own).
 
 ---
 
