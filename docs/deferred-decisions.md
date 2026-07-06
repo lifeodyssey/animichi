@@ -36,6 +36,7 @@
 | DD-20 | kitsunavi.com 品牌升级 | SD-0 备选 | 品牌决策(用户主观) | 需求 | 问维护者 | 冻结 |
 | DD-21 | 时刻表级换乘(自托管 OTP+GTFS 或 Jorudan 开放API) | SD-28 层3 | 交通段 👎 计数显著 或 deeplink_clicked CTR 异常高(用户要精确时刻的信号) | 内部 | 埋点 transit_leg_shown / deeplink_clicked(迭代2 随层2 埋)+ 👎微件按卡类型切分 | 冻结 |
 | DD-22 | 文本向量检索(UGC RAG / 别名语义召回) | SD-29 | 双触发:① UGC 文本语料 ≥5k 条 → 评估 UGC 混合检索(BGE-M3 类多语言候选);② resolve 失败案例经 eval 判定为"语义模糊型"而非"数据缺失型" → 别名向量辅助召回 | 内部 | UGC 条数计数;eval 八族 resolve 失败案例分类标注 | 冻结 |
+| DD-23 | pydantic-evals 迁移(替代手搓 pytest+JSON eval 框架) | SD-30⑨ | 轨迹断言 + bootstrap 统计门控的自建代码规模/维护成本超过阈值(自建 eval 基建 >500 行或维护痛点 ≥2 次/迭代);pydantic-evals 保持 Production/Stable ≥2 个季度 | 内部+外部 | 自建 eval 基建行数 grep;WebSearch "pydantic-evals changelog stability" | 冻结 |
 
 ## 埋点缺口汇总(建迭代1 全信号埋点时一并补)
 
