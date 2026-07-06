@@ -70,7 +70,7 @@ OpenAPI 单一真源 + 四壳薄适配;顺序 Skill→MCP(FastMCP.from_openapi)�
 
 ### 图片搜索(任务 #7)→ 架构与排期**已定案 SD-26**(2026-07-06 晚用户确认,全文在 inputs 第十节)
 
-两阶段(LLM vision 认作品→迭代1;作品内精匹配机位→迭代4)+ Anitabi 配对图资产 + clarify 降级。
+两阶段(LLM vision 认作品→迭代1;作品内精匹配机位→迭代4)+ clarify 降级。**数据实测修正(2026-07-06)**:Anitabi 仅动画截图、无现实照字段(用户质疑属实,API 抽查君名 68/68 仅 image);飞轮3 打卡照 = 唯一现实参考照来源。
 **唯一剩余待定**:阶段 2 embedding 选型(候选:多模态 LLM embedding / CLIP·DINOv2 / 动漫专用 / LLM vision 直接排序免 embedding)——调研代理(sonnet,2026 跨域/动漫图搜实践)进行中,回来后拍板收 #7。
 
 ## 五、剩余排队(TaskList #5/#7/#8)
