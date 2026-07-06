@@ -88,7 +88,7 @@ OpenAPI 单一真源 + 四壳薄适配;顺序 Skill→MCP(FastMCP.from_openapi)�
 
 ## 六、恢复时的下一步
 
-全部功能域讨论收口(SD-0~29 + DD-1~22,2026-07-06 深夜)。回填 A/B/C/D 四代理已完成(commit c71ac1c/a1e4dd2/7632359/f26a93f)。当前:① 补丁代理落地 C1/C2/C6 裁决 + SD-26补章/28/29 回填 iter 文件;② 补丁完成 → 双评审(Fable5 reviewer + Codex codex-rescue,注意 codex 增量写文件防崩);③ 评审意见回修 → 交付总汇报(建议下一步 /iteration-execution)。
+全部功能域讨论收口(SD-0~30 + DD-1~24,2026-07-06 深夜)。回填四代理完成后,统一补丁四代理(C1/C2/C6 + SD-26补章D1-D6/28/29/30 回填 + **9 spec 全文英文化**)进行中。补丁完成 → **双评审**(Fable5 reviewer + Codex codex-rescue 增量写文件防崩),评审新增产出:**详细度热力图**(67 story × full/adequate/thin)+ iter-0/1 thin story 立即补清单(2026-07-06 用户批准);iter-3/4 四薄点(Walk GPS/打卡防伪/対比図对齐/离线打包)= DD-24 留迭代3 开工前。评审意见回修 → 交付总汇报(建议下一步 /iteration-execution)。
 
 ## 七、后台代理(均已完成,勿重复派)
 
