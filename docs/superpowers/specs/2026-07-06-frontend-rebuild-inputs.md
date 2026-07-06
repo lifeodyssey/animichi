@@ -236,3 +236,12 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 | SD-8 会话记忆 | per-session 记忆 + 会话列表(现有 conversations 端点);`user_memory` 表保持休眠记入 Decision Log;続きから(迭代5)只依赖 sessions/routes 列表 | 定案(默认) |
 | SD-9 流式协议 | **三事件 SSE 渐进流**(体验优先,用户委托裁量):`step`(工具进度,驱动管线徽章)+ `output.delta`(partial 校验的类型化输出,generative 组件渐进填充)+ `done`(完整校验 payload 兜底)。三纪律:① 事件 schema 进 packages/contract;② **registry 组件自第一天按 partial-tolerant 设计**(声明可缺字段+skeleton slot);③ 协议可降级(后端只发 step+done 前端零改)。spike 点:判别式联合的 intent 字段序须先到。实现基座 = pydantic-ai run_stream partial validation,扩展现有自建 queue | 定案 |
 | SD-11 BYOK 范围 | **pydantic-ai 原生多 provider**(用户指正:非 TS 世界的每家一套 SDK):首发三族 = OpenAI 兼容(base_url+key 兜底)/ Anthropic / Gemini,per-request model override;X3 scrub 对全族生效;UI = provider 选择 + key(+可选 base_url),归 chat 输入区 G 组 | 定案 |
+
+## 八、agent 架构全维度终稿(SD 补章,2026-07-06)
+
+- **SD-7 终定(用户确认)**:维持工具循环(native tool-calling,ReAct 血统)+ 类型化终局 + ModelRetry/output_validator 双守卫 + 确定性旁路;意图准确率走 eval-driven 提示词/few-shot/工具描述调优
+- **SD-12 终定**:对外(迭代 7 MCP/A2A)= 任务型能力:resolve_anime / search_points / plan_pilgrimage(anime, constraints),无状态幂等可缓存,Workers 薄适配器 → /v1 同一契约;不暴露 chat 直通
+- **P2(安全,新增)**:web_search 等外源内容进入上下文必须定界并标注不可信(prompt injection 正门);迭代 1 守卫 story 硬 AC -> integration
+- **P3(新增)**:工具执行边界薄中间件 = 计时 + token 成本累计,作为 X4 日预算熔断的数据源(容器累计 → edge 读数);迭代 1 enabler
+- **P6(新增,进协议契约)**:SSE 断线语义 = 事件带 turn_id+seq;不做流内续传(Last-Event-ID 弃用,一次 run 不可中途恢复);断线后 GET messages 拉终态,生成中断显示 D 系异常态卡片(设计稿已备)
+- 默认项:prompt 保持代码内管理;无内部 skill 框架;运行时无 subagent;MCP client 采用推迟到真实第三方能力需求出现(pydantic-ai 原生支持,随接随用);生产会话抽样评分记 backlog;伪工具怪癖(greet/qa=输出整形器)记录不动
