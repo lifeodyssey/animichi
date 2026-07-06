@@ -55,7 +55,7 @@
 
 ---
 
-### S0.3 部署链修复 + edge worker CI 接线(SD-6)
+### S0.3 部署链修复 + edge worker CI 接线(回填自 SD-6/X14)
 
 **用户故事**:作为 Coordinator,我要部署管线构建并发布 `apps/web`(而不是已删除的 Next.js frontend),以便重建后 tag 部署继续可用;同时我要 root `worker/` 既有的测试套件真正跑在 CI 里,而不是本地能跑但从未被把关。
 
@@ -157,28 +157,39 @@
 
 ---
 
-### S0.8 SEO/GEO 地基 + 域名定案(`animichi.com`,SD-0)+ Lighthouse CI
+### S0.8 SEO/GEO 地基 + 域名定案(`animichi.com`,SD-0)+ Lighthouse CI(回填自 SD-27 + `2026-07-06-seo-geo-plan.md` §3/5/6/7)
 
-**用户故事**:作为站点所有者,我要重建后的站点自带基础 SEO/GEO 设施(robots/sitemap/hreflang/OG/llms.txt)与性能预算门禁,并且这些设施要直接指向真正的生产域名,以便搜索引擎与 AI 爬虫可见性、以及性能都不因重建而倒退,也不用等域名"以后再定"就得留一堆占位符。
+**用户故事**:作为站点所有者,我要重建后的站点自带基础 SEO/GEO 设施(robots/sitemap/hreflang/OG/llms.txt/爬虫可达性)与性能预算门禁,并且这些设施要直接指向真正的生产域名(含认证回调域名),以便搜索引擎与 AI 爬虫可见性、以及性能都不因重建而倒退,也不用等域名"以后再定"就得留一堆占位符。
 
-**设计依据**:无视觉画布;移植 `apps/agent/agent/tests/unit/test_seo_static_files.py` 的测试基建模式。
+**设计依据**:无视觉画布;移植 `apps/agent/agent/tests/unit/test_seo_static_files.py` 的测试基建模式;`docs/superpowers/specs/2026-07-06-seo-geo-plan.md` §3(域名迁移清单)/§5(L3 增长分析)/§6(robots/llms.txt)/§7(迭代映射)。
 
-**Releasable 陈述**:apps/web 交付 robots.txt(含 Allow + Sitemap 指令,指向 `https://animichi.com/sitemap.xml`)、sitemap.xml 骨架(含根 URL)、三语 hreflang+canonical(域名均为 `animichi.com`)、默认 OG 卡(1200x630)+ Twitter summary_large_image、llms.txt v1;Lighthouse CI 在 LCP>2.5s 或 CLS>0.1 时使构建失败;`aninavi.app` 视执行时判断做 301 重定向到 `animichi.com`(非阻塞项)。
+**Releasable 陈述**:apps/web 交付 robots.txt(训练爬虫 `GPTBot`/`ClaudeBot`/`Google-Extended` 挡下,搜索/引用/Agent 类爬虫 `OAI-SearchBot`/`Claude-SearchBot`/`Claude-User`/`ChatGPT-User`/`PerplexityBot` 放行,`Sitemap` 指令指向 `https://animichi.com/sitemap.xml`)、sitemap.xml 骨架(含根 URL,预留 IndexNow key 文件)、三语 hreflang+canonical(域名均为 `animichi.com`)、默认 OG 卡(1200x630)+ Twitter summary_large_image、llms.txt v1(**静态一页,不建 llms-full 管线**——回填自 SD-27C 负清单,原稿若曾设想 llms-full 管线在此明确作废);Lighthouse CI 在 LCP>2.5s 或 CLS>0.1 时使构建失败;GSC + Bing Webmaster 双产权验证 + Cloudflare Web Analytics 接入(L3 增长分析基线,不上 GA4);`aninavi.app` 视执行时判断做 301 重定向到 `animichi.com`(非阻塞项)。
+
+**域名迁移清单(回填自 seo-geo-plan §3,全项进本 story,不得遗漏认证回调域名)**:
+1. `animichi.com` 入 Cloudflare、TLS/DNS 就绪
+2. 旧域(seichijunrei.app)全路径 301 → 新域对应路径(Worker redirect 规则;无对应页兜底首页)
+3. GSC 双产权验证 → Change of Address 申报;Bing Webmaster 同步产权验证
+4. canonical/OG/sitemap/robots 全部指向新域,域名走构建环境变量(`CANONICAL_DOMAIN`)
+5. **Supabase auth 回调 URL + magic-link 邮件模板域名更新为 `animichi.com`**(遗漏此项 = 登录事故,不是普通 SEO 缺口,seo-geo-plan §3 原文强调"漏一条=登录事故")
+6. 旧域续费保留 ≥2 年(301 权重传递期,非阻塞,记录为运维待办)
 
 **AC**:
-- robots.txt 含 `Allow: /` 与 `Sitemap: https://animichi.com/sitemap.xml`(**SD-0 终局域名,不是占位符**)-> unit
-- sitemap.xml 此刻尚无 anime/route URL(那些在 Iteration 5 加入),但仍是良构 XML 且至少含根 URL(`https://animichi.com/`)-> unit
+- robots.txt 对训练爬虫(`GPTBot`/`ClaudeBot`/`Google-Extended`)返回 `Disallow: /`,对搜索/引用/Agent 爬虫(`OAI-SearchBot`/`Claude-SearchBot`/`Claude-User`/`ChatGPT-User`/`PerplexityBot`)返回 `Allow: /`,并含 `Sitemap: https://animichi.com/sitemap.xml`(**SD-0 终局域名,不是占位符**)-> unit
+- sitemap.xml 此刻尚无 anime/route URL(那些在 Iteration 5 加入),但仍是良构 XML 且至少含根 URL(`https://animichi.com/`);IndexNow key 文件按约定路径可访问(为迭代 5 新番 SLA 推送预留)-> unit
 - OG 图缺失/损坏(404)会让 SEO 测试套件失败,而不是静默上线 -> unit
 - i18n:hreflang 标签覆盖 ja/zh/en/x-default,且各语言 title(50-60 显示宽度)/description(120-160)符合边界(沿用旧测试的 CJK 宽度计数逻辑)-> unit
-- **域名收尾(SD-0)**:配置项 `CANONICAL_DOMAIN` 的值直接写 `animichi.com`(变量名保留以便未来换域名,但不再是待定占位符);Supabase magic-link 重定向白名单同步更新为该域名 -> unit
+- **域名收尾(SD-0)**:配置项 `CANONICAL_DOMAIN` 的值直接写 `animichi.com`(变量名保留以便未来换域名,但不再是待定占位符);Supabase magic-link 重定向白名单与邮件模板同步更新为该域名 -> unit
+- **JSON-LD 收缩范围(回填自 SD-27/seo-geo-plan §1,取代原稿"FAQPage"设想)**:首页交付 `Organization`(name=Animichi,`sameAs` 社交档案锚点)+ `WebSite`;所有内容页交付 `BreadcrumbList`;**不实现 FAQPage schema**(已停显,SD-27C 负清单明确排除)-> unit
+- **爬虫可达性硬 AC(回填自 SD-27B/seo-geo-plan §6)**:CF AI Crawl Control 面板人工核查并留证(2026-09-15 起 CF 新站默认挡 Training+Agent 类爬虫,须确认放行名单未被面板覆盖);对上述每个允许爬虫 UA 做 `curl -A "<UA>" https://animichi.com/` 实测,断言无隐形 403 -> integration
+- **L3 增长分析接入**:GSC 与 Bing Webmaster 完成产权验证并提交 sitemap;Cloudflare Web Analytics beacon 已挂载且能在仪表盘看到至少一次 pageview -> integration
 
-**变更文件**:`apps/web/public/robots.txt`、`apps/web/public/sitemap.xml`、`apps/web/public/llms.txt`、`apps/web/src/routes/__root.tsx`(head meta)、`apps/web/src/lib/structured-data.ts`(WebSite+Organization+FAQPage JSON-LD,移植)、`apps/web/tests/seo-static-files.test.ts`(移植自 `test_seo_static_files.py`,调整路径)、`.github/workflows/_web-ci.yml`(新增 Lighthouse CI 步骤)、Supabase Auth 重定向白名单配置(magic-link)。
+**变更文件**:`apps/web/public/robots.txt`、`apps/web/public/sitemap.xml`、`apps/web/public/llms.txt`、`apps/web/public/<indexnow-key>.txt`、`apps/web/src/routes/__root.tsx`(head meta + CF Web Analytics beacon)、`apps/web/src/lib/structured-data.ts`(Organization+WebSite+BreadcrumbList JSON-LD,移植并去掉 FAQPage)、`apps/web/tests/seo-static-files.test.ts`(移植自 `test_seo_static_files.py`,调整路径 + 新增爬虫 UA 可达性测试)、`.github/workflows/_web-ci.yml`(新增 Lighthouse CI 步骤)、Supabase Auth 重定向白名单 + 邮件模板配置(magic-link,含回调域名)、Worker 301 重定向规则(旧域→新域)。
 
 **依赖**:S0.2、S0.6(i18n)。**不再有域名依赖阻塞**(SD-0 已终局定案)。
 
 ---
 
-### S0.9 文档回写(矛盾清单 + X5 前瞻声明 + D7 双双 REJECTED 收敛 + migrations.md)
+### S0.9 文档回写(矛盾清单 + X5 前瞻声明 + D7 双双 REJECTED 收敛 + migrations.md,回填自 SD-1)
 
 **用户故事**:作为重建后加入项目的开发者,我要 CLAUDE.md/ARCHITECTURE.md/部署文档描述真实的 TanStack/apps-web 架构(而不是过时的 Next.js 引用),并且要有一份权威文档告诉我 Neon/Supabase 两条迁移链的边界在哪,以便不被误导、也不用去问人。
 
@@ -191,7 +202,7 @@
 - `docs/testing-strategy.md` 的覆盖率数字章节改为"apps/web 覆盖率地板见迭代 0 vitest.config.ts 实测值",不是过时的硬编码百分比 -> unit
 - D7 的三代自我推翻文档轨迹被收敛为一段明确标注"双双 REJECTED"(Pyodide + TS 重写)的说明(断言 "REJECTED" 字符串在 `ARCHITECTURE.md` 中同时出现在 "Pyodide" 与 "TS" 重写描述附近)-> unit
 - X5 的目标认证模型("edge 放行匿名+Turnstile+配额标记")作为前瞻声明写入 `docs/ARCHITECTURE.md` 认证章节(S1.8 落地后回填为既成状态,本 story 只声明方向)-> unit
-- **SD-1 新增**:`docs/ops/migrations.md` 存在且至少覆盖三部分内容——Neon 链路(`workers/catalog/src/db/schema.ts` → atlas-provider-drizzle → `atlas migrate diff/lint/apply`)、Supabase 链路(supabase CLI 不变)、CI 步骤对应关系 -> unit
+- **SD-1 新增(回填自 SD-1,双链 + atlas-provider-drizzle 定案;取代原 X13"弃 atlas"的已撤回主张)**:`docs/ops/migrations.md` 存在且至少覆盖三部分内容——Neon 链路(`workers/catalog/src/db/schema.ts` 为唯一真相 → atlas-provider-drizzle 生成期望态 → `atlas migrate diff/lint/apply` versioned 迁移)、Supabase 链路(supabase CLI 不变,不受本次迁移链影响)、CI 步骤对应关系 -> unit
 
 **变更文件**:`docs/ARCHITECTURE.md`、`docs/todo.md`、`docs/ops/deployment.md`、`AGENTS.md`/`CLAUDE.md`、`wrangler.toml`(注释)、`.github/workflows/*.yml`(注释)、`docs/testing-strategy.md`、`docs/ops/migrations.md`(新建)。
 
