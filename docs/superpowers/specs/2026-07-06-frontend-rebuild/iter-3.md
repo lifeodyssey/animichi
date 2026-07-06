@@ -2,7 +2,7 @@
 
 Detail level: **pre-kickoff refinement** (story list + 3-5 core ACs + enablers + design references; full-template detail is left for the Coordinator to fill in before scheduling this iteration). Story count: **10** (originally 8 product stories + S3.9 `conversation_messages` data migration, added per SD-3④, see main spec §③ + S3.10 OSRM walking-route polylines, added in this patch round, backfilled from SD-28 layer 1).
 
-Suggested dependency order: S3.7 (check-in table, can start independently) → S3.1 → S3.2 → {S3.3, S3.4} → S3.5 → S3.6 → S3.10 (extends S3.6's offline bundle with route polylines) → S3.8 (asset production can run in parallel throughout). S3.9 can run in parallel with the product stories.
+Suggested dependency order: S3.7 (check-in table, can start independently) → S3.1 → S3.2 → {S3.3, S3.4} → S3.6 → S3.5 (S3.5's offline variant depends on S3.6's cache; no cycle) → S3.10 (extends S3.6's offline bundle with route polylines) → S3.8 (asset production can run in parallel throughout). S3.9 can run in parallel with the product stories.
 
 **Data access path (confirmed, SD-2 / main spec §②)**: S3.7 is a user-domain data enabler via `workers/users` oRPC (`/v1/users/*`) + Neon; `apps/web`'s `supabase-js` is used only for auth — this is the final architecture, with no remaining "might get overturned" uncertainty.
 
@@ -53,10 +53,10 @@ Suggested dependency order: S3.7 (check-in table, can start independently) → S
 **Design basis**: `user-journey.md` §6.5 (the four-item mapping table); `Walk demo.html` (real check-in vibrate + undo); SD-21 (confirmed, supersedes main spec's original "proposal unconfirmed" tag).
 
 **Core ACs**:
-- Tapping "ここに来た!" triggers `platform.haptics.vibrate()`, advances progress, and shows an undoable toast (a several-second window) -> browser
+- Tapping "ここに来た!" triggers `platform.haptics.vibrate()`, advances progress, and shows an undoable toast (a **5000ms** undo window; initial value, executor may tune with evidence) -> browser
 - "Mapsで開く" opens the system map app via a coordinate deep link -> browser
 - When a stop has no other anime points nearby, the sheet shows empty-state copy instead of a broken empty list -> browser
-- Tapping undo within the undo window correctly reverts the check-in (progress -1, sync-queue entry removed) -> integration
+- Undo-window boundary (mocked clock): tapping undo just before the 5000ms window expires correctly reverts the check-in (progress -1, sync-queue entry removed); tapping just after expiry no longer reverts it (the check-in has committed) -> integration
 - Via the adapter layer (X10): check-in vibration and the geolocation used for "近く" always go through `platform.haptics`/`platform.geo`, never calling `navigator.*` directly -> unit
 - **Hard AC (confirmed, backfilled from SD-21/P9, must be in effect before Walk ships)**: precise GPS coordinates involved in check-in / the nearby sheet must never enter Logfire traces — observability-layer location data is truncated to roughly hundred-meter precision (3 decimal places) before being written to a trace; the **storage layer** (the check-in record itself, and the actual coordinates used for the "近く" computation) keeps full precision, unaffected; an integration test asserts that coordinate fields in Logfire-captured spans never exceed 3 decimal places of precision, while coordinates in database/API responses remain full precision -> integration
 
@@ -88,17 +88,17 @@ Suggested dependency order: S3.7 (check-in table, can start independently) → S
 
 ---
 
-### S3.5 Environment variants (強光/夜間/離線 — bright sunlight / night / offline)
+### S3.5 Environment variants (bright-sunlight / night / offline; canvas labels 強光/夜間/離線)
 
-**Scope**: Layer three environmental visual variants on top of S3.2's core shell — outdoor bright-sunlight (larger type / higher contrast / thick white borders), night, and offline.
+**Scope**: Layer three environmental visual variants on top of S3.2's core shell — bright-sunlight (larger type / higher contrast / thick white borders), night, and offline. (The state names are English; 強光/夜間/離線 are the Chinese source labels quoted from the design canvas, not UI copy.) **Until live environmental sensing is designed, these three variants are driven by explicit user/test toggles** — there is no automatic ambient-light/network detection wired in this story. Auto-trigger from live sensing is a future item, out of scope here.
 
 **Design basis**: `user-journey.md` §3.4's on-the-ground environmental constraints (J14); `Walk 状态总览.html`'s 3 environment states.
 
 **Core ACs**:
-- Switching to outdoor bright-sunlight mode bumps the walk-hero stop name's type size and contrast per spec -> browser
-- Night mode applies the specified color changes without violating the ≥4.5:1 contrast requirement -> browser
-- With no clear environmental signal, renders the standard daytime variant (the default state) -> browser
-- The offline environment state (no network) still renders the full shell from cached data (integrates with S3.6), not a network-error screen -> browser
+- Toggling the bright-sunlight mode (explicit user/test toggle) bumps the walk-hero stop name's type size and contrast per spec -> browser
+- Toggling night mode applies the specified color changes without violating the ≥4.5:1 contrast requirement -> browser
+- With no mode toggled on, renders the standard daytime variant (the default state) -> browser
+- Toggling the offline environment state still renders the full shell from cached data (integrates with S3.6), not a network-error screen -> browser
 
 **Changed files**: `apps/web/src/components/walk/EnvironmentVariants.tsx`, `apps/web/src/styles/walk-environment.css`.
 
@@ -117,7 +117,7 @@ Suggested dependency order: S3.7 (check-in table, can start independently) → S
 - Offline check-ins queue locally and flush via a real network call (to `workers/users`'s oRPC endpoint) once connectivity returns -> integration
 - A route segment that was never pre-cached (never visited online) shows a clear "この区間はオフラインで見られません" notice, not a broken shell -> browser
 - Flush conflicts (the same check-in already synced from another device) resolve via an idempotent upsert key, producing no duplicate rows -> integration
-- **X7 forward-declared rule**: the SW's route-matching rule table already includes `/s/:id` and `/anime/:id` (even though these two routes aren't live yet), tagged network-first and excluded from the Walk offline cache scope; a unit test directly asserts the contents of the route-matching table -> browser
+- **X7 forward-declared rule**: the SW's route-matching rule table already includes `/s/:id` and `/anime/:id` (even though these two routes aren't live yet), tagged network-first and excluded from the Walk offline cache scope; a unit test directly asserts the contents of the route-matching table -> unit
 
 **Backend enabler**: reuses S3.7's check-in endpoint; adds a client-side IndexedDB schema (not a backend resource).
 
@@ -179,7 +179,7 @@ Suggested dependency order: S3.7 (check-in table, can start independently) → S
 - Happy path: after the migration script runs, the Neon-side `conversation_messages` row count matches the Supabase source table's row count (full reconciliation) -> integration
 - Empty: when the Supabase source table is empty (a brand-new environment), the migration script runs cleanly with no rows and doesn't error -> unit
 - Error: historical rows with mismatched formats are logged to a failure list and processing continues for the rest, without aborting the whole run -> unit
-- Data integrity: after migration, a random 10% sample of rows gets field-level content comparison (not just row counts), confirming message content / `parts` structure isn't corrupted -> integration
+- Data integrity: after migration, a deterministic sample of rows (every Nth row by primary key, with N sized to yield ≥50 rows, or all rows if the table has fewer than 50) gets field-level content comparison (not just row counts), confirming message content / `parts` structure isn't corrupted -> integration
 
 **Changed files**: `scripts/migrate-conversation-messages-to-neon.ts` (new), `apps/agent/agent/infrastructure/` (message read/write path switches to the Neon client), `supabase/migrations/` (freeze annotation).
 
@@ -201,7 +201,7 @@ Suggested dependency order: S3.7 (check-in table, can start independently) → S
 
 **Core ACs**:
 - Happy path: the walking path rendered on the Walk Mode map is a real street-following polyline returned by OSRM, not a straight line between two points -> browser
-- River/rail blockage case (e.g., two stops roughly 100m apart in a straight line but requiring an actual ~1km detour on foot) correctly renders the detour path instead of a line cutting through the obstacle -> integration
+- River/rail blockage case (fixed fixture: two named stops on opposite banks of the Kamo river ~120m apart straight-line — coordinates frozen in the test fixture — with an expected OSRM on-foot detour in the **800–1400m** band; initial values, executor may tune with evidence) correctly renders the detour path instead of a line cutting through the obstacle; when OSRM is offline/unreachable this fixture falls back to a haversine × 1.3 straight-line estimate -> integration
 - Offline (OSRM unreachable, or this segment's polyline was never cached) Walk Mode falls back to the haversine × 1.3 distance/time estimate instead of blocking core offline functionality (integrates with S3.6) -> unit
 - Data source: the self-hosted OSRM (or Valhalla) instance runs on OSM Geofabrik Japan extract data (ODbL license), with no dependency on any pay-per-call third-party routing API -> integration (deployment-verification in nature)
 

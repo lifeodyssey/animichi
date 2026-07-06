@@ -39,7 +39,7 @@ Suggested dependency order: S6.1 → S6.2 → {S6.3, S6.4} → S6.5 → S6.6.
 **Core ACs**:
 - Happy path: hovering a left-column message/stop row makes the corresponding right-column pin bounce and highlight, and vice versa -> browser
 - Empty: hovering a message with nothing to anchor to (e.g. a plain-text reply) produces no effect at all (no error, no ghost highlight) -> unit
-- Error: rapidly hovering multiple rows in succession produces no highlight flicker / race condition (debounced) -> browser
+- Error: rapidly hovering multiple rows in succession produces no highlight flicker / race condition — hover highlighting is **debounced at 150ms** (initial value; executor may tune with evidence); after a scripted rapid-hover sequence, the test asserts exactly one pin (the last-hovered row's) is highlighted -> browser
 
 **Changed files**: `apps/web/src/components/chat/workbench/PersistentMap.tsx`, `apps/web/src/lib/chat/workbench/anchoring.ts`.
 
@@ -89,8 +89,8 @@ Suggested dependency order: S6.1 → S6.2 → {S6.3, S6.4} → S6.5 → S6.6.
 
 **Core ACs**:
 - Happy path: results with >100 points automatically switch to draft-edit mode (agent preselects 8 items + horizontally-scrolling 名場面 TOP + collapsed area group headers), not a flat list -> browser
-- Happy path: tapping "入れ替え" on a preselected item offers 3 nearby candidates in the same area / similar time cost for a local swap (not a full reselect) -> browser
-- Empty: the boundary case of exactly 100 points is handled deterministically by one clear rule (picks one mode or the other), never flickering between the two -> unit
+- Happy path: tapping "入れ替え" on a preselected item offers 3 nearby swap candidates drawn from the **same cluster area AND within a time-cost delta of ≤ ±10 min** (initial values; executor may tune with evidence) for a local swap (not a full reselect) -> browser
+- Empty: the boundary is deterministic — **exactly 100 points stays in normal mode; only >100 enters draft-edit mode** — never flickering between the two -> unit
 - Error: swapping an item with zero nearby candidates shows a clear "代替候補なし" notice, not a broken empty swap menu -> browser
 - Contract governance (backfilled from SD-13): this component's payload carries `schema_version`, following additive-only evolution (Active → Deprecated → Removed, ≥12-month deprecation window); Storybook establishes both a partial-tolerant-state story and a legacy-payload-state story for this component -> unit/browser
 
