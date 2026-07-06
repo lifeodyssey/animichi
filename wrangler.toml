@@ -36,7 +36,7 @@ compatibility_flags = ["nodejs_compat"]
 main = "worker/entry.ts"
 
 routes = [
-  { pattern = "seichijunrei.zhenjia.org/*", zone_name = "zhenjia.org" }
+  { pattern = "animichi.com/*", zone_name = "animichi.com" }
 ]
 
 # Plain (non-secret) vars forwarded into the RuntimeContainer (Python agent).

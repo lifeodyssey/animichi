@@ -39,7 +39,7 @@ class SeichijunreiClient:
     def __init__(
         self,
         api_key: str,
-        base_url: str = "https://seichijunrei.zhenjia.org",
+        base_url: str = "https://animichi.com",
         timeout: float = 30.0,
     ) -> None:
         self._api_key = api_key
@@ -96,7 +96,7 @@ class AsyncSeichijunreiClient:
     def __init__(
         self,
         api_key: str,
-        base_url: str = "https://seichijunrei.zhenjia.org",
+        base_url: str = "https://animichi.com",
         timeout: float = 30.0,
     ) -> None:
         self._api_key = api_key
@@ -158,9 +158,7 @@ if __name__ == "__main__":
 
     text = sys.argv[1]
     locale = sys.argv[2] if len(sys.argv) > 2 else "ja"
-    base_url = os.environ.get(
-        "SEICHIJUNREI_BASE_URL", "https://seichijunrei.zhenjia.org"
-    )
+    base_url = os.environ.get("SEICHIJUNREI_BASE_URL", "https://animichi.com")
     client = SeichijunreiClient(api_key=api_key, base_url=base_url)
     result = client.search(text, locale=locale)
     print(json.dumps(result, ensure_ascii=False, indent=2))
