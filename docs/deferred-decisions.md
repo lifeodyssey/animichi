@@ -34,6 +34,8 @@
 | DD-18 | pydantic-ai v1.69 → v2.x 升级 | 现状(v2.5 已发 VercelAI/AG-UI adapter) | v2 稳定(≥3 个月无破坏性回滚)+ 迁移收益明确(SD-9 adapter 自带) | 外部 | WebSearch "pydantic-ai v2 stability changelog" | 冻结 |
 | DD-19 | MCP Apps 扩展(ChatGPT 特有字段等) | SD-13 | 宿主生态出现明确分发收益案例 | 外部 | WebSearch "MCP Apps consumer distribution" | 冻结(迭代7 只做最小子集) |
 | DD-20 | kitsunavi.com 品牌升级 | SD-0 备选 | 品牌决策(用户主观) | 需求 | 问维护者 | 冻结 |
+| DD-21 | 时刻表级换乘(自托管 OTP+GTFS 或 Jorudan 开放API) | SD-28 层3 | 交通段 👎 计数显著 或 deeplink_clicked CTR 异常高(用户要精确时刻的信号) | 内部 | 埋点 transit_leg_shown / deeplink_clicked(迭代2 随层2 埋)+ 👎微件按卡类型切分 | 冻结 |
+| DD-22 | 文本向量检索(UGC RAG / 别名语义召回) | SD-29 | 双触发:① UGC 文本语料 ≥5k 条 → 评估 UGC 混合检索(BGE-M3 类多语言候选);② resolve 失败案例经 eval 判定为"语义模糊型"而非"数据缺失型" → 别名向量辅助召回 | 内部 | UGC 条数计数;eval 八族 resolve 失败案例分类标注 | 冻结 |
 
 ## 埋点缺口汇总(建迭代1 全信号埋点时一并补)
 
