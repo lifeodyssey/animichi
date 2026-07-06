@@ -59,35 +59,23 @@
 - SD-21 trace 百米GPS截断
 - SD-22/23 五飞轮排期+运行手册+self-evolve边界(人在环批准)
 - SD-24(部分)运行时 subagent/skill/mcp-client 都不扩张
+- SD-25 对外形态=OpenAPI 单一真源+四壳薄适配;顺序 Skill→MCP(FastMCP.from_openapi)→A2A 押后;前置清 dict→Pydantic/tool_state 显式参数;**agent 架构 8 步全绿**
+- SD-26 图搜两阶段=LLM vision 认作品(迭代1)→作品内精匹配机位(迭代4);Anitabi 配对图资产+clarify 降级;embedding 选型待调研
 
 ## 四、进行中/待确认(**尚未落 inputs,有损风险最高,务必保全**)
 
-### Step 8 对外形态(研究已回,待用户点头才落档)
+### Step 8 对外形态 → **已定案 SD-25**(2026-07-06 晚用户确认,全文在 inputs 第十节)
 
-研究代理(a55d9b422d7c61d15)结论:
-- **「一份 @agent.tool 直接生成四壳」不可行** —— 工具绑死 RunContext/RuntimeDeps/tool_state 时序,pydantic-ai 无导出机制(issue #4330 未解)。
-- **「一份服务契约(OpenAPI)+ 四壳薄适配」可行,业界成熟模式** —— 单一真源在**服务 API 层**(packages/contract zod→OpenAPI + /v1),不在 agent 框架层。@agent.tool 只是该内核的"pydantic-ai 视图"。
-- **落地顺序(推荐,待用户确认)**:① 先 Claude Skill(0.5-1天,零新基建;seichijunrei_client.py docstring 已自称 "for async agents/skills",半成品;SKILL.md+client进scripts/+巡礼礼仪进references/)② 顺手粗粒度 MCP server(`FastMCP.from_openapi(openapi.json)` 白嫖,对齐 MCP 2026-07-28 无状态核心)③ A2A 押后(生态在企业编排侧,C端弱相关)。
-- **前置技术债(顺手清)**:9 工具 `dict[str,object]` 返回→Pydantic 模型(违反自家 CLAUDE.md 类型规范+MCP outputSchema 需要);tool_state 隐式时序→显式参数(catalog 契约已此形态,照抄)。
-- Claude Agent Skills 现状:SKILL.md frontmatter(name≤64须等目录名 + description≤1024 + 可选 compatibility/metadata/allowed-tools),渐进披露3级,分发走文件系统/`/v1/skills` API/npx skills add;官方口径 Skill↔MCP 互补(MCP管连接,Skill管方法论)。
-- **待办**:用户点头 → 落 SD-25 → step 8 关 → agent 架构 8 步全绿。
+OpenAPI 单一真源 + 四壳薄适配;顺序 Skill→MCP(FastMCP.from_openapi)→A2A 押后;前置清 dict→Pydantic + tool_state 显式参数。**agent 架构 8 步全绿。**
 
-### 图片搜索(任务 #7,讨论进行中)
+### 图片搜索(任务 #7)→ 架构与排期**已定案 SD-26**(2026-07-06 晚用户确认,全文在 inputs 第十节)
 
-已达成:
-- **文本 RAG 不引入**(结构化数据 SQL/PostGIS 精确查询,套向量是负优化,同 memory 那轮"领域数据即记忆");图片搜索≠RAG,是视觉问题。
-- 用户选了野心边界=**「认到具体场景/机位」**(不只认作品),这锁定要上向量检索。
-- **独家资产洞察**:Anitabi 每点位带「动画帧+现实照片」配对(compare/anime.jpg+real.jpg),是跨域匹配的天然训练/匹配对;+飞轮3闭环(用户打卡现场照→越用越准)。
-- **两阶段架构(缝合路径A+B)**:阶段1 LLM vision 粗筛认作品(搜索空间几万点→单作品几十点)→ 阶段2 作品内向量精匹配机位(规模已压到几十,pgvector on Neon 绰绰有余)。跨域难点=动画帧↔现实照,通用CLIP打折。
-- **分层排期**:阶段1(认作品)进迭代1(chat「写真」态入口,复用现有resolve);阶段2(认场景/机位)进迭代4(和対比図迭代4/Walk机位迭代3共享参考图数据,顺路建索引最省)。
-
-**两个待定(恢复时问用户)**:
-1. 两阶段架构+分层排期认不认?
-2. 阶段2 embedding 选型(多模态LLM vision embedding / 专用CLIP·DINOv2 / 动漫专用模型 / BYOK)—— 主会话倾向**派代理核实2026最新跨域/动漫场景图搜最佳实践**再拍,已问用户"要我派吗",等答复。
+两阶段(LLM vision 认作品→迭代1;作品内精匹配机位→迭代4)+ Anitabi 配对图资产 + clarify 降级。
+**唯一剩余待定**:阶段 2 embedding 选型(候选:多模态 LLM embedding / CLIP·DINOv2 / 动漫专用 / LLM vision 直接排序免 embedding)——调研代理(sonnet,2026 跨域/动漫图搜实践)进行中,回来后拍板收 #7。
 
 ## 五、剩余排队(TaskList #5/#7/#8)
 
-- **#7 图片搜索**(in_progress):见上,卡在 embedding 选型待派代理。
+- **#7 图片搜索**(收尾):架构/排期已定 SD-26,唯余阶段 2 embedding 选型,调研代理进行中。
 - **#8 SEO/GEO 方案**(pending):inputs 已 sketch(迭代0技术SEO地基/迭代4动态OG/迭代5 programmatic SEO+GEO可摘引事实块+AI爬虫策略/迭代7 llms-full+MCP),待展开为正式方案。含 animichi.com 迁移SEO影响、sitemap/JSON-LD细节、claude-seo插件审计工序衔接。
 - **批量修订 spec**:把 SD-13~24 决策回填 Planner 的 9 个 spec 文件(它们写于早期,滞后)。
 - **#5 双评审**:Fable 5(reviewer型,审AC质量/releasable/设计权威冲突)+ Codex(codex-rescue,第二视角;注意 codex 大报告易崩,要求增量写文件,崩了从 job log 提取)。
@@ -95,9 +83,7 @@
 
 ## 六、恢复时的下一步
 
-用户此刻在图片搜索 embedding 选型处,已收到"要不要派代理核实最新实践"的提问。**恢复时先等用户答这个 + 两阶段架构认不认**,再继续任务 #7,然后 #8 SEO/GEO,最后批量修订 spec + 双评审 + 交付。
-
-Step 8 对外形态的推荐也待用户一句"采纳吗"。可一并确认。
+SD-25/26 已定(2026-07-06 晚)。当前:① 图搜 embedding 调研代理进行中,回来后拍选型收 #7;② 讨论进入 **#8 SEO/GEO 方案**;之后批量修订 spec(SD-13~26 回填 9 个 spec 文件)+ 双评审 + 交付。
 
 ## 七、后台代理(均已完成,勿重复派)
 
