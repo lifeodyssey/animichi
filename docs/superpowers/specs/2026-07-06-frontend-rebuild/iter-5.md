@@ -92,6 +92,8 @@ Suggested dependency order: S5.4 (catalog public-data enabler, needs eng-review 
 
 **Scope**: search box + 続きから ("Continue From," in-progress routes) + 人気ランキング ("Popular Ranking").
 
+**Root-route ownership (settled, not deferred)**: `/` is a **single route with dual state** — it renders the S0.6 Landing (marketing) view for anonymous visitors and this App Home view for authenticated users (the standard landing-vs-home pattern). S5.5 **extends** S0.6's existing `apps/web/src/routes/index.tsx` route with the authenticated-user branch; it does not create a second root route or replace S0.6's anonymous behavior.
+
 **Design basis**: `首页 - Seichijunrei.html` (search / 続きから / 人気ランキング).
 
 **Core AC**:
@@ -101,7 +103,7 @@ Suggested dependency order: S5.4 (catalog public-data enabler, needs eng-review 
 - Happy path: 人気ランキング renders using the existing `GET /v1/bangumi/popular` (agent-side, an existing endpoint this train does not migrate) -> browser
 - i18n: all three blocks' copy renders in ja/zh/en -> unit
 
-**Changed files**: `apps/web/src/routes/index.tsx` (**note**: how this coexists with/divides from S0.6's Landing marketing route is left to be settled during pre-build refinement), `apps/web/src/components/home/{SearchBox,ContinueFromCard,PopularRanking}.tsx`.
+**Changed files**: `apps/web/src/routes/index.tsx` (extends S0.6's root route with the authenticated App Home branch — single route, dual state per the ownership rule above), `apps/web/src/components/home/{SearchBox,ContinueFromCard,PopularRanking}.tsx`.
 
 **Dependencies**: S2.8 (続きから data source), S1.1 (search-jump reuse).
 
@@ -120,7 +122,7 @@ Suggested dependency order: S5.4 (catalog public-data enabler, needs eng-review 
 - Empty: an anime page with zero spots still produces valid (if minimal) JSON-LD, not a missing/broken script tag -> unit
 - **One entity, one page + unique data per page (hard AC, backfilled from SD-27C)**: every programmatically generated `/anime/:id` page must contain data field values unique to that anime (spot count / city distribution / episode range, etc.), not just a template with the title swapped — measured data from the 2026 spam update shows sites with 70% templated content took a -78% ranking hit, versus only -3% at 5% templated content; this AC asserts that "non-template field values in the rendered output vary with the anime's actual data," not merely that the HTML structure exists -> integration
 - Automation AC: per-anime sitemap entries are auto-generated from catalog data by a build/deploy-time script, not hand-maintained -> integration
-- **New-title sitemap SLA (hard AC, in effect starting iteration 5)**: once a new catalog title clears the S5.8 quality gate (X15, spot count ≥ threshold), its sitemap entry must appear in `sitemap-anime.xml` within **≤24 hours** (verified via the Worker cron regeneration mechanism, asserting the time window itself rather than merely "it eventually shows up") -> integration
+- **New-title sitemap SLA (hard AC, in effect starting iteration 5)**: once a new catalog title clears the **SEO-publish eligibility bar** — which is distinct from S5.8's data-validity gate: S5.8 lets a zero-spot title pass as *valid data*, but SEO publication additionally requires **spot count ≥ 3** (initial value; executor may tune with evidence) so that thin/empty pages never enter the sitemap — its sitemap entry must appear in `sitemap-anime.xml` within **≤24 hours** (verified via the Worker cron regeneration mechanism, asserting the time window itself rather than merely "it eventually shows up") -> integration
 - **IndexNow push (hard AC)**: adding/updating an anime sitemap entry triggers one IndexNow POST push (to Bing/Naver's family), without relying on Google's now-deprecated sitemap ping endpoint -> integration
 - **`lastmod` truthfulness (hard AC)**: a sitemap entry's `lastmod` field only updates when that page's content hash actually changes — never a build timestamp or a fixed value (a fake `lastmod` gets Google to distrust the signal, per SD-27's explicit warning) -> unit
 - **Site-wide hreflang closure (backfilled from SD-27C)**: across every programmatic page (`/anime/:id` in full + S5.9's area pages + the homepage), the `ja`/`zh`/`en` hreflang cross-links close into a complete loop, verified with a link-graph test confirming no broken links and no missing language variants (S5.1's hreflang bootstrap covers a single page; this AC verifies the site-wide closure) -> integration
@@ -133,13 +135,13 @@ Suggested dependency order: S5.4 (catalog public-data enabler, needs eng-review 
 
 ### S5.7 GEO-citation-friendly formatting + AI-crawler robots policy + internal-link structure
 
-**Scope**: organizing spot addresses/episode numbers/名場面 into fact blocks that AI crawlers can cite cleanly; a robots policy that allows the mainstream AI crawlers through; a closed internal-link loop between the anime page ↔ route detail ↔ homepage ranking. **Spots don't get their own independent pages (echoing DD-14 — an explicit non-goal, not an oversight)**: this story's fact blocks are organized as anchors within the anime page (`/anime/:id#point-:pid`), with no new standalone spot page built — SD-27A's thin-content defense line holds until spot-level UGC depth is judged sufficient; DD-14 registers "spot-level UGC coverage ≥20%" as the unfreeze trigger.
+**Scope**: organizing spot addresses/episode numbers/名場面 into fact blocks that AI crawlers can cite cleanly; a robots policy that **blocks training crawlers while allowing search/citation/agent crawlers** (SD-27B); a closed internal-link loop between the anime page ↔ route detail ↔ homepage ranking. **Spots don't get their own independent pages (echoing DD-14 — an explicit non-goal, not an oversight)**: this story's fact blocks are organized as anchors within the anime page (`/anime/:id#point-:pid`), with no new standalone spot page built — SD-27A's thin-content defense line holds until spot-level UGC depth is judged sufficient; DD-14 registers "spot-level UGC coverage ≥20%" as the unfreeze trigger.
 
 **Design basis**: no visual mockup; inputs' SEO/GEO scope (iteration 5 is the main battlefield).
 
 **Core AC**:
 - Happy path: spot addresses/episode numbers/scene names on the anime page are organized in structured "fact block" form (semantic markup, not plain prose), making them easy for AI crawlers to cite cleanly -> unit
-- Happy path: `robots.txt` explicitly allows GPTBot/ClaudeBot/PerplexityBot -> unit
+- Happy path (SD-27B policy): `robots.txt` **blocks the training crawlers** `GPTBot` / `ClaudeBot` / `Google-Extended` (Disallow) and **allows the search/citation/agent crawlers** `OAI-SearchBot` / `Claude-SearchBot` / `Claude-User` / `ChatGPT-User` / `PerplexityBot` (Allow) — a unit test asserts both the block set and the allow set explicitly -> unit
 - Happy path: bidirectional internal links exist between the anime page ↔ route detail ↔ homepage ranking (verified with a link-graph test) -> unit
 
 **Changed files**: `apps/web/public/robots.txt` (updated), `apps/web/src/components/anime-page/FactBlock.tsx`, `apps/web/src/lib/seo/internalLinks.ts`.
@@ -158,9 +160,9 @@ Suggested dependency order: S5.4 (catalog public-data enabler, needs eng-review 
 
 **Core AC**:
 - Happy path: a spot record with invalid coordinates (outside the valid lat/long range, or sitting on null island 0,0) is rejected/flagged before it reaches the public overview endpoint, and never flows into a public page -> unit
-- Happy path: duplicate-spot detection (same coordinates + same episode within a small radius) triggers dedup/merge, so the public page never shows duplicate cards -> unit
+- Happy path: duplicate-spot detection (two spots within a **25m** dedupe radius AND sharing the same episode; initial values, executor may tune with evidence) triggers dedup/merge, so the public page never shows duplicate cards -> unit
 - Empty: an anime with zero spots passes the quality gate uneventfully (not misjudged as an anomaly and rejected) -> unit
-- **Alerting AC**: a sudden drop or spike in some anime's spot count relative to its last publish triggers an alert (log/notification), rather than a silent publish -> unit
+- **Alerting AC**: a day-over-day drift in some anime's spot count of **±30%** or more relative to its last publish (initial value; executor may tune with evidence) triggers an alert (log/notification), rather than a silent publish -> unit
 
 **Changed files**: `workers/catalog/src/publish/qualityGate.ts` (new), `workers/catalog/test/qualityGate.test.ts`.
 
@@ -197,8 +199,8 @@ Suggested dependency order: S5.4 (catalog public-data enabler, needs eng-review 
 **Design basis**: no visual mockup; `2026-07-06-seo-geo-plan.md` §7 "quality gate in CI (template ratio + minimum information density)" (SD-27C).
 
 **Core AC**:
-- Happy path: a CI script samples programmatic pages in the build artifact and computes the "fixed template text / total page text" ratio; a page whose ratio exceeds the preset threshold (e.g. 70%) fails CI (blocking deployment), not merely logging a warning -> integration
-- Happy path: a CI script checks each programmatic page's "unique information volume" (e.g. the fact-summary block's field count, non-template paragraph length) against a minimum-density threshold; a page below the threshold fails CI -> integration
+- Happy path: a CI script samples programmatic pages in the build artifact and computes the "fixed template text / total page text" ratio; a page whose ratio **exceeds 70%** (initial value; executor may tune with evidence) fails CI (blocking deployment), not merely logging a warning -> integration
+- Happy path: a CI script checks each programmatic page's minimum information density, defined as **the fact-summary block being complete AND the page carrying ≥3 unique (non-template) data sections** (initial values; if the executor finds these unmeasurable at build time, record the measurement story and split it out); a page below this bar fails CI -> integration
 - Empty: a build artifact with zero programmatic pages (a theoretical edge case that shouldn't happen, but needs graceful handling) doesn't crash the CI script itself -> unit
 - Regression: when new fields added by S5.6/S5.9 unexpectedly push the template ratio up, CI catches it before merge, rather than discovering the "garbage-page-factory" effect only after launch -> integration
 

@@ -81,7 +81,7 @@ This iteration allocates no story/AC/changed files to A2A, and it doesn't count 
 
 **Changed files**: `apps/agent/agent/interfaces/mcp_server.py` (new, Python side, built on the `fastmcp` library), `apps/agent/pyproject.toml` (new `fastmcp` dependency).
 
-**Dependencies**: S7.8 (prerequisite tech debt), S7.1 (eval gate).
+**Dependencies**: S7.8 (prerequisite tech debt), S7.1 (eval gate), S7.5 (requires the published OpenAPI schema — `FastMCP.from_openapi()` consumes S7.5's output as its input).
 
 ---
 
@@ -147,7 +147,7 @@ This iteration allocates no story/AC/changed files to A2A, and it doesn't count 
 **Core ACs**:
 - Happy path: all 9 tools' return values are named Pydantic models (not `dict[str,object]`); `mypy --strict` passes -> unit
 - Happy path: `tool_state` reads/writes pass through explicit function parameters/return values (not implicit shared-mutable-dict ordering coupling), copying the contract style already used by `packages/contract` -> unit
-- Regression: after the refactor, run one comparison eval (see S7.1) confirming that pure type-narrowing doesn't change the tools' actual behavior (intent/response semantics stay consistent, `score` no lower than baseline) -> eval
+- Regression: after the refactor, run one comparison eval (see S7.1) confirming that pure type-narrowing doesn't change the tools' actual behavior (intent/response semantics stay consistent), evaluated under the **SD-30 statistical gate — per-tier bootstrap 95% CI + paired comparison** (flat point-threshold "no lower than baseline" comparisons are retired per SD-30③) -> eval
 - Architecture AC: the `outputSchema` that `FastMCP.from_openapi` generates corresponds to each tool's named model fields, not a generic object schema -> integration
 
 **Changed files**: `apps/agent/agent/agents/tools.py` (or split across existing files as appropriate — each tool's return type gets reworked), `apps/agent/agent/agents/models.py` (new/adjusted Pydantic output models), `apps/agent/agent/agents/tool_state.py` (new, if needed, to carry explicit state passing).
@@ -158,7 +158,7 @@ This iteration allocates no story/AC/changed files to A2A, and it doesn't count 
 
 ### S7.9 MCP Apps read-only card minimal subset (backfilled from SD-13 Step1, confirmed)
 
-**Scope**: Use `@mcp-ui/server` to package at least TimedItinerary as a `ui://` read-only resource, distributed alongside S7.4's MCP server, supporting embedded rendering across hosts (Claude and other MCP clients). Scope is strictly limited to a "minimal subset" — no expansion for ChatGPT-specific fields.
+**Scope**: **Task 0 — bridge-decision spike (must run first, before any implementation)**: decide how the Python (`fastmcp`, S7.4) side and the TypeScript/npm `@mcp-ui/server` library bridge the language boundary (e.g. the Python side emits JSON conforming to the MCP UI resource spec with no direct npm dependency, vs. standing up a thin Node rendering layer). This spike's outcome may re-scope the rest of this story — the implementation tasks below are provisional on it. Then: use `@mcp-ui/server` (or the bridge chosen by Task 0) to package at least TimedItinerary as a `ui://` read-only resource, distributed alongside S7.4's MCP server, supporting embedded rendering across hosts (Claude and other MCP clients). Scope is strictly limited to a "minimal subset" — no expansion for ChatGPT-specific fields.
 
 **Design basis**: No visual mockup; SD-13 Step1 (confirmed: "add an MCP Apps minimal subset in iteration 7"); `docs/deferred-decisions.md` DD-19 (frozen: don't over-engineer for ChatGPT-specific fields).
 
@@ -170,7 +170,7 @@ This iteration allocates no story/AC/changed files to A2A, and it doesn't count 
 
 **Changed files**: `apps/agent/agent/interfaces/mcp_apps.py` (new, or extended inside `mcp_server.py`), add `@mcp-ui/server` to the dependency manifest.
 
-**Open question (pre-kickoff refinement, recorded in the conflicts list)**: `@mcp-ui/server` is a TypeScript/npm-ecosystem library, while S7.4's MCP server lands on the Python (`fastmcp`) side — how to bridge the language boundary between the two (e.g., the Python side only generates JSON conforming to the MCP UI resource spec without directly depending on that npm package; or standing up a separate thin Node layer dedicated to the rendering layer) needs to be decided during pre-kickoff refinement; this story doesn't presume a specific bridging approach yet.
+**Bridge decision (now Task 0 of this story, not an open question)**: `@mcp-ui/server` is a TypeScript/npm-ecosystem library, while S7.4's MCP server lands on the Python (`fastmcp`) side. The language-boundary bridge (Python emits MCP-UI-spec-conforming JSON with no npm dependency, vs. a separate thin Node rendering layer) is resolved by this story's **Task 0 spike before implementation begins**; its outcome may re-scope the changed files below. It is no longer deferred to pre-kickoff refinement.
 
 **Dependencies**: S7.4.
 
