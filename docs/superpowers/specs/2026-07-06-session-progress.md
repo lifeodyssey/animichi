@@ -61,7 +61,12 @@
 - SD-24(部分)运行时 subagent/skill/mcp-client 都不扩张
 - SD-25 对外形态=OpenAPI 单一真源+四壳薄适配;顺序 Skill→MCP(FastMCP.from_openapi)→A2A 押后;前置清 dict→Pydantic/tool_state 显式参数;**agent 架构 8 步全绿**
 - SD-26 图搜全定案=两阶段(vision 认作品→系列级候选;emb 粗筛标配+LLM vision 精排主力)+不建 ANN 索引+评测矩阵定终选+反向发现三层(LLM 直认/GPS 附近搜/全库 future)+图搜埋点信号
-- SD-27 SEO/GEO 定案=页面矩阵(点位不独立)+爬虫政策(挡训练放引用放 Agent)+llms-full 砍+MCP-as-GEO+质量门(模板占比)+三语子路径本地化 title(A/B/C 定,落地包草拟中)
+- SD-27 SEO/GEO 全定案=页面矩阵+爬虫政策+llms-full 砍+MCP-as-GEO+质量门+三语;落地包+迭代映射=2026-07-06-seo-geo-plan.md
+- SD-28 路程规划全定案=层0 haversine×1.3(迭代1)/层1 OSRM 移迭代3 随 Walk/层2 铁路拓扑估算全自建(ekidata.jp+N02 令和7,条款已核绿灯;建图 join 邻接+station_g_cd 换乘组;精确时刻深链;验证 AC+埋点)/层3 → DD-21;Google Routes 出局(ToS 禁缓存);两轮作废版(深链MVP/兜底链)复审理由=估算链上时刻表级是假精度
+- SD-26 管线补章 D1-D6=阶段1 独立 vision 调用基线/match_scene 单工具(粗筛+精排≤2批)/索引管线归 catalog/内含 LLM 工具三纪律/vision 供给决策树(BYOK→平台Gemini→引导卡,探测+金丝雀)/视觉注入硬 AC+图搜按次配额
+- SD-29 检索总纲=结构化优先的 agentic 检索;不引 RAG 框架;检索器按数据形态分配;embedding 通则系统 key;文本向量→DD-22
+- 回填冲突 C1-C6 已裁决(2026-07-06-backfill-conflicts.md):C1=routes 并入 S2.9/C2=MCP server 暂定 Python 迭代7复核/C3=SEO 归迭代5 笔误已修/C4C5=确认/C6=照推荐;spec 文字补丁待打
+- 延迟决策登记册 docs/deferred-decisions.md 建成(DD-1~22 + agent 巡检指令)
 
 ## 四、进行中/待确认(**尚未落 inputs,有损风险最高,务必保全**)
 
@@ -83,7 +88,7 @@ OpenAPI 单一真源 + 四壳薄适配;顺序 Skill→MCP(FastMCP.from_openapi)�
 
 ## 六、恢复时的下一步
 
-SD-25/26 已定(2026-07-06 晚)。当前:① 图搜 embedding 调研代理进行中,回来后拍选型收 #7;② 讨论进入 **#8 SEO/GEO 方案**;之后批量修订 spec(SD-13~26 回填 9 个 spec 文件)+ 双评审 + 交付。
+全部功能域讨论收口(SD-0~29 + DD-1~22,2026-07-06 深夜)。回填 A/B/C/D 四代理已完成(commit c71ac1c/a1e4dd2/7632359/f26a93f)。当前:① 补丁代理落地 C1/C2/C6 裁决 + SD-26补章/28/29 回填 iter 文件;② 补丁完成 → 双评审(Fable5 reviewer + Codex codex-rescue,注意 codex 增量写文件防崩);③ 评审意见回修 → 交付总汇报(建议下一步 /iteration-execution)。
 
 ## 七、后台代理(均已完成,勿重复派)
 
