@@ -1,117 +1,117 @@
-# Iteration 6 — 工作台(Chat Phase 2 桌面双栏)
+# Iteration 6 — Workbench (工作台) (Chat Phase 2 desktop two-column layout)
 
-详细度:**开工前细化**。Story 数:6。
+Detail level: **pre-kickoff refinement**. Story count: 6.
 
-依赖顺序建议:S6.1 → S6.2 → {S6.3, S6.4} → S6.5 → S6.6。
+Suggested dependency order: S6.1 → S6.2 → {S6.3, S6.4} → S6.5 → S6.6.
 
-**架构前提**:本迭代复用 Iteration 1 建立的 generative UI registry(组件不变,只是挂载点从"流里"变成"右栏"),不重新设计组件——见 `generative-ui.md`"Phase 2(环闭合后)"与 `spec-chat-page-design.md` §2 的双形态分期决策。
+**Architectural premise**: this iteration reuses the generative UI registry established in Iteration 1 (the components don't change — only their mount point moves from "in the stream" to "the right-hand column"); it doesn't redesign the components — see `generative-ui.md`'s "Phase 2 (after the loop closes)" and the two-phase staging decision in `spec-chat-page-design.md` §2.
 
-**Generative UI 宪法(回填自 SD-13,定案)**:主 spec §② 原标注"提案待确认"已由 SD-13(Step1,2026-07-06 用户确认"用业界最佳实践")终定,三条规则对本迭代新增组件同样适用——① **append-only 卡片流**(不改写历史卡,承接设计 E1);② **additive-only 版本化**:组件 payload 携带 `schema_version`,生命周期治理照抄 MCP 弃用策略(Active → Deprecated → Removed,弃用期 ≥12 个月);③ **partial-tolerant 渲染**:组件可缺字段,以 skeleton slot 兜底。`presentation_hint` 是服务端建议值、前端终裁,未知值优雅降级为通用卡片而非报错。
+**Generative UI constitution (backfilled from SD-13, confirmed)**: main spec §②'s original "proposal unconfirmed" tag has since been finalized by SD-13 (Step1, user-confirmed 2026-07-06 to "follow industry best practice"); its three rules apply equally to this iteration's new components — ① **append-only card stream** (never rewrites historical cards, carries forward design E1); ② **additive-only versioning**: component payloads carry `schema_version`, with lifecycle governance copied from MCP's deprecation policy (Active → Deprecated → Removed, ≥12-month deprecation window); ③ **partial-tolerant rendering**: components can be missing fields, falling back to a skeleton slot. `presentation_hint` is a server-side suggestion with the frontend having final say, and unknown values degrade gracefully to a generic card rather than erroring.
 
-区分适用范围:S6.5(DraftEditMode)、S6.6(AnchorDelegation)是 agent 可能经 `presentation_hint` 选中渲染的 registry 组件,必须从创建起遵守上述版本化规则,并在 Storybook 建立 partial 态 + 旧版 payload 态 story(与 Iteration 1 已建的测试基建共用,见 P10)——已在两条 story 的核心 AC 中补上对应条目。S6.2(常驻地图)/S6.3(Lightbox)/S6.4(分组同步)是纯客户端交互组件,不由 agent payload 决定渲染版本,不受此约束,Reviewer checklist 层面确认区分即可,不需要额外补 story。
-
----
-
-### S6.1 桌面双栏 shell(F1-F4)
-
-**Scope**:≥1024px 视口的左右双栏骨架——右栏空态(F1 虚线框 quiet)、右栏 skeleton(F2)、宽度回流(F4)。
-
-**设计依据**:`工作台 - 地图常驻方案.html`;`spec-chat-page-states.md` §F(F1-F4)。
-
-**核心 AC**:
-- 快乐路径:≥1024px 且无路线时,右栏显示 F1 虚线框 quiet 态,左栏正常运作 -> browser
-- 快乐路径:右栏只在视觉工具(搜索/plan_route)实际运行时显示 F2 skeleton(地图带+卡片骨架),纯文字回合永不触发 -> browser
-- 空:F1 空态不显示任何教学浮层/提示气泡(遵循"UI 保持安静"原则)-> browser
-- 错误:会话中途跨越 1024px 断点的窗口缩放(F4)正确把右栏组件回流进消息流原位,不丢失滚动位置 -> browser
-
-**变更文件**:`apps/web/src/components/chat/workbench/WorkbenchLayout.tsx`、`apps/web/src/components/chat/workbench/EmptyPanel.tsx`。
-
-**依赖**:S1.1-S1.5(复用 Phase 1 组件,registry 不变)。
+**Scope of applicability**: S6.5 (DraftEditMode) and S6.6 (AnchorDelegation) are registry components the agent may select for rendering via `presentation_hint`, so they must follow the versioning rules above from the moment they're created, and get Storybook stories for both the partial state and legacy-payload state (sharing the test infrastructure already built in Iteration 1 — see P10); the corresponding items have already been added to both stories' core ACs. S6.2 (persistent map), S6.3 (Lightbox), and S6.4 (group-sync) are pure client-side interaction components whose rendering version isn't determined by the agent payload, so they aren't bound by this constraint; confirming that distinction at the Reviewer-checklist level is enough — no extra story is needed.
 
 ---
 
-### S6.2 右栏常驻地图 + hover 双向锚定(E3)
+### S6.1 Desktop two-column shell (F1-F4)
 
-**Scope**:右栏持续显示地图;左栏消息/站行与右栏地图 pin 之间的 hover 双向高亮。
+**Scope**: The left/right two-column skeleton for ≥1024px viewports — the right column's empty state (F1, quiet dashed frame), the right column's skeleton (F2), and reflow on resize (F4).
 
-**设计依据**:`工作台 - 地图常驻方案.html`;`spec-chat-page-states.md` §E3。
+**Design basis**: `工作台 - 地图常驻方案.html`; `spec-chat-page-states.md` §F (F1-F4).
 
-**核心 AC**:
-- 快乐路径:hover 左栏消息/站行,右栏对应 pin 弹跳放大高亮,反之亦然 -> browser
-- 空:hover 无可锚定内容的消息(如纯文字回复)不产生任何效果(无报错、无幽灵高亮)-> unit
-- 错误:快速连续 hover 多行不产生高亮闪烁/竞态(防抖处理)-> browser
+**Core ACs**:
+- Happy path: at ≥1024px with no route yet, the right column shows the F1 quiet dashed-frame empty state while the left column works normally -> browser
+- Happy path: the right column only shows the F2 skeleton (map band + card skeletons) while a visual tool (search / `plan_route`) is actually running; a plain-text turn never triggers it -> browser
+- Empty: the F1 empty state shows no teaching overlay / hint bubble whatsoever (follows the "keep the UI quiet" principle) -> browser
+- Error: resizing the window across the 1024px breakpoint mid-conversation (F4) correctly reflows the right-column components back into their original position in the message stream, without losing scroll position -> browser
 
-**变更文件**:`apps/web/src/components/chat/workbench/PersistentMap.tsx`、`apps/web/src/lib/chat/workbench/anchoring.ts`。
+**Changed files**: `apps/web/src/components/chat/workbench/WorkbenchLayout.tsx`, `apps/web/src/components/chat/workbench/EmptyPanel.tsx`.
 
-**依赖**:S6.1、S0.4(MapLibre)。
-
----
-
-### S6.3 Lightbox 機位浏览器
-
-**Scope**:一点多图的全屏 lightbox 浏览器,逐帧翻页 + 话数时间戳。
-
-**设计依据**:`user-journey.md` §6.5 J10(多图分层露出);`工作台 - 地图常驻方案.html`(lightbox)。
-
-**核心 AC**:
-- 快乐路径:打开有多张候选カット的点位显示完整 lightbox,逐帧翻页并带话数时间戳 -> browser
-- 空:只有 1 张照片的点位跳过多页 lightbox chrome(直接显示单图)-> browser
-- 错误:lightbox 内某帧图 404 降级为 D9 渐变占位,不是浏览过程中出现破图 -> browser
-
-**变更文件**:`apps/web/src/components/chat/workbench/SpotLightbox.tsx`。
-
-**依赖**:S6.1。
+**Dependencies**: S1.1-S1.5 (reuses Phase 1 components; the registry doesn't change).
 
 ---
 
-### S6.4 エリア/話数分组同步
+### S6.2 Persistent right-column map + bidirectional hover anchoring (E3)
 
-**Scope**:左侧参照与右栏卡片分组(エリア⇄話数)保持同步。
+**Scope**: The right column continuously shows the map; bidirectional hover highlighting between left-column messages/stop rows and the right-column map pins.
 
-**设计依据**:`user-journey.md` §6.9(桌面"内容很多"三层消化);`spec-chat-page-states.md` 既定分组规则。
+**Design basis**: `工作台 - 地图常驻方案.html`; `spec-chat-page-states.md` §E3.
 
-**核心 AC**:
-- 快乐路径:在左侧切换 GroupToggle(エリア/話数)后,右栏卡片分组以相同分组键同步重排 -> browser
-- 空:数据只有单一区域/话数(无可分组)时显示单个未分组区段,不是空的分组壳 -> unit
-- 错误:滚动过程中切换分组保持用户当前阅读位置,不跳回顶部 -> browser
+**Core ACs**:
+- Happy path: hovering a left-column message/stop row makes the corresponding right-column pin bounce and highlight, and vice versa -> browser
+- Empty: hovering a message with nothing to anchor to (e.g. a plain-text reply) produces no effect at all (no error, no ghost highlight) -> unit
+- Error: rapidly hovering multiple rows in succession produces no highlight flicker / race condition (debounced) -> browser
 
-**变更文件**:`apps/web/src/components/chat/workbench/GroupToggleSync.tsx`。
+**Changed files**: `apps/web/src/components/chat/workbench/PersistentMap.tsx`, `apps/web/src/lib/chat/workbench/anchoring.ts`.
 
-**依赖**:S6.1、S6.2。
-
----
-
-### S6.5 SP8 大规模草稿编辑模式
-
-**Scope**:>100 点位结果自动反转为"编辑草稿"模式(agent 预选 8 件 + 名場面 TOP 横滚 + 折叠区域组头)。
-
-**设计依据**:`spec-chat-page-states.md` SP8;`journey-走查.md` §2(规模分档)。
-
-**核心 AC**:
-- 快乐路径:>100 点位结果自动切换为草稿编辑模式(agent 预选 8 件 + 横滚名場面 TOP + 折叠区域组头),不是平铺列表 -> browser
-- 快乐路径:点击预选项的「入れ替え」提供 3 个同区域/相近时间成本的邻近候选做局部替换(不是全局重选)-> browser
-- 空:恰好 100 点位的边界情况按一个明确规则(取其一模式)确定性处理,不在两种模式间闪烁 -> unit
-- 错误:替换零邻近候选的项显示明确的"代替候補なし"提示,不是破损的空替换菜单 -> browser
-- 契约治理(回填自 SD-13):该组件 payload 携带 `schema_version`,遵循 additive-only 演进(Active→Deprecated→Removed,弃用期≥12个月);Storybook 建立该组件的 partial-tolerant 态与旧版 payload 态 story -> unit/browser
-
-**变更文件**:`apps/web/src/components/chat/workbench/DraftEditMode.tsx`、`apps/web/src/lib/chat/workbench/nearbySwapCandidates.ts`。
-
-**依赖**:S6.1、S1.4(点位卡组件复用)。
+**Dependencies**: S6.1, S0.4 (MapLibre).
 
 ---
 
-### S6.6 SP9 锚点委托
+### S6.3 Lightbox shot-angle browser (機位)
 
-**Scope**:用户标记 1-3 个"絶対行く"锚点,其余交给 agent 围绕锚点+时间预算补全。
+**Scope**: A full-screen lightbox browser for points with multiple photos — page through frames one at a time, with episode timestamps.
 
-**设计依据**:`spec-chat-page-states.md` SP9;`user-journey.md`(把"从 300 选 8"变成"说 2 个必去+委托")。
+**Design basis**: `user-journey.md` §6.5 J10 (layered multi-photo disclosure); `工作台 - 地图常驻方案.html` (lightbox).
 
-**核心 AC**:
-- 快乐路径:标记 1-3 个锚点后选择"残りはおまかせで埋める"触发 agent 回合(带管线戏),围绕锚点与时间预算补全草稿其余部分 -> integration
-- 空:零锚点直接选"おまかせ"仍产出有效草稿(等效于默认的 agent 预选行为)-> unit
-- 错误:标记的锚点相互不兼容(如时间预算内距离过远)时显示警告 chip,而不是静默生成不可行路线 -> browser
-- 契约治理(回填自 SD-13):该组件 payload 携带 `schema_version`,遵循 additive-only 演进(Active→Deprecated→Removed,弃用期≥12个月);Storybook 建立该组件的 partial-tolerant 态与旧版 payload 态 story -> unit/browser
+**Core ACs**:
+- Happy path: opening a point with multiple candidate shots shows the full lightbox, paging through frames one at a time with episode timestamps -> browser
+- Empty: a point with only 1 photo skips the multi-page lightbox chrome (shows the single image directly) -> browser
+- Error: a 404 on a frame inside the lightbox degrades to the D9 gradient placeholder, rather than a broken image appearing mid-browse -> browser
 
-**变更文件**:`apps/web/src/components/chat/workbench/AnchorDelegation.tsx`。
+**Changed files**: `apps/web/src/components/chat/workbench/SpotLightbox.tsx`.
 
-**依赖**:S6.5。
+**Dependencies**: S6.1.
+
+---
+
+### S6.4 エリア (area) / 話数 (episode) group sync
+
+**Scope**: Keep the grouping key (エリア (area) ⇄ 話数 (episode)) synchronized between the left-side reference and the right-column cards.
+
+**Design basis**: `user-journey.md` §6.9 (the desktop three-tier digestion pattern for "lots of content"); the established grouping rules in `spec-chat-page-states.md`.
+
+**Core ACs**:
+- Happy path: switching the GroupToggle (エリア/話数) on the left re-sorts the right-column cards into the same grouping key in sync -> browser
+- Empty: when the data has only a single area/episode (nothing to group), shows one ungrouped section rather than an empty grouping shell -> unit
+- Error: switching groups mid-scroll preserves the user's current reading position instead of jumping back to the top -> browser
+
+**Changed files**: `apps/web/src/components/chat/workbench/GroupToggleSync.tsx`.
+
+**Dependencies**: S6.1, S6.2.
+
+---
+
+### S6.5 SP8 large-scale draft-edit mode
+
+**Scope**: Results with >100 points automatically flip into "draft edit" mode (agent preselects 8 items + a horizontally-scrolling 名場面 (iconic-scene) TOP strip + collapsed area group headers).
+
+**Design basis**: `spec-chat-page-states.md` SP8; `journey-走查.md` §2 (scale tiers).
+
+**Core ACs**:
+- Happy path: results with >100 points automatically switch to draft-edit mode (agent preselects 8 items + horizontally-scrolling 名場面 TOP + collapsed area group headers), not a flat list -> browser
+- Happy path: tapping "入れ替え" on a preselected item offers 3 nearby candidates in the same area / similar time cost for a local swap (not a full reselect) -> browser
+- Empty: the boundary case of exactly 100 points is handled deterministically by one clear rule (picks one mode or the other), never flickering between the two -> unit
+- Error: swapping an item with zero nearby candidates shows a clear "代替候補なし" notice, not a broken empty swap menu -> browser
+- Contract governance (backfilled from SD-13): this component's payload carries `schema_version`, following additive-only evolution (Active → Deprecated → Removed, ≥12-month deprecation window); Storybook establishes both a partial-tolerant-state story and a legacy-payload-state story for this component -> unit/browser
+
+**Changed files**: `apps/web/src/components/chat/workbench/DraftEditMode.tsx`, `apps/web/src/lib/chat/workbench/nearbySwapCandidates.ts`.
+
+**Dependencies**: S6.1, S1.4 (reuses the point-card component).
+
+---
+
+### S6.6 SP9 anchor delegation
+
+**Scope**: The user flags 1-3 "絶対行く" (definitely-going) anchor points, leaving the rest for the agent to fill in around those anchors plus the time budget.
+
+**Design basis**: `spec-chat-page-states.md` SP9; `user-journey.md` (turning "choose 8 out of 300" into "name 2 must-visits and delegate the rest").
+
+**Core ACs**:
+- Happy path: after flagging 1-3 anchors, choosing "残りはおまかせで埋める" (leave the rest to you) triggers an agent turn (with the pipeline choreography) that fills in the rest of the draft around the anchors and time budget -> integration
+- Empty: choosing "おまかせ" (your call) with zero anchors still produces a valid draft (equivalent to the agent's default preselection behavior) -> unit
+- Error: when the flagged anchors are mutually incompatible (e.g., too far apart for the time budget), shows a warning chip instead of silently generating an infeasible route -> browser
+- Contract governance (backfilled from SD-13): this component's payload carries `schema_version`, following additive-only evolution (Active → Deprecated → Removed, ≥12-month deprecation window); Storybook establishes both a partial-tolerant-state story and a legacy-payload-state story for this component -> unit/browser
+
+**Changed files**: `apps/web/src/components/chat/workbench/AnchorDelegation.tsx`.
+
+**Dependencies**: S6.5.
