@@ -193,3 +193,17 @@
 ### 文档矛盾清单(迭代 0「文档回写」story 的输入)
 
 ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangler.toml/CI 全部仍写 Next.js;frontend/AGENTS.md 被脚手架覆盖空心化;testing-strategy.md 长期 DRAFT 数字过期;i18n 新旧两套机制并存文档;ADR 无统一目录。
+
+## 六、主会话架构补充意见(2026-07-06,用户已知悉,须落进 spec)
+
+| # | 意见 | 落点 |
+|---|---|---|
+| X1 | **地图选型 ADR**:MapLibre GL + Protomaps(pmtiles 存 R2),static-first;禁 Mapbox(账单+封闭样式);pmtiles 的 range 请求与 Walk 离线的 SW 缓存天然复用 | 迭代 0 或 2 前的 ADR+spike story;Walk 离线 AC 引用它 |
+| X2 | **Chat 首 token SLO**:warm p95 ≤3s + 容器保温策略(min instances 或 cron ping);等待仪式阶梯只是兜底不是方案 | 迭代 1 性能 AC -> api |
+| X3 | **BYOK × Logfire scrub**:BYOK key 透传必须从所有日志/trace 中剥除(header redaction),需测试证明 key 不落任何观测面 | 迭代 1 BYOK story 硬 AC -> integration |
+| X4 | **全局日预算熔断**:匿名入口在全局日成本超限时自动降级到登录墙(env 配置一个数) | 迭代 1 匿名放开 story AC -> unit/api |
+| X5 | **Edge 认证模型变更显式化**:「edge 强制认证」→「edge 放行匿名+Turnstile+配额标记,容器按新信任规则处理匿名」;CLAUDE.md/ARCHITECTURE.md 回写须含此条 | 迭代 1 enabler + 迭代 0 文档回写 story |
+| X6 | **图片管线客户端化**:resize/压缩/合成全在客户端 canvas,R2 只存成品;分享物默认剥 EXIF(GPS 隐私),EXIF 回传维持 opt-in | 迭代 4 対比図/上传 story AC |
+| X7 | **SW 与 SSR 路由绕行规则**:service worker 对 /s/:id、/anime/:id 走 network-first,不得缓存旧 SSR HTML | 迭代 3 SW story + 迭代 4 SSR story 各一条 AC -> browser |
+| X8 | **eval 分层常开**:5 条 smoke eval 进 PR 门禁(agent/ 路径触发),全量 617 条 nightly/手动;取代现在的 `if: false` 全关 | 迭代 0 CI story;迭代 7 依赖它 |
+| X9 | **D7 Pyodide 改判 REJECTED(非 deferred)**:容器 FastAPI + 保温为定案,三代自我推翻的文档在回写 story 中统一收敛并标注 | Decision Log + 迭代 0 文档回写 story |
