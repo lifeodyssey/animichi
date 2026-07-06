@@ -1,10 +1,12 @@
 # Iteration 3 — 歩く:Walk
 
-详细度:**开工前细化**(story 清单 + 核心 AC 3-5 条 + enabler + 设计引用;完整模板细节留 Coordinator 排期该迭代前补齐)。Story 数:8。
+详细度:**开工前细化**(story 清单 + 核心 AC 3-5 条 + enabler + 设计引用;完整模板细节留 Coordinator 排期该迭代前补齐)。Story 数:**9**(原 8 个产品 story + SD-3④ 新增的 S3.9 conversation_messages 数据迁移,见主 spec §③)。
 
-依赖顺序建议:S3.7(打卡表,独立可先行)→ S3.1 → S3.2 → {S3.3, S3.4} → S3.5 → S3.6 → S3.8(素材可全程并行)。
+依赖顺序建议:S3.7(打卡表,独立可先行)→ S3.1 → S3.2 → {S3.3, S3.4} → S3.5 → S3.6 → S3.8(素材可全程并行)。S3.9 可与产品 story 并行。
 
-**数据访问路径提醒**:S3.7 是用户域数据 enabler,当前按 Supabase+RLS 直连方案撰写,**可能因 SD-2 结论改判**(见主 spec §②)。
+**数据访问路径(定案,SD-2/主 spec §②)**:S3.7 是用户域数据 enabler,经 `workers/users` oRPC(`/v1/users/*`)+ Neon,`apps/web` 的 `supabase-js` 仅用于 auth——此为终局架构,不再有"可能改判"的不确定性。
+
+**[提案待确认] 标注**:S3.3 的 GPS 精度截断(P9)标注为待用户确认,已完整写入 AC,排期前需 Coordinator 过堂(见主 spec §②)。
 
 ---
 
@@ -44,11 +46,11 @@
 
 ---
 
-### S3.3 Walk 操作(Maps 深链/打卡/近く sheet)+ 平台适配层
+### S3.3 Walk 操作(Maps 深链/打卡/近く sheet)+ 平台适配层 + GPS 精度截断([提案待确认] P9)
 
-**Scope**:「🧭 Mapsで開く」深链(J12)、「✓ ここに来た!」打卡(vibrate+撤销 toast,J13)、「📍 近くにあと N スポット」sheet(J11)——全部经 X10 平台适配层(haptics/geo)。
+**Scope**:「🧭 Mapsで開く」深链(J12)、「✓ ここに来た!」打卡(vibrate+撤销 toast,J13)、「📍 近くにあと N スポット」sheet(J11)——全部经 X10 平台适配层(haptics/geo);精确 GPS 坐标的观测层处理(P9)。
 
-**设计依据**:`user-journey.md` §6.5(四件套映射表);`Walk demo.html`(真打卡 vibrate+撤销)。
+**设计依据**:`user-journey.md` §6.5(四件套映射表);`Walk demo.html`(真打卡 vibrate+撤销);主 spec [提案待确认] P9。
 
 **核心 AC**:
 - 点击「ここに来た!」触发 `platform.haptics.vibrate()`、进度前进、显示可撤销的 toast(几秒窗口)-> browser
@@ -56,10 +58,11 @@
 - 某站附近无其他作品点位时 sheet 显示空态文案,不是破损空列表 -> browser
 - 撤销窗口内点击撤销正确回退打卡(进度-1、同步队列条目移除)-> integration
 - 经由适配层(X10):打卡震动与"近く"用到的定位一律走 `platform.haptics`/`platform.geo`,不直接调 `navigator.*` -> unit
+- **硬 AC([提案待确认],P9)**:打卡/近く sheet 涉及的精确 GPS 坐标不得进入 Logfire trace——观测层的位置数据在写入 trace 前截断到约百米级精度(如坐标保留 3 位小数);**存储层**(打卡记录本身、供"近く"计算用的实际坐标)保留全精度不受影响;integration test 断言 Logfire 捕获的 span 里坐标字段精度不超过约 100m 对应的小数位数,同时数据库/API 响应里的坐标仍是全精度 -> integration
 
-**Backend enabler**:读写打卡数据(见 S3.7)。
+**Backend enabler**:读写打卡数据(见 S3.7);P9 的 scrub 逻辑与 X3(BYOK scrub)共用同一实现点(观测层剥离/截断中间件)。
 
-**变更文件**:`apps/web/src/components/walk/CheckInButton.tsx`、`apps/web/src/components/walk/MapsDeepLink.tsx`、`apps/web/src/components/walk/NearbySheet.tsx`、`apps/web/src/platform/haptics.ts`。
+**变更文件**:`apps/web/src/components/walk/CheckInButton.tsx`、`apps/web/src/components/walk/MapsDeepLink.tsx`、`apps/web/src/components/walk/NearbySheet.tsx`、`apps/web/src/platform/haptics.ts`、`apps/agent/agent/infrastructure/observability_scrub.py`(新增或扩展,GPS 截断逻辑,若与 S1.11 的 X3 scrub 中间件是同一模块则复用)。
 
 **依赖**:S3.2、S3.7。
 
@@ -109,12 +112,12 @@
 
 **核心 AC**:
 - 预缓存路线 bundle 后,飞行模式下打开 Walk Mode 仍渲染完整 shell 与全部站点数据 -> browser
-- 离线打卡在本地排队,联网恢复后经真实网络调用 flush -> integration
+- 离线打卡在本地排队,联网恢复后经真实网络调用(对 `workers/users` 的 oRPC 端点)flush -> integration
 - 从未预缓存过(从未在线访问过)的路线区段显示明确的"この区間はオフラインで見られません"提示,不是破损 shell -> browser
 - flush 冲突(同一打卡已被另一设备同步)按幂等 upsert key 解决,不产生重复行 -> integration
 - **X7 前瞻规则**:SW 的路由匹配规则表已包含 `/s/:id`、`/anime/:id`(即使这两条路由此刻尚未上线),标记为 network-first、排除出 Walk 离线缓存范围,由单测直接断言路由匹配表内容 -> browser
 
-**Backend enabler**:复用 S3.7 的打卡表;新增客户端 IndexedDB schema(非后端资源)。
+**Backend enabler**:复用 S3.7 的打卡端点;新增客户端 IndexedDB schema(非后端资源)。
 
 **变更文件**:`apps/web/src/sw.ts`、`apps/web/src/lib/walk/routeBundleCache.ts`、`apps/web/src/lib/walk/offlineCheckinQueue.ts`。
 
@@ -122,25 +125,25 @@
 
 ---
 
-### S3.7 打卡持久化后端 enabler
+### S3.7 打卡持久化后端 enabler(`workers/users` oRPC + Neon,SD-2 定案)
 
 **Scope**:为打卡记录提供持久化存储与幂等同步支持。
 
 **设计依据**:无视觉画布。
 
-**数据访问路径标注**:用户域数据。**数据访问路径以 SD-2 结论为准,当前按 RLS 直连方案撰写**。
+**数据访问路径(定案,SD-2)**:用户域数据,经 `workers/users` oRPC(`/v1/users/*`)+ Neon 访问,不使用 Supabase RLS 直连。
 
-**Backend enabler(当前方案)**:新 Supabase 表 `walk_checkins`(`id`、`route_id` FK、`point_id` FK、`user_id`、`client_id UUID UNIQUE`〔离线幂等用〕、`checked_in_at TIMESTAMPTZ`、`synced_at TIMESTAMPTZ`);RLS 限定 owner 读写;`apps/web` 经 `supabase-js` 直连 `upsert`(`onConflict: client_id`),不新增 agent 端点;`packages/contract` 新增 `WalkCheckin` zod 行模式。
+**Backend enabler(定案)**:Neon 新表 `walk_checkins`(经 SD-1 工具链:Drizzle schema → atlas-provider-drizzle → atlas migrate 建表)——字段:`id`、`route_id` FK、`point_id` FK、`user_id`、`client_id UUID UNIQUE`〔离线幂等用〕、`checked_in_at TIMESTAMPTZ`、`synced_at TIMESTAMPTZ`;`workers/users` 新增 oRPC 路由(如 `users.checkins.upsert`/`users.checkins.list`),鉴权走 JWT bearer;`apps/web` 经 oRPC client 调用(`upsert` 用 `client_id` 做幂等键),不新增 agent 端点;`packages/contract` 新增 `WalkCheckin` zod 契约(输入/输出 schema,而非 RLS 时代设想的"表行镜像")。
 
 **核心 AC**:
-- 经 supabase-js 插入一条打卡后,随后的读取立即可见 -> integration
-- 零打卡的路线返回空数组,不是 null/崩溃 -> unit
+- 经 `workers/users` 的 oRPC 端点插入一条打卡后,随后的读取立即可见 -> integration
+- 零打卡的路线查询返回空数组,不是 null/崩溃 -> unit
 - 重复提交同一个离线排队打卡(相同 `client_id`)在成功同步后是安全的空操作(upsert),不产生重复行 -> integration
-- **标注**:数据访问路径以 SD-2 结论为准,当前按 RLS 直连方案撰写。
+- 鉴权边界:未携带有效 JWT 的请求访问打卡端点一律拒绝,不允许匿名写打卡数据(与 Chat 的匿名放开是两套不同的信任模型)-> unit
 
-**变更文件**:`supabase/migrations/2026XXXXXXXXXX_walk_checkins.sql`、`packages/contract/src/user-data.ts`(新增 `WalkCheckin`)、`apps/web/src/lib/data/checkins.ts`。
+**变更文件**:`workers/users/src/db/schema.ts`(新增 `walk_checkins` 表定义)、`workers/users/src/api/checkins.ts`(新增)、`packages/contract/src/users-contract.ts`(新增 `WalkCheckin` 契约)、`apps/web/src/lib/data/checkins.ts`(oRPC client 调用封装)。
 
-**依赖**:无(本迭代内可独立先行,被 S3.3/S3.6 消费)。
+**依赖**:S2.8(`workers/users` 首次搭建,Iteration 2 完成的地基;本 story 是在其上新增一组端点,不是重新搭建服务)。
 
 ---
 
@@ -159,3 +162,23 @@
 **变更文件**:`docs/design/2026-07-06-design-sync/assets/fox/fox-walk-sheet.png`(或 8 张独立 PNG)、`apps/web/src/styles/fox-animation.css`、`apps/web/src/components/transitions/GraduationTransition.tsx`(接入,复用 S3.1)。
 
 **依赖**:无(素材生产可并行);消费方 S3.1、S0.7。
+
+---
+
+### S3.9 conversation_messages 数据迁移 Supabase → Neon(SD-3④)
+
+**用户故事**:作为运维,我要既有的 `conversation_messages`(与 `sessions`)表数据从 Supabase 迁移到 Neon,以便与 SD-3 的"数据面归 Neon"方向保持一致。
+
+**设计依据**:无视觉画布;SD-3④(prod 数据量近零,一次性脚本)。
+
+**Backend enabler**:一次性迁移脚本读取 Supabase `conversation_messages` 全量行,在 Neon 建对应表结构(经 SD-1 工具链),写入并核对;迁移完成后 Supabase 侧该表标注冻结;`apps/agent` 的消息读写路径切换到 Neon 客户端。
+
+**核心 AC**:
+- 快乐路径:迁移脚本运行后,Neon 侧 `conversation_messages` 行数与 Supabase 源表行数一致(全量核对)-> integration
+- 空:Supabase 源表为空(全新环境)时迁移脚本正常空跑,不报错 -> unit
+- 错误:遇到格式不匹配的历史行记录到失败清单并继续处理其余行,不整体中断 -> unit
+- 数据完整性:迁移后随机抽样 10% 行做字段级内容比对(不只是行数),确保消息内容/`parts` 结构未失真 -> integration
+
+**变更文件**:`scripts/migrate-conversation-messages-to-neon.ts`(新增)、`apps/agent/agent/infrastructure/`(消息读写路径切换到 Neon 客户端)、`supabase/migrations/`(冻结标注)。
+
+**依赖**:S2.9(sessions 迁移,建议先行,便于共享迁移脚本基础设施);S2.8(`workers/users`/Neon 工具链已搭建)。
