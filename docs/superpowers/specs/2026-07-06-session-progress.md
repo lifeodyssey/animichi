@@ -76,7 +76,7 @@ OpenAPI 单一真源 + 四壳薄适配;顺序 Skill→MCP(FastMCP.from_openapi)�
 ## 五、剩余排队(TaskList #5/#7/#8)
 
 - **#7 图片搜索**:✅ 全定案(SD-26),关闭。
-- **#8 SEO/GEO 方案**:决策 A/B/C ✅ 定案(SD-27,调研代理背书;llms-full 砍/FAQ schema 砍/MCP-as-GEO 立);剩落地包草拟(任务#9)+ 迭代映射汇总(任务#10)。
+- **#8 SEO/GEO 方案**:✅ 全定案关闭(SD-27 + 落地包 `2026-07-06-seo-geo-plan.md` 含迭代映射/负清单/L3 增长分析);另建 `docs/deferred-decisions.md`(DD-1~20 延迟决策登记册 + agent 巡检指令)。
 - **批量修订 spec**:把 SD-13~24 决策回填 Planner 的 9 个 spec 文件(它们写于早期,滞后)。
 - **#5 双评审**:Fable 5(reviewer型,审AC质量/releasable/设计权威冲突)+ Codex(codex-rescue,第二视角;注意 codex 大报告易崩,要求增量写文件,崩了从 job log 提取)。
 - **交付**:commit 到 feat/frontend-rebuild + 向用户汇报。
