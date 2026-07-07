@@ -54,11 +54,12 @@ def test_wrap_untrusted_web_results_keeps_content_delimited(
     assert "</untrusted_web_result>" in wrapped
 
 
-def test_dataset_has_between_three_and_five_cases() -> None:
-    assert 3 <= len(_CASES) <= 5
+def test_dataset_is_full_g1_suite_size() -> None:
+    assert 20 <= len(_CASES) <= 30
 
 
-def test_dataset_includes_at_least_one_benign_case() -> None:
+def test_dataset_includes_benign_and_malicious_cases() -> None:
+    assert any(case["expect_detected"] for case in _CASES)
     assert any(not case["expect_detected"] for case in _CASES)
 
 
