@@ -4139,7 +4139,6 @@ name = "seichijunrei"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "aiohttp" },
     { name = "asyncpg" },
     { name = "authlib" },
     { name = "ddgs" },
@@ -4193,7 +4192,6 @@ scripts = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.14.0" },
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "authlib", specifier = ">=1.6.12" },
     { name = "ddgs", specifier = ">=9.14.1" },

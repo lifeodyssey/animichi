@@ -10,12 +10,8 @@ import json
 import os
 from typing import cast
 
+import httpx
 import pytest
-
-try:
-    import aiohttp
-except ImportError:
-    aiohttp = None  # type: ignore[assignment]
 
 _API_URL = os.environ.get("SEICHI_API_URL", "")
 _API_KEY = os.environ.get("SEICHI_API_KEY", "")
@@ -33,7 +29,7 @@ _HDR: dict[str, str] = {
     "Content-Type": "application/json",
 }
 
-_TIMEOUT = aiohttp.ClientTimeout(total=30) if aiohttp else None
+_TIMEOUT = 30.0
 
 
 async def _request(
@@ -42,13 +38,12 @@ async def _request(
     body: dict[str, object] | None = None,
 ) -> tuple[int, dict[str, object]]:
     """Shared HTTP helper for POST/GET against the runtime API."""
-    assert aiohttp is not None, "aiohttp is required for contract tests"
-    kwargs: dict[str, object] = {"headers": _HDR, "timeout": _TIMEOUT}
+    kwargs: dict[str, object] = {"headers": _HDR}
     if body is not None:
         kwargs["json"] = body
-    async with aiohttp.ClientSession() as s:
-        async with getattr(s, method)(f"{_API_URL}{path}", **kwargs) as r:
-            return r.status, cast(dict[str, object], await r.json())
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        r = await getattr(client, method)(f"{_API_URL}{path}", **kwargs)
+    return r.status_code, cast(dict[str, object], r.json())
 
 
 async def _post(path: str, body: dict[str, object]) -> tuple[int, dict[str, object]]:
@@ -250,16 +245,14 @@ class TestAC5SSEStream:
     """SSE streaming returns step events + done event with full response."""
 
     async def _stream_euphonium(self) -> list[dict[str, object]]:
-        assert aiohttp is not None
-        async with aiohttp.ClientSession() as s:
-            async with s.post(
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            r = await client.post(
                 f"{_API_URL}/v1/runtime/stream",
                 json={"text": "響け！ユーフォニアム", "locale": "ja"},
                 headers=_HDR,
-                timeout=_TIMEOUT,
-            ) as r:
-                assert r.status == 200
-                return _parse_sse(await r.text())
+            )
+        assert r.status_code == 200
+        return _parse_sse(r.text)
 
     async def test_sse_stream_returns_step_and_done_events(self) -> None:
         events = await self._stream_euphonium()

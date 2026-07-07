@@ -14,8 +14,10 @@ translation, which may differ from a literal translation.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
+import httpx
 import structlog
 from pydantic_ai import Agent
 from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
@@ -23,6 +25,11 @@ from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
 from agent.agents.base import resolve_model
 
 logger = structlog.get_logger(__name__)
+
+_BANGUMI_SEARCH_URL = "https://api.bgm.tv/v0/search/subjects"
+_BANGUMI_USER_AGENT = (
+    "Seichijunrei/1.0 (https://github.com/lifeodyssey/Seichijunrei-agent)"
+)
 
 
 @dataclass
@@ -69,35 +76,53 @@ async def _lookup_db(db: object, title: str, target_locale: str) -> str | None:
     return None
 
 
+async def _search_bangumi_subject(title: str) -> Mapping[str, object] | None:
+    """POST a one-result anime subject search to the Bangumi v0 API."""
+    body = {"keyword": title, "filter": {"type": [2]}, "limit": 1}
+    headers = {"User-Agent": _BANGUMI_USER_AGENT}
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(_BANGUMI_SEARCH_URL, json=body, headers=headers)
+    if response.status_code >= 400:
+        logger.warning("bangumi_search_http_error", status=response.status_code)
+        return None
+    return _first_search_hit(response.json())
+
+
+def _first_search_hit(payload: object) -> Mapping[str, object] | None:
+    """Extract the first subject dict from a search response envelope."""
+    if not isinstance(payload, Mapping):
+        return None
+    hits = payload.get("data")
+    if not isinstance(hits, list) or not hits:
+        return None
+    first = hits[0]
+    return first if isinstance(first, Mapping) else None
+
+
+def _pick_locale_title(hit: Mapping[str, object], target_locale: str) -> str | None:
+    """Choose the localized title from a Bangumi subject hit."""
+    name_ja = hit.get("name")
+    name_cn = hit.get("name_cn")
+    if target_locale == "zh" and name_cn:
+        return str(name_cn)
+    if target_locale == "ja" and name_ja:
+        return str(name_ja)
+    # Bangumi has no English titles; name_cn is sometimes the international one.
+    if target_locale == "en" and name_cn and str(name_cn).isascii():
+        return str(name_cn)
+    return None
+
+
 async def _lookup_bangumi_api(title: str, target_locale: str) -> str | None:
     """Search Bangumi API for the title translation."""
     try:
-        from agent.clients.bangumi import BangumiClient
-
-        async with BangumiClient() as client:
-            results = await client.search_subject(
-                keyword=title, subject_type=2, max_results=1
-            )
-            if not results:
-                return None
-
-            hit = results[0]
-            name_ja = hit.get("name")
-            name_cn = hit.get("name_cn")
-
-            if target_locale == "zh" and name_cn:
-                return str(name_cn)
-            if target_locale == "ja" and name_ja:
-                return str(name_ja)
-            if target_locale == "en":
-                # Bangumi doesn't have English titles directly
-                # but name_cn is sometimes English for international titles
-                if name_cn and all(ord(c) < 128 for c in str(name_cn)):
-                    return str(name_cn)
-            return None
-    except (OSError, RuntimeError, ValueError) as exc:
+        hit = await _search_bangumi_subject(title)
+    except (httpx.HTTPError, OSError, RuntimeError, ValueError) as exc:
         logger.warning("bangumi_api_translation_failed", title=title, error=str(exc))
         return None
+    if hit is None:
+        return None
+    return _pick_locale_title(hit, target_locale)
 
 
 # ── Translation Agent (with web search) ─────────────────────────────
