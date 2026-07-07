@@ -154,22 +154,3 @@ def cleanup_test_files():
                 import shutil
 
                 shutil.rmtree(filepath)
-
-
-@pytest.fixture
-async def mock_aiohttp_session():
-    """Mock aiohttp session for async HTTP tests."""
-    session = MagicMock()
-    session.__aenter__ = MagicMock(return_value=session)
-    session.__aexit__ = MagicMock()
-
-    response = MagicMock()
-    response.status = 200
-    response.json = MagicMock(return_value={"success": True})
-    response.__aenter__ = MagicMock(return_value=response)
-    response.__aexit__ = MagicMock()
-
-    session.get = MagicMock(return_value=response)
-    session.post = MagicMock(return_value=response)
-
-    return session
