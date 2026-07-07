@@ -12,9 +12,7 @@ import structlog
 logger = structlog.get_logger(__name__)
 
 _BANGUMI_SEARCH_URL = "https://api.bgm.tv/v0/search/subjects"
-_BANGUMI_USER_AGENT = (
-    "Seichijunrei/1.0 (https://github.com/lifeodyssey/Seichijunrei-agent)"
-)
+_BANGUMI_USER_AGENT = "Animichi/1.0 (https://github.com/lifeodyssey/animichi)"
 _TITLE_NORMALIZE_RE = re.compile(
     r"[\s!！?？。・、．\.,，:：;；~〜～'\"「」『』【】()（）\[\]*＊☆★]"
 )

@@ -30,7 +30,7 @@
 #   NEXT_PUBLIC_SUPABASE_URL
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-name = "seichijunrei"
+name = "animichi"
 compatibility_date = "2025-03-01"
 compatibility_flags = ["nodejs_compat"]
 main = "worker/entry.ts"
