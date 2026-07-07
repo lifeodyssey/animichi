@@ -4,7 +4,7 @@ This file provides guidance to Claude Code and other agentic tools working in th
 
 ## What This Repo Is
 
-Seichijunrei is an anime pilgrimage search and route planning service.
+Animichi is an anime pilgrimage search and route planning service.
 
 Implementation status: Core runtime + Cloudflare deploy path in place. PydanticAI agent deployed.
 
@@ -282,7 +282,7 @@ This file provides guidance to Claude Code and other agentic tools working in th
 
 ## What This Repo Is
 
-Seichijunrei is an anime pilgrimage search and route planning service.
+Animichi is an anime pilgrimage search and route planning service.
 
 Implementation status: Core runtime + Cloudflare deploy path in place. PydanticAI agent deployed.
 

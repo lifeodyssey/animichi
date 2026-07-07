@@ -16,7 +16,7 @@ from agent.utils.logger import get_logger
 logger = get_logger(__name__)
 
 BANGUMI_API_BASE = "https://api.bgm.tv"
-_USER_AGENT = "Seichijunrei/1.0 (https://github.com/lifeodyssey/Seichijunrei-agent)"
+_USER_AGENT = "Animichi/1.0 (https://github.com/lifeodyssey/animichi)"
 _HEADERS = {"User-Agent": _USER_AGENT, "Accept": "application/json"}
 
 
