@@ -49,6 +49,9 @@ const WALKING_SPEED_M_PER_MIN = 80;
 const WALK_DETOUR_COEFFICIENT = 1.3;
 const VALID_PACING: ReadonlySet<string> = new Set(["chill", "normal", "packed"]);
 
+/** Maximum clusters the timed-itinerary kernel accepts. */
+export const MAX_ITINERARY_CLUSTERS = 50;
+
 /** Python `round()` — round-half-to-even (banker's), unlike `Math.round`. */
 function pyRound(value: number, digits = 0): number {
   const f = 10 ** digits;
@@ -200,13 +203,15 @@ export interface ItineraryOptions {
  * Build a `TimedItinerary` from `clusters`: order them by nearest-neighbor,
  * then walk through producing stops (arrive/depart/dwell), legs (walk distance
  * via raw haversine + detoured duration estimate), and totals. Throws when
- * given over 50 clusters.
+ * given over {@link MAX_ITINERARY_CLUSTERS} clusters.
  */
 export function buildTimedItinerary(
   clusters: LocationCluster[],
   opts: ItineraryOptions = {},
 ): TimedItinerary {
-  if (clusters.length > 50) throw new Error("Too many locations to route (max 50)");
+  if (clusters.length > MAX_ITINERARY_CLUSTERS) {
+    throw new Error(`Too many locations to route (max ${String(MAX_ITINERARY_CLUSTERS)})`);
+  }
   const startTime = opts.startTime ?? "09:00";
   const pacing = safePacing(opts.pacing ?? "normal");
   if (clusters.length === 0) {
