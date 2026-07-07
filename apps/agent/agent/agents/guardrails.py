@@ -59,15 +59,20 @@ def detect_prompt_injection(text: str, *, source: str = "user_input") -> bool:
 
 
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+_BOUNDARY_TAG = re.compile(r"</?\s*untrusted_web_result\s*>", re.I)
 _TRUNCATION_MARKER = "…[truncated]"
 
 
 def sanitize_untrusted(text: str, *, max_len: int) -> str:
-    """Strip control characters (keeping newlines/tabs) and truncate.
+    """Strip control chars and boundary-tag literals, keeping newlines/tabs.
 
-    Appends a short ellipsis marker when the text had to be truncated.
+    Removing literal ``<untrusted_web_result>``/``</untrusted_web_result>``
+    sequences prevents untrusted content from forging a closing tag and
+    escaping the delimited block. Truncates and appends a short ellipsis
+    marker when the text had to be shortened.
     """
     cleaned = _CONTROL_CHARS.sub("", text)
+    cleaned = _BOUNDARY_TAG.sub("", cleaned)
     if len(cleaned) <= max_len:
         return cleaned
     keep = max(max_len - len(_TRUNCATION_MARKER), 0)
