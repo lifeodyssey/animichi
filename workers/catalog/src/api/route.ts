@@ -6,8 +6,9 @@
  * (`packages/contract/src/models.ts`).
  *
  * Flow: fetch points for `point_ids` (joined to bangumi for the anime title) ->
- * `clusterByLocation` (50m) -> `buildTimedItinerary` -> expand the ordered
- * clusters back to their member points (= `ordered_points`) -> `Route`.
+ * `clusterByLocation` (50m) -> typed too-many-clusters guard ->
+ * `buildTimedItinerary` -> expand the ordered clusters back to their member
+ * points (= `ordered_points`) -> `Route`.
  *
  * Read-only: a single SELECT, no writes. Origin is forwarded to the kernel only
  * in `{lat,lng}` form; the contract's named-place string Origin would need
@@ -18,9 +19,10 @@
 import { sql } from "drizzle-orm";
 import type { ClusterablePoint, LocationCluster } from "../lib/clustering";
 import { clusterByLocation } from "../lib/clustering";
+import { routeTooManyClusters } from "../lib/errors";
 import { optional } from "../lib/optional";
 import type { Origin as KernelOrigin, Pacing, TimedItinerary } from "../lib/route";
-import { buildTimedItinerary } from "../lib/route";
+import { buildTimedItinerary, MAX_ITINERARY_CLUSTERS } from "../lib/route";
 import type { Origin, PilgrimagePoint, Route } from "../types";
 
 /**
@@ -71,6 +73,7 @@ type PointCluster = LocationCluster<ClusterablePilgrimagePoint>;
 export async function route(db: RouteDb, input: RouteInput): Promise<Route> {
   const points = await fetchPoints(db, input.point_ids);
   const clusters = clusterByLocation(points, 50);
+  if (clusters.length > MAX_ITINERARY_CLUSTERS) throw routeTooManyClusters(clusters.length, MAX_ITINERARY_CLUSTERS);
   const itinerary = buildTimedItinerary(clusters, kernelOpts(input));
   return assembleRoute(clusters, itinerary);
 }
