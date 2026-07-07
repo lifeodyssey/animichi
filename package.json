@@ -1,5 +1,5 @@
 {
-  "name": "seichijunrei-cloudflare-worker",
+  "name": "animichi-cloudflare-worker",
   "private": true,
   "packageManager": "pnpm@10.33.2",
   "engines": {
