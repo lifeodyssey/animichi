@@ -7,6 +7,7 @@
 
 import { oc } from "@orpc/contract";
 import { z } from "zod";
+import { pickCatalogErrors } from "./errors.js";
 import { IngestResult, Origin, PilgrimagePoint, Pacing, Route } from "./models.js";
 
 /** search(query, origin?) -> { rows, synced_at, partial? } */
@@ -70,10 +71,12 @@ export const catalogContract = {
   search: oc
     .route({ method: "POST", path: "/catalog/search", summary: "Search pilgrimage points by anime title" })
     .input(SearchInput)
+    .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
     .output(SearchResult),
   spots: oc
     .route({ method: "POST", path: "/catalog/spots", summary: "Fetch a single pilgrimage point, optionally with distance" })
     .input(SpotsInput)
+    .errors(pickCatalogErrors(["WORK_NOT_FOUND"]))
     .output(SpotsResult),
   nearby: oc
     .route({ method: "POST", path: "/catalog/nearby", summary: "Find pilgrimage points within a radius" })
@@ -82,6 +85,7 @@ export const catalogContract = {
   route: oc
     .route({ method: "POST", path: "/catalog/route", summary: "Plan an ordered, timed route over selected points" })
     .input(RouteInput)
+    .errors(pickCatalogErrors(["ROUTE_TOO_MANY_CLUSTERS", "ROUTE_TOO_MANY_POINTS"]))
     .output(Route),
   ingest: oc
     .route({ method: "POST", path: "/catalog/ingest", summary: "Ingest a not-yet-cataloged work on demand by bangumi id" })
