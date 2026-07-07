@@ -348,3 +348,490 @@ content that would already be wrong if an earlier step is skipped.
   lookup order and monorepo templates
 - [agentrulegen.com — agent rules for monorepos](https://www.agentrulegen.com/guides/agent-rules-for-monorepos) —
   scope-discipline warning for nested rule files
+
+---
+
+# v2 (2026-07-07): four follow-up questions
+
+This section deepens the proposal above; it does **not** overturn it. It answers four
+questions the v1 draft left open, using a fresh currency audit of the docs the repo actually
+points agents at:
+
+- **v2.1 (Q1)** — Are the doc references current? A corrected, single Source-of-Truth table,
+  plus a verdict on whether `docs/ARCHITECTURE.md` should be *updated* or *marked superseded*.
+  (This **revises one line of §5** — see v2.1.4.)
+- **v2.2 (Q2)** — Concrete, drop-in *content drafts* for the root and per-package AGENTS.md
+  files that §2.2/§3 only named.
+- **v2.3 (Q3)** — Tool-routing: the split between **global** agent config (already in
+  `~/.claude/…`, must not be duplicated) and **repo-specific** routing that belongs here.
+- **v2.4 (Q4)** — Public skills / generators / practices for building and maintaining these
+  files, and an adopt-vs-hand-write verdict.
+
+Everything here remains a **proposal**. No CLAUDE.md/AGENTS.md/DOCS_POLICY.md content is
+changed by this PR.
+
+---
+
+## v2.1 (Q1) · Doc references are pointing at stale architecture
+
+### v2.1.1 The drift, confirmed
+
+Two "source of truth" tables exist, and **both point agents at the pre-hybrid, pre-monorepo,
+pre-rename world**:
+
+1. **`CLAUDE.md` → "Source Of Truth"** sends *"Detailed architecture → `docs/ARCHITECTURE.md`"*.
+   `docs/ARCHITECTURE.md` (undated, but pre-monorepo) describes: the Python agent at
+   root-level `agents/…` paths, `worker/worker.js` as the auth layer, and a three-column
+   chat frontend — **none of which is current**. The agent moved to `apps/agent/agent/…`; the
+   edge worker is now `worker/entry.ts` (+ `app.ts` + `auth.ts`); and the three-column chat
+   UI was **deleted** in the 2026-06 cleanup (`frontend/` is homepage-only now, per
+   `frontend/AGENTS.md`). It also has **no mention** of the catalog service, the data platform,
+   the oRPC contract, Neon, or the Supabase-auth-only split.
+2. **`docs/DOCS_POLICY.md` → "Single Sources Of Truth"** is worse: it still lists
+   `backend/agents/pilgrimage_runner.py`, `backend/agents/models.py`, and `worker/worker.js` —
+   **pre-monorepo *and* pre-rename** paths that no longer resolve (`backend/` → `apps/agent/agent/`).
+
+The genuinely authoritative architecture now lives in two dated specs, in an **authority
+layering** the tables don't capture:
+
+- **`docs/superpowers/specs/2026-06-13-architecture-adr.md`** — the foundational ADR: data
+  platform as the core, the Catalog-from-Agent split, DB-per-service, and the framework
+  picks (Hono / oRPC / Drizzle / AI SDK v5 / Workflows / MapLibre+Protomaps / Evalite /
+  Logfire-CF). Its *decision-two* ("全 TS on Workers", i.e. rewrite the agent to TS) was
+  **later refined**: the agent stays Python.
+- **`docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md`** — the latest and most
+  complete current-target doc. **SD-4 / D7 REJECTED the agent TS-rewrite as final** — the
+  containerized Python PydanticAI agent is the permanent shape. It adds a third TS service
+  (`workers/users`, Neon+Drizzle), the `apps/web` TanStack rebuild, Neon-data/Supabase-auth
+  split, and the AI-SDK-UI-message-stream chat protocol.
+
+So the true shape is a **hybrid microservice system**, and *where the two specs conflict on
+agent language, the newer one (SD-4/D7) wins.* Neither "source of truth" table says any of this.
+
+### v2.1.2 Corrected, single Source-of-Truth table
+
+This is the merged, current table (paths verified on disk on the PR branch). It is meant to
+live in **one** place (see v2.1.5), replacing both drifted copies.
+
+| Topic | Current source of truth | Notes / was |
+|---|---|---|
+| **Why** the architecture is shaped this way | `docs/superpowers/specs/2026-06-13-architecture-adr.md` | Foundational ADR. Decision-two ("全 TS") refined by SD-4/D7 below |
+| **Current target** architecture (hybrid, latest) | `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md` | Latest; supersedes ADR on agent language; rebuild in progress (iter 0-7) |
+| Live agent runtime call-path (reference) | `docs/ARCHITECTURE.md` **(needs refresh — v2.1.3)** + `apps/agent/agent/agents/pilgrimage_runner.py` | Runtime is still Python & live; the doc's *paths* + *frontend* section are stale |
+| Agent entry | `apps/agent/agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/pilgrimage_runner.py` | was `backend/interfaces/…` / `agent/interfaces/…` |
+| Agent shared types | `apps/agent/agent/agents/models.py`, `…/agent_result.py` | was `backend/agents/…` |
+| Agent tools | `apps/agent/agent/agents/pilgrimage_tools.py` | 7 `@agent.tool` regs |
+| Catalog service (TS) + data platform | `workers/catalog/src/` — `ingest/` · `enrich/` · `publish/` · `api/` · `router.ts` | realizes the ADR's Ingest→Enrich→Publish |
+| Cross-service contract (zod = SoT) | `packages/contract/src/` (`models.ts`, `contract.ts`, `errors.ts`) + `packages/contract/README.md` | error registry + parity guard live here |
+| User-domain service | `workers/users/` — **planned, not yet created** (SD-2) | Neon+Drizzle, `/v1/users/*` oRPC |
+| Edge worker / auth / routing | `worker/entry.ts` (+ `app.ts`, `auth.ts`) | was `worker/worker.js` |
+| Deploy wiring | `wrangler.toml` + `worker/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
+| DB — catalog/user data | **Neon** (Drizzle query-only + Hyperdrive); migrations in `db/` (atlas) | SD-3 / D8 data plane |
+| DB — auth | **Supabase** (auth-only); migrations in `supabase/migrations/` | SD-3 / D8 |
+| Frontend — **current** (homepage-only) | `frontend/` (Next.js OpenNext) + `frontend/AGENTS.md` | chat/search trees deleted 2026-06 |
+| Frontend — **rebuild target** | `apps/web/` — **planned, not yet created** (TanStack Start) | spec `2026-07-06-frontend-rebuild-spec.md` |
+| Design tokens / system | `frontend/app/globals.css` + `frontend/DESIGN.md`; ref `docs/design/animal-island-ref/` | |
+| Eval | `apps/agent/agent/tests/eval/` (Python, current) → Evalite/TS (planned, SD-30) | |
+| Testing strategy | `docs/testing-strategy.md` | one stale `backend/` example (§2.7) |
+| Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |
+
+### v2.1.3 Verdict: `docs/ARCHITECTURE.md` — **UPDATE, do not mark superseded**
+
+I read `ARCHITECTURE.md` against the ADR and the rebuild spec. It is a **mix**: its
+agent-runtime core (RuntimeAPI → runner → `pilgrimage_agent` → tools → `AgentResult`,
+the tool table, the response contract) is **still accurate** — the hybrid decision keeps
+that runtime in Python. What's stale is (a) every path (monorepo move), (b)
+`worker/worker.js` → `worker/entry.ts`, (c) the entire missing hybrid dimension
+(catalog / data platform / oRPC / Neon / Supabase-auth-only), and (d) the "Frontend
+Architecture" section, which documents the **deleted** three-column chat UI.
+
+**Update, don't supersede**, because:
+
+1. You **cannot** redirect "detailed architecture" to the ADR or the rebuild-spec. Those are
+   **dated, point-in-time decision records** — by DOCS_POLICY rule 5 and this proposal's own
+   §5, they must not be retroactively edited and will drift *by design*. A living "current
+   architecture" doc is a different genre and must always reflect what's running now.
+2. The agent-runtime reference content has **no other home** in that form — marking the file
+   "superseded" would delete a still-true reference and replace it with nothing.
+
+**Concretely**, the refresh = fix the monorepo paths + `worker/entry.ts`; add a short
+"hybrid platform" overview (agent / catalog / users / contract / edge, with the Neon-data
+vs Supabase-auth split) that **links** to the ADR (for *why*) and the rebuild-spec (for the
+*target*); and replace the "Frontend Architecture" section with a two-line pointer noting the
+current frontend is homepage-only and the full UI is being rebuilt in `apps/web` (link the
+rebuild-spec). That keeps ARCHITECTURE.md as the one linked-not-inlined "current" doc this
+proposal wants everywhere else.
+
+### v2.1.4 This revises §5's ARCHITECTURE.md line
+
+§5 currently lists *"Any change to `docs/ARCHITECTURE.md` … No changes proposed"* on the
+grounds that it "already follows the progressive-disclosure pattern." The v2.1 audit shows
+that reasoning conflated **"is linked, not inlined"** with **"is accurate."** It is linked
+but **stale**. So: keep it linked, but **it needs the content refresh above.** Because a full
+rewrite is larger than a docs-*organisation* change, this should be a **scoped follow-up**
+(its own PR), and in the meantime the Source-of-Truth table (v2.1.2) points architecture
+*depth* at the ADR + rebuild-spec, not only at the stale file.
+
+### v2.1.5 Kill the double table (merge into one)
+
+Aligned with §4 step 1: keep **one** copy of the corrected table — in `docs/DOCS_POLICY.md`
+(its topic→path shape already fits) — refresh it to v2.1.2, and change the root file's
+"Source Of Truth" section into a **one-line link** into it. This removes the two-tables-that-
+drift failure mode DOCS_POLICY.md's own review checklist warns against.
+
+---
+
+## v2.2 (Q2) · Concrete AGENTS.md content drafts
+
+§2.2/§3 named the per-package files; here is **drop-in content** for each, drawn from the
+actual repo (real commands, paths, rules). Symlink direction per §2.1/§4 step 2: each
+`CLAUDE.md` is a thin pointer (`@AGENTS.md` or `ln -s AGENTS.md CLAUDE.md`); each `AGENTS.md`
+is canonical — matching what `frontend/` already does.
+
+### v2.2.1 Root `AGENTS.md` (target < 200 lines)
+
+```markdown
+# Animichi — AGENTS.md
+
+Anime pilgrimage search + route planning. **Hybrid microservices**: a Python PydanticAI
+agent (FastAPI, Cloudflare container) + TS Cloudflare Workers (catalog, and a planned users
+service) + a TanStack web app (rebuild in progress). Data plane = Neon; auth = Supabase.
+
+## Monorepo layout
+- `apps/agent/`      — Python PydanticAI agent (FastAPI container). uv. → `apps/agent/AGENTS.md`
+- `workers/catalog/` — TS Worker: anime catalog API + data platform (ingest/enrich/publish). → `workers/catalog/AGENTS.md`
+- `workers/users/`   — TS Worker: user-domain data (Neon+Drizzle). PLANNED (SD-2).
+- `packages/contract/` — Shared oRPC/zod contract (source of truth for cross-service types).
+- `frontend/`        — Next.js OpenNext, **homepage-only** (chat/search deleted 2026-06). → `frontend/AGENTS.md`
+- `apps/web/`        — TanStack Start rebuild. PLANNED (see rebuild spec).
+- `worker/`          — CF edge worker (entry.ts): auth + `/v1` routing + image proxy.
+- `db/`              — Neon migrations (atlas). `supabase/migrations/` — auth migrations.
+- `infra/`           — Pulumi IaC (R2 binding only for now).
+
+## Package managers
+- **pnpm** workspace for all TS (`pnpm-workspace.yaml`). **uv** for Python (in `apps/agent/`).
+
+## Core commands
+- `make check`        — lint + typecheck + test. **Run before AND after any change.**
+- `make dev-local`    — Supabase + backend + frontend (one command; never start services individually).
+- `make test` / `make test-integration` / `make test-eval` / `make e2e`
+- Per-package specifics live in that package's AGENTS.md.
+
+## Cross-stack guardrails (apply everywhere)
+- **1-10-50**: functions ≤10 lines, classes ≤50, files ≤300; ≤2 indent levels.
+- **No suppression without user approval** — no `eslint-disable`/`@ts-ignore`/`type: ignore`/
+  `noqa`/`pragma: no cover`/`continue-on-error`/`skip`. Fix the code.
+- **Coverage floors ratchet UP only** — frontend lines≥72/stmts≥68/fns≥62/branches≥59; backend≥80.
+- **No `Any`** (Python: `object` + `isinstance()`; TS: no `any`). No `dict[str, object]` — model it.
+- **No local deploy** — CI/CD only (hook `block-local-deploy`). staging = merge to main; prod = tag `v*`.
+
+## Authoritative docs (read when doing the matching work)
+- Architecture WHY → `docs/superpowers/specs/2026-06-13-architecture-adr.md`
+- Current TARGET → `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md`
+- Live runtime reference → `docs/ARCHITECTURE.md`
+- Deploy runbook → `docs/ops/deployment.md`
+- Single Source-of-Truth table + doc rules → `docs/DOCS_POLICY.md`
+
+## Tool routing  (see v2.3 — global vs repo)
+- Skill-first: bugs→/investigate · ship/PR→/ship · qa→/qa · review→/review · design system→
+  /design-consultation · visual→/design-review · architecture→/plan-eng-review · quality→/health.
+- Delegate code-writing / deep investigation to **Codex via `/codex` or `codex:codex-rescue`** —
+  NEVER `codex exec --sandbox workspace-write` (hook `block-codex-exec-codewrite` blocks it).
+- Web browsing → `/browse` (gstack). Never `mcp__claude-in-chrome__*`.
+- TDD: `/backend-tdd` (Python) · `/frontend-tdd` (React).
+- This repo has `.codegraph/` — follow the **global** CodeGraph rules (`~/.claude/CLAUDE.md`):
+  spawn an Explore agent for exploration; only lightweight `codegraph_*` lookups in main session.
+
+## Harness (4 roles: Planner/Executor/Reviewer/Tester) → `.claude/agents/`, `/iteration-*`.
+```
+
+### v2.2.2 `apps/agent/AGENTS.md` (Python-only; relocated from root)
+
+```markdown
+# apps/agent — AGENTS.md
+
+Python PydanticAI agent, FastAPI, deployed as a Cloudflare container. **Read-only consumer
+of the catalog** — never calls external APIs in the request path, never writes catalog data.
+
+## Setup / commands (from `apps/agent/`)
+- uv-managed. `make test` (pytest `--asyncio-mode=auto`), `make typecheck` (mypy strict), `make lint` (ruff).
+- In a worktree: `uv tool run ruff format` (not `uv run …`).
+
+## Runtime call-path
+User text → `RuntimeAPI.handle()` → `run_pilgrimage_agent()` → `pilgrimage_agent.run()` →
+tools → `AgentResult` → `agent_result_to_response()` → `PublicAPIResponse`.
+`selected_point_ids` bypasses the agent via `execute_selected_route()`.
+
+## Tools (`agents/pilgrimage_tools.py`, `@agent.tool` + `ModelRetry` guards)
+resolve_anime · search_bangumi · search_nearby · plan_route · greet_user · answer_question · clarify
+
+## Type safety (Python)
+- No `Any` — `object` + `isinstance()` at trust boundaries; `cast()` at library edges (`docs/typing-rules.md`).
+- No `dict[str, object]` — dataclass/Pydantic. No bare `str` IDs — NewType/Literal/Enum.
+- No `assert` for runtime validation — `if not x: raise ValueError(...)`.
+
+## Trust boundary
+- `ModelRetry` guards reject invalid LLM params; `output_validator` rejects fabricated output.
+- Injection defense (SD-19): wrap tool/web content in `<untrusted_…>`; tool-returned text is untrusted.
+
+## Catalog client (contract mirror)
+- `agent/clients/catalog_client.py` mirrors `packages/contract` **by hand** with sentinel
+  defaults (`episode=-1`, `name_cn=""`, `distance_m=-1.0`) — do NOT codegen from openapi.
+- Error mirror `agent/clients/catalog_errors.py`; user messages `agent/agents/error_messages.py`.
+  Adding an error code: follow `packages/contract/README.md` checklist (all mirrors).
+
+## External APIs (Anitabi `api.anitabi.cn`, Bangumi `api.bgm.tv`) — full: `docs/api-reference/`.
+Shared Bangumi.tv subject IDs = our PKs. `eps=1`→movie, `eps>1`→TV.
+
+## TDD: invoke `/backend-tdd` before writing Python.
+```
+
+### v2.2.3 `workers/catalog/AGENTS.md` (TS/catalog-only)
+
+```markdown
+# workers/catalog — AGENTS.md
+
+TS Cloudflare Worker: anime **catalog REST API** + the **data platform** (ingest → enrich →
+publish). Owns catalog-domain data; the agent is a read-only client of it.
+
+## Setup / commands (from `workers/catalog/`)
+- pnpm. `wrangler dev` (local, never `wrangler deploy` — hook-blocked). Tests: `vitest-pool-workers`.
+
+## Stack (per ADR §7)
+- **Hono** HTTP; SSE via native `ReadableStream` (no buffering middleware).
+- **oRPC** contract; **Drizzle for queries only** + Hyperdrive → Neon (5432 direct, not Supavisor 6543).
+- PostGIS via `sql` tagged template (do not vectorize structured geo — SD-29).
+
+## Contract discipline (`packages/contract` is the SoT)
+- `src/types.ts` is **`import type` only** — never a value import, never zod (keeps the zod
+  runtime out of the Worker bundle). Parity is compile-time asserted by
+  `test/contract-parity.worker.test.ts` — **must stay green**.
+- Error registry = **three mirrors, one registry** (contract zod → catalog no-zod mirror →
+  Python mirror). Never throw a bare `ORPCError`/`Error` for an actionable failure — register a
+  code. Full checklist: `packages/contract/README.md`.
+
+## Data platform
+- `src/ingest/` (per-work TTL, singleflight via `ingest_jobs` unique constraint — never stampede
+  Anitabi) · `src/enrich/` (dedup / clustering / city backfill / attribution) · `src/publish/`.
+- Route ordering is unified HERE (`src/lib/route.ts`, haversine × 1.3, SD-28) — the Python
+  `route_optimizer.py` is retired.
+- Data-quality gate (X15): coordinate validation / dedup / episode completeness / volume-drift.
+```
+
+### v2.2.4 `apps/web/AGENTS.md` (write when the rebuild lands; carries over from `frontend/AGENTS.md`)
+
+```markdown
+# apps/web — AGENTS.md
+
+TanStack Start, SPA + selective SSR (`/s/:id`, `/anime/:id`), Cloudflare Worker runtime.
+Domain animichi.com. (Until this lands, the live frontend is `frontend/` — homepage only.)
+
+## Design system
+- Read `DESIGN.md` before any UI work. Tokens in `app/globals.css :root` (semantic `--color-*`
+  over `animal-island-ui`'s `--animal-*`). Light theme only, warm cream/brown (動森キャンプ).
+- Semantic Tailwind classes (`bg-primary`, `text-foreground`) — never `bg-[var(--color-*)]`,
+  never raw hex/`oklch()` in components. New primitives = Radix + tokens (shadcn model).
+- (Full CSS ruleset: candidate for `.claude/rules/css.md` with `paths: apps/web/**` — §1.3.)
+
+## Data + auth
+- `supabase-js` is **auth-only** — never touches a data table. All data via the public `/v1`
+  oRPC surface (catalog + users). No private backdoor (X11).
+- Platform capability layer `src/platform/` — product code never calls `navigator.*` directly (X10).
+
+## Generative UI
+- App-owned registry (`components/generative/registry.ts`); server sends **semantic payload**,
+  app owns rendering. Adding a component = a registry entry only. Payload URLs render only from
+  catalog/allowlisted sources (SD-13/C6a).
+
+## Chat: AI SDK v7 `useChat` over the AI-SDK-UI-message-stream protocol (SD-9). i18n = Context+dictionary.
+
+## TDD: invoke `/frontend-tdd` before writing React/TS.
+```
+
+---
+
+## v2.3 (Q3) · Tool routing — the global-vs-repo split (the key call)
+
+**Finding:** this repo has **no `.mcp.json`** — every MCP server is configured **globally**
+(user config / plugins), not per-repo. And RTK + CodeGraph already live in **two global
+files** that load as ancestors for every session in this repo: `~/.claude/CLAUDE.md`
+(CodeGraph rules + `@RTK.md`) and `~/CLAUDE.md` (File-org + CodeGraph again). On the `main`
+branch, the repo `CLAUDE.md` **also** carries a full `## CodeGraph` block — so CodeGraph is
+**triple-stated** (2 global + 1 repo). That is exactly the duplication to remove.
+
+### v2.3.1 GLOBAL — do NOT repeat in repo AGENTS.md
+
+| Thing | Where it already lives | Repo AGENTS.md should say |
+|---|---|---|
+| **RTK** (Rust Token Killer) — hook-rewritten commands, `rtk gain`, etc. | `~/.claude/RTK.md` (via `~/.claude/CLAUDE.md`) | **nothing** — purely global tooling, no repo-specific angle |
+| **CodeGraph** mechanics (Explore-agent rule, lightweight-tools table) | `~/.claude/CLAUDE.md` + `~/CLAUDE.md` | **one line**: "`.codegraph/` is initialized — follow the global CodeGraph rules." |
+| File-org / parallel-exec / code-style house rules | `~/CLAUDE.md` | nothing (global) |
+
+**Action:** when consolidating, **delete** the `## CodeGraph` block from the repo file (it
+duplicates global). Keep only the one-line "this repo is indexed" pointer.
+
+### v2.3.2 REPO-SPECIFIC — DO write in root AGENTS.md (terse, "when to use X" triggers)
+
+1. **Codex plugin routing** *(new — this is the important one)*. The repo ships a hookify hook
+   **`block-codex-exec-codewrite`** (`.claude/hookify.block-codex-exec.local.md`) that hard-blocks
+   `codex exec` with a writable sandbox (`--sandbox workspace-write|danger-full-access`). Rule:
+   > Delegate code-writing / deep investigation to Codex via **`/codex`** (`use-codex`) or
+   > **`codex:codex-rescue`** (Skill, or an Agent `subagent_type="codex:codex-rescue"`), which
+   > run the managed app-server runtime. **Never** `codex exec --sandbox workspace-write` (it hits
+   > the machine-level concurrency guard → multi-lead false-blocks → hangs; measured 2026-07-07).
+   > One-shot image-gen via app-server / read-only sandbox is fine.
+2. **Skill routing** — the existing list in root CLAUDE.md is good; keep it (bugs→/investigate,
+   ship→/ship, qa→/qa, review→/review, docs→/document-release, retro→/retro,
+   design-system→/design-consultation, visual→/design-review, architecture→/plan-eng-review,
+   quality→/health, brainstorm→/office-hours) **plus** `/codex` (item 1) and the two `*-tdd` skills.
+3. **MCP servers — only the ones tied to THIS repo's infra** (one-line "when"). Skip the generic
+   global plugins (chrome-devtools, claude-mem, computer-use, microsandbox, sentrux) — they're not
+   repo-specific.
+
+   | Server | Use it for |
+   |---|---|
+   | `supabase-seichijunrei` | Auth/Supabase project ops — `list_tables`, `get_logs`, `get_advisors`, edge functions, `apply_migration` (remote). Start here to debug auth/DB. |
+   | Neon (`mcp__Neon__*`) | The **data plane** (catalog/user tables, Drizzle). Branch/query Neon. |
+   | Cloudflare (`cloudflare-*`) | Workers/Wrangler docs, bindings, build + observability for the edge/catalog. |
+   | context7 | Up-to-date library docs for the exact stack (Hono, Drizzle, oRPC, AI SDK v5/v7, TanStack Start, pydantic-ai). Prefer over memory. |
+   | serena | LSP-backed semantic code nav/edits when codegraph isn't enough. |
+   | logfire | Observability (the ADR's obs stack; agent + Workers share the Logfire dashboard). |
+4. **gstack** — `/browse` for all web browsing; never `mcp__claude-in-chrome__*`. (Already present.)
+
+### v2.3.3 Placement
+
+Per progressive disclosure (§1.5): these are **every-session relevant**, so they belong in the
+**root** AGENTS.md — but as **one-line triggers**, not inlined tool manuals. The global files
+carry the "how"; the repo file carries "for *this* stack, reach for X when Y." Net effect vs.
+today: **−1 duplicated CodeGraph block, +1 Codex-routing rule, +1 scoped MCP-when-to-use table.**
+
+---
+
+## v2.4 (Q4) · Public skills / generators / practices — adopt or hand-write?
+
+I surveyed the 2026 ecosystem for tools that *build* and *maintain* AGENTS.md/CLAUDE.md. It
+splits into four categories, and only two are worth adopting here.
+
+### v2.4.1 Generators / scaffolders
+
+| Tool | What it is | Verdict for this repo |
+|---|---|---|
+| **Claude Code `/init`** (built-in) | Scans code, generates a starter CLAUDE.md; **reads existing** CLAUDE.md/AGENTS.md/`.cursorrules` and folds them in ("suggests improvements rather than overwriting"); re-runnable. New multi-phase mode behind `CLAUDE_CODE_NEW_INIT=1` (asks which artifacts, explores via subagent, shows a reviewable proposal). | **ADOPT as the bootstrapper.** Run it *per package* to seed the nested files this proposal wants (`apps/agent/`, `workers/catalog/`, `apps/web/`), then hand-trim to <200 lines. It's the only generator that natively respects existing files + AGENTS.md + nesting. |
+| **agentrulegen.com** (Agent Rules Builder) | Browser one-shot; pick language/framework, export CLAUDE.md/AGENTS.md/`.cursorrules`/etc. | **SKIP.** Root-only (no monorepo/nested model), no re-generation, generic community boilerplate. Nothing `/init` doesn't do better against your real code. |
+
+### v2.4.2 Rules-**sync** tools (one source → many tool formats)
+
+`rulesync` (https://github.com/dyoshikawa/rulesync — best-in-class, v9.2.0, ~1.2k★, very
+active), `aicm`, `ai-nexus`, `ai-rules-sync`. All maintain **one** rules source and generate
+`CLAUDE.md` + `AGENTS.md` + `.cursorrules` + `copilot-instructions.md` + Windsurf/Cline/Codex…
+
+**Verdict: SKIP (for now).** Their entire value is *fan-out to multiple agent tools*. This
+harness is Claude-Code-centric (rich CLAUDE.md, `.claude/agents/`, skills). Adopting one adds a
+`.rulesync/` build layer + indirection to solve a multi-tool problem you don't have — and Claude
+Code's own `@import` + `.claude/rules/` + user-scope already give single-source-of-truth *within*
+your toolchain. Notably, `ai-nexus`'s headline feature ("semantic routing into `.claude/rules/`")
+is now a **native** Claude Code mechanism (§1.3), so it's redundant here. **Revisit `rulesync`
+only if a second agent tool (Cursor/Copilot/Codex-as-primary) ever joins the workflow.**
+
+### v2.4.3 The AGENTS.md standard + monorepo playbook
+
+- **agents.md** (Linux Foundation / Agentic AI Foundation): plain Markdown, **no required
+  schema, no official linter/validator**. Nested-file convention is **official and explicit**:
+  *"Place another AGENTS.md inside each package … agents read the nearest file, closest wins."*
+  The **"OpenAI's own monorepo has 88 AGENTS.md files"** claim is **verified** on the agents.md
+  homepage FAQ (and OpenAI's Codex guide). → **This proposal's thin-root + nested plan is the
+  sanctioned pattern.** There is simply no official tooling to install for it.
+- Community playbooks all converge on the same "thin root + nested, nearest-wins" shape
+  (Augment, morphllm, blakecrosley, mcsee). Rule *content* packs worth borrowing structure from:
+  `mattpocock/agent-rules-books`. → **Adopt the pattern; hand-shape the nesting** (no template
+  fits a pnpm+uv+Workers+Next.js layout out of the box).
+
+### v2.4.4 Tool-routing conventions (validates Q3)
+
+The ecosystem answer to "how do I document *which tool when*" is **not** a hand-written prose
+table — it's the structured, on-demand primitives, and Anthropic's own docs say so:
+
+- **`.claude/rules/*.md` + `paths:` frontmatter** for path-scoped rules (exactly §1.3).
+- **Skills carry procedures + "when to use"** in their *description* (progressive disclosure:
+  frontmatter ~100 tokens always-on → body on-demand → `references/` only-when-needed). Anthropic:
+  *"MCP connects Claude to data; Skills teach Claude what to do with it"* — so an MCP server's
+  *existence* is config, but *when to use it* belongs in a skill/description, and only a **thin
+  tool index** belongs in CLAUDE.md.
+- **Global-vs-repo is solved natively, zero tools**: cross-project tooling goes in
+  `~/.claude/CLAUDE.md` / `~/.claude/rules/` **once** (loads in every repo); `@path` imports
+  reference-not-duplicate; `claudeMdExcludes` skips foreign packages. → **This is precisely the
+  Q3 (v2.3) conclusion, and it's the documented Anthropic way** — our "don't re-state RTK/CodeGraph
+  in the repo file" instinct is the official pattern, not a preference.
+
+### v2.4.5 Drift / maintenance linters — the one net-new adoption
+
+The standard ships no validator, but a small third-party category exists, and it targets
+**exactly the failure modes this whole proposal + its companion PR fixed by hand**:
+
+| Tool | Coverage | Integration |
+|---|---|---|
+| **ctxlint** (YawLabs) | ~39 rules: **stale path validation**, **command validation** (vs package.json/Makefile), staleness, **token-budget** analysis, **redundancy/contradiction** across files, secret detection, CI-coverage audit; supports CLAUDE.md + `.claude/rules/` + AGENTS.md | `npx @yawlabs/ctxlint`, **GitHub Action** `yawlabs/ctxlint-action@v1`, **pre-commit**, watch, MCP |
+| **agents-lint** (giacomo) | zero-dep; stale filesystem paths, dead npm scripts, deprecated deps, over/undersized files, cross-file conflicts | CLI; designed to run **weekly in CI** |
+
+**Verdict: ADOPT `ctxlint` in CI + pre-commit** (pinned — it's young, ~7★). It would have
+*mechanically* caught every hand-found defect behind this effort: the stale `backend/`/
+`worker/worker.js` paths (companion PR), the dead links, the **273-line over-budget root**
+(§2.3), the **duplicated CodeGraph block** (v2.3), and the two drifted Source-of-Truth tables
+(v2.1). Wiring it in closes the loop so this class of rot can't silently return. `agents-lint`
+on a weekly schedule is the lighter zero-dep alternative if a pre-commit gate feels heavy.
+
+### v2.4.6 Anthropic's maintenance loop (adopt the habits, they're free)
+
+`/init` to bootstrap → **`#`** mid-session to append a learned rule to the right memory file →
+**`/memory`** to list every loaded file and prune redundant ones → auto-memory
+(`~/.claude/projects/<repo>/memory/MEMORY.md`) complements but must **not duplicate** CLAUDE.md.
+Anthropic's explicit stance: *"Think of `/init` as a starting point, not a finished product… keep
+it concise"* and *review nested CLAUDE.md/`.claude/rules/` periodically to remove stale/conflicting
+instructions.* → **Bootstrap with a tool, maintain by hand + linter. No generator owns these files.**
+
+### v2.4.7 Bottom line (Q4)
+
+**Hand-author using Claude Code's native primitives; do not adopt a rules-sync generator; add
+exactly one drift linter to CI.** The build side is a one-time `/init`-per-package bootstrap; the
+maintain side is `.claude/rules/` + skills + `@import`/user-scope (all native, all already in this
+proposal) + `ctxlint` in CI. The only *new* recommendation Q4 adds to this proposal is **ctxlint**
+— everything else the ecosystem endorses, this proposal was already going to do by hand.
+
+> **One open call for the user:** adding `ctxlint` to CI/pre-commit is a genuinely new tool
+> dependency (young project, pin the version) — include it in the implementation follow-up, or
+> leave it out and rely on periodic `/memory` review? My recommendation: include it, pinned, as a
+> **non-blocking** CI check first (warn, don't fail) until it's proven on this repo's layout.
+
+---
+
+## v2 Sources
+
+**Anthropic / Claude Code (official):**
+- https://code.claude.com/docs/en/memory — load order, `@import`, `ln -s AGENTS.md CLAUDE.md`,
+  `.claude/rules/` + `paths:`, `claudeMdExcludes`, `#`/`/memory`, <200-line + periodic-review guidance
+- https://code.claude.com/docs/en/commands — `/init` (reads existing AGENTS.md; `CLAUDE_CODE_NEW_INIT=1`)
+- https://claude.com/blog/using-claude-md-files — "starting point, not finished product"; tool index guidance
+- https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills — progressive disclosure
+- https://claude.com/blog/extending-claude-capabilities-with-skills-mcp-servers · https://claude.com/blog/skills-explained — "MCP = data, Skills = what to do with it"
+
+**AGENTS.md standard + monorepo pattern:**
+- https://agents.md/ (nested convention + verified "OpenAI 88 AGENTS.md files") ·
+  https://aaif.io/projects/agents-md/ · https://github.com/agentsmd/agents.md/issues/53 (precedence) ·
+  https://developers.openai.com/codex/guides/agents-md
+- Playbooks: https://www.augmentcode.com/guides/how-to-build-agents-md ·
+  https://www.morphllm.com/agents-md-guide · https://blakecrosley.com/blog/agents-md-patterns ·
+  https://github.com/mattpocock/agent-rules-books
+
+**Generators / sync (surveyed, mostly SKIP):**
+- https://code.claude.com/docs/en/commands (`/init`) · https://www.agentrulegen.com/ ·
+  https://github.com/dyoshikawa/rulesync · https://www.npmjs.com/package/aicm ·
+  https://github.com/JSK9999/ai-nexus · https://github.com/PanisHandsome/ai-rules-sync
+
+**Drift linters (ADOPT one — ctxlint):**
+- https://github.com/YawLabs/ctxlint (+ Action `yawlabs/ctxlint-action@v1`) ·
+  https://github.com/giacomo/agents-lint · https://github.com/felixgeelhaar/cclint ·
+  https://fiberplane.com/blog/drift-documentation-linter/
+
+*Reliability caveats:* the drift linters are young (single-/low-double-digit ★) — useful but pin
+versions, don't treat pass/fail as authoritative; a few "v1.1 frontmatter"/section-count claims
+come from secondary guides, not the agents.md spec page — treat as directional.
