@@ -1,4 +1,4 @@
-# Seichijunrei Agent - Makefile
+# Animichi Agent - Makefile
 
 .PHONY: help install dev dev-local serve test test-all test-cov test-integration test-eval lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset fe-lint fe-typecheck fe-test fe-test-cov fe-build fe-check check-all e2e-setup e2e e2e-public local-login dev-stop
 
@@ -8,7 +8,7 @@ PYTHON ?= .venv/bin/python
 PYTEST ?= $(PYTHON) -m pytest
 
 help:
-	@echo "Seichijunrei Agent - Available commands:"
+	@echo "Animichi Agent - Available commands:"
 	@echo ""
 	@echo "Development:"
 	@echo "  make dev-local   Start everything (Supabase + backend + frontend)"
@@ -134,7 +134,7 @@ db-reset:
 # ── Local Dev (one-command startup) ──────────────────────────
 
 dev-local:
-	@echo "=== Seichijunrei Local Dev ==="
+	@echo "=== Animichi Local Dev ==="
 	@# 0. Kill stale processes from previous runs
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
 	@-lsof -ti :3001 | xargs kill 2>/dev/null; true

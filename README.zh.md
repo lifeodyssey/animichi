@@ -92,7 +92,7 @@ make db-diff NAME=x    # 从本地变更生成 diff
 
 **可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-详见 [`agent/config/settings.py`](agent/config/settings.py) 和 [`.env.example`](.env.example)。
+详见 [`apps/agent/agent/config/settings.py`](apps/agent/agent/config/settings.py) 和 [`.env.example`](.env.example)。
 
 ## 使用示例
 
@@ -125,12 +125,14 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 ## 仓库结构地图
 
-- `agent/` — Python 运行时：agents、interfaces、infrastructure、tests、tools
-- `frontend/` — Next.js 静态导出前端与 UI 组件
+- `apps/agent/` — Python 运行时：agents、interfaces、infrastructure、tests、tools
+- `workers/catalog/` — 动漫圣地目录 REST API 的 Cloudflare Worker（TypeScript）
+- `packages/contract/` — catalog 与 agent 之间共享的 oRPC contract 类型
+- `frontend/` — Next.js OpenNext-SSR 前端与 UI 组件
 - `worker/` — Cloudflare Worker 入口，负责认证与请求路由
 - `supabase/` — schema 迁移与 Supabase 项目资产
 - `docs/` — 架构文档、运维文档、迭代资料与实现计划
-- `Dockerfile`、`Makefile`、`pyproject.toml`、`wrangler.toml`、`package.json` — 保留在根目录的运行与工具入口文件
+- `Dockerfile`、`Makefile`、`wrangler.toml`、`package.json` — 保留在根目录的运行与工具入口文件
 
 ## 文档
 
