@@ -223,7 +223,9 @@ describe("search (alias miss — L1 preview + background ingest)", () => {
     expect(ingested).toEqual([]);
     expect(typeof result.synced_at).toBe("string");
   });
+});
 
+describe("search (alias miss — upstream errors)", () => {
   it("propagates a defined upstream error from the injected preview resolver", async () => {
     const { db } = fakeDb({}, { resolvePreview: () => Promise.reject(upstreamUnavailable("bangumi")) });
     const err = await searchError(() => search(db, { query: "downstream miss" }));
