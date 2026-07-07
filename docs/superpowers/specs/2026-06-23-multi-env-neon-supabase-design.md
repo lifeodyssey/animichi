@@ -1,6 +1,8 @@
-# 多环境设计 — Neon(数据 + branching) + Supabase(auth-only)
+# 多环境设计 — Neon(数据 + branching) + Supabase(auth-only) → 全 Neon 收敛(auth 迁 Neon Auth,SD-31)
 
 > 2026-06-23。platform-monorepo(`2026-06-23-platform-monorepo-cf-deploy-design.md`)的多环境补充决策。解决"隔离测试环境"痛点:数据迁 **Neon**(免费 branching),auth 留 **Supabase**(GoTrue,降为 auth-only)。
+>
+> **状态更新(2026-07-07,SUPERSEDED-IN-PART)**:本设计「auth 留 Supabase」的分工已被 **SD-31** 修订——auth 后端迁 **Neon Auth**(Better Auth v1.4.18 底座),往**全 Neon**收敛。当初 §8「等 Neon Auth GA 稳定再评估」的门槛(见下)已由用户按 **Better Auth 底座成熟度**提前解冻(原被否的 Stack Auth 底座已换成成熟的 Better Auth,否决理由过期);登记册 DD-1 同步翻为已激活。**数据侧(Neon)结论不变**,仅 auth 侧超越:edge JWT 验证从连 Supabase GoTrue 改为对 **Neon Auth JWKS 本地验签**(端点走 `NEON_AUTH_JWKS_URL` env 注入,不硬编码主机名 / project-id,公开 repo)。传导详情见 `2026-07-06-frontend-rebuild-inputs.md` §七 SD-31 / `2026-07-06-frontend-rebuild-spec.md`。
 
 ## §0 背景与动机
 - 多环境(prod/staging/preview)的核心痛点 = **隔离的数据库**。
@@ -52,15 +54,15 @@ agent / catalog 容器 → asyncpg/Hyperdrive 直连 Neon → WHERE user_id = X-
 ## §6 对 platform-monorepo spec 的影响
 - DB 决策更新:**prod+staging 都用 Neon**(原 spec 假设 Supabase pg → 改 Neon)。Hyperdrive → Neon。
 - 加 **staging** Pulumi stack。
-- Wave 计划:**新增 "Neon 迁移" 子任务**(去 FK/RLS、`pg_dump`→Neon、`DATABASE_URL` 切换),并入 Wave 2(catalog)/ Wave 3(operational + agent)。Auth 不动(edge JWT 验证仍连 Supabase)。
+- Wave 计划:**新增 "Neon 迁移" 子任务**(去 FK/RLS、`pg_dump`→Neon、`DATABASE_URL` 切换),并入 Wave 2(catalog)/ Wave 3(operational + agent)。Auth 不动(edge JWT 验证仍连 Supabase)。**→ SUPERSEDED-IN-PART(SD-31,2026-07-07)**:auth 后端改迁 **Neon Auth**,edge JWT 验证改对 **Neon Auth JWKS** 本地验签(`NEON_AUTH_JWKS_URL`)。
 
 ## §7 风险 / 待确认
 - **Neon scale-to-zero 冷启动**:免费 tier 闲置 scale-to-zero,首次请求有冷启动延迟(~几百 ms)。catalog 读路径要容忍(已有 retry)。
 - **Neon 0.5 GB/branch 免费限**:catalog 数据量评估(bangumi/points;43 spots seed 很小,全量摄入要算)。超了考虑 Launch plan 或精简。
-- **数据迁移一致性**:`pg_dump`/restore 时机(prod 数据搬 Neon)+ 后续 Supabase 仅留 auth(app 表从 Supabase DB 移除或留作历史)。
+- **数据迁移一致性**:`pg_dump`/restore 时机(prod 数据搬 Neon)+ 后续 Supabase 仅留 auth(app 表从 Supabase DB 移除或留作历史)。**→ SD-31(2026-07-07)起 auth 亦迁 Neon Auth,Supabase 待集成落地后整体退役**。
 - **Hyperdrive + Neon**:确认 Hyperdrive 连 Neon connection string(pooled endpoint)正常(Wave 验证)。
 - **后端 `SUPABASE_DB_URL` 命名**:迁 Neon 后 env 名宜改 `DATABASE_URL`(去 Supabase 语义)——但保留兼容别名避免大改。
 
 ## §8 不在范围
-- 全弃 Supabase(连 auth 也迁 Neon Auth)— Neon Auth(Better Auth)还在 Beta;等 GA 稳定再评估,届时是平滑追加。
+- ~~全弃 Supabase(连 auth 也迁 Neon Auth)— Neon Auth(Better Auth)还在 Beta;等 GA 稳定再评估,届时是平滑追加。~~ **→ SUPERSEDED-IN-PART(SD-31,2026-07-07)**:此「等 GA」门槛已作废——用户改按 **Better Auth 底座成熟度(v1.4.18)** 提前解冻(原被否的 Stack Auth 底座已换 Better Auth,否决理由过期),auth 迁 **Neon Auth** 已定案;虽仍 Beta,但每个 Neon 分支自带独立 auth 环境的收益 + 部署区已覆盖使其可接受。彻底删 Supabase auth 项目 + 真实用户迁移仍是集成落地后的 future wave。
 - 前端代码重写(P4/TanStack)。
