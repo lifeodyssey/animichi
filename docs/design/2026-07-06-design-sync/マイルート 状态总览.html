@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>マイルート 状态总览 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&family=Noto+Serif+JP:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0e8d8; --card:#f8f8f0; --panel:#f7f3df;
+  --tx:#794f27; --tx2:#725d42; --tx3:#9f927d;
+  --line:#e8e2d6; --line2:#c4b89e;
+  --teal:#19c8b9; --teal-text:#0e7c72;
+  --gold:#f5c31c; --gold-tx:#5c4813; --gold-deep:#d9a412; --star:#f0b429;
+  --brand:#c44a2e; --sh2:#d4c9b4; --ink:#3d2d18;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#e7dfca;font-family:'Zen Maru Gothic','Nunito','Noto Sans SC',sans-serif;color:var(--tx);padding:56px 64px 120px;}
+.canvas-head{max-width:1480px;margin:0 auto 12px;}
+.canvas-head .eyebrow{font-family:Nunito;font-weight:900;font-size:13px;letter-spacing:.22em;color:var(--tx3);text-transform:uppercase;}
+.canvas-head h1{font-size:34px;font-weight:900;margin:6px 0 10px;}
+.canvas-head p{font-size:14px;color:var(--tx2);line-height:1.8;max-width:1000px;}
+.canvas-head .brief{margin-top:14px;background:var(--panel);border:1.5px dashed var(--line2);border-radius:16px;padding:14px 18px;font-size:13px;color:var(--tx2);line-height:2;max-width:1000px;}
+.canvas-head .brief b{color:var(--tx);}
+.group{max-width:2300px;margin:72px auto 0;}
+.group>header{display:flex;align-items:baseline;gap:14px;border-bottom:2px solid var(--line2);padding-bottom:10px;margin-bottom:34px;}
+.group>header .gid{font-family:Nunito;font-weight:900;font-size:15px;color:#fff;background:var(--tx);border-radius:8px;padding:3px 10px;}
+.group>header h2{font-size:23px;font-weight:900;}
+.group>header .sub{font-size:13px;color:var(--tx3);}
+.row{display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start;}
+.frame{display:flex;flex-direction:column;gap:12px;}
+.frame .flabel{max-width:402px;}
+.frame .flabel .fid{font-family:Nunito;font-weight:900;font-size:12px;letter-spacing:.14em;color:var(--teal-text);background:#dff3f0;border:1px solid #b8e2dc;border-radius:6px;padding:2px 8px;display:inline-block;}
+.frame .flabel h3{font-size:17px;font-weight:900;margin:7px 0 3px;}
+.frame .flabel p{font-size:12.5px;color:var(--tx2);line-height:1.75;}
+.phone{width:402px;height:874px;background:var(--card);border:1.5px solid var(--line2);border-radius:36px;overflow:hidden;position:relative;box-shadow:0 10px 0 0 var(--sh2);flex-shrink:0;display:flex;flex-direction:column;}
+.note{background:var(--panel);border:1.5px dashed var(--line2);border-radius:16px;padding:16px 18px;width:330px;font-size:12.5px;color:var(--tx2);line-height:1.9;}
+.note h4{font-size:13px;color:var(--tx);margin-bottom:6px;font-weight:900;}
+.note b{color:var(--tx);}
+.note .y{background:#fdf3d0;border-radius:4px;padding:0 4px;color:var(--tx);}
+.sb{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:800 14px Nunito;flex-shrink:0;}
+.sb .dots{display:flex;gap:4px;}.sb .dots i{width:5px;height:5px;border-radius:50%;background:var(--tx2);}
+.pagehead{display:flex;align-items:center;gap:10px;padding:6px 20px 10px;flex-shrink:0;}
+.pagehead h2{font-size:22px;font-weight:900;flex:1;}
+.pagehead .ct{font:800 11.5px Nunito;color:var(--tx3);}
+.dock{position:absolute;left:0;right:0;bottom:0;padding:26px 16px 16px;background:linear-gradient(180deg,rgba(248,248,240,0),var(--card) 46%);z-index:8;display:flex;gap:10px;}
+.cta{flex:1;display:flex;align-items:center;justify-content:center;height:54px;border-radius:50px;background:var(--gold);color:var(--gold-tx);font-size:15.5px;font-weight:900;box-shadow:0 4px 0 0 var(--gold-deep);}
+.cta.cream{background:var(--card);color:var(--tx);border:1.5px solid var(--line2);box-shadow:0 4px 0 0 var(--sh2);font-size:14px;}
+.ann{position:absolute;z-index:9;background:#fff8e6;border:1.5px solid var(--star);color:#7a5a10;font-size:11px;font-weight:800;padding:5px 10px;border-radius:10px;box-shadow:0 2px 0 rgba(122,95,61,.2);line-height:1.5;max-width:215px;}
+/* MY-A 本棚 card */
+.shelf{display:flex;flex-direction:column;gap:12px;padding:0 16px;}
+.bk{background:var(--card);border:1.5px solid var(--line);border-radius:18px;overflow:hidden;position:relative;}
+.bk .inner{display:flex;gap:12px;padding:12px;}
+.bk .cov{width:118px;height:104px;border-radius:12px;position:relative;overflow:hidden;flex-shrink:0;}
+.bk .cov .ctag{position:absolute;left:6px;bottom:6px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;padding:1px 6px;border-radius:5px;}
+.bk .bd{flex:1;min-width:0;display:flex;flex-direction:column;}
+.bk .ey{font:800 9.5px Nunito;letter-spacing:.12em;color:var(--tx3);}
+.bk .t{font-size:15.5px;font-weight:900;margin:2px 0 4px;}
+.bk .meta{display:flex;gap:5px;flex-wrap:wrap;}
+.bk .meta span{font-size:10px;font-weight:800;background:var(--panel);border:1px solid var(--line);border-radius:50px;padding:1.5px 8px;color:var(--tx2);}
+.bk .stat{display:flex;gap:4px;align-items:center;margin-top:auto;padding-top:6px;}
+.bk .stat i{width:8px;height:8px;border-radius:3px;background:var(--line);}
+.bk .stat i.d{background:var(--teal);}
+.bk .stat i.c{background:#fff;border:1.5px solid var(--star);}
+.bk .stat .tx{font:800 10px Nunito;color:var(--tx3);margin-left:3px;white-space:nowrap;}
+.bk .stat.sm{gap:3px;}
+.bk .stat.sm i{width:6px;height:6px;border-radius:2px;}
+.bk .kbadge~.inner .ey{display:block;padding-right:84px;}
+.bk .gbar{display:flex;align-items:center;justify-content:space-between;background:var(--gold);padding:9px 8px 9px 14px;box-shadow:inset 0 1.5px 0 rgba(255,255,255,.35);}
+.bk .gbar .l{font-size:12.5px;font-weight:900;color:var(--gold-tx);}
+.bk .gbar .b{background:#fff;border-radius:50px;padding:5px 13px;font-size:11.5px;font-weight:900;color:var(--gold-tx);}
+.bk.today{border:2px solid var(--gold);box-shadow:0 4px 0 var(--gold-deep);}
+.bk .kbadge{position:absolute;top:10px;right:10px;background:var(--gold);color:var(--gold-tx);font-size:10px;font-weight:900;padding:3px 9px;border-radius:50px;box-shadow:0 2px 0 var(--gold-deep);}
+.bk .qrow{display:flex;gap:7px;padding:0 12px 12px;}
+.bk .qrow span{flex:1;text-align:center;font-size:11px;font-weight:900;background:var(--card);border:1.5px solid var(--line2);box-shadow:0 2.5px 0 var(--sh2);border-radius:50px;padding:7px 0;color:var(--tx);}
+/* MY-B 予定表 rows */
+.sec{margin:10px 18px 4px;font-size:13px;font-weight:900;display:flex;align-items:baseline;justify-content:space-between;}
+.sec small{font:800 10.5px Nunito;color:var(--tx3);}
+.lrow{display:flex;gap:10px;align-items:center;padding:9px 16px;border-bottom:1.5px solid var(--line);}
+.lrow .th{width:64px;height:42px;border-radius:9px;position:relative;overflow:hidden;flex-shrink:0;border:1.5px solid var(--line);}
+.lrow .bd{flex:1;min-width:0;}
+.lrow .t{font-size:13.5px;font-weight:900;}
+.lrow .m{font:700 10px Nunito;color:var(--tx3);margin-top:1px;}
+.lrow .st{font:900 11px Nunito;flex-shrink:0;border-radius:50px;padding:3px 10px;}
+.lrow .ch{color:var(--tx3);font:900 14px Nunito;flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<div class="canvas-head">
+  <div class="eyebrow">Step 5 · My Routes · State Overview</div>
+  <h1>マイルート /routes — 状态总览</h1>
+  <p>自分の旅の置き场。数据点亮同族：<b>きょう＞出発日近的計画＞完走（新→旧）</b>自动排序，无 tab 无筛选。tap→路线详情；金件唯一规则页内自洽。手机 only（桌面＝roadmap）。</p>
+  <div class="brief"><b>金件唯一规则</b>：有きょう卡→卡内金条＝页面唯一金件，底部「＋あたらしいルート」退 cream；无きょう→底部 dock 金；空態→中央金 CTA。<b>数据</b>：進行中＝沼津2泊3日（2日目 8/14✓）· 計画＝宇治まる一日（出発 7/12）· 完走＝飛騨古川（7/3 · 5/5 · 対比図4枚）。</div>
+</div>
+
+<!-- ═══ G1 · 两方向 ═══ -->
+<div class="group" id="g1">
+  <header><span class="gid">G1</span><h2>手机 · 两方向（402×874 · 1:1）</h2><span class="sub">A 本棚＝しおり缩影卡，纪念物气质 · B 予定表＝分段清单，工具气质</span></header>
+  <div class="row">
+
+    <div class="frame" data-screen-label="MY-A 本棚">
+      <div class="flabel"><span class="fid">MY-A · 本棚</span>
+        <h3>A · 本棚 — 旅是收藏品</h3>
+        <p>每条路线＝一张しおり缩影卡（封面帧+进度+快捷 chip）。きょう卡金框+金条置顶；完走卡带対比図枚数与記念しおり入口。滚动即翻书架。</p>
+      </div>
+      <div class="phone">
+        <div class="sb"><span>8:52</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="pagehead"><h2>マイルート</h2><span class="ct">3件</span></div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+          <div style="height:100%;overflow:hidden;padding-bottom:96px;">
+            <div class="shelf">
+              <div class="bk today">
+                <div class="gbar"><span class="l">きょうは巡礼日！2日目 · 内浦へ</span><span class="b">歩くモードへ →</span></div>
+                <div class="inner">
+                  <div class="cov" style="background:linear-gradient(135deg,#cfe9f2,#93c4d8);"><span class="ctag">第1期1話</span></div>
+                  <div class="bd">
+                    <span class="ey">LOVE LIVE! SUNSHINE!! · 沼津</span>
+                    <span class="t">沼津 2泊3日ツアー</span>
+                    <div class="meta"><span>14スポット</span><span>7/2–7/4</span><span>バス・船</span></div>
+                    <div class="stat sm"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="c"></i><i></i><i></i><i></i><i></i><i></i><span class="tx">8/14 · 2日目</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="bk">
+                <div class="inner">
+                  <div class="cov" style="background:linear-gradient(135deg,#f7e0c0,#e0b083);"><span class="ctag">第1話 02:44</span></div>
+                  <div class="bd">
+                    <span class="ey">響け！ユーフォニアム · 宇治</span>
+                    <span class="t">宇治 まる一日ルート</span>
+                    <div class="meta"><span style="background:#fdf3d0;border-color:#f0dfa8;color:#8a6a12;">出発は 7/12</span><span>12スポット</span><span>徒歩5.6km</span></div>
+                    <div class="stat"><span class="tx" style="margin-left:0;">計画ずみ · しおり共有できるよ</span></div>
+                  </div>
+                </div>
+                <div class="qrow"><span>しおりを共有</span><span>編集する（Chat）</span></div>
+              </div>
+              <div class="bk">
+                <span class="kbadge">完走 5/5 ✓</span>
+                <div class="inner">
+                  <div class="cov" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"><span class="ctag">第8話 41:12</span></div>
+                  <div class="bd">
+                    <span class="ey">YOUR NAME · 飛騨古川</span>
+                    <span class="t">飛騨古川 半日ルート</span>
+                    <div class="meta"><span>2026.7.3</span><span>9:31→12:58</span><span style="background:#dff3f0;border-color:#b8e2dc;color:var(--teal-text);">対比図 4枚</span></div>
+                    <div class="stat"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><span class="tx">ぜんぶ来た</span></div>
+                  </div>
+                </div>
+                <div class="qrow"><span>記念しおりを作る</span><span>対比図を見る</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="dock"><span class="cta cream">＋ あたらしいルートを組む</span></div>
+          <div class="ann" style="top:8px;right:10px;">きょう金条＝页面唯一金件<br>→ 底部「＋」退 cream</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame" data-screen-label="MY-B 予定表">
+      <div class="flabel"><span class="fid">MY-B · 予定表</span>
+        <h3>B · 予定表 — 旅是日程</h3>
+        <p>按状态分段（きょう/これから/完走ずみ），行式高密度：缩略+进度+chevron。同一金件规则。路线多的人（&gt;10）扫得快，但纪念感弱。</p>
+      </div>
+      <div class="phone">
+        <div class="sb"><span>8:52</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="pagehead"><h2>マイルート</h2><span class="ct">3件</span></div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+          <div style="height:100%;overflow:hidden;padding-bottom:96px;">
+            <div class="sec">きょう</div>
+            <div class="lrow" style="border:2px solid var(--gold);border-radius:16px;margin:4px 12px;box-shadow:0 3px 0 var(--gold-deep);">
+              <span class="th" style="background:linear-gradient(135deg,#cfe9f2,#93c4d8);"></span>
+              <span class="bd"><span class="t">沼津 2泊3日ツアー</span><div class="m">2日目 · 内浦 · 8/14 ✓</div></span>
+              <span class="st" style="background:var(--gold);color:var(--gold-tx);box-shadow:0 2px 0 var(--gold-deep);">歩く →</span>
+            </div>
+            <div class="sec">これから <small>出発日順</small></div>
+            <div class="lrow">
+              <span class="th" style="background:linear-gradient(135deg,#f7e0c0,#e0b083);"></span>
+              <span class="bd"><span class="t">宇治 まる一日ルート</span><div class="m">響け！ · 出発は 7/12 · 12スポット</div></span>
+              <span class="st" style="background:#fdf3d0;color:#8a6a12;">あと6日</span>
+              <span class="ch">›</span>
+            </div>
+            <div class="sec">完走ずみ <small>新しい順</small></div>
+            <div class="lrow">
+              <span class="th" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"></span>
+              <span class="bd"><span class="t">飛騨古川 半日ルート</span><div class="m">君の名は。 · 7/3 · 対比図 4枚</div></span>
+              <span class="st" style="background:#dff3f0;color:var(--teal-text);">5/5 ✓</span>
+              <span class="ch">›</span>
+            </div>
+            <div style="margin:16px 18px 0;font:700 10.5px Nunito;color:var(--tx3);">完走が20件を超えたら月ごとに畳むよ（例：2026年6月 · 4件）</div>
+          </div>
+          <div class="dock"><span class="cta cream">＋ あたらしいルートを組む</span></div>
+          <div class="ann" style="top:64px;right:10px;">きょう行の「歩く→」＝金件。<br>section 空→段落消失（不摆空段头）</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame" data-screen-label="MY-EMPTY 空態">
+      <div class="flabel"><span class="fid">MY-EMPTY · 空態</span>
+        <h3>空態 — 环的入口（两方向共用）</h3>
+        <p>还没有旅：狐狸开门见山，金 CTA＝AIにルートを組んでもらう（此时是页面唯一金件），sub＝作品からさがす→作品公開页。不摆假卡片。</p>
+      </div>
+      <div class="phone">
+        <div class="sb"><span>8:52</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="pagehead"><h2>マイルート</h2></div>
+        <div style="flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 40px 120px;">
+          <img src="assets/fox/fox-welcome.svg" alt="" style="width:96px;height:96px;">
+          <div style="font-size:18px;font-weight:900;">まだ旅がないよ</div>
+          <div style="font-size:12.5px;font-weight:700;color:var(--tx2);text-align:center;line-height:1.9;">見たいアニメの場所から、<br>コンちゃんが時刻表つきで組むよ。</div>
+          <div class="dock" style="position:absolute;"><span class="cta cream" style="flex:0 0 138px;">作品からさがす</span><span class="cta">AIにルートを組んでもらう</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ G1b · 桌面 MY-DESK ═══ -->
+<div class="group" id="g1b">
+  <header><span class="gid">G1b</span><h2>桌面 MY-DESK（1440 · A 本棚基座）</h2><span class="sub">左＝本棚卡列 · 右＝选中卡常驻预览（地图+つぎは+QR 接力）——调度台字面化</span></header>
+  <div class="row">
+    <div class="frame" data-screen-label="MY-DESK 桌面">
+      <div class="flabel" style="max-width:1440px;"><span class="fid">MY-DESK · 1440</span>
+        <h3>桌面 — 左本棚、右预览常驻（工作台/R-DESK 同族）</h3>
+        <p>选中卡⇄右预览连动（click，默认选きょう；无きょう→最近計画；空態→居中空態+QR）。<b>金件唯一</b>：金条只在左侧きょう卡里，右预览与顶栏全 cream。QR＝「旅へ持っていく」跨设备接力（登录卖点）。</p>
+      </div>
+      <div style="width:1440px;height:840px;background:var(--card);border:1.5px solid var(--line2);border-radius:24px;box-shadow:0 10px 0 0 var(--sh2);overflow:hidden;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:14px;padding:16px 28px;border-bottom:1.5px solid var(--line);">
+          <span style="font-size:21px;font-weight:900;">マイルート</span>
+          <span style="font:800 12px Nunito;color:var(--tx3);">3件</span>
+          <div style="flex:1;"></div>
+          <span style="height:44px;display:flex;align-items:center;padding:0 20px;border-radius:50px;background:var(--card);border:1.5px solid var(--line2);box-shadow:0 4px 0 var(--sh2);font-size:13.5px;font-weight:900;">＋ あたらしいルートを組む</span>
+        </div>
+        <div style="flex:1;display:flex;min-height:0;">
+          <div style="width:560px;border-right:1.5px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:12px;overflow:hidden;">
+            <div class="bk today" style="outline:2.5px solid rgba(25,200,185,.0);">
+              <div class="gbar"><span class="l">きょうは巡礼日！2日目 · 内浦へ</span><span class="b">歩くモードへ →</span></div>
+              <div class="inner">
+                <div class="cov" style="background:linear-gradient(135deg,#cfe9f2,#93c4d8);"><span class="ctag">第1期1話</span></div>
+                <div class="bd">
+                  <span class="ey">LOVE LIVE! SUNSHINE!! · 沼津 <span style="color:var(--teal-text);">· 選択中 ▸</span></span>
+                  <span class="t">沼津 2泊3日ツアー</span>
+                  <div class="meta"><span>14スポット</span><span>7/2–7/4</span><span>バス・船</span></div>
+                  <div class="stat sm"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="c"></i><i></i><i></i><i></i><i></i><i></i><span class="tx">8/14 · 2日目</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="bk">
+              <div class="inner">
+                <div class="cov" style="background:linear-gradient(135deg,#f7e0c0,#e0b083);"><span class="ctag">第1話 02:44</span></div>
+                <div class="bd">
+                  <span class="ey">響け！ユーフォニアム · 宇治</span>
+                  <span class="t">宇治 まる一日ルート</span>
+                  <div class="meta"><span style="background:#fdf3d0;border-color:#f0dfa8;color:#8a6a12;">出発は 7/12</span><span>12スポット</span><span>徒歩5.6km</span></div>
+                  <div class="stat"><span class="tx" style="margin-left:0;">計画ずみ</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="bk">
+              <span class="kbadge">完走 5/5 ✓</span>
+              <div class="inner">
+                <div class="cov" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"><span class="ctag">第8話 41:12</span></div>
+                <div class="bd">
+                  <span class="ey">YOUR NAME · 飛騨古川</span>
+                  <span class="t">飛騨古川 半日ルート</span>
+                  <div class="meta"><span>2026.7.3</span><span style="background:#dff3f0;border-color:#b8e2dc;color:var(--teal-text);">対比図 4枚</span></div>
+                  <div class="stat"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><span class="tx">ぜんぶ来た</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;min-height:0;">
+            <div style="display:flex;align-items:center;gap:12px;padding:14px 22px 10px;">
+              <div><div style="font-size:17px;font-weight:900;">沼津 2泊3日ツアー <span style="font:800 11px Nunito;color:var(--tx3);">2日目 · 内浦</span></div>
+              <div style="font:700 11.5px Nunito;color:var(--tx3);margin-top:2px;">つぎは <b style="color:var(--teal-text);">内浦の桟橋</b> · 9:20 · 千歌の家ちかく</div></div>
+              <div style="flex:1;"></div>
+              <span style="height:40px;display:flex;align-items:center;padding:0 18px;border-radius:50px;background:var(--card);border:1.5px solid var(--line2);box-shadow:0 3.5px 0 var(--sh2);font-size:12.5px;font-weight:900;">路線詳細へ</span>
+            </div>
+            <div style="flex:1;position:relative;background:var(--map-land, #ebe6d5);overflow:hidden;margin:0 22px;border:1.5px solid var(--line);border-radius:18px;">
+              <div style="position:absolute;border-radius:50%;background:#dbe7c6;width:300px;height:220px;left:-70px;top:-50px;"></div>
+              <div style="position:absolute;border-radius:40%;background:#bcdce0;width:420px;height:120px;left:120px;bottom:-30px;transform:rotate(-6deg);"></div>
+              <div style="position:absolute;background:#fdfbf2;border-radius:4px;width:640px;height:8px;left:-20px;top:150px;transform:rotate(4deg);"></div>
+              <svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 800 420" fill="none" preserveAspectRatio="none"><path d="M90 330 C200 290 300 240 420 220 C540 200 640 150 730 90" stroke="#8a6f4d" stroke-width="3" stroke-dasharray="2 10" stroke-linecap="round"/></svg>
+              <span style="position:absolute;top:12px;left:14px;background:var(--gold);color:var(--gold-tx);font-size:12px;font-weight:900;padding:5px 13px;border-radius:50px;box-shadow:0 2.5px 0 var(--gold-deep);z-index:4;">2日目 · 2/6</span>
+              <span style="position:absolute;top:12px;right:14px;background:rgba(248,248,240,.94);border:1.5px solid var(--line2);color:var(--tx);font-size:11px;font-weight:800;padding:5px 11px;border-radius:50px;z-index:4;">地図を操作 ↗</span>
+              <div class="fpin-x" style="position:absolute;left:80px;top:300px;width:52px;height:52px;border-radius:13px;border:2.5px solid #fff;box-shadow:0 3px 0 rgba(122,95,61,.32);background:linear-gradient(135deg,#cfe9f2,#93c4d8);"><span style="position:absolute;top:-9px;right:-9px;min-width:20px;height:20px;border-radius:50%;font:900 11px Nunito;color:#fff;background:var(--teal);display:flex;align-items:center;justify-content:center;">✓</span></div>
+              <div style="position:absolute;left:330px;top:200px;width:62px;height:62px;border-radius:15px;border:2.5px solid var(--star);box-shadow:0 0 0 3px rgba(240,180,41,.45),0 3px 0 rgba(122,95,61,.32);background:linear-gradient(135deg,#f2e2cf,#dcb98e);"><span style="position:absolute;top:-9px;right:-9px;min-width:20px;height:20px;border-radius:50%;font:900 11px Nunito;color:#5c4813;background:var(--star);display:flex;align-items:center;justify-content:center;">★</span></div>
+              <div style="position:absolute;left:560px;top:120px;width:52px;height:52px;border-radius:13px;border:2.5px solid #fff;box-shadow:0 3px 0 rgba(122,95,61,.32);background:linear-gradient(135deg,#e2d8f0,#bcaadd);"><span style="position:absolute;top:-9px;right:-9px;min-width:20px;height:20px;border-radius:50%;font:900 11px Nunito;color:var(--tx);background:#fff;border:1.5px solid var(--line2);display:flex;align-items:center;justify-content:center;">3</span></div>
+            </div>
+            <div style="display:flex;gap:14px;align-items:center;padding:14px 22px 18px;">
+              <div style="flex:1;display:flex;gap:8px;">
+                <span style="font-size:11.5px;font-weight:900;background:var(--panel);border:1.5px solid var(--line);border-radius:50px;padding:8px 14px;">しおりを共有</span>
+                <span style="font-size:11.5px;font-weight:900;background:var(--panel);border:1.5px solid var(--line);border-radius:50px;padding:8px 14px;">編集する（Chat）</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;background:var(--panel);border:1.5px solid var(--line);border-radius:16px;padding:9px 14px;">
+                <span style="width:56px;height:56px;border-radius:8px;background:conic-gradient(var(--tx) 0 25%,#fff 0 27%,var(--tx) 0 46%,#fff 0 49%,var(--tx) 0 71%,#fff 0 74%,var(--tx) 0 100%);opacity:.85;flex-shrink:0;"></span>
+                <span style="font-size:10.5px;font-weight:800;color:var(--tx2);line-height:1.6;">旅へ持っていく<br><b style="color:var(--tx);">スマホで読み取ると歩くモードへ</b></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ G2 · 规则注记 ═══ -->
+<div class="group" id="g2">
+  <header><span class="gid">G2</span><h2>施工规则</h2><span class="sub">排序 · 金件 · 链路 · 规模</span></header>
+  <div class="row">
+    <div class="note"><h4>排序＝数据点亮（无 tab）</h4>
+      <b>きょう＞これから（出発日近→远）＞完走ずみ（新→旧）</b>。無日期計画排これから末尾（「日どり未定」chip）。段空→段头消失。与路线详情「单页活文档」同一哲学：不给用户分类作业。</div>
+    <div class="note"><h4>金件唯一（页内自洽）</h4>
+      有きょう→<span class="y">きょう卡金条/金 chip</span> 唯一，底部「＋」cream · 无きょう→底部 <span class="y">＋あたらしいルート</span> 金 · 空態→中央 <span class="y">AIに組んでもらう</span> 金。永不同屏两金。</div>
+    <div class="note"><h4>链路</h4>
+      卡 tap→路线详情（数据决定落静息/展開）· 金条→Walk · 記念しおりを作る→GEN-M · しおりを共有→GEN-P · 編集→Chat A2b · 対比図を見る→機位ブラウザ · ＋→Chat C0。マイルート＝环的调度台。</div>
+    <div class="note"><h4>规模边界</h4>
+      完走 &gt;20 件→按月折叠段头（2026年6月 · 4件）· 進行中同时最多 1（きょう判定＝出発日==今天或多日 range 含今天）· 卡封面帧 404→渐变+話数 tag 照旧。</div>
+    <div class="note"><h4>登录关系</h4>
+      本页＝登录后才有内容；未登录进入→即空態变体+「ログインで旅を取り戻す」（P5 同族，不另设计）。游客做的路线在 Chat 里暂存，登录时收进来（保存墙 P5 的另一面）。</div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="design_doc_mode" content="canvas">
+<title>Graduation 毕业转场 — Storyboard · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts.css">
+<style>
+  :root{
+    --bg:#f0e8d8; --paper:#f8f8f0; --content:#f7f3df; --ink:#794f27; --ink-body:#725d42; --ink-soft:#9f927d;
+    --teal:#19c8b9; --teal-bg:#e6f9f6; --teal-deep:#11a89b; --teal-text:#0e7c72;
+    --gold:#f5c31c; --gold-deep:#d8a812; --gold-ink:#5c4813; --star:#f0b429;
+    --line:#e8e2d6; --line2:#c4b89e;
+    --map-land:#ebe6d5; --map-green:#dbe7c6; --map-water:#bcdce0; --map-road:#fdfbf2;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{font-family:"Nunito","Noto Sans SC",sans-serif;color:var(--ink-body);background:#e9e0cc;-webkit-font-smoothing:antialiased;padding:40px 48px 90px;width:max-content;min-width:100%;}
+  .head{display:flex;align-items:flex-start;gap:16px;margin-bottom:8px;max-width:2400px;}
+  .head img{width:46px;height:46px;flex:none;}
+  .head h1{font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:27px;color:var(--ink);margin:0;}
+  .head p{margin:4px 0 0;font-size:13px;color:var(--ink-soft);font-weight:700;max-width:1460px;}
+  .head p b{color:var(--ink);}
+  .head a{color:var(--teal-text);font-weight:800;}
+  .toplinks{margin-left:auto;display:flex;gap:9px;flex-wrap:wrap;}
+  .toplinks a{display:inline-flex;gap:7px;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:8px 15px;font-size:12.5px;font-weight:800;color:var(--ink);text-decoration:none;box-shadow:0 2px 4px 0 rgba(61,52,40,.06);}
+
+  .frames{display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;max-width:2400px;margin-top:22px;}
+  .frame{width:760px;flex:none;}
+  .fhead{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;padding:0 2px;}
+  .fhead .fc{flex:none;background:#2c2722;color:#ffd76a;border-radius:8px;padding:1px 8px;font-size:11px;font-weight:900;letter-spacing:.4px;}
+  .fhead b{font-size:13.5px;color:var(--ink);font-weight:800;}
+  .fhead span{font-size:11px;color:var(--ink-soft);font-weight:700;}
+  .fnote{margin-top:8px;padding:0 4px;font-size:11.5px;line-height:1.65;color:#8a7b66;font-weight:700;}
+  .fnote b{color:var(--ink);}
+
+  /* mini screen 720×405 (50% of 1440×810) */
+  .scrm{position:relative;width:720px;height:405px;background:var(--bg);border:2px solid #d9d0ba;border-radius:16px;overflow:hidden;}
+  .abar{position:absolute;left:0;right:0;top:0;height:26px;background:var(--paper);border-bottom:1.5px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 12px;font-size:9px;font-weight:900;color:var(--ink);z-index:6;}
+  .abar i{width:12px;height:12px;border-radius:4px;background:var(--teal);opacity:.85;font-style:normal;}
+  .abar span{margin-left:auto;width:44px;height:12px;border-radius:6px;background:var(--content);border:1px solid var(--line);}
+
+  .col{position:absolute;top:36px;display:flex;flex-direction:column;gap:7px;}
+  .ub{align-self:flex-end;background:var(--teal);color:#073f3a;border-radius:10px;border-top-right-radius:3px;font-size:9.5px;font-weight:700;padding:5px 9px;box-shadow:0 2px 0 0 var(--teal-deep);}
+  .ab{align-self:flex-start;background:var(--content);border:1.5px solid var(--line);border-radius:10px;border-top-left-radius:3px;font-size:9.5px;font-weight:600;color:var(--ink-body);padding:5px 9px;}
+  .gcardm{background:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:6px;display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+  .gcardm .c{aspect-ratio:16/9;border-radius:6px;position:relative;}
+  .gcardm .c i{position:absolute;top:3px;left:3px;width:8px;height:8px;border-radius:3px;background:var(--teal);border:1.5px solid #fff;font-style:normal;}
+  .mapm{background:var(--map-land);border:1.5px solid var(--line);border-radius:10px;position:relative;overflow:hidden;}
+  .mapm .rv{position:absolute;left:-6px;right:-6px;top:55%;height:9px;background:var(--map-water);border-radius:5px;transform:rotate(-7deg);}
+  .mapm .rd{position:absolute;left:-6px;right:-6px;top:30%;height:5px;background:var(--map-road);transform:rotate(4deg);}
+  .mapm .p{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--teal);border:2px solid #fff;}
+  .mapm .p.o{background:#fffdf5;border-color:var(--teal);}
+  .mapm .p.s{background:var(--star);}
+  .composer{position:absolute;height:24px;border-radius:24px;background:var(--paper);border:1.5px solid var(--line);display:flex;align-items:center;padding:0 8px;gap:6px;}
+  .composer i{font-style:normal;font-size:8.5px;font-weight:700;color:var(--ink-soft);}
+  .composer u{margin-left:auto;width:16px;height:16px;border-radius:50%;background:#d8d0bf;text-decoration:none;}
+  .stagep{position:absolute;top:36px;bottom:0;right:0;background:var(--map-land);border-left:2px solid var(--line);overflow:hidden;}
+  .stagep .rv{position:absolute;left:-10px;right:-10px;top:58%;height:14px;background:var(--map-water);border-radius:7px;transform:rotate(-7deg);}
+  .stagep .rd{position:absolute;left:-10px;right:-10px;top:26%;height:7px;background:var(--map-road);transform:rotate(4deg);}
+  .stagep .p{position:absolute;width:12px;height:12px;border-radius:50%;background:var(--teal);border:2px solid #fff;}
+  .stagep .p.o{background:#fffdf5;border-color:var(--teal);}
+  .stagep .p.s{background:var(--star);}
+  .traym{position:absolute;left:0;right:0;bottom:0;height:34px;background:var(--paper);border-top:1.5px solid var(--line);display:flex;align-items:center;gap:5px;padding:0 12px;z-index:5;}
+  .traym .tc{height:14px;border-radius:999px;background:#82d5bb;border:1px solid #82d5bb;color:#fff;font-size:8px;font-weight:700;display:inline-flex;align-items:center;padding:0 6px;gap:3px;}
+  .traym .cta{margin-left:auto;height:18px;border-radius:999px;background:var(--gold);color:var(--gold-ink);font-size:8.5px;font-weight:800;display:inline-flex;align-items:center;padding:0 10px;box-shadow:0 2px 0 0 var(--gold-deep);}
+  .toolsm{position:absolute;left:0;right:0;top:26px;height:20px;background:var(--bg);border-bottom:1.5px solid var(--line);display:flex;align-items:center;gap:5px;padding:0 12px;z-index:6;}
+  .toolsm i{font-style:normal;height:12px;border-radius:999px;border:1px solid var(--line2);background:rgba(255,255,255,.6);font-size:7.5px;font-weight:700;color:#8a7b66;display:inline-flex;align-items:center;padding:0 6px;}
+  .toolsm i.on{background:#0cc0b5;color:#fff9e3;border-color:#0cc0b5;}
+  .ghost{border:1.5px dashed var(--line2);border-radius:10px;background:#00000006;}
+  .ring{outline:2.5px solid var(--teal);outline-offset:2px;box-shadow:0 8px 18px -8px #5a3c2066 !important;}
+  .motion-shadow{box-shadow:0 14px 26px -10px #5a3c2077 !important;}
+  .arrow{position:absolute;color:var(--teal-deep);font-weight:900;font-size:16px;z-index:8;text-shadow:0 1px 0 #fff;}
+  .dotn{position:absolute;width:20px;height:20px;border-radius:50%;background:#2c2722;color:#ffd76a;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;z-index:9;box-shadow:0 2px 6px #00000044;}
+  .goldpillm{position:absolute;height:16px;border-radius:999px;background:var(--gold);color:var(--gold-ink);font-size:8px;font-weight:900;display:inline-flex;align-items:center;padding:0 8px;box-shadow:0 2px 0 0 var(--gold-deep);z-index:5;}
+
+  .ribbon{margin-top:7px;position:relative;height:26px;background:var(--paper);border:1.5px solid var(--line);border-radius:8px;overflow:hidden;}
+  .ribbon .seg{position:absolute;top:0;bottom:0;background:#19c8b922;border-left:1.5px solid #19c8b955;}
+  .ribbon .seg.hot{background:#19c8b977;}
+  .ribbon b{position:absolute;top:44%;transform:translate(-50%,-50%);font-size:9px;font-weight:900;color:var(--teal-text);white-space:nowrap;}
+  .ribbon .tick{position:absolute;bottom:1px;font-size:7.5px;font-weight:800;color:var(--ink-soft);}
+
+  .card{background:var(--paper);border:2px solid #d9d0ba;border-radius:18px;padding:18px 20px;}
+  .card p.cnote{margin:12px 0 0;font-size:11.5px;color:#8a7b66;font-weight:700;line-height:1.6;}
+  table.tm{border-collapse:collapse;width:100%;}
+  table.tm th{font-size:10px;font-weight:900;letter-spacing:.4px;color:var(--ink-soft);text-align:left;padding:5px 10px;border-bottom:2px solid var(--line);}
+  table.tm td{font-size:11.5px;font-weight:700;color:var(--ink-body);padding:7px 10px;border-bottom:1.5px dashed var(--line);vertical-align:top;}
+  table.tm td b{color:var(--ink);}
+  table.tm td.mono{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;white-space:nowrap;}
+  .rule{display:flex;gap:10px;align-items:flex-start;background:var(--content);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12px;line-height:1.6;font-weight:700;color:var(--ink-body);}
+  .rule b{color:var(--ink);}
+  .rule .n{flex:none;width:18px;height:18px;border-radius:50%;background:#2c2722;color:#ffd76a;font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:2px;}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <img src="assets/torii.svg" alt="">
+  <div>
+    <h1>Graduation 毕业转场 — Storyboard（签名时刻）</h1>
+    <p><b>「对话 → 地图滑移」</b>：首个空间内容 settle 后，流内的静态地图卡<b>毕业</b>成右侧常驻舞台，单列 chat 变成「对话栏 440 + 舞台」工作台（07-03 舞台模型已批准）。曲线/角色引用 <a href="DS 补全 - Chat 桌面.html">DS S7</a>：主移动 cubic-bezier(.2,.8,.3,1)·360ms，总时长 <b>~850ms</b>，全程只动 transform/opacity。帧为 50% 缩尺示意（720×405），关注编排不关注像素。</p>
+  </div>
+  <div class="toplinks">
+    <a href="工作台 - 地图常驻方案.html">工作台（毕业后的家）→</a>
+    <a href="Chat 状态总览.html">Chat 状態総覧</a>
+    <a href="前端全景 - Journey Hub.dc.html">← Journey Hub</a>
+  </div>
+</div>
+
+<div class="frames" id="fr"></div>
+
+<script>
+(function(){
+  function el(tag,cls,style,inner){ return '<'+tag+(cls?' class="'+cls+'"':'')+(style?' style="'+style+'"':'')+'>'+(inner||'')+'</'+tag+'>'; }
+  function dot(n,t,l){ return '<span class="dotn" style="top:'+t+'px;left:'+l+'px;">'+n+'</span>'; }
+  var G=['linear-gradient(135deg,#cfe3f7,#98b8dc)','linear-gradient(135deg,#d7eccf,#7fae6a)','linear-gradient(135deg,#f5dccf,#e0b294)','linear-gradient(135deg,#dfd6f0,#b7a8dd)'];
+  function gridm(w){
+    var c='';
+    for(var i=0;i<4;i++) c+=el('span','c','background:'+G[i]+';', i<3?'<i></i>':'');
+    return el('div','gcardm','width:'+w+'px;',c);
+  }
+  function mapm(w,h,extra){
+    return el('div','mapm'+(extra||''),'width:'+w+'px;height:'+h+'px;',
+      '<span class="rv"></span><span class="rd"></span>'
+      +'<span class="p" style="left:18%;top:62%;"></span><span class="p o" style="left:44%;top:40%;"></span><span class="p s" style="left:66%;top:26%;"></span>');
+  }
+  function stagePins(){
+    return '<span class="rv"></span><span class="rd"></span>'
+      +'<span class="p" style="left:16%;top:64%;"></span>'
+      +'<span class="p" style="left:34%;top:50%;"></span>'
+      +'<span class="p s" style="left:52%;top:24%;"></span>'
+      +'<span class="p o" style="left:70%;top:40%;opacity:.55;"></span>'
+      +'<span class="p" style="left:80%;top:30%;"></span>';
+  }
+  function ribbon(hotStart,hotEnd,label){
+    var T=850, segs=[[0,120],[120,480],[480,650],[650,850]];
+    var h='';
+    segs.forEach(function(s){
+      var hot=(s[0]>=hotStart&&s[1]<=hotEnd);
+      h+='<span class="seg'+(hot?' hot':'')+'" style="left:'+(s[0]/T*100)+'%;width:'+((s[1]-s[0])/T*100)+'%;"></span>';
+    });
+    if(hotEnd>hotStart) h+='<b style="left:'+((hotStart+hotEnd)/2/T*100)+'%;">'+label+'</b>';
+    else h+='<b style="left:12%;">'+label+'</b>';
+    [0,120,480,650,850].forEach(function(t){ h+='<span class="tick" style="left:calc('+(t/T*100)+'% + 2px);">'+t+'</span>'; });
+    return '<div class="ribbon">'+h+'</div>';
+  }
+  var ABAR='<div class="abar"><i></i>聖地巡礼<span></span></div>';
+  function frame(code,title,note,scrInner,rib,fnote){
+    var e=document.createElement('div'); e.className='frame';
+    e.innerHTML='<div class="fhead"><span class="fc">'+code+'</span><b>'+title+'</b><span>'+(note||'')+'</span></div>'
+      +'<div class="scrm">'+ABAR+scrInner+'</div>'+(rib||'')
+      +(fnote?'<div class="fnote">'+fnote+'</div>':'');
+    document.getElementById('fr').appendChild(e);
+  }
+
+  /* ---- F0 ---- */
+  frame('F0','前夜 — 单列流 · 空间内容落位','t &lt; 0 · entrance-up 刚完成',
+    '<div class="col" style="left:170px;width:380px;">'
+      +'<span class="ub">この5件で、駅から9:30で</span>'
+      +'<span class="ab">みつけたよ！歩いて回りやすい5件がこちら</span>'
+      +gridm(380)
+      +mapm(380,86)
+    +'</div>'
+    +'<div class="composer" style="left:170px;width:380px;bottom:10px;"><i>考え中…</i><u></u></div>'
+    +dot(1,150,132)+dot(2,320,132),
+    ribbon(0,0,'待機 · settle+300ms 后自動触発'),
+    '<b>①</b> 触发＝会话内<b>首个空间内容 settle</b>（C3a 点位卡组或 C5 路线卡，先到者）＋300ms 静置——让 entrance-up 落完、用户看清内容再动 · <b>②</b> 此刻地图还是流内的一张 static band 卡，<b>它就是毕业的主角</b>');
+
+  /* ---- F1 ---- */
+  frame('F1','预备 — 主角抬起','t = 0–120ms · standard 曲线',
+    '<div class="col" style="left:170px;width:380px;">'
+      +'<span class="ub">この5件で、駅から9:30で</span>'
+      +'<span class="ab">みつけたよ！歩いて回りやすい5件がこちら</span>'
+      +gridm(380)
+      +mapm(380,86,' ring motion-shadow')
+    +'</div>'
+    +'<div class="composer" style="left:170px;width:380px;bottom:10px;opacity:.75;"><i>考え中…</i><u></u></div>'
+    +dot(1,318,132)+dot(2,372,560),
+    ribbon(0,120,'lift 120ms'),
+    '<b>①</b> 地图卡 teal 光环 + scale 1.02 抬起，<b>motion 影</b>出现（唯一例外：卡静态无影，转场中允许 elevation 影 0→1→0）· <b>②</b> 滚动锁定 + composer 冻结（G4 同款），毕业中途布局不许抖');
+
+  /* ---- F2 ---- */
+  frame('F2','主移动 — 地图飞向右缘 · thread 左移','t = 120–480ms · enter 曲线 360ms',
+    '<div class="stagep" style="width:150px;opacity:.9;"></div>'
+    +'<div class="col" style="left:36px;width:290px;">'
+      +'<span class="ub">この5件で、駅から9:30で</span>'
+      +'<span class="ab">みつけたよ！…</span>'
+      +gridm(290)
+      +'<div class="ghost" style="width:290px;height:40px;"></div>'
+    +'</div>'
+    +'<div class="mapm motion-shadow" style="position:absolute;left:368px;top:96px;width:300px;height:196px;border-radius:8px;"><span class="rv"></span><span class="rd"></span><span class="p" style="left:20%;top:60%;"></span><span class="p s" style="left:58%;top:28%;"></span></div>'
+    +'<span class="arrow" style="left:330px;top:130px;">↗</span>'
+    +'<span class="arrow" style="left:148px;top:52px;">←</span>'
+    +'<div class="composer" style="left:36px;width:290px;bottom:10px;opacity:.75;"><i>…</i><u></u></div>'
+    +dot(1,140,346)+dot(2,48,116)+dot(3,282,60),
+    ribbon(120,480,'FLIP fly + thread 左移 360ms'),
+    '<b>① FLIP 飞行</b>：地图卡沿弧线飞向右缘同步放大（radius 18→0、band→全高，单一 transform）· <b>② thread 容器 760→440 左移</b>（容器 transform，内容 reflow 延后到 F3——避免文字逐帧跳字）· <b>③ 原位留 ghost 槽</b>（虚线残影，下一拍补位）· 舞台底板从右缘同步滑入承接（120–420ms）');
+
+  /* ---- F3 ---- */
+  frame('F3','落位 — pins stagger · 流补位','t = 480–650ms',
+    '<div class="stagep" style="width:466px;">'+stagePins()+'<span class="goldpillm" style="left:10px;top:10px;opacity:.45;">▸ 5件選択中（フェード中）</span></div>'
+    +'<div class="col" style="left:16px;width:222px;">'
+      +'<span class="ub" style="font-size:8.5px;">この5件で、駅から9:30で</span>'
+      +'<span class="ab" style="font-size:8.5px;">みつけたよ！…</span>'
+      +gridm(222)
+    +'</div>'
+    +'<div class="composer" style="left:16px;width:222px;bottom:10px;"><i>続けて話す…</i><u></u></div>'
+    +dot(1,120,480)+dot(2,220,80),
+    ribbon(480,650,'stagger + 补位'),
+    '<b>① pins stagger 落位</b>：y−6→0 · op 0→1 · 间隔 60ms · 最多 6 枚（超出的直接显示，stagger ≤300ms 封顶）· <b>② 流补位</b>：ghost 槽收合、下方内容上移 240ms（standard）——地图卡在流内的位置被抹平，历史不留死洞 · 内容 reflow（712→408 宽）也在这一拍完成');
+
+  /* ---- F4 ---- */
+  frame('F4','完成 — 舞台常驻 · 工作台 chrome 入场','t = 650–850ms · 毕业完成',
+    '<div class="toolsm"><i class="on">エリア</i><i>話数</i><i>ギャラリー</i><i style="margin-left:auto;">写真ありのみ</i></div>'
+    +'<div class="stagep" style="width:466px;top:46px;bottom:34px;">'+stagePins()+'<span class="goldpillm" style="left:10px;top:10px;">▸ 飛騨古川 · 5件選択中</span></div>'
+    +'<div class="col" style="left:16px;width:222px;top:56px;">'
+      +'<span class="ub" style="font-size:8.5px;">この5件で、駅から9:30で</span>'
+      +'<span class="ab" style="font-size:8.5px;">みつけたよ！…</span>'
+      +gridm(222)
+    +'</div>'
+    +'<div class="traym"><span class="tc">1 駅</span><span class="tc">2 味処</span><span class="tc">3 神社</span><span class="cta">この5件でルートを組む</span></div>'
+    +dot(1,30,300)+dot(2,376,300)+dot(3,60,480),
+    ribbon(650,850,'chrome 200ms'),
+    '<b>① 工具条</b>与<b>② 托盘</b> slide-up+fade 200ms 收尾，<b>③ 金色 pill</b>最后 150ms 淡入——从此＝工作台 WB-1 形态、<b>舞台常驻</b>。后续对话在左栏继续（对话退为旁白）；路线诞生时舞台<b>原地升格</b>（轨迹+重编号+flash），不再重演毕业');
+
+  /* ---- F5 rules ---- */
+  var e=document.createElement('div'); e.className='frame';
+  e.innerHTML='<div class="fhead"><span class="fc">F5</span><b>边界 · 逆向 · 例外</b><span>毕业只发生一次，且不是到处都发生</span></div>'
+    +'<div style="display:flex;flex-direction:column;gap:9px;">'
+    +'<div class="rule"><span class="n">1</span><div><b>一次性</b>：每会话仅首个空间内容触发毕业；此后一切更新走舞台<b>原地升格/flash</b>（E1/E2 规则），绝不重演飞行——转场是仪式，重复即廉价</div></div>'
+    +'<div class="rule"><span class="n">2</span><div><b>逆向（舞台收起）</b>：舞台角落「⌄ 収納」→ 反向 400ms 简化版（地图缩回流内 band 卡原位、thread 回 760 居中）。收起后再来空间内容<b>不再自动毕业</b>，改出「地図を右に常駐 ↗」邀请 chip——尊重用户的显式选择</div></div>'
+    +'<div class="rule"><span class="n">3</span><div><b>&lt;1024px 不毕业</b>：窄幅没有舞台的地皮——保持单列流，「すべて見る」走 Drawer 下沉景深 takeover（既有规范）；拉宽到 ≥1024 时若本会话已有空间内容，直接以工作台形态渲染（无动画）</div></div>'
+    +'<div class="rule"><span class="n">4</span><div><b>prefers-reduced-motion</b>：全编排替换为 150ms crossfade（旧布局 fade-out / 新布局 fade-in），零位移——S6 规则的转场级应用</div></div>'
+    +'<div class="rule"><span class="n">5</span><div><b>SR/键盘无感</b>：DOM 顺序不变（对话流在前、舞台在后），aria-live 播报发生在 settle 时而非转场时；850ms 内焦点保持原元素、禁止程序性焦点跳转</div></div>'
+    +'<div class="rule"><span class="n">6</span><div><b>失败兜底</b>：舞台底图瓦片未就绪也照常毕业——舞台先渲染 map-* 纯色底+pins（D7 斜纹是「加载失败」态，不是「加载中」态）——<b>转场绝不等网络</b></div></div>'
+    +'</div>';
+  document.getElementById('fr').appendChild(e);
+
+  /* ---- timing table ---- */
+  var t=document.createElement('div'); t.className='frame';
+  t.innerHTML='<div class="fhead"><span class="fc">TIME</span><b>编排时序表 — 总时长 ~850ms</b><span>enter=cubic-bezier(.2,.8,.3,1) · standard=cubic-bezier(.4,0,.2,1)</span></div>'
+    +'<div class="card"><table class="tm">'
+    +'<tr><th>要素</th><th>变化</th><th style="text-align:right;">开始</th><th style="text-align:right;">时长</th><th>曲线</th></tr>'
+    +'<tr><td><b>触发</b></td><td>首个空间内容 settle + 静置</td><td class="mono" style="text-align:right;">−300</td><td class="mono" style="text-align:right;">300</td><td class="mono">—</td></tr>'
+    +'<tr><td><b>地図カード lift</b></td><td>scale 1→1.02 · motion影 0→1 · teal 光环</td><td class="mono" style="text-align:right;">0</td><td class="mono" style="text-align:right;">120</td><td class="mono">standard</td></tr>'
+    +'<tr><td><b>地図カード fly（FLIP）</b></td><td>飞至右缘 · band→全高 · radius 18→0</td><td class="mono" style="text-align:right;">120</td><td class="mono" style="text-align:right;">360</td><td class="mono">enter</td></tr>'
+    +'<tr><td><b>thread 容器</b></td><td>中央 760 → 左 440（transform · reflow 延后）</td><td class="mono" style="text-align:right;">120</td><td class="mono" style="text-align:right;">360</td><td class="mono">enter</td></tr>'
+    +'<tr><td><b>舞台底板</b></td><td>右缘滑入承接（map-land）</td><td class="mono" style="text-align:right;">120</td><td class="mono" style="text-align:right;">300</td><td class="mono">enter</td></tr>'
+    +'<tr><td><b>流补位 + reflow</b></td><td>ghost 槽收合 · 下方上移 · 712→408 重排</td><td class="mono" style="text-align:right;">480</td><td class="mono" style="text-align:right;">240</td><td class="mono">standard</td></tr>'
+    +'<tr><td><b>pins stagger</b></td><td>y−6→0 · op 0→1 · 间隔 60ms · ≤6 枚</td><td class="mono" style="text-align:right;">480</td><td class="mono" style="text-align:right;">≤300</td><td class="mono">enter</td></tr>'
+    +'<tr><td><b>工具条 / 托盘</b></td><td>slide-up + fade</td><td class="mono" style="text-align:right;">650</td><td class="mono" style="text-align:right;">200</td><td class="mono">enter</td></tr>'
+    +'<tr><td><b>金 pill / 图例</b></td><td>fade-in</td><td class="mono" style="text-align:right;">700</td><td class="mono" style="text-align:right;">150</td><td class="mono">linear</td></tr>'
+    +'</table>'
+    +'<p class="cnote">实装提示：FLIP（First-Last-Invert-Play）拿地图卡首末几何做单一 transform 动画；thread 左移动容器 transform 而非宽度（避免逐帧 reflow）；pins 用 animation-delay stagger；全程只动 transform/opacity——60fps 红线。</p></div>';
+  document.getElementById('fr').appendChild(t);
+})();
+</script>
+</body>
+</html>

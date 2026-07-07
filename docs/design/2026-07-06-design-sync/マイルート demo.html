@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>マイルート demo · 本棚 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0e8d8; --card:#f8f8f0; --panel:#f7f3df;
+  --tx:#794f27; --tx2:#725d42; --tx3:#9f927d;
+  --line:#e8e2d6; --line2:#c4b89e;
+  --teal:#19c8b9; --teal-text:#0e7c72;
+  --gold:#f5c31c; --gold-tx:#5c4813; --gold-deep:#d9a412; --star:#f0b429;
+  --sh2:#d4c9b4; --ease:cubic-bezier(0.4,0,0.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#e7dfca;font-family:'Zen Maru Gothic','Nunito','Noto Sans SC',sans-serif;color:var(--tx);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:18px 16px 40px;}
+.demobar{display:flex;gap:8px;align-items:center;background:var(--panel);border:1.5px solid var(--line2);border-radius:50px;padding:7px 10px;margin-bottom:14px;box-shadow:0 3px 0 var(--sh2);flex-wrap:wrap;justify-content:center;}
+.demobar .lb{font:900 11px Nunito;letter-spacing:.14em;color:var(--tx3);padding:0 6px;}
+.demobar button{font-family:inherit;font-size:12.5px;font-weight:900;color:var(--tx2);background:var(--card);border:1.5px solid var(--line);border-radius:50px;padding:7px 14px;cursor:pointer;}
+.demobar button.on{background:#dff3f0;border-color:var(--teal);color:var(--teal-text);}
+.demobar button:active{transform:translateY(1px);}
+.hint{font-size:12px;color:var(--tx2);font-weight:700;margin-bottom:14px;text-align:center;max-width:600px;line-height:1.7;}
+.hint b{color:var(--teal-text);}
+.phone{width:402px;height:874px;background:var(--card);border:1.5px solid var(--line2);border-radius:36px;overflow:hidden;position:relative;box-shadow:0 10px 0 0 var(--sh2);flex-shrink:0;display:flex;flex-direction:column;}
+.sb{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:800 14px Nunito;flex-shrink:0;}
+.sb .dots{display:flex;gap:4px;}.sb .dots i{width:5px;height:5px;border-radius:50%;background:var(--tx2);}
+.pagehead{display:flex;align-items:center;gap:10px;padding:6px 20px 10px;flex-shrink:0;}
+.pagehead h2{font-size:22px;font-weight:900;flex:1;}
+.pagehead .ct{font:800 11.5px Nunito;color:var(--tx3);}
+.stage{flex:1;position:relative;overflow:hidden;min-height:0;}
+.scrollc{position:absolute;inset:0;overflow-y:auto;padding-bottom:100px;scrollbar-width:none;}
+.scrollc::-webkit-scrollbar{display:none;}
+.dock{position:absolute;left:0;right:0;bottom:0;padding:26px 16px 16px;background:linear-gradient(180deg,rgba(248,248,240,0),var(--card) 46%);z-index:8;display:flex;gap:10px;}
+.cta{flex:1;display:flex;align-items:center;justify-content:center;height:54px;border-radius:50px;background:var(--gold);color:var(--gold-tx);font-size:15px;font-weight:900;box-shadow:0 4px 0 0 var(--gold-deep);cursor:pointer;transition:transform .15s var(--ease),box-shadow .15s var(--ease);}
+.cta:active{transform:translateY(3px);box-shadow:0 1px 0 0 var(--gold-deep);}
+.cta.cream{background:var(--card);color:var(--tx);border:1.5px solid var(--line2);box-shadow:0 4px 0 0 var(--sh2);font-size:14px;}
+.cta.cream:active{box-shadow:0 1px 0 0 var(--sh2);}
+.cta.mini{flex:0 0 138px;font-size:13px;}
+.toast{position:absolute;left:50%;bottom:112px;transform:translate(-50%,16px);background:rgba(61,45,24,.9);color:#fff;font-size:12px;font-weight:800;padding:9px 18px;border-radius:50px;opacity:0;pointer-events:none;transition:all .25s var(--ease);z-index:30;white-space:nowrap;max-width:370px;overflow:hidden;text-overflow:ellipsis;}
+.toast.show{opacity:1;transform:translate(-50%,0);}
+.shelf{display:flex;flex-direction:column;gap:12px;padding:0 16px;}
+.bk{background:var(--card);border:1.5px solid var(--line);border-radius:18px;overflow:hidden;position:relative;cursor:pointer;transition:transform .15s var(--ease);}
+.bk:active{transform:translateY(2px);}
+.bk .inner{display:flex;gap:12px;padding:12px;}
+.bk .cov{width:118px;height:104px;border-radius:12px;position:relative;overflow:hidden;flex-shrink:0;}
+.bk .cov .ctag{position:absolute;left:6px;bottom:6px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;padding:1px 6px;border-radius:5px;}
+.bk .bd{flex:1;min-width:0;display:flex;flex-direction:column;}
+.bk .ey{font:800 9.5px Nunito;letter-spacing:.12em;color:var(--tx3);}
+.bk .t{font-size:15.5px;font-weight:900;margin:2px 0 4px;}
+.bk .meta{display:flex;gap:5px;flex-wrap:wrap;}
+.bk .meta span{font-size:10px;font-weight:800;background:var(--panel);border:1px solid var(--line);border-radius:50px;padding:1.5px 8px;color:var(--tx2);}
+.bk .meta span.warn{background:#fdf3d0;border-color:#f0dfa8;color:#8a6a12;}
+.bk .meta span.tealc{background:#dff3f0;border-color:#b8e2dc;color:var(--teal-text);}
+.bk .stat{display:flex;gap:4px;align-items:center;margin-top:auto;padding-top:6px;}
+.bk .stat i{width:8px;height:8px;border-radius:3px;background:var(--line);flex-shrink:0;}
+.bk .stat i.d{background:var(--teal);}
+.bk .stat i.c{background:#fff;border:1.5px solid var(--star);}
+.bk .stat .tx{font:800 10px Nunito;color:var(--tx3);margin-left:3px;white-space:nowrap;}
+.bk .gbar{display:flex;align-items:center;justify-content:space-between;background:var(--gold);padding:9px 8px 9px 14px;box-shadow:inset 0 1.5px 0 rgba(255,255,255,.35);}
+.bk .gbar .l{font-size:12.5px;font-weight:900;color:var(--gold-tx);}
+.bk .gbar .b{background:#fff;border-radius:50px;padding:5px 13px;font-size:11.5px;font-weight:900;color:var(--gold-tx);cursor:pointer;}
+.bk .gbar .b:active{transform:translateY(1px);}
+.bk.today{border:2px solid var(--gold);box-shadow:0 4px 0 var(--gold-deep);}
+.bk .kbadge{position:absolute;top:10px;right:10px;background:var(--gold);color:var(--gold-tx);font-size:10px;font-weight:900;padding:3px 9px;border-radius:50px;box-shadow:0 2px 0 var(--gold-deep);}
+.bk .kbadge~.inner .ey{display:block;padding-right:84px;}
+.bk .qrow{display:flex;gap:7px;padding:0 12px 12px;}
+.bk .qrow span{flex:1;text-align:center;font-size:11px;font-weight:900;background:var(--card);border:1.5px solid var(--line2);box-shadow:0 2.5px 0 var(--sh2);border-radius:50px;padding:7px 0;color:var(--tx);cursor:pointer;}
+.bk .qrow span:active{transform:translateY(1.5px);box-shadow:none;}
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 40px 120px;}
+.empty img{width:96px;height:96px;}
+.empty .h{font-size:18px;font-weight:900;}
+.empty .p{font-size:12.5px;font-weight:700;color:var(--tx2);text-align:center;line-height:1.9;}
+@media (prefers-reduced-motion: reduce){*{transition-duration:.01s !important;}}
+</style>
+</head>
+<body>
+
+<div class="demobar">
+  <span class="lb">DEMO</span>
+  <a href="前端全景 - Journey Hub.dc.html" style="font:900 12px Nunito;color:var(--teal-text);text-decoration:none;background:var(--card);border:1.5px solid var(--line);border-radius:50px;padding:7px 12px;">◂ Hub</a>
+  <button data-snap="today">きょうあり</button>
+  <button data-snap="normal">きょうなし</button>
+  <button data-snap="empty">空態</button>
+  <button id="resetBtn" style="color:var(--tx3);">リセット</button>
+</div>
+<div class="hint"><b>金件唯一</b>を切替で確認：きょうあり＝カード内金条だけ（底部＋は cream）／きょうなし＝<b>底部＋が金に昇格</b>／空態＝中央金 CTA。カード tap→路線詳細、chip は各链路 toast。</div>
+
+<div class="phone">
+  <div class="sb"><span id="clock">8:52</span><span class="dots"><i></i><i></i><i></i></span></div>
+  <div class="pagehead"><h2>マイルート</h2><span class="ct" id="cnt">3件</span></div>
+  <div class="stage">
+    <div class="scrollc"><div class="shelf" id="shelf"></div></div>
+    <div class="empty" id="empty" style="display:none;">
+      <img src="assets/fox/fox-welcome.svg" alt="">
+      <div class="h">まだ旅がないよ</div>
+      <div class="p">見たいアニメの場所から、<br>コンちゃんが時刻表つきで組むよ。</div>
+    </div>
+    <div class="dock" id="dock"></div>
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<script src="scene-cut.js"></script>
+<script>
+(function(){
+  var CARDS={
+    numazu:{today:true, cov:'linear-gradient(135deg,#cfe9f2,#93c4d8)', ctag:'第1期1話', ey:'LOVE LIVE! SUNSHINE!! · 沼津', t:'沼津 2泊3日ツアー',
+      meta:['14スポット','7/2–7/4','バス・船'], prog:{d:8,c:1,n:14,tx:'8/14 · 2日目'},
+      gbar:{l:'きょうは巡礼日！2日目 · 内浦へ', b:'歩くモードへ →'}},
+    uji:{cov:'linear-gradient(135deg,#f7e0c0,#e0b083)', ctag:'第1話 02:44', ey:'響け！ユーフォニアム · 宇治', t:'宇治 まる一日ルート',
+      meta:[{c:'warn',t:'出発は 7/12'},'12スポット','徒歩5.6km'], prog:{tx:'計画ずみ · しおり共有できるよ'},
+      qrow:[{t:'しおりを共有',href:'しおり demo.html'},{t:'編集する（Chat）',href:'Chat 完整状态.html'}]},
+    hida:{done:true, cov:'linear-gradient(135deg,#d7eccf,#a8cf8e)', ctag:'第8話 41:12', ey:'YOUR NAME · 飛騨古川', t:'飛騨古川 半日ルート',
+      meta:['2026.7.3','9:31→12:58',{c:'tealc',t:'対比図 4枚'}], prog:{d:5,n:5,tx:'ぜんぶ来た'},
+      qrow:[{t:'記念しおりを作る',href:'しおり demo.html'},{t:'対比図を見る',href:'路线详情 demo.html'}]}
+  };
+  var SNAPS={
+    today:{cards:['numazu','uji','hida'], clock:'8:52', dockGold:false},
+    normal:{cards:['uji','hida'], clock:'20:15', dockGold:true},
+    empty:{cards:[], clock:'20:15'}
+  };
+  var KEY='myroute-demo-v1';
+  var state={snap:'today'};
+  try{var s=JSON.parse(localStorage.getItem(KEY)); if(s&&SNAPS[s.snap]) state=s;}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+  var toastEl=document.getElementById('toast'), toastTimer=null;
+  function toast(m){clearTimeout(toastTimer);toastEl.textContent=m;toastEl.classList.add('show');toastTimer=setTimeout(function(){toastEl.classList.remove('show');},2000);}
+
+  function metaHtml(m){
+    return m.map(function(x){
+      if(typeof x==='string')return '<span>'+x+'</span>';
+      return '<span class="'+x.c+'">'+x.t+'</span>';
+    }).join('');
+  }
+  function progHtml(p){
+    var h='';
+    if(typeof p.d==='number'){
+      var total=p.n, sm=total>10;
+      var dot=sm?' style="width:6px;height:6px;border-radius:2px;"':'';
+      for(var i=0;i<total;i++){
+        h+='<i class="'+(i<p.d?'d':(p.c&&i===p.d?'c':''))+'"'+dot+'></i>';
+      }
+    }
+    return h+'<span class="tx"'+(typeof p.d!=='number'?' style="margin-left:0;"':'')+'>'+p.tx+'</span>';
+  }
+  function cardHtml(id){
+    var c=CARDS[id];
+    var h='<div class="bk'+(c.today?' today':'')+'" data-card="'+id+'">';
+    if(c.today&&c.gbar)h+='<div class="gbar"><span class="l">'+c.gbar.l+'</span><span class="b" data-walk>'+c.gbar.b+'</span></div>';
+    if(c.done)h+='<span class="kbadge">完走 5/5 ✓</span>';
+    h+='<div class="inner"><div class="cov" style="background:'+c.cov+';"><span class="ctag">'+c.ctag+'</span></div>'
+      +'<div class="bd"><span class="ey">'+c.ey+'</span><span class="t">'+c.t+'</span>'
+      +'<div class="meta">'+metaHtml(c.meta)+'</div>'
+      +'<div class="stat"'+(c.prog&&c.prog.n>10?' style="gap:3px;"':'')+'>'+progHtml(c.prog)+'</div></div></div>';
+    if(c.qrow){h+='<div class="qrow">'+c.qrow.map(function(q,i){return '<span data-q="'+id+':'+i+'">'+q.t+'</span>';}).join('')+'</div>';}
+    h+='</div>';
+    return h;
+  }
+  function render(){
+    var sn=SNAPS[state.snap];
+    document.querySelectorAll('[data-snap]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-snap')===state.snap);});
+    document.getElementById('clock').textContent=sn.clock;
+    document.getElementById('cnt').textContent=sn.cards.length?sn.cards.length+'件':'';
+    var shelf=document.getElementById('shelf'), empty=document.getElementById('empty'), dock=document.getElementById('dock');
+    shelf.innerHTML=sn.cards.map(cardHtml).join('');
+    empty.style.display=sn.cards.length?'none':'flex';
+    shelf.parentElement.style.display=sn.cards.length?'block':'none';
+    if(!sn.cards.length){
+      dock.innerHTML='<span class="cta cream mini" data-dock="works">作品からさがす</span><span class="cta" data-dock="ai">AIにルートを組んでもらう</span>';
+    }else if(sn.dockGold){
+      dock.innerHTML='<span class="cta" data-dock="new">＋ あたらしいルートを組む</span>';
+    }else{
+      dock.innerHTML='<span class="cta cream" data-dock="new">＋ あたらしいルートを組む</span>';
+    }
+    bind();save();
+  }
+  function bind(){
+    document.querySelectorAll('.bk').forEach(function(b){
+      b.addEventListener('click',function(e){
+        if(e.target.closest('[data-walk]')||e.target.closest('[data-q]'))return;
+        toast('路線詳細へ：'+CARDS[b.getAttribute('data-card')].t);
+        setTimeout(function(){location.href='路线详情 demo.html';},450);
+      });
+    });
+    document.querySelectorAll('[data-walk]').forEach(function(w){
+      w.addEventListener('click',function(){
+        if(window.SceneCut){SceneCut.play({label:'歩くモードへ',holdMs:1500});setTimeout(function(){location.href='Walk demo.html';},1100);}
+        else{location.href='Walk demo.html';}
+      });
+    });
+    document.querySelectorAll('[data-q]').forEach(function(q){
+      q.addEventListener('click',function(){
+        var p=q.getAttribute('data-q').split(':');
+        var qd=CARDS[p[0]].qrow[+p[1]];
+        if(qd.href){location.href=qd.href;}else{toast(qd.toast);}
+      });
+    });
+    document.querySelectorAll('[data-dock]').forEach(function(d){
+      d.addEventListener('click',function(){
+        var k=d.getAttribute('data-dock');
+        if(k==='works'){location.href='作品公開页 demo.html';return;}
+        if(window.SceneCut){SceneCut.play({label:'ロケ地を探しています',holdMs:1500});setTimeout(function(){location.href='Chat 完整状态.html';},1100);}
+        else{location.href='Chat 完整状态.html';}
+      });
+    });
+  }
+  document.querySelectorAll('[data-snap]').forEach(function(b){
+    b.addEventListener('click',function(){state.snap=b.getAttribute('data-snap');render();});
+  });
+  document.getElementById('resetBtn').addEventListener('click',function(){state={snap:'today'};render();toast('リセットしたよ');});
+  render();
+})();
+</script>
+</body>
+</html>

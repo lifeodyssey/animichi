@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>対比図作成 状态总览 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&family=Noto+Serif+JP:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0e8d8; --card:#f8f8f0; --panel:#f7f3df;
+  --tx:#794f27; --tx2:#725d42; --tx3:#9f927d;
+  --line:#e8e2d6; --line2:#c4b89e;
+  --teal:#19c8b9; --teal-text:#0e7c72;
+  --gold:#f5c31c; --gold-tx:#5c4813; --gold-deep:#d9a412; --star:#f0b429;
+  --brand:#c44a2e; --error:#e05a5a; --sh2:#d4c9b4; --ink:#3d2d18; --dark:#2b2012;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#e7dfca;font-family:'Zen Maru Gothic','Nunito','Noto Sans SC',sans-serif;color:var(--tx);padding:56px 64px 120px;}
+.canvas-head{max-width:1480px;margin:0 auto 12px;}
+.canvas-head .eyebrow{font-family:Nunito;font-weight:900;font-size:13px;letter-spacing:.22em;color:var(--tx3);text-transform:uppercase;}
+.canvas-head h1{font-size:34px;font-weight:900;margin:6px 0 10px;}
+.canvas-head p{font-size:14px;color:var(--tx2);line-height:1.8;max-width:1000px;}
+.canvas-head .brief{margin-top:14px;background:var(--panel);border:1.5px dashed var(--line2);border-radius:16px;padding:14px 18px;font-size:13px;color:var(--tx2);line-height:2;max-width:1000px;}
+.canvas-head .brief b{color:var(--tx);}
+.group{max-width:2300px;margin:72px auto 0;}
+.group>header{display:flex;align-items:baseline;gap:14px;border-bottom:2px solid var(--line2);padding-bottom:10px;margin-bottom:34px;}
+.group>header .gid{font-family:Nunito;font-weight:900;font-size:15px;color:#fff;background:var(--tx);border-radius:8px;padding:3px 10px;}
+.group>header h2{font-size:23px;font-weight:900;}
+.group>header .sub{font-size:13px;color:var(--tx3);}
+.row{display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start;}
+.frame{display:flex;flex-direction:column;gap:12px;}
+.frame .flabel{max-width:402px;}
+.frame .flabel .fid{font-family:Nunito;font-weight:900;font-size:12px;letter-spacing:.14em;color:var(--teal-text);background:#dff3f0;border:1px solid #b8e2dc;border-radius:6px;padding:2px 8px;display:inline-block;}
+.frame .flabel h3{font-size:17px;font-weight:900;margin:7px 0 3px;}
+.frame .flabel p{font-size:12.5px;color:var(--tx2);line-height:1.75;}
+.phone{width:402px;height:874px;background:var(--card);border:1.5px solid var(--line2);border-radius:36px;overflow:hidden;position:relative;box-shadow:0 10px 0 0 var(--sh2);flex-shrink:0;display:flex;flex-direction:column;}
+.note{background:var(--panel);border:1.5px dashed var(--line2);border-radius:16px;padding:16px 18px;width:340px;font-size:12.5px;color:var(--tx2);line-height:1.9;}
+.note h4{font-size:13px;color:var(--tx);margin-bottom:6px;font-weight:900;}
+.note b{color:var(--tx);}
+.note .y{background:#fdf3d0;border-radius:4px;padding:0 4px;color:var(--tx);}
+.note code{font:800 11px Nunito;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--teal-text);}
+.sb{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:800 14px Nunito;flex-shrink:0;}
+.sb.dark{color:#f0e8d8;}
+.sb .dots{display:flex;gap:4px;}.sb .dots i{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.7;}
+.appbar{display:flex;align-items:center;gap:10px;padding:4px 16px 8px;flex-shrink:0;}
+.appbar .back{width:36px;height:36px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font:900 15px Nunito;flex-shrink:0;}
+.appbar .at{font-size:13px;font-weight:700;color:var(--tx3);}
+.dock{position:absolute;left:0;right:0;bottom:0;padding:26px 16px 16px;background:linear-gradient(180deg,rgba(248,248,240,0),var(--card) 46%);z-index:8;display:flex;gap:10px;}
+.cta{flex:1;display:flex;align-items:center;justify-content:center;height:54px;border-radius:50px;background:var(--gold);color:var(--gold-tx);font-size:15.5px;font-weight:900;box-shadow:0 4px 0 0 var(--gold-deep);}
+.cta.sub{flex:0 0 128px;background:var(--card);color:var(--tx);border:1.5px solid var(--line2);box-shadow:0 4px 0 0 var(--sh2);font-size:13px;}
+.ann{position:absolute;z-index:9;background:#fff8e6;border:1.5px solid var(--star);color:#7a5a10;font-size:11px;font-weight:800;padding:5px 10px;border-radius:10px;box-shadow:0 2px 0 rgba(122,95,61,.2);line-height:1.5;max-width:220px;}
+.chip{font-size:11px;font-weight:800;background:var(--panel);border:1px solid var(--line);border-radius:50px;padding:3px 10px;color:var(--tx2);}
+.swatch{width:34px;height:34px;border-radius:50%;border:2.5px solid var(--line2);cursor:pointer;flex-shrink:0;}
+.swatch.on{border-color:var(--teal);box-shadow:0 0 0 2.5px #dff3f0;}
+.slider{height:6px;border-radius:3px;background:var(--line);position:relative;flex:1;}
+.slider .fill{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--teal);}
+.slider .knob{position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:#fff;border:2.5px solid var(--teal);transform:translate(-50%,-50%);box-shadow:0 2px 0 rgba(122,95,61,.25);}
+</style>
+</head>
+<body>
+
+<div class="canvas-head">
+  <div class="eyebrow">Step 4.5 · Taihizu Composer · State Overview</div>
+  <h1>対比図作成（撮る→合わせる→残す）— 状态总览</h1>
+  <p>image-merge 的拍照/合成能力<b>做进产品内</b>：Walk「構図をくらべる」拍完 → 合成 → 挂到カット上（枚数模型）→ しおり/share 回流。示例＝『秒速5センチメートル』参宮橋踏切（assets/compare 真图对）。</p>
+  <div class="brief"><b>协议依据（07-03 image-merge.js 已读定案）</b>：合成＝canvas JPEG0.9 · 基准高 1080 · <b>方向自动：横帧→上下拼／縦→左右拼</b> · 照片自动 center-crop 到帧同比例 · 余白/底色可调 · 左下固定水印。深链 <b>?url=帧h360&pid&bid&g</b>＝预载帧+读照片 EXIF（GPS/时间/<b>GPSImgDirection 拍摄朝向</b>/焦距）回传 anitabi 机位修正——<b>巡礼者反哺数据库</b>。坑：<b>HEIC 不支持</b>（iPhone 默认）→「JPGで保存」提示。产物带水印；品牌版/自托管需 itorr 授权（legal）。</div>
+</div>
+
+<!-- ═══ G1 · 流程四态 ═══ -->
+<div class="group" id="g1">
+  <header><span class="gid">G1</span><h2>流程五态（402×874 · 1:1）</h2><span class="sub">構図確認 → 現場撮影 → あとで選ぶ → 合成 → 完成。入口×3：Walk W-CMP / 機位ブラウザ / 対比図段+</span></header>
+  <div class="row">
+
+    <div class="frame" data-screen-label="CMP-0 構図確認">
+      <div class="flabel"><span class="fid">CMP-0 · 構図を見る</span>
+        <h3>看着截图，呼出相机——流程的入口页</h3>
+        <p>从機位ブラウザ/対比図段进来先落这：<b>帧全屏看清楚</b>+復刻メモ+機位距离，金 CTA＝カメラを起動。不在现场？ロールから選ぶ（→CMP-2）。</p>
+      </div>
+      <div class="phone">
+        <div class="sb"><span>10:45</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;">この構図を撮る</div><div class="at">気多若宮神社 · 第8話 41:12</div></div></div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+          <div style="margin:2px 16px;border-radius:18px;overflow:hidden;position:relative;height:212px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);">
+            <span style="position:absolute;left:10px;top:10px;background:rgba(61,45,24,.68);color:#fff;font:800 10.5px Nunito;padding:3px 9px;border-radius:8px;">第8話 41:12</span>
+            <span style="position:absolute;right:10px;bottom:10px;background:rgba(248,248,240,.92);color:var(--tx);font:800 10px Nunito;padding:3px 9px;border-radius:50px;">拡大 h360 ↗</span>
+          </div>
+          <div style="margin:12px 18px 0;font-size:13.5px;font-weight:900;">復刻メモ</div>
+          <div style="display:flex;flex-direction:column;gap:7px;margin:8px 18px 0;">
+            <span style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:800;color:var(--tx2);"><i style="width:20px;height:20px;border-radius:50%;background:#dff3f0;border:1.5px solid var(--teal);color:var(--teal-text);font:900 11px Nunito;font-style:normal;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</i>石段の中心線を画面の真ん中に</span>
+            <span style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:800;color:var(--tx2);"><i style="width:20px;height:20px;border-radius:50%;background:#dff3f0;border:1.5px solid var(--teal);color:var(--teal-text);font:900 11px Nunito;font-style:normal;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</i>鳥居の笠木を上辺に揃える</span>
+            <span style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:800;color:var(--tx2);"><i style="width:20px;height:20px;border-radius:50%;background:#dff3f0;border:1.5px solid var(--teal);color:var(--teal-text);font:900 11px Nunito;font-style:normal;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</i>しゃがんでローアングル気味</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin:14px 16px 0;background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:10px 14px;">
+            <span style="font:900 12px Nunito;color:var(--teal-text);">◎</span>
+            <span style="font-size:11.5px;font-weight:800;color:var(--tx2);">機位まで <b style="color:var(--tx);">40m</b>（Anitabi 座標から）</span>
+          </div>
+          <div class="dock"><span class="cta sub">ロールから選ぶ</span><span class="cta">カメラを起動 →</span></div>
+          <div class="ann" style="top:228px;right:8px;">帧永不裁切（blur-fill 同族）。<br>❗Anitabi に bearing 無し（07-03 実測）：<br>向きは断言しない、距離＝座標のみ。<br>现场：CMP-0→1→3；家：0→2→3</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame" data-screen-label="CMP-1 現場撮影">
+      <div class="flabel"><span class="fid">CMP-1 · 撮る（現場）</span>
+        <h3>構図をくらべる → そのままシャッター</h3>
+        <p>Walk 的 ghost 对位（55% 可调）直接就是取景器：对齐了就按。横持ち自动全屏（Walk 定案）。拍下瞬间记录 GPS/朝向——之后合成时回传。</p>
+      </div>
+      <div class="phone" style="background:#1c1610;">
+        <div class="sb dark"><span>10:46</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+          <div style="position:absolute;inset:0;background:linear-gradient(165deg,#8a9d8a 0%,#6f8570 40%,#4d5f52 100%);"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#d7eccf,#a8cf8e);opacity:.55;"></div>
+          <div style="position:absolute;left:0;right:0;top:33%;height:1.5px;background:rgba(248,248,240,.35);"></div>
+          <div style="position:absolute;left:0;right:0;top:66%;height:1.5px;background:rgba(248,248,240,.35);"></div>
+          <div style="position:absolute;top:33%;left:0;right:0;bottom:0;">
+            <div style="position:absolute;left:33%;top:-33%;bottom:0;width:1.5px;background:rgba(248,248,240,.35);"></div>
+            <div style="position:absolute;left:66%;top:-33%;bottom:0;width:1.5px;background:rgba(248,248,240,.35);"></div>
+          </div>
+          <span style="position:absolute;top:14px;left:16px;background:rgba(61,45,24,.72);color:#fff;font:800 11px Nunito;padding:4px 10px;border-radius:8px;">第8話 41:12 · 気多若宮神社</span>
+          <span style="position:absolute;top:14px;right:16px;background:rgba(25,200,185,.9);color:#073f3a;font:900 10.5px Nunito;padding:4px 10px;border-radius:50px;">◉ GPS・向き 記録中</span>
+          <div style="position:absolute;left:16px;right:16px;bottom:180px;display:flex;align-items:center;gap:10px;background:rgba(28,22,16,.72);border-radius:50px;padding:10px 16px;">
+            <span style="color:#f0e8d8;font-size:11.5px;font-weight:900;white-space:nowrap;">ゴースト 55%</span>
+            <div class="slider"><div class="fill" style="width:55%;"></div><div class="knob" style="left:55%;"></div></div>
+          </div>
+          <div style="position:absolute;left:0;right:0;bottom:36px;display:flex;align-items:center;justify-content:center;gap:44px;">
+            <span style="color:#f0e8d8;font-size:11px;font-weight:800;opacity:.85;width:64px;text-align:center;">ロールから<br>選ぶ</span>
+            <span style="width:78px;height:78px;border-radius:50%;border:5px solid #f8f8f0;background:rgba(248,248,240,.25);box-shadow:0 0 0 5px rgba(248,248,240,.2);"></span>
+            <span style="color:#f0e8d8;font-size:11px;font-weight:800;opacity:.85;width:64px;text-align:center;">ゴースト<br>OFF</span>
+          </div>
+          <div class="ann" style="top:64px;left:16px;">ghost＝Walk 構図をくらべる同件。<br>対位就绪→シャッター一発</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame" data-screen-label="CMP-2 写真を選ぶ">
+      <div class="flabel"><span class="fid">CMP-2 · あとで（家）</span>
+        <h3>写真を選ぶ — EXIF が先に手を挙げる</h3>
+        <p>機位ブラウザ/対比図段から进来（帧已定）：EXIF の時刻+GPS 対照，「その場で撮った1枚」自动浮顶金框。HEIC は其场警告，不是合成失败才说。</p>
+      </div>
+      <div class="phone">
+        <div class="sb"><span>21:30</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;">写真を選ぶ</div><div class="at">気多若宮神社 · 第8話 41:12 とくらべる</div></div></div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+          <div style="display:flex;gap:10px;margin:4px 16px 10px;background:#fdf8e8;border:2px solid var(--star);border-radius:16px;padding:10px 12px;align-items:center;">
+            <span style="width:74px;height:56px;border-radius:10px;background:linear-gradient(172deg,#b9cfa4,#7fa063);flex-shrink:0;"></span>
+            <div style="flex:1;">
+              <div style="font-size:12.5px;font-weight:900;">これじゃない？</div>
+              <div style="font:700 10.5px Nunito;color:var(--tx3);margin-top:2px;">7/3 10:48 · 神社から 40m · 向き 312°</div>
+            </div>
+            <span style="background:var(--gold);color:var(--gold-tx);font-size:11px;font-weight:900;padding:5px 12px;border-radius:50px;box-shadow:0 2.5px 0 var(--gold-deep);">これにする</span>
+          </div>
+          <div style="margin:0 18px 8px;font-size:12px;font-weight:900;color:var(--tx2);">7月3日 <span style="font:800 10.5px Nunito;color:var(--tx3);">飛騨市</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:0 16px;">
+            <span style="height:112px;border-radius:10px;background:linear-gradient(172deg,#b9cfa4,#7fa063);border:2.5px solid var(--star);position:relative;"><i style="position:absolute;right:4px;top:4px;background:var(--gold);color:var(--gold-tx);font:900 9px Nunito;font-style:normal;padding:1px 6px;border-radius:50px;">◎</i></span>
+            <span style="height:112px;border-radius:10px;background:linear-gradient(160deg,#a8c391,#718f55);"></span>
+            <span style="height:112px;border-radius:10px;background:linear-gradient(135deg,#cfd8bc,#9aad82);position:relative;"><i style="position:absolute;left:4px;bottom:4px;background:rgba(224,90,90,.92);color:#fff;font:900 8.5px Nunito;font-style:normal;padding:1.5px 6px;border-radius:5px;">HEIC</i></span>
+            <span style="height:112px;border-radius:10px;background:linear-gradient(150deg,#dcd3c0,#b3a98c);"></span>
+            <span style="height:112px;border-radius:10px;background:linear-gradient(140deg,#c2cfd8,#8fa3b3);"></span>
+            <span style="height:112px;border-radius:10px;background:linear-gradient(155deg,#e3d3c0,#bda183);"></span>
+          </div>
+          <div style="margin:12px 16px 0;background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:10px 14px;font-size:11.5px;font-weight:800;color:var(--tx2);line-height:1.7;"><b style="color:var(--error);">HEIC のままだと合成できないよ。</b>「設定→カメラ→互換性優先」か、共有時に JPG で書き出してね。</div>
+          <div class="dock"><span class="cta" style="opacity:.5;">この写真で合成 →</span></div>
+          <div class="ann" style="top:206px;right:8px;">EXIF 時刻×GPS で自動候補。<br>選ぶまで金 CTA は休眠</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame" data-screen-label="CMP-3 合成">
+      <div class="flabel"><span class="fid">CMP-3 · 合わせる</span>
+        <h3>合成 — image-merge 参数原样：余白・底色</h3>
+        <p>横帧→<b>上下拼</b>自动（帧上・実拍下），照片 center-crop 同比例。可调只有两个：余白、底色（白/黒/cream 三档）——不给滤镜不给贴纸，producto 是「证据」。水印固定左下。</p>
+      </div>
+      <div class="phone">
+        <div class="sb"><span>21:32</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;">対比図を作る</div><div class="at">気多若宮神社 · 2枚目</div></div></div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+          <div style="margin:2px 44px;background:#fff;border:1.5px solid var(--line2);border-radius:6px;padding:12px;box-shadow:0 6px 0 var(--sh2);">
+            <div style="height:154px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);position:relative;"><span style="position:absolute;left:6px;top:6px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;padding:1.5px 6px;border-radius:5px;">第8話 41:12</span></div>
+            <div style="height:12px;"></div>
+            <div style="height:154px;background:linear-gradient(172deg,#b9cfa4,#7fa063);position:relative;"><span style="position:absolute;left:6px;bottom:6px;color:rgba(255,255,255,.8);font:800 7px Nunito;letter-spacing:.05em;">SEICHIJUNREI × ANITABI · 気多若宮神社</span></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;margin:16px 24px 0;">
+            <span style="font-size:12.5px;font-weight:900;white-space:nowrap;">余白</span>
+            <div class="slider"><div class="fill" style="width:30%;"></div><div class="knob" style="left:30%;"></div></div>
+            <span style="font:800 11px Nunito;color:var(--tx3);width:30px;text-align:right;">12px</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;margin:14px 24px 0;">
+            <span style="font-size:12.5px;font-weight:900;white-space:nowrap;">底色</span>
+            <span class="swatch on" style="background:#fff;"></span>
+            <span class="swatch" style="background:#2b2012;"></span>
+            <span class="swatch" style="background:#f8f8f0;"></span>
+            <span style="font:800 10.5px Nunito;color:var(--tx3);margin-left:auto;">フィルターはないよ</span>
+          </div>
+          <div style="margin:14px 16px 0;background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:10px 14px;display:flex;align-items:center;gap:9px;">
+            <span style="width:26px;height:26px;border-radius:50%;background:#dff3f0;border:1.5px solid var(--teal);display:flex;align-items:center;justify-content:center;font:900 12px Nunito;color:var(--teal-text);flex-shrink:0;">◉</span>
+            <span style="font-size:11px;font-weight:800;color:var(--tx2);line-height:1.6;">この写真の<b>向き 312°・焦点距離 26mm</b>、Anitabi の機位データに送って未来の巡礼者を助ける？<span style="color:var(--teal-text);font-weight:900;"> 送る（推奨）</span></span>
+          </div>
+          <div class="dock"><span class="cta sub">やり直す</span><span class="cta">この1枚にする →</span></div>
+          <div class="ann" style="top:8px;right:6px;">縦写真なら左右拼に自動切替。<br>水印は固定（外せない）</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame" data-screen-label="CMP-4 完成">
+      <div class="flabel"><span class="fid">CMP-4 · 残す</span>
+        <h3>完成 — 挂上カット，去处三选</h3>
+        <p>产物挂到<b>カット</b>上（枚数模型：神社 2枚目）。去处：端末に保存（金）/ しおりへ / share。コンちゃん一句收尾。EXIF 送信是完成后的确认 toast，不打断。</p>
+      </div>
+      <div class="phone">
+        <div class="sb"><span>21:33</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;">できた！</div><div class="at">気多若宮神社 · 対比図 2枚目</div></div></div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+          <div style="margin:6px 60px;background:#fff;border:1.5px solid var(--line2);border-radius:6px;padding:10px;box-shadow:0 7px 0 var(--sh2);transform:rotate(-1.2deg);">
+            <div style="height:132px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);position:relative;"><span style="position:absolute;left:6px;top:6px;background:rgba(61,45,24,.68);color:#fff;font:800 8px Nunito;padding:1px 6px;border-radius:5px;">第8話 41:12</span></div>
+            <div style="height:10px;"></div>
+            <div style="height:132px;background:linear-gradient(172deg,#b9cfa4,#7fa063);position:relative;"><span style="position:absolute;left:6px;bottom:6px;color:rgba(255,255,255,.8);font:800 6.5px Nunito;">SEICHIJUNREI × ANITABI</span></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin:14px 18px 0;background:var(--panel);border:1.5px solid var(--line);border-radius:16px;padding:11px 14px;">
+            <img src="assets/fox/fox-cheer.svg" alt="" style="width:36px;height:36px;flex-shrink:0;">
+            <span style="font-size:12px;font-weight:800;color:var(--tx2);line-height:1.65;">あの画面に、ほんとに立ったんだね。<br><b style="color:var(--tx);">しおりに載せると、もっと盛れるよ。</b></span>
+          </div>
+          <div style="display:flex;gap:8px;margin:12px 16px 0;">
+            <span class="chip" style="flex:1;text-align:center;padding:9px 0;font-size:12px;font-weight:900;background:var(--card);border:1.5px solid var(--line2);box-shadow:0 3px 0 var(--sh2);border-radius:50px;">しおりへ載せる</span>
+            <span class="chip" style="flex:1;text-align:center;padding:9px 0;font-size:12px;font-weight:900;background:var(--card);border:1.5px solid var(--line2);box-shadow:0 3px 0 var(--sh2);border-radius:50px;">共有ページで見る</span>
+          </div>
+          <div style="margin:12px 18px 0;font:700 10px Nunito;color:var(--tx3);line-height:1.7;">機位データ（向き312°）を Anitabi に送ったよ · ありがとう ◉<br>画像・座標：Anitabi (CC BY-NC-SA 4.0) · © コミックス・ウェーブ・フィルム</div>
+          <div class="dock"><span class="cta">画像を保存（JPG）</span></div>
+          <div class="ann" style="top:330px;right:8px;">保存 tap＝登录墙 P5 照旧。<br>枚数模型：機位ブラウザの<br>このカットに金 badge が付く</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ G2 · 规则注记 ═══ -->
+<div class="group" id="g2">
+  <header><span class="gid">G2</span><h2>施工规则</h2><span class="sub">协议 · EXIF · 权利</span></header>
+  <div class="row">
+    <div class="note"><h4>入口 ×3（全部帧已定，不选帧）</h4>
+      ① Walk W-CMP「対比図を作る」（拍完即合成，CMP-1→3）② 機位ブラウザ「この構図で対比図を作る」（CMP-2→3）③ 路线详情/しおり 対比図段「＋」（CMP-2→3）。<b>先有帧后有照片</b>——流程永远从カット出发，产物自动挂回该カット。</div>
+    <div class="note"><h4>合成规格（image-merge 同源）</h4>
+      canvas <code>JPEG 0.9</code> · 基准高 1080 · <b>横帧→上下拼 / 縦→左右拼（自动，不给选）</b> · 照片 center-crop 到帧同比例 · 可调仅<span class="y">余白</span>+<span class="y">底色3档</span> · 水印左下固定。无滤镜无贴纸——対比図是「证据」不是装饰。</div>
+    <div class="note"><h4>深链 · EXIF 回传</h4>
+      <code>?url=帧h360&pid&bid&g</code>。合成时读 EXIF：GPS/时刻/<b>GPSImgDirection 朝向</b>/焦距 → opt-in 回传 anitabi 机位修正 log。文案讲「帮未来的巡礼者」（反哺叙事），默认推荐、完成后 toast 致谢，绝不阻塞主流程。未来 bearing 数据有望后 → Walk 朝向对照解锁。</div>
+    <div class="note"><h4>HEIC（iPhone 默认格式）</h4>
+      选图网格上<b>其场标 HEIC 徽章</b>（error 红）+ 顶部提示卡说人话（設定→互換性優先 / 共有時 JPG 書き出し）——不等合成失败才报错（永不裸错原则）。CMP-1 相机拍的实时帧无此问题。</div>
+    <div class="note"><h4>权利（legal 红线）</h4>
+      产物带 image-merge 系水印；<b>品牌版水印/自托管改造需 itorr 授权</b>（他无 LICENSE）+ 版权方（挂 legal，实装前）。出典行 CC BY-NC-SA 常驻。保存＝登录墙 P5 照旧；EXIF 回传需单独同意（不含在登录里）。</div>
+    <div class="note"><h4>枚数模型接口</h4>
+      产物：<code>{cutId, routeId?, img, t}</code> 挂カット。完成后：機位ブラウザ该カット金 badge「対比図✓」· 路线详情 対比図段 +1 · しおり生成屏勾选池 +1 · share 対比図段 +1。一站 0..M 枚全程贯通。</div>
+  </div>
+</div>
+
+</body>
+</html>

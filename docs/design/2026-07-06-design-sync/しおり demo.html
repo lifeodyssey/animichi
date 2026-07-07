@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>しおり demo · 生成屏 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&family=Noto+Serif+JP:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0e8d8; --card:#f8f8f0; --panel:#f7f3df;
+  --tx:#794f27; --tx2:#725d42; --tx3:#9f927d;
+  --line:#e8e2d6; --line2:#c4b89e;
+  --teal:#19c8b9; --teal-text:#0e7c72;
+  --gold:#f5c31c; --gold-tx:#5c4813; --gold-deep:#d9a412; --star:#f0b429;
+  --brand:#c44a2e; --focus:#ffcc00; --focus-deep:#d9ab00;
+  --sh2:#d4c9b4; --ink:#3d2d18;
+  --ease:cubic-bezier(0.4,0,0.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#e7dfca;font-family:'Zen Maru Gothic','Nunito','Noto Sans SC',sans-serif;color:var(--tx);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:18px 16px 40px;}
+.demobar{display:flex;gap:8px;align-items:center;background:var(--panel);border:1.5px solid var(--line2);border-radius:50px;padding:7px 10px;margin-bottom:14px;box-shadow:0 3px 0 var(--sh2);flex-wrap:wrap;justify-content:center;}
+.demobar .lb{font:900 11px Nunito;letter-spacing:.14em;color:var(--tx3);padding:0 6px;}
+.demobar button{font-family:inherit;font-size:12.5px;font-weight:900;color:var(--tx2);background:var(--card);border:1.5px solid var(--line);border-radius:50px;padding:7px 14px;cursor:pointer;}
+.demobar button.on{background:#dff3f0;border-color:var(--teal);color:var(--teal-text);}
+.demobar button:active{transform:translateY(1px);}
+.hint{font-size:12px;color:var(--tx2);font-weight:700;margin-bottom:14px;text-align:center;max-width:560px;line-height:1.7;}
+.hint b{color:var(--teal-text);}
+.phone{width:402px;height:874px;background:var(--card);border:1.5px solid var(--line2);border-radius:36px;overflow:hidden;position:relative;box-shadow:0 10px 0 0 var(--sh2);flex-shrink:0;display:flex;flex-direction:column;}
+.sb{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:800 14px Nunito;flex-shrink:0;}
+.sb .dots{display:flex;gap:4px;}.sb .dots i{width:5px;height:5px;border-radius:50%;background:var(--tx2);}
+.appbar{display:flex;align-items:center;gap:10px;padding:4px 16px 8px;flex-shrink:0;}
+.appbar .back{width:36px;height:36px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font:900 15px Nunito;flex-shrink:0;}
+.appbar .at{font-size:13px;font-weight:700;color:var(--tx3);}
+.stage{flex:1;position:relative;overflow:hidden;min-height:0;}
+.scrollc{position:absolute;inset:0;overflow-y:auto;padding-bottom:104px;scrollbar-width:none;}
+.scrollc::-webkit-scrollbar{display:none;}
+.dock{position:absolute;left:0;right:0;bottom:0;padding:26px 16px 16px;background:linear-gradient(180deg,rgba(248,248,240,0),var(--card) 46%);z-index:8;display:flex;gap:10px;}
+.cta{flex:1;display:flex;align-items:center;justify-content:center;height:54px;border-radius:50px;background:var(--gold);color:var(--gold-tx);font-size:16px;font-weight:900;box-shadow:0 4px 0 0 var(--gold-deep);cursor:pointer;transition:transform .15s var(--ease),box-shadow .15s var(--ease);}
+.cta:active{transform:translateY(3px);box-shadow:0 1px 0 0 var(--gold-deep);}
+.cta.sub{flex:0 0 132px;background:var(--card);color:var(--tx);border:1.5px solid var(--line2);box-shadow:0 4px 0 0 var(--sh2);font-size:13.5px;}
+.cta.sub:active{box-shadow:0 1px 0 0 var(--sh2);}
+.toast{position:absolute;left:50%;bottom:112px;transform:translate(-50%,16px);background:rgba(61,45,24,.9);color:#fff;font-size:12.5px;font-weight:800;padding:9px 18px;border-radius:50px;opacity:0;pointer-events:none;transition:all .25s var(--ease);z-index:30;white-space:nowrap;}
+.toast.show{opacity:1;transform:translate(-50%,0);}
+/* og card */
+.og{border-radius:14px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:0 7px 0 0 var(--sh2);border:1.5px solid var(--line2);width:248px;height:441px;margin:0 auto;transition:opacity .2s var(--ease);}
+.og.ticket{background:var(--card);display:flex;flex-direction:column;}
+.og.poster{color:#fff;display:flex;flex-direction:column;}
+.tkhead{display:flex;align-items:center;gap:7px;padding:10px 14px 5px;}
+.tkhead img{width:17px;height:17px;}
+.tkhead .ey{font:900 6.5px Nunito;letter-spacing:.22em;color:var(--tx3);}
+.tkhead .wm{margin-left:auto;font:900 7.5px Nunito;letter-spacing:.1em;color:var(--brand);}
+.tkttl{display:flex;align-items:baseline;justify-content:space-between;padding:0 14px 7px;}
+.tkttl .t{font-family:'Noto Serif JP',serif;font-size:12.5px;font-weight:900;color:var(--ink);}
+.tkttl .d{font:800 7px Nunito;color:var(--tx3);}
+.dstrip{display:flex;gap:3px;align-items:center;padding:7px 14px 0;}
+.dstrip i{width:6.5px;height:6.5px;border-radius:2px;background:var(--teal);}
+.dstrip i.off{background:var(--line);}
+.dstrip .a{font:900 7.5px Nunito;color:var(--teal-text);margin-left:2px;}
+.dstrip .b{font:800 7px Nunito;color:var(--tx3);margin-left:auto;}
+.tkfoot{display:flex;align-items:center;gap:8px;padding:6px 14px 10px;margin-top:auto;}
+.tkfoot img{width:26px;height:26px;}
+.tkfoot .cr{flex:1;font:700 5.5px Nunito;color:var(--tx3);line-height:1.6;}
+.tkfoot .qr{width:27px;height:27px;border-radius:5px;background:conic-gradient(var(--ink) 0 25%,#fff 0 27%,var(--ink) 0 46%,#fff 0 49%,var(--ink) 0 71%,#fff 0 74%,var(--ink) 0 100%);opacity:.85;flex-shrink:0;}
+/* picker */
+.pick{margin:12px 18px 0;}
+.pick .ph{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+.pick .ph .l{font-size:12.5px;font-weight:900;}
+.pick .ph .l small{font:800 10.5px Nunito;color:var(--tx3);}
+.pick .ph .r{font-size:10.5px;font-weight:900;color:var(--teal-text);cursor:pointer;}
+.pick .tiles{display:flex;gap:7px;}
+.ptile{width:56px;position:relative;cursor:pointer;transition:opacity .15s var(--ease);}
+.ptile .ck{position:absolute;right:-4px;top:-4px;width:16px;height:16px;border-radius:50%;background:var(--gold);color:var(--gold-tx);font:900 9.5px Nunito;display:flex;align-items:center;justify-content:center;box-shadow:0 1.5px 0 var(--gold-deep);z-index:3;}
+.ptile.off{opacity:.42;}
+.ptile.off .ck{background:var(--card);border:1.5px dashed var(--line2);color:transparent;box-shadow:none;}
+.swrow{display:flex;align-items:center;justify-content:space-between;margin:12px 18px 0;background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:11px 14px;}
+.swrow .l{font-size:13px;font-weight:900;}
+.swrow .l small{font:800 11px Nunito;color:var(--tx3);}
+.sw{width:46px;height:26px;border-radius:50px;background:#5ec269;position:relative;box-shadow:inset 0 2px 3px rgba(0,0,0,.12);cursor:pointer;transition:background .2s var(--ease);flex-shrink:0;}
+.sw i{position:absolute;right:2.5px;top:2.5px;width:21px;height:21px;border-radius:50%;background:#fff;box-shadow:0 1.5px 2px rgba(0,0,0,.2);transition:right .2s var(--ease);}
+.sw.off{background:var(--line2);}
+.sw.off i{right:22.5px;}
+.hintbox{margin:12px 18px 0;background:var(--panel);border:1.5px dashed var(--line2);border-radius:14px;padding:11px 14px;font-size:11.5px;font-weight:800;color:var(--tx2);line-height:1.7;}
+.hintbox b{color:var(--tx);}
+/* P5 modal */
+.ovl{position:absolute;inset:0;background:rgba(61,45,24,.4);z-index:20;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s var(--ease);}
+.ovl.show{opacity:1;pointer-events:auto;}
+.p5{width:320px;background:var(--card);border:2px solid var(--line2);border-radius:46% 54% 52% 48% / 9% 11% 10% 9%;padding:26px 26px 22px;box-shadow:0 8px 0 var(--sh2);transform:translateY(12px) scale(.96);transition:transform .25s var(--ease);text-align:center;}
+.ovl.show .p5{transform:none;}
+.p5 img{width:64px;height:64px;margin-bottom:6px;}
+.p5 h3{font-size:17px;font-weight:900;margin-bottom:6px;}
+.p5 p{font-size:12px;font-weight:700;color:var(--tx2);line-height:1.8;margin-bottom:16px;}
+.p5 .btns{display:flex;gap:10px;}
+.p5 .b1{flex:1;height:48px;border-radius:50px;background:var(--card);border:1.5px solid var(--line2);box-shadow:0 3.5px 0 var(--sh2);font-size:13.5px;font-weight:900;color:var(--tx);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.p5 .b2{flex:1.4;height:48px;border-radius:50px;background:var(--focus);box-shadow:0 3.5px 0 var(--focus-deep);font-size:13.5px;font-weight:900;color:var(--gold-tx);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.p5 .b1:active,.p5 .b2:active{transform:translateY(2.5px);box-shadow:none;}
+@media (prefers-reduced-motion: reduce){*{transition-duration:.01s !important;}}
+</style>
+</head>
+<body>
+
+<div class="demobar">
+  <span class="lb">DEMO</span>
+  <a href="前端全景 - Journey Hub.dc.html" style="font:900 12px Nunito;color:var(--teal-text);text-decoration:none;background:var(--card);border:1.5px solid var(--line);border-radius:50px;padding:7px 12px;">◂ Hub</a>
+  <button data-snap="k5">完走 · 対比図5枚</button>
+  <button data-snap="k0">完走 · 0枚</button>
+  <button data-snap="plan">計画</button>
+  <button id="resetBtn" style="color:var(--tx3);">リセット</button>
+</div>
+<div class="hint">「のせる対比図」を<b>タップで外して</b>みて——3枚+＝アルバム格子 → 1-2枚＝<b>一枚看板</b> → 0枚＝ポスターへ、版式が勝手に変わる（データが決める・手動切替なし）。保存 tap＝<b>P5 ログインモーダル</b>（登录墙只立在保存）。</div>
+
+<div class="phone">
+  <div class="sb"><span id="clock">15:24</span><span class="dots"><i></i><i></i><i></i></span></div>
+  <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;" id="ttl">記念しおりを作る</div><div class="at" id="sub">飛騨古川 半日ルート · 7/3 完走</div></div></div>
+  <div class="stage">
+    <div class="scrollc" id="scrollc">
+      <div id="card"></div>
+      <div id="below"></div>
+    </div>
+    <div class="dock"><span class="cta sub" id="copyBtn">リンクをコピー</span><span class="cta" id="saveBtn">画像を保存</span></div>
+    <div class="ovl" id="p5">
+      <div class="p5">
+        <img src="assets/fox/fox-peek.svg" alt="">
+        <h3>保存にはログインが要るよ</h3>
+        <p>作ったしおりと対比図を、キミの<br>マイルートにずっと残しておくためだよ。</p>
+        <div class="btns"><span class="b1" id="p5no">あとで</span><span class="b2" id="p5yes">ログインして保存</span></div>
+      </div>
+    </div>
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var TAIHI=[
+    {id:'j1', spot:'気多若宮神社', sn:'神社 ★', tag:'第8話 41:12', t:'10:48', fg:'linear-gradient(135deg,#d7eccf,#a8cf8e)', pg:'linear-gradient(172deg,#b9cfa4,#7fa063)'},
+    {id:'j2', spot:'気多若宮神社', sn:'神社', tag:'第8話 41:50', t:'10:52', fg:'linear-gradient(120deg,#cfe4c4,#98bd7f)', pg:'linear-gradient(160deg,#a8c391,#718f55)'},
+    {id:'st', spot:'飛騨古川駅', sn:'駅', tag:'第1話 04:12', t:'9:31', fg:'linear-gradient(135deg,#cfe3f7,#98b8dc)', pg:'linear-gradient(172deg,#a9bdd6,#7e94b3)'},
+    {id:'bu', spot:'さくら物産館', sn:'物産館', tag:'組紐', t:'12:58', fg:'linear-gradient(135deg,#fbe3ea,#eeb3c6)', pg:'linear-gradient(172deg,#e3bcc8,#b98a9b)'},
+    {id:'aj', spot:'味処古川', sn:'味処', tag:'五平餅', t:'10:15', fg:'linear-gradient(135deg,#f5dccf,#e0b294)', pg:'linear-gradient(172deg,#dcb59c,#b08663)'}
+  ];
+  var ROWS=[
+    {t:'9:31', n:'飛騨古川駅', g:'linear-gradient(135deg,#cfe3f7,#98b8dc)'},
+    {t:'10:02', n:'味処古川', g:'linear-gradient(135deg,#f5dccf,#e0b294)'},
+    {t:'10:48', n:'気多若宮神社 ★', g:'linear-gradient(135deg,#d7eccf,#a8cf8e)'},
+    {t:'11:34', n:'飛騨市図書館', g:'linear-gradient(135deg,#dfd6f0,#b7a8dd)'},
+    {t:'12:58', n:'さくら物産館', g:'linear-gradient(135deg,#fbe3ea,#eeb3c6)'}
+  ];
+  var PLANROWS=[
+    {t:'9:30', n:'飛騨古川駅', s:'ホーム俯瞰 · 12カット', g:'linear-gradient(135deg,#cfe3f7,#98b8dc)'},
+    {t:'10:05', n:'味処古川', s:'五平餅で早めの昼', g:'linear-gradient(135deg,#f5dccf,#e0b294)'},
+    {t:'10:50', n:'気多若宮神社', s:'石段と鳥居 · 18カット', g:'linear-gradient(135deg,#d7eccf,#a8cf8e)', star:true},
+    {t:'11:35', n:'飛騨市図書館', s:'受付許可制', g:'linear-gradient(135deg,#dfd6f0,#b7a8dd)'},
+    {t:'12:10', n:'さくら物産館', s:'組紐体験 · ゴール', g:'linear-gradient(135deg,#fbe3ea,#eeb3c6)'}
+  ];
+  var KEY='shiori-demo-v1';
+  var state={snap:'k5', master:true, sel:{j1:true,j2:true,st:true,bu:true,aj:true}};
+  try{var s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.snap) state=s;}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+
+  var toastEl=document.getElementById('toast'), toastTimer=null;
+  function toast(m){clearTimeout(toastTimer);toastEl.textContent=m;toastEl.classList.add('show');toastTimer=setTimeout(function(){toastEl.classList.remove('show');},1900);}
+
+  function selList(){if(state.snap!=='k5'||!state.master)return [];return TAIHI.filter(function(x){return state.sel[x.id];});}
+
+  function tile(x,h,fs,cap){
+    return '<div style="border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff;">'
+      +'<div style="position:relative;">'
+      +'<div style="height:'+h+'px;background:'+x.fg+';position:relative;"><span style="position:absolute;left:4px;top:4px;background:rgba(61,45,24,.68);color:#fff;font:800 '+fs+'px Nunito;padding:1px 4px;border-radius:4px;">'+x.tag+'</span></div>'
+      +'<div style="height:'+h+'px;background:'+x.pg+';position:relative;"><span style="position:absolute;right:4px;top:3px;background:rgba(248,248,240,.9);color:var(--tx);font:800 '+(fs-0.5)+'px Nunito;padding:1px 3px;border-radius:3px;">実拍</span><span style="position:absolute;left:4px;bottom:3px;color:rgba(255,255,255,.7);font:800 '+(fs-1.5)+'px Nunito;">SEICHIJUNREI×ANITABI</span></div>'
+      +'<span style="position:absolute;left:0;right:0;top:'+h+'px;height:1.5px;margin-top:-0.75px;background:rgba(248,248,240,.85);"></span>'
+      +'</div>'
+      +(cap===false?'':'<div style="padding:2px 6px;font-size:'+(fs+1.5)+'px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:3px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+x.sn+'</span><span style="color:var(--tx3);flex-shrink:0;">'+x.t+'</span></div>')
+      +'</div>';
+  }
+  function dots(extra){
+    var h='<div class="dstrip"><i></i><i></i><i></i><i></i><i></i><span class="a">5/5 ぜんぶ来た</span><span class="b">'+extra+'</span></div>';
+    return h;
+  }
+  function headTk(ey){return '<div class="tkhead"><img src="assets/torii.svg" alt=""><span class="ey">'+ey+'</span><span class="wm">聖地巡礼</span></div>'
+    +'<div class="tkttl"><span class="t">飛騨古川 半日ルート</span><span class="d">君の名は。 · 2026.7.3</span></div>';}
+  function footTk(fox){return '<div class="tkfoot"><img src="assets/fox/'+fox+'.svg" alt=""><span class="cr">画像・座標：Anitabi (CC BY-NC-SA 4.0)<br>© コミックス・ウェーブ・フィルム</span><span class="qr"></span></div>';}
+
+  function cardHtml(){
+    var sel=selList(), n=sel.length;
+    if(state.snap==='plan'){
+      var rows=PLANROWS.map(function(r,i){
+        return '<div style="display:grid;grid-template-columns:27px 13px 1fr 34px;column-gap:6px;align-items:center;padding:4px 0;">'
+          +'<span style="font:800 7.5px Nunito;color:var(--tx2);">'+r.t+'</span>'
+          +'<span style="position:relative;height:100%;min-height:24px;"><span style="position:absolute;left:50%;top:'+(i===0?'50%':'-6px')+';bottom:'+(i===4?'50%':'-6px')+';width:2px;margin-left:-1px;background:var(--line2);"></span><span style="position:absolute;left:50%;top:50%;width:'+(r.star?9:7)+'px;height:'+(r.star?9:7)+'px;margin:'+(r.star?'-4.5px 0 0 -4.5px':'-3.5px 0 0 -3.5px')+';border-radius:50%;background:'+(r.star?'var(--star)':'#fff')+';border:2px solid '+(r.star?'#fff':'var(--teal)')+';z-index:1;'+(r.star?'box-shadow:0 0 0 1.5px var(--star);':'')+'"></span></span>'
+          +'<span style="font-size:9px;font-weight:900;color:var(--ink);">'+r.n+'<small style="display:block;font:700 6.5px Nunito;color:var(--tx3);">'+r.s+'</small></span>'
+          +'<span style="width:34px;height:21px;border-radius:5px;background:'+r.g+';border:1px solid var(--line);"></span></div>';
+      }).join('');
+      return '<div class="og ticket">'
+        +'<div class="tkhead"><img src="assets/torii.svg" alt=""><span class="ey">SEICHIJUNREI · しおり</span><span class="wm">聖地巡礼</span></div>'
+        +'<div style="height:76px;margin:0 14px;border-radius:10px;position:relative;overflow:hidden;background:linear-gradient(135deg,#cfe3f7,#98b8dc);"><span style="position:absolute;left:7px;bottom:7px;background:rgba(61,45,24,.68);color:#fff;font:800 7px Nunito;padding:1px 5px;border-radius:5px;">第1話 04:12</span></div>'
+        +'<div class="tkttl" style="padding-top:8px;"><span class="t">飛騨古川 半日ルート</span><span class="d">9:30→13:00頃</span></div>'
+        +'<div style="position:relative;margin:2px 0 4px;height:12px;"><span style="position:absolute;left:18px;right:18px;top:50%;border-top:2px dashed var(--line2);"></span><span style="position:absolute;left:-7px;top:0;width:12px;height:12px;border-radius:50%;background:#e7dfca;border:1.5px solid var(--line2);"></span><span style="position:absolute;right:-7px;top:0;width:12px;height:12px;border-radius:50%;background:#e7dfca;border:1.5px solid var(--line2);"></span></div>'
+        +'<div style="padding:0 14px;">'+rows+'</div>'
+        +footTk('fox-traveler')+'</div>';
+    }
+    if(n>=3){
+      var shown=sel.slice(0,4), extra=n-Math.min(n,4);
+      var tiles=shown.map(function(x,i){
+        var t=tile(x,54,5.5);
+        if(i===3&&extra>0){t=t.replace('border-radius:9px;overflow:hidden;background:#fff;">','border-radius:9px;overflow:hidden;background:#fff;"><span style="position:absolute;inset:0;background:rgba(61,45,24,.52);color:#fff;font:900 13px Nunito;display:flex;align-items:center;justify-content:center;z-index:2;">+'+extra+'</span>');}
+        return t;
+      }).join('');
+      return '<div class="og ticket">'+headTk('SEICHIJUNREI · 完走記念')
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 12px;">'+tiles+'</div>'
+        +dots('9:31→12:58 · 対比図'+n+'枚')+footTk('fox-cheer')+'</div>';
+    }
+    if(n>=1){
+      var hero=sel[0], second=sel[1];
+      return '<div class="og ticket">'+headTk('SEICHIJUNREI · 完走記念')
+        +'<div style="padding:0 14px;"><div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;">'
+        +'<div style="position:relative;">'
+        +'<div style="height:104px;background:'+hero.fg+';position:relative;"><span style="position:absolute;left:6px;top:6px;background:rgba(61,45,24,.68);color:#fff;font:800 7px Nunito;padding:1.5px 5px;border-radius:4px;">'+hero.tag+'</span></div>'
+        +'<div style="height:104px;background:'+hero.pg+';position:relative;"><span style="position:absolute;right:6px;top:5px;background:rgba(248,248,240,.9);color:var(--tx);font:800 6.5px Nunito;padding:1.5px 4px;border-radius:4px;">実拍 · '+hero.t+'</span><span style="position:absolute;left:6px;bottom:5px;color:rgba(255,255,255,.72);font:800 5px Nunito;letter-spacing:.05em;">SEICHIJUNREI × ANITABI</span></div>'
+        +'<span style="position:absolute;left:0;right:0;top:104px;height:1.5px;margin-top:-0.75px;background:rgba(248,248,240,.85);"></span>'
+        +'</div>'
+        +'<div style="padding:3px 8px;font-size:8px;font-weight:900;background:var(--panel);display:flex;justify-content:space-between;"><span>'+hero.spot+' ここに立った!</span><span style="color:var(--tx3);font-weight:800;">1/'+n+'</span></div>'
+        +'</div></div>'
+        +'<div style="display:flex;align-items:center;gap:7px;padding:7px 14px 0;">'
+        +(second?'<div style="width:48px;flex-shrink:0;">'+tile(second,24,4.5,false)+'</div>':'')
+        +'<div style="flex:1;font:800 7px Nunito;color:var(--tx3);line-height:1.6;">'+(second?second.spot+' のもう1枚も収録':'徒歩2.8km · 五平餅うまい')+'</div></div>'
+        +dots('9:31→12:58')+footTk('fox-cheer')+'</div>';
+    }
+    // 0枚 → poster fallback
+    var rows0=ROWS.map(function(r){
+      return '<div style="display:flex;align-items:center;gap:6px;padding:3.5px 0;border-bottom:1px solid rgba(248,248,240,.12);">'
+        +'<span style="font:800 7.5px Nunito;opacity:.75;width:26px;flex-shrink:0;">'+r.t+'</span>'
+        +'<span style="width:30px;height:19px;border-radius:4px;flex-shrink:0;background:'+r.g+';"></span>'
+        +'<span style="font-size:8.5px;font-weight:800;flex:1;">'+r.n+'</span>'
+        +'<span style="width:14px;height:14px;border-radius:50%;background:var(--teal);color:#fff;font:900 8.5px Nunito;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✓</span></div>';
+    }).join('');
+    return '<div class="og poster">'
+      +'<span style="position:absolute;inset:0;background:linear-gradient(160deg,#d7eccf 0%,#a8cf8e 46%,#7ba05e 100%);"></span>'
+      +'<span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(43,32,18,.08) 0%,rgba(43,32,18,.42) 38%,rgba(43,32,18,.9) 72%,#2b2012 100%);"></span>'
+      +'<div style="position:relative;display:flex;align-items:flex-start;justify-content:space-between;padding:10px 12px;">'
+      +'<span style="background:rgba(61,45,24,.68);color:#fff;font:800 7.5px Nunito;padding:2px 7px;border-radius:6px;">第8話 41:12 · 気多若宮神社</span>'
+      +'<div style="width:46px;height:46px;border-radius:50%;background:conic-gradient(var(--gold) 0 100%,rgba(255,255,255,.25) 0);display:flex;align-items:center;justify-content:center;"><div style="width:36px;height:36px;border-radius:50%;background:rgba(43,32,18,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;"><b style="font:900 10px Nunito;color:var(--gold);line-height:1;">5/5</b><span style="font-size:6px;font-weight:800;color:rgba(255,255,255,.85);">完走</span></div></div></div>'
+      +'<div style="position:relative;margin-top:auto;padding:0 13px 8px;">'
+      +'<div style="font:900 7px Nunito;letter-spacing:.24em;opacity:.85;">2026.7.3 · YOUR NAME × HIDA</div>'
+      +'<div style="font-family:\'Noto Serif JP\',serif;font-size:17px;font-weight:900;line-height:1.3;margin:3px 0 5px;text-shadow:0 1px 5px rgba(0,0,0,.35);">飛騨古川 半日ルート</div>'
+      +'<div style="display:flex;gap:4px;flex-wrap:wrap;"><span style="background:rgba(248,248,240,.16);border:1px solid rgba(248,248,240,.35);border-radius:50px;padding:1.5px 7px;font-size:7px;font-weight:800;">9:31→12:58</span><span style="background:rgba(248,248,240,.16);border:1px solid rgba(248,248,240,.35);border-radius:50px;padding:1.5px 7px;font-size:7px;font-weight:800;">ぜんぶ来た ✓</span></div></div>'
+      +'<div style="position:relative;padding:6px 13px 0;">'+rows0+'</div>'
+      +'<div style="position:relative;display:flex;align-items:center;gap:7px;padding:8px 13px 10px;">'
+      +'<img src="assets/torii.svg" alt="" style="width:14px;height:14px;filter:brightness(0) invert(1);opacity:.9;">'
+      +'<span style="font:800 7px Nunito;letter-spacing:.05em;flex:1;">seichijunrei.app/s/hida-af3</span>'
+      +'<span style="width:26px;height:26px;border-radius:4px;background:conic-gradient(#fff 0 25%,#2b2012 0 27%,#fff 0 46%,#2b2012 0 49%,#fff 0 71%,#2b2012 0 74%,#fff 0 100%);opacity:.9;flex-shrink:0;"></span></div>'
+      +'</div>';
+  }
+
+  function belowHtml(){
+    if(state.snap==='plan'){
+      return '<div class="hintbox">計画版は切符スタイル固定・選択肢なし。完走すると<b>対比図アルバム</b>に化けるよ。</div>';
+    }
+    if(state.snap==='k0'){
+      return '<div class="hintbox">対比図がまだ1枚もないから、封面ポスター版になるよ。<b>Walk の「構図をくらべる」</b>で対比図を作ると、アルバムに盛れる。</div>';
+    }
+    var n=selList().length, total=TAIHI.length;
+    var layout=n>=3?'アルバム格子':(n>=1?'一枚看板':'ポスター（0枚）');
+    var tiles=TAIHI.map(function(x){
+      var on=state.sel[x.id];
+      return '<div class="ptile'+(on?'':' off')+'" data-t="'+x.id+'"><span class="ck">✓</span>'+tile(x,26,5,false)+'<div style="font-size:8.5px;font-weight:800;color:var(--tx2);text-align:center;margin-top:2px;">'+x.sn+'</div></div>';
+    }).join('');
+    return '<div class="pick">'
+      +'<div class="ph"><span class="l">のせる対比図 <small>'+n+'/'+total+'枚 → '+layout+'</small></span><span class="r" id="selAll">'+(n===total?'ぜんぶ外す':'ぜんぶ選ぶ')+'</span></div>'
+      +'<div class="tiles">'+tiles+'</div></div>'
+      +'<div class="swrow"><span class="l">対比図をのせる <small>'+n+'枚</small></span><span class="sw'+(state.master?'':' off')+'" id="master"><i></i></span></div>';
+  }
+
+  var card=document.getElementById('card'), below=document.getElementById('below');
+  function render(){
+    document.querySelectorAll('[data-snap]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-snap')===state.snap);});
+    document.getElementById('ttl').textContent=state.snap==='plan'?'しおりを共有':'記念しおりを作る';
+    document.getElementById('sub').textContent=state.snap==='plan'?'飛騨古川 半日ルート · 出発は 7/3':'飛騨古川 半日ルート · 7/3 完走';
+    document.getElementById('clock').textContent=state.snap==='plan'?'21:08':'15:24';
+    card.innerHTML='<div style="padding-top:8px;">'+cardHtml()+'</div>';
+    below.innerHTML=belowHtml();
+    var m=document.getElementById('master');
+    if(m)m.addEventListener('click',function(){state.master=!state.master;render();save();});
+    var sa=document.getElementById('selAll');
+    if(sa)sa.addEventListener('click',function(){
+      var all=selList().length===TAIHI.length;
+      TAIHI.forEach(function(x){state.sel[x.id]=!all;});
+      if(!state.master)state.master=true;
+      render();save();
+    });
+    below.querySelectorAll('.ptile').forEach(function(t){
+      t.addEventListener('click',function(){
+        var id=t.getAttribute('data-t');
+        state.sel[id]=!state.sel[id];
+        if(!state.master)state.master=true;
+        render();save();
+      });
+    });
+    save();
+  }
+  document.querySelectorAll('[data-snap]').forEach(function(b){
+    b.addEventListener('click',function(){state.snap=b.getAttribute('data-snap');render();});
+  });
+  document.getElementById('resetBtn').addEventListener('click',function(){
+    state={snap:'k5',master:true,sel:{j1:true,j2:true,st:true,bu:true,aj:true}};render();toast('リセットしたよ');
+  });
+  document.getElementById('copyBtn').addEventListener('click',function(){toast('リンクをコピーしたよ · /s/hida-af3');});
+  document.getElementById('saveBtn').addEventListener('click',function(){document.getElementById('p5').classList.add('show');});
+  document.getElementById('p5no').addEventListener('click',function(){document.getElementById('p5').classList.remove('show');toast('しおりはここで待ってるよ');});
+  document.getElementById('p5yes').addEventListener('click',function(){document.getElementById('p5').classList.remove('show');toast('保存したよ · しおり_飛騨古川_20260703.jpg');});
+  document.getElementById('p5').addEventListener('click',function(e){if(e.target===this)this.classList.remove('show');});
+  render();
+})();
+</script>
+</body>
+</html>

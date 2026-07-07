@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="design_doc_mode" content="canvas">
+<title>Walk 状態総覧 — 歩くモード /routes/:id/walk · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts.css">
+<style>
+  :root{
+    --bg:#f0e8d8; --paper:#f8f8f0; --content:#f7f3df; --ink:#794f27; --ink-body:#725d42; --ink-soft:#9f927d;
+    --teal:#19c8b9; --teal-bg:#e6f9f6; --teal-deep:#11a89b; --teal-text:#0e7c72;
+    --gold:#f5c31c; --gold-deep:#d8a812; --gold-ink:#5c4813; --star:#f0b429;
+    --line:#e8e2d6; --line2:#c4b89e;
+    --map-land:#ebe6d5; --map-green:#dbe7c6; --map-water:#bcdce0; --map-road:#fdfbf2; --map-path:#8a6f4d;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{font-family:"Nunito","Noto Sans SC",sans-serif;color:var(--ink-body);background:#e9e0cc;-webkit-font-smoothing:antialiased;padding:40px 48px 90px;width:max-content;min-width:100%;}
+  .head{display:flex;align-items:flex-start;gap:16px;margin-bottom:8px;max-width:2600px;}
+  .head img{width:46px;height:46px;flex:none;}
+  .head h1{font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:27px;color:var(--ink);margin:0;}
+  .head p{margin:4px 0 0;font-size:13px;color:var(--ink-soft);font-weight:700;max-width:1560px;}
+  .head p b{color:var(--ink);}
+  .head a{color:var(--teal-text);font-weight:800;}
+  .toplinks{margin-left:auto;display:flex;gap:9px;flex-wrap:wrap;}
+  .toplinks a{display:inline-flex;gap:7px;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:8px 15px;font-size:12.5px;font-weight:800;color:var(--ink);text-decoration:none;box-shadow:0 2px 4px 0 rgba(61,52,40,.06);}
+
+  .sec{margin-top:38px;max-width:2600px;}
+  .sec>h2{display:flex;align-items:center;gap:11px;font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:19px;color:var(--ink);margin:0 0 4px;}
+  .sec>h2 .code{background:var(--teal);color:#fff;border-radius:10px;padding:2px 11px;font-size:13px;box-shadow:0 2px 0 0 var(--teal-deep);font-family:"Nunito",sans-serif;}
+  .sec>h2 .code.gold{background:var(--gold);color:var(--gold-ink);box-shadow:0 2px 0 0 var(--gold-deep);}
+  .sec>p.note{margin:0 0 18px;font-size:12.5px;color:var(--ink-soft);font-weight:700;max-width:1560px;}
+  .frames{display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;}
+  .frame{width:418px;flex:none;}
+  .frame.w2{width:560px;}
+  .fhead{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;padding:0 2px;}
+  .fhead .fc{flex:none;background:#2c2722;color:#ffd76a;border-radius:8px;padding:1px 8px;font-size:11px;font-weight:900;letter-spacing:.4px;}
+  .fhead b{font-size:13.5px;color:var(--ink);font-weight:800;}
+  .fhead span{font-size:11px;color:var(--ink-soft);font-weight:700;}
+  .fnote{margin-top:9px;padding:0 4px;font-size:11.5px;line-height:1.65;color:#8a7b66;font-weight:700;}
+  .fnote b{color:var(--ink);}
+
+  /* ===== phone shell 402×874 (1:1) ===== */
+  .ph{position:relative;width:402px;height:874px;border-radius:46px;overflow:hidden;background:var(--bg);
+    box-shadow:0 0 0 10px #2c2722,0 2px 0 12px #4a4239,0 30px 60px -24px rgba(61,52,40,.5);}
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column;}
+  .sb{flex:none;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:14px;font-weight:800;color:var(--ink);}
+  .sb .r{display:flex;gap:5px;align-items:center;}
+  .sb .r i{font-style:normal;display:inline-block;width:17px;height:10px;border:1.5px solid currentColor;border-radius:3px;position:relative;opacity:.85;}
+  .sb .r i::after{content:"";position:absolute;inset:1.5px;right:35%;background:currentColor;border-radius:1px;}
+  .sb .r u{text-decoration:none;font-size:11px;font-weight:900;letter-spacing:.5px;}
+
+  /* walk chrome */
+  .wtop{flex:none;display:flex;align-items:center;gap:10px;padding:4px 16px 10px;}
+  .wtop .bk{width:44px;height:44px;border-radius:50%;border:2px solid var(--line);background:var(--paper);color:var(--ink);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 0 0 #bdaea0;flex:none;}
+  .wtop .bk svg{width:18px;height:18px;}
+  .wtop .rpill{flex:1;min-width:0;display:flex;align-items:center;gap:8px;background:var(--gold);color:var(--gold-ink);border-radius:50px;padding:9px 16px;font-size:14px;font-weight:900;box-shadow:0 3px 0 0 var(--gold-deep);white-space:nowrap;overflow:hidden;}
+  .wtop .rpill span{overflow:hidden;text-overflow:ellipsis;}
+  .prog{flex:none;display:flex;align-items:center;gap:10px;padding:2px 20px 12px;}
+  .prog .dots{display:flex;gap:8px;align-items:center;}
+  .prog .d{width:16px;height:16px;border-radius:50%;background:var(--paper);border:2.5px solid var(--line2);}
+  .prog .d.v{background:var(--teal);border-color:var(--teal-deep);}
+  .prog .d.c{background:var(--paper);border-color:var(--gold-deep);box-shadow:0 0 0 3px #f5c31c55;}
+  .prog .pl{font-size:14px;font-weight:900;color:var(--ink);white-space:nowrap;}
+  .prog .pl span{color:var(--ink-soft);font-weight:800;}
+
+  .body2{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 16px;gap:11px;overflow:hidden;}
+  .scene{position:relative;aspect-ratio:16/9;border-radius:18px;border:2.5px solid var(--line);overflow:hidden;flex:none;}
+  .scene .tg{position:absolute;left:10px;top:10px;background:#f7cd67;color:#fff;font-size:12px;font-weight:900;border-radius:999px;padding:3px 11px;}
+  .scene .now{position:absolute;right:10px;top:10px;background:#2c2722cc;color:#ffd76a;font-size:11px;font-weight:900;border-radius:999px;padding:3px 10px;letter-spacing:1px;}
+  .scene .cmp{position:absolute;right:10px;bottom:10px;display:inline-flex;align-items:center;gap:7px;background:#fffdf5f0;color:var(--ink);border:2px solid var(--line);border-radius:50px;padding:9px 15px;font-size:13.5px;font-weight:800;box-shadow:0 3px 0 0 #bdaea0;}
+  .scene .cmp svg{width:16px;height:16px;}
+  .hname{flex:none;font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:32px;line-height:1.2;color:var(--ink);letter-spacing:.5px;}
+  .hname .st{color:var(--star);}
+  .hmeta{flex:none;display:flex;flex-wrap:wrap;gap:6px;}
+  .mchip{font-size:12.5px;font-weight:800;border-radius:999px;padding:4px 12px;background:var(--content);border:1.5px solid var(--line);color:var(--ink-body);}
+  .mchip.warn{background:#fdf1cf;border-color:#f0dca0;color:#a8801a;}
+  .maps{flex:none;display:flex;align-items:center;gap:12px;background:var(--paper);border:2px solid var(--line);border-radius:18px;padding:12px 15px;box-shadow:0 4px 0 0 #bdaea0;}
+  .maps .ic{width:44px;height:44px;border-radius:14px;background:var(--teal-bg);border:2px solid #bfeae3;color:var(--teal-text);display:flex;align-items:center;justify-content:center;flex:none;}
+  .maps .ic svg{width:21px;height:21px;}
+  .maps .tx{flex:1;min-width:0;}
+  .maps .tx b{display:block;font-size:16.5px;color:var(--ink);font-weight:800;}
+  .maps .tx span{font-size:12.5px;color:var(--ink-soft);font-weight:700;}
+  .maps .go{color:var(--ink-soft);font-size:18px;font-weight:900;}
+  .nextr{flex:none;display:flex;align-items:center;gap:9px;font-size:14px;font-weight:800;color:var(--ink-soft);padding:0 4px;}
+  .nextr b{color:var(--ink-body);}
+  .spacer{flex:1;}
+  .nearpill{flex:none;align-self:center;display:inline-flex;align-items:center;gap:8px;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:10px 18px;font-size:13.5px;font-weight:800;color:var(--ink);box-shadow:0 3px 0 0 #bdaea0;}
+  .cta{flex:none;margin:2px 0 18px;height:66px;border-radius:50px;background:var(--gold);color:var(--gold-ink);border:none;font-family:inherit;font-weight:900;font-size:21px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 6px 0 0 var(--gold-deep);}
+  .cta svg{width:22px;height:22px;}
+  .cta.pressed{transform:translateY(4px);box-shadow:0 2px 0 0 var(--gold-deep);}
+
+  /* env: sun */
+  .env-sun{--bg:#ffffff;--paper:#ffffff;--content:#fdf8ea;--ink:#3d2f1c;--ink-body:#4a3a24;--ink-soft:#7c6a4e;--line:#b9a97c;--line2:#a08d64;}
+  .env-sun .scene{border-width:3px;}
+  .env-sun .hname{font-size:34px;}
+  .env-sun .maps{box-shadow:0 4px 0 0 #8f7d58;border-width:3px;}
+  .env-sun .cta{box-shadow:0 6px 0 0 #b8860b;font-size:22px;}
+  .env-sun .mchip{border-width:2px;font-weight:900;}
+  /* env: night */
+  .env-night{--bg:#241d15;--paper:#2f2820;--content:#382f24;--ink:#f3e9d2;--ink-body:#d9cbae;--ink-soft:#a3937a;--line:#4a4034;--line2:#5c5140;}
+  .env-night .ph-inner{background:var(--bg);}
+  .env-night .maps{box-shadow:0 4px 0 0 #14100b;}
+  .env-night .wtop .bk{box-shadow:0 3px 0 0 #14100b;}
+  .env-night .scene .cmp{background:#382f24f0;color:#f3e9d2;border-color:#5c5140;box-shadow:0 3px 0 0 #14100b;}
+  .env-night .nearpill{box-shadow:0 3px 0 0 #14100b;}
+  .env-night .sb{color:#f3e9d2;}
+
+  /* offline bits */
+  .offbar{flex:none;display:flex;align-items:center;gap:8px;background:#fdf1cf;border:2px solid #f0dca0;color:#a8801a;border-radius:14px;padding:8px 13px;font-size:12.5px;font-weight:800;margin:0 0 2px;}
+  .qbadge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:900;color:#a8801a;background:#fdf1cf;border:1.5px solid #f0dca0;border-radius:999px;padding:2px 9px;}
+
+  /* full-bleed variant B */
+  .vb-hero{position:relative;flex:none;height:436px;margin:0 -16px;overflow:hidden;}
+  .vb-hero .img{position:absolute;inset:0;}
+  .vb-hero .real{position:absolute;left:0;right:0;top:58px;aspect-ratio:16/9;box-shadow:0 14px 34px -14px rgba(0,0,0,.5);}
+  .vb-hero .film{position:absolute;left:16px;top:300px;display:flex;gap:7px;}
+  .vb-hero .film .f{width:58px;aspect-ratio:16/9;border-radius:7px;border:1.5px solid rgba(255,253,245,.65);}
+  .vb-hero .film .more{width:46px;aspect-ratio:16/9;border-radius:7px;border:1.5px dashed rgba(255,253,245,.65);color:#fffdf5;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;}
+  .hfilm{display:flex;gap:7px;flex:none;}
+  .hfilm .f{width:62px;aspect-ratio:16/9;border-radius:8px;border:2px solid var(--line);}
+  .hfilm .f.cur{border-color:#f5c31c;}
+  .hfilm .more{width:62px;aspect-ratio:16/9;border-radius:8px;border:2px dashed var(--line2);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:900;color:var(--ink-soft);}
+  .vb-hero .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(28,23,18,.12) 0%,rgba(28,23,18,0) 40%,rgba(28,23,18,.6) 74%,rgba(28,23,18,.9) 100%);}
+  .vb-hero .tg{position:absolute;left:16px;top:12px;background:#f7cd67;color:#fff;font-size:12px;font-weight:900;border-radius:999px;padding:3px 11px;}
+  .vb-hero .cmp{position:absolute;right:14px;top:12px;display:inline-flex;align-items:center;gap:6px;background:#fffdf5e8;color:#3d2f1c;border-radius:50px;padding:8px 13px;font-size:12.5px;font-weight:800;}
+  .vb-hero .cmp svg{width:15px;height:15px;}
+  .vb-hero .nm{position:absolute;left:18px;right:18px;bottom:56px;color:#fffdf5;font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:36px;line-height:1.15;text-shadow:0 2px 10px rgba(0,0,0,.5);}
+  .vb-hero .sub{position:absolute;left:18px;right:18px;bottom:20px;color:#f3e9d2;font-size:14px;font-weight:800;display:flex;gap:12px;text-shadow:0 1px 5px rgba(0,0,0,.5);}
+
+  /* compare (構図) view */
+  .cam{position:absolute;inset:0;background:#1c1712;display:flex;flex-direction:column;}
+  .cam .view{position:relative;flex:1;overflow:hidden;}
+  .cam .live{position:absolute;inset:0;}
+  .cam .ghost{position:absolute;inset:0;opacity:.55;mix-blend-mode:normal;}
+  .cam .gridl{position:absolute;inset:0;background:
+    linear-gradient(to right,transparent calc(33% - .5px),rgba(255,255,255,.25) 33%,transparent calc(33% + .5px)),
+    linear-gradient(to right,transparent calc(66% - .5px),rgba(255,255,255,.25) 66%,transparent calc(66% + .5px)),
+    linear-gradient(to bottom,transparent calc(33% - .5px),rgba(255,255,255,.25) 33%,transparent calc(33% + .5px)),
+    linear-gradient(to bottom,transparent calc(66% - .5px),rgba(255,255,255,.25) 66%,transparent calc(66% + .5px));}
+  .cam .ttl{position:absolute;top:12px;left:14px;right:14px;display:flex;align-items:center;gap:8px;color:#ffd76a;font-size:13px;font-weight:900;text-shadow:0 1px 4px #000;}
+  .cam .ttl .x{margin-left:auto;width:36px;height:36px;border-radius:50%;background:#00000066;color:#fffdf5;display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .cam .slider{position:absolute;left:20px;right:20px;bottom:16px;display:flex;align-items:center;gap:11px;color:#f3e9d2;font-size:11.5px;font-weight:800;}
+  .cam .slider .tr{flex:1;height:7px;border-radius:5px;background:#ffffff33;position:relative;}
+  .cam .slider .tr i{position:absolute;left:0;top:0;bottom:0;width:55%;border-radius:5px;background:var(--gold);}
+  .cam .slider .tr u{position:absolute;left:55%;top:50%;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;background:#fffdf5;box-shadow:0 2px 8px #000a;text-decoration:none;}
+  .cutlist{flex:none;background:#241d15;border-top:2px solid #4a4034;padding:13px 16px 20px;}
+  .cutlist h4{margin:0 0 9px;color:#f3e9d2;font-size:14px;font-weight:900;display:flex;align-items:center;gap:8px;}
+  .cutlist h4 span{margin-left:auto;color:#ffd76a;font-size:12px;}
+  .cutrow{display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1.5px dashed #4a4034;color:#d9cbae;font-size:13.5px;font-weight:800;}
+  .cutrow .ck{width:26px;height:26px;border-radius:9px;border:2.5px solid #5c5140;background:#2f2820;display:flex;align-items:center;justify-content:center;flex:none;}
+  .cutrow .ck svg{width:15px;height:15px;color:#fff;opacity:0;}
+  .cutrow.on .ck{background:var(--teal);border-color:var(--teal-deep);}
+  .cutrow.on .ck svg{opacity:1;}
+  .cutrow .th{width:58px;aspect-ratio:16/9;border-radius:7px;flex:none;border:1.5px solid #4a4034;}
+  .cutrow .org{margin-left:auto;font-size:10.5px;color:#a3937a;font-weight:800;}
+
+  /* near sheet */
+  .dim2{position:absolute;inset:0;background:rgba(28,23,18,.45);z-index:20;}
+  .sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--paper);border-radius:28px 28px 0 0;border:2px solid var(--line);border-bottom:none;padding:10px 18px 26px;}
+  .sheet .grab{width:44px;height:5px;border-radius:3px;background:var(--line2);margin:4px auto 12px;}
+  .sheet h4{margin:0 0 4px;font-family:"Zen Maru Gothic",sans-serif;font-size:19px;color:var(--ink);}
+  .sheet .sub2{font-size:12.5px;color:var(--ink-soft);font-weight:700;margin-bottom:10px;}
+  .nrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1.5px dashed var(--line2);}
+  .nrow .th{width:74px;aspect-ratio:16/9;border-radius:10px;flex:none;border:2px solid var(--line);position:relative;overflow:hidden;}
+  .nrow .th i{position:absolute;left:4px;bottom:3px;font-style:normal;font-size:8.5px;font-weight:900;color:#fff;background:#f7cd67;border-radius:999px;padding:1px 6px;}
+  .nrow .bx{flex:1;min-width:0;}
+  .nrow .bx b{display:block;font-size:15px;color:var(--ink);font-weight:800;}
+  .nrow .bx span{font-size:12px;color:var(--ink-soft);font-weight:700;}
+  .nrow .add{flex:none;border:2px solid var(--line);background:var(--paper);color:var(--ink);font-family:inherit;font-weight:800;font-size:12.5px;border-radius:50px;padding:9px 14px;box-shadow:0 3px 0 0 #bdaea0;}
+  .sheet .foot{margin-top:10px;font-size:11.5px;color:var(--ink-soft);font-weight:700;text-align:center;}
+
+  /* checked toast */
+  .toastw{position:absolute;left:50%;transform:translateX(-50%);bottom:104px;z-index:30;background:#2c2722;color:#f3ead8;font-weight:800;font-size:14px;border-radius:50px;padding:12px 22px;box-shadow:0 14px 30px -10px #000a;white-space:nowrap;}
+  .toastw b{color:#7fe0d6;}
+
+  /* finish screen */
+  .fin{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px 24px 20px;gap:12px;overflow:hidden;}
+  .fin .fox{width:150px;height:150px;filter:drop-shadow(0 10px 14px rgba(61,52,40,.3));}
+  .fin h1{font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:34px;color:var(--ink);margin:0;}
+  .fin .cnt{font-size:16px;font-weight:900;color:var(--teal-text);}
+  .fin .grid5{display:flex;gap:7px;}
+  .fin .g{width:56px;aspect-ratio:1;border-radius:12px;border:2px solid var(--line);position:relative;overflow:hidden;}
+  .fin .g i{position:absolute;right:3px;bottom:3px;width:18px;height:18px;border-radius:50%;background:var(--teal);color:#fff;font-style:normal;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #fff;}
+  .fin .stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+  .fin .ctafin{width:100%;height:64px;border-radius:50px;background:var(--gold);color:var(--gold-ink);border:none;font-family:inherit;font-weight:900;font-size:20px;box-shadow:0 6px 0 0 var(--gold-deep);display:flex;align-items:center;justify-content:center;gap:9px;margin-top:auto;}
+  .fin .later{width:100%;height:52px;border-radius:50px;background:var(--paper);color:var(--ink);border:2px solid var(--paper);font-family:inherit;font-weight:800;font-size:15px;box-shadow:0 5px 0 0 #bdaea0;margin-bottom:14px;}
+  .conf{position:absolute;border-radius:50%;}
+
+  /* desktop degrade */
+  .deskcard{background:var(--bg);border:2px solid #d9d0ba;border-radius:20px;padding:0;overflow:hidden;position:relative;height:360px;}
+  .deskcard .bar{height:34px;background:var(--paper);border-bottom:2px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 14px;font-size:10px;font-weight:900;color:var(--ink-soft);}
+  .deskcard .mid{position:absolute;inset:34px 0 0;display:flex;align-items:center;justify-content:center;}
+  .qr{width:120px;height:120px;background:#fff;border:2px solid var(--line);border-radius:14px;padding:8px;}
+
+  .rule{display:flex;gap:10px;align-items:flex-start;background:var(--content);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12px;line-height:1.6;font-weight:700;color:var(--ink-body);}
+  .rule b{color:var(--ink);}
+  .rule .n{flex:none;width:18px;height:18px;border-radius:50%;background:#2c2722;color:#ffd76a;font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:2px;}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <img src="assets/torii.svg" alt="">
+  <div>
+    <h1>Walk 状態総覧 — 歩くモード /routes/:id/walk（審判時刻）</h1>
+    <p>现场四件套→一件。<b>手机 402×874 · 1:1 · 户外一等公民（字号全线放大一档、CTA 66px）</b>。内容＝『君の名は。』×飛騨古川 5 站，当前 2/5 已访、现在站③気多若宮神社。帧 tag＝第N話 MM:SS（真数据 ep+s）、打卡 CTA＝金（每屏唯一）、Maps＝深链不自建导航、構図＝帧 ghost 叠加（API 无 bearing）。进入本屏走 scene-cut 狐狸转场（「明显去某处」）。桌面不出双版——降级帧见底部。</p>
+  </div>
+  <div class="toplinks">
+    <a href="Walk demo.html" style="background:var(--gold);border-color:var(--gold);color:var(--gold-ink);box-shadow:0 3px 0 0 var(--gold-deep);">▸ 可点 demo</a>
+    <a href="Chat 状态总览.html">Chat 状態総覧</a>
+    <a href="工作台 - 地图常驻方案.html">工作台</a>
+    <a href="前端全景 - Journey Hub.dc.html">← Journey Hub</a>
+  </div>
+</div>
+
+<section class="sec">
+  <h2><span class="code gold">HERO</span>主屏两版方向 — 白天標準態（現在站③ 気多若宮神社）</h2>
+  <p class="note">共同骨架：進度格 → 场景帧＋構図入口 → 超大站名 → meta → Maps 深链 → つぎ行（低调）→ 下半屏拇指区（近く + ✓ここに来た!）。分歧在「帧的地位」。</p>
+  <div class="frames" id="secHero"></div>
+</section>
+
+<section class="sec">
+  <h2><span class="code">ENV</span>環境態 — 強光 / 夜間 / 離線（J14）</h2>
+  <p class="note">同一骨架换环境 token：強光＝纯白底+粗边+字再大一档；夜間＝暖棕夜色（Splash/首页同基调），金 CTA 天然高对比；離線＝route bundle 缓存案内 + 打卡本地排队。</p>
+  <div class="frames" id="secEnv"></div>
+</section>
+
+<section class="sec">
+  <h2><span class="code">SUB</span>子视图 — 構図をくらべる / 近くsheet / 打卡瞬間</h2>
+  <p class="note">構図＝相机取景 + 帧 ghost 55% 叠加 + 三分线 + 復刻清单（拍到勾一个，勾数喂しおり完成率）+ 出典行；近く＝底部 sheet（J11，替代现场开 Anitabi）；打卡＝vibrate + 进度+1 + 自动切下一站。</p>
+  <div class="frames" id="secSub"></div>
+</section>
+
+<section class="sec">
+  <h2><span class="code">FIN</span>完走 + 桌面降级 + 施工规则</h2>
+  <p class="note">最后一站打卡 → 完成屏（狐狸举旗）→ 金 CTA「しおりを作る」趁情绪最高点接 Step 3。桌面访问 /walk＝引导扫码，不出桌面版。</p>
+  <div class="frames" id="secFin"></div>
+</section>
+
+<script>
+(function(){
+  var TICK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>';
+  var BACK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>';
+  var CAM='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+  var NAVI='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 19 21l-7-4-7 4z"/></svg>';
+  var G={
+    st:'linear-gradient(135deg,#cfe3f7,#98b8dc)', seto:'linear-gradient(135deg,#d9ecec,#a9cfd1)',
+    aji:'linear-gradient(135deg,#f5dccf,#e0b294)', keta:'linear-gradient(160deg,#8fb87a 0%,#d7eccf 46%,#e9f2da 60%,#7fae6a 100%)',
+    lib:'linear-gradient(135deg,#dfd6f0,#b7a8dd)', sak:'linear-gradient(135deg,#fbe3ea,#eeb3c6)'
+  };
+  function sb(){ return '<div class="sb"><span>9:41</span><span class="r"><u>5G</u><i></i></span></div>'; }
+  function chrome(o){
+    o=o||{};
+    return '<div class="wtop"><span class="bk">'+BACK+'</span><span class="rpill">▸ <span>飛騨古川 半日ルート</span><span style="margin-left:auto;font-weight:800;">'+(o.time||'10:28')+'</span></span></div>'
+      +'<div class="prog"><span class="dots"><span class="d v"></span><span class="d v"></span><span class="d c"></span><span class="d"></span><span class="d"></span></span><span class="pl">3<span>/5</span> 気多若宮神社</span></div>';
+  }
+  function heroA(o){
+    o=o||{};
+    return sb()+chrome(o)
+      +'<div class="body2">'
+      +(o.offbar||'')
+      +'<div class="scene"><div style="position:absolute;inset:0;background:'+G.keta+';"></div>'
+      +'<span class="tg">第8話 41:12</span><span class="now">NOW</span>'
+      +'<span class="cmp">'+CAM+'構図をくらべる <b style="margin-left:2px;">18</b></span></div>'
+      +'<div class="hfilm"><span class="f cur" style="background:'+G.keta+';"></span><span class="f" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"></span><span class="f" style="background:linear-gradient(135deg,#c9dcb4,#8fae74);"></span><span class="f" style="background:linear-gradient(135deg,#b9d1a0,#7a9a62);"></span><span class="more">+14 ▸</span></div>'
+      +'<div class="hname">気多若宮神社 <span class="st">★</span></div>'
+      +'<div class="hmeta"><span class="mchip">滞在 30分</span><span class="mchip">石段 120段</span><span class="mchip">拝観自由</span><span class="mchip warn">雨上がりは石段すべりやすい</span></div>'
+      +'<div class="maps"><span class="ic">'+NAVI+'</span><span class="tx"><b>Mapsで開く</b><span>'+(o.eta||'味処古川から徒歩9分 · 10:19着')+'</span></span><span class="go">↗</span></div>'
+      +'<div class="nextr">つぎ → <b>飛騨市図書館</b> · 徒歩7分'+(o.queue||'')+'</div>'
+      +'<span class="spacer"></span>'
+      +'<span class="nearpill">近くにあと 2 スポット ▸</span>'
+      +'<button class="cta'+(o.pressed?' pressed':'')+'">'+TICK+' ここに来た!</button>'
+      +'</div>';
+  }
+  function phone(env,inner,extra){
+    return '<div class="ph'+(env?' '+env:'')+'"><div class="scr ph-inner" style="background:var(--bg);">'+inner+'</div>'+(extra||'')+'</div>';
+  }
+  function frame(sec,code,title,note,html,fnote,wide){
+    var e=document.createElement('div'); e.className='frame'+(wide?' w2':'');
+    e.innerHTML='<div class="fhead"><span class="fc">'+code+'</span><b>'+title+'</b><span>'+(note||'')+'</span></div>'+html+(fnote?'<div class="fnote">'+fnote+'</div>':'');
+    document.getElementById(sec).appendChild(e);
+  }
+
+  /* ===== HERO A ===== */
+  frame('secHero','W-A','A案 · カード積み','信息完整 · 帧是卡片',
+    phone('',heroA()),
+    '<b>骨架自上而下＝问题的优先级</b>：我在哪（進度格+金 pill）→ 机位对不对（帧+構図入口）→ 站名（32px/900）→ 注意事项 → 怎么走（Maps 深链+ETA）→ 下一站（低调）→ 拇指区（近く+66px 金打卡）。信息全，弱光/室内也稳。<b>多カット站＝代表帧 1 张 + 缩略条 hfilm（前4+「+14 ▸」，当前帧金边）</b>——07-03 用户增补：多图可见性优先；点缩略直达構図をくらべる对应帧。');
+
+  /* ===== HERO B ===== */
+  var heroB=sb()+chrome()
+    +'<div class="body2" style="padding:0 16px;gap:12px;">'
+    +'<div class="vb-hero">'
+    +'<div class="img" style="background:'+G.keta+';filter:blur(22px) saturate(1.15) brightness(.8);transform:scale(1.35);"></div>'
+    +'<div class="shade"></div>'
+    +'<div class="real" style="background:'+G.keta+';"><span class="tg" style="position:absolute;left:12px;top:10px;">第8話 41:12</span></div>'
+    +'<div class="film"><span class="f" style="background:'+G.keta+';border-color:#f5c31c;"></span><span class="f" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"></span><span class="f" style="background:linear-gradient(135deg,#c9dcb4,#8fae74);"></span><span class="more">+15</span></div>'
+    +'<span class="cmp">'+CAM+'構図 18</span>'
+    +'<div class="nm">気多若宮神社 <span style="color:var(--star);">★</span></div>'
+    +'<div class="sub"><span>滞在 30分</span><span>石段 120段</span><span>拝観自由</span></div></div>'
+    +'<div class="maps"><span class="ic">'+NAVI+'</span><span class="tx"><b>Mapsで開く</b><span>味処古川から徒歩9分 · 10:19着</span></span><span class="go">↗</span></div>'
+    +'<div class="nextr">つぎ → <b>飛騨市図書館</b> · 徒歩7分</div>'
+    +'<span class="spacer"></span>'
+    +'<span class="nearpill">近くにあと 2 スポット ▸</span>'
+    +'<button class="cta">'+TICK+' ここに来た!</button>'
+    +'</div>';
+  frame('secHero','W-B′','B′案 · フルブリード（blur-fill 出血）','16:9 完整帧 · 模糊扩展 · 定稿方向',
+    phone('',heroB),
+    '<b>动画帧天生 16:9 横屏 → 竖屏出血的解法＝blur-fill</b>：帧本体完整不裁（402×226 居顶悬浮+投影），上下用同帧放大 22px 模糊+压暗做氛围扩展——沉浸感是「画面占满屏幕」的错觉，構图一像素不丢。<b>缩略条在模糊区</b>（前3+「+15」，当前帧金边，点任意缩略→構図をくらべる对应帧）；站名/meta 也压模糊区，可读性比纯出血稳；模糊边缘可用作品主色（API color）调和。強光态仍回退 A 骨架。<b>帧永不裁切（07-03 定稿 B′）</b>。');
+
+  /* ===== ENV ===== */
+  frame('secEnv','W-SUN','戸外強光 · 高対比','A 骨架 · 白底粗边',
+    phone('env-sun',heroA({eta:'味処古川から徒歩9分 · 10:19着'})),
+    '直射日光下屏幕当纸看：<b>纯白底、边框 3px、墨色加深（#3d2f1c）、站名 34px、CTA 22px 字</b>；去掉一切装饰渐变。触发：手动切换（设置里「屋外モード」）或环境光传感器，原型阶段按手动。');
+
+  frame('secEnv','W-NIGHT','夜間態','暖棕夜色 · 金 CTA 天然高对比',
+    phone('env-night',heroA()),
+    '底 #241d15 / 卡 #2f2820 / 墨 #f3e9d2——与 Splash/首页夜间同基调（暖夜，不是冷黑）。金 pill/金 CTA 在暗底上就是灯笼；影改深炭 #14100b。夜巡（点灯祭）与末班车前的真实场景。');
+
+  frame('secEnv','W-OFF','離線 / 弱網態','route bundle 缓存案内',
+    phone('',heroA({
+      offbar:'<div class="offbar"><svg style="width:15px;height:15px;flex:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M2 8c6-5 14-5 20 0M5 12c4-3.5 10-3.5 14 0M8.5 15.5c2-1.8 5-1.8 7 0"/><path d="M12 19v.5" stroke-width="3"/><path d="M3 3l18 18"/></svg>オフライン · 保存済みルートで案内中</div>',
+      eta:'静的地図で案内 · Mapsは電波復帰後',
+      queue:'<span class="qbadge" style="margin-left:auto;">同期待ち 1</span>',
+      time:'10:28'
+    })),
+    '出发时 route bundle 预载（JSON+帧图 h360+每站静态地图 PNG）→ 断网照走：帧/时刻/構図清单全可用；Maps 深链降级为静态地图；<b>打卡本地排队</b>（qbadge「同期待ち N」），电波恢复自动 flush。看缓存免鉴权。');
+
+  /* ===== SUB: compare ===== */
+  var cmpView='<div class="cam">'+sb().replace('color:var(--ink)','color:#f3e9d2')
+    +'<div class="view">'
+    +'<div class="live" style="background:linear-gradient(165deg,#6f8f5c 0%,#a8c48e 40%,#d9e8c4 58%,#5e7a4c 100%);"></div>'
+    +'<div class="ghost" style="background:'+G.keta+';"></div>'
+    +'<div class="gridl"></div>'
+    +'<div class="ttl">'+CAM+' 構図をくらべる — 第8話 41:12<span class="x">×</span></div>'
+    +'<div class="slider"><span>実景</span><span class="tr"><i></i><u></u></span><span>アニメ 55%</span></div>'
+    +'</div>'
+    +'<div class="cutlist"><h4>主要な構図 6 <span>1/18 撮れた</span></h4>'
+    +'<div class="cutrow on"><span class="ck">'+TICK+'</span><span class="th" style="background:'+G.keta+';"></span>石段の下から鳥居を見上げる · 41:12<span class="org">出典 Anitabi ↗</span></div>'
+    +'<div class="cutrow"><span class="ck">'+TICK+'</span><span class="th" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"></span>鳥居ごしの街並み · 41:30<span class="org">出典 Anitabi ↗</span></div>'
+    +'<div class="cutrow"><span class="ck">'+TICK+'</span><span class="th" style="background:linear-gradient(135deg,#c9dcb4,#8fae74);"></span>拝殿の縁側 · 43:55<span class="org">出典 Anitabi ↗</span></div>'
+    +'<div style="margin-top:9px;text-align:center;border:1.5px dashed #5c5140;border-radius:50px;padding:8px;color:#a3937a;font-size:12px;font-weight:800;">残り12カットをすべて見る ▸（未撮影が先 · 時間順）</div>'
+    +'<div style="margin-top:10px;display:flex;gap:10px;align-items:center;"><button style="flex:1;height:48px;border-radius:50px;border:none;background:var(--gold);color:var(--gold-ink);font-family:inherit;font-weight:900;font-size:15px;box-shadow:0 4px 0 0 var(--gold-deep);">対比図を作る ↗</button><span style="flex:1;font-size:10px;font-weight:700;color:#a3937a;line-height:1.5;">image-merge 深链：帧予載+EXIF 回传 · 写真はJPGで（HEIC非対応）</span></div>'
+    +'</div></div>';
+  frame('secSub','W-CMP','構図をくらべる','帧 ghost 55% 叠加 + 復刻清单',
+    '<div class="ph"><div class="scr">'+cmpView+'</div></div>',
+    '相机取景（示意）上叠<b>动画帧 ghost（透明度滑杆，默认 55%）</b>+三分线——API 无 bearing，对齐靠眼睛比对。<b>多カット机制：清单默认只列「主要な構図 6」，其余折叠；排序＝未拍在前・時間順（s 相邻≈同机位，时间序就是机位聚类的代理）；点哪条 ghost 就换哪帧（当前帧金边），一次只对一张</b>。勾数喂しおり完成率，<b>与打卡解耦</b>（0/18 也能继续走）。每条带出典（CC BY-NC-SA 署名义务）。不做快门——用户用系统相机拍，这里只管「对没对上」。<b>対比図を作る（07-03 接点定案）</b>：金色出口→image-merge 深链（?url=帧h360&pid&bid&g）——预载该帧，用户传实拍即合成（上下/左右自动拼、1080 基准）；带 pid/bid/g 时照片 EXIF（GPS/朝向/焦距）回传——<b>巡礼者顺手反哺 Anitabi 机位数据</b>。产物带其水印；品牌版需 itorr 授权（legal）。');
+
+  /* ===== SUB: near sheet ===== */
+  var nearSheet=phone('',heroA(),'')
+    .replace('</div>'+'</div>'.slice(0,0),'</div>');
+  var nearHtml='<div class="ph"><div class="scr ph-inner" style="background:var(--bg);">'+heroA()+'</div>'
+    +'<div class="dim2"></div>'
+    +'<div class="sheet"><div class="grab"></div><h4>近くにあと 2 スポット</h4><div class="sub2">いま歩いているルートの寄り道候補（500m 圏内）</div>'
+    +'<div class="nrow" style="border-top:none;"><span class="th" style="background:'+G.seto+';"><i>第1話 05:30</i></span><span class="bx"><b>瀬戸川と白壁土蔵街</b><span>徒歩5分 · 鯉の泳ぐ用水路</span></span><button class="add">寄り道に追加</button></div>'
+    +'<div class="nrow"><span class="th" style="background:linear-gradient(135deg,#ead9c6,#cbb094);"><i>劇場版 12:30</i></span><span class="bx"><b>壱之町珈琲店</b><span>徒歩8分 · 古民家カフェ</span></span><button class="add">寄り道に追加</button></div>'
+    +'<div class="foot">追加すると残りの時刻を自動で組み直します（再計算 · agent は通らない）</div>'
+    +'</div></div>';
+  frame('secSub','W-NEAR','近くsheet','J11 · 替代现场开 Anitabi',
+    nearHtml,
+    '「近くにあと N スポット」pill → 底部 sheet：500m 圈内的未入路线点（帧缩略+話数 tag+徒歩）。「寄り道に追加」＝E2 旁路再計算（不演 agent 的戏），后续时刻自动顺延并提示。');
+
+  /* ===== SUB: checked moment ===== */
+  var checkedHtml='<div class="ph"><div class="scr ph-inner" style="background:var(--bg);">'
+    +heroA({pressed:true})
+    +'</div><div class="toastw">気多若宮神社 <b>✓</b> · つぎは図書館へ（徒歩7分）</div></div>';
+  frame('secSub','W-DONE','打卡瞬間','vibrate → 進度+1 → 自動切换',
+    checkedHtml,
+    '按下「✓ ここに来た!」：<b>钮下压（影 6→2）+ 短振动 + 進度格第3粒填色 + 炭底 toast</b>→ 800ms 后下一站（図書館）自动置顶成新 hero（页内轻快切换，不走 scene-cut——那是「去某处」的仪式，站间切换要快）。误触撤销：toast 停留 4s 内可点撤回。');
+
+  /* ===== FIN ===== */
+  var conf='';
+  var confCols=['#f5c31c','#19c8b9','#f0b429','#82d5bb','#e6883a'];
+  for(var i=0;i<14;i++){
+    var cx=(i*67)%360+20, cy=(i*53)%200+60, r=3+(i%3)*2;
+    conf+='<span class="conf" style="left:'+cx+'px;top:'+cy+'px;width:'+r*2+'px;height:'+r*2+'px;background:'+confCols[i%5]+';opacity:.'+(5+(i%4))+';"></span>';
+  }
+  var finHtml='<div class="ph"><div class="scr ph-inner" style="background:var(--bg);">'
+    +sb()
+    +'<div class="fin">'+conf
+    +'<img class="fox" src="assets/fox/fox-cheer.svg" alt="">'
+    +'<h1>巡礼完了！</h1>'
+    +'<div class="cnt">5 / 5 スポット · 飛騨古川 半日ルート</div>'
+    +'<div class="grid5">'
+    +'<span class="g" style="background:'+G.st+';"><i>✓</i></span>'
+    +'<span class="g" style="background:'+G.aji+';"><i>✓</i></span>'
+    +'<span class="g" style="background:'+G.keta+';"><i>✓</i></span>'
+    +'<span class="g" style="background:'+G.lib+';"><i>✓</i></span>'
+    +'<span class="g" style="background:'+G.sak+';"><i>✓</i></span>'
+    +'</div>'
+    +'<div class="stats"><span class="mchip">徒歩 26分 · 2.0km</span><span class="mchip">所要 3時間02分</span><span class="mchip">復刻構図 7/12</span></div>'
+    +'<button class="ctafin">しおりを作る</button>'
+    +'<button class="later">あとで · ホームへ</button>'
+    +'</div></div></div>';
+  frame('secFin','W-FIN','完走屏','狐狸举旗 → しおり握手',
+    finHtml,
+    '最后一站打卡即入场（全屏，不是 toast）：fox-cheer 举旗 + 34px「巡礼完了！」+ 5 站帧格全✓ + 実績（徒歩/所要/復刻構図数）。<b>金 CTA「しおりを作る」趁情绪最高点</b>接 Step 3（分享物→环闭合）；「あとで」不施压——しおり从 マイルート 随时可补。');
+
+  /* desktop degrade */
+  var qrs='';
+  (function(){ var seed=7; function rnd(){seed=(seed*1103515245+12345)%2147483648;return seed/2147483648;}
+    for(var y=0;y<17;y++)for(var x=0;x<17;x++){ var fin=(x<5&&y<5)||(x>11&&y<5)||(x<5&&y>11); if(fin)continue;
+      if(rnd()<0.44) qrs+='<rect x="'+(x+2)+'" y="'+(y+2)+'" width="1" height="1" fill="#4a3b28"/>'; }
+    [[2,2],[14,2],[2,14]].forEach(function(p){ qrs+='<rect x="'+(p[0]+0.5)+'" y="'+(p[1]+0.5)+'" width="4" height="4" fill="none" stroke="#4a3b28" stroke-width="1"/><rect x="'+(p[0]+1.5)+'" y="'+(p[1]+1.5)+'" width="2" height="2" fill="#4a3b28"/>'; });
+  })();
+  var deskHtml='<div class="deskcard"><div class="bar"><span style="width:9px;height:9px;border-radius:50%;background:#e05a5a;display:inline-block;"></span><span style="width:9px;height:9px;border-radius:50%;background:#f5c31c;display:inline-block;"></span><span style="width:9px;height:9px;border-radius:50%;background:#82d5bb;display:inline-block;"></span><span style="margin-left:10px;">seichijunrei.app/routes/hida-half/walk — 桌面访问</span></div>'
+    +'<div class="mid"><div style="display:flex;gap:22px;align-items:center;max-width:420px;">'
+    +'<svg class="qr" viewBox="0 0 21 21">'+qrs+'</svg>'
+    +'<div style="text-align:left;"><b style="font-family:\'Zen Maru Gothic\',sans-serif;font-size:17px;color:var(--ink);display:block;margin-bottom:6px;">歩くモードはスマホで</b>'
+    +'<span style="font-size:12.5px;font-weight:700;color:var(--ink-body);line-height:1.7;">現地では片手・屋外が前提です。QR をスキャンすると、このルートがそのままスマホで開きます（同じアカウントなら自動同期）。</span>'
+    +'<div style="margin-top:10px;"><span style="display:inline-flex;border:2px solid var(--line);background:var(--paper);border-radius:50px;padding:8px 14px;font-size:12px;font-weight:800;color:var(--ink);box-shadow:0 3px 0 0 #bdaea0;">ルート詳細に戻る</span></div>'
+    +'</div></div></div></div>';
+  frame('secFin','W-DESK','桌面访问 /walk — 降级态','不出桌面版 · 引导扫码',
+    deskHtml,
+    '桌面开 /walk：居中卡片＝QR（登录卖点「跨设备带路线」的物理形态）+「ルート詳細に戻る」。不做桌面 Walk——没有真实场景，做了反而稀释手机版投入。','w2');
+
+  /* rules */
+  var rules=document.createElement('div'); rules.className='frame w2';
+  rules.innerHTML='<div class="fhead"><span class="fc">RULE</span><b>施工规则 — Walk 专属</b><span>与 DS 通用规范的差分</span></div>'
+    +'<div style="display:flex;flex-direction:column;gap:9px;">'
+    +'<div class="rule"><span class="n">1</span><div><b>尺寸再放大一档</b>：站名 32px/900、正文 ≥14px、CTA 66px 高 21px 字、touch target ≥52px——户外现场是一等公民，44px 是别处的底线不是这里的</div></div>'
+    +'<div class="rule"><span class="n">2</span><div><b>单手拇指区</b>：一切高频操作（打卡/近く/構図入口）在屏幕下半；返回和 kebab 允许在顶部（低频）</div></div>'
+    +'<div class="rule"><span class="n">3</span><div><b>进入 scene-cut，站间不 scene-cut</b>：路线详情→Walk 是「去某处」（狐狸小跑+iris）；打卡后切下一站是页内变化，800ms 轻快滑动</div></div>'
+    +'<div class="rule"><span class="n">4</span><div><b>打卡容错</b>：vibrate 短震一次；toast 4s 内可撤销；无 GPS 校验（信任用户——现场没有第二次机会，绝不弹「你确定到了吗」）</div></div>'
+    +'<div class="rule"><span class="n">5</span><div><b>离线契约</b>：出发时预载 route bundle（JSON+帧 h360+静态地图 PNG）；看缓存免鉴权；打卡本地排队「同期待ち N」，复网 flush；帧 404→渐变+話数 tag（D9 同款）</div></div>'
+    +'<div class="rule"><span class="n">6</span><div><b>環境切换</b>：強光/夜間手动切（kebab 菜单），跟随系统 dark 为默认值；全部 token 化，骨架不变</div></div>'
+    +'<div class="rule"><span class="n">7</span><div><b>帧永不裁切</b>：16:9 完整呈现是底线；竖屏出血一律 blur-fill/主色扩展（B′）。構図をくらべる检测<b>横持自动全屏</b>——拍动画構图本来就该横拍</div></div>'
+    +'</div>';
+  document.getElementById('secFin').appendChild(rules);
+})();
+</script>
+</body>
+</html>

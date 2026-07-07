@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="design_doc_mode" content="canvas">
+<title>Chat 状態総覧 — 完整屏幕平铺 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/index.css">
+<style>
+  :root{
+    --bg:#f0e8d8; --paper:#f8f8f0; --ink:#794f27; --ink-body:#725d42; --ink-soft:#9f927d;
+    --teal:#19c8b9; --teal-bright:#19c8b9; --teal-bg:#e6f9f6; --teal-deep:#11a89b;
+    --gold:#f5c31c; --gold-deep:#d8a812; --gold-ink:#5c4813; --star:#f0b429;
+    --orange:#e6883a; --orange-deep:#cf7128;
+    --line:#e8e2d6; --line2:#c4b89e; --content:#f7f3df; --pill:50px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{font-family:"Nunito","Noto Sans SC",sans-serif;color:var(--ink-body);background:#e9e0cc;-webkit-font-smoothing:antialiased;padding:40px 48px 90px;width:max-content;min-width:100%;}
+
+  /* ===== canvas chrome ===== */
+  .canvas-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:8px;max-width:2980px;}
+  .canvas-head img.torii{width:46px;height:46px;flex:none;}
+  .canvas-head h1{font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:27px;color:var(--ink);margin:0;}
+  .canvas-head p{margin:4px 0 0;font-size:13px;color:var(--ink-soft);font-weight:700;max-width:1500px;}
+  .canvas-head a{color:#0e7c72;font-weight:800;}
+  .toplinks{margin-left:auto;display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end;}
+  .toplinks a{display:inline-flex;align-items:center;gap:7px;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:8px 15px;font-size:12.5px;font-weight:800;color:var(--ink);text-decoration:none;box-shadow:0 3px 0 0 #d4c9b4;}
+  .toplinks a:hover{border-color:var(--teal);}
+  .toplinks a.gold{background:var(--gold);color:var(--gold-ink);box-shadow:0 3px 0 0 var(--gold-deep);border-color:var(--gold);}
+
+  .flowbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--paper);border:2px solid var(--line);border-radius:20px;padding:13px 20px;margin:16px 0 0;max-width:2980px;box-shadow:0 3px 10px rgba(61,52,40,.08);}
+  .flowbar>b{font-family:'Zen Maru Gothic',sans-serif;color:var(--ink);font-size:14.5px;margin-right:4px;}
+  .fpl{display:inline-flex;align-items:center;gap:6px;background:var(--content);border:1.5px solid var(--line);border-radius:50px;padding:5px 13px;font-size:12px;font-weight:800;color:var(--ink-body);}
+  .fpl i{font-style:normal;background:#2c2722;color:#ffd76a;border-radius:6px;padding:0 6px;font-size:10px;font-weight:900;}
+  .fpl.hl{background:var(--teal-bg);border-color:#bfeae3;color:#0fa79b;}
+  .fpl.gd{background:#fcf3d6;border-color:#ecd58f;color:#a8801a;}
+  .flowbar .arr{color:var(--line2);font-weight:900;}
+  .flowbar .expl{flex-basis:100%;font-size:11.5px;font-weight:700;color:#8a7b66;line-height:1.6;}
+
+  .sec{margin-top:40px;max-width:4560px;}
+  .sec>h2{display:flex;align-items:center;gap:11px;font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:19px;color:var(--ink);margin:0 0 4px;}
+  .sec>h2 .code{background:var(--teal);color:#fff;border-radius:10px;padding:2px 11px;font-size:13px;box-shadow:0 2px 0 0 var(--teal-deep);font-family:"Nunito",sans-serif;}
+  .sec>h2 .code.red{background:#e05a5a;box-shadow:0 2px 0 0 #b84040;}
+  .sec>h2 .code.gold{background:var(--gold);color:var(--gold-ink);box-shadow:0 2px 0 0 var(--gold-deep);}
+  .sec>p.note{margin:0 0 18px;font-size:12.5px;color:var(--ink-soft);font-weight:700;max-width:1500px;}
+  .frames{display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;}
+
+  .frame{width:1440px;flex:none;}
+  .frame.sm{width:560px;}
+  .fhead{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;padding:0 2px;}
+  .fhead .fc{flex:none;background:#2c2722;color:#ffd76a;border-radius:8px;padding:1px 8px;font-size:11px;font-weight:900;letter-spacing:.4px;}
+  .fhead b{font-size:13.5px;color:var(--ink);font-weight:800;}
+  .fhead span{font-size:11px;color:var(--ink-soft);font-weight:700;}
+  .fnote{margin-top:9px;padding:0 4px;font-size:11.5px;line-height:1.6;color:#8a7b66;font-weight:700;max-width:1440px;}
+  .fnote b{color:var(--ink);}
+
+  /* ===== full desktop screen 1440×810 ===== */
+  .scr{position:relative;width:1440px;height:810px;background:var(--bg);border:2px solid #d9d0ba;border-radius:26px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 14px 34px -20px #5a3c2055;}
+  .appbar{flex:none;display:flex;align-items:center;gap:13px;padding:13px 28px;background:var(--paper);border-bottom:2px solid var(--line);z-index:5;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .mk{position:relative;width:40px;height:40px;flex:none;}
+  .brand .mk img.t{width:40px;height:40px;display:block;}
+  .brand .mk img.f{position:absolute;left:-8px;bottom:-6px;width:24px;height:24px;transform:scaleX(-1);}
+  .brand .tt{display:flex;flex-direction:column;line-height:1.05;}
+  .brand .tt .ja{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:19px;color:var(--ink);}
+  .brand .tt .en{font-size:10.5px;font-weight:800;letter-spacing:1.5px;color:var(--teal);}
+  .grow{flex:1;}
+  .hbtn{display:inline-flex;align-items:center;gap:7px;background:var(--paper);color:var(--ink);border:2px solid var(--line);font-family:inherit;font-weight:800;font-size:13.5px;padding:8px 14px;border-radius:var(--pill);box-shadow:0 3px 0 0 #bdaea0;}
+  .hbtn svg{width:15px;height:15px;}
+  .ava{width:38px;height:38px;border-radius:50%;background:var(--teal);border:2px solid #fff;box-shadow:0 3px 8px -3px var(--teal);flex:none;}
+
+  .scroll{flex:1;overflow:hidden;position:relative;min-height:0;}
+  .wrap{max-width:760px;margin:0 auto;padding:26px 24px 8px;height:100%;display:flex;flex-direction:column;}
+  .wrap.bottom{justify-content:flex-end;}
+  .wrap.top{justify-content:flex-start;}
+  .wrap.center{justify-content:center;}
+  .thread{display:flex;flex-direction:column;gap:16px;}
+
+  .dock{flex:none;background:linear-gradient(transparent,var(--bg) 26%);padding:8px 24px 16px;position:relative;z-index:6;}
+  .dock .di{max-width:760px;margin:0 auto;}
+  .chint{text-align:center;font-size:11px;color:var(--ink-soft);margin:7px 0 0;font-weight:600;}
+  .chint.err{color:#c94444;font-weight:800;}
+
+  /* banner (A5) */
+  .banner{flex:none;display:flex;align-items:center;gap:9px;background:#fdeeee;border:2px solid #f2c4c4;color:#c94444;border-radius:14px;padding:10px 14px;font-size:12.5px;font-weight:800;margin:12px auto 0;width:712px;z-index:5;}
+  .banner button{margin-left:auto;border:none;background:#c94444;color:#fff;font-family:inherit;font-weight:800;font-size:11.5px;border-radius:50px;padding:6px 12px;box-shadow:0 2px 0 0 #a03434;}
+
+  /* ===== chat pieces (1:1 demo) ===== */
+  .row{display:flex;gap:11px;align-items:flex-start;}
+  .row.me{justify-content:flex-end;}
+  .fava{width:38px;height:38px;border-radius:50%;background:var(--teal-bg);border:2px solid #cdeee8;flex:none;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .fava img{width:34px;height:34px;}
+  .bub{max-width:78%;padding:13px 17px;border-radius:20px;font-size:15.5px;line-height:1.62;font-weight:500;}
+  .bub.a{background:var(--content);border:2px solid var(--line);border-top-left-radius:6px;color:var(--ink-body);}
+  .bub.me{background:var(--teal);color:#073f3a;border-top-right-radius:6px;font-weight:600;box-shadow:0 4px 0 0 var(--teal-deep);}
+  .bub b{color:var(--ink);} .bub.me b{color:#052b27;}
+  .from-home{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:800;color:var(--ink-soft);margin-bottom:6px;justify-content:flex-end;}
+  .from-home svg{width:13px;height:13px;}
+  .acol{display:flex;flex-direction:column;min-width:0;flex:1;max-width:86%;}
+  .acol .bub{max-width:100%;}
+
+  /* empty hero */
+  .empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;}
+  .empty .gfox{width:108px;height:108px;filter:drop-shadow(0 8px 10px #6b563a26);}
+  .empty h1{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:27px;color:var(--ink);margin:0;letter-spacing:.5px;}
+  .lead-bub{background:var(--content);border:2px solid var(--line);border-radius:20px;border-top-left-radius:6px;padding:13px 18px;font-size:15px;line-height:1.6;color:var(--ink-body);font-weight:500;max-width:33em;}
+  .sglabel{font-size:12px;font-weight:800;color:var(--ink-soft);}
+  .chips2{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:580px;}
+  .chip2{display:inline-flex;align-items:center;gap:8px;border-radius:var(--pill);padding:10px 17px;font-weight:800;font-size:14px;border:2px solid transparent;}
+  .chip2.work{background:var(--paper);border-color:var(--line);color:var(--ink);box-shadow:0 3px 0 0 #e0d8c8;}
+  .chip2.green{background:#e7f4dd;color:#4e7a2c;border-color:#d4ebbf;box-shadow:0 3px 0 0 #cfe4b4;}
+  .chip2.teal{background:var(--teal-bg);color:#0e7c72;border-color:#bfeae3;box-shadow:0 3px 0 0 #b6e0d8;}
+  .chip2.orange{background:#fdf1cf;color:#a8801a;border-color:#f6e3a6;box-shadow:0 3px 0 0 #efd98f;}
+
+  /* thinking */
+  .think{display:flex;flex-direction:column;gap:10px;}
+  .think .dots{display:flex;gap:6px;align-items:center;}
+  .think .dots i{width:9px;height:9px;border-radius:50%;background:var(--teal);opacity:.3;animation:blink 1.1s infinite;}
+  .think .dots i:nth-child(2){animation-delay:.16s;} .think .dots i:nth-child(3){animation-delay:.32s;}
+  @keyframes blink{0%,100%{opacity:.25;transform:translateY(0);}50%{opacity:1;transform:translateY(-3px);}}
+  .foxsub{font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .foxsub b{color:#0e7c72;font-variant-numeric:tabular-nums;}
+  .steps{display:flex;flex-direction:column;gap:8px;margin-top:1px;}
+  .step{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:700;color:var(--ink-soft);flex-wrap:wrap;}
+  .step .tick{width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;background:#f0ece2;border:2px solid var(--line);}
+  .step .tick svg{width:12px;height:12px;opacity:0;}
+  .step.done{color:var(--ink-body);} .step.done .tick{background:var(--teal);border-color:var(--teal);} .step.done .tick svg{opacity:1;color:#fff;}
+  .step.now{color:var(--ink);} .step.now .tick{background:var(--teal-bg);border-color:var(--teal);}
+  .step.now .tick::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--teal);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{transform:scale(.7);opacity:.6;}50%{transform:scale(1);opacity:1;}}
+  .srcb{font-size:10px;font-weight:900;letter-spacing:.4px;color:#8a7b66;background:#f0ece2;border-radius:50px;padding:1px 8px;}
+  .emo{margin-top:4px;border-radius:14px;padding:14px 16px;color:#fff;background:linear-gradient(135deg,#5a6e8f,#b87f7a 60%,#e8b87a);box-shadow:0 10px 22px -14px #5a3c2088;}
+  .emo q{display:block;quotes:none;font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:14.5px;line-height:1.75;text-shadow:0 1px 3px #00000055;}
+  .emo span{display:block;margin-top:6px;opacity:.9;font-size:11px;font-weight:800;text-align:right;}
+  .fpline{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12.5px;font-weight:800;color:var(--ink-body);}
+  .fpline .ok{color:#0e7c72;}
+  .fpline .sec2{color:var(--ink);font-variant-numeric:tabular-nums;}
+  .fpline button{border:none;background:none;font-family:inherit;font-weight:800;font-size:12px;color:#0e7c72;padding:2px 4px;}
+
+  /* generated cards */
+  .gcard{margin-top:12px;background:var(--paper);border:2px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 14px 30px -20px #5a3c2066;}
+  .gcard:first-child{margin-top:0;}
+  .gh{display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:2px solid var(--line);background:linear-gradient(180deg,#ffffff55,#00000005);}
+  .gh svg.mi{width:16px;height:16px;color:var(--ink);flex:none;}
+  .gh b{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:15.5px;color:var(--ink);}
+  .gh .chip{margin-left:auto;font-size:11px;font-weight:800;color:#0e7c72;background:var(--teal-bg);border-radius:50px;padding:3px 10px;white-space:nowrap;}
+  .srow{display:flex;align-items:center;gap:10px;padding:8px 13px;}
+  .srow+.srow{border-top:1px dashed var(--line2);}
+  .srow .pcb{width:22px;height:22px;border-radius:7px;border:2px solid var(--line2);background:var(--paper);flex:none;display:flex;align-items:center;justify-content:center;}
+  .srow .pcb svg{width:12px;height:12px;color:#fff;opacity:0;}
+  .srow.on .pcb{background:var(--teal);border-color:var(--teal);box-shadow:0 2px 0 0 var(--teal-deep);}
+  .srow.on .pcb svg{opacity:1;}
+  .srow .sth{width:70px;aspect-ratio:16/9;border-radius:9px;flex:none;border:2px solid var(--line);position:relative;overflow:hidden;}
+  .srow .sth i{position:absolute;left:4px;bottom:3px;font-style:normal;font-size:8px;font-weight:900;color:#fff;background:#00000055;border-radius:6px;padding:1px 5px;letter-spacing:.3px;}
+  .srow .sn2{flex:1;min-width:0;font-weight:800;color:var(--ink);font-size:13.5px;line-height:1.35;}
+  .srow .sn2 span{display:block;font-size:10.5px;color:var(--ink-soft);font-weight:700;}
+  .srow .pt{font-size:10.5px;color:var(--ink-soft);font-weight:800;white-space:nowrap;text-align:right;line-height:1.5;}
+  .srow .pt .ph{color:#0e7c72;}
+  .gfoot{display:flex;align-items:center;gap:10px;padding:10px 13px;border-top:2px solid var(--line);}
+  .gfoot .lnk{border:none;background:none;font-family:inherit;font-weight:800;font-size:12.5px;color:#0e7c72;padding:3px 2px;}
+  .gfoot .cnt2{margin-left:auto;font-size:11px;font-weight:900;color:var(--ink-soft);}
+
+  /* photo-grid spot cards */
+  .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:12px 13px;}
+  .pcell .cov{position:relative;aspect-ratio:16/9;border-radius:12px;border:2px solid var(--line);overflow:hidden;display:block;}
+  .pcell .cov i.cut{position:absolute;left:7px;bottom:6px;font-style:normal;font-size:9px;font-weight:900;color:#fff;background:#00000066;border-radius:6px;padding:1px 7px;letter-spacing:.3px;}
+  .pcell .ck{position:absolute;top:9px;left:9px;width:22px;height:22px;border-radius:8px;background:rgb(247,243,223);border:2.5px solid #c4b89e;display:flex;align-items:center;justify-content:center;z-index:2;}
+  .pcell .ck svg{width:13px;height:13px;color:#fff;opacity:0;}
+  .pcell.on .ck{background:var(--teal);border-color:#11a89b;}
+  .pcell.on .ck svg{opacity:1;}
+  .pcell.on .cov{border-color:var(--teal);}
+  .pcell .pht{position:absolute;top:8px;right:8px;font-size:8.5px;font-weight:900;background:#fffdf5d9;color:#0e7c72;border-radius:50px;padding:2px 7px;z-index:2;font-style:normal;}
+  .pcell .pnm{margin-top:6px;font-size:12.5px;font-weight:800;color:var(--ink);line-height:1.35;}
+  .pcell .pnm span{display:block;font-size:10px;color:var(--ink-soft);font-weight:700;}
+  .pcell .ploc{margin-top:3px;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--ink-soft);}
+  .pcell .ploc .area{height:20px;display:inline-flex;align-items:center;padding:0 9px;font-size:10.5px;font-weight:600;border-radius:999px;border:1.5px solid #c4b89e;color:#8f734f;}
+  .pcell .ploc svg{width:11px;height:11px;flex:none;color:#0e7c72;}
+
+  /* map card */
+  .mstage{position:relative;height:210px;background:#ebe6d5;}
+  .mstage svg{display:block;width:100%;height:100%;}
+  .mpill{position:absolute;left:10px;bottom:10px;background:var(--gold);color:var(--gold-ink);font-size:11px;font-weight:900;border-radius:50px;padding:5px 12px;box-shadow:0 3px 0 0 var(--gold-deep);}
+  .mops{position:absolute;right:10px;top:10px;background:#fffdf5e6;color:var(--ink);border:2px solid var(--line);font-family:inherit;font-size:10.5px;font-weight:800;border-radius:50px;padding:5px 10px;box-shadow:0 2px 0 0 #bdaea0;}
+  .mnote{padding:8px 13px;font-size:10.5px;font-weight:700;color:var(--ink-soft);border-top:2px solid var(--line);display:flex;gap:11px;flex-wrap:wrap;}
+
+  /* TimedItinerary */
+  .itin{margin-top:12px;background:var(--paper);border:2px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 16px 34px -20px #5a3c2077;position:relative;}
+  .itin:first-child{margin-top:0;}
+  .itin.old{opacity:.55;}
+  .oldtag{position:absolute;top:10px;right:10px;background:#f0ece2;color:#8a7b66;border:1.5px solid #c4b89e;font-size:10px;font-weight:900;border-radius:50px;padding:2px 9px;z-index:3;}
+  .ieyebrow{padding:15px 17px 0;font-size:10.5px;letter-spacing:2.2px;font-weight:900;color:var(--ink-soft);}
+  .ititle{padding:3px 17px 0;font-weight:900;font-size:19.5px;color:var(--ink);}
+  .ititle .vbadge{font-size:10px;font-weight:900;background:#fdf1cf;color:#a8801a;border-radius:50px;padding:2px 8px;margin-left:6px;vertical-align:3px;white-space:nowrap;}
+  .imeta{display:flex;gap:6px;flex-wrap:wrap;padding:9px 17px 12px;border-bottom:2px solid var(--line);align-items:center;}
+  .ipill{font-size:10.5px;font-weight:900;border-radius:50px;padding:3px 10px;white-space:nowrap;}
+  .ipill.pace-slow{background:#e7f4dd;color:#4e7a2c;}
+  .ipill.pace-mid{background:#fde9d6;color:#b9682a;}
+  .ipill.pace-tight{background:#fdeeee;color:#c94444;}
+  .ipill.plain{background:#f0ece2;color:#7c6c55;}
+  .diffs{display:flex;gap:6px;flex-wrap:wrap;padding:10px 15px 0;}
+  .dchip{font-size:11px;font-weight:900;border-radius:50px;padding:3px 10px;white-space:nowrap;}
+  .dchip.add{background:#e7f4dd;color:#4e7a2c;border:1.5px solid #d4ebbf;}
+  .dchip.del{background:#fdeeee;color:#c94444;border:1.5px solid #f2c4c4;}
+  .itl{padding:12px 16px 4px;}
+  .irow{display:grid;grid-template-columns:44px 24px 1fr;column-gap:8px;}
+  .irow .tt2{font-weight:900;font-size:12.5px;color:var(--ink);padding-top:2px;font-variant-numeric:tabular-nums;text-align:right;}
+  .irow .trk{position:relative;display:flex;justify-content:center;}
+  .irow .trk::before{content:"";position:absolute;top:2px;bottom:-2px;width:0;border-left:2px dashed var(--line2);}
+  .irow.last .trk::before{bottom:auto;height:8px;}
+  .irow .trk .dot{width:13px;height:13px;border-radius:50%;background:var(--teal);border:2.5px solid #fffdf5;box-shadow:0 0 0 2px var(--teal);z-index:1;margin-top:3px;}
+  .irow .trk .dot.star{background:var(--star);box-shadow:0 0 0 2px var(--star);}
+  .irow .trk .dot.goal{background:var(--gold);box-shadow:0 0 0 2px var(--gold-deep);}
+  .irow .ct2{padding:0 0 12px;min-width:0;}
+  .ct2 .nm2{font-weight:800;font-size:14.5px;color:var(--ink);line-height:1.4;}
+  .nm2 .hstar{color:var(--star);}
+  .nm2 .cutTag{display:inline-block;background:#fdf1cf;color:#a8801a;font-size:10px;font-weight:900;border-radius:8px;padding:1px 7px;margin-left:5px;vertical-align:1px;white-space:nowrap;}
+  .nm2 .stych{font-size:11px;color:var(--ink-soft);font-weight:800;margin-left:6px;white-space:nowrap;}
+  .ct2 .snote{display:block;font-size:11.5px;color:var(--ink-soft);font-weight:700;margin-top:2px;}
+  .sthumb{display:block;width:150px;max-width:100%;aspect-ratio:16/9;border-radius:10px;margin-top:8px;position:relative;overflow:hidden;border:2px solid var(--line);}
+  .sthumb i{position:absolute;left:6px;bottom:5px;font-style:normal;font-size:8.5px;font-weight:900;color:#fff;background:#00000066;border-radius:6px;padding:1px 6px;letter-spacing:.3px;}
+  .irow.w .ct2{padding:2px 0 12px;}
+  .wpill{display:inline-flex;align-items:center;gap:6px;background:#e7f4dd;color:#4e7a2c;border-radius:50px;padding:4px 12px;font-size:11.5px;font-weight:800;}
+  .wpill svg{width:12px;height:12px;}
+  .ifoot{display:flex;gap:8px;padding:12px 13px;border-top:2px solid var(--line);flex-wrap:wrap;}
+  .rbtn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:none;font-family:inherit;font-weight:800;border-radius:var(--pill);padding:11px 16px;font-size:14px;}
+  .rbtn svg{width:15px;height:15px;}
+  .rbtn.gold{background:var(--gold);color:var(--gold-ink);box-shadow:0 4px 0 0 var(--gold-deep);flex:1;min-width:160px;}
+  .rbtn.ghost{background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;}
+  .rbtn.go{background:var(--teal);color:#fff;box-shadow:0 4px 0 0 var(--teal-deep);}
+
+  .fups{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px;align-items:center;}
+  .fup{border-radius:var(--pill);padding:9px 15px;font-family:inherit;font-weight:800;font-size:13px;background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;}
+  .fb{width:29px;height:29px;border-radius:50%;border:2px solid var(--line);background:var(--paper);color:var(--ink-soft);display:inline-flex;align-items:center;justify-content:center;}
+  .fb svg{width:13px;height:13px;}
+
+  .aclarify{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px;}
+  .cchip{display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;border-radius:16px;padding:9px 15px;font-family:inherit;font-weight:800;font-size:13.5px;background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;text-align:left;}
+  .cchip .cd{font-size:10px;color:var(--ink-soft);font-weight:700;}
+  .aclarify.used .cchip{opacity:.42;}
+  .aclarify.used .cchip.chosen{opacity:1;background:var(--teal);color:#fff;border-color:var(--teal);box-shadow:0 3px 0 0 var(--teal-deep);}
+  .aclarify.used .cchip.chosen .cd{color:#dcf7f2;}
+
+  .locbody{padding:13px 15px;display:flex;gap:12px;align-items:flex-start;}
+  .locbody .li{width:38px;height:38px;border-radius:13px;background:var(--teal-bg);border:2px solid #bfeae3;color:#0e7c72;display:flex;align-items:center;justify-content:center;flex:none;}
+  .locbody .li svg{width:19px;height:19px;}
+  .locbody p{margin:0;font-size:12.5px;line-height:1.65;font-weight:600;color:var(--ink-body);}
+  .locbody p b{color:var(--ink);}
+  .locacts{display:flex;gap:8px;padding:0 15px 13px;flex-wrap:wrap;}
+  .locok{background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 4px 0 0 #bdaea0;font-weight:800;font-family:inherit;border-radius:var(--pill);padding:10px 17px;font-size:13px;}
+  .localt{background:none;border:2px solid var(--line);color:var(--ink-body);font-weight:800;font-family:inherit;border-radius:var(--pill);padding:10px 15px;font-size:12.5px;}
+  .locgrant{display:flex;align-items:center;gap:9px;padding:12px 15px;font-size:12.5px;font-weight:800;color:#0e7c72;}
+  .locgrant svg{width:16px;height:16px;flex:none;}
+
+  .uattach{display:flex;align-items:center;gap:10px;margin-top:9px;background:#ffffff1f;border:1.5px dashed #ffffff70;border-radius:12px;padding:7px 9px;}
+  .uattach .uph{width:76px;aspect-ratio:16/9;border-radius:8px;flex:none;border:1.5px solid #ffffff80;position:relative;overflow:hidden;}
+  .uattach .um{font-size:11px;font-weight:800;line-height:1.45;}
+  .uattach .um span{display:block;font-size:10px;opacity:.82;font-weight:700;}
+  .cand{display:flex;align-items:center;gap:10px;padding:9px 13px;}
+  .cand+.cand{border-top:1px dashed var(--line2);}
+  .cand .cth{width:78px;aspect-ratio:16/9;border-radius:10px;flex:none;border:2px solid var(--line);position:relative;overflow:hidden;}
+  .cand .cb2{flex:1;min-width:0;}
+  .cand .cb2 b{display:block;font-size:13.5px;color:var(--ink);font-weight:800;}
+  .cand .cb2 span{font-size:10.5px;color:var(--ink-soft);font-weight:700;}
+  .mbar{display:flex;align-items:center;gap:7px;margin-top:4px;}
+  .mbar .tr{flex:1;max-width:130px;height:6px;border-radius:4px;background:var(--line);overflow:hidden;}
+  .mbar .tr i{display:block;height:100%;border-radius:4px;background:var(--teal);}
+  .mbar em{font-style:normal;font-size:10.5px;font-weight:900;color:#0e7c72;}
+  .cand .pick{flex:none;border:2px solid var(--line);background:var(--paper);color:var(--ink);font-family:inherit;font-weight:800;font-size:12px;border-radius:50px;padding:7px 12px;box-shadow:0 3px 0 0 #bdaea0;}
+  .cand.sel .pick{background:var(--teal);color:#fff;border-color:var(--teal);box-shadow:0 3px 0 0 var(--teal-deep);}
+  .cand.dim{opacity:.4;}
+  .sstrip{display:flex;gap:8px;padding:11px 13px 0;}
+  .sframe{flex:1;aspect-ratio:16/9;border-radius:12px;border:2px solid var(--line);position:relative;overflow:hidden;}
+  .sframe .tag{position:absolute;left:8px;bottom:7px;font-size:9.5px;font-weight:900;border-radius:50px;padding:2px 8px;background:#2c2722cc;color:#ffd76a;z-index:2;}
+  .sframe.real .tag{background:#fffdf5d9;color:#5a3c20;}
+  .cstage{position:relative;aspect-ratio:16/9;user-select:none;--x:52%;}
+  .cstage .lyr{position:absolute;inset:0;}
+  .cstage .lyr.ani{clip-path:inset(0 calc(100% - var(--x)) 0 0);z-index:1;}
+  .cstage .vbar{position:absolute;top:0;bottom:0;left:var(--x);width:3px;background:#fffdf5;box-shadow:0 0 0 1px #00000026;transform:translateX(-50%);z-index:3;}
+  .cstage .knob{position:absolute;top:50%;left:var(--x);transform:translate(-50%,-50%);width:38px;height:38px;border-radius:50%;background:#fffdf5;border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;display:flex;align-items:center;justify-content:center;color:var(--ink);font-weight:900;font-size:11px;z-index:4;}
+
+  .fcard{margin-top:12px;border-radius:18px;padding:15px 16px;display:flex;gap:12px;align-items:flex-start;}
+  .fcard:first-child{margin-top:0;}
+  .fcard img{width:54px;height:54px;flex:none;}
+  .fcard .fbx{flex:1;min-width:0;}
+  .fcard b.ft{font-family:"Zen Maru Gothic",sans-serif;font-size:15px;display:block;margin-bottom:3px;}
+  .fcard p{margin:0;font-size:13px;line-height:1.6;font-weight:600;}
+  .fcard.err{background:#fdeeee;border:2px solid #f2c4c4;color:#8c4a3c;}
+  .fcard.err b.ft{color:#c94444;}
+  .fcard.nores{background:#fcf8ec;border:2px dashed #c9bfa6;color:var(--ink-body);}
+  .fcard.nores b.ft{color:var(--ink);}
+  .facts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .fbtn{border:none;font-family:inherit;font-weight:800;font-size:12.5px;border-radius:50px;padding:8px 14px;}
+  .fbtn.p{background:var(--teal);color:#fff;box-shadow:0 3px 0 0 var(--teal-deep);}
+  .fbtn.g{background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;}
+
+  .sk{background:linear-gradient(110deg,#e6dfce 30%,#f3ecdb 50%,#e6dfce 70%);background-size:200% 100%;border-radius:6px;animation:shimmer 1.4s linear infinite;}
+  @keyframes shimmer{to{background-position:-200% 0;}}
+  .skline{height:11px;}
+
+  /* composer */
+  .composer{display:flex;align-items:center;gap:10px;background:var(--paper);border:2px solid var(--line);border-radius:var(--pill);padding:8px 8px 8px 18px;box-shadow:0 12px 28px -16px #5a3c2055;}
+  .composer.focus{border-color:var(--teal-bright);box-shadow:0 0 0 2.5px #ffcc00,0 12px 28px -16px #5a3c2055;}
+  .composer.busy{opacity:.75;}
+  .composer .att{width:36px;height:36px;border-radius:50%;border:none;background:var(--bg);color:var(--ink-soft);flex:none;display:flex;align-items:center;justify-content:center;}
+  .composer .att svg{width:18px;height:18px;}
+  .composer .ci{flex:1;border:none;outline:none;background:transparent;font-family:inherit;font-size:15.5px;color:var(--ink);min-width:0;font-weight:600;}
+  .composer .ci.phc{color:var(--ink-soft);font-weight:500;}
+  .composer .snd{width:42px;height:42px;border-radius:50%;border:none;background:#d8d0bf;color:#fff;flex:none;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 0 0 #c4bba6;}
+  .composer .snd.on{background:var(--orange);box-shadow:0 3px 0 0 var(--orange-deep);}
+  .composer .snd svg{width:17px;height:17px;}
+
+  .ctx{display:flex;align-items:center;gap:9px;background:var(--teal-bg);border:2px solid #bfeae3;border-radius:14px;padding:8px 12px;margin-bottom:9px;font-size:12.5px;font-weight:800;color:#0e7c72;}
+  .ctx svg{width:14px;height:14px;flex:none;}
+  .ctx .cxx{margin-left:auto;width:24px;height:24px;border-radius:50%;border:none;background:#fffdf5;color:var(--ink-soft);font-size:14px;line-height:1;font-family:inherit;}
+  .rebar{display:flex;align-items:center;gap:10px;background:var(--paper);border:2px solid var(--gold);border-radius:16px;padding:9px 10px 9px 14px;box-shadow:0 8px 20px -12px #5a3c2055;font-weight:800;font-size:12.5px;color:var(--ink);margin-bottom:9px;}
+  .rebar .rc{flex:1;}
+  .rebar .rc span{color:var(--ink-soft);font-size:11px;font-weight:700;display:block;}
+  .rebar button{border:none;font-family:inherit;font-weight:800;font-size:12.5px;border-radius:50px;padding:9px 15px;background:var(--gold);color:var(--gold-ink);box-shadow:0 3px 0 0 var(--gold-deep);}
+
+  /* modal overlays */
+  .mdim{position:absolute;inset:0;background:rgba(61,52,40,.46);backdrop-filter:blur(2px);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .authcard{width:404px;background:var(--paper);border:2px solid var(--line);border-radius:44px 38px 46px 36px / 40px 46px 36px 44px;padding:28px 30px 24px;box-shadow:0 50px 90px -34px #3d342899;text-align:center;position:relative;}
+  .authcard .x{position:absolute;top:13px;right:15px;width:34px;height:34px;border-radius:50%;border:none;background:var(--bg);color:var(--ink-soft);font-size:20px;}
+  .authcard img{width:88px;height:88px;margin:-2px auto 4px;display:block;}
+  .authcard h2{font-family:"Zen Maru Gothic",sans-serif;font-size:21px;color:var(--ink);margin:0 0 6px;}
+  .authcard p{font-size:13.5px;line-height:1.6;color:var(--ink-body);margin:0 0 17px;}
+  .authcard b{color:var(--ink);}
+  .authcard .field{display:flex;align-items:center;gap:10px;background:var(--bg);border:2.5px solid var(--line);border-radius:15px;padding:12px 14px;margin-bottom:12px;font-size:15px;color:var(--ink-soft);text-align:left;}
+  .authcard .field svg{width:19px;height:19px;flex:none;}
+  .authcard .big{width:100%;padding:14px;border-radius:50px;border:none;font-family:inherit;font-weight:800;font-size:15.5px;background:#ffcc00;color:#5c4813;box-shadow:0 4px 0 0 #d8ad00;}
+  .authcard .or{display:flex;align-items:center;gap:12px;margin:15px 0;color:var(--ink-soft);font-size:12px;font-weight:700;}
+  .authcard .or span{flex:1;height:1px;background:var(--line);}
+  .authcard .guest{width:100%;padding:12px;border-radius:15px;font-family:inherit;font-weight:800;font-size:14.5px;background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;}
+  .authcard .note{font-size:11.5px;color:var(--ink-soft);margin:13px 0 0;line-height:1.5;}
+
+  /* E4 shiori modal */
+  .shioriwrap{display:flex;gap:26px;align-items:center;}
+  .shiori{width:270px;aspect-ratio:9/16;border-radius:20px;overflow:hidden;box-shadow:0 30px 60px -24px #000000aa;border:3px solid #fffdf5;position:relative;display:flex;flex-direction:column;flex:none;}
+  .shiori .cov{flex:1.15;position:relative;background:linear-gradient(160deg,#5a6e8f,#b87f7a 62%,#e8b87a);}
+  .shiori .cov .ttl{position:absolute;left:16px;bottom:14px;color:#fff;text-shadow:0 2px 6px #00000088;}
+  .shiori .cov .ttl b{display:block;font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:19px;}
+  .shiori .cov .ttl span{font-size:11px;font-weight:800;opacity:.95;}
+  .shiori .cov .brand2{position:absolute;right:12px;top:12px;display:flex;align-items:center;gap:5px;background:#00000055;border-radius:50px;padding:3px 9px;color:#fff;font-size:9.5px;font-weight:900;letter-spacing:.6px;}
+  .shiori .list{flex:1;background:#fffdf5;padding:12px 16px 8px;}
+  .shiori .li2{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;color:#5a3c20;padding:3px 0;}
+  .shiori .li2 .tm{font-variant-numeric:tabular-nums;color:#9f927d;font-weight:900;width:38px;}
+  .shiori .li2 .ok2{margin-left:auto;color:#11a89b;font-weight:900;}
+  .shiori .foot2{background:#fffdf5;border-top:2px dashed #e8e2d6;padding:9px 16px 12px;display:flex;align-items:center;justify-content:space-between;font-size:10.5px;font-weight:900;color:#9f927d;}
+  .shiori .foot2 b{color:#a8801a;}
+  .shioriacts{display:flex;flex-direction:column;gap:10px;min-width:230px;}
+  .shioriacts .rbtn{width:100%;}
+  .shioriacts p{margin:4px 0 0;font-size:11.5px;font-weight:700;color:#f3ead8;line-height:1.6;text-align:center;}
+
+  /* SP takeover */
+  .sptk{flex:1;display:flex;flex-direction:column;min-height:0;background:var(--bg);}
+  .sph2{flex:none;display:flex;align-items:center;gap:13px;padding:14px 28px 10px;}
+  .sph2 .back{width:42px;height:42px;border-radius:50%;border:2px solid var(--line);background:var(--paper);color:var(--ink);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 0 0 #bdaea0;flex:none;}
+  .sph2 .back svg{width:17px;height:17px;}
+  .sph2 .t{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:18px;color:var(--ink);}
+  .sph2 .t span{display:block;font-family:"Nunito","Noto Sans SC",sans-serif;font-size:11px;font-weight:800;color:var(--ink-soft);}
+  .sph2 .srch{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:9px 16px;font-size:12.5px;font-weight:700;color:var(--ink-soft);width:280px;}
+  .sph2 .srch svg{width:15px;height:15px;flex:none;}
+  .sptools2{flex:none;display:flex;gap:9px;padding:2px 28px 12px;align-items:center;border-bottom:2px solid var(--line);}
+  .seg{display:inline-flex;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:3px;box-shadow:0 3px 0 0 #bdaea0;}
+  .seg button{border:none;background:none;font-family:inherit;font-weight:800;font-size:11.5px;color:var(--ink-soft);border-radius:50px;padding:6px 13px;}
+  .seg button.on{background:var(--teal);color:#fff;}
+  .ptog{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;color:var(--ink-body);background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:7px 13px;box-shadow:0 3px 0 0 #bdaea0;}
+  .ptog .sw{width:28px;height:16px;border-radius:50px;background:#d8d0bf;position:relative;}
+  .ptog .sw::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;}
+  .ptog.on .sw{background:var(--teal);}
+  .ptog.on .sw::after{left:14px;}
+  .spbody{flex:1;display:grid;grid-template-columns:600px 1fr;min-height:0;}
+  .splist2{overflow:hidden;padding:4px 12px 4px 24px;border-right:2px solid var(--line);position:relative;}
+  .splist2::after{content:"";position:absolute;left:0;right:0;bottom:0;height:44px;background:linear-gradient(transparent,var(--bg));}
+  .spgh{font-size:10.5px;font-weight:900;letter-spacing:.6px;color:var(--ink-soft);padding:12px 9px 4px;}
+  .splist2 .srow{border-radius:13px;padding:9px 12px;}
+  .splist2 .srow+.srow{border-top:none;}
+  .splist2 .srow.hov{background:#00000008;}
+  .spmap2{position:relative;background:#ebe6d5;}
+  .sptray2{flex:none;background:var(--paper);border-top:2px solid var(--line);padding:11px 28px 15px;display:flex;flex-direction:column;gap:9px;}
+  .traychips{display:flex;gap:7px;overflow:hidden;align-items:center;}
+  .tchip{flex:none;display:inline-flex;align-items:center;gap:6px;background:var(--teal-bg);border:1.5px solid #bfeae3;color:#0e7c72;font-size:11px;font-weight:800;border-radius:50px;padding:4px 11px;white-space:nowrap;}
+  .tchip .hdl{color:#8fcabf;font-weight:900;letter-spacing:-1px;}
+  .tchip b{font-weight:900;}
+  .trayrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .ordseg{display:inline-flex;background:var(--bg);border:2px solid var(--line);border-radius:50px;padding:2px;}
+  .ordseg button{border:none;background:none;font-family:inherit;font-weight:800;font-size:10.5px;color:var(--ink-soft);border-radius:50px;padding:6px 11px;}
+  .ordseg button.on{background:var(--teal);color:#fff;}
+  .ordnote{font-size:10.5px;font-weight:800;color:#b9682a;}
+  .gen2{margin-left:auto;min-width:240px;}
+
+  /* workbench (F) */
+  .wbwrap{flex:1;display:grid;grid-template-columns:440px 1fr;min-height:0;}
+  .wbleft{border-right:2px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--bg);}
+  .wbl-scroll{flex:1;overflow:hidden;padding:18px 18px 6px;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;}
+  .wbl-scroll.center{justify-content:center;}
+  .wbl-dock{flex:none;padding:6px 16px 16px;}
+  .wbright{padding:18px 22px;overflow:hidden;display:flex;flex-direction:column;gap:14px;background:var(--paper);min-height:0;}
+  .dashbox{flex:1;border:2.5px dashed #c9bfa6;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--ink-soft);font-weight:700;font-size:13px;text-align:center;padding:20px;}
+  .dashbox svg{width:34px;height:34px;opacity:.6;}
+  .itl2{display:grid;grid-template-columns:1fr 1fr;column-gap:26px;padding:12px 16px 4px;}
+  .alink{color:#0e7c72;font-weight:800;text-decoration:underline;text-underline-offset:3px;}
+  .ring{box-shadow:0 0 0 2.5px var(--teal),0 16px 34px -20px #5a3c2077 !important;}
+  .qrbox{display:flex;gap:16px;align-items:center;}
+  .qrbox svg{width:118px;height:118px;flex:none;background:#fff;border:2px solid var(--line);border-radius:12px;padding:7px;}
+  .minipane{border:2px solid var(--line);border-radius:14px;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;}
+  .minipane .mlabel{font-size:10px;font-weight:900;color:var(--ink-soft);letter-spacing:.5px;padding:6px 9px;background:var(--paper);border-bottom:1.5px solid var(--line);}
+</style>
+</head>
+<body>
+
+<div class="canvas-head">
+  <img class="torii" src="assets/torii.svg" alt="">
+  <div>
+    <h1>Chat 状態総覧 — 每态一张完整桌面屏（1440×810 · 16:9）</h1>
+    <p>依据 <a href="docs/spec-chat-page-states.md">44態 spec</a> + <a href="docs/user-journey.md">user-journey.md §5/§6.9</a> · 分组：A 進入 / B 回合等待 / C 内容形態 / D 異常 / E 交互過程 / SP 選点工作台 / F Phase2 双栏 / G 输入区 · 内容主线『君の名は。』×飛騨古川 · <b>每帧＝完整屏幕</b>：appbar + 760px thread + composer dock 全部在位，字号与 demo 逐像素一致；帧图媒体 16:9 真比例 · 高度超出 810 的内容按真实视口裁切（等同实际滚动位置）</p>
+  </div>
+  <div class="toplinks">
+    <a class="gold" href="Chat 完整状态.html">▸ 可点 demo（桌面）</a>
+    <a href="Chat 完整状态.html?m=1">可点 demo（手机壳）</a>
+    <a href="前端全景 - Journey Hub.dc.html">← Journey Hub</a>
+  </div>
+</div>
+
+<div class="flowbar">
+  <b>正順主線</b>
+  <span class="fpl"><i>A2</i>検索で入る</span><span class="arr">→</span>
+  <span class="fpl"><i>C2g</i>圏をえらぶ</span><span class="arr">→</span>
+  <span class="fpl hl"><i>C3a</i>カットを見て選ぶ（勾选）</span><span class="arr">→</span>
+  <span class="fpl hl"><i>C2t</i>出発はどこから・何時？</span><span class="arr">→</span>
+  <span class="fpl gd"><i>C5</i>ルート誕生（TimedItinerary）</span><span class="arr">→</span>
+  <span class="fpl"><i>E2</i>選び直し→再計算</span><span class="arr">→</span>
+  <span class="fpl"><i>E4</i>しおり</span>
+  <span class="expl">ルートは勝手には出ない —— 標準は「選ぶ → 前提を聞く → 組む」。ユーザーが最初から条件を全部言った場合（「飛騨を半日、駅から9時半発で」）のみ agent が一気に C5 まで走る（B 列の足跡行はその例）。聞き返しのスキップ規則＝C2g と同じ。</span>
+</div>
+
+<section class="sec">
+  <h2><span class="code">A</span>ページ級 — 怎么进来的</h2>
+  <p class="note">五种进入方式。落地第一眼决定「这是活的产品还是坏的产品」。</p>
+  <div class="frames" id="secA"></div>
+</section>
+
+<section class="sec">
+  <h2><span class="code">B</span>回合級 — 分級等待（J6 流式反馈）</h2>
+  <p class="note">等待按时长升级仪式感：&lt;1s 只有 typing → 1–4s 管线+数据源徽章+狐狸计数 → ≥4s 情绪卡 → settled 折叠成足迹行。<b>纯文字回合永不出管线</b>。运行中 composer 可输入不可发送（G4）。</p>
+  <div class="frames" id="secB"></div>
+</section>
+
+<section class="sec">
+  <h2><span class="code">C</span>内容形態 — settled 渲染什么（按正順主線排列）</h2>
+  <p class="note">C1 纯气泡 → C2/C2g/C2t 聞き返し → C3a 看图选点 → C5 路线诞生；C3b 圏総覧与 C4 位置許可是支线。</p>
+  <div class="frames" id="secC"></div>
+</section>
+
+<section class="sec">
+  <h2><span class="code red">D</span>異常と边界 — 9 態全兜底 · 永不裸错误</h2>
+  <p class="note">错误说人话，不暴露技术；已渲染内容永远保留；每个失败都有出口。</p>
+  <div class="frames" id="secD"></div>
+</section>
+
+<section class="sec">
+  <h2><span class="code">E</span>交互過程態 — 活文档</h2>
+  <p class="note">流即历史：追问出新卡、旧卡降「以前の版」；勾选重排走旁路（没经过 agent 的事不演 agent 的戏）；E4 しおり模态收口。</p>
+  <div class="frames" id="secE"></div>
+</section>
+
+<section class="sec">
+  <h2><span class="code gold">SP</span>選点工作台 — 全屏 takeover（「すべて見る」から）</h2>
+  <p class="note">07-03 已升级并另开定稿画布：<b>地図常駐工作台</b>（上游 Drawer「下沉景深」进入 · 地图常驻右侧 · 左栏随阶段换内容 · 恒定密度）。本组旧帧废弃，形态一律以新画布为准。</p>
+  <div class="frames" id="secSP"></div>
+</section>
+
+<section class="sec">
+  <h2><span class="code">F</span>Phase 2 · 双栏工作台（V1）— 设计先行</h2>
+  <p class="note">实装排期在环闭合后。同一套 generative 组件换挂载点：左对话退为旁白，右栏＝海报级路线卡+地图的「活文档」。</p>
+  <div class="frames" id="secF"></div>
+</section>
+
+<section class="sec">
+  <h2><span class="code">G</span>輸入区五態 + 登录墙（P5）</h2>
+  <p class="note">输入区正交贯穿所有层。G3 发送键激活=explore 橙（spec G3）；登录墙只立在「保存」这一刻。</p>
+  <div class="frames" id="secG"></div>
+</section>
+
+<script>
+(function(){
+  /* ============ data ============ */
+  var SPOTS={
+    st:{n:'飛騨古川駅',cut:'第1話 04:12',cuts:12,area:'駅周辺',dist:'駅すぐ',stay:15,d:'跨線橋からホームを俯瞰する名カット',g:'linear-gradient(135deg,#cfe3f7,#98b8dc)',photo:1,thumb:1},
+    seto:{n:'瀬戸川と白壁土蔵街',cut:'第1話 05:30',cuts:9,area:'駅周辺',dist:'駅から徒歩5分',stay:15,d:'鯉の泳ぐ用水路ぞいの街並み',g:'linear-gradient(135deg,#d9ecec,#a9cfd1)',photo:1},
+    aji:{n:'味処古川',cut:'五平餅',cuts:4,area:'駅周辺',dist:'駅から徒歩4分',stay:30,d:'テッシー行きつけ · 五平餅で早めの昼',g:'linear-gradient(135deg,#f5dccf,#e0b294)',photo:1},
+    keta:{n:'気多若宮神社',cut:'第8話 41:12',cuts:18,area:'高台',dist:'駅から徒歩13分',stay:20,d:'石段と鳥居 · 「糸守」のモデルのひとつ',g:'linear-gradient(135deg,#d7eccf,#a8cf8e)',photo:1,star:1,thumb:1},
+    lib:{n:'飛騨市図書館',cut:'第8話 43:05',cuts:7,area:'市街',dist:'駅から徒歩9分',stay:15,d:'「糸守」を調べた閲覧室 · 撮影は受付で許可制',g:'linear-gradient(135deg,#dfd6f0,#b7a8dd)',photo:1},
+    sak:{n:'さくら物産館',cut:'組紐',cuts:3,area:'市街',dist:'駅から徒歩11分',stay:30,d:'三葉の組紐体験ができる',g:'linear-gradient(135deg,#fbe3ea,#eeb3c6)',photo:0},
+    cafe:{n:'壱之町珈琲店',cut:'カフェ',cuts:2,area:'市街',dist:'駅から徒歩8分',stay:35,d:'古民家カフェでひと休み',g:'linear-gradient(135deg,#ead9c6,#cbb094)',photo:0}
+  };
+  var WALK={'st>aji':[4,'瀬戸川沿いを歩く'],'aji>keta':[9,'白壁土蔵街を抜ける'],'keta>lib':[7,'市街へ下る'],'lib>sak':[6,''],'keta>sak':[10,''],'sak>cafe':[3,'']};
+  var CANON=['st','aji','keta','lib','sak'];
+  var FOX={think:'assets/fox/fox-thinking.svg',guide:'assets/fox/fox-guide.svg',oops:'assets/fox/fox-oops.svg',curious:'assets/fox/fox-curious.svg',welcome:'assets/fox/fox-welcome.svg'};
+  var WALK_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="1.8"/><path d="M12.5 8.5 10 12l2.5 3v5"/><path d="M10 12l-2.5 1.5M12.5 8.5l3 1 2 2.5M12.5 15l3 2 .5 4"/></svg>';
+  var TICK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>';
+  var MAPI='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>';
+
+  function fmt(min){ var h=Math.floor(min/60),m=min%60; return h+':'+(m<10?'0'+m:m); }
+  function buildItin(ids,opts){
+    opts=opts||{};
+    var pace=opts.pace||'mid', t=(opts.startMin!=null?opts.startMin:570), rows=[], walkTot=0;
+    for(var i=0;i<ids.length;i++){
+      var s=SPOTS[ids[i]];
+      var stay=(pace==='slow')?(s.stay+10):s.stay;
+      rows.push({type:'s',t:fmt(t),s:s,stay:stay,star:!!s.star});
+      t+=stay;
+      if(i<ids.length-1){
+        var w=WALK[ids[i]+'>'+ids[i+1]]||[6,''];
+        rows.push({type:'w',min:w[0],note:w[1]});
+        t+=w[0]; walkTot+=w[0];
+      }
+    }
+    return {rows:rows,end:fmt(t),start:fmt(opts.startMin!=null?opts.startMin:570),walk:walkTot,km:(walkTot*0.075).toFixed(1),n:ids.length,pace:pace,
+      title:opts.title||'飛騨古川 半日ルート',eyebrow:opts.eyebrow||'HIDA-FURUKAWA · HALF-DAY ROUTE'};
+  }
+  var PACE={slow:['ゆったり','pace-slow'],mid:['ふつう','pace-mid'],tight:['ぎっしり','pace-tight']};
+  function itinHTML(it,opts){
+    opts=opts||{};
+    var h='<div class="itin'+(opts.old?' old':'')+(opts.ring?' ring':'')+'">';
+    if(opts.old) h+='<span class="oldtag">以前の版</span>';
+    h+='<div class="ieyebrow">'+it.eyebrow+'</div><div class="ititle">'+it.title+(opts.v2?'<span class="vbadge">更新版</span>':'')+'</div>';
+    var p=PACE[it.pace]||PACE.mid;
+    h+='<div class="imeta"><span class="ipill '+p[1]+'">'+p[0]+'</span><span class="ipill plain">'+it.n+'スポット</span><span class="ipill plain">徒歩'+it.walk+'分 · '+it.km+'km</span><span class="ipill plain">'+it.start+' → '+it.end+'</span></div>';
+    if(opts.diffs){ h+='<div class="diffs">'; opts.diffs.forEach(function(d){ h+='<span class="dchip '+d[0]+'">'+(d[0]==='add'?'+ ':'− ')+d[1]+'</span>'; }); h+='</div>'; }
+    h+='<div class="itl">';
+    var short=opts.short;
+    it.rows.forEach(function(r,i){
+      if(short&&i>4) return;
+      if(r.type==='w'){
+        h+='<div class="irow w"><span class="tt2"></span><span class="trk"></span><span class="ct2"><span class="wpill">'+WALK_SVG+'徒歩'+r.min+'分'+(r.note?' · '+r.note:'')+'</span></span></div>';
+      }else{
+        h+='<div class="irow"><span class="tt2">'+r.t+'</span><span class="trk"><i class="dot'+(r.star?' star':'')+'"></i></span><span class="ct2">'
+          +'<span class="nm2">'+r.s.n+(r.star?' <b class="hstar">★</b>':'')+'<span class="cutTag">'+r.s.cut+'</span><span class="stych">'+r.stay+'分滞在</span></span>'
+          +(r.s.d&&!opts.mini?'<span class="snote">'+r.s.d+'</span>':'')
+          +(r.s.thumb&&!opts.mini?'<span class="sthumb" style="background:'+r.s.g+';"><i>'+r.s.cut+' のカット · 参考帧</i></span>':'')
+          +'</span></div>';
+      }
+    });
+    if(short) h+='<div class="irow w"><span class="tt2"></span><span class="trk"></span><span class="ct2"><span style="font-size:11px;font-weight:800;color:var(--ink-soft);">… 以下略</span></span></div>';
+    h+='<div class="irow last"><span class="tt2">'+it.end+'</span><span class="trk"><i class="dot goal"></i></span><span class="ct2"><span class="nm2" style="color:#a8801a;">ゴール</span></span></div></div>';
+    if(!opts.noFoot){
+      h+='<div class="ifoot"><button class="rbtn gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/><path d="M12 8v5M9.5 10.5h5"/></svg>しおりにして共有</button>'
+        +'<button class="rbtn ghost">Mapsで開く</button><button class="rbtn ghost">保存する</button><button class="rbtn ghost">歩くモード</button></div>';
+    }
+    return h+'</div>';
+  }
+  function itinSkelHTML(){
+    var rows='';
+    for(var i=0;i<4;i++) rows+='<div style="display:flex;gap:10px;align-items:center;margin:12px 0;"><span class="sk" style="width:34px;height:11px;"></span><span class="sk" style="width:13px;height:13px;border-radius:50%;"></span><span class="sk skline" style="width:'+(46+i*9)+'%;"></span></div>';
+    return '<div class="itin"><div style="padding:14px 16px 12px;border-bottom:2px solid var(--line);"><span class="sk skline" style="width:34%;display:block;"></span><span class="sk" style="width:58%;height:15px;display:block;margin-top:9px;"></span></div><div style="padding:4px 16px 10px;">'+rows+'</div></div>';
+  }
+
+  var MPOS={st:[70,150],seto:[128,112],aji:[185,122],keta:[330,60],lib:[430,108],sak:[532,84],cafe:[564,116]};
+  function mapSVG(ids,withPath,opts){
+    opts=opts||{};
+    var h='<svg viewBox="0 0 600 200" preserveAspectRatio="xMidYMid slice">'
+      +'<rect width="600" height="200" fill="#ebe6d5"/>'
+      +'<ellipse cx="120" cy="26" rx="150" ry="50" fill="#dbe7c6"/>'
+      +'<ellipse cx="520" cy="188" rx="180" ry="58" fill="#dbe7c6"/>'
+      +'<path d="M-10 168 C 140 144 260 168 380 144 S 560 116 620 122" fill="none" stroke="#bcdce0" stroke-width="15" stroke-linecap="round" opacity=".85"/>'
+      +'<path d="M-10 66 L 620 28" stroke="#fdfbf2" stroke-width="7" opacity=".7"/>';
+    if(withPath&&ids.length>1){
+      var pts=ids.map(function(id){ var p=MPOS[id]||[300,100]; return p[0]+','+p[1]; }).join(' ');
+      h+='<polyline points="'+pts+'" fill="none" stroke="#8a6f4d" stroke-width="4" stroke-dasharray="2 9" stroke-linecap="round"/>';
+    }
+    ids.forEach(function(id,i){
+      var p=MPOS[id]||[300,100], s=SPOTS[id];
+      if(i===0&&withPath){ h+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="10" fill="#19c8b9" stroke="#fff" stroke-width="2.5"/><text x="'+p[0]+'" y="'+(p[1]+3.5)+'" text-anchor="middle" font-size="9.5" font-weight="900" fill="#fff" font-family="Nunito,sans-serif">出</text>'; }
+      else if(s&&s.star){ h+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="11" fill="#f0b429" stroke="#fff" stroke-width="2.5"/><text x="'+p[0]+'" y="'+(p[1]+4)+'" text-anchor="middle" font-size="11" font-weight="900" fill="#fff">★</text>'; }
+      else{ h+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="9" fill="#fff" stroke="#19c8b9" stroke-width="3"/><text x="'+p[0]+'" y="'+(p[1]+3.5)+'" text-anchor="middle" font-size="9.5" font-weight="900" fill="#5a4a32" font-family="Nunito,sans-serif">'+(i+1)+'</text>'; }
+    });
+    if(opts.hl){ var hp=MPOS[opts.hl]; h+='<circle cx="'+hp[0]+'" cy="'+hp[1]+'" r="17" fill="none" stroke="#19c8b9" stroke-width="2.5" opacity=".7"><animate attributeName="r" values="13;19;13" dur="1.6s" repeatCount="indefinite"/></circle>'; }
+    return h+'</svg>';
+  }
+  function mapHTML(ids,opts){
+    opts=opts||{};
+    return '<div class="gcard"><div class="gh">'+MAPI.replace('<svg','<svg class="mi"')+'<b>'+(opts.title||'ルートマップ')+'</b><span class="chip">'+(opts.chip||'静的マップ')+'</span></div>'
+      +'<div class="mstage">'+mapSVG(ids,opts.path,opts)+(opts.pill?'<span class="mpill">▸ '+opts.pill+'</span>':'')+(opts.noOps?'':'<span class="mops">'+(opts.opsLabel||'地図を操作 ↗')+'</span>')+'</div>'
+      +'<div class="mnote"><span>● 出発</span><span>○ 経由</span><span style="color:#c99a12;">★ ハイライト</span>'+(opts.path?'<span style="color:#8a6f4d;">--- 徒歩ルート</span>':'')+'</div></div>';
+  }
+  function gridCardHTML(ids,checked){
+    var PINSVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/></svg>';
+    var cells='';
+    ids.forEach(function(id){
+      var s=SPOTS[id],on=checked.indexOf(id)>=0;
+      cells+='<div class="pcell'+(on?' on':'')+'"><span class="cov" style="background:'+s.g+';">'
+        +'<span class="ck">'+TICK+'</span>'
+        +'<i class="cut">'+s.cut+' · +'+s.cuts+'カット</i></span>'
+        +'<div class="pnm">'+s.n+(s.star?' <b style="color:var(--star);">★</b>':'')+'</div>'
+        +'<div class="ploc"><span class="area">'+s.area+'</span>'+PINSVG+s.dist+' · 滞在'+s.stay+'分</div></div>';
+    });
+    return '<div class="gcard"><div class="gh"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-5-5L5 21"/></svg><b>見つかった聖地 · 上位6件</b><span class="chip">全23件</span></div>'
+      +'<div class="pgrid">'+cells+'</div>'
+      +'<div class="gfoot"><button class="lnk">すべて見る → 23件から選ぶ</button><span class="cnt2">5件選択中</span></div></div>';
+  }
+  function groupHTML(ids,total,checked,opts){
+    opts=opts||{};
+    var rows='';
+    ids.forEach(function(id){
+      var s=SPOTS[id], on=checked.indexOf(id)>=0;
+      rows+='<div class="srow'+(on?' on':'')+'"><span class="pcb">'+TICK+'</span>'
+        +'<span class="sth" style="background:'+s.g+';"><i>'+s.cut+'</i></span>'
+        +'<span class="sn2">'+s.n+'<span>'+s.d+'</span></span>'
+        +'<span class="pt">'+(s.photo?'<span class="ph">写真あり</span><br>':'')+'滞在'+s.stay+'分</span></div>';
+    });
+    return '<div class="gcard"><div class="gh"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><b>'+(opts.title||'見つかった聖地 · 上位6件')+'</b><span class="chip">'+(opts.chip||'全23件')+'</span></div>'
+      +rows+'<div class="gfoot"><button class="lnk">すべて見る → '+(opts.total||23)+'件から選ぶ</button><span class="cnt2">'+checked.length+'件選択中</span></div></div>';
+  }
+  function spMapSVG(sel,all,h){
+    h=h||400;
+    var out='<svg viewBox="0 0 700 '+h+'" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">'
+      +'<rect width="700" height="'+h+'" fill="#ebe6d5"/>'
+      +'<ellipse cx="140" cy="60" rx="200" ry="90" fill="#dbe7c6"/>'
+      +'<ellipse cx="600" cy="'+(h-30)+'" rx="230" ry="100" fill="#dbe7c6"/>'
+      +'<path d="M-10 '+(h*0.8)+' C 180 '+(h*0.7)+' 320 '+(h*0.82)+' 460 '+(h*0.7)+' S 660 '+(h*0.56)+' 720 '+(h*0.6)+'" fill="none" stroke="#bcdce0" stroke-width="24" stroke-linecap="round" opacity=".85"/>'
+      +'<path d="M-10 '+(h*0.3)+' L 720 '+(h*0.14)+'" stroke="#fdfbf2" stroke-width="10" opacity=".7"/>';
+    all.forEach(function(id){
+      var p=MPOS[id]||[300,200]; var x=p[0]*1.15, y=p[1]*(h/210)+10;
+      var i=sel.indexOf(id);
+      if(i>=0){ out+='<circle cx="'+x+'" cy="'+y+'" r="14" fill="#19c8b9" stroke="#fff" stroke-width="3"/><text x="'+x+'" y="'+(y+4.5)+'" text-anchor="middle" font-size="12.5" font-weight="900" fill="#fff" font-family="Nunito,sans-serif">'+(i+1)+'</text>'; }
+      else{ out+='<circle cx="'+x+'" cy="'+y+'" r="11" fill="#fff" stroke="#b9ad94" stroke-width="3" opacity=".9"/>'; }
+    });
+    return out+'</svg>';
+  }
+
+  function uRow(text, fromHome, photo){
+    var att=photo?'<div class="uattach"><span class="uph" style="background:center/cover url(assets/compare/real.jpg);"></span><span class="um">IMG_2154.png<span>スクリーンショット · 2.1 MB</span></span></div>':'';
+    var bub='<div class="bub me">'+text+att+'</div>';
+    if(fromHome) bub='<div><div class="from-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>ホームから</div>'+bub+'</div>';
+    return '<div class="row me">'+bub+'</div>';
+  }
+  function aRow(inner, fox){
+    return '<div class="row"><span class="fava"><img src="'+(fox||FOX.guide)+'" alt=""></span><div class="acol">'+inner+'</div></div>';
+  }
+  function aBub(text, fox){ return aRow('<div class="bub a">'+text+'</div>', fox); }
+  function stepHTML(name,badge,state){
+    return '<div class="step '+state+'"><span class="tick">'+TICK+'</span>'+name+(badge?' <span class="srcb">'+badge+'</span>':'')+'</div>';
+  }
+  function thinkCard(o){
+    var inner='';
+    if(o.folded){
+      inner='<div class="fpline"><span class="ok">✓</span>'+o.folded.parts.map(function(p){return '<span>'+p+'</span>';}).join('<span style="color:var(--ink-soft);">→</span>')+'<span class="sec2">'+o.folded.sec+'</span><button>詳細を見る ▾</button></div>';
+    }else{
+      inner='<div class="think"><div class="dots"><i></i><i></i><i></i><span style="margin-left:7px;font-weight:800;color:var(--teal);font-size:13.5px;">'+(o.label||'ロケ地を調べています')+'</span></div>'
+        +(o.foxsub?'<div class="foxsub">'+o.foxsub+'</div>':'')
+        +(o.steps?'<div class="steps">'+o.steps.map(function(s){return stepHTML(s[0],s[1],s[2]);}).join('')+'</div>':'')
+        +(o.emo?'<div class="emo"><q>「まだ会ったことのない君を、探している」</q><span>――『君の名は。』キャッチコピー</span></div>':'')
+        +'</div>';
+    }
+    return aRow('<div class="bub a" style="max-width:100%;">'+inner+'</div>', FOX.think);
+  }
+  function composerHTML(o){
+    o=o||{};
+    var cls='composer'+(o.focus?' focus':'')+(o.busy?' busy':'');
+    var input=o.value?'<span class="ci">'+o.value+'</span>':'<span class="ci phc">'+(o.ph||'作品名・駅名・シーンを入力…')+'</span>';
+    return '<div class="'+cls+'"><button class="att"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-5-5L5 21"/></svg></button>'
+      +input
+      +'<button class="snd'+(o.send?' on':'')+'"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l11 2-11 2z"/></svg></button></div>';
+  }
+  function clarChips(items,used,chosen){
+    var h='<div class="aclarify'+(used?' used':'')+'">';
+    items.forEach(function(o,i){ h+='<button class="cchip'+(chosen===i?' chosen':'')+'">'+o.t+(o.d?'<span class="cd">'+o.d+'</span>':'')+'</button>'; });
+    return h+'</div>';
+  }
+  function qrSVG(){
+    var h='<svg viewBox="0 0 29 29">', seed=42;
+    function rnd(){ seed=(seed*1103515245+12345)%2147483648; return seed/2147483648; }
+    for(var y=0;y<21;y++)for(var x=0;x<21;x++){
+      var fin=(x<7&&y<7)||(x>13&&y<7)||(x<7&&y>13);
+      if(fin) continue;
+      if(rnd()<0.42) h+='<rect x="'+(x+4)+'" y="'+(y+4)+'" width="1" height="1" fill="#4a3b28"/>';
+    }
+    [[4,4],[18,4],[4,18]].forEach(function(p){
+      h+='<rect x="'+(p[0]+0.5)+'" y="'+(p[1]+0.5)+'" width="6" height="6" fill="none" stroke="#4a3b28" stroke-width="1"/><rect x="'+(p[0]+2)+'" y="'+(p[1]+2)+'" width="3" height="3" fill="#4a3b28"/>';
+    });
+    return h+'</svg>';
+  }
+
+  /* ============ screen builder ============ */
+  var APPBAR='<div class="appbar"><div class="brand"><span class="mk"><img class="t" src="assets/torii.svg" alt=""><img class="f" src="assets/fox/fox-peek.svg" alt=""></span><span class="tt"><span class="ja">聖地巡礼</span><span class="en">SEICHIJUNREI</span></span></div><span class="grow"></span><button class="hbtn">'+MAPI+'マイルート</button><span class="ava"></span></div>';
+  var HINT_DEFAULT='AIの案内は誤りを含むことがあります · 現地の最新情報をご確認ください';
+  function screen(o){
+    o=o||{};
+    var mid;
+    if(o.custom){ mid=o.custom; }
+    else if(o.empty){ mid='<div class="scroll"><div class="wrap center">'+o.empty+'</div></div>'; }
+    else{ mid='<div class="scroll"><div class="wrap '+(o.anchor||'bottom')+'"><div class="thread">'+(o.thread||'')+'</div></div></div>'; }
+    var dock='';
+    if(!o.nodock){
+      dock='<div class="dock"><div class="di">'+(o.ctx||'')+composerHTML(o.composer)+'<p class="chint'+(o.hintErr?' err':'')+'">'+(o.hint||HINT_DEFAULT)+'</p></div></div>';
+    }
+    return '<div class="scr">'+(o.noappbar?'':APPBAR)+(o.banner||'')+mid+dock+(o.overlay||'')+'</div>';
+  }
+  function frame(sec, code, title, note, screenHTML, fnote, cls){
+    var el=document.createElement('div');
+    el.className='frame'+(cls?' '+cls:'');
+    el.innerHTML='<div class="fhead"><span class="fc">'+code+'</span><b>'+title+'</b><span>'+(note||'')+'</span></div>'
+      +screenHTML
+      +(fnote?'<div class="fnote">'+fnote+'</div>':'');
+    document.getElementById(sec).appendChild(el);
+  }
+
+  var EMPTY_HERO='<div class="empty"><img class="gfox" src="'+FOX.welcome+'" alt=""><h1>どの聖地へ行きますか？</h1>'
+    +'<div class="lead-bub">こんにちは、コンです！<b>作品名・駅名・シーンの写真</b>、なんでもOK。いっしょにルートを組もう。</div>'
+    +'<div class="sglabel">ためしに…</div>'
+    +'<div class="chips2"><span class="chip2 work">「君の名は。」の聖地</span><span class="chip2 green">響け！ユーフォニアム</span><span class="chip2 teal">近くの聖地</span><span class="chip2 orange">写真から探す</span></div></div>';
+
+  /* ============ A ============ */
+  frame('secA','A1','冷启动空态','已登录无历史 · input 自动聚焦',
+    screen({empty:EMPTY_HERO}),
+    '狐狸问候居中 + 示例 chips 三色 nook tile + composer 挂底。<b>整屏即产品第一眼</b>');
+
+  frame('secA','A2','带 query 進入','首页搜索/卡片跳转 · URL ?q=',
+    screen({thread:
+      uRow('「君の名は。」の聖地に行きたい',true)
+      +thinkCard({label:'ロケ地を調べています',steps:[['タイトル確認','Bangumi','now'],['聖地スポットを検索','Anitabi',''],['歩けるルートを作成','','']]}),
+      composer:{busy:true,ph:'考え中…'},hint:'回答を生成中です…'}),
+    '用户气泡<b>乐观渲染</b>（带「ホームから」标记），进页即进 B2 · composer=G4 运行态');
+
+  frame('secA','A2b','引用ルートで進入','share/详情「アレンジ」→ 高频',
+    screen({thread:
+      aBub('保存済みの「飛騨古川 半日ルート」を開いたよ。変えたいところを教えてね。出発地・時間・ペース、なんでも。'),
+      ctx:'<div class="ctx">'+MAPI+'<span>参照中のルート：<b>飛騨古川 半日ルート</b> · 5スポット · 9:30→12:32</span><button class="cxx">×</button></div>',
+      composer:{ph:'このルートへの変更を伝える…'}}),
+    '「拿别人的路线来改」比空输入框更高频（journey 走查）· 引用上下文 pill 挂在 composer 上方，×可解除');
+
+  frame('secA','A3','恢复历史会话','再访 · 旧管线全折叠',
+    screen({thread:
+      thinkCard({folded:{parts:['タイトル確認','23スポット','ルート作成'],sec:'6.8s'}})
+      +aRow(itinHTML(buildItin(CANON),{mini:true,short:true,noFoot:true}))
+      +uRow('もっとゆったりにして')
+      +thinkCard({folded:{parts:['再構成','+25分'],sec:'1.4s'}})
+      +aBub('滞在をのばして、ゆったりペースにしたよ。'),
+      composer:{ph:'続けて話す…'}}),
+    '历史全量渲染，<b>旧管线一律折叠成足迹行</b>，滚动锚到底部 · 最后一张路线卡保持 settled');
+
+  frame('secA','A5','後端不可達','healthz 失败 · input 禁用',
+    screen({banner:'<div class="banner"><svg style="width:16px;height:16px;flex:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>サーバーに接続できません<button>再試行</button></div>',
+      thread:
+      thinkCard({folded:{parts:['タイトル確認','23スポット','ルート作成'],sec:'6.8s'}})
+      +aRow(itinHTML(buildItin(CANON),{mini:true,short:true,noFoot:true}))
+      +aBub('（過去の会話とルートはそのまま読めるよ）',FOX.oops),
+      composer:{busy:true,ph:'接続を待っています…'},hint:'オフラインでも保存済みルートは「マイルート」から開けます'}),
+    '顶部 error banner + 人话文案 · <b>已有内容仍可读</b>，只禁写');
+
+  /* ============ B ============ */
+  frame('secB','B1','送信直後 sending','乐观渲染',
+    screen({thread:uRow('「君の名は。」の聖地に行きたい'),
+      composer:{busy:true,ph:'考え中…'},hint:'回答を生成中です…'}),
+    '用户气泡立即上屏（teal tile 右对齐）· input 立即清空 · 发送键按压动画');
+
+  frame('secB','B2a','running &lt;1s','仅 typing · 不出管线',
+    screen({thread:
+      uRow('「君の名は。」の聖地に行きたい')
+      +thinkCard({label:'…'}),
+      composer:{busy:true,ph:'考え中…'},hint:'回答を生成中です…'}),
+    '只有狐狸头像 + 三点跳动。<b>短回合不值得仪式感</b>');
+
+  frame('secB','B2b','running 1–4s','管线 + 数据源徽章 + 狐狸计数',
+    screen({thread:
+      uRow('「君の名は。」の聖地に行きたい')
+      +thinkCard({label:'ロケ地を調べています',foxsub:'コン「いま Anitabi でさがしてるよ… <b>8</b>/23」',steps:[['タイトル確認','Bangumi','done'],['聖地スポットを検索','Anitabi','now'],['歩けるルートを作成','','']]}),
+      composer:{busy:true,ph:'考え中…'},hint:'回答を生成中です…'}),
+    '步骤逐个点亮（done=teal✓ / running=脉冲）+ <b>Bangumi/Anitabi 徽章</b> + 狐狸第一人称计数');
+
+  frame('secB','B2c','running ≥4s','作品情绪卡 · 等待变沉浸',
+    screen({thread:
+      uRow('「君の名は。」の聖地に行きたい')
+      +thinkCard({label:'ロケ地を調べています',foxsub:'コン「いま Anitabi でさがしてるよ… <b>19</b>/23」',steps:[['タイトル確認','Bangumi','done'],['聖地スポットを検索','Anitabi','now'],['歩けるルートを作成','','']],emo:true}),
+      composer:{busy:true,ph:'考え中…'},hint:'回答を生成中です…'}),
+    '管线下追加<b>キャッチコピー情绪卡</b>（场景帧渐变底+白字+出处行）');
+
+  frame('secB','B2d','视觉工具开跑','插卡 skeleton',
+    screen({thread:
+      uRow('この5件で、駅から9:30スタートで')
+      +thinkCard({label:'ルートを作成しています',steps:[['前提確認','','done'],['歩けるルートを作成','','now']]})
+      +aRow(itinSkelHTML()),
+      composer:{busy:true,ph:'考え中…'},hint:'回答を生成中です…'}),
+    '<b>只有视觉工具开跑才插 skeleton</b>（plan_route/search_*）；纯文字回合永不出');
+
+  frame('secB','B3','streaming','打字机 + 卡片逐个落位',
+    screen({thread:
+      uRow('「君の名は。」の聖地に行きたい')
+      +aRow('<div class="bub a">みつけたよ！『君の名は。』の飛騨エリアは全23スポット。歩いて回りやすい上位6件がこちら<span style="display:inline-block;width:2px;height:14px;background:var(--teal);vertical-align:-2px;animation:blink 1s infinite;"></span></div>'+itinSkelHTML()),
+      composer:{busy:true,ph:'考え中…'},hint:'回答を生成中です…'}),
+    '文字打字机 + 卡片骨架回填 `.entrance-up` 落位 · 用户上滚则停跟出「↓ 最新へ」');
+
+  frame('secB','B4','settled','足迹行 + 追问 chips（一发直出例）',
+    screen({thread:
+      uRow('飛騨を半日、駅から9時半発でまわりたい')
+      +thinkCard({folded:{parts:['タイトル確認','23スポット','ルート作成'],sec:'6.8s'}})
+      +aRow('<div class="bub a">条件がそろってたから、そのまま組んだよ！半日ルートがこちら。</div>'
+        +itinHTML(buildItin(CANON),{mini:true,short:true,noFoot:true})
+        +'<div class="fups"><span class="fup">もっとゆったり</span><span class="fup">夕方スタートは？</span><span class="fup">カフェを足して</span>'
+        +'<span class="fb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v11H4V10zM7 11l4.5-7c1.2 0 2 .9 2 2v4h5.2c1.1 0 1.9 1 1.7 2.1l-1.2 6.5c-.2 1-1 1.4-1.9 1.4H7"/></svg></span>'
+        +'<span class="fb"><svg style="transform:rotate(180deg);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v11H4V10zM7 11l4.5-7c1.2 0 2 .9 2 2v4h5.2c1.1 0 1.9 1 1.7 2.1l-1.2 6.5c-.2 1-1 1.4-1.9 1.4H7"/></svg></span></div>'),
+      composer:{ph:'続けて話す…'}}),
+    '管线折叠「✓ … 6.8s · 詳細を見る ▾」+ 追问 chips + 评价。<b>注</b>：一发直出仅当条件说全（本例）；标准主线走 C3a→C2t→C5');
+
+  /* ============ C ============ */
+  frame('secC','C1','greet / answer','纯气泡 · 永不出管线',
+    screen({thread:
+      uRow('こんにちは！')
+      +aBub('こんにちは、コンです！どの作品の聖地へ行く？')
+      +uRow('夕方スタートは？')
+      +aBub('うーん、夕方は<b>飛騨市図書館が18時で閉まる</b>から、午前スタートのままがおすすめ！',FOX.curious),
+      composer:{ph:'続けて話す…'}}),
+    '<b>没经过 agent 的事不演 agent 的戏</b>：问候/答疑 B2a 直达 B4，无卡无 skeleton 无足迹');
+
+  frame('secC','C2','clarify · 作品澄清','同名歧义 · 44px 候选',
+    screen({thread:
+      uRow('ユーフォの聖地に行きたい')
+      +aRow('<div class="bub a">「ユーフォ」はどっちかな？</div>'
+        +clarChips([{t:'響け！ユーフォニアム',d:'TVシリーズ · 宇治 156件'},{t:'リズと青い鳥',d:'劇場版 · 宇治 42件'},{t:'どっちでもない、言い直す',d:''}]),FOX.curious),
+      composer:{ph:'続けて話す…'}}),
+    '2–4 个候选按钮 + <b>逃生口</b>「都不是，我重新说」· 点选后候选变 user bubble、其余淡出');
+
+  frame('secC','C2g','clarify · 圏をえらぶ','跨圏作品先选圈 · 主線②',
+    screen({thread:
+      uRow('「君の名は。」の聖地に行きたい',true)
+      +thinkCard({folded:{parts:['タイトル確認','全国 89件 · 6圏'],sec:'2.3s'}})
+      +aRow('<div class="bub a">『君の名は。』は全国に聖地圏があるよ。どのエリアから回る？</div>'
+        +clarChips([{t:'飛騨・古川',d:'23件 · 半日で回れる'},{t:'東京・新宿',d:'31件 · 都心'},{t:'諏訪湖',d:'12件 · 「糸守湖」'},{t:'すべての圏を見る',d:'C3b 圏総覧へ'}])),
+      composer:{ph:'続けて話す…'}}),
+    '候选=<b>圣地圈按钮</b>（圈名+件数 pill，按件数降序 top3+展开）· 用户消息已含位置→<b>跳过此回合</b>');
+
+  frame('secC','C3a','集中型搜索 · 看图选点','主線③ · 勾选=进路线',
+    screen({anchor:'top',thread:
+      uRow('飛騨・古川エリアで')
+      +thinkCard({folded:{parts:['聖地スポットを検索','23件'],sec:'3.1s'}})
+      +aRow('<div class="bub a">歩いて回りやすい上位6件。<b>画面のカットを見ながら</b>、行きたい場所にチェックしてね。</div>'
+        +gridCardHTML(['st','aji','keta','lib','sak','seto'],CANON)
+        +mapHTML(CANON,{path:false,chip:'23件 · 静的'})
+        +'<div class="bub a" style="margin-top:12px;">駅から神社までゆるい登りが1箇所。全部まわって徒歩26分だよ。</div>'),
+      composer:{ph:'続けて話す…'}}),
+    '<b>点位卡＝DS③定稿</b>：代表帧 16:9+「+Nカット」聚合徽章+位置行（エリア Tag+駅から徒歩N分）· checkbox 22px · 草稿预选＝有图+可达 → static 地图 → AI 总结 · 「すべて見る」→ <a class="alink" href="工作台 - 地图常驻方案.html">地図常駐工作台</a> · 选完不直接出路线——先过 C2t');
+
+  frame('secC','C2t','clarify · ルート前提','主線④ · 出発地+時間',
+    screen({thread:
+      uRow('この5件でルートを組んで')
+      +aRow('<div class="bub a">OK！あとは出発だけ——<b>どこから・何時ごろ</b>まわる？</div>'
+        +clarChips([{t:'飛騨古川駅から · 9:30',d:'高山本線の玄関口 · おすすめ'},{t:'いまいる場所から',d:'位置情報を使う → C4'},{t:'宿から · 場所を入力',d:''},{t:'おまかせで',d:'駅から午前スタート'}]),FOX.curious),
+      composer:{ph:'続けて話す…'}}),
+    'ルート生成の前提=<b>出発地+出発時間</b>（ペース是生成后追问）· 发话已含前提则<b>跳过</b>（C2g 同规则）· TimedItinerary 的 HH:MM 由此而来');
+
+  frame('secC','C5','plan_route · TimedItinerary','主線⑤ · 招牌产物',
+    screen({anchor:'top',thread:
+      uRow('駅から9:30スタートで')
+      +thinkCard({folded:{parts:['前提確認','ルート作成'],sec:'4.2s'}})
+      +aRow(itinHTML(buildItin(CANON))),
+      composer:{ph:'続けて話す…'}}),
+    '生成条件=③的选择+④的前提。眉标→卡名→meta（pacing pill）→<b>HH:MM 站粒度时间轴</b>（walk 胶囊+帧缩略 16:9+金★）→ 金色しおり CTA。<b>时刻是真的，能据此买车票</b>');
+
+  frame('secC','C3b','分散型搜索 · 圏総覧','支线 · 永不平铺千点',
+    screen({anchor:'top',thread:
+      uRow('すべての圏を見る')
+      +aRow('<div class="bub a">『君の名は。』は全国 89件！圏ごとにまとめたよ。気になる圏から下钻してね。</div>'
+        +'<div class="gcard"><div class="gh">'+MAPI.replace('<svg','<svg class="mi"')+'<b>全国の聖地圏</b><span class="chip">89件 · 6圏</span></div>'
+        +'<div class="mstage"><svg viewBox="0 0 600 200" preserveAspectRatio="xMidYMid slice"><rect width="600" height="200" fill="#ebe6d5"/><ellipse cx="120" cy="30" rx="150" ry="50" fill="#dbe7c6"/><ellipse cx="520" cy="190" rx="180" ry="58" fill="#dbe7c6"/>'
+        +'<circle cx="392" cy="96" r="34" fill="#19c8b9" opacity=".8"/><text x="392" y="101" text-anchor="middle" font-size="15" font-weight="900" fill="#fff" font-family="Nunito">31</text><text x="392" y="146" text-anchor="middle" font-size="10.5" font-weight="800" fill="#5a4a32" font-family="Nunito">東京</text>'
+        +'<circle cx="205" cy="80" r="30" fill="#19c8b9" opacity=".8"/><text x="205" y="85" text-anchor="middle" font-size="14" font-weight="900" fill="#fff" font-family="Nunito">23</text><text x="205" y="126" text-anchor="middle" font-size="10.5" font-weight="800" fill="#5a4a32" font-family="Nunito">飛騨</text>'
+        +'<circle cx="300" cy="120" r="23" fill="#19c8b9" opacity=".75"/><text x="300" y="125" text-anchor="middle" font-size="12" font-weight="900" fill="#fff" font-family="Nunito">12</text><text x="300" y="156" text-anchor="middle" font-size="10.5" font-weight="800" fill="#5a4a32" font-family="Nunito">諏訪</text>'
+        +'<circle cx="258" cy="158" r="17" fill="#19c8b9" opacity=".7"/><text x="258" y="163" text-anchor="middle" font-size="11" font-weight="900" fill="#fff" font-family="Nunito">8</text>'
+        +'<circle cx="150" cy="160" r="14" fill="#19c8b9" opacity=".65"/><text x="150" y="165" text-anchor="middle" font-size="10" font-weight="900" fill="#fff" font-family="Nunito">6</text>'
+        +'<circle cx="470" cy="52" r="12" fill="#19c8b9" opacity=".6"/><text x="470" y="56" text-anchor="middle" font-size="9.5" font-weight="900" fill="#fff" font-family="Nunito">4</text></svg></div>'
+        +'<div style="display:flex;gap:8px;padding:11px 13px;overflow:hidden;">'
+        +'<span class="cchip" style="flex:none;">飛騨・古川<span class="cd">23件 · 半日</span></span>'
+        +'<span class="cchip" style="flex:none;">東京・新宿<span class="cd">31件 · 1日</span></span>'
+        +'<span class="cchip" style="flex:none;">諏訪湖<span class="cd">12件</span></span>'
+        +'<span class="cchip" style="flex:none;">その他 3圏 ▾<span class="cd">16件</span></span></div></div>'),
+      composer:{ph:'続けて話す…'}}),
+    '≥2圈/>50km：只画<b>圈泡（面积∝件数）</b>+圈卡组，选圈→C3a · <b>永不 >50 pin</b>（千点策略=对话漏斗）');
+
+  frame('secC','C4','search_nearby · 位置許可','支线 · 用途说明先行',
+    screen({thread:
+      uRow('近くの聖地を教えて')
+      +aRow('<div class="bub a">近くの聖地を探すには、現在地を使わせてね。</div>'
+        +'<div class="gcard"><div class="locbody"><span class="li"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/></svg></span>'
+        +'<p><b>位置情報はこの検索にだけ</b>使うよ。保存もしないし、場所の入力に切り替えることもできる。</p></div>'
+        +'<div class="locacts"><button class="locok" style="background:var(--gold);border-color:var(--gold);color:var(--gold-ink);box-shadow:0 4px 0 0 var(--gold-deep);">位置情報を許可</button><button class="localt">場所を入力する</button></div></div>'
+        +'<div class="gcard"><div class="locgrant"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>許可後 → 現在地：東京・代々木周辺（おおよそ）</div></div>'),
+      composer:{ph:'続けて話す…'}}),
+    '许可卡：用途说明+「位置情報を許可」(gold)+「場所を入力する」fallback（spec C4）· 拒绝→fallback 输入');
+
+  /* ============ D ============ */
+  frame('secD','D1','作品識別失敗','狐狸说人话',
+    screen({thread:
+      uRow('「ほしふるよる」の聖地に行きたい')
+      +aRow('<div class="bub a">うーん、見つからない…その作品名、もう一度教えてくれる？綴りの確認でも、一言のあらすじでもOK。</div>'
+        +clarChips([{t:'君の名は。',d:'89件'},{t:'秒速5センチメートル',d:'24件'},{t:'写真から探す',d:''}]),FOX.oops),
+      composer:{ph:'続けて話す…'}}),
+    '道歉+建议+示例 chips 重现 · 狐狸副标题「うーん、見つからない…」· 不说「エラーが発生しました」');
+
+  frame('secD','D2','0 聖地収録','相邻推荐兜底',
+    screen({thread:
+      uRow('「オーバーテイク！」の聖地に行きたい')
+      +aRow('<div class="fcard nores" style="margin-top:0;"><img src="'+FOX.curious+'" alt=""><div class="fbx"><b class="ft">まだ登録がないみたい</b><p>この作品はまだ Anitabi に聖地が登録されていないんだ。<b>舞台が近い作品</b>ならあるよ。</p><div class="facts"><button class="fbtn p">聲の形（大垣 · 34件）</button><button class="fbtn g">リクエストを送る</button></div></div></div>'),
+      composer:{ph:'続けて話す…'}}),
+    '0件 → 隣接推薦（同制作社/同城市）で逃さない');
+
+  frame('secD','D3','点位 &lt;3 · ルート不成立','正直に言う',
+    screen({thread:
+      uRow('「サマーゴースト」の聖地に行きたい')
+      +aRow('<div class="fcard nores" style="margin-top:0;"><img src="'+FOX.curious+'" alt=""><div class="fbx"><b class="ft">検証済みスポットが 2件しかありません</b><p>「サマーゴースト」は機位まで検証済みのデータがまだ 2件。<b>ルートを組むには少なすぎる</b>んだ（3件以上で提案できるよ）。</p><div class="facts"><button class="fbtn p">2件だけ見る</button><button class="fbtn g">近くの別作品も足す？</button></div></div></div>'),
+      composer:{ph:'続けて話す…'}}),
+    '不硬凑路线 · 单点浏览出口 + 「近くの別作品も足す?」提议（spec D3）');
+
+  frame('secD','D4','流中断 · inline 重試','已渲染内容保留',
+    screen({thread:
+      uRow('「君の名は。」の聖地に行きたい')
+      +aRow('<div class="bub a">みつけたよ！『君の名は。』の飛騨エリアは全23スポット。歩いて回りやす—</div>'
+        +'<div class="fcard err"><img src="'+FOX.oops+'" alt=""><div class="fbx"><b class="ft">接続が切れました</b><p>続きの生成に失敗しちゃった。<b>ここまでの内容はそのまま</b>。再試行は未完了のステップだけ続けるよ。</p><div class="facts"><button class="fbtn p">再試行</button><button class="fbtn g">あとで</button></div></div></div>'),
+      composer:{ph:'続けて話す…'}}),
+    '<b>已渲染内容永远保留</b> · inline 重试条只续跑未完步骤，不清屏');
+
+  frame('secD','D5','agent 超時 60s','もう一度',
+    screen({thread:
+      uRow('響け！ユーフォニアムで宇治を1日まわりたい')
+      +thinkCard({folded:{parts:['タイトル確認','聖地スポットを検索 …'],sec:'60s+'}})
+      +aRow('<div class="fcard err" style="margin-top:0;"><img src="'+FOX.oops+'" alt=""><div class="fbx"><b class="ft">時間がかかりすぎているみたい</b><p>混み合ってるのかも。もう一度ためすか、少し待ってみてね。</p><div class="facts"><button class="fbtn p">もう一度</button><button class="fbtn g">待つ</button></div></div></div>'),
+      composer:{ph:'続けて話す…'}}),
+    '同 D4 形态、文案不同 · 不暴露 timeout/500');
+
+  frame('secD','D6','校验拒绝','ModelRetry 耗尽',
+    screen({thread:
+      uRow('あの……えっと………行きたい…')
+      +aRow('<div class="fcard nores" style="margin-top:0;"><img src="'+FOX.curious+'" alt=""><div class="fbx"><b class="ft">うまく言えなかったみたい</b><p>ごめんね、言い方を変えてみてくれる？「作品名 + エリア」だと伝わりやすいよ。</p><div class="facts"><button class="fbtn g">例：君の名は。の飛騨</button></div></div></div>'),
+      composer:{ph:'続けて話す…'}}),
+    '通用道歉 + 可模仿的例子 · 不暴露技术细节');
+
+  frame('secD','D7','地図加載失敗','SVG 兜底 + 外链出口',
+    screen({thread:
+      uRow('地図も見せて')
+      +aRow('<div class="gcard" style="margin-top:0;"><div class="gh">'+MAPI.replace('<svg','<svg class="mi"')+'<b>ルートマップ</b><span class="chip" style="background:#fdeeee;color:#c94444;">読み込み失敗</span></div>'
+        +'<div class="mstage" style="height:150px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:repeating-linear-gradient(45deg,#eee8d8 0 14px,#e7e0cd 14px 28px);">'
+        +'<svg style="width:30px;height:30px;color:#9f927d;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/></svg>'
+        +'<span style="font-size:12px;font-weight:800;color:#8a7b66;">地図タイルが読み込めませんでした</span>'
+        +'<button class="fbtn g">地図アプリで開く</button></div>'
+        +'<div class="mnote"><span>ルートの時刻表はそのまま使えます</span></div></div>'),
+      composer:{ph:'続けて話す…'}}),
+    '自绘占位（永不裸 alt）+ 深链出口 · 路线数据不受影响');
+
+  frame('secD','D8','session 過期','対話は消えない',
+    screen({thread:
+      thinkCard({folded:{parts:['タイトル確認','23スポット','ルート作成'],sec:'6.8s'}})
+      +aRow('<div class="gcard" style="margin-top:0;"><div class="locbody"><span class="li" style="background:#fdf1cf;border-color:#f6e3a6;color:#a8801a;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>'
+        +'<p><b>ログインの有効期限が切れたよ。</b>会話とルートはこのまま残ってる。保存や同期をするときだけ、もう一度ログインしてね。</p></div>'
+        +'<div class="locacts"><button class="locok">再ログイン</button><button class="localt">このまま続ける</button></div></div>'),
+      composer:{ph:'続けて話す…'}}),
+    'inline warning 提示条 · <b>对话内容不丢</b>，重新登录后原地恢复（spec D8）');
+
+  frame('secD','D9','場面帧 404','渐变+カット号兜底',
+    screen({thread:
+      uRow('駅のカットも見たい')
+      +aRow('<div class="itin" style="margin-top:0;"><div class="itl" style="padding-top:14px;">'
+        +'<div class="irow"><span class="tt2">9:30</span><span class="trk"><i class="dot"></i></span><span class="ct2"><span class="nm2">飛騨古川駅<span class="cutTag">第1話 04:12</span><span class="stych">15分滞在</span></span>'
+        +'<span class="sthumb" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);"><i>第1話 04:12 のカット · 画像を準備中</i></span></span></div>'
+        +'<div class="irow last"><span class="tt2"></span><span class="trk"></span><span class="ct2"><span class="snote">↑ Anitabi 图床 404 → 渐变占位+カット号文字。<b>绝不裸 broken image</b></span></span></div>'
+        +'</div></div>'),
+      composer:{ph:'続けて話す…'}}),
+    'scene-thumb 退化规则（D9）· Walk 现场同款兜底 —— 现场没有第二次机会');
+
+  /* ============ E ============ */
+  frame('secE','E1','追问细化 · 活文档','旧卡降级 · 新卡落底',
+    screen({thread:
+      aRow(itinHTML(buildItin(CANON),{mini:true,short:true,noFoot:true,old:true}))
+      +uRow('カフェも入れたい')
+      +thinkCard({folded:{parts:['再構成','+35分'],sec:'1.8s'}})
+      +aRow('<div class="bub a">「壱之町珈琲店」を追加したよ。</div>'
+        +itinHTML(buildItin(CANON.concat(['cafe'])),{mini:true,short:true,noFoot:true,v2:true,diffs:[['add','壱之町珈琲店']]})),
+      composer:{ph:'続けて話す…'}}),
+    '<b>流即历史，不原地改写</b>：旧卡 opacity .55+「以前の版」角标，新卡带「更新版」+diff chips 落底');
+
+  frame('secE','E2a','勾选变化 · sticky 重排条','旁路第一步',
+    screen({anchor:'top',thread:
+      aRow('<div class="bub a">歩いて回りやすい上位6件。チェックを外すとルートから抜けるよ。</div>'
+        +groupHTML(['st','aji','keta','lib','sak'],23,['st','aji','keta','sak'],{chip:'図書館を外した'})),
+      ctx:'<div class="rebar"><span class="rc"><span>スポットの選択が変わりました</span><b>4件選択中</b></span><button>ルートを組み直す</button></div>',
+      composer:{ph:'続けて話す…'}}),
+    '取消勾选図書館 → <b>底部浮出 sticky 金色操作条</b>（挂 composer 上方）· 还没重算——用户自己决定何时组');
+
+  frame('secE','E2b','再計算完了','无管线戏 · 1.2s',
+    screen({thread:
+      aRow('<div class="bub a" style="max-width:100%;"><div class="fpline"><span class="ok">✓</span><span>再計算</span><span class="sec2">1.2s</span></div></div>'
+        +itinHTML(buildItin(['st','aji','keta','sak']),{mini:true,short:true,noFoot:true,v2:true,diffs:[['del','飛騨市図書館']]})),
+      composer:{ph:'続けて話す…'}}),
+    'selected_point_ids 旁路：<b>没经过 agent 就不演 agent 的戏</b> —— 只显「✓ 再計算 1.2s」，无管线无情绪卡');
+
+  frame('secE','E3','站点 ↔ 地図锚定','hover 双向互认',
+    screen({thread:
+      aRow(mapHTML(CANON,{path:true,pill:'飛騨古川 半日ルート',hl:'keta',noOps:true})
+        +'<div class="itin" style="margin-top:10px;"><div class="itl" style="padding-top:12px;">'
+        +'<div class="irow"><span class="tt2">10:28</span><span class="trk"><i class="dot star"></i></span><span class="ct2"><span class="nm2" style="background:var(--teal-bg);border-radius:8px;padding:2px 8px;">気多若宮神社 <b class="hstar">★</b><span class="cutTag">第8話 41:12</span></span></span></div>'
+        +'</div></div>'),
+      composer:{ph:'続けて話す…'}}),
+    'hover 站行 ↔ 地图 pin teal 光环弹跳（P1：点站行→平滑滚到地图卡+pin 弹跳）· Route 诞生后金色路线 pill 常驻地图角');
+
+  frame('secE','E5','地図 GL 升格','static-first',
+    screen({thread:
+      aRow(mapHTML(CANON,{path:true,pill:'飛騨古川 半日ルート',opsLabel:'GL に接続中…'})),
+      composer:{ph:'続けて話す…'}}),
+    '默认静态图+SVG；点「地図を操作↗」→角落小 spinner（不遮内容）→GL 无缝接管；失败→静态图保留+toast');
+
+  frame('secE','E4','しおり導出 modal','按钮 loading → 9:16 预览',
+    screen({thread:
+      aRow(itinHTML(buildItin(CANON),{mini:true,short:true})),
+      composer:{ph:'続けて話す…'},
+      overlay:'<div class="mdim"><div class="shioriwrap"><div class="shiori">'
+        +'<div class="cov"><span class="brand2">⛩ SEICHIJUNREI</span><span class="ttl"><span>『君の名は。』聖地巡礼</span><b>飛騨古川 半日ルート</b><span>2026.07.02 · 5スポット · 徒歩26分</span></span></div>'
+        +'<div class="list">'
+        +'<div class="li2"><span class="tm">9:30</span>飛騨古川駅<span class="ok2">—</span></div>'
+        +'<div class="li2"><span class="tm">9:49</span>味処古川<span class="ok2">—</span></div>'
+        +'<div class="li2"><span class="tm">10:28</span>気多若宮神社 ★<span class="ok2">—</span></div>'
+        +'<div class="li2"><span class="tm">10:55</span>飛騨市図書館<span class="ok2">—</span></div>'
+        +'<div class="li2"><span class="tm">11:16</span>さくら物産館<span class="ok2">—</span></div>'
+        +'</div>'
+        +'<div class="foot2"><span>seichijunrei.app/share/hida-half</span><b>QR</b></div></div>'
+        +'<div class="shioriacts"><button class="rbtn gold">画像を保存</button><button class="rbtn ghost" style="background:#fffdf5;">リンクをコピー</button><button class="rbtn ghost" style="background:#fffdf5;">閉じる</button><p>竖版 9:16 → 小红书/Stories<br>リンク先は免登録 /share</p></div></div></div>'}),
+    'E4：しおり按钮 loading→<b>9:16 竖版预览 modal</b>→ 画像を保存(金)/リンクをコピー · modal 轮廓＝blob（同 P5）；票券主 CTA 保持金——内容 CTA≠modal 确认键 · 详细视觉 Step 3 定稿');
+
+  /* ============ SP 全屏 takeover ============ */
+  function spRow(id,on,hov){
+    var s=SPOTS[id];
+    return '<div class="srow'+(on?' on':'')+(hov?' hov':'')+'"><span class="pcb">'+TICK+'</span>'
+      +'<span class="sth" style="background:'+s.g+';"><i>'+s.cut+'</i></span>'
+      +'<span class="sn2">'+s.n+(s.star?' <b style="color:var(--star);">★</b>':'')+'<span>'+s.d+'</span></span>'
+      +'<span class="pt">'+(s.photo?'<span class="ph">写真あり</span><br>':'')+'滞在'+s.stay+'分</span></div>';
+  }
+  var SP_HEAD='<div class="sph2"><span class="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span>'
+    +'<span class="t">聖地を選ぶ — 『君の名は。』 · 飛騨・古川 23件<span>← チャットに戻る · 検証済みのみ表示中</span></span>'
+    +'<span class="srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>圏内をさがす…</span></div>';
+  function spTools(sort,photoOn){
+    return '<div class="sptools2"><span style="font-size:11px;font-weight:900;color:var(--ink-soft);">分組</span><span class="seg"><button class="on">エリア</button><button>話数</button></span>'
+      +'<span style="font-size:11px;font-weight:900;color:var(--ink-soft);margin-left:8px;">並び順</span><span class="seg">'
+      +['おすすめ','カット順','駅から近い順'].map(function(s,i){return '<button'+(i===sort?' class="on"':'')+'>'+s+'</button>';}).join('')+'</span>'
+      +'<span class="ptog'+(photoOn?' on':'')+'" style="margin-left:8px;"><span class="sw"></span>写真ありのみ</span></div>';
+  }
+  function spTray(o){
+    o=o||{};
+    var chips=(o.chips||[['1','飛騨古川駅'],['2','味処古川'],['3','気多若宮神社'],['4','飛騨市図書館']]).map(function(c){
+      return '<span class="tchip"'+(c[2]||'')+'><span class="hdl">≡</span><b>'+c[0]+'</b> '+c[1]+' ×</span>';
+    }).join(o.drag||'');
+    return '<div class="sptray2"><div class="traychips">'+chips+'</div>'
+      +'<div class="trayrow"><span style="font-size:11px;font-weight:900;color:var(--ink-soft);">ルート順序</span>'
+      +'<span class="ordseg">'+['おまかせ順','物語順','手動'].map(function(s,i){return '<button'+(i===(o.ord||0)?' class="on"':'')+'>'+s+'</button>';}).join('')+'</span>'
+      +(o.warn?'<span class="ordnote">'+o.warn+'</span>':'')
+      +'<button class="rbtn gold gen2">'+(o.cta||'この4件でルートを組む')+'</button></div>'
+      +'<div style="font-size:10.5px;font-weight:800;color:var(--ink-soft);">徒歩26分 · 2.0km · 約3時間 — 浏览排序（sort）≠ 路线顺序（order）</div></div>';
+  }
+  function spScreen(o){
+    o=o||{};
+    return '<div class="scr">'+APPBAR+'<div class="sptk">'+SP_HEAD+spTools(o.sort||0,o.photoOn)
+      +'<div class="spbody"><div class="splist2">'
+      +'<div class="spgh">駅周辺 · 古い街並み · 7件</div>'
+      +spRow('st',1)+spRow('seto',0,o.hov)+spRow('aji',1)
+      +'<div class="spgh">高台・市街 · 3件</div>'
+      +spRow('keta',1)+spRow('lib',1)+spRow('sak',0)
+      +'</div><div class="spmap2">'+spMapSVG(['st','aji','keta','lib'],['st','seto','aji','keta','lib','sak','cafe'],620)
+      +'<span class="mops" style="top:auto;bottom:12px;right:12px;">選択中＝teal実心+序号 · 未選択＝白空心</span></div></div>'
+      +spTray(o)+'</div></div>';
+  }
+  frame('secSP','SP→WB','選点工作台 → 地図常駐工作台','07-03 旧帧废弃 · 定稿另开画布',
+    '<a href="工作台 - 地图常驻方案.html" style="display:block;text-decoration:none;color:inherit;background:#fcf8ec;border:2px dashed #c9bfa6;border-radius:18px;padding:20px 22px;">'
+    +'<div style="display:flex;gap:14px;align-items:flex-start;"><img src="'+FOX.guide+'" style="width:54px;height:54px;flex:none;" alt="">'
+    +'<div style="font-size:13px;line-height:1.7;color:var(--ink-body);font-weight:600;">'
+    +'<b style="font-family:\'Zen Maru Gothic\',sans-serif;font-size:15px;color:var(--ink);display:block;margin-bottom:3px;">▸ 工作台 — 地図常駐方案 v2（6 整屏 · 点击打开）</b>'
+    +'旧 SP1–SP7 帧已废弃。新模型：<b>地图常驻右侧永不消失，左栏随阶段换内容</b>（选图 gallery 2列大图 ⇄ TimedItinerary 路线）；恒定密度（远景聚合区域卡，左栏永远 ≤2 屏）；エリア＝地图主导／話数＝列表主导；図釘即画面；機位浏览器 lightbox；托盘可行性实时+锚点委托。SP8/9（&gt;100点草稿反转/锚点委托）规则保留（spec SP8/SP9），实装形态并入新工作台。</div></div></a>',
+    '进入方式＝上游 Drawer 下沉景深：背景 translateY(24px) scale(.96) brightness(.85)、遮罩仅 .18 —— 空间语义「没离开 chat」· 「← チャットに戻る」返回，chat 状態保持','sm');
+
+  /* ============ F Phase 2 双栏 ============ */
+  function wbScreen(left,right){
+    return '<div class="scr">'+APPBAR+'<div class="wbwrap"><div class="wbleft">'+left+'</div><div class="wbright">'+right+'</div></div></div>';
+  }
+  function wbLeft(threadHTML,composerOpts,center){
+    return '<div class="wbl-scroll'+(center?' center':'')+'">'+threadHTML+'</div><div class="wbl-dock">'+composerHTML(composerOpts||{})+'</div>';
+  }
+  frame('secF','F1','右栏空 · quiet','冷启动',
+    wbScreen(
+      wbLeft('<div style="text-align:center;"><img src="'+FOX.welcome+'" style="width:84px;height:84px;filter:drop-shadow(0 8px 10px #6b563a26);" alt=""><div style="font-family:\'Zen Maru Gothic\',sans-serif;font-weight:700;font-size:19px;color:var(--ink);margin:8px 0 10px;">どの聖地へ行きますか？</div><div style="display:flex;flex-wrap:wrap;gap:7px;justify-content:center;"><span class="fup">響け！ユーフォニアム</span><span class="fup">君の名は。</span><span class="fup">近くの聖地</span></div></div>',{},true),
+      '<div class="dashbox">'+MAPI+'<span>作品をきくと、ここに<br>地図とルートが現れます</span></div>'),
+    'F1：右栏虚线框自己预告用途 —— <b>UI stays quiet</b>，不用教学浮层');
+
+  frame('secF','F2','右栏 skeleton','B2d 双栏形态',
+    wbScreen(
+      wbLeft(uRow('響け！ユーフォニアムで宇治を半日')
+        +thinkCard({label:'ロケ地を調べています',foxsub:'コン「いま Anitabi でさがしてるよ… <b>112</b>/156」',steps:[['タイトル確認','Bangumi','done'],['聖地スポットを検索','Anitabi','now'],['歩けるルートを作成','','']],emo:true}),
+        {busy:true,ph:'考え中…'}),
+      '<div class="sk" style="height:150px;border-radius:16px;flex:none;"></div>'
+      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;flex:none;"><div class="sk" style="height:110px;border-radius:14px;"></div><div class="sk" style="height:110px;border-radius:14px;"></div><div class="sk" style="height:110px;border-radius:14px;"></div></div>'
+      +'<div class="sk" style="flex:1;border-radius:16px;"></div>'),
+    'F2：左=管线+情绪卡；右=map band+卡 skeleton。<b>纯文字回合右栏不动</b>');
+
+  function posterRow(r,last){
+    if(r.type==='w') return '<div class="irow w"><span class="tt2"></span><span class="trk"></span><span class="ct2"><span class="wpill">'+WALK_SVG+'徒歩'+r.min+'分'+(r.note?' · '+r.note:'')+'</span></span></div>';
+    return '<div class="irow'+(last?' last':'')+'"><span class="tt2">'+r.t+'</span><span class="trk"><i class="dot'+(r.star?' star':'')+'"></i></span><span class="ct2">'
+      +'<span class="nm2">'+r.s.n+(r.star?' <b class="hstar">★</b>':'')+'<span class="cutTag">'+r.s.cut+'</span><span class="stych">'+r.stay+'分滞在</span></span>'
+      +(r.star&&r.s.thumb?'<span class="sthumb" style="background:'+r.s.g+';"><i>'+r.s.cut+' のカット</i></span>':'')
+      +'</span></div>';
+  }
+  function posterHTML(it,ring){
+    var half=Math.ceil(it.rows.length/2);
+    var colA='',colB='';
+    it.rows.forEach(function(r,i){ if(i<half) colA+=posterRow(r); else colB+=posterRow(r); });
+    colB+='<div class="irow last"><span class="tt2">'+it.end+'</span><span class="trk"><i class="dot goal"></i></span><span class="ct2"><span class="nm2" style="color:#a8801a;">ゴール</span></span></div>';
+    var p=PACE[it.pace]||PACE.mid;
+    return '<div class="itin'+(ring?' ring':'')+'" style="margin-top:0;flex:none;">'
+      +'<div class="ieyebrow">'+it.eyebrow+'</div><div class="ititle">'+it.title+'</div>'
+      +'<div class="imeta"><span class="ipill '+p[1]+'">'+p[0]+'</span><span class="ipill plain">'+it.n+'スポット</span><span class="ipill plain">徒歩'+it.walk+'分 · '+it.km+'km</span><span class="ipill plain">'+it.start+' → '+it.end+'</span></div>'
+      +'<div class="itl2"><div>'+colA+'</div><div>'+colB+'</div></div>'
+      +'<div class="ifoot"><button class="rbtn gold">しおりにして共有</button><button class="rbtn ghost">Mapsで開く</button><button class="rbtn ghost">保存する</button><button class="rbtn ghost">歩くモード</button></div></div>';
+  }
+  frame('secF','F3','完成態 · 左読右看','锚定光环（招牌）',
+    wbScreen(
+      wbLeft(thinkCard({folded:{parts:['タイトル確認','23スポット','ルート作成'],sec:'6.8s'}})
+        +aBub('半日でまわれるコースにしたよ。<span class="alink">→ 右のルートを見る</span>')
+        +'<div class="fups"><span class="fup">もっとゆったり</span><span class="fup">カフェを足して</span></div>',
+        {ph:'続けて話す…'}),
+      posterHTML(buildItin(CANON),true)
+      +mapHTML(CANON,{path:true,pill:'飛騨古川 半日ルート',chip:'徒歩26分 · 1.9km'})),
+    'F3：左对话<b>退为旁白</b>（足迹行+总结+「→ 右のルートを見る」teal 链接）；右=海报级两列 TimedItinerary+地图 · hover 左消息→右卡 <b>teal 光环</b>');
+
+  frame('secF','F4','宽度回流 &lt;1024px','同组件换挂载点',
+    '<div style="display:flex;gap:16px;align-items:stretch;">'
+    +'<div class="minipane" style="flex:1.5;"><span class="mlabel">≥1024px · 双栏</span><div style="flex:1;display:grid;grid-template-columns:1fr 1.3fr;gap:8px;padding:10px;"><div style="background:var(--paper);border:1.5px solid var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:var(--ink-soft);min-height:110px;">チャット（旁白）</div><div style="background:var(--teal-bg);border:1.5px solid #bfeae3;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:#0e7c72;">ルートカード + 地図</div></div></div>'
+    +'<div class="minipane" style="flex:1;"><span class="mlabel">&lt;1024px · 回流</span><div style="flex:1;display:flex;flex-direction:column;gap:8px;padding:10px;"><div style="flex:1;background:var(--paper);border:1.5px solid var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:var(--ink-soft);">カードが流の原位に回流</div><div style="display:flex;gap:6px;"><span style="flex:1;text-align:center;background:var(--teal);color:#fff;border-radius:50px;padding:6px 0;font-size:10.5px;font-weight:800;">チャット</span><span style="flex:1;text-align:center;background:var(--paper);border:1.5px solid var(--line);border-radius:50px;padding:6px 0;font-size:10.5px;font-weight:800;color:var(--ink-soft);">ルート</span></div></div></div></div>',
+    'registry 不变、滚动位置保持；移动端降级=底部 tab「チャット/ルート」切换','sm');
+
+  frame('secF','D5d','跨设备交接 · QR','登录的真正卖点',
+    screen({thread:
+      aRow('<div class="bub a"><b>ルートを保存しました！</b>現地ではスマホで「歩くモード」を開いてね。</div>'
+        +'<div class="gcard"><div class="qrbox" style="padding:14px 16px;">'+qrSVG()
+        +'<div style="font-size:12.5px;font-weight:700;line-height:1.75;color:var(--ink-body);"><b style="color:var(--ink);">スマホでスキャン</b><br>桌面で組んだルートが、そのまま手机に。<br><span style="color:var(--ink-soft);font-size:11px;">同じアカウントなら自動で同期されるよ</span></div></div></div>'),
+      composer:{ph:'続けて話す…'}}),
+    '桌面排好→QR/同账号→手机走：<b>登录卖点=跨设备连续性</b>，不是「保存到云」');
+
+  /* ============ G ============ */
+  frame('secG','G1','composer 默认','pill + 按压影',
+    screen({empty:EMPTY_HERO,composer:{}}),
+    'G1：surface 底+border+input 影 · placeholder muted');
+
+  frame('secG','G2','composer 聚焦','focus ring 黄',
+    screen({empty:EMPTY_HERO,composer:{focus:true}}),
+    'G2：focus ring=2.5px #ffcc00 glow（<b>绝不用蓝</b>）');
+
+  frame('secG','G3','有文字 · 发送激活','explore 橙',
+    screen({empty:EMPTY_HERO,composer:{value:'君の名は。の飛騨',send:true}}),
+    'G3：发送键激活=<b>explore 橙+按压影</b>（spec G3）；空文字=muted 无影（不可按的视觉语义）');
+
+  frame('secG','G4','回合运行中','可输入 · 不可发送',
+    screen({thread:
+      uRow('「君の名は。」の聖地に行きたい')
+      +thinkCard({label:'ロケ地を調べています',foxsub:'コン「いま Anitabi でさがしてるよ… <b>8</b>/23」',steps:[['タイトル確認','Bangumi','done'],['聖地スポットを検索','Anitabi','now'],['歩けるルートを作成','','']]}),
+      composer:{busy:true,value:'ちなみに雨の日は…'},hint:'回答を生成中です… 入力は続けられます（送信は完了後）'}),
+    'G4：<b>input 可继续输入、发送键禁用</b>（muted）· 不做排队发送（最小惊讶）');
+
+  frame('secG','G5','发送失败回填','不让用户重打',
+    screen({thread:
+      uRow('「君の名は。」の聖地に行きたい')
+      +aBub('こんにちは、コンです！どの作品の聖地へ行く？'),
+      composer:{value:'飛騨エリアで半日まわりたい',send:true},hint:'送信できませんでした · タップで再送信',hintErr:true}),
+    'G5：失败文字<b>回填进 input</b>（光标定位末尾）+ 错误 hint · 重按发送即重试');
+
+  frame('secG','P5','登录墙 · 只立在「保存」','magic link + ゲスト',
+    screen({thread:
+      aRow(itinHTML(buildItin(CANON),{mini:true,short:true})),
+      composer:{ph:'続けて話す…'},
+      overlay:'<div class="mdim"><div class="authcard"><button class="x">×</button><img src="'+FOX.welcome+'" alt=""><h2>ルートを保存しよう</h2>'
+      +'<p>メールに<b>ログインリンク</b>をお送りします。パスワード不要。<b>端末をまたいで現地で開けます</b>。</p>'
+      +'<div class="field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>you@example.com</div>'
+      +'<button class="big">ログインリンクを送信</button>'
+      +'<div class="or"><span></span>または<span></span></div>'
+      +'<button class="guest">ゲストで先に遊ぶ</button>'
+      +'<p class="note">ゲストのルートはこの端末に一時保存。ログインすると永久保存＆共有できます。</p></div></div>'}),
+    '看/改/排免登录；<b>只有「保存する」这一刻</b>弹墙（P5）· 卖点=跨设备带路线 · ゲスト逃生口 · <b>modal＝上游规则</b>：blob 有机轮廓（示意为不等角圆角，实装 SVG blob）+确认键游戏黄 #ffcc00');
+})();
+</script>
+</body>
+</html>

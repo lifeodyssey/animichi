@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="design_doc_mode" content="canvas">
+<title>路線詳情 状態総覧 — /routes/:id · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts.css">
+<style>
+  :root{
+    --bg:#f0e8d8; --paper:#f8f8f0; --content:#f7f3df; --ink:#794f27; --ink-body:#725d42; --ink-soft:#9f927d;
+    --teal:#19c8b9; --teal-bg:#e6f9f6; --teal-deep:#11a89b; --teal-text:#0e7c72;
+    --gold:#f5c31c; --gold-deep:#d8a812; --gold-ink:#5c4813; --star:#f0b429;
+    --line:#e8e2d6; --line2:#c4b89e;
+    --map-land:#ebe6d5; --map-green:#dbe7c6; --map-water:#bcdce0; --map-road:#fdfbf2; --map-path:#8a6f4d;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{font-family:"Nunito","Noto Sans SC",sans-serif;color:var(--ink-body);background:#e9e0cc;-webkit-font-smoothing:antialiased;padding:40px 48px 90px;width:max-content;min-width:100%;}
+  .head{display:flex;align-items:flex-start;gap:16px;margin-bottom:8px;max-width:2600px;}
+  .head img{width:46px;height:46px;flex:none;}
+  .head h1{font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:27px;color:var(--ink);margin:0;}
+  .head p{margin:4px 0 0;font-size:13px;color:var(--ink-soft);font-weight:700;max-width:1560px;}
+  .head p b{color:var(--ink);}
+  .head a{color:var(--teal-text);font-weight:800;}
+  .toplinks{margin-left:auto;display:flex;gap:9px;flex-wrap:wrap;}
+  .toplinks a{display:inline-flex;gap:7px;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:8px 15px;font-size:12.5px;font-weight:800;color:var(--ink);text-decoration:none;box-shadow:0 2px 4px 0 rgba(61,52,40,.06);}
+  .sec{margin-top:38px;max-width:2600px;}
+  .sec>h2{display:flex;align-items:center;gap:11px;font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:19px;color:var(--ink);margin:0 0 4px;}
+  .sec>h2 .code{background:var(--teal);color:#fff;border-radius:10px;padding:2px 11px;font-size:13px;box-shadow:0 2px 0 0 var(--teal-deep);font-family:"Nunito",sans-serif;}
+  .sec>h2 .code.gold{background:var(--gold);color:var(--gold-ink);box-shadow:0 2px 0 0 var(--gold-deep);}
+  .sec>p.note{margin:0 0 18px;font-size:12.5px;color:var(--ink-soft);font-weight:700;max-width:1560px;}
+  .frames{display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;}
+  .frame{width:418px;flex:none;}
+  .frame.w2{width:560px;}
+  .frame.desk{width:1456px;}
+  .fhead{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;padding:0 2px;}
+  .fhead .fc{flex:none;background:#2c2722;color:#ffd76a;border-radius:8px;padding:1px 8px;font-size:11px;font-weight:900;letter-spacing:.4px;}
+  .fhead b{font-size:13.5px;color:var(--ink);font-weight:800;}
+  .fhead span{font-size:11px;color:var(--ink-soft);font-weight:700;}
+  .fnote{margin-top:9px;padding:0 4px;font-size:11.5px;line-height:1.65;color:#8a7b66;font-weight:700;}
+  .fnote b{color:var(--ink);}
+
+  .ph{position:relative;width:402px;height:874px;border-radius:46px;overflow:hidden;background:var(--bg);
+    box-shadow:0 0 0 10px #2c2722,0 2px 0 12px #4a4239,0 30px 60px -24px rgba(61,52,40,.5);}
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column;}
+  .sb{flex:none;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:14px;font-weight:800;color:var(--ink);}
+  .sb .r{display:flex;gap:5px;align-items:center;}
+  .sb .r i{font-style:normal;display:inline-block;width:17px;height:10px;border:1.5px solid currentColor;border-radius:3px;position:relative;opacity:.85;}
+  .sb .r i::after{content:"";position:absolute;inset:1.5px;right:35%;background:currentColor;border-radius:1px;}
+  .sb .r u{text-decoration:none;font-size:11px;font-weight:900;}
+  .rtop{flex:none;display:flex;align-items:center;gap:10px;padding:2px 16px 8px;}
+  .rtop .bk{width:44px;height:44px;border-radius:50%;border:2px solid var(--line);background:var(--paper);color:var(--ink);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 0 0 #bdaea0;flex:none;}
+  .rtop .bk svg{width:18px;height:18px;}
+  .rtop .sp{flex:1;}
+  .rtop .kb{width:44px;height:44px;border-radius:50%;border:2px solid var(--line);background:var(--paper);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;font-weight:900;letter-spacing:1px;}
+  .body3{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 16px 4px;gap:12px;overflow:hidden;position:relative;}
+  .eyeb{font-size:10.5px;letter-spacing:2px;font-weight:900;color:var(--ink-soft);}
+  .rtitle{font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:26px;line-height:1.2;color:var(--ink);}
+  .rmeta{display:flex;flex-wrap:wrap;gap:7px;align-items:center;}
+  .pill{font-size:11px;font-weight:900;border-radius:999px;padding:4px 11px;background:#f0ece2;color:#7c6c55;}
+  .pill.pace{background:#e7f4dd;color:#4e7a2c;}
+  .pill.wk{background:#f7cd67;color:#fff;}
+  .film{display:flex;gap:8px;}
+  .film .f{flex:1;aspect-ratio:16/9;border-radius:11px;border:2px solid var(--line);position:relative;overflow:hidden;}
+  .film .f i{position:absolute;left:5px;bottom:4px;font-style:normal;font-size:8.5px;font-weight:900;color:#fff;background:#00000066;border-radius:999px;padding:1px 6px;}
+  .film .more{flex:.62;border-radius:11px;border:2px dashed var(--line2);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:var(--ink-soft);line-height:1.3;align-self:stretch;}
+  .itin{background:var(--paper);border:2px solid var(--line);border-radius:18px;padding:14px 16px 6px;}
+  .irow{display:grid;grid-template-columns:44px 20px 72px 1fr auto;column-gap:9px;align-items:start;padding:9px 0 13px;}
+  .irow .tt{font-weight:900;font-size:12.5px;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums;padding-top:1px;}
+  .irow .trk{position:relative;display:flex;justify-content:center;}
+  .irow .trk::before{content:"";position:absolute;top:4px;bottom:-6px;border-left:2px dashed var(--line2);}
+  .irow.last .trk::before{display:none;}
+  .irow .dt{width:12px;height:12px;border-radius:50%;background:var(--teal);border:2px solid #fffdf5;box-shadow:0 0 0 2px var(--teal);z-index:1;margin-top:2px;}
+  .irow .dt.s{background:var(--star);box-shadow:0 0 0 2px var(--star);}
+  .irow .dt.g{background:var(--gold);box-shadow:0 0 0 2px var(--gold-deep);}
+  .irow .nm{min-width:0;font-weight:800;font-size:16px;color:var(--ink);line-height:1.35;}
+  .irow .nm .tag{display:inline-block;background:#f7cd67;color:#fff;font-size:9.5px;font-weight:900;border-radius:999px;padding:1px 7px;margin-left:5px;vertical-align:1px;}
+  .irow .nm .wk{display:block;font-size:11px;color:#4e7a2c;font-weight:800;margin-top:3px;}
+  .irow .st2{font-size:11px;color:var(--ink-soft);font-weight:800;white-space:nowrap;padding-top:2px;}
+  .irow .ok{width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;}
+  .irow .ok svg{width:12px;height:12px;}
+  .irow .ith{width:72px;aspect-ratio:16/9;border-radius:9px;border:1.5px solid var(--line);margin-top:2px;}
+  .segT{display:inline-flex;align-self:flex-start;background:rgba(255,253,245,.94);border:2px solid var(--line2);border-radius:999px;padding:3px;box-shadow:0 2px 6px rgba(61,52,40,.14);}
+  .segT b{font-weight:700;font-size:12px;color:#8a7b66;border-radius:999px;padding:5px 15px;}
+  .segT b.on{background:#0cc0b5;color:#fff9e3;}
+  .irow.cur{background:var(--content);border:2px solid var(--gold);border-radius:14px;padding:7px 8px 9px;margin:0 -8px;}
+  .irow.dim .nm,.irow.dim .tt{opacity:.55;}
+  .mapb{position:relative;border-radius:16px;border:2px solid var(--line);overflow:hidden;flex:none;}
+  .mapb svg{display:block;width:100%;height:100%;}
+  .mapb .gp{position:absolute;left:8px;bottom:8px;background:var(--gold);color:var(--gold-ink);font-size:10px;font-weight:900;border-radius:999px;padding:3px 10px;box-shadow:0 2px 0 0 var(--gold-deep);}
+  .qrrow{display:flex;align-items:center;gap:12px;background:var(--paper);border:2px solid var(--line);border-radius:16px;padding:12px 14px;}
+  .qrrow svg{width:56px;height:56px;flex:none;background:#fff;border:1.5px solid var(--line);border-radius:9px;padding:4px;}
+  .qrrow .tx{font-size:11.5px;font-weight:700;color:var(--ink-soft);line-height:1.55;}
+  .qrrow .tx b{display:block;font-size:13.5px;color:var(--ink);font-weight:800;}
+  .ctag{position:absolute;left:0;right:0;bottom:0;z-index:5;padding:34px 16px 18px;background:linear-gradient(transparent,var(--bg) 46%);display:flex;flex-direction:column;gap:9px;}
+  .cta{height:58px;border-radius:50px;background:var(--gold);color:var(--gold-ink);border:none;font-family:inherit;font-weight:900;font-size:17.5px;display:flex;align-items:center;justify-content:center;gap:9px;box-shadow:0 5px 0 0 var(--gold-deep);}
+  .crow{display:flex;gap:8px;}
+  .cbtn{flex:1;height:44px;border-radius:50px;background:var(--paper);color:var(--ink);border:2px solid var(--paper);font-family:inherit;font-weight:800;font-size:13.5px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 0 #bdaea0;}
+  .liveb{display:flex;align-items:center;gap:10px;background:var(--gold);color:var(--gold-ink);border-radius:16px;padding:10px 14px;font-weight:900;font-size:14.5px;box-shadow:0 3px 0 0 var(--gold-deep);}
+  .liveb .dots{display:flex;gap:5px;margin-left:auto;}
+  .liveb .d{width:11px;height:11px;border-radius:50%;background:#fffdf5;border:2px solid var(--gold-deep);}
+  .liveb .d.v{background:var(--gold-deep);}
+  .memb{display:flex;align-items:center;gap:12px;background:var(--paper);border:2px solid var(--line);border-radius:18px;padding:10px 13px;}
+  .memb img{width:52px;height:52px;flex:none;}
+  .memb .tx b{display:block;font-family:"Zen Maru Gothic",sans-serif;font-size:17px;color:var(--ink);}
+  .memb .tx span{font-size:11.5px;font-weight:800;color:var(--ink-soft);}
+  .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .pcellr .pair{display:flex;gap:3px;border-radius:11px;overflow:hidden;border:2px solid var(--line);}
+  .pcellr .pair span{flex:1;aspect-ratio:1/1;}
+  .pcellr .lb{margin-top:5px;font-size:10.5px;font-weight:800;color:var(--ink-body);}
+  .pcellr.add .pair{border-style:dashed;align-items:center;justify-content:center;background:none;}
+  .pcellr.add .pair i{font-style:normal;font-size:11px;font-weight:900;color:var(--ink-soft);padding:18px 6px;text-align:center;line-height:1.5;}
+  .statr{display:flex;gap:6px;flex-wrap:wrap;}
+
+  /* desktop shell */
+  .scrd{position:relative;width:1440px;height:810px;background:var(--bg);border:2px solid #d9d0ba;border-radius:26px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 14px 34px -20px #5a3c2055;}
+  .abar{flex:none;display:flex;align-items:center;gap:10px;padding:10px 28px;background:var(--paper);border-bottom:2px solid var(--line);}
+  .abar .ja{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:17px;color:var(--ink);}
+  .abar .mi{margin-left:auto;display:inline-flex;gap:7px;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:7px 13px;font-size:12.5px;font-weight:800;color:var(--ink);box-shadow:0 2px 4px 0 rgba(61,52,40,.06);}
+  .abar .av{width:34px;height:34px;border-radius:50%;background:var(--teal);border:2px solid #fff;}
+  .dwrap{flex:1;min-height:0;display:flex;gap:26px;padding:20px 40px;overflow:hidden;}
+  .dmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;}
+  .drail{width:320px;flex:none;display:flex;flex-direction:column;gap:12px;}
+  .dcard{background:var(--paper);border:2px solid var(--line);border-radius:18px;padding:16px 18px;}
+  /* V2 hero-led */
+  .vbh{position:relative;height:352px;flex:none;overflow:hidden;}
+  .vbh .blur{position:absolute;inset:0;filter:blur(22px) saturate(1.15) brightness(.8);transform:scale(1.35);}
+  .vbh .vsh{position:absolute;inset:0;background:linear-gradient(180deg,rgba(28,23,18,.1) 0%,rgba(28,23,18,0) 34%,rgba(28,23,18,.62) 72%,rgba(28,23,18,.92) 100%);}
+  .vbh .real2{position:absolute;left:16px;right:16px;top:14px;aspect-ratio:16/9;border-radius:14px;box-shadow:0 12px 28px -12px rgba(0,0,0,.5);}
+  .vbh .rtag{position:absolute;left:10px;bottom:8px;background:#f7cd67;color:#fff;font-size:11px;font-weight:900;border-radius:999px;padding:2px 9px;}
+  .vbh .rmore{position:absolute;right:10px;bottom:8px;background:#fffdf5e8;color:#3d2f1c;font-size:11px;font-weight:800;border-radius:999px;padding:4px 10px;}
+  .vbh .vbk{position:absolute;left:24px;top:20px;width:40px;height:40px;border-radius:50%;background:#fffdf5e0;color:#3d2f1c;display:flex;align-items:center;justify-content:center;z-index:3;}
+  .vbh .vbk svg{width:17px;height:17px;}
+  .tbadge{background:var(--gold);color:var(--gold-ink);font-size:11.5px;font-weight:900;border-radius:999px;padding:5px 12px;box-shadow:0 2px 0 0 var(--gold-deep);}
+  .vbh .tbadge{position:absolute;right:24px;top:20px;z-index:3;}
+  .vbh .vt{position:absolute;left:18px;right:18px;bottom:44px;color:#fffdf5;font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:27px;text-shadow:0 2px 8px rgba(0,0,0,.5);}
+  .vbh .vm{position:absolute;left:18px;right:18px;bottom:16px;color:#f3e9d2;font-size:11.5px;font-weight:800;display:flex;gap:12px;flex-wrap:wrap;text-shadow:0 1px 4px rgba(0,0,0,.5);}
+  /* V3 map-stage */
+  .mf3 .mapb{border:none;border-radius:0;}
+  .bk3{position:absolute;left:16px;top:54px;width:40px;height:40px;border-radius:50%;background:#fffdf5e6;border:2px solid var(--line);color:var(--ink);display:flex;align-items:center;justify-content:center;z-index:3;}
+  .bk3 svg{width:17px;height:17px;}
+  .tb3{position:absolute;right:16px;top:54px;background:var(--gold);color:var(--gold-ink);font-size:11.5px;font-weight:900;border-radius:999px;padding:5px 12px;box-shadow:0 2px 0 0 var(--gold-deep);z-index:3;}
+  .sheet3{position:absolute;left:0;right:0;bottom:0;top:352px;background:var(--paper);border-radius:28px 28px 0 0;border:2px solid var(--line);border-bottom:none;padding:6px 16px 0;overflow:hidden;z-index:4;}
+  .sheet3 .grab3{width:44px;height:5px;border-radius:3px;background:var(--line2);margin:4px auto 8px;}
+  .sheet3 .s3t{font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:19px;color:var(--ink);margin-bottom:10px;}
+  .sheet3 .itin{border:none;background:none;padding:2px 0 0;}
+  .sheet3 .ctag{background:linear-gradient(transparent,var(--paper) 46%);}
+  .sheet3 .irow.cur{margin:0;}
+  /* long-route accordion */
+  .lwrap{display:flex;flex-direction:column;gap:8px;}
+  .lseg{background:var(--paper);border:2px solid var(--line);border-radius:16px;overflow:hidden;}
+  .lsegh{display:flex;align-items:center;gap:8px;padding:10px 13px;font-size:13.5px;font-weight:900;color:var(--ink);}
+  .lsegh .chev{width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;flex:none;}
+  .lseg.cl .lsegh .chev{background:#f0ece2;color:#8a7b66;}
+  .lsegh .cnt{font-size:10.5px;font-weight:900;color:var(--ink-soft);background:var(--content);border:1.5px solid var(--line);border-radius:999px;padding:0 8px;}
+  .lsegh .minis{margin-left:auto;display:flex;gap:5px;}
+  .lsegh .minis span{width:44px;aspect-ratio:16/9;border-radius:6px;border:1.5px solid var(--line);}
+  .lseg .lbody{padding:0 13px 8px;}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <img src="assets/torii.svg" alt="">
+  <div>
+    <h1>路線詳情 状態総覧 — /routes/:id（Route 的家）</h1>
+    <p><b>三时态＝同一页随旅程变形</b>（数据驱动，非 tab）：預習（しおり共有·计划版）→ 現場入口（歩くモード）→ 記念（しおりを作る·完走版+pair grid）。金 CTA 每态唯一。編集不在本页——跳 Chat A2b 引用态。桌面＝左 760 内容+右 320 sticky QR rail（登录卖点：把路线带去旅途）。spec 存档：<a href="docs/spec-route-detail.md">docs/spec-route-detail.md</a></p>
+  </div>
+  <div class="toplinks">
+    <a href="Walk 状态总览.html">Walk（現場入口的去向）</a>
+    <a href="Chat 状态总览.html">Chat（編集の去向）</a>
+    <a href="前端全景 - Journey Hub.dc.html">← Journey Hub</a>
+  </div>
+</div>
+
+<section class="sec">
+  <h2><span class="code gold">TENSE</span>三时态 × 同页两态 — 定稿语言（402×874 · 1:1）</h2>
+  <p class="note">預習/記念＝<b>静息态</b>（封面 hero）；現場＝<b>地図展開态</b>（地图上半屏+时刻表 sheet，当天默认）；切换＝点地图卡升格/grab 拖回。<b>时态 segmented 常驻随时手动切（当天默认現場）</b>；时刻表行带帧缩略、地图 pin＝帧图钉——画面＞地点＞时刻（07-03 brief）。<b>帧＝首屏</b>：内容自然下溢出框（＝可滚动），金 CTA 是 <b>sticky 底部 dock</b>（渐变承接，真实实现同款）——不为塞满一屏压缩或填空。</p>
+  <div class="frames" id="secT"></div>
+</section>
+
+<section class="sec">
+  <h2><span class="code gold">MODE</span>两态模型注记 + 長路線</h2>
+  <p class="note"><b>两态模型（回卷完成，帧见上方 TENSE 组）。</b>V2＝<b>静息态</b>（封面帧 hero，預習/記念的默认入口）；V3＝<b>地図展開态</b>——点流内地图卡，地图 FLIP 升格接管上半屏、时刻表收进可拖 sheet（grab 拖回＝收起）。現場入口当天默认以展開态进入。与工作台「毕业⇄收起」同族语言（graduation 的手机版）。长路线：≥7 站时刻表自动分段手风琴（spec §8）。</p>
+  <div class="frames" id="secALT"></div>
+</section>
+
+<section class="sec">
+  <h2><span class="code">DESK</span>桌面版（1440×810）+ 规则</h2>
+  <p class="note">三时态桌面同布局换态（只画預習）；右 rail 常驻 QR ——「桌面排好 → 扫码 → 手机走」。</p>
+  <div class="frames" id="secD"></div>
+</section>
+
+<script>
+(function(){
+  var TICK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>';
+  var BACK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>';
+  var G={st:'linear-gradient(135deg,#cfe3f7,#98b8dc)',seto:'linear-gradient(135deg,#d9ecec,#a9cfd1)',aji:'linear-gradient(135deg,#f5dccf,#e0b294)',keta:'linear-gradient(160deg,#8fb87a,#d7eccf 55%,#7fae6a)',lib:'linear-gradient(135deg,#dfd6f0,#b7a8dd)',sak:'linear-gradient(135deg,#fbe3ea,#eeb3c6)'};
+  var STN=[
+    {t:'9:30',n:'飛騨古川駅',tag:'第1話 04:12',stay:'15分',wk:'↓ 徒歩4分 · 瀬戸川沿い',g:G.st},
+    {t:'9:49',n:'味処古川',tag:'第3話 14:02',stay:'30分',wk:'↓ 徒歩9分 · 白壁土蔵街',g:G.aji},
+    {t:'10:28',n:'気多若宮神社',tag:'第8話 41:12',stay:'30分',wk:'↓ 徒歩7分 · 市街へ下る',g:G.keta,star:1},
+    {t:'10:55',n:'飛騨市図書館',tag:'第8話 43:05',stay:'15分',wk:'↓ 徒歩6分',g:G.lib},
+    {t:'11:16',n:'さくら物産館',tag:'第8話 47:48',stay:'30分',wk:'',g:G.sak,goal:1}
+  ];
+  function sb(){ return '<div class="sb"><span>9:41</span><span class="r"><u>5G</u><i></i></span></div>'; }
+  function SEGT(cur){ var L={pre:'預習',live:'現場',mem:'記念'}; return '<div class="segT">'+['pre','live','mem'].map(function(k){return '<b class="'+(k===cur?'on':'')+'">'+L[k]+'</b>';}).join('')+'</div>'; }
+  function rtop(){ return '<div class="rtop"><span class="bk">'+BACK+'</span><span class="sp"></span><span class="kb">⋯</span></div>'; }
+  function titleBlk(){
+    return '<div class="eyeb">HIDA-FURUKAWA · HALF-DAY ROUTE</div>'
+      +'<div class="rtitle">飛騨古川 半日ルート</div>'
+      +'<div class="rmeta"><span class="pill wk">君の名は。</span><span class="pill pace">ゆったり</span><span class="pill">5スポット</span><span class="pill">9:30→12:32 · 徒歩26分</span></div>';
+  }
+  function itin(mode){
+    var h='<div class="itin">';
+    STN.forEach(function(s,i){
+      var visited=(mode==='live'&&i<2)||mode==='mem';
+      var cur=(mode==='live'&&i===2);
+      var dt=s.goal?'g':(s.star?'s':'');
+      var right=visited?'<span class="ok">'+TICK+'</span>':'';
+      h+='<div class="irow'+(i===4?' last':'')+(cur?' cur':'')+((mode==='live'&&i>2)?' dim':'')+'">'
+        +'<span class="tt">'+s.t+'</span><span class="trk"><i class="dt '+dt+'"></i></span>'
+        +'<span class="ith" style="background:'+s.g+';"></span>'
+        +'<span class="nm">'+s.n+(s.star?' <b style="color:var(--star);">★</b>':'')+'<span class="tag">'+s.tag+'</span>'
+        +'<span class="wk">滞在'+s.stay+((s.wk&&(mode==='pre'||mode==='live'))?'　'+s.wk:'')+'</span></span>'+right+'</div>';
+    });
+    return h+'</div>';
+  }
+  function mapb(hh,pill,cur){
+    var P=[[75,200,'#cfe3f7','#98b8dc'],[190,152,'#f5dccf','#e0b294'],[320,72,'#8fb87a','#7fae6a'],[450,128,'#dfd6f0','#b7a8dd'],[556,92,'#fbe3ea','#eeb3c6']];
+    var defs='<defs>'+P.map(function(q,i){return '<linearGradient id="mp'+i+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="'+q[2]+'"/><stop offset="1" stop-color="'+q[3]+'"/></linearGradient>';}).join('')+'</defs>';
+    var pts=P.map(function(q){return q[0]+','+q[1];}).join(' ');
+    var pins='';
+    P.forEach(function(q,i){
+      var ic=(cur===i), r=ic?24:16, br=ic?17:12;
+      if(ic) pins+='<circle cx="'+q[0]+'" cy="'+q[1]+'" r="31" fill="none" stroke="var(--teal)" stroke-width="3" opacity=".6"/>';
+      pins+='<circle cx="'+q[0]+'" cy="'+q[1]+'" r="'+r+'" fill="url(#mp'+i+')" stroke="#fffdf5" stroke-width="3"/>'
+        +'<circle cx="'+(q[0]+br)+'" cy="'+(q[1]-br)+'" r="8" fill="'+(i===2?'var(--star)':'var(--teal)')+'" stroke="#fff" stroke-width="2"/>'
+        +'<text x="'+(q[0]+br)+'" y="'+(q[1]-br+3.2)+'" text-anchor="middle" font-size="8.5" font-weight="900" fill="#fff" font-family="Nunito">'+(i===2?'★':(i+1))+'</text>';
+    });
+    return '<div class="mapb" style="height:'+hh+'px;"><svg viewBox="0 0 600 '+Math.round(hh*600/370)+'" preserveAspectRatio="xMidYMid slice">'+defs
+      +'<rect width="600" height="640" fill="var(--map-land)"/>'
+      +'<ellipse cx="130" cy="40" rx="170" ry="60" fill="var(--map-green)" opacity=".8"/>'
+      +'<ellipse cx="470" cy="420" rx="210" ry="85" fill="var(--map-green)" opacity=".5"/>'
+      +'<path d="M-10 210 C 140 185 260 150 380 120 S 560 85 620 80" fill="none" stroke="var(--map-water)" stroke-width="13" stroke-linecap="round"/>'
+      +'<path d="M-10 470 C 150 435 320 455 470 415 S 640 375 720 380" fill="none" stroke="var(--map-water)" stroke-width="15" stroke-linecap="round" opacity=".9"/>'
+      +'<path d="M-10 130 L 620 100" stroke="var(--map-road)" stroke-width="7"/>'
+      +'<path d="M-10 330 L 620 295" stroke="var(--map-road)" stroke-width="6"/>'
+      +'<path d="M120 640 L 175 470 250 335 300 210" fill="none" stroke="var(--map-road)" stroke-width="8" stroke-linecap="round"/>'
+      +'<polyline points="'+pts+'" fill="none" stroke="var(--map-path)" stroke-width="4" stroke-dasharray="2 9" stroke-linecap="round"/>'
+      +pins
+      +'</svg><span class="gp">'+(pill||'▸ 9:30 → 12:32')+'</span></div>';
+  }
+  var qrs='';
+  (function(){ var seed=7; function rnd(){seed=(seed*1103515245+12345)%2147483648;return seed/2147483648;}
+    for(var y=0;y<17;y++)for(var x=0;x<17;x++){ var fin=(x<5&&y<5)||(x>11&&y<5)||(x<5&&y>11); if(fin)continue;
+      if(rnd()<0.44) qrs+='<rect x="'+(x+2)+'" y="'+(y+2)+'" width="1" height="1" fill="#4a3b28"/>'; }
+    [[2,2],[14,2],[2,14]].forEach(function(p){ qrs+='<rect x="'+(p[0]+0.5)+'" y="'+(p[1]+0.5)+'" width="4" height="4" fill="none" stroke="#4a3b28" stroke-width="1"/><rect x="'+(p[0]+1.5)+'" y="'+(p[1]+1.5)+'" width="2" height="2" fill="#4a3b28"/>'; });
+  })();
+  function qrSVG(){ return '<svg viewBox="0 0 21 21">'+qrs+'</svg>'; }
+  function film(){
+    return '<div class="film">'
+      +'<span class="f" style="background:'+G.st+';"><i>第1話 04:12</i></span>'
+      +'<span class="f" style="background:'+G.keta+';"><i>第8話 41:12</i></span>'
+      +'<span class="f" style="background:'+G.sak+';"><i>第8話 47:48</i></span>'
+      +'<span class="more">+9<br>機位 ▸</span></div>';
+  }
+  function phone(inner){ return '<div class="ph"><div class="scr">'+sb()+rtop()+'<div class="body3">'+inner+'</div></div></div>'; }
+  function frame(sec,code,title,note,html,fnote,cls){
+    var e=document.createElement('div'); e.className='frame'+(cls?' '+cls:'');
+    e.innerHTML='<div class="fhead"><span class="fc">'+code+'</span><b>'+title+'</b><span>'+(note||'')+'</span></div>'+html+(fnote?'<div class="fnote">'+fnote+'</div>':'');
+    document.getElementById(sec).appendChild(e);
+  }
+
+  /* R-PRE 静息·預習 */
+  frame('secT','R-PRE','預習 — 静息态（封面 hero）','金＝しおり共有（计划版）',
+    '<div class="ph"><div class="scr">'+sb()
+    +'<div class="vbh">'
+    +'<div class="blur" style="background:'+G.keta+';"></div><div class="vsh"></div>'
+    +'<span class="vbk">'+BACK+'</span>'
+    +'<div class="real2" style="background:'+G.keta+';"><span class="rtag">第8話 41:12</span><span class="rmore">+11 機位 ▸</span></div>'
+    +'<div class="vt">飛騨古川 半日ルート</div>'
+    +'<div class="vm"><span>君の名は。</span><span>ゆったり · 5スポット</span><span>9:30→12:32 · 徒歩26分</span></div>'
+    +'</div>'
+    +'<div class="body3" style="padding-top:10px;">'+SEGT('pre')+itin('pre')+mapb(170)
+    +'<div class="qrrow">'+qrSVG()+'<span class="tx"><b>スマホで持ち出す</b>同じアカウントで自動同期 · 同行者にも</span></div>'
+    +'<div class="ctag"><button class="cta">しおりにして共有</button>'
+    +'<div class="crow"><button class="cbtn">Mapsで開く</button><button class="cbtn">歩くモード</button><button class="cbtn">編集 →Chat</button></div></div>'
+    +'</div></div></div>',
+    '首屏＝封面帧（blur-fill，帧完整不裁）+标题/meta 压模糊区+時態徽章；filmstrip 并入帧角「+11 機位 ▸」。<b>流内地图卡＝展開开关</b>（点击 FLIP 升格入展開态）。QR 行在折下（滚动可达；桌面由 rail 常驻）。しおり＝计划版（无✓）。<b>≥7 站→时刻表自动分段</b>（见下 MODE 区「R-PRE · 長路线形態」帧）');
+
+  /* R-LIVE 展開·現場 */
+  frame('secT','R-LIVE','現場入口 — 地図展開态（当天默认）','金＝歩くモードを開く',
+    '<div class="ph"><div class="scr">'+sb()
+    +'<div class="mf3" style="margin:-6px 0 0;">'+mapb(392,'▸ 進行中 · 3/5 神社',2)+'</div>'
+    +'<span class="bk3">'+BACK+'</span><div style="position:absolute;left:50%;transform:translateX(-50%);top:56px;z-index:5;">'+SEGT('live')+'</div>'
+    +'<div class="sheet3"><div class="grab3"></div>'
+    +'<div class="s3t" style="display:flex;align-items:center;gap:8px;">飛騨古川 半日ルート<span class="pill" style="background:#e7f4dd;color:#4e7a2c;">3/5</span></div>'
+    +itin('live')
+    +'<div class="ctag"><button class="cta">歩くモードを開く</button>'
+    +'<div class="crow"><button class="cbtn">Mapsで開く</button><button class="cbtn">しおり共有</button></div></div>'
+    +'</div></div></div>',
+    '当天自动以<b>展開态</b>进入：地图接管上半屏（進行中 pill 浮图上、当前站 pin 高亮）+时刻表收进可拖 sheet（✓已访 · 金框当前 · 未访降透明，锚定当前段）。grab 拖回＝收起回静息态。金 CTA → scene-cut 狐狸转场进 Walk');
+
+  /* R-MEM 静息·記念 */
+  frame('secT','R-MEM','記念 — 静息态 + pair 墙','金＝しおりを作る（完走版）',
+    '<div class="ph"><div class="scr">'+sb()
+    +'<div class="vbh">'
+    +'<div class="blur" style="background:'+G.sak+';"></div><div class="vsh"></div>'
+    +'<span class="vbk">'+BACK+'</span>'
+    +'<div class="real2" style="background:'+G.sak+';"><span class="rtag">第8話 47:48</span><span class="rmore">+11 機位 ▸</span></div>'
+    +'<div class="vt">飛騨古川 半日ルート</div>'
+    +'<div class="vm"><span>完走 2026.7.3</span><span>5/5 スポット · 3時間02分</span><span>復刻構図 7/44</span></div>'
+    +'</div>'
+    +'<div class="body3" style="padding-top:10px;">'+SEGT('mem')
+    +'<div class="pgrid">'
+    +'<div class="pcellr"><div class="pair"><span style="background:'+G.st+';"></span><span style="background:linear-gradient(150deg,#a8bfd6,#7e99b5);"></span></div><div class="lb">飛騨古川駅 · 対比図 ✓</div></div>'
+    +'<div class="pcellr"><div class="pair"><span style="background:'+G.keta+';"></span><span style="background:linear-gradient(150deg,#96b585,#6d8f5c);"></span></div><div class="lb">気多若宮神社 · 対比図 ✓</div></div>'
+    +'<div class="pcellr"><div class="pair"><span style="background:'+G.aji+';"></span><span style="background:linear-gradient(150deg,#d6b394,#b28d68);"></span></div><div class="lb">味処古川 · 対比図 ✓</div></div>'
+    +'<div class="pcellr add"><div class="pair"><i>あと2件<br>対比図を作る ▸</i></div><div class="lb">図書館 · 物産館</div></div>'
+    +'</div>'
+    +'<div class="crow"><button class="cbtn">時刻表を見る ▾</button><button class="cbtn">対比図ツール ↗</button></div>'+mapb(118,'▸ 完走軌跡')
+    +'<div class="ctag"><button class="cta">しおりを作る</button>'
+    +'<div class="crow"><button class="cbtn">リンクをコピー</button><button class="cbtn">もう一度歩く</button></div></div>'
+    +'</div></div></div>',
+    '完走信息升进 hero（日期/実績压模糊区）——V1 的徽章卡被 hero 吸收，少一层盒子。正文＝<b>帧×実拍 pair 墙</b>（image-merge 产物；未生成＝dashed「対比図を作る ▸」占位）+完走轨迹图。しおり＝完走版（带✓+完成率）');
+
+  /* V2/V3 两帧已并入上方 TENSE 组（07-03 回卷） */
+
+  /* ---- V-LONG 长路线分段 ---- */
+  (function(){
+    function lrow(t,n,tag,star,wk,last){
+      return '<div class="irow'+(last?' last':'')+'"><span class="tt">'+t+'</span><span class="trk"><i class="dt'+(star?' s':'')+'"></i></span>'
+        +'<span class="ith" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"></span>'
+        +'<span class="nm">'+n+(star?' <b style="color:var(--star);">★</b>':'')+'<span class="tag">'+tag+'</span>'+(wk?'<span class="wk">'+wk+'</span>':'')+'</span><span class="st2"></span></div>';
+    }
+    var seg1='<div class="lseg"><div class="lsegh"><span class="chev">▾</span>午前 · 9:00–12:10<span class="cnt">5站</span><span style="margin-left:auto;font-size:10.5px;font-weight:800;color:var(--teal-text);">預習＝第一段展開</span></div>'
+      +'<div class="lbody">'
+      +lrow('9:02','京阪宇治駅','第1話 02:10',0,'↓ 徒歩3分 · 宇治橋へ')
+      +lrow('9:25','宇治橋・紫式部像','第1話 05:44',0,'↓ 徒歩6分')
+      +lrow('10:10','大吉山展望台','第8話 18:22',1,'↓ 下山 15分')
+      +lrow('11:05','平等院表参道','第5話 09:31',0,'↓ 徒歩4分')
+      +lrow('11:50','宇治神社','第9話 12:07',0,'',1)
+      +'</div></div>';
+    var seg2='<div class="lseg cl"><div class="lsegh"><span class="chev">▸</span>午後 · 12:40–16:20<span class="cnt">5站</span><span class="minis"><span style="background:linear-gradient(135deg,#d9ecec,#a9cfd1);"></span><span style="background:linear-gradient(135deg,#dfd6f0,#b7a8dd);"></span><span style="background:linear-gradient(135deg,#f5dccf,#e0b294);"></span></span></div></div>';
+    var seg3='<div class="lseg cl"><div class="lsegh"><span class="chev">▸</span>夕方 · 16:40–18:00<span class="cnt">2站</span><span class="minis"><span style="background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"></span><span style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);"></span></span></div></div>';
+    frame('secALT','V-LONG','R-PRE · 長路线形態 — ≥7 站自动分段（宇治 12 站）','預習静息态的变体 · 两态通用',
+      '<div class="ph"><div class="scr">'+sb()
+      +'<div class="rtop"><span class="bk">'+BACK+'</span><span class="sp"></span><span class="tbadge" style="position:static;">預習 · 出発前</span></div>'
+      +'<div class="body3">'
+      +'<div class="eyeb">UJI · FULL-DAY ROUTE</div>'
+      +'<div class="rtitle" style="font-size:23px;">宇治・響け！一日ルート</div>'
+      +'<div class="rmeta"><span class="pill wk">響け！ユーフォニアム</span><span class="pill pace" style="background:#fde9d6;color:#b9682a;">ふつう</span><span class="pill">12スポット</span><span class="pill">9:00→18:00 · 徒歩68分</span></div>'
+      +'<div class="lwrap">'+seg1+seg2+seg3+'</div>'+mapb(118,'▸ 9:00 → 18:00')
+      +'<div class="ctag"><button class="cta">しおりにして共有</button>'
+      +'<div class="crow"><button class="cbtn">Mapsで開く</button><button class="cbtn">歩くモード</button><button class="cbtn">編集 →Chat</button></div></div>'
+      +'</div></div></div>',
+      '<b>恒定密度用在时刻表上</b>：≥7 站→時間帯分段手风琴（段头＝时间窗+N站+3 迷你缩略，收起态非纯文字）；預習默认只展开第一段，<b>現場自动展开并锚定当前段</b>；5–6 站维持平铺不分段。屏上永远＝一段展开+几个段头，长度恒定；两态通用（展開态的 sheet 内同样分段）。hero/地图高度与站数无关（帧内地图＝5 pin 示意）');
+  })();
+
+  /* 时态流转条 */
+  (function(){
+    function mini(lbl,glyph,cur){
+      return '<div style="flex:1;text-align:center;"><div style="height:74px;border-radius:14px;border:2px solid '+(cur?'var(--gold)':'var(--line)')+';background:var(--content);display:flex;align-items:center;justify-content:center;">'+glyph+'</div><div style="margin-top:6px;font-size:12.5px;font-weight:900;color:var(--ink);">'+lbl+'</div></div>';
+    }
+    function arrow(lbl){
+      return '<div style="flex:none;width:128px;text-align:center;"><div style="font-size:18px;font-weight:900;color:var(--teal-text);">→</div><div style="font-size:10.5px;font-weight:800;color:var(--ink-soft);line-height:1.5;">'+lbl+'</div></div>';
+    }
+    var g1='<div style="width:66px;height:44px;border-radius:8px;background:'+G.keta+';"></div>';
+    var g2='<div style="width:66px;height:44px;border-radius:8px;background:var(--map-land);position:relative;overflow:hidden;"><span style="position:absolute;left:12px;top:20px;width:9px;height:9px;border-radius:50%;background:var(--teal);border:2px solid #fff;"></span><span style="position:absolute;left:34px;top:10px;width:9px;height:9px;border-radius:50%;background:var(--star);border:2px solid #fff;"></span></div>';
+    var g3='<div style="display:flex;gap:3px;"><span style="width:32px;height:44px;border-radius:6px;background:'+G.st+';"></span><span style="width:32px;height:44px;border-radius:6px;background:linear-gradient(150deg,#a8bfd6,#7e99b5);"></span></div>';
+    frame('secT','FLOW','默认落位 — 数据定默认，segmented 随时手动切','当天→現場 · 完走→記念',
+      '<div style="display:flex;align-items:center;gap:6px;background:var(--paper);border:2px solid #d9d0ba;border-radius:18px;padding:18px 20px;">'
+      +mini('預習 · 静息',g1)+arrow('出発当日<br>date＝today<br>→自动展開態')+mini('現場 · 展開',g2,1)+arrow('Walk で 5/5<br>打卡完了<br>（その瞬間）')+mini('記念 · pair墙',g3)
+      +'</div>',
+      '<b>segmented 常驻、随时手动切（07-03 brief）</b>；数据只决定进入时的默认落位：出发当天打开＝現場（直接地図展開態）；Walk 里最后一站打卡的那一刻，本页身份已经变成記念（活文档）。回看旧日期的完走路线永远＝記念態','w2');
+  })();
+
+  /* R-DESK */
+  var desk='<div class="scrd">'
+    +'<div class="abar"><span style="position:relative;width:32px;height:32px;flex:none;"><img src="assets/torii.svg" style="width:32px;height:32px;display:block;" alt=""><img src="assets/fox/fox-peek.svg" style="position:absolute;left:-7px;bottom:-5px;width:19px;height:19px;transform:scaleX(-1);" alt=""></span><span class="ja">聖地巡礼</span><span class="mi">マイルート</span><span class="av"></span></div>'
+    +'<div style="position:relative;height:184px;flex:none;overflow:hidden;">'
+    +'<div style="position:absolute;inset:0;background:'+G.keta+';filter:blur(24px) saturate(1.15) brightness(.8);transform:scale(1.3);"></div>'
+    +'<div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(28,23,18,.74) 0%,rgba(28,23,18,.4) 46%,rgba(28,23,18,.12) 100%);"></div>'
+    +'<div style="position:absolute;left:40px;top:26px;"><div style="font-size:10.5px;letter-spacing:2px;font-weight:900;color:#d9cbae;">HIDA-FURUKAWA · HALF-DAY ROUTE</div>'
+    +'<div style="font-family:\'Zen Maru Gothic\',sans-serif;font-weight:900;font-size:30px;color:#fffdf5;margin:4px 0 12px;text-shadow:0 2px 8px rgba(0,0,0,.4);">飛騨古川 半日ルート</div>'
+    +'<div style="display:flex;gap:8px;"><span class="pill wk">君の名は。</span><span class="pill pace">ゆったり</span><span class="pill">5スポット</span><span class="pill">9:30→12:32 · 徒歩26分</span></div></div>'
+    +'<div style="position:absolute;right:300px;top:28px;">'+SEGT('pre')+'</div>'
+    +'<div style="position:absolute;right:40px;top:30px;width:224px;aspect-ratio:16/9;border-radius:12px;background:'+G.keta+';box-shadow:0 12px 26px -10px rgba(0,0,0,.5);"><span style="position:absolute;left:8px;bottom:6px;background:#f7cd67;color:#fff;font-size:10px;font-weight:900;border-radius:999px;padding:1px 8px;">第8話 41:12</span></div>'
+    +'</div>'
+    +'<div class="dwrap" style="padding:20px 40px;"><div class="dmain">'
+    +'<div style="display:flex;gap:16px;min-height:0;"><div style="flex:1.35;min-width:0;">'+itin('desk')+'</div><div style="flex:1;min-width:0;">'+mapb(392,'▸ 9:30 → 12:32')+'</div></div>'
+    +'</div><div class="drail">'
+    +'<div class="dcard" style="text-align:center;">'
+    +'<div style="width:150px;height:150px;margin:2px auto 10px;background:#fff;border:2px solid var(--line);border-radius:14px;padding:9px;">'+qrSVG()+'</div>'
+    +'<b style="font-family:\'Zen Maru Gothic\',sans-serif;font-size:16px;color:var(--ink);display:block;">スマホで持ち出す</b>'
+    +'<span style="font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.6;display:block;margin-top:4px;">現地では片手・屋外が前提。<br>同じアカウントで自動同期。</span></div>'
+    +'<div class="dcard" style="display:flex;flex-direction:column;gap:9px;">'
+    +'<button class="cta" style="height:54px;font-size:16px;">しおりにして共有</button>'
+    +'<button class="cbtn" style="flex:none;height:44px;">Mapsで開く</button>'
+    +'<button class="cbtn" style="flex:none;height:44px;">歩くモード（→QR）</button>'
+    +'<button class="cbtn" style="flex:none;height:44px;">編集 → Chat A2b</button></div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--ink-soft);line-height:1.6;padding:0 4px;">時態は同レイアウトで切替：現場入口→rail 先頭に「歩くモードを開く」金 CTA+進行中条；記念→pair grid が本文に、rail=しおりを作る</div>'
+    +'</div></div></div>';
+  frame('secD','R-DESK','桌面 · 預習','左 760 内容 + 右 320 sticky rail',desk,
+    '桌面职责＝<b>确认与交接</b>：QR 卡是 rail 常驻主角（登录卖点：桌面排好→扫码→手机走）· 記念态 pair grid 上桌面就是「相册墙」· /walk 桌面访问反向引导回本页','desk');
+
+  /* RULE */
+  var rules=document.createElement('div'); rules.className='frame w2';
+  rules.innerHTML='<div class="fhead"><span class="fc">RULE</span><b>三时态规则 — spec 已存档 docs/spec-route-detail.md</b><span></span></div>'
+    +'<div style="display:flex;flex-direction:column;gap:9px;">'
+    +'<div style="display:flex;gap:10px;align-items:flex-start;background:var(--content);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12px;line-height:1.6;font-weight:700;color:var(--ink-body);"><span style="flex:none;width:18px;height:18px;border-radius:50%;background:#2c2722;color:#ffd76a;font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:2px;">1</span><div><b>时态＝数据驱动，非 tab</b>：date==today && 進行中→現場；100%→記念；其余→預習。页面跟着旅程变形，用户永不手动切</div></div>'
+    +'<div style="display:flex;gap:10px;align-items:flex-start;background:var(--content);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12px;line-height:1.6;font-weight:700;color:var(--ink-body);"><span style="flex:none;width:18px;height:18px;border-radius:50%;background:#2c2722;color:#ffd76a;font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:2px;">2</span><div><b>金 CTA 分配</b>：預習＝しおり共有（计划版）· 現場＝歩くモードを開く（scene-cut 进 Walk）· 記念＝しおりを作る（完走版）——每态唯一</div></div>'
+    +'<div style="display:flex;gap:10px;align-items:flex-start;background:var(--content);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12px;line-height:1.6;font-weight:700;color:var(--ink-body);"><span style="flex:none;width:18px;height:18px;border-radius:50%;background:#2c2722;color:#ffd76a;font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:2px;">3</span><div><b>本页只读+行动</b>：編集一律跳 Chat A2b（参照中 pill）；filmstrip→機位浏览器（DS⑨，出典行）；pair grid 吃 image-merge 产物，未生成＝dashed 占位</div></div>'
+    +'<div style="display:flex;gap:10px;align-items:flex-start;background:var(--content);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12px;line-height:1.6;font-weight:700;color:var(--ink-body);"><span style="flex:none;width:18px;height:18px;border-radius:50%;background:#2c2722;color:#ffd76a;font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:2px;">4</span><div><b>免登录边界</b>：本页＝登录用户私有；免登录对应物＝/share/:routeId（Step 3）。P5 不变：墙只立在「保存」</div></div>'
+    +'</div>';
+  document.getElementById('secD').appendChild(rules);
+})();
+</script>
+</body>
+</html>
