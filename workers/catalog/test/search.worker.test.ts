@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   search,
+  searchDb,
   type MissPreview,
   type SearchDb,
   type WorkPointRow,
 } from "../src/api/search";
+import { ORPCError } from "@orpc/server";
+import type { CatalogDb } from "../src/db/client";
+import { upstreamUnavailable } from "../src/lib/errors";
+import type { FetchLike } from "../src/ingest/sources";
 import type { PilgrimagePoint } from "../src/types";
 
 /**
@@ -72,7 +77,10 @@ function fakeDb(aliasIndex: AliasIndex, miss: MissStubs = {}): Recorder {
       Promise.resolve(Object.values(aliasIndex).find((e) => e.workId === workId)?.rows ?? []),
     resolvePreview: async (query) => {
       resolved.push(query);
-      return miss.resolvePreview ? miss.resolvePreview(query) : null;
+      // `await` (not a bare return) so a stub's already-rejected promise gains
+      // a handler synchronously — workerd reports rejections left dangling
+      // across the thenable-adoption microtask as unhandled.
+      return miss.resolvePreview ? await miss.resolvePreview(query) : null;
     },
     runFullIngest: async (workId) => {
       if (miss.runFullIngest) await miss.runFullIngest(workId);
@@ -92,6 +100,21 @@ function recordLookup(lookups: string[], index: AliasIndex, alias: string): stri
 function waitUntilSpy(): { waitUntil: (p: Promise<unknown>) => void; scheduled: Promise<unknown>[] } {
   const scheduled: Promise<unknown>[] = [];
   return { waitUntil: (p) => void scheduled.push(p), scheduled };
+}
+
+/** Fake production DB for searchDb() alias misses; casts stay at the boundary. */
+function catalogDb(rows: unknown[]): CatalogDb {
+  return { execute: () => Promise.resolve({ rows }) } as unknown as CatalogDb;
+}
+
+async function searchError(run: () => Promise<unknown>): Promise<ORPCError<string, unknown>> {
+  try {
+    await run();
+  } catch (err) {
+    expect(err).toBeInstanceOf(ORPCError);
+    return err as ORPCError<string, unknown>;
+  }
+  throw new Error("expected search to reject");
 }
 
 /** A canned L1 preview point (the lite shape, already mapped to the contract). */
@@ -199,6 +222,26 @@ describe("search (alias miss — L1 preview + background ingest)", () => {
     expect(scheduled).toEqual([]);
     expect(ingested).toEqual([]);
     expect(typeof result.synced_at).toBe("string");
+  });
+
+  it("propagates a defined upstream error from the injected preview resolver", async () => {
+    const { db } = fakeDb({}, { resolvePreview: () => Promise.reject(upstreamUnavailable("bangumi")) });
+    const err = await searchError(() => search(db, { query: "downstream miss" }));
+    expect(err.code).toBe("UPSTREAM_UNAVAILABLE");
+    expect(err.status).toBe(502);
+    expect(err.defined).toBe(true);
+    expect(err.data).toEqual({ upstream: "bangumi" });
+  });
+
+  it("turns production Bangumi fetch failures into defined retryable errors", async () => {
+    const fetchImpl: FetchLike = () => Promise.reject(new Error("bangumi down"));
+    const err = await searchError(() =>
+      search(searchDb(catalogDb([])), { query: "uncovered title" }, { fetchImpl }),
+    );
+    expect(err.code).toBe("UPSTREAM_UNAVAILABLE");
+    expect(err.status).toBe(502);
+    expect(err.defined).toBe(true);
+    expect(err.data).toEqual({ upstream: "bangumi" });
   });
 });
 

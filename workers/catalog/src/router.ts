@@ -1,10 +1,17 @@
-import { ORPCError, os, type } from "@orpc/server";
+import { os, type } from "@orpc/server";
 import type { CatalogDb, NeonSql } from "./db/client";
 import { search as searchHandler, searchDb } from "./api/search";
 import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
 import { nearby as nearbyHandler } from "./api/nearby";
 import { route as routeHandler } from "./api/route";
 import { ingestWork, type IngestResult as OrchestratorResult } from "./ingest/orchestrator";
+import {
+  ROUTE_ERRORS,
+  SEARCH_ERRORS,
+  SPOTS_ERRORS,
+  routeTooManyPoints,
+  workNotFound,
+} from "./lib/errors";
 import type { IngestResult, Origin, Pacing } from "./types";
 
 /**
@@ -53,8 +60,14 @@ export interface CatalogContext {
 const base = os.$context<CatalogContext>();
 
 /** search(query, origin?) -> { rows, synced_at, partial? }; an alias miss returns
- * an L1 preview and backgrounds the full ingest via `context.waitUntil`. */
+ * an L1 preview and backgrounds the full ingest via `context.waitUntil`.
+ *
+ * `.errors(...)` declares this procedure's typed error map (mirrors the
+ * contract attachment): REQUIRED for a thrown defined ORPCError to keep
+ * `defined: true` on the wire — undeclared codes are rewritten to
+ * `defined: false` by the server's validateORPCError. */
 const search = base
+  .errors(SEARCH_ERRORS)
   .route({ method: "POST", path: "/search" })
   .input(type<{ query: string; origin?: Origin }>())
   .handler(async ({ input, context }) =>
@@ -66,6 +79,7 @@ const search = base
 
 /** spots(bangumi_id, origin?) -> { point, distance_m? }; missing work -> 404. */
 const spots = base
+  .errors(SPOTS_ERRORS)
   .route({ method: "POST", path: "/spots" })
   .input(type<{ bangumi_id: string; origin?: Origin }>())
   .handler(async ({ input, context }) => callSpots(context.db, input));
@@ -78,16 +92,25 @@ const nearby = base
 
 const MAX_ROUTE_POINT_IDS = 500;
 
+/** Reject route inputs over the point_ids cap with the typed 400.
+ *
+ * Async + awaited (rather than a sync throw in the handler) so the rejection
+ * lands on an already-attached `await`: a handler promise that is born
+ * rejected crosses oRPC's thenable adoption handler-less for one microtask,
+ * which workerd reports as an unhandled rejection. */
+async function assertRoutePointIdCap(count: number): Promise<void> {
+  if (count > MAX_ROUTE_POINT_IDS) {
+    throw routeTooManyPoints(count, MAX_ROUTE_POINT_IDS);
+  }
+}
+
 /** route(point_ids, origin?, pacing?) -> Route */
 const route = base
+  .errors(ROUTE_ERRORS)
   .route({ method: "POST", path: "/route" })
   .input(type<{ point_ids: string[]; origin?: Origin; pacing?: Pacing }>())
   .handler(async ({ input, context }) => {
-    if (input.point_ids.length > MAX_ROUTE_POINT_IDS) {
-      throw new ORPCError("BAD_REQUEST", {
-        message: `point_ids length ${String(input.point_ids.length)} exceeds maximum of ${String(MAX_ROUTE_POINT_IDS)}`,
-      });
-    }
+    await assertRoutePointIdCap(input.point_ids.length);
     return routeHandler(context.db, input);
   });
 
@@ -115,7 +138,7 @@ async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Or
   try {
     return await spotsHandler(db, input);
   } catch (err) {
-    if (err instanceof SpotNotFoundError) throw new ORPCError("NOT_FOUND", { message: err.message });
+    if (err instanceof SpotNotFoundError) throw workNotFound(err.bangumiId);
     throw err;
   }
 }
