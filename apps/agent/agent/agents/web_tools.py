@@ -41,7 +41,9 @@ def _to_web_result(raw: DuckDuckGoResult) -> WebResult:
 def _log_result_injections(results: list[WebResult]) -> None:
     """Detection also covers tool returns, not just user input (log-only)."""
     for result in results:
-        detect_prompt_injection(f"{result.title} {result.body}", source="web_search")
+        detect_prompt_injection(
+            f"{result.title} {result.body} {result.href}", source="web_search"
+        )
 
 
 @pilgrimage_agent.tool
