@@ -92,7 +92,7 @@ make db-diff NAME=x    # ローカル変更から diff を生成
 
 **オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-詳細は [`agent/config/settings.py`](agent/config/settings.py) と [`.env.example`](.env.example) を参照してください。
+詳細は [`apps/agent/agent/config/settings.py`](apps/agent/agent/config/settings.py) と [`.env.example`](.env.example) を参照してください。
 
 ## 使用例
 
@@ -125,12 +125,14 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 ## リポジトリ構成マップ
 
-- `agent/` — Python ランタイム本体。agents、interfaces、infrastructure、tests、tools を含む
-- `frontend/` — Next.js 静的エクスポートのフロントエンドと UI コンポーネント
+- `apps/agent/` — Python ランタイム本体。agents、interfaces、infrastructure、tests、tools を含む
+- `workers/catalog/` — アニメ聖地カタログ REST API を提供する Cloudflare Worker（TypeScript）
+- `packages/contract/` — catalog ↔ agent 間で共有する oRPC contract 型定義
+- `frontend/` — Next.js OpenNext-SSR のフロントエンドと UI コンポーネント
 - `worker/` — 認証とリクエストルーティングを担う Cloudflare Worker
 - `supabase/` — スキーママイグレーションと Supabase プロジェクト資産
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画
-- `Dockerfile`、`Makefile`、`pyproject.toml`、`wrangler.toml`、`package.json` — ルートに残すランタイム/ツール入口
+- `Dockerfile`、`Makefile`、`wrangler.toml`、`package.json` — ルートに残すランタイム/ツール入口
 
 ## ドキュメント
 
