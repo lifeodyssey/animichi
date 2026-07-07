@@ -1,5 +1,5 @@
-"""Application layer (use cases + ports).
+"""Application layer.
 
-This package defines the core use cases and the ports (interfaces) they
-depend on. It contains no infrastructure-specific code.
+Shared application-level error vocabulary lives in ``errors``; the interface
+layer raises/maps these so it never depends on infrastructure exceptions.
 """

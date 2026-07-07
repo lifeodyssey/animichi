@@ -21,7 +21,6 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "python-dotenv>=1.2.2",
     # Async/HTTP
-    "aiohttp>=3.14.0",
     "httpx>=0.28.0",
     # Security floors for transitive deps (open dependabot alerts)
     "urllib3>=2.7.0",
