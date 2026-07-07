@@ -132,7 +132,7 @@ This iteration allocates no story/AC/changed files to A2A, and it doesn't count 
 
 **Changed files**: `apps/agent/agent/clients/python/seichijunrei_client.py` (docstring fixes + adding SD-12 task-shaped methods like `plan_pilgrimage` as needed), release notes documentation, `pyproject.toml` (if it needs independent packaging/release).
 
-**Relationship (backfilled from SD-25①, pending Coordinator confirmation)**: the SDK source file this story promotes and the `scripts/seichijunrei_client.py` inside S7.2's Claude Skill bundle are two distribution faces of the same hand-written client. If the two need to evolve independently down the line (e.g. the skill bundle needs a leaner, trimmed-down version), whether to split their maintenance needs confirming when both stories are scheduled — this file doesn't presume to decide that unilaterally, and records it in the conflicts list.
+**Relationship (backfilled from SD-25①, resolved 2026-07-07)**: the SDK source file this story promotes and the `scripts/seichijunrei_client.py` inside S7.2's Claude Skill bundle are two distribution faces of the same hand-written client, and **stay a single maintained source**. If the skill bundle ever needs a leaner, trimmed-down variant, that split happens via an explicit new story — no pending confirmation remains here.
 
 **Dependencies**: None (can proceed independently); recommended to keep naming consistent with the task-shaped endpoints in S7.4/S7.5 (S7.3 is the frozen A2A placeholder and has no endpoints of its own).
 
