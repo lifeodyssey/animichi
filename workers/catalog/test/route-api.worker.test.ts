@@ -32,6 +32,7 @@ interface FakeRow {
   title: string | null;
   title_cn: string | null;
   cover_url: string | null;
+  city: string | null;
 }
 
 function row(id: string, lat: number, image: string | null = null): FakeRow {
@@ -49,10 +50,14 @@ function row(id: string, lat: number, image: string | null = null): FakeRow {
     title: "Lucky Star",
     title_cn: "幸运星",
     cover_url: "cover.jpg",
+    city: "Tokyo",
   };
 }
 
 const ROWS: FakeRow[] = [row("a", 35.0, "a.jpg"), row("b", 35.001), row("c", 35.002)];
+const MANY_ROWS: FakeRow[] = Array.from({ length: 51 }, (_, i) =>
+  row(`p${String(i).padStart(3, "0")}`, 35 + i * 0.001),
+);
 
 /** A typed fake `RouteDb` that returns only the fixture rows whose id is in IN. */
 function fakeDb(rows: FakeRow[]): RouteDb {
@@ -72,17 +77,17 @@ async function assertTimedRoute(): Promise<void> {
   expect(r.point_count).toBe(3);
   expect(r.timed_itinerary.stops.map((s) => s.cluster_id)).toEqual(["a", "b", "c"]);
   expect(r.timed_itinerary.legs.map((l) => [l.from_id, l.to_id])).toEqual([["a", "b"], ["b", "c"]]);
-  expect(r.timed_itinerary.total_minutes).toBe(26);
+  expect(r.timed_itinerary.total_minutes).toBe(28);
   expect(r.timed_itinerary.total_distance_m).toBe(222.4);
 }
 
 async function assertPointFields(): Promise<void> {
   const r = await route(fakeDb(ROWS), { point_ids: ["a"] });
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  const a = r.ordered_points[0]!;
-  expect(a.screenshot_url).toBe("a.jpg");
-  expect(a.bangumi_id).toBe("k");
-  expect(a.latitude).toBe(35.0);
+  const [a] = r.ordered_points;
+  expect(a?.screenshot_url).toBe("a.jpg");
+  expect(a?.bangumi_id).toBe("k");
+  expect(a?.latitude).toBe(35.0);
+  expect(a?.city).toBe("Tokyo");
   expect(r.timed_itinerary.legs).toEqual([]);
 }
 
@@ -122,5 +127,22 @@ describe("route API handler — fetch -> cluster -> itinerary -> Route", () => {
     const r = await route(fakeDb(ROWS), { point_ids: [] });
     expect(r.point_count).toBe(0);
     expect(r.ordered_points).toEqual([]);
+  });
+
+  it("caps 51 clusters and discloses the successful truncation", async () => {
+    const r = await route(fakeDb(MANY_ROWS), { point_ids: MANY_ROWS.map((entry) => entry.id) });
+    expect(r.point_count).toBe(50);
+    expect(r.timed_itinerary.stops).toHaveLength(50);
+    expect(ids(r.ordered_points)).not.toContain("p050");
+    expect(r).toMatchObject({ truncated: true, shown_cluster_count: 50, total_cluster_count: 51 });
+  });
+
+  it("keeps the response shape unchanged at the 50-cluster cap", async () => {
+    const rows = MANY_ROWS.slice(0, 50);
+    const r = await route(fakeDb(rows), { point_ids: rows.map((entry) => entry.id) });
+    expect(r.point_count).toBe(50);
+    expect(r).not.toHaveProperty("truncated");
+    expect(r).not.toHaveProperty("shown_cluster_count");
+    expect(r).not.toHaveProperty("total_cluster_count");
   });
 });

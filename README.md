@@ -1,18 +1,18 @@
 <div align="center">
 
-# 聖地巡礼 Seichijunrei
+# 聖地巡礼 Animichi
 
 **AI-powered pilgrimage search and route planning for anime sacred sites**
 
-[![CI](https://github.com/lifeodyssey/Seichijunrei-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/Seichijunrei-agent/actions/workflows/ci.yml?query=branch%3Amain)
+[![CI](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml?query=branch%3Amain)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000.svg?logo=nextdotjs)](https://nextjs.org)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e.svg?logo=supabase)](https://supabase.com)
-[![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/Seichijunrei-agent)](https://github.com/lifeodyssey/Seichijunrei-agent/commits/main)
-[![GitHub stars](https://img.shields.io/github/stars/lifeodyssey/Seichijunrei-agent?style=flat)](https://github.com/lifeodyssey/Seichijunrei-agent)
+[![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/animichi)](https://github.com/lifeodyssey/animichi/commits/main)
+[![GitHub stars](https://img.shields.io/github/stars/lifeodyssey/animichi?style=flat)](https://github.com/lifeodyssey/animichi)
 
-[**Try it live**](https://seichijunrei.zhenjia.dev) | [Architecture](docs/ARCHITECTURE.md) | [Deployment](docs/ops/deployment.md)
+[**Try it live**](https://seichijunrei.zhenjia.org) | [Architecture](docs/ARCHITECTURE.md) | [Deployment](docs/ops/deployment.md)
 
 [English](README.md) | [日本語](README.ja.md) | [中文](README.zh.md)
 
@@ -25,7 +25,7 @@ Tell the agent an anime title or a location in natural language. It finds real-w
 ## How It Works
 
 ```
-User text  →  PydanticAI Agent (pilgrimage_agent)
+User text  →  PydanticAI Agent (animichi_agent)
                  ├── resolve_anime  → DB-first title lookup; Bangumi.tv API on miss
                  ├── search_bangumi → parameterized SQL → Supabase points
                  ├── search_nearby  → PostGIS geo retrieval
@@ -88,28 +88,28 @@ Apply migrations in a dedicated deploy step, not at application startup.
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase auth |
 | `SUPABASE_ANON_KEY` | JWT validation at Worker edge |
 | `ANITABI_API_URL` | Anitabi pilgrimage data API |
-| `GEMINI_API_KEY` | LLM for planner agent |
+| `GEMINI_API_KEY` | Platform vision provider for photo-search (always mounted, not gated on the chat model) |
 
 **Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-See [`agent/config/settings.py`](agent/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
+See [`apps/agent/agent/config/settings.py`](apps/agent/agent/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
 
 ## Example Usage
 
 **Python (direct):**
 ```python
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.animichi_runner import run_animichi_agent
 from agent.infrastructure.supabase.client import SupabaseClient
 
 async def main() -> None:
     async with SupabaseClient(db_url) as db:
-        result = await run_pilgrimage_agent("吹響ユーフォニアムの聖地", db, locale="ja")
+        result = await run_animichi_agent("吹響ユーフォニアムの聖地", db, locale="ja")
         print(result.output)
 ```
 
 **HTTP (API key):**
 ```bash
-curl -X POST https://seichijunrei.zhenjia.dev/v1/runtime \
+curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
   -H 'Authorization: Bearer sk_your_key_here' \
   -H 'Content-Type: application/json' \
   -d '{"text":"吹響の聖地","locale":"ja"}'
@@ -125,12 +125,14 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 ## Repository Map
 
-- `agent/` — Python runtime: agents, interfaces, infrastructure, tests, and tools
-- `frontend/` — Next.js static-export frontend and UI components
+- `apps/agent/` — Python runtime: agents, interfaces, infrastructure, tests, and tools
+- `workers/catalog/` — Cloudflare Worker: anime catalog REST API (TypeScript)
+- `packages/contract/` — shared oRPC contract types (catalog ↔ agent)
+- `frontend/` — Next.js OpenNext-SSR frontend and UI components
 - `worker/` — Cloudflare Worker entrypoint for auth and request routing
 - `supabase/` — schema migrations and Supabase project assets
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans
-- `Dockerfile`, `Makefile`, `pyproject.toml`, `wrangler.toml`, `package.json` — root runtime and tooling entrypoints that stay at the repository root
+- `Dockerfile`, `Makefile`, `wrangler.toml`, `package.json` — root runtime and tooling entrypoints that stay at the repository root
 
 ## Docs
 

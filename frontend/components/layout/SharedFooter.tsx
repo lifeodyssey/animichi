@@ -18,13 +18,13 @@ export default function SharedFooter() {
           <Image src="/images/logo/logo.png" alt="" width={24} height={24} />
           <span className="font-display font-bold text-fg">聖地巡礼</span>
           <span className="opacity-40">·</span>
-          <span className="font-mono text-[13px] tracking-wide">seichijunrei</span>
+          <span className="font-mono text-[13px] tracking-wide">animichi</span>
         </div>
         <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
           {/* Section links (Popular routes / How it works / Save & sync) are hidden
               until those landing sections are rebuilt — their anchors are dead for now. */}
           <a
-            href="https://github.com/lifeodyssey/Seichijunrei-agent"
+            href="https://github.com/lifeodyssey/animichi"
             target="_blank"
             rel="noreferrer"
             className={LINK_CLASS}

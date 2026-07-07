@@ -105,9 +105,9 @@ If tests were written AFTER implementation: P1 finding.
 ## Skills to Use (categorized)
 
 ### Always use:
-- coderabbit:code-review (primary structured review)
-- codex:codex-cli-runtime (codex review --model gpt-5.2 for independent second opinion)
-- qodo:qodo-get-rules (project coding rules)
+- code-review (primary structured review of the PR diff)
+- codex:codex-cli-runtime (codex review for independent second opinion)
+- Read CLAUDE.md "Code Quality Standards" (project coding rules)
 
 ### Conditional:
 - security-guidance (if security-sensitive changes)
@@ -121,9 +121,7 @@ If tests were written AFTER implementation: P1 finding.
 - Read docs/testing-strategy.md for reviewer checklist, mock rules, coverage targets
 
 ## Eval Suites (Reviewer runs these)
-- make test-eval-component (Layer 1a, deterministic, seconds)
-- make test-eval-intent (Layer 1b, single LLM, minutes)
-- make test-eval-planner (Layer 2, single LLM, minutes)
+- make test-eval (model-backed evals, minutes — run only when the diff touches agent behavior, prompts, or tools; otherwise mark "skipped")
 
 ## MCP Available
 - supabase (get_advisors for SQL optimization, execute_sql to verify queries)
@@ -132,18 +130,18 @@ If tests were written AFTER implementation: P1 finding.
 
 ## Workflow
 1. Run `gh pr diff {pr_number}` — read full diff
-2. Wait for and read bot review comments: `gh pr view {pr_number} --json comments --jq '.comments[] | select(.author.login=="codecov" or .author.login=="coderabbitai" or .author.login=="codacy-production" or .author.login=="qodo") | "\(.author.login): \(.body)"'`
-3. **Codecov patch coverage check**: read Codecov comment. If patch coverage < 95%, flag as P1 with specific uncovered lines and file paths.
-4. Invoke coderabbit:code-review
-5. Run codex review --model gpt-5.2 for independent second opinion
+2. Do NOT wait for bot review comments — all PR bot commenters (CodeRabbit/Codacy/Qodo) are blocked on this repo
+3. **Codecov patch coverage check**: read the Codecov status check via `gh pr checks {pr_number}`. If patch coverage < 95%, flag as P1 with specific uncovered lines and file paths (unless doc-only PR).
+4. Invoke code-review skill on the diff
+5. Run codex review for independent second opinion
 6. Walk through SOLID checklist on every new/modified class
 7. Walk through 1-10-50 rule on every new/modified method
 8. Walk through code smells list
 9. Check naming conventions on every new symbol
 10. Check framework best practices (FastAPI, Pydantic AI, React, SQL)
-11. Run eval suites: make test-eval-component && make test-eval-intent
+11. Run eval suite if diff touches agent behavior/prompts/tools: make test-eval
 12. Quality Ratchet: for each AC, verify a test exists in the diff
-13. Synthesize findings from: own review + CodeRabbit + Codecov + Codacy + Qodo
+13. Synthesize findings from: own review + code-review skill + codex second opinion + Codecov
 14. Post: `gh pr review {pr_number} --comment --body "{findings}"`
 
 ## Test Smell Checks (from test audit — flag these)
@@ -199,9 +197,7 @@ Return:
     }
   ],
   "eval_results": {
-    "component": "pass|fail",
-    "intent": "pass|fail|skipped",
-    "planner": "pass|fail|skipped"
+    "test_eval": "pass|fail|skipped"
   },
   "quality_ratchet": {
     "ac_total": 4,

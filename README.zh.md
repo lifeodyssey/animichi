@@ -1,16 +1,16 @@
 <div align="center">
 
-# 聖地巡礼 Seichijunrei
+# 聖地巡礼 Animichi
 
 **AI 驱动的动漫圣地搜索与路线规划**
 
-[![CI](https://github.com/lifeodyssey/Seichijunrei-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/Seichijunrei-agent/actions/workflows/ci.yml?query=branch%3Amain)
+[![CI](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml?query=branch%3Amain)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000.svg?logo=nextdotjs)](https://nextjs.org)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e.svg?logo=supabase)](https://supabase.com)
-[![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/Seichijunrei-agent)](https://github.com/lifeodyssey/Seichijunrei-agent/commits/main)
-[![GitHub stars](https://img.shields.io/github/stars/lifeodyssey/Seichijunrei-agent?style=flat)](https://github.com/lifeodyssey/Seichijunrei-agent)
+[![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/animichi)](https://github.com/lifeodyssey/animichi/commits/main)
+[![GitHub stars](https://img.shields.io/github/stars/lifeodyssey/animichi?style=flat)](https://github.com/lifeodyssey/animichi)
 
 [**在线体验**](https://seichijunrei.zhenjia.org) | [架构文档](docs/ARCHITECTURE.md) | [部署指南](docs/ops/deployment.md)
 
@@ -25,7 +25,7 @@
 ## 工作原理
 
 ```
-用户输入 → PydanticAI Agent（pilgrimage_agent）
+用户输入 → PydanticAI Agent（animichi_agent）
               ├── resolve_anime  → DB 优先的标题查找; 未命中时调用 Bangumi.tv API
               ├── search_bangumi → 参数化 SQL → Supabase 数据点
               ├── search_nearby  → PostGIS 地理检索
@@ -88,22 +88,22 @@ make db-diff NAME=x    # 从本地变更生成 diff
 | `SUPABASE_SERVICE_ROLE_KEY` | 服务端 Supabase 认证 |
 | `SUPABASE_ANON_KEY` | Worker 边缘 JWT 验证 |
 | `ANITABI_API_URL` | Anitabi 圣地数据 API |
-| `GEMINI_API_KEY` | 规划器 Agent 使用的 LLM |
+| `GEMINI_API_KEY` | 图搜(photo-search)平台视觉 provider 用密钥,始终挂载,不受对话模型选择影响 |
 
 **可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-详见 [`agent/config/settings.py`](agent/config/settings.py) 和 [`.env.example`](.env.example)。
+详见 [`apps/agent/agent/config/settings.py`](apps/agent/agent/config/settings.py) 和 [`.env.example`](.env.example)。
 
 ## 使用示例
 
 **Python（直接调用）：**
 ```python
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.animichi_runner import run_animichi_agent
 from agent.infrastructure.supabase.client import SupabaseClient
 
 async def main() -> None:
     async with SupabaseClient(db_url) as db:
-        result = await run_pilgrimage_agent("吹響ユーフォニアムの聖地", db, locale="ja")
+        result = await run_animichi_agent("吹響ユーフォニアムの聖地", db, locale="ja")
         print(result.output)
 ```
 
@@ -125,12 +125,14 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 ## 仓库结构地图
 
-- `agent/` — Python 运行时：agents、interfaces、infrastructure、tests、tools
-- `frontend/` — Next.js 静态导出前端与 UI 组件
+- `apps/agent/` — Python 运行时：agents、interfaces、infrastructure、tests、tools
+- `workers/catalog/` — 动漫圣地目录 REST API 的 Cloudflare Worker（TypeScript）
+- `packages/contract/` — catalog 与 agent 之间共享的 oRPC contract 类型
+- `frontend/` — Next.js OpenNext-SSR 前端与 UI 组件
 - `worker/` — Cloudflare Worker 入口，负责认证与请求路由
 - `supabase/` — schema 迁移与 Supabase 项目资产
 - `docs/` — 架构文档、运维文档、迭代资料与实现计划
-- `Dockerfile`、`Makefile`、`pyproject.toml`、`wrangler.toml`、`package.json` — 保留在根目录的运行与工具入口文件
+- `Dockerfile`、`Makefile`、`wrangler.toml`、`package.json` — 保留在根目录的运行与工具入口文件
 
 ## 文档
 
