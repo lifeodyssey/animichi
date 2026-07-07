@@ -31,7 +31,8 @@ def _docker_available() -> bool:
         return False
 
 
-MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "supabase" / "migrations"
+# parents[4] = repo root (this file lives at apps/agent/agent/tests/conftest_db.py)
+MIGRATIONS_DIR = Path(__file__).resolve().parents[4] / "supabase" / "migrations"
 SEED_FILE = Path(__file__).parent / "fixtures" / "seed.sql"
 
 # Skip extensions that require special installation in plain postgres.
