@@ -16,8 +16,9 @@ Field names, paths, and response envelopes mirror the single source of truth in
 
 Endpoint convention: ``{base_url}/catalog/<method>`` (POST, JSON body).
 
-Retry policy: 5xx responses and transport errors are transient and retried
-with exponential backoff; 4xx responses raise immediately.
+Retry policy: 5xx responses, transport errors, and the transient 4xx codes
+(408 request timeout, 429 rate limit) are retried with exponential backoff;
+all other 4xx responses raise immediately.
 """
 
 from __future__ import annotations
@@ -154,7 +155,12 @@ class CatalogClient:
         return Route.model_validate(payload)
 
     async def ingest(self, bangumi_id: str) -> IngestResult:
-        """Ingest a not-yet-cataloged work on demand by its bangumi id."""
+        """Ingest a not-yet-cataloged work on demand by its bangumi id.
+
+        Retried transient failures (5xx, 408/429, transport errors) may
+        re-send this write; safe to retry because it relies on the catalog
+        side performing an idempotent upsert keyed by ``bangumi_id``.
+        """
         payload = await self._rpc("ingest", {"bangumi_id": bangumi_id})
         return IngestResult.model_validate(payload)
 
@@ -209,9 +215,17 @@ async def _with_retry(
     return await make_request()
 
 
+_TRANSIENT_4XX_STATUS_CODES = frozenset({408, 429})
+
+
 def _raise_for_status(status_code: int, url: str) -> None:
-    """Map HTTP status to error class: 5xx transient, other 4xx+ permanent."""
-    if status_code >= 500:
+    """Map HTTP status to error class.
+
+    5xx and the transient 4xx codes (408 request timeout, 429 rate limit) are
+    retried; all other 4xx responses raise immediately. This mirrors
+    ``public_api._is_provider_error``, which treats 429/502/503 as transient.
+    """
+    if status_code >= 500 or status_code in _TRANSIENT_4XX_STATUS_CODES:
         raise TransientAPIError(f"HTTP {status_code} from {url}")
     if status_code >= 400:
         raise APIError(f"HTTP {status_code} from {url}")

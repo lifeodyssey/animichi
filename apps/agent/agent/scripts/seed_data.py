@@ -2,8 +2,8 @@
 """Seed Supabase with bangumi metadata + Anitabi pilgrimage points.
 
 Usage:
-    uv run python scripts/seed_data.py          # seed all 17 bangumi
-    uv run python scripts/seed_data.py --dry-run # preview without writing
+    uv run python -m agent.scripts.seed_data          # seed all 17 bangumi
+    uv run python -m agent.scripts.seed_data --dry-run # preview without writing
 """
 
 from __future__ import annotations
@@ -11,17 +11,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from pathlib import Path
 
-# Ensure project root is on sys.path so bare imports work.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import httpx
 
-import httpx  # noqa: E402
-
-from agent.config.settings import get_settings  # noqa: E402
-from agent.infrastructure.supabase.client import SupabaseClient  # noqa: E402
-from agent.scripts import seed_http  # noqa: E402
-from agent.utils.logger import get_logger  # noqa: E402
+from agent.config.settings import get_settings
+from agent.infrastructure.supabase.client import SupabaseClient
+from agent.scripts import seed_http
+from agent.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -60,19 +56,16 @@ async def fetch_bangumi_metadata(subject_id: int) -> dict | None:
         logger.error("bangumi_fetch_failed", subject_id=subject_id, error=str(exc))
         return None
 
-    images = raw.get("images") or {}
-    rating_obj = raw.get("rating") or {}
-
     return {
         "id": str(subject_id),
-        "title": raw.get("name") or "",
-        "title_cn": raw.get("name_cn") or raw.get("name") or "",
-        "cover_url": images.get("large") or images.get("common") or "",
-        "air_date": raw.get("date"),  # text like "2016-08-26"
-        "summary": (raw.get("summary") or "")[:2000],
-        "eps_count": raw.get("total_episodes") or raw.get("eps") or 0,
-        "rating": rating_obj.get("score"),
-        "platform": raw.get("platform"),
+        "title": raw.name,
+        "title_cn": raw.name_cn or raw.name,
+        "cover_url": raw.images.large or raw.images.common,
+        "air_date": raw.date,  # text like "2016-08-26"
+        "summary": raw.summary[:2000],
+        "eps_count": raw.total_episodes or raw.eps,
+        "rating": raw.rating.score,
+        "platform": raw.platform,
         "points_count": 0,  # will be updated after points seed
     }
 

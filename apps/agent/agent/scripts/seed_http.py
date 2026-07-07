@@ -7,6 +7,7 @@ minimal helpers exist solely for manual seed scripts (see ``seed_data.py``).
 from __future__ import annotations
 
 import httpx
+from pydantic import BaseModel, ConfigDict, Field
 
 from agent.config import get_settings
 from agent.domain.entities import Coordinates, Point
@@ -19,13 +20,74 @@ _USER_AGENT = "Seichijunrei/1.0 (https://github.com/lifeodyssey/Seichijunrei-age
 _HEADERS = {"User-Agent": _USER_AGENT, "Accept": "application/json"}
 
 
-async def fetch_subject(subject_id: int) -> dict[str, object]:
-    """GET /v0/subjects/{id} from the Bangumi API and return the raw object."""
+class BangumiImages(BaseModel):
+    """Bangumi subject cover image URLs, largest first."""
+
+    large: str = ""
+    common: str = ""
+
+
+class BangumiRating(BaseModel):
+    """Bangumi subject aggregate rating."""
+
+    score: float | None = None
+
+
+class BangumiSubject(BaseModel):
+    """A Bangumi subject (anime) as returned by the v0 subjects endpoint."""
+
+    name: str = ""
+    name_cn: str = ""
+    date: str | None = None
+    summary: str = ""
+    total_episodes: int = 0
+    eps: int = 0
+    platform: str = ""
+    images: BangumiImages = Field(default_factory=BangumiImages)
+    rating: BangumiRating = Field(default_factory=BangumiRating)
+
+
+class AnitabiRawPoint(BaseModel):
+    """One raw Anitabi point item, in either the legacy or official schema.
+
+    Fields are kept as ``object`` because the upstream API returns loosely
+    typed JSON (ids/times/coordinates arrive as int, float, or str
+    interchangeably); the ``_str``/``_float``/``_int_or`` helpers below narrow
+    them once the schema (legacy vs. official) has been picked.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: object
+    name: object = None
+    cn: object = None
+    cn_name: object = None
+    lat: object = None
+    lng: object = None
+    geo: object = None
+    screenshot: object = None
+    image: object = None
+    bangumi_id: object = None
+    bangumi_title: object = None
+    episode: object = 0
+    ep: object = 0
+    time_seconds: object = 0
+    s: object = 0
+    origin: object = None
+    origin_url: object = None
+    originURL: object = None
+
+
+async def fetch_subject(subject_id: int) -> BangumiSubject:
+    """GET /v0/subjects/{id} from the Bangumi API and return the subject."""
     url = f"{BANGUMI_API_BASE}/v0/subjects/{subject_id}"
     async with httpx.AsyncClient(timeout=10.0, headers=_HEADERS) as client:
         response = await client.get(url)
     response.raise_for_status()
-    return _expect_object(response.json(), context=f"subject {subject_id}")
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError(f"Unexpected subject payload for subject {subject_id}")
+    return BangumiSubject.model_validate(payload)
 
 
 async def fetch_points(bangumi_id: str) -> list[Point]:
@@ -50,14 +112,7 @@ def parse_points(payload: object, bangumi_id: str) -> list[Point]:
     return points
 
 
-def _expect_object(value: object, *, context: str) -> dict[str, object]:
-    """Narrow a JSON payload to an object at the trust boundary."""
-    if not isinstance(value, dict):
-        raise ValueError(f"Unexpected subject payload for {context}")
-    return {str(key): item for key, item in value.items()}
-
-
-def _unwrap_items(payload: object) -> list[dict[str, object]]:
+def _unwrap_items(payload: object) -> list[object]:
     """Normalize the Anitabi response shape (list or {data|points}) to items."""
     raw = payload
     if isinstance(payload, dict):
@@ -67,57 +122,58 @@ def _unwrap_items(payload: object) -> list[dict[str, object]]:
     return [item for item in raw if isinstance(item, dict)]
 
 
-def _parse_item(item: dict[str, object], bangumi_id: str) -> Point | None:
+def _parse_item(raw_item: object, bangumi_id: str) -> Point | None:
     """Parse one point item, returning None (and logging) when invalid."""
     try:
-        if "lat" in item and "lng" in item:
+        item = AnitabiRawPoint.model_validate(raw_item)
+        if item.lat is not None and item.lng is not None:
             return _parse_legacy_point(item, bangumi_id)
         return _parse_official_point(item, bangumi_id)
     except (KeyError, ValueError, TypeError) as exc:
-        logger.warning("skipping_invalid_point", error=str(exc), data=item)
+        logger.warning("skipping_invalid_point", error=str(exc), data=raw_item)
         return None
 
 
-def _parse_legacy_point(item: dict[str, object], bangumi_id: str) -> Point:
+def _parse_legacy_point(item: AnitabiRawPoint, bangumi_id: str) -> Point:
     """Parse a point item that uses the legacy lat/lng schema."""
     return Point(
-        id=_str(item["id"]),
-        name=_str(item["name"]),
-        cn_name=_str(item.get("cn_name") or item["name"]),
+        id=_str(item.id),
+        name=_str(item.name),
+        cn_name=_str(item.cn_name or item.name),
         coordinates=Coordinates(
-            latitude=_float(item["lat"]),
-            longitude=_float(item["lng"]),
+            latitude=_float(item.lat),
+            longitude=_float(item.lng),
         ),
-        bangumi_id=_str(item.get("bangumi_id") or bangumi_id),
-        bangumi_title=_str(item.get("bangumi_title") or bangumi_id),
-        episode=_int_or(item.get("episode", 0)),
-        time_seconds=_int_or(item.get("time_seconds", 0)),
-        screenshot_url=_str(item["screenshot"]),
-        origin=_str_or_none(item.get("origin")),
-        origin_url=_str_or_none(item.get("origin_url") or item.get("originURL")),
+        bangumi_id=_str(item.bangumi_id or bangumi_id),
+        bangumi_title=_str(item.bangumi_title or bangumi_id),
+        episode=_int_or(item.episode, 0),
+        time_seconds=_int_or(item.time_seconds, 0),
+        screenshot_url=_str(item.screenshot),
+        origin=_str_or_none(item.origin),
+        origin_url=_str_or_none(item.origin_url or item.originURL),
     )
 
 
-def _parse_official_point(item: dict[str, object], bangumi_id: str) -> Point:
+def _parse_official_point(item: AnitabiRawPoint, bangumi_id: str) -> Point:
     """Parse a point item that uses the official geo-array schema."""
-    geo_raw = item.get("geo")
+    geo_raw = item.geo
     if not isinstance(geo_raw, list) or len(geo_raw) < 2:
         raise ValueError("Missing or invalid 'geo' field")
-    cn_name = _str(item.get("cn") or item.get("name") or "")
+    cn_name = _str(item.cn or item.name or "")
     return Point(
-        id=_str(item["id"]),
-        name=_str(item.get("name") or cn_name),
+        id=_str(item.id),
+        name=_str(item.name or cn_name),
         cn_name=cn_name,
         coordinates=Coordinates(
             latitude=_float(geo_raw[0]), longitude=_float(geo_raw[1])
         ),
         bangumi_id=str(bangumi_id),
         bangumi_title=str(bangumi_id),
-        episode=_int_or(item.get("ep", 0)),
-        time_seconds=_int_or(item.get("s", 0)),
-        screenshot_url=_image_url(item.get("image")),
-        origin=_str_or_none(item.get("origin")),
-        origin_url=_str_or_none(item.get("originURL")),
+        episode=_int_or(item.ep, 0),
+        time_seconds=_int_or(item.s, 0),
+        screenshot_url=_image_url(item.image),
+        origin=_str_or_none(item.origin),
+        origin_url=_str_or_none(item.originURL),
     )
 
 
