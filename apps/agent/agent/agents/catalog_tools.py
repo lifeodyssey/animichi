@@ -27,10 +27,28 @@ from agent.agents.tool_runtime import (
     _summarize_for_llm,
 )
 from agent.clients.catalog_client import CatalogClientProtocol, PilgrimagePoint
+from agent.clients.catalog_errors import CatalogError
 from agent.clients.errors import APIError
 
 _NO_DATA_ERROR = "No catalog data"
 _TRANSIENT_ERRORS = (APIError, httpx.TransportError, httpx.TimeoutException)
+
+
+def _retry_message(operation: str, exc: Exception) -> str:
+    """Safe ModelRetry text for the LLM prompt (SD-19 trust boundary).
+
+    Never embeds raw exception content or wire strings. A typed
+    :class:`CatalogError` exposes a locally-built ``steering_hint()`` from
+    whitelisted numeric/enum fields, so user-actionable errors can steer the
+    model away from blind re-calls WITHOUT leaking a wire ``data`` string (e.g.
+    ``WorkNotFoundError.bangumi_id``); everything else gets the static phrase.
+    """
+    if isinstance(exc, CatalogError) and exc.category == "user_actionable":
+        return (
+            f"Catalog {operation} rejected: {exc.steering_hint()}. Do not retry "
+            "with the same parameters; explain the limit to the user."
+        )
+    return f"Catalog {operation} unavailable, please retry."
 
 
 async def _store_catalog_result(
@@ -72,7 +90,7 @@ async def _run_catalog_search(
     try:
         points = await catalog.search(query)
     except _TRANSIENT_ERRORS as exc:
-        raise ModelRetry(f"Catalog search unavailable, please retry. ({exc})") from exc
+        raise ModelRetry(_retry_message("search", exc)) from exc
     payload = _shape_search_or_resolve(tool, points)
     return await _store_catalog_result(
         ctx.deps, tool=tool, params=params, payload=payload, success=bool(payload)
@@ -139,7 +157,7 @@ async def _run_catalog_nearby(
     try:
         points = await catalog.nearby(coords[0], coords[1], radius_m=radius or 5000)
     except _TRANSIENT_ERRORS as exc:
-        raise ModelRetry(f"Catalog nearby unavailable, please retry. ({exc})") from exc
+        raise ModelRetry(_retry_message("nearby", exc)) from exc
     payload = build_search_payload(points, tool="search_nearby")
     return await _store_catalog_result(
         ctx.deps,
@@ -180,7 +198,7 @@ async def _run_catalog_route(
     try:
         route = await catalog.route(point_ids)
     except _TRANSIENT_ERRORS as exc:
-        raise ModelRetry(f"Catalog route unavailable, please retry. ({exc})") from exc
+        raise ModelRetry(_retry_message("route", exc)) from exc
     payload = build_route_payload(route)
     return await _store_catalog_result(
         ctx.deps,
