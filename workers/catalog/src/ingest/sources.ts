@@ -31,7 +31,7 @@ export interface SourceConfig {
 const ANITABI_BASE = "https://api.anitabi.cn/bangumi";
 const BANGUMI_BASE = "https://api.bgm.tv";
 const USER_AGENT =
-  "Seichijunrei/1.0 (https://github.com/lifeodyssey/Seichijunrei-agent)";
+  "Animichi/1.0 (https://github.com/lifeodyssey/animichi)";
 
 /** A single raw Anitabi point (legacy or official schema; kept verbatim). */
 export type AnitabiPoint = Record<string, unknown>;
