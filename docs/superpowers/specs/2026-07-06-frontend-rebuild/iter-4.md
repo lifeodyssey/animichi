@@ -4,7 +4,7 @@ Detail level: **pre-build refinement**. Story count: 9 (originally 7 product/ena
 
 Suggested dependency order: S4.5 (share-token enabler) / S4.7 (R2 enabler) can go first → S4.1 → S4.2 → S4.3 → S4.4; S4.6 depends on S4.7. S4.8 (image-search phase 2 coarse-screen + rerank pipeline) can be developed in parallel with the 対比図/しおり main line, sharing S4.7's image data pipeline; S4.9 depends on S4.8.
 
-**Data access path (final, SD-2)**: both S4.5 and S4.7 go through `workers/users` oRPC + Neon, not a direct Supabase RLS connection — consistent with main spec §2's "global convention: user-domain data access path."
+**Data access path (final, SD-2)**: both S4.5 and S4.7 go through `workers/users` oRPC + Neon, not a direct RLS connection (RLS is Neon-native defense-in-depth per SD-31) — consistent with main spec §2's "global convention: user-domain data access path."
 
 **Image pipeline (final, X6)**: all resizing/compression/compositing of user photos happens client-side on canvas; R2 only stores the final artifact; shared items strip EXIF (GPS privacy) by default, with EXIF pass-through remaining opt-in.
 

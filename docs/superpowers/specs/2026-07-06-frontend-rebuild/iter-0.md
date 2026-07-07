@@ -125,12 +125,12 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 
 **Design basis**: `Landing - Seichijunrei.html` (day/night toggle, hero, comparison slider, the magic-link form).
 
-**Releasable statement**: `/` (the marketing landing route) renders the migrated Landing page, with a day/night toggle and a working magic-link login modal (wired to Supabase Auth); the locale switcher works correctly across ja/zh/en; Storybook runs the migrated components' stories.
+**Releasable statement**: `/` (the marketing landing route) renders the migrated Landing page, with a day/night toggle and a working magic-link login modal (wired to **Neon Auth** — Better Auth base, via the Neon Auth SDK; auth backend per SD-31, replacing Supabase Auth); the locale switcher works correctly across ja/zh/en; Storybook runs the migrated components' stories.
 
 **AC**:
 - Visiting `/` renders the Landing hero and the "Start Exploring" CTA, with the day/night toggle persisted via localStorage -> browser
 - Submitting the magic-link form with an empty email shows an inline validation message without sending a request -> unit
-- A failed Supabase magic-link request (network/5xx) shows on-brand error copy, not a bare exception -> browser
+- A failed Neon Auth magic-link request (network/5xx) shows on-brand error copy, not a bare exception -> browser
 - i18n: switching locale to zh/en re-renders all of Landing's copy (hero/CTA/login form), with no hardcoded ja fallback strings leaking through -> unit
 
 **Files changed**: `apps/web/src/routes/index.tsx`, `apps/web/src/components/landing/*`, `apps/web/src/components/auth/LoginModal.tsx`, `apps/web/src/i18n/*` (dictionary + context, migrated from the spike), `apps/web/.storybook/*`, `apps/web/src/components/**/*.stories.tsx`.
