@@ -2,8 +2,8 @@
 """Seed Supabase with bangumi metadata + Anitabi pilgrimage points.
 
 Usage:
-    uv run python scripts/seed_data.py          # seed all 17 bangumi
-    uv run python scripts/seed_data.py --dry-run # preview without writing
+    uv run python -m agent.scripts.seed_data          # seed all 17 bangumi
+    uv run python -m agent.scripts.seed_data --dry-run # preview without writing
 """
 
 from __future__ import annotations
@@ -11,16 +11,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from pathlib import Path
 
-# Ensure project root is on sys.path so bare imports work.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import httpx
 
-from agent.clients.anitabi import AnitabiClient  # noqa: E402
-from agent.clients.bangumi import BangumiClient  # noqa: E402
-from agent.config.settings import get_settings  # noqa: E402
-from agent.infrastructure.supabase.client import SupabaseClient  # noqa: E402
-from agent.utils.logger import get_logger  # noqa: E402
+from agent.config.settings import get_settings
+from agent.infrastructure.supabase.client import SupabaseClient
+from agent.scripts import seed_http
+from agent.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -51,36 +48,33 @@ SEED_BANGUMI_IDS: list[int] = [
 # ── helpers ───────────────────────────────────────────────────────────
 
 
-async def fetch_bangumi_metadata(client: BangumiClient, subject_id: int) -> dict | None:
+async def fetch_bangumi_metadata(subject_id: int) -> dict | None:
     """Fetch a single bangumi subject and return DB-ready dict."""
     try:
-        raw = await client.get_subject(subject_id)
-    except (OSError, RuntimeError, ValueError) as exc:
+        raw = await seed_http.fetch_subject(subject_id)
+    except (httpx.HTTPError, OSError, RuntimeError, ValueError) as exc:
         logger.error("bangumi_fetch_failed", subject_id=subject_id, error=str(exc))
         return None
 
-    images = raw.get("images") or {}
-    rating_obj = raw.get("rating") or {}
-
     return {
         "id": str(subject_id),
-        "title": raw.get("name") or "",
-        "title_cn": raw.get("name_cn") or raw.get("name") or "",
-        "cover_url": images.get("large") or images.get("common") or "",
-        "air_date": raw.get("date"),  # text like "2016-08-26"
-        "summary": (raw.get("summary") or "")[:2000],
-        "eps_count": raw.get("total_episodes") or raw.get("eps") or 0,
-        "rating": rating_obj.get("score"),
-        "platform": raw.get("platform"),
+        "title": raw.name,
+        "title_cn": raw.name_cn or raw.name,
+        "cover_url": raw.images.large or raw.images.common,
+        "air_date": raw.date,  # text like "2016-08-26"
+        "summary": raw.summary[:2000],
+        "eps_count": raw.total_episodes or raw.eps,
+        "rating": raw.rating.score,
+        "platform": raw.platform,
         "points_count": 0,  # will be updated after points seed
     }
 
 
-async def fetch_points(client: AnitabiClient, bangumi_id: int) -> list[dict]:
+async def fetch_points(bangumi_id: int) -> list[dict]:
     """Fetch pilgrimage points and return DB-ready dicts."""
     try:
-        points = await client.get_bangumi_points(str(bangumi_id))
-    except (OSError, RuntimeError, ValueError) as exc:
+        points = await seed_http.fetch_points(str(bangumi_id))
+    except (httpx.HTTPError, OSError, RuntimeError, ValueError) as exc:
         logger.error("anitabi_fetch_failed", bangumi_id=bangumi_id, error=str(exc))
         return []
 
@@ -118,16 +112,13 @@ async def seed(dry_run: bool = False) -> None:
     db = SupabaseClient(dsn)
     await db.connect()
 
-    bangumi_client = BangumiClient()
-    anitabi_client = AnitabiClient()
-
     total_points = 0
 
     try:
         # Step A: Bangumi metadata
         logger.info("seed_bangumi_start", count=len(SEED_BANGUMI_IDS))
         for sid in SEED_BANGUMI_IDS:
-            meta = await fetch_bangumi_metadata(bangumi_client, sid)
+            meta = await fetch_bangumi_metadata(sid)
             if meta is None:
                 continue
             if dry_run:
@@ -140,7 +131,7 @@ async def seed(dry_run: bool = False) -> None:
         # Step B: Anitabi points
         logger.info("seed_points_start", count=len(SEED_BANGUMI_IDS))
         for sid in SEED_BANGUMI_IDS:
-            rows = await fetch_points(anitabi_client, sid)
+            rows = await fetch_points(sid)
             if not rows:
                 logger.warning("no_points", bangumi_id=sid)
                 continue
@@ -184,8 +175,6 @@ async def seed(dry_run: bool = False) -> None:
             dry_run=dry_run,
         )
     finally:
-        await bangumi_client.close()
-        await anitabi_client.close()
         await db.close()
 
 
