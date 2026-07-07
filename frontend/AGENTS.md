@@ -142,11 +142,3 @@ work without `generateStaticParams` — pages are rendered on-demand at the edge
 Before any design or UI work, read `DESIGN.md` in this directory. It contains the complete visual identity specification (colors, typography, spacing, components, do's and don'ts) in Google's open DESIGN.md format. The authoritative token values live in `app/globals.css :root`.
 
 <!-- END:nextjs-agent-rules -->
-
-<!-- CLAUDE_CODE_MIGRATION_START:-Documents-Seichijunrei-agent-.claude-worktrees-ssr-migration-frontend-CLAUDE.md -->
-# Migrated Claude Code Project Instructions
-
-Source: `~/Documents/Seichijunrei-agent/.claude/worktrees/ssr-migration/frontend/CLAUDE.md`
-
-@AGENTS.md
-<!-- CLAUDE_CODE_MIGRATION_END:-Documents-Seichijunrei-agent-.claude-worktrees-ssr-migration-frontend-CLAUDE.md -->

@@ -45,7 +45,7 @@ import { PilgrimagePoint } from "../../packages/contract/src/models";
 
 ### 2. Do NOT codegen Python models
 
-The Python Agent client (`agent/clients/catalog_client.py`) mirrors the contract
+The Python Agent client (`apps/agent/agent/clients/catalog_client.py`) mirrors the contract
 shapes **by hand** and **intentionally diverges** via sentinel defaults:
 
 | Field | Contract (optional) | Python sentinel |
@@ -139,7 +139,7 @@ pinned by `apps/agent/agent/tests/unit/test_catalog_errors.py`.
    data model (defaults for every field — wire data is untrusted), exception
    class (subclass `TransientAPIError` too iff category is `retryable`), and
    the code → builder registry entry. Pin it in
-   `agent/tests/unit/test_catalog_errors.py`.
+   `apps/agent/agent/tests/unit/test_catalog_errors.py`.
 4. **User messages** — add ja/zh/en templates to
    `apps/agent/agent/agents/error_messages.py`, formatted only from the typed
    exception's fields.
