@@ -51,6 +51,20 @@ def test_userinfo_trick_does_not_upgrade_tier() -> None:
 @pytest.mark.parametrize(
     "href",
     [
+        "https://evil.com\\@wikipedia.org",
+        "https://wikipedia.org\\@evil.com",
+    ],
+)
+def test_backslash_authority_confusion_is_unverified(href: str) -> None:
+    """Browsers treat ``\\`` as ``/`` during navigation, so urlsplit's
+    hostname parse can disagree with the host actually navigated to.
+    Fail closed whenever a backslash appears in the netloc."""
+    assert classify_source(href) == "unverified"
+
+
+@pytest.mark.parametrize(
+    "href",
+    [
         "javascript:alert(1)",
         "data:text/html,<script>alert(1)</script>",
         "ftp://wikipedia.org/file",

@@ -42,11 +42,19 @@ def classify_source(href: str) -> SourceTier:
 
 
 def _extract_host(href: str) -> str | None:
-    """Return the lowercased http(s) hostname, or None when unusable."""
+    """Return the lowercased http(s) hostname, or None when unusable.
+
+    A backslash anywhere in the netloc fails closed: browsers treat
+    ``\\`` as ``/`` during navigation, so ``urlsplit().hostname`` can
+    report a different (allowlisted) host than the one actually
+    navigated to (authority confusion, e.g. ``evil.com\\@wikipedia.org``).
+    """
     try:
         parts = urlsplit(href.strip())
         host = parts.hostname
     except ValueError:
+        return None
+    if "\\" in parts.netloc:
         return None
     if parts.scheme.lower() not in _ALLOWED_SCHEMES or not host:
         return None
