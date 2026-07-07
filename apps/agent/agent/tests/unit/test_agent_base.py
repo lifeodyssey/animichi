@@ -8,7 +8,7 @@ import pytest
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel
 
-from agent.agents.base import describe_model, resolve_model
+from agent.agents.base import describe_model, parse_model_spec, resolve_model
 from agent.config.settings import Settings
 
 
@@ -25,6 +25,10 @@ def _test_settings() -> Settings:
         default_agent_model="deepseek:deepseek-v4-flash",
         fallback_agent_model="openai:mimo-v2.5@https://api.xiaomimimo.com/v1",
     )
+
+
+def _deepseek_extra_body() -> object:
+    return {"thinking": {"type": "disabled"}}
 
 
 class TestResolveModel:
@@ -57,6 +61,28 @@ class TestResolveModel:
         with pytest.raises(ValueError, match="Unsupported model spec"):
             with patch("agent.config.get_settings", return_value=_test_settings()):
                 resolve_model("unknown:model")
+
+    def test_deepseek_model_disables_thinking(self) -> None:
+        with patch("agent.config.get_settings", return_value=_test_settings()):
+            model = parse_model_spec("deepseek:deepseek-v4-flash")
+        assert isinstance(model, OpenAIChatModel)
+        assert model.settings is not None
+        assert model.settings.get("extra_body") == _deepseek_extra_body()
+
+    def test_deepseek_openai_compat_disables_thinking(self) -> None:
+        with patch("agent.config.get_settings", return_value=_test_settings()):
+            model = parse_model_spec("openai:deepseek-v4-pro@https://api.deepseek.com")
+        assert isinstance(model, OpenAIChatModel)
+        assert model.settings is not None
+        assert model.settings.get("extra_body") == _deepseek_extra_body()
+
+    def test_non_deepseek_openai_compat_keeps_settings_empty(self) -> None:
+        with patch("agent.config.get_settings", return_value=_test_settings()):
+            model = parse_model_spec(
+                "openai:mimo-v2.5-pro@https://api.xiaomimimo.com/v1"
+            )
+        assert isinstance(model, OpenAIChatModel)
+        assert model.settings is None or "extra_body" not in model.settings
 
 
 class TestDescribeModel:
