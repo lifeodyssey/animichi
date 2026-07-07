@@ -14,7 +14,7 @@
 
 | ID | 推迟的事 | 来源 | 触发条件 | 类型 | 数据来源 / 检查方法 | 状态 |
 |---|---|---|---|---|---|---|
-| DD-1 | Supabase auth 退役、auth 迁 Neon | SD-3⑤ | Neon Auth 成熟(GA + migration 工具稳定) | 外部 | WebSearch "Neon Auth GA changelog" | 冻结 |
+| DD-1 | Supabase auth 退役、auth 迁 Neon | SD-3⑤ | ~~Neon Auth 成熟(GA + migration 工具稳定)~~ **已提前解冻**——改按 Better Auth 底座成熟度(非 Neon Auth GA);见下方「DD-1 解冻记录」 | 外部 | 已激活,停止巡检 | **已激活(→ SD-31,2026-07-07)** |
 | DD-2 | 意图路由层 / plan-and-execute 改造 | SD-7 | eval 调优到天花板仍不达标(IntentMatch 连续 2 迭代无提升且 <85%) | 内部 | eval 八族分数历史(飞轮1 报表) | 冻结 |
 | DD-3 | user_memory 唤醒(跨会话个性化) | SD-8/SD-15③/飞轮5 | 飞轮2 分析证明跨会话偏好高频复现(同类偏好 ≥3 会话重现、覆盖 ≥20% 活跃用户) | 内部 | 飞轮2 意图口味埋点聚合(选候选/改配速/删站) | 冻结 |
 | DD-4 | 注入隔离 sub-agent | SD-19/SD-24① | 迭代7 评估点 + eval G 族(注入)分数不达标 | 内部 | eval G-1/G-2/G-3 分数 | 冻结(迭代7 评估) |
@@ -40,6 +40,8 @@
 | DD-24 | iter-3/4 四薄点深度细化:① Walk GPS 实时逻辑(到达判定半径/后台省电/漂移防误判)② 打卡防伪造验证 ③ 対比図拍摄对齐 UX ④ 离线打包边界与体积预算 | spec 详细度热力图讨论(2026-07-06 用户批准:留迭代3 开工前,不提前写死) | **迭代3 排期启动前**(流程节点触发,非信号型);⚠️ **飞轮3 上游质量标记**:四点决定打卡数据可信度与回流照片质量 → 图搜 real2real 唯一解锁源(SD-26),细化时须带迭代1-2 实际学习(定位权限授予率等) | 内部(流程) | 迭代3 排期会人工触发;巡检时核对是否已排期 | 冻结(计划内延迟细化) |
 | DD-25 | durable execution(Cloudflare Workflows——checkpoint/重放式长任务执行) | agent resume/checkpoint 讨论(2026-07-07):现有 run = 秒级全只读幂等,重跑即恢复,run 级 checkpoint 属过度工程;「领域数据即 checkpoint」原则成立 | **首个长时(>60s)或有写副作用的 agent 任务立项时**(如批量导入/UGC 批处理/付费操作)——重跑策略届时失效,需 durable execution;CF Workflows = 零新供应商现成方案 | 内部(流程) | 新工具/任务设计评审时人工触发;巡检核对有无此类任务进了排期 | 冻结 |
 
+> **DD-1 解冻记录(2026-07-07)**:本条已由 **SD-31** 激活,状态从「冻结」翻为「已激活」。**越触发判断(用户拍板)**:按 **Better Auth 底座成熟度(v1.4.18)** 而非 Neon Auth 产品 GA 提前解冻——Neon Auth 的底座已从当初被否的 **Stack Auth** 换成成熟的 **Better Auth v1.4.18**,当初「等 GA + migration 工具稳定」的否决理由已过期。原触发条件与「WebSearch "Neon Auth GA changelog"」巡检项一并作废,巡检不再跟踪本条(见文末巡检指令 step 1)。传导详情见 `docs/superpowers/specs/2026-07-06-frontend-rebuild-inputs.md` §七 SD-31 与 `2026-07-06-frontend-rebuild-spec.md`;auth 侧超越亦标注于 `2026-06-23-multi-env-neon-supabase-design.md`。
+
 ## 埋点缺口汇总(建迭代1 全信号埋点时一并补)
 
 - DD-5:`injection_flag`(Prompt Guard 告警)+ 人审标注回填字段
@@ -51,7 +53,7 @@
 
 > 每迭代收尾执行。任何 Claude Code 会话输入:"跑触发器巡检" 即按此执行。
 
-1. 读本文件登记表。
+1. 读本文件登记表,**只巡检状态为「冻结」的条目**;「已激活 / 作废」的跳过(如 **DD-1** 已由 SD-31 激活,不再跟踪其原 Neon Auth GA 触发器)。
 2. **内部**信号:用 Logfire MCP(arbitrary_query)/ Neon MCP(execute_sql)/ 仓库 grep 查每条的「数据来源」,取当前值。
 3. **外部**信号:对每条的 WebSearch 关键词派 sonnet 子代理核实(合并为一个代理一次查完)。
 4. **需求**信号:列出待问维护者的条目。

@@ -93,7 +93,7 @@ Suggested dependency order: S4.5 (share-token enabler) / S4.7 (R2 enabler) can g
 
 **Design basis**: no visual mockup.
 
-**Backend enabler (final)**: a new Neon table `route_shares` (`id`, `route_id` FK, `share_token UNIQUE`, `created_by` user_id, `created_at`, `view_count`); `workers/users` gets two new kinds of endpoints — an authenticated `users.shares.create` (owner-only) + a **public** `users.shares.resolve` (looks up by token, no JWT required, read-only, aimed at anonymous visitors); `apps/web`'s `/s/:id` SSR loader calls this public oRPC endpoint directly server-to-server (not a browser-to-Neon direct connection).
+**Backend enabler (final)**: a new Neon table `route_shares` (`id`, `route_id` FK, `share_token UNIQUE`, `created_by` user_id, `created_at`, `view_count`); `workers/users` gets two new kinds of endpoints — an authenticated `users.shares.create` (owner-only; the **Neon Auth JWT is verified against the Neon Auth JWKS**, SD-31) + a **public** `users.shares.resolve` (looks up by token, no JWT required, read-only, aimed at anonymous visitors); `apps/web`'s `/s/:id` SSR loader calls this public oRPC endpoint directly server-to-server (not a browser-to-Neon direct connection).
 
 **Core AC**:
 - Happy path: creating a share for a route you own returns a token; resolving that token via the public endpoint returns the route summary with no auth required -> integration
@@ -131,7 +131,7 @@ Suggested dependency order: S4.5 (share-token enabler) / S4.7 (R2 enabler) can g
 
 **Design basis**: no visual mockup.
 
-**Backend enabler (final)**: the root Worker (`worker/app.ts`) gets a lightweight new route that issues short-TTL presigned PUT URLs scoped to the `/uploads/{user_id}/` prefix of the `seichijunrei-assets` R2 bucket (authenticated via JWT); on successful upload, `apps/web` records the metadata through a `workers/users` oRPC endpoint (a new Neon table `comparison_uploads`: `id`, `user_id`, `point_id`, `r2_key`, `exif_opt_in`, `created_at`).
+**Backend enabler (final)**: the root Worker (`worker/app.ts`) gets a lightweight new route that issues short-TTL presigned PUT URLs scoped to the `/uploads/{user_id}/` prefix of the `seichijunrei-assets` R2 bucket (authenticated via a **Neon Auth JWT verified against the Neon Auth JWKS**, SD-31); on successful upload, `apps/web` records the metadata through a `workers/users` oRPC endpoint (a new Neon table `comparison_uploads`: `id`, `user_id`, `point_id`, `r2_key`, `exif_opt_in`, `created_at`).
 
 **Core AC**:
 - Happy path: requesting a presigned URL and directly PUT-ing an image to R2 succeeds, and the resulting `r2_key` is recorded via `workers/users` -> integration
