@@ -94,14 +94,16 @@ const MAX_ROUTE_POINT_IDS = 500;
 
 /** Reject route inputs over the point_ids cap with the typed 400.
  *
- * Async + awaited (rather than a sync throw in the handler) so the rejection
- * lands on an already-attached `await`: a handler promise that is born
- * rejected crosses oRPC's thenable adoption handler-less for one microtask,
- * which workerd reports as an unhandled rejection. */
-async function assertRoutePointIdCap(count: number): Promise<void> {
+ * Returns an explicit promise (rejected past the cap) instead of a sync throw
+ * in the handler, so the rejection lands on the caller's already-attached
+ * `await`. A handler promise that is born rejected would cross oRPC's thenable
+ * adoption handler-less for one microtask, which workerd reports as an
+ * unhandled rejection. */
+function assertRoutePointIdCap(count: number): Promise<void> {
   if (count > MAX_ROUTE_POINT_IDS) {
-    throw routeTooManyPoints(count, MAX_ROUTE_POINT_IDS);
+    return Promise.reject(routeTooManyPoints(count, MAX_ROUTE_POINT_IDS));
   }
+  return Promise.resolve();
 }
 
 /** route(point_ids, origin?, pacing?) -> Route */

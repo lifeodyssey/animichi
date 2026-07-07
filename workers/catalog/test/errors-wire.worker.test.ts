@@ -73,7 +73,7 @@ function routeRows(count: number): RouteRow[] {
 }
 
 async function json<TData>(response: Response): Promise<ErrorEnvelope<TData>> {
-  return await response.json() as ErrorEnvelope<TData>;
+  return await response.json();
 }
 
 describe("catalog typed errors on the OpenAPI wire", () => {
