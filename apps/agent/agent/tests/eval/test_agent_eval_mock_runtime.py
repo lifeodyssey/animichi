@@ -173,5 +173,5 @@ async def test_route_case_returns_route_output_via_catalog() -> None:
         _route_driver("響け！ユーフォニアム"), text="響けの聖地を巡るルート"
     )
     assert isinstance(result.output, RouteResponseModel)
-    assert ("route", (("p_euph_1", "p_euph_2"),)) in catalog.calls
+    assert ("route", (("p_euph_1", "p_euph_2"), None)) in catalog.calls
     assert {name for name, _ in catalog.calls} <= _ALLOWED_CATALOG_METHODS
