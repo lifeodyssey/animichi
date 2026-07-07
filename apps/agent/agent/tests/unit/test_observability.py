@@ -1,30 +1,27 @@
 """Unit tests for the logfire-backed observability wrapper."""
 
-from logfire.testing import CaptureLogfire
+from __future__ import annotations
 
+import json
+from typing import cast
+
+import pytest
+from logfire.testing import CaptureLogfire, TestExporter
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricsData
+
+from agent.config.settings import Settings
 from agent.infrastructure.observability import (
     http_span,
     record_http_request,
     record_runtime_request,
     runtime_span,
 )
-
-
-def _metric_by_name(capfire: CaptureLogfire) -> dict[str, dict[str, object]]:
-    return {m["name"]: m for m in capfire.get_collected_metrics()}
-
-
-def _first_data_point(metric: dict[str, object]) -> dict[str, object]:
-    data = metric["data"]
-    if not isinstance(data, dict):
-        raise TypeError(f"Expected dict metric data, got {type(data)}")
-    points = data["data_points"]
-    if not isinstance(points, list) or not points:
-        raise ValueError("Metric has no data points")
-    point = points[0]
-    if not isinstance(point, dict):
-        raise TypeError(f"Expected dict data point, got {type(point)}")
-    return point
+from agent.interfaces.routes._deps import setup_logfire
+from agent.tests.unit._observability_testing import (
+    first_data_point,
+    metric_by_name,
+    patch_configure_with_test_sinks,
+)
 
 
 class TestSpans:
@@ -71,7 +68,7 @@ class TestRuntimeMetrics:
             transport="public_api",
         )
 
-        names = set(_metric_by_name(capfire))
+        names = set(metric_by_name(capfire))
         assert {"runtime_requests_total", "runtime_request_duration_ms"} <= names
 
     def test_record_runtime_request_tags_request_attributes(
@@ -84,9 +81,9 @@ class TestRuntimeMetrics:
             transport="public_api",
         )
 
-        counter = _metric_by_name(capfire)["runtime_requests_total"]
-        point = _first_data_point(counter)
-        assert point["attributes"] == {
+        counter = metric_by_name(capfire)["runtime_requests_total"]
+        point = first_data_point(counter)
+        assert point.attributes == {
             "intent": "plan_route",
             "status": "ok",
             "transport": "public_api",
@@ -102,9 +99,9 @@ class TestRuntimeMetrics:
             transport="public_api",
         )
 
-        histogram = _metric_by_name(capfire)["runtime_request_duration_ms"]
-        point = _first_data_point(histogram)
-        assert point["sum"] == 250.0
+        histogram = metric_by_name(capfire)["runtime_request_duration_ms"]
+        point = first_data_point(histogram)
+        assert point.sum == 250.0
 
 
 class TestHttpMetrics:
@@ -115,7 +112,7 @@ class TestHttpMetrics:
             duration_ms=3.0, method="GET", route="/healthz", status_code=200
         )
 
-        names = set(_metric_by_name(capfire))
+        names = set(metric_by_name(capfire))
         assert {"http_requests_total", "http_request_duration_ms"} <= names
 
     def test_record_http_request_tags_request_attributes(
@@ -125,10 +122,51 @@ class TestHttpMetrics:
             duration_ms=3.0, method="GET", route="/healthz", status_code=200
         )
 
-        counter = _metric_by_name(capfire)["http_requests_total"]
-        point = _first_data_point(counter)
-        assert point["attributes"] == {
+        counter = metric_by_name(capfire)["http_requests_total"]
+        point = first_data_point(counter)
+        assert point.attributes == {
             "http.method": "GET",
             "http.route": "/healthz",
             "http.status_code": 200,
         }
+
+
+class TestDeploymentEnvironment:
+    def test_setup_logfire_tags_span_with_deployment_environment(
+        self, monkeypatch: pytest.MonkeyPatch, mock_settings: Settings
+    ) -> None:
+        exporter = TestExporter()
+        patch_configure_with_test_sinks(monkeypatch, exporter, InMemoryMetricReader())
+        monkeypatch.delenv("LOGFIRE_TOKEN", raising=False)
+
+        settings = mock_settings.model_copy(update={"app_env": "staging"})
+        setup_logfire(settings)
+        with runtime_span("runtime.env_check"):
+            pass
+
+        spans = exporter.exported_spans_as_dict(include_resources=True)
+        resource_attributes = spans[-1]["resource"]["attributes"]
+        assert resource_attributes["deployment.environment.name"] == "staging"
+
+    def test_setup_logfire_tags_metric_with_deployment_environment(
+        self, monkeypatch: pytest.MonkeyPatch, mock_settings: Settings
+    ) -> None:
+        metrics_reader = InMemoryMetricReader()
+        patch_configure_with_test_sinks(monkeypatch, TestExporter(), metrics_reader)
+        monkeypatch.delenv("LOGFIRE_TOKEN", raising=False)
+
+        settings = mock_settings.model_copy(update={"app_env": "staging"})
+        setup_logfire(settings)
+        record_runtime_request(
+            duration_ms=1.0,
+            intent="search_bangumi",
+            status="ok",
+            transport="public_api",
+        )
+
+        raw_metrics_data = cast(MetricsData, metrics_reader.get_metrics_data())
+        metrics_data = json.loads(raw_metrics_data.to_json())
+        resource_attributes = metrics_data["resource_metrics"][0]["resource"][
+            "attributes"
+        ]
+        assert resource_attributes["deployment.environment.name"] == "staging"

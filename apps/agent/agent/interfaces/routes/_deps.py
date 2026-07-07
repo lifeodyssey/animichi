@@ -223,6 +223,7 @@ def setup_logfire(settings: Settings, app: object | None = None) -> None:
     logfire.configure(
         service_name=settings.observability_service_name,
         service_version=settings.observability_service_version,
+        environment=settings.app_env,
         send_to_logfire="if-token-present",
         console=False,
     )
