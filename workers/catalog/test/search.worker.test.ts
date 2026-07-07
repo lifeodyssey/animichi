@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   search,
+  searchDb,
   type MissPreview,
   type SearchDb,
   type WorkPointRow,
 } from "../src/api/search";
+import { ORPCError } from "@orpc/server";
+import type { CatalogDb } from "../src/db/client";
+import { upstreamUnavailable } from "../src/lib/errors";
+import type { FetchLike } from "../src/ingest/sources";
 import type { PilgrimagePoint } from "../src/types";
 
 /**
@@ -72,7 +77,10 @@ function fakeDb(aliasIndex: AliasIndex, miss: MissStubs = {}): Recorder {
       Promise.resolve(Object.values(aliasIndex).find((e) => e.workId === workId)?.rows ?? []),
     resolvePreview: async (query) => {
       resolved.push(query);
-      return miss.resolvePreview ? miss.resolvePreview(query) : null;
+      // `await` (not a bare return) so a stub's already-rejected promise gains
+      // a handler synchronously — workerd reports rejections left dangling
+      // across the thenable-adoption microtask as unhandled.
+      return miss.resolvePreview ? await miss.resolvePreview(query) : null;
     },
     runFullIngest: async (workId) => {
       if (miss.runFullIngest) await miss.runFullIngest(workId);
@@ -92,6 +100,21 @@ function recordLookup(lookups: string[], index: AliasIndex, alias: string): stri
 function waitUntilSpy(): { waitUntil: (p: Promise<unknown>) => void; scheduled: Promise<unknown>[] } {
   const scheduled: Promise<unknown>[] = [];
   return { waitUntil: (p) => void scheduled.push(p), scheduled };
+}
+
+/** Fake production DB for searchDb() alias misses; casts stay at the boundary. */
+function catalogDb(rows: unknown[]): CatalogDb {
+  return { execute: () => Promise.resolve({ rows }) } as unknown as CatalogDb;
+}
+
+async function searchError(run: () => Promise<unknown>): Promise<ORPCError<string, unknown>> {
+  try {
+    await run();
+  } catch (err) {
+    expect(err).toBeInstanceOf(ORPCError);
+    return err as ORPCError<string, unknown>;
+  }
+  throw new Error("expected search to reject");
 }
 
 /** A canned L1 preview point (the lite shape, already mapped to the contract). */
@@ -202,6 +225,28 @@ describe("search (alias miss — L1 preview + background ingest)", () => {
   });
 });
 
+describe("search (alias miss — upstream errors)", () => {
+  it("propagates a defined upstream error from the injected preview resolver", async () => {
+    const { db } = fakeDb({}, { resolvePreview: () => Promise.reject(upstreamUnavailable("bangumi")) });
+    const err = await searchError(() => search(db, { query: "downstream miss" }));
+    expect(err.code).toBe("UPSTREAM_UNAVAILABLE");
+    expect(err.status).toBe(502);
+    expect(err.defined).toBe(true);
+    expect(err.data).toEqual({ upstream: "bangumi" });
+  });
+
+  it("turns production Bangumi fetch failures into defined retryable errors", async () => {
+    const fetchImpl: FetchLike = () => Promise.reject(new Error("bangumi down"));
+    const err = await searchError(() =>
+      search(searchDb(catalogDb([])), { query: "uncovered title" }, { fetchImpl }),
+    );
+    expect(err.code).toBe("UPSTREAM_UNAVAILABLE");
+    expect(err.status).toBe(502);
+    expect(err.defined).toBe(true);
+    expect(err.data).toEqual({ upstream: "bangumi" });
+  });
+});
+
 describe("search (alias miss — synchronous fallback when no waitUntil)", () => {
   it("runs the full ingest synchronously, then returns the published points", async () => {
     const index: AliasIndex = {};
@@ -230,5 +275,38 @@ describe("search (alias miss — synchronous fallback when no waitUntil)", () =>
 
     expect(result.rows).toEqual([PREVIEW_POINT]);
     expect(result.partial).toBe(true);
+  });
+});
+
+describe("search (alias miss — Anitabi lite 404 = no data, not an outage)", () => {
+  const bangumiHit = { ok: true, status: 200, json: () => Promise.resolve({ data: [{ id: 10380 }] }) };
+
+  it("returns empty rows (no UPSTREAM_UNAVAILABLE) when Anitabi has no data (404)", async () => {
+    const fetchImpl: FetchLike = (url) =>
+      url.includes("/v0/search/subjects")
+        ? Promise.resolve(bangumiHit)
+        : Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
+
+    const result = await search(searchDb(catalogDb([])), { query: "work with no anitabi data" }, { fetchImpl });
+
+    expect(result.rows).toEqual([]);
+    expect(result.partial).toBeUndefined();
+    expect(typeof result.synced_at).toBe("string");
+  });
+
+  it("still maps a real Anitabi 5xx outage to a retryable UPSTREAM_UNAVAILABLE", async () => {
+    const fetchImpl: FetchLike = (url) =>
+      url.includes("/v0/search/subjects")
+        ? Promise.resolve(bangumiHit)
+        : Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve(null) });
+
+    const err = await searchError(() =>
+      search(searchDb(catalogDb([])), { query: "anitabi outage" }, { fetchImpl }),
+    );
+
+    expect(err.code).toBe("UPSTREAM_UNAVAILABLE");
+    expect(err.status).toBe(502);
+    expect(err.defined).toBe(true);
+    expect(err.data).toEqual({ upstream: "anitabi" });
   });
 });

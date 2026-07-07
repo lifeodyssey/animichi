@@ -18,7 +18,9 @@
  * execution context) it FALLS BACK to running the full ingest synchronously —
  * the prior behavior — so nothing breaks. The agent stays upstream-free; only
  * the catalog ever touches Anitabi/Bangumi. A title Bangumi can't resolve (or
- * whose lite preview is empty) yields `{ rows: [] }`.
+ * whose lite preview is empty) yields `{ rows: [] }`; an upstream outage now
+ * surfaces as a defined retryable `UPSTREAM_UNAVAILABLE` oRPC error (502
+ * envelope) instead of lying to the user with empty rows.
  *
  * Output mirrors the oRPC contract `SearchResult` / `PilgrimagePoint`. The wire
  * shapes (`Origin` / `PilgrimagePoint`) come from `../types` — the single
@@ -30,11 +32,14 @@
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import { normalizeAlias } from "../lib/alias";
+import { upstreamUnavailable } from "../lib/errors";
 import { optional } from "../lib/optional";
 import { ingestWork } from "../ingest/orchestrator";
 import {
   fetchAnitabiLite,
   fetchBangumiSearch,
+  UpstreamNotFoundError,
+  type AnitabiLite,
   type AnitabiPoint,
   type FetchLike,
 } from "../ingest/sources";
@@ -198,31 +203,37 @@ export function searchDb(db: CatalogDb): SearchDb {
   };
 }
 
-/** Resolve an uncovered title to its Bangumi id + the fast Anitabi `/lite`
- * preview points; null when Bangumi can't resolve it, the preview is empty, or
- * an upstream call fails. An upstream hiccup must NOT 500 the search — it
- * degrades to empty rows, the same resilience the prior ingest-backed path had. */
+/** Resolve an uncovered title to a fast preview; null only for real misses. */
 async function resolvePreview(
   query: string,
   fetchImpl?: FetchLike,
 ): Promise<MissPreview | null> {
+  const bangumiId = await resolveWorkId(query, fetchImpl);
+  if (!bangumiId) return null;
+  const lite = await fetchLitePreview(bangumiId, fetchImpl);
+  if (lite.points.length === 0) return null;
+  return { workId: bangumiId, points: lite.points.map((p) => litePoint(p, bangumiId)) };
+}
+
+/** Resolve a title via Bangumi; upstream failures become typed retryable errors. */
+async function resolveWorkId(query: string, fetchImpl?: FetchLike): Promise<string | null> {
   try {
-    return await resolvePreviewUnsafe(query, fetchImpl);
-  } catch {
-    return null;
+    return await fetchBangumiSearch(query, { fetchImpl });
+  } catch (err) {
+    throw upstreamUnavailable("bangumi", err);
   }
 }
 
-/** Resolve id -> lite preview; may throw on an upstream error (caller guards). */
-async function resolvePreviewUnsafe(
-  query: string,
-  fetchImpl?: FetchLike,
-): Promise<MissPreview | null> {
-  const bangumiId = await fetchBangumiSearch(query, { fetchImpl });
-  if (!bangumiId) return null;
-  const lite = await fetchAnitabiLite(bangumiId, { fetchImpl });
-  if (lite.points.length === 0) return null;
-  return { workId: bangumiId, points: lite.points.map((p) => litePoint(p, bangumiId)) };
+/** Fetch an Anitabi lite preview. A 404 means the work has NO Anitabi pilgrimage
+ * data -> an empty preview (graceful empty rows), NOT an outage. Real upstream
+ * failures (5xx / network) still become typed retryable UPSTREAM_UNAVAILABLE. */
+async function fetchLitePreview(bangumiId: string, fetchImpl?: FetchLike): Promise<AnitabiLite> {
+  try {
+    return await fetchAnitabiLite(bangumiId, { fetchImpl });
+  } catch (err) {
+    if (err instanceof UpstreamNotFoundError) return { points: [], total: 0 };
+    throw upstreamUnavailable("anitabi", err);
+  }
 }
 
 /** The FULL ingest (fetch all points -> enrich -> publish); swallows the result

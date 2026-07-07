@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ORPCError } from "@orpc/server";
 import { route, type PilgrimagePoint, type RouteDb } from "../src/api/route";
 
 /**
@@ -53,6 +54,9 @@ function row(id: string, lat: number, image: string | null = null): FakeRow {
 }
 
 const ROWS: FakeRow[] = [row("a", 35.0, "a.jpg"), row("b", 35.001), row("c", 35.002)];
+const MANY_ROWS: FakeRow[] = Array.from({ length: 51 }, (_, i) =>
+  row(`p${String(i).padStart(3, "0")}`, 35 + i * 0.001),
+);
 
 /** A typed fake `RouteDb` that returns only the fixture rows whose id is in IN. */
 function fakeDb(rows: FakeRow[]): RouteDb {
@@ -66,6 +70,16 @@ function fakeDb(rows: FakeRow[]): RouteDb {
 }
 
 const ids = (ps: PilgrimagePoint[]): string[] => ps.map((p) => p.id);
+
+async function routeError(rows: FakeRow[]): Promise<ORPCError<string, unknown>> {
+  try {
+    await route(fakeDb(rows), { point_ids: rows.map((r) => r.id) });
+  } catch (err) {
+    expect(err).toBeInstanceOf(ORPCError);
+    return err as ORPCError<string, unknown>;
+  }
+  throw new Error("expected route to reject");
+}
 
 async function assertTimedRoute(): Promise<void> {
   const r = await route(fakeDb(ROWS), { point_ids: ["a", "b", "c"], pacing: "normal" });
@@ -122,5 +136,13 @@ describe("route API handler — fetch -> cluster -> itinerary -> Route", () => {
     const r = await route(fakeDb(ROWS), { point_ids: [] });
     expect(r.point_count).toBe(0);
     expect(r.ordered_points).toEqual([]);
+  });
+
+  it("rejects with a defined typed error when the selected points make 51 clusters", async () => {
+    const err = await routeError(MANY_ROWS);
+    expect(err.code).toBe("ROUTE_TOO_MANY_CLUSTERS");
+    expect(err.status).toBe(422);
+    expect(err.defined).toBe(true);
+    expect(err.data).toEqual({ cluster_count: 51, max_clusters: 50 });
   });
 });

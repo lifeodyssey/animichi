@@ -7,6 +7,7 @@ import structlog
 
 from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.catalog_adapter import build_route_payload
+from agent.agents.error_messages import build_error_message
 from agent.agents.messages import build_message
 from agent.agents.runtime_deps import OnStep
 from agent.agents.runtime_models import RouteDataModel, RouteModel, RouteResponseModel
@@ -37,7 +38,12 @@ async def execute_selected_route(
         route = await catalog.route(point_ids, origin=_parse_coordinate_origin(origin))
     except _TRANSIENT_ERRORS as exc:
         logger.warning("selected_route_catalog_error", error=str(exc))
-        return _error_result("Catalog route unavailable", locale)
+        # Typed CatalogError -> localized, actionable text from OUR mapping
+        # table (SD-19); anything else keeps the legacy generic fallback.
+        return _error_result(
+            build_error_message(exc, locale, fallback="Catalog route unavailable"),
+            locale,
+        )
 
     step, payload = _build_step(route, params)
     await _emit_step(on_step, "done", payload)
