@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>開屏 · 聖地巡礼 Splash</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/index.css">
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  :root{
+    --bg:#f0e8d8; --paper:#f8f8f0;
+    --ink:#794f27; --ink-body:#725d42; --ink-soft:#9f927d;
+    --teal:#19c8b9; --teal-bright:#19c8b9; --teal-bg:#e6f9f6;
+    --vermillion:#c44a2e; --line:#e8e2d6;
+    --p:#19c8b9;            /* primary  (tweakable) */
+    --a:#19c8b9;            /* accent / CTA (tweakable) */
+    --sp:1;                 /* motion speed (tweakable) */
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    font-family:"Nunito","Noto Sans SC",sans-serif;color:var(--ink-body);
+    background:
+      radial-gradient(60% 40% at 82% -4%, #e7f1fb 0%, rgba(231,241,251,0) 60%),
+      radial-gradient(52% 36% at 12% -2%, #fbe6ef 0%, rgba(251,230,239,0) 58%),
+      linear-gradient(180deg,#efece1 0%, #e6e1d4 60%, #ddd8cb 100%);
+    min-height:100vh;-webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- page chrome ---------- */
+  .head{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:30px clamp(20px,4vw,52px) 6px;}
+  .head .ttl{display:flex;align-items:center;gap:11px;font-family:"Zen Maru Gothic","Noto Sans SC",sans-serif;
+    font-weight:700;font-size:22px;color:var(--ink);letter-spacing:.5px;}
+  .head .ttl .dot{width:11px;height:11px;border-radius:50%;background:var(--p);box-shadow:0 0 0 4px color-mix(in srgb,var(--p) 22%,transparent);}
+  .head .sub{font-size:14px;color:var(--ink-soft);font-weight:600;}
+  .replay{margin-left:auto;display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+    background:var(--paper);color:var(--ink);border:2px solid var(--line);
+    font-family:inherit;font-weight:800;font-size:14px;padding:10px 18px;border-radius:50px;
+    box-shadow:0 3px 0 0 #bdaea0;transition:transform .1s ease,box-shadow .1s ease;}
+  .replay:hover{transform:translateY(-1px);box-shadow:0 4px 0 0 #bdaea0;}
+  .replay:active{transform:translateY(2px);box-shadow:0 1px 0 0 #bdaea0;}
+  .replay svg{width:16px;height:16px;}
+
+  .rail{display:flex;gap:44px;align-items:flex-start;justify-content:center;flex-wrap:wrap;
+    padding:24px clamp(20px,4vw,52px) 64px;}
+  .cell{flex:none;display:flex;flex-direction:column;align-items:center;gap:16px;}
+  .cap{text-align:center;max-width:330px;}
+  .cap .num{display:inline-block;font-family:"Lora",serif;font-style:italic;color:var(--p);font-weight:600;font-size:15px;margin-bottom:2px;}
+  .cap h3{margin:0 0 4px;font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:19px;color:var(--ink);}
+  .cap p{margin:0;font-size:13.5px;line-height:1.55;color:var(--ink-soft);}
+
+  /* ---------- phone shell ---------- */
+  .phone{position:relative;width:340px;height:716px;flex:none;background:#2c2722;border-radius:54px;padding:13px;
+    box-shadow:0 2px 0 2px #4a4239, 0 40px 70px -26px #3d342899, 0 16px 30px -16px #3d342855;}
+  .screen{position:relative;width:100%;height:100%;border-radius:43px;overflow:hidden;background:#f5f1e4;}
+  .notch{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:104px;height:28px;
+    background:#15110d;border-radius:18px;z-index:40;pointer-events:none;}
+  .statusbar{position:absolute;top:0;left:0;right:0;height:46px;z-index:30;display:flex;align-items:center;
+    justify-content:space-between;padding:0 26px;font-size:13px;font-weight:800;pointer-events:none;}
+  .statusbar .ic{display:flex;gap:5px;align-items:center;}
+  .statusbar .ic span{width:16px;height:11px;border-radius:2px;background:currentColor;opacity:.9;}
+  .statusbar .ic span.bat{width:22px;height:11px;border-radius:3px;}
+  .statusbar.dark{color:#f5f1e4;}
+
+  /* ---------- shared splash design (.arch) ---------- */
+  .splash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .arch-content{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:26px;padding:0 30px;text-align:center;}
+
+  .ambient{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+
+  .torii-mark{position:relative;display:inline-block;margin-bottom:40px;}
+  .torii-mark .torii{display:block;width:118px;height:118px;filter:drop-shadow(0 10px 14px #c44a2e22);}
+  .torii-mark .markfox{position:absolute;left:50%;margin-left:-31px;bottom:-30px;width:62px;height:62px;z-index:2;
+    filter:drop-shadow(0 5px 4px #6b563a33);}
+  .torii-mark::after{content:"";position:absolute;left:50%;margin-left:-27px;bottom:-33px;width:54px;height:10px;z-index:1;
+    border-radius:50%;background:radial-gradient(closest-side,#6b563a30,transparent);}
+
+  .wordmark{font-family:"Zen Maru Gothic","Noto Sans SC",sans-serif;font-weight:700;letter-spacing:2px;font-size:40px;
+    display:inline-flex;align-items:center;gap:6px;}
+  .wordmark .a{color:var(--ink);}
+  .wordmark .b{color:#fff;background:var(--p);border-radius:12px;padding:2px 12px;}
+  .slogan{font-family:"Lora",Georgia,serif;font-style:italic;font-size:14px;color:var(--ink-soft);letter-spacing:.3px;margin-top:-10px;}
+  .sub{font-size:11px;color:var(--ink-soft);letter-spacing:3px;font-weight:700;opacity:.85;margin-top:-14px;}
+
+  /* CTA launch button (accent, 3D press) */
+  .cta{display:inline-flex;align-items:center;gap:9px;background:#f5c31c;color:#5c4813;border:none;cursor:pointer;
+    font-family:inherit;font-weight:800;font-size:17px;padding:14px 30px;border-radius:50px;white-space:nowrap;margin-top:4px;
+    box-shadow:0 4px 0 0 #d8a812,0 14px 22px -10px rgba(216,168,18,.5);
+    transition:transform .12s ease,box-shadow .12s ease,filter .12s ease;}
+  .cta:hover{filter:brightness(1.04);transform:translateY(-1px);box-shadow:0 5px 0 0 #d8a812,0 18px 26px -10px rgba(216,168,18,.5);}
+  .cta:active{transform:translateY(3px);box-shadow:0 1px 0 0 #d8a812;}
+  .cta svg{width:18px;height:18px;}
+
+  /* ---- DAY palette ---- */
+  .arch.day{background:radial-gradient(78% 56% at 50% 34%,#f8f8f0 0%,#f0e8d8 58%,#e9e1ce 100%);}
+  .sun{position:absolute;top:66px;right:48px;width:46px;height:46px;border-radius:50%;
+    background:radial-gradient(circle at 40% 38%,#fff3c4,#ffd86b);box-shadow:0 0 30px 9px #ffe39a55;}
+  .cloud{position:absolute;width:58px;height:18px;background:#ffffff;border-radius:40px;opacity:.92;box-shadow:0 8px 16px -10px #9fb6c466;}
+  .cloud::before{content:"";position:absolute;width:28px;height:28px;background:inherit;border-radius:50%;top:-12px;left:9px;}
+  .cloud::after{content:"";position:absolute;width:20px;height:20px;background:inherit;border-radius:50%;top:-8px;left:31px;}
+
+  /* ---- NIGHT palette ---- */
+  .arch.night{background:radial-gradient(70% 52% at 50% 22%,#1c3340 0%,#142433 46%,#0d1622 100%);color:#f5f1e4;}
+  .arch.night .wordmark .a{color:#f5f1e4;}
+  .arch.night .slogan{color:#cfe3df;}
+  .arch.night .sub{color:#8fb4c4;}
+  .arch.night .torii-mark .torii{filter:drop-shadow(0 0 16px #ff7a4ecc) drop-shadow(0 0 30px #ff6a3a66);}
+  .arch.night .markfox{filter:drop-shadow(0 0 8px #00000066);}
+  .moon{position:absolute;top:62px;right:46px;width:46px;height:46px;border-radius:50%;
+    background:radial-gradient(circle at 36% 32%,#fdf6dd,#f3e2a8);box-shadow:0 0 30px 6px #f3e2a855;}
+  .starfield{position:absolute;inset:0;}
+  .starfield i{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;opacity:.8;}
+  .lantern{position:absolute;width:18px;height:24px;border-radius:9px;background:linear-gradient(180deg,#f7b13c,#e6883a);
+    box-shadow:0 0 18px 3px #f5a83a66;}
+  .lantern::before{content:"";position:absolute;left:50%;top:-7px;width:2px;height:7px;background:#7a5a3a;transform:translateX(-50%);}
+
+  /* loading dots (under CTA only when no button? kept for flavor) */
+  /* ---------- entrance (shared) ---------- */
+  .stage:not(.play) .en{}
+  @media (prefers-reduced-motion:no-preference){
+    .cloud{animation:drift 26s ease-in-out infinite alternate;}
+    .starfield i{animation:twinkle calc(3s / var(--sp)) ease-in-out infinite;}
+    .lantern{animation:sway calc(4s / var(--sp)) ease-in-out infinite;transform-origin:top center;}
+    .stage.play .arch .torii-mark{animation:fadeUp calc(.9s / var(--sp)) cubic-bezier(.2,.8,.3,1) both, floaty calc(4.2s / var(--sp)) ease-in-out calc(.9s / var(--sp)) infinite;}
+    .stage.play .arch.night .torii-mark{animation:fadeUp calc(.9s / var(--sp)) cubic-bezier(.2,.8,.3,1) both, glow calc(3.4s / var(--sp)) ease-in-out calc(.9s / var(--sp)) infinite;}
+    .stage.play .arch .markfox{animation:fadeUp calc(.7s / var(--sp)) cubic-bezier(.2,.8,.3,1) calc(.5s / var(--sp)) both;}
+    .stage.play .arch .wordmark{animation:fadeUp calc(.8s / var(--sp)) cubic-bezier(.2,.8,.3,1) calc(.35s / var(--sp)) both;}
+    .stage.play .arch .slogan{animation:fadeUp calc(.8s / var(--sp)) ease calc(.6s / var(--sp)) both;}
+    .stage.play .arch .sub{animation:fadeUp calc(.8s / var(--sp)) ease calc(.74s / var(--sp)) both;}
+    .stage.play .arch .cta{animation:fadeUp calc(.8s / var(--sp)) cubic-bezier(.2,.8,.3,1) calc(.92s / var(--sp)) both;}
+  }
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes floaty{0%,100%{transform:translateY(0);}50%{transform:translateY(-7px);}}
+  @keyframes glow{0%,100%{filter:drop-shadow(0 0 14px #ff7a4eaa) drop-shadow(0 0 26px #ff6a3a55);}50%{filter:drop-shadow(0 0 22px #ff8a5ee0) drop-shadow(0 0 40px #ff6a3a88);}}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @keyframes drift{0%{transform:translateX(0);}100%{transform:translateX(26px);}}
+  @keyframes twinkle{0%,100%{opacity:.25;transform:scale(.7);}50%{opacity:1;transform:scale(1);}}
+  @keyframes sway{0%,100%{transform:rotate(-7deg);}50%{transform:rotate(7deg);}}
+
+  /* ===== injected app-home stub (revealed by the scene-cut iris) ===== */
+  .home{position:absolute;inset:0;z-index:36;background:var(--bg);flex-direction:column;padding:48px 18px 0;
+    display:none;font-family:"Nunito","Noto Sans SC",sans-serif;}
+  .home.show{display:flex;}
+  .home .statusbar{color:var(--ink);}
+  .home-reset{position:absolute;top:50px;right:14px;z-index:6;display:inline-flex;align-items:center;gap:5px;
+    background:var(--paper);color:var(--ink-soft);border:2px solid var(--line);border-radius:50px;
+    padding:7px 13px;font-family:inherit;font-weight:800;font-size:12px;cursor:pointer;box-shadow:0 3px 0 0 #d4c9b4;}
+  .home-reset:active{transform:translateY(2px);box-shadow:0 1px 0 0 #d4c9b4;}
+  .home-top{display:flex;align-items:center;margin:2px 2px 16px;}
+  .home-brand{display:flex;align-items:center;gap:8px;font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:21px;color:var(--ink);}
+  .home-brand img{width:30px;height:30px;}
+  .home-brand i{font-style:normal;color:#fff;background:var(--p);border-radius:9px;padding:1px 8px;}
+  .home-search{display:flex;align-items:center;gap:10px;background:var(--paper);border:2px solid var(--line);
+    border-radius:50px;padding:13px 18px;color:var(--ink-soft);font-weight:700;font-size:15px;
+    box-shadow:0 8px 20px -12px #6b563a66;margin-bottom:22px;}
+  .home-search svg{width:19px;height:19px;flex:none;}
+  .home-h{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:16px;color:var(--ink);margin:0 2px 12px;}
+  .home-cards{display:flex;flex-direction:column;gap:13px;}
+  .hc{display:flex;gap:13px;align-items:center;background:var(--paper);border:2px solid var(--line);
+    border-radius:22px;padding:10px;box-shadow:0 10px 24px -16px #6b563a77;}
+  .hc-img{width:88px;height:64px;border-radius:14px;flex:none;border:1.5px solid var(--line);}
+  .hc-b{display:flex;flex-direction:column;gap:5px;}
+  .hc-b b{font-size:16px;color:var(--ink);font-family:"Zen Maru Gothic",sans-serif;}
+  .hc-tag{align-self:flex-start;font-size:11.5px;font-weight:800;color:var(--teal);background:var(--teal-bg);border-radius:50px;padding:2px 11px;}
+  .home-nav{margin-top:auto;display:flex;justify-content:space-around;align-items:center;height:64px;
+    border-top:2px solid var(--line);background:var(--paper);margin:18px -18px 0;}
+  .home-nav button{width:54px;height:50px;border:none;background:none;cursor:pointer;color:var(--ink-soft);
+    display:flex;align-items:center;justify-content:center;}
+  .home-nav button svg{width:25px;height:25px;}
+  .home-nav button.on{color:var(--p);}
+
+  #tweak-root{position:relative;z-index:200;}
+  @media (max-width:560px){.rail{gap:30px;}.head{padding:20px 16px 4px;}}
+</style>
+</head>
+<template id="__bundler_thumbnail">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#19c8b9"/>
+    <g fill="#fffdf5"><rect x="30" y="38" width="40" height="5" rx="2.5"/><rect x="27" y="33" width="46" height="4" rx="2"/><rect x="34" y="43" width="5" height="26" rx="1"/><rect x="61" y="43" width="5" height="26" rx="1"/></g>
+  </svg>
+</template>
+<body>
+
+<div class="head">
+  <div class="ttl"><span class="dot"></span>開屏 · Splash</div>
+  <span class="sub">同一设计 · 朝 / 夜 · 390 × 844</span>
+  <button class="replay" id="replayBtn" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/></svg>
+    入場を再生
+  </button>
+</div>
+
+<div class="stage" id="stage">
+<div class="rail" id="rail">
+
+  <!-- ====== DAY ====== -->
+  <div class="cell">
+    <div class="phone" data-cut data-theme="day" data-screen-label="开屏-朝Day">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="ic"><span></span><span></span><span class="bat"></span></span></div>
+        <div class="splash arch day">
+          <div class="ambient">
+            <div class="sun"></div>
+            <div class="cloud" style="top:120px;left:34px;transform:scale(.9);"></div>
+            <div class="cloud" style="top:200px;right:36px;transform:scale(.7);animation-delay:-12s;"></div>
+          </div>
+          <div class="arch-content">
+            <span class="torii-mark en">
+              <img class="torii" src="assets/torii.svg" alt="torii">
+              <img class="markfox splash-fox" data-default="traveler" src="assets/fox/fox-traveler.svg" alt="traveler fox">
+            </span>
+            <div class="wordmark en"><span class="a">聖地</span><span class="b">巡礼</span></div>
+            <div class="slogan en">From screen to street</div>
+            <div class="sub en">アニメの舞台を、その足で</div>
+            <button class="cta en" type="button">巡礼を始める<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><span class="num">朝 — day</span><h3>白天版</h3><p>晴空暖光、流云轻飘。背包旅人狐狸站在鸟居正下，像正要穿过神社门出发巡礼。</p></div>
+  </div>
+
+  <!-- ====== NIGHT ====== -->
+  <div class="cell">
+    <div class="phone" data-cut data-theme="night" data-screen-label="开屏-夜Night">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar dark"><span>9:41</span><span class="ic"><span></span><span></span><span class="bat"></span></span></div>
+        <div class="splash arch night">
+          <div class="ambient">
+            <div class="moon"></div>
+            <div class="starfield" id="stars-night"></div>
+            <div class="lantern" style="top:148px;left:42px;"></div>
+            <div class="lantern" style="top:182px;right:50px;animation-delay:1.2s;"></div>
+          </div>
+          <div class="arch-content">
+            <span class="torii-mark en">
+              <img class="torii" src="assets/torii.svg" alt="torii">
+              <img class="markfox splash-fox" data-default="traveler" src="assets/fox/fox-traveler.svg" alt="traveler fox">
+            </span>
+            <div class="wordmark en"><span class="a">聖地</span><span class="b">巡礼</span></div>
+            <div class="slogan en">From screen to street</div>
+            <div class="sub en">アニメの舞台を、その足で</div>
+            <button class="cta en" type="button">巡礼を始める<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><span class="num">夜 — night</span><h3>夜晚版</h3><p>同一构图的夜祭版：月色、纸灯笼微摆、星空闪烁，鸟居朱红发光呼吸。</p></div>
+  </div>
+
+</div>
+</div>
+
+<div id="tweak-root"></div>
+
+<script src="scene-cut.js"></script>
+<script src="tweaks-panel.jsx" type="text/babel"></script>
+<script>
+  /* ---- night starfield ---- */
+  (function(){
+    var f=document.getElementById('stars-night'); if(!f) return;
+    for(var i=0;i<46;i++){
+      var s=document.createElement('i');
+      s.style.left=(Math.random()*100)+'%'; s.style.top=(Math.random()*60)+'%';
+      var sz=1.5+Math.random()*2.4; s.style.width=sz+'px'; s.style.height=sz+'px';
+      s.style.animationDelay=(-Math.random()*3).toFixed(2)+'s';
+      f.appendChild(s);
+    }
+  })();
+
+  /* ---- entrance trigger ----
+     Base = visible resting layout. Add .play (the from-hidden entrance) only when a
+     probe animation proves the CSS timeline is advancing; in a frozen capture iframe
+     .play is withheld so content shows instead of staying hidden. */
+  var stageEl=document.getElementById('stage');
+  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function replay(){ stageEl.classList.remove('play'); void stageEl.offsetWidth; stageEl.classList.add('play'); }
+  if(!reduce){
+    var probe=document.createElement('div');
+    probe.style.cssText='position:absolute;left:-9999px;width:1px;height:1px;opacity:0;animation:spin 1s linear;';
+    document.body.appendChild(probe);
+    setTimeout(function(){ var a=probe.getAnimations()[0]; var live=a&&a.currentTime>0; probe.remove(); if(live) replay(); },140);
+  }
+  document.getElementById('replayBtn').addEventListener('click',replay);
+
+  /* ---- tweak application (called from React effect) ---- */
+  window.applySplashTweaks=function(t){
+    var r=document.documentElement;
+    r.style.setProperty('--p', t.primary);
+    r.style.setProperty('--a', t.accent);
+    r.style.setProperty('--sp', String(t.speed));
+    document.querySelectorAll('.slogan').forEach(function(e){ e.textContent=t.slogan; });
+    document.querySelectorAll('.splash-fox').forEach(function(img){
+      var pose=(t.fox==='auto')?img.dataset.default:t.fox;
+      var want='assets/fox/fox-'+pose+'.svg';
+      if(img.getAttribute('src')!==want) img.setAttribute('src',want);
+    });
+  };
+
+  /* ---- launch button → fox scene-cut → enter the app ----
+     first launch → Chat (plan now); return visits → 首页 (Discover home). */
+  (function(){
+    if(!window.SceneCut) return;
+    document.querySelectorAll('.phone[data-cut]').forEach(function(phone){
+      var screen=phone.querySelector('.screen');
+      var dark=phone.getAttribute('data-theme')==='night';
+      var cta=phone.querySelector('.cta');
+      if(cta) cta.addEventListener('click',function(){
+        SceneCut.play({target:screen,dark:dark,label:'読み込み中',holdMs:1600});
+        setTimeout(function(){ location.href='Chat 完整状态.html?m=1'; }, 1100);
+      });
+    });
+  })();
+</script>
+<script type="text/babel">
+  const { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakSelect, TweakSlider, TweakText } = window;
+
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "primary": "#19c8b9",
+    "accent": "#19c8b9",
+    "fox": "auto",
+    "speed": 1,
+    "slogan": "From screen to street"
+  }/*EDITMODE-END*/;
+
+  const FOX_POSES = ["auto","traveler","welcome","cheer","curious","guide","lean","peek","stand","thinking","trot","oops"];
+
+  function App(){
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    React.useEffect(()=>{ if(window.applySplashTweaks) window.applySplashTweaks(t); }, [t]);
+    return (
+      <TweaksPanel>
+        <TweakSection label="配色 Palette" />
+        <TweakColor label="主色 Primary" value={t.primary}
+          options={["#19c8b9","#6fba2c","#c44a2e","#11a89b"]}
+          onChange={(v)=>setTweak('primary', v)} />
+        <TweakColor label="强调色 Accent" value={t.accent}
+          options={["#19c8b9","#c44a2e","#6fba2c","#11a89b"]}
+          onChange={(v)=>setTweak('accent', v)} />
+
+        <TweakSection label="吉祥物 Mascot" />
+        <TweakSelect label="狐狸姿态 Fox pose" value={t.fox}
+          options={FOX_POSES}
+          onChange={(v)=>setTweak('fox', v)} />
+
+        <TweakSection label="动效 Motion" />
+        <TweakSlider label="速度 Speed" value={t.speed} min={0.4} max={2} step={0.1} unit="×"
+          onChange={(v)=>setTweak('speed', v)} />
+
+        <TweakSection label="文案 Copy" />
+        <TweakText label="Slogan" value={t.slogan}
+          onChange={(v)=>setTweak('slogan', v)} />
+      </TweaksPanel>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('tweak-root')).render(<App/>);
+</script>
+</body>
+</html>

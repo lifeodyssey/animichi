@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <title>前端全景 · Journey Hub — 聖地巡礼</title>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&amp;family=Noto+Sans+SC:wght@400;500;700;900&amp;family=Zen+Maru+Gothic:wght@500;700;900&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="_ds/seichijunrei-ds-animal-island-ui-v1-0a01b517-1a13-4266-b0d5-74307d31963a/assets/index.css">
+  <link rel="stylesheet" href="_ds/seichijunrei-ds-animal-island-ui-v1-0a01b517-1a13-4266-b0d5-74307d31963a/styles.css">
+  <script src="_ds/seichijunrei-ds-animal-island-ui-v1-0a01b517-1a13-4266-b0d5-74307d31963a/_ds_bundle.js"></script>
+  <style>
+    html,body{margin:0;padding:0;background:#f0e8d8;}
+    ::selection{background:#19c8b955;}
+  </style>
+</helmet>
+
+<section id="hub" data-screen-label="Journey Hub 全景" style="width:2360px;box-sizing:border-box;padding:38px 46px 54px;background:#f0e8d8;font-family:'Nunito','Noto Sans SC',sans-serif;color:#725d42;line-height:1.55;">
+
+  <!-- ============ HEADER ============ -->
+  <div style="display:flex;align-items:flex-start;gap:18px;margin-bottom:20px;">
+    <img src="assets/torii.svg" alt="鳥居" style="width:52px;height:52px;flex:none;margin-top:2px;">
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <h1 style="font-family:'Zen Maru Gothic','Nunito',sans-serif;font-weight:900;font-size:30px;color:#794f27;margin:0;letter-spacing:.02em;">前端全景 — Journey 状態梳理 &amp; 分步计划</h1>
+        <span style="background:#19c8b9;color:#fff;border-radius:50px;padding:3px 14px;font-size:12.5px;font-weight:800;box-shadow:0 2px 0 0 #11a89b;">HUB · 每步交付都挂回这里</span>
+      </div>
+      <p style="margin:6px 0 0;font-size:14px;color:#9f927d;font-weight:600;">旅程是<strong style="color:#794f27;">环</strong>：発見 → 判断 → 計画 → 歩く → 残す → 分享物回流 · 内容主线 <strong style="color:#794f27;">君の名は。× 飛騨古川 半日ルート（2/5 訪問）</strong> · 依据 <a href="docs/card-user-journey.html" style="color:#11a89b;font-weight:800;">Journey Map</a> · <a href="docs/user-journey.md" style="color:#11a89b;font-weight:800;">user-journey.md 完整版</a> · <a href="docs/DESIGN.md" style="color:#11a89b;font-weight:800;">DESIGN.md tokens</a>（本次同步已吸收 → 下方設計語彙）</p>
+    </div>
+    <div style="display:flex;gap:10px;flex:none;align-items:center;flex-wrap:wrap;justify-content:flex-end;max-width:760px;">
+      <span style="display:inline-flex;align-items:center;gap:6px;background:#19c8b9;color:#fff;border-radius:50px;padding:4px 13px;font-size:11.5px;font-weight:800;">✓ 已有 · 可点开</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;background:#f5c31c;color:#5c3d00;border-radius:50px;padding:4px 13px;font-size:11.5px;font-weight:800;">Step N · 本计划设计</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;background:#e05a5a;color:#fff;border-radius:50px;padding:4px 13px;font-size:11.5px;font-weight:800;">審判時刻 · 零実装</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;background:#f0ece2;color:#8a7b66;border:1.5px solid #c4b89e;border-radius:50px;padding:3px 12px;font-size:11.5px;font-weight:800;">后置</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;color:#8a7b66;">断点等级</span>
+      <span style="background:#e05a5a;color:#fff;border-radius:50px;padding:2px 9px;font-size:10.5px;font-weight:900;">最高</span>
+      <span style="background:#f6b73c;color:#5c3d00;border-radius:50px;padding:2px 9px;font-size:10.5px;font-weight:900;">高</span>
+      <span style="background:#e6f9f6;color:#0cc0b5;border:1.5px solid #19c8b9;border-radius:50px;padding:1px 8px;font-size:10.5px;font-weight:900;">中</span>
+      <span style="background:#f0ece2;color:#8a7b66;border-radius:50px;padding:2px 9px;font-size:10.5px;font-weight:900;">低</span>
+    </div>
+  </div>
+
+  <!-- ============ LOOP-BACK BAR ============ -->
+  <div style="display:flex;justify-content:center;margin-bottom:16px;">
+    <div style="display:inline-flex;align-items:center;gap:12px;border:2px dashed #19c8b9;background:#e6f9f6;border-radius:50px;padding:8px 22px;color:#0fa79b;font-weight:800;font-size:13.5px;">
+      <span style="font-size:17px;">◀</span>
+      <span>残す の分享物（しおり竖图 → 小红书 · OG カード → X · 都指向免登录 <span style="font-family:SF Mono,Consolas,monospace;font-size:12px;background:#fff;border-radius:8px;padding:1px 7px;">/share/:routeId</span>）回流成新的 発見 —— 环，不是漏斗（P1）</span>
+      <span style="font-size:17px;">◀</span>
+    </div>
+  </div>
+
+  <!-- ============ RING: 5 STAGE COLUMNS ============ -->
+  <div style="display:grid;grid-template-columns:1.02fr 0.94fr 1.02fr 1.3fr 1.18fr;gap:20px;align-items:start;">
+
+    <!-- ─────── 発見 Discover ─────── -->
+    <div data-screen-label="発見 Discover 列" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="position:relative;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:18px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;">
+          <div style="font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:20px;color:#794f27;">発見 <span style="font-size:12px;font-weight:800;color:#9f927d;letter-spacing:.06em;">DISCOVER</span></div>
+          <div style="font-size:12px;color:#9f927d;font-weight:700;">小红书 / X 看到 →「我也想去」</div>
+        </div>
+        <span style="background:#f0ece2;color:#8a7b66;border-radius:50px;padding:3px 11px;font-size:11px;font-weight:800;flex:none;">弱 → Step 3·4 补</span>
+        <span style="position:absolute;right:-18px;top:50%;transform:translateY(-50%);color:#c4b89e;font-size:19px;font-weight:900;z-index:2;">▶</span>
+      </div>
+
+      <div style="background:#f7f3df;border:2px dashed #c4b89e;border-radius:18px;padding:14px 16px;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:15px;color:#794f27;">Step 2–5 交付 · ぜんぶ可点（07-06 互链全环）</b>
+          <span style="font-size:11px;font-weight:800;color:#9f927d;">画布＝定稿平铺 · demo＝真交互（各 demo 左上「◂ Hub」可回）</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;">
+          <a href="路线详情 状态总览.html" style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f0;border:1.5px solid #e8e2d6;border-radius:12px;padding:9px 12px;color:#794f27;text-decoration:none;font-weight:800;font-size:12.5px;box-shadow:0 3px 0 #d4c9b4;">路线详情 · 画布（单页活文档）<span style="color:#0e7c72;font-size:10px;font-weight:900;">STEP2</span></a>
+          <a href="路线详情 demo.html" style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f0;border:1.5px solid #e8e2d6;border-radius:12px;padding:9px 12px;color:#794f27;text-decoration:none;font-weight:800;font-size:12.5px;box-shadow:0 3px 0 #d4c9b4;">路线详情 · demo（FLIP 展開）<span style="color:#0e7c72;font-size:10px;font-weight:900;">STEP2</span></a>
+          <a href="しおり share 状态总览.html" style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f0;border:1.5px solid #e8e2d6;border-radius:12px;padding:9px 12px;color:#794f27;text-decoration:none;font-weight:800;font-size:12.5px;box-shadow:0 3px 0 #d4c9b4;">しおり + /s/:id · 画布（対比図主役）<span style="color:#0e7c72;font-size:10px;font-weight:900;">STEP3</span></a>
+          <a href="しおり demo.html" style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f0;border:1.5px solid #e8e2d6;border-radius:12px;padding:9px 12px;color:#794f27;text-decoration:none;font-weight:800;font-size:12.5px;box-shadow:0 3px 0 #d4c9b4;">しおり · demo（版式随枚数）<span style="color:#0e7c72;font-size:10px;font-weight:900;">STEP3</span></a>
+          <a href="対比図作成 状态总览.html" style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f0;border:1.5px solid #e8e2d6;border-radius:12px;padding:9px 12px;color:#794f27;text-decoration:none;font-weight:800;font-size:12.5px;box-shadow:0 3px 0 #d4c9b4;">対比図作成 · 画布（撮る→合わせる）<span style="color:#0e7c72;font-size:10px;font-weight:900;">STEP4.5</span></a>
+          <a href="対比図作成 demo.html" style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f0;border:1.5px solid #e8e2d6;border-radius:12px;padding:9px 12px;color:#794f27;text-decoration:none;font-weight:800;font-size:12.5px;box-shadow:0 3px 0 #d4c9b4;">対比図作成 · demo（真相机+真合成）<span style="color:#0e7c72;font-size:10px;font-weight:900;">STEP4.5</span></a>
+          <a href="作品公開页 状态总览.html" style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f0;border:1.5px solid #e8e2d6;border-radius:12px;padding:9px 12px;color:#794f27;text-decoration:none;font-weight:800;font-size:12.5px;box-shadow:0 3px 0 #d4c9b4;">作品公開页 · 画布（図鑑 A 定稿）<span style="color:#0e7c72;font-size:10px;font-weight:900;">STEP4</span></a>
+          <a href="作品公開页 demo.html" style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f0;border:1.5px solid #e8e2d6;border-radius:12px;padding:9px 12px;color:#794f27;text-decoration:none;font-weight:800;font-size:12.5px;box-shadow:0 3px 0 #d4c9b4;">作品公開页 · demo（圏泡→機位）<span style="color:#0e7c72;font-size:10px;font-weight:900;">STEP4</span></a>
+          <a href="マイルート 状态总览.html" style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f0;border:1.5px solid #e8e2d6;border-radius:12px;padding:9px 12px;color:#794f27;text-decoration:none;font-weight:800;font-size:12.5px;box-shadow:0 3px 0 #d4c9b4;">マイルート · 画布（本棚 A + 桌面）<span style="color:#0e7c72;font-size:10px;font-weight:900;">STEP5</span></a>
+          <a href="マイルート demo.html" style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f0;border:1.5px solid #e8e2d6;border-radius:12px;padding:9px 12px;color:#794f27;text-decoration:none;font-weight:800;font-size:12.5px;box-shadow:0 3px 0 #d4c9b4;">マイルート · demo（金件唯一）<span style="color:#0e7c72;font-size:10px;font-weight:900;">STEP5</span></a>
+          <a href="Splash 静态版.html" style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f0;border:1.5px solid #e8e2d6;border-radius:12px;padding:9px 12px;color:#794f27;text-decoration:none;font-weight:800;font-size:12.5px;box-shadow:0 3px 0 #d4c9b4;">Splash 静态版（昼/夜 · 无动效）<span style="color:#0e7c72;font-size:10px;font-weight:900;">STEP6</span></a>
+        </div>
+      </div>
+
+      <a href="Landing - Seichijunrei.html" style="display:block;color:inherit;text-decoration:none;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:18px;padding:14px 16px;box-shadow:0 4px 0 0 #d4c9b4;cursor:pointer;transition:transform .18s cubic-bezier(0.4,0,0.2,1),box-shadow .18s,border-color .18s;" style-hover="transform:translateY(-3px);border-color:#19c8b9;box-shadow:0 7px 0 0 #d4c9b4,0 16px 26px -14px rgba(107,92,67,.5);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:15.5px;color:#794f27;flex:1;">Landing 落地页</b>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">桌面</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:7px;">
+          <span style="background:#19c8b9;color:#fff;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:800;">✓ 已有 · 開く ▸</span>
+          <span style="font-size:11px;color:#9f927d;font-weight:700;">Start Exploring → 狐狸转场 → Chat 桌面版</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;">
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ 昼</span>
+          <span style="background:#f0ece2;border:1.5px dashed #c4b89e;color:#8a7b66;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">夜 · Step 6 可选</span>
+        </div>
+      </a>
+
+      <a href="Splash - Seichijunrei.html" style="display:block;color:inherit;text-decoration:none;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:18px;padding:14px 16px;box-shadow:0 4px 0 0 #d4c9b4;cursor:pointer;transition:transform .18s cubic-bezier(0.4,0,0.2,1),box-shadow .18s,border-color .18s;" style-hover="transform:translateY(-3px);border-color:#19c8b9;box-shadow:0 7px 0 0 #d4c9b4,0 16px 26px -14px rgba(107,92,67,.5);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:15.5px;color:#794f27;flex:1;">Splash 开屏</b>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">手机</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:7px;">
+          <span style="background:#19c8b9;color:#fff;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:800;">✓ 已有 · 開く ▸</span>
+          <span style="font-size:11px;color:#9f927d;font-weight:700;">traveler 狐 · 始める → 转场 → Chat</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;">
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ 朝</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ 夜</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ Tweaks</span>
+        </div>
+      </a>
+
+      <a href="首页 - Seichijunrei.html" style="display:block;color:inherit;text-decoration:none;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:18px;padding:14px 16px;box-shadow:0 4px 0 0 #d4c9b4;cursor:pointer;transition:transform .18s cubic-bezier(0.4,0,0.2,1),box-shadow .18s,border-color .18s;" style-hover="transform:translateY(-3px);border-color:#19c8b9;box-shadow:0 7px 0 0 #d4c9b4,0 16px 26px -14px rgba(107,92,67,.5);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:15.5px;color:#794f27;flex:1;">首页 · App Home</b>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">手机</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:7px;">
+          <span style="background:#19c8b9;color:#fff;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:800;">✓ 已有 · 開く ▸</span>
+          <span style="font-size:11px;color:#9f927d;font-weight:700;">搜索 / 快捷入口都带 ?q= 进 Chat</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;">
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ 昼</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ 夜</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ 続きから 2/5</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ 人気 TOP4</span>
+          <span style="background:#f0ece2;border:1.5px dashed #c4b89e;color:#8a7b66;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">新規空态 · 后置</span>
+        </div>
+        <div style="margin-top:8px;font-size:11.5px;color:#9f927d;font-weight:700;">続きから卡 / 人気卡 / 底栏「ルート」→ 归宿 = <span style="font-family:SF Mono,Consolas,monospace;font-size:10.5px;background:#f0e8d8;border-radius:6px;padding:0 5px;">/routes</span>（Step 5 前是死链）</div>
+      </a>
+
+      <div style="background:#f8f8f0;border:2px solid #f5c31c;border-radius:18px;padding:14px 16px;box-shadow:0 3px 10px rgba(61,52,40,.08);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:15.5px;color:#794f27;flex:1;">公開シェア页<span style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:#9f927d;font-weight:600;margin-left:7px;">/share/:routeId</span></b>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">手机</span>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">桌面</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap;">
+          <span style="background:#f5c31c;color:#5c3d00;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:800;">Step 3 · ×2 版</span>
+          <span style="font-size:11px;color:#9f927d;font-weight:700;">回流入口 · 环的闭合点 · 与しおり同一 ticket</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;">
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">只読ルート · 免登録</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">「私も行きたい」→ Chat 種</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">完走スタンプ感</span>
+          <span style="background:#f0ece2;border:1.5px dashed #c4b89e;color:#8a7b66;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">同行协作 · 后置(J16)</span>
+        </div>
+        <div style="margin-top:8px;font-size:11.5px;color:#9f927d;font-weight:700;">定案：「✓ 作者已走完」徽章＋每站 ✓ 痕迹 · アニメ帧×作者実拍 pair grid · 主 CTA「自分用にアレンジ」（金色）→ Chat A2b</div>
+        <div style="display:flex;gap:5px;margin-top:9px;align-items:center;">
+          <span title="J1 分享物不存在 → 环的入口缺失" style="background:#f6b73c;color:#5c3d00;border-radius:50px;padding:1px 8px;font-size:10.5px;font-weight:900;cursor:help;">J1 高·环断</span>
+          <span title="J2 落地即登录墙 → 任何外链进来就死（P5 冲突）" style="background:#f6b73c;color:#5c3d00;border-radius:50px;padding:1px 8px;font-size:10.5px;font-weight:900;cursor:help;">J2 高·环断</span>
+          <span title="J15 分享物产出侧，与 J1 同一张 ticket" style="background:#f6b73c;color:#5c3d00;border-radius:50px;padding:1px 8px;font-size:10.5px;font-weight:900;cursor:help;">J15 高</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────── 判断 Decide ─────── -->
+    <div data-screen-label="判断 Decide 列" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="position:relative;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:18px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;">
+          <div style="font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:20px;color:#794f27;">判断 <span style="font-size:12px;font-weight:800;color:#9f927d;letter-spacing:.06em;">DECIDE</span></div>
+          <div style="font-size:12px;color:#9f927d;font-weight:700;">值得专程，还是顺路捎？</div>
+        </div>
+        <span style="background:#f0ece2;color:#8a7b66;border-radius:50px;padding:3px 11px;font-size:11px;font-weight:800;flex:none;">弱 → Step 4 补</span>
+        <span style="position:absolute;right:-18px;top:50%;transform:translateY(-50%);color:#c4b89e;font-size:19px;font-weight:900;z-index:2;">▶</span>
+      </div>
+
+      <div style="background:#f8f8f0;border:2px solid #f5c31c;border-radius:18px;padding:14px 16px;box-shadow:0 3px 10px rgba(61,52,40,.08);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:15.5px;color:#794f27;flex:1;">作品公開页<span style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:#9f927d;font-weight:600;margin-left:7px;">/anime/:id</span></b>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">手机</span>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">桌面</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap;">
+          <span style="background:#f5c31c;color:#5c3d00;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:800;">Step 4 · ×2 版</span>
+          <span style="font-size:11px;color:#9f927d;font-weight:700;">免登録（P5）· 非搜索型访客的浏览面</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;">
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">名場面 TOP</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">聖地圏分布図（C3b 静态复用）</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">示例ルート預覧</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">「ルートを組む」→ Chat 種</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">専程 / 順路 判断素材</span>
+        </div>
+        <div style="display:flex;gap:5px;margin-top:9px;align-items:center;">
+          <span title="J3 无「人气作品/别人在巡礼什么」浏览面" style="background:#e6f9f6;color:#0cc0b5;border:1.5px solid #19c8b9;border-radius:50px;padding:0 8px;font-size:10.5px;font-weight:900;cursor:help;">J3 中</span>
+          <span title="J4 /anime/[id] guide 页已删未重建 → 作品级全景无处看" style="background:#f6b73c;color:#5c3d00;border-radius:50px;padding:1px 8px;font-size:10.5px;font-weight:900;cursor:help;">J4 高</span>
+          <span title="J5 「值不值得」的判断素材（圏分布、代表帧、规模）未成页面" style="background:#e6f9f6;color:#0cc0b5;border:1.5px solid #19c8b9;border-radius:50px;padding:0 8px;font-size:10.5px;font-weight:900;cursor:help;">J5 中</span>
+        </div>
+        <div style="margin-top:9px;font-size:11.5px;color:#9f927d;font-weight:700;">定案：名場面 TOP 按カット数（「大吉山 18カット」）· 圏泡面积∝件数、永不 >50 pin · 作品级总数（君の名は。89件 / 響け 156件）· 首页人気卡的长期归宿</div>
+      </div>
+
+      <div style="background:#f7f3df;border:2px dashed #c4b89e;border-radius:18px;padding:12px 16px;font-size:12px;color:#8a7b66;font-weight:700;">
+        判断段没有独立第二页 —— Chat 也能回答「值不值得」，但藏在登录墙后不算数；判断素材必须<b style="color:#794f27;">免登录成页</b>。
+      </div>
+    </div>
+
+    <!-- ─────── 計画 Plan ─────── -->
+    <div data-screen-label="計画 Plan 列" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="position:relative;background:#e6f9f6;border:2px solid #19c8b9;border-radius:18px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;">
+          <div style="font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:20px;color:#794f27;">計画 <span style="font-size:12px;font-weight:800;color:#50b9ab;letter-spacing:.06em;">PLAN</span></div>
+          <div style="font-size:12px;color:#50b9ab;font-weight:700;">Chat 単列流 → 产出 Route</div>
+        </div>
+        <span style="background:#19c8b9;color:#fff;border-radius:50px;padding:3px 11px;font-size:11px;font-weight:800;flex:none;box-shadow:0 2px 0 0 #11a89b;">★ 強 · 已交付</span>
+        <span style="position:absolute;right:-18px;top:50%;transform:translateY(-50%);color:#c4b89e;font-size:19px;font-weight:900;z-index:2;">▶</span>
+      </div>
+
+      <a href="Chat 完整状态.html?m=1" style="display:block;color:inherit;text-decoration:none;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:18px;padding:14px 16px;box-shadow:0 4px 0 0 #d4c9b4;cursor:pointer;transition:transform .18s cubic-bezier(0.4,0,0.2,1),box-shadow .18s,border-color .18s;" style-hover="transform:translateY(-3px);border-color:#19c8b9;box-shadow:0 7px 0 0 #d4c9b4,0 16px 26px -14px rgba(107,92,67,.5);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:15.5px;color:#794f27;flex:1;">Chat · Plan Phase 1 全状態</b>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">手机 ?m=1</span>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">桌面</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:7px;">
+          <span style="background:#19c8b9;color:#fff;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:800;">✓ 已有 · 開く ▸</span>
+          <span style="font-size:11px;color:#9f927d;font-weight:700;">DEMO 条可切全状态 · 响应式</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;">
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ 空状态</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ ?q= 種子流</span>
+          <span title="J6 发送后必须有流式反馈，否则用户感知产品坏了" style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;cursor:help;">✓ 流式三段（J6）</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ inline 路线卡</span>
+          <span title="J7/P5 登录墙只立在「保存」；magic link + ゲスト" style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;cursor:help;">✓ 保存→登录墙（J7·P5）</span>
+        </div>
+        <div style="margin-top:8px;font-size:11.5px;color:#9f927d;font-weight:700;">路线卡「詳細を開く」归宿 = <span style="font-family:SF Mono,Consolas,monospace;font-size:10.5px;background:#f0e8d8;border-radius:6px;padding:0 5px;">/routes/:id</span>（Step 2 前是死链）· 「歩くモードで出発」→ Step 1</div>
+        <div style="margin-top:9px;font-size:11px;font-weight:900;color:#9f927d;letter-spacing:.05em;">44 态 spec 对齐（Step 1.5 ✓ 完成）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ TimedItinerary 真时刻表</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ B4 足迹行・徽章・计数</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ B2c 情绪卡</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ C3a 卡组＋地図(pin语言)</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ C4 位置許可</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ SP 工作台</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ E1 以前の版</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ E2 勾选重排</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">C3b 圏総覧 · 后置</span>
+        </div>
+      </a>
+
+      <a href="Chat 完整状态.html?m=1" style="display:block;color:inherit;text-decoration:none;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:18px;padding:13px 16px;box-shadow:0 4px 0 0 #d4c9b4;cursor:pointer;transition:transform .18s cubic-bezier(0.4,0,0.2,1),box-shadow .18s,border-color .18s;" style-hover="transform:translateY(-3px);border-color:#19c8b9;box-shadow:0 7px 0 0 #d4c9b4,0 16px 26px -14px rgba(107,92,67,.5);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:14px;color:#794f27;flex:1;">inline 卡目录（catalog 全量）</b>
+          <span style="background:#19c8b9;color:#fff;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:800;">✓ 已補全 · 開く ▸</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;">
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ 聞き返しチップ</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ スポット選択器</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ 写真検索結果</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ スポット単点卡</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ 比較スライダー</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ 失敗態（エラー→再試行→無結果）</span>
+          <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">✓ A2b 引用ルート編集</span>
+        </div>
+        <div style="margin-top:8px;font-size:11.5px;color:#9f927d;font-weight:700;">DEMO 条 6 入口：空 / ホーム / 聞き返し / 写真 / 失敗 / 編集 · 聞き返し→選択器→路线卡、写真→スポット→比較都是连续真交互 · 比較/スポット已用真图（『秒速』参宮橋 アニメ×実拍 assets/compare）</div>
+      </a>
+
+      <a href="Chat 状态总览.html" style="display:block;color:inherit;text-decoration:none;background:#f8f8f0;border:2px solid #19c8b9;border-radius:18px;padding:13px 16px;box-shadow:0 4px 0 0 #d4c9b4;cursor:pointer;transition:transform .18s cubic-bezier(0.4,0,0.2,1),box-shadow .18s;" style-hover="transform:translateY(-3px);box-shadow:0 7px 0 0 #d4c9b4,0 16px 26px -14px rgba(107,92,67,.5);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:14px;color:#794f27;flex:1;">Chat 状態総覧（Figma 风平铺）</b>
+          <span style="background:#19c8b9;color:#fff;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:800;">✓ 主交付 · 開く ▸</span>
+        </div>
+        <div style="margin-top:7px;font-size:11.5px;color:#9f927d;font-weight:700;">全状态一张大画布：A 進入×5 · B 等待阶梯×7 · C 内容形態×7（含 C3b 圏総覧）· D 异常×9 · E 交互×4 · SP×4 · G 输入区+P5 — 一态一帧带注释；可点 demo 作辅助</div>
+      </a>
+
+      <div style="background:#f7f3df;border:2px dashed #c4b89e;border-radius:18px;padding:12px 16px;font-size:12px;color:#8a7b66;font-weight:700;">
+        桌面双栏 / 侧栏工作台 = chat Phase 2，journey 已降级到<b style="color:#794f27;">环闭合后</b> —— 本计划不做。
+      </div>
+    </div>
+
+    <!-- ─────── 歩く Walk ─────── -->
+    <div data-screen-label="歩く Walk 列" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="position:relative;background:#fdeeee;border:2px solid #e05a5a;border-radius:18px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;">
+          <div style="font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:20px;color:#794f27;">歩く <span style="font-size:12px;font-weight:800;color:#c94444;letter-spacing:.06em;">WALK</span></div>
+          <div style="font-size:12px;color:#c94444;font-weight:700;">现场 · 站在宇治站前的那一刻</div>
+        </div>
+        <span style="background:#e05a5a;color:#fff;border-radius:50px;padding:3px 11px;font-size:11px;font-weight:800;flex:none;">審判時刻 · 零実装（P2）</span>
+        <span style="position:absolute;right:-18px;top:50%;transform:translateY(-50%);color:#c4b89e;font-size:19px;font-weight:900;z-index:2;">▶</span>
+      </div>
+
+      <div style="background:#f8f8f0;border:2.5px solid #e05a5a;border-radius:20px;padding:16px 18px;box-shadow:0 5px 0 0 #d4c9b4,0 14px 28px -16px rgba(107,92,67,.5);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:17px;color:#794f27;flex:1;">歩くモード<span style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:#9f927d;font-weight:600;margin-left:7px;">/routes/:id/walk</span></b>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">手机优先</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap;">
+          <span style="background:#e05a5a;color:#fff;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:900;box-shadow:0 2px 0 0 #b84040;">Step 1 · 下一步 · ×2 版</span>
+          <span style="font-size:11px;color:#9f927d;font-weight:700;">现场四件套 → 一件（D3 实证）</span>
+        </div>
+        <div style="margin-top:10px;font-size:11px;font-weight:900;color:#9f927d;letter-spacing:.05em;">功能块（= 四件套的需求翻译）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">
+          <span title="J9 当前站置顶放大 + 下一站步行指引 + 剩余时间（Citymapper 范式）" style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;cursor:help;white-space:nowrap;">当前站置顶放大 <b style="color:#c94444;">J9 最高</b></span>
+          <span title="J10 动画截图应在站点卡内，不必翻相册；现场态需放大优先" style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;cursor:help;white-space:nowrap;">機位対照 · 復刻構図清单 <b style="color:#b8860b;">J10 高</b></span>
+          <span title="J12 每站「在 Maps 打开」深链（P3 导航让赢家赢）" style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;cursor:help;white-space:nowrap;">Maps 深链 <b style="color:#b8860b;">J12 高</b></span>
+          <span title="J9 下一站步行指引 + 剩余时间" style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;cursor:help;white-space:nowrap;">下一站 · 徒歩 · 残り時間</span>
+          <span title="J11 替代现场开 Anitabi（search_nearby 后端已有）" style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;cursor:help;white-space:nowrap;">附近スポット J11 中</span>
+          <span title="J13 打卡 checkbox / 进度，产出喂给 Keep" style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;cursor:help;white-space:nowrap;">打卡 · 進度 J13 中</span>
+        </div>
+        <div style="margin-top:10px;font-size:11px;font-weight:900;color:#9f927d;letter-spacing:.05em;">环境态（J14 · 全部可切）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">白天標準</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">戸外強光 · 高対比</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">夜間</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">離線 / 弱網（route bundle）</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">完走 → しおり握手</span>
+        </div>
+        <div style="margin-top:9px;font-size:11.5px;color:#9f927d;font-weight:700;">§6.5 定案：walk-hero 站名超大（30px+/900）· 進度格 ●●●○○ · 「✓ ここに来た!」＝金色 CTA 全宽（屏下半单手区）· つぎ行低调 · 完成屏＝狐狸举旗→しおり</div>
+        <div style="margin-top:10px;font-size:11.5px;background:#fdeeee;border:1.5px dashed #e05a5a;border-radius:12px;padding:7px 11px;color:#9c5a3a;font-weight:700;">边界：单日可完成的路线；跨城市多日拆分后置 · 单手操作 · 拇指区 CTA ≥44px</div>
+      </div>
+
+      <div style="background:#f8f8f0;border:2px solid #e8e2d6;border-radius:18px;padding:13px 16px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:14px;color:#794f27;flex:1;">入场转场：進入歩くモード</b>
+          <span style="background:#f5c31c;color:#5c3d00;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:800;">Step 1 顺手</span>
+        </div>
+        <div style="margin-top:7px;font-size:11.5px;color:#9f927d;font-weight:700;">scene-cut 小狐狸小跑 + 圆形 iris —— 「明显去某处」的大跳转才用；打卡 / 折叠 / 切站等页内变化保持轻快即时</div>
+      </div>
+    </div>
+
+    <!-- ─────── 残す Keep ─────── -->
+    <div data-screen-label="残す Keep 列" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="background:#f8f8f0;border:2px solid #e8e2d6;border-radius:18px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;">
+          <div style="font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:20px;color:#794f27;">残す <span style="font-size:12px;font-weight:800;color:#9f927d;letter-spacing:.06em;">KEEP</span></div>
+          <div style="font-size:12px;color:#9f927d;font-weight:700;">留念 → 分享 → 喂回环的入口</div>
+        </div>
+        <span style="background:#fcf3d6;color:#dba90e;border-radius:50px;padding:3px 11px;font-size:11px;font-weight:800;flex:none;">萌芽 → Step 2·3·5</span>
+      </div>
+
+      <div style="background:#f8f8f0;border:2px solid #f5c31c;border-radius:18px;padding:14px 16px;box-shadow:0 3px 10px rgba(61,52,40,.08);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:15.5px;color:#794f27;flex:1;">路线详情 · 产品的家<span style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:#9f927d;font-weight:600;margin-left:7px;">/routes/:id</span></b>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">手机</span>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">桌面</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap;">
+          <span style="background:#f5c31c;color:#5c3d00;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:800;">Step 2 · ×2 版</span>
+          <span style="font-size:11px;color:#9f927d;font-weight:700;">Route 是核心对象 · QR 落地点 · 随旅程变形</span>
+        </div>
+        <div style="margin-top:10px;font-size:11px;font-weight:900;color:#9f927d;letter-spacing:.05em;">三个时态（同一页变形）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">預習版（排完路线）</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">現場入口（当天 → /walk）</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">記念版（完走后）</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;">
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">地図軌跡 + ルート pill 常駐</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">filmstrip 代表帧×3 +N → 機位浏览器</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">QR で手機へ（登录卖点=跨设备）</span>
+        </div>
+      </div>
+
+      <div style="background:#f8f8f0;border:2px solid #f5c31c;border-radius:18px;padding:14px 16px;box-shadow:0 3px 10px rgba(61,52,40,.08);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:15.5px;color:#794f27;flex:1;">しおり 生成 · 分享物</b>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">手机</span>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">OG 竖图</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap;">
+          <span style="background:#f5c31c;color:#5c3d00;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:800;">Step 3 · ×2 版</span>
+          <span style="font-size:11px;color:#9f927d;font-weight:700;">完走触发 · 同一资产喂两渠道（P4 修订）</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;">
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">完走 → 自動生成</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">竖图 9:16 → 小红书</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">OG カード → X</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">→ 免登録 /share URL</span>
+        </div>
+        <div style="margin-top:8px;font-size:11.5px;color:#9f927d;font-weight:700;">9:16 规格：封面帧渐变底＋白字标题＋打卡清单（時刻+站名+✓）＋完成率 · CTA＝画像を保存（金）/ リンクをコピー</div>
+        <div style="display:flex;gap:5px;margin-top:9px;align-items:center;">
+          <span title="J15 分享物产出侧（与 J1 同一 ticket）" style="background:#f6b73c;color:#5c3d00;border-radius:50px;padding:1px 8px;font-size:10.5px;font-weight:900;cursor:help;">J15 高</span>
+          <span title="J18 打卡照片 × 对照帧合成 — 远期" style="background:#f0ece2;color:#8a7b66;border-radius:50px;padding:1px 8px;font-size:10.5px;font-weight:900;cursor:help;">J18 低·远期</span>
+        </div>
+      </div>
+
+      <div style="background:#f8f8f0;border:2px solid #f5c31c;border-radius:18px;padding:14px 16px;box-shadow:0 3px 10px rgba(61,52,40,.08);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:15.5px;color:#794f27;flex:1;">マイルート 列表<span style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:#9f927d;font-weight:600;margin-left:7px;">/routes</span></b>
+          <span style="font-size:10.5px;font-weight:800;color:#8a7b66;background:#f0e8d8;border-radius:8px;padding:2px 7px;">手机</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap;">
+          <span style="background:#f5c31c;color:#5c3d00;border-radius:50px;padding:2px 11px;font-size:11px;font-weight:800;">Step 5 · ×2 版</span>
+          <span style="font-size:11px;color:#9f927d;font-weight:700;">首页底栏「ルート」/ 続きから 的归宿</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;">
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">進行中 / 完走 分组</span>
+          <span style="background:#fcf3d6;border:1.5px solid #ecd58f;color:#a8801a;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:800;">空態（新規）</span>
+          <span title="J17 历史路线形态（thread-per-anime vs search history）open question — 轻做" style="background:#e6f9f6;color:#0cc0b5;border:1.5px solid #19c8b9;border-radius:50px;padding:0 8px;font-size:10.5px;font-weight:900;cursor:help;">J17 中 · 轻做</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 設計語彙（本次同步定案） ============ -->
+  <div data-screen-label="設計語彙" style="margin-top:26px;background:#f7f3df;border:2px solid #e8e2d6;border-radius:24px;padding:20px 26px;box-shadow:0 3px 10px rgba(61,52,40,.10);">
+    <h2 style="font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:19px;color:#794f27;margin:0 0 4px;">設計語彙 — DESIGN.md + user-journey.md 同步吸收的定案</h2>
+    <p style="margin:0 0 14px;font-size:12.5px;color:#9f927d;font-weight:700;">从 Step 1 起所有新屏按此执行；与旧屏冲突处（teal 满填 CTA）在 Step 6 统一回刷</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;align-items:start;">
+      <div style="background:#f8f8f0;border:2px solid #e8e2d6;border-radius:16px;padding:13px 15px;font-size:12px;color:#725d42;line-height:1.7;">
+        <b style="display:block;font-family:'Zen Maru Gothic',sans-serif;color:#794f27;font-size:13.5px;margin-bottom:7px;">按钮层级（靠影深，不靠饱和度）</b>
+        <span style="display:inline-block;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:50px;padding:2px 12px;font-weight:800;color:#794f27;box-shadow:0 3px 0 0 #d4c9b4;margin:2px 4px 8px 0;">Primary＝cream</span><span style="display:inline-block;background:#f5c31c;border-radius:50px;padding:3px 12px;font-weight:800;color:#5c4813;box-shadow:0 3px 0 0 #d8a812;margin:2px 4px 8px 0;">CTA＝金</span><span style="display:inline-block;background:#e6f9f6;border:2px solid #19c8b9;border-radius:50px;padding:2px 12px;font-weight:800;color:#0fa79b;margin:2px 0 8px;">teal＝interactive</span><br>
+        每屏唯一金色主行动（ここに来た! / しおり共有 / アレンジ）· teal 只做链接/选中/开关/进度 · explore 橙仅 marketing（Landing）· focus 黄 #ffcc00 · 影一律暖棕 #bdaea0，禁纯黑
+      </div>
+      <div style="background:#f8f8f0;border:2px solid #e8e2d6;border-radius:16px;padding:13px 15px;font-size:12px;color:#725d42;line-height:1.7;">
+        <b style="display:block;font-family:'Zen Maru Gothic',sans-serif;color:#794f27;font-size:13.5px;margin-bottom:7px;">地图 pin 语言（全产品一致）</b>
+        起点＝teal 实心＋白「出」 · 途中站＝teal 空心白底数字 · 高光站＝金 ★（#f0b429）· 路径＝暖棕虚线 #8a6f4d（2 9 round）· Route 诞生后：按步行序重编号＋非路线点降透明＋金色路线 pill 常驻角落 · static-first：默认静态图＋SVG，点「地図を操作 ↗」才挂 GL · 永不 >50 pin
+      </div>
+      <div style="background:#f8f8f0;border:2px solid #e8e2d6;border-radius:16px;padding:13px 15px;font-size:12px;color:#725d42;line-height:1.7;">
+        <b style="display:block;font-family:'Zen Maru Gothic',sans-serif;color:#794f27;font-size:13.5px;margin-bottom:7px;">TimedItinerary 路线卡（招牌）</b>
+        英文眉标大写 → 日文卡名 900 → meta（pacing pill：ゆったり绿/適中橙/紧张红 ＋ Nスポット ＋ 徒歩/km ＋ 13:00→16:35）→ 站粒度时间轴 HH:MM｜轨道｜内容 · walk 胶囊独立可见（徒歩6分＋沿途看点）· 场景帧缩略＋话数时间戳 → 卡底：しおり共有（金）/ Maps / 保存 / 歩くモード。<b>时刻是真的</b>——能据此买车票
+      </div>
+      <div style="background:#f8f8f0;border:2px solid #e8e2d6;border-radius:16px;padding:13px 15px;font-size:12px;color:#725d42;line-height:1.7;">
+        <b style="display:block;font-family:'Zen Maru Gothic',sans-serif;color:#794f27;font-size:13.5px;margin-bottom:7px;">语气与原则</b>
+        狐狸コンちゃん第一人称（「いま Anitabi でさがしてるよ… 8/23」「うーん、見つからない…」）· 错误说人话不暴露技术 · UI stays quiet, content speaks · 没经过 agent 的事不演 agent 的戏 · 活文档不改写历史（旧卡「以前の版」opacity .55）· 永不裸 alt/裸错误（帧404→渐变＋话数 D9）· 户外现场是一等公民（尺寸再放大一档）
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ROW 2: PLAN + CROSS-CUTTING ============ -->
+  <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:20px;margin-top:26px;align-items:start;">
+
+    <!-- 分步计划 -->
+    <div data-screen-label="分步计划" style="background:#f7f3df;border:2px solid #e8e2d6;border-radius:24px;padding:22px 26px;box-shadow:0 3px 10px rgba(61,52,40,.10);">
+      <h2 style="font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:19px;color:#794f27;margin:0 0 4px;">分步计划 — 一步一屏，按 journey §3 优先级</h2>
+      <p style="margin:0 0 14px;font-size:12.5px;color:#9f927d;font-weight:700;">每个新屏 ×2 版方向 · 尽量真交互 · 公开页手机+桌面 · 交付即挂回本图点亮</p>
+
+      <div style="display:flex;flex-direction:column;gap:9px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;background:#f8f8f0;border:2px solid #19c8b9;border-radius:16px;padding:11px 15px;">
+          <span style="width:27px;height:27px;border-radius:999px;background:#19c8b9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex:none;box-shadow:0 2px 0 0 #11a89b;">0</span>
+          <div style="font-size:13px;"><b style="color:#794f27;">本轮 ✓ — Hub + 串环基础</b>　拷入已有 4 屏（可从上方卡片直接点开）+ 本状态总览；后续每步在此点亮</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;background:#f8f8f0;border:2px solid #e05a5a;border-radius:16px;padding:11px 15px;">
+          <span style="width:27px;height:27px;border-radius:999px;background:#e05a5a;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex:none;box-shadow:0 2px 0 0 #b84040;">1</span>
+          <div style="font-size:13px;"><b style="color:#794f27;">歩くモード ×2 版（手机）</b>　J9–J14 全兑现：当前站放大 / 机位对照复刻清单 / Maps 深链 / 打卡；白天·强光·夜间·离线·完走 5 态可切，打卡/折叠真交互 <span style="background:#e05a5a;color:#fff;border-radius:50px;padding:1px 8px;font-size:10.5px;font-weight:900;margin-left:4px;white-space:nowrap;display:inline-block;">審判時刻 · 插队</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;background:#f8f8f0;border:2px solid #f5c31c;border-radius:16px;padding:11px 15px;">
+          <span style="width:27px;height:27px;border-radius:999px;background:#19c8b9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px;flex:none;box-shadow:0 2px 0 0 #11a89b;">1.5</span>
+          <div style="font-size:13px;"><b style="color:#794f27;">✓ Chat 对齐 44 态 spec — 已完成</b>　TimedItinerary 真时刻表（pacing pill/walk 胶囊/金★/金色しおり CTA）+ B2b 徽章・狐狸计数 + B2c 情绪卡 + B4 足迹折叠行 + C3a 点位卡组/地図卡(pin语言) + C4 位置許可 + SP 工作台(排序/篪選/物語順/トレイ) + E1 以前の版 + E2 勾选重排(再計算 1.2s)</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:16px;padding:11px 15px;">
+          <span style="width:27px;height:27px;border-radius:999px;background:#19c8b9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex:none;box-shadow:0 2px 0 0 #11a89b;">2</span>
+          <div style="font-size:13px;"><b style="color:#794f27;">路线详情 /routes/:id ×2 版（手机+桌面）</b>　預習 → 現場入口 → 記念 三时态切换 + filmstrip + QR 跨设备；Chat 路线卡「詳細」与 Walk 的家由此接通</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:16px;padding:11px 15px;">
+          <span style="width:27px;height:27px;border-radius:999px;background:#19c8b9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex:none;box-shadow:0 2px 0 0 #11a89b;">3</span>
+          <div style="font-size:13px;"><b style="color:#794f27;">しおり + /share ×2 版（手机+桌面+OG 竖图）</b>　完走 → 生成 → 分享 → 免登录落地 →「私も行きたい」——<b>环第一次闭合</b>（J1/J2/J15 同解）</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:16px;padding:11px 15px;">
+          <span style="width:27px;height:27px;border-radius:999px;background:#19c8b9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex:none;box-shadow:0 2px 0 0 #11a89b;">4</span>
+          <div style="font-size:13px;"><b style="color:#794f27;">作品公開页 /anime/:id ×2 版（手机+桌面）</b>　名場面 TOP + 圏分布 + 示例路线 + CTA；判断素材免登录成页（J3/J4/J5）</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:16px;padding:11px 15px;">
+          <span style="width:27px;height:27px;border-radius:999px;background:#19c8b9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex:none;box-shadow:0 2px 0 0 #11a89b;">5</span>
+          <div style="font-size:13px;"><b style="color:#794f27;">マイルート /routes ×2 版（手机）</b>　進行中/完走/空態；首页「ルート」tab 与 続きから 的死链补上</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;background:#f8f8f0;border:2px solid #e8e2d6;border-radius:16px;padding:11px 15px;">
+          <span style="width:27px;height:27px;border-radius:999px;background:#19c8b9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex:none;box-shadow:0 2px 0 0 #11a89b;">6</span>
+          <div style="font-size:13px;"><b style="color:#794f27;">串环收尾</b>　互链全环 + scene-cut 补两处（排好→出発 / 進入 Walk）+ Landing 夜间版 + 首页人気数字对齐（君の名は。89 / 響け156 / 天気の子72 件）+ 旧屏 teal CTA 按新层级回刷 <span style="background:#e6f9f6;border:1.5px solid #19c8b9;color:#0fa79b;border-radius:50px;padding:1px 8px;font-size:10.5px;font-weight:800;white-space:nowrap;">Chat inline 卡目录 ✓ 已提前完成</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 横切状态 -->
+    <div data-screen-label="横切状态" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="background:#f7f3df;border:2px solid #e8e2d6;border-radius:24px;padding:20px 24px;box-shadow:0 3px 10px rgba(61,52,40,.10);">
+        <h2 style="font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:19px;color:#794f27;margin:0 0 12px;">横切状态 — 跨屏一致的规则</h2>
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:12.5px;">
+          <div style="display:flex;gap:10px;"><b style="flex:none;width:104px;color:#794f27;">狐狸转场</b><span style="color:#725d42;">只用于「明显去某处」：開屏→Chat ✓ · 首页→Chat ✓ · <b>進入 Walk（Step 1）</b> · 排好→出発（Step 6）；页内小变化即时响应，不加转场</span></div>
+          <div style="display:flex;gap:10px;"><b style="flex:none;width:104px;color:#794f27;">登录墙 P5</b><span style="color:#725d42;">只立在「保存」✓（magic link + ゲスト）；<b>/share 与 /anime 永远免登录</b>；登录卖点 = 跨设备带路线（桌面排 → QR → 手机走）</span></div>
+          <div style="display:flex;gap:10px;"><b style="flex:none;width:104px;color:#794f27;">夜间模式</b><span style="color:#725d42;">Splash ✓ · 首页 ✓ · Walk（Step 1）· Landing（Step 6 可选）· Chat 后置</span></div>
+          <div style="display:flex;gap:10px;"><b style="flex:none;width:104px;color:#794f27;">离线 / 弱网</b><span style="color:#725d42;">只做 Walk 的离线壳（PWA：route bundle 预载 JSON+帧图+静态地图；看缓存免鉴权，打卡本地排队回网同步）—— J14 的兑现载体</span></div>
+          <div style="display:flex;gap:10px;"><b style="flex:none;width:104px;color:#794f27;">呈现惯例</b><span style="color:#725d42;">移动屏 = Phone 壳 mockup；Chat/公开页 = 响应式（手机 ?m=1）；每屏独立文件，本 Hub 平铺链接</span></div>
+          <div style="display:flex;gap:10px;"><b style="flex:none;width:104px;color:#794f27;">内容主线</b><span style="color:#725d42;">全部屏统一用『君の名は。× 飛騨古川 半日ルート』：飛騨古川駅 ✓ → 味処古川 ✓ → 気多若宮神社（現在）→ 飛騨市図書館 → さくら物産館（2/5 与首页续行卡连贯）</span></div>
+        </div>
+      </div>
+
+      <div style="background:#e6f9f6;border:2px solid #19c8b9;border-radius:24px;padding:18px 24px;">
+        <h2 style="font-family:'Zen Maru Gothic',sans-serif;font-weight:900;font-size:16px;color:#794f27;margin:0 0 10px;">环转起来的判据（设计原型也照此验收）</h2>
+        <div style="display:flex;flex-direction:column;gap:7px;font-size:12.5px;color:#725d42;">
+          <div><b style="color:#0fa79b;">① Dogfood</b>　创始人下次巡礼全程只开这一个 app（四件套 → 一件）→ 原型上 = Walk 内不需要跳出去补信息</div>
+          <div><b style="color:#0fa79b;">② 第二用户</b>　朋友独立走完一条路线并主动发出分享物 → 原型上 = 完走→しおり→分享 一条不断的操作链</div>
+          <div><b style="color:#0fa79b;">③ 回流</b>　从分享物进来的新会话 &gt; 0 → 原型上 = /share 免登录可看 + CTA 无阻力进 Chat</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</x-dc>
+</body>
+</html>

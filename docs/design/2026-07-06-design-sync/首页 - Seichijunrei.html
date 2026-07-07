@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>首页 · App Home · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/index.css">
+<style>
+  :root{
+    --bg:#f0e8d8; --paper:#f8f8f0; --content:#f7f3df; --ink:#794f27; --ink-body:#725d42; --ink-soft:#9f927d;
+    --teal:#19c8b9; --teal-bg:#e6f9f6; --teal-deep:#11a89b; --vermillion:#c44a2e;
+    --line:#e8e2d6; --line2:#c4b89e; --pill:50px;
+    --thumb-a:#cfe3f7; --thumb-a2:#aeccec; --thumb-b:#d7eccf; --thumb-b2:#bcdcae;
+    --thumb-c:#f5dccf; --thumb-c2:#eec3ae; --thumb-d:#dfd6f0; --thumb-d2:#c4b6e6;
+    --sk-glow:#6b563a66;
+  }
+  /* ---- night ---- */
+  body.night{
+    --bg:#13202b; --paper:#1b2c39; --content:#1f3140; --ink:#f3ece0; --ink-body:#cfe0e0; --ink-soft:#8fb0bb;
+    --teal:#19c8b9; --teal-bg:#10333a; --teal-deep:#0c7d73; --line:#2b4150; --line2:#3a5160;
+    --thumb-a:#2a4763; --thumb-a2:#1c3145; --thumb-b:#2e5340; --thumb-b2:#1d3b2b;
+    --thumb-c:#5a3f3a; --thumb-c2:#3e2a27; --thumb-d:#3f3a5a; --thumb-d2:#2a2740;
+    --sk-glow:#00000066;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{font-family:"Nunito","Noto Sans SC",sans-serif;color:var(--ink-body);
+    background:
+      radial-gradient(60% 40% at 84% -6%,#e7f1fb 0,rgba(231,241,251,0) 60%),
+      radial-gradient(52% 36% at 8% -2%,#fbe6ef 0,rgba(251,230,239,0) 58%),
+      linear-gradient(180deg,#efece1,#e1dccf);
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;-webkit-font-smoothing:antialiased;
+    transition:background .4s ease;}
+  body.night{background:radial-gradient(70% 50% at 50% -8%,#1c3340 0,#13212e 52%,#0c1620 100%);}
+
+  /* phone */
+  .phone{position:relative;width:384px;height:812px;background:#2c2722;border-radius:52px;padding:12px;
+    box-shadow:0 2px 0 2px #4a4239,0 44px 80px -30px #3d3428aa,0 16px 32px -16px #3d342855;}
+  body.night .phone{box-shadow:0 2px 0 2px #0c1620,0 44px 80px -30px #000a,0 0 0 1px #ffffff10;}
+  .screen{position:relative;width:100%;height:100%;border-radius:42px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column;transition:background .4s ease;}
+  .notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:100px;height:26px;background:#15110d;border-radius:16px;z-index:40;}
+  .sbar{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:13px;font-weight:800;color:var(--ink);flex:none;z-index:5;}
+  .sbar .ic{display:flex;gap:5px;}.sbar .ic span{width:16px;height:11px;border-radius:2px;background:currentColor;opacity:.85;}.sbar .ic .bat{width:22px;}
+
+  /* top bar */
+  .top{display:flex;align-items:center;gap:11px;padding:6px 18px 12px;flex:none;}
+  .iconbtn{width:40px;height:40px;border-radius:13px;border:2px solid var(--line);background:var(--paper);color:var(--ink-body);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;box-shadow:0 2px 0 0 var(--line2);}
+  .iconbtn svg{width:19px;height:19px;}
+  .brandpill{display:flex;align-items:center;gap:8px;}
+  .brandpill .torii{width:34px;height:34px;display:block;flex:none;}
+  .brandpill .nm{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:20px;color:var(--ink);display:flex;align-items:center;gap:5px;}
+  .brandpill .nm i{font-style:normal;color:#fff;background:var(--teal);border-radius:9px;padding:1px 9px;}
+  .grow{flex:1;}
+  .ava{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--teal),#3dd4c6);border:2px solid var(--paper);box-shadow:0 3px 9px -3px var(--teal);flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:15px;}
+
+  /* scroll */
+  .scroll{flex:1;overflow-y:auto;padding:4px 18px 0;}
+  .scroll::-webkit-scrollbar{width:0;}
+
+  .greet{margin:6px 2px 14px;}
+  .greet .sm{font-size:13px;font-weight:800;color:var(--teal-deep);letter-spacing:.3px;}
+  .greet h1{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:25px;color:var(--ink);margin:3px 0 0;letter-spacing:.4px;}
+
+  /* search */
+  .search{display:flex;align-items:center;gap:11px;background:var(--paper);border:2px solid var(--line);border-radius:var(--pill);
+    padding:14px 18px;color:var(--ink-soft);font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 10px 24px -14px var(--sk-glow);
+    transition:transform .12s,box-shadow .12s,border-color .12s;text-decoration:none;}
+  .search:active{transform:translateY(2px);}
+  .search:hover{border-color:var(--teal);}
+  .search svg{width:20px;height:20px;flex:none;color:var(--teal-deep);}
+
+  /* quick actions */
+  .quick{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:12px;}
+  .qa{display:flex;align-items:center;gap:10px;border-radius:18px;padding:14px 15px;cursor:pointer;border:2px solid transparent;font-family:inherit;
+    font-weight:800;font-size:14px;text-align:left;transition:transform .12s,box-shadow .12s;text-decoration:none;}
+  .qa:active{transform:translateY(2px);}
+  .qa .qi{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:none;}
+  .qa .qi svg{width:19px;height:19px;}
+  .qa.teal{background:var(--teal-bg);color:var(--teal-deep);border-color:color-mix(in srgb,var(--teal) 30%,transparent);box-shadow:0 4px 0 0 color-mix(in srgb,var(--teal) 28%,transparent);}
+  .qa.teal .qi{background:var(--teal);color:#fff;}
+  .qa.amber{background:#fdf1cf;color:#a8801a;border-color:#f0dca0;box-shadow:0 4px 0 0 #ecd58f;}
+  body.night .qa.amber{background:#3a3320;color:#f0cd6a;border-color:#564a28;box-shadow:0 4px 0 0 #2a2516;}
+  .qa.amber .qi{background:#f5c31c;color:#5a4a12;}
+
+  /* section head */
+  .sec{display:flex;align-items:center;margin:24px 2px 12px;}
+  .sec h2{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:17px;color:var(--ink);margin:0;}
+  .sec a{margin-left:auto;font-size:12.5px;font-weight:800;color:var(--teal-deep);text-decoration:none;display:flex;align-items:center;gap:3px;}
+  .sec a svg{width:13px;height:13px;}
+
+  /* resume route card */
+  .resume{display:flex;gap:13px;align-items:center;background:var(--paper);border:2px solid var(--line);border-radius:20px;padding:12px;
+    box-shadow:0 12px 26px -16px var(--sk-glow);cursor:pointer;text-decoration:none;transition:transform .12s,box-shadow .12s;}
+  .resume:active{transform:translateY(2px);}
+  .resume .rmap{width:96px;height:78px;border-radius:14px;flex:none;border:2px solid var(--line);overflow:hidden;background:#cfe7ea;}
+  body.night .resume .rmap{background:#16323a;}
+  .resume .rmap svg{display:block;width:100%;height:100%;}
+  .resume .rb{flex:1;min-width:0;}
+  .resume .rb .tag{font-size:11px;font-weight:800;color:var(--teal-deep);background:var(--teal-bg);border-radius:50px;padding:2px 9px;display:inline-block;}
+  .resume .rb b{display:block;font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:16px;color:var(--ink);margin:5px 0 7px;}
+  .prog{display:flex;align-items:center;gap:8px;}
+  .prog .bar{flex:1;height:7px;border-radius:5px;background:var(--line);overflow:hidden;}
+  .prog .bar i{display:block;height:100%;width:40%;border-radius:5px;background:var(--teal);}
+  .prog .pl{font-size:11.5px;font-weight:800;color:var(--ink-soft);}
+  .resume .go{width:38px;height:38px;border-radius:50%;background:#f5c31c;color:#5c4813;flex:none;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 0 0 #d8a812;}
+  .resume .go svg{width:18px;height:18px;}
+
+  /* popular grid */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-bottom:8px;}
+  .pc{background:var(--paper);border:2px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 8px 18px -13px var(--sk-glow);cursor:pointer;text-decoration:none;transition:transform .12s,box-shadow .12s;}
+  .pc:active{transform:translateY(2px);}
+  .pc .th{height:92px;position:relative;}
+  .pc .th .loc{position:absolute;left:8px;bottom:8px;font-size:10.5px;font-weight:800;color:var(--ink);background:#fffdf5dd;border-radius:50px;padding:2px 9px;}
+  body.night .pc .th .loc{color:#16242e;background:#dfeef0dd;}
+  .pc .th .rank{position:absolute;right:8px;top:8px;width:22px;height:22px;border-radius:50%;background:var(--vermillion);color:#fff;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px #0003;}
+  .pc .pb{padding:9px 11px 11px;}
+  .pc .pb b{display:block;font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:13.5px;color:var(--ink);}
+  .pc .pb span{font-size:11px;color:var(--ink-soft);font-weight:700;}
+
+  /* bottom nav */
+  .nav{flex:none;display:flex;justify-content:space-around;align-items:center;height:66px;border-top:2px solid var(--line);background:var(--paper);padding-bottom:env(safe-area-inset-bottom);}
+  .nav button{border:none;background:none;cursor:pointer;color:var(--ink-soft);display:flex;flex-direction:column;align-items:center;gap:3px;font-family:inherit;font-weight:800;font-size:10px;width:64px;}
+  .nav button svg{width:24px;height:24px;}
+  .nav button.on{color:var(--teal-deep);}
+
+  /* fab */
+  .fab{position:absolute;right:18px;bottom:84px;z-index:20;width:58px;height:58px;border-radius:20px;background:#f5c31c;color:#5c4813;border:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 8px 0 0 #d8a812,0 18px 30px -10px rgba(245,195,28,.55);transition:transform .1s,box-shadow .1s;text-decoration:none;}
+  .fab:active{transform:translateY(4px);box-shadow:0 4px 0 0 #d8a812,0 12px 22px -10px rgba(245,195,28,.5);}
+  .fab svg{width:26px;height:26px;}
+
+  /* day/night toggle (prototype affordance) */
+  .dn{position:fixed;right:18px;bottom:20px;z-index:60;display:flex;align-items:center;gap:4px;background:#2c2722;border-radius:50px;padding:5px;box-shadow:0 12px 28px -10px #00000077;}
+  .dn button{border:none;border-radius:50px;font-family:inherit;font-weight:800;font-size:12px;padding:8px 14px;cursor:pointer;background:transparent;color:#c9bca6;display:flex;align-items:center;gap:6px;}
+  .dn button svg{width:14px;height:14px;}
+  .dn button.on{background:var(--teal);color:#fff;}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="screen" id="screen">
+    <div class="notch"></div>
+    <div class="sbar"><span>9:41</span><span class="ic"><span></span><span></span><span class="bat"></span></span></div>
+
+    <div class="top">
+      <button class="iconbtn" aria-label="履歴"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <span class="brandpill"><svg class="torii" viewBox="0 0 50 50"><g fill="#c44a2e"><path d="M5 13h40l-3 6H8z"/><path d="M9 19h32l-2 5H11z"/><rect x="13" y="22" width="6" height="25" rx="1.5"/><rect x="31" y="22" width="6" height="25" rx="1.5"/><rect x="11" y="28" width="28" height="5" rx="1.5"/></g></svg><span class="nm">聖地<i>巡礼</i></span></span>
+      <span class="grow"></span>
+      <span class="ava">旅</span>
+    </div>
+
+    <div class="scroll">
+      <div class="greet"><div class="sm">おかえりなさい、旅人さん</div><h1>今日はどの聖地へ？</h1></div>
+
+      <a class="search" href="Chat 完整状态.html?m=1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>作品・駅・都市で探す…</a>
+
+      <div class="quick">
+        <a class="qa teal" href="Chat 完整状态.html?m=1&q=近くの聖地を教えて"><span class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/></svg></span>近くの聖地</a>
+        <a class="qa amber" href="Chat 完整状态.html?m=1&q=写真から聖地を探したい"><span class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-5-5L5 21"/></svg></span>写真から探す</a>
+      </div>
+
+      <div class="sec"><h2>続きから</h2><a href="#">マイルート<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></a></div>
+      <a class="resume" href="#">
+        <div class="rmap"><svg viewBox="0 0 96 78" preserveAspectRatio="xMidYMid slice"><rect width="96" height="78" fill="#cfe7ea"/><path d="M-5 54 Q40 38 101 56 V82 H-5Z" fill="#e7e2cf"/><ellipse cx="30" cy="26" rx="40" ry="20" fill="#dfe9c9"/><path d="M18 62 C 42 44 56 32 80 22" fill="none" stroke="#19c8b9" stroke-width="3" stroke-dasharray="1.5 6" stroke-linecap="round"/><circle cx="18" cy="62" r="6" fill="#19c8b9" stroke="#fff" stroke-width="2.5"/><circle cx="80" cy="22" r="6" fill="#c44a2e" stroke="#fff" stroke-width="2.5"/></svg></div>
+        <div class="rb"><span class="tag">君の名は。</span><b>飛騨古川 半日ルート</b><div class="prog"><span class="bar"><i></i></span><span class="pl">2 / 5 訪問</span></div></div>
+        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
+
+      <div class="sec"><h2>人気の聖地</h2><a href="#">すべて<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></a></div>
+      <div class="grid">
+        <a class="pc" href="Chat 完整状态.html?m=1&q=「君の名は。」の聖地に行きたい"><div class="th" style="background:linear-gradient(135deg,var(--thumb-a),var(--thumb-a2));"><span class="rank">1</span><span class="loc">飛騨古川</span></div><div class="pb"><b>君の名は。</b><span>89件</span></div></a>
+        <a class="pc" href="Chat 完整状态.html?m=1&q=「聲の形」の聖地に行きたい"><div class="th" style="background:linear-gradient(135deg,var(--thumb-b),var(--thumb-b2));"><span class="rank">2</span><span class="loc">大垣</span></div><div class="pb"><b>聲の形</b><span>34件</span></div></a>
+        <a class="pc" href="Chat 完整状态.html?m=1&q=「天気の子」の聖地に行きたい"><div class="th" style="background:linear-gradient(135deg,var(--thumb-c),var(--thumb-c2));"><span class="rank">3</span><span class="loc">新宿</span></div><div class="pb"><b>天気の子</b><span>72件</span></div></a>
+        <a class="pc" href="Chat 完整状态.html?m=1&q=「ラブライブ!」の聖地に行きたい"><div class="th" style="background:linear-gradient(135deg,var(--thumb-d),var(--thumb-d2));"><span class="rank">4</span><span class="loc">沼津</span></div><div class="pb"><b>ラブライブ!</b><span>61件</span></div></a>
+      </div>
+      <div style="height:90px;"></div>
+    </div>
+
+    <a class="fab" href="Chat 完整状态.html?m=1" aria-label="新しい巡礼"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></a>
+
+    <nav class="nav">
+      <button class="on" type="button"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 3 10v10a1 1 0 0 0 1 1h5v-6h6v6h5a1 1 0 0 0 1-1V10z"/></svg>ホーム</button>
+      <button type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 4 6 2 6-2v14l-6 2-6-2-6 2V6z"/><path d="M9 4v14M15 6v14"/></svg>マップ</button>
+      <button type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>ルート</button>
+      <button type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>マイ</button>
+    </nav>
+  </div>
+</div>
+
+<div class="dn">
+  <button id="dDay" class="on" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></svg>朝</button>
+  <button id="dNight" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.6 6.6 0 0 0 21 12.8Z"/></svg>夜</button>
+</div>
+
+<script src="scene-cut.js"></script>
+<script>
+  var dDay=document.getElementById('dDay'), dNight=document.getElementById('dNight');
+  dDay.addEventListener('click',function(){ document.body.classList.remove('night'); dDay.classList.add('on'); dNight.classList.remove('on'); });
+  dNight.addEventListener('click',function(){ document.body.classList.add('night'); dNight.classList.add('on'); dDay.classList.remove('on'); });
+
+  /* enter the app (Chat / Plan) via the shared fox scene-cut transition, night-aware */
+  document.querySelectorAll('a[href^="Chat 完整状态.html"]').forEach(function(a){
+    a.addEventListener('click',function(e){
+      if(!window.SceneCut) return;
+      e.preventDefault();
+      var href=a.getAttribute('href');
+      SceneCut.play({ dark:document.body.classList.contains('night'), label:'ロケ地を探しています', holdMs:1600 });
+      setTimeout(function(){ location.href=href; }, 1100);
+    });
+  });
+</script>
+</body>
+</html>

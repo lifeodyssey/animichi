@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>対比図作成 demo · 真合成 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0e8d8; --card:#f8f8f0; --panel:#f7f3df;
+  --tx:#794f27; --tx2:#725d42; --tx3:#9f927d;
+  --line:#e8e2d6; --line2:#c4b89e;
+  --teal:#19c8b9; --teal-text:#0e7c72;
+  --gold:#f5c31c; --gold-tx:#5c4813; --gold-deep:#d9a412; --star:#f0b429;
+  --error:#e05a5a; --focus:#ffcc00; --focus-deep:#d9ab00;
+  --sh2:#d4c9b4; --ink:#3d2d18;
+  --ease:cubic-bezier(0.4,0,0.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#e7dfca;font-family:'Zen Maru Gothic','Nunito','Noto Sans SC',sans-serif;color:var(--tx);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:18px 16px 40px;}
+.demobar{display:flex;gap:8px;align-items:center;background:var(--panel);border:1.5px solid var(--line2);border-radius:50px;padding:7px 10px;margin-bottom:14px;box-shadow:0 3px 0 var(--sh2);flex-wrap:wrap;justify-content:center;}
+.demobar .lb{font:900 11px Nunito;letter-spacing:.14em;color:var(--tx3);padding:0 6px;}
+.demobar button{font-family:inherit;font-size:12.5px;font-weight:900;color:var(--tx2);background:var(--card);border:1.5px solid var(--line);border-radius:50px;padding:7px 14px;cursor:pointer;}
+.demobar button:active{transform:translateY(1px);}
+.hint{font-size:12px;color:var(--tx2);font-weight:700;margin-bottom:14px;text-align:center;max-width:620px;line-height:1.7;}
+.hint b{color:var(--teal-text);}
+.phone{width:402px;height:874px;background:var(--card);border:1.5px solid var(--line2);border-radius:36px;overflow:hidden;position:relative;box-shadow:0 10px 0 0 var(--sh2);flex-shrink:0;display:flex;flex-direction:column;}
+.sb{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:800 14px Nunito;flex-shrink:0;}
+.sb .dots{display:flex;gap:4px;}.sb .dots i{width:5px;height:5px;border-radius:50%;background:var(--tx2);}
+.appbar{display:flex;align-items:center;gap:10px;padding:4px 16px 8px;flex-shrink:0;}
+.appbar .back{width:36px;height:36px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font:900 15px Nunito;flex-shrink:0;}
+.appbar .at{font-size:13px;font-weight:700;color:var(--tx3);}
+.stage{flex:1;position:relative;overflow:hidden;min-height:0;}
+.scrollc{position:absolute;inset:0;overflow-y:auto;padding-bottom:100px;scrollbar-width:none;}
+.scrollc::-webkit-scrollbar{display:none;}
+.prev{margin:2px 34px 0;position:relative;}
+.prev canvas{width:100%;display:block;border:1.5px solid var(--line2);border-radius:6px;box-shadow:0 6px 0 var(--sh2);background:#fff;}
+.prev.dragover canvas{outline:3px dashed var(--teal);outline-offset:4px;}
+.prev .droptip{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(25,200,185,.18);border-radius:6px;opacity:0;pointer-events:none;transition:opacity .15s var(--ease);}
+.prev.dragover .droptip{opacity:1;}
+.prev .droptip span{background:rgba(14,124,114,.92);color:#fff;font-size:13px;font-weight:900;padding:9px 18px;border-radius:50px;}
+.ctrl{display:flex;align-items:center;gap:12px;margin:16px 26px 0;}
+.ctrl .l{font-size:12.5px;font-weight:900;white-space:nowrap;}
+.ctrl .v{font:800 11px Nunito;color:var(--tx3);width:38px;text-align:right;flex-shrink:0;}
+input[type=range]{flex:1;appearance:none;-webkit-appearance:none;height:6px;border-radius:3px;background:var(--line);outline:none;}
+input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;border:2.5px solid var(--teal);box-shadow:0 2px 0 rgba(122,95,61,.25);cursor:pointer;}
+.swatch{width:34px;height:34px;border-radius:50%;border:2.5px solid var(--line2);cursor:pointer;flex-shrink:0;transition:box-shadow .15s var(--ease);}
+.swatch.on{border-color:var(--teal);box-shadow:0 0 0 2.5px #dff3f0;}
+.exif{margin:14px 16px 0;background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:10px 14px;display:flex;align-items:center;gap:9px;}
+.exif .ic{width:26px;height:26px;border-radius:50%;background:#dff3f0;border:1.5px solid var(--teal);display:flex;align-items:center;justify-content:center;font:900 12px Nunito;color:var(--teal-text);flex-shrink:0;}
+.exif .t{font-size:11px;font-weight:800;color:var(--tx2);line-height:1.6;flex:1;}
+.exif .t b{color:var(--tx);}
+.exif .go{font-size:11px;font-weight:900;color:var(--teal-text);cursor:pointer;white-space:nowrap;}
+.exif.sent{border-color:#b8e2dc;background:#eefaf8;}
+.warn{margin:12px 16px 0;background:#fdeaea;border:1.5px solid #f0c8c8;border-radius:14px;padding:10px 14px;font-size:11.5px;font-weight:800;color:#b04545;line-height:1.7;display:none;}
+.warn.show{display:block;}
+.dock{position:absolute;left:0;right:0;bottom:0;padding:26px 16px 16px;background:linear-gradient(180deg,rgba(248,248,240,0),var(--card) 46%);z-index:8;display:flex;gap:10px;}
+.cta{flex:1;display:flex;align-items:center;justify-content:center;height:54px;border-radius:50px;background:var(--gold);color:var(--gold-tx);font-size:15.5px;font-weight:900;box-shadow:0 4px 0 0 var(--gold-deep);cursor:pointer;transition:transform .15s var(--ease),box-shadow .15s var(--ease);}
+.cta:active{transform:translateY(3px);box-shadow:0 1px 0 0 var(--gold-deep);}
+.cta.sub{flex:0 0 140px;background:var(--card);color:var(--tx);border:1.5px solid var(--line2);box-shadow:0 4px 0 0 var(--sh2);font-size:13px;}
+.cta.sub:active{box-shadow:0 1px 0 0 var(--sh2);}
+.toast{position:absolute;left:50%;bottom:112px;transform:translate(-50%,16px);background:rgba(61,45,24,.9);color:#fff;font-size:12px;font-weight:800;padding:9px 18px;border-radius:50px;opacity:0;pointer-events:none;transition:all .25s var(--ease);z-index:30;white-space:nowrap;max-width:370px;overflow:hidden;text-overflow:ellipsis;}
+.toast.show{opacity:1;transform:translate(-50%,0);}
+.ovl{position:absolute;inset:0;background:rgba(61,45,24,.4);z-index:20;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s var(--ease);}
+.ovl.show{opacity:1;pointer-events:auto;}
+.p5{width:320px;background:var(--card);border:2px solid var(--line2);border-radius:46% 54% 52% 48% / 9% 11% 10% 9%;padding:26px 26px 22px;box-shadow:0 8px 0 var(--sh2);text-align:center;transform:translateY(12px) scale(.96);transition:transform .25s var(--ease);}
+.ovl.show .p5{transform:none;}
+.shootv{position:absolute;inset:0;background:var(--card);z-index:10;display:flex;flex-direction:column;overflow-y:auto;padding-bottom:100px;scrollbar-width:none;}
+.shootv::-webkit-scrollbar{display:none;}
+.camv{position:absolute;inset:0;z-index:16;background:#1c1610;display:none;overflow:hidden;}
+.camv video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+#camFake{position:absolute;inset:0;background:linear-gradient(165deg,#9aa8b5 0%,#7c8b97 38%,#55636e 100%);display:none;}
+#ghostImg{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);width:100%;opacity:.55;pointer-events:none;z-index:4;display:none;}
+.gline{position:absolute;background:rgba(248,248,240,.3);z-index:4;display:none;}
+.camv.live #ghostImg,.camv.live .gline{display:block;}
+#shutter:active{transform:scale(.92);}
+.p5 img{width:64px;height:64px;margin-bottom:6px;}
+.p5 h3{font-size:17px;font-weight:900;margin-bottom:6px;}
+.p5 p{font-size:12px;font-weight:700;color:var(--tx2);line-height:1.8;margin-bottom:16px;}
+.p5 .btns{display:flex;gap:10px;}
+.p5 .b1{flex:1;height:48px;border-radius:50px;background:var(--card);border:1.5px solid var(--line2);box-shadow:0 3.5px 0 var(--sh2);font-size:13.5px;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.p5 .b2{flex:1.4;height:48px;border-radius:50px;background:var(--focus);box-shadow:0 3.5px 0 var(--focus-deep);font-size:13.5px;font-weight:900;color:var(--gold-tx);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.p5 .b1:active,.p5 .b2:active{transform:translateY(2.5px);box-shadow:none;}
+@media (prefers-reduced-motion: reduce){*{transition-duration:.01s !important;}}
+</style>
+</head>
+<body>
+
+<div class="demobar">
+  <span class="lb">DEMO</span>
+  <a href="前端全景 - Journey Hub.dc.html" style="font:900 12px Nunito;color:var(--teal-text);text-decoration:none;background:var(--card);border:1.5px solid var(--line);border-radius:50px;padding:7px 12px;">◂ Hub</a>
+  <button id="pickBtn">写真を差し替える</button>
+  <button id="restoreBtn">参宮橋の実拍に戻す</button>
+  <button id="resetBtn" style="color:var(--tx3);">リセット</button>
+</div>
+<div class="hint"><b>本当に合成してるよ</b>：入口＝<b>構図ページ</b>（看着帧呼出相机）→カメラ起動（<b>真 getUserMedia + ghost 叠帧</b>，拒权→fallback 取景器）→シャッター→合成。也可直接拖照片/ロール選ぶ（HEIC 其场怒られる）。保存＝P5→<b>真下载 JPG</b>。</div>
+
+<div class="phone">
+  <div class="sb"><span>21:32</span><span class="dots"><i></i><i></i><i></i></span></div>
+  <div class="appbar"><span class="back" id="backBtn" style="cursor:pointer;">‹</span><div><div style="font-size:15px;font-weight:900;" id="vTtl">この構図を撮る</div><div class="at" id="vSub">参宮橋踏切 · 本編 04:40</div></div></div>
+  <div class="stage">
+    <div class="shootv" id="shoot">
+      <div style="margin:2px 16px;border-radius:18px;overflow:hidden;position:relative;">
+        <img src="assets/compare/anime.jpg" alt="" style="width:100%;display:block;">
+        <span style="position:absolute;left:10px;top:10px;background:rgba(61,45,24,.68);color:#fff;font:800 10.5px Nunito;padding:3px 9px;border-radius:8px;">本編 04:40</span>
+      </div>
+      <div style="margin:12px 18px 0;font-size:13.5px;font-weight:900;">復刻メモ</div>
+      <div style="display:flex;flex-direction:column;gap:7px;margin:8px 18px 0;">
+        <span style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:800;color:var(--tx2);"><i style="width:20px;height:20px;border-radius:50%;background:#dff3f0;border:1.5px solid var(--teal);color:var(--teal-text);font:900 11px Nunito;font-style:normal;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</i>踏切の白線を下辺に</span>
+        <span style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:800;color:var(--tx2);"><i style="width:20px;height:20px;border-radius:50%;background:#dff3f0;border:1.5px solid var(--teal);color:var(--teal-text);font:900 11px Nunito;font-style:normal;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</i>架線の柱を左右に振り分ける</span>
+        <span style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:800;color:var(--tx2);"><i style="width:20px;height:20px;border-radius:50%;background:#dff3f0;border:1.5px solid var(--teal);color:var(--teal-text);font:900 11px Nunito;font-style:normal;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</i>電車待ちの間に構えると◎</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin:14px 16px 0;background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:10px 14px;">
+        <span style="font:900 12px Nunito;color:var(--teal-text);">◎</span>
+        <span style="font-size:11.5px;font-weight:800;color:var(--tx2);">機位まで <b style="color:var(--tx);">40m</b>（Anitabi 座標から）</span>
+      </div>
+      <div class="dock" style="position:absolute;"><span class="cta sub" id="rollBtn">ロールから選ぶ</span><span class="cta" id="camBtn">カメラを起動 →</span></div>
+    </div>
+    <div class="camv" id="cam">
+      <video id="camV" autoplay playsinline muted></video>
+      <div id="camFake"></div>
+      <img src="assets/compare/anime.jpg" alt="" id="ghostImg">
+      <div class="gline" style="left:0;right:0;top:33%;height:1.5px;"></div>
+      <div class="gline" style="left:0;right:0;top:66%;height:1.5px;"></div>
+      <div class="gline" style="top:0;bottom:0;left:33%;width:1.5px;"></div>
+      <div class="gline" style="top:0;bottom:0;left:66%;width:1.5px;"></div>
+      <span style="position:absolute;top:14px;left:16px;background:rgba(61,45,24,.72);color:#fff;font:800 11px Nunito;padding:4px 10px;border-radius:8px;z-index:5;">本編 04:40 · 参宮橋</span>
+      <span style="position:absolute;top:14px;right:16px;background:rgba(25,200,185,.9);color:#073f3a;font:900 10.5px Nunito;padding:4px 10px;border-radius:50px;z-index:5;" id="camStat">◉ GPS・向き 記録中</span>
+      <div style="position:absolute;left:16px;right:16px;bottom:150px;display:flex;align-items:center;gap:10px;background:rgba(28,22,16,.72);border-radius:50px;padding:10px 16px;z-index:5;">
+        <span style="color:#f0e8d8;font-size:11.5px;font-weight:900;white-space:nowrap;">ゴースト <span id="gv">55</span>%</span>
+        <input type="range" id="ghostR" min="0" max="90" step="5" value="55">
+      </div>
+      <div style="position:absolute;left:0;right:0;bottom:30px;display:flex;align-items:center;justify-content:center;gap:44px;z-index:5;">
+        <span style="color:#f0e8d8;font-size:11.5px;font-weight:800;opacity:.85;cursor:pointer;width:64px;text-align:center;" id="camQuit">やめる</span>
+        <span id="shutter" style="width:78px;height:78px;border-radius:50%;border:5px solid #f8f8f0;background:rgba(248,248,240,.25);box-shadow:0 0 0 5px rgba(248,248,240,.2);cursor:pointer;"></span>
+        <span style="color:#f0e8d8;font-size:11.5px;font-weight:800;opacity:.85;width:64px;text-align:center;">グリッド<br>ON</span>
+      </div>
+    </div>
+    <div class="scrollc">
+      <div class="prev" id="prev">
+        <canvas id="cv" width="10" height="10"></canvas>
+        <div class="droptip"><span>ここに写真を落として差し替え</span></div>
+      </div>
+      <div class="ctrl">
+        <span class="l">余白</span>
+        <input type="range" id="margin" min="0" max="48" step="2" value="14">
+        <span class="v" id="marginV">14px</span>
+      </div>
+      <div class="ctrl">
+        <span class="l">底色</span>
+        <span class="swatch on" data-bg="#ffffff" style="background:#fff;"></span>
+        <span class="swatch" data-bg="#2b2012" style="background:#2b2012;"></span>
+        <span class="swatch" data-bg="#f8f8f0" style="background:#f8f8f0;"></span>
+        <span style="font:800 10.5px Nunito;color:var(--tx3);margin-left:auto;">フィルターはないよ</span>
+      </div>
+      <div class="exif" id="exif">
+        <span class="ic">◉</span>
+        <span class="t" id="exifT">この写真の<b>向き 312° · 26mm</b>、Anitabi の機位データに送って未来の巡礼者を助ける？</span>
+        <span class="go" id="exifGo">送る（推奨）</span>
+      </div>
+      <div class="warn" id="heicWarn"><b>HEIC のままだと合成できないよ。</b>iPhone なら「設定 → カメラ → フォーマット → 互換性優先」か、写真アプリから JPG で書き出してね。</div>
+      <div style="margin:12px 18px 0;font:700 10px Nunito;color:var(--tx3);line-height:1.7;">合成規格：JPEG 0.9 · 横帧→上下拼（縦なら左右拼に自動）· 写真は帧と同比率に center-crop · 水印固定左下<br>画像・座標：Anitabi (CC BY-NC-SA 4.0) · © コミックス・ウェーブ・フィルム</div>
+    </div>
+    <div class="dock"><span class="cta sub" id="swapBtn">写真を選び直す</span><span class="cta" id="saveBtn">画像を保存（JPG）</span></div>
+    <div class="ovl" id="p5">
+      <div class="p5">
+        <img src="assets/fox/fox-peek.svg" alt="">
+        <h3>保存にはログインが要るよ</h3>
+        <p>この対比図をカットに掛けて、<br>しおりでも使えるようにするためだよ。</p>
+        <div class="btns"><span class="b1" id="p5no">あとで</span><span class="b2" id="p5yes">ログインして保存</span></div>
+      </div>
+    </div>
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+<input type="file" id="file" accept="image/*" style="display:none;">
+
+<script>
+(function(){
+  var KEY='taihizu-demo-v1';
+  var state={margin:14, bg:'#ffffff', sent:false};
+  try{var s=JSON.parse(localStorage.getItem(KEY)); if(s&&typeof s.margin==='number') state=s;}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+
+  var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  var toastEl=document.getElementById('toast'), toastTimer=null;
+  function toast(m){clearTimeout(toastTimer);toastEl.textContent=m;toastEl.classList.add('show');toastTimer=setTimeout(function(){toastEl.classList.remove('show');},2200);}
+
+  var frameImg=new Image(), photoImg=new Image(), userImg=null, ready=0;
+  frameImg.onload=function(){ready++;draw();};
+  photoImg.onload=function(){ready++;draw();};
+  frameImg.onerror=photoImg.onerror=function(){toast('画像が読み込めない…（assets/compare を確認）');};
+  frameImg.src='assets/compare/anime.jpg';
+  photoImg.src='assets/compare/real.jpg';
+
+  function draw(){
+    if(ready<2)return;
+    var photo=userImg||photoImg;
+    var W=1200;
+    var ar=frameImg.naturalHeight/frameImg.naturalWidth;
+    var m=Math.round(state.margin*(W/330));
+    var fh=Math.round((W-m*2)*ar);
+    var H=m*3+fh*2;
+    cv.width=W;cv.height=H;
+    ctx.fillStyle=state.bg;ctx.fillRect(0,0,W,H);
+    // frame (top)
+    ctx.drawImage(frameImg,m,m,W-m*2,fh);
+    // photo (bottom) center-crop to frame aspect
+    var pw=photo.naturalWidth,ph=photo.naturalHeight;
+    var pAr=ph/pw, sx,sy,sw,sh;
+    if(pAr>ar){sw=pw;sh=pw*ar;sx=0;sy=(ph-sh)/2;}
+    else{sh=ph;sw=ph/ar;sy=0;sx=(pw-sw)/2;}
+    ctx.drawImage(photo,sx,sy,sw,sh,m,m*2+fh,W-m*2,fh);
+    // tags
+    var fs=Math.round(W*.022);
+    ctx.font='800 '+fs+'px Nunito, sans-serif';
+    function tag(txt,x,y,dark){
+      var w=ctx.measureText(txt).width+fs*1.2;
+      ctx.fillStyle=dark?'rgba(61,45,24,.68)':'rgba(248,248,240,.9)';
+      var h=fs*1.8, r=h/2.6;
+      ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();
+      ctx.fillStyle=dark?'#fff':'#794f27';
+      ctx.fillText(txt,x+fs*.6,y+fs*1.28);
+    }
+    tag('本編 04:40',m+fs*.8,m+fs*.8,true);
+    tag('実拍 · 参宮橋踏切',m+fs*.8,m*2+fh+fs*.8,false);
+    // watermark
+    ctx.font='800 '+Math.round(fs*.9)+'px Nunito, sans-serif';
+    ctx.fillStyle='rgba(255,255,255,.82)';
+    ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=6;
+    ctx.fillText('SEICHIJUNREI × ANITABI',m+fs*.8,H-m-fs*.8);
+    ctx.shadowBlur=0;
+    document.getElementById('marginV').textContent=state.margin+'px';
+    document.querySelectorAll('.swatch').forEach(function(sw){sw.classList.toggle('on',sw.getAttribute('data-bg')===state.bg);});
+  }
+
+  document.getElementById('margin').value=state.margin;
+  document.getElementById('margin').addEventListener('input',function(){state.margin=+this.value;draw();save();});
+  document.querySelectorAll('.swatch').forEach(function(sw){
+    sw.addEventListener('click',function(){state.bg=sw.getAttribute('data-bg');draw();save();});
+  });
+
+  // user photo (drag/drop + picker)
+  var prev=document.getElementById('prev'), fileIn=document.getElementById('file');
+  function loadUser(f){
+    if(!f)return;
+    if(/heic|heif/i.test(f.type)||/\.heic$|\.heif$/i.test(f.name)){
+      document.getElementById('heicWarn').classList.add('show');
+      toast('HEIC はここで怒られるやつ（仕様どおり）');
+      return;
+    }
+    var url=URL.createObjectURL(f), im=new Image();
+    im.onload=function(){userImg=im;document.getElementById('heicWarn').classList.remove('show');document.getElementById('exifT').innerHTML='この写真の EXIF を読んだよ（時刻・GPS・向き）。Anitabi に送って未来の巡礼者を助ける？';state.sent=false;renderExif();showView('compose');draw();toast('差し替えたよ · 同じ構図ならもっと映える');};
+    im.onerror=function(){document.getElementById('heicWarn').classList.add('show');toast('この形式は読めなかった…JPG/PNG でお願い');};
+    im.src=url;
+  }
+  ['dragover','dragenter'].forEach(function(ev){prev.addEventListener(ev,function(e){e.preventDefault();prev.classList.add('dragover');});});
+  ['dragleave','drop'].forEach(function(ev){prev.addEventListener(ev,function(e){e.preventDefault();prev.classList.remove('dragover');});});
+  prev.addEventListener('drop',function(e){loadUser(e.dataTransfer.files[0]);});
+  fileIn.addEventListener('change',function(){loadUser(this.files[0]);});
+  document.getElementById('pickBtn').addEventListener('click',function(){fileIn.click();});
+  document.getElementById('swapBtn').addEventListener('click',function(){fileIn.click();});
+  document.getElementById('restoreBtn').addEventListener('click',function(){userImg=null;document.getElementById('heicWarn').classList.remove('show');draw();toast('参宮橋の実拍に戻したよ');});
+
+  // EXIF opt-in
+  var exif=document.getElementById('exif');
+  function renderExif(){
+    if(state.sent){exif.classList.add('sent');document.getElementById('exifT').innerHTML='機位データを Anitabi に送ったよ · ありがとう ◉';document.getElementById('exifGo').style.display='none';}
+    else{exif.classList.remove('sent');document.getElementById('exifGo').style.display='';}
+  }
+  document.getElementById('exifGo').addEventListener('click',function(){state.sent=true;renderExif();save();toast('向き 312° を送信 · 未来の bearing データに');});
+  renderExif();
+
+  // save flow: P5 → real download
+  var p5=document.getElementById('p5');
+  document.getElementById('saveBtn').addEventListener('click',function(){p5.classList.add('show');});
+  document.getElementById('p5no').addEventListener('click',function(){p5.classList.remove('show');toast('対比図はここで待ってるよ');});
+  p5.addEventListener('click',function(e){if(e.target===this)p5.classList.remove('show');});
+  document.getElementById('p5yes').addEventListener('click',function(){
+    p5.classList.remove('show');
+    cv.toBlob(function(b){
+      if(!b){toast('書き出しに失敗…');return;}
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(b);
+      a.download='対比図_参宮橋_20260706.jpg';
+      a.click();
+      toast('保存したよ · 機位ブラウザのカットに金 badge が付く');
+    },'image/jpeg',0.9);
+  });
+
+  // ── views: shoot ⇄ camera ⇄ compose ──
+  var shoot=document.getElementById('shoot'), cam=document.getElementById('cam'), camV=document.getElementById('camV');
+  var vTtl=document.getElementById('vTtl'), vSub=document.getElementById('vSub');
+  var stream=null, camFakeMode=false;
+  function showView(v){
+    state.view=v;
+    shoot.style.display=v==='shoot'?'flex':'none';
+    if(v==='shoot'){vTtl.textContent='この構図を撮る';vSub.textContent='参宮橋踏切 · 本編 04:40';}
+    else{vTtl.textContent='対比図を作る';vSub.textContent='参宮橋踏切 · 秒速5センチメートル · 1枚目';}
+    save();
+  }
+  function openCam(){
+    cam.style.display='block';camFakeMode=false;
+    document.getElementById('camFake').style.display='none';
+    cam.classList.remove('live');
+    var p=(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)?navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}):Promise.reject();
+    p.then(function(st){stream=st;camV.srcObject=st;cam.classList.add('live');document.getElementById('camStat').textContent='◉ GPS・向き 記録中';})
+     .catch(function(){camFakeMode=true;document.getElementById('camFake').style.display='block';cam.classList.add('live');document.getElementById('camStat').textContent='カメラ不可 · 模擬ビュー';toast('カメラが使えない環境みたい · 模擬ビューで続けるよ');});
+  }
+  function closeCam(){
+    if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
+    camV.srcObject=null;cam.style.display='none';cam.classList.remove('live');
+  }
+  document.getElementById('camBtn').addEventListener('click',openCam);
+  document.getElementById('rollBtn').addEventListener('click',function(){fileIn.click();});
+  document.getElementById('camQuit').addEventListener('click',closeCam);
+  document.getElementById('backBtn').addEventListener('click',function(){
+    if(state.view==='compose'){showView('shoot');}
+    else{toast('機位ブラウザへ戻る（demo はここまで）');}
+  });
+  document.getElementById('ghostR').addEventListener('input',function(){
+    document.getElementById('gv').textContent=this.value;
+    document.getElementById('ghostImg').style.opacity=this.value/100;
+  });
+  document.getElementById('shutter').addEventListener('click',function(){
+    var c=document.createElement('canvas'), cx;
+    if(!camFakeMode&&camV.videoWidth){c.width=camV.videoWidth;c.height=camV.videoHeight;c.getContext('2d').drawImage(camV,0,0);}
+    else{
+      c.width=1280;c.height=720;cx=c.getContext('2d');
+      var gr=cx.createLinearGradient(0,0,1280,720);
+      gr.addColorStop(0,'#9aa8b5');gr.addColorStop(.5,'#7c8b97');gr.addColorStop(1,'#55636e');
+      cx.fillStyle=gr;cx.fillRect(0,0,1280,720);
+      cx.fillStyle='rgba(248,248,240,.5)';cx.fillRect(0,470,1280,26);cx.fillRect(90,180,22,320);cx.fillRect(1120,150,22,350);
+      cx.fillStyle='rgba(43,32,18,.35)';cx.font='800 34px Nunito, sans-serif';cx.fillText('模擬ビューの1枚（カメラ許可なし）',330,650);
+    }
+    if(navigator.vibrate)navigator.vibrate(18);
+    var im=new Image();
+    im.onload=function(){userImg=im;closeCam();showView('compose');draw();document.getElementById('exifT').innerHTML='いま撮った1枚の<b>向き・GPS</b>、Anitabi に送って未来の巡礼者を助ける？';state.sent=false;renderExif();toast('撮れた！そのまま合成したよ');};
+    im.src=c.toDataURL('image/jpeg',.92);
+  });
+  if(state.view!=='compose')state.view='shoot';
+  showView(state.view);
+
+  document.getElementById('resetBtn').addEventListener('click',function(){
+    state={margin:14,bg:'#ffffff',sent:false,view:'shoot'};userImg=null;closeCam();
+    document.getElementById('margin').value=14;
+    document.getElementById('heicWarn').classList.remove('show');
+    document.getElementById('exifT').innerHTML='この写真の<b>向き 312° · 26mm</b>、Anitabi の機位データに送って未来の巡礼者を助ける？';
+    renderExif();showView('shoot');draw();save();toast('リセットしたよ');
+  });
+})();
+</script>
+</body>
+</html>
