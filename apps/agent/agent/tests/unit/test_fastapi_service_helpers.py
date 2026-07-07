@@ -242,12 +242,15 @@ def test_setup_logfire_instruments_fastapi_and_httpx_when_token_set(
     setup_logfire(settings, app=fake_app)
 
     logfire_mock.configure.assert_called_once()
+    assert (
+        logfire_mock.configure.call_args.kwargs["send_to_logfire"] == "if-token-present"
+    )
     logfire_mock.instrument_pydantic_ai.assert_called_once()
     logfire_mock.instrument_fastapi.assert_called_once_with(fake_app)
     logfire_mock.instrument_httpx.assert_called_once()
 
 
-def test_setup_logfire_no_op_when_token_not_set(
+def test_setup_logfire_configures_without_instrumenting_when_token_not_set(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import sys
@@ -261,6 +264,7 @@ def test_setup_logfire_no_op_when_token_not_set(
 
     setup_logfire(Settings(), app=object())
 
-    logfire_mock.configure.assert_not_called()
+    logfire_mock.configure.assert_called_once()
+    logfire_mock.instrument_pydantic_ai.assert_not_called()
     logfire_mock.instrument_fastapi.assert_not_called()
     logfire_mock.instrument_httpx.assert_not_called()

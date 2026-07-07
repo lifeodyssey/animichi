@@ -63,14 +63,6 @@ class DummySpan:
         return None
 
 
-class DummyTracer:
-    def __init__(self, span: DummySpan) -> None:
-        self.span = span
-
-    def start_as_current_span(self, name: str, **kwargs: object) -> DummySpan:
-        return self.span
-
-
 class TestPublicAPIRequest:
     def test_rejects_blank_text(self) -> None:
         with pytest.raises(ValidationError):
@@ -264,8 +256,8 @@ class TestRuntimeAPIErrors:
 
         with (
             patch(
-                "agent.interfaces.public_api.get_runtime_tracer",
-                return_value=DummyTracer(span),
+                "agent.interfaces.public_api.runtime_span",
+                return_value=span,
             ),
             patch(
                 "agent.interfaces.public_api.record_runtime_request"
