@@ -31,8 +31,6 @@ dependencies = [
     # Observability
     "structlog>=25.0.0",
     "rich>=14.0.0",
-    "opentelemetry-api>=1.39.0",
-    "opentelemetry-sdk>=1.39.0",
     # Google Generative AI (model-agnostic, used by pydantic-ai)
     "google-genai>=1.16.0",
     # v2: Agent Framework
@@ -50,9 +48,6 @@ dependencies = [
 seichijunrei-api = "agent.interfaces.fastapi_service:main"
 
 [project.optional-dependencies]
-observability = [
-    "opentelemetry-exporter-otlp>=1.39.0",
-]
 dev = [
     # Testing
     "pytest>=9.0.3",
@@ -120,10 +115,6 @@ omit = [
     ".uv-cache/*",
     "*/.uv-cache/*",
     "*/site-packages/*",
-    # Observability (requires external exporters)
-    "agent/infrastructure/observability/exporters.py",
-    "agent/infrastructure/observability/metrics.py",
-    "agent/infrastructure/observability/tracing.py",
 ]
 
 [tool.coverage.report]

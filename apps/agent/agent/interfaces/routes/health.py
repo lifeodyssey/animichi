@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from agent.interfaces.routes._deps import (
     _get_runtime_api,
     _get_settings_from_request,
+    _has_logfire_token,
     _json_response,
 )
 
@@ -60,7 +61,7 @@ async def handle_health(request: Request) -> JSONResponse:
         "git_branch": _GIT_BRANCH,
         "started_at": _STARTED_AT,
         "app_env": settings.app_env,
-        "observability_enabled": settings.observability_enabled,
+        "observability_enabled": _has_logfire_token(),
         "db_adapter": type(getattr(runtime_api, "_db", None)).__name__,
         "session_store": type(getattr(runtime_api, "_session_store", None)).__name__,
     }

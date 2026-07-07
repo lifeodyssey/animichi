@@ -5,8 +5,13 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import logfire
 import pytest
 from dotenv import load_dotenv
+
+# Configure logfire once so wrapper spans/metrics are quiet no-ops in tests
+# (pytest runs with filterwarnings=error; unconfigured logfire would warn).
+logfire.configure(send_to_logfire=False, console=False)
 
 # Load test environment variables
 test_env = Path(__file__).parent / ".env.test"

@@ -74,14 +74,10 @@ class TestGCPConfiguration:
             google_maps_api_key="test_key",
             service_host="127.0.0.1",
             service_port=9000,
-            observability_enabled=True,
-            observability_exporter_type="console",
         )
         config = settings.get_runtime_config()
         assert config["service_host"] == "127.0.0.1"
         assert config["service_port"] == 9000
-        assert config["observability_enabled"] is True
-        assert config["observability_exporter_type"] == "console"
 
 
 class TestAPIKeyValidation:
