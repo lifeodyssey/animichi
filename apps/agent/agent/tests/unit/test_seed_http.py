@@ -87,7 +87,7 @@ class TestFetchSubject:
 
         subject = await fetch_subject(115908)
 
-        assert subject["name"] == "響け！ユーフォニアム"
+        assert subject.name == "響け！ユーフォニアム"
 
     async def test_gets_v0_subject_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
         get = _install_httpx(monkeypatch, payload={})
