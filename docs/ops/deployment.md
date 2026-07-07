@@ -102,12 +102,9 @@ Common runtime config:
 - `LOG_LEVEL`
 - `MAX_RETRIES`
 - `TIMEOUT_SECONDS`
-- `OBSERVABILITY_ENABLED`
-- `OBSERVABILITY_EXPORTER_TYPE`
-- `OBSERVABILITY_OTLP_ENDPOINT`
 - `OBSERVABILITY_SERVICE_NAME`
 - `OBSERVABILITY_SERVICE_VERSION`
-- `LOGFIRE_TOKEN` (optional)
+- `LOGFIRE_TOKEN` (optional — tracing/metrics export to Logfire only when set)
 - `GOOGLE_MAPS_API_KEY` (optional)
 
 Session storage:

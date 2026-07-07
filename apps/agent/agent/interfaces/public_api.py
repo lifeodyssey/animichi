@@ -29,8 +29,8 @@ from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from agent.config.settings import get_settings
 from agent.domain.ports import DatabasePort
 from agent.infrastructure.observability import (
-    get_runtime_tracer,
     record_runtime_request,
+    runtime_span,
 )
 from agent.infrastructure.session import SessionStore, create_session_store
 from agent.interfaces.persistence import (
@@ -141,11 +141,10 @@ class RuntimeAPI:
         """Execute the runtime pipeline and normalize its output."""
         session_id = request.session_id or None
         started_at = perf_counter()
-        tracer = get_runtime_tracer()
         response: PublicAPIResponse | None = None
         effective_model = model if model is not None else request.model
 
-        with tracer.start_as_current_span("runtime.handle") as span:
+        with runtime_span("runtime.handle") as span:
             _set_span_request_attrs(span, session_id, request, effective_model, user_id)
 
             from agent.agents.guardrails import detect_prompt_injection

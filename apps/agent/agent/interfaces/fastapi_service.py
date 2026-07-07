@@ -11,10 +11,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from agent.clients.catalog_client import CatalogClient
 from agent.config.settings import Settings, get_settings
-from agent.infrastructure.observability import (
-    setup_observability,
-    shutdown_observability,
-)
 from agent.infrastructure.session import SessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import RuntimeAPI
@@ -50,7 +46,6 @@ def build_catalog_client(settings: Settings) -> CatalogClient:
 @asynccontextmanager
 async def _lifespan_with_runtime_api(
     app: FastAPI,
-    resolved_settings: Settings,
     runtime_api: RuntimeAPI,
     db: object | None,
 ) -> AsyncIterator[None]:
@@ -59,11 +54,7 @@ async def _lifespan_with_runtime_api(
     resolved_db = db if db is not None else getattr(runtime_api, "_db", None)
     if resolved_db is not None:
         app.state.db_client = resolved_db
-    try:
-        yield
-    finally:
-        if resolved_settings.observability_enabled:
-            shutdown_observability()
+    yield
 
 
 def _resolve_session_store(
@@ -108,8 +99,6 @@ async def _lifespan_build_runtime(
     finally:
         await call_optional_async(runtime_session_store, "close")
         await call_optional_async(runtime_db, "close")
-        if resolved_settings.observability_enabled:
-            shutdown_observability()
 
 
 def create_fastapi_app(
@@ -125,12 +114,8 @@ def create_fastapi_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.settings = resolved_settings
-        if resolved_settings.observability_enabled:
-            setup_observability(resolved_settings)
         if runtime_api is not None:
-            async with _lifespan_with_runtime_api(
-                app, resolved_settings, runtime_api, db
-            ):
+            async with _lifespan_with_runtime_api(app, runtime_api, db):
                 yield
             return
         async with _lifespan_build_runtime(app, resolved_settings, db, session_store):
