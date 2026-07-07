@@ -2,10 +2,11 @@
  * Deterministic route-planning kernel: greedy nearest-neighbor ordering +
  * timed-itinerary construction.
  *
- * Faithful TS port of
- * `backend/agents/route_optimizer.py::nearest_neighbor_sort`,
- * `::compute_dwell_minutes`, and `::build_timed_itinerary`.
- * Pure logic — no I/O, no DB, no LLM. Deterministic for a given input.
+ * This TS module is the single owner of route ordering and timed walking
+ * estimates. Pure logic — no I/O, no DB, no LLM. Deterministic for a given
+ * input. Walking durations apply a detour coefficient on top of raw haversine
+ * distance divided by the nominal walking speed; reported distances remain raw
+ * haversine.
  *
  * Output shapes match the oRPC contract (`packages/contract/src/models.ts`):
  * `TimedStop`, `TransitLeg`, `TimedItinerary`. Leg-cache integration and the
@@ -45,6 +46,7 @@ const TRANSIT_BUFFERS: Record<Pacing, number> = {
 };
 
 const WALKING_SPEED_M_PER_MIN = 80;
+const WALK_DETOUR_COEFFICIENT = 1.3;
 const VALID_PACING: ReadonlySet<string> = new Set(["chill", "normal", "packed"]);
 
 /** Python `round()` — round-half-to-even (banker's), unlike `Math.round`. */
@@ -177,11 +179,12 @@ function makeStop(cluster: LocationCluster, arrive: string, dwell: number): Time
 /** Build the walk leg from `from` to `to`, given the pacing buffer. */
 function makeLeg(from: LocationCluster, to: LocationCluster, buffer: number): TransitLeg {
   const dist = haversine(from.centerLat, from.centerLng, to.centerLat, to.centerLng);
+  const estimate = (dist * WALK_DETOUR_COEFFICIENT) / WALKING_SPEED_M_PER_MIN;
   return {
     from_id: from.clusterId,
     to_id: to.clusterId,
     mode: "walk",
-    duration_minutes: Math.max(1, pyRound((dist / WALKING_SPEED_M_PER_MIN) * buffer)),
+    duration_minutes: Math.max(1, pyRound(estimate * buffer)),
     distance_m: pyRound(dist, 1),
   };
 }
@@ -196,7 +199,8 @@ export interface ItineraryOptions {
 /**
  * Build a `TimedItinerary` from `clusters`: order them by nearest-neighbor,
  * then walk through producing stops (arrive/depart/dwell), legs (walk distance
- * + duration via haversine), and totals. Throws when given over 50 clusters.
+ * via raw haversine + detoured duration estimate), and totals. Throws when
+ * given over 50 clusters.
  */
 export function buildTimedItinerary(
   clusters: LocationCluster[],

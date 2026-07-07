@@ -2,24 +2,38 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
-from agent.agents.handlers._helpers import optimize_route
 from agent.agents.handlers.answer_question import execute, execute_clarify
 from agent.agents.handlers.greet_user import execute as execute_greet
-from agent.agents.handlers.plan_selected import execute as execute_plan_selected
 from agent.agents.handlers.result import HandlerResult
 from agent.agents.models import PlanStep, ToolName
-from agent.infrastructure.supabase.client import SupabaseClient
+
+_Emitted = list[tuple[str, str, dict[str, object], str, str]]
 
 
 def _step(tool: ToolName, params: dict[str, object] | None = None) -> PlanStep:
     return PlanStep(tool=tool, params=params or {})
 
 
-# ---------------------------------------------------------------------------
-# answer_question
-# ---------------------------------------------------------------------------
+def _ctx_with_emitter(emitted: _Emitted) -> MagicMock:
+    async def fake_on_step(
+        tool: str,
+        status: str,
+        data: dict[str, object],
+        thought: str = "",
+        observation: str = "",
+    ) -> None:
+        emitted.append((tool, status, data, thought, observation))
+
+    deps = MagicMock()
+    deps.on_step = fake_on_step
+    deps.tool_state = {}
+    deps.steps = []
+    deps.db = MagicMock()
+    ctx = MagicMock()
+    ctx.deps = deps
+    return ctx
 
 
 class TestAnswerQuestion:
@@ -46,11 +60,6 @@ class TestAnswerQuestion:
         assert result.success is True
 
 
-# ---------------------------------------------------------------------------
-# greet_user
-# ---------------------------------------------------------------------------
-
-
 class TestGreetUser:
     async def test_returns_greeting_message(self) -> None:
         step = _step(ToolName.GREET_USER, {"message": "こんにちは"})
@@ -67,11 +76,6 @@ class TestGreetUser:
 
         assert result.success is True
         assert result.data["message"] == ""
-
-
-# ---------------------------------------------------------------------------
-# clarify
-# ---------------------------------------------------------------------------
 
 
 class TestClarify:
@@ -121,106 +125,11 @@ class TestClarify:
         assert result.data["candidates"][0]["spot_count"] == 3
 
 
-# ---------------------------------------------------------------------------
-# optimize_route
-# ---------------------------------------------------------------------------
-
-
-class TestOptimizeRoute:
-    def test_optimize_route_includes_cover_url(self) -> None:
-        result = optimize_route(
-            [
-                {
-                    "id": "p1",
-                    "name": "Spot A",
-                    "latitude": 34.88,
-                    "longitude": 135.80,
-                    "cover_url": "https://example.com/cover.jpg",
-                },
-                {
-                    "id": "p2",
-                    "name": "Spot B",
-                    "latitude": 34.89,
-                    "longitude": 135.81,
-                },
-            ],
-            {},
-            None,
-        )
-
-        assert result.success is True
-        assert result.data["cover_url"] == "https://example.com/cover.jpg"
-
-
-# ---------------------------------------------------------------------------
-# plan_selected
-# ---------------------------------------------------------------------------
-
-
-class TestPlanSelected:
-    async def test_missing_point_ids_fails(self) -> None:
-        step = _step(ToolName.PLAN_SELECTED, {})
-        result = await execute_plan_selected(step, {}, MagicMock(), MagicMock())
-
-        assert result.success is False
-        assert result.error == "point_ids is required"
-
-    async def test_non_supabase_db_fails(self) -> None:
-        step = _step(ToolName.PLAN_SELECTED, {"point_ids": ["p1"]})
-        result = await execute_plan_selected(step, {}, object(), MagicMock())
-
-        assert result.success is False
-        assert result.error == "get_points_by_ids not available"
-
-    async def test_routes_selected_points(self) -> None:
-        db = MagicMock(spec=SupabaseClient)
-        db.points = MagicMock()
-        db.points.get_points_by_ids = AsyncMock(
-            return_value=[
-                {"id": "p1", "name": "A", "latitude": 34.88, "longitude": 135.80},
-                {"id": "p2", "name": "B", "latitude": 34.89, "longitude": 135.81},
-            ]
-        )
-        step = _step(ToolName.PLAN_SELECTED, {"point_ids": ["p1", "p2"]})
-
-        result = await execute_plan_selected(step, {}, db, MagicMock())
-
-        assert result.tool == "plan_selected"
-        assert result.success is True
-        db.points.get_points_by_ids.assert_awaited_once_with(["p1", "p2"])
-
-
-# ---------------------------------------------------------------------------
-# _run_ephemeral — SSE error detail
-# ---------------------------------------------------------------------------
-
-
 class TestRunEphemeralEmitsErrorDetail:
-    """When an ephemeral handler fails, the SSE step event must carry detail."""
-
     async def test_emits_error_in_step_data_on_failure(self) -> None:
         from agent.agents.tool_runtime import _run_ephemeral
 
-        emitted: list[tuple[str, str, dict[str, object], str, str]] = []
-
-        async def fake_on_step(
-            tool: str,
-            status: str,
-            data: dict[str, object],
-            thought: str = "",
-            observation: str = "",
-        ) -> None:
-            emitted.append((tool, status, data, thought, observation))
-
-        deps = MagicMock()
-        deps.on_step = fake_on_step
-        deps.tool_state = {}
-        deps.steps = []
-        deps.db = MagicMock()
-
-        ctx = MagicMock()
-        ctx.deps = deps
-
+        emitted: _Emitted = []
         error_msg = "Validation failed: missing bangumi_id"
 
         async def failing_handler(
@@ -229,7 +138,7 @@ class TestRunEphemeralEmitsErrorDetail:
             return HandlerResult.fail("plan_route", error_msg)
 
         await _run_ephemeral(
-            ctx,
+            _ctx_with_emitter(emitted),
             tool=ToolName.PLAN_ROUTE,
             params={},
             handler=failing_handler,
@@ -247,25 +156,7 @@ class TestRunEphemeralEmitsErrorDetail:
     async def test_emits_error_preserves_partial_data(self) -> None:
         from agent.agents.tool_runtime import _run_ephemeral
 
-        emitted: list[tuple[str, str, dict[str, object], str, str]] = []
-
-        async def fake_on_step(
-            tool: str,
-            status: str,
-            data: dict[str, object],
-            thought: str = "",
-            observation: str = "",
-        ) -> None:
-            emitted.append((tool, status, data, thought, observation))
-
-        deps = MagicMock()
-        deps.on_step = fake_on_step
-        deps.tool_state = {}
-        deps.steps = []
-        deps.db = MagicMock()
-
-        ctx = MagicMock()
-        ctx.deps = deps
+        emitted: _Emitted = []
 
         async def failing_handler_with_data(
             step: object, state: object, db: object, retriever: object
@@ -278,7 +169,7 @@ class TestRunEphemeralEmitsErrorDetail:
             )
 
         await _run_ephemeral(
-            ctx,
+            _ctx_with_emitter(emitted),
             tool=ToolName.RESOLVE_ANIME,
             params={"title": "unknown"},
             handler=failing_handler_with_data,
