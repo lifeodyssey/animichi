@@ -4,7 +4,7 @@ Detail level: **pre-build refinement**. Story count: 9 (originally 7 product/ena
 
 Suggested dependency order: S4.5 (share-token enabler) / S4.7 (R2 enabler) can go first → S4.1 → S4.2 → S4.3 → S4.4; S4.6 depends on S4.7. S4.8 (image-search phase 2 coarse-screen + rerank pipeline) can be developed in parallel with the 対比図/しおり main line, sharing S4.7's image data pipeline; S4.9 depends on S4.8.
 
-**Data access path (final, SD-2)**: both S4.5 and S4.7 go through `workers/users` oRPC + Neon, not a direct Supabase RLS connection — consistent with main spec §2's "global convention: user-domain data access path."
+**Data access path (final, SD-2)**: both S4.5 and S4.7 go through `workers/users` oRPC + Neon, not a direct RLS connection (RLS is Neon-native defense-in-depth per SD-31) — consistent with main spec §2's "global convention: user-domain data access path."
 
 **Image pipeline (final, X6)**: all resizing/compression/compositing of user photos happens client-side on canvas; R2 only stores the final artifact; shared items strip EXIF (GPS privacy) by default, with EXIF pass-through remaining opt-in.
 
@@ -93,7 +93,7 @@ Suggested dependency order: S4.5 (share-token enabler) / S4.7 (R2 enabler) can g
 
 **Design basis**: no visual mockup.
 
-**Backend enabler (final)**: a new Neon table `route_shares` (`id`, `route_id` FK, `share_token UNIQUE`, `created_by` user_id, `created_at`, `view_count`); `workers/users` gets two new kinds of endpoints — an authenticated `users.shares.create` (owner-only) + a **public** `users.shares.resolve` (looks up by token, no JWT required, read-only, aimed at anonymous visitors); `apps/web`'s `/s/:id` SSR loader calls this public oRPC endpoint directly server-to-server (not a browser-to-Neon direct connection).
+**Backend enabler (final)**: a new Neon table `route_shares` (`id`, `route_id` FK, `share_token UNIQUE`, `created_by` user_id, `created_at`, `view_count`); `workers/users` gets two new kinds of endpoints — an authenticated `users.shares.create` (owner-only; the **Neon Auth JWT is verified against the Neon Auth JWKS**, SD-31) + a **public** `users.shares.resolve` (looks up by token, no JWT required, read-only, aimed at anonymous visitors); `apps/web`'s `/s/:id` SSR loader calls this public oRPC endpoint directly server-to-server (not a browser-to-Neon direct connection).
 
 **Core AC**:
 - Happy path: creating a share for a route you own returns a token; resolving that token via the public endpoint returns the route summary with no auth required -> integration
@@ -131,7 +131,7 @@ Suggested dependency order: S4.5 (share-token enabler) / S4.7 (R2 enabler) can g
 
 **Design basis**: no visual mockup.
 
-**Backend enabler (final)**: the root Worker (`worker/app.ts`) gets a lightweight new route that issues short-TTL presigned PUT URLs scoped to the `/uploads/{user_id}/` prefix of the `seichijunrei-assets` R2 bucket (authenticated via JWT); on successful upload, `apps/web` records the metadata through a `workers/users` oRPC endpoint (a new Neon table `comparison_uploads`: `id`, `user_id`, `point_id`, `r2_key`, `exif_opt_in`, `created_at`).
+**Backend enabler (final)**: the root Worker (`worker/app.ts`) gets a lightweight new route that issues short-TTL presigned PUT URLs scoped to the `/uploads/{user_id}/` prefix of the `seichijunrei-assets` R2 bucket (authenticated via a **Neon Auth JWT verified against the Neon Auth JWKS**, SD-31); on successful upload, `apps/web` records the metadata through a `workers/users` oRPC endpoint (a new Neon table `comparison_uploads`: `id`, `user_id`, `point_id`, `r2_key`, `exif_opt_in`, `created_at`).
 
 **Core AC**:
 - Happy path: requesting a presigned URL and directly PUT-ing an image to R2 succeeds, and the resulting `r2_key` is recorded via `workers/users` -> integration
