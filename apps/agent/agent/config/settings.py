@@ -3,7 +3,6 @@
 import warnings
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
@@ -87,10 +86,6 @@ class Settings(BaseSettings):
     )
     service_host: str = Field(default="0.0.0.0", description="HTTP service bind host")
     service_port: int = Field(default=8080, description="HTTP service bind port")
-    observability_enabled: bool = Field(
-        default=False,
-        description="Enable OpenTelemetry tracing and metrics",
-    )
     observability_service_name: str = Field(
         default="seichijunrei-runtime",
         description="Service name reported to observability backends",
@@ -99,15 +94,6 @@ class Settings(BaseSettings):
         default="0.1.0",
         description="Service version reported to observability backends",
     )
-    observability_exporter_type: Literal["none", "console", "otlp"] = Field(
-        default="none",
-        description="OpenTelemetry exporter type",
-    )
-    observability_otlp_endpoint: str | None = Field(
-        default=None,
-        description="Optional OTLP endpoint for tracing and metrics export",
-    )
-
     # Cache Settings
     cache_ttl_seconds: int = Field(default=3600, description="Cache TTL in seconds")
     use_cache: bool = Field(default=True, description="Enable caching")
@@ -226,8 +212,6 @@ class Settings(BaseSettings):
             "timeout_seconds": self.timeout_seconds,
             "cache_ttl_seconds": self.cache_ttl_seconds,
             "use_cache": self.use_cache,
-            "observability_enabled": self.observability_enabled,
-            "observability_exporter_type": self.observability_exporter_type,
             "google_cloud_project": self.google_cloud_project or "(not set)",
             "gcp_auth_mode": "service_account" if self.uses_service_account else "adc",
             "default_agent_model": self.default_agent_model,

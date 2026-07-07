@@ -212,25 +212,37 @@ async def call_optional_async(target: object, method_name: str) -> None:
 
 
 def setup_logfire(settings: Settings, app: object | None = None) -> None:
-    """Configure Logfire for pydantic-ai agent tracing (no-op if token not set)."""
+    """Configure logfire; instrument frameworks only when a token is present.
+
+    Without ``LOGFIRE_TOKEN`` this still calls ``logfire.configure`` so that
+    spans/metrics from the observability wrapper become quiet no-ops instead
+    of emitting ``LogfireNotConfiguredWarning``.
+    """
+    import logfire
+
+    logfire.configure(
+        service_name=settings.observability_service_name,
+        service_version=settings.observability_service_version,
+        send_to_logfire="if-token-present",
+        console=False,
+    )
+    if _has_logfire_token():
+        _instrument_logfire(app)
+        _logger.info("logfire_configured", service=settings.observability_service_name)
+
+
+def _has_logfire_token() -> bool:
     import os
 
-    if not os.environ.get("LOGFIRE_TOKEN"):
-        _logger.debug("logfire_skipped", reason="LOGFIRE_TOKEN not set")
-        return
-    try:
-        import logfire
+    return bool(os.environ.get("LOGFIRE_TOKEN"))
 
-        logfire.configure(
-            service_name=settings.observability_service_name,
-            service_version=settings.observability_service_version,
-        )
-        logfire.instrument_pydantic_ai()
-        if app is not None:
-            from fastapi import FastAPI as _FastAPI
 
-            logfire.instrument_fastapi(cast(_FastAPI, app))
-        logfire.instrument_httpx()
-        _logger.info("logfire_configured", service=settings.observability_service_name)
-    except ImportError:
-        _logger.debug("logfire_skipped", reason="logfire package not installed")
+def _instrument_logfire(app: object | None) -> None:
+    import logfire
+
+    logfire.instrument_pydantic_ai()
+    if app is not None:
+        from fastapi import FastAPI as _FastAPI
+
+        logfire.instrument_fastapi(cast(_FastAPI, app))
+    logfire.instrument_httpx()
