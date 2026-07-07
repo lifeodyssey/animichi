@@ -6,8 +6,8 @@ models into the dict payloads consumed by the response builder,
 ``_summarize_for_llm`` and the output_validator, so they keep working unchanged.
 
 No DB, no upstream Anitabi/Bangumi clients are imported here — only deterministic
-shaping helpers (``_build_nearby_groups`` / ``rewrite_image_urls`` /
-``optimize_route``) shared with the live route/answer handlers.
+shaping helpers (``_build_nearby_groups`` / ``rewrite_image_urls``) shared with
+the live route/answer handlers.
 """
 
 from __future__ import annotations

@@ -276,7 +276,7 @@ class RuntimeAPI:
                     point_ids=list(request.selected_point_ids or []),
                     origin=request.origin,
                     locale=request.locale,
-                    db=self._db,
+                    catalog=self._catalog,
                     on_step=on_step,
                 )
             else:

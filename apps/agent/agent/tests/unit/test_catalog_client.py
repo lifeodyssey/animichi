@@ -99,6 +99,18 @@ async def test_route_parses_route(monkeypatch: pytest.MonkeyPatch) -> None:
     assert client.post.call_args.kwargs["json"] == {"point_ids": ["p1"]}
 
 
+async def test_route_posts_coordinate_origin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """route() sends origin only when coordinates are provided."""
+    client = _mock_httpx(monkeypatch, {"ordered_points": [_POINT], "point_count": 1})
+
+    await CatalogClient("https://catalog.test").route(["p1"], origin=(34.89, 135.8))
+
+    assert client.post.call_args.kwargs["json"] == {
+        "point_ids": ["p1"],
+        "origin": {"lat": 34.89, "lng": 135.8},
+    }
+
+
 async def test_ingest_parses_ingested(monkeypatch: pytest.MonkeyPatch) -> None:
     """ingest() reads the {status, version, point_count} envelope when ingested."""
     _mock_httpx(monkeypatch, {"status": "ingested", "version": 3, "point_count": 7})
