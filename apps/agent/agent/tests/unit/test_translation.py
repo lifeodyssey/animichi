@@ -91,7 +91,7 @@ class TestTranslateTitle:
 
         with (
             patch(
-                "agent.agents.translation._lookup_bangumi_api",
+                "agent.agents.translation.lookup_bangumi_api",
                 return_value=None,
             ),
             patch(

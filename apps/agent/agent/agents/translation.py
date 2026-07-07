@@ -14,22 +14,16 @@ translation, which may differ from a literal translation.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 
-import httpx
 import structlog
 from pydantic_ai import Agent
 from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
 
 from agent.agents.base import resolve_model
+from agent.agents.translation_bangumi import lookup_bangumi_api
 
 logger = structlog.get_logger(__name__)
-
-_BANGUMI_SEARCH_URL = "https://api.bgm.tv/v0/search/subjects"
-_BANGUMI_USER_AGENT = (
-    "Seichijunrei/1.0 (https://github.com/lifeodyssey/Seichijunrei-agent)"
-)
 
 
 @dataclass
@@ -51,7 +45,7 @@ class TranslationResult:
     confidence: float = 1.0  # 1.0 = authoritative, 0.5 = web search, 0.3 = LLM guess
 
 
-# ── Deterministic lookup functions (no LLM needed) ──────────────────
+# ── Deterministic DB lookup (no LLM needed) ──────────────────────────
 
 
 async def _lookup_db(db: object, title: str, target_locale: str) -> str | None:
@@ -76,55 +70,6 @@ async def _lookup_db(db: object, title: str, target_locale: str) -> str | None:
     return None
 
 
-async def _search_bangumi_subject(title: str) -> Mapping[str, object] | None:
-    """POST a one-result anime subject search to the Bangumi v0 API."""
-    body = {"keyword": title, "filter": {"type": [2]}, "limit": 1}
-    headers = {"User-Agent": _BANGUMI_USER_AGENT}
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.post(_BANGUMI_SEARCH_URL, json=body, headers=headers)
-    if response.status_code >= 400:
-        logger.warning("bangumi_search_http_error", status=response.status_code)
-        return None
-    return _first_search_hit(response.json())
-
-
-def _first_search_hit(payload: object) -> Mapping[str, object] | None:
-    """Extract the first subject dict from a search response envelope."""
-    if not isinstance(payload, Mapping):
-        return None
-    hits = payload.get("data")
-    if not isinstance(hits, list) or not hits:
-        return None
-    first = hits[0]
-    return first if isinstance(first, Mapping) else None
-
-
-def _pick_locale_title(hit: Mapping[str, object], target_locale: str) -> str | None:
-    """Choose the localized title from a Bangumi subject hit."""
-    name_ja = hit.get("name")
-    name_cn = hit.get("name_cn")
-    if target_locale == "zh" and name_cn:
-        return str(name_cn)
-    if target_locale == "ja" and name_ja:
-        return str(name_ja)
-    # Bangumi has no English titles; name_cn is sometimes the international one.
-    if target_locale == "en" and name_cn and str(name_cn).isascii():
-        return str(name_cn)
-    return None
-
-
-async def _lookup_bangumi_api(title: str, target_locale: str) -> str | None:
-    """Search Bangumi API for the title translation."""
-    try:
-        hit = await _search_bangumi_subject(title)
-    except (httpx.HTTPError, OSError, RuntimeError, ValueError) as exc:
-        logger.warning("bangumi_api_translation_failed", title=title, error=str(exc))
-        return None
-    if hit is None:
-        return None
-    return _pick_locale_title(hit, target_locale)
-
-
 # ── Translation Agent (with web search) ─────────────────────────────
 
 _TRANSLATION_INSTRUCTIONS = """\
@@ -135,19 +80,32 @@ Japanese, Chinese, and English.
 
 IMPORTANT RULES:
 1. For anime titles, NEVER hard-translate. Search for the community-accepted
-   translation using web search. For example:
+   translation using web search. Chinese must be Simplified Chinese (zh-Hans)
+   as used on Bangumi/萌娘百科; convert or prefer Simplified variants over
+   Traditional Chinese from Taiwan/Hong Kong Wikipedia. For example:
    - "君の名は。" → Chinese: "你的名字。" (NOT "你的名字是")
    - "進撃の巨人" → English: "Attack on Titan" (NOT "Advance of Giants")
    - "響け！ユーフォニアム" → Chinese: "吹响！悠风号" (NOT "响吧！上低音号")
+   - "ソードアート・オンライン" → Chinese: "刀剑神域"
+   - "あの日見た花の名前を僕達はまだ知らない。" → Chinese: "未闻花名",
+     English: "Anohana"
 
 2. Use web search to find translations from authoritative sources:
-   - 萌娘百科 (zh.moegirl.org.cn) for Chinese translations
-   - Wikipedia for English translations
-   - Bangumi (bgm.tv) for cross-references
+   - Bangumi (bgm.tv) name_cn and 萌娘百科 for Chinese translations
+   - Official English licensors/Wikipedia for English titles
+   - Prefer official localized English; if none exists, use the standard
+     romanized Japanese title. NEVER literal word-by-word translation.
+   - Examples: "銀魂" → English: "Gintama"; "化物語" → English:
+     "Bakemonogatari"; "やはり俺の青春ラブコメはまちがっている。" →
+     English: "My Teen Romantic Comedy SNAFU"
 
-3. For place names, use the standard localized form:
+3. For Japanese place names, use the standard localized form. Use Hepburn
+   romanization plus customary English generic suffixes: Station, Shrine,
+   Temple, Park, Garden(s). Do NOT translate proper-noun meanings word-by-word.
    - "宇治駅" → Chinese: "宇治站", English: "Uji Station"
    - "秋葉原" → Chinese: "秋叶原", English: "Akihabara"
+   - "須賀神社" → English: "Suga Shrine"
+   - "新宿御苑" → English: "Shinjuku Gyoen"
 
 4. Return ONLY the translated text, no explanations.
 """
@@ -185,7 +143,7 @@ async def translate_title(
             )
 
     # 2. Bangumi API
-    api_result = await _lookup_bangumi_api(title, target_locale)
+    api_result = await lookup_bangumi_api(title, target_locale)
     if api_result and api_result != title:
         logger.info("translation_bangumi_hit", title=title, translated=api_result)
         return TranslationResult(
@@ -193,16 +151,19 @@ async def translate_title(
         )
 
     # 3. Web search + LLM (via translation_agent)
-    locale_names = {"ja": "Japanese", "zh": "Chinese", "en": "English"}
+    locale_names = {"ja": "Japanese", "zh": "Simplified Chinese", "en": "English"}
     target_name = locale_names.get(target_locale, target_locale)
 
     # Fence the title to prevent prompt injection from user-influenced input
     safe_title = title.replace("```", "")
     prompt = (
-        f"What is the official {target_name} title for the anime "
-        f"enclosed below?\n```\n{safe_title}\n```\n"
-        f"Search for the community-accepted translation. "
-        f"Return ONLY the translated title, nothing else."
+        f"What is the {target_name} name of the anime title OR Japanese place "
+        f"name enclosed below?\n```\n{safe_title}\n```\n"
+        f"For anime, search for the official or community-accepted title. "
+        f"For places, return the standard localized form; use Hepburn "
+        f"romanization plus English generic suffixes like Station, Shrine, "
+        f"Temple, Park, or Garden when customary. Do not translate proper-noun "
+        f"meanings word by word. Return ONLY the translated name, nothing else."
     )
 
     try:
