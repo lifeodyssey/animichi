@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat 初始状态 · 可交互原型 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/index.css">
+<style>
+  :root{
+    --bg:#f5f1e4; --paper:#fffdf5; --ink:#5a3c20; --ink-body:#725d42; --ink-soft:#9f927d;
+    --teal:#1c9b8e; --teal-bright:#19c8b9; --teal-bg:#e6f9f6; --teal-deep:#11857a;
+    --orange:#e6883a; --orange-active:#cf7128; --vermillion:#c44a2e;
+    --line:#e8e2d6; --line2:#ded7c6; --content:#f7f3df; --pill:50px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{font-family:"Nunito","Noto Sans SC",sans-serif;color:var(--ink-body);
+    background:
+      radial-gradient(60% 38% at 84% -6%,#e7f1fb 0,rgba(231,241,251,0) 60%),
+      radial-gradient(50% 34% at 10% -2%,#fbe6ef 0,rgba(251,230,239,0) 58%),
+      var(--bg);
+    display:flex;flex-direction:column;height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;}
+  .app{flex:1;display:flex;flex-direction:column;min-height:0;width:100%;}
+  /* mobile phone-frame mode (?m=1) — keeps the mobile flow phone-shaped, not full-width desktop */
+  body.mframe{align-items:center;justify-content:center;padding:18px;}
+  body.mframe .app{flex:none;width:402px;max-width:100%;height:min(92vh,864px);border-radius:46px;overflow:hidden;
+    box-shadow:0 0 0 12px #2c2722,0 2px 0 14px #4a4239,0 40px 80px -30px rgba(61,52,40,.55);}
+  @media (max-width:520px){ body.mframe{padding:0;} body.mframe .app{width:100%;height:100vh;border-radius:0;box-shadow:none;} }
+
+  /* ===== strict DS palette (toggle) — only animal-island-ui core tokens ===== */
+  body.ds{
+    --bg:#f0e8d8;        /* page = DS secondary cream */
+    --paper:#f8f8f0;      /* elevated bars/cards = DS bg */
+    --content:#f7f3df;    /* assistant bubbles = DS content */
+    --ink:#794f27;        /* DS text */
+    --teal:#19c8b9;       /* DS primary (was warm #1c9b8e) */
+    --teal-deep:#11a89b;  /* DS primary-active for press shadow */
+    --line2:#c4b89e;      /* DS border */
+    background:#f0e8d8;    /* drop the cool ambient radials */
+  }
+  body.ds .chip2.orange{background:#fdf1cf;color:#a8801a;border-color:#f6e3a6;box-shadow:0 3px 0 0 #efd98f;} /* orange→DS warning yellow */
+
+  /* app bar */
+  .appbar{flex:none;display:flex;align-items:center;gap:13px;padding:13px clamp(16px,4vw,28px);
+    background:var(--paper);border-bottom:2px solid var(--line);z-index:5;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .mk{position:relative;width:40px;height:40px;flex:none;}
+  .brand .mk .torii{width:40px;height:40px;display:block;}
+  .brand .mk .markfox{position:absolute;left:-8px;bottom:-6px;width:24px;height:24px;transform:scaleX(-1);}
+  .brand .tt{display:flex;flex-direction:column;line-height:1.05;}
+  .brand .tt .ja{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:19px;color:var(--ink);}
+  .brand .tt .en{font-size:10.5px;font-weight:800;letter-spacing:1.5px;color:var(--teal);}
+  .grow{flex:1;}
+  .hbtn{display:inline-flex;align-items:center;gap:7px;background:var(--paper);color:var(--ink);border:2px solid var(--line);
+    font-family:inherit;font-weight:800;font-size:13.5px;padding:8px 14px;border-radius:var(--pill);cursor:pointer;box-shadow:0 3px 0 0 #d9cfbb;transition:transform .1s,box-shadow .1s;}
+  .hbtn:active{transform:translateY(2px);box-shadow:0 1px 0 0 #d9cfbb;}
+  .hbtn svg{width:15px;height:15px;}
+  .ava{width:38px;height:38px;border-radius:50%;background:var(--teal);border:2px solid #fff;box-shadow:0 3px 8px -3px var(--teal);flex:none;}
+
+  /* scroll + thread */
+  .scroll{flex:1;overflow-y:auto;position:relative;}
+  .wrap{max-width:760px;margin:0 auto;padding:26px clamp(16px,4vw,24px) 8px;min-height:100%;display:flex;flex-direction:column;}
+  .thread{display:flex;flex-direction:column;gap:16px;}
+  .row{display:flex;gap:11px;align-items:flex-start;}
+  .row.me{justify-content:flex-end;}
+  @keyframes rowIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+  body.motion .row{animation:rowIn .34s cubic-bezier(.2,.8,.3,1);}
+  .fava{width:38px;height:38px;border-radius:50%;background:var(--teal-bg);border:2px solid #cdeee8;flex:none;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .fava img{width:34px;height:34px;}
+  .bub{max-width:78%;padding:13px 17px;border-radius:20px;font-size:15.5px;line-height:1.62;font-weight:500;}
+  .bub.a{background:var(--content);border:2px solid var(--line);border-top-left-radius:6px;color:var(--ink-body);}
+  .bub.me{background:var(--teal);color:#fff;border-top-right-radius:6px;font-weight:600;box-shadow:0 4px 0 0 var(--teal-deep);}
+  .bub b{color:var(--ink);} .bub.me b{color:#fff;}
+  .from-home{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:800;color:var(--ink-soft);margin-bottom:6px;justify-content:flex-end;}
+  .from-home svg{width:13px;height:13px;}
+
+  /* empty hero */
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:14px 0 30px;}
+  .empty .gfox{width:108px;height:108px;filter:drop-shadow(0 8px 10px #6b563a26);animation:bob 4s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-7px);}}
+  .empty h1{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:27px;color:var(--ink);margin:0;letter-spacing:.5px;}
+  .lead-bub{background:var(--content);border:2px solid var(--line);border-radius:20px;border-top-left-radius:6px;padding:13px 18px;font-size:15px;line-height:1.6;color:var(--ink-body);font-weight:500;max-width:33em;}
+  .sglabel{font-size:12px;font-weight:800;letter-spacing:.5px;color:var(--ink-soft);margin-top:4px;}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:580px;}
+  .chip2{display:inline-flex;align-items:center;gap:8px;border-radius:var(--pill);padding:10px 17px;font-weight:800;font-size:14px;cursor:pointer;border:2px solid transparent;box-shadow:0 3px 0 0 #00000010;transition:transform .12s,box-shadow .12s;}
+  .chip2:hover{transform:translateY(-2px);} .chip2:active{transform:translateY(1px);}
+  .chip2 svg{width:16px;height:16px;}
+  .chip2.work{background:var(--paper);border-color:var(--line);color:var(--ink);box-shadow:0 3px 0 0 #e0d8c8;}
+  .chip2.green{background:#e7f4dd;color:#4e7a2c;border-color:#d4ebbf;box-shadow:0 3px 0 0 #cfe4b4;}
+  .chip2.teal{background:var(--teal-bg);color:var(--teal-deep);border-color:#bfeae3;box-shadow:0 3px 0 0 #b6e0d8;}
+  .chip2.orange{background:#fde9d6;color:#b9682a;border-color:#f6d3a8;box-shadow:0 3px 0 0 #f0c79a;}
+
+  /* thinking */
+  .think{display:flex;flex-direction:column;gap:10px;}
+  .think .dots{display:flex;gap:6px;align-items:center;}
+  .think .dots i{width:9px;height:9px;border-radius:50%;background:var(--teal);opacity:.3;animation:blink 1.1s infinite;}
+  .think .dots i:nth-child(2){animation-delay:.16s;} .think .dots i:nth-child(3){animation-delay:.32s;}
+  @keyframes blink{0%,100%{opacity:.25;transform:translateY(0);}50%{opacity:1;transform:translateY(-3px);}}
+  .steps{display:flex;flex-direction:column;gap:8px;margin-top:1px;}
+  .step{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:700;color:var(--ink-soft);transition:color .3s;}
+  .step .tick{width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;background:#f0ece2;border:2px solid var(--line);transition:all .3s;}
+  .step .tick svg{width:12px;height:12px;opacity:0;transition:opacity .3s;}
+  .step.done{color:var(--ink-body);} .step.done .tick{background:var(--teal);border-color:var(--teal);} .step.done .tick svg{opacity:1;color:#fff;}
+  .step.now{color:var(--ink);} .step.now .tick{background:var(--teal-bg);border-color:var(--teal);}
+  .step.now .tick::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--teal);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{transform:scale(.7);opacity:.6;}50%{transform:scale(1);opacity:1;}}
+
+  /* generative placeholder slot */
+  .gen-slot{margin-top:12px;border:2px dashed #c9bfa6;border-radius:18px;padding:18px;background:#fcf8ec;display:flex;align-items:center;gap:13px;}
+  .gen-slot .gi{width:42px;height:42px;border-radius:12px;background:var(--teal-bg);border:2px solid #bfeae3;display:flex;align-items:center;justify-content:center;flex:none;color:var(--teal-deep);}
+  .gen-slot .gi svg{width:22px;height:22px;}
+  .gen-slot .gt b{font-family:"Zen Maru Gothic",sans-serif;color:var(--ink);font-size:14.5px;}
+  .gen-slot .gt span{display:block;font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-top:2px;}
+  .gen-slot code{font-family:ui-monospace,monospace;font-size:11.5px;background:#efe9da;border-radius:6px;padding:1px 6px;color:#6b5a44;}
+
+  /* assistant column: text bubble + generated card stacked under the fox */
+  .acol{display:flex;flex-direction:column;max-width:82%;min-width:0;}
+  .acol .bub{max-width:100%;}
+
+  /* ===== inline route card (generative UI · Phase 1) ===== */
+  .rcard{margin-top:13px;background:var(--paper);border:2px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 14px 30px -20px #5a3c2066;}
+  body.motion .rcard.pop{animation:cardPop .4s cubic-bezier(.2,.8,.3,1);}
+  @keyframes cardPop{from{opacity:0;transform:translateY(10px) scale(.985);}to{opacity:1;transform:none;}}
+  .rcard .rh{display:flex;align-items:center;gap:9px;padding:13px 16px;border-bottom:2px solid var(--line);background:linear-gradient(180deg,#ffffff55,#00000005);}
+  .rcard .rh svg.mi{width:17px;height:17px;color:var(--ink);flex:none;}
+  .rcard .rh b{font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:15.5px;color:var(--ink);}
+  .rcard .rh .chip{margin-left:auto;font-size:11.5px;font-weight:800;color:var(--teal-deep);background:var(--teal-bg);border-radius:50px;padding:3px 10px;white-space:nowrap;}
+  .rmap{height:128px;background:#cfe7ea;border-bottom:2px solid var(--line);}
+  .rmap svg{display:block;width:100%;height:100%;}
+  .rspots{padding:5px 14px;}
+  .rspot{display:flex;align-items:center;gap:11px;padding:8px 2px;}
+  .rspot+.rspot{border-top:1px dashed var(--line2);}
+  body.motion .rcard.pop .rspot{animation:rowIn .42s cubic-bezier(.2,.8,.3,1) backwards;}
+  body.motion .rcard.pop .rspot:nth-child(2){animation-delay:.06s;}
+  body.motion .rcard.pop .rspot:nth-child(3){animation-delay:.12s;}
+  body.motion .rcard.pop .rspot:nth-child(4){animation-delay:.18s;}
+  .rspot .idx{width:24px;height:24px;border-radius:50%;background:var(--teal);color:#fff;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 2px 0 0 var(--teal-deep);}
+  .rspot .sn{font-weight:700;color:var(--ink);font-size:14px;}
+  .rspot .sm{font-size:11.5px;color:var(--ink-soft);font-weight:700;margin-left:auto;}
+  .ractions{display:flex;gap:8px;padding:12px 14px;border-top:2px solid var(--line);flex-wrap:wrap;}
+  .rbtn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:none;cursor:pointer;font-family:inherit;font-weight:800;border-radius:var(--pill);padding:11px 16px;font-size:14px;transition:transform .1s,box-shadow .1s,filter .1s;}
+  .rbtn svg{width:15px;height:15px;}
+  .rbtn.go{background:var(--teal);color:#fff;box-shadow:0 4px 0 0 var(--teal-deep);flex:1;min-width:158px;}
+  .rbtn.go:hover{filter:brightness(1.04);} .rbtn.go:active{transform:translateY(2px);box-shadow:0 2px 0 0 var(--teal-deep);}
+  .rbtn.ghost{background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 0 #d9cfbb;}
+  .rbtn.ghost:active{transform:translateY(2px);box-shadow:0 1px 0 0 #d9cfbb;}
+
+  /* skeleton */
+  .sk{background:linear-gradient(110deg,#e6dfce 30%,#f3ecdb 50%,#e6dfce 70%);background-size:200% 100%;border-radius:6px;}
+  body.motion .sk{animation:shimmer 1.4s linear infinite;}
+  @keyframes shimmer{to{background-position:-200% 0;}}
+  .rmap.sk{border-radius:0;} .skline{height:11px;}
+
+  /* auth modal (P5 · save wall) */
+  .mdim{position:fixed;inset:0;background:rgba(61,52,40,.46);backdrop-filter:blur(2px);z-index:60;display:none;align-items:center;justify-content:center;padding:20px;}
+  .mdim.on{display:flex;}
+  body.motion .mdim.on .authcard{animation:cardPop .32s cubic-bezier(.2,.8,.3,1);}
+  .authcard{width:404px;max-width:100%;background:var(--paper);border:2px solid var(--line);border-radius:28px;padding:28px 30px 24px;box-shadow:0 50px 90px -34px #3d342899;text-align:center;position:relative;}
+  .authcard .x{position:absolute;top:13px;right:15px;width:34px;height:34px;border-radius:50%;border:none;background:var(--bg);color:var(--ink-soft);font-size:20px;cursor:pointer;}
+  .authcard img{width:88px;height:88px;margin:-2px auto 4px;display:block;}
+  .authcard h2{font-family:"Zen Maru Gothic",sans-serif;font-size:21px;color:var(--ink);margin:0 0 6px;}
+  .authcard p{font-size:13.5px;line-height:1.6;color:var(--ink-body);margin:0 0 17px;}
+  .authcard b{color:var(--ink);font-weight:800;}
+  .authcard .field{display:flex;align-items:center;gap:10px;background:var(--bg);border:2.5px solid var(--line);border-radius:15px;padding:12px 14px;margin-bottom:12px;}
+  .authcard .field svg{width:19px;height:19px;color:var(--ink-soft);flex:none;}
+  .authcard .field input{flex:1;border:none;outline:none;background:transparent;font-family:inherit;font-size:15.5px;color:var(--ink);}
+  .authcard .field:focus-within{border-color:var(--teal-bright);}
+  .authcard .big{width:100%;padding:14px;border-radius:15px;border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:15.5px;background:var(--teal);color:#fff;box-shadow:0 4px 0 0 var(--teal-deep);}
+  .authcard .big:active{transform:translateY(2px);box-shadow:0 2px 0 0 var(--teal-deep);}
+  .authcard .or{display:flex;align-items:center;gap:12px;margin:15px 0;color:var(--ink-soft);font-size:12px;font-weight:700;}
+  .authcard .or span{flex:1;height:1px;background:var(--line);}
+  .authcard .guest{width:100%;padding:12px;border-radius:15px;cursor:pointer;font-family:inherit;font-weight:800;font-size:14.5px;background:var(--paper);color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 0 #d9cfbb;}
+  .authcard .guest:active{transform:translateY(2px);box-shadow:0 1px 0 0 #d9cfbb;}
+  .authcard .note{font-size:11.5px;color:var(--ink-soft);margin:13px 0 0;line-height:1.5;}
+
+  /* toast */
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);z-index:70;background:#2c2722;color:#f3ead8;font-weight:700;font-size:13.5px;border-radius:50px;padding:11px 20px;box-shadow:0 14px 30px -10px #00000077;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;text-align:center;max-width:84vw;}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* composer dock */
+  .dock{flex:none;background:linear-gradient(transparent,var(--bg) 26%);padding:8px clamp(16px,4vw,24px) 16px;}
+  .dock .di{max-width:760px;margin:0 auto;}
+  .composer{display:flex;align-items:center;gap:10px;background:var(--paper);border:2px solid var(--line);border-radius:var(--pill);padding:8px 8px 8px 18px;box-shadow:0 12px 28px -16px #5a3c2055;transition:opacity .25s,border-color .15s;}
+  .composer:focus-within{border-color:var(--teal-bright);}
+  .composer.busy{opacity:.6;pointer-events:none;}
+  .composer .att{width:36px;height:36px;border-radius:50%;border:none;background:var(--bg);color:var(--ink-soft);cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;}
+  .composer .att svg{width:18px;height:18px;}
+  .composer .ci{flex:1;border:none;outline:none;background:transparent;font-family:inherit;font-size:15.5px;color:var(--ink);min-width:0;}
+  .composer .ci::placeholder{color:var(--ink-soft);}
+  .composer .snd{width:42px;height:42px;border-radius:50%;border:none;background:#d8d0bf;color:#fff;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 0 0 #c4bba6;transition:background .15s,box-shadow .15s,transform .1s;}
+  .composer .snd.on{background:var(--teal);box-shadow:0 3px 0 0 var(--teal-deep);}
+  .composer .snd.on:active{transform:translateY(2px);box-shadow:0 1px 0 0 var(--teal-deep);}
+  .composer .snd svg{width:18px;height:18px;}
+  .hint{text-align:center;font-size:11.5px;color:var(--ink-soft);margin:8px 0 0;font-weight:600;}
+
+  /* demo control (prototype affordance, not part of the app) */
+  .demo{position:fixed;right:16px;bottom:84px;z-index:30;display:flex;align-items:center;gap:6px;background:#2c2722;
+    border-radius:50px;padding:6px 6px 6px 12px;box-shadow:0 12px 28px -10px #00000066;}
+  .demo .dl{color:#e9dcc5;font-size:11px;font-weight:800;letter-spacing:1px;margin-right:2px;}
+  .demo button{border:none;border-radius:50px;font-family:inherit;font-weight:800;font-size:12px;padding:7px 12px;cursor:pointer;background:#4a4239;color:#f3ead8;}
+  .demo button.on{background:var(--teal);color:#fff;}
+  .demo button.r{background:#5a5047;width:32px;padding:7px 0;}
+  .demo .sep{width:1px;height:20px;background:#ffffff24;margin:0 3px;flex:none;}
+
+  @media (max-width:680px){
+    .appbar .hbtn span{display:none;} .hbtn{padding:8px 11px;}
+    .bub{max-width:84%;} .empty h1{font-size:22px;} .empty .gfox{width:92px;height:92px;}
+    .demo{bottom:80px;right:10px;}
+  }
+</style>
+</head>
+<body class="ds">
+<div class="app">
+<header class="appbar">
+  <div class="brand">
+    <span class="mk"><svg class="torii" viewBox="0 0 50 50"><g fill="#c44a2e"><path d="M5 13h40l-3 6H8z"/><path d="M9 19h32l-2 5H11z"/><rect x="13" y="22" width="6" height="25" rx="1.5"/><rect x="31" y="22" width="6" height="25" rx="1.5"/><rect x="11" y="28" width="28" height="5" rx="1.5"/></g></svg><img class="markfox" src="assets/fox/fox-trot.svg" alt=""></span>
+    <span class="tt"><span class="ja">聖地巡礼</span><span class="en">AI GUIDE</span></span>
+  </div>
+  <span class="grow"></span>
+  <button class="hbtn" id="newChat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>新しい会話</span></button>
+  <span class="ava"></span>
+</header>
+
+<div class="scroll" id="scroll">
+  <div class="wrap">
+    <!-- empty hero -->
+    <div class="empty" id="empty">
+      <img class="gfox" src="assets/fox/fox-welcome.svg" alt="">
+      <h1>どの聖地へ行きますか？</h1>
+      <div class="lead-bub">ようこそ、<b>聖地巡礼</b>へ！行きたいアニメの聖地を教えてください。<b>作品名・駅名・シーンの写真</b>、なんでもOKです 🦊</div>
+      <span class="sglabel">こんな風に聞けます</span>
+      <div class="chips" id="chips">
+        <button class="chip2 work" data-q="「君の名は。」の聖地に行きたい">「君の名は。」の聖地</button>
+        <button class="chip2 work" data-q="響け！ユーフォニアムの大吉山に行きたい">響け！ユーフォニアム 大吉山</button>
+        <button class="chip2 work" data-q="天気の子の新宿の聖地">天気の子 新宿</button>
+      </div>
+      <div class="chips">
+        <button class="chip2 teal" data-q="今いる場所の近くの聖地を教えて"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/></svg>近くの聖地</button>
+        <button class="chip2 orange" data-q="この写真の場所を探して"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-5-5L5 21"/></svg>写真から探す</button>
+        <button class="chip2 green" data-q="人気の聖地ランキングを見たい"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3h14v18l-7-4-7 4z"/></svg>人気ランキング</button>
+      </div>
+    </div>
+    <div class="thread" id="thread"></div>
+  </div>
+</div>
+
+<div class="dock">
+  <div class="di">
+    <div class="composer" id="composer">
+      <button class="att" title="写真を添付"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-5-5L5 21"/></svg></button>
+      <input class="ci" id="input" placeholder="作品名・駅名・シーンを入力…" autocomplete="off">
+      <button class="snd" id="send" aria-label="送信"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l11 2-11 2z"/></svg></button>
+    </div>
+    <p class="hint" id="hint">AIの案内は誤りを含むことがあります · 現地の最新情報をご確認ください</p>
+  </div>
+</div>
+</div><!-- /.app -->
+
+<!-- auth modal (save wall · P5) -->
+<div class="mdim" id="authDim">
+  <div class="authcard">
+    <button class="x" id="authClose" aria-label="閉じる">×</button>
+    <img src="assets/fox/fox-welcome.svg" alt="">
+    <h2>ルートを保存しよう</h2>
+    <p>メールに<b>ログインリンク</b>をお送りします。パスワード不要。<b>端末をまたいで現地で開けます</b>。</p>
+    <label class="field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg><input placeholder="you@example.com" autocomplete="email"></label>
+    <button class="big">ログインリンクを送信</button>
+    <div class="or"><span></span>または<span></span></div>
+    <button class="guest">🦊 ゲストで先に遊ぶ</button>
+    <p class="note">ゲストのルートはこの端末に一時保存。ログインすると永久保存＆共有できます。</p>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- prototype demo control -->
+<div class="demo">
+  <span class="dl">DEMO</span>
+  <button id="mEmpty" class="on">空</button>
+  <button id="mHome">ホームから</button>
+  <button id="reset" class="r" title="リセット">↺</button>
+  <span class="sep"></span>
+  <button id="pWarm" title="现行（暖）">暖</button>
+  <button id="pDS" class="on" title="DS 厳密">DS</button>
+</div>
+
+<script>
+(function(){
+  var $=function(s){return document.querySelector(s);};
+  var thread=$('#thread'), empty=$('#empty'), scroll=$('#scroll'),
+      input=$('#input'), send=$('#send'), composer=$('#composer'), hint=$('#hint');
+  var busy=false;
+
+  var FOX_THINK='assets/fox/fox-thinking.svg', FOX_GUIDE='assets/fox/fox-guide.svg';
+
+  function scrollDown(){ scroll.scrollTop=scroll.scrollHeight; }
+  function appendRow(node){ thread.appendChild(node); scrollDown(); }
+
+  function userRow(text, fromHome){
+    var r=document.createElement('div'); r.className='row me';
+    r.innerHTML=(fromHome?'<div><div class="from-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>ホームから</div><div class="bub me"></div></div>'
+      :'<div class="bub me"></div>');
+    r.querySelector('.bub').textContent=text;
+    return r;
+  }
+
+  function thinkingRow(){
+    var r=document.createElement('div'); r.className='row'; r.id='thinkingRow';
+    r.innerHTML='<span class="fava"><img src="'+FOX_THINK+'" alt=""></span>'
+      +'<div class="bub a"><div class="think">'
+      +'<div class="dots"><i></i><i></i><i></i><span style="margin-left:7px;font-weight:800;color:var(--teal);font-size:14px;">ロケ地を調べています</span></div>'
+      +'<div class="steps">'
+      +'<div class="step" data-s="1"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg></span>作品を特定</div>'
+      +'<div class="step" data-s="2"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg></span>聖地スポットを収集（飛騨・東京…）</div>'
+      +'<div class="step" data-s="3"><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg></span>歩けるルートに組み立て</div>'
+      +'</div></div></div>';
+    return r;
+  }
+  function setStep(r,n,cls){ var el=r.querySelector('[data-s="'+n+'"]'); if(el) el.className='step '+cls; }
+
+  function replyRow(){
+    var r=document.createElement('div'); r.className='row';
+    r.innerHTML='<span class="fava"><img src="'+FOX_GUIDE+'" alt=""></span>'
+      +'<div class="acol"><div class="bub a"><span class="tw"></span></div>'
+      +'<div class="route-mount"></div></div>';
+    return r;
+  }
+
+  function typewrite(el, text, done){
+    var i=0; el.textContent='';
+    var iv=setInterval(function(){
+      el.textContent=text.slice(0,++i); scrollDown();
+      if(i>=text.length){ clearInterval(iv); done&&done(); }
+    }, 26);
+  }
+
+  function setBusy(b){ busy=b; composer.classList.toggle('busy',b); input.disabled=b;
+    hint.textContent=b?'回答を生成中です…':'AIの案内は誤りを含むことがあります · 現地の最新情報をご確認ください';
+    if(!b){ refreshSend(); } }
+
+  /* ---- inline route card (generative UI · Phase 1) ---- */
+  var ROUTE_MAP='<svg viewBox="0 0 600 128" preserveAspectRatio="xMidYMid slice"><rect width="600" height="128" fill="#cfe7ea"/><path d="M-10 86 Q150 60 320 88 T620 80 V140 H-10Z" fill="#e7e2cf"/><ellipse cx="130" cy="40" rx="130" ry="34" fill="#dfe9c9"/><path d="M70 104 C 200 70 280 50 360 44 S 500 30 545 26" fill="none" stroke="#19c8b9" stroke-width="4.5" stroke-dasharray="2 10" stroke-linecap="round"/><circle cx="70" cy="104" r="8" fill="#19c8b9" stroke="#fff" stroke-width="3"/><circle cx="280" cy="52" r="7" fill="#fff" stroke="#19c8b9" stroke-width="3"/><circle cx="360" cy="44" r="7" fill="#fff" stroke="#19c8b9" stroke-width="3"/><circle cx="545" cy="26" r="8" fill="#c44a2e" stroke="#fff" stroke-width="3"/></svg>';
+
+  function rspot(i,n,m){ return '<div class="rspot"><span class="idx">'+i+'</span><span class="sn">'+n+'</span><span class="sm">'+m+'</span></div>'; }
+
+  /* mock data: 作品/意図 → ルート (so the home selection actually carries through) */
+  var ROUTES={
+    '君の名は':{reply:'「君の名は。」の聖地、見つかりました！飛騨古川を中心に、駅から歩ける半日ルートにまとめました。',title:'飛騨古川 半日ルート',meta:'約5時間 · 5スポット',spots:[['飛騨古川駅','徒歩6分'],['気多若宮神社','徒歩4分'],['飛騨市図書館','徒歩9分'],['落合バス停','バス']]},
+    '聲の形':{reply:'「聲の形」の聖地、大垣に揃っています！水門川沿いを歩く半日ルートにしました。',title:'大垣 さんぽルート',meta:'約4時間 · 5スポット',spots:[['大垣駅','徒歩5分'],['美登鳤橋','徒歩3分'],['大垣公園','徒歩7分'],['むすびの地','徒歩8分']]},
+    '天気の子':{reply:'「天気の子」の聖地、新宿エリアにまとめました！雨の街を歩くルートです。',title:'新宿 半日ルート',meta:'約3時間 · 5スポット',spots:[['JR新宿駅','徒歩4分'],['新宿区役所','徒歩6分'],['代々木会館跡','徒歩9分'],['朝陽の坂','バス']]},
+    'ラブライブ':{reply:'「ラブライブ!サンシャイン!!」の聖地、沼津に揃っています！海沿いルートにしました。',title:'沼津 さんぽルート',meta:'約5時間 · 6スポット',spots:[['沼津駅','バス'],['沼津港','徒歩5分'],['あわしま','船'],['内浦・三の浦','徒歩7分']]}
+  };
+  function lookupRoute(q){ for(var k in ROUTES){ if(q.indexOf(k)>=0) return ROUTES[k]; }
+    return {reply:'いくつかの聖地が見つかりました！歩けるルートにまとめました。',title:'おすすめ半日ルート',meta:'約4時間 · 5スポット',spots:[['最孄り駅','徒歩5分'],['聖地スポット①','徒歩6分'],['聖地スポット②','徒歩8分'],['立ち寄りカフェ','徒歩4分']]}; }
+
+  function routeSkeleton(){
+    var rows=''; for(var i=0;i<4;i++) rows+='<div class="rspot"><span class="sk" style="width:24px;height:24px;border-radius:50%;flex:none;"></span><span class="sk skline" style="width:'+(46+i*7)+'%;"></span></div>';
+    return '<div class="rcard"><div class="rh"><span class="sk skline" style="width:48%;height:14px;"></span></div><div class="rmap sk"></div><div class="rspots">'+rows+'</div></div>';
+  }
+
+  function routeCardHTML(d){
+    var rows=''; for(var i=0;i<d.spots.length;i++) rows+=rspot(i+1,d.spots[i][0],d.spots[i][1]);
+    return '<div class="rcard">'
+      +'<div class="rh"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg><b>'+d.title+'</b><span class="chip">'+d.meta+'</span></div>'
+      +'<div class="rmap">'+ROUTE_MAP+'</div>'
+      +'<div class="rspots">'+rows+'</div>'
+      +'<div class="ractions">'
+      +'<button class="rbtn go" data-act="walk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/></svg>歩くモードで出発</button>'
+      +'<button class="rbtn ghost" data-act="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>保存</button>'
+      +'<button class="rbtn ghost" data-act="detail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>詳細</button>'
+      +'</div></div>';
+  }
+
+  function bindCard(card){
+    card.querySelectorAll('[data-act]').forEach(function(b){
+      b.addEventListener('click',function(){
+        var a=b.getAttribute('data-act');
+        if(a==='save') openAuth();
+        else if(a==='walk') toast('歩くモードへ · Walk Mode は次のフェーズで実装');
+        else toast('ルート詳細 /routes/:id へ · 近日公開');
+      });
+    });
+  }
+
+  /* toast */
+  var _toastEl,_toastT;
+  function toast(msg){
+    _toastEl=_toastEl||$('#toast');
+    _toastEl.textContent=msg; _toastEl.classList.add('on');
+    clearTimeout(_toastT); _toastT=setTimeout(function(){ _toastEl.classList.remove('on'); },2300);
+  }
+
+  /* auth modal (P5 · save wall) */
+  function openAuth(){ $('#authDim').classList.add('on'); }
+  (function(){
+    var dim=$('#authDim'); if(!dim) return;
+    $('#authClose').addEventListener('click',function(){ dim.classList.remove('on'); });
+    dim.addEventListener('click',function(e){ if(e.target===dim) dim.classList.remove('on'); });
+    dim.querySelector('.big').addEventListener('click',function(){ dim.classList.remove('on'); toast('✉️ ログインリンクを送信しました · メールをご確認ください'); });
+    dim.querySelector('.guest').addEventListener('click',function(){ dim.classList.remove('on'); toast('🦊 ゲストで続けます · この端末に一時保存'); });
+  })();
+
+  function flow(text, fromHome){
+    if(busy) return;
+    empty.style.display='none';
+    var data=lookupRoute(text);
+    appendRow(userRow(text, fromHome));
+    input.value=''; refreshSend(); setBusy(true);
+    setTimeout(function(){
+      var t=thinkingRow(); appendRow(t);
+      setStep(t,1,'now');
+      setTimeout(function(){ setStep(t,1,'done'); setStep(t,2,'now'); },700);
+      setTimeout(function(){ setStep(t,2,'done'); setStep(t,3,'now'); },2100);
+      setTimeout(function(){
+        setStep(t,3,'done');
+        setTimeout(function(){
+          t.remove();
+          var rr=replyRow(); appendRow(rr);
+          typewrite(rr.querySelector('.tw'), data.reply, function(){
+            var mount=rr.querySelector('.route-mount');
+            mount.innerHTML=routeSkeleton(); scrollDown();
+            setTimeout(function(){
+              mount.innerHTML=routeCardHTML(data);
+              var card=mount.querySelector('.rcard'); card.classList.add('pop'); bindCard(card);
+              scrollDown(); setBusy(false);
+            },1050);
+          });
+        },420);
+      },3300);
+    },440);
+  }
+
+  function refreshSend(){ var v=input.value.trim(); send.classList.toggle('on', !!v && !busy); }
+  input.addEventListener('input',refreshSend);
+  input.addEventListener('keydown',function(e){ if(e.key==='Enter'&&input.value.trim()&&!busy){ flow(input.value.trim(),false); } });
+  send.addEventListener('click',function(){ if(input.value.trim()&&!busy) flow(input.value.trim(),false); });
+  document.querySelectorAll('#chips .chip2').forEach(function(c){ c.addEventListener('click',function(){ if(!busy) flow(c.dataset.q,false); }); });
+
+  function reset(homeSeed){
+    thread.innerHTML=''; setBusy(false); input.value=''; refreshSend();
+    if(homeSeed){ empty.style.display='none'; flow('「君の名は。」の聖地に行きたい', true); }
+    else{ empty.style.display=''; }
+  }
+  $('#newChat').addEventListener('click',function(){ mode('empty'); });
+  $('#reset').addEventListener('click',function(){ reset($('#mHome').classList.contains('on')); });
+
+  function mode(m){
+    $('#mEmpty').classList.toggle('on',m==='empty');
+    $('#mHome').classList.toggle('on',m==='home');
+    reset(m==='home');
+  }
+  $('#mEmpty').addEventListener('click',function(){ mode('empty'); });
+  $('#mHome').addEventListener('click',function(){ mode('home'); });
+
+  $('#pWarm').addEventListener('click',function(){ document.body.classList.remove('ds'); this.classList.add('on'); $('#pDS').classList.remove('on'); });
+  $('#pDS').addEventListener('click',function(){ document.body.classList.add('ds'); this.classList.add('on'); $('#pWarm').classList.remove('on'); });
+
+  refreshSend();
+
+  if((new URLSearchParams(location.search)).has('m')) document.body.classList.add('mframe');
+
+  /* seeded from the home screen: ?q=… → run the ホームから flow instead of empty */
+  var _seed=(new URLSearchParams(location.search)).get('q');
+  if(_seed){ $('#mEmpty').classList.remove('on'); $('#mHome').classList.add('on'); empty.style.display='none'; flow(_seed, true); }
+
+  /* enable entrance animations only where the CSS timeline actually advances
+     (a frozen capture iframe leaves it paused → rows show at their visible base) */
+  (function(){ var p=document.createElement('div'); p.style.cssText='position:absolute;left:-9999px;width:1px;height:1px;animation:rowIn 1s linear;';
+    document.body.appendChild(p); setTimeout(function(){ var a=p.getAnimations&&p.getAnimations()[0]; if(a&&a.currentTime>0) document.body.classList.add('motion'); p.remove(); },130); })();
+})();
+</script>
+</body>
+</html>

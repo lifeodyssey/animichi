@@ -58,6 +58,7 @@ outputs/
 !templates/*.html
 !supabase/templates/*.html
 !docs/mockups/**/*.html
+!docs/design/**/*.html
 
 # QA/debug screenshots dumped at repo root (root-level only; frontend/ and docs/ assets unaffected)
 /*.png

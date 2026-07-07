@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="design_doc_mode" content="canvas">
+<title>DS 補全 — Chat 桌面 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts.css">
+<style>
+  :root{
+    --bg:#f0e8d8; --paper:#f8f8f0; --content:#f7f3df; --ink:#794f27; --ink-body:#725d42; --ink-soft:#9f927d;
+    --teal:#19c8b9; --teal-bg:#e6f9f6; --teal-deep:#11a89b; --teal-text:#0e7c72;
+    --gold:#f5c31c; --gold-deep:#d8a812; --gold-ink:#5c4813; --star:#f0b429;
+    --orange:#e6883a; --orange-deep:#cf7128;
+    --line:#e8e2d6; --line2:#c4b89e; --pill:50px;
+    --map-land:#ebe6d5; --map-green:#dbe7c6; --map-green2:#dbe7c6; --map-water:#bcdce0; --map-road:#fdfbf2; --map-path:#8a6f4d;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{font-family:"Nunito","Noto Sans SC",sans-serif;color:var(--ink-body);background:#e9e0cc;-webkit-font-smoothing:antialiased;padding:40px 48px 90px;width:max-content;min-width:100%;}
+  .head{display:flex;align-items:flex-start;gap:16px;margin-bottom:6px;max-width:2200px;}
+  .head img{width:46px;height:46px;flex:none;}
+  .head h1{font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:27px;color:var(--ink);margin:0;}
+  .head p{margin:4px 0 0;font-size:13px;color:var(--ink-soft);font-weight:700;max-width:1400px;}
+  .head a{color:var(--teal-text);font-weight:800;}
+  .toplinks{margin-left:auto;display:flex;gap:9px;flex-wrap:wrap;}
+  .toplinks a{display:inline-flex;gap:7px;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:8px 15px;font-size:12.5px;font-weight:800;color:var(--ink);text-decoration:none;box-shadow:0 3px 0 0 #d4c9b4;}
+
+  .sec{margin-top:38px;max-width:2200px;}
+  .sec>h2{display:flex;align-items:center;gap:11px;font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:19px;color:var(--ink);margin:0 0 4px;}
+  .sec>h2 .code{background:var(--teal);color:#fff;border-radius:10px;padding:2px 11px;font-size:13px;box-shadow:0 2px 0 0 var(--teal-deep);font-family:"Nunito",sans-serif;}
+  .sec>p.note{margin:0 0 16px;font-size:12.5px;color:var(--ink-soft);font-weight:700;max-width:1400px;}
+  .cards{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;}
+  .card{background:var(--paper);border:2px solid #d9d0ba;border-radius:20px;padding:20px 22px;box-shadow:0 10px 24px -16px #5a3c2044;}
+  .card>h3{margin:0 0 3px;font-family:"Zen Maru Gothic",sans-serif;font-weight:700;font-size:15.5px;color:var(--ink);}
+  .card>p.cnote{margin:0 0 14px;font-size:11.5px;color:#8a7b66;font-weight:700;max-width:560px;line-height:1.6;}
+  .card>p.cnote b{color:var(--ink);}
+  .lbl{font-size:10.5px;font-weight:900;letter-spacing:.6px;color:var(--ink-soft);margin:14px 0 7px;}
+  .lbl:first-of-type{margin-top:0;}
+
+  /* swatches */
+  .sw{display:flex;gap:10px;flex-wrap:wrap;max-width:640px;}
+  .swi{width:118px;}
+  .swi .c{height:52px;border-radius:12px;border:2px solid #00000012;}
+  .swi b{display:block;font-size:11px;color:var(--ink);margin-top:5px;font-weight:800;}
+  .swi span{font-size:10px;color:var(--ink-soft);font-weight:700;font-family:ui-monospace,Consolas,monospace;}
+
+  /* spacing / radius */
+  .scale{display:flex;align-items:flex-end;gap:10px;}
+  .scale .s{background:var(--teal-bg);border:1.5px solid #bfeae3;border-radius:6px;position:relative;}
+  .scale .s i{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:4px;font-style:normal;font-size:10px;font-weight:900;color:var(--ink-soft);}
+  .rrow{display:flex;gap:14px;align-items:flex-end;}
+  .rrow .r{width:64px;height:48px;background:var(--content);border:2px solid var(--line2);position:relative;}
+  .rrow .r i{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:4px;font-style:normal;font-size:10px;font-weight:900;color:var(--ink-soft);white-space:nowrap;}
+
+  /* grid diagram */
+  .gridd{background:var(--bg);border:2px solid var(--line);border-radius:14px;padding:14px;position:relative;}
+  .gcol{background:#19c8b922;border:1.5px dashed var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:900;color:var(--teal-text);text-align:center;line-height:1.5;}
+
+  /* icons */
+  .irow2{display:flex;gap:18px;flex-wrap:wrap;max-width:700px;}
+  .ic{display:flex;flex-direction:column;align-items:center;gap:5px;width:64px;}
+  .ic .b{width:44px;height:44px;border-radius:12px;background:var(--content);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--ink);}
+  .ic svg{width:20px;height:20px;}
+  .ic span{font-size:9.5px;font-weight:800;color:var(--ink-soft);text-align:center;}
+  .icgrid{position:relative;width:120px;height:120px;background:var(--content);border:2px solid var(--line);border-radius:14px;}
+  .icgrid svg.demo{position:absolute;inset:12px;width:96px;height:96px;color:var(--ink);}
+  .icgrid .gl{position:absolute;background:#19c8b930;}
+
+  /* state matrix */
+  table.mx{border-collapse:collapse;}
+  table.mx th{font-size:10px;font-weight:900;letter-spacing:.5px;color:var(--ink-soft);padding:0 10px 8px;text-align:center;}
+  table.mx th.rh{text-align:right;padding-right:14px;}
+  table.mx td{padding:7px 10px;text-align:center;vertical-align:middle;}
+  table.mx td.rh{font-size:11px;font-weight:800;color:var(--ink);text-align:right;padding-right:14px;white-space:nowrap;}
+  table.mx td.rh span{display:block;font-size:9.5px;color:var(--ink-soft);font-weight:700;}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:none;font-family:inherit;font-weight:800;border-radius:var(--pill);padding:11px 18px;font-size:14px;white-space:nowrap;}
+  .btn.cream{background:var(--paper);color:var(--ink);border:2px solid var(--paper);box-shadow:0 5px 0 0 #bdaea0;}
+  .btn.cream.hv{transform:translateY(-1px);box-shadow:0 6px 0 0 #bdaea0;}
+  .btn.cream.ac{transform:translateY(2px);box-shadow:0 1px 0 0 #bdaea0;}
+  .btn.gold{background:var(--gold);color:var(--gold-ink);box-shadow:0 4px 0 0 var(--gold-deep);}
+  .btn.gold.hv{transform:translateY(-1px);box-shadow:0 6px 0 0 var(--gold-deep);filter:brightness(1.03);}
+  .btn.gold.ac{transform:translateY(2px);box-shadow:0 1px 0 0 var(--gold-deep);}
+  .btn.tealln{background:var(--teal-bg);color:var(--teal-text);border:2px solid #bfeae3;box-shadow:none;font-weight:800;}
+  .btn.tealln.hv{border-color:var(--teal);}
+  .btn.tealln.ac{background:#d4f2ec;}
+  .btn.orange{background:var(--orange);color:#fff;box-shadow:0 4px 0 0 var(--orange-deep);}
+  .btn.orange.hv{transform:translateY(-1px);box-shadow:0 6px 0 0 var(--orange-deep);}
+  .btn.orange.ac{transform:translateY(2px);box-shadow:0 1px 0 0 var(--orange-deep);}
+  .btn.fc{outline:none;box-shadow:0 0 0 2.5px #ffcc00,0 5px 0 0 #bdaea0;}
+  .btn.gold.fc{box-shadow:0 0 0 2.5px #ffcc00,0 4px 0 0 var(--gold-deep);}
+  .btn.orange.fc{box-shadow:0 0 0 2.5px #ffcc00,0 4px 0 0 var(--orange-deep);}
+  .btn.dis{opacity:.5;cursor:not-allowed;}
+  .btn.ld{position:relative;color:transparent !important;pointer-events:none;transform:translateY(2px);}
+  .btn.cream.ld{color:#fff !important;background:#0ec4b6;border:4px solid #4de2da;box-shadow:none;background-image:repeating-linear-gradient(-45deg,#0ec4b6,#0ec4b6 10px,#01b0a7 10px,#01b0a7 20px);background-size:28.28px 28.28px;animation:btnStripes 1s linear infinite;}
+  @keyframes btnStripes{to{background-position:-28.28px 0;}}
+  .btn.gold.ld{box-shadow:0 1px 0 0 var(--gold-deep);}
+  .btn.ld::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;border:2.5px solid #00000022;border-top-color:#00000066;animation:spin 0.8s linear infinite;}
+  .btn.cream.ld::after{display:none;}
+  .btn.gold.ld::after{border-color:#5c481333;border-top-color:#5c4813aa;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .ckb{width:22px;height:22px;border-radius:7px;border:2px solid var(--line2);background:var(--paper);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 2px 0 0 #bdaea0;vertical-align:middle;}
+  .ckb svg{width:12px;height:12px;color:#fff;opacity:0;}
+  .ckb.on{background:var(--teal);border-color:var(--teal);box-shadow:0 2px 0 0 var(--teal-deep);}
+  .ckb.on svg{opacity:1;}
+  .ckb.fc{box-shadow:0 0 0 2.5px #ffcc00,0 2px 0 0 #bdaea0;}
+  .ckb.dis{background:#eee8da;border-color:#e4dcc9;box-shadow:none;}
+  .ckb.dis.on{background:#cfc7b2;border-color:#cfc7b2;}
+
+  .swc{width:44px;height:26px;border-radius:50px;background:#d8d0bf;position:relative;display:inline-block;vertical-align:middle;box-shadow:inset 0 2px 3px #00000014;}
+  .swc::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 4px #00000033;transition:left .18s;}
+  .swc.on{background:var(--teal);}
+  .swc.on::after{left:21px;}
+  .swc.fc{box-shadow:0 0 0 2.5px #ffcc00,inset 0 2px 3px #00000014;}
+  .swc.dis{opacity:.45;}
+
+  .seg{display:inline-flex;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:3px;box-shadow:0 3px 0 0 #bdaea0;vertical-align:middle;}
+  .seg button{border:none;background:none;font-family:inherit;font-weight:800;font-size:11.5px;color:var(--ink-soft);border-radius:50px;padding:6px 13px;}
+  .seg button.on{background:var(--teal);color:#fff;}
+  .seg button.fc{box-shadow:inset 0 0 0 2px #ffcc00;}
+
+  .sel{display:inline-flex;align-items:center;gap:8px;background:var(--paper);border:2px solid var(--line);border-radius:14px;padding:9px 13px;font-size:12.5px;font-weight:800;color:var(--ink);box-shadow:0 3px 0 0 #bdaea0;vertical-align:middle;position:relative;}
+  .sel svg{width:14px;height:14px;color:var(--ink-soft);}
+  .sel.open{border-color:var(--teal);}
+  .selpop{position:absolute;top:calc(100% + 6px);left:0;min-width:170px;background:var(--paper);border:2px solid var(--line);border-radius:14px;box-shadow:0 18px 34px -16px #5a3c2066;padding:5px;z-index:5;}
+  .selpop .o{display:flex;align-items:center;gap:8px;border-radius:10px;padding:8px 11px;font-size:12px;font-weight:800;color:var(--ink-body);}
+  .selpop .o.on{background:var(--teal-bg);color:var(--teal-text);}
+  .selpop .o.hv{background:#00000006;}
+
+  .fchip{display:inline-flex;align-items:center;gap:6px;border-radius:50px;padding:7px 13px;font-size:11.5px;font-weight:800;background:var(--paper);color:var(--ink-body);border:2px solid var(--line);box-shadow:0 3px 0 0 #bdaea0;vertical-align:middle;}
+  .fchip.on{background:var(--teal);color:#fff;border-color:var(--teal);box-shadow:0 3px 0 0 var(--teal-deep);}
+  .fchip .x{font-weight:900;opacity:.8;}
+
+  .srch{display:inline-flex;align-items:center;gap:8px;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:9px 15px;font-size:12.5px;font-weight:700;color:var(--ink-soft);width:230px;vertical-align:middle;}
+  .srch svg{width:15px;height:15px;flex:none;}
+  .srch.fc{border-color:var(--teal);box-shadow:0 0 0 2.5px #ffcc00;}
+  .srch b{color:var(--ink);font-weight:700;}
+
+  /* overlays */
+  .ovbox{position:relative;width:520px;height:330px;border-radius:16px;overflow:hidden;background:var(--bg);border:2px solid var(--line);}
+  .ovbox .fakebg{position:absolute;inset:0;padding:14px;opacity:.9;}
+  .ovbox .scrim{position:absolute;inset:0;background:rgba(61,52,40,.46);backdrop-filter:blur(2px);}
+  .ovbox .mo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:300px;background:var(--paper);border:2px solid var(--line);border-radius:28px;padding:20px;box-shadow:0 50px 90px -34px #3d342899;text-align:center;}
+  .ovbox .mo h4{font-family:"Zen Maru Gothic",sans-serif;margin:0 0 6px;font-size:15px;color:var(--ink);}
+  .ovbox .mo p{font-size:11px;font-weight:700;color:var(--ink-body);margin:0 0 12px;line-height:1.6;}
+  .toast{display:inline-flex;align-items:center;gap:9px;background:#2c2722;color:#f3ead8;font-weight:700;font-size:13px;border-radius:50px;padding:11px 20px;box-shadow:0 14px 30px -10px #00000077;}
+  .toast b{color:#ffd76a;}
+  .toast .u{color:#7fe0d6;font-weight:800;}
+
+  /* annotations */
+  .anno{position:relative;}
+  .dotn{position:absolute;width:22px;height:22px;border-radius:50%;background:#2c2722;color:#ffd76a;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;z-index:9;box-shadow:0 2px 6px #00000044;}
+  .legend{margin-top:12px;display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:700;color:var(--ink-body);max-width:560px;line-height:1.55;}
+  .legend b{color:var(--ink);}
+  .legend .n{display:inline-flex;width:17px;height:17px;border-radius:50%;background:#2c2722;color:#ffd76a;font-size:9.5px;font-weight:900;align-items:center;justify-content:center;margin-right:7px;flex:none;vertical-align:-3px;}
+  .legend li{list-style:none;}
+
+  /* a11y table */
+  .a11y td,.a11y th{border-bottom:1.5px dashed var(--line);padding:8px 12px;font-size:12px;text-align:left;}
+  .a11y th{font-size:10.5px;letter-spacing:.5px;color:var(--ink-soft);}
+  .a11y .chip{display:inline-block;border-radius:50px;padding:2px 10px;font-size:10.5px;font-weight:900;}
+  .a11y .pass{background:#e7f4dd;color:#4e7a2c;}
+  .a11y .fail{background:#fdeeee;color:#c94444;}
+  .a11y .lg{background:#fdf1cf;color:#a8801a;}
+  .pv{display:inline-block;border-radius:8px;padding:3px 10px;font-weight:700;}
+
+  /* motion */
+  .mrow{display:flex;gap:16px;flex-wrap:wrap;}
+  .mcell{width:200px;background:var(--bg);border:2px solid var(--line);border-radius:14px;padding:13px;}
+  .mcell b{display:block;font-size:12px;color:var(--ink);margin-bottom:2px;}
+  .mcell span{font-size:10.5px;font-weight:700;color:var(--ink-soft);display:block;line-height:1.55;}
+  .mdemo{height:64px;display:flex;align-items:center;justify-content:center;margin-top:9px;background:var(--paper);border-radius:10px;overflow:hidden;position:relative;}
+  @keyframes demoUp{0%,15%{opacity:0;transform:translateY(14px);}55%,80%{opacity:1;transform:none;}100%{opacity:0;}}
+  @keyframes demoPress{0%,30%{transform:none;box-shadow:0 4px 0 0 var(--gold-deep);}45%,60%{transform:translateY(3px);box-shadow:0 1px 0 0 var(--gold-deep);}75%,100%{transform:none;box-shadow:0 4px 0 0 var(--gold-deep);}}
+  @keyframes demoShim{to{background-position:-200% 0;}}
+  @keyframes demoFlash{0%,60%,100%{background:var(--paper);}15%,35%{background:#fdf1cf;}}
+
+  /* decision log */
+  .dlog{display:flex;flex-direction:column;gap:8px;max-width:820px;}
+  .dl{display:flex;gap:12px;align-items:flex-start;background:var(--content);border:1.5px solid var(--line);border-radius:14px;padding:10px 14px;font-size:12.5px;line-height:1.6;}
+  .dl .d{flex:none;font-size:10.5px;font-weight:900;color:var(--ink-soft);font-family:ui-monospace,Consolas,monospace;padding-top:2px;}
+  .dl b{color:var(--ink);}
+  .dl .tag{flex:none;font-size:10px;font-weight:900;border-radius:50px;padding:2px 9px;margin-top:1px;}
+  .dl .tag.done{background:#e7f4dd;color:#4e7a2c;}
+  .dl .tag.todo{background:#fdf1cf;color:#a8801a;}
+  .dl .tag.open{background:#fdeeee;color:#c94444;}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <img src="assets/torii.svg" alt="">
+  <div>
+    <h1>DS 補全 — Chat 桌面扩展包 v0.1</h1>
+    <p>Animal Island UI 的产品级补全：<b>值以本画布为准</b>（与 <a href="docs/DESIGN.md">DESIGN.md</a> 冲突处以此为新版，回刷记入 §8）· 审计依据 <a href="docs/ds-审计.md">docs/ds-审计.md</a> · <b>上游对照已完成</b>：基础件值已校准到 <a href="skill/SKILL.md">animal-island-ui skill/SKILL.md</a>（已导入本项目，含 26 组件像素规范）· 服务范围 = Chat 桌面（1440 基准 / 1024 阈值）。</p>
+  </div>
+  <div class="toplinks">
+    <a href="Chat 状态总览.html">Chat 状態総覧 →</a>
+    <a href="前端全景 - Journey Hub.dc.html">← Journey Hub</a>
+  </div>
+</div>
+
+<!-- ═══════════ S1 TOKEN 補遺 ═══════════ -->
+<section class="sec">
+  <h2><span class="code">S1</span>Token 補遺 — 地图色板收编 · 间距/圆角/层级/栅格</h2>
+  <p class="note">原 token（三层奶油底/暖棕文字/teal/金/error）不变。以下为新增收编——此前散落在画布里的私造值，从此有名字。</p>
+  <div class="cards">
+    <div class="card">
+      <h3>地图色板（--map-*）</h3>
+      <p class="cnote">静态地图专用。饱和度刻意低于 UI 色——<b>UI stays quiet, content speaks</b>，地图是内容的底，不与 teal pin 抢。</p>
+      <div class="sw">
+        <div class="swi"><div class="c" style="background:var(--map-land);"></div><b>map-land 陆地</b><span>#ebe6d5</span></div>
+        <div class="swi"><div class="c" style="background:var(--map-green);"></div><b>map-green 绿地</b><span>#dbe7c6</span></div>
+        <div class="swi"><div class="c" style="background:var(--map-green2);"></div><b>map-green-2</b><span>#dbe7c6</span></div>
+        <div class="swi"><div class="c" style="background:var(--map-water);"></div><b>map-water 水系</b><span>#bcdce0</span></div>
+        <div class="swi"><div class="c" style="background:var(--map-road);"></div><b>map-road 道路</b><span>#fdfbf2</span></div>
+        <div class="swi"><div class="c" style="background:var(--map-path);"></div><b>map-path 徒步径</b><span>#8a6f4d</span></div>
+      </div>
+      <div class="lbl">新增文字 TOKEN（A11y 修正，见 S6）</div>
+      <div class="sw">
+        <div class="swi"><div class="c" style="background:var(--teal-text);"></div><b>teal-text 链接字</b><span>#0e7c72</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>间距 scale（4 基准）</h3>
+      <p class="cnote">卡内元素 8/12，卡 padding 16/20，卡间 24，区块 32/48。禁用 scale 外随手值。</p>
+      <div class="scale" style="height:72px;margin-bottom:22px;">
+        <div class="s" style="width:4px;height:4px;"><i>4</i></div>
+        <div class="s" style="width:8px;height:8px;"><i>8</i></div>
+        <div class="s" style="width:12px;height:12px;"><i>12</i></div>
+        <div class="s" style="width:16px;height:16px;"><i>16</i></div>
+        <div class="s" style="width:20px;height:20px;"><i>20</i></div>
+        <div class="s" style="width:24px;height:24px;"><i>24</i></div>
+        <div class="s" style="width:32px;height:32px;"><i>32</i></div>
+        <div class="s" style="width:48px;height:48px;"><i>48</i></div>
+      </div>
+      <div class="lbl">圆角 scale</div>
+      <div class="rrow" style="margin-bottom:24px;">
+        <div class="r" style="border-radius:8px;"><i>8 tag</i></div>
+        <div class="r" style="border-radius:12px;"><i>12 缩略图</i></div>
+        <div class="r" style="border-radius:16px;"><i>16 内嵌块</i></div>
+        <div class="r" style="border-radius:20px;"><i>18–20 卡片</i></div>
+        <div class="r" style="border-radius:28px;"><i>28 modal</i></div>
+        <div class="r" style="border-radius:50px;width:86px;"><i>pill 交互件</i></div>
+      </div>
+      <div class="lbl">z-index 层级梯</div>
+      <p class="cnote" style="margin:0;">0 流内容 · <b>6</b> composer dock · <b>10</b> sticky（rebar）· <b>30</b> 工作台 takeover · <b>60</b> modal+scrim · <b>70</b> toast。同层禁并列两个（toast 单实例队列）。</p>
+    </div>
+    <div class="card">
+      <h3>桌面栅格（Chat）</h3>
+      <p class="cnote">1440 设计基准。单列期：thread 容器 760（内容 712，气泡 ≤78%=555）。舞台期（07-03 批准转正）：对话栏 440 + 舞台 flex。<b>&lt;1024 回流单列</b>。</p>
+      <div class="gridd" style="width:560px;">
+        <div style="display:flex;gap:8px;height:74px;">
+          <div style="flex:1;"></div><div class="gcol" style="width:296px;">thread 760<br>内容 712</div><div style="flex:1;"></div>
+        </div>
+        <div style="display:flex;gap:8px;height:74px;margin-top:8px;">
+          <div class="gcol" style="width:171px;">对话栏 440<br>（旁白+操作杆）</div><div class="gcol" style="flex:1;background:#f5c31c22;border-color:var(--gold-deep);color:#a8801a;">舞台 flex ≥560<br>路线卡+地图（原位更新）</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:900;color:var(--ink-soft);margin-top:8px;"><span>0</span><span>断点：1024 回流 · 1440 基准</span><span>1440</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ S2 图标系统 ═══════════ -->
+<section class="sec">
+  <h2><span class="code">S2</span>图标系统 — 24 网格 · stroke 2.2 · 圆头</h2>
+  <p class="note">全产品统一一套线性图标：24×24 viewBox、stroke 2.2、round cap/join、留 2px 安全边。尺寸三档 S16（行内/pill 内）/ M20（按钮/卡头）/ L24（空态/大按钮）。仅两枚实心例外：send（发射需要重量）与 star（高光站语义=填充）。<b>禁 emoji、禁混用第三方图标库。</b></p>
+  <div class="cards">
+    <div class="card">
+      <h3>网格与笔画</h3>
+      <div style="display:flex;gap:18px;align-items:flex-start;">
+        <div class="icgrid">
+          <div class="gl" style="left:12px;right:12px;top:12px;height:1px;"></div>
+          <div class="gl" style="left:12px;right:12px;bottom:12px;height:1px;"></div>
+          <div class="gl" style="top:12px;bottom:12px;left:12px;width:1px;"></div>
+          <div class="gl" style="top:12px;bottom:12px;right:12px;width:1px;"></div>
+          <svg class="demo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>
+        </div>
+        <p class="cnote" style="max-width:300px;">安全边 2px（青线）。曲线优先圆弧；直角一律 round join 软化——与 pill/厚影的圆润语言一致。描边不随尺寸缩放（16px 时仍 2.2，视觉更粗=可爱）。</p>
+      </div>
+    </div>
+    <div class="card">
+      <h3>成套图标 · Chat 桌面所需 20 枚</h3>
+      <p class="cnote">命名 = 用途，不按形状（「walk」不是「person」）。新增图标必须回到本卡登记。</p>
+      <div class="irow2" id="iconSet"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ S3 基础组件 × 状态矩阵 ═══════════ -->
+<section class="sec">
+  <h2><span class="code">S3</span>基础组件 × 状态矩阵 — default / hover / active / focus / disabled / loading</h2>
+  <p class="note">规则：hover=上浮1px+影加深（5→6） · active=下压2px+影变1 · focus=黄 ring 2.5px #ffcc00（产品统一；上游分色 Button-teal/Input-黄/Radio-金，待裁决是否跟随） · disabled=opacity .5（上游规范，保留形状） · loading：cream＝上游 mint 斜纹动画，gold＝按下位+spinner（产品扩展）。teal 仅限 interactive，不做大按钮满填。<b>影色校准：按钮影＝#bdaea0（上游+DESIGN.md 一致），输入件影＝#d4c9b4。</b></p>
+  <div class="cards">
+    <div class="card">
+      <h3>按钮四级 × 六态 <span style="font-size:10.5px;font-weight:800;color:#4e7a2c;background:#e7f4dd;border-radius:50px;padding:2px 9px;vertical-align:2px;">上游对齐済</span></h3>
+      <p class="cnote">cream＝上游 Button type=primary 原样（影 0 5px 0 0 #bdaea0 / hover −1px+6px / active +2px+1px / disabled op.5 / loading mint 斜纹）。gold/orange 为产品扩展级，继承同一套态规则。</p>
+      <table class="mx" id="btnMx"></table>
+    </div>
+    <div class="card">
+      <h3>选择件与输入件 <span style="font-size:10.5px;font-weight:800;color:#a8801a;background:#fdf1cf;border-radius:50px;padding:2px 9px;vertical-align:2px;">上游有现成 · 2 处分叉待裁决</span></h3>
+      <p class="cnote">Checkbox＝上游原样（22px/角8/选中 teal+pop 动画）· Segmented＝上游 Tabs（激活＝teal 胶囊 #0cc0b5+奶油字）· Select/Search＝上游 Select/Input。<b>分叉① Switch</b>：上游 ON＝绿 #86d67a（success 系）vs 本画布 teal（产品「teal＝interactive」铁律）——待裁决。<b>分叉② focus 色</b>：上游分色（Button-teal/Input・Switch・Checkbox-#ffcc00/Radio-#f5c31c）vs 产品统一黄——待裁决。</p>
+      <table class="mx" id="ctlMx"></table>
+      <div class="lbl">SELECT 展开态（並び順用）</div>
+      <div style="display:flex;gap:26px;align-items:flex-start;padding-bottom:120px;">
+        <span class="sel">おすすめ順 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+        <span class="sel open">おすすめ順 <svg style="transform:rotate(180deg);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          <span class="selpop">
+            <span class="o on">おすすめ順 ✓</span>
+            <span class="o hv">カット順（話数）</span>
+            <span class="o">駅から近い順</span>
+          </span>
+        </span>
+      </div>
+      <p class="cnote" style="margin:0;">展开=teal 边框+chevron 翻转；选中行 teal-bg；键盘 ↑↓ 移动、Enter 选、Esc 关。菜单影=popup 影（0 18px 34px）。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ S4 Overlay 三件套 ═══════════ -->
+<section class="sec">
+  <h2><span class="code">S4</span>Overlay — modal · takeover · toast</h2>
+  <p class="note">三种遮盖各司其职：<b>modal</b>=中断请求（登录墙/しおり预览，必须可 Esc/×/scrim 点击关闭，焦点陷阱+关闭后焦点还原）· <b>takeover</b>=全屏子任务（SP 工作台）——<b>蓝本改用上游 Drawer 「下沉景深」</b>：背景 translateY(24px) scale(.96) brightness(.85)，遮罩仅 .18，背景仍可见＝「没离开 chat」的空间语义 · <b>toast</b>=非中断反馈（3.5s 自动消失，单实例队列，带撤销位）。</p>
+  <div class="cards">
+    <div class="card">
+      <h3>Modal 解剖 <span style="font-size:10.5px;font-weight:800;color:#c94444;background:#fdeeee;border-radius:50px;padding:2px 9px;vertical-align:2px;">形态分叉待裁决</span></h3>
+      <p class="cnote" style="margin-bottom:12px;">上游硬规则：Modal 必须用 <b>SVG blob 有机轮廓</b>（clip-path，确认键＝游戏黄 #ffcc00）；本画布目前是圆角 28 矩形+金 CTA（产品化变体）。裁决：chat 的 P5/しおり modal 跟 blob 还是矩形？</p>
+      <div class="ovbox">
+        <div class="fakebg">
+          <div style="width:60%;height:14px;border-radius:6px;background:#d9d0ba;"></div>
+          <div style="width:84%;height:64px;border-radius:12px;background:#e4dcc9;margin-top:10px;"></div>
+          <div style="width:70%;height:44px;border-radius:12px;background:#e4dcc9;margin-top:10px;"></div>
+        </div>
+        <div class="scrim"></div>
+        <div class="mo">
+          <h4>ルートを保存しよう</h4>
+          <p>scrim=rgba(61,52,40,.46)+blur2 · 卡 radius 28 · 影 0 50px 90px。入场 cardPop 320ms。</p>
+          <button class="btn gold" style="width:100%;">主行动（唯一金色）</button>
+          <div style="margin-top:8px;"><button class="btn cream" style="width:100%;">次行动 / ゲスト逃生口</button></div>
+        </div>
+      </div>
+      <p class="cnote" style="margin-top:12px;">规则：①一屏唯一金色主行动 ②必有逃生口（ゲスト/あとで）③Esc+×+scrim 三通道关闭 ④焦点陷阱、关闭还原焦点 ⑤宽 404（登录）/内容自适应（しおり）。</p>
+    </div>
+    <div class="card">
+      <h3>Toast 家族</h3>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <span class="toast">スポットを追加しました · <b>5 → 6件</b></span>
+        <span class="toast">地図の読み込みに失敗 · 静的表示のまま <span class="u">再試行</span></span>
+        <span class="toast">ルートを保存しました <b>✓</b> <span class="u">元に戻す</span></span>
+      </div>
+      <p class="cnote" style="margin-top:12px;">位置：屏幕底部中央、dock 上方 12px。炭底 #2c2722 是全产品唯一近黑——只给 toast 用。数字/强调=nook-yellow #ffd76a，操作链接=teal 亮 #7fe0d6（深底上可过对比）。3.5s 消失、hover 暂停、同类合并。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ S5 生成式组件家族 ═══════════ -->
+<section class="sec">
+  <h2><span class="code">S5</span>生成式组件家族 — 产品的招牌资产，正式入 DS</h2>
+  <p class="note">这些组件由 agent 工具产出（generative UI registry）。每个组件定义：解剖 + 变体 + 骨架态 + 兜底态。<b>共同规则</b>：卡=paper 底+2px line 边+18px 角，<b>无浮影</b>（上游 Card 硬规则，07-02 裁决）；帧图媒体一律 16:9，按<b>点位聚合</b>（代表帧+「+Nカット」，几百帧→几十卡）；話数/カット tag＝Tag app-yellow solid（#f7cd67/白字）；帧 404 → 渐变+カット号（D9）；未知 type → 文字摘要，绝不白屏。③⑤及新增⑥–⑨的整屏语境见『<a href="工作台 - 地图常驻方案.html">工作台 — 地図常駐方案 v2</a>』。</p>
+  <div class="cards">
+
+    <div class="card anno" style="width:640px;">
+      <h3>① TimedItinerary 路线卡（招牌）</h3>
+      <p class="cnote">工具：plan_route。变体：<b>full</b>（右图）/ <b>mini</b>（流内紧凑，隐藏 snote+缩略）/ <b>old</b>（op .55+「以前の版」）/ <b>updated</b>（「更新版」徽章+diff chips）/ <b>skeleton</b>。舞台期两列（itl2）。</p>
+      <div id="itinAnno"></div>
+      <ul class="legend">
+        <li><span class="n">1</span><b>英文眉标</b> 10.5/900/letter-sp 2.2 muted — 海报感的来源</li>
+        <li><span class="n">2</span><b>日文卡名</b> 19.5/900 ink</li>
+        <li><span class="n">3</span><b>meta 行</b>：pacing pill（ゆったり绿/ふつう橙/ぎっしり红）+ Nスポット + 徒歩/km + 时间窗</li>
+        <li><span class="n">4</span><b>时间轴三列 grid</b> 44px 时刻｜24px 轨道｜内容。HH:MM tabular-nums——<b>时刻是真的</b></li>
+        <li><span class="n">5</span><b>walk 胶囊</b>（绿）：徒步是内容不是间隙，带「沿途看点」</li>
+        <li><span class="n">6</span><b>高光站</b> 金★ dot + 站名后 ★ + 帧缩略 16:9（150w）+ 話数/カット tag（app-yellow solid）</li>
+        <li><span class="n">7</span><b>卡底 CTA</b>：金=しおり共有（唯一）· cream=Maps/保存/歩くモード</li>
+      </ul>
+    </div>
+
+    <div class="card" style="width:560px;">
+      <h3>② 足迹行 FootprintRow（管线三态）</h3>
+      <p class="cnote">running（B2b：步骤点亮+数据源徽章+狐狸计数）→ folded（B4：一行足迹+詳細▾）→ recalc（E2：旁路不演戏）。</p>
+      <div id="fpSpec"></div>
+    </div>
+
+    <div class="card" style="width:640px;">
+      <h3>③ 点位卡 SpotCard（看图选点 · 工作台定稿）</h3>
+      <p class="cnote">工具：search_bangumi。<b>展示单位＝点位，不是帧</b>：代表帧大图（~300px·16:9 识别尺寸）+「+Nカット」聚合徽章+名称行+<b>位置行</b>（エリア Tag outlined+駅から徒歩N分+滞在）。checkbox＝上游 22px（勾选 pop）。<b>agent 草稿预选＝有图+可达</b>（不依赖人气数据）。流内 C3a＝top-6 两列+footer「すべて見る → N件から選ぶ」（→工作台）+选中计数。cell 四态：</p>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;" id="cellSpec"></div>
+    </div>
+
+    <div class="card" style="width:520px;">
+      <h3>④ 澄清 chips ClarifyChips</h3>
+      <p class="cnote">C2/C2g/C2t 共用。44px 高、cream 按压件、副行 muted。<b>必有逃生口</b>（「どっちでもない、言い直す」）。选后：其余 op .42、选中变 teal 实底（=已变成 user 消息）。</p>
+      <div id="chipSpec"></div>
+      <div class="lbl">重排条 REBAR（E2 · sticky dock 上方 z10）</div>
+      <div class="rebar" style="display:flex;align-items:center;gap:10px;background:var(--paper);border:2px solid var(--gold);border-radius:16px;padding:9px 10px 9px 14px;font-weight:800;font-size:12.5px;color:var(--ink);max-width:430px;">
+        <span style="flex:1;">スポットの選択が変わりました<span style="display:block;color:var(--ink-soft);font-size:11px;">4件選択中 · 徒歩19分</span></span>
+        <button class="btn gold" style="padding:9px 15px;font-size:12.5px;">ルートを組み直す</button>
+      </div>
+      <div class="lbl">引用 pill CTX（A2b · composer 上方）</div>
+      <div style="display:flex;align-items:center;gap:9px;background:var(--teal-bg);border:2px solid #bfeae3;border-radius:14px;padding:8px 12px;font-size:12.5px;font-weight:800;color:var(--teal-text);max-width:430px;">
+        <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>
+        参照中：<b>飛騨古川 半日ルート</b> · 5スポット
+        <button style="margin-left:auto;width:24px;height:24px;border-radius:50%;border:none;background:#fffdf5;color:var(--ink-soft);font-size:14px;">×</button>
+      </div>
+    </div>
+
+    <div class="card anno" style="width:640px;">
+      <h3>⑤ 地图卡 MapCard（static-first）</h3>
+      <p class="cnote">三态：static（默认）→ upgrading（「GL に接続中…」角落 spinner）→ failed（斜纹占位+「地図アプリで開く」，D7）。<b>底图＝真地理滤色</b>（map-*：水系/绿地/道路/铁道），<b>駅标+徒歩10分圈虚线圈常驻</b>——用户靠车站和河给自己定位。<b>静态层永不 &gt;50 pin。</b></p>
+      <div id="mapSpec"></div>
+      <ul class="legend">
+        <li><span class="n">1</span><b>底图常驻锚</b>：駅 badge（#8a7b66 圆角块+白「駅」）+ 徒歩10分圈虚线圈（#c9b894 dash 5 6）+ 水系/道路/铁道（map-*）</li>
+        <li><span class="n">2</span><b>pin 语言</b>：选中=teal 实心+序号 · 未选=白底 teal 描边 · 出发=teal+白「出」 · 高光=金★ · 非路线/其他话数=降透明 .45</li>
+        <li><span class="n">3</span><b>図釘即画面</b>：hover/强调态 pin 升级为 <b>42px 圆形帧缩略</b>+脉冲环+炭底名称标签（「名前 · +Nカット」）；默认态永远是轻量 dot</li>
+        <li><span class="n">4</span><b>圈泡</b>（远景聚合）：teal 实心 op .78，<b>r = 12 + 26·√(n/n_max) px，clamp [12,38]</b>，泡内白字件数、泡下区域名；点泡=zoom 该区</li>
+        <li><span class="n">5</span><b>路径</b>：map-path 暖棕 4.5px dasharray 2 10 round；<b>Route 升格</b>：按步行序重编号+非路线点降透明+金色路线 pill 常驻</li>
+        <li><span class="n">6</span><b>同步契约</b>：エリア分组=<b>地图主导</b>（視野連動 ON，视野过滤列表）／話数分组=<b>列表主导</b>（連動默认 OFF，pin 高亮追随+自动 fit，范围过滤=显式按钮「この範囲だけに絞る」）</li>
+        <li><span class="n">7</span>图注行（mnote）常驻卡底：● 選択中 ○ 未選択 ★ ハイライト --- 徒歩 · 破線円＝徒歩10分圈</li>
+      </ul>
+    </div>
+
+    <div class="card" style="width:640px;">
+      <h3>⑥ 区域卡 AreaCard（恒定密度聚合层）</h3>
+      <p class="cnote"><b>左栏粒度跟随地图 zoom——列表不变长，而是变粗。</b>远景（全域可见）时点位卡聚合成区域卡；中景每区默认 ≤4 张点位卡+「残り N件 ▸」。<b>左栏永远 ≤2 屏，与总量无关</b>（宇治 206 件：平铺 30 屏 → 聚合 1 屏）。移出视野的组折叠到底部「視野外」段，不消失。</p>
+      <div id="areaSpec" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;"></div>
+    </div>
+
+    <div class="card" style="width:560px;">
+      <h3>⑦ 話数段 EpisodeSection（手风琴）</h3>
+      <p class="cnote">話数与空间无关 → <b>列表主导、地图追随</b>（同步契约反转）。收起态自带 3 张迷你缩略+件数（不是纯文字行）；展开 → 对应 pin 实心高亮、其余降透明 .45、地图自动 fit。</p>
+      <div id="epSpec" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;"></div>
+    </div>
+
+    <div class="card" style="width:640px;">
+      <h3>⑧ 选点托盘 SelectionTray</h3>
+      <p class="cnote">工作台底部 sticky。已选 chips＝上游 Tag app-teal solid+close（序号圆标）；<b>可行性行实时可见</b>（把「挑选」变成「编一天」，超载当场可见，垃圾不进 plan_route）；錨点委托＝dashed Tag；金 CTA＝每屏唯一。</p>
+      <div id="traySpec"></div>
+    </div>
+
+    <div class="card" style="width:560px;">
+      <h3>⑨ 機位浏览器 Lightbox</h3>
+      <p class="cnote">第三级递进（卡上勾选不必进来，<b>想认画面才进来</b>）。左＝大帧 ≈760px（电影构图识别尺寸）+时间码/构图说明 pill+该点位 filmstrip（当前帧金边）；右＝名称+位置块（locator+エリア+徒歩+住所）+<b>唯一金 CTA「✓ この聖地を選ぶ」</b>+Maps 出口＋<b>出典行「出典：Google Maps ↗」</b>（origin+originURL，CC BY-NC-SA 署名义务）。Esc/×/scrim 关闭，←→ 切帧。<b>朝向箭头不做——API 无 bearing 字段（07-03 确认）</b>。图源档位：卡缩略 plan=h160 / lightbox 大图 plan=h360，全尺寸禁用于展示界面。</p>
+      <div id="lbSpec"></div>
+    </div>
+
+    <div class="card" style="width:460px;">
+      <h3>⑩ 等待家族（skeleton / 情绪卡）</h3>
+      <p class="cnote">skeleton 仅在视觉工具开跑时出现（B2d）；shimmer 1.4s。情绪卡（B2c ≥4s）：作品帧渐变底+白字 Zen Maru+出处行，白字必须 text-shadow 保读性。</p>
+      <div class="sk-demo" id="waitSpec"></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════ S6 A11y ═══════════ -->
+<section class="sec">
+  <h2><span class="code">S6</span>A11y — 对比度审计 · 焦点 · 流式朗读 · 键盘</h2>
+  <p class="note">数值为按 WCAG 相对亮度估算（实装时用工具复核）。规则一句话：<b>#9f927d 从此只做装饰，不再承载必读信息。</b></p>
+  <div class="cards">
+    <div class="card">
+      <h3>文字/底色配对表</h3>
+      <table class="a11y">
+        <tr><th>配对</th><th>预览</th><th>估算</th><th>判定</th><th>规则</th></tr>
+        <tr><td>#794f27 / cream</td><td><span class="pv" style="background:#f7f3df;color:#794f27;">見出し</span></td><td>≈7.0</td><td><span class="chip pass">AA ✓</span></td><td>标题/强调，无限制</td></tr>
+        <tr><td>#725d42 / cream</td><td><span class="pv" style="background:#f7f3df;color:#725d42;">本文テキスト</span></td><td>≈5.6</td><td><span class="chip pass">AA ✓</span></td><td>正文，无限制</td></tr>
+        <tr><td>#8a7b66 / cream</td><td><span class="pv" style="background:#f7f3df;color:#8a7b66;">注釈テキスト</span></td><td>≈3.7</td><td><span class="chip lg">仅大字</span></td><td>≥18.7px 或 14px+bold 的次要信息</td></tr>
+        <tr><td>#9f927d / cream</td><td><span class="pv" style="background:#f7f3df;color:#9f927d;">飾りラベル</span></td><td>≈2.8</td><td><span class="chip fail">FAIL</span></td><td><b>装饰限定</b>：眉标/placeholder/图注，信息必须另有承载</td></tr>
+        <tr><td>teal-deep #11a89b / cream</td><td><span class="pv" style="background:#f7f3df;color:#11a89b;">リンク旧</span></td><td>≈4.3</td><td><span class="chip fail">边缘</span></td><td>文字弃用 → 换 teal-text</td></tr>
+        <tr><td><b>teal-text #0e7c72</b> / cream</td><td><span class="pv" style="background:#f7f3df;color:#0e7c72;">リンク新 ✓</span></td><td>≈4.6</td><td><span class="chip pass">AA ✓</span></td><td>链接/交互文字统一用它（新 token）</td></tr>
+        <tr><td>#fff / teal #19c8b9</td><td><span class="pv" style="background:#19c8b9;color:#fff;">ユーザー気泡</span></td><td>≈2.1</td><td><span class="chip fail">FAIL</span></td><td>→ 已裁决：字改 #073f3a（B 案，见下）</td></tr>
+        <tr><td>#fff / <b>#0e8578</b></td><td><span class="pv" style="background:#0e8578;color:#fff;">気泡案A</span></td><td>≈4.6</td><td><span class="chip pass">AA ✓</span></td><td>A 落选留档</td></tr>
+        <tr><td><b>#073f3a</b> / #19c8b9</td><td><span class="pv" style="background:#19c8b9;color:#073f3a;">気泡案B ✓</span></td><td>≈4.8</td><td><span class="chip pass">AA ✓</span></td><td><b>採用（07-03）</b>：用户气泡正文字色 token bubble-ink</td></tr>
+        <tr><td>gold-ink / gold</td><td><span class="pv" style="background:#f5c31c;color:#5c4813;">金色CTA</span></td><td>≈5.2</td><td><span class="chip pass">AA ✓</span></td><td>CTA 无限制</td></tr>
+        <tr><td>#b84040 / #fdeeee</td><td><span class="pv" style="background:#fdeeee;color:#b84040;">エラー文</span></td><td>≈4.8</td><td><span class="chip pass">AA ✓</span></td><td>error 正文用深红，浅红底</td></tr>
+      </table>
+      <p class="cnote" style="margin-top:10px;">⚠ <b>用户气泡白字 on teal 不达标</b>（现行 ≈2.1:1）。<b>上游参照</b>：库内无气泡组件（气泡属我们的生成式层）；最近亲＝Tabs 激活胶囊（#0cc0b5+奶油字 #fff9e3）与 Tag app-teal solid（#82d5bb+白字）——上游对<b>短标签</b>接受低对比白字 on teal；气泡是成段正文，按 AA 取正文级。<b>07-03 裁决：採用 B</b>（保品牌亮度 #19c8b9・字 #073f3a）；A 落选留档。</p>
+      <div class="lbl">A/B 真气泡对比（真实规格 15.5px · 右对齐）</div>
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end;max-width:560px;">
+        <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:10.5px;font-weight:900;color:#c94444;white-space:nowrap;">現行 · 2.1:1 FAIL</span><span style="padding:13px 17px;border-radius:20px;border-top-right-radius:6px;font-size:15.5px;line-height:1.62;font-weight:600;background:#19c8b9;color:#fff;box-shadow:0 4px 0 0 #11a89b;">飛騨を半日でまわりたい</span></div>
+        <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:10.5px;font-weight:900;color:#4e7a2c;white-space:nowrap;">A · 落选留档 · ≈4.6 AA</span><span style="padding:13px 17px;border-radius:20px;border-top-right-radius:6px;font-size:15.5px;line-height:1.62;font-weight:600;background:#0e8578;color:#fff;box-shadow:0 4px 0 0 #0a6a5e;">飛騨を半日でまわりたい</span></div>
+        <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:10.5px;font-weight:900;color:#4e7a2c;white-space:nowrap;">B · 採用 ✓ · #19c8b9+字 #073f3a · ≈4.8 AA</span><span style="padding:13px 17px;border-radius:20px;border-top-right-radius:6px;font-size:15.5px;line-height:1.62;font-weight:600;background:#19c8b9;color:#073f3a;box-shadow:0 4px 0 0 #11a89b;">飛騨を半日でまわりたい</span></div>
+      </div>
+    </div>
+    <div class="card" style="max-width:560px;">
+      <h3>焦点 · 朗读 · 键盘</h3>
+      <div class="lbl">FOCUS</div>
+      <p class="cnote">全组件统一黄 ring 2.5px #ffcc00（见 S3）；焦点顺序=视觉顺序；modal 焦点陷阱、关闭还原到触发钮。</p>
+      <div class="lbl">流式内容朗读（chat 特有）</div>
+      <p class="cnote">AI 回合容器 aria-live="polite"（settled 后播报一次完整文本，不逐字打断）；错误卡 aria-live="assertive"；管线步骤 aria-hidden（装饰性过程，足迹行 folded 文本可读）；卡片落位动画不影响 DOM 顺序。</p>
+      <div class="lbl">REDUCED MOTION</div>
+      <p class="cnote">prefers-reduced-motion：禁 entrance-up/bob/shimmer 位移动画，保留透明度渐变；scene-cut 转场直切。</p>
+      <div class="lbl">键盘</div>
+      <p class="cnote">Enter=发送 · Shift+Enter=换行 · Esc=关 modal/收 takeover · 澄清 chips ←→ 移动 Enter 选 · 全可点件可 Tab 达。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ S7 动效角色 ═══════════ -->
+<section class="sec">
+  <h2><span class="code">S7</span>动效角色 — 每个动画有名字、时长、用途</h2>
+  <p class="note">基准曲线 cubic-bezier(.2,.8,.3,1)（入场）/ cubic-bezier(0.4,0,0.2,1)（状态切换）。<b>没经过 agent 的事不演 agent 的戏</b>——旁路操作只允许 fast 级反馈。</p>
+  <div class="mrow">
+    <div class="mcell"><b>press 按压 · 100ms</b><span>按钮 active：下压 2px、影 4→1。所有可点件标配。</span>
+      <div class="mdemo"><button class="btn gold" style="animation:demoPress 2.2s infinite;">ここに来た!</button></div>
+    </div>
+    <div class="mcell"><b>entrance-up 落位 · 340ms</b><span>流内新卡入场：y+10→0、op 0→1；多卡 stagger 60ms。reduced-motion 时仅 fade。</span>
+      <div class="mdemo"><div style="width:150px;height:40px;border-radius:12px;background:var(--content);border:2px solid var(--line);animation:demoUp 2.4s infinite;"></div></div>
+    </div>
+    <div class="mcell"><b>shimmer 骨架 · 1.4s</b><span>skeleton 扫光。仅视觉工具运行时（B2d）。</span>
+      <div class="mdemo"><div style="width:150px;height:40px;border-radius:10px;background:linear-gradient(110deg,#e6dfce 30%,#f3ecdb 50%,#e6dfce 70%);background-size:200% 100%;animation:demoShim 1.4s linear infinite;"></div></div>
+    </div>
+    <div class="mcell"><b>flash 更新 · 1s</b><span>舞台/卡片原位更新的变更行：nook-yellow 底闪一次（E1 V1 轨道）。</span>
+      <div class="mdemo"><div style="width:170px;padding:9px 13px;border-radius:10px;border:2px solid var(--line);font-size:11.5px;font-weight:800;color:var(--ink);animation:demoFlash 2.6s infinite;">10:28 気多若宮神社 ★</div></div>
+    </div>
+    <div class="mcell"><b>cardPop 弹窗 · 320ms</b><span>modal/しおり预览入场：scale .985→1 + up。</span>
+      <div class="mdemo"><div style="width:110px;height:44px;border-radius:14px;background:var(--paper);border:2px solid var(--line);box-shadow:0 10px 20px -8px #5a3c2044;animation:demoUp 2.4s infinite;"></div></div>
+    </div>
+    <div class="mcell"><b>graduation 毕业转场 ✓ · ~850ms</b><span>路线诞生→舞台升格的签名时刻。<b>storyboard 已出（07-03）</b>：触发＝首个空间内容 settle+300ms；lift 120→FLIP 飞行 360→补位+pins stagger→chrome 200。</span>
+      <div class="mdemo" style="font-size:11px;font-weight:800;"><a href="Graduation 转场 - Storyboard.html" style="color:var(--teal-text);">▸ Storyboard 画布を開く</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ S8 治理 ═══════════ -->
+<section class="sec">
+  <h2><span class="code">S8</span>治理 — decision log · 单一来源 · 回刷清单</h2>
+  <p class="note">规则：视觉值只允许三个出处——DS bundle token → 本补全画布 → 无。画布/原型手搓值一经发现即收编或替换。每次改判在此登记。</p>
+  <div class="dlog">
+    <div class="dl"><span class="d">06-12</span><span class="tag done">已定</span><div>chat 三形态裁决：V3 单列流=Phase1 / V1 双栏=Phase2 / V2 map-first 淘汰（狐狸叙述遗产保留）</div></div>
+    <div class="dl"><span class="d">07-02</span><span class="tag done">已定</span><div><b>CTA 层级改判</b>：金=唯一主行动、teal 降为 interactive、explore 橙仅 marketing+send 键 → 旧屏 teal CTA 待回刷</div></div>
+    <div class="dl"><span class="d">07-02</span><span class="tag done">已定</span><div><b>路线前提必问</b>（出发地+时间，说全跳过）；「いまいる場所から」→ 定位授权卡入主线</div></div>
+    <div class="dl"><span class="d">07-02</span><span class="tag done">已定</span><div>桌面优先；transit 接驳段=roadmap；本期徒步 only</div></div>
+    <div class="dl"><span class="d">07-02</span><span class="tag done">已定</span><div>本画布新增：map-* 色板、teal-text #0e7c72、spacing/radius/z scale、图标系统、overlay 规范、A11y 规则（#9f927d 装饰限定）</div></div>
+    <div class="dl"><span class="d">07-03</span><span class="tag done">已定</span><div><b>舞台毕业模型 批准</b>＝地図常駐工作台转正为 chat 桌面目标形态 → S1 栅格第二行转正、graduation storyboard 待出</div></div>
+    <div class="dl"><span class="d">07-02</span><span class="tag open">待裁决</span><div><b>用户气泡对比度</b>：方案A 底加深 #0e8578 / 方案B 深字 #073f3a</div></div>
+    <div class="dl"><span class="d">07-03</span><span class="tag done">已定</span><div><b>しおり两形态都做</b>：计划版（无✓·排完即可分享）+完走版（带✓+完成率）——Step 3 出两版</div></div>
+    <div class="dl"><span class="d">07-03</span><span class="tag done">已定</span><div><b>用户气泡＝B 案</b>：底保 #19c8b9、字 #073f3a（bubble-ink）——状态总览+demo 已刷，旧屏无用户气泡不波及</div></div>
+    <div class="dl"><span class="d">07-03</span><span class="tag done">事实确认</span><div><b>Anitabi API 实测</b>：点位字段 id/cn/name/image/ep/s/geo（detail 另有 origin/originURL）——<b>无 bearing → 机位朝向对照不做</b>；lite＝前10地标+pointsLength（top-N 草稿两段式有 API 依据）；haveImage=true＝「写真あり」filter；图三档 h160/h360/全尺寸（全尺寸禁用）；作品 color 主色可供情绪卡渐变派生</div></div>
+    <div class="dl"><span class="d">07-03</span><span class="tag open">legal</span><div><b>数据许可 CC BY-NC-SA 4.0（非商业）</b>+展示须标 origin/originURL → lightbox/点位详情加出典行（已入 ⑨）；<b>商用需与 Anitabi 另行授权</b>；上游 UI kit LICENSE 仍待查</div></div>
+    <div class="dl"><span class="d">07-02</span><span class="tag done">已定</span><div><b>上游对照（animal-island-ui）</b>：导入 SKILL.md 像素规范；采纳——按钮影 #bdaea0 0 5px/hover −1px/disabled op.5/loading mint 斜纹、Checkbox pop 动画、Segmented＝Tabs teal 胶囊、Tag＝chips 蓝本、<b>SP takeover 改用 Drawer 下沉景深</b>；上游 Icon 仅 10 枚 fill 式→产品 20 枚 stroke 套保留（登记制）</div></div>
+    <div class="dl"><span class="d">07-02</span><span class="tag done">已定</span><div><b>4 分叉裁决：全按上游</b>——①Switch ON 绿 #86d67a ②Modal 用 SVG blob（确认键游戏黄） ③focus 三色分派（Button-teal/Input・Switch・Checkbox-#ffcc00/Radio-#f5c31c） ④Card 无影（chat 流内卡去浮影→入回刷）。基础件由用户本人基于上游设计；本方职责＝生成式组件。Tag 映射：エリア=outlined/托盘=app-teal solid+close/委托=dashed</div></div>
+    <div class="dl"><span class="d">07-02</span><span class="tag open">待确认</span><div><b>许可证</b>：上游仓库 LICENSE 需确认可否商用（实装前必查；设计对齐不受影响）</div></div>
+    <div class="dl"><span class="d">07-02</span><span class="tag done">已回写 ✓ 07-02</span><div><b>S5 生成式家族修订清单</b>：①SpotGrid cell→点位聚合卡（+Nカット徽章+位置行エリアTag+徒歩距离，checkbox 22px，草稿＝有图+可达不提人气） ②MapCard→真底图滤色+駅/徒歩10分圈常驻+hover图钉即画面+同步契约两行 ③新增：区域卡（恒定密度）/話数手风琴段/选点托盘（可行性+委托）/機位浏览器 lightbox ④全家族卡去浮影（Card 无影裁决）+话数 tag→Tag app-yellow solid</div></div>
+    <div class="dl"><span class="d">—</span><span class="tag todo">回刷</span><div>①Splash/首页/Landing/旧 demo 的 teal 满填 CTA→金 ②demo 发送键 teal→orange ③teal-deep 文字→teal-text ④画布地图私造色→map-* ⑤#9f927d 必读文字→#8a7b66/725d42 ⑥按钮影 #bdaea0→#bdaea0 ⑦Chat 状态总览：C3a 换新点位卡、SP 组 4 帧废弃→指向工作台画布、P5/E4 modal→blob、Switch 绿/卡去影 ⑧帧 tag「#C-XX」→「第N話 · MM:SS」（ep+s 派生，#C 编号系虚构）⑨lightbox/点位详情加出典行（origin ↗）</div></div>
+  </div>
+</section>
+
+<!-- ═══════════ S9 Step2–6 增补 ═══════════ -->
+<section class="sec">
+  <h2><span class="code">S9</span>Step 2–6 增补（07-06 回写）— 新生成式组件 + 新裁决收编</h2>
+  <p class="note">路线详情/しおり/対比図作成/作品公開页/マイルート 五屏产出的新组件与规则，从此有名字。共同底座沿用 S5（paper 卡+2px line+18px 圆角+无浮影）。</p>
+  <div class="cards">
+
+    <div class="card" style="width:420px;">
+      <h3>⑨-1 対比図 tile（唯一合法形）</h3>
+      <p class="cnote"><b>上下拼</b>：帧上・実拍下（image-merge 産物原样，横帧自动；縦→左右拼）。比率≈8:9、白分隔线 1.5px、実拍 tag 右上、水印左下固定、<b>×N badge（金）</b>＝同カット复数枚。挂在<b>カット</b>上不挂站上（0..M 枚），计数口径「N枚 · Mスポット」。<b>左右 split 全面禁止。</b></p>
+      <div style="display:flex;gap:14px;align-items:flex-start;">
+        <div style="width:130px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;">
+          <span style="position:absolute;right:5px;top:5px;background:var(--gold);color:#5c4813;font:900 8px Nunito;padding:1px 6px;border-radius:50px;box-shadow:0 1.5px 0 #d9a412;z-index:2;">×2</span>
+          <div style="height:64px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 7px Nunito;padding:1px 5px;border-radius:4px;">第8話 41:12</span></div>
+          <div style="height:64px;background:linear-gradient(172deg,#b9cfa4,#7fa063);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:#794f27;font:800 6.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 5.5px Nunito;">SEICHIJUNREI×ANITABI</span></div>
+          <span style="position:absolute;left:0;right:0;top:64px;height:1.5px;margin-top:-0.75px;background:rgba(248,248,240,.85);"></span>
+          <div style="padding:2.5px 7px;font-size:8.5px;font-weight:800;background:#f7f3df;display:flex;justify-content:space-between;"><span>気多若宮神社 ★</span><span style="color:var(--ink-soft);">10:48</span></div>
+        </div>
+        <div class="cnote" style="flex:1;">出没面：路线详情 対比図段 · しおり（版式族）· /s/:id share 段 · 機位ブラウザ badge · GEN 勾选池。生成协议＝image-merge 深链 <b>?url=帧h360&pid&bid&g</b>，JPEG 0.9，HEIC 其场警告。</div>
+      </div>
+    </div>
+
+    <div class="card" style="width:400px;">
+      <h3>⑨-2 しおり版式族（枚数驱动，无手动切）</h3>
+      <p class="cnote">9:16 出图 1080×1920。<b>版式由数据定</b>：計画＝<b>切符</b>（打孔线+时刻表）· 完走0枚＝<b>ポスター</b>（封面帧+✓清单+完成率环）· 1-2枚＝<b>一枚看板</b>（ベスト対比図全宽）· 3枚+＝<b>アルバム格子</b>（2×2、cap4、末格+N）。生成屏逐枚勾选→版式实时自适应；勾到 0 退ポスター。出典行+水印常驻。</p>
+      <div style="display:flex;gap:8px;">
+        <span style="flex:1;height:64px;border-radius:8px;background:var(--paper);border:1.5px dashed var(--line2);display:flex;align-items:center;justify-content:center;font:800 9.5px Nunito;color:var(--ink-soft);">切符</span>
+        <span style="flex:1;height:64px;border-radius:8px;background:linear-gradient(160deg,#d7eccf,#7ba05e);display:flex;align-items:center;justify-content:center;font:800 9.5px Nunito;color:#fff;">ポスター</span>
+        <span style="flex:1;height:64px;border-radius:8px;background:var(--paper);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font:800 9.5px Nunito;color:var(--ink);">看板 1-2</span>
+        <span style="flex:1;height:64px;border-radius:8px;background:var(--paper);border:1.5px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:5px;"><i style="background:#d7eccf;border-radius:3px;"></i><i style="background:#cfe3f7;border-radius:3px;"></i><i style="background:#fbe3ea;border-radius:3px;"></i><i style="background:#e6e0f0;border-radius:3px;display:flex;align-items:center;justify-content:center;font:900 8px Nunito;font-style:normal;color:#794f27;">+N</i></span>
+      </div>
+    </div>
+
+    <div class="card" style="width:420px;">
+      <h3>⑨-3 金条 GoldBar + 金件唯一（页内自洽）</h3>
+      <p class="cnote">「きょうは巡礼日」横条：gold 底+inset 高光+左文案右白 pill。<b>每屏金件优先级</b>：①きょう金条（在卡内/页顶）②底部 dock 金 CTA ③空態中央金。上位出现则下位退 cream，<b>永不同屏两金</b>。分配表沿用：しおり共有/歩くモード/記念しおり/画像を保存/アレンジ/AIに組んでもらう。</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--gold);border-radius:50px;padding:9px 8px 9px 15px;box-shadow:inset 0 1.5px 0 rgba(255,255,255,.35),0 3px 0 #d9a412;max-width:340px;">
+        <span style="font-size:12px;font-weight:900;color:#5c4813;">きょうは巡礼日！のこり3スポット</span>
+        <span style="background:#fff;border-radius:50px;padding:4px 12px;font-size:11px;font-weight:900;color:#5c4813;">歩くモードへ →</span>
+      </div>
+    </div>
+
+    <div class="card" style="width:400px;">
+      <h3>⑨-4 段头手风琴 SegmentHead（時間帯 / day）</h3>
+      <p class="cnote">≥7 站→時間帯分段（午前/午後/夕方）；多日→day 段一级结构。段头＝<b>名称+件数+徒歩/跨度</b>+ひらく/たたむ。当前段展开（panel 底）、其余 cream；<b>きょう段＝金框</b>+自动展开。空段→段头消失。追随滚动只展开一段。</p>
+      <div style="display:flex;flex-direction:column;gap:6px;max-width:340px;">
+        <div style="background:#fdf8e8;border:1.5px solid var(--star);border-radius:12px;padding:8px 12px;display:flex;justify-content:space-between;font-size:11px;font-weight:900;"><span>2日目 · 7/3 きょう <span style="font:800 9.5px Nunito;color:var(--ink-soft);">6スポット · 内浦</span></span><span style="color:#0e7c72;">たたむ ∧</span></div>
+        <div style="background:var(--paper);border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;display:flex;justify-content:space-between;font-size:11px;font-weight:900;"><span>3日目 · 7/4 <span style="font:800 9.5px Nunito;color:var(--ink-soft);">4スポット · 帰路</span></span><span style="color:var(--ink-soft);">ひらく ∨</span></div>
+      </div>
+    </div>
+
+    <div class="card" style="width:420px;">
+      <h3>⑨-5 機位ブラウザ sheet（一点多図的唯一出口）</h3>
+      <p class="cnote">行内只放代表帧+「Nカット▸」→sheet：<b>話数 chip 筛选</b>（ぜんぶ N/第N話 n）+ 3列帧格（<b>代表＝金框+金 tag</b>、有対比図カット＝金 badge「対比図✓」、cap+N 末格）+ 写真あり filter + <b>出典行常驻</b>。dock：代表を変える / この構図で対比図を作る（→CMP flow）/ この構図を目標に★（→Walk）。公開页版无个人 badge。</p>
+    </div>
+
+    <div class="card" style="width:400px;">
+      <h3>⑨-6 本棚卡 BookshelfCard（マイルート）</h3>
+      <p class="cnote">しおり缩影：cover 118×104（帧+話数 tag）+ eyebrow（作品·地）+ title + meta chips + <b>进度点</b>（teal 済/金框 現在/line 未访；&gt;10 站→6px 紧凑规格防裁切）+ quick chips（記念しおり/共有/編集/対比図）。きょう卡＝金框2px+金条置顶；完走卡＝金 badge「完走 N/N ✓」（.bd 右侧预留 84px 防叠字）。</p>
+    </div>
+
+    <div class="card" style="width:420px;">
+      <h3>⑨-7 帧图钉 fpin 尺寸表 + scene-cut 边界</h3>
+      <p class="cnote"><b>fpin</b>：24（画布缩影）/30（紧凑卡）/40（区域 zoom·カット数 badge）/48（路线 pin·序号/✓）/52–56（桌面）/<b>58–66 現在＝金环★</b>。済＝teal ✓ badge、未访＝白底序号、非路线点 op .4–.55。<b>scene-cut（狐狸小跑）</b>只用于「明显去某处」：Chat/金条→Walk、AI 入口→Chat；<b>开屏/旁路操作禁用</b>。</p>
+    </div>
+
+  </div>
+  <div class="dlog" style="margin-top:18px;">
+    <div class="dl"><span class="d">07-03</span><span class="tag">裁决</span><div>路线详情＝<b>单页活文档·无模式</b>：三时态/segmented 全废，数据点亮元素（当天→金条+展開、完走→✓+対比図段）；MODE（静息⇄地図展開 FLIP）与数据正交。</div></div>
+    <div class="dl"><span class="d">07-06</span><span class="tag">裁决</span><div><b>対比図正名</b>：image-merge 産物＝横帧上下拼 8:9+左下水印；挂カット 0..M 枚；一切左右 split 表现废弃并已回刷（路线详情/機位/しおり/share）。</div></div>
+    <div class="dl"><span class="d">07-06</span><span class="tag">裁决</span><div><b>金件唯一页内自洽</b>（金条＞dock 金＞中央金）＋ しおり版式族由枚数定（切符/ポスター/看板/格子）——「数据点亮」升级为全站原则。</div></div>
+    <div class="dl"><span class="d">07-06</span><span class="tag">裁决</span><div>Anitabi <b>无 bearing</b>（07-03 实测）→ UI 永不断言拍摄向き；向き只来自用户照片 EXIF（opt-in 回传，反哺叙事只在 CMP-3 讲）。開屏＝静态双帧（昼/夜），≤800ms，无动效。</div></div>
+    <div class="dl"><span class="d">—</span><span class="tag todo">欠账</span><div>工作台 Drawer 手机形态出图 · transit 接驳（roadmap）· legal：itorr/上游 UI kit LICENSE、CC BY-NC-SA 商用授权。</div></div>
+  </div>
+</section>
+
+<script>
+(function(){
+  var S22='fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"';
+  var ICONS={
+    'search':'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    'send ●':'<path fill="currentColor" stroke="none" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l11 2-11 2z"/>',
+    'image':'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-5-5L5 21"/>',
+    'map':'<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
+    'pin':'<path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/>',
+    'walk':'<circle cx="13" cy="4.5" r="1.8"/><path d="M12.5 8.5 10 12l2.5 3v5"/><path d="M10 12l-2.5 1.5M12.5 8.5l3 1 2 2.5M12.5 15l3 2 .5 4"/>',
+    'check':'<path d="M4 12l5 5L20 6"/>',
+    'close':'<path d="M6 6l12 12M18 6 6 18"/>',
+    'back':'<path d="M15 6l-6 6 6 6"/>',
+    'chev-down':'<path d="m6 9 6 6 6-6"/>',
+    'external':'<path d="M14 5h5v5"/><path d="M19 5 11 13"/><path d="M19 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4"/>',
+    'camera':'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+    'star ●':'<path fill="currentColor" stroke="none" d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.3l-5.8 3.1 1.1-6.5L2.6 9.3l6.5-.9z"/>',
+    'clock':'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+    'train':'<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M9.5 17.5 7 21M14.5 17.5 17 21"/><circle cx="9" cy="14" r=".5"/><circle cx="15" cy="14" r=".5"/>',
+    'alert':'<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/>',
+    'mail':'<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/>',
+    'drag':'<path d="M5 9h14M5 15h14"/>',
+    'qr':'<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h3v3h-3zM20 14v2M17 20h3M14 19v1"/>',
+    'refresh':'<path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 5v6h-6"/>'
+  };
+  var iconWrap=document.getElementById('iconSet');
+  Object.keys(ICONS).forEach(function(k){
+    var d=document.createElement('div'); d.className='ic';
+    d.innerHTML='<span class="b"><svg viewBox="0 0 24 24" '+(k.indexOf('●')>=0?'':S22)+'>'+ICONS[k]+'</svg></span><span>'+k+'</span>';
+    iconWrap.appendChild(d);
+  });
+
+  /* button matrix */
+  var TICK='<svg viewBox="0 0 24 24" '+S22+' style="width:12px;height:12px;color:#fff;"><path d="M4 12l5 5L20 6"/></svg>';
+  var states=[['default',''],['hover','hv'],['active','ac'],['focus','fc'],['disabled','dis'],['loading','ld']];
+  var kinds=[
+    ['CTA 金','每屏唯一主行动','gold','しおりにして共有'],
+    ['Primary cream','默认按压件','cream','保存する'],
+    ['teal chip','interactive：选中/链接件','tealln','この圏で絞り込む'],
+    ['send 橙','composer 发送键专用','orange','送信']
+  ];
+  var h='<tr><th class="rh"></th>'+states.map(function(s){return '<th>'+s[0]+'</th>';}).join('')+'</tr>';
+  kinds.forEach(function(k){
+    h+='<tr><td class="rh">'+k[0]+'<span>'+k[1]+'</span></td>';
+    states.forEach(function(s){
+      var cls=k[2]+(s[1]?' '+s[1]:'');
+      h+='<td><button class="btn '+cls+'">'+k[3]+'</button></td>';
+    });
+    h+='</tr>';
+  });
+  document.getElementById('btnMx').innerHTML=h;
+
+  /* controls matrix */
+  var c='<tr><th class="rh"></th><th>off / default</th><th>on / active</th><th>focus</th><th>disabled</th></tr>';
+  c+='<tr><td class="rh">Checkbox<span>点位勾选</span></td>'
+    +'<td><span class="ckb">'+TICK+'</span></td>'
+    +'<td><span class="ckb on">'+TICK+'</span></td>'
+    +'<td><span class="ckb on fc">'+TICK+'</span></td>'
+    +'<td><span class="ckb dis">'+TICK+'</span></td></tr>';
+  c+='<tr><td class="rh">Switch<span>filter「写真あり」</span></td>'
+    +'<td><span class="swc"></span></td><td><span class="swc on"></span></td><td><span class="swc on fc"></span></td><td><span class="swc dis"></span></td></tr>';
+  c+='<tr><td class="rh">Segmented<span>分组/順序切换</span></td>'
+    +'<td><span class="seg"><button class="on">エリア</button><button>話数</button></span></td>'
+    +'<td><span class="seg"><button>エリア</button><button class="on">話数</button></span></td>'
+    +'<td><span class="seg"><button class="on fc">エリア</button><button>話数</button></span></td>'
+    +'<td><span class="seg" style="opacity:.45;"><button class="on">エリア</button><button>話数</button></span></td></tr>';
+  c+='<tr><td class="rh">Filter chip<span>可解除条件</span></td>'
+    +'<td><span class="fchip">写真ありのみ</span></td>'
+    +'<td><span class="fchip on">写真ありのみ <span class="x">×</span></span></td>'
+    +'<td><span class="fchip" style="box-shadow:0 0 0 2.5px #ffcc00,0 3px 0 0 #bdaea0;">写真ありのみ</span></td>'
+    +'<td><span class="fchip" style="opacity:.45;">写真ありのみ</span></td></tr>';
+  c+='<tr><td class="rh">Search<span>圏内検索</span></td>'
+    +'<td><span class="srch"><svg viewBox="0 0 24 24" '+S22+'><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>圏内をさがす…</span></td>'
+    +'<td><span class="srch"><svg viewBox="0 0 24 24" '+S22+'><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><b>神社</b>｜</span></td>'
+    +'<td><span class="srch fc"><svg viewBox="0 0 24 24" '+S22+'><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>圏内をさがす…</span></td>'
+    +'<td><span class="srch" style="opacity:.45;"><svg viewBox="0 0 24 24" '+S22+'><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>—</span></td></tr>';
+  document.getElementById('ctlMx').innerHTML=c;
+
+  /* ===== S5 specimens ===== */
+  /* itin anatomy */
+  var WALKI='<svg style="width:12px;height:12px;" viewBox="0 0 24 24" '+S22+'><circle cx="13" cy="4.5" r="1.8"/><path d="M12.5 8.5 10 12l2.5 3v5"/><path d="M10 12l-2.5 1.5M12.5 8.5l3 1 2 2.5M12.5 15l3 2 .5 4"/></svg>';
+  function dot(n,top,left){ return '<span class="dotn" style="top:'+top+'px;left:'+left+'px;">'+n+'</span>'; }
+  var itin='<div style="position:relative;max-width:560px;">'
+    +dot(1,10,-11)+dot(2,34,-11)+dot(3,64,-11)+dot(4,110,-11)+dot(5,168,-11)+dot(6,218,-11)+dot(7,392,-11)
+    +'<div style="background:var(--paper);border:2px solid var(--line);border-radius:18px;overflow:hidden;">'
+    +'<div style="padding:15px 17px 0;font-size:10.5px;letter-spacing:2.2px;font-weight:900;color:var(--ink-soft);">HIDA-FURUKAWA · HALF-DAY ROUTE</div>'
+    +'<div style="padding:3px 17px 0;font-weight:900;font-size:19.5px;color:var(--ink);">飛騨古川 半日ルート</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;padding:9px 17px 12px;border-bottom:2px solid var(--line);"><span style="font-size:10.5px;font-weight:900;border-radius:50px;padding:3px 10px;background:#e7f4dd;color:#4e7a2c;">ゆったり</span><span style="font-size:10.5px;font-weight:900;border-radius:50px;padding:3px 10px;background:#f0ece2;color:#7c6c55;">5スポット</span><span style="font-size:10.5px;font-weight:900;border-radius:50px;padding:3px 10px;background:#f0ece2;color:#7c6c55;">徒歩26分 · 2.0km</span><span style="font-size:10.5px;font-weight:900;border-radius:50px;padding:3px 10px;background:#f0ece2;color:#7c6c55;">9:30 → 12:32</span></div>'
+    +'<div style="padding:12px 16px 4px;">'
+    +'<div style="display:grid;grid-template-columns:44px 24px 1fr;column-gap:8px;"><span style="font-weight:900;font-size:12.5px;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums;">9:30</span><span style="position:relative;display:flex;justify-content:center;"><i style="width:13px;height:13px;border-radius:50%;background:var(--teal);border:2.5px solid #fffdf5;box-shadow:0 0 0 2px var(--teal);margin-top:3px;"></i></span><span style="padding-bottom:12px;"><span style="font-weight:800;font-size:14.5px;color:var(--ink);">飛騨古川駅<span style="display:inline-block;background:#f7cd67;color:#fff;font-size:10px;font-weight:900;border-radius:999px;padding:1px 8px;margin-left:5px;">第1話 04:12</span><span style="font-size:11px;color:var(--ink-soft);font-weight:800;margin-left:6px;">15分滞在</span></span></span></div>'
+    +'<div style="display:grid;grid-template-columns:44px 24px 1fr;column-gap:8px;"><span></span><span style="position:relative;display:flex;justify-content:center;"><i style="position:absolute;top:-6px;bottom:-2px;border-left:2px dashed var(--line2);"></i></span><span style="padding:2px 0 12px;"><span style="display:inline-flex;align-items:center;gap:6px;background:#e7f4dd;color:#4e7a2c;border-radius:50px;padding:4px 12px;font-size:11.5px;font-weight:800;">'+WALKI+'徒歩4分 · 瀬戸川沿いを歩く</span></span></div>'
+    +'<div style="display:grid;grid-template-columns:44px 24px 1fr;column-gap:8px;"><span style="font-weight:900;font-size:12.5px;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums;">10:28</span><span style="position:relative;display:flex;justify-content:center;"><i style="width:13px;height:13px;border-radius:50%;background:var(--star);border:2.5px solid #fffdf5;box-shadow:0 0 0 2px var(--star);margin-top:3px;"></i></span><span style="padding-bottom:12px;"><span style="font-weight:800;font-size:14.5px;color:var(--ink);">気多若宮神社 <b style="color:var(--star);">★</b><span style="display:inline-block;background:#f7cd67;color:#fff;font-size:10px;font-weight:900;border-radius:999px;padding:1px 8px;margin-left:5px;">第8話 41:12</span><span style="font-size:11px;color:var(--ink-soft);font-weight:800;margin-left:6px;">30分滞在</span></span>'
+    +'<span style="display:block;font-size:11.5px;color:var(--ink-soft);font-weight:700;margin-top:2px;">石段と鳥居 ·「糸守」のモデルのひとつ</span>'
+    +'<span style="display:block;width:150px;aspect-ratio:16/9;border-radius:10px;margin-top:8px;position:relative;overflow:hidden;border:2px solid var(--line);background:linear-gradient(135deg,#d7eccf,#a8cf8e);"><i style="position:absolute;left:6px;bottom:5px;font-style:normal;font-size:8.5px;font-weight:900;color:#fff;background:#00000066;border-radius:6px;padding:1px 6px;">第8話 41:12 のカット</i></span></span></div>'
+    +'<div style="display:grid;grid-template-columns:44px 24px 1fr;column-gap:8px;"><span style="font-weight:900;font-size:12.5px;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums;">12:32</span><span style="position:relative;display:flex;justify-content:center;"><i style="width:13px;height:13px;border-radius:50%;background:var(--gold);border:2.5px solid #fffdf5;box-shadow:0 0 0 2px var(--gold-deep);margin-top:3px;"></i></span><span style="padding-bottom:6px;"><span style="font-weight:800;font-size:14.5px;color:#a8801a;">ゴール · さくら物産館</span></span></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;padding:12px 13px;border-top:2px solid var(--line);flex-wrap:wrap;">'
+    +'<button class="btn gold" style="flex:1;min-width:170px;padding:11px 16px;font-size:14px;">しおりにして共有</button>'
+    +'<button class="btn cream" style="padding:11px 16px;font-size:14px;">Mapsで開く</button>'
+    +'<button class="btn cream" style="padding:11px 16px;font-size:14px;">保存する</button>'
+    +'<button class="btn cream" style="padding:11px 16px;font-size:14px;">歩くモード</button></div>'
+    +'</div></div>';
+  document.getElementById('itinAnno').innerHTML=itin;
+
+  /* footprint 3 states */
+  var fp='';
+  fp+='<div class="lbl">RUNNING（B2b）</div>'
+    +'<div style="background:var(--content);border:2px solid var(--line);border-radius:16px;padding:12px 15px;max-width:440px;">'
+    +'<div style="display:flex;gap:6px;align-items:center;font-weight:800;color:var(--teal-text);font-size:13.5px;"><i style="width:9px;height:9px;border-radius:50%;background:var(--teal);"></i><i style="width:9px;height:9px;border-radius:50%;background:var(--teal);opacity:.5;"></i><i style="width:9px;height:9px;border-radius:50%;background:var(--teal);opacity:.25;"></i><span style="margin-left:6px;">ロケ地を調べています</span></div>'
+    +'<div style="font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-top:7px;">コン「いま Anitabi でさがしてるよ… <b style="color:var(--teal-text);">8</b>/23」</div>'
+    +'<div style="display:flex;flex-direction:column;gap:7px;margin-top:9px;font-size:13.5px;font-weight:700;">'
+    +'<span style="display:flex;align-items:center;gap:9px;color:var(--ink-body);"><span style="width:19px;height:19px;border-radius:50%;background:var(--teal);display:inline-flex;align-items:center;justify-content:center;">'+TICK+'</span>タイトル確認 <span style="font-size:10px;font-weight:900;color:#8a7b66;background:#f0ece2;border-radius:50px;padding:1px 8px;">Bangumi</span></span>'
+    +'<span style="display:flex;align-items:center;gap:9px;color:var(--ink);"><span style="width:19px;height:19px;border-radius:50%;background:var(--teal-bg);border:2px solid var(--teal);display:inline-flex;"></span>聖地スポットを検索 <span style="font-size:10px;font-weight:900;color:#8a7b66;background:#f0ece2;border-radius:50px;padding:1px 8px;">Anitabi</span></span>'
+    +'<span style="display:flex;align-items:center;gap:9px;color:var(--ink-soft);"><span style="width:19px;height:19px;border-radius:50%;background:#f0ece2;border:2px solid var(--line);display:inline-flex;"></span>歩けるルートを作成</span></div></div>';
+  fp+='<div class="lbl">FOLDED（B4 settled）</div>'
+    +'<div style="background:var(--content);border:2px solid var(--line);border-radius:16px;padding:11px 15px;max-width:440px;font-size:12.5px;font-weight:800;color:var(--ink-body);">'
+    +'<span style="color:var(--teal-text);">✓</span> タイトル確認 <span style="color:var(--ink-soft);">→</span> 23スポット <span style="color:var(--ink-soft);">→</span> ルート作成 <b style="color:var(--ink);">6.8s</b> <button style="border:none;background:none;font-family:inherit;font-weight:800;font-size:12px;color:var(--teal-text);">詳細を見る ▾</button></div>';
+  fp+='<div class="lbl">RECALC（E2 旁路 · 无管线戏）</div>'
+    +'<div style="background:var(--content);border:2px solid var(--line);border-radius:16px;padding:11px 15px;max-width:440px;font-size:12.5px;font-weight:800;color:var(--ink-body);"><span style="color:var(--teal-text);">✓</span> 再計算 <b style="color:var(--ink);">1.2s</b></div>';
+  document.getElementById('fpSpec').innerHTML=fp;
+
+  /* spot cells — 工作台定稿形态 */
+  var PINS='<svg style="width:11px;height:11px;flex:none;color:var(--teal-text);" viewBox="0 0 24 24" '+S22+'><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.4"/></svg>';
+  function cell(state){
+    var on=state==='on', nophoto=state==='nophoto', broken=state==='broken';
+    var bg=broken?'linear-gradient(135deg,#cfe3f7,#98b8dc)':(nophoto?'linear-gradient(135deg,#ead9c6,#cbb094)':'linear-gradient(135deg,#d7eccf,#7fae6a)');
+    var lbl=on?'選択中（teal 边+勾 pop）':state==='off'?'未選択':nophoto?'写真なし（渐变キャップ）':'帧404 → D9 兜底（渐变+カット号）';
+    return '<div><div style="position:relative;aspect-ratio:16/9;border-radius:14px;border:2.5px solid '+(on?'#19c8b9':'var(--line)')+';overflow:hidden;background:'+bg+';">'
+      +'<span style="position:absolute;top:9px;left:9px;width:22px;height:22px;border-radius:8px;background:'+(on?'#19c8b9':'rgb(247,243,223)')+';border:2.5px solid '+(on?'#11a89b':'#c4b89e')+';display:flex;align-items:center;justify-content:center;">'+(on?TICK:'')+'</span>'
+      +'<i style="position:absolute;right:9px;bottom:9px;font-style:normal;font-size:10px;font-weight:900;color:#fff;background:#00000066;border-radius:50px;padding:2px 9px;">'+(broken?'第1話 04:12 · 画像を準備中':'第8話 41:12 · +18カット')+'</i></div>'
+      +'<div style="margin:7px 2px 0;font-size:13.5px;font-weight:800;color:var(--ink);">気多若宮神社'+(on?' <b style="color:var(--star);">★</b>':'')+'</div>'
+      +'<div style="margin:3px 2px 0;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--ink-soft);"><span style="height:20px;display:inline-flex;align-items:center;padding:0 9px;font-size:10.5px;font-weight:600;border-radius:999px;border:1.5px solid #c4b89e;color:#8f734f;">高台</span>'+PINS+'駅から徒歩13分 · 滞在30分</div>'
+      +'<div style="margin-top:5px;font-size:11px;font-weight:800;color:#8a7b66;">'+lbl+'</div></div>';
+  }
+  document.getElementById('cellSpec').innerHTML=cell('on')+cell('off')+cell('nophoto')+cell('broken');
+
+  /* clarify chips */
+  var chip='<div class="lbl">FRESH（待选 · 44px 高）</div><div style="display:flex;flex-wrap:wrap;gap:8px;">'
+    +'<button class="btn cream" style="flex-direction:column;align-items:flex-start;gap:1px;border-radius:16px;font-size:13.5px;">飛騨古川駅から · 9:30<span style="font-size:10px;color:var(--ink-soft);font-weight:700;">高山本線の玄関口 · おすすめ</span></button>'
+    +'<button class="btn cream" style="flex-direction:column;align-items:flex-start;gap:1px;border-radius:16px;font-size:13.5px;">いまいる場所から<span style="font-size:10px;color:var(--ink-soft);font-weight:700;">位置情報を使う</span></button>'
+    +'<button class="btn cream" style="border-radius:16px;font-size:13.5px;border-style:dashed;color:var(--teal-text);">どっちでもない、言い直す</button></div>'
+    +'<div class="lbl">USED（选后 · 其余 op .42）</div><div style="display:flex;flex-wrap:wrap;gap:8px;">'
+    +'<button class="btn" style="border-radius:16px;font-size:13.5px;background:var(--teal);color:#fff;box-shadow:0 3px 0 0 var(--teal-deep);">飛騨古川駅から · 9:30</button>'
+    +'<button class="btn cream" style="border-radius:16px;font-size:13.5px;opacity:.42;">いまいる場所から</button>'
+    +'<button class="btn cream" style="border-radius:16px;font-size:13.5px;opacity:.42;border-style:dashed;">どっちでもない、言い直す</button></div>';
+  document.getElementById('chipSpec').innerHTML=chip;
+
+  /* map spec — 真底图滤色 + 図釘即画面 */
+  var map='<div style="background:var(--paper);border:2px solid var(--line);border-radius:18px;overflow:hidden;max-width:560px;">'
+    +'<div style="display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:2px solid var(--line);"><svg style="width:16px;height:16px;color:var(--ink);" viewBox="0 0 24 24" '+S22+'><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg><b style="font-family:\'Zen Maru Gothic\',sans-serif;font-weight:700;font-size:15.5px;color:var(--ink);">ルートマップ</b><span style="margin-left:auto;font-size:11px;font-weight:800;color:var(--teal-text);background:var(--teal-bg);border-radius:50px;padding:3px 10px;">静的 · 選図態</span></div>'
+    +'<div style="position:relative;height:220px;background:var(--map-land);">'
+    +'<svg viewBox="0 0 600 220" style="display:block;width:100%;height:100%;">'
+    +'<ellipse cx="130" cy="35" rx="160" ry="55" fill="var(--map-green)" opacity=".85"/>'
+    +'<ellipse cx="520" cy="205" rx="170" ry="60" fill="var(--map-green)" opacity=".6"/>'
+    +'<path d="M-10 208 C 120 188 200 152 250 132 S 360 96 430 88 560 74 610 70" fill="none" stroke="var(--map-water)" stroke-width="14" stroke-linecap="round"/>'
+    +'<path d="M-10 208 C 120 188 200 152 250 132 S 360 96 430 88 560 74 610 70" fill="none" stroke="#d8ecee" stroke-width="4" stroke-linecap="round" opacity=".8"/>'
+    +'<path d="M30 220 L 140 152 260 116 400 92 530 74 610 64" fill="none" stroke="var(--map-road)" stroke-width="9" stroke-linecap="round"/>'
+    +'<path d="M-10 122 C 110 132 230 137 350 127 S 540 110 610 120" fill="none" stroke="var(--map-road)" stroke-width="6" stroke-linecap="round"/>'
+    +'<path d="M-10 187 L 90 178 250 164 450 154 610 150" fill="none" stroke="#b9ad94" stroke-width="4" stroke-dasharray="10 6" stroke-linecap="round"/>'
+    +'<circle cx="96" cy="168" r="64" fill="none" stroke="#c9b894" stroke-width="1.5" stroke-dasharray="5 6"/>'
+    +'<rect x="78" y="160" width="36" height="15" rx="5" fill="#8a7b66"/><text x="96" y="171.5" text-anchor="middle" font-size="9" font-weight="900" fill="#fffdf5" font-family="Nunito,sans-serif">駅</text>'
+    +'<text x="120" y="184" font-size="10" font-weight="900" fill="#6b5b44" font-family="Nunito,sans-serif">飛騨古川駅</text>'
+    +'<text x="250" y="128" font-size="9.5" font-weight="800" fill="#7fa6ab" transform="rotate(-18 250 128)" font-family="Nunito,sans-serif">瀬戸川</text>'
+    +'<circle cx="112" cy="148" r="11" fill="var(--teal)" stroke="#fff" stroke-width="2.5"/><text x="112" y="152" text-anchor="middle" font-size="10" font-weight="900" fill="#fff" font-family="Nunito,sans-serif">1</text>'
+    +'<circle cx="185" cy="120" r="8" fill="#fffdf5" stroke="var(--teal)" stroke-width="3"/>'
+    +'<circle cx="205" cy="140" r="11" fill="var(--teal)" stroke="#fff" stroke-width="2.5"/><text x="205" y="144" text-anchor="middle" font-size="10" font-weight="900" fill="#fff" font-family="Nunito,sans-serif">2</text>'
+    +'<circle cx="430" cy="108" r="11" fill="var(--teal)" stroke="#fff" stroke-width="2.5"/><text x="430" y="112" text-anchor="middle" font-size="10" font-weight="900" fill="#fff" font-family="Nunito,sans-serif">4</text>'
+    +'<circle cx="500" cy="86" r="11" fill="var(--teal)" stroke="#fff" stroke-width="2.5"/><text x="500" y="90" text-anchor="middle" font-size="10" font-weight="900" fill="#fff" font-family="Nunito,sans-serif">5</text>'
+    +'<circle cx="528" cy="120" r="8" fill="#fffdf5" stroke="var(--teal)" stroke-width="3" opacity=".9"/>'
+    +'<defs><linearGradient id="dspg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d7eccf"/><stop offset="1" stop-color="#7fae6a"/></linearGradient></defs>'
+    +'<circle cx="340" cy="62" r="26" fill="none" stroke="var(--teal)" stroke-width="2.5" opacity=".65"><animate attributeName="r" values="22;29;22" dur="1.6s" repeatCount="indefinite"/></circle>'
+    +'<circle cx="340" cy="62" r="19" fill="url(#dspg)" stroke="#fffdf5" stroke-width="3.5"/>'
+    +'<circle cx="355" cy="47" r="8" fill="var(--star)" stroke="#fff" stroke-width="2"/><text x="355" y="50.5" text-anchor="middle" font-size="8" font-weight="900" fill="#fff">★</text>'
+    +'<rect x="272" y="92" width="136" height="22" rx="11" fill="#2c2722e6"/><text x="340" y="107" text-anchor="middle" font-size="10" font-weight="800" fill="#ffd76a" font-family="Nunito,\'Noto Sans SC\',sans-serif">気多若宮神社 · +18カット</text>'
+    +'</svg>'
+    +'<span style="position:absolute;right:10px;top:10px;background:#fffdf5e6;color:var(--ink);border:2px solid var(--line);font-size:10.5px;font-weight:800;border-radius:50px;padding:5px 10px;">地図を操作 ↗</span>'
+    +'</div>'
+    +'<div style="padding:8px 13px;font-size:10.5px;font-weight:700;color:var(--ink-soft);border-top:2px solid var(--line);display:flex;gap:11px;flex-wrap:wrap;"><span>● 選択中</span><span>○ 未選択</span><span style="color:#c99a12;">★ ハイライト</span><span>破線円＝徒歩10分圏</span><span style="color:var(--teal-text);">画像ピン＝hover強調</span></div>'
+    +'</div>';
+  document.getElementById('mapSpec').innerHTML=map;
+
+  /* wait family */
+  var w='<div class="lbl">SKELETON（仅 B2d）</div>'
+    +'<div style="background:var(--paper);border:2px solid var(--line);border-radius:16px;padding:13px 15px;max-width:400px;">'
+    +'<div style="height:11px;width:34%;border-radius:6px;background:linear-gradient(110deg,#e6dfce 30%,#f3ecdb 50%,#e6dfce 70%);background-size:200% 100%;animation:demoShim 1.4s linear infinite;"></div>'
+    +'<div style="height:15px;width:58%;border-radius:6px;background:linear-gradient(110deg,#e6dfce 30%,#f3ecdb 50%,#e6dfce 70%);background-size:200% 100%;animation:demoShim 1.4s linear infinite;margin-top:9px;"></div>'
+    +'<div style="height:11px;width:80%;border-radius:6px;background:linear-gradient(110deg,#e6dfce 30%,#f3ecdb 50%,#e6dfce 70%);background-size:200% 100%;animation:demoShim 1.4s linear infinite;margin-top:12px;"></div></div>'
+    +'<div class="lbl">情绪卡 EMO（B2c ≥4s）</div>'
+    +'<div style="border-radius:14px;padding:14px 16px;color:#fff;background:linear-gradient(135deg,#5a6e8f,#b87f7a 60%,#e8b87a);max-width:400px;">'
+    +'<q style="display:block;quotes:none;font-family:\'Zen Maru Gothic\',sans-serif;font-weight:700;font-size:14.5px;line-height:1.75;text-shadow:0 1px 3px #00000055;">「まだ会ったことのない君を、探している」</q>'
+    +'<span style="display:block;margin-top:6px;opacity:.9;font-size:11px;font-weight:800;text-align:right;">――『君の名は。』キャッチコピー</span></div>';
+  document.getElementById('waitSpec').innerHTML=w;
+
+  /* ⑥ area card */
+  var area='<div style="display:grid;grid-template-columns:216px 1fr;background:var(--paper);border:2px solid var(--line);border-radius:16px;overflow:hidden;width:100%;max-width:560px;">'
+    +'<span style="position:relative;display:block;background:linear-gradient(135deg,#cfe3f7,#98b8dc);"><i style="position:absolute;left:7px;bottom:6px;font-style:normal;font-size:9px;font-weight:900;color:#fff;background:#00000066;border-radius:50px;padding:1px 8px;">飛騨古川駅 ほか</i></span>'
+    +'<div style="padding:10px 14px;display:flex;flex-direction:column;gap:6px;">'
+    +'<div style="font-size:14.5px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:8px;">駅周辺 · 古い街並み <span style="font-size:11px;font-weight:900;color:var(--teal-text);background:var(--teal-bg);border-radius:50px;padding:1px 9px;">12件</span></div>'
+    +'<div style="display:flex;gap:6px;"><span style="width:64px;aspect-ratio:16/9;border-radius:8px;border:1.5px solid var(--line);background:linear-gradient(135deg,#d9ecec,#a9cfd1);"></span><span style="width:64px;aspect-ratio:16/9;border-radius:8px;border:1.5px solid var(--line);background:linear-gradient(135deg,#f5dccf,#e0b294);"></span><span style="width:64px;aspect-ratio:16/9;border-radius:8px;border:1.5px dashed var(--line2);display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:900;color:var(--ink-soft);">+9</span></div>'
+    +'<div style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--ink-soft);">'+PINS+'徒歩10分圏 · 選択中 2件</div>'
+    +'<span style="font-size:12px;font-weight:800;color:var(--teal-text);">この一帯にズーム → 点位カードに展開 ▸</span>'
+    +'</div></div>'
+    +'<div class="lbl">段内折叠（中景 · 每区 ≤4 卡）</div>'
+    +'<span style="display:inline-flex;align-items:center;gap:7px;border:2px dashed var(--line2);border-radius:50px;padding:9px 22px;font-size:12px;font-weight:800;color:#8f734f;">駅周辺の残り 9件 ▸</span>'
+    +'<div class="lbl">視野外段（折叠不消失）</div>'
+    +'<div style="font-size:11px;font-weight:900;color:var(--ink-soft);">視野外 <span style="background:var(--content);border:1.5px solid var(--line);border-radius:50px;padding:0 8px;font-size:10px;">7件</span> — 地図を動かすとここに折りたたまれる（防「刚才那张卡去哪了」）</div>';
+  document.getElementById('areaSpec').innerHTML=area;
+
+  /* ⑦ episode section */
+  function epMini(g){ return '<span style="width:46px;aspect-ratio:16/9;border-radius:6px;border:1.5px solid var(--line);background:'+g+';"></span>'; }
+  var ep='<div class="lbl" style="margin-top:0;">收起态（3 迷你缩略+件数 — 不是纯文字行）</div>'
+    +'<div style="background:var(--paper);border:2px solid var(--line);border-radius:16px;width:100%;"><div style="display:flex;align-items:center;gap:9px;padding:11px 14px;font-size:13px;font-weight:800;color:var(--ink);"><span style="width:22px;height:22px;border-radius:50%;background:#f0ece2;color:#8a7b66;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex:none;">▸</span>第8話 · 御神体へ<span style="font-size:10.5px;font-weight:900;color:var(--ink-soft);background:var(--content);border:1.5px solid var(--line);border-radius:50px;padding:0 8px;">8件</span><span style="margin-left:auto;display:flex;gap:5px;">'+epMini('linear-gradient(135deg,#d7eccf,#7fae6a)')+epMini('linear-gradient(135deg,#dfd6f0,#b7a8dd)')+epMini('linear-gradient(135deg,#fbe3ea,#eeb3c6)')+'</span></div></div>'
+    +'<div class="lbl">展开态头（teal chev + 地图追随提示）</div>'
+    +'<div style="background:var(--paper);border:2px solid var(--line);border-radius:16px;width:100%;"><div style="display:flex;align-items:center;gap:9px;padding:11px 14px;font-size:13px;font-weight:800;color:var(--ink);"><span style="width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex:none;">▾</span>第1話 · 糸守の朝<span style="font-size:10.5px;font-weight:900;color:var(--ink-soft);background:var(--content);border:1.5px solid var(--line);border-radius:50px;padding:0 8px;">5件</span><span style="margin-left:auto;font-size:10.5px;font-weight:800;color:var(--teal-text);">地図が自動フィット中 →</span></div></div>'
+    +'<div class="lbl">范围过滤＝地图上的显式按钮（連動 OFF 时）</div>'
+    +'<span style="display:inline-block;background:#2c2722e6;color:#ffd76a;font-size:11.5px;font-weight:800;border-radius:50px;padding:7px 15px;">この範囲だけに絞る ▸</span>';
+  document.getElementById('epSpec').innerHTML=ep;
+
+  /* ⑧ selection tray */
+  function tchip(n,txt){ return '<span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px 0 4px;font-size:12px;font-weight:600;border-radius:999px;background:#82d5bb;border:1.5px solid #82d5bb;color:#fff;"><b style="width:17px;height:17px;border-radius:50%;background:#fff;color:#0e7c72;font-size:10px;font-weight:900;display:inline-flex;align-items:center;justify-content:center;">'+n+'</b>'+txt+'<span style="width:16px;height:16px;border-radius:50%;background:rgba(0,0,0,.08);display:inline-flex;align-items:center;justify-content:center;font-size:12px;line-height:1;">×</span></span>'; }
+  var tr='<div style="background:var(--paper);border:2px solid var(--line);border-radius:16px;padding:12px 16px;display:flex;flex-direction:column;gap:9px;">'
+    +'<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">'+tchip(1,'飛騨古川駅')+tchip(2,'味処古川')+tchip(3,'気多若宮神社')+'</div>'
+    +'<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">'
+    +'<span style="font-size:12px;font-weight:800;color:var(--ink-body);">5件選択中 · 徒歩<b style="color:var(--teal-text);">26分</b> · 約<b style="color:var(--teal-text);">3時間</b> — 半日予算内 <b style="color:var(--teal-text);">✓</b></span>'
+    +'<span style="display:inline-flex;align-items:center;gap:6px;height:29px;padding:0 12px;font-size:12.5px;font-weight:600;border-radius:999px;border:1.5px dashed #c4b89e;color:#8f734f;">'+PINS+'絶対行くだけ選んで、残りはおまかせ ▸</span>'
+    +'<button class="btn gold" style="margin-left:auto;">この5件でルートを組む</button></div>'
+    +'<div style="font-size:12px;font-weight:800;color:#b9682a;">超载态：9件選択中 · 徒歩58分 · 約5.5時間 — 半日予算を<b>90分</b>超過 ⚠（尊重选择不阻止 ·「2件へらす?」提议）</div></div>';
+  document.getElementById('traySpec').innerHTML=tr;
+
+  /* ⑨ lightbox */
+  function lbth(on){ return '<span style="width:70px;aspect-ratio:16/9;border-radius:6px;border:2px solid '+(on?'var(--gold)':'transparent')+';background:linear-gradient(135deg,#d7eccf,#7fae6a);opacity:'+(on?'1':'.6')+';flex:none;"></span>'; }
+  var lb='<div style="display:grid;grid-template-columns:1fr 168px;border:2px solid var(--line);border-radius:16px;overflow:hidden;">'
+    +'<div style="background:#1c1712;">'
+    +'<div style="position:relative;aspect-ratio:16/9;background:linear-gradient(150deg,#d7eccf 0%,#a8cf8e 55%,#7fae6a 100%);"><span style="position:absolute;left:10px;bottom:8px;font-size:10px;font-weight:900;color:#ffd76a;background:#00000088;border-radius:50px;padding:3px 10px;">第8話 · 41:12 — 石段の下から鳥居を見上げる</span></div>'
+    +'<div style="display:flex;gap:6px;padding:8px 10px;background:#241d15;align-items:center;">'+lbth(true)+lbth()+lbth()+'<span style="font-size:10px;font-weight:800;color:#c9b894;">全18カット →</span></div></div>'
+    +'<div style="padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--paper);">'
+    +'<b style="font-size:13.5px;color:var(--ink);font-family:\'Zen Maru Gothic\',sans-serif;">気多若宮神社 <span style="color:var(--star);">★</span></b>'
+    +'<span style="font-size:10px;font-weight:800;color:var(--ink-soft);line-height:1.6;">位置块＝locator 小图 + 高台エリア + 駅から徒歩13分 + 住所</span>'
+    +'<button class="btn gold" style="padding:9px 10px;font-size:11.5px;margin-top:auto;">✓ この聖地を選ぶ</button>'
+    +'<button class="btn cream" style="padding:8px 10px;font-size:11px;">Mapsで開く</button>'
+    +'</div></div>';
+  document.getElementById('lbSpec').innerHTML=lb;
+})();
+</script>
+</body>
+</html>
