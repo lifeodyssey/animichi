@@ -89,6 +89,26 @@ jobs:
     secrets:
       GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
+  # ── Agent-config lint (agnix, warn-only) ─────────────────────
+  # Non-blocking drift gate for CLAUDE.md / AGENTS.md / .claude/rules / hooks / MCP.
+  # `continue-on-error` is an intentional warn-only gate policy (not a code-quality
+  # suppression): it surfaces context-doc rot without failing CI. Kept out of the
+  # deploy `needs:` chain so it never gates a release. Promote to blocking once proven.
+
+  agnix:
+    name: Agent config lint (agnix, warn-only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+      - name: Lint AI agent configs
+        run: npx --yes agnix@0.37.5 .
+
   # ── DB migrations (dry-run) ──────────────────────────────────
 
   db-validate:
