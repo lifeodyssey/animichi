@@ -38,6 +38,8 @@ import { ingestWork } from "../ingest/orchestrator";
 import {
   fetchAnitabiLite,
   fetchBangumiSearch,
+  UpstreamNotFoundError,
+  type AnitabiLite,
   type AnitabiPoint,
   type FetchLike,
 } from "../ingest/sources";
@@ -222,11 +224,14 @@ async function resolveWorkId(query: string, fetchImpl?: FetchLike): Promise<stri
   }
 }
 
-/** Fetch an Anitabi lite preview; upstream failures become typed retryable errors. */
-async function fetchLitePreview(bangumiId: string, fetchImpl?: FetchLike) {
+/** Fetch an Anitabi lite preview. A 404 means the work has NO Anitabi pilgrimage
+ * data -> an empty preview (graceful empty rows), NOT an outage. Real upstream
+ * failures (5xx / network) still become typed retryable UPSTREAM_UNAVAILABLE. */
+async function fetchLitePreview(bangumiId: string, fetchImpl?: FetchLike): Promise<AnitabiLite> {
   try {
     return await fetchAnitabiLite(bangumiId, { fetchImpl });
   } catch (err) {
+    if (err instanceof UpstreamNotFoundError) return { points: [], total: 0 };
     throw upstreamUnavailable("anitabi", err);
   }
 }

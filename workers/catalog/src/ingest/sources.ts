@@ -52,6 +52,16 @@ export interface AnitabiLite {
 
 const BANGUMI_ID_RE = /^\d+$/;
 
+/** A 404 from an upstream source: the resource has no data, NOT a transient
+ * outage. Callers that treat "no data" as an empty result catch THIS
+ * specifically; every other failure stays a generic (retryable) error. */
+export class UpstreamNotFoundError extends Error {
+  constructor(readonly url: string) {
+    super(`Upstream resource not found (404): ${url}`);
+    this.name = "UpstreamNotFoundError";
+  }
+}
+
 /** Throw if `bangumiId` is not a pure numeric string (prevents path injection). */
 function assertBangumiId(bangumiId: string): void {
   if (!BANGUMI_ID_RE.test(bangumiId)) {
@@ -158,6 +168,7 @@ function subjectId(subject: Record<string, unknown>): string | null {
 async function fetchJson(url: string, fetchImpl?: FetchLike): Promise<unknown> {
   const doFetch = fetchImpl ?? (fetch);
   const res = await doFetch(url, { headers: { "User-Agent": USER_AGENT } });
+  if (res.status === 404) throw new UpstreamNotFoundError(url);
   if (!res.ok) throw new Error(`Upstream fetch failed (${String(res.status)}): ${url}`);
   return res.json();
 }

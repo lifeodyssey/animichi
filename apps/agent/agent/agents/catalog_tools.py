@@ -37,15 +37,16 @@ _TRANSIENT_ERRORS = (APIError, httpx.TransportError, httpx.TimeoutException)
 def _retry_message(operation: str, exc: Exception) -> str:
     """Safe ModelRetry text for the LLM prompt (SD-19 trust boundary).
 
-    Never embeds raw upstream/unknown exception content. A typed
-    :class:`CatalogError` str() is OUR locally-built text, so
-    user-actionable errors can carry their limit and steer the model away
-    from blind re-calls; everything else gets the static retry phrase.
+    Never embeds raw exception content or wire strings. A typed
+    :class:`CatalogError` exposes a locally-built ``steering_hint()`` from
+    whitelisted numeric/enum fields, so user-actionable errors can steer the
+    model away from blind re-calls WITHOUT leaking a wire ``data`` string (e.g.
+    ``WorkNotFoundError.bangumi_id``); everything else gets the static phrase.
     """
     if isinstance(exc, CatalogError) and exc.category == "user_actionable":
         return (
-            f"Catalog {operation} rejected: {exc}. Do not retry with the "
-            "same parameters; explain the limit to the user."
+            f"Catalog {operation} rejected: {exc.steering_hint()}. Do not retry "
+            "with the same parameters; explain the limit to the user."
         )
     return f"Catalog {operation} unavailable, please retry."
 

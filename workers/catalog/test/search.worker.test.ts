@@ -277,3 +277,36 @@ describe("search (alias miss — synchronous fallback when no waitUntil)", () =>
     expect(result.partial).toBe(true);
   });
 });
+
+describe("search (alias miss — Anitabi lite 404 = no data, not an outage)", () => {
+  const bangumiHit = { ok: true, status: 200, json: () => Promise.resolve({ data: [{ id: 10380 }] }) };
+
+  it("returns empty rows (no UPSTREAM_UNAVAILABLE) when Anitabi has no data (404)", async () => {
+    const fetchImpl: FetchLike = (url) =>
+      url.includes("/v0/search/subjects")
+        ? Promise.resolve(bangumiHit)
+        : Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
+
+    const result = await search(searchDb(catalogDb([])), { query: "work with no anitabi data" }, { fetchImpl });
+
+    expect(result.rows).toEqual([]);
+    expect(result.partial).toBeUndefined();
+    expect(typeof result.synced_at).toBe("string");
+  });
+
+  it("still maps a real Anitabi 5xx outage to a retryable UPSTREAM_UNAVAILABLE", async () => {
+    const fetchImpl: FetchLike = (url) =>
+      url.includes("/v0/search/subjects")
+        ? Promise.resolve(bangumiHit)
+        : Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve(null) });
+
+    const err = await searchError(() =>
+      search(searchDb(catalogDb([])), { query: "anitabi outage" }, { fetchImpl }),
+    );
+
+    expect(err.code).toBe("UPSTREAM_UNAVAILABLE");
+    expect(err.status).toBe(502);
+    expect(err.defined).toBe(true);
+    expect(err.data).toEqual({ upstream: "anitabi" });
+  });
+});
