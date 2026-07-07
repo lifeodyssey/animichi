@@ -20,8 +20,7 @@ retriever
 
 # async/sync context-manager dunder signatures: __aexit__/__exit__ must accept
 # (exc_type, exc_val, exc_tb) per the Python protocol; the body ignores exc_tb.
-# Sites: clients/base.py, gateways/*.py, supabase/client_types.py,
-#        services/cache.py, utils/logger.py
+# Sites: supabase/client_types.py, utils/logger.py
 exc_tb
 
 # No-op metrics interface mirroring OpenTelemetry Counter.add / Histogram.record;

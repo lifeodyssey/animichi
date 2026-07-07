@@ -1,7 +1,7 @@
 """Pydantic request/response schemas for the public API surface.
 
 Extracted from public_api.py to reduce module size and allow reuse
-by multiple adapters (aiohttp, FastAPI, etc.).
+by multiple adapters (FastAPI, workers, etc.).
 """
 
 from __future__ import annotations

@@ -106,6 +106,7 @@ async def _lifespan_build_runtime(
     try:
         yield
     finally:
+        await catalog_client.aclose()
         await call_optional_async(runtime_session_store, "close")
         await call_optional_async(runtime_db, "close")
         if resolved_settings.observability_enabled:
