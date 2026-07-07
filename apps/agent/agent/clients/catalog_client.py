@@ -19,6 +19,12 @@ Endpoint convention: ``{base_url}/catalog/<method>`` (POST, JSON body).
 Retry policy: 5xx responses, transport errors, and the transient 4xx codes
 (408 request timeout, 429 rate limit) are retried with exponential backoff;
 all other 4xx responses raise immediately.
+
+Error responses are parsed as oRPC error envelopes (``catalog_errors``):
+defined codes become typed ``CatalogError`` exceptions — retryable codes
+subclass ``TransientAPIError`` and flow through the retry loop, while
+user-actionable codes raise immediately. Undefined errors keep the legacy
+status-based classification above.
 """
 
 from __future__ import annotations
@@ -32,6 +38,7 @@ import structlog
 from pydantic import BaseModel, Field
 
 from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
+from agent.clients.catalog_errors import parse_catalog_error
 from agent.clients.errors import APIError, TransientAPIError
 
 logger = structlog.get_logger(__name__)
@@ -198,7 +205,7 @@ class CatalogClient:
             response = await self._http().post(url, json=body)
         except httpx.HTTPError as exc:
             raise TransientAPIError(f"Transport failure for {url}: {exc}") from exc
-        _raise_for_status(response.status_code, url)
+        _raise_for_error(response, url)
         parsed: object = response.json()
         return _expect_object(parsed, context=url)
 
@@ -222,20 +229,25 @@ async def _with_retry(
     return await make_request()
 
 
-_TRANSIENT_4XX_STATUS_CODES = frozenset({408, 429})
+def _raise_for_error(response: httpx.Response, url: str) -> None:
+    """Raise a typed error for a >= 400 response (oRPC-envelope-aware).
 
-
-def _raise_for_status(status_code: int, url: str) -> None:
-    """Map HTTP status to error class.
-
-    5xx and the transient 4xx codes (408 request timeout, 429 rate limit) are
-    retried; all other 4xx responses raise immediately. This mirrors
-    ``public_api._is_provider_error``, which treats 429/502/503 as transient.
+    The body is parsed by ``catalog_errors.parse_catalog_error``: defined
+    codes yield typed ``CatalogError`` exceptions; anything else falls back
+    to the legacy status heuristic (5xx/408/429 transient, other 4xx raise
+    immediately, mirroring ``public_api._is_provider_error``).
     """
-    if status_code >= 500 or status_code in _TRANSIENT_4XX_STATUS_CODES:
-        raise TransientAPIError(f"HTTP {status_code} from {url}")
-    if status_code >= 400:
-        raise APIError(f"HTTP {status_code} from {url}")
+    if response.status_code < 400:
+        return
+    raise parse_catalog_error(response.status_code, _safe_json(response), url)
+
+
+def _safe_json(response: httpx.Response) -> object:
+    """Best-effort JSON body; ``None`` when the body is not JSON."""
+    try:
+        return response.json()
+    except ValueError:
+        return None
 
 
 def _expect_object(value: object, *, context: str) -> JSONDict:
