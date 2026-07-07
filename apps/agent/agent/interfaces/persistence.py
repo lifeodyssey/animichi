@@ -110,7 +110,6 @@ async def persist_result(
         response=response,
         result=result,
         context_delta=context_delta,
-        previous_state=previous_state,
     )
     await persist_messages(
         db=db,
@@ -121,17 +120,10 @@ async def persist_result(
         persist_user_only=not response.success,
     )
 
-    # TODO: re-enable session compaction with proper async task management
-    # raw_ints = session_state.get("interactions")
-    # interaction_count = len(raw_ints) if isinstance(raw_ints, list) else 0
-    # if interaction_count >= COMPACT_THRESHOLD:
-    #     _spawn_background(
-    #         compact_session_interactions(
-    #             session_id,
-    #             session_state,
-    #             session_store,
-    #         )
-    #     )
+    # DECISION(2026-07-07): session compaction stays disabled pending proper
+    # async task management — tracked in
+    # docs/superpowers/plans/2026-07-07-refactor-backlog.md; re-evaluate when
+    # conversation-history work lands.
 
     return session_state, True, generated_title
 
@@ -216,7 +208,6 @@ async def persist_user_state(
     response: PublicAPIResponse,
     result: AgentResult | None,
     context_delta: dict[str, object],
-    previous_state: dict[str, object],
 ) -> str | None:
     """Persist user state and return generated title (if first interaction)."""
     if not user_id or result is None or not response.success:
@@ -229,24 +220,9 @@ async def persist_user_state(
             await session_repo.upsert_conversation(session_id, user_id, request.text)
         except _PERSIST_ERRORS:
             logger.warning("upsert_conversation_failed", session_id=session_id)
-        # TODO: re-enable when conversation history feature is fully wired
-        # else:
-        #     raw_prev_ints = previous_state.get("interactions")
-        #     is_first_interaction = (
-        #         len(raw_prev_ints) == 0
-        #         if isinstance(raw_prev_ints, list) else True
-        #     )
-        #     if is_first_interaction:
-        #         generated_title = request.text.strip()[:20] or request.text[:20]
-        #         _spawn_background(
-        #             generate_and_save_title(
-        #                 session_id=session_id,
-        #                 first_query=request.text,
-        #                 response_message=response.message,
-        #                 db=db,
-        #                 user_id=user_id,
-        #             )
-        #         )
+        # DECISION(2026-07-07): auto-generated conversation titles stay
+        # disabled pending the conversation-history feature landing —
+        # tracked in docs/superpowers/plans/2026-07-07-refactor-backlog.md.
 
     bangumi_id = context_delta.get("bangumi_id")
     if not isinstance(bangumi_id, str):
