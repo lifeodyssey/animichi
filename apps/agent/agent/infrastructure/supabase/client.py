@@ -8,12 +8,11 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import importlib
-from typing import cast
 
+import asyncpg
 import structlog
 
-from agent.infrastructure.supabase.client_types import AsyncPGModule, AsyncPGPool, Row
+from agent.infrastructure.supabase.client_types import AsyncPGPool, Row
 from agent.infrastructure.supabase.repositories.bangumi import BangumiRepository
 from agent.infrastructure.supabase.repositories.feedback import FeedbackRepository
 from agent.infrastructure.supabase.repositories.messages import MessagesRepository
@@ -25,7 +24,6 @@ from agent.infrastructure.supabase.repositories.user_memory import (
 )
 
 logger = structlog.get_logger(__name__)
-asyncpg = cast(AsyncPGModule, importlib.import_module("asyncpg"))
 
 __all__ = ["Row", "SupabaseClient"]
 
