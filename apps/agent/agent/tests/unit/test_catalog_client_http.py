@@ -65,6 +65,25 @@ async def test_retries_on_5xx_then_succeeds(
     assert post.call_count == 2
 
 
+async def test_retries_on_429_then_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 429 rate-limit response is retried, matching public_api transient set."""
+    _no_sleep(monkeypatch)
+    post = AsyncMock(
+        side_effect=[
+            _response(429, {}),
+            _response(200, {"rows": [], "synced_at": ""}),
+        ]
+    )
+    _install_client(monkeypatch, post)
+
+    points = await CatalogClient("https://catalog.test").search("響け")
+
+    assert points == []
+    assert post.call_count == 2
+
+
 async def test_does_not_retry_on_4xx(monkeypatch: pytest.MonkeyPatch) -> None:
     """A 4xx response raises immediately without retry."""
     _no_sleep(monkeypatch)
