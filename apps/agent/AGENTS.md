@@ -1,0 +1,59 @@
+# apps/agent — AGENTS.md
+
+Python PydanticAI agent, FastAPI, deployed as a Cloudflare container. **Read-only consumer of the
+catalog** — it never calls external anime APIs in the request path and never writes catalog data
+(the catalog Worker owns ingestion). Root guide: `../../AGENTS.md`.
+
+## Commands (run from repo root; the make targets `cd apps/agent`)
+
+- `make test` (pytest `--asyncio-mode=auto`) · `make test-integration` · `make typecheck` (mypy strict) ·
+  `make lint` (ruff). Pre-commit runs ruff + mypy on every commit.
+- Directly: `cd apps/agent && uv run pytest agent/tests/unit/`. Seed data: `agent/tests/fixtures/seed.sql`.
+- In a worktree, format with `uv tool run ruff format` (not `uv run …`).
+
+## Runtime call-path
+
+User text → `RuntimeAPI.handle()` → `run_pilgrimage_agent()` → `pilgrimage_agent.run()` → tools →
+`AgentResult` → `agent_result_to_response()` → `PublicAPIResponse`. `selected_point_ids` bypasses the
+agent via `execute_selected_route()`.
+
+- Entry: `agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/pilgrimage_runner.py`.
+- Shared types: `agent/agents/models.py`, `agent/agents/agent_result.py`.
+
+## Tools (`agents/pilgrimage_tools.py` — `@agent.tool` registrations with `ModelRetry` guards)
+
+| Tool | Description |
+|---|---|
+| `resolve_anime` | API-first title→bangumi_id; DB cache; write-through |
+| `search_bangumi` | Retriever → points by bangumi_id |
+| `search_nearby` | Geo retrieval by location + radius |
+| `plan_route` | Nearest-neighbor route ordering |
+| `greet_user` | Ephemeral greeting/identity response |
+| `answer_question` | QA pass-through |
+| `clarify` | Disambiguation when the query is ambiguous |
+
+## Trust boundary
+
+- Single PydanticAI agent (`pilgrimage_agent`) with typed output; the selected-route path bypasses it.
+- `ModelRetry` guards reject invalid LLM parameters; `output_validator` rejects fabricated output.
+- The container trusts auth headers forwarded by the edge worker (`worker/`); it does not re-authenticate.
+- Injection defense (SD-19): tool/envelope text is **untrusted** — never show an upstream `message` to
+  users, embed it in prompts, or store it on `str()`. User-facing text comes from `agents/error_messages.py`.
+
+## Type safety
+
+See `.claude/rules/python-types.md` (auto-loads for `*.py` here) + `docs/typing-rules.md`.
+
+## Catalog client (hand-mirrored contract — do NOT codegen)
+
+`agent/clients/catalog_client.py` mirrors `packages/contract` by hand with sentinel defaults
+(`episode=-1`, `name_cn=""`, `distance_m=-1.0`). Error mirror: `agent/clients/catalog_errors.py`;
+user messages: `agent/agents/error_messages.py`. Adding an error code → follow the checklist in
+`packages/contract/README.md` (all three mirrors).
+
+## External APIs (the agent reads the catalog; ingestion is the catalog Worker's job)
+
+Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs as our primary keys
+(`eps=1` → movie, `eps>1` → TV). Full reference: `docs/api-reference/`.
+
+## TDD: invoke `/backend-tdd` before writing Python.
