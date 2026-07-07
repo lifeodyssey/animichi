@@ -235,18 +235,19 @@ agent_dataset = Dataset(
 
 
 def make_agent_task(db: object, model: object | None = None) -> object:
-    """Create the task: AgentInput → AgentResult. Handles both agent and selected-route."""
+    """Create the task: AgentInput → AgentResult."""
     resolved_model = model or _make_model()
 
     async def task(inp: AgentInput) -> AgentResult:
         if inp.selected_point_ids:
             from agent.agents.selected_route import execute_selected_route
+            from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
             return await execute_selected_route(
                 point_ids=inp.selected_point_ids,
                 origin=None,
                 locale=inp.locale,
-                db=db,
+                catalog=MockCatalogClient(),
             )
         from agent.agents.pilgrimage_runner import run_pilgrimage_agent
         from agent.interfaces.public_api import default_catalog_client
