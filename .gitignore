@@ -59,6 +59,9 @@ outputs/
 !supabase/templates/*.html
 !docs/mockups/**/*.html
 
+# QA/debug screenshots dumped at repo root (root-level only; frontend/ and docs/ assets unaffected)
+/*.png
+
 # Test outputs
 test_results.json
 
