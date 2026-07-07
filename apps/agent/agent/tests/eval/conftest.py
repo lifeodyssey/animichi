@@ -16,8 +16,11 @@ from dotenv import load_dotenv
 
 pytest_plugins = ("agent.tests.conftest_db",)
 
-# Load real .env so eval tests have real API keys
-load_dotenv(Path(__file__).parents[3] / ".env")
+# Load real .env so eval tests have real API keys. override=True because the
+# parent tests/conftest.py has already run at this point and seeded fake keys
+# via os.environ.setdefault ("test-key"); without override the real keys never
+# land and every model call 401s.
+load_dotenv(Path(__file__).parents[3] / ".env", override=True)
 
 
 @pytest.fixture(autouse=True)
