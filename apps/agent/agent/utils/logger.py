@@ -1,9 +1,6 @@
 """Logging configuration using structlog."""
 
-import contextvars
 import logging
-import time
-from types import TracebackType
 from typing import cast
 
 import structlog
@@ -148,84 +145,3 @@ def get_logger(name: str, **kwargs: object) -> FilteringBoundLogger:
         logger = logger.bind(**kwargs)
 
     return cast(FilteringBoundLogger, logger)
-
-
-class LogContext:
-    """Context manager for temporary log context."""
-
-    def __init__(self, logger: FilteringBoundLogger, **kwargs: object):
-        """Initialize with logger and context to add."""
-        self.logger = logger
-        self.context = kwargs
-        self.tokens: dict[str, contextvars.Token[object]] = {}
-
-    def __enter__(self) -> FilteringBoundLogger:
-        """Enter context and bind values."""
-        self.tokens = dict(structlog.contextvars.bind_contextvars(**self.context))
-        return self.logger
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        """Exit context and restore previous values."""
-        for token in self.tokens.values():
-            token.var.reset(token)
-        self.tokens.clear()
-
-
-class LogTimer:
-    """Context manager for timing and logging operations."""
-
-    def __init__(
-        self, logger: FilteringBoundLogger, operation: str, **extra_context: object
-    ):
-        """
-        Initialize timer context.
-
-        Args:
-            logger: Logger instance to use
-            operation: Name of the operation being timed
-            **extra_context: Additional context to log
-        """
-        self.logger = logger
-        self.operation = operation
-        self.extra_context = extra_context
-        self.start_time: float | None = None
-
-    def __enter__(self) -> "LogTimer":
-        """Start timing."""
-        self.start_time = time.time()
-        self.logger.debug(
-            f"[START] {self.operation}", operation=self.operation, **self.extra_context
-        )
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        """End timing and log duration."""
-        duration = time.time() - self.start_time if self.start_time else 0
-
-        if exc_type is not None:
-            # Operation failed
-            self.logger.error(
-                f"[FAILED] {self.operation}",
-                operation=self.operation,
-                duration_seconds=round(duration, 3),
-                error=str(exc_val),
-                **self.extra_context,
-            )
-        else:
-            # Operation succeeded
-            self.logger.info(
-                f"[COMPLETE] {self.operation}",
-                operation=self.operation,
-                duration_seconds=round(duration, 3),
-                **self.extra_context,
-            )
