@@ -12,7 +12,7 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/animichi)](https://github.com/lifeodyssey/animichi/commits/main)
 [![GitHub stars](https://img.shields.io/github/stars/lifeodyssey/animichi?style=flat)](https://github.com/lifeodyssey/animichi)
 
-[**Try it live**](https://seichijunrei.zhenjia.dev) | [Architecture](docs/ARCHITECTURE.md) | [Deployment](docs/ops/deployment.md)
+[**Try it live**](https://seichijunrei.zhenjia.org) | [Architecture](docs/ARCHITECTURE.md) | [Deployment](docs/ops/deployment.md)
 
 [English](README.md) | [日本語](README.ja.md) | [中文](README.zh.md)
 
@@ -92,7 +92,7 @@ Apply migrations in a dedicated deploy step, not at application startup.
 
 **Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-See [`agent/config/settings.py`](agent/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
+See [`apps/agent/agent/config/settings.py`](apps/agent/agent/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
 
 ## Example Usage
 
@@ -109,7 +109,7 @@ async def main() -> None:
 
 **HTTP (API key):**
 ```bash
-curl -X POST https://seichijunrei.zhenjia.dev/v1/runtime \
+curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
   -H 'Authorization: Bearer sk_your_key_here' \
   -H 'Content-Type: application/json' \
   -d '{"text":"吹響の聖地","locale":"ja"}'
@@ -125,12 +125,14 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 ## Repository Map
 
-- `agent/` — Python runtime: agents, interfaces, infrastructure, tests, and tools
-- `frontend/` — Next.js static-export frontend and UI components
+- `apps/agent/` — Python runtime: agents, interfaces, infrastructure, tests, and tools
+- `workers/catalog/` — Cloudflare Worker: anime catalog REST API (TypeScript)
+- `packages/contract/` — shared oRPC contract types (catalog ↔ agent)
+- `frontend/` — Next.js OpenNext-SSR frontend and UI components
 - `worker/` — Cloudflare Worker entrypoint for auth and request routing
 - `supabase/` — schema migrations and Supabase project assets
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans
-- `Dockerfile`, `Makefile`, `pyproject.toml`, `wrangler.toml`, `package.json` — root runtime and tooling entrypoints that stay at the repository root
+- `Dockerfile`, `Makefile`, `wrangler.toml`, `package.json` — root runtime and tooling entrypoints that stay at the repository root
 
 ## Docs
 
