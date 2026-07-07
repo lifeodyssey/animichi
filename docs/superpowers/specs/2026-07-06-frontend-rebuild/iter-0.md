@@ -125,12 +125,12 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 
 **Design basis**: `Landing - Seichijunrei.html` (day/night toggle, hero, comparison slider, the magic-link form).
 
-**Releasable statement**: `/` (the marketing landing route) renders the migrated Landing page, with a day/night toggle and a working magic-link login modal (wired to Supabase Auth); the locale switcher works correctly across ja/zh/en; Storybook runs the migrated components' stories.
+**Releasable statement**: `/` (the marketing landing route) renders the migrated Landing page, with a day/night toggle and a working magic-link login modal (wired to **Neon Auth** — Better Auth base, via the Neon Auth SDK; auth backend per SD-31, replacing Supabase Auth); the locale switcher works correctly across ja/zh/en; Storybook runs the migrated components' stories.
 
 **AC**:
 - Visiting `/` renders the Landing hero and the "Start Exploring" CTA, with the day/night toggle persisted via localStorage -> browser
 - Submitting the magic-link form with an empty email shows an inline validation message without sending a request -> unit
-- A failed Supabase magic-link request (network/5xx) shows on-brand error copy, not a bare exception -> browser
+- A failed Neon Auth magic-link request (network/5xx) shows on-brand error copy, not a bare exception -> browser
 - i18n: switching locale to zh/en re-renders all of Landing's copy (hero/CTA/login form), with no hardcoded ja fallback strings leaking through -> unit
 
 **Files changed**: `apps/web/src/routes/index.tsx`, `apps/web/src/components/landing/*`, `apps/web/src/components/auth/LoginModal.tsx`, `apps/web/src/i18n/*` (dictionary + context, migrated from the spike), `apps/web/.storybook/*`, `apps/web/src/components/**/*.stories.tsx`.
@@ -172,7 +172,7 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 2. 301 every path from the old domain (seichijunrei.app) to the corresponding new-domain path (a Worker redirect rule; anything with no matching page falls back to the homepage).
 3. Dual-property verification in GSC → file a Change of Address; sync property verification in Bing Webmaster too.
 4. canonical/OG/sitemap/robots all point at the new domain, with the domain driven by a build-time environment variable (`CANONICAL_DOMAIN`).
-5. **Update the Supabase auth callback URL + the magic-link email template's domain to `animichi.com`** (missing this item is a login incident, not an ordinary SEO gap — the seo-geo-plan §3 original text stresses "miss one of these and it's a login incident").
+5. **Update the Neon Auth callback/redirect URL + the magic-link email template's domain to `animichi.com`** (SD-31 — the auth backend is Neon Auth, not Supabase; the domain still migrates to `animichi.com`, only the auth backend being configured changes; and since S0.6 already wires the login modal to Neon Auth **in this same iteration**, this callback/template config must target Neon Auth here too, rather than being deferred). Missing this item is a login incident, not an ordinary SEO gap — the seo-geo-plan §3 original text stresses "miss one of these and it's a login incident".
 6. Keep the old domain's registration renewed for ≥2 years (the 301 authority-transfer window; non-blocking, logged as an ops to-do).
 
 **AC**:
@@ -180,7 +180,7 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 - sitemap.xml has no anime/route URLs yet at this point (those are added in Iteration 5), but is still well-formed XML containing at least the root URL (`https://animichi.com/`); the IndexNow key file is reachable at its conventional path (reserved for Iteration 5's new-season SLA push) -> unit
 - A missing/broken (404) OG image fails the SEO test suite rather than shipping silently -> unit
 - i18n: hreflang tags cover ja/zh/en/x-default, and each language's title (50-60 display-width) / description (120-160) stay within bounds (reusing the old test's CJK width-counting logic) -> unit
-- **Domain wrap-up (SD-0)**: the `CANONICAL_DOMAIN` config value is set directly to `animichi.com` (the variable name is kept for a possible future domain change, but it is no longer a pending placeholder); the Supabase magic-link redirect allowlist and email template are updated to this domain in sync -> unit
+- **Domain wrap-up (SD-0)**: the `CANONICAL_DOMAIN` config value is set directly to `animichi.com` (the variable name is kept for a possible future domain change, but it is no longer a pending placeholder); the **Neon Auth** magic-link redirect allowlist and email template are updated to this domain in sync (SD-31 — the auth backend is Neon Auth, consistent with S0.6 in this same iteration; was Supabase) -> unit
 - **No old-domain hardcode residue (backfilled from seo-geo-plan §3 item 4)**: a repo-wide grep over `apps/web/**` finds zero hardcoded occurrences of any legacy domain (`seichijunrei.app`, `seichijunrei.zhenjia.dev`, `seichijunrei.zhenjia.org`) — every canonical/OG/sitemap/robots reference resolves through the `CANONICAL_DOMAIN` build-time variable (value `animichi.com`), not a literal; legacy domains may appear **only** in the 301 redirect rules and the migration checklist -> unit
 - **Old-domain 301 Worker rule (backfilled from seo-geo-plan §3 item 2, Fable P2-5)**: the Worker redirect rule 301s every path from the legacy production domain(s) (`seichijunrei.app` / `seichijunrei.zhenjia.dev`) to the corresponding `animichi.com` path, falling back to the homepage for any path with no matching page -> integration
 - **`aninavi.app` conditional 301 (settled per SD-30 review)**: if the `aninavi.app` domain is held at execution time, a 301 → `animichi.com` rule is in place; otherwise the no-op decision is recorded in the ops log — verified as a checklist item, not left to silent executor judgment -> manual/ops (post-deploy Tester checklist)
@@ -188,7 +188,7 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 - **Hard AC for crawler reachability (backfilled from SD-27B/seo-geo-plan §6)**: manually check the CF AI Crawl Control panel and keep evidence on file (confirming the allowlist hasn't been overridden by the panel, since CF blocks Training+Agent-class crawlers by default for new sites starting 2026-09-15); for each allowed crawler UA above, run a real `curl -A "<UA>" https://animichi.com/` and assert there's no hidden 403 -> manual/ops (post-deploy Tester checklist)
 - **L3 growth-analytics wiring**: GSC and Bing Webmaster both complete property verification and submit the sitemap; the Cloudflare Web Analytics beacon is mounted and at least one pageview is visible on the dashboard -> manual/ops (post-deploy Tester checklist)
 
-**Files changed**: `apps/web/public/robots.txt`, `apps/web/public/sitemap.xml`, `apps/web/public/llms.txt`, `apps/web/public/<indexnow-key>.txt`, `apps/web/src/routes/__root.tsx` (head meta + the CF Web Analytics beacon), `apps/web/src/lib/structured-data.ts` (Organization+WebSite+BreadcrumbList JSON-LD, migrated with FAQPage dropped), `apps/web/tests/seo-static-files.test.ts` (migrated from `test_seo_static_files.py`, with path adjustments + new crawler-UA reachability tests), `.github/workflows/_web-ci.yml` (a new Lighthouse CI step), the Supabase Auth redirect allowlist + email-template config (magic-link, including the callback domain), a Worker 301 redirect rule (old domain → new domain).
+**Files changed**: `apps/web/public/robots.txt`, `apps/web/public/sitemap.xml`, `apps/web/public/llms.txt`, `apps/web/public/<indexnow-key>.txt`, `apps/web/src/routes/__root.tsx` (head meta + the CF Web Analytics beacon), `apps/web/src/lib/structured-data.ts` (Organization+WebSite+BreadcrumbList JSON-LD, migrated with FAQPage dropped), `apps/web/tests/seo-static-files.test.ts` (migrated from `test_seo_static_files.py`, with path adjustments + new crawler-UA reachability tests), `.github/workflows/_web-ci.yml` (a new Lighthouse CI step), the **Neon Auth** redirect allowlist + email-template config (magic-link, including the callback domain; SD-31 — was Supabase Auth), a Worker 301 redirect rule (old domain → new domain).
 
 **Dependencies**: S0.2, S0.6 (i18n). **No longer blocked on a domain dependency** (SD-0 is now finalized).
 

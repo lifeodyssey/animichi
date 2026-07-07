@@ -4,7 +4,7 @@ Detail level: **pre-kickoff refinement** (story list + 3-5 core ACs + enablers +
 
 Suggested dependency order: S3.7 (check-in table, can start independently) → S3.1 → S3.2 → {S3.3, S3.4} → S3.6 → S3.5 (S3.5's offline variant depends on S3.6's cache; no cycle) → S3.10 (extends S3.6's offline bundle with route polylines) → S3.8 (asset production can run in parallel throughout). S3.9 can run in parallel with the product stories.
 
-**Data access path (confirmed, SD-2 / main spec §②)**: S3.7 is a user-domain data enabler via `workers/users` oRPC (`/v1/users/*`) + Neon; `apps/web`'s `supabase-js` is used only for auth — this is the final architecture, with no remaining "might get overturned" uncertainty.
+**Data access path (confirmed, SD-2 / main spec §②)**: S3.7 is a user-domain data enabler via `workers/users` oRPC (`/v1/users/*`) + Neon; `apps/web`'s **Neon Auth SDK** is used only for auth (SD-31, was `supabase-js`) — this is the final architecture, with no remaining "might get overturned" uncertainty.
 
 **GPS precision truncation (P9, backfilled from SD-21, confirmed)**: P9 was marked "proposal pending discussion" in main spec §②; it has since been finalized by SD-21 (2026-07-06, user-confirmed) — the observability layer (Logfire traces) truncates coordinates to roughly hundred-meter precision (3 decimal places), the storage layer (the check-in record itself) keeps full precision, and the scrub logic shares the same implementation point as X3 (BYOK key scrub). The corresponding item in S3.3 moves from "unconfirmed" to a hard AC, and **must be in effect before Walk ships** (it cannot land as a post-Walk patch).
 
@@ -133,9 +133,9 @@ Suggested dependency order: S3.7 (check-in table, can start independently) → S
 
 **Design basis**: No visual mockup.
 
-**Data access path (confirmed, SD-2)**: User-domain data, accessed via `workers/users` oRPC (`/v1/users/*`) + Neon, not via a direct Supabase RLS connection.
+**Data access path (confirmed, SD-2)**: User-domain data, accessed via `workers/users` oRPC (`/v1/users/*`) + Neon, not via a direct RLS connection (RLS is Neon-native defense-in-depth per SD-31, not the access path).
 
-**Backend enabler (confirmed)**: A new Neon table `walk_checkins` (built via the SD-1 toolchain: Drizzle schema → atlas-provider-drizzle → atlas migrate) — fields: `id`, `route_id` FK, `point_id` FK, `user_id`, `client_id UUID UNIQUE` (for offline idempotency), `checked_in_at TIMESTAMPTZ`, `synced_at TIMESTAMPTZ`; `workers/users` gets new oRPC routes (e.g. `users.checkins.upsert`/`users.checkins.list`), authenticated via JWT bearer; `apps/web` calls them through the oRPC client (`upsert` uses `client_id` as the idempotency key), with no new agent-side endpoints; `packages/contract` gets a new `WalkCheckin` zod contract (input/output schema, rather than the "table-row mirror" the RLS-era design once assumed).
+**Backend enabler (confirmed)**: A new Neon table `walk_checkins` (built via the SD-1 toolchain: Drizzle schema → atlas-provider-drizzle → atlas migrate) — fields: `id`, `route_id` FK, `point_id` FK, `user_id`, `client_id UUID UNIQUE` (for offline idempotency), `checked_in_at TIMESTAMPTZ`, `synced_at TIMESTAMPTZ`; `workers/users` gets new oRPC routes (e.g. `users.checkins.upsert`/`users.checkins.list`), authenticated via a **Neon Auth** JWT bearer (verified against the Neon Auth JWKS, SD-31); `apps/web` calls them through the oRPC client (`upsert` uses `client_id` as the idempotency key), with no new agent-side endpoints; `packages/contract` gets a new `WalkCheckin` zod contract (input/output schema, rather than the "table-row mirror" the RLS-era design once assumed).
 
 **Core ACs**:
 - After inserting a check-in via `workers/users`'s oRPC endpoint, a subsequent read sees it immediately -> integration
