@@ -207,6 +207,6 @@ Suggested dependency order: S3.7 (check-in table, can start independently) → S
 
 **Backend enabler**: Self-hosted OSRM/Valhalla instance (infrastructure); exposes a walking-polyline query endpoint consumed by the route detail page and Walk Mode.
 
-**Changed files**: `infra/` (OSRM/Valhalla self-hosted service definition; exact shape left to pre-kickoff refinement), `apps/agent/agent/agents/route_optimizer.py` (wires in the polyline query, supplementing/replacing the existing haversine estimate), `apps/web/src/components/walk/WalkRouteLine.tsx` (new, polyline rendering), `apps/web/src/lib/walk/routeBundleCache.ts` (extended — polyline data joins the same offline-cache bundle, integrates with S3.6).
+**Changed files**: `infra/` (OSRM/Valhalla self-hosted service definition; exact shape left to pre-kickoff refinement), `workers/catalog/src/lib/route.ts` (extended, wires the OSRM polyline query into the route response, supplementing the haversine×1.3 estimate — the unified route-logic home per S1.7/SD-28; `route_optimizer.py` was retired in iteration 1), `apps/web/src/components/walk/WalkRouteLine.tsx` (new, polyline rendering), `apps/web/src/lib/walk/routeBundleCache.ts` (extended — polyline data joins the same offline-cache bundle, integrates with S3.6).
 
 **Dependencies**: S3.2 (Walk Mode core shell, the rendering host); S3.6 (offline cache — the polyline data rides the same route bundle, extending its cache format).

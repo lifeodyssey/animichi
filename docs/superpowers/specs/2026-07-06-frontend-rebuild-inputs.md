@@ -226,7 +226,7 @@ ARCHITECTURE.md/todo.md/deployment.md/根 AGENTS.md/PRODUCT.md(未入库)/wrangl
 | SD-3 数据面 | **Supabase 收缩为纯 auth,数据归 Neon**(激活 06-23 D8 设计并升级为终局):① selected_route 的 get_points_by_ids 改走 CatalogClient/Neon,消除同会话跨库混读(迭代 1 enabler,修 bug 性质);② 新建用户域表(路线/打卡/しおり/分享 token)一律生在 Neon,经 SD-1 工具链建表,JWT sub 衔接 auth;③ Supabase 中 catalog 域表(points/bangumi/aliases 等)冻结写入标废,稳定一迭代后删;④ 既有会话/消息/routes 数据迁 Neon 作为迭代 2-3 的独立 story(prod 数据量近零,一次性脚本);⑤ 远期 Neon Auth 成熟后 auth 亦迁、彻底退役 Supabase(future wave,不进本列车) | 定案 |
 | SD-4 agent 运行时 | **Python FastAPI 容器定案,不再议**(2026-07-06,基于 TS agent SDK 对标调研的知情决定:Vercel AI SDK 50/60 可行但需自养 ~100 行重试基建,pydantic-ai 的 ModelRetry+output_validator 护城河保留)。推论:① X2 容器保温 + 首 token SLO 升级为硬性要求;② 迭代 7 MCP/A2A = Workers 侧薄适配器跨运行时调容器 /v1;③ X9 终稿 = D7 Pyodide REJECTED + TS 重写 REJECTED,容器+保温为终局 | 定案 |
 | SD-5 会话状态 | 迭代 1 前端沿用现状端点(Supabase sessions.state JSONB + conversation_messages,best-effort 写);随 SD-3④ 迁 Neon;「best-effort 持久化、无事务保证」记入风险登记 | 定案(默认) |
-| SD-6 edge worker | X14 核证修正:已是 TS + 15 用例,唯一缺口是测试未接 CI → 迭代 0 CI story 接入;Turnstile/配额在其上追加 | 定案 |
+| SD-6 edge worker | X14 核证修正:已是 TS + **16 用例**(2026-07-07 R1 实测修正:entry.test.ts 11 + auth.test.ts 5;原核证"15"系笔误),唯一缺口是测试未接 CI → 迭代 0 CI story 接入;Turnstile/配额在其上追加 | 定案 |
 
 ### 核证报告要点(2026-07-06,代码级证据)
 - 主张 1 成立且更严重:同一会话内搜索读 Neon、选点成交读 Supabase(apps/agent/agent/agents/selected_route.py:32-35),两库 06-23 fork 后零同步——SD-3① 为修复
