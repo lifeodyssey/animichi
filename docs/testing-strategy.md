@@ -1,8 +1,8 @@
-# Seichijunrei Testing Strategy
+# Animichi Testing Strategy
 
 Date: 2026-04-11
 Status: DRAFT
-Repo: lifeodyssey/Seichijunrei-agent
+Repo: lifeodyssey/animichi
 Stack: FastAPI + asyncpg + Pydantic AI (backend), Next.js + React (frontend), Cloudflare Workers (deploy)
 
 ## Table of Contents
