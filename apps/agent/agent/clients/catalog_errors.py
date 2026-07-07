@@ -78,6 +78,14 @@ class CatalogError(APIError):
     def __init__(self, message: str) -> None:
         super().__init__(message, error_code=self.code)
 
+    def steering_hint(self) -> str:
+        """LLM-facing steering detail for ModelRetry (SD-19).
+
+        Built ONLY from the code + whitelisted numeric/enum fields, NEVER from a
+        wire string or ``str(self)``. Overridden per user-actionable subclass.
+        """
+        return "the request was rejected by the catalog"
+
 
 class RouteTooManyClustersError(CatalogError):
     """The selection spans more geographic areas than a route allows."""
@@ -92,6 +100,9 @@ class RouteTooManyClustersError(CatalogError):
             f"Route rejected: {data.cluster_count} areas exceeds "
             f"the maximum of {data.max_clusters}"
         )
+
+    def steering_hint(self) -> str:
+        return f"{self.cluster_count} areas exceeds the maximum of {self.max_clusters}"
 
 
 class RouteTooManyPointsError(CatalogError):
@@ -108,6 +119,9 @@ class RouteTooManyPointsError(CatalogError):
             f"the maximum of {data.max_points}"
         )
 
+    def steering_hint(self) -> str:
+        return f"{self.point_count} point ids exceeds the maximum of {self.max_points}"
+
 
 class WorkNotFoundError(CatalogError):
     """The requested work has no pilgrimage points in the catalog."""
@@ -118,6 +132,9 @@ class WorkNotFoundError(CatalogError):
     def __init__(self, data: WorkNotFoundData) -> None:
         self.bangumi_id = data.bangumi_id
         super().__init__(f"No pilgrimage points found for work '{data.bangumi_id}'")
+
+    def steering_hint(self) -> str:
+        return "the requested work has no pilgrimage points in the catalog"
 
 
 class UpstreamUnavailableError(CatalogError, TransientAPIError):
