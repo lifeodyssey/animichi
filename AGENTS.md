@@ -7,7 +7,8 @@ stack-specific rules live in per-package `AGENTS.md` files and in `.claude/rules
 Animichi is an anime pilgrimage search + route-planning service. **Hybrid microservices**: a
 Python PydanticAI agent (FastAPI, Cloudflare container) + TypeScript Cloudflare Workers (catalog,
 and a planned users service) + a TanStack web app (rebuild in progress). Data plane = Neon;
-auth = Supabase.
+auth = Supabase **today → migrating to Neon Auth** (decided, SD-31; provisioned but not yet
+integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec for the target).
 
 ## Monorepo layout
 
