@@ -1,41 +1,37 @@
 import structlog
 from structlog import testing
 
-from agent.utils.logger import LogContext, get_logger
+from agent.utils.logger import get_logger
 
 
-def test_log_context_adds_contextvars_only_within_scope() -> None:
+def test_get_logger_binds_extra_kwargs() -> None:
     structlog.contextvars.clear_contextvars()
-    logger = get_logger("test_logger")
+    logger = get_logger("test_logger_bind", request_id="abc")
 
-    with testing.capture_logs(
-        processors=[structlog.contextvars.merge_contextvars]
-    ) as captured:
-        logger.info("outside-1")
-        with LogContext(logger, request_id="abc"):
-            logger.info("inside")
-        logger.info("outside-2")
+    with testing.capture_logs() as captured:
+        logger.info("hello")
 
-    assert captured[0].get("request_id") is None
-    assert captured[1]["request_id"] == "abc"
-    assert captured[2].get("request_id") is None
+    assert captured[0]["request_id"] == "abc"
 
 
-def test_log_context_restores_previous_values_in_nested_scopes() -> None:
+def test_get_logger_without_kwargs_binds_nothing_extra() -> None:
     structlog.contextvars.clear_contextvars()
-    logger = get_logger("test_logger_nested")
+    logger = get_logger("test_logger_no_bind")
 
-    with testing.capture_logs(
-        processors=[structlog.contextvars.merge_contextvars]
-    ) as captured:
-        with LogContext(logger, request_id="outer"):
-            logger.info("outer")
-            with LogContext(logger, request_id="inner"):
-                logger.info("inner")
-            logger.info("outer-again")
-        logger.info("after")
+    with testing.capture_logs() as captured:
+        logger.info("hello")
 
-    assert captured[0]["request_id"] == "outer"
-    assert captured[1]["request_id"] == "inner"
-    assert captured[2]["request_id"] == "outer"
-    assert captured[3].get("request_id") is None
+    assert "request_id" not in captured[0]
+
+
+def test_get_logger_bindings_are_independent_per_call() -> None:
+    structlog.contextvars.clear_contextvars()
+    logger_a = get_logger("test_logger_a", request_id="a")
+    logger_b = get_logger("test_logger_b", request_id="b")
+
+    with testing.capture_logs() as captured:
+        logger_a.info("from-a")
+        logger_b.info("from-b")
+
+    assert captured[0]["request_id"] == "a"
+    assert captured[1]["request_id"] == "b"
