@@ -29,7 +29,7 @@
 - **不碰** frontend `deploy` job(OpenNext,Wave 4 迁移)——本计划只移 `deploy-catalog`,`deploy` 暂留 ci.yml 并标注 Wave 4。
 
 ## 范围
-spec §8 的 Wave 2 部分:catalog 走 pipeline。agent/edge/web 后续 wave 按同模式接入。Neon project `billowing-fire-22850320`(animichi),production branch `br-cold-term-aor1v6gl`,org `org-bold-truth-67298302`。
+spec §8 的 Wave 2 部分:catalog 走 pipeline。agent/edge/web 后续 wave 按同模式接入。Neon project `$NEON_PROJECT_ID`(animichi),production branch `$NEON_BRANCH_ID`,org `$NEON_ORG_ID`。
 
 ---
 
@@ -169,7 +169,7 @@ ls db/migrations/   # expect 20260623000001_init.sql + atlas.sum
 
 ```bash
 source ~/.nvm/nvm.sh && nvm use 24 >/dev/null 2>&1
-DSN=$(neonctl connection-string wave2-spike --project-id billowing-fire-22850320 --org-id org-bold-truth-67298302 2>/dev/null)
+DSN=$(neonctl connection-string wave2-spike --project-id $NEON_PROJECT_ID --org-id $NEON_ORG_ID 2>/dev/null)
 # spike branch 已有 0001 的表;validate + status 应识别 baseline
 atlas migrate validate --dir "file://db/migrations" --dev-url "$DSN" 2>&1 | tail -5 || \
   atlas migrate validate --dir "file://db/migrations" 2>&1 | tail -5
@@ -330,7 +330,7 @@ git commit -m "ci: cd-staging (merge→main) + cd-prod (tag v*, prod approval) c
 
 ```bash
 source ~/.nvm/nvm.sh && nvm use 24 >/dev/null 2>&1
-neonctl branches create --project-id billowing-fire-22850320 --org-id org-bold-truth-67298302 --name staging --parent production 2>&1 | tail -3
+neonctl branches create --project-id $NEON_PROJECT_ID --org-id $NEON_ORG_ID --name staging --parent production 2>&1 | tail -3
 ```
 Expected: staging branch 建成(从 production fork,带 schema+数据)。
 
@@ -347,8 +347,8 @@ gh api -X PUT repos/lifeodyssey/Seichijunrei-agent/environments/production \
 
 ```bash
 set -a; source ~/Documents/Seichijunrei-agent/.env; set +a
-STG=$(neonctl connection-string staging --project-id billowing-fire-22850320 --org-id org-bold-truth-67298302 2>/dev/null)
-PRD=$(neonctl connection-string production --project-id billowing-fire-22850320 --org-id org-bold-truth-67298302 2>/dev/null)
+STG=$(neonctl connection-string staging --project-id $NEON_PROJECT_ID --org-id $NEON_ORG_ID 2>/dev/null)
+PRD=$(neonctl connection-string production --project-id $NEON_PROJECT_ID --org-id $NEON_ORG_ID 2>/dev/null)
 REPO=lifeodyssey/Seichijunrei-agent
 for envn in staging production; do
   case $envn in staging) DSN="$STG";; production) DSN="$PRD";; esac
@@ -391,7 +391,7 @@ bucket_name = "catalog-media"
 cd infra && source ~/Documents/Seichijunrei-agent/.env && export PATH=$HOME/.pulumi/bin:$PATH
 export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
 pulumi stack init staging 2>&1 | tail -2
-STG=$(neonctl connection-string staging --project-id billowing-fire-22850320 --org-id org-bold-truth-67298302 2>/dev/null)
+STG=$(neonctl connection-string staging --project-id $NEON_PROJECT_ID --org-id $NEON_ORG_ID 2>/dev/null)
 pulumi config set --secret catalogDatabaseUrl "$STG" --stack staging
 pulumi config set cloudflareAccountId "$CLOUDFLARE_ACCOUNT_ID" --stack staging
 ```
