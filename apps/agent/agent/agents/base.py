@@ -18,6 +18,7 @@ from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.deepseek import DeepSeekProvider
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.settings import ModelSettings
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -32,45 +33,76 @@ def _build_http_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(trust_env=False, timeout=timeout)
 
 
+def _host_matches_domain(base_url: str, domain: str) -> bool:
+    host = urlparse(base_url).hostname or ""
+    return host == domain or host.endswith(f".{domain}")
+
+
+def _is_deepseek_host(base_url: str) -> bool:
+    return _host_matches_domain(base_url, "deepseek.com")
+
+
+def _deepseek_settings() -> ModelSettings:
+    return ModelSettings(extra_body={"thinking": {"type": "disabled"}})
+
+
 def _resolve_api_key(base_url: str) -> str | None:
     """Match a base URL to the right API key env var by domain."""
-    host = urlparse(base_url).hostname or ""
     domain_keys = [
         ("xiaomimimo.com", "MIMO_API_KEY"),
         ("deepseek.com", "DEEPSEEK_API_KEY"),
     ]
     for domain, env_var in domain_keys:
-        if host == domain or host.endswith(f".{domain}"):
+        if _host_matches_domain(base_url, domain):
             return os.environ.get(env_var)
     from agent.config import get_settings
 
     return get_settings().openai_compat_api_key or None
 
 
+def _parse_deepseek_model(spec: str) -> Model:
+    name = spec.removeprefix("deepseek:")
+    provider = DeepSeekProvider(
+        api_key=os.environ.get("DEEPSEEK_API_KEY"),
+        http_client=_build_http_client(),
+    )
+    return OpenAIChatModel(name, provider=provider, settings=_deepseek_settings())
+
+
+def _parse_openai_spec(raw: str) -> tuple[str, str]:
+    name, separator, base_url = raw.partition("@")
+    if separator:
+        return name, base_url
+    from agent.config import get_settings
+
+    return raw, get_settings().openai_compat_base_url
+
+
+def _openai_settings(base_url: str) -> ModelSettings | None:
+    if _is_deepseek_host(base_url):
+        return _deepseek_settings()
+    return None
+
+
+def _parse_openai_model(spec: str) -> Model:
+    name, base_url = _parse_openai_spec(spec.removeprefix("openai:"))
+    oai_provider = OpenAIProvider(
+        base_url=base_url,
+        api_key=_resolve_api_key(base_url),
+        http_client=_build_http_client(),
+    )
+    return OpenAIChatModel(
+        name, provider=oai_provider, settings=_openai_settings(base_url)
+    )
+
+
 def _parse_model(spec: str) -> Model:
     """Parse a model spec string into a concrete Model."""
     if spec.startswith("deepseek:"):
-        name = spec.removeprefix("deepseek:")
-        provider = DeepSeekProvider(
-            api_key=os.environ.get("DEEPSEEK_API_KEY"),
-            http_client=_build_http_client(),
-        )
-        return OpenAIChatModel(name, provider=provider)
+        return _parse_deepseek_model(spec)
 
     if spec.startswith("openai:"):
-        raw = spec.removeprefix("openai:")
-        if "@" in raw:
-            name, base_url = raw.split("@", 1)
-        else:
-            from agent.config import get_settings
-
-            name, base_url = raw, get_settings().openai_compat_base_url
-        oai_provider = OpenAIProvider(
-            base_url=base_url,
-            api_key=_resolve_api_key(base_url),
-            http_client=_build_http_client(),
-        )
-        return OpenAIChatModel(name, provider=oai_provider)
+        return _parse_openai_model(spec)
 
     raise ValueError(f"Unsupported model spec: {spec}")
 
