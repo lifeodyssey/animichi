@@ -126,3 +126,34 @@ class TestWrapUntrustedWebResults:
         ]
         wrapped = wrap_untrusted_web_results(results)
         assert wrapped.count("<untrusted_web_result>") == 2
+
+
+class TestSourceTierTag:
+    def test_allowlisted_source_is_tagged_verified(self) -> None:
+        results = [
+            WebResult(title="Uji", body="B", href="https://en.wikipedia.org/wiki/Uji")
+        ]
+        wrapped = wrap_untrusted_web_results(results)
+        assert "source_tier: verified" in wrapped
+
+    def test_unlisted_source_is_tagged_unverified(self) -> None:
+        results = [WebResult(title="Uji", body="B", href="https://blog.example.com/p")]
+        wrapped = wrap_untrusted_web_results(results)
+        assert "source_tier: unverified" in wrapped
+
+    def test_tier_tag_is_first_line_inside_delimiter(self) -> None:
+        results = [WebResult(title="Uji", body="B", href="https://blog.example.com/p")]
+        wrapped = wrap_untrusted_web_results(results)
+        assert "<untrusted_web_result>\nsource_tier: unverified\n" in wrapped
+
+    def test_verified_result_stays_delimited_as_untrusted(self) -> None:
+        results = [
+            WebResult(title="Uji", body="B", href="https://en.wikipedia.org/wiki/Uji")
+        ]
+        wrapped = wrap_untrusted_web_results(results)
+        assert "<untrusted_web_result>" in wrapped
+
+    def test_preamble_explains_tier_is_reputation_only(self) -> None:
+        wrapped = wrap_untrusted_web_results([])
+        assert "source_tier" in wrapped
+        assert "reputation" in wrapped.lower()
