@@ -7,11 +7,41 @@ can attach to it.
 
 from __future__ import annotations
 
-from pydantic_ai import RunContext
+import asyncio
+from typing import cast
 
+from pydantic_ai import RunContext
+from pydantic_ai.common_tools.duckduckgo import (
+    DuckDuckGoResult,
+    duckduckgo_search_tool,
+)
+
+from agent.agents.guardrails import (
+    WebResult,
+    detect_prompt_injection,
+    wrap_untrusted_web_results,
+)
 from agent.agents.pilgrimage_agent import pilgrimage_agent
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.translation import translate_title
+
+_ddg_tool = duckduckgo_search_tool(max_results=5)
+
+
+async def _run_ddg_search(query: str) -> list[DuckDuckGoResult]:
+    """Call the official pydantic-ai DuckDuckGo tool's search function."""
+    raw = await _ddg_tool.function(query)  # untyped at the pydantic-ai boundary
+    return cast(list[DuckDuckGoResult], raw)
+
+
+def _to_web_result(raw: DuckDuckGoResult) -> WebResult:
+    return WebResult(title=raw["title"], body=raw["body"], href=raw["href"])
+
+
+def _log_result_injections(results: list[WebResult]) -> None:
+    """Detection also covers tool returns, not just user input (log-only)."""
+    for result in results:
+        detect_prompt_injection(f"{result.title} {result.body}", source="web_search")
 
 
 @pilgrimage_agent.tool
@@ -37,32 +67,15 @@ async def web_search(
 
     Returns a text summary of the top search results.
     """
-    import asyncio
-    from functools import partial
-
-    from ddgs import DDGS
-
-    def _search_sync(q: str) -> list[dict[str, str]]:
-        with DDGS() as ddgs:
-            return list(ddgs.text(q, max_results=5))
-
-    loop = asyncio.get_running_loop()
     try:
-        results = await asyncio.wait_for(
-            loop.run_in_executor(None, partial(_search_sync, query)),
-            timeout=10.0,
-        )
+        raw_results = await asyncio.wait_for(_run_ddg_search(query), timeout=10.0)
     except (TimeoutError, OSError, RuntimeError) as exc:
         return f"Search failed for '{query}': {exc}"
-    if not results:
+    if not raw_results:
         return f"No results found for: {query}"
-    lines = []
-    for r in results[:5]:
-        title = r.get("title", "")
-        body = r.get("body", "")
-        href = r.get("href", "")
-        lines.append(f"- {title}: {body} ({href})")
-    return "\n".join(lines)
+    results = [_to_web_result(raw) for raw in raw_results[:5]]
+    _log_result_injections(results)
+    return wrap_untrusted_web_results(results)
 
 
 @pilgrimage_agent.tool

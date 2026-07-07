@@ -1,74 +1,25 @@
-"""Protocol types for asyncpg abstractions.
+"""Shared asyncpg type aliases, backed by asyncpg-stubs.
 
-Shared across client.py and all repository modules.
+Previously this module hand-wrote Protocol shims for asyncpg (which ships
+untyped at runtime). With `asyncpg-stubs` installed as a dev dependency,
+`asyncpg.Pool`/`asyncpg.Record` are fully typed, so this module now just
+aliases the real types under the names the rest of the codebase already
+imports (`AsyncPGPool`, `Row`) — kept as a single import point instead of
+touching every repository module.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from types import TracebackType
-from typing import Protocol, TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 
-Row: TypeAlias = Mapping[str, object]
+import asyncpg
 
+Row: TypeAlias = asyncpg.Record
 
-class AsyncPGTransactionContext(Protocol):
-    async def __aenter__(self) -> object: ...
-
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> object: ...
-
-
-class AsyncPGConnection(Protocol):
-    def transaction(self) -> AsyncPGTransactionContext: ...
-
-    async def executemany(
-        self, command: str, args: Sequence[Sequence[object]]
-    ) -> object: ...
-
-
-class AsyncPGAcquireContext(Protocol):
-    async def __aenter__(self) -> AsyncPGConnection: ...
-
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> object: ...
-
-
-class AsyncPGPool(Protocol):
-    async def fetchrow(self, query: str, *args: object) -> Row | None: ...
-
-    async def fetch(self, query: str, *args: object) -> list[Row]: ...
-
-    async def execute(self, query: str, *args: object) -> str | None: ...
-
-    def acquire(self) -> AsyncPGAcquireContext: ...
-
-    async def close(self) -> None: ...
-
-
-class MigrationConnection(Protocol):
-    """Minimal asyncpg connection surface needed by the migration runner."""
-
-    def transaction(self) -> AsyncPGTransactionContext: ...
-
-    async def execute(self, query: str, *args: object) -> str | None: ...
-
-    async def fetch(self, query: str, *args: object) -> list[Row]: ...
-
-
-class AsyncPGModule(Protocol):
-    async def create_pool(
-        self,
-        dsn: str,
-        *,
-        min_size: int,
-        max_size: int,
-    ) -> AsyncPGPool: ...
+# asyncpg.Pool is declared Generic in the stubs but isn't subscriptable at
+# runtime (no __class_getitem__), so the subscripted alias only exists for
+# static type checking; at runtime it's just the plain class.
+if TYPE_CHECKING:
+    AsyncPGPool: TypeAlias = asyncpg.Pool[asyncpg.Record]
+else:
+    AsyncPGPool = asyncpg.Pool
