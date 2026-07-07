@@ -39,9 +39,35 @@ def _titles_match(query: str, candidate: str) -> bool:
     return query == candidate or _titles_contain_each_other(query, candidate)
 
 
+def _infobox_values(value: object) -> tuple[str, ...]:
+    if isinstance(value, str):
+        return (value,)
+    if not isinstance(value, list):
+        return ()
+    items = (item.get("v") for item in value if isinstance(item, Mapping))
+    return tuple(v for v in items if isinstance(v, str))
+
+
+def _alias_row_values(row: object) -> tuple[str, ...]:
+    if not isinstance(row, Mapping) or row.get("key") != "别名":
+        return ()
+    return _infobox_values(row.get("value"))
+
+
+def _hit_alias_titles(hit: Mapping[str, object]) -> tuple[str, ...]:
+    infobox = hit.get("infobox")
+    if not isinstance(infobox, list):
+        return ()
+    aliases: list[str] = []
+    for row in infobox:
+        aliases.extend(_alias_row_values(row))
+    return tuple(aliases)
+
+
 def _hit_candidate_titles(hit: Mapping[str, object]) -> tuple[str, ...]:
-    candidates = (hit.get("name"), hit.get("name_cn"))
-    return tuple(candidate for candidate in candidates if isinstance(candidate, str))
+    names = (hit.get("name"), hit.get("name_cn"))
+    named = tuple(name for name in names if isinstance(name, str))
+    return named + _hit_alias_titles(hit)
 
 
 def hit_matches(title: str, hit: Mapping[str, object]) -> bool:
@@ -52,13 +78,21 @@ def hit_matches(title: str, hit: Mapping[str, object]) -> bool:
     )
 
 
+def _hit_exact_match(title: str, hit: Mapping[str, object]) -> bool:
+    query = _normalize_title(title)
+    if not query:
+        return False
+    return any(query == _normalize_title(c) for c in _hit_candidate_titles(hit))
+
+
 def best_matching_hit(title: str, hits: object) -> Mapping[str, object] | None:
     if not isinstance(hits, list):
         return None
-    for hit in hits:
-        if isinstance(hit, Mapping) and hit_matches(title, hit):
-            return hit
-    return None
+    candidates = [hit for hit in hits if isinstance(hit, Mapping)]
+    exact = next((h for h in candidates if _hit_exact_match(title, h)), None)
+    if exact is not None:
+        return exact
+    return next((h for h in candidates if hit_matches(title, h)), None)
 
 
 def _bangumi_search_body(title: str) -> Mapping[str, object]:

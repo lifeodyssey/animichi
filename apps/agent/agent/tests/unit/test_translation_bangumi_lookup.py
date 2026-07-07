@@ -117,3 +117,22 @@ async def test_returns_none_when_no_results(
     result = await lookup_bangumi_api("unknown_anime_xyz", "zh")
 
     assert result is None
+
+
+async def test_returns_japanese_name_for_english_alias(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "data": [
+            {
+                "name": "君の名は。",
+                "name_cn": "你的名字。",
+                "infobox": [{"key": "别名", "value": [{"v": "Your Name."}]}],
+            }
+        ]
+    }
+    _install_httpx(monkeypatch, payload=payload)
+
+    result = await lookup_bangumi_api("Your Name", "ja")
+
+    assert result == "君の名は。"
