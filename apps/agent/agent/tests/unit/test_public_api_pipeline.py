@@ -242,9 +242,12 @@ class TestSelectedPointIdsBypass:
 
         captured: dict[str, object] = {}
 
-        async def _fake_selected_route(*, point_ids, origin, locale, db, on_step=None):
+        async def _fake_selected_route(
+            *, point_ids, origin, locale, catalog, on_step=None
+        ):
             captured["point_ids"] = point_ids
             captured["origin"] = origin
+            captured["catalog"] = catalog
             route_data = {
                 "ordered_points": [
                     {"id": "p1", "name": "A", "latitude": 34.88, "longitude": 135.80},
@@ -287,6 +290,7 @@ class TestSelectedPointIdsBypass:
 
         assert captured["point_ids"] == ["p1", "p2"]
         assert captured["origin"] == "宇治駅"
+        assert captured["catalog"] is api._catalog
         assert response.intent == "plan_selected"
         assert response.ui == {"component": "RoutePlannerWizard"}
 
