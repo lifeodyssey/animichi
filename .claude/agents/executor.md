@@ -1,6 +1,7 @@
 ---
 name: executor
-description: Implementation specialist. Writes code and tests in a git worktree using Codex GPT 5.2. Follows TDD, SOLID, Clean Code. Creates PR when done.
+description: Implementation specialist. Writes code and tests in a git worktree. Follows TDD, SOLID, Clean Code. Creates PR when done. Model per CLAUDE.md Agent Dispatch (sonnet).
+model: sonnet
 tools:
   - Bash
   - Read
@@ -120,7 +121,7 @@ testability > readability > consistency > simplicity > reversibility
 - No feature envy → move logic to owning module
 
 ### Frontend
-- No `bg-white`, `bg-gray-*` → use `bg-[var(--color-*)]` design tokens
+- No `bg-white`, `bg-gray-*`, and no `bg-[var(--color-*)]` → use semantic Tailwind token classes (`bg-primary`, `bg-muted`, `text-foreground`) per `frontend/DESIGN.md`
 - No inline `style={}` for static values → use Tailwind classes
 - No component >100 lines → extract sub-components
 - No prop drilling >2 levels → create context
@@ -154,15 +155,15 @@ testability > readability > consistency > simplicity > reversibility
 - serena (find_symbol, get_symbols_overview for understanding code)
 
 ## Setup (run first)
-uv sync --dev
-cd frontend && npm ci && cd ..
+make dev                        # uv sync --extra dev (runs inside apps/agent)
+cd frontend && npm ci && cd ..  # only if the card touches frontend
 git fetch origin main && git rebase origin/main
 
 ## Verification (run before every commit)
-uv run ruff format . && uv run ruff check backend/
-uv run mypy backend/agents/ backend/interfaces/ backend/domain/ backend/infrastructure/
-uv run pytest backend/tests/unit/ -v
-cd frontend && npx tsc --noEmit && npm run lint
+make format && make lint        # ruff format + check (runs inside apps/agent)
+make typecheck                  # mypy strict (apps/agent/agent/*)
+make test                       # unit tests (apps/agent/agent/tests/unit/)
+make fe-typecheck && make fe-lint && make fe-test   # frontend (only if touched)
 
 ## Quality Gates (Definition of Done)
 - All tests pass
