@@ -103,7 +103,9 @@ class CatalogClientProtocol(Protocol):
         self, lat: float, lng: float, *, radius_m: int = 2000
     ) -> list[PilgrimagePoint]: ...
 
-    async def route(self, point_ids: list[str]) -> Route: ...
+    async def route(
+        self, point_ids: list[str], *, origin: tuple[float, float] | None = None
+    ) -> Route: ...
 
     async def ingest(self, bangumi_id: str) -> IngestResult: ...
 
@@ -140,9 +142,14 @@ class CatalogClient:
         payload = await self._rpc("nearby", body)
         return _parse_rows(payload)
 
-    async def route(self, point_ids: list[str]) -> Route:
+    async def route(
+        self, point_ids: list[str], *, origin: tuple[float, float] | None = None
+    ) -> Route:
         """Plan an ordered, timed route across the given points."""
-        payload = await self._rpc("route", {"point_ids": point_ids})
+        body: dict[str, object] = {"point_ids": point_ids}
+        if origin is not None:
+            body["origin"] = {"lat": origin[0], "lng": origin[1]}
+        payload = await self._rpc("route", body)
         return Route.model_validate(payload)
 
     async def ingest(self, bangumi_id: str) -> IngestResult:

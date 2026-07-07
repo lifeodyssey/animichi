@@ -14,7 +14,7 @@ from agent.agents.tools import (
     _write_through,
     enrich_clarify_candidates,
 )
-from agent.clients.catalog_client import CatalogClientProtocol, PilgrimagePoint
+from agent.clients.catalog_client import CatalogClientProtocol, PilgrimagePoint, Route
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
 
@@ -80,7 +80,9 @@ class _FailingCatalog:
     ) -> list[PilgrimagePoint]:
         raise OSError("catalog unreachable")
 
-    async def route(self, point_ids: list[str]) -> object:
+    async def route(
+        self, point_ids: list[str], *, origin: tuple[float, float] | None = None
+    ) -> Route:
         raise OSError("catalog unreachable")
 
     async def ingest(self, bangumi_id: str) -> object:

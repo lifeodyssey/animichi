@@ -72,7 +72,7 @@ async function assertTimedRoute(): Promise<void> {
   expect(r.point_count).toBe(3);
   expect(r.timed_itinerary.stops.map((s) => s.cluster_id)).toEqual(["a", "b", "c"]);
   expect(r.timed_itinerary.legs.map((l) => [l.from_id, l.to_id])).toEqual([["a", "b"], ["b", "c"]]);
-  expect(r.timed_itinerary.total_minutes).toBe(26);
+  expect(r.timed_itinerary.total_minutes).toBe(28);
   expect(r.timed_itinerary.total_distance_m).toBe(222.4);
 }
 

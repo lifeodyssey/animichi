@@ -12,7 +12,7 @@ returning the shared typed models ``PilgrimagePoint`` and ``Route``:
   - search(query)                  -> list[PilgrimagePoint]
   - spots(bangumi_id)              -> PilgrimagePoint
   - nearby(lat, lng, radius_m=...) -> list[PilgrimagePoint]
-  - route(point_ids)               -> Route
+  - route(point_ids, origin?)      -> Route
 
 Seeding policy (mirrors the eval's DataCompleteness baseline):
   - Well-known resolvable anime (e.g. 君の名は。/ 響け！ユーフォニアム) and known
@@ -178,9 +178,11 @@ class MockCatalogClient:
         scored = self._within_radius(lat, lng, radius_m)
         return [p for _, p in sorted(scored, key=lambda sp: sp[0])]
 
-    async def route(self, point_ids: list[str]) -> Route:
+    async def route(
+        self, point_ids: list[str], *, origin: tuple[float, float] | None = None
+    ) -> Route:
         """Plan an ordered, timed route across known seeded points."""
-        self.calls.append(("route", (tuple(point_ids),)))
+        self.calls.append(("route", (tuple(point_ids), origin)))
         ordered = [
             _POINT_INDEX[pid].model_copy(deep=True)
             for pid in point_ids
