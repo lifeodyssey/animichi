@@ -76,7 +76,7 @@ async function serveFromR2(bucket: R2Bucket, key: string): Promise<Response> {
 async function lazyPull(deps: ImgDeps, pointId: string): Promise<Response> {
   const origin = await originUrl(deps.db, pointId);
   if (!origin) return tombstone();
-  const res = await deps.fetchImpl(origin, { headers: { "User-Agent": "Seichijunrei/1.0" } });
+  const res = await deps.fetchImpl(origin, { headers: { "User-Agent": "Animichi/1.0" } });
   if (res.status === 404 || res.status === 410) return tombstoneAsset(deps.db, pointId);
   if (!res.ok) return new Response("Upstream error", { status: 502 });
   return storeAndServe(deps, pointId, res);
