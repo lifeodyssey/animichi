@@ -1,9 +1,9 @@
-"""Typed async client for the Catalog service (skeleton).
+"""Typed async client for the Catalog service.
 
-The Catalog service owns the read path for resolved pilgrimage data. This client
-is the agent-side stub the runtime will call instead of touching catalog tables
-directly; the real Catalog server is built in a later wave. It exposes the four
-RPC methods (search / spots / nearby / route) over httpx with basic retry, and
+The Catalog service owns the read path for resolved pilgrimage data. This
+client is the agent-side adapter the runtime calls instead of touching catalog
+tables directly. It exposes the RPC methods (search / spots / nearby / route /
+ingest) over a shared ``httpx.AsyncClient`` with status-based retry, and
 parses each response into the shared typed models.
 
 Field names, paths, and response envelopes mirror the single source of truth in
@@ -15,20 +15,26 @@ Field names, paths, and response envelopes mirror the single source of truth in
   - ingest(bangumi_id)            -> IngestResult
 
 Endpoint convention: ``{base_url}/catalog/<method>`` (POST, JSON body).
+
+Retry policy: 5xx responses, transport errors, and the transient 4xx codes
+(408 request timeout, 429 rate limit) are retried with exponential backoff;
+all other 4xx responses raise immediately.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import asyncio
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Literal, Protocol, runtime_checkable
 
 import httpx
+import structlog
 from pydantic import BaseModel, Field
 
 from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
-from agent.clients.base import JSONDict, JSONValue, expect_json_object
-from agent.clients.errors import APIError
-from agent.clients.retry import request_with_retry
+from agent.clients.errors import APIError, TransientAPIError
+
+logger = structlog.get_logger(__name__)
 
 # Re-exported so callers depend on this client, not on agent internals.
 __all__ = [
@@ -41,6 +47,8 @@ __all__ = [
     "CatalogClient",
     "CatalogClientProtocol",
 ]
+
+JSONDict = dict[str, object]
 
 
 class PilgrimagePoint(BaseModel):
@@ -111,7 +119,7 @@ class CatalogClientProtocol(Protocol):
 
 
 class CatalogClient:
-    """Async client for the four Catalog RPC methods."""
+    """Async client for the Catalog RPC methods over a shared httpx client."""
 
     def __init__(
         self,
@@ -123,6 +131,7 @@ class CatalogClient:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
         self._max_retries = max_retries
+        self._client: httpx.AsyncClient | None = None
 
     async def search(self, query: str) -> list[PilgrimagePoint]:
         """Resolve a free-text query to its pilgrimage points."""
@@ -153,50 +162,100 @@ class CatalogClient:
         return Route.model_validate(payload)
 
     async def ingest(self, bangumi_id: str) -> IngestResult:
-        """Ingest a not-yet-cataloged work on demand by its bangumi id."""
+        """Ingest a not-yet-cataloged work on demand by its bangumi id.
+
+        Retried transient failures (5xx, 408/429, transport errors) may
+        re-send this write; safe to retry because it relies on the catalog
+        side performing an idempotent upsert keyed by ``bangumi_id``.
+        """
         payload = await self._rpc("ingest", {"bangumi_id": bangumi_id})
         return IngestResult.model_validate(payload)
 
-    async def _rpc(self, method: str, body: Mapping[str, object]) -> JSONValue:
-        """POST ``body`` to the method endpoint and return the parsed JSON."""
+    async def aclose(self) -> None:
+        """Close the shared HTTP client (no-op when never used)."""
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
+        self._client = None
+
+    def _http(self) -> httpx.AsyncClient:
+        """Return the shared httpx client, creating it lazily."""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=self._timeout)
+        return self._client
+
+    async def _rpc(self, method: str, body: Mapping[str, object]) -> JSONDict:
+        """POST ``body`` to the method endpoint with retry on transient errors."""
         url = f"{self._base_url}/catalog/{method}"
-        return await request_with_retry(
+        return await _with_retry(
+            lambda: self._post_json(url, body),
             max_retries=self._max_retries,
-            make_request=lambda: self._post_json(url, body),
             url=url,
-            method_label="POST",
         )
 
-    async def _post_json(self, url: str, body: Mapping[str, object]) -> JSONValue:
-        """Perform one POST attempt, raising ``APIError`` on HTTP failure."""
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            response = await client.post(url, json=body)
-        if response.status_code >= 400:
-            raise APIError(f"HTTP {response.status_code} from {url}")
+    async def _post_json(self, url: str, body: Mapping[str, object]) -> JSONDict:
+        """Perform one POST attempt, raising ``APIError`` on failure."""
+        try:
+            response = await self._http().post(url, json=body)
+        except httpx.HTTPError as exc:
+            raise TransientAPIError(f"Transport failure for {url}: {exc}") from exc
+        _raise_for_status(response.status_code, url)
         parsed: object = response.json()
-        return _as_json_object(parsed)
+        return _expect_object(parsed, context=url)
 
 
-def _as_json_object(value: object) -> JSONDict:
-    """Narrow an opaque JSON payload to an object (all 4 RPCs return objects)."""
+async def _with_retry(
+    make_request: Callable[[], Awaitable[JSONDict]],
+    *,
+    max_retries: int,
+    url: str,
+) -> JSONDict:
+    """Run ``make_request`` retrying transient failures with backoff."""
+    for attempt in range(max_retries - 1):
+        try:
+            return await make_request()
+        except TransientAPIError as exc:
+            delay = min(2**attempt, 30)
+            logger.warning(
+                "catalog_rpc_retry", url=url, error=str(exc), next_delay=delay
+            )
+            await asyncio.sleep(delay)
+    return await make_request()
+
+
+_TRANSIENT_4XX_STATUS_CODES = frozenset({408, 429})
+
+
+def _raise_for_status(status_code: int, url: str) -> None:
+    """Map HTTP status to error class.
+
+    5xx and the transient 4xx codes (408 request timeout, 429 rate limit) are
+    retried; all other 4xx responses raise immediately. This mirrors
+    ``public_api._is_provider_error``, which treats 429/502/503 as transient.
+    """
+    if status_code >= 500 or status_code in _TRANSIENT_4XX_STATUS_CODES:
+        raise TransientAPIError(f"HTTP {status_code} from {url}")
+    if status_code >= 400:
+        raise APIError(f"HTTP {status_code} from {url}")
+
+
+def _expect_object(value: object, *, context: str) -> JSONDict:
+    """Narrow an opaque JSON payload to an object (all RPCs return objects)."""
     if not isinstance(value, dict):
-        raise APIError("Expected a JSON object response")
+        raise APIError(f"Expected a JSON object response from {context}")
     return {str(key): item for key, item in value.items()}
 
 
-def _parse_rows(payload: JSONValue) -> list[PilgrimagePoint]:
+def _parse_rows(payload: JSONDict) -> list[PilgrimagePoint]:
     """Validate a ``{"rows": [...]}`` envelope into typed pilgrimage points."""
-    envelope = expect_json_object(payload, context="rows")
-    rows = envelope.get("rows")
+    rows = payload.get("rows")
     if not isinstance(rows, list):
         raise APIError("Expected 'rows' to be a JSON array of points")
     return [PilgrimagePoint.model_validate(row) for row in rows]
 
 
-def _parse_point(payload: JSONValue) -> PilgrimagePoint:
+def _parse_point(payload: JSONDict) -> PilgrimagePoint:
     """Validate a ``{"point": {...}, "distance_m"?: float}`` envelope."""
-    envelope = expect_json_object(payload, context="point")
-    point = envelope.get("point")
+    point = payload.get("point")
     if not isinstance(point, dict):
         raise APIError("Expected 'point' to be a JSON object")
     return PilgrimagePoint.model_validate(point)

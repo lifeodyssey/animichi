@@ -1,11 +1,7 @@
-"""Port adapters (infrastructure) for the application layer."""
+"""Infrastructure gateways for external services."""
 
-from .anitabi import AnitabiClientGateway
-from .bangumi import BangumiClientGateway
 from .geocoding import GoogleGeocodingGateway
 
 __all__ = [
-    "AnitabiClientGateway",
-    "BangumiClientGateway",
     "GoogleGeocodingGateway",
 ]
