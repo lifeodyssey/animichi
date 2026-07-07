@@ -14,7 +14,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
 from agent.infrastructure.observability import (
-    get_http_tracer,
+    http_span,
     record_http_request,
 )
 from agent.interfaces.routes._deps import (
@@ -102,10 +102,9 @@ def register_observability_middleware(app: FastAPI) -> None:
         call_next: RequestResponseEndpoint,
     ) -> Response:
         started_at = perf_counter()
-        tracer = get_http_tracer()
         status_code = 500
 
-        with tracer.start_as_current_span("http.request") as span:
+        with http_span("http.request") as span:
             span.set_attribute("http.method", request.method)
 
             try:
