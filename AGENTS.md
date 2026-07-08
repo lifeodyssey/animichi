@@ -79,6 +79,20 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
   | serena | LSP-backed semantic code nav/edits when codegraph isn't enough. |
   | logfire | Observability — the agent and Workers share the Logfire dashboard. |
 
+- **Stack skills — invoke the Skill tool when the task matches** (docs fallback = context7 for any lib without a skill: Hono, oRPC, Drizzle, TanStack Start):
+
+  | Skill | Reach for it when |
+  |---|---|
+  | `ai@pydantic-skills` | Writing/altering the PydanticAI agent, tools, `ModelRetry` guards, typed output (`apps/agent`). |
+  | `logfire@pydantic-skills` | Instrumentation / querying observability — the sanctioned OTel path (see F8 in `apps/agent/AGENTS.md`). |
+  | `fastapi` | FastAPI service surface, routing, lifespan, dependencies (`apps/agent`). |
+  | `cloudflare:workers-best-practices` · `:wrangler` · `:durable-objects` | Catalog/edge Worker code, `wrangler.toml`, bindings, local `wrangler dev`. |
+  | `neon` / `neon-postgres` | Neon data-plane queries, branching, egress tuning. |
+  | `pulumi` | IaC in `infra/` — Cloudflare R2 / routes / DNS / secrets, stacks, ESC. |
+  | `auth-skills` (Better Auth) | Auth work as we migrate onto Neon Auth (Better Auth) (`workers/users`, login). |
+  | `ai-sdk` | Frontend AI SDK streaming/UI in the TanStack rebuild (`apps/web`). |
+  | `atlas` *(if installed)* | Schema migrations in `db/migrations` — diff/lint/apply. |
+
 ## Harness (4-role agent system)
 
 Planner → Executor → Reviewer → Tester. Role definitions live in `.claude/agents/`; orchestration via
