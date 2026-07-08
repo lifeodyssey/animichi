@@ -56,4 +56,25 @@ user messages: `agent/agents/error_messages.py`. Adding an error code → follow
 Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs as our primary keys
 (`eps=1` → movie, `eps>1` → TV). Full reference: `docs/api-reference/`.
 
+## HTTP + observability conventions (F7/F8)
+
+- **httpx only** — aiohttp is retired (F7). **One shared `httpx.AsyncClient` per client**, created
+  lazily and closed via the FastAPI lifespan `aclose()` (`agent/interfaces/fastapi_service.py`) — never per-request.
+  Leave `trust_env` at httpx's default (`True`) so proxy/CA env vars are respected.
+- **Status-based retry** — classify by **status code, never by URL/substring**: 5xx, transport errors,
+  and transient 4xx (408/429) retry with backoff; other 4xx raise immediately (`agent/clients/catalog_client.py`).
+- **Observability = logfire only** (F8). Never hand-roll OpenTelemetry or add `opentelemetry-api|sdk`
+  directly (logfire pins its own). Go through `agent/infrastructure/observability/runtime.py`
+  (`runtime_span` / `http_span`, `record_*`); `setup_logfire` calls
+  `logfire.configure(send_to_logfire="if-token-present")`, which no-ops without `LOGFIRE_TOKEN`.
+  Test spans via `logfire.testing.capfire`.
+- **Typed DB** — asyncpg with the `asyncpg-stubs` dev dep; no untyped pool/record access.
+
+## Test environment reality
+
+- Integration/eval suites that import `pg_container` (`agent/tests/conftest_db.py`) need a
+  **Docker-compatible runtime** (Docker / Colima on Mac) and use **testcontainers PostGIS**
+  (`postgis/postgis:16-3.4`). `SUPABASE_DB_URL` / `supabase start` alone is NOT sufficient for those
+  suites. Unit tests need no Docker.
+
 ## TDD: invoke `/backend-tdd` before writing Python.
