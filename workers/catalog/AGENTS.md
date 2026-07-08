@@ -32,4 +32,16 @@ Root guide: `../../AGENTS.md`.
   `route_optimizer.py` is retired.
 - Data-quality gate (X15): coordinate validation / dedup / episode completeness / volume-drift.
 
+## workerd gotchas (Drizzle / timestamptz)
+
+- **Drizzle is queries-only through the raw `sql` tagged template** — reads and geo run through `sql`
+  passed to Drizzle's `execute`, **never the fluent query builder** (its `select` / `from` chain
+  **hangs** under workerd + the Neon HTTP driver). `src/db/schema.ts` (`drizzle-orm/pg-core`) exists
+  for typing only.
+- **timestamptz comes back as a raw string under workerd** (the pg driver doesn't parse it to `Date`;
+  Node would). Normalize at the boundary — `new Date(stamp).toISOString()` (see `src/api/search.ts`).
+- **zod runs only at the handler/contract boundary** to validate untrusted public input — the one
+  sanctioned place for a zod *value* import (contrast `src/types.ts`, which stays `import type` only;
+  see Contract discipline above).
+
 ## Tests: TDD via `vitest-pool-workers`; keep `test/contract-parity.worker.test.ts` green.
