@@ -45,7 +45,7 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
 - **Test quality**: mock the clock (no timing-dependent asserts); no conditional logic in tests
   (split them); ≤200 lines per test file; ≤5 mocks per test.
 - **No local deploy** (hook `block-local-deploy`) — CI/CD only: staging = merge to `main`; prod =
-  tag `v*` (+ GitHub environment approval). Details → `docs/ops/deployment.md`.
+  manual `workflow_dispatch` + GitHub environment approval (deploy.yml — NOT tag-triggered). Details → `docs/ops/deployment.md`.
 
 ## Authoritative docs (read the matching one when doing that work)
 

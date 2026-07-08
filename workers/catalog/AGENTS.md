@@ -12,7 +12,7 @@ Root guide: `../../AGENTS.md`.
 ## Stack (per the ADR)
 
 - **Hono** HTTP; SSE via native `ReadableStream` (no buffering middleware).
-- **oRPC** contract; **Drizzle for queries only** + Hyperdrive → Neon (5432 direct, not Supavisor 6543).
+- **oRPC** contract; **Drizzle for queries only** — Neon via @neondatabase/serverless (neon-http); no Hyperdrive.
 - PostGIS via `sql` tagged template — do not vectorize structured geo (SD-29).
 
 ## Contract discipline (`packages/contract` is the source of truth)
