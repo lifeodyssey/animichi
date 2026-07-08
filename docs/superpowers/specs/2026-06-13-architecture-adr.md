@@ -1,9 +1,14 @@
-# ADR · 架构全量更新决策(数据平台为核心 + TS on Workers + Supabase 留任)
+# ADR · 架构全量更新决策(数据平台为核心 + TS on Workers + Supabase 留任 → 全 Neon 收敛)
 
 > 状态:ACCEPTED(2026-06-13,经 /plan-eng-review 交互评审 + Codex 独立冷评五项全采)
 > 决策人:用户;评审链:D1(范围)→ 需求重置(用户四关切)→ D2(载体)→ Codex 评审 → D3(全采)
 > 图表资产:`~/.gstack/projects/Seichijunrei-agent/designs/chat-mockups-2026-06-12/`
 > 之 `system-design.html`(职责架构 v2,主文档)与 `architecture-rethink.html`(候选对比)
+>
+> **状态更新(2026-07 起,SUPERSEDED-IN-PART)**:本 ADR「决策二」的载体分工「**Supabase 留任(PG+PostGIS + GoTrue auth)**」已被后续决策修订,往**全 Neon**收敛:
+> - **数据平台已迁 Neon**(SD-3,2026-07-06):PostGIS / 点位 / 用户域数据在 **Neon**,Supabase catalog 域表冻结待删。
+> - **认证后端迁 Neon Auth**(SD-31,2026-07-07):当初被否的 Stack Auth 底座已换成成熟的 **Better Auth v1.4.18**,原否决理由过期;auth 收敛到 **Neon Auth**(`neon_auth` schema,RLS 原生,每个 Neon 分支自带独立 auth 环境),**Supabase auth 待代码集成落地后退役**。
+> - 详见 `2026-07-06-frontend-rebuild-inputs.md` §七/§十 SD-3、SD-31。下文「决策二 / 框架选型 / 复用清单」中的 auth 相关处已就地标注更新;JWKS 端点一律走 `NEON_AUTH_JWKS_URL`(env/secret 注入),不硬编码主机名 / project-id(公开 repo)。
 
 ## 1. 背景与痛点
 
@@ -40,13 +45,18 @@
   4. LLM 成本闸:per-session token 预算 + 工具调用上限 + 超限降级普通搜索
   5. **预收录 10-20 作品**,不押实时首次收录
 
-### 决策二 · 载体映射 = C2-S:全 TS on Workers + Supabase 留任
+### 决策二 · 载体映射 = C2-S:全 TS on Workers + Supabase 留任(auth/data 已收敛 Neon — 见状态更新 + SD-3/SD-31)
 
 - 后端重写为 TypeScript 直跑 CF Workers(容器/Docker/代理消失;流接缝同语言消灭;
   类型 monorepo 共享)
-- **Supabase 留任**:PG+PostGIS(geo 白拿)+ GoTrue(Phase 4 PKCE 投资保留,
-  RN/Flutter 官方 SDK 满足 R10)
-- C4(all-in CF:D1+better-auth)记为**可选后续收敛终态**,非现在
+- **Supabase 留任 → 已修订(SD-3/SD-31,2026-07)**:原方案 = PG+PostGIS(geo 白拿)+
+  GoTrue(Phase 4 PKCE 投资保留,RN/Flutter 官方 SDK 满足 R10);**现方案 = 往全 Neon 收敛**——
+  PG+PostGIS/数据在 **Neon**,auth 由 GoTrue 改为 **Neon Auth**(Better Auth 底座,
+  `neon_auth` schema + 原生 RLS,每个 Neon 分支自带独立 auth 环境);R10(RN/Flutter 原生
+  客户端)的诉求由 Neon Auth SDK 承接
+- C4(all-in CF:D1+better-auth)记为**可选后续收敛终态**,非现在 **→ 更新(SD-31)**:
+  收敛已发生,但落点是 **Neon(Neon Auth = Better Auth 底座)** 而非 CF D1——better-auth
+  作为终态底座的判断成立,只是宿主为 Neon 而非 Cloudflare
 - 前端暂留 Next.js+OpenNext;**TanStack Start 迁移 = 后端落地+环闭合后的独立决策点**
   (一次只烧一层;Start 已 GA 且 CF 一等公民,能力无障碍,纯排序问题)
 - PWA:scope 锁定"歩くモード离线壳"(此前已决)
@@ -69,7 +79,7 @@ chat Phase 1 对着 TS 后端建,不在 Python 上做一遍再搬。
 
 ## 3. 后果
 
-**正面**:三痛点全清;单语言单平台(+Supabase 托管件);数据从理想化假设升级为
+**正面**:三痛点全清;单语言单平台(+托管件,**原 Supabase → 现全 Neon:数据 + Neon Auth,见顶部状态更新 + SD-3/SD-31**);数据从理想化假设升级为
 一等公民平台;成功场景(分享爆火)有疫苗;旧路线永不漂移。
 **负面**:agent+守卫平移是真工程(eval gate 兜底);两供应商;期间新页面若最终
 迁 Start 需二次搬;Python 仓 30.6k 行渐冻(eval 数据与 prompt 语义平移后弃)。
@@ -84,7 +94,7 @@ TanStack Start 迁移(后端落地后议)· all-in CF/D1(可选终态)· Code Sa
 
 ## 5. What already exists(复用清单)
 
-617 eval JSON 数据集(直用)· Supabase auth Phase4(PKCE/middleware,留任)·
+617 eval JSON 数据集(直用)· Supabase auth Phase4(PKCE/middleware)**→ SD-31 起由 Neon Auth 承接,Supabase auth 集成落地后退役**·
 设计系统+全套 spec(栈无关)· agent prompt/工具语义+守卫规则(平移蓝本,3,260 行)·
 cluster_by_location 算法(union-find,port 到 worker)· KNOWN_LOCATIONS(圏命名)·
 sql_agent 概念(守卫式灵活查询)· city backfill(归入 Enrich 段)
@@ -112,7 +122,7 @@ sql_agent 概念(守卫式灵活查询)· city backfill(归入 Enrich 段)
 | HTTP 框架 | **Hono** | Workers 事实标准;SSE 用原生 ReadableStream 绕开一切中间件缓冲 |
 | 端到端类型 | **oRPC** | 原生 OpenAPI 输出 → 未来 RN 白拿(R10);Hono RPC 大型化有类型推断拖垮 CI 的实锤 |
 | DB 访问 | **Drizzle(只查询)+ Hyperdrive + supabase migrations 保留** | Hyperdrive 连 5432 直连,勿叠 Supavisor 6543;PostGIS 走 `sql` tagged template;官方认证共存模式 |
-| 认证 | **jose JWKS 本地验签(Workers)+ @supabase/ssr 原样(Next)** | 勿用 getUser()(每请求打 GoTrue);JWKS 缓存 10 分钟 |
+| 认证 | **jose JWKS 本地验签(Workers,对 **Neon Auth** JWKS,端点走 `NEON_AUTH_JWKS_URL` env)+ **Neon Auth SDK**(前端 Better Auth client)** | **SD-31 更新**:auth 后端 = Neon Auth(退 Supabase GoTrue);仍本地缓存 JWKS(勿每请求打远端);前端由 @supabase/ssr 改为 Neon Auth SDK;每个 Neon 分支自带独立 auth 环境 |
 | Agent | **AI SDK v5 + Zod + execute 内守卫** | v5 校验失败默认即 tool-error part 回喂(ModelRetry 软路径开箱有);repairToolCall 有 bug #8240 勿依赖;DeepSeek 用 `@ai-sdk/deepseek`(仅 deepseek-chat 支持工具) |
 | 流式 | **createUIMessageStream + useChat DefaultChatTransport** | v5 不再传 api URL,要配 transport;有 Ably 生产案例 |
 | 数据管线 | **Workflows(多步摄入)+ Queues(扇出)+ Cron** | step.do 断点续跑;本地 Local Explorer(2026-04 起);singleflight = ingest_jobs 唯一约束自查 |
