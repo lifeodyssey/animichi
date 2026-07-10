@@ -31,7 +31,7 @@ export type {
 
 export type { ErrorCode, ChatMessage } from "./components";
 
-export type { SeichijunreiMetadata, SeichijunreiMessage } from "./chat";
+export type { AnimichiMetadata, AnimichiMessage } from "./chat";
 
 // ── Type guards ────────────────────────────────────────────────────────────
 

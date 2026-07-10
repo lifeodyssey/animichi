@@ -1,1 +1,1 @@
-"""Integration tests for Seichijunrei Bot."""
+"""Integration tests for Animichi Bot."""

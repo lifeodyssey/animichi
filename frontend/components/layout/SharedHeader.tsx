@@ -187,7 +187,7 @@ function Brand() {
       />
       <div className="flex flex-col">
         <span className="text-[10px] tracking-[1px] text-muted-foreground">
-          Seichijunrei
+          Animichi
         </span>
         <span className="font-display text-sm font-bold leading-tight text-foreground">
           聖地巡礼
