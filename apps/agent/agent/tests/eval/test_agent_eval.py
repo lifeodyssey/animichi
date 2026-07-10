@@ -20,8 +20,10 @@ import asyncio
 import json
 import os
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Protocol
 
 import pytest
 from dotenv import load_dotenv
@@ -30,10 +32,11 @@ from pydantic_evals.evaluators import Evaluator, EvaluatorContext
 
 from agent.agents.agent_result import AgentResult
 from agent.interfaces.public_api import detect_language
-from agent.tests.eval.eval_common import (
-    enforce_gate,
-    read_baseline,
-    write_baseline,
+from agent.tests.eval.gate import (
+    BaselineRecord,
+    bootstrap_gate,
+    read_baseline_record,
+    write_baseline_record,
 )
 
 load_dotenv(Path(__file__).parents[3] / ".env")
@@ -267,6 +270,8 @@ def make_agent_task(db: object, model: object | None = None) -> object:
 # ── Shared helpers ───────────────────────────────────────────────────
 
 _LAYER = "agent"
+_BASELINES_DIR = Path(__file__).parent / "baselines"
+_DATASET_NAME = _DATASET_PATH.stem
 
 _EVALUATOR_NAMES = [
     "IntentMatch",
@@ -278,9 +283,50 @@ _EVALUATOR_NAMES = [
 ]
 
 
+class _EvalCaseResult(Protocol):
+    name: str
+    scores: Mapping[str, object] | None
+
+
+class _EvalReport(Protocol):
+    cases: list[_EvalCaseResult]
+
+
 def _collect_scores(avg: object) -> dict[str, float]:
     scores_attr = getattr(avg, "scores", {})
-    return {n: scores_attr.get(n, 0) for n in _EVALUATOR_NAMES}
+    return {n: float(scores_attr.get(n, 0)) for n in _EVALUATOR_NAMES}
+
+
+def _score_value(score: object) -> float:
+    return float(getattr(score, "value", score))
+
+
+def _case_scores(case: _EvalCaseResult) -> dict[str, float]:
+    scores = case.scores
+    if scores is None:
+        return {}
+    return {str(name): _score_value(score) for name, score in scores.items()}
+
+
+def _collect_case_scores(report: _EvalReport) -> dict[str, dict[str, float]]:
+    return {str(case.name): _case_scores(case) for case in report.cases}
+
+
+def _baseline_record(
+    model_id: str,
+    scores: dict[str, float],
+    cases: dict[str, dict[str, float]],
+    evaluated_count: int,
+) -> BaselineRecord:
+    return BaselineRecord(
+        model=model_id,
+        dataset=_DATASET_NAME,
+        tier="fullstack",
+        case_count=len(CASES),
+        evaluated_count=evaluated_count,
+        scores=scores,
+        cases=cases,
+    )
 
 
 def _print_scores(scores: dict[str, float], model_id: str) -> None:
@@ -376,20 +422,29 @@ async def test_agent(real_db: object) -> None:
     current_scores = _collect_scores(avg)
     _print_scores(current_scores, _EVAL_MODEL_ID)
 
-    baseline_scores = read_baseline(
-        _LAYER, _EVAL_MODEL_ID, expected_case_count=len(CASES)
+    current_case_scores = _collect_case_scores(report)
+    baseline = read_baseline_record(
+        _LAYER,
+        _EVAL_MODEL_ID,
+        baselines_dir=_BASELINES_DIR,
+        expected_case_count=len(CASES),
     )
-    if not baseline_scores:
-        write_baseline(
-            _LAYER,
+    if baseline is None:
+        record = _baseline_record(
             _EVAL_MODEL_ID,
             current_scores,
-            case_count=len(CASES),
-            evaluated_count=len(report.cases),
+            current_case_scores,
+            len(report.cases),
+        )
+        write_baseline_record(
+            record,
+            layer=_LAYER,
+            model_id=_EVAL_MODEL_ID,
+            baselines_dir=_BASELINES_DIR,
         )
         pytest.skip(f"Baseline created for {_EVAL_MODEL_ID}; re-run to enforce gate.")
 
-    failures = enforce_gate(current_scores, baseline_scores)
+    failures = bootstrap_gate(current_case_scores, baseline)
     assert not failures, "Regression:\n" + "\n".join(failures)
 
 
@@ -443,19 +498,30 @@ if __name__ == "__main__":
         _print_scores(current_scores, mid)
         _save_per_case_results(report, mid)
 
-        baseline_scores = read_baseline(_LAYER, mid)
-        if not baseline_scores:
-            write_baseline(
-                _LAYER,
+        current_case_scores = _collect_case_scores(report)
+        baseline = read_baseline_record(
+            _LAYER,
+            mid,
+            baselines_dir=_BASELINES_DIR,
+            expected_case_count=len(CASES),
+        )
+        if baseline is None:
+            record = _baseline_record(
                 mid,
                 current_scores,
-                case_count=len(CASES),
-                evaluated_count=len(report.cases),
+                current_case_scores,
+                len(report.cases),
+            )
+            write_baseline_record(
+                record,
+                layer=_LAYER,
+                model_id=mid,
+                baselines_dir=_BASELINES_DIR,
             )
             print("Baseline created. Re-run to enforce gate.")
             return
 
-        failures = enforce_gate(current_scores, baseline_scores)
+        failures = bootstrap_gate(current_case_scores, baseline)
         if failures:
             raise SystemExit("Regression:\n" + "\n".join(failures))
         print("All gates passed.")
