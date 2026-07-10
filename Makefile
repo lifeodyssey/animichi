@@ -1,6 +1,6 @@
 # Animichi Agent - Makefile
 
-.PHONY: help install dev dev-local serve test test-all test-cov test-integration test-eval lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset fe-lint fe-typecheck fe-test fe-test-cov fe-build fe-check check-all e2e-setup e2e e2e-public local-login dev-stop
+.PHONY: help install dev dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset fe-lint fe-typecheck fe-test fe-test-cov fe-build fe-check check-all e2e-setup e2e e2e-public local-login dev-stop
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -23,6 +23,7 @@ help:
 	@echo "  make test-all    Run stable automated tests (unit + integration)"
 	@echo "  make test-cov    Run tests with coverage report"
 	@echo "  make test-eval   Run model-backed evals"
+	@echo "  make test-eval-fullstack  Run thin full-stack eval (opt-in, not a PR gate)"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint        Run linters (ruff)"
@@ -66,6 +67,9 @@ test-integration:
 
 test-eval:
 	cd apps/agent && $(PYTEST) agent/tests/eval/test_agent_eval.py agent/tests/eval/test_translation.py -v -m integration --no-cov
+
+test-eval-fullstack:
+	cd apps/agent && EVAL_FULLSTACK=1 EVAL_MAX_CASES=$${EVAL_MAX_CASES:-50} $(PYTEST) agent/tests/eval/test_agent_eval.py -v -m integration --no-cov -k fullstack
 
 lint:
 	cd apps/agent && uv run ruff check agent/

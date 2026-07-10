@@ -10,16 +10,16 @@ Usage:
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Coroutine, Mapping
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
 
 import pytest
 from dotenv import load_dotenv
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext
 
+from agent.tests.eval.exec_tiers import collect_case_scores
 from agent.tests.eval.gate import (
     BaselineRecord,
     bootstrap_gate,
@@ -53,15 +53,6 @@ class TranslationExpected:
 # ── Task factory (closure replaces _STATE global) ────────────────────
 
 TaskFn = Callable[[TranslationInput], Coroutine[object, object, TranslationOutput]]
-
-
-class _EvalCaseResult(Protocol):
-    name: str
-    scores: Mapping[str, object] | None
-
-
-class _EvalReport(Protocol):
-    cases: list[_EvalCaseResult]
 
 
 def make_translation_task(db: object) -> TaskFn:
@@ -169,21 +160,6 @@ translation_dataset = Dataset(
 _LAYER = "translation"
 
 
-def _score_value(score: object) -> float:
-    return float(getattr(score, "value", score))
-
-
-def _case_scores(case: _EvalCaseResult) -> dict[str, float]:
-    scores = case.scores
-    if scores is None:
-        return {}
-    return {str(name): _score_value(score) for name, score in scores.items()}
-
-
-def _collect_case_scores(report: _EvalReport) -> dict[str, dict[str, float]]:
-    return {str(case.name): _case_scores(case) for case in report.cases}
-
-
 def _baseline_record(
     scores: dict[str, float],
     cases: dict[str, dict[str, float]],
@@ -238,7 +214,7 @@ def test_translation_quality(request: pytest.FixtureRequest) -> None:
     print(f"  Cases:          {len(CASES)}")
     print(f"{'=' * 50}")
 
-    current_case_scores = _collect_case_scores(report)
+    current_case_scores = collect_case_scores(report)
     baseline = read_baseline_record(
         _LAYER,
         _MODEL_ID,
