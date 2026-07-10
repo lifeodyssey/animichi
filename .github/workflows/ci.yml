@@ -1,13 +1,21 @@
+# Neon-backed test jobs are non-gating and stay outside every deploy `needs:` chain.
+# Promote only after 10 consecutive greens on main-bound PRs; quota-class failures
+# are excluded from the streak but tracked separately (the agnix precedent below).
 name: CI
 
 on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  # dorny/paths-filter (changes job) and gitleaks-action both list PR
+  # commits/files via the API; the explicit permissions block above would
+  # otherwise zero this out and both fail with
+  # "Resource not accessible by integration" (2026-07-28, run 30370261651).
+  pull-requests: read
 
 env:
   PYTHON_VERSION: "3.11"
@@ -20,14 +28,40 @@ jobs:
 
   changes:
     runs-on: ubuntu-latest
+    # dorny/paths-filter resolves a pull_request's changed files through the
+    # GitHub API (listFiles), which needs `pull-requests: read`. The workflow-level
+    # `permissions: contents: read` grants only Contents+Metadata, so on a private
+    # repo the call returns "Resource not accessible by integration"; this job then
+    # fails and EVERY downstream lane (`Agent CI`, `Edge worker tests`, `Contract
+    # OpenAPI drift`, …) reports `skipping` — a green-looking PR with no suite run.
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       catalog: ${{ steps.f.outputs.catalog }}
+      users: ${{ steps.f.outputs.users }}
       agent: ${{ steps.f.outputs.agent }}
+      agent_behavior: ${{ steps.f.outputs.agent_behavior }}
       frontend: ${{ steps.f.outputs.frontend }}
+      web: ${{ steps.f.outputs.web }}
       contract: ${{ steps.f.outputs.contract }}
+      worker: ${{ steps.f.outputs.worker }}
+      migrations: ${{ steps.f.outputs.migrations }}
+      neon_agent: ${{ steps.f.outputs.neon_agent }}
+      neon_catalog: ${{ steps.f.outputs.neon_catalog }}
+      neon_migrations: ${{ steps.f.outputs.neon_migrations }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          # On `push`, paths-filter diffs the event's `before` SHA against HEAD using
+          # local git (the API listFiles path is pull_request-only). The default
+          # fetch-depth of 1 leaves `before` unreachable, and `persist-credentials:
+          # false` means the action's own fallback fetch has no auth — it exits 128
+          # and every downstream lane, INCLUDING all eight deploy jobs, reports
+          # `skipping`. That is how the #483 merge to main deployed nothing while
+          # only this job showed red (2026-07-29, run 30429636371). Full history
+          # keeps the credentials hardening and makes `before` locally reachable.
+          fetch-depth: 0
           persist-credentials: false
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: f
@@ -35,8 +69,29 @@ jobs:
           filters: |
             contract: ['packages/contract/**']
             catalog: ['workers/catalog/**', 'packages/contract/**']
+            users: ['workers/users/**', 'packages/contract/**']
             agent: ['apps/agent/**', 'packages/contract/**']
+            # SD-30 path-filter rule (shared verbatim with iter-1 S1.13, per the second-pass
+            # spec review): prompt/instructions + model-config + guardrail files ONLY — not
+            # every apps/agent/** change (that broader scope still gates `agent` above, which
+            # drives ci-agent's lint/type/test/coverage). agents/** carries the system prompt
+            # (animichi_agent.py), the ModelRetry/output_validator/repeat-guard hooks, the
+            # runner's usage-limit + error-classification guardrails, and the model-resolution
+            # glue (base.py); model_aliases.py is the concrete provider/thinking-mode registry;
+            # settings.py is where the production model spec actually lives (default_agent_model,
+            # model_attempt_timeout) — a PR flipping the prod model would live here, not in agents/**.
+            # The gate's own machinery is in scope too (added 2026-07-26): #440
+            # rewrote the classifier, the L0 selection and the failure reporting
+            # while this filter excluded tests/eval/**, so the smoke job SKIPPED
+            # on the very PR that changed it — a gate that cannot test itself.
+            agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py', 'apps/agent/agent/config/settings.py', 'apps/agent/agent/tests/eval/**']
             frontend: ['frontend/**']
+            web: ['apps/web/**']
+            worker: ['worker/**']
+            migrations: ['supabase/migrations/**', 'db/**']
+            neon_agent: ['apps/agent/**']
+            neon_catalog: ['workers/catalog/**']
+            neon_migrations: ['db/migrations/**']
 
   # ── Stage 1: Component CI (reusable workflows, all parallel) ──
   # affected-only on PRs; full run on push/tag.
@@ -57,6 +112,32 @@ jobs:
     with:
       component: catalog
 
+  ci-users:
+    name: Users CI
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.users == 'true' }}
+    uses: ./.github/workflows/_ts-ci.yml
+    with:
+      component: users
+
+  contract-openapi-drift:
+    name: Contract OpenAPI drift
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.contract == 'true' }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Regenerate contract OpenAPI
+        run: pnpm emit:openapi
+        working-directory: packages/contract
+      - name: Verify committed OpenAPI is current
+        run: |
+          git add -A packages/contract/openapi.json packages/contract/users-openapi.json
+          git diff --cached --exit-code -- packages/contract/openapi.json packages/contract/users-openapi.json
+
   ci-frontend:
     name: Frontend CI
     needs: changes
@@ -67,6 +148,24 @@ jobs:
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
 
+  ci-web:
+    name: Web app CI
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.web == 'true' }}
+    uses: ./.github/workflows/_webapp-ci.yml
+
+  ci-worker:
+    name: Edge worker tests
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.worker == 'true' }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: pnpm run test:worker
+
   # ── Security (cross-language; always runs, no affected gate) ──
 
   security:
@@ -75,13 +174,33 @@ jobs:
     secrets:
       GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
+  # ── Agent-config lint (agnix, warn-only) ─────────────────────
+  # Non-blocking drift gate for CLAUDE.md / AGENTS.md / .claude/rules / hooks / MCP.
+  # `continue-on-error` is an intentional warn-only gate policy (not a code-quality
+  # suppression): it surfaces context-doc rot without failing CI. Kept out of the
+  # deploy `needs:` chain so it never gates a release. Promote to blocking once proven.
+
+  agnix:
+    name: Agent config lint (agnix, warn-only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+      - name: Lint AI agent configs
+        run: npx --yes agnix@0.37.5 .
+
   # ── DB migrations (dry-run) ──────────────────────────────────
 
   db-validate:
     name: DB Migrations (dry-run)
     runs-on: ubuntu-latest
     needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.catalog == 'true' || needs.changes.outputs.agent == 'true' }}
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.migrations == 'true' }}
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
@@ -99,13 +218,23 @@ jobs:
           supabase migration list --db-url "$SUPABASE_DB_URL"
           supabase db push --dry-run --db-url "$SUPABASE_DB_URL"
 
-  # ── Agent eval (deferred — see `&& false`) ───────────────────
+  # ── Agent eval: L0 smoke (SD-30 §① — required PR gate) ────────
+  # Path-filter scope = the SD-30 rule above (`agent_behavior`): prompt/model-config/
+  # guardrail files only. EVAL_SMOKE=1 composes the L0 set explicitly (one case per
+  # behavior path, locale-rotated across ja/zh/en, then the remaining budget spent on
+  # the P0 trilingual fill — see agent/tests/eval/l0_selection.py) and turns the
+  # normally report-only capped run into an enforced one: zero agent-originated errors
+  # plus the deterministic direct_gates (thrash), without ever touching the statistical
+  # baseline. Provider transport errors are reported but do not gate (#434); the
+  # trajectory assertions print every run and enforce under TRAJECTORY_ASSERT=1.
+  # The uncapped L1 suite (baseline + statistical gate + translation eval)
+  # runs nightly instead of on every PR — see agent-eval-nightly.yml.
 
-  agent-eval:
-    name: Agent Eval (546 cases)
+  agent-eval-smoke:
+    name: Agent Eval (L0 smoke, ~80 cases)
     runs-on: ubuntu-latest
     needs: changes
-    if: ${{ (github.event_name != 'pull_request' || needs.changes.outputs.agent == 'true') && false }}
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.agent_behavior == 'true' }}
     defaults:
       run:
         working-directory: apps/agent
@@ -119,18 +248,115 @@ jobs:
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
+      - run: uv sync --frozen --all-extras
+
+      - name: Run L0 smoke trajectory eval (zero-errored + direct gates)
+        run: uv run --frozen pytest agent/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
+        env:
+          EVAL_MODEL: openai:mimo-v2.5@https://api.xiaomimimo.com/v1
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          EVAL_SMOKE: "1"
+          EVAL_MAX_CASES: "80"
+          # Settings requires presence; the trajectory tier uses NullDatabase and
+          # never opens this endpoint (mirrors the python-integration job).
+          SUPABASE_DB_URL: postgresql://test:test@localhost:5432/test
+
+  # ── Neon test infrastructure (non-gating during calibration) ──
+
+  python-integration:
+    name: Python integration (Neon)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: changes
+    if: >-
+      ${{
+        (github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository)) &&
+        (github.event_name == 'workflow_dispatch' ||
+          needs.changes.outputs.neon_agent == 'true' ||
+          needs.changes.outputs.neon_migrations == 'true')
+      }}
+    concurrency:
+      group: neon-tests-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: apps/agent
+    env:
+      ATLAS_VERSION: "0.30.0"
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+      # Settings requires presence; integration tests do not use these endpoints.
+      SUPABASE_DB_URL: postgresql://test:test@localhost:5432/test
+      MIMO_API_KEY: test-key
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+
       - run: uv sync --all-extras
 
-      - name: Run agent eval
-        run: uv run pytest agent/tests/eval/test_agent_eval.py -v -m integration --no-cov -x
-        env:
-          EVAL_MODEL: openai:deepseek-v4-pro@https://api.deepseek.com
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      - name: Install pinned Atlas CLI
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/atlas-bin"
+          curl --proto '=https' --tlsv1.2 -sSfL \
+            "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" \
+            -o "$RUNNER_TEMP/atlas-bin/atlas"
+          # Keep synchronized with apps/agent/agent/tests/atlas_helper.py.
+          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas" \
+            | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
+          echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
 
-      - name: Run translation eval
-        run: uv run pytest agent/tests/eval/test_translation.py -v -m integration --no-cov -x
+      - name: Run Neon integration tests
         env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          TEST_DB: neon
+        run: uv run pytest agent/tests/integration -q --no-cov
+
+  catalog-spikes:
+    name: Catalog spikes (Neon)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [changes, python-integration]
+    if: >-
+      ${{
+        always() &&
+        needs.changes.result == 'success' &&
+        (needs.python-integration.result == 'success' ||
+          needs.python-integration.result == 'skipped') &&
+        (github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository)) &&
+        (github.event_name == 'workflow_dispatch' ||
+          needs.changes.outputs.neon_catalog == 'true' ||
+          needs.changes.outputs.neon_migrations == 'true')
+      }}
+    concurrency:
+      group: neon-tests-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Run catalog spike tests
+        run: pnpm run test:spike
+        working-directory: workers/catalog
 
   # ── Stage 3: Deploy (CI-green gated, push-main promotion path) ──
   # Promotion: push main → CI → staging → post-staging (api) → prod (human gate) → post-prod.
@@ -140,13 +366,15 @@ jobs:
   # push main → staging
   deploy-staging:
     name: Deploy staging
-    needs: [ci-agent, ci-catalog, ci-frontend, db-validate, security]
+    needs: [ci-agent, ci-catalog, ci-frontend, ci-web, ci-worker, db-validate, security]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: catalog
       environment: staging
       pulumi_stack: staging
+      working_directory: workers/catalog
+      worker_secrets: DATABASE_URL
     secrets:
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -157,13 +385,106 @@ jobs:
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     concurrency: deploy-staging
 
+  deploy-web-staging:
+    name: Deploy web staging
+    needs: [ci-agent, ci-catalog, ci-frontend, ci-web, ci-worker, db-validate, security]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: web
+      environment: staging
+      pulumi_stack: staging
+      working_directory: apps/web
+      build_filter: web
+      run_pulumi: false
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    concurrency: deploy-web-staging
+
+  deploy-users-staging:
+    name: Deploy users staging
+    needs: [deploy-staging, ci-users]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: users
+      environment: staging
+      pulumi_stack: staging
+      working_directory: workers/users
+      run_pulumi: false
+      worker_secrets: |
+        DATABASE_URL
+        NEON_AUTH_JWKS_URL
+    secrets:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+    concurrency: deploy-users-staging
+
+  deploy-root-staging:
+    name: Deploy root staging
+    needs: [deploy-staging, deploy-users-staging]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: root
+      environment: staging
+      pulumi_stack: staging
+      working_directory: "."
+      build_filter: frontend
+      run_pulumi: false
+      # #527/#528 (P1-A): CORS_ALLOWED_ORIGIN is NOT listed here anymore, and
+      # this is NOT "staging doesn't need CORS restriction" — that framing
+      # was reasoned, not verified, and turned out wrong. It's provisioned
+      # instead as `[env.staging.vars].CORS_ALLOWED_ORIGIN` in the root
+      # `wrangler.toml` (see the comment there for the full chain: no
+      # wildcard fallback exists, the container hardcodes
+      # `APP_ENV=production`, and an absent value reproducibly crashes the
+      # container on boot via `settings.py`'s CORS validator — verified
+      # locally, not assumed). A plain domain name belongs in `vars`, not a
+      # GH secret nobody would think to look for.
+      worker_secrets: |
+        SUPABASE_URL
+        SUPABASE_ANON_KEY
+        SUPABASE_SERVICE_ROLE_KEY
+        SUPABASE_DB_URL
+        MIMO_API_KEY
+        DEEPSEEK_API_KEY
+        GEMINI_API_KEY
+        GOOGLE_MAPS_API_KEY
+        LOGFIRE_TOKEN
+      post_deploy_secrets: |
+        TURNSTILE_SECRET
+        ANON_ID_SECRET
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+      LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+      NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+      TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+      ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+    concurrency: deploy-root-staging
+
   post-staging:
     name: Post-deploy (staging)
-    needs: deploy-staging
+    needs: [deploy-staging, deploy-web-staging, deploy-users-staging, deploy-root-staging]
     uses: ./.github/workflows/_post-deploy-test.yml
     with:
       environment: staging
       suite: api
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   # staging validated → production (human approve via environment: production in
   # _deploy-component.yml). needs: post-staging guarantees staging passed api tests.
@@ -175,6 +496,8 @@ jobs:
       component: catalog
       environment: production
       pulumi_stack: prod
+      working_directory: workers/catalog
+      worker_secrets: DATABASE_URL
     secrets:
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -185,10 +508,92 @@ jobs:
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     concurrency: deploy-prod
 
+  deploy-web-prod:
+    name: Deploy web production
+    needs: post-staging
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: web
+      environment: production
+      pulumi_stack: prod
+      working_directory: apps/web
+      build_filter: web
+      run_pulumi: false
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    concurrency: deploy-web-prod
+
+  deploy-users-prod:
+    name: Deploy users production
+    needs: [post-staging, deploy-prod]
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: users
+      environment: production
+      pulumi_stack: prod
+      working_directory: workers/users
+      run_pulumi: false
+      worker_secrets: |
+        DATABASE_URL
+        NEON_AUTH_JWKS_URL
+    secrets:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+    concurrency: deploy-users-prod
+
+  deploy-root-prod:
+    name: Deploy root production
+    needs: [post-staging, deploy-users-prod]
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: root
+      environment: production
+      pulumi_stack: prod
+      working_directory: "."
+      build_filter: frontend
+      run_pulumi: false
+      worker_secrets: |
+        SUPABASE_URL
+        SUPABASE_ANON_KEY
+        SUPABASE_SERVICE_ROLE_KEY
+        SUPABASE_DB_URL
+        MIMO_API_KEY
+        DEEPSEEK_API_KEY
+        GEMINI_API_KEY
+        GOOGLE_MAPS_API_KEY
+        LOGFIRE_TOKEN
+        CORS_ALLOWED_ORIGIN
+      post_deploy_secrets: |
+        TURNSTILE_SECRET
+        ANON_ID_SECRET
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+      LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+      CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+      NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+      TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+      ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+    concurrency: deploy-root-prod
+
   post-prod:
     name: Post-deploy (production)
-    needs: deploy-prod
+    needs: [deploy-prod, deploy-web-prod, deploy-users-prod, deploy-root-prod]
     uses: ./.github/workflows/_post-deploy-test.yml
     with:
       environment: production
       suite: smoke
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
