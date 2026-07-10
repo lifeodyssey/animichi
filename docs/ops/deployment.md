@@ -160,7 +160,7 @@ Production runs on Cloudflare Workers + Containers (backed by a Durable Object c
 Requirements:
 
 - Wrangler 4+ (`[[containers]]` is ignored by Wrangler 3)
-- GitHub Actions uses `cloudflare/wrangler-action@v3` with `wranglerVersion: "4.79.0"`
+- GitHub Actions uses `cloudflare/wrangler-action@v4` with `wranglerVersion: "4.79.0"`
 - This repo deploys from the checked-in `Dockerfile`; there is no GHCR handoff
 
 Routing defined by `wrangler.toml`:
@@ -171,18 +171,41 @@ Routing defined by `wrangler.toml`:
 
 ## Deploy Sequence
 
-Automatic production deploy happens in `.github/workflows/ci.yml` on pushes to `main` after required jobs pass.
-The current order is:
+There are two workflow-backed deploy paths. Neither path is tag-triggered.
 
-1. build static frontend export
+### Main promotion path (`.github/workflows/ci.yml`)
+
+`ci.yml` runs on pushes to `main` and `develop`, plus pull requests. Deploy jobs are narrower: they
+only start when `github.event_name == 'push'` and `github.ref == 'refs/heads/main'`.
+
+On a push to `main`, the current promotion chain is:
+
+1. component CI, worker tests, DB migration dry-run, and security jobs run first. The agnix job is
+   warn-only and is intentionally outside the deploy `needs:` chain.
+2. `deploy-staging` calls `_deploy-component.yml` with `component: catalog`,
+   `environment: staging`, and `pulumi_stack: staging`.
+3. `_deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the
+   repo, runs the shared setup action, applies Atlas migrations when `NEON_DATABASE_URL` is set,
+   runs `pulumi up` in `infra/`, deploys `workers/${{ inputs.component }}` with Wrangler, and runs
+   the component smoke step.
+4. `post-staging` runs the API post-deploy suite against staging.
+5. `deploy-prod` calls `_deploy-component.yml` with `environment: production` and
+   `pulumi_stack: prod`. The GitHub `production` environment is the human approval gate.
+6. `post-prod` runs the production smoke post-deploy suite.
+
+### Manual production path (`.github/workflows/deploy.yml`)
+
+`deploy.yml` is `workflow_dispatch` only. Its `Deploy to Production` job also uses
+`environment: production`, so it requires the same GitHub environment approval before the job runs.
+Its current order is:
+
+1. build the frontend with `pnpm run build` in `frontend`
 2. apply Supabase migrations with `supabase db push`
-3. run `wrangler deploy`
+3. deploy the catalog Worker first, because the root Worker service binding depends on it
+4. verify `Dockerfile` exists
+5. deploy the root Worker/container with Wrangler
 
-Manual one-shot deploy remains available through `.github/workflows/deploy.yml` or locally:
-
-```bash
-npx wrangler@4 deploy
-```
+Do not use version tags as a deploy trigger for the current pipeline.
 
 **CF Worker routing** (`worker/worker.js`):
 - `/v1/*` and `/healthz` → `CONTAINER` (Durable Object → FastAPI service on port 8080)
@@ -214,7 +237,7 @@ Important: this is a documentation target only right now. Before enabling it, th
 App rollback:
 
 1. revert the offending commit on `main`
-2. rerun the production deploy workflow or run `npx wrangler@4 deploy`
+2. rerun the appropriate workflow-backed production path from the deploy sequence above
 3. verify `/healthz`, `/v1/runtime`, and static asset delivery
 
 Worker/container rollback:
@@ -235,9 +258,12 @@ WAF rollback:
 - OpenTelemetry exporters are opt-in and disabled by default
 - AI Gateway is documented but not yet wired in backend provider configuration
 
-## Post-deploy Runbook (feat/ssr-cloudflare merge)
+## HISTORICAL (pre-2026-07): feat/ssr-cloudflare Post-deploy Notes
 
-After merging feat/ssr-cloudflare to main and tagging:
+This section records the old feat/ssr-cloudflare merge runbook. It is not the current deployment
+trigger; do not tag for current deploys. Use the workflow paths above instead.
+
+After the old feat/ssr-cloudflare merge, operators used these checks:
 
 1. **Apply DB migrations** — Supabase CLI auto-applies on deploy:
    - `20260509200000_fix_wrong_bangumi_ids.sql` — delete wrong seed IDs
