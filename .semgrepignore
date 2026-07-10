@@ -1,0 +1,26 @@
+# NOTE: creating a .semgrepignore REPLACES semgrep's built-in defaults, so the
+# default patterns must be restated here (first section) before repo-specific
+# additions (second section). Removing the defaults exposed tests/ to SAST and
+# broke CI once — keep them.
+
+# ── Semgrep default ignore patterns ──────────────────────────────
+node_modules/
+build/
+dist/
+vendor/
+.env/
+.venv/
+.tox/
+*.min.js
+test/
+tests/
+*_test.go
+.semgrep
+.semgrep_logs
+.git/
+
+# ── Repo-specific ────────────────────────────────────────────────
+# Committed design-sync mockup canvases (static design-review artifacts,
+# never served as product code); their demo scripts trip browser-security
+# rules that are meaningless outside a shipped origin.
+docs/design/
