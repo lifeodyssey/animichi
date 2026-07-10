@@ -50,7 +50,7 @@ dev:
 	cd apps/agent && uv sync --extra dev
 
 serve:
-	cd apps/agent && uv run seichijunrei-api
+	cd apps/agent && uv run animichi-api
 
 test:
 	cd apps/agent && $(PYTEST) agent/tests/unit/ -v
@@ -153,16 +153,16 @@ dev-local:
 		echo "✓ Data exists ($$COUNT bangumi)"; \
 	fi
 	@# 4. Start Edge Function for auth emails (with local SITE_URL)
-	@supabase functions serve send-auth-email --no-verify-jwt --env-file supabase/.env.local > /tmp/seichijunrei-edge.log 2>&1 & echo $$! > /tmp/seichijunrei-edge.pid
+	@supabase functions serve send-auth-email --no-verify-jwt --env-file supabase/.env.local > /tmp/animichi-edge.log 2>&1 & echo $$! > /tmp/animichi-edge.pid
 	@echo "✓ Edge Function started (SITE_URL=http://localhost:3001)"
 	@# 5. Start backend with .env (background, daemonized)
-	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) bash -c 'cd apps/agent && uv run uvicorn agent.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080' > /tmp/seichijunrei-backend.log 2>&1 & echo $$! > /tmp/seichijunrei-backend.pid
+	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) bash -c 'cd apps/agent && uv run uvicorn agent.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080' > /tmp/animichi-backend.log 2>&1 & echo $$! > /tmp/animichi-backend.pid
 	@# 6. Wait for backend health
 	@echo "Waiting for backend..."
 	@for i in $$(seq 1 60); do curl -s http://localhost:8080/healthz >/dev/null 2>&1 && break || sleep 2; done
-	@curl -s http://localhost:8080/healthz >/dev/null 2>&1 && echo "✓ Backend ready on :8080" || (echo "✗ Backend failed — check /tmp/seichijunrei-backend.log" && exit 1)
+	@curl -s http://localhost:8080/healthz >/dev/null 2>&1 && echo "✓ Backend ready on :8080" || (echo "✗ Backend failed — check /tmp/animichi-backend.log" && exit 1)
 	@# 7. Start frontend on :3001 (matching config.toml site_url)
-	@cd frontend && npm run dev > /tmp/seichijunrei-frontend.log 2>&1 & echo $$! > /tmp/seichijunrei-frontend.pid
+	@cd frontend && npm run dev > /tmp/animichi-frontend.log 2>&1 & echo $$! > /tmp/animichi-frontend.pid
 	@sleep 3
 	@echo "✓ Frontend starting on :3001"
 	@echo ""
@@ -176,9 +176,9 @@ dev-local:
 
 dev-stop:
 	@echo "Stopping local dev services..."
-	@-test -f /tmp/seichijunrei-edge.pid && kill $$(cat /tmp/seichijunrei-edge.pid) 2>/dev/null && rm /tmp/seichijunrei-edge.pid && echo "✓ Edge Function stopped" || true
-	@-test -f /tmp/seichijunrei-backend.pid && kill $$(cat /tmp/seichijunrei-backend.pid) 2>/dev/null && rm /tmp/seichijunrei-backend.pid && echo "✓ Backend stopped" || true
-	@-test -f /tmp/seichijunrei-frontend.pid && kill $$(cat /tmp/seichijunrei-frontend.pid) 2>/dev/null && rm /tmp/seichijunrei-frontend.pid && echo "✓ Frontend stopped" || true
+	@-test -f /tmp/animichi-edge.pid && kill $$(cat /tmp/animichi-edge.pid) 2>/dev/null && rm /tmp/animichi-edge.pid && echo "✓ Edge Function stopped" || true
+	@-test -f /tmp/animichi-backend.pid && kill $$(cat /tmp/animichi-backend.pid) 2>/dev/null && rm /tmp/animichi-backend.pid && echo "✓ Backend stopped" || true
+	@-test -f /tmp/animichi-frontend.pid && kill $$(cat /tmp/animichi-frontend.pid) 2>/dev/null && rm /tmp/animichi-frontend.pid && echo "✓ Frontend stopped" || true
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
 	@-lsof -ti :3001 | xargs kill 2>/dev/null; true
 	@echo "Done. (Supabase still running — use 'supabase stop' to shut down)"

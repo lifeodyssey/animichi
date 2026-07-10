@@ -20,9 +20,9 @@ describe("SharedFooter", () => {
     expect(screen.getByText("聖地巡礼")).toBeInTheDocument();
   });
 
-  it("renders seichijunrei text", () => {
+  it("renders animichi text", () => {
     render(<SharedFooter />);
-    expect(screen.getByText("seichijunrei")).toBeInTheDocument();
+    expect(screen.getByText("animichi")).toBeInTheDocument();
   });
 
   it("renders locale button with current locale label", () => {

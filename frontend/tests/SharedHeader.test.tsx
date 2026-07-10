@@ -28,9 +28,9 @@ describe("SharedHeader", () => {
     expect(logo).toHaveAttribute("href", "/");
   });
 
-  it("renders brand tagline 'Seichijunrei'", () => {
+  it("renders brand tagline 'Animichi'", () => {
     render(<SharedHeader />);
-    expect(screen.getByText("Seichijunrei")).toBeInTheDocument();
+    expect(screen.getByText("Animichi")).toBeInTheDocument();
   });
 
   // ── Login button ──

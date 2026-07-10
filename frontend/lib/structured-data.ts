@@ -3,7 +3,7 @@ const SITE_URL = "https://seichijunrei.zhenjia.org";
 export const websiteJsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  name: "Seichijunrei",
+  name: "Animichi",
   url: SITE_URL,
   potentialAction: {
     "@type": "SearchAction",
@@ -18,7 +18,7 @@ export const websiteJsonLd = {
 export const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  name: "Seichijunrei",
+  name: "Animichi",
   url: SITE_URL,
   logo: `${SITE_URL}/og-image.png`,
 };
@@ -32,7 +32,7 @@ export const faqJsonLd = {
       name: "聖地巡礼とは何ですか？",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "聖地巡礼とは、アニメや映画の舞台となった実在の場所を訪れることです。Seichijunreiでは、作品名からスポットを検索し、効率的な巡礼ルートを自動生成できます。",
+        text: "聖地巡礼とは、アニメや映画の舞台となった実在の場所を訪れることです。Animichiでは、作品名からスポットを検索し、効率的な巡礼ルートを自動生成できます。",
       },
     },
     {

@@ -27,7 +27,7 @@ async def test_healthz_returns_ok_with_status_and_service() -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["service"] == "seichijunrei-runtime"
+    assert body["service"] == "animichi-runtime"
 
 
 # ---------------------------------------------------------------------------
