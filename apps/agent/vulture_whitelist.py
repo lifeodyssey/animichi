@@ -28,6 +28,11 @@ exc_tb
 # Site: agent/infrastructure/observability/metrics.py
 amount
 
+# pydantic `@field_validator` + `@classmethod` signature: `cls` is mandated by
+# the decorator contract even when the validator body never touches it.
+# Site: agent/clients/catalog_errors.py (_coerce_unknown)
+cls
+
 # Protocol method signatures (asyncpg abstraction): params declared on `...`
 # stub methods so concrete impls and call sites type-check.
 # Site: agent/infrastructure/supabase/client_types.py
