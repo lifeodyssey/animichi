@@ -45,7 +45,9 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
 - **Test quality**: mock the clock (no timing-dependent asserts); no conditional logic in tests
   (split them); ≤200 lines per test file; ≤5 mocks per test.
 - **No local deploy** (hook `block-local-deploy`) — CI/CD only: staging = merge to `main`; prod =
-  manual `workflow_dispatch` + GitHub environment approval (deploy.yml — NOT tag-triggered). Details → `docs/ops/deployment.md`.
+  `.github/workflows/ci.yml` production approval after staging, or manual `workflow_dispatch` in
+  `.github/workflows/deploy.yml`. Both use the GitHub `production` environment; neither is
+  tag-triggered. Details → `docs/ops/deployment.md`.
 
 ## Authoritative docs (read the matching one when doing that work)
 
@@ -81,17 +83,24 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
 
 - **Stack skills — invoke the Skill tool when the task matches** (docs fallback = context7 for any lib without a skill: Hono, oRPC, Drizzle, TanStack Start):
 
+  These are user-scope installations on this machine, not CI dependencies. If a plugin skill is
+  missing, install it with `claude plugin install <plugin>@<marketplace>` (for example
+  `ai@pydantic-skills`, `logfire@pydantic-skills`, `pulumi@pulumi-agent-skills`,
+  `better-auth@better-auth-agent-skills`, `cloudflare@cloudflare`); `neon`, `neon-postgres`,
+  `fastapi`, `ai-sdk`, and `atlas` are single-name local/user skills here. `atlas` is a manual
+  skill; see atlasgo.io/guides/ai-tools.
+
   | Skill | Reach for it when |
   |---|---|
-  | `ai@pydantic-skills` | Writing/altering the PydanticAI agent, tools, `ModelRetry` guards, typed output (`apps/agent`). |
-  | `logfire@pydantic-skills` | Instrumentation / querying observability — the sanctioned OTel path (see F8 in `apps/agent/AGENTS.md`). |
+  | `ai:building-pydantic-ai-agents` | Writing/altering the PydanticAI agent, tools, `ModelRetry` guards, typed output (`apps/agent`). |
+  | `logfire:logfire-instrumentation` · `logfire:logfire-query` | Instrumentation / querying observability — the sanctioned OTel path (see F8 in `apps/agent/AGENTS.md`). |
   | `fastapi` | FastAPI service surface, routing, lifespan, dependencies (`apps/agent`). |
-  | `cloudflare:workers-best-practices` · `:wrangler` · `:durable-objects` | Catalog/edge Worker code, `wrangler.toml`, bindings, local `wrangler dev`. |
+  | `cloudflare:workers-best-practices` · `cloudflare:wrangler` · `cloudflare:durable-objects` | Catalog/edge Worker code, `wrangler.toml`, bindings, local `wrangler dev`. |
   | `neon` / `neon-postgres` | Neon data-plane queries, branching, egress tuning. |
-  | `pulumi` | IaC in `infra/` — Cloudflare R2 / routes / DNS / secrets, stacks, ESC. |
-  | `auth-skills` (Better Auth) | Auth work as we migrate onto Neon Auth (Better Auth) (`workers/users`, login). |
+  | `pulumi:pulumi-best-practices` · `pulumi:pulumi-component` · `pulumi:pulumi-esc` · `pulumi:pulumi-automation-api` | IaC in `infra/` — Cloudflare R2 / routes / DNS / secrets, stacks, ESC. |
+  | `better-auth:create-auth-skill` · `better-auth:better-auth-best-practices` | Auth work as we migrate onto Neon Auth (Better Auth) (`workers/users`, login). |
   | `ai-sdk` | Frontend AI SDK streaming/UI in the TanStack rebuild (`apps/web`). |
-  | `atlas` *(if installed)* | Schema migrations in `db/migrations` — diff/lint/apply. |
+  | `atlas` | Schema migrations in `db/migrations` — diff/lint/apply. |
 
 ## Harness (4-role agent system)
 
