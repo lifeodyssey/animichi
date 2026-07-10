@@ -1,5 +1,5 @@
 """
-Domain entities for Seichijunrei Bot.
+Domain entities for Animichi Bot.
 These are the core business objects used throughout the application.
 """
 
@@ -210,7 +210,7 @@ class Route(BaseModel):
         return groups
 
 
-class SeichijunreiSession(BaseModel):
+class AnimichiSession(BaseModel):
     """User session state."""
 
     session_id: str

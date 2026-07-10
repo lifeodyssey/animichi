@@ -136,8 +136,8 @@ def test_qa_and_greet_models_include_data_message() -> None:
     )
     greet = GreetingResponseModel(
         intent="greet_user",
-        message="我是 Seichijunrei。",
-        data={"status": "info", "message": "我是 Seichijunrei。"},
+        message="我是 Animichi。",
+        data={"status": "info", "message": "我是 Animichi。"},
         ui={"component": "GeneralAnswer"},
     )
     assert qa.data.message

@@ -87,7 +87,7 @@ class Settings(BaseSettings):
     service_host: str = Field(default="0.0.0.0", description="HTTP service bind host")
     service_port: int = Field(default=8080, description="HTTP service bind port")
     observability_service_name: str = Field(
-        default="seichijunrei-runtime",
+        default="animichi-runtime",
         description="Service name reported to observability backends",
     )
     observability_service_version: str = Field(

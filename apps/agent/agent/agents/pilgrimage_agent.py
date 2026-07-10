@@ -37,7 +37,7 @@ COMPACT_THRESHOLD = 40  # ~5 turns × 8 messages/turn
 _KEEP_RECENT = 8  # Keep latest turn fully uncompressed
 
 _INSTRUCTIONS = """\
-You are the runtime agent for Seichijunrei (聖地巡礼), an anime pilgrimage search \
+You are the runtime agent for Animichi, an anime pilgrimage (聖地巡礼) search \
 and route planning app. Users ask about real-world locations from anime.
 
 ## Your job

@@ -17,7 +17,7 @@ const zenMaruGothic = Zen_Maru_Gothic({ subsets: ["latin"], weight: ["400", "500
 
 const SITE_URL = "https://seichijunrei.zhenjia.org";
 const SITE_TITLE =
-  "アニメ聖地巡礼 スポット検索・ルート計画 | Seichijunrei";
+  "アニメ聖地巡礼 スポット検索・ルート計画 | Animichi";
 const SITE_DESCRIPTION =
   "アニメ聖地巡礼のスポット検索・ルート計画サービス。作品名から聖地巡礼の場所を探して、最適な巡礼ルートを自動生成。アニメの舞台を地図で確認しよう。";
 
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     url: SITE_URL,
-    siteName: "Seichijunrei",
+    siteName: "Animichi",
     locale: "ja_JP",
     type: "website",
     images: [

@@ -1,4 +1,4 @@
-"""Utility modules for Seichijunrei Bot."""
+"""Utility modules for Animichi Bot."""
 
 from .logger import get_logger, setup_logging
 

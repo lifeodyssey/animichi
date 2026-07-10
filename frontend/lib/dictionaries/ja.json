@@ -406,7 +406,7 @@
     "other_group": "その他",
     "spots_count": "{count} スポット",
     "map_unavailable": "マップを読み込めませんでした — 下のスポット一覧をご覧ください",
-    "meta_title": "{title} 聖地巡礼ガイド | Seichijunrei",
+    "meta_title": "{title} 聖地巡礼ガイド | Animichi",
     "meta_description": "{title}の聖地 {count} スポット — {city}。AIでルート計画も。",
     "meta_description_no_city": "{title}の聖地 {count} スポット。AIでルート計画も。"
   },

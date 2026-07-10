@@ -52,7 +52,7 @@ def test_root_endpoint_returns_service_info(mock_db: MagicMock) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["service"] == "seichijunrei-runtime"
+    assert body["service"] == "animichi-runtime"
     assert body["endpoints"]["healthz"] == "/healthz"
 
 
