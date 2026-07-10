@@ -51,7 +51,7 @@ async function handleImageProxy(request: Request, ctx: ExecutionContext): Promis
   const cached = await caches.default.match(cacheKey);
   if (cached) return cached;
   const upstream = await fetch(`https://image.anitabi.cn/${imagePath}`, {
-    headers: { "User-Agent": "Seichijunrei/1.0" },
+    headers: { "User-Agent": "Animichi/1.0" },
   });
   if (!upstream.ok) {
     return new Response(upstream.body, {

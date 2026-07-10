@@ -187,9 +187,9 @@ def _make_agent_result(text: str, _locale: str) -> AgentResult:
     if text.strip() in {"你好", "你是谁"}:
         output = GreetingResponseModel(
             intent="greet_user",
-            message="我是 Seichijunrei，可以帮你查找动漫圣地并规划巡礼路线。",
+            message="我是 Animichi，可以帮你查找动漫圣地并规划巡礼路线。",
             data=QADataModel(
-                message="我是 Seichijunrei，可以帮你查找动漫圣地并规划巡礼路线。",
+                message="我是 Animichi，可以帮你查找动漫圣地并规划巡礼路线。",
             ),
         )
         return AgentResult(

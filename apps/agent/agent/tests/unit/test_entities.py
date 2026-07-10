@@ -8,12 +8,12 @@ from pydantic import ValidationError
 
 from agent.clients.errors import APIError
 from agent.domain.entities import (
+    AnimichiSession,
     Bangumi,
     Coordinates,
     Point,
     Route,
     RouteSegment,
-    SeichijunreiSession,
     Station,
     TransportInfo,
 )
@@ -488,12 +488,12 @@ class TestRoute:
         )
 
 
-class TestSeichijunreiSession:
-    """Test SeichijunreiSession entity."""
+class TestAnimichiSession:
+    """Test AnimichiSession entity."""
 
     def test_create_session(self):
         """Test creating a pilgrimage session."""
-        session = SeichijunreiSession(session_id="test-session-123")
+        session = AnimichiSession(session_id="test-session-123")
         assert session.session_id == "test-session-123"
         assert session.station is None
         assert session.selected_bangumi_ids == []
@@ -519,7 +519,7 @@ class TestSeichijunreiSession:
             points_count=10,
         )
 
-        session = SeichijunreiSession(
+        session = AnimichiSession(
             session_id="test-session-456",
             station=station,
             selected_bangumi_ids=["BG001", "BG002"],
@@ -534,7 +534,7 @@ class TestSeichijunreiSession:
 
     def test_session_update_timestamp(self):
         """Test updating session timestamp."""
-        session = SeichijunreiSession(session_id="test-session-789")
+        session = AnimichiSession(session_id="test-session-789")
         original_updated = session.updated_at
 
         # Small delay to ensure timestamp changes
@@ -548,15 +548,15 @@ class TestSeichijunreiSession:
     def test_search_radius_validation(self):
         """Test search radius validation."""
         # Valid ranges
-        SeichijunreiSession(session_id="test", search_radius_km=1.0)
-        SeichijunreiSession(session_id="test", search_radius_km=20.0)
+        AnimichiSession(session_id="test", search_radius_km=1.0)
+        AnimichiSession(session_id="test", search_radius_km=20.0)
 
         # Invalid ranges
         with pytest.raises(ValueError):
-            SeichijunreiSession(session_id="test", search_radius_km=0.5)
+            AnimichiSession(session_id="test", search_radius_km=0.5)
 
         with pytest.raises(ValueError):
-            SeichijunreiSession(session_id="test", search_radius_km=21.0)
+            AnimichiSession(session_id="test", search_radius_km=21.0)
 
 
 class TestDomainExceptions:

@@ -85,10 +85,10 @@ class TestTitleAndDescription:
         width = _display_width(title)
         assert 50 <= width <= 60, f"Title width {width}: {title}"
 
-    def test_title_contains_japanese_and_seichijunrei(self) -> None:
+    def test_title_contains_japanese_and_animichi(self) -> None:
         source = _read_layout()
         assert "聖地巡礼" in source
-        assert "Seichijunrei" in source
+        assert "Animichi" in source
 
     def test_description_display_width_120_to_160(self) -> None:
         source = _read_layout()
