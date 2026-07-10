@@ -10,19 +10,21 @@ Usage:
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 import pytest
 from dotenv import load_dotenv
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext
 
-from agent.tests.eval.eval_common import (
-    enforce_gate,
-    read_baseline,
-    write_baseline,
+from agent.tests.eval.gate import (
+    BaselineRecord,
+    bootstrap_gate,
+    read_baseline_record,
+    write_baseline_record,
 )
 
 load_dotenv(Path(__file__).parents[3] / ".env")
@@ -51,6 +53,15 @@ class TranslationExpected:
 # ── Task factory (closure replaces _STATE global) ────────────────────
 
 TaskFn = Callable[[TranslationInput], Coroutine[object, object, TranslationOutput]]
+
+
+class _EvalCaseResult(Protocol):
+    name: str
+    scores: Mapping[str, object] | None
+
+
+class _EvalReport(Protocol):
+    cases: list[_EvalCaseResult]
 
 
 def make_translation_task(db: object) -> TaskFn:
@@ -122,6 +133,9 @@ class NotOriginalEvaluator(Evaluator[TranslationInput, TranslationOutput]):
 # ── Load dataset ─────────────────────────────────────────────────────
 
 _DATASET_PATH = Path(__file__).parent / "datasets" / "translation_v1.json"
+_BASELINES_DIR = Path(__file__).parent / "baselines"
+_DATASET_NAME = _DATASET_PATH.stem
+_MODEL_ID = "translation"
 
 
 def _load_cases() -> list[
@@ -153,6 +167,37 @@ translation_dataset = Dataset(
 # ── Pytest integration ───────────────────────────────────────────────
 
 _LAYER = "translation"
+
+
+def _score_value(score: object) -> float:
+    return float(getattr(score, "value", score))
+
+
+def _case_scores(case: _EvalCaseResult) -> dict[str, float]:
+    scores = case.scores
+    if scores is None:
+        return {}
+    return {str(name): _score_value(score) for name, score in scores.items()}
+
+
+def _collect_case_scores(report: _EvalReport) -> dict[str, dict[str, float]]:
+    return {str(case.name): _case_scores(case) for case in report.cases}
+
+
+def _baseline_record(
+    scores: dict[str, float],
+    cases: dict[str, dict[str, float]],
+    evaluated_count: int,
+) -> BaselineRecord:
+    return BaselineRecord(
+        model=_MODEL_ID,
+        dataset=_DATASET_NAME,
+        tier="translation",
+        case_count=len(CASES),
+        evaluated_count=evaluated_count,
+        scores=scores,
+        cases=cases,
+    )
 
 
 @pytest.mark.integration
@@ -193,12 +238,24 @@ def test_translation_quality(request: pytest.FixtureRequest) -> None:
     print(f"  Cases:          {len(CASES)}")
     print(f"{'=' * 50}")
 
-    baseline_scores = read_baseline(
-        _LAYER, "translation", expected_case_count=len(CASES)
+    current_case_scores = _collect_case_scores(report)
+    baseline = read_baseline_record(
+        _LAYER,
+        _MODEL_ID,
+        baselines_dir=_BASELINES_DIR,
+        expected_case_count=len(CASES),
     )
-    if not baseline_scores:
-        write_baseline(_LAYER, "translation", current_scores, case_count=len(CASES))
+    if baseline is None:
+        record = _baseline_record(
+            current_scores, current_case_scores, len(report.cases)
+        )
+        write_baseline_record(
+            record,
+            layer=_LAYER,
+            model_id=_MODEL_ID,
+            baselines_dir=_BASELINES_DIR,
+        )
         pytest.skip("Baseline created; re-run to enforce gate.")
 
-    failures = enforce_gate(current_scores, baseline_scores)
+    failures = bootstrap_gate(current_case_scores, baseline)
     assert not failures, "Translation eval regression:\n" + "\n".join(failures)
