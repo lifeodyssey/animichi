@@ -38,7 +38,7 @@ _GIT_BRANCH = _git_short(["git", "branch", "--show-current"])
 async def handle_root(request: Request) -> JSONResponse:
     settings = _get_settings_from_request(request)
     payload = {
-        "service": "seichijunrei-runtime",
+        "service": "animichi-runtime",
         "status": "ok",
         "app_env": settings.app_env,
         "endpoints": {
@@ -56,7 +56,7 @@ async def handle_health(request: Request) -> JSONResponse:
     settings = _get_settings_from_request(request)
     payload = {
         "status": "ok",
-        "service": "seichijunrei-runtime",
+        "service": "animichi-runtime",
         "git_commit": _GIT_COMMIT,
         "git_branch": _GIT_BRANCH,
         "started_at": _STARTED_AT,

@@ -20,7 +20,7 @@ const generator = new OpenAPIGenerator({
 
 const spec = await generator.generate(catalogContract, {
   info: {
-    title: "Seichijunrei Catalog Service",
+    title: "Animichi Catalog Service",
     version: "0.1.0",
     description:
       "Read methods of the TS Catalog service, consumed by the Python Agent service.",

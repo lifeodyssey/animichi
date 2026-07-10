@@ -1,12 +1,12 @@
 [project]
-name = "seichijunrei"
+name = "animichi"
 version = "0.1.0"
 description = "AI-powered travel assistant for anime pilgrims using Gemini LLM"
 requires-python = ">=3.11"
 authors = [
-    {name = "Seichijunrei Team", email = "team@seichijunrei.com"}
+    {name = "Animichi Team", email = "team@animichi.com"}
 ]
-keywords = ["anime", "travel", "ai", "gemini", "seichijunrei", "agent"]
+keywords = ["anime", "travel", "ai", "gemini", "animichi", "agent"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -44,7 +44,7 @@ dependencies = [
 ]
 
 [project.scripts]
-seichijunrei-api = "agent.interfaces.fastapi_service:main"
+animichi-api = "agent.interfaces.fastapi_service:main"
 
 [project.optional-dependencies]
 dev = [
