@@ -1,17 +1,12 @@
-"""Unified agent evaluation — PydanticAI native dataset.evaluate().
+"""Unified agent eval with two execution tiers.
 
-SUT: run_pilgrimage_agent() → AgentResult (+ execute_selected_route for K-path)
-Dataset: agent_eval_v3.json (~600 cases, 60 sub-paths)
-DB: testcontainer PostgreSQL (real schema + seed data)
-Model: EVAL_MODEL env var (default: production model)
+Tier 1 trajectory (default): real LLM + MockCatalogClient + NullDatabase.
+Tier 2 fullstack (EVAL_FULLSTACK=1): real LLM + DB + real catalog.
 
-Usage:
-    # Via pytest (testcontainer auto-start)
+Commands:
     uv run pytest agent/tests/eval/test_agent_eval.py -v -m integration --no-cov
-
-    # Standalone (requires supabase start or SUPABASE_DB_URL)
+    EVAL_FULLSTACK=1 uv run pytest agent/tests/eval/test_agent_eval.py -v -m integration --no-cov -k fullstack
     uv run python agent/tests/eval/test_agent_eval.py
-    uv run python agent/tests/eval/test_agent_eval.py --eval-model openai:deepseek-v4-pro@https://api.deepseek.com
 """
 
 from __future__ import annotations
@@ -20,10 +15,9 @@ import asyncio
 import json
 import os
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
 
 import pytest
 from dotenv import load_dotenv
@@ -31,13 +25,25 @@ from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext
 
 from agent.agents.agent_result import AgentResult
-from agent.interfaces.public_api import detect_language
+from agent.clients.catalog_client import CatalogClientProtocol
+from agent.interfaces.public_api import default_catalog_client, detect_language
+from agent.tests.eval.exec_tiers import (
+    build_results_payload,
+    cap_cases,
+    collect_case_scores,
+    error_rate_message,
+    is_fullstack,
+    read_max_cases,
+    save_results,
+)
 from agent.tests.eval.gate import (
     BaselineRecord,
     bootstrap_gate,
     read_baseline_record,
     write_baseline_record,
 )
+from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.eval.null_database import NullDatabase
 
 load_dotenv(Path(__file__).parents[3] / ".env")
 
@@ -218,7 +224,10 @@ def _load_cases() -> list[Case[AgentInput, AgentResult, AgentExpected]]:
     return cases
 
 
-CASES = _load_cases()
+_ALL_CASES = _load_cases()
+_MAX_CASES = read_max_cases()
+CASES = cap_cases(_ALL_CASES, _MAX_CASES)
+_CAPPED = len(CASES) < len(_ALL_CASES)
 
 agent_dataset = Dataset(
     name="agent_eval_v3",
@@ -237,14 +246,18 @@ agent_dataset = Dataset(
 # ── Task function ────────────────────────────────────────────────────
 
 
-def make_agent_task(db: object, model: object | None = None) -> object:
+CatalogFactory = Callable[[], CatalogClientProtocol]
+
+
+def make_agent_task(
+    db: object, catalog_factory: CatalogFactory, model: object | None = None
+) -> object:
     """Create the task: AgentInput → AgentResult."""
     resolved_model = model or _make_model()
 
     async def task(inp: AgentInput) -> AgentResult:
         if inp.selected_point_ids:
             from agent.agents.selected_route import execute_selected_route
-            from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
             return await execute_selected_route(
                 point_ids=inp.selected_point_ids,
@@ -253,7 +266,6 @@ def make_agent_task(db: object, model: object | None = None) -> object:
                 catalog=MockCatalogClient(),
             )
         from agent.agents.pilgrimage_runner import run_pilgrimage_agent
-        from agent.interfaces.public_api import default_catalog_client
 
         return await run_pilgrimage_agent(
             text=inp.query,
@@ -261,7 +273,7 @@ def make_agent_task(db: object, model: object | None = None) -> object:
             model=resolved_model,
             locale=inp.locale,
             context=inp.context,
-            catalog=default_catalog_client(),
+            catalog=catalog_factory(),
         )
 
     return task
@@ -269,8 +281,8 @@ def make_agent_task(db: object, model: object | None = None) -> object:
 
 # ── Shared helpers ───────────────────────────────────────────────────
 
-_LAYER = "agent"
 _BASELINES_DIR = Path(__file__).parent / "baselines"
+_RESULTS_DIR = Path(__file__).parent / "results"
 _DATASET_NAME = _DATASET_PATH.stem
 
 _EVALUATOR_NAMES = [
@@ -283,37 +295,14 @@ _EVALUATOR_NAMES = [
 ]
 
 
-class _EvalCaseResult(Protocol):
-    name: str
-    scores: Mapping[str, object] | None
-
-
-class _EvalReport(Protocol):
-    cases: list[_EvalCaseResult]
-
-
 def _collect_scores(avg: object) -> dict[str, float]:
     scores_attr = getattr(avg, "scores", {})
     return {n: float(scores_attr.get(n, 0)) for n in _EVALUATOR_NAMES}
 
 
-def _score_value(score: object) -> float:
-    return float(getattr(score, "value", score))
-
-
-def _case_scores(case: _EvalCaseResult) -> dict[str, float]:
-    scores = case.scores
-    if scores is None:
-        return {}
-    return {str(name): _score_value(score) for name, score in scores.items()}
-
-
-def _collect_case_scores(report: _EvalReport) -> dict[str, dict[str, float]]:
-    return {str(case.name): _case_scores(case) for case in report.cases}
-
-
 def _baseline_record(
     model_id: str,
+    tier: str,
     scores: dict[str, float],
     cases: dict[str, dict[str, float]],
     evaluated_count: int,
@@ -321,7 +310,7 @@ def _baseline_record(
     return BaselineRecord(
         model=model_id,
         dataset=_DATASET_NAME,
-        tier="fullstack",
+        tier=tier,
         case_count=len(CASES),
         evaluated_count=evaluated_count,
         scores=scores,
@@ -329,123 +318,138 @@ def _baseline_record(
     )
 
 
-def _print_scores(scores: dict[str, float], model_id: str) -> None:
+def _print_scores(scores: dict[str, float], model_id: str, tier: str) -> None:
     print(f"\n{'=' * 60}")
     print(f"  Model:    {model_id}")
+    print(f"  Tier:     {tier}")
     print(f"  Cases:    {len(CASES)}")
     for name, value in scores.items():
         print(f"  {name:<20}{value:.1%}")
     print(f"{'=' * 60}")
 
 
-def _save_per_case_results(report: object, model_id: str) -> Path:
-    """Save per-case results JSON for post-hoc analysis."""
-    results_dir = Path(__file__).parent / "results"
-    results_dir.mkdir(exist_ok=True)
-    safe_model = model_id.replace(":", "-").replace("@", "-").replace("/", "-")
-    results_file = results_dir / f"agent_{safe_model}.json"
+def _save_per_case_results(
+    report: object, model_id: str, layer: str, tier: str, scores: dict[str, float]
+) -> Path:
+    payload = build_results_payload(
+        report,
+        model_id=model_id,
+        dataset=_DATASET_NAME,
+        tier=tier,
+        case_count=len(CASES),
+        scores=scores,
+    )
+    return save_results(
+        results_dir=_RESULTS_DIR, layer=layer, model_id=model_id, payload=payload
+    )
 
-    case_results: list[dict[str, object]] = []
-    for cr in report.cases:
-        case_data: dict[str, object] = {"id": cr.name}
-        scores_dict = dict(cr.scores) if cr.scores else {}
-        case_data["scores"] = {
-            k: v.value if hasattr(v, "value") else v for k, v in scores_dict.items()
-        }
-        if hasattr(cr, "task_error") and cr.task_error:
-            case_data["error"] = str(cr.task_error)
-        if cr.output is not None and isinstance(cr.output, AgentResult):
-            case_data["intent"] = cr.output.intent
-            case_data["message"] = cr.output.message[:200]
-            case_data["message_locale"] = detect_language(cr.output.message)
-            case_data["steps"] = [s.tool for s in cr.output.steps]
-            case_data["step_count"] = len(cr.output.steps)
-        if cr.inputs:
-            case_data["query"] = cr.inputs.query[:100]
-            case_data["locale"] = cr.inputs.locale
-        if cr.expected_output:
-            case_data["expected_stages"] = cr.expected_output.acceptable_stages
-        case_results.append(case_data)
 
-    avg = report.averages()
-    scores = _collect_scores(avg) if avg else {}
-    errored = len(report.failures)
+def _print_capped_notice() -> None:
+    if not _CAPPED:
+        return
+    print(
+        f"\nCAPPED eval run: {len(CASES)}/{len(_ALL_CASES)} cases; "
+        "report-only (no baseline read/write/gate)."
+    )
 
-    payload = {
-        "model": model_id,
-        "case_count": len(CASES),
-        "evaluated_count": len(report.cases),
-        "errored_count": errored,
-        "scores": scores,
-        "cases": case_results,
-    }
-    results_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
-    print(f"\nPer-case results saved to: {results_file}")
-    return results_file
+
+def _fail_if_high_error_rate(report: object) -> None:
+    message = error_rate_message(report)
+    if message is not None:
+        pytest.fail(message)
+
+
+def _read_baseline(layer: str, model_id: str) -> BaselineRecord | None:
+    return read_baseline_record(
+        layer,
+        model_id,
+        baselines_dir=_BASELINES_DIR,
+        expected_case_count=len(CASES),
+    )
+
+
+def _write_baseline(record: BaselineRecord, layer: str, model_id: str) -> None:
+    write_baseline_record(
+        record, layer=layer, model_id=model_id, baselines_dir=_BASELINES_DIR
+    )
 
 
 # ── Pytest integration ───────────────────────────────────────────────
 
 
-@pytest.mark.integration
-async def test_agent(real_db: object) -> None:
-    """Run the unified agent assessment against real testcontainer DB."""
-    from tenacity import stop_after_attempt, wait_exponential
-
-    task = make_agent_task(db=real_db)
-    report = await agent_dataset.evaluate(
-        task,
-        name=f"agent_{_EVAL_MODEL_ID}",
-        max_concurrency=_EVAL_CONCURRENCY,
-        retry_task={
-            "stop": stop_after_attempt(int(os.environ.get("EVAL_TASK_RETRIES", "2"))),
-            "wait": wait_exponential(min=1, max=5),
-        },
+async def _evaluate_tier(
+    db: object,
+    catalog_factory: CatalogFactory,
+    layer: str,
+    model: object | None = None,
+    model_id: str = _EVAL_MODEL_ID,
+) -> object:
+    task = make_agent_task(db, catalog_factory, model)
+    return await agent_dataset.evaluate(
+        task, name=f"{layer}_{model_id}", max_concurrency=_EVAL_CONCURRENCY
     )
-    report.print(include_input=True, include_output=True)
-    _save_per_case_results(report, _EVAL_MODEL_ID)
 
+
+async def _run_pytest_tier(
+    db: object, catalog_factory: CatalogFactory, layer: str, tier: str
+) -> None:
+    report = await _evaluate_tier(db, catalog_factory, layer)
+    report.print(include_input=True, include_output=True)
     avg = report.averages()
+    scores = _collect_scores(avg) if avg else {}
+    _save_per_case_results(report, _EVAL_MODEL_ID, layer, tier, scores)
     if avg is None:
         pytest.skip("All cases errored — check model endpoint and DB.")
+    _finish_pytest_gate(report, layer, tier, scores)
 
-    # Guard: refuse to proceed if >20% of cases errored (API down, bad key, etc.)
-    total = len(report.cases) + len(report.failures)
-    errored = len(report.failures)
-    error_rate = errored / total if total > 0 else 1.0
-    if error_rate > 0.20:
-        pytest.fail(
-            f"{errored}/{total} cases errored ({error_rate:.0%}). "
-            "Check API key and model endpoint."
-        )
 
-    current_scores = _collect_scores(avg)
-    _print_scores(current_scores, _EVAL_MODEL_ID)
-
-    current_case_scores = _collect_case_scores(report)
-    baseline = read_baseline_record(
-        _LAYER,
-        _EVAL_MODEL_ID,
-        baselines_dir=_BASELINES_DIR,
-        expected_case_count=len(CASES),
+def _finish_pytest_gate(
+    report: object, layer: str, tier: str, scores: dict[str, float]
+) -> None:
+    _fail_if_high_error_rate(report)
+    _print_scores(scores, _EVAL_MODEL_ID, tier)
+    current_case_scores = collect_case_scores(report)
+    if _CAPPED:
+        _print_capped_notice()
+        return
+    _enforce_pytest_baseline(
+        layer, tier, scores, current_case_scores, len(report.cases)
     )
-    if baseline is None:
-        record = _baseline_record(
-            _EVAL_MODEL_ID,
-            current_scores,
-            current_case_scores,
-            len(report.cases),
-        )
-        write_baseline_record(
-            record,
-            layer=_LAYER,
-            model_id=_EVAL_MODEL_ID,
-            baselines_dir=_BASELINES_DIR,
-        )
-        pytest.skip(f"Baseline created for {_EVAL_MODEL_ID}; re-run to enforce gate.")
 
-    failures = bootstrap_gate(current_case_scores, baseline)
+
+def _enforce_pytest_baseline(
+    layer: str,
+    tier: str,
+    scores: dict[str, float],
+    cases: dict[str, dict[str, float]],
+    evaluated_count: int,
+) -> None:
+    baseline = _read_baseline(layer, _EVAL_MODEL_ID)
+    if baseline is None:
+        record = _baseline_record(_EVAL_MODEL_ID, tier, scores, cases, evaluated_count)
+        _write_baseline(record, layer, _EVAL_MODEL_ID)
+        pytest.skip(f"Baseline created for {_EVAL_MODEL_ID}; re-run to enforce gate.")
+    failures = bootstrap_gate(cases, baseline)
     assert not failures, "Regression:\n" + "\n".join(failures)
+
+
+@pytest.mark.integration
+async def test_agent_trajectory() -> None:
+    """Run the default DB-free trajectory tier."""
+    await _run_pytest_tier(
+        NullDatabase(), MockCatalogClient, "agent_trajectory", "trajectory"
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    os.environ.get("EVAL_FULLSTACK") != "1",
+    reason="fullstack tier is opt-in (EVAL_FULLSTACK=1)",
+)
+async def test_agent_fullstack(request: pytest.FixtureRequest) -> None:
+    """Run the opt-in thin full-stack tier."""
+    real_db = request.getfixturevalue("real_db")
+    await _run_pytest_tier(real_db, default_catalog_client, "agent", "fullstack")
 
 
 # ── Standalone runner ────────────────────────────────────────────────
@@ -460,10 +464,15 @@ if __name__ == "__main__":
             model_arg = arg.split("=", 1)[1]
             break
 
-    async def main() -> None:
-        mid = model_arg or _EVAL_MODEL_ID
-        model = _make_model(model_arg) if model_arg else _make_model()
-
+    async def _standalone_target() -> tuple[object, CatalogFactory, str, str, str]:
+        if not is_fullstack():
+            return (
+                NullDatabase(),
+                MockCatalogClient,
+                "agent_trajectory",
+                "trajectory",
+                "DB: NullDatabase",
+            )
         db_url = os.environ.get(
             "SUPABASE_DB_URL",
             "postgresql://postgres:postgres@localhost:54322/postgres",
@@ -472,58 +481,46 @@ if __name__ == "__main__":
 
         db = SupabaseClient(db_url)
         await db.connect()
+        return db, default_catalog_client, "agent", "fullstack", f"DB: {db_url[:50]}..."
 
-        task = make_agent_task(db=db, model=model)
-        print(f"\nRunning agent assessment: {len(CASES)} cases, model={mid}")
-        print(f"DB: {db_url[:50]}...")
-
-        from tenacity import stop_after_attempt, wait_exponential
-
-        report = await agent_dataset.evaluate(
-            task,
-            name=f"agent_{mid}",
-            max_concurrency=_EVAL_CONCURRENCY,
-            retry_task={
-                "stop": stop_after_attempt(2),
-                "wait": wait_exponential(min=1, max=5),
-            },
-        )
-        report.print(include_input=True, include_output=True)
-
-        avg = report.averages()
-        if avg is None:
-            raise SystemExit("All cases errored — check model endpoint and DB.")
-
-        current_scores = _collect_scores(avg)
-        _print_scores(current_scores, mid)
-        _save_per_case_results(report, mid)
-
-        current_case_scores = _collect_case_scores(report)
-        baseline = read_baseline_record(
-            _LAYER,
-            mid,
-            baselines_dir=_BASELINES_DIR,
-            expected_case_count=len(CASES),
-        )
+    def _finish_standalone_gate(
+        report: object, layer: str, tier: str, model_id: str, scores: dict[str, float]
+    ) -> None:
+        current_case_scores = collect_case_scores(report)
+        if _CAPPED:
+            _print_capped_notice()
+            return
+        baseline = _read_baseline(layer, model_id)
         if baseline is None:
             record = _baseline_record(
-                mid,
-                current_scores,
-                current_case_scores,
-                len(report.cases),
+                model_id, tier, scores, current_case_scores, len(report.cases)
             )
-            write_baseline_record(
-                record,
-                layer=_LAYER,
-                model_id=mid,
-                baselines_dir=_BASELINES_DIR,
-            )
+            _write_baseline(record, layer, model_id)
             print("Baseline created. Re-run to enforce gate.")
             return
-
         failures = bootstrap_gate(current_case_scores, baseline)
         if failures:
             raise SystemExit("Regression:\n" + "\n".join(failures))
         print("All gates passed.")
+
+    async def main() -> None:
+        mid = model_arg or _EVAL_MODEL_ID
+        model = _make_model(model_arg) if model_arg else _make_model()
+        db, catalog_factory, layer, tier, source = await _standalone_target()
+        print(f"\nRunning agent assessment: {len(CASES)} cases, model={mid}")
+        print(f"Tier: {tier}")
+        print(source)
+        report = await _evaluate_tier(db, catalog_factory, layer, model, mid)
+        report.print(include_input=True, include_output=True)
+
+        avg = report.averages()
+        current_scores = _collect_scores(avg) if avg else {}
+        _save_per_case_results(report, mid, layer, tier, current_scores)
+        if avg is None:
+            raise SystemExit("All cases errored — check model endpoint and DB.")
+        if message := error_rate_message(report):
+            raise SystemExit(message)
+        _print_scores(current_scores, mid, tier)
+        _finish_standalone_gate(report, layer, tier, mid, current_scores)
 
     asyncio.run(main())
