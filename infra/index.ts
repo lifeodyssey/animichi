@@ -18,7 +18,7 @@ const accountId = config.require("cloudflareAccountId");
 
 // ── Catalog: Neon DATABASE_URL (managed secret — stored in Pulumi config) ────
 // Set production value via:
-//   neonctl connection-string main --project-id billowing-fire-22850320
+//   neonctl connection-string main --project-id $NEON_PROJECT_ID
 //   pulumi config set --secret catalogDatabaseUrl <connstr> --stack prod
 // No Hyperdrive needed: catalog uses @neondatabase/serverless (neon-http,
 // HTTP transport, no raw socket). The CI deploy-catalog job passes this value

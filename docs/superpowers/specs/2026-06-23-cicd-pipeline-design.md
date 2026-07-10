@@ -91,7 +91,7 @@ tag v*          →  CD-prod(affected:atlas→pulumi→deploy → Neon productio
 
 | | staging | production |
 |---|---|---|
-| Neon | staging branch(常驻,从 production fork) | production branch(`br-cold-term-aor1v6gl`) |
+| Neon | staging branch(常驻,从 production fork) | production branch(`$NEON_BRANCH_ID`) |
 | Pulumi stack | `staging` | `prod` |
 | GH environment | `staging`(自动) | `production`(required reviewer) |
 | 触发 | merge→main | tag `v*` |
