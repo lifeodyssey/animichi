@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 
 from agent.agents.agent_result import AgentResult
+from agent.agents.runtime_deps import TitleTranslator, WebSearcher
 from agent.interfaces.public_api import detect_language
 
 T = TypeVar("T")
@@ -46,6 +48,28 @@ class ResultsPayload(BaseModel):
     errored_count: int
     scores: dict[str, float]
     cases: list[CaseRow]
+
+
+@dataclass(frozen=True)
+class EvalWebMocks:
+    web_searcher: WebSearcher | None = None
+    title_translator: TitleTranslator | None = None
+
+
+@dataclass(frozen=True)
+class EvalTierTarget:
+    db: object
+    catalog_factory: Callable[[], object]
+    layer: str
+    tier: str
+    source: str
+    web_mocks: EvalWebMocks = field(default_factory=EvalWebMocks)
+
+
+def trajectory_web_mocks() -> EvalWebMocks:
+    from agent.tests.eval.mock_web import MockTitleTranslator, MockWebSearcher
+
+    return EvalWebMocks(MockWebSearcher(), MockTitleTranslator())
 
 
 class _EvalCaseResult(Protocol):

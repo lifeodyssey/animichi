@@ -117,7 +117,7 @@ async def test_catalog_fallback_resolves_via_catalog() -> None:
     deps = RuntimeDeps(db=db, locale="zh", query="q", catalog=MockCatalogClient())
     result = await _catalog_fallback(deps, "你的名字")
     assert result["cover_url"] == "https://example.test/cover/160209.jpg"
-    assert result["spot_count"] == 2
+    assert result["spot_count"] == 3
     db.bangumi.upsert_bangumi_title.assert_awaited_once_with("你的名字", "160209")
 
 

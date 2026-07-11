@@ -1,12 +1,20 @@
-"""Unified agent eval with two execution tiers.
+"""Unified agent eval with trajectory and opt-in full-stack tiers.
 
-Tier 1 trajectory (default): real LLM + MockCatalogClient + NullDatabase.
-Tier 2 fullstack (EVAL_FULLSTACK=1): real LLM + DB + real catalog.
+Tier 1 trajectory (default): real LLM + MockCatalogClient + NullDatabase +
+mocked web_search/translate. This tier has zero DB, Docker, catalog, or network
+deps besides the LLM API.
 
-Commands:
+Tier 2 fullstack (opt-in EVAL_FULLSTACK=1): real LLM + testcontainer DB + real
+catalog + real web tools. Thin via EVAL_MAX_CASES; make test-eval-fullstack
+defaults to 50. It is not a PR gate.
+
+Run commands:
     uv run pytest agent/tests/eval/test_agent_eval.py -v -m integration --no-cov
     EVAL_FULLSTACK=1 uv run pytest agent/tests/eval/test_agent_eval.py -v -m integration --no-cov -k fullstack
-    uv run python agent/tests/eval/test_agent_eval.py
+    uv run python agent/tests/eval/test_agent_eval.py [--eval-model <spec>]
+
+No per-case retries (SD-30); capped runs are report-only; baselines are per
+layer+model (agent_trajectory_* vs agent_*).
 """
 
 from __future__ import annotations
@@ -25,9 +33,12 @@ from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext
 
 from agent.agents.agent_result import AgentResult
+from agent.agents.runtime_deps import TitleTranslator, WebSearcher
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.interfaces.public_api import default_catalog_client, detect_language
 from agent.tests.eval.exec_tiers import (
+    EvalTierTarget,
+    EvalWebMocks,
     build_results_payload,
     cap_cases,
     collect_case_scores,
@@ -35,6 +46,7 @@ from agent.tests.eval.exec_tiers import (
     is_fullstack,
     read_max_cases,
     save_results,
+    trajectory_web_mocks,
 )
 from agent.tests.eval.gate import (
     BaselineRecord,
@@ -47,8 +59,6 @@ from agent.tests.eval.null_database import NullDatabase
 
 load_dotenv(Path(__file__).parents[3] / ".env")
 
-# ── Pluggable model ──────────────────────────────────────────────────
-
 _DEFAULT_MODEL_ID = "openai:deepseek-v4-pro@https://api.deepseek.com"
 _EVAL_MODEL_ID = os.environ.get("EVAL_MODEL", _DEFAULT_MODEL_ID)
 # Lower EVAL_CONCURRENCY when the agent makes in-request external API calls
@@ -60,9 +70,6 @@ def _make_model(model_id: str | None = None) -> object:
     from agent.agents.base import parse_model_spec
 
     return parse_model_spec(model_id or _EVAL_MODEL_ID, use_settings_fallbacks=False)
-
-
-# ── Case types ───────────────────────────────────────────────────────
 
 
 @dataclass
@@ -80,12 +87,7 @@ class AgentExpected:
     message_min_len: int = 2
 
 
-# ── Evaluators ───────────────────────────────────────────────────────
-
-
 class IntentMatch(Evaluator[AgentInput, AgentResult]):
-    """1.0 if agent intent is in the list of acceptable stages."""
-
     def evaluate(self, ctx: EvaluatorContext[AgentInput, AgentResult]) -> float:
         if ctx.output is None or ctx.expected_output is None:
             return 0.0
@@ -95,8 +97,6 @@ class IntentMatch(Evaluator[AgentInput, AgentResult]):
 
 
 class MessageQuality(Evaluator[AgentInput, AgentResult]):
-    """1.0 if message meets minimum length."""
-
     def evaluate(self, ctx: EvaluatorContext[AgentInput, AgentResult]) -> float:
         if ctx.output is None or ctx.expected_output is None:
             return 0.0
@@ -108,8 +108,6 @@ class MessageQuality(Evaluator[AgentInput, AgentResult]):
 
 
 class ToolExecution(Evaluator[AgentInput, AgentResult]):
-    """1.0 if agent executed at least one tool successfully."""
-
     _NO_TOOL_STAGES = frozenset({"greet_user", "general_qa", "plan_selected"})
 
     def evaluate(self, ctx: EvaluatorContext[AgentInput, AgentResult]) -> float:
@@ -123,8 +121,6 @@ class ToolExecution(Evaluator[AgentInput, AgentResult]):
 
 
 class DataCompleteness(Evaluator[AgentInput, AgentResult]):
-    """1.0 if expected data keys are present in the response."""
-
     def evaluate(self, ctx: EvaluatorContext[AgentInput, AgentResult]) -> float:
         if ctx.output is None or ctx.expected_output is None:
             return 0.0
@@ -145,8 +141,6 @@ class DataCompleteness(Evaluator[AgentInput, AgentResult]):
 
 
 class StepEfficiency(Evaluator[AgentInput, AgentResult]):
-    """Score based on step count proximity to expected."""
-
     _EXPECTED_STEPS: dict[str, int] = {
         "greet_user": 1,
         "general_qa": 1,
@@ -174,16 +168,12 @@ class StepEfficiency(Evaluator[AgentInput, AgentResult]):
 
 
 class ResponseLocale(Evaluator[AgentInput, AgentResult]):
-    """1.0 if agent message language matches the requested locale."""
-
     def evaluate(self, ctx: EvaluatorContext[AgentInput, AgentResult]) -> float:
         if ctx.output is None or not ctx.output.message:
             return 0.0
         detected = detect_language(ctx.output.message)
         return 1.0 if detected == ctx.inputs.locale else 0.0
 
-
-# ── Load dataset ─────────────────────────────────────────────────────
 
 _DATASET_PATH = (
     Path(__file__).parent
@@ -243,16 +233,17 @@ agent_dataset = Dataset(
 )
 
 
-# ── Task function ────────────────────────────────────────────────────
-
-
 CatalogFactory = Callable[[], CatalogClientProtocol]
 
 
 def make_agent_task(
-    db: object, catalog_factory: CatalogFactory, model: object | None = None
+    db: object,
+    catalog_factory: CatalogFactory,
+    model: object | None = None,
+    *,
+    web_searcher: WebSearcher | None = None,
+    title_translator: TitleTranslator | None = None,
 ) -> object:
-    """Create the task: AgentInput → AgentResult."""
     resolved_model = model or _make_model()
 
     async def task(inp: AgentInput) -> AgentResult:
@@ -274,12 +265,12 @@ def make_agent_task(
             locale=inp.locale,
             context=inp.context,
             catalog=catalog_factory(),
+            web_searcher=web_searcher,
+            title_translator=title_translator,
         )
 
     return task
 
-
-# ── Shared helpers ───────────────────────────────────────────────────
 
 _BASELINES_DIR = Path(__file__).parent / "baselines"
 _RESULTS_DIR = Path(__file__).parent / "results"
@@ -374,26 +365,34 @@ def _write_baseline(record: BaselineRecord, layer: str, model_id: str) -> None:
     )
 
 
-# ── Pytest integration ───────────────────────────────────────────────
-
-
 async def _evaluate_tier(
     db: object,
     catalog_factory: CatalogFactory,
     layer: str,
     model: object | None = None,
     model_id: str = _EVAL_MODEL_ID,
+    web_mocks: EvalWebMocks | None = None,
 ) -> object:
-    task = make_agent_task(db, catalog_factory, model)
+    task = make_agent_task(
+        db,
+        catalog_factory,
+        model,
+        web_searcher=web_mocks.web_searcher if web_mocks else None,
+        title_translator=web_mocks.title_translator if web_mocks else None,
+    )
     return await agent_dataset.evaluate(
         task, name=f"{layer}_{model_id}", max_concurrency=_EVAL_CONCURRENCY
     )
 
 
 async def _run_pytest_tier(
-    db: object, catalog_factory: CatalogFactory, layer: str, tier: str
+    db: object,
+    catalog_factory: CatalogFactory,
+    layer: str,
+    tier: str,
+    web_mocks: EvalWebMocks | None = None,
 ) -> None:
-    report = await _evaluate_tier(db, catalog_factory, layer)
+    report = await _evaluate_tier(db, catalog_factory, layer, web_mocks=web_mocks)
     report.print(include_input=True, include_output=True)
     avg = report.averages()
     scores = _collect_scores(avg) if avg else {}
@@ -435,9 +434,12 @@ def _enforce_pytest_baseline(
 
 @pytest.mark.integration
 async def test_agent_trajectory() -> None:
-    """Run the default DB-free trajectory tier."""
     await _run_pytest_tier(
-        NullDatabase(), MockCatalogClient, "agent_trajectory", "trajectory"
+        NullDatabase(),
+        MockCatalogClient,
+        "agent_trajectory",
+        "trajectory",
+        trajectory_web_mocks(),
     )
 
 
@@ -447,12 +449,9 @@ async def test_agent_trajectory() -> None:
     reason="fullstack tier is opt-in (EVAL_FULLSTACK=1)",
 )
 async def test_agent_fullstack(request: pytest.FixtureRequest) -> None:
-    """Run the opt-in thin full-stack tier."""
     real_db = request.getfixturevalue("real_db")
     await _run_pytest_tier(real_db, default_catalog_client, "agent", "fullstack")
 
-
-# ── Standalone runner ────────────────────────────────────────────────
 
 if __name__ == "__main__":
     model_arg = None
@@ -464,14 +463,15 @@ if __name__ == "__main__":
             model_arg = arg.split("=", 1)[1]
             break
 
-    async def _standalone_target() -> tuple[object, CatalogFactory, str, str, str]:
+    async def _standalone_target() -> EvalTierTarget:
         if not is_fullstack():
-            return (
-                NullDatabase(),
-                MockCatalogClient,
-                "agent_trajectory",
-                "trajectory",
-                "DB: NullDatabase",
+            return EvalTierTarget(
+                db=NullDatabase(),
+                catalog_factory=MockCatalogClient,
+                layer="agent_trajectory",
+                tier="trajectory",
+                source="DB: NullDatabase",
+                web_mocks=trajectory_web_mocks(),
             )
         db_url = os.environ.get(
             "SUPABASE_DB_URL",
@@ -481,7 +481,13 @@ if __name__ == "__main__":
 
         db = SupabaseClient(db_url)
         await db.connect()
-        return db, default_catalog_client, "agent", "fullstack", f"DB: {db_url[:50]}..."
+        return EvalTierTarget(
+            db=db,
+            catalog_factory=default_catalog_client,
+            layer="agent",
+            tier="fullstack",
+            source=f"DB: {db_url[:50]}...",
+        )
 
     def _finish_standalone_gate(
         report: object, layer: str, tier: str, model_id: str, scores: dict[str, float]
@@ -506,21 +512,28 @@ if __name__ == "__main__":
     async def main() -> None:
         mid = model_arg or _EVAL_MODEL_ID
         model = _make_model(model_arg) if model_arg else _make_model()
-        db, catalog_factory, layer, tier, source = await _standalone_target()
+        target = await _standalone_target()
         print(f"\nRunning agent assessment: {len(CASES)} cases, model={mid}")
-        print(f"Tier: {tier}")
-        print(source)
-        report = await _evaluate_tier(db, catalog_factory, layer, model, mid)
+        print(f"Tier: {target.tier}")
+        print(target.source)
+        report = await _evaluate_tier(
+            target.db,
+            target.catalog_factory,
+            target.layer,
+            model,
+            mid,
+            target.web_mocks,
+        )
         report.print(include_input=True, include_output=True)
 
         avg = report.averages()
         current_scores = _collect_scores(avg) if avg else {}
-        _save_per_case_results(report, mid, layer, tier, current_scores)
+        _save_per_case_results(report, mid, target.layer, target.tier, current_scores)
         if avg is None:
             raise SystemExit("All cases errored — check model endpoint and DB.")
         if message := error_rate_message(report):
             raise SystemExit(message)
-        _print_scores(current_scores, mid, tier)
-        _finish_standalone_gate(report, layer, tier, mid, current_scores)
+        _print_scores(current_scores, mid, target.tier)
+        _finish_standalone_gate(report, target.layer, target.tier, mid, current_scores)
 
     asyncio.run(main())
