@@ -10,6 +10,7 @@ The ``real_db`` fixture is defined in ``conftest_db`` (shared with integration t
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -29,6 +30,6 @@ os.environ.update(real_env_updates(dotenv_values(_ENV_PATH), os.environ))
 
 
 @pytest.fixture(autouse=True)
-def setup_test_environment():
+def setup_test_environment() -> Iterator[None]:
     """Override parent conftest's mock settings — eval needs real API keys."""
     yield
