@@ -18,10 +18,10 @@ prior StepEfficiency step-count table) — no new dataset labels are introduced.
 ``acceptable_stages`` is a *disjunction*: the agent is correct if it follows any
 one acceptable stage. All trajectory metrics therefore score against the
 best-matching acceptable stage. Chat stages accept both the recorded ephemeral
-tool form (``greet_user`` / ``answer_question``) and the legal zero-step form.
-``route_order_correct`` is trivially 1.0 for chat stages by design: ordering is
-vacuous for <=1-tool chains, while wrong tool selection is punished by
-``tool_f1`` rather than by route order.
+tool form (``greet_user`` / ``answer_question``) and the legal zero-step form:
+zero-step trajectories pass via the empty chain, recorded ephemeral one-tool
+chains pass in-order, and wrong-tool trajectories fail route order while also
+being punished by ``tool_f1``.
 """
 
 from __future__ import annotations
@@ -91,6 +91,10 @@ def _actual_tools(output: AgentResult) -> list[str]:
 
 def _chains(meta: AgentExpected | None) -> list[tuple[str, ...]]:
     stages = meta.acceptable_stages if meta else []
+    return _chains_for_stages(stages)
+
+
+def _chains_for_stages(stages: Sequence[str]) -> list[tuple[str, ...]]:
     return [chain for stage in stages for chain in _STAGE_TOOL_CHAINS.get(stage, ((),))]
 
 
@@ -112,9 +116,23 @@ def _prf(expected: tuple[str, ...], actual: list[str]) -> tuple[float, float, fl
 
 
 def _is_subsequence(chain: tuple[str, ...], actual: Sequence[str]) -> bool:
-    """True when ``chain`` appears in ``actual`` in order (gaps allowed)."""
+    """True when ``chain`` appears in ``actual`` in order (gaps allowed).
+
+    The zero-step chain matches only a zero-step trajectory.
+    """
+    if not chain:
+        return not actual
     remaining = iter(actual)
     return all(tool in remaining for tool in chain)
+
+
+def route_order_score(
+    acceptable_stages: Sequence[str], actual_tools: Sequence[str]
+) -> float:
+    chains = _chains_for_stages(acceptable_stages)
+    if not chains:
+        return 1.0
+    return 1.0 if any(_is_subsequence(chain, actual_tools) for chain in chains) else 0.0
 
 
 def _available_data_keys(result: AgentResult) -> set[str]:
@@ -153,12 +171,9 @@ class RouteOrderCorrect(Evaluator[AgentInput, AgentResult, AgentExpected]):
     """L2: 1.0 if any acceptable tool chain appears in-order in the trajectory."""
 
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
-        chains = _chains(ctx.metadata)
-        if not chains:
-            return {"route_order_correct": 1.0}
         actual = _actual_tools(ctx.output)
-        in_order = any(_is_subsequence(chain, actual) for chain in chains)
-        return {"route_order_correct": 1.0 if in_order else 0.0}
+        stages = ctx.metadata.acceptable_stages if ctx.metadata else []
+        return {"route_order_correct": route_order_score(stages, actual)}
 
 
 class DataKeysPresent(Evaluator[AgentInput, AgentResult, AgentExpected]):

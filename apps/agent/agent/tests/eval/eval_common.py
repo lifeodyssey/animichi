@@ -103,7 +103,7 @@ def _str_list(row: dict[str, object], key: str, *, required: bool = False) -> li
     return [str(k) for k in raw] if isinstance(raw, list) else []
 
 
-def _int_field(row: dict[str, object], key: str) -> int:
+def _int_field(row: Mapping[str, object], key: str) -> int:
     raw = row[key]
     if isinstance(raw, int | str | bytes | bytearray):
         return int(raw)

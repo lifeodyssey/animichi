@@ -68,7 +68,7 @@ def test_rejects_unknown_schema_version() -> None:
 def test_committed_baselines_validate() -> None:
     paths = sorted(_BASELINES_DIR.glob("*.json"))
 
-    assert len(paths) == 4
+    assert len(paths) == 5
     for path in paths:
         BaselineRecord.model_validate_json(path.read_text())
 
