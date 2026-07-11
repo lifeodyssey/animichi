@@ -6,6 +6,7 @@
   "repeat": 1,
   "case_count": 647,
   "evaluated_count": 583,
+  "errored_count": 64,
   "scores": {
     "IntentMatch": 0.7650085763293311,
     "MessageQuality": 1.0,

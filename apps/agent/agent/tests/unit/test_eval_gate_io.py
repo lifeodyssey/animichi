@@ -5,12 +5,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from agent.tests.eval.gate import (
     BaselineRecord,
     baseline_path,
     read_baseline_record,
     write_baseline_record,
 )
+
+_BASELINES_DIR = Path(__file__).parents[1] / "eval" / "baselines"
 
 
 def _record(case_count: int = 2, evaluated_count: int = 2) -> BaselineRecord:
@@ -50,6 +54,23 @@ def test_write_read_round_trip(tmp_path: Path) -> None:
 
     assert path.read_text().endswith("\n")
     assert result == record
+
+
+def test_rejects_unknown_schema_version() -> None:
+    payload = (
+        _record().model_dump_json().replace('"schema_version":2', '"schema_version":3')
+    )
+
+    with pytest.raises(ValueError):
+        BaselineRecord.model_validate_json(payload)
+
+
+def test_committed_baselines_validate() -> None:
+    paths = sorted(_BASELINES_DIR.glob("*.json"))
+
+    assert len(paths) == 4
+    for path in paths:
+        BaselineRecord.model_validate_json(path.read_text())
 
 
 def test_read_returns_none_for_missing_file(tmp_path: Path) -> None:

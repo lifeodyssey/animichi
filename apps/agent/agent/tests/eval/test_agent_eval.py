@@ -51,6 +51,7 @@ from agent.tests.eval.exec_tiers import (
 from agent.tests.eval.gate import (
     BaselineRecord,
     bootstrap_gate,
+    error_rate_gate,
     read_baseline_record,
     write_baseline_record,
 )
@@ -297,6 +298,7 @@ def _baseline_record(
     scores: dict[str, float],
     cases: dict[str, dict[str, float]],
     evaluated_count: int,
+    errored_count: int,
 ) -> BaselineRecord:
     return BaselineRecord(
         model=model_id,
@@ -304,6 +306,7 @@ def _baseline_record(
         tier=tier,
         case_count=len(CASES),
         evaluated_count=evaluated_count,
+        errored_count=errored_count,
         scores=scores,
         cases=cases,
     )
@@ -411,8 +414,15 @@ def _finish_pytest_gate(
     if _CAPPED:
         _print_capped_notice()
         return
+    errored_count = len(report.failures)
     _enforce_pytest_baseline(
-        layer, tier, scores, current_case_scores, len(report.cases)
+        layer,
+        tier,
+        scores,
+        current_case_scores,
+        len(report.cases),
+        errored_count,
+        len(report.cases) + errored_count,
     )
 
 
@@ -422,13 +432,20 @@ def _enforce_pytest_baseline(
     scores: dict[str, float],
     cases: dict[str, dict[str, float]],
     evaluated_count: int,
+    errored_count: int,
+    total_count: int,
 ) -> None:
     baseline = _read_baseline(layer, _EVAL_MODEL_ID)
     if baseline is None:
-        record = _baseline_record(_EVAL_MODEL_ID, tier, scores, cases, evaluated_count)
+        record = _baseline_record(
+            _EVAL_MODEL_ID, tier, scores, cases, evaluated_count, errored_count
+        )
         _write_baseline(record, layer, _EVAL_MODEL_ID)
         pytest.skip(f"Baseline created for {_EVAL_MODEL_ID}; re-run to enforce gate.")
-    failures = bootstrap_gate(cases, baseline)
+    failures = [
+        *bootstrap_gate(cases, baseline),
+        *error_rate_gate(errored_count, total_count, baseline),
+    ]
     assert not failures, "Regression:\n" + "\n".join(failures)
 
 
@@ -499,12 +516,24 @@ if __name__ == "__main__":
         baseline = _read_baseline(layer, model_id)
         if baseline is None:
             record = _baseline_record(
-                model_id, tier, scores, current_case_scores, len(report.cases)
+                model_id,
+                tier,
+                scores,
+                current_case_scores,
+                len(report.cases),
+                len(report.failures),
             )
             _write_baseline(record, layer, model_id)
             print("Baseline created. Re-run to enforce gate.")
             return
-        failures = bootstrap_gate(current_case_scores, baseline)
+        failures = [
+            *bootstrap_gate(current_case_scores, baseline),
+            *error_rate_gate(
+                len(report.failures),
+                len(report.cases) + len(report.failures),
+                baseline,
+            ),
+        ]
         if failures:
             raise SystemExit("Regression:\n" + "\n".join(failures))
         print("All gates passed.")

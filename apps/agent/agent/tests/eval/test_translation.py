@@ -23,6 +23,7 @@ from agent.tests.eval.exec_tiers import collect_case_scores
 from agent.tests.eval.gate import (
     BaselineRecord,
     bootstrap_gate,
+    error_rate_gate,
     read_baseline_record,
     write_baseline_record,
 )
@@ -164,6 +165,7 @@ def _baseline_record(
     scores: dict[str, float],
     cases: dict[str, dict[str, float]],
     evaluated_count: int,
+    errored_count: int,
 ) -> BaselineRecord:
     return BaselineRecord(
         model=_MODEL_ID,
@@ -171,6 +173,7 @@ def _baseline_record(
         tier="translation",
         case_count=len(CASES),
         evaluated_count=evaluated_count,
+        errored_count=errored_count,
         scores=scores,
         cases=cases,
     )
@@ -223,7 +226,10 @@ def test_translation_quality(request: pytest.FixtureRequest) -> None:
     )
     if baseline is None:
         record = _baseline_record(
-            current_scores, current_case_scores, len(report.cases)
+            current_scores,
+            current_case_scores,
+            len(report.cases),
+            len(report.failures),
         )
         write_baseline_record(
             record,
@@ -233,5 +239,12 @@ def test_translation_quality(request: pytest.FixtureRequest) -> None:
         )
         pytest.skip("Baseline created; re-run to enforce gate.")
 
-    failures = bootstrap_gate(current_case_scores, baseline)
+    failures = [
+        *bootstrap_gate(current_case_scores, baseline),
+        *error_rate_gate(
+            len(report.failures),
+            len(report.cases) + len(report.failures),
+            baseline,
+        ),
+    ]
     assert not failures, "Translation eval regression:\n" + "\n".join(failures)
