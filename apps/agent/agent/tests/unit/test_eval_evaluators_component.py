@@ -4,9 +4,8 @@ from collections.abc import Mapping
 from typing import cast
 
 import pytest
-from pydantic_evals.evaluators import EvaluatorContext, LLMJudge
+from pydantic_evals.evaluators import LLMJudge
 
-from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.base import parse_model_spec
 from agent.agents.runtime_models import (
     ClarifyResponseModel,
@@ -20,34 +19,7 @@ from agent.tests.eval.evaluators import (
     LocaleMatch,
     build_l3_evaluators,
 )
-
-
-def _steps(*tools: str) -> list[StepRecord]:
-    return [StepRecord(tool=t, success=True) for t in tools]
-
-
-def _result(steps: list[StepRecord], output: object | None = None) -> AgentResult:
-    out = output or QAResponseModel(intent="general_qa", message="テスト")
-    return AgentResult(output=out, steps=steps)
-
-
-def _ctx(
-    inputs: AgentInput, output: AgentResult, meta: AgentExpected
-) -> EvaluatorContext[AgentInput, AgentResult, AgentExpected]:
-    return EvaluatorContext(
-        name="t",
-        inputs=inputs,
-        metadata=meta,
-        expected_output=None,
-        output=output,
-        duration=0.0,
-        _span_tree=None,
-        attributes={},
-        metrics={},
-    )
-
-
-_JA = AgentInput(query="q", locale="ja")
+from agent.tests.unit.eval_evaluator_fixtures import JA, ctx, result, steps
 
 
 def _search_output() -> SearchResponseModel:
@@ -92,12 +64,12 @@ def test_locale_match_scores_message_language(
     message: str, locale: str, expected: Mapping[str, float]
 ) -> None:
     output = QAResponseModel(intent="general_qa", message=message)
-    ctx = _ctx(
+    evaluator_ctx = ctx(
         AgentInput(query="q", locale=locale),
-        _result(_steps(), output),
+        result(steps(), output),
         AgentExpected(["general_qa"]),
     )
-    assert dict(LocaleMatch().evaluate(ctx)) == expected
+    assert dict(LocaleMatch().evaluate(evaluator_ctx)) == expected
 
 
 @pytest.mark.parametrize(
@@ -116,8 +88,8 @@ def test_locale_match_scores_message_language(
 def test_data_keys_present_scores_response_payload(
     output: object | None, data_keys: list[str], expected: Mapping[str, float]
 ) -> None:
-    ctx = _ctx(_JA, _result(_steps(), output), AgentExpected([], data_keys=data_keys))
-    assert dict(DataKeysPresent().evaluate(ctx)) == expected
+    evaluator_ctx = ctx(JA, result(steps(), output), AgentExpected([], data_keys))
+    assert dict(DataKeysPresent().evaluate(evaluator_ctx)) == expected
 
 
 def test_build_l3_evaluators_returns_two_llm_judges() -> None:

@@ -11,7 +11,7 @@
     "tool_recall": 0.8017857142857143,
     "tool_precision": 0.7751488095238096,
     "tool_f1": 0.7818282312925173,
-    "route_order_correct": 0.7928571428571428,
+    "route_order_correct": 0.7678571428571429,
     "data_keys_present": 0.7839285714285714,
     "locale_match": 0.4857142857142857,
     "step_efficiency": 0.8772441893424038
@@ -1229,7 +1229,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 1.0,
         "step_efficiency": 1.0
@@ -8852,7 +8852,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 1.0,
         "step_efficiency": 1.0
@@ -8876,7 +8876,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 0.0,
         "step_efficiency": 1.0
@@ -8900,7 +8900,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 1.0,
         "step_efficiency": 1.0
@@ -9777,7 +9777,7 @@
         "tool_recall": 0.3333333333333333,
         "tool_precision": 0.5,
         "tool_f1": 0.4,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 1.0,
         "step_efficiency": 1.0
@@ -9802,7 +9802,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 1.0,
         "step_efficiency": 1.0
@@ -9828,7 +9828,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 0.0,
         "step_efficiency": 1.0
@@ -9852,7 +9852,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 1.0,
         "step_efficiency": 1.0
@@ -9876,7 +9876,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 0.0,
         "step_efficiency": 1.0
@@ -9900,7 +9900,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 0.0,
         "step_efficiency": 1.0
@@ -9924,7 +9924,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 0.0,
         "step_efficiency": 1.0
@@ -12655,7 +12655,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 1.0,
         "step_efficiency": 0.3333333333333333
@@ -12729,7 +12729,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 0.0,
         "step_efficiency": 0.5
@@ -12754,7 +12754,7 @@
         "tool_recall": 0.0,
         "tool_precision": 0.0,
         "tool_f1": 0.0,
-        "route_order_correct": 1.0,
+        "route_order_correct": 0.0,
         "data_keys_present": 1.0,
         "locale_match": 0.0,
         "step_efficiency": 0.3333333333333333

@@ -195,7 +195,7 @@ def _success_row(case: ReportCase[InputsT, OutputT, MetadataT]) -> CaseRow:
         None,
         case.output,
         case.inputs,
-        case.expected_output,
+        case.metadata,
     )
 
 
@@ -209,7 +209,7 @@ def _failure_row(
         failure.error_message,
         None,
         failure.inputs,
-        failure.expected_output,
+        failure.metadata,
     )
 
 
@@ -220,7 +220,7 @@ def _case_row(
     error: str | None,
     output: object | None,
     inputs: object | None,
-    expected: object | None,
+    metadata: object | None,
 ) -> CaseRow:
     return CaseRow(
         id=case_id,
@@ -234,7 +234,7 @@ def _case_row(
         step_count=_output_step_count(output),
         query=_input_query(inputs),
         locale=_input_locale(inputs),
-        expected_stages=_expected_stages(expected),
+        expected_stages=_expected_stages(metadata),
     )
 
 
