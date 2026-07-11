@@ -7,6 +7,7 @@ import random
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -19,15 +20,17 @@ class BaselineRecord(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    schema_version: int = 2
+    schema_version: Literal[2] = 2
     model: str
     dataset: str
     tier: str
     repeat: int = 1
     case_count: int
     evaluated_count: int
+    errored_count: int = 0
     scores: dict[str, float]
     cases: dict[str, dict[str, float]]
+    note: str | None = None
 
 
 @dataclass(frozen=True)
@@ -97,6 +100,26 @@ def bootstrap_gate(
     return [failure for failure in failures if failure is not None]
 
 
+def error_rate_gate(
+    current_errored: int,
+    current_total: int,
+    baseline: BaselineRecord,
+    *,
+    iterations: int = 2000,
+    confidence: float = 0.95,
+    seed: int = 309,
+    min_effect: float = 0.02,
+) -> list[str]:
+    if _has_zero_error_total(current_total, baseline):
+        logger.warning("Skipping error_rate: zero total cases")
+        return []
+    samples = _error_rate_samples(
+        current_errored, current_total, baseline, iterations, seed
+    )
+    failure = _error_rate_failure(samples, confidence, min_effect)
+    return [] if failure is None else [failure]
+
+
 def _metric_failures(ctx: _GateContext) -> list[str | None]:
     return [_metric_failure(metric, ctx) for metric in _baseline_metrics(ctx.baseline)]
 
@@ -105,10 +128,14 @@ def _load_record(path: Path, layer: str, model_id: str) -> BaselineRecord | None
     try:
         return BaselineRecord.model_validate_json(path.read_text())
     except ValidationError as exc:
-        logger.warning(
-            "Invalid baseline for %s/%s at %s: %s", layer, model_id, path, exc
-        )
+        _warn_invalid_baseline(path, layer, model_id, exc)
         return None
+
+
+def _warn_invalid_baseline(
+    path: Path, layer: str, model_id: str, exc: ValidationError
+) -> None:
+    logger.warning("Invalid baseline for %s/%s at %s: %s", layer, model_id, path, exc)
 
 
 def _warn_missing(layer: str, model_id: str, path: Path) -> None:
@@ -167,7 +194,8 @@ def _warn_low_evaluated(layer: str, model: str, actual: int, expected: int) -> N
 
 
 def _baseline_metrics(baseline: BaselineRecord) -> list[str]:
-    return sorted({metric for scores in baseline.cases.values() for metric in scores})
+    case_metrics = {metric for scores in baseline.cases.values() for metric in scores}
+    return sorted(case_metrics.union(baseline.scores))
 
 
 def _metric_failure(metric: str, ctx: _GateContext) -> str | None:
@@ -221,6 +249,56 @@ def _percentile(values: list[float], quantile: float) -> float:
     return values[index]
 
 
+def _error_rate_samples(
+    current_errored: int,
+    current_total: int,
+    baseline: BaselineRecord,
+    iterations: int,
+    seed: int,
+) -> list[float]:
+    rng = random.Random(seed)
+    current = _error_indicators(current_errored, current_total)
+    total = baseline.evaluated_count + baseline.errored_count
+    prior = _error_indicators(baseline.errored_count, total)
+    return sorted(
+        _sample_mean(current, rng) - _sample_mean(prior, rng)
+        for _ in range(max(iterations, 1))
+    )
+
+
+def _error_indicators(errored: int, total: int) -> list[float]:
+    return [1.0] * errored + [0.0] * (total - errored)
+
+
+def _has_zero_error_total(current_total: int, baseline: BaselineRecord) -> bool:
+    baseline_total = baseline.evaluated_count + baseline.errored_count
+    return current_total <= 0 or baseline_total <= 0
+
+
+def _error_rate_failure(
+    samples: list[float],
+    confidence: float,
+    min_effect: float,
+) -> str | None:
+    lower, upper = _error_rate_ci(samples, confidence)
+    if lower <= min_effect:
+        return None
+    return _format_error_rate_failure(samples, lower, upper)
+
+
+def _error_rate_ci(samples: list[float], confidence: float) -> tuple[float, float]:
+    tail = (1.0 - confidence) / 2.0
+    return _percentile(samples, tail), _percentile(samples, 1.0 - tail)
+
+
+def _format_error_rate_failure(
+    samples: list[float],
+    lower: float,
+    upper: float,
+) -> str:
+    return f"error_rate: mean_delta={_mean(samples):.4f}, ci=[{lower:.4f}, {upper:.4f}]"
+
+
 def _failure_if_regression(
     metric: str,
     deltas: list[float],
@@ -230,22 +308,14 @@ def _failure_if_regression(
 ) -> str | None:
     if lower <= options.min_effect:
         return None
-    return _describe_failure(metric, _mean(deltas), lower, upper, options, len(deltas))
+    return (
+        f"{metric}: mean_delta={_mean(deltas):.4f}, "
+        f"ci=[{lower:.4f}, {upper:.4f}], n={len(deltas)}"
+    )
 
 
 def _mean(values: list[float]) -> float:
     return sum(values) / len(values)
-
-
-def _describe_failure(
-    metric: str,
-    mean_delta: float,
-    lower: float,
-    upper: float,
-    options: _GateOptions,
-    n: int,
-) -> str:
-    return f"{metric}: mean_delta={mean_delta:.4f}, ci{options.confidence:.0%}=[{lower:.4f}, {upper:.4f}], n={n}"
 
 
 def _warn_few_pairs(metric: str, paired: int, min_paired: int) -> None:
