@@ -17,7 +17,7 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
 - `workers/users/`     — TS Worker: user-domain data (Neon + Drizzle). PLANNED (SD-2).
 - `packages/contract/` — Shared oRPC/zod contract; source of truth for cross-service types. → `packages/contract/README.md`
 - `frontend/`          — Next.js (OpenNext-SSR), **homepage-only** (chat/search deleted 2026-06). → `frontend/AGENTS.md`
-- `apps/web/`          — TanStack Start rebuild. PLANNED (see rebuild spec).
+- `apps/web/`          — TanStack Start web app (S0.2 skeleton; rebuild stories iter 0-7, see rebuild spec).
 - `worker/`            — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy.
 - `db/`                — Neon migrations (atlas). `supabase/migrations/` — auth migrations.
 - `infra/`             — Pulumi IaC.
