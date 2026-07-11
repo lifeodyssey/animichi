@@ -85,7 +85,7 @@ async def test_route_builds_valid_timed_itinerary() -> None:
 
 
 async def test_unknown_inputs_yield_no_data() -> None:
-    """Unknown title/coord/ids mirror the DataCompleteness empty baseline."""
+    """Unknown title/coord/ids keep DataKeysPresent empty-data semantics stable."""
     client = MockCatalogClient()
     assert await client.search("存在しないアニメ") == []
     assert await client.nearby(0.0, 0.0, radius_m=1000) == []
