@@ -1,0 +1,7 @@
+name = "map-spike-tiles"
+main = "tiles.ts"
+compatibility_date = "2026-07-01"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "seichijunrei-assets-dev"

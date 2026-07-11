@@ -1,0 +1,8 @@
+node_modules/
+dist/
+public/tiles/*.pmtiles
+.wrangler/
+worker/.wrangler/
+
+# Root .gitignore ignores HTML globally; keep this spike entrypoint tracked.
+!index.html

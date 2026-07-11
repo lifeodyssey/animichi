@@ -1,0 +1,24 @@
+{
+  "name": "seichijunrei-map-stack-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "fetch-tiles": "bash scripts/fetch-tiles.sh",
+    "worker:seed": "bash scripts/seed-local-r2.sh",
+    "worker:dev": "WRANGLER_WRITE_LOGS=false WRANGLER_LOG_PATH=.wrangler/logs XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache wrangler dev --config worker/wrangler.toml --persist-to .wrangler/state --ip 127.0.0.1 --port 8787 --local"
+  },
+  "dependencies": {
+    "@protomaps/basemaps": "5.7.2",
+    "maplibre-gl": "^5.0.0",
+    "pmtiles": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vite": "^7.0.0",
+    "wrangler": "^4.0.0"
+  }
+}
