@@ -80,7 +80,7 @@ format:
 	cd apps/agent && uv run ruff check --fix agent/
 
 typecheck:
-	cd apps/agent && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
+	cd apps/agent && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ agent/tests/eval/
 
 check: lint typecheck test test-integration
 

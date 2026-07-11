@@ -13,6 +13,7 @@ import json
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import pytest
 from dotenv import load_dotenv
@@ -138,7 +139,9 @@ def _load_cases() -> list[
         Case(
             name=item["id"],
             inputs=TranslationInput(title=item["title"], target_locale=item["target"]),
-            expected_output=TranslationExpected(expected=item["expected"]),
+            expected_output=cast(
+                TranslationOutput, TranslationExpected(expected=item["expected"])
+            ),
         )
         for item in raw
     ]
