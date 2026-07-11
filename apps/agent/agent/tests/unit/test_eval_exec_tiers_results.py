@@ -90,4 +90,6 @@ def test_build_results_payload_persists_failures_and_reasons() -> None:
     )
     assert payload.cases[0].reasons == {"task_completion": "judge passed"}
     assert payload.cases[0].scores == {"task_completion": 1.0, "tool_f1": 0.5}
+    assert payload.cases[0].expected_stages == ["general_qa"]
     assert payload.cases[1].error == "boom"
+    assert payload.cases[1].expected_stages == ["general_qa"]
