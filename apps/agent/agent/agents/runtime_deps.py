@@ -6,10 +6,14 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from agent.agents.agent_result import StepRecord
+from agent.agents.guardrails import WebResult
+from agent.agents.translation import TranslationResult
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
 
 OnStep = Callable[[str, str, dict[str, object], str, str], Awaitable[None]]
+WebSearcher = Callable[[str], Awaitable[list[WebResult]]]
+TitleTranslator = Callable[[str, str], Awaitable[TranslationResult]]
 
 
 @dataclass
@@ -27,6 +31,8 @@ class RuntimeDeps:
     catalog: CatalogClientProtocol
 
     on_step: OnStep | None = None
+    web_searcher: WebSearcher | None = None
+    title_translator: TitleTranslator | None = None
 
     # Mutable per-run state accumulated during the agent run.
     # ponytail: mixes two concerns — fixed session fields (origin_lat/lng, locale,

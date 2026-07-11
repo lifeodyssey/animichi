@@ -1,7 +1,12 @@
 {
+  "schema_version": 2,
+  "model": "openai:mimo-v2.5-pro@https://api.xiaomimimo.com/v1",
+  "dataset": "agent_eval_v3",
+  "tier": "fullstack",
+  "repeat": 1,
   "case_count": 6,
   "evaluated_count": 5,
-  "model": "openai:mimo-v2.5-pro@https://api.xiaomimimo.com/v1",
+  "errored_count": 1,
   "scores": {
     "DataCompleteness": 1.0,
     "IntentMatch": 1.0,
@@ -9,5 +14,7 @@
     "ResponseLocale": 0.6,
     "StepEfficiency": 0.9,
     "ToolExecution": 1.0
-  }
+  },
+  "cases": {},
+  "note": "migrated from schema-1 aggregate baseline (6-case smoke run); errored_count derived as case_count - evaluated_count; per-case scores unavailable"
 }

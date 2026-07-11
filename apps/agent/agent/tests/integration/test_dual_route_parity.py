@@ -40,7 +40,8 @@ def _ordered_ids(payload: dict[str, object]) -> list[str]:
 
 async def test_selected_route_and_chat_route_use_same_catalog_order() -> None:
     catalog = MockCatalogClient()
-    point_ids = ["p_euph_1", "p_euph_2"]
+    points = await catalog.search("響け")
+    point_ids = [point.id for point in points]
 
     selected = await execute_selected_route(
         point_ids=point_ids,
@@ -50,7 +51,6 @@ async def test_selected_route_and_chat_route_use_same_catalog_order() -> None:
     )
 
     deps = _deps(catalog)
-    points = await catalog.search("響け")
     deps.tool_state["search_bangumi"] = build_search_payload(
         points, tool="search_bangumi"
     )

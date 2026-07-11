@@ -19,10 +19,13 @@ from dotenv import load_dotenv
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext
 
-from agent.tests.eval.eval_common import (
-    enforce_gate,
-    read_baseline,
-    write_baseline,
+from agent.tests.eval.exec_tiers import collect_case_scores
+from agent.tests.eval.gate import (
+    BaselineRecord,
+    bootstrap_gate,
+    error_rate_gate,
+    read_baseline_record,
+    write_baseline_record,
 )
 
 load_dotenv(Path(__file__).parents[3] / ".env")
@@ -122,6 +125,9 @@ class NotOriginalEvaluator(Evaluator[TranslationInput, TranslationOutput]):
 # ── Load dataset ─────────────────────────────────────────────────────
 
 _DATASET_PATH = Path(__file__).parent / "datasets" / "translation_v1.json"
+_BASELINES_DIR = Path(__file__).parent / "baselines"
+_DATASET_NAME = _DATASET_PATH.stem
+_MODEL_ID = "translation"
 
 
 def _load_cases() -> list[
@@ -153,6 +159,24 @@ translation_dataset = Dataset(
 # ── Pytest integration ───────────────────────────────────────────────
 
 _LAYER = "translation"
+
+
+def _baseline_record(
+    scores: dict[str, float],
+    cases: dict[str, dict[str, float]],
+    evaluated_count: int,
+    errored_count: int,
+) -> BaselineRecord:
+    return BaselineRecord(
+        model=_MODEL_ID,
+        dataset=_DATASET_NAME,
+        tier="translation",
+        case_count=len(CASES),
+        evaluated_count=evaluated_count,
+        errored_count=errored_count,
+        scores=scores,
+        cases=cases,
+    )
 
 
 @pytest.mark.integration
@@ -193,12 +217,34 @@ def test_translation_quality(request: pytest.FixtureRequest) -> None:
     print(f"  Cases:          {len(CASES)}")
     print(f"{'=' * 50}")
 
-    baseline_scores = read_baseline(
-        _LAYER, "translation", expected_case_count=len(CASES)
+    current_case_scores = collect_case_scores(report)
+    baseline = read_baseline_record(
+        _LAYER,
+        _MODEL_ID,
+        baselines_dir=_BASELINES_DIR,
+        expected_case_count=len(CASES),
     )
-    if not baseline_scores:
-        write_baseline(_LAYER, "translation", current_scores, case_count=len(CASES))
+    if baseline is None:
+        record = _baseline_record(
+            current_scores,
+            current_case_scores,
+            len(report.cases),
+            len(report.failures),
+        )
+        write_baseline_record(
+            record,
+            layer=_LAYER,
+            model_id=_MODEL_ID,
+            baselines_dir=_BASELINES_DIR,
+        )
         pytest.skip("Baseline created; re-run to enforce gate.")
 
-    failures = enforce_gate(current_scores, baseline_scores)
+    failures = [
+        *bootstrap_gate(current_case_scores, baseline),
+        *error_rate_gate(
+            len(report.failures),
+            len(report.cases) + len(report.failures),
+            baseline,
+        ),
+    ]
     assert not failures, "Translation eval regression:\n" + "\n".join(failures)
