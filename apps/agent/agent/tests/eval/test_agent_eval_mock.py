@@ -10,9 +10,9 @@ Scope (deliberately small — NOT the full 617-case suite): ~5 representative
 cases covering search (ja/zh/en), nearby, route, and an unknown-title miss.
 
 WIRING STATUS (W2-A1, landed):
-    The data-tool -> CatalogClient seam now exists: ``run_pilgrimage_agent`` accepts
+    The data-tool -> CatalogClient seam now exists: ``run_animichi_agent`` accepts
     a ``catalog`` client and the four data tools route through it (see
-    ``agent.agents.pilgrimage_tools``). This module validates the mock contract +
+    ``agent.agents.animichi_tools``). This module validates the mock contract +
     the catalog data layer directly; the LIVE agent run driven against this mock
     lives in ``test_agent_eval_mock_runtime.py``.
 """
@@ -73,7 +73,7 @@ async def test_nearby_returns_sorted_points_within_radius() -> None:
 async def test_route_builds_valid_timed_itinerary() -> None:
     """route() (D1-style plan) returns an ordered Route with a timed itinerary."""
     client = MockCatalogClient()
-    route = await client.route(["p_euph_1", "p_euph_2"])
+    route = await client.route(["p004", "p005"])
     assert isinstance(route, Route)
     assert route.point_count == 2
     assert len(route.ordered_points) == 2
@@ -85,7 +85,7 @@ async def test_route_builds_valid_timed_itinerary() -> None:
 
 
 async def test_unknown_inputs_yield_no_data() -> None:
-    """Unknown title/coord/ids mirror the DataCompleteness empty baseline."""
+    """Unknown title/coord/ids keep DataKeysPresent empty-data semantics stable."""
     client = MockCatalogClient()
     assert await client.search("存在しないアニメ") == []
     assert await client.nearby(0.0, 0.0, radius_m=1000) == []
@@ -110,5 +110,5 @@ async def test_calls_are_recorded_and_offline() -> None:
     """The mock records calls and performs no real DB/network access."""
     client = MockCatalogClient()
     await client.search("君の名は。")
-    await client.route(["p_kimi_1", "p_kimi_2"])
+    await client.route(["p001", "p002"])
     assert [name for name, _ in client.calls] == ["search", "route"]

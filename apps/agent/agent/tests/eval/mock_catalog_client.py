@@ -1,169 +1,85 @@
-"""Deterministic in-memory MockCatalogClient for the agent eval.
-
-The agent's tools will (in the hybrid architecture) call the Catalog service via
-:class:`agent.clients.catalog_client.CatalogClient` instead of touching the DB
-or Anitabi directly. This mock implements that same interface against a small,
-hand-seeded fixture so the eval can run fast, deterministically, and with no real
-DB / network.
-
-Contract mirrored from ``CatalogClient`` (search / spots / nearby / route),
-returning the shared typed models ``PilgrimagePoint`` and ``Route``:
-
-  - search(query)                  -> list[PilgrimagePoint]
-  - spots(bangumi_id)              -> PilgrimagePoint
-  - nearby(lat, lng, radius_m=...) -> list[PilgrimagePoint]
-  - route(point_ids)               -> Route
-
-Seeding policy (mirrors the eval's DataCompleteness baseline):
-  - Well-known resolvable anime (e.g. 君の名は。/ 響け！ユーフォニアム) and known
-    locations (Kyoto, Uji) return seeded points.
-  - Unknown titles / coordinates / point ids return empty results (search/nearby)
-    or raise ``APIError`` (spots), matching how the real client signals "no data".
-
-NOTE (W2-A1, landed): the production seam now exists. ``RuntimeDeps`` carries an
-optional ``catalog`` client and the four data tools route through it, so this mock
-can be injected directly into ``run_pilgrimage_agent`` (see
-``test_agent_eval_mock_runtime.py``). It satisfies
-``agent.clients.catalog_client.CatalogClientProtocol``.
-"""
+"""Deterministic in-memory MockCatalogClient for offline agent evals."""
 
 from __future__ import annotations
 
+from typing import Literal
+
 from agent.agents.geo_utils import haversine_distance
 from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
-from agent.clients.catalog_client import PilgrimagePoint, Route
+from agent.agents.title_matching import best_alias_match
+from agent.clients.catalog_client import (
+    AnimeCandidate,
+    IngestResult,
+    PilgrimagePoint,
+    ResolveNotFound,
+    ResolveResolved,
+    Route,
+    SearchResult,
+)
 from agent.clients.errors import APIError
+from agent.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
+from agent.tests.eval.mock_catalog_fixtures import (
+    FIXTURE_POINTS,
+    GEOCODE_FIXTURES,
+    LOCATION_CENTERS,
+    TITLE_ALIASES,
+    TITLE_NAMES,
+)
 
-__all__ = ["MockCatalogClient", "FIXTURE_POINTS"]
+__all__ = [
+    "FIXTURE_POINTS",
+    "LOCATION_CENTERS",
+    "MockCatalogClient",
+    "TITLE_ALIASES",
+    "TITLE_NAMES",
+    "_LOCATION_CENTERS",
+    "_TITLE_ALIASES",
+]
 
-
-def _point(
-    *,
-    pid: str,
-    name: str,
-    name_cn: str,
-    bangumi_id: str,
-    lat: float,
-    lng: float,
-    title: str,
-    title_cn: str,
-    episode: int = 1,
-) -> PilgrimagePoint:
-    """Build a fully-populated seeded pilgrimage point."""
-    return PilgrimagePoint(
-        id=pid,
-        name=name,
-        name_cn=name_cn,
-        episode=episode,
-        bangumi_id=bangumi_id,
-        latitude=lat,
-        longitude=lng,
-        title=title,
-        title_cn=title_cn,
-        cover_url=f"https://example.test/cover/{bangumi_id}.jpg",
-        screenshot_url=f"https://example.test/shot/{pid}.jpg",
-    )
-
-
-# ── Seed fixture ──────────────────────────────────────────────────────
-# A handful of well-known works keyed by their bangumi_id. Titles, including
-# CN/EN aliases, are matched case-insensitively as substrings of the query so
-# the eval's resolvable cases (ja/zh/en) all find data.
-
-_KIMINONAWA = "160209"
-_EUPHONIUM = "100403"
-
-FIXTURE_POINTS: dict[str, list[PilgrimagePoint]] = {
-    _KIMINONAWA: [
-        _point(
-            pid="p_kimi_1",
-            name="須賀神社の階段",
-            name_cn="须贺神社的台阶",
-            bangumi_id=_KIMINONAWA,
-            lat=35.7126,
-            lng=139.7286,
-            title="君の名は。",
-            title_cn="你的名字",
-        ),
-        _point(
-            pid="p_kimi_2",
-            name="四谷",
-            name_cn="四谷",
-            bangumi_id=_KIMINONAWA,
-            lat=35.6862,
-            lng=139.7300,
-            title="君の名は。",
-            title_cn="你的名字",
-            episode=2,
-        ),
-    ],
-    _EUPHONIUM: [
-        _point(
-            pid="p_euph_1",
-            name="宇治橋",
-            name_cn="宇治桥",
-            bangumi_id=_EUPHONIUM,
-            lat=34.8915,
-            lng=135.8075,
-            title="響け！ユーフォニアム",
-            title_cn="吹响悠风号",
-        ),
-        _point(
-            pid="p_euph_2",
-            name="京阪宇治駅",
-            name_cn="京阪宇治站",
-            bangumi_id=_EUPHONIUM,
-            lat=34.8920,
-            lng=135.8110,
-            title="響け！ユーフォニアム",
-            title_cn="吹响悠风号",
-            episode=3,
-        ),
-    ],
-}
-
-# Title aliases (lower-cased substrings) -> bangumi_id, for free-text search().
-_TITLE_ALIASES: dict[str, str] = {
-    "君の名は": _KIMINONAWA,
-    "你的名字": _KIMINONAWA,
-    "your name": _KIMINONAWA,
-    "響け": _EUPHONIUM,
-    "ユーフォニアム": _EUPHONIUM,
-    "吹响": _EUPHONIUM,
-    "悠风号": _EUPHONIUM,
-    "euphonium": _EUPHONIUM,
-}
-
-# Location aliases (lower-cased substrings) -> bangumi_id whose points are nearby.
-_LOCATION_CENTERS: dict[str, tuple[float, float, str]] = {
-    # name substring -> (lat, lng, bangumi_id)
-    "uji": (34.8915, 135.8075, _EUPHONIUM),
-    "宇治": (34.8915, 135.8075, _EUPHONIUM),
-    "kyoto": (34.9858, 135.7588, _EUPHONIUM),
-    "京都": (34.9858, 135.7588, _EUPHONIUM),
-}
-
+_TITLE_ALIASES = TITLE_ALIASES
+_LOCATION_CENTERS = LOCATION_CENTERS
 _POINT_INDEX: dict[str, PilgrimagePoint] = {
-    p.id: p for points in FIXTURE_POINTS.values() for p in points
+    point.id: point for points in FIXTURE_POINTS.values() for point in points
 }
 
 
 class MockCatalogClient:
-    """In-memory stand-in for :class:`CatalogClient` with seeded fixture data."""
+    """In-memory stand-in for :class:`CatalogClient` with fixture data."""
 
     def __init__(self) -> None:
         self.calls: list[tuple[str, tuple[object, ...]]] = []
 
     async def search(self, query: str) -> list[PilgrimagePoint]:
-        """Resolve a free-text query to seeded points; empty if unknown."""
         self.calls.append(("search", (query,)))
         bangumi_id = self._match_title(query)
-        if bangumi_id is None:
+        if bangumi_id is None or bangumi_id not in FIXTURE_POINTS:
             return []
-        return [p.model_copy(deep=True) for p in FIXTURE_POINTS[bangumi_id]]
+        return [point.model_copy(deep=True) for point in FIXTURE_POINTS[bangumi_id]]
+
+    async def resolve(self, query: str) -> ResolveResolved | ResolveNotFound:
+        self.calls.append(("resolve", (query,)))
+        bangumi_id = self._match_title(query)
+        if bangumi_id is None:
+            return ResolveNotFound(outcome="not_found", reason="anime_not_found")
+        names = TITLE_NAMES[bangumi_id]
+        return ResolveResolved(
+            outcome="resolved",
+            match=AnimeCandidate(
+                bangumi_id=bangumi_id,
+                title=names.ja,
+                title_cn=names.zh,
+                points_count=len(FIXTURE_POINTS.get(bangumi_id, [])),
+            ),
+        )
+
+    async def points_by_work_id(self, work_id: str) -> SearchResult:
+        self.calls.append(("points_by_work_id", (work_id,)))
+        rows = [
+            point.model_copy(deep=True) for point in FIXTURE_POINTS.get(work_id, [])
+        ]
+        return SearchResult(rows=rows, synced_at="fixture")
 
     async def spots(self, bangumi_id: str) -> PilgrimagePoint:
-        """Return the first seeded point for a work; raise if unknown."""
         self.calls.append(("spots", (bangumi_id,)))
         points = FIXTURE_POINTS.get(bangumi_id)
         if not points:
@@ -173,14 +89,22 @@ class MockCatalogClient:
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
     ) -> list[PilgrimagePoint]:
-        """Return seeded points within ``radius_m`` of a coordinate, by distance."""
         self.calls.append(("nearby", (lat, lng, radius_m)))
         scored = self._within_radius(lat, lng, radius_m)
-        return [p for _, p in sorted(scored, key=lambda sp: sp[0])]
+        return [point for _, point in sorted(scored, key=lambda item: item[0])]
 
-    async def route(self, point_ids: list[str]) -> Route:
-        """Plan an ordered, timed route across known seeded points."""
-        self.calls.append(("route", (tuple(point_ids),)))
+    async def geocode(self, query: str, *, limit: int = 5) -> list[GeocodeCandidate]:
+        self.calls.append(("geocode", (query, limit)))
+        return [candidate.model_copy() for candidate in _geocode_fixture(query)[:limit]]
+
+    async def route(
+        self,
+        point_ids: list[str],
+        *,
+        origin: tuple[float, float] | None = None,
+        pacing: Literal["chill", "normal", "packed"] | None = None,
+    ) -> Route:
+        self.calls.append(("route", (tuple(point_ids), origin, pacing)))
         ordered = [
             _POINT_INDEX[pid].model_copy(deep=True)
             for pid in point_ids
@@ -188,22 +112,24 @@ class MockCatalogClient:
         ]
         return _build_route(ordered)
 
+    async def ingest(self, bangumi_id: str) -> IngestResult:
+        self.calls.append(("ingest", (bangumi_id,)))
+        status = "ingested" if bangumi_id in FIXTURE_POINTS else "empty"
+        return IngestResult(
+            status=status, point_count=len(FIXTURE_POINTS.get(bangumi_id, []))
+        )
+
     async def near_location(self, name: str) -> list[PilgrimagePoint]:
-        """Test helper: resolve a place name to its seeded nearby points."""
         center = self._match_location(name)
         if center is None:
             return []
         lat, lng, _ = center
         scored = self._within_radius(lat, lng, radius_m=5000)
-        return [p for _, p in sorted(scored, key=lambda sp: sp[0])]
+        return [point for _, point in sorted(scored, key=lambda item: item[0])]
 
     @staticmethod
     def _match_title(query: str) -> str | None:
-        q = query.lower()
-        for alias, bangumi_id in _TITLE_ALIASES.items():
-            if alias.lower() in q:
-                return bangumi_id
-        return None
+        return best_alias_match(query, _TITLE_ALIASES)
 
     @staticmethod
     def _match_location(name: str) -> tuple[float, float, str] | None:
@@ -228,7 +154,6 @@ class MockCatalogClient:
 
 
 def _build_route(ordered: list[PilgrimagePoint]) -> Route:
-    """Assemble a deterministic timed itinerary over ordered points."""
     if not ordered:
         return Route()
     return Route(
@@ -241,17 +166,40 @@ def _build_route(ordered: list[PilgrimagePoint]) -> Route:
     )
 
 
+def _candidate(
+    id_: str,
+    label: str,
+    name: str,
+    lat: float,
+    lng: float,
+    kind: GeocodeKind,
+) -> GeocodeCandidate:
+    return GeocodeCandidate(
+        id=id_,
+        label=label,
+        name=name,
+        lat=lat,
+        lng=lng,
+        kind=kind,
+        source=GeocodeSource.SEED,
+    )
+
+
+def _geocode_fixture(query: str) -> list[GeocodeCandidate]:
+    return [
+        _candidate(seed.id, seed.label, seed.name, seed.lat, seed.lng, seed.kind)
+        for seed in GEOCODE_FIXTURES.get(query.lower(), ())
+    ]
+
+
 def _build_itinerary(ordered: list[PilgrimagePoint]) -> TimedItinerary:
-    """Build a simple deterministic itinerary: 30-min dwell, walking legs."""
     stops = [_stop(point, index) for index, point in enumerate(ordered)]
     legs = [_leg(ordered[i], ordered[i + 1]) for i in range(len(ordered) - 1)]
-    total_distance = sum(leg.distance_m for leg in legs)
-    total_minutes = sum(leg.duration_minutes for leg in legs) + 30 * len(stops)
     return TimedItinerary(
         stops=stops,
         legs=legs,
-        total_minutes=total_minutes,
-        total_distance_m=round(total_distance, 1),
+        total_minutes=sum(leg.duration_minutes for leg in legs) + 30 * len(stops),
+        total_distance_m=round(sum(leg.distance_m for leg in legs), 1),
         spot_count=len(stops),
     )
 

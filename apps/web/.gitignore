@@ -1,0 +1,7 @@
+node_modules
+.output
+.nitro
+.tanstack
+coverage
+dist
+src/routeTree.gen.ts

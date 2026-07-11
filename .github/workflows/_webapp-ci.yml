@@ -1,0 +1,52 @@
+# Reusable workflow (called by ci.yml; not triggered directly). '_' prefix = internal.
+# Covers apps/web (TanStack Start): build, tsc, strict type-aware oxlint, and tests.
+# Build runs first because src/routeTree.gen.ts is generated.
+name: _webapp-ci
+
+on:
+  workflow_call: {}
+
+permissions:
+  contents: read
+
+jobs:
+  webapp-ci:
+    name: Web app CI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Build + output-layout integration test
+        run: pnpm --filter web test:integration
+
+      - name: Type check (tsc)
+        run: pnpm --filter web typecheck
+
+      - name: Oxlint (type-aware, strict)
+        run: pnpm --filter web run lint:oxlint
+
+      - name: Unit tests (vitest, coverage gate)
+        run: pnpm --filter web test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
+        with:
+          files: apps/web/coverage/lcov.info
+          flags: web
+          fail_ci_if_error: false
+
+      # Runs the browser AC (branded 404) against the same artifact the integration step built.
+      - name: Install Playwright browser
+        run: pnpm --dir e2e exec playwright install --with-deps chromium
+
+      - name: Browser test (branded 404 on built worker)
+        run: |
+          pnpm --filter web exec wrangler dev --port 8799 &
+          WRANGLER_PID=$!
+          for _ in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8799/ && break; sleep 1; done
+          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts
+          kill "$WRANGLER_PID"
