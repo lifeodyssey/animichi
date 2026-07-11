@@ -12,16 +12,18 @@ type RootDocumentProps = Readonly<{
   children: ReactNode;
 }>;
 
+const rootHead = {
+  links: [{ rel: "stylesheet", href: globalsUrl }],
+  meta: [
+    { charSet: "utf-8" },
+    { name: "viewport", content: "width=device-width, initial-scale=1" },
+    { title: "Animichi" },
+    { name: "description", content: "Anime pilgrimage routes in minutes." },
+  ],
+};
+
 export const Route = createRootRoute({
-  head: () => ({
-    links: [{ rel: "stylesheet", href: globalsUrl }],
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Animichi" },
-      { name: "description", content: "Anime pilgrimage routes in minutes." },
-    ],
-  }),
+  head: () => rootHead,
   component: RootComponent,
   notFoundComponent: () => <NotFound />,
 });
