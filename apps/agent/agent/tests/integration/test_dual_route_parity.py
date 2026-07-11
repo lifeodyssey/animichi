@@ -40,7 +40,7 @@ def _ordered_ids(payload: dict[str, object]) -> list[str]:
 
 async def test_selected_route_and_chat_route_use_same_catalog_order() -> None:
     catalog = MockCatalogClient()
-    point_ids = ["p_euph_1", "p_euph_2"]
+    point_ids = ["p004", "p005"]
 
     selected = await execute_selected_route(
         point_ids=point_ids,

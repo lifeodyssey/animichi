@@ -23,7 +23,7 @@ from agent.agents.guardrails import (
 )
 from agent.agents.pilgrimage_agent import pilgrimage_agent
 from agent.agents.runtime_deps import RuntimeDeps
-from agent.agents.translation import translate_title
+from agent.agents.translation import TranslationResult, translate_title
 
 _ddg_tool = duckduckgo_search_tool(max_results=5)
 
@@ -36,6 +36,21 @@ async def _run_ddg_search(query: str) -> list[DuckDuckGoResult]:
 
 def _to_web_result(raw: DuckDuckGoResult) -> WebResult:
     return WebResult(title=raw["title"], body=raw["body"], href=raw["href"])
+
+
+def _as_web_result(raw: DuckDuckGoResult | WebResult) -> WebResult:
+    if isinstance(raw, WebResult):
+        return raw
+    return _to_web_result(raw)
+
+
+async def _run_configured_search(
+    deps: RuntimeDeps, query: str
+) -> list[DuckDuckGoResult] | list[WebResult]:
+    searcher = deps.web_searcher if isinstance(deps, RuntimeDeps) else None
+    if searcher is not None:
+        return await searcher(query)
+    return await _run_ddg_search(query)
 
 
 def _log_result_injections(results: list[WebResult]) -> None:
@@ -70,12 +85,14 @@ async def web_search(
     Returns a text summary of the top search results.
     """
     try:
-        raw_results = await asyncio.wait_for(_run_ddg_search(query), timeout=10.0)
+        raw_results = await asyncio.wait_for(
+            _run_configured_search(ctx.deps, query), timeout=10.0
+        )
     except (TimeoutError, OSError, RuntimeError) as exc:
         return f"Search failed for '{query}': {exc}"
     if not raw_results:
         return f"No results found for: {query}"
-    results = [_to_web_result(raw) for raw in raw_results[:5]]
+    results = [_as_web_result(raw) for raw in raw_results[:5]]
     _log_result_injections(results)
     return wrap_untrusted_web_results(results)
 
@@ -102,14 +119,18 @@ async def translate_anime_title(
 
     Returns: {"original": "...", "translated": "...", "source": "db|bangumi_api|web_search", "confidence": 0.0-1.0}
     """
-    result = await translate_title(
-        title,
-        target_locale=target_language,
-        db=ctx.deps.db,
-    )
+    result = await _translate_title(ctx.deps, title, target_language)
     return {
         "original": result.original,
         "translated": result.translated,
         "source": result.source,
         "confidence": result.confidence,
     }
+
+
+async def _translate_title(
+    deps: RuntimeDeps, title: str, target_language: str
+) -> TranslationResult:
+    if deps.title_translator is not None:
+        return await deps.title_translator(title, target_language)
+    return await translate_title(title, target_locale=target_language, db=deps.db)

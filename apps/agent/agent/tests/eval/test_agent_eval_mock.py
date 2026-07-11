@@ -73,7 +73,7 @@ async def test_nearby_returns_sorted_points_within_radius() -> None:
 async def test_route_builds_valid_timed_itinerary() -> None:
     """route() (D1-style plan) returns an ordered Route with a timed itinerary."""
     client = MockCatalogClient()
-    route = await client.route(["p_euph_1", "p_euph_2"])
+    route = await client.route(["p004", "p005"])
     assert isinstance(route, Route)
     assert route.point_count == 2
     assert len(route.ordered_points) == 2
@@ -110,5 +110,5 @@ async def test_calls_are_recorded_and_offline() -> None:
     """The mock records calls and performs no real DB/network access."""
     client = MockCatalogClient()
     await client.search("君の名は。")
-    await client.route(["p_kimi_1", "p_kimi_2"])
+    await client.route(["p001", "p002"])
     assert [name for name, _ in client.calls] == ["search", "route"]

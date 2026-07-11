@@ -81,7 +81,7 @@ def test_build_resolve_payload_includes_candidates() -> None:
 
 
 def test_build_resolve_payload_multiple_works_is_ambiguous() -> None:
-    payload = build_resolve_payload([_point("p1", "160209"), _point("p2", "100403")])
+    payload = build_resolve_payload([_point("p1", "160209"), _point("p2", "115908")])
     assert payload["ambiguous"] is True
     candidates = payload["candidates"]
     assert isinstance(candidates, list)
@@ -94,7 +94,7 @@ def test_build_resolve_payload_empty_when_no_points() -> None:
 
 
 async def test_build_route_payload_from_catalog_route() -> None:
-    route: Route = await MockCatalogClient().route(["p_euph_1", "p_euph_2"])
+    route: Route = await MockCatalogClient().route(["p004", "p005"])
     payload = build_route_payload(route)
     assert payload["point_count"] == 2
     assert payload["status"] == "ok"
@@ -104,7 +104,7 @@ async def test_build_route_payload_from_catalog_route() -> None:
 
 
 async def test_build_route_payload_summary_has_coordinate_counts() -> None:
-    route: Route = await MockCatalogClient().route(["p_euph_1", "p_euph_2"])
+    route: Route = await MockCatalogClient().route(["p004", "p005"])
     summary = build_route_payload(route)["summary"]
     assert isinstance(summary, dict)
     assert summary["with_coordinates"] == 2
