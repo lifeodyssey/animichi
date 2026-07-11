@@ -331,21 +331,29 @@ Reference: [Anthropic — Demystifying Evals for AI Agents](https://www.anthropi
 **pass@k:** Probability of at least one success in k attempts. Use for "just needs to work once."
 **pass^k:** Probability that ALL k trials succeed. Use for user-facing reliability.
 
-### Baseline & Regression Detection
+### Eval execution architecture (two tiers)
 
-1. First run generates baseline file (JSON: per-case pass/fail + score)
-2. Subsequent runs compare against baseline:
-   - Regression ≥ 10pp → **FAIL** (block merge)
-   - Improvement ≥ 5pp → update baseline
-   - Within baseline ± 5pp → PASS
-3. Each layer maintains its own independent baseline file
+Tier 1 trajectory is the default `make test-eval` path. It runs the real LLM
+against `MockCatalogClient` and `NullDatabase`, so the tool side is
+deterministic and there are zero DB, Docker, or real catalog dependencies. The
+same command runs locally and in CI.
 
-### Handling Non-Determinism
+Tier 2 fullstack is opt-in via `make test-eval-fullstack`. It sets
+`EVAL_FULLSTACK=1` and defaults `EVAL_MAX_CASES` to 50 for a thin run against a
+testcontainer DB plus the real catalog client. It is not a PR gate; use it for
+nightly or pre-release integration confidence.
 
-- Run **3 trials** per case
-- Use pass@3 for capability evals
-- Use pass^3 for regression evals
-- Isolate trials: clean session state between runs
+No-retry-until-green: eval tasks run once. `retry_task` and
+`EVAL_TASK_RETRIES` are not part of the eval contract; task errors are counted
+in `errored_count`, and a run fails when more than 20% of cases error.
+
+Regression gating uses `agent/tests/eval/gate.py`: schema-v2 per-case baselines
+and a paired-bootstrap 95% confidence interval. Capped runs are report-only and
+never read, write, or enforce baselines.
+
+Baselines are per layer and model. Trajectory writes `agent_trajectory_*`;
+fullstack writes `agent_*`. These tiers are not score-comparable because their
+dependencies and failure modes differ.
 
 ### Eval-Driven Development (TDD for LLMs)
 
@@ -359,10 +367,10 @@ Reference: [Anthropic — Demystifying Evals for AI Agents](https://www.anthropi
 
 | Dependency | Unit | Integration | API Test | Eval | E2E (Browser) |
 |-----------|------|-------------|----------|------|---------------|
-| **DB (asyncpg)** | `AsyncMock` | testcontainers PG | testcontainers PG | Real PG or fixture | Real DB |
+| **DB (asyncpg)** | `AsyncMock` | testcontainers PG | testcontainers PG | NullDatabase default; testcontainers fullstack | Real DB |
 | **LLM (Pydantic AI)** | `TestModel` / N/A | `TestModel` | `TestModel` | **Real LLM** | Real LLM |
-| **Bangumi API** | `MagicMock` | `respx` | `respx` | Real or VCR cache | Real API |
-| **Anitabi API** | `MagicMock` | `respx` | `respx` | Real or VCR cache | Real API |
+| **Bangumi API** | `MagicMock` | `respx` | `respx` | Behind catalog tier; not direct | Real API |
+| **Anitabi API** | `MagicMock` | `respx` | `respx` | Behind catalog tier; not direct | Real API |
 | **Frontend API** | — | — | — | — | No mock |
 | **Auth / Session** | `mock_settings` | `X-User-Id` header | `X-User-Id` header | `.env.test` | Real login |
 
@@ -545,10 +553,10 @@ jobs:
 
   gate-eval:               # Must pass for merge
     - make test-eval-component    # Layer 1, seconds
-    - make test-eval-agent        # Layer 2, minutes
+    - make test-eval              # trajectory eval, minutes
 
   monitor-only:            # Does not block
-    - make test-eval-full         # Layer 3, hours
+    - make test-eval-fullstack    # thin fullstack eval, opt-in
 
   deploy:
     needs: [gate-fast, gate-integration, gate-eval]
@@ -672,6 +680,7 @@ The following is embedded directly in Executor and Reviewer prompts. No runtime 
 - Unit: mock all external dependencies (DB, API, LLM)
 - Integration: mock only LLM, DB via testcontainers
 - API test: mock only LLM, real DB
+- Agent eval: trajectory uses NullDatabase + MockCatalogClient; fullstack uses testcontainers + real catalog
 - Frontend component: MSW mock API layer
 - E2E: **mock nothing**
 - Use `respx` for HTTP mocks, `AsyncMock` for async functions
@@ -751,15 +760,14 @@ For uncertain framework APIs or newly introduced libraries, Reviewer should use 
 # Existing
 test:                    # unit tests (seconds)
 test-integration:        # integration (minutes, needs Docker)
-test-eval:               # all evals (hours, needs LLM API)
+test-eval:               # trajectory evals (needs LLM API, no Docker)
+test-eval-fullstack:     # thin fullstack eval (opt-in, not a PR gate)
 
 # New
 test-api:                # API contract tests with real DB (minutes)
 test-frontend:           # vitest (seconds)
 test-coverage:           # pytest-cov + vitest --coverage
 test-eval-component:     # Layer 1, deterministic, seconds
-test-eval-agent:         # Layer 2, single agent run, minutes
-test-eval-full:          # Layer 3, full agent, hours (CI-only)
 test-all:                # unit + integration + api + frontend + eval-component
 ```
 

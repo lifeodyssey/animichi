@@ -17,7 +17,12 @@ from agent.agents.agent_result import AgentResult
 
 # Importing pilgrimage_tools triggers @tool registrations on the agent.
 from agent.agents.pilgrimage_agent import pilgrimage_agent  # noqa: F401
-from agent.agents.runtime_deps import OnStep, RuntimeDeps
+from agent.agents.runtime_deps import (
+    OnStep,
+    RuntimeDeps,
+    TitleTranslator,
+    WebSearcher,
+)
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
 
@@ -76,6 +81,8 @@ async def run_pilgrimage_agent(
     message_history: list[ModelMessage] | None = None,
     on_step: OnStep | None = None,
     model_settings: ModelSettings | None = None,
+    web_searcher: WebSearcher | None = None,
+    title_translator: TitleTranslator | None = None,
 ) -> AgentResult:
     """Run the main agent and return AgentResult.
 
@@ -88,6 +95,8 @@ async def run_pilgrimage_agent(
         query=text,
         on_step=on_step,
         catalog=catalog,
+        web_searcher=web_searcher,
+        title_translator=title_translator,
     )
     _seed_tool_state(deps, context)
 
