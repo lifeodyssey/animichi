@@ -43,13 +43,13 @@ def _ordered_rows(result: AgentResult) -> list[dict[str, object]]:
 
 
 def _euphonium_points() -> list[PilgrimagePoint]:
-    return [point.model_copy(deep=True) for point in FIXTURE_POINTS["100403"]]
+    return [point.model_copy(deep=True) for point in FIXTURE_POINTS["115908"]]
 
 
 async def test_selected_route_rows_keep_catalog_point_fields() -> None:
     catalog = MockCatalogClient()
     result = await execute_selected_route(
-        point_ids=["p_euph_1", "p_euph_2"],
+        point_ids=["p004", "p005"],
         origin="34.8915,135.8075",
         locale="en",
         catalog=catalog,
@@ -58,13 +58,13 @@ async def test_selected_route_rows_keep_catalog_point_fields() -> None:
     rows = _ordered_rows(result)
     assert set(rows[0]) == _POINT_FIELDS
     assert rows[0] == _euphonium_points()[0].model_dump(mode="json")
-    assert catalog.calls == [("route", (("p_euph_1", "p_euph_2"), (34.8915, 135.8075)))]
+    assert catalog.calls == [("route", (("p004", "p005"), (34.8915, 135.8075)))]
 
 
 async def test_selected_route_rows_match_search_payload_rows() -> None:
     catalog = MockCatalogClient()
     result = await execute_selected_route(
-        point_ids=["p_euph_1", "p_euph_2"],
+        point_ids=["p004", "p005", "p006"],
         origin=None,
         locale="ja",
         catalog=catalog,
@@ -96,7 +96,7 @@ class _FailingCatalog(MockCatalogClient):
 
 async def test_selected_route_catalog_api_error_returns_error() -> None:
     result = await execute_selected_route(
-        point_ids=["p_euph_1"],
+        point_ids=["p004"],
         origin=None,
         locale="en",
         catalog=_FailingCatalog(),
@@ -113,7 +113,7 @@ async def test_selected_route_emits_running_and_done_steps() -> None:
         events.append((tool, status))
 
     await execute_selected_route(
-        point_ids=["p_euph_1"],
+        point_ids=["p004"],
         origin=None,
         locale="en",
         catalog=MockCatalogClient(),
@@ -129,13 +129,13 @@ async def test_selected_route_malformed_origin_routes_without_origin(
 ) -> None:
     catalog = MockCatalogClient()
     await execute_selected_route(
-        point_ids=["p_euph_1"],
+        point_ids=["p004"],
         origin=origin,
         locale="en",
         catalog=catalog,
     )
 
-    assert catalog.calls == [("route", (("p_euph_1",), None))]
+    assert catalog.calls == [("route", (("p004",), None))]
 
 
 def _agent_source_files() -> list[Path]:

@@ -70,6 +70,6 @@ async def test_enrich_clarify_candidates_falls_back_to_catalog_and_writes_throug
     # The catalog's first hit carries the bangumi_id (160209), cover, and the
     # work's point count — no Bangumi gateway is consulted.
     assert candidates[0]["cover_url"] == "https://example.test/cover/160209.jpg"
-    assert candidates[0]["spot_count"] == 2
+    assert candidates[0]["spot_count"] == 3
     db.bangumi.upsert_bangumi_title.assert_awaited_once_with("你的名字", "160209")
     db.bangumi.upsert_bangumi.assert_awaited()
