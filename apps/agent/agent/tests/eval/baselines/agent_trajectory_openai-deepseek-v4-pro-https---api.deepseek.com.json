@@ -1,0 +1,4683 @@
+{
+  "schema_version": 2,
+  "model": "openai:deepseek-v4-pro@https://api.deepseek.com",
+  "dataset": "agent_eval_v3",
+  "tier": "trajectory",
+  "repeat": 1,
+  "case_count": 647,
+  "evaluated_count": 583,
+  "scores": {
+    "IntentMatch": 0.7650085763293311,
+    "MessageQuality": 1.0,
+    "ToolExecution": 0.9759862778730704,
+    "DataCompleteness": 0.7855917667238422,
+    "StepEfficiency": 0.9116638078902229,
+    "ResponseLocale": 0.4922813036020583
+  },
+  "cases": {
+    "A1_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A1_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A1_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A1_ja_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A1_ja_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A1_ja_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A1_ja_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A1_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_zh_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_zh_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_en_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_en_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_en_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A2_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A2_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A2_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A2_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A2_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A2_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A2_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A2_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A2_ja_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A2_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A3_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A3_ja_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A3_ja_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A3_ja_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "A3_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A3_zh_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A3_zh_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A3_zh_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "A3_zh_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "A3_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "A3_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A3_en_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A3_en_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 0.0
+    },
+    "A4_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A4_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A4_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A4_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A4_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A4_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A4_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A4_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A5_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 1.0
+    },
+    "A5_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "A5_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 1.0
+    },
+    "A5_zh_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "A5_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 1.0
+    },
+    "A5_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 0.0
+    },
+    "A5_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A6_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A6_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A6_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A6_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A6_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_zh_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_en_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_zh_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_en_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A8_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A8_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A8_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A8_ja_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A8_ja_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A8_ja_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A8_ja_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A8_ja_008": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A8_ja_009": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A8_ja_010": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A9_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A9_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A9_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A9_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A9_zh_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A9_zh_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A9_zh_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A9_zh_008": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A9_zh_009": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A9_zh_010": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A10_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A10_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A10_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A10_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A10_en_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A10_en_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A10_en_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A10_en_008": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A10_en_009": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A10_en_010": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B1_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 1.0
+    },
+    "B1_ja_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "B1_ja_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B1_ja_006": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 1.0
+    },
+    "B1_ja_007": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B1_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "B1_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B1_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B1_zh_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 1.0
+    },
+    "B1_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "B1_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 0.0
+    },
+    "B1_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B1_en_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B1_en_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 0.0
+    },
+    "B1_en_007": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 0.0
+    },
+    "B2_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B2_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B2_ja_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B2_ja_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B2_ja_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "B2_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B2_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "B2_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 1.0
+    },
+    "B2_zh_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B2_zh_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "B2_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "B2_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B2_en_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B2_en_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "B2_en_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 0.0
+    },
+    "B3_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B3_ja_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 1.0
+    },
+    "B3_ja_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "B3_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "B3_zh_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "B3_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "B3_zh_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 0.0
+    },
+    "B3_zh_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "B3_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B3_en_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 0.0
+    },
+    "B4_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "B4_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 1.0
+    },
+    "B4_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "B4_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B4_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "B4_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "B4_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B4_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B4_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C1_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C1_ja_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C1_ja_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C1_ja_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C1_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C1_zh_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C1_zh_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C1_zh_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C1_zh_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C1_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C1_en_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C2_ja_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C2_ja_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C2_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C2_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C2_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C2_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C2_en_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C2_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C3_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C3_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C3_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C3_ja_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C3_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C3_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C3_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C3_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C3_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C3_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C3_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C4_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C4_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C4_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C4_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C4_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C4_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C4_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C4_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D1_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D1_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D1_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D1_ja_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D1_ja_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D1_ja_006": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D1_ja_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D1_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D1_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D1_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D1_zh_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D1_zh_006": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D1_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D1_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D1_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D1_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D1_en_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D1_en_006": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D1_en_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D2_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D2_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D2_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D2_ja_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D2_ja_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D2_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D2_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D2_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D2_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D2_zh_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D2_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D2_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D2_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D2_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D2_en_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D3_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D3_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D3_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D3_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D3_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D3_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D3_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D3_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D4_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D4_ja_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D4_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D4_zh_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D4_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D4_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "D4_zh_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "E1_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E1_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E1_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E1_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "E1_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E1_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "E1_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E1_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "E1_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "E1_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "E2_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E2_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E2_ja_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E2_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E2_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "E2_zh_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "E2_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "E2_en_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E2_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "E3_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E3_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E3_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "E3_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E3_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E4_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E4_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "E4_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "E4_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "E4_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "F1_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F1_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F1_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F1_ja_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F1_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F1_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "F1_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "F1_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F1_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "F1_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "F1_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "F1_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "F2_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F2_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F2_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F2_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "F2_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F2_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "F2_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F2_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F2_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "F2_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F3_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F3_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F3_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F3_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "F3_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F3_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "F3_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G1_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G1_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G1_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G1_ja_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G1_ja_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G1_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G1_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G1_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G1_zh_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G1_zh_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G1_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G1_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G1_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G1_en_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G1_en_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G2_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G2_ja_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G2_ja_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G2_ja_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G2_ja_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G2_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G2_zh_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G2_zh_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "G2_zh_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G2_zh_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G2_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G2_en_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G2_en_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G2_en_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G2_en_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "G3_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G3_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G3_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G3_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G3_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G3_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G3_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G3_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G3_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G3_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G4_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G4_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G4_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G4_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G4_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G4_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G4_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G4_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G5_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G5_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G5_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G5_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G5_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G5_en_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G6_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G6_ja_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G6_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G6_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "G6_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "G6_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "H1_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H1_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H1_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H1_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H1_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H1_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "H1_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H1_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H1_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "H1_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "H2_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H2_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H2_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H2_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H2_zh_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "H2_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H2_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "H2_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "H2_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "H2_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "H3_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H3_ja_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H3_ja_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H3_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "H3_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H3_en_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "H3_en_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H4_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H4_ja_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H4_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H4_zh_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "H4_zh_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "H4_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "H4_en_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "I1_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I1_zh_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I1_zh_006": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I1_zh_008": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "I1_zh_009": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 1.0
+    },
+    "I2_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I2_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I2_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I2_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I2_en_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I2_en_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I2_en_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I2_en_008": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I4_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "I4_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "I4_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I4_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I4_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I4_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I4_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I4_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I5_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "I5_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "I5_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I5_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I5_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I5_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I6_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "I6_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "I6_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I6_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I6_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I6_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I6_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "I6_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I7_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "I7_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "I7_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I7_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "I7_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I7_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I8_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 1.0
+    },
+    "I8_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "I8_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 0.0
+    },
+    "I9_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 0.0
+    },
+    "J1_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "J1_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "J1_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J1_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J1_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J1_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J1_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J1_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J2_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "J2_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "J2_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J2_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J2_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J2_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J2_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J2_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J3_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "J3_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "J3_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J3_zh_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "J3_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J4_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "J4_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "J4_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J4_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J4_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J4_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J5_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "J5_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "J5_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J5_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "J5_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "J5_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "K1_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "K1_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "K1_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "K1_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "K1_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "K1_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "K2_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "K2_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "K2_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "K2_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "K3_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "K3_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "K3_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "K4_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "K4_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "L1_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "L1_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "L1_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "L1_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "L1_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "L1_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "L1_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "L1_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "L2_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "L2_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "L2_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "L2_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "L2_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "L2_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "L2_en_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "L3_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "L3_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "L3_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "L3_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "L3_en_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "L4_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "L4_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "L4_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "L4_en_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "L4_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_zh_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_en_008": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A1_ja_008": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A3_ja_007": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "B1_ja_008": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "D1_ja_008": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D1_zh_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D1_en_008": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I4_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "I4_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I4_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_zh_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A7_en_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B4_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.0,
+      "ResponseLocale": 1.0
+    },
+    "D2_ja_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "D2_zh_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "I1_zh_011": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "I2_en_009": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "I2_en_010": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A4_ja_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A4_zh_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F2_ja_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "F2_en_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C3_ja_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "C3_zh_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C3_en_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A2_zh_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B_remake_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B_remake_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B_remake_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A_remake_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A_remake_zh_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "B_multisn_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "B_multisn_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B_multisn_en_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "A_multisn_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A_multisn_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "B_sameseries_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A_sameseries_zh_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "A_sameseries_en_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "C_multisn_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "C_multisn_zh_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ1_ja_001": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "GINJ1_ja_002": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "GINJ1_ja_003": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "GINJ1_ja_004": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "GINJ1_ja_005": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "GINJ1_ja_006": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "GINJ1_zh_007": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "GINJ1_zh_008": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ1_zh_009": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ1_zh_010": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ1_zh_011": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ1_zh_012": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ1_en_013": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "GINJ1_en_014": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ1_en_015": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ1_en_016": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ1_en_017": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ1_en_018": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ2_ja_001": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "GINJ2_ja_002": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "GINJ2_ja_003": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "GINJ2_ja_004": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    },
+    "GINJ2_zh_005": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "GINJ2_zh_006": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "GINJ2_zh_007": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ2_en_008": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 1.0
+    },
+    "GINJ2_en_009": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ2_en_010": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 0.0
+    },
+    "GINJ2_en_011": {
+      "IntentMatch": 0.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 0.0,
+      "DataCompleteness": 0.0,
+      "StepEfficiency": 0.5,
+      "ResponseLocale": 0.0
+    },
+    "GINJ2_zh_012": {
+      "IntentMatch": 1.0,
+      "MessageQuality": 1.0,
+      "ToolExecution": 1.0,
+      "DataCompleteness": 1.0,
+      "StepEfficiency": 1.0,
+      "ResponseLocale": 1.0
+    }
+  }
+}
