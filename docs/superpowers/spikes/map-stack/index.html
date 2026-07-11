@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%2319c8b9'/%3E%3C/svg%3E" />
+    <title>Seichijunrei Map Stack Spike</title>
+  </head>
+  <body>
+    <header class="page-header">
+      <p class="eyebrow">S0.4 · MapLibre GL JS + PMTiles</p>
+      <h1>宇治巡礼 map-stack spike</h1>
+      <div class="mode-switch" aria-label="source mode">
+        <button id="mode-pmtiles" type="button">pmtiles://</button>
+        <button id="mode-worker" type="button">worker /tiles</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel" aria-labelledby="static-title">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">ADR D4</p>
+            <h2 id="static-title">Static-first card</h2>
+          </div>
+          <label class="toggle">
+            <input id="static-failure" type="checkbox" />
+            <span>simulate tile failure</span>
+          </label>
+        </div>
+        <div id="static-card" class="map-card static-card"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="interactive-title">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">ADR D1 / D3</p>
+            <h2 id="interactive-title">Interactive coverage demo</h2>
+          </div>
+          <div class="button-row">
+            <button id="fly-tokyo" type="button">fly outside coverage</button>
+            <button id="fly-uji" type="button">back to Uji</button>
+          </div>
+        </div>
+        <div id="interactive-map" class="map-card interactive-map"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="offline-title">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">ADR D5</p>
+            <h2 id="offline-title">Offline FileSource demo</h2>
+          </div>
+          <button id="load-offline" type="button">load region file offline</button>
+        </div>
+        <div id="offline-map" class="map-card offline-map is-empty">
+          <p>Load the PMTiles file to render from a browser FileSource.</p>
+        </div>
+        <p class="caption">
+          Once loaded, DevTools-offline keeps this map fully working with no tile network I/O.
+        </p>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
