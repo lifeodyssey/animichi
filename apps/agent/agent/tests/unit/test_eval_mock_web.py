@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import cast
 from unittest.mock import MagicMock
 
+import pytest
 from pydantic_ai import RunContext
 from pydantic_ai.messages import (
     ModelMessage,
@@ -67,8 +68,8 @@ async def test_mock_title_translator_known_names_are_authoritative() -> None:
 
     assert zh.translated == "你的名字"
     assert ja.translated == "君の名は。"
-    assert zh.confidence == 1.0
-    assert ja.confidence == 1.0
+    assert zh.confidence == pytest.approx(1.0)
+    assert ja.confidence == pytest.approx(1.0)
 
 
 async def test_mock_title_translator_unknown_returns_low_confidence() -> None:
