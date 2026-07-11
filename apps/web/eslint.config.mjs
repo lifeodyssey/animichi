@@ -37,6 +37,16 @@ export default tseslint.config(
       "max-depth": ["error", 2],
       "max-lines-per-function": [
         "error",
+        { max: 10, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+  {
+    files: ["tests/**/*.ts", "tests/**/*.tsx"],
+    rules: {
+      // Test bodies enumerate assertions; the effective test-size guard is the repo's 200-line-per-file cap.
+      "max-lines-per-function": [
+        "error",
         { max: 50, skipBlankLines: true, skipComments: true },
       ],
     },
