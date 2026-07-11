@@ -23,6 +23,7 @@ jobs:
       catalog: ${{ steps.f.outputs.catalog }}
       agent: ${{ steps.f.outputs.agent }}
       frontend: ${{ steps.f.outputs.frontend }}
+      web: ${{ steps.f.outputs.web }}
       contract: ${{ steps.f.outputs.contract }}
       worker: ${{ steps.f.outputs.worker }}
     steps:
@@ -37,6 +38,7 @@ jobs:
             catalog: ['workers/catalog/**', 'packages/contract/**']
             agent: ['apps/agent/**', 'packages/contract/**']
             frontend: ['frontend/**']
+            web: ['apps/web/**']
             worker: ['worker/**']
 
   # ── Stage 1: Component CI (reusable workflows, all parallel) ──
@@ -67,6 +69,12 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+
+  ci-web:
+    name: Web app CI
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.web == 'true' }}
+    uses: ./.github/workflows/_webapp-ci.yml
 
   ci-worker:
     name: Edge worker tests
