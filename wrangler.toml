@@ -89,3 +89,61 @@ invocation_logs = true
 enabled = true
 persist = true
 head_sampling_rate = 1
+
+[env.production]
+name = "animichi"
+routes = [
+  { pattern = "animichi.com/*", zone_name = "animichi.com" }
+]
+
+[env.production.vars]
+CATALOG_API_URL = "http://catalog.internal"
+
+[env.production.assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[[env.production.services]]
+binding = "CATALOG"
+service = "catalog"
+
+[[env.production.containers]]
+class_name = "RuntimeContainer"
+image = "./Dockerfile"
+max_instances = 3
+
+[[env.production.durable_objects.bindings]]
+name = "CONTAINER"
+class_name = "RuntimeContainer"
+
+[[env.production.migrations]]
+tag = "v1"
+new_sqlite_classes = ["RuntimeContainer"]
+
+[env.staging]
+name = "animichi-staging"
+routes = []
+
+[env.staging.vars]
+CATALOG_API_URL = "http://catalog.internal"
+
+[env.staging.assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[[env.staging.services]]
+binding = "CATALOG"
+service = "catalog-staging"
+
+[[env.staging.containers]]
+class_name = "RuntimeContainer"
+image = "./Dockerfile"
+max_instances = 3
+
+[[env.staging.durable_objects.bindings]]
+name = "CONTAINER"
+class_name = "RuntimeContainer"
+
+[[env.staging.migrations]]
+tag = "v1"
+new_sqlite_classes = ["RuntimeContainer"]
