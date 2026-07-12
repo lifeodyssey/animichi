@@ -15,6 +15,7 @@ run is fast, offline, and deterministic; the LLM is not exercised here.
 
 from __future__ import annotations
 
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -28,6 +29,7 @@ from agent.agents.runtime_models import (
     RouteResponseModel,
     SearchResponseModel,
 )
+from agent.clients.catalog_client import CatalogClientProtocol
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
 _ALLOWED_CATALOG_METHODS = {"search", "spots", "nearby", "route"}
@@ -72,7 +74,11 @@ async def _run(
 ) -> tuple[AgentResult, MockCatalogClient]:
     catalog = MockCatalogClient()
     result = await run_pilgrimage_agent(
-        text=text, db=MagicMock(), locale="ja", model=model, catalog=catalog
+        text=text,
+        db=MagicMock(),
+        locale="ja",
+        model=model,
+        catalog=cast(CatalogClientProtocol, catalog),
     )
     return result, catalog
 
