@@ -28,6 +28,9 @@ export interface SourceConfig {
   bangumiBaseUrl?: string;
 }
 
+/** Upstream identity retained on transport failures for typed boundary mapping. */
+export type UpstreamName = "anitabi" | "bangumi";
+
 const ANITABI_BASE = "https://api.anitabi.cn/bangumi";
 const BANGUMI_BASE = "https://api.bgm.tv";
 const USER_AGENT =
@@ -62,6 +65,14 @@ export class UpstreamNotFoundError extends Error {
   }
 }
 
+/** A transport or non-2xx failure distinct from a real upstream 404. */
+export class UpstreamFetchError extends Error {
+  constructor(readonly url: string, readonly upstream: UpstreamName, cause?: unknown) {
+    super(`Upstream fetch failed: ${url}`, { cause });
+    this.name = "UpstreamFetchError";
+  }
+}
+
 /** Throw if `bangumiId` is not a pure numeric string (prevents path injection). */
 function assertBangumiId(bangumiId: string): void {
   if (!BANGUMI_ID_RE.test(bangumiId)) {
@@ -77,7 +88,7 @@ export async function fetchAnitabiPoints(
   assertBangumiId(bangumiId);
   const base = cfg.anitabiBaseUrl ?? ANITABI_BASE;
   const url = `${base}/${bangumiId}/points/detail?haveImage=true`;
-  const body = await fetchJson(url, cfg.fetchImpl);
+  const body = await fetchJson(url, "anitabi", cfg.fetchImpl);
   return normalizePoints(body);
 }
 
@@ -97,7 +108,7 @@ export async function fetchAnitabiLite(
 ): Promise<AnitabiLite> {
   assertBangumiId(bangumiId);
   const base = cfg.anitabiBaseUrl ?? ANITABI_BASE;
-  const body = await fetchJson(`${base}/${bangumiId}/lite`, cfg.fetchImpl);
+  const body = await fetchJson(`${base}/${bangumiId}/lite`, "anitabi", cfg.fetchImpl);
   return parseLite(body);
 }
 
@@ -123,7 +134,7 @@ export async function fetchBangumiSubject(
   assertBangumiId(bangumiId);
   const base = cfg.bangumiBaseUrl ?? BANGUMI_BASE;
   const url = `${base}/v0/subjects/${bangumiId}`;
-  const body = await fetchJson(url, cfg.fetchImpl);
+  const body = await fetchJson(url, "bangumi", cfg.fetchImpl);
   return expectObject(body);
 }
 
@@ -141,7 +152,7 @@ export async function fetchBangumiSearch(
 ): Promise<string | null> {
   const base = cfg.bangumiBaseUrl ?? BANGUMI_BASE;
   const body = JSON.stringify({ keyword: keywords, filter: { type: [BANGUMI_TYPE_ANIME] } });
-  const json = await postJson(`${base}/v0/search/subjects`, body, cfg.fetchImpl);
+  const json = await postJson(`${base}/v0/search/subjects`, body, "bangumi", cfg.fetchImpl);
   return bestSubjectId(json);
 }
 
@@ -165,21 +176,30 @@ function subjectId(subject: Record<string, unknown>): string | null {
 }
 
 /** GET + JSON-decode with status guarding; throws on a non-2xx response. */
-async function fetchJson(url: string, fetchImpl?: FetchLike): Promise<unknown> {
+async function fetchJson(url: string, upstream: UpstreamName, fetchImpl?: FetchLike): Promise<unknown> {
   const doFetch = fetchImpl ?? (fetch);
-  const res = await doFetch(url, { headers: { "User-Agent": USER_AGENT } });
+  const res = await request(doFetch, url, upstream, { headers: { "User-Agent": USER_AGENT } });
   if (res.status === 404) throw new UpstreamNotFoundError(url);
-  if (!res.ok) throw new Error(`Upstream fetch failed (${String(res.status)}): ${url}`);
+  if (!res.ok) throw new UpstreamFetchError(`${url} (${String(res.status)})`, upstream);
   return res.json();
 }
 
 /** POST a JSON body + JSON-decode with status guarding; throws on a non-2xx response. */
-async function postJson(url: string, body: string, fetchImpl?: FetchLike): Promise<unknown> {
+async function postJson(url: string, body: string, upstream: UpstreamName, fetchImpl?: FetchLike): Promise<unknown> {
   const doFetch = fetchImpl ?? (fetch);
   const headers = { "User-Agent": USER_AGENT, "Content-Type": "application/json" };
-  const res = await doFetch(url, { method: "POST", headers, body });
-  if (!res.ok) throw new Error(`Upstream fetch failed (${String(res.status)}): ${url}`);
+  const res = await request(doFetch, url, upstream, { method: "POST", headers, body });
+  if (!res.ok) throw new UpstreamFetchError(`${url} (${String(res.status)})`, upstream);
   return res.json();
+}
+
+/** Convert network failures into a transport-specific error for source-aware callers. */
+async function request(doFetch: FetchLike, url: string, upstream: UpstreamName, init: Parameters<FetchLike>[1]) {
+  try {
+    return await doFetch(url, init);
+  } catch (err) {
+    throw new UpstreamFetchError(url, upstream, err);
+  }
 }
 
 /** Normalize Anitabi's {data|points: [...]} / bare-array shapes to a point list. */

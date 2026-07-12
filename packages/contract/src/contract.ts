@@ -81,6 +81,7 @@ export const catalogContract = {
   nearby: oc
     .route({ method: "POST", path: "/catalog/nearby", summary: "Find pilgrimage points within a radius" })
     .input(NearbyInput)
+    // Pure DB/PostGIS query: no upstream dependency, so no UPSTREAM_UNAVAILABLE.
     .output(NearbyResult),
   route: oc
     .route({ method: "POST", path: "/catalog/route", summary: "Plan an ordered, timed route over selected points" })
@@ -90,6 +91,7 @@ export const catalogContract = {
   ingest: oc
     .route({ method: "POST", path: "/catalog/ingest", summary: "Ingest a not-yet-cataloged work on demand by bangumi id" })
     .input(IngestInput)
+    .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
     .output(IngestResult),
 };
 
