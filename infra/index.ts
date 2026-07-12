@@ -15,6 +15,14 @@ import * as cloudflare from "@pulumi/cloudflare";
 
 const config = new pulumi.Config();
 const accountId = config.require("cloudflareAccountId");
+const webRoutesEnabled = config.getBoolean("webRoutesEnabled") ?? false;
+
+// Route topology remains in Pulumi (split-brain rule). Root wrangler routes
+// stay until S0.7 cutover flips this flag and removes route entries there.
+// Keep this false by default; enabling requires:
+//   pulumi config set webRoutesEnabled true
+//   pulumi config set cloudflareZoneId <zone id>
+//   pulumi config set webDomain <domain>
 
 // ── Catalog: Neon DATABASE_URL (managed secret — stored in Pulumi config) ────
 // Set production value via:
@@ -37,6 +45,35 @@ const catalogMediaBucket = new cloudflare.R2Bucket("catalog-media", {
   name: "catalog-media",
   location: "APAC",
 });
+
+if (webRoutesEnabled) {
+  const cloudflareZoneId = config.require("cloudflareZoneId");
+  const webDomain = config.require("webDomain");
+
+  new cloudflare.WorkersRoute("animichi-web-route", {
+    zoneId: cloudflareZoneId,
+    pattern: `${webDomain}/*`,
+    script: "animichi-web",
+  });
+
+  new cloudflare.WorkersRoute("animichi-edge-v1-route", {
+    zoneId: cloudflareZoneId,
+    pattern: `${webDomain}/v1/*`,
+    script: "animichi",
+  });
+
+  new cloudflare.WorkersRoute("animichi-edge-img-route", {
+    zoneId: cloudflareZoneId,
+    pattern: `${webDomain}/img/*`,
+    script: "animichi",
+  });
+
+  new cloudflare.WorkersRoute("animichi-edge-healthz-route", {
+    zoneId: cloudflareZoneId,
+    pattern: `${webDomain}/healthz`,
+    script: "animichi",
+  });
+}
 
 export const wave0 = pulumi.output("spike-validated");
 export const catalogBucketName = catalogMediaBucket.name;
