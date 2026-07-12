@@ -80,7 +80,6 @@ app.use("/catalog/*", async (c, next) => {
   }
   const { db, neonSql } = await dbFor(connStr);
   const { matched, response } = await apiHandler.handle(c.req.raw, {
-    prefix: "/catalog",
     context: { db, neonSql, fetchImpl: fetch, waitUntil: waitUntilFor(c) },
   });
   if (matched) {

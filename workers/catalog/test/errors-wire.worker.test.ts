@@ -42,23 +42,40 @@ async function call(path: string, body: unknown, context: CatalogContext): Promi
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  const { matched, response } = await handler.handle(req, { prefix: "/catalog", context });
+  const { matched, response } = await handler.handle(req, { context });
   expect(matched).toBe(true);
   if (!response) throw new Error("expected OpenAPI handler response");
   return response;
 }
 
+/** Context that wins ingest singleflight and records the subsequent failure. */
+function ingestContext(fetchImpl: typeof fetch): CatalogContext {
+  let calls = 0;
+  const execute = () => Promise.resolve({ rows: calls++ === 0 ? [{ work_id: "3302" }] : [] });
+  const db = { execute } as unknown as CatalogDb;
+  const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
+  return { db, neonSql, fetchImpl };
+}
+
+/** Bangumi succeeds; Anitabi fails so the typed source label is deterministic. */
+function anitabiOutage(): typeof fetch {
+  const fetchImpl = (input: string) => input.includes("api.bgm.tv")
+    ? Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ id: 3302 }) })
+    : Promise.reject(new Error("anitabi down"));
+  return fetchImpl as unknown as typeof fetch;
+}
+
 /** Build a minimal CatalogContext; casts stay at the test fake boundary. */
 function context(rows: unknown[], fetchImpl?: typeof fetch): CatalogContext {
   const db = { execute: () => Promise.resolve({ rows }) } as unknown as CatalogDb;
-  const neonSql = (() => Promise.resolve({ rows: [] })) as unknown as NeonSql;
+  const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
   return { db, neonSql, fetchImpl };
 }
 
 /** Context whose DB must not be touched. */
 function unreachableContext(): CatalogContext {
   const db = { execute: () => { throw new Error("db should not be reached"); } } as unknown as CatalogDb;
-  const neonSql = (() => Promise.resolve({ rows: [] })) as unknown as NeonSql;
+  const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
   return { db, neonSql };
 }
 
@@ -75,6 +92,18 @@ function routeRows(count: number): RouteRow[] {
 async function json<TData>(response: Response): Promise<ErrorEnvelope<TData>> {
   return await response.json();
 }
+
+describe("catalog input validation on the OpenAPI wire", () => {
+  it("rejects malformed nearby input before SQL while accepting typed input", async () => {
+    const malformed = await call("nearby", { lat: "36.1", lng: 139.6, radius_m: 5000 }, unreachableContext());
+    expect(malformed.status).toBe(400);
+    expect(await malformed.json()).toMatchObject({ defined: false, status: 400 });
+
+    const valid = await call("nearby", { lat: 36.1, lng: 139.6, radius_m: 5000 }, context([]));
+    expect(valid.status).toBe(200);
+    expect(await valid.json()).toEqual({ rows: [] });
+  });
+});
 
 describe("catalog typed errors on the OpenAPI wire", () => {
   it("serializes ROUTE_TOO_MANY_POINTS for route input over the router cap", async () => {
@@ -118,6 +147,19 @@ describe("catalog typed errors on the OpenAPI wire", () => {
       defined: true, code: "UPSTREAM_UNAVAILABLE", status: 502,
       message: "Upstream catalog source unavailable",
       data: { upstream: "bangumi" },
+    });
+  });
+
+});
+
+describe("catalog ingest typed errors on the OpenAPI wire", () => {
+  it("serializes defined UPSTREAM_UNAVAILABLE when ingest cannot reach Anitabi", async () => {
+    const res = await call("ingest", { bangumi_id: "3302" }, ingestContext(anitabiOutage()));
+    expect(res.status).toBe(502);
+    expect(await json<UpstreamUnavailableData>(res)).toEqual({
+      defined: true, code: "UPSTREAM_UNAVAILABLE", status: 502,
+      message: "Upstream catalog source unavailable",
+      data: { upstream: "anitabi" },
     });
   });
 });
