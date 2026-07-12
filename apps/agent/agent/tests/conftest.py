@@ -1,9 +1,8 @@
 """Pytest configuration and shared fixtures."""
 
 import asyncio
-import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import logfire
 import pytest
@@ -18,11 +17,6 @@ test_env = Path(__file__).parent / ".env.test"
 if test_env.exists():
     load_dotenv(test_env)
 
-# Ensure API keys are set before any module-level imports trigger model init
-os.environ.setdefault("DEEPSEEK_API_KEY", "test-key")
-os.environ.setdefault("MIMO_API_KEY", "test-key")
-os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
-
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -30,36 +24,6 @@ def event_loop():
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
-
-
-@pytest.fixture
-def mock_settings():
-    """Mock application settings for testing."""
-    from agent.config import Settings
-
-    return Settings(
-        anitabi_api_url="https://test.anitabi.com/api",
-        app_env="test",
-        log_level="DEBUG",
-        debug=True,
-        max_retries=1,
-        timeout_seconds=5,
-        cache_ttl_seconds=60,
-        use_cache=False,
-        default_agent_model="deepseek:deepseek-v4-flash",
-        openai_compat_base_url="https://api.xiaomimimo.com/v1",
-        output_dir=Path("/tmp/test_outputs"),
-        template_dir=Path("/tmp/test_templates"),
-    )
-
-
-@pytest.fixture(autouse=True)
-def setup_test_environment(monkeypatch, mock_settings):
-    """Automatically setup test environment for all tests."""
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
-    monkeypatch.setenv("MIMO_API_KEY", "test-key")
-    with patch("agent.config.get_settings", return_value=mock_settings):
-        yield
 
 
 @pytest.fixture

@@ -7,6 +7,7 @@ retry semantics) and the SD-19 rule that wire messages never reach str(exc).
 from __future__ import annotations
 
 from agent.clients.catalog_errors import (
+    CatalogError,
     RouteTooManyClustersError,
     RouteTooManyPointsError,
     UpstreamUnavailableError,
@@ -93,6 +94,17 @@ def test_unknown_code_5xx_uses_transient_fallback() -> None:
     exc = parse_catalog_error(502, _envelope("SOME_FUTURE_CODE", {}, 502), "u")
 
     assert isinstance(exc, TransientAPIError)
+    assert not isinstance(exc, UpstreamUnavailableError)
+
+
+def test_undefined_known_code_uses_transient_fallback() -> None:
+    body = _envelope("UPSTREAM_UNAVAILABLE", {"upstream": "anitabi"}, 502)
+    body["defined"] = False
+
+    exc = parse_catalog_error(502, body, "u")
+
+    assert isinstance(exc, TransientAPIError)
+    assert not isinstance(exc, CatalogError)
     assert not isinstance(exc, UpstreamUnavailableError)
 
 
