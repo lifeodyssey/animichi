@@ -14,13 +14,13 @@ def test_keeps_real_process_value_over_env_file() -> None:
     assert "DEEPSEEK_API_KEY" not in updates
 
 
-def test_replaces_fake_sentinel_with_env_file_value() -> None:
+def test_keeps_existing_value_even_when_it_looks_fake() -> None:
     updates = real_env_updates(
         {"DEEPSEEK_API_KEY": "real-key"},
         {"DEEPSEEK_API_KEY": "test-key"},
     )
 
-    assert updates == {"DEEPSEEK_API_KEY": "real-key"}
+    assert updates == {}
 
 
 def test_fills_unset_key_from_env_file() -> None:
