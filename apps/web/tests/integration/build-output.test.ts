@@ -39,4 +39,20 @@ describe("build output", () => {
       timeout: 120_000,
     });
   });
+
+  it("dry-runs the staging web Worker deployment", () => {
+    execFileSync("pnpm", ["exec", "wrangler", "deploy", "--dry-run", "--env", "staging"], {
+      cwd: packageRoot,
+      stdio: "pipe",
+      timeout: 120_000,
+    });
+  });
+
+  it("dry-runs the production web Worker deployment", () => {
+    execFileSync("pnpm", ["exec", "wrangler", "deploy", "--dry-run", "--env", "production"], {
+      cwd: packageRoot,
+      stdio: "pipe",
+      timeout: 120_000,
+    });
+  });
 });

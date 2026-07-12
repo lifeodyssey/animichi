@@ -75,6 +75,7 @@ jobs:
           wranglerVersion: "4.79.0"
           workingDirectory: ${{ inputs.working_directory }}
           command: deploy
+          environment: ${{ inputs.environment }}
           secrets: ${{ inputs.worker_secrets }}
         env:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}

@@ -7,5 +7,9 @@
   "assets": {
     "directory": ".output/public",
     "binding": "ASSETS"
+  },
+  "env": {
+    "staging": { "name": "animichi-web-staging" },
+    "production": { "name": "animichi-web" }
   }
 }
