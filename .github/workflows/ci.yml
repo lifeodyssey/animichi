@@ -62,6 +62,22 @@ jobs:
     with:
       component: catalog
 
+  contract-openapi-drift:
+    name: Contract OpenAPI drift
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.contract == 'true' }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Regenerate contract OpenAPI
+        run: pnpm emit:openapi
+        working-directory: packages/contract
+      - name: Verify committed OpenAPI is current
+        run: git diff --exit-code -- packages/contract/openapi.json
+
   ci-frontend:
     name: Frontend CI
     needs: changes

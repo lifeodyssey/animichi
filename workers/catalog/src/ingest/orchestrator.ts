@@ -13,9 +13,9 @@
  *      pointless empty catalog version).
  *   4. else save BOTH raw payloads -> enrichWork (raw -> catalog -> publish) ->
  *      markDone -> return `ingested` with the published version + point count.
- *   5. ANY thrown error -> markFailed(INGEST_ERROR, ttl) + return `failed` so a
- *      crashed run never leaves a dangling 'running' job; the negative-cache TTL
- *      then lets the work re-acquire after it elapses.
+ *   5. ANY thrown error -> markFailed(INGEST_ERROR, ttl); upstream transport
+ *      failures then rethrow as typed retryable errors, while internal failures
+ *      return `failed` as before.
  *
  * FOLLOW-UPS (noted, NOT built here): the L1 fast-preview vs L2 full-sync
  * tiering (return a preview before enrich completes), the oRPC ingest endpoint
@@ -23,6 +23,7 @@
  */
 import type { CatalogDb } from "../db/client";
 import { enrichWork } from "../enrich/enrich";
+import { upstreamUnavailable } from "../lib/errors";
 import { JobStore } from "./jobs";
 import { saveRawAnitabi, saveRawBangumi } from "./raw-store";
 import {
@@ -31,6 +32,7 @@ import {
   type AnitabiPoint,
   type BangumiSubject,
   type FetchLike,
+  UpstreamFetchError,
 } from "./sources";
 
 /** Negative-cache TTL for empty / failed ingests (seconds). */
@@ -50,7 +52,7 @@ export type IngestResult =
   | { status: "empty"; reason: string }
   | { status: "failed"; reason: string };
 
-/** Ingest a work end-to-end behind the singleflight gate; never throws. */
+/** Ingest a work; upstream transport failures escape as typed oRPC errors. */
 export async function ingestWork(
   db: CatalogDb,
   bangumiId: string,
@@ -61,7 +63,7 @@ export async function ingestWork(
   return runIngest(db, jobs, bangumiId, opts.fetchImpl);
 }
 
-/** Run the acquired pipeline, converting any throw into a `failed` result. */
+/** Negative-cache every failure, then preserve typed upstream transport errors. */
 async function runIngest(
   db: CatalogDb,
   jobs: JobStore,
@@ -71,7 +73,9 @@ async function runIngest(
   try {
     return await ingestAcquired(db, jobs, workId, fetchImpl);
   } catch (err) {
-    return failJob(jobs, workId, ErrorCode.IngestError, String(err));
+    const result = await failJob(jobs, workId, ErrorCode.IngestError, String(err));
+    if (err instanceof UpstreamFetchError) throw upstreamUnavailable(err.upstream, err);
+    return result;
   }
 }
 
