@@ -3,25 +3,28 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel, ConfigDict
+from pydantic_evals.reporting import EvaluationReport, ReportCase, ReportCaseFailure
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.runtime_deps import TitleTranslator, WebSearcher
 from agent.interfaces.public_api import detect_language
 
 T = TypeVar("T")
+InputsT = TypeVar("InputsT")
+OutputT = TypeVar("OutputT")
+MetadataT = TypeVar("MetadataT")
 
 
 class CaseRow(BaseModel):
-    """Persisted per-case eval result row."""
-
     id: str | None = None
     scores: dict[str, float] | None = None
+    reasons: dict[str, str] | None = None
     error: str | None = None
     intent: str | None = None
     message: str | None = None
@@ -34,8 +37,6 @@ class CaseRow(BaseModel):
 
 
 class ResultsPayload(BaseModel):
-    """Schema-v1 persisted eval results for reproducible post-hoc analysis."""
-
     model_config = ConfigDict(frozen=True)
 
     model: str
@@ -72,59 +73,37 @@ def trajectory_web_mocks() -> EvalWebMocks:
     return EvalWebMocks(MockWebSearcher(), MockTitleTranslator())
 
 
-class _EvalCaseResult(Protocol):
-    name: str
-    scores: Mapping[str, object] | None
-    output: object | None
-    inputs: object | None
-    expected_output: object | None
-
-
-class _EvalCaseFailure(Protocol):
-    name: str
-    error_message: str
-    inputs: object | None
-    expected_output: object | None
-
-
-class _EvalReport(Protocol):
-    cases: list[_EvalCaseResult]
-    failures: list[_EvalCaseFailure]
-
-
 def cap_cases(cases: list[T], cap: int | None) -> list[T]:
-    """Return an even-spread deterministic subset, preserving order."""
     if cap is None or cap <= 0 or cap >= len(cases):
         return cases
     return [cases[index] for index in _even_indices(len(cases), cap)]
 
 
 def read_max_cases() -> int | None:
-    """Read EVAL_MAX_CASES; unset/0 means full dataset."""
     raw = os.environ.get("EVAL_MAX_CASES")
-    if raw in (None, "", "0"):
+    if raw is None or raw in ("", "0"):
         return None
     value = int(raw)
     return value if value > 0 else None
 
 
 def is_fullstack() -> bool:
-    """Return whether the full-stack eval tier is enabled."""
     return os.environ.get("EVAL_FULLSTACK") == "1"
 
 
 def results_filename(layer: str, model_id: str) -> str:
-    """Build the tier-aware results filename for a layer/model pair."""
     return f"{layer}_{_safe_model(model_id)}.json"
 
 
-def collect_case_scores(report: _EvalReport) -> dict[str, dict[str, float]]:
-    """Collect per-case evaluator scores from a pydantic-evals report."""
+def collect_case_scores(
+    report: EvaluationReport[InputsT, OutputT, MetadataT],
+) -> dict[str, dict[str, float]]:
     return {str(case.name): _case_scores(case) for case in report.cases}
 
 
-def error_rate_message(report: _EvalReport) -> str | None:
-    """Return the standard high-error-rate message when the run is unhealthy."""
+def error_rate_message(
+    report: EvaluationReport[InputsT, OutputT, MetadataT],
+) -> str | None:
     total = len(report.cases) + len(report.failures)
     errored = len(report.failures)
     error_rate = errored / total if total > 0 else 1.0
@@ -134,7 +113,7 @@ def error_rate_message(report: _EvalReport) -> str | None:
 
 
 def build_results_payload(
-    report: _EvalReport,
+    report: EvaluationReport[InputsT, OutputT, MetadataT],
     *,
     model_id: str,
     dataset: str,
@@ -142,7 +121,6 @@ def build_results_payload(
     case_count: int,
     scores: dict[str, float],
 ) -> ResultsPayload:
-    """Build the persisted results payload for a report."""
     return ResultsPayload(
         model=model_id,
         dataset=dataset,
@@ -162,7 +140,6 @@ def save_results(
     model_id: str,
     payload: ResultsPayload,
 ) -> Path:
-    """Persist results JSON to the layer/model-specific file."""
     results_dir.mkdir(exist_ok=True)
     path = results_dir / results_filename(layer, model_id)
     path.write_text(payload.model_dump_json(indent=2) + "\n")
@@ -189,55 +166,66 @@ def _format_error_rate(errored: int, total: int, error_rate: float) -> str:
 
 
 def _score_value(score: object) -> float:
-    return float(getattr(score, "value", score))
+    value = getattr(score, "value", score)
+    if isinstance(value, int | float | str | bytes | bytearray):
+        return float(value)
+    raise TypeError(f"Score is not numeric: {value!r}")
 
 
-def _case_scores(case: _EvalCaseResult) -> dict[str, float]:
+def _case_scores(case: ReportCase[InputsT, OutputT, MetadataT]) -> dict[str, float]:
     scores = case.scores
     if scores is None:
         return {}
     return {str(name): _score_value(score) for name, score in scores.items()}
 
 
-def _case_rows(report: _EvalReport) -> list[CaseRow]:
+def _case_rows(
+    report: EvaluationReport[InputsT, OutputT, MetadataT],
+) -> list[CaseRow]:
     rows = [_success_row(case) for case in report.cases]
     rows.extend(_failure_row(failure) for failure in report.failures)
     return rows
 
 
-def _success_row(case: _EvalCaseResult) -> CaseRow:
+def _success_row(case: ReportCase[InputsT, OutputT, MetadataT]) -> CaseRow:
     return _case_row(
         str(case.name),
         _case_scores(case),
-        _case_error(case),
+        _case_reasons(case),
+        None,
         case.output,
         case.inputs,
-        case.expected_output,
+        case.metadata,
     )
 
 
-def _failure_row(failure: _EvalCaseFailure) -> CaseRow:
+def _failure_row(
+    failure: ReportCaseFailure[InputsT, OutputT, MetadataT],
+) -> CaseRow:
     return _case_row(
         str(failure.name),
+        None,
         None,
         failure.error_message,
         None,
         failure.inputs,
-        failure.expected_output,
+        failure.metadata,
     )
 
 
 def _case_row(
     case_id: str,
     scores: dict[str, float] | None,
+    reasons: dict[str, str] | None,
     error: str | None,
     output: object | None,
     inputs: object | None,
-    expected: object | None,
+    metadata: object | None,
 ) -> CaseRow:
     return CaseRow(
         id=case_id,
         scores=scores,
+        reasons=reasons,
         error=error,
         intent=_output_intent(output),
         message=_output_message(output),
@@ -246,13 +234,27 @@ def _case_row(
         step_count=_output_step_count(output),
         query=_input_query(inputs),
         locale=_input_locale(inputs),
-        expected_stages=_expected_stages(expected),
+        expected_stages=_expected_stages(metadata),
     )
 
 
-def _case_error(case: _EvalCaseResult) -> str | None:
-    error = getattr(case, "task_error", None)
-    return str(error) if error else None
+def _case_reasons(
+    case: ReportCase[InputsT, OutputT, MetadataT],
+) -> dict[str, str] | None:
+    scores = case.scores
+    if scores is None:
+        return None
+    reasons = {
+        str(name): reason
+        for name, score in scores.items()
+        if (reason := _score_reason(score))
+    }
+    return reasons or None
+
+
+def _score_reason(score: object) -> str | None:
+    reason = getattr(score, "reason", None)
+    return reason if isinstance(reason, str) else None
 
 
 def _output_intent(output: object | None) -> str | None:
