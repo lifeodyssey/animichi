@@ -103,6 +103,13 @@ def _str_list(row: dict[str, object], key: str, *, required: bool = False) -> li
     return [str(k) for k in raw] if isinstance(raw, list) else []
 
 
+def _int_field(row: Mapping[str, object], key: str) -> int:
+    raw = row[key]
+    if isinstance(raw, int | str | bytes | bytearray):
+        return int(raw)
+    raise ValueError(f"Dataset field must be int-compatible: {key}")
+
+
 def load_journey_dataset(path: Path) -> list[JourneyCase]:
     """Load a journey-eval dataset JSON and return typed JourneyCase objects."""
     text = path.read_text()
@@ -113,7 +120,7 @@ def load_journey_dataset(path: Path) -> list[JourneyCase]:
             query=str(row["query"]),
             locale=str(row["locale"]),
             expected_stage=str(row["expected_stage"]),
-            expected_message_min_len=int(row["expected_message_min_len"]),
+            expected_message_min_len=_int_field(row, "expected_message_min_len"),
             expected_data_keys=_str_list(row, "expected_data_keys", required=True),
             expected_results_keys=_str_list(row, "expected_results_keys"),
             expected_nearby_fields=_str_list(row, "expected_nearby_fields"),
