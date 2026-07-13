@@ -13,10 +13,12 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
-    "@orpc/openapi": "^1.9.7",
-    "@orpc/server": "^1.9.7",
+    "@orpc/openapi": "1.14.6",
+    "@orpc/server": "1.14.6",
+    "@seichijunrei/contract": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.9.10"
+    "hono": "^4.9.10",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.16.19",

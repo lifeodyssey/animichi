@@ -11,11 +11,19 @@ from agent.tests.eval.eval_common import (
     CASE_TIMEOUT_S,
     EvalCase,
     load_dataset,
+    real_env_updates,
 )
 
 
 def test_case_timeout_is_60() -> None:
     assert CASE_TIMEOUT_S == 60
+
+
+def test_real_env_updates_only_fills_unset_values() -> None:
+    file_values = {"UNSET": "from-file", "EXISTING": "stale-file-value"}
+    updates = real_env_updates(file_values, {"EXISTING": "process-value"})
+
+    assert updates == {"UNSET": "from-file"}
 
 
 class TestLoadDataset:
