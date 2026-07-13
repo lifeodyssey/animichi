@@ -11,13 +11,11 @@ import pytest
 
 from agent.clients.catalog_client import (
     CatalogClient,
-    GeocodeCandidate,
-    GeocodeKind,
-    GeocodeSource,
     IngestResult,
     PilgrimagePoint,
     Route,
 )
+from agent.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
 
 _POINT = {"id": "p1", "name": "Uji Bridge", "latitude": 34.89, "longitude": 135.80}
 
@@ -102,6 +100,7 @@ async def test_geocode_parses_candidates_and_posts_limit(
         "lng": 135.3485,
         "kind": "station",
         "source": "manual",
+        "effective_radius_m": 10000,
     }
     client = _mock_httpx(monkeypatch, {"candidates": [candidate]})
 
@@ -110,6 +109,7 @@ async def test_geocode_parses_candidates_and_posts_limit(
     assert result == [GeocodeCandidate.model_validate(candidate)]
     assert result[0].kind == GeocodeKind.STATION
     assert result[0].source == GeocodeSource.MANUAL
+    assert result[0].effective_radius_m == 10_000
     assert client.post.call_args.args[0] == "https://catalog.test/catalog/geocode"
     assert client.post.call_args.kwargs["json"] == {"query": "西宮", "limit": 3}
 

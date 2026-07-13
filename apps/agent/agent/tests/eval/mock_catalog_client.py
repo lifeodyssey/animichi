@@ -4,15 +4,9 @@ from __future__ import annotations
 
 from agent.agents.geo_utils import haversine_distance
 from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
-from agent.clients.catalog_client import (
-    GeocodeCandidate,
-    GeocodeKind,
-    GeocodeSource,
-    IngestResult,
-    PilgrimagePoint,
-    Route,
-)
+from agent.clients.catalog_client import IngestResult, PilgrimagePoint, Route
 from agent.clients.errors import APIError
+from agent.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
 from agent.tests.eval.mock_catalog_fixtures import (
     FIXTURE_POINTS,
     LOCATION_CENTERS,
