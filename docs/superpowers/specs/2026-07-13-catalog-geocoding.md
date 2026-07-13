@@ -1,6 +1,6 @@
 # Catalog Geocoding — 真正实现"按地点搜圣地"
 
-- **Status**: v3 — 二轮双评审仲裁定稿候选(v1 needs-rework×2;v2 sonnet approve-with-changes / codex needs-rework;v3 吸收全部 P0/P1)
+- **Status**: **v4 定稿**(v3 终审:sonnet approve-with-changes + codex approve-with-changes,全部修改项已折入;双评审闭环完成)
 - **Date**: 2026-07-13
 - **Related**: SD-29 · `docs/ARCHITECTURE.md:215` · MiMo eval search_nearby 错误分析 · GOAL 同目录 `*-GOAL.md`
 - **PRs**: PR-A (capability), PR-B (data + measurement)
@@ -22,7 +22,7 @@
 MiMo 残余 8 错误全属此类,模型无关。
 
 **新发现(codex 复核实证,v3 起修)**:现有代码把"零行成功"当失败——
-`_run_catalog_nearby` `success=bool(rows)`(`catalog_tools.py:161`)→ 零行不写 tool_state
+`_run_catalog_nearby` `success=bool(rows)`(`catalog_tools.py:167`)→ 零行不写 tool_state
 (`catalog_tools.py:71`)→ validator 拒绝 search_response(`pilgrimage_agent.py:389`)。
 即"诚实空结果"在当前管道**不可能存在**。
 
@@ -152,22 +152,22 @@ GRANT SELECT ON locations, location_aliases TO catalog_svc;   -- 只读即可(�
 4. 全 miss → 返回空候选。
 
 **(b) 候选折叠(单一 tier 的命中行上执行)**
-1. union-find 单链聚簇:任意两行距离 ≤10km 即连通(算法先例 `lib/clustering.ts:72-91`,阈值不同)。
+1. union-find 单链聚簇:任意两行距离 ≤12km 即连通(算法先例 `lib/clustering.ts:72-91`,阈值不同)。
    桥链效应(A-B-C 链式连通)对同名候选集合是**期望行为**(同城多站折一)。
 2. 每簇代表:kind 优先 `station > city > ward > landmark > prefecture`;同 kind 按
    `priority DESC, id ASC`(确定性 tiebreak,v2 缺失)。
 3. 簇按代表的 `(exact 命中优先, priority DESC, id ASC)` 排序,截断至 `limit`。
-4. 测试钉:西宮→1(PR-B 三行折一)、府中→2(跨域)、東京→1(PR-A seed 双行:東京駅-東京 city
-   实测 10.56km —— **正因超 10km 会分簇,seed 中東京 city 与東京駅 合并为一行**(id `seed:tokyo`,
-   kind=city,別名 東京/东京/東京駅/东京站 → 同簇免疫;v2 的 10.5km 陷阱由 seed 数据消解,
-   PR-B 车站导入后 東京駅 为独立 mlit 行,与 city 行 10.56km >10km —— 折叠阈值定为 **12km**
-   以覆盖首都圈这一实测边界;B2' 用真实坐标钉住)。
-   shuffled-input 确定性测试必备。
+4. **有效半径(codex 终审 P1)**:代表按 kind 优先选出,但后续 nearby 的默认半径取
+   **簇内成员 kind 半径的最大值**(mixed city+station 簇 → max(5km,10km)=10km),防止 station
+   代表把城市查询静默缩到 5km。
+5. 测试钉:西宮→1(PR-B 三行折一)、府中→2(跨域)、東京→1(seed 保留 東京 city 与 東京駅
+   **两行真坐标**,实测相距 10.56km——12km 阈值由此实测边界确定,B2' 用真实坐标钉住,
+   有效半径断言 10km)。shuffled-input 确定性测试必备。
 
 ### 3.5 Agent 侧(`apps/agent`)——三态分离(v3 核心重设计)
 
 **管道语义前置修复(PR-A,scope 限 nearby 路径)**:
-- `_run_catalog_nearby`:`success` 改为"查询执行成功"(零行也是 True);payload 恒写
+- `_run_catalog_nearby`:仅改**其调用 `_store_catalog_result` 时传入的 `success=` 实参**为"查询执行成功"(零行也是 True;共享的 `_store_catalog_result` 本体与 resolve/search_bangumi 路径不动——sonnet 终审 NEW-3a);payload 恒写
   `tool_state["search_nearby"]`(含 `row_count: 0`)。零行时 SSE data 照发,`status:"empty"`
   已有字段承载。→ 诚实空结果全链路可达(validator 放行、`NearbyMap` 渲染空态)。
 - 新增内部 step 工具名 `geocode`(仅在歧义/零候选/prefecture 收窄路径记录,`success=True`,
@@ -181,7 +181,7 @@ GRANT SELECT ON locations, location_aliases TO catalog_svc;   -- 只读即可(�
 |---|---|---|
 | location 空 + 有 GPS | origin 坐标 → nearby | 结果(可为诚实空) |
 | location 空 + 无 GPS | `ModelRetry`:请给地点或分享位置 | →clarify |
-| 1 候选,kind≠prefecture | nearby(kind 半径:station/ward/landmark 5km、city 10km) | 结果(可为诚实空) |
+| 1 候选,kind≠prefecture | nearby(**有效半径**:簇内 kind 半径最大值;station/ward/landmark 5km、city 10km) | 结果(可为诚实空) |
 | 1 候选,kind=prefecture | geocode-step + `ModelRetry`("X县太大,问用户哪个市/站") | →clarify(`success=true`) |
 | ≥2 簇 | geocode-step + `ModelRetry` 携簇代表 label(≤5,消毒:仅取自类型化 `GeocodeCandidate.label`,长度截断——SD-19 `_retry_message` 规则的显式豁免) | →clarify,options=地名字符串(anime 富化空结果可容忍,AC A6 断言) |
 | 0 候选 | geocode-step + `ModelRetry`("查无此地,请问用户站名/市名") | →clarify;**显式地名不回退 GPS** |
@@ -213,8 +213,9 @@ GRANT SELECT ON locations, location_aliases TO catalog_svc;   -- 只读即可(�
 
 1. **翻转面**:C1 全 16 + C2 全 17 中"具体真实地名"→ `["search_nearby"]`,`expected_data_keys`
    → `["results"]`;**都道府县 carve-out 按 §3.6 裸名/后缀规则逐 case 审计**(数据集含 8 个
-   都道府县形 case,不是 v2 说的 5 个;岐阜裸名两案统一翻转,后缀案保留收窄)。C3/C4/H1/H2/H4
-   不动(已核无 search_nearby 翻转面);E2/G4 收紧 follow-up。
+   都道府县形 case,不是 v2 说的 5 个;岐阜裸名两案统一翻转,后缀案保留收窄)。C3/H1/H2/H4 不动(已核无 search_nearby 翻转面);**C4 的 `acceptable_stages` 追加
+   `clarify_after_nearby`**(模型合法先试 search_nearby 再 clarify 的轨迹不再被误扣——sonnet 终审
+   NEW-2;disjunction 语义下严格更宽容);E2/G4 收紧 follow-up。
 2. **歧义轨迹**:新 stage **`clarify_after_nearby`**(`_STAGE_TOOL_CHAINS` 按 stage 键控,直改
    `clarify` 链会向全部 75 个 clarify case 开放该链——codex 复核实证):
    链 `(("geocode","clarify"),)`、`_STAGE_MIN_STEPS=2`。新歧义 case(府中 ja/zh/en)用之。
@@ -251,9 +252,9 @@ GRANT SELECT ON locations, location_aliases TO catalog_svc;   -- 只读即可(�
 **PR-B**
 | # | AC | 测试 |
 |---|---|---|
-| B1 | Atlas 数据迁移:≥10k 站+≥1.9k 市区+47 县;clean+upgrade 双路径;再 apply no-op | worker vitest(integration,含 pg_trgm) |
+| B1 | Atlas 数据迁移:≥10k 站+≥1.8k 市区+47 县;clean+upgrade 双路径;再 apply no-op | worker vitest(integration,含 pg_trgm) |
 | B2 | trgm:"西宮北口"→西宮北口駅;阈值下不误吸 | worker vitest |
-| B2' | 折叠:西宮→1;府中→2;東京(city+駅 两行)→1(12km 阈值实测钉) | worker vitest |
+| B2' | 折叠:西宮→1;府中→2;東京(city+駅 两行)→1 且有效半径=10km;**corpus 抽查**:100 个高频地名的簇数分布审计(codex 终审) | worker vitest |
 | B3 | C1/C2 翻转 + 8 都道府县 case 按裸名/后缀规则逐案落定 + 新 case + `clarify_after_nearby` stage + 多语言 fixture | eval dataset + agent unit |
 | B4 | `nonempty_results`:≥15 标注;子采样不崩;gate 配对生效 | eval unit |
 | B5 | MiMo 全量重跑:8 case 归零;完整产物附 PR | eval(证据) |
