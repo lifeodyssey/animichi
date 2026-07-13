@@ -1,11 +1,17 @@
 import type { SaveRouteInput } from "@seichijunrei/contract";
 import { ORPCError } from "@orpc/server";
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { listRoutes, saveRoute } from "../src/api/routes";
+import type { DbExecutor } from "../src/db/client";
 import { fakeDb, type FakeRouteRow } from "./helpers";
 
 const ID = "00000000-0000-4000-8000-000000000009";
 const RAW = "2026-07-13 12:34:56+00";
+const UPDATE_INPUT: SaveRouteInput = {
+  id: ID, title: "X", point_ids: [], status: "saved",
+};
 
 function row(overrides: Partial<FakeRouteRow> = {}): FakeRouteRow {
   return {
@@ -14,9 +20,12 @@ function row(overrides: Partial<FakeRouteRow> = {}): FakeRouteRow {
   };
 }
 
-async function caught(input: SaveRouteInput): Promise<ORPCError<string, unknown>> {
+async function caught(
+  input: SaveRouteInput,
+  db: DbExecutor = fakeDb([row({ user_id: "user-b" })]).db,
+): Promise<ORPCError<string, unknown>> {
   try {
-    await saveRoute(fakeDb([row({ user_id: "user-b" })]).db, "user-a", input);
+    await saveRoute(db, "user-a", input);
   } catch (error) {
     expect(error).toBeInstanceOf(ORPCError);
     return error as ORPCError<string, unknown>;
@@ -59,5 +68,36 @@ describe("user routes handlers", () => {
     const result = await listRoutes(fakeDb([row()]).db, "user-a");
     expect(result.routes[0]?.saved_at).toBe("2026-07-13T12:34:56.000Z");
     expect(result.routes[0]?.updated_at).toBe("2026-07-13T12:34:56.000Z");
+  });
+});
+
+describe("atomic route updates", () => {
+  it("throws ROUTE_NOT_OWNED when an owned update loses the race", async () => {
+    const inlineDb: DbExecutor = { execute: (query) => {
+      const rendered = new PgDialect().sqlToQuery(query);
+      if (rendered.sql.toLowerCase().includes("select user_id")) {
+        return Promise.resolve({ rows: [{ user_id: "user-a" }] });
+      }
+      return Promise.resolve({ rows: [] });
+    } };
+    const error = await caught(UPDATE_INPUT, inlineDb);
+    expect(error).toMatchObject({ code: "ROUTE_NOT_OWNED", status: 403, defined: true });
+  });
+
+  it("includes user_id in the atomic update predicate", async () => {
+    let updateQuery: SQL | undefined;
+    const inlineDb: DbExecutor = { execute: (query) => {
+      const rendered = new PgDialect().sqlToQuery(query);
+      if (rendered.sql.toLowerCase().includes("select user_id")) {
+        return Promise.resolve({ rows: [{ user_id: "user-a" }] });
+      }
+      updateQuery = query;
+      return Promise.resolve({ rows: [] });
+    } };
+    await caught(UPDATE_INPUT, inlineDb);
+    if (!updateQuery) throw new Error("expected update query");
+    const rendered = new PgDialect().sqlToQuery(updateQuery);
+    expect(rendered.sql).toContain("user_id");
+    expect(rendered.params).toContain("user-a");
   });
 });

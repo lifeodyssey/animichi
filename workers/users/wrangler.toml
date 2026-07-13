@@ -1,5 +1,7 @@
 name = "users"
 main = "src/index.ts"
+# No public workers.dev host — reached only via the root Worker USERS service binding.
+workers_dev = false
 compatibility_date = "2025-09-23"
 compatibility_flags = ["nodejs_compat"]
 
@@ -13,12 +15,14 @@ ENVIRONMENT = "development"
 
 [env.staging]
 name = "users-staging"
+workers_dev = false
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
 
 [env.production]
 name = "users"
+workers_dev = false
 
 [env.production.vars]
 ENVIRONMENT = "production"
