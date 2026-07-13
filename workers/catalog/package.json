@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Animichi Catalog service — Cloudflare Workers + Hono + oRPC over Postgres/PostGIS",
   "scripts": {
+    "build:topology": "tsx scripts/transit/build-topology.ts",
     "dev": "wrangler dev",
+    "fetch:n02": "tsx scripts/transit/fetch-n02.ts",
     "test": "npm run test:worker && npm run test:spike",
     "test:worker": "vitest run --config vitest.config.ts --coverage",
     "test:spike": "vitest run --config vitest.spike.config.ts",
@@ -28,6 +30,7 @@
     "@vitest/coverage-istanbul": "4.1.9",
     "eslint": "^10.5.0",
     "pg": "^8.16.3",
+    "tsx": "^4.19.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.62.0",
     "vitest": "^4.1.0",

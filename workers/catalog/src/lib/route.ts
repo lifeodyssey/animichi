@@ -15,6 +15,9 @@
 
 import type { LocationCluster } from "./clustering";
 import { haversine } from "./geo";
+import { WALK_DETOUR_COEFFICIENT, WALKING_SPEED_M_PER_MIN } from "./transit/constants";
+import { maybeTransitLeg } from "./transit/leg";
+import type { TransitIndex } from "./transit/graph";
 import type { Pacing, TimedItinerary, TimedStop, TransitLeg } from "../types";
 
 /**
@@ -45,8 +48,6 @@ const TRANSIT_BUFFERS: Record<Pacing, number> = {
   packed: 0.8,
 };
 
-const WALKING_SPEED_M_PER_MIN = 80;
-const WALK_DETOUR_COEFFICIENT = 1.3;
 const VALID_PACING: ReadonlySet<string> = new Set(["chill", "normal", "packed"]);
 
 /** Maximum clusters the timed-itinerary kernel accepts. */
@@ -180,7 +181,7 @@ function makeStop(cluster: LocationCluster, arrive: string, dwell: number): Time
 }
 
 /** Build the walk leg from `from` to `to`, given the pacing buffer. */
-function makeLeg(from: LocationCluster, to: LocationCluster, buffer: number): TransitLeg {
+function makeWalkLeg(from: LocationCluster, to: LocationCluster, buffer: number): TransitLeg {
   const dist = haversine(from.centerLat, from.centerLng, to.centerLat, to.centerLng);
   const estimate = (dist * WALK_DETOUR_COEFFICIENT) / WALKING_SPEED_M_PER_MIN;
   return {
@@ -192,11 +193,22 @@ function makeLeg(from: LocationCluster, to: LocationCluster, buffer: number): Tr
   };
 }
 
+function legPoint(cluster: LocationCluster) {
+  return { lat: cluster.centerLat, lng: cluster.centerLng, id: cluster.clusterId };
+}
+
+function makeLeg(from: LocationCluster, to: LocationCluster, buffer: number, transit?: TransitIndex): TransitLeg {
+  const walk = makeWalkLeg(from, to, buffer);
+  const rail = transit ? maybeTransitLeg(legPoint(from), legPoint(to), transit) : null;
+  return rail && rail.duration_minutes < walk.duration_minutes ? rail : walk;
+}
+
 /** Options for {@link buildTimedItinerary}. */
 export interface ItineraryOptions {
   startTime?: string;
   pacing?: string;
   origin?: Origin;
+  transit?: TransitIndex; // Optional until production asset shipping injects an index.
 }
 
 /**
@@ -217,7 +229,7 @@ export function buildTimedItinerary(
   if (clusters.length === 0) {
     return { stops: [], legs: [], total_minutes: 0, total_distance_m: 0, pacing, start_time: startTime };
   }
-  return assembleItinerary(orderNearestNeighbor(clusters, opts.origin), startTime, pacing);
+  return assembleItinerary(orderNearestNeighbor(clusters, opts.origin), startTime, pacing, opts.transit);
 }
 
 /** Walk the ordered clusters, accumulating stops, legs, and totals. */
@@ -225,6 +237,7 @@ function assembleItinerary(
   ordered: LocationCluster[],
   startTime: string,
   pacing: Pacing,
+  transit?: TransitIndex,
 ): TimedItinerary {
   const buffer = TRANSIT_BUFFERS[pacing];
   const stops: TimedStop[] = [];
@@ -239,9 +252,9 @@ function assembleItinerary(
     if (i < ordered.length - 1) {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- i+1 < ordered.length is guaranteed by the if condition
       const next = ordered[i + 1]!;
-      const leg = makeLeg(cluster, next, buffer);
+      const leg = makeLeg(cluster, next, buffer, transit);
       legs.push(leg);
-      totalDistance += haversine(cluster.centerLat, cluster.centerLng, next.centerLat, next.centerLng);
+      totalDistance += leg.mode === "transit" ? leg.distance_m : haversine(cluster.centerLat, cluster.centerLng, next.centerLat, next.centerLng);
       currentTime = addMinutes(stop.depart, leg.duration_minutes);
     }
   }
