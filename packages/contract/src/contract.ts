@@ -74,6 +74,7 @@ export const GeocodeCandidate = z.object({
   lng: Longitude,
   kind: GeocodeKind,
   source: GeocodeSource,
+  effective_radius_m: z.number().int().positive().optional(),
 });
 export type GeocodeCandidate = z.infer<typeof GeocodeCandidate>;
 

@@ -35,6 +35,7 @@ export interface GeocodeCandidate {
   lng: number;
   kind: GeocodeKind;
   source: GeocodeSource;
+  effective_radius_m?: number;
 }
 
 export interface GeocodeResult {

@@ -613,6 +613,12 @@
                               "manual"
                             ],
                             "type": "string"
+                          },
+                          "effective_radius_m": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "exclusiveMinimum": 0
                           }
                         },
                         "required": [

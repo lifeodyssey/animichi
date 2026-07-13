@@ -30,7 +30,7 @@ export interface GeocodeHit {
 }
 
 export interface CollapsedGeocodeCandidate extends GeocodeCandidate {
-  effectiveRadiusM: number;
+  effective_radius_m: number;
 }
 
 function find(parent: number[], index: number): number {
@@ -86,7 +86,7 @@ function collapseMembers(members: GeocodeHit[]): CollapsedGeocodeCandidate {
     lng: representative.longitude,
     kind: representative.kind,
     source: representative.source,
-    effectiveRadiusM: Math.max(...members.map((member) => KIND_RADIUS_M[member.kind])),
+    effective_radius_m: Math.max(...members.map((member) => KIND_RADIUS_M[member.kind])),
   };
 }
 

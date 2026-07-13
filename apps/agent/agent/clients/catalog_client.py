@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
-from enum import StrEnum
 from typing import Literal, Protocol, runtime_checkable
 
 import httpx
@@ -41,6 +40,7 @@ from pydantic import BaseModel, Field
 from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
 from agent.clients.catalog_errors import parse_catalog_error
 from agent.clients.errors import APIError, TransientAPIError
+from agent.clients.geocode import GeocodeCandidate
 
 logger = structlog.get_logger(__name__)
 
@@ -54,9 +54,6 @@ __all__ = [
     "TransitLeg",
     "CatalogClient",
     "CatalogClientProtocol",
-    "GeocodeCandidate",
-    "GeocodeKind",
-    "GeocodeSource",
 ]
 
 JSONDict = dict[str, object]
@@ -103,37 +100,6 @@ class IngestResult(BaseModel):
     version: int = -1
     point_count: int = -1
     reason: str = ""
-
-
-class GeocodeKind(StrEnum):
-    """Kinds of gazetteer entries returned by the Catalog service."""
-
-    STATION = "station"
-    CITY = "city"
-    WARD = "ward"
-    LANDMARK = "landmark"
-    PREFECTURE = "prefecture"
-
-
-class GeocodeSource(StrEnum):
-    """Auditable source families for gazetteer entries."""
-
-    SEED = "seed"
-    MLIT = "mlit"
-    GEONAMES = "geonames"
-    MANUAL = "manual"
-
-
-class GeocodeCandidate(BaseModel):
-    """One typed place-name candidate from the local gazetteer."""
-
-    id: str
-    label: str
-    name: str
-    lat: float
-    lng: float
-    kind: GeocodeKind
-    source: GeocodeSource
 
 
 @runtime_checkable

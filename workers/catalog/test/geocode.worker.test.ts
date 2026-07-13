@@ -37,7 +37,19 @@ describe("catalog geocode", () => {
       lng: 135.3485,
       kind: "station",
       source: "manual",
+      effective_radius_m: 5000,
     }]);
+  });
+
+  it("A1 mixed city and station cluster carries a 10km effective radius over the wire", async () => {
+    const city = hit({ id: "city", name: "西宮市", kind: "city", priority: 100 });
+    const result = await geocode(fakeDb([NISHINOMIYA, city]), { query: "西宮", limit: 5 });
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]).toMatchObject({
+      id: NISHINOMIYA.id,
+      kind: "station",
+      effective_radius_m: 10_000,
+    });
   });
 
   it("A1 東京 exact lookup returns one collapsed candidate", async () => {
@@ -67,10 +79,35 @@ describe("catalog geocode", () => {
     const preferredStation = hit({ id: "station-a", kind: "station", priority: 5 });
     const expected = collapseGeocodeHits([city, station, preferredStation], 5);
     expect(collapseGeocodeHits([preferredStation, city, station], 5)).toEqual(expected);
-    expect(expected[0]).toMatchObject({ id: "station-a", effectiveRadiusM: 10_000 });
+    expect(expected[0]).toMatchObject({ id: "station-a", effective_radius_m: 10_000 });
   });
 
-  it("A9 migration mirror resolves all 30 aliases to the 20 audited locations", () => {
+  it("A3 orders multiple clusters by exactness, priority, and id", () => {
+    const clusters = [
+      hit({ id: "fuzzy", longitude: 135, priority: 999, exact: false }),
+      hit({ id: "exact-low", longitude: 136, priority: 1 }),
+      hit({ id: "exact-high", longitude: 137, priority: 100 }),
+    ];
+    expect(collapseGeocodeHits(clusters, 5).map((candidate) => candidate.id)).toEqual([
+      "exact-high",
+      "exact-low",
+      "fuzzy",
+    ]);
+  });
+
+  it("A3 truncates ordered clusters at the requested limit", () => {
+    const clusters = [
+      hit({ id: "third", longitude: 135, priority: 1 }),
+      hit({ id: "first", longitude: 136, priority: 3 }),
+      hit({ id: "second", longitude: 137, priority: 2 }),
+    ];
+    expect(collapseGeocodeHits(clusters, 2).map((candidate) => candidate.id)).toEqual([
+      "first",
+      "second",
+    ]);
+  });
+
+  it("A9 seed fixture resolves all 30 aliases to the 20 audited locations", () => {
     expect(Object.keys(SEED_LOCATIONS)).toHaveLength(20);
     expect(SEED_ALIASES).toHaveLength(30);
     for (const [alias, locationId] of SEED_ALIASES) {
