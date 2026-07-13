@@ -19,6 +19,29 @@ export type Origin = { lat: number; lng: number } | string;
 /** Pacing for route itineraries — mirrors `Pacing` in the contract. */
 export type Pacing = "chill" | "normal" | "packed";
 
+export type GeocodeKind = "station" | "city" | "ward" | "landmark" | "prefecture";
+export type GeocodeSource = "seed" | "mlit" | "geonames" | "manual";
+
+export interface GeocodeInput {
+  query: string;
+  limit: number;
+}
+
+export interface GeocodeCandidate {
+  id: string;
+  label: string;
+  name: string;
+  lat: number;
+  lng: number;
+  kind: GeocodeKind;
+  source: GeocodeSource;
+  effective_radius_m?: number;
+}
+
+export interface GeocodeResult {
+  candidates: GeocodeCandidate[];
+}
+
 /** A single pilgrimage point row — mirrors `PilgrimagePoint` in the contract. */
 export interface PilgrimagePoint {
   id: string;
@@ -35,7 +58,63 @@ export interface PilgrimagePoint {
   distance_m?: number;
   origin?: string;
   cover_url?: string;
+  city?: string;
 }
+
+/** One region bubble — mirrors `AnimeOverviewCircle`. */
+export interface AnimeOverviewCircle {
+  region: string;
+  count: number;
+  lat: number;
+  lng: number;
+}
+
+/** One 名場面 in the shot-count ranking — mirrors `AnimeScene`. */
+export interface AnimeScene {
+  id: string;
+  name: string;
+  screenshot_url: string | null;
+  shot_count: number;
+  lat: number;
+  lng: number;
+  city?: string;
+}
+
+/** A per-region sample route — mirrors `AnimeSampleRoute`. */
+export interface AnimeSampleRoute {
+  region: string;
+  point_ids: string[];
+}
+
+/** The public anime overview payload — mirrors `AnimeOverview`. */
+export interface AnimeOverview {
+  bangumi_id: string;
+  points_length: number;
+  circles: AnimeOverviewCircle[];
+  scenes: AnimeScene[];
+  sample_routes: AnimeSampleRoute[];
+}
+
+/** Stable anime identity and trusted display metadata — mirrors `AnimeCandidate`. */
+export interface AnimeCandidate {
+  bangumi_id: string;
+  title: string;
+  title_cn?: string;
+  cover_url?: string;
+  year?: number;
+  points_count?: number;
+}
+
+/** Deterministic title-resolution partition — mirrors `ResolveOutcome`. */
+export type ResolveOutcome =
+  | { outcome: "resolved"; match: AnimeCandidate }
+  | {
+    outcome: "needs_disambiguation";
+    reason: "anime_ambiguity";
+    candidates: AnimeCandidate[];
+  }
+  | { outcome: "not_found"; reason: "anime_not_found" }
+  | { outcome: "upstream_unavailable"; provider: "bangumi" | "anitabi" };
 
 /** A stop with arrival/departure + dwell — mirrors `TimedStop`. */
 export interface TimedStop {
@@ -49,13 +128,19 @@ export interface TimedStop {
   photo_count: number;
 }
 
-/** A walk segment between two stops — mirrors `TransitLeg`. */
+/** A segment between two stops — mirrors `TransitLeg`. */
 export interface TransitLeg {
   from_id: string;
   to_id: string;
-  mode: "walk";
+  mode: "walk" | "transit";
   duration_minutes: number;
   distance_m: number;
+  line_names?: string[];
+  transfers?: number;
+  board_station?: string;
+  alight_station?: string;
+  summary?: string;
+  attribution?: string[];
 }
 
 /**
@@ -108,5 +193,8 @@ export interface Route {
   cover_url?: string;
   anime_title?: string;
   anime_title_cn?: string;
+  truncated?: boolean;
+  shown_cluster_count?: number;
+  total_cluster_count?: number;
   timed_itinerary: TimedItinerary;
 }

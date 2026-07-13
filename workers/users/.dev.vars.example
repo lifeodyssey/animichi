@@ -1,0 +1,6 @@
+# Local `wrangler dev` values. Copy to `.dev.vars` (git-ignored).
+# Create once: `neonctl branches create --name dev/<name> --parent test-base`.
+# Mint/find the cloud DSN: `neonctl connection-string dev/<name>`.
+# This placeholder is intentionally non-functional; never commit the real DSN.
+DATABASE_URL=postgresql://dev:replace-me@ep-dev-branch.example.invalid/neondb?sslmode=require
+NEON_AUTH_JWKS_URL=https://neon-auth.example.invalid/neondb/auth/.well-known/jwks.json

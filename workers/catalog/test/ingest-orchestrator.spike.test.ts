@@ -1,57 +1,23 @@
-import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
-import pg from "pg";
-import { makeDb, type CatalogDb } from "../src/db/client";
-import { ingestWork } from "../src/ingest/orchestrator";
+import type { CatalogDb } from "../src/db/client";
+import { ingestGuard, ingestWork } from "../src/ingest/orchestrator";
 import type { FetchLike } from "../src/ingest/sources";
+import {
+  databaseDescribe,
+  openServerlessDb,
+  restoreNeonConfig,
+  truncateCatalog,
+} from "./spike-db";
 
 /**
  * Spike for the on-demand ingest orchestrator (card W5): ingestWork composes the
  * committed pieces (acquire -> fetch -> raw -> enrich -> publish) behind the
  * singleflight gate, and proves its negative-cache / error semantics.
  *
- * Reuses the enrich.spike harness: applies the EXACT bangumi/points/raw-zone/
- * cluster_version/aliases DDL (plus ingest_jobs and the coordinate-sync trigger)
- * sliced from the real migrations to a Docker Postgres+PostGIS, then drives
- * ingestWork with an injected mock fetchImpl so we never touch the network.
- *
- * Unique container/port (catalog-orchestrator-postgis : 55438) so it never
- * clashes with postgis (55432), db (55433), geoquery (55434), ingest (55435),
- * publish (55436), enrich (55437), or local Supabase (54322).
+ * Uses the suite branch's full Atlas schema and drives ingestWork through Neon
+ * Local HTTP with an injected mock fetchImpl, so upstream access stays offline.
  */
-
-const CONTAINER = "catalog-orchestrator-postgis";
-const IMAGE = "postgis/postgis:16-3.4";
-const PG_PORT = 55438;
-const PG_PASSWORD = "orchestrator";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
-
-const REMOTE_SCHEMA = "../../supabase/migrations/20260402120000_remote_schema.sql";
-const INGEST_SCHEMA = "../../supabase/migrations/20260620230000_ingest_infrastructure.sql";
-
-// Statement markers sliced verbatim out of the real migrations — keeps the
-// applied DDL authoritative. ingest_jobs is added for the singleflight gate.
-const REMOTE_BLOCKS = [
-  { from: "CREATE TABLE IF NOT EXISTS bangumi (", to: ");" },
-  { from: "CREATE OR REPLACE FUNCTION update_updated_at()", to: "$$ LANGUAGE plpgsql;" },
-  { from: "CREATE TABLE IF NOT EXISTS points (", to: ");" },
-  { from: "CREATE OR REPLACE FUNCTION sync_points_coordinates()", to: "$$ LANGUAGE plpgsql;" },
-  {
-    from: "CREATE TRIGGER trg_points_sync_coordinates",
-    to: "FOR EACH ROW EXECUTE FUNCTION sync_points_coordinates();",
-  },
-];
-const INGEST_BLOCKS = [
-  { from: "CREATE TABLE IF NOT EXISTS ingest_jobs (", to: ");" },
-  { from: "CREATE TABLE IF NOT EXISTS cluster_version (", to: ");" },
-  { from: "CREATE UNIQUE INDEX IF NOT EXISTS uq_cluster_version_one_current", to: ";" },
-  { from: "CREATE TABLE IF NOT EXISTS aliases (", to: ");" },
-  { from: "CREATE TABLE IF NOT EXISTS raw_anitabi (", to: ");" },
-  { from: "CREATE TABLE IF NOT EXISTS raw_bangumi (", to: ");" },
-];
 
 // Realistic upstream payloads matching the sources.ts shapes (mirrors enrich.spike).
 const BANGUMI_SUBJECT = {
@@ -82,6 +48,13 @@ const throwingFetch: FetchLike = () => {
   throw new Error("upstream exploded");
 };
 
+const notFoundFetch: FetchLike = (url) => {
+  if (url.includes("/points/detail")) {
+    return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
+  }
+  return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(BANGUMI_SUBJECT) });
+};
+
 /**
  * A fetchImpl gated on an external promise — the winner's pipeline parks here
  * (job still 'running') until released, so a concurrent caller's acquire is
@@ -96,66 +69,6 @@ function makeGatedFetch(gate: Promise<void>): FetchLike {
 }
 
 let db: CatalogDb;
-
-function sh(cmd: string): string {
-  return execSync(cmd, { stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
-}
-
-function sliceBlock(src: string, from: string, to: string): string {
-  const start = src.indexOf(from);
-  if (start < 0) throw new Error(`marker not found: ${from}`);
-  const end = src.indexOf(to, start);
-  if (end < 0) throw new Error(`end marker not found: ${to}`);
-  return src.slice(start, end + to.length);
-}
-
-function startContainer(): void {
-  const existing = sh(`docker ps -aq -f name=^${CONTAINER}$`);
-  if (existing) sh(`docker rm -f ${CONTAINER}`);
-  sh(
-    `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
-  );
-}
-
-async function waitForReady(): Promise<void> {
-  const deadline = Date.now() + 90_000;
-  let lastErr: unknown;
-  while (Date.now() < deadline) {
-    const probe = new pg.Pool({ connectionString: CONN, max: 1 });
-    try {
-      await probe.query("SELECT 1");
-      await probe.end();
-      return;
-    } catch (err) {
-      lastErr = err;
-      await probe.end().catch(() => { /* noop */ });
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-  }
-  throw new Error(`Postgres not ready in time: ${String(lastErr)}`);
-}
-
-function readMigration(rel: string): string {
-  return readFileSync(resolve(import.meta.dirname, rel), "utf8");
-}
-
-function buildSubsetDdl(): string {
-  const remote = readMigration(REMOTE_SCHEMA);
-  const ingest = readMigration(INGEST_SCHEMA);
-  const blocks = [
-    ...REMOTE_BLOCKS.map((b) => sliceBlock(remote, b.from, b.to)),
-    ...INGEST_BLOCKS.map((b) => sliceBlock(ingest, b.from, b.to)),
-  ];
-  // `embedding vector(1024)` needs pgvector (absent on the plain postgis image)
-  // and is never written by ingest; drop just that line.
-  return blocks.join("\n\n").replace(/^\s*embedding\s+vector\(1024\),\n/m, "");
-}
-
-async function applyMigrations(): Promise<void> {
-  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS postgis`);
-  await db.execute(sql.raw(buildSubsetDdl()));
-}
 
 async function pointCount(workId: string): Promise<number> {
   const rows = (
@@ -193,7 +106,14 @@ async function backdateNegativeCache(workId: string): Promise<void> {
   );
 }
 
-/** Poll until the work's job row reaches 'running' (winner has acquired). */
+async function negativeCacheSeconds(workId: string): Promise<number | undefined> {
+  const rows = (await db.execute(sql`
+    SELECT EXTRACT(EPOCH FROM (negative_cached_until - NOW()))::int AS seconds
+    FROM ingest_jobs WHERE work_id = ${workId}
+  `)).rows as { seconds: number }[];
+  return rows[0]?.seconds;
+}
+
 async function awaitRunning(workId: string): Promise<void> {
   for (let i = 0; i < 100; i++) {
     if ((await jobStatus(workId)) === "running") return;
@@ -203,70 +123,73 @@ async function awaitRunning(workId: string): Promise<void> {
 }
 
 beforeAll(async () => {
-  startContainer();
-  await waitForReady();
-  db = makeDb(CONN);
-  await applyMigrations();
+  db = await openServerlessDb();
+  await truncateCatalog(db);
 }, 120_000);
 
-afterAll(async () => {
-  const client = (db as unknown as { $client?: pg.Pool }).$client;
-  if (client) await client.end().catch(() => { /* noop */ });
-  try {
-    sh(`docker rm -f ${CONTAINER}`);
-  } catch {
-    /* container already gone */
-  }
-});
+afterAll(() => { restoreNeonConfig(); });
 
-describe("ingestWork end-to-end: acquire -> fetch -> raw -> enrich -> publish", () => {
+databaseDescribe("ingestWork end-to-end: acquire -> fetch -> raw -> enrich -> publish", () => {
   it("ingests a new work and lands it in the catalog with a current version", async () => {
-    const result = await ingestWork(db, "new-work", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    const result = await ingestWork(db, "460100", { fetchImpl: makeFetch(ANITABI_POINTS) });
     expect(result).toEqual({ status: "ingested", version: 1, pointCount: 2 });
-    expect(await bangumiExists("new-work")).toBe(true);
-    expect(await pointCount("new-work")).toBe(2);
-    expect(await currentVersion("new-work")).toBe(1);
-    expect(await jobStatus("new-work")).toBe("done");
+    expect(await bangumiExists("460100")).toBe(true);
+    expect(await pointCount("460100")).toBe(2);
+    expect(await currentVersion("460100")).toBe(1);
+    expect(await jobStatus("460100")).toBe("done");
   });
 });
 
-describe("ingestWork singleflight: concurrent double ingest", () => {
+databaseDescribe("ingestWork singleflight: concurrent double ingest", () => {
   it("yields exactly one 'ingested' and one 'in_progress'", async () => {
     let release: () => void = () => { /* placeholder replaced by Promise constructor */ };
     const gate = new Promise<void>((r) => (release = r));
     // Winner parks in fetch (job 'running'); loser's acquire then loses the race.
-    const winner = ingestWork(db, "race-work", { fetchImpl: makeGatedFetch(gate) });
-    await awaitRunning("race-work");
-    const loser = await ingestWork(db, "race-work", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    const winner = ingestWork(db, "460101", { fetchImpl: makeGatedFetch(gate) });
+    await awaitRunning("460101");
+    const loser = await ingestWork(db, "460101", { fetchImpl: makeFetch(ANITABI_POINTS) });
     release();
     const a = await winner;
     const statuses = [a.status, loser.status].sort();
     expect(statuses).toEqual(["in_progress", "ingested"]);
-    expect(await currentVersion("race-work")).toBe(1);
+    expect(await currentVersion("460101")).toBe(1);
   });
 });
 
-describe("ingestWork empty upstream: no points", () => {
+databaseDescribe("ingestWork empty upstream: no points", () => {
   it("returns 'empty', negative-caches, and blocks re-ingest within TTL", async () => {
     const fetchImpl = makeFetch([]);
-    const result = await ingestWork(db, "empty-work", { fetchImpl });
+    const result = await ingestWork(db, "460102", { fetchImpl });
     expect(result.status).toBe("empty");
-    expect(await jobStatus("empty-work")).toBe("failed");
-    expect(await bangumiExists("empty-work")).toBe(false);
-    const retry = await ingestWork(db, "empty-work", { fetchImpl });
-    expect(retry.status).toBe("in_progress");
+    expect(await jobStatus("460102")).toBe("failed");
+    expect(await bangumiExists("460102")).toBe(false);
+    const retry = await ingestWork(db, "460102", { fetchImpl });
+    expect(retry.status).toBe("empty");
+  });
+
+  it("parks an upstream 404 for seven days and exposes a genuine-empty guard", async () => {
+    const result = await ingestWork(db, "460104", { fetchImpl: notFoundFetch });
+    const ttl = await negativeCacheSeconds("460104");
+
+    expect(result.status).toBe("empty");
+    expect(ttl).toBeGreaterThan(6 * 24 * 60 * 60);
+    expect(ttl).toBeLessThanOrEqual(7 * 24 * 60 * 60);
+    await expect(ingestGuard(db, "460104")).resolves.toBe("empty");
   });
 });
 
-describe("ingestWork failed upstream: fetch throws", () => {
-  it("returns 'failed' and leaves a re-acquirable (non-'running') job", async () => {
-    const result = await ingestWork(db, "boom-work", { fetchImpl: throwingFetch });
-    expect(result.status).toBe("failed");
-    expect(await jobStatus("boom-work")).toBe("failed");
+databaseDescribe("ingestWork failed upstream: fetch throws", () => {
+  it("throws typed upstream-unavailable and leaves a re-acquirable job", async () => {
+    await expect(ingestWork(db, "460103", { fetchImpl: throwingFetch })).rejects.toMatchObject({
+      code: "UPSTREAM_UNAVAILABLE",
+      defined: true,
+      status: 502,
+    });
+    expect(await jobStatus("460103")).toBe("failed");
     // After the negative-cache TTL elapses the work re-acquires and succeeds.
-    await backdateNegativeCache("boom-work");
-    const retry = await ingestWork(db, "boom-work", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    await backdateNegativeCache("460103");
+    const retry = await ingestWork(db, "460103", { fetchImpl: makeFetch(ANITABI_POINTS) });
     expect(retry.status).toBe("ingested");
-    expect(await jobStatus("boom-work")).toBe("done");
+    expect(await jobStatus("460103")).toBe("done");
   });
 });

@@ -28,16 +28,27 @@ export interface SourceConfig {
   bangumiBaseUrl?: string;
 }
 
+/** Search-specific Bangumi knobs; `limit` is sent as a query parameter. */
+export interface BangumiSearchConfig extends SourceConfig {
+  limit?: number;
+}
+
+/** Upstream identity retained on transport failures for typed boundary mapping. */
+export type UpstreamName = "anitabi" | "bangumi";
+
 const ANITABI_BASE = "https://api.anitabi.cn/bangumi";
 const BANGUMI_BASE = "https://api.bgm.tv";
 const USER_AGENT =
-  "Seichijunrei/1.0 (https://github.com/lifeodyssey/Seichijunrei-agent)";
+  "Animichi/1.0 (https://github.com/lifeodyssey/animichi)";
 
 /** A single raw Anitabi point (legacy or official schema; kept verbatim). */
 export type AnitabiPoint = Record<string, unknown>;
 
-/** A raw Bangumi subject object (kept verbatim for the raw zone). */
+/** A raw Bangumi subject payload (kept verbatim for the raw zone). */
 export type BangumiSubject = Record<string, unknown>;
+
+/** A search result subject with its stable id normalized to a string. */
+export type BangumiSearchSubject = BangumiSubject & { id: string };
 
 /**
  * The fast L1 preview from Anitabi's `/lite` endpoint: the FIRST ~10 points
@@ -51,6 +62,25 @@ export interface AnitabiLite {
 }
 
 const BANGUMI_ID_RE = /^\d+$/;
+export const BANGUMI_FETCH_N = 8;
+
+/** A 404 from an upstream source: the resource has no data, NOT a transient
+ * outage. Callers that treat "no data" as an empty result catch THIS
+ * specifically; every other failure stays a generic (retryable) error. */
+export class UpstreamNotFoundError extends Error {
+  constructor(readonly url: string) {
+    super(`Upstream resource not found (404): ${url}`);
+    this.name = "UpstreamNotFoundError";
+  }
+}
+
+/** A transport or non-2xx failure distinct from a real upstream 404. */
+export class UpstreamFetchError extends Error {
+  constructor(readonly url: string, readonly upstream: UpstreamName, cause?: unknown) {
+    super(`Upstream fetch failed: ${url}`, { cause });
+    this.name = "UpstreamFetchError";
+  }
+}
 
 /** Throw if `bangumiId` is not a pure numeric string (prevents path injection). */
 function assertBangumiId(bangumiId: string): void {
@@ -67,7 +97,7 @@ export async function fetchAnitabiPoints(
   assertBangumiId(bangumiId);
   const base = cfg.anitabiBaseUrl ?? ANITABI_BASE;
   const url = `${base}/${bangumiId}/points/detail?haveImage=true`;
-  const body = await fetchJson(url, cfg.fetchImpl);
+  const body = await fetchJson(url, "anitabi", cfg.fetchImpl);
   return normalizePoints(body);
 }
 
@@ -87,7 +117,7 @@ export async function fetchAnitabiLite(
 ): Promise<AnitabiLite> {
   assertBangumiId(bangumiId);
   const base = cfg.anitabiBaseUrl ?? ANITABI_BASE;
-  const body = await fetchJson(`${base}/${bangumiId}/lite`, cfg.fetchImpl);
+  const body = await fetchJson(`${base}/${bangumiId}/lite`, "anitabi", cfg.fetchImpl);
   return parseLite(body);
 }
 
@@ -113,38 +143,46 @@ export async function fetchBangumiSubject(
   assertBangumiId(bangumiId);
   const base = cfg.bangumiBaseUrl ?? BANGUMI_BASE;
   const url = `${base}/v0/subjects/${bangumiId}`;
-  const body = await fetchJson(url, cfg.fetchImpl);
+  const body = await fetchJson(url, "bangumi", cfg.fetchImpl);
   return expectObject(body);
 }
 
-/**
- * Resolve a free-text title to its best-match Bangumi subject id, or null.
- *
- * Mirrors the Python client (`backend/clients/bangumi.py:search_subject`):
- * POST {base}/v0/search/subjects with `{keyword, filter:{type:[2]}}`, then takes
- * the FIRST entry of the `data` list — Bangumi returns hits in relevance order,
- * so the head is the best match (same pick the Python resolve path uses).
- */
+/** Return Bangumi anime subjects in upstream relevance order, capped by `limit`. */
+export async function fetchBangumiSubjects(
+  keywords: string,
+  cfg: BangumiSearchConfig = {},
+): Promise<BangumiSearchSubject[]> {
+  const limit = searchLimit(cfg.limit ?? BANGUMI_FETCH_N);
+  const base = cfg.bangumiBaseUrl ?? BANGUMI_BASE;
+  const body = JSON.stringify({ keyword: keywords, filter: { type: [BANGUMI_TYPE_ANIME] } });
+  const url = `${base}/v0/search/subjects?limit=${String(limit)}&offset=0`;
+  return searchSubjects(await postJson(url, body, "bangumi", cfg.fetchImpl), limit);
+}
+
+/** Resolve a title to the relevance-head subject id; retained for ingest preview. */
 export async function fetchBangumiSearch(
   keywords: string,
   cfg: SourceConfig = {},
 ): Promise<string | null> {
-  const base = cfg.bangumiBaseUrl ?? BANGUMI_BASE;
-  const body = JSON.stringify({ keyword: keywords, filter: { type: [BANGUMI_TYPE_ANIME] } });
-  const json = await postJson(`${base}/v0/search/subjects`, body, cfg.fetchImpl);
-  return bestSubjectId(json);
+  return fetchBangumiSubjects(keywords, { ...cfg, limit: 1 })
+    .then((subjects) => subjects[0]?.id ?? null);
 }
 
 /** Bangumi subject type for anime (v0 `filter.type`); matches the Python client. */
 const BANGUMI_TYPE_ANIME = 2;
 
-/** Read the id of the first `data[]` entry from a Bangumi search body, else null. */
-function bestSubjectId(body: unknown): string | null {
-  if (!isObject(body)) return null;
+/** Read valid subjects from a paged search body without changing relevance order. */
+function searchSubjects(body: unknown, limit: number): BangumiSearchSubject[] {
+  if (!isObject(body)) return [];
   const list = body.data;
-  if (!Array.isArray(list)) return null;
-  const first = list.find(isObject);
-  return first ? subjectId(first) : null;
+  if (!Array.isArray(list)) return [];
+  return list.filter(isObject).flatMap(normalizeSubject).slice(0, limit);
+}
+
+/** Normalize one subject id; omit malformed entries from the search result. */
+function normalizeSubject(subject: Record<string, unknown>): BangumiSearchSubject[] {
+  const id = subjectId(subject);
+  return id ? [{ ...subject, id }] : [];
 }
 
 /** Coerce a subject's `id` (number or numeric string) to a string id, else null. */
@@ -154,21 +192,46 @@ function subjectId(subject: Record<string, unknown>): string | null {
   return typeof id === "string" && id.length > 0 ? id : null;
 }
 
+/** Validate the adapter's internal result cap before interpolating it into the URL. */
+function searchLimit(limit: number): number {
+  if (!Number.isInteger(limit) || limit < 1) throw new Error("Bangumi search limit must be a positive integer");
+  return limit;
+}
+
 /** GET + JSON-decode with status guarding; throws on a non-2xx response. */
-async function fetchJson(url: string, fetchImpl?: FetchLike): Promise<unknown> {
+async function fetchJson(url: string, upstream: UpstreamName, fetchImpl?: FetchLike): Promise<unknown> {
   const doFetch = fetchImpl ?? (fetch);
-  const res = await doFetch(url, { headers: { "User-Agent": USER_AGENT } });
-  if (!res.ok) throw new Error(`Upstream fetch failed (${String(res.status)}): ${url}`);
-  return res.json();
+  const res = await request(doFetch, url, upstream, { headers: { "User-Agent": USER_AGENT } });
+  if (res.status === 404) throw new UpstreamNotFoundError(url);
+  if (!res.ok) throw new UpstreamFetchError(`${url} (${String(res.status)})`, upstream);
+  return decodeJson(res, url, upstream);
 }
 
 /** POST a JSON body + JSON-decode with status guarding; throws on a non-2xx response. */
-async function postJson(url: string, body: string, fetchImpl?: FetchLike): Promise<unknown> {
+async function postJson(url: string, body: string, upstream: UpstreamName, fetchImpl?: FetchLike): Promise<unknown> {
   const doFetch = fetchImpl ?? (fetch);
   const headers = { "User-Agent": USER_AGENT, "Content-Type": "application/json" };
-  const res = await doFetch(url, { method: "POST", headers, body });
-  if (!res.ok) throw new Error(`Upstream fetch failed (${String(res.status)}): ${url}`);
-  return res.json();
+  const res = await request(doFetch, url, upstream, { method: "POST", headers, body });
+  if (!res.ok) throw new UpstreamFetchError(`${url} (${String(res.status)})`, upstream);
+  return decodeJson(res, url, upstream);
+}
+
+/** Convert malformed response bodies into source-aware upstream failures. */
+async function decodeJson(res: Awaited<ReturnType<FetchLike>>, url: string, upstream: UpstreamName): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch (err) {
+    throw new UpstreamFetchError(url, upstream, err);
+  }
+}
+
+/** Convert network failures into a transport-specific error for source-aware callers. */
+async function request(doFetch: FetchLike, url: string, upstream: UpstreamName, init: Parameters<FetchLike>[1]) {
+  try {
+    return await doFetch(url, init);
+  } catch (err) {
+    throw new UpstreamFetchError(url, upstream, err);
+  }
 }
 
 /** Normalize Anitabi's {data|points: [...]} / bare-array shapes to a point list. */

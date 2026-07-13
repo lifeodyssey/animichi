@@ -2,6 +2,27 @@ name = "catalog"
 main = "src/index.ts"
 compatibility_date = "2025-09-23"
 compatibility_flags = ["nodejs_compat"]
+# No public host of any kind — catalog is reached only through the root
+# Worker's CATALOG service binding. Two separate doors have to be shut:
+#
+#   workers_dev  — the <name>.<subdomain>.workers.dev host. wrangler resolves
+#                  `defaultWorkersDev = routes.length === 0`, and catalog
+#                  declares no routes, so omitting this publishes the Worker.
+#   preview_urls — the per-version <prefix>-<name>.<subdomain>.workers.dev
+#                  host. When the key is absent wrangler sends no
+#                  `previews_enabled` at all, so the server keeps Cloudflare's
+#                  enabled-by-default state — a public URL per version, with
+#                  real bindings. wrangler's "unintentionally public" warning
+#                  does not save us: it early-returns under isNonInteractiveOrCI.
+#
+# Both are `inheritable` keys (wrangler 4.112 cli.js:35080 / :35088), so the
+# top-level value alone covers every environment. The per-environment repeats
+# below are a deliberate policy choice enforced by
+# test/wrangler-private.worker.test.ts — a reader should not have to know the
+# inheritance rules to see that an environment is private — NOT a wrangler
+# requirement. Every environment is private; there is no exception.
+workers_dev = false
+preview_urls = false
 
 # Hyperdrive binds the Worker to a pooled Postgres connection in production.
 # src/index.ts reads env.HYPERDRIVE.connectionString first, falling back to
@@ -38,9 +59,53 @@ enabled = true
 [vars]
 ENVIRONMENT = "development"
 
-# Local `wrangler dev` Postgres connection (used when HYPERDRIVE is unbound).
+# Local `wrangler dev` Neon connection.
 # DATABASE_URL is NOT placed in [vars] (it would break the no-DB 503 test and is
 # environment-specific). Instead create catalog/.dev.vars (git-ignored) with:
-#   DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
-# wrangler dev loads .dev.vars automatically. For prod without Hyperdrive set:
+#   DATABASE_URL=<standing-dev-branch-cloud-dsn>
+# See .dev.vars.example for the create-once and connection-string recipe.
+# wrangler dev loads .dev.vars automatically. For a deployed environment set:
 #   wrangler secret put DATABASE_URL
+
+[env.staging]
+name = "catalog-staging"
+workers_dev = false
+preview_urls = false
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+
+[[env.staging.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "catalog-media-staging"
+
+[env.production]
+name = "catalog"
+workers_dev = false
+preview_urls = false
+
+[env.production.vars]
+ENVIRONMENT = "production"
+
+[[env.production.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "catalog-media"
+
+# Per-PR preview environment (issue #305). Version preview URLs are
+# `<alias>-<name>.<subdomain>.workers.dev` and are PUBLIC when enabled — and
+# `.github/workflows/preview.yml` posts them as a comment on a public PR, so
+# enabling them published the address of an unauthenticated catalog carrying a
+# DDL-privileged DATABASE_URL. Owner retired per-PR previews on 2026-07-29:
+# staging already serves that role. This block stays private like every other
+# until the machinery itself is removed (tracked separately).
+[env.preview]
+name = "catalog-preview"
+workers_dev = false
+preview_urls = false
+
+[env.preview.vars]
+ENVIRONMENT = "preview"
+
+[[env.preview.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "catalog-media-staging" # reuse staging cache; previews are ephemeral

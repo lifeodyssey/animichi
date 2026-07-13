@@ -1,5 +1,5 @@
 /**
- * The oRPC contract for the TS Catalog service's 4 read methods.
+ * The oRPC contract for the TS Catalog service procedures.
  *
  * This is the single source of truth for the request/response shapes the
  * Python Agent service (client) calls against the Catalog service (server).
@@ -7,7 +7,18 @@
 
 import { oc } from "@orpc/contract";
 import { z } from "zod";
-import { IngestResult, Origin, PilgrimagePoint, Pacing, Route } from "./models.js";
+import { pickCatalogErrors } from "./errors.js";
+import {
+  AnimeOverview,
+  IngestResult,
+  Latitude,
+  Longitude,
+  Origin,
+  PilgrimagePoint,
+  Pacing,
+  ResolveOutcome,
+  Route,
+} from "./models.js";
 
 /** search(query, origin?) -> { rows, synced_at, partial? } */
 export const SearchInput = z.object({
@@ -26,6 +37,14 @@ export const SearchResult = z.object({
 });
 export type SearchResult = z.infer<typeof SearchResult>;
 
+/** resolve(query) -> deterministic anime identity outcome */
+export const ResolveInput = z.object({ query: z.string().trim().min(1) });
+export type ResolveInput = z.infer<typeof ResolveInput>;
+
+/** pointsByWorkId(work_id) -> the existing SearchResult shape */
+export const PointsByWorkIdInput = z.object({ work_id: z.string().regex(/^\d+$/) });
+export type PointsByWorkIdInput = z.infer<typeof PointsByWorkIdInput>;
+
 /** spots(bangumi_id, origin?) -> { point, distance_m? } */
 export const SpotsInput = z.object({
   bangumi_id: z.string(),
@@ -41,9 +60,9 @@ export type SpotsResult = z.infer<typeof SpotsResult>;
 
 /** nearby(lat, lng, radius_m) -> { rows } */
 export const NearbyInput = z.object({
-  lat: z.number(),
-  lng: z.number(),
-  radius_m: z.number(),
+  lat: Latitude,
+  lng: Longitude,
+  radius_m: z.number().positive().finite(),
 });
 export type NearbyInput = z.infer<typeof NearbyInput>;
 
@@ -51,6 +70,34 @@ export const NearbyResult = z.object({
   rows: z.array(PilgrimagePoint),
 });
 export type NearbyResult = z.infer<typeof NearbyResult>;
+
+/** geocode(query, limit?) -> { candidates } */
+export const GeocodeKind = z.enum(["station", "city", "ward", "landmark", "prefecture"]);
+export type GeocodeKind = z.infer<typeof GeocodeKind>;
+
+export const GeocodeSource = z.enum(["seed", "mlit", "geonames", "manual"]);
+export type GeocodeSource = z.infer<typeof GeocodeSource>;
+
+export const GeocodeInput = z.object({
+  query: z.string().min(1),
+  limit: z.number().int().min(1).max(10).default(5),
+});
+export type GeocodeInput = z.infer<typeof GeocodeInput>;
+
+export const GeocodeCandidate = z.object({
+  id: z.string(),
+  label: z.string(),
+  name: z.string(),
+  lat: Latitude,
+  lng: Longitude,
+  kind: GeocodeKind,
+  source: GeocodeSource,
+  effective_radius_m: z.number().int().positive().optional(),
+});
+export type GeocodeCandidate = z.infer<typeof GeocodeCandidate>;
+
+export const GeocodeResult = z.object({ candidates: z.array(GeocodeCandidate) });
+export type GeocodeResult = z.infer<typeof GeocodeResult>;
 
 /** route(point_ids, origin?, pacing?) -> Route */
 export const RouteInput = z.object({
@@ -66,27 +113,68 @@ export const IngestInput = z.object({
 });
 export type IngestInput = z.infer<typeof IngestInput>;
 
+/** animeOverview(bangumi_id) -> AnimeOverview (public, anonymous, read-only GET) */
+export const AnimeOverviewInput = z.object({
+  bangumi_id: z.string().regex(/^\d+$/),
+});
+export type AnimeOverviewInput = z.infer<typeof AnimeOverviewInput>;
+
 export const catalogContract = {
   search: oc
     .route({ method: "POST", path: "/catalog/search", summary: "Search pilgrimage points by anime title" })
     .input(SearchInput)
+    .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
+    .output(SearchResult),
+  resolve: oc
+    .route({ method: "POST", path: "/catalog/resolve", summary: "Resolve an anime title deterministically" })
+    .input(ResolveInput)
+    .output(ResolveOutcome),
+  pointsByWorkId: oc
+    .route({
+      method: "POST",
+      path: "/catalog/points-by-work-id",
+      summary: "Fetch pilgrimage points by resolved work id",
+    })
+    .input(PointsByWorkIdInput)
+    .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
     .output(SearchResult),
   spots: oc
     .route({ method: "POST", path: "/catalog/spots", summary: "Fetch a single pilgrimage point, optionally with distance" })
     .input(SpotsInput)
+    .errors(pickCatalogErrors(["WORK_NOT_FOUND"]))
     .output(SpotsResult),
   nearby: oc
     .route({ method: "POST", path: "/catalog/nearby", summary: "Find pilgrimage points within a radius" })
     .input(NearbyInput)
+    // Pure DB/PostGIS query: no upstream dependency, so no UPSTREAM_UNAVAILABLE.
     .output(NearbyResult),
+  geocode: oc
+    .route({
+      method: "POST",
+      path: "/catalog/geocode",
+      summary: "Resolve a place name to coordinate candidates (local gazetteer)",
+    })
+    .input(GeocodeInput)
+    .output(GeocodeResult),
   route: oc
     .route({ method: "POST", path: "/catalog/route", summary: "Plan an ordered, timed route over selected points" })
     .input(RouteInput)
+    .errors(pickCatalogErrors(["ROUTE_TOO_MANY_CLUSTERS", "ROUTE_TOO_MANY_POINTS"]))
     .output(Route),
   ingest: oc
     .route({ method: "POST", path: "/catalog/ingest", summary: "Ingest a not-yet-cataloged work on demand by bangumi id" })
     .input(IngestInput)
+    .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
     .output(IngestResult),
+  animeOverview: oc
+    .route({
+      method: "GET",
+      path: "/catalog/public/anime-overview/{bangumi_id}",
+      summary: "Public anime overview: bubble aggregation, 名場面 ranking, and sample routes",
+    })
+    .input(AnimeOverviewInput)
+    .errors(pickCatalogErrors(["WORK_NOT_FOUND"]))
+    .output(AnimeOverview),
 };
 
 export type CatalogContract = typeof catalogContract;
