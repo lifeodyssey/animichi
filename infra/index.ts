@@ -51,29 +51,31 @@ const catalogMediaBucket = new cloudflare.R2Bucket("catalog-media", {
 if (webRoutesEnabled) {
   const cloudflareZoneId = config.require("cloudflareZoneId");
   const webDomain = config.require("webDomain");
+  const webScript = stack === "prod" ? "animichi-web" : `animichi-web-${stack}`;
+  const edgeScript = stack === "prod" ? "animichi" : `animichi-${stack}`;
 
   new cloudflare.WorkersRoute("animichi-web-route", {
     zoneId: cloudflareZoneId,
     pattern: `${webDomain}/*`,
-    script: "animichi-web",
+    script: webScript,
   });
 
   new cloudflare.WorkersRoute("animichi-edge-v1-route", {
     zoneId: cloudflareZoneId,
     pattern: `${webDomain}/v1/*`,
-    script: "animichi",
+    script: edgeScript,
   });
 
   new cloudflare.WorkersRoute("animichi-edge-img-route", {
     zoneId: cloudflareZoneId,
     pattern: `${webDomain}/img/*`,
-    script: "animichi",
+    script: edgeScript,
   });
 
   new cloudflare.WorkersRoute("animichi-edge-healthz-route", {
     zoneId: cloudflareZoneId,
     pattern: `${webDomain}/healthz`,
-    script: "animichi",
+    script: edgeScript,
   });
 }
 
