@@ -90,6 +90,9 @@ export const GeocodeCandidate = z.object({
   lat: Latitude, lng: Longitude,
   kind: GeocodeKind,
   source: GeocodeSource,
+  effective_radius_m: z.number().int().positive().optional(),
+  // ^ 簇内成员 kind 半径最大值(§3.4b.4);agent 的 nearby 调用优先用它
+  //   (PR 评审 F1 勘误:v4 正文有此规则但契约段漏列字段)
 });
 export type GeocodeCandidate = z.infer<typeof GeocodeCandidate>;
 
