@@ -8,7 +8,7 @@
 import { oc } from "@orpc/contract";
 import { z } from "zod";
 import { pickCatalogErrors } from "./errors.js";
-import { IngestResult, Origin, PilgrimagePoint, Pacing, Route } from "./models.js";
+import { IngestResult, Latitude, Longitude, Origin, PilgrimagePoint, Pacing, Route } from "./models.js";
 
 /** search(query, origin?) -> { rows, synced_at, partial? } */
 export const SearchInput = z.object({
@@ -42,9 +42,9 @@ export type SpotsResult = z.infer<typeof SpotsResult>;
 
 /** nearby(lat, lng, radius_m) -> { rows } */
 export const NearbyInput = z.object({
-  lat: z.number(),
-  lng: z.number(),
-  radius_m: z.number(),
+  lat: Latitude,
+  lng: Longitude,
+  radius_m: z.number().positive().finite(),
 });
 export type NearbyInput = z.infer<typeof NearbyInput>;
 
