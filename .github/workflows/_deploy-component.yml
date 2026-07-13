@@ -27,6 +27,8 @@ on:
         required: false
       R2_SECRET_ACCESS_KEY:
         required: false
+      NEON_AUTH_JWKS_URL:
+        required: false
 jobs:
   deploy:
     name: Deploy
@@ -79,6 +81,7 @@ jobs:
           secrets: ${{ inputs.worker_secrets }}
         env:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
       - name: Smoke
         env:
           COMPONENT: ${{ inputs.component }}
