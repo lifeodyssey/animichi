@@ -19,6 +19,28 @@ export type Origin = { lat: number; lng: number } | string;
 /** Pacing for route itineraries — mirrors `Pacing` in the contract. */
 export type Pacing = "chill" | "normal" | "packed";
 
+export type GeocodeKind = "station" | "city" | "ward" | "landmark" | "prefecture";
+export type GeocodeSource = "seed" | "mlit" | "geonames" | "manual";
+
+export interface GeocodeInput {
+  query: string;
+  limit: number;
+}
+
+export interface GeocodeCandidate {
+  id: string;
+  label: string;
+  name: string;
+  lat: number;
+  lng: number;
+  kind: GeocodeKind;
+  source: GeocodeSource;
+}
+
+export interface GeocodeResult {
+  candidates: GeocodeCandidate[];
+}
+
 /** A single pilgrimage point row — mirrors `PilgrimagePoint` in the contract. */
 export interface PilgrimagePoint {
   id: string;
