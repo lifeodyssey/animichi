@@ -64,3 +64,19 @@ ENVIRONMENT = "production"
 [[env.production.r2_buckets]]
 binding = "MEDIA_BUCKET"
 bucket_name = "catalog-media"
+
+# Per-PR preview environment (issue #305). Routeless: CI deploys only the
+# one-time bootstrap that creates the Worker; previews are undeployed versions
+# reached through preview URLs. DATABASE_URL is injected per version from the
+# Neon branch preview/pr-<N> by .github/workflows/preview.yml.
+[env.preview]
+name = "catalog-preview"
+workers_dev = false
+preview_urls = true
+
+[env.preview.vars]
+ENVIRONMENT = "preview"
+
+[[env.preview.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "catalog-media-staging" # reuse staging cache; previews are ephemeral
