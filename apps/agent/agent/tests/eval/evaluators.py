@@ -56,6 +56,7 @@ class AgentExpected:
 
     acceptable_stages: list[str]
     data_keys: list[str] = field(default_factory=list)
+    expect_nonempty: bool = False
 
 
 _Ctx = EvaluatorContext[AgentInput, AgentResult, AgentExpected]
@@ -69,6 +70,7 @@ _STAGE_TOOL_CHAINS: dict[str, tuple[tuple[str, ...], ...]] = {
     "plan_route": (("resolve_anime", "search_bangumi", "plan_route"),),
     "plan_selected": (("plan_selected",),),
     "clarify": (("clarify",),),
+    "clarify_after_nearby": (("geocode", "clarify"),),
     "greet_user": (("greet_user",), ()),
     "general_qa": (("answer_question",), ()),
 }
@@ -80,6 +82,7 @@ _STAGE_MIN_STEPS: dict[str, int] = {
     "plan_route": 3,
     "plan_selected": 1,
     "clarify": 1,
+    "clarify_after_nearby": 2,
     "greet_user": 1,
     "general_qa": 1,
 }
@@ -185,6 +188,22 @@ class DataKeysPresent(Evaluator[AgentInput, AgentResult, AgentExpected]):
             return {"data_keys_present": 1.0}
         present = expected <= _available_data_keys(ctx.output)
         return {"data_keys_present": 1.0 if present else 0.0}
+
+
+class NonemptyResults(Evaluator[AgentInput, AgentResult, AgentExpected]):
+    """L1: tagged nearby cases must return at least one catalog row."""
+
+    def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
+        if not ctx.metadata or not ctx.metadata.expect_nonempty:
+            return {}
+        nearby = ctx.output.tool_state.get("search_nearby")
+        row_count = nearby.get("row_count") if isinstance(nearby, Mapping) else None
+        passed = (
+            isinstance(row_count, int)
+            and not isinstance(row_count, bool)
+            and row_count > 0
+        )
+        return {"nonempty_results": 1.0 if passed else 0.0}
 
 
 class LocaleMatch(Evaluator[AgentInput, AgentResult, AgentExpected]):

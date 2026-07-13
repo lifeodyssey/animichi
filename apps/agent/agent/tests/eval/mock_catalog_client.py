@@ -187,6 +187,11 @@ def _geocode_fixture(query: str) -> list[GeocodeCandidate]:
                 "seed:uji", "宇治(京都府)", "宇治", 34.8843, 135.7997, GeocodeKind.CITY
             )
         ],
+        "宇治市": [
+            _candidate(
+                "seed:uji", "宇治(京都府)", "宇治", 34.8843, 135.7997, GeocodeKind.CITY
+            )
+        ],
         "東京": [
             _candidate(
                 "seed:tokyo",
@@ -204,6 +209,76 @@ def _geocode_fixture(query: str) -> list[GeocodeCandidate]:
                 "東京",
                 35.6762,
                 139.6503,
+                GeocodeKind.CITY,
+            )
+        ],
+        "東京都": [
+            _candidate(
+                "prefecture:tokyo",
+                "東京都",
+                "東京都",
+                35.6762,
+                139.6503,
+                GeocodeKind.PREFECTURE,
+            )
+        ],
+        "神奈川県": [
+            _candidate(
+                "prefecture:kanagawa",
+                "神奈川県",
+                "神奈川県",
+                35.4478,
+                139.6425,
+                GeocodeKind.PREFECTURE,
+            )
+        ],
+        "镰仓": [
+            _candidate(
+                "seed:kamakura",
+                "鎌倉(神奈川県)",
+                "鎌倉",
+                35.3192,
+                139.5467,
+                GeocodeKind.CITY,
+            )
+        ],
+        "秋叶原": [
+            _candidate(
+                "seed:akihabara",
+                "秋葉原(東京都)",
+                "秋葉原",
+                35.7023,
+                139.7745,
+                GeocodeKind.LANDMARK,
+            )
+        ],
+        "宫崎": [
+            _candidate(
+                "city:miyazaki",
+                "宮崎市(宮崎県)",
+                "宮崎市",
+                31.9077,
+                131.4202,
+                GeocodeKind.CITY,
+            )
+        ],
+        "豊郷": [
+            _candidate(
+                "city:toyosato",
+                "豊郷町(滋賀県)",
+                "豊郷町",
+                35.2051,
+                136.2308,
+                GeocodeKind.CITY,
+            )
+        ],
+        "箱根": [
+            _candidate(
+                "city:hakone",
+                "箱根町(神奈川県)",
+                "箱根町",
+                35.2324,
+                139.1069,
                 GeocodeKind.CITY,
             )
         ],
