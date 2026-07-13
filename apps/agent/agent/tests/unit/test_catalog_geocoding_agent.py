@@ -15,8 +15,10 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from agent.agents.agent_result import AgentResult
+from agent.agents import catalog_tools
+from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.runtime_deps import RuntimeDeps
 from agent.clients.catalog_client import PilgrimagePoint
 from agent.domain.ports import DatabasePort
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
@@ -158,6 +160,35 @@ async def test_stale_nearby_state_cannot_validate_ambiguous_search_output() -> N
             context=context,
             force_invalid_search=True,
         )
+
+
+async def test_missing_location_cannot_validate_fabricated_search_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorded_steps: list[StepRecord] = []
+    original = catalog_tools._record_step
+
+    def capture_step(
+        deps: RuntimeDeps,
+        *,
+        tool: str,
+        success: bool,
+        params: dict[str, object],
+        data: dict[str, object] | None,
+        error: str | None,
+    ) -> None:
+        original(
+            deps, tool=tool, success=success, params=params, data=data, error=error
+        )
+        recorded_steps[:] = deps.steps
+
+    monkeypatch.setattr(catalog_tools, "_record_step", capture_step)
+    with pytest.raises(UnexpectedModelBehavior, match="maximum output retries"):
+        await _run("", MockCatalogClient(), force_invalid_search=True)
+
+    assert recorded_steps
+    assert recorded_steps[0].tool == "geocode"
+    assert recorded_steps[0].success is True
 
 
 async def test_successful_nearby_replaces_preseeded_state_with_new_payload() -> None:

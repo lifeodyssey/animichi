@@ -11,13 +11,21 @@ import pytest
 
 from agent.clients.catalog_client import (
     CatalogClient,
+    GeocodeCandidate,
+    GeocodeKind,
+    GeocodeSource,
     IngestResult,
     PilgrimagePoint,
     Route,
 )
-from agent.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
 
 _POINT = {"id": "p1", "name": "Uji Bridge", "latitude": 34.89, "longitude": 135.80}
+
+
+def test_geocode_types_remain_reexported() -> None:
+    assert GeocodeCandidate.__module__ == "agent.clients.geocode"
+    assert GeocodeKind.__module__ == "agent.clients.geocode"
+    assert GeocodeSource.__module__ == "agent.clients.geocode"
 
 
 def _mock_httpx(monkeypatch: pytest.MonkeyPatch, json_payload: object) -> MagicMock:
