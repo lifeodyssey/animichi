@@ -256,7 +256,7 @@ GRANT SELECT ON locations, location_aliases TO catalog_svc;   -- 只读即可(�
 **PR-B**
 | # | AC | 测试 |
 |---|---|---|
-| B1 | Atlas 数据迁移:≥10k 站+≥1.8k 市区+47 县;clean+upgrade 双路径;再 apply no-op | worker vitest(integration,含 pg_trgm) |
+| B1 | Atlas 数据迁移:≥9k 站(聚簇去重后实测 9044,原始 10,240 feature)+≥1.8k 市区+47 县;clean+upgrade 双路径;再 apply no-op | worker vitest(integration,含 pg_trgm) |
 | B2 | trgm:"西宮北口"→西宮北口駅;阈值下不误吸 | worker vitest |
 | B2' | 折叠:西宮→1;府中→2;東京(city+駅 两行)→1 且有效半径=10km;**corpus 抽查**:100 个高频地名的簇数分布审计(codex 终审) | worker vitest |
 | B3 | C1/C2 翻转 + 8 都道府县 case 按裸名/后缀规则逐案落定 + 新 case + `clarify_after_nearby` stage + 多语言 fixture | eval dataset + agent unit |
