@@ -8,12 +8,12 @@ import pytest
 
 from agent.agents.agent_result import AgentResult, StepRecord
 from agent.infrastructure.session.memory import InMemorySessionStore
-from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import (
     PublicAPIRequest,
     RuntimeAPI,
     detect_language,
 )
+from agent.tests.db_doubles import build_persistence_supabase_double
 from agent.tests.unit.conftest_public_api import (
     install_mock_pipeline,
 )
@@ -29,17 +29,8 @@ def _mock_pipeline(monkeypatch):
 
 @pytest.fixture
 def mock_db():
-    db = MagicMock(spec=SupabaseClient)
-    pool = AsyncMock()
-    pool.fetch = AsyncMock(return_value=[])
-    db.pool = pool
+    db = build_persistence_supabase_double()
     db.points.search_points_by_location = AsyncMock(return_value=[])
-    db.user_memory.get_user_memory = AsyncMock(return_value=None)
-    db.session.upsert_session = AsyncMock()
-    db.session.upsert_conversation = AsyncMock()
-    db.user_memory.upsert_user_memory = AsyncMock()
-    db.session.update_conversation_title = AsyncMock()
-    db.routes.save_route = AsyncMock(return_value="route-1")
     return db
 
 

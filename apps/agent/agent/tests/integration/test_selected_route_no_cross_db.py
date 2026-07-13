@@ -13,10 +13,25 @@ import pytest
 from agent.agents.catalog_adapter import build_search_payload
 from agent.clients.catalog_client import PilgrimagePoint
 from agent.infrastructure.session.memory import InMemorySessionStore
-from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from agent.interfaces.schemas import PublicAPIResponse
+from agent.tests.db_doubles import build_persistence_supabase_double
 from agent.tests.eval.mock_catalog_client import FIXTURE_POINTS, MockCatalogClient
+
+_STALE_SUPABASE_ROWS = [
+    {
+        "id": "p004",
+        "name": "STALE-SUPABASE-p004",
+        "latitude": 0.0,
+        "longitude": 0.0,
+    },
+    {
+        "id": "p005",
+        "name": "STALE-SUPABASE-p005",
+        "latitude": 1.0,
+        "longitude": 1.0,
+    },
+]
 
 
 def _catalog_points() -> list[PilgrimagePoint]:
@@ -25,30 +40,8 @@ def _catalog_points() -> list[PilgrimagePoint]:
 
 @pytest.fixture
 def divergent_db() -> MagicMock:
-    db = MagicMock(spec=SupabaseClient)
-    db.points.get_points_by_ids = AsyncMock(
-        return_value=[
-            {
-                "id": "p004",
-                "name": "STALE-SUPABASE-p004",
-                "latitude": 0.0,
-                "longitude": 0.0,
-            },
-            {
-                "id": "p005",
-                "name": "STALE-SUPABASE-p005",
-                "latitude": 1.0,
-                "longitude": 1.0,
-            },
-        ]
-    )
-    db.session.upsert_session = AsyncMock()
-    db.session.upsert_conversation = AsyncMock()
-    db.user_memory.get_user_memory = AsyncMock(return_value=None)
-    db.user_memory.upsert_user_memory = AsyncMock()
-    db.session.update_conversation_title = AsyncMock()
-    db.routes.save_route = AsyncMock(return_value="route-1")
-    db.pool.fetch = AsyncMock(return_value=[])
+    db = build_persistence_supabase_double()
+    db.points.get_points_by_ids = AsyncMock(return_value=_STALE_SUPABASE_ROWS)
     return db
 
 
@@ -65,6 +58,7 @@ async def selected_response(divergent_db: MagicMock) -> PublicAPIResponse:
 
 
 def _response_rows(response: PublicAPIResponse) -> list[dict[str, object]]:
+    # Mirrors the PublicAPIResponse.data boundary type (schemas.py: data: dict[str, object]).
     route = cast(dict[str, object], response.data["route"])
     return cast(list[dict[str, object]], route["ordered_points"])
 
