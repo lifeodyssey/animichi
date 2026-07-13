@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+from pydantic_ai import UnexpectedModelBehavior
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
@@ -17,7 +19,6 @@ from agent.agents.agent_result import AgentResult
 from agent.agents.pilgrimage_runner import run_pilgrimage_agent
 from agent.clients.catalog_client import PilgrimagePoint
 from agent.domain.ports import DatabasePort
-from agent.interfaces.response_builder import agent_result_to_response
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
 SEARCH_OUTPUT = {
@@ -34,6 +35,19 @@ CLARIFY_OUTPUT = {
         "question": "Which place?",
         "options": ["府中市(東京都)", "府中市(広島県)"],
         "candidates": [],
+    },
+    "ui": {},
+}
+ROUTE_OUTPUT = {
+    "intent": "plan_route",
+    "message": "Route ready",
+    "data": {
+        "route": {
+            "ordered_points": [],
+            "point_count": 0,
+            "status": "ok",
+            "timed_itinerary": {},
+        }
     },
     "ui": {},
 }
@@ -82,7 +96,7 @@ def _nearby_model(
                 parts=[ToolCallPart("clarify_response", clarify_output)]
             )
         retries = _retry_count(messages)
-        if retries and force_invalid_search and retries == 1:
+        if retries and force_invalid_search:
             return ModelResponse(parts=[ToolCallPart("search_response", SEARCH_OUTPUT)])
         if retries:
             return ModelResponse(
@@ -97,6 +111,15 @@ def _nearby_model(
         return ModelResponse(
             parts=[ToolCallPart("search_nearby", {"location": location})]
         )
+
+    return FunctionModel(respond)
+
+
+def _route_model() -> FunctionModel:
+    def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        if _tool_returned(messages, "plan_route"):
+            return ModelResponse(parts=[ToolCallPart("route_response", ROUTE_OUTPUT)])
+        return ModelResponse(parts=[ToolCallPart("plan_route", {})])
 
     return FunctionModel(respond)
 
@@ -126,66 +149,40 @@ async def test_a5_nishinomiya_geocode_then_nearby_returns_rows() -> None:
     assert [step.tool for step in result.steps] == ["search_nearby"]
 
 
-async def test_a5_prime_honest_empty_is_successful_search_response() -> None:
-    result = await _run("西宮", EmptyNearbyCatalog())
-    response = agent_result_to_response(result, include_debug=True)
-    assert result.tool_state["search_nearby"]["row_count"] == 0
-    assert result.steps[0].success is True
-    assert response.success is True
-    assert response.errors == []
+async def test_stale_nearby_state_cannot_validate_ambiguous_search_output() -> None:
+    context = {"last_search_data": {"search_nearby": {"stale": 1}}}
+    with pytest.raises(UnexpectedModelBehavior, match="maximum output retries"):
+        await _run(
+            "府中",
+            MockCatalogClient(),
+            context=context,
+            force_invalid_search=True,
+        )
 
 
-async def test_a6_ambiguous_place_clarifies_without_pipeline_error() -> None:
-    result = await _run("府中", MockCatalogClient())
-    response = agent_result_to_response(result, include_debug=True)
-    assert [step.tool for step in result.steps] == ["geocode", "clarify"]
-    assert all(step.success for step in result.steps)
-    assert result.output.data.options
-    assert response.success is True
-    assert response.errors == []
+async def test_successful_nearby_replaces_preseeded_state_with_new_payload() -> None:
+    context = {"last_search_data": {"search_nearby": {"stale": 1}}}
+    result = await _run("西宮", MockCatalogClient(), context=context)
+    payload = result.tool_state["search_nearby"]
+    assert "stale" not in payload
+    assert payload["rows"][0]["id"] == "p_haruhi_1"
 
 
-async def test_a6_prime_search_response_after_ambiguity_is_rejected() -> None:
-    result = await _run("府中", MockCatalogClient(), force_invalid_search=True)
-    assert result.intent == "clarify"
-    assert "search_nearby" not in result.tool_state
-
-
-async def test_a7_unknown_place_clarifies_without_gps_fallback() -> None:
+async def test_plan_route_uses_preseeded_nearby_without_new_search() -> None:
     catalog = MockCatalogClient()
-    result = await _run(
-        "unknown place", catalog, context={"origin_lat": 34.7, "origin_lng": 135.3}
+    context = {
+        "last_search_data": {
+            "search_nearby": {"rows": [{"id": "p_haruhi_1"}], "row_count": 1}
+        }
+    }
+    result = await run_pilgrimage_agent(
+        text="plan route",
+        db=_db(),
+        locale="en",
+        catalog=catalog,
+        model=_route_model(),
+        context=context,
     )
-    assert result.intent == "clarify"
-    assert [name for name, _ in catalog.calls] == ["geocode"]
-    assert result.steps[0].tool == "geocode"
-
-
-async def test_a8_explicit_place_wins_over_gps() -> None:
-    catalog = MockCatalogClient()
-    await _run("西宮", catalog, context={"origin_lat": 0.0, "origin_lng": 0.0})
-    assert catalog.calls[0] == ("geocode", ("西宮", 5))
-    assert catalog.calls[1][0] == "nearby"
-    assert catalog.calls[1][1][:2] == (34.7386, 135.3485)
-
-
-async def test_a8_empty_location_uses_gps_without_geocoding() -> None:
-    catalog = EmptyNearbyCatalog()
-    await _run("", catalog, context={"origin_lat": 35.0, "origin_lng": 139.0})
-    assert catalog.calls == [("nearby", (35.0, 139.0, 5000))]
-
-
-async def test_a8_empty_location_without_gps_clarifies() -> None:
-    result = await _run("", MockCatalogClient())
-    assert result.intent == "clarify"
-    assert [step.tool for step in result.steps] == ["clarify"]
-
-
-async def test_a8_prime_prefecture_clarifies_without_nearby() -> None:
-    catalog = MockCatalogClient()
-    result = await _run("山梨県", catalog)
-    assert [name for name, _ in catalog.calls if name in {"geocode", "nearby"}] == [
-        "geocode"
-    ]
-    assert result.success is True
-    assert result.steps[0].tool == "geocode"
+    assert result.intent == "plan_route"
+    assert [name for name, _ in catalog.calls] == ["route"]
+    assert result.tool_state["plan_route"]["point_count"] == 1

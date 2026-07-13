@@ -29,12 +29,11 @@ from agent.agents.tool_runtime import (
 )
 from agent.clients.catalog_client import (
     CatalogClientProtocol,
-    GeocodeCandidate,
-    GeocodeKind,
     PilgrimagePoint,
 )
 from agent.clients.catalog_errors import CatalogError
 from agent.clients.errors import APIError
+from agent.clients.geocode import GeocodeCandidate, GeocodeKind
 
 _NO_DATA_ERROR = "No catalog data"
 _TRANSIENT_ERRORS = (APIError, httpx.TransportError, httpx.TimeoutException)
@@ -142,7 +141,7 @@ def _candidate_summary(candidate: GeocodeCandidate) -> dict[str, object]:
     """Build the trusted, bounded summary stored in an internal geocode step."""
     return {
         "id": candidate.id,
-        "label": candidate.label[:120],
+        "label": _sanitize_retry_text(candidate.label),
         "kind": candidate.kind.value,
     }
 
@@ -161,9 +160,16 @@ def _record_geocode(deps: RuntimeDeps, candidates: list[GeocodeCandidate]) -> No
 
 def _candidate_radius(candidate: GeocodeCandidate) -> int:
     """Return the default nearby radius for a resolved candidate kind."""
+    if candidate.effective_radius_m is not None:
+        return candidate.effective_radius_m
     if candidate.kind == GeocodeKind.CITY:
         return 10_000
     return 5_000
+
+
+def _sanitize_retry_text(value: str) -> str:
+    """Strip prompt-shaping controls and cap trusted retry text."""
+    return "".join(character for character in value if ord(character) >= 32)[:120]
 
 
 def _retry_for_candidates(
@@ -174,17 +180,22 @@ def _retry_for_candidates(
     """Record a non-failure geocode step and raise a clarification retry."""
     _record_geocode(deps, candidates)
     if not candidates:
+        safe_location = _sanitize_retry_text(location)
         raise ModelRetry(
-            f"No gazetteer match for {location[:120]!r}. "
-            "Ask the user for a station or city name."
+            f"No gazetteer match for {safe_location!r}. Call clarify and ask "
+            "the user for a station or city name."
+        )
+    if len(candidates) > 1:
+        labels = ", ".join(_sanitize_retry_text(item.label) for item in candidates[:5])
+        raise ModelRetry(
+            f"Place name is ambiguous. Call clarify and ask the user to choose: {labels}"
         )
     if candidates[0].kind == GeocodeKind.PREFECTURE:
         raise ModelRetry(
-            f"{candidates[0].label[:120]} is too broad. "
-            "Ask the user which city or station within it."
+            f"{_sanitize_retry_text(candidates[0].label)} is too broad. "
+            "Call clarify and ask the user which city or station within it."
         )
-    labels = ", ".join(item.label[:120] for item in candidates[:5])
-    raise ModelRetry(f"Place name is ambiguous. Ask the user to choose: {labels}")
+    raise AssertionError("one non-prefecture candidate does not require clarification")
 
 
 async def _resolve_catalog_coordinates(

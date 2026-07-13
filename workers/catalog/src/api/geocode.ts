@@ -18,6 +18,6 @@ async function exactHits(db: CatalogDb, normalized: string): Promise<GeocodeHit[
 /** Resolve only against the local gazetteer; an exact miss returns empty in PR-A. */
 export async function geocode(db: CatalogDb, input: GeocodeInput): Promise<GeocodeResult> {
   const hits = await exactHits(db, normalizeAlias(input.query));
-  const candidates = collapseGeocodeHits(hits, input.limit).map(({ effectiveRadiusM: _, ...candidate }) => candidate);
+  const candidates = collapseGeocodeHits(hits, input.limit);
   return { candidates };
 }

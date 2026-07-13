@@ -126,6 +126,8 @@ const _sr_b: LocalSearchResult = null as unknown as ContractSearchResult;
 // --- Geocode ---
 const _gc_a: ContractGeocodeCandidate = null as unknown as LocalGeocodeCandidate;
 const _gc_b: LocalGeocodeCandidate = null as unknown as ContractGeocodeCandidate;
+const _gc_radius_a: ContractGeocodeCandidate["effective_radius_m"] = null as unknown as LocalGeocodeCandidate["effective_radius_m"];
+const _gc_radius_b: LocalGeocodeCandidate["effective_radius_m"] = null as unknown as ContractGeocodeCandidate["effective_radius_m"];
 const _gi_a: ContractGeocodeInput = null as unknown as LocalGeocodeInput;
 const _gi_b: LocalGeocodeInput = null as unknown as ContractGeocodeInput;
 const _gr_a: ContractGeocodeResult = null as unknown as LocalGeocodeResult;
@@ -154,7 +156,7 @@ const _uu_b: LocalUpstreamUnavailableData = null as unknown as ContractUpstreamU
 void _pp_a; void _pp_b; void _ts_a; void _ts_b; void _tl_a; void _tl_b; void _tl_attr_a; void _tl_attr_b; void _ti_a; void _ti_b;
 void _ir_a; void _ir_b; void _r_a; void _r_b; void _pac_a; void _pac_b; void _orig_a; void _orig_b;
 void _sr_a; void _sr_b;
-void _gc_a; void _gc_b; void _gi_a; void _gi_b; void _gr_a; void _gr_b;
+void _gc_a; void _gc_b; void _gc_radius_a; void _gc_radius_b; void _gi_a; void _gi_b; void _gr_a; void _gr_b;
 void _ecc_a; void _ecc_b; void _ecat_a; void _ecat_b; void _err_spec_a; void _err_spec_b;
 void _ingest_err_a; void _ingest_err_b;
 void _rtmc_a; void _rtmc_b; void _rtmp_a; void _rtmp_b; void _wnf_a; void _wnf_b; void _uu_a; void _uu_b;
