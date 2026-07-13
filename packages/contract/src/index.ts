@@ -7,3 +7,4 @@
 export * from "./models.js";
 export * from "./contract.js";
 export * from "./errors.js";
+export * from "./users-contract.js";

@@ -111,3 +111,34 @@ test("client-forged X-User-Id is stripped on PUBLIC route too", async () => {
   await app.request("/v1/bangumi/popular", { headers: { "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
   assert.equal(cap.req?.headers.get("X-User-Id"), null);
 });
+
+test("/v1/users/routes -> USERS with Authorization intact, no container or auth", async () => {
+  let authCalled = false;
+  let containerHit = false;
+  let received: Request | undefined;
+  const app = createWorkerApp({ nextHandler: stubNext, authenticate: async () => { authCalled = true; return { ok: false }; } });
+  const env = {
+    USERS: { fetch: async (req: Request) => { received = req; return new Response("users"); } },
+    CONTAINER: {
+      idFromName: () => "id",
+      get: () => ({ fetch: async () => { containerHit = true; return new Response("container"); } }),
+    },
+  } as never;
+  const res = await app.request("/v1/users/routes", { headers: { Authorization: "Bearer x" } }, env, stubCtx);
+  assert.equal(await res.text(), "users");
+  assert.equal(received?.headers.get("Authorization"), "Bearer x");
+  assert.equal(containerHit, false);
+  assert.equal(authCalled, false);
+});
+
+test("/v1/users/routes bypasses a rejecting authenticate stub", async () => {
+  let received = false;
+  const app = createWorkerApp({ nextHandler: stubNext, authenticate: async () => ({ ok: false }) });
+  const env = {
+    USERS: { fetch: async () => { received = true; return new Response("users"); } },
+  } as never;
+  const res = await app.request("/v1/users/routes", {}, env, stubCtx);
+  assert.equal(res.status, 200);
+  assert.equal(await res.text(), "users");
+  assert.equal(received, true);
+});

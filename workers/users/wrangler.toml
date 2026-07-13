@@ -1,0 +1,28 @@
+name = "users"
+main = "src/index.ts"
+# No public workers.dev host — reached only via the root Worker USERS service binding.
+workers_dev = false
+compatibility_date = "2025-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+# Keep vars to ENVIRONMENT only. Tests assert unconfigured auth/database 503s;
+# local dev uses .dev.vars and production uses `wrangler secret put`.
+[vars]
+ENVIRONMENT = "development"
+
+[env.staging]
+name = "users-staging"
+workers_dev = false
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+
+[env.production]
+name = "users"
+workers_dev = false
+
+[env.production.vars]
+ENVIRONMENT = "production"
