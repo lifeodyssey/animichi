@@ -25,6 +25,7 @@ from agent.tests.eval.evaluators import (
     AgentInput,
     DataKeysPresent,
     LocaleMatch,
+    NonemptyResults,
     RouteOrderCorrect,
     StepEfficiency,
     ToolCallRecall,
@@ -66,7 +67,7 @@ DATASET_PATH = (
 DATASET_NAME = DATASET_PATH.stem
 BASELINES_DIR = Path(__file__).parent / "baselines"
 RESULTS_DIR = Path(__file__).parent / "results"
-METRIC_NAMES = [
+_CORE_METRIC_NAMES = [
     "tool_recall",
     "tool_precision",
     "tool_f1",
@@ -75,8 +76,15 @@ METRIC_NAMES = [
     "locale_match",
     "step_efficiency",
 ]
-if EVAL_L3:
-    METRIC_NAMES += ["task_completion", "hallucination_check"]
+
+
+def metric_names(*, has_nonempty_cases: bool, l3_on: bool) -> list[str]:
+    names = list(_CORE_METRIC_NAMES)
+    if has_nonempty_cases:
+        names.append("nonempty_results")
+    if l3_on:
+        names += ["task_completion", "hallucination_check"]
+    return names
 
 
 def make_model(model_id: str | None = None) -> Model:
@@ -117,7 +125,9 @@ def _input(row: Row) -> AgentInput:
 
 def _expected(row: Row) -> AgentExpected:
     return AgentExpected(
-        _str_list(row, "acceptable_stages"), _str_list(row, "expected_data_keys")
+        _str_list(row, "acceptable_stages"),
+        _str_list(row, "expected_data_keys"),
+        row.get("expect_nonempty") is True,
     )
 
 
@@ -141,6 +151,12 @@ def load_cases() -> list[Case[AgentInput, AgentResult, AgentExpected]]:
 ALL_CASES = load_cases()
 CASES = cap_cases(ALL_CASES, read_max_cases())
 CAPPED = len(CASES) < len(ALL_CASES)
+METRIC_NAMES = metric_names(
+    has_nonempty_cases=any(
+        case.metadata is not None and case.metadata.expect_nonempty for case in CASES
+    ),
+    l3_on=EVAL_L3,
+)
 
 
 def build_evaluators() -> list[Evaluator[AgentInput, AgentResult, AgentExpected]]:
@@ -148,6 +164,7 @@ def build_evaluators() -> list[Evaluator[AgentInput, AgentResult, AgentExpected]
         ToolCallRecall(),
         RouteOrderCorrect(),
         DataKeysPresent(),
+        NonemptyResults(),
         LocaleMatch(),
         StepEfficiency(),
     ]
