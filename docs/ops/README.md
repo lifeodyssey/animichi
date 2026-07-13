@@ -11,5 +11,6 @@ Use this directory for:
 Current canonical docs:
 - `deployment.md` — Cloudflare Workers + Containers deployment runbook (topology, auth flow, env boundaries, rollback)
 - `cloudflare-hardening.md` — WAF rate limiting, prompt-injection filtering, rollback for edge rules
+- `preview.md` — per-PR preview environments (label-gated CF preview URLs + Neon branch-per-PR + auto-teardown)
 
 Keep iteration task trackers, progress logs, and findings under `docs/iterations/`.
