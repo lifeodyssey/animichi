@@ -8,7 +8,7 @@
   "scripts": {
     "build:frontend": "pnpm --filter ./frontend run build",
     "deploy": "pnpm run build:frontend && npx wrangler deploy",
-    "test:worker": "node --test worker/entry.test.ts worker/auth.test.ts"
+    "test:worker": "node --test worker/entry.test.ts worker/auth.test.ts worker/auth-neon.test.ts"
   },
   "dependencies": {
     "@cloudflare/containers": "^0.3.7",
