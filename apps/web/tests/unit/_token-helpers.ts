@@ -6,14 +6,81 @@ export interface TokenMismatch {
   readonly semantic: string;
 }
 
+export interface FontFace {
+  readonly family: string;
+  readonly weight: number;
+  readonly src: string;
+  readonly unicodeRange: string | null;
+}
+
 export function parseTokens(css: string): TokenMap {
+  const rootBody = /:root[^{]*\{([^}]*)\}/u.exec(css)?.[1];
+  if (rootBody === undefined) throw new Error("Missing :root block");
   const tokens: Record<string, string> = {};
-  const declarations = css.matchAll(/(--[\w-]+)\s*:\s*([^;}]+)/gu);
+  const declarations = rootBody.matchAll(/(--[\w-]+)\s*:\s*([^;}]+)/gu);
   for (const declaration of declarations) {
     const [, name, value] = declaration;
     if (name !== undefined && value !== undefined) tokens[name] = value.trim();
   }
   return tokens;
+}
+
+function declarationValue(body: string, property: string): string | null {
+  return new RegExp(`${property}\\s*:\\s*([^;]+)`, "u").exec(body)?.[1]?.trim() ?? null;
+}
+
+function requiredDeclaration(body: string, property: string): string {
+  const value = declarationValue(body, property);
+  if (value === null) throw new Error(`Missing font-face declaration: ${property}`);
+  return value;
+}
+
+export function parseFontFaces(css: string): FontFace[] {
+  return [...css.matchAll(/@font-face\s*\{([^}]*)\}/gu)].map((match) => {
+    const body = match[1];
+    if (body === undefined) throw new Error("Missing font-face body");
+    const family = requiredDeclaration(body, "font-family").replaceAll(/["']/gu, "");
+    const weight = Number(requiredDeclaration(body, "font-weight"));
+    const src = requiredDeclaration(body, "src");
+    const unicodeRange = declarationValue(body, "unicode-range");
+    return { family, weight, src, unicodeRange };
+  });
+}
+
+function rangeBounds(part: string): readonly [number, number] | null {
+  const match = /^U\+([\dA-F]+)(?:-([\dA-F]+))?$/iu.exec(part.trim());
+  const startText = match?.[1];
+  if (startText === undefined) return null;
+  const start = Number.parseInt(startText, 16);
+  const end = match?.[2] === undefined ? start : Number.parseInt(match[2], 16);
+  return [start, end];
+}
+
+export function rangeCoversCodepoint(
+  unicodeRange: string | null,
+  codepoint: number,
+): boolean {
+  if (unicodeRange === null) return true;
+  return unicodeRange.split(",").some((part) => {
+    const bounds = rangeBounds(part);
+    return bounds !== null && codepoint >= bounds[0] && codepoint <= bounds[1];
+  });
+}
+
+export function srcForCodepoint(
+  faces: readonly FontFace[],
+  family: string,
+  weight: number,
+  codepoint: number,
+): string {
+  const face = [...faces].reverse().find((candidate) =>
+    candidate.family === family &&
+    candidate.weight === weight &&
+    rangeCoversCodepoint(candidate.unicodeRange, codepoint));
+  if (face === undefined) {
+    throw new Error(`Missing matching font face: ${family} ${String(weight)}`);
+  }
+  return face.src;
 }
 
 export function tokenValue(tokens: TokenMap, name: string): string {
