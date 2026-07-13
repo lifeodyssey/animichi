@@ -1,7 +1,3 @@
-/**
- * @vitest-environment jsdom
- */
-
 import { describe, expect, it } from "vitest";
 import animalCss from "animal-island-ui-tailwind/dist/index.css?raw";
 import fontsCss from "../../src/styles/fonts.css?raw";
@@ -9,13 +5,16 @@ import globalsCss from "../../src/styles/globals.css?raw";
 import {
   alignmentMismatches,
   contrastRatio,
+  parseFontFaces,
   parseTokens,
+  srcForCodepoint,
   tokenValue,
   type TokenMap,
 } from "./_token-helpers";
 
 const semanticTokens = parseTokens(globalsCss);
 const animalTokens = parseTokens(animalCss);
+const fontFaces = parseFontFaces(fontsCss);
 
 const alignment: TokenMap = {
   "--color-primary": "--animal-primary-color",
@@ -33,20 +32,26 @@ const alignment: TokenMap = {
 };
 
 describe("design token font foundation", () => {
-  it("vendors Zen Maru Gothic font faces", () => {
-    expect(fontsCss).toMatch(
-      /@font-face\s*\{[^}]*font-family:\s*["']?Zen Maru Gothic["']?[^}]*\}/su,
-    );
+  it("vendors every required Zen Maru Gothic subset", () => {
+    const zenFaces = fontFaces.filter(({ family }) => family === "Zen Maru Gothic");
+    expect(zenFaces.map(({ weight }) => weight)).toEqual([500, 500, 700, 700]);
+    expect(zenFaces.map(({ src }) => src)).toEqual([
+      'url("/fonts/zen-maru-gothic-japanese-500-normal.woff2") format("woff2")',
+      'url("/fonts/zen-maru-gothic-latin-500-normal.woff2") format("woff2")',
+      'url("/fonts/zen-maru-gothic-japanese-700-normal.woff2") format("woff2")',
+      'url("/fonts/zen-maru-gothic-latin-700-normal.woff2") format("woff2")',
+    ]);
+    expect(zenFaces.map(({ unicodeRange }) => unicodeRange === null)).toEqual([
+      true, false, true, false,
+    ]);
   });
 
-  it("resolves the Japanese body stack to Zen Maru Gothic", () => {
-    const paragraph = document.createElement("p");
-    paragraph.lang = "ja";
-    paragraph.textContent = "日本語のテスト";
-    paragraph.style.fontFamily = tokenValue(semanticTokens, "--app-font-body");
-    document.body.append(paragraph);
-    expect(getComputedStyle(paragraph).fontFamily).toContain("Zen Maru Gothic");
-    paragraph.remove();
+  it("resolves Japanese and Latin codepoints to the correct Zen Maru subset", () => {
+    expect(tokenValue(semanticTokens, "--app-font-body")).toContain('"Zen Maru Gothic"');
+    expect(srcForCodepoint(fontFaces, "Zen Maru Gothic", 500, 0x65e5)).toMatch(/japanese-500/u);
+    expect(srcForCodepoint(fontFaces, "Zen Maru Gothic", 500, 0x0041)).toMatch(/latin-500/u);
+    expect(srcForCodepoint(fontFaces, "Zen Maru Gothic", 700, 0x65e5)).toMatch(/japanese-700/u);
+    expect(srcForCodepoint(fontFaces, "Zen Maru Gothic", 700, 0x0041)).toMatch(/latin-700/u);
   });
 });
 
