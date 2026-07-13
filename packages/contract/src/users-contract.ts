@@ -90,7 +90,7 @@ export type UserRoute = z.infer<typeof UserRoute>;
 export const SaveRouteInput = z.object({
   id: z.uuid().optional(),
   title: z.string().min(1).max(200),
-  point_ids: z.array(z.string()).max(500),
+  point_ids: z.array(z.string().max(128)).max(500),
   status: RouteStatus.default("saved"),
 });
 /** Inferred save-route input. */
