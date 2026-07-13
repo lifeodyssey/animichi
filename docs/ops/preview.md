@@ -38,7 +38,7 @@ Wait for the **Preview environment** PR comment. Stable aliases follow these for
 - `https://pr-<N>-animichi-web-preview.<subdomain>.workers.dev`
 
 Each push to the labeled PR refreshes both previews and updates the comment. Close or merge the
-PR to tear down the Neon branch automatically.
+PR, or remove the `preview` label, to tear down the Neon branch automatically.
 
 ## Costs and quotas
 
@@ -57,6 +57,15 @@ only the 1,000 most recent preview aliases. Undeployed versions have no runtime 
 - Preview automation never targets staging or production Workers, or the default Neon branch.
 - Connection strings are masked and passed only through step environment variables and stdin; they
   are never written to logs, files, or artifacts.
+
+### Teardown residue
+
+The Neon branch is deleted when the PR closes or the `preview` label is removed. The Cloudflare
+preview aliases are not deleted because Wrangler has no alias-deletion primitive. The catalog alias
+therefore returns 5xx errors after its Neon database disappears, while the web alias continues to
+serve a static shell. These stale aliases are harmless, secret-free shells tied to closed PRs: the
+database secret has no live backing branch. Cloudflare retains only the 1,000 most recent preview
+aliases, so they age out naturally.
 
 ## Troubleshooting
 

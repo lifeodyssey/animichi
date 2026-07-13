@@ -1,7 +1,8 @@
 # Standalone, event-driven opt-in workflow (like codeql.yml), outside the
 # ci.yml/deploy.yml caller-reusable layering. Refs #305.
-# Add the `preview` label to create or update a preview; synchronize only
-# redeploys PRs that remain labeled, while closed always sweeps orphaned state.
+# Add the `preview` label to create or update a preview; synchronize only redeploys
+# PRs that remain labeled. Removing it tears down immediately; closed always sweeps
+# label-independently so orphans cannot survive. Fork PRs never build, so teardown is fork-gated.
 # Catalog uploads are globally serialized because versions upload inherits the
 # latest secret version; interleaving PRs could otherwise pair code and DB wrong.
 # Dedicated preview Workers prevent secret inheritance from poisoning staging
@@ -10,7 +11,7 @@ name: PR preview
 
 on:
   pull_request:
-    types: [labeled, synchronize, reopened, closed]
+    types: [labeled, unlabeled, synchronize, reopened, closed]
 
 permissions:
   contents: read
@@ -26,6 +27,7 @@ jobs:
   preview:
     if: >-
       github.event.action != 'closed' &&
+      github.event.action != 'unlabeled' &&
       contains(github.event.pull_request.labels.*.name, 'preview') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -218,7 +220,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   teardown:
-    if: github.event.action == 'closed'
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event.action == 'closed' ||
+       (github.event.action == 'unlabeled' && github.event.label.name == 'preview'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -248,8 +253,8 @@ jobs:
               ;;
           esac
           if [ -z "$NEON_PROJECT_ID" ]; then
-            echo 'exists=false' >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "::error::NEON_PROJECT_ID is unset; cannot verify or delete the preview Neon branch. Set it with: gh variable set NEON_PROJECT_ID --body <project-id> (see docs/ops/preview.md). If a branch was already created it must be removed manually via: neonctl branches delete $BRANCH_NAME --project-id <project-id>"
+            exit 1
           fi
           BRANCHES_JSON=$(curl -sfS -H "Authorization: Bearer $NEON_API_KEY" "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches")
           if printf '%s' "$BRANCHES_JSON" | jq -r '.branches[].name' | grep -Fxq -- "$BRANCH_NAME"; then
