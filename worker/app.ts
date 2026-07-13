@@ -4,6 +4,7 @@ import { authenticate as realAuthenticate, type AuthResult } from "./auth.ts";
 
 export interface Env {
   CATALOG: { fetch: (req: Request) => Promise<Response> };
+  USERS: { fetch: (req: Request) => Promise<Response> };
   CONTAINER: DurableObjectNamespace;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
@@ -80,6 +81,12 @@ export function createWorkerApp(deps: {
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
   );
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
+  // Hono runs the first matching handler in registration order.
+  // /v1/users/* bypasses the container entirely: the users service verifies the
+  // Neon Auth JWT itself (jose JWKS), so the edge passes Authorization through
+  // untouched. Different trust model from the container /v1/* path — do not
+  // funnel this through authenticate()/forwardV1.
+  app.all("/v1/users/*", (c) => c.env.USERS.fetch(c.req.raw));
   app.all("/v1/*", async (c) => {
     if (isPublicV1(new URL(c.req.url).pathname)) return forwardV1(c.env, c.req.raw);
     const auth = await authenticate(c.req.raw, c.env, c.executionCtx);
