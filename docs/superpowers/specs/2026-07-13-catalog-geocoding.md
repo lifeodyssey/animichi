@@ -173,7 +173,8 @@ GRANT SELECT ON locations, location_aliases TO catalog_svc;   -- 只读即可(�
 - `_run_catalog_nearby`:仅改**其调用 `_store_catalog_result` 时传入的 `success=` 实参**为"查询执行成功"(零行也是 True;共享的 `_store_catalog_result` 本体与 resolve/search_bangumi 路径不动——sonnet 终审 NEW-3a);payload 恒写
   `tool_state["search_nearby"]`(含 `row_count: 0`)。零行时 SSE data 照发,`status:"empty"`
   已有字段承载。→ 诚实空结果全链路可达(validator 放行、`NearbyMap` 渲染空态)。
-- 新增内部 step 工具名 `geocode`(仅在歧义/零候选/prefecture 收窄路径记录,`success=True`,
+- 新增内部 step 工具名 `geocode`(在歧义/零候选/prefecture 收窄/缺地名无GPS 路径记录 `success=True`;
+  transient 失败路径记录 `success=False`——实现勘误:所有 ModelRetry 出口都先记 step,堵死空步解武,
   data=候选摘要;**成功直达路径不记**,保持 C1/C2 期望链 `("search_nearby",)` 的精确率不受污染)。
   该 step 保证 `ctx.deps.steps` 非空 → validator 武装;`AgentResult.success` 不受影响
   (`agent_result.py:40` 语义 = 全部 step 成功);无 `pipeline_error`(`response_builder.py:82`)。
