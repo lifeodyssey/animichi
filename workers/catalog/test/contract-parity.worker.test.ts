@@ -86,8 +86,10 @@ const _ts_a: ContractTimedStop = null as unknown as ContractTimedStop;
 const _ts_b: LocalTimedStop = null as unknown as ContractTimedStop;
 
 // --- TransitLeg ---
-const _tl_a: ContractTransitLeg = null as unknown as ContractTransitLeg;
+const _tl_a: ContractTransitLeg = null as unknown as LocalTransitLeg;
 const _tl_b: LocalTransitLeg = null as unknown as ContractTransitLeg;
+const _tl_attr_a: ContractTransitLeg["attribution"] = null as unknown as LocalTransitLeg["attribution"];
+const _tl_attr_b: LocalTransitLeg["attribution"] = null as unknown as ContractTransitLeg["attribution"];
 
 // --- TimedItinerary ---
 const _ti_a: ContractTimedItinerary = null as unknown as ContractTimedItinerary;
@@ -133,7 +135,7 @@ const _uu_a: ContractUpstreamUnavailableData = null as unknown as LocalUpstreamU
 const _uu_b: LocalUpstreamUnavailableData = null as unknown as ContractUpstreamUnavailableData;
 
 // Silence "declared but never read" errors from strict tsc.
-void _pp_a; void _pp_b; void _ts_a; void _ts_b; void _tl_a; void _tl_b; void _ti_a; void _ti_b;
+void _pp_a; void _pp_b; void _ts_a; void _ts_b; void _tl_a; void _tl_b; void _tl_attr_a; void _tl_attr_b; void _ti_a; void _ti_b;
 void _ir_a; void _ir_b; void _r_a; void _r_b; void _pac_a; void _pac_b; void _orig_a; void _orig_b;
 void _sr_a; void _sr_b;
 void _ecc_a; void _ecc_b; void _ecat_a; void _ecat_b; void _err_spec_a; void _err_spec_b;
