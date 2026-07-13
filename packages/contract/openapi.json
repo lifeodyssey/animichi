@@ -745,7 +745,8 @@
                               },
                               "mode": {
                                 "enum": [
-                                  "walk"
+                                  "walk",
+                                  "transit"
                                 ],
                                 "type": "string"
                               },
@@ -756,6 +757,32 @@
                               },
                               "distance_m": {
                                 "type": "number"
+                              },
+                              "line_names": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "transfers": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "board_station": {
+                                "type": "string"
+                              },
+                              "alight_station": {
+                                "type": "string"
+                              },
+                              "summary": {
+                                "type": "string"
+                              },
+                              "attribution": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
                               }
                             },
                             "required": [
