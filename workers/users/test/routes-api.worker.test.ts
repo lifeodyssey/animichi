@@ -1,0 +1,63 @@
+import type { SaveRouteInput } from "@seichijunrei/contract";
+import { ORPCError } from "@orpc/server";
+import { describe, expect, it } from "vitest";
+import { listRoutes, saveRoute } from "../src/api/routes";
+import { fakeDb, type FakeRouteRow } from "./helpers";
+
+const ID = "00000000-0000-4000-8000-000000000009";
+const RAW = "2026-07-13 12:34:56+00";
+
+function row(overrides: Partial<FakeRouteRow> = {}): FakeRouteRow {
+  return {
+    id: ID, user_id: "user-a", title: "Tokyo", point_ids: ["p1"],
+    status: "saved", saved_at: RAW, updated_at: RAW, ...overrides,
+  };
+}
+
+async function caught(input: SaveRouteInput): Promise<ORPCError<string, unknown>> {
+  try {
+    await saveRoute(fakeDb([row({ user_id: "user-b" })]).db, "user-a", input);
+  } catch (error) {
+    expect(error).toBeInstanceOf(ORPCError);
+    return error as ORPCError<string, unknown>;
+  }
+  throw new Error("expected saveRoute to reject");
+}
+
+describe("user routes handlers", () => {
+  it("lists an empty store", async () => {
+    expect(await listRoutes(fakeDb().db, "user-a")).toEqual({ routes: [] });
+  });
+
+  it("creates a saved route with normalized timestamps", async () => {
+    const result = await saveRoute(fakeDb().db, "user-a", {
+      title: "Tokyo", point_ids: ["p1"], status: "saved",
+    });
+    expect(result).toMatchObject({ title: "Tokyo", status: "saved", point_ids: ["p1"] });
+    expect(result.saved_at).toBe("2026-07-13T04:00:00.000Z");
+    expect(result.updated_at).toBe("2026-07-13T04:00:00.000Z");
+  });
+
+  it("creates a draft with no saved timestamp", async () => {
+    const result = await saveRoute(fakeDb().db, "user-a", {
+      title: "Draft", point_ids: [], status: "draft",
+    });
+    expect(result.saved_at).toBeNull();
+  });
+
+  it("throws ROUTE_NOT_FOUND for an unknown update id", async () => {
+    const error = await caught({ id: "00000000-0000-4000-8000-000000000008", title: "X", point_ids: [], status: "saved" });
+    expect(error).toMatchObject({ code: "ROUTE_NOT_FOUND", status: 404, defined: true });
+  });
+
+  it("throws ROUTE_NOT_OWNED for another user's route", async () => {
+    const error = await caught({ id: ID, title: "X", point_ids: [], status: "saved" });
+    expect(error).toMatchObject({ code: "ROUTE_NOT_OWNED", status: 403, defined: true });
+  });
+
+  it("normalizes raw workerd timestamp strings while listing", async () => {
+    const result = await listRoutes(fakeDb([row()]).db, "user-a");
+    expect(result.routes[0]?.saved_at).toBe("2026-07-13T12:34:56.000Z");
+    expect(result.routes[0]?.updated_at).toBe("2026-07-13T12:34:56.000Z");
+  });
+});

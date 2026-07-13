@@ -1,0 +1,24 @@
+name = "users"
+main = "src/index.ts"
+compatibility_date = "2025-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+# Keep vars to ENVIRONMENT only. Tests assert unconfigured auth/database 503s;
+# local dev uses .dev.vars and production uses `wrangler secret put`.
+[vars]
+ENVIRONMENT = "development"
+
+[env.staging]
+name = "users-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+
+[env.production]
+name = "users"
+
+[env.production.vars]
+ENVIRONMENT = "production"
