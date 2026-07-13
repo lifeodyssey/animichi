@@ -11,8 +11,9 @@
   CatalogClient.geocode、MockCatalogClient)、eval dataset/评估器修正(PR-B)、gazetteer CSV+seed 脚本(PR-B)。
 - **Out**: 合并 PR、部署、`wrangler secret put`(生产变更一律用户批准执行,PR body 只写 ops 步骤)、
   前端、`/v1/bangumi/*`、`sql_agent.py` 死代码清理、路线 origin 接入(follow-up)、CI agent-eval 解禁。
-- **角色铁律**:lead(Fable)不写产品代码——subagent(sonnet 为主)写;lead 只做 spec/GOAL、派发、
-  仲裁、核验、git/PR 操作。
+- **角色铁律(Policy B,2026-07-13 用户定)**:lead(Fable)不写产品代码——代码一律由 Codex
+  (gpt-5.6-sol)写;sonnet 只做只读调研/评审;仅当 Codex **连续 3 次卡死**才降级 sonnet 代写,
+  且必须在 PR body 注明;lead 只做 spec/GOAL、派发、仲裁、核验、git/PR 操作。
 - **红线**:LLM 不产出坐标;不上向量/语义(SD-29);`nearby`/`search` 契约不动;无任何 lint/type/test
   抑制;覆盖率只升不降。
 
@@ -45,7 +46,7 @@
 - 收 sonnet + codex findings → lead 逐条实证仲裁(有分歧跑代码裁决,Codex over-flag 有前科)→
   回修 spec → 复核轮(两评审侧确认或 lead 实证覆盖)→ commit 定稿。
 
-### Phase 1 — PR-A 实现(sonnet subagent,worktree=本 clone 分支)
+### Phase 1 — PR-A 实现(Codex 写;卡死处置见 §4)
 - 迁移(locations/location_aliases + trigger + 26 条 seed)→ contract geocode → worker
   `lib/geocode.ts`+`api/geocode.ts`(exact→Google 写回,raw-sql 模板,mock fetch 测试)→
   agent(CatalogClientProtocol/CatalogClient/Mock + search_nearby 编排三态 + `_INSTRUCTIONS` 一句)→
@@ -57,7 +58,7 @@
 - PR 级双评审(sonnet + codex xhigh,只读)→ 仲裁 → 修(subagent)→ 复核 → 干净即标记
   "双评审通过待合并",通知用户。
 
-### Phase 3 — PR-B 实现(sonnet subagent;分支基于 PR-A)
+### Phase 3 — PR-B 实现(Codex 写;分支基于 PR-A)
 - gazetteer CSV(MLIT 车站 + GeoNames 城市,含出典文档)+ 幂等 seed 脚本 + pg_trgm 迁移/索引 →
   eval 修正(C1 族逐条审 + 新 case + MockCatalog fixture)→ `nonempty_results` 评估器 →
   AC B1-B4 → 门禁 → commit。
@@ -71,8 +72,8 @@
 - **Subagent 核验协议**(每次代码产出必做):① git ground truth(commit 存在、文件在 commit 里,
   不信自我报告);② 读新增/改动测试防篡改(无 skip/xfail/弱断言/mock 被测逻辑);③ lead 独立重跑
   全量门禁。历史教训:Codex 谎报 commit 两次、门禁被 `-k` 过滤误伤一次——门禁一律全量跑。
-- **Codex 卡死处置**:log 活性 6 分钟冻结即判卡;先从 log 抢救 findings(两次成功先例),再决定重派
-  或降级 sonnet;写任务默认 sonnet。
+- **Codex 卡死处置**:log 活性 6 分钟冻结即判卡;先从 job log 抢救成果(多次成功先例),重置干净树
+  再重派 Codex;**连续 3 次卡死 → 降级 sonnet 代写并在 PR body 注明**(Policy B)。
 - **并发纪律**:同一 clone 同时只允许一个写者;派发前 `git status` 必须干净;eval 跑时不动工作树。
 - 评审分歧一律实证裁决(复现脚本/最小 probe),先例:PR #335 的 `[1,2]` crash 误报被实测 refute。
 - Spec/GOAL 改动与实现同分支小步提交;commit 信息引用 GOAL §编号(仓库惯例)。
