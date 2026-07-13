@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CatalogDb } from "../src/db/client";
 import { geocode } from "../src/api/geocode";
-import { collapseGeocodeHits, type GeocodeHit } from "../src/lib/geocode";
+import {
+  collapseGeocodeHits,
+  FUZZY_RESULT_LIMIT,
+  FUZZY_SIMILARITY_THRESHOLD,
+  type GeocodeHit,
+} from "../src/lib/geocode";
 import { SEED_ALIASES, SEED_LOCATIONS } from "./fixtures/geocode-seed";
 
 const NISHINOMIYA: GeocodeHit = {
@@ -16,10 +21,19 @@ const NISHINOMIYA: GeocodeHit = {
   exact: true,
 };
 
-function fakeDb(rows: GeocodeHit[]): CatalogDb {
+interface FakeDb extends CatalogDb {
+  executeSpy: ReturnType<typeof vi.fn>;
+}
+
+function fakeDb(...responses: GeocodeHit[][]): FakeDb {
+  const pending = [...responses];
+  const executeSpy = vi.fn((_query: unknown) =>
+    Promise.resolve({ rows: pending.shift() ?? [] }),
+  );
   return {
-    execute: (_query: unknown) => Promise.resolve({ rows }),
-  } as unknown as CatalogDb;
+    execute: executeSpy,
+    executeSpy,
+  } as unknown as FakeDb;
 }
 
 function hit(overrides: Partial<GeocodeHit>): GeocodeHit {
@@ -62,6 +76,36 @@ describe("catalog geocode lookup", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     await expect(geocode(fakeDb([]), { query: "不存在", limit: 5 })).resolves.toEqual({ candidates: [] });
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+});
+
+describe("catalog geocode fuzzy lookup", () => {
+  it("B2 fuzzy-matches 西宮北口 after an exact miss", async () => {
+    const fuzzy = hit({ id: "mlit:nishinomiya-kitaguchi", name: "西宮北口駅", exact: false });
+    const db = fakeDb([], [fuzzy]);
+
+    const result = await geocode(db, { query: "西宮北口", limit: 5 });
+
+    expect(result.candidates[0]).toMatchObject({ id: fuzzy.id, name: "西宮北口駅" });
+    expect(db.executeSpy.mock.calls).toHaveLength(2);
+  });
+
+  it("B2 returns empty when fuzzy similarity is below threshold", async () => {
+    const db = fakeDb([], []);
+
+    await expect(geocode(db, { query: "ﾒﾁｬｸﾁｬ名前", limit: 5 })).resolves.toEqual({ candidates: [] });
+    expect(db.executeSpy.mock.calls).toHaveLength(2);
+    expect(FUZZY_SIMILARITY_THRESHOLD).toBe(0.4);
+    expect(FUZZY_RESULT_LIMIT).toBe(10);
+  });
+
+  it("B2 exact hit strictly short-circuits the fuzzy query", async () => {
+    const db = fakeDb([NISHINOMIYA]);
+
+    await geocode(db, { query: "西宮", limit: 5 });
+
+    expect(db.executeSpy.mock.calls).toHaveLength(1);
   });
 });
 
@@ -106,6 +150,29 @@ describe("catalog geocode clustering", () => {
     expect(collapseGeocodeHits(clusters, 2).map((candidate) => candidate.id)).toEqual([
       "first",
       "second",
+    ]);
+  });
+
+});
+
+describe("catalog geocode mixed-kind collapse", () => {
+  it("B2' 東京 city and station collapse to the station with a 10km radius", () => {
+    const tokyo = hit({
+      id: "seed:tokyo",
+      name: "東京",
+      kind: "city",
+      latitude: 35.6762,
+      longitude: 139.6503,
+    });
+    const tokyoStation = hit({
+      id: "seed:tokyo-station",
+      name: "東京駅",
+      latitude: 35.6812,
+      longitude: 139.7671,
+    });
+
+    expect(collapseGeocodeHits([tokyo, tokyoStation], 5)).toMatchObject([
+      { id: "seed:tokyo-station", kind: "station", effective_radius_m: 10_000 },
     ]);
   });
 });

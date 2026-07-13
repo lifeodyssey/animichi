@@ -17,6 +17,7 @@ from agent.tests.eval.evaluators import (
     AgentInput,
     DataKeysPresent,
     LocaleMatch,
+    NonemptyResults,
     build_l3_evaluators,
 )
 from agent.tests.unit.eval_evaluator_fixtures import JA, ctx, result, steps
@@ -90,6 +91,28 @@ def test_data_keys_present_scores_response_payload(
 ) -> None:
     evaluator_ctx = ctx(JA, result(steps(), output), AgentExpected([], data_keys))
     assert dict(DataKeysPresent().evaluate(evaluator_ctx)) == expected
+
+
+@pytest.mark.parametrize(
+    ("row_count", "expected"),
+    [(2, {"nonempty_results": 1.0}), (0, {"nonempty_results": 0.0})],
+)
+def test_nonempty_results_scores_tagged_nearby_cases(
+    row_count: int, expected: Mapping[str, float]
+) -> None:
+    evaluated = result(steps("search_nearby"), _search_output())
+    evaluated.tool_state["search_nearby"] = {"row_count": row_count}
+    evaluator_ctx = ctx(
+        JA, evaluated, AgentExpected(["search_nearby"], expect_nonempty=True)
+    )
+    assert dict(NonemptyResults().evaluate(evaluator_ctx)) == expected
+
+
+def test_nonempty_results_omits_metric_for_untagged_case() -> None:
+    evaluated = result(steps("search_nearby"), _search_output())
+    evaluated.tool_state["search_nearby"] = {"row_count": 3}
+    evaluator_ctx = ctx(JA, evaluated, AgentExpected(["search_nearby"]))
+    assert dict(NonemptyResults().evaluate(evaluator_ctx)) == {}
 
 
 def test_build_l3_evaluators_returns_two_llm_judges() -> None:
