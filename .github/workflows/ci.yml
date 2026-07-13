@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       catalog: ${{ steps.f.outputs.catalog }}
+      users: ${{ steps.f.outputs.users }}
       agent: ${{ steps.f.outputs.agent }}
       frontend: ${{ steps.f.outputs.frontend }}
       web: ${{ steps.f.outputs.web }}
@@ -37,6 +38,7 @@ jobs:
           filters: |
             contract: ['packages/contract/**']
             catalog: ['workers/catalog/**', 'packages/contract/**']
+            users: ['workers/users/**', 'packages/contract/**']
             agent: ['apps/agent/**', 'packages/contract/**']
             frontend: ['frontend/**']
             web: ['apps/web/**']
@@ -62,6 +64,14 @@ jobs:
     with:
       component: catalog
 
+  ci-users:
+    name: Users CI
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.users == 'true' }}
+    uses: ./.github/workflows/_ts-ci.yml
+    with:
+      component: users
+
   contract-openapi-drift:
     name: Contract OpenAPI drift
     runs-on: ubuntu-latest
@@ -77,8 +87,8 @@ jobs:
         working-directory: packages/contract
       - name: Verify committed OpenAPI is current
         run: |
-          git add -A packages/contract/openapi.json
-          git diff --cached --exit-code -- packages/contract/openapi.json
+          git add -A packages/contract/openapi.json packages/contract/users-openapi.json
+          git diff --cached --exit-code -- packages/contract/openapi.json packages/contract/users-openapi.json
 
   ci-frontend:
     name: Frontend CI
@@ -237,9 +247,30 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     concurrency: deploy-web-staging
 
+  deploy-users-staging:
+    name: Deploy users staging
+    needs: [deploy-staging, ci-users]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: users
+      environment: staging
+      pulumi_stack: staging
+      working_directory: workers/users
+      run_pulumi: false
+      worker_secrets: |
+        DATABASE_URL
+        NEON_AUTH_JWKS_URL
+    secrets:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+    concurrency: deploy-users-staging
+
   post-staging:
     name: Post-deploy (staging)
-    needs: [deploy-staging, deploy-web-staging]
+    needs: [deploy-staging, deploy-web-staging, deploy-users-staging]
     uses: ./.github/workflows/_post-deploy-test.yml
     with:
       environment: staging
@@ -283,9 +314,29 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     concurrency: deploy-web-prod
 
+  deploy-users-prod:
+    name: Deploy users production
+    needs: [post-staging, deploy-prod]
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: users
+      environment: production
+      pulumi_stack: prod
+      working_directory: workers/users
+      run_pulumi: false
+      worker_secrets: |
+        DATABASE_URL
+        NEON_AUTH_JWKS_URL
+    secrets:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+    concurrency: deploy-users-prod
+
   post-prod:
     name: Post-deploy (production)
-    needs: [deploy-prod, deploy-web-prod]
+    needs: [deploy-prod, deploy-web-prod, deploy-users-prod]
     uses: ./.github/workflows/_post-deploy-test.yml
     with:
       environment: production
