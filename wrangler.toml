@@ -62,6 +62,11 @@ binding = "ASSETS"
 binding = "CATALOG"
 service = "catalog"
 
+# Users service for authenticated user-domain routes.
+[[services]]
+binding = "USERS"
+service = "users"
+
 [[containers]]
 class_name = "RuntimeContainer"
 image = "./Dockerfile"
@@ -107,6 +112,10 @@ binding = "ASSETS"
 binding = "CATALOG"
 service = "catalog"
 
+[[env.production.services]]
+binding = "USERS"
+service = "users"
+
 [[env.production.containers]]
 class_name = "RuntimeContainer"
 image = "./Dockerfile"
@@ -134,6 +143,10 @@ binding = "ASSETS"
 [[env.staging.services]]
 binding = "CATALOG"
 service = "catalog-staging"
+
+[[env.staging.services]]
+binding = "USERS"
+service = "users-staging"
 
 [[env.staging.containers]]
 class_name = "RuntimeContainer"
