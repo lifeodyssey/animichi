@@ -10,6 +10,7 @@
   },
   "env": {
     "staging": { "name": "animichi-web-staging" },
-    "production": { "name": "animichi-web" }
+    "production": { "name": "animichi-web" },
+    "preview": { "name": "animichi-web-preview", "workers_dev": false, "preview_urls": true }
   }
 }
