@@ -53,6 +53,33 @@ export const NearbyResult = z.object({
 });
 export type NearbyResult = z.infer<typeof NearbyResult>;
 
+/** geocode(query, limit?) -> { candidates } */
+export const GeocodeKind = z.enum(["station", "city", "ward", "landmark", "prefecture"]);
+export type GeocodeKind = z.infer<typeof GeocodeKind>;
+
+export const GeocodeSource = z.enum(["seed", "mlit", "geonames", "manual"]);
+export type GeocodeSource = z.infer<typeof GeocodeSource>;
+
+export const GeocodeInput = z.object({
+  query: z.string().min(1),
+  limit: z.number().int().min(1).max(10).default(5),
+});
+export type GeocodeInput = z.infer<typeof GeocodeInput>;
+
+export const GeocodeCandidate = z.object({
+  id: z.string(),
+  label: z.string(),
+  name: z.string(),
+  lat: Latitude,
+  lng: Longitude,
+  kind: GeocodeKind,
+  source: GeocodeSource,
+});
+export type GeocodeCandidate = z.infer<typeof GeocodeCandidate>;
+
+export const GeocodeResult = z.object({ candidates: z.array(GeocodeCandidate) });
+export type GeocodeResult = z.infer<typeof GeocodeResult>;
+
 /** route(point_ids, origin?, pacing?) -> Route */
 export const RouteInput = z.object({
   point_ids: z.array(z.string()),
@@ -83,6 +110,14 @@ export const catalogContract = {
     .input(NearbyInput)
     // Pure DB/PostGIS query: no upstream dependency, so no UPSTREAM_UNAVAILABLE.
     .output(NearbyResult),
+  geocode: oc
+    .route({
+      method: "POST",
+      path: "/catalog/geocode",
+      summary: "Resolve a place name to coordinate candidates (local gazetteer)",
+    })
+    .input(GeocodeInput)
+    .output(GeocodeResult),
   route: oc
     .route({ method: "POST", path: "/catalog/route", summary: "Plan an ordered, timed route over selected points" })
     .input(RouteInput)

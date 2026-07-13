@@ -132,7 +132,7 @@ async def search_bangumi(
 async def search_nearby(
     ctx: RunContext[RuntimeDeps],
     *,
-    location: str,
+    location: str = "",
     radius: int = 0,
 ) -> dict[str, object]:
     """Find anime pilgrimage spots near a real-world location using geo search.

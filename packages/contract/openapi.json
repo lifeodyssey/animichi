@@ -534,6 +534,109 @@
         }
       }
     },
+    "/catalog/geocode": {
+      "post": {
+        "operationId": "geocode",
+        "summary": "Resolve a place name to coordinate candidates (local gazetteer)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "default": 5
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "lat": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "lng": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          },
+                          "kind": {
+                            "enum": [
+                              "station",
+                              "city",
+                              "ward",
+                              "landmark",
+                              "prefecture"
+                            ],
+                            "type": "string"
+                          },
+                          "source": {
+                            "enum": [
+                              "seed",
+                              "mlit",
+                              "geonames",
+                              "manual"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "label",
+                          "name",
+                          "lat",
+                          "lng",
+                          "kind",
+                          "source"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "candidates"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/catalog/route": {
       "post": {
         "operationId": "route",
