@@ -37,11 +37,12 @@ function nullableIso(value: unknown): string | null {
 function toUserRoute(value: unknown): UserRoute {
   if (!isRecord(value)) throw new Error("invalid route row");
   const { id, title, status } = value;
-  if (typeof id !== "string" || typeof title !== "string" || !isStatus(status)) {
+  if (typeof id !== "string" || !isStatus(status)) {
     throw new Error("invalid route row");
   }
+  const safeTitle = typeof title === "string" ? title : "";
   return {
-    id, title, status, point_ids: strings(value.point_ids),
+    id, title: safeTitle, status, point_ids: strings(value.point_ids),
     saved_at: nullableIso(value.saved_at), updated_at: iso(value.updated_at),
   };
 }
@@ -82,6 +83,11 @@ async function assertOwner(db: DbExecutor, userId: string, routeId: string): Pro
   if (ownerFrom(result.rows[0]) !== userId) throw routeNotOwned(routeId);
 }
 
+function updatedRoute(rows: unknown[], routeId: string): UserRoute {
+  if (rows.length === 0) throw routeNotOwned(routeId);
+  return toUserRoute(rows[0]);
+}
+
 async function updateRoute(
   db: DbExecutor,
   userId: string,
@@ -92,10 +98,10 @@ async function updateRoute(
     UPDATE routes SET title = ${input.title}, point_ids = ${sql.param(input.point_ids)}::text[],
       status = ${input.status}, saved_at = CASE WHEN ${input.status} = 'draft'
         THEN NULL ELSE COALESCE(saved_at, NOW()) END
-    WHERE id = ${input.id}
+    WHERE id = ${input.id} AND user_id = ${userId}
     RETURNING id, title, point_ids, status, saved_at, updated_at
   `);
-  return toUserRoute(result.rows[0]);
+  return updatedRoute(result.rows, input.id);
 }
 
 /** Create a route or update it after explicit ownership validation. */

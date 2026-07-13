@@ -114,7 +114,8 @@ export function fakeDb(seed: FakeRouteRow[] = []): { db: DbExecutor; rows: FakeR
       return Promise.resolve({ rows: [row] });
     }
     if (text.includes("update routes")) {
-      const row = rows.find((item) => item.id === values.at(-1));
+      const [id, userId] = values.slice(-2);
+      const row = rows.find((item) => item.id === id && item.user_id === userId);
       if (!row) return Promise.resolve({ rows: [] });
       updateRow(row, values);
       return Promise.resolve({ rows: [row] });
