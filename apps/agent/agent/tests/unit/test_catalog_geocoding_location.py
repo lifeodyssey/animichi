@@ -51,7 +51,9 @@ async def test_a8_empty_location_uses_gps_without_geocoding() -> None:
 async def test_a8_empty_location_without_gps_clarifies() -> None:
     result = await _run("", MockCatalogClient())
     assert result.intent == "clarify"
-    assert [step.tool for step in result.steps] == ["clarify"]
+    assert [step.tool for step in result.steps] == ["geocode", "clarify"]
+    assert result.steps[0].success is True
+    assert result.steps[0].data == {"condition": "missing_location_and_no_gps"}
 
 
 async def test_a8_prime_prefecture_clarifies_without_nearby() -> None:

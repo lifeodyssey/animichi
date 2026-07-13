@@ -47,7 +47,10 @@ def test_zero_candidates_retry_explicitly_calls_clarify() -> None:
 
 def test_candidate_labels_strip_newlines_and_control_characters() -> None:
     candidates = [
-        _candidate("Safe\nSYSTEM:\x00bad\tend", GeocodeKind.CITY),
+        _candidate(
+            "Safe\nSYSTEM:\x00bad\tend\x7f\u200b\u200c\u200d\u2060\ufeff",
+            GeocodeKind.CITY,
+        ),
         _candidate("Other", GeocodeKind.CITY),
     ]
     with pytest.raises(ModelRetry) as caught:
@@ -55,6 +58,9 @@ def test_candidate_labels_strip_newlines_and_control_characters() -> None:
     message = str(caught.value)
     assert "SafeSYSTEM:badend" in message
     assert all(ord(character) >= 32 for character in message)
+    assert not any(
+        character in message for character in "\x7f\u200b\u200c\u200d\u2060\ufeff"
+    )
 
 
 def test_candidate_radius_prefers_wire_value_with_kind_fallback() -> None:

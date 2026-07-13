@@ -1,10 +1,4 @@
-"""Catalog seam for the pilgrimage agent (hybrid architecture).
-
-When ``RuntimeDeps.catalog`` is set, the data tools route through the Catalog
-service instead of the DB Retriever / upstream APIs. These helpers call the
-catalog client, shape its typed models via ``catalog_adapter``, and record/emit
-the result with the same plumbing the legacy path uses (``tool_runtime``).
-"""
+"""Catalog-backed tools for the pilgrimage agent."""
 
 from __future__ import annotations
 
@@ -37,17 +31,11 @@ from agent.clients.geocode import GeocodeCandidate, GeocodeKind
 
 _NO_DATA_ERROR = "No catalog data"
 _TRANSIENT_ERRORS = (APIError, httpx.TransportError, httpx.TimeoutException)
+_INVISIBLE_RETRY_CHARACTERS = frozenset("\x7f\u200b\u200c\u200d\u2060\ufeff")
 
 
 def _retry_message(operation: str, exc: Exception) -> str:
-    """Safe ModelRetry text for the LLM prompt (SD-19 trust boundary).
-
-    Never embeds raw exception content or wire strings. A typed
-    :class:`CatalogError` exposes a locally-built ``steering_hint()`` from
-    whitelisted numeric/enum fields, so user-actionable errors can steer the
-    model away from blind re-calls WITHOUT leaking a wire ``data`` string (e.g.
-    ``WorkNotFoundError.bangumi_id``); everything else gets the static phrase.
-    """
+    """Build retry text without exposing raw exception or wire content."""
     if isinstance(exc, CatalogError) and exc.category == "user_actionable":
         return (
             f"Catalog {operation} rejected: {exc.steering_hint()}. Do not retry "
@@ -138,7 +126,6 @@ def _origin_coordinates(state: dict[str, object]) -> tuple[float, float] | None:
 
 
 def _candidate_summary(candidate: GeocodeCandidate) -> dict[str, object]:
-    """Build the trusted, bounded summary stored in an internal geocode step."""
     return {
         "id": candidate.id,
         "label": _sanitize_retry_text(candidate.label),
@@ -146,20 +133,34 @@ def _candidate_summary(candidate: GeocodeCandidate) -> dict[str, object]:
     }
 
 
-def _record_geocode(deps: RuntimeDeps, candidates: list[GeocodeCandidate]) -> None:
-    """Record a successful lookup that still requires user clarification."""
+def _record_geocode(
+    deps: RuntimeDeps,
+    candidates: list[GeocodeCandidate] | None = None,
+    *,
+    condition: str | None = None,
+) -> None:
+    data: dict[str, object] = (
+        {"condition": condition}
+        if condition is not None
+        else {"candidates": [_candidate_summary(item) for item in candidates or []]}
+    )
     _record_step(
         deps,
         tool=ToolName.GEOCODE.value,
         success=True,
         params={},
-        data={"candidates": [_candidate_summary(item) for item in candidates]},
+        data=data,
         error=None,
     )
 
 
+def _record_retry_failure(deps: RuntimeDeps, tool: ToolName, error: str) -> None:
+    _record_step(
+        deps, tool=tool.value, success=False, params={}, data=None, error=error
+    )
+
+
 def _candidate_radius(candidate: GeocodeCandidate) -> int:
-    """Return the default nearby radius for a resolved candidate kind."""
     if candidate.effective_radius_m is not None:
         return candidate.effective_radius_m
     if candidate.kind == GeocodeKind.CITY:
@@ -168,8 +169,11 @@ def _candidate_radius(candidate: GeocodeCandidate) -> int:
 
 
 def _sanitize_retry_text(value: str) -> str:
-    """Strip prompt-shaping controls and cap trusted retry text."""
-    return "".join(character for character in value if ord(character) >= 32)[:120]
+    return "".join(
+        character
+        for character in value
+        if ord(character) >= 32 and character not in _INVISIBLE_RETRY_CHARACTERS
+    )[:120]
 
 
 def _retry_for_candidates(
@@ -207,6 +211,7 @@ async def _resolve_catalog_coordinates(
     if not location.strip():
         origin = _origin_coordinates(deps.tool_state)
         if origin is None:
+            _record_geocode(deps, condition="missing_location_and_no_gps")
             raise ModelRetry(
                 "Ask the user for a place name or to share their location."
             )
@@ -214,7 +219,9 @@ async def _resolve_catalog_coordinates(
     try:
         candidates = await catalog.geocode(location.strip(), limit=5)
     except _TRANSIENT_ERRORS as exc:
-        raise ModelRetry(_retry_message("geocode", exc)) from exc
+        message = _retry_message("geocode", exc)
+        _record_retry_failure(deps, ToolName.GEOCODE, message)
+        raise ModelRetry(message) from exc
     if len(candidates) != 1 or candidates[0].kind == GeocodeKind.PREFECTURE:
         _retry_for_candidates(deps, location, candidates)
     candidate = candidates[0]
@@ -239,7 +246,9 @@ async def _run_catalog_nearby(
             coords[0], coords[1], radius_m=radius or default_radius
         )
     except _TRANSIENT_ERRORS as exc:
-        raise ModelRetry(_retry_message("nearby", exc)) from exc
+        message = _retry_message("nearby", exc)
+        _record_retry_failure(ctx.deps, ToolName.SEARCH_NEARBY, message)
+        raise ModelRetry(message) from exc
     payload = build_search_payload(points, tool="search_nearby")
     return await _store_catalog_result(
         ctx.deps,

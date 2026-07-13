@@ -40,7 +40,7 @@ from pydantic import BaseModel, Field
 from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
 from agent.clients.catalog_errors import parse_catalog_error
 from agent.clients.errors import APIError, TransientAPIError
-from agent.clients.geocode import GeocodeCandidate
+from agent.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
 
 logger = structlog.get_logger(__name__)
 
@@ -54,6 +54,9 @@ __all__ = [
     "TransitLeg",
     "CatalogClient",
     "CatalogClientProtocol",
+    "GeocodeCandidate",
+    "GeocodeKind",
+    "GeocodeSource",
 ]
 
 JSONDict = dict[str, object]
