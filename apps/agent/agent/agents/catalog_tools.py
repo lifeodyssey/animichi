@@ -8,6 +8,8 @@ the result with the same plumbing the legacy path uses (``tool_runtime``).
 
 from __future__ import annotations
 
+from typing import NoReturn
+
 import httpx
 from pydantic_ai import ModelRetry, RunContext
 
@@ -19,14 +21,18 @@ from agent.agents.catalog_adapter import (
 )
 from agent.agents.models import ToolName
 from agent.agents.runtime_deps import RuntimeDeps
-from agent.agents.sql_agent import KNOWN_LOCATIONS
 from agent.agents.tool_runtime import (
     _emit_step,
     _localize_city_names,
     _record_step,
     _summarize_for_llm,
 )
-from agent.clients.catalog_client import CatalogClientProtocol, PilgrimagePoint
+from agent.clients.catalog_client import (
+    CatalogClientProtocol,
+    GeocodeCandidate,
+    GeocodeKind,
+    PilgrimagePoint,
+)
 from agent.clients.catalog_errors import CatalogError
 from agent.clients.errors import APIError
 
@@ -123,19 +129,85 @@ def _shape_search_or_resolve(
     return build_search_payload(points, tool=search_tool)
 
 
-def _geocode_for_catalog(
-    location: str, state: dict[str, object]
-) -> tuple[float, float] | None:
-    """Resolve coords from session state, then deterministic KNOWN_LOCATIONS.
-
-    Stays upstream-free: no LLM, no Google Geocoding. The catalog service owns
-    richer geocoding; the agent only forwards coordinates it can resolve locally.
-    """
+def _origin_coordinates(state: dict[str, object]) -> tuple[float, float] | None:
+    """Return typed session GPS coordinates when both values are present."""
     lat = state.get("origin_lat")
     lng = state.get("origin_lng")
     if isinstance(lat, int | float) and isinstance(lng, int | float):
         return float(lat), float(lng)
-    return KNOWN_LOCATIONS.get(location.strip())
+    return None
+
+
+def _candidate_summary(candidate: GeocodeCandidate) -> dict[str, object]:
+    """Build the trusted, bounded summary stored in an internal geocode step."""
+    return {
+        "id": candidate.id,
+        "label": candidate.label[:120],
+        "kind": candidate.kind.value,
+    }
+
+
+def _record_geocode(deps: RuntimeDeps, candidates: list[GeocodeCandidate]) -> None:
+    """Record a successful lookup that still requires user clarification."""
+    _record_step(
+        deps,
+        tool=ToolName.GEOCODE.value,
+        success=True,
+        params={},
+        data={"candidates": [_candidate_summary(item) for item in candidates]},
+        error=None,
+    )
+
+
+def _candidate_radius(candidate: GeocodeCandidate) -> int:
+    """Return the default nearby radius for a resolved candidate kind."""
+    if candidate.kind == GeocodeKind.CITY:
+        return 10_000
+    return 5_000
+
+
+def _retry_for_candidates(
+    deps: RuntimeDeps,
+    location: str,
+    candidates: list[GeocodeCandidate],
+) -> NoReturn:
+    """Record a non-failure geocode step and raise a clarification retry."""
+    _record_geocode(deps, candidates)
+    if not candidates:
+        raise ModelRetry(
+            f"No gazetteer match for {location[:120]!r}. "
+            "Ask the user for a station or city name."
+        )
+    if candidates[0].kind == GeocodeKind.PREFECTURE:
+        raise ModelRetry(
+            f"{candidates[0].label[:120]} is too broad. "
+            "Ask the user which city or station within it."
+        )
+    labels = ", ".join(item.label[:120] for item in candidates[:5])
+    raise ModelRetry(f"Place name is ambiguous. Ask the user to choose: {labels}")
+
+
+async def _resolve_catalog_coordinates(
+    catalog: CatalogClientProtocol,
+    deps: RuntimeDeps,
+    location: str,
+) -> tuple[tuple[float, float], int]:
+    """Apply explicit-place-first geocoding and the GPS fallback table."""
+    if not location.strip():
+        origin = _origin_coordinates(deps.tool_state)
+        if origin is None:
+            raise ModelRetry(
+                "Ask the user for a place name or to share their location."
+            )
+        return origin, 5_000
+    try:
+        candidates = await catalog.geocode(location.strip(), limit=5)
+    except _TRANSIENT_ERRORS as exc:
+        raise ModelRetry(_retry_message("geocode", exc)) from exc
+    if len(candidates) != 1 or candidates[0].kind == GeocodeKind.PREFECTURE:
+        _retry_for_candidates(deps, location, candidates)
+    candidate = candidates[0]
+    return (candidate.lat, candidate.lng), _candidate_radius(candidate)
 
 
 async def _run_catalog_nearby(
@@ -147,15 +219,14 @@ async def _run_catalog_nearby(
     params: dict[str, object],
 ) -> dict[str, object]:
     """Geo-search via catalog.nearby() and store the shaped payload."""
-    coords = _geocode_for_catalog(location, ctx.deps.tool_state)
-    if coords is None:
-        raise ModelRetry(
-            f"Could not resolve coordinates for '{location}'. "
-            "Ask the user for a more specific station or city name."
-        )
+    coords, default_radius = await _resolve_catalog_coordinates(
+        catalog, ctx.deps, location
+    )
     await _emit_step(ctx.deps, ToolName.SEARCH_NEARBY.value, "running", {})
     try:
-        points = await catalog.nearby(coords[0], coords[1], radius_m=radius or 5000)
+        points = await catalog.nearby(
+            coords[0], coords[1], radius_m=radius or default_radius
+        )
     except _TRANSIENT_ERRORS as exc:
         raise ModelRetry(_retry_message("nearby", exc)) from exc
     payload = build_search_payload(points, tool="search_nearby")
@@ -164,7 +235,7 @@ async def _run_catalog_nearby(
         tool=ToolName.SEARCH_NEARBY,
         params=params,
         payload=payload,
-        success=bool(payload.get("rows")),
+        success=True,
     )
 
 

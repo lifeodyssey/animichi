@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from agent.agents.geo_utils import haversine_distance
 from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
-from agent.clients.catalog_client import IngestResult, PilgrimagePoint, Route
+from agent.clients.catalog_client import (
+    GeocodeCandidate,
+    GeocodeKind,
+    GeocodeSource,
+    IngestResult,
+    PilgrimagePoint,
+    Route,
+)
 from agent.clients.errors import APIError
 from agent.tests.eval.mock_catalog_fixtures import (
     FIXTURE_POINTS,
@@ -56,6 +63,10 @@ class MockCatalogClient:
         self.calls.append(("nearby", (lat, lng, radius_m)))
         scored = self._within_radius(lat, lng, radius_m)
         return [point for _, point in sorted(scored, key=lambda item: item[0])]
+
+    async def geocode(self, query: str, *, limit: int = 5) -> list[GeocodeCandidate]:
+        self.calls.append(("geocode", (query, limit)))
+        return [candidate.model_copy() for candidate in _geocode_fixture(query)[:limit]]
 
     async def route(
         self, point_ids: list[str], *, origin: tuple[float, float] | None = None
@@ -124,6 +135,114 @@ def _build_route(ordered: list[PilgrimagePoint]) -> Route:
         anime_title_cn=ordered[0].title_cn,
         timed_itinerary=_build_itinerary(ordered),
     )
+
+
+def _candidate(
+    id_: str,
+    label: str,
+    name: str,
+    lat: float,
+    lng: float,
+    kind: GeocodeKind,
+) -> GeocodeCandidate:
+    return GeocodeCandidate(
+        id=id_,
+        label=label,
+        name=name,
+        lat=lat,
+        lng=lng,
+        kind=kind,
+        source=GeocodeSource.SEED,
+    )
+
+
+def _geocode_fixture(query: str) -> list[GeocodeCandidate]:
+    fixtures = {
+        "西宮": [
+            _candidate(
+                "seed:nishinomiya",
+                "西宮駅(兵庫県)",
+                "西宮駅",
+                34.7386,
+                135.3485,
+                GeocodeKind.STATION,
+            )
+        ],
+        "西宫": [
+            _candidate(
+                "seed:nishinomiya",
+                "西宮駅(兵庫県)",
+                "西宮駅",
+                34.7386,
+                135.3485,
+                GeocodeKind.STATION,
+            )
+        ],
+        "nishinomiya": [
+            _candidate(
+                "seed:nishinomiya",
+                "西宮駅(兵庫県)",
+                "西宮駅",
+                34.7386,
+                135.3485,
+                GeocodeKind.STATION,
+            )
+        ],
+        "宇治": [
+            _candidate(
+                "seed:uji", "宇治(京都府)", "宇治", 34.8843, 135.7997, GeocodeKind.CITY
+            )
+        ],
+        "東京": [
+            _candidate(
+                "seed:tokyo",
+                "東京(東京都)",
+                "東京",
+                35.6762,
+                139.6503,
+                GeocodeKind.CITY,
+            )
+        ],
+        "东京": [
+            _candidate(
+                "seed:tokyo",
+                "東京(東京都)",
+                "東京",
+                35.6762,
+                139.6503,
+                GeocodeKind.CITY,
+            )
+        ],
+        "府中": [
+            _candidate(
+                "manual:fuchu-tokyo",
+                "府中市(東京都)",
+                "府中市",
+                35.6689,
+                139.4777,
+                GeocodeKind.CITY,
+            ),
+            _candidate(
+                "manual:fuchu-hiroshima",
+                "府中市(広島県)",
+                "府中市",
+                34.5684,
+                133.2363,
+                GeocodeKind.CITY,
+            ),
+        ],
+        "山梨県": [
+            _candidate(
+                "manual:yamanashi",
+                "山梨県",
+                "山梨県",
+                35.6639,
+                138.5683,
+                GeocodeKind.PREFECTURE,
+            )
+        ],
+    }
+    return fixtures.get(query.lower(), fixtures.get(query, []))
 
 
 def _build_itinerary(ordered: list[PilgrimagePoint]) -> TimedItinerary:

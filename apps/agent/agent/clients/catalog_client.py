@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
+from enum import StrEnum
 from typing import Literal, Protocol, runtime_checkable
 
 import httpx
@@ -53,6 +54,9 @@ __all__ = [
     "TransitLeg",
     "CatalogClient",
     "CatalogClientProtocol",
+    "GeocodeCandidate",
+    "GeocodeKind",
+    "GeocodeSource",
 ]
 
 JSONDict = dict[str, object]
@@ -101,6 +105,37 @@ class IngestResult(BaseModel):
     reason: str = ""
 
 
+class GeocodeKind(StrEnum):
+    """Kinds of gazetteer entries returned by the Catalog service."""
+
+    STATION = "station"
+    CITY = "city"
+    WARD = "ward"
+    LANDMARK = "landmark"
+    PREFECTURE = "prefecture"
+
+
+class GeocodeSource(StrEnum):
+    """Auditable source families for gazetteer entries."""
+
+    SEED = "seed"
+    MLIT = "mlit"
+    GEONAMES = "geonames"
+    MANUAL = "manual"
+
+
+class GeocodeCandidate(BaseModel):
+    """One typed place-name candidate from the local gazetteer."""
+
+    id: str
+    label: str
+    name: str
+    lat: float
+    lng: float
+    kind: GeocodeKind
+    source: GeocodeSource
+
+
 @runtime_checkable
 class CatalogClientProtocol(Protocol):
     """Structural contract for the Catalog read path (search/spots/nearby/route).
@@ -117,6 +152,10 @@ class CatalogClientProtocol(Protocol):
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
     ) -> list[PilgrimagePoint]: ...
+
+    async def geocode(
+        self, query: str, *, limit: int = 5
+    ) -> list[GeocodeCandidate]: ...
 
     async def route(
         self, point_ids: list[str], *, origin: tuple[float, float] | None = None
@@ -157,6 +196,14 @@ class CatalogClient:
         body = {"lat": lat, "lng": lng, "radius_m": radius_m}
         payload = await self._rpc("nearby", body)
         return _parse_rows(payload)
+
+    async def geocode(self, query: str, *, limit: int = 5) -> list[GeocodeCandidate]:
+        """Resolve a place name against the Catalog's local gazetteer."""
+        payload = await self._rpc("geocode", {"query": query, "limit": limit})
+        candidates = payload.get("candidates")
+        if not isinstance(candidates, list):
+            raise APIError("Expected 'candidates' to be a JSON array")
+        return [GeocodeCandidate.model_validate(item) for item in candidates]
 
     async def route(
         self, point_ids: list[str], *, origin: tuple[float, float] | None = None
