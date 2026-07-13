@@ -12,13 +12,6 @@ from pathlib import Path
 
 CASE_TIMEOUT_S = 60
 
-# Fake credentials the parent tests/conftest.py injects via os.environ.setdefault.
-# Eval may replace these (and unset vars) from .env, but a real value already in
-# the process environment (CI secret, rotated key, model override) must win.
-_ENV_FAKE_SENTINELS = frozenset(
-    {"test-key", "postgresql://test:test@localhost:5432/test"}
-)
-
 
 def real_env_updates(
     file_values: Mapping[str, str | None],
@@ -26,15 +19,13 @@ def real_env_updates(
 ) -> dict[str, str]:
     """Return the .env entries to apply without clobbering the real process env.
 
-    A key is applied only when the current environment value is missing or is one
-    of the parent conftest's fake sentinels — so CI secrets and rotated keys win.
+    A key is applied only when absent, so CI secrets and rotated keys always win.
     """
     updates: dict[str, str] = {}
     for key, value in file_values.items():
         if value is None:
             continue
-        current = environ.get(key)
-        if current is None or current in _ENV_FAKE_SENTINELS:
+        if environ.get(key) is None:
             updates[key] = value
     return updates
 

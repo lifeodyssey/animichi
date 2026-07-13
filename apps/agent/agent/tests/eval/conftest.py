@@ -20,11 +20,8 @@ from agent.tests.eval.eval_common import real_env_updates
 
 pytest_plugins = ("agent.tests.conftest_db",)
 
-# Load real .env so eval tests have real API keys, but let a real value already in
-# the process environment win over a stale .env. The parent tests/conftest.py
-# seeds fake "test-key" creds via os.environ.setdefault; only those (and unset
-# vars) are filled from .env, so CI secrets, rotated keys, and DEFAULT_AGENT_MODEL
-# set in the environment are never silently overwritten.
+# Load real .env so eval tests have real API keys. Only unset variables are filled,
+# so CI secrets, rotated keys, and DEFAULT_AGENT_MODEL always win over stale values.
 _ENV_PATH = Path(__file__).parents[3] / ".env"
 os.environ.update(real_env_updates(dotenv_values(_ENV_PATH), os.environ))
 
