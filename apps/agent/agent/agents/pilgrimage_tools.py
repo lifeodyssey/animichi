@@ -302,7 +302,9 @@ class ClarifyArgs(BaseModel):
             raise ModelRetry(
                 "options must be a JSON array of strings, not a JSON-encoded string"
             ) from exc
-        if not isinstance(decoded, list):
+        if not isinstance(decoded, list) or not all(
+            isinstance(item, str) for item in decoded
+        ):
             raise ModelRetry(
                 "options must be a JSON array of strings, not a JSON-encoded string"
             )
