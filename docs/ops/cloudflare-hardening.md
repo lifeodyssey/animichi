@@ -36,7 +36,7 @@ Two credential types, both validated at the Worker edge:
 
 | Credential | Format | Validation |
 |---|---|---|
-| Human JWT | `Bearer <supabase_jwt>` | `validateJwt()` calls Supabase `/auth/v1/user` with `SUPABASE_ANON_KEY` |
+| Human JWT | `Bearer <supabase_jwt>` | `authenticate()` verifies the signature locally against the Supabase JWKS (ES256/RS256 via jose `createRemoteJWKSet`), checking issuer/audience/exp — no `/auth/v1/user` round-trip. Flag-gated Neon Auth (EdDSA) issuer is off by default. |
 | Agent API key | `Bearer sk_<hex>` | `validateApiKey()` SHA-256 hashes the key, looks up `api_keys` table via Supabase REST with `SUPABASE_SERVICE_ROLE_KEY` |
 
 On success the Worker sets `X-User-Id` and `X-User-Type`, deletes the `Authorization` header, and forwards to the container. The container never sees raw bearer tokens.
@@ -45,9 +45,9 @@ On success the Worker sets `X-User-Id` and `X-User-Type`, deletes the `Authoriza
 
 | Variable | Boundary | Notes |
 |---|---|---|
-| `SUPABASE_URL` | Worker-only | Used for JWT validation and API-key lookup |
-| `SUPABASE_ANON_KEY` | Worker-only | Passed as `apikey` header to Supabase auth |
+| `SUPABASE_URL` | Worker-only | JWKS fetch (`/auth/v1/.well-known/jwks.json`) for local JWT verification + `api_keys` lookup |
 | `SUPABASE_SERVICE_ROLE_KEY` | Worker-only | Used for `api_keys` table lookup |
+| `NEON_AUTH_ENABLED` / `NEON_AUTH_JWKS_URL` / `NEON_AUTH_ISSUER` | Worker-only (optional) | Dual-issuer readiness — Neon Auth EdDSA JWKS verification; absent or `false` ⇒ Neon path off (default) |
 | `SUPABASE_DB_URL` | Container-only | Direct Postgres connection for asyncpg |
 | `GEMINI_API_KEY` | Container-only | LLM provider credential |
 | `ANITABI_API_URL` | Container-only | Pilgrimage data API |
@@ -62,7 +62,7 @@ The full container env allowlist is defined in `worker/worker.js` as `CONTAINER_
 ## Current Trust Boundary
 
 - Browser and API clients talk only to the Worker hostname
-- Worker-only auth secrets stay at the edge: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- Worker-only auth secrets stay at the edge: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (+ optional `NEON_AUTH_*`); the edge JWT path verifies against the public Supabase JWKS, so no `SUPABASE_ANON_KEY` is needed there
 - Container runtime receives only its explicit allowlist from `worker/worker.js`
 - Backend auth trust starts from `X-User-Id` and `X-User-Type`, not from raw bearer tokens
 
