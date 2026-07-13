@@ -10,6 +10,8 @@ from __future__ import annotations
 import asyncio
 from typing import cast
 
+import httpx
+from ddgs.exceptions import DDGSException
 from pydantic_ai import RunContext
 from pydantic_ai.common_tools.duckduckgo import (
     DuckDuckGoResult,
@@ -26,6 +28,13 @@ from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.translation import TranslationResult, translate_title
 
 _ddg_tool = duckduckgo_search_tool(max_results=5)
+_SEARCH_ERRORS: tuple[type[Exception], ...] = (
+    TimeoutError,
+    OSError,
+    RuntimeError,
+    httpx.HTTPError,
+    DDGSException,
+)
 
 
 async def _run_ddg_search(query: str) -> list[DuckDuckGoResult]:
@@ -88,7 +97,7 @@ async def web_search(
         raw_results = await asyncio.wait_for(
             _run_configured_search(ctx.deps, query), timeout=10.0
         )
-    except (TimeoutError, OSError, RuntimeError) as exc:
+    except _SEARCH_ERRORS as exc:
         return f"Search failed for '{query}': {exc}"
     if not raw_results:
         return f"No results found for: {query}"
