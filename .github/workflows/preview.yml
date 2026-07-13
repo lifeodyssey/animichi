@@ -1,0 +1,286 @@
+# Standalone, event-driven opt-in workflow (like codeql.yml), outside the
+# ci.yml/deploy.yml caller-reusable layering. Refs #305.
+# Add the `preview` label to create or update a preview; synchronize only
+# redeploys PRs that remain labeled, while closed always sweeps orphaned state.
+# Catalog uploads are globally serialized because versions upload inherits the
+# latest secret version; interleaving PRs could otherwise pair code and DB wrong.
+# Dedicated preview Workers prevent secret inheritance from poisoning staging
+# or production Workers.
+name: PR preview
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    if: >-
+      github.event.action != 'closed' &&
+      contains(github.event.pull_request.labels.*.name, 'preview') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+    concurrency:
+      # Keep secret-put and upload adjacent across all PRs.
+      group: preview-cf-upload
+      cancel-in-progress: false
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up toolchain
+        uses: ./.github/actions/setup
+
+      - name: Preflight
+        env:
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: |
+          if [ -z "$NEON_PROJECT_ID" ]; then
+            echo "::error::NEON_PROJECT_ID is unset. Configure it with: gh variable set NEON_PROJECT_ID --body <project-id>"
+            exit 1
+          fi
+
+      - name: Resolve workers.dev subdomain
+        id: subdomain
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          SUBDOMAIN=$(curl -sfS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" | jq -r '.result.subdomain')
+          if [ -z "$SUBDOMAIN" ] || [ "$SUBDOMAIN" = "null" ]; then
+            echo '::error::Cloudflare workers.dev subdomain is empty or null'
+            exit 1
+          fi
+          echo "subdomain=$SUBDOMAIN" >> "$GITHUB_OUTPUT"
+
+      - name: Create or reuse Neon preview branch
+        id: neon
+        uses: neondatabase/create-branch-action@72ed4f69a12b6be9c16aebfad893f6a21e9aba8b # v6.4.0
+        with:
+          api_key: ${{ secrets.NEON_API_KEY }}
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.pull_request.number }}
+          database: ${{ vars.NEON_DATABASE_NAME || 'neondb' }}
+          role: ${{ vars.NEON_ROLE_NAME || 'neondb_owner' }}
+
+      - name: Mask connection strings
+        env:
+          DIRECT_URL: ${{ steps.neon.outputs.db_url }}
+          POOLED_URL: ${{ steps.neon.outputs.db_url_pooled }}
+        run: |
+          echo "::add-mask::$DIRECT_URL"
+          echo "::add-mask::$POOLED_URL"
+
+      - name: Migrate preview branch (atlas)
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+        run: |
+          curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
+          chmod +x /usr/local/bin/atlas
+          atlas migrate apply --dir "file://db/migrations" --url "$DATABASE_URL" --revisions-schema public
+
+      - name: Upload catalog preview version
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DB_URL_POOLED: ${{ steps.neon.outputs.db_url_pooled }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -o pipefail
+          if ! pnpm --filter catalog exec wrangler versions list --env preview >/dev/null 2>&1; then
+            # One-time routeless Worker creation; subsequent runs upload versions only.
+            pnpm --filter catalog exec wrangler deploy --env preview
+          fi
+          printf '%s' "$DB_URL_POOLED" | pnpm --filter catalog exec wrangler versions secret put DATABASE_URL --env preview
+          pnpm --filter catalog exec wrangler versions upload --env preview --preview-alias "pr-${PR_NUMBER}" | tee "$RUNNER_TEMP/catalog-upload.log"
+
+      - name: Build web
+        run: pnpm --filter web build
+
+      - name: Upload web preview version
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -o pipefail
+          if ! pnpm --filter web exec wrangler versions list --env preview >/dev/null 2>&1; then
+            # One-time routeless Worker creation; subsequent runs upload versions only.
+            pnpm --filter web exec wrangler deploy --env preview
+          fi
+          pnpm --filter web exec wrangler versions upload --env preview --preview-alias "pr-${PR_NUMBER}" | tee "$RUNNER_TEMP/web-upload.log"
+
+      - name: Derive preview facts
+        id: urls
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SUBDOMAIN: ${{ steps.subdomain.outputs.subdomain }}
+          CREATED: ${{ steps.neon.outputs.created }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          CATALOG_STABLE="https://pr-${PR_NUMBER}-catalog-preview.${SUBDOMAIN}.workers.dev"
+          WEB_STABLE="https://pr-${PR_NUMBER}-animichi-web-preview.${SUBDOMAIN}.workers.dev"
+          CATALOG_VERSIONED=$(awk 'match($0, /https:\/\/[^[:space:]]+\.workers\.dev/) { print substr($0, RSTART, RLENGTH) }' "$RUNNER_TEMP/catalog-upload.log" | sort -u | awk -v s="$CATALOG_STABLE" '$0 != s' | head -n 1)
+          WEB_VERSIONED=$(awk 'match($0, /https:\/\/[^[:space:]]+\.workers\.dev/) { print substr($0, RSTART, RLENGTH) }' "$RUNNER_TEMP/web-upload.log" | sort -u | awk -v s="$WEB_STABLE" '$0 != s' | head -n 1)
+          if [ -z "$CATALOG_VERSIONED" ]; then
+            echo '::error::wrangler versions upload printed no preview URL for catalog'
+            exit 1
+          fi
+          if [ -z "$WEB_VERSIONED" ]; then
+            echo '::error::wrangler versions upload printed no preview URL for web'
+            exit 1
+          fi
+          if [ "$CREATED" = "true" ]; then
+            BRANCH_STATE='created'
+          else
+            BRANCH_STATE='reused'
+          fi
+          SHORT_SHA=$(printf '%.7s' "$HEAD_SHA")
+          {
+            echo "catalog_stable=$CATALOG_STABLE"
+            echo "web_stable=$WEB_STABLE"
+            echo "catalog_versioned=$CATALOG_VERSIONED"
+            echo "web_versioned=$WEB_VERSIONED"
+            echo "branch_state=$BRANCH_STATE"
+            echo "short_sha=$SHORT_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upsert PR comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          CATALOG_STABLE: ${{ steps.urls.outputs.catalog_stable }}
+          WEB_STABLE: ${{ steps.urls.outputs.web_stable }}
+          CATALOG_VERSIONED: ${{ steps.urls.outputs.catalog_versioned }}
+          WEB_VERSIONED: ${{ steps.urls.outputs.web_versioned }}
+          BRANCH_STATE: ${{ steps.urls.outputs.branch_state }}
+          SHORT_SHA: ${{ steps.urls.outputs.short_sha }}
+          NEON_BRANCH: preview/pr-${{ github.event.pull_request.number }}
+          BRANCH_ID: ${{ steps.neon.outputs.branch_id }}
+        run: |
+          BODY=$(printf '%s\n' \
+            '<!-- animichi-preview-status -->' \
+            '## Preview environment' \
+            '' \
+            "- Catalog stable alias: $CATALOG_STABLE" \
+            "- Web stable alias: $WEB_STABLE" \
+            "- Catalog version for this commit: $CATALOG_VERSIONED" \
+            "- Web version for this commit: $WEB_VERSIONED" \
+            "- Neon branch: \`$NEON_BRANCH\` ($BRANCH_STATE, id \`$BRANCH_ID\`)" \
+            "- Head commit: \`$SHORT_SHA\`" \
+            '' \
+            'Close the PR to tear this down automatically.')
+          COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate --jq '.[] | select(.body | contains("<!-- animichi-preview-status -->")) | .id' | head -n 1)
+          if [ -n "$COMMENT_ID" ]; then
+            jq -n --arg body "$BODY" '{body:$body}' | gh api --method PATCH "repos/$REPO/issues/comments/$COMMENT_ID" --input -
+          else
+            jq -n --arg body "$BODY" '{body:$body}' | gh api --method POST "repos/$REPO/issues/$PR_NUMBER/comments" --input -
+          fi
+
+      - name: Job summary
+        env:
+          CATALOG_STABLE: ${{ steps.urls.outputs.catalog_stable }}
+          WEB_STABLE: ${{ steps.urls.outputs.web_stable }}
+          CATALOG_VERSIONED: ${{ steps.urls.outputs.catalog_versioned }}
+          WEB_VERSIONED: ${{ steps.urls.outputs.web_versioned }}
+          BRANCH_STATE: ${{ steps.urls.outputs.branch_state }}
+          SHORT_SHA: ${{ steps.urls.outputs.short_sha }}
+          NEON_BRANCH: preview/pr-${{ github.event.pull_request.number }}
+          BRANCH_ID: ${{ steps.neon.outputs.branch_id }}
+        run: |
+          {
+            echo '## Preview environment'
+            echo
+            echo "- Catalog stable alias: $CATALOG_STABLE"
+            echo "- Web stable alias: $WEB_STABLE"
+            echo "- Catalog version for this commit: $CATALOG_VERSIONED"
+            echo "- Web version for this commit: $WEB_VERSIONED"
+            echo "- Neon branch: \`$NEON_BRANCH\` ($BRANCH_STATE, id \`$BRANCH_ID\`)"
+            echo "- Head commit: \`$SHORT_SHA\`"
+            echo
+            echo 'Close the PR to tear this down automatically.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  teardown:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Name-guard + existence check
+        id: guard
+        env:
+          BRANCH_NAME: preview/pr-${{ github.event.pull_request.number }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: |
+          case "$BRANCH_NAME" in
+            preview/pr-[0-9]*) ;;
+            *) echo "::error::Refusing unsafe branch name: $BRANCH_NAME"; exit 1 ;;
+          esac
+          PR_SUFFIX=${BRANCH_NAME#preview/pr-}
+          case "$PR_SUFFIX" in
+            ''|*[!0-9]*) echo "::error::Refusing non-numeric PR branch: $BRANCH_NAME"; exit 1 ;;
+          esac
+          # Belt-and-braces protection for canonical long-lived branch names.
+          case "$BRANCH_NAME" in
+            main|master|production|staging|development)
+              echo "::error::Refusing protected branch name: $BRANCH_NAME"
+              exit 1
+              ;;
+          esac
+          if [ -z "$NEON_PROJECT_ID" ]; then
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BRANCHES_JSON=$(curl -sfS -H "Authorization: Bearer $NEON_API_KEY" "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches")
+          if printf '%s' "$BRANCHES_JSON" | jq -r '.branches[].name' | grep -Fxq -- "$BRANCH_NAME"; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Delete Neon branch
+        if: steps.guard.outputs.exists == 'true'
+        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776 # v3.2.1
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: preview/pr-${{ github.event.pull_request.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Mark PR comment torn down
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          BRANCH_NAME: preview/pr-${{ github.event.pull_request.number }}
+        run: |
+          COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate --jq '.[] | select(.body | contains("<!-- animichi-preview-status -->")) | .id' | head -n 1)
+          if [ -z "$COMMENT_ID" ]; then
+            echo 'No preview status comment found; nothing to update.'
+            exit 0
+          fi
+          BODY=$(printf '%s\n' \
+            '<!-- animichi-preview-status -->' \
+            '## Preview environment torn down' \
+            '' \
+            "Neon branch \`$BRANCH_NAME\` deleted (or already absent). CF preview versions are routeless and expire from relevance; re-label after reopen to recreate.")
+          jq -n --arg body "$BODY" '{body:$body}' | gh api --method PATCH "repos/$REPO/issues/comments/$COMMENT_ID" --input -
