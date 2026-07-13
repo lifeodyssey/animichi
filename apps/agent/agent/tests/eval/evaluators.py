@@ -35,7 +35,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext, LLMJudge
 
 from agent.agents.agent_result import AgentResult
-from agent.interfaces.public_api import detect_language
+from agent.utils.language import detect_language, resolve_reply_language
 
 # ── Case types (shared with the dataset builder) ─────────────────────
 
@@ -188,13 +188,18 @@ class DataKeysPresent(Evaluator[AgentInput, AgentResult, AgentExpected]):
 
 
 class LocaleMatch(Evaluator[AgentInput, AgentResult, AgentExpected]):
-    """L1: 1.0 if the reply language matches the requested locale."""
+    """L1: 1.0 if the reply language matches the expected reply language.
+
+    Expected = query language when its script is unambiguous, else the case
+    locale (SD-17 (3) — same policy the agent instruction enforces).
+    """
 
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
         message = ctx.output.message
         if not message:
             return {"locale_match": 0.0}
-        matched = detect_language(message) == ctx.inputs.locale
+        expected = resolve_reply_language(ctx.inputs.query, ctx.inputs.locale)
+        matched = detect_language(message) == expected
         return {"locale_match": 1.0 if matched else 0.0}
 
 

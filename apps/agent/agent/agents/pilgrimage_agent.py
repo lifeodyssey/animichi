@@ -32,6 +32,7 @@ from agent.agents.runtime_models import (
     RouteResponseModel,
     SearchResponseModel,
 )
+from agent.utils.language import resolve_reply_language
 
 COMPACT_THRESHOLD = 40  # ~5 turns × 8 messages/turn
 _KEEP_RECENT = 8  # Keep latest turn fully uncompressed
@@ -309,11 +310,15 @@ def _inject_session_context(ctx: RunContext[RuntimeDeps]) -> str:
     """Inject locale enforcement and current session state for multi-turn."""
     parts: list[str] = []
 
-    # Locale enforcement — respond in the user's query language, with
-    # browser locale as fallback when query language is unclear
-    lang = _LOCALE_NAMES.get(ctx.deps.locale, "Japanese")
+    # Locale enforcement — query language first, browser locale as fallback
+    # (SD-17 (3)). A direct order beats "the language the user writes in":
+    # DeepSeek drifts to Chinese for English users under the soft phrasing.
+    target = resolve_reply_language(ctx.deps.query, ctx.deps.locale)
+    lang = _LOCALE_NAMES.get(target, "Japanese")
     parts.append(
-        f"Respond in the language the user writes in. If unclear, default to {lang}."
+        f"Respond in {lang}. Proper nouns (anime titles, station and place "
+        f"names) may stay in their original script, but write all prose "
+        f"in {lang}."
     )
 
     state = ctx.deps.tool_state

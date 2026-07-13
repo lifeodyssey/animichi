@@ -11,7 +11,6 @@ from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.interfaces.public_api import (
     PublicAPIRequest,
     RuntimeAPI,
-    detect_language,
 )
 from agent.tests.db_doubles import build_persistence_supabase_double
 from agent.tests.unit.conftest_public_api import (
@@ -284,23 +283,6 @@ class TestSelectedPointIdsBypass:
         assert captured["catalog"] is api._catalog
         assert response.intent == "plan_selected"
         assert response.ui == {"component": "RoutePlannerWizard"}
-
-
-class TestDetectLanguage:
-    def test_detect_chinese(self) -> None:
-        assert detect_language("找到了3处圣地。") == "zh"
-
-    def test_detect_japanese(self) -> None:
-        assert detect_language("3件の聖地が見つかりました。") == "ja"
-
-    def test_detect_english(self) -> None:
-        assert detect_language("Found 3 pilgrimage spots.") == "en"
-
-    def test_mixed_cjk_with_kana_is_japanese(self) -> None:
-        assert detect_language("東京の聖地を探しています") == "ja"
-
-    def test_empty_string_is_english(self) -> None:
-        assert detect_language("") == "en"
 
 
 class TestTranslationGate:

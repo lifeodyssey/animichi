@@ -225,6 +225,8 @@ class TestSessionContextInjection:
         from agent.agents.pilgrimage_agent import _inject_session_context
 
         ctx = MagicMock()
+        ctx.deps.query = ""
+        ctx.deps.locale = "ja"
         ctx.deps.tool_state = {
             "search_bangumi": {
                 "row_count": 76,
@@ -240,15 +242,28 @@ class TestSessionContextInjection:
 
         ctx = MagicMock()
         ctx.deps.tool_state = {}
+        ctx.deps.query = ""
         ctx.deps.locale = "ja"
         result = _inject_session_context(ctx)
-        assert "default to Japanese" in result
+        assert "Respond in Japanese." in result
         assert "Current anime" not in result
+
+    def test_query_language_overrides_locale_directive(self) -> None:
+        from agent.agents.pilgrimage_agent import _inject_session_context
+
+        ctx = MagicMock()
+        ctx.deps.tool_state = {}
+        ctx.deps.query = "你的名字的圣地"
+        ctx.deps.locale = "ja"
+        result = _inject_session_context(ctx)
+        assert "Respond in Simplified Chinese." in result
 
     def test_injects_resolve_context(self) -> None:
         from agent.agents.pilgrimage_agent import _inject_session_context
 
         ctx = MagicMock()
+        ctx.deps.query = ""
+        ctx.deps.locale = "ja"
         ctx.deps.tool_state = {
             "resolve_anime": {"title": "君の名は。", "bangumi_id": "160209"}
         }

@@ -7,7 +7,6 @@ session management in ``session_facade``, and persistence in ``persistence``.
 from __future__ import annotations
 
 import asyncio
-import re
 from time import perf_counter
 from typing import cast
 from uuid import uuid4
@@ -56,13 +55,13 @@ from agent.interfaces.session_facade import (
     extract_context_delta,
     normalize_session_state,
 )
+from agent.utils.language import detect_language
 
 __all__ = [
     "PublicAPIError",
     "PublicAPIRequest",
     "PublicAPIResponse",
     "RuntimeAPI",
-    "detect_language",
     "handle_public_request",
 ]
 
@@ -98,22 +97,6 @@ def default_catalog_client() -> CatalogClient:
     client to route through; production injects one explicitly via the lifespan.
     """
     return CatalogClient(base_url=get_settings().catalog_api_url)
-
-
-_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
-_KANA_RE = re.compile(r"[\u3040-\u30ff]")
-
-
-def detect_language(text: str) -> str:
-    """Detect whether *text* is Chinese, Japanese, or English.
-
-    Heuristic: kana → ja, CJK only → zh, else → en.
-    """
-    if _KANA_RE.search(text):
-        return "ja"
-    if _CJK_RE.search(text):
-        return "zh"
-    return "en"
 
 
 class RuntimeAPI:

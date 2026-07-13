@@ -13,7 +13,7 @@
     "tool_f1": 0.7818282312925173,
     "route_order_correct": 0.7678571428571429,
     "data_keys_present": 0.7839285714285714,
-    "locale_match": 0.4857142857142857,
+    "locale_match": 0.8571,
     "step_efficiency": 0.8772441893424038
   },
   "cases": {
@@ -86,7 +86,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_zh_002": {
@@ -95,7 +95,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_zh_003": {
@@ -104,7 +104,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_zh_004": {
@@ -113,7 +113,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_zh_005": {
@@ -122,7 +122,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_zh_006": {
@@ -131,7 +131,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_en_001": {
@@ -140,7 +140,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_en_002": {
@@ -149,7 +149,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_en_003": {
@@ -158,7 +158,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_en_004": {
@@ -167,7 +167,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_en_005": {
@@ -176,7 +176,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_en_006": {
@@ -185,7 +185,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_en_007": {
@@ -194,7 +194,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A2_ja_001": {
@@ -230,7 +230,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A2_zh_002": {
@@ -239,7 +239,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A2_zh_003": {
@@ -248,7 +248,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A2_en_001": {
@@ -257,7 +257,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A2_en_002": {
@@ -266,7 +266,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A2_ja_004": {
@@ -284,7 +284,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A3_ja_001": {
@@ -329,7 +329,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "A3_zh_002": {
@@ -347,7 +347,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "A3_zh_004": {
@@ -365,7 +365,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "A3_en_001": {
@@ -374,7 +374,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.2857142857142857
     },
     "A3_en_002": {
@@ -392,7 +392,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "A3_en_004": {
@@ -410,7 +410,7 @@
       "tool_f1": 0.4,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.2222222222222222
     },
     "A4_ja_001": {
@@ -527,7 +527,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.2
     },
     "A5_ja_004": {
@@ -563,7 +563,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A6_en_001": {
@@ -572,7 +572,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A6_en_002": {
@@ -581,7 +581,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_zh_001": {
@@ -590,7 +590,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_zh_002": {
@@ -599,7 +599,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_zh_003": {
@@ -608,7 +608,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_zh_004": {
@@ -626,7 +626,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_en_002": {
@@ -635,7 +635,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_en_003": {
@@ -653,7 +653,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_zh_005": {
@@ -671,7 +671,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_zh_006": {
@@ -680,7 +680,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_en_006": {
@@ -689,7 +689,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A8_ja_001": {
@@ -788,7 +788,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A9_zh_002": {
@@ -797,7 +797,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A9_zh_003": {
@@ -806,7 +806,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A9_zh_004": {
@@ -824,7 +824,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A9_zh_006": {
@@ -833,7 +833,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A9_zh_007": {
@@ -842,7 +842,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A9_zh_008": {
@@ -851,7 +851,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A9_zh_009": {
@@ -860,7 +860,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "A9_zh_010": {
@@ -878,7 +878,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_002": {
@@ -896,7 +896,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_004": {
@@ -914,7 +914,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_006": {
@@ -923,7 +923,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_007": {
@@ -932,7 +932,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_008": {
@@ -950,7 +950,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_010": {
@@ -959,7 +959,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "B1_ja_004": {
@@ -1004,7 +1004,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.3333333333333333
     },
     "B1_zh_002": {
@@ -1013,7 +1013,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.125
     },
     "B1_zh_003": {
@@ -1040,7 +1040,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.2
     },
     "B1_zh_006": {
@@ -1076,7 +1076,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "B1_en_005": {
@@ -1184,7 +1184,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "B2_zh_005": {
@@ -1229,7 +1229,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.3333333333333333
     },
     "B2_en_005": {
@@ -1274,7 +1274,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.14285714285714285
     },
     "B3_zh_004": {
@@ -1283,7 +1283,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.25
     },
     "B3_zh_005": {
@@ -1310,7 +1310,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.2
     },
     "B3_en_004": {
@@ -1328,7 +1328,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.2
     },
     "B4_ja_001": {
@@ -1364,7 +1364,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "B4_zh_002": {
@@ -1382,7 +1382,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "B4_en_001": {
@@ -1391,7 +1391,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "B4_en_002": {
@@ -1454,7 +1454,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C1_zh_002": {
@@ -1463,7 +1463,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C1_zh_003": {
@@ -1472,7 +1472,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C1_zh_004": {
@@ -1481,7 +1481,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "C1_en_001": {
@@ -1625,7 +1625,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C3_zh_004": {
@@ -1634,7 +1634,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C3_en_001": {
@@ -1652,7 +1652,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C3_en_003": {
@@ -1661,7 +1661,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C3_en_004": {
@@ -1670,7 +1670,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C4_ja_001": {
@@ -1805,7 +1805,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D1_zh_002": {
@@ -1814,7 +1814,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D1_zh_003": {
@@ -1868,7 +1868,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D1_en_003": {
@@ -1877,7 +1877,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D1_en_004": {
@@ -1895,7 +1895,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D1_en_006": {
@@ -1904,7 +1904,7 @@
       "tool_f1": 0.4,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.75
     },
     "D1_en_007": {
@@ -1976,7 +1976,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D2_zh_003": {
@@ -1985,7 +1985,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D2_zh_004": {
@@ -2003,7 +2003,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D2_en_001": {
@@ -2021,7 +2021,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D2_en_003": {
@@ -2030,7 +2030,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D2_en_004": {
@@ -2084,7 +2084,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D3_zh_002": {
@@ -2093,7 +2093,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D3_en_001": {
@@ -2102,7 +2102,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D3_en_002": {
@@ -2111,7 +2111,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D3_en_003": {
@@ -2120,7 +2120,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D4_ja_001": {
@@ -2147,7 +2147,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D4_zh_002": {
@@ -2165,7 +2165,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D4_en_002": {
@@ -2174,7 +2174,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.75
     },
     "D4_zh_003": {
@@ -2183,7 +2183,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E1_ja_001": {
@@ -2228,7 +2228,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E1_zh_003": {
@@ -2237,7 +2237,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E1_en_001": {
@@ -2246,7 +2246,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E1_en_002": {
@@ -2255,7 +2255,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E1_en_003": {
@@ -2264,7 +2264,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E1_en_004": {
@@ -2273,7 +2273,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E2_ja_001": {
@@ -2309,7 +2309,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E2_zh_003": {
@@ -2318,7 +2318,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E2_en_001": {
@@ -2336,7 +2336,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E2_en_003": {
@@ -2345,7 +2345,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E2_en_004": {
@@ -2354,7 +2354,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E3_ja_001": {
@@ -2381,7 +2381,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E3_en_001": {
@@ -2399,7 +2399,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E4_ja_001": {
@@ -2435,7 +2435,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E4_en_002": {
@@ -2444,7 +2444,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F1_ja_001": {
@@ -2489,7 +2489,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F1_zh_002": {
@@ -2498,7 +2498,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F1_zh_003": {
@@ -2525,7 +2525,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F1_en_002": {
@@ -2534,7 +2534,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F1_en_003": {
@@ -2552,7 +2552,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F2_ja_001": {
@@ -2597,7 +2597,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F2_zh_003": {
@@ -2624,7 +2624,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F2_en_002": {
@@ -2633,7 +2633,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F2_en_003": {
@@ -2696,7 +2696,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F3_en_002": {
@@ -2705,7 +2705,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F3_en_003": {
@@ -2768,7 +2768,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G1_zh_002": {
@@ -2786,7 +2786,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G1_zh_004": {
@@ -2822,7 +2822,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G1_en_004": {
@@ -2894,7 +2894,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G2_zh_002": {
@@ -3011,7 +3011,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G3_zh_002": {
@@ -3020,7 +3020,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G3_zh_003": {
@@ -3029,7 +3029,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G3_zh_004": {
@@ -3038,7 +3038,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G3_en_001": {
@@ -3047,7 +3047,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G3_en_002": {
@@ -3056,7 +3056,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G3_en_003": {
@@ -3164,7 +3164,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G5_zh_002": {
@@ -3182,7 +3182,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G5_en_002": {
@@ -3227,7 +3227,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G6_en_001": {
@@ -3335,7 +3335,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "H2_ja_001": {
@@ -3371,7 +3371,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "H2_zh_002": {
@@ -3389,7 +3389,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "H2_zh_004": {
@@ -3461,7 +3461,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "H3_zh_002": {
@@ -3470,7 +3470,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "H3_en_001": {
@@ -3524,7 +3524,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "H4_zh_002": {
@@ -3542,7 +3542,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "H4_en_001": {
@@ -3569,7 +3569,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I1_zh_002": {
@@ -3578,7 +3578,7 @@
       "tool_f1": 0.6666666666666666,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I1_zh_006": {
@@ -3587,7 +3587,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "I1_zh_007": {
@@ -3596,7 +3596,7 @@
       "tool_f1": 0.4,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.4
     },
     "I1_zh_009": {
@@ -3614,7 +3614,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I2_en_002": {
@@ -3623,7 +3623,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I2_en_003": {
@@ -3641,7 +3641,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I2_en_005": {
@@ -3650,7 +3650,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I2_en_006": {
@@ -3659,7 +3659,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I2_en_007": {
@@ -3668,7 +3668,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I2_en_008": {
@@ -3677,7 +3677,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I3_en_003": {
@@ -3686,7 +3686,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "I3_en_005": {
@@ -3695,7 +3695,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "I4_ja_001": {
@@ -3722,7 +3722,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I4_zh_002": {
@@ -3731,7 +3731,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I4_en_001": {
@@ -3767,7 +3767,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I5_ja_001": {
@@ -3794,7 +3794,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I5_zh_002": {
@@ -3803,7 +3803,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I5_en_001": {
@@ -3839,7 +3839,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "I6_zh_001": {
@@ -3857,7 +3857,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I6_en_001": {
@@ -3875,7 +3875,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I6_ja_003": {
@@ -3884,7 +3884,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "I6_zh_003": {
@@ -3893,7 +3893,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I7_ja_001": {
@@ -3920,7 +3920,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I7_zh_002": {
@@ -3929,7 +3929,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I7_en_001": {
@@ -3938,7 +3938,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I7_en_002": {
@@ -3947,7 +3947,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I8_ja_001": {
@@ -4019,7 +4019,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J1_en_002": {
@@ -4037,7 +4037,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J1_zh_003": {
@@ -4073,7 +4073,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "J2_zh_002": {
@@ -4082,7 +4082,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J2_en_001": {
@@ -4091,7 +4091,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "J2_en_002": {
@@ -4109,7 +4109,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J2_en_004": {
@@ -4118,7 +4118,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "J3_ja_001": {
@@ -4145,7 +4145,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J3_zh_002": {
@@ -4163,7 +4163,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J4_ja_001": {
@@ -4190,7 +4190,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "J4_zh_002": {
@@ -4199,7 +4199,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "J4_en_001": {
@@ -4208,7 +4208,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J4_en_002": {
@@ -4217,7 +4217,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "J5_ja_001": {
@@ -4244,7 +4244,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J5_zh_002": {
@@ -4253,7 +4253,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "J5_en_001": {
@@ -4370,7 +4370,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 0.5
     },
     "K3_zh_001": {
@@ -4379,7 +4379,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.25
     },
     "K3_en_001": {
@@ -4451,7 +4451,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "L1_en_001": {
@@ -4478,7 +4478,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "L2_ja_001": {
@@ -4514,7 +4514,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "L2_en_001": {
@@ -4523,7 +4523,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "L2_en_002": {
@@ -4541,7 +4541,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "L3_ja_001": {
@@ -4550,7 +4550,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 0.3333333333333333
     },
     "L3_ja_002": {
@@ -4568,7 +4568,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "L3_en_001": {
@@ -4604,7 +4604,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "L4_en_001": {
@@ -4613,7 +4613,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "L4_en_002": {
@@ -4631,7 +4631,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_zh_007": {
@@ -4640,7 +4640,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_en_008": {
@@ -4694,7 +4694,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "D1_ja_008": {
@@ -4721,7 +4721,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I4_ja_003": {
@@ -4739,7 +4739,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I4_en_004": {
@@ -4757,7 +4757,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_en_007": {
@@ -4766,7 +4766,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "B4_zh_004": {
@@ -4793,7 +4793,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I1_zh_011": {
@@ -4802,7 +4802,7 @@
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.4
     },
     "I1_zh_012": {
@@ -4820,7 +4820,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I2_en_010": {
@@ -4829,7 +4829,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A4_ja_004": {
@@ -4865,7 +4865,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C3_zh_005": {
@@ -4874,7 +4874,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C3_en_005": {
@@ -4883,7 +4883,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A2_zh_004": {
@@ -4892,7 +4892,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "B_remake_zh_001": {
@@ -4901,7 +4901,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "B_remake_ja_001": {
@@ -4919,7 +4919,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "A_remake_zh_001": {
@@ -4928,7 +4928,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A_remake_zh_002": {
@@ -4937,7 +4937,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "B_multisn_ja_001": {
@@ -4955,7 +4955,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "B_multisn_en_001": {
@@ -4964,7 +4964,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "A_multisn_ja_001": {
@@ -4991,7 +4991,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "B_sameseries_ja_001": {
@@ -5018,7 +5018,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A_sameseries_en_001": {
@@ -5027,7 +5027,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C_multisn_zh_001": {
@@ -5036,7 +5036,7 @@
       "tool_f1": 0.8,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "GINJ1_ja_001": {

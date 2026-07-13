@@ -65,11 +65,22 @@ def test_locale_match_scores_message_language(
 ) -> None:
     output = QAResponseModel(intent="general_qa", message=message)
     evaluator_ctx = ctx(
-        AgentInput(query="q", locale=locale),
+        AgentInput(query="", locale=locale),
         result(steps(), output),
         AgentExpected(["general_qa"]),
     )
     assert dict(LocaleMatch().evaluate(evaluator_ctx)) == expected
+
+
+def test_locale_match_query_language_beats_locale() -> None:
+    """SD-17 (3): an unambiguous query language overrides the browser locale."""
+    output = QAResponseModel(intent="general_qa", message="これは日本語です")
+    evaluator_ctx = ctx(
+        AgentInput(query="君の名は。の聖地", locale="zh"),
+        result(steps(), output),
+        AgentExpected(["general_qa"]),
+    )
+    assert dict(LocaleMatch().evaluate(evaluator_ctx)) == {"locale_match": 1.0}
 
 
 @pytest.mark.parametrize(
