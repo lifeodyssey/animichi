@@ -1,23 +1,70 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { createRemoteJWKSet, customFetch, decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
+
 export type AuthResult =
   | { ok: true; userId: string; userType: "human" | "agent" }
   | { ok: false };
 
 export interface AuthEnv {
   SUPABASE_URL: string;
-  SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
+  NEON_AUTH_ENABLED?: string;
+  NEON_AUTH_JWKS_URL?: string;
+  NEON_AUTH_ISSUER?: string;
 }
 
-async function verifyJwt(token: string, env: AuthEnv, f: typeof fetch): Promise<{ ok: true; userId: string } | { ok: false }> {
+const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+function remoteJwks(url: string, f: typeof fetch): ReturnType<typeof createRemoteJWKSet> {
+  const cached = jwksCache.get(url);
+  if (cached) return cached;
+  const jwks = createRemoteJWKSet(new URL(url), { [customFetch]: f });
+  jwksCache.set(url, jwks);
+  return jwks;
+}
+
+function human(sub: unknown): AuthResult {
+  return typeof sub === "string" && sub.length > 0
+    ? { ok: true, userId: sub, userType: "human" }
+    : { ok: false };
+}
+
+async function verifySupabase(token: string, env: AuthEnv, f: typeof fetch): Promise<AuthResult> {
   try {
-    const resp = await f(`${env.SUPABASE_URL}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+    const jwks = remoteJwks(`${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`, f);
+    const { payload } = await jwtVerify(token, jwks, {
+      issuer: `${env.SUPABASE_URL}/auth/v1`, audience: "authenticated", algorithms: ["ES256", "RS256"],
     });
-    if (!resp.ok) return { ok: false };
-    const user = (await resp.json()) as { id?: string };
-    return user.id ? { ok: true, userId: user.id } : { ok: false };
+    return human(payload.sub);
+  } catch {
+    return { ok: false };
+  }
+}
+
+async function verifyNeon(token: string, env: AuthEnv, f: typeof fetch): Promise<AuthResult> {
+  try {
+    const issuer = env.NEON_AUTH_ISSUER ?? "";
+    const jwks = remoteJwks(env.NEON_AUTH_JWKS_URL ?? "", f);
+    const { payload } = await jwtVerify(token, jwks, { issuer, audience: issuer, algorithms: ["EdDSA"] });
+    return human(payload.sub);
+  } catch {
+    return { ok: false };
+  }
+}
+
+function neonEnabled(env: AuthEnv): boolean {
+  return env.NEON_AUTH_ENABLED === "true"
+    && typeof env.NEON_AUTH_JWKS_URL === "string" && env.NEON_AUTH_JWKS_URL.length > 0
+    && typeof env.NEON_AUTH_ISSUER === "string" && env.NEON_AUTH_ISSUER.length > 0;
+}
+
+async function verifyJwt(token: string, env: AuthEnv, f: typeof fetch): Promise<AuthResult> {
+  try {
+    const header = decodeProtectedHeader(token);
+    const payload = decodeJwt(token);
+    const useNeon = neonEnabled(env) && (header.alg === "EdDSA" || payload.iss === env.NEON_AUTH_ISSUER);
+    return useNeon ? await verifyNeon(token, env, f) : await verifySupabase(token, env, f);
   } catch {
     return { ok: false };
   }
@@ -51,7 +98,7 @@ async function verifyApiKey(rawKey: string, env: AuthEnv, f: typeof fetch, ctx?:
   }
 }
 
-/** Authenticate a /v1 request: `sk_*` -> api_keys (agent), else JWT -> /auth/v1/user (human). */
+/** Authenticate a /v1 request: `sk_*` -> api_keys (agent), else JWT -> issuer JWKS (human). */
 export async function authenticate(request: Request, env: AuthEnv, fetchImpl: typeof fetch = fetch, ctx?: ExecutionContext): Promise<AuthResult> {
   const header = request.headers.get("Authorization") ?? "";
   if (!header.startsWith("Bearer ")) return { ok: false };
@@ -61,6 +108,5 @@ export async function authenticate(request: Request, env: AuthEnv, fetchImpl: ty
     const r = await verifyApiKey(token, env, fetchImpl, ctx);
     return r.ok ? { ok: true, userId: r.userId, userType: "agent" } : { ok: false };
   }
-  const r = await verifyJwt(token, env, fetchImpl);
-  return r.ok ? { ok: true, userId: r.userId, userType: "human" } : { ok: false };
+  return verifyJwt(token, env, fetchImpl);
 }
