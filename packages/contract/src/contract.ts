@@ -8,7 +8,7 @@
 import { oc } from "@orpc/contract";
 import { z } from "zod";
 import { pickCatalogErrors } from "./errors.js";
-import { IngestResult, Origin, PilgrimagePoint, Pacing, Route } from "./models.js";
+import { IngestResult, Latitude, Longitude, Origin, PilgrimagePoint, Pacing, Route } from "./models.js";
 
 /** search(query, origin?) -> { rows, synced_at, partial? } */
 export const SearchInput = z.object({
@@ -42,9 +42,9 @@ export type SpotsResult = z.infer<typeof SpotsResult>;
 
 /** nearby(lat, lng, radius_m) -> { rows } */
 export const NearbyInput = z.object({
-  lat: z.number(),
-  lng: z.number(),
-  radius_m: z.number(),
+  lat: Latitude,
+  lng: Longitude,
+  radius_m: z.number().positive().finite(),
 });
 export type NearbyInput = z.infer<typeof NearbyInput>;
 
@@ -81,6 +81,7 @@ export const catalogContract = {
   nearby: oc
     .route({ method: "POST", path: "/catalog/nearby", summary: "Find pilgrimage points within a radius" })
     .input(NearbyInput)
+    // Pure DB/PostGIS query: no upstream dependency, so no UPSTREAM_UNAVAILABLE.
     .output(NearbyResult),
   route: oc
     .route({ method: "POST", path: "/catalog/route", summary: "Plan an ordered, timed route over selected points" })
@@ -90,6 +91,7 @@ export const catalogContract = {
   ingest: oc
     .route({ method: "POST", path: "/catalog/ingest", summary: "Ingest a not-yet-cataloged work on demand by bangumi id" })
     .input(IngestInput)
+    .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
     .output(IngestResult),
 };
 

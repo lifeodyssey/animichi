@@ -259,9 +259,12 @@ describe("ingestWork empty upstream: no points", () => {
 });
 
 describe("ingestWork failed upstream: fetch throws", () => {
-  it("returns 'failed' and leaves a re-acquirable (non-'running') job", async () => {
-    const result = await ingestWork(db, "boom-work", { fetchImpl: throwingFetch });
-    expect(result.status).toBe("failed");
+  it("throws typed upstream-unavailable and leaves a re-acquirable job", async () => {
+    await expect(ingestWork(db, "boom-work", { fetchImpl: throwingFetch })).rejects.toMatchObject({
+      code: "UPSTREAM_UNAVAILABLE",
+      defined: true,
+      status: 502,
+    });
     expect(await jobStatus("boom-work")).toBe("failed");
     // After the negative-cache TTL elapses the work re-acquires and succeeds.
     await backdateNegativeCache("boom-work");
