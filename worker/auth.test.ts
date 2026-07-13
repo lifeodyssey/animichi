@@ -16,11 +16,11 @@ function bearer(token: string): Request {
   return new Request("https://app.example.test/v1/chat", { headers: { Authorization: `Bearer ${token}` } });
 }
 
-async function esFixture(host: string, issuer = `${host}/auth/v1`, exp: string | number = "1h") {
+async function esFixture(host: string, issuer = `${host}/auth/v1`, exp: string | number = "1h", aud = "authenticated") {
   const { publicKey, privateKey } = await generateKeyPair("ES256", { extractable: true });
   const jwk = { ...await exportJWK(publicKey), kid: "fake-es-key" };
   const token = await new SignJWT({}).setProtectedHeader({ alg: "ES256", kid: jwk.kid })
-    .setIssuer(issuer).setAudience("authenticated").setSubject("fake-user").setIssuedAt().setExpirationTime(exp).sign(privateKey);
+    .setIssuer(issuer).setAudience(aud).setSubject("fake-user").setIssuedAt().setExpirationTime(exp).sign(privateKey);
   return { jwk, token };
 }
 
@@ -72,6 +72,13 @@ test("wrong Supabase issuer is rejected", async () => {
   assert.deepEqual(r, { ok: false });
 });
 
+test("wrong Supabase audience is rejected", async () => {
+  const host = "https://sb-wrong-aud.example.test";
+  const { jwk, token } = await esFixture(host, undefined, "1h", "wrong-aud");
+  const r = await authenticate(bearer(token), { ...ENV, SUPABASE_URL: host }, stubFetch(() => jwks(jwk)));
+  assert.deepEqual(r, { ok: false });
+});
+
 test("ES256 token signed by another key is rejected", async () => {
   const host = "https://sb-bad-signature.example.test";
   const trusted = await esFixture(host);
@@ -80,12 +87,27 @@ test("ES256 token signed by another key is rejected", async () => {
   assert.deepEqual(r, { ok: false });
 });
 
-test("HS256 token is rejected", async () => {
+test("HS256 token is rejected even with a healthy JWKS", async () => {
   const host = "https://sb-hs256.example.test";
-  const token = await new SignJWT({}).setProtectedHeader({ alg: "HS256", kid: "fake-hs-key" })
+  const { publicKey } = await generateKeyPair("ES256", { extractable: true });
+  const jwk = { ...await exportJWK(publicKey), kid: "fake-es-key" };
+  const token = await new SignJWT({}).setProtectedHeader({ alg: "HS256", kid: jwk.kid })
     .setIssuer(`${host}/auth/v1`).setAudience("authenticated").setSubject("fake-user").setIssuedAt().setExpirationTime("1h")
     .sign(new TextEncoder().encode("fake-secret-with-at-least-32-bytes"));
-  const r = await authenticate(bearer(token), { ...ENV, SUPABASE_URL: host }, stubFetch(() => new Response("", { status: 500 })));
+  const r = await authenticate(bearer(token), { ...ENV, SUPABASE_URL: host }, stubFetch(() => jwks(jwk)));
+  assert.deepEqual(r, { ok: false });
+});
+
+test("EdDSA token is rejected by the Supabase algorithm allowlist", async () => {
+  // Guards verifySupabase's algorithms allowlist: this signature verifies against the
+  // served OKP JWKS, so rejection is due ONLY to EdDSA not being allow-listed.
+  // Removing `algorithms: ["ES256","RS256"]` from verifySupabase turns THIS test red.
+  const host = "https://sb-eddsa-confusion.example.test";
+  const { publicKey, privateKey } = await generateKeyPair("EdDSA", { extractable: true });
+  const jwk = { ...await exportJWK(publicKey), kid: "fake-okp-key" };
+  const token = await new SignJWT({}).setProtectedHeader({ alg: "EdDSA", kid: jwk.kid })
+    .setIssuer(`${host}/auth/v1`).setAudience("authenticated").setSubject("fake-user").setIssuedAt().setExpirationTime("1h").sign(privateKey);
+  const r = await authenticate(bearer(token), { ...ENV, SUPABASE_URL: host }, stubFetch(() => jwks(jwk)));
   assert.deepEqual(r, { ok: false });
 });
 
