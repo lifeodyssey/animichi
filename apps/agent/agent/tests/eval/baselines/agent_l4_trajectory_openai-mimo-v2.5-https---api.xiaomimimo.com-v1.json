@@ -5,17 +5,17 @@
   "tier": "trajectory",
   "repeat": 1,
   "case_count": 655,
-  "evaluated_count": 600,
-  "errored_count": 55,
+  "evaluated_count": 648,
+  "errored_count": 7,
   "scores": {
-    "tool_recall": 0.7655555555555554,
-    "tool_precision": 0.7355555555555559,
-    "tool_f1": 0.7416587301587305,
-    "route_order_correct": 0.7333333333333333,
-    "data_keys_present": 0.7483333333333333,
-    "locale_match": 0.53,
-    "step_efficiency": 0.8248575430607417,
-    "nonempty_results": 0.75
+    "tool_recall": 0.7870370370370371,
+    "tool_precision": 0.730221193415638,
+    "tool_f1": 0.7468805114638453,
+    "route_order_correct": 0.7561728395061729,
+    "data_keys_present": 0.7638888888888888,
+    "locale_match": 0.5401234567901234,
+    "step_efficiency": 0.7973887392469411,
+    "nonempty_results": 0.7692307692307693
   },
   "cases": {
     "A1_ja_001": {
@@ -277,7 +277,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
     },
     "A2_en_003": {
       "tool_recall": 1.0,
@@ -288,7 +288,16 @@
       "locale_match": 0.0,
       "step_efficiency": 1.0
     },
-    "A3_ja_001": {
+    "A3_ja_002": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.2857142857142857
+    },
+    "A3_ja_003": {
       "tool_recall": 0.5,
       "tool_precision": 1.0,
       "tool_f1": 0.6666666666666666,
@@ -296,15 +305,6 @@
       "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
-    },
-    "A3_ja_003": {
-      "tool_recall": 0.5,
-      "tool_precision": 0.5,
-      "tool_f1": 0.5,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.6666666666666666
     },
     "A3_ja_004": {
       "tool_recall": 0.5,
@@ -313,61 +313,61 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.2857142857142857
+      "step_efficiency": 0.4
     },
     "A3_ja_005": {
-      "tool_recall": 1.0,
-      "tool_precision": 0.6666666666666666,
-      "tool_f1": 0.8,
-      "route_order_correct": 1.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.2
-    },
-    "A3_zh_001": {
-      "tool_recall": 1.0,
-      "tool_precision": 0.6666666666666666,
-      "tool_f1": 0.8,
-      "route_order_correct": 1.0,
-      "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.18181818181818182
-    },
-    "A3_zh_002": {
-      "tool_recall": 0.5,
-      "tool_precision": 1.0,
-      "tool_f1": 0.6666666666666666,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.2857142857142857
-    },
-    "A3_zh_003": {
       "tool_recall": 0.5,
       "tool_precision": 0.5,
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.4
+    },
+    "A3_zh_001": {
+      "tool_recall": 0.5,
+      "tool_precision": 0.5,
+      "tool_f1": 0.5,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.4
+    },
+    "A3_zh_002": {
+      "tool_recall": 0.5,
+      "tool_precision": 0.5,
+      "tool_f1": 0.5,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.3333333333333333
+    },
+    "A3_zh_003": {
+      "tool_recall": 0.5,
+      "tool_precision": 0.3333333333333333,
+      "tool_f1": 0.4,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.2857142857142857
     },
     "A3_zh_004": {
       "tool_recall": 1.0,
-      "tool_precision": 0.6666666666666666,
-      "tool_f1": 0.8,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
       "route_order_correct": 1.0,
-      "data_keys_present": 0.0,
+      "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.2
+      "step_efficiency": 0.18181818181818182
     },
     "A3_zh_005": {
       "tool_recall": 0.5,
-      "tool_precision": 0.25,
-      "tool_f1": 0.3333333333333333,
+      "tool_precision": 0.5,
+      "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.18181818181818182
+      "locale_match": 1.0,
+      "step_efficiency": 0.2857142857142857
     },
     "A3_en_001": {
       "tool_recall": 0.5,
@@ -376,16 +376,16 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.2857142857142857
     },
     "A3_en_002": {
       "tool_recall": 0.5,
-      "tool_precision": 0.5,
-      "tool_f1": 0.5,
+      "tool_precision": 1.0,
+      "tool_f1": 0.6666666666666666,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.2857142857142857
     },
     "A3_en_003": {
       "tool_recall": 0.5,
@@ -394,7 +394,7 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.3333333333333333
     },
     "A3_en_004": {
       "tool_recall": 0.5,
@@ -403,16 +403,16 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.2
     },
     "A3_en_005": {
-      "tool_recall": 0.5,
-      "tool_precision": 0.25,
-      "tool_f1": 0.3333333333333333,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 0.6666666666666666,
+      "tool_f1": 0.8,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.1
+      "step_efficiency": 0.16666666666666666
     },
     "A4_ja_001": {
       "tool_recall": 1.0,
@@ -421,7 +421,16 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.5
+    },
+    "A4_ja_002": {
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
+      "route_order_correct": 0.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.2
     },
     "A4_ja_003": {
       "tool_recall": 1.0,
@@ -439,16 +448,25 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.16666666666666666
     },
-    "A4_en_001": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
+    "A4_zh_002": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.125
+    },
+    "A4_en_001": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
     },
     "A4_en_002": {
       "tool_recall": 1.0,
@@ -459,32 +477,59 @@
       "locale_match": 1.0,
       "step_efficiency": 0.5
     },
-    "A5_ja_003": {
+    "A4_en_003": {
       "tool_recall": 1.0,
       "tool_precision": 0.5,
       "tool_f1": 0.6666666666666666,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.08333333333333333
+      "step_efficiency": 0.5
     },
-    "A5_zh_001": {
+    "A5_ja_001": {
       "tool_recall": 1.0,
-      "tool_precision": 0.25,
-      "tool_f1": 0.4,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.07692307692307693
+      "step_efficiency": 0.16666666666666666
     },
-    "A5_zh_002": {
+    "A5_ja_002": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
+    "A5_ja_003": {
       "tool_recall": 0.0,
       "tool_precision": 0.0,
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.1111111111111111
+      "locale_match": 1.0,
+      "step_efficiency": 0.025
+    },
+    "A5_zh_001": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.1
+    },
+    "A5_zh_002": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.3333333333333333,
+      "tool_f1": 0.5,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.0625
     },
     "A5_zh_003": {
       "tool_recall": 0.0,
@@ -492,7 +537,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 0.3333333333333333
     },
     "A5_en_001": {
@@ -501,17 +546,17 @@
       "tool_f1": 0.6666666666666666,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.125
+      "locale_match": 1.0,
+      "step_efficiency": 0.25
     },
     "A5_en_002": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.125
+      "locale_match": 1.0,
+      "step_efficiency": 0.25
     },
     "A5_en_003": {
       "tool_recall": 0.0,
@@ -520,7 +565,16 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.14285714285714285
+      "step_efficiency": 0.1111111111111111
+    },
+    "A5_ja_004": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.3333333333333333,
+      "tool_f1": 0.5,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.07142857142857142
     },
     "A6_ja_001": {
       "tool_recall": 1.0,
@@ -646,7 +700,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6666666666666666
     },
     "A7_en_005": {
       "tool_recall": 1.0,
@@ -664,7 +718,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 0.5
     },
     "A7_en_006": {
       "tool_recall": 1.0,
@@ -708,7 +762,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "A8_ja_005": {
@@ -771,7 +825,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "A9_zh_002": {
@@ -826,7 +880,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 1.0
     },
     "A9_zh_008": {
       "tool_recall": 1.0,
@@ -870,7 +924,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_003": {
@@ -946,22 +1000,22 @@
       "step_efficiency": 1.0
     },
     "B1_ja_001": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 0.25,
+      "tool_f1": 0.4,
+      "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.1111111111111111
+      "step_efficiency": 0.0625
     },
     "B1_ja_002": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.16666666666666666
+      "step_efficiency": 0.09090909090909091
     },
     "B1_ja_003": {
       "tool_recall": 1.0,
@@ -970,25 +1024,34 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.16666666666666666
+      "step_efficiency": 0.14285714285714285
     },
     "B1_ja_004": {
       "tool_recall": 1.0,
-      "tool_precision": 0.5,
-      "tool_f1": 0.6666666666666666,
+      "tool_precision": 0.3333333333333333,
+      "tool_f1": 0.5,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.1
+      "step_efficiency": 0.14285714285714285
     },
-    "B1_ja_006": {
+    "B1_ja_005": {
       "tool_recall": 1.0,
       "tool_precision": 0.5,
       "tool_f1": 0.6666666666666666,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.08333333333333333
+      "step_efficiency": 0.07692307692307693
+    },
+    "B1_ja_006": {
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.125
     },
     "B1_ja_007": {
       "tool_recall": 0.0,
@@ -1015,7 +1078,16 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.038461538461538464
+      "step_efficiency": 0.05263157894736842
+    },
+    "B1_zh_003": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.09090909090909091
     },
     "B1_zh_004": {
       "tool_recall": 1.0,
@@ -1024,16 +1096,16 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.1111111111111111
+      "step_efficiency": 0.25
     },
     "B1_zh_005": {
       "tool_recall": 1.0,
-      "tool_precision": 0.25,
-      "tool_f1": 0.4,
+      "tool_precision": 0.3333333333333333,
+      "tool_f1": 0.5,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.05
+      "step_efficiency": 0.09090909090909091
     },
     "B1_zh_006": {
       "tool_recall": 0.0,
@@ -1042,7 +1114,7 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.25
+      "step_efficiency": 0.1
     },
     "B1_en_001": {
       "tool_recall": 0.0,
@@ -1060,7 +1132,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.058823529411764705
+      "step_efficiency": 0.07142857142857142
     },
     "B1_en_003": {
       "tool_recall": 1.0,
@@ -1069,7 +1141,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.08333333333333333
+      "step_efficiency": 0.3333333333333333
     },
     "B1_en_004": {
       "tool_recall": 0.0,
@@ -1081,22 +1153,31 @@
       "step_efficiency": 0.5
     },
     "B1_en_005": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.08333333333333333
+      "step_efficiency": 0.1111111111111111
     },
     "B1_en_006": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.125
+    },
+    "B1_en_007": {
       "tool_recall": 0.0,
       "tool_precision": 0.0,
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.06666666666666667
     },
     "B2_ja_001": {
       "tool_recall": 0.0,
@@ -1106,6 +1187,15 @@
       "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
+    },
+    "B2_ja_002": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.3333333333333333
     },
     "B2_ja_003": {
       "tool_recall": 0.0,
@@ -1123,15 +1213,24 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.3333333333333333
     },
     "B2_ja_005": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.3333333333333333
+    },
+    "B2_zh_001": {
       "tool_recall": 0.0,
       "tool_precision": 0.0,
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 0.3333333333333333
     },
     "B2_zh_002": {
@@ -1168,7 +1267,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.25
     },
     "B2_en_001": {
       "tool_recall": 0.0,
@@ -1185,33 +1284,33 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "B2_en_003": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "B2_en_004": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.5
     },
     "B2_en_005": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
       "locale_match": 0.0,
       "step_efficiency": 0.5
     },
@@ -1225,22 +1324,22 @@
       "step_efficiency": 0.5
     },
     "B3_ja_002": {
-      "tool_recall": 1.0,
-      "tool_precision": 0.5,
-      "tool_f1": 0.6666666666666666,
-      "route_order_correct": 1.0,
-      "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.16666666666666666
-    },
-    "B3_ja_003": {
       "tool_recall": 0.0,
       "tool_precision": 0.0,
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.0625
+    },
+    "B3_ja_003": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.3333333333333333,
+      "tool_f1": 0.5,
+      "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.1
+      "step_efficiency": 0.1111111111111111
     },
     "B3_ja_004": {
       "tool_recall": 1.0,
@@ -1249,7 +1348,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.125
+      "step_efficiency": 0.1111111111111111
     },
     "B3_ja_005": {
       "tool_recall": 0.0,
@@ -1258,7 +1357,7 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.125
+      "step_efficiency": 0.1111111111111111
     },
     "B3_zh_001": {
       "tool_recall": 0.0,
@@ -1269,23 +1368,32 @@
       "locale_match": 0.0,
       "step_efficiency": 0.3333333333333333
     },
+    "B3_zh_002": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.07142857142857142
+    },
     "B3_zh_003": {
       "tool_recall": 0.0,
       "tool_precision": 0.0,
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
-      "data_keys_present": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.05555555555555555
+      "step_efficiency": 0.04
     },
     "B3_zh_004": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.043478260869565216
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.0625
     },
     "B3_zh_005": {
       "tool_recall": 0.0,
@@ -1293,8 +1401,8 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.25
+      "locale_match": 0.0,
+      "step_efficiency": 0.2
     },
     "B3_en_001": {
       "tool_recall": 0.0,
@@ -1312,7 +1420,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.1111111111111111
+      "step_efficiency": 0.14285714285714285
     },
     "B3_en_003": {
       "tool_recall": 0.0,
@@ -1321,33 +1429,51 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.08333333333333333
+      "step_efficiency": 0.1111111111111111
     },
     "B3_en_004": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
       "locale_match": 0.0,
       "step_efficiency": 0.14285714285714285
     },
+    "B3_en_005": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.16666666666666666
+    },
     "B4_ja_001": {
       "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
       "route_order_correct": 1.0,
-      "data_keys_present": 0.0,
+      "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 1.0
     },
     "B4_ja_002": {
       "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
       "route_order_correct": 1.0,
-      "data_keys_present": 0.0,
+      "data_keys_present": 1.0,
       "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
+    "B4_ja_003": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "B4_zh_001": {
@@ -1357,7 +1483,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6666666666666666
     },
     "B4_zh_002": {
       "tool_recall": 1.0,
@@ -1366,15 +1492,15 @@
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 1.0
     },
     "B4_zh_003": {
       "tool_recall": 1.0,
-      "tool_precision": 0.5,
-      "tool_f1": 0.6666666666666666,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
       "route_order_correct": 1.0,
-      "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 0.0,
       "step_efficiency": 0.5
     },
     "B4_en_001": {
@@ -1386,6 +1512,15 @@
       "locale_match": 0.0,
       "step_efficiency": 0.6666666666666666
     },
+    "B4_en_002": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.09090909090909091
+    },
     "B4_en_003": {
       "tool_recall": 1.0,
       "tool_precision": 1.0,
@@ -1393,16 +1528,16 @@
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6666666666666666
     },
     "B4_en_004": {
       "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.4
     },
     "C1_ja_001": {
       "tool_recall": 1.0,
@@ -1415,16 +1550,35 @@
       "step_efficiency": 1.0
     },
     "C1_ja_002": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
-      "nonempty_results": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "nonempty_results": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
+    },
+    "C1_ja_003": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "C1_ja_004": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "nonempty_results": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "C1_ja_005": {
       "tool_recall": 1.0,
       "tool_precision": 1.0,
       "tool_f1": 1.0,
@@ -1454,6 +1608,24 @@
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
+    "C1_zh_003": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "C1_zh_004": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
     "C1_zh_005": {
       "tool_recall": 1.0,
       "tool_precision": 1.0,
@@ -1466,13 +1638,42 @@
     },
     "C1_en_001": {
       "tool_recall": 1.0,
-      "tool_precision": 0.5,
-      "tool_f1": 0.6666666666666666,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "nonempty_results": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 1.0
+    },
+    "C1_en_002": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "nonempty_results": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "C1_en_003": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "nonempty_results": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 1.0
+    },
+    "C1_en_004": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "C1_en_005": {
       "tool_recall": 1.0,
@@ -1485,14 +1686,14 @@
       "step_efficiency": 1.0
     },
     "C2_ja_001": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
-      "nonempty_results": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "nonempty_results": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.5
     },
     "C2_ja_002": {
       "tool_recall": 1.0,
@@ -1505,13 +1706,42 @@
       "step_efficiency": 1.0
     },
     "C2_ja_003": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "C2_ja_004": {
       "tool_recall": 0.0,
       "tool_precision": 0.0,
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
+      "nonempty_results": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.5
+    },
+    "C2_ja_005": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
+    "C2_zh_001": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "nonempty_results": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "C2_zh_002": {
       "tool_recall": 1.0,
@@ -1523,7 +1753,74 @@
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
+    "C2_zh_003": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
+    "C2_zh_004": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.5
+    },
+    "C2_zh_005": {
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "nonempty_results": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
     "C2_en_001": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "nonempty_results": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 1.0
+    },
+    "C2_en_002": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "nonempty_results": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 1.0
+    },
+    "C2_en_003": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 1.0
+    },
+    "C2_en_004": {
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "nonempty_results": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
+    "C2_en_005": {
       "tool_recall": 0.0,
       "tool_precision": 0.0,
       "tool_f1": 0.0,
@@ -1571,14 +1868,23 @@
     },
     "C3_zh_001": {
       "tool_recall": 1.0,
+      "tool_precision": 0.6666666666666666,
+      "tool_f1": 0.8,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
+    "C3_zh_002": {
+      "tool_recall": 1.0,
       "tool_precision": 1.0,
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
-    "C3_zh_002": {
+    "C3_zh_003": {
       "tool_recall": 1.0,
       "tool_precision": 0.6666666666666666,
       "tool_f1": 0.8,
@@ -1586,15 +1892,6 @@
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
-    },
-    "C3_zh_003": {
-      "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
-      "route_order_correct": 1.0,
-      "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "step_efficiency": 1.0
     },
     "C3_zh_004": {
       "tool_recall": 1.0,
@@ -1625,12 +1922,12 @@
     },
     "C3_en_003": {
       "tool_recall": 1.0,
-      "tool_precision": 0.6666666666666666,
-      "tool_f1": 0.8,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 1.0
     },
     "C3_en_004": {
       "tool_recall": 1.0,
@@ -1643,8 +1940,8 @@
     },
     "C4_ja_001": {
       "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
@@ -1666,7 +1963,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 1.0
     },
     "C4_zh_002": {
       "tool_recall": 1.0,
@@ -1696,6 +1993,15 @@
       "step_efficiency": 1.0
     },
     "C4_en_002": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.6666666666666666
+    },
+    "C4_en_003": {
       "tool_recall": 1.0,
       "tool_precision": 1.0,
       "tool_f1": 1.0,
@@ -1745,16 +2051,16 @@
       "tool_precision": 1.0,
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
-      "data_keys_present": 0.0,
+      "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D1_ja_006": {
-      "tool_recall": 0.6666666666666666,
+      "tool_recall": 1.0,
       "tool_precision": 1.0,
-      "tool_f1": 0.8,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
@@ -1773,7 +2079,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "D1_zh_002": {
@@ -1809,17 +2115,17 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D1_zh_006": {
       "tool_recall": 0.3333333333333333,
-      "tool_precision": 1.0,
-      "tool_f1": 0.5,
+      "tool_precision": 0.5,
+      "tool_f1": 0.4,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.42857142857142855
     },
     "D1_en_001": {
       "tool_recall": 1.0,
@@ -1854,8 +2160,8 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.75
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "D1_en_005": {
       "tool_recall": 1.0,
@@ -1867,13 +2173,13 @@
       "step_efficiency": 1.0
     },
     "D1_en_006": {
-      "tool_recall": 0.6666666666666666,
+      "tool_recall": 0.3333333333333333,
       "tool_precision": 0.5,
-      "tool_f1": 0.5714285714285715,
+      "tool_f1": 0.4,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.375
+      "step_efficiency": 0.5
     },
     "D1_en_007": {
       "tool_recall": 1.0,
@@ -1922,12 +2228,12 @@
     },
     "D2_ja_005": {
       "tool_recall": 1.0,
-      "tool_precision": 0.75,
-      "tool_f1": 0.8571428571428571,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.6
+      "step_efficiency": 1.0
     },
     "D2_zh_001": {
       "tool_recall": 1.0,
@@ -1935,7 +2241,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D2_zh_002": {
@@ -2024,7 +2330,7 @@
       "tool_precision": 1.0,
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
-      "data_keys_present": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
@@ -2052,8 +2358,8 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.75
+      "locale_match": 0.0,
+      "step_efficiency": 1.0
     },
     "D3_zh_002": {
       "tool_recall": 1.0,
@@ -2061,7 +2367,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D3_en_001": {
@@ -2091,15 +2397,6 @@
       "locale_match": 0.0,
       "step_efficiency": 1.0
     },
-    "D4_ja_001": {
-      "tool_recall": 0.5,
-      "tool_precision": 1.0,
-      "tool_f1": 0.6666666666666666,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.2
-    },
     "D4_ja_002": {
       "tool_recall": 1.0,
       "tool_precision": 0.5,
@@ -2107,16 +2404,16 @@
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.2
+      "step_efficiency": 0.3
     },
     "D4_zh_001": {
-      "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
-      "route_order_correct": 1.0,
+      "tool_recall": 0.5,
+      "tool_precision": 0.5,
+      "tool_f1": 0.5,
+      "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.42857142857142855
+      "step_efficiency": 0.3333333333333333
     },
     "D4_zh_002": {
       "tool_recall": 0.5,
@@ -2125,7 +2422,7 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.75
+      "step_efficiency": 0.375
     },
     "D4_en_001": {
       "tool_recall": 0.5,
@@ -2143,16 +2440,16 @@
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.375
+      "step_efficiency": 0.42857142857142855
     },
     "D4_zh_003": {
-      "tool_recall": 0.5,
-      "tool_precision": 1.0,
-      "tool_f1": 0.6666666666666666,
-      "route_order_correct": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 0.6666666666666666,
+      "tool_f1": 0.8,
+      "route_order_correct": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.6
+      "step_efficiency": 0.2727272727272727
     },
     "E1_ja_001": {
       "tool_recall": 1.0,
@@ -2196,8 +2493,8 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "E1_zh_003": {
       "tool_recall": 1.0,
@@ -2205,7 +2502,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E1_en_001": {
@@ -2223,8 +2520,8 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "locale_match": 1.0,
+      "step_efficiency": 0.25
     },
     "E1_en_003": {
       "tool_recall": 1.0,
@@ -2244,6 +2541,15 @@
       "locale_match": 0.0,
       "step_efficiency": 1.0
     },
+    "E2_ja_001": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
     "E2_ja_002": {
       "tool_recall": 1.0,
       "tool_precision": 1.0,
@@ -2260,7 +2566,16 @@
       "route_order_correct": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 1.0
+    },
+    "E2_zh_001": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "E2_zh_002": {
       "tool_recall": 1.0,
@@ -2276,6 +2591,15 @@
       "tool_precision": 0.0,
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 1.0
+    },
+    "E2_en_001": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
       "step_efficiency": 1.0
@@ -2331,8 +2655,8 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "locale_match": 0.0,
+      "step_efficiency": 0.5
     },
     "E3_en_001": {
       "tool_recall": 1.0,
@@ -2376,7 +2700,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "E4_en_001": {
@@ -2413,7 +2737,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "F1_ja_003": {
       "tool_recall": 1.0,
@@ -2422,7 +2746,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "F1_ja_004": {
       "tool_recall": 1.0,
@@ -2467,7 +2791,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.16666666666666666
     },
     "F1_en_001": {
       "tool_recall": 1.0,
@@ -2530,7 +2854,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.14285714285714285
     },
     "F2_zh_001": {
       "tool_recall": 1.0,
@@ -2539,7 +2863,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
     },
     "F2_zh_002": {
       "tool_recall": 1.0,
@@ -2557,7 +2881,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 1.0
     },
     "F2_zh_004": {
       "tool_recall": 1.0,
@@ -2566,7 +2890,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 1.0
     },
     "F2_en_001": {
       "tool_recall": 1.0,
@@ -2575,7 +2899,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
     },
     "F2_en_002": {
       "tool_recall": 1.0,
@@ -2584,7 +2908,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
     },
     "F2_en_003": {
       "tool_recall": 1.0,
@@ -2592,7 +2916,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "F3_ja_001": {
@@ -2620,7 +2944,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 1.0
     },
     "F3_zh_001": {
       "tool_recall": 1.0,
@@ -2628,7 +2952,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.25
     },
     "F3_zh_002": {
@@ -2665,7 +2989,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 1.0
     },
     "G1_ja_001": {
       "tool_recall": 0.0,
@@ -2683,7 +3007,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6666666666666666
     },
     "G1_ja_003": {
       "tool_recall": 0.0,
@@ -2749,13 +3073,13 @@
       "step_efficiency": 1.0
     },
     "G1_zh_005": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "tool_recall": 1.0,
+      "tool_precision": 0.6666666666666666,
+      "tool_f1": 0.8,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.6666666666666666
     },
     "G1_en_001": {
       "tool_recall": 0.0,
@@ -2970,8 +3294,8 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.6666666666666666
+      "locale_match": 0.0,
+      "step_efficiency": 1.0
     },
     "G3_zh_002": {
       "tool_recall": 1.0,
@@ -3027,6 +3351,15 @@
       "locale_match": 0.0,
       "step_efficiency": 1.0
     },
+    "G4_ja_001": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
     "G4_ja_002": {
       "tool_recall": 1.0,
       "tool_precision": 0.5,
@@ -3056,21 +3389,21 @@
     },
     "G4_zh_002": {
       "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
-      "route_order_correct": 1.0,
-      "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "step_efficiency": 1.0
-    },
-    "G4_en_001": {
-      "tool_recall": 1.0,
       "tool_precision": 0.5,
       "tool_f1": 0.6666666666666666,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
+    },
+    "G4_en_001": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 1.0
     },
     "G4_en_002": {
       "tool_recall": 1.0,
@@ -3091,10 +3424,10 @@
       "step_efficiency": 1.0
     },
     "G5_ja_001": {
-      "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
-      "route_order_correct": 1.0,
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
+      "route_order_correct": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
@@ -3114,7 +3447,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "G5_zh_002": {
@@ -3186,7 +3519,16 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 1.0
+    },
+    "G6_en_002": {
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "H1_ja_001": {
@@ -3222,7 +3564,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "H1_zh_002": {
@@ -3276,7 +3618,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "H2_ja_001": {
@@ -3286,7 +3628,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.75
     },
     "H2_ja_002": {
       "tool_recall": 1.0,
@@ -3299,12 +3641,12 @@
     },
     "H2_ja_003": {
       "tool_recall": 1.0,
-      "tool_precision": 0.6666666666666666,
-      "tool_f1": 0.8,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.75
     },
     "H2_zh_001": {
       "tool_recall": 1.0,
@@ -3312,15 +3654,15 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "H2_zh_002": {
       "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
+      "tool_precision": 0.6666666666666666,
+      "tool_f1": 0.8,
       "route_order_correct": 1.0,
-      "data_keys_present": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
@@ -3353,12 +3695,12 @@
     },
     "H2_en_002": {
       "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
+      "tool_precision": 0.75,
+      "tool_f1": 0.8571428571428571,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.75
     },
     "H2_en_003": {
       "tool_recall": 1.0,
@@ -3420,7 +3762,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "H3_en_002": {
@@ -3520,34 +3862,34 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.2857142857142857
+      "step_efficiency": 0.3333333333333333
     },
     "I1_zh_003": {
       "tool_recall": 1.0,
-      "tool_precision": 0.6666666666666666,
-      "tool_f1": 0.8,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.09090909090909091
+      "step_efficiency": 0.10526315789473684
     },
     "I1_zh_004": {
       "tool_recall": 0.5,
-      "tool_precision": 0.5,
-      "tool_f1": 0.5,
+      "tool_precision": 0.3333333333333333,
+      "tool_f1": 0.4,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.2222222222222222
+      "step_efficiency": 0.13333333333333333
     },
     "I1_zh_005": {
-      "tool_recall": 0.5,
-      "tool_precision": 0.5,
-      "tool_f1": 0.5,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.16666666666666666
+      "step_efficiency": 0.25
     },
     "I1_zh_006": {
       "tool_recall": 0.5,
@@ -3556,25 +3898,43 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.2857142857142857
     },
     "I1_zh_007": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.125
+    },
+    "I1_zh_008": {
       "tool_recall": 0.5,
       "tool_precision": 0.5,
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.25
+      "step_efficiency": 0.11764705882352941
     },
     "I1_zh_009": {
-      "tool_recall": 0.5,
-      "tool_precision": 0.5,
-      "tool_f1": 0.5,
-      "route_order_correct": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.2857142857142857
+    },
+    "I1_zh_010": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.6666666666666666,
+      "tool_f1": 0.8,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.13333333333333333
     },
     "I2_en_001": {
       "tool_recall": 1.0,
@@ -3649,11 +4009,11 @@
       "step_efficiency": 1.0
     },
     "I3_en_001": {
-      "tool_recall": 1.0,
-      "tool_precision": 0.6666666666666666,
-      "tool_f1": 0.8,
-      "route_order_correct": 1.0,
-      "data_keys_present": 1.0,
+      "tool_recall": 0.5,
+      "tool_precision": 0.3333333333333333,
+      "tool_f1": 0.4,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
       "locale_match": 0.0,
       "step_efficiency": 0.18181818181818182
     },
@@ -3664,34 +4024,34 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.2857142857142857
+      "step_efficiency": 0.5
     },
     "I3_en_004": {
-      "tool_recall": 1.0,
-      "tool_precision": 0.6666666666666666,
-      "tool_f1": 0.8,
-      "route_order_correct": 1.0,
+      "tool_recall": 0.5,
+      "tool_precision": 0.3333333333333333,
+      "tool_f1": 0.4,
+      "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.10526315789473684
+      "step_efficiency": 0.14285714285714285
     },
     "I3_en_005": {
+      "tool_recall": 0.5,
+      "tool_precision": 0.5,
+      "tool_f1": 0.5,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.16666666666666666
+    },
+    "I3_en_006": {
       "tool_recall": 0.5,
       "tool_precision": 1.0,
       "tool_f1": 0.6666666666666666,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.15384615384615385
-    },
-    "I3_en_006": {
-      "tool_recall": 0.5,
-      "tool_precision": 0.5,
-      "tool_f1": 0.5,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.2857142857142857
+      "step_efficiency": 0.5
     },
     "I4_ja_001": {
       "tool_recall": 0.5,
@@ -3700,7 +4060,7 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.2857142857142857
+      "step_efficiency": 0.2
     },
     "I4_ja_002": {
       "tool_recall": 1.0,
@@ -3717,7 +4077,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "I4_zh_002": {
@@ -3762,7 +4122,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "I5_ja_001": {
@@ -3793,10 +4153,10 @@
       "step_efficiency": 1.0
     },
     "I5_zh_002": {
-      "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
-      "route_order_correct": 1.0,
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
+      "route_order_correct": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
       "step_efficiency": 1.0
@@ -3879,7 +4239,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "I6_zh_003": {
@@ -3915,7 +4275,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I7_zh_002": {
@@ -3946,13 +4306,13 @@
       "step_efficiency": 1.0
     },
     "I8_ja_001": {
-      "tool_recall": 1.0,
-      "tool_precision": 0.5,
-      "tool_f1": 0.6666666666666666,
-      "route_order_correct": 1.0,
-      "data_keys_present": 1.0,
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.08333333333333333
+      "step_efficiency": 0.09090909090909091
     },
     "I8_zh_001": {
       "tool_recall": 1.0,
@@ -3961,7 +4321,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.1
+      "step_efficiency": 0.034482758620689655
     },
     "I8_en_001": {
       "tool_recall": 1.0,
@@ -3970,7 +4330,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.07692307692307693
+      "step_efficiency": 0.1111111111111111
     },
     "I8_en_002": {
       "tool_recall": 1.0,
@@ -3979,34 +4339,43 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.2
+      "step_efficiency": 0.1111111111111111
     },
     "I9_ja_001": {
+      "tool_recall": 0.5,
+      "tool_precision": 0.5,
+      "tool_f1": 0.5,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.25
+    },
+    "I9_zh_001": {
+      "tool_recall": 0.5,
+      "tool_precision": 0.25,
+      "tool_f1": 0.3333333333333333,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.16666666666666666
+    },
+    "I9_en_001": {
       "tool_recall": 0.5,
       "tool_precision": 0.3333333333333333,
       "tool_f1": 0.4,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.13333333333333333
+      "locale_match": 0.0,
+      "step_efficiency": 0.2
     },
-    "I9_zh_001": {
-      "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
-      "route_order_correct": 1.0,
+    "I9_en_002": {
+      "tool_recall": 0.5,
+      "tool_precision": 0.5,
+      "tool_f1": 0.5,
+      "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.2857142857142857
-    },
-    "I9_en_001": {
-      "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
-      "route_order_correct": 1.0,
-      "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.15384615384615385
     },
     "J1_ja_001": {
       "tool_recall": 1.0,
@@ -4123,7 +4492,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6666666666666666
     },
     "J2_en_002": {
       "tool_recall": 1.0,
@@ -4159,7 +4528,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 1.0
     },
     "J3_ja_002": {
       "tool_recall": 1.0,
@@ -4172,12 +4541,12 @@
     },
     "J3_ja_003": {
       "tool_recall": 1.0,
-      "tool_precision": 0.3333333333333333,
-      "tool_f1": 0.5,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.10526315789473684
+      "step_efficiency": 0.13333333333333333
     },
     "J3_zh_001": {
       "tool_recall": 1.0,
@@ -4194,7 +4563,16 @@
       "tool_f1": 0.6666666666666666,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.3333333333333333
+    },
+    "J3_en_001": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.6666666666666666,
+      "tool_f1": 0.8,
+      "route_order_correct": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 0.0,
       "step_efficiency": 0.16666666666666666
     },
     "J3_en_002": {
@@ -4204,7 +4582,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6666666666666666
     },
     "J4_ja_001": {
       "tool_recall": 1.0,
@@ -4213,7 +4591,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6666666666666666
     },
     "J4_ja_002": {
       "tool_recall": 1.0,
@@ -4294,7 +4672,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 1.0
     },
     "J5_en_001": {
       "tool_recall": 1.0,
@@ -4420,7 +4798,7 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.125
     },
     "K3_en_001": {
       "tool_recall": 0.0,
@@ -4429,7 +4807,7 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
     },
     "K4_ja_001": {
       "tool_recall": 1.0,
@@ -4465,7 +4843,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "L1_ja_003": {
       "tool_recall": 1.0,
@@ -4474,7 +4852,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
     },
     "L1_zh_001": {
       "tool_recall": 1.0,
@@ -4491,7 +4869,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "L1_en_001": {
@@ -4545,7 +4923,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "L2_zh_002": {
@@ -4563,7 +4941,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "L2_en_002": {
@@ -4584,25 +4962,7 @@
       "locale_match": 0.0,
       "step_efficiency": 1.0
     },
-    "L3_ja_001": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
-      "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "step_efficiency": 1.0
-    },
     "L3_ja_002": {
-      "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
-      "route_order_correct": 1.0,
-      "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "step_efficiency": 1.0
-    },
-    "L3_zh_001": {
       "tool_recall": 1.0,
       "tool_precision": 1.0,
       "tool_f1": 1.0,
@@ -4611,20 +4971,20 @@
       "locale_match": 0.0,
       "step_efficiency": 0.5
     },
-    "L3_en_001": {
+    "L3_zh_001": {
       "tool_recall": 0.0,
       "tool_precision": 0.0,
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
-    "L3_en_002": {
-      "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
-      "route_order_correct": 1.0,
+    "L3_en_001": {
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
+      "route_order_correct": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
       "step_efficiency": 0.5
@@ -4671,8 +5031,8 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "A1_zh_007": {
       "tool_recall": 1.0,
@@ -4694,21 +5054,12 @@
     },
     "A3_ja_006": {
       "tool_recall": 0.5,
-      "tool_precision": 0.25,
-      "tool_f1": 0.3333333333333333,
-      "route_order_correct": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.2
-    },
-    "A3_zh_006": {
-      "tool_recall": 0.5,
       "tool_precision": 0.5,
       "tool_f1": 0.5,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.18181818181818182
+      "step_efficiency": 0.2
     },
     "A3_en_006": {
       "tool_recall": 0.5,
@@ -4717,7 +5068,7 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.15384615384615385
     },
     "A1_ja_008": {
       "tool_recall": 1.0,
@@ -4735,25 +5086,25 @@
       "route_order_correct": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.18181818181818182
+      "step_efficiency": 0.16666666666666666
     },
     "A3_zh_007": {
-      "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
-      "route_order_correct": 1.0,
-      "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
-    },
-    "A3_en_007": {
       "tool_recall": 1.0,
       "tool_precision": 0.6666666666666666,
       "tool_f1": 0.8,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.2222222222222222
+      "step_efficiency": 0.11764705882352941
+    },
+    "A3_en_007": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.2
     },
     "A3_ja_008": {
       "tool_recall": 0.5,
@@ -4762,7 +5113,16 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.2
+      "step_efficiency": 0.14285714285714285
+    },
+    "A3_zh_008": {
+      "tool_recall": 0.5,
+      "tool_precision": 0.5,
+      "tool_f1": 0.5,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.09090909090909091
     },
     "A3_en_008": {
       "tool_recall": 0.5,
@@ -4780,7 +5140,26 @@
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.125
+    },
+    "C2_ja_006": {
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "nonempty_results": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
+    "C2_zh_006": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.5
     },
     "D1_ja_008": {
       "tool_recall": 1.0,
@@ -4854,6 +5233,24 @@
       "locale_match": 0.0,
       "step_efficiency": 1.0
     },
+    "B4_ja_004": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "B4_zh_004": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 0.0,
+      "step_efficiency": 0.6666666666666666
+    },
     "C1_ja_006": {
       "tool_recall": 0.0,
       "tool_precision": 0.0,
@@ -4866,12 +5263,12 @@
     },
     "D2_ja_006": {
       "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
+      "tool_precision": 0.6,
+      "tool_f1": 0.7499999999999999,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.42857142857142855
     },
     "D2_zh_006": {
       "tool_recall": 1.0,
@@ -4884,12 +5281,21 @@
     },
     "I1_zh_011": {
       "tool_recall": 0.5,
+      "tool_precision": 0.3333333333333333,
+      "tool_f1": 0.4,
+      "route_order_correct": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.2857142857142857
+    },
+    "I1_zh_012": {
+      "tool_recall": 0.5,
       "tool_precision": 1.0,
       "tool_f1": 0.6666666666666666,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "locale_match": 1.0,
+      "step_efficiency": 0.2857142857142857
     },
     "I2_en_009": {
       "tool_recall": 1.0,
@@ -4907,16 +5313,25 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
     },
     "A4_ja_004": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
-      "route_order_correct": 0.0,
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
+    },
+    "A4_zh_003": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.5,
+      "tool_f1": 0.6666666666666666,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
     },
     "F2_ja_004": {
       "tool_recall": 0.0,
@@ -4925,7 +5340,7 @@
       "route_order_correct": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
     },
     "F2_en_004": {
       "tool_recall": 1.0,
@@ -4947,12 +5362,12 @@
     },
     "C3_zh_005": {
       "tool_recall": 1.0,
-      "tool_precision": 0.6666666666666666,
-      "tool_f1": 0.8,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "C3_en_005": {
       "tool_recall": 1.0,
@@ -5005,7 +5420,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A_remake_zh_002": {
@@ -5015,7 +5430,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6666666666666666
     },
     "B_multisn_ja_001": {
       "tool_recall": 0.0,
@@ -5051,7 +5466,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.4
     },
     "A_multisn_ja_002": {
       "tool_recall": 1.0,
@@ -5060,7 +5475,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.6666666666666666
     },
     "A_multisn_zh_001": {
       "tool_recall": 1.0,
@@ -5105,16 +5520,16 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 0.5
     },
-    "C_multisn_ja_001": {
+    "C_multisn_zh_001": {
       "tool_recall": 1.0,
       "tool_precision": 0.6666666666666666,
       "tool_f1": 0.8,
       "route_order_correct": 1.0,
-      "data_keys_present": 0.0,
+      "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.6666666666666666
     },
     "GINJ1_ja_001": {
       "tool_recall": 1.0,
@@ -5150,7 +5565,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
     },
     "GINJ1_ja_005": {
       "tool_recall": 1.0,
@@ -5162,13 +5577,13 @@
       "step_efficiency": 1.0
     },
     "GINJ1_ja_006": {
-      "tool_recall": 1.0,
-      "tool_precision": 1.0,
-      "tool_f1": 1.0,
-      "route_order_correct": 1.0,
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
+      "route_order_correct": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
     },
     "GINJ1_zh_007": {
       "tool_recall": 1.0,
@@ -5176,7 +5591,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "GINJ1_zh_008": {
@@ -5185,7 +5600,7 @@
       "tool_f1": 1.0,
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "GINJ1_zh_009": {
@@ -5204,7 +5619,7 @@
       "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
     },
     "GINJ1_zh_011": {
       "tool_recall": 1.0,
@@ -5243,12 +5658,12 @@
       "step_efficiency": 1.0
     },
     "GINJ1_en_015": {
-      "tool_recall": 1.0,
-      "tool_precision": 0.5,
-      "tool_f1": 0.6666666666666666,
-      "route_order_correct": 1.0,
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
+      "route_order_correct": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "GINJ1_en_016": {
@@ -5279,9 +5694,9 @@
       "step_efficiency": 0.6666666666666666
     },
     "GINJ2_ja_001": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
+      "tool_recall": 0.3333333333333333,
+      "tool_precision": 0.5,
+      "tool_f1": 0.4,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
@@ -5306,13 +5721,13 @@
       "step_efficiency": 1.0
     },
     "GINJ2_ja_004": {
-      "tool_recall": 0.3333333333333333,
-      "tool_precision": 1.0,
-      "tool_f1": 0.5,
+      "tool_recall": 0.6666666666666666,
+      "tool_precision": 0.5,
+      "tool_f1": 0.5714285714285715,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6
     },
     "GINJ2_zh_005": {
       "tool_recall": 0.0,
@@ -5324,9 +5739,9 @@
       "step_efficiency": 1.0
     },
     "GINJ2_zh_006": {
-      "tool_recall": 0.3333333333333333,
-      "tool_precision": 0.5,
-      "tool_f1": 0.4,
+      "tool_recall": 0.0,
+      "tool_precision": 0.0,
+      "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
@@ -5347,7 +5762,7 @@
       "tool_f1": 0.0,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "GINJ2_en_009": {
@@ -5378,13 +5793,22 @@
       "step_efficiency": 1.0
     },
     "GINJ2_zh_012": {
-      "tool_recall": 0.0,
-      "tool_precision": 0.0,
-      "tool_f1": 0.0,
+      "tool_recall": 0.3333333333333333,
+      "tool_precision": 0.5,
+      "tool_f1": 0.4,
       "route_order_correct": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
+    },
+    "C1_ja_007": {
+      "tool_recall": 1.0,
+      "tool_precision": 0.3333333333333333,
+      "tool_f1": 0.5,
+      "route_order_correct": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.25
     },
     "C1_ja_008": {
       "tool_recall": 1.0,
@@ -5425,11 +5849,29 @@
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
-    "C5_en_001": {
-      "tool_recall": 0.5,
+    "C5_ja_001": {
+      "tool_recall": 1.0,
       "tool_precision": 1.0,
-      "tool_f1": 0.6666666666666666,
-      "route_order_correct": 0.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "C5_zh_001": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "C5_en_001": {
+      "tool_recall": 1.0,
+      "tool_precision": 1.0,
+      "tool_f1": 1.0,
+      "route_order_correct": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
       "step_efficiency": 1.0
