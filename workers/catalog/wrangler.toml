@@ -44,3 +44,23 @@ ENVIRONMENT = "development"
 #   DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
 # wrangler dev loads .dev.vars automatically. For prod without Hyperdrive set:
 #   wrangler secret put DATABASE_URL
+
+[env.staging]
+name = "catalog-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+
+[[env.staging.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "catalog-media-staging"
+
+[env.production]
+name = "catalog"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+
+[[env.production.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "catalog-media"

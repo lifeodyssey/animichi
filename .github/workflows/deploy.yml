@@ -59,6 +59,7 @@ jobs:
           wranglerVersion: "4.79.0"
           workingDirectory: workers/catalog
           command: deploy
+          environment: production
           # Catalog reaches Postgres via env.DATABASE_URL until a [[hyperdrive]]
           # binding is provisioned (src/index.ts falls back to DATABASE_URL).
           # Sourced from the existing SUPABASE_DB_URL secret.
@@ -78,6 +79,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4.79.0"
           command: deploy
+          environment: production
           secrets: |
             SUPABASE_URL
             SUPABASE_ANON_KEY
