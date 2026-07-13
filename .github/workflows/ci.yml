@@ -76,7 +76,9 @@ jobs:
         run: pnpm emit:openapi
         working-directory: packages/contract
       - name: Verify committed OpenAPI is current
-        run: git diff --exit-code -- packages/contract/openapi.json
+        run: |
+          git add -A packages/contract/openapi.json
+          git diff --cached --exit-code -- packages/contract/openapi.json
 
   ci-frontend:
     name: Frontend CI

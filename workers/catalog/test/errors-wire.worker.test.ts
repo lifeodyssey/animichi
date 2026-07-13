@@ -94,11 +94,25 @@ async function json<TData>(response: Response): Promise<ErrorEnvelope<TData>> {
 }
 
 describe("catalog input validation on the OpenAPI wire", () => {
-  it("rejects malformed nearby input before SQL while accepting typed input", async () => {
+  it("rejects wrong-typed nearby input before SQL", async () => {
     const malformed = await call("nearby", { lat: "36.1", lng: 139.6, radius_m: 5000 }, unreachableContext());
     expect(malformed.status).toBe(400);
     expect(await malformed.json()).toMatchObject({ defined: false, status: 400 });
+  });
 
+  it("rejects out-of-range nearby latitude before SQL", async () => {
+    const response = await call("nearby", { lat: 91, lng: 139.6, radius_m: 5000 }, unreachableContext());
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ defined: false, status: 400 });
+  });
+
+  it("rejects zero nearby radius before SQL", async () => {
+    const response = await call("nearby", { lat: 36.1, lng: 139.6, radius_m: 0 }, unreachableContext());
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ defined: false, status: 400 });
+  });
+
+  it("accepts in-range nearby input", async () => {
     const valid = await call("nearby", { lat: 36.1, lng: 139.6, radius_m: 5000 }, context([]));
     expect(valid.status).toBe(200);
     expect(await valid.json()).toEqual({ rows: [] });

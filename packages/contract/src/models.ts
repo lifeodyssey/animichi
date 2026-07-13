@@ -10,10 +10,13 @@
 
 import { z } from "zod";
 
+export const Latitude = z.number().min(-90).max(90);
+export const Longitude = z.number().min(-180).max(180);
+
 /** A geographic origin: either lat/lng coordinates or a named place string. */
 export const LatLng = z.object({
-  lat: z.number(),
-  lng: z.number(),
+  lat: Latitude,
+  lng: Longitude,
 });
 export type LatLng = z.infer<typeof LatLng>;
 
