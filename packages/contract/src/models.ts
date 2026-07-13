@@ -72,9 +72,15 @@ export type TimedStop = z.infer<typeof TimedStop>;
 export const TransitLeg = z.object({
   from_id: z.string(),
   to_id: z.string(),
-  mode: z.enum(["walk"]),
+  mode: z.enum(["walk", "transit"]),
   duration_minutes: z.number().int(),
   distance_m: z.number(),
+  line_names: z.array(z.string()).optional(),
+  transfers: z.number().int().optional(),
+  board_station: z.string().optional(),
+  alight_station: z.string().optional(),
+  summary: z.string().optional(),
+  attribution: z.array(z.string()).optional(),
 });
 export type TransitLeg = z.infer<typeof TransitLeg>;
 

@@ -49,13 +49,19 @@ export interface TimedStop {
   photo_count: number;
 }
 
-/** A walk segment between two stops — mirrors `TransitLeg`. */
+/** A segment between two stops — mirrors `TransitLeg`. */
 export interface TransitLeg {
   from_id: string;
   to_id: string;
-  mode: "walk";
+  mode: "walk" | "transit";
   duration_minutes: number;
   distance_m: number;
+  line_names?: string[];
+  transfers?: number;
+  board_station?: string;
+  alight_station?: string;
+  summary?: string;
+  attribution?: string[];
 }
 
 /**
