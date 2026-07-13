@@ -26,7 +26,7 @@ function hit(overrides: Partial<GeocodeHit>): GeocodeHit {
   return { ...NISHINOMIYA, ...overrides };
 }
 
-describe("catalog geocode", () => {
+describe("catalog geocode lookup", () => {
   it.each(["西宮", "西宫", "nishinomiya"])("A1 exact lookup resolves %s", async (query) => {
     const result = await geocode(fakeDb([NISHINOMIYA]), { query, limit: 5 });
     expect(result.candidates).toEqual([{
@@ -63,7 +63,9 @@ describe("catalog geocode", () => {
     await expect(geocode(fakeDb([]), { query: "不存在", limit: 5 })).resolves.toEqual({ candidates: [] });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+});
 
+describe("catalog geocode clustering", () => {
   it("A3 single-link clustering collapses a bridge chain", () => {
     const chain = [
       hit({ id: "a", longitude: 135.00 }),
@@ -106,7 +108,9 @@ describe("catalog geocode", () => {
       "second",
     ]);
   });
+});
 
+describe("catalog geocode seed fixture", () => {
   it("A9 seed fixture resolves all 30 aliases to the 20 audited locations", () => {
     expect(Object.keys(SEED_LOCATIONS)).toHaveLength(20);
     expect(SEED_ALIASES).toHaveLength(30);
