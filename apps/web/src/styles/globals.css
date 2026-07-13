@@ -1,10 +1,39 @@
 @import "tailwindcss";
+@import "./fonts.css";
 
 :root {
   color-scheme: light;
-  --animichi-bg: #faf8f3;
-  --animichi-text: #725d42;
-  --animichi-accent: #19c8b9;
+  --color-primary: #19c8b9;
+  --color-primary-hover: #3dd4c6;
+  --color-primary-active: #50b9ab;
+  --color-primary-soft: #e6f9f6;
+  --color-primary-fg: #ffffff;
+  /* Accessible teal from ds-审计.md; white text clears WCAG AA. */
+  --color-primary-strong: #0e7d72;
+  --color-bg: #ffffff;
+  --color-fg: #725d42;
+  --color-card: #f8f8f0;
+  --color-muted: #f0e8d8;
+  /* Accessible secondary text from ds-审计.md; clears WCAG AA on white. */
+  --color-muted-fg: #7d6f5a;
+  --color-border: #aaa69d;
+  --color-focus: #ffcc00;
+  --color-success-fg: #6fba2c;
+  --color-warning-fg: #f5c31c;
+  --color-error-fg: #e05a5a;
+  --color-walk-bg: #e8f5e9;
+  --color-walk-fg: #2e7d32;
+  --color-explore-bg: #e0f7f5;
+  --color-explore-fg: #00796b;
+  --color-map-pin-teal: #19c8b9;
+  --color-map-pin-green: #4caf50;
+  --color-map-pin-orange: #ff9800;
+  --color-map-pin-brand: #c1440e;
+  --shadow-3d: #bdaea0;
+  --shadow-press: 0 5px 0 0 #bdaea0;
+  --app-font-display: "Noto Serif JP", "Hiragino Mincho ProN", Georgia, serif;
+  --app-font-body: "Nunito", "Zen Maru Gothic", "Noto Sans SC", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
+  --app-font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
 }
 
 * {
@@ -14,16 +43,9 @@
 body {
   margin: 0;
   min-width: 320px;
-  background: var(--animichi-bg);
-  color: var(--animichi-text);
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--app-font-body);
 }
 
 a {
@@ -50,7 +72,7 @@ a {
 
 .eyebrow {
   margin: 0;
-  color: var(--animichi-accent);
+  color: var(--color-primary-strong);
   font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0;
@@ -59,7 +81,7 @@ a {
 
 h1 {
   margin: 0;
-  color: var(--animichi-text);
+  color: var(--color-fg);
   font-size: 3.25rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -75,7 +97,7 @@ h1 {
 
 .home-link {
   justify-self: center;
-  border-bottom: 2px solid var(--animichi-accent);
+  border-bottom: 2px solid var(--color-primary);
   font-weight: 700;
   text-decoration: none;
 }
