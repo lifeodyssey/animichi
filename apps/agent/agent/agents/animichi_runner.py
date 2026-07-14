@@ -1,8 +1,4 @@
-"""Runner: execute the pilgrimage agent and return AgentResult.
-
-Separated from the agent definition so that the agent module stays small
-and the tool module can import the agent object without circular deps.
-"""
+"""Runner: execute the pilgrimage agent and return AgentResult."""
 
 from __future__ import annotations
 
@@ -11,12 +7,8 @@ from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
 
-import agent.agents.animichi_tools as _tools  # noqa: F401
-import agent.agents.web_tools as _web_tools  # noqa: F401
 from agent.agents.agent_result import AgentResult
-
-# Importing animichi_tools triggers @tool registrations on the agent.
-from agent.agents.animichi_agent import animichi_agent  # noqa: F401
+from agent.agents.animichi_agent import animichi_agent
 from agent.agents.runtime_deps import (
     OnStep,
     RuntimeDeps,

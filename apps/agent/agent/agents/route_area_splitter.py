@@ -56,6 +56,7 @@ class AreaSplitResult(BaseModel):
 
 route_planner_agent: Agent[None, AreaSplitResult] = Agent(
     resolve_model(None),
+    name="route_planner",
     output_type=AreaSplitResult,
     instructions=_SPLIT_INSTRUCTIONS,
     retries=1,
