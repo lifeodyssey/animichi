@@ -161,6 +161,7 @@ def describe_model(model: object) -> str:
 def create_agent(
     model: Model | str | None = None,
     *,
+    name: str,
     system_prompt: str = "",
     output_type: type[T],
     tool_retries: int = 2,
@@ -171,6 +172,7 @@ def create_agent(
 def create_agent(
     model: Model | str | None = None,
     *,
+    name: str,
     system_prompt: str = "",
     output_type: None = None,
     tool_retries: int = 2,
@@ -180,6 +182,7 @@ def create_agent(
 def create_agent(
     model: Model | str | None = None,
     *,
+    name: str,
     system_prompt: str = "",
     output_type: type[T] | None = None,
     tool_retries: int = 2,
@@ -187,9 +190,12 @@ def create_agent(
     """Create a Pydantic AI agent with the given configuration."""
     selected = resolve_model(model)
     if output_type is None:
-        return Agent(selected, system_prompt=system_prompt, retries=tool_retries)
+        return Agent(
+            selected, name=name, system_prompt=system_prompt, retries=tool_retries
+        )
     return Agent(
         selected,
+        name=name,
         system_prompt=system_prompt,
         output_type=output_type,
         retries=tool_retries,

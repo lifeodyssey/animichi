@@ -138,6 +138,7 @@ async def resolve_location(
     try:
         agent = create_agent(
             get_default_model(),
+            name="location_resolver",
             system_prompt=_RESOLVE_LOCATION_PROMPT.format(
                 known_locations=_KNOWN_KEYS_STR,
             ),

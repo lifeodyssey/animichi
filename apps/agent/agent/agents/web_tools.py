@@ -1,8 +1,6 @@
-"""Web-facing tool registrations (web_search, translate_anime_title).
+"""Web-facing tool definitions (web_search, translate_anime_title).
 
 Extracted from animichi_tools.py to keep that file under 300 lines.
-Import this module after ``animichi_agent`` is created so the decorators
-can attach to it.
 """
 
 from __future__ import annotations
@@ -17,8 +15,8 @@ from pydantic_ai.common_tools.duckduckgo import (
     DuckDuckGoResult,
     duckduckgo_search_tool,
 )
+from pydantic_ai.tools import ToolFuncEither
 
-from agent.agents.animichi_agent import animichi_agent
 from agent.agents.guardrails import (
     WebResult,
     detect_prompt_injection,
@@ -70,7 +68,6 @@ def _log_result_injections(results: list[WebResult]) -> None:
         )
 
 
-@animichi_agent.tool
 async def web_search(
     ctx: RunContext[RuntimeDeps],
     *,
@@ -106,7 +103,6 @@ async def web_search(
     return wrap_untrusted_web_results(results)
 
 
-@animichi_agent.tool
 async def translate_anime_title(
     ctx: RunContext[RuntimeDeps],
     *,
@@ -143,3 +139,6 @@ async def _translate_title(
     if deps.title_translator is not None:
         return await deps.title_translator(title, target_language)
     return await translate_title(title, target_locale=target_language, db=deps.db)
+
+
+TOOLS: list[ToolFuncEither[RuntimeDeps]] = [web_search, translate_anime_title]
