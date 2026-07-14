@@ -1,15 +1,4 @@
-"""PydanticAI agent definition for the anime pilgrimage runtime.
-
-This module defines ONLY the agent object and its instructions. Tools are
-registered in ``animichi_tools`` (imported lazily at run time).
-The runner that executes the agent lives in ``animichi_runner``.
-
-Separation rationale:
-- Agent def must exist before ``@agent.tool`` decorators run.
-- Tools import the agent → tools module depends on this module.
-- Runner imports both → runner depends on tools + agent.
-- Keeping them apart avoids circular imports and keeps each file < 300 lines.
-"""
+"""PydanticAI agent definition for the anime pilgrimage runtime."""
 
 from __future__ import annotations
 
@@ -23,6 +12,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.output import ToolOutput
 
+from agent.agents.animichi_tools import TOOLS as ANIMICHI_TOOLS
 from agent.agents.base import resolve_model
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import (
@@ -32,6 +22,7 @@ from agent.agents.runtime_models import (
     RouteResponseModel,
     SearchResponseModel,
 )
+from agent.agents.web_tools import TOOLS as WEB_TOOLS
 
 COMPACT_THRESHOLD = 40  # ~5 turns × 8 messages/turn
 _KEEP_RECENT = 8  # Keep latest turn fully uncompressed
@@ -298,6 +289,7 @@ animichi_agent = Agent(
         ToolOutput(GreetingResponseModel, name="greeting_response"),
     ],
     instructions=_INSTRUCTIONS,
+    tools=[*ANIMICHI_TOOLS, *WEB_TOOLS],
     retries=2,
     capabilities=[
         ProcessHistory(_compact_tool_results),

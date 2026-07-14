@@ -7,8 +7,7 @@ no Anitabi/Bangumi gateways). The ephemeral tools (greet_user / general_qa /
 clarify) echo LLM-supplied payloads without any read path.
 
 Step/plumbing helpers live in ``tool_runtime``; the catalog read path lives in
-``catalog_tools``. Import this module after ``animichi_agent`` is created so
-the decorators can attach to it.
+``catalog_tools``.
 """
 
 from __future__ import annotations
@@ -18,8 +17,8 @@ import json
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_ai import ModelRetry, RunContext
+from pydantic_ai.tools import ToolFuncEither
 
-from agent.agents.animichi_agent import animichi_agent
 from agent.agents.catalog_tools import (
     _bangumi_search_query,
     _run_catalog_nearby,
@@ -46,7 +45,6 @@ def _require_catalog(deps: RuntimeDeps) -> CatalogClientProtocol:
     return deps.catalog
 
 
-@animichi_agent.tool
 async def resolve_anime(ctx: RunContext[RuntimeDeps], title: str) -> dict[str, object]:
     """Look up an anime by title and return its unique database identifier.
 
@@ -78,7 +76,6 @@ async def resolve_anime(ctx: RunContext[RuntimeDeps], title: str) -> dict[str, o
     )
 
 
-@animichi_agent.tool
 async def search_bangumi(
     ctx: RunContext[RuntimeDeps],
     bangumi_id: str = "",
@@ -131,7 +128,6 @@ async def search_bangumi(
     )
 
 
-@animichi_agent.tool
 async def search_nearby(
     ctx: RunContext[RuntimeDeps],
     *,
@@ -165,7 +161,6 @@ async def search_nearby(
     )
 
 
-@animichi_agent.tool
 async def plan_route(
     ctx: RunContext[RuntimeDeps],
     *,
@@ -207,7 +202,6 @@ async def plan_route(
     return await _run_catalog_route(ctx, _require_catalog(ctx.deps), params=params)
 
 
-@animichi_agent.tool
 async def greet_user(ctx: RunContext[RuntimeDeps], message: str) -> dict[str, object]:
     """Respond to greetings and "what can you do?" questions.
 
@@ -229,7 +223,6 @@ async def greet_user(ctx: RunContext[RuntimeDeps], message: str) -> dict[str, ob
     )
 
 
-@animichi_agent.tool
 async def general_qa(ctx: RunContext[RuntimeDeps], answer: str) -> dict[str, object]:
     """Answer general questions about anime pilgrimage (etiquette, tips, costs, planning).
 
@@ -312,7 +305,6 @@ class ClarifyArgs(BaseModel):
         return decoded
 
 
-@animichi_agent.tool
 async def clarify(
     ctx: RunContext[RuntimeDeps],
     args: ClarifyArgs,
@@ -332,3 +324,14 @@ async def clarify(
               ``ClarifyArgs`` for field-level docs (``question``, ``options``).
     """
     return await run_clarify(ctx.deps, question=args.question, options=args.options)
+
+
+TOOLS: list[ToolFuncEither[RuntimeDeps]] = [
+    resolve_anime,
+    search_bangumi,
+    search_nearby,
+    plan_route,
+    greet_user,
+    general_qa,
+    clarify,
+]

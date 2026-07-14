@@ -112,6 +112,7 @@ IMPORTANT RULES:
 
 translation_agent: Agent[TranslationDeps, str] = Agent(
     resolve_model(None),
+    name="translation",
     deps_type=TranslationDeps,
     output_type=str,
     instructions=_TRANSLATION_INSTRUCTIONS,
