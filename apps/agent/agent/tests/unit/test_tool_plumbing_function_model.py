@@ -1,4 +1,8 @@
-"""Deterministic routing coverage for the seven core intent tools."""
+"""FunctionModel coverage for tool plumbing and typed output conversion.
+
+The model response explicitly chooses each tool, so these tests do not prove
+query-to-tool routing. The model-backed eval suite owns that behavior.
+"""
 
 from __future__ import annotations
 
@@ -161,7 +165,7 @@ def _recorded_name(tool_name: str) -> str:
     ],
     ids=["resolve", "search", "nearby", "route", "greet", "qa", "clarify"],
 )
-async def test_query_selects_intended_tool_and_typed_output(
+async def test_scripted_tool_call_is_plumbed_to_typed_output(
     query: str,
     tool_name: str,
     args: dict[str, object],
