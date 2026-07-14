@@ -68,3 +68,13 @@ def record_http_request(
     }
     _http_requests.add(1, attributes)
     _http_duration.record(duration_ms, attributes)
+
+
+def record_agent_run_error(error: BaseException) -> None:
+    """Record a failed PydanticAI run without changing propagation semantics."""
+    logfire.error(
+        "animichi_agent_run_error",
+        error_type=type(error).__name__,
+        error_message=str(error)[:500],
+        _exc_info=error,
+    )
