@@ -57,3 +57,6 @@ async def test_codemode_spike_is_isolated_and_benchmark_is_injectable() -> None:
     assert _production_state() == before
     assert report.runs[0].valid_typed_output
     assert report.runs[0].exception is None
+    assert report.output_schema_digest is not None
+    assert report.error_bearing_run_count == 0
+    assert report.total_tool_failure_count == 0
