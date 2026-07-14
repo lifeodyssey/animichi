@@ -15,7 +15,7 @@ from pydantic_ai.common_tools.duckduckgo import (
     DuckDuckGoResult,
     duckduckgo_search_tool,
 )
-from pydantic_ai.tools import ToolFuncEither
+from pydantic_ai.tools import Tool, ToolFuncEither
 
 from agent.agents.guardrails import (
     WebResult,
@@ -142,3 +142,8 @@ async def _translate_title(
 
 
 TOOLS: list[ToolFuncEither[RuntimeDeps]] = [web_search, translate_anime_title]
+
+DEFERRED_TOOLS: list[Tool[RuntimeDeps]] = [
+    Tool(web_search, defer_loading=True),
+    Tool(translate_anime_title, defer_loading=True),
+]
