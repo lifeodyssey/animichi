@@ -6,6 +6,8 @@ import {
   renderSql,
   validateGazetteer,
   verifySourceHashes,
+  type Gazetteer,
+  type Kind,
   type Prefecture,
 } from "../scripts/build-gazetteer";
 
@@ -39,6 +41,20 @@ function build(stations: typeof STATIONS = STATIONS) {
 }
 
 const META = { stationSha: "station-sha", citiesSha: "cities-sha", command: "generator command" };
+
+function gazetteerWithCounts(counts: Partial<Record<Kind, number>>, aliasCount = 20_000): Gazetteer {
+  const locations = Object.entries(counts).flatMap(([kind, count]) =>
+    Array.from({ length: count }, (_, index) => ({
+      id: `${kind}:${String(index)}`, name: `${kind}-${String(index)}`, kind: kind as Kind,
+      lat: 35, lng: 135, source: "manual" as const, pref: null,
+    })),
+  );
+  const aliases = Array.from({ length: aliasCount }, (_, index) => ({
+    alias: `alias-${String(index)}`, normalized: `alias-${String(index)}`,
+    locationId: "station:0", lang: "en" as const, priority: 0,
+  }));
+  return { locations, aliases };
+}
 
 describe("gazetteer generator output", () => {
   it("clusters same-name station platforms within 500m and retains a distant complex", () => {
@@ -93,6 +109,48 @@ describe("gazetteer generator validation pins", () => {
     );
   });
 
+  it("warns and continues on changed hashes with --update-sources", () => {
+    const expected = { stations: "station-sha", cities: "cities-sha" };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      expect(() => { verifySourceHashes({ ...expected, stations: "bad" }, expected, true); }).not.toThrow();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("continuing because --update-sources was supplied"));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("renders the canonical command independently of local source paths", () => {
+    const sql = renderSql(build(), { ...META, command: CANONICAL_COMMAND });
+    expect(sql).toContain(`-- Generation command: ${CANONICAL_COMMAND}`);
+    expect(sql).not.toContain("/private/tmp/");
+  });
+});
+
+describe("gazetteer count floor pins", () => {
+  it.each([
+    {
+      name: "station floor", counts: { station: 8_999 }, aliases: 20_000,
+      error: "gazetteer station count 8999 is below 9000",
+    },
+    {
+      name: "city+ward floor", counts: { station: 9_000, city: 1_999 }, aliases: 20_000,
+      error: "gazetteer city+ward count 1999 is below 2000",
+    },
+    {
+      name: "prefecture count", counts: { station: 9_000, city: 2_000, prefecture: 46 }, aliases: 20_000,
+      error: "gazetteer prefecture count must be 47, got 46",
+    },
+    {
+      name: "alias floor", counts: { station: 9_000, city: 2_000, prefecture: 47 }, aliases: 19_999,
+      error: "gazetteer alias count 19999 is below 20000",
+    },
+  ])("rejects $name", ({ counts, aliases, error }) => {
+    expect(() => { validateGazetteer(gazetteerWithCounts(counts, aliases)); }).toThrow(error);
+  });
+});
+
+describe("gazetteer coordinate pins", () => {
   it.each([
     { lat: Number.NaN, lng: 135, error: "non-finite coordinates" },
     { lat: 19.9, lng: 135, error: "out-of-range coordinates" },
@@ -104,11 +162,5 @@ describe("gazetteer generator validation pins", () => {
     if (firstLocation === undefined) throw new Error("expected generated gazetteer location");
     result.locations[0] = { ...firstLocation, lat, lng };
     expect(() => { validateGazetteer(result); }).toThrow(error);
-  });
-
-  it("renders the canonical command independently of local source paths", () => {
-    const sql = renderSql(build(), { ...META, command: CANONICAL_COMMAND });
-    expect(sql).toContain(`-- Generation command: ${CANONICAL_COMMAND}`);
-    expect(sql).not.toContain("/private/tmp/");
   });
 });
