@@ -9,6 +9,19 @@ from pathlib import Path
 from agent.spikes.codemode.benchmark import BenchmarkReport
 
 
+def _validated_path(arg: str) -> Path:
+    path = Path(arg)
+    if ".." in path.parts:
+        raise SystemExit(f"Refusing traversal-suspicious path: {arg}")
+    resolved = path.resolve()
+    allowed_base = resolved.parent if path.is_absolute() else Path.cwd().resolve()
+    if not resolved.is_relative_to(allowed_base) or not resolved.parent.is_dir():
+        raise SystemExit(
+            f"Path must stay within {allowed_base} and have an existing parent: {arg}"
+        )
+    return resolved
+
+
 def _load(path: Path) -> BenchmarkReport:
     return BenchmarkReport.model_validate_json(path.read_text())
 
@@ -89,8 +102,8 @@ def compare(baseline: BenchmarkReport, codemode: BenchmarkReport) -> bool:
 
 def _main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("baseline", type=Path)
-    parser.add_argument("codemode", type=Path)
+    parser.add_argument("baseline", type=_validated_path)
+    parser.add_argument("codemode", type=_validated_path)
     args = parser.parse_args()
     compare(_load(args.baseline), _load(args.codemode))
 
