@@ -294,3 +294,6 @@ GRANT SELECT ON locations, location_aliases TO catalog_svc;   -- 只读即可(�
 - 外部 geocoder 兜底(见 OQ1,spike 前置 + 许可决议)。
 - 路线 origin 接入 `catalog.geocode`;E2/G4 eval 收紧;`sql_agent.py` 清理(含 Python Google gateway);
   检索质量量尺体系化;CI agent-eval 解禁。
+- **gazetteer 刷新管道**(用户 2026-07-14 拍板:本轮维持数据骑迁移方案 + Sonar 生成物排除):
+  下次数据刷新(N02-2024 年更或数据源扩张)时切独立数据管道——deploy workflow 加幂等 loader 步骤,
+  CI/本地环境同步接入,新数据不再进迁移历史;既有 20260714000002 迁移作为化石保留不移除。
