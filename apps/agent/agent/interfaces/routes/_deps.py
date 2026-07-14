@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Awaitable
 from dataclasses import dataclass
-from typing import Annotated, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Literal, cast
 
 import structlog
 from fastapi import Depends, Header, HTTPException, Request
@@ -18,6 +18,9 @@ from agent.config.settings import Settings
 from agent.infrastructure.session import SessionStore, create_session_store
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import PublicAPIResponse, RuntimeAPI
+
+if TYPE_CHECKING:
+    import logfire
 
 _logger = structlog.get_logger(__name__)
 
@@ -220,12 +223,14 @@ def setup_logfire(settings: Settings, app: object | None = None) -> None:
     """
     import logfire
 
+    variables = _managed_prompt_variables()
     logfire.configure(
         service_name=settings.observability_service_name,
         service_version=settings.observability_service_version,
         environment=settings.app_env,
         send_to_logfire="if-token-present",
         console=False,
+        variables=variables,
     )
     if _has_logfire_token():
         _instrument_logfire(app)
@@ -236,6 +241,17 @@ def _has_logfire_token() -> bool:
     import os
 
     return bool(os.environ.get("LOGFIRE_TOKEN"))
+
+
+def _managed_prompt_variables() -> logfire.VariablesOptions | None:
+    import os
+
+    import logfire
+
+    credentials = _has_logfire_token() and bool(os.environ.get("LOGFIRE_API_KEY"))
+    if os.environ.get("ANIMICHI_MANAGED_PROMPT") != "1" or not credentials:
+        return None
+    return logfire.VariablesOptions(timeout=(1.0, 1.0))
 
 
 def _instrument_logfire(app: object | None) -> None:
