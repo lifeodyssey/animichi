@@ -61,6 +61,7 @@ TITLE_NAMES: dict[str, TitleNames] = {
     ),
     "1608": TitleNames("スラムダンク", "灌篮高手", "Slam Dunk"),
     "49294": TitleNames("ラブライブ!", "Love Live!", "Love Live!"),
+    "152091": TitleNames("聲の形", "声之形", "A Silent Voice"),
 }
 
 POINT_SEEDS: tuple[PointSeed, ...] = (
@@ -111,6 +112,14 @@ POINT_SEEDS: tuple[PointSeed, ...] = (
     PointSeed("p_lovelive_sun_1", "165553", "沼津港", "沼津港", 35.0828, 138.8571),
     PointSeed("p_slam_legacy_1", "1608", "湘南海岸", "湘南海岸", 35.3089, 139.4826),
     PointSeed("p_lovelive_1", "49294", "秋葉原UDX", "秋叶原UDX", 35.7002, 139.7729),
+    # Satisfiability anchor for the 岐阜 expect_nonempty cases.
+    PointSeed("p_koe_ogaki_station", "152091", "大垣駅", "大垣站", 35.3661, 136.6183),
+    PointSeed(
+        "p_koe_midoribashi", "152091", "美登鯉橋", "美登鲤桥", 35.3585, 136.6151, 2
+    ),
+    PointSeed(
+        "p_koe_ogaki_park", "152091", "大垣公園", "大垣公园", 35.3587, 136.6122, 3
+    ),
 )
 
 ALIASES_BY_ID: dict[str, tuple[str, ...]] = {

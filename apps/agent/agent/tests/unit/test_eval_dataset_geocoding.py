@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
 from agent.clients.geocode import GeocodeKind
-from agent.tests.eval.mock_catalog_fixtures import GEOCODE_FIXTURES
+from agent.tests.eval.mock_catalog_fixtures import GEOCODE_FIXTURES, POINT_SEEDS
 
 DATASET = Path(__file__).parents[1] / "eval" / "datasets" / "agent_eval_v3.json"
 SUFFIX_CASES = {"C2_ja_005", "C2_zh_004", "C2_zh_006"}
@@ -157,3 +158,27 @@ def test_nearby_eval_cases_have_geocode_fixture_coverage() -> None:
 def test_bare_prefecture_fixtures_resolve_to_capital_cities() -> None:
     keys = ("埼玉", "saitama", "神奈川", "kanagawa", "岐阜", "gifu")
     assert all(GEOCODE_FIXTURES[key][0].kind is GeocodeKind.CITY for key in keys)
+
+
+def test_expect_nonempty_cases_are_geographically_satisfiable() -> None:
+    rows = _rows()
+    for id_, row in rows.items():
+        if row.get("expect_nonempty") is not True:
+            continue
+        key = CASE_GEOCODE_KEYS[id_]
+        assert key is not None
+        origin = GEOCODE_FIXTURES[key.lower()][0]
+        assert any(
+            2
+            * 6371
+            * math.asin(
+                math.sqrt(
+                    math.sin(math.radians(seed.lat - origin.lat) / 2) ** 2
+                    + math.cos(math.radians(origin.lat))
+                    * math.cos(math.radians(seed.lat))
+                    * math.sin(math.radians(seed.lng - origin.lng) / 2) ** 2
+                )
+            )
+            <= 50
+            for seed in POINT_SEEDS
+        ), id_
