@@ -15,49 +15,50 @@ from agent.agents.runtime_deps import (
     TitleTranslator,
     WebSearcher,
 )
+from agent.agents.tool_state import SearchState, ToolState
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
 
 logger = structlog.get_logger(__name__)
 
 
-def _seed_geo_coords(tool_state: dict[str, object], context: dict[str, object]) -> None:
+def _seed_geo_coords(tool_state: ToolState, context: dict[str, object]) -> None:
     origin_lat = context.get("origin_lat")
     origin_lng = context.get("origin_lng")
     if isinstance(origin_lat, int | float):
-        tool_state["origin_lat"] = float(origin_lat)
+        tool_state.origin_lat = float(origin_lat)
     if isinstance(origin_lng, int | float):
-        tool_state["origin_lng"] = float(origin_lng)
+        tool_state.origin_lng = float(origin_lng)
 
 
-def _seed_search_data(
-    tool_state: dict[str, object], context: dict[str, object]
-) -> None:
+def _seed_search_data(tool_state: ToolState, context: dict[str, object]) -> None:
     raw = context.get("last_search_data")
     if not isinstance(raw, dict):
         return
-    for key in ("search_bangumi", "search_nearby"):
-        value = raw.get(key)
-        if isinstance(value, dict):
-            tool_state[key] = value
-    if "rows" in raw and "search_bangumi" not in tool_state:
-        tool_state["search_bangumi"] = raw
+    bangumi = raw.get("search_bangumi")
+    nearby = raw.get("search_nearby")
+    if isinstance(bangumi, dict):
+        tool_state.search_bangumi = SearchState.model_validate(bangumi)
+    if isinstance(nearby, dict):
+        tool_state.search_nearby = SearchState.model_validate(nearby)
+    if "rows" in raw and tool_state.search_bangumi is None:
+        tool_state.search_bangumi = SearchState.model_validate(raw)
 
 
 def _seed_tool_state(deps: RuntimeDeps, context: dict[str, object] | None) -> None:
-    deps.tool_state["locale"] = deps.locale
+    deps.tool_state.locale = deps.locale
     if context is None:
         return
     last_location = context.get("last_location")
     if isinstance(last_location, str) and last_location:
-        deps.tool_state["last_location"] = last_location
+        deps.tool_state.last_location = last_location
     _seed_geo_coords(deps.tool_state, context)
 
     raw_candidates = context.get("resolve_candidates")
     if isinstance(raw_candidates, list) and raw_candidates:
-        deps.tool_state["resolve_candidates"] = raw_candidates
+        deps.tool_state.resolve_candidates = raw_candidates
     if context.get("pending_clarify") is True:
-        deps.tool_state["pending_clarify"] = True
+        deps.tool_state.pending_clarify = True
 
     _seed_search_data(deps.tool_state, context)
 
@@ -108,7 +109,7 @@ async def run_animichi_agent(
     result = AgentResult(
         output=raw_output,
         steps=list(deps.steps),
-        tool_state=dict(deps.tool_state),
+        tool_state=deps.tool_state.to_legacy_dict(),
         new_messages=list(run_result.new_messages()),
     )
     logger.info(

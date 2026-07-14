@@ -21,6 +21,7 @@ from agent.agents.tool_runtime import (
     _record_step,
     _summarize_for_llm,
 )
+from agent.agents.tool_state import ToolState
 from agent.clients.catalog_client import (
     CatalogClientProtocol,
     PilgrimagePoint,
@@ -63,7 +64,7 @@ async def _store_catalog_result(
     )
     if success:
         _localize_city_names(payload, deps.locale)
-        deps.tool_state[tool.value] = payload
+        deps.tool_state.set_payload(tool, payload)
         await _emit_step(deps, tool.value, "done", payload)
         return _summarize_for_llm(tool, payload)
     await _emit_step(deps, tool.value, "failed", {"error": _NO_DATA_ERROR})
@@ -90,17 +91,15 @@ async def _run_catalog_search(
     )
 
 
-def _bangumi_search_query(state: dict[str, object], bangumi_id: str) -> str:
+def _bangumi_search_query(state: ToolState, bangumi_id: str) -> str:
     """Pick the catalog query for search_bangumi: resolved title, else id.
 
     The catalog search path is title/query based, so prefer the title captured
     by resolve_anime; fall back to the bangumi_id when no title is known.
     """
-    resolve_data = state.get("resolve_anime")
-    if isinstance(resolve_data, dict):
-        title = resolve_data.get("title")
-        if isinstance(title, str) and title:
-            return title
+    resolve_data = state.resolve_anime
+    if resolve_data is not None and resolve_data.title:
+        return resolve_data.title
     return bangumi_id
 
 
@@ -116,12 +115,12 @@ def _shape_search_or_resolve(
     return build_search_payload(points, tool=search_tool)
 
 
-def _origin_coordinates(state: dict[str, object]) -> tuple[float, float] | None:
+def _origin_coordinates(state: ToolState) -> tuple[float, float] | None:
     """Return typed session GPS coordinates when both values are present."""
-    lat = state.get("origin_lat")
-    lng = state.get("origin_lng")
-    if isinstance(lat, int | float) and isinstance(lng, int | float):
-        return float(lat), float(lng)
+    lat = state.origin_lat
+    lng = state.origin_lng
+    if lat is not None and lng is not None:
+        return lat, lng
     return None
 
 
@@ -259,17 +258,12 @@ async def _run_catalog_nearby(
     )
 
 
-def _point_ids_from_state(state: dict[str, object]) -> list[str]:
+def _point_ids_from_state(state: ToolState) -> list[str]:
     """Collect point ids from the most recent search results in tool_state."""
-    search = state.get("search_bangumi") or state.get("search_nearby")
-    rows = search.get("rows") if isinstance(search, dict) else None
-    if not isinstance(rows, list):
+    search = state.search_bangumi or state.search_nearby
+    if search is None:
         return []
-    return [
-        str(row["id"])
-        for row in rows
-        if isinstance(row, dict) and isinstance(row.get("id"), str)
-    ]
+    return [row.id for row in search.rows if row.id is not None]
 
 
 async def _run_catalog_route(

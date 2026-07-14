@@ -9,8 +9,10 @@ from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.catalog_adapter import build_route_payload
 from agent.agents.error_messages import build_error_message
 from agent.agents.messages import build_message
+from agent.agents.models import ToolName
 from agent.agents.runtime_deps import OnStep
 from agent.agents.runtime_models import RouteDataModel, RouteModel, RouteResponseModel
+from agent.agents.tool_state import ToolState
 from agent.clients.catalog_client import CatalogClientProtocol, Route
 from agent.clients.errors import APIError
 
@@ -96,10 +98,12 @@ def _build_success_result(
         message=message,
         data=RouteDataModel(route=route_model),
     )
+    tool_state = ToolState()
+    tool_state.set_payload(ToolName.PLAN_SELECTED, payload)
     return AgentResult(
         output=output,
         steps=[step],
-        tool_state={"plan_selected": payload},
+        tool_state=tool_state.to_legacy_dict(),
     )
 
 

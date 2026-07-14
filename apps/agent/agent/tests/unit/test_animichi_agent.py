@@ -234,12 +234,16 @@ class TestSessionContextInjection:
         from agent.agents.animichi_agent import _inject_session_context
 
         ctx = MagicMock()
-        ctx.deps.tool_state = {
-            "search_bangumi": {
-                "row_count": 76,
-                "metadata": {"anime_title": "涼宮ハルヒの憂鬱"},
+        from agent.agents.tool_state import ToolState
+
+        ctx.deps.tool_state = ToolState.model_validate(
+            {
+                "search_bangumi": {
+                    "row_count": 76,
+                    "metadata": {"anime_title": "涼宮ハルヒの憂鬱"},
+                }
             }
-        }
+        )
         result = _inject_session_context(ctx)
         assert "76 spots" in result
         assert "涼宮ハルヒの憂鬱" in result
@@ -248,7 +252,9 @@ class TestSessionContextInjection:
         from agent.agents.animichi_agent import _inject_session_context
 
         ctx = MagicMock()
-        ctx.deps.tool_state = {}
+        from agent.agents.tool_state import ToolState
+
+        ctx.deps.tool_state = ToolState()
         ctx.deps.locale = "ja"
         result = _inject_session_context(ctx)
         assert "default to Japanese" in result
@@ -258,8 +264,10 @@ class TestSessionContextInjection:
         from agent.agents.animichi_agent import _inject_session_context
 
         ctx = MagicMock()
-        ctx.deps.tool_state = {
-            "resolve_anime": {"title": "君の名は。", "bangumi_id": "160209"}
-        }
+        from agent.agents.tool_state import ToolState
+
+        ctx.deps.tool_state = ToolState.model_validate(
+            {"resolve_anime": {"title": "君の名は。", "bangumi_id": "160209"}}
+        )
         result = _inject_session_context(ctx)
         assert "君の名は。" in result

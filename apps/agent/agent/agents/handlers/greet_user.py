@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from agent.agents.handlers.result import HandlerResult
 from agent.agents.models import PlanStep
 
 
 async def execute(
     step: PlanStep,
-    context: dict[str, object],
+    context: Mapping[str, object],
     db: object,
     retriever: object,
 ) -> HandlerResult:
