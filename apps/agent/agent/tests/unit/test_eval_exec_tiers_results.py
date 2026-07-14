@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TypeAlias
 
+from pydantic_ai.usage import RunUsage
 from pydantic_evals.evaluators import EvaluationResult, EvaluatorSpec
 from pydantic_evals.reporting import (
     EvaluationReport,
@@ -29,7 +30,9 @@ def _score(
 def _result() -> AgentResult:
     output = QAResponseModel(intent="general_qa", message="Hello there")
     return AgentResult(
-        output=output, steps=[StepRecord(tool="answer_question", success=True)]
+        output=output,
+        steps=[StepRecord(tool="answer_question", success=True)],
+        usage=RunUsage(input_tokens=12, output_tokens=4, requests=2),
     )
 
 
@@ -93,3 +96,11 @@ def test_build_results_payload_persists_failures_and_reasons() -> None:
     assert payload.cases[0].expected_stages == ["general_qa"]
     assert payload.cases[1].error == "boom"
     assert payload.cases[1].expected_stages == ["general_qa"]
+    assert payload.usage.model_dump() == {
+        "input_tokens": 12,
+        "output_tokens": 4,
+        "requests": 2,
+        "cases_with_usage": 1,
+    }
+    assert payload.cases[0].usage is not None
+    assert payload.cases[0].usage.requests == 2
