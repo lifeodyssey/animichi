@@ -66,10 +66,11 @@ test-integration:
 	cd apps/agent && $(PYTEST) agent/tests/integration/ -v --no-cov
 
 test-eval:
-	cd apps/agent && $(PYTEST) agent/tests/eval/test_agent_eval.py agent/tests/eval/test_translation.py -v -m integration --no-cov
+	cd apps/agent && $(PYTHON) -m agent.tests.eval.run_agent_eval
+	cd apps/agent && $(PYTEST) agent/tests/eval/test_translation.py -v -m integration --no-cov
 
 test-eval-fullstack:
-	cd apps/agent && EVAL_FULLSTACK=1 EVAL_MAX_CASES=$${EVAL_MAX_CASES:-50} $(PYTEST) agent/tests/eval/test_agent_eval.py -v -m integration --no-cov -k fullstack
+	cd apps/agent && EVAL_FULLSTACK=1 EVAL_MAX_CASES=$${EVAL_MAX_CASES:-50} $(PYTHON) -m agent.tests.eval.run_agent_eval
 
 lint:
 	cd apps/agent && uv run ruff check agent/
