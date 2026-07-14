@@ -217,15 +217,36 @@ def _geocode_fixtures() -> dict[str, tuple[GeocodeSeed, ...]]:
         (("大阪", "osaka"), _seed("osaka", "大阪市(大阪府)", 34.6937, 135.5023)),
         (
             ("埼玉", "saitama"),
-            _seed("saitama", "埼玉県", 35.8569, 139.6489, GeocodeKind.PREFECTURE),
+            GeocodeSeed(
+                "geonames:6940394",
+                "さいたま市(埼玉県)",
+                "さいたま市",
+                35.90807,
+                139.65657,
+                GeocodeKind.CITY,
+            ),
         ),
         (
             ("神奈川", "kanagawa"),
-            _seed("kanagawa", "神奈川県", 35.4478, 139.6425, GeocodeKind.PREFECTURE),
+            GeocodeSeed(
+                "geonames:1848354",
+                "横浜市(神奈川県)",
+                "横浜市",
+                35.43333,
+                139.65,
+                GeocodeKind.CITY,
+            ),
         ),
         (
             ("岐阜", "gifu"),
-            _seed("gifu", "岐阜県", 35.3912, 136.7223, GeocodeKind.PREFECTURE),
+            GeocodeSeed(
+                "geonames:1863641",
+                "岐阜市(岐阜県)",
+                "岐阜市",
+                35.42291,
+                136.76039,
+                GeocodeKind.CITY,
+            ),
         ),
         (
             ("宮崎", "宫崎", "miyazaki"),
@@ -247,6 +268,10 @@ GEOCODE_FIXTURES["東京都"] = (
 )
 GEOCODE_FIXTURES["神奈川県"] = (
     _seed("kanagawa-prefecture", "神奈川県", 35.4478, 139.6425, GeocodeKind.PREFECTURE),
+)
+GEOCODE_FIXTURES["神奈川县"] = GEOCODE_FIXTURES["神奈川県"]
+GEOCODE_FIXTURES["宫崎县"] = (
+    _seed("miyazaki-prefecture", "宮崎県", 31.9111, 131.4239, GeocodeKind.PREFECTURE),
 )
 GEOCODE_FIXTURES["府中"] = (
     _seed("fuchu-tokyo", "府中市(東京都)", 35.6689, 139.4777),
