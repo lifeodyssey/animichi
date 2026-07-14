@@ -78,3 +78,24 @@ def record_agent_run_error(error: BaseException) -> None:
         error_message=str(error)[:500],
         _exc_info=error,
     )
+
+
+def record_managed_prompt_resolution(
+    *, source: str, version: str, label: str, failure: str | None = None
+) -> None:
+    """Record the prompt authority selected for an Animichi agent run."""
+    if failure is None:
+        logfire.info(
+            "animichi_managed_prompt_resolved",
+            managed_prompt_source=source,
+            managed_prompt_version=version,
+            managed_prompt_label=label,
+        )
+        return
+    logfire.warning(
+        "animichi_managed_prompt_fallback",
+        managed_prompt_source=source,
+        managed_prompt_version=version,
+        managed_prompt_label=label,
+        failure=failure,
+    )
