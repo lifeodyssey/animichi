@@ -40,6 +40,19 @@ function hit(overrides: Partial<GeocodeHit>): GeocodeHit {
   return { ...NISHINOMIYA, ...overrides };
 }
 
+function sqlText(value: unknown): string {
+  if (typeof value !== "object" || value === null) return "";
+  if ("value" in value && Array.isArray(value.value)) return value.value.join("");
+  if (!("queryChunks" in value) || !Array.isArray(value.queryChunks)) return "";
+  return value.queryChunks.map(sqlText).join("");
+}
+
+async function fuzzySql(): Promise<string> {
+  const db = fakeDb([], []);
+  await geocode(db, { query: "西宮北口", limit: 5 });
+  return sqlText(db.executeSpy.mock.calls[1]?.[0]);
+}
+
 describe("catalog geocode lookup", () => {
   it.each(["西宮", "西宫", "nishinomiya"])("A1 exact lookup resolves %s", async (query) => {
     const result = await geocode(fakeDb([NISHINOMIYA]), { query, limit: 5 });
@@ -106,6 +119,21 @@ describe("catalog geocode fuzzy lookup", () => {
     await geocode(db, { query: "西宮", limit: 5 });
 
     expect(db.executeSpy.mock.calls).toHaveLength(1);
+  });
+
+  it("B2 deduplicates aliases per location before applying the fuzzy limit", async () => {
+    expect(await fuzzySql()).toContain("SELECT DISTINCT ON (l.id)");
+  });
+
+  it("B2 applies deterministic inner and outer fuzzy tie-breaks", async () => {
+    const query = await fuzzySql();
+    expect(query).toContain("ORDER BY l.id, similarity(a.alias_normalized,");
+    expect(query).toContain("DESC, a.priority DESC");
+    expect(query).toContain("ORDER BY sim DESC, priority DESC, id ASC");
+  });
+
+  it("B2 uses the trigram match operator so the GIN index can serve fuzzy lookup", async () => {
+    expect(await fuzzySql()).toContain("WHERE a.alias_normalized %");
   });
 });
 
