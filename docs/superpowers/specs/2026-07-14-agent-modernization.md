@@ -20,7 +20,7 @@
 ## 1. Wave 0 — 全 monorepo 依赖升级(spike 先行)
 
 **In**:apps/agent(uv)、workers/catalog+users(pnpm)、packages/contract、apps/web、根工具链。
-**策略(v2)**:按**兼容性家族**(非 package)分批,每家族一个可回退 commit 边界 + 家族门禁:
+**策略(v2;v2.1 回退语义修正)**:按**兼容性家族**(非 package)分批 + 家族门禁。**回退语义**:单 lockfile 工作区(pnpm 全仓一把锁、uv 一把锁)中,跨包共享依赖使中间 lock 状态天然跨家族——家族"回退"= **重 pin 该家族 + relock 前滚**,不是 git revert 单个 lock commit;Python 侧三家族共用 uv.lock 以单 commit 落地(执行偏差,已记录)。**typescript pin `^5.9.3` 解禁触发器:typescript-eslint 发布 TS7 支持时解 pin。**
 
 | 家族 | 成员 | 门禁 |
 |---|---|---|
