@@ -8,6 +8,7 @@ from agent.agents.handlers.answer_question import execute, execute_clarify
 from agent.agents.handlers.greet_user import execute as execute_greet
 from agent.agents.handlers.result import HandlerResult
 from agent.agents.models import PlanStep, ToolName
+from agent.agents.tool_state import ToolState
 
 _Emitted = list[tuple[str, str, dict[str, object], str, str]]
 
@@ -28,7 +29,7 @@ def _ctx_with_emitter(emitted: _Emitted) -> MagicMock:
 
     deps = MagicMock()
     deps.on_step = fake_on_step
-    deps.tool_state = {}
+    deps.tool_state = ToolState()
     deps.steps = []
     deps.db = MagicMock()
     ctx = MagicMock()

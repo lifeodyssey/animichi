@@ -33,6 +33,7 @@ from agent.agents.runtime_models import (
     RouteResponseModel,
     SearchResponseModel,
 )
+from agent.agents.tool_state import ToolState
 from agent.agents.web_tools import DEFERRED_TOOLS
 from agent.agents.web_tools import TOOLS as WEB_TOOLS
 from agent.infrastructure.observability import record_agent_run_error
@@ -409,37 +410,36 @@ def build_animichi_agent(
     return agent
 
 
-def _add_resolve_context(state: dict[str, object], parts: list[str]) -> None:
-    resolve_data = state.get("resolve_anime")
-    if not isinstance(resolve_data, dict):
+def _add_resolve_context(state: ToolState, parts: list[str]) -> None:
+    resolve_data = state.resolve_anime
+    if resolve_data is None:
         return
-    title = resolve_data.get("title", "")
-    bid = resolve_data.get("bangumi_id", "")
+    title = resolve_data.title or ""
+    bid = resolve_data.bangumi_id or ""
     if title:
         parts.append(f"Current anime: {title} (bangumi_id={bid})")
 
 
-def _add_search_context(state: dict[str, object], parts: list[str]) -> None:
-    search_data = state.get("search_bangumi")
-    if not isinstance(search_data, dict):
+def _add_search_context(state: ToolState, parts: list[str]) -> None:
+    search_data = state.search_bangumi
+    if search_data is None:
         return
-    row_count = search_data.get("row_count", 0)
-    metadata = search_data.get("metadata", {})
-    title = metadata.get("anime_title", "") if isinstance(metadata, dict) else ""
+    row_count = search_data.row_count
+    title = search_data.metadata.anime_title if search_data.metadata else ""
     suffix = f" for {title}" if title else ""
     parts.append(f"Search results available: {row_count} spots{suffix}")
 
 
-def _add_nearby_context(state: dict[str, object], parts: list[str]) -> None:
-    search_nearby = state.get("search_nearby")
-    if not isinstance(search_nearby, dict):
+def _add_nearby_context(state: ToolState, parts: list[str]) -> None:
+    search_nearby = state.search_nearby
+    if search_nearby is None:
         return
-    row_count = search_nearby.get("row_count", 0)
+    row_count = search_nearby.row_count
     parts.append(f"Nearby search results available: {row_count} spots")
 
 
-def _add_clarify_context(state: dict[str, object], parts: list[str]) -> None:
-    if state.get("pending_clarify"):
+def _add_clarify_context(state: ToolState, parts: list[str]) -> None:
+    if state.pending_clarify:
         parts.append(
             "Previous turn ended with clarification "
             "— user's response is the current message"
@@ -472,13 +472,13 @@ async def validate_output(
     tool_state = ctx.deps.tool_state
     if isinstance(output, SearchResponseModel):
         tool_key = str(output.intent)
-        if tool_key not in tool_state:
+        if not tool_state.has_payload(tool_key):
             raise ModelRetry(
                 f"You returned a search response but never called {tool_key}. "
                 "Call the search tool first, then return the response."
             )
     if isinstance(output, RouteResponseModel):
-        if "plan_route" not in tool_state and "plan_selected" not in tool_state:
+        if not tool_state.plan_route and not tool_state.plan_selected:
             raise ModelRetry(
                 "You returned a route response but never called plan_route. "
                 "Call plan_route first, then return the response."

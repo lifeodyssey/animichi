@@ -21,6 +21,7 @@ from starlette.responses import Response
 
 from agent.agents.animichi_runner import animichi_agent
 from agent.agents.runtime_deps import RuntimeDeps
+from agent.agents.tool_state import ToolState
 from agent.domain.ports import DatabasePort
 from agent.interfaces.public_api import default_catalog_client
 from agent.interfaces.routes._deps import (
@@ -113,8 +114,8 @@ def _make_on_complete(
         # Merge full tool_state data into the output's empty data section.
         # Wrap under "results" or "route" to match response_builder.py convention.
         intent = data.get("intent", "")
-        tool_data = deps.tool_state.get(intent)
-        if isinstance(tool_data, dict) and isinstance(data.get("data"), dict):
+        tool_data = deps.tool_state.payload_for(str(intent))
+        if tool_data is not None and isinstance(data.get("data"), dict):
             if intent in ("plan_route", "plan_selected"):
                 data["data"] = {"route": tool_data}
             else:
@@ -158,7 +159,7 @@ async def handle_chat(
 
     # Pre-populate tool_state with clarify context if detected
     if clarify_ctx:
-        deps.tool_state.update(clarify_ctx)
+        deps.tool_state = ToolState.model_validate(clarify_ctx)
         logger.info("chat_clarify_context_detected", clarify_ctx=clarify_ctx)
 
     return await VercelAIAdapter.dispatch_request(
