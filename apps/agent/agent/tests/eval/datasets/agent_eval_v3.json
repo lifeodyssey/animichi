@@ -4189,7 +4189,7 @@
     "query": "山梨県のアニメの聖地",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -4274,7 +4274,7 @@
     "query": "神奈川县的圣地巡礼",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -12957,7 +12957,7 @@
     "query": "宫崎县有什么动漫圣地",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",

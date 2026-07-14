@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
+from agent.clients.geocode import GeocodeKind
 from agent.tests.eval.mock_catalog_fixtures import GEOCODE_FIXTURES
 
 DATASET = Path(__file__).parents[1] / "eval" / "datasets" / "agent_eval_v3.json"
@@ -46,12 +47,15 @@ CASE_GEOCODE_KEYS: dict[str, str | None] = {
     "C2_ja_002": "東京",
     "C2_ja_003": "大阪",
     "C2_ja_004": "埼玉",
+    "C2_ja_005": "山梨県",
     "C2_ja_006": "神奈川",
     "C2_ja_007": "山梨県",
     "C2_zh_001": "京都",
     "C2_zh_002": "东京",
     "C2_zh_003": "大阪",
+    "C2_zh_004": "神奈川县",
     "C2_zh_005": "岐阜",
+    "C2_zh_006": "宫崎县",
     "C2_en_001": "tokyo",
     "C2_en_002": "kyoto",
     "C2_en_003": "osaka",
@@ -110,7 +114,10 @@ def test_b3_prefecture_carve_out_and_new_cases() -> None:
     assert all(
         rows[id_]["acceptable_stages"] == ["search_nearby"] for id_ in BARE_CASES
     )
-    assert all(rows[id_]["acceptable_stages"] == ["clarify"] for id_ in SUFFIX_CASES)
+    assert all(
+        rows[id_]["acceptable_stages"] == ["clarify_after_nearby"]
+        for id_ in SUFFIX_CASES
+    )
     assert NEW_CASES <= rows.keys()
 
 
@@ -145,3 +152,8 @@ def test_nearby_eval_cases_have_geocode_fixture_coverage() -> None:
         query = str(rows[id_]["query"])
         assert key.lower() in query.lower(), id_
         assert key.lower() in GEOCODE_FIXTURES, id_
+
+
+def test_bare_prefecture_fixtures_resolve_to_capital_cities() -> None:
+    keys = ("埼玉", "saitama", "神奈川", "kanagawa", "岐阜", "gifu")
+    assert all(GEOCODE_FIXTURES[key][0].kind is GeocodeKind.CITY for key in keys)
