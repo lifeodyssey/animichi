@@ -1,6 +1,6 @@
 """Unit tests: data tools route through the injected CatalogClient.
 
-These drive the real ``run_pilgrimage_agent`` with a ``FunctionModel`` that calls
+These drive the real ``run_animichi_agent`` with a ``FunctionModel`` that calls
 one data tool with controlled args, then returns the typed output. The injected
 ``MockCatalogClient`` is a spy, so we assert the tool called the expected catalog
 method with the expected args — and never touched the DB / upstream APIs.
@@ -11,7 +11,7 @@ from __future__ import annotations
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.animichi_runner import run_animichi_agent
 from agent.domain.ports import BangumiRepo, DatabasePort, PointsRepo
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
@@ -65,7 +65,7 @@ def _has_tool_return(message: ModelMessage, tool_name: str) -> bool:
 
 async def _run(model: FunctionModel, *, text: str) -> MockCatalogClient:
     catalog = MockCatalogClient()
-    await run_pilgrimage_agent(
+    await run_animichi_agent(
         text=text, db=_no_db(), locale="ja", model=model, catalog=catalog
     )
     return catalog
@@ -116,7 +116,7 @@ async def test_greeting_makes_no_catalog_calls() -> None:
         )
 
     catalog = MockCatalogClient()
-    await run_pilgrimage_agent(
+    await run_animichi_agent(
         text="hi",
         db=_no_db(),
         locale="en",

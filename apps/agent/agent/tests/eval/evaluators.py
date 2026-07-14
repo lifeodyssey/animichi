@@ -12,7 +12,7 @@ The deterministic L1/L2 layers are free and run every PR. L3 uses an LLM judge
 (DeepSeek, temperature 0) and is gated behind ``EVAL_L3=1``.
 
 Expected tool sets are derived from each case's ``acceptable_stages`` field via
-the documented agent workflow (see ``pilgrimage_agent`` instructions and the
+the documented agent workflow (see ``animichi_agent`` instructions and the
 prior StepEfficiency step-count table) — no new dataset labels are introduced.
 
 ``acceptable_stages`` is a *disjunction*: the agent is correct if it follows any

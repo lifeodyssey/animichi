@@ -4,7 +4,7 @@ GOAL §7 ("旧 agent 上游调用已删净") requires every agent path — the f
 tools AND clarify candidate enrichment — to route only through the injected
 :class:`CatalogClientProtocol`. This locks that invariant three ways:
 
-  1. Static: ``pilgrimage_tools`` / ``catalog_tools`` / ``tool_runtime`` /
+  1. Static: ``animichi_tools`` / ``catalog_tools`` / ``tool_runtime`` /
      ``tools`` import no upstream client (Anitabi/Bangumi gateways), no DB
      Retriever, and no legacy data handlers. With clarify rewired onto the
      catalog, ``tools`` joins the seam — the agent has no remaining gateway
@@ -24,7 +24,7 @@ from typing import cast
 
 import pytest
 
-from agent.agents.pilgrimage_tools import _require_catalog
+from agent.agents.animichi_tools import _require_catalog
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
@@ -32,7 +32,7 @@ from agent.domain.ports import DatabasePort
 # Modules that form the catalog-only agent seam. These must stay free of any
 # upstream/DB read path. ``tools`` (clarify enrichment) is included now that it
 # resolves via the catalog instead of the Bangumi gateway.
-_SEAM_MODULES = ("pilgrimage_tools", "catalog_tools", "tool_runtime", "tools")
+_SEAM_MODULES = ("animichi_tools", "catalog_tools", "tool_runtime", "tools")
 
 # Substrings that, if imported by a seam module, mean an upstream/DB read path
 # leaked back in.

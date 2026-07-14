@@ -196,9 +196,9 @@ async def _agent_task(
     web_searcher: WebSearcher | None,
     title_translator: TitleTranslator | None,
 ) -> AgentResult:
-    from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+    from agent.agents.animichi_runner import run_animichi_agent
 
-    return await run_pilgrimage_agent(
+    return await run_animichi_agent(
         text=inp.query,
         db=db,
         model=model,

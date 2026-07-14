@@ -3,7 +3,7 @@
 ## Overview
 
 ```
-User text → RuntimeAPI.handle() → run_pilgrimage_agent() → pilgrimage_agent.run()
+User text → RuntimeAPI.handle() → run_animichi_agent() → animichi_agent.run()
   → tools call handlers → AgentResult (typed output + steps + tool_state)
   → agent_result_to_response() → PublicAPIResponse
 
@@ -11,7 +11,7 @@ For selected_point_ids:
   User selection → execute_selected_route() → AgentResult → PublicAPIResponse
 ```
 
-Entry path: `HTTP service → RuntimeAPI → run_pilgrimage_agent() → pilgrimage_agent.run()`
+Entry path: `HTTP service → RuntimeAPI → run_animichi_agent() → animichi_agent.run()`
 
 No hardcoded anime list. DB is source of truth.
 
@@ -45,14 +45,14 @@ class AgentResult(BaseModel):
 
 Replaces the old `PipelineResult`. Carries the agent's typed output, a record of every tool call, and accumulated tool state.
 
-## Pilgrimage Agent — `agents/pilgrimage_agent.py`
+## Pilgrimage Agent — `agents/animichi_agent.py`
 
 - PydanticAI `Agent` with typed `output_type` (union of `SearchResponseModel`, `RouteResponseModel`, etc.)
 - System prompt describes available tools; no hardcoded anime IDs
 - `output_validator` rejects fabricated responses (e.g., hallucinated point data)
 - For any anime query: the agent calls `resolve_anime` first, then downstream tools
 
-## Tools — `agents/pilgrimage_tools.py`
+## Tools — `agents/animichi_tools.py`
 
 - Registered via `@agent.tool` decorators on the pilgrimage agent
 - Each tool includes `ModelRetry` guards that reject invalid LLM-supplied parameters (e.g., missing `bangumi_id`)
@@ -70,9 +70,9 @@ Replaces the old `PipelineResult`. Carries the agent's typed output, a record of
 | `answer_question` | QA pass-through |
 | `clarify` | Disambiguation when query is ambiguous |
 
-## Runner — `agents/pilgrimage_runner.py`
+## Runner — `agents/animichi_runner.py`
 
-- `run_pilgrimage_agent(text, db, locale)` — runs the agent, collects tool calls into `AgentResult`
+- `run_animichi_agent(text, db, locale)` — runs the agent, collects tool calls into `AgentResult`
 - Single entry point for the runtime API
 
 ## Selected Route — `agents/selected_route.py`
@@ -90,7 +90,7 @@ Accepts `RetrievalRequest` (replaces old `IntentOutput`). Parameterized queries 
 
 ## Public API — `interfaces/public_api.py`
 
-- Stable request/response facade over `run_pilgrimage_agent()` / `execute_selected_route()`
+- Stable request/response facade over `run_animichi_agent()` / `execute_selected_route()`
 - Adds `ui: UIDescriptor` field to response
 - Writes to `request_log` after every response (best-effort, never raises)
 - Session persistence + route history
@@ -202,14 +202,14 @@ Design tokens: see `frontend/AGENTS.md`.
 |---|---|
 | `supabase/migrations/20260402124000_operational_tables.sql` | Logs every request: plan_steps, intent, latency_ms |
 | `tests/eval/datasets/plan_quality_v1.json` | 50+ cases × 3 locales |
-| `tests/eval/test_plan_quality.py` | pydantic_evals harness; uses pilgrimage_agent; Iter 3 gate: ≥ baseline + 10pp |
+| `tests/eval/test_plan_quality.py` | pydantic_evals harness; uses animichi_agent; Iter 3 gate: ≥ baseline + 10pp |
 | `tools/eval_scorer.py` | Batch LLM judge; writes `plan_quality_score` back to DB |
 | `tools/eval_feedback_miner.py` | Mines `feedback(rating='bad')` → LLM prompt suggestions |
 | `clients/python/seichijunrei_client.py` | Sync/async Python client for agent/CLI use |
 
 ## Design Rules
 
-- One agent: `pilgrimage_agent` (PydanticAI) with typed output and `output_validator`
+- One agent: `animichi_agent` (PydanticAI) with typed output and `output_validator`
 - Tools registered via `@agent.tool` with `ModelRetry` guards for parameter validation
 - Selected-route path bypasses the agent entirely (`execute_selected_route`)
 - Retrieval is structured-first — no semantic/vector search

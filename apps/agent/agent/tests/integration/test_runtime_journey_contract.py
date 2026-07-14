@@ -93,7 +93,7 @@ def _build_app(tc_db: object) -> httpx.AsyncClient:
 async def async_client(tc_db):
     client, fake_agent = _build_app(tc_db)
     with patch(
-        "agent.interfaces.public_api.run_pilgrimage_agent",
+        "agent.interfaces.public_api.run_animichi_agent",
         side_effect=fake_agent,
     ):
         async with client:
