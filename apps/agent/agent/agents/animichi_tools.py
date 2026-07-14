@@ -102,9 +102,9 @@ async def search_bangumi(
     """
     resolved_id = bangumi_id or None
     if not resolved_id:
-        resolve_data = ctx.deps.tool_state.get("resolve_anime")
-        if isinstance(resolve_data, dict):
-            resolved_id = resolve_data.get("bangumi_id")
+        resolve_data = ctx.deps.tool_state.resolve_anime
+        if resolve_data is not None:
+            resolved_id = resolve_data.bangumi_id
     if not resolved_id:
         raise ModelRetry(
             "Call resolve_anime(title) first to get a bangumi_id, "
@@ -148,7 +148,7 @@ async def search_nearby(
         radius: Search radius in meters. Default is 5000 (5km). Use 0 for default.
                 Use smaller radius for specific stations, larger for cities.
     """
-    ctx.deps.tool_state.pop(ToolName.SEARCH_NEARBY.value, None)
+    ctx.deps.tool_state.remove_payload(ToolName.SEARCH_NEARBY)
     params: dict[str, object] = {"location": location}
     if radius > 0:
         params["radius"] = radius
@@ -184,10 +184,10 @@ async def plan_route(
                 Leave empty for default "normal" pace.
         start_time: Departure time as "HH:MM". Leave empty for default "09:00".
     """
-    search_data = ctx.deps.tool_state.get("search_bangumi") or ctx.deps.tool_state.get(
-        "search_nearby"
+    search_data = (
+        ctx.deps.tool_state.search_bangumi or ctx.deps.tool_state.search_nearby
     )
-    if not isinstance(search_data, dict) or not search_data.get("rows"):
+    if search_data is None or not search_data.rows:
         raise ModelRetry(
             "Call search_bangumi or search_nearby first to get pilgrimage points, "
             "then call plan_route to create the walking route."
