@@ -43,10 +43,10 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 |---|---|---|
 | **Why** the architecture is shaped this way | `docs/superpowers/specs/2026-06-13-architecture-adr.md` | Foundational ADR; its "全 TS on Workers" decision was later refined by the rebuild spec below |
 | **Current target** architecture (hybrid, latest) | `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md` | Latest; supersedes the ADR on agent language; rebuild in progress |
-| Live agent runtime reference | `docs/ARCHITECTURE.md` **(paths + frontend section need a refresh — separate PR)** + `apps/agent/agent/agents/pilgrimage_runner.py` | Runtime is still Python & live; the doc's paths + frontend section are stale |
-| Agent entry | `apps/agent/agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/pilgrimage_runner.py` | was `backend/interfaces/…` |
+| Live agent runtime reference | `docs/ARCHITECTURE.md` **(paths + frontend section need a refresh — separate PR)** + `apps/agent/agent/agents/animichi_runner.py` | Runtime is still Python & live; the doc's paths + frontend section are stale |
+| Agent entry | `apps/agent/agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/animichi_runner.py` | was `backend/interfaces/…` |
 | Agent shared types | `apps/agent/agent/agents/models.py`, `…/agent_result.py` | was `backend/agents/…` |
-| Agent tools | `apps/agent/agent/agents/pilgrimage_tools.py` | 7 `@agent.tool` registrations |
+| Agent tools | `apps/agent/agent/agents/animichi_tools.py` | 7 `@agent.tool` registrations |
 | Catalog service (TS) + data platform | `workers/catalog/src/` — `ingest/` · `enrich/` · `publish/` · `api/` · `router.ts` | realizes the ADR's ingest→enrich→publish |
 | Cross-service contract (zod = SoT) | `packages/contract/src/` (`models.ts`, `contract.ts`, `errors.ts`) + `packages/contract/README.md` | error registry + parity guard live here |
 | User-domain service | `workers/users/` — **planned, not yet created** (SD-2) | Neon + Drizzle, `/v1/users/*` oRPC |
