@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 from pydantic_ai.models.test import TestModel
 
+from agent.agents.pilgrimage_agent import _INSTRUCTIONS
 from agent.agents.pilgrimage_runner import run_pilgrimage_agent
 from agent.agents.runtime_models import (
     ClarifyResponseModel,
@@ -14,6 +15,14 @@ from agent.agents.runtime_models import (
     SearchResponseModel,
 )
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+
+
+def test_a10_nearby_instructions_use_catalog_geocoding_workflow() -> None:
+    """Spec §3.5 replaces the old web-search/clarify prohibition."""
+    assert "Do NOT call search_nearby for bare location queries" not in _INSTRUCTIONS
+    assert 'search_nearby(location="")' in _INSTRUCTIONS
+    assert 'User: "宇治站附近" → search_nearby("宇治站")' in _INSTRUCTIONS
+    assert 'User: "你好，京都有什么圣地" → search_nearby("京都")' in _INSTRUCTIONS
 
 
 async def test_run_pilgrimage_agent_returns_clarify_agent_result() -> None:

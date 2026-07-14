@@ -11,12 +11,21 @@ import pytest
 
 from agent.clients.catalog_client import (
     CatalogClient,
+    GeocodeCandidate,
+    GeocodeKind,
+    GeocodeSource,
     IngestResult,
     PilgrimagePoint,
     Route,
 )
 
 _POINT = {"id": "p1", "name": "Uji Bridge", "latitude": 34.89, "longitude": 135.80}
+
+
+def test_geocode_types_remain_reexported() -> None:
+    assert GeocodeCandidate.__module__ == "agent.clients.geocode"
+    assert GeocodeKind.__module__ == "agent.clients.geocode"
+    assert GeocodeSource.__module__ == "agent.clients.geocode"
 
 
 def _mock_httpx(monkeypatch: pytest.MonkeyPatch, json_payload: object) -> MagicMock:
@@ -86,6 +95,31 @@ async def test_nearby_parses_rows(monkeypatch: pytest.MonkeyPatch) -> None:
         "lng": 135.80,
         "radius_m": 500,
     }
+
+
+async def test_geocode_parses_candidates_and_posts_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = {
+        "id": "seed:nishinomiya",
+        "label": "西宮駅(兵庫県)",
+        "name": "西宮駅",
+        "lat": 34.7386,
+        "lng": 135.3485,
+        "kind": "station",
+        "source": "manual",
+        "effective_radius_m": 10000,
+    }
+    client = _mock_httpx(monkeypatch, {"candidates": [candidate]})
+
+    result = await CatalogClient("https://catalog.test").geocode("西宮", limit=3)
+
+    assert result == [GeocodeCandidate.model_validate(candidate)]
+    assert result[0].kind == GeocodeKind.STATION
+    assert result[0].source == GeocodeSource.MANUAL
+    assert result[0].effective_radius_m == 10_000
+    assert client.post.call_args.args[0] == "https://catalog.test/catalog/geocode"
+    assert client.post.call_args.kwargs["json"] == {"query": "西宮", "limit": 3}
 
 
 async def test_route_parses_route(monkeypatch: pytest.MonkeyPatch) -> None:

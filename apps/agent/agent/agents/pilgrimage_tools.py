@@ -135,7 +135,7 @@ async def search_bangumi(
 async def search_nearby(
     ctx: RunContext[RuntimeDeps],
     *,
-    location: str,
+    location: str = "",
     radius: int = 0,
 ) -> dict[str, object]:
     """Find anime pilgrimage spots near a real-world location using geo search.
@@ -152,6 +152,7 @@ async def search_nearby(
         radius: Search radius in meters. Default is 5000 (5km). Use 0 for default.
                 Use smaller radius for specific stations, larger for cities.
     """
+    ctx.deps.tool_state.pop(ToolName.SEARCH_NEARBY.value, None)
     params: dict[str, object] = {"location": location}
     if radius > 0:
         params["radius"] = radius
