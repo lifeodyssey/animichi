@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 from agent.agents.agent_result import StepRecord
 from agent.agents.guardrails import WebResult
+from agent.agents.tool_state import ToolState
 from agent.agents.translation import TranslationResult
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
@@ -34,12 +35,5 @@ class RuntimeDeps:
     web_searcher: WebSearcher | None = None
     title_translator: TitleTranslator | None = None
 
-    # Mutable per-run state accumulated during the agent run.
-    # ponytail: mixes two concerns — fixed session fields (origin_lat/lng, locale,
-    # last_location, resolve_candidates, pending_clarify) that should be typed
-    # dataclass fields, plus ToolName-keyed tool results (genuinely dynamic, legit).
-    # Reads are all literal-key. Cleanup (split into typed session state + a
-    # dict[ToolName, ...] results map, ~8 files) deferred to the Wave 3 agent→Worker
-    # runtime rewrite — see memory project_tool_state_followup.
-    tool_state: dict[str, object] = field(default_factory=dict)
+    tool_state: ToolState = field(default_factory=ToolState)
     steps: list[StepRecord] = field(default_factory=list)

@@ -21,6 +21,16 @@ OutputT = TypeVar("OutputT")
 MetadataT = TypeVar("MetadataT")
 
 
+class UsageRow(BaseModel):
+    input_tokens: int = 0
+    output_tokens: int = 0
+    requests: int = 0
+
+
+class UsageSummary(UsageRow):
+    cases_with_usage: int = 0
+
+
 class CaseRow(BaseModel):
     id: str | None = None
     scores: dict[str, float] | None = None
@@ -34,6 +44,7 @@ class CaseRow(BaseModel):
     query: str | None = None
     locale: str | None = None
     expected_stages: list[str] | None = None
+    usage: UsageRow | None = None
 
 
 class ResultsPayload(BaseModel):
@@ -49,6 +60,7 @@ class ResultsPayload(BaseModel):
     errored_count: int
     scores: dict[str, float]
     cases: list[CaseRow]
+    usage: UsageSummary = UsageSummary()
 
 
 @dataclass(frozen=True)
@@ -130,6 +142,7 @@ def build_results_payload(
         errored_count=len(report.failures),
         scores=scores,
         cases=_case_rows(report),
+        usage=_aggregate_usage(report),
     )
 
 
@@ -235,6 +248,30 @@ def _case_row(
         query=_input_query(inputs),
         locale=_input_locale(inputs),
         expected_stages=_expected_stages(metadata),
+        usage=_output_usage(output),
+    )
+
+
+def _output_usage(output: object | None) -> UsageRow | None:
+    if not isinstance(output, AgentResult) or output.usage is None:
+        return None
+    return UsageRow(
+        input_tokens=output.usage.input_tokens,
+        output_tokens=output.usage.output_tokens,
+        requests=output.usage.requests,
+    )
+
+
+def _aggregate_usage(
+    report: EvaluationReport[InputsT, OutputT, MetadataT],
+) -> UsageSummary:
+    usages = [_output_usage(case.output) for case in report.cases]
+    present = [usage for usage in usages if usage is not None]
+    return UsageSummary(
+        input_tokens=sum(usage.input_tokens for usage in present),
+        output_tokens=sum(usage.output_tokens for usage in present),
+        requests=sum(usage.requests for usage in present),
+        cases_with_usage=len(present),
     )
 
 

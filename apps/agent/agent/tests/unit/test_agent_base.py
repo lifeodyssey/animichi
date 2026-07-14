@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
+import ast
+import inspect
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel
 
-from agent.agents.base import describe_model, parse_model_spec, resolve_model
+from agent.agents.base import (
+    create_agent,
+    describe_model,
+    parse_model_spec,
+    resolve_model,
+)
 from agent.config.settings import Settings
 
 
@@ -29,6 +37,46 @@ def _test_settings() -> Settings:
 
 def _deepseek_extra_body() -> object:
     return {"thinking": {"type": "disabled"}}
+
+
+def _agent_calls(path: Path) -> list[ast.Call]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    return [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "Agent"
+    ]
+
+
+def _has_non_none_name(call: ast.Call) -> bool:
+    names = {keyword.arg: keyword.value for keyword in call.keywords}
+    value = names.get("name")
+    return value is not None and not (
+        isinstance(value, ast.Constant) and value.value is None
+    )
+
+
+def _unnamed_agent_calls() -> list[str]:
+    source_root = Path(__file__).parents[2]
+    files = (path for path in source_root.rglob("*.py") if "tests" not in path.parts)
+    return [
+        f"{path.relative_to(source_root)}:{call.lineno}"
+        for path in files
+        for call in _agent_calls(path)
+        if not _has_non_none_name(call)
+    ]
+
+
+def test_every_agent_construction_has_explicit_name() -> None:
+    assert _unnamed_agent_calls() == []
+
+
+def test_create_agent_requires_name() -> None:
+    parameter = inspect.signature(create_agent).parameters["name"]
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameter.default is inspect.Parameter.empty
 
 
 class TestResolveModel:

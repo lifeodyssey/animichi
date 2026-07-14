@@ -446,6 +446,7 @@ async def compact_session_interactions(
 
     agent = create_agent(
         get_default_model(),
+        name="session_compactor",
         system_prompt=(
             "Summarize the session in 1-2 sentences. Capture what the user was "
             "researching and keep the same language as the interaction text."
@@ -495,6 +496,7 @@ async def generate_and_save_title(
     try:
         agent = create_agent(
             get_default_model(),
+            name="conversation_title",
             system_prompt=(
                 "Generate a very short conversation title (<=15 characters) in the "
                 "same language as the query. Output only the title."
