@@ -20,7 +20,7 @@ from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 
 from agent.agents.agent_result import AgentResult
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.runtime_deps import OnStep
 from agent.agents.selected_route import execute_selected_route
 from agent.agents.translation import translate_text
@@ -280,7 +280,7 @@ class RuntimeAPI:
                 )
             else:
                 result = await asyncio.wait_for(
-                    run_pilgrimage_agent(
+                    run_animichi_agent(
                         text=request.text,
                         db=cast(DatabasePort, self._db),
                         model=effective_model,

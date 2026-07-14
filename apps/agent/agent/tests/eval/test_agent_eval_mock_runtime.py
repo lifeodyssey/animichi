@@ -1,6 +1,6 @@
 """Eval: drive the LIVE agent run against the MockCatalogClient (offline).
 
-W2-A1 lands the seam that lets ``run_pilgrimage_agent`` route its data tools
+W2-A1 lands the seam that lets ``run_animichi_agent`` route its data tools
 through an injected catalog client. These cases promote a handful of the
 representative eval cases to actually drive the agent — with a deterministic
 ``FunctionModel`` standing in for the LLM — and assert:
@@ -23,7 +23,7 @@ from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from agent.agents.agent_result import AgentResult
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.runtime_models import (
     QAResponseModel,
     RouteResponseModel,
@@ -73,7 +73,7 @@ async def _run(
     model: FunctionModel, *, text: str
 ) -> tuple[AgentResult, MockCatalogClient]:
     catalog = MockCatalogClient()
-    result = await run_pilgrimage_agent(
+    result = await run_animichi_agent(
         text=text,
         db=MagicMock(),
         locale="ja",

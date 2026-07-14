@@ -76,7 +76,7 @@ class TestHandlePublicRequest:
 
         explicit_model = object()
         monkeypatch.setattr(
-            "agent.interfaces.public_api.run_pilgrimage_agent", fake_run_agent
+            "agent.interfaces.public_api.run_animichi_agent", fake_run_agent
         )
 
         await handle_public_request(
@@ -142,9 +142,7 @@ class TestLocalePassthrough:
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
             response = await api.handle(PublicAPIRequest(text="你好", locale="zh"))
 
@@ -173,9 +171,7 @@ class TestLocalePassthrough:
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
             response = await api.handle(PublicAPIRequest(text="你好", locale="ja"))
 
@@ -207,9 +203,7 @@ class TestBuildContextBlockWithUserMemory:
             captured["context"] = context
             return _make_result(locale=locale)
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
             await api.handle(PublicAPIRequest(text="次は何がある？"), user_id="u1")
 
@@ -245,9 +239,7 @@ class TestOriginCoordinatesWiredToContext:
 
         request = PublicAPIRequest(text="聖地巡礼", origin_lat=34.9, origin_lng=135.8)
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
             await api.handle(request)
 
@@ -277,9 +269,7 @@ class TestOriginCoordinatesWiredToContext:
 
         request = PublicAPIRequest(text="聖地巡礼")
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
             await api.handle(request)
 

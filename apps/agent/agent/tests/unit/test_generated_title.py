@@ -87,7 +87,7 @@ class TestGeneratedTitleInResponse:
             )
 
         monkeypatch.setattr(
-            "agent.interfaces.public_api.run_pilgrimage_agent", _fake_greet
+            "agent.interfaces.public_api.run_animichi_agent", _fake_greet
         )
 
         api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())

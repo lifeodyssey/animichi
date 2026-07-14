@@ -1,8 +1,8 @@
-"""Unit tests for pilgrimage_runner helper functions."""
+"""Unit tests for animichi_runner helper functions."""
 
 from __future__ import annotations
 
-from agent.agents.pilgrimage_runner import _seed_tool_state
+from agent.agents.animichi_runner import _seed_tool_state
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.interfaces.response_builder import _status_from_payload
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
