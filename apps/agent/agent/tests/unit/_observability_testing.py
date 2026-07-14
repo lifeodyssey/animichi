@@ -89,8 +89,9 @@ def patch_configure_with_test_sinks(
         environment: str | None = None,
         send_to_logfire: bool | Literal["if-token-present"] | None = None,
         console: bool | None = None,
+        variables: object | None = None,
     ) -> logfire.Logfire:
-        del send_to_logfire, console
+        del send_to_logfire, console, variables
         return real_configure(
             service_name=service_name,
             service_version=service_version,

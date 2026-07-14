@@ -268,3 +268,24 @@ def test_setup_logfire_configures_without_instrumenting_when_token_not_set(
     logfire_mock.instrument_pydantic_ai.assert_not_called()
     logfire_mock.instrument_fastapi.assert_not_called()
     logfire_mock.instrument_httpx.assert_not_called()
+
+
+def test_setup_logfire_bounds_managed_variable_remote_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import sys
+    from unittest.mock import MagicMock
+
+    from agent.interfaces.routes._deps import setup_logfire
+
+    logfire_mock = MagicMock()
+    monkeypatch.setenv("ANIMICHI_MANAGED_PROMPT", "1")
+    monkeypatch.setenv("LOGFIRE_TOKEN", "test-token")
+    monkeypatch.setenv("LOGFIRE_API_KEY", "test-api-key")
+    monkeypatch.setitem(sys.modules, "logfire", logfire_mock)
+
+    setup_logfire(Settings())
+
+    logfire_mock.VariablesOptions.assert_called_once_with(timeout=(1.0, 1.0))
+    configured = logfire_mock.configure.call_args.kwargs["variables"]
+    assert configured is logfire_mock.VariablesOptions.return_value
