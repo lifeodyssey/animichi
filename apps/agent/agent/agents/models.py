@@ -22,6 +22,7 @@ class ToolName(StrEnum):
     ANSWER_QUESTION = "answer_question"
     GREET_USER = "greet_user"
     CLARIFY = "clarify"
+    GEOCODE = "geocode"
 
 
 class PlanStep(BaseModel):

@@ -102,7 +102,7 @@ async def test_data_tools_make_zero_upstream_calls() -> None:
         _tool_then_output("resolve_anime", {"title": "君の名は。"}),
         text="君の名は。",
     )
-    allowed = {"search", "spots", "nearby", "route"}
+    allowed = {"search", "spots", "nearby", "geocode", "route"}
     assert all(name in allowed for name, _ in catalog.calls), catalog.calls
     assert catalog.calls, "expected at least one catalog call"
 

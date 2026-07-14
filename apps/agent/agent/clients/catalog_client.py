@@ -40,6 +40,7 @@ from pydantic import BaseModel, Field
 from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
 from agent.clients.catalog_errors import parse_catalog_error
 from agent.clients.errors import APIError, TransientAPIError
+from agent.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
 
 logger = structlog.get_logger(__name__)
 
@@ -53,6 +54,9 @@ __all__ = [
     "TransitLeg",
     "CatalogClient",
     "CatalogClientProtocol",
+    "GeocodeCandidate",
+    "GeocodeKind",
+    "GeocodeSource",
 ]
 
 JSONDict = dict[str, object]
@@ -118,6 +122,10 @@ class CatalogClientProtocol(Protocol):
         self, lat: float, lng: float, *, radius_m: int = 2000
     ) -> list[PilgrimagePoint]: ...
 
+    async def geocode(
+        self, query: str, *, limit: int = 5
+    ) -> list[GeocodeCandidate]: ...
+
     async def route(
         self, point_ids: list[str], *, origin: tuple[float, float] | None = None
     ) -> Route: ...
@@ -157,6 +165,14 @@ class CatalogClient:
         body = {"lat": lat, "lng": lng, "radius_m": radius_m}
         payload = await self._rpc("nearby", body)
         return _parse_rows(payload)
+
+    async def geocode(self, query: str, *, limit: int = 5) -> list[GeocodeCandidate]:
+        """Resolve a place name against the Catalog's local gazetteer."""
+        payload = await self._rpc("geocode", {"query": query, "limit": limit})
+        candidates = payload.get("candidates")
+        if not isinstance(candidates, list):
+            raise APIError("Expected 'candidates' to be a JSON array")
+        return [GeocodeCandidate.model_validate(item) for item in candidates]
 
     async def route(
         self, point_ids: list[str], *, origin: tuple[float, float] | None = None

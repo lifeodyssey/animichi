@@ -2,6 +2,7 @@ import { catalogContract } from "@seichijunrei/contract";
 import { implement } from "@orpc/server";
 import { search as searchHandler, searchDb } from "./api/search";
 import { nearby as nearbyHandler } from "./api/nearby";
+import { geocode as geocodeHandler } from "./api/geocode";
 import { route as routeHandler } from "./api/route";
 import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
 import type { CatalogDb, NeonSql } from "./db/client";
@@ -36,6 +37,10 @@ const spots = os.spots.handler(async ({ input, context }) =>
 
 const nearby = os.nearby.handler(async ({ input, context }) =>
   nearbyHandler(context.db, context.neonSql, input),
+);
+
+const geocode = os.geocode.handler(async ({ input, context }) =>
+  geocodeHandler(context.db, input),
 );
 
 const MAX_ROUTE_POINT_IDS = 500;
@@ -78,5 +83,5 @@ async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Or
   }
 }
 
-export const catalogRouter = { search, spots, nearby, route, ingest };
+export const catalogRouter = { search, spots, nearby, geocode, route, ingest };
 export type CatalogRouter = typeof catalogRouter;
