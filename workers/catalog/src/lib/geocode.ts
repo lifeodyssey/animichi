@@ -2,6 +2,8 @@ import { haversine } from "./geo";
 import type { GeocodeCandidate, GeocodeKind, GeocodeSource } from "../types";
 
 const CLUSTER_RADIUS_M = 12_000;
+export const FUZZY_SIMILARITY_THRESHOLD = 0.4;
+export const FUZZY_RESULT_LIMIT = 10;
 const KIND_ORDER: Readonly<Record<GeocodeKind, number>> = {
   station: 5,
   city: 4,

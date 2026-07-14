@@ -3795,13 +3795,10 @@
     "query": "宇治のアニメスポット",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -3809,7 +3806,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "web_search then clarify flow"
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C1_ja_002",
@@ -3818,13 +3816,10 @@
     "query": "鎌倉のアニメ聖地",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -3832,7 +3827,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C1_ja_003",
@@ -3841,13 +3837,10 @@
     "query": "秋葉原付近のアニメスポット",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -3864,13 +3857,10 @@
     "query": "西宮周辺の聖地",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -3878,7 +3868,8 @@
       "db_state": "hit_sparse",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C1_ja_005",
@@ -3887,13 +3878,10 @@
     "query": "新宿の聖地巡礼スポット",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -3901,7 +3889,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C1_zh_001",
@@ -3910,13 +3899,10 @@
     "query": "宇治附近有什么圣地",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -3924,7 +3910,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C1_zh_002",
@@ -3933,13 +3920,10 @@
     "query": "镰仓的动漫圣地",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -3947,7 +3931,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C1_zh_003",
@@ -3956,13 +3941,10 @@
     "query": "秋叶原附近的圣地",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -3979,13 +3961,10 @@
     "query": "下北泽有没有动漫圣地",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4002,13 +3981,10 @@
     "query": "西宫附近的圣地",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4016,7 +3992,8 @@
       "db_state": "hit_sparse",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C1_en_001",
@@ -4025,13 +4002,10 @@
     "query": "anime spots near Uji",
     "locale": "en",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4039,7 +4013,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C1_en_002",
@@ -4048,13 +4023,10 @@
     "query": "anime pilgrimage in Kamakura",
     "locale": "en",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4062,7 +4034,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C1_en_003",
@@ -4071,13 +4044,10 @@
     "query": "what anime locations are near Shinjuku",
     "locale": "en",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4085,7 +4055,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C1_en_004",
@@ -4094,13 +4065,10 @@
     "query": "anime spots around Akihabara",
     "locale": "en",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4117,13 +4085,10 @@
     "query": "Nishinomiya anime locations",
     "locale": "en",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4131,7 +4096,8 @@
       "db_state": "hit_sparse",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C2_ja_001",
@@ -4140,13 +4106,10 @@
     "query": "京都にはどんなアニメの聖地がある",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4154,7 +4117,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": "city-level query"
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C2_ja_002",
@@ -4163,13 +4127,10 @@
     "query": "東京のアニメ聖地を教えて",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4177,7 +4138,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C2_ja_003",
@@ -4186,13 +4148,10 @@
     "query": "大阪のアニメスポット",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4209,13 +4168,10 @@
     "query": "埼玉のアニメ聖地",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4223,7 +4179,8 @@
       "db_state": "hit_sparse",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C2_ja_005",
@@ -4232,7 +4189,7 @@
     "query": "山梨県のアニメの聖地",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -4255,13 +4212,10 @@
     "query": "京都有什么圣地",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4269,7 +4223,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C2_zh_002",
@@ -4278,13 +4233,10 @@
     "query": "东京有哪些动漫圣地",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4292,7 +4244,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C2_zh_003",
@@ -4301,13 +4254,10 @@
     "query": "大阪有动漫取景地吗",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4324,7 +4274,7 @@
     "query": "神奈川县的圣地巡礼",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -4347,13 +4297,10 @@
     "query": "岐阜有什么动漫圣地",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4361,7 +4308,8 @@
       "db_state": "hit_sparse",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C2_en_001",
@@ -4370,13 +4318,10 @@
     "query": "anime spots in Tokyo",
     "locale": "en",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4384,7 +4329,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C2_en_002",
@@ -4393,13 +4339,10 @@
     "query": "Kyoto anime pilgrimage locations",
     "locale": "en",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4407,7 +4350,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C2_en_003",
@@ -4416,13 +4360,10 @@
     "query": "anime locations in Osaka",
     "locale": "en",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4439,13 +4380,10 @@
     "query": "what anime spots are in Saitama",
     "locale": "en",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4453,7 +4391,8 @@
       "db_state": "hit_sparse",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C2_en_005",
@@ -4462,13 +4401,10 @@
     "query": "Kanagawa anime filming locations",
     "locale": "en",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -4476,7 +4412,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C3_ja_001",
@@ -4762,7 +4699,8 @@
     "locale": "ja",
     "acceptable_stages": [
       "clarify",
-      "general_qa"
+      "general_qa",
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -4786,7 +4724,8 @@
     "locale": "ja",
     "acceptable_stages": [
       "clarify",
-      "general_qa"
+      "general_qa",
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -4810,7 +4749,8 @@
     "locale": "zh",
     "acceptable_stages": [
       "clarify",
-      "general_qa"
+      "general_qa",
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -4834,7 +4774,8 @@
     "locale": "zh",
     "acceptable_stages": [
       "clarify",
-      "general_qa"
+      "general_qa",
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -4858,7 +4799,8 @@
     "locale": "zh",
     "acceptable_stages": [
       "clarify",
-      "general_qa"
+      "general_qa",
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -4882,7 +4824,8 @@
     "locale": "en",
     "acceptable_stages": [
       "clarify",
-      "general_qa"
+      "general_qa",
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -4906,7 +4849,8 @@
     "locale": "en",
     "acceptable_stages": [
       "clarify",
-      "general_qa"
+      "general_qa",
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -4930,7 +4874,8 @@
     "locale": "en",
     "acceptable_stages": [
       "clarify",
-      "general_qa"
+      "general_qa",
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -12991,13 +12936,10 @@
     "query": "神奈川のアニメ聖地",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -13005,7 +12947,8 @@
       "db_state": "hit_complete",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "C2_zh_006",
@@ -13014,7 +12957,7 @@
     "query": "宫崎县有什么动漫圣地",
     "locale": "zh",
     "acceptable_stages": [
-      "clarify"
+      "clarify_after_nearby"
     ],
     "expected_data_keys": [
       "question",
@@ -13264,13 +13207,10 @@
     "query": "岐阜のアニメスポット",
     "locale": "ja",
     "acceptable_stages": [
-      "clarify"
+      "search_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
-      "candidates"
+      "results"
     ],
     "context": null,
     "selected_point_ids": null,
@@ -13278,7 +13218,8 @@
       "db_state": "hit_sparse",
       "difficulty": "medium",
       "notes": ""
-    }
+    },
+    "expect_nonempty": true
   },
   {
     "id": "D2_ja_006",
@@ -14853,6 +14794,181 @@
       "db_state": "seeded",
       "difficulty": "hard",
       "notes": "system-tag cjk injection in seeded data"
+    }
+  },
+  {
+    "id": "C1_ja_007",
+    "path": "nearby_honest_empty",
+    "tier": "happy",
+    "query": "箱根のアニメスポット",
+    "locale": "ja",
+    "acceptable_stages": [
+      "search_nearby"
+    ],
+    "expected_data_keys": [
+      "results"
+    ],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "miss",
+      "difficulty": "medium",
+      "notes": "gazetteer hit; nearby returns empty rows"
+    }
+  },
+  {
+    "id": "C1_ja_008",
+    "path": "nearby_bare_location",
+    "tier": "happy",
+    "query": "豊郷のアニメスポット",
+    "locale": "ja",
+    "acceptable_stages": [
+      "search_nearby"
+    ],
+    "expected_data_keys": [
+      "results"
+    ],
+    "expect_nonempty": true,
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "hit_sparse",
+      "difficulty": "medium",
+      "notes": ""
+    }
+  },
+  {
+    "id": "C1_en_006",
+    "path": "nearby_bare_location",
+    "tier": "happy",
+    "query": "anime spots near Nishinomiya",
+    "locale": "en",
+    "acceptable_stages": [
+      "search_nearby"
+    ],
+    "expected_data_keys": [
+      "results"
+    ],
+    "expect_nonempty": true,
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "hit_sparse",
+      "difficulty": "medium",
+      "notes": ""
+    }
+  },
+  {
+    "id": "C1_zh_006",
+    "path": "nearby_bare_location",
+    "tier": "happy",
+    "query": "西宫附近有什么动漫圣地",
+    "locale": "zh",
+    "acceptable_stages": [
+      "search_nearby"
+    ],
+    "expected_data_keys": [
+      "results"
+    ],
+    "expect_nonempty": true,
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "hit_sparse",
+      "difficulty": "medium",
+      "notes": ""
+    }
+  },
+  {
+    "id": "C2_ja_007",
+    "path": "nearby_prefecture_narrowing",
+    "tier": "happy",
+    "query": "山梨県で聖地巡礼したい",
+    "locale": "ja",
+    "acceptable_stages": [
+      "clarify_after_nearby"
+    ],
+    "expected_data_keys": [
+      "question",
+      "options",
+      "status",
+      "candidates"
+    ],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "hit_sparse",
+      "difficulty": "medium",
+      "notes": "prefecture suffix requires narrowing"
+    }
+  },
+  {
+    "id": "C5_ja_001",
+    "path": "nearby_ambiguous_location",
+    "tier": "happy",
+    "query": "府中のアニメスポット",
+    "locale": "ja",
+    "acceptable_stages": [
+      "clarify_after_nearby"
+    ],
+    "expected_data_keys": [
+      "question",
+      "options",
+      "status",
+      "candidates"
+    ],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "hit_sparse",
+      "difficulty": "medium",
+      "notes": "Tokyo and Hiroshima clusters"
+    }
+  },
+  {
+    "id": "C5_zh_001",
+    "path": "nearby_ambiguous_location",
+    "tier": "happy",
+    "query": "府中附近有什么动漫圣地",
+    "locale": "zh",
+    "acceptable_stages": [
+      "clarify_after_nearby"
+    ],
+    "expected_data_keys": [
+      "question",
+      "options",
+      "status",
+      "candidates"
+    ],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "hit_sparse",
+      "difficulty": "medium",
+      "notes": "Tokyo and Hiroshima clusters"
+    }
+  },
+  {
+    "id": "C5_en_001",
+    "path": "nearby_ambiguous_location",
+    "tier": "happy",
+    "query": "anime spots near 府中",
+    "locale": "en",
+    "acceptable_stages": [
+      "clarify_after_nearby"
+    ],
+    "expected_data_keys": [
+      "question",
+      "options",
+      "status",
+      "candidates"
+    ],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "hit_sparse",
+      "difficulty": "medium",
+      "notes": "Tokyo and Hiroshima clusters"
     }
   }
 ]

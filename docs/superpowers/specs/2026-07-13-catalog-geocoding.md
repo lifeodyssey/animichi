@@ -256,7 +256,7 @@ GRANT SELECT ON locations, location_aliases TO catalog_svc;   -- 只读即可(�
 **PR-B**
 | # | AC | 测试 |
 |---|---|---|
-| B1 | Atlas 数据迁移:≥10k 站+≥1.8k 市区+47 县;clean+upgrade 双路径;再 apply no-op | worker vitest(integration,含 pg_trgm) |
+| B1 | Atlas 数据迁移:≥9k 站(聚簇去重后实测 9044,原始 10,240 feature)+≥1.8k 市区+47 县;clean+upgrade 双路径;再 apply no-op | worker vitest(integration,含 pg_trgm) |
 | B2 | trgm:"西宮北口"→西宮北口駅;阈值下不误吸 | worker vitest |
 | B2' | 折叠:西宮→1;府中→2;東京(city+駅 两行)→1 且有效半径=10km;**corpus 抽查**:100 个高频地名的簇数分布审计(codex 终审) | worker vitest |
 | B3 | C1/C2 翻转 + 8 都道府县 case 按裸名/后缀规则逐案落定 + 新 case + `clarify_after_nearby` stage + 多语言 fixture | eval dataset + agent unit |
@@ -294,3 +294,6 @@ GRANT SELECT ON locations, location_aliases TO catalog_svc;   -- 只读即可(�
 - 外部 geocoder 兜底(见 OQ1,spike 前置 + 许可决议)。
 - 路线 origin 接入 `catalog.geocode`;E2/G4 eval 收紧;`sql_agent.py` 清理(含 Python Google gateway);
   检索质量量尺体系化;CI agent-eval 解禁。
+- **gazetteer 刷新管道**(用户 2026-07-14 拍板:本轮维持数据骑迁移方案 + Sonar 生成物排除):
+  下次数据刷新(N02-2024 年更或数据源扩张)时切独立数据管道——deploy workflow 加幂等 loader 步骤,
+  CI/本地环境同步接入,新数据不再进迁移历史;既有 20260714000002 迁移作为化石保留不移除。

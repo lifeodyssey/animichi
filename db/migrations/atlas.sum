@@ -1,4 +1,6 @@
-h1:pS2HShjiQ80ngF+IaR4i23XB8MA+QxNWVFiO8XSc9aA=
+h1:twT0i5Ek4CQRD2tb/c188e+4yxrOGlC6P/6gVm7a0HQ=
 20260623000001_init.sql h1:j96dtVbOQB/5eNuug4tZpdgURdZ5h0Zh4Vka7/dy1A0=
 20260713000001_user_routes.sql h1:th9ag/cdiRp9plYQraVBGIuRXeH4g5R3XvCuGZeFx8Q=
 20260714000001_catalog_geocoding.sql h1:EwkJGRPfg5camebXRzw+5xRVf6TWu23t3/tnw91uPwY=
+20260714000002_gazetteer_data.sql h1:u8SPpuyHtaFiu0jJe08VRGG/TFOMsg4wfFh26t4LzJU=
+20260714000003_pg_trgm.sql h1:ce3/r0rfPb5MnMezU3gmnNxbwszHKvE+dQ03GpEOQNc=
