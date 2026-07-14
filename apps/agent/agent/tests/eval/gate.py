@@ -103,13 +103,18 @@ def bootstrap_gate(
 def error_rate_gate(
     current_errored: int,
     current_total: int,
-    baseline: BaselineRecord,
+    baseline: BaselineRecord | None,
     *,
     iterations: int = 2000,
     confidence: float = 0.95,
     seed: int = 309,
     min_effect: float = 0.02,
 ) -> list[str]:
+    ceiling_failure = _absolute_error_rate_failure(current_errored, current_total)
+    if ceiling_failure is not None:
+        return [ceiling_failure]
+    if baseline is None:
+        return []
     if _has_zero_error_total(current_total, baseline):
         logger.warning("Skipping error_rate: zero total cases")
         return []
@@ -118,6 +123,17 @@ def error_rate_gate(
     )
     failure = _error_rate_failure(samples, confidence, min_effect)
     return [] if failure is None else [failure]
+
+
+def _absolute_error_rate_failure(errored: int, total: int) -> str | None:
+    """Fail uncapped runs when more than 20% of cases error, baseline-independent."""
+    error_rate = errored / total if total > 0 else 1.0
+    if error_rate <= 0.20:
+        return None
+    return (
+        f"{errored}/{total} cases errored ({error_rate:.0%}). "
+        "Check API key and model endpoint."
+    )
 
 
 def _metric_failures(ctx: _GateContext) -> list[str | None]:
