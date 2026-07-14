@@ -12,6 +12,7 @@ from dotenv import dotenv_values
 from pydantic_ai.models import Model
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator
+from pydantic_evals.lifecycle import CaseLifecycle
 from pydantic_evals.reporting import EvaluationReport
 
 from agent.agents.agent_result import AgentResult
@@ -40,6 +41,10 @@ from agent.tests.eval.exec_tiers import (
 Row: TypeAlias = Mapping[str, object]
 TaskFn: TypeAlias = Callable[[AgentInput], Awaitable[AgentResult]]
 AgentReport: TypeAlias = EvaluationReport[AgentInput, AgentResult, AgentExpected]
+LifecycleFactory: TypeAlias = Callable[
+    [Case[AgentInput, AgentResult, AgentExpected]],
+    CaseLifecycle[AgentInput, AgentResult, AgentExpected],
+]
 CatalogFactory: TypeAlias = Callable[[], CatalogClientProtocol]
 
 
@@ -244,9 +249,14 @@ async def evaluate_target(
     target: EvalTierTarget,
     model: Model | None = None,
     model_id: str = EVAL_MODEL_ID,
+    *,
+    lifecycle: LifecycleFactory | None = None,
+    progress: bool = True,
 ) -> AgentReport:
     return await agent_dataset.evaluate(
         _target_task(target, model),
         name=f"{target.layer}_{model_id}",
         max_concurrency=EVAL_CONCURRENCY,
+        lifecycle=lifecycle,
+        progress=progress,
     )
