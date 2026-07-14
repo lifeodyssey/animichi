@@ -1,6 +1,6 @@
 -- GENERATED ARTIFACT: exempt from the repository 300-line limit. Do not edit by hand.
 -- Sources: MLIT N02-2023 Station GeoJSON, retrieved 2026-07-14 (SHA256 0251e06aa68236ca17a613d7b183353fdf6ac9ecb904232fafaa548de42d0e17); GeoNames cities500, retrieved 2026-07-14 (SHA256 6047c30ba447e8d26136fa1248fd8c2974aedb7ca6582e1475783a78dd832be6).
--- Generation command: node --import tsx workers/catalog/scripts/build-gazetteer.ts --stations /private/tmp/claude-501/-Users-lumimamini-Documents-Seichijunrei-agent/0f5350ba-3042-4bc6-a55f-cbe2e4a860bd/scratchpad/gazetteer-raw/n02/UTF-8/N02-23_Station.geojson --cities /private/tmp/claude-501/-Users-lumimamini-Documents-Seichijunrei-agent/0f5350ba-3042-4bc6-a55f-cbe2e4a860bd/scratchpad/gazetteer-raw/cities500.txt --out-sql db/migrations/20260714000002_gazetteer_data.sql --out-audit workers/catalog/data/gazetteer-audit.csv
+-- Generation command: node --import tsx workers/catalog/scripts/build-gazetteer.ts --stations data/raw/N02-23_Station.geojson --cities data/raw/cities500.txt --out-sql db/migrations/20260714000002_gazetteer_data.sql --out-audit workers/catalog/data/gazetteer-audit.csv
 
 INSERT INTO locations (id, name, kind, latitude, longitude, location, source, pref) VALUES
     ('geonames:10140824', '納官', 'city', 30.57332, 130.9564, NULL, 'geonames', '鹿児島県'),
@@ -11362,6 +11362,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Ageo', 'ageo', 'geonames:1865714', 'en', 10),
     ('Agui', 'agui', 'geonames:11777075', 'en', 5),
     ('Aibetsu', 'aibetsu', 'geonames:2130723', 'en', 10),
+    ('aichi', 'aichi', 'geonames:1856057', 'en', 10),
     ('Aichi Prefecture', 'aichi prefecture', 'pref:23', 'en', 20),
     ('Aihara', 'aihara', 'geonames:1865689', 'en', 10),
     ('Aioi', 'aioi', 'geonames:1865661', 'en', 10),
@@ -11535,6 +11536,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Edogawe', 'edogawe', 'geonames:11071717', 'en', 5),
     ('Edosaki', 'edosaki', 'geonames:2112963', 'en', 10),
     ('Egota', 'egota', 'geonames:1864231', 'en', 5),
+    ('ehime', 'ehime', 'geonames:1926099', 'en', 10),
     ('Ehime Prefecture', 'ehime prefecture', 'pref:38', 'en', 20),
     ('Eifuku', 'eifuku', 'geonames:8573723', 'en', 5),
     ('Ena', 'ena', 'geonames:6822220', 'en', 10),
@@ -11582,6 +11584,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Fukiage-fujimi', 'fukiage-fujimi', 'geonames:1864025', 'en', 10),
     ('Fukuchiyama', 'fukuchiyama', 'geonames:1864009', 'en', 10),
     ('Fukuechō', 'fukuechō', 'geonames:1863997', 'ja', 10),
+    ('fukui', 'fukui', 'geonames:1863985', 'en', 10),
     ('Fukui Prefecture', 'fukui prefecture', 'pref:18', 'en', 20),
     ('Fukui-shi', 'fukui-shi', 'geonames:1863985', 'en', 10),
     ('Fukumitsu', 'fukumitsu', 'geonames:1863973', 'en', 10),
@@ -11640,6 +11643,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Gotemba', 'gotemba', 'geonames:1863528', 'en', 10),
     ('Gotō', 'gotō', 'geonames:11612559', 'ja', 10),
     ('Gujō', 'gujō', 'geonames:6822219', 'ja', 10),
+    ('gunma', 'gunma', 'geonames:1857843', 'en', 10),
     ('Gunma Prefecture', 'gunma prefecture', 'pref:10', 'en', 20),
     ('Gushikawa', 'gushikawa', 'geonames:1863495', 'en', 10),
     ('Gyōda', 'gyōda', 'geonames:1863482', 'ja', 10),
@@ -11789,6 +11793,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Hiwasaura', 'hiwasaura', 'geonames:1862330', 'en', 10),
     ('Hizume', 'hizume', 'geonames:2112694', 'en', 10),
     ('Hobaramachi', 'hobaramachi', 'geonames:2112692', 'en', 10),
+    ('hokkaido', 'hokkaido', 'geonames:2128295', 'en', 10),
     ('Hokkaido Prefecture', 'hokkaido prefecture', 'pref:01', 'en', 20),
     ('Hokota', 'hokota', 'geonames:2112688', 'en', 10),
     ('Hokuryū', 'hokuryū', 'geonames:2130032', 'ja', 10),
@@ -11816,6 +11821,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Horonobe', 'horonobe', 'geonames:2129984', 'en', 10),
     ('Hotaka', 'hotaka', 'geonames:1862098', 'en', 10),
     ('Hutami', 'hutami', 'geonames:7302437', 'en', 10),
+    ('hyogo', 'hyogo', 'geonames:1859171', 'en', 10),
     ('Hyogo Prefecture', 'hyogo prefecture', 'pref:28', 'en', 20),
     ('Hyūga', 'hyūga', 'geonames:11611625', 'ja', 10),
     ('Hōdatsushimizu', 'hōdatsushimizu', 'geonames:13156691', 'ja', 10),
@@ -11826,6 +11832,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Hōshakuji', 'hōshakuji', 'geonames:1862130', 'ja', 10),
     ('Ibara', 'ibara', 'geonames:1862034', 'en', 10),
     ('Ibaraki', 'ibaraki', 'geonames:1862033', 'en', 10),
+    ('ibaraki', 'ibaraki', 'geonames:2111901', 'en', 10),
     ('Ibaraki Prefecture', 'ibaraki prefecture', 'pref:08', 'en', 20),
     ('Ibi', 'ibi', 'geonames:1862026', 'en', 10),
     ('Ibusuki', 'ibusuki', 'geonames:1862010', 'en', 10),
@@ -11842,17 +11849,17 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Ichinohe', 'ichinohe', 'geonames:2129961', 'en', 10),
     ('Ichinomiya', 'ichinomiya', 'geonames:1861949', 'en', 10),
     ('Ichinomiya', 'ichinomiya', 'geonames:2112658', 'en', 10),
-    ('Ichinoseki', 'ichinoseki', 'geonames:2112656', 'en', 10),
+    ('Ichinoseki', 'ichinoseki', 'geonames:2112656', 'en', 10)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('Ide', 'ide', 'geonames:8991757', 'en', 10),
     ('Ide', 'ide', 'geonames:9636928', 'en', 10),
     ('Idogaya-kamimachi', 'idogaya-kamimachi', 'geonames:11081578', 'en', 10),
     ('Ie', 'ie', 'geonames:1894385', 'en', 10),
     ('Iga', 'iga', 'geonames:11468270', 'en', 10),
     ('Igusa', 'igusa', 'geonames:10866536', 'en', 5),
-    ('Igusa', 'igusa', 'geonames:1861883', 'en', 10)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('Igusa', 'igusa', 'geonames:1861883', 'en', 10),
     ('Iheya', 'iheya', 'geonames:6822150', 'en', 10),
     ('Iida', 'iida', 'geonames:1861864', 'en', 10),
     ('Iidabashi', 'iidabashi', 'geonames:10903380', 'en', 10),
@@ -11920,6 +11927,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Ishige', 'ishige', 'geonames:1861406', 'en', 10),
     ('Ishii', 'ishii', 'geonames:1861400', 'en', 10),
     ('Ishikari', 'ishikari', 'geonames:2129909', 'en', 10),
+    ('ishikawa', 'ishikawa', 'geonames:1860243', 'en', 10),
     ('Ishikawa', 'ishikawa', 'geonames:1861393', 'en', 10),
     ('Ishikawa', 'ishikawa', 'geonames:2112583', 'en', 10),
     ('Ishikawa Prefecture', 'ishikawa prefecture', 'pref:17', 'en', 20),
@@ -11958,6 +11966,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Iwase', 'iwase', 'geonames:2112521', 'en', 10),
     ('Iwashita', 'iwashita', 'geonames:1861174', 'en', 10),
     ('Iwata', 'iwata', 'geonames:1861171', 'en', 10),
+    ('iwate', 'iwate', 'geonames:2111834', 'en', 10),
     ('Iwate Prefecture', 'iwate prefecture', 'pref:03', 'en', 20),
     ('Iwatsuki', 'iwatsuki', 'geonames:1861164', 'en', 10),
     ('Iyo', 'iyo', 'geonames:1926006', 'en', 10),
@@ -12012,6 +12021,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Kadoma', 'kadoma', 'geonames:1860871', 'en', 10),
     ('Kafukamura', 'kafukamura', 'geonames:2129804', 'en', 10),
     ('Kaga', 'kaga', 'geonames:6822141', 'en', 10),
+    ('kagawa', 'kagawa', 'geonames:1851100', 'en', 10),
     ('Kagawa Prefecture', 'kagawa prefecture', 'pref:37', 'en', 20),
     ('Kagoshima', 'kagoshima', 'geonames:1860827', 'en', 10),
     ('Kagoshima Prefecture', 'kagoshima prefecture', 'pref:46', 'en', 20),
@@ -12086,6 +12096,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Kamogatachō-kamogata', 'kamogatachō-kamogata', 'geonames:1860335', 'ja', 10),
     ('Kamogawa', 'kamogawa', 'geonames:2112297', 'en', 10),
     ('Kamojimachō-jōgejima', 'kamojimachō-jōgejima', 'geonames:1860321', 'ja', 10),
+    ('kanagawa', 'kanagawa', 'geonames:1848354', 'en', 10),
     ('Kanagawa Prefecture', 'kanagawa prefecture', 'pref:14', 'en', 20),
     ('Kanaishima', 'kanaishima', 'geonames:10409864', 'en', 10),
     ('Kanamachi', 'kanamachi', 'geonames:1860271', 'en', 5),
@@ -12341,7 +12352,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Kōchi', 'kōchi', 'geonames:1859143', 'ja', 10),
     ('Kōge', 'kōge', 'geonames:1859079', 'ja', 10),
     ('Kōka', 'kōka', 'geonames:6822117', 'ja', 10),
-    ('Kōnan', 'kōnan', 'geonames:11612550', 'ja', 10),
+    ('Kōnan', 'kōnan', 'geonames:11612550', 'ja', 10)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('Kōnan', 'kōnan', 'geonames:1858836', 'ja', 10),
     ('Kōnosu', 'kōnosu', 'geonames:1858794', 'ja', 10),
     ('Kōra', 'kōra', 'geonames:13156710', 'ja', 10),
@@ -12352,10 +12366,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Kōshū', 'kōshū', 'geonames:11612589', 'ja', 10),
     ('Kōta', 'kōta', 'geonames:13132741', 'ja', 10),
     ('Kōtari', 'kōtari', 'geonames:1858681', 'ja', 10),
-    ('Kōya', 'kōya', 'geonames:6417596', 'ja', 10)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('Kōya', 'kōya', 'geonames:6417596', 'ja', 10),
     ('Kōzaki', 'kōzaki', 'geonames:2112124', 'ja', 10),
     ('Kōzan', 'kōzan', 'geonames:1858579', 'ja', 10),
     ('Kōzu', 'kōzu', 'geonames:1858571', 'ja', 10),
@@ -12413,6 +12424,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Menuma', 'menuma', 'geonames:1857403', 'en', 10),
     ('Mibu', 'mibu', 'geonames:1857379', 'en', 10),
     ('Midori', 'midori', 'geonames:6822155', 'en', 10),
+    ('mie', 'mie', 'geonames:1849796', 'en', 10),
     ('Mie', 'mie', 'geonames:1857357', 'en', 10),
     ('Mie Prefecture', 'mie prefecture', 'pref:24', 'en', 20),
     ('Mifune', 'mifune', 'geonames:1857343', 'en', 10),
@@ -12479,6 +12491,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Mitsushima', 'mitsushima', 'geonames:1856860', 'en', 10),
     ('Miura', 'miura', 'geonames:1907309', 'en', 10),
     ('Miyada', 'miyada', 'geonames:1856826', 'en', 10),
+    ('miyagi', 'miyagi', 'geonames:2111149', 'en', 10),
     ('Miyagi Prefecture', 'miyagi prefecture', 'pref:04', 'en', 20),
     ('Miyahara', 'miyahara', 'geonames:1856755', 'en', 10),
     ('Miyajima', 'miyajima', 'geonames:1856798', 'en', 10),
@@ -12641,6 +12654,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Nanto', 'nanto', 'geonames:6822123', 'en', 10),
     ('Nanto-shi', 'nanto-shi', 'geonames:6694821', 'en', 10),
     ('Nanyō', 'nanyō', 'geonames:11611932', 'ja', 10),
+    ('nara', 'nara', 'geonames:1855612', 'en', 10),
     ('Nara Prefecture', 'nara prefecture', 'pref:29', 'en', 20),
     ('Nara-shi', 'nara-shi', 'geonames:1855612', 'en', 10),
     ('Narashino', 'narashino', 'geonames:11612347', 'en', 10),
@@ -12756,6 +12770,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Ogōri', 'ogōri', 'geonames:11611610', 'ja', 10),
     ('Ogōri-shimogō', 'ogōri-shimogō', 'geonames:1854629', 'ja', 10),
     ('Oikawa', 'oikawa', 'geonames:11777491', 'en', 10),
+    ('oita', 'oita', 'geonames:1854487', 'en', 10),
     ('Oita Prefecture', 'oita prefecture', 'pref:44', 'en', 20),
     ('Oji', 'oji', 'geonames:11777262', 'en', 5),
     ('Ojika', 'ojika', 'geonames:1896119', 'en', 10),
@@ -12766,6 +12781,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Okazaki', 'okazaki', 'geonames:1854376', 'en', 10),
     ('Okegawa', 'okegawa', 'geonames:1854371', 'en', 10),
     ('Oketo', 'oketo', 'geonames:2128730', 'en', 10),
+    ('okinawa', 'okinawa', 'geonames:1856035', 'en', 10),
     ('Okinawa', 'okinawa', 'geonames:1894616', 'en', 10),
     ('Okinawa Prefecture', 'okinawa prefecture', 'pref:47', 'en', 20),
     ('Okino', 'okino', 'geonames:11172649', 'en', 10),
@@ -12839,7 +12855,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Sagamihara', 'sagamihara', 'geonames:11611609', 'en', 10),
     ('Sagara', 'sagara', 'geonames:1853280', 'en', 10),
     ('Saginomiya', 'saginomiya', 'geonames:8573523', 'en', 5),
-    ('Sai', 'sai', 'geonames:2128363', 'en', 10),
+    ('Sai', 'sai', 'geonames:2128363', 'en', 10)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('Saijō', 'saijō', 'geonames:1853243', 'ja', 10),
     ('Saijō', 'saijō', 'geonames:1926054', 'ja', 10),
     ('Saikai', 'saikai', 'geonames:11612561', 'en', 10),
@@ -12855,10 +12874,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Sakae', 'sakae', 'geonames:13156703', 'en', 10),
     ('Sakahogi', 'sakahogi', 'geonames:13132759', 'en', 10),
     ('Sakai', 'sakai', 'geonames:10412940', 'en', 10),
-    ('Sakai', 'sakai', 'geonames:11611626', 'en', 10)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('Sakai', 'sakai', 'geonames:11611626', 'en', 10),
     ('Sakai', 'sakai', 'geonames:1853193', 'en', 10),
     ('Sakai', 'sakai', 'geonames:1853194', 'en', 10),
     ('Sakai', 'sakai', 'geonames:1853195', 'en', 10),
@@ -12953,6 +12969,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Shichijō', 'shichijō', 'geonames:1852576', 'ja', 10),
     ('Shichinohe', 'shichinohe', 'geonames:2128194', 'en', 10),
     ('Shido', 'shido', 'geonames:1852561', 'en', 10),
+    ('shiga', 'shiga', 'geonames:1853574', 'en', 10),
     ('Shiga Prefecture', 'shiga prefecture', 'pref:25', 'en', 20),
     ('Shihoro', 'shihoro', 'geonames:2128186', 'en', 10),
     ('Shiida', 'shiida', 'geonames:1852534', 'en', 10),
@@ -12968,6 +12985,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Shimabara', 'shimabara', 'geonames:1852479', 'en', 10),
     ('Shimada', 'shimada', 'geonames:11147658', 'en', 10),
     ('Shimada', 'shimada', 'geonames:1852472', 'en', 10),
+    ('shimane', 'shimane', 'geonames:1857550', 'en', 10),
     ('Shimane Prefecture', 'shimane prefecture', 'pref:32', 'en', 20),
     ('Shimanto', 'shimanto', 'geonames:11612319', 'en', 10),
     ('Shime', 'shime', 'geonames:11809770', 'en', 5),
@@ -13212,6 +13230,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Teshio', 'teshio', 'geonames:2127820', 'en', 10),
     ('Toba', 'toba', 'geonames:1850345', 'en', 10),
     ('Tobishima', 'tobishima', 'geonames:13132737', 'en', 10),
+    ('tochigi', 'tochigi', 'geonames:1849053', 'en', 10),
     ('Tochigi', 'tochigi', 'geonames:1850311', 'en', 10),
     ('Tochigi Prefecture', 'tochigi prefecture', 'pref:09', 'en', 20),
     ('Tochio-honchō', 'tochio-honchō', 'geonames:1850307', 'ja', 10),
@@ -13260,6 +13279,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Tosayamadachō-nakano', 'tosayamadachō-nakano', 'geonames:1848717', 'ja', 10),
     ('Toshima', 'toshima', 'geonames:8572994', 'en', 5),
     ('Tosu', 'tosu', 'geonames:1849904', 'en', 10),
+    ('tottori', 'tottori', 'geonames:1849892', 'en', 10),
     ('Tottori Prefecture', 'tottori prefecture', 'pref:31', 'en', 20),
     ('Tottori-shi', 'tottori-shi', 'geonames:1849892', 'en', 10),
     ('Towada', 'towada', 'geonames:6822207', 'en', 10),
@@ -13338,7 +13358,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Uejima', 'uejima', 'geonames:11240939', 'en', 10),
     ('Uekimachi-mōno', 'uekimachi-mōno', 'geonames:1849424', 'ja', 10),
     ('Ueno', 'ueno', 'geonames:1849417', 'en', 5),
-    ('Ueno-ebisumachi', 'ueno-ebisumachi', 'geonames:1849414', 'en', 10),
+    ('Ueno-ebisumachi', 'ueno-ebisumachi', 'geonames:1849414', 'en', 10)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('Uenohara', 'uenohara', 'geonames:1849407', 'en', 10),
     ('Uetake', 'uetake', 'geonames:9191293', 'en', 10),
     ('Uji', 'uji', 'geonames:1849372', 'en', 10),
@@ -13358,10 +13381,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Uonuma', 'uonuma', 'geonames:6825494', 'en', 10),
     ('Uozu', 'uozu', 'geonames:1849237', 'en', 10),
     ('Urakawa', 'urakawa', 'geonames:2127586', 'en', 10),
-    ('Urasa', 'urasa', 'geonames:1849198', 'en', 10)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('Urasa', 'urasa', 'geonames:1849198', 'en', 10),
     ('Urasoe', 'urasoe', 'geonames:6822152', 'en', 10),
     ('Urausunai', 'urausunai', 'geonames:2127579', 'en', 10),
     ('Urayasu', 'urayasu', 'geonames:1849186', 'en', 10),
@@ -13445,6 +13465,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('Yamakiya', 'yamakiya', 'geonames:8992454', 'en', 10),
     ('Yamanaka', 'yamanaka', 'geonames:10797122', 'en', 10),
     ('Yamanashi', 'yamanashi', 'geonames:11611479', 'en', 10),
+    ('yamanashi', 'yamanashi', 'geonames:1859100', 'en', 10),
     ('Yamanashi Prefecture', 'yamanashi prefecture', 'pref:19', 'en', 20),
     ('Yamanobe', 'yamanobe', 'geonames:2114134', 'en', 10),
     ('Yamashita', 'yamashita', 'geonames:1848618', 'en', 10),
@@ -13840,7 +13861,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('すえたちばな駅', 'すえたちばな駅', 'mlit:st-ae3cb4e76213de90', 'ja', 0),
     ('すがも', 'すがも', 'geonames:8573188', 'ja', 5),
     ('すぎた', 'すぎた', 'geonames:11059676', 'ja', 10),
-    ('すすきの', 'すすきの', 'mlit:st-9677ebab0b207e5c', 'ja', 0),
+    ('すすきの', 'すすきの', 'mlit:st-9677ebab0b207e5c', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('すすきの駅', 'すすきの駅', 'mlit:st-9677ebab0b207e5c', 'ja', 0),
     ('すずかけ台', 'すずかけ台', 'mlit:st-a50ba83657e5fc02', 'ja', 0),
     ('すずかけ台駅', 'すずかけ台駅', 'mlit:st-a50ba83657e5fc02', 'ja', 0),
@@ -13861,10 +13885,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('たつの', 'たつの', 'geonames:11612326', 'ja', 10),
     ('たのうら御立岬公園', 'たのうら御立岬公園', 'mlit:st-5f25cc6dc2fd83d8', 'ja', 0),
     ('たのうら御立岬公園駅', 'たのうら御立岬公園駅', 'mlit:st-5f25cc6dc2fd83d8', 'ja', 0),
-    ('たびら平戸口', 'たびら平戸口', 'mlit:st-18022978ee6be1a6', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('たびら平戸口', 'たびら平戸口', 'mlit:st-18022978ee6be1a6', 'ja', 0),
     ('たびら平戸口駅', 'たびら平戸口駅', 'mlit:st-18022978ee6be1a6', 'ja', 0),
     ('たまプラーザ', 'たまプラーザ', 'mlit:st-331e836e1779c4a6', 'ja', 0),
     ('たまプラーザ駅', 'たまプラーザ駅', 'mlit:st-331e836e1779c4a6', 'ja', 0),
@@ -14343,7 +14364,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('三ツ松', '三ツ松', 'mlit:st-93200b25df7c3f57', 'ja', 0),
     ('三ツ松駅', '三ツ松駅', 'mlit:st-93200b25df7c3f57', 'ja', 0),
     ('三ツ沢上町', '三ツ沢上町', 'mlit:st-2a5bb068a96761a5', 'ja', 0),
-    ('三ツ沢上町駅', '三ツ沢上町駅', 'mlit:st-2a5bb068a96761a5', 'ja', 0),
+    ('三ツ沢上町駅', '三ツ沢上町駅', 'mlit:st-2a5bb068a96761a5', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('三ツ沢下町', '三ツ沢下町', 'mlit:st-ff0cdd5289dd1be9', 'ja', 0),
     ('三ツ沢下町駅', '三ツ沢下町駅', 'mlit:st-ff0cdd5289dd1be9', 'ja', 0),
     ('三ツ石', '三ツ石', 'mlit:st-77ea8cccf421a492', 'ja', 0),
@@ -14364,10 +14388,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('三ヶ森', '三ヶ森', 'mlit:st-fd5956231978b89a', 'ja', 0),
     ('三ヶ森駅', '三ヶ森駅', 'mlit:st-fd5956231978b89a', 'ja', 0),
     ('三井寺', '三井寺', 'mlit:st-ef5997b6913173d7', 'ja', 0),
-    ('三井寺駅', '三井寺駅', 'mlit:st-ef5997b6913173d7', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('三井寺駅', '三井寺駅', 'mlit:st-ef5997b6913173d7', 'ja', 0),
     ('三井野原', '三井野原', 'mlit:st-f2bf85ac69230b99', 'ja', 0),
     ('三井野原駅', '三井野原駅', 'mlit:st-f2bf85ac69230b99', 'ja', 0),
     ('三代橋', '三代橋', 'mlit:st-382dd5f02cade825', 'ja', 0),
@@ -14609,6 +14630,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('三里木', '三里木', 'mlit:st-c10cbf6d236095ac', 'ja', 0),
     ('三里木駅', '三里木駅', 'mlit:st-c10cbf6d236095ac', 'ja', 0),
     ('三里駅', '三里駅', 'mlit:st-ae62665ab6d72124', 'ja', 0),
+    ('三重', '三重', 'geonames:1849796', 'ja', 10),
     ('三重县', '三重县', 'pref:24', 'zh', 20),
     ('三重町', '三重町', 'mlit:st-dfacb881e18f69db', 'ja', 0),
     ('三重町駅', '三重町駅', 'mlit:st-dfacb881e18f69db', 'ja', 0),
@@ -14845,7 +14867,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('上片桐', '上片桐', 'geonames:11776964', 'ja', 10),
     ('上片桐', '上片桐', 'mlit:st-fe6f1ce8b17b86ee', 'ja', 0),
     ('上片桐駅', '上片桐駅', 'mlit:st-fe6f1ce8b17b86ee', 'ja', 0),
-    ('上牧', '上牧', 'mlit:st-95997dbee8c62ed8', 'ja', 0),
+    ('上牧', '上牧', 'mlit:st-95997dbee8c62ed8', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('上牧', '上牧', 'mlit:st-b4bd4f2e6644c3ef', 'ja', 0),
     ('上牧町', '上牧町', 'geonames:9633110', 'ja', 10),
     ('上牧駅', '上牧駅', 'mlit:st-95997dbee8c62ed8', 'ja', 0),
@@ -14867,10 +14892,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('上町二丁目', '上町二丁目', 'mlit:st-d6dc104d0e84e6a8', 'ja', 0),
     ('上町二丁目駅', '上町二丁目駅', 'mlit:st-d6dc104d0e84e6a8', 'ja', 0),
     ('上町五丁目', '上町五丁目', 'mlit:st-f0e3953bba2bca2c', 'ja', 0),
-    ('上町五丁目駅', '上町五丁目駅', 'mlit:st-f0e3953bba2bca2c', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('上町五丁目駅', '上町五丁目駅', 'mlit:st-f0e3953bba2bca2c', 'ja', 0),
     ('上町四丁目', '上町四丁目', 'mlit:st-bed2a29440950d63', 'ja', 0),
     ('上町四丁目駅', '上町四丁目駅', 'mlit:st-bed2a29440950d63', 'ja', 0),
     ('上町駅', '上町駅', 'mlit:st-f1d61f05442ed167', 'ja', 0),
@@ -15258,6 +15280,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('世良田', '世良田', 'mlit:st-13b08c87dc0c746f', 'ja', 0),
     ('世良田駅', '世良田駅', 'mlit:st-13b08c87dc0c746f', 'ja', 0),
     ('东京', '东京', 'geonames:1850147', 'zh', 10),
+    ('东京都', '东京都', 'pref:13', 'zh', 20),
     ('両国', '両国', 'mlit:st-8e1a934f8baf8a02', 'ja', 0),
     ('両国駅', '両国駅', 'mlit:st-8e1a934f8baf8a02', 'ja', 0),
     ('両津湊', '両津湊', 'geonames:1853371', 'ja', 10),
@@ -15347,7 +15370,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('中央病院前駅', '中央病院前駅', 'mlit:st-dde825d757ecd456', 'ja', 0),
     ('中妻', '中妻', 'mlit:st-24c29974cf7468e3', 'ja', 0),
     ('中妻駅', '中妻駅', 'mlit:st-24c29974cf7468e3', 'ja', 0),
-    ('中学校', '中学校', 'mlit:st-b97fd25821294b9a', 'ja', 0),
+    ('中学校', '中学校', 'mlit:st-b97fd25821294b9a', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('中学校駅', '中学校駅', 'mlit:st-b97fd25821294b9a', 'ja', 0),
     ('中富良野', '中富良野', 'mlit:st-ad5f8eb0d053a911', 'ja', 0),
     ('中富良野駅', '中富良野駅', 'mlit:st-ad5f8eb0d053a911', 'ja', 0),
@@ -15370,10 +15396,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('中山平温泉駅', '中山平温泉駅', 'mlit:st-96d126a74645b9e0', 'ja', 0),
     ('中山観音', '中山観音', 'mlit:st-89ccdd203015d97a', 'ja', 0),
     ('中山観音駅', '中山観音駅', 'mlit:st-89ccdd203015d97a', 'ja', 0),
-    ('中山香', '中山香', 'mlit:st-50678495440ec09d', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('中山香', '中山香', 'mlit:st-50678495440ec09d', 'ja', 0),
     ('中山香駅', '中山香駅', 'mlit:st-50678495440ec09d', 'ja', 0),
     ('中山駅', '中山駅', 'mlit:st-170b96baf19ba681', 'ja', 0),
     ('中山駅', '中山駅', 'mlit:st-ec62a510fb4b7d55', 'ja', 0),
@@ -15850,7 +15873,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('二戸駅', '二戸駅', 'mlit:st-52b7a0dbb3fac14d', 'ja', 0),
     ('二日市', '二日市', 'mlit:st-5a1083d0d55952e7', 'ja', 0),
     ('二日市駅', '二日市駅', 'mlit:st-5a1083d0d55952e7', 'ja', 0),
-    ('二月田', '二月田', 'mlit:st-5e587580fda8abdf', 'ja', 0),
+    ('二月田', '二月田', 'mlit:st-5e587580fda8abdf', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('二月田駅', '二月田駅', 'mlit:st-5e587580fda8abdf', 'ja', 0),
     ('二木島', '二木島', 'mlit:st-93f95d274cbbcfba', 'ja', 0),
     ('二木島駅', '二木島駅', 'mlit:st-93f95d274cbbcfba', 'ja', 0),
@@ -15873,10 +15899,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('二色浜駅', '二色浜駅', 'mlit:st-09815e70ed0236d9', 'ja', 0),
     ('二葉', '二葉', 'geonames:10865212', 'ja', 5),
     ('二見浦', '二見浦', 'mlit:st-1878cb081704e9b8', 'ja', 0),
-    ('二見浦駅', '二見浦駅', 'mlit:st-1878cb081704e9b8', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('二見浦駅', '二見浦駅', 'mlit:st-1878cb081704e9b8', 'ja', 0),
     ('二軒屋', '二軒屋', 'mlit:st-d697bcf9c433addb', 'ja', 0),
     ('二軒屋駅', '二軒屋駅', 'mlit:st-d697bcf9c433addb', 'ja', 0),
     ('二軒茶屋', '二軒茶屋', 'mlit:st-a5b25f4380cd9373', 'ja', 0),
@@ -16353,7 +16376,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('伊予桜井駅', '伊予桜井駅', 'mlit:st-89bb3466d1f783e4', 'ja', 0),
     ('伊予横田', '伊予横田', 'mlit:st-4e4bd476fca6d63a', 'ja', 0),
     ('伊予横田駅', '伊予横田駅', 'mlit:st-4e4bd476fca6d63a', 'ja', 0),
-    ('伊予氷見', '伊予氷見', 'mlit:st-5a7b6bc02b4fb83c', 'ja', 0),
+    ('伊予氷見', '伊予氷見', 'mlit:st-5a7b6bc02b4fb83c', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('伊予氷見駅', '伊予氷見駅', 'mlit:st-5a7b6bc02b4fb83c', 'ja', 0),
     ('伊予白滝', '伊予白滝', 'mlit:st-9979abce231a7f15', 'ja', 0),
     ('伊予白滝駅', '伊予白滝駅', 'mlit:st-9979abce231a7f15', 'ja', 0),
@@ -16376,10 +16402,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('伊勢上野駅', '伊勢上野駅', 'mlit:st-ac54408392933f64', 'ja', 0),
     ('伊勢中原', '伊勢中原', 'mlit:st-9c54b9f3d64fd465', 'ja', 0),
     ('伊勢中原駅', '伊勢中原駅', 'mlit:st-9c54b9f3d64fd465', 'ja', 0),
-    ('伊勢中川', '伊勢中川', 'mlit:st-5a71cc5c951d95b3', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('伊勢中川', '伊勢中川', 'mlit:st-5a71cc5c951d95b3', 'ja', 0),
     ('伊勢中川駅', '伊勢中川駅', 'mlit:st-5a71cc5c951d95b3', 'ja', 0),
     ('伊勢佐木長者町', '伊勢佐木長者町', 'mlit:st-3d212a40fb55a2c8', 'ja', 0),
     ('伊勢佐木長者町駅', '伊勢佐木長者町駅', 'mlit:st-3d212a40fb55a2c8', 'ja', 0),
@@ -16717,10 +16740,11 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('佐賀', '佐賀', 'mlit:st-cbce5de424ec5711', 'ja', 0),
     ('佐賀公園', '佐賀公園', 'mlit:st-76404754d6387d51', 'ja', 0),
     ('佐賀公園駅', '佐賀公園駅', 'mlit:st-76404754d6387d51', 'ja', 0),
-    ('佐賀县', '佐賀县', 'pref:41', 'zh', 20),
     ('佐賀市', '佐賀市', 'geonames:1853303', 'ja', 10),
     ('佐賀県', '佐賀県', 'pref:41', 'ja', 20),
     ('佐賀駅', '佐賀駅', 'mlit:st-cbce5de424ec5711', 'ja', 0),
+    ('佐贺', '佐贺', 'geonames:1853303', 'zh', 10),
+    ('佐贺县', '佐贺县', 'pref:41', 'zh', 20),
     ('佐那具', '佐那具', 'mlit:st-a70bd365ce6a30a6', 'ja', 0),
     ('佐那具駅', '佐那具駅', 'mlit:st-a70bd365ce6a30a6', 'ja', 0),
     ('佐那河内村', '佐那河内村', 'geonames:13156714', 'ja', 10),
@@ -16855,7 +16879,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('倉見駅', '倉見駅', 'mlit:st-1b37e2feb31c1da8', 'ja', 0),
     ('倉賀野', '倉賀野', 'mlit:st-b07fa097a8066e18', 'ja', 0),
     ('倉賀野駅', '倉賀野駅', 'mlit:st-b07fa097a8066e18', 'ja', 0),
-    ('倶利伽羅', '倶利伽羅', 'mlit:st-af23884305082b69', 'ja', 0),
+    ('倶利伽羅', '倶利伽羅', 'mlit:st-af23884305082b69', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('倶利伽羅駅', '倶利伽羅駅', 'mlit:st-af23884305082b69', 'ja', 0),
     ('倶知安', '倶知安', 'mlit:st-8cf79d277376cf13', 'ja', 0),
     ('倶知安駅', '倶知安駅', 'mlit:st-8cf79d277376cf13', 'ja', 0),
@@ -16879,10 +16906,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('備中神代駅', '備中神代駅', 'mlit:st-da6bfe54c46975b1', 'ja', 0),
     ('備中箕島', '備中箕島', 'mlit:st-5a9dad03321ee3e4', 'ja', 0),
     ('備中箕島駅', '備中箕島駅', 'mlit:st-5a9dad03321ee3e4', 'ja', 0),
-    ('備中高松', '備中高松', 'mlit:st-b22289a34fbe261f', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('備中高松', '備中高松', 'mlit:st-b22289a34fbe261f', 'ja', 0),
     ('備中高松駅', '備中高松駅', 'mlit:st-b22289a34fbe261f', 'ja', 0),
     ('備中高梁', '備中高梁', 'mlit:st-8659dba27ac61beb', 'ja', 0),
     ('備中高梁駅', '備中高梁駅', 'mlit:st-8659dba27ac61beb', 'ja', 0),
@@ -17276,8 +17300,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('六郷土手駅', '六郷土手駅', 'mlit:st-d21542264de42245', 'ja', 0),
     ('共和', '共和', 'mlit:st-576dc7d1c7415735', 'ja', 0),
     ('共和駅', '共和駅', 'mlit:st-576dc7d1c7415735', 'ja', 0),
+    ('兵库', '兵库', 'geonames:1859171', 'zh', 10),
+    ('兵库县', '兵库县', 'pref:28', 'zh', 20),
+    ('兵庫', '兵庫', 'geonames:1859171', 'ja', 10),
     ('兵庫', '兵庫', 'mlit:st-bc0adcc2e17c5f2b', 'ja', 0),
-    ('兵庫县', '兵庫县', 'pref:28', 'zh', 20),
     ('兵庫県', '兵庫県', 'pref:28', 'ja', 20),
     ('兵庫駅', '兵庫駅', 'mlit:st-bc0adcc2e17c5f2b', 'ja', 0),
     ('具同', '具同', 'mlit:st-1ec0263b6204a143', 'ja', 0),
@@ -17332,10 +17358,14 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('円町駅', '円町駅', 'mlit:st-163d40063b563ecf', 'ja', 0),
     ('円行寺口', '円行寺口', 'mlit:st-45788d4790083c45', 'ja', 0),
     ('円行寺口駅', '円行寺口駅', 'mlit:st-45788d4790083c45', 'ja', 0),
+    ('冈山', '冈山', 'geonames:1854383', 'zh', 10),
+    ('冈山县', '冈山县', 'pref:33', 'zh', 20),
     ('再春医療センター前', '再春医療センター前', 'mlit:st-8e97c9bb7544e62d', 'ja', 0),
     ('再春医療センター前駅', '再春医療センター前駅', 'mlit:st-8e97c9bb7544e62d', 'ja', 0),
     ('冠着', '冠着', 'mlit:st-83617d43a7a0b36d', 'ja', 0),
     ('冠着駅', '冠着駅', 'mlit:st-83617d43a7a0b36d', 'ja', 0),
+    ('冲绳', '冲绳', 'geonames:1856035', 'zh', 10),
+    ('冲绳县', '冲绳县', 'pref:47', 'zh', 20),
     ('冷水浦', '冷水浦', 'mlit:st-64a070bfeaa9c6e6', 'ja', 0),
     ('冷水浦駅', '冷水浦駅', 'mlit:st-64a070bfeaa9c6e6', 'ja', 0),
     ('出光美術館', '出光美術館', 'mlit:st-1dcb44d620c2d9c9', 'ja', 0),
@@ -17352,7 +17382,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('出戸駅', '出戸駅', 'mlit:st-bbfa30b6be94070d', 'ja', 0),
     ('出来島', '出来島', 'mlit:st-d7faf908a7b0f0d3', 'ja', 0),
     ('出来島駅', '出来島駅', 'mlit:st-d7faf908a7b0f0d3', 'ja', 0),
-    ('出水', '出水', 'geonames:1861108', 'ja', 10),
+    ('出水', '出水', 'geonames:1861108', 'ja', 10)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('出水', '出水', 'mlit:st-0d68bd83bb63420d', 'ja', 0),
     ('出水駅', '出水駅', 'mlit:st-0d68bd83bb63420d', 'ja', 0),
     ('出町柳', '出町柳', 'mlit:st-c1cf142e467581a2', 'ja', 0),
@@ -17382,10 +17415,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('出雲神西駅', '出雲神西駅', 'mlit:st-af8bc99ee9b85b3f', 'ja', 0),
     ('出雲科学館パークタウン前', '出雲科学館パークタウン前', 'mlit:st-d3747811bd402faf', 'ja', 0),
     ('出雲科学館パークタウン前駅', '出雲科学館パークタウン前駅', 'mlit:st-d3747811bd402faf', 'ja', 0),
-    ('出馬', '出馬', 'mlit:st-bff559bc1ff12ffc', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('出馬', '出馬', 'mlit:st-bff559bc1ff12ffc', 'ja', 0),
     ('出馬駅', '出馬駅', 'mlit:st-bff559bc1ff12ffc', 'ja', 0),
     ('函南', '函南', 'mlit:st-0fe52902ec7ee79e', 'ja', 0),
     ('函南駅', '函南駅', 'mlit:st-0fe52902ec7ee79e', 'ja', 0),
@@ -17855,7 +17885,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('北浦', '北浦', 'mlit:st-c4e8405558feb5d5', 'ja', 0),
     ('北浦和', '北浦和', 'mlit:st-2dc5dcb735d48fc3', 'ja', 0),
     ('北浦和駅', '北浦和駅', 'mlit:st-2dc5dcb735d48fc3', 'ja', 0),
-    ('北浦湖畔', '北浦湖畔', 'mlit:st-af559c0c2cd6a112', 'ja', 0),
+    ('北浦湖畔', '北浦湖畔', 'mlit:st-af559c0c2cd6a112', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('北浦湖畔駅', '北浦湖畔駅', 'mlit:st-af559c0c2cd6a112', 'ja', 0),
     ('北浦駅', '北浦駅', 'mlit:st-8464ae876ee05c2f', 'ja', 0),
     ('北浦駅', '北浦駅', 'mlit:st-c4e8405558feb5d5', 'ja', 0),
@@ -17885,10 +17918,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('北綾瀬', '北綾瀬', 'mlit:st-a6579565dea20c31', 'ja', 0),
     ('北綾瀬駅', '北綾瀬駅', 'mlit:st-a6579565dea20c31', 'ja', 0),
     ('北美瑛', '北美瑛', 'mlit:st-82f168d37a05d2eb', 'ja', 0),
-    ('北美瑛駅', '北美瑛駅', 'mlit:st-82f168d37a05d2eb', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('北美瑛駅', '北美瑛駅', 'mlit:st-82f168d37a05d2eb', 'ja', 0),
     ('北習志野', '北習志野', 'mlit:st-b7ec480b53ffa1ad', 'ja', 0),
     ('北習志野駅', '北習志野駅', 'mlit:st-b7ec480b53ffa1ad', 'ja', 0),
     ('北能代', '北能代', 'mlit:st-c344beb81591cbec', 'ja', 0),
@@ -18047,6 +18077,8 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('千倉駅', '千倉駅', 'mlit:st-5aa8ae7899658706', 'ja', 0),
     ('千厩', '千厩', 'mlit:st-8a8638d6be43c809', 'ja', 0),
     ('千厩駅', '千厩駅', 'mlit:st-8a8638d6be43c809', 'ja', 0),
+    ('千叶', '千叶', 'geonames:2113015', 'zh', 10),
+    ('千叶县', '千叶县', 'pref:12', 'zh', 20),
     ('千国', '千国', 'mlit:st-f6be9ce7f95dee38', 'ja', 0),
     ('千国駅', '千国駅', 'mlit:st-f6be9ce7f95dee38', 'ja', 0),
     ('千垣', '千垣', 'mlit:st-cf62f61145febd59', 'ja', 0),
@@ -18115,7 +18147,6 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('千葉中央駅', '千葉中央駅', 'mlit:st-6895368f268f2ed8', 'ja', 0),
     ('千葉公園', '千葉公園', 'mlit:st-fb9cfd68544b9826', 'ja', 0),
     ('千葉公園駅', '千葉公園駅', 'mlit:st-fb9cfd68544b9826', 'ja', 0),
-    ('千葉县', '千葉县', 'pref:12', 'zh', 20),
     ('千葉寺', '千葉寺', 'mlit:st-4f80e4574e0629b8', 'ja', 0),
     ('千葉寺駅', '千葉寺駅', 'mlit:st-4f80e4574e0629b8', 'ja', 0),
     ('千葉市', '千葉市', 'geonames:2113015', 'ja', 10),
@@ -18357,7 +18388,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('南町田グランベリーパーク駅', '南町田グランベリーパーク駅', 'mlit:st-b687b78e793b17a8', 'ja', 0),
     ('南町駅', '南町駅', 'mlit:st-e55a6aa53b19e022', 'ja', 0),
     ('南直方御殿口', '南直方御殿口', 'mlit:st-416f399b8c1b9425', 'ja', 0),
-    ('南直方御殿口駅', '南直方御殿口駅', 'mlit:st-416f399b8c1b9425', 'ja', 0),
+    ('南直方御殿口駅', '南直方御殿口駅', 'mlit:st-416f399b8c1b9425', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('南相馬', '南相馬', 'geonames:6822149', 'ja', 10),
     ('南矢代', '南矢代', 'mlit:st-1c956adaa940f0fd', 'ja', 0),
     ('南矢代駅', '南矢代駅', 'mlit:st-1c956adaa940f0fd', 'ja', 0),
@@ -18388,10 +18422,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('南羽生', '南羽生', 'mlit:st-a4a918e17375a8f8', 'ja', 0),
     ('南羽生駅', '南羽生駅', 'mlit:st-a4a918e17375a8f8', 'ja', 0),
     ('南船橋', '南船橋', 'mlit:st-735841fe7648fb1a', 'ja', 0),
-    ('南船橋駅', '南船橋駅', 'mlit:st-735841fe7648fb1a', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('南船橋駅', '南船橋駅', 'mlit:st-735841fe7648fb1a', 'ja', 0),
     ('南若松', '南若松', 'mlit:st-9f1b832a89530d4f', 'ja', 0),
     ('南若松駅', '南若松駅', 'mlit:st-9f1b832a89530d4f', 'ja', 0),
     ('南茨木', '南茨木', 'mlit:st-59eb291c98a8255d', 'ja', 0),
@@ -18860,7 +18891,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('君津', '君津', 'mlit:st-42078a9eccea05be', 'ja', 0),
     ('君津市', '君津市', 'geonames:1907307', 'ja', 10),
     ('君津駅', '君津駅', 'mlit:st-42078a9eccea05be', 'ja', 0),
-    ('吳市', '吳市', 'geonames:1858296', 'ja', 10),
+    ('吳市', '吳市', 'geonames:1858296', 'ja', 10)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('吹上', '吹上', 'mlit:st-6b53fbbd25f4939e', 'ja', 0),
     ('吹上', '吹上', 'mlit:st-a9d99d90fd7d6d20', 'ja', 0),
     ('吹上富士見', '吹上富士見', 'geonames:1864025', 'ja', 10),
@@ -18891,10 +18925,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('呉服町駅', '呉服町駅', 'mlit:st-9b60b0d3c6681148', 'ja', 0),
     ('呉服町駅', '呉服町駅', 'mlit:st-dfdaa40a4327d580', 'ja', 0),
     ('呉羽', '呉羽', 'mlit:st-a402c219bf1e0c44', 'ja', 0),
-    ('呉羽駅', '呉羽駅', 'mlit:st-a402c219bf1e0c44', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('呉羽駅', '呉羽駅', 'mlit:st-a402c219bf1e0c44', 'ja', 0),
     ('呉駅', '呉駅', 'mlit:st-a589848fc4a8e8aa', 'ja', 0),
     ('周南', '周南', 'geonames:11612583', 'ja', 10),
     ('周参見', '周参見', 'geonames:1851383', 'ja', 10),
@@ -19363,7 +19394,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('坂出', '坂出', 'mlit:st-093bb4bf1cc63657', 'ja', 0),
     ('坂出町', '坂出町', 'geonames:1853190', 'ja', 10),
     ('坂出駅', '坂出駅', 'mlit:st-093bb4bf1cc63657', 'ja', 0),
-    ('坂北', '坂北', 'geonames:11776968', 'ja', 10),
+    ('坂北', '坂北', 'geonames:11776968', 'ja', 10)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('坂北', '坂北', 'mlit:st-1e414b16d2dc4cf6', 'ja', 0),
     ('坂北駅', '坂北駅', 'mlit:st-1e414b16d2dc4cf6', 'ja', 0),
     ('坂城', '坂城', 'mlit:st-a13525992680d01e', 'ja', 0),
@@ -19394,10 +19428,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('坂駅', '坂駅', 'mlit:st-2a21d5d807e2e8de', 'ja', 0),
     ('坊城', '坊城', 'mlit:st-9985461ef976c819', 'ja', 0),
     ('坊城駅', '坊城駅', 'mlit:st-9985461ef976c819', 'ja', 0),
-    ('坊所', '坊所', 'geonames:9891099', 'ja', 10)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('坊所', '坊所', 'geonames:9891099', 'ja', 10),
     ('坪井', '坪井', 'mlit:st-458451ddb96df7ea', 'ja', 0),
     ('坪井川公園', '坪井川公園', 'mlit:st-b432f71f8a20521a', 'ja', 0),
     ('坪井川公園駅', '坪井川公園駅', 'mlit:st-b432f71f8a20521a', 'ja', 0),
@@ -19446,6 +19477,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('埴生駅', '埴生駅', 'mlit:st-32dedda8ed4ad289', 'ja', 0),
     ('基山', '基山', 'mlit:st-c3b461da5eb2df48', 'ja', 0),
     ('基山駅', '基山駅', 'mlit:st-c3b461da5eb2df48', 'ja', 0),
+    ('埼玉', '埼玉', 'geonames:6940394', 'ja', 10),
     ('埼玉县', '埼玉县', 'pref:11', 'zh', 20),
     ('埼玉県', '埼玉県', 'pref:11', 'ja', 20),
     ('堀ノ内', '堀ノ内', 'mlit:st-2e566f1a84aad175', 'ja', 0),
@@ -19865,7 +19897,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('大山', '大山', 'geonames:1853486', 'ja', 10),
     ('大山', '大山', 'mlit:st-18bdfa72b608d2a0', 'ja', 0),
     ('大山', '大山', 'mlit:st-e55845fb1bf1f037', 'ja', 0),
-    ('大山ケーブル', '大山ケーブル', 'mlit:st-c4aa7b5ba83d9358', 'ja', 0),
+    ('大山ケーブル', '大山ケーブル', 'mlit:st-c4aa7b5ba83d9358', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('大山ケーブル駅', '大山ケーブル駅', 'mlit:st-c4aa7b5ba83d9358', 'ja', 0),
     ('大山口', '大山口', 'mlit:st-7e22d8d95e8ff1a3', 'ja', 0),
     ('大山口駅', '大山口駅', 'mlit:st-7e22d8d95e8ff1a3', 'ja', 0),
@@ -19897,10 +19932,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('大島駅', '大島駅', 'mlit:st-9045601d95274988', 'ja', 0),
     ('大崎', '大崎', 'mlit:st-e489d44d25ca881d', 'ja', 0),
     ('大崎市', '大崎市', 'geonames:6822188', 'ja', 10),
-    ('大崎広小路', '大崎広小路', 'mlit:st-3735172c1441d325', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('大崎広小路', '大崎広小路', 'mlit:st-3735172c1441d325', 'ja', 0),
     ('大崎広小路駅', '大崎広小路駅', 'mlit:st-3735172c1441d325', 'ja', 0),
     ('大崎町', '大崎町', 'geonames:1895636', 'ja', 10),
     ('大崎駅', '大崎駅', 'mlit:st-e489d44d25ca881d', 'ja', 0),
@@ -20368,7 +20400,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('天満', '天満', 'mlit:st-61f6f59c47688552', 'ja', 0),
     ('天満橋', '天満橋', 'mlit:st-eacecd6299364d22', 'ja', 0),
     ('天満橋駅', '天満橋駅', 'mlit:st-eacecd6299364d22', 'ja', 0),
-    ('天満町', '天満町', 'mlit:st-8d0aa3c276dda880', 'ja', 0),
+    ('天満町', '天満町', 'mlit:st-8d0aa3c276dda880', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('天満町駅', '天満町駅', 'mlit:st-8d0aa3c276dda880', 'ja', 0),
     ('天満駅', '天満駅', 'mlit:st-61f6f59c47688552', 'ja', 0),
     ('天王', '天王', 'geonames:1850405', 'ja', 10),
@@ -20400,10 +20435,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('天神南', '天神南', 'mlit:st-3d93dd637efe06f9', 'ja', 0),
     ('天神南駅', '天神南駅', 'mlit:st-3d93dd637efe06f9', 'ja', 0),
     ('天神山', '天神山', 'mlit:st-5ae12ac3d1a4aff8', 'ja', 0),
-    ('天神山駅', '天神山駅', 'mlit:st-5ae12ac3d1a4aff8', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('天神山駅', '天神山駅', 'mlit:st-5ae12ac3d1a4aff8', 'ja', 0),
     ('天神川', '天神川', 'mlit:st-97822ea55f411d32', 'ja', 0),
     ('天神川駅', '天神川駅', 'mlit:st-97822ea55f411d32', 'ja', 0),
     ('天神橋筋六丁目', '天神橋筋六丁目', 'mlit:st-e03507e89d66e618', 'ja', 0),
@@ -20871,7 +20903,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('宍道駅', '宍道駅', 'mlit:st-69c9ad9032735e70', 'ja', 0),
     ('宗像', '宗像', 'geonames:11611614', 'ja', 10),
     ('宗吾参道', '宗吾参道', 'mlit:st-3886ea34e9f72088', 'ja', 0),
-    ('宗吾参道駅', '宗吾参道駅', 'mlit:st-3886ea34e9f72088', 'ja', 0),
+    ('宗吾参道駅', '宗吾参道駅', 'mlit:st-3886ea34e9f72088', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('宗太郎', '宗太郎', 'mlit:st-2afa6913e35f932a', 'ja', 0),
     ('宗太郎駅', '宗太郎駅', 'mlit:st-2afa6913e35f932a', 'ja', 0),
     ('宗道', '宗道', 'mlit:st-d5ce07a63d884ebc', 'ja', 0),
@@ -20903,10 +20938,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('宝珠山駅', '宝珠山駅', 'mlit:st-2efd09968af10bbe', 'ja', 0),
     ('宝町', '宝町', 'mlit:st-634c953d5f526408', 'ja', 0),
     ('宝町', '宝町', 'mlit:st-ab72e46bea6301ae', 'ja', 0),
-    ('宝町駅', '宝町駅', 'mlit:st-634c953d5f526408', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('宝町駅', '宝町駅', 'mlit:st-634c953d5f526408', 'ja', 0),
     ('宝町駅', '宝町駅', 'mlit:st-ab72e46bea6301ae', 'ja', 0),
     ('宝積寺', '宝積寺', 'mlit:st-8b144b1a54762f2c', 'ja', 0),
     ('宝積寺駅', '宝積寺駅', 'mlit:st-8b144b1a54762f2c', 'ja', 0),
@@ -20930,6 +20962,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('室見', '室見', 'mlit:st-35bcb8b3896e451a', 'ja', 0),
     ('室見駅', '室見駅', 'mlit:st-35bcb8b3896e451a', 'ja', 0),
     ('室駅', '室駅', 'mlit:st-f7ad948fefa43c87', 'ja', 0),
+    ('宫城', '宫城', 'geonames:2111149', 'zh', 10),
+    ('宫城县', '宫城县', 'pref:04', 'zh', 20),
+    ('宫崎', '宫崎', 'geonames:1856717', 'zh', 10),
+    ('宫崎县', '宫崎县', 'pref:45', 'zh', 20),
     ('宮の坂', '宮の坂', 'mlit:st-3b309795751dd095', 'ja', 0),
     ('宮の坂駅', '宮の坂駅', 'mlit:st-3b309795751dd095', 'ja', 0),
     ('宮の奥', '宮の奥', 'mlit:st-75a19419738aa93c', 'ja', 0),
@@ -20975,7 +21011,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('宮古駅', '宮古駅', 'mlit:st-44bf62ef7d2e2841', 'ja', 0),
     ('宮地', '宮地', 'mlit:st-83ae5505b9c243b3', 'ja', 0),
     ('宮地駅', '宮地駅', 'mlit:st-83ae5505b9c243b3', 'ja', 0),
-    ('宮城县', '宮城县', 'pref:04', 'zh', 20),
+    ('宮城', '宮城', 'geonames:2111149', 'ja', 10),
     ('宮城県', '宮城県', 'pref:04', 'ja', 20),
     ('宮城野原', '宮城野原', 'mlit:st-7cbfdcca4f3d7551', 'ja', 0),
     ('宮城野原駅', '宮城野原駅', 'mlit:st-7cbfdcca4f3d7551', 'ja', 0),
@@ -20993,7 +21029,6 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('宮島口駅', '宮島口駅', 'mlit:st-1b0123657deeec6d', 'ja', 0),
     ('宮崎', '宮崎', 'geonames:1856717', 'zh', 10),
     ('宮崎', '宮崎', 'mlit:st-15e42136dd5f6e80', 'ja', 0),
-    ('宮崎县', '宮崎县', 'pref:45', 'zh', 20),
     ('宮崎台', '宮崎台', 'mlit:st-646ef38dd3007a67', 'ja', 0),
     ('宮崎台駅', '宮崎台駅', 'mlit:st-646ef38dd3007a67', 'ja', 0),
     ('宮崎市', '宮崎市', 'geonames:1856717', 'ja', 10),
@@ -21371,7 +21406,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('小松', '小松', 'geonames:1858910', 'zh', 10),
     ('小松', '小松', 'geonames:2112156', 'ja', 10),
     ('小松', '小松', 'mlit:st-116673f5abe247bb', 'ja', 0),
-    ('小松島', '小松島', 'geonames:1858902', 'zh', 10),
+    ('小松島', '小松島', 'geonames:1858902', 'zh', 10)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('小松島町', '小松島町', 'geonames:1858902', 'ja', 10),
     ('小松川', '小松川', 'mlit:st-d77b7ce1bdad2393', 'ja', 0),
     ('小松川駅', '小松川駅', 'mlit:st-d77b7ce1bdad2393', 'ja', 0),
@@ -21406,10 +21444,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('小櫃', '小櫃', 'mlit:st-58e30e5340896761', 'ja', 0),
     ('小櫃駅', '小櫃駅', 'mlit:st-58e30e5340896761', 'ja', 0),
     ('小歩危', '小歩危', 'mlit:st-be85af5f1610bd35', 'ja', 0),
-    ('小歩危駅', '小歩危駅', 'mlit:st-be85af5f1610bd35', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('小歩危駅', '小歩危駅', 'mlit:st-be85af5f1610bd35', 'ja', 0),
     ('小江', '小江', 'mlit:st-eaeca2641b204177', 'ja', 0),
     ('小江駅', '小江駅', 'mlit:st-eaeca2641b204177', 'ja', 0),
     ('小池', '小池', 'mlit:st-3fee1b2a996170a2', 'ja', 0),
@@ -21736,6 +21771,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('山東', '山東', 'mlit:st-93a18931a099b4ea', 'ja', 0),
     ('山東駅', '山東駅', 'mlit:st-93a18931a099b4ea', 'ja', 0),
     ('山梨', '山梨', 'geonames:11611479', 'ja', 10),
+    ('山梨', '山梨', 'geonames:1859100', 'ja', 10),
     ('山梨县', '山梨县', 'pref:19', 'zh', 20),
     ('山梨市', '山梨市', 'mlit:st-d9571d72ba83de0c', 'ja', 0),
     ('山梨市駅', '山梨市駅', 'mlit:st-d9571d72ba83de0c', 'ja', 0),
@@ -21827,6 +21863,8 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('岐阜羽島', '岐阜羽島', 'mlit:st-66b462892e75b998', 'ja', 0),
     ('岐阜羽島駅', '岐阜羽島駅', 'mlit:st-66b462892e75b998', 'ja', 0),
     ('岐阜駅', '岐阜駅', 'mlit:st-1969bab8a2e26201', 'ja', 0),
+    ('岛根', '岛根', 'geonames:1857550', 'zh', 10),
+    ('岛根县', '岛根县', 'pref:32', 'zh', 20),
     ('岡', '岡', 'mlit:st-7348560dccc5e530', 'ja', 0),
     ('岡地', '岡地', 'mlit:st-9a29a24b954a4016', 'ja', 0),
     ('岡地駅', '岡地駅', 'mlit:st-9a29a24b954a4016', 'ja', 0),
@@ -21836,7 +21874,6 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('岡寺駅', '岡寺駅', 'mlit:st-d625bc7768fdf580', 'ja', 0),
     ('岡山', '岡山', 'geonames:1854383', 'zh', 10),
     ('岡山', '岡山', 'mlit:st-3ce9db82abf788fa', 'ja', 0),
-    ('岡山县', '岡山县', 'pref:33', 'zh', 20),
     ('岡山市', '岡山市', 'geonames:1854383', 'ja', 10),
     ('岡山県', '岡山県', 'pref:33', 'ja', 20),
     ('岡山駅', '岡山駅', 'mlit:st-3ce9db82abf788fa', 'ja', 0),
@@ -21872,7 +21909,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('岡谷', '岡谷', 'mlit:st-54cdba3e00cc2214', 'ja', 0),
     ('岡谷駅', '岡谷駅', 'mlit:st-54cdba3e00cc2214', 'ja', 0),
     ('岡部', '岡部', 'mlit:st-da77236b3e1cc324', 'ja', 0),
-    ('岡部駅', '岡部駅', 'mlit:st-da77236b3e1cc324', 'ja', 0),
+    ('岡部駅', '岡部駅', 'mlit:st-da77236b3e1cc324', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('岡駅', '岡駅', 'mlit:st-7348560dccc5e530', 'ja', 0),
     ('岩ノ下', '岩ノ下', 'mlit:st-0e149c3d3ef7dbfb', 'ja', 0),
     ('岩ノ下駅', '岩ノ下駅', 'mlit:st-0e149c3d3ef7dbfb', 'ja', 0),
@@ -21909,10 +21949,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('岩城みなと', '岩城みなと', 'mlit:st-163719c2956c2d14', 'ja', 0),
     ('岩城みなと駅', '岩城みなと駅', 'mlit:st-163719c2956c2d14', 'ja', 0),
     ('岩塚', '岩塚', 'mlit:st-1e8b6be328e293f0', 'ja', 0),
-    ('岩塚駅', '岩塚駅', 'mlit:st-1e8b6be328e293f0', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('岩塚駅', '岩塚駅', 'mlit:st-1e8b6be328e293f0', 'ja', 0),
     ('岩室', '岩室', 'mlit:st-7e7ac1d60fd5bac4', 'ja', 0),
     ('岩室駅', '岩室駅', 'mlit:st-7e7ac1d60fd5bac4', 'ja', 0),
     ('岩宿', '岩宿', 'mlit:st-1968dc3b40e9d71d', 'ja', 0),
@@ -21929,6 +21966,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('岩峅寺駅', '岩峅寺駅', 'mlit:st-561155ff2ed58198', 'ja', 0),
     ('岩島', '岩島', 'mlit:st-777358f1961b3d47', 'ja', 0),
     ('岩島駅', '岩島駅', 'mlit:st-777358f1961b3d47', 'ja', 0),
+    ('岩手', '岩手', 'geonames:2111834', 'ja', 10),
     ('岩手上郷', '岩手上郷', 'mlit:st-94ccc67487f219d2', 'ja', 0),
     ('岩手上郷駅', '岩手上郷駅', 'mlit:st-94ccc67487f219d2', 'ja', 0),
     ('岩手二日町', '岩手二日町', 'mlit:st-40634473b017d74c', 'ja', 0),
@@ -22050,7 +22088,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('島本駅', '島本駅', 'mlit:st-13a9211964bed17a', 'ja', 0),
     ('島松', '島松', 'mlit:st-dedf86b9ac8be218', 'ja', 0),
     ('島松駅', '島松駅', 'mlit:st-dedf86b9ac8be218', 'ja', 0),
-    ('島根县', '島根县', 'pref:32', 'zh', 20),
+    ('島根', '島根', 'geonames:1857550', 'ja', 10),
     ('島根県', '島根県', 'pref:32', 'ja', 20),
     ('島氏永', '島氏永', 'mlit:st-8b6e160b97ad93b4', 'ja', 0),
     ('島氏永駅', '島氏永駅', 'mlit:st-8b6e160b97ad93b4', 'ja', 0),
@@ -22374,7 +22412,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('布施駅', '布施駅', 'mlit:st-d02b1715f1c2b3db', 'ja', 0),
     ('布田', '布田', 'mlit:st-d81a8ec46f230ac0', 'ja', 0),
     ('布田駅', '布田駅', 'mlit:st-d81a8ec46f230ac0', 'ja', 0),
-    ('布袋', '布袋', 'mlit:st-0a35a4c7edb71473', 'ja', 0),
+    ('布袋', '布袋', 'mlit:st-0a35a4c7edb71473', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('布袋駅', '布袋駅', 'mlit:st-0a35a4c7edb71473', 'ja', 0),
     ('布部', '布部', 'mlit:st-4f009c332da1b30d', 'ja', 0),
     ('布部駅', '布部駅', 'mlit:st-4f009c332da1b30d', 'ja', 0),
@@ -22412,10 +22453,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('常澄駅', '常澄駅', 'mlit:st-c29843cbd01af9d7', 'ja', 0),
     ('常盤', '常盤', 'mlit:st-2f10bf2c2624f813', 'ja', 0),
     ('常盤', '常盤', 'mlit:st-31f08a5585f56949', 'ja', 0),
-    ('常盤', '常盤', 'mlit:st-e34442a8ba43ec1c', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('常盤', '常盤', 'mlit:st-e34442a8ba43ec1c', 'ja', 0),
     ('常盤台', '常盤台', 'geonames:11010212', 'ja', 5),
     ('常盤平', '常盤平', 'mlit:st-de8cb33005b3f592', 'ja', 0),
     ('常盤平駅', '常盤平駅', 'mlit:st-de8cb33005b3f592', 'ja', 0),
@@ -22611,6 +22649,8 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('幸駅', '幸駅', 'mlit:st-7f834f1cb004e98c', 'ja', 0),
     ('幾寅', '幾寅', 'mlit:st-46c4c055d78fe9d6', 'ja', 0),
     ('幾寅駅', '幾寅駅', 'mlit:st-46c4c055d78fe9d6', 'ja', 0),
+    ('广岛', '广岛', 'geonames:1862415', 'zh', 10),
+    ('广岛县', '广岛县', 'pref:34', 'zh', 20),
     ('広', '広', 'mlit:st-6fec6431bc581a41', 'ja', 0),
     ('広丘', '広丘', 'mlit:st-dbdeffb330f832d2', 'ja', 0),
     ('広丘駅', '広丘駅', 'mlit:st-dbdeffb330f832d2', 'ja', 0),
@@ -22629,7 +22669,6 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('広尾駅', '広尾駅', 'mlit:st-8647717d49315189', 'ja', 0),
     ('広島', '広島', 'geonames:1862415', 'zh', 10),
     ('広島', '広島', 'mlit:st-a236e153ca872546', 'ja', 0),
-    ('広島县', '広島县', 'pref:34', 'zh', 20),
     ('広島市', '広島市', 'geonames:1862415', 'ja', 10),
     ('広島港（宇品）', '広島港(宇品)', 'mlit:st-eb9ff9388eb58bcd', 'ja', 0),
     ('広島港（宇品）駅', '広島港(宇品)駅', 'mlit:st-eb9ff9388eb58bcd', 'ja', 0),
@@ -22876,7 +22915,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('御幣島', '御幣島', 'mlit:st-5861811d39b5f4d7', 'ja', 0),
     ('御幣島駅', '御幣島駅', 'mlit:st-5861811d39b5f4d7', 'ja', 0),
     ('御幸橋', '御幸橋', 'mlit:st-a92a4a270c193381', 'ja', 0),
-    ('御幸橋駅', '御幸橋駅', 'mlit:st-a92a4a270c193381', 'ja', 0),
+    ('御幸橋駅', '御幸橋駅', 'mlit:st-a92a4a270c193381', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('御幸辻', '御幸辻', 'mlit:st-d90409dab0e4deb3', 'ja', 0),
     ('御幸辻駅', '御幸辻駅', 'mlit:st-d90409dab0e4deb3', 'ja', 0),
     ('御影', '御影', 'mlit:st-3ceadcc9f69bfb34', 'ja', 0),
@@ -22915,10 +22957,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('御門台駅', '御門台駅', 'mlit:st-dd0cedab5f69fc57', 'ja', 0),
     ('御陵', '御陵', 'mlit:st-f49671772902bd23', 'ja', 0),
     ('御陵前', '御陵前', 'mlit:st-2f652819ef319574', 'ja', 0),
-    ('御陵前駅', '御陵前駅', 'mlit:st-2f652819ef319574', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('御陵前駅', '御陵前駅', 'mlit:st-2f652819ef319574', 'ja', 0),
     ('御陵駅', '御陵駅', 'mlit:st-f49671772902bd23', 'ja', 0),
     ('御領', '御領', 'mlit:st-05160a38cf1e4378', 'ja', 0),
     ('御領', '御領', 'mlit:st-0f783b13b7bc6ee2', 'ja', 0),
@@ -22941,7 +22980,6 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('徳山駅', '徳山駅', 'mlit:st-53535ff1d4b114a1', 'ja', 0),
     ('徳島', '徳島', 'geonames:1850158', 'zh', 10),
     ('徳島', '徳島', 'mlit:st-2ab1a452bfbd6045', 'ja', 0),
-    ('徳島县', '徳島县', 'pref:36', 'zh', 20),
     ('徳島市', '徳島市', 'geonames:1850158', 'ja', 10),
     ('徳島県', '徳島県', 'pref:36', 'ja', 20),
     ('徳島駅', '徳島駅', 'mlit:st-2ab1a452bfbd6045', 'ja', 0),
@@ -22962,6 +23000,8 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('徳重・名古屋芸大', '徳重・名古屋芸大', 'mlit:st-48ea83821a0f1bb9', 'ja', 0),
     ('徳重・名古屋芸大駅', '徳重・名古屋芸大駅', 'mlit:st-48ea83821a0f1bb9', 'ja', 0),
     ('徳重駅', '徳重駅', 'mlit:st-e6e8108859f60286', 'ja', 0),
+    ('德岛', '德岛', 'geonames:1850158', 'zh', 10),
+    ('德岛县', '德岛县', 'pref:36', 'zh', 20),
     ('心斎橋', '心斎橋', 'mlit:st-ba7809ec7676f030', 'ja', 0),
     ('心斎橋駅', '心斎橋駅', 'mlit:st-ba7809ec7676f030', 'ja', 0),
     ('心臓血管センター', '心臓血管センター', 'mlit:st-20fc76e45f2e0b32', 'ja', 0),
@@ -23081,7 +23121,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('愛別駅', '愛別駅', 'mlit:st-c370abc184c3d04b', 'ja', 0),
     ('愛大医学部南口', '愛大医学部南口', 'mlit:st-a7e10728e75c9a6e', 'ja', 0),
     ('愛大医学部南口駅', '愛大医学部南口駅', 'mlit:st-a7e10728e75c9a6e', 'ja', 0),
-    ('愛媛县', '愛媛县', 'pref:38', 'zh', 20),
+    ('愛媛', '愛媛', 'geonames:1926099', 'ja', 10),
     ('愛媛県', '愛媛県', 'pref:38', 'ja', 20),
     ('愛子', '愛子', 'mlit:st-3bf347a90819709f', 'ja', 0),
     ('愛子駅', '愛子駅', 'mlit:st-3bf347a90819709f', 'ja', 0),
@@ -23099,7 +23139,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('愛環梅坪駅', '愛環梅坪駅', 'mlit:st-7444e2f92e66b85f', 'ja', 0),
     ('愛甲石田', '愛甲石田', 'mlit:st-8ab9cabe16751ba0', 'ja', 0),
     ('愛甲石田駅', '愛甲石田駅', 'mlit:st-8ab9cabe16751ba0', 'ja', 0),
-    ('愛知县', '愛知县', 'pref:23', 'zh', 20),
+    ('愛知', '愛知', 'geonames:1856057', 'ja', 10),
     ('愛知大学前', '愛知大学前', 'mlit:st-bfed90701ac15bb1', 'ja', 0),
     ('愛知大学前駅', '愛知大学前駅', 'mlit:st-bfed90701ac15bb1', 'ja', 0),
     ('愛知川', '愛知川', 'geonames:1864263', 'ja', 10),
@@ -23378,7 +23418,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('斎宮駅', '斎宮駅', 'mlit:st-83d5871cbc3a9cdb', 'ja', 0),
     ('斑鳩町', '斑鳩町', 'geonames:1862136', 'ja', 10),
     ('斗米', '斗米', 'mlit:st-36378a4e439335c5', 'ja', 0),
-    ('斗米駅', '斗米駅', 'mlit:st-36378a4e439335c5', 'ja', 0),
+    ('斗米駅', '斗米駅', 'mlit:st-36378a4e439335c5', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('斗賀野', '斗賀野', 'mlit:st-103a837f1848bcd3', 'ja', 0),
     ('斗賀野駅', '斗賀野駅', 'mlit:st-103a837f1848bcd3', 'ja', 0),
     ('新さっぽろ', '新さっぽろ', 'mlit:st-f07cdfb6b861dd8b', 'ja', 0),
@@ -23418,10 +23461,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('新今宮駅前駅', '新今宮駅前駅', 'mlit:st-1785a60abaa4a1a6', 'ja', 0),
     ('新今里', '新今里', 'geonames:9289915', 'ja', 10),
     ('新代田', '新代田', 'mlit:st-7faf08dd67f10a05', 'ja', 0),
-    ('新代田駅', '新代田駅', 'mlit:st-7faf08dd67f10a05', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('新代田駅', '新代田駅', 'mlit:st-7faf08dd67f10a05', 'ja', 0),
     ('新伊丹', '新伊丹', 'mlit:st-fec962f54b78cdd5', 'ja', 0),
     ('新伊丹駅', '新伊丹駅', 'mlit:st-fec962f54b78cdd5', 'ja', 0),
     ('新伊勢崎', '新伊勢崎', 'mlit:st-89d8bfdb029d6d4d', 'ja', 0),
@@ -23881,7 +23921,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('新鶴羽', '新鶴羽', 'mlit:st-ed307f63ff31fd60', 'ja', 0),
     ('新鶴羽駅', '新鶴羽駅', 'mlit:st-ed307f63ff31fd60', 'ja', 0),
     ('新鶴駅', '新鶴駅', 'mlit:st-2af6895c1cef67e7', 'ja', 0),
-    ('新鹿', '新鹿', 'mlit:st-3d1c86e4e48ae1cf', 'ja', 0),
+    ('新鹿', '新鹿', 'mlit:st-3d1c86e4e48ae1cf', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('新鹿沼', '新鹿沼', 'mlit:st-6c705683a8d5a327', 'ja', 0),
     ('新鹿沼駅', '新鹿沼駅', 'mlit:st-6c705683a8d5a327', 'ja', 0),
     ('新鹿駅', '新鹿駅', 'mlit:st-3d1c86e4e48ae1cf', 'ja', 0),
@@ -23921,10 +23964,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('日切', '日切', 'mlit:st-ee5b23ba62b36f2a', 'ja', 0),
     ('日切駅', '日切駅', 'mlit:st-ee5b23ba62b36f2a', 'ja', 0),
     ('日前宮', '日前宮', 'mlit:st-a35a5f3603c98d25', 'ja', 0),
-    ('日前宮駅', '日前宮駅', 'mlit:st-a35a5f3603c98d25', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('日前宮駅', '日前宮駅', 'mlit:st-a35a5f3603c98d25', 'ja', 0),
     ('日南', '日南', 'geonames:1855476', 'zh', 10),
     ('日南', '日南', 'mlit:st-3074fd4e73c44f39', 'ja', 0),
     ('日南市', '日南市', 'geonames:1855476', 'ja', 10),
@@ -24384,7 +24424,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('朝霞台駅', '朝霞台駅', 'mlit:st-fff037c084b0f55f', 'ja', 0),
     ('朝霞市', '朝霞市', 'geonames:1907299', 'ja', 10),
     ('朝霞駅', '朝霞駅', 'mlit:st-e4f356fa7cc91ad2', 'ja', 0),
-    ('朝霧', '朝霧', 'mlit:st-16102477104d80e5', 'ja', 0),
+    ('朝霧', '朝霧', 'mlit:st-16102477104d80e5', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('朝霧駅', '朝霧駅', 'mlit:st-16102477104d80e5', 'ja', 0),
     ('木ノ下', '木ノ下', 'mlit:st-a3ab47f0699ef291', 'ja', 0),
     ('木ノ下駅', '木ノ下駅', 'mlit:st-a3ab47f0699ef291', 'ja', 0),
@@ -24424,10 +24467,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('木幡駅', '木幡駅', 'mlit:st-38be90a6f191c399', 'ja', 0),
     ('木幡駅', '木幡駅', 'mlit:st-f23922d0893ddd6c', 'ja', 0),
     ('木戸', '木戸', 'mlit:st-37abe16acb9fdb48', 'ja', 0),
-    ('木戸駅', '木戸駅', 'mlit:st-37abe16acb9fdb48', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('木戸駅', '木戸駅', 'mlit:st-37abe16acb9fdb48', 'ja', 0),
     ('木更津', '木更津', 'geonames:1859393', 'zh', 10),
     ('木更津', '木更津', 'mlit:st-e148c005e16b8e88', 'ja', 0),
     ('木更津市', '木更津市', 'geonames:1859393', 'ja', 10),
@@ -24887,7 +24927,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('東広島駅', '東広島駅', 'mlit:st-dbd7d9505f4831c7', 'ja', 0),
     ('東府中', '東府中', 'mlit:st-3d07ea676d7dd7a9', 'ja', 0),
     ('東府中駅', '東府中駅', 'mlit:st-3d07ea676d7dd7a9', 'ja', 0),
-    ('東御', '東御', 'geonames:6822177', 'ja', 10),
+    ('東御', '東御', 'geonames:6822177', 'ja', 10)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('東成岩', '東成岩', 'mlit:st-c0b91d95aa52591c', 'ja', 0),
     ('東成岩駅', '東成岩駅', 'mlit:st-c0b91d95aa52591c', 'ja', 0),
     ('東成田', '東成田', 'mlit:st-7a880c3b753c09ba', 'ja', 0),
@@ -24927,10 +24970,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('東札幌駅', '東札幌駅', 'mlit:st-f492a4ae98f6eed1', 'ja', 0),
     ('東村', '東村', 'geonames:1851230', 'ja', 10),
     ('東村山', '東村山', 'geonames:7279570', 'zh', 10),
-    ('東村山', '東村山', 'mlit:st-b0a00376f2b3b8b0', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('東村山', '東村山', 'mlit:st-b0a00376f2b3b8b0', 'ja', 0),
     ('東村山市', '東村山市', 'geonames:7279570', 'ja', 10),
     ('東村山駅', '東村山駅', 'mlit:st-b0a00376f2b3b8b0', 'ja', 0),
     ('東松原', '東松原', 'mlit:st-4dd0ee79b06dc042', 'ja', 0),
@@ -25390,12 +25430,17 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('枚方市', '枚方市', 'mlit:st-f478096be8ceb178', 'ja', 0),
     ('枚方市駅', '枚方市駅', 'mlit:st-f478096be8ceb178', 'ja', 0),
     ('枝光', '枝光', 'mlit:st-c27bc9f4902a501f', 'ja', 0),
-    ('枝光駅', '枝光駅', 'mlit:st-c27bc9f4902a501f', 'ja', 0),
+    ('枝光駅', '枝光駅', 'mlit:st-c27bc9f4902a501f', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('枝川', '枝川', 'mlit:st-171f9a03791ff08e', 'ja', 0),
     ('枝川駅', '枝川駅', 'mlit:st-171f9a03791ff08e', 'ja', 0),
     ('枝幸町', '枝幸町', 'geonames:2130364', 'ja', 10),
     ('枡形', '枡形', 'mlit:st-5785e8372deb3132', 'ja', 0),
     ('枡形駅', '枡形駅', 'mlit:st-5785e8372deb3132', 'ja', 0),
+    ('枥木', '枥木', 'geonames:1849053', 'zh', 10),
+    ('枥木县', '枥木县', 'pref:09', 'zh', 20),
     ('柏', '柏', 'geonames:1859924', 'zh', 10),
     ('柏', '柏', 'mlit:st-10d2cea62dc7c9fa', 'ja', 0),
     ('柏たなか', '柏たなか', 'mlit:st-81ff4a09c84694de', 'ja', 0),
@@ -25430,10 +25475,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('柏農高校前', '柏農高校前', 'mlit:st-b45b856995b481f2', 'ja', 0),
     ('柏農高校前駅', '柏農高校前駅', 'mlit:st-b45b856995b481f2', 'ja', 0),
     ('柏陽', '柏陽', 'mlit:st-875398d46714787c', 'ja', 0),
-    ('柏陽駅', '柏陽駅', 'mlit:st-875398d46714787c', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('柏陽駅', '柏陽駅', 'mlit:st-875398d46714787c', 'ja', 0),
     ('柏駅', '柏駅', 'mlit:st-10d2cea62dc7c9fa', 'ja', 0),
     ('柘植', '柘植', 'mlit:st-fedfa82c63cf32e0', 'ja', 0),
     ('柘植駅', '柘植駅', 'mlit:st-fedfa82c63cf32e0', 'ja', 0),
@@ -25523,9 +25565,9 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('栃尾本町', '栃尾本町', 'geonames:1850307', 'ja', 10),
     ('栃屋', '栃屋', 'mlit:st-086c5568f6f53b2f', 'ja', 0),
     ('栃屋駅', '栃屋駅', 'mlit:st-086c5568f6f53b2f', 'ja', 0),
+    ('栃木', '栃木', 'geonames:1849053', 'ja', 10),
     ('栃木', '栃木', 'geonames:1850311', 'zh', 10),
     ('栃木', '栃木', 'mlit:st-44d1075a1101dc8d', 'ja', 0),
-    ('栃木县', '栃木县', 'pref:09', 'zh', 20),
     ('栃木市', '栃木市', 'geonames:1850311', 'ja', 10),
     ('栃木県', '栃木県', 'pref:09', 'ja', 20),
     ('栃木駅', '栃木駅', 'mlit:st-44d1075a1101dc8d', 'ja', 0),
@@ -25891,7 +25933,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('検見川浜', '検見川浜', 'mlit:st-98eab181870f5926', 'ja', 0),
     ('検見川浜駅', '検見川浜駅', 'mlit:st-98eab181870f5926', 'ja', 0),
     ('検見川町', '検見川町', 'geonames:2112270', 'ja', 10),
-    ('検見川駅', '検見川駅', 'mlit:st-b6290d0fa8b096b4', 'ja', 0),
+    ('検見川駅', '検見川駅', 'mlit:st-b6290d0fa8b096b4', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('椥辻', '椥辻', 'mlit:st-20479ab08ac4118f', 'ja', 0),
     ('椥辻駅', '椥辻駅', 'mlit:st-20479ab08ac4118f', 'ja', 0),
     ('椿', '椿', 'mlit:st-3197fd2fdcea9116', 'ja', 0),
@@ -25933,10 +25978,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('榎戸駅', '榎戸駅', 'mlit:st-15043c3ee22f99ae', 'ja', 0),
     ('榎戸駅', '榎戸駅', 'mlit:st-3efd8d8a63de2ff2', 'ja', 0),
     ('榎町', '榎町', 'geonames:10865967', 'ja', 10),
-    ('榎町', '榎町', 'geonames:11081570', 'ja', 10)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('榎町', '榎町', 'geonames:11081570', 'ja', 10),
     ('榎町', '榎町', 'mlit:st-7ea3af86ebda602a', 'ja', 0),
     ('榎町駅', '榎町駅', 'mlit:st-7ea3af86ebda602a', 'ja', 0),
     ('榛原', '榛原', 'mlit:st-85802db3f2038cb5', 'ja', 0),
@@ -26394,7 +26436,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('江戸川橋駅', '江戸川橋駅', 'mlit:st-424facc368899fca', 'ja', 0),
     ('江戸川駅', '江戸川駅', 'mlit:st-b406ff547e01f591', 'ja', 0),
     ('江戸橋', '江戸橋', 'mlit:st-17f3f7203b7ec19b', 'ja', 0),
-    ('江戸橋駅', '江戸橋駅', 'mlit:st-17f3f7203b7ec19b', 'ja', 0),
+    ('江戸橋駅', '江戸橋駅', 'mlit:st-17f3f7203b7ec19b', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('江曽島', '江曽島', 'mlit:st-1ebf53f831a65e30', 'ja', 0),
     ('江曽島駅', '江曽島駅', 'mlit:st-1ebf53f831a65e30', 'ja', 0),
     ('江木', '江木', 'mlit:st-97500047cce2e5cf', 'ja', 0),
@@ -26436,10 +26481,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('池尻大橋', '池尻大橋', 'mlit:st-f0d2c44d49a82566', 'ja', 0),
     ('池尻大橋駅', '池尻大橋駅', 'mlit:st-f0d2c44d49a82566', 'ja', 0),
     ('池尻駅', '池尻駅', 'mlit:st-9c0a9fcfdc392037', 'ja', 0),
-    ('池戸', '池戸', 'mlit:st-d71d1e7a7b51a0a7', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('池戸', '池戸', 'mlit:st-d71d1e7a7b51a0a7', 'ja', 0),
     ('池戸駅', '池戸駅', 'mlit:st-d71d1e7a7b51a0a7', 'ja', 0),
     ('池月', '池月', 'mlit:st-fae61cc7e682455e', 'ja', 0),
     ('池月駅', '池月駅', 'mlit:st-fae61cc7e682455e', 'ja', 0),
@@ -26472,8 +26514,8 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('沓掛駅', '沓掛駅', 'mlit:st-de4c977ff8d53ef7', 'ja', 0),
     ('沖松島', '沖松島', 'mlit:st-53c263aadce30d61', 'ja', 0),
     ('沖松島駅', '沖松島駅', 'mlit:st-53c263aadce30d61', 'ja', 0),
+    ('沖縄', '沖縄', 'geonames:1856035', 'ja', 10),
     ('沖縄', '沖縄', 'geonames:1894616', 'zh', 10),
-    ('沖縄县', '沖縄县', 'pref:47', 'zh', 20),
     ('沖縄市', '沖縄市', 'geonames:1894616', 'ja', 10),
     ('沖縄県', '沖縄県', 'pref:47', 'ja', 20),
     ('沢', '沢', 'mlit:st-421d422c3327eaef', 'ja', 0),
@@ -26897,7 +26939,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('浦佐', '浦佐', 'geonames:1849198', 'ja', 10),
     ('浦佐', '浦佐', 'mlit:st-4bb85170822d0a0c', 'ja', 0),
     ('浦佐駅', '浦佐駅', 'mlit:st-4bb85170822d0a0c', 'ja', 0),
-    ('浦和', '浦和', 'mlit:st-987970baf5356f84', 'ja', 0),
+    ('浦和', '浦和', 'mlit:st-987970baf5356f84', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('浦和美園', '浦和美園', 'mlit:st-1c9cb0f4fa1e6cc6', 'ja', 0),
     ('浦和美園駅', '浦和美園駅', 'mlit:st-1c9cb0f4fa1e6cc6', 'ja', 0),
     ('浦和駅', '浦和駅', 'mlit:st-987970baf5356f84', 'ja', 0),
@@ -26939,10 +26984,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('浪花駅', '浪花駅', 'mlit:st-bdc7fbef7b376ee6', 'ja', 0),
     ('浮孔', '浮孔', 'mlit:st-a5c49cd830bd5046', 'ja', 0),
     ('浮孔駅', '浮孔駅', 'mlit:st-a5c49cd830bd5046', 'ja', 0),
-    ('浮間舟渡', '浮間舟渡', 'mlit:st-c008f10488ded29c', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('浮間舟渡', '浮間舟渡', 'mlit:st-c008f10488ded29c', 'ja', 0),
     ('浮間舟渡駅', '浮間舟渡駅', 'mlit:st-c008f10488ded29c', 'ja', 0),
     ('浮鞭', '浮鞭', 'mlit:st-7dd227b8bb20aebd', 'ja', 0),
     ('浮鞭駅', '浮鞭駅', 'mlit:st-7dd227b8bb20aebd', 'ja', 0),
@@ -27292,10 +27334,12 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('溝の口駅', '溝の口駅', 'mlit:st-e2e69bc7eab63110', 'ja', 0),
     ('溝口', '溝口', 'mlit:st-ab6dace48fd98dfb', 'ja', 0),
     ('溝口駅', '溝口駅', 'mlit:st-ab6dace48fd98dfb', 'ja', 0),
-    ('滋賀县', '滋賀县', 'pref:25', 'zh', 20),
+    ('滋賀', '滋賀', 'geonames:1853574', 'ja', 10),
     ('滋賀県', '滋賀県', 'pref:25', 'ja', 20),
     ('滋賀里', '滋賀里', 'mlit:st-8111c08a1e0d1573', 'ja', 0),
     ('滋賀里駅', '滋賀里駅', 'mlit:st-8111c08a1e0d1573', 'ja', 0),
+    ('滋贺', '滋贺', 'geonames:1853574', 'zh', 10),
+    ('滋贺县', '滋贺县', 'pref:25', 'zh', 20),
     ('滋野', '滋野', 'mlit:st-abb39c9209844797', 'ja', 0),
     ('滋野駅', '滋野駅', 'mlit:st-abb39c9209844797', 'ja', 0),
     ('滑川', '滑川', 'geonames:1855694', 'zh', 10),
@@ -27398,7 +27442,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('瀬田駅', '瀬田駅', 'mlit:st-a2b6fa6d3d2a5daa', 'ja', 0),
     ('瀬見温泉', '瀬見温泉', 'mlit:st-fba149758bea6573', 'ja', 0),
     ('瀬見温泉駅', '瀬見温泉駅', 'mlit:st-fba149758bea6573', 'ja', 0),
-    ('瀬谷', '瀬谷', 'mlit:st-9ea07e1093023c2e', 'ja', 0),
+    ('瀬谷', '瀬谷', 'mlit:st-9ea07e1093023c2e', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('瀬谷駅', '瀬谷駅', 'mlit:st-9ea07e1093023c2e', 'ja', 0),
     ('瀬辺地', '瀬辺地', 'mlit:st-0a4a64ed46c3b1bf', 'ja', 0),
     ('瀬辺地駅', '瀬辺地駅', 'mlit:st-0a4a64ed46c3b1bf', 'ja', 0),
@@ -27442,10 +27489,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('熊川', '熊川', 'mlit:st-40780535efd66756', 'ja', 0),
     ('熊川駅', '熊川駅', 'mlit:st-40780535efd66756', 'ja', 0),
     ('熊本', '熊本', 'geonames:1858421', 'zh', 10),
-    ('熊本', '熊本', 'mlit:st-9c1ef20c69e33f03', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('熊本', '熊本', 'mlit:st-9c1ef20c69e33f03', 'ja', 0),
     ('熊本县', '熊本县', 'pref:43', 'zh', 20),
     ('熊本城・市役所前', '熊本城・市役所前', 'mlit:st-cd8125812a1f0941', 'ja', 0),
     ('熊本城・市役所前駅', '熊本城・市役所前駅', 'mlit:st-cd8125812a1f0941', 'ja', 0),
@@ -27486,6 +27530,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('燕三条駅', '燕三条駅', 'mlit:st-7852d4eb7012f479', 'ja', 0),
     ('燕市', '燕市', 'geonames:1849788', 'ja', 10),
     ('燕駅', '燕駅', 'mlit:st-8c508af823eb44e7', 'ja', 0),
+    ('爱媛', '爱媛', 'geonames:1926099', 'zh', 10),
+    ('爱媛县', '爱媛县', 'pref:38', 'zh', 20),
+    ('爱知', '爱知', 'geonames:1856057', 'zh', 10),
+    ('爱知县', '爱知县', 'pref:23', 'zh', 20),
     ('片倉', '片倉', 'mlit:st-6d73dd51df365ed9', 'ja', 0),
     ('片倉町', '片倉町', 'mlit:st-1bbe93e6ec84f80b', 'ja', 0),
     ('片倉町駅', '片倉町駅', 'mlit:st-1bbe93e6ec84f80b', 'ja', 0),
@@ -27897,7 +27945,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('田崎橋', '田崎橋', 'mlit:st-c85dd0b5c16ac1b4', 'ja', 0),
     ('田崎橋駅', '田崎橋駅', 'mlit:st-c85dd0b5c16ac1b4', 'ja', 0),
     ('田川', '田川', 'geonames:1851273', 'zh', 10),
-    ('田川伊田', '田川伊田', 'mlit:st-f606d2b403546690', 'ja', 0),
+    ('田川伊田', '田川伊田', 'mlit:st-f606d2b403546690', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('田川伊田駅', '田川伊田駅', 'mlit:st-f606d2b403546690', 'ja', 0),
     ('田川市', '田川市', 'geonames:1851273', 'ja', 10),
     ('田川市立病院', '田川市立病院', 'mlit:st-06b46907fc22eb96', 'ja', 0),
@@ -27945,10 +27996,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('田老', '田老', 'mlit:st-741acd4a39ef7c11', 'ja', 0),
     ('田老駅', '田老駅', 'mlit:st-741acd4a39ef7c11', 'ja', 0),
     ('田舎館', '田舎館', 'mlit:st-d8e23f7c2287e412', 'ja', 0),
-    ('田舎館駅', '田舎館駅', 'mlit:st-d8e23f7c2287e412', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('田舎館駅', '田舎館駅', 'mlit:st-d8e23f7c2287e412', 'ja', 0),
     ('田辺', '田辺', 'geonames:1850707', 'ja', 10),
     ('田辺', '田辺', 'geonames:1850708', 'zh', 10),
     ('田辺', '田辺', 'mlit:st-e2de8452ab4d6ee5', 'ja', 0),
@@ -28400,7 +28448,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('矢加部', '矢加部', 'mlit:st-a52a645125e7b009', 'ja', 0),
     ('矢加部駅', '矢加部駅', 'mlit:st-a52a645125e7b009', 'ja', 0),
     ('矢原', '矢原', 'mlit:st-df04b97f9611869c', 'ja', 0),
-    ('矢原駅', '矢原駅', 'mlit:st-df04b97f9611869c', 'ja', 0),
+    ('矢原駅', '矢原駅', 'mlit:st-df04b97f9611869c', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('矢口渡', '矢口渡', 'mlit:st-38068b704bf70e67', 'ja', 0),
     ('矢口渡駅', '矢口渡駅', 'mlit:st-38068b704bf70e67', 'ja', 0),
     ('矢向', '矢向', 'mlit:st-c134c75d663bc1a3', 'ja', 0),
@@ -28448,10 +28499,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('矢部駅', '矢部駅', 'mlit:st-c3e7d61bfa0aefbd', 'ja', 0),
     ('矢野', '矢野', 'mlit:st-d5eb178f022251fa', 'ja', 0),
     ('矢野口', '矢野口', 'mlit:st-4a675fb971a216e4', 'ja', 0),
-    ('矢野口駅', '矢野口駅', 'mlit:st-4a675fb971a216e4', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('矢野口駅', '矢野口駅', 'mlit:st-4a675fb971a216e4', 'ja', 0),
     ('矢野駅', '矢野駅', 'mlit:st-d5eb178f022251fa', 'ja', 0),
     ('知名町', '知名町', 'geonames:1864565', 'ja', 10),
     ('知和', '知和', 'mlit:st-df85d04d863a8e6c', 'ja', 0),
@@ -28532,6 +28580,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('石岡駅', '石岡駅', 'mlit:st-3bd46568b681e2da', 'ja', 0),
     ('石嶺', '石嶺', 'mlit:st-4b720e96f5a91023', 'ja', 0),
     ('石嶺駅', '石嶺駅', 'mlit:st-4b720e96f5a91023', 'ja', 0),
+    ('石川', '石川', 'geonames:1860243', 'ja', 10),
     ('石川', '石川', 'geonames:1861393', 'zh', 10),
     ('石川', '石川', 'geonames:2112583', 'zh', 10),
     ('石川', '石川', 'mlit:st-294faf3947d21fd0', 'ja', 0),
@@ -28743,6 +28792,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('神埼', '神埼', 'mlit:st-735287f60e31da84', 'ja', 0),
     ('神埼町神埼', '神埼町神埼', 'geonames:1860095', 'ja', 10),
     ('神埼駅', '神埼駅', 'mlit:st-735287f60e31da84', 'ja', 0),
+    ('神奈川', '神奈川', 'geonames:1848354', 'ja', 10),
     ('神奈川', '神奈川', 'mlit:st-5efb1da9ba79c782', 'ja', 0),
     ('神奈川县', '神奈川县', 'pref:14', 'zh', 20),
     ('神奈川新町', '神奈川新町', 'mlit:st-7cc8f7130981ec58', 'ja', 0),
@@ -28863,6 +28913,8 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('福光', '福光', 'geonames:1863973', 'ja', 10),
     ('福光', '福光', 'mlit:st-0ded11e93ddf241c', 'ja', 0),
     ('福光駅', '福光駅', 'mlit:st-0ded11e93ddf241c', 'ja', 0),
+    ('福冈', '福冈', 'geonames:1863967', 'zh', 10),
+    ('福冈县', '福冈县', 'pref:40', 'zh', 20),
     ('福原', '福原', 'mlit:st-14f0c960a1b99734', 'ja', 0),
     ('福原駅', '福原駅', 'mlit:st-14f0c960a1b99734', 'ja', 0),
     ('福吉', '福吉', 'mlit:st-8e640e4672151869', 'ja', 0),
@@ -28878,9 +28930,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('福山', '福山', 'mlit:st-38e2e9a25033d1c2', 'ja', 0),
     ('福山市', '福山市', 'geonames:1863917', 'ja', 10),
     ('福山駅', '福山駅', 'mlit:st-38e2e9a25033d1c2', 'ja', 0),
+    ('福岛', '福岛', 'geonames:2112923', 'zh', 10),
+    ('福岛县', '福岛县', 'pref:07', 'zh', 20),
     ('福岡', '福岡', 'geonames:1863967', 'zh', 10),
     ('福岡', '福岡', 'mlit:st-b8a09ca65a2217a2', 'ja', 0),
-    ('福岡县', '福岡县', 'pref:40', 'zh', 20),
     ('福岡市', '福岡市', 'geonames:1863967', 'ja', 10),
     ('福岡県', '福岡県', 'pref:40', 'ja', 20),
     ('福岡空港', '福岡空港', 'mlit:st-f1c4967d5ef6532e', 'ja', 0),
@@ -28892,14 +28945,16 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('福島', '福島', 'mlit:st-846f8c0d93ce7f4b', 'ja', 0),
     ('福島今町', '福島今町', 'mlit:st-45a36b9635a63a4d', 'ja', 0),
     ('福島今町駅', '福島今町駅', 'mlit:st-45a36b9635a63a4d', 'ja', 0),
-    ('福島县', '福島县', 'pref:07', 'zh', 20),
     ('福島口', '福島口', 'mlit:st-6a51440b20955f4b', 'ja', 0),
     ('福島口駅', '福島口駅', 'mlit:st-6a51440b20955f4b', 'ja', 0),
     ('福島学院前', '福島学院前', 'mlit:st-32a9d5703ac887db', 'ja', 0),
     ('福島学院前駅', '福島学院前駅', 'mlit:st-32a9d5703ac887db', 'ja', 0),
     ('福島市', '福島市', 'geonames:2112923', 'ja', 10),
     ('福島町', '福島町', 'geonames:2130324', 'ja', 10),
-    ('福島町', '福島町', 'mlit:st-939cf913054d5679', 'ja', 0),
+    ('福島町', '福島町', 'mlit:st-939cf913054d5679', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('福島町駅', '福島町駅', 'mlit:st-939cf913054d5679', 'ja', 0),
     ('福島県', '福島県', 'pref:07', 'ja', 20),
     ('福島駅', '福島駅', 'mlit:st-78fb95f20d53ca25', 'ja', 0),
@@ -28951,10 +29006,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('福駅', '福駅', 'mlit:st-b9219821353b2c91', 'ja', 0),
     ('禾生', '禾生', 'mlit:st-7e315a467763eca9', 'ja', 0),
     ('禾生駅', '禾生駅', 'mlit:st-7e315a467763eca9', 'ja', 0),
-    ('私市', '私市', 'mlit:st-0820daac0918f3a3', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('私市', '私市', 'mlit:st-0820daac0918f3a3', 'ja', 0),
     ('私市駅', '私市駅', 'mlit:st-0820daac0918f3a3', 'ja', 0),
     ('秋山', '秋山', 'mlit:st-10a74583721db2b2', 'ja', 0),
     ('秋山駅', '秋山駅', 'mlit:st-10a74583721db2b2', 'ja', 0),
@@ -29402,7 +29454,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('米ノ津', '米ノ津', 'mlit:st-1a676577d6e1b379', 'ja', 0),
     ('米ノ津駅', '米ノ津駅', 'mlit:st-1a676577d6e1b379', 'ja', 0),
     ('米内沢', '米内沢', 'mlit:st-c98c83d91ca415f8', 'ja', 0),
-    ('米内沢駅', '米内沢駅', 'mlit:st-c98c83d91ca415f8', 'ja', 0),
+    ('米内沢駅', '米内沢駅', 'mlit:st-c98c83d91ca415f8', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('米原', '米原', 'mlit:st-b1366858332703a2', 'ja', 0),
     ('米原市', '米原市', 'geonames:1857769', 'ja', 10),
     ('米原駅', '米原駅', 'mlit:st-b1366858332703a2', 'ja', 0),
@@ -29454,10 +29509,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('粟野駅', '粟野駅', 'mlit:st-1adede6f8c149e23', 'ja', 0),
     ('糀谷', '糀谷', 'mlit:st-2c8084fb36e2c7eb', 'ja', 0),
     ('糀谷駅', '糀谷駅', 'mlit:st-2c8084fb36e2c7eb', 'ja', 0),
-    ('糒', '糒', 'mlit:st-90c006ee775c940a', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('糒', '糒', 'mlit:st-90c006ee775c940a', 'ja', 0),
     ('糒駅', '糒駅', 'mlit:st-90c006ee775c940a', 'ja', 0),
     ('糠南', '糠南', 'mlit:st-9fb466341c087876', 'ja', 0),
     ('糠南駅', '糠南駅', 'mlit:st-9fb466341c087876', 'ja', 0),
@@ -29790,11 +29842,11 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('美馬', '美馬', 'geonames:11612574', 'ja', 10),
     ('美馬牛', '美馬牛', 'mlit:st-472a3558b47008d1', 'ja', 0),
     ('美馬牛駅', '美馬牛駅', 'mlit:st-472a3558b47008d1', 'ja', 0),
+    ('群馬', '群馬', 'geonames:1857843', 'ja', 10),
     ('群馬八幡', '群馬八幡', 'mlit:st-b9d773db7d9811fa', 'ja', 0),
     ('群馬八幡駅', '群馬八幡駅', 'mlit:st-b9d773db7d9811fa', 'ja', 0),
     ('群馬原町', '群馬原町', 'mlit:st-6634db5e99dfa16e', 'ja', 0),
     ('群馬原町駅', '群馬原町駅', 'mlit:st-6634db5e99dfa16e', 'ja', 0),
-    ('群馬县', '群馬县', 'pref:10', 'zh', 20),
     ('群馬大津', '群馬大津', 'mlit:st-e5bd8ee92db0b170', 'ja', 0),
     ('群馬大津駅', '群馬大津駅', 'mlit:st-e5bd8ee92db0b170', 'ja', 0),
     ('群馬県', '群馬県', 'pref:10', 'ja', 20),
@@ -29802,6 +29854,8 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('群馬総社駅', '群馬総社駅', 'mlit:st-c7301b0e5c3adccd', 'ja', 0),
     ('群馬藤岡', '群馬藤岡', 'mlit:st-ea65bb938fb4f12a', 'ja', 0),
     ('群馬藤岡駅', '群馬藤岡駅', 'mlit:st-ea65bb938fb4f12a', 'ja', 0),
+    ('群马', '群马', 'geonames:1857843', 'zh', 10),
+    ('群马县', '群马县', 'pref:10', 'zh', 20),
     ('義塾高校前', '義塾高校前', 'mlit:st-43bcbd0e5fe5c26d', 'ja', 0),
     ('義塾高校前駅', '義塾高校前駅', 'mlit:st-43bcbd0e5fe5c26d', 'ja', 0),
     ('羽ノ浦', '羽ノ浦', 'mlit:st-27b83ea9c03ccee2', 'ja', 0),
@@ -29903,7 +29957,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('羽衣駅', '羽衣駅', 'mlit:st-b99a0544632b224b', 'ja', 0),
     ('羽貫', '羽貫', 'mlit:st-b8bba67e9ad45d2d', 'ja', 0),
     ('羽貫駅', '羽貫駅', 'mlit:st-b8bba67e9ad45d2d', 'ja', 0),
-    ('羽間', '羽間', 'mlit:st-efebdc1270591756', 'ja', 0),
+    ('羽間', '羽間', 'mlit:st-efebdc1270591756', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('羽間駅', '羽間駅', 'mlit:st-efebdc1270591756', 'ja', 0),
     ('羽鳥', '羽鳥', 'mlit:st-63efd00385fb0ac4', 'ja', 0),
     ('羽鳥駅', '羽鳥駅', 'mlit:st-63efd00385fb0ac4', 'ja', 0),
@@ -29957,10 +30014,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('肥前飯田', '肥前飯田', 'mlit:st-68b0375d467faec8', 'ja', 0),
     ('肥前飯田駅', '肥前飯田駅', 'mlit:st-68b0375d467faec8', 'ja', 0),
     ('肥前鹿島', '肥前鹿島', 'mlit:st-bbcc0bc85848987c', 'ja', 0),
-    ('肥前鹿島駅', '肥前鹿島駅', 'mlit:st-bbcc0bc85848987c', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('肥前鹿島駅', '肥前鹿島駅', 'mlit:st-bbcc0bc85848987c', 'ja', 0),
     ('肥前麓', '肥前麓', 'mlit:st-83bbf6478f77fd50', 'ja', 0),
     ('肥前麓駅', '肥前麓駅', 'mlit:st-83bbf6478f77fd50', 'ja', 0),
     ('肥後二見', '肥後二見', 'mlit:st-80faf26b71a96299', 'ja', 0),
@@ -30336,6 +30390,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('茅野駅', '茅野駅', 'mlit:st-a1cf87ad09270ede', 'ja', 0),
     ('茗荷谷', '茗荷谷', 'mlit:st-f14281f7d2af5334', 'ja', 0),
     ('茗荷谷駅', '茗荷谷駅', 'mlit:st-f14281f7d2af5334', 'ja', 0),
+    ('茨城', '茨城', 'geonames:2111901', 'ja', 10),
     ('茨城县', '茨城县', 'pref:08', 'zh', 20),
     ('茨城県', '茨城県', 'pref:08', 'ja', 20),
     ('茨木', '茨木', 'geonames:1862033', 'zh', 10),
@@ -30405,7 +30460,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('荒屋新町', '荒屋新町', 'mlit:st-0449fdf8a73328fa', 'ja', 0),
     ('荒屋新町駅', '荒屋新町駅', 'mlit:st-0449fdf8a73328fa', 'ja', 0),
     ('荒島', '荒島', 'mlit:st-d938ccf269901769', 'ja', 0),
-    ('荒島駅', '荒島駅', 'mlit:st-d938ccf269901769', 'ja', 0),
+    ('荒島駅', '荒島駅', 'mlit:st-d938ccf269901769', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('荒川一中前', '荒川一中前', 'mlit:st-b7955b9bfd48433f', 'ja', 0),
     ('荒川一中前駅', '荒川一中前駅', 'mlit:st-b7955b9bfd48433f', 'ja', 0),
     ('荒川七丁目', '荒川七丁目', 'mlit:st-da9222a2957240a3', 'ja', 0),
@@ -30460,10 +30518,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('荻野駅', '荻野駅', 'mlit:st-19a683d7d3ede1fa', 'ja', 0),
     ('菅井', '菅井', 'geonames:9634762', 'ja', 10),
     ('菅尾', '菅尾', 'mlit:st-a318348a70a28824', 'ja', 0),
-    ('菅尾駅', '菅尾駅', 'mlit:st-a318348a70a28824', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('菅尾駅', '菅尾駅', 'mlit:st-a318348a70a28824', 'ja', 0),
     ('菅浜', '菅浜', 'geonames:1851532', 'ja', 10),
     ('菅稲田堤', '菅稲田堤', 'geonames:10862413', 'ja', 10),
     ('菅谷', '菅谷', 'mlit:st-6c6433803e9e43de', 'ja', 0),
@@ -30908,7 +30963,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('西前田駅', '西前田駅', 'mlit:st-052b2cd5b3ca3153', 'ja', 0),
     ('西加積', '西加積', 'mlit:st-8340e942c1ac0808', 'ja', 0),
     ('西加積駅', '西加積駅', 'mlit:st-8340e942c1ac0808', 'ja', 0),
-    ('西勝間田', '西勝間田', 'mlit:st-06a4db16276d4a6d', 'ja', 0),
+    ('西勝間田', '西勝間田', 'mlit:st-06a4db16276d4a6d', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('西勝間田駅', '西勝間田駅', 'mlit:st-06a4db16276d4a6d', 'ja', 0),
     ('西北見', '西北見', 'mlit:st-cbf9b0d51ac66c6b', 'ja', 0),
     ('西北見駅', '西北見駅', 'mlit:st-cbf9b0d51ac66c6b', 'ja', 0),
@@ -30963,10 +31021,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('西大寺', '西大寺', 'mlit:st-cd6093d033beb83f', 'ja', 0),
     ('西大寺町・岡山芸術創造劇場ハレノワ前', '西大寺町・岡山芸術創造劇場ハレノワ前', 'mlit:st-9a4c52db460d2ffd', 'ja', 0),
     ('西大寺町・岡山芸術創造劇場ハレノワ前駅', '西大寺町・岡山芸術創造劇場ハレノワ前駅', 'mlit:st-9a4c52db460d2ffd', 'ja', 0),
-    ('西大寺駅', '西大寺駅', 'mlit:st-cd6093d033beb83f', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('西大寺駅', '西大寺駅', 'mlit:st-cd6093d033beb83f', 'ja', 0),
     ('西大山', '西大山', 'mlit:st-ff36c1eccf05448e', 'ja', 0),
     ('西大山駅', '西大山駅', 'mlit:st-ff36c1eccf05448e', 'ja', 0),
     ('西大島', '西大島', 'mlit:st-73f6672830660a1f', 'ja', 0),
@@ -31411,7 +31466,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('観光通', '観光通', 'mlit:st-407d7f9fc694668f', 'ja', 0),
     ('観光通駅', '観光通駅', 'mlit:st-407d7f9fc694668f', 'ja', 0),
     ('観月橋', '観月橋', 'mlit:st-8eca6895623f7983', 'ja', 0),
-    ('観月橋駅', '観月橋駅', 'mlit:st-8eca6895623f7983', 'ja', 0),
+    ('観月橋駅', '観月橋駅', 'mlit:st-8eca6895623f7983', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('観音', '観音', 'mlit:st-ba5ca8fe18a34ec4', 'ja', 0),
     ('観音寺', '観音寺', 'geonames:11611934', 'ja', 10),
     ('観音寺', '観音寺', 'mlit:st-770650753c99c50c', 'ja', 0),
@@ -31466,10 +31524,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('諏訪ノ平', '諏訪ノ平', 'mlit:st-51a606ff7a195582', 'ja', 0),
     ('諏訪ノ平駅', '諏訪ノ平駅', 'mlit:st-51a606ff7a195582', 'ja', 0),
     ('諏訪ノ森', '諏訪ノ森', 'mlit:st-45206efe28a3b577', 'ja', 0),
-    ('諏訪ノ森駅', '諏訪ノ森駅', 'mlit:st-45206efe28a3b577', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('諏訪ノ森駅', '諏訪ノ森駅', 'mlit:st-45206efe28a3b577', 'ja', 0),
     ('諏訪川原', '諏訪川原', 'mlit:st-aec19b4746d25f08', 'ja', 0),
     ('諏訪川原駅', '諏訪川原駅', 'mlit:st-aec19b4746d25f08', 'ja', 0),
     ('諏訪市', '諏訪市', 'geonames:1851368', 'ja', 10),
@@ -31914,7 +31969,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('越後金丸駅', '越後金丸駅', 'mlit:st-da4ceeef3ecd747a', 'ja', 0),
     ('越後須原', '越後須原', 'mlit:st-45bc958d7ffd1cad', 'ja', 0),
     ('越後須原駅', '越後須原駅', 'mlit:st-45bc958d7ffd1cad', 'ja', 0),
-    ('越後鹿渡', '越後鹿渡', 'mlit:st-b499f091e0c2f4be', 'ja', 0),
+    ('越後鹿渡', '越後鹿渡', 'mlit:st-b499f091e0c2f4be', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('越後鹿渡駅', '越後鹿渡駅', 'mlit:st-b499f091e0c2f4be', 'ja', 0),
     ('越戸', '越戸', 'mlit:st-79b7826af63b8343', 'ja', 0),
     ('越戸駅', '越戸駅', 'mlit:st-79b7826af63b8343', 'ja', 0),
@@ -31969,10 +32027,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('身延', '身延', 'mlit:st-7078d2591bd154a1', 'ja', 0),
     ('身延駅', '身延駅', 'mlit:st-7078d2591bd154a1', 'ja', 0),
     ('車折神社', '車折神社', 'mlit:st-a8b38508b5914882', 'ja', 0),
-    ('車折神社駅', '車折神社駅', 'mlit:st-a8b38508b5914882', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('車折神社駅', '車折神社駅', 'mlit:st-a8b38508b5914882', 'ja', 0),
     ('車道', '車道', 'mlit:st-f19559abacd5c2d1', 'ja', 0),
     ('車道駅', '車道駅', 'mlit:st-f19559abacd5c2d1', 'ja', 0),
     ('軍畑', '軍畑', 'mlit:st-6c76021891d3ab35', 'ja', 0),
@@ -32417,7 +32472,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('野馳駅', '野馳駅', 'mlit:st-abe2f401bfb56774', 'ja', 0),
     ('金ケ崎町', '金ケ崎町', 'geonames:2112370', 'ja', 10),
     ('金ヶ崎', '金ヶ崎', 'mlit:st-f799040f00dc9755', 'ja', 0),
-    ('金ヶ崎駅', '金ヶ崎駅', 'mlit:st-f799040f00dc9755', 'ja', 0),
+    ('金ヶ崎駅', '金ヶ崎駅', 'mlit:st-f799040f00dc9755', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('金上', '金上', 'mlit:st-7216b825c3b8f311', 'ja', 0),
     ('金上駅', '金上駅', 'mlit:st-7216b825c3b8f311', 'ja', 0),
     ('金丸', '金丸', 'mlit:st-e6a2ced8f7481994', 'ja', 0),
@@ -32472,10 +32530,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('金沢駅', '金沢駅', 'mlit:st-78d05f3f057b0644', 'ja', 0),
     ('金浜', '金浜', 'mlit:st-6239cc5a19d1e348', 'ja', 0),
     ('金浜駅', '金浜駅', 'mlit:st-6239cc5a19d1e348', 'ja', 0),
-    ('金浦', '金浦', 'mlit:st-93fe01665003f462', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('金浦', '金浦', 'mlit:st-93fe01665003f462', 'ja', 0),
     ('金浦駅', '金浦駅', 'mlit:st-93fe01665003f462', 'ja', 0),
     ('金田', '金田', 'mlit:st-228ff732c112e72a', 'ja', 0),
     ('金田一温泉', '金田一温泉', 'mlit:st-605853fff5e8d57b', 'ja', 0),
@@ -32664,7 +32719,6 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('長崎', '長崎', 'geonames:2111766', 'ja', 10),
     ('長崎', '長崎', 'mlit:st-86ee13542123b438', 'ja', 0),
     ('長崎', '長崎', 'mlit:st-b973e7a40ad12b02', 'ja', 0),
-    ('長崎县', '長崎县', 'pref:42', 'zh', 20),
     ('長崎大学', '長崎大学', 'mlit:st-c74a5b0a43d1e86e', 'ja', 0),
     ('長崎大学駅', '長崎大学駅', 'mlit:st-c74a5b0a43d1e86e', 'ja', 0),
     ('長崎市', '長崎市', 'geonames:1856177', 'ja', 10),
@@ -32758,7 +32812,6 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('長野原町', '長野原町', 'geonames:1856212', 'ja', 10),
     ('長野原草津口', '長野原草津口', 'mlit:st-f80b454f9240f53a', 'ja', 0),
     ('長野原草津口駅', '長野原草津口駅', 'mlit:st-f80b454f9240f53a', 'ja', 0),
-    ('長野县', '長野县', 'pref:20', 'zh', 20),
     ('長野市', '長野市', 'geonames:1856215', 'ja', 10),
     ('長野県', '長野県', 'pref:20', 'ja', 20),
     ('長野駅', '長野駅', 'mlit:st-df25f8e68720cbd8', 'ja', 0),
@@ -32789,6 +32842,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('長駅', '長駅', 'mlit:st-9d3f4d9cf4c65199', 'ja', 0),
     ('長鳥', '長鳥', 'mlit:st-4e7a8d21bab898b6', 'ja', 0),
     ('長鳥駅', '長鳥駅', 'mlit:st-4e7a8d21bab898b6', 'ja', 0),
+    ('长崎', '长崎', 'geonames:1856177', 'zh', 10),
+    ('长崎县', '长崎县', 'pref:42', 'zh', 20),
+    ('长野', '长野', 'geonames:1856215', 'zh', 10),
+    ('长野县', '长野县', 'pref:20', 'zh', 20),
     ('門出', '門出', 'mlit:st-b6f6150ac78be5fd', 'ja', 0),
     ('門出駅', '門出駅', 'mlit:st-b6f6150ac78be5fd', 'ja', 0),
     ('門別本町', '門別本町', 'geonames:2129165', 'ja', 10),
@@ -32918,7 +32975,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('阿佐谷北', '阿佐谷北', 'geonames:10866555', 'ja', 5),
     ('阿倉川', '阿倉川', 'mlit:st-0d80d8f1e34a433f', 'ja', 0),
     ('阿倉川駅', '阿倉川駅', 'mlit:st-0d80d8f1e34a433f', 'ja', 0),
-    ('阿倍野', '阿倍野', 'mlit:st-55656817594639b2', 'ja', 0),
+    ('阿倍野', '阿倍野', 'mlit:st-55656817594639b2', 'ja', 0)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('阿倍野駅', '阿倍野駅', 'mlit:st-55656817594639b2', 'ja', 0),
     ('阿南', '阿南', 'geonames:1865309', 'zh', 10),
     ('阿南', '阿南', 'mlit:st-1d74449a9a2731d8', 'ja', 0),
@@ -32975,10 +33035,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('阿波海南駅', '阿波海南駅', 'mlit:st-b077d3b45952f815', 'ja', 0),
     ('阿波福井', '阿波福井', 'mlit:st-4fd1e3f57ae469a9', 'ja', 0),
     ('阿波福井駅', '阿波福井駅', 'mlit:st-4fd1e3f57ae469a9', 'ja', 0),
-    ('阿波赤石', '阿波赤石', 'mlit:st-c8b86276d3d9996d', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('阿波赤石', '阿波赤石', 'mlit:st-c8b86276d3d9996d', 'ja', 0),
     ('阿波赤石駅', '阿波赤石駅', 'mlit:st-c8b86276d3d9996d', 'ja', 0),
     ('阿漕', '阿漕', 'mlit:st-a333de4c555701c1', 'ja', 0),
     ('阿漕駅', '阿漕駅', 'mlit:st-a333de4c555701c1', 'ja', 0),
@@ -33257,11 +33314,12 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('静修学園前', '静修学園前', 'mlit:st-3db3e8b3f79fda9d', 'ja', 0),
     ('静修学園前駅', '静修学園前駅', 'mlit:st-3db3e8b3f79fda9d', 'ja', 0),
     ('静内古川町', '静内古川町', 'geonames:2128025', 'ja', 10),
+    ('静冈', '静冈', 'geonames:1851717', 'zh', 10),
+    ('静冈县', '静冈县', 'pref:22', 'zh', 20),
     ('静和', '静和', 'mlit:st-a1980435f62b648d', 'ja', 0),
     ('静和駅', '静和駅', 'mlit:st-a1980435f62b648d', 'ja', 0),
     ('静岡', '静岡', 'geonames:1851717', 'zh', 10),
     ('静岡', '静岡', 'mlit:st-619dda348891189c', 'ja', 0),
-    ('静岡县', '静岡县', 'pref:22', 'zh', 20),
     ('静岡市', '静岡市', 'geonames:1851717', 'ja', 10),
     ('静岡県', '静岡県', 'pref:22', 'ja', 20),
     ('静岡駅', '静岡駅', 'mlit:st-619dda348891189c', 'ja', 0),
@@ -33420,7 +33478,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('飯沼駅', '飯沼駅', 'mlit:st-0dea6777bb0997b7', 'ja', 0),
     ('飯浦', '飯浦', 'mlit:st-038102d91f25ba8a', 'ja', 0),
     ('飯浦駅', '飯浦駅', 'mlit:st-038102d91f25ba8a', 'ja', 0),
-    ('飯田', '飯田', 'geonames:1861864', 'zh', 10),
+    ('飯田', '飯田', 'geonames:1861864', 'zh', 10)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('飯田', '飯田', 'mlit:st-96454018d6f527ff', 'ja', 0),
     ('飯田岡', '飯田岡', 'mlit:st-6ad090ad74126587', 'ja', 0),
     ('飯田岡駅', '飯田岡駅', 'mlit:st-6ad090ad74126587', 'ja', 0),
@@ -33478,11 +33539,9 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('香取', '香取', 'mlit:st-2f183d998894dad9', 'ja', 0),
     ('香取市', '香取市', 'geonames:2112319', 'ja', 10),
     ('香取駅', '香取駅', 'mlit:st-2f183d998894dad9', 'ja', 0),
-    ('香呂', '香呂', 'mlit:st-e32db0a708864e9c', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('香呂', '香呂', 'mlit:st-e32db0a708864e9c', 'ja', 0),
     ('香呂駅', '香呂駅', 'mlit:st-e32db0a708864e9c', 'ja', 0),
+    ('香川', '香川', 'geonames:1851100', 'ja', 10),
     ('香川', '香川', 'mlit:st-5564cdc7cf3f3889', 'ja', 0),
     ('香川县', '香川县', 'pref:37', 'zh', 20),
     ('香川県', '香川県', 'pref:37', 'ja', 20),
@@ -33922,7 +33981,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('鮫駅', '鮫駅', 'mlit:st-90b276cd677edcce', 'ja', 0),
     ('鯉川', '鯉川', 'mlit:st-8d336434d124bfee', 'ja', 0),
     ('鯉川駅', '鯉川駅', 'mlit:st-8d336434d124bfee', 'ja', 0),
-    ('鯖江', '鯖江', 'geonames:1853338', 'zh', 10),
+    ('鯖江', '鯖江', 'geonames:1853338', 'zh', 10)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
     ('鯖江', '鯖江', 'mlit:st-152d8f1aa43bff6e', 'ja', 0),
     ('鯖江市', '鯖江市', 'geonames:1853338', 'ja', 10),
     ('鯖江駅', '鯖江駅', 'mlit:st-152d8f1aa43bff6e', 'ja', 0),
@@ -33951,7 +34013,6 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('鳥取', '鳥取', 'mlit:st-61d84b8ca4e4856a', 'ja', 0),
     ('鳥取ノ荘', '鳥取ノ荘', 'mlit:st-be7b50be0db6847c', 'ja', 0),
     ('鳥取ノ荘駅', '鳥取ノ荘駅', 'mlit:st-be7b50be0db6847c', 'ja', 0),
-    ('鳥取县', '鳥取县', 'pref:31', 'zh', 20),
     ('鳥取大学前', '鳥取大学前', 'mlit:st-037245b44f30ccb2', 'ja', 0),
     ('鳥取大学前駅', '鳥取大学前駅', 'mlit:st-037245b44f30ccb2', 'ja', 0),
     ('鳥取市', '鳥取市', 'geonames:1849892', 'ja', 10),
@@ -33981,10 +34042,7 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('鳥羽街道', '鳥羽街道', 'mlit:st-108f7b6c1340c4da', 'ja', 0),
     ('鳥羽街道駅', '鳥羽街道駅', 'mlit:st-108f7b6c1340c4da', 'ja', 0),
     ('鳥羽駅', '鳥羽駅', 'mlit:st-c3d3d770f05d1c26', 'ja', 0),
-    ('鳩ノ巣', '鳩ノ巣', 'mlit:st-07622344156daa6b', 'ja', 0)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priority) VALUES
+    ('鳩ノ巣', '鳩ノ巣', 'mlit:st-07622344156daa6b', 'ja', 0),
     ('鳩ノ巣駅', '鳩ノ巣駅', 'mlit:st-07622344156daa6b', 'ja', 0),
     ('鳩ヶ谷', '鳩ヶ谷', 'mlit:st-4b98ebd0d046a1e3', 'ja', 0),
     ('鳩ヶ谷本町', '鳩ヶ谷本町', 'geonames:1863023', 'ja', 10),
@@ -34165,6 +34223,10 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('鷺ノ宮駅', '鷺ノ宮駅', 'mlit:st-f5f039596766f02a', 'ja', 0),
     ('鷺沼', '鷺沼', 'mlit:st-50100bba83260734', 'ja', 0),
     ('鷺沼駅', '鷺沼駅', 'mlit:st-50100bba83260734', 'ja', 0),
+    ('鸟取', '鸟取', 'geonames:1849892', 'zh', 10),
+    ('鸟取县', '鸟取县', 'pref:31', 'zh', 20),
+    ('鹿儿岛', '鹿儿岛', 'geonames:1860827', 'zh', 10),
+    ('鹿儿岛县', '鹿儿岛县', 'pref:46', 'zh', 20),
     ('鹿儿岛市', '鹿儿岛市', 'geonames:1860827', 'ja', 10),
     ('鹿児', '鹿児', 'mlit:st-ab37c7188b1c737a', 'ja', 0),
     ('鹿児島', '鹿児島', 'geonames:1860827', 'ja', 10),
@@ -34173,7 +34235,6 @@ INSERT INTO location_aliases (alias, alias_normalized, location_id, lang, priori
     ('鹿児島中央駅', '鹿児島中央駅', 'mlit:st-4d781af65f39b5c7', 'ja', 0),
     ('鹿児島中央駅前', '鹿児島中央駅前', 'mlit:st-ac9806b30b42a20b', 'ja', 0),
     ('鹿児島中央駅前駅', '鹿児島中央駅前駅', 'mlit:st-ac9806b30b42a20b', 'ja', 0),
-    ('鹿児島县', '鹿児島县', 'pref:46', 'zh', 20),
     ('鹿児島市', '鹿児島市', 'geonames:1860827', 'ja', 10),
     ('鹿児島県', '鹿児島県', 'pref:46', 'ja', 20),
     ('鹿児島駅', '鹿児島駅', 'mlit:st-61634ebcac573b6e', 'ja', 0),
