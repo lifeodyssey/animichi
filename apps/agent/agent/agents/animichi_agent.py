@@ -486,11 +486,10 @@ def build_animichi_agent(
     )
     managed_prompt = _managed_prompt_capability(modern=modern)
     _record_missing_managed_prompt_token(modern=modern)
-    instructions: AgentInstructions[RuntimeDeps] = (
-        (_INSTRUCTIONS if managed_prompt is None else None)
-        if modern
-        else [_INSTRUCTIONS, _inject_session_context]
-    )
+    modern_instructions = _INSTRUCTIONS if managed_prompt is None else None
+    instructions: AgentInstructions[RuntimeDeps] = modern_instructions
+    if not modern:
+        instructions = [_INSTRUCTIONS, _inject_session_context]
     tools = [*ANIMICHI_TOOLS, *(DEFERRED_TOOLS if modern else WEB_TOOLS)]
     capabilities: list[AgentCapability[RuntimeDeps]] = [*_history_capabilities()]
     if modern:

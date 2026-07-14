@@ -180,14 +180,26 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arm", choices=("baseline", "codemode"), required=True)
     parser.add_argument("--repeats", type=int, default=3)
-    parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--out", type=_validated_path, required=True)
     return parser.parse_args()
+
+
+def _validated_path(arg: str) -> Path:
+    path = Path(arg)
+    if ".." in path.parts:
+        raise SystemExit(f"Refusing traversal-suspicious path: {arg}")
+    resolved = path.resolve()
+    allowed_base = resolved.parent if path.is_absolute() else Path.cwd().resolve()
+    if not resolved.is_relative_to(allowed_base) or not resolved.parent.is_dir():
+        raise SystemExit(
+            f"Path must stay within {allowed_base} and have an existing parent: {arg}"
+        )
+    return resolved
 
 
 async def _main() -> None:
     args = _parse_args()
     report = await run_benchmark(args.arm, args.repeats)
-    args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(report.model_dump_json(indent=2) + "\n")
 
 
