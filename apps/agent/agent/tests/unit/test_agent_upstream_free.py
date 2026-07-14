@@ -4,11 +4,8 @@ GOAL §7 ("旧 agent 上游调用已删净") requires every agent path — the f
 tools AND clarify candidate enrichment — to route only through the injected
 :class:`CatalogClientProtocol`. This locks that invariant three ways:
 
-  1. Static: ``animichi_tools`` / ``catalog_tools`` / ``tool_runtime`` /
-     ``tools`` import no upstream client (Anitabi/Bangumi gateways), no DB
-     Retriever, and no legacy data handlers. With clarify rewired onto the
-     catalog, ``tools`` joins the seam — the agent has no remaining gateway
-     touch.
+  1. Static: tool definitions and their catalog seam import no upstream client
+     (Anitabi/Bangumi gateways), no DB Retriever, and no legacy data handlers.
   2. Static: no seam module references a ``deps.gateway`` attribute (the field
      no longer exists on ``RuntimeDeps``; this also catches a reintroduced
      gateway hop before it can compile).
@@ -32,6 +29,7 @@ from agent.domain.ports import DatabasePort
 # Modules that form the catalog-only agent seam. These must stay free of any
 # upstream/DB read path. ``tools`` (clarify enrichment) is included now that it
 # resolves via the catalog instead of the Bangumi gateway.
+_TOOL_MODULES = ("animichi_tools", "web_tools")
 _SEAM_MODULES = ("animichi_tools", "catalog_tools", "tool_runtime", "tools")
 
 # Substrings that, if imported by a seam module, mean an upstream/DB read path
@@ -39,6 +37,8 @@ _SEAM_MODULES = ("animichi_tools", "catalog_tools", "tool_runtime", "tools")
 _FORBIDDEN_IMPORT_FRAGMENTS = (
     "gateways",  # anitabi / bangumi upstream gateways
     "retriever",  # DB Retriever read path
+    "infrastructure.supabase",  # direct legacy DB client
+    "domain.ports",  # direct database ports
     "execute_resolve_anime",
     "execute_search_bangumi",
     "execute_search_nearby",
@@ -90,6 +90,19 @@ def test_seam_module_never_touches_deps_gateway(module_name: str) -> None:
     """No seam module reads ``deps.gateway`` — clarify routes via the catalog."""
     accesses = _gateway_attribute_accesses(module_name)
     assert not accesses, f"{module_name} accessed a .gateway attribute: {accesses}"
+
+
+@pytest.mark.parametrize("module_name", _TOOL_MODULES)
+def test_tool_module_does_not_import_animichi_agent(module_name: str) -> None:
+    """Tool definitions must not depend on the composed global agent."""
+    imported = _imported_names(module_name)
+    assert "agent.agents.animichi_agent" not in imported
+
+
+def test_runner_has_no_tool_registration_side_effect_imports() -> None:
+    imported = _imported_names("animichi_runner")
+    forbidden = {"agent.agents.animichi_tools", "agent.agents.web_tools"}
+    assert forbidden.isdisjoint(imported)
 
 
 class _ExplodingDB:

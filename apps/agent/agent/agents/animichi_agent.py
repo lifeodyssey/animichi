@@ -1,28 +1,29 @@
-"""PydanticAI agent definition for the anime pilgrimage runtime.
-
-This module defines ONLY the agent object and its instructions. Tools are
-registered in ``animichi_tools`` (imported lazily at run time).
-The runner that executes the agent lives in ``animichi_runner``.
-
-Separation rationale:
-- Agent def must exist before ``@agent.tool`` decorators run.
-- Tools import the agent → tools module depends on this module.
-- Runner imports both → runner depends on tools + agent.
-- Keeping them apart avoids circular imports and keeps each file < 300 lines.
-"""
+"""PydanticAI agent definition for the anime pilgrimage runtime."""
 
 from __future__ import annotations
 
+import os
+from typing import NoReturn
+
 from pydantic_ai import Agent, ModelRetry, RunContext
-from pydantic_ai.capabilities import ProcessHistory
+from pydantic_ai.agent import AgentInstructions
+from pydantic_ai.capabilities import (
+    AgentCapability,
+    Hooks,
+    ProcessHistory,
+    ToolSearch,
+)
 from pydantic_ai.messages import (
+    InstructionPart,
     ModelMessage,
     ModelRequest,
     ToolReturnPart,
     UserPromptPart,
 )
+from pydantic_ai.models import ModelRequestContext
 from pydantic_ai.output import ToolOutput
 
+from agent.agents.animichi_tools import TOOLS as ANIMICHI_TOOLS
 from agent.agents.base import resolve_model
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import (
@@ -32,9 +33,21 @@ from agent.agents.runtime_models import (
     RouteResponseModel,
     SearchResponseModel,
 )
+from agent.agents.tool_state import ToolState
+from agent.agents.web_tools import DEFERRED_TOOLS
+from agent.agents.web_tools import TOOLS as WEB_TOOLS
+from agent.infrastructure.observability import record_agent_run_error
 
 COMPACT_THRESHOLD = 40  # ~5 turns × 8 messages/turn
 _KEEP_RECENT = 8  # Keep latest turn fully uncompressed
+
+RuntimeOutput = (
+    ClarifyResponseModel
+    | SearchResponseModel
+    | RouteResponseModel
+    | QAResponseModel
+    | GreetingResponseModel
+)
 
 _INSTRUCTIONS = """\
 You are the runtime agent for Animichi, an anime pilgrimage (聖地巡礼) search \
@@ -286,30 +299,31 @@ def _pick_keep_from(turn_starts: list[int], total: int) -> int:
     return keep_from
 
 
-animichi_agent = Agent(
-    resolve_model(None),
-    name="animichi",
-    deps_type=RuntimeDeps,
-    output_type=[
+def _modern_composition_enabled() -> bool:
+    """Resolve the construction-time rollback switch (default: modern)."""
+    return os.environ.get("ANIMICHI_MODERN_COMPOSITION", "1") != "0"
+
+
+def _output_types() -> list[ToolOutput[RuntimeOutput]]:
+    return [
         ToolOutput(ClarifyResponseModel, name="clarify_response"),
         ToolOutput(SearchResponseModel, name="search_response"),
         ToolOutput(RouteResponseModel, name="route_response"),
         ToolOutput(QAResponseModel, name="qa_response"),
         ToolOutput(GreetingResponseModel, name="greeting_response"),
-    ],
-    instructions=_INSTRUCTIONS,
-    retries=2,
-    capabilities=[
+    ]
+
+
+def _history_capabilities() -> list[ProcessHistory[RuntimeDeps]]:
+    return [
         ProcessHistory(_compact_tool_results),
         ProcessHistory(_sliding_window),
-    ],
-)
+    ]
 
 
 _LOCALE_NAMES = {"ja": "Japanese", "zh": "Simplified Chinese", "en": "English"}
 
 
-@animichi_agent.instructions
 def _inject_session_context(ctx: RunContext[RuntimeDeps]) -> str:
     """Inject locale enforcement and current session state for multi-turn."""
     parts: list[str] = []
@@ -329,44 +343,109 @@ def _inject_session_context(ctx: RunContext[RuntimeDeps]) -> str:
     return "\n## Current session state\n" + "\n".join(f"- {p}" for p in parts)
 
 
-def _add_resolve_context(state: dict[str, object], parts: list[str]) -> None:
-    resolve_data = state.get("resolve_anime")
-    if not isinstance(resolve_data, dict):
+def _modern_hooks() -> Hooks[RuntimeDeps]:
+    hooks = Hooks[RuntimeDeps]()
+
+    @hooks.on.before_model_request
+    def inject_session(
+        ctx: RunContext[RuntimeDeps], request_context: ModelRequestContext
+    ) -> ModelRequestContext:
+        dynamic = _inject_session_context(ctx)
+        params = request_context.model_request_parameters
+        instruction_parts = params.instruction_parts or []
+        if not any(part.content == dynamic for part in instruction_parts):
+            params.instruction_parts = [
+                *instruction_parts,
+                InstructionPart(content=dynamic, dynamic=True),
+            ]
+        request = request_context.messages[-1]
+        if not isinstance(request, ModelRequest) or dynamic in (
+            request.instructions or ""
+        ):
+            return request_context
+        request.instructions = "\n\n".join(
+            filter(None, [request.instructions, dynamic])
+        )
+        return request_context
+
+    @hooks.on.run_error
+    def record_error(
+        _ctx: RunContext[RuntimeDeps], *, error: BaseException
+    ) -> NoReturn:
+        record_agent_run_error(error)
+        raise error
+
+    return hooks
+
+
+def build_animichi_agent(
+    *, modern_composition: bool | None = None
+) -> Agent[RuntimeDeps, RuntimeOutput]:
+    """Construct the runtime agent in modern or one-switch rollback mode."""
+    modern = (
+        _modern_composition_enabled()
+        if modern_composition is None
+        else modern_composition
+    )
+    instructions: AgentInstructions[RuntimeDeps] = (
+        _INSTRUCTIONS if modern else [_INSTRUCTIONS, _inject_session_context]
+    )
+    tools = [*ANIMICHI_TOOLS, *(DEFERRED_TOOLS if modern else WEB_TOOLS)]
+    capabilities: list[AgentCapability[RuntimeDeps]] = [*_history_capabilities()]
+    if modern:
+        capabilities.extend(
+            [_modern_hooks(), ToolSearch[RuntimeDeps](strategy="keywords")]
+        )
+    agent: Agent[RuntimeDeps, RuntimeOutput] = Agent(
+        resolve_model(None),
+        name="animichi",
+        deps_type=RuntimeDeps,
+        output_type=_output_types(),
+        instructions=instructions,
+        tools=tools,
+        retries=2,
+        capabilities=capabilities,
+    )
+    agent.output_validator(validate_output)
+    return agent
+
+
+def _add_resolve_context(state: ToolState, parts: list[str]) -> None:
+    resolve_data = state.resolve_anime
+    if resolve_data is None:
         return
-    title = resolve_data.get("title", "")
-    bid = resolve_data.get("bangumi_id", "")
+    title = resolve_data.title or ""
+    bid = resolve_data.bangumi_id or ""
     if title:
         parts.append(f"Current anime: {title} (bangumi_id={bid})")
 
 
-def _add_search_context(state: dict[str, object], parts: list[str]) -> None:
-    search_data = state.get("search_bangumi")
-    if not isinstance(search_data, dict):
+def _add_search_context(state: ToolState, parts: list[str]) -> None:
+    search_data = state.search_bangumi
+    if search_data is None:
         return
-    row_count = search_data.get("row_count", 0)
-    metadata = search_data.get("metadata", {})
-    title = metadata.get("anime_title", "") if isinstance(metadata, dict) else ""
+    row_count = search_data.row_count
+    title = search_data.metadata.anime_title if search_data.metadata else ""
     suffix = f" for {title}" if title else ""
     parts.append(f"Search results available: {row_count} spots{suffix}")
 
 
-def _add_nearby_context(state: dict[str, object], parts: list[str]) -> None:
-    search_nearby = state.get("search_nearby")
-    if not isinstance(search_nearby, dict):
+def _add_nearby_context(state: ToolState, parts: list[str]) -> None:
+    search_nearby = state.search_nearby
+    if search_nearby is None:
         return
-    row_count = search_nearby.get("row_count", 0)
+    row_count = search_nearby.row_count
     parts.append(f"Nearby search results available: {row_count} spots")
 
 
-def _add_clarify_context(state: dict[str, object], parts: list[str]) -> None:
-    if state.get("pending_clarify"):
+def _add_clarify_context(state: ToolState, parts: list[str]) -> None:
+    if state.pending_clarify:
         parts.append(
             "Previous turn ended with clarification "
             "— user's response is the current message"
         )
 
 
-@animichi_agent.output_validator  # type: ignore[arg-type]
 async def validate_output(
     ctx: RunContext[RuntimeDeps],
     output: (
@@ -393,15 +472,18 @@ async def validate_output(
     tool_state = ctx.deps.tool_state
     if isinstance(output, SearchResponseModel):
         tool_key = str(output.intent)
-        if tool_key not in tool_state:
+        if not tool_state.has_payload(tool_key):
             raise ModelRetry(
                 f"You returned a search response but never called {tool_key}. "
                 "Call the search tool first, then return the response."
             )
     if isinstance(output, RouteResponseModel):
-        if "plan_route" not in tool_state and "plan_selected" not in tool_state:
+        if not tool_state.plan_route and not tool_state.plan_selected:
             raise ModelRetry(
                 "You returned a route response but never called plan_route. "
                 "Call plan_route first, then return the response."
             )
     return output
+
+
+animichi_agent = build_animichi_agent()

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from agent.agents.handlers.result import HandlerResult
 from agent.agents.models import PlanStep
 
@@ -21,7 +23,7 @@ def _build_candidates(options: list[str]) -> list[dict[str, object]]:
 
 async def execute(
     step: PlanStep,
-    context: dict[str, object],
+    context: Mapping[str, object],
     db: object,
     retriever: object,
 ) -> HandlerResult:
@@ -38,7 +40,7 @@ async def execute(
 
 async def execute_clarify(
     step: PlanStep,
-    context: dict[str, object],
+    context: Mapping[str, object],
     db: object,
     retriever: object,
 ) -> HandlerResult:

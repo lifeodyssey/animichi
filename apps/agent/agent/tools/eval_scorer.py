@@ -56,6 +56,7 @@ async def score_row(row: dict, model: object) -> float:
 
     agent: Agent[None, _ScoreOutput] = Agent(
         _model,
+        name="eval_scorer",
         system_prompt=_SCORER_PROMPT,
         output_type=_ScoreOutput,
         retries=1,

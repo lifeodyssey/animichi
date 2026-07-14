@@ -7,8 +7,7 @@ no Anitabi/Bangumi gateways). The ephemeral tools (greet_user / general_qa /
 clarify) echo LLM-supplied payloads without any read path.
 
 Step/plumbing helpers live in ``tool_runtime``; the catalog read path lives in
-``catalog_tools``. Import this module after ``animichi_agent`` is created so
-the decorators can attach to it.
+``catalog_tools``.
 """
 
 from __future__ import annotations
@@ -18,8 +17,8 @@ import json
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_ai import ModelRetry, RunContext
+from pydantic_ai.tools import ToolFuncEither
 
-from agent.agents.animichi_agent import animichi_agent
 from agent.agents.catalog_tools import (
     _bangumi_search_query,
     _run_catalog_nearby,
@@ -46,7 +45,6 @@ def _require_catalog(deps: RuntimeDeps) -> CatalogClientProtocol:
     return deps.catalog
 
 
-@animichi_agent.tool
 async def resolve_anime(ctx: RunContext[RuntimeDeps], title: str) -> dict[str, object]:
     """Look up an anime by title and return its unique database identifier.
 
@@ -78,7 +76,6 @@ async def resolve_anime(ctx: RunContext[RuntimeDeps], title: str) -> dict[str, o
     )
 
 
-@animichi_agent.tool
 async def search_bangumi(
     ctx: RunContext[RuntimeDeps],
     bangumi_id: str = "",
@@ -105,9 +102,9 @@ async def search_bangumi(
     """
     resolved_id = bangumi_id or None
     if not resolved_id:
-        resolve_data = ctx.deps.tool_state.get("resolve_anime")
-        if isinstance(resolve_data, dict):
-            resolved_id = resolve_data.get("bangumi_id")
+        resolve_data = ctx.deps.tool_state.resolve_anime
+        if resolve_data is not None:
+            resolved_id = resolve_data.bangumi_id
     if not resolved_id:
         raise ModelRetry(
             "Call resolve_anime(title) first to get a bangumi_id, "
@@ -131,7 +128,6 @@ async def search_bangumi(
     )
 
 
-@animichi_agent.tool
 async def search_nearby(
     ctx: RunContext[RuntimeDeps],
     *,
@@ -152,7 +148,7 @@ async def search_nearby(
         radius: Search radius in meters. Default is 5000 (5km). Use 0 for default.
                 Use smaller radius for specific stations, larger for cities.
     """
-    ctx.deps.tool_state.pop(ToolName.SEARCH_NEARBY.value, None)
+    ctx.deps.tool_state.remove_payload(ToolName.SEARCH_NEARBY)
     params: dict[str, object] = {"location": location}
     if radius > 0:
         params["radius"] = radius
@@ -165,7 +161,6 @@ async def search_nearby(
     )
 
 
-@animichi_agent.tool
 async def plan_route(
     ctx: RunContext[RuntimeDeps],
     *,
@@ -189,10 +184,10 @@ async def plan_route(
                 Leave empty for default "normal" pace.
         start_time: Departure time as "HH:MM". Leave empty for default "09:00".
     """
-    search_data = ctx.deps.tool_state.get("search_bangumi") or ctx.deps.tool_state.get(
-        "search_nearby"
+    search_data = (
+        ctx.deps.tool_state.search_bangumi or ctx.deps.tool_state.search_nearby
     )
-    if not isinstance(search_data, dict) or not search_data.get("rows"):
+    if search_data is None or not search_data.rows:
         raise ModelRetry(
             "Call search_bangumi or search_nearby first to get pilgrimage points, "
             "then call plan_route to create the walking route."
@@ -207,7 +202,6 @@ async def plan_route(
     return await _run_catalog_route(ctx, _require_catalog(ctx.deps), params=params)
 
 
-@animichi_agent.tool
 async def greet_user(ctx: RunContext[RuntimeDeps], message: str) -> dict[str, object]:
     """Respond to greetings and "what can you do?" questions.
 
@@ -229,7 +223,6 @@ async def greet_user(ctx: RunContext[RuntimeDeps], message: str) -> dict[str, ob
     )
 
 
-@animichi_agent.tool
 async def general_qa(ctx: RunContext[RuntimeDeps], answer: str) -> dict[str, object]:
     """Answer general questions about anime pilgrimage (etiquette, tips, costs, planning).
 
@@ -312,7 +305,6 @@ class ClarifyArgs(BaseModel):
         return decoded
 
 
-@animichi_agent.tool
 async def clarify(
     ctx: RunContext[RuntimeDeps],
     args: ClarifyArgs,
@@ -332,3 +324,14 @@ async def clarify(
               ``ClarifyArgs`` for field-level docs (``question``, ``options``).
     """
     return await run_clarify(ctx.deps, question=args.question, options=args.options)
+
+
+TOOLS: list[ToolFuncEither[RuntimeDeps]] = [
+    resolve_anime,
+    search_bangumi,
+    search_nearby,
+    plan_route,
+    greet_user,
+    general_qa,
+    clarify,
+]

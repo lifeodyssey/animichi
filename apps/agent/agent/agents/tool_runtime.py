@@ -8,7 +8,7 @@ greet/qa handlers; the catalog read path lives in ``catalog_tools``.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 
 from pydantic_ai import RunContext
 
@@ -100,7 +100,7 @@ async def _run_ephemeral(
     tool: ToolName,
     params: dict[str, object],
     handler: Callable[
-        [PlanStep, dict[str, object], object, object], Awaitable[HandlerResult]
+        [PlanStep, Mapping[str, object], object, object], Awaitable[HandlerResult]
     ],
 ) -> dict[str, object]:
     """Run an upstream-free handler (greet/qa) and record/emit its result.
@@ -113,7 +113,7 @@ async def _run_ephemeral(
 
     result = await handler(
         PlanStep(tool=tool, params=params),
-        deps.tool_state,
+        deps.tool_state.to_legacy_dict(),
         None,
         None,
     )
@@ -129,7 +129,7 @@ async def _run_ephemeral(
 
     if result.success and result.data:
         _localize_city_names(result.data, deps.locale)
-        deps.tool_state[tool.value] = result.data
+        deps.tool_state.set_payload(tool, result.data)
         await _emit_step(deps, tool.value, "done", result.data)
     else:
         error_data: dict[str, object] = {"error": result.error or "Unknown error"}
@@ -159,8 +159,8 @@ async def run_clarify(
         "candidates": candidates,
         "status": "needs_clarification",
     }
-    deps.tool_state[ToolName.CLARIFY.value] = payload
-    deps.tool_state["pending_clarify"] = True
+    deps.tool_state.set_payload(ToolName.CLARIFY, payload)
+    deps.tool_state.pending_clarify = True
     _record_step(
         deps,
         tool=ToolName.CLARIFY.value,
@@ -174,4 +174,7 @@ async def run_clarify(
     # Without this, some models (e.g. DeepSeek V4 Flash) continue calling
     # search_bangumi instead of waiting for user input.
     payload["action_required"] = "return clarify_response"
+    clarify_state = deps.tool_state.clarify
+    if clarify_state is not None:
+        clarify_state.action_required = "return clarify_response"
     return payload
