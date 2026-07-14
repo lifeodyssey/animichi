@@ -24,8 +24,8 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
-from agent.agents.pilgrimage_tools import ClarifyArgs
+from agent.agents.animichi_runner import run_animichi_agent
+from agent.agents.animichi_tools import ClarifyArgs
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
 
@@ -167,7 +167,7 @@ async def test_clarify_tool_coerces_json_string_options_end_to_end() -> None:
     db = MagicMock()
     db.bangumi.find_candidate_details_by_titles = AsyncMock(return_value=[])
 
-    result = await run_pilgrimage_agent(
+    result = await run_animichi_agent(
         text="你是指哪一个？",
         db=db,
         locale="zh",

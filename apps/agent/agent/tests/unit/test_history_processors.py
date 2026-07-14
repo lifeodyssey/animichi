@@ -1,4 +1,4 @@
-"""Unit tests for history processor functions in pilgrimage_agent."""
+"""Unit tests for history processor functions in animichi_agent."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ def _make_tool_call_response(
 
 class TestCompactToolResults:
     def test_no_op_under_threshold(self) -> None:
-        from agent.agents.pilgrimage_agent import _compact_tool_results
+        from agent.agents.animichi_agent import _compact_tool_results
 
         messages: list[ModelMessage] = [
             _make_user_request("q1"),
@@ -59,7 +59,7 @@ class TestCompactToolResults:
         assert len(result) == 6
 
     def test_compresses_old_tool_returns(self) -> None:
-        from agent.agents.pilgrimage_agent import (
+        from agent.agents.animichi_agent import (
             COMPACT_THRESHOLD,
             _compact_tool_results,
         )
@@ -95,14 +95,14 @@ class TestCompactToolResults:
 
 class TestSlidingWindow:
     def test_no_op_under_threshold(self) -> None:
-        from agent.agents.pilgrimage_agent import _sliding_window
+        from agent.agents.animichi_agent import _sliding_window
 
         messages: list[ModelMessage] = [_make_user_request(f"q{i}") for i in range(8)]
         result = _sliding_window(messages)
         assert len(result) == 8
 
     def test_truncates_over_threshold(self) -> None:
-        from agent.agents.pilgrimage_agent import COMPACT_THRESHOLD, _sliding_window
+        from agent.agents.animichi_agent import COMPACT_THRESHOLD, _sliding_window
 
         count = COMPACT_THRESHOLD + 20
         messages: list[ModelMessage] = [
@@ -120,7 +120,7 @@ class TestSlidingWindow:
 class TestSlidingWindowPairPreservation:
     def test_preserves_tool_call_return_pair(self) -> None:
         """Sliding window must not orphan a ToolReturnPart from its ToolCallPart."""
-        from agent.agents.pilgrimage_agent import _sliding_window
+        from agent.agents.animichi_agent import _sliding_window
 
         messages: list[ModelMessage] = [
             _make_user_request("q1"),
@@ -162,7 +162,7 @@ class TestSlidingWindowPairPreservation:
 
     def test_cuts_on_user_turn_boundary(self) -> None:
         """Window should start at a UserPromptPart, not mid-turn."""
-        from agent.agents.pilgrimage_agent import _sliding_window
+        from agent.agents.animichi_agent import _sliding_window
 
         messages: list[ModelMessage] = [
             _make_user_request("old1"),
@@ -187,7 +187,7 @@ class TestSlidingWindowPairPreservation:
 
 class TestCompressRequestPreservesFields:
     def test_preserves_instructions_field(self) -> None:
-        from agent.agents.pilgrimage_agent import _compress_request
+        from agent.agents.animichi_agent import _compress_request
 
         original = ModelRequest(
             parts=[
@@ -204,7 +204,7 @@ class TestCompressRequestPreservesFields:
 
 class TestSummarizeToolContent:
     def test_search_bangumi_summary(self) -> None:
-        from agent.agents.pilgrimage_agent import _summarize_tool_content
+        from agent.agents.animichi_agent import _summarize_tool_content
 
         result = _summarize_tool_content(
             "search_bangumi",
@@ -217,7 +217,7 @@ class TestSummarizeToolContent:
         assert "涼宮ハルヒの憂鬱" in result
 
     def test_resolve_anime_summary(self) -> None:
-        from agent.agents.pilgrimage_agent import _summarize_tool_content
+        from agent.agents.animichi_agent import _summarize_tool_content
 
         result = _summarize_tool_content(
             "resolve_anime",
@@ -230,7 +230,7 @@ class TestSummarizeToolContent:
         assert "涼宮ハルヒの憂鬱" in result
 
     def test_resolve_anime_ambiguous(self) -> None:
-        from agent.agents.pilgrimage_agent import _summarize_tool_content
+        from agent.agents.animichi_agent import _summarize_tool_content
 
         result = _summarize_tool_content(
             "resolve_anime",
@@ -243,7 +243,7 @@ class TestSummarizeToolContent:
         assert "2" in result
 
     def test_unknown_tool_fallback(self) -> None:
-        from agent.agents.pilgrimage_agent import _summarize_tool_content
+        from agent.agents.animichi_agent import _summarize_tool_content
 
         result = _summarize_tool_content("unknown_tool", "some content")
         assert "completed" in result

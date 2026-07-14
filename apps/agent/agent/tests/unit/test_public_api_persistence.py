@@ -79,9 +79,7 @@ class TestGreetUserEphemeral:
         session_store.delete = AsyncMock()
         session_store.close = AsyncMock()
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(db=db, session_store=session_store)
             response = await api.handle(PublicAPIRequest(text="hi"), user_id="u1")
 
@@ -204,9 +202,7 @@ class TestUserMemoryUpsert:
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
             await api.handle(PublicAPIRequest(text="響け"), user_id="u1")
 

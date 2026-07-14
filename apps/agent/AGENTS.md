@@ -13,14 +13,14 @@ catalog** — it never calls external anime APIs in the request path and never w
 
 ## Runtime call-path
 
-User text → `RuntimeAPI.handle()` → `run_pilgrimage_agent()` → `pilgrimage_agent.run()` → tools →
+User text → `RuntimeAPI.handle()` → `run_animichi_agent()` → `animichi_agent.run()` → tools →
 `AgentResult` → `agent_result_to_response()` → `PublicAPIResponse`. `selected_point_ids` bypasses the
 agent via `execute_selected_route()`.
 
-- Entry: `agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/pilgrimage_runner.py`.
+- Entry: `agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/animichi_runner.py`.
 - Shared types: `agent/agents/models.py`, `agent/agents/agent_result.py`.
 
-## Tools (`agents/pilgrimage_tools.py` — `@agent.tool` registrations with `ModelRetry` guards)
+## Tools (`agents/animichi_tools.py` — `@agent.tool` registrations with `ModelRetry` guards)
 
 | Tool | Description |
 |---|---|
@@ -34,7 +34,7 @@ agent via `execute_selected_route()`.
 
 ## Trust boundary
 
-- Single PydanticAI agent (`pilgrimage_agent`) with typed output; the selected-route path bypasses it.
+- Single PydanticAI agent (`animichi_agent`) with typed output; the selected-route path bypasses it.
 - `ModelRetry` guards reject invalid LLM parameters; `output_validator` rejects fabricated output.
 - The container trusts auth headers forwarded by the edge worker (`worker/`); it does not re-authenticate.
 - Injection defense (SD-19): tool/envelope text is **untrusted** — never show an upstream `message` to
