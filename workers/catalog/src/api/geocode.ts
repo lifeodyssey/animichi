@@ -22,12 +22,18 @@ async function exactHits(db: CatalogDb, normalized: string): Promise<GeocodeHit[
 
 async function fuzzyHits(db: CatalogDb, normalized: string): Promise<GeocodeHit[]> {
   const result = await db.execute(sql`
-    SELECT l.id, l.name, l.kind, l.latitude, l.longitude, l.source, l.pref,
-           a.priority, FALSE AS exact
-    FROM location_aliases a
-    JOIN locations l ON l.id = a.location_id
-    WHERE similarity(a.alias_normalized, ${normalized}) > ${FUZZY_SIMILARITY_THRESHOLD}
-    ORDER BY similarity(a.alias_normalized, ${normalized}) DESC
+    SELECT id, name, kind, latitude, longitude, source, pref, priority, FALSE AS exact
+    FROM (
+      SELECT DISTINCT ON (l.id)
+             l.id, l.name, l.kind, l.latitude, l.longitude, l.source, l.pref,
+             a.priority, similarity(a.alias_normalized, ${normalized}) AS sim
+      FROM location_aliases a
+      JOIN locations l ON l.id = a.location_id
+      WHERE a.alias_normalized % ${normalized}
+        AND similarity(a.alias_normalized, ${normalized}) > ${FUZZY_SIMILARITY_THRESHOLD}
+      ORDER BY l.id, similarity(a.alias_normalized, ${normalized}) DESC, a.priority DESC
+    ) ranked
+    ORDER BY sim DESC, priority DESC, id ASC
     LIMIT ${FUZZY_RESULT_LIMIT}
   `);
   return result.rows as unknown as GeocodeHit[];
