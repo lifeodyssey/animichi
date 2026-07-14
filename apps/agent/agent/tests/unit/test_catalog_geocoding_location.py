@@ -5,6 +5,21 @@ from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.unit.test_catalog_geocoding_agent import EmptyNearbyCatalog, _run
 
 
+async def test_b3_multilingual_and_context_geocode_fixtures() -> None:
+    catalog = MockCatalogClient()
+    queries = ["镰仓", "秋叶原", "宫崎", "宇治市", "東京都", "神奈川県"]
+    candidates = [await catalog.geocode(query) for query in queries]
+    assert all(result for result in candidates)
+
+
+async def test_b3_toyosato_hits_and_hakone_is_honestly_empty() -> None:
+    catalog = MockCatalogClient()
+    toyosato = (await catalog.geocode("豊郷"))[0]
+    hakone = (await catalog.geocode("箱根"))[0]
+    assert await catalog.nearby(toyosato.lat, toyosato.lng, radius_m=10_000)
+    assert await catalog.nearby(hakone.lat, hakone.lng, radius_m=10_000) == []
+
+
 async def test_a5_prime_honest_empty_is_successful_search_response() -> None:
     result = await _run("西宮", EmptyNearbyCatalog())
     response = agent_result_to_response(result, include_debug=True)

@@ -75,6 +75,14 @@ def test_non_list_decoding_string_raises_model_retry(bad_options: str) -> None:
         ClarifyArgs(question="どちらの作品ですか？", options=bad_options)
 
 
+def test_deeply_nested_options_raises_model_retry() -> None:
+    """Pathological JSON nesting stays inside the model retry boundary."""
+    nested = "[" * 50_000 + "]" * 50_000
+
+    with pytest.raises(ModelRetry, match="JSON array of strings"):
+        ClarifyArgs(question="どちらの作品ですか？", options=nested)
+
+
 @pytest.mark.parametrize(
     "bad_options",
     [
