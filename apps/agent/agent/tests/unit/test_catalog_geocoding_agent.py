@@ -17,7 +17,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from agent.agents import catalog_tools
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.clients.catalog_client import PilgrimagePoint
 from agent.domain.ports import DatabasePort
@@ -133,7 +133,7 @@ async def _run(
     context: dict[str, object] | None = None,
     force_invalid_search: bool = False,
 ) -> AgentResult:
-    return await run_pilgrimage_agent(
+    return await run_animichi_agent(
         text="nearby",
         db=_db(),
         locale="en",
@@ -206,7 +206,7 @@ async def test_plan_route_uses_preseeded_nearby_without_new_search() -> None:
             "search_nearby": {"rows": [{"id": "p_haruhi_1"}], "row_count": 1}
         }
     }
-    result = await run_pilgrimage_agent(
+    result = await run_animichi_agent(
         text="plan route",
         db=_db(),
         locale="en",

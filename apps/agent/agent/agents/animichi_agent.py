@@ -1,8 +1,8 @@
 """PydanticAI agent definition for the anime pilgrimage runtime.
 
 This module defines ONLY the agent object and its instructions. Tools are
-registered in ``pilgrimage_tools`` (imported lazily at run time).
-The runner that executes the agent lives in ``pilgrimage_runner``.
+registered in ``animichi_tools`` (imported lazily at run time).
+The runner that executes the agent lives in ``animichi_runner``.
 
 Separation rationale:
 - Agent def must exist before ``@agent.tool`` decorators run.
@@ -286,8 +286,9 @@ def _pick_keep_from(turn_starts: list[int], total: int) -> int:
     return keep_from
 
 
-pilgrimage_agent = Agent(
+animichi_agent = Agent(
     resolve_model(None),
+    name="animichi",
     deps_type=RuntimeDeps,
     output_type=[
         ToolOutput(ClarifyResponseModel, name="clarify_response"),
@@ -308,7 +309,7 @@ pilgrimage_agent = Agent(
 _LOCALE_NAMES = {"ja": "Japanese", "zh": "Simplified Chinese", "en": "English"}
 
 
-@pilgrimage_agent.instructions
+@animichi_agent.instructions
 def _inject_session_context(ctx: RunContext[RuntimeDeps]) -> str:
     """Inject locale enforcement and current session state for multi-turn."""
     parts: list[str] = []
@@ -365,7 +366,7 @@ def _add_clarify_context(state: dict[str, object], parts: list[str]) -> None:
         )
 
 
-@pilgrimage_agent.output_validator  # type: ignore[arg-type]
+@animichi_agent.output_validator  # type: ignore[arg-type]
 async def validate_output(
     ctx: RunContext[RuntimeDeps],
     output: (

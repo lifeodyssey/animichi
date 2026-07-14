@@ -102,9 +102,7 @@ class TestRuntimeAPIExecution:
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(mock_db)
             response = await api.handle(
                 PublicAPIRequest(text="从京都站出发去吹响的圣地", include_debug=True)
@@ -161,9 +159,7 @@ class TestRuntimeAPIExecution:
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(mock_db)
             response = await api.handle(
                 PublicAPIRequest(
@@ -203,7 +199,7 @@ class TestRuntimeAPIExecution:
             return result
 
         monkeypatch.setattr(
-            "agent.interfaces.public_api.run_pilgrimage_agent", fake_run_agent
+            "agent.interfaces.public_api.run_animichi_agent", fake_run_agent
         )
 
         db = MagicMock()
@@ -261,7 +257,7 @@ class TestSelectedPointIdsBypass:
 
         with (
             patch(
-                "agent.interfaces.public_api.run_pilgrimage_agent",
+                "agent.interfaces.public_api.run_animichi_agent",
                 new=AsyncMock(side_effect=AssertionError("planner should be bypassed")),
             ),
             patch(
@@ -352,7 +348,7 @@ class TestTranslationGate:
 
         with (
             patch(
-                "agent.interfaces.public_api.run_pilgrimage_agent",
+                "agent.interfaces.public_api.run_animichi_agent",
                 side_effect=_fake,
             ),
             patch(
@@ -418,7 +414,7 @@ class TestTranslationGate:
                 emitted.append((tool, status))
 
         with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent",
+            "agent.interfaces.public_api.run_animichi_agent",
             side_effect=_fake,
         ):
             api = RuntimeAPI(mock_db)
