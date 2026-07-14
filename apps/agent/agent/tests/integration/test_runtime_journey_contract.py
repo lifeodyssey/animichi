@@ -13,18 +13,20 @@ Endpoints under test:
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 
 from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.runtime_models import (
-    ClarifyCandidateModel,
-    ClarifyDataModel,
     ClarifyResponseModel,
-    GreetingResponseModel,
-    QADataModel,
+    QAResponseModel,
+)
+from agent.agents.session_state import (
+    OrderedCandidate,
+    PendingClarification,
+    SessionState,
 )
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.interfaces.public_api import RuntimeAPI
@@ -33,40 +35,42 @@ _HEADERS = {"X-User-Id": "test-contract", "X-User-Type": "human"}
 
 
 def _make_clarify_result() -> AgentResult:
-    output = ClarifyResponseModel(
-        intent="clarify",
-        message="你是指哪部凉宫？",
-        data=ClarifyDataModel(
-            status="needs_clarification",
-            question="你是指哪部凉宫？",
-            options=["凉宫春日的忧郁", "凉宫春日的消失"],
-            candidates=[
-                ClarifyCandidateModel(
-                    title="凉宫春日的忧郁", spot_count=2, city="西宫"
-                ),
-                ClarifyCandidateModel(
-                    title="凉宫春日的消失", spot_count=1, city="西宫"
-                ),
-            ],
+    candidates = [
+        OrderedCandidate(
+            id="11291", title="凉宫春日的忧郁", points_count=2, city="西宫"
         ),
+        OrderedCandidate(
+            id="3375", title="凉宫春日的消失", points_count=1, city="西宫"
+        ),
+    ]
+    state = SessionState(
+        pending_clarification=PendingClarification(
+            reason="anime_ambiguity",
+            candidate_ids=[item.id for item in candidates],
+            ordered_candidates=candidates,
+            revision=1,
+        ),
+        clarification_revision=1,
+    )
+    output = ClarifyResponseModel(
+        reason="anime_ambiguity",
+        message="你是指哪部凉宫？",
+        candidate_ids=[item.id for item in candidates],
     )
     return AgentResult(
         output=output,
-        steps=[StepRecord(tool="clarify", success=True)],
-        tool_state={},
+        intent="clarify",
+        session_state=state,
+        steps=[StepRecord(tool="clarify", success=True, model_initiated=False)],
     )
 
 
-def _make_greet_result() -> AgentResult:
-    output = GreetingResponseModel(
-        intent="greet_user",
-        message="你好！我可以帮你找动漫圣地。",
-        data=QADataModel(message="你好！我可以帮你找动漫圣地。"),
-    )
+def _make_qa_result() -> AgentResult:
+    output = QAResponseModel(message="你好！我可以帮你找动漫圣地。")
     return AgentResult(
         output=output,
-        steps=[StepRecord(tool="greet_user", success=True)],
-        tool_state={},
+        intent="general_qa",
+        session_state=SessionState(),
     )
 
 
@@ -78,9 +82,11 @@ def _build_app(tc_db: object) -> httpx.AsyncClient:
         text = str(kwargs.get("text", ""))
         if "凉宫" in text or "涼宮" in text:
             return _make_clarify_result()
-        return _make_greet_result()
+        return _make_qa_result()
 
-    runtime_api = RuntimeAPI(tc_db, session_store=InMemorySessionStore())
+    runtime_api = RuntimeAPI(
+        tc_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+    )
     app = create_fastapi_app(runtime_api=runtime_api, db=tc_db)
     app.state.runtime_api = runtime_api
     app.state.db_client = tc_db
@@ -93,7 +99,7 @@ def _build_app(tc_db: object) -> httpx.AsyncClient:
 async def async_client(tc_db):
     client, fake_agent = _build_app(tc_db)
     with patch(
-        "agent.interfaces.public_api.run_pilgrimage_agent",
+        "agent.interfaces.public_api.run_animichi_agent",
         side_effect=fake_agent,
     ):
         async with client:
@@ -114,8 +120,8 @@ async def test_runtime_clarify_response_has_full_contract(async_client):
     assert payload["message"]
     assert payload["status"] == "needs_clarification"
     data = payload["data"]
-    assert "question" in data
-    assert "options" in data
+    assert data["reason"] == "anime_ambiguity"
+    assert data["clarification_id"] == 1
     assert "candidates" in data
     assert isinstance(data["candidates"], list)
 
@@ -130,7 +136,7 @@ async def test_runtime_clarify_candidate_has_required_fields(async_client):
     c = candidates[0]
     assert "title" in c
     assert "cover_url" in c
-    assert "spot_count" in c
+    assert "points_count" in c
     assert "city" in c
 
 
