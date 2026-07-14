@@ -30,6 +30,15 @@ _QA_OUTPUT = {
 }
 
 
+class _FakeRemoteError(RuntimeError):
+    """Concrete failure used by the managed-prompt test double."""
+
+
+_RemoteFailure = (
+    socket.gaierror | httpx.TimeoutException | httpx.HTTPStatusError | _FakeRemoteError
+)
+
+
 @pytest.fixture(autouse=True)
 def _managed_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LOGFIRE_TOKEN", "token")
@@ -42,13 +51,15 @@ def _deps() -> RuntimeDeps:
     )
 
 
-def _failure(kind: str) -> Exception:
+def _failure(kind: str) -> _RemoteFailure:
     if kind == "dns":
         return socket.gaierror("dns failed")
     if kind == "timeout":
         return httpx.TimeoutException("timed out")
     request = httpx.Request("GET", "https://logfire.example/variables")
     response = httpx.Response(int(kind), request=request)
+    if response.is_server_error:
+        return _FakeRemoteError("remote failed")
     return httpx.HTTPStatusError("remote failed", request=request, response=response)
 
 
@@ -69,7 +80,7 @@ def _patch_resolution(
     monkeypatch: pytest.MonkeyPatch,
     *,
     value: str,
-    exception: Exception | None,
+    exception: _RemoteFailure | None,
     fake_clock: list[float] | None = None,
 ) -> None:
     def resolve(
