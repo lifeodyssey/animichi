@@ -61,7 +61,7 @@
 | SubAgents/Planning/compaction | 观望 | experimental,不进生产 |
 | FileSystem/Shell | 排除 | 违背 upstream-free 信条(AST 测试强制) |
 
-**ManagedPrompt 失败契约(v2)**:检入 prompt = **fail-closed 默认权威**;远端解析仅在显式开启时参与;逐类测试:无 token、DNS 失败、超时、401/403、5xx、远端空值;回退延迟有界;记录 resolved prompt 来源+版本;生产 label 固定;**env kill switch 一键禁远端**。**默认字节等同**:env 回退与 managed 内容 test-pin 相等(instructions 载 SD-19 注入防御,不许两份漂移)。**启用"远端可改生产 prompt"本身 = 用户决策**(prompt 变更绕过部署是治理变更,非 ops 细节)。
+**ManagedPrompt 失败契约(v2)**:检入 prompt = **fail-closed 默认权威**;远端解析仅在显式开启时参与;逐类测试:无 token、DNS 失败、超时、401/403、5xx、远端空值;回退延迟有界(**远端解析总预算 ≤2s**,超时即用本地,测试以假时钟钉住);记录 resolved prompt 来源+版本;生产 label 固定;**env kill switch 一键禁远端**。**默认字节等同**:env 回退与 managed 内容 test-pin 相等(instructions 载 SD-19 注入防御,不许两份漂移)。**启用"远端可改生产 prompt"本身 = 用户决策**(prompt 变更绕过部署是治理变更,非 ops 细节)。
 **CodeMode spike 判据(v2 预注册)**:固定 benchmark 层 = 多番对比查询 case 集(spike 前列名);重复 ×3;基线不动;判"采"需同时满足:模型往返次数 ↓≥40% + 中位延迟不劣化 + 契约/安全零回归;任一 miss 或出现安全/契约回归 → 立即弃。spike-only 本身即回退故事。
 **AC-2**:上述契约各有测试;CodeMode 结论(采/弃)带预注册判据对照表。
 
