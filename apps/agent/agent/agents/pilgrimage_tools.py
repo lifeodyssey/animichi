@@ -13,7 +13,10 @@ the decorators can attach to it.
 
 from __future__ import annotations
 
+import json
+
 import structlog
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_ai import ModelRetry, RunContext
 
 from agent.agents.catalog_tools import (
@@ -249,12 +252,69 @@ async def general_qa(ctx: RunContext[RuntimeDeps], answer: str) -> dict[str, obj
     )
 
 
+# Some models (e.g. MiMo) return the clarify tool's ``options`` list as a
+# JSON-encoded string (e.g. ``'["A","B"]'``) instead of a native array.
+# ``ClarifyArgs`` coerces it back to a list BEFORE Pydantic's type validation
+# runs, so a well-formed JSON array string validates successfully instead of
+# being rejected and burning the tool's retry budget (see
+# ``_coerce_options`` below). Args are wrapped in a single BaseModel — rather
+# than separate ``question``/``options`` keyword args — purely so a
+# ``field_validator`` can run on ``options``: PydanticAI flattens a single
+# model-like tool parameter's fields to the top level, so the wire schema the
+# LLM sees is unchanged (``question``/``options`` stay top-level tool
+# properties, not nested under an ``args`` envelope). ``extra="forbid"``
+# reproduces the ``additionalProperties: false`` the previous plain-kwargs
+# signature produced, so the wire schema is byte-for-byte equivalent.
+class ClarifyArgs(BaseModel):
+    """Arguments for the ``clarify`` tool: question + candidate options."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    question: str = Field(
+        description=(
+            "The clarification question in the user's language. "
+            'Example: "你是指哪部凉宫？" or "Which anime do you mean?"'
+        )
+    )
+    options: list[str] | None = Field(
+        default=None,
+        description=(
+            "List of candidate anime titles to show the user. "
+            'Example: ["涼宮ハルヒの憂鬱", "涼宮ハルヒの消失"]'
+        ),
+    )
+
+    @field_validator("options", mode="before")
+    @classmethod
+    def _coerce_options(cls, v: object) -> object:
+        """Coerce a JSON-encoded ``options`` string back into a list.
+
+        Mirrors the response-side coercion in ``runtime_models.py``, but runs
+        on the TOOL ARGUMENT before Pydantic validates its type — the
+        response-side coercion runs on the final output object, which is too
+        late to save a malformed tool call from being rejected.
+        """
+        if not isinstance(v, str):
+            return v
+        try:
+            decoded = json.loads(v)
+        except (ValueError, TypeError) as exc:
+            raise ModelRetry(
+                "options must be a JSON array of strings, not a JSON-encoded string"
+            ) from exc
+        if not isinstance(decoded, list) or not all(
+            isinstance(item, str) for item in decoded
+        ):
+            raise ModelRetry(
+                "options must be a JSON array of strings, not a JSON-encoded string"
+            )
+        return decoded
+
+
 @pilgrimage_agent.tool
 async def clarify(
     ctx: RunContext[RuntimeDeps],
-    *,
-    question: str,
-    options: list[str] | None = None,
+    args: ClarifyArgs,
 ) -> dict[str, object]:
     """Ask the user a clarification question when you cannot proceed confidently.
 
@@ -267,9 +327,7 @@ async def clarify(
     spot count, and city information from the database.
 
     Args:
-        question: The clarification question in the user's language.
-                  Example: "你是指哪部凉宫？" or "Which anime do you mean?"
-        options: List of candidate anime titles to show the user.
-                 Example: ["涼宮ハルヒの憂鬱", "涼宮ハルヒの消失"]
+        args: The clarification question and candidate options — see
+              ``ClarifyArgs`` for field-level docs (``question``, ``options``).
     """
-    return await run_clarify(ctx.deps, question=question, options=options)
+    return await run_clarify(ctx.deps, question=args.question, options=args.options)
