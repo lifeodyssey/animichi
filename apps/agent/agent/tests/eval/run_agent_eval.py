@@ -7,9 +7,11 @@ official ``Dataset.to_file`` serialization without changing canonical storage.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import os
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,14 +22,15 @@ from pydantic_evals.reporting import ReportCase
 from agent.agents.agent_result import AgentResult
 from agent.interfaces.public_api import default_catalog_client
 from agent.tests.eval.eval_gate_flow import (
-    GateResult,
+    NoEvaluatedCases,
     finish_cli_report,
     gate_exit_code,
-    gate_results_payload,
 )
 from agent.tests.eval.eval_harness import (
     CASES,
+    DATASET_PATH,
     EVAL_MODEL_ID,
+    AgentReport,
     agent_dataset,
     evaluate_target,
     make_model,
@@ -35,7 +38,6 @@ from agent.tests.eval.eval_harness import (
 from agent.tests.eval.evaluators import AgentExpected, AgentInput
 from agent.tests.eval.exec_tiers import (
     EvalTierTarget,
-    ResultsPayload,
     is_fullstack,
     trajectory_web_mocks,
 )
@@ -45,30 +47,36 @@ from agent.tests.eval.null_database import NullDatabase
 AgentCase = Case[AgentInput, AgentResult, AgentExpected]
 
 
+@dataclass(frozen=True)
+class CliArgs:
+    eval_model: str | None
+    export_dataset: Path | None
+
+
 @dataclass
 class StreamingProgress:
     """Official pydantic-evals lifecycle factory with stable line output."""
 
     total: int
     completed: int = 0
-    passed: int = 0
-    failed: int = 0
+    evaluated: int = 0
+    errored: int = 0
 
     def __call__(self, case: AgentCase) -> StreamingCaseLifecycle:
         return StreamingCaseLifecycle(case, self)
 
     def emit(self, case_id: str, result: object) -> None:
         self.completed += 1
-        passed = isinstance(result, ReportCase)
-        self.passed += int(passed)
-        self.failed += int(not passed)
-        summary = "result=pass" if passed else _failure_summary(result)
+        evaluated = isinstance(result, ReportCase)
+        self.evaluated += int(evaluated)
+        self.errored += int(not evaluated)
+        summary = "result=ok" if evaluated else _failure_summary(result)
         print(self._line(case_id, summary), file=sys.stderr, flush=True)
 
     def _line(self, case_id: str, summary: str) -> str:
         return (
             f"[eval] id={case_id} {summary} completed={self.completed}/{self.total} "
-            f"passed={self.passed} failed={self.failed}"
+            f"evaluated={self.evaluated} errored={self.errored}"
         )
 
 
@@ -85,25 +93,31 @@ class StreamingCaseLifecycle(CaseLifecycle[AgentInput, AgentResult, AgentExpecte
 def _failure_summary(result: object) -> str:
     message = getattr(result, "error_message", "evaluation failed")
     clean = " ".join(str(message).split())[:100]
-    return f"result=fail error={clean}"
+    return f"result=error error={clean}"
 
 
-def _parse_option(name: str) -> str | None:
-    for i, arg in enumerate(sys.argv[1:], 1):
-        if arg == name and i + 1 < len(sys.argv):
-            return sys.argv[i + 1]
-        if arg.startswith(f"{name}="):
-            return arg.split("=", 1)[1]
-    return None
+def _export_path(value: str) -> Path:
+    path = Path(value)
+    try:
+        path.resolve().relative_to(DATASET_PATH.parent.resolve())
+    except ValueError:
+        return path
+    raise argparse.ArgumentTypeError(
+        "export target must not be the canonical dataset or reside under datasets/"
+    )
 
 
-def _parse_model_arg() -> str | None:
-    return _parse_option("--eval-model")
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--eval-model")
+    mode.add_argument("--export-dataset", type=_export_path)
+    return parser
 
 
-def _parse_export_path() -> Path | None:
-    value = _parse_option("--export-dataset")
-    return Path(value) if value is not None else None
+def _parse_args(argv: Sequence[str] | None = None) -> CliArgs:
+    parsed = _parser().parse_args(argv)
+    return CliArgs(parsed.eval_model, parsed.export_dataset)
 
 
 def _export_dataset(
@@ -156,12 +170,6 @@ async def _close_target(target: EvalTierTarget) -> None:
         await close()
 
 
-def invoke_gate(
-    payload: ResultsPayload, layer: str, baselines_dir: Path, *, capped: bool
-) -> GateResult:
-    return gate_results_payload(payload, layer, baselines_dir, capped=capped)
-
-
 def _finish(failures: list[str] | None) -> int:
     if failures is None:
         print("Baseline created. Re-run to enforce gate.")
@@ -172,13 +180,23 @@ def _finish(failures: list[str] | None) -> int:
     return gate_exit_code(failures)
 
 
-async def _main() -> int:
-    export_path = _parse_export_path()
+def _finish_report(report: AgentReport, target: EvalTierTarget, model_id: str) -> int:
+    try:
+        failures = finish_cli_report(report, target, model_id)
+    except NoEvaluatedCases as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    return _finish(failures)
+
+
+async def _main(args: CliArgs | None = None) -> int:
+    parsed = args or _parse_args()
+    export_path = parsed.export_dataset
     if export_path is not None:
         _export_dataset(agent_dataset, export_path)
         print(f"Exported official dataset: {export_path}")
         return 0
-    model_arg = _parse_model_arg()
+    model_arg = parsed.eval_model
     model_id = model_arg or EVAL_MODEL_ID
     target = await _target()
     try:
@@ -190,7 +208,7 @@ async def _main() -> int:
             target, make_model(model_id), model_id, lifecycle=progress, progress=False
         )
         report.print(include_input=True, include_output=True)
-        return _finish(finish_cli_report(report, target, model_id))
+        return _finish_report(report, target, model_id)
     finally:
         await _close_target(target)
 

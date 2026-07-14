@@ -156,6 +156,7 @@ def _acceptable_min_steps(meta: AgentExpected | None) -> list[int]:
 # ── L1/L2 deterministic evaluators (free) ────────────────────────────
 
 
+@dataclass
 class ToolCallRecall(Evaluator[AgentInput, AgentResult, AgentExpected]):
     """L2: tool-set recall/precision/F1 vs the best-matching acceptable stage."""
 
@@ -170,6 +171,7 @@ class ToolCallRecall(Evaluator[AgentInput, AgentResult, AgentExpected]):
         return {"tool_recall": recall, "tool_precision": precision, "tool_f1": f1}
 
 
+@dataclass
 class RouteOrderCorrect(Evaluator[AgentInput, AgentResult, AgentExpected]):
     """L2: 1.0 if any acceptable tool chain appears in-order in the trajectory."""
 
@@ -179,6 +181,7 @@ class RouteOrderCorrect(Evaluator[AgentInput, AgentResult, AgentExpected]):
         return {"route_order_correct": route_order_score(stages, actual)}
 
 
+@dataclass
 class DataKeysPresent(Evaluator[AgentInput, AgentResult, AgentExpected]):
     """L1: 1.0 if all expected data keys are present in the response payload."""
 
@@ -190,6 +193,7 @@ class DataKeysPresent(Evaluator[AgentInput, AgentResult, AgentExpected]):
         return {"data_keys_present": 1.0 if present else 0.0}
 
 
+@dataclass
 class NonemptyResults(Evaluator[AgentInput, AgentResult, AgentExpected]):
     """L1: tagged nearby cases must return at least one catalog row."""
 
@@ -206,6 +210,7 @@ class NonemptyResults(Evaluator[AgentInput, AgentResult, AgentExpected]):
         return {"nonempty_results": 1.0 if passed else 0.0}
 
 
+@dataclass
 class LocaleMatch(Evaluator[AgentInput, AgentResult, AgentExpected]):
     """L1: 1.0 if the reply language matches the requested locale."""
 
@@ -217,6 +222,7 @@ class LocaleMatch(Evaluator[AgentInput, AgentResult, AgentExpected]):
         return {"locale_match": 1.0 if matched else 0.0}
 
 
+@dataclass
 class StepEfficiency(Evaluator[AgentInput, AgentResult, AgentExpected]):
     """L2: ideal-steps / actual-steps, capped at 1.0 — measures wasted steps."""
 
