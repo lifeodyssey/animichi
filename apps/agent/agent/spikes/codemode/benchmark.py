@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
+import json
 import os
 import time
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
 from pydantic_ai import Agent
 from pydantic_ai.models import Model
 
@@ -32,11 +32,11 @@ from agent.agents.runtime_models import (
 )
 from agent.interfaces.public_api import detect_language
 from agent.spikes.codemode.agent import build_codemode_animichi_agent
+from agent.spikes.codemode.report import Arm, BenchmarkReport, RunMeasurement
 from agent.tests.eval.exec_tiers import trajectory_web_mocks
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.eval.null_database import NullDatabase
 
-Arm = Literal["baseline", "codemode"]
 QUERIES = (
     "ラブライブの聖地はどこ？",
     "Love Live的圣地在哪里",
@@ -54,42 +54,6 @@ VALID_OUTPUT_TYPES = (
     QAResponseModel,
     GreetingResponseModel,
 )
-
-
-class PreregisteredCriteria(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    minimum_requests_reduction: float = 0.40
-    maximum_latency_ratio: float = 1.0
-    require_valid_typed_outputs: bool = True
-    allow_new_tool_error_classes: bool = False
-
-
-PREREGISTERED_CRITERIA = PreregisteredCriteria()
-
-
-class RunMeasurement(BaseModel):
-    query: str
-    repeat: int
-    requests: int = 0
-    input_tokens: int = 0
-    output_tokens: int = 0
-    latency_seconds: float
-    output_type: str | None = None
-    valid_typed_output: bool = False
-    tool_call_count: int = 0
-    tool_error_classes: list[str] = []
-    exception_type: str | None = None
-    exception: str | None = None
-
-
-class BenchmarkReport(BaseModel):
-    schema_version: Literal[1] = 1
-    arm: Arm
-    model: str
-    repeats: int
-    queries: list[str]
-    criteria: PreregisteredCriteria = PREREGISTERED_CRITERIA
-    runs: list[RunMeasurement]
 
 
 def _build_agent(arm: Arm) -> Agent[RuntimeDeps, RuntimeOutput]:
@@ -123,6 +87,11 @@ def _measurement(query: str, repeat: int, elapsed: float) -> RunMeasurement:
 
 def _step_errors(deps: RuntimeDeps) -> list[str]:
     return [_tool_error_class(step.error) for step in deps.steps if not step.success]
+
+
+def _schema_digest(agent: Agent[RuntimeDeps, RuntimeOutput]) -> str:
+    encoded = json.dumps(agent.output_json_schema(), sort_keys=True).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 async def _run_once(
@@ -172,6 +141,11 @@ async def run_benchmark(
         model=describe_model(resolved),
         repeats=repeats,
         queries=list(queries),
+        output_schema_digest=_schema_digest(agent),
+        error_bearing_run_count=sum(
+            bool(run.exception_type or run.tool_error_classes) for run in runs
+        ),
+        total_tool_failure_count=sum(len(run.tool_error_classes) for run in runs),
         runs=runs,
     )
 
@@ -189,10 +163,13 @@ def _validated_path(arg: str) -> Path:
     if ".." in path.parts:
         raise SystemExit(f"Refusing traversal-suspicious path: {arg}")
     resolved = path.resolve()
-    allowed_base = resolved.parent if path.is_absolute() else Path.cwd().resolve()
+    allowed_base = Path(
+        os.environ.get("ANIMICHI_SPIKE_OUT_BASE", os.getcwd())
+    ).resolve()
     if not resolved.is_relative_to(allowed_base) or not resolved.parent.is_dir():
         raise SystemExit(
-            f"Path must stay within {allowed_base} and have an existing parent: {arg}"
+            f"Path must stay within {allowed_base} and have an existing parent: {arg}. "
+            "Set ANIMICHI_SPIKE_OUT_BASE for out-of-tree outputs."
         )
     return resolved
 

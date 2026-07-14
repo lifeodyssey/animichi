@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
+from dataclasses import dataclass, field
 from typing import NoReturn, cast
 
+from logfire.variables import ResolvedVariable
 from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.agent import AgentInstructions, AgentRunResult
 from pydantic_ai.capabilities import (
@@ -49,6 +53,10 @@ _KEEP_RECENT = 8  # Keep latest turn fully uncompressed
 MANAGED_PROMPT_NAME = "animichi-instructions"
 MANAGED_PROMPT_LABEL = "production"
 _LOCAL_PROMPT_VERSION = "checked-in"
+_PROMPT_RESOLUTION_DEADLINE_SECONDS = 2.0
+_PROMPT_RESOLUTION_EXECUTOR = ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix="managed-prompt"
+)
 
 RuntimeOutput = (
     ClarifyResponseModel
@@ -167,8 +175,26 @@ results conflict, prefer verified sources over unverified ones.
 """
 
 
+def _wait_for_prompt_resolution(
+    future: Future[ResolvedVariable[str]], timeout: float
+) -> ResolvedVariable[str]:
+    return future.result(timeout=timeout)
+
+
+class _PromptResolutionTimeout(TimeoutError):
+    """Application wall-clock deadline expired during prompt resolution."""
+
+
+@dataclass
 class _AnimichiManagedPrompt(ManagedPrompt[RuntimeDeps]):
     """ManagedPrompt with Animichi's blank-value and telemetry contract."""
+
+    resolution_deadline: float = field(
+        default_factory=lambda: _PROMPT_RESOLUTION_DEADLINE_SECONDS
+    )
+    resolution_waiter: Callable[
+        [Future[ResolvedVariable[str]], float], ResolvedVariable[str]
+    ] = field(default_factory=lambda: _wait_for_prompt_resolution, repr=False)
 
     def get_instructions(
         self,
@@ -177,7 +203,9 @@ class _AnimichiManagedPrompt(ManagedPrompt[RuntimeDeps]):
             resolved = self.resolved
             if resolved is None:
                 return None
-            return resolved.value if resolved.value.strip() else _INSTRUCTIONS
+            return (
+                resolved.value if _prompt_failure(resolved) is None else _INSTRUCTIONS
+            )
 
         return instructions
 
@@ -188,18 +216,64 @@ class _AnimichiManagedPrompt(ManagedPrompt[RuntimeDeps]):
             _record_prompt_resolution(self)
             return cast(AgentRunResult[RuntimeOutput], await handler())
 
-        result = await super().wrap_run(ctx, handler=observed_handler)
-        return cast(AgentRunResult[RuntimeOutput], result)
+        resolved = _resolve_prompt(self, ctx)
+        with resolved:
+            token = self._resolved.set(resolved)
+            try:
+                return await observed_handler()
+            finally:
+                self._resolved.reset(token)
+
+
+def _resolve_prompt(
+    prompt: _AnimichiManagedPrompt, ctx: RunContext[RuntimeDeps]
+) -> ResolvedVariable[str]:
+    future = _submit_prompt_resolution(prompt, ctx)
+    try:
+        return prompt.resolution_waiter(future, prompt.resolution_deadline)
+    except FutureTimeout:
+        future.cancel()
+        return _prompt_fallback(prompt, _PromptResolutionTimeout("deadline expired"))
+    except Exception as exc:
+        return _prompt_fallback(prompt, exc)
+
+
+def _submit_prompt_resolution(
+    prompt: _AnimichiManagedPrompt, ctx: RunContext[RuntimeDeps]
+) -> Future[ResolvedVariable[str]]:
+    targeting = (
+        prompt.targeting_key(ctx)
+        if callable(prompt.targeting_key)
+        else prompt.targeting_key
+    )
+    attributes = (
+        prompt.attributes(ctx) if callable(prompt.attributes) else prompt.attributes
+    )
+    return _PROMPT_RESOLUTION_EXECUTOR.submit(
+        prompt._variable.get,
+        targeting_key=targeting,
+        attributes=attributes,
+        label=prompt.label,
+    )
+
+
+def _prompt_fallback(
+    prompt: _AnimichiManagedPrompt, exception: Exception
+) -> ResolvedVariable[str]:
+    return ResolvedVariable(
+        name=prompt._variable.name,
+        value=_INSTRUCTIONS,
+        exception=exception,
+        reason="other_error",
+    )
 
 
 def _record_prompt_resolution(prompt: _AnimichiManagedPrompt) -> None:
     resolved = prompt.resolved
     if resolved is None:
         return
-    failure = _prompt_failure(resolved.value, resolved.exception)
-    source = "local" if failure or resolved.label is None else "remote"
-    if source == "local" and failure is None:
-        failure = "code_default"
+    failure = _prompt_failure(resolved)
+    source = "local" if failure else "remote"
     version = _LOCAL_PROMPT_VERSION if source == "local" else str(resolved.version)
     label = resolved.label or MANAGED_PROMPT_LABEL
     record_managed_prompt_resolution(
@@ -207,10 +281,16 @@ def _record_prompt_resolution(prompt: _AnimichiManagedPrompt) -> None:
     )
 
 
-def _prompt_failure(value: str, exception: Exception | None) -> str | None:
-    if exception is not None:
-        return type(exception).__name__
-    if not value.strip():
+def _prompt_failure(resolved: ResolvedVariable[str]) -> str | None:
+    if resolved.reason in {"code_default", "missing_config", "no_provider"}:
+        return "remote_unavailable"
+    if isinstance(resolved.exception, _PromptResolutionTimeout):
+        return "timeout"
+    if resolved.exception is not None:
+        return type(resolved.exception).__name__
+    if resolved.label != MANAGED_PROMPT_LABEL:
+        return "label_mismatch"
+    if not resolved.value.strip():
         return "blank_remote_value"
     return None
 
