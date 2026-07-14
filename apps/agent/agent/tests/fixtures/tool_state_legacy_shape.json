@@ -11,15 +11,16 @@
     "candidates": [{"title": "響け！ユーフォニアム", "bangumi_id": "485", "cover_url": "/cover.jpg", "city": "", "points_count": 0}]
   },
   "search_bangumi": {
-    "rows": [{"id": "p1", "name": "宇治橋", "name_cn": "宇治桥", "episode": 1, "time_seconds": 42, "screenshot_url": "/shot.jpg", "bangumi_id": "485", "latitude": 34.89, "longitude": 135.81, "title": "響け！ユーフォニアム", "title_cn": "吹响吧！上低音号", "distance_m": 120.0, "origin": "catalog", "cover_url": "/cover.jpg"}],
+    "rows": [{"id": "p1", "name": "宇治橋", "name_cn": "宇治桥", "episode": 1, "time_seconds": 42, "screenshot_url": "/shot.jpg", "bangumi_id": "485", "latitude": 34.89, "longitude": 135.81, "title": "響け！ユーフォニアム", "title_cn": "吹响吧！上低音号", "distance_m": 120.0, "origin": "catalog", "cover_url": "/cover.jpg", "legacy_point_alien": "preserved"}],
     "items": [{"id": "p1", "name": "宇治橋", "name_cn": "宇治桥", "episode": 1, "time_seconds": 42, "screenshot_url": "/shot.jpg", "bangumi_id": "485", "latitude": 34.89, "longitude": 135.81, "title": "響け！ユーフォニアム", "title_cn": "吹响吧！上低音号", "distance_m": 120.0, "origin": "catalog", "cover_url": "/cover.jpg"}],
     "row_count": 1,
     "strategy": "bangumi",
-    "metadata": {"anime_title": "響け！ユーフォニアム", "anime_title_cn": "吹响吧！上低音号", "cover_url": "/cover.jpg", "data_origin": "catalog", "source": "catalog"},
-    "nearby_groups": [{"bangumi_id": "485", "title": "響け！ユーフォニアム", "cover_url": "/cover.jpg", "points_count": 1, "closest_distance_m": 120.0}],
+    "metadata": {"anime_title": "響け！ユーフォニアム", "anime_title_cn": "吹响吧！上低音号", "cover_url": "/cover.jpg", "data_origin": "catalog", "source": "catalog", "legacy_metadata_alien": "preserved"},
+    "nearby_groups": [{"bangumi_id": "485", "title": "響け！ユーフォニアム", "cover_url": "/cover.jpg", "points_count": 1, "closest_distance_m": 120.0, "legacy_group_alien": "preserved"}],
     "status": "ok",
     "empty": false,
-    "summary": {"count": 1, "source": "catalog", "cache": "miss"}
+    "summary": {"count": 1, "source": "catalog", "cache": "miss", "legacy_summary_alien": "preserved"},
+    "legacy_search_alien": "preserved"
   },
   "search_nearby": {"rows": [], "items": [], "row_count": 0, "strategy": "geo", "metadata": {}, "nearby_groups": [], "status": "empty", "empty": true, "summary": {"count": 0, "source": "catalog", "cache": "miss"}},
   "plan_route": {

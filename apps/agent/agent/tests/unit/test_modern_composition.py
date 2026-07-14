@@ -18,9 +18,10 @@ from agent.agents.animichi_agent import (
     _modern_composition_enabled,
     build_animichi_agent,
 )
-from agent.agents.runtime_deps import RuntimeDeps
+from agent.agents.runtime_deps import RuntimeDeps, TitleTranslator, WebSearcher
 from agent.agents.translation import TranslationResult
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.eval.mock_web import MockWebSearcher
 
 _EAGER = {
     "clarify",
@@ -40,7 +41,7 @@ _QA_OUTPUT = {
 }
 
 
-def test_environment_switch_defaults_on_and_accepts_zero(
+async def test_environment_switch_defaults_on_and_builds_legacy_from_zero(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("ANIMICHI_MODERN_COMPOSITION", raising=False)
@@ -48,14 +49,29 @@ def test_environment_switch_defaults_on_and_accepts_zero(
     monkeypatch.setenv("ANIMICHI_MODERN_COMPOSITION", "0")
     assert _modern_composition_enabled() is False
 
+    observed: set[str] = set()
 
-def _deps(*, title_translator: object | None = None) -> RuntimeDeps:
+    def respond(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        observed.update(tool.name for tool in info.function_tools)
+        return ModelResponse(parts=[ToolCallPart("qa_response", _QA_OUTPUT)])
+
+    # Construction reads the env once, so the singleton changes only after restart.
+    await build_animichi_agent().run("hello", deps=_deps(), model=_local_model(respond))
+    assert observed == _EAGER | _DEFERRED
+
+
+def _deps(
+    *,
+    title_translator: TitleTranslator | None = None,
+    web_searcher: WebSearcher | None = None,
+) -> RuntimeDeps:
     return RuntimeDeps(
         db=MagicMock(),
         locale="zh",
         query="translate",
         catalog=MockCatalogClient(),
         title_translator=title_translator,
+        web_searcher=web_searcher,
     )
 
 
@@ -68,22 +84,19 @@ def _returned(messages: list[ModelMessage], tool_name: str) -> bool:
 
 
 def _local_model(respond: FunctionDef) -> FunctionModel:
-    """FunctionModel configured like a gateway without native tool search."""
-    return FunctionModel(
-        respond,
-        profile=ModelProfile(supported_native_tools=frozenset()),
-    )
+    profile = ModelProfile(supported_native_tools=frozenset())
+    return FunctionModel(respond, profile=profile)
 
 
 @pytest.mark.parametrize(
-    ("modern", "present", "absent"),
+    ("modern", "expected"),
     [
-        (True, _EAGER | {"search_tools"}, _DEFERRED),
-        (False, _EAGER | _DEFERRED, {"search_tools"}),
+        (True, _EAGER | {"search_tools"}),
+        (False, _EAGER | _DEFERRED),
     ],
 )
 async def test_composition_switch_controls_first_request_tools(
-    modern: bool, present: set[str], absent: set[str]
+    modern: bool, expected: set[str]
 ) -> None:
     observed: set[str] = set()
 
@@ -95,12 +108,14 @@ async def test_composition_switch_controls_first_request_tools(
         "hello", deps=_deps(), model=_local_model(respond)
     )
 
-    assert present <= observed
-    assert observed.isdisjoint(absent)
+    # Modern ToolSearch exposes its documented search_tools mechanism alongside
+    # the seven eager domain tools; legacy exposes both web tools directly.
+    assert observed == expected
 
 
-async def test_deferred_tool_is_discovered_and_invoked_end_to_end() -> None:
+async def test_deferred_tools_are_discovered_and_invoked_end_to_end() -> None:
     calls: list[tuple[str, str]] = []
+    search = MockWebSearcher()
 
     async def translate(title: str, locale: str) -> TranslationResult:
         calls.append((title, locale))
@@ -108,23 +123,27 @@ async def test_deferred_tool_is_discovered_and_invoked_end_to_end() -> None:
 
     def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         names = {tool.name for tool in info.function_tools}
-        if "translate_anime_title" not in names:
-            return ModelResponse(
-                parts=[
-                    ToolCallPart("search_tools", {"queries": ["translate anime title"]})
-                ]
-            )
+        if not _DEFERRED <= names:
+            queries = {"queries": ["translate anime title", "web search"]}
+            return ModelResponse(parts=[ToolCallPart("search_tools", queries)])
         if not _returned(messages, "translate_anime_title"):
             args = {"title": "君の名は。", "target_language": "zh"}
             return ModelResponse(parts=[ToolCallPart("translate_anime_title", args)])
+        if not _returned(messages, "web_search"):
+            return ModelResponse(
+                parts=[ToolCallPart("web_search", {"query": "Uji anime location"})]
+            )
         return ModelResponse(parts=[ToolCallPart("qa_response", _QA_OUTPUT)])
 
     result = await build_animichi_agent(modern_composition=True).run(
-        "translate", deps=_deps(title_translator=translate), model=_local_model(respond)
+        "translate",
+        deps=_deps(title_translator=translate, web_searcher=search),
+        model=_local_model(respond),
     )
 
     assert result.output.intent == "general_qa"
     assert calls == [("君の名は。", "zh")]
+    assert search.calls == [("search", ("Uji anime location",))]
 
 
 async def test_session_hook_is_idempotent_across_output_retry() -> None:

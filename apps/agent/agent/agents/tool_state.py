@@ -12,9 +12,15 @@ LegacyPayload: TypeAlias = dict[str, JsonValue]
 
 
 class _LegacyCompatibleModel(BaseModel):
-    """Type known fields while retaining fields from older persisted sessions."""
+    """Retain unknown fields hydrated by the persisted search-session seed."""
 
     model_config = ConfigDict(extra="allow")
+
+
+class _RuntimePayloadModel(BaseModel):
+    """Reject unknown fields in payloads written only by typed runtime code."""
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class PointState(_LegacyCompatibleModel):
@@ -37,7 +43,7 @@ class PointState(_LegacyCompatibleModel):
     city: str | None = None
 
 
-class CandidateState(_LegacyCompatibleModel):
+class CandidateState(_RuntimePayloadModel):
     """Resolve/clarify candidate shared by live tools and session backfill."""
 
     title: str
@@ -48,7 +54,7 @@ class CandidateState(_LegacyCompatibleModel):
     spot_count: int | None = None
 
 
-class ResolveAnimeState(_LegacyCompatibleModel):
+class ResolveAnimeState(_RuntimePayloadModel):
     """State emitted by ``resolve_anime``."""
 
     bangumi_id: str | None = None
@@ -101,7 +107,7 @@ class SearchState(_LegacyCompatibleModel):
     summary: SearchSummaryState | None = None
 
 
-class RouteSummaryState(_LegacyCompatibleModel):
+class RouteSummaryState(_RuntimePayloadModel):
     """Counts and distance totals attached to a planned route."""
 
     point_count: int
@@ -112,7 +118,7 @@ class RouteSummaryState(_LegacyCompatibleModel):
     without_coordinates: int
 
 
-class RouteState(_LegacyCompatibleModel):
+class RouteState(_RuntimePayloadModel):
     """State emitted by route planning and selected-point routing."""
 
     ordered_points: list[PointState] = Field(default_factory=list)
@@ -123,14 +129,14 @@ class RouteState(_LegacyCompatibleModel):
     summary: RouteSummaryState | None = None
 
 
-class InfoState(_LegacyCompatibleModel):
+class InfoState(_RuntimePayloadModel):
     """State emitted by greeting and general-QA tools."""
 
     message: str
     status: str
 
 
-class ClarifyState(_LegacyCompatibleModel):
+class ClarifyState(_RuntimePayloadModel):
     """State emitted by the clarification tool."""
 
     question: str
