@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeAlias
 
@@ -21,7 +22,6 @@ from agent.tests.eval.exec_tiers import (
     EvalTierTarget,
     build_results_payload,
     collect_case_scores,
-    error_rate_message,
     save_results,
 )
 from agent.tests.eval.gate import (
@@ -36,6 +36,22 @@ ScoreMap: TypeAlias = dict[str, float]
 CaseScores: TypeAlias = dict[str, ScoreMap]
 
 
+@dataclass(frozen=True)
+class GateInput:
+    model: str
+    dataset: str
+    tier: str
+    case_count: int
+    evaluated_count: int
+    errored_count: int
+    scores: ScoreMap
+    cases: CaseScores
+
+
+def gate_exit_code(failures: list[str] | None) -> int:
+    return 1 if failures else 0
+
+
 class NoEvaluatedCases(RuntimeError):
     """Raised when every eval case failed during task execution."""
 
@@ -45,6 +61,15 @@ def _scores(report: AgentReport) -> ScoreMap:
     if avg is None:
         raise NoEvaluatedCases("All cases errored — check model endpoint and DB.")
     return collect_scores(avg, METRIC_NAMES)
+
+
+def _scores_for_run(report: AgentReport) -> ScoreMap:
+    try:
+        return _scores(report)
+    except NoEvaluatedCases:
+        if CAPPED:
+            return {}
+        raise
 
 
 def persist_report(
@@ -63,45 +88,41 @@ def persist_report(
     )
 
 
-def _new_baseline(
-    target: EvalTierTarget,
-    model_id: str,
-    scores: ScoreMap,
-    cases: CaseScores,
-    report: AgentReport,
-) -> BaselineRecord:
+def _new_baseline(gate_input: GateInput) -> BaselineRecord:
     return BaselineRecord(
-        model=model_id,
-        dataset=DATASET_NAME,
-        tier=target.tier,
-        case_count=len(CASES),
-        evaluated_count=len(report.cases),
-        errored_count=len(report.failures),
-        scores=scores,
-        cases=cases,
+        model=gate_input.model,
+        dataset=gate_input.dataset,
+        tier=gate_input.tier,
+        case_count=gate_input.case_count,
+        evaluated_count=gate_input.evaluated_count,
+        errored_count=gate_input.errored_count,
+        scores=gate_input.scores,
+        cases=gate_input.cases,
     )
 
 
-def _baseline(target: EvalTierTarget, model_id: str) -> BaselineRecord | None:
+def _baseline(
+    layer: str, model_id: str, case_count: int, baselines_dir: Path
+) -> BaselineRecord | None:
     return read_baseline_record(
-        target.layer,
+        layer,
         model_id,
-        baselines_dir=BASELINES_DIR,
-        expected_case_count=len(CASES),
+        baselines_dir=baselines_dir,
+        expected_case_count=case_count,
     )
 
 
 def _write_baseline(
-    record: BaselineRecord, target: EvalTierTarget, model_id: str
+    record: BaselineRecord, layer: str, model_id: str, baselines_dir: Path
 ) -> None:
     write_baseline_record(
-        record, layer=target.layer, model_id=model_id, baselines_dir=BASELINES_DIR
+        record, layer=layer, model_id=model_id, baselines_dir=baselines_dir
     )
 
 
-def _capped_notice() -> None:
+def _capped_notice(case_count: int) -> None:
     print(
-        f"\nCAPPED eval run: {len(CASES)}/{len(ALL_CASES)} cases; "
+        f"\nCAPPED eval run: {case_count}/{len(ALL_CASES)} cases; "
         "report-only (no baseline read/write/gate)."
     )
 
@@ -109,27 +130,43 @@ def _capped_notice() -> None:
 def gate_report(
     report: AgentReport, target: EvalTierTarget, model_id: str, scores: ScoreMap
 ) -> list[str] | None:
-    if CAPPED:
-        _capped_notice()
+    gate_input = _report_gate_input(report, target, model_id, scores)
+    return _run_gate(gate_input, target.layer, BASELINES_DIR, capped=CAPPED)
+
+
+def _run_gate(
+    gate_input: GateInput, layer: str, baselines_dir: Path, *, capped: bool
+) -> list[str] | None:
+    if capped:
+        _capped_notice(gate_input.case_count)
         return []
-    cases = collect_case_scores(report)
-    baseline = _baseline(target, model_id)
-    if baseline is None:
-        _write_baseline(
-            _new_baseline(target, model_id, scores, cases, report), target, model_id
-        )
-        return None
-    return _gate_against(report, cases, baseline)
+    baseline = _baseline(layer, gate_input.model, gate_input.case_count, baselines_dir)
+    error_failures = error_rate_gate(
+        gate_input.errored_count,
+        gate_input.evaluated_count + gate_input.errored_count,
+        baseline,
+    )
+    if baseline is not None:
+        return [*bootstrap_gate(gate_input.cases, baseline), *error_failures]
+    if error_failures:
+        return error_failures
+    _write_baseline(_new_baseline(gate_input), layer, gate_input.model, baselines_dir)
+    return None
 
 
-def _gate_against(
-    report: AgentReport, cases: CaseScores, baseline: BaselineRecord
-) -> list[str]:
-    total = len(report.cases) + len(report.failures)
-    return [
-        *bootstrap_gate(cases, baseline),
-        *error_rate_gate(len(report.failures), total, baseline),
-    ]
+def _report_gate_input(
+    report: AgentReport, target: EvalTierTarget, model_id: str, scores: ScoreMap
+) -> GateInput:
+    return GateInput(
+        model_id,
+        DATASET_NAME,
+        target.tier,
+        len(CASES),
+        len(report.cases),
+        len(report.failures),
+        scores,
+        collect_case_scores(report),
+    )
 
 
 def _print_report_scores(
@@ -143,9 +180,7 @@ def _print_report_scores(
 def finish_cli_report(
     report: AgentReport, target: EvalTierTarget, model_id: str
 ) -> list[str] | None:
-    scores = _scores(report)
+    scores = _scores_for_run(report)
     persist_report(report, target, model_id, scores)
-    if message := error_rate_message(report):
-        raise SystemExit(message)
     _print_report_scores(scores, target, model_id)
     return gate_report(report, target, model_id, scores)

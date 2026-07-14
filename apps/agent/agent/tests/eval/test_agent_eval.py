@@ -7,32 +7,45 @@ import os
 import pytest
 
 from agent.interfaces.public_api import default_catalog_client
-from agent.tests.eval.eval_gate_flow import NoEvaluatedCases, finish_cli_report
+from agent.tests.eval.eval_gate_flow import (
+    NoEvaluatedCases,
+    finish_cli_report,
+)
 from agent.tests.eval.eval_harness import (
     EVAL_MODEL_ID,
     AgentInput,
+    AgentReport,
     evaluate_target,
     make_agent_task,
 )
-from agent.tests.eval.exec_tiers import EvalTierTarget, trajectory_web_mocks
+from agent.tests.eval.exec_tiers import (
+    EvalTierTarget,
+    trajectory_web_mocks,
+)
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.eval.null_database import NullDatabase
 
 __all__ = ["AgentInput", "make_agent_task"]
 
 
+# This compatibility pytest alias shares finish_cli_report with the CLI runner.
+# Uncapped all-error reports deliberately fail here instead of being skipped.
+def _assert_report(
+    report: AgentReport, target: EvalTierTarget, model_id: str = EVAL_MODEL_ID
+) -> None:
+    try:
+        failures = finish_cli_report(report, target, model_id)
+    except NoEvaluatedCases as exc:
+        pytest.fail(str(exc))
+    if failures is None:
+        pytest.skip(f"Baseline created for {model_id}; re-run to enforce gate.")
+    assert not failures, "Regression:\n" + "\n".join(failures)
+
+
 async def _run_pytest_tier(target: EvalTierTarget) -> None:
     report = await evaluate_target(target)
     report.print(include_input=True, include_output=True)
-    try:
-        failures = finish_cli_report(report, target, EVAL_MODEL_ID)
-    except NoEvaluatedCases as exc:
-        pytest.skip(str(exc))
-    except SystemExit as exc:
-        pytest.fail(str(exc))
-    if failures is None:
-        pytest.skip(f"Baseline created for {EVAL_MODEL_ID}; re-run to enforce gate.")
-    assert not failures, "Regression:\n" + "\n".join(failures)
+    _assert_report(report, target)
 
 
 @pytest.mark.integration
