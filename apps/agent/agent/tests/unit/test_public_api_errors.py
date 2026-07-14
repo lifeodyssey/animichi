@@ -162,9 +162,7 @@ class TestRuntimeAPIErrors:
             _ = (text, db, model, locale, context, message_history, on_step)
             return result
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(mock_db)
             response = await api.handle(PublicAPIRequest(text="秒速5厘米的取景地在哪"))
 
@@ -176,7 +174,7 @@ class TestRuntimeAPIErrors:
         api = RuntimeAPI(mock_db)
 
         with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent",
+            "agent.interfaces.public_api.run_animichi_agent",
             new=AsyncMock(side_effect=InvalidInputError("bad request", field="text")),
         ):
             response = await api.handle(PublicAPIRequest(text="秒速5厘米的取景地在哪"))
@@ -189,7 +187,7 @@ class TestRuntimeAPIErrors:
         api = RuntimeAPI(mock_db)
 
         with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent",
+            "agent.interfaces.public_api.run_animichi_agent",
             new=AsyncMock(side_effect=RuntimeError("boom")),
         ):
             response = await api.handle(PublicAPIRequest(text="秒速5厘米的取景地在哪"))
@@ -203,7 +201,7 @@ class TestRuntimeAPIErrors:
         api = RuntimeAPI(mock_db)
 
         with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent",
+            "agent.interfaces.public_api.run_animichi_agent",
             new=AsyncMock(side_effect=ModelHTTPError(502, "test-model")),
         ):
             response = await api.handle(PublicAPIRequest(text="秒速5厘米的取景地在哪"))
@@ -223,7 +221,7 @@ class TestRuntimeAPIErrors:
         monkeypatch.setattr("agent.interfaces.public_api.AGENT_TIMEOUT_SECONDS", 0.01)
         api = RuntimeAPI(mock_db)
         with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent",
+            "agent.interfaces.public_api.run_animichi_agent",
             side_effect=_slow_agent,
         ):
             response = await api.handle(PublicAPIRequest(text="秒速5厘米的取景地在哪"))
@@ -240,7 +238,7 @@ class TestRuntimeAPIErrors:
         monkeypatch.setattr("agent.interfaces.public_api.AGENT_TIMEOUT_SECONDS", 0.01)
         api = RuntimeAPI(mock_db)
         with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent",
+            "agent.interfaces.public_api.run_animichi_agent",
             side_effect=_slow_agent,
         ):
             response = await api.handle(PublicAPIRequest(text="秒速5厘米的取景地在哪"))

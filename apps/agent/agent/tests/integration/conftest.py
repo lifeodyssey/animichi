@@ -290,7 +290,7 @@ def _parse_sse_events(raw: str) -> list[dict[str, object]]:
 
 @pytest.fixture
 def client(tc_db: SupabaseClient) -> AsyncIterator[_AuthedClient]:
-    async def _fake_run_pilgrimage_agent(
+    async def _fake_run_animichi_agent(
         *,
         text: str,
         db: object,
@@ -304,8 +304,8 @@ def client(tc_db: SupabaseClient) -> AsyncIterator[_AuthedClient]:
 
     app = _build_test_app(tc_db)
     with patch(
-        "agent.interfaces.public_api.run_pilgrimage_agent",
-        side_effect=_fake_run_pilgrimage_agent,
+        "agent.interfaces.public_api.run_animichi_agent",
+        side_effect=_fake_run_animichi_agent,
     ):
         with TestClient(app) as raw_client:
             yield _AuthedClient(raw_client)
@@ -313,7 +313,7 @@ def client(tc_db: SupabaseClient) -> AsyncIterator[_AuthedClient]:
 
 @pytest.fixture
 def sse_client(tc_db: SupabaseClient) -> AsyncIterator[_SSEClient]:
-    async def _fake_run_pilgrimage_agent(
+    async def _fake_run_animichi_agent(
         *,
         text: str,
         db: object,
@@ -362,8 +362,8 @@ def sse_client(tc_db: SupabaseClient) -> AsyncIterator[_SSEClient]:
 
     app = _build_test_app(tc_db)
     with patch(
-        "agent.interfaces.public_api.run_pilgrimage_agent",
-        side_effect=_fake_run_pilgrimage_agent,
+        "agent.interfaces.public_api.run_animichi_agent",
+        side_effect=_fake_run_animichi_agent,
     ):
         with TestClient(app) as raw_client:
             yield _SSEClient(raw_client)

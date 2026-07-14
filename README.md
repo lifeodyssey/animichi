@@ -25,7 +25,7 @@ Tell the agent an anime title or a location in natural language. It finds real-w
 ## How It Works
 
 ```
-User text  →  PydanticAI Agent (pilgrimage_agent)
+User text  →  PydanticAI Agent (animichi_agent)
                  ├── resolve_anime  → DB-first title lookup; Bangumi.tv API on miss
                  ├── search_bangumi → parameterized SQL → Supabase points
                  ├── search_nearby  → PostGIS geo retrieval
@@ -98,12 +98,12 @@ See [`apps/agent/agent/config/settings.py`](apps/agent/agent/config/settings.py)
 
 **Python (direct):**
 ```python
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.animichi_runner import run_animichi_agent
 from agent.infrastructure.supabase.client import SupabaseClient
 
 async def main() -> None:
     async with SupabaseClient(db_url) as db:
-        result = await run_pilgrimage_agent("吹響ユーフォニアムの聖地", db, locale="ja")
+        result = await run_animichi_agent("吹響ユーフォニアムの聖地", db, locale="ja")
         print(result.output)
 ```
 

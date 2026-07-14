@@ -1,7 +1,7 @@
 """HTTP-surface wiring: RuntimeAPI injects a CatalogClient into the agent.
 
 These verify the catalog seam at the interface layer:
-  - ``RuntimeAPI`` forwards an injected catalog client to ``run_pilgrimage_agent``.
+  - ``RuntimeAPI`` forwards an injected catalog client to ``run_animichi_agent``.
   - The app factory constructs a real ``CatalogClient`` from settings.
 A ``MockCatalogClient`` (spy) is injected via the ``RuntimeAPI`` constructor seam,
 so we assert the agent drove its data path through that client.
@@ -35,7 +35,7 @@ async def test_runtime_api_forwards_catalog_to_agent() -> None:
     request = PublicAPIRequest(text="hello", locale="ja")
 
     with patch(
-        "agent.interfaces.public_api.run_pilgrimage_agent",
+        "agent.interfaces.public_api.run_animichi_agent",
         return_value=_greet_result(),
     ) as runner:
         await api.handle(request)
@@ -54,7 +54,7 @@ async def test_runtime_api_defaults_catalog_to_real_client() -> None:
     request = PublicAPIRequest(text="hello", locale="ja")
 
     with patch(
-        "agent.interfaces.public_api.run_pilgrimage_agent",
+        "agent.interfaces.public_api.run_animichi_agent",
         return_value=_greet_result(),
     ) as runner:
         await api.handle(request)

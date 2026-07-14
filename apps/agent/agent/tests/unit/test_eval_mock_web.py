@@ -18,7 +18,7 @@ from pydantic_ai.messages import (
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from agent.agents.agent_result import AgentResult
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.web_tools import translate_anime_title, web_search
 from agent.domain.ports import DatabasePort
@@ -124,7 +124,7 @@ def _tool_return(result: AgentResult, tool_name: str) -> str:
 async def test_web_search_function_model_uses_injected_searcher() -> None:
     searcher = MockWebSearcher()
 
-    result = await run_pilgrimage_agent(
+    result = await run_animichi_agent(
         text="宇治 anime pilgrimage",
         db=MagicMock(),
         locale="en",

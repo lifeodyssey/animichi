@@ -1,7 +1,7 @@
 """Web-facing tool registrations (web_search, translate_anime_title).
 
-Extracted from pilgrimage_tools.py to keep that file under 300 lines.
-Import this module after ``pilgrimage_agent`` is created so the decorators
+Extracted from animichi_tools.py to keep that file under 300 lines.
+Import this module after ``animichi_agent`` is created so the decorators
 can attach to it.
 """
 
@@ -18,12 +18,12 @@ from pydantic_ai.common_tools.duckduckgo import (
     duckduckgo_search_tool,
 )
 
+from agent.agents.animichi_agent import animichi_agent
 from agent.agents.guardrails import (
     WebResult,
     detect_prompt_injection,
     wrap_untrusted_web_results,
 )
-from agent.agents.pilgrimage_agent import pilgrimage_agent
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.translation import TranslationResult, translate_title
 
@@ -70,7 +70,7 @@ def _log_result_injections(results: list[WebResult]) -> None:
         )
 
 
-@pilgrimage_agent.tool
+@animichi_agent.tool
 async def web_search(
     ctx: RunContext[RuntimeDeps],
     *,
@@ -106,7 +106,7 @@ async def web_search(
     return wrap_untrusted_web_results(results)
 
 
-@pilgrimage_agent.tool
+@animichi_agent.tool
 async def translate_anime_title(
     ctx: RunContext[RuntimeDeps],
     *,
