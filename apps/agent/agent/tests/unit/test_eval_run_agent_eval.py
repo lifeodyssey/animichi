@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import pytest
-from pydantic_evals import Case
+from pydantic_evals import Case, Dataset
 from pydantic_evals.reporting import EvaluationReport, ReportCase, ReportCaseFailure
 
+from agent.agents.agent_result import AgentResult
 from agent.tests.eval import eval_gate_flow
 from agent.tests.eval.eval_gate_flow import finish_cli_report, gate_exit_code
-from agent.tests.eval.evaluators import AgentInput
+from agent.tests.eval.evaluators import AgentExpected, AgentInput
 from agent.tests.eval.exec_tiers import EvalTierTarget
 from agent.tests.eval.run_agent_eval import (
     StreamingProgress,
+    _export_dataset,
+    _parse_export_path,
     _parse_model_arg,
 )
 
@@ -30,6 +34,39 @@ def test_parse_model_arg(
 ) -> None:
     monkeypatch.setattr(sys, "argv", argv)
     assert _parse_model_arg() == expected
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected"),
+    [
+        (["run_agent_eval.py", "--export-dataset"], None),
+        (["run_agent_eval.py", "--export-dataset", "out.json"], "out.json"),
+        (["run_agent_eval.py", "--export-dataset=out.json"], "out.json"),
+        (["run_agent_eval.py"], None),
+    ],
+)
+def test_parse_export_path(
+    monkeypatch: pytest.MonkeyPatch, argv: list[str], expected: str | None
+) -> None:
+    monkeypatch.setattr(sys, "argv", argv)
+    path = _parse_export_path()
+    actual = str(path) if path is not None else None
+    assert actual == expected
+
+
+def test_export_dataset_round_trips_official_format(tmp_path: Path) -> None:
+    cases = [
+        Case(name="route-ja", inputs=AgentInput(query="宇治を巡る", locale="ja")),
+        Case(name="nearby-en", inputs=AgentInput(query="near Uji", locale="en")),
+    ]
+    subset = Dataset[AgentInput, AgentResult, AgentExpected](name="subset", cases=cases)
+    output = tmp_path / "subset.json"
+
+    _export_dataset(subset, output)
+    loaded = Dataset[AgentInput, AgentResult, AgentExpected].from_file(output)
+
+    assert [case.name for case in loaded.cases] == [case.name for case in cases]
+    assert [case.inputs for case in loaded.cases] == [case.inputs for case in cases]
 
 
 def test_streaming_progress_reports_completed_cases(
