@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from pydantic_ai.messages import ModelMessage
+from pydantic_ai.usage import RunUsage
 
 from agent.agents.runtime_models import RuntimeStageOutput
 from agent.agents.tool_state import LegacyPayload
@@ -32,6 +33,7 @@ class AgentResult:
     steps: list[StepRecord] = field(default_factory=list)
     tool_state: LegacyPayload = field(default_factory=dict)
     new_messages: list[ModelMessage] = field(default_factory=list)
+    usage: RunUsage | None = None
 
     @property
     def intent(self) -> str:

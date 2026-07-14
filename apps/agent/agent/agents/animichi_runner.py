@@ -111,6 +111,7 @@ async def run_animichi_agent(
         steps=list(deps.steps),
         tool_state=deps.tool_state.to_legacy_dict(),
         new_messages=list(run_result.new_messages()),
+        usage=run_result.usage,
     )
     logger.info(
         "animichi_agent_complete",
