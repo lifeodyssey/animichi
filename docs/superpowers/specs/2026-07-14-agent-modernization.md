@@ -45,7 +45,7 @@
 ## 2. Wave 1 — 组合面现代化
 
 1. **`name=`**:**全部构造路径**显式命名——模块级 5 个 + `base.py` 工厂路径(工厂签名加 name 参数);AC 含"无未命名 Agent 构造"的守卫测试
-2. **工具注册解耦(v2 设计定形)**:工具定义模块**去 agent 依赖**(纯函数 + Tool 描述);agent 构造时显式 `tools=[]`/toolset 注入;runner 可加 per-run toolsets(translation_agent 已示范构造注入)。禁止构造后全局变异。**AST 不变量测试随迁**:`test_agent_upstream_free.py`(`_SEAM_MODULES`/import 形状)与 `test_tools_catalog_wiring` 必须迁移而非弱化(评审重点盯)
+2. **工具注册解耦(v2 设计定形)**:工具定义模块**去 agent 依赖**(纯函数 + Tool 描述);agent 构造时显式 `tools=[]`/toolset 注入;per-run toolsets 由 pydantic-ai 2.9.1 `Agent.run(toolsets=)` 原生支持,**有真实消费者时再接线,不预置未消费参数**(translation_agent 已示范构造注入)。禁止构造后全局变异。**AST 不变量测试随迁**:`test_agent_upstream_free.py`(`_SEAM_MODULES`/import 形状)与 `test_tools_catalog_wiring` 必须迁移而非弱化(评审重点盯)
 3. **Progressive disclosure(v2 收窄)**:**eager 集合固定 = 全部 7 个意图工具(clarify、resolve_anime、search_bangumi、search_nearby、plan_route、greet_user、general_qa)**——clarify 是 ModelRetry 文案 mid-run 指名的恢复出口 + 结构化输出逃生门,greet/general_qa 是首轮路由器(schema 小,defer 无肉);**初始 defer 候选仅 web_search + translate_anime_title**;进一步 defer 需分层 eval 证据(按意图族分层看,聚合 F1 会掩盖)。defer 机制前置:确认 2.9.1 的 tool-search/discovery capability 配置 + 可达性测试(deferred 工具必须可被发现并调用,轨迹测试钉);"收窄引导语"是运行时 ModelRetry 文本,不是 defer 对象
 4. **Hooks 横切面**:动态会话状态注入 → `before_model_request`(**幂等性要求:跨 retry/工具环重入不重复注入**);错误遥测 → `on.run_error`;删等价手搓散点
 5. **tool_state typed**:dict 混型 → typed deps/state;**保持异构工具结果的序列化边界**。已知触点:evaluators 读 `tool_state["search_nearby"]["row_count"]`、response_builder/_UI_MAP 按 key 路由、`_seed_search_data` 会话回填、SSE payload 镜像

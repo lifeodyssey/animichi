@@ -1,8 +1,4 @@
-"""Runner: execute the pilgrimage agent and return AgentResult.
-
-Separated from the agent definition so that the agent module stays small
-and the tool module can import the agent object without circular deps.
-"""
+"""Runner: execute the pilgrimage agent and return AgentResult."""
 
 from __future__ import annotations
 
@@ -11,61 +7,58 @@ from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
 
-import agent.agents.animichi_tools as _tools  # noqa: F401
-import agent.agents.web_tools as _web_tools  # noqa: F401
 from agent.agents.agent_result import AgentResult
-
-# Importing animichi_tools triggers @tool registrations on the agent.
-from agent.agents.animichi_agent import animichi_agent  # noqa: F401
+from agent.agents.animichi_agent import animichi_agent
 from agent.agents.runtime_deps import (
     OnStep,
     RuntimeDeps,
     TitleTranslator,
     WebSearcher,
 )
+from agent.agents.tool_state import SearchState, ToolState
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
 
 logger = structlog.get_logger(__name__)
 
 
-def _seed_geo_coords(tool_state: dict[str, object], context: dict[str, object]) -> None:
+def _seed_geo_coords(tool_state: ToolState, context: dict[str, object]) -> None:
     origin_lat = context.get("origin_lat")
     origin_lng = context.get("origin_lng")
     if isinstance(origin_lat, int | float):
-        tool_state["origin_lat"] = float(origin_lat)
+        tool_state.origin_lat = float(origin_lat)
     if isinstance(origin_lng, int | float):
-        tool_state["origin_lng"] = float(origin_lng)
+        tool_state.origin_lng = float(origin_lng)
 
 
-def _seed_search_data(
-    tool_state: dict[str, object], context: dict[str, object]
-) -> None:
+def _seed_search_data(tool_state: ToolState, context: dict[str, object]) -> None:
     raw = context.get("last_search_data")
     if not isinstance(raw, dict):
         return
-    for key in ("search_bangumi", "search_nearby"):
-        value = raw.get(key)
-        if isinstance(value, dict):
-            tool_state[key] = value
-    if "rows" in raw and "search_bangumi" not in tool_state:
-        tool_state["search_bangumi"] = raw
+    bangumi = raw.get("search_bangumi")
+    nearby = raw.get("search_nearby")
+    if isinstance(bangumi, dict):
+        tool_state.search_bangumi = SearchState.model_validate(bangumi)
+    if isinstance(nearby, dict):
+        tool_state.search_nearby = SearchState.model_validate(nearby)
+    if "rows" in raw and tool_state.search_bangumi is None:
+        tool_state.search_bangumi = SearchState.model_validate(raw)
 
 
 def _seed_tool_state(deps: RuntimeDeps, context: dict[str, object] | None) -> None:
-    deps.tool_state["locale"] = deps.locale
+    deps.tool_state.locale = deps.locale
     if context is None:
         return
     last_location = context.get("last_location")
     if isinstance(last_location, str) and last_location:
-        deps.tool_state["last_location"] = last_location
+        deps.tool_state.last_location = last_location
     _seed_geo_coords(deps.tool_state, context)
 
     raw_candidates = context.get("resolve_candidates")
     if isinstance(raw_candidates, list) and raw_candidates:
-        deps.tool_state["resolve_candidates"] = raw_candidates
+        deps.tool_state.resolve_candidates = raw_candidates
     if context.get("pending_clarify") is True:
-        deps.tool_state["pending_clarify"] = True
+        deps.tool_state.pending_clarify = True
 
     _seed_search_data(deps.tool_state, context)
 
@@ -116,8 +109,9 @@ async def run_animichi_agent(
     result = AgentResult(
         output=raw_output,
         steps=list(deps.steps),
-        tool_state=dict(deps.tool_state),
+        tool_state=deps.tool_state.to_legacy_dict(),
         new_messages=list(run_result.new_messages()),
+        usage=run_result.usage,
     )
     logger.info(
         "animichi_agent_complete",

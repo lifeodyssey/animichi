@@ -247,15 +247,18 @@ class TestDetectClarifyContext:
 
 class TestOnComplete:
     async def test_yields_data_chunk_with_merged_tool_state(self) -> None:
+        from agent.agents.tool_state import ToolState
         from agent.interfaces.routes.chat import _make_on_complete
 
         mock_deps = MagicMock()
-        mock_deps.tool_state = {
-            "search_bangumi": {
-                "rows": [{"id": "p1", "name": "宇治橋", "city": "宇治"}],
-                "row_count": 1,
+        mock_deps.tool_state = ToolState.model_validate(
+            {
+                "search_bangumi": {
+                    "rows": [{"id": "p1", "name": "宇治橋", "city": "宇治"}],
+                    "row_count": 1,
+                }
             }
-        }
+        )
 
         mock_output = MagicMock()
         mock_output.model_dump.return_value = {
@@ -276,10 +279,11 @@ class TestOnComplete:
         assert chunks[0].data["data"]["results"]["rows"][0]["city"] == "宇治"
 
     async def test_no_chunk_for_plain_output(self) -> None:
+        from agent.agents.tool_state import ToolState
         from agent.interfaces.routes.chat import _make_on_complete
 
         mock_deps = MagicMock()
-        mock_deps.tool_state = {}
+        mock_deps.tool_state = ToolState()
         mock_result = MagicMock()
         mock_result.output = "just a string"
 

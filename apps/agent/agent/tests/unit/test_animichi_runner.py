@@ -15,7 +15,7 @@ def test_seed_tool_state_sets_locale() -> None:
         db=MagicMock(), locale="zh", query="test", catalog=MockCatalogClient()
     )
     _seed_tool_state(deps, None)
-    assert deps.tool_state["locale"] == "zh"
+    assert deps.tool_state.locale == "zh"
 
 
 def test_seed_tool_state_with_context() -> None:
@@ -33,12 +33,12 @@ def test_seed_tool_state_with_context() -> None:
         },
     }
     _seed_tool_state(deps, context)
-    assert deps.tool_state["last_location"] == "宇治"
+    assert deps.tool_state.last_location == "宇治"
     import pytest
 
-    assert deps.tool_state["origin_lat"] == pytest.approx(34.886)
-    assert deps.tool_state["origin_lng"] == pytest.approx(135.805)
-    assert "search_bangumi" in deps.tool_state
+    assert deps.tool_state.origin_lat == pytest.approx(34.886)
+    assert deps.tool_state.origin_lng == pytest.approx(135.805)
+    assert deps.tool_state.search_bangumi is not None
 
 
 def test_seed_tool_state_ignores_non_string_location() -> None:
@@ -48,7 +48,7 @@ def test_seed_tool_state_ignores_non_string_location() -> None:
         db=MagicMock(), locale="en", query="test", catalog=MockCatalogClient()
     )
     _seed_tool_state(deps, {"last_location": 123})
-    assert "last_location" not in deps.tool_state
+    assert deps.tool_state.last_location is None
 
 
 def test_seed_tool_state_ignores_non_dict_search_data() -> None:
@@ -58,7 +58,7 @@ def test_seed_tool_state_ignores_non_dict_search_data() -> None:
         db=MagicMock(), locale="en", query="test", catalog=MockCatalogClient()
     )
     _seed_tool_state(deps, {"last_search_data": "not_a_dict"})
-    assert "search_bangumi" not in deps.tool_state
+    assert deps.tool_state.search_bangumi is None
 
 
 def test_seed_tool_state_restores_clarify_context() -> None:
@@ -79,9 +79,9 @@ def test_seed_tool_state_restores_clarify_context() -> None:
     }
     _seed_tool_state(deps, context)
 
-    assert deps.tool_state.get("pending_clarify") is True
-    candidates = deps.tool_state.get("resolve_candidates")
-    assert isinstance(candidates, list)
+    assert deps.tool_state.pending_clarify is True
+    candidates = deps.tool_state.resolve_candidates
+    assert candidates is not None
     assert len(candidates) == 2
 
 
@@ -92,8 +92,8 @@ def test_seed_tool_state_omits_clarify_when_absent() -> None:
         db=MagicMock(), locale="en", query="test", catalog=MockCatalogClient()
     )
     _seed_tool_state(deps, {"last_location": "Uji"})
-    assert "pending_clarify" not in deps.tool_state
-    assert "resolve_candidates" not in deps.tool_state
+    assert deps.tool_state.pending_clarify is None
+    assert deps.tool_state.resolve_candidates is None
 
 
 def test_seed_tool_state_restores_flat_search_data() -> None:
@@ -111,8 +111,8 @@ def test_seed_tool_state_restores_flat_search_data() -> None:
         },
     }
     _seed_tool_state(deps, context)
-    assert "search_bangumi" in deps.tool_state
-    assert deps.tool_state["search_bangumi"]["row_count"] == 1
+    assert deps.tool_state.search_bangumi is not None
+    assert deps.tool_state.search_bangumi.row_count == 1
 
 
 def test_status_from_payload_extracts_status() -> None:
