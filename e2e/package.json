@@ -9,6 +9,6 @@
     "test:web": "playwright test web-404.spec.ts"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1"
+    "@playwright/test": "^1.61.1"
   }
 }

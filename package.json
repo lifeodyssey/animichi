@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@cloudflare/containers": "^0.3.7",
-    "hono": "^4.9.10",
+    "hono": "^4.12.30",
     "jose": "^6.2.3"
   },
   "pnpm": {
@@ -30,7 +30,7 @@
     }
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260623.1",
+    "@cloudflare/workers-types": "^5.20260714.1",
     "@types/node": "^26.1.1"
   }
 }
