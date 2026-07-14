@@ -9,6 +9,7 @@ from agent.clients.errors import APIError
 from agent.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
 from agent.tests.eval.mock_catalog_fixtures import (
     FIXTURE_POINTS,
+    GEOCODE_FIXTURES,
     LOCATION_CENTERS,
     TITLE_ALIASES,
     TITLE_NAMES,
@@ -151,92 +152,10 @@ def _candidate(
 
 
 def _geocode_fixture(query: str) -> list[GeocodeCandidate]:
-    fixtures = {
-        "西宮": [
-            _candidate(
-                "seed:nishinomiya",
-                "西宮駅(兵庫県)",
-                "西宮駅",
-                34.7386,
-                135.3485,
-                GeocodeKind.STATION,
-            )
-        ],
-        "西宫": [
-            _candidate(
-                "seed:nishinomiya",
-                "西宮駅(兵庫県)",
-                "西宮駅",
-                34.7386,
-                135.3485,
-                GeocodeKind.STATION,
-            )
-        ],
-        "nishinomiya": [
-            _candidate(
-                "seed:nishinomiya",
-                "西宮駅(兵庫県)",
-                "西宮駅",
-                34.7386,
-                135.3485,
-                GeocodeKind.STATION,
-            )
-        ],
-        "宇治": [
-            _candidate(
-                "seed:uji", "宇治(京都府)", "宇治", 34.8843, 135.7997, GeocodeKind.CITY
-            )
-        ],
-        "東京": [
-            _candidate(
-                "seed:tokyo",
-                "東京(東京都)",
-                "東京",
-                35.6762,
-                139.6503,
-                GeocodeKind.CITY,
-            )
-        ],
-        "东京": [
-            _candidate(
-                "seed:tokyo",
-                "東京(東京都)",
-                "東京",
-                35.6762,
-                139.6503,
-                GeocodeKind.CITY,
-            )
-        ],
-        "府中": [
-            _candidate(
-                "manual:fuchu-tokyo",
-                "府中市(東京都)",
-                "府中市",
-                35.6689,
-                139.4777,
-                GeocodeKind.CITY,
-            ),
-            _candidate(
-                "manual:fuchu-hiroshima",
-                "府中市(広島県)",
-                "府中市",
-                34.5684,
-                133.2363,
-                GeocodeKind.CITY,
-            ),
-        ],
-        "山梨県": [
-            _candidate(
-                "manual:yamanashi",
-                "山梨県",
-                "山梨県",
-                35.6639,
-                138.5683,
-                GeocodeKind.PREFECTURE,
-            )
-        ],
-    }
-    return fixtures.get(query.lower(), fixtures.get(query, []))
+    return [
+        _candidate(seed.id, seed.label, seed.name, seed.lat, seed.lng, seed.kind)
+        for seed in GEOCODE_FIXTURES.get(query.lower(), ())
+    ]
 
 
 def _build_itinerary(ordered: list[PilgrimagePoint]) -> TimedItinerary:

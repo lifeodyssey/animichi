@@ -10,6 +10,7 @@ from agent.agents.runtime_models import (
     ClarifyResponseModel,
     SearchDataModel,
     SearchResponseModel,
+    _coerce_json_object,
 )
 
 
@@ -47,3 +48,9 @@ def test_search_response_still_accepts_nested_object_data() -> None:
     model = SearchResponseModel.model_validate(raw)
 
     assert isinstance(model.data, SearchDataModel)
+
+
+def test_deeply_nested_json_string_is_returned_unchanged() -> None:
+    nested = "[" * 50_000 + "]" * 50_000
+
+    assert _coerce_json_object(nested) is nested

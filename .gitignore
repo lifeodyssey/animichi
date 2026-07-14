@@ -52,6 +52,8 @@ coverage.xml
 # Project specific
 output/
 outputs/
+# Raw source files documented in docs/data-sources.md
+data/raw/
 *.log
 *.pdf
 *.html
