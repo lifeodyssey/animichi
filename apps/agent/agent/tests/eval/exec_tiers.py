@@ -113,17 +113,6 @@ def collect_case_scores(
     return {str(case.name): _case_scores(case) for case in report.cases}
 
 
-def error_rate_message(
-    report: EvaluationReport[InputsT, OutputT, MetadataT],
-) -> str | None:
-    total = len(report.cases) + len(report.failures)
-    errored = len(report.failures)
-    error_rate = errored / total if total > 0 else 1.0
-    if error_rate <= 0.20:
-        return None
-    return _format_error_rate(errored, total, error_rate)
-
-
 def build_results_payload(
     report: EvaluationReport[InputsT, OutputT, MetadataT],
     *,
@@ -169,13 +158,6 @@ def _even_indices(length: int, cap: int) -> list[int]:
 
 def _safe_model(model_id: str) -> str:
     return model_id.replace(":", "-").replace("@", "-").replace("/", "-")
-
-
-def _format_error_rate(errored: int, total: int, error_rate: float) -> str:
-    return (
-        f"{errored}/{total} cases errored ({error_rate:.0%}). "
-        "Check API key and model endpoint."
-    )
 
 
 def _score_value(score: object) -> float:

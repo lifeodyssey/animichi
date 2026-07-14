@@ -20,10 +20,8 @@ from agent.tests.eval.eval_harness import (
 from agent.tests.eval.eval_report import collect_scores, print_scores
 from agent.tests.eval.exec_tiers import (
     EvalTierTarget,
-    ResultsPayload,
     build_results_payload,
     collect_case_scores,
-    error_rate_message,
     save_results,
 )
 from agent.tests.eval.gate import (
@@ -48,12 +46,6 @@ class GateInput:
     errored_count: int
     scores: ScoreMap
     cases: CaseScores
-
-
-@dataclass(frozen=True)
-class GateResult:
-    failures: list[str] | None
-    exit_code: int
 
 
 def gate_exit_code(failures: list[str] | None) -> int:
@@ -142,14 +134,6 @@ def gate_report(
     return _run_gate(gate_input, target.layer, BASELINES_DIR, capped=CAPPED)
 
 
-def _gate_against(gate_input: GateInput, baseline: BaselineRecord) -> list[str]:
-    total = gate_input.evaluated_count + gate_input.errored_count
-    return [
-        *bootstrap_gate(gate_input.cases, baseline),
-        *error_rate_gate(gate_input.errored_count, total, baseline),
-    ]
-
-
 def _run_gate(
     gate_input: GateInput, layer: str, baselines_dir: Path, *, capped: bool
 ) -> list[str] | None:
@@ -157,8 +141,15 @@ def _run_gate(
         _capped_notice(gate_input.case_count)
         return []
     baseline = _baseline(layer, gate_input.model, gate_input.case_count, baselines_dir)
+    error_failures = error_rate_gate(
+        gate_input.errored_count,
+        gate_input.evaluated_count + gate_input.errored_count,
+        baseline,
+    )
     if baseline is not None:
-        return _gate_against(gate_input, baseline)
+        return [*bootstrap_gate(gate_input.cases, baseline), *error_failures]
+    if error_failures:
+        return error_failures
     _write_baseline(_new_baseline(gate_input), layer, gate_input.model, baselines_dir)
     return None
 
@@ -178,35 +169,6 @@ def _report_gate_input(
     )
 
 
-def _payload_case_scores(payload: ResultsPayload) -> CaseScores:
-    return {
-        row.id: row.scores
-        for row in payload.cases
-        if row.id is not None and row.scores is not None
-    }
-
-
-def gate_results_payload(
-    payload: ResultsPayload, layer: str, baselines_dir: Path, *, capped: bool
-) -> GateResult:
-    gate_input = _payload_gate_input(payload)
-    failures = _run_gate(gate_input, layer, baselines_dir, capped=capped)
-    return GateResult(failures, gate_exit_code(failures))
-
-
-def _payload_gate_input(payload: ResultsPayload) -> GateInput:
-    return GateInput(
-        payload.model,
-        payload.dataset,
-        payload.tier,
-        payload.case_count,
-        payload.evaluated_count,
-        payload.errored_count,
-        payload.scores,
-        _payload_case_scores(payload),
-    )
-
-
 def _print_report_scores(
     scores: ScoreMap, target: EvalTierTarget, model_id: str
 ) -> None:
@@ -220,7 +182,5 @@ def finish_cli_report(
 ) -> list[str] | None:
     scores = _scores_for_run(report)
     persist_report(report, target, model_id, scores)
-    if not CAPPED and (message := error_rate_message(report)):
-        raise SystemExit(message)
     _print_report_scores(scores, target, model_id)
     return gate_report(report, target, model_id, scores)

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
@@ -8,65 +7,103 @@ from pydantic_evals import Case, Dataset
 from pydantic_evals.reporting import EvaluationReport, ReportCase, ReportCaseFailure
 
 from agent.agents.agent_result import AgentResult
-from agent.tests.eval import eval_gate_flow
+from agent.tests.eval import eval_gate_flow, run_agent_eval
 from agent.tests.eval.eval_gate_flow import finish_cli_report, gate_exit_code
-from agent.tests.eval.evaluators import AgentExpected, AgentInput
+from agent.tests.eval.eval_harness import DATASET_PATH, agent_dataset
+from agent.tests.eval.evaluators import (
+    AgentExpected,
+    AgentInput,
+    DataKeysPresent,
+    LocaleMatch,
+    NonemptyResults,
+    RouteOrderCorrect,
+    StepEfficiency,
+    ToolCallRecall,
+)
 from agent.tests.eval.exec_tiers import EvalTierTarget
 from agent.tests.eval.run_agent_eval import (
+    CliArgs,
     StreamingProgress,
     _export_dataset,
-    _parse_export_path,
-    _parse_model_arg,
+    _main,
+    _parse_args,
 )
 
 
 @pytest.mark.parametrize(
-    ("argv", "expected"),
+    ("argv", "expected_model", "expected_export"),
     [
-        (["run_agent_eval.py", "--eval-model"], None),
-        (["run_agent_eval.py", "--eval-model", "openai:test"], "openai:test"),
-        (["run_agent_eval.py", "--eval-model=openai:test"], "openai:test"),
-        (["run_agent_eval.py"], None),
+        (["--eval-model", "openai:test"], "openai:test", None),
+        (["--eval-model=openai:test"], "openai:test", None),
+        (["--export-dataset", "out.json"], None, Path("out.json")),
+        (["--export-dataset=out.json"], None, Path("out.json")),
+        ([], None, None),
     ],
 )
-def test_parse_model_arg(
-    monkeypatch: pytest.MonkeyPatch, argv: list[str], expected: str | None
+def test_parse_args(
+    argv: list[str], expected_model: str | None, expected_export: Path | None
 ) -> None:
-    monkeypatch.setattr(sys, "argv", argv)
-    assert _parse_model_arg() == expected
+    parsed = _parse_args(argv)
+    assert parsed.eval_model == expected_model
+    assert parsed.export_dataset == expected_export
 
 
-@pytest.mark.parametrize(
-    ("argv", "expected"),
-    [
-        (["run_agent_eval.py", "--export-dataset"], None),
-        (["run_agent_eval.py", "--export-dataset", "out.json"], "out.json"),
-        (["run_agent_eval.py", "--export-dataset=out.json"], "out.json"),
-        (["run_agent_eval.py"], None),
-    ],
-)
-def test_parse_export_path(
-    monkeypatch: pytest.MonkeyPatch, argv: list[str], expected: str | None
+def test_bare_export_flag_is_cli_error(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        _parse_args(["--export-dataset"])
+
+    assert exc_info.value.code == 2
+    assert "expected one argument" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("path", [DATASET_PATH, DATASET_PATH.parent / "export.json"])
+def test_export_refuses_canonical_dataset_tree(
+    path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr(sys, "argv", argv)
-    path = _parse_export_path()
-    actual = str(path) if path is not None else None
-    assert actual == expected
+    with pytest.raises(SystemExit) as exc_info:
+        _parse_args(["--export-dataset", str(path)])
+
+    assert exc_info.value.code == 2
+    assert "must not be the canonical dataset or reside under datasets/" in (
+        capsys.readouterr().err
+    )
 
 
-def test_export_dataset_round_trips_official_format(tmp_path: Path) -> None:
-    cases = [
-        Case(name="route-ja", inputs=AgentInput(query="宇治を巡る", locale="ja")),
-        Case(name="nearby-en", inputs=AgentInput(query="near Uji", locale="en")),
+@pytest.mark.asyncio
+async def test_export_mode_exits_without_evaluation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "official.json"
+
+    async def unexpected_target() -> EvalTierTarget:
+        raise AssertionError("evaluation target must not be created in export mode")
+
+    monkeypatch.setattr(run_agent_eval, "_target", unexpected_target)
+
+    assert await _main(CliArgs(eval_model=None, export_dataset=output)) == 0
+    assert output.exists()
+
+
+def test_real_dataset_round_trips_with_six_custom_evaluators(tmp_path: Path) -> None:
+    evaluator_types = (
+        ToolCallRecall,
+        RouteOrderCorrect,
+        DataKeysPresent,
+        NonemptyResults,
+        LocaleMatch,
+        StepEfficiency,
+    )
+    output = tmp_path / "agent-eval-official.json"
+
+    _export_dataset(agent_dataset, output)
+    loaded = Dataset[AgentInput, AgentResult, AgentExpected].from_file(
+        output, custom_evaluator_types=evaluator_types
+    )
+
+    assert [(case.name, case.inputs, case.metadata) for case in loaded.cases] == [
+        (case.name, case.inputs, case.metadata) for case in agent_dataset.cases
     ]
-    subset = Dataset[AgentInput, AgentResult, AgentExpected](name="subset", cases=cases)
-    output = tmp_path / "subset.json"
-
-    _export_dataset(subset, output)
-    loaded = Dataset[AgentInput, AgentResult, AgentExpected].from_file(output)
-
-    assert [case.name for case in loaded.cases] == [case.name for case in cases]
-    assert [case.inputs for case in loaded.cases] == [case.inputs for case in cases]
+    assert [type(evaluator) for evaluator in loaded.evaluators] == list(evaluator_types)
 
 
 def test_streaming_progress_reports_completed_cases(
@@ -107,9 +144,9 @@ def test_streaming_progress_reports_completed_cases(
     asyncio.run(second.teardown(failure))
 
     assert capsys.readouterr().err.splitlines() == [
-        "[eval] id=case-ok result=pass completed=1/2 passed=1 failed=0",
-        "[eval] id=case-error result=fail error=boom continued "
-        "completed=2/2 passed=1 failed=1",
+        "[eval] id=case-ok result=ok completed=1/2 evaluated=1 errored=0",
+        "[eval] id=case-error result=error error=boom continued "
+        "completed=2/2 evaluated=1 errored=1",
     ]
 
 
