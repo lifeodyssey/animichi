@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildGazetteer, renderAudit, renderSql, type Prefecture } from "../scripts/build-gazetteer";
+import {
+  buildGazetteer,
+  CANONICAL_COMMAND,
+  renderAudit,
+  renderSql,
+  validateGazetteer,
+  verifySourceHashes,
+  type Prefecture,
+} from "../scripts/build-gazetteer";
 
 const STATIONS = {
   type: "FeatureCollection",
@@ -18,7 +26,7 @@ const CITIES = [
 ].join("\n");
 
 const PREFECTURE: Prefecture = {
-  jis: "04", name: "宮城県", en: "Miyagi", capital: "仙台市", lat: 38.2688, lng: 140.8721, admin1: "24",
+  jis: "04", name: "宮城県", zh: "宫城县", en: "Miyagi", capital: "仙台市", lat: 38.2688, lng: 140.8721, admin1: "24",
 };
 
 const CITY_NAMES = {
@@ -32,7 +40,7 @@ function build(stations: typeof STATIONS = STATIONS) {
 
 const META = { stationSha: "station-sha", citiesSha: "cities-sha", command: "generator command" };
 
-describe("gazetteer generator", () => {
+describe("gazetteer generator output", () => {
   it("clusters same-name station platforms within 500m and retains a distant complex", () => {
     const stations = build().locations.filter((row) => row.kind === "station");
     expect(stations).toHaveLength(2);
@@ -46,6 +54,10 @@ describe("gazetteer generator", () => {
       expect.objectContaining({ alias: "試験駅", lang: "ja", priority: 0 }),
       expect.objectContaining({ alias: "欧城", lang: "zh", priority: 5 }),
       expect.objectContaining({ alias: "宮城県", locationId: "pref:04", priority: 20 }),
+      expect.objectContaining({ alias: "宫城县", lang: "zh", locationId: "pref:04", priority: 20 }),
+      expect.objectContaining({ alias: "宮城", lang: "ja", locationId: "geonames:3", priority: 10 }),
+      expect.objectContaining({ alias: "宫城", lang: "zh", locationId: "geonames:3", priority: 10 }),
+      expect.objectContaining({ alias: "miyagi", lang: "en", locationId: "geonames:3", priority: 10 }),
       expect.objectContaining({ alias: "仙台", locationId: "geonames:3", priority: 10 }),
       expect.objectContaining({ alias: "仙台市", lang: "ja", locationId: "geonames:3", priority: 10 }),
     ]));
@@ -65,5 +77,38 @@ describe("gazetteer generator", () => {
     expect(renderSql(build(reversed), META)).toBe(renderSql(build(), META));
     expect(renderSql(build(), META)).toContain("'O''City'");
     expect(renderAudit(build()).split("\n").at(-2)).toBe("SUMMARY,station=2;city=3;ward=1;prefecture=1");
+  });
+});
+
+describe("gazetteer generator validation pins", () => {
+  it("accepts pinned source hashes", () => {
+    const expected = { stations: "station-sha", cities: "cities-sha" };
+    expect(() => { verifySourceHashes(expected, expected); }).not.toThrow();
+  });
+
+  it("fails loudly on changed source hashes", () => {
+    const expected = { stations: "station-sha", cities: "cities-sha" };
+    expect(() => { verifySourceHashes({ ...expected, stations: "bad" }, expected); }).toThrow(
+      "stations expected station-sha, got bad",
+    );
+  });
+
+  it.each([
+    { lat: Number.NaN, lng: 135, error: "non-finite coordinates" },
+    { lat: 19.9, lng: 135, error: "out-of-range coordinates" },
+    { lat: 35, lng: 155.1, error: "out-of-range coordinates" },
+  ])("rejects invalid generated coordinates: $error", ({ lat, lng, error }) => {
+    const result = build();
+    const firstLocation = result.locations[0];
+    expect(firstLocation).toBeDefined();
+    if (firstLocation === undefined) throw new Error("expected generated gazetteer location");
+    result.locations[0] = { ...firstLocation, lat, lng };
+    expect(() => { validateGazetteer(result); }).toThrow(error);
+  });
+
+  it("renders the canonical command independently of local source paths", () => {
+    const sql = renderSql(build(), { ...META, command: CANONICAL_COMMAND });
+    expect(sql).toContain(`-- Generation command: ${CANONICAL_COMMAND}`);
+    expect(sql).not.toContain("/private/tmp/");
   });
 });
