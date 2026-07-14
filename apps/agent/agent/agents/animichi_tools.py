@@ -7,7 +7,7 @@ no Anitabi/Bangumi gateways). The ephemeral tools (greet_user / general_qa /
 clarify) echo LLM-supplied payloads without any read path.
 
 Step/plumbing helpers live in ``tool_runtime``; the catalog read path lives in
-``catalog_tools``. Import this module after ``pilgrimage_agent`` is created so
+``catalog_tools``. Import this module after ``animichi_agent`` is created so
 the decorators can attach to it.
 """
 
@@ -19,6 +19,7 @@ import structlog
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_ai import ModelRetry, RunContext
 
+from agent.agents.animichi_agent import animichi_agent
 from agent.agents.catalog_tools import (
     _bangumi_search_query,
     _run_catalog_nearby,
@@ -27,7 +28,6 @@ from agent.agents.catalog_tools import (
 )
 from agent.agents.handlers import execute_answer_question, execute_greet_user
 from agent.agents.models import ToolName
-from agent.agents.pilgrimage_agent import pilgrimage_agent
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.tool_runtime import _run_ephemeral, run_clarify
 from agent.clients.catalog_client import CatalogClientProtocol
@@ -46,7 +46,7 @@ def _require_catalog(deps: RuntimeDeps) -> CatalogClientProtocol:
     return deps.catalog
 
 
-@pilgrimage_agent.tool
+@animichi_agent.tool
 async def resolve_anime(ctx: RunContext[RuntimeDeps], title: str) -> dict[str, object]:
     """Look up an anime by title and return its unique database identifier.
 
@@ -78,7 +78,7 @@ async def resolve_anime(ctx: RunContext[RuntimeDeps], title: str) -> dict[str, o
     )
 
 
-@pilgrimage_agent.tool
+@animichi_agent.tool
 async def search_bangumi(
     ctx: RunContext[RuntimeDeps],
     bangumi_id: str = "",
@@ -131,7 +131,7 @@ async def search_bangumi(
     )
 
 
-@pilgrimage_agent.tool
+@animichi_agent.tool
 async def search_nearby(
     ctx: RunContext[RuntimeDeps],
     *,
@@ -165,7 +165,7 @@ async def search_nearby(
     )
 
 
-@pilgrimage_agent.tool
+@animichi_agent.tool
 async def plan_route(
     ctx: RunContext[RuntimeDeps],
     *,
@@ -207,7 +207,7 @@ async def plan_route(
     return await _run_catalog_route(ctx, _require_catalog(ctx.deps), params=params)
 
 
-@pilgrimage_agent.tool
+@animichi_agent.tool
 async def greet_user(ctx: RunContext[RuntimeDeps], message: str) -> dict[str, object]:
     """Respond to greetings and "what can you do?" questions.
 
@@ -229,7 +229,7 @@ async def greet_user(ctx: RunContext[RuntimeDeps], message: str) -> dict[str, ob
     )
 
 
-@pilgrimage_agent.tool
+@animichi_agent.tool
 async def general_qa(ctx: RunContext[RuntimeDeps], answer: str) -> dict[str, object]:
     """Answer general questions about anime pilgrimage (etiquette, tips, costs, planning).
 
@@ -312,7 +312,7 @@ class ClarifyArgs(BaseModel):
         return decoded
 
 
-@pilgrimage_agent.tool
+@animichi_agent.tool
 async def clarify(
     ctx: RunContext[RuntimeDeps],
     args: ClarifyArgs,

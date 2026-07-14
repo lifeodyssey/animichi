@@ -25,7 +25,7 @@
 ## 仕組み
 
 ```
-ユーザー入力 → PydanticAI Agent（pilgrimage_agent）
+ユーザー入力 → PydanticAI Agent（animichi_agent）
                  ├── resolve_anime  → DB優先のタイトル検索; ミス時は Bangumi.tv API
                  ├── search_bangumi → パラメータ化 SQL → Supabase ポイント
                  ├── search_nearby  → PostGIS 地理検索
@@ -98,12 +98,12 @@ make db-diff NAME=x    # ローカル変更から diff を生成
 
 **Python（直接呼び出し）：**
 ```python
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.animichi_runner import run_animichi_agent
 from agent.infrastructure.supabase.client import SupabaseClient
 
 async def main() -> None:
     async with SupabaseClient(db_url) as db:
-        result = await run_pilgrimage_agent("吹響ユーフォニアムの聖地", db, locale="ja")
+        result = await run_animichi_agent("吹響ユーフォニアムの聖地", db, locale="ja")
         print(result.output)
 ```
 

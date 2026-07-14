@@ -103,7 +103,7 @@ def make_result(
 def make_fake_agent(
     result_fn: Callable[..., AgentResult] | None = None,
 ) -> Callable[..., Awaitable[AgentResult]]:
-    """Return a fake run_pilgrimage_agent coroutine for monkeypatching."""
+    """Return a fake run_animichi_agent coroutine for monkeypatching."""
 
     async def _fake(
         *,
@@ -131,9 +131,9 @@ async def _fake_generate_title(**kwargs: object) -> str:
 
 
 def install_mock_pipeline(monkeypatch: object) -> None:
-    """Monkeypatch run_pilgrimage_agent and generate_and_save_title."""
+    """Monkeypatch run_animichi_agent and generate_and_save_title."""
     setattr_fn = monkeypatch.setattr
     setattr_fn(
-        "agent.interfaces.public_api.run_pilgrimage_agent",
+        "agent.interfaces.public_api.run_animichi_agent",
         make_fake_agent(),
     )

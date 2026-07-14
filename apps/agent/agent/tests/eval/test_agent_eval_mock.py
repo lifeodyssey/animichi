@@ -10,9 +10,9 @@ Scope (deliberately small — NOT the full 617-case suite): ~5 representative
 cases covering search (ja/zh/en), nearby, route, and an unknown-title miss.
 
 WIRING STATUS (W2-A1, landed):
-    The data-tool -> CatalogClient seam now exists: ``run_pilgrimage_agent`` accepts
+    The data-tool -> CatalogClient seam now exists: ``run_animichi_agent`` accepts
     a ``catalog`` client and the four data tools route through it (see
-    ``agent.agents.pilgrimage_tools``). This module validates the mock contract +
+    ``agent.agents.animichi_tools``). This module validates the mock contract +
     the catalog data layer directly; the LIVE agent run driven against this mock
     lives in ``test_agent_eval_mock_runtime.py``.
 """

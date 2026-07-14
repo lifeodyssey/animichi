@@ -19,7 +19,7 @@ from pydantic_ai.ui.vercel_ai import VercelAIAdapter
 from pydantic_ai.ui.vercel_ai.response_types import BaseChunk, DataChunk
 from starlette.responses import Response
 
-from agent.agents.pilgrimage_runner import pilgrimage_agent
+from agent.agents.animichi_runner import animichi_agent
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.domain.ports import DatabasePort
 from agent.interfaces.public_api import default_catalog_client
@@ -163,7 +163,7 @@ async def handle_chat(
 
     return await VercelAIAdapter.dispatch_request(
         request,
-        agent=pilgrimage_agent,
+        agent=animichi_agent,
         deps=deps,
         sdk_version=6,
         on_complete=_make_on_complete(deps),

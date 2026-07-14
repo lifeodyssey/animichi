@@ -25,7 +25,7 @@
 ## 工作原理
 
 ```
-用户输入 → PydanticAI Agent（pilgrimage_agent）
+用户输入 → PydanticAI Agent（animichi_agent）
               ├── resolve_anime  → DB 优先的标题查找; 未命中时调用 Bangumi.tv API
               ├── search_bangumi → 参数化 SQL → Supabase 数据点
               ├── search_nearby  → PostGIS 地理检索
@@ -98,12 +98,12 @@ make db-diff NAME=x    # 从本地变更生成 diff
 
 **Python（直接调用）：**
 ```python
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.animichi_runner import run_animichi_agent
 from agent.infrastructure.supabase.client import SupabaseClient
 
 async def main() -> None:
     async with SupabaseClient(db_url) as db:
-        result = await run_pilgrimage_agent("吹響ユーフォニアムの聖地", db, locale="ja")
+        result = await run_animichi_agent("吹響ユーフォニアムの聖地", db, locale="ja")
         print(result.output)
 ```
 

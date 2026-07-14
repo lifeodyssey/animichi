@@ -11,12 +11,12 @@ from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
 
-import agent.agents.pilgrimage_tools as _tools  # noqa: F401
+import agent.agents.animichi_tools as _tools  # noqa: F401
 import agent.agents.web_tools as _web_tools  # noqa: F401
 from agent.agents.agent_result import AgentResult
 
-# Importing pilgrimage_tools triggers @tool registrations on the agent.
-from agent.agents.pilgrimage_agent import pilgrimage_agent  # noqa: F401
+# Importing animichi_tools triggers @tool registrations on the agent.
+from agent.agents.animichi_agent import animichi_agent  # noqa: F401
 from agent.agents.runtime_deps import (
     OnStep,
     RuntimeDeps,
@@ -70,7 +70,7 @@ def _seed_tool_state(deps: RuntimeDeps, context: dict[str, object] | None) -> No
     _seed_search_data(deps.tool_state, context)
 
 
-async def run_pilgrimage_agent(
+async def run_animichi_agent(
     *,
     text: str,
     db: DatabasePort,
@@ -100,7 +100,7 @@ async def run_pilgrimage_agent(
     )
     _seed_tool_state(deps, context)
 
-    run_result = await pilgrimage_agent.run(
+    run_result = await animichi_agent.run(
         text,
         deps=deps,
         model=model,
@@ -120,7 +120,7 @@ async def run_pilgrimage_agent(
         new_messages=list(run_result.new_messages()),
     )
     logger.info(
-        "pilgrimage_agent_complete",
+        "animichi_agent_complete",
         intent=result.intent,
         steps=len(result.steps),
     )

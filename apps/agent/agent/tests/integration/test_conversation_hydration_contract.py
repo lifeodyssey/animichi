@@ -43,10 +43,10 @@ _GREET_MODEL = TestModel(
 @pytest.mark.integration
 async def test_persisted_search_response_hydrates_correctly(real_db) -> None:
     """Search response → AgentResult → output has message."""
-    from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+    from agent.agents.animichi_runner import run_animichi_agent
     from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
-    result = await run_pilgrimage_agent(
+    result = await run_animichi_agent(
         text="君の名は の聖地を教えて",
         db=real_db,
         locale="ja",
@@ -62,10 +62,10 @@ async def test_persisted_search_response_hydrates_correctly(real_db) -> None:
 @pytest.mark.integration
 async def test_persisted_greet_response_hydrates_correctly(real_db) -> None:
     """Greet response → AgentResult → output has message."""
-    from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+    from agent.agents.animichi_runner import run_animichi_agent
     from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
-    result = await run_pilgrimage_agent(
+    result = await run_animichi_agent(
         text="你好",
         db=real_db,
         locale="zh",
