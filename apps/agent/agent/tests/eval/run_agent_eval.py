@@ -1,4 +1,9 @@
-"""Standalone runner for the two-tier four-layer agent eval."""
+"""Standalone runner for the two-tier four-layer agent eval.
+
+The canonical ``agent_eval_v3.json`` remains a custom guarded source format.
+``--export-dataset`` exposes the in-memory dataset through pydantic-evals'
+official ``Dataset.to_file`` serialization without changing canonical storage.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +13,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic_evals import Case
+from pydantic_evals import Case, Dataset
 from pydantic_evals.lifecycle import CaseLifecycle
 from pydantic_evals.reporting import ReportCase
 
@@ -23,6 +28,7 @@ from agent.tests.eval.eval_gate_flow import (
 from agent.tests.eval.eval_harness import (
     CASES,
     EVAL_MODEL_ID,
+    agent_dataset,
     evaluate_target,
     make_model,
 )
@@ -82,13 +88,28 @@ def _failure_summary(result: object) -> str:
     return f"result=fail error={clean}"
 
 
-def _parse_model_arg() -> str | None:
+def _parse_option(name: str) -> str | None:
     for i, arg in enumerate(sys.argv[1:], 1):
-        if arg == "--eval-model" and i + 1 < len(sys.argv):
+        if arg == name and i + 1 < len(sys.argv):
             return sys.argv[i + 1]
-        if arg.startswith("--eval-model="):
+        if arg.startswith(f"{name}="):
             return arg.split("=", 1)[1]
     return None
+
+
+def _parse_model_arg() -> str | None:
+    return _parse_option("--eval-model")
+
+
+def _parse_export_path() -> Path | None:
+    value = _parse_option("--export-dataset")
+    return Path(value) if value is not None else None
+
+
+def _export_dataset(
+    dataset: Dataset[AgentInput, AgentResult, AgentExpected], path: Path
+) -> None:
+    dataset.to_file(path, schema_path=None)
 
 
 def _db_url() -> str:
@@ -152,6 +173,11 @@ def _finish(failures: list[str] | None) -> int:
 
 
 async def _main() -> int:
+    export_path = _parse_export_path()
+    if export_path is not None:
+        _export_dataset(agent_dataset, export_path)
+        print(f"Exported official dataset: {export_path}")
+        return 0
     model_arg = _parse_model_arg()
     model_id = model_arg or EVAL_MODEL_ID
     target = await _target()
