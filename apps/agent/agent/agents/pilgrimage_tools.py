@@ -299,7 +299,7 @@ class ClarifyArgs(BaseModel):
             return v
         try:
             decoded = json.loads(v)
-        except (ValueError, TypeError) as exc:
+        except (ValueError, TypeError, RecursionError) as exc:
             raise ModelRetry(
                 "options must be a JSON array of strings, not a JSON-encoded string"
             ) from exc

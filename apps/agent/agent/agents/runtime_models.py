@@ -24,7 +24,7 @@ def _coerce_json_object(v: object) -> object:
         return v
     try:
         return json.loads(v)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, RecursionError):
         return v
 
 
