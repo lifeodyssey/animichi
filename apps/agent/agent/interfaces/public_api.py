@@ -37,7 +37,6 @@ from agent.interfaces.persistence import (
     build_response_session,
     extract_plan_steps,
     load_session_state,
-    load_user_memory,
     persist_messages,
     persist_result,
 )
@@ -160,7 +159,7 @@ class RuntimeAPI:
             user_message_persisted = False
             try:
                 previous_state, context, message_history = await self._load_session(
-                    session_id, user_id, request
+                    session_id, request
                 )
                 result, response, context_delta = await self._execute_pipeline(
                     request, context, message_history, effective_model, on_step, span
@@ -238,7 +237,6 @@ class RuntimeAPI:
     async def _load_session(
         self,
         session_id: str | None,
-        user_id: str | None,
         request: PublicAPIRequest,
     ) -> tuple[dict[str, object], dict[str, object] | None, list[ModelMessage]]:
         """Load session state, context block, and message history."""
@@ -247,8 +245,7 @@ class RuntimeAPI:
             if session_id
             else normalize_session_state(None)
         )
-        user_memory = await load_user_memory(self._db, user_id)
-        context = build_context_block(previous_state, user_memory=user_memory)
+        context = build_context_block(previous_state)
         if request.origin_lat is not None and request.origin_lng is not None:
             if context is None:
                 context = {}
