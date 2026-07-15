@@ -17,7 +17,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, cast
 
+import httpx
 import structlog
+from ddgs.exceptions import DDGSException
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.common_tools.duckduckgo import (
     DuckDuckGoResult,
@@ -32,6 +34,14 @@ from agent.agents.translation_bangumi import lookup_bangumi_api
 from agent.agents.web_trust import WebResult, wrap_untrusted_web_results
 
 logger = structlog.get_logger(__name__)
+
+_SEARCH_ERRORS: tuple[type[Exception], ...] = (
+    TimeoutError,
+    OSError,
+    RuntimeError,
+    httpx.HTTPError,
+    DDGSException,
+)
 
 
 @dataclass
@@ -132,7 +142,11 @@ _ddg_tool = duckduckgo_search_tool(max_results=5)
 
 
 async def _run_ddg_search(query: str) -> list[DuckDuckGoResult]:
-    raw = await _ddg_tool.function(query)
+    try:
+        raw = await _ddg_tool.function(query)
+    except _SEARCH_ERRORS:
+        logger.warning("translation_web_search_failed", query=query[:100])
+        return []
     return cast(list[DuckDuckGoResult], raw)
 
 

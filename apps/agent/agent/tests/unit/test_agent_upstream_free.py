@@ -105,6 +105,15 @@ def test_runner_has_no_tool_registration_side_effect_imports() -> None:
     assert forbidden.isdisjoint(imported)
 
 
+def test_live_architecture_doc_omits_removed_retrieval_subsystems() -> None:
+    path = Path(__file__).parents[5] / "docs" / "ARCHITECTURE.md"
+    architecture = path.read_text(encoding="utf-8")
+    removed = ("agents/retriever.py", "agents/sql_agent.py", "## SQL Agent")
+
+    assert "`CatalogClientProtocol`" in architecture
+    assert all(term not in architecture for term in removed)
+
+
 class _ExplodingDB:
     """A DatabasePort double that fails loudly if any read path is touched."""
 

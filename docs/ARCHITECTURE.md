@@ -62,9 +62,9 @@ Replaces the old `PipelineResult`. Carries the agent's typed output, a record of
 
 | Tool | Notes |
 |---|---|
-| `resolve_anime` | Fuzzy-match `bangumi` table; Bangumi.tv API on miss; write-through upsert |
-| `search_bangumi` | Reads resolved `bangumi_id` from tool state |
-| `search_nearby` | Geo query via Retriever |
+| `resolve_anime` | Resolve a title through the catalog Worker and store its `bangumi_id` in tool state |
+| `search_bangumi` | Query catalog points for the resolved `bangumi_id` |
+| `search_nearby` | Query catalog points by place name or caller coordinates |
 | `plan_route` | Nearest-neighbor sort on bangumi points |
 | `greet_user` | Onboarding response (sessionless) |
 | `answer_question` | QA pass-through |
@@ -80,13 +80,10 @@ Replaces the old `PipelineResult`. Carries the agent's typed output, a record of
 - `execute_selected_route(point_ids, db)` — direct selected-point route execution without invoking the agent
 - Returns `AgentResult` for consistency with the main path
 
-## Retriever — `agents/retriever.py`
+## Retrieval — `agents/catalog_tools.py`
 
-Unchanged. Accepts `RetrievalRequest`. Selects `sql`, `geo`, or `hybrid` deterministically. Write-through on bangumi DB miss (Anitabi → Supabase).
-
-## SQL Agent — `agents/sql_agent.py`
-
-Accepts `RetrievalRequest` (replaces old `IntentOutput`). Parameterized queries only.
+The data tools call the catalog Worker through `CatalogClientProtocol`. The agent has no local
+Retriever or SQL layer and makes no direct Anitabi or Bangumi API calls in the request path.
 
 ## Public API — `interfaces/public_api.py`
 

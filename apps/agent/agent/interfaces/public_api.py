@@ -279,8 +279,8 @@ class RuntimeAPI:
         """Run the pipeline (or synthetic plan) and map result to response."""
         context_delta: dict[str, object] = {}
         has_selected = bool(request.selected_point_ids)
-        resolved_model: Model | None = None
         try:
+            resolved_model = resolve_model_alias(effective_model)
             if has_selected:
                 result = await execute_selected_route(
                     point_ids=list(request.selected_point_ids or []),
@@ -290,7 +290,6 @@ class RuntimeAPI:
                     on_step=on_step,
                 )
             else:
-                resolved_model = resolve_model_alias(effective_model)
                 result = await asyncio.wait_for(
                     run_animichi_agent(
                         text=request.text,
@@ -382,8 +381,9 @@ class RuntimeAPI:
                 ),
                 context_delta,
             )
+        translation_model = None if has_selected else resolved_model
         await _apply_translation_gate(
-            result, request.locale, on_step, model=resolved_model
+            result, request.locale, on_step, model=translation_model
         )
         response = agent_result_to_response(
             result,

@@ -49,6 +49,15 @@ async def test_url_bearing_model_alias_never_runs_agent() -> None:
     run.assert_not_awaited()
 
 
+@pytest.mark.parametrize(
+    "model_alias",
+    ["DEFAULT", "default ", "", " ", "de fault", "defаult"],
+)
+def test_malformed_model_alias_is_rejected(model_alias: str) -> None:
+    with pytest.raises(ModelAliasError):
+        resolve_model_alias(model_alias)
+
+
 def test_default_alias_uses_existing_default_model() -> None:
     expected = cast(Model, object())
     with patch("agent.agents.base.get_default_model", return_value=expected):
