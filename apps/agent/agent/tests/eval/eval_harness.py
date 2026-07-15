@@ -9,6 +9,13 @@ from pathlib import Path
 from typing import TypeAlias, cast
 
 from dotenv import dotenv_values
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    UserPromptPart,
+)
 from pydantic_ai.models import Model
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator
@@ -115,6 +122,31 @@ def _selected_ids(row: Row) -> list[str] | None:
     return [str(item) for item in raw] if isinstance(raw, list) else None
 
 
+def _padded_text(turn: Mapping[object, object], key: str) -> str:
+    text = str(turn.get(key, ""))
+    padding = turn.get("padding_chars", 0)
+    count = padding if isinstance(padding, int) else 0
+    return text + (" Travel planning context remains unchanged." * count)[:count]
+
+
+def _history_turn(item: object) -> list[ModelMessage]:
+    if not isinstance(item, Mapping):
+        raise ValueError("Eval message_history turns must be objects.")
+    user = ModelRequest(parts=[UserPromptPart(_padded_text(item, "user"))])
+    assistant = ModelResponse(parts=[TextPart(_padded_text(item, "assistant"))])
+    return [user, assistant]
+
+
+def _message_history(context: Mapping[str, object] | None) -> list[ModelMessage]:
+    raw = context.get("message_history") if context is not None else None
+    if not isinstance(raw, list):
+        return []
+    messages: list[ModelMessage] = []
+    for item in raw:
+        messages.extend(_history_turn(item))
+    return messages
+
+
 def _case(row: Row) -> Case[AgentInput, AgentResult, AgentExpected]:
     return Case(name=str(row["id"]), inputs=_input(row), metadata=_expected(row))
 
@@ -209,6 +241,7 @@ async def _agent_task(
         model=model,
         locale=inp.locale,
         context=dict(inp.context) if inp.context is not None else None,
+        message_history=_message_history(inp.context),
         catalog=catalog_factory(),
         web_searcher=web_searcher,
         title_translator=title_translator,
