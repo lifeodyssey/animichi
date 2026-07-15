@@ -13,7 +13,8 @@
   },
   "scripts": {
     "emit:openapi": "tsx scripts/emit-openapi.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "../../node_modules/typescript-native/bin/tsc --noEmit",
+    "typecheck:ts6": "tsc --noEmit"
   },
   "dependencies": {
     "@orpc/contract": "1.14.8",
@@ -24,6 +25,6 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "tsx": "^4.23.1",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   }
 }

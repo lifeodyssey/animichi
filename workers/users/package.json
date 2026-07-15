@@ -3,12 +3,13 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Animichi Users service — user-domain routes over Neon (Hono + oRPC + jose)",
+  "description": "Animichi Users service \u2014 user-domain routes over Neon (Hono + oRPC + jose)",
   "scripts": {
     "dev": "wrangler dev",
     "test": "npm run test:worker",
     "test:worker": "vitest run --config vitest.config.ts --coverage",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "../../node_modules/typescript-native/bin/tsc --noEmit",
+    "typecheck:ts6": "tsc --noEmit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -26,7 +27,7 @@
     "@eslint/js": "^10.0.1",
     "@vitest/coverage-istanbul": "4.1.10",
     "eslint": "^10.7.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.64.0",
     "vitest": "^4.1.10",
     "wrangler": "^4.110.0"
