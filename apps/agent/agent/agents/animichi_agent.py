@@ -464,6 +464,12 @@ def _modern_composition_enabled() -> bool:
     return os.environ.get("ANIMICHI_MODERN_COMPOSITION", "1") != "0"
 
 
+def _input_guard_enabled() -> bool:
+    """Keep trajectory-changing input replacement opt-in until evals align."""
+    # The canonical eval contracts must be aligned before this can default on.
+    return os.environ.get("ANIMICHI_INPUT_GUARD", "0") == "1"
+
+
 def _managed_prompt_enabled() -> bool:
     """Require an explicit opt-in and the token needed for remote resolution."""
     return os.environ.get("ANIMICHI_MANAGED_PROMPT") == "1" and all(
@@ -622,9 +628,10 @@ def build_animichi_agent(
     tools = [*ANIMICHI_TOOLS, *(DEFERRED_TOOLS if modern else WEB_TOOLS)]
     capabilities = _history_capabilities(modern=modern)
     if modern:
+        if _input_guard_enabled():
+            capabilities.append(InputGuard[RuntimeDeps](guard=_guard_user_prompt))
         capabilities.extend(
             [
-                InputGuard[RuntimeDeps](guard=_guard_user_prompt),
                 _overflow_capability(),
                 _modern_hooks(),
                 ToolSearch[RuntimeDeps](strategy="keywords"),

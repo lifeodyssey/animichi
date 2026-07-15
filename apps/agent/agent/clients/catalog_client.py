@@ -10,11 +10,10 @@ Retry policy: 5xx responses, transport errors, and the transient 4xx codes
 (408 request timeout, 429 rate limit) are retried with exponential backoff;
 all other 4xx responses raise immediately.
 
-Error responses are parsed as oRPC error envelopes (``catalog_errors``):
-defined codes become typed ``CatalogError`` exceptions — retryable codes
-subclass ``TransientAPIError`` and flow through the retry loop, while
-user-actionable codes raise immediately. Undefined errors keep the legacy
-status-based classification above.
+Retryable statuses are classified without reading their transport streams.
+Non-retryable error responses return to httpx for buffering, then are parsed
+as oRPC error envelopes (``catalog_errors``) into typed ``CatalogError``
+exceptions. Undefined errors keep the legacy status-based classification.
 """
 
 from __future__ import annotations
@@ -22,6 +21,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from typing import Literal, Protocol, runtime_checkable
+from urllib.request import getproxies, proxy_bypass
 
 import httpx
 import structlog
@@ -40,6 +40,9 @@ from agent.clients.errors import APIError, TransientAPIError
 from agent.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
 
 logger = structlog.get_logger(__name__)
+
+CATALOG_REQUEST_TIMEOUT_SECONDS = 25.0
+_TRANSIENT_STATUS_CODES = frozenset({408, 429})
 
 # Re-exported so callers depend on this client, not on agent internals.
 __all__ = [
@@ -137,7 +140,7 @@ class CatalogClient:
         self,
         base_url: str,
         *,
-        timeout: float = 30.0,
+        timeout: float = CATALOG_REQUEST_TIMEOUT_SECONDS,
         max_retries: int = 3,
     ) -> None:
         self._base_url = base_url.rstrip("/")
@@ -200,8 +203,12 @@ class CatalogClient:
     def _http(self) -> httpx.AsyncClient:
         """Return the shared httpx client, creating it lazily."""
         if self._client is None or self._client.is_closed:
+            wrapped = httpx.AsyncHTTPTransport(
+                proxy=_environment_proxy(self._base_url), trust_env=True
+            )
             transport = AsyncTenacityTransport(
                 _retry_config(self._max_retries),
+                wrapped=wrapped,
                 validate_response=_validate_catalog_response,
             )
             self._client = httpx.AsyncClient(
@@ -249,8 +256,26 @@ def _log_retry(state: RetryCallState) -> None:
 
 
 def _validate_catalog_response(response: httpx.Response) -> None:
-    """Convert retryable catalog statuses/envelopes into typed exceptions."""
-    _raise_for_error(response, str(response.request.url))
+    """Classify retryable statuses without consuming the transport stream.
+
+    Other 4xx responses return to ``httpx`` for buffering, then the client
+    layer parses their oRPC body into a non-retryable typed catalog error.
+    """
+    status = response.status_code
+    if status >= 500 or status in _TRANSIENT_STATUS_CODES:
+        raise TransientAPIError(f"HTTP {status} from {response.request.url}")
+
+
+def _environment_proxy(base_url: str) -> str | None:
+    """Resolve the standard proxy environment for this single-host client."""
+    url = httpx.URL(base_url)
+    proxies = getproxies()
+    if url.host is None or proxy_bypass(url.host):
+        return None
+    proxy = proxies.get(url.scheme) or proxies.get("all")
+    if proxy is None or "://" in proxy:
+        return proxy
+    return f"http://{proxy}"
 
 
 def _raise_for_error(response: httpx.Response, url: str) -> None:

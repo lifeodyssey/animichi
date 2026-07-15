@@ -31,6 +31,14 @@ _SCRUB_PATTERNS = (
     r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
 )
 _OPERATING_QUERY_FIELDS = frozenset({"query_text", "first_query"})
+_MESSAGE_CONTENT_FIELDS = frozenset(
+    {
+        "pydantic_ai.all_messages",
+        "gen_ai.input.messages",
+        "gen_ai.output.messages",
+        "gen_ai.system_instructions",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -232,6 +240,7 @@ def setup_logfire(settings: Settings, app: object | None = None) -> None:
     import logfire
 
     variables = _managed_prompt_variables()
+    _enable_message_content_scrubbing()
     scrubbing = logfire.ScrubbingOptions(
         callback=_preserve_operating_query,
         extra_patterns=_SCRUB_PATTERNS,
@@ -257,9 +266,19 @@ def _has_logfire_token() -> bool:
 
 
 def _preserve_operating_query(match: logfire.ScrubMatch) -> object | None:
+    """Keep query operating data intact while other matches are redacted."""
+    # These fields drive product behavior and eval analysis, so their exact
+    # text is intentionally preserved; message-content telemetry is not.
     if any(part in _OPERATING_QUERY_FIELDS for part in match.path):
         return cast(object, match.value)
     return None
+
+
+def _enable_message_content_scrubbing() -> None:
+    """Opt PydanticAI/GenAI message attributes into Logfire recursion."""
+    from logfire._internal.scrubbing import BaseScrubber
+
+    BaseScrubber.SAFE_KEYS.difference_update(_MESSAGE_CONTENT_FIELDS)
 
 
 def _managed_prompt_variables() -> logfire.VariablesOptions | None:
