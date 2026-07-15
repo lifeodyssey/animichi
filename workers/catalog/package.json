@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Animichi Catalog service — Cloudflare Workers + Hono + oRPC over Postgres/PostGIS",
+  "description": "Animichi Catalog service \u2014 Cloudflare Workers + Hono + oRPC over Postgres/PostGIS",
   "scripts": {
     "build:topology": "tsx scripts/transit/build-topology.ts",
     "dev": "wrangler dev",
@@ -11,7 +11,8 @@
     "test": "npm run test:worker && npm run test:spike",
     "test:worker": "vitest run --config vitest.config.ts --coverage",
     "test:spike": "vitest run --config vitest.spike.config.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "../../node_modules/typescript-native/bin/tsc --noEmit",
+    "typecheck:ts6": "tsc --noEmit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -31,7 +32,7 @@
     "eslint": "^10.7.0",
     "pg": "^8.22.0",
     "tsx": "^4.23.1",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.64.0",
     "vitest": "^4.1.10",
     "wrangler": "^4.110.0"
