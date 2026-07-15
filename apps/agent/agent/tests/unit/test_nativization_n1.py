@@ -47,7 +47,7 @@ async def test_runner_stops_looping_tool_calls_at_usage_limit() -> None:
         requests += 1
         return ModelResponse(parts=[ToolCallPart("greet_user", {"message": "Hello."})])
 
-    with pytest.raises(UsageLimitExceeded, match="tool_calls_limit"):
+    with pytest.raises(UsageLimitExceeded, match="request_limit"):
         await run_animichi_agent(
             text="hello",
             db=_db(),
@@ -56,8 +56,8 @@ async def test_runner_stops_looping_tool_calls_at_usage_limit() -> None:
             model=FunctionModel(loop),
         )
 
-    assert requests == TOOL_CALLS_LIMIT + 1
-    assert requests < REQUEST_LIMIT
+    assert requests == REQUEST_LIMIT
+    assert requests < TOOL_CALLS_LIMIT
 
 
 @pytest.mark.parametrize(

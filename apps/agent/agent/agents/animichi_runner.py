@@ -22,8 +22,8 @@ from agent.domain.ports import DatabasePort
 
 logger = structlog.get_logger(__name__)
 
-REQUEST_LIMIT = 15
-TOOL_CALLS_LIMIT = 10
+REQUEST_LIMIT = 25
+TOOL_CALLS_LIMIT = 40
 RUN_USAGE_LIMITS = UsageLimits(
     request_limit=REQUEST_LIMIT,
     tool_calls_limit=TOOL_CALLS_LIMIT,
