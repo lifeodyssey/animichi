@@ -27,7 +27,6 @@ def build_stub_db() -> MagicMock:
     db.feedback = MagicMock()
     db.routes = MagicMock()
     db.messages = MagicMock()
-    db.user_memory = MagicMock()
     db.messages.get_messages = AsyncMock(return_value=[])
     db.feedback.save_feedback = AsyncMock(return_value="fb-001")
     db.session.get_conversations = AsyncMock(return_value=[])
@@ -66,7 +65,9 @@ def build_app(
     mock_db = db or build_stub_db()
     resolved_settings = settings or Settings()
     if runtime_api is None:
-        runtime_api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+        runtime_api = RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        )
 
     app = create_fastapi_app(
         runtime_api=runtime_api,
