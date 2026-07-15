@@ -8,9 +8,10 @@ greet/qa handlers; the catalog read path lives in ``catalog_tools``.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable, Mapping
 
-from pydantic_ai import RunContext
+from pydantic_ai import RunContext, ToolReturn
 
 from agent.agents.agent_result import StepRecord
 from agent.agents.geo_names import localized_city_name
@@ -60,7 +61,7 @@ def _localize_city_names(data: dict[str, object], locale: str) -> None:
             row["city"] = localized_city_name(row["city"], locale)
 
 
-def _summarize_for_llm(tool: ToolName, data: dict[str, object]) -> dict[str, object]:
+def _model_summary(tool: ToolName, data: dict[str, object]) -> dict[str, object]:
     """Return a compact summary of tool results for the LLM.
 
     Full data is kept in tool_state and SSE events for the frontend.
@@ -92,6 +93,13 @@ def _summarize_for_llm(tool: ToolName, data: dict[str, object]) -> dict[str, obj
         "note": f"Found {row_count} pilgrimage spots{' for ' + title if title else ''}. "
         "Full data is available — proceed to return a search_response.",
     }
+
+
+def _catalog_tool_return(
+    tool: ToolName, payload: dict[str, object]
+) -> ToolReturn[dict[str, object]]:
+    summary = _model_summary(tool, payload)
+    return ToolReturn(payload, content=json.dumps(summary, ensure_ascii=False))
 
 
 async def _run_ephemeral(
@@ -143,7 +151,7 @@ async def _run_ephemeral(
             observation=result.error or "",
         )
 
-    return _summarize_for_llm(tool, result.data) if result.data else {}
+    return _model_summary(tool, result.data) if result.data else {}
 
 
 async def run_clarify(

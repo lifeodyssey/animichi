@@ -42,7 +42,7 @@ def _make_tool_call_response(
     )
 
 
-class TestCompactToolResults:
+class TestLegacyCompactToolResults:
     def test_no_op_under_threshold(self) -> None:
         from agent.agents.animichi_agent import _compact_tool_results
 
@@ -93,7 +93,7 @@ class TestCompactToolResults:
         assert isinstance(last_msg, ModelResponse)
 
 
-class TestSlidingWindow:
+class TestLegacySlidingWindow:
     def test_no_op_under_threshold(self) -> None:
         from agent.agents.animichi_agent import _sliding_window
 
@@ -117,7 +117,7 @@ class TestSlidingWindow:
         assert first_part.content == f"q{count - 1}"
 
 
-class TestSlidingWindowPairPreservation:
+class TestLegacySlidingWindowPairPreservation:
     def test_preserves_tool_call_return_pair(self) -> None:
         """Sliding window must not orphan a ToolReturnPart from its ToolCallPart."""
         from agent.agents.animichi_agent import _sliding_window
@@ -185,7 +185,7 @@ class TestSlidingWindowPairPreservation:
         assert any(isinstance(p, UserPromptPart) for p in first.parts)
 
 
-class TestCompressRequestPreservesFields:
+class TestLegacyCompressRequestPreservesFields:
     def test_preserves_instructions_field(self) -> None:
         from agent.agents.animichi_agent import _compress_request
 
@@ -202,7 +202,7 @@ class TestCompressRequestPreservesFields:
         assert "[search: completed]" in str(part.content)
 
 
-class TestSummarizeToolContent:
+class TestLegacySummarizeToolContent:
     def test_search_bangumi_summary(self) -> None:
         from agent.agents.animichi_agent import _summarize_tool_content
 
