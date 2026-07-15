@@ -6,9 +6,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from agent.agents.agent_result import StepRecord
-from agent.agents.guardrails import WebResult
 from agent.agents.tool_state import ToolState
 from agent.agents.translation import TranslationResult
+from agent.agents.web_trust import WebResult
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
 
