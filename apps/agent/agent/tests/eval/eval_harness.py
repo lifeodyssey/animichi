@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Iterator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TypeAlias, cast
 
+import logfire
 from dotenv import dotenv_values
+from opentelemetry.trace import get_tracer_provider
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -23,6 +26,7 @@ from pydantic_evals.lifecycle import CaseLifecycle
 from pydantic_evals.reporting import EvaluationReport
 
 from agent.agents.agent_result import AgentResult
+from agent.agents.animichi_agent import animichi_agent
 from agent.agents.base import parse_model_spec
 from agent.agents.runtime_deps import TitleTranslator, WebSearcher
 from agent.clients.catalog_client import CatalogClientProtocol
@@ -43,6 +47,12 @@ from agent.tests.eval.exec_tiers import (
     EvalTierTarget,
     cap_cases,
     read_max_cases,
+)
+from agent.tests.eval.official_evaluators import (
+    OfficialArgumentCorrectness,
+    OfficialMaxToolCalls,
+    OfficialToolCorrectness,
+    OfficialTrajectoryMatch,
 )
 
 Row: TypeAlias = Mapping[str, object]
@@ -87,6 +97,10 @@ _CORE_METRIC_NAMES = [
     "data_keys_present",
     "locale_match",
     "step_efficiency",
+    "argument_correctness_official",
+    "tool_correctness_official",
+    "trajectory_match_official",
+    "max_tool_calls_official",
 ]
 
 
@@ -204,6 +218,10 @@ def build_evaluators() -> list[Evaluator[AgentInput, AgentResult, AgentExpected]
         NonemptyResults(),
         LocaleMatch(),
         StepEfficiency(),
+        OfficialArgumentCorrectness(),
+        OfficialToolCorrectness(),
+        OfficialTrajectoryMatch(),
+        OfficialMaxToolCalls(),
     ]
     if EVAL_L3:
         evaluators.extend(build_l3_evaluators(make_model(JUDGE_MODEL_ID)))
@@ -278,6 +296,23 @@ def _target_task(target: EvalTierTarget, model: Model | None) -> TaskFn:
     )
 
 
+def _ensure_tracer_provider() -> None:
+    if hasattr(get_tracer_provider(), "add_span_processor"):
+        return
+    logfire.configure(send_to_logfire=False, console=False)
+
+
+@contextmanager
+def _agentic_tracing() -> Iterator[None]:
+    _ensure_tracer_provider()
+    previous = animichi_agent.instrument
+    animichi_agent.instrument = True
+    try:
+        yield
+    finally:
+        animichi_agent.instrument = previous
+
+
 async def evaluate_target(
     target: EvalTierTarget,
     model: Model | None = None,
@@ -286,10 +321,11 @@ async def evaluate_target(
     lifecycle: LifecycleFactory | None = None,
     progress: bool = True,
 ) -> AgentReport:
-    return await agent_dataset.evaluate(
-        _target_task(target, model),
-        name=f"{target.layer}_{model_id}",
-        max_concurrency=EVAL_CONCURRENCY,
-        lifecycle=lifecycle,
-        progress=progress,
-    )
+    with _agentic_tracing():
+        return await agent_dataset.evaluate(
+            _target_task(target, model),
+            name=f"{target.layer}_{model_id}",
+            max_concurrency=EVAL_CONCURRENCY,
+            lifecycle=lifecycle,
+            progress=progress,
+        )
