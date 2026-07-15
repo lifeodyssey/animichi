@@ -5,8 +5,8 @@ Canonical repo guide for agentic coding tools. Claude Code reaches this via `CLA
 stack-specific rules live in per-package `AGENTS.md` files and in `.claude/rules/` (below).
 
 Animichi is an anime pilgrimage search + route-planning service. **Hybrid microservices**: a
-Python PydanticAI agent (FastAPI, Cloudflare container) + TypeScript Cloudflare Workers (catalog,
-and a planned users service) + a TanStack web app (rebuild in progress). Data plane = Neon;
+Python PydanticAI agent (FastAPI, Cloudflare container) + TypeScript Cloudflare Workers (catalog +
+users) + a TanStack web app (rebuild in progress). Data plane = Neon;
 auth = Supabase **today → migrating to Neon Auth** (decided, SD-31; provisioned but not yet
 integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec for the target).
 
@@ -14,13 +14,14 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
 
 - `apps/agent/`        — Python PydanticAI agent (FastAPI container). uv. → `apps/agent/AGENTS.md`
 - `workers/catalog/`   — TS Worker: anime catalog API + data platform (ingest/enrich/publish). → `workers/catalog/AGENTS.md`
-- `workers/users/`     — TS Worker: user-domain data (Neon + Drizzle). PLANNED (SD-2).
-- `packages/contract/` — Shared oRPC/zod contract; source of truth for cross-service types. → `packages/contract/README.md`
+- `workers/users/`     — LIVE Hono/oRPC/jose user-data Worker; 21 tests + CI lane. → `workers/users/AGENTS.md`
+- `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `frontend/`          — Next.js (OpenNext-SSR), **homepage-only** (chat/search deleted 2026-06). → `frontend/AGENTS.md`
-- `apps/web/`          — TanStack Start web app (S0.2 skeleton; rebuild stories iter 0-7, see rebuild spec).
+- `apps/web/`          — TanStack Start SSR app: landing + branded 404; cutover build-out. → `apps/web/AGENTS.md`
 - `worker/`            — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy.
-- `db/`                — Neon migrations (atlas). `supabase/migrations/` — auth migrations.
-- `infra/`             — Pulumi IaC.
+- `db/`                — Atlas/Neon migrations; Supabase migrations stay auth-only. → `db/AGENTS.md`
+- `e2e/`               — Playwright legacy + cutover browser suites. → `e2e/AGENTS.md`
+- `infra/`             — Pulumi Cloudflare IaC. → `infra/AGENTS.md`
 
 ## Package managers
 
@@ -41,7 +42,9 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
 - **No `Any`** — Python: `object` + `isinstance()`; TS: no `any`. No `dict[str, object]` — model it.
 - **No suppression without user approval** — no `eslint-disable` / `@ts-ignore` / `type: ignore` /
   `noqa` / `pragma: no cover` / `continue-on-error` / `skip`. Fix the code; don't silence the rule.
-- **Coverage floors ratchet UP only** — frontend lines≥72 / stmts≥68 / fns≥62 / branches≥59; backend ≥80.
+- **TypeScript gate (live packages)** — TypeScript 7.0.2 direct + type-aware oxlint/tsgolint with
+  `--deny-warnings`; ESLint remains only inside the frozen `frontend/` package.
+- **Coverage floors ratchet UP only** — frontend lines≥72 / stmts≥68 / fns≥62 / branches≥59; backend ≥82.
 - **Test quality**: mock the clock (no timing-dependent asserts); no conditional logic in tests
   (split them); ≤200 lines per test file; ≤5 mocks per test.
 - **No local deploy** (hook `block-local-deploy`) — CI/CD only: staging = merge to `main`; prod =
@@ -93,6 +96,7 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
   | Skill | Reach for it when |
   |---|---|
   | `ai:building-pydantic-ai-agents` | Writing/altering the PydanticAI agent, tools, `ModelRetry` guards, typed output (`apps/agent`). |
+  | `pydantic-ai-harness:pydantic-ai-harness` | CodeMode, ManagedPrompt, capability composition, and harness integration (`apps/agent`). |
   | `logfire:logfire-instrumentation` · `logfire:logfire-query` | Instrumentation / querying observability — the sanctioned OTel path (see F8 in `apps/agent/AGENTS.md`). |
   | `fastapi` | FastAPI service surface, routing, lifespan, dependencies (`apps/agent`). |
   | `cloudflare:workers-best-practices` · `cloudflare:wrangler` · `cloudflare:durable-objects` | Catalog/edge Worker code, `wrangler.toml`, bindings, local `wrangler dev`. |
