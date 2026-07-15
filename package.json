@@ -34,7 +34,6 @@
     "@cloudflare/workers-types": "^5.20260715.1",
     "@types/node": "^26.1.1",
     "oxlint": "~1.74.0",
-    "oxlint-tsgolint": "~0.24.0",
-    "typescript-native": "npm:typescript@7.0.2"
+    "oxlint-tsgolint": "~0.24.0"
   }
 }

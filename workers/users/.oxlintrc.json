@@ -6,7 +6,6 @@
     ".wrangler/**",
     "dist/**",
     "coverage/**",
-    "eslint.config.mjs",
     "vitest.config.ts"
   ]
 }

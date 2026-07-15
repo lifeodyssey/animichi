@@ -202,7 +202,7 @@ A temporary TypeScript canary produced diagnostics for all six rules above. It a
 - Each live package has a local `.oxlintrc.json` extending the root, with its existing generated/build/config ignore patterns preserved.
 - `apps/web` retains its production and test function-length distinction through an oxlint override.
 - `workers/catalog/scripts/tsconfig.json` gives the already-linted Node build script a discoverable TS7 project. Without it, tsgolint treated Node APIs as error types; the script is not excluded and no semantic rule is weakened.
-- Existing ESLint scripts/workflow commands remain unchanged; oxlint is dual-run only in this phase.
+- L2 kept ESLint scripts/workflow commands unchanged so oxlint could run as a dual-run canary before the L3 flip.
 
 ## Verification
 
@@ -210,9 +210,9 @@ A temporary TypeScript canary produced diagnostics for all six rules above. It a
 - `workers/users`: `pnpm run lint:oxlint` exited 0 with no diagnostics.
 - `apps/web`: `pnpm run lint:oxlint` exited 0 with no diagnostics.
 - Root `pnpm run lint:oxlint` ran all three filters and exited 0.
-- The unchanged ESLint CI command, `pnpm exec eslint . --max-warnings=0`, still exits 0 in each package.
+- The L3 Oxlint gate, `pnpm run lint:oxlint`, uses `--deny-warnings` so warning-level diagnostics fail the command.
 - Pre- and post-change `make check` both passed Ruff, formatting, mypy, and 1,039 unit tests at 85.60% coverage, then stopped during integration-test collection because `SUPABASE_DB_URL` and `DEEPSEEK_API_KEY` are absent from this environment.
 
-## L3 recommendation
+## L3 outcome
 
-Proceed to L3 planning: there are **no category-d blockers** in oxlint 1.74 + oxlint-tsgolint 0.24. Keep the recorded `no-octal` decision visible in the flip PR, and retain the canary-equivalent regression coverage or an explicit rule-parity check when ESLint dependencies are removed.
+There were **no category-d blockers** in oxlint 1.74 + oxlint-tsgolint 0.24. The live package and CI gates now use strict, type-aware Oxlint with warning denial; ESLint remains only for the retired-frozen `frontend/` surface.

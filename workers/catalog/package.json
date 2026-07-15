@@ -8,12 +8,11 @@
     "build:topology": "tsx scripts/transit/build-topology.ts",
     "dev": "wrangler dev",
     "fetch:n02": "tsx scripts/transit/fetch-n02.ts",
-    "lint:oxlint": "oxlint --type-aware .",
+    "lint:oxlint": "oxlint --type-aware --deny-warnings .",
     "test": "npm run test:worker && npm run test:spike",
     "test:worker": "vitest run --config vitest.config.ts --coverage",
     "test:spike": "vitest run --config vitest.spike.config.ts",
-    "typecheck": "../../node_modules/typescript-native/bin/tsc --noEmit",
-    "typecheck:ts6": "tsc --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -27,14 +26,11 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.18.4",
     "@cloudflare/workers-types": "^5.20260715.1",
-    "@eslint/js": "^10.0.1",
     "@types/pg": "^8.20.0",
     "@vitest/coverage-istanbul": "4.1.10",
-    "eslint": "^10.7.0",
     "pg": "^8.22.0",
     "tsx": "^4.23.1",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.64.0",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10",
     "wrangler": "^4.110.0"
   }
