@@ -8,6 +8,8 @@ catalog** — it never calls external anime APIs in the request path and never w
 
 - `make test` (pytest `--asyncio-mode=auto`) · `make test-integration` · `make typecheck` (mypy strict) ·
   `make lint` (ruff). Pre-commit runs ruff + mypy on every commit.
+- `make test-eval` — official model-backed runner plus translation eval. The pytest eval entry is a
+  transition alias sharing the same report/gate path, not the primary interface.
 - Directly: `cd apps/agent && uv run pytest agent/tests/unit/`. Seed data: `agent/tests/fixtures/seed.sql`.
 - In a worktree, format with `uv tool run ruff format` (not `uv run …`).
 
@@ -18,9 +20,21 @@ User text → `RuntimeAPI.handle()` → `run_animichi_agent()` → `animichi_age
 agent via `execute_selected_route()`.
 
 - Entry: `agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/animichi_runner.py`.
+- Agent constructor: `build_animichi_agent()`; PydanticAI name: `animichi`.
 - Shared types: `agent/agents/models.py`, `agent/agents/agent_result.py`.
 
-## Tools (`agents/animichi_tools.py` — `@agent.tool` registrations with `ModelRetry` guards)
+## PydanticAI 2.9.1 composition
+
+- Tools are constructor-injected from typed `TOOLS` lists in `animichi_tools.py` / `web_tools.py`.
+  Registration no longer depends on import order.
+- Modern hooks: `before_model_request` idempotently injects session/locale context;
+  `on.run_error` records telemetry and re-raises.
+- `web_search` + `translate_anime_title` are deferred tools selected by keyword `ToolSearch`.
+- `ANIMICHI_MODERN_COMPOSITION=0` is the one-switch rollback to eager tools/dynamic instructions.
+- ManagedPrompt is default-off and needs all four gates: modern composition,
+  `ANIMICHI_MANAGED_PROMPT=1`, `LOGFIRE_TOKEN`, and `LOGFIRE_API_KEY`; otherwise local instructions win.
+
+## Tools (`agents/animichi_tools.py` — typed `TOOLS` list with `ModelRetry` guards)
 
 | Tool | Description |
 |---|---|
@@ -72,6 +86,13 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
 
 ## Test environment reality
 
+- Unit tests are hermetic: the autouse fixture sets `pydantic_ai.models.ALLOW_MODEL_REQUESTS=False`
+  and installs test models/keys. `.env` is not needed for `make test`; it is needed for live evals.
+- `MIMO_API_KEY` is selected by `_resolve_api_key()` in `agents/base.py` only for
+  `xiaomimimo.com` model endpoints; do not reuse a generic key by accident.
+- Official eval entry: `agent/tests/eval/run_agent_eval.py`. It streams one status line per case,
+  persists reports, creates/enforces statistical baselines, and exits nonzero on gate regression or
+  all-error runs. Never refresh a baseline merely to pass a gate.
 - Integration/eval suites that import `pg_container` (`agent/tests/conftest_db.py`) need a
   **Docker-compatible runtime** (Docker / Colima on Mac) and use **testcontainers PostGIS**
   (`postgis/postgis:16-3.4`). `SUPABASE_DB_URL` / `supabase start` alone is NOT sufficient for those
