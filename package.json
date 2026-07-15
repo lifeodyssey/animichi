@@ -8,6 +8,7 @@
   "scripts": {
     "build:frontend": "pnpm --filter ./frontend run build",
     "deploy": "pnpm run build:frontend && npx wrangler deploy",
+    "lint:oxlint": "pnpm --filter catalog --filter users --filter web run lint:oxlint",
     "test:worker": "node --test worker/entry.test.ts worker/auth.test.ts worker/auth-neon.test.ts"
   },
   "dependencies": {
@@ -32,6 +33,8 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260715.1",
     "@types/node": "^26.1.1",
+    "oxlint": "~1.74.0",
+    "oxlint-tsgolint": "~0.24.0",
     "typescript-native": "npm:typescript@7.0.2"
   }
 }
