@@ -28,7 +28,6 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models import ModelRequestContext
 from pydantic_ai.output import ToolOutput
-from pydantic_ai_harness.compaction import SlidingWindow
 from pydantic_ai_harness.guardrails import GuardResult, InputGuard
 from pydantic_ai_harness.logfire import ManagedPrompt
 from pydantic_ai_harness.overflowing_tool_output import (
@@ -39,6 +38,7 @@ from pydantic_ai_harness.overflowing_tool_output import (
 
 from agent.agents.animichi_tools import TOOLS as ANIMICHI_TOOLS
 from agent.agents.base import resolve_model
+from agent.agents.history_compaction import native_history_compaction
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import (
     ClarifyResponseModel,
@@ -58,8 +58,6 @@ from agent.infrastructure.observability import (
 
 COMPACT_THRESHOLD = 40  # ~5 turns × 8 messages/turn
 _KEEP_RECENT = 8  # Keep latest turn fully uncompressed
-_HISTORY_MAX_TOKENS = 5_500
-_HISTORY_KEEP_TOKENS = 1_100
 _TOOL_OUTPUT_OVERFLOW_CHARS = 100_000
 _TOOL_OUTPUT_KEEP_CHARS = 20_000
 _CATALOG_TOOL_NAMES = [
@@ -520,17 +518,9 @@ def _output_types() -> list[ToolOutput[RuntimeOutput]]:
     ]
 
 
-def _official_sliding_window() -> SlidingWindow[RuntimeDeps]:
-    return SlidingWindow(
-        max_tokens=_HISTORY_MAX_TOKENS,
-        keep_tokens=_HISTORY_KEEP_TOKENS,
-        preserve_first_user_message=False,
-    )
-
-
 def _history_capabilities(*, modern: bool) -> list[AgentCapability[RuntimeDeps]]:
     if modern:
-        return [ProcessHistory(_compact_tool_results), _official_sliding_window()]
+        return [native_history_compaction(_summarize_tool_content)]
     return [ProcessHistory(_compact_tool_results), ProcessHistory(_sliding_window)]
 
 
