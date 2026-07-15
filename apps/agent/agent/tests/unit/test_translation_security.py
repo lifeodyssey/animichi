@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+from ddgs.exceptions import DDGSException
 from pydantic_ai import RunContext
 from pydantic_ai.common_tools.duckduckgo import DuckDuckGoResult
 from pydantic_ai.exceptions import FallbackExceptionGroup
@@ -17,6 +19,7 @@ from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.translation import (
     TranslationDeps,
     TranslationResult,
+    _run_ddg_search,
     translate_text,
     translate_title,
     translation_web_search,
@@ -38,6 +41,18 @@ def _parent_context() -> _ParentContext:
 
 def _agent_result(output: str) -> MagicMock:
     return MagicMock(output=output)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [DDGSException("search failed"), OSError("network down")],
+)
+async def test_ddg_failure_returns_empty_search_results(error: Exception) -> None:
+    with patch(
+        "agent.agents.translation._ddg_tool.function",
+        new=AsyncMock(side_effect=error),
+    ):
+        assert await _run_ddg_search("anime title") == []
 
 
 async def test_title_run_inherits_parent_usage_and_model() -> None:
