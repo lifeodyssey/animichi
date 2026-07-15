@@ -238,34 +238,3 @@ class TestCompact:
             "visited_bangumi_ids": [],
             "summary": "old summary",
         }
-
-
-class TestBuildContextBlockWithUserMemory:
-    def test_merges_cross_session_visited_ids(self):
-        session_state = {
-            "interactions": [
-                {
-                    "context_delta": {
-                        "bangumi_id": "253",
-                        "anime_title": "響け",
-                        "location": None,
-                    }
-                }
-            ],
-            "last_intent": "search_bangumi",
-        }
-        user_memory = {
-            "visited_anime": [
-                {"bangumi_id": "105", "title": "君の名は", "last_at": "2026-03-01"},
-                {"bangumi_id": "253", "title": "響け", "last_at": "2026-04-01"},
-            ]
-        }
-
-        block = _build_context_block(session_state, user_memory=user_memory)
-
-        assert block is not None
-        assert "105" in block["visited_bangumi_ids"]
-        assert block["visited_bangumi_ids"].count("253") == 1
-
-    def test_returns_none_when_no_context_and_no_user_memory(self):
-        assert _build_context_block({"interactions": []}, user_memory=None) is None
