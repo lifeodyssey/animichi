@@ -14,6 +14,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
+from pydantic_ai.models import Model
 
 from agent.config.settings import Settings
 from agent.infrastructure.session.memory import InMemorySessionStore
@@ -75,9 +76,11 @@ def _build_runtime_api_mock(
     async def handle_side_effect(
         request: object,
         *,
+        model: Model | None = None,
         user_id: str | None = None,
         on_step: object = None,
     ) -> PublicAPIResponse:
+        del model
         if emit_steps and on_step is not None and callable(on_step):
             await on_step(
                 "search_bangumi",

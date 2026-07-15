@@ -10,9 +10,14 @@ from typing import Annotated
 
 import structlog
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from agent.interfaces.public_api import PublicAPIRequest
+from agent.agents.base import ModelAliasError, resolve_model_alias
+from agent.interfaces.public_api import (
+    PublicAPIError,
+    PublicAPIRequest,
+    PublicAPIResponse,
+)
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
     _get_runtime_api,
@@ -38,6 +43,27 @@ def _user_facing_error(raw: str) -> str:
 router = APIRouter(prefix="/v1", tags=["runtime"])
 
 
+def _invalid_model_alias_response(exc: ModelAliasError) -> JSONResponse:
+    error = PublicAPIError(code="invalid_model_alias", message=str(exc))
+    response = PublicAPIResponse(
+        success=False,
+        status="error",
+        intent="unknown",
+        message=str(exc),
+        errors=[error],
+    )
+    return _public_api_response(response)
+
+
+async def _finish_pipeline_task(task: asyncio.Task[None]) -> None:
+    if task.done():
+        await task
+        return
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+
+
 @router.post("/runtime")
 async def handle_runtime(
     request: Request,
@@ -54,8 +80,12 @@ async def handle_runtime_stream(
     request: Request,
     api_request: PublicAPIRequest,
     auth: Annotated[TrustedAuthContext, Depends(_get_trusted_auth_context)],
-) -> StreamingResponse:
+) -> Response:
     runtime_api = _get_runtime_api(request)
+    try:
+        resolved_model = resolve_model_alias(api_request.model)
+    except ModelAliasError as exc:
+        return _invalid_model_alias_response(exc)
     queue: asyncio.Queue[str | None] = asyncio.Queue()
 
     async def emit(event: str, data: dict[str, object]) -> None:
@@ -84,6 +114,7 @@ async def handle_runtime_stream(
         try:
             response = await runtime_api.handle(
                 api_request,
+                model=resolved_model,
                 user_id=auth.user_id,
                 on_step=on_step,
             )
@@ -118,12 +149,7 @@ async def handle_runtime_stream(
                     break
                 yield item
         finally:
-            if not task.done():
-                task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await task
-            else:
-                await task
+            await _finish_pipeline_task(task)
 
     return StreamingResponse(
         event_generator(),
