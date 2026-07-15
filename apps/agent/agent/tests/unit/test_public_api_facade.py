@@ -34,10 +34,8 @@ def mock_db():
     pool.fetch = AsyncMock(return_value=[])
     db.pool = pool
     db.points.search_points_by_location = AsyncMock(return_value=[])
-    db.user_memory.get_user_memory = AsyncMock(return_value=None)
     db.session.upsert_session = AsyncMock()
     db.session.upsert_conversation = AsyncMock()
-    db.user_memory.upsert_user_memory = AsyncMock()
     db.session.update_conversation_title = AsyncMock()
     db.routes.save_route = AsyncMock(return_value="route-1")
     return db
@@ -90,14 +88,11 @@ class TestHandlePublicRequest:
 
 
 class TestUserIdPropagation:
-    async def test_loads_user_memory_and_upserts_conversation_when_user_id_present(
-        self, mock_db
-    ):
+    async def test_upserts_conversation_when_user_id_present(self, mock_db):
         api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
 
         await api.handle(PublicAPIRequest(text="京吹の聖地"), user_id="user-abc")
 
-        mock_db.user_memory.get_user_memory.assert_awaited_once_with("user-abc")
         mock_db.session.upsert_conversation.assert_awaited_once()
         args = mock_db.session.upsert_conversation.await_args.args
         assert args[1] == "user-abc"
@@ -107,7 +102,6 @@ class TestUserIdPropagation:
 
         await api.handle(PublicAPIRequest(text="京吹の聖地"), user_id=None)
 
-        mock_db.user_memory.get_user_memory.assert_not_awaited()
         mock_db.session.upsert_conversation.assert_not_awaited()
 
 
@@ -177,44 +171,6 @@ class TestLocalePassthrough:
 
         assert response.intent == "general_qa"
         assert response.message  # non-empty
-
-
-class TestBuildContextBlockWithUserMemory:
-    async def test_handle_passes_context_block_to_pipeline(self, mock_db):
-        mock_db.user_memory.get_user_memory.return_value = {
-            "visited_anime": [
-                {"bangumi_id": "105", "title": "君の名は", "last_at": "2026-03-01"}
-            ]
-        }
-        captured: dict[str, object] = {}
-
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, model, locale, message_history, on_step)
-            captured["context"] = context
-            return _make_result(locale=locale)
-
-        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
-            await api.handle(PublicAPIRequest(text="次は何がある？"), user_id="u1")
-
-        assert captured["context"] == {
-            "summary": None,
-            "current_bangumi_id": "105",
-            "current_anime_title": "君の名は",
-            "last_location": None,
-            "last_intent": None,
-            "visited_bangumi_ids": ["105"],
-        }
 
 
 class TestOriginCoordinatesWiredToContext:

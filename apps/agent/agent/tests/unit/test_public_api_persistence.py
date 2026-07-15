@@ -1,4 +1,4 @@
-"""Unit tests for conversation persistence and user memory upsert logic."""
+"""Unit tests for conversation persistence."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent.agents.agent_result import AgentResult, StepRecord
+from agent.agents.agent_result import AgentResult
 from agent.agents.runtime_models import (
     GreetingResponseModel,
     QADataModel,
@@ -16,9 +16,6 @@ from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from agent.tests.unit.conftest_public_api import (
     install_mock_pipeline,
-)
-from agent.tests.unit.conftest_public_api import (
-    make_result as _make_result,
 )
 
 
@@ -34,10 +31,8 @@ def mock_db():
     pool.fetch = AsyncMock(return_value=[])
     db.pool = pool
     db.points.search_points_by_location = AsyncMock(return_value=[])
-    db.user_memory.get_user_memory = AsyncMock(return_value=None)
     db.session.upsert_session = AsyncMock()
     db.session.upsert_conversation = AsyncMock()
-    db.user_memory.upsert_user_memory = AsyncMock()
     db.session.update_conversation_title = AsyncMock()
     db.routes.save_route = AsyncMock(return_value="route-1")
     return db
@@ -67,10 +62,8 @@ class TestGreetUserEphemeral:
             return result
 
         db = MagicMock()
-        db.get_user_memory = AsyncMock(return_value=None)
         db.session.upsert_session = AsyncMock()
         db.session.upsert_conversation = AsyncMock()
-        db.user_memory.upsert_user_memory = AsyncMock()
         db.insert_request_log = AsyncMock()
 
         session_store = MagicMock()
@@ -91,7 +84,6 @@ class TestGreetUserEphemeral:
         session_store.set.assert_not_awaited()
         db.session.upsert_session.assert_not_awaited()
         db.session.upsert_conversation.assert_not_awaited()
-        db.user_memory.upsert_user_memory.assert_not_awaited()
         db.insert_request_log.assert_not_awaited()
 
 
@@ -169,54 +161,6 @@ class TestConversationPersistence:
             )
 
         create_task.assert_not_called()
-
-
-class TestUserMemoryUpsert:
-    async def test_upserts_user_memory_when_bangumi_id_in_delta(self, mock_db):
-        result = _make_result(
-            data={
-                "results": {"rows": [], "row_count": 0},
-            },
-            message="該当する巡礼地を検索しました。",
-            steps=[
-                StepRecord(
-                    tool="resolve_anime",
-                    success=True,
-                    params={"title": "響け"},
-                    data={"bangumi_id": "253", "title": "響け！ユーフォニアム"},
-                )
-            ],
-        )
-
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ):
-            _ = (text, db, model, locale, context, message_history, on_step)
-            return result
-
-        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
-            await api.handle(PublicAPIRequest(text="響け"), user_id="u1")
-
-        mock_db.user_memory.upsert_user_memory.assert_awaited_once()
-        kwargs = mock_db.user_memory.upsert_user_memory.await_args.kwargs
-        assert kwargs["bangumi_id"] == "253"
-        assert kwargs["anime_title"] == "響け！ユーフォニアム"
-
-    async def test_skips_user_memory_when_no_bangumi_id(self, mock_db):
-        api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
-
-        await api.handle(PublicAPIRequest(text="宇治の近く"), user_id="u1")
-
-        mock_db.user_memory.upsert_user_memory.assert_not_awaited()
 
 
 # TODO: re-enable when session compaction is wired back

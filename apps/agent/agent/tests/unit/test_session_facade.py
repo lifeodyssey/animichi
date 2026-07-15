@@ -252,38 +252,6 @@ class TestBuildContextBlock:
         assert block["summary"] == "previous session"
         assert block["current_bangumi_id"] is None
 
-    def test_merges_user_memory(self) -> None:
-        state = {
-            "interactions": [
-                {"context_delta": {"bangumi_id": "253", "anime_title": "Eupho"}}
-            ],
-            "last_intent": "search_bangumi",
-        }
-        user_memory = {
-            "visited_anime": [
-                {"bangumi_id": "105", "title": "Your Name", "last_at": "2026-03-01"},
-            ]
-        }
-        block = build_context_block(state, user_memory=user_memory)
-
-        assert block is not None
-        assert "105" in block["visited_bangumi_ids"]
-        assert "253" in block["visited_bangumi_ids"]
-
-    def test_most_recent_from_user_memory_when_no_session_context(self) -> None:
-        state = {"interactions": []}
-        user_memory = {
-            "visited_anime": [
-                {"bangumi_id": "105", "title": "Your Name", "last_at": "2026-03-01"},
-                {"bangumi_id": "200", "title": "Newer", "last_at": "2026-04-01"},
-            ]
-        }
-        block = build_context_block(state, user_memory=user_memory)
-
-        assert block is not None
-        assert block["current_bangumi_id"] == "200"
-        assert block["current_anime_title"] == "Newer"
-
 
 class TestExtractContextDelta:
     def test_from_resolve_anime(self) -> None:

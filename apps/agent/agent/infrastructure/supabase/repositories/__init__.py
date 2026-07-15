@@ -6,9 +6,6 @@ from agent.infrastructure.supabase.repositories.messages import MessagesReposito
 from agent.infrastructure.supabase.repositories.points import PointsRepository
 from agent.infrastructure.supabase.repositories.routes import RoutesRepository
 from agent.infrastructure.supabase.repositories.session import SessionRepository
-from agent.infrastructure.supabase.repositories.user_memory import (
-    UserMemoryRepository,
-)
 
 __all__ = [
     "BangumiRepository",
@@ -17,5 +14,4 @@ __all__ = [
     "PointsRepository",
     "RoutesRepository",
     "SessionRepository",
-    "UserMemoryRepository",
 ]
