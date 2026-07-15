@@ -13,7 +13,6 @@ import pytest
 from agent.clients.catalog_client import CatalogClient
 from agent.clients.catalog_errors import (
     RouteTooManyClustersError,
-    UpstreamUnavailableError,
     WorkNotFoundError,
 )
 from agent.clients.errors import TransientAPIError
@@ -34,7 +33,10 @@ def _install_responses(
         return httpx.Response(status, request=request, json=payload)
 
     transport = httpx.MockTransport(handler)
-    monkeypatch.setattr("pydantic_ai.retries.AsyncHTTPTransport", lambda: transport)
+    monkeypatch.setattr(
+        "agent.clients.catalog_client.httpx.AsyncHTTPTransport",
+        lambda **_kwargs: transport,
+    )
     return requests
 
 
@@ -70,7 +72,7 @@ async def test_user_actionable_error_raises_without_retry(
     assert excinfo.value.cluster_count == 62
 
 
-async def test_retryable_envelope_is_retried_then_typed(
+async def test_retryable_envelope_is_retried_by_status_without_body_read(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A defined 502 UPSTREAM_UNAVAILABLE flows through the retry loop."""
@@ -79,11 +81,10 @@ async def test_retryable_envelope_is_retried_then_typed(
     requests = _install_responses(monkeypatch, [(502, body)])
     client = CatalogClient("https://catalog.test")
 
-    with pytest.raises(UpstreamUnavailableError) as excinfo:
+    with pytest.raises(TransientAPIError, match="HTTP 502"):
         await client.search("氷菓")
 
     assert len(requests) == 3
-    assert excinfo.value.upstream == "bangumi"
 
 
 async def test_retryable_envelope_then_success_recovers(

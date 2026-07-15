@@ -33,7 +33,7 @@ from agent.clients.catalog_client import CatalogClientProtocol
 
 logger = structlog.get_logger(__name__)
 
-CATALOG_TOOL_TIMEOUT_SECONDS = 95.0
+CATALOG_TOOL_TIMEOUT_SECONDS = 85.0
 
 
 def _require_catalog(deps: RuntimeDeps) -> CatalogClientProtocol:
