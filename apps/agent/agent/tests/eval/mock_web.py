@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from agent.agents.guardrails import WebResult
 from agent.agents.translation import TranslationResult
+from agent.agents.web_trust import WebResult
 from agent.tests.eval.mock_catalog_client import (
     FIXTURE_POINTS,
     LOCATION_CENTERS,

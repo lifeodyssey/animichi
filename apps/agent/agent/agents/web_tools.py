@@ -17,13 +17,13 @@ from pydantic_ai.common_tools.duckduckgo import (
 )
 from pydantic_ai.tools import Tool, ToolFuncEither
 
-from agent.agents.guardrails import (
+from agent.agents.runtime_deps import RuntimeDeps
+from agent.agents.translation import TranslationResult, translate_title
+from agent.agents.web_trust import (
     WebResult,
     detect_prompt_injection,
     wrap_untrusted_web_results,
 )
-from agent.agents.runtime_deps import RuntimeDeps
-from agent.agents.translation import TranslationResult, translate_title
 
 _ddg_tool = duckduckgo_search_tool(max_results=5)
 _SEARCH_ERRORS: tuple[type[Exception], ...] = (
