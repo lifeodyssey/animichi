@@ -115,17 +115,17 @@ def native_history_compaction(summarize: ToolSummary) -> TieredCompaction[Runtim
     return TieredCompaction(
         tiers=[
             CompactToolReturns[RuntimeDeps](summarize),
-            SlidingWindow(
-                max_tokens=HISTORY_MAX_TOKENS,
-                keep_tokens=HISTORY_KEEP_TOKENS,
-                preserve_first_user_message=False,
-            ),
             SummarizingCompaction(
                 model=None,
                 max_tokens=HISTORY_MAX_TOKENS,
                 keep_tokens=SUMMARY_KEEP_TOKENS,
                 summary_prompt=SUMMARY_PROMPT,
                 preserve_first_user_message=True,
+            ),
+            SlidingWindow(
+                max_tokens=HISTORY_MAX_TOKENS,
+                keep_tokens=HISTORY_KEEP_TOKENS,
+                preserve_first_user_message=False,
             ),
         ],
         target_tokens=HISTORY_MAX_TOKENS,
