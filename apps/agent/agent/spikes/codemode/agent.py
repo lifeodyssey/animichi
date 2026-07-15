@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic_ai import Agent
+from pydantic_ai import Agent, Tool
 from pydantic_ai.capabilities import AgentCapability
 from pydantic_ai_harness import CodeMode
 
@@ -19,7 +19,10 @@ from agent.agents.base import resolve_model
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.web_tools import TOOLS as WEB_TOOLS
 
-CODEMODE_TOOL_NAMES = tuple(tool.__name__ for tool in [*ANIMICHI_TOOLS, *WEB_TOOLS])
+CODEMODE_TOOL_NAMES = tuple(
+    tool.name if isinstance(tool, Tool) else tool.__name__
+    for tool in [*ANIMICHI_TOOLS, *WEB_TOOLS]
+)
 
 
 def build_codemode_animichi_agent() -> Agent[RuntimeDeps, RuntimeOutput]:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import cast
 
+import logfire
 import pytest
 from logfire.testing import CaptureLogfire, TestExporter
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricsData
@@ -136,7 +137,9 @@ class TestDeploymentEnvironment:
         self, monkeypatch: pytest.MonkeyPatch, mock_settings: Settings
     ) -> None:
         exporter = TestExporter()
-        patch_configure_with_test_sinks(monkeypatch, exporter, InMemoryMetricReader())
+        configure_call = patch_configure_with_test_sinks(
+            monkeypatch, exporter, InMemoryMetricReader()
+        )
         monkeypatch.delenv("LOGFIRE_TOKEN", raising=False)
 
         settings = mock_settings.model_copy(update={"app_env": "staging"})
@@ -147,6 +150,7 @@ class TestDeploymentEnvironment:
         spans = exporter.exported_spans_as_dict(include_resources=True)
         resource_attributes = spans[-1]["resource"]["attributes"]
         assert resource_attributes["deployment.environment.name"] == "staging"
+        assert isinstance(configure_call.scrubbing, logfire.ScrubbingOptions)
 
     def test_setup_logfire_tags_metric_with_deployment_environment(
         self, monkeypatch: pytest.MonkeyPatch, mock_settings: Settings

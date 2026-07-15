@@ -24,6 +24,14 @@ if TYPE_CHECKING:
 
 _logger = structlog.get_logger(__name__)
 
+_SCRUB_PATTERNS = (
+    r"authorization",
+    r"bearer\s+[A-Za-z0-9._~+/=-]+",
+    r"api[._ -]?key",
+    r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
+)
+_OPERATING_QUERY_FIELDS = frozenset({"query_text", "first_query"})
+
 
 @dataclass(frozen=True)
 class TrustedAuthContext:
@@ -224,12 +232,17 @@ def setup_logfire(settings: Settings, app: object | None = None) -> None:
     import logfire
 
     variables = _managed_prompt_variables()
+    scrubbing = logfire.ScrubbingOptions(
+        callback=_preserve_operating_query,
+        extra_patterns=_SCRUB_PATTERNS,
+    )
     logfire.configure(
         service_name=settings.observability_service_name,
         service_version=settings.observability_service_version,
         environment=settings.app_env,
         send_to_logfire="if-token-present",
         console=False,
+        scrubbing=scrubbing,
         variables=variables,
     )
     if _has_logfire_token():
@@ -241,6 +254,12 @@ def _has_logfire_token() -> bool:
     import os
 
     return bool(os.environ.get("LOGFIRE_TOKEN"))
+
+
+def _preserve_operating_query(match: logfire.ScrubMatch) -> object | None:
+    if any(part in _OPERATING_QUERY_FIELDS for part in match.path):
+        return cast(object, match.value)
+    return None
 
 
 def _managed_prompt_variables() -> logfire.VariablesOptions | None:
@@ -263,3 +282,4 @@ def _instrument_logfire(app: object | None) -> None:
 
         logfire.instrument_fastapi(cast(_FastAPI, app))
     logfire.instrument_httpx()
+    logfire.instrument_asyncpg()

@@ -16,7 +16,7 @@ import json
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from pydantic_ai import ModelRetry, RunContext
+from pydantic_ai import ModelRetry, RunContext, Tool
 from pydantic_ai.tools import ToolFuncEither
 
 from agent.agents.catalog_tools import (
@@ -32,6 +32,8 @@ from agent.agents.tool_runtime import _run_ephemeral, run_clarify
 from agent.clients.catalog_client import CatalogClientProtocol
 
 logger = structlog.get_logger(__name__)
+
+CATALOG_TOOL_TIMEOUT_SECONDS = 95.0
 
 
 def _require_catalog(deps: RuntimeDeps) -> CatalogClientProtocol:
@@ -326,11 +328,11 @@ async def clarify(
     return await run_clarify(ctx.deps, question=args.question, options=args.options)
 
 
-TOOLS: list[ToolFuncEither[RuntimeDeps]] = [
-    resolve_anime,
-    search_bangumi,
-    search_nearby,
-    plan_route,
+TOOLS: list[Tool[RuntimeDeps] | ToolFuncEither[RuntimeDeps]] = [
+    Tool(resolve_anime, timeout=CATALOG_TOOL_TIMEOUT_SECONDS),
+    Tool(search_bangumi, timeout=CATALOG_TOOL_TIMEOUT_SECONDS),
+    Tool(search_nearby, timeout=CATALOG_TOOL_TIMEOUT_SECONDS),
+    Tool(plan_route, timeout=CATALOG_TOOL_TIMEOUT_SECONDS),
     greet_user,
     general_qa,
     clarify,
