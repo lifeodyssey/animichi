@@ -164,3 +164,12 @@ Verdict 词表:`in-use` 已采 · `adopt-now` 建议立即小改采纳 · `small
 
 ---
 *方法注记:能力清单来自安装源 `__init__` 导出与类 docstring 首行(非记忆);"已毕业/experimental" 判定依据 `pydantic_ai_harness/experimental/_warn.py` 的 `warn_moved` vs `warn_experimental` 实际调用点;用法列 grep 自 `apps/agent/agent`(测试与生产分列时以生产为准)。*
+
+---
+
+## §5 用户复核修正(2026-07-15,owner 反馈后)
+
+1. **embeddings 措辞澄清**:schema 存在 `points.embedding vector(1024)` + HNSW 索引与遗留写入管道,但**读路径为零**(死脚手架)。"reject"的准确范围 = 不为文本检索采纳(SD-29);该信条自带重审触发器(DD-22:真实 miss 率证据),而 §3-2 online evals 正是产生该证据的仪器——**证据到位时 SD-29 应带数据重审**。
+2. **A2A:`n/a` → product-decision/backlog**(owner 确认需求存在,未排期)。技术成本低:`fasta2a` extra + `agent.to_a2a()` 即成 A2A 服务端;排期时出 spec。
+3. **Media / StepPersistence:watch 维持,但触发器具名 = Walk Mode**(拍照打卡/用户上传 → Media;长会话实时伴游 → StepPersistence)。Walk Mode 立项时与审批链、Memory 连锁重判。
+4. **方法论备注**:本表的 watch/reject 混合了三类理由——物理不可达(文本网关)、信条约束(owner 可推翻)、YAGNI 成本纪律(随时可翻)。逐项触发器已在上文标注;owner 表达激进采纳意愿时按触发器提前。
