@@ -147,7 +147,7 @@ class RuntimeAPI:
         with runtime_span("runtime.handle") as span:
             _set_span_request_attrs(span, session_id, request, effective_model, user_id)
 
-            from agent.agents.guardrails import detect_prompt_injection
+            from agent.agents.web_trust import detect_prompt_injection
 
             if detect_prompt_injection(request.text):
                 logger.warning(

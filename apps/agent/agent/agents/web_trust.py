@@ -1,8 +1,8 @@
-"""Input and untrusted-content guardrails for the pilgrimage agent.
+"""Web trust and prompt-injection domain rules for the pilgrimage agent.
 
 Two responsibilities:
-1. Prompt injection detection (log-only) — applied to both user input
-   (``public_api.py``) and tool-returned web content (``web_tools.py``).
+1. Prompt injection detection (log-only) — consumed by the official input
+   guard in modern composition and by tool-returned web content checks.
 2. Untrusted-content helpers — sanitize and delimit external data (e.g.
    web search results) before it is rendered into the agent's context, so
    instruction-like text inside it cannot be mistaken for real instructions.

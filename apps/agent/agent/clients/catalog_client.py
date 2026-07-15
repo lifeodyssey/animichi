@@ -1,18 +1,8 @@
 """Typed async client for the Catalog service.
 
-The Catalog service owns the read path for resolved pilgrimage data. This
-client is the agent-side adapter the runtime calls instead of touching catalog
-tables directly. It exposes the RPC methods (search / spots / nearby / route /
-ingest) over a shared ``httpx.AsyncClient`` with status-based retry, and
-parses each response into the shared typed models.
-
-Field names, paths, and response envelopes mirror the single source of truth in
-``packages/contract`` (see contract.ts / models.ts):
-  - search(query, origin?)        -> {"rows": [...], "synced_at": str}
-  - spots(bangumi_id, origin?)    -> {"point": {...}, "distance_m"?: float}
-  - nearby(lat, lng, radius_m)    -> {"rows": [...]}
-  - route(point_ids, origin?, pacing?) -> Route
-  - ingest(bangumi_id)            -> IngestResult
+The Catalog service owns the resolved pilgrimage read path. This typed adapter
+mirrors ``packages/contract`` for search, spots, nearby, route, and ingest RPCs
+over one shared ``httpx.AsyncClient``.
 
 Endpoint convention: ``{base_url}/catalog/<method>`` (POST, JSON body).
 
@@ -30,12 +20,19 @@ status-based classification above.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Mapping
 from typing import Literal, Protocol, runtime_checkable
 
 import httpx
 import structlog
 from pydantic import BaseModel, Field
+from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig
+from tenacity import (
+    RetryCallState,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
 from agent.clients.catalog_errors import parse_catalog_error
@@ -203,17 +200,20 @@ class CatalogClient:
     def _http(self) -> httpx.AsyncClient:
         """Return the shared httpx client, creating it lazily."""
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=self._timeout)
+            transport = AsyncTenacityTransport(
+                _retry_config(self._max_retries),
+                validate_response=_validate_catalog_response,
+            )
+            self._client = httpx.AsyncClient(
+                timeout=self._timeout,
+                transport=transport,
+            )
         return self._client
 
     async def _rpc(self, method: str, body: Mapping[str, object]) -> JSONDict:
         """POST ``body`` to the method endpoint with retry on transient errors."""
         url = f"{self._base_url}/catalog/{method}"
-        return await _with_retry(
-            lambda: self._post_json(url, body),
-            max_retries=self._max_retries,
-            url=url,
-        )
+        return await self._post_json(url, body)
 
     async def _post_json(self, url: str, body: Mapping[str, object]) -> JSONDict:
         """Perform one POST attempt, raising ``APIError`` on failure."""
@@ -226,23 +226,31 @@ class CatalogClient:
         return _expect_object(parsed, context=url)
 
 
-async def _with_retry(
-    make_request: Callable[[], Awaitable[JSONDict]],
-    *,
-    max_retries: int,
-    url: str,
-) -> JSONDict:
-    """Run ``make_request`` retrying transient failures with backoff."""
-    for attempt in range(max_retries - 1):
-        try:
-            return await make_request()
-        except TransientAPIError as exc:
-            delay = min(2**attempt, 30)
-            logger.warning(
-                "catalog_rpc_retry", url=url, error=str(exc), next_delay=delay
-            )
-            await asyncio.sleep(delay)
-    return await make_request()
+def _retry_config(max_attempts: int) -> RetryConfig:
+    """Map the legacy retry budget and classifier onto tenacity."""
+    return RetryConfig(
+        retry=retry_if_exception_type((httpx.TransportError, TransientAPIError)),
+        wait=wait_exponential(multiplier=1, max=30),
+        stop=stop_after_attempt(max(max_attempts, 1)),
+        reraise=True,
+        before_sleep=_log_retry,
+        sleep=asyncio.sleep,
+    )
+
+
+def _log_retry(state: RetryCallState) -> None:
+    """Preserve the retry warning at the official transport boundary."""
+    outcome = state.outcome
+    error = outcome.exception() if outcome is not None else None
+    request = state.args[0] if state.args else None
+    url = str(request.url) if isinstance(request, httpx.Request) else ""
+    delay = state.next_action.sleep if state.next_action is not None else 0
+    logger.warning("catalog_rpc_retry", url=url, error=str(error), next_delay=delay)
+
+
+def _validate_catalog_response(response: httpx.Response) -> None:
+    """Convert retryable catalog statuses/envelopes into typed exceptions."""
+    _raise_for_error(response, str(response.request.url))
 
 
 def _raise_for_error(response: httpx.Response, url: str) -> None:

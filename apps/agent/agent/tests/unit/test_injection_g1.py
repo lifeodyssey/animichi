@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from agent.agents.guardrails import (
+from agent.agents.web_trust import (
     WebResult,
     detect_prompt_injection,
     sanitize_untrusted,
