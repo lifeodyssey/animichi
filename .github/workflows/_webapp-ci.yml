@@ -1,5 +1,6 @@
 # Reusable workflow (called by ci.yml; not triggered directly). '_' prefix = internal.
-# Covers apps/web (TanStack Start); build runs first because src/routeTree.gen.ts is generated.
+# Covers apps/web (TanStack Start): build, tsc, strict type-aware oxlint, and tests.
+# Build runs first because src/routeTree.gen.ts is generated.
 name: _webapp-ci
 
 on:
@@ -25,13 +26,8 @@ jobs:
       - name: Type check (tsc)
         run: pnpm --filter web typecheck
 
-      - name: Oxlint (fast pre-pass)
-        uses: oxc-project/oxlint-action@b78c21302e4bc637e83927135c35a6684de1053e # v3.1.0
-        with:
-          working-directory: apps/web
-
-      - name: ESLint (strict, zero warnings)
-        run: pnpm --filter web exec eslint . --max-warnings=0
+      - name: Oxlint (type-aware, strict)
+        run: pnpm --filter web run lint:oxlint
 
       - name: Unit tests (vitest, coverage gate)
         run: pnpm --filter web test

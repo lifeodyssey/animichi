@@ -27,13 +27,12 @@ repos:
 
   - repo: local
     hooks:
-      # Fast TS lint (oxlint). No official oxc-project/oxc pre-commit hook exists,
-      # so run via npx over the real TS sources (workers/catalog + frontend).
+      # Fast strict TS lint for the three live pnpm packages.
       - id: oxlint
-        name: oxlint (fast TS lint)
-        entry: bash -c 'npx --yes oxlint@0.16.11 workers/catalog frontend'
+        name: oxlint (strict live-package lint)
+        entry: pnpm run lint:oxlint
         language: system
-        files: ^(workers/catalog|frontend)/
+        files: ^(workers/catalog|workers/users|apps/web)/
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
 
