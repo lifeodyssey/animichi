@@ -15,4 +15,5 @@ paths:
   a sanctioned exception, NOT a code-quality suppression. Real gates (lint / typecheck / test /
   coverage / security) stay blocking.
 - **Least privilege**: explicit `permissions:` (default `contents: read`); widen per-job only.
-- Deploy is manual: `deploy.yml` = `workflow_dispatch` + `environment: production` approval.
+- Staging deploys after green `main`; production runs through `ci.yml` after staging or manual
+  `deploy.yml`. Both production paths use the GitHub `production` environment approval.
