@@ -23,6 +23,7 @@ from collections.abc import Mapping
 from typing import Literal, Protocol, runtime_checkable
 from urllib.request import getproxies, proxy_bypass
 
+import anyio
 import httpx
 import structlog
 from pydantic import BaseModel, Field
@@ -30,6 +31,7 @@ from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig
 from tenacity import (
     RetryCallState,
     retry_if_exception_type,
+    retry_if_result,
     stop_after_attempt,
     wait_exponential,
 )
@@ -42,6 +44,7 @@ from agent.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
 logger = structlog.get_logger(__name__)
 
 CATALOG_REQUEST_TIMEOUT_SECONDS = 25.0
+CATALOG_TOTAL_TIMEOUT_SECONDS = 80.0
 _TRANSIENT_STATUS_CODES = frozenset({408, 429})
 
 # Re-exported so callers depend on this client, not on agent internals.
@@ -209,7 +212,6 @@ class CatalogClient:
             transport = AsyncTenacityTransport(
                 _retry_config(self._max_retries),
                 wrapped=wrapped,
-                validate_response=_validate_catalog_response,
             )
             self._client = httpx.AsyncClient(
                 timeout=self._timeout,
@@ -225,7 +227,13 @@ class CatalogClient:
     async def _post_json(self, url: str, body: Mapping[str, object]) -> JSONDict:
         """Perform one POST attempt, raising ``APIError`` on failure."""
         try:
-            response = await self._http().post(url, json=body)
+            with anyio.fail_after(CATALOG_TOTAL_TIMEOUT_SECONDS):
+                response = await self._http().post(url, json=body)
+        except TimeoutError as exc:
+            message = (
+                f"Catalog request exceeded {CATALOG_TOTAL_TIMEOUT_SECONDS}s: {url}"
+            )
+            raise TransientAPIError(message) from exc
         except httpx.HTTPError as exc:
             raise TransientAPIError(f"Transport failure for {url}: {exc}") from exc
         _raise_for_error(response, url)
@@ -236,34 +244,51 @@ class CatalogClient:
 def _retry_config(max_attempts: int) -> RetryConfig:
     """Map the legacy retry budget and classifier onto tenacity."""
     return RetryConfig(
-        retry=retry_if_exception_type((httpx.TransportError, TransientAPIError)),
+        retry=(
+            retry_if_exception_type(httpx.TransportError)
+            | retry_if_result(_is_retryable_response)
+        ),
         wait=wait_exponential(multiplier=1, max=30),
         stop=stop_after_attempt(max(max_attempts, 1)),
-        reraise=True,
+        reraise=False,
         before_sleep=_log_retry,
+        retry_error_callback=_return_last_response,
         sleep=asyncio.sleep,
     )
 
 
-def _log_retry(state: RetryCallState) -> None:
+async def _log_retry(state: RetryCallState) -> None:
     """Preserve the retry warning at the official transport boundary."""
     outcome = state.outcome
     error = outcome.exception() if outcome is not None else None
+    response = outcome.result() if outcome is not None and not outcome.failed else None
     request = state.args[0] if state.args else None
     url = str(request.url) if isinstance(request, httpx.Request) else ""
     delay = state.next_action.sleep if state.next_action is not None else 0
-    logger.warning("catalog_rpc_retry", url=url, error=str(error), next_delay=delay)
+    status = response.status_code if isinstance(response, httpx.Response) else None
+    logger.warning(
+        "catalog_rpc_retry", url=url, error=str(error), status=status, next_delay=delay
+    )
+    if isinstance(response, httpx.Response):
+        await response.aclose()
 
 
-def _validate_catalog_response(response: httpx.Response) -> None:
-    """Classify retryable statuses without consuming the transport stream.
-
-    Other 4xx responses return to ``httpx`` for buffering, then the client
-    layer parses their oRPC body into a non-retryable typed catalog error.
-    """
+def _is_retryable_response(response: object) -> bool:
+    """Classify retryable statuses without consuming the response stream."""
+    if not isinstance(response, httpx.Response):
+        return False
     status = response.status_code
-    if status >= 500 or status in _TRANSIENT_STATUS_CODES:
-        raise TransientAPIError(f"HTTP {status} from {response.request.url}")
+    return status >= 500 or status in _TRANSIENT_STATUS_CODES
+
+
+def _return_last_response(state: RetryCallState) -> httpx.Response:
+    """Return a final retryable response; re-raise an exhausted transport error."""
+    if state.outcome is None:
+        raise RuntimeError("Catalog retry completed without an outcome")
+    result: object = state.outcome.result()
+    if not isinstance(result, httpx.Response):
+        raise RuntimeError("Catalog retry returned a non-response outcome")
+    return result
 
 
 def _environment_proxy(base_url: str) -> str | None:

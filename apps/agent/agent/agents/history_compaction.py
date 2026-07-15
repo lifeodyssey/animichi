@@ -115,6 +115,8 @@ def native_history_compaction(summarize: ToolSummary) -> TieredCompaction[Runtim
     return TieredCompaction(
         tiers=[
             CompactToolReturns[RuntimeDeps](summarize),
+            # This summary request consumes the outer run's UsageLimits, so
+            # request_limit must leave one call beyond the main model request.
             SummarizingCompaction(
                 model=None,
                 max_tokens=HISTORY_MAX_TOKENS,

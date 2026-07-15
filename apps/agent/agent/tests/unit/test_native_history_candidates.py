@@ -23,6 +23,7 @@ from agent.agents.animichi_agent import _summarize_tool_content
 from agent.agents.history_compaction import (
     HISTORY_MAX_TOKENS,
     CompactToolReturns,
+    _candidate_summary,
     native_history_compaction,
 )
 
@@ -57,6 +58,19 @@ def _candidate_return() -> str:
             "padding": "x" * 400,
         },
         ensure_ascii=False,
+    )
+
+
+def test_candidate_summary_preserves_ordered_candidates_verbatim() -> None:
+    candidates = [
+        {"bangumi_id": "485", "title": "涼宮ハルヒの憂鬱"},
+        {"bangumi_id": "1177", "title": "涼宮ハルヒちゃんの憂鬱"},
+    ]
+    payload = {"ambiguous": True, "candidates": candidates}
+
+    assert _candidate_summary(payload) == (
+        "[resolve_anime: ambiguous, ordered_candidates="
+        f"{json.dumps(candidates, ensure_ascii=False, separators=(',', ':'))}]"
     )
 
 

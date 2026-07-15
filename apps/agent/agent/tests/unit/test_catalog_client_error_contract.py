@@ -13,6 +13,7 @@ import pytest
 from agent.clients.catalog_client import CatalogClient
 from agent.clients.catalog_errors import (
     RouteTooManyClustersError,
+    UpstreamUnavailableError,
     WorkNotFoundError,
 )
 from agent.clients.errors import TransientAPIError
@@ -81,10 +82,11 @@ async def test_retryable_envelope_is_retried_by_status_without_body_read(
     requests = _install_responses(monkeypatch, [(502, body)])
     client = CatalogClient("https://catalog.test")
 
-    with pytest.raises(TransientAPIError, match="HTTP 502"):
+    with pytest.raises(UpstreamUnavailableError) as excinfo:
         await client.search("氷菓")
 
     assert len(requests) == 3
+    assert excinfo.value.upstream == "bangumi"
 
 
 async def test_retryable_envelope_then_success_recovers(
