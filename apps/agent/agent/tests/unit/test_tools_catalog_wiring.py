@@ -17,6 +17,7 @@ from pydantic_ai.tools import Tool, ToolFuncEither
 
 from agent.agents.animichi_agent import animichi_agent
 from agent.agents.animichi_runner import run_animichi_agent
+from agent.agents.animichi_tools import CATALOG_TOOL_TIMEOUT_SECONDS
 from agent.agents.animichi_tools import TOOLS as ANIMICHI_TOOLS
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.web_tools import TOOLS as WEB_TOOLS
@@ -84,7 +85,7 @@ def test_agent_constructed_with_exact_tool_catalog() -> None:
     catalog_tools = ANIMICHI_TOOLS[:4]
     assert {_definition_name(tool) for tool in catalog_tools} == _CATALOG_TOOL_NAMES
     assert all(isinstance(tool, Tool) for tool in catalog_tools)
-    assert all(tool.timeout == 95.0 for tool in catalog_tools)
+    assert all(tool.timeout == CATALOG_TOOL_TIMEOUT_SECONDS for tool in catalog_tools)
 
 
 def test_agent_registers_tools_during_construction() -> None:
