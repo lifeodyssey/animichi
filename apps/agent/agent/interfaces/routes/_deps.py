@@ -26,7 +26,8 @@ _logger = structlog.get_logger(__name__)
 
 _SCRUB_PATTERNS = (
     r"authorization",
-    r"bearer\s+[A-Za-z0-9._~+/=-]+",
+    r"bearer(?=\s+[A-Za-z0-9._~+/=-]+)",
+    r"(?=^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$)",
     r"api[._ -]?key",
     r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
 )
@@ -278,6 +279,8 @@ def _enable_message_content_scrubbing() -> None:
     """Opt PydanticAI/GenAI message attributes into Logfire recursion."""
     from logfire._internal.scrubbing import BaseScrubber
 
+    # Coupled to logfire._internal SAFE_KEYS until its public API supports
+    # recursive scrubbing of PydanticAI and GenAI message attributes.
     BaseScrubber.SAFE_KEYS.difference_update(_MESSAGE_CONTENT_FIELDS)
 
 
