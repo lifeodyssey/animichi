@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Animichi Users service \u2014 user-domain routes over Neon (Hono + oRPC + jose)",
+  "description": "Animichi Users service — user-domain routes over Neon (Hono + oRPC + jose)",
   "scripts": {
     "dev": "wrangler dev",
     "test": "npm run test:worker",
@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.18.4",
-    "@cloudflare/workers-types": "^5.20260714.1",
+    "@cloudflare/workers-types": "^5.20260715.1",
     "@eslint/js": "^10.0.1",
     "@vitest/coverage-istanbul": "4.1.10",
     "eslint": "^10.7.0",

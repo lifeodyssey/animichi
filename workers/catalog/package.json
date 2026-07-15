@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Animichi Catalog service \u2014 Cloudflare Workers + Hono + oRPC over Postgres/PostGIS",
+  "description": "Animichi Catalog service — Cloudflare Workers + Hono + oRPC over Postgres/PostGIS",
   "scripts": {
     "build:topology": "tsx scripts/transit/build-topology.ts",
     "dev": "wrangler dev",
@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.18.4",
-    "@cloudflare/workers-types": "^5.20260714.1",
+    "@cloudflare/workers-types": "^5.20260715.1",
     "@eslint/js": "^10.0.1",
     "@types/pg": "^8.20.0",
     "@vitest/coverage-istanbul": "4.1.10",
