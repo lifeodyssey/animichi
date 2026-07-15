@@ -28,7 +28,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models import ModelRequestContext
 from pydantic_ai.output import ToolOutput
-from pydantic_ai_harness.compaction import ClearToolResults, SlidingWindow
+from pydantic_ai_harness.compaction import SlidingWindow
 from pydantic_ai_harness.guardrails import GuardResult, InputGuard
 from pydantic_ai_harness.logfire import ManagedPrompt
 from pydantic_ai_harness.overflowing_tool_output import (
@@ -60,7 +60,6 @@ COMPACT_THRESHOLD = 40  # ~5 turns × 8 messages/turn
 _KEEP_RECENT = 8  # Keep latest turn fully uncompressed
 _HISTORY_MAX_TOKENS = 5_500
 _HISTORY_KEEP_TOKENS = 1_100
-_TOOL_RESULT_MIN_CLEAR_TOKENS = 50
 _TOOL_OUTPUT_OVERFLOW_CHARS = 100_000
 _TOOL_OUTPUT_KEEP_CHARS = 20_000
 _CATALOG_TOOL_NAMES = [
@@ -515,15 +514,6 @@ def _output_types() -> list[ToolOutput[RuntimeOutput]]:
     ]
 
 
-def _official_tool_result_compaction() -> ClearToolResults[RuntimeDeps]:
-    return ClearToolResults(
-        max_tokens=_HISTORY_MAX_TOKENS,
-        keep_pairs=2,
-        min_clear_tokens=_TOOL_RESULT_MIN_CLEAR_TOKENS,
-        placeholder="[tool result compacted; rerun if needed]",
-    )
-
-
 def _official_sliding_window() -> SlidingWindow[RuntimeDeps]:
     return SlidingWindow(
         max_tokens=_HISTORY_MAX_TOKENS,
@@ -534,7 +524,7 @@ def _official_sliding_window() -> SlidingWindow[RuntimeDeps]:
 
 def _history_capabilities(*, modern: bool) -> list[AgentCapability[RuntimeDeps]]:
     if modern:
-        return [_official_tool_result_compaction(), _official_sliding_window()]
+        return [ProcessHistory(_compact_tool_results), _official_sliding_window()]
     return [ProcessHistory(_compact_tool_results), ProcessHistory(_sliding_window)]
 
 
