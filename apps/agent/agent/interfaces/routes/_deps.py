@@ -192,7 +192,12 @@ def _http_status_for_response(response: PublicAPIResponse) -> int:
 
     codes = {error.code for error in response.errors}
 
-    if codes & {"invalid_input", "missing_required_field", "invalid_format"}:
+    if codes & {
+        "invalid_input",
+        "invalid_model_alias",
+        "missing_required_field",
+        "invalid_format",
+    }:
         return 400
     if codes & {"authentication_error", "invalid_credentials"}:
         return 401

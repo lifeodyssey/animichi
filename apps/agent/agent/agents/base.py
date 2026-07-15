@@ -7,6 +7,7 @@ openai: → OpenAI-compat with per-domain API key routing.
 from __future__ import annotations
 
 import os
+import re
 from typing import TypeVar, overload
 from urllib.parse import urlparse
 
@@ -20,9 +21,12 @@ from pydantic_ai.providers.deepseek import DeepSeekProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.settings import ModelSettings
 
+from agent.config.model_aliases import MODEL_ALIASES, ModelAlias, ModelAliasError
+
 T = TypeVar("T", bound=BaseModel)
 
 _FALLBACK_MODEL = "deepseek:deepseek-v4-flash"
+_MODEL_ALIAS_PATTERN = re.compile(r"[a-z0-9_-]+")
 
 
 def _build_http_client() -> httpx.AsyncClient:
@@ -96,6 +100,18 @@ def _parse_openai_model(spec: str) -> Model:
     )
 
 
+def _parse_model_alias(alias: ModelAlias) -> Model:
+    if alias.model_spec.startswith("deepseek:"):
+        return _parse_deepseek_model(alias.model_spec)
+    provider = OpenAIProvider(
+        base_url=alias.base_url,
+        api_key=os.environ.get(alias.credential_env_ref),
+        http_client=_build_http_client(),
+    )
+    name = alias.model_spec.removeprefix("openai:")
+    return OpenAIChatModel(name, provider=provider)
+
+
 def _parse_model(spec: str) -> Model:
     """Parse a model spec string into a concrete Model."""
     if spec.startswith("deepseek:"):
@@ -138,6 +154,20 @@ def get_default_model() -> Model:
     if not fallbacks:
         return primary
     return FallbackModel(primary, *fallbacks)
+
+
+def resolve_model_alias(model: Model | str | None) -> Model | None:
+    """Resolve a caller string only through the server-owned alias allowlist."""
+    if model is None or not isinstance(model, str):
+        return model
+    if _MODEL_ALIAS_PATTERN.fullmatch(model) is None or "http" in model:
+        raise ModelAliasError(model)
+    alias = MODEL_ALIASES.get(model)
+    if alias is None:
+        raise ModelAliasError(model)
+    if model == "default":
+        return get_default_model()
+    return _parse_model_alias(alias)
 
 
 def resolve_model(model: Model | str | None) -> Model:

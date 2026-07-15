@@ -136,6 +136,35 @@ class TestPublicAPIResponseUIField:
 
 
 class TestRuntimeAPIErrors:
+    async def test_handle_maps_invalid_model_alias(self, mock_db):
+        api = RuntimeAPI(mock_db)
+        run = AsyncMock()
+
+        with patch(
+            "agent.interfaces.public_api.run_animichi_agent",
+            new=run,
+        ):
+            response = await api.handle(
+                PublicAPIRequest(text="hello", model="__nope__")
+            )
+
+        assert response.success is False
+        assert response.errors[0].code == "invalid_model_alias"
+        run.assert_not_awaited()
+
+    async def test_handle_rejects_url_bearing_model_alias(self, mock_db):
+        api = RuntimeAPI(mock_db)
+        run = AsyncMock()
+
+        with patch("agent.interfaces.public_api.run_animichi_agent", new=run):
+            response = await api.handle(
+                PublicAPIRequest(text="hello", model="openai:x@https://evil.example")
+            )
+
+        assert response.success is False
+        assert response.errors[0].code == "invalid_model_alias"
+        run.assert_not_awaited()
+
     async def test_handle_maps_pipeline_failure(self, mock_db):
         from agent.agents.agent_result import StepRecord
 

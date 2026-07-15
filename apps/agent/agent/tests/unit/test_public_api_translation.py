@@ -5,6 +5,8 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic_ai.models.test import TestModel
+from pydantic_ai.usage import RunUsage
 
 from agent.agents.agent_result import AgentResult
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
@@ -107,3 +109,27 @@ async def test_translation_gate_skips_when_locale_matches(
         )
 
     assert emitted == []
+
+
+async def test_translation_gate_shares_parent_model_and_usage(
+    mock_db: MagicMock,
+) -> None:
+    result = _search_result(locale="zh", message="3件の聖地が見つかりました。")
+    model = TestModel()
+    result.usage = RunUsage(requests=1)
+    translate = AsyncMock(return_value="找到了3处圣地。")
+
+    with (
+        patch(
+            "agent.interfaces.public_api.run_animichi_agent",
+            new=AsyncMock(return_value=result),
+        ),
+        patch("agent.interfaces.public_api.translate_text", new=translate),
+    ):
+        await RuntimeAPI(mock_db).handle(
+            PublicAPIRequest(text="查找圣地", locale="zh"), model=model
+        )
+
+    ctx = translate.await_args.kwargs["ctx"]
+    assert ctx.model is model
+    assert ctx.usage is result.usage

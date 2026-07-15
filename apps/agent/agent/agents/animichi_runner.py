@@ -10,6 +10,7 @@ from pydantic_ai.usage import UsageLimits
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.animichi_agent import animichi_agent
+from agent.agents.base import resolve_model_alias
 from agent.agents.runtime_deps import (
     OnStep,
     RuntimeDeps,
@@ -102,11 +103,12 @@ async def run_animichi_agent(
         title_translator=title_translator,
     )
     _seed_tool_state(deps, context)
+    resolved_model = resolve_model_alias(model)
 
     run_result = await animichi_agent.run(
         text,
         deps=deps,
-        model=model,
+        model=resolved_model,
         model_settings=model_settings,
         message_history=message_history or [],
         usage_limits=RUN_USAGE_LIMITS,

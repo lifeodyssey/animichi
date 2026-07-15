@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from dataclasses import dataclass
 from time import perf_counter
 from typing import cast
 from uuid import uuid4
@@ -18,9 +19,12 @@ from pydantic_ai import ModelMessagesTypeAdapter
 from pydantic_ai.exceptions import FallbackExceptionGroup, ModelHTTPError
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
+from pydantic_ai.usage import RunUsage
 
 from agent.agents.agent_result import AgentResult
+from agent.agents.animichi_agent import animichi_agent
 from agent.agents.animichi_runner import run_animichi_agent
+from agent.agents.base import ModelAliasError, resolve_model, resolve_model_alias
 from agent.agents.runtime_deps import OnStep
 from agent.agents.selected_route import execute_selected_route
 from agent.agents.translation import translate_text
@@ -69,6 +73,12 @@ __all__ = [
 logger = structlog.get_logger(__name__)
 
 AGENT_TIMEOUT_SECONDS: float = 90.0
+
+
+@dataclass(frozen=True)
+class _TranslationContext:
+    model: Model
+    usage: RunUsage
 
 
 def _is_provider_error(exc: BaseException) -> bool:
@@ -269,6 +279,7 @@ class RuntimeAPI:
         """Run the pipeline (or synthetic plan) and map result to response."""
         context_delta: dict[str, object] = {}
         has_selected = bool(request.selected_point_ids)
+        resolved_model: Model | None = None
         try:
             if has_selected:
                 result = await execute_selected_route(
@@ -279,11 +290,12 @@ class RuntimeAPI:
                     on_step=on_step,
                 )
             else:
+                resolved_model = resolve_model_alias(effective_model)
                 result = await asyncio.wait_for(
                     run_animichi_agent(
                         text=request.text,
                         db=cast(DatabasePort, self._db),
-                        model=effective_model,
+                        model=resolved_model,
                         locale=request.locale,
                         context=context,
                         message_history=message_history,
@@ -306,6 +318,24 @@ class RuntimeAPI:
                         PublicAPIError(
                             code=ErrorCode.TIMEOUT.value,
                             message=f"Agent execution timed out after {AGENT_TIMEOUT_SECONDS:.0f} seconds.",
+                        )
+                    ],
+                ),
+                context_delta,
+            )
+        except ModelAliasError as exc:
+            _span_record_exception(span, exc)
+            return (
+                None,
+                PublicAPIResponse(
+                    success=False,
+                    status="error",
+                    intent="unknown",
+                    message=str(exc),
+                    errors=[
+                        PublicAPIError(
+                            code="invalid_model_alias",
+                            message=str(exc),
                         )
                     ],
                 ),
@@ -352,7 +382,9 @@ class RuntimeAPI:
                 ),
                 context_delta,
             )
-        await _apply_translation_gate(result, request.locale, on_step)
+        await _apply_translation_gate(
+            result, request.locale, on_step, model=resolved_model
+        )
         response = agent_result_to_response(
             result,
             include_debug=request.include_debug,
@@ -439,6 +471,8 @@ async def _apply_translation_gate(
     result: AgentResult,
     locale: str,
     on_step: OnStep | None,
+    *,
+    model: Model | None,
 ) -> None:
     """Translate the agent message when its language mismatches *locale*.
 
@@ -453,13 +487,25 @@ async def _apply_translation_gate(
     if on_step is not None:
         await on_step("translate", "running", {}, "", "")
     try:
-        translated = await translate_text(message, target_locale=locale)
+        translated = await translate_text(
+            message,
+            target_locale=locale,
+            ctx=_translation_context(result, model),
+        )
         # Mutate the output model's message field
         object.__setattr__(result.output, "message", translated)
     except (OSError, RuntimeError, ValueError, TypeError):
         logger.warning("translation_gate_failed", locale=locale)
     if on_step is not None:
         await on_step("translate", "done", {}, "", "")
+
+
+def _translation_context(
+    result: AgentResult, model: Model | None
+) -> _TranslationContext:
+    selected = model or resolve_model(animichi_agent.model)
+    usage = result.usage or RunUsage()
+    return _TranslationContext(model=selected, usage=usage)
 
 
 def _set_span_request_attrs(
@@ -485,11 +531,8 @@ def _set_span_request_attrs(
 def _runtime_model_label(model: object) -> str | None:
     if model is None:
         return None
-    from agent.agents.base import describe_model, parse_model_spec
+    from agent.agents.base import describe_model
 
     if isinstance(model, str):
-        try:
-            return describe_model(parse_model_spec(model, use_settings_fallbacks=False))
-        except (OSError, ValueError, TypeError):
-            return model
+        return model
     return describe_model(model)
