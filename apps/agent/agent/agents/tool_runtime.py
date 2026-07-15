@@ -8,7 +8,6 @@ greet/qa handlers; the catalog read path lives in ``catalog_tools``.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Awaitable, Callable, Mapping
 
 from pydantic_ai import RunContext, ToolReturn
@@ -99,7 +98,7 @@ def _catalog_tool_return(
     tool: ToolName, payload: dict[str, object]
 ) -> ToolReturn[dict[str, object]]:
     summary = _model_summary(tool, payload)
-    return ToolReturn(payload, content=json.dumps(summary, ensure_ascii=False))
+    return ToolReturn(summary)
 
 
 async def _run_ephemeral(
