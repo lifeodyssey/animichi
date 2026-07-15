@@ -174,3 +174,12 @@ Verdict 词表:`in-use` 已采 · `adopt-now` 建议立即小改采纳 · `small
 3. **Media / StepPersistence:watch 维持,但触发器具名 = Walk Mode**(拍照打卡/用户上传 → Media;长会话实时伴游 → StepPersistence)。Walk Mode 立项时与审批链、Memory 连锁重判。
 4. **方法论备注**:本表的 watch/reject 混合了三类理由——物理不可达(文本网关)、信条约束(owner 可推翻)、YAGNI 成本纪律(随时可翻)。逐项触发器已在上文标注;owner 表达激进采纳意愿时按触发器提前。
 5. **ToolReturn 语义勘误**:§2-2 的“value 给代码、content 给模型”映射有误;安装版本的实际语义是 `return_value` = 模型可见工具结果、`content=` = 额外的 user part、`metadata` = 仅 app 可见。由于 `tool_state` 已是 app 通道,`ToolReturn` 不适合承担这里的分流。
+
+## §6 判决勘误(2026-07-15,owner 二次复核后)
+
+owner 两次质疑"广泛使用的官方库不该那么笨",驱动了两处判决修正——**低概率假设是库笨,高概率假设是我们用错**,先验守住了:
+
+1. **retries.py(tenacity transport)判决 small-wave→in-use(修用法,非回退)**:N1c 首版把 `validate_response` 钩子拿去 `response.json()` 读 body,而官方契约是**只判状态码**(docstring 示例 `lambda r: r.raise_for_status()`)——钩子在响应缓冲前跑,读 body 必崩 `ResponseNotRead`。正解=状态码判重试 + body 在 transport 缓冲后解析 + 传代理感知的内层 transport。已装 AsyncTenacityTransport 完全够用,是我们用错。
+2. **compaction 判决:官方 `TieredCompaction` 是正解**:首版误用 `ClearToolResults`(清空丢候选);二版回退手搓摘要器是 stopgap。真原生答案 = 官方**编排层** TieredCompaction 分层(便宜确定性层 → `SlidingWindow` → `SummarizingCompaction` 贵层),`summary_prompt` 显式保留澄清候选解掉 carry-forward。§2-1 的"手搓摘要器无官方等价"结论作废——漏看了编排层。`SummarizingCompaction`(LLM 摘要旧消息)是业界长上下文标准做法,不是"贵到不能用",按 target_tokens 只在真长会话触发。
+
+**元教训**:评审员擅长抓"当前实现有 bug",但"该不该换官方姿势/漏没漏用官方编排"这类方向判断,需要有人带"官方不会这么笨"的先验去逼问——owner-in-the-loop 的不可替代价值。survey §1a/§1f 的对应 verdict 以本节为准。
