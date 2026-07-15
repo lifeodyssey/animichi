@@ -6,6 +6,7 @@ import structlog
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
+from pydantic_ai.usage import UsageLimits
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.animichi_agent import animichi_agent
@@ -20,6 +21,13 @@ from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
 
 logger = structlog.get_logger(__name__)
+
+REQUEST_LIMIT = 15
+TOOL_CALLS_LIMIT = 10
+RUN_USAGE_LIMITS = UsageLimits(
+    request_limit=REQUEST_LIMIT,
+    tool_calls_limit=TOOL_CALLS_LIMIT,
+)
 
 
 def _seed_geo_coords(tool_state: ToolState, context: dict[str, object]) -> None:
@@ -99,6 +107,7 @@ async def run_animichi_agent(
         model=model,
         model_settings=model_settings,
         message_history=message_history or [],
+        usage_limits=RUN_USAGE_LIMITS,
     )
     raw_output = run_result.output
     if isinstance(raw_output, str):

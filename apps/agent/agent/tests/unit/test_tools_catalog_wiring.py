@@ -13,10 +13,12 @@ from pathlib import Path
 
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.tools import Tool, ToolFuncEither
 
 from agent.agents.animichi_agent import animichi_agent
 from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.animichi_tools import TOOLS as ANIMICHI_TOOLS
+from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.web_tools import TOOLS as WEB_TOOLS
 from agent.domain.ports import BangumiRepo, DatabasePort, PointsRepo
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
@@ -60,13 +62,29 @@ _EXPECTED_TOOL_NAMES = {
     "web_search",
     "translate_anime_title",
 }
+_CATALOG_TOOL_NAMES = {
+    "resolve_anime",
+    "search_bangumi",
+    "search_nearby",
+    "plan_route",
+}
+
+
+def _definition_name(
+    entry: Tool[RuntimeDeps] | ToolFuncEither[RuntimeDeps],
+) -> str:
+    return entry.name if isinstance(entry, Tool) else entry.__name__
 
 
 def test_agent_constructed_with_exact_tool_catalog() -> None:
     """All nine stable eval-facing names are injected at construction time."""
     definitions = [*ANIMICHI_TOOLS, *WEB_TOOLS]
-    assert {tool.__name__ for tool in definitions} == _EXPECTED_TOOL_NAMES
+    assert {_definition_name(tool) for tool in definitions} == _EXPECTED_TOOL_NAMES
     assert set(animichi_agent._function_toolset.tools) == _EXPECTED_TOOL_NAMES
+    catalog_tools = ANIMICHI_TOOLS[:4]
+    assert {_definition_name(tool) for tool in catalog_tools} == _CATALOG_TOOL_NAMES
+    assert all(isinstance(tool, Tool) for tool in catalog_tools)
+    assert all(tool.timeout == 95.0 for tool in catalog_tools)
 
 
 def test_agent_registers_tools_during_construction() -> None:
