@@ -34,7 +34,7 @@ class PlanStep(BaseModel):
 
 
 class RetrievalRequest(BaseModel):
-    """Normalized retrieval request passed to Retriever and SQLAgent.
+    """Normalized retrieval request passed to retrieval handlers.
 
     Replaces IntentOutput throughout the retrieval stack.
     """
@@ -46,14 +46,6 @@ class RetrievalRequest(BaseModel):
     origin: str | None = None
     radius: int | None = None
     force_refresh: bool = False
-
-
-class ResolvedLocation(BaseModel):
-    """Result of fuzzy location name resolution."""
-
-    matched_key: str | None = Field(
-        description="Exact key from KNOWN_LOCATIONS, or null if no match"
-    )
 
 
 class LocationCluster(BaseModel):

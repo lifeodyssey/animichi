@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.runtime_models import (
@@ -212,6 +213,36 @@ class TestRoot:
 
 
 class TestRuntime:
+    @pytest.mark.parametrize(
+        "model_alias", ["__nope__", "openai:x@https://evil.example"]
+    )
+    def test_invalid_model_alias_returns_http_400(self, model_alias: str) -> None:
+        response = PublicAPIResponse(
+            success=False,
+            status="error",
+            intent="unknown",
+            message="Invalid model alias.",
+            errors=[
+                {
+                    "code": "invalid_model_alias",
+                    "message": "Invalid model alias.",
+                }
+            ],
+        )
+        api = MagicMock(spec=RuntimeAPI)
+        api.handle = AsyncMock(return_value=response)
+        api._db = object()
+        app = _build_test_app(db=object(), runtime_api=api)
+
+        with TestClient(app) as client:
+            result = client.post(
+                "/v1/runtime",
+                json={"text": "hello", "model": model_alias},
+            )
+
+        assert result.status_code == 400
+        assert result.json()["errors"][0]["code"] == "invalid_model_alias"
+
     async def test_returns_200_with_public_api_shape(
         self, tc_db: SupabaseClient
     ) -> None:

@@ -124,7 +124,7 @@ async def translate_anime_title(
 
     Returns: {"original": "...", "translated": "...", "source": "db|bangumi_api|web_search", "confidence": 0.0-1.0}
     """
-    result = await _translate_title(ctx.deps, title, target_language)
+    result = await _translate_title(ctx, title, target_language)
     return {
         "original": result.original,
         "translated": result.translated,
@@ -134,11 +134,14 @@ async def translate_anime_title(
 
 
 async def _translate_title(
-    deps: RuntimeDeps, title: str, target_language: str
+    ctx: RunContext[RuntimeDeps], title: str, target_language: str
 ) -> TranslationResult:
+    deps = ctx.deps
     if deps.title_translator is not None:
         return await deps.title_translator(title, target_language)
-    return await translate_title(title, target_locale=target_language, db=deps.db)
+    return await translate_title(
+        title, target_locale=target_language, db=deps.db, ctx=ctx
+    )
 
 
 TOOLS: list[ToolFuncEither[RuntimeDeps]] = [web_search, translate_anime_title]

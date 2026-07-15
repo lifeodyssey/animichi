@@ -15,13 +15,21 @@ translation, which may differ from a literal translation.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol, cast
 
 import structlog
-from pydantic_ai import Agent
-from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
+from pydantic_ai import Agent, RunContext
+from pydantic_ai.common_tools.duckduckgo import (
+    DuckDuckGoResult,
+    duckduckgo_search_tool,
+)
+from pydantic_ai.exceptions import FallbackExceptionGroup
+from pydantic_ai.models import Model
+from pydantic_ai.usage import RunUsage
 
 from agent.agents.base import resolve_model
 from agent.agents.translation_bangumi import lookup_bangumi_api
+from agent.agents.web_trust import WebResult, wrap_untrusted_web_results
 
 logger = structlog.get_logger(__name__)
 
@@ -43,6 +51,16 @@ class TranslationResult:
     translated: str
     source: str  # "db", "bangumi_api", "web_search", "llm_fallback"
     confidence: float = 1.0  # 1.0 = authoritative, 0.5 = web search, 0.3 = LLM guess
+
+
+class TranslationContext(Protocol):
+    """Parent run resources inherited by translation sub-agent calls."""
+
+    @property
+    def model(self) -> Model: ...
+
+    @property
+    def usage(self) -> RunUsage: ...
 
 
 # ── Deterministic DB lookup (no LLM needed) ──────────────────────────
@@ -110,13 +128,34 @@ IMPORTANT RULES:
 4. Return ONLY the translated text, no explanations.
 """
 
+_ddg_tool = duckduckgo_search_tool(max_results=5)
+
+
+async def _run_ddg_search(query: str) -> list[DuckDuckGoResult]:
+    raw = await _ddg_tool.function(query)
+    return cast(list[DuckDuckGoResult], raw)
+
+
+def _to_web_result(result: DuckDuckGoResult) -> WebResult:
+    return WebResult(title=result["title"], body=result["body"], href=result["href"])
+
+
+async def translation_web_search(
+    ctx: RunContext[TranslationDeps], *, query: str
+) -> str:
+    """Search DDG and return only sanitized, delimited untrusted results."""
+    del ctx
+    results = [_to_web_result(item) for item in await _run_ddg_search(query)]
+    return wrap_untrusted_web_results(results)
+
+
 translation_agent: Agent[TranslationDeps, str] = Agent(
     resolve_model(None),
     name="translation",
     deps_type=TranslationDeps,
     output_type=str,
     instructions=_TRANSLATION_INSTRUCTIONS,
-    tools=[duckduckgo_search_tool()],
+    tools=[translation_web_search],
     retries=1,
 )
 
@@ -129,6 +168,7 @@ async def translate_title(
     *,
     target_locale: str,
     db: object | None = None,
+    ctx: TranslationContext | None = None,
 ) -> TranslationResult:
     """Translate an anime title to the target locale.
 
@@ -172,7 +212,10 @@ async def translate_title(
             db=db,
             target_locale=target_locale,
         )
-        result = await translation_agent.run(prompt, deps=deps)
+        model, usage = _translation_run_scope(ctx)
+        result = await translation_agent.run(
+            prompt, deps=deps, usage=usage, model=model
+        )
         translated = result.output.strip().strip('"').strip("'")
 
         if translated and translated != title:
@@ -187,7 +230,7 @@ async def translate_title(
                 source="web_search",
                 confidence=0.7,
             )
-    except (OSError, RuntimeError, ValueError) as exc:
+    except (FallbackExceptionGroup, OSError, RuntimeError, ValueError) as exc:
         logger.warning("translation_agent_failed", title=title, error=str(exc))
 
     # 4. Fallback — return original
@@ -200,6 +243,7 @@ async def translate_text(
     text: str,
     *,
     target_locale: str,
+    ctx: TranslationContext | None = None,
 ) -> str:
     """Translate a general text string to the target locale.
 
@@ -214,12 +258,23 @@ async def translate_text(
 
     try:
         deps = TranslationDeps(db=None, target_locale=target_locale)
+        model, usage = _translation_run_scope(ctx)
         result = await translation_agent.run(
             f"Translate the following text to {target_name}. "
             f"Return ONLY the translation:\n\n{text}",
             deps=deps,
+            usage=usage,
+            model=model,
         )
         return result.output.strip()
-    except (OSError, RuntimeError, ValueError) as exc:
+    except (FallbackExceptionGroup, OSError, RuntimeError, ValueError) as exc:
         logger.warning("text_translation_failed", error=str(exc))
         return text
+
+
+def _translation_run_scope(
+    ctx: TranslationContext | None,
+) -> tuple[Model, RunUsage]:
+    if ctx is not None:
+        return ctx.model, ctx.usage
+    return resolve_model(None), RunUsage()
