@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "extends": ["../../.oxlintrc.json"],
+  "ignorePatterns": [
+    "node_modules/**",
+    ".wrangler/**",
+    "dist/**",
+    "coverage/**",
+    "eslint.config.mjs",
+    "vitest.config.ts",
+    "vitest.spike.config.ts"
+  ]
+}

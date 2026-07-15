@@ -6,6 +6,7 @@
   "description": "Animichi Users service — user-domain routes over Neon (Hono + oRPC + jose)",
   "scripts": {
     "dev": "wrangler dev",
+    "lint:oxlint": "oxlint --type-aware .",
     "test": "npm run test:worker",
     "test:worker": "vitest run --config vitest.config.ts --coverage",
     "typecheck": "../../node_modules/typescript-native/bin/tsc --noEmit",
