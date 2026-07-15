@@ -59,10 +59,10 @@ def test_modern_history_uses_one_tiered_capability() -> None:
     assert len(capabilities) == 1
     tiered = cast(TieredCompaction[RuntimeDeps], capabilities[0])
     assert isinstance(tiered, TieredCompaction)
-    compact, window, summary = tiered.tiers
+    compact, summary, window = tiered.tiers
     assert isinstance(compact, CompactToolReturns)
-    assert isinstance(window, SlidingWindow)
     assert isinstance(summary, SummarizingCompaction)
+    assert isinstance(window, SlidingWindow)
     assert tiered.target_tokens == HISTORY_MAX_TOKENS == 5_500
     assert window.keep_tokens == HISTORY_KEEP_TOKENS == 1_100
     assert summary.keep_tokens == SUMMARY_KEEP_TOKENS == 900
@@ -91,10 +91,10 @@ async def test_tier_one_prevents_unneeded_summary_call() -> None:
             CompactToolReturns[None](
                 lambda _name, _content: "[lookup: completed]", keep_recent=0
             ),
-            SlidingWindow(max_tokens=30, keep_tokens=10),
             SummarizingCompaction(
                 model=FunctionModel(summarize), max_tokens=30, keep_tokens=10
             ),
+            SlidingWindow(max_tokens=30, keep_tokens=10),
         ],
         target_tokens=30,
     )

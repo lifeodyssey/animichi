@@ -1,12 +1,14 @@
-"""Ordinal clarify-candidate preservation through tier-three compaction."""
+"""Ordinal clarify-candidate preservation through production compaction."""
 
 from __future__ import annotations
 
 import json
+from typing import cast
 
-from pydantic_ai import Agent
+from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import (
     ModelMessage,
+    ModelRequest,
     ModelResponse,
     SystemPromptPart,
     TextPart,
@@ -15,18 +17,13 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
-from pydantic_ai_harness.compaction import (
-    SlidingWindow,
-    SummarizingCompaction,
-    TieredCompaction,
-)
+from pydantic_ai_harness.compaction import TieredCompaction, estimate_token_count
 
 from agent.agents.animichi_agent import _summarize_tool_content
 from agent.agents.history_compaction import (
-    HISTORY_KEEP_TOKENS,
     HISTORY_MAX_TOKENS,
-    SUMMARY_PROMPT,
     CompactToolReturns,
+    native_history_compaction,
 )
 
 
@@ -49,8 +46,7 @@ def _summary_text(messages: list[ModelMessage]) -> str:
     )
 
 
-def resolve_anime(title: str) -> str:
-    assert title == "凉宫"
+def _candidate_return() -> str:
     return json.dumps(
         {
             "ambiguous": True,
@@ -64,7 +60,30 @@ def resolve_anime(title: str) -> str:
     )
 
 
-async def test_candidates_survive_tier_three_for_ordinal_follow_up() -> None:
+def _long_history() -> list[ModelMessage]:
+    call_id = "resolve_haruhi"
+    history: list[ModelMessage] = [
+        ModelRequest(parts=[UserPromptPart("凉宫有哪些作品？")]),
+        ModelResponse(
+            parts=[ToolCallPart("resolve_anime", {"title": "凉宫"}, call_id)]
+        ),
+        ModelRequest(
+            parts=[ToolReturnPart("resolve_anime", _candidate_return(), call_id)]
+        ),
+        ModelResponse(parts=[TextPart("候选有两部，请选择第一部或第二部。")]),
+    ]
+    filler = "这轮只讨论交通、预算和开放时间，不改变之前候选作品的顺序。" * 36
+    for index in range(12):
+        history.extend(
+            [
+                ModelRequest(parts=[UserPromptPart(f"行程背景 {index}: {filler}")]),
+                ModelResponse(parts=[TextPart(f"已记录第 {index} 轮背景。{filler}")]),
+            ]
+        )
+    return history
+
+
+async def test_candidates_survive_production_summary_for_ordinal_follow_up() -> None:
     summary_calls = 0
     second_turn_summaries: list[str] = []
 
@@ -78,40 +97,26 @@ async def test_candidates_survive_tier_three_for_ordinal_follow_up() -> None:
             summary = "1. 涼宮ハルヒの憂鬱 (485); 2. 涼宮ハルヒちゃんの憂鬱 (1177)"
             return ModelResponse(parts=[TextPart(summary)])
         if _user_texts(messages)[-1] == "第一个":
-            second_turn_summaries.append(_summary_text(messages))
-            return ModelResponse(parts=[TextPart("selected 485")])
-        returned = any(
-            isinstance(part, ToolReturnPart) and part.tool_name == "resolve_anime"
-            for message in messages
-            for part in message.parts
-        )
-        if returned:
-            return ModelResponse(parts=[TextPart("请选择")])
-        return ModelResponse(parts=[ToolCallPart("resolve_anime", {"title": "凉宫"})])
+            summary = _summary_text(messages)
+            second_turn_summaries.append(summary)
+            selected = "485" if "涼宮ハルヒの憂鬱 (485)" in summary else "missing"
+            return ModelResponse(parts=[TextPart(f"selected {selected}")])
+        return ModelResponse(parts=[TextPart("unexpected")])
 
-    tiered: TieredCompaction[None] = TieredCompaction(
-        tiers=[
-            CompactToolReturns[None](_summarize_tool_content, keep_recent=0),
-            SlidingWindow(
-                max_tokens=HISTORY_MAX_TOKENS,
-                keep_tokens=HISTORY_KEEP_TOKENS,
-                preserve_first_user_message=False,
-            ),
-            SummarizingCompaction(
-                model=None,
-                max_tokens=10,
-                keep_tokens=20,
-                summary_prompt=SUMMARY_PROMPT,
-            ),
-        ],
-        target_tokens=10,
+    history = _long_history()
+    assert estimate_token_count(history) > HISTORY_MAX_TOKENS
+    tiered = cast(
+        TieredCompaction[None],
+        native_history_compaction(_summarize_tool_content),
     )
-    agent = Agent(FunctionModel(respond), tools=[resolve_anime], capabilities=[tiered])
-    first = await agent.run("凉宫")
-    second = await agent.run("第一个", message_history=first.all_messages())
+    compact = cast(CompactToolReturns[None], tiered.tiers[0])
+    compacted = await compact.compact(history, cast(RunContext[None], None))
+    assert estimate_token_count(compacted) > tiered.target_tokens
+    agent = Agent(FunctionModel(respond), capabilities=[tiered])
+    second = await agent.run("第一个", message_history=history)
 
     assert second.output == "selected 485"
-    assert summary_calls >= 1
+    assert summary_calls == 1
     assert second_turn_summaries
     assert "1. 涼宮ハルヒの憂鬱 (485)" in second_turn_summaries[0]
     assert "2. 涼宮ハルヒちゃんの憂鬱 (1177)" in second_turn_summaries[0]
