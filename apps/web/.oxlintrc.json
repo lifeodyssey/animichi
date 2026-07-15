@@ -8,7 +8,6 @@
     ".tanstack/**",
     "coverage/**",
     "dist/**",
-    "eslint.config.mjs",
     "vitest*.config.ts",
     "vite.config.ts",
     "**/routeTree.gen.ts"
