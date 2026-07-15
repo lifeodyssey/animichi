@@ -218,42 +218,10 @@ def _extract_from_interactions(
     )
 
 
-def _merge_user_memory(
-    ictx: _InteractionContext,
-    user_memory: dict[str, object],
-) -> tuple[str | None, str | None, list[str]]:
-    """Merge user_memory visited_anime into current context; return updated fields."""
-    current_bangumi_id = ictx.current_bangumi_id
-    current_anime_title = ictx.current_anime_title
-    visited_bangumi_ids = list(ictx.visited_bangumi_ids)
-
-    raw_visited = user_memory.get("visited_anime")
-    visited_anime = raw_visited if isinstance(raw_visited, list) else []
-    for entry in visited_anime:
-        if not isinstance(entry, dict):
-            continue
-        bangumi_id = as_str_or_none(entry.get("bangumi_id"))
-        if bangumi_id and bangumi_id not in visited_bangumi_ids:
-            visited_bangumi_ids.append(bangumi_id)
-
-    if current_bangumi_id is None and visited_anime:
-        most_recent = max(
-            visited_anime,
-            key=lambda e: e.get("last_at", "") if isinstance(e, dict) else "",
-            default=None,
-        )
-        if isinstance(most_recent, dict):
-            current_bangumi_id = as_str_or_none(most_recent.get("bangumi_id"))
-            current_anime_title = as_str_or_none(most_recent.get("title"))
-
-    return current_bangumi_id, current_anime_title, visited_bangumi_ids
-
-
 def build_context_block(
     session_state: dict[str, object],
-    user_memory: dict[str, object] | None = None,
 ) -> dict[str, object] | None:
-    """Derive a context block from session history and cross-session memory."""
+    """Derive a context block from session history."""
     raw_interactions = session_state.get("interactions")
     interactions = raw_interactions if isinstance(raw_interactions, list) else []
     summary = as_str_or_none(session_state.get("summary"))
@@ -262,11 +230,6 @@ def build_context_block(
     current_bangumi_id = ictx.current_bangumi_id
     current_anime_title = ictx.current_anime_title
     visited_bangumi_ids = list(ictx.visited_bangumi_ids)
-
-    if user_memory:
-        current_bangumi_id, current_anime_title, visited_bangumi_ids = (
-            _merge_user_memory(ictx, user_memory)
-        )
 
     has_content = (
         current_bangumi_id
