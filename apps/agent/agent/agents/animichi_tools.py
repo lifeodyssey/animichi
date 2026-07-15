@@ -16,7 +16,7 @@ import json
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from pydantic_ai import ModelRetry, RunContext, Tool
+from pydantic_ai import ModelRetry, RunContext, Tool, ToolReturn
 from pydantic_ai.tools import ToolFuncEither
 
 from agent.agents.catalog_tools import (
@@ -47,7 +47,9 @@ def _require_catalog(deps: RuntimeDeps) -> CatalogClientProtocol:
     return deps.catalog
 
 
-async def resolve_anime(ctx: RunContext[RuntimeDeps], title: str) -> dict[str, object]:
+async def resolve_anime(
+    ctx: RunContext[RuntimeDeps], title: str
+) -> ToolReturn[dict[str, object]]:
     """Look up an anime by title and return its unique database identifier.
 
     Call this FIRST whenever the user mentions an anime by name.
@@ -84,7 +86,7 @@ async def search_bangumi(
     *,
     episode: int = -1,
     force_refresh: bool = False,
-) -> dict[str, object]:
+) -> ToolReturn[dict[str, object]]:
     """Find real-world pilgrimage filming locations for a specific anime.
 
     Call this AFTER resolve_anime returns a bangumi_id.
@@ -135,7 +137,7 @@ async def search_nearby(
     *,
     location: str = "",
     radius: int = 0,
-) -> dict[str, object]:
+) -> ToolReturn[dict[str, object]]:
     """Find anime pilgrimage spots near a real-world location using geo search.
 
     Use this for location-based queries like "宇治站附近", "spots near Kyoto".
@@ -169,7 +171,7 @@ async def plan_route(
     origin: str = "",
     pacing: str = "",
     start_time: str = "",
-) -> dict[str, object]:
+) -> ToolReturn[dict[str, object]]:
     """Create an optimized walking route from the pilgrimage points found by search_bangumi.
 
     IMPORTANT: You must call search_bangumi BEFORE this tool. plan_route uses

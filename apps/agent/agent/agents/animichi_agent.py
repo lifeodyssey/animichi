@@ -28,7 +28,13 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models import ModelRequestContext
 from pydantic_ai.output import ToolOutput
+from pydantic_ai_harness.compaction import ClearToolResults, SlidingWindow
 from pydantic_ai_harness.logfire import ManagedPrompt
+from pydantic_ai_harness.overflowing_tool_output import (
+    Band,
+    OverflowingToolOutput,
+    Truncate,
+)
 
 from agent.agents.animichi_tools import TOOLS as ANIMICHI_TOOLS
 from agent.agents.base import resolve_model
@@ -50,6 +56,17 @@ from agent.infrastructure.observability import (
 
 COMPACT_THRESHOLD = 40  # ~5 turns × 8 messages/turn
 _KEEP_RECENT = 8  # Keep latest turn fully uncompressed
+_HISTORY_MAX_TOKENS = 5_500
+_HISTORY_KEEP_TOKENS = 1_100
+_TOOL_RESULT_MIN_CLEAR_TOKENS = 50
+_TOOL_OUTPUT_OVERFLOW_CHARS = 100_000
+_TOOL_OUTPUT_KEEP_CHARS = 20_000
+_CATALOG_TOOL_NAMES = [
+    "resolve_anime",
+    "search_bangumi",
+    "search_nearby",
+    "plan_route",
+]
 MANAGED_PROMPT_NAME = "animichi-instructions"
 MANAGED_PROMPT_LABEL = "production"
 _LOCAL_PROMPT_VERSION = "checked-in"
@@ -491,11 +508,39 @@ def _output_types() -> list[ToolOutput[RuntimeOutput]]:
     ]
 
 
-def _history_capabilities() -> list[ProcessHistory[RuntimeDeps]]:
-    return [
-        ProcessHistory(_compact_tool_results),
-        ProcessHistory(_sliding_window),
-    ]
+def _official_tool_result_compaction() -> ClearToolResults[RuntimeDeps]:
+    return ClearToolResults(
+        max_tokens=_HISTORY_MAX_TOKENS,
+        keep_pairs=2,
+        min_clear_tokens=_TOOL_RESULT_MIN_CLEAR_TOKENS,
+        placeholder="[tool result compacted; rerun if needed]",
+    )
+
+
+def _official_sliding_window() -> SlidingWindow[RuntimeDeps]:
+    return SlidingWindow(
+        max_tokens=_HISTORY_MAX_TOKENS,
+        keep_tokens=_HISTORY_KEEP_TOKENS,
+        preserve_first_user_message=False,
+    )
+
+
+def _history_capabilities(*, modern: bool) -> list[AgentCapability[RuntimeDeps]]:
+    if modern:
+        return [_official_tool_result_compaction(), _official_sliding_window()]
+    return [ProcessHistory(_compact_tool_results), ProcessHistory(_sliding_window)]
+
+
+def _overflow_capability() -> OverflowingToolOutput[RuntimeDeps]:
+    return OverflowingToolOutput(
+        bands=[
+            Band(
+                over=_TOOL_OUTPUT_OVERFLOW_CHARS,
+                action=Truncate(max_chars=_TOOL_OUTPUT_KEEP_CHARS),
+            )
+        ],
+        tool_filter=_CATALOG_TOOL_NAMES,
+    )
 
 
 _LOCALE_NAMES = {"ja": "Japanese", "zh": "Simplified Chinese", "en": "English"}
@@ -571,10 +616,14 @@ def build_animichi_agent(
     if not modern:
         instructions = [_INSTRUCTIONS, _inject_session_context]
     tools = [*ANIMICHI_TOOLS, *(DEFERRED_TOOLS if modern else WEB_TOOLS)]
-    capabilities: list[AgentCapability[RuntimeDeps]] = [*_history_capabilities()]
+    capabilities = _history_capabilities(modern=modern)
     if modern:
         capabilities.extend(
-            [_modern_hooks(), ToolSearch[RuntimeDeps](strategy="keywords")]
+            [
+                _overflow_capability(),
+                _modern_hooks(),
+                ToolSearch[RuntimeDeps](strategy="keywords"),
+            ]
         )
         if managed_prompt is not None:
             capabilities.append(managed_prompt)
