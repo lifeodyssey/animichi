@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import NoReturn
 
 import httpx
-from pydantic_ai import ModelRetry, RunContext
+from pydantic_ai import ModelRetry, RunContext, ToolReturn
 
 from agent.agents.catalog_adapter import (
     SearchTool,
@@ -16,10 +16,10 @@ from agent.agents.catalog_adapter import (
 from agent.agents.models import ToolName
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.tool_runtime import (
+    _catalog_tool_return,
     _emit_step,
     _localize_city_names,
     _record_step,
-    _summarize_for_llm,
 )
 from agent.agents.tool_state import ToolState
 from agent.clients.catalog_client import (
@@ -52,7 +52,7 @@ async def _store_catalog_result(
     params: dict[str, object],
     payload: dict[str, object],
     success: bool,
-) -> dict[str, object]:
+) -> ToolReturn[dict[str, object]]:
     """Record + emit a catalog-sourced tool result, mirroring _run_handler."""
     _record_step(
         deps,
@@ -66,9 +66,9 @@ async def _store_catalog_result(
         _localize_city_names(payload, deps.locale)
         deps.tool_state.set_payload(tool, payload)
         await _emit_step(deps, tool.value, "done", payload)
-        return _summarize_for_llm(tool, payload)
+        return _catalog_tool_return(tool, payload)
     await _emit_step(deps, tool.value, "failed", {"error": _NO_DATA_ERROR})
-    return {}
+    return _catalog_tool_return(tool, {})
 
 
 async def _run_catalog_search(
@@ -78,7 +78,7 @@ async def _run_catalog_search(
     tool: ToolName,
     query: str,
     params: dict[str, object],
-) -> dict[str, object]:
+) -> ToolReturn[dict[str, object]]:
     """Resolve/search via catalog.search() and store the shaped payload."""
     await _emit_step(ctx.deps, tool.value, "running", {})
     try:
@@ -234,7 +234,7 @@ async def _run_catalog_nearby(
     location: str,
     radius: int,
     params: dict[str, object],
-) -> dict[str, object]:
+) -> ToolReturn[dict[str, object]]:
     """Geo-search via catalog.nearby() and store the shaped payload."""
     coords, default_radius = await _resolve_catalog_coordinates(
         catalog, ctx.deps, location
@@ -271,7 +271,7 @@ async def _run_catalog_route(
     catalog: CatalogClientProtocol,
     *,
     params: dict[str, object],
-) -> dict[str, object]:
+) -> ToolReturn[dict[str, object]]:
     """Plan a route via catalog.route() over the searched point ids."""
     point_ids = _point_ids_from_state(ctx.deps.tool_state)
     if not point_ids:

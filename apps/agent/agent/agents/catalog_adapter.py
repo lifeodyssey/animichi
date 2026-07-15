@@ -3,7 +3,7 @@
 The data tools call the Catalog service and receive typed
 ``PilgrimagePoint`` / ``Route`` models. This module re-shapes those typed
 models into the dict payloads consumed by the response builder,
-``_summarize_for_llm`` and the output_validator, so they keep working unchanged.
+model-facing summaries and the output_validator, so they keep working unchanged.
 
 No DB, no upstream Anitabi/Bangumi clients are imported here — only deterministic
 shaping helpers (``_build_nearby_groups`` / ``rewrite_image_urls``) shared with

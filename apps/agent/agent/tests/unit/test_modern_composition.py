@@ -91,7 +91,7 @@ def _local_model(respond: FunctionDef) -> FunctionModel:
 @pytest.mark.parametrize(
     ("modern", "expected"),
     [
-        (True, _EAGER | {"search_tools"}),
+        (True, _EAGER | {"read_tool_result", "search_tools"}),
         (False, _EAGER | _DEFERRED),
     ],
 )
