@@ -3,41 +3,61 @@
 Validates that assistant responses persisted to conversation_messages
 can be correctly hydrated back into RuntimeResponse shape by the frontend.
 
-Uses TestModel (no real LLM) + real testcontainer DB to test the
+Uses FunctionModel (no real LLM) + real testcontainer DB to test the
 data pipeline: agent → AgentResult → persistence → hydration.
 """
 
 from __future__ import annotations
 
 import pytest
-from pydantic_ai.models.test import TestModel
+from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 pytest_plugins = ("agent.tests.conftest_db",)
 
-# seed=1 → SearchResponseModel (index 1 in output_type list)
-_SEARCH_MODEL = TestModel(
-    call_tools=[],
-    seed=1,
-    custom_output_args={
-        "intent": "search_bangumi",
-        "message": "響け！ユーフォニアムの聖地を見つけました。",
-        "data": {
-            "results": {"rows": [], "row_count": 0, "status": "ok"},
-        },
-        "ui": {"component": "PilgrimageGrid"},
-    },
-)
 
-# seed=4 → GreetingResponseModel (index 4 in output_type list)
-_GREET_MODEL = TestModel(
-    call_tools=[],
-    seed=4,
-    custom_output_args={
-        "intent": "greet_user",
-        "message": "こんにちは！聖地巡礼のお手伝いをします。",
-        "data": {"message": "こんにちは！"},
-    },
-)
+def _returned(messages: list[ModelMessage], tool: str) -> bool:
+    return any(
+        getattr(part, "tool_name", None) == tool
+        for message in messages
+        for part in message.parts
+    )
+
+
+def _search_model() -> FunctionModel:
+    def respond(messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        if not _returned(messages, "resolve_anime"):
+            return ModelResponse(
+                parts=[ToolCallPart("resolve_anime", {"title": "響け！ユーフォニアム"})]
+            )
+        if not _returned(messages, "search_bangumi"):
+            return ModelResponse(
+                parts=[ToolCallPart("search_bangumi", {"bangumi_id": "115908"})]
+            )
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    "search_response",
+                    {"message": "響け！ユーフォニアムの聖地を見つけました。"},
+                )
+            ]
+        )
+
+    return FunctionModel(respond)
+
+
+def _qa_model() -> FunctionModel:
+    def respond(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    "qa_response",
+                    {"message": "こんにちは！聖地巡礼のお手伝いをします。"},
+                )
+            ]
+        )
+
+    return FunctionModel(respond)
 
 
 @pytest.mark.integration
@@ -50,7 +70,7 @@ async def test_persisted_search_response_hydrates_correctly(real_db) -> None:
         text="君の名は の聖地を教えて",
         db=real_db,
         locale="ja",
-        model=_SEARCH_MODEL,
+        model=_search_model(),
         catalog=MockCatalogClient(),
     )
 
@@ -60,8 +80,8 @@ async def test_persisted_search_response_hydrates_correctly(real_db) -> None:
 
 
 @pytest.mark.integration
-async def test_persisted_greet_response_hydrates_correctly(real_db) -> None:
-    """Greet response → AgentResult → output has message."""
+async def test_persisted_qa_response_hydrates_correctly(real_db) -> None:
+    """Greeting prose uses the general-QA output and hydrates its message."""
     from agent.agents.animichi_runner import run_animichi_agent
     from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
@@ -69,11 +89,12 @@ async def test_persisted_greet_response_hydrates_correctly(real_db) -> None:
         text="你好",
         db=real_db,
         locale="zh",
-        model=_GREET_MODEL,
+        model=_qa_model(),
         catalog=MockCatalogClient(),
     )
 
-    assert len(result.message) > 0, "greet response must have non-empty message"
+    assert result.intent == "general_qa"
+    assert result.message
 
 
 @pytest.mark.integration

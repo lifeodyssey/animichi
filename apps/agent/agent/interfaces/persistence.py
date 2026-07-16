@@ -13,6 +13,7 @@ import structlog
 from pydantic_core import to_jsonable_python
 
 from agent.agents.agent_result import AgentResult
+from agent.agents.session_state import PointState, RoutePayloadState, SearchPayloadState
 from agent.domain.ports import (
     get_routes_repo,
     get_session_repo,
@@ -275,7 +276,8 @@ async def maybe_persist_route(
     result: AgentResult,
     response: PublicAPIResponse,
 ) -> dict[str, object] | None:
-    if not response.success or result.intent != "plan_route":
+    route_intents = {"plan_route", "plan_selected", "plan_multi"}
+    if not response.success or result.intent not in route_intents:
         return None
 
     route_data = response.data.get("route")
@@ -294,17 +296,11 @@ async def maybe_persist_route(
     if not point_ids:
         return None
 
-    plan_params = get_plan_params(result)
-    bangumi_id_raw = plan_params.get("bangumi") or infer_bangumi_id(
-        response.data.get("results")
-    )
-    if not isinstance(bangumi_id_raw, str):
+    route_state = _latest_route(result)
+    if route_state is None:
         return None
-    bangumi_id = bangumi_id_raw
-
-    origin_station = plan_params.get("origin")
-    if not isinstance(origin_station, str):
-        origin_station = None
+    anime_ids = _route_anime_ids(result, route_state)
+    origin_station = request.origin
     if (
         origin_station is None
         and request.origin_lat is not None
@@ -314,7 +310,7 @@ async def maybe_persist_route(
 
     route_record: dict[str, object] = {
         "route_id": None,
-        "bangumi_id": bangumi_id,
+        "anime_ids": anime_ids,
         "origin_station": origin_station,
         "point_count": len(point_ids),
         "status": response.status,
@@ -325,7 +321,7 @@ async def maybe_persist_route(
     if routes_repo is not None:
         route_id = await routes_repo.save_route(
             session_id,
-            bangumi_id,
+            anime_ids,
             point_ids,
             {
                 "message": response.message,
@@ -341,6 +337,38 @@ async def maybe_persist_route(
     return route_record
 
 
+def _latest_route(result: AgentResult) -> RoutePayloadState | None:
+    state = result.session_state
+    if state.route_lru:
+        return state.routes.get(state.route_lru[-1])
+    return list(state.routes.values())[-1] if state.routes else None
+
+
+def _route_anime_ids(result: AgentResult, route: RoutePayloadState) -> list[str]:
+    source = (
+        result.session_state.search_results.get(route.source_ref)
+        if route.source_ref is not None
+        else None
+    )
+    if source is None:
+        return _distinct_work_ids(route.ordered_points)
+    return _search_anime_ids(source)
+
+
+def _search_anime_ids(source: SearchPayloadState) -> list[str]:
+    if source.kind == "bangumi":
+        return [source.anime_id] if source.anime_id else []
+    if source.kind == "multi":
+        omitted = set(source.omitted_work_ids or [])
+        return [item for item in source.anime_ids or [] if item not in omitted]
+    return _distinct_work_ids(source.rows)
+
+
+def _distinct_work_ids(rows: list[PointState]) -> list[str]:
+    values = (row.bangumi_id for row in rows)
+    return list(dict.fromkeys(value for value in values if value))
+
+
 def build_response_session(
     session_state: dict[str, object],
 ) -> tuple[dict[str, object], list[object]]:
@@ -349,26 +377,6 @@ def build_response_session(
     raw_rh = session_state["route_history"]
     route_history = list(raw_rh) if isinstance(raw_rh, list) else []
     return session, route_history
-
-
-def get_plan_params(result: AgentResult) -> dict[str, object]:
-    for step in result.steps:
-        if step.params:
-            return dict(step.params)
-    return {}
-
-
-def infer_bangumi_id(results: object) -> str | None:
-    if not isinstance(results, dict):
-        return None
-    rows = results.get("rows")
-    if not isinstance(rows, list) or not rows:
-        return None
-    first_row = rows[0]
-    if not isinstance(first_row, dict):
-        return None
-    bangumi_id = first_row.get("bangumi_id")
-    return str(bangumi_id) if bangumi_id is not None else None
 
 
 def extract_plan_steps(result: AgentResult | None) -> list[str] | None:

@@ -7,10 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.runtime_models import (
-    GreetingResponseModel,
-    QADataModel,
-)
+from agent.agents.runtime_models import QAResponseModel
+from agent.agents.session_state import SessionState
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
@@ -43,14 +41,14 @@ def mock_db():
     return db
 
 
-class TestGreetUserEphemeral:
-    async def test_greet_user_is_ephemeral_and_skips_persistence(self):
-        output = GreetingResponseModel(
-            intent="greet_user",
-            message="こんにちは！聖地巡礼のお手伝いをします。",
-            data=QADataModel(message="こんにちは！聖地巡礼のお手伝いをします。"),
+class TestGeneralQAPersistence:
+    async def test_greeting_collapses_to_general_qa_and_persists(self):
+        output = QAResponseModel(message="こんにちは！聖地巡礼のお手伝いをします。")
+        result = AgentResult(
+            output=output,
+            intent="general_qa",
+            session_state=SessionState(),
         )
-        result = AgentResult(output=output, steps=[], tool_state={})
 
         async def _fake(
             *,
@@ -83,16 +81,16 @@ class TestGreetUserEphemeral:
             api = RuntimeAPI(db=db, session_store=session_store)
             response = await api.handle(PublicAPIRequest(text="hi"), user_id="u1")
 
-        assert response.intent == "greet_user"
-        assert response.session_id is None
-        assert response.session == {}
+        assert response.intent == "general_qa"
+        assert response.session_id is not None
+        assert response.session["interaction_count"] == 1
         assert response.route_history == []
         session_store.get.assert_not_awaited()
-        session_store.set.assert_not_awaited()
-        db.session.upsert_session.assert_not_awaited()
-        db.session.upsert_conversation.assert_not_awaited()
+        session_store.set.assert_awaited_once()
+        db.session.upsert_session.assert_awaited_once()
+        db.session.upsert_conversation.assert_awaited_once()
         db.user_memory.upsert_user_memory.assert_not_awaited()
-        db.insert_request_log.assert_not_awaited()
+        db.insert_request_log.assert_awaited_once()
 
 
 class TestRuntimeAPISession:

@@ -13,46 +13,7 @@ from agent.agents.runtime_deps import RuntimeDeps
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
 _CASES: list[tuple[str, dict[str, object]]] = [
-    (
-        "clarify_response",
-        {
-            "intent": "clarify",
-            "message": "Which anime?",
-            "data": {"status": "needs_clarification", "question": "Which?"},
-        },
-    ),
-    (
-        "search_response",
-        {
-            "intent": "search_bangumi",
-            "message": "Found spots",
-            "data": {"results": {"rows": [], "row_count": 0}},
-        },
-    ),
-    (
-        "route_response",
-        {
-            "intent": "plan_route",
-            "message": "Route ready",
-            "data": {"route": {"ordered_points": [], "point_count": 0}},
-        },
-    ),
-    (
-        "qa_response",
-        {
-            "intent": "general_qa",
-            "message": "Answer",
-            "data": {"status": "info", "message": "Answer"},
-        },
-    ),
-    (
-        "greeting_response",
-        {
-            "intent": "greet_user",
-            "message": "Hello",
-            "data": {"status": "info", "message": "Hello"},
-        },
-    ),
+    ("qa_response", {"message": "Answer"}),
 ]
 
 

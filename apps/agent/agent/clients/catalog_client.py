@@ -20,13 +20,13 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from typing import Literal, Protocol, runtime_checkable
+from typing import Annotated, Literal, Protocol, Self, TypeAlias, runtime_checkable
 from urllib.request import getproxies, proxy_bypass
 
 import anyio
 import httpx
 import structlog
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
 from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig
 from tenacity import (
     RetryCallState,
@@ -50,6 +50,9 @@ _TRANSIENT_STATUS_CODES = frozenset({408, 429})
 # Re-exported so callers depend on this client, not on agent internals.
 __all__ = [
     "PilgrimagePoint",
+    "AnimeCandidate",
+    "ResolveOutcome",
+    "SearchResult",
     "Route",
     "IngestResult",
     "TimedItinerary",
@@ -84,6 +87,52 @@ class PilgrimagePoint(BaseModel):
     cover_url: str = ""
 
 
+class AnimeCandidate(BaseModel):
+    """Trusted resolver candidate mirrored from the catalog contract."""
+
+    bangumi_id: str
+    title: str
+    title_cn: str = ""
+    cover_url: str = ""
+    year: int | None = None
+    points_count: int = 0
+
+
+class ResolveResolved(BaseModel):
+    outcome: Literal["resolved"]
+    match: AnimeCandidate
+
+
+class ResolveAmbiguous(BaseModel):
+    outcome: Literal["needs_disambiguation"]
+    reason: Literal["anime_ambiguity"]
+    candidates: list[AnimeCandidate] = Field(min_length=2, max_length=6)
+
+
+class ResolveNotFound(BaseModel):
+    outcome: Literal["not_found"]
+    reason: Literal["anime_not_found"]
+
+
+class ResolveUpstreamUnavailable(BaseModel):
+    outcome: Literal["upstream_unavailable"]
+    provider: Literal["bangumi", "anitabi"]
+
+
+ResolveOutcome: TypeAlias = Annotated[
+    ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamUnavailable,
+    Field(discriminator="outcome"),
+]
+
+
+class SearchResult(BaseModel):
+    """Published point result returned by search and pointsByWorkId."""
+
+    rows: list[PilgrimagePoint] = Field(default_factory=list)
+    synced_at: str = ""
+    partial: bool = False
+
+
 class Route(BaseModel):
     """An ordered route plus its timed itinerary."""
 
@@ -93,6 +142,12 @@ class Route(BaseModel):
     anime_title: str = ""
     anime_title_cn: str = ""
     timed_itinerary: TimedItinerary = Field(default_factory=TimedItinerary)
+
+    @model_validator(mode="after")
+    def _match_point_count(self) -> Self:
+        if self.point_count != len(self.ordered_points):
+            raise ValueError("point_count must match ordered_points")
+        return self
 
 
 class IngestResult(BaseModel):
@@ -119,6 +174,10 @@ class CatalogClientProtocol(Protocol):
 
     async def search(self, query: str) -> list[PilgrimagePoint]: ...
 
+    async def resolve(self, query: str) -> ResolveOutcome: ...
+
+    async def points_by_work_id(self, work_id: str) -> SearchResult: ...
+
     async def spots(self, bangumi_id: str) -> PilgrimagePoint: ...
 
     async def nearby(
@@ -130,7 +189,11 @@ class CatalogClientProtocol(Protocol):
     ) -> list[GeocodeCandidate]: ...
 
     async def route(
-        self, point_ids: list[str], *, origin: tuple[float, float] | None = None
+        self,
+        point_ids: list[str],
+        *,
+        origin: tuple[float, float] | None = None,
+        pacing: Literal["chill", "normal", "packed"] | None = None,
     ) -> Route: ...
 
     async def ingest(self, bangumi_id: str) -> IngestResult: ...
@@ -156,6 +219,16 @@ class CatalogClient:
         payload = await self._rpc("search", {"query": query})
         return _parse_rows(payload)
 
+    async def resolve(self, query: str) -> ResolveOutcome:
+        """Resolve free text to a deterministic typed anime outcome."""
+        payload = await self._rpc("resolve", {"query": query})
+        return TypeAdapter(ResolveOutcome).validate_python(payload)
+
+    async def points_by_work_id(self, work_id: str) -> SearchResult:
+        """Fetch published points for an already-resolved work id."""
+        payload = await self._rpc("points-by-work-id", {"work_id": work_id})
+        return SearchResult.model_validate(payload)
+
     async def spots(self, bangumi_id: str) -> PilgrimagePoint:
         """Return a single pilgrimage point for the given work id."""
         payload = await self._rpc("spots", {"bangumi_id": bangumi_id})
@@ -178,12 +251,18 @@ class CatalogClient:
         return [GeocodeCandidate.model_validate(item) for item in candidates]
 
     async def route(
-        self, point_ids: list[str], *, origin: tuple[float, float] | None = None
+        self,
+        point_ids: list[str],
+        *,
+        origin: tuple[float, float] | None = None,
+        pacing: Literal["chill", "normal", "packed"] | None = None,
     ) -> Route:
         """Plan an ordered, timed route across the given points."""
         body: dict[str, object] = {"point_ids": point_ids}
         if origin is not None:
             body["origin"] = {"lat": origin[0], "lng": origin[1]}
+        if pacing is not None:
+            body["pacing"] = pacing
         payload = await self._rpc("route", body)
         return Route.model_validate(payload)
 

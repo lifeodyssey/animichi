@@ -33,8 +33,8 @@ def _best(results: list[EvaluationReason], *, empty: float = 1.0) -> float:
     return max((_value(result) for result in results), default=empty)
 
 
-def _max_tool_calls(metadata: AgentExpected | None) -> int:
-    chains = _chains(metadata)
+def _max_tool_calls(ctx: _Ctx) -> int:
+    chains = _chains(ctx)
     return max((len(chain) for chain in chains), default=0)
 
 
@@ -43,10 +43,7 @@ class OfficialToolCorrectness(Evaluator[AgentInput, AgentResult, AgentExpected])
     """Official multiset match, scored against the best accepted chain."""
 
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
-        results = [
-            ToolCorrectness(list(chain)).evaluate(ctx)
-            for chain in _chains(ctx.metadata)
-        ]
+        results = [ToolCorrectness(list(chain)).evaluate(ctx) for chain in _chains(ctx)]
         return {"tool_correctness_official": _best(results)}
 
 
@@ -57,7 +54,7 @@ class OfficialTrajectoryMatch(Evaluator[AgentInput, AgentResult, AgentExpected])
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
         results = [
             TrajectoryMatch(list(chain), order="in_order").evaluate(ctx)
-            for chain in _chains(ctx.metadata)
+            for chain in _chains(ctx)
         ]
         return {"trajectory_match_official": _best(results)}
 
@@ -90,5 +87,5 @@ class OfficialMaxToolCalls(Evaluator[AgentInput, AgentResult, AgentExpected]):
     """Official hard call budget derived from the longest accepted chain."""
 
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
-        result = MaxToolCalls(_max_tool_calls(ctx.metadata)).evaluate(ctx)
+        result = MaxToolCalls(_max_tool_calls(ctx)).evaluate(ctx)
         return {"max_tool_calls_official": _value(result)}

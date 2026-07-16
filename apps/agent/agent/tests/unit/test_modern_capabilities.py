@@ -21,12 +21,7 @@ from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.eval.mock_web import MockWebSearcher
 
 _DEFERRED = {"web_search", "translate_anime_title"}
-_QA_OUTPUT = {
-    "intent": "general_qa",
-    "message": "ok",
-    "data": {"status": "info", "message": "ok"},
-    "ui": {},
-}
+_QA_OUTPUT = {"message": "ok"}
 
 
 def _deps(
@@ -91,12 +86,12 @@ async def test_deferred_tools_are_discovered_and_invoked_end_to_end() -> None:
         deps=_deps(title_translator=translate, web_searcher=search),
         model=_local_model(respond),
     )
-    assert result.output.intent == "general_qa"
+    assert result.output.message == "ok"
     assert calls == [("君の名は。", "zh")]
     assert search.calls == [("search", ("Uji anime location",))]
 
 
-async def test_session_hook_is_idempotent_across_output_retry() -> None:
+async def test_instructions_remain_cache_neutral_across_output_retry() -> None:
     instructions: list[str] = []
 
     def respond(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -108,7 +103,8 @@ async def test_session_hook_is_idempotent_across_output_retry() -> None:
         "retry", deps=_deps(), model=_local_model(respond)
     )
     assert len(instructions) == 2
-    assert [text.count("## Current session state") for text in instructions] == [1, 1]
+    assert instructions[0] == instructions[1]
+    assert all("Current session state" not in text for text in instructions)
 
 
 @pytest.mark.parametrize(("modern", "expected"), [(True, 1), (False, 0)])

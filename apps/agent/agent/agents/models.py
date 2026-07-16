@@ -18,34 +18,7 @@ class ToolName(StrEnum):
     SEARCH_BANGUMI = "search_bangumi"
     SEARCH_NEARBY = "search_nearby"
     PLAN_ROUTE = "plan_route"
-    PLAN_SELECTED = "plan_selected"
-    ANSWER_QUESTION = "answer_question"
-    GREET_USER = "greet_user"
-    CLARIFY = "clarify"
     GEOCODE = "geocode"
-
-
-class PlanStep(BaseModel):
-    """A tool invocation with parameters, used by handler functions."""
-
-    tool: ToolName
-    params: dict[str, object] = Field(default_factory=dict)
-    parallel: bool = False
-
-
-class RetrievalRequest(BaseModel):
-    """Normalized retrieval request passed to retrieval handlers.
-
-    Replaces IntentOutput throughout the retrieval stack.
-    """
-
-    tool: Literal["search_bangumi", "search_nearby"]
-    bangumi_id: str | None = None
-    episode: int | None = None
-    location: str | None = None
-    origin: str | None = None
-    radius: int | None = None
-    force_refresh: bool = False
 
 
 class LocationCluster(BaseModel):

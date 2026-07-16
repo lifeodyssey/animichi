@@ -25,7 +25,6 @@ from agent.agents.base import describe_model, resolve_model
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import (
     ClarifyResponseModel,
-    GreetingResponseModel,
     QAResponseModel,
     RouteResponseModel,
     SearchResponseModel,
@@ -52,7 +51,6 @@ VALID_OUTPUT_TYPES = (
     SearchResponseModel,
     RouteResponseModel,
     QAResponseModel,
-    GreetingResponseModel,
 )
 
 

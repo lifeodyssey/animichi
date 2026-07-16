@@ -131,9 +131,23 @@ def _context(row: Row) -> Mapping[str, object] | None:
     )
 
 
-def _selected_ids(row: Row) -> list[str] | None:
-    raw = row.get("selected_point_ids")
+def _selected_ids(row: Row, key: str) -> list[str] | None:
+    raw = row.get(key)
     return [str(item) for item in raw] if isinstance(raw, list) else None
+
+
+def _optional_int(row: Row, key: str) -> int | None:
+    value = row.get(key)
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _mapping(row: Row, key: str) -> Mapping[str, object] | None:
+    value = row.get(key)
+    return (
+        {str(name): item for name, item in value.items()}
+        if isinstance(value, Mapping)
+        else None
+    )
 
 
 def _padded_text(turn: Mapping[object, object], key: str) -> str:
@@ -170,7 +184,10 @@ def _input(row: Row) -> AgentInput:
         str(row.get("query", "")),
         str(row.get("locale", "ja")),
         _context(row),
-        _selected_ids(row),
+        _selected_ids(row, "selected_point_ids"),
+        _selected_ids(row, "selected_candidate_ids"),
+        _optional_int(row, "clarification_id"),
+        _mapping(row, "seeded_pending"),
     )
 
 
@@ -233,11 +250,47 @@ agent_dataset = Dataset(name=DATASET_NAME, cases=CASES, evaluators=build_evaluat
 
 async def _selected_task(inp: AgentInput) -> AgentResult:
     from agent.agents.selected_route import execute_selected_route
+    from agent.agents.session_state import SessionState
     from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
     return await execute_selected_route(
         point_ids=inp.selected_point_ids or [],
+        state=SessionState(),
         origin=None,
+        locale=inp.locale,
+        catalog=MockCatalogClient(),
+    )
+
+
+async def _selection_task(inp: AgentInput) -> AgentResult:
+    from agent.agents.selection import (
+        execute_multi_selection,
+        execute_place_selection,
+        validate_candidate_selection,
+    )
+    from agent.agents.session_state import PendingClarification, SessionState
+    from agent.tests.eval.mock_catalog_client import MockCatalogClient
+
+    pending = PendingClarification.model_validate(inp.seeded_pending or {})
+    state = SessionState(
+        pending_clarification=pending,
+        clarification_revision=pending.revision,
+    )
+    selected = validate_candidate_selection(
+        state,
+        inp.selected_candidate_ids or [],
+        inp.clarification_id if inp.clarification_id is not None else -1,
+    )
+    if selected.reason == "anime_ambiguity":
+        return await execute_multi_selection(
+            candidate_ids=selected.candidate_ids,
+            state=state,
+            locale=inp.locale,
+            catalog=MockCatalogClient(),
+        )
+    return await execute_place_selection(
+        candidate_id=selected.candidate_ids[0],
+        state=state,
         locale=inp.locale,
         catalog=MockCatalogClient(),
     )
@@ -277,7 +330,9 @@ def make_agent_task(
     resolved_model = model or make_model()
 
     async def task(inp: AgentInput) -> AgentResult:
-        if inp.selected_point_ids:
+        if inp.selected_candidate_ids is not None:
+            return await _selection_task(inp)
+        if inp.selected_point_ids is not None:
             return await _selected_task(inp)
         return await _agent_task(
             inp, db, catalog_factory, resolved_model, web_searcher, title_translator

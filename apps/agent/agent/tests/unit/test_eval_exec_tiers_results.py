@@ -10,8 +10,9 @@ from pydantic_evals.reporting import (
     ReportCaseFailure,
 )
 
-from agent.agents.agent_result import AgentResult, StepRecord
+from agent.agents.agent_result import AgentResult
 from agent.agents.runtime_models import QAResponseModel
+from agent.agents.session_state import SessionState
 from agent.tests.eval.evaluators import AgentExpected, AgentInput
 from agent.tests.eval.exec_tiers import build_results_payload
 
@@ -28,10 +29,12 @@ def _score(
 
 
 def _result() -> AgentResult:
-    output = QAResponseModel(intent="general_qa", message="Hello there")
+    output = QAResponseModel(message="Hello there")
     return AgentResult(
         output=output,
-        steps=[StepRecord(tool="answer_question", success=True)],
+        intent="general_qa",
+        session_state=SessionState(),
+        steps=[],
         usage=RunUsage(input_tokens=12, output_tokens=4, requests=2),
     )
 

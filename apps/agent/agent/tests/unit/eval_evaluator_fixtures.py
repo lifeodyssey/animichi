@@ -8,6 +8,7 @@ from pydantic_evals.otel.span_tree import SpanNode, SpanTree
 
 from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.runtime_models import QAResponseModel, RuntimeStageOutput
+from agent.agents.session_state import SessionState
 from agent.tests.eval.evaluators import AgentExpected, AgentInput
 
 
@@ -16,10 +17,19 @@ def steps(*tools: str) -> list[StepRecord]:
 
 
 def result(
-    records: list[StepRecord], output: RuntimeStageOutput | None = None
+    records: list[StepRecord],
+    output: RuntimeStageOutput | None = None,
+    *,
+    intent: str = "general_qa",
+    state: SessionState | None = None,
 ) -> AgentResult:
-    out = output or QAResponseModel(intent="general_qa", message="テスト")
-    return AgentResult(output=out, steps=records)
+    out = output or QAResponseModel(message="テスト")
+    return AgentResult(
+        output=out,
+        intent=intent,
+        session_state=state or SessionState(),
+        steps=records,
+    )
 
 
 def ctx(
