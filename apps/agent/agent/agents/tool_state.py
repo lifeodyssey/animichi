@@ -7,6 +7,7 @@ from typing import Literal, TypeAlias, cast
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from agent.agents.models import TimedItinerary, ToolName
+from agent.agents.session_state import SessionState
 
 LegacyPayload: TypeAlias = dict[str, JsonValue]
 
@@ -156,6 +157,7 @@ class ToolState(BaseModel):
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
+    session: SessionState = Field(default_factory=SessionState)
     locale: str | None = None
     last_location: str | None = None
     origin_lat: float | None = None
@@ -198,7 +200,10 @@ class ToolState(BaseModel):
 
     def to_legacy_dict(self) -> LegacyPayload:
         """Serialize to the exact heterogeneous dict shape used historically."""
-        return cast(LegacyPayload, _dump_model(self))
+        return cast(
+            LegacyPayload,
+            self.model_dump(mode="json", exclude_unset=True, exclude={"session"}),
+        )
 
 
 def _dump_model(model: BaseModel) -> object:
