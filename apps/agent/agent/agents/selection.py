@@ -7,8 +7,16 @@ from dataclasses import dataclass
 
 import httpx
 
-from agent.agents.agent_result import AgentResult, StepRecord
+from agent.agents.agent_result import (
+    AgentResult,
+    ProducedRoute,
+    ProducedSearch,
+    StepProvenance,
+    StepRecord,
+    TurnProvenance,
+)
 from agent.agents.catalog_adapter import build_route_state, build_search_state
+from agent.agents.geo_names import localized_city_name
 from agent.agents.runtime_deps import OnStep, StepEvent
 from agent.agents.runtime_models import RouteResponseModel, SearchResponseModel
 from agent.agents.selection_messages import PLACE_MESSAGES, multi_message
@@ -88,24 +96,39 @@ async def execute_multi_selection(
     successful = _successful_results(candidate_ids, fetched)
     if not successful:
         return await _multi_terminal_event(state, steps, locale, "error", on_step)
-    merged = _merge_results(candidate_ids, successful)
+    merged = _merge_results(candidate_ids, successful, locale)
     result_ref = state.next_search_ref("multi", state.clarification_revision)
     state.store_search_result(result_ref, merged)
     if not merged.rows:
         status = "error" if len(successful) < len(candidate_ids) else "empty"
-        return await _multi_terminal_event(state, steps, locale, status, on_step)
+        provenance = ProducedSearch(outcome="empty", result_ref=result_ref)
+        return await _multi_terminal_event(
+            state, steps, locale, status, on_step, search=provenance
+        )
     if len(merged.rows) > MAX_ROUTE_POINT_IDS:
-        return await _multi_terminal_event(state, steps, locale, "too_large", on_step)
+        provenance = ProducedSearch(outcome="ok", result_ref=result_ref)
+        return await _multi_terminal_event(
+            state, steps, locale, "too_large", on_step, search=provenance
+        )
     try:
         route = await catalog.route([point.id for point in merged.rows if point.id])
     except (RouteTooManyClustersError, RouteTooManyPointsError):
-        return await _multi_terminal_event(state, steps, locale, "too_large", on_step)
+        provenance = ProducedSearch(outcome="ok", result_ref=result_ref)
+        return await _multi_terminal_event(
+            state, steps, locale, "too_large", on_step, search=provenance
+        )
     except _FETCH_ERRORS:
-        return await _multi_terminal_event(state, steps, locale, "error", on_step)
+        provenance = ProducedSearch(outcome="ok", result_ref=result_ref)
+        return await _multi_terminal_event(
+            state, steps, locale, "error", on_step, search=provenance
+        )
     if route.point_count < 1:
-        return await _multi_terminal_event(state, steps, locale, "error", on_step)
+        provenance = ProducedSearch(outcome="ok", result_ref=result_ref)
+        return await _multi_terminal_event(
+            state, steps, locale, "error", on_step, search=provenance
+        )
     route_ref = state.next_route_ref("multi", state.clarification_revision)
-    state.store_route(route_ref, build_route_state(route, result_ref))
+    state.store_route(route_ref, build_route_state(route, result_ref, locale=locale))
     _set_current_anime(state, candidate_ids)
     omitted = _omitted_titles(state, merged.omitted_work_ids)
     _consume_pending(state)
@@ -117,6 +140,10 @@ async def execute_multi_selection(
         session_state=state,
         steps=steps,
         success_override=True,
+        provenance=TurnProvenance(
+            search=ProducedSearch(outcome="ok", result_ref=result_ref),
+            route=ProducedRoute(status="ok", route_ref=route_ref),
+        ),
     )
 
 
@@ -143,19 +170,25 @@ def _fetch_steps(
     ]
 
 
-def _server_step(tool: str, success: bool, data: dict[str, object]) -> StepRecord:
+def _server_step(
+    tool: str,
+    success: bool,
+    data: dict[str, object],
+    provenance: StepProvenance | None = None,
+) -> StepRecord:
     return StepRecord(
         tool=tool,
         success=success,
         params=data,
         data=data,
+        provenance=provenance,
         error=None if success else "Catalog fetch failed",
         model_initiated=False,
     )
 
 
 def _merge_results(
-    selected: list[str], results: list[tuple[str, SearchResult]]
+    selected: list[str], results: list[tuple[str, SearchResult]], locale: str
 ) -> SearchPayloadState:
     seen: set[str] = set()
     rows: list[PointState] = []
@@ -164,7 +197,12 @@ def _merge_results(
         for point in result.rows:
             if point.id not in seen:
                 seen.add(point.id)
-                rows.append(PointState.model_validate(point.model_dump(mode="json")))
+                city = localized_city_name(point.city, locale) if point.city else None
+                rows.append(
+                    PointState.model_validate(
+                        point.model_copy(update={"city": city}).model_dump(mode="json")
+                    )
+                )
     return SearchPayloadState(
         kind="multi",
         rows=rows,
@@ -209,6 +247,7 @@ def _multi_terminal(
     steps: list[StepRecord],
     locale: str,
     status: str,
+    search: ProducedSearch | None = None,
 ) -> AgentResult:
     steps.append(_server_step("plan_multi", False, {"status": status}))
     return AgentResult(
@@ -218,6 +257,7 @@ def _multi_terminal(
         steps=steps,
         status=status,
         success_override=False,
+        provenance=TurnProvenance(search=search),
     )
 
 
@@ -227,8 +267,9 @@ async def _multi_terminal_event(
     locale: str,
     status: str,
     on_step: OnStep | None,
+    search: ProducedSearch | None = None,
 ) -> AgentResult:
-    result = _multi_terminal(state, steps, locale, status)
+    result = _multi_terminal(state, steps, locale, status, search)
     await _emit(on_step, "plan_multi", "done", {"status": status})
     return result
 
@@ -261,16 +302,20 @@ async def execute_place_selection(
     if candidate is None or candidate.lat is None or candidate.lng is None:
         raise SelectionError("This place choice expired; please try again.")
     try:
-        points = await catalog.nearby(candidate.lat, candidate.lng, radius_m=5_000)
+        radius_m = candidate.effective_radius_m or 5_000
+        points = await catalog.nearby(candidate.lat, candidate.lng, radius_m=radius_m)
     except _FETCH_ERRORS:
         result = _place_error(state, locale)
         await _emit(on_step, "search_nearby", "done", {"status": "error"})
         return result
-    payload = build_search_state(points, kind="nearby")
+    payload = build_search_state(points, kind="nearby", locale=locale)
     ref = state.next_search_ref("place", state.clarification_revision)
     state.store_search_result(ref, payload)
     _consume_pending(state)
-    step = _server_step("search_nearby", True, {"result_ref": str(ref)})
+    provenance = ProducedSearch(
+        outcome="ok" if payload.row_count else "empty", result_ref=ref
+    )
+    step = _server_step("search_nearby", True, {"result_ref": str(ref)}, provenance)
     await _emit(on_step, "search_nearby", "done", {"result_ref": str(ref)})
     status = "ok" if payload.row_count else "empty"
     return AgentResult(

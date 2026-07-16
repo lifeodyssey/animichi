@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.runtime_models import QAResponseModel
+from agent.agents.runtime_models import GreetingResponseModel
 from agent.agents.session_state import SessionState
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
@@ -41,12 +41,14 @@ def mock_db():
     return db
 
 
-class TestGeneralQAPersistence:
-    async def test_greeting_collapses_to_general_qa_and_persists(self):
-        output = QAResponseModel(message="こんにちは！聖地巡礼のお手伝いをします。")
+class TestGreetingPersistence:
+    async def test_greeting_uses_dedicated_stage_and_persists(self):
+        output = GreetingResponseModel(
+            message="こんにちは！聖地巡礼のお手伝いをします。"
+        )
         result = AgentResult(
             output=output,
-            intent="general_qa",
+            intent="greet_user",
             session_state=SessionState(),
         )
 
@@ -81,7 +83,7 @@ class TestGeneralQAPersistence:
             api = RuntimeAPI(db=db, session_store=session_store)
             response = await api.handle(PublicAPIRequest(text="hi"), user_id="u1")
 
-        assert response.intent == "general_qa"
+        assert response.intent == "greet_user"
         assert response.session_id is not None
         assert response.session["interaction_count"] == 1
         assert response.route_history == []

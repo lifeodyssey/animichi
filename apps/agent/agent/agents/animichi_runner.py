@@ -21,6 +21,7 @@ from agent.agents.runtime_deps import (
 )
 from agent.agents.runtime_models import (
     ClarifyResponseModel,
+    GreetingResponseModel,
     QAResponseModel,
     RouteResponseModel,
     RuntimeStageOutput,
@@ -46,6 +47,7 @@ _STAGE_BY_OUTPUT: dict[type[RuntimeStageOutput], str] = {
     SearchResponseModel: "search",
     RouteResponseModel: "route",
     ClarifyResponseModel: "clarify",
+    GreetingResponseModel: "greet_user",
     QAResponseModel: "general_qa",
 }
 

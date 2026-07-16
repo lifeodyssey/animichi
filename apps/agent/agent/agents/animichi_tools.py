@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 from pydantic_ai import RunContext, Tool
 from pydantic_ai.tools import ToolFuncEither
 
+from agent.agents.catalog_route_tools import run_route
 from agent.agents.catalog_tools import (
     run_nearby_search,
     run_resolve,
-    run_route,
     run_work_search,
 )
 from agent.agents.runtime_deps import RuntimeDeps, StepEvent
@@ -71,10 +71,11 @@ async def search_nearby(
 async def plan_route(
     ctx: RunContext[RuntimeDeps],
     search_result_ref: Annotated[str, Field(min_length=1)],
+    pacing: Literal["chill", "normal", "packed"] | None = None,
 ) -> RouteToolResult:
     """Plan a route over exactly one explicit stored search-result reference."""
     await _emit(ctx, "plan_route", "running", {})
-    result = await run_route(ctx, ctx.deps.catalog, search_result_ref)
+    result = await run_route(ctx, ctx.deps.catalog, search_result_ref, pacing)
     await _emit(ctx, "plan_route", "done", result.model_dump())
     return result
 
@@ -94,7 +95,8 @@ TOOLS: list[Tool[RuntimeDeps] | ToolFuncEither[RuntimeDeps]] = [
         plan_route,
         description=(
             "Plan a walking route over the exact registry result named by "
-            "search_result_ref. The ref is required and has no session default."
+            "search_result_ref. The ref is required and has no session default. "
+            "Optional pacing is chill, normal, or packed."
         ),
         docstring_format="google",
         timeout=CATALOG_TOOL_TIMEOUT_SECONDS,

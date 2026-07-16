@@ -6,9 +6,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -24,9 +22,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -42,9 +38,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -60,9 +54,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -78,9 +70,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -96,9 +86,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -114,9 +102,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -132,9 +118,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -150,9 +134,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -168,9 +150,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -186,9 +166,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -204,9 +182,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -222,9 +198,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -240,9 +214,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -258,9 +230,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -276,9 +246,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -294,9 +262,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -312,9 +278,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -330,9 +294,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -348,9 +310,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -366,9 +326,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -384,9 +342,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -402,9 +358,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -420,9 +374,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -438,9 +390,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -456,9 +406,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -474,9 +422,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -492,9 +438,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -510,9 +454,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -528,9 +470,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -546,8 +486,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "clarify",
@@ -563,8 +503,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "clarify",
@@ -580,8 +520,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "clarify",
@@ -597,8 +537,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "clarify",
@@ -614,8 +554,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "clarify",
@@ -631,8 +571,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "clarify",
@@ -648,8 +588,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "clarify",
@@ -665,8 +605,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "clarify",
@@ -682,8 +622,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "clarify",
@@ -699,8 +639,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "clarify",
@@ -2799,8 +2739,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "nearby",
@@ -2816,8 +2756,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "nearby",
@@ -2833,8 +2773,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "nearby",
@@ -2850,8 +2790,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "nearby",
@@ -2867,8 +2807,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "nearby",
@@ -2884,8 +2824,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "nearby",
@@ -3818,7 +3758,7 @@
     "id": "G194",
     "query": "你好",
     "locale": "zh",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3831,7 +3771,7 @@
     "id": "G195",
     "query": "你是谁",
     "locale": "zh",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3844,7 +3784,7 @@
     "id": "G196",
     "query": "你能做什么",
     "locale": "zh",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3857,7 +3797,7 @@
     "id": "G197",
     "query": "谢谢",
     "locale": "zh",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3870,7 +3810,7 @@
     "id": "G198",
     "query": "再见",
     "locale": "zh",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3883,7 +3823,7 @@
     "id": "G199",
     "query": "こんにちは",
     "locale": "ja",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3896,7 +3836,7 @@
     "id": "G200",
     "query": "何ができますか？",
     "locale": "ja",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3909,7 +3849,7 @@
     "id": "G201",
     "query": "ありがとう",
     "locale": "ja",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3922,7 +3862,7 @@
     "id": "G202",
     "query": "おはよう",
     "locale": "ja",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3935,7 +3875,7 @@
     "id": "G203",
     "query": "やあ",
     "locale": "ja",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3948,7 +3888,7 @@
     "id": "G204",
     "query": "hello",
     "locale": "en",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3961,7 +3901,7 @@
     "id": "G205",
     "query": "what can you do?",
     "locale": "en",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3974,7 +3914,7 @@
     "id": "G206",
     "query": "thanks!",
     "locale": "en",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -3987,7 +3927,7 @@
     "id": "G207",
     "query": "hi there!",
     "locale": "en",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4000,7 +3940,7 @@
     "id": "G208",
     "query": "hey",
     "locale": "en",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4013,7 +3953,7 @@
     "id": "G209",
     "query": "你好呀",
     "locale": "zh",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4026,7 +3966,7 @@
     "id": "G210",
     "query": "嗨",
     "locale": "zh",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4039,7 +3979,7 @@
     "id": "G211",
     "query": "はじめまして",
     "locale": "ja",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4052,7 +3992,7 @@
     "id": "G212",
     "query": "good morning",
     "locale": "en",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4065,7 +4005,7 @@
     "id": "G213",
     "query": "goodbye",
     "locale": "en",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4078,7 +4018,7 @@
     "id": "G214",
     "query": "什么是圣地巡礼",
     "locale": "zh",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4091,7 +4031,7 @@
     "id": "G215",
     "query": "聖地巡礼って何？",
     "locale": "ja",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4104,7 +4044,7 @@
     "id": "G216",
     "query": "what is anime pilgrimage?",
     "locale": "en",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4117,7 +4057,7 @@
     "id": "G217",
     "query": "how does this app work?",
     "locale": "en",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4130,7 +4070,7 @@
     "id": "G218",
     "query": "このアプリの使い方",
     "locale": "ja",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4143,7 +4083,7 @@
     "id": "G219",
     "query": "这个app怎么用",
     "locale": "zh",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4156,7 +4096,7 @@
     "id": "G220",
     "query": "nice to meet you",
     "locale": "en",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4169,7 +4109,7 @@
     "id": "G221",
     "query": "よろしく",
     "locale": "ja",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4182,7 +4122,7 @@
     "id": "G222",
     "query": "你好吗",
     "locale": "zh",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4195,7 +4135,7 @@
     "id": "G223",
     "query": "How are you?",
     "locale": "en",
-    "expected_stage": "general_qa",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 5,
     "expected_data_keys": [],
     "metadata": {
@@ -4208,7 +4148,7 @@
     "id": "G224",
     "query": "你好，宇治站附近有哪些取景地？",
     "locale": "zh",
-    "expected_stage": "search_nearby",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 2,
     "expected_data_keys": [
       "results"
@@ -4224,7 +4164,7 @@
     "id": "G225",
     "query": "hello, plan a route for Your Name in Tokyo",
     "locale": "en",
-    "expected_stage": "plan_route",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 2,
     "expected_data_keys": [
       "route"
@@ -4240,7 +4180,7 @@
     "id": "G226",
     "query": "こんにちは、君の名はの聖地を教えて",
     "locale": "ja",
-    "expected_stage": "search_bangumi",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 2,
     "expected_data_keys": [
       "results"
@@ -4256,7 +4196,7 @@
     "id": "G227",
     "query": "hey, what anime spots are near Akihabara?",
     "locale": "en",
-    "expected_stage": "search_nearby",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 2,
     "expected_data_keys": [
       "results"
@@ -4272,7 +4212,7 @@
     "id": "G228",
     "query": "你好，帮我规划天气之子的路线",
     "locale": "zh",
-    "expected_stage": "plan_route",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 2,
     "expected_data_keys": [
       "route"
@@ -4288,7 +4228,7 @@
     "id": "G229",
     "query": "おはよう、響けユーフォの聖地を教えて",
     "locale": "ja",
-    "expected_stage": "search_bangumi",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 2,
     "expected_data_keys": [
       "results"
@@ -4304,7 +4244,7 @@
     "id": "G230",
     "query": "hi, show me Slam Dunk spots in Kamakura",
     "locale": "en",
-    "expected_stage": "search_bangumi",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 2,
     "expected_data_keys": [
       "results"
@@ -4320,7 +4260,7 @@
     "id": "G231",
     "query": "嗨，铃芽之旅有什么圣地？",
     "locale": "zh",
-    "expected_stage": "search_bangumi",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 2,
     "expected_data_keys": [
       "results"
@@ -5223,8 +5163,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5240,8 +5180,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5257,8 +5197,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5274,8 +5214,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5291,8 +5231,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5308,8 +5248,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5325,8 +5265,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5342,8 +5282,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5359,8 +5299,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5376,8 +5316,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5393,8 +5333,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5410,8 +5350,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5427,8 +5367,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5444,8 +5384,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -5461,8 +5401,8 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "status"
+      "reason",
+      "candidates"
     ],
     "metadata": {
       "category": "vague",
@@ -6908,9 +6848,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -6927,9 +6865,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -6946,9 +6882,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -6965,9 +6899,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -6984,9 +6916,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -7003,9 +6933,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -7022,9 +6950,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -7041,9 +6967,7 @@
     "expected_stage": "clarify",
     "expected_message_min_len": 2,
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "metadata": {
@@ -7200,7 +7124,7 @@
     "id": "A390",
     "query": "嗨，帮我找一下天气之子的圣地",
     "locale": "zh",
-    "expected_stage": "search_bangumi",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 2,
     "expected_data_keys": [
       "results"
@@ -7220,7 +7144,7 @@
     "id": "A391",
     "query": "やあ、けいおん！の聖地を教えて",
     "locale": "ja",
-    "expected_stage": "search_bangumi",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 2,
     "expected_data_keys": [
       "results"
@@ -7240,7 +7164,7 @@
     "id": "A392",
     "query": "hey, find me spots near Uji station",
     "locale": "en",
-    "expected_stage": "search_nearby",
+    "expected_stage": "greet_user",
     "expected_message_min_len": 2,
     "expected_data_keys": [
       "results"

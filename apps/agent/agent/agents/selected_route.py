@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 import structlog
 
-from agent.agents.agent_result import AgentResult, StepRecord
+from agent.agents.agent_result import AgentResult, ProducedRoute, StepRecord
 from agent.agents.catalog_adapter import build_route_payload, build_route_state
 from agent.agents.error_messages import build_error_message
 from agent.agents.runtime_deps import OnStep, StepEvent
@@ -97,7 +97,10 @@ def _build_success_result(
 ) -> AgentResult:
     """Assemble the AgentResult returned on a successful route lookup."""
     route_ref = state.next_route_ref("selected", 1)
-    state.store_route(route_ref, build_route_state(route, source_ref=None))
+    state.store_route(
+        route_ref, build_route_state(route, source_ref=None, locale=locale)
+    )
+    step.provenance = ProducedRoute(status="ok", route_ref=route_ref)
     state.pending_clarification = None
     state.geocode_staging = None
     output = RouteResponseModel(

@@ -6,7 +6,13 @@ from datetime import UTC, datetime, timedelta
 from pydantic_evals.evaluators import EvaluatorContext
 from pydantic_evals.otel.span_tree import SpanNode, SpanTree
 
-from agent.agents.agent_result import AgentResult, StepRecord
+from agent.agents.agent_result import (
+    AgentResult,
+    ProducedRoute,
+    ProducedSearch,
+    StepRecord,
+    TurnProvenance,
+)
 from agent.agents.runtime_models import QAResponseModel, RuntimeStageOutput
 from agent.agents.session_state import SessionState
 from agent.tests.eval.evaluators import AgentExpected, AgentInput
@@ -29,7 +35,21 @@ def result(
         intent=intent,
         session_state=state or SessionState(),
         steps=records,
+        provenance=_provenance(intent, state or SessionState()),
     )
+
+
+def _provenance(intent: str, state: SessionState) -> TurnProvenance:
+    search = None
+    route = None
+    if intent in {"search_bangumi", "search_nearby", "plan_multi"}:
+        ref = state.last_result_ref
+        if ref is not None:
+            outcome = "ok" if state.search_results[ref].row_count else "empty"
+            search = ProducedSearch(outcome=outcome, result_ref=ref)
+    if intent in {"plan_route", "plan_selected", "plan_multi"} and state.route_lru:
+        route = ProducedRoute(status="ok", route_ref=state.route_lru[-1])
+    return TurnProvenance(search=search, route=route)
 
 
 def ctx(

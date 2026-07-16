@@ -121,7 +121,7 @@ def test_tool_call_recall_penalizes_incomplete_clarify_trajectory() -> None:
         ),
         (steps("resolve_anime"), ["general_qa"], {"route_order_correct": 0.0}),
         (
-            steps("geocode", "clarify"),
+            steps("geocode", "search_nearby", "clarify"),
             ["clarify_after_nearby"],
             {"route_order_correct": 1.0},
         ),
@@ -151,7 +151,11 @@ def test_route_order_correct_scores_ordered_chains(
             0.4,
         ),
         (steps(), ["search_bangumi"], 1.0),
-        (steps("geocode", "clarify"), ["clarify_after_nearby"], 1.0),
+        (
+            steps("geocode", "search_nearby", "clarify"),
+            ["clarify_after_nearby"],
+            1.0,
+        ),
         (
             steps("clarify", "resolve_anime", "search_bangumi"),
             ["clarify", "search_bangumi"],

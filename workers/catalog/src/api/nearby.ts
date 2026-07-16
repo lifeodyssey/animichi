@@ -18,6 +18,7 @@ interface PointDetail {
   episode: number | null;
   time_seconds: number | null;
   origin: string | null;
+  city?: string | null;
 }
 
 function detailOptionals(d: PointDetail): Partial<PilgrimagePoint> {
@@ -26,6 +27,7 @@ function detailOptionals(d: PointDetail): Partial<PilgrimagePoint> {
     ...(d.episode != null && { episode: d.episode }),
     ...(d.time_seconds != null && { time_seconds: d.time_seconds }),
     ...(d.origin != null && { origin: d.origin }),
+    ...(d.city != null && { city: d.city }),
   };
 }
 
@@ -47,7 +49,7 @@ function merge(near: NearbyPoint, d?: PointDetail): PilgrimagePoint {
 async function loadDetails(db: CatalogDb, ids: string[]): Promise<Map<string, PointDetail>> {
   if (ids.length === 0) return new Map();
   const result = await db.execute(sql`
-    SELECT id, bangumi_id, name_cn, image, episode, time_seconds, origin
+    SELECT id, bangumi_id, name_cn, image, episode, time_seconds, origin, city
     FROM points
     WHERE id IN (${sql.join(ids, sql`, `)})
   `);

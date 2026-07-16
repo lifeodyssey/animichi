@@ -8,6 +8,11 @@ from agent.agents.selection import execute_multi_selection, execute_place_select
 from agent.agents.session_state import (
     OrderedCandidate,
     PendingClarification,
+    PointState,
+    ResultRef,
+    RoutePayloadState,
+    RouteRef,
+    SearchPayloadState,
     SessionState,
 )
 from agent.clients.catalog_client import PilgrimagePoint, Route, SearchResult
@@ -15,6 +20,7 @@ from agent.clients.catalog_errors import (
     RouteTooManyClustersData,
     RouteTooManyClustersError,
 )
+from agent.interfaces.response_builder import agent_result_to_response
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
 
@@ -122,6 +128,38 @@ async def test_all_empty_is_t4_and_preserves_pending() -> None:
     assert not state.routes
 
 
+async def test_t4_does_not_project_a_route_from_a_prior_turn() -> None:
+    catalog = _Catalog({"1": SearchResult(), "2": SearchResult()})
+    state = _pending()
+    prior_result_ref = ResultRef("search:prior:1")
+    state.store_search_result(
+        prior_result_ref,
+        SearchPayloadState(
+            kind="bangumi",
+            rows=[PointState(id="old-point", bangumi_id="old-anime")],
+            row_count=1,
+            anime_id="old-anime",
+        ),
+    )
+    state.store_route(
+        RouteRef("route:prior:1"),
+        RoutePayloadState(
+            ordered_points=[PointState(id="old-point", bangumi_id="old-anime")],
+            source_ref=prior_result_ref,
+        ),
+    )
+
+    result = await execute_multi_selection(
+        candidate_ids=["1", "2"], state=state, locale="en", catalog=catalog
+    )
+    response = agent_result_to_response(result, include_debug=False)
+
+    assert response.status == "empty"
+    assert set(response.data) == {"results"}
+    assert response.data["results"]["rows"] == []
+    assert state.pending_clarification is not None
+
+
 async def test_all_failed_is_t5_without_registry_write() -> None:
     catalog = _Catalog({"1": OSError("down"), "2": OSError("down")})
     result = await execute_multi_selection(
@@ -152,6 +190,18 @@ async def test_place_selection_uses_staged_coords_without_geocode() -> None:
     assert result.intent == "search_nearby"
     assert all(call[0] != "geocode" for call in catalog.calls)
     assert result.session_state.pending_clarification is None
+
+
+async def test_place_selection_preserves_staged_effective_radius() -> None:
+    catalog = _Catalog({})
+    state = _pending("place_ambiguity")
+    state.pending_clarification.ordered_candidates[0].effective_radius_m = 10_000
+
+    await execute_place_selection(
+        candidate_id="1", state=state, locale="en", catalog=catalog
+    )
+
+    assert ("nearby", (35.0, 135.0, 10_000)) in catalog.calls
 
 
 async def test_place_empty_is_definitive_and_clears_pending() -> None:

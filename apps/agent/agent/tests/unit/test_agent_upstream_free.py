@@ -23,7 +23,21 @@ import pytest
 # upstream/DB read path. ``tools`` (clarify enrichment) is included now that it
 # resolves via the catalog instead of the Bangumi gateway.
 _TOOL_MODULES = ("animichi_tools", "web_tools")
-_SEAM_MODULES = ("animichi_tools", "catalog_tools")
+_SEAM_MODULES = ("animichi_tools", "catalog_tools", "catalog_route_tools")
+
+
+def test_catalog_tool_modules_stay_within_file_limit() -> None:
+    assert all(
+        len(_seam_tree(module).body) > 0
+        and len(
+            (Path(__file__).parents[2] / "agents" / f"{module}.py")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
+        <= 300
+        for module in ("catalog_tools", "catalog_route_tools")
+    )
+
 
 # Substrings that, if imported by a seam module, mean an upstream/DB read path
 # leaked back in.

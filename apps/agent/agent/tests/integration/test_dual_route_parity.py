@@ -8,7 +8,7 @@ from typing import cast
 from pydantic_ai import RunContext
 
 from agent.agents.catalog_adapter import build_search_state
-from agent.agents.catalog_tools import run_route
+from agent.agents.catalog_route_tools import run_route
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.selected_route import execute_selected_route
 from agent.agents.session_state import ResultRef, SessionState
@@ -58,9 +58,9 @@ async def test_selected_route_and_chat_route_use_same_catalog_order() -> None:
     result_ref = ResultRef("search:test")
     deps.tool_state.session.store_search_result(
         result_ref,
-        build_search_state(points, kind="bangumi", anime_id="115908"),
+        build_search_state(points, kind="bangumi", anime_id="115908", locale="en"),
     )
-    await run_route(_ctx(deps), catalog, str(result_ref))
+    await run_route(_ctx(deps), catalog, str(result_ref), None)
 
     selected_ref = selected.session_state.route_lru[-1]
     selected_ids = [

@@ -33,6 +33,7 @@ interface FakeRow {
   title: string | null;
   title_cn: string | null;
   cover_url: string | null;
+  city: string | null;
 }
 
 function row(id: string, lat: number, image: string | null = null): FakeRow {
@@ -50,6 +51,7 @@ function row(id: string, lat: number, image: string | null = null): FakeRow {
     title: "Lucky Star",
     title_cn: "幸运星",
     cover_url: "cover.jpg",
+    city: "Tokyo",
   };
 }
 
@@ -97,6 +99,7 @@ async function assertPointFields(): Promise<void> {
   expect(a.screenshot_url).toBe("a.jpg");
   expect(a.bangumi_id).toBe("k");
   expect(a.latitude).toBe(35.0);
+  expect(a.city).toBe("Tokyo");
   expect(r.timed_itinerary.legs).toEqual([]);
 }
 

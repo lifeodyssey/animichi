@@ -62,6 +62,7 @@ export const points = pgTable("points", {
   timeSeconds: integer("time_seconds").default(0),
   sceneDesc: text("scene_desc"),
   origin: text("origin"),
+  city: text("city"),
   originUrl: text("origin_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),

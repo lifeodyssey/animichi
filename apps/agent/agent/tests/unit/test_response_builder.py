@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from agent.agents.agent_result import AgentResult, StepRecord
+from agent.agents.agent_result import (
+    AgentResult,
+    ProducedRoute,
+    ProducedSearch,
+    StepRecord,
+    TurnProvenance,
+)
 from agent.agents.runtime_models import (
     ClarifyResponseModel,
     QAResponseModel,
@@ -68,7 +74,21 @@ def _result(
         intent=intent,
         session_state=state,
         steps=steps or [],
+        provenance=_provenance(intent, state),
     )
+
+
+def _provenance(intent: str, state: SessionState) -> TurnProvenance:
+    search = None
+    route = None
+    if intent in {"search_bangumi", "search_nearby", "plan_multi"}:
+        ref = state.last_result_ref
+        if ref is not None:
+            outcome = "ok" if state.search_results[ref].row_count else "empty"
+            search = ProducedSearch(outcome=outcome, result_ref=ref)
+    if intent.startswith("plan_") and state.route_lru:
+        route = ProducedRoute(status="ok", route_ref=state.route_lru[-1])
+    return TurnProvenance(search=search, route=route)
 
 
 def test_search_projection_uses_registry_rows() -> None:
@@ -145,6 +165,7 @@ def test_failed_steps_and_debug_keep_step_provenance() -> None:
 def test_ui_map_contains_only_live_runtime_stages() -> None:
     assert _UI_MAP["plan_selected"] == "RoutePlannerWizard"
     assert _UI_MAP["general_qa"] == "GeneralAnswer"
+    assert _UI_MAP["greet_user"] == "GeneralAnswer"
     assert {"answer_question", "unclear"}.isdisjoint(_UI_MAP)
 
 

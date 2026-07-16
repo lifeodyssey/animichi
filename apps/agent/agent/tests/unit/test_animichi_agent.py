@@ -44,7 +44,7 @@ def test_instructions_contain_untrusted_tool_output_invariant() -> None:
 async def test_run_animichi_agent_returns_compact_qa_result() -> None:
     model = TestModel(
         call_tools=[],
-        seed=3,
+        seed=4,
         custom_output_args={"message": "建议尊重居民并保持安静。"},
     )
 
@@ -68,7 +68,7 @@ async def test_run_agent_passes_history_and_captures_new_messages() -> None:
     ]
     model = TestModel(
         call_tools=[],
-        seed=3,
+        seed=4,
         custom_output_args={"message": "test"},
     )
 

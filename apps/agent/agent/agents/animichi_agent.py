@@ -34,16 +34,19 @@ from pydantic_ai_harness.overflowing_tool_output import (
     Truncate,
 )
 
+from agent.agents.agent_result import ProducedRoute, ProducedSearch, StepRecord
 from agent.agents.animichi_tools import TOOLS as ANIMICHI_TOOLS
 from agent.agents.base import resolve_model
 from agent.agents.history_compaction import native_history_compaction
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import (
     ClarifyResponseModel,
+    GreetingResponseModel,
     QAResponseModel,
     RouteResponseModel,
     SearchResponseModel,
 )
+from agent.agents.session_state import SessionState
 from agent.agents.web_tools import DEFERRED_TOOLS
 from agent.agents.web_tools import TOOLS as WEB_TOOLS
 from agent.agents.web_trust import detect_prompt_injection
@@ -70,7 +73,7 @@ _INJECTION_CLARIFY_PROMPT = (
 MANAGED_PROMPT_NAME = "animichi-instructions"
 MANAGED_PROMPT_LABEL = "production"
 _LOCAL_PROMPT_VERSION = (
-    "sha256:d6518a1180bf477726e84854975dc40adebe6e7351f731008b09f99dce8e5136"
+    "sha256:37c77a45171bae4435fe92b3c2a9f2321e0b2c65a15a629c8f29f4387ea608b8"
 )
 _PROMPT_RESOLUTION_DEADLINE_SECONDS = 2.0
 _PROMPT_RESOLUTION_EXECUTOR = ThreadPoolExecutor(
@@ -78,7 +81,11 @@ _PROMPT_RESOLUTION_EXECUTOR = ThreadPoolExecutor(
 )
 
 RuntimeOutput = (
-    ClarifyResponseModel | SearchResponseModel | RouteResponseModel | QAResponseModel
+    ClarifyResponseModel
+    | SearchResponseModel
+    | RouteResponseModel
+    | GreetingResponseModel
+    | QAResponseModel
 )
 
 _INSTRUCTIONS = """\
@@ -90,7 +97,8 @@ Never fabricate locations, coordinates, routes, candidate identity, or catalog d
 - search_response: a catalog search completed
 - route_response: a route completed
 - clarify_response: a tool outcome requires user input
-- qa_response: a full answer, greeting, or capability introduction
+- greeting_response: a standalone greeting, thanks, farewell, or capability introduction
+- qa_response: a full general answer
 
 ## Outcome routing
 - resolve_anime resolved: call search_bangumi with its bangumi_id.
@@ -110,6 +118,7 @@ Never infer ambiguity from query length. Branch only on typed tool outcomes.
 - Route query: search if needed, then pass the explicit result_ref to plan_route.
 - last_result_ref is an anaphora hint, never an implicit plan_route argument.
 - A greeting followed by a real query follows the real search or route path.
+- A standalone greeting, thanks, farewell, or capability question emits greeting_response.
 
 ## Compact output
 Write a natural message sized to the response. For search, route, and clarify,
@@ -446,6 +455,7 @@ def _output_types() -> list[ToolOutput[RuntimeOutput]]:
         ToolOutput(ClarifyResponseModel, name="clarify_response"),
         ToolOutput(SearchResponseModel, name="search_response"),
         ToolOutput(RouteResponseModel, name="route_response"),
+        ToolOutput(GreetingResponseModel, name="greeting_response"),
         ToolOutput(QAResponseModel, name="qa_response"),
     ]
 
@@ -559,24 +569,50 @@ async def validate_output(
         ClarifyResponseModel
         | SearchResponseModel
         | RouteResponseModel
+        | GreetingResponseModel
         | QAResponseModel
     ),
-) -> ClarifyResponseModel | SearchResponseModel | RouteResponseModel | QAResponseModel:
+) -> (
+    ClarifyResponseModel
+    | SearchResponseModel
+    | RouteResponseModel
+    | GreetingResponseModel
+    | QAResponseModel
+):
     """Validate model prose against server-owned steps and typed registry state."""
     session = ctx.deps.tool_state.session
-    tools = [step.tool for step in ctx.deps.steps if step.success]
-    if isinstance(output, SearchResponseModel):
-        searched = any(tool in {"search_bangumi", "search_nearby"} for tool in tools)
-        ref = session.last_result_ref
-        if not searched or ref is None or ref not in session.search_results:
-            raise ModelRetry("Call a search tool before returning search_response.")
-    if isinstance(output, RouteResponseModel):
-        routed = any(tool in {"plan_route", "plan_selected"} for tool in tools)
-        if not routed or not session.routes:
-            raise ModelRetry("Call plan_route before returning route_response.")
+    if isinstance(output, SearchResponseModel) and not _valid_search(
+        ctx.deps.steps, session
+    ):
+        raise ModelRetry("Call a search tool before returning search_response.")
+    if isinstance(output, RouteResponseModel) and not _valid_route(
+        ctx.deps.steps, session
+    ):
+        raise ModelRetry("Call plan_route before returning route_response.")
     if isinstance(output, ClarifyResponseModel):
         _validate_clarify(output, session.pending_clarification)
     return output
+
+
+def _valid_search(steps: list[StepRecord], session: SessionState) -> bool:
+    step = _last_step(steps, {"search_bangumi", "search_nearby"})
+    provenance = step.provenance if step is not None else None
+    return (
+        isinstance(provenance, ProducedSearch)
+        and provenance.result_ref in session.search_results
+    )
+
+
+def _valid_route(steps: list[StepRecord], session: SessionState) -> bool:
+    step = _last_step(steps, {"plan_route", "plan_selected"})
+    provenance = step.provenance if step is not None else None
+    return (
+        isinstance(provenance, ProducedRoute) and provenance.route_ref in session.routes
+    )
+
+
+def _last_step(steps: list[StepRecord], tools: set[str]) -> StepRecord | None:
+    return next((step for step in reversed(steps) if step.tool in tools), None)
 
 
 def _validate_clarify(output: ClarifyResponseModel, pending: object) -> None:

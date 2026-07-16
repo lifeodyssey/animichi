@@ -58,6 +58,7 @@ export interface PilgrimagePoint {
   distance_m?: number;
   origin?: string;
   cover_url?: string;
+  city?: string;
 }
 
 /** Stable anime identity and trusted display metadata — mirrors `AnimeCandidate`. */

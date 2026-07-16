@@ -54,11 +54,20 @@ def test_agent_has_exact_six_tools_and_no_echo_or_search_meta_tools() -> None:
     assert all(tool.timeout == CATALOG_TOOL_TIMEOUT_SECONDS for tool in ANIMICHI_TOOLS)
 
 
-def test_plan_route_tool_definition_requires_only_explicit_ref() -> None:
+def test_plan_route_tool_definition_requires_explicit_ref_and_optional_pacing() -> None:
     definition = ANIMICHI_TOOLS[-1].tool_def
     assert definition.parameters_json_schema == {
         "additionalProperties": False,
-        "properties": {"search_result_ref": {"minLength": 1, "type": "string"}},
+        "properties": {
+            "search_result_ref": {"minLength": 1, "type": "string"},
+            "pacing": {
+                "anyOf": [
+                    {"enum": ["chill", "normal", "packed"], "type": "string"},
+                    {"type": "null"},
+                ],
+                "default": None,
+            },
+        },
         "required": ["search_result_ref"],
         "type": "object",
     }
