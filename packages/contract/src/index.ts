@@ -5,6 +5,7 @@
  */
 
 export * from "./models.js";
+export * from "./constants.js";
 export * from "./contract.js";
 export * from "./errors.js";
 export * from "./users-contract.js";
