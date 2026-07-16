@@ -16,6 +16,10 @@ import type { AnimeCandidate, ResolveOutcome } from "../types";
 
 export { MAX_CANDIDATES };
 
+const MIN_QUERY_LEN = 2;
+const MIN_SIMILAR_LEN = 2;
+const MAX_REVERSE_RATIO = 3;
+
 export interface AliasWork {
   work_id: string;
   priority: number;
@@ -107,7 +111,7 @@ function compareText(left: string, right: string): number {
   return left > right ? 1 : 0;
 }
 
-/** Bangumi MISS: only multiple normalized exact names trigger clarification. */
+/** Bangumi MISS: deterministic guarded name similarity partitions the results. */
 async function resolveMiss(query: string, fetchImpl?: FetchLike): Promise<ResolveOutcome> {
   let subjects: BangumiSearchSubject[];
   try {
@@ -124,17 +128,39 @@ async function resolveMiss(query: string, fetchImpl?: FetchLike): Promise<Resolv
 function resolveSubjects(query: string, subjects: BangumiSearchSubject[]): ResolveOutcome {
   const candidates = subjects.flatMap(safeSubjectCandidate);
   if (candidates.length === 0) return { outcome: "not_found", reason: "anime_not_found" };
-  const exact = exactCandidates(query, candidates);
-  if (exact.length >= 2) return ambiguous(exact.slice(0, MAX_CANDIDATES));
+  const similar = similarCandidates(query, subjects);
+  if (similar.length >= 2) return ambiguous(similar);
+  if (similar.length === 1) return resolved(similar[0]);
   return resolved(candidates[0]);
 }
 
-function exactCandidates(query: string, candidates: AnimeCandidate[]): AnimeCandidate[] {
-  const normalized = normalizeAlias(query);
-  return candidates.filter((candidate) =>
-    normalizeAlias(candidate.title) === normalized
-    || normalizeAlias(candidate.title_cn ?? "") === normalized,
-  );
+function similarCandidates(query: string, subjects: BangumiSearchSubject[]): AnimeCandidate[] {
+  const q = normalizeAlias(query);
+  if (q === "") return [];
+  return subjects
+    .filter((subject) => isSimilar(subjectName(subject.name) ?? "", subjectName(subject.name_cn), q))
+    .flatMap(safeSubjectCandidate)
+    .slice(0, MAX_CANDIDATES);
+}
+
+function isSimilar(name: string, nameCn: string | undefined, q: string): boolean {
+  const n = normalizeAlias(name);
+  const ncn = normalizeAlias(nameCn ?? "");
+  return matchesName(n, q) || matchesName(ncn, q);
+}
+
+function matchesName(n: string, q: string): boolean {
+  if (n.length === 0) return false;
+  if (n === q) return true;
+  if (q.length < MIN_QUERY_LEN) return false;
+  if (n.includes(q)) return true;
+  return q.includes(n)
+    && n.length >= MIN_SIMILAR_LEN
+    && q.length <= n.length * MAX_REVERSE_RATIO;
+}
+
+function subjectName(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
 }
 
 /** Reuse the ingest parser for real `images` and `date`/`air_date` fields. */
