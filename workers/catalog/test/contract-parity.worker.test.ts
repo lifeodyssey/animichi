@@ -24,6 +24,8 @@ import type {
   Route as ContractRoute,
   Pacing as ContractPacing,
   Origin as ContractOrigin,
+  AnimeCandidate as ContractAnimeCandidate,
+  ResolveOutcome as ContractResolveOutcome,
 } from "../../../packages/contract/src/models";
 
 import type {
@@ -57,6 +59,8 @@ import type {
   GeocodeCandidate as LocalGeocodeCandidate,
   GeocodeInput as LocalGeocodeInput,
   GeocodeResult as LocalGeocodeResult,
+  AnimeCandidate as LocalAnimeCandidate,
+  ResolveOutcome as LocalResolveOutcome,
 } from "../src/types";
 
 import type {
@@ -123,6 +127,12 @@ const _orig_b: LocalOrigin = null as unknown as ContractOrigin;
 const _sr_a: ContractSearchResult = null as unknown as ContractSearchResult;
 const _sr_b: LocalSearchResult = null as unknown as ContractSearchResult;
 
+// --- Catalog resolution ---
+const _ac_a: ContractAnimeCandidate = null as unknown as LocalAnimeCandidate;
+const _ac_b: LocalAnimeCandidate = null as unknown as ContractAnimeCandidate;
+const _ro_a: ContractResolveOutcome = null as unknown as LocalResolveOutcome;
+const _ro_b: LocalResolveOutcome = null as unknown as ContractResolveOutcome;
+
 // --- Geocode ---
 const _gc_a: ContractGeocodeCandidate = null as unknown as LocalGeocodeCandidate;
 const _gc_b: LocalGeocodeCandidate = null as unknown as ContractGeocodeCandidate;
@@ -156,6 +166,7 @@ const _uu_b: LocalUpstreamUnavailableData = null as unknown as ContractUpstreamU
 void _pp_a; void _pp_b; void _ts_a; void _ts_b; void _tl_a; void _tl_b; void _tl_attr_a; void _tl_attr_b; void _ti_a; void _ti_b;
 void _ir_a; void _ir_b; void _r_a; void _r_b; void _pac_a; void _pac_b; void _orig_a; void _orig_b;
 void _sr_a; void _sr_b;
+void _ac_a; void _ac_b; void _ro_a; void _ro_b;
 void _gc_a; void _gc_b; void _gc_radius_a; void _gc_radius_b; void _gi_a; void _gi_b; void _gr_a; void _gr_b;
 void _ecc_a; void _ecc_b; void _ecat_a; void _ecat_b; void _err_spec_a; void _err_spec_b;
 void _ingest_err_a; void _ingest_err_b;

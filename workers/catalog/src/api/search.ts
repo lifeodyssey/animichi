@@ -34,6 +34,7 @@ import type { CatalogDb } from "../db/client";
 import { normalizeAlias } from "../lib/alias";
 import { upstreamUnavailable } from "../lib/errors";
 import { optional } from "../lib/optional";
+import { withUpstreamUnavailable } from "../lib/upstream";
 import { ingestWork } from "../ingest/orchestrator";
 import {
   fetchAnitabiLite,
@@ -120,9 +121,14 @@ export async function search(
 }
 
 /** Alias HIT: return the work's published points from the catalog (no preview/ingest). */
-async function hitResult(db: SearchDb, workId: string): Promise<SearchResult> {
+export async function hitResult(db: SearchDb, workId: string): Promise<SearchResult> {
   const rows = await db.pointsForWork(workId);
   return { rows: rows.map(toPoint), synced_at: syncedAt(rows) };
+}
+
+/** Fetch one already-resolved work directly, without repeating free-text resolution. */
+export function pointsByWorkId(db: SearchDb, workId: string): Promise<SearchResult> {
+  return hitResult(db, workId);
 }
 
 /** Alias MISS: resolve + L1 preview now, full ingest in the background (or sync fallback). */
@@ -217,11 +223,7 @@ async function resolvePreview(
 
 /** Resolve a title via Bangumi; upstream failures become typed retryable errors. */
 async function resolveWorkId(query: string, fetchImpl?: FetchLike): Promise<string | null> {
-  try {
-    return await fetchBangumiSearch(query, { fetchImpl });
-  } catch (err) {
-    throw upstreamUnavailable("bangumi", err);
-  }
+  return withUpstreamUnavailable("bangumi", () => fetchBangumiSearch(query, { fetchImpl }));
 }
 
 /** Fetch an Anitabi lite preview. A 404 means the work has NO Anitabi pilgrimage

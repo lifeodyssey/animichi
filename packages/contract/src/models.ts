@@ -49,6 +49,33 @@ export const PilgrimagePoint = z.object({
 });
 export type PilgrimagePoint = z.infer<typeof PilgrimagePoint>;
 
+/** Stable catalog identity and trusted display metadata for one anime work. */
+export const AnimeCandidate = z.object({
+  bangumi_id: z.string(),
+  title: z.string(),
+  title_cn: z.string().optional(),
+  cover_url: z.string().optional(),
+  year: z.number().int().optional(),
+  points_count: z.number().int().nonnegative().optional(),
+});
+export type AnimeCandidate = z.infer<typeof AnimeCandidate>;
+
+/** Deterministic catalog resolution partition over a free-text anime title. */
+export const ResolveOutcome = z.discriminatedUnion("outcome", [
+  z.object({ outcome: z.literal("resolved"), match: AnimeCandidate }),
+  z.object({
+    outcome: z.literal("needs_disambiguation"),
+    reason: z.literal("anime_ambiguity"),
+    candidates: z.array(AnimeCandidate).min(2).max(6),
+  }),
+  z.object({ outcome: z.literal("not_found"), reason: z.literal("anime_not_found") }),
+  z.object({
+    outcome: z.literal("upstream_unavailable"),
+    provider: z.enum(["bangumi", "anitabi"]),
+  }),
+]);
+export type ResolveOutcome = z.infer<typeof ResolveOutcome>;
+
 /**
  * A stop on the route with arrival/departure times and dwell duration.
  * Mirrors TimedStop in models.py.
