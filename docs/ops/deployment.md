@@ -17,7 +17,8 @@ Browser
                                                             ├─ Anitabi API (`ANITABI_API_URL`)
                                                             ├─ catalog read path (`CATALOG_API_URL` → /catalog/*)
                                                             └─ MiMo primary (`MIMO_API_KEY`)
-                                                               └─ DeepSeek fallback (`DEEPSEEK_API_KEY`)
+                                                               └─ DeepSeek fallback temporarily disabled
+                                                                  (`DEEPSEEK_API_KEY` remains provisioned)
 ```
 
 The hybrid topology runs two Workers. The main `seichijunrei` Worker
@@ -95,13 +96,18 @@ Required:
 
 - `SUPABASE_DB_URL`
 - `MIMO_API_KEY` for the primary `mimo-v2.5` model
-- `DEEPSEEK_API_KEY` for the DeepSeek fallback
+- `DEEPSEEK_API_KEY` remains deploy-required and provisioned for the dormant DeepSeek fallback
+
+Production is temporarily MiMo-only while the DeepSeek account has insufficient balance. After
+recharging DeepSeek, set `FALLBACK_AGENT_MODEL=deepseek:deepseek-v4-flash` to re-enable the already
+provisioned fallback path.
 
 Common runtime config:
 
 - `ANITABI_API_URL`
 - `CORS_ALLOWED_ORIGIN`
 - `DEFAULT_AGENT_MODEL`
+- `FALLBACK_AGENT_MODEL` (empty by default for MiMo-only operation)
 - `LOG_LEVEL`
 - `MAX_RETRIES`
 - `TIMEOUT_SECONDS`

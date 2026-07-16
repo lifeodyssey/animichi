@@ -69,7 +69,9 @@ class Settings(BaseSettings):
     )
 
     # API Keys
-    deepseek_api_key: str = Field(default="", description="DeepSeek API key (required)")
+    deepseek_api_key: str = Field(
+        default="", description="DeepSeek API key (required when fallback is enabled)"
+    )
     mimo_api_key: str = Field(default="", description="MiMo API key (required)")
     gemini_api_key: str = Field(default="", description="Gemini API key for LLM agents")
     openai_compat_api_key: str = Field(
@@ -151,9 +153,12 @@ class Settings(BaseSettings):
         default="openai:mimo-v2.5@https://api.xiaomimimo.com/v1",
         description="Default primary LLM model (MiMo V2.5)",
     )
+    # Temporarily MiMo-only: the DeepSeek fallback is disabled pending a DeepSeek
+    # account recharge (402 Insufficient Balance). Re-enable by setting this back to
+    # `deepseek:deepseek-v4-flash` (the key + worker wiring are already provisioned).
     fallback_agent_model: str | None = Field(
-        default="deepseek:deepseek-v4-flash",
-        description="DeepSeek fallback model when the MiMo primary fails",
+        default="",
+        description="Optional fallback model; empty keeps the runtime MiMo-only",
     )
     openai_compat_base_url: str = Field(
         default="https://api.xiaomimimo.com/v1",

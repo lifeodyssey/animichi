@@ -108,7 +108,11 @@ async def test_slow_primary_returns_fast_fallback_within_deadline() -> None:
 
 
 async def test_httpx_timeout_error_drives_fallback_model() -> None:
-    settings = Settings(agent_deadline=0.12, model_attempt_timeout=0.05)
+    settings = Settings(
+        fallback_agent_model="deepseek:deepseek-v4-flash",
+        agent_deadline=0.12,
+        model_attempt_timeout=0.05,
+    )
     primary_transport = _TimeoutTransport()
     fallback_transport = _CompletionTransport()
     client = httpx.AsyncClient(
@@ -198,13 +202,13 @@ async def test_lone_primary_disables_sdk_retries() -> None:
         await client.aclose()
 
 
-async def test_production_default_is_mimo_with_deepseek_fallback(
+async def test_production_default_is_mimo_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("DEFAULT_AGENT_MODEL")
     monkeypatch.delenv("FALLBACK_AGENT_MODEL")
+    monkeypatch.delenv("DEEPSEEK_API_KEY")
     monkeypatch.setenv("MIMO_API_KEY", "prod-mimo-key")
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "prod-deepseek-key")
     settings = Settings(_env_file=None)
     client = httpx.AsyncClient()
     with patch("agent.config.get_settings", return_value=settings):
@@ -213,7 +217,28 @@ async def test_production_default_is_mimo_with_deepseek_fallback(
         assert settings.default_agent_model == (
             "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
         )
-        assert settings.fallback_agent_model == "deepseek:deepseek-v4-flash"
+        assert settings.fallback_agent_model == ""
+        assert not isinstance(model, FallbackModel)
+        assert model.model_name == "mimo-v2.5"
+        assert str(model.client.base_url).rstrip("/") == (
+            "https://api.xiaomimimo.com/v1"
+        )
+        assert model.client.api_key == "prod-mimo-key"
+        assert model.client.max_retries == 0
+    finally:
+        await client.aclose()
+
+
+async def test_explicit_deepseek_fallback_still_works() -> None:
+    settings = Settings(
+        fallback_agent_model="deepseek:deepseek-v4-flash",
+        mimo_api_key="prod-mimo-key",
+        deepseek_api_key="prod-deepseek-key",
+    )
+    client = httpx.AsyncClient()
+    with patch("agent.config.get_settings", return_value=settings):
+        model = get_default_model(http_client=client)
+    try:
         assert isinstance(model, FallbackModel)
         primary, fallback = model.models
         assert primary.model_name == "mimo-v2.5"
@@ -266,7 +291,7 @@ async def test_alias_override_reuses_injected_model_client() -> None:
 async def test_default_model_reuses_injected_model_client() -> None:
     client = httpx.AsyncClient()
     result = cast(AgentResult, object())
-    settings = Settings()
+    settings = Settings(fallback_agent_model="deepseek:deepseek-v4-flash")
     api = RuntimeAPI(
         object(),
         catalog=cast(CatalogClientProtocol, object()),
