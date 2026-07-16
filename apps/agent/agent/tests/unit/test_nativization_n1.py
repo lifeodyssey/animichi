@@ -74,7 +74,7 @@ async def test_native_run_failures_map_to_existing_error_path(
         "agent.interfaces.public_api.run_animichi_agent",
         new=AsyncMock(side_effect=UnexpectedModelBehavior("model retry limit reached")),
     ):
-        response = await RuntimeAPI(MagicMock()).handle(
+        response = await RuntimeAPI(MagicMock(), model_http_client=MagicMock()).handle(
             PublicAPIRequest(text="秒速5厘米的取景地在哪")
         )
 

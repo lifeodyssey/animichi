@@ -13,7 +13,7 @@ Endpoints under test:
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -84,7 +84,9 @@ def _build_app(tc_db: object) -> httpx.AsyncClient:
             return _make_clarify_result()
         return _make_qa_result()
 
-    runtime_api = RuntimeAPI(tc_db, session_store=InMemorySessionStore())
+    runtime_api = RuntimeAPI(
+        tc_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+    )
     app = create_fastapi_app(runtime_api=runtime_api, db=tc_db)
     app.state.runtime_api = runtime_api
     app.state.db_client = tc_db

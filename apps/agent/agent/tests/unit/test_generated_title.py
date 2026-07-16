@@ -67,7 +67,7 @@ class TestGeneratedTitleInResponse:
 
     # TODO: re-enable when conversation history title generation is wired back
     # async def test_first_interaction_includes_fallback_title(self, mock_db):
-    #     api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+    #     api = RuntimeAPI(mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock())
     #     response = await api.handle(
     #         PublicAPIRequest(text="響けの聖地を探して", locale="ja"),
     #         user_id="user-1",
@@ -90,7 +90,9 @@ class TestGeneratedTitleInResponse:
             "agent.interfaces.public_api.run_animichi_agent", _fake_greet
         )
 
-        api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+        api = RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        )
         response = await api.handle(
             PublicAPIRequest(text="你好", locale="zh"),
         )

@@ -69,14 +69,21 @@ def test_default_alias_uses_existing_default_model() -> None:
 def test_model_aliases_are_the_exact_server_owned_set(
     mock_settings: Settings,
 ) -> None:
-    with patch("agent.config.get_settings", return_value=mock_settings):
-        aliases = dict(MODEL_ALIASES)
+    aliases = dict(MODEL_ALIASES)
 
     assert set(aliases) == {"default", "deepseek", "mimo"}
-    assert aliases["default"].model_spec == mock_settings.default_agent_model
-    assert aliases["deepseek"].credential_env_ref == "DEEPSEEK_API_KEY"
-    assert aliases["mimo"].base_url == mock_settings.openai_compat_base_url
-    assert aliases["mimo"].credential_env_ref == "MIMO_API_KEY"
+    assert aliases["default"].name == "mimo-v2.5"
+    assert aliases["deepseek"].credential_ref.name == "DEEPSEEK_API_KEY"
+    assert aliases["mimo"].fixed_base_url == mock_settings.openai_compat_base_url
+    assert aliases["mimo"].credential_ref.name == "MIMO_API_KEY"
+    assert aliases["deepseek"].disable_thinking is True
+    assert aliases["mimo"].disable_thinking is False
+
+
+def test_model_alias_registry_is_built_once() -> None:
+    with patch("agent.config.model_aliases._build_aliases") as build:
+        assert MODEL_ALIASES.get("deepseek") is not None
+    build.assert_not_called()
 
 
 def test_deepseek_alias_uses_server_owned_provider() -> None:
@@ -102,6 +109,16 @@ def test_mimo_alias_uses_server_owned_provider(mock_settings: Settings) -> None:
 
 def test_none_model_override_remains_unchanged() -> None:
     assert resolve_model_alias(None) is None
+
+
+def test_allowlisted_alias_may_contain_http_substring() -> None:
+    expected = cast(Model, object())
+    alias = MagicMock()
+    with (
+        patch("agent.agents.base.MODEL_ALIASES", {"http_model": alias}),
+        patch("agent.agents.base._parse_model_alias", return_value=expected),
+    ):
+        assert resolve_model_alias("http_model") is expected
 
 
 async def test_none_model_override_is_forwarded_unchanged() -> None:

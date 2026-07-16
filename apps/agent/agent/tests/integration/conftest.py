@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -190,7 +190,9 @@ def _make_agent_result(text: str, _locale: str) -> AgentResult:
 def _build_test_app(db: SupabaseClient) -> FastAPI:
     settings = Settings()
     settings_store = create_session_store(db=db)
-    runtime_api = RuntimeAPI(db, session_store=settings_store)
+    runtime_api = RuntimeAPI(
+        db, session_store=settings_store, model_http_client=MagicMock()
+    )
 
     @asynccontextmanager
     async def _noop_lifespan(_app: FastAPI) -> AsyncIterator[None]:
