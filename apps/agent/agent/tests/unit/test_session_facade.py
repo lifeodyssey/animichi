@@ -10,7 +10,6 @@ from agent.agents.runtime_models import (
     SearchDataModel,
     SearchResponseModel,
 )
-from agent.agents.session_state import SessionState
 from agent.interfaces.schemas import PublicAPIRequest
 from agent.interfaces.session_facade import (
     SessionUpdate,
@@ -334,7 +333,7 @@ class TestExtractContextDelta:
         )
 
         delta = extract_context_delta(result)
-        assert delta == {"session_state_v2": SessionState().model_dump(mode="json")}
+        assert delta == {}
 
     def test_fallback_to_search_bangumi_rows(self) -> None:
         result = _make_agent_result(
