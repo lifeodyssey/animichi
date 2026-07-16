@@ -60,12 +60,12 @@ def _mapping(content: object) -> Mapping[str, object] | None:
 
 def _candidate_summary(content: object) -> str | None:
     data = _mapping(content)
-    if data is None or data.get("ambiguous") is not True:
+    if data is None or data.get("outcome") != "needs_disambiguation":
         return None
-    candidates = data.get("candidates")
-    if not isinstance(candidates, list):
+    candidate_ids = data.get("candidate_ids")
+    if not isinstance(candidate_ids, list):
         return None
-    encoded = json.dumps(candidates, ensure_ascii=False, separators=(",", ":"))
+    encoded = json.dumps(candidate_ids, ensure_ascii=False, separators=(",", ":"))
     return f"[resolve_anime: ambiguous, ordered_candidates={encoded}]"
 
 
@@ -125,6 +125,7 @@ def native_history_compaction(summarize: ToolSummary) -> TieredCompaction[Runtim
                 preserve_first_user_message=True,
             ),
             SlidingWindow(
+                # Required by SlidingWindow validation; TieredCompaction owns triggering.
                 max_tokens=HISTORY_MAX_TOKENS,
                 keep_tokens=HISTORY_KEEP_TOKENS,
                 preserve_first_user_message=False,
