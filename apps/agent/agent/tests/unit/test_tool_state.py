@@ -9,6 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from agent.agents.models import ToolName
+from agent.agents.session_state import CurrentAnime, SessionState
 from agent.agents.tool_state import SearchState, ToolState
 
 
@@ -32,3 +33,16 @@ def test_runtime_payload_rejects_unknown_typo_key() -> None:
             ToolName.RESOLVE_ANIME,
             {"title": "響け！ユーフォニアム", "row_cout": 1},
         )
+
+
+def test_session_state_never_leaks_into_legacy_tool_state_shape() -> None:
+    state = ToolState(
+        session=SessionState(
+            current_anime=CurrentAnime(
+                bangumi_id="115908",
+                title="響け！ユーフォニアム",
+            )
+        )
+    )
+
+    assert state.to_legacy_dict() == {}

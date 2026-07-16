@@ -8,11 +8,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import cast
 
 import structlog
+from pydantic import ValidationError
 
 from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.base import create_agent, get_default_model
+from agent.agents.session_state import SessionState
 from agent.domain.ports import get_session_repo
 from agent.infrastructure.session import SessionStore
 from agent.interfaces.schemas import PublicAPIRequest
@@ -218,6 +221,32 @@ def _extract_from_interactions(
     )
 
 
+def _parse_session_state(raw: object) -> SessionState | None:
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return SessionState.model_validate(raw)
+    except ValidationError:
+        logger.warning("invalid_session_state_v2")
+        return None
+
+
+def _latest_session_state(interactions: list[object]) -> SessionState | None:
+    for interaction in reversed(interactions):
+        if not isinstance(interaction, dict):
+            continue
+        raw_delta = interaction.get("context_delta")
+        if isinstance(raw_delta, dict) and "session_state_v2" in raw_delta:
+            state = _parse_session_state(raw_delta.get("session_state_v2"))
+            if state is not None:
+                return state
+    return None
+
+
+def _serialize_session_state(state: SessionState) -> dict[str, object]:
+    return cast(dict[str, object], state.model_dump(mode="json"))
+
+
 def _merge_user_memory(
     ictx: _InteractionContext,
     user_memory: dict[str, object],
@@ -259,6 +288,8 @@ def build_context_block(
     summary = as_str_or_none(session_state.get("summary"))
 
     ictx = _extract_from_interactions(interactions)
+    typed_session = _latest_session_state(interactions)
+    has_typed_session = typed_session is not None and not typed_session.is_empty()
     current_bangumi_id = ictx.current_bangumi_id
     current_anime_title = ictx.current_anime_title
     visited_bangumi_ids = list(ictx.visited_bangumi_ids)
@@ -275,6 +306,7 @@ def build_context_block(
         or summary
         or ictx.last_search_data is not None
         or ictx.pending_clarify
+        or has_typed_session
     )
     if not has_content:
         return None
@@ -293,6 +325,8 @@ def build_context_block(
         block["resolve_candidates"] = ictx.resolve_candidates
     if ictx.pending_clarify:
         block["pending_clarify"] = True
+    if has_typed_session and typed_session is not None:
+        block["session_state_v2"] = _serialize_session_state(typed_session)
     return block
 
 
@@ -400,7 +434,7 @@ def extract_context_delta(result: AgentResult) -> dict[str, object]:
     )
     if not pending_clarify and result.intent == "clarify" and resolve_candidates:
         pending_clarify = True
-    return _build_delta(
+    delta = _build_delta(
         bangumi_id,
         anime_title,
         location,
@@ -408,6 +442,8 @@ def extract_context_delta(result: AgentResult) -> dict[str, object]:
         resolve_candidates,
         pending_clarify,
     )
+    delta["session_state_v2"] = _serialize_session_state(result.session_state)
+    return delta
 
 
 async def compact_session_interactions(

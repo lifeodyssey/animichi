@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import structlog
+from pydantic import ValidationError
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
@@ -17,6 +18,15 @@ from agent.agents.runtime_deps import (
     TitleTranslator,
     WebSearcher,
 )
+from agent.agents.runtime_models import (
+    ClarifyResponseModel,
+    GreetingResponseModel,
+    QAResponseModel,
+    RouteResponseModel,
+    RuntimeStageOutput,
+    SearchResponseModel,
+)
+from agent.agents.session_state import SessionState
 from agent.agents.tool_state import SearchState, ToolState
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
@@ -31,6 +41,20 @@ RUN_USAGE_LIMITS = UsageLimits(
     request_limit=REQUEST_LIMIT,
     tool_calls_limit=TOOL_CALLS_LIMIT,
 )
+
+_STAGE_BY_OUTPUT: dict[type[RuntimeStageOutput], str] = {
+    SearchResponseModel: "search",
+    RouteResponseModel: "route",
+    ClarifyResponseModel: "clarify",
+    QAResponseModel: "general_qa",
+    GreetingResponseModel: "greet_user",
+}
+
+
+def runtime_stage(output: RuntimeStageOutput) -> str:
+    """Return the stable stage, using legacy sub-intents until Phase 1c."""
+    stage = _STAGE_BY_OUTPUT[type(output)]
+    return str(output.intent) if stage in {"search", "route"} else stage
 
 
 def _seed_geo_coords(tool_state: ToolState, context: dict[str, object]) -> None:
@@ -56,6 +80,16 @@ def _seed_search_data(tool_state: ToolState, context: dict[str, object]) -> None
         tool_state.search_bangumi = SearchState.model_validate(raw)
 
 
+def _seed_session_state(tool_state: ToolState, context: dict[str, object]) -> None:
+    raw = context.get("session_state_v2")
+    if not isinstance(raw, dict):
+        return
+    try:
+        tool_state.session = SessionState.model_validate(raw)
+    except ValidationError:
+        logger.warning("invalid_session_state_v2")
+
+
 def _seed_tool_state(deps: RuntimeDeps, context: dict[str, object] | None) -> None:
     deps.tool_state.locale = deps.locale
     if context is None:
@@ -71,6 +105,7 @@ def _seed_tool_state(deps: RuntimeDeps, context: dict[str, object] | None) -> No
     if context.get("pending_clarify") is True:
         deps.tool_state.pending_clarify = True
 
+    _seed_session_state(deps.tool_state, context)
     _seed_search_data(deps.tool_state, context)
 
 
@@ -121,6 +156,8 @@ async def run_animichi_agent(
 
     result = AgentResult(
         output=raw_output,
+        intent=runtime_stage(raw_output),
+        session_state=deps.tool_state.session,
         steps=list(deps.steps),
         tool_state=deps.tool_state.to_legacy_dict(),
         new_messages=list(run_result.new_messages()),

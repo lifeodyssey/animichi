@@ -12,6 +12,7 @@ from agent.agents.runtime_models import (
     SearchDataModel,
     SearchResponseModel,
 )
+from agent.agents.session_state import SessionState
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.interfaces.session_facade import (
     build_context_block as _build_context_block,
@@ -94,7 +95,7 @@ class TestContextExtraction:
         )
 
         delta = _extract_context_delta(result)
-        assert delta == {}
+        assert delta == {"session_state_v2": SessionState().model_dump(mode="json")}
 
     def test_build_context_block_from_interactions(self) -> None:
         state = {

@@ -11,6 +11,7 @@ from pydantic_ai.messages import ModelMessage
 from pydantic_ai.usage import RunUsage
 
 from agent.agents.runtime_models import RuntimeStageOutput
+from agent.agents.session_state import SessionState
 from agent.agents.tool_state import LegacyPayload
 
 
@@ -34,13 +35,21 @@ class AgentResult:
     tool_state: LegacyPayload = field(default_factory=dict)
     new_messages: list[ModelMessage] = field(default_factory=list)
     usage: RunUsage | None = None
+    intent: str = ""
+    session_state: SessionState = field(default_factory=SessionState)
+    status: str | None = None
+    success_override: bool | None = None
 
-    @property
-    def intent(self) -> str:
-        return str(self.output.intent)
+    def __post_init__(self) -> None:
+        """Read the legacy output intent only for unmigrated constructors."""
+        if self.intent:
+            return
+        self.intent = str(self.output.intent)
 
     @property
     def success(self) -> bool:
+        if self.success_override is not None:
+            return self.success_override
         return all(s.success for s in self.steps) if self.steps else True
 
     @property
