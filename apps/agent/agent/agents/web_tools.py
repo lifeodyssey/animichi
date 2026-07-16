@@ -15,7 +15,7 @@ from pydantic_ai.common_tools.duckduckgo import (
     DuckDuckGoResult,
     duckduckgo_search_tool,
 )
-from pydantic_ai.tools import Tool, ToolFuncEither
+from pydantic_ai.tools import ToolFuncEither
 
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.translation import TranslationResult, translate_title
@@ -73,20 +73,22 @@ async def web_search(
     *,
     query: str,
 ) -> str:
-    """Search the web for information using DuckDuckGo.
+    """Search the web for QA and title enrichment using DuckDuckGo.
 
-    Use this when you need to:
+    Use this only when you need to:
     - Find the correct translation of an anime title
-    - Look up information about a pilgrimage location
-    - Verify facts about an anime or location
+    - Verify a fact about an anime or an already-known location
     - Find community-accepted translations from 萌娘百科 or Wikipedia
+
+    Do not use this tool to find pilgrimage locations or spots. Use the catalog
+    tools search_nearby and search_bangumi for pilgrimage discovery.
 
     Args:
         query: The search query. Be specific. Include the language you want results in.
                Examples:
                - "響け！ユーフォニアム Chinese name 中文名"
                - "Your Name anime Japanese title"
-               - "宇治駅 anime pilgrimage spots"
+               - "葬送のフリーレン English title Wikipedia"
 
     Returns a text summary of the top search results.
     """
@@ -145,8 +147,3 @@ async def _translate_title(
 
 
 TOOLS: list[ToolFuncEither[RuntimeDeps]] = [web_search, translate_anime_title]
-
-DEFERRED_TOOLS: list[Tool[RuntimeDeps]] = [
-    Tool(web_search, defer_loading=True),
-    Tool(translate_anime_title, defer_loading=True),
-]

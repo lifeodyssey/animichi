@@ -48,7 +48,7 @@ async def _run_and_capture_instructions() -> str:
         observed = info.instructions or ""
         return ModelResponse(parts=[ToolCallPart("qa_response", _QA_OUTPUT)])
 
-    agent = build_animichi_agent(modern_composition=True)
+    agent = build_animichi_agent()
     await agent.run("hello", deps=_deps(), model=FunctionModel(respond))
     return observed
 

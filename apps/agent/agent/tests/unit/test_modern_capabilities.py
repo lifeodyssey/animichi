@@ -1,4 +1,4 @@
-"""Modern progressive-disclosure and hook behavior."""
+"""Eager web-tool and production hook behavior."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from agent.agents.translation import TranslationResult
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.eval.mock_web import MockWebSearcher
 
-_DEFERRED = {"web_search", "translate_anime_title"}
+_WEB_TOOLS = {"web_search", "translate_anime_title"}
 _QA_OUTPUT = {"message": "ok"}
 
 
@@ -53,7 +53,7 @@ def _local_model(respond: FunctionDef) -> FunctionModel:
     )
 
 
-async def test_deferred_tools_are_discovered_and_invoked_end_to_end() -> None:
+async def test_eager_web_tools_are_offered_and_invoked_end_to_end() -> None:
     calls: list[tuple[str, str]] = []
     search = MockWebSearcher()
 
@@ -63,15 +63,7 @@ async def test_deferred_tools_are_discovered_and_invoked_end_to_end() -> None:
 
     def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         names = {tool.name for tool in info.function_tools}
-        if not _DEFERRED <= names:
-            return ModelResponse(
-                parts=[
-                    ToolCallPart(
-                        "search_tools",
-                        {"queries": ["translate anime title", "web search"]},
-                    )
-                ]
-            )
+        assert _WEB_TOOLS <= names
         if not _returned(messages, "translate_anime_title"):
             args = {"title": "君の名は。", "target_language": "zh"}
             return ModelResponse(parts=[ToolCallPart("translate_anime_title", args)])
@@ -81,7 +73,7 @@ async def test_deferred_tools_are_discovered_and_invoked_end_to_end() -> None:
             )
         return ModelResponse(parts=[ToolCallPart("qa_response", _QA_OUTPUT)])
 
-    result = await build_animichi_agent(modern_composition=True).run(
+    result = await build_animichi_agent().run(
         "translate",
         deps=_deps(title_translator=translate, web_searcher=search),
         model=_local_model(respond),
@@ -99,17 +91,14 @@ async def test_instructions_remain_cache_neutral_across_output_retry() -> None:
         args = {} if len(instructions) == 1 else _QA_OUTPUT
         return ModelResponse(parts=[ToolCallPart("qa_response", args)])
 
-    await build_animichi_agent(modern_composition=True).run(
-        "retry", deps=_deps(), model=_local_model(respond)
-    )
+    await build_animichi_agent().run("retry", deps=_deps(), model=_local_model(respond))
     assert len(instructions) == 2
     assert instructions[0] == instructions[1]
     assert all("Current session state" not in text for text in instructions)
 
 
-@pytest.mark.parametrize(("modern", "expected"), [(True, 1), (False, 0)])
-async def test_run_error_hook_matches_composition(
-    monkeypatch: pytest.MonkeyPatch, modern: bool, expected: int
+async def test_run_error_hook_records_and_reraises(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     recorded: list[BaseException] = []
     monkeypatch.setattr(
@@ -120,7 +109,7 @@ async def test_run_error_hook_matches_composition(
         raise RuntimeError("model failed")
 
     with pytest.raises(RuntimeError, match="model failed"):
-        await build_animichi_agent(modern_composition=modern).run(
+        await build_animichi_agent().run(
             "fail", deps=_deps(), model=FunctionModel(fail)
         )
-    assert len(recorded) == expected
+    assert len(recorded) == 1
