@@ -51,6 +51,10 @@ class QAResponseModel(_CompactOutput):
     """Full prose answer; the message intentionally has no length cap."""
 
 
+class PartialResponseModel(_CompactOutput):
+    """Runner-authored notice for a graceful incomplete result."""
+
+
 RuntimeStageOutput = (
     ClarifyResponseModel
     | SearchResponseModel
@@ -58,3 +62,5 @@ RuntimeStageOutput = (
     | GreetingResponseModel
     | QAResponseModel
 )
+
+AgentResultOutput = RuntimeStageOutput | PartialResponseModel

@@ -137,3 +137,26 @@ async def test_chat_invalid_locale_defaults_to_ja() -> None:
             headers={"X-User-Id": "user-1", "X-Locale": "fr"},
         )
     assert runtime.handle.await_args.args[0].locale == "ja"
+
+
+async def test_chat_partial_response_completes_as_data_response() -> None:
+    runtime = _runtime()
+    runtime.handle.return_value = PublicAPIResponse(
+        success=False,
+        status="partial",
+        intent="partial",
+        message="Partial results are shown.",
+        data={},
+        ui={"component": "GeneralAnswer"},
+    )
+    app, _ = build_app(runtime_api=runtime)
+    async with async_client(app) as client:
+        response = await client.post(
+            "/v1/chat",
+            json=_body(),
+            headers={"X-User-Id": "user-1"},
+        )
+    assert response.status_code == 200
+    assert '"type":"data-response"' in response.text
+    assert '"status":"partial"' in response.text
+    assert '"type":"error"' not in response.text

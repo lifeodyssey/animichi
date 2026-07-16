@@ -120,7 +120,7 @@ async def persist_result(
         user_text=request.text,
         result=result,
         response=response,
-        persist_user_only=not response.success,
+        persist_user_only=not response.success and response.status != "partial",
     )
 
     # DECISION(2026-07-07): session compaction stays disabled pending proper
@@ -278,8 +278,9 @@ async def maybe_persist_route(
     result: AgentResult,
     response: PublicAPIResponse,
 ) -> dict[str, object] | None:
-    route_intents = {"plan_route", "plan_selected", "plan_multi"}
-    if not response.success or result.intent not in route_intents:
+    if result.provenance.route is None:
+        return None
+    if not response.success and response.status != "partial":
         return None
 
     route_data = response.data.get("route")
