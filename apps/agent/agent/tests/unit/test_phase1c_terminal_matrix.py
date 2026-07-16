@@ -22,6 +22,7 @@ async def test_500_points_routes_but_501_does_not() -> None:
         candidate_ids=["1"], state=_pending(), locale="en", catalog=catalog
     )
     assert (rejected.status, rejected.success) == ("too_large", False)
+    assert (rejected.steps[-1].success, rejected.steps[-1].error) == (True, None)
     assert not rejected.session_state.routes
 
 
@@ -37,6 +38,7 @@ async def test_50_cluster_success_and_typed_51_cluster_rejection() -> None:
         candidate_ids=["1"], state=_pending(), locale="en", catalog=catalog
     )
     assert (rejected.status, rejected.success) == ("too_large", False)
+    assert (rejected.steps[-1].success, rejected.steps[-1].error) == (True, None)
     assert rejected.session_state.pending_clarification is not None
 
 
@@ -84,6 +86,7 @@ async def test_t4_wire_has_results_without_route_and_same_revision_can_retry() -
     empty_ref = state.last_result_ref
     wire = agent_result_to_response(empty, include_debug=False)
     assert "results" in wire.data and "route" not in wire.data
+    assert (empty.steps[-1].success, empty.steps[-1].error) == (True, None)
     assert state.pending_clarification is not None
     assert state.pending_clarification.revision == 4
     retried = await execute_multi_selection(
@@ -104,6 +107,10 @@ async def test_t5_preserves_pending_and_writes_no_registry_refs() -> None:
         catalog=_Catalog({"1": OSError("x"), "2": OSError("y")}),
     )
     assert (result.status, result.success) == ("error", False)
+    assert (result.steps[-1].success, result.steps[-1].error) == (
+        False,
+        "Catalog fetch failed",
+    )
     assert state.pending_clarification is not None
     assert not state.search_results and not state.routes
 
