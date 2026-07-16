@@ -1,19 +1,20 @@
 /** Deterministic anime-title resolver over the alias index and Bangumi MISS path. */
+import { MAX_CANDIDATES } from "@seichijunrei/contract/constants";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import { parseBangumi, type BangumiRow } from "../enrich/parse";
 import {
   BANGUMI_FETCH_N,
   fetchBangumiSubjects,
+  UpstreamFetchError,
   type BangumiSearchSubject,
   type FetchLike,
 } from "../ingest/sources";
 import { normalizeAlias } from "../lib/alias";
 import { optional } from "../lib/optional";
-import { withUpstreamUnavailable } from "../lib/upstream";
 import type { AnimeCandidate, ResolveOutcome } from "../types";
 
-export const MAX_CANDIDATES = 6;
+export { MAX_CANDIDATES };
 
 export interface AliasWork {
   work_id: string;
@@ -37,17 +38,22 @@ export async function resolve(
 ): Promise<ResolveOutcome> {
   const rows = await db.worksForAlias(normalizeAlias(input.query));
   const works = dedupeWorks(rows);
-  if (works.length > 0) return resolveHit(db, works);
+  if (works.length > 0) {
+    const hit = await resolveHit(db, works);
+    if (hit) return hit;
+  }
   return resolveMiss(input.query, opts.fetchImpl);
 }
 
 /** Apply the top-priority tie rule to alias-index works. */
-async function resolveHit(db: ResolveDb, works: AliasWork[]): Promise<ResolveOutcome> {
-  const maxPriority = Math.max(...works.map((work) => work.priority));
-  const top = works.filter((work) => work.priority === maxPriority);
-  const candidates = await loadCandidates(db, top);
-  if (top.length === 1) return resolved(candidates[0]);
-  return ambiguous(rankCandidates(top, candidates).slice(0, MAX_CANDIDATES));
+async function resolveHit(db: ResolveDb, works: AliasWork[]): Promise<ResolveOutcome | undefined> {
+  const candidates = await db.candidatesForWorks(works.map((work) => work.work_id));
+  const survivors = survivingWorks(works, candidates);
+  if (survivors.length === 0) return undefined;
+  const top = topPriorityWorks(survivors);
+  const topCandidates = candidatesForWorks(top, candidates);
+  if (top.length === 1) return resolved(topCandidates[0]);
+  return ambiguous(rankCandidates(top, topCandidates).slice(0, MAX_CANDIDATES));
 }
 
 /** Collapse repeated source rows by work id, retaining each work's max priority. */
@@ -59,12 +65,20 @@ function dedupeWorks(rows: AliasWork[]): AliasWork[] {
   return [...priorities].map(([work_id, priority]) => ({ work_id, priority }));
 }
 
-/** Load every requested catalog candidate or fail the broken catalog invariant. */
-async function loadCandidates(db: ResolveDb, works: AliasWork[]): Promise<AnimeCandidate[]> {
-  const ids = works.map((work) => work.work_id);
-  const candidates = await db.candidatesForWorks(ids);
-  if (candidates.length !== ids.length) throw new Error("Alias work is missing Bangumi metadata");
-  return candidates;
+/** Keep only alias works backed by loadable Bangumi metadata. */
+function survivingWorks(works: AliasWork[], candidates: AnimeCandidate[]): AliasWork[] {
+  const ids = new Set(candidates.map((candidate) => candidate.bangumi_id));
+  return works.filter((work) => ids.has(work.work_id));
+}
+
+function topPriorityWorks(works: AliasWork[]): AliasWork[] {
+  const maxPriority = Math.max(...works.map((work) => work.priority));
+  return works.filter((work) => work.priority === maxPriority);
+}
+
+function candidatesForWorks(works: AliasWork[], candidates: AnimeCandidate[]): AnimeCandidate[] {
+  const ids = new Set(works.map((work) => work.work_id));
+  return candidates.filter((candidate) => ids.has(candidate.bangumi_id));
 }
 
 /** Rank by priority desc, point coverage desc/null-last, then stable id asc. */
@@ -74,15 +88,18 @@ function rankCandidates(works: AliasWork[], candidates: AnimeCandidate[]): Anime
 }
 
 function compareCandidates(left: AnimeCandidate, right: AnimeCandidate, priorities: Map<string, number>): number {
-  const priority = (priorities.get(right.bangumi_id) ?? -Infinity)
-    - (priorities.get(left.bangumi_id) ?? -Infinity);
+  const priority = priorityRank(right, priorities) - priorityRank(left, priorities);
   if (priority !== 0) return priority;
   const points = pointRank(right) - pointRank(left);
   return points !== 0 ? points : compareText(left.bangumi_id, right.bangumi_id);
 }
 
+function priorityRank(candidate: AnimeCandidate, priorities: Map<string, number>): number {
+  return priorities.get(candidate.bangumi_id) ?? -1;
+}
+
 function pointRank(candidate: AnimeCandidate): number {
-  return candidate.points_count ?? -Infinity;
+  return candidate.points_count ?? -1;
 }
 
 function compareText(left: string, right: string): number {
@@ -94,16 +111,18 @@ function compareText(left: string, right: string): number {
 async function resolveMiss(query: string, fetchImpl?: FetchLike): Promise<ResolveOutcome> {
   let subjects: BangumiSearchSubject[];
   try {
-    subjects = await withUpstreamUnavailable("bangumi", () =>
-      fetchBangumiSubjects(query, { limit: BANGUMI_FETCH_N, fetchImpl }));
-  } catch {
-    return { outcome: "upstream_unavailable", provider: "bangumi" };
+    subjects = await fetchBangumiSubjects(query, { limit: BANGUMI_FETCH_N, fetchImpl });
+  } catch (error) {
+    if (error instanceof UpstreamFetchError) {
+      return { outcome: "upstream_unavailable", provider: "bangumi" };
+    }
+    throw error;
   }
   return resolveSubjects(query, subjects);
 }
 
 function resolveSubjects(query: string, subjects: BangumiSearchSubject[]): ResolveOutcome {
-  const candidates = subjects.map(subjectCandidate);
+  const candidates = subjects.flatMap(safeSubjectCandidate);
   if (candidates.length === 0) return { outcome: "not_found", reason: "anime_not_found" };
   const exact = exactCandidates(query, candidates);
   if (exact.length >= 2) return ambiguous(exact.slice(0, MAX_CANDIDATES));
@@ -121,6 +140,14 @@ function exactCandidates(query: string, candidates: AnimeCandidate[]): AnimeCand
 /** Reuse the ingest parser for real `images` and `date`/`air_date` fields. */
 function subjectCandidate(subject: BangumiSearchSubject): AnimeCandidate {
   return rowCandidate(parseBangumi(subject.id, subject));
+}
+
+function safeSubjectCandidate(subject: BangumiSearchSubject): AnimeCandidate[] {
+  try {
+    return [subjectCandidate(subject)];
+  } catch {
+    return [];
+  }
 }
 
 function rowCandidate(row: BangumiRow, points_count?: number): AnimeCandidate {

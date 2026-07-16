@@ -5,6 +5,7 @@ import {
   type AliasWork,
   type ResolveDb,
 } from "../src/api/resolve";
+import type { FetchLike } from "../src/ingest/sources";
 import type { AnimeCandidate, ResolveOutcome } from "../src/types";
 
 type AmbiguousOutcome = Extract<ResolveOutcome, { outcome: "needs_disambiguation" }>;
@@ -19,6 +20,12 @@ function fakeDb(works: AliasWork[], candidates: AnimeCandidate[]): ResolveDb {
     candidatesForWorks: (ids) => Promise.resolve(candidates.filter((item) => ids.includes(item.bangumi_id))),
   };
 }
+
+const EMPTY_SUBJECTS: FetchLike = () => Promise.resolve({
+  ok: true,
+  status: 200,
+  json: () => Promise.resolve({ data: [] }),
+});
 
 describe("resolve alias HIT deduplication and ties", () => {
   it("deduplicates duplicate alias rows for one work before deciding ambiguity", async () => {
@@ -55,6 +62,26 @@ describe("resolve alias HIT deduplication and ties", () => {
       candidates: [candidate("200", 7), candidate("100", 3)],
     });
   });
+
+  it("drops an orphaned top alias and re-ranks the surviving work", async () => {
+    const db = fakeDb(
+      [{ work_id: "missing", priority: 50 }, { work_id: "present", priority: 40 }],
+      [candidate("present", 2)],
+    );
+
+    await expect(resolve(db, { query: "Stale Alias" })).resolves.toEqual({
+      outcome: "resolved",
+      match: candidate("present", 2),
+    });
+  });
+
+  it("falls through to MISS when every alias work is orphaned", async () => {
+    const db = fakeDb([{ work_id: "missing", priority: 40 }], []);
+
+    await expect(resolve(db, { query: "Stale Alias" }, {
+      fetchImpl: EMPTY_SUBJECTS,
+    })).resolves.toEqual({ outcome: "not_found", reason: "anime_not_found" });
+  });
 });
 
 describe("resolve alias HIT priority and candidate cap", () => {
@@ -81,7 +108,7 @@ describe("resolve alias HIT priority and candidate cap", () => {
     }));
     const candidates = [
       candidate("1", 9), candidate("2", 9), candidate("3", 7), candidate("4", 5),
-      candidate("5", 3), candidate("6", 1), candidate("7"), candidate("8"),
+      candidate("8"), candidate("7"), candidate("6"), candidate("5"),
     ];
 
     const result = await resolve(fakeDb(works, candidates), { query: "Series" });

@@ -27,7 +27,7 @@ describe("resolve alias MISS outcome partition", () => {
   });
 
   it("clarifies two normalized-name-exact Bangumi subjects", async () => {
-    const data = [subject(1, "ＦＡＴＥ"), subject(2, "Fate", "命运")];
+    const data = [subject(1, "ＦＡＴＥ"), subject(2, "Fate/Zero", "Fate")];
 
     const result = await resolve(MISS_DB, { query: " fate " }, {
       fetchImpl: response({ data }),
@@ -51,7 +51,7 @@ describe("resolve alias MISS outcome partition", () => {
   });
 });
 
-describe("resolve alias MISS parsing and outages", () => {
+describe("resolve alias MISS subject parsing", () => {
   it("parses cover from images and prefers date when deriving year", async () => {
     const data = [{
       id: 30,
@@ -85,9 +85,42 @@ describe("resolve alias MISS parsing and outages", () => {
     });
   });
 
+  it("skips a nameless subject without discarding valid relevance-ordered results", async () => {
+    const data = [subject(50, "Fate/stay night"), { id: 51 }, subject(52, "Fate/Zero")];
+
+    await expect(resolve(MISS_DB, { query: "Fate series" }, {
+      fetchImpl: response({ data }),
+    })).resolves.toMatchObject({
+      outcome: "resolved",
+      match: { bangumi_id: "50", title: "Fate/stay night" },
+    });
+  });
+});
+
+describe("resolve alias MISS outages", () => {
+  it("surfaces a Bangumi network failure as upstream_unavailable", async () => {
+    const networkFailure: FetchLike = () => Promise.reject(new Error("network down"));
+
+    await expect(resolve(MISS_DB, { query: "outage" }, {
+      fetchImpl: networkFailure,
+    })).resolves.toEqual({ outcome: "upstream_unavailable", provider: "bangumi" });
+  });
+
   it("surfaces Bangumi 5xx as upstream_unavailable", async () => {
     await expect(resolve(MISS_DB, { query: "outage" }, {
       fetchImpl: response(null, 503),
+    })).resolves.toEqual({ outcome: "upstream_unavailable", provider: "bangumi" });
+  });
+
+  it("surfaces malformed Bangumi JSON as upstream_unavailable", async () => {
+    const invalidJson: FetchLike = () => Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.reject(new Error("invalid Bangumi JSON")),
+    });
+
+    await expect(resolve(MISS_DB, { query: "broken" }, {
+      fetchImpl: invalidJson,
     })).resolves.toEqual({ outcome: "upstream_unavailable", provider: "bangumi" });
   });
 });

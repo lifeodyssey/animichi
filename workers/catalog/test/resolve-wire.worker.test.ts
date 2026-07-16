@@ -1,16 +1,16 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import assert from "node:assert/strict";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { CatalogDb, NeonSql } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 
 const handler = new OpenAPIHandler(catalogRouter);
 
-function context(responses: unknown[][]): CatalogContext {
+function context(responses: unknown[][], fetchImpl?: typeof fetch): CatalogContext {
   const execute = () => Promise.resolve({ rows: responses.shift() ?? [] });
   const db = { execute } as unknown as CatalogDb;
   const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
-  return { db, neonSql };
+  return { db, neonSql, fetchImpl };
 }
 
 async function call(path: string, body: unknown, ctx: CatalogContext): Promise<Response> {
@@ -26,6 +26,16 @@ async function call(path: string, body: unknown, ctx: CatalogContext): Promise<R
 }
 
 describe("Phase 1a catalog procedures on the oRPC wire", () => {
+  it.each(["", " \t\n"])("rejects a blank resolve query before upstream fetch: %j", async (query) => {
+    const fetchImpl = vi.fn<typeof fetch>(() => Promise.reject(new Error("upstream must not run")));
+
+    const response = await call("resolve", { query }, context([], fetchImpl));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ defined: false, status: 400 });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it("serves the deterministic resolve outcome", async () => {
     const response = await call("resolve", { query: "Lucky Star" }, context([
       [{ work_id: "3302", priority: 40 }],
