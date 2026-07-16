@@ -204,7 +204,7 @@ async function fetchJson(url: string, upstream: UpstreamName, fetchImpl?: FetchL
   const res = await request(doFetch, url, upstream, { headers: { "User-Agent": USER_AGENT } });
   if (res.status === 404) throw new UpstreamNotFoundError(url);
   if (!res.ok) throw new UpstreamFetchError(`${url} (${String(res.status)})`, upstream);
-  return res.json();
+  return decodeJson(res, url, upstream);
 }
 
 /** POST a JSON body + JSON-decode with status guarding; throws on a non-2xx response. */
@@ -213,7 +213,16 @@ async function postJson(url: string, body: string, upstream: UpstreamName, fetch
   const headers = { "User-Agent": USER_AGENT, "Content-Type": "application/json" };
   const res = await request(doFetch, url, upstream, { method: "POST", headers, body });
   if (!res.ok) throw new UpstreamFetchError(`${url} (${String(res.status)})`, upstream);
-  return res.json();
+  return decodeJson(res, url, upstream);
+}
+
+/** Convert malformed response bodies into source-aware upstream failures. */
+async function decodeJson(res: Awaited<ReturnType<FetchLike>>, url: string, upstream: UpstreamName): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch (err) {
+    throw new UpstreamFetchError(url, upstream, err);
+  }
 }
 
 /** Convert network failures into a transport-specific error for source-aware callers. */

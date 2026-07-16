@@ -9,6 +9,7 @@
  */
 
 import { z } from "zod";
+import { MAX_CANDIDATES } from "./constants.js";
 
 export const Latitude = z.number().min(-90).max(90);
 export const Longitude = z.number().min(-180).max(180);
@@ -66,7 +67,7 @@ export const ResolveOutcome = z.discriminatedUnion("outcome", [
   z.object({
     outcome: z.literal("needs_disambiguation"),
     reason: z.literal("anime_ambiguity"),
-    candidates: z.array(AnimeCandidate).min(2).max(6),
+    candidates: z.array(AnimeCandidate).min(2).max(MAX_CANDIDATES),
   }),
   z.object({ outcome: z.literal("not_found"), reason: z.literal("anime_not_found") }),
   z.object({

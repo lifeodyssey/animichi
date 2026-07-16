@@ -37,7 +37,7 @@ export const SearchResult = z.object({
 export type SearchResult = z.infer<typeof SearchResult>;
 
 /** resolve(query) -> deterministic anime identity outcome */
-export const ResolveInput = z.object({ query: z.string() });
+export const ResolveInput = z.object({ query: z.string().trim().min(1) });
 export type ResolveInput = z.infer<typeof ResolveInput>;
 
 /** pointsByWorkId(work_id) -> the existing SearchResult shape */
