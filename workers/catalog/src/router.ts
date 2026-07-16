@@ -1,6 +1,7 @@
 import { catalogContract } from "@seichijunrei/contract";
 import { implement } from "@orpc/server";
-import { search as searchHandler, searchDb } from "./api/search";
+import { resolve as resolveHandler, resolveDb } from "./api/resolve";
+import { pointsByWorkId, search as searchHandler, searchDb } from "./api/search";
 import { nearby as nearbyHandler } from "./api/nearby";
 import { geocode as geocodeHandler } from "./api/geocode";
 import { route as routeHandler } from "./api/route";
@@ -29,6 +30,14 @@ const search = os.search.handler(async ({ input, context }) =>
     fetchImpl: context.fetchImpl,
     waitUntil: context.waitUntil,
   }),
+);
+
+const resolve = os.resolve.handler(async ({ input, context }) =>
+  resolveHandler(resolveDb(context.db), input, { fetchImpl: context.fetchImpl }),
+);
+
+const pointsById = os.pointsByWorkId.handler(async ({ input, context }) =>
+  pointsByWorkId(searchDb(context.db), input.work_id),
 );
 
 const spots = os.spots.handler(async ({ input, context }) =>
@@ -83,5 +92,14 @@ async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Or
   }
 }
 
-export const catalogRouter = { search, spots, nearby, geocode, route, ingest };
+export const catalogRouter = {
+  search,
+  resolve,
+  pointsByWorkId: pointsById,
+  spots,
+  nearby,
+  geocode,
+  route,
+  ingest,
+};
 export type CatalogRouter = typeof catalogRouter;

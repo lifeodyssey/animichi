@@ -1,5 +1,5 @@
 /**
- * The oRPC contract for the TS Catalog service's 4 read methods.
+ * The oRPC contract for the TS Catalog service procedures.
  *
  * This is the single source of truth for the request/response shapes the
  * Python Agent service (client) calls against the Catalog service (server).
@@ -8,7 +8,16 @@
 import { oc } from "@orpc/contract";
 import { z } from "zod";
 import { pickCatalogErrors } from "./errors.js";
-import { IngestResult, Latitude, Longitude, Origin, PilgrimagePoint, Pacing, Route } from "./models.js";
+import {
+  IngestResult,
+  Latitude,
+  Longitude,
+  Origin,
+  PilgrimagePoint,
+  Pacing,
+  ResolveOutcome,
+  Route,
+} from "./models.js";
 
 /** search(query, origin?) -> { rows, synced_at, partial? } */
 export const SearchInput = z.object({
@@ -26,6 +35,14 @@ export const SearchResult = z.object({
   partial: z.boolean().optional(),
 });
 export type SearchResult = z.infer<typeof SearchResult>;
+
+/** resolve(query) -> deterministic anime identity outcome */
+export const ResolveInput = z.object({ query: z.string() });
+export type ResolveInput = z.infer<typeof ResolveInput>;
+
+/** pointsByWorkId(work_id) -> the existing SearchResult shape */
+export const PointsByWorkIdInput = z.object({ work_id: z.string() });
+export type PointsByWorkIdInput = z.infer<typeof PointsByWorkIdInput>;
 
 /** spots(bangumi_id, origin?) -> { point, distance_m? } */
 export const SpotsInput = z.object({
@@ -100,6 +117,18 @@ export const catalogContract = {
     .route({ method: "POST", path: "/catalog/search", summary: "Search pilgrimage points by anime title" })
     .input(SearchInput)
     .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
+    .output(SearchResult),
+  resolve: oc
+    .route({ method: "POST", path: "/catalog/resolve", summary: "Resolve an anime title deterministically" })
+    .input(ResolveInput)
+    .output(ResolveOutcome),
+  pointsByWorkId: oc
+    .route({
+      method: "POST",
+      path: "/catalog/points-by-work-id",
+      summary: "Fetch pilgrimage points by resolved work id",
+    })
+    .input(PointsByWorkIdInput)
     .output(SearchResult),
   spots: oc
     .route({ method: "POST", path: "/catalog/spots", summary: "Fetch a single pilgrimage point, optionally with distance" })

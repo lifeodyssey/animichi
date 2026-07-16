@@ -60,6 +60,27 @@ export interface PilgrimagePoint {
   cover_url?: string;
 }
 
+/** Stable anime identity and trusted display metadata — mirrors `AnimeCandidate`. */
+export interface AnimeCandidate {
+  bangumi_id: string;
+  title: string;
+  title_cn?: string;
+  cover_url?: string;
+  year?: number;
+  points_count?: number;
+}
+
+/** Deterministic title-resolution partition — mirrors `ResolveOutcome`. */
+export type ResolveOutcome =
+  | { outcome: "resolved"; match: AnimeCandidate }
+  | {
+    outcome: "needs_disambiguation";
+    reason: "anime_ambiguity";
+    candidates: AnimeCandidate[];
+  }
+  | { outcome: "not_found"; reason: "anime_not_found" }
+  | { outcome: "upstream_unavailable"; provider: "bangumi" | "anitabi" };
+
 /** A stop with arrival/departure + dwell — mirrors `TimedStop`. */
 export interface TimedStop {
   cluster_id: string;
