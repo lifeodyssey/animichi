@@ -18,11 +18,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.runtime_models import (
-    ResultsMetaModel,
-    SearchDataModel,
-    SearchResponseModel,
-)
+from agent.agents.runtime_models import SearchResponseModel
+from agent.agents.session_state import ResultRef, SearchPayloadState, SessionState
 from agent.config.settings import Settings
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
@@ -34,13 +31,16 @@ from agent.interfaces.public_api import PublicAPIResponse, RuntimeAPI
 
 def _canned_agent_result() -> AgentResult:
     """A minimal successful AgentResult for mocking RuntimeAPI.handle."""
-    output = SearchResponseModel(
-        intent="search_bangumi",
-        message="Found 0 pilgrimage spots.",
-        data=SearchDataModel(results=ResultsMetaModel(rows=[], row_count=0)),
+    output = SearchResponseModel(message="Found 0 pilgrimage spots.")
+    state = SessionState()
+    state.store_search_result(
+        ResultRef("search:test:1"),
+        SearchPayloadState(kind="bangumi", row_count=0),
     )
     return AgentResult(
         output=output,
+        intent="search_bangumi",
+        session_state=state,
         steps=[
             StepRecord(
                 tool="search_bangumi",
@@ -48,7 +48,6 @@ def _canned_agent_result() -> AgentResult:
                 data={"rows": [], "row_count": 0},
             )
         ],
-        tool_state={},
     )
 
 

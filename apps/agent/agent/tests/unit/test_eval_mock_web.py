@@ -105,12 +105,7 @@ def _web_driver(query: str) -> FunctionModel:
 
 
 def _qa_args() -> Mapping[str, object]:
-    return {
-        "intent": "general_qa",
-        "message": "Found reference material.",
-        "data": {"status": "info", "message": "ok"},
-        "ui": {},
-    }
+    return {"message": "Found reference material."}
 
 
 def _tool_return(result: AgentResult, tool_name: str) -> str:

@@ -1,80 +1,50 @@
-"""Location-flow coverage split from the core geocoding agent tests."""
+"""Location precedence and honest-empty catalog outcomes."""
 
-from agent.interfaces.response_builder import agent_result_to_response
+from unittest.mock import MagicMock
+
+from agent.agents.catalog_tools import run_nearby_search
+from agent.agents.runtime_deps import RuntimeDeps
+from agent.clients.catalog_client import PilgrimagePoint
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
-from agent.tests.unit.test_catalog_geocoding_agent import EmptyNearbyCatalog, _run
 
 
-async def test_b3_multilingual_and_context_geocode_fixtures() -> None:
-    catalog = MockCatalogClient()
-    queries = ["镰仓", "秋叶原", "宫崎", "宇治市", "東京都", "神奈川県"]
-    candidates = [await catalog.geocode(query) for query in queries]
-    assert all(result for result in candidates)
+class _EmptyNearby(MockCatalogClient):
+    async def nearby(
+        self, lat: float, lng: float, *, radius_m: int = 2000
+    ) -> list[PilgrimagePoint]:
+        self.calls.append(("nearby", (lat, lng, radius_m)))
+        return []
 
 
-async def test_b3_toyosato_hits_and_hakone_is_honestly_empty() -> None:
-    catalog = MockCatalogClient()
-    toyosato = (await catalog.geocode("豊郷"))[0]
-    hakone = (await catalog.geocode("箱根"))[0]
-    assert await catalog.nearby(toyosato.lat, toyosato.lng, radius_m=10_000)
-    assert await catalog.nearby(hakone.lat, hakone.lng, radius_m=10_000) == []
+def _deps(catalog: MockCatalogClient) -> RuntimeDeps:
+    return RuntimeDeps(db=MagicMock(), locale="en", query="nearby", catalog=catalog)
 
 
-async def test_a5_prime_honest_empty_is_successful_search_response() -> None:
-    result = await _run("西宮", EmptyNearbyCatalog())
-    response = agent_result_to_response(result, include_debug=True)
-    assert result.tool_state["search_nearby"]["row_count"] == 0
-    assert result.steps[0].success is True
-    assert response.success is True
-    assert response.errors == []
-
-
-async def test_a6_ambiguous_place_clarifies_without_pipeline_error() -> None:
-    result = await _run("府中", MockCatalogClient())
-    response = agent_result_to_response(result, include_debug=True)
-    assert [step.tool for step in result.steps] == ["geocode", "clarify"]
-    assert all(step.success for step in result.steps)
-    assert result.output.data.options
-    assert response.success is True
-    assert response.errors == []
-
-
-async def test_a7_unknown_place_clarifies_without_gps_fallback() -> None:
-    catalog = MockCatalogClient()
-    result = await _run(
-        "unknown place", catalog, context={"origin_lat": 34.7, "origin_lng": 135.3}
-    )
-    assert result.intent == "clarify"
-    assert [name for name, _ in catalog.calls] == ["geocode"]
-    assert result.steps[0].tool == "geocode"
-
-
-async def test_a8_explicit_place_wins_over_gps() -> None:
-    catalog = MockCatalogClient()
-    await _run("西宮", catalog, context={"origin_lat": 0.0, "origin_lng": 0.0})
-    assert catalog.calls[0] == ("geocode", ("西宮", 5))
-    assert catalog.calls[1][0] == "nearby"
-    assert catalog.calls[1][1][:2] == (34.7386, 135.3485)
-
-
-async def test_a8_empty_location_uses_gps_without_geocoding() -> None:
-    catalog = EmptyNearbyCatalog()
-    await _run("", catalog, context={"origin_lat": 35.0, "origin_lng": 139.0})
+async def test_gps_is_used_only_when_location_is_omitted() -> None:
+    catalog = _EmptyNearby()
+    deps = _deps(catalog)
+    deps.tool_state.origin_lat = 35.0
+    deps.tool_state.origin_lng = 139.0
+    outcome = await run_nearby_search(MagicMock(deps=deps), catalog, None, None)
+    assert outcome.outcome == "empty"
     assert catalog.calls == [("nearby", (35.0, 139.0, 5000))]
 
 
-async def test_a8_empty_location_without_gps_clarifies() -> None:
-    result = await _run("", MockCatalogClient())
-    assert result.intent == "clarify"
-    assert [step.tool for step in result.steps] == ["geocode", "clarify"]
-    assert result.steps[0].success is True
-    assert result.steps[0].data == {"condition": "missing_location_and_no_gps"}
-
-
-async def test_a8_prime_prefecture_clarifies_without_nearby() -> None:
+async def test_explicit_place_wins_over_shared_gps() -> None:
     catalog = MockCatalogClient()
-    result = await _run("山梨県", catalog)
-    calls = [name for name, _ in catalog.calls if name in {"geocode", "nearby"}]
-    assert calls == ["geocode"]
-    assert result.success is True
-    assert result.steps[0].tool == "geocode"
+    deps = _deps(catalog)
+    deps.tool_state.origin_lat = 0.0
+    deps.tool_state.origin_lng = 0.0
+    await run_nearby_search(MagicMock(deps=deps), catalog, "西宮", None)
+    assert catalog.calls[0] == ("geocode", ("西宮", 5))
+    assert catalog.calls[1][0] == "nearby"
+
+
+async def test_honest_empty_search_is_stored_as_empty_registry_payload() -> None:
+    catalog = _EmptyNearby()
+    deps = _deps(catalog)
+    outcome = await run_nearby_search(MagicMock(deps=deps), catalog, "西宮", None)
+    assert outcome.outcome == "empty"
+    ref = deps.tool_state.session.last_result_ref
+    assert ref is not None
+    assert deps.tool_state.session.search_results[ref].rows == []

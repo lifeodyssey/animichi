@@ -30,12 +30,7 @@ def _returned(messages: list[ModelMessage], tool_name: str) -> bool:
 
 
 def _qa_args() -> Mapping[str, object]:
-    return {
-        "intent": "general_qa",
-        "message": "ok",
-        "data": {"status": "info", "message": "ok"},
-        "ui": {},
-    }
+    return {"message": "ok"}
 
 
 def _web_driver(query: str) -> FunctionModel:
@@ -107,3 +102,59 @@ async def test_make_agent_task_threads_mock_title_translator() -> None:
 
     assert "你的名字" in _tool_return(result, "translate_anime_title")
     assert translator.calls == [("translate", ("君の名は。", "zh"))]
+
+
+async def test_selection_task_dispatches_anime_pending_to_multi_handler() -> None:
+    from agent.tests.eval.eval_harness import _selection_task
+    from agent.tests.eval.evaluators import AgentInput
+
+    pending = {
+        "reason": "anime_ambiguity",
+        "candidate_ids": ["115908", "11291"],
+        "ordered_candidates": [
+            {"id": "115908", "title": "Euphonium"},
+            {"id": "11291", "title": "Haruhi"},
+        ],
+        "revision": 7,
+    }
+    result = await _selection_task(
+        AgentInput(
+            query="",
+            locale="en",
+            selected_candidate_ids=["115908", "11291"],
+            clarification_id=7,
+            seeded_pending=pending,
+        )
+    )
+    assert result.intent == "plan_multi"
+    assert [step.tool for step in result.steps] == [
+        "search_bangumi",
+        "search_bangumi",
+        "plan_multi",
+    ]
+
+
+async def test_selection_task_dispatches_place_pending_to_place_handler() -> None:
+    from agent.tests.eval.eval_harness import _selection_task
+    from agent.tests.eval.evaluators import AgentInput
+
+    pending = {
+        "reason": "place_ambiguity",
+        "candidate_ids": ["uji", "tokyo"],
+        "ordered_candidates": [
+            {"id": "uji", "title": "Uji", "lat": 34.8915, "lng": 135.8075},
+            {"id": "tokyo", "title": "Tokyo", "lat": 35.68, "lng": 139.76},
+        ],
+        "revision": 3,
+    }
+    result = await _selection_task(
+        AgentInput(
+            query="",
+            locale="en",
+            selected_candidate_ids=["uji"],
+            clarification_id=3,
+            seeded_pending=pending,
+        )
+    )
+    assert result.intent == "search_nearby"
+    assert [step.tool for step in result.steps] == ["search_nearby"]

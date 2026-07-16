@@ -6011,7 +6011,7 @@
     "query": "こんにちは",
     "locale": "ja",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6029,7 +6029,7 @@
     "query": "おはようございます",
     "locale": "ja",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6047,7 +6047,7 @@
     "query": "やあ",
     "locale": "ja",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6065,7 +6065,7 @@
     "query": "你好",
     "locale": "zh",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6083,7 +6083,7 @@
     "query": "嗨",
     "locale": "zh",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6101,7 +6101,7 @@
     "query": "大家好",
     "locale": "zh",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6119,7 +6119,7 @@
     "query": "hello",
     "locale": "en",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6137,7 +6137,7 @@
     "query": "hi there",
     "locale": "en",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6155,7 +6155,7 @@
     "query": "hey",
     "locale": "en",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6173,7 +6173,7 @@
     "query": "good morning",
     "locale": "en",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6399,7 +6399,7 @@
     "query": "ありがとうございます",
     "locale": "ja",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6417,7 +6417,7 @@
     "query": "また来ます",
     "locale": "ja",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6435,7 +6435,7 @@
     "query": "谢谢",
     "locale": "zh",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6453,7 +6453,7 @@
     "query": "thanks, bye",
     "locale": "en",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6471,7 +6471,7 @@
     "query": "goodbye",
     "locale": "en",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6489,7 +6489,7 @@
     "query": "あなたは誰ですか",
     "locale": "ja",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6507,7 +6507,7 @@
     "query": "何ができるの",
     "locale": "ja",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6525,7 +6525,7 @@
     "query": "你是谁",
     "locale": "zh",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6543,7 +6543,7 @@
     "query": "what can you do",
     "locale": "en",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6561,7 +6561,7 @@
     "query": "who are you",
     "locale": "en",
     "acceptable_stages": [
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12184,7 +12184,7 @@
     "locale": "ja",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12203,7 +12203,7 @@
     "locale": "ja",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12222,7 +12222,7 @@
     "locale": "ja",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12241,7 +12241,7 @@
     "locale": "zh",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12260,7 +12260,7 @@
     "locale": "zh",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12279,7 +12279,7 @@
     "locale": "en",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12298,7 +12298,7 @@
     "locale": "en",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12317,7 +12317,7 @@
     "locale": "en",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12336,7 +12336,7 @@
     "locale": "ja",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12355,7 +12355,7 @@
     "locale": "ja",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12374,7 +12374,7 @@
     "locale": "zh",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12393,7 +12393,7 @@
     "locale": "zh",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12412,7 +12412,7 @@
     "locale": "en",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12431,7 +12431,7 @@
     "locale": "en",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12450,7 +12450,7 @@
     "locale": "en",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -12468,7 +12468,7 @@
     "query": "",
     "locale": "ja",
     "acceptable_stages": [
-      "greet_user",
+      "general_qa",
       "general_qa"
     ],
     "expected_data_keys": [],
@@ -12487,7 +12487,7 @@
     "query": "　",
     "locale": "ja",
     "acceptable_stages": [
-      "greet_user",
+      "general_qa",
       "general_qa"
     ],
     "expected_data_keys": [],
@@ -12506,7 +12506,7 @@
     "query": "   ",
     "locale": "zh",
     "acceptable_stages": [
-      "greet_user",
+      "general_qa",
       "general_qa"
     ],
     "expected_data_keys": [],
@@ -12525,7 +12525,7 @@
     "query": "",
     "locale": "en",
     "acceptable_stages": [
-      "greet_user",
+      "general_qa",
       "general_qa"
     ],
     "expected_data_keys": [],
@@ -12544,7 +12544,7 @@
     "query": "     ",
     "locale": "en",
     "acceptable_stages": [
-      "greet_user",
+      "general_qa",
       "general_qa"
     ],
     "expected_data_keys": [],
@@ -12563,7 +12563,7 @@
     "query": "アニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えてアニメの聖地を教えて",
     "locale": "ja",
     "acceptable_stages": [
-      "greet_user",
+      "general_qa",
       "general_qa"
     ],
     "expected_data_keys": [],
@@ -12582,7 +12582,7 @@
     "query": "圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼圣地巡礼",
     "locale": "zh",
     "acceptable_stages": [
-      "greet_user",
+      "general_qa",
       "general_qa"
     ],
     "expected_data_keys": [],
@@ -12601,7 +12601,7 @@
     "query": "anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage anime pilgrimage",
     "locale": "en",
     "acceptable_stages": [
-      "greet_user",
+      "general_qa",
       "general_qa"
     ],
     "expected_data_keys": [],
@@ -12620,7 +12620,7 @@
     "query": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "locale": "en",
     "acceptable_stages": [
-      "greet_user",
+      "general_qa",
       "general_qa"
     ],
     "expected_data_keys": [],
@@ -12639,7 +12639,7 @@
     "query": "啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊",
     "locale": "zh",
     "acceptable_stages": [
-      "greet_user",
+      "general_qa",
       "general_qa"
     ],
     "expected_data_keys": [],
@@ -13905,7 +13905,7 @@
     "locale": "ja",
     "acceptable_stages": [
       "general_qa",
-      "greet_user",
+      "general_qa",
       "clarify",
       "search_bangumi"
     ],
@@ -13946,7 +13946,7 @@
     "locale": "ja",
     "acceptable_stages": [
       "general_qa",
-      "greet_user",
+      "general_qa",
       "clarify",
       "search_bangumi"
     ],
@@ -13967,7 +13967,7 @@
     "locale": "ja",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -14005,7 +14005,7 @@
     "locale": "ja",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -14024,7 +14024,7 @@
     "locale": "zh",
     "acceptable_stages": [
       "general_qa",
-      "greet_user",
+      "general_qa",
       "clarify",
       "search_bangumi"
     ],
@@ -14065,7 +14065,7 @@
     "locale": "zh",
     "acceptable_stages": [
       "general_qa",
-      "greet_user",
+      "general_qa",
       "clarify",
       "search_bangumi"
     ],
@@ -14086,7 +14086,7 @@
     "locale": "zh",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -14144,7 +14144,7 @@
     "locale": "en",
     "acceptable_stages": [
       "general_qa",
-      "greet_user",
+      "general_qa",
       "clarify",
       "search_bangumi"
     ],
@@ -14185,7 +14185,7 @@
     "locale": "en",
     "acceptable_stages": [
       "general_qa",
-      "greet_user",
+      "general_qa",
       "clarify",
       "search_bangumi"
     ],
@@ -14206,7 +14206,7 @@
     "locale": "en",
     "acceptable_stages": [
       "general_qa",
-      "greet_user"
+      "general_qa"
     ],
     "expected_data_keys": [],
     "context": null,

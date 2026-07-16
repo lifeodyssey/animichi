@@ -9,6 +9,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
 
 from agent.agents.agent_result import AgentResult
+from agent.agents.runtime_deps import StepEvent
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from agent.tests.db_doubles import build_persistence_supabase_double
 from agent.tests.unit.conftest_public_api import install_mock_pipeline
@@ -54,16 +55,9 @@ async def test_translation_gate_emits_sse_on_locale_mismatch(
     result = _search_result(locale="zh", message="3件の聖地が見つかりました。")
     emitted: list[tuple[str, str]] = []
 
-    async def capture_step(
-        tool: str,
-        status: str,
-        data: dict[str, object],
-        thought: str,
-        observation: str,
-    ) -> None:
-        del data, thought, observation
-        if tool == "translate":
-            emitted.append((tool, status))
+    async def capture_step(event: StepEvent) -> None:
+        if event.tool == "translate":
+            emitted.append((event.tool, event.status))
 
     with (
         patch(
@@ -89,16 +83,9 @@ async def test_translation_gate_skips_when_locale_matches(
     result = _search_result(locale="ja", message="3件の聖地が見つかりました。")
     emitted: list[tuple[str, str]] = []
 
-    async def capture_step(
-        tool: str,
-        status: str,
-        data: dict[str, object],
-        thought: str,
-        observation: str,
-    ) -> None:
-        del data, thought, observation
-        if tool == "translate":
-            emitted.append((tool, status))
+    async def capture_step(event: StepEvent) -> None:
+        if event.tool == "translate":
+            emitted.append((event.tool, event.status))
 
     with patch(
         "agent.interfaces.public_api.run_animichi_agent",

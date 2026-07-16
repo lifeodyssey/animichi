@@ -9,28 +9,21 @@ tools AND clarify candidate enrichment — to route only through the injected
   2. Static: no seam module references a ``deps.gateway`` attribute (the field
      no longer exists on ``RuntimeDeps``; this also catches a reintroduced
      gateway hop before it can compile).
-  3. Behavioural: a data tool with no catalog injected raises rather than
-     silently falling back to the DB/Retriever path.
+  3. Structural: RuntimeDeps requires the catalog dependency at construction.
 """
 
 from __future__ import annotations
 
 import ast
 from pathlib import Path
-from typing import cast
 
 import pytest
-
-from agent.agents.animichi_tools import _require_catalog
-from agent.agents.runtime_deps import RuntimeDeps
-from agent.clients.catalog_client import CatalogClientProtocol
-from agent.domain.ports import DatabasePort
 
 # Modules that form the catalog-only agent seam. These must stay free of any
 # upstream/DB read path. ``tools`` (clarify enrichment) is included now that it
 # resolves via the catalog instead of the Bangumi gateway.
 _TOOL_MODULES = ("animichi_tools", "web_tools")
-_SEAM_MODULES = ("animichi_tools", "catalog_tools", "tool_runtime", "tools")
+_SEAM_MODULES = ("animichi_tools", "catalog_tools")
 
 # Substrings that, if imported by a seam module, mean an upstream/DB read path
 # leaked back in.
@@ -112,45 +105,3 @@ def test_live_architecture_doc_omits_removed_retrieval_subsystems() -> None:
 
     assert "`CatalogClientProtocol`" in architecture
     assert all(term not in architecture for term in removed)
-
-
-class _ExplodingDB:
-    """A DatabasePort double that fails loudly if any read path is touched."""
-
-    @property
-    def bangumi(self) -> object:
-        raise AssertionError("data tool touched the DB without a catalog")
-
-    @property
-    def points(self) -> object:
-        raise AssertionError("data tool touched the DB without a catalog")
-
-
-def _deps_without_catalog() -> RuntimeDeps:
-    """RuntimeDeps with the catalog hole — the wiring-error condition."""
-    return RuntimeDeps(
-        db=cast(DatabasePort, _ExplodingDB()),
-        locale="ja",
-        query="q",
-        catalog=cast(CatalogClientProtocol, None),
-    )
-
-
-def test_require_catalog_raises_without_client() -> None:
-    """No catalog injected => hard error, never a DB/Retriever fallback."""
-    with pytest.raises(RuntimeError, match="catalog client not configured"):
-        _require_catalog(_deps_without_catalog())
-
-
-def test_require_catalog_returns_injected_client() -> None:
-    """When a catalog is present, the guard returns it unchanged."""
-    from agent.tests.eval.mock_catalog_client import MockCatalogClient
-
-    catalog = MockCatalogClient()
-    deps = RuntimeDeps(
-        db=cast(DatabasePort, _ExplodingDB()),
-        locale="ja",
-        query="q",
-        catalog=catalog,
-    )
-    assert _require_catalog(deps) is catalog

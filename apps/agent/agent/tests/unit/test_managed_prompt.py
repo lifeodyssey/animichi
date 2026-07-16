@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from concurrent.futures import Future
-from concurrent.futures import TimeoutError as FutureTimeout
 from threading import Event
 from unittest.mock import MagicMock
 
@@ -15,21 +15,17 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from agent.agents.animichi_agent import (
     _INSTRUCTIONS,
+    _LOCAL_PROMPT_VERSION,
     MANAGED_PROMPT_LABEL,
     MANAGED_PROMPT_NAME,
     _AnimichiManagedPrompt,
-    _wait_for_prompt_resolution,
+    _resolve_prompt,
     build_animichi_agent,
 )
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
-_QA_OUTPUT = {
-    "intent": "general_qa",
-    "message": "ok",
-    "data": {"status": "info", "message": "ok"},
-    "ui": {},
-}
+_QA_OUTPUT = {"message": "ok"}
 
 
 @pytest.fixture(autouse=True)
@@ -113,7 +109,7 @@ async def test_provider_unavailability_falls_back_once(
     _patch_resolution(monkeypatch, value=_INSTRUCTIONS, reason=reason, label=None)
     records = _capture_records(monkeypatch)
 
-    assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS)
+    assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS.rstrip())
     assert len(records) == 1
     assert records[0]["source"] == "local"
     assert records[0]["failure"] == "remote_unavailable"
@@ -126,7 +122,7 @@ async def test_blank_remote_value_falls_back_byte_identically(
     _patch_resolution(monkeypatch, value=" \n")
     records = _capture_records(monkeypatch)
 
-    assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS)
+    assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS.rstrip())
     assert records[0]["failure"] == "blank_remote_value"
 
 
@@ -137,17 +133,33 @@ def test_checked_in_default_is_the_managed_prompt_fallback() -> None:
     assert prompt.default == _INSTRUCTIONS
 
 
+def test_production_prompt_drift_pin_matches_checked_in_payload() -> None:
+    digest = hashlib.sha256(_INSTRUCTIONS.encode()).hexdigest()
+    assert _LOCAL_PROMPT_VERSION == f"sha256:{digest}"
+
+
 async def test_remote_source_and_version_are_recorded(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("ANIMICHI_MANAGED_PROMPT", "1")
-    _patch_resolution(monkeypatch, value="remote instructions")
+    _patch_resolution(monkeypatch, value=_INSTRUCTIONS)
     records = _capture_records(monkeypatch)
 
-    assert (await _run_and_capture_instructions()).startswith("remote instructions")
+    assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS.rstrip())
     assert records == [
         {"source": "remote", "version": "7", "label": "production", "failure": None}
     ]
+
+
+async def test_remote_content_drift_falls_back_to_checked_in_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ANIMICHI_MANAGED_PROMPT", "1")
+    _patch_resolution(monkeypatch, value="stale production instructions")
+    records = _capture_records(monkeypatch)
+
+    assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS.rstrip())
+    assert records[0]["failure"] == "content_mismatch"
 
 
 async def test_mismatched_label_falls_back_to_checked_in_prompt(
@@ -161,7 +173,7 @@ async def test_mismatched_label_falls_back_to_checked_in_prompt(
     )
     records = _capture_records(monkeypatch)
 
-    assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS)
+    assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS.rstrip())
     assert records[0]["failure"] == "label_mismatch"
     assert records[0]["source"] == "local"
 
@@ -190,35 +202,39 @@ async def test_wall_deadline_falls_back_while_resolution_is_blocked(
             version=7,
         )
 
-    def timeout_waiter(
-        _future: Future[ResolvedVariable[str]], deadline: float
-    ) -> ResolvedVariable[str]:
-        assert deadline == 1.25
-        started.wait()
-        raise FutureTimeout
-
     monkeypatch.setattr(Variable, "get", blocked_get)
     monkeypatch.setattr(
-        "agent.agents.animichi_agent._wait_for_prompt_resolution", timeout_waiter
-    )
-    monkeypatch.setattr(
-        "agent.agents.animichi_agent._PROMPT_RESOLUTION_DEADLINE_SECONDS", 1.25
+        "agent.agents.animichi_agent._PROMPT_RESOLUTION_DEADLINE_SECONDS", 0.01
     )
     records = _capture_records(monkeypatch)
     try:
-        assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS)
+        assert (await _run_and_capture_instructions()).startswith(
+            _INSTRUCTIONS.rstrip()
+        )
     finally:
         release.set()
     assert records[0]["failure"] == "timeout"
 
 
-def test_default_waiter_passes_the_wall_deadline_to_future() -> None:
-    future: MagicMock = MagicMock()
-    resolved = MagicMock(spec=ResolvedVariable)
-    future.result.return_value = resolved
-
-    assert _wait_for_prompt_resolution(future, 2.0) is resolved
-    future.result.assert_called_once_with(timeout=2.0)
+async def test_async_resolution_awaits_completed_future_without_blocking(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolved = ResolvedVariable(
+        name="prompt__animichi_instructions",
+        value="remote",
+        reason="resolved",
+        label=MANAGED_PROMPT_LABEL,
+    )
+    future: Future[ResolvedVariable[str]] = Future()
+    future.set_result(resolved)
+    prompt = _AnimichiManagedPrompt(
+        MANAGED_PROMPT_NAME, default=_INSTRUCTIONS, label=MANAGED_PROMPT_LABEL
+    )
+    monkeypatch.setattr(
+        "agent.agents.animichi_agent._submit_prompt_resolution",
+        lambda _prompt, _ctx: future,
+    )
+    assert await _resolve_prompt(prompt, MagicMock()) is resolved
 
 
 async def test_unexpected_resolution_exception_falls_back(
@@ -232,7 +248,7 @@ async def test_unexpected_resolution_exception_falls_back(
     monkeypatch.setattr(Variable, "get", explode)
     records = _capture_records(monkeypatch)
 
-    assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS)
+    assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS.rstrip())
     assert records[0]["failure"] == "RuntimeError"
 
 
@@ -252,6 +268,6 @@ async def test_missing_credential_warns_without_remote_resolution(
     monkeypatch.setattr(Variable, "get", remote)
     records = _capture_records(monkeypatch)
 
-    assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS)
+    assert (await _run_and_capture_instructions()).startswith(_INSTRUCTIONS.rstrip())
     remote.assert_not_called()
     assert [record["failure"] for record in records] == [failure]

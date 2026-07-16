@@ -6,13 +6,12 @@ import httpx
 import structlog
 
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.catalog_adapter import build_route_payload
+from agent.agents.catalog_adapter import build_route_payload, build_route_state
 from agent.agents.error_messages import build_error_message
-from agent.agents.messages import build_message
-from agent.agents.models import ToolName
-from agent.agents.runtime_deps import OnStep
-from agent.agents.runtime_models import RouteDataModel, RouteModel, RouteResponseModel
-from agent.agents.tool_state import ToolState
+from agent.agents.runtime_deps import OnStep, StepEvent
+from agent.agents.runtime_models import RouteResponseModel
+from agent.agents.selection_messages import selected_route_message
+from agent.agents.session_state import SessionState
 from agent.clients.catalog_client import CatalogClientProtocol, Route
 from agent.clients.errors import APIError
 
@@ -24,6 +23,7 @@ _TRANSIENT_ERRORS = (APIError, httpx.TransportError, httpx.TimeoutException)
 async def execute_selected_route(
     *,
     point_ids: list[str],
+    state: SessionState,
     origin: str | None,
     locale: str,
     catalog: CatalogClientProtocol,
@@ -31,7 +31,7 @@ async def execute_selected_route(
 ) -> AgentResult:
     """Route user-selected point IDs directly, returning AgentResult."""
     if not point_ids:
-        return _error_result("point_ids is required", locale)
+        return _error_result("point_ids is required", locale, state)
 
     params = _build_params(point_ids, origin)
     await _emit_step(on_step, "running", {})
@@ -45,11 +45,14 @@ async def execute_selected_route(
         return _error_result(
             build_error_message(exc, locale, fallback="Catalog route unavailable"),
             locale,
+            state,
         )
 
     step, payload = _build_step(route, params)
+    if not step.success:
+        return _error_result("No catalog route data", locale, state)
     await _emit_step(on_step, "done", payload)
-    return _build_success_result(payload, step, locale)
+    return _build_success_result(route, step, locale, state)
 
 
 def _build_params(point_ids: list[str], origin: str | None) -> dict[str, object]:
@@ -66,7 +69,7 @@ async def _emit_step(
     """Notify the on_step callback, if any, of plan_selected progress."""
     if on_step is None:
         return
-    await on_step("plan_selected", status, payload, "", "")
+    await on_step(StepEvent(tool="plan_selected", status=status, data=payload))
 
 
 def _build_step(
@@ -81,41 +84,48 @@ def _build_step(
         params=params,
         data=payload,
         error=None if success else "No catalog route data",
+        model_initiated=False,
     )
     return step, payload
 
 
 def _build_success_result(
-    payload: dict[str, object], step: StepRecord, locale: str
+    route: Route,
+    step: StepRecord,
+    locale: str,
+    state: SessionState,
 ) -> AgentResult:
     """Assemble the AgentResult returned on a successful route lookup."""
-    route_model = RouteModel.model_validate(payload)
-    raw_count = payload.get("point_count", 0)
-    count = int(raw_count) if isinstance(raw_count, (int, float)) else 0
-    message = build_message("plan_selected", count, locale)
+    route_ref = state.next_route_ref("selected", 1)
+    state.store_route(route_ref, build_route_state(route, source_ref=None))
+    state.pending_clarification = None
+    state.geocode_staging = None
     output = RouteResponseModel(
-        intent="plan_selected",
-        message=message,
-        data=RouteDataModel(route=route_model),
+        message=selected_route_message(locale, route.point_count)
     )
-    tool_state = ToolState()
-    tool_state.set_payload(ToolName.PLAN_SELECTED, payload)
     return AgentResult(
         output=output,
+        intent="plan_selected",
+        session_state=state,
         steps=[step],
-        tool_state=tool_state.to_legacy_dict(),
     )
 
 
-def _error_result(error: str, locale: str) -> AgentResult:
-    output = RouteResponseModel(
-        intent="plan_selected",
-        message=error,
-        data=RouteDataModel(route=RouteModel()),
-    )
+def _error_result(error: str, locale: str, state: SessionState) -> AgentResult:
+    output = RouteResponseModel(message=error)
     return AgentResult(
         output=output,
-        steps=[StepRecord(tool="plan_selected", success=False, error=error)],
+        intent="plan_selected",
+        session_state=state,
+        steps=[
+            StepRecord(
+                tool="plan_selected",
+                success=False,
+                error=error,
+                model_initiated=False,
+            )
+        ],
+        status="error",
     )
 
 

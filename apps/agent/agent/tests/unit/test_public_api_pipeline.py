@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pydantic import JsonValue
 from structlog import testing
 
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.runtime_models import RouteDataModel, RouteModel, RouteResponseModel
+from agent.agents.runtime_models import RouteResponseModel
+from agent.agents.session_state import (
+    PointState,
+    RoutePayloadState,
+    RouteRef,
+    SessionState,
+)
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI, detect_language
 from agent.tests.db_doubles import build_persistence_supabase_double
@@ -50,7 +54,7 @@ async def test_handle_maps_pipeline_result(mock_db: MagicMock) -> None:
 
     assert response.success is True
     assert response.intent == "search_bangumi"
-    assert response.status == "ok"
+    assert response.status == "empty"
     assert "results" in response.data
     assert response.errors == []
 
@@ -61,35 +65,37 @@ async def test_selected_point_ids_bypass_planner(mock_db: MagicMock) -> None:
     async def fake_selected_route(
         *,
         point_ids: list[str],
+        state: SessionState,
         origin: str | None,
         locale: str,
         catalog: object,
         on_step: object = None,
     ) -> AgentResult:
         del locale, on_step
-        captured.update(point_ids=point_ids, origin=origin, catalog=catalog)
-        route_data: dict[str, JsonValue] = {
-            "ordered_points": [
-                {"id": "p1", "name": "A", "latitude": 34.88, "longitude": 135.80},
-                {"id": "p2", "name": "B", "latitude": 34.89, "longitude": 135.81},
-            ],
-            "point_count": 2,
-        }
-        output = RouteResponseModel(
-            intent="plan_selected",
-            message="已为2处选定取景地规划路线。",
-            data=RouteDataModel(route=RouteModel.model_validate(route_data)),
+        captured.update(
+            point_ids=point_ids, state=state, origin=origin, catalog=catalog
         )
+        points = [
+            PointState(id="p1", name="A", latitude=34.88, longitude=135.80),
+            PointState(id="p2", name="B", latitude=34.89, longitude=135.81),
+        ]
+        route_ref = RouteRef("route:selected")
+        route_state = SessionState(
+            routes={route_ref: RoutePayloadState(ordered_points=points)},
+            route_lru=[route_ref],
+        )
+        output = RouteResponseModel(message="已为2处选定取景地规划路线。")
         return AgentResult(
             output=output,
+            intent="plan_selected",
+            session_state=route_state,
             steps=[
                 StepRecord(
                     tool="plan_selected",
                     success=True,
-                    data=cast(dict[str, object], route_data),
+                    data={"route_ref": str(route_ref)},
                 )
             ],
-            tool_state={"plan_selected": route_data},
         )
 
     with (
@@ -114,6 +120,7 @@ async def test_selected_point_ids_bypass_planner(mock_db: MagicMock) -> None:
 
     assert captured == {
         "point_ids": ["p1", "p2"],
+        "state": SessionState(),
         "origin": "宇治駅",
         "catalog": api._catalog,
     }

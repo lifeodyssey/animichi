@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from agent.agents.base import ModelAliasError, resolve_model_alias
+from agent.agents.runtime_deps import StepEvent
 from agent.interfaces.public_api import (
     PublicAPIError,
     PublicAPIRequest,
@@ -92,21 +93,15 @@ async def handle_runtime_stream(
         payload = json.dumps({"event": event, **data}, ensure_ascii=False)
         await queue.put(f"event: {event}\ndata: {payload}\n\n")
 
-    async def on_step(
-        tool: str,
-        status: str,
-        data: dict[str, object],
-        thought: str = "",
-        observation: str = "",
-    ) -> None:
+    async def on_step(step: StepEvent) -> None:
         await emit(
             "step",
             {
-                "tool": tool,
-                "status": status,
-                "thought": thought,
-                "observation": observation,
-                "data": data,
+                "tool": step.tool,
+                "status": step.status,
+                "thought": step.thought,
+                "observation": step.observation,
+                "data": step.data,
             },
         )
 
