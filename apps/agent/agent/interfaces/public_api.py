@@ -181,15 +181,6 @@ class RuntimeAPI:
         with runtime_span("runtime.handle") as span:
             _set_span_request_attrs(span, session_id, request, effective_model, user_id)
 
-            from agent.agents.web_trust import detect_prompt_injection
-
-            if detect_prompt_injection(request.text):
-                logger.warning(
-                    "input_guardrail_injection_detected",
-                    text=request.text[:100],
-                    user_id=user_id,
-                )
-
             result: AgentResult | None = None
             user_message_persisted = False
             try:

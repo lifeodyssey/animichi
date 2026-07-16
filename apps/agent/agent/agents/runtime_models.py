@@ -55,6 +55,10 @@ class PartialResponseModel(_CompactOutput):
     """Runner-authored notice for a graceful incomplete result."""
 
 
+class BlockedResponseModel(_CompactOutput):
+    """Runner-authored refusal for a blocked user prompt."""
+
+
 RuntimeStageOutput = (
     ClarifyResponseModel
     | SearchResponseModel
@@ -63,4 +67,4 @@ RuntimeStageOutput = (
     | QAResponseModel
 )
 
-AgentResultOutput = RuntimeStageOutput | PartialResponseModel
+AgentResultOutput = RuntimeStageOutput | PartialResponseModel | BlockedResponseModel

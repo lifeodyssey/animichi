@@ -22,6 +22,7 @@ from agent.tests.eval.gate import (
     read_baseline_record,
     write_baseline_record,
 )
+from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.eval.translation_eval_cases import (
     CASES,
     make_translation_task,
@@ -58,16 +59,11 @@ def _baseline_record(
 
 
 @pytest.mark.integration
-def test_translation_quality(request: pytest.FixtureRequest) -> None:
-    """Run translation eval against real testcontainer DB."""
-    try:
-        real_db = request.getfixturevalue("real_db")
-    except pytest.FixtureLookupError:
-        pytest.skip("real_db fixture not available — Docker required.")
-        return
-
-    task = make_translation_task(db=real_db)
-    report = translation_dataset.evaluate_sync(
+async def test_translation_quality() -> None:
+    """Run translation eval through deterministic catalog data and the model."""
+    catalog = MockCatalogClient()
+    task = make_translation_task(catalog=catalog)
+    report = await translation_dataset.evaluate(
         task,
         name="translation_eval",
         max_concurrency=20,

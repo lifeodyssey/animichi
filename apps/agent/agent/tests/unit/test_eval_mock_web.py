@@ -143,7 +143,7 @@ async def test_translate_title_injection_bypasses_null_database() -> None:
     )
 
     assert result["translated"] == "吹响悠风号"
-    assert result["source"] == "db"
+    assert result["source"] == "catalog"
 
 
 async def test_web_search_direct_injection_returns_wrapped_results() -> None:
