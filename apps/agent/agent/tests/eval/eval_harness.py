@@ -76,7 +76,7 @@ def _load_eval_env() -> None:
 
 _load_eval_env()
 
-DEFAULT_MODEL_ID = "openai:deepseek-v4-pro@https://api.deepseek.com"
+DEFAULT_MODEL_ID = "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
 EVAL_MODEL_ID = os.environ.get("EVAL_MODEL", DEFAULT_MODEL_ID)
 EVAL_CONCURRENCY = int(os.environ.get("EVAL_CONCURRENCY", "10"))
 EVAL_L3 = os.environ.get("EVAL_L3") == "1"

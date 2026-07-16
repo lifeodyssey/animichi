@@ -4,86 +4,92 @@
 
 ```
 User text → RuntimeAPI.handle() → run_animichi_agent() → animichi_agent.run()
-  → tools call handlers → AgentResult (typed output + steps + tool_state)
+  → catalog/web tools → AgentResult (typed output + steps + SessionState)
   → agent_result_to_response() → PublicAPIResponse
 
-For selected_point_ids:
+For deterministic selections:
   User selection → execute_selected_route() → AgentResult → PublicAPIResponse
+  Clarify choice → execute_multi_selection() / execute_place_selection()
+    → AgentResult → PublicAPIResponse
 ```
 
 Entry path: `HTTP service → RuntimeAPI → run_animichi_agent() → animichi_agent.run()`
 
 No hardcoded anime list. DB is source of truth.
 
-## Shared Types — `agents/models.py`
+## Request Modes — `interfaces/schemas.py`
 
-```python
-class RetrievalRequest(BaseModel):
-    tool: Literal["search_bangumi", "search_nearby"]
-    bangumi_id: str | None = None
-    episode: int | None = None
-    location: str | None = None
-    origin: str | None = None
-    radius: int | None = None
-    force_refresh: bool = False
-```
+`PublicAPIRequest` accepts exactly one runtime mode per turn: user `text`, direct
+`selected_point_ids`, or `selected_candidate_ids` paired with a `clarification_id`. Candidate and
+point selections are deterministic server paths and do not invoke the model.
 
 ## AgentResult — `agents/agent_result.py`
 
 ```python
-class StepRecord(BaseModel):
+@dataclass
+class StepRecord:
     tool: str
+    success: bool
     params: dict[str, object]
-    result: object
+    data: dict[str, object] | None
+    provenance: StepProvenance | None
     error: str | None = None
 
-class AgentResult(BaseModel):
-    output: object          # typed output from agent (SearchResponseModel, RouteResponseModel, etc.)
+@dataclass
+class AgentResult:
+    output: AgentResultOutput
     steps: list[StepRecord]
-    tool_state: dict[str, object]
+    session_state: SessionState
 ```
 
-Replaces the old `PipelineResult`. Carries the agent's typed output, a record of every tool call, and accumulated tool state.
+Carries the typed terminal, every tool/server step, the authoritative typed session registry, and
+current-turn provenance used by response projection and persistence.
 
 ## Pilgrimage Agent — `agents/animichi_agent.py`
 
-- PydanticAI `Agent` with typed `output_type` (union of `SearchResponseModel`, `RouteResponseModel`, etc.)
+- PydanticAI `Agent` whose `output_type` contains exactly `ClarifyResponseModel`,
+  `SearchResponseModel`, `RouteResponseModel`, `GreetingResponseModel`, and `QAResponseModel`
 - System prompt describes available tools; no hardcoded anime IDs
-- `output_validator` rejects fabricated responses (e.g., hallucinated point data)
+- `output_validator` rejects responses not backed by the current turn's typed provenance
 - For any anime query: the agent calls `resolve_anime` first, then downstream tools
+- `PartialResponseModel` and `BlockedResponseModel` are server-only runner terminals and are not
+  model output types
 
-## Tools — `agents/animichi_tools.py`
+## Tools — `agents/animichi_tools.py` + `agents/web_tools.py`
 
-- Registered via `@agent.tool` decorators on the pilgrimage agent
-- Each tool includes `ModelRetry` guards that reject invalid LLM-supplied parameters (e.g., missing `bangumi_id`)
-- Tools access dependencies (DB, gateways) via `RunContext`
+- Four catalog tools are registered from `animichi_tools.py`; two web tools come from `web_tools.py`
+- Pydantic tool schemas constrain model-supplied parameters
+- Tools access typed runtime dependencies via `RunContext`
 
 ### Tool registrations
 
 | Tool | Notes |
 |---|---|
-| `resolve_anime` | Resolve a title through the catalog Worker and store its `bangumi_id` in tool state |
+| `resolve_anime` | Resolve a title through the catalog Worker and stage identity/clarification state |
 | `search_bangumi` | Query catalog points for the resolved `bangumi_id` |
 | `search_nearby` | Query catalog points by place name or caller coordinates |
-| `plan_route` | Nearest-neighbor sort on bangumi points |
-| `greet_user` | Onboarding response (sessionless) |
-| `answer_question` | QA pass-through |
-| `clarify` | Disambiguation when query is ambiguous |
+| `plan_route` | Ask the catalog Worker to route an explicit search-result reference |
+| `web_search` | Attributed web research for QA/title enrichment, never pilgrimage discovery |
+| `translate_anime_title` | Catalog-backed or tool-less title translation |
 
 ## Runner — `agents/animichi_runner.py`
 
-- `run_animichi_agent(text, db, locale)` — runs the agent, collects tool calls into `AgentResult`
+- `run_animichi_agent(...)` — runs the agent and collects typed steps/state into `AgentResult`
+- Converts usage exhaustion to `PartialResponseModel` and enabled input-guard refusals to
+  `BlockedResponseModel`
 - Single entry point for the runtime API
 
 ## Selected Route — `agents/selected_route.py`
 
-- `execute_selected_route(point_ids, db)` — direct selected-point route execution without invoking the agent
+- `execute_selected_route(...)` — direct selected-point route execution without invoking the model
+- `execute_multi_selection(...)` and `execute_place_selection(...)` consume validated clarify cards
+  without invoking the model
 - Returns `AgentResult` for consistency with the main path
 
 ## Retrieval — `agents/catalog_tools.py`
 
-The data tools call the catalog Worker through `CatalogClientProtocol`. The agent has no local
-Retriever or SQL layer and makes no direct Anitabi or Bangumi API calls in the request path.
+The four catalog data tools call the catalog Worker through `CatalogClientProtocol`. The agent has
+no local retriever, handler registry, SQL route planner, or direct Anitabi/Bangumi request path.
 
 ## Public API — `interfaces/public_api.py`
 
@@ -125,13 +131,12 @@ interface PublicAPIResponse {
 }
 ```
 
-## Self-Evolve
+## Catalog Ownership
 
-Every anime query triggers `resolve_anime` first:
-1. Fuzzy-match `bangumi` table (title / title_cn)
-2. On miss: query Bangumi.tv search API → upsert → return `bangumi_id`
-
-DB grows automatically. No hardcoded list in code.
+The agent is a read-only catalog consumer. `resolve_anime`, pilgrimage search, geocoding, and route
+planning all go through the catalog Worker. Catalog ingest/enrichment/publish jobs own Anitabi and
+Bangumi access and decide which works are available; the runtime request path never grows the
+catalog on demand.
 
 ## Auth Layer — `worker/worker.js`
 

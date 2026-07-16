@@ -262,7 +262,6 @@ async def run_nearby_search(
             ToolName.SEARCH_NEARBY.value,
             {},
             resolved.model_dump(),
-            success=False,
             provenance=RejectedSearch(outcome=resolved.outcome),
         )
         return resolved

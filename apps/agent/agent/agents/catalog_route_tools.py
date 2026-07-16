@@ -46,7 +46,6 @@ def _record_route(
         ToolName.PLAN_ROUTE.value,
         params,
         outcome.model_dump(),
-        success=isinstance(outcome, RouteOk),
         provenance=_route_provenance(outcome),
     )
 

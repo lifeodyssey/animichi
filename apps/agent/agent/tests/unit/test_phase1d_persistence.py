@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 from agent.agents.agent_result import AgentResult, ProducedRoute, TurnProvenance
-from agent.agents.runtime_models import PartialResponseModel
+from agent.agents.runtime_models import BlockedResponseModel, PartialResponseModel
 from agent.agents.session_state import (
     PointState,
     ResultRef,
@@ -65,6 +65,16 @@ def _message_only_partial_result() -> AgentResult:
     )
 
 
+def _blocked_result() -> AgentResult:
+    return AgentResult(
+        output=BlockedResponseModel(message="Request blocked. Please rephrase it."),
+        intent="blocked",
+        session_state=SessionState(),
+        status="blocked",
+        success_override=False,
+    )
+
+
 def _db() -> MagicMock:
     db = MagicMock(spec=SupabaseClient)
     db.user_memory.get_user_memory = AsyncMock(return_value=None)
@@ -73,6 +83,16 @@ def _db() -> MagicMock:
     db.insert_request_log = AsyncMock()
     db.routes.save_route = AsyncMock(return_value="route-id")
     return db
+
+
+async def _run_result(db: MagicMock, result: AgentResult) -> None:
+    with patch(
+        "agent.interfaces.public_api.run_animichi_agent",
+        new=AsyncMock(return_value=result),
+    ):
+        await RuntimeAPI(
+            db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ).handle(PublicAPIRequest(text="test request", locale="en"))
 
 
 async def test_partial_with_current_route_persists_assistant_and_route() -> None:
@@ -117,3 +137,14 @@ async def test_message_only_partial_persists_assistant_without_route() -> None:
     )
     db.routes.save_route.assert_not_awaited()
     assert response.route_history == []
+
+
+async def test_blocked_turn_persists_assistant_refusal() -> None:
+    db = _db()
+    await _run_result(db, _blocked_result())
+    assert db.insert_message.await_count == 2
+    assert db.insert_message.await_args_list[1].args[1:] == (
+        "assistant",
+        "Request blocked. Please rephrase it.",
+        {"intent": "blocked", "success": False},
+    )

@@ -23,6 +23,7 @@ from agent.domain.ports import (
 )
 from agent.infrastructure.session import SessionStore
 from agent.interfaces.schemas import (
+    GRACEFUL_TERMINAL_STATUSES,
     PublicAPIRequest,
     PublicAPIResponse,
 )
@@ -120,7 +121,9 @@ async def persist_result(
         user_text=request.text,
         result=result,
         response=response,
-        persist_user_only=not response.success and response.status != "partial",
+        persist_user_only=(
+            not response.success and response.status not in GRACEFUL_TERMINAL_STATUSES
+        ),
     )
 
     # DECISION(2026-07-07): session compaction stays disabled pending proper

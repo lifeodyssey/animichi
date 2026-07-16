@@ -10,6 +10,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+GRACEFUL_TERMINAL_STATUSES: frozenset[str] = frozenset(
+    {"needs_clarification", "partial", "blocked", "empty", "too_large"}
+)
+
 
 class PublicAPIRequest(BaseModel):
     """Public request contract for runtime execution."""
