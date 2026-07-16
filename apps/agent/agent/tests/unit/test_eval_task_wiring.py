@@ -21,6 +21,17 @@ from agent.tests.eval.null_database import NullDatabase
 Task = Callable[[object], Awaitable[AgentResult]]
 
 
+def test_eval_default_model_is_mimo() -> None:
+    from agent.config.model_aliases import CredentialRef, model_alias_from_spec
+    from agent.tests.eval.eval_harness import DEFAULT_MODEL_ID
+
+    assert DEFAULT_MODEL_ID == "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
+    assert (
+        model_alias_from_spec(DEFAULT_MODEL_ID).credential_ref
+        is CredentialRef.MIMO_API_KEY
+    )
+
+
 def _returned(messages: list[ModelMessage], tool_name: str) -> bool:
     return any(
         isinstance(part, ToolReturnPart) and part.tool_name == tool_name

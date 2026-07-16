@@ -11,13 +11,6 @@ Run:  uv run vulture agent/ vulture_whitelist.py
 Regenerate (then re-annotate):  uv run vulture agent/ --make-whitelist
 """
 
-# Uniform handler-dispatch signature: every handler is called as
-# execute(step, context, db, retriever) by the registry, even when a given
-# handler (greet_user, answer_question, clarify, plan_selected) needs no
-# retrieval. The param is contractual, not dead. Same in test doubles.
-# Sites: agent/agents/handlers/*.py, agent/tests/unit/test_handlers.py
-retriever
-
 # async/sync context-manager dunder signatures: __aexit__/__exit__ must accept
 # (exc_type, exc_val, exc_tb) per the Python protocol; the body ignores exc_tb.
 # Sites: supabase/client_types.py, utils/logger.py

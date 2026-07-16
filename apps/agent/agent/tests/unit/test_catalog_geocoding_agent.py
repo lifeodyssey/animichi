@@ -131,7 +131,7 @@ async def test_place_ambiguity_stages_coords_and_pending_in_same_outcome() -> No
         (35.0, 139.0),
     ]
     assert deps.tool_state.session.geocode_staging is None
-    assert deps.steps[-1].success is False
+    assert deps.steps[-1].success is True
     assert isinstance(deps.steps[-1].provenance, RejectedSearch)
 
 
@@ -140,7 +140,20 @@ async def test_route_never_uses_hidden_last_result_default() -> None:
     deps.tool_state.session = SessionState()
     outcome = await run_route(_ctx(deps), MockCatalogClient(), "missing-ref", None)
     assert outcome.status == "stale_ref"
-    assert deps.steps[-1].success is False
+    assert deps.steps[-1].success is True
+    assert isinstance(deps.steps[-1].provenance, RejectedRoute)
+
+
+async def test_empty_route_is_a_successful_typed_step() -> None:
+    deps = _deps()
+    ref = ResultRef("search:empty")
+    deps.tool_state.session.store_search_result(
+        ref, SearchPayloadState(kind="bangumi", rows=[], row_count=0)
+    )
+
+    outcome = await run_route(_ctx(deps), MockCatalogClient(), str(ref), None)
+
+    assert (outcome.status, deps.steps[-1].success) == ("empty", True)
     assert isinstance(deps.steps[-1].provenance, RejectedRoute)
 
 

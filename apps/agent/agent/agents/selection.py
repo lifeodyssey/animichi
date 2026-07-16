@@ -249,7 +249,8 @@ def _multi_terminal(
     status: str,
     search: ProducedSearch | None = None,
 ) -> AgentResult:
-    steps.append(_server_step("plan_multi", False, {"status": status}))
+    expected = status in {"empty", "too_large"}
+    steps.append(_server_step("plan_multi", expected, {"status": status}))
     return AgentResult(
         output=RouteResponseModel(message=multi_message(locale, status)),
         intent="plan_multi",

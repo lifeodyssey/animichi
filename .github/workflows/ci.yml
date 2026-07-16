@@ -173,7 +173,7 @@ jobs:
   # ── Agent eval (deferred — see `&& false`) ───────────────────
 
   agent-eval:
-    name: Agent Eval (546 cases)
+    name: Agent Eval (655 cases)
     runs-on: ubuntu-latest
     needs: changes
     if: ${{ (github.event_name != 'pull_request' || needs.changes.outputs.agent == 'true') && false }}
@@ -195,13 +195,13 @@ jobs:
       - name: Run agent eval
         run: uv run pytest agent/tests/eval/test_agent_eval.py -v -m integration --no-cov -x
         env:
-          EVAL_MODEL: openai:deepseek-v4-pro@https://api.deepseek.com
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          EVAL_MODEL: openai:mimo-v2.5@https://api.xiaomimimo.com/v1
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
 
       - name: Run translation eval
         run: uv run pytest agent/tests/eval/test_translation.py -v -m integration --no-cov -x
         env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
 
   # ── Stage 3: Deploy (CI-green gated, push-main promotion path) ──
   # Promotion: push main → CI → staging → post-staging (api) → prod (human gate) → post-prod.
