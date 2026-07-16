@@ -90,7 +90,7 @@ def _translation_hit(
     return TranslationResult(
         original=original,
         translated=translated,
-        source="db",
+        source="catalog",
         confidence=1.0,
     )
 
@@ -109,6 +109,6 @@ def _translation_miss(title: str) -> TranslationResult:
     return TranslationResult(
         original=title,
         translated=title,
-        source="mock_miss",
-        confidence=0.3,
+        source="untranslated",
+        confidence=0.0,
     )

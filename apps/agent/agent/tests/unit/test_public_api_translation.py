@@ -98,7 +98,7 @@ async def test_translation_gate_skips_when_locale_matches(
     assert emitted == []
 
 
-async def test_translation_gate_shares_parent_model_and_usage(
+async def test_translation_gate_shares_parent_scope_with_toolless_agent(
     mock_db: MagicMock,
 ) -> None:
     result = _search_result(locale="zh", message="3件の聖地が見つかりました。")

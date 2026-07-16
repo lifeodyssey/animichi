@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
+from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 from agent.agents.agent_result import AgentResult, ProducedRoute, TurnProvenance
 from agent.agents.runtime_models import PartialResponseModel
@@ -54,15 +54,12 @@ def _partial_route_result() -> AgentResult:
     )
 
 
-def _plain_string_partial_result() -> AgentResult:
+def _message_only_partial_result() -> AgentResult:
     return AgentResult(
         output=PartialResponseModel(message="Partial results are shown."),
         intent="partial",
         session_state=SessionState(),
-        new_messages=[
-            ModelRequest(parts=[UserPromptPart(content="find it")]),
-            ModelResponse(parts=[TextPart(content="untyped output")]),
-        ],
+        new_messages=[ModelRequest(parts=[UserPromptPart(content="find it")])],
         status="partial",
         success_override=False,
     )
@@ -103,11 +100,11 @@ async def test_partial_with_current_route_persists_assistant_and_route() -> None
     assert response.route_history[0]["route_id"] == "route-id"
 
 
-async def test_plain_string_partial_persists_assistant_without_route() -> None:
+async def test_message_only_partial_persists_assistant_without_route() -> None:
     db = _db()
     with patch(
         "agent.interfaces.public_api.run_animichi_agent",
-        new=AsyncMock(return_value=_plain_string_partial_result()),
+        new=AsyncMock(return_value=_message_only_partial_result()),
     ):
         response = await RuntimeAPI(
             db, session_store=InMemorySessionStore(), model_http_client=MagicMock()

@@ -59,7 +59,7 @@ async def test_eager_web_tools_are_offered_and_invoked_end_to_end() -> None:
 
     async def translate(title: str, locale: str) -> TranslationResult:
         calls.append((title, locale))
-        return TranslationResult(title, "你的名字", "test", 1.0)
+        return TranslationResult(title, "你的名字", "catalog", 1.0)
 
     def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         names = {tool.name for tool in info.function_tools}

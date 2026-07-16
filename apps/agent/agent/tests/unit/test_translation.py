@@ -1,133 +1,176 @@
-"""Unit tests for the translation module."""
+"""Unit tests for catalog-backed, tool-less translation."""
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent.agents.translation import (
-    TranslationResult,
-    _lookup_db,
-    translate_text,
-    translate_title,
+from agent.agents.translation import TranslationResult, translate_text, translate_title
+from agent.clients.catalog_client import (
+    AnimeCandidate,
+    CatalogClientProtocol,
+    ResolveNotFound,
+    ResolveResolved,
 )
+from agent.tests.eval.translation_eval_cases import CASES
 
 
-class TestLookupDb:
-    async def test_returns_chinese_title(self) -> None:
-        db = MagicMock()
-        db.bangumi.find_all_by_title = AsyncMock(
-            return_value=[
-                {
-                    "title": "君の名は。",
-                    "title_cn": "你的名字。",
-                }
-            ]
-        )
-        result = await _lookup_db(db, "君の名は", "zh")
-        assert result == "你的名字。"
-
-    async def test_returns_japanese_title(self) -> None:
-        db = MagicMock()
-        db.bangumi.find_all_by_title = AsyncMock(
-            return_value=[
-                {
-                    "title": "君の名は。",
-                    "title_cn": "你的名字。",
-                }
-            ]
-        )
-        result = await _lookup_db(db, "你的名字", "ja")
-        assert result == "君の名は。"
-
-    async def test_returns_none_for_english(self) -> None:
-        db = MagicMock()
-        db.bangumi.find_all_by_title = AsyncMock(
-            return_value=[
-                {
-                    "title": "君の名は。",
-                    "title_cn": "你的名字。",
-                }
-            ]
-        )
-        result = await _lookup_db(db, "Your Name", "en")
-        assert result is None
-
-    async def test_returns_none_when_no_matches(self) -> None:
-        db = MagicMock()
-        db.bangumi.find_all_by_title = AsyncMock(return_value=[])
-        result = await _lookup_db(db, "unknown", "zh")
-        assert result is None
-
-    async def test_returns_none_when_db_has_no_repo(self) -> None:
-        db = MagicMock(spec=[])
-        result = await _lookup_db(db, "test", "zh")
-        assert result is None
+def _catalog(outcome: ResolveResolved | ResolveNotFound) -> MagicMock:
+    catalog = MagicMock(spec=CatalogClientProtocol)
+    catalog.resolve = AsyncMock(return_value=outcome)
+    return catalog
 
 
-class TestTranslateTitle:
-    async def test_db_hit_returns_cached(self) -> None:
-        db = MagicMock()
-        db.bangumi.find_all_by_title = AsyncMock(
-            return_value=[
-                {
-                    "title": "響け！ユーフォニアム",
-                    "title_cn": "吹响！悠风号",
-                }
-            ]
-        )
+def _resolved(title_cn: str = "你的名字。") -> ResolveResolved:
+    match = AnimeCandidate(bangumi_id="160209", title="君の名は。", title_cn=title_cn)
+    return ResolveResolved(outcome="resolved", match=match)
+
+
+def _not_found() -> ResolveNotFound:
+    return ResolveNotFound(outcome="not_found", reason="anime_not_found")
+
+
+def _agent_output(output: str) -> MagicMock:
+    return MagicMock(output=output)
+
+
+def test_eval_cases_preserve_translation_kind() -> None:
+    cases = {case.name: case.inputs for case in CASES}
+    assert cases["T001"].kind == "anime_title"
+    assert cases["T053"].kind == "place_name"
+
+
+async def test_chinese_title_resolves_only_through_catalog() -> None:
+    catalog = _catalog(_resolved())
+    agent = MagicMock()
+    agent.run = AsyncMock()
+
+    with patch("agent.agents.translation.translation_agent", agent):
         result = await translate_title(
-            "響け！ユーフォニアム", target_locale="zh", db=db
+            "君の名は。",
+            target_locale="zh",
+            kind="anime_title",
+            catalog=catalog,
         )
-        assert isinstance(result, TranslationResult)
-        assert result.translated == "吹响！悠风号"
-        assert result.source == "db"
-        assert result.confidence == pytest.approx(1.0)
 
-    async def test_no_db_falls_through_returns_fallback(self) -> None:
-        """When DB is None and all lookups fail, should return llm_fallback."""
-        from unittest.mock import patch
-
-        with (
-            patch(
-                "agent.agents.translation.lookup_bangumi_api",
-                return_value=None,
-            ),
-            patch(
-                "agent.agents.translation.translation_agent",
-                MagicMock(),
-            ) as mock_agent,
-        ):
-            mock_agent.run = AsyncMock(side_effect=RuntimeError("no model configured"))
-            result = await translate_title(
-                "nonexistent_anime_xyz", target_locale="zh", db=None
-            )
-        assert isinstance(result, TranslationResult)
-        assert result.source == "llm_fallback"
+    catalog.resolve.assert_awaited_once_with("君の名は。")
+    agent.run.assert_not_awaited()
+    assert result == TranslationResult("君の名は。", "你的名字。", "catalog", 1.0)
 
 
-class TestTranslateText:
-    async def test_translate_text_returns_original_on_error(self) -> None:
-        from unittest.mock import patch
+@pytest.mark.parametrize(
+    ("title", "translated"),
+    [("君の名は。", "Your Name"), ("宇治駅", "Uji Station")],
+)
+async def test_english_title_and_place_use_toolless_llm(
+    title: str, translated: str
+) -> None:
+    catalog = _catalog(_not_found())
+    agent = MagicMock()
+    agent.run = AsyncMock(return_value=_agent_output(translated))
 
-        with patch(
-            "agent.agents.translation.translation_agent",
-            MagicMock(),
-        ) as mock_agent:
-            mock_agent.run = AsyncMock(side_effect=RuntimeError("model error"))
-            result = await translate_text("hello world", target_locale="zh")
-        assert result == "hello world"
+    with patch("agent.agents.translation.translation_agent", agent):
+        result = await translate_title(
+            title,
+            target_locale="en",
+            kind="anime_title" if title == "君の名は。" else "place_name",
+            catalog=catalog,
+        )
 
-    async def test_translate_text_strips_output(self) -> None:
-        from unittest.mock import patch
+    catalog.resolve.assert_not_awaited()
+    assert "deps" not in agent.run.await_args.kwargs
+    assert result == TranslationResult(title, translated, "llm", 0.6)
 
-        mock_result = MagicMock()
-        mock_result.output = "  翻译结果  "
-        with patch(
-            "agent.agents.translation.translation_agent",
-            MagicMock(),
-        ) as mock_agent:
-            mock_agent.run = AsyncMock(return_value=mock_result)
-            result = await translate_text("test", target_locale="zh")
-        assert result == "翻译结果"
+
+async def test_model_cannot_claim_web_search_provenance() -> None:
+    catalog = _catalog(_not_found())
+    agent = MagicMock()
+    agent.run = AsyncMock(return_value=_agent_output("web_search"))
+
+    with patch("agent.agents.translation.translation_agent", agent):
+        result = await translate_title(
+            "unknown", target_locale="zh", kind="anime_title", catalog=catalog
+        )
+
+    assert result.translated == "web_search"
+    assert result.source == "llm"
+    assert result.confidence == pytest.approx(0.6)
+
+
+async def test_untranslated_fallback_reports_zero_confidence() -> None:
+    catalog = _catalog(_not_found())
+    agent = MagicMock()
+    agent.run = AsyncMock(side_effect=RuntimeError("model unavailable"))
+
+    with patch("agent.agents.translation.translation_agent", agent):
+        result = await translate_title(
+            "unknown", target_locale="zh", kind="anime_title", catalog=catalog
+        )
+
+    assert result == TranslationResult("unknown", "unknown", "untranslated", 0.0)
+
+
+async def test_chinese_place_name_bypasses_anime_catalog_collision() -> None:
+    collision = AnimeCandidate(
+        bangumi_id="3151", title="秋葉原電脳組", title_cn="秋叶原电脑组"
+    )
+    catalog = _catalog(ResolveResolved(outcome="resolved", match=collision))
+    agent = MagicMock()
+    agent.run = AsyncMock(return_value=_agent_output("秋叶原"))
+
+    with patch("agent.agents.translation.translation_agent", agent):
+        result = await translate_title(
+            "秋葉原", target_locale="zh", kind="place_name", catalog=catalog
+        )
+
+    catalog.resolve.assert_not_awaited()
+    agent.run.assert_awaited_once()
+    assert result == TranslationResult("秋葉原", "秋叶原", "llm", 0.6)
+
+
+async def test_successful_equal_model_output_keeps_llm_provenance() -> None:
+    catalog = _catalog(_not_found())
+    agent = MagicMock()
+    agent.run = AsyncMock(return_value=_agent_output("CLANNAD"))
+
+    with patch("agent.agents.translation.translation_agent", agent):
+        result = await translate_title(
+            "CLANNAD", target_locale="zh", kind="anime_title", catalog=catalog
+        )
+
+    assert result == TranslationResult("CLANNAD", "CLANNAD", "llm", 0.6)
+
+
+async def test_blank_model_output_is_untranslated() -> None:
+    catalog = _catalog(_not_found())
+    agent = MagicMock()
+    agent.run = AsyncMock(return_value=_agent_output("   "))
+
+    with patch("agent.agents.translation.translation_agent", agent):
+        result = await translate_title(
+            "CLANNAD", target_locale="zh", kind="anime_title", catalog=catalog
+        )
+
+    assert result == TranslationResult("CLANNAD", "CLANNAD", "untranslated", 0.0)
+
+
+async def test_general_text_uses_toolless_llm() -> None:
+    agent = MagicMock()
+    agent.run = AsyncMock(return_value=_agent_output("你好"))
+
+    with patch("agent.agents.translation.translation_agent", agent):
+        result = await translate_text("hello", target_locale="zh")
+
+    assert result == "你好"
+    assert "deps" not in agent.run.await_args.kwargs
+
+
+async def test_translate_text_returns_original_on_error() -> None:
+    agent = MagicMock()
+    agent.run = AsyncMock(side_effect=RuntimeError("model unavailable"))
+
+    with patch("agent.agents.translation.translation_agent", agent):
+        result = await translate_text("hello world", target_locale="zh")
+
+    assert result == "hello world"

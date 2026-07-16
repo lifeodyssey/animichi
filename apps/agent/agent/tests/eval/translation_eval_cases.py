@@ -6,15 +6,20 @@ import json
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypedDict, cast
 
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext
+
+from agent.agents.translation import TranslationKind
+from agent.clients.catalog_client import CatalogClientProtocol
 
 
 @dataclass
 class TranslationInput:
     title: str
     target_locale: str
+    kind: TranslationKind
 
 
 @dataclass
@@ -33,8 +38,8 @@ _Ctx = EvaluatorContext[TranslationInput, TranslationOutput, TranslationExpected
 TaskFn = Callable[[TranslationInput], Coroutine[object, object, TranslationOutput]]
 
 
-def make_translation_task(db: object) -> TaskFn:
-    """Create a translation eval task with db bound via closure."""
+def make_translation_task(catalog: CatalogClientProtocol) -> TaskFn:
+    """Create a translation eval task with the catalog bound via closure."""
 
     async def task(inp: TranslationInput) -> TranslationOutput:
         from agent.agents.translation import translate_title
@@ -42,7 +47,8 @@ def make_translation_task(db: object) -> TaskFn:
         result = await translate_title(
             inp.title,
             target_locale=inp.target_locale,
-            db=db,
+            kind=inp.kind,
+            catalog=catalog,
         )
         return TranslationOutput(
             translated=result.translated,
@@ -106,18 +112,35 @@ class NotOriginalEvaluator(
 _DATASET_PATH = Path(__file__).parent / "datasets" / "translation_v1.json"
 
 
+class _RawMetadata(TypedDict):
+    category: TranslationKind
+
+
+class _RawCase(TypedDict):
+    id: str
+    title: str
+    target: str
+    expected: str
+    metadata: _RawMetadata
+
+
+def _case(
+    item: _RawCase,
+) -> Case[TranslationInput, TranslationOutput, TranslationExpected]:
+    return Case(
+        name=item["id"],
+        inputs=TranslationInput(
+            item["title"], item["target"], item["metadata"]["category"]
+        ),
+        metadata=TranslationExpected(expected=item["expected"]),
+    )
+
+
 def _load_cases() -> list[
     Case[TranslationInput, TranslationOutput, TranslationExpected]
 ]:
-    raw = json.loads(_DATASET_PATH.read_text())
-    return [
-        Case(
-            name=item["id"],
-            inputs=TranslationInput(title=item["title"], target_locale=item["target"]),
-            metadata=TranslationExpected(expected=item["expected"]),
-        )
-        for item in raw
-    ]
+    raw = cast(list[_RawCase], json.loads(_DATASET_PATH.read_text()))
+    return [_case(item) for item in raw]
 
 
 CASES = _load_cases()
