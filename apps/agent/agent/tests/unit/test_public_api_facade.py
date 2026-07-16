@@ -93,7 +93,9 @@ class TestUserIdPropagation:
     async def test_loads_user_memory_and_upserts_conversation_when_user_id_present(
         self, mock_db
     ):
-        api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+        api = RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        )
 
         await api.handle(PublicAPIRequest(text="京吹の聖地"), user_id="user-abc")
 
@@ -103,7 +105,9 @@ class TestUserIdPropagation:
         assert args[1] == "user-abc"
 
     async def test_skips_user_scoped_db_calls_when_user_id_absent(self, mock_db):
-        api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+        api = RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        )
 
         await api.handle(PublicAPIRequest(text="京吹の聖地"), user_id=None)
 
@@ -143,7 +147,11 @@ class TestLocalePassthrough:
             return result
 
         with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+            api = RuntimeAPI(
+                mock_db,
+                session_store=InMemorySessionStore(),
+                model_http_client=MagicMock(),
+            )
             response = await api.handle(PublicAPIRequest(text="你好", locale="zh"))
 
         assert response.intent == "general_qa"
@@ -172,7 +180,11 @@ class TestLocalePassthrough:
             return result
 
         with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+            api = RuntimeAPI(
+                mock_db,
+                session_store=InMemorySessionStore(),
+                model_http_client=MagicMock(),
+            )
             response = await api.handle(PublicAPIRequest(text="你好", locale="ja"))
 
         assert response.intent == "general_qa"
@@ -204,7 +216,11 @@ class TestBuildContextBlockWithUserMemory:
             return _make_result(locale=locale)
 
         with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+            api = RuntimeAPI(
+                mock_db,
+                session_store=InMemorySessionStore(),
+                model_http_client=MagicMock(),
+            )
             await api.handle(PublicAPIRequest(text="次は何がある？"), user_id="u1")
 
         context = captured["context"]
@@ -244,7 +260,11 @@ class TestOriginCoordinatesWiredToContext:
         request = PublicAPIRequest(text="聖地巡礼", origin_lat=34.9, origin_lng=135.8)
 
         with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+            api = RuntimeAPI(
+                mock_db,
+                session_store=InMemorySessionStore(),
+                model_http_client=MagicMock(),
+            )
             await api.handle(request)
 
         ctx = captured.get("context")
@@ -274,7 +294,11 @@ class TestOriginCoordinatesWiredToContext:
         request = PublicAPIRequest(text="聖地巡礼")
 
         with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+            api = RuntimeAPI(
+                mock_db,
+                session_store=InMemorySessionStore(),
+                model_http_client=MagicMock(),
+            )
             await api.handle(request)
 
         ctx = captured.get("context")

@@ -24,7 +24,13 @@ from pydantic_ai.usage import RunUsage
 from agent.agents.agent_result import AgentResult
 from agent.agents.animichi_agent import animichi_agent
 from agent.agents.animichi_runner import run_animichi_agent
-from agent.agents.base import ModelAliasError, resolve_model, resolve_model_alias
+from agent.agents.base import (
+    ModelAliasError,
+    build_model_http_client,
+    get_default_model,
+    resolve_model,
+    resolve_model_alias,
+)
 from agent.agents.runtime_deps import OnStep, StepEvent
 from agent.agents.selected_route import execute_selected_route
 from agent.agents.selection import (
@@ -37,7 +43,7 @@ from agent.agents.session_state import SessionState
 from agent.agents.translation import translate_text
 from agent.application.errors import ApplicationError, ErrorCode
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
-from agent.config.settings import get_settings
+from agent.config.settings import Settings, get_settings
 from agent.domain.ports import DatabasePort
 from agent.infrastructure.observability import (
     record_runtime_request,
@@ -78,8 +84,6 @@ __all__ = [
 ]
 
 logger = structlog.get_logger(__name__)
-
-AGENT_TIMEOUT_SECONDS: float = 90.0
 
 
 @dataclass(frozen=True)
@@ -142,10 +146,23 @@ class RuntimeAPI:
         *,
         session_store: SessionStore | None = None,
         catalog: CatalogClientProtocol | None = None,
+        settings: Settings | None = None,
+        model_http_client: httpx.AsyncClient,
     ) -> None:
         self._db = db
         self._session_store = session_store or create_session_store()
         self._catalog: CatalogClientProtocol = catalog or default_catalog_client()
+        self._settings = settings or get_settings()
+        self._model_http_client = model_http_client
+
+    def bind_model_http_client(self, client: httpx.AsyncClient) -> None:
+        """Bind the client owned by the surrounding application lifespan."""
+        self._model_http_client = client
+
+    @property
+    def model_http_client(self) -> httpx.AsyncClient:
+        """Return the required shared model transport."""
+        return self._model_http_client
 
     async def handle(
         self,
@@ -295,7 +312,10 @@ class RuntimeAPI:
                     errors=[
                         PublicAPIError(
                             code=ErrorCode.TIMEOUT.value,
-                            message=f"Agent execution timed out after {AGENT_TIMEOUT_SECONDS:.0f} seconds.",
+                            message=(
+                                "Agent execution timed out after "
+                                f"{self._settings.agent_deadline:.0f} seconds."
+                            ),
                         )
                     ],
                 ),
@@ -383,7 +403,10 @@ class RuntimeAPI:
         on_step: OnStep | None,
     ) -> tuple[AgentResult, Model | None, bool]:
         """Dispatch exactly one of point, candidate, or model request modes."""
-        model = resolve_model_alias(effective_model)
+        model = _resolve_request_model(
+            effective_model,
+            self._model_http_client,
+        )
         if request.selected_point_ids is not None:
             result = await self._point_selection(request, context, on_step)
             return result, None, False
@@ -455,7 +478,7 @@ class RuntimeAPI:
                 on_step=on_step,
                 catalog=self._catalog,
             ),
-            timeout=AGENT_TIMEOUT_SECONDS,
+            timeout=self._settings.agent_deadline,
         )
 
     async def _log_request(
@@ -518,8 +541,16 @@ async def handle_public_request(
     on_step: OnStep | None = None,
 ) -> PublicAPIResponse:
     """Convenience helper for one-off public API execution."""
-    api = RuntimeAPI(db, session_store=session_store)
-    return await api.handle(request, model=model, user_id=user_id, on_step=on_step)
+    model_client = build_model_http_client()
+    api = RuntimeAPI(
+        db,
+        session_store=session_store,
+        model_http_client=model_client,
+    )
+    try:
+        return await api.handle(request, model=model, user_id=user_id, on_step=on_step)
+    finally:
+        await model_client.aclose()
 
 
 def _deserialize_history(
@@ -536,6 +567,16 @@ def _selection_state(context: dict[str, object] | None) -> SessionState:
     """Restore the typed selection oracle from the unified session context."""
     raw = context.get("session_state_v2") if context is not None else None
     return SessionState.model_validate(raw) if isinstance(raw, dict) else SessionState()
+
+
+def _resolve_request_model(
+    model: Model | str | None,
+    http_client: httpx.AsyncClient,
+) -> Model | None:
+    """Resolve defaults only with an SDK-compatible shared transport."""
+    if model is None and isinstance(http_client, httpx.AsyncClient):
+        return get_default_model(http_client=http_client)
+    return resolve_model_alias(model, http_client=http_client)
 
 
 def _invalid_selection_response(message: str) -> PublicAPIResponse:

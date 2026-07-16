@@ -291,4 +291,4 @@ def _translation_run_scope(
 ) -> tuple[Model, RunUsage]:
     if ctx is not None:
         return ctx.model, ctx.usage
-    return resolve_model(None), RunUsage()
+    return resolve_model(translation_agent.model), RunUsage()

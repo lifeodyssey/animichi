@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
+
 from agent.agents.agent_result import AgentResult
 from agent.agents.runtime_models import QAResponseModel
 from agent.agents.session_state import (
@@ -166,7 +168,12 @@ async def test_compaction_keeps_recent_typed_deltas() -> None:
     agent = MagicMock()
     agent.run = AsyncMock(return_value=MagicMock(output="summary"))
     with patch("agent.interfaces.session_facade.create_agent", return_value=agent):
-        await compact_session_interactions("session", state, store)
+        await compact_session_interactions(
+            "session",
+            state,
+            store,
+            http_client=MagicMock(spec=httpx.AsyncClient),
+        )
     saved = await store.get("session")
     assert saved is not None
     assert saved["interactions"] == interactions[-2:]

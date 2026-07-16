@@ -16,7 +16,8 @@ Browser
                                                             ├─ Supabase Postgres (`SUPABASE_DB_URL`)
                                                             ├─ Anitabi API (`ANITABI_API_URL`)
                                                             ├─ catalog read path (`CATALOG_API_URL` → /catalog/*)
-                                                            └─ Gemini provider (`GEMINI_API_KEY`)
+                                                            └─ MiMo primary (`MIMO_API_KEY`)
+                                                               └─ DeepSeek fallback (`DEEPSEEK_API_KEY`)
 ```
 
 The hybrid topology runs two Workers. The main `seichijunrei` Worker
@@ -43,7 +44,7 @@ The deployment target stays intentionally thin. The Worker owns routing and edge
 |---|---|---|
 | Frontend build | Static export only | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
 | Worker edge | Route match, JWT/API-key auth, identity injection | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (+ optional `NEON_AUTH_*`) |
-| Container runtime | Backend service, DB, model/provider calls | `SUPABASE_DB_URL`, `GEMINI_API_KEY`, `ANITABI_API_URL`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
+| Container runtime | Backend service, DB, model/provider calls | `SUPABASE_DB_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `ANITABI_API_URL`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
 
 Current hardening rule: the Worker strips the raw `Authorization` header before proxying and forwards only trusted `X-User-Id` / `X-User-Type` identity headers to the container.
 
@@ -93,7 +94,8 @@ These secrets stay in the Worker environment and are not forwarded into the cont
 Required:
 
 - `SUPABASE_DB_URL`
-- provider credentials for the configured model backend (`GEMINI_API_KEY` today)
+- `MIMO_API_KEY` for the primary `mimo-v2.5` model
+- `DEEPSEEK_API_KEY` for the DeepSeek fallback
 
 Common runtime config:
 
@@ -135,7 +137,8 @@ Run the image locally:
 docker run --rm -p 8080:8080 \
   -e SUPABASE_DB_URL \
   -e ANITABI_API_URL \
-  -e GEMINI_API_KEY \
+  -e MIMO_API_KEY \
+  -e DEEPSEEK_API_KEY \
   -e CORS_ALLOWED_ORIGIN \
   seichijunrei-runtime
 ```

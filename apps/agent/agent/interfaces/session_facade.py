@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import cast
 
+import httpx
 import structlog
 from pydantic import ValidationError
 
@@ -191,6 +192,8 @@ async def compact_session_interactions(
     session_id: str,
     session_state: dict[str, object],
     session_store: SessionStore,
+    *,
+    http_client: httpx.AsyncClient,
 ) -> None:
     """Compress old interaction prose while retaining recent typed deltas."""
     current = await _current_storage_state(session_id, session_state, session_store)
@@ -198,7 +201,11 @@ async def compact_session_interactions(
     if len(interactions) < COMPACT_THRESHOLD:
         return
     compacted = interactions[:-COMPACT_KEEP_RECENT]
-    summary = await _summarize(compacted, as_str_or_none(current.get("summary")))
+    summary = await _summarize(
+        compacted,
+        as_str_or_none(current.get("summary")),
+        http_client=http_client,
+    )
     if summary is None:
         return
     updated = {
@@ -217,13 +224,18 @@ async def _current_storage_state(
     return normalize_session_state(latest if latest is not None else fallback)
 
 
-async def _summarize(entries: list[object], previous: str | None) -> str | None:
+async def _summarize(
+    entries: list[object],
+    previous: str | None,
+    *,
+    http_client: httpx.AsyncClient,
+) -> str | None:
     lines = ["Merge these interaction notes into a concise session summary:"]
     if previous:
         lines.insert(0, f"Existing summary: {previous}")
     lines.extend(_summary_line(entry) for entry in entries)
     agent = create_agent(
-        get_default_model(),
+        get_default_model(http_client=http_client),
         name="session_compactor",
         system_prompt="Summarize the session in 1-2 sentences in its language.",
         tool_retries=1,
@@ -258,9 +270,15 @@ async def generate_and_save_title(
     response_message: str,
     db: object,
     user_id: str | None = None,
+    http_client: httpx.AsyncClient,
 ) -> str:
     """Generate, persist, and return a compact conversation title."""
-    title = await _generate_title(session_id, first_query, response_message)
+    title = await _generate_title(
+        session_id,
+        first_query,
+        response_message,
+        http_client=http_client,
+    )
     repository = get_session_repo(db)
     if repository is None:
         return title
@@ -273,10 +291,16 @@ async def generate_and_save_title(
     return title
 
 
-async def _generate_title(session_id: str, query: str, response: str) -> str:
+async def _generate_title(
+    session_id: str,
+    query: str,
+    response: str,
+    *,
+    http_client: httpx.AsyncClient,
+) -> str:
     fallback = query.strip()[:20] or query[:20]
     agent = create_agent(
-        get_default_model(),
+        get_default_model(http_client=http_client),
         name="conversation_title",
         system_prompt="Generate a <=15 character title in the query language. Output only it.",
         tool_retries=1,
