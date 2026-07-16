@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from agent.agents.animichi_runner import _seed_tool_state
 from agent.agents.runtime_deps import RuntimeDeps
+from agent.agents.session_state import SessionState
 from agent.interfaces.response_builder import _status_from_payload
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
@@ -113,6 +114,18 @@ def test_seed_tool_state_restores_flat_search_data() -> None:
     _seed_tool_state(deps, context)
     assert deps.tool_state.search_bangumi is not None
     assert deps.tool_state.search_bangumi.row_count == 1
+
+
+def test_seed_tool_state_falls_back_from_malformed_session_state() -> None:
+    from unittest.mock import MagicMock
+
+    deps = RuntimeDeps(
+        db=MagicMock(), locale="en", query="test", catalog=MockCatalogClient()
+    )
+
+    _seed_tool_state(deps, {"session_state_v2": {"unknown": True}})
+
+    assert deps.tool_state.session == SessionState()
 
 
 def test_status_from_payload_extracts_status() -> None:

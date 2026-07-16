@@ -16,11 +16,11 @@ from agent.agents.session_state import (
     ResultRef,
     RoutePayloadState,
     RouteRef,
-    RouteStaleRef,
     RouteSummaryState,
     SearchMetadataState,
     SearchPayloadState,
     SessionState,
+    StaleRef,
 )
 
 
@@ -100,7 +100,7 @@ def test_session_state_round_trips_every_component() -> None:
         ),
         (GeocodeStaging, {}),
         (SessionState, {}),
-        (RouteStaleRef, {"status": "stale_ref"}),
+        (StaleRef, {"status": "stale_ref"}),
     ],
 )
 def test_session_models_forbid_unknown_fields(
@@ -116,6 +116,7 @@ def test_search_registry_evicts_least_recently_used_ref() -> None:
     for index, ref in enumerate(refs):
         state.store_search_result(ref, _search_payload(index))
     assert isinstance(state.get_search_result(refs[0]), SearchPayloadState)
+    assert state.search_result_lru[-1] == refs[0]
 
     newest = ResultRef("bangumi:0:newest")
     state.store_search_result(newest, _search_payload(MAX_REFS))
@@ -134,7 +135,7 @@ def test_evicted_search_ref_returns_typed_stale_outcome() -> None:
 
     outcome = state.get_search_result(refs[0])
 
-    assert isinstance(outcome, RouteStaleRef)
+    assert isinstance(outcome, StaleRef)
     assert outcome.status == "stale_ref"
 
 
@@ -144,7 +145,8 @@ def test_route_registry_evicts_least_recently_used_ref() -> None:
     refs = [RouteRef(f"route:0:{index}") for index in range(MAX_REFS)]
     for ref in refs:
         state.store_route(ref, _route_payload(source_ref))
-    assert state.get_route(refs[0]) is not None
+    assert isinstance(state.get_route(refs[0]), RoutePayloadState)
+    assert state.route_lru[-1] == refs[0]
 
     newest = RouteRef("route:0:newest")
     state.store_route(newest, _route_payload(source_ref))
@@ -152,6 +154,7 @@ def test_route_registry_evicts_least_recently_used_ref() -> None:
     assert refs[0] in state.routes
     assert refs[1] not in state.routes
     assert len(state.routes) == MAX_REFS
+    assert isinstance(state.get_route(refs[1]), StaleRef)
 
 
 def test_restore_trims_oversized_registries_to_last_max_refs() -> None:
@@ -160,8 +163,9 @@ def test_restore_trims_oversized_registries_to_last_max_refs() -> None:
         {
             "search_results": {
                 ref: _search_payload(index) for index, ref in enumerate(refs)
-            }
+            },
         }
     )
 
     assert list(state.search_results) == refs[-MAX_REFS:]
+    assert state.search_result_lru == refs[-MAX_REFS:]

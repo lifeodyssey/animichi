@@ -237,13 +237,13 @@ def _latest_session_state(interactions: list[object]) -> SessionState | None:
             continue
         raw_delta = interaction.get("context_delta")
         if isinstance(raw_delta, dict) and "session_state_v2" in raw_delta:
-            state = _parse_session_state(raw_delta.get("session_state_v2"))
-            if state is not None:
-                return state
+            return _parse_session_state(raw_delta.get("session_state_v2"))
     return None
 
 
 def _serialize_session_state(state: SessionState) -> dict[str, object]:
+    if state.is_empty():
+        return {}
     return cast(dict[str, object], state.model_dump(mode="json"))
 
 
@@ -442,7 +442,9 @@ def extract_context_delta(result: AgentResult) -> dict[str, object]:
         resolve_candidates,
         pending_clarify,
     )
-    delta["session_state_v2"] = _serialize_session_state(result.session_state)
+    serialized_session = _serialize_session_state(result.session_state)
+    if serialized_session:
+        delta["session_state_v2"] = serialized_session
     return delta
 
 
