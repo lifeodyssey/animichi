@@ -9,7 +9,9 @@ import pytest
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.catalog_adapter import build_search_payload
+from agent.agents.runtime_deps import StepEvent
 from agent.agents.selected_route import execute_selected_route
+from agent.agents.session_state import ResultRef, SearchPayloadState, SessionState
 from agent.clients.catalog_client import PilgrimagePoint, Route
 from agent.clients.errors import APIError
 from agent.tests.eval.mock_catalog_client import FIXTURE_POINTS, MockCatalogClient
@@ -32,14 +34,13 @@ _POINT_FIELDS = {
 }
 
 
-def _payload(result: AgentResult) -> dict[str, object]:
-    return cast(dict[str, object], result.tool_state["plan_selected"])
-
-
 def _ordered_rows(result: AgentResult) -> list[dict[str, object]]:
-    rows = _payload(result)["ordered_points"]
-    assert isinstance(rows, list)
-    return [cast(dict[str, object], row) for row in rows]
+    state = result.session_state
+    ref = state.route_lru[-1]
+    return [
+        row.model_dump(mode="json", exclude={"city"})
+        for row in state.routes[ref].ordered_points
+    ]
 
 
 def _euphonium_points() -> list[PilgrimagePoint]:
@@ -50,6 +51,7 @@ async def test_selected_route_rows_keep_catalog_point_fields() -> None:
     catalog = MockCatalogClient()
     result = await execute_selected_route(
         point_ids=["p004", "p005"],
+        state=SessionState(),
         origin="34.8915,135.8075",
         locale="en",
         catalog=catalog,
@@ -58,13 +60,16 @@ async def test_selected_route_rows_keep_catalog_point_fields() -> None:
     rows = _ordered_rows(result)
     assert set(rows[0]) == _POINT_FIELDS
     assert rows[0] == _euphonium_points()[0].model_dump(mode="json")
-    assert catalog.calls == [("route", (("p004", "p005"), (34.8915, 135.8075)))]
+    assert result.message == "Created a route with 2 selected stops."
+    assert result.steps[0].model_initiated is False
+    assert catalog.calls == [("route", (("p004", "p005"), (34.8915, 135.8075), None))]
 
 
 async def test_selected_route_rows_match_search_payload_rows() -> None:
     catalog = MockCatalogClient()
     result = await execute_selected_route(
         point_ids=["p004", "p005", "p006"],
+        state=SessionState(),
         origin=None,
         locale="ja",
         catalog=catalog,
@@ -78,6 +83,7 @@ async def test_selected_route_rows_match_search_payload_rows() -> None:
 async def test_selected_route_empty_point_ids_returns_error() -> None:
     result = await execute_selected_route(
         point_ids=[],
+        state=SessionState(),
         origin=None,
         locale="en",
         catalog=MockCatalogClient(),
@@ -97,6 +103,7 @@ class _FailingCatalog(MockCatalogClient):
 async def test_selected_route_catalog_api_error_returns_error() -> None:
     result = await execute_selected_route(
         point_ids=["p004"],
+        state=SessionState(),
         origin=None,
         locale="en",
         catalog=_FailingCatalog(),
@@ -109,11 +116,12 @@ async def test_selected_route_catalog_api_error_returns_error() -> None:
 async def test_selected_route_emits_running_and_done_steps() -> None:
     events: list[tuple[str, str]] = []
 
-    async def _record(tool: str, status: str, _d: object, _a: str, _b: str) -> None:
-        events.append((tool, status))
+    async def _record(event: StepEvent) -> None:
+        events.append((event.tool, event.status))
 
     await execute_selected_route(
         point_ids=["p004"],
+        state=SessionState(),
         origin=None,
         locale="en",
         catalog=MockCatalogClient(),
@@ -130,12 +138,37 @@ async def test_selected_route_malformed_origin_routes_without_origin(
     catalog = MockCatalogClient()
     await execute_selected_route(
         point_ids=["p004"],
+        state=SessionState(),
         origin=origin,
         locale="en",
         catalog=catalog,
     )
 
-    assert catalog.calls == [("route", (("p004",), None))]
+    assert catalog.calls == [("route", (("p004",), None, None))]
+
+
+async def test_selected_route_preserves_hydrated_search_state() -> None:
+    state = SessionState()
+    source_ref = ResultRef("search:prior:1")
+    state.store_search_result(
+        source_ref,
+        SearchPayloadState(
+            kind="bangumi",
+            rows=[point.model_dump(mode="json") for point in _euphonium_points()],
+            row_count=3,
+            anime_id="115908",
+        ),
+    )
+    result = await execute_selected_route(
+        point_ids=["p004", "p005"],
+        state=state,
+        origin=None,
+        locale="en",
+        catalog=MockCatalogClient(),
+    )
+    route = state.routes[state.route_lru[-1]]
+    assert result.session_state.search_results[source_ref].row_count == 3
+    assert route.source_ref is None
 
 
 def _agent_source_files() -> list[Path]:

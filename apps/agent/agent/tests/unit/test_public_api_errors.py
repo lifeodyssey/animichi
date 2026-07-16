@@ -294,7 +294,7 @@ class TestRuntimeAPIErrors:
 
         assert response.intent == "search_bangumi"
         assert span.attributes["runtime.intent"] == "search_bangumi"
-        assert span.attributes["runtime.status"] == "ok"
+        assert span.attributes["runtime.status"] == "empty"
         assert span.attributes["runtime.success"] is True
         record_metric.assert_called_once()
         assert record_metric.call_args.kwargs["transport"] == "public_api"

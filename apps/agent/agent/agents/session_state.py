@@ -84,12 +84,14 @@ class CurrentAnime(_SessionModel):
 class SearchPayloadState(_SessionModel):
     """Full search payload addressed by a server-owned result ref."""
 
-    kind: Literal["bangumi", "nearby"]
+    kind: Literal["bangumi", "nearby", "multi"]
     rows: list[PointState] = Field(default_factory=list)
     row_count: int = 0
     metadata: SearchMetadataState | None = None
     nearby_groups: list[NearbyGroupState] | None = None
     anime_id: str | None = None
+    anime_ids: list[str] | None = None
+    omitted_work_ids: list[str] | None = None
     partial: bool = False
 
 
@@ -148,6 +150,8 @@ class OrderedCandidate(_SessionModel):
     cover_url: str | None = None
     city: str | None = None
     points_count: int | None = None
+    lat: float | None = None
+    lng: float | None = None
 
 
 ClarificationReason: TypeAlias = Literal[
@@ -216,6 +220,12 @@ class SessionState(_SessionModel):
         _store_lru(self.search_results, self.search_result_lru, ref, payload)
         self.last_result_ref = ref
 
+    def next_search_ref(self, kind: str, seed: int) -> ResultRef:
+        """Return the first collision-free opaque search ref at or above seed."""
+        while ResultRef(f"search:{kind}:{seed}") in self.search_results:
+            seed += 1
+        return ResultRef(f"search:{kind}:{seed}")
+
     def get_search_result(self, ref: ResultRef) -> SearchResultLookup:
         """Return a search payload or a typed stale-ref outcome."""
         payload = self.search_results.get(ref)
@@ -227,6 +237,12 @@ class SessionState(_SessionModel):
     def store_route(self, ref: RouteRef, payload: RoutePayloadState) -> None:
         """Store and mark a route payload as the most recently used."""
         _store_lru(self.routes, self.route_lru, ref, payload)
+
+    def next_route_ref(self, kind: str, seed: int) -> RouteRef:
+        """Return the first collision-free opaque route ref at or above seed."""
+        while RouteRef(f"route:{kind}:{seed}") in self.routes:
+            seed += 1
+        return RouteRef(f"route:{kind}:{seed}")
 
     def get_route(self, ref: RouteRef) -> RouteLookup:
         """Return a route payload or a typed stale-ref outcome."""

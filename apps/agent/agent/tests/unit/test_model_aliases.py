@@ -11,7 +11,7 @@ from pydantic_ai.models.openai import OpenAIChatModel
 
 from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.base import MODEL_ALIASES, ModelAliasError, resolve_model_alias
-from agent.agents.runtime_models import GreetingResponseModel, QADataModel
+from agent.agents.runtime_models import QAResponseModel
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.config.settings import Settings
 from agent.domain.ports import DatabasePort
@@ -105,9 +105,7 @@ def test_none_model_override_remains_unchanged() -> None:
 
 
 async def test_none_model_override_is_forwarded_unchanged() -> None:
-    output = GreetingResponseModel(
-        intent="greet_user", message="hello", data=QADataModel(message="hello")
-    )
+    output = QAResponseModel(message="hello")
     run_result = MagicMock(output=output, usage=None)
     run_result.new_messages.return_value = []
     with patch(

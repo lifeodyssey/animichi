@@ -124,14 +124,14 @@ class RoutesRepo(Protocol):
     async def save_route(
         self,
         session_id: str,
-        bangumi_id: str,
+        anime_ids: list[str],
         point_ids: list[str],
         data: dict[str, object],
         *,
         origin_station: str | None = None,
         origin_lat: float | None = None,
         origin_lon: float | None = None,
-    ) -> str | None: ...
+    ) -> str: ...
 
 
 def get_session_repo(db: object) -> SessionRepo | None:

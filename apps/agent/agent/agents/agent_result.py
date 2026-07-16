@@ -24,6 +24,7 @@ class StepRecord:
     params: dict[str, object] = field(default_factory=dict)
     data: dict[str, object] | None = None
     error: str | None = None
+    model_initiated: bool = True
 
 
 @dataclass
@@ -31,20 +32,14 @@ class AgentResult:
     """Output of pilgrimage agent run."""
 
     output: RuntimeStageOutput
+    intent: str
+    session_state: SessionState
     steps: list[StepRecord] = field(default_factory=list)
     tool_state: LegacyPayload = field(default_factory=dict)
     new_messages: list[ModelMessage] = field(default_factory=list)
     usage: RunUsage | None = None
-    intent: str = ""
-    session_state: SessionState = field(default_factory=SessionState)
     status: str | None = None
     success_override: bool | None = None
-
-    def __post_init__(self) -> None:
-        """Read the legacy output intent only for unmigrated constructors."""
-        if self.intent:
-            return
-        self.intent = str(self.output.intent)
 
     @property
     def success(self) -> bool:

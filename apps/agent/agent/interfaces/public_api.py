@@ -25,8 +25,15 @@ from agent.agents.agent_result import AgentResult
 from agent.agents.animichi_agent import animichi_agent
 from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.base import ModelAliasError, resolve_model, resolve_model_alias
-from agent.agents.runtime_deps import OnStep
+from agent.agents.runtime_deps import OnStep, StepEvent
 from agent.agents.selected_route import execute_selected_route
+from agent.agents.selection import (
+    SelectionError,
+    execute_multi_selection,
+    execute_place_selection,
+    validate_candidate_selection,
+)
+from agent.agents.session_state import SessionState
 from agent.agents.translation import translate_text
 from agent.application.errors import ApplicationError, ErrorCode
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
@@ -176,13 +183,6 @@ class RuntimeAPI:
                     request, context, message_history, effective_model, on_step, span
                 )
 
-                if response.intent == "greet_user":
-                    response.session_id = None
-                    response.session = {}
-                    response.route_history = []
-                    user_message_persisted = True
-                    return response
-
                 if session_id is None:
                     session_id = uuid4().hex
                     span.set_attribute("runtime.session_id", session_id)
@@ -278,31 +278,10 @@ class RuntimeAPI:
     ) -> tuple[AgentResult | None, PublicAPIResponse, dict[str, object]]:
         """Run the pipeline (or synthetic plan) and map result to response."""
         context_delta: dict[str, object] = {}
-        has_selected = bool(request.selected_point_ids)
         try:
-            resolved_model = resolve_model_alias(effective_model)
-            if has_selected:
-                result = await execute_selected_route(
-                    point_ids=list(request.selected_point_ids or []),
-                    origin=request.origin,
-                    locale=request.locale,
-                    catalog=self._catalog,
-                    on_step=on_step,
-                )
-            else:
-                result = await asyncio.wait_for(
-                    run_animichi_agent(
-                        text=request.text,
-                        db=cast(DatabasePort, self._db),
-                        model=resolved_model,
-                        locale=request.locale,
-                        context=context,
-                        message_history=message_history,
-                        on_step=on_step,
-                        catalog=self._catalog,
-                    ),
-                    timeout=AGENT_TIMEOUT_SECONDS,
-                )
+            result, resolved_model, model_path = await self._dispatch_request(
+                request, context, message_history, effective_model, on_step
+            )
         except TimeoutError:
             _span_record_exception(span, TimeoutError("agent timed out"))
             logger.warning("agent_timeout", text=request.text[:50])
@@ -340,6 +319,9 @@ class RuntimeAPI:
                 ),
                 context_delta,
             )
+        except SelectionError as exc:
+            _span_record_exception(span, exc)
+            return None, _invalid_selection_response(str(exc)), context_delta
         except ApplicationError as exc:
             _span_record_exception(span, exc)
             return None, application_error_response(exc), context_delta
@@ -381,16 +363,100 @@ class RuntimeAPI:
                 ),
                 context_delta,
             )
-        translation_model = None if has_selected else resolved_model
-        await _apply_translation_gate(
-            result, request.locale, on_step, model=translation_model
-        )
+        if model_path:
+            await _apply_translation_gate(
+                result, request.locale, on_step, model=resolved_model
+            )
         response = agent_result_to_response(
             result,
             include_debug=request.include_debug,
         )
         context_delta = extract_context_delta(result)
         return result, response, context_delta
+
+    async def _dispatch_request(
+        self,
+        request: PublicAPIRequest,
+        context: dict[str, object] | None,
+        history: list[ModelMessage],
+        effective_model: Model | str | None,
+        on_step: OnStep | None,
+    ) -> tuple[AgentResult, Model | None, bool]:
+        """Dispatch exactly one of point, candidate, or model request modes."""
+        model = resolve_model_alias(effective_model)
+        if request.selected_point_ids is not None:
+            result = await self._point_selection(request, context, on_step)
+            return result, None, False
+        if request.selected_candidate_ids is not None:
+            result = await self._candidate_selection(request, context, on_step)
+            return result, None, False
+        result = await self._model_request(request, context, history, model, on_step)
+        return result, model, True
+
+    async def _point_selection(
+        self,
+        request: PublicAPIRequest,
+        context: dict[str, object] | None,
+        on_step: OnStep | None,
+    ) -> AgentResult:
+        return await execute_selected_route(
+            point_ids=list(request.selected_point_ids or []),
+            state=_selection_state(context),
+            origin=request.origin,
+            locale=request.locale,
+            catalog=self._catalog,
+            on_step=on_step,
+        )
+
+    async def _candidate_selection(
+        self,
+        request: PublicAPIRequest,
+        context: dict[str, object] | None,
+        on_step: OnStep | None,
+    ) -> AgentResult:
+        state = _selection_state(context)
+        selected = validate_candidate_selection(
+            state,
+            list(request.selected_candidate_ids or []),
+            cast(int, request.clarification_id),
+        )
+        if selected.reason == "anime_ambiguity":
+            return await execute_multi_selection(
+                candidate_ids=selected.candidate_ids,
+                state=state,
+                locale=request.locale,
+                catalog=self._catalog,
+                on_step=on_step,
+            )
+        return await execute_place_selection(
+            candidate_id=selected.candidate_ids[0],
+            state=state,
+            locale=request.locale,
+            catalog=self._catalog,
+            on_step=on_step,
+        )
+
+    async def _model_request(
+        self,
+        request: PublicAPIRequest,
+        context: dict[str, object] | None,
+        history: list[ModelMessage],
+        model: Model | None,
+        on_step: OnStep | None,
+    ) -> AgentResult:
+        return await asyncio.wait_for(
+            run_animichi_agent(
+                text=request.text,
+                db=cast(DatabasePort, self._db),
+                model=model,
+                locale=request.locale,
+                context=context,
+                message_history=history,
+                on_step=on_step,
+                catalog=self._catalog,
+            ),
+            timeout=AGENT_TIMEOUT_SECONDS,
+        )
 
     async def _log_request(
         self,
@@ -425,8 +491,7 @@ class RuntimeAPI:
                 )
 
         insert_request_log = getattr(self._db, "insert_request_log", None)
-        is_ephemeral = response is not None and response.intent == "greet_user"
-        if insert_request_log is None or is_ephemeral:
+        if insert_request_log is None:
             return
 
         try:
@@ -467,6 +532,24 @@ def _deserialize_history(
     return list(ModelMessagesTypeAdapter.validate_python(raw_history))
 
 
+def _selection_state(context: dict[str, object] | None) -> SessionState:
+    """Restore the typed selection oracle from the unified session context."""
+    raw = context.get("session_state_v2") if context is not None else None
+    return SessionState.model_validate(raw) if isinstance(raw, dict) else SessionState()
+
+
+def _invalid_selection_response(message: str) -> PublicAPIResponse:
+    """Return a typed stale/invalid selection response without mutating state."""
+    return PublicAPIResponse(
+        success=False,
+        status="invalid_request",
+        intent="clarify",
+        message=message,
+        errors=[PublicAPIError(code="invalid_selection", message=message)],
+        ui={"component": "Clarification"},
+    )
+
+
 async def _apply_translation_gate(
     result: AgentResult,
     locale: str,
@@ -485,7 +568,7 @@ async def _apply_translation_gate(
     if detected == locale:
         return
     if on_step is not None:
-        await on_step("translate", "running", {}, "", "")
+        await on_step(StepEvent(tool="translate", status="running", data={}))
     try:
         translated = await translate_text(
             message,
@@ -497,7 +580,7 @@ async def _apply_translation_gate(
     except (OSError, RuntimeError, ValueError, TypeError):
         logger.warning("translation_gate_failed", locale=locale)
     if on_step is not None:
-        await on_step("translate", "done", {}, "", "")
+        await on_step(StepEvent(tool="translate", status="done", data={}))
 
 
 def _translation_context(

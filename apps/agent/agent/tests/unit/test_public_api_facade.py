@@ -53,7 +53,7 @@ class TestHandlePublicRequest:
         )
 
         assert response.intent == "search_bangumi"
-        assert response.status == "ok"
+        assert response.status == "empty"
         assert response.session["interaction_count"] == 1
 
     async def test_helper_forwards_explicit_model_override(self, mock_db, monkeypatch):
@@ -122,7 +122,7 @@ class TestLocalePassthrough:
 
     async def test_handle_passes_locale_to_pipeline(self, mock_db):
         result = _make_result(
-            intent="answer_question",
+            intent="general_qa",
             locale="zh",
             data={},
             message="你好！有什么可以帮助你的？",
@@ -151,7 +151,7 @@ class TestLocalePassthrough:
 
     async def test_handle_ja_locale_produces_japanese_message(self, mock_db):
         result = _make_result(
-            intent="answer_question",
+            intent="general_qa",
             locale="ja",
             data={},
             message="こんにちは！何かお手伝いしましょうか？",
@@ -207,13 +207,17 @@ class TestBuildContextBlockWithUserMemory:
             api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
             await api.handle(PublicAPIRequest(text="次は何がある？"), user_id="u1")
 
-        assert captured["context"] == {
+        context = captured["context"]
+        assert isinstance(context, dict)
+        assert {key: context[key] for key in context if key != "session_state_v2"} == {
             "summary": None,
-            "current_bangumi_id": "105",
-            "current_anime_title": "君の名は",
-            "last_location": None,
             "last_intent": None,
-            "visited_bangumi_ids": ["105"],
+        }
+        session = context["session_state_v2"]
+        assert isinstance(session, dict)
+        assert session["current_anime"] == {
+            "bangumi_id": "105",
+            "title": "君の名は",
         }
 
 

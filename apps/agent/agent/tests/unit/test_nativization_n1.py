@@ -45,7 +45,7 @@ async def test_runner_stops_looping_tool_calls_at_usage_limit() -> None:
     def loop(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
         nonlocal requests
         requests += 1
-        return ModelResponse(parts=[ToolCallPart("greet_user", {"message": "Hello."})])
+        return ModelResponse(parts=[ToolCallPart("resolve_anime", {"title": "x"})])
 
     with pytest.raises(UsageLimitExceeded, match="request_limit"):
         await run_animichi_agent(

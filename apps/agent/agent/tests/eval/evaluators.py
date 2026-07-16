@@ -18,7 +18,7 @@ prior StepEfficiency step-count table) — no new dataset labels are introduced.
 ``acceptable_stages`` is a *disjunction*: the agent is correct if it follows any
 one acceptable stage. All trajectory metrics therefore score against the
 best-matching acceptable stage. Chat stages accept both the recorded ephemeral
-tool form (``greet_user`` / ``answer_question``) and the legal zero-step form:
+tool form and the legal zero-step ``general_qa`` form:
 zero-step trajectories pass via the empty chain, recorded ephemeral one-tool
 chains pass in-order, and wrong-tool trajectories fail route order while also
 being punished by ``tool_f1``.
@@ -29,13 +29,15 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
-from pydantic import BaseModel
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext, LLMJudge
 
 from agent.agents.agent_result import AgentResult
+from agent.agents.session_state import RoutePayloadState, SearchPayloadState
 from agent.interfaces.public_api import detect_language
+
+EVALUATOR_VERSION = "phase1c-v1"
 
 # ── Case types (shared with the dataset builder) ─────────────────────
 
@@ -48,6 +50,9 @@ class AgentInput:
     locale: str
     context: Mapping[str, object] | None = None
     selected_point_ids: list[str] | None = None
+    selected_candidate_ids: list[str] | None = None
+    clarification_id: int | None = None
+    seeded_pending: Mapping[str, object] | None = None
 
 
 @dataclass
@@ -69,10 +74,10 @@ _STAGE_TOOL_CHAINS: dict[str, tuple[tuple[str, ...], ...]] = {
     "search_nearby": (("search_nearby",),),
     "plan_route": (("resolve_anime", "search_bangumi", "plan_route"),),
     "plan_selected": (("plan_selected",),),
-    "clarify": (("clarify",),),
+    "plan_multi": (("plan_multi",),),
+    "clarify": (("resolve_anime", "clarify"), ("geocode", "clarify")),
     "clarify_after_nearby": (("geocode", "clarify"),),
-    "greet_user": (("greet_user",), ()),
-    "general_qa": (("answer_question",), ()),
+    "general_qa": ((),),
 }
 
 # Ideal step counts (carried over verbatim from the prior StepEfficiency table).
@@ -81,10 +86,10 @@ _STAGE_MIN_STEPS: dict[str, int] = {
     "search_nearby": 1,
     "plan_route": 3,
     "plan_selected": 1,
+    "plan_multi": 1,
     "clarify": 1,
     "clarify_after_nearby": 2,
-    "greet_user": 1,
-    "general_qa": 1,
+    "general_qa": 0,
 }
 
 
@@ -92,9 +97,18 @@ def _actual_tools(output: AgentResult) -> list[str]:
     return [step.tool for step in output.steps]
 
 
-def _chains(meta: AgentExpected | None) -> list[tuple[str, ...]]:
-    stages = meta.acceptable_stages if meta else []
+def _chains(ctx: _Ctx) -> list[tuple[str, ...]]:
+    stages = ctx.metadata.acceptable_stages if ctx.metadata else []
+    if "plan_multi" in stages and ctx.inputs.selected_candidate_ids is not None:
+        count = len(dict.fromkeys(ctx.inputs.selected_candidate_ids))
+        return [("search_bangumi",) * count + ("plan_multi",)]
+    if _seeded_reason(ctx.inputs) == "place_ambiguity":
+        return [("search_nearby",)]
     return _chains_for_stages(stages)
+
+
+def _seeded_reason(inputs: AgentInput) -> object:
+    return inputs.seeded_pending.get("reason") if inputs.seeded_pending else None
 
 
 def _chains_for_stages(stages: Sequence[str]) -> list[tuple[str, ...]]:
@@ -139,17 +153,36 @@ def route_order_score(
 
 
 def _available_data_keys(result: AgentResult) -> set[str]:
-    keys = set(result.tool_state.keys())
-    data = getattr(result.output, "data", None)
-    if isinstance(data, BaseModel):
-        dumped = data.model_dump(mode="json")
-        if isinstance(dumped, dict):
-            keys |= set(dumped.keys())
+    if result.intent == "clarify":
+        pending = result.session_state.pending_clarification
+        return {"reason", "candidates"} if pending is not None else set()
+    search = _latest_search(result)
+    route = _latest_route(result)
+    keys: set[str] = set()
+    if result.intent in {"search_bangumi", "search_nearby", "plan_multi"}:
+        keys.update({"results"} if search is not None else set())
+    if result.intent in {"plan_route", "plan_selected", "plan_multi"}:
+        keys.update({"route"} if route is not None else set())
     return keys
 
 
-def _acceptable_min_steps(meta: AgentExpected | None) -> list[int]:
-    stages = meta.acceptable_stages if meta else []
+def _latest_search(result: AgentResult) -> SearchPayloadState | None:
+    ref = result.session_state.last_result_ref
+    return result.session_state.search_results.get(ref) if ref is not None else None
+
+
+def _latest_route(result: AgentResult) -> RoutePayloadState | None:
+    state = result.session_state
+    ref = state.route_lru[-1] if state.route_lru else None
+    return state.routes.get(ref) if ref is not None else None
+
+
+def _acceptable_min_steps(ctx: _Ctx) -> list[int]:
+    stages = ctx.metadata.acceptable_stages if ctx.metadata else []
+    if "plan_multi" in stages and ctx.inputs.selected_candidate_ids is not None:
+        return [len(dict.fromkeys(ctx.inputs.selected_candidate_ids)) + 1]
+    if _seeded_reason(ctx.inputs) == "place_ambiguity":
+        return [1]
     return [_STAGE_MIN_STEPS.get(stage, 2) for stage in stages] or [1]
 
 
@@ -161,7 +194,7 @@ class ToolCallRecall(Evaluator[AgentInput, AgentResult, AgentExpected]):
     """L2: tool-set recall/precision/F1 vs the best-matching acceptable stage."""
 
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
-        chains = _chains(ctx.metadata)
+        chains = _chains(ctx)
         if not chains:
             return {"tool_recall": 1.0, "tool_precision": 1.0, "tool_f1": 1.0}
         actual = _actual_tools(ctx.output)
@@ -177,8 +210,9 @@ class RouteOrderCorrect(Evaluator[AgentInput, AgentResult, AgentExpected]):
 
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
         actual = _actual_tools(ctx.output)
-        stages = ctx.metadata.acceptable_stages if ctx.metadata else []
-        return {"route_order_correct": route_order_score(stages, actual)}
+        chains = _chains(ctx)
+        correct = not chains or any(_is_subsequence(chain, actual) for chain in chains)
+        return {"route_order_correct": 1.0 if correct else 0.0}
 
 
 @dataclass
@@ -200,14 +234,19 @@ class NonemptyResults(Evaluator[AgentInput, AgentResult, AgentExpected]):
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
         if not ctx.metadata or not ctx.metadata.expect_nonempty:
             return {}
-        nearby = ctx.output.tool_state.get("search_nearby")
-        row_count = nearby.get("row_count") if isinstance(nearby, Mapping) else None
-        passed = (
-            isinstance(row_count, int)
-            and not isinstance(row_count, bool)
-            and row_count > 0
-        )
+        passed = _nonempty(ctx.output)
         return {"nonempty_results": 1.0 if passed else 0.0}
+
+
+def _nonempty(result: AgentResult) -> bool:
+    route = _latest_route(result)
+    if route is None:
+        search = _latest_search(result)
+        return search is not None and search.row_count > 0
+    if route.source_ref is None:
+        return False
+    source = result.session_state.search_results.get(route.source_ref)
+    return bool(route.ordered_points) and source is not None and source.row_count > 0
 
 
 @dataclass
@@ -230,7 +269,7 @@ class StepEfficiency(Evaluator[AgentInput, AgentResult, AgentExpected]):
         actual = len(ctx.output.steps)
         if actual == 0:
             return {"step_efficiency": 1.0}
-        best = max(min(m / actual, 1.0) for m in _acceptable_min_steps(ctx.metadata))
+        best = max(min(m / actual, 1.0) for m in _acceptable_min_steps(ctx))
         return {"step_efficiency": best}
 
 

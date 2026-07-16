@@ -1,13 +1,7 @@
-"""Adapt typed Catalog models into the agent's tool-state payload shapes.
+"""Adapt typed Catalog models into the SessionState registry and wire payloads.
 
-The data tools call the Catalog service and receive typed
-``PilgrimagePoint`` / ``Route`` models. This module re-shapes those typed
-models into the dict payloads consumed by the response builder,
-model-facing summaries and the output_validator, so they keep working unchanged.
-
-No DB, no upstream Anitabi/Bangumi clients are imported here — only deterministic
-shaping helpers (``_build_nearby_groups`` / ``rewrite_image_urls``) shared with
-the live route/answer handlers.
+No DB or upstream client is imported here; the helpers are deterministic and
+the typed registry remains the sole response carrier.
 """
 
 from __future__ import annotations
@@ -15,6 +9,16 @@ from __future__ import annotations
 from typing import Literal
 
 from agent.agents.handlers._helpers import _build_nearby_groups, rewrite_image_urls
+from agent.agents.session_state import (
+    NearbyGroupState,
+    PointState,
+    ResultRef,
+    RoutePayloadState,
+    RouteSummaryState,
+    SearchMetadataState,
+    SearchPayloadState,
+    TimedItineraryState,
+)
 from agent.clients.catalog_client import PilgrimagePoint, Route
 
 SearchTool = Literal["search_bangumi", "search_nearby"]
@@ -63,48 +67,6 @@ def build_search_payload(
     }
 
 
-def _candidate(point: PilgrimagePoint) -> dict[str, object]:
-    """Build a resolve/clarify candidate from a catalog point."""
-    return {
-        "title": point.title or point.title_cn,
-        "bangumi_id": point.bangumi_id,
-        "cover_url": point.cover_url,
-        "city": "",
-        "points_count": 0,
-    }
-
-
-def _unique_works(points: list[PilgrimagePoint]) -> list[PilgrimagePoint]:
-    """Return the first point per distinct bangumi_id, preserving order."""
-    seen: set[str] = set()
-    works: list[PilgrimagePoint] = []
-    for point in points:
-        if point.bangumi_id and point.bangumi_id not in seen:
-            seen.add(point.bangumi_id)
-            works.append(point)
-    return works
-
-
-def build_resolve_payload(points: list[PilgrimagePoint]) -> dict[str, object]:
-    """Shape catalog points into the resolve_anime tool_state payload.
-
-    Single work -> resolved {bangumi_id, title, candidates}; multiple distinct
-    works -> {ambiguous: True, candidates}; no points -> empty (signals failure).
-    """
-    works = _unique_works(points)
-    if not works:
-        return {}
-    candidates = [_candidate(w) for w in works]
-    if len(works) == 1:
-        head = works[0]
-        return {
-            "bangumi_id": head.bangumi_id,
-            "title": head.title or head.title_cn,
-            "candidates": candidates,
-        }
-    return {"ambiguous": True, "candidates": candidates}
-
-
 def build_route_payload(route: Route) -> dict[str, object]:
     """Shape a catalog Route into the plan_route tool_state payload."""
     ordered = _rows_from_points(route.ordered_points)
@@ -124,3 +86,45 @@ def build_route_payload(route: Route) -> dict[str, object]:
             "without_coordinates": 0,
         },
     }
+
+
+def build_search_state(
+    points: list[PilgrimagePoint],
+    *,
+    kind: Literal["bangumi", "nearby"],
+    anime_id: str | None = None,
+    partial: bool = False,
+) -> SearchPayloadState:
+    """Adapt catalog points into the sole typed response carrier."""
+    tool: SearchTool = "search_nearby" if kind == "nearby" else "search_bangumi"
+    payload = build_search_payload(points, tool=tool)
+    raw_metadata = payload.get("metadata")
+    raw_groups = payload.get("nearby_groups")
+    raw_rows = payload.get("rows")
+    groups = raw_groups if isinstance(raw_groups, list) else []
+    rows = raw_rows if isinstance(raw_rows, list) else []
+    metadata = raw_metadata if isinstance(raw_metadata, dict) else None
+    return SearchPayloadState(
+        kind=kind,
+        rows=[PointState.model_validate(row) for row in rows],
+        row_count=len(points),
+        metadata=SearchMetadataState.model_validate(metadata) if metadata else None,
+        nearby_groups=[NearbyGroupState.model_validate(group) for group in groups],
+        anime_id=anime_id,
+        partial=partial,
+    )
+
+
+def build_route_state(route: Route, source_ref: ResultRef | None) -> RoutePayloadState:
+    """Adapt a non-empty catalog route into the typed route registry."""
+    payload = build_route_payload(route)
+    summary = payload["summary"]
+    itinerary = payload["timed_itinerary"]
+    raw_points = payload["ordered_points"]
+    points = raw_points if isinstance(raw_points, list) else []
+    return RoutePayloadState(
+        ordered_points=[PointState.model_validate(row) for row in points],
+        timed_itinerary=TimedItineraryState.model_validate(itinerary),
+        summary=RouteSummaryState.model_validate(summary),
+        source_ref=source_ref,
+    )

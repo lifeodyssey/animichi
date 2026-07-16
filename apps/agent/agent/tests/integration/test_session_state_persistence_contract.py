@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 from agent.agents.agent_result import AgentResult
 from agent.agents.animichi_runner import _seed_tool_state
 from agent.agents.runtime_deps import RuntimeDeps
-from agent.agents.runtime_models import QADataModel, QAResponseModel
+from agent.agents.runtime_models import QAResponseModel
 from agent.agents.session_state import CurrentAnime, SessionState
 from agent.interfaces.schemas import PublicAPIRequest
 from agent.interfaces.session_facade import (
@@ -24,11 +24,7 @@ def test_session_state_survives_interaction_persistence_and_runtime_seed() -> No
     session = SessionState(
         current_anime=CurrentAnime(bangumi_id="115908", title="Eupho")
     )
-    output = QAResponseModel(
-        intent="general_qa",
-        message="Answer.",
-        data=QADataModel(message="Answer."),
-    )
+    output = QAResponseModel(message="Answer.")
     result = AgentResult(
         output=output,
         intent="general_qa",

@@ -82,7 +82,7 @@ class TestGeneratedTitleInResponse:
 
         async def _fake_greet(**kwargs):
             return _make_result(
-                intent="greet_user",
+                intent="general_qa",
                 message="你好！我是圣地巡礼助手。",
             )
 
