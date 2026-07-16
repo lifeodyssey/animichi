@@ -85,9 +85,9 @@ async def test_partial_with_current_route_persists_assistant_and_route() -> None
         "agent.interfaces.public_api.run_animichi_agent",
         new=AsyncMock(return_value=_partial_route_result()),
     ):
-        response = await RuntimeAPI(db, session_store=store).handle(
-            PublicAPIRequest(text="find it")
-        )
+        response = await RuntimeAPI(
+            db, session_store=store, model_http_client=MagicMock()
+        ).handle(PublicAPIRequest(text="find it"))
     assert response.session_id is not None
     saved = await store.get(response.session_id)
     assert saved is not None
@@ -109,9 +109,9 @@ async def test_plain_string_partial_persists_assistant_without_route() -> None:
         "agent.interfaces.public_api.run_animichi_agent",
         new=AsyncMock(return_value=_plain_string_partial_result()),
     ):
-        response = await RuntimeAPI(db, session_store=InMemorySessionStore()).handle(
-            PublicAPIRequest(text="find it", locale="en")
-        )
+        response = await RuntimeAPI(
+            db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ).handle(PublicAPIRequest(text="find it", locale="en"))
     assert db.insert_message.await_count == 2
     assert db.insert_message.await_args_list[1].args[1:] == (
         "assistant",

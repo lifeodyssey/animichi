@@ -69,7 +69,7 @@ async def test_translation_gate_emits_sse_on_locale_mismatch(
             new=AsyncMock(return_value="找到了3处圣地。"),
         ),
     ):
-        response = await RuntimeAPI(mock_db).handle(
+        response = await RuntimeAPI(mock_db, model_http_client=MagicMock()).handle(
             PublicAPIRequest(text="查找圣地", locale="zh"), on_step=capture_step
         )
 
@@ -91,7 +91,7 @@ async def test_translation_gate_skips_when_locale_matches(
         "agent.interfaces.public_api.run_animichi_agent",
         new=AsyncMock(return_value=result),
     ):
-        await RuntimeAPI(mock_db).handle(
+        await RuntimeAPI(mock_db, model_http_client=MagicMock()).handle(
             PublicAPIRequest(text="聖地を検索", locale="ja"), on_step=capture_step
         )
 
@@ -113,7 +113,7 @@ async def test_translation_gate_shares_parent_model_and_usage(
         ),
         patch("agent.interfaces.public_api.translate_text", new=translate),
     ):
-        await RuntimeAPI(mock_db).handle(
+        await RuntimeAPI(mock_db, model_http_client=MagicMock()).handle(
             PublicAPIRequest(text="查找圣地", locale="zh"), model=model
         )
 

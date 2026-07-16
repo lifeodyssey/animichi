@@ -15,7 +15,7 @@ from agent.clients.catalog_client import (
     CatalogClient,
 )
 from agent.clients.errors import TransientAPIError
-from agent.interfaces.public_api import AGENT_TIMEOUT_SECONDS
+from agent.config.settings import Settings
 
 
 async def test_catalog_budget_nests_inside_tool_and_agent_timeouts(
@@ -46,4 +46,17 @@ async def test_catalog_budget_nests_inside_tool_and_agent_timeouts(
     assert deadlines == [CATALOG_TOTAL_TIMEOUT_SECONDS]
     assert CATALOG_REQUEST_TIMEOUT_SECONDS < CATALOG_TOTAL_TIMEOUT_SECONDS
     assert CATALOG_TOTAL_TIMEOUT_SECONDS < CATALOG_TOOL_TIMEOUT_SECONDS
-    assert CATALOG_TOOL_TIMEOUT_SECONDS < AGENT_TIMEOUT_SECONDS
+    assert CATALOG_TOOL_TIMEOUT_SECONDS < Settings().agent_deadline
+
+
+def test_model_attempt_timeout_precedes_agent_deadline() -> None:
+    settings = Settings()
+    preamble_margin = settings.agent_deadline * 0.05
+    assert (
+        2 * settings.model_attempt_timeout + preamble_margin < settings.agent_deadline
+    )
+
+
+def test_invalid_model_timeout_ordering_is_rejected() -> None:
+    with pytest.raises(ValueError, match="model_attempt_timeout"):
+        Settings(agent_deadline=90.0, model_attempt_timeout=45.0)

@@ -84,7 +84,10 @@ async def handle_runtime_stream(
 ) -> Response:
     runtime_api = _get_runtime_api(request)
     try:
-        resolved_model = resolve_model_alias(api_request.model)
+        resolved_model = resolve_model_alias(
+            api_request.model,
+            http_client=runtime_api.model_http_client,
+        )
     except ModelAliasError as exc:
         return _invalid_model_alias_response(exc)
     queue: asyncio.Queue[str | None] = asyncio.Queue()

@@ -78,6 +78,7 @@ def _build_test_app(
     resolved_api: RuntimeAPI | MagicMock = runtime_api or RuntimeAPI(
         db,
         session_store=InMemorySessionStore(),
+        model_http_client=MagicMock(),
     )
 
     @asynccontextmanager

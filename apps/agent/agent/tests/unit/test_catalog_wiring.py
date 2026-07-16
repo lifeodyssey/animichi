@@ -9,7 +9,7 @@ so we assert the agent drove its data path through that client.
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from agent.clients.catalog_client import CatalogClient
 from agent.config.settings import Settings
@@ -28,7 +28,12 @@ def _greet_result() -> object:
 async def test_runtime_api_forwards_catalog_to_agent() -> None:
     db = build_stub_db()
     catalog = MockCatalogClient()
-    api = RuntimeAPI(db, session_store=InMemorySessionStore(), catalog=catalog)
+    api = RuntimeAPI(
+        db,
+        session_store=InMemorySessionStore(),
+        catalog=catalog,
+        model_http_client=MagicMock(),
+    )
     request = PublicAPIRequest(text="hello", locale="ja")
 
     with patch(
@@ -47,7 +52,9 @@ async def test_runtime_api_defaults_catalog_to_real_client() -> None:
     default is a real CatalogClient built from settings (never ``None``).
     """
     db = build_stub_db()
-    api = RuntimeAPI(db, session_store=InMemorySessionStore())
+    api = RuntimeAPI(
+        db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+    )
     request = PublicAPIRequest(text="hello", locale="ja")
 
     with patch(

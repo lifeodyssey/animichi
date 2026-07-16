@@ -9,6 +9,8 @@ data pipeline: agent → AgentResult → persistence → hydration.
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
@@ -106,7 +108,9 @@ async def test_conversations_list_api(real_db) -> None:
     from agent.interfaces.fastapi_service import create_fastapi_app
     from agent.interfaces.public_api import RuntimeAPI
 
-    runtime_api = RuntimeAPI(real_db, session_store=InMemorySessionStore())
+    runtime_api = RuntimeAPI(
+        real_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+    )
     app = create_fastapi_app(runtime_api=runtime_api, db=real_db)
     # Bypass lifespan — set app state directly (same pattern as test_api_contract)
     app.state.runtime_api = runtime_api

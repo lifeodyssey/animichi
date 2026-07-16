@@ -1,5 +1,7 @@
 """Unified RuntimeAPI selection dispatch with persisted pending state."""
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from agent.agents.session_state import (
@@ -56,7 +58,12 @@ async def test_anime_selection_bypasses_model_and_returns_multi_route(
     await _seed_pending(store, session_id, "anime_ambiguity", candidates)
     await real_db.session.upsert_session(session_id, {}, metadata={})
     try:
-        api = RuntimeAPI(real_db, session_store=store, catalog=MockCatalogClient())
+        api = RuntimeAPI(
+            real_db,
+            session_store=store,
+            catalog=MockCatalogClient(),
+            model_http_client=MagicMock(),
+        )
         response = await api.handle(
             PublicAPIRequest(
                 session_id=session_id,
@@ -84,7 +91,9 @@ async def test_place_selection_dispatches_to_staged_nearby_search(
     await real_db.session.upsert_session(session_id, {}, metadata={})
     try:
         catalog = MockCatalogClient()
-        api = RuntimeAPI(real_db, session_store=store, catalog=catalog)
+        api = RuntimeAPI(
+            real_db, session_store=store, catalog=catalog, model_http_client=MagicMock()
+        )
         response = await api.handle(
             PublicAPIRequest(
                 session_id=session_id,
