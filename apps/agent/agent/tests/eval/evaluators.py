@@ -76,7 +76,11 @@ _STAGE_TOOL_CHAINS: dict[str, tuple[tuple[str, ...], ...]] = {
     "plan_selected": (("plan_selected",),),
     "plan_multi": (("plan_multi",),),
     "clarify": (("resolve_anime", "clarify"), ("geocode", "clarify")),
-    "clarify_after_nearby": (("geocode", "clarify"),),
+    "clarify_after_nearby": (
+        ("search_nearby", "clarify"),
+        ("geocode", "search_nearby", "clarify"),
+    ),
+    "greet_user": ((),),
     "general_qa": ((),),
 }
 
@@ -89,6 +93,7 @@ _STAGE_MIN_STEPS: dict[str, int] = {
     "plan_multi": 1,
     "clarify": 1,
     "clarify_after_nearby": 2,
+    "greet_user": 0,
     "general_qa": 0,
 }
 
@@ -167,14 +172,17 @@ def _available_data_keys(result: AgentResult) -> set[str]:
 
 
 def _latest_search(result: AgentResult) -> SearchPayloadState | None:
-    ref = result.session_state.last_result_ref
-    return result.session_state.search_results.get(ref) if ref is not None else None
+    produced = result.provenance.search
+    if produced is None:
+        return None
+    return result.session_state.search_results.get(produced.result_ref)
 
 
 def _latest_route(result: AgentResult) -> RoutePayloadState | None:
-    state = result.session_state
-    ref = state.route_lru[-1] if state.route_lru else None
-    return state.routes.get(ref) if ref is not None else None
+    produced = result.provenance.route
+    if produced is None:
+        return None
+    return result.session_state.routes.get(produced.route_ref)
 
 
 def _acceptable_min_steps(ctx: _Ctx) -> list[int]:
@@ -183,6 +191,8 @@ def _acceptable_min_steps(ctx: _Ctx) -> list[int]:
         return [len(dict.fromkeys(ctx.inputs.selected_candidate_ids)) + 1]
     if _seeded_reason(ctx.inputs) == "place_ambiguity":
         return [1]
+    if "clarify_after_nearby" in stages and "geocode" in _actual_tools(ctx.output):
+        return [3]
     return [_STAGE_MIN_STEPS.get(stage, 2) for stage in stages] or [1]
 
 

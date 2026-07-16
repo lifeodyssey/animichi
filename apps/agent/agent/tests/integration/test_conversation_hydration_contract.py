@@ -46,12 +46,12 @@ def _search_model() -> FunctionModel:
     return FunctionModel(respond)
 
 
-def _qa_model() -> FunctionModel:
+def _greeting_model() -> FunctionModel:
     def respond(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
         return ModelResponse(
             parts=[
                 ToolCallPart(
-                    "qa_response",
+                    "greeting_response",
                     {"message": "こんにちは！聖地巡礼のお手伝いをします。"},
                 )
             ]
@@ -80,8 +80,8 @@ async def test_persisted_search_response_hydrates_correctly(real_db) -> None:
 
 
 @pytest.mark.integration
-async def test_persisted_qa_response_hydrates_correctly(real_db) -> None:
-    """Greeting prose uses the general-QA output and hydrates its message."""
+async def test_persisted_greeting_response_hydrates_correctly(real_db) -> None:
+    """Greeting prose uses the dedicated output and hydrates its message."""
     from agent.agents.animichi_runner import run_animichi_agent
     from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
@@ -89,11 +89,11 @@ async def test_persisted_qa_response_hydrates_correctly(real_db) -> None:
         text="你好",
         db=real_db,
         locale="zh",
-        model=_qa_model(),
+        model=_greeting_model(),
         catalog=MockCatalogClient(),
     )
 
-    assert result.intent == "general_qa"
+    assert result.intent == "greet_user"
     assert result.message
 
 

@@ -1144,9 +1144,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -1167,9 +1165,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -1190,9 +1186,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -1213,9 +1207,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -1236,9 +1228,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -1259,9 +1249,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -1282,9 +1270,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -1305,9 +1291,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -1328,9 +1312,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -1351,9 +1333,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2408,9 +2388,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2431,9 +2409,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2454,9 +2430,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2477,9 +2451,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2500,9 +2472,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2523,9 +2493,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2546,9 +2514,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2569,9 +2535,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2592,9 +2556,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2615,9 +2577,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2638,9 +2598,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2661,9 +2619,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2684,9 +2640,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2707,9 +2661,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2730,9 +2682,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2753,9 +2703,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2776,9 +2724,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2799,9 +2745,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2822,9 +2766,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2845,9 +2787,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2868,9 +2808,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2891,9 +2829,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2914,9 +2850,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2937,9 +2871,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2960,9 +2892,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -2983,9 +2913,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3006,9 +2934,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3029,9 +2955,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3052,9 +2976,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3075,9 +2997,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3098,9 +3018,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3121,9 +3039,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3144,9 +3060,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3167,9 +3081,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3190,9 +3102,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3213,9 +3123,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3236,9 +3144,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3259,9 +3165,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3282,9 +3186,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3305,9 +3207,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3328,9 +3228,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3351,9 +3249,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3374,9 +3270,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3397,9 +3291,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3420,9 +3312,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3443,9 +3333,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3466,9 +3354,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3489,9 +3375,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3512,9 +3396,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3535,9 +3417,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3559,9 +3439,7 @@
       "search_bangumi"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3583,9 +3461,7 @@
       "search_bangumi"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3607,9 +3483,7 @@
       "search_bangumi"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3631,9 +3505,7 @@
       "search_bangumi"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3655,9 +3527,7 @@
       "search_bangumi"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3679,9 +3549,7 @@
       "search_bangumi"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3703,9 +3571,7 @@
       "search_bangumi"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3727,9 +3593,7 @@
       "search_bangumi"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3751,9 +3615,7 @@
       "search_bangumi"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -3775,9 +3637,7 @@
       "search_bangumi"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -4192,9 +4052,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -4277,9 +4135,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -4703,9 +4559,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -4728,9 +4582,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -4753,9 +4605,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -4778,9 +4628,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -4803,9 +4651,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -4828,9 +4674,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -4853,9 +4697,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -4878,9 +4720,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -6011,7 +5851,7 @@
     "query": "こんにちは",
     "locale": "ja",
     "acceptable_stages": [
-      "general_qa"
+      "greet_user"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6029,7 +5869,7 @@
     "query": "おはようございます",
     "locale": "ja",
     "acceptable_stages": [
-      "general_qa"
+      "greet_user"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6047,7 +5887,7 @@
     "query": "やあ",
     "locale": "ja",
     "acceptable_stages": [
-      "general_qa"
+      "greet_user"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6065,7 +5905,7 @@
     "query": "你好",
     "locale": "zh",
     "acceptable_stages": [
-      "general_qa"
+      "greet_user"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6083,7 +5923,7 @@
     "query": "嗨",
     "locale": "zh",
     "acceptable_stages": [
-      "general_qa"
+      "greet_user"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6101,7 +5941,7 @@
     "query": "大家好",
     "locale": "zh",
     "acceptable_stages": [
-      "general_qa"
+      "greet_user"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6119,7 +5959,7 @@
     "query": "hello",
     "locale": "en",
     "acceptable_stages": [
-      "general_qa"
+      "greet_user"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6137,7 +5977,7 @@
     "query": "hi there",
     "locale": "en",
     "acceptable_stages": [
-      "general_qa"
+      "greet_user"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6155,7 +5995,7 @@
     "query": "hey",
     "locale": "en",
     "acceptable_stages": [
-      "general_qa"
+      "greet_user"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -6173,7 +6013,7 @@
     "query": "good morning",
     "locale": "en",
     "acceptable_stages": [
-      "general_qa"
+      "greet_user"
     ],
     "expected_data_keys": [],
     "context": null,
@@ -10872,9 +10712,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -10895,9 +10733,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -10918,9 +10754,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -10941,9 +10775,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -12916,9 +12748,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -12960,9 +12790,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -13163,9 +12991,7 @@
       "search_bangumi"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -13187,9 +13013,7 @@
       "search_bangumi"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -13528,9 +13352,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -13551,9 +13373,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -13574,9 +13394,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -13641,9 +13459,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -13664,9 +13480,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -13687,9 +13501,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -13776,9 +13588,7 @@
       "clarify"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -14889,9 +14699,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -14912,9 +14720,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -14935,9 +14741,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,
@@ -14958,9 +14762,7 @@
       "clarify_after_nearby"
     ],
     "expected_data_keys": [
-      "question",
-      "options",
-      "status",
+      "reason",
       "candidates"
     ],
     "context": null,

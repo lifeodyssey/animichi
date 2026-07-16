@@ -25,6 +25,10 @@ class RouteResponseModel(_CompactOutput):
     """Brief prose wrapper for a registry-backed route response."""
 
 
+class GreetingResponseModel(_CompactOutput):
+    """Brief greeting, thanks, farewell, or capability introduction."""
+
+
 class ClarifyResponseModel(_CompactOutput):
     """Terminal clarification output with stable candidate identity only."""
 
@@ -48,5 +52,9 @@ class QAResponseModel(_CompactOutput):
 
 
 RuntimeStageOutput = (
-    ClarifyResponseModel | SearchResponseModel | RouteResponseModel | QAResponseModel
+    ClarifyResponseModel
+    | SearchResponseModel
+    | RouteResponseModel
+    | GreetingResponseModel
+    | QAResponseModel
 )

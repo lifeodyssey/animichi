@@ -152,6 +152,7 @@ class OrderedCandidate(_SessionModel):
     points_count: int | None = None
     lat: float | None = None
     lng: float | None = None
+    effective_radius_m: int | None = Field(default=None, gt=0)
 
 
 ClarificationReason: TypeAlias = Literal[

@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from pydantic_ai import RunContext
 
-from agent.agents.agent_result import StepRecord
-from agent.agents.catalog_adapter import build_route_state, build_search_state
+from agent.agents.agent_result import (
+    ProducedSearch,
+    RejectedSearch,
+    StepProvenance,
+    StepRecord,
+)
+from agent.agents.catalog_adapter import build_search_state
 from agent.agents.models import ToolName
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.session_state import (
@@ -14,7 +19,6 @@ from agent.agents.session_state import (
     OrderedCandidate,
     PendingClarification,
     ResultRef,
-    RouteRef,
 )
 from agent.agents.tool_outcomes import (
     NearbyEmpty,
@@ -26,9 +30,6 @@ from agent.agents.tool_outcomes import (
     ResolveNotFound,
     ResolveResolved,
     ResolveUpstreamDown,
-    RouteEmpty,
-    RouteOk,
-    RouteStaleRef,
     SearchEmpty,
     SearchOk,
 )
@@ -59,8 +60,17 @@ def _record(
     data: dict[str, object],
     *,
     success: bool = True,
+    provenance: StepProvenance | None = None,
 ) -> None:
-    deps.steps.append(StepRecord(tool=tool, success=success, params=params, data=data))
+    deps.steps.append(
+        StepRecord(
+            tool=tool,
+            success=success,
+            params=params,
+            data=data,
+            provenance=provenance,
+        )
+    )
 
 
 def _candidate(candidate: AnimeCandidate) -> OrderedCandidate:
@@ -78,6 +88,7 @@ def _place_candidate(candidate: GeocodeCandidate) -> OrderedCandidate:
         title=candidate.label,
         lat=candidate.lat,
         lng=candidate.lng,
+        effective_radius_m=candidate.effective_radius_m,
     )
 
 
@@ -155,6 +166,7 @@ async def run_work_search(
         kind="bangumi",
         anime_id=bangumi_id,
         partial=result.partial,
+        locale=ctx.deps.locale,
     )
     ref = ResultRef(ctx.deps.ref_factory("search", payload.row_count))
     ctx.deps.tool_state.session.store_search_result(ref, payload)
@@ -175,6 +187,7 @@ async def run_work_search(
         ToolName.SEARCH_BANGUMI.value,
         {"bangumi_id": bangumi_id},
         outcome.model_dump(),
+        provenance=ProducedSearch(outcome=outcome.outcome, result_ref=ref),
     )
     return outcome
 
@@ -244,13 +257,20 @@ async def run_nearby_search(
     """Resolve a place into a typed outcome and a registry-backed geo result."""
     resolved = await _coordinates(ctx.deps, catalog, location)
     if not isinstance(resolved, tuple):
-        _record(ctx.deps, ToolName.SEARCH_NEARBY.value, {}, resolved.model_dump())
+        _record(
+            ctx.deps,
+            ToolName.SEARCH_NEARBY.value,
+            {},
+            resolved.model_dump(),
+            success=False,
+            provenance=RejectedSearch(outcome=resolved.outcome),
+        )
         return resolved
     coords, default_radius = resolved
     points = await catalog.nearby(
         coords[0], coords[1], radius_m=radius_m or default_radius
     )
-    payload = build_search_state(points, kind="nearby")
+    payload = build_search_state(points, kind="nearby", locale=ctx.deps.locale)
     ref = ResultRef(ctx.deps.ref_factory("search", payload.row_count))
     ctx.deps.tool_state.session.store_search_result(ref, payload)
     _clear_pending(ctx.deps)
@@ -262,43 +282,11 @@ async def run_nearby_search(
     params: dict[str, object] = {"location": location}
     if radius_m is not None:
         params["radius_m"] = radius_m
-    _record(ctx.deps, ToolName.SEARCH_NEARBY.value, params, outcome.model_dump())
-    return outcome
-
-
-async def run_route(
-    ctx: RunContext[RuntimeDeps],
-    catalog: CatalogClientProtocol,
-    search_result_ref: str,
-) -> RouteOk | RouteEmpty | RouteStaleRef:
-    """Route exactly the registry payload named by the model-supplied ref."""
-    ref = ResultRef(search_result_ref)
-    payload = ctx.deps.tool_state.session.search_results.get(ref)
-    if payload is None:
-        outcome: RouteOk | RouteEmpty | RouteStaleRef = RouteStaleRef()
-    elif not payload.rows:
-        outcome = RouteEmpty()
-    else:
-        route = await catalog.route([point.id for point in payload.rows if point.id])
-        if route.point_count < 1:
-            outcome = RouteEmpty()
-        else:
-            route_ref = RouteRef(ctx.deps.ref_factory("route", route.point_count))
-            state = build_route_state(route, ref)
-            ctx.deps.tool_state.session.store_route(route_ref, state)
-            _clear_pending(ctx.deps)
-            minutes = (
-                state.timed_itinerary.total_minutes if state.timed_itinerary else 0
-            )
-            outcome = RouteOk(
-                route_ref=str(route_ref),
-                point_count=route.point_count,
-                total_minutes=minutes,
-            )
     _record(
         ctx.deps,
-        ToolName.PLAN_ROUTE.value,
-        {"search_result_ref": search_result_ref},
+        ToolName.SEARCH_NEARBY.value,
+        params,
         outcome.model_dump(),
+        provenance=ProducedSearch(outcome=outcome.outcome, result_ref=ref),
     )
     return outcome

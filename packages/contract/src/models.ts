@@ -47,6 +47,7 @@ export const PilgrimagePoint = z.object({
   distance_m: z.number().optional(),
   origin: z.string().optional(),
   cover_url: z.string().optional(),
+  city: z.string().optional(),
 });
 export type PilgrimagePoint = z.infer<typeof PilgrimagePoint>;
 

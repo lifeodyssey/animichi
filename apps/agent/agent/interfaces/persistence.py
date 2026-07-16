@@ -9,12 +9,14 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
+import asyncpg
 import structlog
 from pydantic_core import to_jsonable_python
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.session_state import PointState, RoutePayloadState, SearchPayloadState
 from agent.domain.ports import (
+    get_bangumi_repo,
     get_routes_repo,
     get_session_repo,
     get_user_memory_repo,
@@ -296,10 +298,12 @@ async def maybe_persist_route(
     if not point_ids:
         return None
 
-    route_state = _latest_route(result)
+    route_state = _current_route(result)
     if route_state is None:
         return None
-    anime_ids = _route_anime_ids(result, route_state)
+    anime_ids = await _existing_anime_ids(
+        db, _route_anime_ids(result, route_state), session_id
+    )
     origin_station = request.origin
     if (
         origin_station is None
@@ -319,29 +323,46 @@ async def maybe_persist_route(
 
     routes_repo = get_routes_repo(db)
     if routes_repo is not None:
-        route_id = await routes_repo.save_route(
-            session_id,
-            anime_ids,
-            point_ids,
-            {
-                "message": response.message,
-                "results": response.data.get("results"),
-                "route": route_data,
-            },
-            origin_station=origin_station,
-            origin_lat=request.origin_lat,
-            origin_lon=request.origin_lng,
-        )
+        try:
+            route_id = await routes_repo.save_route(
+                session_id,
+                anime_ids,
+                point_ids,
+                {
+                    "message": response.message,
+                    "results": response.data.get("results"),
+                    "route": route_data,
+                },
+                origin_station=origin_station,
+                origin_lat=request.origin_lat,
+                origin_lon=request.origin_lng,
+            )
+        except asyncpg.PostgresError:
+            logger.warning("save_route_failed", session_id=session_id)
+            return None
         route_record["route_id"] = route_id
 
     return route_record
 
 
-def _latest_route(result: AgentResult) -> RoutePayloadState | None:
-    state = result.session_state
-    if state.route_lru:
-        return state.routes.get(state.route_lru[-1])
-    return list(state.routes.values())[-1] if state.routes else None
+def _current_route(result: AgentResult) -> RoutePayloadState | None:
+    produced = result.provenance.route
+    if produced is None:
+        return None
+    return result.session_state.routes.get(produced.route_ref)
+
+
+async def _existing_anime_ids(
+    db: object, anime_ids: list[str], session_id: str
+) -> list[str]:
+    bangumi = get_bangumi_repo(db)
+    if bangumi is None:
+        return anime_ids
+    try:
+        return await bangumi.filter_existing_ids(anime_ids)
+    except asyncpg.PostgresError:
+        logger.warning("filter_route_anime_failed", session_id=session_id)
+        return []
 
 
 def _route_anime_ids(result: AgentResult, route: RoutePayloadState) -> list[str]:

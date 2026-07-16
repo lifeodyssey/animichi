@@ -14,6 +14,7 @@ from agent.agents.animichi_runner import runtime_stage
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import (
     ClarifyResponseModel,
+    GreetingResponseModel,
     QAResponseModel,
     RouteResponseModel,
     SearchResponseModel,
@@ -39,6 +40,7 @@ def _deps(state: SessionState | None = None) -> RuntimeDeps:
     [
         SearchResponseModel(message="Found matching spots."),
         RouteResponseModel(message="Your route is ready."),
+        GreetingResponseModel(message="Hello."),
         QAResponseModel(message="A complete answer with no schema length cap."),
     ],
 )
@@ -83,6 +85,7 @@ def test_compact_outputs_forbid_historical_fields() -> None:
             "plan_route",
         ),
         (QAResponseModel(message="x"), [], "general_qa"),
+        (GreetingResponseModel(message="x"), [], "greet_user"),
     ],
 )
 def test_runtime_stage_uses_output_type_and_steps(
