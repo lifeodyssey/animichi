@@ -83,13 +83,22 @@ class TestGCPConfiguration:
 class TestAPIKeyValidation:
     """Test API key validation."""
 
-    def test_prod_default_hard_requires_mimo_key(self):
+    def test_prod_default_hard_requires_mimo_key(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("DEFAULT_AGENT_MODEL")
+        monkeypatch.delenv("FALLBACK_AGENT_MODEL")
+        monkeypatch.delenv("DEEPSEEK_API_KEY")
         with pytest.raises(ValueError, match="MIMO_API_KEY"):
-            Settings(mimo_api_key="", deepseek_api_key="deepseek-key")
+            Settings(_env_file=None, mimo_api_key="")
 
-    def test_prod_fallback_hard_requires_deepseek_key(self):
+    def test_explicit_fallback_hard_requires_deepseek_key(self):
         with pytest.raises(ValueError, match="DEEPSEEK_API_KEY"):
-            Settings(mimo_api_key="mimo-key", deepseek_api_key="")
+            Settings(
+                fallback_agent_model="deepseek:deepseek-v4-flash",
+                mimo_api_key="mimo-key",
+                deepseek_api_key="",
+            )
 
     def test_unresolved_deepseek_key_is_not_required(self):
         settings = Settings(
@@ -101,14 +110,20 @@ class TestAPIKeyValidation:
 
         assert settings.deepseek_api_key == ""
 
-    def test_prod_default_requires_mimo_and_deepseek_keys(self):
-        settings = Settings()
+    def test_prod_default_requires_mimo_not_deepseek(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("DEFAULT_AGENT_MODEL")
+        monkeypatch.delenv("FALLBACK_AGENT_MODEL")
+        monkeypatch.delenv("DEEPSEEK_API_KEY")
+        monkeypatch.setenv("MIMO_API_KEY", "prod-mimo-key")
 
+        settings = Settings(_env_file=None)
+
+        assert settings.fallback_agent_model == ""
+        assert settings.validate_api_keys() == []
         missing_mimo = settings.model_copy(update={"mimo_api_key": ""})
-        missing_deepseek = settings.model_copy(update={"deepseek_api_key": ""})
-
         assert "MIMO_API_KEY" in missing_mimo.validate_api_keys()
-        assert "DEEPSEEK_API_KEY" in missing_deepseek.validate_api_keys()
 
     def test_validate_api_keys_deepseek_inline_url(self):
         """DeepSeek with inline @url uses its provider setting, not compat config."""
