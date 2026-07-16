@@ -11,7 +11,7 @@ from typing import Literal, TypeAlias
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.usage import RunUsage
 
-from agent.agents.runtime_models import RuntimeStageOutput
+from agent.agents.runtime_models import AgentResultOutput
 from agent.agents.session_state import ResultRef, RouteRef, SessionState
 from agent.agents.tool_state import LegacyPayload
 
@@ -76,7 +76,7 @@ class StepRecord:
 class AgentResult:
     """Output of pilgrimage agent run."""
 
-    output: RuntimeStageOutput
+    output: AgentResultOutput
     intent: str
     session_state: SessionState
     steps: list[StepRecord] = field(default_factory=list)

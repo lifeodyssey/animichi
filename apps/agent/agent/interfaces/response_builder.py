@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.runtime_models import ClarifyResponseModel
+from agent.agents.runtime_models import ClarifyResponseModel, PartialResponseModel
 from agent.agents.session_state import (
     RoutePayloadState,
     SearchPayloadState,
@@ -22,6 +22,7 @@ _UI_MAP: dict[str, str] = {
     "general_qa": "GeneralAnswer",
     "greet_user": "GeneralAnswer",
     "clarify": "Clarification",
+    "partial": "GeneralAnswer",
 }
 
 
@@ -82,6 +83,8 @@ def _clarify_data(result: AgentResult) -> dict[str, object]:
 def _response_data(result: AgentResult) -> dict[str, object]:
     if result.intent == "clarify":
         return _clarify_data(result)
+    if isinstance(result.output, PartialResponseModel):
+        return _partial_data(result)
     if result.status == "error":
         return {}
     data: dict[str, object] = {}
@@ -93,6 +96,17 @@ def _response_data(result: AgentResult) -> dict[str, object]:
         route = _project_route(result)
         if route is not None:
             data["route"] = route
+    return data
+
+
+def _partial_data(result: AgentResult) -> dict[str, object]:
+    data: dict[str, object] = {}
+    search = _project_search(result)
+    route = _project_route(result)
+    if search is not None:
+        data["results"] = search
+    if route is not None:
+        data["route"] = route
     return data
 
 
