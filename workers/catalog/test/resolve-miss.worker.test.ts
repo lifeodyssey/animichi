@@ -26,10 +26,14 @@ describe("resolve alias MISS outcome partition", () => {
     })).resolves.toEqual({ outcome: "not_found", reason: "anime_not_found" });
   });
 
-  it("clarifies two normalized-name-exact Bangumi subjects", async () => {
-    const data = [subject(1, "ＦＡＴＥ"), subject(2, "Fate/Zero", "Fate")];
+  it("clarifies name-similar 凉宫 subjects in Bangumi relevance order", async () => {
+    const data = [
+      subject(1, "涼宮ハルヒの憂鬱", "凉宫春日的忧郁"),
+      subject(2, "凉宫ハルヒの消失"),
+      subject(3, "日常"),
+    ];
 
-    const result = await resolve(MISS_DB, { query: " fate " }, {
+    const result = await resolve(MISS_DB, { query: "凉宫" }, {
       fetchImpl: response({ data }),
     });
     expect(result).toMatchObject({
@@ -39,14 +43,89 @@ describe("resolve alias MISS outcome partition", () => {
     });
   });
 
-  it("resolves the relevance head when multiple subjects are only soft matches", async () => {
+  it("resolves the only name-similar subject instead of the relevance head", async () => {
+    const data = [subject(10, "Puella Magi Madoka Magica"), subject(20, "Fate/Zero")];
+
+    await expect(resolve(MISS_DB, { query: "fate" }, {
+      fetchImpl: response({ data }),
+    })).resolves.toMatchObject({
+      outcome: "resolved",
+      match: { bangumi_id: "20", title: "Fate/Zero" },
+    });
+  });
+
+  it("resolves the relevance head when no subject name is similar", async () => {
     const data = [subject(10, "Fate/stay night"), subject(20, "Fate/Zero")];
 
-    await expect(resolve(MISS_DB, { query: "Fate series" }, {
+    await expect(resolve(MISS_DB, { query: "unrelated search" }, {
       fetchImpl: response({ data }),
     })).resolves.toMatchObject({
       outcome: "resolved",
       match: { bangumi_id: "10", title: "Fate/stay night" },
+    });
+  });
+});
+
+describe("resolve alias MISS candidate bounds and degenerate inputs", () => {
+  it("caps name-similar subjects at six in stable relevance order", async () => {
+    const data = Array.from({ length: 8 }, (_, index) => subject(index + 1, `凉宫 ${String(index + 1)}`));
+
+    await expect(resolve(MISS_DB, { query: "凉宫" }, {
+      fetchImpl: response({ data }),
+    })).resolves.toMatchObject({
+      outcome: "needs_disambiguation",
+      candidates: [1, 2, 3, 4, 5, 6].map((id) => ({ bangumi_id: String(id) })),
+    });
+  });
+
+  it("head-picks when the normalized query is empty", async () => {
+    const data = [subject(10, "   ", "Fallback Anime"), subject(20, "Another Anime")];
+
+    await expect(resolve(MISS_DB, { query: "   " }, {
+      fetchImpl: response({ data }),
+    })).resolves.toMatchObject({
+      outcome: "resolved",
+      match: { bangumi_id: "10", title: "Fallback Anime" },
+    });
+  });
+});
+
+describe("resolve alias MISS informativeness guards", () => {
+  it("matches a one-character query by exact equality only", async () => {
+    const data = [subject(10, "Attack on Titan"), subject(20, "K"), subject(30, "K-On!")];
+
+    await expect(resolve(MISS_DB, { query: "k" }, {
+      fetchImpl: response({ data }),
+    })).resolves.toMatchObject({
+      outcome: "resolved",
+      match: { bangumi_id: "20", title: "K" },
+    });
+  });
+
+  it("blocks long-query reverse matches against short fetched titles", async () => {
+    const data = [
+      subject(10, "Fallback Anime"),
+      subject(20, "K"),
+      subject(30, "C"),
+      subject(40, "86"),
+    ];
+
+    await expect(resolve(MISS_DB, { query: "Please find K, C, and 86 anime for my long vacation" }, {
+      fetchImpl: response({ data }),
+    })).resolves.toMatchObject({
+      outcome: "resolved",
+      match: { bangumi_id: "10", title: "Fallback Anime" },
+    });
+  });
+
+  it("keeps an in-ratio reverse match", async () => {
+    const data = [subject(10, "Relevance Head"), subject(20, "Fate")];
+
+    await expect(resolve(MISS_DB, { query: "Fate extra" }, {
+      fetchImpl: response({ data }),
+    })).resolves.toMatchObject({
+      outcome: "resolved",
+      match: { bangumi_id: "20", title: "Fate" },
     });
   });
 });
