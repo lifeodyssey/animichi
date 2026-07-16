@@ -23,6 +23,7 @@ _UI_MAP: dict[str, str] = {
     "greet_user": "GeneralAnswer",
     "clarify": "Clarification",
     "partial": "GeneralAnswer",
+    "blocked": "GeneralAnswer",
 }
 
 

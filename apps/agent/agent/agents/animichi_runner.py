@@ -11,7 +11,11 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import RunUsage, UsageLimits
 
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.animichi_agent import animichi_agent, trusted_session_context
+from agent.agents.animichi_agent import (
+    _input_guard_enabled,
+    animichi_agent,
+    trusted_session_context,
+)
 from agent.agents.base import resolve_model_alias
 from agent.agents.runtime_deps import (
     OnStep,
@@ -22,6 +26,7 @@ from agent.agents.runtime_deps import (
 )
 from agent.agents.runtime_models import (
     AgentResultOutput,
+    BlockedResponseModel,
     ClarifyResponseModel,
     GreetingResponseModel,
     PartialResponseModel,
@@ -31,6 +36,7 @@ from agent.agents.runtime_models import (
 )
 from agent.agents.session_state import CurrentAnime, SessionState
 from agent.agents.tool_state import ToolState
+from agent.agents.web_trust import detect_prompt_injection
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
 
@@ -51,12 +57,19 @@ _STAGE_BY_OUTPUT: dict[type[AgentResultOutput], str] = {
     GreetingResponseModel: "greet_user",
     QAResponseModel: "general_qa",
     PartialResponseModel: "partial",
+    BlockedResponseModel: "blocked",
 }
 
 _PARTIAL_MESSAGES = {
     "en": "The processing limit was reached. Any results shown are partial; narrow the request to continue.",
     "ja": "処理上限に達しました。表示されているのは部分的な結果です。条件を絞って続けてください。",
     "zh": "已达到本次处理上限。当前显示的是部分结果，请缩小范围后继续。",
+}
+
+_BLOCKED_MESSAGES = {
+    "en": "Request blocked. Please rephrase your anime pilgrimage request without instruction overrides.",
+    "ja": "リクエストをブロックしました。指示の上書きを含めず、聖地巡礼の依頼を言い換えてください。",
+    "zh": "请求已被拦截。请不要加入覆盖系统指令的内容，并重新描述你的圣地巡礼需求。",
 }
 
 
@@ -153,6 +166,9 @@ async def run_animichi_agent(
         title_translator=title_translator,
     )
     _seed_tool_state(deps, context)
+    blocked = _injection_preflight(text, deps)
+    if blocked is not None:
+        return blocked
     resolved_model = resolve_model_alias(model)
 
     run_usage = RunUsage()
@@ -174,14 +190,6 @@ async def run_animichi_agent(
         )
         return _partial_result(deps, run_usage)
     raw_output = run_result.output
-    if isinstance(raw_output, str):
-        logger.warning("animichi_agent_plain_string_output")
-        return _partial_result(
-            deps,
-            run_usage,
-            new_messages=list(run_result.new_messages()),
-        )
-
     if isinstance(raw_output, ClarifyResponseModel):
         await _record_terminal_clarify(deps, raw_output)
     else:
@@ -226,6 +234,33 @@ def _partial_result(
 
 def _partial_message(locale: str) -> str:
     return _PARTIAL_MESSAGES.get(locale, _PARTIAL_MESSAGES["ja"])
+
+
+def _injection_preflight(text: str, deps: RuntimeDeps) -> AgentResult | None:
+    if not detect_prompt_injection(text):
+        return None
+    logger.warning("input_guardrail_injection_detected", text=text[:100])
+    if not _input_guard_enabled():
+        return None
+    return _blocked_result(deps)
+
+
+def _blocked_result(deps: RuntimeDeps) -> AgentResult:
+    output = BlockedResponseModel(message=_blocked_message(deps.locale))
+    return AgentResult(
+        output=output,
+        intent=runtime_stage(output, deps.steps),
+        session_state=deps.tool_state.session,
+        steps=list(deps.steps),
+        tool_state=deps.tool_state.to_legacy_dict(),
+        usage=RunUsage(),
+        status="blocked",
+        success_override=False,
+    )
+
+
+def _blocked_message(locale: str) -> str:
+    return _BLOCKED_MESSAGES.get(locale, _BLOCKED_MESSAGES["ja"])
 
 
 async def _record_terminal_clarify(

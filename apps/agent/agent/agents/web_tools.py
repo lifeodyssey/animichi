@@ -111,10 +111,10 @@ async def translate_anime_title(
     title: str,
     target_language: str,
 ) -> dict[str, object]:
-    """Translate an anime title to a target language using authoritative sources.
+    """Translate an anime title through catalog or tool-less localization.
 
-    This tool searches Bangumi, 萌娘百科, and Wikipedia for the community-accepted
-    translation. It does NOT hard-translate — it finds the official localized title.
+    Chinese titles resolve through the authoritative catalog. English, Japanese,
+    and catalog misses use a tool-less translation model.
 
     IMPORTANT: Always use this tool when you need to show an anime title in a
     different language from the original. Do not guess translations.
@@ -124,7 +124,7 @@ async def translate_anime_title(
                Examples: "君の名は。", "Your Name", "你的名字"
         target_language: Target language code: "ja", "zh", or "en"
 
-    Returns: {"original": "...", "translated": "...", "source": "db|bangumi_api|web_search", "confidence": 0.0-1.0}
+    Returns: {"original": "...", "translated": "...", "source": "catalog|llm|untranslated", "confidence": 0.0-1.0}
     """
     result = await _translate_title(ctx, title, target_language)
     return {
@@ -142,7 +142,11 @@ async def _translate_title(
     if deps.title_translator is not None:
         return await deps.title_translator(title, target_language)
     return await translate_title(
-        title, target_locale=target_language, db=deps.db, ctx=ctx
+        title,
+        target_locale=target_language,
+        kind="anime_title",
+        catalog=deps.catalog,
+        ctx=ctx,
     )
 
 

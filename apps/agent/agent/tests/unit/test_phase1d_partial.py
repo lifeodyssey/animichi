@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import NoReturn, get_args
 from unittest.mock import MagicMock
 
 import pytest
 from pydantic_ai.exceptions import UsageLimitExceeded
-from pydantic_ai.messages import ModelMessage
 from pydantic_ai.usage import RunUsage
 
 import agent.agents.animichi_runner as runner
@@ -76,22 +74,6 @@ async def _route_usage_limit_run(*_args: object, **kwargs: object) -> NoReturn:
         )
     )
     raise UsageLimitExceeded("request limit reached")
-
-
-@dataclass(frozen=True)
-class _PlainRunResult:
-    usage: RunUsage
-    output: str = "untyped output"
-
-    def new_messages(self) -> list[ModelMessage]:
-        return []
-
-
-async def _plain_run(*_args: object, **kwargs: object) -> _PlainRunResult:
-    usage = kwargs["usage"]
-    assert isinstance(usage, RunUsage)
-    usage.requests = 1
-    return _PlainRunResult(usage)
 
 
 def _install_run(monkeypatch: pytest.MonkeyPatch, run: object) -> None:
@@ -173,25 +155,6 @@ async def test_usage_limit_projects_current_route_over_stale_route(
     )
     response = agent_result_to_response(result, include_debug=False)
     assert response.data["route"]["ordered_points"][0]["id"] == "new"
-
-
-async def test_plain_string_output_uses_same_graceful_partial_path(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    _install_run(monkeypatch, _plain_run)
-    result = await runner.run_animichi_agent(
-        text="hello",
-        db=MagicMock(),
-        locale="ja",
-        catalog=MockCatalogClient(),
-    )
-    assert isinstance(result.output, PartialResponseModel)
-    assert (result.intent, result.success, result.status) == (
-        "partial",
-        False,
-        "partial",
-    )
-    assert result.session_state == SessionState()
 
 
 def test_partial_message_unknown_locale_defaults_to_japanese() -> None:
