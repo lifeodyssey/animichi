@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic_ai import ModelRetry
 
-from agent.agents.agent_result import StepRecord
+from agent.agents.agent_result import RejectedSearch, StepRecord
 from agent.agents.animichi_agent import validate_output
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import (
@@ -14,9 +14,12 @@ from agent.agents.runtime_models import (
     SearchResponseModel,
 )
 from agent.agents.session_state import (
+    OrderedCandidate,
     PendingClarification,
+    ResultRef,
     RoutePayloadState,
     RouteRef,
+    SearchPayloadState,
     SessionState,
 )
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
@@ -101,3 +104,36 @@ async def test_place_ambiguity_accepts_exact_ordered_candidate_ids() -> None:
         candidate_ids=["uji", "uji-city"],
     )
     assert await validate_output(_context(state, []), output) is output
+
+
+async def test_place_ambiguity_cannot_authorize_search_from_a_prior_turn() -> None:
+    prior_ref = ResultRef("search:prior:1")
+    pending = PendingClarification(
+        reason="place_ambiguity",
+        candidate_ids=["uji-city", "uji-station"],
+        ordered_candidates=[
+            OrderedCandidate(id="uji-city", title="Uji City"),
+            OrderedCandidate(id="uji-station", title="Uji Station"),
+        ],
+        revision=3,
+    )
+    state = SessionState(
+        search_results={prior_ref: SearchPayloadState(kind="nearby")},
+        search_result_lru=[prior_ref],
+        last_result_ref=prior_ref,
+        pending_clarification=pending,
+        clarification_revision=3,
+    )
+    steps = [
+        StepRecord(
+            "search_nearby",
+            False,
+            data={"outcome": "place_ambiguity"},
+            provenance=RejectedSearch(outcome="place_ambiguity"),
+        )
+    ]
+
+    with pytest.raises(ModelRetry):
+        await validate_output(_context(state, steps), SearchResponseModel(message="x"))
+
+    assert state.pending_clarification == pending

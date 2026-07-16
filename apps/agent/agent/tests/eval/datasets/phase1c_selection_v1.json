@@ -1,0 +1,108 @@
+[
+  {
+    "id": "D3_multi_success_two",
+    "query": "Route both selected anime",
+    "locale": "en",
+    "acceptable_stages": ["plan_multi"],
+    "expected_data_keys": ["results", "route"],
+    "expect_nonempty": true,
+    "selected_candidate_ids": ["115908", "11291"],
+    "clarification_id": 7,
+    "seeded_pending": {
+      "reason": "anime_ambiguity",
+      "candidate_ids": ["115908", "11291"],
+      "ordered_candidates": [
+        {"id": "115908", "title": "Sound Euphonium"},
+        {"id": "11291", "title": "Haruhi Suzumiya"}
+      ],
+      "revision": 7
+    }
+  },
+  {
+    "id": "D3_multi_success_single",
+    "query": "Route the selected anime",
+    "locale": "ja",
+    "acceptable_stages": ["plan_multi"],
+    "expected_data_keys": ["results", "route"],
+    "expect_nonempty": true,
+    "selected_candidate_ids": ["160209"],
+    "clarification_id": 3,
+    "seeded_pending": {
+      "reason": "anime_ambiguity",
+      "candidate_ids": ["160209", "269235"],
+      "ordered_candidates": [
+        {"id": "160209", "title": "君の名は。"},
+        {"id": "269235", "title": "天気の子"}
+      ],
+      "revision": 3
+    }
+  },
+  {
+    "id": "D3_multi_terminal_empty",
+    "query": "Route both selected anime",
+    "locale": "en",
+    "acceptable_stages": ["plan_multi"],
+    "expected_data_keys": ["results"],
+    "selected_candidate_ids": ["999001", "999002"],
+    "clarification_id": 4,
+    "seeded_pending": {
+      "reason": "anime_ambiguity",
+      "candidate_ids": ["999001", "999002"],
+      "ordered_candidates": [
+        {"id": "999001", "title": "Missing One"},
+        {"id": "999002", "title": "Missing Two"}
+      ],
+      "revision": 4
+    }
+  },
+  {
+    "id": "D3_multi_partial_success",
+    "query": "Route the available selected anime",
+    "locale": "zh",
+    "acceptable_stages": ["plan_multi"],
+    "expected_data_keys": ["results", "route"],
+    "expect_nonempty": true,
+    "selected_candidate_ids": ["115908", "999001"],
+    "clarification_id": 5,
+    "seeded_pending": {
+      "reason": "anime_ambiguity",
+      "candidate_ids": ["115908", "999001"],
+      "ordered_candidates": [
+        {"id": "115908", "title": "吹响悠风号"},
+        {"id": "999001", "title": "缺失作品"}
+      ],
+      "revision": 5
+    }
+  },
+  {
+    "id": "D3_place_selection_radius",
+    "query": "Use Uji",
+    "locale": "ja",
+    "acceptable_stages": ["search_nearby"],
+    "expected_data_keys": ["results"],
+    "expect_nonempty": true,
+    "selected_candidate_ids": ["seed:uji"],
+    "clarification_id": 6,
+    "seeded_pending": {
+      "reason": "place_ambiguity",
+      "candidate_ids": ["seed:uji", "seed:tokyo"],
+      "ordered_candidates": [
+        {
+          "id": "seed:uji",
+          "title": "宇治(京都府)",
+          "lat": 34.8843,
+          "lng": 135.7997,
+          "effective_radius_m": 10000
+        },
+        {
+          "id": "seed:tokyo",
+          "title": "東京(東京都)",
+          "lat": 35.6762,
+          "lng": 139.6503,
+          "effective_radius_m": 10000
+        }
+      ],
+      "revision": 6
+    }
+  }
+]

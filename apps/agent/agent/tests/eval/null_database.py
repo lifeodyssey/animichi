@@ -36,6 +36,9 @@ class _NullBangumiRepo:
     async def find_candidate_details_by_titles(self, titles: list[str]) -> NoReturn:
         _raise_access("bangumi", "find_candidate_details_by_titles")
 
+    async def filter_existing_ids(self, bangumi_ids: list[str]) -> NoReturn:
+        _raise_access("bangumi", "filter_existing_ids")
+
 
 class _NullPointsRepo:
     async def search_points_by_location(

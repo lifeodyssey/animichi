@@ -31,16 +31,14 @@ _POINT_FIELDS = {
     "distance_m",
     "origin",
     "cover_url",
+    "city",
 }
 
 
 def _ordered_rows(result: AgentResult) -> list[dict[str, object]]:
     state = result.session_state
     ref = state.route_lru[-1]
-    return [
-        row.model_dump(mode="json", exclude={"city"})
-        for row in state.routes[ref].ordered_points
-    ]
+    return [row.model_dump(mode="json") for row in state.routes[ref].ordered_points]
 
 
 def _euphonium_points() -> list[PilgrimagePoint]:

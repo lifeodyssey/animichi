@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from agent.agents.catalog_adapter import build_route_payload, build_search_payload
+from agent.agents.catalog_adapter import (
+    build_route_payload,
+    build_route_state,
+    build_search_payload,
+    build_search_state,
+)
 from agent.agents.handlers._helpers import (
     _build_nearby_groups,
     rewrite_image_urls,
@@ -13,7 +18,9 @@ from agent.clients.catalog_client import PilgrimagePoint, Route
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
 
-def _point(pid: str = "p1", bangumi_id: str = "160209") -> PilgrimagePoint:
+def _point(
+    pid: str = "p1", bangumi_id: str = "160209", city: str | None = None
+) -> PilgrimagePoint:
     return PilgrimagePoint(
         id=pid,
         name="須賀神社",
@@ -24,6 +31,7 @@ def _point(pid: str = "p1", bangumi_id: str = "160209") -> PilgrimagePoint:
         title="君の名は。",
         title_cn="你的名字",
         cover_url="https://example.test/c.jpg",
+        city=city,
     )
 
 
@@ -55,6 +63,24 @@ def test_build_search_payload_builds_nearby_groups() -> None:
     groups = payload["nearby_groups"]
     assert isinstance(groups, list)
     assert groups[0]["bangumi_id"] == "160209"
+
+
+@pytest.mark.parametrize(
+    ("locale", "city", "expected"),
+    [("ja", "Uji", "宇治"), ("zh", "Tokyo", "东京")],
+)
+def test_search_state_localizes_catalog_city_at_trusted_boundary(
+    locale: str, city: str, expected: str
+) -> None:
+    state = build_search_state([_point(city=city)], kind="bangumi", locale=locale)
+    assert state.rows[0].city == expected
+
+
+async def test_route_state_localizes_catalog_city_at_trusted_boundary() -> None:
+    route = await MockCatalogClient().route(["p004"])
+    route.ordered_points[0].city = "Tokyo"
+    state = build_route_state(route, source_ref=None, locale="ja")
+    assert state.ordered_points[0].city == "東京"
 
 
 async def test_build_route_payload_from_catalog_route() -> None:

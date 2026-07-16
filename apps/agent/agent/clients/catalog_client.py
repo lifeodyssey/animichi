@@ -85,6 +85,7 @@ class PilgrimagePoint(BaseModel):
     distance_m: float = -1.0
     origin: str = ""
     cover_url: str = ""
+    city: str | None = None
 
 
 class AnimeCandidate(BaseModel):

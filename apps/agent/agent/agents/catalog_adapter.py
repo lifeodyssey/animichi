@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+from agent.agents.geo_names import localized_city_name
 from agent.agents.handlers._helpers import _build_nearby_groups, rewrite_image_urls
 from agent.agents.session_state import (
     NearbyGroupState,
@@ -94,10 +95,12 @@ def build_search_state(
     kind: Literal["bangumi", "nearby"],
     anime_id: str | None = None,
     partial: bool = False,
+    locale: str,
 ) -> SearchPayloadState:
     """Adapt catalog points into the sole typed response carrier."""
     tool: SearchTool = "search_nearby" if kind == "nearby" else "search_bangumi"
-    payload = build_search_payload(points, tool=tool)
+    localized = [_localized_point(point, locale) for point in points]
+    payload = build_search_payload(localized, tool=tool)
     raw_metadata = payload.get("metadata")
     raw_groups = payload.get("nearby_groups")
     raw_rows = payload.get("rows")
@@ -115,9 +118,18 @@ def build_search_state(
     )
 
 
-def build_route_state(route: Route, source_ref: ResultRef | None) -> RoutePayloadState:
+def build_route_state(
+    route: Route, source_ref: ResultRef | None, *, locale: str
+) -> RoutePayloadState:
     """Adapt a non-empty catalog route into the typed route registry."""
-    payload = build_route_payload(route)
+    localized = route.model_copy(
+        update={
+            "ordered_points": [
+                _localized_point(point, locale) for point in route.ordered_points
+            ]
+        }
+    )
+    payload = build_route_payload(localized)
     summary = payload["summary"]
     itinerary = payload["timed_itinerary"]
     raw_points = payload["ordered_points"]
@@ -128,3 +140,9 @@ def build_route_state(route: Route, source_ref: ResultRef | None) -> RoutePayloa
         summary=RouteSummaryState.model_validate(summary),
         source_ref=source_ref,
     )
+
+
+def _localized_point(point: PilgrimagePoint, locale: str) -> PilgrimagePoint:
+    if point.city is None:
+        return point
+    return point.model_copy(update={"city": localized_city_name(point.city, locale)})

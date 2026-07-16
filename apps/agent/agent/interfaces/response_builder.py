@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
+
 from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.runtime_models import ClarifyResponseModel
 from agent.agents.session_state import (
     RoutePayloadState,
     SearchPayloadState,
-    SessionState,
 )
 from agent.application.errors import ApplicationError
 from agent.interfaces.schemas import PublicAPIError, PublicAPIResponse
@@ -19,6 +20,7 @@ _UI_MAP: dict[str, str] = {
     "plan_selected": "RoutePlannerWizard",
     "plan_multi": "RoutePlannerWizard",
     "general_qa": "GeneralAnswer",
+    "greet_user": "GeneralAnswer",
     "clarify": "Clarification",
 }
 
@@ -42,20 +44,23 @@ def _route_wire(payload: RoutePayloadState) -> dict[str, object]:
     return data
 
 
-def _latest_route(state: SessionState) -> RoutePayloadState | None:
-    if state.route_lru:
-        return state.routes.get(state.route_lru[-1])
-    return next(reversed(state.routes.values()), None) if state.routes else None
-
-
-def _project_search(state: SessionState) -> dict[str, object] | None:
-    ref = state.last_result_ref
-    payload = state.search_results.get(ref) if ref is not None else None
+def _project_search(result: AgentResult) -> dict[str, object] | None:
+    produced = result.provenance.search
+    payload = (
+        result.session_state.search_results.get(produced.result_ref)
+        if produced is not None
+        else None
+    )
     return _search_wire(payload) if payload is not None else None
 
 
-def _project_route(state: SessionState) -> dict[str, object] | None:
-    payload = _latest_route(state)
+def _project_route(result: AgentResult) -> dict[str, object] | None:
+    produced = result.provenance.route
+    payload = (
+        result.session_state.routes.get(produced.route_ref)
+        if produced is not None
+        else None
+    )
     return _route_wire(payload) if payload is not None else None
 
 
@@ -77,13 +82,15 @@ def _clarify_data(result: AgentResult) -> dict[str, object]:
 def _response_data(result: AgentResult) -> dict[str, object]:
     if result.intent == "clarify":
         return _clarify_data(result)
+    if result.status == "error":
+        return {}
     data: dict[str, object] = {}
     if result.intent in {"search_bangumi", "search_nearby", "plan_multi"}:
-        search = _project_search(result.session_state)
+        search = _project_search(result)
         if search is not None:
             data["results"] = search
     if result.intent in {"plan_route", "plan_selected", "plan_multi"}:
-        route = _project_route(result.session_state)
+        route = _project_route(result)
         if route is not None:
             data["route"] = route
     return data
@@ -97,7 +104,7 @@ def _response_status(result: AgentResult, data: dict[str, object]) -> str:
     payload = data.get("route") or data.get("results")
     if isinstance(payload, dict) and isinstance(payload.get("status"), str):
         return str(payload["status"])
-    return "info" if result.intent == "general_qa" else "ok"
+    return "info" if result.intent in {"general_qa", "greet_user"} else "ok"
 
 
 def agent_result_to_response(
@@ -148,10 +155,13 @@ def application_error_response(exc: ApplicationError) -> PublicAPIResponse:
 
 def serialize_step_record(step: StepRecord) -> dict[str, object]:
     """Serialize one step for opt-in debug output."""
-    return {
+    serialized: dict[str, object] = {
         "tool": step.tool,
         "success": step.success,
         "error": step.error,
         "data": step.data,
         "model_initiated": step.model_initiated,
     }
+    if step.provenance is not None:
+        serialized["provenance"] = asdict(step.provenance)
+    return serialized

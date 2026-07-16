@@ -33,6 +33,7 @@ interface PointRow {
   image: string | null;
   latitude: number;
   longitude: number;
+  city?: string | null;
 }
 
 /** Thrown when the work has no pilgrimage points to represent it. */
@@ -47,7 +48,7 @@ export class SpotNotFoundError extends Error {
 function representativeQuery(bangumiId: string) {
   return sql`
     SELECT id, name, name_cn, bangumi_id, episode, time_seconds,
-           image, latitude, longitude
+           image, latitude, longitude, city
     FROM points
     WHERE bangumi_id = ${bangumiId}
     ORDER BY id ASC
@@ -66,6 +67,7 @@ function toPoint(r: PointRow): PilgrimagePoint {
     longitude: r.longitude,
     ...(r.name_cn ? { name_cn: r.name_cn } : {}),
     ...optional({ episode: r.episode, time_seconds: r.time_seconds }),
+    ...(r.city ? { city: r.city } : {}),
   };
 }
 

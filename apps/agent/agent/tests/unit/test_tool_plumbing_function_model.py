@@ -11,6 +11,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.runtime_models import (
     ClarifyResponseModel,
+    GreetingResponseModel,
     QAResponseModel,
     RouteResponseModel,
     SearchResponseModel,
@@ -150,4 +151,23 @@ async def test_direct_outputs_need_no_echo_tool() -> None:
 
     assert isinstance(result.output, QAResponseModel)
     assert result.intent == "general_qa"
+    assert result.steps == []
+
+
+async def test_standalone_greeting_uses_dedicated_output_stage() -> None:
+    def respond(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        return ModelResponse(
+            parts=[ToolCallPart("greeting_response", {"message": "Hello!"})]
+        )
+
+    result = await run_animichi_agent(
+        text="hello",
+        db=MagicMock(),
+        locale="en",
+        catalog=MockCatalogClient(),
+        model=FunctionModel(respond),
+    )
+
+    assert isinstance(result.output, GreetingResponseModel)
+    assert result.intent == "greet_user"
     assert result.steps == []
