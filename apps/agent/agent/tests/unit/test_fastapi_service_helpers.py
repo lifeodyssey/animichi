@@ -43,7 +43,9 @@ def mock_db() -> MagicMock:
 
 def test_root_endpoint_returns_service_info(mock_db: MagicMock) -> None:
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(mock_db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
     )
 
@@ -52,7 +54,7 @@ def test_root_endpoint_returns_service_info(mock_db: MagicMock) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["service"] == "seichijunrei-runtime"
+    assert body["service"] == "animichi-runtime"
     assert body["endpoints"]["healthz"] == "/healthz"
 
 
@@ -60,7 +62,9 @@ def test_missing_user_header_returns_structured_invalid_request_error_on_convers
     mock_db: MagicMock,
 ) -> None:
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(mock_db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
     )
 
@@ -78,7 +82,9 @@ def test_messages_route_returns_structured_404_when_ownership_mismatch(
 ) -> None:
     mock_db.session.get_conversation.return_value = {"user_id": "someone-else"}
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(mock_db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
     )
 
@@ -96,7 +102,9 @@ def test_messages_route_returns_structured_404_when_ownership_mismatch(
 def test_missing_db_method_fails_fast_on_routes_endpoint() -> None:
     db = object()  # not a SupabaseClient — routes should return 500
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
         db=db,
     )
@@ -111,7 +119,9 @@ def test_missing_db_method_fails_fast_on_routes_endpoint() -> None:
 
 def test_feedback_validation_rejects_blank_query_text(mock_db: MagicMock) -> None:
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(mock_db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
     )
 
@@ -128,7 +138,9 @@ def test_feedback_validation_rejects_blank_query_text(mock_db: MagicMock) -> Non
 
 def test_feedback_validation_rejects_invalid_rating(mock_db: MagicMock) -> None:
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(mock_db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
     )
 
@@ -145,7 +157,9 @@ def test_feedback_validation_rejects_invalid_rating(mock_db: MagicMock) -> None:
 
 def test_feedback_success_persists(mock_db: MagicMock) -> None:
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(mock_db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
     )
 
@@ -242,12 +256,16 @@ def test_setup_logfire_instruments_fastapi_and_httpx_when_token_set(
     setup_logfire(settings, app=fake_app)
 
     logfire_mock.configure.assert_called_once()
+    assert (
+        logfire_mock.configure.call_args.kwargs["send_to_logfire"] == "if-token-present"
+    )
     logfire_mock.instrument_pydantic_ai.assert_called_once()
     logfire_mock.instrument_fastapi.assert_called_once_with(fake_app)
     logfire_mock.instrument_httpx.assert_called_once()
+    logfire_mock.instrument_asyncpg.assert_called_once()
 
 
-def test_setup_logfire_no_op_when_token_not_set(
+def test_setup_logfire_configures_without_instrumenting_when_token_not_set(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import sys
@@ -261,6 +279,29 @@ def test_setup_logfire_no_op_when_token_not_set(
 
     setup_logfire(Settings(), app=object())
 
-    logfire_mock.configure.assert_not_called()
+    logfire_mock.configure.assert_called_once()
+    logfire_mock.instrument_pydantic_ai.assert_not_called()
     logfire_mock.instrument_fastapi.assert_not_called()
     logfire_mock.instrument_httpx.assert_not_called()
+    logfire_mock.instrument_asyncpg.assert_not_called()
+
+
+def test_setup_logfire_bounds_managed_variable_remote_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import sys
+    from unittest.mock import MagicMock
+
+    from agent.interfaces.routes._deps import setup_logfire
+
+    logfire_mock = MagicMock()
+    monkeypatch.setenv("ANIMICHI_MANAGED_PROMPT", "1")
+    monkeypatch.setenv("LOGFIRE_TOKEN", "test-token")
+    monkeypatch.setenv("LOGFIRE_API_KEY", "test-api-key")
+    monkeypatch.setitem(sys.modules, "logfire", logfire_mock)
+
+    setup_logfire(Settings())
+
+    logfire_mock.VariablesOptions.assert_called_once_with(timeout=(1.0, 1.0))
+    configured = logfire_mock.configure.call_args.kwargs["variables"]
+    assert configured is logfire_mock.VariablesOptions.return_value

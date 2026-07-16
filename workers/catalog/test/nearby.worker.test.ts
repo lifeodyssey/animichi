@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogDb, NeonSql } from "../src/db/client";
 import { nearby } from "../src/api/nearby";
+import { MAX_RADIUS_M } from "../src/lib/geo-query";
 
 /**
  * Unit tests for the `nearby` read API handler (card W2-4).
@@ -32,6 +33,7 @@ interface DetailRow {
   episode: number | null;
   time_seconds: number | null;
   origin: string | null;
+  city: string | null;
 }
 
 const GEO: GeoRow[] = [
@@ -40,8 +42,8 @@ const GEO: GeoRow[] = [
 ];
 
 const DETAILS: DetailRow[] = [
-  { id: "washinomiya", bangumi_id: "lucky-star", name_cn: "鹫宫神社", image: "https://img/w.jpg", episode: 1, time_seconds: 12, origin: "anitabi" },
-  { id: "satte", bangumi_id: "lucky-star", name_cn: null, image: null, episode: null, time_seconds: null, origin: null },
+  { id: "washinomiya", bangumi_id: "lucky-star", name_cn: "鹫宫神社", image: "https://img/w.jpg", episode: 1, time_seconds: 12, origin: "anitabi", city: "Kuki" },
+  { id: "satte", bangumi_id: "lucky-star", name_cn: null, image: null, episode: null, time_seconds: null, origin: null, city: null },
 ];
 
 /** Minimal CatalogDb double: handles the detail-load IN read via db.execute(sql). */
@@ -51,10 +53,13 @@ function fakeDb(details: DetailRow[]): CatalogDb {
   } as unknown as CatalogDb;
 }
 
-/** Minimal NeonSql double: returns geo rows for the ST_DWithin read. */
-function fakeNeonSql(geo: GeoRow[]): NeonSql {
+/** Minimal NeonSql double: returns geo rows, recording each query's bound values. */
+function fakeNeonSql(geo: GeoRow[], bound: unknown[][] = []): NeonSql {
   return Object.assign(
-    (_strings: TemplateStringsArray, ..._values: unknown[]) => Promise.resolve(geo),
+    (_strings: TemplateStringsArray, ...values: unknown[]) => {
+      bound.push(values);
+      return Promise.resolve(geo);
+    },
     { transaction: undefined },
   ) as unknown as NeonSql;
 }
@@ -82,6 +87,7 @@ describe("nearby (api/nearby.ts)", () => {
       latitude: 36.1019,
       longitude: 139.6586,
       origin: "anitabi",
+      city: "Kuki",
     });
   });
 
@@ -90,6 +96,25 @@ describe("nearby (api/nearby.ts)", () => {
     expect(rows[1]).toMatchObject({ bangumi_id: "lucky-star", screenshot_url: "" });
     expect(rows[1]?.name_cn).toBeUndefined();
     expect(rows[1]?.episode).toBeUndefined();
+  });
+
+  // The clamp is only otherwise exercised by the Neon-gated spike lane, which
+  // skips without credentials — assert it here so it runs in every CI job.
+  it("clamps an over-cap radius before it reaches the geo query", async () => {
+    const bound: unknown[][] = [];
+    await nearby(fakeDb(DETAILS), fakeNeonSql(GEO, bound), {
+      lat: 36.1019, lng: 139.6586, radius_m: MAX_RADIUS_M * 4,
+    });
+    expect(bound[0]).toContain(MAX_RADIUS_M);
+    expect(bound[0]).not.toContain(MAX_RADIUS_M * 4);
+  });
+
+  it("passes an under-cap radius through unchanged", async () => {
+    const bound: unknown[][] = [];
+    await nearby(fakeDb(DETAILS), fakeNeonSql(GEO, bound), {
+      lat: 36.1019, lng: 139.6586, radius_m: 1_000,
+    });
+    expect(bound[0]).toContain(1_000);
   });
 
   it("returns an empty rows array when no point is within the radius", async () => {

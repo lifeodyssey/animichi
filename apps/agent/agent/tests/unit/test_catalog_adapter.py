@@ -1,19 +1,14 @@
-"""Unit tests for the catalog payload adapter.
-
-The adapter converts typed Catalog models (PilgrimagePoint / Route) into the
-``tool_state`` payload shapes the response builder and output_validator expect
-(mirroring the legacy handler payloads), so swapping the data source is invisible
-to the rest of the agent.
-"""
+"""Unit tests for typed catalog-to-registry and wire adapters."""
 
 from __future__ import annotations
 
 import pytest
 
 from agent.agents.catalog_adapter import (
-    build_resolve_payload,
     build_route_payload,
+    build_route_state,
     build_search_payload,
+    build_search_state,
 )
 from agent.agents.handlers._helpers import (
     _build_nearby_groups,
@@ -23,7 +18,9 @@ from agent.clients.catalog_client import PilgrimagePoint, Route
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
 
-def _point(pid: str = "p1", bangumi_id: str = "160209") -> PilgrimagePoint:
+def _point(
+    pid: str = "p1", bangumi_id: str = "160209", city: str | None = None
+) -> PilgrimagePoint:
     return PilgrimagePoint(
         id=pid,
         name="須賀神社",
@@ -34,6 +31,7 @@ def _point(pid: str = "p1", bangumi_id: str = "160209") -> PilgrimagePoint:
         title="君の名は。",
         title_cn="你的名字",
         cover_url="https://example.test/c.jpg",
+        city=city,
     )
 
 
@@ -67,34 +65,26 @@ def test_build_search_payload_builds_nearby_groups() -> None:
     assert groups[0]["bangumi_id"] == "160209"
 
 
-def test_build_resolve_payload_single_match_returns_bangumi_id() -> None:
-    payload = build_resolve_payload([_point()])
-    assert payload["bangumi_id"] == "160209"
-    assert payload["title"] == "君の名は。"
+@pytest.mark.parametrize(
+    ("locale", "city", "expected"),
+    [("ja", "Uji", "宇治"), ("zh", "Tokyo", "东京")],
+)
+def test_search_state_localizes_catalog_city_at_trusted_boundary(
+    locale: str, city: str, expected: str
+) -> None:
+    state = build_search_state([_point(city=city)], kind="bangumi", locale=locale)
+    assert state.rows[0].city == expected
 
 
-def test_build_resolve_payload_includes_candidates() -> None:
-    payload = build_resolve_payload([_point()])
-    candidates = payload["candidates"]
-    assert isinstance(candidates, list)
-    assert candidates[0]["bangumi_id"] == "160209"
-
-
-def test_build_resolve_payload_multiple_works_is_ambiguous() -> None:
-    payload = build_resolve_payload([_point("p1", "160209"), _point("p2", "100403")])
-    assert payload["ambiguous"] is True
-    candidates = payload["candidates"]
-    assert isinstance(candidates, list)
-    assert len(candidates) == 2
-
-
-def test_build_resolve_payload_empty_when_no_points() -> None:
-    payload = build_resolve_payload([])
-    assert payload == {}
+async def test_route_state_localizes_catalog_city_at_trusted_boundary() -> None:
+    route = await MockCatalogClient().route(["p004"])
+    route.ordered_points[0].city = "Tokyo"
+    state = build_route_state(route, source_ref=None, locale="ja")
+    assert state.ordered_points[0].city == "東京"
 
 
 async def test_build_route_payload_from_catalog_route() -> None:
-    route: Route = await MockCatalogClient().route(["p_euph_1", "p_euph_2"])
+    route: Route = await MockCatalogClient().route(["p004", "p005"])
     payload = build_route_payload(route)
     assert payload["point_count"] == 2
     assert payload["status"] == "ok"
@@ -104,7 +94,7 @@ async def test_build_route_payload_from_catalog_route() -> None:
 
 
 async def test_build_route_payload_summary_has_coordinate_counts() -> None:
-    route: Route = await MockCatalogClient().route(["p_euph_1", "p_euph_2"])
+    route: Route = await MockCatalogClient().route(["p004", "p005"])
     summary = build_route_payload(route)["summary"]
     assert isinstance(summary, dict)
     assert summary["with_coordinates"] == 2

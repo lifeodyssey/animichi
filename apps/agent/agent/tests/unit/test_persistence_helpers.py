@@ -5,18 +5,60 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.runtime_models import (
-    ResultsMetaModel,
-    SearchDataModel,
-    SearchResponseModel,
-)
+from agent.agents.runtime_models import SearchResponseModel
+from agent.agents.session_state import SessionState
 from agent.interfaces.persistence import (
     _safe_insert_message,
     build_response_session,
     extract_plan_steps,
-    get_plan_params,
-    infer_bangumi_id,
+    persist_messages,
 )
+from agent.interfaces.schemas import PublicAPIResponse
+
+
+class _Db:
+    def __init__(self) -> None:
+        self.insert_message = AsyncMock()
+
+
+def _response() -> PublicAPIResponse:
+    return PublicAPIResponse(
+        success=True, status="ok", intent="plan_selected", message="route"
+    )
+
+
+async def test_persist_messages_skips_empty_user_utterance() -> None:
+    """#273 T1: a bypass recompute carries no new utterance (marker ->
+    ``text == ""``) and must not persist an empty user row that the
+    conversation history would render as an empty bubble."""
+    db = _Db()
+    await persist_messages(
+        db=db, session_id="s1", user_text="", result=None, response=_response()
+    )
+    roles = [call.args[1] for call in db.insert_message.await_args_list]
+    assert roles == ["assistant"]
+
+
+async def test_persist_messages_inserts_genuine_user_turn() -> None:
+    db = _Db()
+    await persist_messages(
+        db=db, session_id="s1", user_text="ユーフォ", result=None, response=_response()
+    )
+    roles = [call.args[1] for call in db.insert_message.await_args_list]
+    assert roles == ["user", "assistant"]
+
+
+async def test_persist_messages_empty_utterance_failure_persists_nothing() -> None:
+    db = _Db()
+    await persist_messages(
+        db=db,
+        session_id="s1",
+        user_text="",
+        result=None,
+        response=_response(),
+        persist_user_only=True,
+    )
+    assert db.insert_message.await_args_list == []
 
 
 async def test_safe_insert_message_succeeds() -> None:
@@ -55,44 +97,6 @@ def test_build_response_session_with_no_route_history() -> None:
     assert rh == []
 
 
-def test_get_plan_params_returns_first_step_params() -> None:
-    result = _make_result(
-        steps=[
-            StepRecord(
-                tool="resolve_anime",
-                success=True,
-                params={"title": "test"},
-            ),
-            StepRecord(
-                tool="search_bangumi",
-                success=True,
-                params={"bangumi_id": "123"},
-            ),
-        ]
-    )
-    params = get_plan_params(result)
-    assert params == {"title": "test"}
-
-
-def test_get_plan_params_returns_empty_when_no_params() -> None:
-    result = _make_result(
-        steps=[StepRecord(tool="greet_user", success=True, params={})]
-    )
-    assert get_plan_params(result) == {}
-
-
-def test_infer_bangumi_id_from_results() -> None:
-    results = {"rows": [{"bangumi_id": "253"}]}
-    assert infer_bangumi_id(results) == "253"
-
-
-def test_infer_bangumi_id_returns_none_for_empty() -> None:
-    assert infer_bangumi_id({}) is None
-    assert infer_bangumi_id({"rows": []}) is None
-    assert infer_bangumi_id(None) is None
-    assert infer_bangumi_id({"rows": ["not_a_dict"]}) is None
-
-
 def test_extract_plan_steps_with_tools() -> None:
     result = _make_result(
         steps=[
@@ -112,9 +116,10 @@ def _make_result(
     intent: str = "search_bangumi",
     steps: list[StepRecord] | None = None,
 ) -> AgentResult:
-    output = SearchResponseModel(
+    output = SearchResponseModel(message="test")
+    return AgentResult(
+        output=output,
         intent=intent,
-        message="test",
-        data=SearchDataModel(results=ResultsMetaModel()),
+        session_state=SessionState(),
+        steps=steps or [],
     )
-    return AgentResult(output=output, steps=steps or [], tool_state={})
