@@ -1,3 +1,8 @@
+> [!WARNING]
+> **FROZEN / RETIRED AT `apps/web` CUTOVER.** Dependencies are deliberately frozen. This package
+> keeps ESLint 9 and its isolated `frontend/.oxlintrc.json`, which shields it from the root strict
+> oxlint config. Do not “fix” outdated dependencies or migrate its lint stack during unrelated work.
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
