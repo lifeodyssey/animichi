@@ -139,6 +139,22 @@ describe("JobStore singleflight over ingest_jobs", () => {
     await store.markDone("done-1");
     expect(await statusOf("done-1")).toBe("done");
   });
+
+  it("reclaims only stale running work and picks exactly one concurrent winner", async () => {
+    await db.execute(sql`
+      INSERT INTO ingest_jobs (work_id, status, started_at)
+      VALUES ('fresh-running', 'running', NOW()),
+             ('stale-running', 'running', NOW() - INTERVAL '16 minutes')
+    `);
+    const fresh = await Promise.all([
+      new JobStore(db).acquire("fresh-running"), new JobStore(db).acquire("fresh-running"),
+    ]);
+    const stale = await Promise.all([
+      new JobStore(db).acquire("stale-running"), new JobStore(db).acquire("stale-running"),
+    ]);
+    expect(fresh).toEqual([false, false]);
+    expect(stale.filter(Boolean)).toHaveLength(1);
+  });
 });
 
 describe("JobStore negative cache", () => {

@@ -66,7 +66,9 @@ def build_app(
     mock_db = db or build_stub_db()
     resolved_settings = settings or Settings()
     if runtime_api is None:
-        runtime_api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+        runtime_api = RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        )
 
     app = create_fastapi_app(
         runtime_api=runtime_api,

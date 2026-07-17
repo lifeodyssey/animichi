@@ -61,6 +61,7 @@ interface PointRow {
   title: string | null;
   title_cn: string | null;
   cover_url: string | null;
+  city?: string | null;
 }
 
 /** A `PilgrimagePoint` carrying the geo fields {@link clusterByLocation} needs. */
@@ -98,7 +99,7 @@ function indexRows(rows: PointRow[]): Map<string, ClusterablePilgrimagePoint> {
 function pointsQuery(ids: string[]) {
   return sql`
     SELECT p.id, p.name, p.name_cn, p.bangumi_id, p.episode, p.time_seconds,
-           p.image, p.latitude, p.longitude, p.origin,
+           p.image, p.latitude, p.longitude, p.origin, p.city,
            b.title, b.title_cn, b.cover_url
     FROM points p
     LEFT JOIN bangumi b ON b.id = p.bangumi_id
@@ -130,6 +131,7 @@ function scalarFields(r: PointRow): Omit<PilgrimagePoint, "latitude" | "longitud
       title: r.title,
       title_cn: r.title_cn,
       cover_url: r.cover_url,
+      city: r.city,
     }),
   };
 }

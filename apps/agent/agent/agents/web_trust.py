@@ -2,7 +2,7 @@
 
 Two responsibilities:
 1. Prompt injection detection (log-only) — consumed by the official input
-   guard in modern composition and by tool-returned web content checks.
+   runner preflight and by tool-returned web content checks.
 2. Untrusted-content helpers — sanitize and delimit external data (e.g.
    web search results) before it is rendered into the agent's context, so
    instruction-like text inside it cannot be mistaken for real instructions.
@@ -38,10 +38,10 @@ INJECTION_PATTERNS = [
 def detect_prompt_injection(text: str, *, source: str = "user_input") -> bool:
     """Return True if text looks like a prompt injection attempt.
 
-    Applied to BOTH user input and tool-returned web content. Does NOT
-    block the request — callers should log a warning and let the agent
-    process normally, since PydanticAI's typed output already constrains
-    what the agent can return.
+    Applied to BOTH user input and tool-returned web content. This function
+    only records and returns a signal; policy remains with its caller. Runner
+    preflight may block signaled user prompts, while web-tool returns remain
+    log-only.
 
     Args:
         text: The text to scan.

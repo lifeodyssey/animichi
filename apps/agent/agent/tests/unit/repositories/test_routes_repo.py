@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -10,22 +10,29 @@ from agent.infrastructure.supabase.repositories.routes import RoutesRepository
 
 
 @pytest.fixture
-def pool() -> AsyncMock:
-    return AsyncMock()
+def pool() -> MagicMock:
+    result = MagicMock()
+    connection = MagicMock()
+    connection.fetchrow = AsyncMock()
+    connection.executemany = AsyncMock()
+    result.fetch = AsyncMock()
+    result.acquire.return_value.__aenter__.return_value = connection
+    result.connection = connection
+    return result
 
 
 @pytest.fixture
-def repo(pool: AsyncMock) -> RoutesRepository:
+def repo(pool: MagicMock) -> RoutesRepository:
     return RoutesRepository(pool)
 
 
 async def test_save_route_returns_route_id(
-    repo: RoutesRepository, pool: AsyncMock
+    repo: RoutesRepository, pool: MagicMock
 ) -> None:
-    pool.fetchrow.return_value = {"id": "route-uuid-789"}
+    pool.connection.fetchrow.return_value = {"id": "route-uuid-789"}
     result = await repo.save_route(
         session_id="sess-1",
-        bangumi_id="115908",
+        anime_ids=["115908", "117696"],
         point_ids=["p1", "p2", "p3"],
         route_data={"steps": [{"from": "p1", "to": "p2"}]},
         origin_station="Uji Station",
@@ -35,41 +42,48 @@ async def test_save_route_returns_route_id(
         total_duration=3600,
     )
     assert result == "route-uuid-789"
-    pool.fetchrow.assert_awaited_once()
-    sql = pool.fetchrow.await_args.args[0]
+    pool.connection.fetchrow.assert_awaited_once()
+    pool.connection.executemany.assert_awaited_once()
+    sql = pool.connection.fetchrow.await_args.args[0]
     assert "INSERT INTO routes" in sql
     assert "RETURNING id" in sql
     assert "ST_MakePoint" in sql
+    rows = pool.connection.executemany.await_args.args[1]
+    assert rows == [
+        ("route-uuid-789", "115908", 0),
+        ("route-uuid-789", "117696", 1),
+    ]
 
 
 async def test_save_route_without_origin(
-    repo: RoutesRepository, pool: AsyncMock
+    repo: RoutesRepository, pool: MagicMock
 ) -> None:
-    pool.fetchrow.return_value = {"id": "route-uuid-abc"}
+    pool.connection.fetchrow.return_value = {"id": "route-uuid-abc"}
     result = await repo.save_route(
         session_id="sess-1",
-        bangumi_id="115908",
+        anime_ids=[],
         point_ids=["p1"],
         route_data={},
     )
     assert result == "route-uuid-abc"
-    sql = pool.fetchrow.await_args.args[0]
+    sql = pool.connection.fetchrow.await_args.args[0]
     # Single CASE WHEN statement handles both paths
     assert "CASE WHEN" in sql
     # origin_lon ($4) and origin_lat ($5) are passed as None
-    args = pool.fetchrow.await_args.args
-    assert args[4] is None  # origin_lon
-    assert args[5] is None  # origin_lat
+    args = pool.connection.fetchrow.await_args.args
+    assert args[3] is None  # origin_lon
+    assert args[4] is None  # origin_lat
+    pool.connection.executemany.assert_not_awaited()
 
 
 async def test_save_route_raises_when_no_row(
-    repo: RoutesRepository, pool: AsyncMock
+    repo: RoutesRepository, pool: MagicMock
 ) -> None:
-    pool.fetchrow.return_value = None
+    pool.connection.fetchrow.return_value = None
     with pytest.raises(RuntimeError, match="save_route"):
         await repo.save_route(
             session_id="sess-1",
-            bangumi_id="115908",
+            anime_ids=["115908"],
             point_ids=["p1"],
             route_data={},
         )
@@ -81,8 +95,8 @@ async def test_get_user_routes_returns_list(
     pool.fetch.return_value = [
         {
             "id": "r1",
-            "bangumi_id": "115908",
-            "bangumi_title": "Liz",
+            "anime_ids": ["115908", "117696"],
+            "anime_titles": ["Liz", "K-On!"],
             "point_count": 3,
             "created_at": "2026-01-01",
             "origin_station": None,
@@ -90,4 +104,7 @@ async def test_get_user_routes_returns_list(
     ]
     result = await repo.get_user_routes("user-1", limit=5)
     assert len(result) == 1
-    assert result[0]["bangumi_id"] == "115908"
+    assert result[0]["anime_ids"] == ["115908", "117696"]
+    sql = pool.fetch.await_args.args[0]
+    assert "FROM route_anime" in sql
+    assert "COALESCE(anime.anime_ids" in sql

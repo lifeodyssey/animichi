@@ -117,6 +117,7 @@ describe("catalog input validation on the OpenAPI wire", () => {
     expect(valid.status).toBe(200);
     expect(await valid.json()).toEqual({ rows: [] });
   });
+
 });
 
 describe("catalog typed errors on the OpenAPI wire", () => {
@@ -163,7 +164,6 @@ describe("catalog typed errors on the OpenAPI wire", () => {
       data: { upstream: "bangumi" },
     });
   });
-
 });
 
 describe("catalog ingest typed errors on the OpenAPI wire", () => {

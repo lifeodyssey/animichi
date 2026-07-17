@@ -1,832 +1,159 @@
-"""Unit tests for agent.interfaces.session_facade."""
+"""Typed SessionState storage-envelope tests."""
 
 from __future__ import annotations
 
-from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.runtime_models import (
-    QADataModel,
-    QAResponseModel,
-    ResultsMetaModel,
-    SearchDataModel,
-    SearchResponseModel,
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import httpx
+
+from agent.agents.agent_result import AgentResult
+from agent.agents.runtime_models import QAResponseModel
+from agent.agents.session_state import (
+    CurrentAnime,
+    OrderedCandidate,
+    PendingClarification,
+    SessionState,
 )
-from agent.interfaces.schemas import PublicAPIRequest
+from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.interfaces.session_facade import (
-    SessionUpdate,
-    as_str_or_none,
     build_context_block,
-    build_session_summary,
-    build_updated_session_state,
+    build_message_history,
+    compact_session_interactions,
     extract_context_delta,
     normalize_session_state,
 )
 
 
-def _make_agent_result(
-    intent: str = "search_bangumi",
-    steps: list[StepRecord] | None = None,
-    message: str = "",
-) -> AgentResult:
-    """Build a minimal AgentResult for session_facade tests."""
-    if intent in ("search_bangumi", "search_nearby"):
-        output = SearchResponseModel(
-            intent=intent,
-            message=message,
-            data=SearchDataModel(results=ResultsMetaModel()),
-        )
-    else:
-        output = QAResponseModel(
-            intent="general_qa",
-            message=message,
-            data=QADataModel(message=message),
-        )
-    return AgentResult(output=output, steps=steps or [], tool_state={})
+def _pending_state() -> SessionState:
+    return SessionState(
+        current_anime=CurrentAnime(bangumi_id="485", title="Haruhi"),
+        pending_clarification=PendingClarification(
+            reason="anime_ambiguity",
+            candidate_ids=["485", "3375"],
+            ordered_candidates=[
+                OrderedCandidate(id="485", title="Haruhi"),
+                OrderedCandidate(id="3375", title="Disappearance"),
+            ],
+            revision=3,
+        ),
+        clarification_revision=3,
+    )
 
 
-class TestNormalizeSessionState:
-    def test_none_returns_defaults(self) -> None:
-        state = normalize_session_state(None)
+def _interaction(state: SessionState) -> dict[str, object]:
+    return {"context_delta": {"session_state_v2": state.model_dump(mode="json")}}
 
-        assert state["interactions"] == []
-        assert state["route_history"] == []
-        assert state["last_intent"] is None
-        assert state["last_status"] is None
-        assert state["last_message"] == ""
-        assert state["summary"] is None
-        assert "updated_at" in state
 
-    def test_empty_dict_returns_defaults(self) -> None:
-        state = normalize_session_state({})
+def test_normalize_session_state_repairs_storage_lists() -> None:
+    state = normalize_session_state({"interactions": "bad", "route_history": None})
+    assert state["interactions"] == []
+    assert state["route_history"] == []
 
-        assert state["interactions"] == []
-        assert state["route_history"] == []
 
-    def test_populated_state_preserves_values(self) -> None:
-        existing = {
-            "interactions": [{"text": "hello"}],
-            "route_history": [{"id": "r1"}],
-            "last_intent": "search_bangumi",
-            "last_status": "ok",
-            "last_message": "found",
-            "summary": "user searched",
+def test_latest_typed_state_is_the_only_context_carrier() -> None:
+    runtime = _pending_state()
+    block = build_context_block(
+        {"interactions": [_interaction(runtime)], "last_intent": "clarify"}
+    )
+    assert block is not None
+    assert set(block) == {"summary", "last_intent", "session_state_v2"}
+    assert SessionState.model_validate(block["session_state_v2"]) == runtime
+
+
+def test_explicit_empty_state_clears_older_pending_without_fallback() -> None:
+    block = build_context_block(
+        {
+            "interactions": [
+                _interaction(_pending_state()),
+                _interaction(SessionState()),
+            ],
+            "last_intent": "general_qa",
         }
-        state = normalize_session_state(existing)
-
-        assert len(state["interactions"]) == 1  # type: ignore[arg-type]
-        assert len(state["route_history"]) == 1  # type: ignore[arg-type]
-        assert state["last_intent"] == "search_bangumi"
-        assert state["summary"] == "user searched"
-
-    def test_non_list_interactions_coerced_to_empty(self) -> None:
-        state = normalize_session_state({"interactions": "not-a-list"})
-        assert state["interactions"] == []
-
-    def test_non_list_route_history_coerced_to_empty(self) -> None:
-        state = normalize_session_state({"route_history": 42})
-        assert state["route_history"] == []
-
-    def test_blank_summary_coerced_to_none(self) -> None:
-        state = normalize_session_state({"summary": "   "})
-        assert state["summary"] is None
+    )
+    assert block is not None
+    restored = SessionState.model_validate(block["session_state_v2"])
+    assert restored.pending_clarification is None
 
 
-class TestSessionUpdate:
-    def test_defaults(self) -> None:
-        request = PublicAPIRequest(text="hi")
-        update = SessionUpdate(
-            request=request,
-            response_intent="greet_user",
-            response_status="ok",
-            response_success=True,
-        )
-
-        assert update.response_message == ""
-        assert update.context_delta is None
-
-    def test_frozen(self) -> None:
-        from dataclasses import FrozenInstanceError
-
-        import pytest
-
-        request = PublicAPIRequest(text="hi")
-        update = SessionUpdate(
-            request=request,
-            response_intent="greet_user",
-            response_status="ok",
-            response_success=True,
-        )
-        with pytest.raises(FrozenInstanceError):
-            update.response_intent = "changed"  # type: ignore[misc]
-
-
-class TestBuildUpdatedSessionState:
-    def test_appends_interaction(self) -> None:
-        prev = normalize_session_state(None)
-        update = SessionUpdate(
-            request=PublicAPIRequest(text="test query"),
-            response_intent="search_bangumi",
-            response_status="ok",
-            response_success=True,
-            response_message="found 3",
-        )
-
-        updated = build_updated_session_state(prev, update)
-
-        interactions = updated["interactions"]
-        assert isinstance(interactions, list)
-        assert len(interactions) == 1
-        assert interactions[0]["text"] == "test query"
-        assert interactions[0]["intent"] == "search_bangumi"
-        assert updated["last_intent"] == "search_bangumi"
-        assert updated["last_status"] == "ok"
-        assert updated["last_message"] == "found 3"
-
-    def test_appends_multiple_interactions(self) -> None:
-        prev = normalize_session_state(None)
-
-        state = build_updated_session_state(
-            prev,
-            SessionUpdate(
-                request=PublicAPIRequest(text="first"),
-                response_intent="search_bangumi",
-                response_status="ok",
-                response_success=True,
-            ),
-        )
-        state = build_updated_session_state(
-            state,
-            SessionUpdate(
-                request=PublicAPIRequest(text="second"),
-                response_intent="plan_route",
-                response_status="ok",
-                response_success=True,
-            ),
-        )
-
-        interactions = state["interactions"]
-        assert isinstance(interactions, list)
-        assert len(interactions) == 2
-        assert state["last_intent"] == "plan_route"
-
-    def test_includes_context_delta(self) -> None:
-        prev = normalize_session_state(None)
-        delta = {"bangumi_id": "253", "anime_title": "test anime"}
-        update = SessionUpdate(
-            request=PublicAPIRequest(text="test"),
-            response_intent="search_bangumi",
-            response_status="ok",
-            response_success=True,
-            context_delta=delta,
-        )
-
-        updated = build_updated_session_state(prev, update)
-
-        interactions = updated["interactions"]
-        assert isinstance(interactions, list)
-        assert interactions[0]["context_delta"] == delta
-
-
-class TestBuildSessionSummary:
-    def test_correct_counts(self) -> None:
-        state = {
-            "interactions": [{"text": "a"}, {"text": "b"}],
-            "route_history": [{"id": "r1"}],
-            "last_intent": "search_bangumi",
-            "last_status": "ok",
-            "last_message": "found",
-        }
-        summary = build_session_summary(state)
-
-        assert summary["interaction_count"] == 2
-        assert summary["route_history_count"] == 1
-        assert summary["last_intent"] == "search_bangumi"
-        assert summary["last_status"] == "ok"
-        assert summary["last_message"] == "found"
-
-    def test_empty_state(self) -> None:
-        summary = build_session_summary({"interactions": [], "route_history": []})
-
-        assert summary["interaction_count"] == 0
-        assert summary["route_history_count"] == 0
-        assert summary["last_intent"] is None
-
-    def test_non_list_interactions(self) -> None:
-        summary = build_session_summary({"interactions": "bad", "route_history": None})
-
-        assert summary["interaction_count"] == 0
-        assert summary["route_history_count"] == 0
-
-
-class TestBuildContextBlock:
-    def test_extracts_bangumi_and_location(self) -> None:
-        state = {
+def test_legacy_candidate_deltas_are_not_reconstructed() -> None:
+    block = build_context_block(
+        {
             "interactions": [
                 {
-                    "text": "search",
-                    "context_delta": {
-                        "bangumi_id": "253",
-                        "anime_title": "Eupho",
-                        "location": "Uji",
-                    },
-                }
-            ],
-            "last_intent": "search_bangumi",
-        }
-        block = build_context_block(state)
-
-        assert block is not None
-        assert block["current_bangumi_id"] == "253"
-        assert block["current_anime_title"] == "Eupho"
-        assert block["last_location"] == "Uji"
-        assert "253" in block["visited_bangumi_ids"]
-
-    def test_returns_none_when_empty(self) -> None:
-        state = {"interactions": [], "last_intent": None}
-        assert build_context_block(state) is None
-
-    def test_includes_summary_even_without_interactions(self) -> None:
-        state = {"interactions": [], "summary": "previous session"}
-        block = build_context_block(state)
-
-        assert block is not None
-        assert block["summary"] == "previous session"
-        assert block["current_bangumi_id"] is None
-
-    def test_merges_user_memory(self) -> None:
-        state = {
-            "interactions": [
-                {"context_delta": {"bangumi_id": "253", "anime_title": "Eupho"}}
-            ],
-            "last_intent": "search_bangumi",
-        }
-        user_memory = {
-            "visited_anime": [
-                {"bangumi_id": "105", "title": "Your Name", "last_at": "2026-03-01"},
-            ]
-        }
-        block = build_context_block(state, user_memory=user_memory)
-
-        assert block is not None
-        assert "105" in block["visited_bangumi_ids"]
-        assert "253" in block["visited_bangumi_ids"]
-
-    def test_most_recent_from_user_memory_when_no_session_context(self) -> None:
-        state = {"interactions": []}
-        user_memory = {
-            "visited_anime": [
-                {"bangumi_id": "105", "title": "Your Name", "last_at": "2026-03-01"},
-                {"bangumi_id": "200", "title": "Newer", "last_at": "2026-04-01"},
-            ]
-        }
-        block = build_context_block(state, user_memory=user_memory)
-
-        assert block is not None
-        assert block["current_bangumi_id"] == "200"
-        assert block["current_anime_title"] == "Newer"
-
-
-class TestExtractContextDelta:
-    def test_from_resolve_anime(self) -> None:
-        result = _make_agent_result(
-            intent="search_bangumi",
-            steps=[
-                StepRecord(
-                    tool="resolve_anime",
-                    success=True,
-                    params={"title": "Eupho"},
-                    data={"bangumi_id": "253", "title": "Eupho"},
-                )
-            ],
-        )
-
-        delta = extract_context_delta(result)
-        assert delta["bangumi_id"] == "253"
-        assert delta["anime_title"] == "Eupho"
-
-    def test_from_search_nearby(self) -> None:
-        result = _make_agent_result(
-            intent="search_nearby",
-            steps=[
-                StepRecord(
-                    tool="search_nearby",
-                    success=True,
-                    params={"location": "Uji"},
-                    data={"rows": []},
-                )
-            ],
-        )
-
-        delta = extract_context_delta(result)
-        assert delta["location"] == "Uji"
-
-    def test_empty_on_failure(self) -> None:
-        result = _make_agent_result(
-            intent="search_bangumi",
-            steps=[
-                StepRecord(
-                    tool="resolve_anime",
-                    success=False,
-                    params={"title": "x"},
-                    error="not found",
-                )
-            ],
-        )
-
-        delta = extract_context_delta(result)
-        assert delta == {}
-
-    def test_fallback_to_search_bangumi_rows(self) -> None:
-        result = _make_agent_result(
-            intent="search_bangumi",
-            steps=[
-                StepRecord(
-                    tool="search_bangumi",
-                    success=True,
-                    params={"bangumi_id": "99"},
-                    data={
-                        "rows": [{"bangumi_id": "99", "title": "From Rows"}],
-                        "row_count": 1,
-                    },
-                )
-            ],
-        )
-
-        delta = extract_context_delta(result)
-        assert delta["bangumi_id"] == "99"
-        assert delta["anime_title"] == "From Rows"
-
-
-class TestExtractContextDeltaSearchData:
-    """AC: extract_context_delta persists last_search_data after search_bangumi."""
-
-    def test_search_bangumi_success_includes_last_search_data(self) -> None:
-        result = _make_agent_result(
-            intent="search_bangumi",
-            steps=[
-                StepRecord(
-                    tool="search_bangumi",
-                    success=True,
-                    params={"bangumi_id": "99"},
-                    data={
-                        "rows": [{"bangumi_id": "99", "title": "Eupho"}],
-                        "row_count": 1,
-                    },
-                )
-            ],
-        )
-
-        delta = extract_context_delta(result)
-        assert "last_search_data" in delta
-        search_data = delta["last_search_data"]
-        assert isinstance(search_data, dict)
-        assert search_data["rows"] == [{"bangumi_id": "99", "title": "Eupho"}]
-        assert search_data["row_count"] == 1
-
-    def test_no_search_bangumi_step_has_no_last_search_data(self) -> None:
-        result = _make_agent_result(
-            intent="search_bangumi",
-            steps=[
-                StepRecord(
-                    tool="resolve_anime",
-                    success=True,
-                    params={"title": "Eupho"},
-                    data={"bangumi_id": "99", "title": "Eupho"},
-                )
-            ],
-        )
-
-        delta = extract_context_delta(result)
-        assert "last_search_data" not in delta
-
-    def test_search_bangumi_failure_has_no_last_search_data(self) -> None:
-        result = _make_agent_result(
-            intent="search_bangumi",
-            steps=[
-                StepRecord(
-                    tool="search_bangumi",
-                    success=False,
-                    params={"bangumi_id": "99"},
-                    error="DB error",
-                )
-            ],
-        )
-
-        delta = extract_context_delta(result)
-        assert "last_search_data" not in delta
-
-
-class TestBuildContextBlockSearchData:
-    """AC: build_context_block reconstructs last_search_data from interactions."""
-
-    def test_reconstructs_last_search_data_from_most_recent_interaction(self) -> None:
-        state = {
-            "interactions": [
-                {
-                    "text": "search eupho",
-                    "context_delta": {
-                        "bangumi_id": "99",
-                        "last_search_data": {
-                            "rows": [{"bangumi_id": "99", "title": "Eupho"}],
-                            "row_count": 1,
-                        },
-                    },
-                }
-            ],
-            "last_intent": "search_bangumi",
-        }
-        block = build_context_block(state)
-
-        assert block is not None
-        assert "last_search_data" in block
-        search_data = block["last_search_data"]
-        assert isinstance(search_data, dict)
-        assert search_data["row_count"] == 1
-
-    def test_uses_most_recent_interaction_with_search_data(self) -> None:
-        state = {
-            "interactions": [
-                {
-                    "text": "first search",
-                    "context_delta": {
-                        "bangumi_id": "50",
-                        "last_search_data": {
-                            "rows": [{"bangumi_id": "50"}],
-                            "row_count": 1,
-                        },
-                    },
-                },
-                {
-                    "text": "second search",
-                    "context_delta": {
-                        "bangumi_id": "99",
-                        "last_search_data": {
-                            "rows": [{"bangumi_id": "99"}],
-                            "row_count": 5,
-                        },
-                    },
-                },
-            ],
-            "last_intent": "search_bangumi",
-        }
-        block = build_context_block(state)
-
-        assert block is not None
-        search_data = block["last_search_data"]
-        assert isinstance(search_data, dict)
-        assert search_data["row_count"] == 5
-
-    def test_no_interactions_returns_none(self) -> None:
-        state: dict[str, object] = {"interactions": []}
-        block = build_context_block(state)
-        assert block is None
-
-    def test_no_search_data_in_interactions_has_no_key(self) -> None:
-        state = {
-            "interactions": [
-                {
-                    "text": "search",
-                    "context_delta": {"bangumi_id": "99", "anime_title": "Eupho"},
-                }
-            ],
-            "last_intent": "search_bangumi",
-        }
-        block = build_context_block(state)
-
-        assert block is not None
-        assert "last_search_data" not in block
-
-    def test_malformed_last_search_data_ignored_gracefully(self) -> None:
-        state = {
-            "interactions": [
-                {
-                    "text": "search",
-                    "context_delta": {
-                        "bangumi_id": "99",
-                        "last_search_data": "not-a-dict",
-                    },
-                }
-            ],
-            "last_intent": "search_bangumi",
-        }
-        block = build_context_block(state)
-
-        assert block is not None
-        assert "last_search_data" not in block
-
-    def test_search_bangumi_only_no_resolve_anime_returns_non_none(self) -> None:
-        """Correctness: last_search_data alone is sufficient to return a context block.
-
-        Scenario: resolve_anime failed (or was not emitted) so no bangumi_id/
-        location/summary is present, but search_bangumi succeeded and stored
-        last_search_data.  The early-return guard must NOT fire.
-        """
-        state = {
-            "interactions": [
-                {
-                    "text": "search eupho",
-                    "context_delta": {
-                        "last_search_data": {
-                            "rows": [{"bangumi_id": "99", "title": "Eupho"}],
-                            "row_count": 1,
-                        },
-                    },
-                }
-            ],
-            "last_intent": "search_bangumi",
-        }
-        block = build_context_block(state)
-
-        assert block is not None, (
-            "build_context_block must not return None when last_search_data is populated"
-        )
-        assert "last_search_data" in block
-        search_data = block["last_search_data"]
-        assert isinstance(search_data, dict)
-        assert search_data["row_count"] == 1
-        assert block["current_bangumi_id"] is None
-
-
-class TestExtractContextDeltaClarify:
-    """AC: extract_context_delta captures clarify state and resolve candidates."""
-
-    def test_clarify_step_sets_pending_clarify(self) -> None:
-        result = _make_agent_result(
-            steps=[
-                StepRecord(
-                    tool="resolve_anime",
-                    success=True,
-                    params={"title": "凉宫"},
-                    data={
-                        "ambiguous": True,
-                        "candidates": [
-                            {"title": "涼宮ハルヒの憂鬱", "bangumi_id": "100"},
-                            {"title": "涼宮ハルヒの消失", "bangumi_id": "101"},
-                        ],
-                    },
-                ),
-                StepRecord(
-                    tool="clarify",
-                    success=True,
-                    params={"question": "你是指哪部凉宫？"},
-                    data={"status": "needs_clarification"},
-                ),
-            ],
-        )
-
-        delta = extract_context_delta(result)
-        assert delta.get("pending_clarify") is True
-        assert "resolve_candidates" in delta
-        candidates = delta["resolve_candidates"]
-        assert isinstance(candidates, list)
-        assert len(candidates) == 2
-        assert candidates[0]["bangumi_id"] == "100"
-
-    def test_no_clarify_step_omits_pending_clarify(self) -> None:
-        result = _make_agent_result(
-            steps=[
-                StepRecord(
-                    tool="resolve_anime",
-                    success=True,
-                    params={"title": "Eupho"},
-                    data={"bangumi_id": "253", "title": "Eupho"},
-                ),
-            ],
-        )
-
-        delta = extract_context_delta(result)
-        assert "pending_clarify" not in delta
-
-    def test_resolve_with_no_candidates_omits_field(self) -> None:
-        result = _make_agent_result(
-            steps=[
-                StepRecord(
-                    tool="resolve_anime",
-                    success=True,
-                    params={"title": "Eupho"},
-                    data={"bangumi_id": "253", "title": "Eupho"},
-                ),
-            ],
-        )
-
-        delta = extract_context_delta(result)
-        assert "resolve_candidates" not in delta
-
-
-class TestBuildContextBlockClarify:
-    """AC: build_context_block restores clarify candidates from session."""
-
-    def test_restores_clarify_candidates(self) -> None:
-        state = {
-            "interactions": [
-                {
-                    "text": "凉宫",
-                    "intent": "clarify",
                     "context_delta": {
                         "pending_clarify": True,
-                        "resolve_candidates": [
-                            {"title": "涼宮ハルヒの憂鬱", "bangumi_id": "100"},
-                            {"title": "涼宮ハルヒの消失", "bangumi_id": "101"},
-                        ],
-                    },
+                        "resolve_candidates": [{"bangumi_id": "485"}],
+                    }
                 }
-            ],
-            "last_intent": "clarify",
+            ]
         }
-        block = build_context_block(state)
-
-        assert block is not None
-        assert block.get("pending_clarify") is True
-        assert "resolve_candidates" in block
-        candidates = block["resolve_candidates"]
-        assert isinstance(candidates, list)
-        assert len(candidates) == 2
-
-    def test_returns_non_none_for_pending_clarify_only(self) -> None:
-        """pending_clarify alone is enough for non-None context."""
-        state = {
-            "interactions": [
-                {
-                    "text": "凉宫",
-                    "context_delta": {"pending_clarify": True},
-                }
-            ],
-        }
-        block = build_context_block(state)
-        assert block is not None
-        assert block.get("pending_clarify") is True
-
-    def test_no_clarify_data_omits_fields(self) -> None:
-        state = {
-            "interactions": [
-                {
-                    "text": "search",
-                    "context_delta": {"bangumi_id": "253"},
-                }
-            ],
-            "last_intent": "search_bangumi",
-        }
-        block = build_context_block(state)
-
-        assert block is not None
-        assert "pending_clarify" not in block
-        assert "resolve_candidates" not in block
+    )
+    assert block is None
 
 
-class TestBuildMessageHistory:
-    """AC: build_message_history collects new_messages from interactions."""
-
-    def test_collects_from_interactions_in_order(self) -> None:
-        from agent.interfaces.session_facade import build_message_history
-
-        state: dict[str, object] = {
-            "interactions": [
-                {"new_messages": [{"kind": "request", "parts": []}]},
-                {"new_messages": [{"kind": "response", "parts": []}]},
-            ],
-        }
-        history = build_message_history(state)
-        assert len(history) == 2
-        assert history[0] == {"kind": "request", "parts": []}
-        assert history[1] == {"kind": "response", "parts": []}
-
-    def test_returns_empty_when_no_messages(self) -> None:
-        from agent.interfaces.session_facade import build_message_history
-
-        state: dict[str, object] = {"interactions": []}
-        assert build_message_history(state) == []
-
-    def test_returns_empty_when_no_interactions_key(self) -> None:
-        from agent.interfaces.session_facade import build_message_history
-
-        assert build_message_history({}) == []
-
-    def test_skips_non_dict_interactions(self) -> None:
-        from agent.interfaces.session_facade import build_message_history
-
-        state: dict[str, object] = {
-            "interactions": ["not_a_dict", {"new_messages": [{"kind": "request"}]}],
-        }
-        history = build_message_history(state)
-        assert len(history) == 1
-
-    def test_skips_interactions_without_new_messages(self) -> None:
-        from agent.interfaces.session_facade import build_message_history
-
-        state: dict[str, object] = {
-            "interactions": [
-                {"text": "hello", "intent": "greet"},
-                {"new_messages": [{"kind": "request"}]},
-            ],
-        }
-        history = build_message_history(state)
-        assert len(history) == 1
+def test_user_memory_seeds_typed_current_anime_only_when_session_absent() -> None:
+    memory = {
+        "visited_anime": [
+            {"bangumi_id": "1", "title": "Old", "last_at": "2026-01-01"},
+            {"bangumi_id": "2", "title": "Recent", "last_at": "2026-02-01"},
+        ]
+    }
+    block = build_context_block({"interactions": []}, user_memory=memory)
+    assert block is not None
+    restored = SessionState.model_validate(block["session_state_v2"])
+    assert restored.current_anime == CurrentAnime(bangumi_id="2", title="Recent")
 
 
-class TestSessionUpdateNewMessages:
-    """AC: SessionUpdate includes new_messages_serialized field."""
+def test_extract_delta_always_serializes_empty_state_clear() -> None:
+    result = AgentResult(
+        output=QAResponseModel(message="Answer"),
+        intent="general_qa",
+        session_state=SessionState(),
+    )
+    assert extract_context_delta(result) == {
+        "session_state_v2": SessionState().model_dump(mode="json")
+    }
 
-    def test_defaults_to_empty_list(self) -> None:
-        request = PublicAPIRequest(text="hi")
-        update = SessionUpdate(
-            request=request,
-            response_intent="greet_user",
-            response_status="ok",
-            response_success=True,
+
+def test_extract_delta_exposes_current_anime_for_user_memory_persistence() -> None:
+    result = AgentResult(
+        output=QAResponseModel(message="Answer"),
+        intent="general_qa",
+        session_state=SessionState(
+            current_anime=CurrentAnime(bangumi_id="115908", title="Euphonium")
+        ),
+    )
+    delta = extract_context_delta(result)
+    assert (delta["bangumi_id"], delta["anime_title"]) == ("115908", "Euphonium")
+
+
+def test_message_history_preserves_interaction_order() -> None:
+    state = {
+        "interactions": [
+            {"new_messages": [{"id": 1}]},
+            {"new_messages": [{"id": 2}, {"id": 3}]},
+        ]
+    }
+    assert build_message_history(state) == [{"id": 1}, {"id": 2}, {"id": 3}]
+
+
+async def test_compaction_keeps_recent_typed_deltas() -> None:
+    store = InMemorySessionStore()
+    interactions = [
+        {"text": str(index), "intent": "search", "context_delta": {"index": index}}
+        for index in range(8)
+    ]
+    state = normalize_session_state({"interactions": interactions})
+    agent = MagicMock()
+    agent.run = AsyncMock(return_value=MagicMock(output="summary"))
+    with patch("agent.interfaces.session_facade.create_agent", return_value=agent):
+        await compact_session_interactions(
+            "session",
+            state,
+            store,
+            http_client=MagicMock(spec=httpx.AsyncClient),
         )
-        assert update.new_messages_serialized == []
-
-    def test_stores_serialized_messages(self) -> None:
-        request = PublicAPIRequest(text="hi")
-        msgs: list[object] = [{"kind": "request", "parts": []}]
-        update = SessionUpdate(
-            request=request,
-            response_intent="greet_user",
-            response_status="ok",
-            response_success=True,
-            new_messages_serialized=msgs,
-        )
-        assert update.new_messages_serialized == msgs
-
-
-class TestBuildUpdatedSessionStateNewMessages:
-    """AC: build_updated_session_state persists new_messages in interaction."""
-
-    def test_includes_new_messages_in_interaction(self) -> None:
-        prev = normalize_session_state(None)
-        msgs: list[object] = [{"kind": "request", "parts": []}]
-        update = SessionUpdate(
-            request=PublicAPIRequest(text="hello"),
-            response_intent="greet_user",
-            response_status="ok",
-            response_success=True,
-            new_messages_serialized=msgs,
-        )
-        state = build_updated_session_state(prev, update)
-        interactions = state["interactions"]
-        assert isinstance(interactions, list)
-        assert interactions[0]["new_messages"] == msgs
-
-
-class TestAsStrOrNone:
-    def test_none_returns_none(self) -> None:
-        assert as_str_or_none(None) is None
-
-    def test_empty_string_returns_none(self) -> None:
-        assert as_str_or_none("") is None
-
-    def test_whitespace_returns_none(self) -> None:
-        assert as_str_or_none("   ") is None
-
-    def test_valid_string_returns_stripped(self) -> None:
-        assert as_str_or_none("  hello  ") == "hello"
-
-    def test_integer_coerced(self) -> None:
-        assert as_str_or_none(42) == "42"
-
-    def test_zero_returns_string(self) -> None:
-        assert as_str_or_none(0) == "0"
-
-
-class TestExtractFromInteractionsClarity:
-    """AC: build_context_block preserves pending_clarify across older deltas."""
-
-    def test_pending_clarify_preserved_from_newer_delta(self) -> None:
-        state = {
-            "interactions": [
-                {
-                    "text": "older",
-                    "context_delta": {"bangumi_id": "99"},
-                },
-                {
-                    "text": "newer",
-                    "context_delta": {"pending_clarify": True},
-                },
-            ],
-            "last_intent": "clarify",
-        }
-        block = build_context_block(state)
-
-        assert block is not None
-        assert block["pending_clarify"] is True
-
-    def test_resolve_candidates_found_from_older_delta(self) -> None:
-        state = {
-            "interactions": [
-                {
-                    "text": "older",
-                    "context_delta": {
-                        "resolve_candidates": [{"title": "A", "bangumi_id": "1"}]
-                    },
-                },
-                {
-                    "text": "newer",
-                    "context_delta": {"bangumi_id": "99"},
-                },
-            ],
-            "last_intent": "clarify",
-        }
-        block = build_context_block(state)
-
-        assert block is not None
-        assert block["resolve_candidates"] is not None
-        assert len(block["resolve_candidates"]) == 1
+    saved = await store.get("session")
+    assert saved is not None
+    assert saved["interactions"] == interactions[-2:]
+    assert saved["summary"] == "summary"

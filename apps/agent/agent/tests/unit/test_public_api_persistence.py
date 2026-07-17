@@ -7,10 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.runtime_models import (
-    GreetingResponseModel,
-    QADataModel,
-)
+from agent.agents.runtime_models import GreetingResponseModel
+from agent.agents.session_state import SessionState
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
@@ -43,14 +41,16 @@ def mock_db():
     return db
 
 
-class TestGreetUserEphemeral:
-    async def test_greet_user_is_ephemeral_and_skips_persistence(self):
+class TestGreetingPersistence:
+    async def test_greeting_uses_dedicated_stage_and_persists(self):
         output = GreetingResponseModel(
-            intent="greet_user",
-            message="こんにちは！聖地巡礼のお手伝いをします。",
-            data=QADataModel(message="こんにちは！聖地巡礼のお手伝いをします。"),
+            message="こんにちは！聖地巡礼のお手伝いをします。"
         )
-        result = AgentResult(output=output, steps=[], tool_state={})
+        result = AgentResult(
+            output=output,
+            intent="greet_user",
+            session_state=SessionState(),
+        )
 
         async def _fake(
             *,
@@ -80,25 +80,27 @@ class TestGreetUserEphemeral:
         session_store.close = AsyncMock()
 
         with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
-            api = RuntimeAPI(db=db, session_store=session_store)
+            api = RuntimeAPI(
+                db=db, session_store=session_store, model_http_client=MagicMock()
+            )
             response = await api.handle(PublicAPIRequest(text="hi"), user_id="u1")
 
         assert response.intent == "greet_user"
-        assert response.session_id is None
-        assert response.session == {}
+        assert response.session_id is not None
+        assert response.session["interaction_count"] == 1
         assert response.route_history == []
         session_store.get.assert_not_awaited()
-        session_store.set.assert_not_awaited()
-        db.session.upsert_session.assert_not_awaited()
-        db.session.upsert_conversation.assert_not_awaited()
+        session_store.set.assert_awaited_once()
+        db.session.upsert_session.assert_awaited_once()
+        db.session.upsert_conversation.assert_awaited_once()
         db.user_memory.upsert_user_memory.assert_not_awaited()
-        db.insert_request_log.assert_not_awaited()
+        db.insert_request_log.assert_awaited_once()
 
 
 class TestRuntimeAPISession:
     async def test_handle_creates_and_persists_session(self, mock_db):
         store = InMemorySessionStore()
-        api = RuntimeAPI(mock_db, session_store=store)
+        api = RuntimeAPI(mock_db, session_store=store, model_http_client=MagicMock())
 
         response = await api.handle(PublicAPIRequest(text="秒速5厘米的取景地在哪"))
 
@@ -111,7 +113,7 @@ class TestRuntimeAPISession:
 
     async def test_handle_reuses_existing_session(self, mock_db):
         store = InMemorySessionStore()
-        api = RuntimeAPI(mock_db, session_store=store)
+        api = RuntimeAPI(mock_db, session_store=store, model_http_client=MagicMock())
 
         first = await api.handle(PublicAPIRequest(text="你好"))
         second = await api.handle(
@@ -129,7 +131,7 @@ class TestRuntimeAPISession:
 class TestConversationPersistence:
     # TODO: re-enable when conversation history title generation is wired back
     # async def test_first_interaction_returns_fallback_title(self, mock_db):
-    #     api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+    #     api = RuntimeAPI(mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock())
     #     response = await api.handle(PublicAPIRequest(text="京吹"), user_id="u1")
     #     assert response is not None
     #     assert response.generated_title == "京吹"
@@ -162,7 +164,9 @@ class TestConversationPersistence:
         )
 
         with patch("agent.interfaces.persistence.asyncio.create_task") as create_task:
-            api = RuntimeAPI(mock_db, session_store=store)
+            api = RuntimeAPI(
+                mock_db, session_store=store, model_http_client=MagicMock()
+            )
             await api.handle(
                 PublicAPIRequest(text="京吹", session_id=session_id),
                 user_id="u1",
@@ -203,7 +207,11 @@ class TestUserMemoryUpsert:
             return result
 
         with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+            api = RuntimeAPI(
+                mock_db,
+                session_store=InMemorySessionStore(),
+                model_http_client=MagicMock(),
+            )
             await api.handle(PublicAPIRequest(text="響け"), user_id="u1")
 
         mock_db.user_memory.upsert_user_memory.assert_awaited_once()
@@ -212,7 +220,9 @@ class TestUserMemoryUpsert:
         assert kwargs["anime_title"] == "響け！ユーフォニアム"
 
     async def test_skips_user_memory_when_no_bangumi_id(self, mock_db):
-        api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+        api = RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        )
 
         await api.handle(PublicAPIRequest(text="宇治の近く"), user_id="u1")
 
@@ -263,7 +273,9 @@ class _DisabledTestCompactThresholdTrigger:
             "agent.interfaces.persistence._spawn_background",
             side_effect=_capture_task,
         ):
-            api = RuntimeAPI(mock_db, session_store=store)
+            api = RuntimeAPI(
+                mock_db, session_store=store, model_http_client=MagicMock()
+            )
             await api.handle(
                 PublicAPIRequest(text="京吹", session_id=session_id), user_id=None
             )

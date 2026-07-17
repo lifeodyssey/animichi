@@ -50,7 +50,7 @@ def test_official_tool_correctness_scores_exact_multiset(
 
 def test_official_tool_correctness_preserves_stage_disjunction() -> None:
     scores = OfficialToolCorrectness().evaluate(
-        _context(["clarify"], ["general_qa", "clarify"])
+        _context(["resolve_anime", "clarify"], ["general_qa", "clarify"])
     )
     assert scores == {"tool_correctness_official": 1.0}
 
@@ -69,23 +69,18 @@ def test_official_trajectory_match_scores_in_order_f1(
     assert scores == {"trajectory_match_official": expected}
 
 
-@pytest.mark.parametrize(
-    ("options", "expected"), [(["A", "B"], 1.0), ('["A", "B"]', 0.0)]
-)
-def test_official_argument_correctness_detects_stringified_clarify_options(
-    options: object, expected: float
+@pytest.mark.parametrize(("work_id", "expected"), [("160209", 1.0), (160209, 0.0)])
+def test_official_argument_correctness_uses_normalized_tool_arguments(
+    work_id: object, expected: float
 ) -> None:
-    normalized: dict[str, object] = {
-        "question": "你是指哪一个？",
-        "options": ["A", "B"],
-    }
-    emitted = {"question": "你是指哪一个？", "options": options}
-    record = StepRecord(tool="clarify", success=True, params=normalized)
+    normalized: dict[str, object] = {"bangumi_id": "160209"}
+    emitted = {"bangumi_id": work_id}
+    record = StepRecord(tool="search_bangumi", success=True, params=normalized)
     evaluator_ctx = ctx(
         JA,
         result([record]),
         AgentExpected(["clarify"]),
-        span_tree(tool_span("clarify", emitted, 0)),
+        span_tree(tool_span("search_bangumi", emitted, 0)),
     )
     scores = OfficialArgumentCorrectness().evaluate(evaluator_ctx)
     assert scores == {"argument_correctness_official": expected}

@@ -124,11 +124,17 @@ class TestResolveModel:
         assert model.settings is not None
         assert model.settings.get("extra_body") == _deepseek_extra_body()
 
-    def test_non_deepseek_openai_compat_keeps_settings_empty(self) -> None:
+    def test_mimo_openai_compat_keeps_settings_empty(self) -> None:
         with patch("agent.config.get_settings", return_value=_test_settings()):
             model = parse_model_spec(
                 "openai:mimo-v2.5-pro@https://api.xiaomimimo.com/v1"
             )
+        assert isinstance(model, OpenAIChatModel)
+        assert model.settings is None or "extra_body" not in model.settings
+
+    def test_unprofiled_openai_compat_keeps_settings_empty(self) -> None:
+        with patch("agent.config.get_settings", return_value=_test_settings()):
+            model = parse_model_spec("openai:other@https://compat.example/v1")
         assert isinstance(model, OpenAIChatModel)
         assert model.settings is None or "extra_body" not in model.settings
 

@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from agent.agents.geo_utils import haversine_distance
 from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
-from agent.clients.catalog_client import IngestResult, PilgrimagePoint, Route
+from agent.clients.catalog_client import (
+    AnimeCandidate,
+    IngestResult,
+    PilgrimagePoint,
+    ResolveNotFound,
+    ResolveResolved,
+    Route,
+    SearchResult,
+)
 from agent.clients.errors import APIError
 from agent.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
 from agent.tests.eval.mock_catalog_fixtures import (
@@ -45,6 +55,29 @@ class MockCatalogClient:
             return []
         return [point.model_copy(deep=True) for point in FIXTURE_POINTS[bangumi_id]]
 
+    async def resolve(self, query: str) -> ResolveResolved | ResolveNotFound:
+        self.calls.append(("resolve", (query,)))
+        bangumi_id = self._match_title(query)
+        if bangumi_id is None:
+            return ResolveNotFound(outcome="not_found", reason="anime_not_found")
+        names = TITLE_NAMES[bangumi_id]
+        return ResolveResolved(
+            outcome="resolved",
+            match=AnimeCandidate(
+                bangumi_id=bangumi_id,
+                title=names.ja,
+                title_cn=names.zh,
+                points_count=len(FIXTURE_POINTS.get(bangumi_id, [])),
+            ),
+        )
+
+    async def points_by_work_id(self, work_id: str) -> SearchResult:
+        self.calls.append(("points_by_work_id", (work_id,)))
+        rows = [
+            point.model_copy(deep=True) for point in FIXTURE_POINTS.get(work_id, [])
+        ]
+        return SearchResult(rows=rows, synced_at="fixture")
+
     async def spots(self, bangumi_id: str) -> PilgrimagePoint:
         self.calls.append(("spots", (bangumi_id,)))
         points = FIXTURE_POINTS.get(bangumi_id)
@@ -64,9 +97,13 @@ class MockCatalogClient:
         return [candidate.model_copy() for candidate in _geocode_fixture(query)[:limit]]
 
     async def route(
-        self, point_ids: list[str], *, origin: tuple[float, float] | None = None
+        self,
+        point_ids: list[str],
+        *,
+        origin: tuple[float, float] | None = None,
+        pacing: Literal["chill", "normal", "packed"] | None = None,
     ) -> Route:
-        self.calls.append(("route", (tuple(point_ids), origin)))
+        self.calls.append(("route", (tuple(point_ids), origin, pacing)))
         ordered = [
             _POINT_INDEX[pid].model_copy(deep=True)
             for pid in point_ids

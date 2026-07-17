@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from dataclasses import dataclass
 from time import perf_counter
 from typing import cast
 from uuid import uuid4
@@ -18,15 +19,31 @@ from pydantic_ai import ModelMessagesTypeAdapter
 from pydantic_ai.exceptions import FallbackExceptionGroup, ModelHTTPError
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
+from pydantic_ai.usage import RunUsage
 
 from agent.agents.agent_result import AgentResult
+from agent.agents.animichi_agent import animichi_agent
 from agent.agents.animichi_runner import run_animichi_agent
-from agent.agents.runtime_deps import OnStep
+from agent.agents.base import (
+    ModelAliasError,
+    build_model_http_client,
+    get_default_model,
+    resolve_model,
+    resolve_model_alias,
+)
+from agent.agents.runtime_deps import OnStep, StepEvent
 from agent.agents.selected_route import execute_selected_route
+from agent.agents.selection import (
+    SelectionError,
+    execute_multi_selection,
+    execute_place_selection,
+    validate_candidate_selection,
+)
+from agent.agents.session_state import SessionState
 from agent.agents.translation import translate_text
 from agent.application.errors import ApplicationError, ErrorCode
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
-from agent.config.settings import get_settings
+from agent.config.settings import Settings, get_settings
 from agent.domain.ports import DatabasePort
 from agent.infrastructure.observability import (
     record_runtime_request,
@@ -68,7 +85,11 @@ __all__ = [
 
 logger = structlog.get_logger(__name__)
 
-AGENT_TIMEOUT_SECONDS: float = 90.0
+
+@dataclass(frozen=True)
+class _TranslationContext:
+    model: Model
+    usage: RunUsage
 
 
 def _is_provider_error(exc: BaseException) -> bool:
@@ -125,10 +146,23 @@ class RuntimeAPI:
         *,
         session_store: SessionStore | None = None,
         catalog: CatalogClientProtocol | None = None,
+        settings: Settings | None = None,
+        model_http_client: httpx.AsyncClient,
     ) -> None:
         self._db = db
         self._session_store = session_store or create_session_store()
         self._catalog: CatalogClientProtocol = catalog or default_catalog_client()
+        self._settings = settings or get_settings()
+        self._model_http_client = model_http_client
+
+    def bind_model_http_client(self, client: httpx.AsyncClient) -> None:
+        """Bind the client owned by the surrounding application lifespan."""
+        self._model_http_client = client
+
+    @property
+    def model_http_client(self) -> httpx.AsyncClient:
+        """Return the required shared model transport."""
+        return self._model_http_client
 
     async def handle(
         self,
@@ -147,15 +181,6 @@ class RuntimeAPI:
         with runtime_span("runtime.handle") as span:
             _set_span_request_attrs(span, session_id, request, effective_model, user_id)
 
-            from agent.agents.web_trust import detect_prompt_injection
-
-            if detect_prompt_injection(request.text):
-                logger.warning(
-                    "input_guardrail_injection_detected",
-                    text=request.text[:100],
-                    user_id=user_id,
-                )
-
             result: AgentResult | None = None
             user_message_persisted = False
             try:
@@ -165,13 +190,6 @@ class RuntimeAPI:
                 result, response, context_delta = await self._execute_pipeline(
                     request, context, message_history, effective_model, on_step, span
                 )
-
-                if response.intent == "greet_user":
-                    response.session_id = None
-                    response.session = {}
-                    response.route_history = []
-                    user_message_persisted = True
-                    return response
 
                 if session_id is None:
                     session_id = uuid4().hex
@@ -268,30 +286,10 @@ class RuntimeAPI:
     ) -> tuple[AgentResult | None, PublicAPIResponse, dict[str, object]]:
         """Run the pipeline (or synthetic plan) and map result to response."""
         context_delta: dict[str, object] = {}
-        has_selected = bool(request.selected_point_ids)
         try:
-            if has_selected:
-                result = await execute_selected_route(
-                    point_ids=list(request.selected_point_ids or []),
-                    origin=request.origin,
-                    locale=request.locale,
-                    catalog=self._catalog,
-                    on_step=on_step,
-                )
-            else:
-                result = await asyncio.wait_for(
-                    run_animichi_agent(
-                        text=request.text,
-                        db=cast(DatabasePort, self._db),
-                        model=effective_model,
-                        locale=request.locale,
-                        context=context,
-                        message_history=message_history,
-                        on_step=on_step,
-                        catalog=self._catalog,
-                    ),
-                    timeout=AGENT_TIMEOUT_SECONDS,
-                )
+            result, resolved_model, model_path = await self._dispatch_request(
+                request, context, message_history, effective_model, on_step
+            )
         except TimeoutError:
             _span_record_exception(span, TimeoutError("agent timed out"))
             logger.warning("agent_timeout", text=request.text[:50])
@@ -305,12 +303,36 @@ class RuntimeAPI:
                     errors=[
                         PublicAPIError(
                             code=ErrorCode.TIMEOUT.value,
-                            message=f"Agent execution timed out after {AGENT_TIMEOUT_SECONDS:.0f} seconds.",
+                            message=(
+                                "Agent execution timed out after "
+                                f"{self._settings.agent_deadline:.0f} seconds."
+                            ),
                         )
                     ],
                 ),
                 context_delta,
             )
+        except ModelAliasError as exc:
+            _span_record_exception(span, exc)
+            return (
+                None,
+                PublicAPIResponse(
+                    success=False,
+                    status="error",
+                    intent="unknown",
+                    message=str(exc),
+                    errors=[
+                        PublicAPIError(
+                            code="invalid_model_alias",
+                            message=str(exc),
+                        )
+                    ],
+                ),
+                context_delta,
+            )
+        except SelectionError as exc:
+            _span_record_exception(span, exc)
+            return None, _invalid_selection_response(str(exc)), context_delta
         except ApplicationError as exc:
             _span_record_exception(span, exc)
             return None, application_error_response(exc), context_delta
@@ -352,13 +374,103 @@ class RuntimeAPI:
                 ),
                 context_delta,
             )
-        await _apply_translation_gate(result, request.locale, on_step)
+        if model_path:
+            await _apply_translation_gate(
+                result, request.locale, on_step, model=resolved_model
+            )
         response = agent_result_to_response(
             result,
             include_debug=request.include_debug,
         )
         context_delta = extract_context_delta(result)
         return result, response, context_delta
+
+    async def _dispatch_request(
+        self,
+        request: PublicAPIRequest,
+        context: dict[str, object] | None,
+        history: list[ModelMessage],
+        effective_model: Model | str | None,
+        on_step: OnStep | None,
+    ) -> tuple[AgentResult, Model | None, bool]:
+        """Dispatch exactly one of point, candidate, or model request modes."""
+        model = _resolve_request_model(
+            effective_model,
+            self._model_http_client,
+        )
+        if request.selected_point_ids is not None:
+            result = await self._point_selection(request, context, on_step)
+            return result, None, False
+        if request.selected_candidate_ids is not None:
+            result = await self._candidate_selection(request, context, on_step)
+            return result, None, False
+        result = await self._model_request(request, context, history, model, on_step)
+        return result, model, True
+
+    async def _point_selection(
+        self,
+        request: PublicAPIRequest,
+        context: dict[str, object] | None,
+        on_step: OnStep | None,
+    ) -> AgentResult:
+        return await execute_selected_route(
+            point_ids=list(request.selected_point_ids or []),
+            state=_selection_state(context),
+            origin=request.origin,
+            locale=request.locale,
+            catalog=self._catalog,
+            on_step=on_step,
+        )
+
+    async def _candidate_selection(
+        self,
+        request: PublicAPIRequest,
+        context: dict[str, object] | None,
+        on_step: OnStep | None,
+    ) -> AgentResult:
+        state = _selection_state(context)
+        selected = validate_candidate_selection(
+            state,
+            list(request.selected_candidate_ids or []),
+            cast(int, request.clarification_id),
+        )
+        if selected.reason == "anime_ambiguity":
+            return await execute_multi_selection(
+                candidate_ids=selected.candidate_ids,
+                state=state,
+                locale=request.locale,
+                catalog=self._catalog,
+                on_step=on_step,
+            )
+        return await execute_place_selection(
+            candidate_id=selected.candidate_ids[0],
+            state=state,
+            locale=request.locale,
+            catalog=self._catalog,
+            on_step=on_step,
+        )
+
+    async def _model_request(
+        self,
+        request: PublicAPIRequest,
+        context: dict[str, object] | None,
+        history: list[ModelMessage],
+        model: Model | None,
+        on_step: OnStep | None,
+    ) -> AgentResult:
+        return await asyncio.wait_for(
+            run_animichi_agent(
+                text=request.text,
+                db=cast(DatabasePort, self._db),
+                model=model,
+                locale=request.locale,
+                context=context,
+                message_history=history,
+                on_step=on_step,
+                catalog=self._catalog,
+            ),
+            timeout=self._settings.agent_deadline,
+        )
 
     async def _log_request(
         self,
@@ -393,8 +505,7 @@ class RuntimeAPI:
                 )
 
         insert_request_log = getattr(self._db, "insert_request_log", None)
-        is_ephemeral = response is not None and response.intent == "greet_user"
-        if insert_request_log is None or is_ephemeral:
+        if insert_request_log is None:
             return
 
         try:
@@ -421,8 +532,16 @@ async def handle_public_request(
     on_step: OnStep | None = None,
 ) -> PublicAPIResponse:
     """Convenience helper for one-off public API execution."""
-    api = RuntimeAPI(db, session_store=session_store)
-    return await api.handle(request, model=model, user_id=user_id, on_step=on_step)
+    model_client = build_model_http_client()
+    api = RuntimeAPI(
+        db,
+        session_store=session_store,
+        model_http_client=model_client,
+    )
+    try:
+        return await api.handle(request, model=model, user_id=user_id, on_step=on_step)
+    finally:
+        await model_client.aclose()
 
 
 def _deserialize_history(
@@ -435,10 +554,40 @@ def _deserialize_history(
     return list(ModelMessagesTypeAdapter.validate_python(raw_history))
 
 
+def _selection_state(context: dict[str, object] | None) -> SessionState:
+    """Restore the typed selection oracle from the unified session context."""
+    raw = context.get("session_state_v2") if context is not None else None
+    return SessionState.model_validate(raw) if isinstance(raw, dict) else SessionState()
+
+
+def _resolve_request_model(
+    model: Model | str | None,
+    http_client: httpx.AsyncClient,
+) -> Model | None:
+    """Resolve defaults only with an SDK-compatible shared transport."""
+    if model is None and isinstance(http_client, httpx.AsyncClient):
+        return get_default_model(http_client=http_client)
+    return resolve_model_alias(model, http_client=http_client)
+
+
+def _invalid_selection_response(message: str) -> PublicAPIResponse:
+    """Return a typed stale/invalid selection response without mutating state."""
+    return PublicAPIResponse(
+        success=False,
+        status="invalid_request",
+        intent="clarify",
+        message=message,
+        errors=[PublicAPIError(code="invalid_selection", message=message)],
+        ui={"component": "Clarification"},
+    )
+
+
 async def _apply_translation_gate(
     result: AgentResult,
     locale: str,
     on_step: OnStep | None,
+    *,
+    model: Model | None,
 ) -> None:
     """Translate the agent message when its language mismatches *locale*.
 
@@ -451,15 +600,27 @@ async def _apply_translation_gate(
     if detected == locale:
         return
     if on_step is not None:
-        await on_step("translate", "running", {}, "", "")
+        await on_step(StepEvent(tool="translate", status="running", data={}))
     try:
-        translated = await translate_text(message, target_locale=locale)
+        translated = await translate_text(
+            message,
+            target_locale=locale,
+            ctx=_translation_context(result, model),
+        )
         # Mutate the output model's message field
         object.__setattr__(result.output, "message", translated)
     except (OSError, RuntimeError, ValueError, TypeError):
         logger.warning("translation_gate_failed", locale=locale)
     if on_step is not None:
-        await on_step("translate", "done", {}, "", "")
+        await on_step(StepEvent(tool="translate", status="done", data={}))
+
+
+def _translation_context(
+    result: AgentResult, model: Model | None
+) -> _TranslationContext:
+    selected = model or resolve_model(animichi_agent.model)
+    usage = result.usage or RunUsage()
+    return _TranslationContext(model=selected, usage=usage)
 
 
 def _set_span_request_attrs(
@@ -485,11 +646,8 @@ def _set_span_request_attrs(
 def _runtime_model_label(model: object) -> str | None:
     if model is None:
         return None
-    from agent.agents.base import describe_model, parse_model_spec
+    from agent.agents.base import describe_model
 
     if isinstance(model, str):
-        try:
-            return describe_model(parse_model_spec(model, use_settings_fallbacks=False))
-        except (OSError, ValueError, TypeError):
-            return model
+        return model
     return describe_model(model)

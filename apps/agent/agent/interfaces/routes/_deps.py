@@ -18,6 +18,7 @@ from agent.config.settings import Settings
 from agent.infrastructure.session import SessionStore, create_session_store
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import PublicAPIResponse, RuntimeAPI
+from agent.interfaces.schemas import GRACEFUL_TERMINAL_STATUSES
 
 if TYPE_CHECKING:
     import logfire
@@ -189,10 +190,18 @@ def _http_error_code(status_code: int) -> str:
 def _http_status_for_response(response: PublicAPIResponse) -> int:
     if response.success:
         return 200
+    if response.status in GRACEFUL_TERMINAL_STATUSES:
+        return 200
 
     codes = {error.code for error in response.errors}
 
-    if codes & {"invalid_input", "missing_required_field", "invalid_format"}:
+    if codes & {
+        "invalid_input",
+        "invalid_model_alias",
+        "invalid_selection",
+        "missing_required_field",
+        "invalid_format",
+    }:
         return 400
     if codes & {"authentication_error", "invalid_credentials"}:
         return 401

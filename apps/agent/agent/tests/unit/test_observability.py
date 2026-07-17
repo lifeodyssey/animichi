@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import json
 from typing import cast
+from unittest.mock import MagicMock
 
 import logfire
 import pytest
 from logfire.testing import CaptureLogfire, TestExporter
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricsData
+from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
 
 from agent.config.settings import Settings
 from agent.infrastructure.observability import (
     http_span,
+    record_agent_run_error,
     record_http_request,
     record_runtime_request,
     runtime_span,
@@ -130,6 +133,17 @@ class TestHttpMetrics:
             "http.route": "/healthz",
             "http.status_code": 200,
         }
+
+
+def test_usage_limit_is_not_recorded_as_agent_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    error_record = MagicMock()
+    monkeypatch.setattr(logfire, "error", error_record)
+    record_agent_run_error(UsageLimitExceeded("request limit reached"))
+    error_record.assert_not_called()
+    record_agent_run_error(UnexpectedModelBehavior("invalid model response"))
+    error_record.assert_called_once()
 
 
 class TestDeploymentEnvironment:

@@ -42,6 +42,7 @@ const ROW: WorkPointRow = {
   title: "らき☆すた",
   title_cn: "幸运星",
   cover_url: "https://image.anitabi.cn/cover1.jpg",
+  city: "Kuki",
   synced_at: new Date("2026-06-20T00:00:00.000Z"),
 };
 
@@ -138,13 +139,14 @@ async function assertContractShape(): Promise<void> {
     episode: 3, time_seconds: 120, screenshot_url: "https://image.anitabi.cn/p1.jpg",
     latitude: 36.1019, longitude: 139.6586, title: "らき☆すた", title_cn: "幸运星",
     cover_url: "https://image.anitabi.cn/cover1.jpg",
+    city: "Kuki",
   });
 }
 
 async function assertNullFieldsOmitted(): Promise<void> {
   const bare: WorkPointRow = {
     ...ROW, name_cn: null, episode: null, time_seconds: null,
-    image: null, title: null, title_cn: null, cover_url: null, synced_at: null,
+    image: null, title: null, title_cn: null, cover_url: null, city: null, synced_at: null,
   };
   const { db } = fakeDb({ "lucky star": { workId: "1", rows: [bare] } });
   const result = await search(db, { query: "lucky star" });
