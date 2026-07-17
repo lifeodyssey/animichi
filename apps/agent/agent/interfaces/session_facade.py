@@ -64,9 +64,22 @@ def _list(value: object) -> list[object]:
 def build_updated_session_state(
     previous_state: dict[str, object], update: SessionUpdate
 ) -> dict[str, object]:
-    """Append one interaction without interpreting its typed context delta."""
+    """Append history and overwrite the one envelope-level typed snapshot."""
+    context_delta = dict(update.context_delta or {})
+    runtime_state = context_delta.pop("session_state_v2", None)
+    updated = _updated_envelope(previous_state, update, context_delta)
+    if runtime_state is not None:
+        updated["session_state_v2"] = runtime_state
+    return updated
+
+
+def _updated_envelope(
+    previous_state: dict[str, object],
+    update: SessionUpdate,
+    context_delta: dict[str, object],
+) -> dict[str, object]:
     interactions = _list(previous_state.get("interactions"))
-    interactions.append(_interaction(update))
+    interactions.append(_interaction(update, context_delta))
     return {
         **previous_state,
         "interactions": interactions[-MAX_INTERACTIONS:],
@@ -77,14 +90,16 @@ def build_updated_session_state(
     }
 
 
-def _interaction(update: SessionUpdate) -> dict[str, object]:
+def _interaction(
+    update: SessionUpdate, context_delta: dict[str, object]
+) -> dict[str, object]:
     return {
         "text": update.request.text,
         "intent": update.response_intent,
         "status": update.response_status,
         "success": update.response_success,
         "created_at": datetime.now(UTC).isoformat(),
-        "context_delta": update.context_delta or {},
+        "context_delta": context_delta,
         "new_messages": update.new_messages_serialized,
     }
 
@@ -156,8 +171,11 @@ def build_context_block(
     user_memory: dict[str, object] | None = None,
 ) -> dict[str, object] | None:
     """Restore the latest typed state; an explicit empty state is a clear."""
-    interactions = _list(session_state.get("interactions"))
-    runtime_state = _latest_runtime_state(interactions)
+    runtime_state = (
+        _parse_runtime_state(session_state.get("session_state_v2"))
+        if "session_state_v2" in session_state
+        else _latest_runtime_state(_list(session_state.get("interactions")))
+    )
     summary = as_str_or_none(session_state.get("summary"))
     if runtime_state is None:
         memory_anime = _memory_anime(user_memory)

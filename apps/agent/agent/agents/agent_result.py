@@ -43,7 +43,7 @@ class ProducedRoute:
 class RejectedRoute:
     """A current route outcome that did not produce a registry entry."""
 
-    status: Literal["empty", "stale_ref"]
+    status: Literal["empty", "stale_ref", "pending_sync"]
 
 
 StepProvenance: TypeAlias = (

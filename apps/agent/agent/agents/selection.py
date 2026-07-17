@@ -99,31 +99,33 @@ async def execute_multi_selection(
     merged = _merge_results(candidate_ids, successful, locale)
     result_ref = state.next_search_ref("multi", state.clarification_revision)
     state.store_search_result(result_ref, merged)
+    provenance = ProducedSearch(
+        outcome="ok" if merged.rows else "empty", result_ref=result_ref
+    )
+    if any(result.partial for _, result in successful):
+        return await _multi_terminal_event(
+            state, steps, locale, "partial", on_step, search=provenance
+        )
     if not merged.rows:
         status = "error" if len(successful) < len(candidate_ids) else "empty"
-        provenance = ProducedSearch(outcome="empty", result_ref=result_ref)
         return await _multi_terminal_event(
             state, steps, locale, status, on_step, search=provenance
         )
     if len(merged.rows) > MAX_ROUTE_POINT_IDS:
-        provenance = ProducedSearch(outcome="ok", result_ref=result_ref)
         return await _multi_terminal_event(
             state, steps, locale, "too_large", on_step, search=provenance
         )
     try:
         route = await catalog.route([point.id for point in merged.rows if point.id])
     except (RouteTooManyClustersError, RouteTooManyPointsError):
-        provenance = ProducedSearch(outcome="ok", result_ref=result_ref)
         return await _multi_terminal_event(
             state, steps, locale, "too_large", on_step, search=provenance
         )
     except _FETCH_ERRORS:
-        provenance = ProducedSearch(outcome="ok", result_ref=result_ref)
         return await _multi_terminal_event(
             state, steps, locale, "error", on_step, search=provenance
         )
     if route.point_count < 1:
-        provenance = ProducedSearch(outcome="ok", result_ref=result_ref)
         return await _multi_terminal_event(
             state, steps, locale, "error", on_step, search=provenance
         )
@@ -249,7 +251,7 @@ def _multi_terminal(
     status: str,
     search: ProducedSearch | None = None,
 ) -> AgentResult:
-    expected = status in {"empty", "too_large"}
+    expected = status in {"empty", "partial", "too_large"}
     steps.append(_server_step("plan_multi", expected, {"status": status}))
     return AgentResult(
         output=RouteResponseModel(message=multi_message(locale, status)),

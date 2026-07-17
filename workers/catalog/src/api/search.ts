@@ -32,27 +32,15 @@
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import { normalizeAlias } from "../lib/alias";
-import { upstreamUnavailable } from "../lib/errors";
 import { optional } from "../lib/optional";
-import { withUpstreamUnavailable } from "../lib/upstream";
 import { ingestWork } from "../ingest/orchestrator";
-import {
-  fetchAnitabiLite,
-  fetchBangumiSearch,
-  UpstreamNotFoundError,
-  type AnitabiLite,
-  type AnitabiPoint,
-  type FetchLike,
-} from "../ingest/sources";
+import type { FetchLike } from "../ingest/sources";
 import type { Origin, PilgrimagePoint } from "../types";
+import { previewForQuery, type MissPreview } from "./preview";
 
 export type { Origin, PilgrimagePoint };
 
-/** A resolved-but-uncovered work: its Bangumi id + the L1 lite preview points. */
-export interface MissPreview {
-  workId: string;
-  points: PilgrimagePoint[];
-}
+export type { MissPreview } from "./preview";
 
 /** Knobs for the search miss path: the injectable `fetch` + the background hook. */
 export interface SearchOptions {
@@ -122,14 +110,12 @@ export async function search(
 }
 
 /** Alias HIT: return the work's published points from the catalog (no preview/ingest). */
-export async function hitResult(db: SearchDb, workId: string): Promise<SearchResult> {
+export async function hitResult(
+  db: Pick<SearchDb, "pointsForWork">,
+  workId: string,
+): Promise<SearchResult> {
   const rows = await db.pointsForWork(workId);
   return { rows: rows.map(toPoint), synced_at: syncedAt(rows) };
-}
-
-/** Fetch one already-resolved work directly, without repeating free-text resolution. */
-export function pointsByWorkId(db: SearchDb, workId: string): Promise<SearchResult> {
-  return hitResult(db, workId);
 }
 
 /** Alias MISS: resolve + L1 preview now, full ingest in the background (or sync fallback). */
@@ -206,38 +192,9 @@ export function searchDb(db: CatalogDb): SearchDb {
   return {
     workIdForAlias: (normalized) => firstWorkId(db, normalized),
     pointsForWork: (workId) => selectPoints(db, workId),
-    resolvePreview: (query, fetchImpl) => resolvePreview(query, fetchImpl),
+    resolvePreview: (query, fetchImpl) => previewForQuery(query, fetchImpl),
     runFullIngest: (workId, fetchImpl) => runFullIngest(db, workId, fetchImpl),
   };
-}
-
-/** Resolve an uncovered title to a fast preview; null only for real misses. */
-async function resolvePreview(
-  query: string,
-  fetchImpl?: FetchLike,
-): Promise<MissPreview | null> {
-  const bangumiId = await resolveWorkId(query, fetchImpl);
-  if (!bangumiId) return null;
-  const lite = await fetchLitePreview(bangumiId, fetchImpl);
-  if (lite.points.length === 0) return null;
-  return { workId: bangumiId, points: lite.points.map((p) => litePoint(p, bangumiId)) };
-}
-
-/** Resolve a title via Bangumi; upstream failures become typed retryable errors. */
-async function resolveWorkId(query: string, fetchImpl?: FetchLike): Promise<string | null> {
-  return withUpstreamUnavailable("bangumi", () => fetchBangumiSearch(query, { fetchImpl }));
-}
-
-/** Fetch an Anitabi lite preview. A 404 means the work has NO Anitabi pilgrimage
- * data -> an empty preview (graceful empty rows), NOT an outage. Real upstream
- * failures (5xx / network) still become typed retryable UPSTREAM_UNAVAILABLE. */
-async function fetchLitePreview(bangumiId: string, fetchImpl?: FetchLike): Promise<AnitabiLite> {
-  try {
-    return await fetchAnitabiLite(bangumiId, { fetchImpl });
-  } catch (err) {
-    if (err instanceof UpstreamNotFoundError) return { points: [], total: 0 };
-    throw upstreamUnavailable("anitabi", err);
-  }
 }
 
 /** The FULL ingest (fetch all points -> enrich -> publish); swallows the result
@@ -248,43 +205,6 @@ async function runFullIngest(
   fetchImpl?: FetchLike,
 ): Promise<void> {
   await ingestWork(db, workId, { fetchImpl });
-}
-
-/** Map one Anitabi `/lite` point (official geo[] schema) to a `PilgrimagePoint`. */
-function litePoint(p: AnitabiPoint, bangumiId: string): PilgrimagePoint {
-  const [lat, lng] = liteGeo(p.geo);
-  return {
-    id: liteStr(p.id),
-    name: liteStr(p.name),
-    bangumi_id: bangumiId,
-    screenshot_url: liteImage(p.image),
-    latitude: lat,
-    longitude: lng,
-    ...optional({ episode: liteInt(p.ep), time_seconds: liteInt(p.s) }),
-  };
-}
-
-/** Read `geo: [lat, lng]` as numbers; [0, 0] when absent/short. */
-function liteGeo(raw: unknown): [number, number] {
-  if (!Array.isArray(raw) || raw.length < 2) return [0, 0];
-  return [Number(raw[0]) || 0, Number(raw[1]) || 0];
-}
-
-/** Resolve a lite point image, prefixing the Anitabi CDN host for relative paths. */
-function liteImage(raw: unknown): string {
-  const url = liteStr(raw);
-  if (url.startsWith("/")) return `https://image.anitabi.cn${url}`;
-  return url;
-}
-
-/** Coerce an unknown to a string ("" when absent). */
-function liteStr(raw: unknown): string {
-  return typeof raw === "string" ? raw : "";
-}
-
-/** Coerce an unknown to a finite integer, else null (so `optional` omits it). */
-function liteInt(raw: unknown): number | null {
-  return typeof raw === "number" && Number.isFinite(raw) ? Math.trunc(raw) : null;
 }
 
 /** Exact-match the normalized alias -> the highest-priority work id.

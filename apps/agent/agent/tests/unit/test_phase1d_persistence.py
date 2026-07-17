@@ -112,7 +112,8 @@ async def test_partial_with_current_route_persists_assistant_and_route() -> None
     interaction = cast(dict[str, object], saved["interactions"][0])
     assert interaction["success"] is False
     delta = cast(dict[str, object], interaction["context_delta"])
-    state = SessionState.model_validate(delta["session_state_v2"])
+    assert "session_state_v2" not in delta
+    state = SessionState.model_validate(saved["session_state_v2"])
     assert state.last_result_ref == "search:partial"
     assert db.insert_message.await_count == 2
     assert db.insert_message.await_args_list[1].args[1] == "assistant"
