@@ -11,12 +11,7 @@ from agent.agents.runtime_deps import RuntimeDeps
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.eval.null_database import NullDatabase
 
-_QA_OUTPUT = {
-    "intent": "general_qa",
-    "message": "offline",
-    "data": {"status": "info"},
-    "ui": {},
-}
+_QA_OUTPUT = {"message": "offline"}
 
 
 def _function_model(observed: dict[str, str]) -> FunctionModel:

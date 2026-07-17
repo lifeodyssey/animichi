@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeAlias
 
+from agent.agents.agent_result import AgentResult
+from agent.tests.eval.direct_gates import (
+    TrajectoryCase,
+    direct_thrash_gate,
+    print_direct_thrash_metrics,
+)
 from agent.tests.eval.eval_harness import (
     ALL_CASES,
     BASELINES_DIR,
@@ -46,6 +53,7 @@ class GateInput:
     errored_count: int
     scores: ScoreMap
     cases: CaseScores
+    trajectories: tuple[TrajectoryCase, ...] = ()
 
 
 def gate_exit_code(failures: list[str] | None) -> int:
@@ -137,21 +145,55 @@ def gate_report(
 def _run_gate(
     gate_input: GateInput, layer: str, baselines_dir: Path, *, capped: bool
 ) -> list[str] | None:
+    enforce_direct = _direct_gate_enforced() and not capped
+    _print_direct_metrics(gate_input, capped=capped, enforced=enforce_direct)
     if capped:
         _capped_notice(gate_input.case_count)
         return []
+    return _run_uncapped_gate(gate_input, layer, baselines_dir, enforce_direct)
+
+
+def _run_uncapped_gate(
+    gate_input: GateInput, layer: str, baselines_dir: Path, enforce_direct: bool
+) -> list[str] | None:
     baseline = _baseline(layer, gate_input.model, gate_input.case_count, baselines_dir)
-    error_failures = error_rate_gate(
+    failures = _gate_failures(gate_input, baseline, enforce_direct=enforce_direct)
+    if failures:
+        return failures
+    if baseline is None:
+        _write_baseline(
+            _new_baseline(gate_input), layer, gate_input.model, baselines_dir
+        )
+        return None
+    return []
+
+
+def _print_direct_metrics(
+    gate_input: GateInput, *, capped: bool, enforced: bool
+) -> None:
+    print_direct_thrash_metrics(
+        gate_input.trajectories, include_p95=not capped, enforced=enforced
+    )
+
+
+def _gate_failures(
+    gate_input: GateInput,
+    baseline: BaselineRecord | None,
+    *,
+    enforce_direct: bool,
+) -> list[str]:
+    direct = direct_thrash_gate(gate_input.trajectories)
+    bootstrap = bootstrap_gate(gate_input.cases, baseline) if baseline else []
+    errors = error_rate_gate(
         gate_input.errored_count,
         gate_input.evaluated_count + gate_input.errored_count,
         baseline,
     )
-    if baseline is not None:
-        return [*bootstrap_gate(gate_input.cases, baseline), *error_failures]
-    if error_failures:
-        return error_failures
-    _write_baseline(_new_baseline(gate_input), layer, gate_input.model, baselines_dir)
-    return None
+    return [*(direct if enforce_direct else []), *bootstrap, *errors]
+
+
+def _direct_gate_enforced() -> bool:
+    return os.environ.get("DIRECT_GATE_ENFORCE") == "1"
 
 
 def _report_gate_input(
@@ -166,6 +208,15 @@ def _report_gate_input(
         len(report.failures),
         scores,
         collect_case_scores(report),
+        _trajectory_cases(report),
+    )
+
+
+def _trajectory_cases(report: AgentReport) -> tuple[TrajectoryCase, ...]:
+    return tuple(
+        TrajectoryCase.from_result(str(case.name), case.output)
+        for case in report.cases
+        if isinstance(case.output, AgentResult)
     )
 
 

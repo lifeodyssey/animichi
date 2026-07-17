@@ -105,12 +105,7 @@ def _web_driver(query: str) -> FunctionModel:
 
 
 def _qa_args() -> Mapping[str, object]:
-    return {
-        "intent": "general_qa",
-        "message": "Found reference material.",
-        "data": {"status": "info", "message": "ok"},
-        "ui": {},
-    }
+    return {"message": "Found reference material."}
 
 
 def _tool_return(result: AgentResult, tool_name: str) -> str:
@@ -148,7 +143,7 @@ async def test_translate_title_injection_bypasses_null_database() -> None:
     )
 
     assert result["translated"] == "吹响悠风号"
-    assert result["source"] == "db"
+    assert result["source"] == "catalog"
 
 
 async def test_web_search_direct_injection_returns_wrapped_results() -> None:

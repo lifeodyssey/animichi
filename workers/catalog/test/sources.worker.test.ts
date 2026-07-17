@@ -3,6 +3,7 @@ import {
   fetchAnitabiLite,
   fetchAnitabiPoints,
   fetchBangumiSubject,
+  UpstreamFetchError,
   type FetchLike,
 } from "../src/ingest/sources";
 
@@ -86,6 +87,18 @@ describe("fetchAnitabiPoints", () => {
   it("throws on a non-2xx upstream status", async () => {
     const { fetch } = mockFetch(null, { ok: false, status: 503 });
     await expect(fetchAnitabiPoints("3302", { fetchImpl: fetch })).rejects.toThrow("503");
+  });
+
+  it("maps malformed JSON to an Anitabi upstream failure", async () => {
+    const fetch: FetchLike = () => Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.reject(new Error("invalid Anitabi JSON")),
+    });
+
+    await expect(fetchAnitabiPoints("3302", { fetchImpl: fetch })).rejects.toEqual(
+      expect.objectContaining({ name: UpstreamFetchError.name, upstream: "anitabi" }),
+    );
   });
 });
 

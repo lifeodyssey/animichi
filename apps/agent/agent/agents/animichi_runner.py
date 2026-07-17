@@ -3,33 +3,91 @@
 from __future__ import annotations
 
 import structlog
+from pydantic import ValidationError
+from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
-from pydantic_ai.usage import UsageLimits
+from pydantic_ai.usage import RunUsage, UsageLimits
 
-from agent.agents.agent_result import AgentResult
-from agent.agents.animichi_agent import animichi_agent
+from agent.agents.agent_result import AgentResult, StepRecord
+from agent.agents.animichi_agent import (
+    _input_guard_enabled,
+    animichi_agent,
+    trusted_session_context,
+)
+from agent.agents.base import resolve_model_alias
 from agent.agents.runtime_deps import (
     OnStep,
     RuntimeDeps,
+    StepEvent,
     TitleTranslator,
     WebSearcher,
 )
-from agent.agents.tool_state import SearchState, ToolState
+from agent.agents.runtime_models import (
+    AgentResultOutput,
+    BlockedResponseModel,
+    ClarifyResponseModel,
+    GreetingResponseModel,
+    PartialResponseModel,
+    QAResponseModel,
+    RouteResponseModel,
+    SearchResponseModel,
+)
+from agent.agents.session_state import CurrentAnime, SessionState
+from agent.agents.tool_state import ToolState
+from agent.agents.web_trust import detect_prompt_injection
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
 
 logger = structlog.get_logger(__name__)
 
-MAIN_REQUEST_LIMIT = 25
-SUMMARY_REQUEST_HEADROOM = 2
-REQUEST_LIMIT = MAIN_REQUEST_LIMIT + SUMMARY_REQUEST_HEADROOM
+# Preserve the pre-Phase 1d safety net; recalibration belongs in the follow-up.
+REQUEST_LIMIT = 27
 TOOL_CALLS_LIMIT = 40
 RUN_USAGE_LIMITS = UsageLimits(
     request_limit=REQUEST_LIMIT,
     tool_calls_limit=TOOL_CALLS_LIMIT,
 )
+
+_STAGE_BY_OUTPUT: dict[type[AgentResultOutput], str] = {
+    SearchResponseModel: "search",
+    RouteResponseModel: "route",
+    ClarifyResponseModel: "clarify",
+    GreetingResponseModel: "greet_user",
+    QAResponseModel: "general_qa",
+    PartialResponseModel: "partial",
+    BlockedResponseModel: "blocked",
+}
+
+_PARTIAL_MESSAGES = {
+    "en": "The processing limit was reached. Any results shown are partial; narrow the request to continue.",
+    "ja": "処理上限に達しました。表示されているのは部分的な結果です。条件を絞って続けてください。",
+    "zh": "已达到本次处理上限。当前显示的是部分结果，请缩小范围后继续。",
+}
+
+_BLOCKED_MESSAGES = {
+    "en": "Request blocked. Please rephrase your anime pilgrimage request without instruction overrides.",
+    "ja": "リクエストをブロックしました。指示の上書きを含めず、聖地巡礼の依頼を言い換えてください。",
+    "zh": "请求已被拦截。请不要加入覆盖系统指令的内容，并重新描述你的圣地巡礼需求。",
+}
+
+
+def runtime_stage(output: AgentResultOutput, steps: list[StepRecord]) -> str:
+    """Derive the stable stage from output type and server-recorded steps."""
+    stage = _STAGE_BY_OUTPUT[type(output)]
+    if stage == "search":
+        return _last_tool(steps, {"search_bangumi", "search_nearby"})
+    if stage == "route":
+        return _last_tool(steps, {"plan_route", "plan_selected"})
+    return stage
+
+
+def _last_tool(steps: list[StepRecord], names: set[str]) -> str:
+    for step in reversed(steps):
+        if step.success and step.tool in names:
+            return step.tool
+    raise ValueError(f"No successful step for runtime stage: {sorted(names)}")
 
 
 def _seed_geo_coords(tool_state: ToolState, context: dict[str, object]) -> None:
@@ -41,18 +99,25 @@ def _seed_geo_coords(tool_state: ToolState, context: dict[str, object]) -> None:
         tool_state.origin_lng = float(origin_lng)
 
 
-def _seed_search_data(tool_state: ToolState, context: dict[str, object]) -> None:
-    raw = context.get("last_search_data")
+def _seed_session_state(tool_state: ToolState, context: dict[str, object]) -> None:
+    raw = context.get("session_state_v2")
     if not isinstance(raw, dict):
         return
-    bangumi = raw.get("search_bangumi")
-    nearby = raw.get("search_nearby")
-    if isinstance(bangumi, dict):
-        tool_state.search_bangumi = SearchState.model_validate(bangumi)
-    if isinstance(nearby, dict):
-        tool_state.search_nearby = SearchState.model_validate(nearby)
-    if "rows" in raw and tool_state.search_bangumi is None:
-        tool_state.search_bangumi = SearchState.model_validate(raw)
+    try:
+        tool_state.session = SessionState.model_validate(raw)
+    except ValidationError:
+        logger.warning("invalid_session_state_v2")
+
+
+def _seed_current_anime(tool_state: ToolState, context: dict[str, object]) -> None:
+    if tool_state.session.current_anime is not None:
+        return
+    bangumi_id = context.get("current_bangumi_id")
+    title = context.get("current_anime_title")
+    if isinstance(bangumi_id, str) and isinstance(title, str):
+        tool_state.session.current_anime = CurrentAnime(
+            bangumi_id=bangumi_id, title=title
+        )
 
 
 def _seed_tool_state(deps: RuntimeDeps, context: dict[str, object] | None) -> None:
@@ -64,13 +129,12 @@ def _seed_tool_state(deps: RuntimeDeps, context: dict[str, object] | None) -> No
         deps.tool_state.last_location = last_location
     _seed_geo_coords(deps.tool_state, context)
 
-    raw_candidates = context.get("resolve_candidates")
-    if isinstance(raw_candidates, list) and raw_candidates:
-        deps.tool_state.resolve_candidates = raw_candidates
-    if context.get("pending_clarify") is True:
-        deps.tool_state.pending_clarify = True
-
-    _seed_search_data(deps.tool_state, context)
+    _seed_session_state(deps.tool_state, context)
+    _seed_current_anime(deps.tool_state, context)
+    session = deps.tool_state.session
+    deps.ref_factory.reserve(
+        [*map(str, session.search_results), *map(str, session.routes)]
+    )
 
 
 async def run_animichi_agent(
@@ -102,27 +166,43 @@ async def run_animichi_agent(
         title_translator=title_translator,
     )
     _seed_tool_state(deps, context)
+    blocked = _injection_preflight(text, deps)
+    if blocked is not None:
+        return blocked
+    resolved_model = resolve_model_alias(model)
 
-    run_result = await animichi_agent.run(
-        text,
-        deps=deps,
-        model=model,
-        model_settings=model_settings,
-        message_history=message_history or [],
-        usage_limits=RUN_USAGE_LIMITS,
-    )
-    raw_output = run_result.output
-    if isinstance(raw_output, str):
-        raise ValueError(
-            f"Agent returned plain string instead of typed output: {raw_output[:200]}"
+    run_usage = RunUsage()
+    try:
+        run_result = await animichi_agent.run(
+            [trusted_session_context(deps), text],
+            deps=deps,
+            model=resolved_model,
+            model_settings=model_settings,
+            message_history=message_history or [],
+            usage_limits=RUN_USAGE_LIMITS,
+            usage=run_usage,
         )
-
+    except UsageLimitExceeded:
+        logger.warning(
+            "animichi_agent_usage_limit",
+            requests=run_usage.requests,
+            tool_calls=run_usage.tool_calls,
+        )
+        return _partial_result(deps, run_usage)
+    raw_output = run_result.output
+    if isinstance(raw_output, ClarifyResponseModel):
+        await _record_terminal_clarify(deps, raw_output)
+    else:
+        deps.tool_state.session.pending_clarification = None
+        deps.tool_state.session.geocode_staging = None
     result = AgentResult(
         output=raw_output,
+        intent=runtime_stage(raw_output, deps.steps),
+        session_state=deps.tool_state.session,
         steps=list(deps.steps),
         tool_state=deps.tool_state.to_legacy_dict(),
         new_messages=list(run_result.new_messages()),
-        usage=run_result.usage,
+        usage=run_usage,
     )
     logger.info(
         "animichi_agent_complete",
@@ -130,3 +210,73 @@ async def run_animichi_agent(
         steps=len(result.steps),
     )
     return result
+
+
+def _partial_result(
+    deps: RuntimeDeps,
+    usage: RunUsage,
+    *,
+    new_messages: list[ModelMessage] | None = None,
+) -> AgentResult:
+    output = PartialResponseModel(message=_partial_message(deps.locale))
+    return AgentResult(
+        output=output,
+        intent=runtime_stage(output, deps.steps),
+        session_state=deps.tool_state.session,
+        steps=list(deps.steps),
+        tool_state=deps.tool_state.to_legacy_dict(),
+        new_messages=new_messages or [],
+        usage=usage,
+        status="partial",
+        success_override=False,
+    )
+
+
+def _partial_message(locale: str) -> str:
+    return _PARTIAL_MESSAGES.get(locale, _PARTIAL_MESSAGES["ja"])
+
+
+def _injection_preflight(text: str, deps: RuntimeDeps) -> AgentResult | None:
+    if not detect_prompt_injection(text):
+        return None
+    logger.warning("input_guardrail_injection_detected", text=text[:100])
+    if not _input_guard_enabled():
+        return None
+    return _blocked_result(deps)
+
+
+def _blocked_result(deps: RuntimeDeps) -> AgentResult:
+    output = BlockedResponseModel(message=_blocked_message(deps.locale))
+    return AgentResult(
+        output=output,
+        intent=runtime_stage(output, deps.steps),
+        session_state=deps.tool_state.session,
+        steps=list(deps.steps),
+        tool_state=deps.tool_state.to_legacy_dict(),
+        usage=RunUsage(),
+        status="blocked",
+        success_override=False,
+    )
+
+
+def _blocked_message(locale: str) -> str:
+    return _BLOCKED_MESSAGES.get(locale, _BLOCKED_MESSAGES["ja"])
+
+
+async def _record_terminal_clarify(
+    deps: RuntimeDeps, output: ClarifyResponseModel
+) -> None:
+    data: dict[str, object] = {
+        "reason": output.reason,
+        "candidate_ids": output.candidate_ids,
+    }
+    deps.steps.append(
+        StepRecord(
+            tool="clarify",
+            success=True,
+            data=data,
+            model_initiated=False,
+        )
+    )
+    if deps.on_step is not None:
+        await deps.on_step(StepEvent(tool="clarify", status="done", data=data))

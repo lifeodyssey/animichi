@@ -58,7 +58,7 @@ async def test_handle_can_include_debug(mock_db: MagicMock) -> None:
         "agent.interfaces.public_api.run_animichi_agent",
         new=AsyncMock(return_value=result),
     ):
-        response = await RuntimeAPI(mock_db).handle(
+        response = await RuntimeAPI(mock_db, model_http_client=MagicMock()).handle(
             PublicAPIRequest(text="从京都站出发去吹响的圣地", include_debug=True)
         )
 
@@ -78,7 +78,7 @@ async def test_handle_preserves_coordinate_origin_in_route_history(
         "agent.interfaces.public_api.run_animichi_agent",
         new=AsyncMock(return_value=result),
     ):
-        response = await RuntimeAPI(mock_db).handle(
+        response = await RuntimeAPI(mock_db, model_http_client=MagicMock()).handle(
             PublicAPIRequest(
                 text="从当前位置出发去吹响的圣地",
                 origin_lat=34.9,
@@ -111,7 +111,7 @@ async def test_request_log_called_after_response(
     db.upsert_session = AsyncMock()
     db.insert_request_log = AsyncMock(return_value="log-1")
 
-    await RuntimeAPI(db=db).handle(
+    await RuntimeAPI(db=db, model_http_client=MagicMock()).handle(
         PublicAPIRequest(text="吹響の聖地", locale="ja", session_id="s1")
     )
 

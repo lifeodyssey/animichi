@@ -103,19 +103,16 @@ def _search_driver(title: str) -> FunctionModel:
                 parts=[ToolCallPart("resolve_anime", {"title": title})]
             )
         if not _returned(messages, "search_bangumi"):
-            return ModelResponse(parts=[ToolCallPart("search_bangumi", {})])
+            return ModelResponse(
+                parts=[ToolCallPart("search_bangumi", {"bangumi_id": "160209"})]
+            )
         return ModelResponse(parts=[ToolCallPart("search_response", _search_args())])
 
     return FunctionModel(respond)
 
 
 def _search_args():
-    return {
-        "intent": "search_bangumi",
-        "message": "見つかりました。",
-        "data": {"results": {"rows": [], "row_count": 0, "status": "ok"}},
-        "ui": {},
-    }
+    return {"message": "見つかりました。"}
 
 
 def _clear_imported_env(before: set[str]) -> None:
