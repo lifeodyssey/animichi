@@ -51,6 +51,13 @@ _Ctx = EvaluatorContext[AgentInput, AgentResult, AgentExpected]
 # ── Stage → locally executed model-call span chains ──────────────────
 # Synthetic terminal steps, internal helpers, and deterministic bypasses never
 # produce PydanticAI tool spans and therefore do not belong in this vocabulary.
+_GENERAL_QA_CHAINS = (
+    (),
+    ("web_search",),
+    ("translate_anime_title",),
+    ("web_search", "translate_anime_title"),
+    ("translate_anime_title", "web_search"),
+)
 _STAGE_MODEL_CALL_CHAINS: dict[str, tuple[tuple[str, ...], ...]] = {
     "search_bangumi": (("resolve_anime", "search_bangumi"),),
     "search_nearby": (("search_nearby",),),
@@ -60,7 +67,7 @@ _STAGE_MODEL_CALL_CHAINS: dict[str, tuple[tuple[str, ...], ...]] = {
     "clarify": (("resolve_anime",), ()),
     "clarify_after_nearby": (("search_nearby",),),
     "greet_user": ((),),
-    "general_qa": ((),),
+    "general_qa": _GENERAL_QA_CHAINS,
 }
 
 # Ideal step counts (carried over verbatim from the prior StepEfficiency table).
