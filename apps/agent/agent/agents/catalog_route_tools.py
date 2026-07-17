@@ -8,10 +8,11 @@ from pydantic_ai import RunContext
 
 from agent.agents.agent_result import ProducedRoute, RejectedRoute, StepProvenance
 from agent.agents.catalog_adapter import build_route_state
-from agent.agents.catalog_tools import _clear_pending, _record
+from agent.agents.catalog_tools import _clear_pending
 from agent.agents.models import ToolName
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.session_state import ResultRef, RouteRef
+from agent.agents.step_recording import _record
 from agent.agents.tool_outcomes import (
     RouteEmpty,
     RouteOk,

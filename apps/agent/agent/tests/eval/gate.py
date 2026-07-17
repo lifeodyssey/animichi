@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import random
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -60,13 +60,16 @@ def read_baseline_record(
     *,
     baselines_dir: Path,
     expected_case_count: int | None = None,
+    expected_metrics: Sequence[str] | None = None,
 ) -> BaselineRecord | None:
     path = baseline_path(layer, model_id, baselines_dir)
     if not path.exists():
         _warn_missing(layer, model_id, path)
         return None
     record = _load_record(path, layer, model_id)
-    if record is None or _is_stale(record, expected_case_count, layer, model_id):
+    if record is None or _is_stale(
+        record, expected_case_count, expected_metrics, layer, model_id
+    ):
         return None
     return record
 
@@ -161,14 +164,32 @@ def _warn_missing(layer: str, model_id: str, path: Path) -> None:
 def _is_stale(
     record: BaselineRecord,
     expected: int | None,
+    expected_metrics: Sequence[str] | None,
     layer: str,
     model_id: str,
 ) -> bool:
+    if expected is not None and _case_count_stale(record, expected, layer, model_id):
+        return True
+    if expected is not None and _evaluated_count_low(record, expected, layer, model_id):
+        return True
+    return _metric_vocabulary_stale(record, expected_metrics, layer, model_id)
+
+
+def _metric_vocabulary_stale(
+    record: BaselineRecord,
+    expected: Sequence[str] | None,
+    layer: str,
+    model: str,
+) -> bool:
     if expected is None:
         return False
-    if _case_count_stale(record, expected, layer, model_id):
-        return True
-    return _evaluated_count_low(record, expected, layer, model_id)
+    expected_set = set(expected)
+    aggregate_current = set(record.scores) == expected_set
+    cases_current = _case_metrics(record) == expected_set
+    if aggregate_current and cases_current:
+        return False
+    logger.warning("Stale baseline for %s/%s: metric vocabulary changed", layer, model)
+    return True
 
 
 def _case_count_stale(
@@ -210,8 +231,11 @@ def _warn_low_evaluated(layer: str, model: str, actual: int, expected: int) -> N
 
 
 def _baseline_metrics(baseline: BaselineRecord) -> list[str]:
-    case_metrics = {metric for scores in baseline.cases.values() for metric in scores}
-    return sorted(case_metrics.union(baseline.scores))
+    return sorted(_case_metrics(baseline).union(baseline.scores))
+
+
+def _case_metrics(baseline: BaselineRecord) -> set[str]:
+    return {metric for scores in baseline.cases.values() for metric in scores}
 
 
 def _metric_failure(metric: str, ctx: _GateContext) -> str | None:

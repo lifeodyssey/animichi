@@ -14,6 +14,7 @@ from pydantic_evals.reporting import EvaluationReport, ReportCase, ReportCaseFai
 from agent.agents.agent_result import AgentResult
 from agent.agents.runtime_deps import TitleTranslator, WebSearcher
 from agent.interfaces.public_api import detect_language
+from agent.tests.eval.evaluators import EVALUATOR_VERSION
 
 T = TypeVar("T")
 InputsT = TypeVar("InputsT")
@@ -51,6 +52,7 @@ class ResultsPayload(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     model: str
+    evaluator_version: str = "unknown"
     dataset: str
     tier: str
     repeat: int = 1
@@ -124,6 +126,7 @@ def build_results_payload(
 ) -> ResultsPayload:
     return ResultsPayload(
         model=model_id,
+        evaluator_version=EVALUATOR_VERSION,
         dataset=dataset,
         tier=tier,
         case_count=case_count,

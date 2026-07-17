@@ -38,9 +38,7 @@ from agent.tests.eval.evaluators import (
     DataKeysPresent,
     LocaleMatch,
     NonemptyResults,
-    RouteOrderCorrect,
     StepEfficiency,
-    ToolCallRecall,
     build_l3_evaluators,
 )
 from agent.tests.eval.exec_tiers import (
@@ -89,25 +87,27 @@ DATASET_PATH = (
 DATASET_NAME = DATASET_PATH.stem
 BASELINES_DIR = Path(__file__).parent / "baselines"
 RESULTS_DIR = Path(__file__).parent / "results"
-_CORE_METRIC_NAMES = [
-    "tool_recall",
-    "tool_precision",
-    "tool_f1",
-    "route_order_correct",
+_OFFICIAL_METRIC_NAMES = [
+    "argument_correctness",
+    "tool_correctness",
+    "trajectory_match",
+    "max_tool_calls",
+]
+_KEPT_METRIC_NAMES = [
     "data_keys_present",
     "locale_match",
+    "nonempty_results",
     "step_efficiency",
-    "argument_correctness_official",
-    "tool_correctness_official",
-    "trajectory_match_official",
-    "max_tool_calls_official",
 ]
 
 
 def metric_names(*, has_nonempty_cases: bool, l3_on: bool) -> list[str]:
-    names = list(_CORE_METRIC_NAMES)
-    if has_nonempty_cases:
-        names.append("nonempty_results")
+    kept = [
+        name
+        for name in _KEPT_METRIC_NAMES
+        if name != "nonempty_results" or has_nonempty_cases
+    ]
+    names = [*_OFFICIAL_METRIC_NAMES, *kept]
     if l3_on:
         names += ["task_completion", "hallucination_check"]
     return names
@@ -229,16 +229,14 @@ METRIC_NAMES = metric_names(
 
 def build_evaluators() -> list[Evaluator[AgentInput, AgentResult, AgentExpected]]:
     evaluators: list[Evaluator[AgentInput, AgentResult, AgentExpected]] = [
-        ToolCallRecall(),
-        RouteOrderCorrect(),
-        DataKeysPresent(),
-        NonemptyResults(),
-        LocaleMatch(),
-        StepEfficiency(),
         OfficialArgumentCorrectness(),
         OfficialToolCorrectness(),
         OfficialTrajectoryMatch(),
         OfficialMaxToolCalls(),
+        DataKeysPresent(),
+        LocaleMatch(),
+        NonemptyResults(),
+        StepEfficiency(),
     ]
     if EVAL_L3:
         evaluators.extend(build_l3_evaluators(make_model(JUDGE_MODEL_ID)))
