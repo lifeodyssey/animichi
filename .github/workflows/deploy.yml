@@ -62,11 +62,11 @@ jobs:
           environment: production
           # Catalog reaches Postgres via env.DATABASE_URL until a [[hyperdrive]]
           # binding is provisioned (src/index.ts falls back to DATABASE_URL).
-          # Sourced from the existing SUPABASE_DB_URL secret.
+          # The catalog uses the Neon HTTP client, matching the CI promotion path.
           secrets: |
             DATABASE_URL
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
 
       # ── Deploy users Worker (before root — root's USERS [[services]] binding depends on it) ──
       - name: Deploy users Worker
