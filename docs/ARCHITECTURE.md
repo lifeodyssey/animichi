@@ -1,6 +1,6 @@
 # Architecture
 
-> **Visual companion:** [architecture-diagrams.md](./architecture-diagrams.md) — 7 Mermaid diagrams: topology, request lifecycle, the typed tool/outcome contract, model layer, session state & persistence, catalog tiered ingest, eval gates.
+> **Visual companion:** [architecture-diagrams.md](./architecture-diagrams.md) — 5 agent-scoped Mermaid diagrams: the agent and its direct dependencies, one turn end to end, the typed tool-outcome contract, the model layer, session state & multi-turn selection.
 
 
 ## Overview
