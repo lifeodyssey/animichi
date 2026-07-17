@@ -89,8 +89,8 @@ async def test_handle_preserves_coordinate_origin_in_route_history(
     assert response.route_history[0]["origin_station"] == "34.9,135.8"
     saved = mock_db.routes.save_route.await_args.kwargs
     assert saved["origin_station"] == "34.9,135.8"
-    assert saved["origin_lat"] == 34.9
-    assert saved["origin_lon"] == 135.8
+    assert saved["origin_lat"] == pytest.approx(34.9)
+    assert saved["origin_lon"] == pytest.approx(135.8)
 
 
 async def test_request_log_called_after_response(

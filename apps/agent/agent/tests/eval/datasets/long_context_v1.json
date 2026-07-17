@@ -69,8 +69,7 @@
           "assistant": "确认行李安排。 The earlier anime identity and candidate order remain unchanged.",
           "padding_chars": 1200
         }
-      ],
-      "pending_clarify": true
+      ]
     },
     "selected_point_ids": null,
     "metadata": {
@@ -156,8 +155,7 @@
           "assistant": "确认行李安排。 The earlier anime identity and candidate order remain unchanged.",
           "padding_chars": 1200
         }
-      ],
-      "pending_clarify": true
+      ]
     },
     "selected_point_ids": null,
     "metadata": {
@@ -329,8 +327,7 @@
           "assistant": "荷物の予定を確認する。 The earlier anime identity and candidate order remain unchanged.",
           "padding_chars": 1200
         }
-      ],
-      "pending_clarify": true
+      ]
     },
     "selected_point_ids": null,
     "metadata": {
@@ -416,8 +413,7 @@
           "assistant": "荷物の予定を確認する。 The earlier anime identity and candidate order remain unchanged.",
           "padding_chars": 1200
         }
-      ],
-      "pending_clarify": true
+      ]
     },
     "selected_point_ids": null,
     "metadata": {
@@ -503,8 +499,7 @@
           "assistant": "荷物の予定を確認する。 The earlier anime identity and candidate order remain unchanged.",
           "padding_chars": 1200
         }
-      ],
-      "pending_clarify": true
+      ]
     },
     "selected_point_ids": null,
     "metadata": {
@@ -590,8 +585,7 @@
           "assistant": "Confirm luggage arrangements. The earlier anime identity and candidate order remain unchanged.",
           "padding_chars": 1200
         }
-      ],
-      "pending_clarify": true
+      ]
     },
     "selected_point_ids": null,
     "metadata": {
@@ -677,8 +671,7 @@
           "assistant": "Confirm luggage arrangements. The earlier anime identity and candidate order remain unchanged.",
           "padding_chars": 1200
         }
-      ],
-      "pending_clarify": true
+      ]
     },
     "selected_point_ids": null,
     "metadata": {
@@ -1108,8 +1101,7 @@
           "assistant": "荷物の予定を確認する。 The earlier anime identity and candidate order remain unchanged.",
           "padding_chars": 1200
         }
-      ],
-      "pending_clarify": true
+      ]
     },
     "selected_point_ids": null,
     "metadata": {
