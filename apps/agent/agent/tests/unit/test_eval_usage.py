@@ -19,12 +19,7 @@ def _qa_driver() -> FunctionModel:
             parts=[
                 ToolCallPart(
                     "qa_response",
-                    {
-                        "intent": "general_qa",
-                        "message": "こんにちは。",
-                        "data": {"status": "info"},
-                        "ui": {},
-                    },
+                    {"message": "こんにちは。"},
                 )
             ]
         )

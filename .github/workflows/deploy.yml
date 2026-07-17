@@ -102,6 +102,8 @@ jobs:
             SUPABASE_ANON_KEY
             SUPABASE_SERVICE_ROLE_KEY
             SUPABASE_DB_URL
+            MIMO_API_KEY
+            DEEPSEEK_API_KEY
             GEMINI_API_KEY
             GOOGLE_MAPS_API_KEY
             LOGFIRE_TOKEN
@@ -111,6 +113,8 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}

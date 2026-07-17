@@ -28,6 +28,13 @@ class CollectedMetric:
     data_points: tuple[MetricDataPoint, ...]
 
 
+@dataclass
+class ConfigureCall:
+    """Arguments captured by the patched ``logfire.configure`` call."""
+
+    scrubbing: logfire.ScrubbingOptions | None = None
+
+
 def _parse_data_point(raw: object) -> MetricDataPoint:
     if not isinstance(raw, dict):
         raise TypeError(f"Expected dict data point, got {type(raw)}")
@@ -74,13 +81,14 @@ def patch_configure_with_test_sinks(
     monkeypatch: pytest.MonkeyPatch,
     exporter: TestExporter,
     metrics_reader: InMemoryMetricReader,
-) -> None:
+) -> ConfigureCall:
     """Route ``logfire.configure`` calls to test span/metric sinks.
 
     Only forwards the keyword arguments ``setup_logfire`` actually passes;
     everything else is fixed so spans/metrics land in the test sinks.
     """
     real_configure = logfire.configure
+    configure_call = ConfigureCall()
 
     def configure_with_test_sinks(
         *,
@@ -89,9 +97,11 @@ def patch_configure_with_test_sinks(
         environment: str | None = None,
         send_to_logfire: bool | Literal["if-token-present"] | None = None,
         console: bool | None = None,
+        scrubbing: logfire.ScrubbingOptions | None = None,
         variables: object | None = None,
     ) -> logfire.Logfire:
         del send_to_logfire, console, variables
+        configure_call.scrubbing = scrubbing
         return real_configure(
             service_name=service_name,
             service_version=service_version,
@@ -103,3 +113,4 @@ def patch_configure_with_test_sinks(
         )
 
     monkeypatch.setattr(logfire, "configure", configure_with_test_sinks)
+    return configure_call

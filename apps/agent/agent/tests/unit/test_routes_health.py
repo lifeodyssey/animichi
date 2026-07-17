@@ -5,6 +5,8 @@ Covers: GET /healthz, CORS middleware, create_fastapi_app state.
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 from agent.config.settings import Settings
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.interfaces.public_api import RuntimeAPI
@@ -60,7 +62,9 @@ async def test_cors_middleware_allows_configured_origin() -> None:
 
 async def test_app_state_accessible_when_injected() -> None:
     mock_db = build_stub_db()
-    runtime_api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+    runtime_api = RuntimeAPI(
+        mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+    )
     settings = Settings(app_env="testing")
 
     app, _ = build_app(runtime_api=runtime_api, db=mock_db, settings=settings)

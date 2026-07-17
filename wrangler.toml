@@ -18,8 +18,9 @@
 #
 # Container runtime secrets (forwarded to Python backend):
 #   SUPABASE_DB_URL            — postgres://... for asyncpg
-#   DEEPSEEK_API_KEY           — primary agent model key (DeepSeek V4 Pro)
-#   GEMINI_API_KEY             — optional fallback model provider key
+#   MIMO_API_KEY               — required primary model key (MiMo V2.5)
+#   DEEPSEEK_API_KEY           — required fallback model key (DeepSeek)
+#   GEMINI_API_KEY             — optional Google-backed integration key
 #   OPENAI_COMPAT_BASE_URL     — custom OpenAI-compatible fallback endpoint
 #   OPENAI_COMPAT_API_KEY      — custom OpenAI-compatible fallback provider key
 #   GOOGLE_MAPS_API_KEY        — optional geocoding provider key

@@ -7,9 +7,10 @@ from pydantic_evals import Case, Dataset
 from pydantic_evals.reporting import EvaluationReport, ReportCase, ReportCaseFailure
 
 from agent.agents.agent_result import AgentResult
+from agent.agents.animichi_agent import animichi_agent
 from agent.tests.eval import eval_gate_flow, run_agent_eval
 from agent.tests.eval.eval_gate_flow import finish_cli_report, gate_exit_code
-from agent.tests.eval.eval_harness import DATASET_PATH, agent_dataset
+from agent.tests.eval.eval_harness import DATASET_PATH, _agentic_tracing, agent_dataset
 from agent.tests.eval.evaluators import (
     AgentExpected,
     AgentInput,
@@ -21,6 +22,12 @@ from agent.tests.eval.evaluators import (
     ToolCallRecall,
 )
 from agent.tests.eval.exec_tiers import EvalTierTarget
+from agent.tests.eval.official_evaluators import (
+    OfficialArgumentCorrectness,
+    OfficialMaxToolCalls,
+    OfficialToolCorrectness,
+    OfficialTrajectoryMatch,
+)
 from agent.tests.eval.run_agent_eval import (
     CliArgs,
     StreamingProgress,
@@ -84,7 +91,9 @@ async def test_export_mode_exits_without_evaluation(
     assert output.exists()
 
 
-def test_real_dataset_round_trips_with_six_custom_evaluators(tmp_path: Path) -> None:
+def test_real_dataset_round_trips_with_additive_official_evaluators(
+    tmp_path: Path,
+) -> None:
     evaluator_types = (
         ToolCallRecall,
         RouteOrderCorrect,
@@ -92,6 +101,10 @@ def test_real_dataset_round_trips_with_six_custom_evaluators(tmp_path: Path) -> 
         NonemptyResults,
         LocaleMatch,
         StepEfficiency,
+        OfficialArgumentCorrectness,
+        OfficialToolCorrectness,
+        OfficialTrajectoryMatch,
+        OfficialMaxToolCalls,
     )
     output = tmp_path / "agent-eval-official.json"
 
@@ -148,6 +161,13 @@ def test_streaming_progress_reports_completed_cases(
         "[eval] id=case-error result=error error=boom continued "
         "completed=2/2 evaluated=1 errored=1",
     ]
+
+
+def test_agentic_tracing_is_scoped_to_evaluation() -> None:
+    previous = animichi_agent.instrument
+    with _agentic_tracing():
+        assert animichi_agent.instrument is True
+    assert animichi_agent.instrument is previous
 
 
 @pytest.mark.parametrize(

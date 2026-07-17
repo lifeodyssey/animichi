@@ -4,11 +4,21 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Iterator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TypeAlias, cast
 
+import logfire
 from dotenv import dotenv_values
+from opentelemetry.trace import get_tracer_provider
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    UserPromptPart,
+)
 from pydantic_ai.models import Model
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator
@@ -16,6 +26,7 @@ from pydantic_evals.lifecycle import CaseLifecycle
 from pydantic_evals.reporting import EvaluationReport
 
 from agent.agents.agent_result import AgentResult
+from agent.agents.animichi_agent import animichi_agent
 from agent.agents.base import parse_model_spec
 from agent.agents.runtime_deps import TitleTranslator, WebSearcher
 from agent.clients.catalog_client import CatalogClientProtocol
@@ -36,6 +47,12 @@ from agent.tests.eval.exec_tiers import (
     EvalTierTarget,
     cap_cases,
     read_max_cases,
+)
+from agent.tests.eval.official_evaluators import (
+    OfficialArgumentCorrectness,
+    OfficialMaxToolCalls,
+    OfficialToolCorrectness,
+    OfficialTrajectoryMatch,
 )
 
 Row: TypeAlias = Mapping[str, object]
@@ -59,7 +76,7 @@ def _load_eval_env() -> None:
 
 _load_eval_env()
 
-DEFAULT_MODEL_ID = "openai:deepseek-v4-pro@https://api.deepseek.com"
+DEFAULT_MODEL_ID = "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
 EVAL_MODEL_ID = os.environ.get("EVAL_MODEL", DEFAULT_MODEL_ID)
 EVAL_CONCURRENCY = int(os.environ.get("EVAL_CONCURRENCY", "10"))
 EVAL_L3 = os.environ.get("EVAL_L3") == "1"
@@ -80,6 +97,10 @@ _CORE_METRIC_NAMES = [
     "data_keys_present",
     "locale_match",
     "step_efficiency",
+    "argument_correctness_official",
+    "tool_correctness_official",
+    "trajectory_match_official",
+    "max_tool_calls_official",
 ]
 
 
@@ -110,9 +131,48 @@ def _context(row: Row) -> Mapping[str, object] | None:
     )
 
 
-def _selected_ids(row: Row) -> list[str] | None:
-    raw = row.get("selected_point_ids")
+def _selected_ids(row: Row, key: str) -> list[str] | None:
+    raw = row.get(key)
     return [str(item) for item in raw] if isinstance(raw, list) else None
+
+
+def _optional_int(row: Row, key: str) -> int | None:
+    value = row.get(key)
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _mapping(row: Row, key: str) -> Mapping[str, object] | None:
+    value = row.get(key)
+    return (
+        {str(name): item for name, item in value.items()}
+        if isinstance(value, Mapping)
+        else None
+    )
+
+
+def _padded_text(turn: Mapping[object, object], key: str) -> str:
+    text = str(turn.get(key, ""))
+    padding = turn.get("padding_chars", 0)
+    count = padding if isinstance(padding, int) else 0
+    return text + (" Travel planning context remains unchanged." * count)[:count]
+
+
+def _history_turn(item: object) -> list[ModelMessage]:
+    if not isinstance(item, Mapping):
+        raise ValueError("Eval message_history turns must be objects.")
+    user = ModelRequest(parts=[UserPromptPart(_padded_text(item, "user"))])
+    assistant = ModelResponse(parts=[TextPart(_padded_text(item, "assistant"))])
+    return [user, assistant]
+
+
+def _message_history(context: Mapping[str, object] | None) -> list[ModelMessage]:
+    raw = context.get("message_history") if context is not None else None
+    if not isinstance(raw, list):
+        return []
+    messages: list[ModelMessage] = []
+    for item in raw:
+        messages.extend(_history_turn(item))
+    return messages
 
 
 def _case(row: Row) -> Case[AgentInput, AgentResult, AgentExpected]:
@@ -124,7 +184,10 @@ def _input(row: Row) -> AgentInput:
         str(row.get("query", "")),
         str(row.get("locale", "ja")),
         _context(row),
-        _selected_ids(row),
+        _selected_ids(row, "selected_point_ids"),
+        _selected_ids(row, "selected_candidate_ids"),
+        _optional_int(row, "clarification_id"),
+        _mapping(row, "seeded_pending"),
     )
 
 
@@ -172,6 +235,10 @@ def build_evaluators() -> list[Evaluator[AgentInput, AgentResult, AgentExpected]
         NonemptyResults(),
         LocaleMatch(),
         StepEfficiency(),
+        OfficialArgumentCorrectness(),
+        OfficialToolCorrectness(),
+        OfficialTrajectoryMatch(),
+        OfficialMaxToolCalls(),
     ]
     if EVAL_L3:
         evaluators.extend(build_l3_evaluators(make_model(JUDGE_MODEL_ID)))
@@ -183,11 +250,47 @@ agent_dataset = Dataset(name=DATASET_NAME, cases=CASES, evaluators=build_evaluat
 
 async def _selected_task(inp: AgentInput) -> AgentResult:
     from agent.agents.selected_route import execute_selected_route
+    from agent.agents.session_state import SessionState
     from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
     return await execute_selected_route(
         point_ids=inp.selected_point_ids or [],
+        state=SessionState(),
         origin=None,
+        locale=inp.locale,
+        catalog=MockCatalogClient(),
+    )
+
+
+async def _selection_task(inp: AgentInput) -> AgentResult:
+    from agent.agents.selection import (
+        execute_multi_selection,
+        execute_place_selection,
+        validate_candidate_selection,
+    )
+    from agent.agents.session_state import PendingClarification, SessionState
+    from agent.tests.eval.mock_catalog_client import MockCatalogClient
+
+    pending = PendingClarification.model_validate(inp.seeded_pending or {})
+    state = SessionState(
+        pending_clarification=pending,
+        clarification_revision=pending.revision,
+    )
+    selected = validate_candidate_selection(
+        state,
+        inp.selected_candidate_ids or [],
+        inp.clarification_id if inp.clarification_id is not None else -1,
+    )
+    if selected.reason == "anime_ambiguity":
+        return await execute_multi_selection(
+            candidate_ids=selected.candidate_ids,
+            state=state,
+            locale=inp.locale,
+            catalog=MockCatalogClient(),
+        )
+    return await execute_place_selection(
+        candidate_id=selected.candidate_ids[0],
+        state=state,
         locale=inp.locale,
         catalog=MockCatalogClient(),
     )
@@ -209,6 +312,7 @@ async def _agent_task(
         model=model,
         locale=inp.locale,
         context=dict(inp.context) if inp.context is not None else None,
+        message_history=_message_history(inp.context),
         catalog=catalog_factory(),
         web_searcher=web_searcher,
         title_translator=title_translator,
@@ -226,7 +330,9 @@ def make_agent_task(
     resolved_model = model or make_model()
 
     async def task(inp: AgentInput) -> AgentResult:
-        if inp.selected_point_ids:
+        if inp.selected_candidate_ids is not None:
+            return await _selection_task(inp)
+        if inp.selected_point_ids is not None:
             return await _selected_task(inp)
         return await _agent_task(
             inp, db, catalog_factory, resolved_model, web_searcher, title_translator
@@ -245,6 +351,23 @@ def _target_task(target: EvalTierTarget, model: Model | None) -> TaskFn:
     )
 
 
+def _ensure_tracer_provider() -> None:
+    if hasattr(get_tracer_provider(), "add_span_processor"):
+        return
+    logfire.configure(send_to_logfire=False, console=False)
+
+
+@contextmanager
+def _agentic_tracing() -> Iterator[None]:
+    _ensure_tracer_provider()
+    previous = animichi_agent.instrument
+    animichi_agent.instrument = True
+    try:
+        yield
+    finally:
+        animichi_agent.instrument = previous
+
+
 async def evaluate_target(
     target: EvalTierTarget,
     model: Model | None = None,
@@ -253,10 +376,11 @@ async def evaluate_target(
     lifecycle: LifecycleFactory | None = None,
     progress: bool = True,
 ) -> AgentReport:
-    return await agent_dataset.evaluate(
-        _target_task(target, model),
-        name=f"{target.layer}_{model_id}",
-        max_concurrency=EVAL_CONCURRENCY,
-        lifecycle=lifecycle,
-        progress=progress,
-    )
+    with _agentic_tracing():
+        return await agent_dataset.evaluate(
+            _target_task(target, model),
+            name=f"{target.layer}_{model_id}",
+            max_concurrency=EVAL_CONCURRENCY,
+            lifecycle=lifecycle,
+            progress=progress,
+        )

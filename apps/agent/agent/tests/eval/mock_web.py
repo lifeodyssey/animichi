@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from agent.agents.guardrails import WebResult
 from agent.agents.translation import TranslationResult
+from agent.agents.web_trust import WebResult
 from agent.tests.eval.mock_catalog_client import (
     FIXTURE_POINTS,
     LOCATION_CENTERS,
@@ -90,7 +90,7 @@ def _translation_hit(
     return TranslationResult(
         original=original,
         translated=translated,
-        source="db",
+        source="catalog",
         confidence=1.0,
     )
 
@@ -109,6 +109,6 @@ def _translation_miss(title: str) -> TranslationResult:
     return TranslationResult(
         original=title,
         translated=title,
-        source="mock_miss",
-        confidence=0.3,
+        source="untranslated",
+        confidence=0.0,
     )
