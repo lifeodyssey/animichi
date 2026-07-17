@@ -181,7 +181,12 @@ def _metric_vocabulary_stale(
     layer: str,
     model: str,
 ) -> bool:
-    if expected is None or set(record.scores) == set(expected):
+    if expected is None:
+        return False
+    expected_set = set(expected)
+    aggregate_current = set(record.scores) == expected_set
+    cases_current = _case_metrics(record) == expected_set
+    if aggregate_current and cases_current:
         return False
     logger.warning("Stale baseline for %s/%s: metric vocabulary changed", layer, model)
     return True
@@ -226,8 +231,11 @@ def _warn_low_evaluated(layer: str, model: str, actual: int, expected: int) -> N
 
 
 def _baseline_metrics(baseline: BaselineRecord) -> list[str]:
-    case_metrics = {metric for scores in baseline.cases.values() for metric in scores}
-    return sorted(case_metrics.union(baseline.scores))
+    return sorted(_case_metrics(baseline).union(baseline.scores))
+
+
+def _case_metrics(baseline: BaselineRecord) -> set[str]:
+    return {metric for scores in baseline.cases.values() for metric in scores}
 
 
 def _metric_failure(metric: str, ctx: _GateContext) -> str | None:

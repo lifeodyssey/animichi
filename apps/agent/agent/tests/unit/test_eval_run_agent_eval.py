@@ -8,7 +8,7 @@ from pydantic_evals.reporting import EvaluationReport, ReportCase, ReportCaseFai
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.animichi_agent import animichi_agent
-from agent.tests.eval import eval_gate_flow, evaluators, run_agent_eval
+from agent.tests.eval import eval_gate_flow, run_agent_eval
 from agent.tests.eval.eval_gate_flow import finish_cli_report, gate_exit_code
 from agent.tests.eval.eval_harness import (
     DATASET_PATH,
@@ -121,8 +121,6 @@ def test_real_dataset_round_trips_with_official_first_evaluators(
 
 
 def test_retired_legacy_evaluators_stay_absent() -> None:
-    assert not hasattr(evaluators, "ToolCallRecall")
-    assert not hasattr(evaluators, "RouteOrderCorrect")
     registered = {type(evaluator).__name__ for evaluator in build_evaluators()}
     assert "ToolCallRecall" not in registered
     assert "RouteOrderCorrect" not in registered

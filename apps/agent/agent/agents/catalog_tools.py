@@ -5,8 +5,6 @@ from pydantic_ai import RunContext
 from agent.agents.agent_result import (
     ProducedSearch,
     RejectedSearch,
-    StepProvenance,
-    StepRecord,
 )
 from agent.agents.catalog_adapter import build_search_state
 from agent.agents.models import ToolName
@@ -18,6 +16,7 @@ from agent.agents.session_state import (
     PendingClarification,
     ResultRef,
 )
+from agent.agents.step_recording import _record
 from agent.agents.tool_outcomes import (
     NearbyEmpty,
     NearbyMissingLocation,
@@ -50,26 +49,6 @@ from agent.clients.catalog_client import (
 from agent.clients.errors import APIError
 
 _CATALOG_ERRORS = (APIError, OSError, RuntimeError)
-
-
-def _record(
-    deps: RuntimeDeps,
-    tool: str,
-    params: dict[str, object],
-    data: dict[str, object],
-    *,
-    success: bool = True,
-    provenance: StepProvenance | None = None,
-) -> None:
-    deps.steps.append(
-        StepRecord(
-            tool=tool,
-            success=success,
-            params=params,
-            data=data,
-            provenance=provenance,
-        )
-    )
 
 
 def _candidate(candidate: AnimeCandidate) -> OrderedCandidate:
@@ -237,6 +216,7 @@ async def _coordinates(
         ToolName.GEOCODE.value,
         {"location": location.strip()},
         {"candidate_ids": [candidate.id for candidate in candidates]},
+        model_initiated=False,
     )
     if not candidates:
         _set_pending(deps, "unknown_place", [])
