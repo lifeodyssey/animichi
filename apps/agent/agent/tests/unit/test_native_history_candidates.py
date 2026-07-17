@@ -23,9 +23,9 @@ from agent.agents.animichi_agent import _summarize_tool_content
 from agent.agents.history_compaction import (
     HISTORY_MAX_TOKENS,
     CompactToolReturns,
-    _candidate_summary,
     native_history_compaction,
 )
+from agent.agents.tool_outcomes import ResolveAmbiguous
 
 
 def _user_texts(messages: list[ModelMessage]) -> list[str]:
@@ -47,30 +47,28 @@ def _summary_text(messages: list[ModelMessage]) -> str:
     )
 
 
-def _candidate_return() -> str:
-    return json.dumps(
-        {
-            "ambiguous": True,
-            "candidates": [
-                {"bangumi_id": "485", "title": "涼宮ハルヒの憂鬱"},
-                {"bangumi_id": "1177", "title": "涼宮ハルヒちゃんの憂鬱"},
-            ],
-            "padding": "x" * 400,
-        },
-        ensure_ascii=False,
+def _candidate_ids() -> list[str]:
+    return ["485", "1177", *(str(value) for value in range(2000, 2030))]
+
+
+def _candidate_return() -> dict[str, object]:
+    return ResolveAmbiguous(candidate_ids=_candidate_ids()).model_dump()
+
+
+async def test_compaction_preserves_ordered_candidate_ids_verbatim() -> None:
+    payload = _candidate_return()
+    request = ModelRequest(
+        parts=[ToolReturnPart("resolve_anime", payload, "resolve_haruhi")]
     )
+    compact = CompactToolReturns[None](_summarize_tool_content, keep_recent=0)
 
+    compacted = await compact.compact([request], cast(RunContext[None], None))
 
-def test_candidate_summary_preserves_ordered_candidates_verbatim() -> None:
-    candidates = [
-        {"bangumi_id": "485", "title": "涼宮ハルヒの憂鬱"},
-        {"bangumi_id": "1177", "title": "涼宮ハルヒちゃんの憂鬱"},
-    ]
-    payload = {"ambiguous": True, "candidates": candidates}
-
-    assert _candidate_summary(payload) == (
+    compacted_request = cast(ModelRequest, compacted[0])
+    compacted_return = cast(ToolReturnPart, compacted_request.parts[0])
+    assert compacted_return.content == (
         "[resolve_anime: ambiguous, ordered_candidates="
-        f"{json.dumps(candidates, ensure_ascii=False, separators=(',', ':'))}]"
+        f"{json.dumps(_candidate_ids(), ensure_ascii=False, separators=(',', ':'))}]"
     )
 
 

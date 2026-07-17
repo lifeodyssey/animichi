@@ -23,6 +23,7 @@ interface FixtureRow {
   image: string | null;
   latitude: number;
   longitude: number;
+  city: string | null;
 }
 
 const KAMAKURA: FixtureRow = {
@@ -35,6 +36,7 @@ const KAMAKURA: FixtureRow = {
   image: "https://image.anitabi.cn/spot-1.jpg",
   latitude: 35.3066,
   longitude: 139.4889,
+  city: "Kamakura",
 };
 
 /** Build a fake CatalogDb whose execute() returns the given rows once. */
@@ -48,14 +50,14 @@ async function assertContractShape(): Promise<void> {
   expect(point).toEqual({
     id: "spot-1", name: "鎌倉高校前駅", name_cn: "镰仓高校前站", bangumi_id: "100",
     episode: 1, time_seconds: 42, screenshot_url: "https://image.anitabi.cn/spot-1.jpg",
-    latitude: 35.3066, longitude: 139.4889,
+    latitude: 35.3066, longitude: 139.4889, city: "Kamakura",
   });
 }
 
 async function assertNullCoercion(): Promise<void> {
   const bare: FixtureRow = {
     id: "spot-2", name: "鷲宮神社", name_cn: null, bangumi_id: "200",
-    episode: null, time_seconds: null, image: null, latitude: 36.1019, longitude: 139.6586,
+    episode: null, time_seconds: null, image: null, latitude: 36.1019, longitude: 139.6586, city: null,
   };
   const { point } = await spots(fakeDb([bare]), { bangumi_id: "200" });
   expect(point.name_cn).toBeUndefined();

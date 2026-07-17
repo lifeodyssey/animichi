@@ -32,6 +32,7 @@ interface DetailRow {
   episode: number | null;
   time_seconds: number | null;
   origin: string | null;
+  city: string | null;
 }
 
 const GEO: GeoRow[] = [
@@ -40,8 +41,8 @@ const GEO: GeoRow[] = [
 ];
 
 const DETAILS: DetailRow[] = [
-  { id: "washinomiya", bangumi_id: "lucky-star", name_cn: "鹫宫神社", image: "https://img/w.jpg", episode: 1, time_seconds: 12, origin: "anitabi" },
-  { id: "satte", bangumi_id: "lucky-star", name_cn: null, image: null, episode: null, time_seconds: null, origin: null },
+  { id: "washinomiya", bangumi_id: "lucky-star", name_cn: "鹫宫神社", image: "https://img/w.jpg", episode: 1, time_seconds: 12, origin: "anitabi", city: "Kuki" },
+  { id: "satte", bangumi_id: "lucky-star", name_cn: null, image: null, episode: null, time_seconds: null, origin: null, city: null },
 ];
 
 /** Minimal CatalogDb double: handles the detail-load IN read via db.execute(sql). */
@@ -82,6 +83,7 @@ describe("nearby (api/nearby.ts)", () => {
       latitude: 36.1019,
       longitude: 139.6586,
       origin: "anitabi",
+      city: "Kuki",
     });
   });
 

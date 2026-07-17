@@ -1,4 +1,4 @@
-"""Native tiered history compaction and legacy rollback selection."""
+"""Native tiered history compaction behavior."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from typing import cast
 
 import pytest
 from pydantic_ai import Agent
-from pydantic_ai.capabilities import ProcessHistory
 from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.messages import (
     ModelMessage,
@@ -54,8 +53,8 @@ def _user_texts(messages: list[ModelMessage]) -> list[str]:
     ]
 
 
-def test_modern_history_uses_one_tiered_capability() -> None:
-    capabilities = _history_capabilities(modern=True)
+def test_history_uses_one_tiered_capability() -> None:
+    capabilities = _history_capabilities()
     assert len(capabilities) == 1
     tiered = cast(TieredCompaction[RuntimeDeps], capabilities[0])
     assert isinstance(tiered, TieredCompaction)
@@ -64,18 +63,13 @@ def test_modern_history_uses_one_tiered_capability() -> None:
     assert isinstance(summary, SummarizingCompaction)
     assert isinstance(window, SlidingWindow)
     assert tiered.target_tokens == HISTORY_MAX_TOKENS == 5_500
+    assert window.max_tokens == HISTORY_MAX_TOKENS
     assert window.keep_tokens == HISTORY_KEEP_TOKENS == 1_100
     assert summary.keep_tokens == SUMMARY_KEEP_TOKENS == 900
     assert summary.model is None
     assert summary.summary_prompt == SUMMARY_PROMPT
     assert "ordered candidate lists" in SUMMARY_PROMPT
     assert '"第一个"' in SUMMARY_PROMPT
-
-
-def test_legacy_history_keeps_hand_rolled_processors() -> None:
-    capabilities = _history_capabilities(modern=False)
-    assert len(capabilities) == 2
-    assert all(isinstance(item, ProcessHistory) for item in capabilities)
 
 
 async def test_tier_one_prevents_unneeded_summary_call() -> None:

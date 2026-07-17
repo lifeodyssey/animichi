@@ -9,7 +9,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./models": "./src/models.ts",
-    "./contract": "./src/contract.ts"
+    "./contract": "./src/contract.ts",
+    "./constants": "./src/constants.ts"
   },
   "scripts": {
     "emit:openapi": "tsx scripts/emit-openapi.ts",

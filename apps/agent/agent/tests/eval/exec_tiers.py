@@ -276,8 +276,8 @@ def _score_reason(score: object) -> str | None:
     return reason if isinstance(reason, str) else None
 
 
-def _output_intent(output: object | None) -> str | None:
-    return output.intent if isinstance(output, AgentResult) else None
+def _output_intent(result: object | None) -> str | None:
+    return result.intent if isinstance(result, AgentResult) else None
 
 
 def _output_message(output: object | None) -> str | None:

@@ -7,10 +7,11 @@ from typing import cast
 
 from pydantic_ai import RunContext
 
-from agent.agents.catalog_adapter import build_search_payload
-from agent.agents.catalog_tools import _run_catalog_route
+from agent.agents.catalog_adapter import build_search_state
+from agent.agents.catalog_route_tools import run_route
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.selected_route import execute_selected_route
+from agent.agents.session_state import ResultRef, SessionState
 from agent.domain.ports import DatabasePort
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
@@ -33,9 +34,11 @@ def _deps(catalog: MockCatalogClient) -> RuntimeDeps:
     )
 
 
-def _ordered_ids(payload: dict[str, object]) -> list[str]:
-    rows = cast(list[dict[str, object]], payload["ordered_points"])
-    return [str(row["id"]) for row in rows]
+def _route_ids(deps: RuntimeDeps) -> list[str]:
+    ref = deps.tool_state.session.route_lru[-1]
+    return [
+        point.id or "" for point in deps.tool_state.session.routes[ref].ordered_points
+    ]
 
 
 async def test_selected_route_and_chat_route_use_same_catalog_order() -> None:
@@ -45,17 +48,23 @@ async def test_selected_route_and_chat_route_use_same_catalog_order() -> None:
 
     selected = await execute_selected_route(
         point_ids=point_ids,
+        state=SessionState(),
         origin=None,
         locale="ja",
         catalog=catalog,
     )
 
     deps = _deps(catalog)
-    deps.tool_state["search_bangumi"] = build_search_payload(
-        points, tool="search_bangumi"
+    result_ref = ResultRef("search:test")
+    deps.tool_state.session.store_search_result(
+        result_ref,
+        build_search_state(points, kind="bangumi", anime_id="115908", locale="en"),
     )
-    await _run_catalog_route(_ctx(deps), catalog, params={})
+    await run_route(_ctx(deps), catalog, str(result_ref), None)
 
-    chat_payload = cast(dict[str, object], deps.tool_state["plan_route"])
-    selected_payload = cast(dict[str, object], selected.tool_state["plan_selected"])
-    assert _ordered_ids(selected_payload) == _ordered_ids(chat_payload)
+    selected_ref = selected.session_state.route_lru[-1]
+    selected_ids = [
+        point.id or ""
+        for point in selected.session_state.routes[selected_ref].ordered_points
+    ]
+    assert selected_ids == _route_ids(deps)

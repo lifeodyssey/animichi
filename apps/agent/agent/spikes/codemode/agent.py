@@ -27,9 +27,7 @@ CODEMODE_TOOL_NAMES = tuple(
 
 def build_codemode_animichi_agent() -> Agent[RuntimeDeps, RuntimeOutput]:
     """Build the spike-only agent without touching the production singleton."""
-    capabilities: list[AgentCapability[RuntimeDeps]] = [
-        *_history_capabilities(modern=True)
-    ]
+    capabilities: list[AgentCapability[RuntimeDeps]] = [*_history_capabilities()]
     capabilities.extend([_modern_hooks(), CodeMode(tools=CODEMODE_TOOL_NAMES)])
     agent: Agent[RuntimeDeps, RuntimeOutput] = Agent(
         resolve_model(None),

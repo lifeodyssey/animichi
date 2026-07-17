@@ -15,7 +15,7 @@ from pydantic_ai.common_tools.duckduckgo import (
     DuckDuckGoResult,
     duckduckgo_search_tool,
 )
-from pydantic_ai.tools import Tool, ToolFuncEither
+from pydantic_ai.tools import ToolFuncEither
 
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.translation import TranslationResult, translate_title
@@ -73,20 +73,22 @@ async def web_search(
     *,
     query: str,
 ) -> str:
-    """Search the web for information using DuckDuckGo.
+    """Search the web for QA and title enrichment using DuckDuckGo.
 
-    Use this when you need to:
+    Use this only when you need to:
     - Find the correct translation of an anime title
-    - Look up information about a pilgrimage location
-    - Verify facts about an anime or location
+    - Verify a fact about an anime or an already-known location
     - Find community-accepted translations from 萌娘百科 or Wikipedia
+
+    Do not use this tool to find pilgrimage locations or spots. Use the catalog
+    tools search_nearby and search_bangumi for pilgrimage discovery.
 
     Args:
         query: The search query. Be specific. Include the language you want results in.
                Examples:
                - "響け！ユーフォニアム Chinese name 中文名"
                - "Your Name anime Japanese title"
-               - "宇治駅 anime pilgrimage spots"
+               - "葬送のフリーレン English title Wikipedia"
 
     Returns a text summary of the top search results.
     """
@@ -109,10 +111,10 @@ async def translate_anime_title(
     title: str,
     target_language: str,
 ) -> dict[str, object]:
-    """Translate an anime title to a target language using authoritative sources.
+    """Translate an anime title through catalog or tool-less localization.
 
-    This tool searches Bangumi, 萌娘百科, and Wikipedia for the community-accepted
-    translation. It does NOT hard-translate — it finds the official localized title.
+    Chinese titles resolve through the authoritative catalog. English, Japanese,
+    and catalog misses use a tool-less translation model.
 
     IMPORTANT: Always use this tool when you need to show an anime title in a
     different language from the original. Do not guess translations.
@@ -122,9 +124,9 @@ async def translate_anime_title(
                Examples: "君の名は。", "Your Name", "你的名字"
         target_language: Target language code: "ja", "zh", or "en"
 
-    Returns: {"original": "...", "translated": "...", "source": "db|bangumi_api|web_search", "confidence": 0.0-1.0}
+    Returns: {"original": "...", "translated": "...", "source": "catalog|llm|untranslated", "confidence": 0.0-1.0}
     """
-    result = await _translate_title(ctx.deps, title, target_language)
+    result = await _translate_title(ctx, title, target_language)
     return {
         "original": result.original,
         "translated": result.translated,
@@ -134,16 +136,18 @@ async def translate_anime_title(
 
 
 async def _translate_title(
-    deps: RuntimeDeps, title: str, target_language: str
+    ctx: RunContext[RuntimeDeps], title: str, target_language: str
 ) -> TranslationResult:
+    deps = ctx.deps
     if deps.title_translator is not None:
         return await deps.title_translator(title, target_language)
-    return await translate_title(title, target_locale=target_language, db=deps.db)
+    return await translate_title(
+        title,
+        target_locale=target_language,
+        kind="anime_title",
+        catalog=deps.catalog,
+        ctx=ctx,
+    )
 
 
 TOOLS: list[ToolFuncEither[RuntimeDeps]] = [web_search, translate_anime_title]
-
-DEFERRED_TOOLS: list[Tool[RuntimeDeps]] = [
-    Tool(web_search, defer_loading=True),
-    Tool(translate_anime_title, defer_loading=True),
-]

@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic_ai import Agent, Tool
-from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
+from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
@@ -25,6 +25,7 @@ from agent.agents.animichi_runner import (
     run_animichi_agent,
 )
 from agent.agents.animichi_tools import CATALOG_TOOL_TIMEOUT_SECONDS, TOOLS
+from agent.agents.runtime_models import PartialResponseModel
 from agent.config.settings import Settings
 from agent.domain.ports import DatabasePort
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
@@ -45,38 +46,35 @@ async def test_runner_stops_looping_tool_calls_at_usage_limit() -> None:
     def loop(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
         nonlocal requests
         requests += 1
-        return ModelResponse(parts=[ToolCallPart("greet_user", {"message": "Hello."})])
+        return ModelResponse(parts=[ToolCallPart("resolve_anime", {"title": "x"})])
 
-    with pytest.raises(UsageLimitExceeded, match="request_limit"):
-        await run_animichi_agent(
-            text="hello",
-            db=_db(),
-            locale="en",
-            catalog=MockCatalogClient(),
-            model=FunctionModel(loop),
-        )
+    result = await run_animichi_agent(
+        text="hello",
+        db=_db(),
+        locale="en",
+        catalog=MockCatalogClient(),
+        model=FunctionModel(loop),
+    )
 
     assert requests == REQUEST_LIMIT
     assert requests < TOOL_CALLS_LIMIT
+    assert isinstance(result.output, PartialResponseModel)
+    assert (result.intent, result.success, result.status) == (
+        "partial",
+        False,
+        "partial",
+    )
 
 
-@pytest.mark.parametrize(
-    "error",
-    [
-        UsageLimitExceeded("tool limit reached"),
-        UnexpectedModelBehavior("model retry limit reached"),
-    ],
-)
 async def test_native_run_failures_map_to_existing_error_path(
     monkeypatch: pytest.MonkeyPatch,
-    error: Exception,
 ) -> None:
     install_mock_pipeline(monkeypatch)
     with patch(
         "agent.interfaces.public_api.run_animichi_agent",
-        new=AsyncMock(side_effect=error),
+        new=AsyncMock(side_effect=UnexpectedModelBehavior("model retry limit reached")),
     ):
-        response = await RuntimeAPI(MagicMock()).handle(
+        response = await RuntimeAPI(MagicMock(), model_http_client=MagicMock()).handle(
             PublicAPIRequest(text="秒速5厘米的取景地在哪")
         )
 
