@@ -21,7 +21,6 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from typing import Annotated, Literal, Protocol, Self, TypeAlias, runtime_checkable
-from urllib.request import getproxies, proxy_bypass
 
 import anyio
 import httpx
@@ -286,9 +285,7 @@ class CatalogClient:
     def _http(self) -> httpx.AsyncClient:
         """Return the shared httpx client, creating it lazily."""
         if self._client is None or self._client.is_closed:
-            wrapped = httpx.AsyncHTTPTransport(
-                proxy=_environment_proxy(self._base_url), trust_env=True
-            )
+            wrapped = httpx.AsyncHTTPTransport(trust_env=True)
             transport = AsyncTenacityTransport(
                 _retry_config(self._max_retries),
                 wrapped=wrapped,
@@ -369,18 +366,6 @@ def _return_last_response(state: RetryCallState) -> httpx.Response:
     if not isinstance(result, httpx.Response):
         raise RuntimeError("Catalog retry returned a non-response outcome")
     return result
-
-
-def _environment_proxy(base_url: str) -> str | None:
-    """Resolve the standard proxy environment for this single-host client."""
-    url = httpx.URL(base_url)
-    proxies = getproxies()
-    if url.host is None or proxy_bypass(url.host):
-        return None
-    proxy = proxies.get(url.scheme) or proxies.get("all")
-    if proxy is None or "://" in proxy:
-        return proxy
-    return f"http://{proxy}"
 
 
 def _raise_for_error(response: httpx.Response, url: str) -> None:
