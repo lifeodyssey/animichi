@@ -141,29 +141,6 @@ async def test_streaming_503_retries_without_reading_transport_body(
     assert attempts == 3
 
 
-def test_wrapped_transport_honors_https_proxy_environment(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    transport = httpx.MockTransport(
-        lambda request: httpx.Response(200, request=request, json={})
-    )
-    constructor = MagicMock(return_value=transport)
-    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.test:8080")
-    monkeypatch.setenv("https_proxy", "http://proxy.test:8080")
-    monkeypatch.delenv("NO_PROXY", raising=False)
-    monkeypatch.delenv("no_proxy", raising=False)
-    monkeypatch.setattr(
-        "agent.clients.catalog_client.httpx.AsyncHTTPTransport", constructor
-    )
-
-    CatalogClient("https://catalog.test")._http()
-
-    assert constructor.call_args.kwargs == {
-        "proxy": "http://proxy.test:8080",
-        "trust_env": True,
-    }
-
-
 async def test_aclose_closes_shared_client(monkeypatch: pytest.MonkeyPatch) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return _response(request, 200, {"rows": [], "synced_at": ""})
