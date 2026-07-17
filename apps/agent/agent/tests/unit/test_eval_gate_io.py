@@ -68,7 +68,8 @@ def test_rejects_unknown_schema_version() -> None:
 def test_committed_baselines_validate() -> None:
     paths = sorted(_BASELINES_DIR.glob("*.json"))
 
-    assert len(paths) == 4
+    # official-v1 retirement: both DeepSeek baselines (retired vocabulary) removed.
+    assert len(paths) == 3
     for path in paths:
         BaselineRecord.model_validate_json(path.read_text())
 
