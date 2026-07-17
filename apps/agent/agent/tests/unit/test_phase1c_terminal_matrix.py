@@ -1,4 +1,4 @@
-"""Boundary pins for the deterministic T1-T6 selection matrix."""
+"""Boundary pins for the deterministic T1-T7 selection matrix."""
 
 import httpx
 
@@ -124,6 +124,24 @@ async def test_route_transport_failure_is_typed_and_preserves_pending() -> None:
     )
     assert (result.status, result.success) == ("error", False)
     assert state.pending_clarification is not None
+
+
+async def test_t7_partial_sync_returns_results_without_routing() -> None:
+    state = _pending()
+    catalog = _Catalog({"1": SearchResult(rows=[_point("preview", "1")], partial=True)})
+
+    result = await execute_multi_selection(
+        candidate_ids=["1"], state=state, locale="en", catalog=catalog
+    )
+    wire = agent_result_to_response(result, include_debug=False)
+    payload = state.search_results[state.last_result_ref]
+
+    assert (result.status, result.success, payload.partial) == ("partial", False, True)
+    assert "results" in wire.data and "route" not in wire.data
+    assert wire.data["results"]["partial"] is True
+    assert all(call[0] != "route" for call in catalog.calls)
+    assert state.pending_clarification is not None
+    assert (result.steps[-1].success, result.steps[-1].error) == (True, None)
 
 
 async def test_selection_emits_typed_running_and_done_events() -> None:

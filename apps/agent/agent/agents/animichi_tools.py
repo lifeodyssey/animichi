@@ -47,7 +47,7 @@ async def search_bangumi(
     ctx: RunContext[RuntimeDeps],
     bangumi_id: Annotated[str, Field(pattern=r"^\d+$")],
 ) -> SearchToolResult:
-    """Fetch published pilgrimage points by an already-resolved work ID."""
+    """Fetch points by work ID; upstream_unavailable means ask the user to retry."""
     await _emit(ctx, "search_bangumi", "running", {})
     result = await run_work_search(ctx, ctx.deps.catalog, bangumi_id)
     await _emit(ctx, "search_bangumi", "done", result.model_dump())
@@ -73,7 +73,7 @@ async def plan_route(
     search_result_ref: Annotated[str, Field(min_length=1)],
     pacing: Literal["chill", "normal", "packed"] | None = None,
 ) -> RouteToolResult:
-    """Plan a route over exactly one explicit stored search-result reference."""
+    """Plan one stored result; pending_sync means wait for catalog publication."""
     await _emit(ctx, "plan_route", "running", {})
     result = await run_route(ctx, ctx.deps.catalog, search_result_ref, pacing)
     await _emit(ctx, "plan_route", "done", result.model_dump())

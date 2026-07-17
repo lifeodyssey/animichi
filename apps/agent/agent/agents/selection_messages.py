@@ -9,18 +9,21 @@ _MULTI_MESSAGES = {
     "en": {
         "ok": "Selected works were merged and routed.",
         "empty": "No catalog spots exist for those works yet; choose different ones.",
+        "partial": "Those works are still syncing. Results are shown, but route planning is not ready yet; retry shortly.",
         "too_large": "That selection has too many spots; narrow your selection.",
         "error": "The catalog could not load those works; please retry.",
     },
     "ja": {
         "ok": "選択した作品のスポットをまとめてルートを作成しました。",
         "empty": "選択した作品にはまだスポットがありません。別の作品を選んでください。",
+        "partial": "選択した作品は同期中です。結果は表示できますが、ルート作成はまだできません。しばらくしてからもう一度お試しください。",
         "too_large": "スポットが多すぎます。選択する作品を減らしてください。",
         "error": "作品データを取得できませんでした。もう一度お試しください。",
     },
     "zh": {
         "ok": "已合并所选作品的地点并规划路线。",
         "empty": "所选作品暂时没有收录地点，请改选其他作品。",
+        "partial": "所选作品仍在同步中。当前可显示结果，但暂时不能规划路线，请稍后重试。",
         "too_large": "地点过多，请减少所选作品。",
         "error": "暂时无法载入这些作品，请重试。",
     },

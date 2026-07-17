@@ -49,10 +49,15 @@ class SearchOk(_Outcome):
 class SearchEmpty(_Outcome):
     outcome: Literal["empty"] = "empty"
     anime_title: str | None = None
+    partial: bool = False
+
+
+class SearchUpstreamDown(_Outcome):
+    outcome: Literal["upstream_unavailable"] = "upstream_unavailable"
 
 
 SearchToolResult: TypeAlias = Annotated[
-    SearchOk | SearchEmpty, Field(discriminator="outcome")
+    SearchOk | SearchEmpty | SearchUpstreamDown, Field(discriminator="outcome")
 ]
 
 
@@ -107,6 +112,11 @@ class RouteStaleRef(_Outcome):
     status: Literal["stale_ref"] = "stale_ref"
 
 
+class RoutePendingSync(_Outcome):
+    status: Literal["pending_sync"] = "pending_sync"
+
+
 RouteToolResult: TypeAlias = Annotated[
-    RouteOk | RouteEmpty | RouteStaleRef, Field(discriminator="status")
+    RouteOk | RouteEmpty | RouteStaleRef | RoutePendingSync,
+    Field(discriminator="status"),
 ]
