@@ -7,6 +7,9 @@ import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
+from pydantic_evals.evaluators import EvaluatorContext, MaxModelRequests
+from pydantic_evals.otel import SpanTree
+
 from agent.agents.agent_result import AgentResult
 
 REQUEST_LIMIT = 12
@@ -76,7 +79,7 @@ def print_direct_thrash_metrics(
 
 def _case_failures(case: TrajectoryCase) -> list[str]:
     failures: list[str] = []
-    if case.requests > REQUEST_LIMIT:
+    if not _request_limit_passes(case.requests):
         failures.append(
             f"{case.case_id}: requests={case.requests} exceeds limit={REQUEST_LIMIT}"
         )
@@ -87,6 +90,25 @@ def _case_failures(case: TrajectoryCase) -> list[str]:
         )
     failures.extend(_repeat_failures(case))
     return failures
+
+
+def _request_limit_passes(requests: int) -> bool:
+    result = MaxModelRequests(REQUEST_LIMIT).evaluate(_request_context(requests))
+    return result.value is True
+
+
+def _request_context(requests: int) -> EvaluatorContext[object, object, object]:
+    return EvaluatorContext(
+        name=None,
+        inputs=None,
+        metadata=None,
+        expected_output=None,
+        output=None,
+        duration=0.0,
+        _span_tree=SpanTree(),
+        attributes={},
+        metrics={"requests": requests},
+    )
 
 
 def _repeat_failures(case: TrajectoryCase) -> list[str]:

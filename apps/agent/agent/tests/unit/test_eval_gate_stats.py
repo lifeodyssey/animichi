@@ -50,10 +50,10 @@ def test_identical_scores_pass() -> None:
     assert failures == []
 
 
-def test_additive_current_metric_is_ignored_by_legacy_baseline() -> None:
+def test_current_only_metric_is_ignored_by_baseline_comparison() -> None:
     current = _cases(50, 1.0)
     for scores in current.values():
-        scores["argument_correctness_official"] = 0.0
+        scores["argument_correctness"] = 0.0
 
     assert bootstrap_gate(current, _record(_cases(50, 1.0))) == []
 

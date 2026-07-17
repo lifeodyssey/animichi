@@ -68,7 +68,8 @@ def test_rejects_unknown_schema_version() -> None:
 def test_committed_baselines_validate() -> None:
     paths = sorted(_BASELINES_DIR.glob("*.json"))
 
-    assert len(paths) == 6
+    # official-v1 retirement: both DeepSeek baselines (retired vocabulary) removed.
+    assert len(paths) == 3
     for path in paths:
         BaselineRecord.model_validate_json(path.read_text())
 
@@ -117,6 +118,37 @@ def test_read_returns_none_for_low_evaluated_count(tmp_path: Path) -> None:
         "m",
         baselines_dir=tmp_path,
         expected_case_count=10,
+    )
+
+    assert result is None
+
+
+def test_read_returns_none_for_stale_metric_vocabulary(tmp_path: Path) -> None:
+    write_baseline_record(
+        _record(), layer="agent", model_id="m", baselines_dir=tmp_path
+    )
+
+    result = read_baseline_record(
+        "agent",
+        "m",
+        baselines_dir=tmp_path,
+        expected_case_count=2,
+        expected_metrics=["tool_correctness"],
+    )
+
+    assert result is None
+
+
+def test_read_rejects_stale_per_case_metric_vocabulary(tmp_path: Path) -> None:
+    record = _record().model_copy(update={"scores": {"tool_correctness": 1.0}})
+    write_baseline_record(record, layer="agent", model_id="m", baselines_dir=tmp_path)
+
+    result = read_baseline_record(
+        "agent",
+        "m",
+        baselines_dir=tmp_path,
+        expected_case_count=2,
+        expected_metrics=["tool_correctness"],
     )
 
     assert result is None
