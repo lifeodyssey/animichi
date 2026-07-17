@@ -42,7 +42,7 @@ from agent.infrastructure.observability import (
 MANAGED_PROMPT_NAME = "animichi-instructions"
 MANAGED_PROMPT_LABEL = "production"
 _LOCAL_PROMPT_VERSION = (
-    "sha256:22dd743f0cbd213a0414b0708df87219fc2c71741ede70e07b8b03786d72e091"
+    "sha256:0447f548a999f472626f53839fc273cea9c74338b7a125e1ec171f0c8689e825"
 )
 _PROMPT_RESOLUTION_DEADLINE_SECONDS = 2.0
 _PROMPT_RESOLUTION_EXECUTOR = ThreadPoolExecutor(
@@ -80,6 +80,7 @@ Never fabricate locations, coordinates, routes, candidate identity, or catalog d
 - search_nearby place_ambiguity: emit clarify_response using place_candidate_ids.
 - search_nearby place_unresolved: emit clarify_response using its reason and [].
 - search_nearby missing_location: emit clarify_response with missing_location and [].
+- search_nearby or plan_route upstream_unavailable: emit qa_response asking the user to retry.
 - plan_route ok: emit route_response; stale_ref means re-run the relevant search.
 - plan_route pending_sync: emit search_response explaining that catalog data is still syncing and route planning can be retried shortly.
 Never infer ambiguity from query length. Branch only on typed tool outcomes.

@@ -183,6 +183,10 @@ Routing defined by `wrangler.toml`:
 
 There are two workflow-backed deploy paths. Neither path is tag-triggered.
 
+### Schema change policy
+
+Migrations can finish before the new container replaces the old one, so a destructive change can briefly break old code that still reads or writes the removed schema; the `route_anime` release, for example, dropped `routes.bangumi_id` in the same release that changed the writer. For schema changes where that overlap matters, use expand/contract: add the replacement first, deploy compatible readers and writers, then remove the old column in a later release. Today’s infrequent, approval-gated cadence keeps this window low-risk, but it does not make destructive same-release changes safe by construction.
+
 ### Main promotion path (`.github/workflows/ci.yml`)
 
 `ci.yml` runs on pushes to `main` and `develop`, plus pull requests. Deploy jobs are narrower: they
