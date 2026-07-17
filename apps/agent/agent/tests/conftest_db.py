@@ -208,7 +208,6 @@ async def real_db(db_pool: asyncpg.Pool) -> AsyncIterator[SupabaseClient]:
     client._points = None
     client._session = None
     client._feedback = None
-    client._user_memory = None
     client._routes = None
     client._messages = None
     client._init_repos(db_pool)

@@ -77,7 +77,6 @@ def _blocked_result() -> AgentResult:
 
 def _db() -> MagicMock:
     db = MagicMock(spec=SupabaseClient)
-    db.user_memory.get_user_memory = AsyncMock(return_value=None)
     db.session.upsert_session = AsyncMock()
     db.insert_message = AsyncMock()
     db.insert_request_log = AsyncMock()

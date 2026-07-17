@@ -19,7 +19,6 @@ from agent.domain.ports import (
     get_bangumi_repo,
     get_routes_repo,
     get_session_repo,
-    get_user_memory_repo,
 )
 from agent.infrastructure.session import SessionStore
 from agent.interfaces.schemas import (
@@ -106,14 +105,13 @@ async def persist_result(
         session_state["route_history"] = route_history[-MAX_ROUTE_HISTORY:]
 
     await persist_session(db, session_store, session_id, session_state, response)
-    generated_title = await persist_user_state(
+    await persist_conversation(
         db=db,
         session_id=session_id,
         user_id=user_id,
         request=request,
         response=response,
         result=result,
-        context_delta=context_delta,
     )
     await persist_messages(
         db=db,
@@ -131,7 +129,7 @@ async def persist_result(
     # docs/superpowers/plans/2026-07-07-refactor-backlog.md; re-evaluate when
     # conversation-history work lands.
 
-    return session_state, True, generated_title
+    return session_state, True, None
 
 
 async def _safe_insert_message(
@@ -205,7 +203,7 @@ async def persist_session(
         await session_repo.upsert_session(session_id, session_state, metadata=metadata)
 
 
-async def persist_user_state(
+async def persist_conversation(
     *,
     db: object,
     session_id: str,
@@ -213,13 +211,11 @@ async def persist_user_state(
     request: PublicAPIRequest,
     response: PublicAPIResponse,
     result: AgentResult | None,
-    context_delta: dict[str, object],
-) -> str | None:
-    """Persist user state and return generated title (if first interaction)."""
+) -> None:
+    """Persist the authenticated user's conversation index entry."""
     if not user_id or result is None or not response.success:
-        return None
+        return
 
-    generated_title: str | None = None
     session_repo = get_session_repo(db)
     if session_repo is not None:
         try:
@@ -229,41 +225,6 @@ async def persist_user_state(
         # DECISION(2026-07-07): auto-generated conversation titles stay
         # disabled pending the conversation-history feature landing —
         # tracked in docs/superpowers/plans/2026-07-07-refactor-backlog.md.
-
-    bangumi_id = context_delta.get("bangumi_id")
-    if not isinstance(bangumi_id, str):
-        return generated_title
-    user_memory_repo = get_user_memory_repo(db)
-    if user_memory_repo is None:
-        return generated_title
-
-    anime_title_raw = context_delta.get("anime_title")
-    anime_title = anime_title_raw if isinstance(anime_title_raw, str) else None
-    try:
-        await user_memory_repo.upsert_user_memory(
-            user_id,
-            bangumi_id=bangumi_id,
-            anime_title=anime_title,
-        )
-    except _PERSIST_ERRORS:
-        logger.warning("upsert_user_memory_failed", user_id=user_id)
-
-    return generated_title
-
-
-async def load_user_memory(db: object, user_id: str | None) -> dict[str, object] | None:
-    if not user_id:
-        return None
-    user_memory_repo = get_user_memory_repo(db)
-    if user_memory_repo is None:
-        return None
-
-    try:
-        result = await user_memory_repo.get_user_memory(user_id)
-        return dict(result) if result else None
-    except _PERSIST_ERRORS:
-        logger.warning("get_user_memory_failed", user_id=user_id)
-        return None
 
 
 async def load_session_state(

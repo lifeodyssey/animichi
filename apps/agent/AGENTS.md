@@ -8,6 +8,8 @@ catalog** — it never calls external anime APIs in the request path and never w
 
 - `make test` (pytest `--asyncio-mode=auto`) · `make test-integration` · `make typecheck` (mypy strict) ·
   `make lint` (ruff). Pre-commit runs ruff + mypy on every commit.
+- `make test-eval` — official model-backed runner plus translation eval. The pytest eval entry is a
+  transition alias sharing the same report/gate path, not the primary interface.
 - Directly: `cd apps/agent && uv run pytest agent/tests/unit/`. Seed data: `agent/tests/fixtures/seed.sql`.
 - In a worktree, format with `uv tool run ruff format` (not `uv run …`).
 
@@ -19,7 +21,19 @@ bypass the model through `execute_selected_route()`, `execute_multi_selection()`
 `execute_place_selection()`.
 
 - Entry: `agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/animichi_runner.py`.
+- Agent constructor: `build_animichi_agent()`; PydanticAI name: `animichi`.
 - Shared types: `agent/agents/models.py`, `agent/agents/agent_result.py`.
+
+## PydanticAI 2.9.1 composition
+
+- Tools are constructor-injected from typed `TOOLS` lists in `animichi_tools.py` / `web_tools.py`.
+  Registration no longer depends on import order.
+- The `on.run_error` hook records telemetry and re-raises. Session/locale state is serialized by
+  `trusted_session_context()` instead of the pre-redesign `before_model_request` hook.
+- `web_search` + `translate_anime_title` are regular constructor-injected tools; the pre-redesign
+  keyword `ToolSearch` deferral and `ANIMICHI_MODERN_COMPOSITION` rollback switch are retired.
+- ManagedPrompt is default-off and needs all three gates: `ANIMICHI_MANAGED_PROMPT=1`,
+  `LOGFIRE_TOKEN`, and `LOGFIRE_API_KEY`; otherwise local instructions win.
 
 ## Tools and outputs
 
@@ -82,6 +96,13 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
 
 ## Test environment reality
 
+- Unit tests are hermetic: the autouse fixture sets `pydantic_ai.models.ALLOW_MODEL_REQUESTS=False`
+  and installs test models/keys. `.env` is not needed for `make test`; it is needed for live evals.
+- `MIMO_API_KEY` is selected by `_resolve_api_key()` in `agents/base.py` only for
+  `xiaomimimo.com` model endpoints; do not reuse a generic key by accident.
+- Official eval entry: `agent/tests/eval/run_agent_eval.py`. It streams one status line per case,
+  persists reports, creates/enforces statistical baselines, and exits nonzero on gate regression or
+  all-error runs. Never refresh a baseline merely to pass a gate.
 - Integration/eval suites that import `pg_container` (`agent/tests/conftest_db.py`) need a
   **Docker-compatible runtime** (Docker / Colima on Mac) and use **testcontainers PostGIS**
   (`postgis/postgis:16-3.4`). `SUPABASE_DB_URL` / `supabase start` alone is NOT sufficient for those

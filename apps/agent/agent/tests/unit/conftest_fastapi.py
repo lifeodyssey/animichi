@@ -27,7 +27,6 @@ def build_stub_db() -> MagicMock:
     db.feedback = MagicMock()
     db.routes = MagicMock()
     db.messages = MagicMock()
-    db.user_memory = MagicMock()
     db.messages.get_messages = AsyncMock(return_value=[])
     db.feedback.save_feedback = AsyncMock(return_value="fb-001")
     db.session.get_conversations = AsyncMock(return_value=[])

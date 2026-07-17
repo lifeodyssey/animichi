@@ -19,9 +19,6 @@ from agent.infrastructure.supabase.repositories.messages import MessagesReposito
 from agent.infrastructure.supabase.repositories.points import PointsRepository
 from agent.infrastructure.supabase.repositories.routes import RoutesRepository
 from agent.infrastructure.supabase.repositories.session import SessionRepository
-from agent.infrastructure.supabase.repositories.user_memory import (
-    UserMemoryRepository,
-)
 
 logger = structlog.get_logger(__name__)
 
@@ -33,7 +30,7 @@ class SupabaseClient:
 
     Access repositories via explicit typed properties:
     ``db.bangumi``, ``db.points``, ``db.session``, ``db.feedback``,
-    ``db.routes``, ``db.messages``, ``db.user_memory``.
+    ``db.routes``, ``db.messages``.
     """
 
     def __init__(
@@ -47,7 +44,6 @@ class SupabaseClient:
         self._points: PointsRepository | None = None
         self._session: SessionRepository | None = None
         self._feedback: FeedbackRepository | None = None
-        self._user_memory: UserMemoryRepository | None = None
         self._routes: RoutesRepository | None = None
         self._messages: MessagesRepository | None = None
 
@@ -94,7 +90,6 @@ class SupabaseClient:
         self._points = PointsRepository(pool)
         self._session = SessionRepository(pool)
         self._feedback = FeedbackRepository(pool)
-        self._user_memory = UserMemoryRepository(pool)
         self._routes = RoutesRepository(pool)
         self._messages = MessagesRepository(pool)
 
@@ -129,14 +124,6 @@ class SupabaseClient:
                 "FeedbackRepository not initialized — call connect() first"
             )
         return self._feedback
-
-    @property
-    def user_memory(self) -> UserMemoryRepository:
-        if self._user_memory is None:
-            raise RuntimeError(
-                "UserMemoryRepository not initialized — call connect() first"
-            )
-        return self._user_memory
 
     @property
     def routes(self) -> RoutesRepository:
