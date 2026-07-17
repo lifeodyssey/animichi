@@ -11,6 +11,7 @@ from pydantic_ai.exceptions import ModelHTTPError
 
 from agent.agents.agent_result import AgentResult
 from agent.application.errors import InvalidInputError
+from agent.config.settings import Settings
 from agent.interfaces.public_api import (
     PublicAPIRequest,
     PublicAPIResponse,
@@ -134,6 +135,35 @@ class TestPublicAPIResponseUIField:
 
 
 class TestRuntimeAPIErrors:
+    async def test_handle_maps_invalid_model_alias(self, mock_db):
+        api = RuntimeAPI(mock_db, model_http_client=MagicMock())
+        run = AsyncMock()
+
+        with patch(
+            "agent.interfaces.public_api.run_animichi_agent",
+            new=run,
+        ):
+            response = await api.handle(
+                PublicAPIRequest(text="hello", model="__nope__")
+            )
+
+        assert response.success is False
+        assert response.errors[0].code == "invalid_model_alias"
+        run.assert_not_awaited()
+
+    async def test_handle_rejects_url_bearing_model_alias(self, mock_db):
+        api = RuntimeAPI(mock_db, model_http_client=MagicMock())
+        run = AsyncMock()
+
+        with patch("agent.interfaces.public_api.run_animichi_agent", new=run):
+            response = await api.handle(
+                PublicAPIRequest(text="hello", model="openai:x@https://evil.example")
+            )
+
+        assert response.success is False
+        assert response.errors[0].code == "invalid_model_alias"
+        run.assert_not_awaited()
+
     async def test_handle_maps_pipeline_failure(self, mock_db):
         from agent.agents.agent_result import StepRecord
 
@@ -161,7 +191,7 @@ class TestRuntimeAPIErrors:
             return result
 
         with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
-            api = RuntimeAPI(mock_db)
+            api = RuntimeAPI(mock_db, model_http_client=MagicMock())
             response = await api.handle(PublicAPIRequest(text="秒速5厘米的取景地在哪"))
 
         assert response.success is False
@@ -169,7 +199,7 @@ class TestRuntimeAPIErrors:
         assert response.errors[0].message == "A processing step failed."
 
     async def test_handle_maps_application_error(self, mock_db):
-        api = RuntimeAPI(mock_db)
+        api = RuntimeAPI(mock_db, model_http_client=MagicMock())
 
         with patch(
             "agent.interfaces.public_api.run_animichi_agent",
@@ -182,7 +212,7 @@ class TestRuntimeAPIErrors:
         assert response.errors[0].details["field"] == "text"
 
     async def test_handle_maps_unexpected_exception(self, mock_db):
-        api = RuntimeAPI(mock_db)
+        api = RuntimeAPI(mock_db, model_http_client=MagicMock())
 
         with patch(
             "agent.interfaces.public_api.run_animichi_agent",
@@ -196,7 +226,7 @@ class TestRuntimeAPIErrors:
 
     async def test_handle_returns_friendly_message_on_provider_error(self, mock_db):
         """502/503 errors should return user-friendly provider_error, not generic failure."""
-        api = RuntimeAPI(mock_db)
+        api = RuntimeAPI(mock_db, model_http_client=MagicMock())
 
         with patch(
             "agent.interfaces.public_api.run_animichi_agent",
@@ -209,15 +239,13 @@ class TestRuntimeAPIErrors:
         assert "unavailable" in response.message.lower()
         assert response.errors[0].code == "provider_error"
 
-    async def test_handle_returns_timeout_when_agent_exceeds_limit(
-        self, mock_db, monkeypatch
-    ):
+    async def test_handle_returns_timeout_when_agent_exceeds_limit(self, mock_db):
         async def _slow_agent(**kwargs: object) -> AgentResult:
             await asyncio.sleep(5)
             return _make_result()
 
-        monkeypatch.setattr("agent.interfaces.public_api.AGENT_TIMEOUT_SECONDS", 0.01)
-        api = RuntimeAPI(mock_db)
+        settings = Settings(agent_deadline=0.01, model_attempt_timeout=0.004)
+        api = RuntimeAPI(mock_db, settings=settings, model_http_client=MagicMock())
         with patch(
             "agent.interfaces.public_api.run_animichi_agent",
             side_effect=_slow_agent,
@@ -228,13 +256,13 @@ class TestRuntimeAPIErrors:
         assert response.status == "timeout"
         assert response.intent == "error"
 
-    async def test_timeout_response_contains_error_payload(self, mock_db, monkeypatch):
+    async def test_timeout_response_contains_error_payload(self, mock_db):
         async def _slow_agent(**kwargs: object) -> AgentResult:
             await asyncio.sleep(5)
             return _make_result()
 
-        monkeypatch.setattr("agent.interfaces.public_api.AGENT_TIMEOUT_SECONDS", 0.01)
-        api = RuntimeAPI(mock_db)
+        settings = Settings(agent_deadline=0.01, model_attempt_timeout=0.004)
+        api = RuntimeAPI(mock_db, settings=settings, model_http_client=MagicMock())
         with patch(
             "agent.interfaces.public_api.run_animichi_agent",
             side_effect=_slow_agent,
@@ -247,7 +275,7 @@ class TestRuntimeAPIErrors:
         assert response.message != ""
 
     async def test_handle_records_runtime_observability(self, mock_db):
-        api = RuntimeAPI(mock_db)
+        api = RuntimeAPI(mock_db, model_http_client=MagicMock())
         span = DummySpan()
 
         with (
@@ -263,7 +291,7 @@ class TestRuntimeAPIErrors:
 
         assert response.intent == "search_bangumi"
         assert span.attributes["runtime.intent"] == "search_bangumi"
-        assert span.attributes["runtime.status"] == "ok"
+        assert span.attributes["runtime.status"] == "empty"
         assert span.attributes["runtime.success"] is True
         record_metric.assert_called_once()
         assert record_metric.call_args.kwargs["transport"] == "public_api"

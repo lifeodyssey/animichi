@@ -10,8 +10,9 @@ from pydantic_evals.reporting import (
     ReportCaseFailure,
 )
 
-from agent.agents.agent_result import AgentResult, StepRecord
+from agent.agents.agent_result import AgentResult
 from agent.agents.runtime_models import QAResponseModel
+from agent.agents.session_state import SessionState
 from agent.tests.eval.evaluators import AgentExpected, AgentInput
 from agent.tests.eval.exec_tiers import build_results_payload
 
@@ -28,10 +29,12 @@ def _score(
 
 
 def _result() -> AgentResult:
-    output = QAResponseModel(intent="general_qa", message="Hello there")
+    output = QAResponseModel(message="Hello there")
     return AgentResult(
         output=output,
-        steps=[StepRecord(tool="answer_question", success=True)],
+        intent="general_qa",
+        session_state=SessionState(),
+        steps=[],
         usage=RunUsage(input_tokens=12, output_tokens=4, requests=2),
     )
 
@@ -64,6 +67,9 @@ def _case() -> _Case:
 def _scores() -> dict[str, EvaluationResult[int | float]]:
     scores = {"task_completion": _score("task_completion", 1, "judge passed")}
     scores["tool_f1"] = _score("tool_f1", 0.5, None)
+    scores["argument_correctness_official"] = _score(
+        "argument_correctness_official", 1, None
+    )
     return scores
 
 
@@ -92,7 +98,11 @@ def test_build_results_payload_persists_failures_and_reasons() -> None:
         scores={"task_completion": 1.0, "tool_f1": 0.5},
     )
     assert payload.cases[0].reasons == {"task_completion": "judge passed"}
-    assert payload.cases[0].scores == {"task_completion": 1.0, "tool_f1": 0.5}
+    assert payload.cases[0].scores == {
+        "task_completion": 1.0,
+        "tool_f1": 0.5,
+        "argument_correctness_official": 1.0,
+    }
     assert payload.cases[0].expected_stages == ["general_qa"]
     assert payload.cases[1].error == "boom"
     assert payload.cases[1].expected_stages == ["general_qa"]

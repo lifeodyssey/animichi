@@ -5,10 +5,12 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from agent.agents.base import build_model_http_client
 from agent.clients.catalog_client import CatalogClient
 from agent.config.settings import Settings, get_settings
 from agent.infrastructure.session import SessionStore
@@ -48,8 +50,10 @@ async def _lifespan_with_runtime_api(
     app: FastAPI,
     runtime_api: RuntimeAPI,
     db: object | None,
+    model_http_client: httpx.AsyncClient,
 ) -> AsyncIterator[None]:
     """Lifespan branch: runtime_api provided externally (test / injection)."""
+    runtime_api.bind_model_http_client(model_http_client)
     app.state.runtime_api = runtime_api
     resolved_db = db if db is not None else getattr(runtime_api, "_db", None)
     if resolved_db is not None:
@@ -78,6 +82,7 @@ async def _lifespan_build_runtime(
     resolved_settings: Settings,
     db: object | None,
     session_store: SessionStore | None,
+    model_http_client: httpx.AsyncClient,
 ) -> AsyncIterator[None]:
     """Lifespan branch: build RuntimeAPI from scratch (normal startup)."""
     runtime_db = db if db is not None else build_supabase_client(resolved_settings)
@@ -92,6 +97,8 @@ async def _lifespan_build_runtime(
         runtime_db,
         session_store=runtime_session_store,
         catalog=catalog_client,
+        settings=resolved_settings,
+        model_http_client=model_http_client,
     )
     app.state.db_client = runtime_db
     try:
@@ -115,12 +122,25 @@ def create_fastapi_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.settings = resolved_settings
-        if runtime_api is not None:
-            async with _lifespan_with_runtime_api(app, runtime_api, db):
+        model_http_client = build_model_http_client(resolved_settings)
+        app.state.model_http_client = model_http_client
+        try:
+            if runtime_api is not None:
+                async with _lifespan_with_runtime_api(
+                    app, runtime_api, db, model_http_client
+                ):
+                    yield
+                return
+            async with _lifespan_build_runtime(
+                app,
+                resolved_settings,
+                db,
+                session_store,
+                model_http_client,
+            ):
                 yield
-            return
-        async with _lifespan_build_runtime(app, resolved_settings, db, session_store):
-            yield
+        finally:
+            await model_http_client.aclose()
 
     app = FastAPI(lifespan=lifespan)
     setup_logfire(resolved_settings, app=app)

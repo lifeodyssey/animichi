@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import pg from "pg";
 import { makeDb, type CatalogDb } from "../src/db/client";
-import { ingestWork } from "../src/ingest/orchestrator";
+import { ingestGuard, ingestWork } from "../src/ingest/orchestrator";
 import type { FetchLike } from "../src/ingest/sources";
 
 /**
@@ -80,6 +80,13 @@ function makeFetch(points: unknown): FetchLike {
 /** A fetchImpl that throws — simulates an upstream/network failure. */
 const throwingFetch: FetchLike = () => {
   throw new Error("upstream exploded");
+};
+
+const notFoundFetch: FetchLike = (url) => {
+  if (url.includes("/points/detail")) {
+    return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
+  }
+  return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(BANGUMI_SUBJECT) });
 };
 
 /**
@@ -193,7 +200,14 @@ async function backdateNegativeCache(workId: string): Promise<void> {
   );
 }
 
-/** Poll until the work's job row reaches 'running' (winner has acquired). */
+async function negativeCacheSeconds(workId: string): Promise<number | undefined> {
+  const rows = (await db.execute(sql`
+    SELECT EXTRACT(EPOCH FROM (negative_cached_until - NOW()))::int AS seconds
+    FROM ingest_jobs WHERE work_id = ${workId}
+  `)).rows as { seconds: number }[];
+  return rows[0]?.seconds;
+}
+
 async function awaitRunning(workId: string): Promise<void> {
   for (let i = 0; i < 100; i++) {
     if ((await jobStatus(workId)) === "running") return;
@@ -254,7 +268,17 @@ describe("ingestWork empty upstream: no points", () => {
     expect(await jobStatus("empty-work")).toBe("failed");
     expect(await bangumiExists("empty-work")).toBe(false);
     const retry = await ingestWork(db, "empty-work", { fetchImpl });
-    expect(retry.status).toBe("in_progress");
+    expect(retry.status).toBe("empty");
+  });
+
+  it("parks an upstream 404 for seven days and exposes a genuine-empty guard", async () => {
+    const result = await ingestWork(db, "404-work", { fetchImpl: notFoundFetch });
+    const ttl = await negativeCacheSeconds("404-work");
+
+    expect(result.status).toBe("empty");
+    expect(ttl).toBeGreaterThan(6 * 24 * 60 * 60);
+    expect(ttl).toBeLessThanOrEqual(7 * 24 * 60 * 60);
+    await expect(ingestGuard(db, "404-work")).resolves.toBe("empty");
   });
 });
 

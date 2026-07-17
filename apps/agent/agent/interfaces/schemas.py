@@ -10,6 +10,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+GRACEFUL_TERMINAL_STATUSES: frozenset[str] = frozenset(
+    {"needs_clarification", "partial", "blocked", "empty", "too_large"}
+)
+
 
 class PublicAPIRequest(BaseModel):
     """Public request contract for runtime execution."""
@@ -35,6 +39,15 @@ class PublicAPIRequest(BaseModel):
         default=None,
         description="Optional point IDs to route directly without planner execution.",
     )
+    selected_candidate_ids: list[str] | None = Field(
+        default=None,
+        description="Stable anime/place IDs selected from the pending clarify card.",
+    )
+    clarification_id: int | None = Field(
+        default=None,
+        strict=True,
+        description="Pending clarification revision used to reject stale choices.",
+    )
     origin: str | None = Field(
         default=None,
         description="Optional departure location for selected-point routing.",
@@ -59,25 +72,37 @@ class PublicAPIRequest(BaseModel):
             raise ValueError("text must be 2000 characters or fewer")
         if self.origin is not None:
             self.origin = self.origin.strip() or None
-        if self.selected_point_ids is not None:
-            cleaned_ids = [
-                point_id
-                for point_id in (
-                    str(point_id).strip() for point_id in self.selected_point_ids
-                )
-                if point_id
-            ]
-            self.selected_point_ids = cleaned_ids or None
-        if not self.text and not self.selected_point_ids:
+        self.selected_point_ids = _normalize_ids(self.selected_point_ids)
+        self.selected_candidate_ids = _normalize_ids(self.selected_candidate_ids)
+        point_mode = self.selected_point_ids is not None
+        candidate_mode = self.selected_candidate_ids is not None
+        if point_mode and candidate_mode:
             raise ValueError(
-                "text cannot be blank unless selected_point_ids is provided"
+                "selected_point_ids and selected_candidate_ids are exclusive"
             )
+        if (point_mode or candidate_mode) and self.text:
+            raise ValueError("selection requests cannot also include text")
+        if candidate_mode != (self.clarification_id is not None):
+            raise ValueError(
+                "clarification_id is required iff selected_candidate_ids is provided"
+            )
+        if not self.text and not point_mode and not candidate_mode:
+            raise ValueError("text cannot be blank outside a selection request")
         # Coordinate origin fields must be provided together
         if (self.origin_lat is None) != (self.origin_lng is None):
             raise ValueError(
                 "origin_lat and origin_lng must both be provided or both omitted"
             )
         return self
+
+
+def _normalize_ids(values: list[str] | None) -> list[str] | None:
+    if values is None:
+        return None
+    normalized = list(
+        dict.fromkeys(value for raw in values if (value := str(raw).strip()))
+    )
+    return normalized or None
 
 
 class PublicAPIError(BaseModel):

@@ -1,18 +1,8 @@
 """Typed async client for the Catalog service.
 
-The Catalog service owns the read path for resolved pilgrimage data. This
-client is the agent-side adapter the runtime calls instead of touching catalog
-tables directly. It exposes the RPC methods (search / spots / nearby / route /
-ingest) over a shared ``httpx.AsyncClient`` with status-based retry, and
-parses each response into the shared typed models.
-
-Field names, paths, and response envelopes mirror the single source of truth in
-``packages/contract`` (see contract.ts / models.ts):
-  - search(query, origin?)        -> {"rows": [...], "synced_at": str}
-  - spots(bangumi_id, origin?)    -> {"point": {...}, "distance_m"?: float}
-  - nearby(lat, lng, radius_m)    -> {"rows": [...]}
-  - route(point_ids, origin?, pacing?) -> Route
-  - ingest(bangumi_id)            -> IngestResult
+The Catalog service owns the resolved pilgrimage read path. This typed adapter
+mirrors ``packages/contract`` for search, spots, nearby, route, and ingest RPCs
+over one shared ``httpx.AsyncClient``.
 
 Endpoint convention: ``{base_url}/catalog/<method>`` (POST, JSON body).
 
@@ -20,22 +10,30 @@ Retry policy: 5xx responses, transport errors, and the transient 4xx codes
 (408 request timeout, 429 rate limit) are retried with exponential backoff;
 all other 4xx responses raise immediately.
 
-Error responses are parsed as oRPC error envelopes (``catalog_errors``):
-defined codes become typed ``CatalogError`` exceptions — retryable codes
-subclass ``TransientAPIError`` and flow through the retry loop, while
-user-actionable codes raise immediately. Undefined errors keep the legacy
-status-based classification above.
+Retryable statuses are classified without reading their transport streams.
+Non-retryable error responses return to httpx for buffering, then are parsed
+as oRPC error envelopes (``catalog_errors``) into typed ``CatalogError``
+exceptions. Undefined errors keep the legacy status-based classification.
 """
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable, Mapping
-from typing import Literal, Protocol, runtime_checkable
+from collections.abc import Mapping
+from typing import Annotated, Literal, Protocol, Self, TypeAlias, runtime_checkable
 
+import anyio
 import httpx
 import structlog
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
+from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig
+from tenacity import (
+    RetryCallState,
+    retry_if_exception_type,
+    retry_if_result,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
 from agent.clients.catalog_errors import parse_catalog_error
@@ -44,9 +42,16 @@ from agent.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
 
 logger = structlog.get_logger(__name__)
 
+CATALOG_REQUEST_TIMEOUT_SECONDS = 25.0
+CATALOG_TOTAL_TIMEOUT_SECONDS = 80.0
+_TRANSIENT_STATUS_CODES = frozenset({408, 429})
+
 # Re-exported so callers depend on this client, not on agent internals.
 __all__ = [
     "PilgrimagePoint",
+    "AnimeCandidate",
+    "ResolveOutcome",
+    "SearchResult",
     "Route",
     "IngestResult",
     "TimedItinerary",
@@ -79,6 +84,53 @@ class PilgrimagePoint(BaseModel):
     distance_m: float = -1.0
     origin: str = ""
     cover_url: str = ""
+    city: str | None = None
+
+
+class AnimeCandidate(BaseModel):
+    """Trusted resolver candidate mirrored from the catalog contract."""
+
+    bangumi_id: str
+    title: str
+    title_cn: str = ""
+    cover_url: str = ""
+    year: int | None = None
+    points_count: int = 0
+
+
+class ResolveResolved(BaseModel):
+    outcome: Literal["resolved"]
+    match: AnimeCandidate
+
+
+class ResolveAmbiguous(BaseModel):
+    outcome: Literal["needs_disambiguation"]
+    reason: Literal["anime_ambiguity"]
+    candidates: list[AnimeCandidate] = Field(min_length=2, max_length=6)
+
+
+class ResolveNotFound(BaseModel):
+    outcome: Literal["not_found"]
+    reason: Literal["anime_not_found"]
+
+
+class ResolveUpstreamUnavailable(BaseModel):
+    outcome: Literal["upstream_unavailable"]
+    provider: Literal["bangumi", "anitabi"]
+
+
+ResolveOutcome: TypeAlias = Annotated[
+    ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamUnavailable,
+    Field(discriminator="outcome"),
+]
+
+
+class SearchResult(BaseModel):
+    """Published point result returned by search and pointsByWorkId."""
+
+    rows: list[PilgrimagePoint] = Field(default_factory=list)
+    synced_at: str = ""
+    partial: bool = False
 
 
 class Route(BaseModel):
@@ -90,6 +142,12 @@ class Route(BaseModel):
     anime_title: str = ""
     anime_title_cn: str = ""
     timed_itinerary: TimedItinerary = Field(default_factory=TimedItinerary)
+
+    @model_validator(mode="after")
+    def _match_point_count(self) -> Self:
+        if self.point_count != len(self.ordered_points):
+            raise ValueError("point_count must match ordered_points")
+        return self
 
 
 class IngestResult(BaseModel):
@@ -116,6 +174,10 @@ class CatalogClientProtocol(Protocol):
 
     async def search(self, query: str) -> list[PilgrimagePoint]: ...
 
+    async def resolve(self, query: str) -> ResolveOutcome: ...
+
+    async def points_by_work_id(self, work_id: str) -> SearchResult: ...
+
     async def spots(self, bangumi_id: str) -> PilgrimagePoint: ...
 
     async def nearby(
@@ -127,7 +189,11 @@ class CatalogClientProtocol(Protocol):
     ) -> list[GeocodeCandidate]: ...
 
     async def route(
-        self, point_ids: list[str], *, origin: tuple[float, float] | None = None
+        self,
+        point_ids: list[str],
+        *,
+        origin: tuple[float, float] | None = None,
+        pacing: Literal["chill", "normal", "packed"] | None = None,
     ) -> Route: ...
 
     async def ingest(self, bangumi_id: str) -> IngestResult: ...
@@ -140,7 +206,7 @@ class CatalogClient:
         self,
         base_url: str,
         *,
-        timeout: float = 30.0,
+        timeout: float = CATALOG_REQUEST_TIMEOUT_SECONDS,
         max_retries: int = 3,
     ) -> None:
         self._base_url = base_url.rstrip("/")
@@ -152,6 +218,16 @@ class CatalogClient:
         """Resolve a free-text query to its pilgrimage points."""
         payload = await self._rpc("search", {"query": query})
         return _parse_rows(payload)
+
+    async def resolve(self, query: str) -> ResolveOutcome:
+        """Resolve free text to a deterministic typed anime outcome."""
+        payload = await self._rpc("resolve", {"query": query})
+        return TypeAdapter(ResolveOutcome).validate_python(payload)
+
+    async def points_by_work_id(self, work_id: str) -> SearchResult:
+        """Fetch published points for an already-resolved work id."""
+        payload = await self._rpc("points-by-work-id", {"work_id": work_id})
+        return SearchResult.model_validate(payload)
 
     async def spots(self, bangumi_id: str) -> PilgrimagePoint:
         """Return a single pilgrimage point for the given work id."""
@@ -175,12 +251,18 @@ class CatalogClient:
         return [GeocodeCandidate.model_validate(item) for item in candidates]
 
     async def route(
-        self, point_ids: list[str], *, origin: tuple[float, float] | None = None
+        self,
+        point_ids: list[str],
+        *,
+        origin: tuple[float, float] | None = None,
+        pacing: Literal["chill", "normal", "packed"] | None = None,
     ) -> Route:
         """Plan an ordered, timed route across the given points."""
         body: dict[str, object] = {"point_ids": point_ids}
         if origin is not None:
             body["origin"] = {"lat": origin[0], "lng": origin[1]}
+        if pacing is not None:
+            body["pacing"] = pacing
         payload = await self._rpc("route", body)
         return Route.model_validate(payload)
 
@@ -203,22 +285,32 @@ class CatalogClient:
     def _http(self) -> httpx.AsyncClient:
         """Return the shared httpx client, creating it lazily."""
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=self._timeout)
+            wrapped = httpx.AsyncHTTPTransport(trust_env=True)
+            transport = AsyncTenacityTransport(
+                _retry_config(self._max_retries),
+                wrapped=wrapped,
+            )
+            self._client = httpx.AsyncClient(
+                timeout=self._timeout,
+                transport=transport,
+            )
         return self._client
 
     async def _rpc(self, method: str, body: Mapping[str, object]) -> JSONDict:
         """POST ``body`` to the method endpoint with retry on transient errors."""
         url = f"{self._base_url}/catalog/{method}"
-        return await _with_retry(
-            lambda: self._post_json(url, body),
-            max_retries=self._max_retries,
-            url=url,
-        )
+        return await self._post_json(url, body)
 
     async def _post_json(self, url: str, body: Mapping[str, object]) -> JSONDict:
         """Perform one POST attempt, raising ``APIError`` on failure."""
         try:
-            response = await self._http().post(url, json=body)
+            with anyio.fail_after(CATALOG_TOTAL_TIMEOUT_SECONDS):
+                response = await self._http().post(url, json=body)
+        except TimeoutError as exc:
+            message = (
+                f"Catalog request exceeded {CATALOG_TOTAL_TIMEOUT_SECONDS}s: {url}"
+            )
+            raise TransientAPIError(message) from exc
         except httpx.HTTPError as exc:
             raise TransientAPIError(f"Transport failure for {url}: {exc}") from exc
         _raise_for_error(response, url)
@@ -226,23 +318,54 @@ class CatalogClient:
         return _expect_object(parsed, context=url)
 
 
-async def _with_retry(
-    make_request: Callable[[], Awaitable[JSONDict]],
-    *,
-    max_retries: int,
-    url: str,
-) -> JSONDict:
-    """Run ``make_request`` retrying transient failures with backoff."""
-    for attempt in range(max_retries - 1):
-        try:
-            return await make_request()
-        except TransientAPIError as exc:
-            delay = min(2**attempt, 30)
-            logger.warning(
-                "catalog_rpc_retry", url=url, error=str(exc), next_delay=delay
-            )
-            await asyncio.sleep(delay)
-    return await make_request()
+def _retry_config(max_attempts: int) -> RetryConfig:
+    """Map the legacy retry budget and classifier onto tenacity."""
+    return RetryConfig(
+        retry=(
+            retry_if_exception_type(httpx.TransportError)
+            | retry_if_result(_is_retryable_response)
+        ),
+        wait=wait_exponential(multiplier=1, max=30),
+        stop=stop_after_attempt(max(max_attempts, 1)),
+        reraise=False,
+        before_sleep=_log_retry,
+        retry_error_callback=_return_last_response,
+        sleep=asyncio.sleep,
+    )
+
+
+async def _log_retry(state: RetryCallState) -> None:
+    """Preserve the retry warning at the official transport boundary."""
+    outcome = state.outcome
+    error = outcome.exception() if outcome is not None else None
+    response = outcome.result() if outcome is not None and not outcome.failed else None
+    request = state.args[0] if state.args else None
+    url = str(request.url) if isinstance(request, httpx.Request) else ""
+    delay = state.next_action.sleep if state.next_action is not None else 0
+    status = response.status_code if isinstance(response, httpx.Response) else None
+    logger.warning(
+        "catalog_rpc_retry", url=url, error=str(error), status=status, next_delay=delay
+    )
+    if isinstance(response, httpx.Response):
+        await response.aclose()
+
+
+def _is_retryable_response(response: object) -> bool:
+    """Classify retryable statuses without consuming the response stream."""
+    if not isinstance(response, httpx.Response):
+        return False
+    status = response.status_code
+    return status >= 500 or status in _TRANSIENT_STATUS_CODES
+
+
+def _return_last_response(state: RetryCallState) -> httpx.Response:
+    """Return a final retryable response; re-raise an exhausted transport error."""
+    if state.outcome is None:
+        raise RuntimeError("Catalog retry completed without an outcome")
+    result: object = state.outcome.result()
+    if not isinstance(result, httpx.Response):
+        raise RuntimeError("Catalog retry returned a non-response outcome")
+    return result
 
 
 def _raise_for_error(response: httpx.Response, url: str) -> None:

@@ -9,6 +9,7 @@
  */
 
 import { z } from "zod";
+import { MAX_CANDIDATES } from "./constants.js";
 
 export const Latitude = z.number().min(-90).max(90);
 export const Longitude = z.number().min(-180).max(180);
@@ -46,8 +47,36 @@ export const PilgrimagePoint = z.object({
   distance_m: z.number().optional(),
   origin: z.string().optional(),
   cover_url: z.string().optional(),
+  city: z.string().optional(),
 });
 export type PilgrimagePoint = z.infer<typeof PilgrimagePoint>;
+
+/** Stable catalog identity and trusted display metadata for one anime work. */
+export const AnimeCandidate = z.object({
+  bangumi_id: z.string(),
+  title: z.string(),
+  title_cn: z.string().optional(),
+  cover_url: z.string().optional(),
+  year: z.number().int().optional(),
+  points_count: z.number().int().nonnegative().optional(),
+});
+export type AnimeCandidate = z.infer<typeof AnimeCandidate>;
+
+/** Deterministic catalog resolution partition over a free-text anime title. */
+export const ResolveOutcome = z.discriminatedUnion("outcome", [
+  z.object({ outcome: z.literal("resolved"), match: AnimeCandidate }),
+  z.object({
+    outcome: z.literal("needs_disambiguation"),
+    reason: z.literal("anime_ambiguity"),
+    candidates: z.array(AnimeCandidate).min(2).max(MAX_CANDIDATES),
+  }),
+  z.object({ outcome: z.literal("not_found"), reason: z.literal("anime_not_found") }),
+  z.object({
+    outcome: z.literal("upstream_unavailable"),
+    provider: z.enum(["bangumi", "anitabi"]),
+  }),
+]);
+export type ResolveOutcome = z.infer<typeof ResolveOutcome>;
 
 /**
  * A stop on the route with arrival/departure times and dwell duration.

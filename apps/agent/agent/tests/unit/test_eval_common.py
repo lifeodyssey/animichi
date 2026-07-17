@@ -57,8 +57,8 @@ class TestLoadDataset:
                 "id": f"case-{i:02d}",
                 "query": f"query {i}",
                 "locale": "en",
-                "expected_steps": ["greet_user"],
-                "expected_intent": "greet",
+                "expected_steps": [],
+                "expected_intent": "general_qa",
             }
             for i in range(3)
         ]
@@ -92,8 +92,8 @@ class TestLoadDataset:
                 "id": "no-ctx",
                 "query": "no context",
                 "locale": "en",
-                "expected_steps": ["greet_user"],
-                "expected_intent": "greet",
+                "expected_steps": [],
+                "expected_intent": "general_qa",
             },
         ]
         path = tmp_path / "dataset.json"

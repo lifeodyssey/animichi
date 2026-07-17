@@ -1,83 +1,135 @@
-"""Shared test helpers for public_api test files.
-
-Eliminates duplication of make_result() and mock_pipeline_agent across
-test_public_api_errors, test_public_api_facade, test_public_api_persistence,
-test_public_api_pipeline, test_public_api_session.
-"""
+"""Shared typed AgentResult builders for public API tests."""
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
-from agent.agents.agent_result import AgentResult, StepRecord
+from agent.agents.agent_result import (
+    AgentResult,
+    ProducedRoute,
+    ProducedSearch,
+    StepRecord,
+    TurnProvenance,
+)
 from agent.agents.runtime_models import (
-    ClarifyDataModel,
     ClarifyResponseModel,
     GreetingResponseModel,
-    QADataModel,
     QAResponseModel,
-    ResultsMetaModel,
-    RouteDataModel,
-    RouteModel,
     RouteResponseModel,
     RuntimeStageOutput,
-    SearchDataModel,
     SearchResponseModel,
+)
+from agent.agents.session_state import (
+    CurrentAnime,
+    OrderedCandidate,
+    PendingClarification,
+    PointState,
+    ResultRef,
+    RoutePayloadState,
+    RouteRef,
+    SearchPayloadState,
+    SessionState,
 )
 
 
-def _build_output(
-    intent: str,
-    message: str,
-    data: dict[str, object] | None,
-) -> RuntimeStageOutput:
-    """Build a typed output model from intent + flat data dict."""
-    data = data or {}
+def _build_output(intent: str, message: str, state: SessionState) -> RuntimeStageOutput:
     if intent == "clarify":
-        return ClarifyResponseModel(
-            intent="clarify",
-            message=message,
-            data=ClarifyDataModel(
-                status="needs_clarification",
-                question=str(data.get("question", message)),
-                options=data.get("options", []),
+        pending = state.pending_clarification
+        reason = pending.reason if pending else "anime_not_found"
+        ids = pending.candidate_ids if pending else []
+        return ClarifyResponseModel(reason=reason, message=message, candidate_ids=ids)
+    if intent in {"search_bangumi", "search_nearby"}:
+        return SearchResponseModel(message=message)
+    if intent in {"plan_route", "plan_selected", "plan_multi"}:
+        return RouteResponseModel(message=message)
+    if intent == "greet_user":
+        return GreetingResponseModel(message=message)
+    return QAResponseModel(message=message)
+
+
+def _rows(data: dict[str, object], key: str) -> list[PointState]:
+    value = data.get(key)
+    payload = value if isinstance(value, dict) else {}
+    raw_rows = payload.get("rows") or payload.get("ordered_points")
+    rows = raw_rows if isinstance(raw_rows, list) else []
+    return [PointState.model_validate(row) for row in rows if isinstance(row, dict)]
+
+
+def _state(
+    intent: str, data: dict[str, object], steps: list[StepRecord]
+) -> SessionState:
+    state = SessionState(current_anime=_resolved_anime(steps))
+    if intent == "clarify":
+        _seed_pending(state, data)
+    if intent in {"search_bangumi", "search_nearby"}:
+        _seed_search(state, intent, _rows(data, "results"))
+    if intent in {"plan_route", "plan_selected", "plan_multi"}:
+        _seed_route(state, intent, _rows(data, "route"))
+    return state
+
+
+def _resolved_anime(steps: list[StepRecord]) -> CurrentAnime | None:
+    for step in reversed(steps):
+        data = step.data or {}
+        bangumi_id = data.get("bangumi_id")
+        title = data.get("title") or data.get("anime_title")
+        if isinstance(bangumi_id, str) and isinstance(title, str):
+            return CurrentAnime(bangumi_id=bangumi_id, title=title)
+    return None
+
+
+def _seed_pending(state: SessionState, data: dict[str, object]) -> None:
+    raw_ids = data.get("candidate_ids")
+    ids = (
+        [item for item in raw_ids if isinstance(item, str)]
+        if isinstance(raw_ids, list)
+        else []
+    )
+    reason = data.get("reason")
+    valid_reason = reason if isinstance(reason, str) else "anime_not_found"
+    candidates = [OrderedCandidate(id=item, title=item) for item in ids]
+    state.pending_clarification = PendingClarification.model_validate(
+        {
+            "reason": valid_reason,
+            "candidate_ids": ids,
+            "ordered_candidates": candidates,
+            "revision": 1,
+        }
+    )
+    state.clarification_revision = 1
+
+
+def _seed_search(state: SessionState, intent: str, rows: list[PointState]) -> None:
+    ref = ResultRef("search:test")
+    state.store_search_result(
+        ref,
+        SearchPayloadState(
+            kind="nearby" if intent == "search_nearby" else "bangumi",
+            rows=rows,
+            row_count=len(rows),
+            anime_id=state.current_anime.bangumi_id if state.current_anime else None,
+        ),
+    )
+
+
+def _seed_route(state: SessionState, intent: str, rows: list[PointState]) -> None:
+    source_ref = ResultRef("search:test")
+    if rows:
+        state.store_search_result(
+            source_ref,
+            SearchPayloadState(
+                kind="multi" if intent == "plan_multi" else "bangumi",
+                rows=rows,
+                row_count=len(rows),
+                anime_id=rows[0].bangumi_id,
+                anime_ids=list(
+                    dict.fromkeys(row.bangumi_id for row in rows if row.bangumi_id)
+                ),
             ),
         )
-    if intent in ("search_bangumi", "search_nearby"):
-        results = data.get("results", {})
-        results_meta = (
-            ResultsMetaModel.model_validate(results)
-            if isinstance(results, dict)
-            else ResultsMetaModel()
-        )
-        return SearchResponseModel(
-            intent=intent,
-            message=message,
-            data=SearchDataModel(results=results_meta),
-        )
-    if intent in ("plan_route", "plan_selected"):
-        route = data.get("route", {})
-        route_model = (
-            RouteModel.model_validate(route)
-            if isinstance(route, dict)
-            else RouteModel()
-        )
-        return RouteResponseModel(
-            intent=intent,
-            message=message,
-            data=RouteDataModel(route=route_model),
-        )
-    if intent == "greet_user":
-        return GreetingResponseModel(
-            intent="greet_user",
-            message=message,
-            data=QADataModel(message=message),
-        )
-    # general_qa / answer_question fallback
-    return QAResponseModel(
-        intent="general_qa",
-        message=message,
-        data=QADataModel(message=message),
+    state.store_route(
+        RouteRef("route:test"),
+        RoutePayloadState(ordered_points=rows, source_ref=source_ref if rows else None),
     )
 
 
@@ -89,22 +141,37 @@ def make_result(
     steps: list[StepRecord] | None = None,
     tool_state: dict[str, object] | None = None,
 ) -> AgentResult:
-    """Build a fake AgentResult for tests that mock the runtime agent."""
-    if data is None:
-        data = {"results": {"rows": [], "row_count": 0}}
-    output = _build_output(intent, message, data)
+    """Build a compact output plus its authoritative typed registry."""
+    del locale, tool_state
+    payload = data or {"results": {"rows": [], "row_count": 0}}
+    records = steps or []
+    state = _state(intent, payload, records)
     return AgentResult(
-        output=output,
-        steps=steps or [],
-        tool_state=tool_state or {},
+        output=_build_output(intent, message, state),
+        intent=intent,
+        session_state=state,
+        steps=records,
+        provenance=_provenance(intent, state),
     )
+
+
+def _provenance(intent: str, state: SessionState) -> TurnProvenance:
+    search = None
+    route = None
+    if intent in {"search_bangumi", "search_nearby", "plan_multi"}:
+        ref = state.last_result_ref
+        if ref is not None:
+            payload = state.search_results[ref]
+            outcome = "ok" if payload.row_count else "empty"
+            search = ProducedSearch(outcome=outcome, result_ref=ref)
+    if intent in {"plan_route", "plan_selected", "plan_multi"} and state.route_lru:
+        route = ProducedRoute(status="ok", route_ref=state.route_lru[-1])
+    return TurnProvenance(search=search, route=route)
 
 
 def make_fake_agent(
     result_fn: Callable[..., AgentResult] | None = None,
 ) -> Callable[..., Awaitable[AgentResult]]:
-    """Return a fake run_animichi_agent coroutine for monkeypatching."""
-
     async def _fake(
         *,
         text: str,
@@ -116,24 +183,17 @@ def make_fake_agent(
         on_step: object | None = None,
         catalog: object | None = None,
     ) -> AgentResult:
-        _ = (text, db, model, context, message_history, on_step)
-        if result_fn is not None:
-            return result_fn(locale=locale)
-        return make_result(locale=locale)
+        del text, db, model, context, message_history, on_step, catalog
+        return (
+            result_fn(locale=locale)
+            if result_fn is not None
+            else make_result(locale=locale)
+        )
 
     return _fake
 
 
-async def _fake_generate_title(**kwargs: object) -> str:
-    """Fake title generator for unit tests."""
-    first_query = kwargs.get("first_query", "")
-    return str(first_query)[:15] if isinstance(first_query, str) else "test"
-
-
 def install_mock_pipeline(monkeypatch: object) -> None:
-    """Monkeypatch run_animichi_agent and generate_and_save_title."""
-    setattr_fn = monkeypatch.setattr
-    setattr_fn(
-        "agent.interfaces.public_api.run_animichi_agent",
-        make_fake_agent(),
+    monkeypatch.setattr(
+        "agent.interfaces.public_api.run_animichi_agent", make_fake_agent()
     )

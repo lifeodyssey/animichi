@@ -110,7 +110,7 @@ def _fix_orphan_indices(split: AreaSplitResult, expected_count: int) -> AreaSpli
 
 async def split_into_areas(
     points: list[dict[str, object]],
-    model: Model | str | None = None,
+    model: Model | None = None,
 ) -> AreaSplitResult | None:
     """Ask LLM to split points into walkable areas.
 
@@ -122,7 +122,7 @@ async def split_into_areas(
     try:
         result = await route_planner_agent.run(
             _build_prompt(points),
-            model=resolve_model(model) if model else None,
+            model=model,
         )
         return _fix_orphan_indices(result.output, len(points))
     except Exception:
