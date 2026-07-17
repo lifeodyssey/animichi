@@ -98,6 +98,7 @@ async def _run_once(
     deps = _deps(query)
     started = time.monotonic()
     try:
+        # Direct agent calls bypass runner injection preflight; this benchmarks the model.
         result = await agent.run(query, deps=deps, model=model)
     except Exception as exc:
         row = _measurement(query, repeat, time.monotonic() - started)
