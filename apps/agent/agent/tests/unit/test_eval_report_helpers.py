@@ -22,14 +22,14 @@ def _aggregate(scores: Mapping[str, int | float]) -> ReportCaseAggregate:
 
 
 def test_collect_scores_returns_requested_metrics() -> None:
-    assert collect_scores(_aggregate({"tool_f1": 0.75}), ["tool_f1"]) == {
-        "tool_f1": 0.75
-    }
+    assert collect_scores(
+        _aggregate({"tool_correctness": 0.75}), ["tool_correctness"]
+    ) == {"tool_correctness": 0.75}
 
 
-def test_collect_scores_accepts_additive_official_metrics() -> None:
-    names = ["tool_f1", "argument_correctness_official"]
-    scores = {"tool_f1": 0.75, "argument_correctness_official": 1.0}
+def test_collect_scores_accepts_official_first_metrics() -> None:
+    names = ["tool_correctness", "argument_correctness"]
+    scores = {"tool_correctness": 0.75, "argument_correctness": 1.0}
     assert collect_scores(_aggregate(scores), names) == scores
 
 
@@ -41,9 +41,14 @@ def test_collect_scores_raises_on_unknown_metric_name() -> None:
 def test_metric_names_conditionally_includes_nonempty_results() -> None:
     tagged = metric_names(has_nonempty_cases=True, l3_on=False)
     untagged = metric_names(has_nonempty_cases=False, l3_on=False)
-    assert "nonempty_results" in tagged
-    assert "nonempty_results" not in untagged
-    assert "argument_correctness_official" in untagged
-    assert "tool_correctness_official" in untagged
-    assert "trajectory_match_official" in untagged
-    assert "max_tool_calls_official" in untagged
+    assert tagged == [
+        "argument_correctness",
+        "tool_correctness",
+        "trajectory_match",
+        "max_tool_calls",
+        "data_keys_present",
+        "locale_match",
+        "nonempty_results",
+        "step_efficiency",
+    ]
+    assert untagged == [name for name in tagged if name != "nonempty_results"]
