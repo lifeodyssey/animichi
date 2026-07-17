@@ -268,9 +268,48 @@ jobs:
       NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
     concurrency: deploy-users-staging
 
+  deploy-root-staging:
+    name: Deploy root staging
+    needs: [deploy-staging, deploy-users-staging]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: root
+      environment: staging
+      pulumi_stack: staging
+      working_directory: "."
+      build_filter: frontend
+      run_pulumi: false
+      worker_secrets: |
+        SUPABASE_URL
+        SUPABASE_ANON_KEY
+        SUPABASE_SERVICE_ROLE_KEY
+        SUPABASE_DB_URL
+        MIMO_API_KEY
+        DEEPSEEK_API_KEY
+        GEMINI_API_KEY
+        GOOGLE_MAPS_API_KEY
+        LOGFIRE_TOKEN
+        CORS_ALLOWED_ORIGIN
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+      LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+      CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+      NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+    concurrency: deploy-root-staging
+
   post-staging:
     name: Post-deploy (staging)
-    needs: [deploy-staging, deploy-web-staging, deploy-users-staging]
+    needs: [deploy-staging, deploy-web-staging, deploy-users-staging, deploy-root-staging]
     uses: ./.github/workflows/_post-deploy-test.yml
     with:
       environment: staging
@@ -334,9 +373,47 @@ jobs:
       NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
     concurrency: deploy-users-prod
 
+  deploy-root-prod:
+    name: Deploy root production
+    needs: [post-staging, deploy-users-prod]
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: root
+      environment: production
+      pulumi_stack: prod
+      working_directory: "."
+      build_filter: frontend
+      run_pulumi: false
+      worker_secrets: |
+        SUPABASE_URL
+        SUPABASE_ANON_KEY
+        SUPABASE_SERVICE_ROLE_KEY
+        SUPABASE_DB_URL
+        MIMO_API_KEY
+        DEEPSEEK_API_KEY
+        GEMINI_API_KEY
+        GOOGLE_MAPS_API_KEY
+        LOGFIRE_TOKEN
+        CORS_ALLOWED_ORIGIN
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+      LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+      CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+      NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+    concurrency: deploy-root-prod
+
   post-prod:
     name: Post-deploy (production)
-    needs: [deploy-prod, deploy-web-prod, deploy-users-prod]
+    needs: [deploy-prod, deploy-web-prod, deploy-users-prod, deploy-root-prod]
     uses: ./.github/workflows/_post-deploy-test.yml
     with:
       environment: production
