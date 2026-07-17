@@ -144,6 +144,11 @@ def test_finish_cli_report_golden_and_entry_verdicts(
     failures = finish_cli_report(_report(payload), direct_target, _MODEL)
 
     assert failures == expected_failures
+    if expected_failures is None:
+        established = BaselineRecord.model_validate_json(
+            baseline_path(_LAYER, _MODEL, tmp_path / "direct").read_text()
+        )
+        assert established.scores == payload.scores
 
     runner_target = _configure(
         monkeypatch, tmp_path / "runner", payload, baseline, capped

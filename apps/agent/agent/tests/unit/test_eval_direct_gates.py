@@ -11,8 +11,10 @@ from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.runtime_models import QAResponseModel
 from agent.agents.session_state import SessionState
 from agent.tests.eval.direct_gates import (
+    REQUEST_LIMIT,
     RecordedToolCall,
     TrajectoryCase,
+    _request_limit_passes,
     direct_thrash_gate,
 )
 from agent.tests.eval.eval_gate_flow import GateInput, _run_gate
@@ -33,6 +35,11 @@ def test_direct_gates_accept_initial_thresholds() -> None:
     ]
     cases[-1] = TrajectoryCase("case-19", requests=12, tool_calls=_calls(6))
     assert direct_thrash_gate(cases) == []
+
+
+def test_request_limit_uses_official_max_model_requests_semantics() -> None:
+    assert _request_limit_passes(REQUEST_LIMIT)
+    assert not _request_limit_passes(REQUEST_LIMIT + 1)
 
 
 def test_direct_gates_reject_over_limit_and_repeated_trajectory() -> None:

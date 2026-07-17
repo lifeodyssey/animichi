@@ -120,3 +120,19 @@ def test_read_returns_none_for_low_evaluated_count(tmp_path: Path) -> None:
     )
 
     assert result is None
+
+
+def test_read_returns_none_for_stale_metric_vocabulary(tmp_path: Path) -> None:
+    write_baseline_record(
+        _record(), layer="agent", model_id="m", baselines_dir=tmp_path
+    )
+
+    result = read_baseline_record(
+        "agent",
+        "m",
+        baselines_dir=tmp_path,
+        expected_case_count=2,
+        expected_metrics=["tool_correctness"],
+    )
+
+    assert result is None
