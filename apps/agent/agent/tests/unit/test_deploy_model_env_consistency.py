@@ -7,7 +7,11 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _ENTRYPOINT = _REPO_ROOT / "worker" / "entry.ts"
+_CI_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
 _DEPLOY_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "deploy.yml"
+_REUSABLE_DEPLOY_WORKFLOW = (
+    _REPO_ROOT / ".github" / "workflows" / "_deploy-component.yml"
+)
 
 
 def _typescript_string_list(source: str, const_name: str) -> set[str]:
@@ -30,14 +34,31 @@ def _named_workflow_step(source: str, name: str) -> str:
     return step["body"]
 
 
+def _named_workflow_job(source: str, job_id: str) -> str:
+    job = re.search(
+        rf"(?ms)^  {re.escape(job_id)}:\s*$\n(?P<body>.*?)(?=^  [a-zA-Z0-9_-]+:\s*$|\Z)",
+        source,
+    )
+    assert job is not None, f"missing workflow job: {job_id}"
+    return job["body"]
+
+
 def _wrangler_secret_names(step: str) -> set[str]:
     secrets = re.search(
-        r"(?m)^[ \t]+secrets:\s*\|\s*$\n"
+        r"(?m)^[ \t]+(?:worker_)?secrets:\s*\|\s*$\n"
         r"(?P<body>(?:^[ \t]+[A-Z][A-Z0-9_]*[ \t]*$\n?)+)",
         step,
     )
     assert secrets is not None, "missing Wrangler secrets block"
     return set(re.findall(r"(?m)^[ \t]+([A-Z][A-Z0-9_]*)[ \t]*$", secrets["body"]))
+
+
+def _mapped_secret_names(source: str) -> set[str]:
+    mappings = re.findall(
+        r"(?m)^\s+([A-Z][A-Z0-9_]*):\s+\$\{\{\s*secrets\.([A-Z][A-Z0-9_]*)\s*}}\s*$",
+        source,
+    )
+    return {name for name, secret in mappings if name == secret}
 
 
 def test_container_required_keys_are_forwarded_and_deployed() -> None:
@@ -51,3 +72,19 @@ def test_container_required_keys_are_forwarded_and_deployed() -> None:
     assert required
     assert required <= forwarded
     assert required <= provisioned
+
+
+def test_ci_root_deploys_match_manual_root_secrets() -> None:
+    deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
+    root_step = _named_workflow_step(deploy, "Deploy via Wrangler")
+    manual_secrets = _wrangler_secret_names(root_step)
+    ci = _CI_WORKFLOW.read_text(encoding="utf-8")
+    staging = _named_workflow_job(ci, "deploy-root-staging")
+    production = _named_workflow_job(ci, "deploy-root-prod")
+    reusable = _REUSABLE_DEPLOY_WORKFLOW.read_text(encoding="utf-8")
+
+    assert _wrangler_secret_names(staging) == manual_secrets
+    assert _wrangler_secret_names(production) == manual_secrets
+    assert manual_secrets <= _mapped_secret_names(staging)
+    assert manual_secrets <= _mapped_secret_names(production)
+    assert manual_secrets <= _mapped_secret_names(reusable)
