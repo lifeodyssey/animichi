@@ -62,6 +62,15 @@ def _is_local_base_url(base_url: str | None) -> bool:
     return parsed.hostname in {"localhost", "127.0.0.1"}
 
 
+def _required_model_credential(model_name: str | None, default: str) -> str | None:
+    """Return the credential needed to boot one configured model."""
+    base_url = _openai_model_base_url(model_name, default)
+    credential = _credential_env_for_model(model_name, default)
+    if credential == "OPENAI_COMPAT_API_KEY" and _is_local_base_url(base_url):
+        return None
+    return credential
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
@@ -234,7 +243,7 @@ class Settings(BaseSettings):
     def _required_model_credentials(self) -> list[str]:
         required: list[str] = []
         for model_name in (self.default_agent_model, self.fallback_agent_model):
-            credential = _credential_env_for_model(
+            credential = _required_model_credential(
                 model_name, self.openai_compat_base_url
             )
             if credential is not None and credential not in required:

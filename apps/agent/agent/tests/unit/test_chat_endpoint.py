@@ -85,6 +85,26 @@ async def test_chat_selection_uses_explicit_ids_and_server_session() -> None:
     assert request.session_id == "session-4"
 
 
+async def test_chat_forwards_named_and_coordinate_origin() -> None:
+    runtime = _runtime()
+    app, _ = build_app(runtime_api=runtime)
+    body = {
+        **_body("near me"),
+        "origin": "Kyoto Station",
+        "origin_lat": 34.9858,
+        "origin_lng": 135.7588,
+    }
+    async with async_client(app) as client:
+        response = await client.post(
+            "/v1/chat", json=body, headers={"X-User-Id": "user-1"}
+        )
+    assert response.status_code == 200
+    request = runtime.handle.await_args.args[0]
+    assert request.origin == "Kyoto Station"
+    assert request.origin_lat == 34.9858
+    assert request.origin_lng == 135.7588
+
+
 async def test_chat_rejects_boolean_clarification_revision() -> None:
     runtime = _runtime()
     app, _ = build_app(runtime_api=runtime)
