@@ -5,8 +5,6 @@ disjunction of acceptable stage chains in each case's metadata. The tool and
 trajectory adapters therefore run one official evaluator per chain and retain
 the best score. This preserves the dataset's ``ANY of N`` contract without
 changing the official evaluator implementations or the canonical cases.
-
-Historical mapping: ToolCallRecall -> ToolCorrectness; RouteOrderCorrect -> TrajectoryMatch.
 """
 
 from __future__ import annotations
