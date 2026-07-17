@@ -87,4 +87,42 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
   (`postgis/postgis:16-3.4`). `SUPABASE_DB_URL` / `supabase start` alone is NOT sufficient for those
   suites. Unit tests need no Docker.
 
+## Eval: cost, run recipe, and the post-redesign baseline (2026-07-17)
+
+**Model + cost.** The eval model is MiMo `mimo-v2.5` (`openai:mimo-v2.5@https://api.xiaomimimo.com/v1`,
+credential `MIMO_API_KEY`; thinking param OFF — pinned in `config/model_aliases.py`).
+MiMo pay-as-you-go (permanent rate since 2026-05-27): **$1 / M input, $3 / M output, $0.20 / M cached input**.
+
+Measured full run (655 cases, trajectory tier, ~21 min): **6.40 M input + 0.31 M output tokens, 2,341 requests**
+→ **≈ $3–7 per full run** ($7.3 worst-case with zero cache credit; ~$3 at the observed ~85–90 % cache-hit rate).
+A 50-case subset ≈ **$0.3–0.6**. Pre-redesign the same run cost ~8–10× (request thrash: 27–50 requests/case).
+Run it freely at milestones; don't hoard it.
+
+**Run recipe.**
+```bash
+cd apps/agent && uv run python -m agent.tests.eval.run_agent_eval \
+  --eval-model "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"   # full 655
+EVAL_MAX_CASES=50 uv run python -m agent.tests.eval.run_agent_eval ...  # capped = report-only, no baseline/gate
+```
+Direct thrash gates (req≤12 / tool≤6 / repeat=0 / p95≤6) are **report-only** until `DIRECT_GATE_ENFORCE=1`
+(owner calibrates first). Capped runs never read/write baselines.
+
+**Post-redesign full-655 numbers (2026-07-17, the re-baseline candidate — NOT yet the committed baseline;
+the owner signs off per the redesign spec §7):**
+
+| Metric | Old baseline (n=643, pre-redesign) | Full 655 (post-redesign) |
+|---|---|---|
+| request p95 / case | 27–50 (thrash) | **7** |
+| tool_recall | 0.800 | 0.855 |
+| tool_f1 | 0.763 | 0.817 |
+| route_order_correct | 0.768 | 0.798 |
+| locale_match | 0.540 | 0.739 |
+| step_efficiency | 0.811 | 0.802 |
+| nonempty_results | 0.846 | 0.769 * |
+
+\* the nonempty evaluator was rewritten in the re-baseline (reads the produced route's `source_ref`) —
+not apples-to-apples with the old contract; 15/655 errored cases (~2.3 %) also drag it. The `*_official`
+N2 metrics (tool_correctness 0.522, trajectory_match 0.694, max_tool_calls 0.769, argument_correctness 0.641)
+have no pre-redesign baseline. Per-case results land in `agent/tests/eval/results/`.
+
 ## TDD: invoke `/backend-tdd` before writing Python.
