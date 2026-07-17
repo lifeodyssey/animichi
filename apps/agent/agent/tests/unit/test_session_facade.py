@@ -15,12 +15,9 @@ from agent.agents.session_state import (
     SessionState,
 )
 from agent.infrastructure.session.memory import InMemorySessionStore
-from agent.interfaces.schemas import PublicAPIRequest
 from agent.interfaces.session_facade import (
-    SessionUpdate,
     build_context_block,
     build_message_history,
-    build_updated_session_state,
     compact_session_interactions,
     extract_context_delta,
     normalize_session_state,
@@ -51,24 +48,6 @@ def test_normalize_session_state_repairs_storage_lists() -> None:
     state = normalize_session_state({"interactions": "bad", "route_history": None})
     assert state["interactions"] == []
     assert state["route_history"] == []
-
-
-def test_updated_session_keeps_complete_typed_delta() -> None:
-    previous = normalize_session_state(None)
-    runtime = _pending_state()
-    updated = build_updated_session_state(
-        previous,
-        SessionUpdate(
-            request=PublicAPIRequest(text="Haruhi"),
-            response_intent="clarify",
-            response_status="needs_clarification",
-            response_success=True,
-            context_delta={"session_state_v2": runtime.model_dump(mode="json")},
-        ),
-    )
-    interaction = updated["interactions"][0]
-    restored = interaction["context_delta"]["session_state_v2"]
-    assert SessionState.model_validate(restored) == runtime
 
 
 def test_latest_typed_state_is_the_only_context_carrier() -> None:

@@ -12,7 +12,12 @@ from agent.agents.catalog_tools import _clear_pending, _record
 from agent.agents.models import ToolName
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.session_state import ResultRef, RouteRef
-from agent.agents.tool_outcomes import RouteEmpty, RouteOk, RouteStaleRef
+from agent.agents.tool_outcomes import (
+    RouteEmpty,
+    RouteOk,
+    RoutePendingSync,
+    RouteStaleRef,
+)
 from agent.clients.catalog_client import CatalogClientProtocol, Route
 
 Pacing = Literal["chill", "normal", "packed"]
@@ -23,7 +28,7 @@ async def run_route(
     catalog: CatalogClientProtocol,
     search_result_ref: str,
     pacing: Pacing | None,
-) -> RouteOk | RouteEmpty | RouteStaleRef:
+) -> RouteOk | RouteEmpty | RouteStaleRef | RoutePendingSync:
     """Route exactly the registry payload named by the model-supplied ref."""
     ref = ResultRef(search_result_ref)
     payload = ctx.deps.tool_state.session.search_results.get(ref)
@@ -36,7 +41,7 @@ def _record_route(
     deps: RuntimeDeps,
     search_result_ref: str,
     pacing: Pacing | None,
-    outcome: RouteOk | RouteEmpty | RouteStaleRef,
+    outcome: RouteOk | RouteEmpty | RouteStaleRef | RoutePendingSync,
 ) -> None:
     params: dict[str, object] = {"search_result_ref": search_result_ref}
     if pacing is not None:
@@ -56,11 +61,13 @@ async def _route_outcome(
     ref: ResultRef,
     payload: object,
     pacing: Pacing | None,
-) -> RouteOk | RouteEmpty | RouteStaleRef:
+) -> RouteOk | RouteEmpty | RouteStaleRef | RoutePendingSync:
     from agent.agents.session_state import SearchPayloadState
 
     if not isinstance(payload, SearchPayloadState):
         return RouteStaleRef()
+    if payload.partial:
+        return RoutePendingSync()
     if not payload.rows:
         return RouteEmpty()
     route = await catalog.route(
@@ -85,7 +92,7 @@ def _store_route(ctx: RunContext[RuntimeDeps], route: Route, ref: ResultRef) -> 
 
 
 def _route_provenance(
-    outcome: RouteOk | RouteEmpty | RouteStaleRef,
+    outcome: RouteOk | RouteEmpty | RouteStaleRef | RoutePendingSync,
 ) -> StepProvenance:
     if isinstance(outcome, RouteOk):
         return ProducedRoute(status="ok", route_ref=RouteRef(outcome.route_ref))

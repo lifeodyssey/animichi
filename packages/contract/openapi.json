@@ -112,6 +112,9 @@
                           },
                           "cover_url": {
                             "type": "string"
+                          },
+                          "city": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -397,7 +400,8 @@
                 "type": "object",
                 "properties": {
                   "work_id": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^\\d+$"
                   }
                 },
                 "required": [
@@ -465,6 +469,9 @@
                           },
                           "cover_url": {
                             "type": "string"
+                          },
+                          "city": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -487,6 +494,82 @@
                   "required": [
                     "rows",
                     "synced_at"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "502",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "UPSTREAM_UNAVAILABLE"
+                        },
+                        "status": {
+                          "const": 502
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "Upstream catalog source unavailable"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "upstream": {
+                              "enum": [
+                                "bangumi",
+                                "anitabi",
+                                "unknown"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "upstream"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
                   ]
                 }
               }
@@ -598,6 +681,9 @@
                           "type": "string"
                         },
                         "cover_url": {
+                          "type": "string"
+                        },
+                        "city": {
                           "type": "string"
                         }
                       },
@@ -787,6 +873,9 @@
                             "type": "string"
                           },
                           "cover_url": {
+                            "type": "string"
+                          },
+                          "city": {
                             "type": "string"
                           }
                         },
@@ -1042,6 +1131,9 @@
                             "type": "string"
                           },
                           "cover_url": {
+                            "type": "string"
+                          },
+                          "city": {
                             "type": "string"
                           }
                         },

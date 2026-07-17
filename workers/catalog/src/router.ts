@@ -1,7 +1,8 @@
 import { catalogContract } from "@seichijunrei/contract";
 import { implement } from "@orpc/server";
 import { resolve as resolveHandler, resolveDb } from "./api/resolve";
-import { pointsByWorkId, search as searchHandler, searchDb } from "./api/search";
+import { search as searchHandler, searchDb } from "./api/search";
+import { pointsByWorkId, workPointsDb } from "./api/work-points";
 import { nearby as nearbyHandler } from "./api/nearby";
 import { geocode as geocodeHandler } from "./api/geocode";
 import { route as routeHandler } from "./api/route";
@@ -37,7 +38,10 @@ const resolve = os.resolve.handler(async ({ input, context }) =>
 );
 
 const pointsById = os.pointsByWorkId.handler(async ({ input, context }) =>
-  pointsByWorkId(searchDb(context.db), input.work_id),
+  pointsByWorkId(workPointsDb(context.db), input.work_id, {
+    fetchImpl: context.fetchImpl,
+    waitUntil: context.waitUntil,
+  }),
 );
 
 const spots = os.spots.handler(async ({ input, context }) =>

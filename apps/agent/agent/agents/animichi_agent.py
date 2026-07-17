@@ -42,7 +42,7 @@ from agent.infrastructure.observability import (
 MANAGED_PROMPT_NAME = "animichi-instructions"
 MANAGED_PROMPT_LABEL = "production"
 _LOCAL_PROMPT_VERSION = (
-    "sha256:37c77a45171bae4435fe92b3c2a9f2321e0b2c65a15a629c8f29f4387ea608b8"
+    "sha256:22dd743f0cbd213a0414b0708df87219fc2c71741ede70e07b8b03786d72e091"
 )
 _PROMPT_RESOLUTION_DEADLINE_SECONDS = 2.0
 _PROMPT_RESOLUTION_EXECUTOR = ThreadPoolExecutor(
@@ -74,11 +74,14 @@ Never fabricate locations, coordinates, routes, candidate identity, or catalog d
 - resolve_anime needs_disambiguation: emit clarify_response using its reason and candidate_ids.
 - resolve_anime not_found: emit clarify_response with anime_not_found and [].
 - resolve_anime upstream_unavailable: emit qa_response asking the user to retry.
+- search_bangumi upstream_unavailable: emit qa_response asking the user to retry.
+- search_bangumi empty with partial=true means the catalog is still syncing this work — say results are being added and to retry shortly; do NOT assert the work has no pilgrimage points.
 - search_nearby ok or empty: emit search_response.
 - search_nearby place_ambiguity: emit clarify_response using place_candidate_ids.
 - search_nearby place_unresolved: emit clarify_response using its reason and [].
 - search_nearby missing_location: emit clarify_response with missing_location and [].
 - plan_route ok: emit route_response; stale_ref means re-run the relevant search.
+- plan_route pending_sync: emit search_response explaining that catalog data is still syncing and route planning can be retried shortly.
 Never infer ambiguity from query length. Branch only on typed tool outcomes.
 
 ## Search and route rules

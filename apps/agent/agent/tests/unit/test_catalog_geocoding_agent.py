@@ -157,6 +157,27 @@ async def test_empty_route_is_a_successful_typed_step() -> None:
     assert isinstance(deps.steps[-1].provenance, RejectedRoute)
 
 
+async def test_partial_route_is_pending_sync_and_never_calls_catalog_route() -> None:
+    deps = _deps()
+    ref = ResultRef("search:preview")
+    deps.tool_state.session.store_search_result(
+        ref,
+        SearchPayloadState(
+            kind="bangumi",
+            rows=[PointState(id="preview-p1")],
+            row_count=1,
+            partial=True,
+        ),
+    )
+    catalog = MockCatalogClient()
+
+    outcome = await run_route(_ctx(deps), catalog, str(ref), None)
+
+    assert outcome.status == "pending_sync"
+    assert all(call[0] != "route" for call in catalog.calls)
+    assert isinstance(deps.steps[-1].provenance, RejectedRoute)
+
+
 async def test_route_threads_optional_pacing_to_catalog() -> None:
     deps = _deps()
     ref = ResultRef("search:test")

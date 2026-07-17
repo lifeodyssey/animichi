@@ -1,5 +1,3 @@
-"""Catalog-backed implementation of the four model-callable data tools."""
-
 from __future__ import annotations
 
 from pydantic_ai import RunContext
@@ -32,6 +30,7 @@ from agent.agents.tool_outcomes import (
     ResolveUpstreamDown,
     SearchEmpty,
     SearchOk,
+    SearchUpstreamDown,
 )
 from agent.clients.catalog_client import (
     AnimeCandidate,
@@ -158,9 +157,19 @@ def _adapt_resolve(
 
 async def run_work_search(
     ctx: RunContext[RuntimeDeps], catalog: CatalogClientProtocol, bangumi_id: str
-) -> SearchOk | SearchEmpty:
+) -> SearchOk | SearchEmpty | SearchUpstreamDown:
     """Fetch an already-resolved work without repeating free-text resolution."""
-    result = await catalog.points_by_work_id(bangumi_id)
+    try:
+        result = await catalog.points_by_work_id(bangumi_id)
+    except _CATALOG_ERRORS:
+        failure = SearchUpstreamDown()
+        _record(
+            ctx.deps,
+            ToolName.SEARCH_BANGUMI.value,
+            {"bangumi_id": bangumi_id},
+            failure.model_dump(),
+        )
+        return failure
     payload = build_search_state(
         result.rows,
         kind="bangumi",
@@ -181,7 +190,7 @@ async def run_work_search(
             partial=payload.partial,
         )
     else:
-        outcome = SearchEmpty(anime_title=title)
+        outcome = SearchEmpty(anime_title=title, partial=payload.partial)
     _record(
         ctx.deps,
         ToolName.SEARCH_BANGUMI.value,

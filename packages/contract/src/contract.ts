@@ -41,7 +41,7 @@ export const ResolveInput = z.object({ query: z.string().trim().min(1) });
 export type ResolveInput = z.infer<typeof ResolveInput>;
 
 /** pointsByWorkId(work_id) -> the existing SearchResult shape */
-export const PointsByWorkIdInput = z.object({ work_id: z.string() });
+export const PointsByWorkIdInput = z.object({ work_id: z.string().regex(/^\d+$/) });
 export type PointsByWorkIdInput = z.infer<typeof PointsByWorkIdInput>;
 
 /** spots(bangumi_id, origin?) -> { point, distance_m? } */
@@ -129,6 +129,7 @@ export const catalogContract = {
       summary: "Fetch pilgrimage points by resolved work id",
     })
     .input(PointsByWorkIdInput)
+    .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
     .output(SearchResult),
   spots: oc
     .route({ method: "POST", path: "/catalog/spots", summary: "Fetch a single pilgrimage point, optionally with distance" })
