@@ -91,19 +91,6 @@ def test_legacy_candidate_deltas_are_not_reconstructed() -> None:
     assert block is None
 
 
-def test_user_memory_seeds_typed_current_anime_only_when_session_absent() -> None:
-    memory = {
-        "visited_anime": [
-            {"bangumi_id": "1", "title": "Old", "last_at": "2026-01-01"},
-            {"bangumi_id": "2", "title": "Recent", "last_at": "2026-02-01"},
-        ]
-    }
-    block = build_context_block({"interactions": []}, user_memory=memory)
-    assert block is not None
-    restored = SessionState.model_validate(block["session_state_v2"])
-    assert restored.current_anime == CurrentAnime(bangumi_id="2", title="Recent")
-
-
 def test_extract_delta_always_serializes_empty_state_clear() -> None:
     result = AgentResult(
         output=QAResponseModel(message="Answer"),
@@ -113,18 +100,6 @@ def test_extract_delta_always_serializes_empty_state_clear() -> None:
     assert extract_context_delta(result) == {
         "session_state_v2": SessionState().model_dump(mode="json")
     }
-
-
-def test_extract_delta_exposes_current_anime_for_user_memory_persistence() -> None:
-    result = AgentResult(
-        output=QAResponseModel(message="Answer"),
-        intent="general_qa",
-        session_state=SessionState(
-            current_anime=CurrentAnime(bangumi_id="115908", title="Euphonium")
-        ),
-    )
-    delta = extract_context_delta(result)
-    assert (delta["bangumi_id"], delta["anime_title"]) == ("115908", "Euphonium")
 
 
 def test_message_history_preserves_interaction_order() -> None:

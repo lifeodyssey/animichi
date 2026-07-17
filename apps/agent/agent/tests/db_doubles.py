@@ -16,8 +16,6 @@ def build_persistence_supabase_double() -> MagicMock:
     db.session.upsert_session = AsyncMock()
     db.session.upsert_conversation = AsyncMock()
     db.session.update_conversation_title = AsyncMock()
-    db.user_memory.get_user_memory = AsyncMock(return_value=None)
-    db.user_memory.upsert_user_memory = AsyncMock()
     db.routes.save_route = AsyncMock(return_value="route-1")
     db.pool.fetch = AsyncMock(return_value=[])
     return db

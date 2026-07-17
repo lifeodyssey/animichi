@@ -8,7 +8,8 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
 ## Commands (from `workers/users/`)
 
 - pnpm. `pnpm run dev` (`wrangler dev`, local) — never `wrangler deploy` (hook `block-local-deploy`).
-- `pnpm test` / `pnpm run test:worker` (`vitest-pool-workers`) · `pnpm run typecheck` (`tsc --noEmit`).
+- `pnpm test` / `pnpm run test:worker` (`vitest-pool-workers`) · `pnpm run typecheck`
+  (TypeScript 7.0.2) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
 
 ## Trust model (S2.8 — DIFFERENT from the container `/v1/*` path)
 

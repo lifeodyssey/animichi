@@ -103,23 +103,6 @@ class SessionRepo(Protocol):
     ) -> None: ...
 
 
-class UserMemoryRepo(Protocol):
-    """User memory DB operations used by persistence helpers."""
-
-    async def get_user_memory(
-        self,
-        user_id: str,
-    ) -> dict[str, object] | None: ...
-
-    async def upsert_user_memory(
-        self,
-        user_id: str,
-        *,
-        bangumi_id: str | None = None,
-        anime_title: str | None = None,
-    ) -> None: ...
-
-
 class RoutesRepo(Protocol):
     """Route persistence operations used by persistence helpers."""
 
@@ -156,16 +139,6 @@ def get_bangumi_repo(db: object) -> BangumiRepo | None:
     return cast(BangumiRepo, bangumi)
 
 
-def get_user_memory_repo(db: object) -> UserMemoryRepo | None:
-    """Return the user_memory repo if *db* exposes one with async get_user_memory."""
-    user_memory = getattr(db, "user_memory", None)
-    if user_memory is None:
-        return None
-    if not asyncio.iscoroutinefunction(getattr(user_memory, "get_user_memory", None)):
-        return None
-    return cast(UserMemoryRepo, user_memory)
-
-
 def get_routes_repo(db: object) -> RoutesRepo | None:
     """Return the routes repo if *db* exposes one with async save_route."""
     routes = getattr(db, "routes", None)
@@ -179,11 +152,6 @@ def get_routes_repo(db: object) -> RoutesRepo | None:
 def has_session_repo(db: object) -> bool:
     """Return True if *db* exposes a session repo."""
     return get_session_repo(db) is not None
-
-
-def has_user_memory_repo(db: object) -> bool:
-    """Return True if *db* exposes a user_memory repo."""
-    return get_user_memory_repo(db) is not None
 
 
 def has_routes_repo(db: object) -> bool:

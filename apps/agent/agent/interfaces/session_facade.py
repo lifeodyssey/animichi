@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.base import create_agent, get_default_model
-from agent.agents.session_state import CurrentAnime, SessionState
+from agent.agents.session_state import SessionState
 from agent.domain.ports import get_session_repo
 from agent.infrastructure.session import SessionStore
 from agent.interfaces.schemas import PublicAPIRequest
@@ -145,30 +145,8 @@ def _latest_runtime_state(interactions: list[object]) -> SessionState | None:
     return None
 
 
-def _memory_anime(user_memory: dict[str, object] | None) -> CurrentAnime | None:
-    if user_memory is None:
-        return None
-    visited = _list(user_memory.get("visited_anime"))
-    records = [item for item in visited if isinstance(item, dict)]
-    recent = max(records, key=_last_at, default=None)
-    if recent is None:
-        return None
-    bangumi_id = as_str_or_none(recent.get("bangumi_id"))
-    title = as_str_or_none(recent.get("title"))
-    return (
-        CurrentAnime(bangumi_id=bangumi_id, title=title or bangumi_id)
-        if bangumi_id
-        else None
-    )
-
-
-def _last_at(entry: dict[str, object]) -> str:
-    return as_str_or_none(entry.get("last_at")) or ""
-
-
 def build_context_block(
     session_state: dict[str, object],
-    user_memory: dict[str, object] | None = None,
 ) -> dict[str, object] | None:
     """Restore the latest typed state; an explicit empty state is a clear."""
     runtime_state = (
@@ -177,11 +155,6 @@ def build_context_block(
         else _latest_runtime_state(_list(session_state.get("interactions")))
     )
     summary = as_str_or_none(session_state.get("summary"))
-    if runtime_state is None:
-        memory_anime = _memory_anime(user_memory)
-        runtime_state = (
-            SessionState(current_anime=memory_anime) if memory_anime else None
-        )
     if runtime_state is None and summary is None:
         return None
     return {
@@ -197,13 +170,7 @@ def _serialize_runtime_state(state: SessionState) -> dict[str, object]:
 
 def extract_context_delta(result: AgentResult) -> dict[str, object]:
     """Persist the complete typed state, including explicit empty clears."""
-    delta: dict[str, object] = {
-        "session_state_v2": _serialize_runtime_state(result.session_state)
-    }
-    anime = result.session_state.current_anime
-    if anime is not None:
-        delta.update(bangumi_id=anime.bangumi_id, anime_title=anime.title)
-    return delta
+    return {"session_state_v2": _serialize_runtime_state(result.session_state)}
 
 
 async def compact_session_interactions(
