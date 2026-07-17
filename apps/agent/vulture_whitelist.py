@@ -31,3 +31,9 @@ cls
 # Site: agent/infrastructure/supabase/client_types.py
 command  # executemany(command, args)
 min_size  # create_pool(dsn, *, min_size, max_size)
+
+# pydantic-ai Model.request override signature: (messages, model_settings,
+# model_request_parameters) is the abstract contract; failover test doubles
+# that simulate a slow/failing provider ignore the parameters.
+# Site: agent/tests/unit/test_model_failover.py
+model_request_parameters
