@@ -7,6 +7,11 @@ from agent.agents.agent_result import (
     RejectedSearch,
 )
 from agent.agents.catalog_adapter import build_search_state
+from agent.agents.catalog_failures import (
+    CATALOG_FAILURES,
+    nearby_params,
+    nearby_upstream_down,
+)
 from agent.agents.models import ToolName
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.session_state import (
@@ -23,6 +28,7 @@ from agent.agents.tool_outcomes import (
     NearbyOk,
     NearbyPlaceAmbiguous,
     NearbyPlaceUnresolved,
+    NearbyUpstreamDown,
     ResolveAmbiguous,
     ResolveNotFound,
     ResolveResolved,
@@ -46,9 +52,6 @@ from agent.clients.catalog_client import (
 from agent.clients.catalog_client import (
     ResolveResolved as CatalogResolveResolved,
 )
-from agent.clients.errors import APIError
-
-_CATALOG_ERRORS = (APIError, OSError, RuntimeError)
 
 
 def _candidate(candidate: AnimeCandidate) -> OrderedCandidate:
@@ -98,7 +101,7 @@ async def run_resolve(
     result: ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamDown
     try:
         resolved = await catalog.resolve(title)
-    except _CATALOG_ERRORS:
+    except CATALOG_FAILURES:
         result = ResolveUpstreamDown()
     else:
         result = _adapt_resolve(ctx.deps, resolved)
@@ -140,7 +143,7 @@ async def run_work_search(
     """Fetch an already-resolved work without repeating free-text resolution."""
     try:
         result = await catalog.points_by_work_id(bangumi_id)
-    except _CATALOG_ERRORS:
+    except CATALOG_FAILURES:
         failure = SearchUpstreamDown()
         _record(
             ctx.deps,
@@ -242,9 +245,13 @@ async def run_nearby_search(
     | NearbyPlaceAmbiguous
     | NearbyPlaceUnresolved
     | NearbyMissingLocation
+    | NearbyUpstreamDown
 ):
     """Resolve a place into a typed outcome and a registry-backed geo result."""
-    resolved = await _coordinates(ctx.deps, catalog, location)
+    try:
+        resolved = await _coordinates(ctx.deps, catalog, location)
+    except CATALOG_FAILURES:
+        return nearby_upstream_down(ctx.deps, location, radius_m)
     if not isinstance(resolved, tuple):
         _record(
             ctx.deps,
@@ -255,9 +262,12 @@ async def run_nearby_search(
         )
         return resolved
     coords, default_radius = resolved
-    points = await catalog.nearby(
-        coords[0], coords[1], radius_m=radius_m or default_radius
-    )
+    try:
+        points = await catalog.nearby(
+            coords[0], coords[1], radius_m=radius_m or default_radius
+        )
+    except CATALOG_FAILURES:
+        return nearby_upstream_down(ctx.deps, location, radius_m)
     payload = build_search_state(points, kind="nearby", locale=ctx.deps.locale)
     ref = ResultRef(ctx.deps.ref_factory("search", payload.row_count))
     ctx.deps.tool_state.session.store_search_result(ref, payload)
@@ -267,13 +277,10 @@ async def run_nearby_search(
         if payload.row_count
         else NearbyEmpty()
     )
-    params: dict[str, object] = {"location": location}
-    if radius_m is not None:
-        params["radius_m"] = radius_m
     _record(
         ctx.deps,
         ToolName.SEARCH_NEARBY.value,
-        params,
+        nearby_params(location, radius_m),
         outcome.model_dump(),
         provenance=ProducedSearch(outcome=outcome.outcome, result_ref=ref),
     )

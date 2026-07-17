@@ -87,12 +87,17 @@ class NearbyMissingLocation(_Outcome):
     clarification_reason: Literal["missing_location"] = "missing_location"
 
 
+class NearbyUpstreamDown(_Outcome):
+    outcome: Literal["upstream_unavailable"] = "upstream_unavailable"
+
+
 NearbyToolResult: TypeAlias = Annotated[
     NearbyOk
     | NearbyEmpty
     | NearbyPlaceAmbiguous
     | NearbyPlaceUnresolved
-    | NearbyMissingLocation,
+    | NearbyMissingLocation
+    | NearbyUpstreamDown,
     Field(discriminator="outcome"),
 ]
 
@@ -116,7 +121,11 @@ class RoutePendingSync(_Outcome):
     status: Literal["pending_sync"] = "pending_sync"
 
 
+class RouteUpstreamDown(_Outcome):
+    status: Literal["upstream_unavailable"] = "upstream_unavailable"
+
+
 RouteToolResult: TypeAlias = Annotated[
-    RouteOk | RouteEmpty | RouteStaleRef | RoutePendingSync,
+    RouteOk | RouteEmpty | RouteStaleRef | RoutePendingSync | RouteUpstreamDown,
     Field(discriminator="status"),
 ]
