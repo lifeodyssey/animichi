@@ -8,18 +8,21 @@ from pydantic_evals.reporting import EvaluationReport, ReportCase, ReportCaseFai
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.animichi_agent import animichi_agent
-from agent.tests.eval import eval_gate_flow, run_agent_eval
+from agent.tests.eval import eval_gate_flow, evaluators, run_agent_eval
 from agent.tests.eval.eval_gate_flow import finish_cli_report, gate_exit_code
-from agent.tests.eval.eval_harness import DATASET_PATH, _agentic_tracing, agent_dataset
+from agent.tests.eval.eval_harness import (
+    DATASET_PATH,
+    _agentic_tracing,
+    agent_dataset,
+    build_evaluators,
+)
 from agent.tests.eval.evaluators import (
     AgentExpected,
     AgentInput,
     DataKeysPresent,
     LocaleMatch,
     NonemptyResults,
-    RouteOrderCorrect,
     StepEfficiency,
-    ToolCallRecall,
 )
 from agent.tests.eval.exec_tiers import EvalTierTarget
 from agent.tests.eval.official_evaluators import (
@@ -91,20 +94,18 @@ async def test_export_mode_exits_without_evaluation(
     assert output.exists()
 
 
-def test_real_dataset_round_trips_with_additive_official_evaluators(
+def test_real_dataset_round_trips_with_official_first_evaluators(
     tmp_path: Path,
 ) -> None:
     evaluator_types = (
-        ToolCallRecall,
-        RouteOrderCorrect,
-        DataKeysPresent,
-        NonemptyResults,
-        LocaleMatch,
-        StepEfficiency,
         OfficialArgumentCorrectness,
         OfficialToolCorrectness,
         OfficialTrajectoryMatch,
         OfficialMaxToolCalls,
+        DataKeysPresent,
+        LocaleMatch,
+        NonemptyResults,
+        StepEfficiency,
     )
     output = tmp_path / "agent-eval-official.json"
 
@@ -117,6 +118,14 @@ def test_real_dataset_round_trips_with_additive_official_evaluators(
         (case.name, case.inputs, case.metadata) for case in agent_dataset.cases
     ]
     assert [type(evaluator) for evaluator in loaded.evaluators] == list(evaluator_types)
+
+
+def test_retired_legacy_evaluators_stay_absent() -> None:
+    assert not hasattr(evaluators, "ToolCallRecall")
+    assert not hasattr(evaluators, "RouteOrderCorrect")
+    registered = {type(evaluator).__name__ for evaluator in build_evaluators()}
+    assert "ToolCallRecall" not in registered
+    assert "RouteOrderCorrect" not in registered
 
 
 def test_streaming_progress_reports_completed_cases(
