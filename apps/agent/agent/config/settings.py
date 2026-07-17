@@ -3,6 +3,7 @@
 import warnings
 from functools import lru_cache
 from pathlib import Path
+from typing import TypeGuard
 from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
@@ -29,7 +30,7 @@ def _is_gemini_model(model_name: str | None) -> bool:
     return "gemini" in lower
 
 
-def _is_openai_compat_model(model_name: str | None) -> bool:
+def _is_openai_compat_model(model_name: str | None) -> TypeGuard[str]:
     """Return True when a model spec uses the repo's OpenAI-compatible path."""
     return isinstance(model_name, str) and model_name.lower().startswith("openai:")
 
