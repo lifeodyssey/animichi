@@ -9,10 +9,7 @@ so we assert the agent drove its data path through that client.
 
 from __future__ import annotations
 
-import json
-from unittest.mock import AsyncMock, patch
-
-from starlette.responses import StreamingResponse
+from unittest.mock import MagicMock, patch
 
 from agent.clients.catalog_client import CatalogClient
 from agent.config.settings import Settings
@@ -20,18 +17,23 @@ from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.interfaces.public_api import RuntimeAPI
 from agent.interfaces.schemas import PublicAPIRequest
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
-from agent.tests.unit.conftest_fastapi import async_client, build_app, build_stub_db
+from agent.tests.unit.conftest_fastapi import build_stub_db
 from agent.tests.unit.conftest_public_api import make_result
 
 
 def _greet_result() -> object:
-    return make_result(intent="greet_user", message="hi")
+    return make_result(intent="general_qa", message="hi")
 
 
 async def test_runtime_api_forwards_catalog_to_agent() -> None:
     db = build_stub_db()
     catalog = MockCatalogClient()
-    api = RuntimeAPI(db, session_store=InMemorySessionStore(), catalog=catalog)
+    api = RuntimeAPI(
+        db,
+        session_store=InMemorySessionStore(),
+        catalog=catalog,
+        model_http_client=MagicMock(),
+    )
     request = PublicAPIRequest(text="hello", locale="ja")
 
     with patch(
@@ -50,7 +52,9 @@ async def test_runtime_api_defaults_catalog_to_real_client() -> None:
     default is a real CatalogClient built from settings (never ``None``).
     """
     db = build_stub_db()
-    api = RuntimeAPI(db, session_store=InMemorySessionStore())
+    api = RuntimeAPI(
+        db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+    )
     request = PublicAPIRequest(text="hello", locale="ja")
 
     with patch(
@@ -74,43 +78,3 @@ def test_app_factory_builds_catalog_client() -> None:
     client = build_catalog_client(settings)
     assert isinstance(client, CatalogClient)
     assert client._base_url == "https://catalog.test"
-
-
-def _vercel_body() -> dict[str, object]:
-    return {
-        "trigger": "submit-message",
-        "id": "msg-1",
-        "messages": [
-            {"id": "u1", "role": "user", "parts": [{"type": "text", "text": "京吹"}]}
-        ],
-        "locale": "ja",
-    }
-
-
-def _sse_response() -> StreamingResponse:
-    async def _gen() -> object:
-        yield "data: [DONE]\n\n"
-
-    return StreamingResponse(_gen(), media_type="text/event-stream")
-
-
-async def test_chat_route_injects_catalog_into_deps() -> None:
-    mock_db = build_stub_db()
-    runtime = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
-    app, _ = build_app(runtime_api=runtime, db=mock_db)
-    catalog = MockCatalogClient()
-    app.state.catalog_client = catalog
-
-    with patch(
-        "agent.interfaces.routes.chat.VercelAIAdapter.dispatch_request",
-        new_callable=AsyncMock,
-        return_value=_sse_response(),
-    ) as mock_dispatch:
-        async with async_client(app) as client:
-            await client.post(
-                "/v1/chat",
-                content=json.dumps(_vercel_body()),
-                headers={"Content-Type": "application/json", "X-User-Id": "user-1"},
-            )
-
-    assert mock_dispatch.call_args.kwargs["deps"].catalog is catalog

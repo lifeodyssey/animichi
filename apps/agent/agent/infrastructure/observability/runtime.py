@@ -9,6 +9,7 @@ which sends to Logfire only when ``LOGFIRE_TOKEN`` is present.
 from __future__ import annotations
 
 import logfire
+from pydantic_ai.exceptions import UsageLimitExceeded
 
 _runtime_requests = logfire.metric_counter(
     "runtime_requests_total",
@@ -72,6 +73,8 @@ def record_http_request(
 
 def record_agent_run_error(error: BaseException) -> None:
     """Record a failed PydanticAI run without changing propagation semantics."""
+    if isinstance(error, UsageLimitExceeded):
+        return
     logfire.error(
         "animichi_agent_run_error",
         error_type=type(error).__name__,

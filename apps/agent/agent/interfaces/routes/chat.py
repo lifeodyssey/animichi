@@ -1,129 +1,119 @@
-"""Vercel AI SDK chat endpoint — streams via PydanticAI VercelAIAdapter.
-
-Uses the official dispatch_request pattern:
-https://pydantic.dev/docs/ai/integrations/ui/vercel-ai/
-
-Detects clarify context from message history to prevent re-clarification.
-"""
+"""Vercel AI SDK envelope over the unified runtime boundary."""
 
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator, Callable
-from typing import Annotated, cast
+from collections.abc import AsyncIterator
+from typing import Annotated, Literal, cast
 
-import structlog
-from fastapi import APIRouter, Depends, Request
-from pydantic_ai.run import AgentRunResult
-from pydantic_ai.ui.vercel_ai import VercelAIAdapter
-from pydantic_ai.ui.vercel_ai.response_types import BaseChunk, DataChunk
-from starlette.responses import Response
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic_ai.ui.vercel_ai.response_types import (
+    BaseChunk,
+    DataChunk,
+    DoneChunk,
+    FinishChunk,
+    FinishStepChunk,
+    StartChunk,
+    StartStepChunk,
+)
+from starlette.responses import Response, StreamingResponse
 
-from agent.agents.animichi_runner import animichi_agent
-from agent.agents.runtime_deps import RuntimeDeps
-from agent.agents.tool_state import ToolState
-from agent.domain.ports import DatabasePort
-from agent.interfaces.public_api import default_catalog_client
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
-    _get_catalog_client,
     _get_runtime_api,
     _require_trusted_user,
 )
-
-logger = structlog.get_logger(__name__)
+from agent.interfaces.schemas import PublicAPIRequest, PublicAPIResponse
 
 router = APIRouter(prefix="/v1", tags=["chat"])
+Locale = Literal["ja", "zh", "en"]
 
 
-def _find_last_assistant_message(messages: list[object]) -> dict[str, object] | None:
-    """Scan reversed messages list, return the last assistant msg dict or None."""
-    for msg in reversed(messages):
-        if not isinstance(msg, dict):
-            continue
-        if msg.get("role") == "assistant":
-            return msg
-    return None
+def _locale(request: Request) -> Locale:
+    value = request.headers.get("x-locale", "ja")
+    return cast(Locale, value) if value in ("ja", "zh", "en") else "ja"
 
 
-def _scan_parts_for_clarify(parts: list[object]) -> dict[str, object] | None:
-    """Scan parts list for a clarify tool call, return tool_state dict or None."""
-    for part in parts:
-        if not isinstance(part, dict):
-            continue
-        part_type = part.get("type", "")
-        tool_name = part.get("toolName", "")
-        if tool_name != "clarify" and part_type != "tool-clarify":
-            continue
-        output = part.get("output") or part.get("result")
-        if not isinstance(output, dict):
-            return {"pending_clarify": True}
-        candidates = output.get("candidates") or output.get("options")
-        if isinstance(candidates, list):
-            return {"pending_clarify": True, "resolve_candidates": candidates}
-        return {"pending_clarify": True}
-    return None
+def _messages(body: dict[str, object]) -> list[object]:
+    value = body.get("messages")
+    if not isinstance(value, list):
+        raise HTTPException(status_code=422, detail="messages must be a list")
+    return value
 
 
-def _detect_clarify_context(body: bytes) -> dict[str, object]:
-    """Scan Vercel SDK request body for pending clarify state.
+def _last_user_text(messages: list[object]) -> str:
+    for message in reversed(messages):
+        text = _user_message_text(message)
+        if text is not None:
+            return text
+    return ""
 
-    If the last assistant message contains a clarify tool call with
-    candidates, the current user message is a clarify selection.
-    Returns tool_state entries to pre-populate on deps.
-    """
-    try:
-        data = json.loads(body)
-    except (json.JSONDecodeError, TypeError):
-        return {}
 
-    messages = data.get("messages")
-    if not isinstance(messages, list) or len(messages) < 2:
-        return {}
-
-    last_assistant = _find_last_assistant_message(messages)
-    if last_assistant is None:
-        return {}
-
-    parts = last_assistant.get("parts") or last_assistant.get("content")
+def _user_message_text(message: object) -> str | None:
+    if not isinstance(message, dict) or message.get("role") != "user":
+        return None
+    parts = message.get("parts")
     if not isinstance(parts, list):
-        return {}
+        return None
+    values = [_text_part(part) for part in parts]
+    return "".join(value for value in values if value is not None)
 
-    return _scan_parts_for_clarify(parts) or {}
+
+def _text_part(part: object) -> str | None:
+    if not isinstance(part, dict) or part.get("type") != "text":
+        return None
+    value = part.get("text")
+    return value if isinstance(value, str) else None
 
 
-def _make_on_complete(
-    deps: RuntimeDeps,
-) -> Callable[[AgentRunResult[object]], AsyncIterator[BaseChunk]]:
-    """Create an on_complete callback that merges tool_state into the output.
+def _optional_ids(body: dict[str, object], field: str) -> list[str] | None:
+    value = body.get(field)
+    if value is None:
+        return None
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise HTTPException(status_code=422, detail=f"{field} must be a string list")
+    return value
 
-    The LLM's output tool (search_response etc.) has intent + message but
-    empty data rows. The actual rows live in deps.tool_state, populated by
-    the search/route tool handlers. We merge them here so the frontend
-    gets a single DataChunk with the complete response.
-    """
 
-    async def _on_complete(
-        result: AgentRunResult[object],
-    ) -> AsyncIterator[BaseChunk]:
-        output = result.output
-        if not hasattr(output, "model_dump"):
-            return
-        data = output.model_dump(mode="json")
+def _clarification_id(body: dict[str, object]) -> int | None:
+    value = body.get("clarification_id")
+    if value is None or isinstance(value, int) and not isinstance(value, bool):
+        return value
+    raise HTTPException(status_code=422, detail="clarification_id must be an integer")
 
-        # Merge full tool_state data into the output's empty data section.
-        # Wrap under "results" or "route" to match response_builder.py convention.
-        intent = data.get("intent", "")
-        tool_data = deps.tool_state.payload_for(str(intent))
-        if tool_data is not None and isinstance(data.get("data"), dict):
-            if intent in ("plan_route", "plan_selected"):
-                data["data"] = {"route": tool_data}
-            else:
-                data["data"] = {"results": tool_data}
 
-        yield DataChunk(type="data-response", data=data)
+def _decode_body(raw: bytes) -> dict[str, object]:
+    try:
+        value: object = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise HTTPException(status_code=422, detail="invalid JSON body") from exc
+    if not isinstance(value, dict):
+        raise HTTPException(status_code=422, detail="request body must be an object")
+    return value
 
-    return _on_complete
+
+def _runtime_request(request: Request, body: dict[str, object]) -> PublicAPIRequest:
+    return PublicAPIRequest(
+        text=_last_user_text(_messages(body)),
+        session_id=request.headers.get("x-session-id"),
+        locale=_locale(request),
+        selected_point_ids=_optional_ids(body, "selected_point_ids"),
+        selected_candidate_ids=_optional_ids(body, "selected_candidate_ids"),
+        clarification_id=_clarification_id(body),
+    )
+
+
+def _event(chunk: BaseChunk) -> str:
+    return f"data: {chunk.encode(6)}\n\n"
+
+
+async def _response_stream(response: PublicAPIResponse) -> AsyncIterator[str]:
+    yield _event(StartChunk())
+    yield _event(StartStepChunk())
+    yield _event(DataChunk(type="data-response", data=response.model_dump(mode="json")))
+    yield _event(FinishStepChunk())
+    yield _event(FinishChunk(finish_reason="stop"))
+    yield _event(DoneChunk())
 
 
 @router.post("/chat")
@@ -131,41 +121,11 @@ async def handle_chat(
     request: Request,
     auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
 ) -> Response:
-    """Handle Vercel AI SDK chat requests.
-
-    Session ID and locale are passed via request headers (x-session-id,
-    x-locale) so the body is reserved for the SDK's RequestData format.
-    dispatch_request handles body parsing, agent execution, and streaming.
-    """
-    locale = request.headers.get("x-locale", "ja")
-    if locale not in ("ja", "zh", "en"):
-        locale = "ja"
-
-    # Read body once — Starlette caches it so dispatch_request can re-read
-    body = await request.body()
-
-    # Detect clarify context from message history
-    clarify_ctx = _detect_clarify_context(body)
-
-    runtime_api = _get_runtime_api(request)
-    db = cast(DatabasePort, runtime_api._db)
-
-    deps = RuntimeDeps(
-        db=db,
-        locale=locale,
-        query="",  # extracted from messages by the agent
-        catalog=_get_catalog_client(request) or default_catalog_client(),
-    )
-
-    # Pre-populate tool_state with clarify context if detected
-    if clarify_ctx:
-        deps.tool_state = ToolState.model_validate(clarify_ctx)
-        logger.info("chat_clarify_context_detected", clarify_ctx=clarify_ctx)
-
-    return await VercelAIAdapter.dispatch_request(
-        request,
-        agent=animichi_agent,
-        deps=deps,
-        sdk_version=6,
-        on_complete=_make_on_complete(deps),
+    """Execute chat through RuntimeAPI; pending state is loaded by session ID."""
+    api_request = _runtime_request(request, _decode_body(await request.body()))
+    response = await _get_runtime_api(request).handle(api_request, user_id=auth.user_id)
+    return StreamingResponse(
+        _response_stream(response),
+        media_type="text/event-stream",
+        headers={"x-vercel-ai-ui-message-stream": "v1"},
     )

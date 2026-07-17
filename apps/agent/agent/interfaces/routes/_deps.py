@@ -18,11 +18,29 @@ from agent.config.settings import Settings
 from agent.infrastructure.session import SessionStore, create_session_store
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import PublicAPIResponse, RuntimeAPI
+from agent.interfaces.schemas import GRACEFUL_TERMINAL_STATUSES
 
 if TYPE_CHECKING:
     import logfire
 
 _logger = structlog.get_logger(__name__)
+
+_SCRUB_PATTERNS = (
+    r"authorization",
+    r"bearer(?=\s+[A-Za-z0-9._~+/=-]+)",
+    r"(?=^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$)",
+    r"api[._ -]?key",
+    r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
+)
+_OPERATING_QUERY_FIELDS = frozenset({"query_text", "first_query"})
+_MESSAGE_CONTENT_FIELDS = frozenset(
+    {
+        "pydantic_ai.all_messages",
+        "gen_ai.input.messages",
+        "gen_ai.output.messages",
+        "gen_ai.system_instructions",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -172,10 +190,18 @@ def _http_error_code(status_code: int) -> str:
 def _http_status_for_response(response: PublicAPIResponse) -> int:
     if response.success:
         return 200
+    if response.status in GRACEFUL_TERMINAL_STATUSES:
+        return 200
 
     codes = {error.code for error in response.errors}
 
-    if codes & {"invalid_input", "missing_required_field", "invalid_format"}:
+    if codes & {
+        "invalid_input",
+        "invalid_model_alias",
+        "invalid_selection",
+        "missing_required_field",
+        "invalid_format",
+    }:
         return 400
     if codes & {"authentication_error", "invalid_credentials"}:
         return 401
@@ -224,12 +250,18 @@ def setup_logfire(settings: Settings, app: object | None = None) -> None:
     import logfire
 
     variables = _managed_prompt_variables()
+    _enable_message_content_scrubbing()
+    scrubbing = logfire.ScrubbingOptions(
+        callback=_preserve_operating_query,
+        extra_patterns=_SCRUB_PATTERNS,
+    )
     logfire.configure(
         service_name=settings.observability_service_name,
         service_version=settings.observability_service_version,
         environment=settings.app_env,
         send_to_logfire="if-token-present",
         console=False,
+        scrubbing=scrubbing,
         variables=variables,
     )
     if _has_logfire_token():
@@ -241,6 +273,24 @@ def _has_logfire_token() -> bool:
     import os
 
     return bool(os.environ.get("LOGFIRE_TOKEN"))
+
+
+def _preserve_operating_query(match: logfire.ScrubMatch) -> object | None:
+    """Keep query operating data intact while other matches are redacted."""
+    # These fields drive product behavior and eval analysis, so their exact
+    # text is intentionally preserved; message-content telemetry is not.
+    if any(part in _OPERATING_QUERY_FIELDS for part in match.path):
+        return cast(object, match.value)
+    return None
+
+
+def _enable_message_content_scrubbing() -> None:
+    """Opt PydanticAI/GenAI message attributes into Logfire recursion."""
+    from logfire._internal.scrubbing import BaseScrubber
+
+    # Coupled to logfire._internal SAFE_KEYS until its public API supports
+    # recursive scrubbing of PydanticAI and GenAI message attributes.
+    BaseScrubber.SAFE_KEYS.difference_update(_MESSAGE_CONTENT_FIELDS)
 
 
 def _managed_prompt_variables() -> logfire.VariablesOptions | None:
@@ -263,3 +313,4 @@ def _instrument_logfire(app: object | None) -> None:
 
         logfire.instrument_fastapi(cast(_FastAPI, app))
     logfire.instrument_httpx()
+    logfire.instrument_asyncpg()

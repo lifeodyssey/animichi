@@ -15,13 +15,11 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.runtime_models import (
-    ResultsMetaModel,
-    SearchDataModel,
-    SearchResponseModel,
-)
+from agent.agents.runtime_models import SearchResponseModel
+from agent.agents.session_state import ResultRef, SearchPayloadState, SessionState
 from agent.config.settings import Settings
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
@@ -33,13 +31,16 @@ from agent.interfaces.public_api import PublicAPIResponse, RuntimeAPI
 
 def _canned_agent_result() -> AgentResult:
     """A minimal successful AgentResult for mocking RuntimeAPI.handle."""
-    output = SearchResponseModel(
-        intent="search_bangumi",
-        message="Found 0 pilgrimage spots.",
-        data=SearchDataModel(results=ResultsMetaModel(rows=[], row_count=0)),
+    output = SearchResponseModel(message="Found 0 pilgrimage spots.")
+    state = SessionState()
+    state.store_search_result(
+        ResultRef("search:test:1"),
+        SearchPayloadState(kind="bangumi", row_count=0),
     )
     return AgentResult(
         output=output,
+        intent="search_bangumi",
+        session_state=state,
         steps=[
             StepRecord(
                 tool="search_bangumi",
@@ -47,7 +48,6 @@ def _canned_agent_result() -> AgentResult:
                 data={"rows": [], "row_count": 0},
             )
         ],
-        tool_state={},
     )
 
 
@@ -78,6 +78,7 @@ def _build_test_app(
     resolved_api: RuntimeAPI | MagicMock = runtime_api or RuntimeAPI(
         db,
         session_store=InMemorySessionStore(),
+        model_http_client=MagicMock(),
     )
 
     @asynccontextmanager
@@ -212,6 +213,36 @@ class TestRoot:
 
 
 class TestRuntime:
+    @pytest.mark.parametrize(
+        "model_alias", ["__nope__", "openai:x@https://evil.example"]
+    )
+    def test_invalid_model_alias_returns_http_400(self, model_alias: str) -> None:
+        response = PublicAPIResponse(
+            success=False,
+            status="error",
+            intent="unknown",
+            message="Invalid model alias.",
+            errors=[
+                {
+                    "code": "invalid_model_alias",
+                    "message": "Invalid model alias.",
+                }
+            ],
+        )
+        api = MagicMock(spec=RuntimeAPI)
+        api.handle = AsyncMock(return_value=response)
+        api._db = object()
+        app = _build_test_app(db=object(), runtime_api=api)
+
+        with TestClient(app) as client:
+            result = client.post(
+                "/v1/runtime",
+                json={"text": "hello", "model": model_alias},
+            )
+
+        assert result.status_code == 400
+        assert result.json()["errors"][0]["code"] == "invalid_model_alias"
+
     async def test_returns_200_with_public_api_shape(
         self, tc_db: SupabaseClient
     ) -> None:

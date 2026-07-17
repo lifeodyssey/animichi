@@ -2,7 +2,11 @@
  * Compile-time shape lock for the contract-first router implementation.
  * This file is included by tsconfig but not Vitest's runtime test glob.
  */
-import { catalogContract, type SearchResult } from "@seichijunrei/contract";
+import {
+  catalogContract,
+  type ResolveOutcome,
+  type SearchResult,
+} from "@seichijunrei/contract";
 import { implement } from "@orpc/server";
 import { expectTypeOf } from "vitest";
 import type { CatalogContext } from "../src/router";
@@ -12,6 +16,12 @@ const validOutput: SearchResult = { rows: [], synced_at: "2026-07-13T00:00:00.00
 
 expectTypeOf(validOutput).toExtend<SearchResult>();
 os.search.handler(() => validOutput);
+os.pointsByWorkId.handler(() => validOutput);
+const resolved: ResolveOutcome = {
+  outcome: "resolved",
+  match: { bangumi_id: "3302", title: "らき☆すた" },
+};
+os.resolve.handler(() => resolved);
 
 // @ts-expect-error -- the contract requires synced_at; removing this directive must fail tsc.
 os.search.handler(() => ({ rows: [] }));

@@ -51,6 +51,7 @@ async def selected_response(divergent_db: MagicMock) -> PublicAPIResponse:
         divergent_db,
         session_store=InMemorySessionStore(),
         catalog=MockCatalogClient(),
+        model_http_client=MagicMock(),
     )
     return await api.handle(
         PublicAPIRequest(selected_point_ids=["p004", "p005"], locale="ja")

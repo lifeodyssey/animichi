@@ -26,6 +26,16 @@ class BangumiRepository:
             "SELECT * FROM bangumi WHERE id = $1", bangumi_id
         )
 
+    async def filter_existing_ids(self, bangumi_ids: list[str]) -> list[str]:
+        """Preserve only IDs backed by the route association foreign key."""
+        if not bangumi_ids:
+            return []
+        rows = await self._pool.fetch(
+            "SELECT id FROM bangumi WHERE id = ANY($1::text[])", bangumi_ids
+        )
+        existing = {str(row["id"]) for row in rows}
+        return [item for item in bangumi_ids if item in existing]
+
     async def list_bangumi(self, *, limit: int = 50) -> list[Row]:
         """List bangumi ordered by rating."""
         return await self._pool.fetch(

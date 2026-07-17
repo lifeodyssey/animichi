@@ -19,7 +19,13 @@ from agent.clients.catalog_client import (
     Route,
 )
 
-_POINT = {"id": "p1", "name": "Uji Bridge", "latitude": 34.89, "longitude": 135.80}
+_POINT = {
+    "id": "p1",
+    "name": "Uji Bridge",
+    "latitude": 34.89,
+    "longitude": 135.80,
+    "city": "Uji",
+}
 
 
 def test_geocode_types_remain_reexported() -> None:
@@ -53,7 +59,9 @@ async def test_search_parses_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     points = await CatalogClient("https://catalog.test").search("響け")
 
     assert points == [
-        PilgrimagePoint(id="p1", name="Uji Bridge", latitude=34.89, longitude=135.80)
+        PilgrimagePoint(
+            id="p1", name="Uji Bridge", latitude=34.89, longitude=135.80, city="Uji"
+        )
     ]
 
 
@@ -77,7 +85,7 @@ async def test_spots_parses_single_point(monkeypatch: pytest.MonkeyPatch) -> Non
     point = await CatalogClient("https://catalog.test").spots("115908")
 
     assert point == PilgrimagePoint(
-        id="p1", name="Uji Bridge", latitude=34.89, longitude=135.80
+        id="p1", name="Uji Bridge", latitude=34.89, longitude=135.80, city="Uji"
     )
 
 
@@ -90,6 +98,7 @@ async def test_nearby_parses_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     assert len(points) == 1
+    assert points[0].city == "Uji"
     assert client.post.call_args.kwargs["json"] == {
         "lat": 34.89,
         "lng": 135.80,

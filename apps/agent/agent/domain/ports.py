@@ -39,6 +39,8 @@ class BangumiRepo(Protocol):
         self, titles: list[str]
     ) -> list[dict[str, object]]: ...
 
+    async def filter_existing_ids(self, bangumi_ids: list[str]) -> list[str]: ...
+
 
 class PointsRepo(Protocol):
     """Pilgrimage point DB operations used by handlers."""
@@ -107,14 +109,14 @@ class RoutesRepo(Protocol):
     async def save_route(
         self,
         session_id: str,
-        bangumi_id: str,
+        anime_ids: list[str],
         point_ids: list[str],
         data: dict[str, object],
         *,
         origin_station: str | None = None,
         origin_lat: float | None = None,
         origin_lon: float | None = None,
-    ) -> str | None: ...
+    ) -> str: ...
 
 
 def get_session_repo(db: object) -> SessionRepo | None:
@@ -125,6 +127,16 @@ def get_session_repo(db: object) -> SessionRepo | None:
     if not asyncio.iscoroutinefunction(getattr(session, "upsert_session", None)):
         return None
     return cast(SessionRepo, session)
+
+
+def get_bangumi_repo(db: object) -> BangumiRepo | None:
+    """Return the bangumi repo when it exposes typed ID filtering."""
+    bangumi = getattr(db, "bangumi", None)
+    if bangumi is None:
+        return None
+    if not asyncio.iscoroutinefunction(getattr(bangumi, "filter_existing_ids", None)):
+        return None
+    return cast(BangumiRepo, bangumi)
 
 
 def get_routes_repo(db: object) -> RoutesRepo | None:

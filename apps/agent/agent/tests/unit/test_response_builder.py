@@ -1,17 +1,29 @@
-"""Unit tests for agent.interfaces.response_builder."""
+"""Public wire projection from the typed SessionState registry."""
 
 from __future__ import annotations
 
-from agent.agents.agent_result import AgentResult, StepRecord
+from agent.agents.agent_result import (
+    AgentResult,
+    ProducedRoute,
+    ProducedSearch,
+    StepRecord,
+    TurnProvenance,
+)
 from agent.agents.runtime_models import (
-    QADataModel,
+    ClarifyResponseModel,
     QAResponseModel,
-    ResultsMetaModel,
-    RouteDataModel,
-    RouteModel,
     RouteResponseModel,
-    SearchDataModel,
     SearchResponseModel,
+)
+from agent.agents.session_state import (
+    OrderedCandidate,
+    PendingClarification,
+    PointState,
+    ResultRef,
+    RoutePayloadState,
+    RouteRef,
+    SearchPayloadState,
+    SessionState,
 )
 from agent.application.errors import InvalidInputError
 from agent.interfaces.response_builder import (
@@ -22,220 +34,156 @@ from agent.interfaces.response_builder import (
 )
 
 
-def _make_result(
-    intent: str = "search_bangumi",
-    tool_state: dict[str, object] | None = None,
+def _search_state(*, empty: bool = False, kind: str = "bangumi") -> SessionState:
+    rows = [] if empty else [PointState(id="p1", name="Bridge", bangumi_id="1")]
+    state = SessionState()
+    state.store_search_result(
+        ResultRef("search:1"),
+        SearchPayloadState.model_validate(
+            {"kind": kind, "rows": rows, "row_count": len(rows), "anime_id": "1"}
+        ),
+    )
+    return state
+
+
+def _route_state(*, multi: bool = False) -> SessionState:
+    state = _search_state(kind="multi" if multi else "bangumi")
+    state.store_route(
+        RouteRef("route:1"),
+        RoutePayloadState(
+            ordered_points=[PointState(id="p1", bangumi_id="1")],
+            source_ref=state.last_result_ref,
+        ),
+    )
+    return state
+
+
+def _result(
+    intent: str,
+    state: SessionState,
+    *,
     steps: list[StepRecord] | None = None,
-    message: str = "",
 ) -> AgentResult:
-    """Build a fake AgentResult for response_builder tests.
-
-    The typed output uses default/empty models; the response_builder reads
-    raw dicts from tool_state when present, so we do not model_validate
-    the tool_state payload (it may contain partial/non-conforming data).
-    """
-    ts = tool_state or {}
-
-    if intent in ("search_bangumi", "search_nearby"):
-        output = SearchResponseModel(
-            intent=intent,
-            message=message,
-            data=SearchDataModel(results=ResultsMetaModel()),
-        )
-    elif intent in ("plan_route", "plan_selected"):
-        output = RouteResponseModel(
-            intent=intent,
-            message=message,
-            data=RouteDataModel(route=RouteModel()),
-        )
-    else:
-        output = QAResponseModel(
-            intent="general_qa",
-            message=message,
-            data=QADataModel(message=message),
-        )
-
+    output = (
+        RouteResponseModel(message="Route ready.")
+        if intent.startswith("plan_")
+        else SearchResponseModel(message="Search complete.")
+    )
     return AgentResult(
         output=output,
+        intent=intent,
+        session_state=state,
         steps=steps or [],
-        tool_state=ts,
+        provenance=_provenance(intent, state),
     )
 
 
-class TestAgentResultToResponse:
-    def test_search_intent_with_results(self) -> None:
-        result = _make_result(
-            intent="search_bangumi",
-            message="Found 3 spots.",
-            tool_state={
-                "search_bangumi": {
-                    "rows": [{"id": "1"}],
-                    "row_count": 1,
-                    "status": "ok",
-                },
-            },
-        )
-        resp = agent_result_to_response(result, include_debug=False)
-
-        assert resp.success is True
-        assert resp.status == "ok"
-        assert resp.intent == "search_bangumi"
-        assert "results" in resp.data
-        assert resp.ui == {"component": "PilgrimageGrid"}
-        assert resp.errors == []
-
-    def test_route_intent_with_route(self) -> None:
-        result = _make_result(
-            intent="plan_route",
-            message="Route ready.",
-            tool_state={
-                "plan_route": {
-                    "ordered_points": [],
-                    "point_count": 0,
-                    "status": "ok",
-                },
-            },
-        )
-        resp = agent_result_to_response(result, include_debug=False)
-
-        assert resp.success is True
-        assert "route" in resp.data
-        assert "results" not in resp.data
-        assert resp.ui == {"component": "RoutePlannerWizard"}
-
-    def test_error_results_produce_error_list(self) -> None:
-        result = _make_result(
-            intent="search_bangumi",
-            steps=[
-                StepRecord(tool="search_bangumi", success=False, error="db down"),
-                StepRecord(tool="plan_route", success=False, error="timeout"),
-            ],
-        )
-        resp = agent_result_to_response(result, include_debug=False)
-
-        assert resp.success is False
-        assert len(resp.errors) == 2
-        assert resp.errors[0].code == "pipeline_error"
-        assert resp.errors[0].message == "A processing step failed."
-
-    def test_error_results_include_detail_in_debug_mode(self) -> None:
-        result = _make_result(
-            intent="search_bangumi",
-            steps=[
-                StepRecord(tool="search_bangumi", success=False, error="db down"),
-            ],
-        )
-        resp = agent_result_to_response(result, include_debug=True)
-
-        assert resp.errors[0].message == "db down"
-
-    def test_empty_results_produce_empty_status(self) -> None:
-        result = _make_result(
-            intent="search_bangumi",
-            message="No results.",
-            tool_state={
-                "search_bangumi": {
-                    "rows": [],
-                    "row_count": 0,
-                    "status": "empty",
-                },
-            },
-        )
-        resp = agent_result_to_response(result, include_debug=False)
-
-        assert resp.success is True
-        assert resp.status == "empty"
-        assert "results" in resp.data
-
-    def test_empty_tool_state(self) -> None:
-        result = _make_result(intent="search_bangumi")
-        resp = agent_result_to_response(result, include_debug=False)
-
-        assert resp.success is True
-        assert "results" in resp.data
-
-    def test_debug_includes_steps(self) -> None:
-        result = _make_result(
-            intent="search_bangumi",
-            message="ok",
-            steps=[
-                StepRecord(
-                    tool="resolve_anime",
-                    success=True,
-                    data={"bangumi_id": "1"},
-                ),
-                StepRecord(tool="search_bangumi", success=True, data={"rows": []}),
-            ],
-        )
-        resp = agent_result_to_response(result, include_debug=True)
-
-        assert resp.debug is not None
-        assert len(resp.debug["steps"]) == 2
+def _provenance(intent: str, state: SessionState) -> TurnProvenance:
+    search = None
+    route = None
+    if intent in {"search_bangumi", "search_nearby", "plan_multi"}:
+        ref = state.last_result_ref
+        if ref is not None:
+            outcome = "ok" if state.search_results[ref].row_count else "empty"
+            search = ProducedSearch(outcome=outcome, result_ref=ref)
+    if intent.startswith("plan_") and state.route_lru:
+        route = ProducedRoute(status="ok", route_ref=state.route_lru[-1])
+    return TurnProvenance(search=search, route=route)
 
 
-class TestUIMap:
-    def test_search_bangumi_component(self) -> None:
-        assert _UI_MAP["search_bangumi"] == "PilgrimageGrid"
-
-    def test_search_nearby_component(self) -> None:
-        assert _UI_MAP["search_nearby"] == "NearbyMap"
-
-    def test_plan_route_component(self) -> None:
-        assert _UI_MAP["plan_route"] == "RoutePlannerWizard"
-
-    def test_plan_selected_component(self) -> None:
-        assert _UI_MAP["plan_selected"] == "RoutePlannerWizard"
-
-    def test_greet_user_component(self) -> None:
-        assert _UI_MAP["greet_user"] == "GeneralAnswer"
-
-    def test_answer_question_component(self) -> None:
-        assert _UI_MAP["answer_question"] == "GeneralAnswer"
-
-    def test_unclear_component(self) -> None:
-        assert _UI_MAP["unclear"] == "Clarification"
-
-    def test_unknown_intent_returns_no_ui(self) -> None:
-        """Unknown intents fall through to general_qa, which maps to GeneralAnswer."""
-        result = _make_result(intent="totally_unknown")
-        resp = agent_result_to_response(result, include_debug=False)
-        # Falls back to general_qa via QAResponseModel, which has a UI mapping
-        assert resp.intent == "general_qa"
-        assert resp.ui == {"component": "GeneralAnswer"}
+def test_search_projection_uses_registry_rows() -> None:
+    response = agent_result_to_response(
+        _result("search_bangumi", _search_state()), include_debug=False
+    )
+    assert response.status == "ok"
+    assert response.data["results"]["rows"][0]["name"] == "Bridge"
+    assert response.ui == {"component": "PilgrimageGrid"}
 
 
-class TestApplicationErrorResponse:
-    def test_maps_error_to_failed_response(self) -> None:
-        exc = InvalidInputError("bad request", field="text")
-        resp = application_error_response(exc)
-
-        assert resp.success is False
-        assert resp.status == "error"
-        assert resp.intent == "unknown"
-        assert resp.message == "bad request"
-        assert resp.errors[0].code == "invalid_input"
-        assert resp.errors[0].details == {"field": "text"}
+def test_empty_search_is_a_successful_empty_payload() -> None:
+    response = agent_result_to_response(
+        _result("search_nearby", _search_state(empty=True, kind="nearby")),
+        include_debug=False,
+    )
+    assert (response.success, response.status) == (True, "empty")
+    assert response.data["results"]["rows"] == []
 
 
-class TestSerializeStepRecord:
-    def test_serializes_all_fields(self) -> None:
-        step = StepRecord(
-            tool="resolve_anime",
-            success=True,
-            data={"bangumi_id": "1"},
-            error=None,
-        )
-        out = serialize_step_record(step)
-        assert out == {
-            "tool": "resolve_anime",
-            "success": True,
-            "error": None,
-            "data": {"bangumi_id": "1"},
-        }
+def test_route_and_multi_projection_are_registry_backed() -> None:
+    route = agent_result_to_response(
+        _result("plan_route", _route_state()), include_debug=False
+    )
+    multi = agent_result_to_response(
+        _result("plan_multi", _route_state(multi=True)), include_debug=False
+    )
+    assert set(route.data) == {"route"}
+    assert set(multi.data) == {"results", "route"}
+    assert multi.data["route"]["ordered_points"][0]["id"] == "p1"
 
-    def test_serializes_failed_step(self) -> None:
-        step = StepRecord(tool="search_bangumi", success=False, error="not found")
-        out = serialize_step_record(step)
-        assert out["success"] is False
-        assert out["error"] == "not found"
-        assert out["data"] is None
+
+def test_clarify_projection_uses_trusted_ordered_candidates() -> None:
+    pending = PendingClarification(
+        reason="anime_ambiguity",
+        candidate_ids=["1", "2"],
+        ordered_candidates=[
+            OrderedCandidate(id="1", title="Trusted One"),
+            OrderedCandidate(id="2", title="Trusted Two"),
+        ],
+        revision=4,
+    )
+    output = ClarifyResponseModel(
+        reason="anime_ambiguity", message="Choose works.", candidate_ids=["1", "2"]
+    )
+    result = AgentResult(
+        output=output,
+        intent="clarify",
+        session_state=SessionState(
+            pending_clarification=pending, clarification_revision=4
+        ),
+    )
+    response = agent_result_to_response(result, include_debug=False)
+    assert response.data == {
+        "reason": "anime_ambiguity",
+        "candidates": [
+            {"id": "1", "title": "Trusted One"},
+            {"id": "2", "title": "Trusted Two"},
+        ],
+        "clarification_id": 4,
+    }
+
+
+def test_failed_steps_and_debug_keep_step_provenance() -> None:
+    steps = [StepRecord("search_bangumi", False, error="catalog down")]
+    response = agent_result_to_response(
+        _result("search_bangumi", _search_state(), steps=steps), include_debug=True
+    )
+    assert response.success is False
+    assert response.errors[0].message == "catalog down"
+    assert response.debug["steps"][0]["model_initiated"] is True
+
+
+def test_ui_map_contains_only_live_runtime_stages() -> None:
+    assert _UI_MAP["plan_selected"] == "RoutePlannerWizard"
+    assert _UI_MAP["general_qa"] == "GeneralAnswer"
+    assert _UI_MAP["greet_user"] == "GeneralAnswer"
+    assert {"answer_question", "unclear"}.isdisjoint(_UI_MAP)
+
+
+def test_unknown_intent_has_no_compatibility_fallback() -> None:
+    result = AgentResult(
+        output=QAResponseModel(message="Info"),
+        intent="unknown_new_stage",
+        session_state=SessionState(),
+    )
+    response = agent_result_to_response(result, include_debug=False)
+    assert response.intent == "unknown_new_stage"
+    assert response.ui is None
+
+
+def test_application_error_response_and_step_serialization() -> None:
+    response = application_error_response(InvalidInputError("bad", field="text"))
+    assert response.errors[0].details == {"field": "text"}
+    step = StepRecord(
+        "clarify", True, data={"reason": "anime_not_found"}, model_initiated=False
+    )
+    assert serialize_step_record(step)["model_initiated"] is False

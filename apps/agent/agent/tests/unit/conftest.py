@@ -17,6 +17,11 @@ if TYPE_CHECKING:
 os.environ.setdefault("DEEPSEEK_API_KEY", "test-key")
 os.environ.setdefault("MIMO_API_KEY", "test-key")
 os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
+os.environ.setdefault(
+    "DEFAULT_AGENT_MODEL", "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
+)
+os.environ.setdefault("FALLBACK_AGENT_MODEL", "deepseek:deepseek-v4-flash")
+os.environ.setdefault("OPENAI_COMPAT_BASE_URL", "https://api.xiaomimimo.com/v1")
 
 
 @pytest.fixture
@@ -38,8 +43,12 @@ def mock_settings(tmp_path_factory: pytest.TempPathFactory) -> Settings:
         # Settings reads .env for omitted fields, so pin the complete model layer.
         default_agent_model="deepseek:deepseek-v4-flash",
         fallback_agent_model=None,
+        deepseek_api_key="test-key",
+        mimo_api_key="test-key",
         openai_compat_api_key="test-key",
         openai_compat_base_url="https://api.xiaomimimo.com/v1",
+        agent_deadline=100.0,
+        model_attempt_timeout=45.0,
         output_dir=output_dir,
         template_dir=template_dir,
     )

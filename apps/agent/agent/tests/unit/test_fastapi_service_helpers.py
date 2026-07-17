@@ -43,7 +43,9 @@ def mock_db() -> MagicMock:
 
 def test_root_endpoint_returns_service_info(mock_db: MagicMock) -> None:
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(mock_db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
     )
 
@@ -60,7 +62,9 @@ def test_missing_user_header_returns_structured_invalid_request_error_on_convers
     mock_db: MagicMock,
 ) -> None:
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(mock_db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
     )
 
@@ -78,7 +82,9 @@ def test_messages_route_returns_structured_404_when_ownership_mismatch(
 ) -> None:
     mock_db.session.get_conversation.return_value = {"user_id": "someone-else"}
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(mock_db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
     )
 
@@ -96,7 +102,9 @@ def test_messages_route_returns_structured_404_when_ownership_mismatch(
 def test_missing_db_method_fails_fast_on_routes_endpoint() -> None:
     db = object()  # not a SupabaseClient — routes should return 500
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
         db=db,
     )
@@ -111,7 +119,9 @@ def test_missing_db_method_fails_fast_on_routes_endpoint() -> None:
 
 def test_feedback_validation_rejects_blank_query_text(mock_db: MagicMock) -> None:
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(mock_db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
     )
 
@@ -128,7 +138,9 @@ def test_feedback_validation_rejects_blank_query_text(mock_db: MagicMock) -> Non
 
 def test_feedback_validation_rejects_invalid_rating(mock_db: MagicMock) -> None:
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(mock_db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
     )
 
@@ -145,7 +157,9 @@ def test_feedback_validation_rejects_invalid_rating(mock_db: MagicMock) -> None:
 
 def test_feedback_success_persists(mock_db: MagicMock) -> None:
     app = create_fastapi_app(
-        runtime_api=RuntimeAPI(mock_db, session_store=InMemorySessionStore()),
+        runtime_api=RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        ),
         settings=Settings(),
     )
 
@@ -248,6 +262,7 @@ def test_setup_logfire_instruments_fastapi_and_httpx_when_token_set(
     logfire_mock.instrument_pydantic_ai.assert_called_once()
     logfire_mock.instrument_fastapi.assert_called_once_with(fake_app)
     logfire_mock.instrument_httpx.assert_called_once()
+    logfire_mock.instrument_asyncpg.assert_called_once()
 
 
 def test_setup_logfire_configures_without_instrumenting_when_token_not_set(
@@ -268,6 +283,7 @@ def test_setup_logfire_configures_without_instrumenting_when_token_not_set(
     logfire_mock.instrument_pydantic_ai.assert_not_called()
     logfire_mock.instrument_fastapi.assert_not_called()
     logfire_mock.instrument_httpx.assert_not_called()
+    logfire_mock.instrument_asyncpg.assert_not_called()
 
 
 def test_setup_logfire_bounds_managed_variable_remote_budget(

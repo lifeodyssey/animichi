@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import json
 from typing import cast
+from unittest.mock import MagicMock
 
+import logfire
 import pytest
 from logfire.testing import CaptureLogfire, TestExporter
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricsData
+from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
 
 from agent.config.settings import Settings
 from agent.infrastructure.observability import (
     http_span,
+    record_agent_run_error,
     record_http_request,
     record_runtime_request,
     runtime_span,
@@ -131,12 +135,25 @@ class TestHttpMetrics:
         }
 
 
+def test_usage_limit_is_not_recorded_as_agent_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    error_record = MagicMock()
+    monkeypatch.setattr(logfire, "error", error_record)
+    record_agent_run_error(UsageLimitExceeded("request limit reached"))
+    error_record.assert_not_called()
+    record_agent_run_error(UnexpectedModelBehavior("invalid model response"))
+    error_record.assert_called_once()
+
+
 class TestDeploymentEnvironment:
     def test_setup_logfire_tags_span_with_deployment_environment(
         self, monkeypatch: pytest.MonkeyPatch, mock_settings: Settings
     ) -> None:
         exporter = TestExporter()
-        patch_configure_with_test_sinks(monkeypatch, exporter, InMemoryMetricReader())
+        configure_call = patch_configure_with_test_sinks(
+            monkeypatch, exporter, InMemoryMetricReader()
+        )
         monkeypatch.delenv("LOGFIRE_TOKEN", raising=False)
 
         settings = mock_settings.model_copy(update={"app_env": "staging"})
@@ -147,6 +164,7 @@ class TestDeploymentEnvironment:
         spans = exporter.exported_spans_as_dict(include_resources=True)
         resource_attributes = spans[-1]["resource"]["attributes"]
         assert resource_attributes["deployment.environment.name"] == "staging"
+        assert isinstance(configure_call.scrubbing, logfire.ScrubbingOptions)
 
     def test_setup_logfire_tags_metric_with_deployment_environment(
         self, monkeypatch: pytest.MonkeyPatch, mock_settings: Settings

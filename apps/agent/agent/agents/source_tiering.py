@@ -3,7 +3,7 @@
 Classifies web-search result URLs into two provenance tiers by domain
 allowlist. The tier is a reputation label ONLY — "verified" content is
 still untrusted external data and is delimited exactly like unverified
-content (see ``guardrails.wrap_untrusted_web_results``). Tiering never
+content (see ``web_trust.wrap_untrusted_web_results``). Tiering never
 upgrades trust; it only tells the model which sources are reputable.
 """
 

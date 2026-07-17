@@ -25,7 +25,6 @@ from agent.agents.base import describe_model, resolve_model
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import (
     ClarifyResponseModel,
-    GreetingResponseModel,
     QAResponseModel,
     RouteResponseModel,
     SearchResponseModel,
@@ -52,7 +51,6 @@ VALID_OUTPUT_TYPES = (
     SearchResponseModel,
     RouteResponseModel,
     QAResponseModel,
-    GreetingResponseModel,
 )
 
 
@@ -100,6 +98,7 @@ async def _run_once(
     deps = _deps(query)
     started = time.monotonic()
     try:
+        # Direct agent calls bypass runner injection preflight; this benchmarks the model.
         result = await agent.run(query, deps=deps, model=model)
     except Exception as exc:
         row = _measurement(query, repeat, time.monotonic() - started)

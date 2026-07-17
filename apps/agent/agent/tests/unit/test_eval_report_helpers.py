@@ -27,6 +27,12 @@ def test_collect_scores_returns_requested_metrics() -> None:
     }
 
 
+def test_collect_scores_accepts_additive_official_metrics() -> None:
+    names = ["tool_f1", "argument_correctness_official"]
+    scores = {"tool_f1": 0.75, "argument_correctness_official": 1.0}
+    assert collect_scores(_aggregate(scores), names) == scores
+
+
 def test_collect_scores_raises_on_unknown_metric_name() -> None:
     with pytest.raises(ValueError, match="Missing metric\\(s\\): missing"):
         collect_scores(_aggregate({"known": 1.0}), ["missing"])
@@ -37,3 +43,7 @@ def test_metric_names_conditionally_includes_nonempty_results() -> None:
     untagged = metric_names(has_nonempty_cases=False, l3_on=False)
     assert "nonempty_results" in tagged
     assert "nonempty_results" not in untagged
+    assert "argument_correctness_official" in untagged
+    assert "tool_correctness_official" in untagged
+    assert "trajectory_match_official" in untagged
+    assert "max_tool_calls_official" in untagged

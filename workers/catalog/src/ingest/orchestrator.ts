@@ -17,9 +17,8 @@
  *      failures then rethrow as typed retryable errors, while internal failures
  *      return `failed` as before.
  *
- * FOLLOW-UPS (noted, NOT built here): the L1 fast-preview vs L2 full-sync
- * tiering (return a preview before enrich completes), the oRPC ingest endpoint
- * that calls this, and the agent's catalog-miss trigger that drives it.
+ * Both catalog read paths use this gate: title search starts it after resolving
+ * a preview, and the work-id path consults the same persisted marker first.
  */
 import type { CatalogDb } from "../db/client";
 import { enrichWork } from "../enrich/enrich";
@@ -32,11 +31,13 @@ import {
   type AnitabiPoint,
   type BangumiSubject,
   type FetchLike,
+  UpstreamNotFoundError,
   UpstreamFetchError,
 } from "./sources";
 
-/** Negative-cache TTL for empty / failed ingests (seconds). */
-const FAILURE_TTL_SECONDS = 3600;
+/** Retry ordinary failures after one hour; recheck confirmed-empty works weekly. */
+const FAILURE_TTL_SECONDS = 60 * 60;
+const EMPTY_TTL_SECONDS = 7 * 24 * 60 * 60;
 /** Error codes parked behind the negative cache (no bare strings). */
 const ErrorCode = { NotFound: "not_found", IngestError: "ingest_error" } as const;
 
@@ -44,6 +45,9 @@ const ErrorCode = { NotFound: "not_found", IngestError: "ingest_error" } as cons
 export interface IngestOptions {
   fetchImpl?: FetchLike;
 }
+
+export type IngestGuard = "ready" | "in_progress" | "recently_attempted" | "empty";
+export type IngestClaim = "acquired" | Exclude<IngestGuard, "ready">;
 
 /** Discriminated union: the outcome of one {@link ingestWork} call. */
 export type IngestResult =
@@ -58,9 +62,32 @@ export async function ingestWork(
   bangumiId: string,
   opts: IngestOptions = {},
 ): Promise<IngestResult> {
+  const claim = await claimIngest(db, bangumiId);
+  if (claim === "acquired") return runClaimedIngest(db, bangumiId, opts);
+  if (claim === "empty") return { status: "empty", reason: "no points" };
+  return { status: "in_progress" };
+}
+
+/** Read the persisted marker before paying for an L1 preview. */
+export function ingestGuard(db: CatalogDb, workId: string): Promise<IngestGuard> {
+  return new JobStore(db).guard(workId);
+}
+
+/** Atomically reserve the expensive preview and full-ingest work. */
+export async function claimIngest(db: CatalogDb, workId: string): Promise<IngestClaim> {
   const jobs = new JobStore(db);
-  if (!(await jobs.acquire(bangumiId))) return { status: "in_progress" };
-  return runIngest(db, jobs, bangumiId, opts.fetchImpl);
+  if (await jobs.acquire(workId)) return "acquired";
+  const guard = await jobs.guard(workId);
+  return guard === "ready" ? "in_progress" : guard;
+}
+
+/** Run a full ingest for a work whose `ingest_jobs` claim is already held. */
+export function runClaimedIngest(
+  db: CatalogDb,
+  workId: string,
+  opts: IngestOptions = {},
+): Promise<IngestResult> {
+  return runIngest(db, new JobStore(db), workId, opts.fetchImpl);
 }
 
 /** Negative-cache every failure, then preserve typed upstream transport errors. */
@@ -73,6 +100,9 @@ async function runIngest(
   try {
     return await ingestAcquired(db, jobs, workId, fetchImpl);
   } catch (err) {
+    if (err instanceof UpstreamNotFoundError) {
+      return failJob(jobs, workId, ErrorCode.NotFound, String(err));
+    }
     const result = await failJob(jobs, workId, ErrorCode.IngestError, String(err));
     if (err instanceof UpstreamFetchError) throw upstreamUnavailable(err.upstream, err);
     return result;
@@ -124,7 +154,8 @@ async function failJob(
   errorCode: string,
   reason: string,
 ): Promise<IngestResult> {
-  await jobs.markFailed(workId, { errorCode, ttlSeconds: FAILURE_TTL_SECONDS, error: reason });
+  const ttlSeconds = errorCode === ErrorCode.NotFound ? EMPTY_TTL_SECONDS : FAILURE_TTL_SECONDS;
+  await jobs.markFailed(workId, { errorCode, ttlSeconds, error: reason });
   const status = errorCode === ErrorCode.NotFound ? "empty" : "failed";
   return { status, reason };
 }
