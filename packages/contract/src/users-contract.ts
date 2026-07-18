@@ -96,6 +96,26 @@ export const SaveRouteInput = z.object({
 /** Inferred save-route input. */
 export type SaveRouteInput = z.infer<typeof SaveRouteInput>;
 
+/** Input for deleting one user-owned route. */
+export const DeleteRouteInput = z.object({ id: z.uuid() });
+/** Inferred delete-route input. */
+export type DeleteRouteInput = z.infer<typeof DeleteRouteInput>;
+
+/** Result returned after deleting one user-owned route. */
+export const DeleteRouteResult = z.object({ deleted: z.literal(true) });
+/** Inferred delete-route result. */
+export type DeleteRouteResult = z.infer<typeof DeleteRouteResult>;
+
+/** Input for claiming routes created during an anonymous session. */
+export const ClaimRoutesInput = z.object({ session_id: z.string().min(1) });
+/** Inferred claim-routes input. */
+export type ClaimRoutesInput = z.infer<typeof ClaimRoutesInput>;
+
+/** Number of anonymous routes assigned to the authenticated caller. */
+export const ClaimRoutesResult = z.object({ claimed_count: z.number().int().nonnegative() });
+/** Inferred claim-routes result. */
+export type ClaimRoutesResult = z.infer<typeof ClaimRoutesResult>;
+
 /** Result returned when listing the caller's routes. */
 export const ListRoutesResult = z.object({ routes: z.array(UserRoute) });
 /** Inferred list-routes result. */
@@ -111,6 +131,15 @@ export const usersContract = {
     .input(SaveRouteInput)
     .errors(pickUsersErrors(["ROUTE_NOT_FOUND", "ROUTE_NOT_OWNED"]))
     .output(UserRoute),
+  deleteRoute: oc
+    .route({ method: "DELETE", path: "/v1/users/routes/{id}", summary: "Delete a saved route" })
+    .input(DeleteRouteInput)
+    .errors(pickUsersErrors(["ROUTE_NOT_FOUND", "ROUTE_NOT_OWNED"]))
+    .output(DeleteRouteResult),
+  claimRoutes: oc
+    .route({ method: "POST", path: "/v1/users/routes/claim", summary: "Claim anonymous routes" })
+    .input(ClaimRoutesInput)
+    .output(ClaimRoutesResult),
 };
 
 /** Users oRPC contract type. */
