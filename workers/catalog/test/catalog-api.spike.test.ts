@@ -56,6 +56,22 @@ async function seed(): Promise<void> {
     INSERT INTO aliases (work_id, alias, alias_normalized, source, priority)
     VALUES ('lucky-star', 'らき☆すた', 'らき☆すた', 'bangumi', 40)
   `);
+  await seedOverviewWork();
+}
+
+/** A numeric-id work with two co-located Kamakura points + one Hakone point, for
+ * the public animeOverview route (its input requires a numeric bangumi_id). */
+async function seedOverviewWork(): Promise<void> {
+  await db.execute(sql`
+    INSERT INTO bangumi (id, title, points_count) VALUES ('3302', 'Overview Work', 3)
+  `);
+  await db.execute(sql`
+    INSERT INTO points (id, bangumi_id, name, latitude, longitude, city, image)
+    VALUES
+      ('ov-kama-1', '3302', '鎌倉A', 35.30660, 139.48890, 'Kamakura', 'https://img/ov1.jpg'),
+      ('ov-kama-2', '3302', '鎌倉B', 35.30661, 139.48891, 'Kamakura', NULL),
+      ('ov-hakone', '3302', '箱根',  35.23230, 139.10690, 'Hakone',   'https://img/ov3.jpg')
+  `);
 }
 
 /**
@@ -75,6 +91,18 @@ async function call<T>(method: string, payload: unknown, expectStatus = 200): Pr
   );
   expect(res.status).toBe(expectStatus);
   return (await res.json());
+}
+
+/** GET through the public OpenAPI wire (anonymous, no body). Returns the raw
+ * response so tests can assert both the JSON body and cache headers. */
+async function getPublic(path: string, expectStatus = 200): Promise<Response> {
+  const res = await app.request(
+    `/catalog/public/${path}`,
+    { method: "GET" },
+    { ENVIRONMENT: "test", DATABASE_URL: localDatabaseUrl() },
+  );
+  expect(res.status).toBe(expectStatus);
+  return res;
 }
 
 beforeAll(async () => {
@@ -149,6 +177,41 @@ async function assertRoute(): Promise<void> {
   expect(out.timed_itinerary.stops.length).toBeGreaterThan(0);
   expect(out.timed_itinerary.total_minutes).toBeGreaterThan(0);
 }
+
+interface OverviewBody {
+  bangumi_id: string;
+  points_length: number;
+  circles: { region: string; count: number; lat: number; lng: number }[];
+  scenes: { id: string; shot_count: number; screenshot_url: string; city?: string }[];
+  sample_routes: { region: string; point_ids: string[] }[];
+}
+
+async function assertOverviewHit(): Promise<void> {
+  const res = await getPublic("anime-overview/3302");
+  expect(res.headers.get("Cache-Control")).toContain("s-maxage");
+  const body = (await res.json()) as OverviewBody;
+  expect(body.points_length).toBe(3);
+  expect(body.circles.map((c) => [c.region, c.count])).toEqual([["Kamakura", 2], ["Hakone", 1]]);
+  expect(body.scenes[0]).toMatchObject({ id: "ov-kama-1", shot_count: 2, city: "Kamakura" });
+  expect(body.sample_routes[0]).toEqual({ region: "Kamakura", point_ids: ["ov-kama-1", "ov-kama-2"] });
+}
+
+async function assertOverviewEmpty(): Promise<void> {
+  const res = await getPublic("anime-overview/999999");
+  const body = (await res.json()) as OverviewBody;
+  expect(body).toEqual({
+    bangumi_id: "999999",
+    points_length: 0,
+    circles: [],
+    scenes: [],
+    sample_routes: [],
+  });
+}
+
+databaseDescribe("Catalog public animeOverview (anonymous GET, cache-tagged)", () => {
+  it("returns bubble aggregation + 名場面 ranking + sample routes for a known work", assertOverviewHit);
+  it("returns an empty-but-valid overview for an unknown work", assertOverviewEmpty);
+});
 
 databaseDescribe("Catalog API end-to-end (Hono app + OpenAPIHandler + Drizzle/PostGIS)", () => {
   it("search resolves the seeded alias to the work's points (plain-JSON wire)", assertSearchHit);

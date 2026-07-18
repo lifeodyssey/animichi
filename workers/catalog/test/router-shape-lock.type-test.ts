@@ -4,6 +4,7 @@
  */
 import {
   catalogContract,
+  type AnimeOverview,
   type ResolveOutcome,
   type SearchResult,
 } from "@seichijunrei/contract";
@@ -22,6 +23,15 @@ const resolved: ResolveOutcome = {
   match: { bangumi_id: "3302", title: "らき☆すた" },
 };
 os.resolve.handler(() => resolved);
+
+const overview: AnimeOverview = {
+  bangumi_id: "3302",
+  points_length: 0,
+  circles: [],
+  scenes: [],
+  sample_routes: [],
+};
+os.animeOverview.handler(() => overview);
 
 // @ts-expect-error -- the contract requires synced_at; removing this directive must fail tsc.
 os.search.handler(() => ({ rows: [] }));
