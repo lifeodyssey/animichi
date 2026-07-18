@@ -47,7 +47,7 @@ beforeAll(async () => {
   `);
 }, 120_000);
 
-afterAll(restoreNeonConfig);
+afterAll(() => { restoreNeonConfig(); });
 
 async function assertBangumiRow(): Promise<void> {
   const rows = await db.select().from(bangumi).where(eq(bangumi.id, "lucky-star"));

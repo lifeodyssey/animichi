@@ -48,7 +48,7 @@ beforeAll(async () => {
   await truncateCatalog(db);
 }, 120_000);
 
-afterAll(restoreNeonConfig);
+afterAll(() => { restoreNeonConfig(); });
 
 databaseDescribe("JobStore singleflight over ingest_jobs", () => {
   it("lets exactly one of 20 concurrent acquirers win, leaving one running row", async () => {

@@ -78,7 +78,7 @@ beforeAll(async () => {
   await truncateCatalog(db);
 }, 120_000);
 
-afterAll(restoreNeonConfig);
+afterAll(() => { restoreNeonConfig(); });
 
 databaseDescribe("serveImage lazy-R2 one-shot pull", () => {
   it("first request fetches origin once, stores in R2, writes media_assets, serves bytes", async () => {

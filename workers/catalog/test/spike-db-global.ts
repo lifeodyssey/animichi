@@ -78,8 +78,9 @@ export function verifyTestBase(
   branches: NeonBranch[], detail: NeonBranch, projectId: string,
 ): NeonBranch {
   const matches = branches.filter((branch) => branch.name === TEST_BASE_NAME);
-  if (matches.length !== 1) throw new Error("expected exactly one branch named test-base");
-  if (!sameBranch(matches[0] as NeonBranch, detail) || detail.projectId !== projectId) {
+  const [only] = matches;
+  if (matches.length !== 1 || !only) throw new Error("expected exactly one branch named test-base");
+  if (!sameBranch(only, detail) || detail.projectId !== projectId) {
     throw new Error("test-base name-on-id verification failed");
   }
   return detail;
@@ -111,12 +112,12 @@ function headers(env: NeonEnvironment): HeadersInit {
 
 async function apiRequest(
   env: NeonEnvironment, path: string, method = "GET",
-): Promise<unknown | undefined> {
+): Promise<unknown> {
   const response = await fetch(`${API_BASE}/${path}`, { method, headers: headers(env) });
   if (response.status === 404) return undefined;
   if (!response.ok) throw new Error(`Neon API returned HTTP ${String(response.status)}`);
   if (response.status === 204) return undefined;
-  return response.json() as Promise<unknown>;
+  return response.json();
 }
 
 async function listBranches(env: NeonEnvironment): Promise<NeonBranch[]> {
@@ -134,8 +135,9 @@ async function resolveTestBase(
   env: NeonEnvironment, branches: NeonBranch[],
 ): Promise<NeonBranch> {
   const matches = branches.filter((branch) => branch.name === TEST_BASE_NAME);
-  if (matches.length !== 1) throw new Error("expected exactly one branch named test-base");
-  const detail = await getBranch(env, (matches[0] as NeonBranch).id);
+  const [only] = matches;
+  if (matches.length !== 1 || !only) throw new Error("expected exactly one branch named test-base");
+  const detail = await getBranch(env, only.id);
   return verifyTestBase(branches, detail, env.projectId);
 }
 
@@ -158,7 +160,7 @@ async function connectionUri(env: NeonEnvironment, branchId: string): Promise<st
   const query = new URLSearchParams({
     branch_id: branchId, database_name: "neondb", role_name: "neondb_owner", pooled: "false",
   });
-  const payload = await apiRequest(env, `projects/${env.projectId}/connection_uri?${query}`);
+  const payload = await apiRequest(env, `projects/${env.projectId}/connection_uri?${query.toString()}`);
   const uri = record(payload, "connection URI").uri;
   if (typeof uri !== "string" || !uri.startsWith("postgres")) {
     throw new Error("Neon API returned an invalid connection URI");
@@ -221,7 +223,10 @@ async function stopRuntime(env: NeonEnvironment, runtime: SpikeRuntime): Promise
     stopError = error;
   }
   if (!await waitUntilDeleted(env, runtime.branch.id)) await deleteBranch(env, runtime.branch.id);
-  if (stopError) throw stopError;
+  if (stopError) {
+    if (stopError instanceof Error) throw stopError;
+    throw new Error("neon_local container stop failed", { cause: stopError });
+  }
 }
 
 async function createRuntime(
@@ -235,7 +240,11 @@ async function createRuntime(
     return { branch, container, context };
   } catch (error) {
     const cleanupError = await cleanupIncomplete(env, before, parent, container, branch);
-    if (cleanupError) throw new AggregateError([error, cleanupError], "spike setup cleanup failed");
+    if (cleanupError) {
+      const combined = new AggregateError([error, cleanupError], "spike setup cleanup failed");
+      combined.cause = error;
+      throw combined;
+    }
     throw error;
   }
 }
@@ -243,14 +252,14 @@ async function createRuntime(
 async function cleanupIncomplete(
   env: NeonEnvironment, before: NeonBranch[], parent: NeonBranch,
   container: StartedTestContainer, branch?: NeonBranch,
-): Promise<unknown | undefined> {
+): Promise<unknown> {
   const stopError = await stopContainer(container);
   const deleteError = await deleteObservedBranch(env, before, parent, branch);
   if (stopError && deleteError) return new AggregateError([stopError, deleteError]);
   return stopError ?? deleteError;
 }
 
-async function stopContainer(container: StartedTestContainer): Promise<unknown | undefined> {
+async function stopContainer(container: StartedTestContainer): Promise<unknown> {
   try {
     await container.stop();
     return undefined;
@@ -261,7 +270,7 @@ async function stopContainer(container: StartedTestContainer): Promise<unknown |
 
 async function deleteObservedBranch(
   env: NeonEnvironment, before: NeonBranch[], parent: NeonBranch, known?: NeonBranch,
-): Promise<unknown | undefined> {
+): Promise<unknown> {
   try {
     const branch = known ?? findEphemeralBranch(before, await listBranches(env), parent);
     if (branch) await deleteBranch(env, branch.id);
@@ -284,7 +293,7 @@ async function enabledSetup(project: TestProject, env: NeonEnvironment): Promise
   return async () => stopRuntime(env, runtime);
 }
 
-export default async function setup(project: TestProject): Promise<void | (() => Promise<void>)> {
+export default async function setup(project: TestProject): Promise<(() => Promise<void>) | undefined> {
   const env = environment();
   if (env) return enabledSetup(project, env);
   project.provide("spikeDatabase", { enabled: false, skipMessage: SKIP_MESSAGE });
