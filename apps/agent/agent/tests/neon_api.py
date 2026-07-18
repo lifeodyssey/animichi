@@ -13,6 +13,8 @@ from typing import cast
 
 from agent.tests.db_config import endpoint_id_from_dsn
 
+NEON_API_HOST = "console.neon.tech"
+JSON_MIME = "application/json"
 TEST_BASE_NAME = "test-base"
 CLAIM_PREFIX = "wt-test-"
 REQUEST_TIMEOUT_SECONDS = 20.0
@@ -160,10 +162,10 @@ class NeonApi:
         self._sleep = sleeper
 
     def _request(self, path: str, timeout: float) -> object | None:
-        connection = http.client.HTTPSConnection("console.neon.tech", timeout=timeout)
+        connection = http.client.HTTPSConnection(NEON_API_HOST, timeout=timeout)
         headers = {
             "Authorization": f"Bearer {self._api_key}",
-            "Accept": "application/json",
+            "Accept": JSON_MIME,
         }
         try:
             connection.request("GET", f"/api/v2/{path}", headers=headers)
@@ -217,7 +219,7 @@ class NeonApi:
     def update_branch_name(
         self, branch_id: str, name: str, timeout: float = REQUEST_TIMEOUT_SECONDS
     ) -> bool:
-        connection = http.client.HTTPSConnection("console.neon.tech", timeout=timeout)
+        connection = http.client.HTTPSConnection(NEON_API_HOST, timeout=timeout)
         body = json.dumps({"branch": {"name": name}})
         headers = self._write_headers()
         path = f"/api/v2/projects/{self.project_id}/branches/{branch_id}"
@@ -238,8 +240,8 @@ class NeonApi:
     def _write_headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self._api_key}",
-            "Accept": "application/json",
-            "Content-Type": "application/json",
+            "Accept": JSON_MIME,
+            "Content-Type": JSON_MIME,
         }
 
     def _claim_candidate(
@@ -339,7 +341,7 @@ class NeonApi:
         return branch
 
     def _delete_once(self, branch_id: str, timeout: float) -> int:
-        connection = http.client.HTTPSConnection("console.neon.tech", timeout=timeout)
+        connection = http.client.HTTPSConnection(NEON_API_HOST, timeout=timeout)
         path = f"/api/v2/projects/{self.project_id}/branches/{branch_id}"
         try:
             connection.request("DELETE", path, headers=self._write_headers())
