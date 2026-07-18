@@ -1,105 +1,26 @@
-import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
-import pg from "pg";
-import { makeDb, type CatalogDb } from "../src/db/client";
+import type { CatalogDb } from "../src/db/client";
 import { serveImage, type ImageFetchLike, type ImgDeps } from "../src/media/img";
+import {
+  databaseDescribe,
+  openServerlessDb,
+  restoreNeonConfig,
+  truncateCatalog,
+} from "./spike-db";
 
 /**
  * Spike for the lazy-R2 media path (Wave 6): serveImage over `media_assets`.
  *
- * Reuses the db.spike harness: applies the EXACT points DDL (+ coordinate-sync
- * trigger) and the media_assets DDL sliced from the real migrations to a Docker
- * Postgres+PostGIS, then drives serveImage with an in-memory mock R2Bucket and a
+ * Uses the suite branch's full Atlas schema, then drives serveImage through Neon
+ * Local HTTP with an in-memory mock R2Bucket and a
  * call-counting stub fetch. Proves the one-shot pull: first request fetches the
  * origin once + stores it in R2 + writes the media_assets row; the second serves
  * from R2 without re-fetching; an origin-404 tombstones and serves the fallback
  * on this and every later request without re-fetching.
- *
- * Unique container/port (catalog-media-postgis : 55438) so it never clashes with
- * postgis (55432)..enrich (55437) or local Supabase (54322).
  */
 
-const CONTAINER = "catalog-media-postgis";
-const IMAGE = "postgis/postgis:16-3.4";
-const PG_PORT = 55438;
-const PG_PASSWORD = "media";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
-
-const REMOTE_SCHEMA = "../../supabase/migrations/20260402120000_remote_schema.sql";
-const INGEST_SCHEMA = "../../supabase/migrations/20260620230000_ingest_infrastructure.sql";
-
-// Verbatim DDL slices: points (+ its coordinate-sync function/trigger so the
-// GEOGRAPHY location column is populated) and the media_assets table.
-const REMOTE_BLOCKS = [
-  { from: "CREATE TABLE IF NOT EXISTS bangumi (", to: ");" },
-  { from: "CREATE OR REPLACE FUNCTION update_updated_at()", to: "$$ LANGUAGE plpgsql;" },
-  { from: "CREATE TABLE IF NOT EXISTS points (", to: ");" },
-  { from: "CREATE OR REPLACE FUNCTION sync_points_coordinates()", to: "$$ LANGUAGE plpgsql;" },
-  {
-    from: "CREATE TRIGGER trg_points_sync_coordinates",
-    to: "FOR EACH ROW EXECUTE FUNCTION sync_points_coordinates();",
-  },
-];
-const INGEST_BLOCKS = [{ from: "CREATE TABLE IF NOT EXISTS media_assets (", to: ");" }];
-
 let db: CatalogDb;
-
-function sh(cmd: string): string {
-  return execSync(cmd, { stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
-}
-
-function sliceBlock(src: string, from: string, to: string): string {
-  const start = src.indexOf(from);
-  if (start < 0) throw new Error(`marker not found: ${from}`);
-  const end = src.indexOf(to, start);
-  if (end < 0) throw new Error(`end marker not found: ${to}`);
-  return src.slice(start, end + to.length);
-}
-
-function startContainer(): void {
-  const existing = sh(`docker ps -aq -f name=^${CONTAINER}$`);
-  if (existing) sh(`docker rm -f ${CONTAINER}`);
-  sh(
-    `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
-  );
-}
-
-async function waitForReady(): Promise<void> {
-  const deadline = Date.now() + 90_000;
-  let lastErr: unknown;
-  while (Date.now() < deadline) {
-    const probe = new pg.Pool({ connectionString: CONN, max: 1 });
-    try {
-      await probe.query("SELECT 1");
-      await probe.end();
-      return;
-    } catch (err) {
-      lastErr = err;
-      await probe.end().catch(() => { /* noop */ });
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-  }
-  throw new Error(`Postgres not ready in time: ${String(lastErr)}`);
-}
-
-function readMigration(rel: string): string {
-  return readFileSync(resolve(import.meta.dirname, rel), "utf8");
-}
-
-function buildSubsetDdl(): string {
-  const remote = readMigration(REMOTE_SCHEMA);
-  const ingest = readMigration(INGEST_SCHEMA);
-  const blocks = [
-    ...REMOTE_BLOCKS.map((b) => sliceBlock(remote, b.from, b.to)),
-    ...INGEST_BLOCKS.map((b) => sliceBlock(ingest, b.from, b.to)),
-  ];
-  // `embedding vector(1024)` needs pgvector (absent here) and is never read.
-  return blocks.join("\n\n").replace(/^\s*embedding\s+vector\(1024\),\n/m, "");
-}
 
 async function seedPoint(id: string, image: string | null): Promise<void> {
   await db.execute(
@@ -153,24 +74,13 @@ function mockFetch(status: number, bytes: Uint8Array): { fetchImpl: ImageFetchLi
 }
 
 beforeAll(async () => {
-  startContainer();
-  await waitForReady();
-  db = makeDb(CONN);
-  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS postgis`);
-  await db.execute(sql.raw(buildSubsetDdl()));
+  db = await openServerlessDb();
+  await truncateCatalog(db);
 }, 120_000);
 
-afterAll(async () => {
-  const client = (db as unknown as { $client?: pg.Pool }).$client;
-  if (client) await client.end().catch(() => { /* noop */ });
-  try {
-    sh(`docker rm -f ${CONTAINER}`);
-  } catch {
-    /* container already gone */
-  }
-});
+afterAll(restoreNeonConfig);
 
-describe("serveImage lazy-R2 one-shot pull", () => {
+databaseDescribe("serveImage lazy-R2 one-shot pull", () => {
   it("first request fetches origin once, stores in R2, writes media_assets, serves bytes", async () => {
     await seedPoint("ok-1", "https://image.anitabi.cn/ok-1.png");
     const { bucket, store } = mockBucket();
@@ -198,7 +108,7 @@ describe("serveImage lazy-R2 one-shot pull", () => {
   });
 });
 
-describe("serveImage tombstone path", () => {
+databaseDescribe("serveImage tombstone path", () => {
   it("origin 404 tombstones the asset and serves the fallback", async () => {
     await seedPoint("gone-1", "https://image.anitabi.cn/gone-1.png");
     const { bucket, store } = mockBucket();
