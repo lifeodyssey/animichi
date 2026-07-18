@@ -95,10 +95,10 @@ async def test_geocode_api_error_becomes_nearby_upstream_down() -> None:
     assert isinstance(outcome, NearbyUpstreamDown)
     assert deps.steps[-1].data == {"outcome": "upstream_unavailable"}
     assert isinstance(deps.steps[-1].provenance, RejectedSearch)
+    context = MagicMock(deps=deps)
+    stale_response = SearchResponseModel(message="stale")
     with pytest.raises(ModelRetry):
-        await validate_output(
-            MagicMock(deps=deps), SearchResponseModel(message="stale")
-        )
+        await validate_output(context, stale_response)
     assert runtime_stage(QAResponseModel(message="retry"), deps.steps) == "general_qa"
 
 
@@ -115,8 +115,9 @@ async def test_nearby_api_error_becomes_nearby_upstream_down() -> None:
     assert deps.steps[-1].data == {"outcome": "upstream_unavailable"}
     assert isinstance(deps.steps[-1].provenance, RejectedSearch)
     assert deps.tool_state.session.pending_clarification is None
+    context = MagicMock(deps=deps)
     with pytest.raises(ModelRetry):
-        await validate_output(MagicMock(deps=deps), stale_clarification)
+        await validate_output(context, stale_clarification)
 
 
 async def test_route_api_error_becomes_route_upstream_down() -> None:
@@ -136,7 +137,9 @@ async def test_route_api_error_becomes_route_upstream_down() -> None:
     assert deps.steps[-1].data == {"status": "upstream_unavailable"}
     assert isinstance(deps.steps[-1].provenance, RejectedRoute)
     assert deps.tool_state.session.pending_clarification is None
+    context = MagicMock(deps=deps)
+    stale_route = RouteResponseModel(message="stale")
     with pytest.raises(ModelRetry):
-        await validate_output(MagicMock(deps=deps), RouteResponseModel(message="stale"))
+        await validate_output(context, stale_route)
     with pytest.raises(ModelRetry):
-        await validate_output(MagicMock(deps=deps), stale_clarification)
+        await validate_output(context, stale_clarification)

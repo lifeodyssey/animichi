@@ -135,7 +135,7 @@ async def _response_stream(response: PublicAPIResponse) -> AsyncIterator[str]:
     yield _event(DoneChunk())
 
 
-@router.post("/chat")
+@router.post("/chat", responses={422: {"description": "Invalid chat request"}})
 async def handle_chat(
     request: Request,
     auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],

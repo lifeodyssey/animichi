@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from agent.interfaces.public_api import RuntimeAPI
 from agent.interfaces.schemas import PublicAPIResponse
 from agent.tests.unit.conftest_fastapi import async_client, build_app, build_stub_db
@@ -101,8 +103,8 @@ async def test_chat_forwards_named_and_coordinate_origin() -> None:
     assert response.status_code == 200
     request = runtime.handle.await_args.args[0]
     assert request.origin == "Kyoto Station"
-    assert request.origin_lat == 34.9858
-    assert request.origin_lng == 135.7588
+    assert request.origin_lat == pytest.approx(34.9858)
+    assert request.origin_lng == pytest.approx(135.7588)
 
 
 async def test_chat_rejects_boolean_clarification_revision() -> None:
