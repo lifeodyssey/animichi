@@ -22,6 +22,24 @@ landing page and branded 404 through a Cloudflare SSR bundle. Root guide: `../..
   layer.
 - Keep legacy and rebuild E2E origins separate until cutover: `E2E_WEB_BASE_URL` targets this app.
 
+## API layer (`src/api/`)
+
+- Transport is oRPC `OpenAPILink` (the catalog/users Workers run `OpenAPIHandler`, not RPC).
+  `clients.ts` exposes separate `createCatalogClient` / `createUsersClient` factories — each has its
+  own base URL and forwards cookie/`Authorization` headers from the per-call `ApiClientContext`.
+- `orpc.ts` wraps clients in `@orpc/tanstack-query` utils with disjoint key prefixes
+  (`["catalog", …]` / `["users", …]`); consume them via query hooks in `src/api/hooks/` — UI never
+  touches the transport directly (dependency points inward: component → hook → client).
+- `config.ts` resolves per-service base URLs and the SSR absolute origin (`VITE_SITE_ORIGIN` on the
+  server, `location.origin` in the browser). `query-client.ts` builds a fresh `QueryClient`; `getRouter`
+  creates one per request and `routerWithQueryClient` wires dehydrate/hydrate (no cross-request leak,
+  no double fetch).
+- MSW has three swimlanes (`tests/msw/`): `node.ts` (`setupServer`, component/loader unit tests),
+  `browser.ts` (`setupWorker`, client-navigation tests). SSR is deliberately NOT covered by MSW —
+  it is validated against a real local Worker + backend at the G1 gate. Handlers never hand-write
+  JSON: `contract-handler.ts` `parse()`s requests and responses against the `@seichijunrei/contract`
+  zod schemas and builds oRPC-typed error envelopes.
+
 ## Key files + entrypoints
 
 - `src/routes/__root.tsx` — document shell, metadata, error/not-found wiring.
@@ -34,6 +52,12 @@ landing page and branded 404 through a Cloudflare SSR bundle. Root guide: `../..
 
 ## Pitfalls
 
-- `src/routeTree.gen.ts` is generated. Do not hand-edit it; oxlint and unit coverage ignore it.
+- `src/routeTree.gen.ts` is generated. Do not hand-edit it; oxlint and coverage ignore it. The unit
+  pool runs without the TanStack Start vite plugin, so `tests/setup/generate-route-tree.ts`
+  (vitest `globalSetup`) emits it before the suite; a normal build regenerates it otherwise.
+- Coverage sweeps `src/**` (routes + `router.tsx` included, per campaign plan §0.6); the floor is
+  90/90/90/90 — ratchet UP only. `routeTree.gen.ts` is the only exclusion.
+- `OpenAPILink` captures `globalThis.fetch` at construction: build clients at call time (the lazy
+  `catalog()` / `users()` singletons do), not at module top, or MSW patching is missed in tests.
 - A normal build must run before preview or build-output integration checks inspect `.output/`.
 - Root lint strictness applies here; do not copy the frozen `frontend/` ESLint setup.
