@@ -38,11 +38,12 @@ enabled = true
 [vars]
 ENVIRONMENT = "development"
 
-# Local `wrangler dev` Postgres connection (used when HYPERDRIVE is unbound).
+# Local `wrangler dev` Neon connection.
 # DATABASE_URL is NOT placed in [vars] (it would break the no-DB 503 test and is
 # environment-specific). Instead create catalog/.dev.vars (git-ignored) with:
-#   DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
-# wrangler dev loads .dev.vars automatically. For prod without Hyperdrive set:
+#   DATABASE_URL=<standing-dev-branch-cloud-dsn>
+# See .dev.vars.example for the create-once and connection-string recipe.
+# wrangler dev loads .dev.vars automatically. For a deployed environment set:
 #   wrangler secret put DATABASE_URL
 
 [env.staging]
