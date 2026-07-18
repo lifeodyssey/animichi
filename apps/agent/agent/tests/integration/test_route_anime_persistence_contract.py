@@ -29,7 +29,7 @@ async def test_route_anime_associations_round_trip_in_derivation_order(
             {"route": "fixture"},
         )
         rows = await real_db.routes.get_user_routes(user_id)
-        assert rows[0]["id"] == route_id
+        assert str(rows[0]["id"]) == route_id
         assert rows[0]["anime_ids"] == ["115908", "160209"]
         assert rows[0]["anime_titles"] == ["響け！ユーフォニアム", "君の名は。"]
     finally:

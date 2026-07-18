@@ -46,8 +46,8 @@ class RoutesRepository:
                             total_distance, total_duration, route_data
                         )
                         VALUES ($1, $2,
-                                CASE WHEN $3 IS NOT NULL
-                                     THEN ST_MakePoint($3, $4)::geography
+                                CASE WHEN $3::float8 IS NOT NULL
+                                     THEN ST_MakePoint($3::float8, $4::float8)::geography
                                      ELSE NULL END,
                                 $5, $6, $7, $8::jsonb)
                         RETURNING id
