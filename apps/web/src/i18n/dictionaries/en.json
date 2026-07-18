@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "title": "Animichi",
+    "description": "Find real-world anime locations and plan pilgrimage routes"
+  },
+  "landing": {
+    "eyebrow": "Anime Pilgrimage",
+    "hero": "Animichi",
+    "hero_accent": "Pilgrimage Routes",
+    "subtitle": "Stand where your favourite scene happened. Type a title, find its spots, and build a route.",
+    "cta": "Start Exploring",
+    "login": "Log in",
+    "comparison_title": "Anime vs Reality",
+    "comparison_sub": "Every spot matched against its original frame.",
+    "comparison_anime": "Anime",
+    "comparison_real": "Reality",
+    "comparison_aria": "Slider comparing the anime frame with the real location",
+    "theme_day": "Day",
+    "theme_night": "Night"
+  },
+  "auth": {
+    "title": "Log in",
+    "subtitle": "Enter your email and we'll send you a sign-in link.",
+    "email_label": "Email address",
+    "email_placeholder": "you@example.com",
+    "submit": "Send sign-in link",
+    "submitting": "Sending…",
+    "email_required": "Please enter your email address.",
+    "email_invalid": "Email needs an @ (for example you@example.com).",
+    "sent": "We've sent a sign-in link to your inbox. Please check your email.",
+    "error": "Couldn't send the link. Please try again in a moment.",
+    "not_configured": "Sign-in isn't configured yet. Please contact the administrator.",
+    "magic_link_hint": "No password — we email you a secure sign-in link.",
+    "close": "Close"
+  }
+}
