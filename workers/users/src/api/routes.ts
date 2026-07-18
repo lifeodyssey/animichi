@@ -1,4 +1,8 @@
 import type {
+  ClaimRoutesInput,
+  ClaimRoutesResult,
+  DeleteRouteInput,
+  DeleteRouteResult,
   ListRoutesResult,
   RouteStatus,
   SaveRouteInput,
@@ -113,4 +117,31 @@ export async function saveRoute(
   return input.id
     ? updateRoute(db, userId, { ...input, id: input.id })
     : createRoute(db, userId, input);
+}
+
+/** Delete a route after explicit ownership validation. */
+export async function deleteRoute(
+  db: DbExecutor,
+  userId: string,
+  input: DeleteRouteInput,
+): Promise<DeleteRouteResult> {
+  await assertOwner(db, userId, input.id);
+  const result = await db.execute(sql`
+    DELETE FROM routes WHERE id = ${input.id} AND user_id = ${userId} RETURNING id
+  `);
+  if (result.rows.length === 0) throw routeNotOwned(input.id);
+  return { deleted: true };
+}
+
+/** Atomically assign this session's still-anonymous routes to the caller. */
+export async function claimRoutes(
+  db: DbExecutor,
+  userId: string,
+  input: ClaimRoutesInput,
+): Promise<ClaimRoutesResult> {
+  const result = await db.execute(sql`
+    UPDATE routes SET user_id = ${userId}
+    WHERE session_id = ${input.session_id} AND user_id IS NULL RETURNING id
+  `);
+  return { claimed_count: result.rows.length };
 }
