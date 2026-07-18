@@ -1,12 +1,17 @@
 import type { ReactNode } from "react";
+import type { QueryClient } from "@tanstack/react-query";
 import {
   HeadContent,
   Outlet,
   Scripts,
-  createRootRoute,
+  createRootRouteWithContext,
 } from "@tanstack/react-router";
 import { NotFound } from "../components/NotFound";
 import globalsUrl from "../styles/globals.css?url";
+
+interface RouterContext {
+  readonly queryClient: QueryClient;
+}
 
 type RootDocumentProps = Readonly<{
   children: ReactNode;
@@ -22,7 +27,7 @@ const rootHead = {
   ],
 };
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => rootHead,
   component: RootComponent,
   notFoundComponent: () => <NotFound />,
