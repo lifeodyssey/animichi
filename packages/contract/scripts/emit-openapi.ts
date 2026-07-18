@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { OpenAPIGenerator } from "@orpc/openapi";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { checkinContract } from "../src/checkin-contract.js";
 import { catalogContract } from "../src/contract.js";
 import { usersContract } from "../src/users-contract.js";
 
@@ -41,7 +42,7 @@ await emitOpenApi(catalogContract, "openapi.json", {
       "Read methods of the TS Catalog service, consumed by the Python Agent service.",
 });
 
-await emitOpenApi(usersContract, "users-openapi.json", {
+await emitOpenApi({ ...usersContract, ...checkinContract }, "users-openapi.json", {
   title: "Animichi Users Service",
   version: "0.1.0",
   description: "User-domain routes of the TS Users service, consumed by apps/web.",
