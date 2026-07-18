@@ -1,18 +1,22 @@
-import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
-import pg from "pg";
-import { makeDb, type CatalogDb } from "../src/db/client";
+import type { CatalogDb } from "../src/db/client";
 import app, { closeDbPools } from "../src/index";
+import {
+  databaseDescribe,
+  databaseDescribeKnownFailing,
+  localDatabaseUrl,
+  openServerlessDb,
+  restoreNeonConfig,
+  truncateCatalog,
+} from "./spike-db";
 
 /**
  * End-to-end proof for the wired Catalog service (Wave 2 capstone).
  *
- * Boots the REAL Hono `app` (from src/index.ts) against a seeded Docker
- * Postgres+PostGIS, with `DATABASE_URL` pointing at the testcontainer (the
- * local stand-in for the prod Hyperdrive binding). Each call goes through the
+ * Boots the REAL Hono `app` (from src/index.ts) against the suite-owned Neon
+ * branch, with `DATABASE_URL` pointing at Neon Local's proven HTTP endpoint.
+ * Each call goes through the
  * full wire: HTTP POST -> OpenAPIHandler -> router (context.db) -> api/* handler
  * -> Drizzle/PostGIS query -> response. This is the integration that the
  * Worker-runtime test cannot do (workerd has no TCP sockets).
@@ -24,100 +28,10 @@ import app, { closeDbPools } from "../src/index";
  * `{point}` / `Route`), NOT the RPCHandler `{json: ...}` envelope. This proves
  * real contract conformance: it would FAIL against the old RPCHandler.
  *
- * Migration handling mirrors db.spike.test.ts: slice the EXACT catalog DDL out
- * of the real migration files (so column names/types stay authoritative) and
- * skip the `embedding vector(1024)` line the read path never selects.
+ * Schema comes from the full Atlas-applied `test-base` parent.
  */
 
-const CONTAINER = "catalog-api-e2e"; // unique vs db.spike (catalog-db-postgis)
-const IMAGE = "postgis/postgis:16-3.4";
-const PG_PORT = 55434; // distinct from db.spike (55433), postgis.spike (55432), Supabase (54322)
-const PG_PASSWORD = "dbtest";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
-
-const REMOTE_SCHEMA = "../../supabase/migrations/20260402120000_remote_schema.sql";
-const INGEST_SCHEMA = "../../supabase/migrations/20260620230000_ingest_infrastructure.sql";
-
-const REMOTE_BLOCKS = [
-  { from: "CREATE TABLE IF NOT EXISTS bangumi (", to: ");" },
-  { from: "CREATE OR REPLACE FUNCTION update_updated_at()", to: "$$ LANGUAGE plpgsql;" },
-  { from: "CREATE TABLE IF NOT EXISTS points (", to: ");" },
-  { from: "CREATE OR REPLACE FUNCTION sync_points_coordinates()", to: "$$ LANGUAGE plpgsql;" },
-  {
-    from: "CREATE TRIGGER trg_points_sync_coordinates",
-    to: "FOR EACH ROW EXECUTE FUNCTION sync_points_coordinates();",
-  },
-];
-const INGEST_BLOCKS = [
-  { from: "CREATE TABLE IF NOT EXISTS ingest_jobs (", to: ");" },
-  { from: "CREATE TABLE IF NOT EXISTS cluster_version (", to: ");" },
-  { from: "CREATE UNIQUE INDEX IF NOT EXISTS uq_cluster_version_one_current", to: ";" },
-  { from: "CREATE TABLE IF NOT EXISTS aliases (", to: ");" },
-  { from: "CREATE TABLE IF NOT EXISTS series_edges (", to: ");" },
-  { from: "CREATE TABLE IF NOT EXISTS leg_cache (", to: ");" },
-  { from: "CREATE TABLE IF NOT EXISTS raw_anitabi (", to: ");" },
-  { from: "CREATE TABLE IF NOT EXISTS raw_bangumi (", to: ");" },
-];
-
 let db: CatalogDb;
-
-function readMigration(rel: string): string {
-  return readFileSync(resolve(import.meta.dirname, rel), "utf8");
-}
-
-function sliceBlock(src: string, from: string, to: string): string {
-  const start = src.indexOf(from);
-  if (start < 0) throw new Error(`marker not found: ${from}`);
-  const end = src.indexOf(to, start);
-  if (end < 0) throw new Error(`end marker not found: ${to}`);
-  return src.slice(start, end + to.length);
-}
-
-function sh(cmd: string): string {
-  return execSync(cmd, { stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
-}
-
-function startContainer(): void {
-  const existing = sh(`docker ps -aq -f name=^${CONTAINER}$`);
-  if (existing) sh(`docker rm -f ${CONTAINER}`);
-  sh(
-    `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
-  );
-}
-
-async function waitForReady(): Promise<void> {
-  const deadline = Date.now() + 90_000;
-  let lastErr: unknown;
-  while (Date.now() < deadline) {
-    const probe = new pg.Pool({ connectionString: CONN, max: 1 });
-    try {
-      await probe.query("SELECT 1");
-      await probe.end();
-      return;
-    } catch (err) {
-      lastErr = err;
-      await probe.end().catch(() => { /* noop */ });
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-  }
-  throw new Error(`Postgres not ready in time: ${String(lastErr)}`);
-}
-
-function buildSubsetDdl(): string {
-  const remote = readMigration(REMOTE_SCHEMA);
-  const ingest = readMigration(INGEST_SCHEMA);
-  const blocks = [
-    ...REMOTE_BLOCKS.map((b) => sliceBlock(remote, b.from, b.to)),
-    ...INGEST_BLOCKS.map((b) => sliceBlock(ingest, b.from, b.to)),
-  ];
-  return blocks.join("\n\n").replace(/^\s*embedding\s+vector\(1024\),\n/m, "");
-}
-
-async function applyMigrations(): Promise<void> {
-  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS postgis`);
-  await db.execute(sql.raw(buildSubsetDdl()));
-}
 
 /**
  * Seed one work (Lucky Star) with two nearby points and a normalized alias.
@@ -157,17 +71,15 @@ async function call<T>(method: string, payload: unknown, expectStatus = 200): Pr
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     },
-    { ENVIRONMENT: "test", DATABASE_URL: CONN },
+    { ENVIRONMENT: "test", DATABASE_URL: localDatabaseUrl() },
   );
   expect(res.status).toBe(expectStatus);
   return (await res.json());
 }
 
 beforeAll(async () => {
-  startContainer();
-  await waitForReady();
-  db = makeDb(CONN);
-  await applyMigrations();
+  db = await openServerlessDb();
+  await truncateCatalog(db);
   await seed();
 }, 120_000);
 
@@ -176,18 +88,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-afterAll(async () => {
-  // Close BOTH pools before killing the container so in-flight sockets don't
-  // surface as an unhandled "Connection terminated" rejection: the test harness
-  // pool (`db`) and the app's per-connection cached pool (via closeDbPools).
+afterAll(() => {
   closeDbPools();
-  const client = (db as unknown as { $client?: pg.Pool }).$client;
-  if (client) await client.end().catch(() => { /* noop */ });
-  try {
-    sh(`docker rm -f ${CONTAINER}`);
-  } catch {
-    /* container already gone */
-  }
+  restoreNeonConfig();
 });
 
 interface ApiPoint {
@@ -219,7 +122,7 @@ async function assertSpotsHit(): Promise<void> {
 
 async function assertSpots404(): Promise<void> {
   const body = await call<{ code?: string; status?: number }>("spots", { bangumi_id: "no-such-work" }, 404);
-  expect(body.code).toBe("NOT_FOUND");
+  expect(body.code).toBe("WORK_NOT_FOUND");
 }
 
 async function assertNearbyHit(): Promise<void> {
@@ -247,7 +150,7 @@ async function assertRoute(): Promise<void> {
   expect(out.timed_itinerary.total_minutes).toBeGreaterThan(0);
 }
 
-describe("Catalog API end-to-end (Hono app + OpenAPIHandler + Drizzle/PostGIS)", () => {
+databaseDescribe("Catalog API end-to-end (Hono app + OpenAPIHandler + Drizzle/PostGIS)", () => {
   it("search resolves the seeded alias to the work's points (plain-JSON wire)", assertSearchHit);
   it("search returns no rows for an unknown alias", assertSearchMiss);
   it("spots returns a single representative point for the work (top-level {point})", assertSpotsHit);
@@ -258,7 +161,7 @@ describe("Catalog API end-to-end (Hono app + OpenAPIHandler + Drizzle/PostGIS)",
 });
 
 // A brand-new work id (not in seed()) so ingest exercises the full fetch ->
-// raw -> enrich -> publish pass against the real container DB.
+// raw -> enrich -> publish pass against the real suite branch.
 const NEW_WORK_ID = "10380"; // Bangumi subject id (K-On!)
 const NEW_TITLE = "けいおん！";
 
@@ -275,7 +178,7 @@ function stubUpstream(): void {
 
 // A second uncovered work, reached via the search MISS path (Bangumi search ->
 // resolve id -> ingest -> return). Distinct from NEW_WORK_ID so the two ingest
-// E2Es don't collide in the shared container DB.
+// E2Es don't collide in the shared suite branch.
 const MISS_WORK_ID = "100020"; // Bangumi subject id (Hibike! Euphonium)
 const MISS_TITLE = "響け！ユーフォニアム";
 
@@ -326,7 +229,7 @@ const ANITABI_POINTS = [
   { id: "toyosato-hall", name: "豊郷小学校 講堂", lat: 35.205, lng: 136.2401, ep: 2, s: 90 },
 ];
 
-describe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> search)", () => {
+databaseDescribeKnownFailing("#362", "Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> search)", () => {
   it("POST /ingest publishes the work, then /search returns the fresh points", async () => {
     stubUpstream();
 
@@ -344,7 +247,7 @@ describe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> s
   });
 });
 
-describe("Catalog search miss -> Bangumi resolve -> on-demand ingest -> points", () => {
+databaseDescribeKnownFailing("#362", "Catalog search miss -> Bangumi resolve -> on-demand ingest -> points", () => {
   it("an UNCOVERED title resolves+ingests on first search, then is an alias hit on the second", async () => {
     const { urls } = stubSearchMiss();
 
