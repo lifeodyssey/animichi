@@ -75,8 +75,8 @@ repos:
         stages: [pre-push]
 
       - id: backend-test-coverage
-        name: backend tests + coverage (lines>=80%)
-        entry: bash -c 'cd apps/agent && SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54322/postgres DEEPSEEK_API_KEY=test-key uv run pytest agent/tests/unit/ -q --cov --cov-fail-under=80'
+        name: backend tests + coverage (lines>=82%)
+        entry: bash -c 'cd apps/agent && SUPABASE_DB_URL=postgresql://unused@db.invalid/unused DEEPSEEK_API_KEY=test-key uv run pytest agent/tests/unit/ -q --cov --cov-fail-under=82'
         language: system
         types: [python]
         pass_filenames: false
