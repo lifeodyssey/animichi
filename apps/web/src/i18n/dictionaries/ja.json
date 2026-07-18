@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "title": "アニミチ",
+    "description": "アニメ聖地を探して、巡礼ルートを作ろう"
+  },
+  "landing": {
+    "eyebrow": "アニメ聖地巡礼",
+    "hero": "聖地巡礼",
+    "hero_accent": "巡礼の路",
+    "subtitle": "あの名シーンの、その場所へ。作品名を入力して聖地を見つけ、ルートを作ろう。",
+    "cta": "はじめる",
+    "login": "ログイン",
+    "comparison_title": "アニメと現実",
+    "comparison_sub": "すべてのスポットを原作カットと照合。",
+    "comparison_anime": "アニメ",
+    "comparison_real": "現実",
+    "comparison_aria": "アニメと実写を比較するスライダー",
+    "theme_day": "昼",
+    "theme_night": "夜"
+  },
+  "auth": {
+    "title": "ログイン",
+    "subtitle": "メールアドレスを入力すると、ログインリンクをお送りします。",
+    "email_label": "メールアドレス",
+    "email_placeholder": "you@example.com",
+    "submit": "ログインリンクを送信",
+    "submitting": "送信中…",
+    "email_required": "メールアドレスを入力してください。",
+    "email_invalid": "メールアドレスには @ が必要です（例: you@example.com）。",
+    "sent": "ログインリンクをメールに送信しました。メールをご確認ください。",
+    "error": "送信できませんでした。しばらくしてからもう一度お試しください。",
+    "not_configured": "ログイン設定がまだ完了していません。管理者にお問い合わせください。",
+    "magic_link_hint": "パスワード不要 — 安全なログインリンクをメールでお送りします。",
+    "close": "閉じる"
+  }
+}
