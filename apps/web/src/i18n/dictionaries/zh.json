@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "title": "Animichi 圣地巡礼",
+    "description": "寻找动画圣地，规划巡礼路线"
+  },
+  "landing": {
+    "eyebrow": "动画圣地巡礼",
+    "hero": "圣地巡礼",
+    "hero_accent": "巡礼之路",
+    "subtitle": "走进那一幕名场景的真实地点。输入作品名，找到圣地并生成路线。",
+    "cta": "开始探索",
+    "login": "登录",
+    "comparison_title": "动画与现实",
+    "comparison_sub": "每个地点都与原作画面一一对照。",
+    "comparison_anime": "动画",
+    "comparison_real": "现实",
+    "comparison_aria": "对比动画与实景的滑块",
+    "theme_day": "日间",
+    "theme_night": "夜间"
+  },
+  "auth": {
+    "title": "登录",
+    "subtitle": "输入邮箱，我们会给你发送一个登录链接。",
+    "email_label": "邮箱地址",
+    "email_placeholder": "you@example.com",
+    "submit": "发送登录链接",
+    "submitting": "发送中…",
+    "email_required": "请输入邮箱地址。",
+    "email_invalid": "邮箱地址需要包含 @（例如 you@example.com）。",
+    "sent": "登录链接已发送到你的邮箱，请查收。",
+    "error": "发送失败，请稍后再试。",
+    "not_configured": "登录尚未配置完成，请联系管理员。",
+    "magic_link_hint": "无需密码 —— 我们会通过邮件发送安全的登录链接。",
+    "close": "关闭"
+  }
+}
