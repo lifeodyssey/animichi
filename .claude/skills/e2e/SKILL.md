@@ -1,10 +1,17 @@
 ---
 name: e2e
-description: Setup and run Playwright E2E tests against local Supabase
+description: Setup and run Playwright magic-link E2E tests against the local Supabase auth appliance
 user_invocable: true
 ---
 
 # /e2e — E2E Testing
+
+## Database boundary
+
+This skill owns the GoTrue + Edge Function + Mailpit magic-link environment only. DB-backed agent
+pytest suites use `TEST_DATABASE_URL`, `TEST_DB=docker|neon`, or the offline Docker default; they do
+not consume this Supabase instance. Until Neon Auth replaces the local auth flow, `supabase start`
+is an auth appliance, not the integration-test database.
 
 ## Setup (first time or after DB changes)
 
@@ -14,7 +21,7 @@ make e2e-setup
 
 This runs `scripts/e2e-setup.sh` which:
 1. Starts Supabase (--exclude vector,analytics)
-2. Seeds test data (18 anime, 43 spots from `backend/tests/fixtures/seed.sql`)
+2. Seeds test data (18 anime, 43 spots from `apps/agent/agent/tests/fixtures/seed.sql`)
 3. Serves Edge Function (`send-auth-email` with SMTP to Mailpit)
 4. Installs `e2e/` npm deps
 
@@ -59,7 +66,7 @@ Tests set browser locale via `browser.newContext({ locale })` and verify Mailpit
 
 | Problem | Fix |
 |---------|-----|
-| Anime not found on Guide page | `docker exec -i supabase_db_seichijunrei-agent psql -U postgres < backend/tests/fixtures/seed.sql` |
+| Anime not found on Guide page | `docker exec -i supabase_db_seichijunrei-agent psql -U postgres < apps/agent/agent/tests/fixtures/seed.sql` |
 | Email not arriving in Mailpit | Check Edge Function: `curl http://localhost:54321/functions/v1/send-auth-email` |
 | SMTP connection refused | config.toml needs `[inbucket] smtp_port = 54325` |
 | Login link expired | Edge Function SITE_URL wrong. Pass `SITE_URL=http://localhost:3001` |

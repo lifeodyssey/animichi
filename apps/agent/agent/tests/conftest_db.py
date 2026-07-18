@@ -64,6 +64,10 @@ class LifecycleContainer(Protocol):
     def get_wrapped_container(self) -> WrappedContainer: ...
 
 
+class PlainDsnContainer(Protocol):
+    def get_connection_url(self, *, driver: None) -> str: ...
+
+
 ContainerFactory = Callable[[DatabaseConfig, Branch], LifecycleContainer]
 
 
@@ -100,10 +104,6 @@ def _require_offline_image() -> None:
         )
 
 
-def _normalise_dsn(url: str) -> str:
-    return url.replace("postgresql+psycopg2://", "postgresql://")
-
-
 def _clean_database_dsn(base_dsn: str, name: str) -> str:
     """Create a template1 database and return its DSN.
 
@@ -130,7 +130,8 @@ def _clean_database_dsn(base_dsn: str, name: str) -> str:
 def _offline_target() -> Iterator[DatabaseTarget]:
     _require_offline_image()
     with PostgresContainer(OFFLINE_IMAGE) as container:
-        base = _normalise_dsn(container.get_connection_url())
+        plain_dsn = cast(PlainDsnContainer, container)
+        base = plain_dsn.get_connection_url(driver=None)
         yield DatabaseTarget(
             _clean_database_dsn(base, "animichi_test"), DatabaseArm.DOCKER
         )

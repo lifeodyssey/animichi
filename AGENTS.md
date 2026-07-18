@@ -29,10 +29,14 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
 
 ## Core commands (from repo root)
 
-- `make check`         — lint + typecheck + test. **Run before AND after any change.**
+- `make check`         — lint + typecheck + unit + integration; the DB arm defaults offline. **Run before AND after any change.**
+- `make dev-db`        — agent-only Neon Local postgres-wire proxy on `:5432`; not for Workers.
 - `make dev-local`     — Supabase + backend + frontend, one command (never start services individually).
 - `make local-login`   — browser magic-link login for local dev.
-- `make test` / `make test-integration` / `make test-eval` — Python agent tests.
+- `make test` — hermetic Python unit tests. `make test-integration` uses the offline Docker arm by
+  default; select live Neon with `TEST_DB=neon`, or a disposable BYO database with
+  `TEST_DATABASE_URL` + `TEST_DB_ALLOW_MUTATION=1`.
+- `make test-eval` — model-backed Python agent evals; no database by default.
 - `make e2e-setup` then `make e2e` — Playwright E2E (details in `docs/testing-strategy.md`).
 - `pnpm run test:worker` — edge worker tests. Per-package commands live in that package's `AGENTS.md`.
 
