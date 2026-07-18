@@ -27,7 +27,8 @@
       "hono": ">=4.12.16",
       "esbuild": ">=0.28.1",
       "@vitest/expect": "4.1.9",
-      "@vitest/spy": "4.1.9"
+      "@vitest/spy": "4.1.9",
+      "uuid": ">=11.1.1"
     }
   },
   "devDependencies": {
