@@ -13,6 +13,10 @@ export default defineConfig({
         "src/routeTree.gen.ts",
         "src/router.tsx",
         "src/routes/**",
+        // WebGL map glue: instantiates maplibre-gl (requires a real GL context + dynamic imports),
+        // unrunnable under jsdom. Its pure inputs (style/layers/pins/geometry) are unit-covered; the
+        // live mount is covered by S0.4's browser ACs (Tester). Per campaign plan §0.6 exclude ledger.
+        "src/features/map-spike/mapController.ts",
       ],
       // Iteration-0 measured floor (components-only surface, 2 statements) — repo rule: ratchet UP only; lowering requires explicit user approval.
       thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
