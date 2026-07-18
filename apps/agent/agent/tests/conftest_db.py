@@ -12,7 +12,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -162,9 +162,14 @@ def _neon_target(
     branch: Branch | None = None
     claim_name = f"wt-test-{uuid.uuid4().hex[:12]}"
     try:
-        started_at = datetime.now(UTC)
+        # 5-minute allowance: the filter compares Neon's server timestamps against
+        # this local clock; positive host skew must not exclude the fresh branch
+        # (the before/after delta remains the primary filter).
+        claim_window_start = datetime.now(UTC) - timedelta(minutes=5)
         container.start()
-        branch = client.wait_for_ephemeral(before, parent, claim_name, started_at)
+        branch = client.wait_for_ephemeral(
+            before, parent, claim_name, claim_window_start
+        )
         dsn = client.connection_uri(branch.id)
         host = dsn_host(dsn)
         if is_local_host(host) or "-pooler" in host:
