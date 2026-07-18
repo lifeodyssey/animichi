@@ -1,160 +1,101 @@
-"""Offline safety tests for the CodeMode JSON comparator."""
+"""Offline tests for paired CodeMode rematch comparison."""
 
 from __future__ import annotations
 
-import runpy
-import sys
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-from agent.spikes.codemode import benchmark as benchmark_module
 from agent.spikes.codemode import compare as compare_module
-from agent.spikes.codemode.report import Arm, BenchmarkReport, RunMeasurement
+from agent.spikes.codemode.report import CaseMeasurement, RematchReport
 
-VALIDATED_PATHS = (compare_module._validated_path, benchmark_module._validated_path)
-
-
-@pytest.mark.parametrize("validated_path", VALIDATED_PATHS)
-def test_absolute_path_outside_base_is_rejected(
-    validated_path: Callable[[str], Path],
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    allowed_base = tmp_path / "allowed"
-    outside_base = tmp_path / "outside"
-    allowed_base.mkdir()
-    outside_base.mkdir()
-    monkeypatch.setenv("ANIMICHI_SPIKE_OUT_BASE", str(allowed_base))
-
-    with pytest.raises(SystemExit, match="Set ANIMICHI_SPIKE_OUT_BASE"):
-        validated_path(str(outside_base / "report.json"))
-
-
-@pytest.mark.parametrize("validated_path", VALIDATED_PATHS)
-def test_absolute_path_under_environment_base_is_accepted(
-    validated_path: Callable[[str], Path],
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    allowed_base = tmp_path / "allowed"
-    allowed_base.mkdir()
-    output = allowed_base / "report.json"
-    monkeypatch.setenv("ANIMICHI_SPIKE_OUT_BASE", str(allowed_base))
-
-    assert validated_path(str(output)) == output
-
-
-@pytest.mark.parametrize("validated_path", VALIDATED_PATHS)
-def test_relative_path_under_cwd_is_accepted(
-    validated_path: Callable[[str], Path],
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    monkeypatch.delenv("ANIMICHI_SPIKE_OUT_BASE", raising=False)
-    monkeypatch.chdir(tmp_path)
-
-    assert validated_path("report.json") == tmp_path / "report.json"
+_METRICS = {
+    "argument_correctness": 0.8,
+    "tool_correctness": 0.7,
+    "trajectory_match": 0.8,
+    "max_tool_calls": 0.9,
+    "data_keys_present": 0.9,
+    "locale_match": 0.9,
+    "nonempty_results": 0.9,
+    "step_efficiency": 0.8,
+}
 
 
 def _report(
-    arm: Arm,
+    arm: str,
     *,
-    error_runs: int | None = 0,
-    tool_failures: int | None = 0,
-    digest: str | None = "same-schema",
-) -> BenchmarkReport:
-    requests = 10 if arm == "baseline" else 5
-    return BenchmarkReport(
+    tool_correctness: float = 0.7,
+    request_p95: int = 6,
+    total_tokens: int = 10_000,
+) -> RematchReport:
+    metrics = {**_METRICS, "tool_correctness": tool_correctness}
+    case_ids = ["A_en_001", "B_ja_001"]
+    cases = [
+        CaseMeasurement(
+            id=case_id,
+            scores=metrics,
+            requests=request_p95,
+            input_tokens=total_tokens // 4,
+            output_tokens=0,
+        )
+        for case_id in case_ids
+    ]
+    return RematchReport(
         arm=arm,
         model="test-model",
-        repeats=1,
-        queries=["query"],
-        output_schema_digest=digest,
-        error_bearing_run_count=error_runs,
-        total_tool_failure_count=tool_failures,
-        runs=[
-            RunMeasurement(
-                query="query",
-                repeat=1,
-                requests=requests,
-                latency_seconds=1.0,
-                output_type="QAResponseModel",
-                valid_typed_output=True,
-            )
-        ],
+        dataset="agent_eval_v3",
+        subset_digest="same-subset",
+        case_ids=case_ids,
+        scores=metrics,
+        request_p95=request_p95,
+        input_tokens=total_tokens,
+        output_tokens=0,
+        total_tokens=total_tokens,
+        estimated_cost_usd=total_tokens / 1_000_000,
+        cases=cases,
     )
 
 
-@pytest.mark.parametrize(
-    ("field", "label"),
-    [
-        ("error_bearing_run_count", "Error-bearing runs"),
-        ("total_tool_failure_count", "Total tool failures"),
-    ],
-)
-def test_safety_count_regression_vetoes_adoption(
-    field: str, label: str, capsys: pytest.CaptureFixture[str]
-) -> None:
-    baseline = _report("baseline")
-    codemode = _report("codemode")
-    setattr(codemode, field, 1)
-
-    assert compare_module.compare(baseline, codemode) is False
-    assert f"| {label} | 1 | <= 0 | FAIL |" in capsys.readouterr().out
-
-
-def test_output_schema_digest_mismatch_vetoes_adoption(
+def test_adopt_requires_correctness_requests_and_cost(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    baseline = _report("baseline", digest="baseline-schema")
-    codemode = _report("codemode", digest="codemode-schema")
-
-    assert compare_module.compare(baseline, codemode) is False
-    assert "| Output schema digest | codemode-schema | baseline-schema | FAIL |" in (
-        capsys.readouterr().out
+    control = _report("control", request_p95=7)
+    taught = _report(
+        "codemode-taught", tool_correctness=0.695, request_p95=6, total_tokens=11_500
     )
 
-
-def test_legacy_reports_print_unrecorded_without_changing_verdict(
-    capsys: pytest.CaptureFixture[str], tmp_path: Path
-) -> None:
-    baseline = _report("baseline", error_runs=None, tool_failures=None, digest=None)
-    codemode = _report("codemode", error_runs=None, tool_failures=None, digest=None)
-    baseline_path = tmp_path / "legacy-baseline.json"
-    codemode_path = tmp_path / "legacy-codemode.json"
-    baseline_path.write_text(baseline.model_dump_json(exclude_none=True))
-    codemode_path.write_text(codemode.model_dump_json(exclude_none=True))
-
-    assert (
-        compare_module.compare(
-            compare_module._load(baseline_path), compare_module._load(codemode_path)
-        )
-        is True
-    )
-    assert capsys.readouterr().out.count("not recorded") == 6
+    assert compare_module.compare(control, taught) == "ADOPT"
+    output = capsys.readouterr().out
+    assert "| tool_correctness |" in output
+    assert "| request_p95 |" in output
+    assert "VERDICT: ADOPT" in output
 
 
-def test_compare_has_no_benchmark_or_agent_import_chain() -> None:
+def test_correctness_regression_kills_rematch() -> None:
+    control = _report("control", request_p95=7)
+    taught = _report("codemode-taught", tool_correctness=0.689, request_p95=6)
+
+    assert compare_module.compare(control, taught) == "KILL"
+
+
+def test_efficiency_miss_benches_again() -> None:
+    control = _report("control", request_p95=7)
+    taught = _report("codemode-taught", request_p95=7)
+
+    assert compare_module.compare(control, taught) == "BENCH AGAIN"
+
+
+def test_mismatched_case_subset_is_rejected() -> None:
+    control = _report("control")
+    taught = _report("codemode-taught")
+    taught.case_ids[-1] = "C_en_001"
+
+    with pytest.raises(ValueError, match="same ordered case subset"):
+        compare_module.compare(control, taught)
+
+
+def test_compare_stays_json_reader_only() -> None:
     source = Path(compare_module.__file__).read_text()
 
-    assert "codemode.benchmark" not in source
     assert "agent.agents" not in source
-
-
-def test_main_returns_nonzero_for_do_not_adopt(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    baseline_path = tmp_path / "baseline.json"
-    codemode_path = tmp_path / "codemode.json"
-    baseline_path.write_text(_report("baseline").model_dump_json())
-    codemode_path.write_text(_report("codemode", error_runs=1).model_dump_json())
-    monkeypatch.setattr(
-        sys, "argv", ["compare", str(baseline_path), str(codemode_path)]
-    )
-    monkeypatch.setenv("ANIMICHI_SPIKE_OUT_BASE", str(tmp_path))
-
-    with pytest.raises(SystemExit) as raised:
-        runpy.run_path(str(compare_module.__file__), run_name="__main__")
-    assert raised.value.code is True
+    assert "codemode.rematch" not in source
