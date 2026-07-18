@@ -41,7 +41,7 @@ dependencies = [
     "fastapi>=0.139.2",
     "uvicorn[standard]>=0.34.0",
     "ddgs>=9.14.1",
-    "logfire[fastapi,httpx,variables]>=4.29.0",
+    "logfire[asyncpg,fastapi,httpx,variables]>=4.29.0",
     "pydantic-ai-harness[codemode]>=0.7.0",
 ]
 
