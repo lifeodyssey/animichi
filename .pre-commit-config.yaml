@@ -6,8 +6,11 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: '__snapshots__/'
+        exclude: '__snapshots__/|\.sse$'
       - id: end-of-file-fixer
+        # Recorded SSE fixtures must keep their wire-accurate trailing blank
+        # line (event terminator); do not let the fixer collapse it.
+        exclude: '\.sse$'
       - id: check-yaml
       - id: check-toml
 
