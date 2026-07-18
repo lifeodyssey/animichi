@@ -163,33 +163,37 @@ async def test_chat_invalid_locale_defaults_to_ja() -> None:
     assert runtime.handle.await_args.args[0].locale == "ja"
 
 
-class _StepRuntime:
-    """Runtime double that replays step events before returning a response."""
-
-    def __init__(
-        self, response: PublicAPIResponse, steps: list[StepEvent] | None = None
-    ) -> None:
-        self._response = response
-        self._steps = steps or []
-        self._db = build_stub_db()
-
-    async def handle(
-        self, request: object, *, user_id: str | None = None, on_step: OnStep = ...
+def _replay_runtime(response: PublicAPIResponse, steps: list[StepEvent]) -> MagicMock:
+    async def _handle(
+        request: object, *, user_id: str | None = None, on_step: OnStep | None = None
     ) -> PublicAPIResponse:
-        for step in self._steps:
-            if on_step is not ...:
+        for step in steps:
+            if on_step is not None:
                 await on_step(step)
-        return self._response
+        return response
+
+    runtime = MagicMock(spec=RuntimeAPI)
+    runtime.handle = AsyncMock(side_effect=_handle)
+    runtime._db = build_stub_db()
+    return runtime
+
+
+def _frame_type(payload: str) -> str:
+    if payload == "[DONE]":
+        return "[DONE]"
+    chunk: object = json.loads(payload)
+    assert isinstance(chunk, dict)
+    kind = chunk["type"]
+    assert isinstance(kind, str)
+    return kind
 
 
 def _frame_types(body: str) -> list[str]:
-    types: list[str] = []
-    for line in body.splitlines():
-        if not line.startswith("data: "):
-            continue
-        payload = line[len("data: ") :]
-        types.append("[DONE]" if payload == "[DONE]" else json.loads(payload)["type"])
-    return types
+    return [
+        _frame_type(line[len("data: ") :])
+        for line in body.splitlines()
+        if line.startswith("data: ")
+    ]
 
 
 async def test_chat_stream_frame_structure_and_header() -> None:
@@ -197,8 +201,11 @@ async def test_chat_stream_frame_structure_and_header() -> None:
         StepEvent(tool="resolve_anime", status="running", data={}),
         StepEvent(tool="resolve_anime", status="done", data={"bangumi_id": 1}),
     ]
-    runtime = _StepRuntime(_runtime().handle.return_value, steps)
-    app, _ = build_app(runtime_api=runtime)  # type: ignore[arg-type]
+    response_body = PublicAPIResponse(
+        success=True, status="ok", intent="search_bangumi", message="Found."
+    )
+    runtime = _replay_runtime(response_body, steps)
+    app, _ = build_app(runtime_api=runtime)
     async with async_client(app) as client:
         response = await client.post(
             "/v1/chat", json=_body(), headers={"X-User-Id": "user-1"}
