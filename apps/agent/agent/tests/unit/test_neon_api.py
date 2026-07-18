@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from datetime import datetime
 from pathlib import Path
 from typing import cast
 
@@ -50,14 +51,15 @@ def test_recorded_parent_name_on_id_mismatch_is_rejected() -> None:
         )
 
 
-def test_recorded_branch_delta_rejects_concurrent_candidates() -> None:
+def test_recorded_branch_delta_picks_one_concurrent_candidate() -> None:
     before = parse_branches(_fixture("branches_before.json"))
     after = parse_branches(_fixture("branches_after.json"))
     concurrent = Branch(
-        "br-concurrent", "br-other", "project-test", _parent().id, False
+        "br-z-concurrent", "br-other", "project-test", _parent().id, False
     )
-    with pytest.raises(RuntimeError, match="multiple new branches"):
-        resolve_ephemeral_branch(before, (*after, concurrent), _parent())
+    assert resolve_ephemeral_branch(before, (*after, concurrent), _parent()).id == (
+        "br-ephemeral"
+    )
 
 
 class RecordedRequester:
@@ -65,7 +67,8 @@ class RecordedRequester:
         self.responses = responses
         self.calls: list[str] = []
 
-    def __call__(self, path: str) -> object | None:
+    def __call__(self, path: str, timeout: float) -> object | None:
+        assert timeout > 0
         self.calls.append(path)
         return self.responses.get(path)
 
@@ -117,7 +120,14 @@ class FailingApi:
     def list_branches(self) -> tuple[Branch, ...]:
         return ()
 
-    def wait_for_ephemeral(self, before: tuple[Branch, ...], parent: Branch) -> Branch:
+    def wait_for_ephemeral(
+        self,
+        before: tuple[Branch, ...],
+        parent: Branch,
+        claim_name: str,
+        created_after: datetime,
+    ) -> Branch:
+        del before, parent, claim_name, created_after
         raise RuntimeError("recorded API branch delta was ambiguous")
 
 
@@ -128,8 +138,12 @@ class FakeContainer:
     def start(self) -> FakeContainer:
         return self
 
-    def stop(self) -> None:
-        self.stopped = True
+    def get_wrapped_container(self) -> FakeContainer:
+        return self
+
+    def stop(self, timeout: int | None = None) -> None:
+        if timeout is None:
+            self.stopped = True
 
 
 def test_branch_resolution_failure_still_stops_container() -> None:

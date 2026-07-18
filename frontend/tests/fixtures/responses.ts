@@ -26,8 +26,6 @@ export const SEARCH_RESPONSE: RuntimeResponse = {
       strategy: "sql",
       status: "ok",
     },
-    message: "Found 1 pilgrimage spot for Liz and the Blue Bird.",
-    status: "ok",
   },
   session: {
     interaction_count: 1,
@@ -51,8 +49,6 @@ export const EMPTY_SEARCH_RESPONSE: RuntimeResponse = {
       strategy: "sql",
       status: "empty",
     },
-    message: "No pilgrimage spots found.",
-    status: "empty",
   },
   session: {
     interaction_count: 1,
@@ -76,8 +72,6 @@ export const ERROR_RESPONSE: RuntimeResponse = {
       strategy: "sql",
       status: "empty",
     },
-    message: "An internal error occurred.",
-    status: "empty",
   },
   session: {
     interaction_count: 0,

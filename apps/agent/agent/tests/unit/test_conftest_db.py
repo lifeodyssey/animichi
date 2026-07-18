@@ -50,12 +50,10 @@ def test_selector_happy_rows(environment: dict[str, str], arm: DatabaseArm) -> N
         ),
         ({"TEST_DB": "supabase"}, "unknown TEST_DB"),
         ({"TEST_DB": "neon"}, "requires NEON_API_KEY"),
-        ({"NEON_API_KEY": "secret"}, "must be set together"),
-        ({"NEON_PROJECT_ID": "project-test"}, "must be set together"),
         ({"TEST_DB_ALLOW_MUTATION": "1"}, "valid only"),
         (
             {
-                "TEST_DATABASE_URL": "postgresql://u:p@ep-safe/db",
+                "TEST_DATABASE_URL": "postgresql://u:p@ep-safe.neon.tech/db",
                 "TEST_DB_ALLOW_MUTATION": "1",
             },
             "requires NEON_API_KEY",
@@ -84,6 +82,7 @@ def test_selector_error_rows(environment: dict[str, str], message: str) -> None:
                 "secret",
                 "project-test",
                 True,
+                True,
             ),
             PreflightPlan(False, True, True, True),
         ),
@@ -93,3 +92,31 @@ def test_preflight_decision_matrix(
     config: DatabaseConfig, expected: PreflightPlan
 ) -> None:
     assert preflight_plan(config) == expected
+
+
+def test_non_neon_byo_mutation_needs_only_explicit_opt_in() -> None:
+    config = select_database_arm(
+        {
+            "TEST_DATABASE_URL": "postgresql://u:p@localhost:5432/test",
+            "TEST_DB_ALLOW_MUTATION": "1",
+        }
+    )
+    assert config.allow_mutation is True
+    assert config.neon_endpoint is False
+    assert preflight_plan(config).verify_identity is False
+
+
+def test_read_only_byo_ignores_irrelevant_partial_neon_credentials() -> None:
+    config = select_database_arm(
+        {
+            "TEST_DATABASE_URL": "postgresql://u:p@ep-safe.neon.tech/test",
+            "NEON_API_KEY": "ambient-secret",
+        }
+    )
+    assert config.arm is DatabaseArm.BYO
+    assert config.allow_mutation is False
+
+
+def test_selected_neon_arm_still_rejects_partial_credentials() -> None:
+    with pytest.raises(RuntimeError, match="must be set together"):
+        select_database_arm({"TEST_DB": "neon", "NEON_API_KEY": "secret"})
