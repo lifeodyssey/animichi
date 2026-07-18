@@ -8,11 +8,13 @@ import os
 import shutil
 import subprocess
 import time
-from collections.abc import AsyncIterator, Callable, Iterator
+import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 import asyncpg
 import pytest
@@ -36,6 +38,8 @@ SEED_FILE = Path(__file__).parent / "fixtures" / "seed.sql"
 OFFLINE_IMAGE = "animichi-test-postgres:16-3.4-pgvector-0.8.5"
 OFFLINE_DOCKERFILE = ROOT / "docker" / "test-postgres" / "Dockerfile"
 NEON_LOCAL_IMAGE = "neondatabase/neon_local:latest"
+WAKE_TIMEOUT_SECONDS = 91.0
+CONNECT_TIMEOUT_SECONDS = 10.0
 
 
 @dataclass(frozen=True)
@@ -48,10 +52,16 @@ class DatabaseTarget:
         return self.dsn
 
 
+class WrappedContainer(Protocol):
+    def stop(self, timeout: int) -> None: ...
+
+
 class LifecycleContainer(Protocol):
     def start(self) -> object: ...
 
     def stop(self) -> None: ...
+
+    def get_wrapped_container(self) -> WrappedContainer: ...
 
 
 ContainerFactory = Callable[[DatabaseConfig, Branch], LifecycleContainer]
@@ -103,7 +113,7 @@ def _clean_database_dsn(base_dsn: str, name: str) -> str:
     """
 
     async def _create() -> None:
-        connection = await asyncpg.connect(base_dsn, timeout=10)
+        connection = await asyncpg.connect(base_dsn, timeout=10, statement_cache_size=0)
         try:
             await connection.execute(f'CREATE DATABASE "{name}" TEMPLATE template1')
         finally:
@@ -140,18 +150,21 @@ def _new_neon_container(config: DatabaseConfig, parent: Branch) -> DockerContain
 def _neon_target(
     config: DatabaseConfig,
     api: NeonApi | None = None,
-    container_factory: ContainerFactory = _new_neon_container,
+    container_factory: ContainerFactory | None = None,
 ) -> Iterator[DatabaseTarget]:
     assert config.neon_api_key is not None
     assert config.neon_project_id is not None
     client = api or NeonApi(config.neon_api_key, config.neon_project_id)
     parent = client.resolve_test_base()
     before = client.list_branches()
-    container = container_factory(config, parent)
+    factory = container_factory or cast(ContainerFactory, _new_neon_container)
+    container = factory(config, parent)
     branch: Branch | None = None
+    claim_name = f"wt-test-{uuid.uuid4().hex[:12]}"
     try:
+        started_at = datetime.now(UTC)
         container.start()
-        branch = client.wait_for_ephemeral(before, parent)
+        branch = client.wait_for_ephemeral(before, parent, claim_name, started_at)
         dsn = client.connection_uri(branch.id)
         host = dsn_host(dsn)
         if is_local_host(host) or "-pooler" in host:
@@ -161,19 +174,24 @@ def _neon_target(
         print(f"Neon test branch {branch.id} ready on database host {host}")
         yield DatabaseTarget(dsn, DatabaseArm.NEON, branch.id)
     finally:
-        # graceful SIGTERM first so neon_local can run its own branch cleanup;
-        # testcontainers' stop() force-removes and would orphan the branch.
-        with contextlib.suppress(Exception):
-            container.get_wrapped_container().stop(timeout=20)
-        container.stop()
-        if branch is not None:
-            try:
-                client.wait_until_deleted(branch.id)
-            except RuntimeError:
-                client.delete_branch(branch.id)
-                print(f"Neon test branch {branch.id} force-deleted via API fallback")
-            else:
-                print(f"Neon test branch {branch.id} deleted")
+        try:
+            # graceful SIGTERM lets neon_local attempt its own branch cleanup.
+            with contextlib.suppress(Exception):
+                container.get_wrapped_container().stop(timeout=20)
+            container.stop()
+        finally:
+            if branch is not None:
+                _cleanup_claimed_branch(client, branch, claim_name)
+
+
+def _cleanup_claimed_branch(client: NeonApi, branch: Branch, claim_name: str) -> None:
+    try:
+        client.wait_until_deleted(branch.id)
+    except RuntimeError:
+        client.delete_claimed_branch(branch.id, claim_name)
+        print(f"Neon test branch {branch.id} force-deleted via API fallback")
+    else:
+        print(f"Neon test branch {branch.id} deleted")
 
 
 @contextmanager
@@ -190,28 +208,64 @@ def _target_for(config: DatabaseConfig) -> AbstractContextManager[DatabaseTarget
     return _byo_target(config)
 
 
-async def _open_connection(dsn: str) -> asyncpg.Connection:
-    return await asyncpg.connect(dsn, timeout=10, statement_cache_size=0)
+async def _open_connection(
+    dsn: str, timeout: float = CONNECT_TIMEOUT_SECONDS
+) -> asyncpg.Connection:
+    return await asyncpg.connect(dsn, timeout=timeout, statement_cache_size=0)
 
 
-async def _probe_database(dsn: str) -> None:
-    connection = await _open_connection(dsn)
+async def _open_pool(dsn: str) -> asyncpg.Pool:
+    pool = await asyncpg.create_pool(dsn, statement_cache_size=0)
+    assert pool is not None
+    return pool
+
+
+Clock = Callable[[], float]
+Sleeper = Callable[[float], None]
+Probe = Callable[[str, float, Clock], Awaitable[None]]
+
+
+def _remaining(deadline: float, clock: Clock) -> float:
+    remaining = deadline - clock()
+    if remaining <= 0:
+        raise TimeoutError("database wake operation exceeded its wall-clock budget")
+    return remaining
+
+
+async def _probe_database(dsn: str, deadline: float, clock: Clock) -> None:
+    timeout = min(CONNECT_TIMEOUT_SECONDS, _remaining(deadline, clock))
+    connection = await _open_connection(dsn, timeout)
     try:
-        await connection.fetchval("SELECT 1")
+        await asyncio.wait_for(
+            connection.fetchval("SELECT 1"), timeout=_remaining(deadline, clock)
+        )
     finally:
         await connection.close()
 
 
-def _wake_database(target: DatabaseTarget) -> None:
+async def _wake_database_async(
+    target: DatabaseTarget,
+    clock: Clock = time.monotonic,
+    sleeper: Sleeper = time.sleep,
+    probe: Probe = _probe_database,
+) -> None:
+    deadline = clock() + WAKE_TIMEOUT_SECONDS
     for delay in (1, 2, 4, 8, 16, 0):
         try:
-            asyncio.run(_probe_database(target.dsn))
+            await probe(target.dsn, deadline, clock)
             return
         except (asyncpg.PostgresError, OSError, TimeoutError):
-            if delay:
-                time.sleep(delay)
+            remaining = deadline - clock()
+            if delay and remaining > 0:
+                sleeper(min(float(delay), remaining))
+            if remaining <= 0:
+                break
     host = dsn_host(target.dsn)
     raise RuntimeError(f"database host {host} was unreachable after bounded retries")
+
+
+def _wake_database(target: DatabaseTarget) -> None:
+    asyncio.run(_wake_database_async(target))
 
 
 async def _read_revisions(dsn: str) -> set[str]:
@@ -225,14 +279,18 @@ async def _read_revisions(dsn: str) -> set[str]:
         await connection.close()
 
 
-def _verify_revisions(target: DatabaseTarget) -> None:
+async def _verify_revisions_async(target: DatabaseTarget) -> None:
     try:
-        applied = asyncio.run(_read_revisions(target.dsn))
+        applied = await _read_revisions(target.dsn)
     except (asyncpg.PostgresError, OSError, TimeoutError) as error:
         raise RuntimeError("BYO Atlas revision verification failed") from error
     missing = set(expected_revisions()) - applied
     if missing:
         raise RuntimeError(f"BYO database is behind by {len(missing)} migration(s)")
+
+
+def _verify_revisions(target: DatabaseTarget) -> None:
+    asyncio.run(_verify_revisions_async(target))
 
 
 async def _apply_seed(dsn: str) -> None:
@@ -244,11 +302,15 @@ async def _apply_seed(dsn: str) -> None:
         await connection.close()
 
 
-def _seed(target: DatabaseTarget) -> None:
+async def _seed_async(target: DatabaseTarget) -> None:
     try:
-        asyncio.run(_apply_seed(target.dsn))
+        await _apply_seed(target.dsn)
     except (asyncpg.PostgresError, OSError, TimeoutError) as error:
         raise RuntimeError("database seed failed; DSN withheld") from error
+
+
+def _seed(target: DatabaseTarget) -> None:
+    asyncio.run(_seed_async(target))
 
 
 async def _capabilities(dsn: str) -> asyncpg.Record | None:
@@ -267,9 +329,9 @@ async def _capabilities(dsn: str) -> asyncpg.Record | None:
         await connection.close()
 
 
-def _verify_capabilities(target: DatabaseTarget) -> None:
+async def _verify_capabilities_async(target: DatabaseTarget) -> None:
     try:
-        result = asyncio.run(_capabilities(target.dsn))
+        result = await _capabilities(target.dsn)
     except (asyncpg.PostgresError, OSError, TimeoutError) as error:
         raise RuntimeError("database capability check failed; DSN withheld") from error
     if result is None or not all(
@@ -278,27 +340,45 @@ def _verify_capabilities(target: DatabaseTarget) -> None:
         raise RuntimeError("database lacks bangumi, route_anime, or pgvector")
 
 
+def _verify_capabilities(target: DatabaseTarget) -> None:
+    asyncio.run(_verify_capabilities_async(target))
+
+
 def _verify_byo_identity(config: DatabaseConfig, target: DatabaseTarget) -> None:
     assert config.neon_api_key is not None
     assert config.neon_project_id is not None
     NeonApi(config.neon_api_key, config.neon_project_id).assert_mutable_dsn(target.dsn)
 
 
-def _prepare_database(config: DatabaseConfig, target: DatabaseTarget) -> None:
+async def preflight_byo_database(
+    config: DatabaseConfig, target: DatabaseTarget
+) -> None:
+    """Apply the shared BYO read-verify and mutation trust boundary."""
     plan = preflight_plan(config)
-    _wake_database(target)
-    if plan.verify_revisions:
-        _verify_revisions(target)
-    if plan.apply_atlas:
-        elapsed = apply_migrations(target.dsn)
-        print(f"Atlas apply on database host {dsn_host(target.dsn)}: {elapsed:.1f}s")
-    _verify_capabilities(target)
-    if config.arm is DatabaseArm.BYO and not config.allow_mutation:
+    await _wake_database_async(target)
+    await _verify_revisions_async(target)
+    await _verify_capabilities_async(target)
+    if not config.allow_mutation:
         raise RuntimeError(
             "BYO database verified read-only; set TEST_DB_ALLOW_MUTATION=1"
         )
     if plan.verify_identity:
         _verify_byo_identity(config, target)
+    if plan.apply_seed:
+        await _seed_async(target)
+
+
+def _prepare_database(config: DatabaseConfig, target: DatabaseTarget) -> None:
+    if config.arm is DatabaseArm.BYO:
+        asyncio.run(preflight_byo_database(config, target))
+        print(f"Database preflight passed for {target.arm} host {dsn_host(target.dsn)}")
+        return
+    plan = preflight_plan(config)
+    _wake_database(target)
+    if plan.apply_atlas:
+        elapsed = apply_migrations(target.dsn)
+        print(f"Atlas apply on database host {dsn_host(target.dsn)}: {elapsed:.1f}s")
+    _verify_capabilities(target)
     if plan.apply_seed:
         _seed(target)
     print(f"Database preflight passed for {target.arm} host {dsn_host(target.dsn)}")
@@ -314,8 +394,7 @@ def pg_container() -> Iterator[DatabaseTarget]:
 
 @pytest.fixture
 async def db_pool(pg_container: DatabaseTarget) -> AsyncIterator[asyncpg.Pool]:
-    pool = await asyncpg.create_pool(pg_container.dsn, statement_cache_size=0)
-    assert pool is not None
+    pool = await _open_pool(pg_container.dsn)
     yield pool
     await pool.close()
 

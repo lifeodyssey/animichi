@@ -73,6 +73,6 @@ export interface RuntimeResponse {
   route_history: RouteHistoryRecord[];
   errors: PublicAPIError[];
   debug?: Record<string, unknown> | null;
-  ui?: UIDescriptor;
+  ui?: UIDescriptor | null;
   generated_title?: string | null;
 }
