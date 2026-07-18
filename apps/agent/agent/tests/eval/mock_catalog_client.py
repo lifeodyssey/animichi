@@ -6,6 +6,7 @@ from typing import Literal
 
 from agent.agents.geo_utils import haversine_distance
 from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
+from agent.agents.title_matching import best_alias_match
 from agent.clients.catalog_client import (
     AnimeCandidate,
     IngestResult,
@@ -128,11 +129,7 @@ class MockCatalogClient:
 
     @staticmethod
     def _match_title(query: str) -> str | None:
-        q = query.lower()
-        for alias, bangumi_id in _TITLE_ALIASES.items():
-            if alias in q:
-                return bangumi_id
-        return None
+        return best_alias_match(query, _TITLE_ALIASES)
 
     @staticmethod
     def _match_location(name: str) -> tuple[float, float, str] | None:
