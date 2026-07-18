@@ -7,6 +7,7 @@ import { nearby as nearbyHandler } from "./api/nearby";
 import { geocode as geocodeHandler } from "./api/geocode";
 import { route as routeHandler } from "./api/route";
 import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
+import { animeOverview as animeOverviewHandler } from "./api/anime-overview";
 import type { CatalogDb, NeonSql } from "./db/client";
 import { ingestWork, type IngestResult as OrchestratorResult } from "./ingest/orchestrator";
 import { routeTooManyPoints, workNotFound } from "./lib/errors";
@@ -77,6 +78,10 @@ const ingest = os.ingest.handler(async ({ input, context }) =>
   ),
 );
 
+const animeOverview = os.animeOverview.handler(async ({ input, context }) =>
+  animeOverviewHandler(context.db, input),
+);
+
 /** Map the orchestrator union (camelCase) onto the snake_case wire shape. */
 function toIngestResult(result: OrchestratorResult): IngestResult {
   if (result.status === "ingested") {
@@ -105,5 +110,6 @@ export const catalogRouter = {
   geocode,
   route,
   ingest,
+  animeOverview,
 };
 export type CatalogRouter = typeof catalogRouter;

@@ -21,6 +21,22 @@ function isPublicV1(pathname: string): boolean {
   return PUBLIC_V1.includes(pathname) || /^\/v1\/bangumi\/[^/]+\/guide$/.test(pathname);
 }
 
+/** Catalog's ONLY public prefix: anonymous, read-only overview reads. Every
+ * other /catalog/* path stays private (falls through to OpenNext). */
+function isPublicCatalog(pathname: string): boolean {
+  return pathname.startsWith("/catalog/public/");
+}
+
+/** Forward an anonymous public-catalog read to the private CATALOG binding
+ * (in-datacenter hop). Strips client-supplied X-User-* (anti-forgery); no auth,
+ * no body mutation — read-only. */
+function forwardPublicCatalog(env: Env, request: Request): Promise<Response> {
+  const headers = new Headers(request.headers);
+  headers.delete("X-User-Id");
+  headers.delete("X-User-Type");
+  return env.CATALOG.fetch(new Request(request, { headers }));
+}
+
 /** Forward a /v1 request to the container's default instance. Always strips
  * client-supplied X-User-* (anti-forgery); on authed paths also strips
  * Authorization and injects the worker-verified identity. */
@@ -81,6 +97,14 @@ export function createWorkerApp(deps: {
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
   );
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
+  // Catalog's first public exposure: /catalog/public/* is anonymous + read-only,
+  // forwarded to the private CATALOG binding. Anything else under /catalog/*
+  // stays private and falls through to OpenNext (never reaches env.CATALOG).
+  app.all("/catalog/public/*", (c) =>
+    isPublicCatalog(new URL(c.req.url).pathname)
+      ? forwardPublicCatalog(c.env, c.req.raw)
+      : c.notFound(),
+  );
   // Hono runs the first matching handler in registration order.
   // /v1/users/* bypasses the container entirely: the users service verifies the
   // Neon Auth JWT itself (jose JWKS), so the edge passes Authorization through

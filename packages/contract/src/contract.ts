@@ -9,6 +9,7 @@ import { oc } from "@orpc/contract";
 import { z } from "zod";
 import { pickCatalogErrors } from "./errors.js";
 import {
+  AnimeOverview,
   IngestResult,
   Latitude,
   Longitude,
@@ -112,6 +113,12 @@ export const IngestInput = z.object({
 });
 export type IngestInput = z.infer<typeof IngestInput>;
 
+/** animeOverview(bangumi_id) -> AnimeOverview (public, anonymous, read-only GET) */
+export const AnimeOverviewInput = z.object({
+  bangumi_id: z.string().regex(/^\d+$/),
+});
+export type AnimeOverviewInput = z.infer<typeof AnimeOverviewInput>;
+
 export const catalogContract = {
   search: oc
     .route({ method: "POST", path: "/catalog/search", summary: "Search pilgrimage points by anime title" })
@@ -159,6 +166,14 @@ export const catalogContract = {
     .input(IngestInput)
     .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
     .output(IngestResult),
+  animeOverview: oc
+    .route({
+      method: "GET",
+      path: "/catalog/public/anime-overview/{bangumi_id}",
+      summary: "Public anime overview: bubble aggregation, 名場面 ranking, and sample routes",
+    })
+    .input(AnimeOverviewInput)
+    .output(AnimeOverview),
 };
 
 export type CatalogContract = typeof catalogContract;
