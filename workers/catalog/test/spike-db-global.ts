@@ -171,7 +171,7 @@ async function connectionUri(env: NeonEnvironment, branchId: string): Promise<st
 async function startContainer(
   env: NeonEnvironment, parent: NeonBranch,
 ): Promise<StartedTestContainer> {
-  const { GenericContainer } = await import("testcontainers");
+  const { GenericContainer, Wait } = await import("testcontainers");
   return new GenericContainer(IMAGE)
     .withEnvironment({
       NEON_API_KEY: env.apiKey,
@@ -180,6 +180,9 @@ async function startContainer(
       DELETE_BRANCH: "true",
     })
     .withExposedPorts(5432)
+    // testcontainers v12: default wait strategy now prefers an image healthcheck;
+    // pin the prior listening-ports behaviour so branch readiness stays deterministic.
+    .withWaitStrategy(Wait.forListeningPorts())
     .start();
 }
 
