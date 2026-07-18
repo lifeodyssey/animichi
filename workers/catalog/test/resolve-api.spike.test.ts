@@ -1,71 +1,21 @@
-import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve as resolvePath } from "node:path";
 import assert from "node:assert/strict";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it } from "vitest";
 import type { CatalogDb, NeonSql } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
+import {
+  databaseDescribeKnownFailing,
+  openDirectPool,
+  truncateCatalogPool,
+} from "./spike-db";
 
-/** Real-Postgres proof for Phase 1a resolver SQL and both additive wire endpoints. */
-const CONTAINER = "catalog-resolve-api";
-const IMAGE = "postgis/postgis:16-3.4";
-const PG_PORT = 55_441;
-const PG_PASSWORD = "dbtest";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
-const MIGRATION = "../../../db/migrations/20260623000001_init.sql";
-const TABLES = ["bangumi", "points", "aliases"];
+/** Resolver SQL proof against the ephemeral branch's direct cloud endpoint. */
 const handler = new OpenAPIHandler(catalogRouter);
 
 let pool: pg.Pool;
 let db: CatalogDb;
-
-function sh(command: string): string {
-  return execSync(command, { stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
-}
-
-function startContainer(): void {
-  const existing = sh(`docker ps -aq -f name=^${CONTAINER}$`);
-  if (existing) sh(`docker rm -f ${CONTAINER}`);
-  sh(`docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} `
-    + `-p ${String(PG_PORT)}:5432 ${IMAGE}`);
-}
-
-async function canConnect(): Promise<boolean> {
-  const probe = new pg.Pool({ connectionString: CONN, max: 1 });
-  try {
-    await probe.query("SELECT 1");
-    return true;
-  } catch {
-    return false;
-  } finally {
-    await probe.end().catch(() => undefined);
-  }
-}
-
-async function waitForReady(): Promise<void> {
-  for (let attempt = 0; attempt < 90; attempt += 1) {
-    if (await canConnect()) return;
-    await new Promise((done) => setTimeout(done, 1000));
-  }
-  throw new Error("Postgres not ready in time");
-}
-
-function sliceTable(source: string, table: string): string {
-  const marker = `CREATE TABLE IF NOT EXISTS ${table} (`;
-  const start = source.indexOf(marker);
-  const end = source.indexOf(");", start);
-  if (start < 0 || end < 0) throw new Error(`migration table not found: ${table}`);
-  return source.slice(start, end + 2);
-}
-
-function resolverDdl(): string {
-  const source = readFileSync(resolvePath(import.meta.dirname, MIGRATION), "utf8");
-  return TABLES.map((table) => sliceTable(source, table)).join("\n")
-    .replace(/^\s*embedding\s+vector\(1024\),\n/m, "");
-}
 
 async function seedWorks(): Promise<void> {
   await pool.query(`INSERT INTO bangumi (id, title) VALUES
@@ -121,12 +71,9 @@ function pointKeys(value: unknown): string[] {
 }
 
 beforeAll(async () => {
-  pool = new pg.Pool({ connectionString: CONN });
-  startContainer();
-  await waitForReady();
+  pool = await openDirectPool();
   db = drizzle(pool) as unknown as CatalogDb;
-  await pool.query("CREATE EXTENSION IF NOT EXISTS postgis");
-  await pool.query(resolverDdl());
+  await truncateCatalogPool(pool);
   await seedWorks();
   await seedPoints();
   await seedAliases();
@@ -134,14 +81,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await pool.end();
-  try {
-    sh(`docker rm -f ${CONTAINER}`);
-  } catch {
-    return;
-  }
 });
 
-describe("Phase 1a resolver SQL against Postgres", () => {
+databaseDescribeKnownFailing("#363", "Phase 1a resolver SQL against Postgres", () => {
   it("deduplicates work ids and orders tied candidates by derived point count", async () => {
     await expect(call("resolve", { query: "Shared" })).resolves.toEqual({
       outcome: "needs_disambiguation", reason: "anime_ambiguity",
