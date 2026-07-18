@@ -19,18 +19,13 @@ export EVAL_L3=0
 export ANIMICHI_MANAGED_PROMPT=0
 export ANIMICHI_SPIKE_OUT_BASE="$PWD/agent/spikes/codemode"
 
-uv run python -m agent.spikes.codemode.rematch \
-  --arm control \
-  --out agent/spikes/codemode/rematch-control.json
+uv run python -m agent.spikes.codemode.rematch --arm control
+uv run python -m agent.spikes.codemode.rematch --arm codemode-taught
+uv run python -m agent.spikes.codemode.compare
 
-uv run python -m agent.spikes.codemode.rematch \
-  --arm codemode-taught \
-  --out agent/spikes/codemode/rematch-codemode-taught.json
-
-uv run python -m agent.spikes.codemode.compare \
-  agent/spikes/codemode/rematch-control.json \
-  agent/spikes/codemode/rematch-codemode-taught.json \
-  --out agent/spikes/codemode/rematch-report.md
+Outputs are written to fixed paths inside the spike directory
+(`rematch-control.json`, `rematch-codemode-taught.json`, `rematch-report.md`) —
+the CLIs take no path arguments by design (S8707: no user-controlled paths).
 ```
 
 The two 80-case arms are expected to cost roughly **$1–2 total**. The JSON reports use the

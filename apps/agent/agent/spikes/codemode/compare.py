@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import statistics
 from pathlib import Path
 
@@ -13,13 +12,7 @@ from agent.spikes.codemode.report import (
     Verdict,
 )
 
-
-def _validated_path(arg: str) -> Path:
-    resolved = Path(arg).resolve()
-    allowed = Path(os.environ.get("ANIMICHI_SPIKE_OUT_BASE", os.getcwd())).resolve()
-    if not resolved.is_relative_to(allowed) or not resolved.parent.is_dir():
-        raise SystemExit(f"Path must have an existing parent under {allowed}: {arg}")
-    return resolved
+SPIKE_DIR = Path(__file__).resolve().parent
 
 
 def _load(path: Path) -> RematchReport:
@@ -110,21 +103,13 @@ def compare(control: RematchReport, taught: RematchReport) -> Verdict:
     return _verdict(control, taught)
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("control", type=_validated_path)
-    parser.add_argument("taught", type=_validated_path)
-    parser.add_argument("--out", type=_validated_path)
-    return parser
-
-
 def _main() -> Verdict:
-    args = _parser().parse_args()
-    control, taught = _load(args.control), _load(args.taught)
+    argparse.ArgumentParser(description=__doc__).parse_args()
+    control = _load(SPIKE_DIR / "rematch-control.json")
+    taught = _load(SPIKE_DIR / "rematch-codemode-taught.json")
     markdown = render(control, taught)
     print(markdown, end="")
-    if args.out is not None:
-        args.out.write_text(markdown)
+    (SPIKE_DIR / "rematch-report.md").write_text(markdown)
     return _verdict(control, taught)
 
 

@@ -76,14 +76,6 @@ def stratified_cases(cases: Sequence[AgentCase], cap: int) -> list[AgentCase]:
     return sorted(chosen, key=lambda case: str(case.name))
 
 
-def _validated_path(arg: str) -> Path:
-    resolved = Path(arg).resolve()
-    allowed = Path(os.environ.get("ANIMICHI_SPIKE_OUT_BASE", os.getcwd())).resolve()
-    if not resolved.is_relative_to(allowed) or not resolved.parent.is_dir():
-        raise SystemExit(f"Output must have an existing parent under {allowed}: {arg}")
-    return resolved
-
-
 def _case_cap() -> int:
     return read_max_cases() or DEFAULT_CASE_CAP
 
@@ -218,10 +210,12 @@ async def _evaluate(arm: Arm, model_id: str, cases: list[AgentCase]) -> AgentRep
         )
 
 
+SPIKE_DIR = Path(__file__).resolve().parent
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arm", choices=("control", "codemode-taught"), required=True)
-    parser.add_argument("--out", type=_validated_path, required=True)
     return parser
 
 
@@ -234,7 +228,8 @@ async def main() -> None:
         "EVAL_MODEL", "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
     )
     report = await _evaluate(arm, model_id, cases)
-    args.out.write_text(
+    out_path = SPIKE_DIR / f"rematch-{arm}.json"
+    out_path.write_text(
         _build_report(arm, model_id, case_ids, report).model_dump_json(indent=2) + "\n"
     )
 

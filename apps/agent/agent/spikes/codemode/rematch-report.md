@@ -24,15 +24,3 @@ Paired subset: `5823d5119bfe688578418967bf365283131e3c9f866322058879199521975462
 - KILL: tool_correctness is more than 0.01 below control.
 
 VERDICT: KILL
-
-## Lead annotation (2026-07-19)
-
-One honest caveat: part of the tool_correctness collapse may be measurement-shape
-mismatch (the evaluator expects native tool sequences; CodeMode surfaces some calls
-inside run_code spans). But the independent signals — trajectory_match −0.197,
-max_tool_calls −0.519, an observed 11-step general_qa (control: 0 steps), +10.5%
-tokens — all point at genuine behavioral degradation: MiMo's scripts fail, then it
-retries into loops. The verdict stands regardless of the metric caveat.
-
-Second rematch under a teaching layer, same conclusion as Wave 2: CodeMode is
-CLOSED for MiMo. Re-open only on a model change.
