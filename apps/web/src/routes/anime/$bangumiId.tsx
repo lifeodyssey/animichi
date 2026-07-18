@@ -3,6 +3,7 @@ import { resolveOrigin } from "../../api/config";
 import { animeOverviewOptions, useAnimeOverview } from "../../api/hooks/use-anime-overview";
 import { AnimePage } from "../../features/anime/AnimePage";
 import { animeHead } from "../../features/anime/head";
+import { useRegisterAnimeSw } from "../../features/anime/register-sw";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../../i18n/locales";
 
 const BANGUMI_ID_PATTERN = /^\d+$/;
@@ -48,6 +49,7 @@ export const Route = createFileRoute("/anime/$bangumiId")({
 });
 
 function AnimeRoute() {
+  useRegisterAnimeSw();
   const { bangumiId } = Route.useParams();
   const { locale } = Route.useLoaderData();
   const { data } = useAnimeOverview(bangumiId);
