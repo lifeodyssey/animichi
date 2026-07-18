@@ -17,7 +17,7 @@ from pydantic_evals.evaluators import Evaluator, EvaluatorContext, LLMJudge
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.session_state import RoutePayloadState, SearchPayloadState
-from agent.interfaces.public_api import detect_language
+from agent.utils.language import resolve_reply_language
 
 EVALUATOR_VERSION = "official-v1"
 
@@ -188,13 +188,14 @@ def _nonempty(result: AgentResult) -> bool:
 
 @dataclass
 class LocaleMatch(Evaluator[AgentInput, AgentResult, AgentExpected]):
-    """L1: 1.0 if the reply language matches the requested locale."""
+    """L1: match current-turn language, using the requested locale as fallback."""
 
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
         message = ctx.output.message
         if not message:
             return {"locale_match": 0.0}
-        matched = detect_language(message) == ctx.inputs.locale
+        expected = resolve_reply_language(ctx.inputs.query, ctx.inputs.locale)
+        matched = resolve_reply_language(message, expected) == expected
         return {"locale_match": 1.0 if matched else 0.0}
 
 
