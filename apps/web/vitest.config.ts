@@ -4,22 +4,29 @@ export default defineConfig({
   test: {
     css: true,
     include: ["tests/unit/**/*.test.ts", "tests/unit/**/*.test.tsx"],
+    globalSetup: ["tests/setup/generate-route-tree.ts"],
+    setupFiles: ["tests/setup/msw-lifecycle.ts"],
+    environmentOptions: { jsdom: { url: "http://localhost:3000" } },
     coverage: {
       provider: "istanbul",
       reporter: ["text", "lcov"],
       include: ["src/**/*.{ts,tsx}"],
+      // routeTree.gen.ts is generated (excluded per repo pitfall); routes and
+      // router.tsx are now in the sweep per campaign plan §0.6 (owner-signed
+      // 100%->90% analytics-real ratchet: the denominator now includes routes).
       exclude: [
-        // SSR wiring is exercised by the integration build test and the browser 404 test; excluded from the unit-coverage sweep because routeTree.gen.ts only exists after a build.
         "src/routeTree.gen.ts",
-        "src/router.tsx",
-        "src/routes/**",
         // WebGL map glue: instantiates maplibre-gl (requires a real GL context + dynamic imports),
         // unrunnable under jsdom. Its pure inputs (style/layers/pins/geometry) are unit-covered; the
         // live mount is covered by S0.4's browser ACs (Tester). Per campaign plan §0.6 exclude ledger.
         "src/features/map-spike/mapController.ts",
+        // The _dev map-spike route only wires the maplibre container mount (attachMapSpike ->
+        // mapController above). It cannot render under jsdom for the same GL reason; the mount is a
+        // browser AC (S0.4). Same §0.6 exclude-ledger rationale as mapController.ts (surfaced when
+        // routes/** entered the sweep in C0.1).
+        "src/routes/_dev/map-spike.tsx",
       ],
-      // Iteration-0 measured floor (components-only surface, 2 statements) — repo rule: ratchet UP only; lowering requires explicit user approval.
-      thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
+      thresholds: { statements: 90, branches: 90, functions: 90, lines: 90 },
     },
   },
 });
