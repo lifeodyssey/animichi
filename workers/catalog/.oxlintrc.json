@@ -8,5 +8,8 @@
     "coverage/**",
     "vitest.config.ts",
     "vitest.spike.config.ts"
-  ]
+  ],
+  "options": {
+    "reportUnusedDisableDirectives": "error"
+  }
 }

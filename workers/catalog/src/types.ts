@@ -159,5 +159,8 @@ export interface Route {
   cover_url?: string;
   anime_title?: string;
   anime_title_cn?: string;
+  truncated?: boolean;
+  shown_cluster_count?: number;
+  total_cluster_count?: number;
   timed_itinerary: TimedItinerary;
 }

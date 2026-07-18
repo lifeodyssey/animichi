@@ -172,8 +172,7 @@ describe("buildTimedItinerary — edge cases (Python parity)", () => {
     const r = buildTimedItinerary([mk("a", 35.0, 2, "Solo")], { pacing: "normal" });
     expect(r.legs).toEqual([]);
     expect(r.total_minutes).toBe(8);
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-    expect(r.stops[0]!.depart).toBe("09:08");
+    expect(r.stops.at(0)?.depart).toBe("09:08");
     expect(r.total_distance_m).toBe(0);
   });
 

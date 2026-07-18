@@ -112,7 +112,7 @@ const _ir_a: ContractIngestResult = null as unknown as ContractIngestResult;
 const _ir_b: LocalIngestResult = null as unknown as ContractIngestResult;
 
 // --- Route ---
-const _r_a: ContractRoute = null as unknown as ContractRoute;
+const _r_a: ContractRoute = null as unknown as LocalRoute;
 const _r_b: LocalRoute = null as unknown as ContractRoute;
 
 // --- Pacing ---
