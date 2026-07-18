@@ -45,6 +45,11 @@ logger = structlog.get_logger(__name__)
 CATALOG_REQUEST_TIMEOUT_SECONDS = 25.0
 CATALOG_TOTAL_TIMEOUT_SECONDS = 80.0
 _TRANSIENT_STATUS_CODES = frozenset({408, 429})
+_CATALOG_HTTP_LIMITS = httpx.Limits(
+    max_connections=20,
+    max_keepalive_connections=10,
+    keepalive_expiry=30.0,
+)
 
 # Re-exported so callers depend on this client, not on agent internals.
 __all__ = [
@@ -208,11 +213,12 @@ class CatalogClient:
         *,
         timeout: float = CATALOG_REQUEST_TIMEOUT_SECONDS,
         max_retries: int = 3,
+        http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
         self._max_retries = max_retries
-        self._client: httpx.AsyncClient | None = None
+        self._client = http_client
 
     async def search(self, query: str) -> list[PilgrimagePoint]:
         """Resolve a free-text query to its pilgrimage points."""
@@ -285,16 +291,18 @@ class CatalogClient:
     def _http(self) -> httpx.AsyncClient:
         """Return the shared httpx client, creating it lazily."""
         if self._client is None or self._client.is_closed:
-            wrapped = httpx.AsyncHTTPTransport(trust_env=True)
-            transport = AsyncTenacityTransport(
-                _retry_config(self._max_retries),
-                wrapped=wrapped,
-            )
-            self._client = httpx.AsyncClient(
-                timeout=self._timeout,
-                transport=transport,
-            )
+            self._client = self._build_http_client()
         return self._client
+
+    def _build_http_client(self) -> httpx.AsyncClient:
+        wrapped = httpx.AsyncHTTPTransport(
+            trust_env=True,
+            limits=_CATALOG_HTTP_LIMITS,
+        )
+        transport = AsyncTenacityTransport(
+            _retry_config(self._max_retries), wrapped=wrapped
+        )
+        return httpx.AsyncClient(timeout=self._timeout, transport=transport)
 
     async def _rpc(self, method: str, body: Mapping[str, object]) -> JSONDict:
         """POST ``body`` to the method endpoint with retry on transient errors."""
