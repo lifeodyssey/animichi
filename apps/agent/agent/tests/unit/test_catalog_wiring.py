@@ -9,7 +9,10 @@ so we assert the agent drove its data path through that client.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import httpx
+from fastapi.testclient import TestClient
 
 from agent.clients.catalog_client import CatalogClient
 from agent.config.settings import Settings
@@ -78,3 +81,28 @@ def test_app_factory_builds_catalog_client() -> None:
     client = build_catalog_client(settings)
     assert isinstance(client, CatalogClient)
     assert client._base_url == "https://catalog.test"
+
+
+def test_fastapi_lifespan_closes_catalog_client() -> None:
+    catalog = MagicMock(spec=CatalogClient)
+    catalog.aclose = AsyncMock()
+    model_client = MagicMock(spec=httpx.AsyncClient)
+    model_client.aclose = AsyncMock()
+    session_store = InMemorySessionStore()
+    db = build_stub_db()
+    with (
+        patch(
+            "agent.interfaces.fastapi_service.build_catalog_client",
+            return_value=catalog,
+        ),
+        patch(
+            "agent.interfaces.fastapi_service.build_model_http_client",
+            return_value=model_client,
+        ),
+    ):
+        from agent.interfaces.fastapi_service import create_fastapi_app
+
+        app = create_fastapi_app(db=db, session_store=session_store)
+        with TestClient(app):
+            assert app.state.catalog_client is catalog
+    catalog.aclose.assert_awaited_once()
