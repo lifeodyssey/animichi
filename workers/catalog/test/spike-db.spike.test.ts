@@ -22,7 +22,9 @@ const parent: NeonBranch = {
   default: false,
 };
 
-afterEach(() => restoreNeonConfig(suiteSnapshot));
+afterEach(() => {
+  restoreNeonConfig(suiteSnapshot);
+});
 
 describe("spike database helper", () => {
   it("builds the exact no-CASCADE FK-closed TRUNCATE statement", () => {

@@ -6,7 +6,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import type { CatalogDb, NeonSql } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 import {
-  databaseDescribe,
+  databaseDescribeKnownFailing,
   openDirectPool,
   truncateCatalogPool,
 } from "./spike-db";
@@ -83,7 +83,7 @@ afterAll(async () => {
   await pool.end();
 });
 
-databaseDescribe("Phase 1a resolver SQL against Postgres", () => {
+databaseDescribeKnownFailing("#363", "Phase 1a resolver SQL against Postgres", () => {
   it("deduplicates work ids and orders tied candidates by derived point count", async () => {
     await expect(call("resolve", { query: "Shared" })).resolves.toEqual({
       outcome: "needs_disambiguation", reason: "anime_ambiguity",

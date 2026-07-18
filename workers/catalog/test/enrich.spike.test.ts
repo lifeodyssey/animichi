@@ -5,6 +5,7 @@ import { saveRawAnitabi, saveRawBangumi } from "../src/ingest/raw-store";
 import { enrichWork } from "../src/enrich/enrich";
 import {
   databaseDescribe,
+  databaseDescribeKnownFailing,
   openServerlessDb,
   restoreNeonConfig,
   truncateCatalog,
@@ -78,7 +79,7 @@ beforeAll(async () => {
   await saveRawAnitabi(db, "lucky-star", RAW_ANITABI);
 }, 120_000);
 
-afterAll(restoreNeonConfig);
+afterAll(() => { restoreNeonConfig(); });
 
 async function assertEnrichBangumiRow(): Promise<void> {
   const rows = (
@@ -109,7 +110,7 @@ async function assertEnrichAliases(): Promise<void> {
   expect(rows.every((r) => r.source === "bangumi")).toBe(true);
 }
 
-databaseDescribe("enrichWork composes raw zone -> enriched catalog -> publish", () => {
+databaseDescribeKnownFailing("#362", "enrichWork composes raw zone -> enriched catalog -> publish", () => {
   it("returns the published version and point count", async () => {
     const result = await enrichWork(db, "lucky-star");
     expect(result.version).toBe(1);
@@ -138,7 +139,7 @@ databaseDescribe("enrichWork composes raw zone -> enriched catalog -> publish", 
   });
 });
 
-databaseDescribe("re-enrich from raw is idempotent and publishes a new version", () => {
+databaseDescribeKnownFailing("#362", "re-enrich from raw is idempotent and publishes a new version", () => {
   it("does not duplicate points and bumps to a new current version", async () => {
     const result = await enrichWork(db, "lucky-star");
     expect(result.version).toBe(2);

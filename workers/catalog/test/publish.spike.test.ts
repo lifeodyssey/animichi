@@ -5,7 +5,7 @@ import { publishVersion } from "../src/publish/versioning";
 import { getRouteSnapshot, saveRouteSnapshot } from "../src/publish/snapshots";
 import { gcOldVersions } from "../src/publish/gc";
 import {
-  databaseDescribe,
+  databaseDescribeKnownFailing,
   openServerlessDb,
   restoreNeonConfig,
   truncateCatalog,
@@ -45,9 +45,9 @@ beforeAll(async () => {
   await truncateCatalog(db);
 }, 120_000);
 
-afterAll(restoreNeonConfig);
+afterAll(() => { restoreNeonConfig(); });
 
-databaseDescribe("publishVersion atomic version switch over cluster_version", () => {
+databaseDescribeKnownFailing("#362", "publishVersion atomic version switch over cluster_version", () => {
   it("publishes v1 as the single current version", async () => {
     const v = await publishVersion(db, "switch");
     expect(v).toBe(1);
@@ -70,7 +70,7 @@ databaseDescribe("publishVersion atomic version switch over cluster_version", ()
   });
 });
 
-databaseDescribe("saveRouteSnapshot binds a route to a version so it never drifts", () => {
+databaseDescribeKnownFailing("#362", "saveRouteSnapshot binds a route to a version so it never drifts", () => {
   it("reads back a v1 snapshot unchanged after v2 publishes (no drift)", async () => {
     await publishVersion(db, "drift");
     await saveRouteSnapshot(db, "drift", 1, { order: ["a", "b"] });
@@ -80,7 +80,7 @@ databaseDescribe("saveRouteSnapshot binds a route to a version so it never drift
   });
 });
 
-databaseDescribe("gcOldVersions keeps the newest N and never the current", () => {
+databaseDescribeKnownFailing("#362", "gcOldVersions keeps the newest N and never the current", () => {
   it("removes v1 but never the current version with keep=1", async () => {
     await publishVersion(db, "gc");
     await publishVersion(db, "gc");

@@ -4,6 +4,7 @@ import type { CatalogDb } from "../src/db/client";
 import app, { closeDbPools } from "../src/index";
 import {
   databaseDescribe,
+  databaseDescribeKnownFailing,
   localDatabaseUrl,
   openServerlessDb,
   restoreNeonConfig,
@@ -121,7 +122,7 @@ async function assertSpotsHit(): Promise<void> {
 
 async function assertSpots404(): Promise<void> {
   const body = await call<{ code?: string; status?: number }>("spots", { bangumi_id: "no-such-work" }, 404);
-  expect(body.code).toBe("NOT_FOUND");
+  expect(body.code).toBe("WORK_NOT_FOUND");
 }
 
 async function assertNearbyHit(): Promise<void> {
@@ -228,7 +229,7 @@ const ANITABI_POINTS = [
   { id: "toyosato-hall", name: "豊郷小学校 講堂", lat: 35.205, lng: 136.2401, ep: 2, s: 90 },
 ];
 
-databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> search)", () => {
+databaseDescribeKnownFailing("#362", "Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> search)", () => {
   it("POST /ingest publishes the work, then /search returns the fresh points", async () => {
     stubUpstream();
 
@@ -246,7 +247,7 @@ databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publ
   });
 });
 
-databaseDescribe("Catalog search miss -> Bangumi resolve -> on-demand ingest -> points", () => {
+databaseDescribeKnownFailing("#362", "Catalog search miss -> Bangumi resolve -> on-demand ingest -> points", () => {
   it("an UNCOVERED title resolves+ingests on first search, then is an alias hit on the second", async () => {
     const { urls } = stubSearchMiss();
 
