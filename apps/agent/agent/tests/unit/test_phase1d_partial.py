@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import NoReturn, get_args
+from typing import NoReturn, cast, get_args
 from unittest.mock import MagicMock
 
 import pytest
@@ -112,7 +112,9 @@ async def test_usage_limit_returns_partial_with_current_turn_provenance(
     )
     assert result.usage is not None and result.usage.requests == 12
     assert (response.success, response.status) == (False, "partial")
-    assert response.data["results"]["rows"][0]["id"] == "new"
+    results = cast(dict[str, object], response.data["results"])
+    rows = cast(list[dict[str, object]], results["rows"])
+    assert rows[0]["id"] == "new"
     assert response.ui == {"component": "GeneralAnswer"}
     assert "部分" in response.message
 
@@ -133,7 +135,8 @@ async def test_usage_limit_never_projects_stale_registry_ref(
     response = agent_result_to_response(result, include_debug=False)
     assert result.session_state.last_result_ref == "search:new"
     assert result.provenance.search is not None
-    rows = response.data["results"]["rows"]
+    results = cast(dict[str, object], response.data["results"])
+    rows = cast(list[dict[str, object]], results["rows"])
     assert [row["id"] for row in rows] == ["new"]
 
 
@@ -154,7 +157,43 @@ async def test_usage_limit_projects_current_route_over_stale_route(
         catalog=MockCatalogClient(),
     )
     response = agent_result_to_response(result, include_debug=False)
-    assert response.data["route"]["ordered_points"][0]["id"] == "new"
+    route = cast(dict[str, object], response.data["route"])
+    points = cast(list[dict[str, object]], route["ordered_points"])
+    assert points[0]["id"] == "new"
+    wire = response.model_dump(mode="json")
+    assert wire["data"] == {
+        "route": {
+            "ordered_points": [
+                {
+                    "id": "new",
+                    "name": None,
+                    "name_cn": None,
+                    "episode": None,
+                    "time_seconds": None,
+                    "screenshot_url": None,
+                    "bangumi_id": "1",
+                    "latitude": None,
+                    "longitude": None,
+                    "title": None,
+                    "title_cn": None,
+                    "distance_m": None,
+                    "origin": None,
+                    "cover_url": None,
+                    "city": None,
+                }
+            ],
+            "timed_itinerary": None,
+            "summary": None,
+            "source_ref": None,
+            "point_count": 1,
+            "status": "ok",
+        }
+    }
+    assert (wire["session_id"], wire["generated_title"], wire["debug"]) == (
+        None,
+        None,
+        None,
+    )
 
 
 def test_partial_message_unknown_locale_defaults_to_japanese() -> None:

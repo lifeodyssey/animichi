@@ -7,7 +7,6 @@ session management in ``session_facade``, and persistence in ``persistence``.
 from __future__ import annotations
 
 import asyncio
-import re
 from dataclasses import dataclass
 from time import perf_counter
 from typing import cast
@@ -72,6 +71,7 @@ from agent.interfaces.session_facade import (
     extract_context_delta,
     normalize_session_state,
 )
+from agent.utils.language import detect_language, resolve_reply_language
 
 __all__ = [
     "PublicAPIError",
@@ -118,22 +118,6 @@ def default_catalog_client() -> CatalogClient:
     client to route through; production injects one explicitly via the lifespan.
     """
     return CatalogClient(base_url=get_settings().catalog_api_url)
-
-
-_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
-_KANA_RE = re.compile(r"[\u3040-\u30ff]")
-
-
-def detect_language(text: str) -> str:
-    """Detect whether *text* is Chinese, Japanese, or English.
-
-    Heuristic: kana → ja, CJK only → zh, else → en.
-    """
-    if _KANA_RE.search(text):
-        return "ja"
-    if _CJK_RE.search(text):
-        return "zh"
-    return "en"
 
 
 class RuntimeAPI:
@@ -373,7 +357,10 @@ class RuntimeAPI:
             )
         if model_path:
             await _apply_translation_gate(
-                result, request.locale, on_step, model=resolved_model
+                result,
+                resolve_reply_language(request.text, request.locale),
+                on_step,
+                model=resolved_model,
             )
         response = agent_result_to_response(
             result,
@@ -593,7 +580,7 @@ async def _apply_translation_gate(
     message = result.message
     if not message:
         return
-    detected = detect_language(message)
+    detected = resolve_reply_language(message, locale)
     if detected == locale:
         return
     if on_step is not None:

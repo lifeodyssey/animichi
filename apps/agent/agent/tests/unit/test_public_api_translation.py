@@ -98,6 +98,27 @@ async def test_translation_gate_skips_when_locale_matches(
     assert emitted == []
 
 
+async def test_current_query_language_overrides_stale_browser_locale(
+    mock_db: MagicMock,
+) -> None:
+    result = _search_result(locale="ja", message="找到了3处圣地。")
+    translate = AsyncMock(side_effect=AssertionError("correct reply was retranslated"))
+
+    with (
+        patch(
+            "agent.interfaces.public_api.run_animichi_agent",
+            new=AsyncMock(return_value=result),
+        ),
+        patch("agent.interfaces.public_api.translate_text", new=translate),
+    ):
+        response = await RuntimeAPI(mock_db, model_http_client=MagicMock()).handle(
+            PublicAPIRequest(text="查找圣地", locale="ja")
+        )
+
+    translate.assert_not_awaited()
+    assert response.message == "找到了3处圣地。"
+
+
 async def test_translation_gate_shares_parent_scope_with_toolless_agent(
     mock_db: MagicMock,
 ) -> None:

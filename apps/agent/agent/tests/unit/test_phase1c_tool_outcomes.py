@@ -76,6 +76,7 @@ def test_search_result_partition(payload: dict[str, object]) -> None:
             "outcome": "missing_location",
             "clarification_reason": "missing_location",
         },
+        {"outcome": "upstream_unavailable"},
     ],
 )
 def test_nearby_result_partition(payload: dict[str, object]) -> None:
@@ -96,6 +97,7 @@ def test_nearby_result_partition(payload: dict[str, object]) -> None:
         },
         {"status": "empty"},
         {"status": "stale_ref"},
+        {"status": "upstream_unavailable"},
     ],
 )
 def test_route_result_partition(payload: dict[str, object]) -> None:

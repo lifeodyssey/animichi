@@ -91,15 +91,54 @@ readonly SEED_FILE="$ROOT/apps/agent/agent/tests/fixtures/seed.sql"
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
+AUTH_HEADER_FILE="$TMP_DIR/neon-auth-header"
+PGSERVICEFILE="$TMP_DIR/pg_service.conf"
+PGPASSFILE="$TMP_DIR/pgpass"
+printf 'Authorization: Bearer %s\n' "$NEON_API_KEY" >"$AUTH_HEADER_FILE"
+: >"$PGSERVICEFILE"
+: >"$PGPASSFILE"
+chmod 600 "$AUTH_HEADER_FILE" "$PGSERVICEFILE" "$PGPASSFILE"
+export PGSERVICEFILE PGPASSFILE
 
 api_request() {
   local method="$1" path="$2" output="$3" body="${4:-}" status
   local args=(--silent --show-error --request "$method" --output "$output"
-    --write-out '%{http_code}' --header "Authorization: Bearer ${NEON_API_KEY}"
+    --write-out '%{http_code}' --header "@${AUTH_HEADER_FILE}"
     --header 'Accept: application/json' --proto '=https' --tlsv1.2)
   [[ -z "$body" ]] || args+=(--header 'Content-Type: application/json' --data-binary "@$body")
   status="$(curl "${args[@]}" "${API_BASE}/${path}")" || die "Neon API transport failure"
   [[ "$status" =~ ^2[0-9][0-9]$ ]] || die "Neon API request failed with HTTP ${status}"
+}
+
+write_pg_service() {
+  local dsn="$1" service="$2"
+  SOURCE_DATABASE_URL="$dsn" python3 - "$service" "$PGSERVICEFILE" "$PGPASSFILE" <<'PY'
+import os
+import pathlib
+import sys
+import urllib.parse
+
+service, service_path, pass_path = sys.argv[1:]
+parsed = urllib.parse.urlparse(os.environ["SOURCE_DATABASE_URL"])
+host = parsed.hostname or ""
+port = parsed.port or 5432
+database = urllib.parse.unquote(parsed.path.lstrip("/"))
+user = urllib.parse.unquote(parsed.username or "")
+password = urllib.parse.unquote(parsed.password or "")
+query = urllib.parse.parse_qs(parsed.query)
+sslmode = query.get("sslmode", ["require"])[0]
+if not all((host, database, user, password)):
+    raise SystemExit("database URI omitted a required connection field")
+with pathlib.Path(service_path).open("a", encoding="utf-8") as config:
+    config.write(
+        f"[{service}]\nhost={host}\nport={port}\ndbname={database}\n"
+        f"user={user}\nsslmode={sslmode}\n"
+    )
+escape = lambda value: value.replace("\\", "\\\\").replace(":", "\\:")
+with pathlib.Path(pass_path).open("a", encoding="utf-8") as password_file:
+    fields = (host, str(port), database, user, password)
+    password_file.write(":".join(escape(value) for value in fields) + "\n")
+PY
 }
 
 json_value() {
@@ -181,6 +220,7 @@ DATABASE_URL="$(json_value "$CONNECTION_JSON" uri)"
 DATABASE_HOST="$(DATABASE_URL="$DATABASE_URL" python3 -c 'import os,urllib.parse
 print(urllib.parse.urlparse(os.environ["DATABASE_URL"]).hostname or "unknown")')"
 readonly DATABASE_URL DATABASE_HOST
+write_pg_service "$DATABASE_URL" database
 
 if [[ "$MODE" == "provision" ]]; then
   api_request GET "projects/${NEON_PROJECT_ID}/connection_uri?branch_id=${BRANCH_ID}&database_name=postgres&role_name=${DATABASE_ROLE}&pooled=false" "$MAINTENANCE_JSON"
@@ -188,6 +228,7 @@ if [[ "$MODE" == "provision" ]]; then
   [[ "$MAINTENANCE_URL" == postgres://* || "$MAINTENANCE_URL" == postgresql://* ]] ||
     die "Neon API returned an invalid maintenance connection URI"
   readonly MAINTENANCE_URL
+  write_pg_service "$MAINTENANCE_URL" maintenance
 fi
 
 run_db_step() {
@@ -202,17 +243,17 @@ run_db_step() {
 
 cd "$ROOT"
 if [[ "$MODE" == "provision" ]]; then
-  run_db_step "guarded target-database wipe" psql -X --set=ON_ERROR_STOP=1 "$MAINTENANCE_URL" \
+  run_db_step "guarded target-database wipe" psql -X --set=ON_ERROR_STOP=1 "service=maintenance" \
     --command="DROP DATABASE IF EXISTS \"${DATABASE_NAME}\" WITH (FORCE);"
-  run_db_step "deterministic empty database create" psql -X --set=ON_ERROR_STOP=1 "$MAINTENANCE_URL" \
+  run_db_step "deterministic empty database create" psql -X --set=ON_ERROR_STOP=1 "service=maintenance" \
     --command="CREATE DATABASE \"${DATABASE_NAME}\" OWNER \"${DATABASE_ROLE}\";"
 fi
-run_db_step "Atlas ${PINNED_ATLAS_VERSION} migration apply" env \
-  PYTHONPATH="$ROOT/apps/agent" DATABASE_URL="$DATABASE_URL" ATLAS_VERSION="$ATLAS_VERSION" \
+PYTHONPATH="$ROOT/apps/agent" DATABASE_URL="$DATABASE_URL" ATLAS_VERSION="$ATLAS_VERSION" \
+  run_db_step "Atlas ${PINNED_ATLAS_VERSION} migration apply" \
   python3 -m agent.tests.atlas_helper apply
-run_db_step "idempotent fixture seed" psql -X --set=ON_ERROR_STOP=1 "$DATABASE_URL" \
+run_db_step "idempotent fixture seed" psql -X --set=ON_ERROR_STOP=1 "service=database" \
   --file="$SEED_FILE"
-run_db_step "service-role membership grant" psql -X --set=ON_ERROR_STOP=1 "$DATABASE_URL" \
+run_db_step "service-role membership grant" psql -X --set=ON_ERROR_STOP=1 "service=database" \
   --command='GRANT catalog_svc, agent_svc TO CURRENT_USER WITH INHERIT FALSE, SET TRUE;'
 
 printf 'PASS test-base %s complete\n  evidence: verified branch name %s on database host %s\n' \

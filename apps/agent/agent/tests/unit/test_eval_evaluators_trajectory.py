@@ -1,138 +1,102 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-
 import pytest
+from pydantic_evals.evaluators import EvaluatorContext
 
-from agent.agents.agent_result import StepRecord
+from agent.agents.agent_result import AgentResult, StepRecord
 from agent.tests.eval.evaluators import (
     AgentExpected,
     AgentInput,
-    RouteOrderCorrect,
     StepEfficiency,
-    ToolCallRecall,
 )
-from agent.tests.unit.eval_evaluator_fixtures import JA, ctx, result, steps
-
-
-@pytest.mark.parametrize(
-    ("steps", "stages", "expected"),
-    [
-        (
-            steps("resolve_anime", "search_bangumi"),
-            ["search_bangumi"],
-            {"tool_recall": 1.0, "tool_precision": 1.0, "tool_f1": 1.0},
-        ),
-        (
-            steps("search_bangumi"),
-            ["search_bangumi"],
-            {
-                "tool_recall": 0.5,
-                "tool_precision": 1.0,
-                "tool_f1": pytest.approx(2 / 3),
-            },
-        ),
-        (
-            steps("resolve_anime", "search_bangumi", "plan_route"),
-            ["plan_route"],
-            {"tool_recall": 1.0, "tool_precision": 1.0, "tool_f1": 1.0},
-        ),
-        (
-            steps(),
-            ["general_qa"],
-            {"tool_recall": 1.0, "tool_precision": 1.0, "tool_f1": 1.0},
-        ),
-        (
-            steps(),
-            ["general_qa"],
-            {"tool_recall": 1.0, "tool_precision": 1.0, "tool_f1": 1.0},
-        ),
-        (
-            steps("resolve_anime"),
-            ["general_qa"],
-            {"tool_recall": 1.0, "tool_precision": 0.0, "tool_f1": 0.0},
-        ),
-        (
-            steps(),
-            ["general_qa", "clarify"],
-            {"tool_recall": 1.0, "tool_precision": 1.0, "tool_f1": 1.0},
-        ),
-        (
-            steps("resolve_anime", "clarify"),
-            ["general_qa", "clarify"],
-            {"tool_recall": 1.0, "tool_precision": 1.0, "tool_f1": 1.0},
-        ),
-        (
-            steps(),
-            [],
-            {"tool_recall": 1.0, "tool_precision": 1.0, "tool_f1": 1.0},
-        ),
-    ],
+from agent.tests.eval.official_evaluators import (
+    OfficialToolCorrectness,
+    OfficialTrajectoryMatch,
 )
-def test_tool_call_recall_scores_best_acceptable_stage(
-    steps: list[StepRecord], stages: list[str], expected: Mapping[str, float]
-) -> None:
-    evaluator_ctx = ctx(JA, result(steps), AgentExpected(stages))
-    assert dict(ToolCallRecall().evaluate(evaluator_ctx)) == expected
+from agent.tests.unit.eval_evaluator_fixtures import (
+    JA,
+    ctx,
+    result,
+    span_tree,
+    steps,
+    tool_span,
+)
 
 
-def test_tool_call_recall_penalizes_incomplete_clarify_trajectory() -> None:
-    evaluator_ctx = ctx(
-        JA,
-        result(steps("resolve_anime", "search_bangumi")),
-        AgentExpected(["clarify"]),
+def _official_context(
+    tools: list[str],
+    stages: list[str],
+    *,
+    inputs: AgentInput = JA,
+    runtime_steps: list[StepRecord] | None = None,
+) -> EvaluatorContext[AgentInput, AgentResult, AgentExpected]:
+    spans = [tool_span(tool, {}, index) for index, tool in enumerate(tools)]
+    return ctx(
+        inputs,
+        result(runtime_steps if runtime_steps is not None else steps(*tools)),
+        AgentExpected(stages),
+        span_tree(*spans),
     )
-    scores = dict(ToolCallRecall().evaluate(evaluator_ctx))
-    assert (scores["tool_recall"], scores["tool_f1"]) == (0.5, 0.5)
 
 
 @pytest.mark.parametrize(
-    ("steps", "stages", "expected"),
+    ("tools", "stages", "expected"),
     [
-        (
-            steps("resolve_anime", "search_bangumi", "plan_route"),
-            ["plan_route"],
-            {"route_order_correct": 1.0},
-        ),
-        (
-            steps("plan_route", "resolve_anime", "search_bangumi"),
-            ["plan_route"],
-            {"route_order_correct": 0.0},
-        ),
-        (
-            steps("resolve_anime", "search_bangumi"),
-            ["plan_route"],
-            {"route_order_correct": 0.0},
-        ),
-        (
-            steps("resolve_anime", "clarify"),
-            ["general_qa", "clarify"],
-            {"route_order_correct": 1.0},
-        ),
-        (
-            steps("search_bangumi"),
-            ["general_qa", "clarify"],
-            {"route_order_correct": 0.0},
-        ),
-        (
-            steps("search_nearby"),
-            ["plan_route", "general_qa"],
-            {"route_order_correct": 0.0},
-        ),
-        (steps("resolve_anime"), ["general_qa"], {"route_order_correct": 0.0}),
-        (
-            steps("geocode", "search_nearby", "clarify"),
-            ["clarify_after_nearby"],
-            {"route_order_correct": 1.0},
-        ),
-        (steps(), ["general_qa"], {"route_order_correct": 1.0}),
+        (["resolve_anime", "search_bangumi"], ["search_bangumi"], 1.0),
+        (["search_bangumi"], ["search_bangumi"], 0.0),
+        (["resolve_anime", "search_bangumi", "plan_route"], ["plan_route"], 1.0),
+        ([], ["general_qa"], 1.0),
+        (["resolve_anime"], ["general_qa"], 0.0),
+        ([], ["general_qa", "clarify"], 1.0),
+        (["resolve_anime"], ["general_qa", "clarify"], 1.0),
+        ([], [], 1.0),
     ],
 )
-def test_route_order_correct_scores_ordered_chains(
-    steps: list[StepRecord], stages: list[str], expected: Mapping[str, float]
+def test_tool_correctness_scores_best_acceptable_stage(
+    tools: list[str], stages: list[str], expected: float
 ) -> None:
-    evaluator_ctx = ctx(JA, result(steps), AgentExpected(stages))
-    assert dict(RouteOrderCorrect().evaluate(evaluator_ctx)) == expected
+    evaluator_ctx = _official_context(tools, stages)
+    assert OfficialToolCorrectness().evaluate(evaluator_ctx) == {
+        "tool_correctness": expected
+    }
+
+
+def test_official_metrics_penalize_extra_clarify_tool_call() -> None:
+    evaluator_ctx = _official_context(["resolve_anime", "search_bangumi"], ["clarify"])
+
+    assert OfficialToolCorrectness().evaluate(evaluator_ctx) == {
+        "tool_correctness": 0.0
+    }
+    assert OfficialTrajectoryMatch().evaluate(evaluator_ctx) == {
+        "trajectory_match": pytest.approx(2 / 3)
+    }
+
+
+@pytest.mark.parametrize(
+    ("tools", "stages", "expected"),
+    [
+        (["resolve_anime", "search_bangumi", "plan_route"], ["plan_route"], 1.0),
+        (
+            ["plan_route", "resolve_anime", "search_bangumi"],
+            ["plan_route"],
+            pytest.approx(2 / 3),
+        ),
+        (["resolve_anime", "search_bangumi"], ["plan_route"], 0.8),
+        (["resolve_anime"], ["general_qa", "clarify"], 1.0),
+        (["search_bangumi"], ["general_qa", "clarify"], 0.0),
+        (["search_nearby"], ["plan_route", "general_qa"], 0.0),
+        (["resolve_anime"], ["general_qa"], 0.0),
+        (["search_nearby"], ["clarify_after_nearby"], 1.0),
+        ([], ["general_qa"], 1.0),
+    ],
+)
+def test_trajectory_match_scores_ordered_chains(
+    tools: list[str], stages: list[str], expected: float
+) -> None:
+    evaluator_ctx = _official_context(tools, stages)
+    assert OfficialTrajectoryMatch().evaluate(evaluator_ctx) == {
+        "trajectory_match": expected
+    }
 
 
 @pytest.mark.parametrize(
@@ -185,11 +149,15 @@ def test_plan_multi_trajectory_scales_with_unique_candidates() -> None:
     incomplete = result(steps("search_bangumi", "plan_multi"))
     expected = AgentExpected(["plan_multi"])
 
-    assert RouteOrderCorrect().evaluate(ctx(inputs, complete, expected)) == {
-        "route_order_correct": 1.0
-    }
-    assert RouteOrderCorrect().evaluate(ctx(inputs, incomplete, expected)) == {
-        "route_order_correct": 0.0
+    complete_ctx = _official_context(
+        [], ["plan_multi"], inputs=inputs, runtime_steps=complete.steps
+    )
+    incomplete_ctx = _official_context(
+        [], ["plan_multi"], inputs=inputs, runtime_steps=incomplete.steps
+    )
+    assert OfficialTrajectoryMatch().evaluate(complete_ctx) == {"trajectory_match": 1.0}
+    assert OfficialTrajectoryMatch().evaluate(incomplete_ctx) == {
+        "trajectory_match": 1.0
     }
     assert StepEfficiency().evaluate(ctx(inputs, complete, expected)) == {
         "step_efficiency": 1.0

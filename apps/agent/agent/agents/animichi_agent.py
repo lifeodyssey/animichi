@@ -38,11 +38,12 @@ from agent.infrastructure.observability import (
     record_agent_run_error,
     record_managed_prompt_resolution,
 )
+from agent.utils.language import locale_name, resolve_reply_language
 
 MANAGED_PROMPT_NAME = "animichi-instructions"
 MANAGED_PROMPT_LABEL = "production"
 _LOCAL_PROMPT_VERSION = (
-    "sha256:22dd743f0cbd213a0414b0708df87219fc2c71741ede70e07b8b03786d72e091"
+    "sha256:0447f548a999f472626f53839fc273cea9c74338b7a125e1ec171f0c8689e825"
 )
 _PROMPT_RESOLUTION_DEADLINE_SECONDS = 2.0
 _PROMPT_RESOLUTION_EXECUTOR = ThreadPoolExecutor(
@@ -80,6 +81,7 @@ Never fabricate locations, coordinates, routes, candidate identity, or catalog d
 - search_nearby place_ambiguity: emit clarify_response using place_candidate_ids.
 - search_nearby place_unresolved: emit clarify_response using its reason and [].
 - search_nearby missing_location: emit clarify_response with missing_location and [].
+- search_nearby or plan_route upstream_unavailable: emit qa_response asking the user to retry.
 - plan_route ok: emit route_response; stale_ref means re-run the relevant search.
 - plan_route pending_sync: emit search_response explaining that catalog data is still syncing and route planning can be retried shortly.
 Never infer ambiguity from query length. Branch only on typed tool outcomes.
@@ -142,9 +144,10 @@ class _AnimichiManagedPrompt(ManagedPrompt[RuntimeDeps]):
             resolved = self.resolved
             if resolved is None:
                 return None
-            return (
+            base = (
                 resolved.value if _prompt_failure(resolved) is None else _INSTRUCTIONS
             )
+            return f"{base.rstrip()}\n\n{_current_turn_language(_ctx)}"
 
         return instructions
 
@@ -354,13 +357,20 @@ def _history_capabilities() -> list[AgentCapability[RuntimeDeps]]:
     return [native_history_compaction(_summarize_tool_content)]
 
 
-_LOCALE_NAMES = {"ja": "Japanese", "zh": "Simplified Chinese", "en": "English"}
+def _current_turn_language(ctx: RunContext[RuntimeDeps]) -> str:
+    locale = resolve_reply_language(ctx.deps.query, ctx.deps.locale)
+    return (
+        f"Current turn reply language: {locale_name(locale)}. "
+        "This current-turn directive overrides conversation history and locale "
+        "fallback. Proper nouns may remain in their original script, but write "
+        "all prose in the current turn reply language."
+    )
 
 
 def trusted_session_context(deps: RuntimeDeps) -> str:
     """Serialize volatile typed state into a trusted user-turn part."""
     session = deps.tool_state.session
-    lang = _LOCALE_NAMES.get(deps.locale, "Japanese")
+    lang = locale_name(deps.locale)
     parts = [f"Locale fallback: {lang}."]
     if session.current_anime is not None:
         anime = session.current_anime
@@ -404,7 +414,7 @@ def build_animichi_agent() -> Agent[RuntimeDeps, RuntimeOutput]:
     managed_prompt = _managed_prompt_capability()
     _record_missing_managed_prompt_token()
     instructions: AgentInstructions[RuntimeDeps] = (
-        _INSTRUCTIONS if managed_prompt is None else None
+        [_INSTRUCTIONS, _current_turn_language] if managed_prompt is None else None
     )
     agent: Agent[RuntimeDeps, RuntimeOutput] = Agent(
         resolve_model(None),

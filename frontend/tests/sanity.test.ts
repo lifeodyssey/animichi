@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import type { SearchResultData } from "@/lib/types";
 import {
   SEARCH_RESPONSE,
   EMPTY_SEARCH_RESPONSE,
@@ -13,11 +14,13 @@ describe("vitest sanity", () => {
   it("fixtures have correct shape", () => {
     expect(SEARCH_RESPONSE.success).toBe(true);
     expect(SEARCH_RESPONSE.intent).toBe("search_bangumi");
-    expect(SEARCH_RESPONSE.data.status).toBe("ok");
+    const data = SEARCH_RESPONSE.data as SearchResultData;
+    expect(data.results.status).toBe("ok");
   });
 
   it("empty response has zero rows", () => {
-    expect(EMPTY_SEARCH_RESPONSE.data.status).toBe("empty");
+    const data = EMPTY_SEARCH_RESPONSE.data as SearchResultData;
+    expect(data.results.status).toBe("empty");
     expect(EMPTY_SEARCH_RESPONSE.status).toBe("empty");
   });
 

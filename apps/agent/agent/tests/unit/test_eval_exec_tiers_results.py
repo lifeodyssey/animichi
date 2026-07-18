@@ -66,10 +66,8 @@ def _case() -> _Case:
 
 def _scores() -> dict[str, EvaluationResult[int | float]]:
     scores = {"task_completion": _score("task_completion", 1, "judge passed")}
-    scores["tool_f1"] = _score("tool_f1", 0.5, None)
-    scores["argument_correctness_official"] = _score(
-        "argument_correctness_official", 1, None
-    )
+    scores["tool_correctness"] = _score("tool_correctness", 0.5, None)
+    scores["argument_correctness"] = _score("argument_correctness", 1, None)
     return scores
 
 
@@ -95,13 +93,14 @@ def test_build_results_payload_persists_failures_and_reasons() -> None:
         dataset="agent_eval_v3",
         tier="trajectory",
         case_count=2,
-        scores={"task_completion": 1.0, "tool_f1": 0.5},
+        scores={"task_completion": 1.0, "tool_correctness": 0.5},
     )
+    assert payload.evaluator_version == "official-v1"
     assert payload.cases[0].reasons == {"task_completion": "judge passed"}
     assert payload.cases[0].scores == {
         "task_completion": 1.0,
-        "tool_f1": 0.5,
-        "argument_correctness_official": 1.0,
+        "tool_correctness": 0.5,
+        "argument_correctness": 1.0,
     }
     assert payload.cases[0].expected_stages == ["general_qa"]
     assert payload.cases[1].error == "boom"

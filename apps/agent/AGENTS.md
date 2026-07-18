@@ -131,19 +131,21 @@ Direct thrash gates (req≤12 / tool≤6 / repeat=0 / p95≤6) are **report-only
 **Post-redesign full-655 numbers (2026-07-17, the re-baseline candidate — NOT yet the committed baseline;
 the owner signs off per the redesign spec §7):**
 
-| Metric | Old baseline (n=643, pre-redesign) | Full 655 (post-redesign) |
-|---|---|---|
-| request p95 / case | 27–50 (thrash) | **7** |
-| tool_recall | 0.800 | 0.855 |
-| tool_f1 | 0.763 | 0.817 |
-| route_order_correct | 0.768 | 0.798 |
-| locale_match | 0.540 | 0.739 |
-| step_efficiency | 0.811 | 0.802 |
-| nonempty_results | 0.846 | 0.769 * |
+| Metric | Full 655 pre-switch calibration |
+|---|---|
+| request p95 / case | **7** |
+| argument_correctness | 0.641 |
+| tool_correctness | 0.522 |
+| trajectory_match | 0.694 |
+| max_tool_calls | 0.769 |
+| data_keys_present | 0.769 |
+| locale_match | 0.739 |
+| nonempty_results | 0.769 * |
+| step_efficiency | 0.802 |
 
 \* the nonempty evaluator was rewritten in the re-baseline (reads the produced route's `source_ref`) —
-not apples-to-apples with the old contract; 15/655 errored cases (~2.3 %) also drag it. The `*_official`
-N2 metrics (tool_correctness 0.522, trajectory_match 0.694, max_tool_calls 0.769, argument_correctness 0.641)
-have no pre-redesign baseline. Per-case results land in `agent/tests/eval/results/`.
+not apples-to-apples with the old contract; 15/655 errored cases (~2.3 %) also drag it. The table is
+calibration-only: the official-first switch changes metric semantics and requires a fresh uncapped
+baseline. Per-case results land in `agent/tests/eval/results/`.
 
 ## TDD: invoke `/backend-tdd` before writing Python.

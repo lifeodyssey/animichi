@@ -117,6 +117,7 @@ def _baseline(
         model_id,
         baselines_dir=baselines_dir,
         expected_case_count=case_count,
+        expected_metrics=METRIC_NAMES,
     )
 
 

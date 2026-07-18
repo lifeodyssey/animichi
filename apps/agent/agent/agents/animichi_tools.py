@@ -59,7 +59,7 @@ async def search_nearby(
     location: str | None = None,
     radius_m: Annotated[int | None, Field(gt=0)] = None,
 ) -> NearbyToolResult:
-    """Search near a named place, or shared GPS when location is omitted."""
+    """Search near a place or GPS; upstream_unavailable means retry later."""
     await _emit(ctx, "search_nearby", "running", {})
     result = await run_nearby_search(
         ctx, ctx.deps.catalog, location=location, radius_m=radius_m
@@ -73,7 +73,7 @@ async def plan_route(
     search_result_ref: Annotated[str, Field(min_length=1)],
     pacing: Literal["chill", "normal", "packed"] | None = None,
 ) -> RouteToolResult:
-    """Plan one stored result; pending_sync means wait for catalog publication."""
+    """Plan one stored result; upstream_unavailable means retry later."""
     await _emit(ctx, "plan_route", "running", {})
     result = await run_route(ctx, ctx.deps.catalog, search_result_ref, pacing)
     await _emit(ctx, "plan_route", "done", result.model_dump())

@@ -1,6 +1,6 @@
 # Neon Local Phase-0 Findings
 
-Status: **TEMPLATE — not executed by the author.** The lead owns all Docker, Neon API, account-plan, and CI observations.
+Status: **EXECUTED WITH A NO-GO FOR THE ASYNCPG PROXY PATH.** The lead ran five Python probes plus manual and Node probes on 2026-07-17. Account-plan, kill/orphan, concurrency, and CI observations remain pending and are not inferred below.
 
 Security rule: record database hosts, mapped ports, branch IDs/names, timings, versions, and status classes only. Never paste an API key, password, complete DSN, Authorization header, or raw container environment.
 
@@ -8,34 +8,34 @@ Security rule: record database hosts, mapped ports, branch IDs/names, timings, v
 
 | Field | Value |
 |---|---|
-| Date / operator | PENDING |
-| Git commit | PENDING |
-| `neondatabase/neon_local` image ID/digest | PENDING |
-| `ATLAS_VERSION` | `0.30.0` expected |
+| Date / operator | 2026-07-17 / lead |
+| Git commit | Not recorded in the run log |
+| `neondatabase/neon_local` image ID/digest | `latest` tag recorded; immutable digest not recorded |
+| `ATLAS_VERSION` | `0.30.0` |
 | Neon plan | PENDING |
-| `test-base` branch ID | PENDING |
-| Database host only | PENDING |
+| `test-base` branch ID | Verified by API; value intentionally not recorded |
+| Database host only | Neon AP Southeast 1 direct endpoint; local proxy `127.0.0.1:32768`–`32772` |
 | Current raw-Postgres testcontainers wall time | PENDING |
 
 ## Phase-0 checklist coverage
 
 | ID | Draft v4.1 Phase-0 item | Coverage / lead action | Result | Evidence |
 |---|---|---|---|---|
-| P0.1 | `GenericContainer(neon_local)` starts with API key, project ID, and resolved `test-base` parent ID; readiness and start-to-ready time recorded | **SCRIPT:** `spike_phase0.py`; bounded asyncpg `SELECT 1` over the mapped PG port | PENDING | PENDING |
-| P0.2 | asyncpg self-signed TLS; PostGIS geo query; `vector(1024)` round-trip; HNSW exists | **SCRIPT:** `spike_phase0.py`; explicit `SSLContext` disables hostname and CA verification only for the local proxy | PENDING | PENDING |
-| P0.3 | `pg.Pool` connects with `ssl.rejectUnauthorized=false` and round-trips | **SCRIPT:** `spike_phase0_serverless.mjs`, invoked against the Python runner's same container | PENDING | PENDING |
-| P0.4 | Ephemeral branch exists; parent is `test-base`; generated name format recorded | **SCRIPT:** `spike_phase0.py`; before/after API branch-set delta plus exact parent verification | PENDING | PENDING |
-| P0.5a | Clean stop deletes the ephemeral branch | **SCRIPT:** normal `spike_phase0.py`; polls the branch-by-ID endpoint for 404 | PENDING | PENDING |
+| P0.1 | `GenericContainer(neon_local)` starts with API key, project ID, and resolved `test-base` parent ID; readiness and start-to-ready time recorded | **SCRIPT:** `spike_phase0.py (removed post-verdict; see note)`; bounded asyncpg `SELECT 1` over the mapped PG port | PASS | Five starts; ready in 10.8–28.7 s |
+| P0.2 | asyncpg self-signed TLS; PostGIS geo query; `vector(1024)` round-trip; HNSW exists | **SCRIPT:** `spike_phase0.py`; explicit `SSLContext` disables hostname and CA verification only for the local proxy | PASS, UNRELIABLE PATH | PostGIS 3.6, vector 0.8.1, 1024 dimensions, HNSW passed before later proxy disconnects |
+| P0.3 | `pg.Pool` connects with `ssl.rejectUnauthorized=false` and round-trips | **SCRIPT:** `spike_phase0_serverless.mjs`, invoked against the Python runner's same container | NOT PROVEN | Final Node evidence proves the `neon()` HTTP arm, not `pg.Pool` stability |
+| P0.4 | Ephemeral branch exists; parent is `test-base`; generated name format recorded | **SCRIPT:** `spike_phase0.py`; before/after API branch-set delta plus exact parent verification | PASS | Parent verified; generated `br-<words>-<suffix>` names recorded in the run log |
+| P0.5a | Clean stop deletes the ephemeral branch | **SCRIPT:** normal `spike_phase0.py`; polls the branch-by-ID endpoint for 404 | PASS | API returned 404 after every recorded clean stop |
 | P0.5b | `docker kill` / Ryuk behavior and orphaning; TTL alternative noted | **SCRIPT:** `spike_phase0.py --kill-test`; uses literal `docker kill`, checks API deletion, then explicitly deletes an observed orphan. **MANUAL:** record whether Neon offers a suitable branch TTL for the generated name pattern | PENDING | PENDING |
-| P0.6 | `neonConfig.fetchEndpoint` raw driver query and transaction/batch round-trip through the same container | **SCRIPT:** `spike_phase0_serverless.mjs`; raw `neon()` query plus two statements sharing one `txid_current()` | PENDING | PENDING |
-| P0.7 | `pg_backend_pid()` stability, prepared reuse, and session `SET` persistence | **SCRIPT:** `spike_phase0.py`; three PID samples, one prepared statement used twice, custom GUC read on a later query | PENDING | PENDING |
-| P0.8 | `SET LOCAL ROLE agent_svc` works through the proxy | **SCRIPT:** `spike_phase0.py`; checks `pg_has_role(..., 'SET')` then changes role inside a transaction | PENDING | PENDING |
-| P0.9 | Seed and FK-closed `TRUNCATE ... RESTART IDENTITY` cycle through the serverless driver, without `CASCADE` | **SCRIPT:** `spike_phase0_serverless.mjs`; verifies the 11 baseline tables, conditionally includes Phase-A `route_anime` when present, truncates, and reapplies the two seed statements to 18/43 rows | PENDING | PENDING |
+| P0.6 | `neonConfig.fetchEndpoint` raw driver query and transaction/batch round-trip through the same container | **SCRIPT:** `spike_phase0_serverless.mjs`; raw `neon()` query plus two statements sharing one `txid_current()` | PASS | Raw `neon()` query and same-transaction batch passed |
+| P0.7 | `pg_backend_pid()` stability, prepared reuse, and session `SET` persistence | **SCRIPT:** `spike_phase0.py`; three PID samples, one prepared statement used twice, custom GUC read on a later query | OBSERVED ONCE | One sustained run passed; the proxy later disconnected unpredictably, so this is not a supported fixture path |
+| P0.8 | `SET LOCAL ROLE agent_svc` works through the proxy | **SCRIPT:** `spike_phase0.py`; checks `pg_has_role(..., 'SET')` then changes role inside a transaction | INCONCLUSIVE | Proxy closed before the assertion in recorded runs |
+| P0.9 | Seed and FK-closed `TRUNCATE ... RESTART IDENTITY` cycle through the serverless driver, without `CASCADE` | **SCRIPT:** `spike_phase0_serverless.mjs`; verifies the 11 baseline tables, conditionally includes Phase-A `route_anime` when present, truncates, and reapplies the two seed statements to 18/43 rows | PARTIAL | Missing FK closure failed loudly, proving the no-`CASCADE` closure requirement; full cycle timing was not recorded |
 | P0.10a | Wrong project ID fails actionably rather than hanging | **MANUAL:** forward a deliberately invalid `NEON_PROJECT_ID` to a one-off Neon Local container, keep the real key and parent ID out of command output, cap observation at 120 seconds, and record only exit/status class and elapsed time | PENDING | PENDING |
 | P0.10b | Revoked API key fails actionably rather than hanging | **MANUAL:** use a dedicated revoked credential supplied as `NEON_REVOKED_API_KEY`, forward it as container `NEON_API_KEY`, cap at 120 seconds, and record no log text that contains credentials | PENDING | PENDING |
 | P0.10c | Insufficient-scope API key fails actionably rather than hanging | **MANUAL:** repeat with a dedicated `NEON_INSUFFICIENT_SCOPE_API_KEY`; record only status class and elapsed time | PENDING | PENDING |
-| P0.11 | Pinned Atlas apply succeeds and fully-qualified revisions relation is found | **SCRIPT:** `neon-test-base.sh` requires Atlas 0.30.0 and applies `db/migrations`; `spike_phase0.py` enumerates matching relations outside assumptions about schema name | PENDING | PENDING |
-| P0.12 | N=20 latency table, pool/connect cost, projected 59-test wall time, ≤2× arm-default decision, pool-scope decision | **SCRIPT + MANUAL:** Python emits connect, start-ready, p50/p95, and a 59-query lower bound. Lead records current suite wall time, full projected suite time, ratio, and decisions below | PENDING | PENDING |
+| P0.11 | Pinned Atlas apply succeeds and fully-qualified revisions relation is found | **SCRIPT:** `neon-test-base.sh` requires Atlas 0.30.0 and applies `db/migrations`; `spike_phase0.py` enumerates matching relations outside assumptions about schema name | PASS | Six migrations / 147 statements applied in 4m40s; provisioner must use the `public` revisions schema |
+| P0.12 | N=20 latency table, pool/connect cost, projected 59-test wall time, ≤2× arm-default decision, pool-scope decision | **SCRIPT + MANUAL:** Python emits connect, start-ready, p50/p95, and a 59-query lower bound. Lead records current suite wall time, full projected suite time, ratio, and decisions below | PARTIAL | p50 814 ms, p95 1140 ms, 59-query lower bound 48.0 s; raw-suite comparison remains pending, but proxy instability independently selects offline Docker |
 | P0.13 | Two simultaneous containers use different mapped ports and independent branches | **MANUAL:** start two one-off containers concurrently with identical forwarded credentials/parent, record their mapped ports and API branch IDs, run one isolated marker query per branch, then stop both and verify both IDs deleted | PENDING | PENDING |
 | P0.14 | Current-plan behavior at branch cap is reject vs billed overage | **MANUAL / ACCOUNT-LEVEL:** record the plan shown in Neon Console, standing count before the test, behavior at the documented cap, any billing warning/charge, and cleanup. Do not infer this from pricing copy alone | PENDING | PENDING |
 | P0.15 | Minimal GitHub Actions job starts Neon Local with repo secret/variable and runs one query | **MANUAL / CI:** scratch workflow only; same image/env/readiness query, fork-gated, non-gating, with secret masking confirmed. Paste the run URL, not logs containing environment | PENDING | PENDING |
@@ -45,37 +45,37 @@ Security rule: record database hosts, mapped ports, branch IDs/names, timings, v
 
 | Metric | Observation |
 |---|---|
-| Container start → ready | PENDING ms |
-| asyncpg connect | PENDING ms |
+| Container start → ready | 10,815–28,695 ms across five recorded starts |
+| asyncpg connect | 11.2–24.8 ms on successful attempts |
 | Simple query N | 20 |
-| Simple query p50 / p95 | PENDING / PENDING ms |
-| `pg.Pool` connect + first query | PENDING ms |
+| Simple query p50 / p95 | 813.65 / 1,139.79 ms in the one sustained run |
+| `pg.Pool` connect + first query | NOT PROVEN |
 | Current raw-Postgres testcontainers suite | PENDING s |
-| Projected Neon Local ~59-test suite | PENDING s; state assumptions/query count |
-| Projected/current ratio | PENDING × |
-| Local default arm decision | PENDING — Neon Local if measured projection is ≤ approximately 2×; otherwise owner decision required |
-| Pool scoping decision | PENDING — retain function scope or adopt the Phase-A session-loop mechanics |
+| Projected Neon Local ~59-test suite | ≥48.005 s query-only lower bound; excludes startup, migration, and disconnect retries |
+| Projected/current ratio | Not computable without the raw-suite wall time |
+| Local default arm decision | Offline Docker; asyncpg proxy instability is a no-go independent of the incomplete ratio |
+| Pool scoping decision | Do not pool through Neon Local; CI asyncpg uses the claimed branch's direct cloud endpoint |
 
 ## Draft v4.1 documentation gaps
 
 | Gap | Finding | Consequence |
 |---|---|---|
-| Auto-created branch name format | PENDING | Determines whether a narrowly safe stray cleanup pattern is possible |
-| Clean stop deletion | PENDING | Confirms normal testcontainers teardown contract |
-| `docker kill` / Ryuk orphan behavior | PENDING | Decides whether Phase C needs a cleanup note/cron; record explicit cleanup of any orphan |
-| Fully-qualified Atlas revisions relation | PENDING | Phase-A BYO/read-verify preflight must use the observed location |
+| Auto-created branch name format | `br-<words>-<suffix>` observed; fixture ownership now uses an atomic rename claim | Never infer ownership from the generated name alone |
+| Clean stop deletion | Every recorded clean stop reached API 404 | API fallback remains necessary for stop failure/orphan handling |
+| `docker kill` / Ryuk orphan behavior | PENDING — not executed | Decides whether Phase C needs a cleanup note/cron; record explicit cleanup of any orphan |
+| Fully-qualified Atlas revisions relation | Bare URL used Atlas's own schema; the repository contract is `public.atlas_schema_revisions` via `--revisions-schema public` | BYO/read-verify checks the repository-selected public ledger |
 | Plan cap semantics: reject or bill | PENDING | Determines whether quota pressure is a clear CI failure or silent cost |
 
 ## Go / no-go by dependent piece
 
 | Piece | Decision | Evidence / fallback if NO-GO |
 |---|---|---|
-| Python asyncpg through Neon Local | PENDING | Offline raw-PG arm if unsupported |
-| Catalog serverless driver / batch | PENDING | Skip-gated spikes if unsupported |
-| node-postgres `pg.Pool` | PENDING | Preserve corresponding raw-PG path if unsupported |
-| Session state / prepared statements | PENDING | Record pooled/direct behavior and prohibit unsafe session assumptions |
-| Service-role switching | PENDING | Amend grants/upstream-role design if the proxy mapping prevents `SET ROLE` |
-| Local default arm | PENDING | Apply the measured ≤ approximately 2× rule |
+| Python asyncpg through Neon Local | NO-GO | Offline Docker locally; direct claimed-branch endpoint in the Neon integration arm |
+| Catalog serverless driver / batch | GO | Raw `neon()` query and same-transaction batch passed through the HTTP arm |
+| node-postgres `pg.Pool` | NOT PROVEN | Preserve the raw-PG path until a dedicated probe passes |
+| Session state / prepared statements | NO-GO THROUGH PROXY | One pass does not overcome repeated mid-operation disconnects |
+| Service-role switching | INCONCLUSIVE | Proxy disconnected before the assertion; validate on a supported direct path |
+| Local default arm | OFFLINE DOCKER | Proxy instability and observed latency both reject Neon Local as Python default |
 | CI viability | PENDING | Do not begin Phase C without a green scratch run |
 
 ## Commands used
@@ -183,3 +183,7 @@ The scripts append one row per emitted PASS/FAIL item below.
 8. Ledger location empirical: bare-URL atlas defaults to its OWN schema (atlas_schema_revisions.atlas_schema_revisions); preview.yml uses --revisions-schema public. The provisioner MUST pass --revisions-schema public to match (it did not — fixed requirement).
 9. After migrations create service roles, `neonctl connection-string` requires explicit `--role-name neondb_owner --database-name neondb` (multi-role branches refuse to guess).
 10. `statement_cache_size=0` is NECESSARY for any asyncpg through PgBouncer, but NOT SUFFICIENT for the local proxy (see 5).
+
+> Note: `spike_phase0.py` (the asyncpg wire-path probe) was REMOVED after the wire path was
+> rejected — it required `ssl.CERT_NONE` against the local proxy, which security scanners rightly
+> block. Its measured evidence is recorded above; the exact script lives in git history (225ccb0).
