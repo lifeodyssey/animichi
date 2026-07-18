@@ -1,0 +1,1351 @@
+{
+  "schema_version": 2,
+  "arm": "codemode-taught",
+  "model": "openai:mimo-v2.5@https://api.xiaomimimo.com/v1",
+  "evaluator_version": "official-v1",
+  "dataset": "agent_eval_v3",
+  "subset_digest": "5823d5119bfe688578418967bf365283131e3c9f866322058879199521975462",
+  "case_ids": [
+    "A10_en_001",
+    "A1_en_001",
+    "A1_en_002",
+    "A2_en_001",
+    "A3_en_001",
+    "A3_en_002",
+    "A4_en_001",
+    "A5_en_001",
+    "A6_en_001",
+    "A7_en_001",
+    "A8_ja_001",
+    "A9_zh_001",
+    "A_multisn_ja_001",
+    "B1_en_001",
+    "B1_en_002",
+    "B2_en_001",
+    "B2_en_002",
+    "B3_en_001",
+    "B3_en_002",
+    "B4_en_001",
+    "B_multisn_en_001",
+    "C1_en_001",
+    "C1_en_002",
+    "C2_en_001",
+    "C2_en_002",
+    "C3_en_001",
+    "C3_en_002",
+    "C4_en_001",
+    "C5_en_001",
+    "C_multisn_ja_001",
+    "D1_en_001",
+    "D1_en_002",
+    "D2_en_001",
+    "D2_en_002",
+    "D3_en_001",
+    "D4_en_001",
+    "E1_en_001",
+    "E2_en_001",
+    "E3_en_001",
+    "E4_en_001",
+    "F1_en_001",
+    "F2_en_001",
+    "F3_en_001",
+    "G1_en_001",
+    "G1_en_002",
+    "G2_en_001",
+    "G3_en_001",
+    "G4_en_001",
+    "G5_en_001",
+    "G6_en_001",
+    "GINJ1_en_013",
+    "GINJ1_en_014",
+    "GINJ2_en_008",
+    "H1_en_001",
+    "H2_en_001",
+    "H3_en_001",
+    "H4_en_001",
+    "I1_zh_001",
+    "I2_en_001",
+    "I3_en_001",
+    "I4_en_001",
+    "I5_en_001",
+    "I6_en_001",
+    "I7_en_001",
+    "I8_en_001",
+    "I9_en_001",
+    "J1_en_001",
+    "J2_en_001",
+    "J3_en_001",
+    "J4_en_001",
+    "J5_en_001",
+    "K1_en_001",
+    "K2_en_001",
+    "K3_en_001",
+    "K4_en_001",
+    "L1_en_001",
+    "L2_en_001",
+    "L3_en_001",
+    "L4_en_001",
+    "Q304_locale_en_001"
+  ],
+  "scores": {
+    "argument_correctness": 0.8703703703703703,
+    "tool_correctness": 0.20512820512820512,
+    "trajectory_match": 0.6206224094044605,
+    "max_tool_calls": 0.3076923076923077,
+    "data_keys_present": 0.7435897435897436,
+    "locale_match": 1.0,
+    "nonempty_results": 1.0,
+    "step_efficiency": 0.8256473699408482
+  },
+  "request_p95": 6,
+  "input_tokens": 788380,
+  "output_tokens": 38483,
+  "total_tokens": 826863,
+  "estimated_cost_usd": 0.903829,
+  "cases": [
+    {
+      "id": "A10_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7229,
+      "output_tokens": 247,
+      "error": null
+    },
+    {
+      "id": "A1_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7233,
+      "output_tokens": 235,
+      "error": null
+    },
+    {
+      "id": "A1_en_002",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 11056,
+      "output_tokens": 325,
+      "error": null
+    },
+    {
+      "id": "A2_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7215,
+      "output_tokens": 233,
+      "error": null
+    },
+    {
+      "id": "A3_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.22222222222222224,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.4
+      },
+      "requests": 4,
+      "input_tokens": 15351,
+      "output_tokens": 739,
+      "error": null
+    },
+    {
+      "id": "A3_en_002",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.3333333333333333,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.6666666666666666
+      },
+      "requests": 3,
+      "input_tokens": 11071,
+      "output_tokens": 526,
+      "error": null
+    },
+    {
+      "id": "A4_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.4,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.5
+      },
+      "requests": 3,
+      "input_tokens": 10827,
+      "output_tokens": 400,
+      "error": null
+    },
+    {
+      "id": "A5_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.1,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.0625
+      },
+      "requests": 4,
+      "input_tokens": 15719,
+      "output_tokens": 771,
+      "error": null
+    },
+    {
+      "id": "A6_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 10982,
+      "output_tokens": 276,
+      "error": null
+    },
+    {
+      "id": "A7_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 10938,
+      "output_tokens": 266,
+      "error": null
+    },
+    {
+      "id": "A8_ja_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7228,
+      "output_tokens": 265,
+      "error": null
+    },
+    {
+      "id": "A9_zh_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.6666666666666666
+      },
+      "requests": 3,
+      "input_tokens": 11364,
+      "output_tokens": 576,
+      "error": null
+    },
+    {
+      "id": "A_multisn_ja_001",
+      "scores": {
+        "argument_correctness": 0.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.33333333333333337,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.2857142857142857
+      },
+      "requests": 7,
+      "input_tokens": 28819,
+      "output_tokens": 969,
+      "error": null
+    },
+    {
+      "id": "B1_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.5
+      },
+      "requests": 2,
+      "input_tokens": 7196,
+      "output_tokens": 310,
+      "error": null
+    },
+    {
+      "id": "B1_en_002",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.1111111111111111,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.07142857142857142
+      },
+      "requests": 6,
+      "input_tokens": 23671,
+      "output_tokens": 793,
+      "error": null
+    },
+    {
+      "id": "B2_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 1,
+      "input_tokens": 3506,
+      "output_tokens": 188,
+      "error": null
+    },
+    {
+      "id": "B2_en_002",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 1,
+      "input_tokens": 3507,
+      "output_tokens": 174,
+      "error": null
+    },
+    {
+      "id": "B3_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.4,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.5
+      },
+      "requests": 3,
+      "input_tokens": 10993,
+      "output_tokens": 369,
+      "error": null
+    },
+    {
+      "id": "B3_en_002",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.5
+      },
+      "requests": 2,
+      "input_tokens": 7187,
+      "output_tokens": 416,
+      "error": null
+    },
+    {
+      "id": "B4_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 11301,
+      "output_tokens": 472,
+      "error": null
+    },
+    {
+      "id": "B_multisn_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.4,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.5
+      },
+      "requests": 3,
+      "input_tokens": 10982,
+      "output_tokens": 281,
+      "error": null
+    },
+    {
+      "id": "C1_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "nonempty_results": 1.0,
+        "step_efficiency": 0.5
+      },
+      "requests": 2,
+      "input_tokens": 7115,
+      "output_tokens": 151,
+      "error": null
+    },
+    {
+      "id": "C1_en_002",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "nonempty_results": 1.0,
+        "step_efficiency": 0.5
+      },
+      "requests": 2,
+      "input_tokens": 7167,
+      "output_tokens": 238,
+      "error": null
+    },
+    {
+      "id": "C2_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "nonempty_results": 1.0,
+        "step_efficiency": 0.5
+      },
+      "requests": 2,
+      "input_tokens": 7163,
+      "output_tokens": 185,
+      "error": null
+    },
+    {
+      "id": "C2_en_002",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "nonempty_results": 1.0,
+        "step_efficiency": 0.5
+      },
+      "requests": 2,
+      "input_tokens": 7124,
+      "output_tokens": 154,
+      "error": null
+    },
+    {
+      "id": "C3_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 11329,
+      "output_tokens": 862,
+      "error": null
+    },
+    {
+      "id": "C3_en_002",
+      "scores": {
+        "argument_correctness": 0.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.0,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.5
+      },
+      "requests": 3,
+      "input_tokens": 10901,
+      "output_tokens": 279,
+      "error": null
+    },
+    {
+      "id": "C4_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7258,
+      "output_tokens": 330,
+      "error": null
+    },
+    {
+      "id": "C5_en_001",
+      "scores": {
+        "argument_correctness": 0.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7161,
+      "output_tokens": 209,
+      "error": null
+    },
+    {
+      "id": "C_multisn_ja_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 4,
+      "input_tokens": 14970,
+      "output_tokens": 751,
+      "error": null
+    },
+    {
+      "id": "D1_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8571428571428571,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7268,
+      "output_tokens": 322,
+      "error": null
+    },
+    {
+      "id": "D1_en_002",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8571428571428571,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7274,
+      "output_tokens": 320,
+      "error": null
+    },
+    {
+      "id": "D2_en_001",
+      "scores": {
+        "argument_correctness": 0.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.375,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.3
+      },
+      "requests": 6,
+      "input_tokens": 27895,
+      "output_tokens": 2756,
+      "error": null
+    },
+    {
+      "id": "D2_en_002",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8571428571428571,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7342,
+      "output_tokens": 408,
+      "error": null
+    },
+    {
+      "id": "D3_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8571428571428571,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7361,
+      "output_tokens": 408,
+      "error": null
+    },
+    {
+      "id": "D4_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7238,
+      "output_tokens": 300,
+      "error": null
+    },
+    {
+      "id": "E1_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 1,
+      "input_tokens": 3507,
+      "output_tokens": 94,
+      "error": null
+    },
+    {
+      "id": "E2_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7146,
+      "output_tokens": 171,
+      "error": null
+    },
+    {
+      "id": "E3_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 1,
+      "input_tokens": 3509,
+      "output_tokens": 67,
+      "error": null
+    },
+    {
+      "id": "E4_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 1,
+      "input_tokens": 3509,
+      "output_tokens": 272,
+      "error": null
+    },
+    {
+      "id": "F1_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 1,
+      "input_tokens": 3510,
+      "output_tokens": 607,
+      "error": null
+    },
+    {
+      "id": "F2_en_001",
+      "scores": {
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.4,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 10870,
+      "output_tokens": 857,
+      "error": null
+    },
+    {
+      "id": "F3_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 1,
+      "input_tokens": 3509,
+      "output_tokens": 611,
+      "error": null
+    },
+    {
+      "id": "G1_en_001",
+      "scores": {
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 11383,
+      "output_tokens": 611,
+      "error": null
+    },
+    {
+      "id": "G1_en_002",
+      "scores": {},
+      "requests": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "error": "UnexpectedModelBehavior: Exceeded maximum output retries (2)"
+    },
+    {
+      "id": "G2_en_001",
+      "scores": {
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 11390,
+      "output_tokens": 724,
+      "error": null
+    },
+    {
+      "id": "G3_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7272,
+      "output_tokens": 291,
+      "error": null
+    },
+    {
+      "id": "G4_en_001",
+      "scores": {},
+      "requests": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "error": "UnexpectedModelBehavior: Exceeded maximum output retries (2)"
+    },
+    {
+      "id": "G5_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 1,
+      "input_tokens": 3508,
+      "output_tokens": 179,
+      "error": null
+    },
+    {
+      "id": "G6_en_001",
+      "scores": {
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 4,
+      "input_tokens": 15326,
+      "output_tokens": 921,
+      "error": null
+    },
+    {
+      "id": "GINJ1_en_013",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 11249,
+      "output_tokens": 678,
+      "error": null
+    },
+    {
+      "id": "GINJ1_en_014",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7299,
+      "output_tokens": 271,
+      "error": null
+    },
+    {
+      "id": "GINJ2_en_008",
+      "scores": {
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 4,
+      "input_tokens": 15596,
+      "output_tokens": 1101,
+      "error": null
+    },
+    {
+      "id": "H1_en_001",
+      "scores": {
+        "argument_correctness": 0.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7137,
+      "output_tokens": 156,
+      "error": null
+    },
+    {
+      "id": "H2_en_001",
+      "scores": {
+        "argument_correctness": 0.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.75
+      },
+      "requests": 4,
+      "input_tokens": 20524,
+      "output_tokens": 4488,
+      "error": null
+    },
+    {
+      "id": "H3_en_001",
+      "scores": {
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 11000,
+      "output_tokens": 403,
+      "error": null
+    },
+    {
+      "id": "H4_en_001",
+      "scores": {
+        "argument_correctness": 0.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.0,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.5
+      },
+      "requests": 4,
+      "input_tokens": 14737,
+      "output_tokens": 344,
+      "error": null
+    },
+    {
+      "id": "I1_zh_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7231,
+      "output_tokens": 234,
+      "error": null
+    },
+    {
+      "id": "I2_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 10947,
+      "output_tokens": 285,
+      "error": null
+    },
+    {
+      "id": "I3_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.15384615384615385,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.25
+      },
+      "requests": 5,
+      "input_tokens": 19354,
+      "output_tokens": 774,
+      "error": null
+    },
+    {
+      "id": "I4_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7205,
+      "output_tokens": 218,
+      "error": null
+    },
+    {
+      "id": "I5_en_001",
+      "scores": {
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.4,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 5,
+      "input_tokens": 18814,
+      "output_tokens": 452,
+      "error": null
+    },
+    {
+      "id": "I6_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7255,
+      "output_tokens": 301,
+      "error": null
+    },
+    {
+      "id": "I7_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 10981,
+      "output_tokens": 298,
+      "error": null
+    },
+    {
+      "id": "I8_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.07407407407407407,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.043478260869565216
+      },
+      "requests": 6,
+      "input_tokens": 24811,
+      "output_tokens": 1183,
+      "error": null
+    },
+    {
+      "id": "I9_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.14285714285714285,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.2222222222222222
+      },
+      "requests": 6,
+      "input_tokens": 24080,
+      "output_tokens": 939,
+      "error": null
+    },
+    {
+      "id": "J1_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 11058,
+      "output_tokens": 348,
+      "error": null
+    },
+    {
+      "id": "J2_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.8,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 2,
+      "input_tokens": 7225,
+      "output_tokens": 267,
+      "error": null
+    },
+    {
+      "id": "J3_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.18181818181818182,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.18181818181818182
+      },
+      "requests": 9,
+      "input_tokens": 37883,
+      "output_tokens": 1424,
+      "error": null
+    },
+    {
+      "id": "J4_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 10956,
+      "output_tokens": 314,
+      "error": null
+    },
+    {
+      "id": "J5_en_001",
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 3,
+      "input_tokens": 11049,
+      "output_tokens": 341,
+      "error": null
+    },
+    {
+      "id": "K1_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "error": null
+    },
+    {
+      "id": "K2_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "error": null
+    },
+    {
+      "id": "K3_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "error": null
+    },
+    {
+      "id": "K4_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "error": null
+    },
+    {
+      "id": "L1_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 1,
+      "input_tokens": 3514,
+      "output_tokens": 290,
+      "error": null
+    },
+    {
+      "id": "L2_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 1,
+      "input_tokens": 3511,
+      "output_tokens": 68,
+      "error": null
+    },
+    {
+      "id": "L3_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 1,
+      "input_tokens": 3506,
+      "output_tokens": 175,
+      "error": null
+    },
+    {
+      "id": "L4_en_001",
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 1,
+      "input_tokens": 3606,
+      "output_tokens": 244,
+      "error": null
+    },
+    {
+      "id": "Q304_locale_en_001",
+      "scores": {
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.2857142857142857,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      },
+      "requests": 4,
+      "input_tokens": 15472,
+      "output_tokens": 978,
+      "error": null
+    }
+  ]
+}
