@@ -1,9 +1,13 @@
+# Neon-backed test jobs are non-gating and stay outside every deploy `needs:` chain.
+# Promote only after 10 consecutive greens on main-bound PRs; quota-class failures
+# are excluded from the streak but tracked separately (the agnix precedent below).
 name: CI
 
 on:
   push:
     branches: [main, develop]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -28,6 +32,9 @@ jobs:
       contract: ${{ steps.f.outputs.contract }}
       worker: ${{ steps.f.outputs.worker }}
       migrations: ${{ steps.f.outputs.migrations }}
+      neon_agent: ${{ steps.f.outputs.neon_agent }}
+      neon_catalog: ${{ steps.f.outputs.neon_catalog }}
+      neon_migrations: ${{ steps.f.outputs.neon_migrations }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -44,6 +51,9 @@ jobs:
             web: ['apps/web/**']
             worker: ['worker/**']
             migrations: ['supabase/migrations/**', 'db/**']
+            neon_agent: ['apps/agent/**']
+            neon_catalog: ['workers/catalog/**']
+            neon_migrations: ['db/migrations/**']
 
   # ── Stage 1: Component CI (reusable workflows, all parallel) ──
   # affected-only on PRs; full run on push/tag.
@@ -202,6 +212,103 @@ jobs:
         run: uv run pytest agent/tests/eval/test_translation.py -v -m integration --no-cov -x
         env:
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+
+  # ── Neon test infrastructure (non-gating during calibration) ──
+
+  python-integration:
+    name: Python integration (Neon)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: changes
+    if: >-
+      ${{
+        (github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository)) &&
+        (github.event_name == 'workflow_dispatch' ||
+          needs.changes.outputs.neon_agent == 'true' ||
+          needs.changes.outputs.neon_migrations == 'true')
+      }}
+    concurrency:
+      group: neon-tests-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: apps/agent
+    env:
+      ATLAS_VERSION: "0.30.0"
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+      # Settings requires presence; integration tests do not use these endpoints.
+      SUPABASE_DB_URL: postgresql://test:test@localhost:5432/test
+      MIMO_API_KEY: test-key
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - run: uv sync --all-extras
+
+      - name: Install pinned Atlas CLI
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/atlas-bin"
+          curl --proto '=https' --tlsv1.2 -sSfL \
+            "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" \
+            -o "$RUNNER_TEMP/atlas-bin/atlas"
+          # Keep synchronized with apps/agent/agent/tests/atlas_helper.py.
+          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas" \
+            | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
+          echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
+
+      - name: Run Neon integration tests
+        env:
+          TEST_DB: neon
+        run: uv run pytest agent/tests/integration -q --no-cov
+
+  catalog-spikes:
+    name: Catalog spikes (Neon)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [changes, python-integration]
+    if: >-
+      ${{
+        always() &&
+        needs.changes.result == 'success' &&
+        (needs.python-integration.result == 'success' ||
+          needs.python-integration.result == 'skipped') &&
+        (github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository)) &&
+        (github.event_name == 'workflow_dispatch' ||
+          needs.changes.outputs.neon_catalog == 'true' ||
+          needs.changes.outputs.neon_migrations == 'true')
+      }}
+    concurrency:
+      group: neon-tests-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Run catalog spike tests
+        run: pnpm run test:spike
+        working-directory: workers/catalog
 
   # ── Stage 3: Deploy (CI-green gated, push-main promotion path) ──
   # Promotion: push main → CI → staging → post-staging (api) → prod (human gate) → post-prod.
