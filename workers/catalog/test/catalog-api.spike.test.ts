@@ -4,7 +4,6 @@ import type { CatalogDb } from "../src/db/client";
 import app, { closeDbPools } from "../src/index";
 import {
   databaseDescribe,
-  databaseDescribeKnownFailing,
   localDatabaseUrl,
   openServerlessDb,
   restoreNeonConfig,
@@ -229,7 +228,7 @@ const ANITABI_POINTS = [
   { id: "toyosato-hall", name: "豊郷小学校 講堂", lat: 35.205, lng: 136.2401, ep: 2, s: 90 },
 ];
 
-databaseDescribeKnownFailing("#362", "Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> search)", () => {
+databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> search)", () => {
   it("POST /ingest publishes the work, then /search returns the fresh points", async () => {
     stubUpstream();
 
@@ -247,7 +246,7 @@ databaseDescribeKnownFailing("#362", "Catalog ingest end-to-end (fetch stub -> r
   });
 });
 
-databaseDescribeKnownFailing("#362", "Catalog search miss -> Bangumi resolve -> on-demand ingest -> points", () => {
+databaseDescribe("Catalog search miss -> Bangumi resolve -> on-demand ingest -> points", () => {
   it("an UNCOVERED title resolves+ingests on first search, then is an alias hit on the second", async () => {
     const { urls } = stubSearchMiss();
 
