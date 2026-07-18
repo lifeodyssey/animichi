@@ -142,12 +142,23 @@ def test_clarify_projection_uses_trusted_ordered_candidates() -> None:
         ),
     )
     response = agent_result_to_response(result, include_debug=False)
+
+    # stable-key contract: every candidate key is present, null when unknown.
+    def _candidate(cid: str, title: str) -> dict[str, object]:
+        return {
+            "id": cid,
+            "title": title,
+            "cover_url": None,
+            "city": None,
+            "points_count": None,
+            "lat": None,
+            "lng": None,
+            "effective_radius_m": None,
+        }
+
     assert response.data == {
         "reason": "anime_ambiguity",
-        "candidates": [
-            {"id": "1", "title": "Trusted One"},
-            {"id": "2", "title": "Trusted Two"},
-        ],
+        "candidates": [_candidate("1", "Trusted One"), _candidate("2", "Trusted Two")],
         "clarification_id": 4,
     }
 
