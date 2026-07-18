@@ -52,20 +52,20 @@ def test_direct_gates_reject_over_limit_and_repeated_trajectory() -> None:
     assert any("repeated identical" in failure for failure in failures)
 
 
-def test_direct_gates_reject_request_p95_above_six() -> None:
+def test_direct_gates_reject_request_p95_above_limit() -> None:
     failures = direct_thrash_gate(
-        [TrajectoryCase(f"case-{index}", requests=7) for index in range(20)]
+        [TrajectoryCase(f"case-{index}", requests=9) for index in range(20)]
     )
-    assert failures == ["request_p95=7 exceeds limit=6"]
+    assert failures == ["request_p95=9 exceeds limit=8"]
 
 
 def test_zero_request_cases_do_not_dilute_model_request_p95() -> None:
-    model_cases = [TrajectoryCase(f"model-{index}", requests=7) for index in range(2)]
+    model_cases = [TrajectoryCase(f"model-{index}", requests=9) for index in range(2)]
     deterministic_cases = [
         TrajectoryCase(f"selection-{index}", requests=0) for index in range(39)
     ]
     failures = direct_thrash_gate([*model_cases, *deterministic_cases])
-    assert failures == ["request_p95=7 exceeds limit=6"]
+    assert failures == ["request_p95=9 exceeds limit=8"]
 
 
 def test_trajectory_accounting_excludes_runner_synthesized_steps() -> None:
