@@ -61,6 +61,40 @@ export interface PilgrimagePoint {
   city?: string;
 }
 
+/** One region bubble — mirrors `AnimeOverviewCircle`. */
+export interface AnimeOverviewCircle {
+  region: string;
+  count: number;
+  lat: number;
+  lng: number;
+}
+
+/** One 名場面 in the shot-count ranking — mirrors `AnimeScene`. */
+export interface AnimeScene {
+  id: string;
+  name: string;
+  screenshot_url: string;
+  shot_count: number;
+  lat: number;
+  lng: number;
+  city?: string;
+}
+
+/** A per-region sample route — mirrors `AnimeSampleRoute`. */
+export interface AnimeSampleRoute {
+  region: string;
+  point_ids: string[];
+}
+
+/** The public anime overview payload — mirrors `AnimeOverview`. */
+export interface AnimeOverview {
+  bangumi_id: string;
+  points_length: number;
+  circles: AnimeOverviewCircle[];
+  scenes: AnimeScene[];
+  sample_routes: AnimeSampleRoute[];
+}
+
 /** Stable anime identity and trusted display metadata — mirrors `AnimeCandidate`. */
 export interface AnimeCandidate {
   bangumi_id: string;

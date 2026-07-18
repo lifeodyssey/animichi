@@ -1635,6 +1635,148 @@
           }
         }
       }
+    },
+    "/catalog/public/anime-overview/{bangumi_id}": {
+      "get": {
+        "operationId": "animeOverview",
+        "summary": "Public anime overview: bubble aggregation, 名場面 ranking, and sample routes",
+        "parameters": [
+          {
+            "name": "bangumi_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "bangumi_id": {
+                      "type": "string"
+                    },
+                    "points_length": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "circles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "region": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "lat": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "lng": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          }
+                        },
+                        "required": [
+                          "region",
+                          "count",
+                          "lat",
+                          "lng"
+                        ]
+                      }
+                    },
+                    "scenes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "screenshot_url": {
+                            "type": "string"
+                          },
+                          "shot_count": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "lat": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "lng": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          },
+                          "city": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "screenshot_url",
+                          "shot_count",
+                          "lat",
+                          "lng"
+                        ]
+                      }
+                    },
+                    "sample_routes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "region": {
+                            "type": "string"
+                          },
+                          "point_ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "region",
+                          "point_ids"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "bangumi_id",
+                    "points_length",
+                    "circles",
+                    "scenes",
+                    "sample_routes"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
