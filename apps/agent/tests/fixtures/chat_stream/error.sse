@@ -1,0 +1,12 @@
+data: {"type":"start"}
+
+data: {"type":"start-step"}
+
+data: {"type":"error","errorText":"Something went wrong. Please try again."}
+
+data: {"type":"finish-step"}
+
+data: {"type":"finish","finishReason":"error"}
+
+data: [DONE]
+

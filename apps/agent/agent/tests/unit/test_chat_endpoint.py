@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from agent.agents.runtime_deps import OnStep, StepEvent
 from agent.interfaces.public_api import RuntimeAPI
 from agent.interfaces.schemas import PublicAPIResponse
 from agent.tests.unit.conftest_fastapi import async_client, build_app, build_stub_db
@@ -159,6 +161,77 @@ async def test_chat_invalid_locale_defaults_to_ja() -> None:
             headers={"X-User-Id": "user-1", "X-Locale": "fr"},
         )
     assert runtime.handle.await_args.args[0].locale == "ja"
+
+
+def _replay_runtime(response: PublicAPIResponse, steps: list[StepEvent]) -> MagicMock:
+    async def _handle(
+        request: object, *, user_id: str | None = None, on_step: OnStep | None = None
+    ) -> PublicAPIResponse:
+        for step in steps:
+            if on_step is not None:
+                await on_step(step)
+        return response
+
+    runtime = MagicMock(spec=RuntimeAPI)
+    runtime.handle = AsyncMock(side_effect=_handle)
+    runtime._db = build_stub_db()
+    return runtime
+
+
+def _frame_type(payload: str) -> str:
+    if payload == "[DONE]":
+        return "[DONE]"
+    chunk: object = json.loads(payload)
+    assert isinstance(chunk, dict)
+    kind = chunk["type"]
+    assert isinstance(kind, str)
+    return kind
+
+
+def _frame_types(body: str) -> list[str]:
+    return [
+        _frame_type(line[len("data: ") :])
+        for line in body.splitlines()
+        if line.startswith("data: ")
+    ]
+
+
+async def test_chat_stream_frame_structure_and_header() -> None:
+    steps = [
+        StepEvent(tool="resolve_anime", status="running", data={}),
+        StepEvent(tool="resolve_anime", status="done", data={"bangumi_id": 1}),
+    ]
+    response_body = PublicAPIResponse(
+        success=True, status="ok", intent="search_bangumi", message="Found."
+    )
+    runtime = _replay_runtime(response_body, steps)
+    app, _ = build_app(runtime_api=runtime)
+    async with async_client(app) as client:
+        response = await client.post(
+            "/v1/chat", json=_body(), headers={"X-User-Id": "user-1"}
+        )
+    assert response.headers["x-vercel-ai-ui-message-stream"] == "v1"
+    types = _frame_types(response.text)
+    assert types[:2] == ["start", "start-step"]
+    assert types[-1] == "[DONE]"
+    assert "tool-input-start" in types
+    assert "tool-output-available" in types
+    assert types.index("tool-output-available") < types.index("data-response")
+
+
+async def test_chat_stream_emits_error_part_when_handle_fails() -> None:
+    runtime = MagicMock(spec=RuntimeAPI)
+    runtime.handle = AsyncMock(side_effect=RuntimeError("db down"))
+    runtime._db = build_stub_db()
+    app, _ = build_app(runtime_api=runtime)
+    async with async_client(app) as client:
+        response = await client.post(
+            "/v1/chat", json=_body(), headers={"X-User-Id": "user-1"}
+        )
+    assert response.status_code == 200
+    assert '"type":"error"' in response.text
+    assert "db down" not in response.text
+    assert '"type":"data-response"' not in response.text
 
 
 async def test_chat_partial_response_completes_as_data_response() -> None:
