@@ -103,10 +103,13 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
 - Official eval entry: `agent/tests/eval/run_agent_eval.py`. It streams one status line per case,
   persists reports, creates/enforces statistical baselines, and exits nonzero on gate regression or
   all-error runs. Never refresh a baseline merely to pass a gate.
-- Integration/eval suites that import `pg_container` (`agent/tests/conftest_db.py`) need a
-  **Docker-compatible runtime** (Docker / Colima on Mac) and use **testcontainers PostGIS**
-  (`postgis/postgis:16-3.4`). `SUPABASE_DB_URL` / `supabase start` alone is NOT sufficient for those
-  suites. Unit tests need no Docker.
+- DB-backed pytest suites select one arm in this order: `TEST_DATABASE_URL` (BYO), explicit
+  `TEST_DB=docker|neon`, then the offline Docker default. The offline arm needs Docker/Colima, the
+  cached `animichi-test-postgres` image, and Atlas 0.30.0; `TEST_DB=neon` additionally needs
+  `NEON_API_KEY` + `NEON_PROJECT_ID`. BYO mutation requires `TEST_DB_ALLOW_MUTATION=1` and rejects
+  protected Neon lineage. The standalone full-stack eval runner accepts `TEST_DATABASE_URL` only.
+- `supabase start` is reserved for GoTrue-coupled magic-link E2E and auth development; it does not
+  provision the agent integration-test database. Unit tests need neither Docker nor network.
 
 ## Eval: cost, run recipe, and the post-redesign baseline (2026-07-17)
 
