@@ -21,7 +21,7 @@ Security rule: record database hosts, mapped ports, branch IDs/names, timings, v
 
 | ID | Draft v4.1 Phase-0 item | Coverage / lead action | Result | Evidence |
 |---|---|---|---|---|
-| P0.1 | `GenericContainer(neon_local)` starts with API key, project ID, and resolved `test-base` parent ID; readiness and start-to-ready time recorded | **SCRIPT:** `spike_phase0.py`; bounded asyncpg `SELECT 1` over the mapped PG port | PASS | Five starts; ready in 10.8–28.7 s |
+| P0.1 | `GenericContainer(neon_local)` starts with API key, project ID, and resolved `test-base` parent ID; readiness and start-to-ready time recorded | **SCRIPT:** `spike_phase0.py (removed post-verdict; see note)`; bounded asyncpg `SELECT 1` over the mapped PG port | PASS | Five starts; ready in 10.8–28.7 s |
 | P0.2 | asyncpg self-signed TLS; PostGIS geo query; `vector(1024)` round-trip; HNSW exists | **SCRIPT:** `spike_phase0.py`; explicit `SSLContext` disables hostname and CA verification only for the local proxy | PASS, UNRELIABLE PATH | PostGIS 3.6, vector 0.8.1, 1024 dimensions, HNSW passed before later proxy disconnects |
 | P0.3 | `pg.Pool` connects with `ssl.rejectUnauthorized=false` and round-trips | **SCRIPT:** `spike_phase0_serverless.mjs`, invoked against the Python runner's same container | NOT PROVEN | Final Node evidence proves the `neon()` HTTP arm, not `pg.Pool` stability |
 | P0.4 | Ephemeral branch exists; parent is `test-base`; generated name format recorded | **SCRIPT:** `spike_phase0.py`; before/after API branch-set delta plus exact parent verification | PASS | Parent verified; generated `br-<words>-<suffix>` names recorded in the run log |
@@ -183,3 +183,7 @@ The scripts append one row per emitted PASS/FAIL item below.
 8. Ledger location empirical: bare-URL atlas defaults to its OWN schema (atlas_schema_revisions.atlas_schema_revisions); preview.yml uses --revisions-schema public. The provisioner MUST pass --revisions-schema public to match (it did not — fixed requirement).
 9. After migrations create service roles, `neonctl connection-string` requires explicit `--role-name neondb_owner --database-name neondb` (multi-role branches refuse to guess).
 10. `statement_cache_size=0` is NECESSARY for any asyncpg through PgBouncer, but NOT SUFFICIENT for the local proxy (see 5).
+
+> Note: `spike_phase0.py` (the asyncpg wire-path probe) was REMOVED after the wire path was
+> rejected — it required `ssl.CERT_NONE` against the local proxy, which security scanners rightly
+> block. Its measured evidence is recorded above; the exact script lives in git history (225ccb0).
