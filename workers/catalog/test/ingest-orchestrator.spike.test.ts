@@ -4,7 +4,7 @@ import type { CatalogDb } from "../src/db/client";
 import { ingestGuard, ingestWork } from "../src/ingest/orchestrator";
 import type { FetchLike } from "../src/ingest/sources";
 import {
-  databaseDescribeKnownFailing,
+  databaseDescribe,
   openServerlessDb,
   restoreNeonConfig,
   truncateCatalog,
@@ -129,7 +129,7 @@ beforeAll(async () => {
 
 afterAll(() => { restoreNeonConfig(); });
 
-databaseDescribeKnownFailing("#362", "ingestWork end-to-end: acquire -> fetch -> raw -> enrich -> publish", () => {
+databaseDescribe("ingestWork end-to-end: acquire -> fetch -> raw -> enrich -> publish", () => {
   it("ingests a new work and lands it in the catalog with a current version", async () => {
     const result = await ingestWork(db, "new-work", { fetchImpl: makeFetch(ANITABI_POINTS) });
     expect(result).toEqual({ status: "ingested", version: 1, pointCount: 2 });
@@ -140,7 +140,7 @@ databaseDescribeKnownFailing("#362", "ingestWork end-to-end: acquire -> fetch ->
   });
 });
 
-databaseDescribeKnownFailing("#362", "ingestWork singleflight: concurrent double ingest", () => {
+databaseDescribe("ingestWork singleflight: concurrent double ingest", () => {
   it("yields exactly one 'ingested' and one 'in_progress'", async () => {
     let release: () => void = () => { /* placeholder replaced by Promise constructor */ };
     const gate = new Promise<void>((r) => (release = r));
@@ -156,7 +156,7 @@ databaseDescribeKnownFailing("#362", "ingestWork singleflight: concurrent double
   });
 });
 
-databaseDescribeKnownFailing("#362", "ingestWork empty upstream: no points", () => {
+databaseDescribe("ingestWork empty upstream: no points", () => {
   it("returns 'empty', negative-caches, and blocks re-ingest within TTL", async () => {
     const fetchImpl = makeFetch([]);
     const result = await ingestWork(db, "empty-work", { fetchImpl });
@@ -178,7 +178,7 @@ databaseDescribeKnownFailing("#362", "ingestWork empty upstream: no points", () 
   });
 });
 
-databaseDescribeKnownFailing("#362", "ingestWork failed upstream: fetch throws", () => {
+databaseDescribe("ingestWork failed upstream: fetch throws", () => {
   it("throws typed upstream-unavailable and leaves a re-acquirable job", async () => {
     await expect(ingestWork(db, "boom-work", { fetchImpl: throwingFetch })).rejects.toMatchObject({
       code: "UPSTREAM_UNAVAILABLE",
