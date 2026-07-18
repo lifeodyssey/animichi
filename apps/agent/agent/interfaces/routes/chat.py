@@ -82,6 +82,22 @@ def _clarification_id(body: dict[str, object]) -> int | None:
     raise HTTPException(status_code=422, detail="clarification_id must be an integer")
 
 
+def _optional_string(body: dict[str, object], field: str) -> str | None:
+    value = body.get(field)
+    if value is None or isinstance(value, str):
+        return value
+    raise HTTPException(status_code=422, detail=f"{field} must be a string")
+
+
+def _optional_float(body: dict[str, object], field: str) -> float | None:
+    value = body.get(field)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise HTTPException(status_code=422, detail=f"{field} must be a number")
+    return float(value)
+
+
 def _decode_body(raw: bytes) -> dict[str, object]:
     try:
         value: object = json.loads(raw)
@@ -100,6 +116,9 @@ def _runtime_request(request: Request, body: dict[str, object]) -> PublicAPIRequ
         selected_point_ids=_optional_ids(body, "selected_point_ids"),
         selected_candidate_ids=_optional_ids(body, "selected_candidate_ids"),
         clarification_id=_clarification_id(body),
+        origin=_optional_string(body, "origin"),
+        origin_lat=_optional_float(body, "origin_lat"),
+        origin_lng=_optional_float(body, "origin_lng"),
     )
 
 
@@ -116,7 +135,7 @@ async def _response_stream(response: PublicAPIResponse) -> AsyncIterator[str]:
     yield _event(DoneChunk())
 
 
-@router.post("/chat")
+@router.post("/chat", responses={422: {"description": "Invalid chat request"}})
 async def handle_chat(
     request: Request,
     auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],

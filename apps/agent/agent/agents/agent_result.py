@@ -28,7 +28,12 @@ class ProducedSearch:
 class RejectedSearch:
     """A current search outcome that did not produce a registry entry."""
 
-    outcome: Literal["place_ambiguity", "place_unresolved", "missing_location"]
+    outcome: Literal[
+        "place_ambiguity",
+        "place_unresolved",
+        "missing_location",
+        "upstream_unavailable",
+    ]
 
 
 @dataclass(frozen=True)
@@ -43,7 +48,7 @@ class ProducedRoute:
 class RejectedRoute:
     """A current route outcome that did not produce a registry entry."""
 
-    status: Literal["empty", "stale_ref", "pending_sync"]
+    status: Literal["empty", "stale_ref", "pending_sync", "upstream_unavailable"]
 
 
 StepProvenance: TypeAlias = (
