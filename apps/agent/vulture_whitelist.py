@@ -37,3 +37,7 @@ min_size  # create_pool(dsn, *, min_size, max_size)
 # that simulate a slow/failing provider ignore the parameters.
 # Site: agent/tests/unit/test_model_failover.py
 model_request_parameters
+
+# PlainDsnContainer Protocol mirrors testcontainers' real keyword signature;
+# the parameter name must stay `driver` for structural typing.
+driver
