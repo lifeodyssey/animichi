@@ -21,9 +21,12 @@ PINNED_ATLAS_VERSION = "0.30.0"
 ATLAS_MACOS_ARM64_SHA256 = (
     "79a19d8ad284054fe3e2b64aff300f794a9f8a1b8a90d60b296bdb754746f984"
 )
-# The Linux artifact was not present in the offline worktree/cache during this
-# fix round. Keep Linux fail-closed until the lead records the official digest.
-ATLAS_LINUX_AMD64_SHA256: str | None = None
+# Both digests were computed from the official release.ariga.io artifacts
+# (lead-verified 2026-07-18; darwin digest independently matched the official
+# download, not just the local binary).
+ATLAS_LINUX_AMD64_SHA256: str | None = (
+    "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a"
+)
 ATLAS_ARTIFACTS: dict[tuple[str, str], tuple[str, str | None]] = {
     ("Darwin", "arm64"): (
         "atlas-community-darwin-arm64-v0.30.0",
