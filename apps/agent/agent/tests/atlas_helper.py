@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
+import platform
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -12,6 +15,25 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 PINNED_ATLAS_VERSION = "0.30.0"
+# Upgrade policy (review by 2027-01): Atlas supports only the newest two minors,
+# and release binaries may disappear after roughly six months. Keep the pin,
+# artifact URLs, and both checksums in one atomic upgrade.
+ATLAS_MACOS_ARM64_SHA256 = (
+    "79a19d8ad284054fe3e2b64aff300f794a9f8a1b8a90d60b296bdb754746f984"
+)
+# The Linux artifact was not present in the offline worktree/cache during this
+# fix round. Keep Linux fail-closed until the lead records the official digest.
+ATLAS_LINUX_AMD64_SHA256: str | None = None
+ATLAS_ARTIFACTS: dict[tuple[str, str], tuple[str, str | None]] = {
+    ("Darwin", "arm64"): (
+        "atlas-community-darwin-arm64-v0.30.0",
+        ATLAS_MACOS_ARM64_SHA256,
+    ),
+    ("Linux", "x86_64"): (
+        "atlas-community-linux-amd64-v0.30.0",
+        ATLAS_LINUX_AMD64_SHA256,
+    ),
+}
 ATLAS_TIMEOUT_SECONDS = 600
 ROOT = Path(__file__).resolve().parents[4]
 MIGRATIONS_DIR = ROOT / "db" / "migrations"
@@ -24,10 +46,39 @@ def parse_atlas_version(output: str) -> str:
     return match.group(1)
 
 
+def verify_atlas_checksum(
+    binary: Path, system: str = platform.system(), machine: str = platform.machine()
+) -> None:
+    artifact = ATLAS_ARTIFACTS.get((system, machine))
+    if artifact is None:
+        raise RuntimeError(
+            f"Atlas {PINNED_ATLAS_VERSION} has no checksum for {system}/{machine}"
+        )
+    artifact_name, expected = artifact
+    if expected is None:
+        raise RuntimeError(
+            f"Atlas checksum for {artifact_name} is unverified; record the official "
+            "sha256 before running migrations"
+        )
+    with binary.open("rb") as stream:
+        actual = hashlib.file_digest(stream, "sha256").hexdigest()
+    if actual != expected:
+        raise RuntimeError(
+            f"Atlas checksum mismatch for {artifact_name}; the pin may be stale, "
+            "the release may have been removed (404), or the download is corrupt"
+        )
+
+
 def verify_atlas_pin(environment: Mapping[str, str] = os.environ) -> None:
     configured = environment.get("ATLAS_VERSION", PINNED_ATLAS_VERSION)
     if configured != PINNED_ATLAS_VERSION:
         raise RuntimeError(f"ATLAS_VERSION must equal {PINNED_ATLAS_VERSION}")
+    executable = shutil.which("atlas")
+    if executable is None:
+        raise RuntimeError(
+            "Atlas 0.30.0 was not found; its pinned release may have been removed "
+            "(404), so review the pin and checksums"
+        )
     try:
         result = subprocess.run(
             ["atlas", "version"],
@@ -45,6 +96,7 @@ def verify_atlas_pin(environment: Mapping[str, str] = os.environ) -> None:
         raise RuntimeError(
             f"installed Atlas is {installed}; expected {PINNED_ATLAS_VERSION}"
         )
+    verify_atlas_checksum(Path(executable))
 
 
 def atlas_apply_command() -> tuple[str, ...]:

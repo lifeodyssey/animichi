@@ -21,6 +21,7 @@ class DatabaseConfig:
     neon_api_key: str | None = None
     neon_project_id: str | None = None
     allow_mutation: bool = False
+    neon_endpoint: bool = False
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,13 @@ def _validate_neon_credentials(key: str | None, project: str | None) -> None:
         raise RuntimeError("NEON_API_KEY and NEON_PROJECT_ID must be set together")
 
 
+def is_neon_host(host: str, configured_suffix: str | None = None) -> bool:
+    suffixes = {".neon.tech"}
+    if configured_suffix:
+        suffixes.add(f".{configured_suffix.strip().lower().lstrip('.')}")
+    return any(host.lower().endswith(suffix) for suffix in suffixes)
+
+
 def select_database_arm(environment: Mapping[str, str]) -> DatabaseConfig:
     """Apply the v4.2 selector truth table without side effects."""
     url = _value(environment, "TEST_DATABASE_URL")
@@ -55,11 +63,11 @@ def select_database_arm(environment: Mapping[str, str]) -> DatabaseConfig:
     key = _value(environment, "NEON_API_KEY")
     project = _value(environment, "NEON_PROJECT_ID")
     mutation = _mutation_flag(environment)
-    _validate_neon_credentials(key, project)
     if url and selected:
         raise RuntimeError("TEST_DATABASE_URL conflicts with TEST_DB")
     if url:
-        return _byo_config(url, key, project, mutation)
+        suffix = _value(environment, "NEON_ENDPOINT_SUFFIX")
+        return _byo_config(url, key, project, mutation, suffix)
     if mutation:
         raise RuntimeError(
             "TEST_DB_ALLOW_MUTATION is valid only with TEST_DATABASE_URL"
@@ -72,14 +80,22 @@ def select_database_arm(environment: Mapping[str, str]) -> DatabaseConfig:
 
 
 def _byo_config(
-    url: str, key: str | None, project: str | None, mutation: bool
+    url: str,
+    key: str | None,
+    project: str | None,
+    mutation: bool,
+    suffix: str | None,
 ) -> DatabaseConfig:
-    if mutation and (key is None or project is None):
+    neon_endpoint = is_neon_host(dsn_host(url), suffix)
+    if mutation and neon_endpoint:
+        _validate_neon_credentials(key, project)
+    if mutation and neon_endpoint and (key is None or project is None):
         raise RuntimeError("BYO mutation requires NEON_API_KEY and NEON_PROJECT_ID")
-    return DatabaseConfig(DatabaseArm.BYO, url, key, project, mutation)
+    return DatabaseConfig(DatabaseArm.BYO, url, key, project, mutation, neon_endpoint)
 
 
 def _neon_config(key: str | None, project: str | None) -> DatabaseConfig:
+    _validate_neon_credentials(key, project)
     if key is None or project is None:
         raise RuntimeError("TEST_DB=neon requires NEON_API_KEY and NEON_PROJECT_ID")
     return DatabaseConfig(DatabaseArm.NEON, neon_api_key=key, neon_project_id=project)
@@ -88,7 +104,8 @@ def _neon_config(key: str | None, project: str | None) -> DatabaseConfig:
 def preflight_plan(config: DatabaseConfig) -> PreflightPlan:
     if config.arm is not DatabaseArm.BYO:
         return PreflightPlan(True, False, True, False)
-    return PreflightPlan(False, True, config.allow_mutation, config.allow_mutation)
+    identity = config.allow_mutation and config.neon_endpoint
+    return PreflightPlan(False, True, config.allow_mutation, identity)
 
 
 def dsn_host(dsn: str) -> str:
