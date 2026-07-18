@@ -80,9 +80,11 @@ def test_connection_uri_uses_explicit_role_database_and_direct_endpoint() -> Non
     )
     requester = RecordedRequester({path: _fixture("connection_uri.json")})
     uri = NeonApi("secret", "project-test", requester).connection_uri("br-ephemeral")
-    assert "database_name=neondb" in requester.calls[0]
-    assert "role_name=neondb_owner" in requester.calls[0]
-    assert "pooled=false" in requester.calls[0]
+    assert len(requester.calls) == 1
+    recorded_call = requester.calls[0]
+    assert "database_name=neondb" in recorded_call
+    assert "role_name=neondb_owner" in recorded_call
+    assert "pooled=false" in recorded_call
     assert dsn_host(uri) == "ep-recorded.ap-southeast-1.aws.neon.tech"
 
 
