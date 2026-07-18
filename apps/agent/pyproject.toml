@@ -27,17 +27,18 @@ dependencies = [
     "authlib>=1.6.12",
     "idna>=3.15",
     "starlette>=1.0.1",
+    "mcp>=1.28.1,<2",
     # Observability
     "structlog>=25.0.0",
     "rich>=14.0.0",
     # Google Generative AI (model-agnostic, used by pydantic-ai)
     "google-genai>=1.16.0",
     # v2: Agent Framework
-    "pydantic-ai>=2.9.0",
+    "pydantic-ai>=2.11.0",
     # v2: Database (Postgres + PostGIS)
     "asyncpg>=0.31.0",
     # HTTP runtime adapter
-    "fastapi>=0.115.0",
+    "fastapi>=0.139.2",
     "uvicorn[standard]>=0.34.0",
     "ddgs>=9.14.1",
     "logfire[fastapi,httpx,variables]>=4.29.0",

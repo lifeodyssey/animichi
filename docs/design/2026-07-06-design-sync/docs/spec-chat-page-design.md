@@ -117,7 +117,7 @@ LocationPrompt、FeedbackButtons。铁则:按压影只给按钮/输入,卡片浮
 
 ## 8. 未决事项(不阻塞 Phase 1)
 
-- 登录墙问题(critique P2,docs/todo.md)——chat 入口是否允许未登录试用
+- 登录墙问题(critique P2,docs/superpowers/plans/archive/2026-04-28-frontend-ssr-migration-todo.md)——chat 入口是否允许未登录试用
 - 流式协议:Vercel AI SDK 迁移曾 revert(79f34a8),Phase 1 实现前需重新定案
 - しおり导出的具体排版(另开设计任务)
 - 现场行走态完整设计(Phase 3+)

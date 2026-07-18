@@ -110,6 +110,27 @@ class TestAPIKeyValidation:
 
         assert settings.deepseek_api_key == ""
 
+    def test_localhost_compat_model_does_not_require_api_key(self) -> None:
+        settings = Settings(
+            _env_file=None,
+            default_agent_model="openai:local@http://localhost:1234/v1",
+            fallback_agent_model=None,
+            openai_compat_api_key="",
+            supabase_db_url="postgresql://local/test",
+        )
+
+        assert settings.validate_api_keys() == []
+
+    def test_remote_compat_model_hard_requires_api_key(self) -> None:
+        with pytest.raises(ValueError, match="OPENAI_COMPAT_API_KEY"):
+            Settings(
+                _env_file=None,
+                default_agent_model="openai:remote@https://models.example/v1",
+                fallback_agent_model=None,
+                openai_compat_api_key="",
+                supabase_db_url="postgresql://local/test",
+            )
+
     def test_prod_default_requires_mimo_not_deepseek(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

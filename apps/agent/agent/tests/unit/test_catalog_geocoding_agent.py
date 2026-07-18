@@ -118,6 +118,15 @@ async def test_nearby_free_text_outcomes_write_empty_candidate_pending(
     assert (pending.reason, pending.candidate_ids) == (reason, [])
 
 
+async def test_geocode_step_is_server_initiated() -> None:
+    deps = _deps()
+
+    await run_nearby_search(_ctx(deps), _Catalog([]), "unknown", None)
+
+    assert deps.steps[0].tool == "geocode"
+    assert deps.steps[0].model_initiated is False
+
+
 async def test_place_ambiguity_stages_coords_and_pending_in_same_outcome() -> None:
     deps = _deps()
     places = [_place("a", GeocodeKind.CITY), _place("b", GeocodeKind.STATION)]

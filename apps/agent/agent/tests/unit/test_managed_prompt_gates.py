@@ -2,7 +2,11 @@
 
 import pytest
 
-from agent.agents.animichi_agent import _INSTRUCTIONS, build_animichi_agent
+from agent.agents.animichi_agent import (
+    _INSTRUCTIONS,
+    _current_turn_language,
+    build_animichi_agent,
+)
 
 
 def test_default_and_kill_switch_keep_construction_equal(
@@ -15,5 +19,6 @@ def test_default_and_kill_switch_keep_construction_equal(
     monkeypatch.setenv("LOGFIRE_API_KEY", "api-key")
     killed_agent = build_animichi_agent()
 
-    assert default_agent._instructions == killed_agent._instructions == [_INSTRUCTIONS]
+    expected = [_INSTRUCTIONS, _current_turn_language]
+    assert default_agent._instructions == killed_agent._instructions == expected
     assert repr(default_agent._root_capability) == repr(killed_agent._root_capability)
