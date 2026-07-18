@@ -41,8 +41,8 @@ export function animeTitle(locale: Locale, bangumiId: string): string {
 }
 
 export interface AnimeHead {
-  readonly meta: readonly { readonly title: string }[];
-  readonly links: readonly HreflangLink[];
+  meta: { title: string }[];
+  links: HreflangLink[];
 }
 
 export function animeHead(locale: Locale, bangumiId: string, origin: string): AnimeHead {
