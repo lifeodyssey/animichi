@@ -1,6 +1,6 @@
 # Animichi Agent - Makefile
 
-.PHONY: help install dev dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset fe-lint fe-typecheck fe-test fe-test-cov fe-build fe-check check-all e2e-setup e2e e2e-public local-login dev-stop
+.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset fe-lint fe-typecheck fe-test fe-test-cov fe-build fe-check check-all e2e-setup e2e e2e-public local-login dev-stop
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -13,6 +13,7 @@ help:
 	@echo "Animichi Agent - Available commands:"
 	@echo ""
 	@echo "Development:"
+	@echo "  make dev-db      Start agent-only Neon Local on postgres-wire port 5432"
 	@echo "  make dev-local   Start everything (Supabase + backend + frontend)"
 	@echo "  make dev-stop    Stop all local dev services"
 	@echo "  make local-login Open browser with magic link login"
@@ -139,6 +140,24 @@ db-reset:
 	supabase db reset
 
 # ── Local Dev (one-command startup) ──────────────────────────
+
+# Set NEON_DEV_BRANCH_ID for persistent mode. Leave it unset and set the
+# verified NEON_TEST_BASE_BRANCH_ID for an ephemeral child deleted on stop.
+dev-db:
+	@: "$${NEON_API_KEY:?NEON_API_KEY is required}"
+	@: "$${NEON_PROJECT_ID:?NEON_PROJECT_ID is required}"
+	@branch_env="PARENT_BRANCH_ID=$${NEON_TEST_BASE_BRANCH_ID:-}"; delete_branch=true; \
+	if [ -n "$${NEON_DEV_BRANCH_ID:-}" ]; then \
+		branch_env="BRANCH_ID=$$NEON_DEV_BRANCH_ID"; delete_branch=false; \
+	fi; \
+	if [ -z "$${branch_env#*=}" ]; then \
+		echo "Set NEON_TEST_BASE_BRANCH_ID, or NEON_DEV_BRANCH_ID for persistent mode" >&2; \
+		exit 1; \
+	fi; \
+	echo "Agent DSN: postgresql://neon:npg@localhost:5432/neondb?sslmode=require"; \
+	docker run --rm --name animichi-neon-local -p 5432:5432 \
+		-e NEON_API_KEY -e NEON_PROJECT_ID -e "$$branch_env" \
+		-e DELETE_BRANCH="$$delete_branch" neondatabase/neon_local:latest
 
 dev-local:
 	@echo "=== Animichi Local Dev ==="
