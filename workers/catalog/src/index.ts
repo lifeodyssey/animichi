@@ -20,6 +20,15 @@ app.get("/healthz", (c) =>
   c.json({ status: "ok", service: "catalog", env: c.env.ENVIRONMENT ?? "unknown" }),
 );
 
+// Public catalog reads are anonymous and change only on republish — let the edge
+// cache them (5 min browser, 1 h edge). Runs before the /catalog/* oRPC handler,
+// tagging its response on the way back out.
+const PUBLIC_CACHE_CONTROL = "public, max-age=300, s-maxage=3600";
+app.use("/catalog/public/*", async (c, next) => {
+  await next();
+  if (c.res.ok) c.res.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
+});
+
 const apiHandler = new OpenAPIHandler(catalogRouter);
 
 /** The Postgres connection string for this request: Hyperdrive in prod, else DATABASE_URL. */

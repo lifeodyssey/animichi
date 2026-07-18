@@ -24,8 +24,33 @@ test("GET /healthz reaches the container, not OpenNext", async () => {
 
 test("/catalog/* is NOT publicly routed (falls through to OpenNext)", async () => {
   const app = createWorkerApp({ nextHandler: stubNext });
-  const res = await app.request("/catalog/search", { method: "POST" }, {}, stubCtx);
+  let catalogHit = false;
+  const env = { CATALOG: { fetch: async () => { catalogHit = true; return new Response("cat"); } } } as never;
+  const res = await app.request("/catalog/search", { method: "POST" }, env, stubCtx);
   assert.equal(await res.text(), "next"); // hits OpenNext (404-able), never env.CATALOG
+  assert.equal(catalogHit, false); // security: non-allowlisted catalog path stays private
+});
+
+function envWithCatalog(captured: { req?: Request }) {
+  return {
+    CATALOG: { fetch: async (r: Request) => { captured.req = r; return new Response("cat"); } },
+  } as never;
+}
+
+test("/catalog/public/* forwards anonymously to CATALOG, no auth called", async () => {
+  let authCalled = false;
+  const app = createWorkerApp({ nextHandler: stubNext, authenticate: async () => { authCalled = true; return { ok: false }; } });
+  const cap: { req?: Request } = {};
+  const res = await app.request("/catalog/public/anime-overview/3302", {}, envWithCatalog(cap), stubCtx);
+  assert.equal(await res.text(), "cat");
+  assert.equal(authCalled, false);
+});
+
+test("/catalog/public/* strips client-forged X-User-Id before forwarding", async () => {
+  const app = createWorkerApp({ nextHandler: stubNext });
+  const cap: { req?: Request } = {};
+  await app.request("/catalog/public/anime-overview/3302", { headers: { "X-User-Id": "forged" } }, envWithCatalog(cap), stubCtx);
+  assert.equal(cap.req?.headers.get("X-User-Id"), null);
 });
 
 test("unknown path falls through to OpenNext", async () => {

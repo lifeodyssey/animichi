@@ -51,6 +51,55 @@ export const PilgrimagePoint = z.object({
 });
 export type PilgrimagePoint = z.infer<typeof PilgrimagePoint>;
 
+/**
+ * One region bubble for the public anime overview: a place name, its spot count,
+ * and the centroid coordinate the bubble map renders at. Public catalog data
+ * only — no user or internal pipeline fields.
+ */
+export const AnimeOverviewCircle = z.object({
+  region: z.string(),
+  count: z.number().int().nonnegative(),
+  lat: Latitude,
+  lng: Longitude,
+});
+export type AnimeOverviewCircle = z.infer<typeof AnimeOverviewCircle>;
+
+/**
+ * One 名場面 (famous scene) in the public shot-count ranking: the representative
+ * point of a co-located cluster, its thumbnail, and how many shots it aggregates.
+ */
+export const AnimeScene = z.object({
+  id: z.string(),
+  name: z.string(),
+  screenshot_url: z.string(),
+  shot_count: z.number().int().nonnegative(),
+  lat: Latitude,
+  lng: Longitude,
+  city: z.string().optional(),
+});
+export type AnimeScene = z.infer<typeof AnimeScene>;
+
+/** A suggested per-region sample route: the region name plus its member point ids. */
+export const AnimeSampleRoute = z.object({
+  region: z.string(),
+  point_ids: z.array(z.string()),
+});
+export type AnimeSampleRoute = z.infer<typeof AnimeSampleRoute>;
+
+/**
+ * The public anime overview payload: bubble aggregation, 名場面 ranking, and
+ * sample routes for one work. Exposed anonymously (catalog's first public
+ * surface) — every field is derived from already-public catalog data.
+ */
+export const AnimeOverview = z.object({
+  bangumi_id: z.string(),
+  points_length: z.number().int().nonnegative(),
+  circles: z.array(AnimeOverviewCircle),
+  scenes: z.array(AnimeScene),
+  sample_routes: z.array(AnimeSampleRoute),
+});
+export type AnimeOverview = z.infer<typeof AnimeOverview>;
+
 /** Stable catalog identity and trusted display metadata for one anime work. */
 export const AnimeCandidate = z.object({
   bangumi_id: z.string(),
