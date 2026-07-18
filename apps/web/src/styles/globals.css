@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./fonts.css";
 @import "./shiori.css";
+@import "./chat.css";
 
 :root {
   color-scheme: light;
