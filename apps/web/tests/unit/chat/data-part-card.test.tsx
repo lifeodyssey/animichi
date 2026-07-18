@@ -1,10 +1,12 @@
 /**
  * @vitest-environment jsdom
  */
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { DataPartCard } from "../../../src/features/chat/components/DataPartCard";
 import { chatDictFor } from "../../../src/features/chat/i18n";
+
+afterEach(cleanup);
 
 const dict = chatDictFor("ja");
 
@@ -51,5 +53,29 @@ describe("DataPartCard", () => {
   it("renders prose intents as message only", () => {
     renderPart({ intent: "greet_user", message: "こんにちは!" });
     expect(screen.getByText("こんにちは!")).toBeTruthy();
+  });
+});
+
+describe("DataPartCard intent bodies", () => {
+  it("renders the search card with the resolved title and rows", () => {
+    renderPart({
+      intent: "search_bangumi",
+      message: "2件みつけたよ",
+      data: { results: { title: "響け!ユーフォニアム", rows: [{ id: "p1", name: "宇治橋" }] } },
+    });
+    expect(screen.getByText("響け!ユーフォニアム")).toBeTruthy();
+    expect(screen.getByText("宇治橋")).toBeTruthy();
+  });
+
+  it("renders a route card without route data or rows gracefully", () => {
+    renderPart({ intent: "plan_route", message: "けいかくちゅう", data: {} });
+    expect(screen.getByText("けいかくちゅう")).toBeTruthy();
+    expect(document.querySelector(".chat-card__stats")).toBeNull();
+    expect(document.querySelector(".chat-card__spots")).toBeNull();
+  });
+
+  it("renders clarify without candidates as an empty option list", () => {
+    renderPart({ intent: "clarify", message: "どれ?", data: {} });
+    expect(screen.getByText("どれ?")).toBeTruthy();
   });
 });
