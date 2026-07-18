@@ -55,6 +55,19 @@ describe("AnimePage full state", () => {
   });
 });
 
+describe("AnimePage partial data", () => {
+  it("omits the duration fact when there are no sample routes", () => {
+    render(<AnimePage overview={{ ...fullOverviewFixture, sample_routes: [] }} locale="ja" />);
+    expect(screen.queryByText(/所要時間は約/)).toBeNull();
+  });
+
+  it("renders a scene without a city, with no dangling separator", () => {
+    const scenes = fullOverviewFixture.scenes.map(({ city: _city, ...scene }) => scene);
+    render(<AnimePage overview={{ ...fullOverviewFixture, scenes }} locale="ja" />);
+    expect(screen.getByText("カット数 2")).toBeTruthy();
+  });
+});
+
 describe("AnimePage locales", () => {
   it("renders the zh heading with zh-native keywords", () => {
     render(<AnimePage overview={fullOverviewFixture} locale="zh" />);
