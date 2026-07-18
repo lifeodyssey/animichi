@@ -52,11 +52,18 @@ def test_atlas_binary_checksum_mismatch_is_actionable(
         verify_atlas_checksum(binary, "FixtureOS", "fixture-cpu")
 
 
-def test_atlas_binary_without_recorded_digest_fails_closed(tmp_path: Path) -> None:
+def test_atlas_binary_without_recorded_digest_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     binary = tmp_path / "atlas"
     binary.write_bytes(b"linux fixture")
+    monkeypatch.setitem(
+        atlas_helper.ATLAS_ARTIFACTS,
+        ("FixtureOS", "fixture-cpu"),
+        ("atlas-fixture", None),
+    )
     with pytest.raises(RuntimeError, match="unverified.*official sha256"):
-        verify_atlas_checksum(binary, "Linux", "x86_64")
+        verify_atlas_checksum(binary, "FixtureOS", "fixture-cpu")
 
 
 def _route_anime_sql() -> str:
