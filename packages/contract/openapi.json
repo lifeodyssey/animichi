@@ -1161,6 +1161,19 @@
                     "anime_title_cn": {
                       "type": "string"
                     },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "shown_cluster_count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "total_cluster_count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "timed_itinerary": {
                       "type": "object",
                       "properties": {

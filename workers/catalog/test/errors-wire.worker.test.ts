@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { catalogRouter, type CatalogContext } from "../src/router";
 import type { CatalogDb, NeonSql } from "../src/db/client";
 import type {
-  RouteTooManyClustersData,
   RouteTooManyPointsData,
   UpstreamUnavailableData,
   WorkNotFoundData,
 } from "../src/lib/errors";
+import type { Route } from "../src/types";
 
 interface ErrorEnvelope<TData> {
   defined: true;
@@ -120,7 +120,7 @@ describe("catalog input validation on the OpenAPI wire", () => {
 
 });
 
-describe("catalog typed errors on the OpenAPI wire", () => {
+describe("catalog route limits and typed errors on the OpenAPI wire", () => {
   it("serializes ROUTE_TOO_MANY_POINTS for route input over the router cap", async () => {
     const point_ids = Array.from({ length: 501 }, (_, i) => `p${String(i)}`);
     const res = await call("route", { point_ids }, unreachableContext());
@@ -132,16 +132,15 @@ describe("catalog typed errors on the OpenAPI wire", () => {
     });
   });
 
-  it("serializes ROUTE_TOO_MANY_CLUSTERS after clustering selected points", async () => {
+  it("serializes a successful truncation signal after clustering 51 selected points", async () => {
     const rows = routeRows(51);
     const point_ids = rows.map((r) => r.id);
     const res = await call("route", { point_ids }, context(rows));
-    expect(res.status).toBe(422);
-    expect(await json<RouteTooManyClustersData>(res)).toEqual({
-      defined: true, code: "ROUTE_TOO_MANY_CLUSTERS", status: 422,
-      message: "Route exceeds the maximum number of areas",
-      data: { cluster_count: 51, max_clusters: 50 },
-    });
+    const body = await res.json() as Route;
+    expect(res.status).toBe(200);
+    expect(body.ordered_points).toHaveLength(50);
+    expect(body.timed_itinerary.stops).toHaveLength(50);
+    expect(body).toMatchObject({ truncated: true, shown_cluster_count: 50, total_cluster_count: 51 });
   });
 
   it("serializes WORK_NOT_FOUND for a spots miss", async () => {
