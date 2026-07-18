@@ -166,8 +166,12 @@ const NEW_TITLE = "けいおん！";
 
 /** Stub upstream JSON for the NEW work: a Bangumi subject + two Anitabi points. */
 function stubUpstream(): void {
-  const stub = vi.fn((input: string | URL | Request) => {
+  // The neon serverless driver rides global fetch too (Phase B: the DB channel
+  // is HTTP) — pass its /sql traffic through to the real fetch, init included.
+  const realFetch = globalThis.fetch;
+  const stub = vi.fn((input: string | URL | Request, init?: RequestInit) => {
     const url = input instanceof Request ? input.url : input.toString();
+    if (url.includes("/sql")) return realFetch(input, init);
     if (url.includes("/v0/subjects/")) return Promise.resolve(jsonResponse({ name: NEW_TITLE, name_cn: "轻音少女" }));
     if (url.includes("/points/detail")) return Promise.resolve(jsonResponse(ANITABI_POINTS));
     throw new Error(`unexpected upstream url: ${url}`);
@@ -189,8 +193,10 @@ const MISS_TITLE = "響け！ユーフォニアム";
  */
 function stubSearchMiss(): { urls: string[] } {
   const urls: string[] = [];
-  const stub = vi.fn((input: string | URL | Request) => {
+  const realFetch = globalThis.fetch;
+  const stub = vi.fn((input: string | URL | Request, init?: RequestInit) => {
     const url = input instanceof Request ? input.url : input.toString();
+    if (url.includes("/sql")) return realFetch(input, init);
     urls.push(url);
     return Promise.resolve(searchMissResponse(url));
   });
