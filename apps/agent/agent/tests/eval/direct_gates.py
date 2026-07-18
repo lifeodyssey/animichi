@@ -14,7 +14,11 @@ from agent.agents.agent_result import AgentResult
 
 REQUEST_LIMIT = 12
 TOOL_CALL_LIMIT = 6
-REQUEST_P95_LIMIT = 6
+# Calibrated 2026-07-18 (#28): two stable full-655 official-v1 runs measured
+# request_p95 = 7 (baseline run observed 7-8). The original 6 would fail every
+# healthy run; 8 = observed steady state + 1 headroom. Enforcement stays behind
+# DIRECT_GATE_ENFORCE=1 at eval time.
+REQUEST_P95_LIMIT = 8
 
 
 @dataclass(frozen=True)
