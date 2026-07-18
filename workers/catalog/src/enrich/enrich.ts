@@ -12,7 +12,8 @@
  *      is a deliberate later-wave decision, not an oversight;
  *   4. build aliases from the bangumi title(s) -> rankAliases -> UPSERT. Only the
  *      Bangumi source is wired here; AniDB/Moegirl/Manual arrive via later ingest;
- *   5. publishVersion() to atomically bump cluster_version (blue/green switch).
+ *   5. append the ordered publish statements to the same atomic batch, bumping
+ *      cluster_version as a blue/green pointer switch.
  *
  * Writes go through raw `sql` (the Drizzle read schema is query-only), parameterized
  * to keep the JSON trust boundary safe. Each function stays <=10 lines.
@@ -22,11 +23,11 @@
  * LATER / optional (noted, NOT built): city_backfill, series-edge graph, and
  * quality-isolation of low-confidence points.
  */
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import type { CatalogDb, DbExecutor } from "../db/client";
 import { clusterByLocation } from "../lib/clustering";
 import { rankAliases, Source, type RankedAlias, type RawAlias } from "../lib/alias";
-import { publishVersion } from "../publish/versioning";
+import { publishVersionStatements, readPublishedVersion } from "../publish/versioning";
 import {
   parseAnitabiPoints,
   parseBangumi,
@@ -45,12 +46,31 @@ export async function enrichWork(db: CatalogDb, workId: string): Promise<EnrichR
   const bangumi = parseBangumi(workId, await readRaw(db, "raw_bangumi", workId));
   const points = parseAnitabiPoints(workId, await readRaw(db, "raw_anitabi", workId));
   logClusters(workId, points);
-  return db.transaction(async (tx) => {
-    await upsertBangumi(tx, bangumi);
-    await upsertPoints(tx, points);
-    await upsertAliases(tx, workId, bangumi);
-    return { version: await publishVersion(tx as unknown as CatalogDb, workId), pointCount: points.length };
-  });
+  const results = await db.batch(prepareBatch(db, enrichStatements(workId, bangumi, points)));
+  return { version: readPublishedVersion(lastResult(results)), pointCount: points.length };
+}
+
+/** Build every work mutation in its mandatory execution order. */
+function enrichStatements(
+  workId: string, bangumi: BangumiRow, points: PointRow[],
+): readonly [SQL, ...SQL[]] {
+  return [
+    upsertBangumi(bangumi), ...upsertPoints(points),
+    upsertAliases(workId, bangumi), ...publishVersionStatements(workId),
+  ];
+}
+
+/** Convert ordered SQL into lazy Drizzle batch items without executing them. */
+function prepareBatch(db: CatalogDb, statements: readonly [SQL, ...SQL[]]) {
+  const [first, ...rest] = statements;
+  return [db.execute(first), ...rest.map((statement) => db.execute(statement))] as const;
+}
+
+/** The publish INSERT is always the final batch item. */
+function lastResult(results: readonly { rows: unknown[] }[]): { rows: unknown[] } {
+  const result = results.at(-1);
+  if (!result) throw new Error("enrich batch returned no results");
+  return result;
 }
 
 /** Read a raw-zone payload for the work; throw if the row is absent. */
@@ -69,8 +89,8 @@ async function readRaw(
 }
 
 /** UPSERT the `bangumi` row keyed by id (re-enrich overwrites in place). */
-async function upsertBangumi(db: DbExecutor, row: BangumiRow): Promise<void> {
-  await db.execute(sql`
+function upsertBangumi(row: BangumiRow): SQL {
+  return sql`
     INSERT INTO bangumi (id, title, title_cn, cover_url, summary, rating, eps_count, air_date)
     VALUES (${row.id}, ${row.title}, ${row.title_cn}, ${row.cover_url},
             ${row.summary}, ${row.rating}, ${row.eps_count}, ${row.air_date})
@@ -78,28 +98,29 @@ async function upsertBangumi(db: DbExecutor, row: BangumiRow): Promise<void> {
       title = EXCLUDED.title, title_cn = EXCLUDED.title_cn, cover_url = EXCLUDED.cover_url,
       summary = EXCLUDED.summary, rating = EXCLUDED.rating,
       eps_count = EXCLUDED.eps_count, air_date = EXCLUDED.air_date
-  `);
+  `;
 }
 
-/** UPSERT every point row keyed by id (idempotent re-enrich, no duplicates). */
-async function upsertPoints(db: DbExecutor, rows: PointRow[]): Promise<void> {
-  for (const row of rows) await upsertPoint(db, row);
-}
-
-/** UPSERT one `points` row; the sync_points_coordinates trigger fills location. */
-async function upsertPoint(db: DbExecutor, row: PointRow): Promise<void> {
-  await db.execute(sql`
+/** UPSERT all point rows in one statement; an empty point set remains a no-op. */
+function upsertPoints(rows: PointRow[]): SQL[] {
+  if (rows.length === 0) return [];
+  return [sql`
     INSERT INTO points (id, bangumi_id, name, name_cn, latitude, longitude,
                         image, episode, time_seconds, origin, origin_url)
-    VALUES (${row.id}, ${row.bangumi_id}, ${row.name}, ${row.name_cn},
-            ${row.latitude}, ${row.longitude}, ${row.image}, ${row.episode},
-            ${row.time_seconds}, ${row.origin}, ${row.origin_url})
+    VALUES ${sql.join(rows.map(pointValues), sql`, `)}
     ON CONFLICT (id) DO UPDATE SET
       bangumi_id = EXCLUDED.bangumi_id, name = EXCLUDED.name, name_cn = EXCLUDED.name_cn,
       latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, image = EXCLUDED.image,
       episode = EXCLUDED.episode, time_seconds = EXCLUDED.time_seconds,
       origin = EXCLUDED.origin, origin_url = EXCLUDED.origin_url
-  `);
+  `];
+}
+
+/** Parameterized VALUES tuple for the bulk point UPSERT. */
+function pointValues(row: PointRow): SQL {
+  return sql`(${row.id}, ${row.bangumi_id}, ${row.name}, ${row.name_cn},
+              ${row.latitude}, ${row.longitude}, ${row.image}, ${row.episode},
+              ${row.time_seconds}, ${row.origin}, ${row.origin_url})`;
 }
 
 /** Compute 50m clusters (no cluster_id column to persist) and log the count. */
@@ -109,10 +130,15 @@ function logClusters(workId: string, points: PointRow[]): number {
   return clusters.length;
 }
 
-/** Rank the work's title aliases and UPSERT them into the `aliases` table. */
-async function upsertAliases(db: DbExecutor, workId: string, b: BangumiRow): Promise<void> {
-  const ranked = rankAliases(titleAliases(b));
-  for (const a of ranked) await upsertAlias(db, workId, a);
+/** Rank the work's title aliases and UPSERT them in one statement. */
+function upsertAliases(workId: string, b: BangumiRow): SQL {
+  const aliases = rankAliases(titleAliases(b));
+  return sql`
+    INSERT INTO aliases (work_id, alias, alias_normalized, source, priority)
+    VALUES ${sql.join(aliases.map((alias) => aliasValues(workId, alias)), sql`, `)}
+    ON CONFLICT (work_id, alias, source)
+    DO UPDATE SET alias_normalized = EXCLUDED.alias_normalized, priority = EXCLUDED.priority
+  `;
 }
 
 /** Collect candidate aliases from the bangumi title fields (Bangumi source). */
@@ -122,12 +148,7 @@ function titleAliases(b: BangumiRow): RawAlias[] {
   return raw;
 }
 
-/** UPSERT one alias row keyed by (work_id, alias, source). */
-async function upsertAlias(db: DbExecutor, workId: string, a: RankedAlias): Promise<void> {
-  await db.execute(sql`
-    INSERT INTO aliases (work_id, alias, alias_normalized, source, priority)
-    VALUES (${workId}, ${a.alias}, ${a.alias_normalized}, ${a.source}, ${a.priority})
-    ON CONFLICT (work_id, alias, source)
-    DO UPDATE SET alias_normalized = EXCLUDED.alias_normalized, priority = EXCLUDED.priority
-  `);
+/** Parameterized VALUES tuple for the bulk alias UPSERT. */
+function aliasValues(workId: string, a: RankedAlias): SQL {
+  return sql`(${workId}, ${a.alias}, ${a.alias_normalized}, ${a.source}, ${a.priority})`;
 }
