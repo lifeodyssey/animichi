@@ -8,7 +8,7 @@
     "build:topology": "tsx scripts/transit/build-topology.ts",
     "dev": "wrangler dev",
     "fetch:n02": "tsx scripts/transit/fetch-n02.ts",
-    "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "lint:oxlint": "node scripts/oxlint/check-no-inline-config.mjs && oxlint --type-aware --deny-warnings .",
     "test": "npm run test:worker && npm run test:spike",
     "test:worker": "vitest run --config vitest.config.ts --coverage",
     "test:spike": "vitest run --config vitest.spike.config.ts",

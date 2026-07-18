@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { ORPCError } from "@orpc/server";
 import { route, type PilgrimagePoint, type RouteDb } from "../src/api/route";
 
 /**
@@ -73,16 +72,6 @@ function fakeDb(rows: FakeRow[]): RouteDb {
 
 const ids = (ps: PilgrimagePoint[]): string[] => ps.map((p) => p.id);
 
-async function routeError(rows: FakeRow[]): Promise<ORPCError<string, unknown>> {
-  try {
-    await route(fakeDb(rows), { point_ids: rows.map((r) => r.id) });
-  } catch (err) {
-    expect(err).toBeInstanceOf(ORPCError);
-    return err as ORPCError<string, unknown>;
-  }
-  throw new Error("expected route to reject");
-}
-
 async function assertTimedRoute(): Promise<void> {
   const r = await route(fakeDb(ROWS), { point_ids: ["a", "b", "c"], pacing: "normal" });
   expect(r.point_count).toBe(3);
@@ -94,12 +83,11 @@ async function assertTimedRoute(): Promise<void> {
 
 async function assertPointFields(): Promise<void> {
   const r = await route(fakeDb(ROWS), { point_ids: ["a"] });
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  const a = r.ordered_points[0]!;
-  expect(a.screenshot_url).toBe("a.jpg");
-  expect(a.bangumi_id).toBe("k");
-  expect(a.latitude).toBe(35.0);
-  expect(a.city).toBe("Tokyo");
+  const [a] = r.ordered_points;
+  expect(a?.screenshot_url).toBe("a.jpg");
+  expect(a?.bangumi_id).toBe("k");
+  expect(a?.latitude).toBe(35.0);
+  expect(a?.city).toBe("Tokyo");
   expect(r.timed_itinerary.legs).toEqual([]);
 }
 
@@ -141,11 +129,20 @@ describe("route API handler — fetch -> cluster -> itinerary -> Route", () => {
     expect(r.ordered_points).toEqual([]);
   });
 
-  it("rejects with a defined typed error when the selected points make 51 clusters", async () => {
-    const err = await routeError(MANY_ROWS);
-    expect(err.code).toBe("ROUTE_TOO_MANY_CLUSTERS");
-    expect(err.status).toBe(422);
-    expect(err.defined).toBe(true);
-    expect(err.data).toEqual({ cluster_count: 51, max_clusters: 50 });
+  it("caps 51 clusters and discloses the successful truncation", async () => {
+    const r = await route(fakeDb(MANY_ROWS), { point_ids: MANY_ROWS.map((entry) => entry.id) });
+    expect(r.point_count).toBe(50);
+    expect(r.timed_itinerary.stops).toHaveLength(50);
+    expect(ids(r.ordered_points)).not.toContain("p050");
+    expect(r).toMatchObject({ truncated: true, shown_cluster_count: 50, total_cluster_count: 51 });
+  });
+
+  it("keeps the response shape unchanged at the 50-cluster cap", async () => {
+    const rows = MANY_ROWS.slice(0, 50);
+    const r = await route(fakeDb(rows), { point_ids: rows.map((entry) => entry.id) });
+    expect(r.point_count).toBe(50);
+    expect(r).not.toHaveProperty("truncated");
+    expect(r).not.toHaveProperty("shown_cluster_count");
+    expect(r).not.toHaveProperty("total_cluster_count");
   });
 });
