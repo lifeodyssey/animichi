@@ -1,7 +1,7 @@
 # Animichi Testing Strategy
 
-Date: 2026-04-11
-Status: DRAFT
+Date: 2026-07-18
+Status: CURRENT
 Repo: lifeodyssey/animichi
 Stack: FastAPI + asyncpg + Pydantic AI (backend), Next.js + React (frontend), Cloudflare Workers (deploy)
 
@@ -148,30 +148,44 @@ class AgentResultFactory(factory.Factory):
 - Auth middleware (X-User-Id header injection, API key validation)
 
 **Mock strategy:**
-- DB → **testcontainers real PostgreSQL** (not mocked)
+- DB → **real Postgres selected by the three-arm fixture** (not mocked)
 - LLM → `TestModel` or `FunctionModel` via `Agent.override`
 - External API → `respx` HTTP-level mock
 - RuntimeAPI → partially mocked (contract tests verify shape only)
 
-**testcontainers best practices:**
+### Agent database arms
 
-```python
-@pytest.fixture(scope="session")
-def pg_container():
-    """Session-scoped: all integration tests share one PG container."""
-    with PostgresContainer("postgres:16-alpine") as pg:
-        yield pg
+`agent/tests/conftest_db.py` evaluates this once per pytest session. Credentials alone never opt a
+local run into the live arm.
 
-@pytest.fixture
-async def tc_db(pg_container):
-    """Function-scoped: each test gets an isolated DB connection."""
-    dsn = pg_container.get_connection_url().replace("+psycopg2", "")
-    client = SupabaseClient(dsn, min_pool_size=1, max_pool_size=5)
-    await client.connect()
-    yield client
-    await client.execute("TRUNCATE bangumi, points, feedback, request_log CASCADE")
-    await client.close()
+| `TEST_DATABASE_URL` | `TEST_DB` | Result |
+|---|---|---|
+| set | set | Hard error: conflicting selectors |
+| set | unset | BYO database; read-verified, then mutation-gated |
+| unset | `docker` | Offline derived-image arm |
+| unset | `neon` | Neon arm; requires `NEON_API_KEY` + `NEON_PROJECT_ID` |
+| unset | unset | Offline derived-image default |
+| unset | anything else | Hard error: unknown arm |
+
+The priority is therefore `TEST_DATABASE_URL` > explicit `TEST_DB=docker|neon` > offline default.
+All container arms apply `db/migrations/` with the pinned Atlas CLI, reapply the idempotent seed,
+and run the same pgvector/HNSW contract. A BYO database is not writable until
+`TEST_DB_ALLOW_MUTATION=1`; Neon BYO additionally passes the protected-lineage check.
+
+Offline recipe (network-free after the immutable image and Atlas are cached):
+
+```bash
+docker build -f docker/test-postgres/Dockerfile \
+  -t animichi-test-postgres:16-3.4-pgvector-0.8.5 .
+ATLAS_VERSION=0.30.0 TEST_DB=docker make test-integration
 ```
+
+Budget about **30–45 seconds** for the cached offline arm and **6–7 minutes** for a live Neon arm.
+The offline image build itself needs network once; the Neon arm always needs network and consumes a
+temporary branch. See `docs/ops/neon-test-infra.md` for operator details.
+
+`supabase start` remains only for GoTrue-coupled magic-link E2E, the auth half of `make dev-local`,
+and Supabase-side migration tooling. **`supabase start` is an auth appliance, not a test database.**
 
 **FastAPI Dependency Override (official pattern):**
 
@@ -340,8 +354,9 @@ same command runs locally and in CI.
 
 Tier 2 fullstack is opt-in via `make test-eval-fullstack`. It sets
 `EVAL_FULLSTACK=1` and defaults `EVAL_MAX_CASES` to 50 for a thin run against a
-testcontainer DB plus the real catalog client. It is not a PR gate; use it for
-nightly or pre-release integration confidence.
+disposable `TEST_DATABASE_URL` plus the real catalog client. The standalone
+runner does not own container lifecycle and rejects `TEST_DB`. It is not a PR
+gate; use it for nightly or pre-release integration confidence.
 
 No-retry-until-green: eval tasks run once. `retry_task` and
 `EVAL_TASK_RETRIES` are not part of the eval contract; task errors are counted
@@ -367,7 +382,7 @@ dependencies and failure modes differ.
 
 | Dependency | Unit | Integration | API Test | Eval | E2E (Browser) |
 |-----------|------|-------------|----------|------|---------------|
-| **DB (asyncpg)** | `AsyncMock` | testcontainers PG | testcontainers PG | NullDatabase default; testcontainers fullstack | Real DB |
+| **DB (asyncpg)** | `AsyncMock` | Three-arm real DB fixture | Three-arm real DB fixture | NullDatabase default; BYO fullstack | Real DB |
 | **LLM (Pydantic AI)** | `TestModel` / N/A | `TestModel` | `TestModel` | **Real LLM** | Real LLM |
 | **Bangumi API** | `MagicMock` | `respx` | `respx` | Behind catalog tier; not direct | Real API |
 | **Anitabi API** | `MagicMock` | `respx` | `respx` | Behind catalog tier; not direct | Real API |
@@ -394,18 +409,11 @@ dependencies and failure modes differ.
 
 ### Migration Testing
 
-```python
-async def test_migrations_apply_cleanly(pg_container):
-    """All migration files apply to empty DB in order without error."""
-    dsn = pg_container.get_connection_url().replace("+psycopg2", "")
-    conn = await asyncpg.connect(dsn)
-    for sql_file in sorted(Path("supabase/migrations").glob("*.sql")):
-        await conn.execute(sql_file.read_text())
-    tables = await conn.fetch("SELECT tablename FROM pg_tables WHERE schemaname='public'")
-    table_names = {r['tablename'] for r in tables}
-    assert {'bangumi', 'points', 'feedback', 'request_log', 'api_keys'} <= table_names
-    await conn.close()
-```
+The test fixture never parses, filters, splits, or swallows migration SQL. Atlas 0.30.0 applies
+`db/migrations/` transactionally and records revisions in `public.atlas_schema_revisions`; tests
+then assert required tables, extensions, the `vector(1024)` column, and its HNSW index. Any
+Supabase migration exercised by integration tests must land with an auth-stripped Atlas twin in
+the same change. See `docs/ops/neon-test-infra.md` for the twin rule and `test-base` refresh.
 
 ### SQL Review Standards
 
@@ -466,9 +474,13 @@ Weekly CI run without cassettes verifies APIs haven't changed.
 
 ### Test Environment
 
-- Backend: `localhost:8080` (FastAPI + testcontainers PG or seed data)
+- Backend: `localhost:8080` (FastAPI; choose its DB arm separately)
 - Frontend: `localhost:3000` (Next.js dev server)
+- Auth: local Supabase GoTrue + `send-auth-email` + Mailpit
 - **Nothing is mocked**
+
+`make e2e-setup` starts the retained auth appliance and seeds its compatibility database. That
+database is specific to the magic-link browser flow; agent integration tests do not reuse it.
 
 ### Core Journeys
 
@@ -508,13 +520,13 @@ Beyond AC-defined scenarios, Evaluator proactively generates:
 
 ## Coverage Targets & CI
 
-### Current State (as of 2026-04-11)
+### Current State (as of 2026-07-18)
 
 | Area | Status | Notes |
 |------|--------|-------|
-| Backend unit coverage | ✅ CI enforced | `--cov-fail-under=70` in ci.yml |
+| Backend unit coverage | ✅ Enforced | `pytest.ini` requires at least 82% |
 | Backend coverage upload | ⚠️ Weak | Codecov configured but `continue-on-error: true` |
-| Backend integration | ⚠️ Weak | Only runs on main push, `continue-on-error: true` |
+| Backend integration | ⚠️ Calibrating | Phase C Neon job is non-gating until 10 consecutive greens |
 | Frontend tests | ❌ None | No vitest, no test runner, no coverage |
 | Eval in CI | ⚠️ Partial | `eval` job exists but separate from merge gate |
 
@@ -522,7 +534,7 @@ Beyond AC-defined scenarios, Evaluator proactively generates:
 
 | Layer | Current | Target | Enforcement |
 |-------|---------|--------|-------------|
-| Backend unit | ~70% (CI gate) | **80%** | `--cov-fail-under=80` |
+| Backend unit | ≥82% | **≥82%, ratchet up only** | `--cov-fail-under=82` |
 | Backend integration | ~20% | **50%** | CI must-pass (remove `continue-on-error`) |
 | Frontend unit+component | **0%** | **60%** | New vitest job with `--coverage` |
 | E2E journeys | **0** | **8 journeys** | Evaluator runs pre-merge |
@@ -627,10 +639,11 @@ The following is embedded directly in Executor and Reviewer prompts. No runtime 
 
 ### testcontainers
 
-- Fixture `scope="session"` to share container, avoid per-test restart
-- `yield` fixture ensures cleanup
-- DSN conversion: remove `+psycopg2` for asyncpg format
-- TRUNCATE tables after each test for isolation
+- The session fixture selects BYO, explicit Docker/Neon, or the offline default once
+- Use `container.get_connection_url(driver=None)` so asyncpg receives a plain PostgreSQL URL
+- `yield` fixtures and the Neon API fallback both enforce lifecycle cleanup
+- Apply migrations only through pinned Atlas; never filter or split SQL in Python
+- Keep pgvector/HNSW coverage unconditional on both container arms
 
 ### respx
 
@@ -678,9 +691,9 @@ The following is embedded directly in Executor and Reviewer prompts. No runtime 
 ### Mock Rules (by test layer)
 
 - Unit: mock all external dependencies (DB, API, LLM)
-- Integration: mock only LLM, DB via testcontainers
+- Integration: mock only LLM; DB uses the three-arm real fixture
 - API test: mock only LLM, real DB
-- Agent eval: trajectory uses NullDatabase + MockCatalogClient; fullstack uses testcontainers + real catalog
+- Agent eval: trajectory uses NullDatabase + MockCatalogClient; fullstack uses BYO + real catalog
 - Frontend component: MSW mock API layer
 - E2E: **mock nothing**
 - Use `respx` for HTTP mocks, `AsyncMock` for async functions

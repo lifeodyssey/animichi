@@ -20,7 +20,7 @@ supabase start --exclude vector,analytics --ignore-health-check
 echo ""
 
 echo "=== 2/6 Seeding test data ==="
-docker exec -i supabase_db_seichijunrei-agent psql -U postgres < agent/tests/fixtures/seed.sql
+docker exec -i supabase_db_seichijunrei-agent psql -U postgres < apps/agent/agent/tests/fixtures/seed.sql
 echo ""
 
 echo "=== 3/5 Serving Edge Function ==="

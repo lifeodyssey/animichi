@@ -93,7 +93,8 @@ If stuck after 3 attempts on the same approach:
 
 ### Testing
 - Unit: mock all external deps (DB, API, LLM)
-- Integration: only mock LLM, DB via testcontainers
+- Integration: only mock LLM. DB fixtures select BYO via `TEST_DATABASE_URL`, explicit
+  `TEST_DB=docker|neon`, or the offline Docker default; never assume a local Supabase database.
 - Use respx for HTTP mocks, TestModel for Pydantic AI, factory-boy for test data
 - Use MSW for frontend API mocking
 
