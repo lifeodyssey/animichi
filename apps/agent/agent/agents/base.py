@@ -24,13 +24,14 @@ from agent.config.model_aliases import (
     credential_value,
     model_alias_from_spec,
 )
-from agent.config.settings import Settings
+from agent.config.settings import Settings, _is_local_base_url
 
 T = TypeVar("T", bound=BaseModel)
 
 _DEFAULT_MODEL_SPEC = "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
 _MODEL_ALIAS_PATTERN = re.compile(r"[a-z0-9_-]+")
 _APP_CLIENT_HEADER = "X-App-Client"
+_LOCAL_DEV_API_KEY = "local-dev-placeholder"
 
 
 def build_model_http_client(settings: Settings | None = None) -> httpx.AsyncClient:
@@ -63,12 +64,19 @@ def _app_client_name() -> str:
     return f"animichi {environment}"
 
 
+def _model_api_key(alias: ModelAlias) -> str | None:
+    api_key = credential_value(alias.credential_ref)
+    if api_key is None and _is_local_base_url(alias.fixed_base_url):
+        return _LOCAL_DEV_API_KEY
+    return api_key
+
+
 def _sdk_client(
     alias: ModelAlias, client: httpx.AsyncClient, *, max_retries: int
 ) -> AsyncOpenAI:
     return AsyncOpenAI(
         base_url=alias.fixed_base_url,
-        api_key=credential_value(alias.credential_ref),
+        api_key=_model_api_key(alias),
         http_client=client,
         max_retries=max_retries,
         default_headers={_APP_CLIENT_HEADER: _app_client_name()},
