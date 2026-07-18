@@ -6,7 +6,7 @@
  * (`packages/contract/src/models.ts`).
  *
  * Flow: fetch points for `point_ids` (joined to bangumi for the anime title) ->
- * `clusterByLocation` (50m) -> typed too-many-clusters guard ->
+ * `clusterByLocation` (50m) -> deterministic 50-cluster cap ->
  * `buildTimedItinerary` -> expand the ordered clusters back to their member
  * points (= `ordered_points`) -> `Route`.
  *
@@ -19,7 +19,6 @@
 import { sql } from "drizzle-orm";
 import type { ClusterablePoint, LocationCluster } from "../lib/clustering";
 import { clusterByLocation } from "../lib/clustering";
-import { routeTooManyClusters } from "../lib/errors";
 import { optional } from "../lib/optional";
 import type { Origin as KernelOrigin, Pacing, TimedItinerary } from "../lib/route";
 import { buildTimedItinerary, MAX_ITINERARY_CLUSTERS } from "../lib/route";
@@ -73,10 +72,10 @@ type PointCluster = LocationCluster<ClusterablePilgrimagePoint>;
 /** Plan an ordered, timed route over `point_ids`. Empty/unknown ids -> count 0. */
 export async function route(db: RouteDb, input: RouteInput): Promise<Route> {
   const points = await fetchPoints(db, input.point_ids);
-  const clusters = clusterByLocation(points, 50);
-  if (clusters.length > MAX_ITINERARY_CLUSTERS) throw routeTooManyClusters(clusters.length, MAX_ITINERARY_CLUSTERS);
+  const allClusters = clusterByLocation(points, 50);
+  const clusters = allClusters.slice(0, MAX_ITINERARY_CLUSTERS);
   const itinerary = buildTimedItinerary(clusters, kernelOpts(input));
-  return assembleRoute(clusters, itinerary);
+  return assembleRoute(clusters, itinerary, allClusters.length);
 }
 
 /** SELECT the points for `ids` joined to their bangumi, preserving `ids` order. */
@@ -143,9 +142,15 @@ function kernelOpts(input: RouteInput): { pacing?: Pacing; origin?: KernelOrigin
 }
 
 /** Assemble the contract `Route` from the ordered clusters and the itinerary. */
-function assembleRoute(clusters: PointCluster[], itinerary: TimedItinerary): Route {
+function assembleRoute(clusters: PointCluster[], itinerary: TimedItinerary, totalClusters: number): Route {
   const ordered = orderPoints(clusters, itinerary);
-  return { ...animeMeta(ordered[0]), ordered_points: ordered, point_count: ordered.length, timed_itinerary: itinerary };
+  return { ...animeMeta(ordered[0]), ...truncationMeta(clusters.length, totalClusters), ordered_points: ordered, point_count: ordered.length, timed_itinerary: itinerary };
+}
+
+/** Add disclosure fields only when the deterministic cluster cap was applied. */
+function truncationMeta(shown: number, total: number): Partial<Pick<Route, "truncated" | "shown_cluster_count" | "total_cluster_count">> {
+  if (shown === total) return {};
+  return { truncated: true, shown_cluster_count: shown, total_cluster_count: total };
 }
 
 /** Expand the itinerary's ordered stops back to their member points, in order. */

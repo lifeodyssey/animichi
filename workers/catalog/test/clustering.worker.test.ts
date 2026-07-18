@@ -48,20 +48,13 @@ function assertMergesCloseKeepsFar(): void {
   ];
   const clusters = clusterByLocation(pts);
   expect(clusters.map((c) => c.clusterId)).toEqual(["a", "c"]);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[0]!.photoCount).toBe(2);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[0]!.centerLat).toBeCloseTo(35.000150000000005, 12);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[0]!.centerLng).toBe(135.0);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[0]!.points.map((p) => p.id)).toEqual(["a", "b"]);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[1]!.photoCount).toBe(1);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[1]!.centerLat).toBe(35.01);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[1]!.points.map((p) => p.id)).toEqual(["c"]);
+  expect(clusters.at(0)?.photoCount).toBe(2);
+  expect(clusters.at(0)?.centerLat).toBeCloseTo(35.000150000000005, 12);
+  expect(clusters.at(0)?.centerLng).toBe(135.0);
+  expect(clusters.at(0)?.points.map((p) => p.id)).toEqual(["a", "b"]);
+  expect(clusters.at(1)?.photoCount).toBe(1);
+  expect(clusters.at(1)?.centerLat).toBe(35.01);
+  expect(clusters.at(1)?.points.map((p) => p.id)).toEqual(["c"]);
 }
 
 function assertTransitiveChain(): void {
@@ -72,14 +65,10 @@ function assertTransitiveChain(): void {
   ];
   const clusters = clusterByLocation(pts);
   expect(clusters).toHaveLength(1);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[0]!.clusterId).toBe("a");
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[0]!.photoCount).toBe(3);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[0]!.centerLat).toBeCloseTo(35.0003, 12);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[0]!.points.map((p) => p.id)).toEqual(["a", "b", "c"]);
+  expect(clusters.at(0)?.clusterId).toBe("a");
+  expect(clusters.at(0)?.photoCount).toBe(3);
+  expect(clusters.at(0)?.centerLat).toBeCloseTo(35.0003, 12);
+  expect(clusters.at(0)?.points.map((p) => p.id)).toEqual(["a", "b", "c"]);
 }
 
 function assertAllDistantSortedById(): void {
@@ -91,10 +80,8 @@ function assertAllDistantSortedById(): void {
   const clusters = clusterByLocation(pts);
   expect(clusters.map((c) => c.clusterId)).toEqual(["x", "y", "z"]);
   expect(clusters.every((c) => c.photoCount === 1)).toBe(true);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[0]!.centerLat).toBe(37.0);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[2]!.centerLat).toBe(35.0);
+  expect(clusters.at(0)?.centerLat).toBe(37.0);
+  expect(clusters.at(2)?.centerLat).toBe(35.0);
 }
 
 function assertAlphabeticalClusterId(): void {
@@ -105,10 +92,8 @@ function assertAlphabeticalClusterId(): void {
   ];
   const clusters = clusterByLocation(pts);
   expect(clusters).toHaveLength(1);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[0]!.clusterId).toBe("a");
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(clusters[0]!.points.map((p) => p.id)).toEqual(["m", "a", "z"]);
+  expect(clusters.at(0)?.clusterId).toBe("a");
+  expect(clusters.at(0)?.points.map((p) => p.id)).toEqual(["m", "a", "z"]);
 }
 
 describe("clusterByLocation (clustering.ts)", () => {
