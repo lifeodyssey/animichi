@@ -1,0 +1,237 @@
+/* しおり layout family (S4.1). Semantic tokens only; layout is pure CSS. */
+
+.shiori-card {
+  container-type: inline-size;
+  display: grid;
+  gap: 10px;
+  width: min(320px, 100%);
+  padding: 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-card);
+  box-shadow: var(--shadow-press);
+  font-family: var(--app-font-body);
+}
+
+.shiori-card--poster-fallback {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+.shiori-head {
+  display: grid;
+  gap: 3px;
+}
+
+.shiori-head__eyebrow {
+  margin: 0;
+  color: var(--color-muted-fg);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.shiori-card--poster-fallback .shiori-head__eyebrow {
+  color: inherit;
+  opacity: 0.82;
+}
+
+.shiori-head__title {
+  margin: 0;
+  font-family: var(--app-font-display);
+  font-size: 1.125rem;
+  font-weight: 900;
+  line-height: 1.3;
+}
+
+.shiori-head__sub {
+  margin: 0;
+  color: var(--color-muted-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.shiori-card--poster-fallback .shiori-head__sub {
+  color: inherit;
+  opacity: 0.82;
+}
+
+.shiori-stops,
+.shiori-poster-stops {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shiori-stop,
+.shiori-poster-stop {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: baseline;
+  column-gap: 8px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.shiori-stop {
+  grid-template-columns: 44px 1fr;
+}
+
+.shiori-stop__time,
+.shiori-poster-stop__time {
+  color: var(--color-muted-fg);
+  font-family: var(--app-font-mono);
+  font-size: 0.6875rem;
+}
+
+.shiori-card--poster-fallback .shiori-poster-stop__time {
+  color: inherit;
+  opacity: 0.75;
+}
+
+.shiori-poster-stop__check {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+  font-size: 0.6875rem;
+  font-weight: 900;
+}
+
+.shiori-empty {
+  margin: 0;
+  padding: 12px;
+  border: 1.5px dashed var(--color-border);
+  border-radius: 12px;
+  background: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.shiori-window {
+  margin: 0;
+  color: var(--color-muted-fg);
+  font-size: 0.6875rem;
+  font-weight: 800;
+}
+
+.shiori-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@container (min-width: 240px) {
+  .shiori-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.shiori-grid__cell {
+  position: relative;
+}
+
+.shiori-grid__overflow {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-fg) 55%, transparent);
+  color: var(--color-bg);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.shiori-tile {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+}
+
+.shiori-tile img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.shiori-tile__caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 3px 7px;
+  background: var(--color-muted);
+  font-size: 0.625rem;
+  font-weight: 800;
+}
+
+.shiori-tile__time {
+  color: var(--color-muted-fg);
+}
+
+.shiori-hero,
+.shiori-second {
+  display: grid;
+  gap: 6px;
+}
+
+.shiori-second {
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+}
+
+.shiori-hero__caption {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 900;
+}
+
+.shiori-hero__counter,
+.shiori-second__note {
+  color: var(--color-muted-fg);
+  font-size: 0.6875rem;
+  font-weight: 800;
+}
+
+.shiori-second__note {
+  margin: 0;
+}
+
+.shiori-badge {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  justify-self: end;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-bg) 16%, transparent);
+  border: 1.5px solid var(--color-focus);
+}
+
+.shiori-badge__count {
+  color: var(--color-focus);
+  font-size: 0.875rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.shiori-badge__label {
+  font-size: 0.625rem;
+  font-weight: 800;
+}
