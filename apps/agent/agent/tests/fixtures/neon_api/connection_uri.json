@@ -1,0 +1,3 @@
+{
+  "uri": "postgresql://neondb_owner:recorded-secret@ep-recorded.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+}

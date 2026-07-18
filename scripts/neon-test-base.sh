@@ -66,11 +66,8 @@ readonly BRANCH_NAME="${2:-}"
   die "ATLAS_VERSION must equal the repository pin ${PINNED_ATLAS_VERSION}"
 safe_identifier "$NEON_PROJECT_ID" || die "NEON_PROJECT_ID has an invalid format"
 
-readonly DATABASE_NAME="${NEON_DATABASE_NAME:-neondb}"
-readonly DATABASE_ROLE="${NEON_DATABASE_ROLE:-neondb_owner}"
-safe_identifier "$DATABASE_NAME" || die "NEON_DATABASE_NAME has an invalid format"
-safe_identifier "$DATABASE_ROLE" || die "NEON_DATABASE_ROLE has an invalid format"
-[[ "$DATABASE_NAME" != "postgres" ]] || die "NEON_DATABASE_NAME may not be the maintenance database postgres"
+readonly DATABASE_NAME="neondb"
+readonly DATABASE_ROLE="neondb_owner"
 
 for command in atlas curl psql python3; do
   need_command "$command"
@@ -210,8 +207,9 @@ if [[ "$MODE" == "provision" ]]; then
   run_db_step "deterministic empty database create" psql -X --set=ON_ERROR_STOP=1 "$MAINTENANCE_URL" \
     --command="CREATE DATABASE \"${DATABASE_NAME}\" OWNER \"${DATABASE_ROLE}\";"
 fi
-run_db_step "Atlas ${PINNED_ATLAS_VERSION} migration apply" atlas migrate apply \
-  --dir "file://db/migrations" --url "$DATABASE_URL"
+run_db_step "Atlas ${PINNED_ATLAS_VERSION} migration apply" env \
+  PYTHONPATH="$ROOT/apps/agent" DATABASE_URL="$DATABASE_URL" ATLAS_VERSION="$ATLAS_VERSION" \
+  python3 -m agent.tests.atlas_helper apply
 run_db_step "idempotent fixture seed" psql -X --set=ON_ERROR_STOP=1 "$DATABASE_URL" \
   --file="$SEED_FILE"
 run_db_step "service-role membership grant" psql -X --set=ON_ERROR_STOP=1 "$DATABASE_URL" \

@@ -31,10 +31,47 @@ from agent.tests.eval.official_evaluators import (
 from agent.tests.eval.run_agent_eval import (
     CliArgs,
     StreamingProgress,
+    _db_source,
+    _db_url,
     _export_dataset,
     _main,
     _parse_args,
 )
+
+
+def test_fullstack_db_url_prefers_secret_test_database_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected = "postgresql://owner:password@ep-safe.example/neondb?sslmode=require"
+    monkeypatch.setenv("EVAL_FULLSTACK", "1")
+    monkeypatch.setenv("TEST_DATABASE_URL", expected)
+    monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://legacy@localhost/legacy")
+
+    assert _db_url() == expected
+
+
+def test_fullstack_db_url_has_no_localhost_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("EVAL_FULLSTACK", "1")
+    monkeypatch.delenv("TEST_DATABASE_URL", raising=False)
+    monkeypatch.delenv("TEST_DB", raising=False)
+
+    with pytest.raises(RuntimeError) as error:
+        _db_url()
+
+    message = str(error.value)
+    assert "EVAL_FULLSTACK" in message
+    assert "TEST_DATABASE_URL" in message
+    assert "TEST_DB" in message
+    assert "localhost" not in message
+
+
+def test_fullstack_db_source_logs_host_only() -> None:
+    secret = "postgresql://owner:password@ep-safe.example/neondb?sslmode=require"
+    source = _db_source(secret)
+    assert source == "DB host: ep-safe.example"
+    assert "password" not in source
 
 
 @pytest.mark.parametrize(

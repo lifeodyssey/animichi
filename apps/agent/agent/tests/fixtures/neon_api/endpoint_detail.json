@@ -1,0 +1,8 @@
+{
+  "endpoint": {
+    "id": "ep-recorded",
+    "project_id": "project-test",
+    "branch_id": "br-ephemeral",
+    "type": "read_write"
+  }
+}
