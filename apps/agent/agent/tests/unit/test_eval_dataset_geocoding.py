@@ -22,6 +22,7 @@ NEW_CASES = {
     "C5_ja_001",
     "C5_zh_001",
     "C5_en_001",
+    "Q304_retrieval_place_001",
 }
 CASE_GEOCODE_KEYS: dict[str, str | None] = {
     "C1_ja_001": "宇治",
@@ -73,6 +74,7 @@ CASE_GEOCODE_KEYS: dict[str, str | None] = {
     "C5_ja_001": "府中",
     "C5_zh_001": "府中",
     "C5_en_001": "府中",
+    "Q304_retrieval_place_001": "秋叶原",
     "E2_ja_001": "京都",
     "E2_ja_002": None,
     "E2_ja_003": None,

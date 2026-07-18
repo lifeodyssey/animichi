@@ -12,6 +12,7 @@ from pydantic_ai.models import Model
 from pydantic_ai.usage import RunUsage
 
 from agent.agents.base import create_agent, resolve_model
+from agent.agents.title_matching import looks_like_wrong_variant
 from agent.clients.catalog_client import (
     CatalogClientProtocol,
     ResolveOutcome,
@@ -97,13 +98,16 @@ async def _catalog_zh_title(
     except (APIError, OSError, RuntimeError, ValueError) as exc:
         logger.warning("translation_catalog_failed", title=title, error=str(exc))
         return None
-    return _resolved_title_cn(outcome)
+    return _resolved_title_cn(outcome, title)
 
 
-def _resolved_title_cn(outcome: ResolveOutcome) -> str | None:
+def _resolved_title_cn(outcome: ResolveOutcome, query: str) -> str | None:
     if not isinstance(outcome, ResolveResolved):
         return None
-    title_cn = outcome.match.title_cn.strip()
+    match = outcome.match
+    if looks_like_wrong_variant(query, (match.title, match.title_cn)):
+        return None
+    title_cn = match.title_cn.strip()
     return title_cn or None
 
 
