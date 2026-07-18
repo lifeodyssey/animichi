@@ -2,10 +2,7 @@ from __future__ import annotations
 
 from pydantic_ai import RunContext
 
-from agent.agents.agent_result import (
-    ProducedSearch,
-    RejectedSearch,
-)
+from agent.agents.agent_result import ProducedSearch, RejectedSearch
 from agent.agents.catalog_adapter import build_search_state
 from agent.agents.catalog_failures import (
     CATALOG_FAILURES,
@@ -22,6 +19,7 @@ from agent.agents.session_state import (
     ResultRef,
 )
 from agent.agents.step_recording import _record
+from agent.agents.title_matching import looks_like_wrong_variant
 from agent.agents.tool_outcomes import (
     NearbyEmpty,
     NearbyMissingLocation,
@@ -97,14 +95,13 @@ def _clear_pending(deps: RuntimeDeps) -> None:
 async def run_resolve(
     ctx: RunContext[RuntimeDeps], catalog: CatalogClientProtocol, title: str
 ) -> ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamDown:
-    """Resolve one anime and atomically stage every clarify outcome."""
     result: ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamDown
     try:
         resolved = await catalog.resolve(title)
     except CATALOG_FAILURES:
         result = ResolveUpstreamDown()
     else:
-        result = _adapt_resolve(ctx.deps, resolved)
+        result = _adapt_resolve(ctx.deps, resolved, title)
     _record(
         ctx.deps, ToolName.RESOLVE_ANIME.value, {"title": title}, result.model_dump()
     )
@@ -112,29 +109,43 @@ async def run_resolve(
 
 
 def _adapt_resolve(
-    deps: RuntimeDeps, resolved: object
+    deps: RuntimeDeps, resolved: object, query: str
 ) -> ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamDown:
     if isinstance(resolved, CatalogResolveResolved):
-        _clear_pending(deps)
-        match = resolved.match
-        deps.tool_state.session.current_anime = CurrentAnime(
-            bangumi_id=match.bangumi_id, title=match.title or match.title_cn
-        )
-        return ResolveResolved(
-            bangumi_id=match.bangumi_id,
-            anime_title=match.title or match.title_cn,
-        )
+        return _adapt_resolved(deps, resolved, query)
     if isinstance(resolved, CatalogResolveAmbiguous):
-        candidates = [_candidate(candidate) for candidate in resolved.candidates]
-        _set_pending(deps, "anime_ambiguity", candidates)
-        return ResolveAmbiguous(
-            candidate_ids=[candidate.id for candidate in candidates]
-        )
+        return _adapt_ambiguous(deps, resolved)
     if isinstance(resolved, CatalogResolveNotFound):
-        _set_pending(deps, "anime_not_found", [])
-        return ResolveNotFound()
+        return _adapt_not_found(deps)
     _clear_pending(deps)
     return ResolveUpstreamDown()
+
+
+def _adapt_resolved(
+    deps: RuntimeDeps, resolved: CatalogResolveResolved, query: str
+) -> ResolveResolved | ResolveNotFound:
+    match = resolved.match
+    if looks_like_wrong_variant(query, (match.title, match.title_cn)):
+        return _adapt_not_found(deps)
+    _clear_pending(deps)
+    title = match.title or match.title_cn
+    deps.tool_state.session.current_anime = CurrentAnime(
+        bangumi_id=match.bangumi_id, title=title
+    )
+    return ResolveResolved(bangumi_id=match.bangumi_id, anime_title=title)
+
+
+def _adapt_ambiguous(
+    deps: RuntimeDeps, resolved: CatalogResolveAmbiguous
+) -> ResolveAmbiguous:
+    candidates = [_candidate(candidate) for candidate in resolved.candidates]
+    _set_pending(deps, "anime_ambiguity", candidates)
+    return ResolveAmbiguous(candidate_ids=[candidate.id for candidate in candidates])
+
+
+def _adapt_not_found(deps: RuntimeDeps) -> ResolveNotFound:
+    _set_pending(deps, "anime_not_found", [])
+    return ResolveNotFound()
 
 
 async def run_work_search(

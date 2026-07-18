@@ -14772,5 +14772,206 @@
       "difficulty": "medium",
       "notes": "Tokyo and Hiroshima clusters"
     }
+  },
+  {
+    "id": "Q304_locale_zh_001",
+    "path": "general_anime_qa",
+    "tier": "happy",
+    "query": "为什么动漫圣地巡礼这么受欢迎",
+    "locale": "ja",
+    "acceptable_stages": [
+      "general_qa"
+    ],
+    "expected_data_keys": [],
+    "context": {
+      "message_history": [
+        {
+          "user": "日本語で案内してください",
+          "assistant": "承知しました。日本語でご案内します。"
+        }
+      ]
+    },
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "none",
+      "difficulty": "medium",
+      "notes": "Current Chinese turn must override Japanese history and browser locale.",
+      "tags": [
+        "issue-304",
+        "pending-eval",
+        "locale-current-turn"
+      ]
+    }
+  },
+  {
+    "id": "Q304_locale_en_001",
+    "path": "general_anime_qa",
+    "tier": "happy",
+    "query": "Why are anime pilgrimage sites popular?",
+    "locale": "ja",
+    "acceptable_stages": [
+      "general_qa"
+    ],
+    "expected_data_keys": [],
+    "context": {
+      "message_history": [
+        {
+          "user": "日本語で案内してください",
+          "assistant": "承知しました。日本語でご案内します。"
+        }
+      ]
+    },
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "none",
+      "difficulty": "medium",
+      "notes": "Current English turn must override Japanese history and browser locale.",
+      "tags": [
+        "issue-304",
+        "pending-eval",
+        "locale-current-turn"
+      ]
+    }
+  },
+  {
+    "id": "Q304_locale_ja_001",
+    "path": "general_anime_qa",
+    "tier": "happy",
+    "query": "アニメの聖地巡礼はなぜ人気ですか",
+    "locale": "en",
+    "acceptable_stages": [
+      "general_qa"
+    ],
+    "expected_data_keys": [],
+    "context": {
+      "message_history": [
+        {
+          "user": "Please answer in English.",
+          "assistant": "Sure, I will answer in English."
+        }
+      ]
+    },
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "none",
+      "difficulty": "medium",
+      "notes": "Current Japanese turn must override English history and browser locale.",
+      "tags": [
+        "issue-304",
+        "pending-eval",
+        "locale-current-turn"
+      ]
+    }
+  },
+  {
+    "id": "Q304_retrieval_sequel_001",
+    "path": "exact_db_api_ok",
+    "tier": "happy",
+    "query": "涼宮ハルヒの消失の聖地を教えて",
+    "locale": "ja",
+    "acceptable_stages": [
+      "search_bangumi"
+    ],
+    "expected_data_keys": [
+      "results"
+    ],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "anime": "涼宮ハルヒの消失",
+      "bangumi_id": "3375",
+      "db_state": "hit_sparse",
+      "difficulty": "medium",
+      "notes": "Specific sequel must not resolve to the parent Haruhi entry.",
+      "tags": [
+        "issue-304",
+        "pending-eval",
+        "translation-retrieval",
+        "sequel"
+      ]
+    }
+  },
+  {
+    "id": "Q304_retrieval_season_001",
+    "path": "exact_db_api_ok",
+    "tier": "happy",
+    "query": "LoveLive! Sunshine!! pilgrimage spots",
+    "locale": "en",
+    "acceptable_stages": [
+      "search_bangumi"
+    ],
+    "expected_data_keys": [
+      "results"
+    ],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "anime": "ラブライブ! サンシャイン!!",
+      "bangumi_id": "165553",
+      "db_state": "hit_sparse",
+      "difficulty": "medium",
+      "notes": "Specific season alias must outrank the shorter parent-series alias.",
+      "tags": [
+        "issue-304",
+        "pending-eval",
+        "translation-retrieval",
+        "season"
+      ]
+    }
+  },
+  {
+    "id": "Q304_retrieval_place_001",
+    "path": "nearby_bare_location",
+    "tier": "happy",
+    "query": "秋叶原附近有什么动漫圣地",
+    "locale": "zh",
+    "acceptable_stages": [
+      "search_nearby"
+    ],
+    "expected_data_keys": [
+      "results"
+    ],
+    "expect_nonempty": true,
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "db_state": "hit_sparse",
+      "difficulty": "medium",
+      "notes": "Translated place name must remain on nearby/geocode routing, not anime resolution.",
+      "tags": [
+        "issue-304",
+        "pending-eval",
+        "translation-retrieval",
+        "place-name"
+      ]
+    }
+  },
+  {
+    "id": "Q304_retrieval_alias_001",
+    "path": "exact_db_api_ok",
+    "tier": "happy",
+    "query": "ＳＰＹ　ＦＡＭＩＬＹ pilgrimage locations",
+    "locale": "en",
+    "acceptable_stages": [
+      "search_bangumi"
+    ],
+    "expected_data_keys": [
+      "results"
+    ],
+    "context": null,
+    "selected_point_ids": null,
+    "metadata": {
+      "anime": "SPY×FAMILY",
+      "bangumi_id": "396387",
+      "db_state": "hit_sparse",
+      "difficulty": "medium",
+      "notes": "Full-width community spelling must normalize to the catalog alias.",
+      "tags": [
+        "issue-304",
+        "pending-eval",
+        "translation-retrieval",
+        "community-alias"
+      ]
+    }
   }
 ]

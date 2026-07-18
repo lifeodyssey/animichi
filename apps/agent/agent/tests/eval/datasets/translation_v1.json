@@ -65,5 +65,9 @@
   {"id":"T087","title":"四月は君の嘘","target":"en","expected":"Your Lie in April","source_hint":"web_search","metadata":{"category":"anime_title","difficulty":"hard","note":"official English localization"}},
   {"id":"T088","title":"四月は君の嘘","target":"zh","expected":"四月是你的谎言","source_hint":"web_search","metadata":{"category":"anime_title","difficulty":"medium","note":"direct Chinese translation"}},
   {"id":"T089","title":"蟲師","target":"en","expected":"Mushishi","source_hint":"web_search","metadata":{"category":"anime_title","difficulty":"hard","note":"romanized title, NOT 'Bug Master'"}},
-  {"id":"T090","title":"らき☆すた","target":"zh","expected":"幸运星","source_hint":"web_search","metadata":{"category":"anime_title","difficulty":"hard","note":"community Chinese title, NOT literal"}}
+  {"id":"T090","title":"らき☆すた","target":"zh","expected":"幸运星","source_hint":"web_search","metadata":{"category":"anime_title","difficulty":"hard","note":"community Chinese title, NOT literal"}},
+
+  {"id":"Q304_T_SEQUEL_001","title":"涼宮ハルヒの消失","target":"zh","expected":"凉宫春日的消失","source_hint":"db","metadata":{"category":"anime_title","difficulty":"medium","note":"specific sequel must not resolve to parent entry","tags":["issue-304","pending-eval","translation-retrieval","sequel"]}},
+  {"id":"Q304_T_PLACE_001","title":"秋葉原駅","target":"zh","expected":"秋叶原站","source_hint":"llm","metadata":{"category":"place_name","difficulty":"easy","note":"place name must bypass anime-title resolution","tags":["issue-304","pending-eval","translation-retrieval","place-name"]}},
+  {"id":"Q304_T_ALIAS_001","title":"ＳＰＹ　ＦＡＭＩＬＹ","target":"zh","expected":"间谍过家家","source_hint":"db","metadata":{"category":"anime_title","difficulty":"medium","note":"full-width community spelling normalizes to catalog alias","tags":["issue-304","pending-eval","translation-retrieval","community-alias"]}}
 ]
