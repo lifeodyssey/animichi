@@ -15,11 +15,14 @@ from agent.agents.catalog_route_tools import run_route
 from agent.agents.catalog_tools import run_nearby_search
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import (
+    ClarifyResponseModel,
     QAResponseModel,
     RouteResponseModel,
     SearchResponseModel,
 )
 from agent.agents.session_state import (
+    OrderedCandidate,
+    PendingClarification,
     PointState,
     ResultRef,
     RoutePayloadState,
@@ -34,6 +37,25 @@ from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
 def _deps(catalog: MockCatalogClient) -> RuntimeDeps:
     return RuntimeDeps(MagicMock(), "en", "test", catalog)
+
+
+def _seed_stale_clarification(deps: RuntimeDeps) -> ClarifyResponseModel:
+    candidate_ids = ["old-1", "old-2"]
+    deps.tool_state.session.pending_clarification = PendingClarification(
+        reason="anime_ambiguity",
+        candidate_ids=candidate_ids,
+        ordered_candidates=[
+            OrderedCandidate(id="old-1", title="Old 1"),
+            OrderedCandidate(id="old-2", title="Old 2"),
+        ],
+        revision=1,
+    )
+    deps.tool_state.session.clarification_revision = 1
+    return ClarifyResponseModel(
+        reason="anime_ambiguity",
+        message="Which old result?",
+        candidate_ids=candidate_ids,
+    )
 
 
 class _GeocodeDownCatalog(MockCatalogClient):
@@ -83,6 +105,7 @@ async def test_geocode_api_error_becomes_nearby_upstream_down() -> None:
 async def test_nearby_api_error_becomes_nearby_upstream_down() -> None:
     catalog = _NearbyDownCatalog()
     deps = _deps(catalog)
+    stale_clarification = _seed_stale_clarification(deps)
     deps.tool_state.origin_lat = 34.9
     deps.tool_state.origin_lng = 135.8
 
@@ -91,11 +114,15 @@ async def test_nearby_api_error_becomes_nearby_upstream_down() -> None:
     assert isinstance(outcome, NearbyUpstreamDown)
     assert deps.steps[-1].data == {"outcome": "upstream_unavailable"}
     assert isinstance(deps.steps[-1].provenance, RejectedSearch)
+    assert deps.tool_state.session.pending_clarification is None
+    with pytest.raises(ModelRetry):
+        await validate_output(MagicMock(deps=deps), stale_clarification)
 
 
 async def test_route_api_error_becomes_route_upstream_down() -> None:
     catalog = _RouteDownCatalog()
     deps = _deps(catalog)
+    stale_clarification = _seed_stale_clarification(deps)
     ref = ResultRef("search:test")
     deps.tool_state.session.store_search_result(
         ref,
@@ -108,5 +135,8 @@ async def test_route_api_error_becomes_route_upstream_down() -> None:
     assert isinstance(outcome, RouteUpstreamDown)
     assert deps.steps[-1].data == {"status": "upstream_unavailable"}
     assert isinstance(deps.steps[-1].provenance, RejectedRoute)
+    assert deps.tool_state.session.pending_clarification is None
     with pytest.raises(ModelRetry):
         await validate_output(MagicMock(deps=deps), RouteResponseModel(message="stale"))
+    with pytest.raises(ModelRetry):
+        await validate_output(MagicMock(deps=deps), stale_clarification)
