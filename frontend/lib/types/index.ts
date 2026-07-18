@@ -31,22 +31,28 @@ export type {
 
 export type { ErrorCode, ChatMessage } from "./components";
 
-export type { SeichijunreiMetadata, SeichijunreiMessage } from "./chat";
+export type { AnimichiMetadata, AnimichiMessage } from "./chat";
 
 // ── Type guards ────────────────────────────────────────────────────────────
 
 import type { RuntimeResponse } from "./api";
-import type { SearchResultData, RouteData, QAData, ClarifyData, TimedRouteData } from "./domain";
+import type {
+  SearchResultData,
+  RouteData,
+  QAData,
+  ClarifyData,
+  TimedRouteData,
+} from "./domain";
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
 export function isSearchData(data: RuntimeResponse["data"]): data is SearchResultData {
-  return isObjectRecord(data) && "results" in data && !("route" in data);
+  return isObjectRecord(data) && isObjectRecord(data.results) && !("route" in data);
 }
 
 export function isRouteData(data: RuntimeResponse["data"]): data is RouteData {
-  return isObjectRecord(data) && "route" in data;
+  return isObjectRecord(data) && isObjectRecord(data.route);
 }
 
 export function isQAData(data: RuntimeResponse["data"]): data is QAData {
@@ -54,11 +60,15 @@ export function isQAData(data: RuntimeResponse["data"]): data is QAData {
 }
 
 export function isClarifyData(data: RuntimeResponse["data"]): data is ClarifyData {
-  return isObjectRecord(data) && data.status === "needs_clarification" && "question" in data;
+  return (
+    isObjectRecord(data) &&
+    typeof data.reason === "string" &&
+    Array.isArray(data.candidates) &&
+    typeof data.clarification_id === "number"
+  );
 }
 
 export function isTimedRouteData(data: RuntimeResponse["data"]): data is TimedRouteData {
-  if (!isObjectRecord(data) || !("route" in data)) return false;
-  const route = (data as { route?: unknown }).route;
-  return isObjectRecord(route) && "timed_itinerary" in route;
+  if (!isObjectRecord(data) || !isObjectRecord(data.route)) return false;
+  return isObjectRecord(data.route.timed_itinerary);
 }

@@ -1,0 +1,46 @@
+# Refreshes only the protected test-base branch. The script's own identity rails
+# reject every other Neon branch and refresh mode never performs the wipe path.
+name: Neon test-base refresh
+
+on:
+  push:
+    branches: [main, feat/frontend-rebuild]
+    paths:
+      - db/migrations/**
+      - apps/agent/agent/tests/fixtures/seed.sql
+
+permissions:
+  contents: read
+
+env:
+  ATLAS_VERSION: "0.30.0"
+
+jobs:
+  test-base:
+    name: Refresh Neon test-base
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Atlas CLI
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/atlas-bin"
+          curl --proto '=https' --tlsv1.2 -sSfL \
+            "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" \
+            -o "$RUNNER_TEMP/atlas-bin/atlas"
+          # Keep synchronized with apps/agent/agent/tests/atlas_helper.py.
+          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas" \
+            | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
+          echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
+
+      - name: Refresh test-base schema and seed
+        run: scripts/neon-test-base.sh refresh test-base

@@ -1,0 +1,9 @@
+{
+  "branch": {
+    "id": "br-test-base",
+    "name": "test-base",
+    "project_id": "project-test",
+    "parent_id": "br-main",
+    "default": false
+  }
+}

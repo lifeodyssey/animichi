@@ -1,0 +1,24 @@
+{
+  "branches": [
+    {
+      "id": "br-main",
+      "name": "main",
+      "project_id": "project-test",
+      "default": true
+    },
+    {
+      "id": "br-test-base",
+      "name": "test-base",
+      "project_id": "project-test",
+      "parent_id": "br-main",
+      "default": false
+    },
+    {
+      "id": "br-ephemeral",
+      "name": "br-recorded-fixture",
+      "project_id": "project-test",
+      "parent_id": "br-test-base",
+      "default": false
+    }
+  ]
+}

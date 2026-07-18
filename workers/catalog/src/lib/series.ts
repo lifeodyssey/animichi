@@ -76,11 +76,11 @@ function link(adj: Map<string, Set<string>>, from: string, to: string): void {
 export function walkSeries(edges: SeriesEdge[], startWorkId: string): Set<string> {
   const adj = buildAdjacency(edges);
   const visited = new Set<string>([startWorkId]);
-  const queue: string[] = [startWorkId];
-  while (queue.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- queue is non-empty (while condition)
-    const current = queue.shift()!;
-    visit(adj.get(current), visited, queue);
+  let frontier = [startWorkId];
+  while (frontier.length > 0) {
+    const nextFrontier: string[] = [];
+    for (const current of frontier) visit(adj.get(current), visited, nextFrontier);
+    frontier = nextFrontier;
   }
   return visited;
 }
