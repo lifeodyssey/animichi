@@ -3,26 +3,18 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
 from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic_ai.ui.vercel_ai.response_types import (
-    BaseChunk,
-    DataChunk,
-    DoneChunk,
-    FinishChunk,
-    FinishStepChunk,
-    StartChunk,
-    StartStepChunk,
-)
 from starlette.responses import Response, StreamingResponse
 
+from agent.agents.runtime_deps import OnStep
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
     _get_runtime_api,
     _require_trusted_user,
 )
+from agent.interfaces.routes.chat_stream import stream_chat
 from agent.interfaces.schemas import PublicAPIRequest, PublicAPIResponse
 
 router = APIRouter(prefix="/v1", tags=["chat"])
@@ -122,29 +114,22 @@ def _runtime_request(request: Request, body: dict[str, object]) -> PublicAPIRequ
     )
 
 
-def _event(chunk: BaseChunk) -> str:
-    return f"data: {chunk.encode(6)}\n\n"
-
-
-async def _response_stream(response: PublicAPIResponse) -> AsyncIterator[str]:
-    yield _event(StartChunk())
-    yield _event(StartStepChunk())
-    yield _event(DataChunk(type="data-response", data=response.model_dump(mode="json")))
-    yield _event(FinishStepChunk())
-    yield _event(FinishChunk(finish_reason="stop"))
-    yield _event(DoneChunk())
-
-
 @router.post("/chat", responses={422: {"description": "Invalid chat request"}})
 async def handle_chat(
     request: Request,
     auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
 ) -> Response:
-    """Execute chat through RuntimeAPI; pending state is loaded by session ID."""
+    """Stream chat as an AI SDK UI message stream with tool + data parts."""
     api_request = _runtime_request(request, _decode_body(await request.body()))
-    response = await _get_runtime_api(request).handle(api_request, user_id=auth.user_id)
+    runtime_api = _get_runtime_api(request)
+
+    async def handler(on_step: OnStep) -> PublicAPIResponse:
+        return await runtime_api.handle(
+            api_request, user_id=auth.user_id, on_step=on_step
+        )
+
     return StreamingResponse(
-        _response_stream(response),
+        stream_chat(handler),
         media_type="text/event-stream",
         headers={"x-vercel-ai-ui-message-stream": "v1"},
     )
