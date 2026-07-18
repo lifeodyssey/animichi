@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { magicLink } = vi.hoisted(() => ({ magicLink: vi.fn() }));
 
@@ -10,6 +10,13 @@ vi.mock("better-auth/client/plugins", () => ({ magicLinkClient: () => ({}) }));
 import { isNeonAuthConfigured, sendMagicLink } from "../../src/lib/auth/neonAuth";
 
 const request = { email: "fan@example.com", callbackURL: "https://app.test/auth/callback" };
+
+beforeEach(() => {
+  // Hermetic baseline: neutralize any ambient VITE_NEON_AUTH_BASE_URL (e.g. a dev
+  // machine's apps/web/.env.local) so "unset" cases don't false-red. Passing
+  // undefined deletes the key from import.meta.env (vitest vi.stubEnv contract).
+  vi.stubEnv("VITE_NEON_AUTH_BASE_URL", undefined);
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
