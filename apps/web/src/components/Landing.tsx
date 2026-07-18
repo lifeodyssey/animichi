@@ -1,8 +1,11 @@
+import { LocaleProvider } from "../i18n/context";
+import { LandingPage } from "./landing/LandingPage";
+
+/** Landing entry: provides the i18n context to the marketing page. */
 export function Landing() {
   return (
-    <main className="app-shell hero" aria-labelledby="landing-title">
-      <h1 id="landing-title">Animichi</h1>
-      <p className="tagline">Find real-world anime routes with less friction.</p>
-    </main>
+    <LocaleProvider>
+      <LandingPage />
+    </LocaleProvider>
   );
 }
