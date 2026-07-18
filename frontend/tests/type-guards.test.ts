@@ -1,6 +1,12 @@
 import { it, expect } from "vitest";
 
-import { isSearchData, isRouteData, isQAData, isTimedRouteData } from "../lib/types";
+import {
+  isClarifyData,
+  isSearchData,
+  isRouteData,
+  isQAData,
+  isTimedRouteData,
+} from "../lib/types";
 
 // AC: isSearchData(null) returns false
 it("isSearchData returns false for null", () => {
@@ -29,6 +35,10 @@ it("isSearchData returns true for valid search data", () => {
   expect(isSearchData(data as never)).toBe(true);
 });
 
+it("isSearchData returns false when results is null", () => {
+  expect(isSearchData({ results: null } as never)).toBe(false);
+});
+
 it("isRouteData returns true for valid route data", () => {
   const data = {
     results: { rows: [], row_count: 0, strategy: "sql", status: "ok" },
@@ -37,6 +47,10 @@ it("isRouteData returns true for valid route data", () => {
     status: "ok",
   };
   expect(isRouteData(data as never)).toBe(true);
+});
+
+it("isRouteData returns false when route is null", () => {
+  expect(isRouteData({ route: null } as never)).toBe(false);
 });
 
 it("isSearchData returns false for route data (has route key)", () => {
@@ -65,6 +79,38 @@ it("isTimedRouteData returns false when route is null", () => {
 
 it("isTimedRouteData returns false when route is undefined", () => {
   expect(isTimedRouteData({ route: undefined } as never)).toBe(false);
+});
+
+it("isTimedRouteData returns false when timed itinerary is null", () => {
+  expect(isTimedRouteData({ route: { timed_itinerary: null } } as never)).toBe(false);
+});
+
+it("isClarifyData returns false when candidates is null", () => {
+  const data = {
+    reason: "anime_ambiguity",
+    candidates: null,
+    clarification_id: 1,
+  };
+  expect(isClarifyData(data as never)).toBe(false);
+});
+
+it("isClarifyData accepts stable-null candidate fields", () => {
+  const candidate = {
+    id: "1",
+    title: "Title",
+    cover_url: null,
+    city: null,
+    points_count: null,
+    lat: null,
+    lng: null,
+    effective_radius_m: null,
+  };
+  const data = {
+    reason: "anime_ambiguity",
+    candidates: [candidate],
+    clarification_id: 1,
+  };
+  expect(isClarifyData(data as never)).toBe(true);
 });
 
 it("isTimedRouteData returns true for route with timed_itinerary", () => {
