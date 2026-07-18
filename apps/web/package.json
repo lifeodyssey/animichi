@@ -13,9 +13,12 @@
     "preview": "wrangler dev"
   },
   "dependencies": {
+    "@protomaps/basemaps": "^5.7.2",
     "@tanstack/react-router": "^1.170.18",
     "@tanstack/react-start": "^1.168.30",
     "animal-island-ui-tailwind": "^1.0.16",
+    "maplibre-gl": "^5.24.0",
+    "pmtiles": "^4.4.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
