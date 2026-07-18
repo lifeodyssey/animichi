@@ -4,7 +4,7 @@ import type { CatalogDb } from "../src/db/client";
 import { ingestGuard, ingestWork } from "../src/ingest/orchestrator";
 import type { FetchLike } from "../src/ingest/sources";
 import {
-  databaseDescribeKnownFailing,
+  databaseDescribe,
   openServerlessDb,
   restoreNeonConfig,
   truncateCatalog,
@@ -129,67 +129,67 @@ beforeAll(async () => {
 
 afterAll(() => { restoreNeonConfig(); });
 
-databaseDescribeKnownFailing("#362", "ingestWork end-to-end: acquire -> fetch -> raw -> enrich -> publish", () => {
+databaseDescribe("ingestWork end-to-end: acquire -> fetch -> raw -> enrich -> publish", () => {
   it("ingests a new work and lands it in the catalog with a current version", async () => {
-    const result = await ingestWork(db, "new-work", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    const result = await ingestWork(db, "460100", { fetchImpl: makeFetch(ANITABI_POINTS) });
     expect(result).toEqual({ status: "ingested", version: 1, pointCount: 2 });
-    expect(await bangumiExists("new-work")).toBe(true);
-    expect(await pointCount("new-work")).toBe(2);
-    expect(await currentVersion("new-work")).toBe(1);
-    expect(await jobStatus("new-work")).toBe("done");
+    expect(await bangumiExists("460100")).toBe(true);
+    expect(await pointCount("460100")).toBe(2);
+    expect(await currentVersion("460100")).toBe(1);
+    expect(await jobStatus("460100")).toBe("done");
   });
 });
 
-databaseDescribeKnownFailing("#362", "ingestWork singleflight: concurrent double ingest", () => {
+databaseDescribe("ingestWork singleflight: concurrent double ingest", () => {
   it("yields exactly one 'ingested' and one 'in_progress'", async () => {
     let release: () => void = () => { /* placeholder replaced by Promise constructor */ };
     const gate = new Promise<void>((r) => (release = r));
     // Winner parks in fetch (job 'running'); loser's acquire then loses the race.
-    const winner = ingestWork(db, "race-work", { fetchImpl: makeGatedFetch(gate) });
-    await awaitRunning("race-work");
-    const loser = await ingestWork(db, "race-work", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    const winner = ingestWork(db, "460101", { fetchImpl: makeGatedFetch(gate) });
+    await awaitRunning("460101");
+    const loser = await ingestWork(db, "460101", { fetchImpl: makeFetch(ANITABI_POINTS) });
     release();
     const a = await winner;
     const statuses = [a.status, loser.status].sort();
     expect(statuses).toEqual(["in_progress", "ingested"]);
-    expect(await currentVersion("race-work")).toBe(1);
+    expect(await currentVersion("460101")).toBe(1);
   });
 });
 
-databaseDescribeKnownFailing("#362", "ingestWork empty upstream: no points", () => {
+databaseDescribe("ingestWork empty upstream: no points", () => {
   it("returns 'empty', negative-caches, and blocks re-ingest within TTL", async () => {
     const fetchImpl = makeFetch([]);
-    const result = await ingestWork(db, "empty-work", { fetchImpl });
+    const result = await ingestWork(db, "460102", { fetchImpl });
     expect(result.status).toBe("empty");
-    expect(await jobStatus("empty-work")).toBe("failed");
-    expect(await bangumiExists("empty-work")).toBe(false);
-    const retry = await ingestWork(db, "empty-work", { fetchImpl });
+    expect(await jobStatus("460102")).toBe("failed");
+    expect(await bangumiExists("460102")).toBe(false);
+    const retry = await ingestWork(db, "460102", { fetchImpl });
     expect(retry.status).toBe("empty");
   });
 
   it("parks an upstream 404 for seven days and exposes a genuine-empty guard", async () => {
-    const result = await ingestWork(db, "404-work", { fetchImpl: notFoundFetch });
-    const ttl = await negativeCacheSeconds("404-work");
+    const result = await ingestWork(db, "460104", { fetchImpl: notFoundFetch });
+    const ttl = await negativeCacheSeconds("460104");
 
     expect(result.status).toBe("empty");
     expect(ttl).toBeGreaterThan(6 * 24 * 60 * 60);
     expect(ttl).toBeLessThanOrEqual(7 * 24 * 60 * 60);
-    await expect(ingestGuard(db, "404-work")).resolves.toBe("empty");
+    await expect(ingestGuard(db, "460104")).resolves.toBe("empty");
   });
 });
 
-databaseDescribeKnownFailing("#362", "ingestWork failed upstream: fetch throws", () => {
+databaseDescribe("ingestWork failed upstream: fetch throws", () => {
   it("throws typed upstream-unavailable and leaves a re-acquirable job", async () => {
-    await expect(ingestWork(db, "boom-work", { fetchImpl: throwingFetch })).rejects.toMatchObject({
+    await expect(ingestWork(db, "460103", { fetchImpl: throwingFetch })).rejects.toMatchObject({
       code: "UPSTREAM_UNAVAILABLE",
       defined: true,
       status: 502,
     });
-    expect(await jobStatus("boom-work")).toBe("failed");
+    expect(await jobStatus("460103")).toBe("failed");
     // After the negative-cache TTL elapses the work re-acquires and succeeds.
-    await backdateNegativeCache("boom-work");
-    const retry = await ingestWork(db, "boom-work", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    await backdateNegativeCache("460103");
+    const retry = await ingestWork(db, "460103", { fetchImpl: makeFetch(ANITABI_POINTS) });
     expect(retry.status).toBe("ingested");
-    expect(await jobStatus("boom-work")).toBe("done");
+    expect(await jobStatus("460103")).toBe("done");
   });
 });
