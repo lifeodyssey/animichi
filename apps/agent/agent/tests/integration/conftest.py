@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from testcontainers.postgres import PostgresContainer
 
 from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.runtime_deps import OnStep, StepEvent
@@ -38,17 +37,20 @@ from agent.infrastructure.session import create_session_store
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.fastapi_service import create_fastapi_app
 from agent.interfaces.public_api import RuntimeAPI
+from agent.tests.conftest_db import DatabaseTarget
 
 pytest_plugins = ("agent.tests.conftest_db",)
 
 
 @pytest.fixture
-async def tc_db(pg_container: PostgresContainer) -> AsyncIterator[SupabaseClient]:
+async def tc_db(pg_container: DatabaseTarget) -> AsyncIterator[SupabaseClient]:
     """A real SupabaseClient connected to the testcontainer PostgreSQL."""
-    dsn = pg_container.get_connection_url()
-    # Convert psycopg2 DSN to asyncpg format
-    dsn = dsn.replace("+psycopg2", "").replace("psycopg2", "")
-    client = SupabaseClient(dsn, min_pool_size=1, max_pool_size=5)
+    client = SupabaseClient(
+        pg_container.dsn,
+        min_pool_size=1,
+        max_pool_size=5,
+        statement_cache_size=0,
+    )
     await client.connect()
     yield client
     await client.close()

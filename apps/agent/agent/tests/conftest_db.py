@@ -1,214 +1,330 @@
-"""Testcontainer-based PostgreSQL fixtures for integration and eval tests.
-
-Usage: import this conftest in integration/eval test files that need a real DB.
-The pg_container fixture is session-scoped (one container per test run).
-"""
+"""Three-arm database fixtures for integration and full-stack eval tests."""
 
 from __future__ import annotations
 
-import re
+import asyncio
+import contextlib
+import os
 import shutil
 import subprocess
-from collections.abc import AsyncIterator, Iterator
+import time
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 import asyncpg
-import psycopg2
 import pytest
+from testcontainers.core.container import DockerContainer
 from testcontainers.postgres import PostgresContainer
 
 from agent.infrastructure.supabase.client import SupabaseClient
+from agent.tests.atlas_helper import apply_migrations, expected_revisions
+from agent.tests.db_config import (
+    DatabaseArm,
+    DatabaseConfig,
+    dsn_host,
+    is_local_host,
+    preflight_plan,
+    select_database_arm,
+)
+from agent.tests.neon_api import Branch, NeonApi
+
+ROOT = Path(__file__).resolve().parents[4]
+SEED_FILE = Path(__file__).parent / "fixtures" / "seed.sql"
+OFFLINE_IMAGE = "animichi-test-postgres:16-3.4-pgvector-0.8.5"
+OFFLINE_DOCKERFILE = ROOT / "docker" / "test-postgres" / "Dockerfile"
+NEON_LOCAL_IMAGE = "neondatabase/neon_local:latest"
+
+
+@dataclass(frozen=True)
+class DatabaseTarget:
+    dsn: str
+    arm: DatabaseArm
+    branch_id: str | None = None
+
+    def get_connection_url(self) -> str:
+        return self.dsn
+
+
+class LifecycleContainer(Protocol):
+    def start(self) -> object: ...
+
+    def stop(self) -> None: ...
+
+
+ContainerFactory = Callable[[DatabaseConfig, Branch], LifecycleContainer]
 
 
 def _docker_available() -> bool:
-    """Check if Docker daemon is running."""
     if shutil.which("docker") is None:
         return False
     try:
-        result = subprocess.run(["docker", "info"], capture_output=True, timeout=5)
-        return result.returncode == 0
-    except (OSError, FileNotFoundError):
+        result = subprocess.run(
+            ["docker", "info"], capture_output=True, timeout=5, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired):
         return False
+    return result.returncode == 0
 
 
-# parents[4] = repo root (this file lives at apps/agent/agent/tests/conftest_db.py)
-MIGRATIONS_DIR = Path(__file__).resolve().parents[4] / "supabase" / "migrations"
-SEED_FILE = Path(__file__).parent / "fixtures" / "seed.sql"
-
-# Skip extensions that require special installation in plain postgres.
-#
-# Image choice — postgis/postgis:16-3.4 (NOT a postgis+pgvector combo):
-# Our migrations need BOTH PostGIS (geometry/GIST) and pgvector (embedding/HNSW)
-# in the same database, but no MAINTAINED single image ships both:
-#   - postgis/postgis:16-3.4   → PostGIS, no pgvector .so
-#   - pgvector/pgvector:pg16   → pgvector, no PostGIS (no *-postgis tags exist)
-# Only unmaintained personal images combine them, which we will not depend on in
-# CI. So we keep the official PostGIS image and neutralize pgvector lines below
-# (vector(N) -> TEXT, drop CREATE EXTENSION vector / HNSW index statements).
-#
-# CONSEQUENCE: integration tests do NOT exercise real pgvector behaviour
-# (similarity search, HNSW). That path is validated in CD against a real
-# Neon PR-branch database where the pgvector extension is present.
-SKIP_EXTENSIONS = {"vector"}
+def _offline_build_command() -> str:
+    relative = OFFLINE_DOCKERFILE.relative_to(ROOT)
+    return f"docker build -f {relative} -t {OFFLINE_IMAGE} ."
 
 
-def _filter_migration_lines(sql: str) -> str:
-    """Remove pgvector-specific lines from migration SQL.
-
-    Removes the standalone CREATE EXTENSION vector statement and neutralizes
-    pgvector column types (vector(N) -> TEXT) in place. Vector-op statements
-    (HNSW index) are dropped later at the statement level.
-    """
-    lines = sql.split("\n")
-    filtered: list[str] = []
-    for line in lines:
-        stripped = line.strip()
-        # Skip CREATE EXTENSION ... vector (standalone statement, safe to drop)
-        if re.match(r"CREATE EXTENSION.*\bvector\b", stripped, re.IGNORECASE):
-            continue
-        # Neutralize pgvector column TYPE in place. Dropping the whole line would
-        # swallow a trailing ';' when the vector column ends a multi-column
-        # ALTER/CREATE, merging it with the next statement (syntax error).
-        line = re.sub(r"\bvector\s*\(\s*\d+\s*\)", "TEXT", line, flags=re.IGNORECASE)
-        filtered.append(line)
-
-    result = "\n".join(filtered)
-    # Fix trailing commas before closing paren: "TEXT,\n)" → "TEXT\n)"
-    result = re.sub(r",(\s*\))", r"\1", result)
-    return result
+def _require_offline_image() -> None:
+    if not _docker_available():
+        raise RuntimeError("Docker is required for the default TEST_DB=docker arm")
+    result = subprocess.run(
+        # literal (not OFFLINE_IMAGE): ruff S603 requires fully-literal subprocess args.
+        ["docker", "image", "inspect", "animichi-test-postgres:16-3.4-pgvector-0.8.5"],
+        capture_output=True,
+        timeout=10,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"offline test image is missing; run: {_offline_build_command()}"
+        )
 
 
-def _skip_vector_statements(statements: list[str]) -> list[str]:
-    """Drop entire SQL statements that depend on pgvector."""
-    kept: list[str] = []
-    for stmt in statements:
-        # Skip any statement referencing vector ops or HNSW
-        if re.search(r"vector_(cosine|l2)_ops|USING\s+HNSW", stmt, re.IGNORECASE):
-            continue
-        # Skip dangling CREATE INDEX that lost its ON clause (from line removal)
-        if re.match(
-            r"\s*CREATE INDEX.*\n\s*$",
-            stmt,
-            re.IGNORECASE | re.DOTALL,
-        ):
-            continue
-        kept.append(stmt)
-    return kept
-
-
-def _split_sql_statements(sql: str) -> list[str]:
-    """Split SQL into individual statements, respecting $$ blocks."""
-    statements: list[str] = []
-    current: list[str] = []
-    in_dollar_block = False
-
-    for line in sql.split("\n"):
-        stripped = line.strip()
-
-        # Track $$ blocks (PL/pgSQL function bodies)
-        dollar_count = stripped.count("$$")
-        if dollar_count % 2 == 1:
-            in_dollar_block = not in_dollar_block
-
-        current.append(line)
-
-        # Statement boundary: semicolon (possibly followed by inline comment)
-        # Handles both "CREATE TABLE foo;" and "CREATE EXTENSION ...; -- comment"
-        code_part = stripped.split("--")[0].rstrip()
-        if not in_dollar_block and code_part.endswith(";"):
-            stmt = "\n".join(current).strip()
-            if stmt and stmt != ";":
-                statements.append(stmt)
-            current = []
-
-    # Catch any trailing content
-    remainder = "\n".join(current).strip()
-    if remainder and remainder != ";":
-        statements.append(remainder)
-
-    return statements
-
-
-def _apply_migrations_sync(dsn: str) -> None:
-    """Apply all SQL migrations from supabase/migrations/ in order.
-
-    Each statement is executed individually so that failures in one
-    (e.g. missing auth schema, pgvector type) do not block others.
-    """
-    conn = psycopg2.connect(dsn)
-    conn.autocommit = True
-    cur = conn.cursor()
-
-    migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
-    for f in migration_files:
-        sql = f.read_text()
-        sql_filtered = _filter_migration_lines(sql)
-        statements = _split_sql_statements(sql_filtered)
-        statements = _skip_vector_statements(statements)
-
-        for stmt in statements:
-            try:
-                cur.execute(stmt)
-            except Exception as e:
-                # Expected: auth schema refs, Supabase roles, etc.
-                print(f"  {f.name}: statement skipped: {e!s:.120}")
-
-    cur.close()
-    conn.close()
-
-
-def _seed_data_sync(dsn: str) -> None:
-    """Seed test data from fixtures/seed.sql."""
-    if not SEED_FILE.exists():
-        return
-    conn = psycopg2.connect(dsn)
-    conn.autocommit = True
-    cur = conn.cursor()
-    cur.execute(SEED_FILE.read_text())
-    cur.close()
-    conn.close()
-
-
-def _to_psycopg2_dsn(url: str) -> str:
-    """Convert testcontainer URL to a plain psycopg2 DSN."""
+def _normalise_dsn(url: str) -> str:
     return url.replace("postgresql+psycopg2://", "postgresql://")
 
 
+def _clean_database_dsn(base_dsn: str, name: str) -> str:
+    """Create a template1 database and return its DSN.
+
+    The postgis base image pre-initialises POSTGRES_DB with the tiger/topology
+    schemas, which atlas's clean-check refuses; migrations run in a fresh
+    database instead (they create their own extensions).
+    """
+
+    async def _create() -> None:
+        connection = await asyncpg.connect(base_dsn, timeout=10)
+        try:
+            await connection.execute(f'CREATE DATABASE "{name}" TEMPLATE template1')
+        finally:
+            await connection.close()
+
+    asyncio.run(_create())
+    scheme, _, rest = base_dsn.rpartition("/")
+    del rest
+    # the local container speaks no TLS; Go's libpq default (require) would fail.
+    return f"{scheme}/{name}?sslmode=disable"
+
+
+@contextmanager
+def _offline_target() -> Iterator[DatabaseTarget]:
+    _require_offline_image()
+    with PostgresContainer(OFFLINE_IMAGE) as container:
+        base = _normalise_dsn(container.get_connection_url())
+        yield DatabaseTarget(
+            _clean_database_dsn(base, "animichi_test"), DatabaseArm.DOCKER
+        )
+
+
+def _new_neon_container(config: DatabaseConfig, parent: Branch) -> DockerContainer:
+    assert config.neon_api_key is not None
+    assert config.neon_project_id is not None
+    container = DockerContainer(NEON_LOCAL_IMAGE).with_exposed_ports(5432)
+    container.with_env("NEON_API_KEY", config.neon_api_key)
+    container.with_env("NEON_PROJECT_ID", config.neon_project_id)
+    container.with_env("PARENT_BRANCH_ID", parent.id)
+    return container.with_env("DELETE_BRANCH", "true")
+
+
+@contextmanager
+def _neon_target(
+    config: DatabaseConfig,
+    api: NeonApi | None = None,
+    container_factory: ContainerFactory = _new_neon_container,
+) -> Iterator[DatabaseTarget]:
+    assert config.neon_api_key is not None
+    assert config.neon_project_id is not None
+    client = api or NeonApi(config.neon_api_key, config.neon_project_id)
+    parent = client.resolve_test_base()
+    before = client.list_branches()
+    container = container_factory(config, parent)
+    branch: Branch | None = None
+    try:
+        container.start()
+        branch = client.wait_for_ephemeral(before, parent)
+        dsn = client.connection_uri(branch.id)
+        host = dsn_host(dsn)
+        if is_local_host(host) or "-pooler" in host:
+            raise RuntimeError(
+                "Neon arm did not resolve a direct cloud database endpoint"
+            )
+        print(f"Neon test branch {branch.id} ready on database host {host}")
+        yield DatabaseTarget(dsn, DatabaseArm.NEON, branch.id)
+    finally:
+        # graceful SIGTERM first so neon_local can run its own branch cleanup;
+        # testcontainers' stop() force-removes and would orphan the branch.
+        with contextlib.suppress(Exception):
+            container.get_wrapped_container().stop(timeout=20)
+        container.stop()
+        if branch is not None:
+            try:
+                client.wait_until_deleted(branch.id)
+            except RuntimeError:
+                client.delete_branch(branch.id)
+                print(f"Neon test branch {branch.id} force-deleted via API fallback")
+            else:
+                print(f"Neon test branch {branch.id} deleted")
+
+
+@contextmanager
+def _byo_target(config: DatabaseConfig) -> Iterator[DatabaseTarget]:
+    assert config.database_url is not None
+    yield DatabaseTarget(config.database_url, DatabaseArm.BYO)
+
+
+def _target_for(config: DatabaseConfig) -> AbstractContextManager[DatabaseTarget]:
+    if config.arm is DatabaseArm.DOCKER:
+        return _offline_target()
+    if config.arm is DatabaseArm.NEON:
+        return _neon_target(config)
+    return _byo_target(config)
+
+
+async def _open_connection(dsn: str) -> asyncpg.Connection:
+    return await asyncpg.connect(dsn, timeout=10, statement_cache_size=0)
+
+
+async def _probe_database(dsn: str) -> None:
+    connection = await _open_connection(dsn)
+    try:
+        await connection.fetchval("SELECT 1")
+    finally:
+        await connection.close()
+
+
+def _wake_database(target: DatabaseTarget) -> None:
+    for delay in (1, 2, 4, 8, 16, 0):
+        try:
+            asyncio.run(_probe_database(target.dsn))
+            return
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            if delay:
+                time.sleep(delay)
+    host = dsn_host(target.dsn)
+    raise RuntimeError(f"database host {host} was unreachable after bounded retries")
+
+
+async def _read_revisions(dsn: str) -> set[str]:
+    connection = await _open_connection(dsn)
+    try:
+        rows = await connection.fetch(
+            "SELECT version FROM public.atlas_schema_revisions"
+        )
+        return {str(row["version"]) for row in rows}
+    finally:
+        await connection.close()
+
+
+def _verify_revisions(target: DatabaseTarget) -> None:
+    try:
+        applied = asyncio.run(_read_revisions(target.dsn))
+    except (asyncpg.PostgresError, OSError, TimeoutError) as error:
+        raise RuntimeError("BYO Atlas revision verification failed") from error
+    missing = set(expected_revisions()) - applied
+    if missing:
+        raise RuntimeError(f"BYO database is behind by {len(missing)} migration(s)")
+
+
+async def _apply_seed(dsn: str) -> None:
+    connection = await _open_connection(dsn)
+    try:
+        async with connection.transaction():
+            await connection.execute(SEED_FILE.read_text(encoding="utf-8"))
+    finally:
+        await connection.close()
+
+
+def _seed(target: DatabaseTarget) -> None:
+    try:
+        asyncio.run(_apply_seed(target.dsn))
+    except (asyncpg.PostgresError, OSError, TimeoutError) as error:
+        raise RuntimeError("database seed failed; DSN withheld") from error
+
+
+async def _capabilities(dsn: str) -> asyncpg.Record | None:
+    connection = await _open_connection(dsn)
+    try:
+        return await connection.fetchrow(
+            """
+            SELECT to_regclass('public.bangumi') AS bangumi,
+                   to_regclass('public.route_anime') AS route_anime,
+                   EXISTS (
+                       SELECT 1 FROM pg_extension WHERE extname = 'vector'
+                   ) AS vector
+            """
+        )
+    finally:
+        await connection.close()
+
+
+def _verify_capabilities(target: DatabaseTarget) -> None:
+    try:
+        result = asyncio.run(_capabilities(target.dsn))
+    except (asyncpg.PostgresError, OSError, TimeoutError) as error:
+        raise RuntimeError("database capability check failed; DSN withheld") from error
+    if result is None or not all(
+        (result["bangumi"], result["route_anime"], result["vector"])
+    ):
+        raise RuntimeError("database lacks bangumi, route_anime, or pgvector")
+
+
+def _verify_byo_identity(config: DatabaseConfig, target: DatabaseTarget) -> None:
+    assert config.neon_api_key is not None
+    assert config.neon_project_id is not None
+    NeonApi(config.neon_api_key, config.neon_project_id).assert_mutable_dsn(target.dsn)
+
+
+def _prepare_database(config: DatabaseConfig, target: DatabaseTarget) -> None:
+    plan = preflight_plan(config)
+    _wake_database(target)
+    if plan.verify_revisions:
+        _verify_revisions(target)
+    if plan.apply_atlas:
+        elapsed = apply_migrations(target.dsn)
+        print(f"Atlas apply on database host {dsn_host(target.dsn)}: {elapsed:.1f}s")
+    _verify_capabilities(target)
+    if config.arm is DatabaseArm.BYO and not config.allow_mutation:
+        raise RuntimeError(
+            "BYO database verified read-only; set TEST_DB_ALLOW_MUTATION=1"
+        )
+    if plan.verify_identity:
+        _verify_byo_identity(config, target)
+    if plan.apply_seed:
+        _seed(target)
+    print(f"Database preflight passed for {target.arm} host {dsn_host(target.dsn)}")
+
+
 @pytest.fixture(scope="session")
-def pg_container() -> Iterator[PostgresContainer]:
-    """Spin up a PostgreSQL 16 container for the test session."""
-    with PostgresContainer("postgis/postgis:16-3.4") as pg:
-        dsn = _to_psycopg2_dsn(pg.get_connection_url())
-        _apply_migrations_sync(dsn)
-        _seed_data_sync(dsn)
-        yield pg
+def pg_container() -> Iterator[DatabaseTarget]:
+    config = select_database_arm(os.environ)
+    with _target_for(config) as target:
+        _prepare_database(config, target)
+        yield target
 
 
 @pytest.fixture
-async def db_pool(pg_container: PostgresContainer) -> AsyncIterator[asyncpg.Pool]:
-    """Create an asyncpg connection pool to the testcontainer."""
-    dsn = pg_container.get_connection_url()
-    # Convert psycopg2 DSN to asyncpg format
-    dsn = dsn.replace("+psycopg2", "").replace("psycopg2", "")
-    pool = await asyncpg.create_pool(dsn)
+async def db_pool(pg_container: DatabaseTarget) -> AsyncIterator[asyncpg.Pool]:
+    pool = await asyncpg.create_pool(pg_container.dsn, statement_cache_size=0)
     assert pool is not None
     yield pool
     await pool.close()
 
 
 @pytest.fixture
-async def real_db(db_pool: asyncpg.Pool) -> AsyncIterator[SupabaseClient]:
-    """Build a SupabaseClient wired to the testcontainer pool."""
-    client = SupabaseClient.__new__(SupabaseClient)
-    client._dsn = ""
-    client._min_pool_size = 1
-    client._max_pool_size = 2
-    client._pool = db_pool  # type: ignore[assignment]
-    client._bangumi = None
-    client._points = None
-    client._session = None
-    client._feedback = None
-    client._routes = None
-    client._messages = None
-    client._init_repos(db_pool)
+async def real_db(pg_container: DatabaseTarget) -> AsyncIterator[SupabaseClient]:
+    client = SupabaseClient(
+        pg_container.dsn, min_pool_size=1, max_pool_size=2, statement_cache_size=0
+    )
+    await client.connect()
     yield client
+    await client.close()

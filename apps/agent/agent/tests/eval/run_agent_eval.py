@@ -21,6 +21,7 @@ from pydantic_evals.reporting import ReportCase
 
 from agent.agents.agent_result import AgentResult
 from agent.interfaces.public_api import default_catalog_client
+from agent.tests.db_config import DatabaseArm, dsn_host, select_database_arm
 from agent.tests.eval.eval_gate_flow import (
     NoEvaluatedCases,
     finish_cli_report,
@@ -127,9 +128,17 @@ def _export_dataset(
 
 
 def _db_url() -> str:
-    return os.environ.get(
-        "SUPABASE_DB_URL", "postgresql://postgres:postgres@localhost:54322/postgres"
+    config = select_database_arm(os.environ)
+    if config.arm is DatabaseArm.BYO and config.database_url is not None:
+        return config.database_url
+    raise RuntimeError(
+        "EVAL_FULLSTACK=1 requires TEST_DATABASE_URL; TEST_DB container arms "
+        "are provided only by pytest"
     )
+
+
+def _db_source(db_url: str) -> str:
+    return f"DB host: {dsn_host(db_url)}"
 
 
 async def _target() -> EvalTierTarget:
@@ -160,7 +169,7 @@ async def _fullstack_target() -> EvalTierTarget:
         catalog_factory=default_catalog_client,
         layer="agent_l4",
         tier="fullstack",
-        source=f"DB: {db_url[:50]}...",
+        source=_db_source(db_url),
     )
 
 
