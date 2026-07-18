@@ -21,6 +21,13 @@ from pydantic_evals.reporting import ReportCase
 
 from agent.agents.agent_result import AgentResult
 from agent.interfaces.public_api import default_catalog_client
+from agent.tests.conftest_db import DatabaseTarget, preflight_byo_database
+from agent.tests.db_config import (
+    DatabaseArm,
+    DatabaseConfig,
+    dsn_host,
+    select_database_arm,
+)
 from agent.tests.eval.eval_gate_flow import (
     NoEvaluatedCases,
     finish_cli_report,
@@ -126,10 +133,24 @@ def _export_dataset(
     dataset.to_file(path, schema_path=None)
 
 
-def _db_url() -> str:
-    return os.environ.get(
-        "SUPABASE_DB_URL", "postgresql://postgres:postgres@localhost:54322/postgres"
+def _db_config() -> DatabaseConfig:
+    config = select_database_arm(os.environ)
+    if config.arm is DatabaseArm.BYO and config.database_url is not None:
+        return config
+    raise RuntimeError(
+        "EVAL_FULLSTACK=1 is BYO-only per test-infra spec section 3c: set "
+        "TEST_DATABASE_URL; TEST_DB container lifecycle belongs to pytest"
     )
+
+
+def _db_url() -> str:
+    database_url = _db_config().database_url
+    assert database_url is not None
+    return database_url
+
+
+def _db_source(db_url: str) -> str:
+    return f"DB host: {dsn_host(db_url)}"
 
 
 async def _target() -> EvalTierTarget:
@@ -152,15 +173,18 @@ def _trajectory_target() -> EvalTierTarget:
 async def _fullstack_target() -> EvalTierTarget:
     from agent.infrastructure.supabase.client import SupabaseClient
 
-    db_url = _db_url()
-    db = SupabaseClient(db_url)
+    config = _db_config()
+    db_url = config.database_url
+    assert db_url is not None
+    await preflight_byo_database(config, DatabaseTarget(db_url, DatabaseArm.BYO))
+    db = SupabaseClient(db_url, statement_cache_size=0)
     await db.connect()
     return EvalTierTarget(
         db=db,
         catalog_factory=default_catalog_client,
         layer="agent_l4",
         tier="fullstack",
-        source=f"DB: {db_url[:50]}...",
+        source=_db_source(db_url),
     )
 
 

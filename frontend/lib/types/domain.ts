@@ -9,10 +9,13 @@ export type Intent =
   | "search_nearby"
   | "plan_route"
   | "plan_selected"
+  | "plan_multi"
   | "answer_question"
   | "greet_user"
   | "general_qa"
   | "clarify"
+  | "partial"
+  | "blocked"
   | "unclear"
   | "unknown";
 
@@ -20,8 +23,8 @@ export type Intent =
 
 /** Single pilgrimage point returned by SQL/PostGIS queries. */
 export interface PilgrimagePoint {
-  id: string;
-  name: string;           // Japanese name
+  id: string | null;
+  name: string | null;    // Japanese name
   name_cn: string | null; // Chinese name
   episode: number | null;
   time_seconds: number | null;
@@ -29,13 +32,14 @@ export interface PilgrimagePoint {
   real_photo_url?: string | null; // Real-world photo for BeforeAfter comparison
   address?: string | null;       // legacy/demo-only field
   bangumi_id: string | null;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   title?: string | null;     // anime title (JP)
   title_cn?: string | null;  // anime title (CN)
   distance_m?: number | null; // present only in geo searches
   origin?: string | null;
   city?: string | null;        // reverse-geocoded city name (e.g. "Tokyo", "Takayama")
+  cover_url?: string | null;
 }
 
 // ── Response-level types (intent-specific data shapes) ─────────────────────
@@ -45,41 +49,46 @@ export interface NearbyGroup {
   bangumi_id: string;
   title: string;
   cover_url: string | null;
-  points_count: number;
-  closest_distance_m: number;
+  points_count: number | null;
+  closest_distance_m: number | null;
 }
 
 export interface ResultsMeta {
   rows: PilgrimagePoint[];
   row_count: number;
-  strategy: "sql" | "geo" | "hybrid";
+  strategy: "sql" | "geo" | "hybrid" | "bangumi";
   status: "ok" | "empty";
   metadata?: {
-    anime_title?: string;
-    anime_title_cn?: string;
+    anime_title?: string | null;
+    anime_title_cn?: string | null;
     cover_url?: string | null;
-    radius_m?: number;
+    data_origin?: string | null;
+    source?: string | null;
+    radius_m?: number | null;
+    cache?: string | null;
     [key: string]: unknown;
-  };
+  } | null;
   summary?: {
     count: number;
-    strategy: string;
+    strategy?: string;
     source: string;
     cache: string;
   };
-  nearby_groups?: NearbyGroup[];
+  nearby_groups?: NearbyGroup[] | null;
+  anime_id?: string | null;
+  anime_ids?: string[] | null;
+  omitted_work_ids?: string[] | null;
+  partial?: boolean;
 }
 
 /** data shape when intent = search_by_bangumi | search_by_location */
 export interface SearchResultData {
   results: ResultsMeta;
-  message: string;
-  status: "ok" | "empty" | "partial";
 }
 
 /** data shape when intent = plan_route */
 export interface RouteData {
-  results: ResultsMeta;
+  results?: ResultsMeta | null;
   route: {
     ordered_points: PilgrimagePoint[];
     point_count: number;
@@ -87,15 +96,17 @@ export interface RouteData {
     anime_title?: string;
     anime_title_cn?: string;
     status: "ok" | "empty";
-    summary?: {
+    summary: {
       point_count: number;
+      total_minutes: number;
+      total_distance_m: number;
+      clusters: number;
       with_coordinates: number;
       without_coordinates: number;
-    };
-    timed_itinerary?: TimedItinerary;
+    } | null;
+    source_ref: string | null;
+    timed_itinerary: TimedItinerary | null;
   };
-  message: string;
-  status: "ok" | "empty" | "partial";
 }
 
 /** A physical location cluster with multiple anime screenshot points. */
@@ -152,21 +163,21 @@ export interface QAData {
 
 /** A candidate item in a clarification response. */
 export interface ClarifyCandidate {
+  id: string;
   title: string;
   cover_url: string | null;
-  spot_count: number;
-  city: string;
+  city: string | null;
+  points_count: number | null;
+  lat: number | null;
+  lng: number | null;
+  effective_radius_m: number | null;
 }
 
-/** data shape when intent = clarify (SSE clarify event merged into response) */
+/** data shape when intent = clarify */
 export interface ClarifyData {
-  intent: string;
-  confidence: number;
-  status: "needs_clarification";
-  message: string;
-  question: string;
-  options: string[];
-  candidates?: ClarifyCandidate[];
+  reason: string;
+  candidates: ClarifyCandidate[];
+  clarification_id: number;
 }
 
 export type TimedRouteData = RouteData & {

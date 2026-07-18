@@ -4,6 +4,8 @@
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
+ATLAS_VERSION ?= 0.30.0
+export ATLAS_VERSION
 PYTHON ?= .venv/bin/python
 PYTEST ?= $(PYTHON) -m pytest
 

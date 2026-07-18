@@ -34,11 +34,17 @@ class SupabaseClient:
     """
 
     def __init__(
-        self, dsn: str, *, min_pool_size: int = 2, max_pool_size: int = 10
+        self,
+        dsn: str,
+        *,
+        min_pool_size: int = 2,
+        max_pool_size: int = 10,
+        statement_cache_size: int = 100,
     ) -> None:
         self._dsn = dsn
         self._min_pool_size = min_pool_size
         self._max_pool_size = max_pool_size
+        self._statement_cache_size = statement_cache_size
         self._pool: AsyncPGPool | None = None
         self._bangumi: BangumiRepository | None = None
         self._points: PointsRepository | None = None
@@ -56,6 +62,7 @@ class SupabaseClient:
                 self._dsn,
                 min_size=self._min_pool_size,
                 max_size=self._max_pool_size,
+                statement_cache_size=self._statement_cache_size,
             ),
             timeout=15,
         )

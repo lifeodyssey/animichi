@@ -28,7 +28,7 @@ _UI_MAP: dict[str, str] = {
 
 
 def _search_wire(payload: SearchPayloadState) -> dict[str, object]:
-    data = payload.model_dump(mode="json", exclude_none=True)
+    data = payload.model_dump(mode="json")
     data["status"] = "ok" if payload.row_count else "empty"
     data["strategy"] = "geo" if payload.kind == "nearby" else "bangumi"
     data["summary"] = {
@@ -40,7 +40,7 @@ def _search_wire(payload: SearchPayloadState) -> dict[str, object]:
 
 
 def _route_wire(payload: RoutePayloadState) -> dict[str, object]:
-    data = payload.model_dump(mode="json", exclude_none=True)
+    data = payload.model_dump(mode="json")
     data["point_count"] = len(payload.ordered_points)
     data["status"] = "ok" if payload.ordered_points else "empty"
     return data
@@ -74,7 +74,9 @@ def _clarify_data(result: AgentResult) -> dict[str, object]:
     return {
         "reason": output.reason,
         "candidates": [
-            candidate.model_dump(mode="json", exclude_none=True)
+            # journey contract: candidate keys (incl. cover_url) are always present,
+            # null when unknown — the frontend renders a fallback cover.
+            candidate.model_dump(mode="json")
             for candidate in pending.ordered_candidates
         ],
         "clarification_id": pending.revision,

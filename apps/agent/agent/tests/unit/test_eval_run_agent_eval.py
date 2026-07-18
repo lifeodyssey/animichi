@@ -34,10 +34,110 @@ from agent.tests.eval.official_evaluators import (
 from agent.tests.eval.run_agent_eval import (
     CliArgs,
     StreamingProgress,
+    _db_source,
+    _db_url,
     _export_dataset,
+    _fullstack_target,
     _main,
     _parse_args,
 )
+
+
+def test_fullstack_db_url_prefers_secret_test_database_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected = "postgresql://owner:password@ep-safe.example/neondb?sslmode=require"
+    monkeypatch.setenv("EVAL_FULLSTACK", "1")
+    monkeypatch.setenv("TEST_DATABASE_URL", expected)
+    monkeypatch.setenv(
+        "SUPABASE_DB_URL", "postgresql://legacy:placeholder@localhost/legacy"
+    )
+
+    assert _db_url() == expected
+
+
+def test_fullstack_db_url_has_no_localhost_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("EVAL_FULLSTACK", "1")
+    monkeypatch.delenv("TEST_DATABASE_URL", raising=False)
+    monkeypatch.delenv("TEST_DB", raising=False)
+
+    with pytest.raises(RuntimeError) as error:
+        _db_url()
+
+    message = str(error.value)
+    assert "EVAL_FULLSTACK" in message
+    assert "TEST_DATABASE_URL" in message
+    assert "TEST_DB" in message
+    assert "localhost" not in message
+    assert "spec section 3c" in message
+
+
+@pytest.mark.asyncio
+async def test_fullstack_target_runs_shared_byo_preflight_before_connect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from agent.infrastructure.supabase import client as supabase_client
+
+    db_url = "postgresql://owner:password@localhost:5432/test"
+    events: list[str] = []
+    monkeypatch.setenv("TEST_DATABASE_URL", db_url)
+    monkeypatch.setenv("TEST_DB_ALLOW_MUTATION", "1")
+
+    async def preflight(config: object, target: object) -> None:
+        del config, target
+        events.append("preflight")
+
+    class FakeSupabaseClient:
+        def __init__(self, url: str, *, statement_cache_size: int) -> None:
+            assert url == db_url and statement_cache_size == 0
+
+        async def connect(self) -> None:
+            events.append("connect")
+
+    monkeypatch.setattr(run_agent_eval, "preflight_byo_database", preflight)
+    monkeypatch.setattr(supabase_client, "SupabaseClient", FakeSupabaseClient)
+    target = await _fullstack_target()
+    assert target.db.__class__ is FakeSupabaseClient
+    assert events == ["preflight", "connect"]
+
+
+@pytest.mark.asyncio
+async def test_fullstack_target_refuses_protected_neon_dsn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from agent.tests import conftest_db
+    from agent.tests.neon_api import Branch, assert_mutable_branch
+
+    monkeypatch.setenv(
+        "TEST_DATABASE_URL",
+        "postgresql://owner:secret@ep-safe.neon.tech/neondb",
+    )
+    monkeypatch.setenv("TEST_DB_ALLOW_MUTATION", "1")
+    monkeypatch.setenv("NEON_API_KEY", "secret")
+    monkeypatch.setenv("NEON_PROJECT_ID", "project-test")
+
+    async def no_io(target: object) -> None:
+        del target
+
+    def reject_protected(config: object, target: object) -> None:
+        del config, target
+        assert_mutable_branch(Branch("br-main", "main", "project-test", None, True))
+
+    monkeypatch.setattr(conftest_db, "_wake_database_async", no_io)
+    monkeypatch.setattr(conftest_db, "_verify_revisions_async", no_io)
+    monkeypatch.setattr(conftest_db, "_verify_capabilities_async", no_io)
+    monkeypatch.setattr(conftest_db, "_verify_byo_identity", reject_protected)
+    with pytest.raises(RuntimeError, match="protected Neon branch main"):
+        await _fullstack_target()
+
+
+def test_fullstack_db_source_logs_host_only() -> None:
+    secret = "postgresql://owner:password@ep-safe.example/neondb?sslmode=require"
+    source = _db_source(secret)
+    assert source == "DB host: ep-safe.example"
+    assert "password" not in source
 
 
 @pytest.mark.parametrize(
