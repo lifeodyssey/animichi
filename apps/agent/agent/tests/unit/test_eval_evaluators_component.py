@@ -101,6 +101,15 @@ def test_locale_match_scores_message_language(
     assert dict(LocaleMatch().evaluate(evaluator_ctx)) == expected
 
 
+def test_locale_match_prefers_current_query_over_stale_locale() -> None:
+    evaluator_ctx = ctx(
+        AgentInput(query="请介绍圣地巡礼", locale="ja"),
+        result(steps(), QAResponseModel(message="圣地巡礼是一种旅行方式。")),
+        AgentExpected(["general_qa"]),
+    )
+    assert dict(LocaleMatch().evaluate(evaluator_ctx)) == {"locale_match": 1.0}
+
+
 def test_available_data_keys_use_new_registry_vocabulary() -> None:
     search = result(
         steps("search_nearby"),

@@ -1,27 +1,9 @@
-"""Four-layer diagnostic evaluators for the pilgrimage agent eval.
+"""Project-specific evaluators and expectations for the pilgrimage agent eval.
 
-Replaces the flat 6-metric set (IntentMatch / MessageQuality / ToolExecution /
-DataCompleteness / StepEfficiency / ResponseLocale — see git history) with a
-diagnostic pyramid:
-
-- L1 component:  DataKeysPresent, LocaleMatch (+ tool precision)
-- L2 trajectory: ToolCallRecall, RouteOrderCorrect, StepEfficiency
-- L3 outcome:    TaskCompletion, HallucinationCheck (LLMJudge, opt-in EVAL_L3)
-
-The deterministic L1/L2 layers are free and run every PR. L3 uses an LLM judge
-(DeepSeek, temperature 0) and is gated behind ``EVAL_L3=1``.
-
-Expected tool sets are derived from each case's ``acceptable_stages`` field via
-the documented agent workflow (see ``animichi_agent`` instructions and the
-prior StepEfficiency step-count table) — no new dataset labels are introduced.
-
-``acceptable_stages`` is a *disjunction*: the agent is correct if it follows any
-one acceptable stage. All trajectory metrics therefore score against the
-best-matching acceptable stage. Chat stages accept both the recorded ephemeral
-tool form and the legal zero-step ``general_qa`` form:
-zero-step trajectories pass via the empty chain, recorded ephemeral one-tool
-chains pass in-order, and wrong-tool trajectories fail route order while also
-being punished by ``tool_f1``.
+The official pydantic-evals adapters own argument, tool, trajectory, and hard
+call-budget metrics. This module keeps the four project-specific metrics with no
+official counterpart: data keys, locale, nonempty results, and visible-step
+efficiency. Optional L3 outcome judges remain behind ``EVAL_L3=1``.
 """
 
 from __future__ import annotations
@@ -35,9 +17,9 @@ from pydantic_evals.evaluators import Evaluator, EvaluatorContext, LLMJudge
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.session_state import RoutePayloadState, SearchPayloadState
-from agent.interfaces.public_api import detect_language
+from agent.utils.language import resolve_reply_language
 
-EVALUATOR_VERSION = "phase1c-v1"
+EVALUATOR_VERSION = "official-v1"
 
 # ── Case types (shared with the dataset builder) ─────────────────────
 
@@ -66,22 +48,26 @@ class AgentExpected:
 
 _Ctx = EvaluatorContext[AgentInput, AgentResult, AgentExpected]
 
-# ── Stage → acceptable ordered tool chains, from the agent workflow ──
-# Data stages carry their full resolve->search[->plan] chain. Chat stages accept
-# both recorded ephemeral-tool trajectories and legal zero-step trajectories.
-_STAGE_TOOL_CHAINS: dict[str, tuple[tuple[str, ...], ...]] = {
+# ── Stage → locally executed model-call span chains ──────────────────
+# Synthetic terminal steps, internal helpers, and deterministic bypasses never
+# produce PydanticAI tool spans and therefore do not belong in this vocabulary.
+_GENERAL_QA_CHAINS = (
+    (),
+    ("web_search",),
+    ("translate_anime_title",),
+    ("web_search", "translate_anime_title"),
+    ("translate_anime_title", "web_search"),
+)
+_STAGE_MODEL_CALL_CHAINS: dict[str, tuple[tuple[str, ...], ...]] = {
     "search_bangumi": (("resolve_anime", "search_bangumi"),),
     "search_nearby": (("search_nearby",),),
     "plan_route": (("resolve_anime", "search_bangumi", "plan_route"),),
-    "plan_selected": (("plan_selected",),),
-    "plan_multi": (("plan_multi",),),
-    "clarify": (("resolve_anime", "clarify"), ("geocode", "clarify")),
-    "clarify_after_nearby": (
-        ("search_nearby", "clarify"),
-        ("geocode", "search_nearby", "clarify"),
-    ),
+    "plan_selected": ((),),
+    "plan_multi": ((),),
+    "clarify": (("resolve_anime",), ()),
+    "clarify_after_nearby": (("search_nearby",),),
     "greet_user": ((),),
-    "general_qa": ((),),
+    "general_qa": _GENERAL_QA_CHAINS,
 }
 
 # Ideal step counts (carried over verbatim from the prior StepEfficiency table).
@@ -102,59 +88,26 @@ def _actual_tools(output: AgentResult) -> list[str]:
     return [step.tool for step in output.steps]
 
 
-def _chains(ctx: _Ctx) -> list[tuple[str, ...]]:
+def _model_call_chains(ctx: _Ctx) -> list[tuple[str, ...]]:
     stages = ctx.metadata.acceptable_stages if ctx.metadata else []
-    if "plan_multi" in stages and ctx.inputs.selected_candidate_ids is not None:
-        count = len(dict.fromkeys(ctx.inputs.selected_candidate_ids))
-        return [("search_bangumi",) * count + ("plan_multi",)]
-    if _seeded_reason(ctx.inputs) == "place_ambiguity":
-        return [("search_nearby",)]
-    return _chains_for_stages(stages)
+    if ctx.inputs.selected_point_ids is not None:
+        return [()]
+    if ctx.inputs.selected_candidate_ids is not None:
+        return [()]
+    return _model_call_chains_for_stages(stages)
 
 
 def _seeded_reason(inputs: AgentInput) -> object:
     return inputs.seeded_pending.get("reason") if inputs.seeded_pending else None
 
 
-def _chains_for_stages(stages: Sequence[str]) -> list[tuple[str, ...]]:
-    return [chain for stage in stages for chain in _STAGE_TOOL_CHAINS.get(stage, ((),))]
-
-
-def _f1(recall: float, precision: float) -> float:
-    total = recall + precision
-    return 2 * recall * precision / total if total else 0.0
-
-
-def _prf(expected: tuple[str, ...], actual: list[str]) -> tuple[float, float, float]:
-    """Return (recall, precision, f1) of an expected tool set vs actual tools."""
-    actual_set = set(actual)
-    if not expected:
-        precision = 1.0 if not actual_set else 0.0
-        return 1.0, precision, _f1(1.0, precision)
-    hit = set(expected) & actual_set
-    recall = len(hit) / len(expected)
-    precision = len(hit) / len(actual_set) if actual_set else 0.0
-    return recall, precision, _f1(recall, precision)
-
-
-def _is_subsequence(chain: tuple[str, ...], actual: Sequence[str]) -> bool:
-    """True when ``chain`` appears in ``actual`` in order (gaps allowed).
-
-    The zero-step chain matches only a zero-step trajectory.
-    """
-    if not chain:
-        return not actual
-    remaining = iter(actual)
-    return all(tool in remaining for tool in chain)
-
-
-def route_order_score(
-    acceptable_stages: Sequence[str], actual_tools: Sequence[str]
-) -> float:
-    chains = _chains_for_stages(acceptable_stages)
-    if not chains:
-        return 1.0
-    return 1.0 if any(_is_subsequence(chain, actual_tools) for chain in chains) else 0.0
+def _model_call_chains_for_stages(stages: Sequence[str]) -> list[tuple[str, ...]]:
+    chains = (
+        chain
+        for stage in stages
+        for chain in _STAGE_MODEL_CALL_CHAINS.get(stage, ((),))
+    )
+    return list(dict.fromkeys(chains))
 
 
 def _available_data_keys(result: AgentResult) -> set[str]:
@@ -200,32 +153,6 @@ def _acceptable_min_steps(ctx: _Ctx) -> list[int]:
 
 
 @dataclass
-class ToolCallRecall(Evaluator[AgentInput, AgentResult, AgentExpected]):
-    """L2: tool-set recall/precision/F1 vs the best-matching acceptable stage."""
-
-    def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
-        chains = _chains(ctx)
-        if not chains:
-            return {"tool_recall": 1.0, "tool_precision": 1.0, "tool_f1": 1.0}
-        actual = _actual_tools(ctx.output)
-        recall, precision, f1 = max(
-            (_prf(chain, actual) for chain in chains), key=lambda triple: triple[2]
-        )
-        return {"tool_recall": recall, "tool_precision": precision, "tool_f1": f1}
-
-
-@dataclass
-class RouteOrderCorrect(Evaluator[AgentInput, AgentResult, AgentExpected]):
-    """L2: 1.0 if any acceptable tool chain appears in-order in the trajectory."""
-
-    def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
-        actual = _actual_tools(ctx.output)
-        chains = _chains(ctx)
-        correct = not chains or any(_is_subsequence(chain, actual) for chain in chains)
-        return {"route_order_correct": 1.0 if correct else 0.0}
-
-
-@dataclass
 class DataKeysPresent(Evaluator[AgentInput, AgentResult, AgentExpected]):
     """L1: 1.0 if all expected data keys are present in the response payload."""
 
@@ -261,13 +188,14 @@ def _nonempty(result: AgentResult) -> bool:
 
 @dataclass
 class LocaleMatch(Evaluator[AgentInput, AgentResult, AgentExpected]):
-    """L1: 1.0 if the reply language matches the requested locale."""
+    """L1: match current-turn language, using the requested locale as fallback."""
 
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
         message = ctx.output.message
         if not message:
             return {"locale_match": 0.0}
-        matched = detect_language(message) == ctx.inputs.locale
+        expected = resolve_reply_language(ctx.inputs.query, ctx.inputs.locale)
+        matched = resolve_reply_language(message, expected) == expected
         return {"locale_match": 1.0 if matched else 0.0}
 
 

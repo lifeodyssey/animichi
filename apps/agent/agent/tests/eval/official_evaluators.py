@@ -1,4 +1,4 @@
-"""Additive adapters for pydantic-evals' official agentic evaluators.
+"""First-class adapters for pydantic-evals' official agentic evaluators.
 
 The official classes accept one fixed expectation, while this dataset stores a
 disjunction of acceptable stage chains in each case's metadata. The tool and
@@ -22,7 +22,12 @@ from pydantic_evals.evaluators import (
 )
 
 from agent.agents.agent_result import AgentResult
-from agent.tests.eval.evaluators import AgentExpected, AgentInput, _chains, _Ctx
+from agent.tests.eval.evaluators import (
+    AgentExpected,
+    AgentInput,
+    _Ctx,
+    _model_call_chains,
+)
 
 
 def _value(result: EvaluationReason) -> float:
@@ -34,7 +39,7 @@ def _best(results: list[EvaluationReason], *, empty: float = 1.0) -> float:
 
 
 def _max_tool_calls(ctx: _Ctx) -> int:
-    chains = _chains(ctx)
+    chains = _model_call_chains(ctx)
     return max((len(chain) for chain in chains), default=0)
 
 
@@ -43,8 +48,11 @@ class OfficialToolCorrectness(Evaluator[AgentInput, AgentResult, AgentExpected])
     """Official multiset match, scored against the best accepted chain."""
 
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
-        results = [ToolCorrectness(list(chain)).evaluate(ctx) for chain in _chains(ctx)]
-        return {"tool_correctness_official": _best(results)}
+        results = [
+            ToolCorrectness(list(chain)).evaluate(ctx)
+            for chain in _model_call_chains(ctx)
+        ]
+        return {"tool_correctness": _best(results)}
 
 
 @dataclass
@@ -54,9 +62,9 @@ class OfficialTrajectoryMatch(Evaluator[AgentInput, AgentResult, AgentExpected])
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
         results = [
             TrajectoryMatch(list(chain), order="in_order").evaluate(ctx)
-            for chain in _chains(ctx)
+            for chain in _model_call_chains(ctx)
         ]
-        return {"trajectory_match_official": _best(results)}
+        return {"trajectory_match": _best(results)}
 
 
 @dataclass
@@ -66,11 +74,15 @@ class OfficialArgumentCorrectness(Evaluator[AgentInput, AgentResult, AgentExpect
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
         occurrences: dict[str, int] = {}
         results: list[EvaluationReason] = []
-        for step in (item for item in ctx.output.steps if item.success):
+        for step in (
+            item for item in ctx.output.steps if item.success and item.model_initiated
+        ):
             occurrence = occurrences.get(step.tool, 0)
             occurrences[step.tool] = occurrence + 1
             results.append(self._evaluate_step(ctx, step.tool, step.params, occurrence))
-        return {"argument_correctness_official": min(map(_value, results), default=1.0)}
+        if not results:
+            return {}
+        return {"argument_correctness": min(map(_value, results))}
 
     @staticmethod
     def _evaluate_step(
@@ -88,4 +100,4 @@ class OfficialMaxToolCalls(Evaluator[AgentInput, AgentResult, AgentExpected]):
 
     def evaluate(self, ctx: _Ctx) -> Mapping[str, float]:
         result = MaxToolCalls(_max_tool_calls(ctx)).evaluate(ctx)
-        return {"max_tool_calls_official": _value(result)}
+        return {"max_tool_calls": _value(result)}

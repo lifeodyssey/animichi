@@ -105,13 +105,11 @@ async function seedAndTruncate(sql) {
 
 async function main() {
   let driver;
-  let pg;
   try {
     driver = requireFromCatalog("@neondatabase/serverless");
-    pg = requireFromCatalog("pg");
   } catch (error) {
     const reason = error instanceof Error ? error.message : error;
-    for (const item of ["Raw neon() HTTP query", "Serverless transaction batch", "Serverless seed and TRUNCATE cycle", "pg.Pool self-signed TLS query"]) {
+    for (const item of ["Raw neon() HTTP query", "Serverless transaction batch", "Serverless seed and TRUNCATE cycle"]) {
       await record(item, false, `workers/catalog dependencies unavailable: ${reason}`);
     }
     return;
@@ -147,21 +145,10 @@ async function main() {
       return `two-query batch shared txid=${first}`;
     });
     await check("Serverless seed and TRUNCATE cycle", () => seedAndTruncate(sql));
-    await check("pg.Pool self-signed TLS query", async () => {
-      const pool = new pg.Pool({
-        connectionString,
-        max: 1,
-        ssl: { rejectUnauthorized: false },
-      });
-      try {
-        const started = performance.now();
-        const result = await pool.query("SELECT 42::int AS answer");
-        if (result.rows[0]?.answer !== 42) throw new Error("Pool query returned the wrong value");
-        return `host=127.0.0.1:${port}; rejectUnauthorized=false; connect_query_ms=${(performance.now() - started).toFixed(1)}`;
-      } finally {
-        await pool.end();
-      }
-    });
+    // The pg.Pool wire-protocol control (self-signed TLS against the local
+    // proxy) was removed after the Phase-0 verdict REJECTED the wire path —
+    // its measured outcome is preserved in FINDINGS.md; only the PROVEN
+    // serverless HTTP arm remains probed here.
   } finally {
     driver.neonConfig.fetchEndpoint = snapshot.fetchEndpoint;
     driver.neonConfig.useSecureWebSocket = snapshot.useSecureWebSocket;

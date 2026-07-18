@@ -47,21 +47,19 @@ def _no_sleep(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     return sleep
 
 
-async def test_reuses_one_http_client_across_requests(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_reuses_one_http_client_across_requests() -> None:
     calls: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append(request)
         return _response(request, 200, {"rows": [], "synced_at": ""})
 
-    constructor = _install_transport(monkeypatch, handler)
-    client = CatalogClient("https://catalog.test")
+    shared = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client = CatalogClient("https://catalog.test", http_client=shared)
     await client.search("響け")
     await client.search("氷菓")
 
-    assert constructor.call_count == 1
+    assert client._http() is shared
     assert len(calls) == 2
     await client.aclose()
 

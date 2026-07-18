@@ -159,6 +159,9 @@ export const Route = z.object({
   cover_url: z.string().optional(),
   anime_title: z.string().optional(),
   anime_title_cn: z.string().optional(),
+  truncated: z.boolean().optional(),
+  shown_cluster_count: z.number().int().optional(),
+  total_cluster_count: z.number().int().optional(),
   timed_itinerary: TimedItinerary,
 });
 export type Route = z.infer<typeof Route>;
