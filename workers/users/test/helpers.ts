@@ -55,6 +55,7 @@ export function authTools(): Promise<AuthTools> {
 /** Mutable row representation owned by the reusable fake executor. */
 export interface FakeRouteRow {
   id: string;
+  session_id: string | null;
   user_id: string | null;
   title: string;
   point_ids: string[];
@@ -80,6 +81,7 @@ function insertRow(values: unknown[]): FakeRouteRow {
   const status = routeStatus(values[3]);
   return {
     id: NEW_ID,
+    session_id: null,
     user_id: typeof values[0] === "string" ? values[0] : null,
     title: typeof values[1] === "string" ? values[1] : "",
     point_ids: Array.isArray(values[2]) ? values[2].filter((v): v is string => typeof v === "string") : [],
@@ -99,7 +101,23 @@ function updateRow(row: FakeRouteRow, values: unknown[]): void {
   row.updated_at = NOW;
 }
 
-/** In-memory raw-SQL executor matching list, owner, insert, and update queries. */
+function deleteRows(rows: FakeRouteRow[], values: unknown[]): unknown[] {
+  const [id, userId] = values;
+  const index = rows.findIndex((row) => row.id === id && row.user_id === userId);
+  if (index < 0) return [];
+  const deleted = rows.splice(index, 1)[0];
+  return deleted ? [{ id: deleted.id }] : [];
+}
+
+function claimRows(rows: FakeRouteRow[], values: unknown[]): unknown[] {
+  const [userId, sessionId] = values;
+  if (typeof userId !== "string" || typeof sessionId !== "string") return [];
+  const claimed = rows.filter((row) => row.session_id === sessionId && row.user_id === null);
+  for (const row of claimed) row.user_id = userId;
+  return claimed.map((row) => ({ id: row.id }));
+}
+
+/** In-memory raw-SQL executor matching every user-route query. */
 export function fakeDb(seed: FakeRouteRow[] = []): { db: DbExecutor; rows: FakeRouteRow[] } {
   const rows = [...seed];
   const execute = (query: SQL): Promise<{ rows: unknown[] }> => {
@@ -112,6 +130,12 @@ export function fakeDb(seed: FakeRouteRow[] = []): { db: DbExecutor; rows: FakeR
       const row = insertRow(values);
       rows.push(row);
       return Promise.resolve({ rows: [row] });
+    }
+    if (text.includes("delete from routes")) {
+      return Promise.resolve({ rows: deleteRows(rows, values) });
+    }
+    if (text.includes("set user_id")) {
+      return Promise.resolve({ rows: claimRows(rows, values) });
     }
     if (text.includes("update routes")) {
       const [id, userId] = values.slice(-2);
