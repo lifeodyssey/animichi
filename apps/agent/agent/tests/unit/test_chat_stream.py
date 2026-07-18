@@ -5,12 +5,16 @@ from __future__ import annotations
 import json
 
 from agent.agents.runtime_deps import OnStep, StepEvent
-from agent.interfaces.routes.chat_stream import RESPONSE_DATA_ID, stream_chat
+from agent.interfaces.routes.chat_stream import (
+    RESPONSE_DATA_ID,
+    ChatHandler,
+    stream_chat,
+)
 from agent.interfaces.schemas import PublicAPIResponse
 
 
-async def _collect(handler: object) -> list[str]:
-    return [frame async for frame in stream_chat(handler)]  # type: ignore[arg-type]
+async def _collect(handler: ChatHandler) -> list[str]:
+    return [frame async for frame in stream_chat(handler)]
 
 
 def _parse(frames: list[str]) -> list[object]:
@@ -23,11 +27,17 @@ def _parse(frames: list[str]) -> list[object]:
     return chunks
 
 
+def _type_of(chunk: object) -> str:
+    if chunk == "[DONE]":
+        return "[DONE]"
+    assert isinstance(chunk, dict)
+    kind = chunk["type"]
+    assert isinstance(kind, str)
+    return kind
+
+
 def _types(chunks: list[object]) -> list[str]:
-    out: list[str] = []
-    for chunk in chunks:
-        out.append("[DONE]" if chunk == "[DONE]" else str(chunk["type"]))  # type: ignore[index]
-    return out
+    return [_type_of(chunk) for chunk in chunks]
 
 
 def _of_type(chunks: list[object], type_name: str) -> list[dict[str, object]]:
@@ -48,7 +58,7 @@ async def _plain_handler(_on_step: OnStep) -> PublicAPIResponse:
     return _response()
 
 
-def _tool_handler(response: PublicAPIResponse) -> object:
+def _tool_handler(response: PublicAPIResponse) -> ChatHandler:
     async def handler(on_step: OnStep) -> PublicAPIResponse:
         await on_step(
             StepEvent(tool="resolve_anime", status="running", data={"t": "x"})

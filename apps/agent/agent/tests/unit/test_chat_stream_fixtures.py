@@ -26,11 +26,17 @@ def _chunks(raw: str) -> list[object]:
     return out
 
 
+def _type_of(chunk: object) -> str:
+    if chunk == "[DONE]":
+        return "[DONE]"
+    assert isinstance(chunk, dict)
+    kind = chunk["type"]
+    assert isinstance(kind, str)
+    return kind
+
+
 def _types(chunks: list[object]) -> list[str]:
-    return [
-        "[DONE]" if chunk == "[DONE]" else str(chunk["type"])  # type: ignore[index]
-        for chunk in chunks
-    ]
+    return [_type_of(chunk) for chunk in chunks]
 
 
 def _data_parts(chunks: list[object]) -> list[dict[str, object]]:
@@ -39,6 +45,12 @@ def _data_parts(chunks: list[object]) -> list[dict[str, object]]:
         for chunk in chunks
         if isinstance(chunk, dict) and chunk.get("type") == "data-response"
     ]
+
+
+def _data_of(part: dict[str, object]) -> dict[str, object]:
+    value = part["data"]
+    assert isinstance(value, dict)
+    return value
 
 
 @pytest.mark.parametrize("name", _STREAM_FIXTURES)
@@ -59,13 +71,13 @@ def test_search_fixture_carries_tool_and_progressive_parts() -> None:
     parts = _data_parts(chunks)
     assert parts[0]["data"] == {"intent": "plan_route"}
     assert {part["id"] for part in parts} == {"response"}
-    assert set(parts[1]["data"]) > {"intent"}  # type: ignore[arg-type]
+    assert set(_data_of(parts[1])) > {"intent"}
 
 
 def test_clarify_fixture_is_intent_first() -> None:
     parts = _data_parts(_chunks(_load("clarify")))
     assert parts[0]["data"] == {"intent": "clarify"}
-    assert parts[1]["data"]["status"] == "needs_clarification"  # type: ignore[index]
+    assert _data_of(parts[1])["status"] == "needs_clarification"
 
 
 def test_error_fixture_has_error_part_and_no_data() -> None:
