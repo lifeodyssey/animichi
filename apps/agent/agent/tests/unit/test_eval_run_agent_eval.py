@@ -46,7 +46,9 @@ def test_fullstack_db_url_prefers_secret_test_database_url(
     expected = "postgresql://owner:password@ep-safe.example/neondb?sslmode=require"
     monkeypatch.setenv("EVAL_FULLSTACK", "1")
     monkeypatch.setenv("TEST_DATABASE_URL", expected)
-    monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://legacy@localhost/legacy")
+    monkeypatch.setenv(
+        "SUPABASE_DB_URL", "postgresql://legacy:placeholder@localhost/legacy"
+    )
 
     assert _db_url() == expected
 
