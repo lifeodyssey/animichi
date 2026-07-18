@@ -49,6 +49,7 @@
 | C0.3 map spike | #237 | MapLibre + pmtiles ADR + `_dev/map-spike` route | unit + browser |
 | C0.4 landing/login/i18n | #246 | i18n（ja/zh/en）、Landing 迁移、LoginModal = **Neon Auth(Better Auth) client 真实集成**（禁 Supabase auth） | unit + browser |
 | E2 catalog 公开路由 | #275 | 公开只读 oRPC 路由 + 契约（eng-review 签核的 first public exposure） | unit + api |
+| E3 瓦片后端 | #237 部分 | **C0.3 执行中发现的缺口（2026-07-19 补录）**：R2 `[[r2_buckets]]` binding + `/tiles/*` 边缘端点 + Protomaps 瓦片构建脚本；ADR-0001 已定 MapLibre+PMTiles@R2，此卡落基建。地图类 browser AC（≤3s 首瓦片、越界空瓦片、R2 故障回退插画）依赖它 | api + browser |
 
 ### Wave 1 — 骨架
 
@@ -85,7 +86,8 @@ S7 全部（#227/233/238/240/247/251/253/257/265）、#228/#250/#252/#254/#255/#
 ```mermaid
 graph LR
   C00[C0.0 依赖冻结 =G0] --> C01[C0.1 API层] & C02[C0.2 chat契约] & E1[E1 chat流enabler] & C03[C0.3 map spike #237] & C04[C0.4 landing/i18n #246] & E2[E2 #275 公开路由] & S212[#212 しおり]
-  C00 --> CTC[CT-checkin #243契约] & CTS[CT-share #235契约] & CTP[CT-presign #249契约] & AST[#245 资产就位] & S229[#229 OG管线]
+  C00 --> CTC[CT-checkin #243契约] & CTS[CT-share #235契约] & CTP[CT-presign #249契约] & AST[#245 资产就位] & S229[#229 OG管线] & E3[E3 瓦片后端]
+  E3 --> G2R & S269
   CTC --> B243[#243 check-in后端]
   CTS --> B235[#235 share后端]
   CTP --> B249[#249 presign后端]
