@@ -17,6 +17,7 @@ NEON_API_HOST = "console.neon.tech"
 JSON_MIME = "application/json"
 TEST_BASE_NAME = "test-base"
 CLAIM_PREFIX = "wt-test-"
+CLAIM_REVERIFY_DELAY_SECONDS = 0.25
 REQUEST_TIMEOUT_SECONDS = 20.0
 POLL_TIMEOUT_SECONDS = 60.0
 DELETE_TIMEOUT_SECONDS = 45.0
@@ -287,7 +288,18 @@ class NeonApi:
                 created_after,
             )
             if branch is not None and branch.name == claim_name:
-                return branch
+                # Rename-claim is not atomic: a concurrent session may PATCH its
+                # own token after our first verification. A short delay plus a
+                # second read shrinks that race window to milliseconds; the loser
+                # rejects the branch and retries. Residual risk (two sessions in
+                # ONE Neon project claiming within the same instant) is accepted
+                # and documented: run the neon arm serially per project in CI.
+                self._sleep_before(deadline, CLAIM_REVERIFY_DELAY_SECONDS)
+                reverified = self.get_branch_or_none(
+                    branch.id, self._remaining(deadline)
+                )
+                if reverified is not None and reverified.name == claim_name:
+                    return reverified
             if branch is not None:
                 rejected.add(branch.id)
             self._sleep_before(deadline, 2.0)

@@ -66,6 +66,22 @@ def test_single_candidate_is_rename_claimed() -> None:
     assert api.claimed == ["br-a"]
 
 
+def test_overwrite_after_first_verification_is_detected_on_reverify() -> None:
+    # A verifies its token, THEN a concurrent session overwrites the name:
+    # the first read returns our token, the delayed re-verification exposes
+    # the overwrite, and the claim moves on to the next candidate.
+    api = ClaimApi(
+        (_candidate("br-a"), _candidate("br-b")),
+        {"br-a": ["wt-test-session-a", "wt-test-other-session"]},
+    )
+    claimed = api.wait_for_ephemeral(
+        (), _parent(), "wt-test-session-a", START - timedelta(seconds=1)
+    )
+    assert claimed.id == "br-b"
+    assert claimed.name == "wt-test-session-a"
+    assert api.claimed == ["br-a", "br-b"]
+
+
 def test_raced_candidate_is_rejected_then_next_is_claimed() -> None:
     api = ClaimApi(
         (_candidate("br-a"), _candidate("br-b")),
