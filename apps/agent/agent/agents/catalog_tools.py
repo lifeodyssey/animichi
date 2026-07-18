@@ -251,6 +251,7 @@ async def run_nearby_search(
     try:
         resolved = await _coordinates(ctx.deps, catalog, location)
     except CATALOG_FAILURES:
+        _clear_pending(ctx.deps)
         return nearby_upstream_down(ctx.deps, location, radius_m)
     if not isinstance(resolved, tuple):
         _record(
@@ -267,6 +268,7 @@ async def run_nearby_search(
             coords[0], coords[1], radius_m=radius_m or default_radius
         )
     except CATALOG_FAILURES:
+        _clear_pending(ctx.deps)
         return nearby_upstream_down(ctx.deps, location, radius_m)
     payload = build_search_state(points, kind="nearby", locale=ctx.deps.locale)
     ref = ResultRef(ctx.deps.ref_factory("search", payload.row_count))

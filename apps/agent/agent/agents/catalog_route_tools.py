@@ -39,6 +39,7 @@ async def run_route(
     try:
         outcome = await _route_outcome(ctx, catalog, ref, payload, pacing)
     except CATALOG_FAILURES:
+        _clear_pending(ctx.deps)
         outcome = RouteUpstreamDown()
     _record_route(ctx.deps, search_result_ref, pacing, outcome)
     return outcome

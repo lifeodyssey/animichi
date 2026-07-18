@@ -34,7 +34,7 @@ composing ──send──▶ sending ──▶ running(B2a→B2b→B2c 按时�
 | A2 | 带 query 进入 | 首页搜索框提交跳转 | 进页即渲染 user bubble + 直接进 B2(不重复打字);URL 带 `?q=` | →B2 |
 | A2b | 引用路线进入 | 公开路线页/路线详情页的「アレンジ」 | chat 顶部渲染「📎 引用中:〈路线名〉」上下文卡,agent 以该路线为基底重组;一句话即可改装("出发改大阪、只有上午")。**journey 走查发现的高频入口**——拿别人(或自己)的路线来改,比空输入框更常见 | →B2 |
 | A3 | 恢复历史会话 | 再访/会话列表进入 | 历史消息全量渲染:旧管线一律折叠为足迹行;滚动锚定到底部;最后一张路线卡保持 settled 态 | 任意交互 |
-| A4 | 未登录访问 | 无 session | **未决**(critique P2 登录墙,docs/todo.md)。占位方案:重定向 /login。倾向方案:允许 1 次试用回合后弹登录,本期不实现 | — |
+| A4 | 未登录访问 | 无 session | **未决**(critique P2 登录墙,docs/superpowers/plans/archive/2026-04-28-frontend-ssr-migration-todo.md)。占位方案:重定向 /login。倾向方案:允许 1 次试用回合后弹登录,本期不实现 | — |
 | A5 | 后端不可达 | /healthz 失败或首请求网络错误 | 页面可见但顶部 banner(`--color-error` bg / `--color-error-fg` 字):「サーバーに接続できません · 再試行」;input 禁用 | 重试成功→A1 |
 
 ## B. 回合级 — 分级等待(核心体验)
@@ -138,5 +138,5 @@ Mockup: `spot-picker.html`。
 - E2 旁路不演管线戏:没经过 agent 的操作不显示 agent 过程,只给再計算用时
 
 **未决**:
-- A4 登录墙(critique P2,产品决策,docs/todo.md 已记)
+- A4 登录墙(critique P2,产品决策,docs/superpowers/plans/archive/2026-04-28-frontend-ssr-migration-todo.md 已记)
 - B 各时长阈值(1s/4s/60s)上线后按真实 agent 延迟分布调参
