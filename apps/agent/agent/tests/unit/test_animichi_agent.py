@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
+import pytest
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    ToolCallPart,
+    UserPromptPart,
+)
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
 
 from agent.agents.animichi_agent import _INSTRUCTIONS, trusted_session_context
@@ -123,3 +131,35 @@ def test_empty_trusted_context_has_locale_only() -> None:
     context = trusted_session_context(deps)
 
     assert context == "[Trusted runtime context]\nLocale fallback: English."
+
+
+@pytest.mark.parametrize(
+    ("query", "fallback", "expected"),
+    [
+        ("请介绍圣地巡礼礼仪", "ja", "Simplified Chinese"),
+        ("Explain anime pilgrimage etiquette", "ja", "English"),
+        ("聖地巡礼のマナーを教えて", "en", "Japanese"),
+    ],
+)
+async def test_current_turn_language_is_rendered_in_instructions(
+    query: str, fallback: str, expected: str
+) -> None:
+    rendered = ""
+
+    def respond(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        nonlocal rendered
+        rendered = info.instructions or ""
+        return ModelResponse(parts=[ToolCallPart("qa_response", {"message": "ok"})])
+
+    history = [ModelRequest(parts=[UserPromptPart("前の日本語の質問")])]
+    await run_animichi_agent(
+        text=query,
+        db=MagicMock(),
+        locale=fallback,
+        model=FunctionModel(respond),
+        message_history=history,
+        catalog=MockCatalogClient(),
+    )
+
+    assert f"Current turn reply language: {expected}." in rendered
+    assert "overrides conversation history and locale fallback" in rendered

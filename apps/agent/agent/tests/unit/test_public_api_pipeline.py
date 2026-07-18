@@ -22,6 +22,7 @@ from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI, detect_language
 from agent.tests.db_doubles import build_persistence_supabase_double
 from agent.tests.unit.conftest_public_api import install_mock_pipeline
+from agent.utils.language import resolve_reply_language
 
 
 @pytest.fixture(autouse=True)
@@ -148,8 +149,18 @@ async def test_selected_point_ids_bypass_planner(mock_db: MagicMock) -> None:
         ("3件の聖地が見つかりました。", "ja"),
         ("Found 3 pilgrimage spots.", "en"),
         ("東京の聖地を探しています", "ja"),
+        ("ｱﾆﾒ", "ja"),
+        ("𠀀", "zh"),
         ("", "en"),
     ],
 )
 def test_detect_language(text: str, expected: str) -> None:
     assert detect_language(text) == expected
+
+
+def test_scriptless_current_turn_uses_locale_fallback() -> None:
+    assert resolve_reply_language("123?!", "zh") == "zh"
+
+
+def test_han_only_japanese_title_uses_cjk_locale_fallback() -> None:
+    assert resolve_reply_language("京吹", "ja") == "ja"
