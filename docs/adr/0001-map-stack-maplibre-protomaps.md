@@ -41,4 +41,11 @@
 - 上游断供退路:planetiler 自建管线;应急切换:OpenFreeMap style URL。
 - S1.4/S1.5/S2.2/S5.2/S6.2 全部只依赖「MapLibre 实例 + 数据驱动样式 + DOM/SVG 叠加」,
   无商业 SDK 独有能力;S3.6 离线由自托管 PMTiles 唯一优雅满足——这是本选型的决定性理由。
-- apps/web 内 demo route、生产 `[[r2_buckets]]`、`perf-mobile-cold` 正式测量待 S0.2 合流后接线(issue #237 跟踪)。
+- **apps/web 接线已落地(C0.3 / issue #237)**:`src/routes/_dev/map-spike.tsx`(client-only 挂载,SSR 不炸)
+  + `src/features/map-spike/*`(纯逻辑 style/layers/pins/geometry + `MapSpike` 展示组件 + `mapController` 浏览器胶水)。
+  引擎按本 ADR 决策直用原生 `maplibre-gl@5` + `pmtiles@4` `addProtocol` + `@protomaps/basemaps@5`(非 React wrapper),
+  `maplibre-gl` 经动态 `import()` 独立分包(build 实测 `maplibre-gl.mjs` 与 route chunk 分离)。
+- **仍待接线**:生产 `[[r2_buckets]]` 绑定 + edge `/tiles/*` 端点(backend enabler,归 root `wrangler.toml`/edge worker,由并行基建/ops 卡负责)与
+  `perf-mobile-cold` 正式测量(S0.4 browser AC,Tester 后验:首 tile ≤3s、越界空 tile、R2 故障降级插画层)。
+- **coverage 例外账(计划 §0.6)**:`src/features/map-spike/mapController.ts` 因需真实 WebGL 上下文 + 动态 import,jsdom 下不可运行,
+  按文件从 unit coverage 排除;其纯输入(style/layers/pins/geometry)+ `MapSpike` 展示层已 100% 单测,live 挂载归 browser AC。
