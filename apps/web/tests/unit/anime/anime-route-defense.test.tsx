@@ -41,7 +41,7 @@ describe("/anime/$bangumiId soft-404 defense", () => {
   it("treats an untyped gateway 404 as an outage, not an unknown work", async () => {
     server.use(animeOverviewGatewayNotFoundHandler);
     await openAnime("123");
-    expect(await screen.findByText("Something went wrong")).toBeTruthy();
+    expect(await screen.findByText("エラーが発生しました")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "404" })).toBeNull();
   });
 

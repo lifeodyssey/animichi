@@ -24,6 +24,10 @@ export interface AnimeCopy {
   readonly attribution: string;
   readonly shotCountFact: (n: number) => string;
   readonly spotUnit: (n: number) => string;
+  readonly errorTitle: string;
+  readonly errorBody: string;
+  readonly errorRetry: string;
+  readonly errorHome: string;
 }
 
 function hoursOf(minutes: number): number {
@@ -49,6 +53,10 @@ const ja: AnimeCopy = {
   attribution: "この作品の聖地データの出典はAnitabi（CC BY-NC-SA）です。",
   shotCountFact: (n) => `カット数 ${String(n)}`,
   spotUnit: (n) => `${String(n)}件`,
+  errorTitle: "エラーが発生しました",
+  errorBody: "作品情報を読み込めませんでした。もう一度お試しください。",
+  errorRetry: "もう一度試す",
+  errorHome: "ホームに戻る",
 };
 
 const zh: AnimeCopy = {
@@ -70,6 +78,10 @@ const zh: AnimeCopy = {
   attribution: "该作品的圣地数据来源为Anitabi（CC BY-NC-SA）。",
   shotCountFact: (n) => `镜头数 ${String(n)}`,
   spotUnit: (n) => `${String(n)}处`,
+  errorTitle: "出错了",
+  errorBody: "暂时无法加载该作品，请重试。",
+  errorRetry: "重试",
+  errorHome: "返回首页",
 };
 
 const en: AnimeCopy = {
@@ -91,6 +103,10 @@ const en: AnimeCopy = {
   attribution: "Spot data for this title is sourced from Anitabi (CC BY-NC-SA).",
   shotCountFact: (n) => `${String(n)} shots`,
   spotUnit: (n) => `${String(n)} spots`,
+  errorTitle: "Something went wrong",
+  errorBody: "We could not load this title right now. Please try again.",
+  errorRetry: "Try again",
+  errorHome: "Return home",
 };
 
 const COPY: Record<Locale, AnimeCopy> = { ja, zh, en };
