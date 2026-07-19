@@ -78,12 +78,19 @@ function useSendText(chat: ChatSession): (text: string) => void {
   return useCallback((text: string) => void sendMessage({ text }), [sendMessage]);
 }
 
+/**
+ * A5 retry distinguishes the two failure sources: a failed healthz probe is
+ * re-probed, while a failed stream turn is regenerated (the AI SDK drops the
+ * partial assistant message and resubmits the turn).
+ */
 function useRetry(chat: ChatSession, retryHealth: () => void): () => void {
-  const { clearError } = chat;
+  const { error, clearError, regenerate } = chat;
   return useCallback(() => {
-    clearError();
     retryHealth();
-  }, [clearError, retryHealth]);
+    if (!error) return;
+    clearError();
+    void regenerate();
+  }, [error, clearError, regenerate, retryHealth]);
 }
 
 function entryStateOf(search: ChatSearch, health: BackendHealth, chat: ChatSession): ChatEntryState {
