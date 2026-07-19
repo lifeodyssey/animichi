@@ -37,7 +37,8 @@ BEGIN
 
     IF initialized IS NOT NULL THEN
         UPDATE agent_memory
-        SET version = nextval('agent_memory_versions');
+        SET version = nextval('agent_memory_versions')
+        WHERE version IS NULL;
     END IF;
 END $$;
 

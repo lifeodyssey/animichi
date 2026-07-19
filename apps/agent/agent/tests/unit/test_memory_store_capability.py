@@ -78,7 +78,11 @@ async def test_memory_tools_write_read_search_and_delete() -> None:
     assert _tool_result(messages, "read_memory") == "Prefers quiet temples.\n"
     search = _tool_result(messages, "search_memory")
     assert isinstance(search, dict)
-    assert search["matches"][0]["file"] == "profile.md"
+    matches = search["matches"]
+    assert isinstance(matches, list)
+    first_match = matches[0]
+    assert isinstance(first_match, dict)
+    assert first_match["file"] == "profile.md"
     assert _tool_result(messages, "delete_memory")["status"] == "deleted"
     assert await store.read("u1/main/profile.md", max_chars=100) is None
 
