@@ -9,11 +9,14 @@ from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import RunUsage, UsageLimits
+from pydantic_ai_harness.memory import MemoryStore
 
 from agent.agents.agent_result import AgentResult, StepRecord
 from agent.agents.animichi_agent import (
     _input_guard_enabled,
     animichi_agent,
+    build_animichi_agent,
+    build_user_memory_capability,
     trusted_session_context,
 )
 from agent.agents.base import resolve_model_alias
@@ -150,6 +153,8 @@ async def run_animichi_agent(
     model_settings: ModelSettings | None = None,
     web_searcher: WebSearcher | None = None,
     title_translator: TitleTranslator | None = None,
+    memory_store: MemoryStore | None = None,
+    user_id: str | None = None,
 ) -> AgentResult:
     """Run the main agent and return AgentResult.
 
@@ -160,6 +165,7 @@ async def run_animichi_agent(
         db=db,
         locale=locale,
         query=text,
+        user_id=user_id,
         on_step=on_step,
         catalog=catalog,
         web_searcher=web_searcher,
@@ -170,10 +176,12 @@ async def run_animichi_agent(
     if blocked is not None:
         return blocked
     resolved_model = resolve_model_alias(model)
+    memory = build_user_memory_capability(memory_store, user_id)
+    run_agent = build_animichi_agent(memory=memory) if memory else animichi_agent
 
     run_usage = RunUsage()
     try:
-        run_result = await animichi_agent.run(
+        run_result = await run_agent.run(
             [trusted_session_context(deps), text],
             deps=deps,
             model=resolved_model,

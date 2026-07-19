@@ -186,8 +186,21 @@ class TestRuntimeAPIErrors:
             message_history: object | None = None,
             on_step: object | None = None,
             catalog: object | None = None,
+            memory_store: object | None = None,
+            user_id: str | None = None,
         ) -> AgentResult:
-            _ = (text, db, model, locale, context, message_history, on_step)
+            _ = (
+                text,
+                db,
+                model,
+                locale,
+                context,
+                message_history,
+                on_step,
+                catalog,
+                memory_store,
+                user_id,
+            )
             return result
 
         with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
