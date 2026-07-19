@@ -61,9 +61,9 @@ async def _plain_handler(_on_step: OnStep) -> PublicAPIResponse:
 def _tool_handler(response: PublicAPIResponse) -> ChatHandler:
     async def handler(on_step: OnStep) -> PublicAPIResponse:
         await on_step(
-            StepEvent(tool="resolve_anime", status="running", data={"t": "x"})
+            StepEvent("resolve_anime", "provider-call-1", "running", {"t": "x"})
         )
-        await on_step(StepEvent(tool="resolve_anime", status="done", data={"id": 1}))
+        await on_step(StepEvent("resolve_anime", "provider-call-1", "done", {"id": 1}))
         return response
 
     return handler
@@ -71,6 +71,22 @@ def _tool_handler(response: PublicAPIResponse) -> ChatHandler:
 
 async def _failing_handler(_on_step: OnStep) -> PublicAPIResponse:
     raise RuntimeError("boom")
+
+
+async def _running_then_failing_handler(on_step: OnStep) -> PublicAPIResponse:
+    await on_step(StepEvent("search_nearby", "provider-call-error", "running", {}))
+    raise RuntimeError("normalization failed")
+
+
+def _concurrent_tool_handler(response: PublicAPIResponse) -> ChatHandler:
+    async def handler(on_step: OnStep) -> PublicAPIResponse:
+        await on_step(StepEvent("resolve_anime", "call-a", "running", {"q": "a"}))
+        await on_step(StepEvent("resolve_anime", "call-b", "running", {"q": "b"}))
+        await on_step(StepEvent("resolve_anime", "call-a", "done", {"id": "a"}))
+        await on_step(StepEvent("resolve_anime", "call-b", "done", {"id": "b"}))
+        return response
+
+    return handler
 
 
 async def test_stream_emits_ordered_envelope_for_plain_response() -> None:
@@ -123,6 +139,20 @@ async def test_tool_parts_precede_data_parts() -> None:
     assert order.index("tool-output-available") < order.index("data-response")
 
 
+async def test_same_named_concurrent_calls_resolve_by_call_id() -> None:
+    chunks = _parse(await _collect(_concurrent_tool_handler(_response())))
+    inputs = _of_type(chunks, "tool-input-available")
+    outputs = _of_type(chunks, "tool-output-available")
+    assert [(part["toolCallId"], part["input"]) for part in inputs] == [
+        ("call-a", {"q": "a"}),
+        ("call-b", {"q": "b"}),
+    ]
+    assert [(part["toolCallId"], part["output"]) for part in outputs] == [
+        ("call-a", {"id": "a"}),
+        ("call-b", {"id": "b"}),
+    ]
+
+
 async def test_handler_failure_emits_error_part_not_data() -> None:
     chunks = _parse(await _collect(_failing_handler))
     assert _types(chunks) == [
@@ -140,3 +170,10 @@ async def test_handler_failure_emits_error_part_not_data() -> None:
 async def test_error_text_does_not_leak_exception_detail() -> None:
     error = _of_type(_parse(await _collect(_failing_handler)), "error")[0]
     assert "boom" not in str(error["errorText"])
+
+
+async def test_running_call_is_closed_when_handler_raises() -> None:
+    chunks = _parse(await _collect(_running_then_failing_handler))
+    tool_error = _of_type(chunks, "tool-output-error")
+    assert [part["toolCallId"] for part in tool_error] == ["provider-call-error"]
+    assert _types(chunks).index("tool-output-error") < _types(chunks).index("error")
