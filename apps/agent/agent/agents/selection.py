@@ -17,7 +17,7 @@ from agent.agents.agent_result import (
 )
 from agent.agents.catalog_adapter import build_route_state, build_search_state
 from agent.agents.geo_names import localized_city_name
-from agent.agents.runtime_deps import OnStep, StepEvent
+from agent.agents.runtime_deps import OnStep, StepEvent, StepStatus, new_step_call_id
 from agent.agents.runtime_models import RouteResponseModel, SearchResponseModel
 from agent.agents.selection_messages import PLACE_MESSAGES, multi_message
 from agent.agents.session_state import (
@@ -87,7 +87,8 @@ async def execute_multi_selection(
     on_step: OnStep | None = None,
 ) -> AgentResult:
     """Fetch selected works in parallel, merge deterministically, then route."""
-    await _emit(on_step, "plan_multi", "running", {})
+    call_id = new_step_call_id("plan_multi")
+    await _emit(on_step, call_id, "plan_multi", "running", {})
     fetched = await asyncio.gather(
         *(catalog.points_by_work_id(item) for item in candidate_ids),
         return_exceptions=True,
@@ -95,7 +96,9 @@ async def execute_multi_selection(
     steps = _fetch_steps(candidate_ids, fetched)
     successful = _successful_results(candidate_ids, fetched)
     if not successful:
-        return await _multi_terminal_event(state, steps, locale, "error", on_step)
+        return await _multi_terminal_event(
+            state, steps, locale, "error", on_step, call_id
+        )
     merged = _merge_results(candidate_ids, successful, locale)
     result_ref = state.next_search_ref("multi", state.clarification_revision)
     state.store_search_result(result_ref, merged)
@@ -104,30 +107,30 @@ async def execute_multi_selection(
     )
     if any(result.partial for _, result in successful):
         return await _multi_terminal_event(
-            state, steps, locale, "partial", on_step, search=provenance
+            state, steps, locale, "partial", on_step, call_id, search=provenance
         )
     if not merged.rows:
         status = "error" if len(successful) < len(candidate_ids) else "empty"
         return await _multi_terminal_event(
-            state, steps, locale, status, on_step, search=provenance
+            state, steps, locale, status, on_step, call_id, search=provenance
         )
     if len(merged.rows) > MAX_ROUTE_POINT_IDS:
         return await _multi_terminal_event(
-            state, steps, locale, "too_large", on_step, search=provenance
+            state, steps, locale, "too_large", on_step, call_id, search=provenance
         )
     try:
         route = await catalog.route([point.id for point in merged.rows if point.id])
     except (RouteTooManyClustersError, RouteTooManyPointsError):
         return await _multi_terminal_event(
-            state, steps, locale, "too_large", on_step, search=provenance
+            state, steps, locale, "too_large", on_step, call_id, search=provenance
         )
     except _FETCH_ERRORS:
         return await _multi_terminal_event(
-            state, steps, locale, "error", on_step, search=provenance
+            state, steps, locale, "error", on_step, call_id, search=provenance
         )
     if route.point_count < 1:
         return await _multi_terminal_event(
-            state, steps, locale, "error", on_step, search=provenance
+            state, steps, locale, "error", on_step, call_id, search=provenance
         )
     route_ref = state.next_route_ref("multi", state.clarification_revision)
     state.store_route(route_ref, build_route_state(route, result_ref, locale=locale))
@@ -135,7 +138,7 @@ async def execute_multi_selection(
     omitted = _omitted_titles(state, merged.omitted_work_ids)
     _consume_pending(state)
     steps.append(_server_step("plan_multi", True, {"route_ref": str(route_ref)}))
-    await _emit(on_step, "plan_multi", "done", {"route_ref": str(route_ref)})
+    await _emit(on_step, call_id, "plan_multi", "done", {"route_ref": str(route_ref)})
     return AgentResult(
         output=RouteResponseModel(message=multi_message(locale, "ok", omitted)),
         intent="plan_multi",
@@ -270,10 +273,12 @@ async def _multi_terminal_event(
     locale: str,
     status: str,
     on_step: OnStep | None,
+    call_id: str,
     search: ProducedSearch | None = None,
 ) -> AgentResult:
     result = _multi_terminal(state, steps, locale, status, search)
-    await _emit(on_step, "plan_multi", "done", {"status": status})
+    event_status: StepStatus = "error" if status == "error" else "done"
+    await _emit(on_step, call_id, "plan_multi", event_status, {"status": status})
     return result
 
 
@@ -292,7 +297,8 @@ async def execute_place_selection(
     on_step: OnStep | None = None,
 ) -> AgentResult:
     """Consume staged place coordinates without re-geocoding."""
-    await _emit(on_step, "search_nearby", "running", {})
+    call_id = new_step_call_id("search_nearby")
+    await _emit(on_step, call_id, "search_nearby", "running", {})
     pending = state.pending_clarification
     candidate = (
         next(
@@ -309,7 +315,7 @@ async def execute_place_selection(
         points = await catalog.nearby(candidate.lat, candidate.lng, radius_m=radius_m)
     except _FETCH_ERRORS:
         result = _place_error(state, locale)
-        await _emit(on_step, "search_nearby", "done", {"status": "error"})
+        await _emit(on_step, call_id, "search_nearby", "error", {})
         return result
     payload = build_search_state(points, kind="nearby", locale=locale)
     ref = state.next_search_ref("place", state.clarification_revision)
@@ -319,7 +325,7 @@ async def execute_place_selection(
         outcome="ok" if payload.row_count else "empty", result_ref=ref
     )
     step = _server_step("search_nearby", True, {"result_ref": str(ref)}, provenance)
-    await _emit(on_step, "search_nearby", "done", {"result_ref": str(ref)})
+    await _emit(on_step, call_id, "search_nearby", "done", {"result_ref": str(ref)})
     status = "ok" if payload.row_count else "empty"
     return AgentResult(
         output=SearchResponseModel(message=PLACE_MESSAGES[locale][status]),
@@ -341,7 +347,11 @@ def _place_error(state: SessionState, locale: str) -> AgentResult:
 
 
 async def _emit(
-    on_step: OnStep | None, tool: str, status: str, data: dict[str, object]
+    on_step: OnStep | None,
+    call_id: str,
+    tool: str,
+    status: StepStatus,
+    data: dict[str, object],
 ) -> None:
     if on_step is not None:
-        await on_step(StepEvent(tool=tool, status=status, data=data))
+        await on_step(StepEvent(tool, call_id, status, data))
