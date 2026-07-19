@@ -24,6 +24,9 @@
   --color-success-fg: #6fba2c;
   --color-warning-fg: #f5c31c;
   --color-error-fg: #e05a5a;
+  /* AA pair for error surfaces: strong red text on a light red tint. */
+  --color-error-strong: #b03030;
+  --color-error-bg: #fdecec;
   --color-walk-bg: #e8f5e9;
   --color-walk-fg: #2e7d32;
   --color-explore-bg: #e0f7f5;
