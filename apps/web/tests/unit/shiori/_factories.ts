@@ -1,5 +1,6 @@
 import type { TimedItinerary, TimedStop } from "@seichijunrei/contract";
-import type { ShioriMeta, ShioriPhoto } from "../../../src/features/shiori/types";
+import type { ShioriMeta, ShioriPhoto, ShioriPhotoInput } from "../../../src/features/shiori/types";
+import { makeJpegBlobWithExif } from "./_jpegFixtures";
 
 export function makeStop(overrides: Partial<TimedStop> = {}): TimedStop {
   return {
@@ -44,6 +45,17 @@ export function makePhoto(overrides: Partial<ShioriPhoto> = {}): ShioriPhoto {
     sceneLabel: "第8話 41:12",
     capturedAt: "10:48",
     imageUrl: "https://assets.example/comparison-1.jpg",
+    ...overrides,
+  };
+}
+
+export function makePhotoInput(overrides: Partial<ShioriPhotoInput> = {}): ShioriPhotoInput {
+  return {
+    id: "photo-1",
+    spotName: "気多若宮神社",
+    sceneLabel: "第8話 41:12",
+    capturedAt: "10:48",
+    photo: makeJpegBlobWithExif(),
     ...overrides,
   };
 }

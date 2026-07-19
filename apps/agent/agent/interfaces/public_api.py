@@ -14,6 +14,7 @@ from uuid import uuid4
 
 import httpx
 import structlog
+from fastapi import HTTPException
 from pydantic_ai import ModelMessagesTypeAdapter
 from pydantic_ai.exceptions import FallbackExceptionGroup, ModelHTTPError
 from pydantic_ai.messages import ModelMessage
@@ -31,7 +32,7 @@ from agent.agents.base import (
     resolve_model,
     resolve_model_alias,
 )
-from agent.agents.runtime_deps import OnStep, StepEvent
+from agent.agents.runtime_deps import OnStep, StepEvent, StepStatus, new_step_call_id
 from agent.agents.selected_route import execute_selected_route
 from agent.agents.selection import (
     SelectionError,
@@ -44,7 +45,7 @@ from agent.agents.translation import translate_text
 from agent.application.errors import ApplicationError, ErrorCode
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from agent.config.settings import Settings, get_settings
-from agent.domain.ports import DatabasePort
+from agent.domain.ports import DatabasePort, get_session_repo
 from agent.infrastructure.memory import postgres_memory_store
 from agent.infrastructure.observability import (
     record_runtime_request,
@@ -151,6 +152,18 @@ class RuntimeAPI:
         """Return the required shared model transport."""
         return self._model_http_client
 
+    async def validate_session_owner(
+        self, session_id: str | None, user_id: str | None
+    ) -> None:
+        """Hide sessions that are not owned by the authenticated user."""
+        if session_id is None or user_id is None:
+            return
+        session_repo = get_session_repo(self._db)
+        if session_repo is None or not await session_repo.check_session_owner(
+            session_id, user_id
+        ):
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+
     async def handle(
         self,
         request: PublicAPIRequest,
@@ -164,6 +177,7 @@ class RuntimeAPI:
         started_at = perf_counter()
         response: PublicAPIResponse | None = None
         effective_model = model if model is not None else request.model
+        await self.validate_session_owner(session_id, user_id)
 
         with runtime_span("runtime.handle") as span:
             _set_span_request_attrs(span, session_id, request, effective_model, user_id)
@@ -606,8 +620,10 @@ async def _apply_translation_gate(
     detected = resolve_reply_language(message, locale)
     if detected == locale:
         return
+    call_id = new_step_call_id("translate")
     if on_step is not None:
-        await on_step(StepEvent(tool="translate", status="running", data={}))
+        await on_step(StepEvent("translate", call_id, "running", {}))
+    status: StepStatus = "done"
     try:
         translated = await translate_text(
             message,
@@ -618,8 +634,9 @@ async def _apply_translation_gate(
         object.__setattr__(result.output, "message", translated)
     except (OSError, RuntimeError, ValueError, TypeError):
         logger.warning("translation_gate_failed", locale=locale)
+        status = "error"
     if on_step is not None:
-        await on_step(StepEvent(tool="translate", status="done", data={}))
+        await on_step(StepEvent("translate", call_id, status, {}))
 
 
 def _translation_context(

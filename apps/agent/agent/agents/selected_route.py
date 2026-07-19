@@ -8,7 +8,7 @@ import structlog
 from agent.agents.agent_result import AgentResult, ProducedRoute, StepRecord
 from agent.agents.catalog_adapter import build_route_payload, build_route_state
 from agent.agents.error_messages import build_error_message
-from agent.agents.runtime_deps import OnStep, StepEvent
+from agent.agents.runtime_deps import OnStep, StepEvent, StepStatus, new_step_call_id
 from agent.agents.runtime_models import RouteResponseModel
 from agent.agents.selection_messages import selected_route_message
 from agent.agents.session_state import SessionState
@@ -34,12 +34,14 @@ async def execute_selected_route(
         return _error_result("point_ids is required", locale, state)
 
     params = _build_params(point_ids, origin)
-    await _emit_step(on_step, "running", {})
+    call_id = new_step_call_id("plan_selected")
+    await _emit_step(on_step, call_id, "running", {})
 
     try:
         route = await catalog.route(point_ids, origin=_parse_coordinate_origin(origin))
     except _TRANSIENT_ERRORS as exc:
         logger.warning("selected_route_catalog_error", error=str(exc))
+        await _emit_step(on_step, call_id, "error", {})
         # Typed CatalogError -> localized, actionable text from OUR mapping
         # table (SD-19); anything else keeps the legacy generic fallback.
         return _error_result(
@@ -50,8 +52,9 @@ async def execute_selected_route(
 
     step, payload = _build_step(route, params)
     if not step.success:
+        await _emit_step(on_step, call_id, "error", {})
         return _error_result("No catalog route data", locale, state)
-    await _emit_step(on_step, "done", payload)
+    await _emit_step(on_step, call_id, "done", payload)
     return _build_success_result(route, step, locale, state)
 
 
@@ -64,12 +67,15 @@ def _build_params(point_ids: list[str], origin: str | None) -> dict[str, object]
 
 
 async def _emit_step(
-    on_step: OnStep | None, status: str, payload: dict[str, object]
+    on_step: OnStep | None,
+    call_id: str,
+    status: StepStatus,
+    payload: dict[str, object],
 ) -> None:
     """Notify the on_step callback, if any, of plan_selected progress."""
     if on_step is None:
         return
-    await on_step(StepEvent(tool="plan_selected", status=status, data=payload))
+    await on_step(StepEvent("plan_selected", call_id, status, payload))
 
 
 def _build_step(
