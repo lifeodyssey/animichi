@@ -1,0 +1,341 @@
+@import "tailwindcss";
+@import "./fonts.css";
+@import "./landing.css";
+@import "./shiori.css";
+@import "./chat.css";
+
+:root {
+  color-scheme: light;
+  --color-primary: #19c8b9;
+  --color-primary-hover: #3dd4c6;
+  --color-primary-active: #50b9ab;
+  --color-primary-soft: #e6f9f6;
+  --color-primary-fg: #ffffff;
+  /* Accessible teal from ds-审计.md; white text clears WCAG AA. */
+  --color-primary-strong: #0e7d72;
+  /* 動森 cream triad: page < card < muted (spec 2026-05-31 + legacy globals). */
+  --color-bg: #f8f8f0;
+  --color-fg: #725d42;
+  --color-card: #f7f3df;
+  --color-muted: #e8ddc8;
+  /* Accessible secondary text from ds-审计.md; clears WCAG AA on cream. */
+  --color-muted-fg: #7d6f5a;
+  --color-border: #aaa69d;
+  --color-focus: #ffcc00;
+  --color-success-fg: #6fba2c;
+  --color-warning-fg: #f5c31c;
+  --color-error-fg: #e05a5a;
+  /* AA pair for error surfaces: strong red text on a light red tint. */
+  --color-error-strong: #b03030;
+  --color-error-bg: #fdecec;
+  --color-walk-bg: #e8f5e9;
+  --color-walk-fg: #2e7d32;
+  --color-explore-bg: #e0f7f5;
+  --color-explore-fg: #00796b;
+  --color-map-pin-teal: #19c8b9;
+  --color-map-pin-green: #4caf50;
+  --color-map-pin-orange: #ff9800;
+  --color-map-pin-brand: #c1440e;
+  /* Route-card gold (issue #271 S1.5): star, track, and the route pill. */
+  --color-gold: #f5c31c;
+  --color-gold-soft: #fbf0cf;
+  --color-gold-fg: #6b5200;
+  --shadow-3d: #bdaea0;
+  --shadow-press: 0 5px 0 0 var(--shadow-3d);
+  --app-font-display: "Noto Serif JP", "Hiragino Mincho ProN", Georgia, serif;
+  --app-font-body: "Nunito", "Zen Maru Gothic", "Noto Sans SC", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
+  --app-font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--app-font-body);
+}
+
+a {
+  color: inherit;
+}
+
+.app-shell {
+  display: grid;
+  min-height: 100vh;
+  padding: 32px;
+  place-items: center;
+}
+
+.hero {
+  display: grid;
+  gap: 18px;
+  max-width: 720px;
+  text-align: center;
+}
+
+.hero.compact {
+  gap: 14px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-primary-strong);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  color: var(--color-fg);
+  font-size: 3.25rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 0.95;
+}
+
+.tagline {
+  margin: 0 auto;
+  max-width: 36rem;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.home-link {
+  justify-self: center;
+  border-bottom: 2px solid var(--color-primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (min-width: 720px) {
+  h1 {
+    font-size: 7rem;
+  }
+
+  .tagline {
+    font-size: 1.25rem;
+  }
+}
+
+
+.map-spike {
+  display: grid;
+  gap: 20px;
+  width: min(1180px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 64px;
+}
+
+.map-spike__head {
+  display: grid;
+  gap: 8px;
+}
+
+.map-spike__source {
+  color: var(--color-muted-fg);
+  font-weight: 700;
+}
+
+.map-spike__stage {
+  position: relative;
+  overflow: hidden;
+  height: min(70vh, 620px);
+  border: 2px solid var(--color-fg);
+  border-radius: 24px;
+  background: var(--color-card);
+  isolation: isolate;
+}
+
+.map-spike__illustration,
+.map-spike__gl {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.map-spike__gl {
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.map-spike__stage[data-status="ready"] .map-spike__gl {
+  opacity: 1;
+}
+
+.map-spike__pin {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--color-map-pin-teal);
+  border-radius: 999px;
+  background: var(--color-bg);
+  color: var(--color-map-pin-teal);
+  font-weight: 800;
+}
+
+.map-spike__pin--start {
+  border-color: var(--color-fg);
+  background: var(--color-map-pin-teal);
+  color: var(--color-primary-fg);
+}
+
+.map-spike__pin--highlight {
+  border-color: var(--color-fg);
+  background: var(--color-map-pin-orange);
+  color: var(--color-primary-fg);
+}
+
+/* Night theme — semantic token overrides applied via <html data-theme="night">. */
+[data-theme="night"] {
+  color-scheme: dark;
+  --color-bg: #201a12;
+  --color-fg: #f3ece0;
+  --color-card: #2b2318;
+  --color-muted: #362c1e;
+  --color-muted-fg: #cbbfa8;
+  --color-border: #4a3d2b;
+  --color-primary-fg: #10201d;
+  --color-primary-soft: #123f39;
+  --color-explore-bg: #0f3531;
+  --color-explore-fg: #7fdcd2;
+  --color-walk-bg: #1c3320;
+  --color-walk-fg: #a8d5ab;
+  --color-gold-soft: #3a3117;
+  --color-gold-fg: #f0d98a;
+  /* Press shadow follows via var(--shadow-3d) in :root. */
+  --shadow-3d: #120d07;
+}
+
+/* Landing styles live in landing.css (imported above). */
+
+/* 動森-style pressable button + input primitives (semantic tokens only). */
+.ds-button {
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  padding: 10px 18px;
+  min-height: 44px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  font: inherit;
+  font-weight: 700;
+  box-shadow: var(--shadow-press);
+  cursor: pointer;
+  transition: transform 0.05s ease;
+}
+
+.ds-button:active {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+.ds-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ds-button--primary {
+  border-color: var(--color-primary-strong);
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+}
+
+.ds-button--large {
+  padding: 14px 26px;
+  font-size: 1.05rem;
+}
+
+.ds-input {
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  min-height: 44px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font: inherit;
+}
+
+.ds-input:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.login-modal__mask {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 45%);
+}
+
+.login-modal {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: 28px;
+  border-radius: 18px;
+  border: 3px solid var(--color-border);
+  background: var(--color-card);
+  box-shadow: var(--shadow-press);
+}
+
+.login-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-muted-fg);
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.login-modal__title {
+  margin: 0 0 6px;
+  color: var(--color-fg);
+}
+
+.login-modal__subtitle {
+  margin: 0 0 18px;
+  color: var(--color-muted-fg);
+  line-height: 1.6;
+}
+
+.login-form {
+  display: grid;
+  gap: 12px;
+}
+
+.login-form__label {
+  font-weight: 700;
+  color: var(--color-fg);
+}
+
+.login-form__feedback {
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-error-fg);
+}
+
+.login-form__feedback[role="status"] {
+  color: var(--color-success-fg);
+}
+
+.login-form__hint {
+  margin: 4px 0 0;
+  color: var(--color-muted-fg);
+  font-size: 0.875rem;
+}
