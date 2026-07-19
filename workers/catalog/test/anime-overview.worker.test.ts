@@ -125,12 +125,15 @@ describe("animeOverview scene edge cases", () => {
     });
   });
 
-  it("caps the quadratic clustering input while preserving the total count", async () => {
-    const rows = Array.from({ length: 501 }, (_, index) =>
-      row(`p-${String(index).padStart(3, "0")}`, 35.0, 139.0, "Tokyo"));
+  it("includes a large co-located cluster at the tail of the ID range", async () => {
+    const prefix = Array.from({ length: 520 }, (_, index) =>
+      row(`p-${String(index).padStart(3, "0")}`, 30 + index * 0.001, 138.0, "Tokyo"));
+    const tail = Array.from({ length: 100 }, (_, index) =>
+      row(`z-${String(index).padStart(3, "0")}`, 35.0, 139.0, "Tokyo"));
+    const rows = [...prefix, ...tail];
     const result = await animeOverview(fakeDb(rows), { bangumi_id: "302" });
-    expect(result.points_length).toBe(501);
-    expect(result.scenes[0]?.shot_count).toBe(500);
+    expect(result.points_length).toBe(620);
+    expect(result.scenes[0]).toMatchObject({ id: "z-000", shot_count: 100 });
   });
 });
 
