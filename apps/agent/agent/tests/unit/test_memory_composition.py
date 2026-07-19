@@ -113,10 +113,11 @@ async def test_authenticated_memory_keeps_output_validator_active() -> None:
             parts=[ToolCallPart("search_response", {"message": "fabricated"})]
         )
 
+    fake_db = MagicMock()
     with pytest.raises(UnexpectedModelBehavior, match="maximum output retries"):
         await run_animichi_agent(
             text="hello",
-            db=MagicMock(),
+            db=fake_db,
             locale="en",
             catalog=MockCatalogClient(),
             model=FunctionModel(respond),
