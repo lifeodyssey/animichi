@@ -100,9 +100,10 @@ export function createWorkerApp(deps: {
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
   );
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
-  app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", (c) =>
-    forwardPublicCatalog(c.env, c.req.raw),
-  );
+  app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", (c) => {
+    if (new URL(c.req.url).search) return c.text("Unexpected query parameters", 400);
+    return forwardPublicCatalog(c.env, c.req.raw);
+  });
   app.all("/catalog/public/*", (c) => c.notFound());
   // Hono runs the first matching handler in registration order.
   // /v1/users/* bypasses the container entirely: the users service verifies the
