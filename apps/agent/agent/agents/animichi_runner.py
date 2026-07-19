@@ -23,6 +23,7 @@ from agent.agents.runtime_deps import (
     StepEvent,
     TitleTranslator,
     WebSearcher,
+    new_step_call_id,
 )
 from agent.agents.runtime_models import (
     AgentResultOutput,
@@ -279,4 +280,5 @@ async def _record_terminal_clarify(
         )
     )
     if deps.on_step is not None:
-        await deps.on_step(StepEvent(tool="clarify", status="done", data=data))
+        call_id = new_step_call_id("clarify")
+        await deps.on_step(StepEvent("clarify", call_id, "done", data))

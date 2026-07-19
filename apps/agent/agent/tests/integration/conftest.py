@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.runtime_deps import OnStep, StepEvent
+from agent.agents.runtime_deps import OnStep, StepEvent, new_step_call_id
 from agent.agents.runtime_models import (
     ClarifyResponseModel,
     QAResponseModel,
@@ -310,7 +310,9 @@ def sse_client(tc_db: SupabaseClient) -> AsyncIterator[_SSEClient]:
         result = _make_agent_result(text, locale)
         if on_step is not None:
             data = result.session_state.model_dump(mode="json", exclude_none=True)
-            await on_step(StepEvent(tool=result.intent, status="done", data=data))
+            await on_step(
+                StepEvent(result.intent, new_step_call_id(result.intent), "done", data)
+            )
         return result
 
     app = _build_test_app(tc_db)
