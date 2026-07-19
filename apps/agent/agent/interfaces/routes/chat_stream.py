@@ -28,7 +28,8 @@ from pydantic_ai.ui.vercel_ai.response_types import (
 )
 
 from agent.agents.runtime_deps import OnStep, StepEvent
-from agent.interfaces.schemas import PublicAPIResponse
+from agent.interfaces.chat_wire import chat_response_wire
+from agent.interfaces.schemas import GRACEFUL_TERMINAL_STATUSES, PublicAPIResponse
 
 logger = structlog.get_logger(__name__)
 
@@ -37,7 +38,7 @@ _SDK_VERSION = 6
 _ERROR_TEXT = "Something went wrong. Please try again."
 
 ChatHandler = Callable[[OnStep], Awaitable[PublicAPIResponse]]
-_Queue = asyncio.Queue["BaseChunk | None"]
+_Queue = asyncio.Queue["str | None"]
 
 
 class _ToolPartTranslator:
@@ -85,18 +86,23 @@ def _data_parts(response: PublicAPIResponse) -> list[BaseChunk]:
         DataChunk(
             type="data-response",
             id=RESPONSE_DATA_ID,
-            data=response.model_dump(mode="json"),
+            data=chat_response_wire(response),
         ),
     ]
 
 
 def _response_chunks(response: PublicAPIResponse) -> list[BaseChunk]:
+    finish_reason = "error" if _is_failure(response) else "stop"
     return [
         *_data_parts(response),
         FinishStepChunk(),
-        FinishChunk(finish_reason="stop"),
+        FinishChunk(finish_reason=finish_reason),
         DoneChunk(),
     ]
+
+
+def _is_failure(response: PublicAPIResponse) -> bool:
+    return not response.success and response.status not in GRACEFUL_TERMINAL_STATUSES
 
 
 def _error_chunks() -> list[BaseChunk]:
@@ -110,7 +116,7 @@ def _error_chunks() -> list[BaseChunk]:
 
 async def _put_all(queue: _Queue, chunks: Sequence[BaseChunk]) -> None:
     for chunk in chunks:
-        await queue.put(chunk)
+        await queue.put(_frame(chunk))
 
 
 def _make_on_step(queue: _Queue, translator: _ToolPartTranslator) -> OnStep:
@@ -132,14 +138,20 @@ async def _produce(handler: ChatHandler, queue: _Queue) -> None:
     await _put_all(queue, [StartChunk(), StartStepChunk()])
     try:
         response = await handler(_make_on_step(queue, translator))
+        await _put_all(queue, _terminal_chunks(translator, response))
     except Exception as exc:
         await _handle_error(queue, translator, exc)
-    else:
-        await _put_all(queue, _response_chunks(response))
-    await queue.put(None)
+    finally:
+        await queue.put(None)
 
 
-async def _drain(queue: _Queue) -> AsyncIterator[BaseChunk]:
+def _terminal_chunks(
+    translator: _ToolPartTranslator, response: PublicAPIResponse
+) -> list[BaseChunk]:
+    return [*translator.terminal_errors(), *_response_chunks(response)]
+
+
+async def _drain(queue: _Queue) -> AsyncIterator[str]:
     while True:
         chunk = await queue.get()
         if chunk is None:
@@ -165,7 +177,7 @@ async def stream_chat(handler: ChatHandler) -> AsyncIterator[str]:
     queue: _Queue = asyncio.Queue()
     task = asyncio.create_task(_produce(handler, queue))
     try:
-        async for chunk in _drain(queue):
-            yield _frame(chunk)
+        async for frame in _drain(queue):
+            yield frame
     finally:
         await _settle(task)

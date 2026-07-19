@@ -110,8 +110,6 @@ async def persist_result(
         session_id=session_id,
         user_id=user_id,
         request=request,
-        response=response,
-        result=result,
     )
     await persist_messages(
         db=db,
@@ -209,22 +207,33 @@ async def persist_conversation(
     session_id: str,
     user_id: str | None,
     request: PublicAPIRequest,
-    response: PublicAPIResponse,
-    result: AgentResult | None,
 ) -> None:
     """Persist the authenticated user's conversation index entry."""
-    if not user_id or result is None or not response.success:
+    if not user_id:
         return
 
     session_repo = get_session_repo(db)
     if session_repo is not None:
-        try:
-            await session_repo.upsert_conversation(session_id, user_id, request.text)
-        except _PERSIST_ERRORS:
-            logger.warning("upsert_conversation_failed", session_id=session_id)
+        await session_repo.upsert_conversation(session_id, user_id, request.text)
         # DECISION(2026-07-07): auto-generated conversation titles stay
         # disabled pending the conversation-history feature landing —
         # tracked in docs/superpowers/plans/2026-07-07-refactor-backlog.md.
+
+
+async def create_owned_session(
+    db: object,
+    session_id: str,
+    user_id: str,
+    first_query: str,
+    session_state: dict[str, object],
+) -> None:
+    """Create one authenticated session and ownership row atomically."""
+    session_repo = get_session_repo(db)
+    if session_repo is None:
+        raise RuntimeError("authenticated sessions require a session repository")
+    await session_repo.create_owned_session(
+        session_id, user_id, first_query, session_state
+    )
 
 
 async def load_session_state(
