@@ -4,6 +4,15 @@
     "version": "0.1.0",
     "description": "User-domain routes of the TS Users service, consumed by apps/web."
   },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
   "openapi": "3.1.1",
   "paths": {
     "/v1/users/routes": {
@@ -76,7 +85,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
         "operationId": "saveRoute",
@@ -320,7 +334,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/users/routes/{id}": {
@@ -499,7 +518,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/users/routes/claim": {
@@ -546,7 +570,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/users/checkins": {
@@ -871,7 +900,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "get": {
         "operationId": "listCheckins",
@@ -973,7 +1007,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/users/shares": {
@@ -1182,7 +1221,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/users/shares/{share_id}": {
@@ -1362,7 +1406,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/users/shares/resolve/{token}": {
@@ -1756,7 +1805,8 @@
               }
             }
           }
-        }
+        },
+        "security": []
       }
     }
   }
