@@ -40,13 +40,42 @@ def _db() -> DatabasePort:
     return cast(DatabasePort, db)
 
 
-async def test_runner_stops_looping_tool_calls_at_usage_limit() -> None:
+async def test_runner_stops_identical_looping_early_via_repeat_guard() -> None:
     requests = 0
 
     def loop(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
         nonlocal requests
         requests += 1
         return ModelResponse(parts=[ToolCallPart("resolve_anime", {"title": "x"})])
+
+    result = await run_animichi_agent(
+        text="hello",
+        db=_db(),
+        locale="en",
+        catalog=MockCatalogClient(),
+        model=FunctionModel(loop),
+    )
+
+    # The repeat-guard deflects the 2nd/3rd identical calls; retries exhaust
+    # long before the request budget, and the run ends as an honest partial.
+    assert requests < REQUEST_LIMIT
+    assert isinstance(result.output, PartialResponseModel)
+    assert (result.intent, result.success, result.status) == (
+        "partial",
+        False,
+        "partial",
+    )
+
+
+async def test_runner_stops_varied_looping_at_usage_limit() -> None:
+    requests = 0
+
+    def loop(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        nonlocal requests
+        requests += 1
+        return ModelResponse(
+            parts=[ToolCallPart("resolve_anime", {"title": f"x{requests}"})]
+        )
 
     result = await run_animichi_agent(
         text="hello",

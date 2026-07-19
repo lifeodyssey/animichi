@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import structlog
 from pydantic import ValidationError
-from pydantic_ai.exceptions import UsageLimitExceeded
+from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
@@ -194,6 +194,16 @@ async def run_animichi_agent(
     except UsageLimitExceeded:
         logger.warning(
             "animichi_agent_usage_limit",
+            requests=run_usage.requests,
+            tool_calls=run_usage.tool_calls,
+        )
+        return _partial_result(deps, run_usage)
+    except UnexpectedModelBehavior:
+        # The repeat-guard deflects identical tool re-calls with ModelRetry; a
+        # model that repeats through the whole retry budget ends here. Same
+        # honest ending as a usage cap: a partial response, not a 500.
+        logger.warning(
+            "animichi_agent_model_behavior_exhausted",
             requests=run_usage.requests,
             tool_calls=run_usage.tool_calls,
         )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -17,7 +18,10 @@ from pydantic_ai.capabilities import (
     Hooks,
     WrapRunHandler,
 )
+from pydantic_ai.capabilities.hooks import ValidatedToolArgs
+from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.output import ToolOutput
+from pydantic_ai.tools import ToolDefinition
 from pydantic_ai_harness.logfire import ManagedPrompt
 from pydantic_ai_harness.memory import Memory, MemoryStore
 
@@ -411,6 +415,18 @@ def trusted_session_context(deps: RuntimeDeps) -> str:
     return "[Trusted runtime context]\n" + "\n".join(parts)
 
 
+_REPEAT_GUARD_HINT = (
+    "You already called {tool} with these exact arguments and received its "
+    "result. Reuse that earlier result or call the tool with different "
+    "arguments."
+)
+
+
+def _tool_call_fingerprint(tool_name: str, args: ValidatedToolArgs) -> str:
+    payload = json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)
+    return f"{tool_name}:{payload}"
+
+
 def _modern_hooks() -> Hooks[RuntimeDeps]:
     hooks = Hooks[RuntimeDeps]()
 
@@ -420,6 +436,22 @@ def _modern_hooks() -> Hooks[RuntimeDeps]:
     ) -> NoReturn:
         record_agent_run_error(error)
         raise error
+
+    @hooks.on.before_tool_execute
+    def block_identical_repeat(
+        ctx: RunContext[RuntimeDeps],
+        *,
+        call: ToolCallPart,
+        tool_def: ToolDefinition,
+        args: ValidatedToolArgs,
+    ) -> ValidatedToolArgs:
+        del tool_def
+        fingerprint = _tool_call_fingerprint(call.tool_name, args)
+        seen = ctx.deps.seen_tool_calls
+        seen[fingerprint] = seen.get(fingerprint, 0) + 1
+        if seen[fingerprint] > 1:
+            raise ModelRetry(_REPEAT_GUARD_HINT.format(tool=call.tool_name))
+        return args
 
     return hooks
 
