@@ -99,6 +99,11 @@ export interface HistoryRowFixture {
   readonly response_data?: { readonly intent?: string; readonly success?: boolean } | null;
 }
 
+export function conversationMessagesErrorHandler(sessionId: string, status: number): HttpHandler {
+  const url = `${TEST_ORIGIN}/v1/conversations/${encodeURIComponent(sessionId)}/messages`;
+  return http.get(url, () => new HttpResponse(null, { status }));
+}
+
 export function conversationMessagesHandler(
   sessionId: string,
   rows: readonly HistoryRowFixture[],
