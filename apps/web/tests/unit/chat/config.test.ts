@@ -19,8 +19,8 @@ describe("resolveChatConfig", () => {
     expect(config.chatUrl).toBe("http://localhost:3000/v1/chat");
   });
 
-  it("requires VITE_SITE_ORIGIN on the server", () => {
-    expect(() => resolveChatConfig({})).toThrow(/VITE_SITE_ORIGIN/);
+  it("degrades to a relative chat base instead of throwing without any origin source", () => {
+    expect(resolveChatConfig({}).chatUrl).toBe("/v1/chat");
   });
 });
 
