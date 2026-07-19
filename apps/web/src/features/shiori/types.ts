@@ -11,6 +11,20 @@ export interface ShioriPhoto {
   imageUrl: string;
 }
 
+/** Raw photo entering the pipeline; bytes MUST pass sanitizePhoto before a render URL exists. */
+export interface ShioriPhotoInput {
+  id: string;
+  spotName: string;
+  sceneLabel: string;
+  capturedAt: string;
+  photo: Blob;
+}
+
+/** Pipeline output: imageUrl is minted from the sanitized blob only. */
+export interface SanitizedShioriPhoto extends ShioriPhoto {
+  blob: Blob;
+}
+
 /** Display metadata shared by every しおり layout. */
 export interface ShioriMeta {
   routeTitle: string;

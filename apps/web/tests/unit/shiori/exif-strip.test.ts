@@ -1,21 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sanitizePhoto, stripJpegMetadata } from "../../../src/features/shiori/exifStrip";
-
-function segment(marker: number, body: readonly number[]): number[] {
-  return [0xff, marker, (body.length + 2) >> 8, (body.length + 2) & 0xff, ...body];
-}
-
-const ascii = (text: string): number[] => Array.from(text, (char) => char.charCodeAt(0));
-const APP0_JFIF = segment(0xe0, [...ascii("JFIF\0"), 1, 2]);
-const APP1_EXIF_GPS = segment(0xe1, ascii("Exif\0\0GPSLAT35.68"));
-const DQT = segment(0xdb, [0, 1, 2, 3]);
-const SCAN_TAIL = [...segment(0xda, [1, 0]), 0xaa, 0xbb, 0xff, 0xd9];
-
-function makeJpegWithExif(): Uint8Array {
-  return Uint8Array.from([0xff, 0xd8, ...APP0_JFIF, ...APP1_EXIF_GPS, ...DQT, ...SCAN_TAIL]);
-}
-
-const bytesToText = (bytes: Uint8Array): string => String.fromCharCode(...bytes);
+import {
+  APP0_JFIF,
+  ascii,
+  bytesToText,
+  DQT,
+  makeJpegWithExif,
+  SCAN_TAIL,
+  segment,
+} from "./_jpegFixtures";
 
 describe("stripJpegMetadata", () => {
   it("removes the EXIF APP1 segment including GPS payload", () => {
