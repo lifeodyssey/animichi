@@ -20,3 +20,13 @@ Copied from `frontend/public/images/landing/` (legacy frontend) at the apps/web 
 ## fox-peek.webp
 
 - Project-owned mascot artwork (fox guide v3 set); no external attribution required.
+
+## fox-welcome.webp
+
+- Project-owned mascot artwork (fox guide v3 set, from `docs/mockups/mobile-fox-home-assets/`);
+  no external attribution required.
+
+## shrine-approach.webp
+
+- Project-owned hand-drawn shrine-approach background (mobile fox home mockup set); webp re-encode
+  of `docs/mockups/mobile-fox-home-assets/shrine-approach.png`.

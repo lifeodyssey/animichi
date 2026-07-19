@@ -17,24 +17,36 @@ describe("LandingPage", () => {
     renderWithLocale(<LandingPage />);
     expect(screen.getByText("アニメ旅行ジャーナル")).toBeTruthy();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("アニメの場面を");
-    expect(screen.getByRole("button", { name: "巡礼をはじめる" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "巡礼をはじめる" }).length).toBe(2);
   });
 
-  it("opens the login modal from the search CTA", () => {
+  it("renders the mobile fox welcome section alongside the desktop hero", () => {
     renderWithLocale(<LandingPage />);
-    act(() => { screen.getByRole("button", { name: "巡礼をはじめる" }).click(); });
+    expect(screen.getByRole("heading", { name: "聖地巡礼" })).toBeTruthy();
+    expect(screen.getByText("こっち！")).toBeTruthy();
+  });
+
+  it("opens the login modal from the desktop search CTA", () => {
+    renderWithLocale(<LandingPage />);
+    act(() => { screen.getAllByRole("button", { name: "巡礼をはじめる" })[0]?.click(); });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("opens the login modal from the mobile fox CTA", () => {
+    renderWithLocale(<LandingPage />);
+    act(() => { screen.getAllByRole("button", { name: "巡礼をはじめる" })[1]?.click(); });
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
   it("opens the login modal from the header login button", () => {
     renderWithLocale(<LandingPage />);
-    act(() => { screen.getByRole("button", { name: "ログイン" }).click(); });
+    act(() => { screen.getAllByRole("button", { name: "ログイン" })[0]?.click(); });
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
   it("closes the login modal from the modal close control", () => {
     renderWithLocale(<LandingPage />);
-    act(() => { screen.getByRole("button", { name: "ログイン" }).click(); });
+    act(() => { screen.getAllByRole("button", { name: "ログイン" })[0]?.click(); });
     act(() => { screen.getByRole("button", { name: "閉じる" }).click(); });
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -50,7 +62,7 @@ describe("LandingPage i18n", () => {
   it("re-renders all copy in English with no ja fallback leaking", () => {
     renderWithLocale(<LandingPage />);
     act(() => { screen.getByRole("button", { name: "EN" }).click(); });
-    expect(screen.getByRole("button", { name: "Start Exploring" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Start Exploring" }).length).toBe(2);
     expect(screen.getByText("Anime Travel Journal")).toBeTruthy();
     expect(screen.queryByText("巡礼をはじめる")).toBeNull();
     expect(screen.queryByText("アニメ旅行ジャーナル")).toBeNull();

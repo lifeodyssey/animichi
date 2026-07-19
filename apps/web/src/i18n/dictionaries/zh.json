@@ -25,7 +25,11 @@
     "comparison_real_alt": "须贺神社台阶的实景照片",
     "comparison_aria": "对比动画与实景的滑块",
     "theme_day": "日间",
-    "theme_night": "夜间"
+    "theme_night": "夜间",
+    "fox_bubble": "这边！",
+    "mobile_lead": "从喜欢的作品出发，去到走得到的地方。跟着地图和照片，不迷路地巡礼吧。",
+    "mobile_bg_alt": "手绘风格的鸟居与参道插画",
+    "fox_alt": "举着巡礼手帐卡片迎接你的狐狸向导"
   },
   "auth": {
     "title": "登录",
