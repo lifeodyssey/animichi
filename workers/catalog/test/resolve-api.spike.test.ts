@@ -3,11 +3,14 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import type { CatalogDb, NeonSql } from "../src/db/client";
+import { makeNeonSql, type CatalogDb, type NeonSql } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 import {
-  databaseDescribeKnownFailing,
+  databaseDescribe,
+  localDatabaseUrl,
   openDirectPool,
+  openServerlessDb,
+  restoreNeonConfig,
   truncateCatalogPool,
 } from "./spike-db";
 
@@ -16,29 +19,29 @@ const handler = new OpenAPIHandler(catalogRouter);
 
 let pool: pg.Pool;
 let db: CatalogDb;
+let neonSql: NeonSql;
 
 async function seedWorks(): Promise<void> {
   await pool.query(`INSERT INTO bangumi (id, title) VALUES
-    ('alpha', 'Alpha'), ('beta', 'Beta'), ('zero', 'Zero Point')`);
+    ('1001', 'Alpha'), ('1002', 'Beta'), ('1003', 'Zero Point')`);
 }
 
 async function seedPoints(): Promise<void> {
   await pool.query(`INSERT INTO points (id, bangumi_id, name, latitude, longitude) VALUES
-    ('a-1', 'alpha', 'Alpha Point', 35, 135),
-    ('b-1', 'beta', 'Beta Point 1', 36, 136),
-    ('b-2', 'beta', 'Beta Point 2', 37, 137)`);
+    ('a-1', '1001', 'Alpha Point', 35, 135),
+    ('b-1', '1002', 'Beta Point 1', 36, 136),
+    ('b-2', '1002', 'Beta Point 2', 37, 137)`);
 }
 
 async function seedAliases(): Promise<void> {
   await pool.query(`INSERT INTO aliases (work_id, alias, alias_normalized, source, priority) VALUES
-    ('alpha', 'Shared', 'shared', 'bangumi', 40),
-    ('alpha', 'Shared', 'shared', 'manual', 40),
-    ('beta', 'Shared', 'shared', 'bangumi', 40),
-    ('zero', 'Zero', 'zero', 'bangumi', 40)`);
+    ('1001', 'Shared', 'shared', 'bangumi', 40),
+    ('1001', 'Shared', 'shared', 'manual', 40),
+    ('1002', 'Shared', 'shared', 'bangumi', 40),
+    ('1003', 'Zero', 'zero', 'bangumi', 40)`);
 }
 
 function context(): CatalogContext {
-  const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
   return { db, neonSql };
 }
 
@@ -71,6 +74,8 @@ function pointKeys(value: unknown): string[] {
 }
 
 beforeAll(async () => {
+  await openServerlessDb();
+  neonSql = makeNeonSql(localDatabaseUrl());
   pool = await openDirectPool();
   db = drizzle(pool) as unknown as CatalogDb;
   await truncateCatalogPool(pool);
@@ -80,16 +85,17 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
+  restoreNeonConfig();
   await pool.end();
 });
 
-databaseDescribeKnownFailing("#363", "Phase 1a resolver SQL against Postgres", () => {
+databaseDescribe("Phase 1a resolver SQL against Postgres", () => {
   it("deduplicates work ids and orders tied candidates by derived point count", async () => {
     await expect(call("resolve", { query: "Shared" })).resolves.toEqual({
       outcome: "needs_disambiguation", reason: "anime_ambiguity",
       candidates: [
-        { bangumi_id: "beta", title: "Beta", points_count: 2 },
-        { bangumi_id: "alpha", title: "Alpha", points_count: 1 },
+        { bangumi_id: "1002", title: "Beta", points_count: 2 },
+        { bangumi_id: "1001", title: "Alpha", points_count: 1 },
       ],
     });
   });
@@ -97,12 +103,12 @@ databaseDescribeKnownFailing("#363", "Phase 1a resolver SQL against Postgres", (
   it("resolves a work with zero points instead of returning not_found", async () => {
     await expect(call("resolve", { query: "Zero" })).resolves.toEqual({
       outcome: "resolved",
-      match: { bangumi_id: "zero", title: "Zero Point", points_count: 0 },
+      match: { bangumi_id: "1003", title: "Zero Point", points_count: 0 },
     });
   });
 
   it("returns published rows through pointsByWorkId", async () => {
-    const result = await call("points-by-work-id", { work_id: "beta" });
-    expect(pointKeys(result)).toEqual(["beta:b-1", "beta:b-2"]);
+    const result = await call("points-by-work-id", { work_id: "1002" });
+    expect(pointKeys(result)).toEqual(["1002:b-1", "1002:b-2"]);
   });
 });
