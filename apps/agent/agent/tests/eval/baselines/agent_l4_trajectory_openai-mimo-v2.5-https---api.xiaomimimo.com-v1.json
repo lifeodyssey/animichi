@@ -4,18 +4,18 @@
   "dataset": "agent_eval_v3",
   "tier": "trajectory",
   "repeat": 1,
-  "case_count": 655,
-  "evaluated_count": 642,
-  "errored_count": 13,
+  "case_count": 662,
+  "evaluated_count": 662,
+  "errored_count": 0,
   "scores": {
-    "argument_correctness": 0.891213389121339,
-    "tool_correctness": 0.6370716510903427,
-    "trajectory_match": 0.7742498269797831,
-    "max_tool_calls": 0.7461059190031153,
-    "data_keys_present": 0.7632398753894081,
-    "locale_match": 0.7320872274143302,
-    "nonempty_results": 0.8076923076923077,
-    "step_efficiency": 0.7972031516424034
+    "argument_correctness": 0.8790983606557377,
+    "tool_correctness": 0.7009063444108762,
+    "trajectory_match": 0.8011490858922886,
+    "max_tool_calls": 0.8308157099697885,
+    "data_keys_present": 0.7552870090634441,
+    "locale_match": 0.9773413897280967,
+    "nonempty_results": 0.6666666666666666,
+    "step_efficiency": 0.8324613494930713
   },
   "cases": {
     "A1_ja_001": {
@@ -51,17 +51,17 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "A1_ja_005": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "A1_ja_006": {
       "argument_correctness": 1.0,
@@ -74,12 +74,12 @@
     },
     "A1_ja_007": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "A1_zh_001": {
       "argument_correctness": 1.0,
@@ -110,12 +110,12 @@
     },
     "A1_zh_004": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.8,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6666666666666666
     },
     "A1_zh_005": {
       "argument_correctness": 1.0,
@@ -123,17 +123,17 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_zh_006": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "A1_en_001": {
       "argument_correctness": 1.0,
@@ -141,26 +141,26 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_en_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "A1_en_003": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "A1_en_004": {
       "argument_correctness": 1.0,
@@ -177,7 +177,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_en_006": {
@@ -186,7 +186,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_en_007": {
@@ -195,7 +195,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A2_ja_001": {
@@ -249,7 +249,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A2_en_001": {
@@ -267,7 +267,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A2_ja_004": {
@@ -285,10 +285,28 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A3_ja_001": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "A3_ja_002": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "A3_ja_003": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
       "trajectory_match": 0.5,
@@ -297,59 +315,41 @@
       "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
-    "A3_ja_002": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.25,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.4
-    },
-    "A3_ja_003": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 1.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 1.0
-    },
     "A3_ja_004": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2,
+      "trajectory_match": 0.1818181818181818,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.4
+      "step_efficiency": 0.5
     },
     "A3_ja_005": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 1.0,
+      "trajectory_match": 0.14285714285714285,
+      "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "locale_match": 0.0,
+      "step_efficiency": 0.25
     },
     "A3_zh_001": {
-      "argument_correctness": 1.0,
+      "argument_correctness": 0.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.22222222222222224,
+      "trajectory_match": 0.14285714285714285,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.25
     },
     "A3_zh_002": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2,
+      "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.4
+      "step_efficiency": 0.5
     },
     "A3_zh_003": {
       "argument_correctness": 1.0,
@@ -357,44 +357,44 @@
       "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "A3_zh_004": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.4,
+      "trajectory_match": 0.22222222222222224,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.4
     },
     "A3_zh_005": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2,
+      "trajectory_match": 0.22222222222222224,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.4
+    },
+    "A3_en_001": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.3333333333333333,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
     },
-    "A3_en_001": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.2,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.4
-    },
     "A3_en_002": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 1.0,
+      "trajectory_match": 0.1818181818181818,
+      "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "locale_match": 1.0,
+      "step_efficiency": 0.3333333333333333
     },
     "A3_en_003": {
       "argument_correctness": 1.0,
@@ -402,26 +402,26 @@
       "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "A3_en_004": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.22222222222222224,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.4
-    },
-    "A3_en_005": {
-      "argument_correctness": 0.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.15384615384615385,
+      "trajectory_match": 0.28571428571428575,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.18181818181818182
+      "step_efficiency": 0.6666666666666666
+    },
+    "A3_en_005": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.25,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
     },
     "A4_ja_001": {
       "argument_correctness": 1.0,
@@ -434,18 +434,18 @@
     },
     "A4_ja_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.5,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.25
+      "step_efficiency": 0.5
     },
     "A4_ja_003": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.4,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
@@ -453,7 +453,7 @@
     "A4_zh_001": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.4,
+      "trajectory_match": 0.33333333333333337,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
@@ -462,7 +462,7 @@
     "A4_zh_002": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.19999999999999998,
+      "trajectory_match": 0.5714285714285715,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
@@ -470,17 +470,17 @@
     },
     "A4_en_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "A4_en_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
@@ -488,18 +488,18 @@
     },
     "A4_en_003": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.4,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "A5_ja_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
@@ -516,47 +516,47 @@
     "A5_ja_003": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.33333333333333337,
+      "trajectory_match": 0.2857142857142857,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.25
+      "step_efficiency": 0.14285714285714285
     },
     "A5_zh_001": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.33333333333333337,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
-    },
-    "A5_zh_002": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.10526315789473684,
+      "trajectory_match": 0.18181818181818182,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.07142857142857142
+      "step_efficiency": 0.1111111111111111
     },
-    "A5_zh_003": {
+    "A5_zh_002": {
       "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
-    "A5_en_001": {
+    "A5_zh_003": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
       "trajectory_match": 0.6666666666666666,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.3333333333333333
+    },
+    "A5_en_001": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
     },
     "A5_en_002": {
       "argument_correctness": 1.0,
@@ -569,21 +569,21 @@
     },
     "A5_en_003": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.3333333333333333
     },
     "A5_ja_004": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.4,
+      "trajectory_match": 0.6666666666666666,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.2
+      "step_efficiency": 0.3333333333333333
     },
     "A6_ja_001": {
       "argument_correctness": 1.0,
@@ -618,7 +618,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A6_en_002": {
@@ -627,7 +627,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_zh_001": {
@@ -641,12 +641,12 @@
     },
     "A7_zh_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.8,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "locale_match": 1.0,
+      "step_efficiency": 0.6666666666666666
     },
     "A7_zh_003": {
       "argument_correctness": 1.0,
@@ -668,12 +668,12 @@
     },
     "A7_en_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "A7_en_002": {
       "argument_correctness": 1.0,
@@ -681,7 +681,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_en_003": {
@@ -699,7 +699,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_zh_005": {
@@ -717,26 +717,26 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_zh_006": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "A7_en_006": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "A8_ja_001": {
       "argument_correctness": 1.0,
@@ -753,7 +753,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "A8_ja_003": {
@@ -816,7 +816,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A8_ja_010": {
@@ -852,7 +852,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A9_zh_004": {
@@ -861,7 +861,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A9_zh_005": {
@@ -879,7 +879,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A9_zh_007": {
@@ -888,17 +888,17 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A9_zh_008": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "A9_zh_009": {
       "argument_correctness": 1.0,
@@ -924,17 +924,17 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "A10_en_003": {
       "argument_correctness": 1.0,
@@ -942,7 +942,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_004": {
@@ -951,7 +951,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_005": {
@@ -960,7 +960,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_006": {
@@ -969,7 +969,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_007": {
@@ -978,7 +978,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_008": {
@@ -987,7 +987,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_009": {
@@ -996,7 +996,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A10_en_010": {
@@ -1005,17 +1005,17 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "B1_ja_001": {
-      "argument_correctness": 1.0,
+      "argument_correctness": 0.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2857142857142857,
+      "trajectory_match": 0.1,
       "max_tool_calls": 0.0,
-      "data_keys_present": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.2
+      "step_efficiency": 0.047619047619047616
     },
     "B1_ja_002": {
       "argument_correctness": 1.0,
@@ -1038,11 +1038,11 @@
     "B1_ja_004": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2222222222222222,
+      "trajectory_match": 0.5,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.16666666666666666
+      "step_efficiency": 0.25
     },
     "B1_ja_005": {
       "argument_correctness": 1.0,
@@ -1054,22 +1054,22 @@
       "step_efficiency": 0.5
     },
     "B1_ja_006": {
-      "argument_correctness": 0.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.14285714285714288,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.07142857142857142
-    },
-    "B1_ja_007": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
       "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.2
+    },
+    "B1_ja_007": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.25
+      "step_efficiency": 0.5
     },
     "B1_zh_001": {
       "argument_correctness": 1.0,
@@ -1082,12 +1082,12 @@
     },
     "B1_zh_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.33333333333333337,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.16666666666666666
+      "step_efficiency": 0.5
     },
     "B1_zh_003": {
       "argument_correctness": 1.0,
@@ -1100,6 +1100,15 @@
     },
     "B1_zh_004": {
       "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.4,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.2
+    },
+    "B1_zh_005": {
+      "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
@@ -1107,41 +1116,32 @@
       "locale_match": 1.0,
       "step_efficiency": 0.5
     },
-    "B1_zh_005": {
+    "B1_zh_006": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
       "trajectory_match": 0.19999999999999998,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.1111111111111111
-    },
-    "B1_zh_006": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.5,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.25
+      "step_efficiency": 0.2
     },
     "B1_en_001": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2857142857142857,
+      "trajectory_match": 0.33333333333333337,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.16666666666666666
     },
     "B1_en_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
     },
     "B1_en_003": {
       "argument_correctness": 1.0,
@@ -1158,28 +1158,10 @@
       "trajectory_match": 0.6666666666666666,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "B1_en_005": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 1.0
-    },
-    "B1_en_006": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.4,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.2
-    },
-    "B1_en_007": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
       "trajectory_match": 0.6666666666666666,
@@ -1188,13 +1170,32 @@
       "locale_match": 1.0,
       "step_efficiency": 0.3333333333333333
     },
-    "B2_ja_001": {
+    "B1_en_006": {
+      "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
+    "B1_en_007": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.2222222222222222,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.125
+    },
+    "B2_ja_001": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.5
     },
     "B2_ja_002": {
       "argument_correctness": 1.0,
@@ -1214,14 +1215,24 @@
       "step_efficiency": 1.0
     },
     "B2_ja_004": {
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
-      "data_keys_present": 0.0,
+      "argument_correctness": 0.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.25
     },
     "B2_ja_005": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.5,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.3333333333333333
+    },
+    "B2_zh_001": {
       "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
@@ -1229,14 +1240,6 @@
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
-    },
-    "B2_zh_001": {
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 1.0
     },
     "B2_zh_002": {
       "argument_correctness": 1.0,
@@ -1246,6 +1249,14 @@
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
+    },
+    "B2_zh_003": {
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "B2_zh_004": {
       "tool_correctness": 1.0,
@@ -1315,11 +1326,11 @@
     "B3_ja_002": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.125,
+      "trajectory_match": 0.25,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.09090909090909091
+      "locale_match": 1.0,
+      "step_efficiency": 0.125
     },
     "B3_ja_003": {
       "argument_correctness": 1.0,
@@ -1342,52 +1353,52 @@
     "B3_ja_005": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
+      "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.2
     },
     "B3_zh_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
-      "data_keys_present": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "B3_zh_002": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.33333333333333337,
+      "trajectory_match": 0.13333333333333333,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.16666666666666666
+      "step_efficiency": 0.07692307692307693
     },
     "B3_zh_003": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.3333333333333333
     },
     "B3_zh_004": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.125,
+      "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.07142857142857142
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.2
     },
     "B3_zh_005": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2222222222222222,
+      "trajectory_match": 0.2857142857142857,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
@@ -1399,26 +1410,26 @@
       "trajectory_match": 0.6666666666666666,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "B3_en_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.15384615384615385,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.07692307692307693
     },
     "B3_en_003": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2222222222222222,
+      "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.16666666666666666
+      "locale_match": 1.0,
+      "step_efficiency": 0.25
     },
     "B3_en_004": {
       "argument_correctness": 1.0,
@@ -1426,17 +1437,17 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "B3_en_005": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.18181818181818182,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.09090909090909091
     },
     "B4_ja_001": {
       "argument_correctness": 1.0,
@@ -1456,14 +1467,23 @@
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
+    "B4_ja_003": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
     "B4_zh_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 1.0
     },
     "B4_zh_002": {
       "argument_correctness": 1.0,
@@ -1480,7 +1500,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "B4_en_001": {
@@ -1489,28 +1509,19 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "B4_en_002": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2222222222222222,
+      "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.4
     },
     "B4_en_003": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 1.0
-    },
-    "B4_en_004": {
       "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
@@ -1519,15 +1530,24 @@
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
-    "C1_ja_001": {
+    "B4_en_004": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
+      "trajectory_match": 0.8,
       "max_tool_calls": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.6666666666666666
+    },
+    "C1_ja_001": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "nonempty_results": 1.0,
-      "step_efficiency": 0.25
+      "step_efficiency": 0.5
     },
     "C1_ja_002": {
       "argument_correctness": 1.0,
@@ -1559,14 +1579,14 @@
       "step_efficiency": 0.5
     },
     "C1_ja_005": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 1.0,
+      "argument_correctness": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "nonempty_results": 1.0,
-      "step_efficiency": 0.25
+      "nonempty_results": 0.0,
+      "step_efficiency": 0.3333333333333333
     },
     "C1_zh_001": {
       "argument_correctness": 1.0,
@@ -1580,13 +1600,13 @@
     },
     "C1_zh_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "nonempty_results": 1.0,
-      "step_efficiency": 0.25
+      "step_efficiency": 0.5
     },
     "C1_zh_003": {
       "argument_correctness": 1.0,
@@ -1599,22 +1619,22 @@
     },
     "C1_zh_004": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.25
-    },
-    "C1_zh_005": {
-      "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "nonempty_results": 1.0,
       "step_efficiency": 0.5
+    },
+    "C1_zh_005": {
+      "argument_correctness": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "nonempty_results": 0.0,
+      "step_efficiency": 0.3333333333333333
     },
     "C1_en_001": {
       "argument_correctness": 1.0,
@@ -1637,23 +1657,23 @@
       "step_efficiency": 0.5
     },
     "C1_en_003": {
-      "argument_correctness": 1.0,
+      "argument_correctness": 0.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
-      "data_keys_present": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "nonempty_results": 1.0,
-      "step_efficiency": 0.5
+      "nonempty_results": 0.0,
+      "step_efficiency": 0.3333333333333333
     },
     "C1_en_004": {
-      "argument_correctness": 1.0,
+      "argument_correctness": 0.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
-      "data_keys_present": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.3333333333333333
     },
     "C1_en_005": {
       "argument_correctness": 1.0,
@@ -1667,23 +1687,23 @@
     },
     "C2_ja_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "nonempty_results": 1.0,
-      "step_efficiency": 0.25
+      "step_efficiency": 0.5
     },
     "C2_ja_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "nonempty_results": 1.0,
-      "step_efficiency": 0.25
+      "step_efficiency": 0.5
     },
     "C2_ja_003": {
       "argument_correctness": 1.0,
@@ -1695,14 +1715,14 @@
       "step_efficiency": 0.5
     },
     "C2_ja_004": {
-      "argument_correctness": 0.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
       "locale_match": 1.0,
       "nonempty_results": 0.0,
-      "step_efficiency": 0.2
+      "step_efficiency": 0.5
     },
     "C2_ja_005": {
       "argument_correctness": 0.0,
@@ -1752,14 +1772,14 @@
       "step_efficiency": 1.0
     },
     "C2_zh_005": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 1.0,
+      "argument_correctness": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
       "nonempty_results": 0.0,
-      "step_efficiency": 0.25
+      "step_efficiency": 0.3333333333333333
     },
     "C2_en_001": {
       "argument_correctness": 1.0,
@@ -1792,6 +1812,16 @@
     },
     "C2_en_004": {
       "argument_correctness": 0.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "nonempty_results": 0.0,
+      "step_efficiency": 0.2
+    },
+    "C2_en_005": {
+      "argument_correctness": 0.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
@@ -1799,16 +1829,6 @@
       "locale_match": 1.0,
       "nonempty_results": 0.0,
       "step_efficiency": 0.3333333333333333
-    },
-    "C2_en_005": {
-      "argument_correctness": 0.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.25,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "nonempty_results": 1.0,
-      "step_efficiency": 0.07142857142857142
     },
     "C3_ja_001": {
       "argument_correctness": 1.0,
@@ -1821,12 +1841,12 @@
     },
     "C3_ja_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "C3_ja_003": {
       "argument_correctness": 1.0,
@@ -1847,22 +1867,22 @@
       "step_efficiency": 1.0
     },
     "C3_zh_001": {
-      "argument_correctness": 0.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "C3_zh_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "C3_zh_003": {
       "argument_correctness": 1.0,
@@ -1870,10 +1890,19 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C3_zh_004": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.8,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
+    "C3_en_001": {
       "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
@@ -1882,44 +1911,43 @@
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
-    "C3_en_001": {
+    "C3_en_002": {
       "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
-    },
-    "C3_en_002": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
     },
     "C3_en_003": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
-    },
-    "C3_en_004": {
-      "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "C3_en_004": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.8,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
+    "C4_ja_001": {
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C4_ja_002": {
-      "argument_correctness": 1.0,
+      "argument_correctness": 0.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
@@ -1937,25 +1965,23 @@
       "step_efficiency": 1.0
     },
     "C4_zh_002": {
-      "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
-      "data_keys_present": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C4_zh_003": {
-      "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
-      "data_keys_present": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "C4_en_001": {
-      "argument_correctness": 1.0,
+      "argument_correctness": 0.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
@@ -1964,7 +1990,7 @@
       "step_efficiency": 1.0
     },
     "C4_en_002": {
-      "argument_correctness": 1.0,
+      "argument_correctness": 0.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
@@ -1973,10 +1999,11 @@
       "step_efficiency": 1.0
     },
     "C4_en_003": {
+      "argument_correctness": 0.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
-      "data_keys_present": 0.0,
+      "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
@@ -2031,7 +2058,7 @@
       "trajectory_match": 0.8,
       "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "D1_ja_007": {
@@ -2085,17 +2112,17 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D1_zh_006": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.28571428571428575,
-      "max_tool_calls": 0.0,
+      "trajectory_match": 0.3333333333333333,
+      "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "locale_match": 1.0,
+      "step_efficiency": 0.75
     },
     "D1_en_001": {
       "argument_correctness": 1.0,
@@ -2121,7 +2148,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D1_en_004": {
@@ -2135,39 +2162,39 @@
     },
     "D1_en_005": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.8,
       "max_tool_calls": 1.0,
-      "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D1_en_006": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.28571428571428575,
-      "max_tool_calls": 0.0,
+      "trajectory_match": 0.3333333333333333,
+      "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.75
     },
     "D1_en_007": {
       "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "D2_ja_001": {
+      "argument_correctness": 0.0,
       "tool_correctness": 0.0,
       "trajectory_match": 0.8571428571428571,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 0.6
-    },
-    "D2_ja_001": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
-      "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "step_efficiency": 1.0
     },
     "D2_ja_002": {
       "argument_correctness": 1.0,
@@ -2180,21 +2207,21 @@
     },
     "D2_ja_003": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "D2_ja_004": {
-      "argument_correctness": 0.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8571428571428571,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "D2_ja_005": {
       "argument_correctness": 1.0,
@@ -2207,30 +2234,30 @@
     },
     "D2_zh_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8571428571428571,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.75
+      "step_efficiency": 1.0
     },
     "D2_zh_002": {
-      "argument_correctness": 0.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "D2_zh_003": {
-      "argument_correctness": 0.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "D2_zh_004": {
       "argument_correctness": 1.0,
@@ -2242,13 +2269,13 @@
       "step_efficiency": 1.0
     },
     "D2_zh_005": {
-      "argument_correctness": 0.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.7499999999999999,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.375
+      "step_efficiency": 1.0
     },
     "D2_en_001": {
       "argument_correctness": 1.0,
@@ -2288,11 +2315,11 @@
     },
     "D2_en_005": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
-      "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D3_ja_001": {
@@ -2306,12 +2333,12 @@
     },
     "D3_ja_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "D3_ja_003": {
       "argument_correctness": 1.0,
@@ -2355,7 +2382,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D3_en_003": {
@@ -2364,7 +2391,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D4_ja_001": {
@@ -2378,12 +2405,12 @@
     },
     "D4_ja_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.33333333333333337,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "D4_zh_001": {
       "argument_correctness": 1.0,
@@ -2391,14 +2418,14 @@
       "trajectory_match": 0.5,
       "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.75
     },
     "D4_zh_002": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.33333333333333337,
-      "max_tool_calls": 0.0,
+      "trajectory_match": 0.5,
+      "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 0.75
@@ -2409,26 +2436,26 @@
       "trajectory_match": 0.5,
       "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "D4_en_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.19999999999999998,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.6
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "D4_zh_003": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.19999999999999998,
+      "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.75
+      "locale_match": 1.0,
+      "step_efficiency": 0.6
     },
     "E1_ja_001": {
       "tool_correctness": 1.0,
@@ -2521,12 +2548,12 @@
     },
     "E2_ja_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "E2_ja_003": {
       "tool_correctness": 1.0,
@@ -2537,7 +2564,7 @@
       "step_efficiency": 1.0
     },
     "E2_zh_001": {
-      "argument_correctness": 1.0,
+      "argument_correctness": 0.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
@@ -2590,12 +2617,12 @@
     },
     "E2_en_004": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "E3_ja_001": {
       "tool_correctness": 1.0,
@@ -2686,9 +2713,9 @@
       "step_efficiency": 1.0
     },
     "F1_ja_002": {
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.4,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
@@ -2710,8 +2737,8 @@
       "step_efficiency": 1.0
     },
     "F1_zh_001": {
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
@@ -2746,7 +2773,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F1_en_002": {
@@ -2754,7 +2781,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F1_en_003": {
@@ -2762,13 +2789,13 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F1_en_004": {
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.5,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
@@ -2778,7 +2805,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "F2_ja_002": {
@@ -2798,8 +2825,8 @@
       "step_efficiency": 1.0
     },
     "F2_zh_001": {
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
@@ -2834,7 +2861,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F2_en_002": {
@@ -2842,7 +2869,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F2_en_003": {
@@ -2874,7 +2901,7 @@
       "trajectory_match": 0.5,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "F3_zh_001": {
@@ -2898,23 +2925,23 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F3_en_002": {
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "F3_en_003": {
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.33333333333333337,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G1_ja_001": {
@@ -2943,6 +2970,14 @@
       "step_efficiency": 1.0
     },
     "G1_ja_004": {
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "G1_ja_005": {
       "tool_correctness": 0.0,
       "trajectory_match": 0.0,
       "max_tool_calls": 1.0,
@@ -3000,8 +3035,9 @@
       "step_efficiency": 1.0
     },
     "G1_en_002": {
+      "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.0,
+      "trajectory_match": 0.6666666666666666,
       "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
@@ -3013,10 +3049,18 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G1_en_004": {
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "G1_en_005": {
       "tool_correctness": 0.0,
       "trajectory_match": 0.0,
       "max_tool_calls": 1.0,
@@ -3073,14 +3117,24 @@
       "step_efficiency": 1.0
     },
     "G2_zh_002": {
+      "argument_correctness": 0.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.0,
+      "trajectory_match": 0.4,
       "max_tool_calls": 1.0,
-      "data_keys_present": 0.0,
+      "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G2_zh_003": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.7499999999999999,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.6
+    },
+    "G2_zh_004": {
       "tool_correctness": 0.0,
       "trajectory_match": 0.0,
       "max_tool_calls": 1.0,
@@ -3088,7 +3142,7 @@
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
-    "G2_zh_004": {
+    "G2_zh_005": {
       "tool_correctness": 0.0,
       "trajectory_match": 0.0,
       "max_tool_calls": 1.0,
@@ -3101,7 +3155,7 @@
       "trajectory_match": 0.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G2_en_002": {
@@ -3113,7 +3167,6 @@
       "step_efficiency": 1.0
     },
     "G2_en_003": {
-      "argument_correctness": 0.0,
       "tool_correctness": 0.0,
       "trajectory_match": 0.0,
       "max_tool_calls": 1.0,
@@ -3134,7 +3187,7 @@
       "trajectory_match": 0.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G3_ja_001": {
@@ -3157,9 +3210,9 @@
     },
     "G3_ja_003": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
@@ -3179,7 +3232,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G3_zh_003": {
@@ -3197,7 +3250,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G3_en_001": {
@@ -3206,7 +3259,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G3_en_002": {
@@ -3215,7 +3268,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G3_en_003": {
@@ -3224,7 +3277,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "G4_ja_001": {
@@ -3237,13 +3290,13 @@
       "step_efficiency": 0.3333333333333333
     },
     "G4_ja_002": {
-      "argument_correctness": 0.0,
+      "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.5
     },
     "G4_ja_003": {
       "argument_correctness": 0.0,
@@ -3255,13 +3308,12 @@
       "step_efficiency": 0.3333333333333333
     },
     "G4_zh_001": {
-      "argument_correctness": 0.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 1.0
     },
     "G4_zh_002": {
       "argument_correctness": 0.0,
@@ -3273,12 +3325,13 @@
       "step_efficiency": 0.3333333333333333
     },
     "G4_en_001": {
+      "argument_correctness": 0.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.3333333333333333
     },
     "G4_en_002": {
       "argument_correctness": 0.0,
@@ -3288,6 +3341,14 @@
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 0.3333333333333333
+    },
+    "G4_en_003": {
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "G5_ja_001": {
       "tool_correctness": 1.0,
@@ -3329,6 +3390,14 @@
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
+    "G5_en_002": {
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
     "G6_ja_001": {
       "tool_correctness": 0.0,
       "trajectory_match": 0.0,
@@ -3353,25 +3422,25 @@
       "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.42857142857142855
+      "step_efficiency": 1.0
     },
     "G6_zh_002": {
-      "argument_correctness": 1.0,
+      "argument_correctness": 0.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.6,
+      "trajectory_match": 0.28571428571428575,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 0.42857142857142855
     },
     "G6_en_001": {
       "argument_correctness": 0.0,
       "tool_correctness": 0.0,
       "trajectory_match": 0.0,
-      "max_tool_calls": 0.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.375
+      "step_efficiency": 1.0
     },
     "G6_en_002": {
       "argument_correctness": 0.0,
@@ -3380,7 +3449,7 @@
       "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6
     },
     "H1_ja_001": {
       "argument_correctness": 0.0,
@@ -3392,13 +3461,13 @@
       "step_efficiency": 0.3333333333333333
     },
     "H1_ja_002": {
-      "argument_correctness": 0.0,
+      "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 1.0
     },
     "H1_ja_003": {
       "argument_correctness": 0.0,
@@ -3416,7 +3485,7 @@
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.3333333333333333
     },
     "H1_zh_002": {
       "argument_correctness": 0.0,
@@ -3447,12 +3516,12 @@
     },
     "H1_en_002": {
       "argument_correctness": 0.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.25
     },
     "H1_en_003": {
       "argument_correctness": 0.0,
@@ -3472,6 +3541,15 @@
       "locale_match": 1.0,
       "step_efficiency": 0.3333333333333333
     },
+    "H2_ja_001": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
     "H2_ja_002": {
       "argument_correctness": 1.0,
       "tool_correctness": 1.0,
@@ -3483,14 +3561,23 @@
     },
     "H2_ja_003": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.8,
       "max_tool_calls": 1.0,
-      "data_keys_present": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "H2_zh_001": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.8571428571428571,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.75
+    },
+    "H2_zh_002": {
       "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
@@ -3498,15 +3585,6 @@
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
-    },
-    "H2_zh_002": {
-      "argument_correctness": 0.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 1.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.75
     },
     "H2_zh_003": {
       "argument_correctness": 1.0,
@@ -3541,7 +3619,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "H2_en_003": {
@@ -3624,7 +3702,7 @@
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.75
+      "step_efficiency": 1.0
     },
     "H4_ja_002": {
       "argument_correctness": 0.0,
@@ -3648,19 +3726,19 @@
       "argument_correctness": 0.0,
       "tool_correctness": 0.0,
       "trajectory_match": 0.0,
-      "max_tool_calls": 0.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.375
+      "step_efficiency": 1.0
     },
     "H4_zh_003": {
       "argument_correctness": 0.0,
       "tool_correctness": 0.0,
       "trajectory_match": 0.0,
-      "max_tool_calls": 0.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.375
+      "step_efficiency": 0.6
     },
     "H4_en_001": {
       "argument_correctness": 0.0,
@@ -3695,80 +3773,80 @@
       "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "I1_zh_003": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.15384615384615385,
+      "trajectory_match": 0.3636363636363636,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.2222222222222222
+      "locale_match": 1.0,
+      "step_efficiency": 0.25
     },
     "I1_zh_004": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.09999999999999999,
-      "max_tool_calls": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.15384615384615385
+      "step_efficiency": 1.0
     },
     "I1_zh_005": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.28571428571428575,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.4
-    },
-    "I1_zh_006": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
       "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
     },
+    "I1_zh_006": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.1818181818181818,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.4
+    },
     "I1_zh_007": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.4,
+      "trajectory_match": 0.09523809523809525,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 0.2222222222222222
     },
     "I1_zh_008": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2,
+      "trajectory_match": 0.15384615384615385,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.2857142857142857
     },
     "I1_zh_009": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.28571428571428575,
+      "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 0.6666666666666666
     },
     "I1_zh_010": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.16666666666666669,
+      "trajectory_match": 0.2,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.4
     },
     "I2_en_001": {
       "argument_correctness": 1.0,
@@ -3776,7 +3854,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I2_en_002": {
@@ -3794,7 +3872,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I2_en_004": {
@@ -3821,7 +3899,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I2_en_007": {
@@ -3830,35 +3908,35 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I2_en_008": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "I3_en_001": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.25,
+      "trajectory_match": 0.1818181818181818,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.3333333333333333
     },
     "I3_en_002": {
-      "argument_correctness": 0.0,
+      "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.13333333333333336,
-      "max_tool_calls": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.2857142857142857
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "I3_en_003": {
       "argument_correctness": 1.0,
@@ -3866,17 +3944,17 @@
       "trajectory_match": 0.28571428571428575,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "I3_en_004": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.25,
+      "trajectory_match": 0.28571428571428575,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.3333333333333333
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
     },
     "I3_en_005": {
       "argument_correctness": 1.0,
@@ -3884,17 +3962,17 @@
       "trajectory_match": 0.22222222222222224,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.4
+      "locale_match": 1.0,
+      "step_efficiency": 0.3333333333333333
     },
     "I3_en_006": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.4,
-      "max_tool_calls": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "I4_ja_001": {
       "argument_correctness": 1.0,
@@ -3903,7 +3981,7 @@
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.4
+      "step_efficiency": 0.5
     },
     "I4_ja_002": {
       "argument_correctness": 1.0,
@@ -3934,12 +4012,12 @@
     },
     "I4_en_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "I4_en_002": {
       "argument_correctness": 1.0,
@@ -3947,7 +4025,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I4_en_003": {
@@ -3956,7 +4034,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I4_zh_003": {
@@ -3965,7 +4043,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I5_ja_001": {
@@ -3985,8 +4063,8 @@
       "step_efficiency": 1.0
     },
     "I5_zh_001": {
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 0.0,
@@ -3997,7 +4075,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I5_en_001": {
@@ -4005,7 +4083,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I5_en_002": {
@@ -4013,7 +4091,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I6_ja_001": {
@@ -4022,7 +4100,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I6_ja_002": {
@@ -4040,7 +4118,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I6_zh_002": {
@@ -4054,21 +4132,21 @@
     },
     "I6_en_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "I6_en_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "I6_ja_003": {
       "argument_correctness": 1.0,
@@ -4085,7 +4163,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I7_ja_001": {
@@ -4098,11 +4176,11 @@
       "step_efficiency": 1.0
     },
     "I7_ja_002": {
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "I7_zh_001": {
@@ -4111,7 +4189,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I7_zh_002": {
@@ -4128,7 +4206,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I7_en_002": {
@@ -4136,26 +4214,26 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I8_ja_001": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2222222222222222,
+      "trajectory_match": 0.5,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.1111111111111111
+      "step_efficiency": 0.25
     },
     "I8_zh_001": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2222222222222222,
+      "trajectory_match": 0.6666666666666666,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.1111111111111111
+      "step_efficiency": 0.3333333333333333
     },
     "I8_en_001": {
       "argument_correctness": 1.0,
@@ -4178,13 +4256,22 @@
     "I9_ja_001": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.3333333333333333,
+      "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.4
+      "step_efficiency": 0.5
     },
     "I9_zh_001": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.4,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
+    "I9_en_001": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
       "trajectory_match": 0.5,
@@ -4193,32 +4280,23 @@
       "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
-    "I9_en_001": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.25,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 1.0,
-      "step_efficiency": 0.2857142857142857
-    },
     "I9_en_002": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.25,
+      "trajectory_match": 0.1818181818181818,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.4
+      "locale_match": 1.0,
+      "step_efficiency": 0.3333333333333333
     },
     "J1_ja_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 1.0
     },
     "J1_ja_002": {
       "argument_correctness": 1.0,
@@ -4226,7 +4304,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J1_zh_001": {
@@ -4249,11 +4327,11 @@
     },
     "J1_en_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J1_en_002": {
@@ -4262,19 +4340,10 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J1_en_003": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
-    },
-    "J1_zh_003": {
       "argument_correctness": 1.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
@@ -4283,14 +4352,23 @@
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
+    "J1_zh_003": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
+      "step_efficiency": 1.0
+    },
     "J2_ja_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "J2_ja_002": {
       "argument_correctness": 1.0,
@@ -4303,12 +4381,12 @@
     },
     "J2_zh_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "J2_zh_002": {
       "argument_correctness": 1.0,
@@ -4316,17 +4394,17 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J2_en_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "J2_en_002": {
       "argument_correctness": 1.0,
@@ -4334,7 +4412,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J2_en_003": {
@@ -4343,7 +4421,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J2_en_004": {
@@ -4352,7 +4430,7 @@
       "trajectory_match": 0.8,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.6666666666666666
     },
     "J3_ja_001": {
@@ -4366,17 +4444,17 @@
     },
     "J3_ja_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 1.0
     },
     "J3_ja_003": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.4,
+      "trajectory_match": 0.5,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
@@ -4384,12 +4462,12 @@
     },
     "J3_zh_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.8,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6666666666666666
     },
     "J3_zh_002": {
       "argument_correctness": 1.0,
@@ -4398,25 +4476,25 @@
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.4
+      "step_efficiency": 0.5
     },
     "J3_en_001": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.5,
+      "trajectory_match": 0.2857142857142857,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
+      "locale_match": 1.0,
+      "step_efficiency": 0.4
     },
     "J3_en_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.5714285714285715,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.4
+      "step_efficiency": 1.0
     },
     "J4_ja_001": {
       "argument_correctness": 1.0,
@@ -4429,12 +4507,12 @@
     },
     "J4_ja_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "J4_zh_001": {
       "argument_correctness": 1.0,
@@ -4447,12 +4525,12 @@
     },
     "J4_zh_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.8,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6666666666666666
     },
     "J4_en_001": {
       "argument_correctness": 1.0,
@@ -4460,7 +4538,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J4_en_002": {
@@ -4469,7 +4547,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "J5_ja_001": {
@@ -4707,7 +4785,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "L2_ja_001": {
@@ -4763,7 +4841,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "L3_ja_001": {
@@ -4791,13 +4869,12 @@
       "step_efficiency": 1.0
     },
     "L3_en_001": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.0
+      "step_efficiency": 1.0
     },
     "L3_en_002": {
       "tool_correctness": 1.0,
@@ -4805,6 +4882,14 @@
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "L4_ja_001": {
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 0.0,
       "step_efficiency": 1.0
     },
     "L4_zh_001": {
@@ -4820,7 +4905,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "L4_en_002": {
@@ -4845,7 +4930,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A1_en_008": {
@@ -4860,92 +4945,92 @@
     "A3_ja_006": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.3333333333333333,
+      "trajectory_match": 0.3076923076923077,
       "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
+      "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "A3_zh_006": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.2,
+      "trajectory_match": 0.28571428571428575,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "A3_en_006": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.4,
-      "max_tool_calls": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "A1_ja_008": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.6666666666666666
+      "step_efficiency": 1.0
     },
     "A3_ja_007": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
+      "trajectory_match": 0.6666666666666666,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "A3_zh_007": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.25,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
+    },
+    "A3_en_007": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
       "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
     },
-    "A3_zh_007": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.4,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
-    },
-    "A3_en_007": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.22222222222222224,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.2857142857142857
-    },
     "A3_ja_008": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.1111111111111111,
-      "max_tool_calls": 0.0,
+      "trajectory_match": 0.5,
+      "max_tool_calls": 1.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.18181818181818182
+      "step_efficiency": 0.6666666666666666
     },
     "A3_zh_008": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.15384615384615385,
+      "trajectory_match": 0.2,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.25
+      "locale_match": 1.0,
+      "step_efficiency": 0.4
     },
     "A3_en_008": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.22222222222222224,
+      "trajectory_match": 0.3333333333333333,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.4
     },
     "B1_ja_008": {
       "argument_correctness": 1.0,
@@ -4957,23 +5042,23 @@
       "step_efficiency": 0.5
     },
     "C2_ja_006": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
-      "data_keys_present": 1.0,
-      "locale_match": 1.0,
-      "nonempty_results": 0.0,
-      "step_efficiency": 0.5
-    },
-    "C2_zh_006": {
       "argument_correctness": 0.0,
       "tool_correctness": 1.0,
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "nonempty_results": 0.0,
+      "step_efficiency": 0.3333333333333333
+    },
+    "C2_zh_006": {
+      "argument_correctness": 0.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.18181818181818182,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.23076923076923078
     },
     "D1_ja_008": {
       "argument_correctness": 1.0,
@@ -5017,7 +5102,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I4_en_004": {
@@ -5026,7 +5111,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_zh_007": {
@@ -5035,7 +5120,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A7_en_007": {
@@ -5044,7 +5129,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "B4_ja_004": {
@@ -5058,22 +5143,22 @@
     },
     "B4_zh_004": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 1.0
     },
     "C1_ja_006": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "nonempty_results": 0.0,
-      "step_efficiency": 0.25
+      "step_efficiency": 0.5
     },
     "D2_ja_006": {
       "argument_correctness": 1.0,
@@ -5096,11 +5181,11 @@
     "I1_zh_011": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.3333333333333333,
+      "trajectory_match": 0.4,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.4
+      "step_efficiency": 0.5
     },
     "I1_zh_012": {
       "argument_correctness": 1.0,
@@ -5117,7 +5202,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "I2_en_010": {
@@ -5126,23 +5211,23 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "A4_ja_004": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.33333333333333337,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "A4_zh_003": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.4,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 0.5
@@ -5160,35 +5245,35 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 1.0
-    },
-    "C3_ja_005": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
-      "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
-    "C3_zh_005": {
-      "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
+    "C3_ja_005": {
+      "argument_correctness": 0.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.0,
       "max_tool_calls": 1.0,
-      "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 1.0
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.6666666666666666
+    },
+    "C3_zh_005": {
+      "argument_correctness": 0.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.4,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.16666666666666666
     },
     "C3_en_005": {
       "argument_correctness": 0.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
+      "trajectory_match": 0.3636363636363636,
       "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 0.125
     },
     "A2_zh_004": {
       "argument_correctness": 1.0,
@@ -5228,12 +5313,12 @@
     },
     "A_remake_zh_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.8,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.6666666666666666
     },
     "A_remake_zh_002": {
       "argument_correctness": 1.0,
@@ -5256,11 +5341,11 @@
     "B_multisn_zh_001": {
       "argument_correctness": 1.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.4,
+      "trajectory_match": 0.6666666666666666,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.25
+      "locale_match": 1.0,
+      "step_efficiency": 0.5
     },
     "B_multisn_en_001": {
       "argument_correctness": 1.0,
@@ -5268,7 +5353,7 @@
       "trajectory_match": 0.6666666666666666,
       "max_tool_calls": 0.0,
       "data_keys_present": 0.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 0.5
     },
     "A_multisn_ja_001": {
@@ -5281,13 +5366,13 @@
       "step_efficiency": 1.0
     },
     "A_multisn_ja_002": {
-      "argument_correctness": 1.0,
+      "argument_correctness": 0.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
+      "trajectory_match": 0.5,
       "max_tool_calls": 0.0,
-      "data_keys_present": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.5
+      "step_efficiency": 0.2222222222222222
     },
     "A_multisn_zh_001": {
       "argument_correctness": 1.0,
@@ -5327,21 +5412,21 @@
     },
     "A_sameseries_en_001": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.8,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.6666666666666666
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "C_multisn_ja_001": {
       "argument_correctness": 0.0,
       "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
-      "data_keys_present": 1.0,
+      "trajectory_match": 0.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.3333333333333333
+      "step_efficiency": 0.6666666666666666
     },
     "C_multisn_zh_001": {
       "argument_correctness": 1.0,
@@ -5363,12 +5448,12 @@
     },
     "GINJ1_ja_002": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.5714285714285715,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 0.4
+      "step_efficiency": 1.0
     },
     "GINJ1_ja_003": {
       "argument_correctness": 0.0,
@@ -5416,12 +5501,12 @@
     },
     "GINJ1_zh_008": {
       "argument_correctness": 1.0,
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.6666666666666666,
-      "max_tool_calls": 0.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
-      "step_efficiency": 0.5
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
     },
     "GINJ1_zh_009": {
       "argument_correctness": 1.0,
@@ -5464,7 +5549,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "GINJ1_en_014": {
@@ -5473,7 +5558,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "GINJ1_en_015": {
@@ -5490,7 +5575,7 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "GINJ1_en_017": {
@@ -5499,16 +5584,24 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "GINJ1_en_018": {
       "argument_correctness": 1.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.8,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
-      "locale_match": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.6666666666666666
+    },
+    "GINJ2_ja_001": {
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
       "step_efficiency": 1.0
     },
     "GINJ2_ja_002": {
@@ -5552,10 +5645,11 @@
       "step_efficiency": 1.0
     },
     "GINJ2_zh_007": {
-      "tool_correctness": 0.0,
-      "trajectory_match": 0.0,
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
-      "data_keys_present": 0.0,
+      "data_keys_present": 1.0,
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
@@ -5575,7 +5669,23 @@
       "locale_match": 1.0,
       "step_efficiency": 1.0
     },
+    "GINJ2_en_010": {
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
     "GINJ2_en_011": {
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 0.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "GINJ2_zh_012": {
       "tool_correctness": 0.0,
       "trajectory_match": 0.0,
       "max_tool_calls": 1.0,
@@ -5633,12 +5743,12 @@
     },
     "C5_ja_001": {
       "argument_correctness": 0.0,
-      "tool_correctness": 1.0,
-      "trajectory_match": 1.0,
-      "max_tool_calls": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.5,
+      "max_tool_calls": 0.0,
       "data_keys_present": 1.0,
       "locale_match": 1.0,
-      "step_efficiency": 1.0
+      "step_efficiency": 0.42857142857142855
     },
     "C5_zh_001": {
       "argument_correctness": 0.0,
@@ -5655,8 +5765,69 @@
       "trajectory_match": 1.0,
       "max_tool_calls": 1.0,
       "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "Q304_locale_zh_001": {
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "Q304_locale_en_001": {
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
       "locale_match": 0.0,
       "step_efficiency": 1.0
+    },
+    "Q304_locale_ja_001": {
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "Q304_retrieval_sequel_001": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "Q304_retrieval_season_001": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 1.0
+    },
+    "Q304_retrieval_place_001": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 1.0,
+      "trajectory_match": 1.0,
+      "max_tool_calls": 1.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "nonempty_results": 1.0,
+      "step_efficiency": 0.5
+    },
+    "Q304_retrieval_alias_001": {
+      "argument_correctness": 1.0,
+      "tool_correctness": 0.0,
+      "trajectory_match": 0.8,
+      "max_tool_calls": 0.0,
+      "data_keys_present": 1.0,
+      "locale_match": 1.0,
+      "step_efficiency": 0.6666666666666666
     }
   },
   "note": null
