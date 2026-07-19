@@ -13,6 +13,8 @@
 
 import { oc } from "@orpc/contract";
 import { z } from "zod";
+import { pickErrors } from "./error-registry.js";
+import { allowAnonymous, requireBearer } from "./openapi-security.js";
 
 /** A 256-bit, unpadded Base64URL bearer token (43 URL-safe characters). */
 export const ShareToken = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
@@ -25,6 +27,9 @@ export const PublicItineraryState = z.enum(["planned", "partial", "completed"]);
 export type PublicItineraryState = z.infer<typeof PublicItineraryState>;
 
 const PublicClockTime = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/);
+
+/** Public web URL; arbitrary image hosts are allowed, but transport must be HTTPS. */
+export const HttpsUrl = z.url({ protocol: /^https$/ });
 
 /** Public anime display metadata; the id is a catalog-facing public id. */
 export const PublicSharedAnime = z.strictObject({
@@ -42,7 +47,7 @@ export const PublicSharedStop = z.strictObject({
   scheduled_time: PublicClockTime.optional(),
   visited_time: PublicClockTime.optional(),
   completed: z.boolean(),
-  frame_image_url: z.url().optional(),
+  frame_image_url: HttpsUrl.optional(),
   frame_label: z.string().min(1).max(100).optional(),
 });
 /** Inferred public-safe stop data. */
@@ -51,7 +56,7 @@ export type PublicSharedStop = z.infer<typeof PublicSharedStop>;
 /** Public comparison artifact already approved for sharing. */
 export const PublicSharedComparison = z.strictObject({
   point_id: z.string().min(1).max(128),
-  image_url: z.url(),
+  image_url: HttpsUrl,
   caption: z.string().min(1).max(200),
 });
 /** Inferred public comparison artifact. */
@@ -60,13 +65,13 @@ export type PublicSharedComparison = z.infer<typeof PublicSharedComparison>;
 /** Attribution displayed with licensed frames and user-created comparisons. */
 export const PublicShareAttribution = z.strictObject({
   label: z.string().min(1).max(300),
-  url: z.url().optional(),
+  url: HttpsUrl.optional(),
 });
 /** Inferred public share attribution. */
 export type PublicShareAttribution = z.infer<typeof PublicShareAttribution>;
 
 /** Strict public projection consumed by the anonymous /s/:id page. */
-export const PublicSharedItinerary = z.strictObject({
+const PublicSharedItineraryBase = z.strictObject({
   title: z.string().min(1).max(200),
   anime: PublicSharedAnime,
   state: PublicItineraryState,
@@ -77,8 +82,65 @@ export const PublicSharedItinerary = z.strictObject({
   completed_stops: z.number().int().nonnegative(),
   stops: z.array(PublicSharedStop).max(500),
   comparisons: z.array(PublicSharedComparison).max(100),
-  hero_image_url: z.url().optional(),
+  hero_image_url: HttpsUrl.optional(),
   attributions: z.array(PublicShareAttribution).max(20),
+});
+
+type SharedItinerary = z.infer<typeof PublicSharedItineraryBase>;
+
+function addInvariant(ctx: z.RefinementCtx, path: PropertyKey[], message: string): void {
+  ctx.addIssue({ code: "custom", path, message });
+}
+
+function validateCompletedLimit(value: SharedItinerary, ctx: z.RefinementCtx): void {
+  if (value.completed_stops > value.total_stops) {
+    addInvariant(ctx, ["completed_stops"], "Completed stops exceed total stops");
+  }
+}
+
+function validateTotalCount(value: SharedItinerary, ctx: z.RefinementCtx): void {
+  if (value.total_stops !== value.stops.length) {
+    addInvariant(ctx, ["total_stops"], "Total stops must match stops");
+  }
+}
+
+function validateCompletedCount(value: SharedItinerary, ctx: z.RefinementCtx): void {
+  const completed = value.stops.filter((stop) => stop.completed).length;
+  if (value.completed_stops !== completed) {
+    addInvariant(ctx, ["completed_stops"], "Completed stops must match stops");
+  }
+}
+
+function validateCounts(value: SharedItinerary, ctx: z.RefinementCtx): void {
+  validateCompletedLimit(value, ctx);
+  validateTotalCount(value, ctx);
+  validateCompletedCount(value, ctx);
+}
+
+function expectedState(value: SharedItinerary): PublicItineraryState {
+  if (value.completed_stops === 0) return "planned";
+  if (value.completed_stops === value.total_stops) return "completed";
+  return "partial";
+}
+
+function validateState(value: SharedItinerary, ctx: z.RefinementCtx): void {
+  if (value.state !== expectedState(value)) {
+    addInvariant(ctx, ["state"], "State must match stop counts");
+  }
+}
+
+function validatePositions(value: SharedItinerary, ctx: z.RefinementCtx): void {
+  const positions = value.stops.map((stop) => stop.position);
+  if (new Set(positions).size !== positions.length) {
+    addInvariant(ctx, ["stops"], "Stop positions must be unique");
+  }
+}
+
+/** Strict public projection consumed by the anonymous /s/:id page. */
+export const PublicSharedItinerary = PublicSharedItineraryBase.superRefine((value, ctx) => {
+  validateCounts(value, ctx);
+  validatePositions(value, ctx);
+  validateState(value, ctx);
 });
 /** Inferred strict public itinerary projection. */
 export type PublicSharedItinerary = z.infer<typeof PublicSharedItinerary>;
@@ -188,43 +250,42 @@ export type ShareErrorDefs = typeof SHARE_ERROR_DEFS;
 /** Share error code union. */
 export type ShareErrorCode = keyof ShareErrorDefs;
 
-type ShareErrorMapItem<Code extends ShareErrorCode> = {
-  status: ShareErrorDefs[Code]["status"];
-  message: ShareErrorDefs[Code]["message"];
-  data: ShareErrorDefs[Code]["data"];
-};
-type ShareErrorMap<Code extends ShareErrorCode> = {
-  [Key in Code]: ShareErrorMapItem<Key>;
-};
-
-function shareErrorEntry<Code extends ShareErrorCode>(
-  code: Code,
-): readonly [Code, ShareErrorMapItem<Code>] {
-  const { status, message, data } = SHARE_ERROR_DEFS[code];
-  return [code, { status, message, data }];
-}
-
 /** Pick oRPC error entries while dropping registry-only category metadata. */
 export function pickShareErrors<const Code extends ShareErrorCode>(
   codes: readonly Code[],
-): ShareErrorMap<Code> {
-  return Object.fromEntries(codes.map(shareErrorEntry)) as ShareErrorMap<Code>;
+): ReturnType<typeof pickErrors<ShareErrorDefs, Code>> {
+  return pickErrors(SHARE_ERROR_DEFS, codes);
 }
 
 /** oRPC contract for authenticated issuance/revocation and anonymous resolution. */
 export const shareContract = {
   createShare: oc
-    .route({ method: "POST", path: "/v1/users/shares", summary: "Create a route share" })
+    .route({
+      method: "POST",
+      path: "/v1/users/shares",
+      summary: "Create a route share",
+      spec: requireBearer,
+    })
     .input(CreateShareInput)
     .errors(pickShareErrors(["SHARE_ROUTE_NOT_FOUND", "SHARE_ROUTE_NOT_OWNED"]))
     .output(CreateShareResult),
   revokeShare: oc
-    .route({ method: "DELETE", path: "/v1/users/shares/{share_id}", summary: "Revoke a share" })
+    .route({
+      method: "DELETE",
+      path: "/v1/users/shares/{share_id}",
+      summary: "Revoke a share",
+      spec: requireBearer,
+    })
     .input(RevokeShareInput)
     .errors(pickShareErrors(["SHARE_NOT_FOUND", "SHARE_REVOKED"]))
     .output(RevokeShareResult),
   resolveShare: oc
-    .route({ method: "GET", path: "/v1/users/shares/resolve/{token}", summary: "Resolve a public share" })
+    .route({
+      method: "GET",
+      path: "/v1/users/shares/resolve/{token}",
+      summary: "Resolve a public share",
+      spec: allowAnonymous,
+    })
     .input(ResolveShareInput)
     .errors(pickShareErrors(["SHARE_NOT_FOUND", "SHARE_EXPIRED", "SHARE_REVOKED"]))
     .output(ResolveShareResult),
