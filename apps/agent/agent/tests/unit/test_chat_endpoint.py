@@ -198,8 +198,8 @@ def _frame_types(body: str) -> list[str]:
 
 async def test_chat_stream_frame_structure_and_header() -> None:
     steps = [
-        StepEvent(tool="resolve_anime", status="running", data={}),
-        StepEvent(tool="resolve_anime", status="done", data={"bangumi_id": 1}),
+        StepEvent("resolve_anime", "endpoint-call", "running", {}),
+        StepEvent("resolve_anime", "endpoint-call", "done", {"bangumi_id": 1}),
     ]
     response_body = PublicAPIResponse(
         success=True, status="ok", intent="search_bangumi", message="Found."

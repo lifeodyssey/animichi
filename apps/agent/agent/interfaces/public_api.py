@@ -31,7 +31,7 @@ from agent.agents.base import (
     resolve_model,
     resolve_model_alias,
 )
-from agent.agents.runtime_deps import OnStep, StepEvent
+from agent.agents.runtime_deps import OnStep, StepEvent, StepStatus, new_step_call_id
 from agent.agents.selected_route import execute_selected_route
 from agent.agents.selection import (
     SelectionError,
@@ -597,8 +597,10 @@ async def _apply_translation_gate(
     detected = resolve_reply_language(message, locale)
     if detected == locale:
         return
+    call_id = new_step_call_id("translate")
     if on_step is not None:
-        await on_step(StepEvent(tool="translate", status="running", data={}))
+        await on_step(StepEvent("translate", call_id, "running", {}))
+    status: StepStatus = "done"
     try:
         translated = await translate_text(
             message,
@@ -609,8 +611,9 @@ async def _apply_translation_gate(
         object.__setattr__(result.output, "message", translated)
     except (OSError, RuntimeError, ValueError, TypeError):
         logger.warning("translation_gate_failed", locale=locale)
+        status = "error"
     if on_step is not None:
-        await on_step(StepEvent(tool="translate", status="done", data={}))
+        await on_step(StepEvent("translate", call_id, status, {}))
 
 
 def _translation_context(
