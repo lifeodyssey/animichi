@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -18,6 +18,20 @@ def pool() -> AsyncMock:
 @pytest.fixture
 def repo(pool: AsyncMock) -> SessionRepository:
     return SessionRepository(pool)
+
+
+async def test_create_owned_session_uses_one_transaction(
+    repo: SessionRepository, pool: AsyncMock
+) -> None:
+    connection = AsyncMock()
+    transaction = MagicMock()
+    connection.transaction = MagicMock(return_value=transaction)
+    acquire = MagicMock()
+    acquire.__aenter__ = AsyncMock(return_value=connection)
+    pool.acquire = MagicMock(return_value=acquire)
+    await repo.create_owned_session("session-zero", "user-zero", "hello", {})
+    assert connection.execute.await_count == 2
+    transaction.__aenter__.assert_awaited_once()
 
 
 async def test_upsert_session_calls_execute_with_correct_params(

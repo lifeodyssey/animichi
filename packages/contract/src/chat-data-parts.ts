@@ -92,6 +92,7 @@ export const ChatResponseDataPart = z.discriminatedUnion("intent", [
   ResponseEnvelope.extend({ intent: z.literal("clarify"), data: ClarificationData.optional() }),
   ResponseEnvelope.extend({ intent: z.literal("partial"), data: RouteData.optional() }),
   prosePart("blocked"),
+  ResponseEnvelope.extend({ intent: z.literal("error"), data: EmptyData.optional() }),
   ResponseEnvelope.extend({ intent: z.literal("unknown"), data: EmptyData.optional() }),
 ]);
 

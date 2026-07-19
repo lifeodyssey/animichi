@@ -54,6 +54,7 @@ from agent.infrastructure.observability import (
 from agent.infrastructure.session import SessionStore, create_session_store
 from agent.interfaces.persistence import (
     build_response_session,
+    create_owned_session,
     extract_plan_steps,
     load_session_state,
     persist_messages,
@@ -67,6 +68,7 @@ from agent.interfaces.schemas import (
     PublicAPIError,
     PublicAPIRequest,
     PublicAPIResponse,
+    as_json_object,
 )
 from agent.interfaces.session_facade import (
     build_context_block,
@@ -173,12 +175,10 @@ class RuntimeAPI:
         on_step: OnStep | None = None,
     ) -> PublicAPIResponse:
         """Execute the runtime pipeline and normalize its output."""
-        session_id = request.session_id or None
+        session_id, is_new_session = await self._prepare_session(request, user_id)
         started_at = perf_counter()
         response: PublicAPIResponse | None = None
         effective_model = model if model is not None else request.model
-        await self.validate_session_owner(session_id, user_id)
-
         with runtime_span("runtime.handle") as span:
             _set_span_request_attrs(span, session_id, request, effective_model, user_id)
 
@@ -186,7 +186,7 @@ class RuntimeAPI:
             user_message_persisted = False
             try:
                 previous_state, context, message_history = await self._load_session(
-                    session_id, request
+                    None if is_new_session else session_id, request
                 )
                 result, response, context_delta = await self._execute_pipeline(
                     request,
@@ -221,9 +221,9 @@ class RuntimeAPI:
                 )
 
                 session_summary, route_history = build_response_session(session_state)
-                response.session = session_summary
+                response.session = as_json_object(session_summary)
                 response.route_history = [
-                    r for r in route_history if isinstance(r, dict)
+                    as_json_object(r) for r in route_history if isinstance(r, dict)
                 ]
                 response.generated_title = generated_title
                 return response
@@ -259,6 +259,18 @@ class RuntimeAPI:
                     status=status,
                     user_message_persisted=user_message_persisted,
                 )
+
+    async def _prepare_session(
+        self, request: PublicAPIRequest, user_id: str | None
+    ) -> tuple[str | None, bool]:
+        session_id = request.session_id or None
+        await self.validate_session_owner(session_id, user_id)
+        if session_id is not None or user_id is None:
+            return session_id, False
+        session_id = uuid4().hex
+        state = normalize_session_state(None)
+        await create_owned_session(self._db, session_id, user_id, request.text, state)
+        return session_id, True
 
     async def _load_session(
         self,
