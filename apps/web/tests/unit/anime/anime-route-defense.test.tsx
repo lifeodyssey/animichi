@@ -5,7 +5,11 @@ import { RouterProvider } from "@tanstack/react-router";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getRouter } from "../../../src/router";
-import { animeOverviewHandler, animeOverviewNotFoundHandler } from "../../msw/anime-overview";
+import {
+  animeOverviewGatewayNotFoundHandler,
+  animeOverviewHandler,
+  animeOverviewNotFoundHandler,
+} from "../../msw/anime-overview";
 import { server } from "../../msw/node";
 
 afterEach(cleanup);
@@ -32,6 +36,13 @@ describe("/anime/$bangumiId soft-404 defense", () => {
     await openAnime("654321");
     expect(await screen.findByRole("heading", { name: "404" })).toBeTruthy();
     expect(screen.queryByText(/WORK_NOT_FOUND/)).toBeNull();
+  });
+
+  it("treats an untyped gateway 404 as an outage, not an unknown work", async () => {
+    server.use(animeOverviewGatewayNotFoundHandler);
+    await openAnime("123");
+    expect(await screen.findByText("エラーが発生しました")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "404" })).toBeNull();
   });
 
   it("marks the empty-overview page as noindex for crawlers", async () => {

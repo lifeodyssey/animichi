@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { THEME_STORAGE_KEY } from "../theme-bootstrap";
 
 export type Theme = "day" | "night";
 
-const STORAGE_KEY = "animichi-theme";
+const STORAGE_KEY = THEME_STORAGE_KEY;
 
 function readStored(): Theme | null {
   const value = window.localStorage.getItem(STORAGE_KEY);
