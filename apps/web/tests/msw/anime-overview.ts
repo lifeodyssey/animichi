@@ -88,6 +88,16 @@ export const animeOverviewNotFoundHandler: HttpHandler = http.get(ANIME_OVERVIEW
   }),
 );
 
+/** A generic gateway 404 (HTML, no typed envelope): NOT an unknown work. */
+export const animeOverviewGatewayNotFoundHandler: HttpHandler = http.get(
+  ANIME_OVERVIEW_PATH,
+  () =>
+    new HttpResponse("<html><body>404 Not Found</body></html>", {
+      status: 404,
+      headers: { "content-type": "text/html" },
+    }),
+);
+
 /** An always-failing handler for loader error-path tests. */
 export const animeOverviewOutageHandler: HttpHandler = http.get(ANIME_OVERVIEW_PATH, () =>
   orpcErrorResponse({ code: "INTERNAL_SERVER_ERROR", status: 500, message: "catalog unavailable" }),
