@@ -13,6 +13,8 @@ export interface ChatDict {
   readonly errorCard: string;
   readonly historyError: string;
   readonly preparing: string;
+  readonly foxAlt: string;
+  readonly thinking: string;
 }
 
 const ja: ChatDict = {
@@ -31,6 +33,8 @@ const ja: ChatDict = {
   errorCard: "ごめんね、エラーが起きちゃった。もう一度ためしてみてね",
   historyError: "過去の会話を読み込めませんでした",
   preparing: "じゅんびちゅう…",
+  foxAlt: "アニミチ",
+  thinking: "考え中…",
 };
 
 const zh: ChatDict = {
@@ -45,6 +49,8 @@ const zh: ChatDict = {
   errorCard: "抱歉,出错了。请再试一次",
   historyError: "无法加载之前的对话",
   preparing: "准备中…",
+  foxAlt: "Animichi",
+  thinking: "思考中…",
 };
 
 const en: ChatDict = {
@@ -63,6 +69,8 @@ const en: ChatDict = {
   errorCard: "Sorry, something went wrong. Please try again",
   historyError: "Couldn't load this conversation",
   preparing: "Getting ready…",
+  foxAlt: "Animichi",
+  thinking: "Thinking…",
 };
 
 const CHAT_DICTIONARIES: Record<Locale, ChatDict> = { ja, zh, en };

@@ -10,6 +10,8 @@ describe("chatDictFor", () => {
     expect(dict.inputPlaceholder.length).toBeGreaterThan(0);
     expect(dict.errorBanner.length).toBeGreaterThan(0);
     expect(dict.retry.length).toBeGreaterThan(0);
+    expect(dict.foxAlt.length).toBeGreaterThan(0);
+    expect(dict.thinking.length).toBeGreaterThan(0);
   });
 
   it("self-references the fox persona as Animichi in every locale", () => {
