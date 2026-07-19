@@ -17,7 +17,7 @@ import type { BackendHealth } from "./use-backend-health";
 import type { ChatSession } from "./use-chat-session";
 import { useChatSession } from "./use-chat-session";
 import { useConversationHistory } from "./use-conversation-history";
-import type { HistoryEntry } from "./use-conversation-history";
+import type { ConversationHistory } from "./use-conversation-history";
 
 export interface ChatPageProps {
   readonly search: ChatSearch;
@@ -27,7 +27,7 @@ type ShellProps = Readonly<{
   entry: ChatEntryState;
   dict: ChatDict;
   chat: ChatSession;
-  history: readonly HistoryEntry[];
+  history: ConversationHistory;
   onRetry: () => void;
   onSend: (text: string) => void;
 }>;
@@ -43,7 +43,7 @@ function useScrollAnchor(itemCount: number) {
 type BodyProps = Omit<ShellProps, "onRetry">;
 
 function showColdStart({ entry, chat, history }: BodyProps): boolean {
-  return chat.messages.length === 0 && history.length === 0 && entry !== "A3";
+  return chat.messages.length === 0 && history.entries.length === 0 && entry !== "A3";
 }
 
 function ColdStartGate(props: BodyProps) {
@@ -51,24 +51,44 @@ function ColdStartGate(props: BodyProps) {
   return <ColdStart dict={props.dict} onChip={props.onSend} disabled={props.entry === "A5"} />;
 }
 
+function HistoryLoadingGate({ history, dict }: Readonly<{ history: ConversationHistory; dict: ChatDict }>) {
+  if (history.status !== "loading") return null;
+  return (
+    <p className="chat-history-loading" role="status" aria-busy="true">
+      {dict.preparing}
+    </p>
+  );
+}
+
 function ChatBody(props: BodyProps) {
-  const anchor = useScrollAnchor(props.history.length + props.chat.messages.length);
+  const anchor = useScrollAnchor(props.history.entries.length + props.chat.messages.length);
   return (
     <section className="chat-body">
-      <HistoryList entries={props.history} dict={props.dict} />
-      <ColdStartGate {...props} /><MessageList messages={props.chat.messages} dict={props.dict} />
-      <div ref={anchor} aria-hidden="true" />
+      <HistoryLoadingGate history={props.history} dict={props.dict} />
+      <HistoryList entries={props.history.entries} dict={props.dict} />
+      <ColdStartGate {...props} /><MessageList messages={props.chat.messages} dict={props.dict} /><div ref={anchor} aria-hidden="true" />
     </section>
   );
 }
 
-function ChatShell(props: ShellProps) {
+function HistoryErrorGate({ history, dict }: Readonly<{ history: ConversationHistory; dict: ChatDict }>) {
+  if (history.status !== "error") return null;
+  return <ErrorBanner dict={dict} onRetry={history.retry} message={dict.historyError} />;
+}
+
+function isInputLocked(props: ShellProps): boolean {
   const busy = props.chat.status === "submitted" || props.chat.status === "streaming";
+  const historyBlocked = props.entry === "A3" && props.history.status !== "success";
+  return props.entry === "A5" || busy || historyBlocked;
+}
+
+function ChatShell(props: ShellProps) {
   return (
     <main className="chat-page">
       {props.entry === "A5" ? <ErrorBanner dict={props.dict} onRetry={props.onRetry} /> : null}
+      <HistoryErrorGate history={props.history} dict={props.dict} />
       <ChatBody {...props} />
-      <ChatInput dict={props.dict} disabled={props.entry === "A5" || busy} onSend={props.onSend} />
+      <ChatInput dict={props.dict} disabled={isInputLocked(props)} onSend={props.onSend} />
     </main>
   );
 }

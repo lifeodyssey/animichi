@@ -1,12 +1,12 @@
 import type { ChatDict } from "../i18n";
 
-type Props = Readonly<{ dict: ChatDict; onRetry: () => void }>;
+type Props = Readonly<{ dict: ChatDict; onRetry: () => void; message?: string }>;
 
-/** A5: top error banner with retry while the backend is unreachable. */
-export function ErrorBanner({ dict, onRetry }: Props) {
+/** Top error banner with retry (A5 unreachable, A3 history failure). */
+export function ErrorBanner({ dict, onRetry, message }: Props) {
   return (
     <div className="chat-error-banner" role="alert">
-      <span>{dict.errorBanner}</span>
+      <span>{message ?? dict.errorBanner}</span>
       <button type="button" className="chat-error-banner__retry" onClick={onRetry}>
         {dict.retry}
       </button>
