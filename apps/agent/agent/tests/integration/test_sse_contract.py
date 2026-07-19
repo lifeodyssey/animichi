@@ -86,6 +86,7 @@ def _build_runtime_api_mock(
             await on_step(
                 StepEvent(
                     tool="search_bangumi",
+                    call_id="integration-call",
                     status="running",
                     data={"bangumi_id": "12345"},
                     thought="Searching...",
@@ -94,6 +95,7 @@ def _build_runtime_api_mock(
             await on_step(
                 StepEvent(
                     tool="search_bangumi",
+                    call_id="integration-call",
                     status="done",
                     data={"rows": [], "row_count": 0},
                     observation="Found 0 results",
