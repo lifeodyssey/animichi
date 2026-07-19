@@ -221,7 +221,7 @@ async function selectCandidates(db: CatalogDb, workIds: string[]): Promise<Anime
     SELECT b.id, b.title, b.title_cn, b.cover_url, b.air_date,
            COUNT(p.id) AS points_count
     FROM bangumi b LEFT JOIN points p ON p.bangumi_id = b.id
-    WHERE b.id = ANY(${workIds}::text[])
+    WHERE b.id IN (${sql.join(workIds, sql`, `)})
     GROUP BY b.id, b.title, b.title_cn, b.cover_url, b.air_date
   `);
   return result.rows.map(readStoredCandidate);
