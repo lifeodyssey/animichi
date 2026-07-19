@@ -73,7 +73,7 @@ export interface AnimeOverviewCircle {
 export interface AnimeScene {
   id: string;
   name: string;
-  screenshot_url: string;
+  screenshot_url: string | null;
   shot_count: number;
   lat: number;
   lng: number;
