@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CreateShareInput,
   CreateShareResult,
+  HttpsUrl,
   PublicSharedItinerary,
   ResolveShareResult,
   ResolveShareInput,
@@ -21,8 +22,8 @@ const PUBLIC_ITINERARY = {
   author_display_name: "ミツハ",
   planned_for: "2026-07-03",
   distance_meters: 2_800,
-  total_stops: 2,
-  completed_stops: 2,
+  total_stops: 1,
+  completed_stops: 1,
   stops: [
     {
       point_id: "point-hida-station",
@@ -90,6 +91,17 @@ describe("share expiry errors", () => {
 });
 
 describe("public share projection", () => {
+  it("accepts HTTPS public URLs", () => {
+    expect(HttpsUrl.parse("https://example.test/fake.webp")).toBe("https://example.test/fake.webp");
+  });
+
+  it.each(["javascript:fake", "ftp://example.test/fake", "http://example.test/fake"])(
+    "rejects non-HTTPS public URL %s",
+    (url) => {
+      expect(HttpsUrl.safeParse(url).success).toBe(false);
+    },
+  );
+
   it("accepts the public itinerary fields needed by the share page", () => {
     expect(PublicSharedItinerary.parse(PUBLIC_ITINERARY)).toEqual(PUBLIC_ITINERARY);
   });
@@ -118,5 +130,31 @@ describe("public share projection", () => {
   it("strictly rejects raw GPS nested inside a public stop", () => {
     const stops = [{ ...PUBLIC_ITINERARY.stops[0], latitude: 35.702_123 }];
     expect(PublicSharedItinerary.safeParse({ ...PUBLIC_ITINERARY, stops }).success).toBe(false);
+  });
+
+  it("rejects completed stop counts above the total", () => {
+    const invalid = { ...PUBLIC_ITINERARY, total_stops: 0 };
+    expect(PublicSharedItinerary.safeParse(invalid).success).toBe(false);
+  });
+
+  it("rejects duplicate stop positions", () => {
+    const duplicate = { ...PUBLIC_ITINERARY.stops[0], point_id: "point-library" };
+    const invalid = {
+      ...PUBLIC_ITINERARY,
+      total_stops: 2,
+      completed_stops: 2,
+      stops: [PUBLIC_ITINERARY.stops[0], duplicate],
+    };
+    expect(PublicSharedItinerary.safeParse(invalid).success).toBe(false);
+  });
+
+  it("rejects lifecycle state that contradicts the counts", () => {
+    const invalid = { ...PUBLIC_ITINERARY, state: "planned" };
+    expect(PublicSharedItinerary.safeParse(invalid).success).toBe(false);
+  });
+
+  it("rejects summary counts that contradict the stops", () => {
+    const invalid = { ...PUBLIC_ITINERARY, completed_stops: 0, state: "planned" };
+    expect(PublicSharedItinerary.safeParse(invalid).success).toBe(false);
   });
 });
