@@ -14,6 +14,7 @@ from uuid import uuid4
 
 import httpx
 import structlog
+from fastapi import HTTPException
 from pydantic_ai import ModelMessagesTypeAdapter
 from pydantic_ai.exceptions import FallbackExceptionGroup, ModelHTTPError
 from pydantic_ai.messages import ModelMessage
@@ -43,7 +44,7 @@ from agent.agents.translation import translate_text
 from agent.application.errors import ApplicationError, ErrorCode
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from agent.config.settings import Settings, get_settings
-from agent.domain.ports import DatabasePort
+from agent.domain.ports import DatabasePort, get_session_repo
 from agent.infrastructure.observability import (
     record_runtime_request,
     runtime_span,
@@ -147,6 +148,18 @@ class RuntimeAPI:
         """Return the required shared model transport."""
         return self._model_http_client
 
+    async def validate_session_owner(
+        self, session_id: str | None, user_id: str | None
+    ) -> None:
+        """Hide sessions that are not owned by the authenticated user."""
+        if session_id is None or user_id is None:
+            return
+        session_repo = get_session_repo(self._db)
+        if session_repo is None or not await session_repo.check_session_owner(
+            session_id, user_id
+        ):
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+
     async def handle(
         self,
         request: PublicAPIRequest,
@@ -160,6 +173,7 @@ class RuntimeAPI:
         started_at = perf_counter()
         response: PublicAPIResponse | None = None
         effective_model = model if model is not None else request.model
+        await self.validate_session_owner(session_id, user_id)
 
         with runtime_span("runtime.handle") as span:
             _set_span_request_attrs(span, session_id, request, effective_model, user_id)
