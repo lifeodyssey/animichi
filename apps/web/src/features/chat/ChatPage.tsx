@@ -95,6 +95,15 @@ function entryStateOf(search: ChatSearch, health: BackendHealth, chat: ChatSessi
   });
 }
 
+function useAutoSendFromQuery(search: ChatSearch, health: BackendHealth, send: (text: string) => void) {
+  useAutoSend({
+    query: search.q,
+    enabled: health.healthy && !search.session,
+    send,
+    sessionId: search.session,
+  });
+}
+
 function useChatState(search: ChatSearch) {
   const config = useMemo(currentChatConfig, []);
   const health = useBackendHealth(config.baseUrl);
@@ -106,7 +115,7 @@ function useChatState(search: ChatSearch) {
 export function ChatPage({ search }: ChatPageProps) {
   const { health, chat, history } = useChatState(search);
   const onSend = useSendText(chat);
-  useAutoSend(search.q, health.healthy && !search.session, onSend);
+  useAutoSendFromQuery(search, health, onSend);
   const entry = entryStateOf(search, health, chat);
   const onRetry = useRetry(chat, health.retry);
   return <ChatShell entry={entry} dict={chatDictFor(useLocale())} chat={chat} history={history} onRetry={onRetry} onSend={onSend} />;
