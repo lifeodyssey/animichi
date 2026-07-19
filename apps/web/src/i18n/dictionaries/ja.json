@@ -25,7 +25,11 @@
     "comparison_real_alt": "須賀神社の階段の実写写真",
     "comparison_aria": "アニメと実写を比較するスライダー",
     "theme_day": "昼",
-    "theme_night": "夜"
+    "theme_night": "夜",
+    "fox_bubble": "こっち！",
+    "mobile_lead": "好きな作品から、行ける場所へ。地図と写真で迷わず巡ろう。",
+    "mobile_bg_alt": "手描き風の鳥居と参道のイラスト",
+    "fox_alt": "しおりカードを持って案内するキツネ"
   },
   "auth": {
     "title": "ログイン",
