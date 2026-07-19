@@ -97,6 +97,7 @@ skills-lock.json
 # Misc
 images/
 !frontend/public/images/
+!apps/web/public/images/
 *.pen
 .next/
 .open-next/
