@@ -1,0 +1,20 @@
+data: {"type":"start"}
+
+data: {"type":"start-step"}
+
+data: {"type":"tool-input-start","toolCallId":"resolve_anime-fixture","toolName":"resolve_anime"}
+
+data: {"type":"tool-input-available","toolCallId":"resolve_anime-fixture","toolName":"resolve_anime","input":{"title":"ハルヒ"}}
+
+data: {"type":"tool-output-available","toolCallId":"resolve_anime-fixture","output":{"ambiguous":true}}
+
+data: {"type":"data-response","id":"response","data":{"intent":"clarify"}}
+
+data: {"type":"data-response","id":"response","data":{"intent":"clarify","success":true,"status":"needs_clarification","message":"どの作品でしょうか？","data":{"reason":"anime_ambiguity","clarification_id":1,"candidates":[{"title":"115908","id":"115908"},{"title":"117696","id":"117696"}]},"session":{},"route_history":[],"errors":[],"ui":{"component":"Clarification"}}}
+
+data: {"type":"finish-step"}
+
+data: {"type":"finish","finishReason":"stop"}
+
+data: [DONE]
+

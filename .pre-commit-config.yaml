@@ -6,13 +6,16 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: '__snapshots__/'
+        exclude: '__snapshots__/|\.sse$'
       - id: end-of-file-fixer
+        # Recorded SSE fixtures must keep their wire-accurate trailing blank
+        # line (event terminator); do not let the fixer collapse it.
+        exclude: '\.sse$'
       - id: check-yaml
       - id: check-toml
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
+    rev: v0.15.21
     hooks:
       - id: ruff
         args: [--fix, apps/agent/agent/]
@@ -27,13 +30,12 @@ repos:
 
   - repo: local
     hooks:
-      # Fast TS lint (oxlint). No official oxc-project/oxc pre-commit hook exists,
-      # so run via npx over the real TS sources (workers/catalog + frontend).
+      # Fast strict TS lint for the three live pnpm packages.
       - id: oxlint
-        name: oxlint (fast TS lint)
-        entry: bash -c 'npx --yes oxlint@0.16.11 workers/catalog frontend'
+        name: oxlint (strict live-package lint)
+        entry: pnpm run lint:oxlint
         language: system
-        files: ^(workers/catalog|frontend)/
+        files: ^(workers/catalog|workers/users|apps/web)/
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
 
@@ -73,8 +75,8 @@ repos:
         stages: [pre-push]
 
       - id: backend-test-coverage
-        name: backend tests + coverage (lines>=80%)
-        entry: bash -c 'cd apps/agent && SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54322/postgres DEEPSEEK_API_KEY=test-key uv run pytest agent/tests/unit/ -q --cov --cov-fail-under=80'
+        name: backend tests + coverage (lines>=82%)
+        entry: bash -c 'cd apps/agent && SUPABASE_DB_URL=postgresql://unused@db.invalid/unused DEEPSEEK_API_KEY=test-key uv run pytest agent/tests/unit/ -q --cov --cov-fail-under=82'
         language: system
         types: [python]
         pass_filenames: false

@@ -42,4 +42,11 @@ describe("catalog Worker (vitest-pool-workers)", () => {
     const body = json as { error: string };
     expect(body.error).toBe("catalog database not configured");
   });
+
+  it("rejects unexpected public query parameters before database access", async () => {
+    const path = "/catalog/public/anime-overview/3302?nonce=fixed";
+    const res = await app.request(path, {}, {} satisfies Env);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "unexpected query parameters" });
+  });
 });

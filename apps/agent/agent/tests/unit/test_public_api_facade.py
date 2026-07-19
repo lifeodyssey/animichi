@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent.agents.agent_result import AgentResult
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import (
@@ -16,6 +15,7 @@ from agent.interfaces.public_api import (
 )
 from agent.tests.unit.conftest_public_api import (
     install_mock_pipeline,
+    make_run_agent_stub,
 )
 from agent.tests.unit.conftest_public_api import (
     make_result as _make_result,
@@ -34,10 +34,9 @@ def mock_db():
     pool.fetch = AsyncMock(return_value=[])
     db.pool = pool
     db.points.search_points_by_location = AsyncMock(return_value=[])
-    db.user_memory.get_user_memory = AsyncMock(return_value=None)
+    db.session.create_owned_session = AsyncMock()
     db.session.upsert_session = AsyncMock()
     db.session.upsert_conversation = AsyncMock()
-    db.user_memory.upsert_user_memory = AsyncMock()
     db.session.update_conversation_title = AsyncMock()
     db.routes.save_route = AsyncMock(return_value="route-1")
     return db
@@ -53,30 +52,19 @@ class TestHandlePublicRequest:
         )
 
         assert response.intent == "search_bangumi"
-        assert response.status == "ok"
+        assert response.status == "empty"
         assert response.session["interaction_count"] == 1
 
     async def test_helper_forwards_explicit_model_override(self, mock_db, monkeypatch):
         captured: dict[str, object] = {}
 
-        async def fake_run_agent(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, locale, context, message_history, on_step)
-            captured["model"] = model
-            return _make_result(locale=locale)
+        fake_run_agent = make_run_agent_stub(
+            make=lambda locale: _make_result(locale=locale), capture=captured
+        )
 
         explicit_model = object()
         monkeypatch.setattr(
-            "agent.interfaces.public_api.run_pilgrimage_agent", fake_run_agent
+            "agent.interfaces.public_api.run_animichi_agent", fake_run_agent
         )
 
         await handle_public_request(
@@ -90,24 +78,24 @@ class TestHandlePublicRequest:
 
 
 class TestUserIdPropagation:
-    async def test_loads_user_memory_and_upserts_conversation_when_user_id_present(
-        self, mock_db
-    ):
-        api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+    async def test_upserts_conversation_when_user_id_present(self, mock_db):
+        api = RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        )
 
         await api.handle(PublicAPIRequest(text="京吹の聖地"), user_id="user-abc")
 
-        mock_db.user_memory.get_user_memory.assert_awaited_once_with("user-abc")
         mock_db.session.upsert_conversation.assert_awaited_once()
         args = mock_db.session.upsert_conversation.await_args.args
         assert args[1] == "user-abc"
 
     async def test_skips_user_scoped_db_calls_when_user_id_absent(self, mock_db):
-        api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+        api = RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        )
 
         await api.handle(PublicAPIRequest(text="京吹の聖地"), user_id=None)
 
-        mock_db.user_memory.get_user_memory.assert_not_awaited()
         mock_db.session.upsert_conversation.assert_not_awaited()
 
 
@@ -122,30 +110,20 @@ class TestLocalePassthrough:
 
     async def test_handle_passes_locale_to_pipeline(self, mock_db):
         result = _make_result(
-            intent="answer_question",
+            intent="general_qa",
             locale="zh",
             data={},
             message="你好！有什么可以帮助你的？",
         )
 
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, model, locale, context, message_history, on_step)
-            return result
+        _fake = make_run_agent_stub(result)
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
+            api = RuntimeAPI(
+                mock_db,
+                session_store=InMemorySessionStore(),
+                model_http_client=MagicMock(),
+            )
             response = await api.handle(PublicAPIRequest(text="你好", locale="zh"))
 
         assert response.intent == "general_qa"
@@ -153,74 +131,24 @@ class TestLocalePassthrough:
 
     async def test_handle_ja_locale_produces_japanese_message(self, mock_db):
         result = _make_result(
-            intent="answer_question",
+            intent="general_qa",
             locale="ja",
             data={},
             message="こんにちは！何かお手伝いしましょうか？",
         )
 
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, model, locale, context, message_history, on_step)
-            return result
+        _fake = make_run_agent_stub(result)
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
+            api = RuntimeAPI(
+                mock_db,
+                session_store=InMemorySessionStore(),
+                model_http_client=MagicMock(),
+            )
             response = await api.handle(PublicAPIRequest(text="你好", locale="ja"))
 
         assert response.intent == "general_qa"
         assert response.message  # non-empty
-
-
-class TestBuildContextBlockWithUserMemory:
-    async def test_handle_passes_context_block_to_pipeline(self, mock_db):
-        mock_db.user_memory.get_user_memory.return_value = {
-            "visited_anime": [
-                {"bangumi_id": "105", "title": "君の名は", "last_at": "2026-03-01"}
-            ]
-        }
-        captured: dict[str, object] = {}
-
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, model, locale, message_history, on_step)
-            captured["context"] = context
-            return _make_result(locale=locale)
-
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
-            await api.handle(PublicAPIRequest(text="次は何がある？"), user_id="u1")
-
-        assert captured["context"] == {
-            "summary": None,
-            "current_bangumi_id": "105",
-            "current_anime_title": "君の名は",
-            "last_location": None,
-            "last_intent": None,
-            "visited_bangumi_ids": ["105"],
-        }
 
 
 class TestOriginCoordinatesWiredToContext:
@@ -228,27 +156,18 @@ class TestOriginCoordinatesWiredToContext:
         """Finding 1: origin_lat/lng on request are forwarded to pipeline context."""
         captured: dict[str, object] = {}
 
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, model, locale, message_history, on_step)
-            captured["context"] = context
-            return _make_result(locale=locale)
+        _fake = make_run_agent_stub(
+            make=lambda locale: _make_result(locale=locale), capture=captured
+        )
 
         request = PublicAPIRequest(text="聖地巡礼", origin_lat=34.9, origin_lng=135.8)
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
+            api = RuntimeAPI(
+                mock_db,
+                session_store=InMemorySessionStore(),
+                model_http_client=MagicMock(),
+            )
             await api.handle(request)
 
         ctx = captured.get("context")
@@ -260,27 +179,18 @@ class TestOriginCoordinatesWiredToContext:
         """When origin_lat/lng are not set, context does not contain those keys."""
         captured: dict[str, object] = {}
 
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, model, locale, message_history, on_step)
-            captured["context"] = context
-            return _make_result(locale=locale)
+        _fake = make_run_agent_stub(
+            make=lambda locale: _make_result(locale=locale), capture=captured
+        )
 
         request = PublicAPIRequest(text="聖地巡礼")
 
-        with patch(
-            "agent.interfaces.public_api.run_pilgrimage_agent", side_effect=_fake
-        ):
-            api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+        with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
+            api = RuntimeAPI(
+                mock_db,
+                session_store=InMemorySessionStore(),
+                model_http_client=MagicMock(),
+            )
             await api.handle(request)
 
         ctx = captured.get("context")
