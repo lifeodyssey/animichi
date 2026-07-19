@@ -3,34 +3,43 @@
  */
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ShioriSource } from "../../../src/features/shiori/compose";
-import { ShioriGenerator } from "../../../src/features/shiori/ShioriGenerator";
-import { makeItinerary, makeMeta, makePhotos } from "./_factories";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ShioriGenerator, type ShioriGeneratorSource } from "../../../src/features/shiori/ShioriGenerator";
+import { makeItinerary, makeMeta, makePhotoInput } from "./_factories";
 
-afterEach(cleanup);
+beforeEach(() => {
+  vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:mock-1"), revokeObjectURL: vi.fn() });
+});
 
-function makeSource(overrides: Partial<ShioriSource> = {}): ShioriSource {
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+function makeSource(overrides: Partial<ShioriGeneratorSource> = {}): ShioriGeneratorSource {
   return {
     meta: makeMeta(),
     itinerary: makeItinerary(),
-    photos: makePhotos(1),
+    photos: [],
     checkedStopIds: [],
     isRouteDayOver: false,
     ...overrides,
   };
 }
 
-const COMPLETED = { checkedStopIds: ["stop-station", "stop-shrine"] };
+const COMPLETED: Partial<ShioriGeneratorSource> = {
+  checkedStopIds: ["stop-station", "stop-shrine"],
+  photos: [makePhotoInput()],
+};
 
 describe("ShioriGenerator", () => {
-  it("auto-generates a commemorative preview with completion stats", () => {
+  it("auto-generates a commemorative preview with completion stats", async () => {
     render(<ShioriGenerator source={makeSource(COMPLETED)} locale="ja" />);
 
+    expect(await screen.findByRole("article", { name: "完走記念しおり" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "完走記念しおり" })).toBeTruthy();
     expect(screen.getByText("徒歩210分 · 2.8km · 09:31→12:58")).toBeTruthy();
     expect(screen.getByText("完走 2/2 · 100%")).toBeTruthy();
-    expect(screen.getByRole("article", { name: "完走記念しおり" })).toBeTruthy();
   });
 
   it("auto-generates a planned preview without completion stats", () => {
@@ -53,10 +62,10 @@ describe("ShioriGenerator", () => {
   it.each([
     ["zh", "完走纪念书签"],
     ["en", "Commemorative shiori"],
-  ] as const)("renders the %s mode label", (locale, heading) => {
+  ] as const)("renders the %s mode label", async (locale, heading) => {
     render(<ShioriGenerator source={makeSource(COMPLETED)} locale={locale} />);
 
-    expect(screen.getByRole("heading", { name: heading })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: heading })).toBeTruthy();
   });
 
   it("keeps EXIF stripping on by default", () => {
