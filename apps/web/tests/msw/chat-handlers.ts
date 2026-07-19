@@ -21,21 +21,65 @@ export function chatStreamFixture(name: ChatStreamFixture): string {
   return readFileSync(join(FIXTURE_DIR, `${name}.sse`), "utf8");
 }
 
-function sseBody(text: string): ReadableStream<Uint8Array> {
+function sseBody(text: string, close: boolean): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {
       controller.enqueue(new TextEncoder().encode(text));
-      controller.close();
+      if (close) controller.close();
     },
   });
 }
 
-export function chatStreamHandler(name: ChatStreamFixture): HttpHandler {
-  return http.post(CHAT_URL, () => sseResponse(chatStreamFixture(name)));
+export interface ChatStreamOptions {
+  /** Patch the recorded final frame's `session_id` (recordings capture null). */
+  readonly sessionId?: string;
+  /** Observe each request hitting the chat endpoint (headers assertions). */
+  readonly spy?: (request: Request) => void;
+  /** Corrupt the recorded final frame (type-invalid `success`) to probe schema guards. */
+  readonly malformedFinal?: boolean;
 }
 
-function sseResponse(text: string): HttpResponse<ReadableStream<Uint8Array>> {
-  return new HttpResponse(sseBody(text), {
+function patchSessionId(text: string, sessionId?: string): string {
+  if (!sessionId) return text;
+  return text.replaceAll('"session_id":null', `"session_id":"${sessionId}"`);
+}
+
+function corruptFinalFrame(text: string, malformed?: boolean): string {
+  if (!malformed) return text;
+  return text.replace('"success":true', '"success":"yep"');
+}
+
+function streamText(name: ChatStreamFixture, options: ChatStreamOptions): string {
+  return corruptFinalFrame(
+    patchSessionId(chatStreamFixture(name), options.sessionId),
+    options.malformedFinal,
+  );
+}
+
+export function chatStreamHandler(
+  name: ChatStreamFixture,
+  options: ChatStreamOptions = {},
+): HttpHandler {
+  return http.post(CHAT_URL, ({ request }) => {
+    options.spy?.(request);
+    return sseResponse(streamText(name, options));
+  });
+}
+
+/** Replays the recording up to (excluding) the first data-response frame and holds the stream open. */
+export function chatStreamHeldOpenHandler(name: ChatStreamFixture): HttpHandler {
+  const recorded = chatStreamFixture(name);
+  const head = recorded.slice(0, recorded.indexOf('data: {"type":"data-response"'));
+  return http.post(CHAT_URL, () => {
+    return sseResponse(head, { close: false });
+  });
+}
+
+function sseResponse(
+  text: string,
+  { close = true }: Readonly<{ close?: boolean }> = {},
+): HttpResponse<ReadableStream<Uint8Array>> {
+  return new HttpResponse(sseBody(text, close), {
     headers: {
       "content-type": "text/event-stream",
       "x-vercel-ai-ui-message-stream": "v1",
@@ -53,6 +97,11 @@ export interface HistoryRowFixture {
   readonly role: string;
   readonly content: string;
   readonly response_data?: { readonly intent?: string; readonly success?: boolean } | null;
+}
+
+export function conversationMessagesErrorHandler(sessionId: string, status: number): HttpHandler {
+  const url = `${TEST_ORIGIN}/v1/conversations/${encodeURIComponent(sessionId)}/messages`;
+  return http.get(url, () => new HttpResponse(null, { status }));
 }
 
 export function conversationMessagesHandler(
