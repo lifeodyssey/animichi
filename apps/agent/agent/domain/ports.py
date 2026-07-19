@@ -79,6 +79,14 @@ class DatabasePort(Protocol):
 class SessionRepo(Protocol):
     """Session-related DB operations used by persistence helpers."""
 
+    async def create_owned_session(
+        self,
+        session_id: str,
+        user_id: str,
+        first_query: str,
+        session_state: dict[str, object],
+    ) -> None: ...
+
     async def upsert_session(
         self,
         session_id: str,

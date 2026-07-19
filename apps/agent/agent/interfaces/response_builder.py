@@ -11,7 +11,12 @@ from agent.agents.session_state import (
     SearchPayloadState,
 )
 from agent.application.errors import ApplicationError
-from agent.interfaces.schemas import PublicAPIError, PublicAPIResponse
+from agent.interfaces.schemas import (
+    JsonObject,
+    PublicAPIError,
+    PublicAPIResponse,
+    as_json_object,
+)
 
 _UI_MAP: dict[str, str] = {
     "search_bangumi": "PilgrimageGrid",
@@ -170,7 +175,7 @@ def application_error_response(exc: ApplicationError) -> PublicAPIResponse:
     )
 
 
-def serialize_step_record(step: StepRecord) -> dict[str, object]:
+def serialize_step_record(step: StepRecord) -> JsonObject:
     """Serialize one step for opt-in debug output."""
     serialized: dict[str, object] = {
         "tool": step.tool,
@@ -181,4 +186,4 @@ def serialize_step_record(step: StepRecord) -> dict[str, object]:
     }
     if step.provenance is not None:
         serialized["provenance"] = asdict(step.provenance)
-    return serialized
+    return as_json_object(serialized)

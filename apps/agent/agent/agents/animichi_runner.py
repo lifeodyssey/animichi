@@ -275,18 +275,22 @@ def _blocked_message(locale: str) -> str:
 async def _record_terminal_clarify(
     deps: RuntimeDeps, output: ClarifyResponseModel
 ) -> None:
-    data: dict[str, object] = {
-        "reason": output.reason,
-        "candidate_ids": output.candidate_ids,
-    }
-    deps.steps.append(
-        StepRecord(
-            tool="clarify",
-            success=True,
-            data=data,
-            model_initiated=False,
-        )
-    )
-    if deps.on_step is not None:
-        call_id = new_step_call_id("clarify")
-        await deps.on_step(StepEvent("clarify", call_id, "done", data))
+    data = _clarify_step_data(output)
+    deps.steps.append(_clarify_step_record(data))
+    if deps.on_step is None:
+        return
+    await _emit_clarify_lifecycle(deps.on_step, data)
+
+
+def _clarify_step_data(output: ClarifyResponseModel) -> dict[str, object]:
+    return {"reason": output.reason, "candidate_ids": output.candidate_ids}
+
+
+def _clarify_step_record(data: dict[str, object]) -> StepRecord:
+    return StepRecord(tool="clarify", success=True, data=data, model_initiated=False)
+
+
+async def _emit_clarify_lifecycle(on_step: OnStep, data: dict[str, object]) -> None:
+    call_id = new_step_call_id("clarify")
+    await on_step(StepEvent("clarify", call_id, "running", data))
+    await on_step(StepEvent("clarify", call_id, "done", data))

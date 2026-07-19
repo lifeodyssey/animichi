@@ -30,6 +30,7 @@ def _mock_pipeline(monkeypatch):
 @pytest.fixture
 def mock_db():
     db = MagicMock(spec=SupabaseClient)
+    db.session.create_owned_session = AsyncMock()
     db.session.upsert_session = AsyncMock()
     db.session.upsert_conversation = AsyncMock()
     db.session.update_conversation_title = AsyncMock()
