@@ -71,7 +71,7 @@ export type AnimeOverviewCircle = z.infer<typeof AnimeOverviewCircle>;
 export const AnimeScene = z.object({
   id: z.string(),
   name: z.string(),
-  screenshot_url: z.string(),
+  screenshot_url: z.string().nullable(),
   shot_count: z.number().int().nonnegative(),
   lat: Latitude,
   lng: Longitude,

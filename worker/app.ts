@@ -13,28 +13,31 @@ export interface Env {
 }
 
 interface NextHandler {
-  fetch: (req: Request, env: unknown, ctx: ExecutionContext) => Promise<Response>;
+  fetch: (req: Request, env: unknown, ctx: WorkerExecutionContext) => Promise<Response>;
 }
+
+type WorkerExecutionContext = Pick<ExecutionContext, "waitUntil" | "passThroughOnException">;
 
 const PUBLIC_V1 = ["/v1/search/preview", "/v1/bangumi/popular"];
 function isPublicV1(pathname: string): boolean {
   return PUBLIC_V1.includes(pathname) || /^\/v1\/bangumi\/[^/]+\/guide$/.test(pathname);
 }
 
-/** Catalog's ONLY public prefix: anonymous, read-only overview reads. Every
- * other /catalog/* path stays private (falls through to OpenNext). */
-function isPublicCatalog(pathname: string): boolean {
-  return pathname.startsWith("/catalog/public/");
+const PUBLIC_CATALOG_HEADERS = ["Accept"] as const;
+
+/** Rebuild anonymous catalog headers from a minimal, non-sensitive allowlist. */
+function publicCatalogHeaders(request: Request): Headers {
+  const headers = new Headers();
+  for (const name of PUBLIC_CATALOG_HEADERS) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  return headers;
 }
 
-/** Forward an anonymous public-catalog read to the private CATALOG binding
- * (in-datacenter hop). Strips client-supplied X-User-* (anti-forgery); no auth,
- * no body mutation — read-only. */
+/** Forward an allowlisted anonymous GET to the private CATALOG binding. */
 function forwardPublicCatalog(env: Env, request: Request): Promise<Response> {
-  const headers = new Headers(request.headers);
-  headers.delete("X-User-Id");
-  headers.delete("X-User-Type");
-  return env.CATALOG.fetch(new Request(request, { headers }));
+  return env.CATALOG.fetch(new Request(request, { headers: publicCatalogHeaders(request) }));
 }
 
 /** Forward a /v1 request to the container's default instance. Always strips
@@ -61,7 +64,7 @@ export function catalogOutbound(request: Request, env: Env): Promise<Response> {
 }
 
 /** Image proxy + cache for image.anitabi.cn (unchanged behaviour, ported from entry.js). */
-async function handleImageProxy(request: Request, ctx: ExecutionContext): Promise<Response> {
+async function handleImageProxy(request: Request, ctx: WorkerExecutionContext): Promise<Response> {
   const imagePath = new URL(request.url).pathname.slice(5);
   if (!imagePath || imagePath.includes("..")) return new Response("Bad request", { status: 400 });
   const cacheKey = new Request(request.url, request);
@@ -73,7 +76,7 @@ async function handleImageProxy(request: Request, ctx: ExecutionContext): Promis
   if (!upstream.ok) {
     return new Response(upstream.body, {
       status: upstream.status,
-      headers: { "Content-Type": upstream.headers.get("Content-Type") || "image/jpeg" },
+      headers: { "Content-Type": upstream.headers.get("Content-Type") ?? "image/jpeg" },
     });
   }
   const headers = new Headers(upstream.headers);
@@ -89,7 +92,7 @@ async function handleImageProxy(request: Request, ctx: ExecutionContext): Promis
  * only via the container outboundByHost binding, never the public internet). */
 export function createWorkerApp(deps: {
   nextHandler: NextHandler;
-  authenticate?: (request: Request, env: Env, ctx: ExecutionContext) => Promise<AuthResult>;
+  authenticate?: (request: Request, env: Env, ctx: WorkerExecutionContext) => Promise<AuthResult>;
 }): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
   const authenticate = deps.authenticate ?? ((req, env, ctx) => realAuthenticate(req, env, fetch, ctx));
@@ -97,14 +100,10 @@ export function createWorkerApp(deps: {
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
   );
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
-  // Catalog's first public exposure: /catalog/public/* is anonymous + read-only,
-  // forwarded to the private CATALOG binding. Anything else under /catalog/*
-  // stays private and falls through to OpenNext (never reaches env.CATALOG).
-  app.all("/catalog/public/*", (c) =>
-    isPublicCatalog(new URL(c.req.url).pathname)
-      ? forwardPublicCatalog(c.env, c.req.raw)
-      : c.notFound(),
+  app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", (c) =>
+    forwardPublicCatalog(c.env, c.req.raw),
   );
+  app.all("/catalog/public/*", (c) => c.notFound());
   // Hono runs the first matching handler in registration order.
   // /v1/users/* bypasses the container entirely: the users service verifies the
   // Neon Auth JWT itself (jose JWKS), so the edge passes Authorization through
