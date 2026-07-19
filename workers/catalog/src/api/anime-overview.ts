@@ -25,6 +25,7 @@ const SCENE_LIMIT = 20;
 const SAMPLE_ROUTE_REGION_LIMIT = 3;
 const SAMPLE_ROUTE_POINT_CAP = 12;
 const CLUSTER_RADIUS_M = 50;
+const SCENE_CLUSTER_INPUT_CAP = 500;
 
 /** The one DB capability this handler needs: run a query, get back `{ rows }`. */
 export interface OverviewDb {
@@ -41,12 +42,20 @@ interface OverviewRow {
   city: string | null;
 }
 
+/** Thrown only when the requested anime itself is absent from the catalog. */
+export class AnimeOverviewNotFoundError extends Error {
+  constructor(public readonly bangumiId: string) {
+    super(`catalog work not found for bangumi_id=${bangumiId}`);
+    this.name = "AnimeOverviewNotFoundError";
+  }
+}
+
 /** Assemble the public overview for one work; empty-but-valid when it has none. */
 export async function animeOverview(
   db: OverviewDb,
   input: { bangumi_id: string },
 ): Promise<AnimeOverview> {
-  const rows = await fetchRows(db, input.bangumi_id);
+  const rows = await loadOverviewRows(db, input.bangumi_id);
   return {
     bangumi_id: input.bangumi_id,
     points_length: rows.length,
@@ -54,6 +63,12 @@ export async function animeOverview(
     scenes: buildScenes(rows),
     sample_routes: buildSampleRoutes(rows),
   };
+}
+
+async function loadOverviewRows(db: OverviewDb, bangumiId: string): Promise<OverviewRow[]> {
+  const rows = await fetchRows(db, bangumiId);
+  if (rows.length > 0 || await workExists(db, bangumiId)) return rows;
+  throw new AnimeOverviewNotFoundError(bangumiId);
 }
 
 /** SELECT the work's points, id-ordered for deterministic downstream ordering. */
@@ -69,6 +84,11 @@ function overviewQuery(bangumiId: string) {
     WHERE bangumi_id = ${bangumiId}
     ORDER BY id ASC
   `;
+}
+
+async function workExists(db: OverviewDb, bangumiId: string): Promise<boolean> {
+  const result = await db.execute(sql`SELECT id FROM bangumi WHERE id = ${bangumiId} LIMIT 1`);
+  return result.rows.length > 0;
 }
 
 /** Group rows by non-empty region (city), preserving id order within a region. */
@@ -101,7 +121,7 @@ function centroid(members: OverviewRow[]): { lat: number; lng: number } {
 
 /** 名場面 ranking: co-located clusters ranked by shot count, capped. */
 function buildScenes(rows: OverviewRow[]): AnimeScene[] {
-  const scenes = clusterByLocation(rows, CLUSTER_RADIUS_M).map(toScene);
+  const scenes = clusterByLocation(rows.slice(0, SCENE_CLUSTER_INPUT_CAP), CLUSTER_RADIUS_M).map(toScene);
   scenes.sort((a, b) => b.shot_count - a.shot_count || a.id.localeCompare(b.id));
   return scenes.slice(0, SCENE_LIMIT);
 }
@@ -116,7 +136,7 @@ function sceneBase(rep: OverviewRow, shotCount: number): AnimeScene {
   return {
     id: rep.id,
     name: rep.name,
-    screenshot_url: rep.image ?? "",
+    screenshot_url: rep.image,
     shot_count: shotCount,
     lat: rep.latitude,
     lng: rep.longitude,
@@ -125,6 +145,8 @@ function sceneBase(rep: OverviewRow, shotCount: number): AnimeScene {
 
 /** The cluster's representative row (its `clusterId` member, always present). */
 function representative(cluster: LocationCluster<OverviewRow>): OverviewRow {
+  const withImage = cluster.points.find((point) => point.image);
+  if (withImage) return withImage;
   const rep = cluster.points.find((p) => p.id === cluster.clusterId);
   if (!rep) throw new Error(`cluster ${cluster.clusterId} has no representative row`);
   return rep;

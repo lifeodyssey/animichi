@@ -173,6 +173,7 @@ export const catalogContract = {
       summary: "Public anime overview: bubble aggregation, 名場面 ranking, and sample routes",
     })
     .input(AnimeOverviewInput)
+    .errors(pickCatalogErrors(["WORK_NOT_FOUND"]))
     .output(AnimeOverview),
 };
 
