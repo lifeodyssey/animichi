@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { z } from "zod";
 import { conversationMessagesUrl } from "./config";
 
@@ -14,6 +15,14 @@ export interface HistoryEntry {
   readonly role: string;
   readonly content: string;
   readonly intent?: string;
+}
+
+export type ConversationHistoryStatus = "idle" | "loading" | "error" | "success";
+
+export interface ConversationHistory {
+  readonly status: ConversationHistoryStatus;
+  readonly entries: readonly HistoryEntry[];
+  readonly retry: () => void;
 }
 
 function toEntry(row: z.infer<typeof HistoryRow>): HistoryEntry {
@@ -35,11 +44,23 @@ function historyQueryOptions(baseUrl: string, sessionId?: string) {
   };
 }
 
-/** A3: restore a historical session via `GET /v1/conversations/{id}/messages`. */
-export function useConversationHistory(
-  baseUrl: string,
-  sessionId?: string,
-): readonly HistoryEntry[] {
+function toStatus(
+  query: { isSuccess: boolean; isError: boolean },
+  enabled: boolean,
+): ConversationHistoryStatus {
+  if (!enabled) return "idle";
+  if (query.isError) return "error";
+  return query.isSuccess ? "success" : "loading";
+}
+
+/**
+ * A3: restore a historical session via `GET /v1/conversations/{id}/messages`.
+ * Failures are surfaced as an explicit error status — never as an empty,
+ * writable-looking session.
+ */
+export function useConversationHistory(baseUrl: string, sessionId?: string): ConversationHistory {
   const query = useQuery(historyQueryOptions(baseUrl, sessionId));
-  return query.data ?? [];
+  const { refetch } = query;
+  const retry = useCallback(() => void refetch(), [refetch]);
+  return { status: toStatus(query, sessionId !== undefined), entries: query.data ?? [], retry };
 }
