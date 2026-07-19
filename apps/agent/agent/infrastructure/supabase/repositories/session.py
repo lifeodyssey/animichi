@@ -49,7 +49,6 @@ class SessionRepository:
             INSERT INTO conversations (session_id, user_id, first_query)
             VALUES ($1, $2, $3)
             ON CONFLICT (session_id) DO UPDATE SET
-                user_id = EXCLUDED.user_id,
                 updated_at = now()
             """,
             session_id,
