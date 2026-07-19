@@ -1,9 +1,13 @@
+import { ORPCError } from "@orpc/client";
+import type { QueryClient } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
+import type { AnimeOverview } from "@seichijunrei/contract";
 import { resolveOrigin } from "../../api/config";
 import { animeOverviewOptions, useAnimeOverview } from "../../api/hooks/use-anime-overview";
 import { AnimePage } from "../../features/anime/AnimePage";
 import { animeHead } from "../../features/anime/head";
 import { useRegisterAnimeSw } from "../../features/anime/register-sw";
+import { AnimeErrorState, AnimePendingState } from "../../features/anime/route-states";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../../i18n/locales";
 
 const BANGUMI_ID_PATTERN = /^\d+$/;
@@ -35,16 +39,34 @@ function siteOrigin(): string {
   }
 }
 
+/** The catalog 404s unknown works (WORK_NOT_FOUND); echo it as a router 404. */
+function isWorkNotFound(error: unknown): boolean {
+  return error instanceof ORPCError && error.status === 404;
+}
+
+async function loadOverview(queryClient: QueryClient, bangumiId: string): Promise<AnimeOverview> {
+  try {
+    return await queryClient.ensureQueryData(animeOverviewOptions(bangumiId));
+  } catch (error) {
+    if (isWorkNotFound(error)) throw notFoundError();
+    throw error;
+  }
+}
+
 export const Route = createFileRoute("/anime/$bangumiId")({
   validateSearch: parseSearch,
   loaderDeps: ({ search }) => ({ hl: search.hl }),
   loader: async ({ params, deps, context }) => {
     if (!BANGUMI_ID_PATTERN.test(params.bangumiId)) throw notFoundError();
-    await context.queryClient.ensureQueryData(animeOverviewOptions(params.bangumiId));
-    return { locale: deps.hl ?? DEFAULT_LOCALE };
+    const overview = await loadOverview(context.queryClient, params.bangumiId);
+    return { locale: deps.hl ?? DEFAULT_LOCALE, indexable: overview.points_length > 0 };
   },
   head: ({ loaderData, params }) =>
-    animeHead(loaderData?.locale ?? DEFAULT_LOCALE, params.bangumiId, siteOrigin()),
+    animeHead(loaderData?.locale ?? DEFAULT_LOCALE, params.bangumiId, siteOrigin(), {
+      indexable: loaderData?.indexable ?? true,
+    }),
+  errorComponent: AnimeErrorState,
+  pendingComponent: AnimePendingState,
   component: AnimeRoute,
 });
 

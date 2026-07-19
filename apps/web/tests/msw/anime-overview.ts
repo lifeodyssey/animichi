@@ -79,6 +79,15 @@ export const animeOverviewHandler: HttpHandler = http.get(ANIME_OVERVIEW_PATH, (
   respond(params.bangumi_id),
 );
 
+/** A catalog that 404s every id, as it will for unknown works (WORK_NOT_FOUND). */
+export const animeOverviewNotFoundHandler: HttpHandler = http.get(ANIME_OVERVIEW_PATH, () =>
+  orpcErrorResponse({
+    code: "WORK_NOT_FOUND",
+    status: 404,
+    message: "No pilgrimage points for this work",
+  }),
+);
+
 /** An always-failing handler for loader error-path tests. */
 export const animeOverviewOutageHandler: HttpHandler = http.get(ANIME_OVERVIEW_PATH, () =>
   orpcErrorResponse({ code: "INTERNAL_SERVER_ERROR", status: 500, message: "catalog unavailable" }),
