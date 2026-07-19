@@ -80,3 +80,17 @@ describe("stripJpegMetadata fail-closed hardening", () => {
     expect([...stripJpegMetadata(input)]).toEqual([...clean]);
   });
 });
+
+describe("stripJpegMetadata fill-byte tolerance", () => {
+  it("accepts legal 0xFF fill bytes padding a marker between segments", () => {
+    const input = jpeg(DQT, [0xff], SCAN_WITH_STUFFING, EOI);
+
+    expect([...stripJpegMetadata(input)]).toEqual([...jpeg(DQT, SCAN_WITH_STUFFING, EOI)]);
+  });
+
+  it("still strips a metadata segment padded with fill bytes", () => {
+    const input = jpeg(DQT, [0xff, 0xff], APP1_EXIF_GPS, SCAN_WITH_STUFFING, EOI);
+
+    expect(bytesToText(stripJpegMetadata(input))).not.toContain("GPSLAT");
+  });
+});
