@@ -70,7 +70,8 @@ describe("sanitizePhoto", () => {
     const redrawn = new Blob(["clean"], { type: "image/png" });
     const convertToBlob = vi.fn().mockResolvedValue(redrawn);
     const drawImage = vi.fn();
-    vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue({ width: 4, height: 3 }));
+    const bitmap = { width: 4, height: 3, close: vi.fn() };
+    vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue(bitmap));
     vi.stubGlobal(
       "OffscreenCanvas",
       class {
@@ -82,12 +83,14 @@ describe("sanitizePhoto", () => {
     const sanitized = await sanitizePhoto(new Blob(["png-with-eXIf"], { type: "image/png" }));
 
     expect(sanitized).toBe(redrawn);
-    expect(drawImage).toHaveBeenCalledWith({ width: 4, height: 3 }, 0, 0);
+    expect(drawImage).toHaveBeenCalledWith(bitmap, 0, 0);
     expect(convertToBlob).toHaveBeenCalledWith({ type: "image/png" });
+    expect(bitmap.close).toHaveBeenCalledTimes(1);
   });
 
-  it("fails loudly when the canvas context is unavailable", async () => {
-    vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue({ width: 4, height: 3 }));
+  it("closes the bitmap even when the canvas context is unavailable", async () => {
+    const bitmap = { width: 4, height: 3, close: vi.fn() };
+    vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue(bitmap));
     vi.stubGlobal(
       "OffscreenCanvas",
       class {
@@ -98,5 +101,6 @@ describe("sanitizePhoto", () => {
     await expect(sanitizePhoto(new Blob(["x"], { type: "image/webp" }))).rejects.toThrow(
       "2d canvas context unavailable",
     );
+    expect(bitmap.close).toHaveBeenCalledTimes(1);
   });
 });
