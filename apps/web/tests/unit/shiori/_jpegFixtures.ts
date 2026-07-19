@@ -26,3 +26,8 @@ export function makeMalformedJpegBlob(): Blob {
 }
 
 export const bytesToText = (bytes: Uint8Array): string => String.fromCharCode(...bytes);
+
+export async function blobText(blob: Blob | undefined): Promise<string> {
+  if (!blob) throw new Error("expected a sanitized photo blob");
+  return bytesToText(new Uint8Array(await blob.arrayBuffer()));
+}
