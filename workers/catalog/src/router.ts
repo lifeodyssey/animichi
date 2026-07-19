@@ -7,7 +7,7 @@ import { nearby as nearbyHandler } from "./api/nearby";
 import { geocode as geocodeHandler } from "./api/geocode";
 import { route as routeHandler } from "./api/route";
 import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
-import { animeOverview as animeOverviewHandler } from "./api/anime-overview";
+import { animeOverview as animeOverviewHandler, AnimeOverviewNotFoundError } from "./api/anime-overview";
 import type { CatalogDb, NeonSql } from "./db/client";
 import { ingestWork, type IngestResult as OrchestratorResult } from "./ingest/orchestrator";
 import { routeTooManyPoints, workNotFound } from "./lib/errors";
@@ -79,7 +79,7 @@ const ingest = os.ingest.handler(async ({ input, context }) =>
 );
 
 const animeOverview = os.animeOverview.handler(async ({ input, context }) =>
-  animeOverviewHandler(context.db, input),
+  callAnimeOverview(context.db, input),
 );
 
 /** Map the orchestrator union (camelCase) onto the snake_case wire shape. */
@@ -97,6 +97,16 @@ async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Or
     return await spotsHandler(db, input);
   } catch (err) {
     if (err instanceof SpotNotFoundError) throw workNotFound(err.bangumiId);
+    throw err;
+  }
+}
+
+/** Run anime overview, translating only an absent anime into the typed 404. */
+async function callAnimeOverview(db: CatalogDb, input: { bangumi_id: string }) {
+  try {
+    return await animeOverviewHandler(db, input);
+  } catch (err) {
+    if (err instanceof AnimeOverviewNotFoundError) throw workNotFound(err.bangumiId);
     throw err;
   }
 }
