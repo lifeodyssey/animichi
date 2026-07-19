@@ -13,7 +13,13 @@ from pydantic_evals.otel import SpanTree
 from agent.agents.agent_result import AgentResult
 
 REQUEST_LIMIT = 12
-TOOL_CALL_LIMIT = 6
+# Calibrated 2026-07-20: legitimate multi-step disambiguation (sequel/season
+# cases added by #304B) needs 7-8 tool calls; this cap only bounds runaway
+# breadth. NOTE: the repeated-identical detector below reads EXECUTED steps —
+# the runtime repeat-guard deflects identical re-calls before execution, so
+# post-guard this detector is a regression TRIPWIRE for the guard itself
+# (it firing means the guard broke), not a live thrash signal.
+TOOL_CALL_LIMIT = 10
 # Calibrated 2026-07-18 (#28): two stable full-655 official-v1 runs measured
 # request_p95 = 7 (baseline run observed 7-8). The original 6 would fail every
 # healthy run; 8 = observed steady state + 1 headroom. Enforcement stays behind
