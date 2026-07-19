@@ -102,6 +102,8 @@ class SessionRepo(Protocol):
         user_id: str | None = None,
     ) -> None: ...
 
+    async def check_session_owner(self, session_id: str, user_id: str) -> bool: ...
+
 
 class RoutesRepo(Protocol):
     """Route persistence operations used by persistence helpers."""
