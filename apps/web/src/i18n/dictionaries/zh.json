@@ -4,16 +4,25 @@
     "description": "寻找动画圣地，规划巡礼路线"
   },
   "landing": {
-    "eyebrow": "动画圣地巡礼",
+    "eyebrow": "动画旅行手帐",
     "hero": "圣地巡礼",
-    "hero_accent": "巡礼之路",
-    "subtitle": "走进那一幕名场景的真实地点。输入作品名，找到圣地并生成路线。",
-    "cta": "开始探索",
+    "headline": "把动画场景，变成今天能走的路线",
+    "lead": "输入作品名、车站或城市，找到取景地并生成巡礼路线。",
+    "search_placeholder": "输入作品名、车站或城市",
+    "cta": "开始巡礼",
+    "try_example": "试试这些例子",
+    "examples": [
+      "你的名字",
+      "吹响吧！上低音号",
+      "天气之子"
+    ],
     "login": "登录",
-    "comparison_title": "动画与现实",
-    "comparison_sub": "每个地点都与原作画面一一对照。",
+    "github": "GitHub",
+    "footer_name": "seichijunrei",
     "comparison_anime": "动画",
+    "comparison_anime_alt": "《你的名字》须贺神社台阶的动画画面",
     "comparison_real": "现实",
+    "comparison_real_alt": "须贺神社台阶的实景照片",
     "comparison_aria": "对比动画与实景的滑块",
     "theme_day": "日间",
     "theme_night": "夜间"
