@@ -19,6 +19,7 @@ from pydantic_ai.capabilities import (
 )
 from pydantic_ai.output import ToolOutput
 from pydantic_ai_harness.logfire import ManagedPrompt
+from pydantic_ai_harness.memory import Memory, MemoryStore
 
 from agent.agents.agent_result import ProducedRoute, ProducedSearch, StepRecord
 from agent.agents.animichi_tools import TOOLS as ANIMICHI_TOOLS
@@ -48,6 +49,10 @@ _LOCAL_PROMPT_VERSION = (
 _PROMPT_RESOLUTION_DEADLINE_SECONDS = 2.0
 _PROMPT_RESOLUTION_EXECUTOR = ThreadPoolExecutor(
     max_workers=4, thread_name_prefix="managed-prompt"
+)
+USER_MEMORY_GUIDANCE = (
+    "Remember stable user preferences, visited pilgrimage points, language, and "
+    "tastes; do not remember one-off searches."
 )
 
 RuntimeOutput = (
@@ -357,6 +362,26 @@ def _history_capabilities() -> list[AgentCapability[RuntimeDeps]]:
     return [native_history_compaction(_summarize_tool_content)]
 
 
+def _memory_namespace(ctx: RunContext[RuntimeDeps]) -> str:
+    user_id = ctx.deps.user_id
+    if user_id is None:
+        raise RuntimeError("Memory requires an authenticated user.")
+    return user_id
+
+
+def build_user_memory_capability(
+    store: MemoryStore | None, user_id: str | None
+) -> Memory[RuntimeDeps] | None:
+    """Mount Memory only when application-authenticated identity is present."""
+    if store is None or user_id is None:
+        return None
+    return Memory(
+        store,
+        namespace=_memory_namespace,
+        guidance=USER_MEMORY_GUIDANCE,
+    )
+
+
 def _current_turn_language(ctx: RunContext[RuntimeDeps]) -> str:
     locale = resolve_reply_language(ctx.deps.query, ctx.deps.locale)
     return (
@@ -401,15 +426,20 @@ def _modern_hooks() -> Hooks[RuntimeDeps]:
 
 def _modern_capabilities(
     managed_prompt: _AnimichiManagedPrompt | None,
+    memory: Memory[RuntimeDeps] | None,
 ) -> list[AgentCapability[RuntimeDeps]]:
     capabilities = _history_capabilities()
     capabilities.append(_modern_hooks())
+    if memory is not None:
+        capabilities.append(memory)
     if managed_prompt is not None:
         capabilities.append(managed_prompt)
     return capabilities
 
 
-def build_animichi_agent() -> Agent[RuntimeDeps, RuntimeOutput]:
+def build_animichi_agent(
+    *, memory: Memory[RuntimeDeps] | None = None
+) -> Agent[RuntimeDeps, RuntimeOutput]:
     """Construct the single production composition of the runtime agent."""
     managed_prompt = _managed_prompt_capability()
     _record_missing_managed_prompt_token()
@@ -424,7 +454,7 @@ def build_animichi_agent() -> Agent[RuntimeDeps, RuntimeOutput]:
         instructions=instructions,
         tools=[*ANIMICHI_TOOLS, *WEB_TOOLS],
         retries=2,
-        capabilities=_modern_capabilities(managed_prompt),
+        capabilities=_modern_capabilities(managed_prompt, memory),
     )
     agent.output_validator(validate_output)
     return agent
