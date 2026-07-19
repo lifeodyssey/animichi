@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic_ai import Agent, Tool
-from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
@@ -56,8 +55,9 @@ async def test_runner_stops_identical_looping_early_via_repeat_guard() -> None:
         model=FunctionModel(loop),
     )
 
-    # The repeat-guard deflects the 2nd/3rd identical calls; retries exhaust
-    # long before the request budget, and the run ends as an honest partial.
+    # One execution plus three deflected repeats exhausts the retry budget —
+    # four model requests, far below the request cap, ending as honest partial.
+    assert requests == 4
     assert requests < REQUEST_LIMIT
     assert isinstance(result.output, PartialResponseModel)
     assert (result.intent, result.success, result.status) == (
@@ -101,7 +101,7 @@ async def test_native_run_failures_map_to_existing_error_path(
     install_mock_pipeline(monkeypatch)
     with patch(
         "agent.interfaces.public_api.run_animichi_agent",
-        new=AsyncMock(side_effect=UnexpectedModelBehavior("model retry limit reached")),
+        new=AsyncMock(side_effect=RuntimeError("native run failure")),
     ):
         response = await RuntimeAPI(MagicMock(), model_http_client=MagicMock()).handle(
             PublicAPIRequest(text="秒速5厘米的取景地在哪")
