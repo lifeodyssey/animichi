@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
@@ -20,7 +19,7 @@ from pydantic_ai_harness.memory import InMemoryStore
 from agent.agents.agent_result import AgentResult
 from agent.agents.animichi_agent import USER_MEMORY_GUIDANCE
 from agent.agents.animichi_runner import run_animichi_agent
-from agent.agents.runtime_models import QAResponseModel
+from agent.agents.runtime_models import PartialResponseModel, QAResponseModel
 from agent.agents.session_state import SessionState
 from agent.interfaces.public_api import RuntimeAPI
 from agent.interfaces.schemas import PublicAPIRequest
@@ -114,18 +113,21 @@ async def test_authenticated_memory_keeps_output_validator_active() -> None:
         )
 
     fake_db = MagicMock()
-    with pytest.raises(UnexpectedModelBehavior, match="maximum output retries"):
-        await run_animichi_agent(
-            text="hello",
-            db=fake_db,
-            locale="en",
-            catalog=MockCatalogClient(),
-            model=FunctionModel(respond),
-            memory_store=InMemoryStore(),
-            user_id="user-1",
-        )
+    result = await run_animichi_agent(
+        text="hello",
+        db=fake_db,
+        locale="en",
+        catalog=MockCatalogClient(),
+        model=FunctionModel(respond),
+        memory_store=InMemoryStore(),
+        user_id="user-1",
+    )
 
+    # The validator rejected the fabricated output on every attempt: the model
+    # was re-prompted to the retry cap, and the runner ended the run as an
+    # honest partial (the repeat-guard era mapping) instead of raising.
     assert model_calls == 3
+    assert isinstance(result.output, PartialResponseModel)
 
 
 async def test_memory_text_stays_delimited_user_context_not_instructions() -> None:
