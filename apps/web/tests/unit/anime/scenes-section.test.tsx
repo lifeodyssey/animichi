@@ -34,6 +34,13 @@ describe("ScenesSection screenshots", () => {
     expect(img.getAttribute("src")).toBe("https://cdn.test/scene-1.jpg");
   });
 
+  it("renders the placeholder when the contract delivers a null screenshot_url", () => {
+    renderScenes(makeScene({ screenshot_url: null }));
+    const shot = screen.getByRole("img", { name: "Suga Shrine Stairs" });
+    expect(shot.tagName).not.toBe("IMG");
+    expect(document.querySelector("img")).toBeNull();
+  });
+
   it("renders an accessible placeholder instead of an img when the url is empty", () => {
     renderScenes(makeScene({ screenshot_url: "" }));
     const shot = screen.getByRole("img", { name: "Suga Shrine Stairs" });

@@ -6,8 +6,8 @@ type Props = Readonly<{ scenes: readonly AnimeScene[]; copy: AnimeCopy }>;
 type ItemProps = Readonly<{ scene: AnimeScene; copy: AnimeCopy }>;
 
 /** Only real http(s) URLs may hit `<img src>`: `src=""` requests the page itself. */
-function hasRenderableShot(url: string): boolean {
-  if (!URL.canParse(url)) return false;
+function hasRenderableShot(url: string | null): url is string {
+  if (url === null || !URL.canParse(url)) return false;
   const protocol = new URL(url).protocol;
   return protocol === "https:" || protocol === "http:";
 }
@@ -22,11 +22,11 @@ function SceneShotPlaceholder({ scene }: Readonly<{ scene: AnimeScene }>) {
   );
 }
 
-function SceneImage({ scene }: Readonly<{ scene: AnimeScene }>) {
+function SceneImage({ url, name }: Readonly<{ url: string; name: string }>) {
   return (
     <img
-      src={scene.screenshot_url}
-      alt={scene.name}
+      src={url}
+      alt={name}
       loading="lazy"
       className="aspect-video w-full rounded-lg object-cover"
     />
@@ -34,8 +34,9 @@ function SceneImage({ scene }: Readonly<{ scene: AnimeScene }>) {
 }
 
 function SceneShot({ scene }: Readonly<{ scene: AnimeScene }>) {
-  if (!hasRenderableShot(scene.screenshot_url)) return <SceneShotPlaceholder scene={scene} />;
-  return <SceneImage scene={scene} />;
+  const url = scene.screenshot_url;
+  if (!hasRenderableShot(url)) return <SceneShotPlaceholder scene={scene} />;
+  return <SceneImage url={url} name={scene.name} />;
 }
 
 function sceneMeta({ scene, copy }: ItemProps): string {
