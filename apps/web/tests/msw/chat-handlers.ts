@@ -35,12 +35,25 @@ export interface ChatStreamOptions {
   readonly sessionId?: string;
   /** Observe each request hitting the chat endpoint (headers assertions). */
   readonly spy?: (request: Request) => void;
+  /** Corrupt the recorded final frame (type-invalid `success`) to probe schema guards. */
+  readonly malformedFinal?: boolean;
 }
 
-function streamText(name: ChatStreamFixture, sessionId?: string): string {
-  const text = chatStreamFixture(name);
+function patchSessionId(text: string, sessionId?: string): string {
   if (!sessionId) return text;
   return text.replaceAll('"session_id":null', `"session_id":"${sessionId}"`);
+}
+
+function corruptFinalFrame(text: string, malformed?: boolean): string {
+  if (!malformed) return text;
+  return text.replace('"success":true', '"success":"yep"');
+}
+
+function streamText(name: ChatStreamFixture, options: ChatStreamOptions): string {
+  return corruptFinalFrame(
+    patchSessionId(chatStreamFixture(name), options.sessionId),
+    options.malformedFinal,
+  );
 }
 
 export function chatStreamHandler(
@@ -49,7 +62,7 @@ export function chatStreamHandler(
 ): HttpHandler {
   return http.post(CHAT_URL, ({ request }) => {
     options.spy?.(request);
-    return sseResponse(streamText(name, options.sessionId));
+    return sseResponse(streamText(name, options));
   });
 }
 

@@ -1,7 +1,25 @@
 import { useChat } from "@ai-sdk/react";
+import { ChatResponseDataPart } from "@seichijunrei/contract";
+import type { ChatDataPart } from "@seichijunrei/contract";
 import { DefaultChatTransport } from "ai";
+import type { UIMessage } from "ai";
 import { useCallback, useMemo, useRef } from "react";
 import type { RefObject } from "react";
+
+/**
+ * Typed UI message: the `data-response` part carries the contract envelope,
+ * so streamed frames are schema-validated by the AI SDK before they can
+ * overwrite an existing same-ID part (`dataPartSchemas`).
+ */
+export type ChatUIMessage = UIMessage<unknown, { response: ChatDataPart }>;
+
+// ai@6.0.225 looks the schema up by the stripped name ("response") when
+// validating whole messages but by the full chunk type ("data-response")
+// while streaming, so the schema is registered under both keys.
+const dataPartSchemas = {
+  response: ChatResponseDataPart,
+  "data-response": ChatResponseDataPart,
+};
 
 interface SessionTracker {
   scope: string;
@@ -26,21 +44,14 @@ function useSessionTracker(sessionId: string | undefined, scope: string): Sessio
   return ref;
 }
 
-function extractSessionId(data: unknown): string | undefined {
-  if (typeof data !== "object" || data === null) return undefined;
-  const value: unknown = Reflect.get(data, "session_id");
-  return typeof value === "string" && value !== "" ? value : undefined;
-}
-
-function captureSessionId(ref: SessionRef, part: Readonly<{ type: string; data: unknown }>): void {
-  if (part.type !== "data-response") return;
-  const id = extractSessionId(part.data);
-  if (id) ref.current.id = id;
+function captureSessionId(ref: SessionRef, part: Readonly<{ data: ChatDataPart }>): void {
+  const id = part.data.session_id;
+  if (typeof id === "string" && id !== "") ref.current.id = id;
 }
 
 function useCaptureSessionId(ref: SessionRef) {
   return useCallback(
-    (part: Readonly<{ type: string; data: unknown }>) => {
+    (part: Readonly<{ data: ChatDataPart }>) => {
       captureSessionId(ref, part);
     },
     [ref],
@@ -49,7 +60,11 @@ function useCaptureSessionId(ref: SessionRef) {
 
 function useSessionTransport(chatUrl: string, ref: SessionRef) {
   return useMemo(
-    () => new DefaultChatTransport({ api: chatUrl, headers: () => sessionHeaders(ref.current.id) }),
+    () =>
+      new DefaultChatTransport<ChatUIMessage>({
+        api: chatUrl,
+        headers: () => sessionHeaders(ref.current.id),
+      }),
     [chatUrl, ref],
   );
 }
@@ -68,7 +83,7 @@ export function useChatSession(chatUrl: string, sessionId?: string) {
   const ref = useSessionTracker(sessionId, scope);
   const transport = useSessionTransport(chatUrl, ref);
   const onData = useCaptureSessionId(ref);
-  return useChat({ id: scope, transport, onData });
+  return useChat<ChatUIMessage>({ id: scope, transport, dataPartSchemas, onData });
 }
 
 export type ChatSession = ReturnType<typeof useChatSession>;
