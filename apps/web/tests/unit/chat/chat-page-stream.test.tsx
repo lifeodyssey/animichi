@@ -65,6 +65,20 @@ describe("A2 query entry", () => {
   });
 });
 
+describe("malformed data-part frames", () => {
+  it("rejects a malformed same-ID final frame instead of overwriting the valid intent frame", async () => {
+    server.use(chatStreamHandler("search", { malformedFinal: true }));
+    renderChatPage();
+    sendText("ユーフォ");
+    await waitFor(() => {
+      expect(screen.queryByRole("alert")).toBeTruthy();
+    });
+    const card = document.querySelector('[data-intent="plan_route"]');
+    expect(card?.classList.contains("chat-card--skeleton")).toBe(true);
+    expect(document.querySelector(".chat-card--fallback")).toBeNull();
+  });
+});
+
 describe("stream error", () => {
   it("surfaces the recorded error stream as the banner state", async () => {
     server.use(chatStreamHandler("error"));
