@@ -39,9 +39,13 @@ function siteOrigin(): string {
   }
 }
 
-/** The catalog 404s unknown works (WORK_NOT_FOUND); echo it as a router 404. */
+/**
+ * Only the catalog's typed WORK_NOT_FOUND becomes a router 404. Any other
+ * 404 (a gateway HTML page when the backend is down, a routing mishap) is an
+ * outage and must reach the errorComponent, never a soft-404.
+ */
 function isWorkNotFound(error: unknown): boolean {
-  return error instanceof ORPCError && error.status === 404;
+  return error instanceof ORPCError && error.defined && error.code === "WORK_NOT_FOUND";
 }
 
 async function loadOverview(queryClient: QueryClient, bangumiId: string): Promise<AnimeOverview> {
