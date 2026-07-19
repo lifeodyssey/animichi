@@ -4,16 +4,25 @@
     "description": "アニメ聖地を探して、巡礼ルートを作ろう"
   },
   "landing": {
-    "eyebrow": "アニメ聖地巡礼",
+    "eyebrow": "アニメ旅行ジャーナル",
     "hero": "聖地巡礼",
-    "hero_accent": "巡礼の路",
-    "subtitle": "あの名シーンの、その場所へ。作品名を入力して聖地を見つけ、ルートを作ろう。",
-    "cta": "はじめる",
+    "headline": "アニメの場面を、今日歩けるルートに変える",
+    "lead": "アニメ・駅・都市を入力して、聖地を見つけてルートを作ろう。",
+    "search_placeholder": "アニメ・駅・都市を入力",
+    "cta": "巡礼をはじめる",
+    "try_example": "例から試す",
+    "examples": [
+      "君の名は。",
+      "響け！ユーフォニアム",
+      "天気の子"
+    ],
     "login": "ログイン",
-    "comparison_title": "アニメと現実",
-    "comparison_sub": "すべてのスポットを原作カットと照合。",
+    "github": "GitHub",
+    "footer_name": "seichijunrei",
     "comparison_anime": "アニメ",
+    "comparison_anime_alt": "『君の名は。』須賀神社の階段のアニメカット",
     "comparison_real": "現実",
+    "comparison_real_alt": "須賀神社の階段の実写写真",
     "comparison_aria": "アニメと実写を比較するスライダー",
     "theme_day": "昼",
     "theme_night": "夜"

@@ -4,6 +4,9 @@ import { LocaleSwitcher } from "../../i18n/LocaleSwitcher";
 import { LoginModal } from "../auth/LoginModal";
 import { DayNightToggle } from "./DayNightToggle";
 import { Hero } from "./Hero";
+import { ToriiMark } from "./ToriiMark";
+
+const REPO_URL = "https://github.com/lifeodyssey/animichi";
 
 interface AuthModal {
   open: boolean;
@@ -24,7 +27,7 @@ function BarActions({ onLogin }: { onLogin: () => void }) {
     <div className="landing__bar-actions">
       <LocaleSwitcher />
       <DayNightToggle />
-      <button className="ds-button" type="button" onClick={onLogin}>{landing.login}</button>
+      <button className="landing__login" type="button" onClick={onLogin}>{landing.login}</button>
     </div>
   );
 }
@@ -33,20 +36,29 @@ function LandingBar({ onLogin }: { onLogin: () => void }) {
   const landing = useDict().landing;
   return (
     <header className="landing__bar">
-      <span className="landing__wordmark">{landing.hero}</span>
+      <span className="landing__wordmark"><ToriiMark size={24} />{landing.hero}</span>
       <BarActions onLogin={onLogin} />
     </header>
   );
 }
 
-/** Marketing landing: header controls, hero + comparison slider, login modal. */
+function LandingFooter() {
+  const landing = useDict().landing;
+  return (
+    <footer className="landing__footer">
+      <span className="landing__footer-brand"><ToriiMark size={16} />{landing.hero}<span className="landing__footer-name">{landing.footer_name}</span></span>
+      <a className="landing__footer-link" href={REPO_URL} target="_blank" rel="noreferrer">{landing.github}</a>
+    </footer>
+  );
+}
+
+/** Marketing landing: pill header bar, journal-card hero, footer, login modal. */
 export function LandingPage() {
   const { open, openAuth, closeAuth } = useAuthModal();
-  return (
-    <main className="landing">
-      <LandingBar onLogin={openAuth} />
-      <Hero onStart={openAuth} />
-      <LoginModal open={open} onClose={closeAuth} />
-    </main>
-  );
+  return (<main className="landing">
+    <LandingBar onLogin={openAuth} />
+    <Hero onStart={openAuth} />
+    <LandingFooter />
+    <LoginModal open={open} onClose={closeAuth} />
+  </main>);
 }
