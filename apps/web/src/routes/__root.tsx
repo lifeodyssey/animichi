@@ -8,6 +8,7 @@ import {
   useMatches,
 } from "@tanstack/react-router";
 import { NotFound } from "../components/NotFound";
+import { THEME_BOOTSTRAP_SCRIPT } from "../components/theme-bootstrap";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../i18n/locales";
 import globalsUrl from "../styles/globals.css?url";
 
@@ -21,6 +22,9 @@ type RootDocumentProps = Readonly<{
 
 const rootHead = {
   links: [{ rel: "stylesheet", href: globalsUrl }],
+  // Pre-hydration theme init: every route honors the stored preference,
+  // and the landing page cannot flash the day default.
+  scripts: [{ children: THEME_BOOTSTRAP_SCRIPT }],
   meta: [
     { charSet: "utf-8" },
     { name: "viewport", content: "width=device-width, initial-scale=1" },
