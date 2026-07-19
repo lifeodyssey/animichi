@@ -21,21 +21,52 @@ export function chatStreamFixture(name: ChatStreamFixture): string {
   return readFileSync(join(FIXTURE_DIR, `${name}.sse`), "utf8");
 }
 
-function sseBody(text: string): ReadableStream<Uint8Array> {
+function sseBody(text: string, close: boolean): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {
       controller.enqueue(new TextEncoder().encode(text));
-      controller.close();
+      if (close) controller.close();
     },
   });
 }
 
-export function chatStreamHandler(name: ChatStreamFixture): HttpHandler {
-  return http.post(CHAT_URL, () => sseResponse(chatStreamFixture(name)));
+export interface ChatStreamOptions {
+  /** Patch the recorded final frame's `session_id` (recordings capture null). */
+  readonly sessionId?: string;
+  /** Observe each request hitting the chat endpoint (headers assertions). */
+  readonly spy?: (request: Request) => void;
 }
 
-function sseResponse(text: string): HttpResponse<ReadableStream<Uint8Array>> {
-  return new HttpResponse(sseBody(text), {
+function streamText(name: ChatStreamFixture, sessionId?: string): string {
+  const text = chatStreamFixture(name);
+  if (!sessionId) return text;
+  return text.replaceAll('"session_id":null', `"session_id":"${sessionId}"`);
+}
+
+export function chatStreamHandler(
+  name: ChatStreamFixture,
+  options: ChatStreamOptions = {},
+): HttpHandler {
+  return http.post(CHAT_URL, ({ request }) => {
+    options.spy?.(request);
+    return sseResponse(streamText(name, options.sessionId));
+  });
+}
+
+/** Replays the recording up to (excluding) the first data-response frame and holds the stream open. */
+export function chatStreamHeldOpenHandler(name: ChatStreamFixture): HttpHandler {
+  const recorded = chatStreamFixture(name);
+  const head = recorded.slice(0, recorded.indexOf('data: {"type":"data-response"'));
+  return http.post(CHAT_URL, () => {
+    return sseResponse(head, { close: false });
+  });
+}
+
+function sseResponse(
+  text: string,
+  { close = true }: Readonly<{ close?: boolean }> = {},
+): HttpResponse<ReadableStream<Uint8Array>> {
+  return new HttpResponse(sseBody(text, close), {
     headers: {
       "content-type": "text/event-stream",
       "x-vercel-ai-ui-message-stream": "v1",
