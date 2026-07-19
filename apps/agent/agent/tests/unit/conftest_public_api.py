@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from typing import Literal
+
+import pytest
 
 from agent.agents.agent_result import (
     AgentResult,
@@ -162,7 +165,7 @@ def _provenance(intent: str, state: SessionState) -> TurnProvenance:
         ref = state.last_result_ref
         if ref is not None:
             payload = state.search_results[ref]
-            outcome = "ok" if payload.row_count else "empty"
+            outcome: Literal["ok", "empty"] = "ok" if payload.row_count else "empty"
             search = ProducedSearch(outcome=outcome, result_ref=ref)
     if intent in {"plan_route", "plan_selected", "plan_multi"} and state.route_lru:
         route = ProducedRoute(status="ok", route_ref=state.route_lru[-1])
@@ -205,7 +208,7 @@ def make_fake_agent(
     return _fake
 
 
-def install_mock_pipeline(monkeypatch: object) -> None:
+def install_mock_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "agent.interfaces.public_api.run_animichi_agent", make_fake_agent()
     )

@@ -75,7 +75,12 @@ async function sha256Hex(raw: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function verifyApiKey(rawKey: string, env: AuthEnv, f: typeof fetch, ctx?: ExecutionContext): Promise<{ ok: true; userId: string } | { ok: false }> {
+async function verifyApiKey(
+  rawKey: string,
+  env: AuthEnv,
+  f: typeof fetch,
+  ctx?: Pick<ExecutionContext, "waitUntil">,
+): Promise<{ ok: true; userId: string } | { ok: false }> {
   try {
     const keyHash = await sha256Hex(rawKey);
     const sr = env.SUPABASE_SERVICE_ROLE_KEY;
@@ -85,21 +90,27 @@ async function verifyApiKey(rawKey: string, env: AuthEnv, f: typeof fetch, ctx?:
     );
     if (!resp.ok) return { ok: false };
     const rows = (await resp.json()) as { user_id: string }[];
-    if (!rows.length) return { ok: false };
+    const [row] = rows;
+    if (!row) return { ok: false };
     const patch = f(`${env.SUPABASE_URL}/rest/v1/api_keys?key_hash=eq.${keyHash}`, {
       method: "PATCH",
       headers: { apikey: sr, Authorization: `Bearer ${sr}`, "Content-Type": "application/json", Prefer: "return=minimal" },
       body: JSON.stringify({ last_used_at: new Date().toISOString() }),
     });
     if (ctx) ctx.waitUntil(patch); else void patch;
-    return { ok: true, userId: rows[0].user_id };
+    return { ok: true, userId: row.user_id };
   } catch {
     return { ok: false };
   }
 }
 
 /** Authenticate a /v1 request: `sk_*` -> api_keys (agent), else JWT -> issuer JWKS (human). */
-export async function authenticate(request: Request, env: AuthEnv, fetchImpl: typeof fetch = fetch, ctx?: ExecutionContext): Promise<AuthResult> {
+export async function authenticate(
+  request: Request,
+  env: AuthEnv,
+  fetchImpl: typeof fetch = fetch,
+  ctx?: Pick<ExecutionContext, "waitUntil">,
+): Promise<AuthResult> {
   const header = request.headers.get("Authorization") ?? "";
   if (!header.startsWith("Bearer ")) return { ok: false };
   const token = header.slice(7).trim();

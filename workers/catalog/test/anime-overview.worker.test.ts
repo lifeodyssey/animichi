@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { animeOverview, type OverviewDb } from "../src/api/anime-overview";
+import { describe, expect, it, vi } from "vitest";
+import {
+  animeOverview,
+  AnimeOverviewNotFoundError,
+  type OverviewDb,
+} from "../src/api/anime-overview";
 
 /**
  * Unit tests for the public `animeOverview` read handler
@@ -26,6 +30,13 @@ function row(id: string, lat: number, lng: number, city: string | null, image: s
 /** Fake db whose execute() returns the fixture rows once. */
 function fakeDb(rows: FixtureRow[]): OverviewDb {
   return { execute: () => Promise.resolve({ rows }) };
+}
+
+function knownEmptyDb(): OverviewDb {
+  const execute = vi.fn()
+    .mockResolvedValueOnce({ rows: [] })
+    .mockResolvedValueOnce({ rows: [{ id: "999" }] });
+  return { execute };
 }
 
 // Two Kamakura points co-located (< 50m → one cluster of 2 shots) + one lone Hakone point.
@@ -68,9 +79,9 @@ describe("animeOverview (api/anime-overview.ts)", () => {
 
 });
 
-describe("animeOverview edge cases", () => {
-  it("returns an empty-but-valid overview when the work has no points", async () => {
-    const result = await animeOverview(fakeDb([]), { bangumi_id: "999" });
+describe("animeOverview empty and missing work behavior", () => {
+  it("returns an empty-but-valid overview when a known work has no points", async () => {
+    const result = await animeOverview(knownEmptyDb(), { bangumi_id: "999" });
     expect(result).toEqual({
       bangumi_id: "999",
       points_length: 0,
@@ -80,6 +91,14 @@ describe("animeOverview edge cases", () => {
     });
   });
 
+  it("throws a typed domain miss when the anime does not exist", async () => {
+    await expect(animeOverview(fakeDb([]), { bangumi_id: "404" }))
+      .rejects.toBeInstanceOf(AnimeOverviewNotFoundError);
+  });
+
+});
+
+describe("animeOverview scene edge cases", () => {
   it("returns empty circles (no region clustering) for spots lacking a city, without erroring", async () => {
     const noCity: FixtureRow[] = [row("n1", 35.0, 139.0, null), row("n2", 36.0, 140.0, "")];
     const result = await animeOverview(fakeDb(noCity), { bangumi_id: "200" });
@@ -92,9 +111,30 @@ describe("animeOverview edge cases", () => {
   it("omits city on a scene whose representative point has no city", async () => {
     const result = await animeOverview(fakeDb([row("x1", 34.0, 138.0, null)]), { bangumi_id: "300" });
     expect(result.scenes[0]?.city).toBeUndefined();
-    expect(result.scenes[0]?.screenshot_url).toBe("");
+    expect(result.scenes[0]?.screenshot_url).toBeNull();
   });
 
+  it("uses an image-bearing cluster member as the representative", async () => {
+    const rows = [
+      row("a-no-image", 35.0, 139.0, "Tokyo"),
+      row("b-image", 35.00001, 139.00001, "Tokyo", "https://img/scene.jpg"),
+    ];
+    const result = await animeOverview(fakeDb(rows), { bangumi_id: "301" });
+    expect(result.scenes[0]).toMatchObject({
+      id: "b-image", screenshot_url: "https://img/scene.jpg", shot_count: 2,
+    });
+  });
+
+  it("caps the quadratic clustering input while preserving the total count", async () => {
+    const rows = Array.from({ length: 501 }, (_, index) =>
+      row(`p-${String(index).padStart(3, "0")}`, 35.0, 139.0, "Tokyo"));
+    const result = await animeOverview(fakeDb(rows), { bangumi_id: "302" });
+    expect(result.points_length).toBe(501);
+    expect(result.scenes[0]?.shot_count).toBe(500);
+  });
+});
+
+describe("animeOverview output caps", () => {
   it("caps scenes at 20, sample routes at 3 regions, and point ids at 12 per route", async () => {
     const result = await animeOverview(fakeDb(cappedFixture()), { bangumi_id: "400" });
     expect(result.scenes).toHaveLength(20);

@@ -6,14 +6,25 @@ describe("resolveOrigin", () => {
     expect(resolveOrigin({}, { origin: "https://animichi.app" })).toBe("https://animichi.app");
   });
 
-  it("falls back to VITE_SITE_ORIGIN on the server", () => {
-    expect(resolveOrigin({ VITE_SITE_ORIGIN: "https://ssr.animichi.app" })).toBe(
+  it("prefers the VITE_SITE_ORIGIN override on the server", () => {
+    const env = { VITE_SITE_ORIGIN: "https://ssr.animichi.app" };
+    expect(resolveOrigin(env, undefined, () => "https://request.test")).toBe(
       "https://ssr.animichi.app",
     );
   });
 
-  it("throws on the server without a configured origin", () => {
-    expect(() => resolveOrigin({})).toThrow(/VITE_SITE_ORIGIN/);
+  it("reads the SSR request-context origin when no override is set", () => {
+    expect(resolveOrigin({}, undefined, () => "https://request.test")).toBe(
+      "https://request.test",
+    );
+  });
+
+  it("degrades to a relative origin instead of throwing when every source is missing", () => {
+    expect(resolveOrigin({}, undefined, () => undefined)).toBe("");
+  });
+
+  it("degrades gracefully with the default request-context source outside a request", () => {
+    expect(resolveOrigin({})).toBe("");
   });
 });
 

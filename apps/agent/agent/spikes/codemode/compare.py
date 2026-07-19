@@ -1,157 +1,117 @@
-"""Compare baseline and CodeMode reports using preregistered criteria."""
+"""Render a paired markdown comparison for two CodeMode rematch reports."""
 
 from __future__ import annotations
 
 import argparse
-import os
 import statistics
 from pathlib import Path
 
-from agent.spikes.codemode.report import BenchmarkReport
+from agent.spikes.codemode.report import (
+    OFFICIAL_V1_METRICS,
+    RematchReport,
+    Verdict,
+)
+
+SPIKE_DIR = Path(__file__).resolve().parent
 
 
-def _validated_path(arg: str) -> Path:
-    path = Path(arg)
-    if ".." in path.parts:
-        raise SystemExit(f"Refusing traversal-suspicious path: {arg}")
-    resolved = path.resolve()
-    allowed_base = Path(
-        os.environ.get("ANIMICHI_SPIKE_OUT_BASE", os.getcwd())
-    ).resolve()
-    if not resolved.is_relative_to(allowed_base) or not resolved.parent.is_dir():
-        raise SystemExit(
-            f"Path must stay within {allowed_base} and have an existing parent: {arg}. "
-            "Set ANIMICHI_SPIKE_OUT_BASE for out-of-tree outputs."
-        )
-    return resolved
+def _load(path: Path) -> RematchReport:
+    return RematchReport.model_validate_json(path.read_text())
 
 
-def _load(path: Path) -> BenchmarkReport:
-    return BenchmarkReport.model_validate_json(path.read_text())
+def _validate_pair(control: RematchReport, taught: RematchReport) -> None:
+    if control.arm != "control" or taught.arm != "codemode-taught":
+        raise ValueError("Expected control followed by codemode-taught report.")
+    shared = (control.model, control.dataset, control.evaluator_version)
+    if shared != (taught.model, taught.dataset, taught.evaluator_version):
+        raise ValueError("Reports must use the same model, dataset, and evaluator.")
+    if (
+        control.subset_digest != taught.subset_digest
+        or control.case_ids != taught.case_ids
+    ):
+        raise ValueError("Reports must use the same ordered case subset.")
 
 
-def _median(report: BenchmarkReport, field: str) -> float:
-    values = [float(getattr(run, field)) for run in report.runs]
-    return statistics.median(values)
+def _paired_delta(control: RematchReport, taught: RematchReport, metric: str) -> float:
+    control_cases = {case.id: case for case in control.cases}
+    taught_cases = {case.id: case for case in taught.cases}
+    pairs = [
+        taught_cases[case_id].scores[metric] - control_cases[case_id].scores[metric]
+        for case_id in control.case_ids
+        if metric in control_cases[case_id].scores
+        and metric in taught_cases[case_id].scores
+    ]
+    return statistics.mean(pairs) if pairs else 0.0
 
 
-def _contract_violations(report: BenchmarkReport) -> int:
-    return sum(not run.valid_typed_output for run in report.runs)
-
-
-def _error_classes(report: BenchmarkReport) -> set[str]:
-    return {
-        item
-        for run in report.runs
-        for item in [*run.tool_error_classes, *(run.exception_type or "",)]
-        if item
-    }
-
-
-def _row(label: str, actual: str, threshold: str, passed: bool) -> str:
-    verdict = "PASS" if passed else "FAIL"
-    return f"| {label} | {actual} | {threshold} | {verdict} |"
-
-
-def _optional_comparison(
-    baseline: int | None, codemode: int | None
-) -> tuple[str, str, bool]:
-    if baseline is None and codemode is None:
-        return "not recorded", "not recorded", True
-    if baseline is None or codemode is None:
-        actual = "not recorded" if codemode is None else str(codemode)
-        threshold = "not recorded" if baseline is None else str(baseline)
-        return actual, threshold, False
-    return str(codemode), f"<= {baseline}", codemode <= baseline
-
-
-def _schema_comparison(
-    baseline: str | None, codemode: str | None
-) -> tuple[str, str, bool]:
-    if baseline is None and codemode is None:
-        return "not recorded", "not recorded", True
-    if baseline is None or codemode is None:
-        return codemode or "not recorded", baseline or "not recorded", False
-    return codemode, baseline, codemode == baseline
-
-
-def _validate_pair(baseline: BenchmarkReport, codemode: BenchmarkReport) -> None:
-    if baseline.arm != "baseline" or codemode.arm != "codemode":
-        raise ValueError("Expected baseline report followed by codemode report.")
-    comparable = (baseline.model, baseline.repeats, baseline.queries, baseline.criteria)
-    candidate = (codemode.model, codemode.repeats, codemode.queries, codemode.criteria)
-    if comparable != candidate:
-        raise ValueError(
-            "Reports must use the same model, repeats, queries, and criteria."
-        )
-
-
-def compare(baseline: BenchmarkReport, codemode: BenchmarkReport) -> bool:
-    _validate_pair(baseline, codemode)
-    base_requests = _median(baseline, "requests")
-    code_requests = _median(codemode, "requests")
-    reduction = 0.0 if base_requests == 0 else 1 - code_requests / base_requests
-    base_latency = _median(baseline, "latency_seconds")
-    code_latency = _median(codemode, "latency_seconds")
-    contracts = _contract_violations(codemode)
-    new_errors = _error_classes(codemode) - _error_classes(baseline)
-    error_runs = _optional_comparison(
-        baseline.error_bearing_run_count, codemode.error_bearing_run_count
+def _verdict(control: RematchReport, taught: RematchReport) -> Verdict:
+    correctness_ok = (
+        taught.scores["tool_correctness"] >= control.scores["tool_correctness"] - 0.01
     )
-    tool_failures = _optional_comparison(
-        baseline.total_tool_failure_count, codemode.total_tool_failure_count
-    )
-    schemas = _schema_comparison(
-        baseline.output_schema_digest, codemode.output_schema_digest
-    )
-    criteria = codemode.criteria
-    checks = (
-        reduction >= criteria.minimum_requests_reduction,
-        code_latency <= base_latency * criteria.maximum_latency_ratio,
-        contracts == 0,
-        not new_errors,
-        error_runs[2],
-        tool_failures[2],
-        schemas[2],
-    )
-    print("| Criterion | Actual | Threshold | Result |")
-    print("|---|---:|---:|---|")
-    print(_row("Median requests reduction", f"{reduction:.1%}", ">= 40%", checks[0]))
-    print(
-        _row(
-            "Median latency",
-            f"{code_latency:.3f}s",
-            f"<= {base_latency:.3f}s",
-            checks[1],
-        )
-    )
-    print(_row("Error-bearing runs", error_runs[0], error_runs[1], error_runs[2]))
-    print(
-        _row(
-            "Total tool failures", tool_failures[0], tool_failures[1], tool_failures[2]
-        )
-    )
-    print(_row("Output schema digest", schemas[0], schemas[1], schemas[2]))
-    print(_row("Contract violations", str(contracts), "0", checks[2]))
-    print(
-        _row(
-            "New tool-error classes",
-            ", ".join(sorted(new_errors)) or "none",
-            "none",
-            checks[3],
-        )
-    )
-    print(f"\nVERDICT: {'ADOPT' if all(checks) else 'DO NOT ADOPT'}")
-    return all(checks)
+    requests_ok = taught.request_p95 < control.request_p95
+    cost_ok = taught.estimated_cost_usd <= control.estimated_cost_usd * 1.15
+    if not correctness_ok:
+        return "KILL"
+    return "ADOPT" if requests_ok and cost_ok else "BENCH AGAIN"
 
 
-def _main() -> bool:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("baseline", type=_validated_path)
-    parser.add_argument("codemode", type=_validated_path)
-    args = parser.parse_args()
-    return compare(_load(args.baseline), _load(args.codemode))
+def _metric_row(control: RematchReport, taught: RematchReport, metric: str) -> str:
+    before, after = control.scores[metric], taught.scores[metric]
+    delta = _paired_delta(control, taught, metric)
+    return f"| {metric} | {before:.3f} | {after:.3f} | {delta:+.3f} |"
+
+
+def _summary_rows(control: RematchReport, taught: RematchReport) -> list[str]:
+    token_delta = taught.total_tokens - control.total_tokens
+    cost_delta = taught.estimated_cost_usd - control.estimated_cost_usd
+    return [
+        f"| request_p95 | {control.request_p95} | {taught.request_p95} | {taught.request_p95 - control.request_p95:+d} |",
+        f"| total_tokens | {control.total_tokens} | {taught.total_tokens} | {token_delta:+d} |",
+        f"| estimated_cost_usd | {control.estimated_cost_usd:.4f} | {taught.estimated_cost_usd:.4f} | {cost_delta:+.4f} |",
+    ]
+
+
+def render(control: RematchReport, taught: RematchReport) -> str:
+    _validate_pair(control, taught)
+    rows = [_metric_row(control, taught, metric) for metric in OFFICIAL_V1_METRICS]
+    rows.extend(_summary_rows(control, taught))
+    verdict = _verdict(control, taught)
+    lines = [
+        "# CodeMode rematch report",
+        "",
+        f"Model: `{control.model}`  ",
+        f"Paired subset: `{control.subset_digest}` ({len(control.case_ids)} cases)",
+        "",
+        "| Metric | ARM A control | ARM B taught | Paired delta (B−A) |",
+        "|---|---:|---:|---:|",
+        *rows,
+        "",
+        "## Verdict rubric",
+        "",
+        "- ADOPT: tool_correctness is within 0.01 of control, request_p95 is strictly lower, and estimated cost is no more than 15% higher.",
+        "- BENCH AGAIN: correctness clears the 0.01 floor, but request p95 or cost misses the adoption threshold.",
+        "- KILL: tool_correctness is more than 0.01 below control.",
+        "",
+        f"VERDICT: {verdict}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def compare(control: RematchReport, taught: RematchReport) -> Verdict:
+    markdown = render(control, taught)
+    print(markdown, end="")
+    return _verdict(control, taught)
+
+
+def _main() -> Verdict:
+    argparse.ArgumentParser(description=__doc__).parse_args()
+    control = _load(SPIKE_DIR / "rematch-control.json")
+    taught = _load(SPIKE_DIR / "rematch-codemode-taught.json")
+    markdown = render(control, taught)
+    print(markdown, end="")
+    (SPIKE_DIR / "rematch-report.md").write_text(markdown)
+    return _verdict(control, taught)
 
 
 if __name__ == "__main__":
-    raise SystemExit(not _main())
+    raise SystemExit(0 if _main() == "ADOPT" else 1)
