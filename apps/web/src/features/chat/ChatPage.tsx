@@ -13,6 +13,7 @@ import type { ChatDict } from "./i18n";
 import type { ChatSearch } from "./search";
 import { useAutoSend } from "./use-auto-send";
 import { useBackendHealth } from "./use-backend-health";
+import type { BackendHealth } from "./use-backend-health";
 import type { ChatSession } from "./use-chat-session";
 import { useChatSession } from "./use-chat-session";
 import { useConversationHistory } from "./use-conversation-history";
@@ -85,9 +86,9 @@ function useRetry(chat: ChatSession, retryHealth: () => void): () => void {
   }, [clearError, retryHealth]);
 }
 
-function entryStateOf(search: ChatSearch, healthy: boolean, chat: ChatSession): ChatEntryState {
+function entryStateOf(search: ChatSearch, health: BackendHealth, chat: ChatSession): ChatEntryState {
   return deriveEntryState({
-    healthy: healthy && chat.error === undefined,
+    healthy: health.status !== "down" && chat.error === undefined,
     query: search.q,
     sessionId: search.session,
     routeReference: resolveRouteReference(search.route),
@@ -106,7 +107,7 @@ export function ChatPage({ search }: ChatPageProps) {
   const { health, chat, history } = useChatState(search);
   const onSend = useSendText(chat);
   useAutoSend(search.q, health.healthy && !search.session, onSend);
-  const entry = entryStateOf(search, health.healthy, chat);
+  const entry = entryStateOf(search, health, chat);
   const onRetry = useRetry(chat, health.retry);
   return <ChatShell entry={entry} dict={chatDictFor(useLocale())} chat={chat} history={history} onRetry={onRetry} onSend={onSend} />;
 }
