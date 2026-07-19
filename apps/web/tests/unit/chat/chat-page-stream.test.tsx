@@ -61,7 +61,7 @@ describe("A2 query entry", () => {
     renderChatPage(chatSearch({ q: "ハルヒ" }));
     expect(await screen.findByText("ハルヒ")).toBeTruthy();
     await screen.findByText("どの作品でしょうか？");
-    expect(screen.getByText("涼宮ハルヒの憂鬱")).toBeTruthy();
+    expect(screen.getByText("115908")).toBeTruthy();
   });
 });
 
