@@ -1,4 +1,4 @@
-"""Leaf report schema shared by the CodeMode recorder and JSON comparator."""
+"""JSON contracts shared by the rematch runner and paired comparator."""
 
 from __future__ import annotations
 
@@ -6,43 +6,45 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-Arm = Literal["baseline", "codemode"]
+Arm = Literal["control", "codemode-taught"]
+Verdict = Literal["ADOPT", "BENCH AGAIN", "KILL"]
+OFFICIAL_V1_METRICS = (
+    "argument_correctness",
+    "tool_correctness",
+    "trajectory_match",
+    "max_tool_calls",
+    "data_keys_present",
+    "locale_match",
+    "nonempty_results",
+    "step_efficiency",
+)
 
 
-class PreregisteredCriteria(BaseModel):
+class CaseMeasurement(BaseModel):
     model_config = ConfigDict(frozen=True)
-    minimum_requests_reduction: float = 0.40
-    maximum_latency_ratio: float = 1.0
-    require_valid_typed_outputs: bool = True
-    allow_new_tool_error_classes: bool = False
 
-
-PREREGISTERED_CRITERIA = PreregisteredCriteria()
-
-
-class RunMeasurement(BaseModel):
-    query: str
-    repeat: int
+    id: str
+    scores: dict[str, float] = {}
     requests: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
-    latency_seconds: float
-    output_type: str | None = None
-    valid_typed_output: bool = False
-    tool_call_count: int = 0
-    tool_error_classes: list[str] = []
-    exception_type: str | None = None
-    exception: str | None = None
+    error: str | None = None
 
 
-class BenchmarkReport(BaseModel):
-    schema_version: Literal[1] = 1
+class RematchReport(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    schema_version: Literal[2] = 2
     arm: Arm
     model: str
-    repeats: int
-    queries: list[str]
-    criteria: PreregisteredCriteria = PREREGISTERED_CRITERIA
-    output_schema_digest: str | None = None
-    error_bearing_run_count: int | None = None
-    total_tool_failure_count: int | None = None
-    runs: list[RunMeasurement]
+    evaluator_version: Literal["official-v1"] = "official-v1"
+    dataset: str
+    subset_digest: str
+    case_ids: list[str]
+    scores: dict[str, float]
+    request_p95: int
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    estimated_cost_usd: float
+    cases: list[CaseMeasurement]

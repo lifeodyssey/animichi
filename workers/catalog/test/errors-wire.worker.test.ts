@@ -48,6 +48,14 @@ async function call(path: string, body: unknown, context: CatalogContext): Promi
   return response;
 }
 
+async function callOverview(bangumiId: string, context: CatalogContext): Promise<Response> {
+  const req = new Request(`https://catalog.test/catalog/public/anime-overview/${bangumiId}`);
+  const { matched, response } = await handler.handle(req, { context });
+  expect(matched).toBe(true);
+  if (!response) throw new Error("expected OpenAPI handler response");
+  return response;
+}
+
 /** Context that wins ingest singleflight and records the subsequent failure. */
 function ingestContext(fetchImpl: typeof fetch): CatalogContext {
   let calls = 0;
@@ -150,6 +158,16 @@ describe("catalog route limits and typed errors on the OpenAPI wire", () => {
       defined: true, code: "WORK_NOT_FOUND", status: 404,
       message: "No pilgrimage points for this work",
       data: { bangumi_id: "missing-work" },
+    });
+  });
+
+  it("serializes WORK_NOT_FOUND for an unknown anime overview", async () => {
+    const res = await callOverview("999999", context([]));
+    expect(res.status).toBe(404);
+    expect(await json<WorkNotFoundData>(res)).toEqual({
+      defined: true, code: "WORK_NOT_FOUND", status: 404,
+      message: "No pilgrimage points for this work",
+      data: { bangumi_id: "999999" },
     });
   });
 

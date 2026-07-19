@@ -18,12 +18,12 @@ from agent.tests.unit.conftest_public_api import (
 
 
 @pytest.fixture(autouse=True)
-def _mock_pipeline(monkeypatch):
+def _mock_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
     install_mock_pipeline(monkeypatch)
 
 
 @pytest.fixture
-def mock_db():
+def mock_db() -> MagicMock:
     db = MagicMock(spec=SupabaseClient)
     pool = AsyncMock()
     pool.fetch = AsyncMock(return_value=[])
@@ -31,13 +31,14 @@ def mock_db():
     db.points.search_points_by_location = AsyncMock(return_value=[])
     db.session.upsert_session = AsyncMock()
     db.session.upsert_conversation = AsyncMock()
+    db.session.check_session_owner = AsyncMock(return_value=True)
     db.session.update_conversation_title = AsyncMock()
     db.routes.save_route = AsyncMock(return_value="route-1")
     return db
 
 
 class TestGreetingPersistence:
-    async def test_greeting_uses_dedicated_stage_and_persists(self):
+    async def test_greeting_uses_dedicated_stage_and_persists(self) -> None:
         output = GreetingResponseModel(
             message="こんにちは！聖地巡礼のお手伝いをします。"
         )
@@ -59,7 +60,7 @@ class TestGreetingPersistence:
             catalog: object | None = None,
             memory_store: object | None = None,
             user_id: str | None = None,
-        ):
+        ) -> AgentResult:
             _ = (
                 text,
                 db,
@@ -103,7 +104,9 @@ class TestGreetingPersistence:
 
 
 class TestRuntimeAPISession:
-    async def test_handle_creates_and_persists_session(self, mock_db):
+    async def test_handle_creates_and_persists_session(
+        self, mock_db: MagicMock
+    ) -> None:
         store = InMemorySessionStore()
         api = RuntimeAPI(mock_db, session_store=store, model_http_client=MagicMock())
 
@@ -116,7 +119,7 @@ class TestRuntimeAPISession:
         assert saved_state["last_intent"] == "search_bangumi"
         mock_db.session.upsert_session.assert_awaited_once()
 
-    async def test_handle_reuses_existing_session(self, mock_db):
+    async def test_handle_reuses_existing_session(self, mock_db: MagicMock) -> None:
         store = InMemorySessionStore()
         api = RuntimeAPI(mock_db, session_store=store, model_http_client=MagicMock())
 
@@ -143,8 +146,8 @@ class TestConversationPersistence:
 
     async def test_does_not_schedule_title_generation_for_existing_session(
         self,
-        mock_db,
-    ):
+        mock_db: MagicMock,
+    ) -> None:
         store = InMemorySessionStore()
         session_id = "session-1"
         await store.set(
@@ -183,7 +186,7 @@ class TestConversationPersistence:
 # TODO: re-enable when session compaction is wired back
 class _DisabledTestCompactThresholdTrigger:
     async def test_handle_triggers_compact_when_session_reaches_threshold(
-        self, mock_db
+        self, mock_db: MagicMock
     ) -> None:
         from unittest.mock import patch
 

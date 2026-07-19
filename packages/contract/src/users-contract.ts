@@ -2,6 +2,8 @@
 
 import { oc } from "@orpc/contract";
 import { z } from "zod";
+import { pickErrors } from "./error-registry.js";
+import { requireBearer } from "./openapi-security.js";
 
 /** Users error category semantics; categories never cross the wire. */
 export const UsersErrorCategory = z.enum(["user_actionable", "retryable", "system"]);
@@ -46,27 +48,11 @@ export type UsersErrorDefs = typeof USERS_ERROR_DEFS;
 /** Users error code union. */
 export type UsersErrorCode = keyof UsersErrorDefs;
 
-type UsersErrorMapItem<Code extends UsersErrorCode> = {
-  status: UsersErrorDefs[Code]["status"];
-  message: UsersErrorDefs[Code]["message"];
-  data: UsersErrorDefs[Code]["data"];
-};
-type UsersErrorMap<Code extends UsersErrorCode> = {
-  [Key in Code]: UsersErrorMapItem<Key>;
-};
-
-function usersErrorEntry<Code extends UsersErrorCode>(
-  code: Code,
-): readonly [Code, UsersErrorMapItem<Code>] {
-  const { status, message, data } = USERS_ERROR_DEFS[code];
-  return [code, { status, message, data }];
-}
-
 /** Pick oRPC error entries while dropping registry-only category metadata. */
 export function pickUsersErrors<const Code extends UsersErrorCode>(
   codes: readonly Code[],
-): UsersErrorMap<Code> {
-  return Object.fromEntries(codes.map(usersErrorEntry)) as UsersErrorMap<Code>;
+): ReturnType<typeof pickErrors<UsersErrorDefs, Code>> {
+  return pickErrors(USERS_ERROR_DEFS, codes);
 }
 
 /** Lifecycle status for a user-owned route. */
@@ -124,20 +110,40 @@ export type ListRoutesResult = z.infer<typeof ListRoutesResult>;
 /** oRPC contract for authenticated user-route operations. */
 export const usersContract = {
   listRoutes: oc
-    .route({ method: "GET", path: "/v1/users/routes", summary: "List the caller's saved routes" })
+    .route({
+      method: "GET",
+      path: "/v1/users/routes",
+      summary: "List the caller's saved routes",
+      spec: requireBearer,
+    })
     .output(ListRoutesResult),
   saveRoute: oc
-    .route({ method: "POST", path: "/v1/users/routes", summary: "Create or update a saved route" })
+    .route({
+      method: "POST",
+      path: "/v1/users/routes",
+      summary: "Create or update a saved route",
+      spec: requireBearer,
+    })
     .input(SaveRouteInput)
     .errors(pickUsersErrors(["ROUTE_NOT_FOUND", "ROUTE_NOT_OWNED"]))
     .output(UserRoute),
   deleteRoute: oc
-    .route({ method: "DELETE", path: "/v1/users/routes/{id}", summary: "Delete a saved route" })
+    .route({
+      method: "DELETE",
+      path: "/v1/users/routes/{id}",
+      summary: "Delete a saved route",
+      spec: requireBearer,
+    })
     .input(DeleteRouteInput)
     .errors(pickUsersErrors(["ROUTE_NOT_FOUND", "ROUTE_NOT_OWNED"]))
     .output(DeleteRouteResult),
   claimRoutes: oc
-    .route({ method: "POST", path: "/v1/users/routes/claim", summary: "Claim anonymous routes" })
+    .route({
+      method: "POST",
+      path: "/v1/users/routes/claim",
+      summary: "Claim anonymous routes",
+      spec: requireBearer,
+    })
     .input(ClaimRoutesInput)
     .output(ClaimRoutesResult),
 };

@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./fonts.css";
 @import "./shiori.css";
+@import "./chat.css";
 
 :root {
   color-scheme: light;
@@ -11,11 +12,12 @@
   --color-primary-fg: #ffffff;
   /* Accessible teal from ds-审计.md; white text clears WCAG AA. */
   --color-primary-strong: #0e7d72;
-  --color-bg: #ffffff;
+  /* 動森 cream triad: page < card < muted (spec 2026-05-31 + legacy globals). */
+  --color-bg: #f8f8f0;
   --color-fg: #725d42;
-  --color-card: #f8f8f0;
-  --color-muted: #f0e8d8;
-  /* Accessible secondary text from ds-审计.md; clears WCAG AA on white. */
+  --color-card: #f7f3df;
+  --color-muted: #e8ddc8;
+  /* Accessible secondary text from ds-审计.md; clears WCAG AA on cream. */
   --color-muted-fg: #7d6f5a;
   --color-border: #aaa69d;
   --color-focus: #ffcc00;
@@ -31,7 +33,7 @@
   --color-map-pin-orange: #ff9800;
   --color-map-pin-brand: #c1440e;
   --shadow-3d: #bdaea0;
-  --shadow-press: 0 5px 0 0 #bdaea0;
+  --shadow-press: 0 5px 0 0 var(--shadow-3d);
   --app-font-display: "Noto Serif JP", "Hiragino Mincho ProN", Georgia, serif;
   --app-font-body: "Nunito", "Zen Maru Gothic", "Noto Sans SC", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
   --app-font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
@@ -194,6 +196,13 @@ h1 {
   --color-muted-fg: #cbbfa8;
   --color-border: #4a3d2b;
   --color-primary-fg: #10201d;
+  --color-primary-soft: #123f39;
+  --color-explore-bg: #0f3531;
+  --color-explore-fg: #7fdcd2;
+  --color-walk-bg: #1c3320;
+  --color-walk-fg: #a8d5ab;
+  /* Press shadow follows via var(--shadow-3d) in :root. */
+  --shadow-3d: #120d07;
 }
 
 .landing {

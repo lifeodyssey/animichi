@@ -62,7 +62,9 @@ async function seed(): Promise<void> {
  * the public animeOverview route (its input requires a numeric bangumi_id). */
 async function seedOverviewWork(): Promise<void> {
   await db.execute(sql`
-    INSERT INTO bangumi (id, title, points_count) VALUES ('3302', 'Overview Work', 3)
+    INSERT INTO bangumi (id, title, points_count) VALUES
+      ('3302', 'Overview Work', 3),
+      ('999998', 'Empty Overview Work', 0)
   `);
   await db.execute(sql`
     INSERT INTO points (id, bangumi_id, name, latitude, longitude, city, image)
@@ -181,7 +183,7 @@ interface OverviewBody {
   bangumi_id: string;
   points_length: number;
   circles: { region: string; count: number; lat: number; lng: number }[];
-  scenes: { id: string; shot_count: number; screenshot_url: string; city?: string }[];
+  scenes: { id: string; shot_count: number; screenshot_url: string | null; city?: string }[];
   sample_routes: { region: string; point_ids: string[] }[];
 }
 
@@ -196,10 +198,10 @@ async function assertOverviewHit(): Promise<void> {
 }
 
 async function assertOverviewEmpty(): Promise<void> {
-  const res = await getPublic("anime-overview/999999");
+  const res = await getPublic("anime-overview/999998");
   const body = (await res.json()) as OverviewBody;
   expect(body).toEqual({
-    bangumi_id: "999999",
+    bangumi_id: "999998",
     points_length: 0,
     circles: [],
     scenes: [],
@@ -207,9 +209,15 @@ async function assertOverviewEmpty(): Promise<void> {
   });
 }
 
+async function assertOverview404(): Promise<void> {
+  const res = await getPublic("anime-overview/999999", 404);
+  expect(await res.json()).toMatchObject({ code: "WORK_NOT_FOUND", status: 404 });
+}
+
 databaseDescribe("Catalog public animeOverview (anonymous GET, cache-tagged)", () => {
   it("returns bubble aggregation + 名場面 ranking + sample routes for a known work", assertOverviewHit);
-  it("returns an empty-but-valid overview for an unknown work", assertOverviewEmpty);
+  it("returns an empty-but-valid overview for a known zero-spot work", assertOverviewEmpty);
+  it("returns a typed 404 for an unknown work", assertOverview404);
 });
 
 databaseDescribe("Catalog API end-to-end (Hono app + OpenAPIHandler + Drizzle/PostGIS)", () => {
