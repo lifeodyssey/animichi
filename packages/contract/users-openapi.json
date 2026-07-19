@@ -1535,7 +1535,8 @@
                               },
                               "frame_image_url": {
                                 "type": "string",
-                                "format": "uri"
+                                "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]://"
                               },
                               "frame_label": {
                                 "type": "string",
@@ -1565,7 +1566,8 @@
                               },
                               "image_url": {
                                 "type": "string",
-                                "format": "uri"
+                                "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]://"
                               },
                               "caption": {
                                 "type": "string",
@@ -1583,7 +1585,8 @@
                         },
                         "hero_image_url": {
                           "type": "string",
-                          "format": "uri"
+                          "format": "uri",
+                          "pattern": "^[Hh][Tt][Tt][Pp][Ss]://"
                         },
                         "attributions": {
                           "type": "array",
@@ -1598,7 +1601,8 @@
                               },
                               "url": {
                                 "type": "string",
-                                "format": "uri"
+                                "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]://"
                               }
                             },
                             "required": [

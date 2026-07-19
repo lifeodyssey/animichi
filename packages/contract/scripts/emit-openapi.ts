@@ -11,11 +11,13 @@ import { dirname, join } from "node:path";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { OpenAPIGenerator } from "@orpc/openapi";
-import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { JSON_SCHEMA_REGISTRY, ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { checkinContract } from "../src/checkin-contract.js";
 import { catalogContract } from "../src/contract.js";
-import { shareContract } from "../src/share-contract.js";
+import { HttpsUrl, shareContract } from "../src/share-contract.js";
 import { usersContract } from "../src/users-contract.js";
+
+JSON_SCHEMA_REGISTRY.add(HttpsUrl, { pattern: "^[Hh][Tt][Tt][Pp][Ss]://" });
 
 const generator = new OpenAPIGenerator({
   schemaConverters: [new ZodToJsonSchemaConverter()],
