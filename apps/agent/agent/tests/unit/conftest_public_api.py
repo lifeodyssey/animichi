@@ -182,8 +182,20 @@ def make_fake_agent(
         message_history: object | None = None,
         on_step: object | None = None,
         catalog: object | None = None,
+        memory_store: object | None = None,
+        user_id: str | None = None,
     ) -> AgentResult:
-        del text, db, model, context, message_history, on_step, catalog
+        del (
+            text,
+            db,
+            model,
+            context,
+            message_history,
+            on_step,
+            catalog,
+            memory_store,
+            user_id,
+        )
         return (
             result_fn(locale=locale)
             if result_fn is not None

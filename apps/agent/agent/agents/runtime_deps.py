@@ -63,6 +63,8 @@ class RuntimeDeps:
     # fails loudly instead of silently bypassing the catalog.
     catalog: CatalogClientProtocol
 
+    user_id: str | None = None
+
     on_step: OnStep | None = None
     web_searcher: WebSearcher | None = None
     title_translator: TitleTranslator | None = None
