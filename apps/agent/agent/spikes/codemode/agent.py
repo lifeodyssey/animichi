@@ -77,7 +77,7 @@ def _taught_instructions(
 def _taught_capabilities(
     managed: _AnimichiManagedPrompt | None,
 ) -> list[AgentCapability[RuntimeDeps]]:
-    capabilities = _modern_capabilities(managed)
+    capabilities = _modern_capabilities(managed, memory=None)
     capabilities.append(CodeMode(tools=RAW_TOOL_NAMES, dynamic_catalog=False))
     return capabilities
 

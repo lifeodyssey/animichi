@@ -19,6 +19,7 @@ from agent.interfaces.public_api import (
 )
 from agent.tests.unit.conftest_public_api import (
     install_mock_pipeline,
+    make_run_agent_stub,
 )
 from agent.tests.unit.conftest_public_api import (
     make_result as _make_result,
@@ -176,19 +177,7 @@ class TestRuntimeAPIErrors:
             ],
         )
 
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, model, locale, context, message_history, on_step)
-            return result
+        _fake = make_run_agent_stub(result)
 
         with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(mock_db, model_http_client=MagicMock())

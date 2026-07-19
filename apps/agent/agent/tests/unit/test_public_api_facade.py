@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent.agents.agent_result import AgentResult
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import (
@@ -16,6 +15,7 @@ from agent.interfaces.public_api import (
 )
 from agent.tests.unit.conftest_public_api import (
     install_mock_pipeline,
+    make_run_agent_stub,
 )
 from agent.tests.unit.conftest_public_api import (
     make_result as _make_result,
@@ -57,20 +57,9 @@ class TestHandlePublicRequest:
     async def test_helper_forwards_explicit_model_override(self, mock_db, monkeypatch):
         captured: dict[str, object] = {}
 
-        async def fake_run_agent(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, locale, context, message_history, on_step)
-            captured["model"] = model
-            return _make_result(locale=locale)
+        fake_run_agent = make_run_agent_stub(
+            make=lambda locale: _make_result(locale=locale), capture=captured
+        )
 
         explicit_model = object()
         monkeypatch.setattr(
@@ -126,19 +115,7 @@ class TestLocalePassthrough:
             message="你好！有什么可以帮助你的？",
         )
 
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, model, locale, context, message_history, on_step)
-            return result
+        _fake = make_run_agent_stub(result)
 
         with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(
@@ -159,19 +136,7 @@ class TestLocalePassthrough:
             message="こんにちは！何かお手伝いしましょうか？",
         )
 
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, model, locale, context, message_history, on_step)
-            return result
+        _fake = make_run_agent_stub(result)
 
         with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=_fake):
             api = RuntimeAPI(
@@ -190,20 +155,9 @@ class TestOriginCoordinatesWiredToContext:
         """Finding 1: origin_lat/lng on request are forwarded to pipeline context."""
         captured: dict[str, object] = {}
 
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, model, locale, message_history, on_step)
-            captured["context"] = context
-            return _make_result(locale=locale)
+        _fake = make_run_agent_stub(
+            make=lambda locale: _make_result(locale=locale), capture=captured
+        )
 
         request = PublicAPIRequest(text="聖地巡礼", origin_lat=34.9, origin_lng=135.8)
 
@@ -224,20 +178,9 @@ class TestOriginCoordinatesWiredToContext:
         """When origin_lat/lng are not set, context does not contain those keys."""
         captured: dict[str, object] = {}
 
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, model, locale, message_history, on_step)
-            captured["context"] = context
-            return _make_result(locale=locale)
+        _fake = make_run_agent_stub(
+            make=lambda locale: _make_result(locale=locale), capture=captured
+        )
 
         request = PublicAPIRequest(text="聖地巡礼")
 

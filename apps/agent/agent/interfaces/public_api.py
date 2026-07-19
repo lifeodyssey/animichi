@@ -20,6 +20,7 @@ from pydantic_ai.exceptions import FallbackExceptionGroup, ModelHTTPError
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 from pydantic_ai.usage import RunUsage
+from pydantic_ai_harness.memory import MemoryStore
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.animichi_agent import animichi_agent
@@ -45,6 +46,7 @@ from agent.application.errors import ApplicationError, ErrorCode
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from agent.config.settings import Settings, get_settings
 from agent.domain.ports import DatabasePort, get_session_repo
+from agent.infrastructure.memory import postgres_memory_store
 from agent.infrastructure.observability import (
     record_runtime_request,
     runtime_span,
@@ -132,12 +134,14 @@ class RuntimeAPI:
         catalog: CatalogClientProtocol | None = None,
         settings: Settings | None = None,
         model_http_client: httpx.AsyncClient,
+        memory_store: MemoryStore | None = None,
     ) -> None:
         self._db = db
         self._session_store = session_store or create_session_store()
         self._catalog: CatalogClientProtocol = catalog or default_catalog_client()
         self._settings = settings or get_settings()
         self._model_http_client = model_http_client
+        self._memory_store = memory_store
 
     def bind_model_http_client(self, client: httpx.AsyncClient) -> None:
         """Bind the client owned by the surrounding application lifespan."""
@@ -185,7 +189,13 @@ class RuntimeAPI:
                     session_id, request
                 )
                 result, response, context_delta = await self._execute_pipeline(
-                    request, context, message_history, effective_model, on_step, span
+                    request,
+                    context,
+                    message_history,
+                    effective_model,
+                    on_step,
+                    span,
+                    user_id,
                 )
 
                 if session_id is None:
@@ -278,12 +288,18 @@ class RuntimeAPI:
         effective_model: Model | str | None,
         on_step: OnStep | None,
         span: object,
+        user_id: str | None,
     ) -> tuple[AgentResult | None, PublicAPIResponse, dict[str, object]]:
         """Run the pipeline (or synthetic plan) and map result to response."""
         context_delta: dict[str, object] = {}
         try:
             result, resolved_model, model_path = await self._dispatch_request(
-                request, context, message_history, effective_model, on_step
+                request,
+                context,
+                message_history,
+                effective_model,
+                on_step,
+                user_id,
             )
         except TimeoutError:
             _span_record_exception(span, TimeoutError("agent timed out"))
@@ -390,6 +406,7 @@ class RuntimeAPI:
         history: list[ModelMessage],
         effective_model: Model | str | None,
         on_step: OnStep | None,
+        user_id: str | None = None,
     ) -> tuple[AgentResult, Model | None, bool]:
         """Dispatch exactly one of point, candidate, or model request modes."""
         model = _resolve_request_model(
@@ -402,7 +419,9 @@ class RuntimeAPI:
         if request.selected_candidate_ids is not None:
             result = await self._candidate_selection(request, context, on_step)
             return result, None, False
-        result = await self._model_request(request, context, history, model, on_step)
+        result = await self._model_request(
+            request, context, history, model, on_step, user_id
+        )
         return result, model, True
 
     async def _point_selection(
@@ -455,6 +474,7 @@ class RuntimeAPI:
         history: list[ModelMessage],
         model: Model | None,
         on_step: OnStep | None,
+        user_id: str | None,
     ) -> AgentResult:
         return await asyncio.wait_for(
             run_animichi_agent(
@@ -466,6 +486,8 @@ class RuntimeAPI:
                 message_history=history,
                 on_step=on_step,
                 catalog=self._catalog,
+                memory_store=self._memory_store,
+                user_id=user_id,
             ),
             timeout=self._settings.agent_deadline,
         )
@@ -535,6 +557,7 @@ async def handle_public_request(
         db,
         session_store=session_store,
         model_http_client=model_client,
+        memory_store=postgres_memory_store(db),
     )
     try:
         return await api.handle(request, model=model, user_id=user_id, on_step=on_step)
