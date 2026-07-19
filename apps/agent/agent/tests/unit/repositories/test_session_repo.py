@@ -24,8 +24,8 @@ async def test_upsert_session_calls_execute_with_correct_params(
     repo: SessionRepository, pool: AsyncMock
 ) -> None:
     pool.execute.return_value = None
-    state = {"context": {"bangumi_id": "115908"}}
-    metadata = {"locale": "ja"}
+    state: dict[str, object] = {"context": {"bangumi_id": "115908"}}
+    metadata: dict[str, object] = {"locale": "ja"}
     await repo.upsert_session("sess-1", state, metadata)
     pool.execute.assert_awaited_once()
     call_args = pool.execute.await_args.args
@@ -69,6 +69,8 @@ async def test_upsert_conversation_calls_execute(
     pool.execute.assert_awaited_once()
     sql = pool.execute.await_args.args[0]
     assert "INSERT INTO conversations" in sql
+    update_sql = sql.split("DO UPDATE SET", maxsplit=1)[1]
+    assert "user_id" not in update_sql
 
 
 async def test_get_session_state_returns_dict(

@@ -122,6 +122,7 @@ async def handle_chat(
     """Stream chat as an AI SDK UI message stream with tool + data parts."""
     api_request = _runtime_request(request, _decode_body(await request.body()))
     runtime_api = _get_runtime_api(request)
+    await runtime_api.validate_session_owner(api_request.session_id, auth.user_id)
 
     async def handler(on_step: OnStep) -> PublicAPIResponse:
         return await runtime_api.handle(
