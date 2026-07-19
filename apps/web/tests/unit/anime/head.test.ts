@@ -46,4 +46,14 @@ describe("animeHead", () => {
     expect(head.meta.some((entry) => entry.title === animeTitle("zh", "123"))).toBe(true);
     expect(head.links).toHaveLength(4);
   });
+
+  it("omits the robots meta for an indexable overview", () => {
+    const head = animeHead("ja", "123", ORIGIN, { indexable: true });
+    expect(head.meta.some((entry) => entry.name === "robots")).toBe(false);
+  });
+
+  it("adds robots noindex for a non-indexable empty overview", () => {
+    const head = animeHead("ja", "999", ORIGIN, { indexable: false });
+    expect(head.meta).toContainEqual({ name: "robots", content: "noindex" });
+  });
 });
