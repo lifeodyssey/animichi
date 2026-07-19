@@ -9,6 +9,7 @@
   --landing-cta-fg: #fffdf8;
   --landing-chip-mint: #7fd8c4;
   --landing-chip-gold: #f0c24b;
+  --landing-gold-press: #c99a2e;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -440,6 +441,165 @@
 .landing__footer-link {
   font-weight: 700;
   text-decoration: none;
+}
+
+/* ── Mobile fox welcome (hidden on desktop; CSS-only switch keeps SSR stable) ── */
+
+.mobile-fox {
+  display: none;
+  position: relative;
+  flex-direction: column;
+  flex: 1;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+.mobile-fox__bg {
+  position: absolute;
+  inset: 0 0 auto;
+  width: 100%;
+  height: 68%;
+  object-fit: cover;
+  object-position: top center;
+  mask-image: linear-gradient(to bottom, black 78%, transparent 100%);
+}
+
+.mobile-fox__bar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 0;
+}
+
+.mobile-fox__badge {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-card);
+}
+
+.mobile-fox__scene {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 300px;
+}
+
+.mobile-fox__guide {
+  position: absolute;
+  right: 14px;
+  bottom: -12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.mobile-fox__bubble {
+  position: relative;
+  margin: 0 0 0 -64px;
+  padding: 9px 22px;
+  border-radius: 999px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  font-weight: 800;
+  font-size: 1.05rem;
+  box-shadow: 0 3px 10px rgb(61 52 40 / 22%);
+}
+
+.mobile-fox__bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  background: var(--color-card);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.mobile-fox__fox {
+  width: clamp(150px, 46vw, 200px);
+  height: auto;
+  filter: drop-shadow(0 10px 14px rgb(70 52 30 / 30%));
+}
+
+.mobile-fox__copy {
+  position: relative;
+  z-index: 1;
+  padding: 8px 20px calc(24px + env(safe-area-inset-bottom));
+}
+
+.mobile-fox__lead {
+  margin: 0 0 10px;
+  max-width: 21rem;
+  color: var(--color-muted-fg);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.mobile-fox__title {
+  margin: 0 0 20px;
+  color: var(--color-fg);
+  font-family: var(--app-font-display);
+  font-size: clamp(3rem, 16vw, 4rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+
+.mobile-fox__actions {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.mobile-fox__cta {
+  flex: 1;
+  border: 0;
+  border-radius: 999px;
+  min-height: 56px;
+  padding: 14px 24px;
+  background: var(--landing-chip-gold);
+  color: var(--color-fg);
+  font: inherit;
+  font-weight: 800;
+  font-size: 1.08rem;
+  box-shadow: 0 4px 0 0 var(--landing-gold-press);
+  cursor: pointer;
+  transition: transform 0.05s ease;
+}
+
+.mobile-fox__cta:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.mobile-fox__map {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  border: 2px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-card);
+  box-shadow: 0 3px 0 0 var(--shadow-3d);
+}
+
+@media (max-width: 640px) {
+  .mobile-fox {
+    display: flex;
+  }
+
+  .landing__bar,
+  .hero-journal,
+  .landing__footer {
+    display: none;
+  }
 }
 
 @media (min-width: 980px) {
