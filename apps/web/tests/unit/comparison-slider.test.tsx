@@ -16,6 +16,14 @@ describe("ComparisonSlider", () => {
     expect(screen.getByText("現実")).toBeTruthy();
   });
 
+  it("shows the anime frame and the real photo with localized alt text", () => {
+    renderWithLocale(<ComparisonSlider />);
+    const anime = screen.getByAltText("『君の名は。』須賀神社の階段のアニメカット");
+    const real = screen.getByAltText("須賀神社の階段の実写写真");
+    expect(anime.getAttribute("src")).toBe("/images/landing/suga-shrine-anime-source.webp");
+    expect(real.getAttribute("src")).toBe("/images/landing/suga-shrine-reality-perspective-v2.webp");
+  });
+
   it("drives the reveal width from the range input", () => {
     renderWithLocale(<ComparisonSlider />);
     const range = screen.getByRole("slider");

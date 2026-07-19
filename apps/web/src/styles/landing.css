@@ -1,0 +1,454 @@
+/* Landing (journal-card hero) — landing-scoped styles.
+   Warm accents live as .landing-scoped custom props; :root tokens stay in globals.css. */
+
+.landing {
+  --landing-brand: #c1440e;
+  --landing-cta: #e8742e;
+  --landing-cta-hover: #dd6a25;
+  --landing-cta-press: #b85a1e;
+  --landing-cta-fg: #fffdf8;
+  --landing-chip-mint: #7fd8c4;
+  --landing-chip-gold: #f0c24b;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+
+.torii-mark {
+  flex: none;
+  color: var(--landing-brand);
+}
+
+/* ── Header pill bar ── */
+
+.landing__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 20px clamp(16px, 4vw, 40px) 0;
+  padding: 10px 14px 10px 24px;
+  border: 2px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-card);
+}
+
+.landing__wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-fg);
+  font-family: var(--app-font-display);
+  font-weight: 700;
+  font-size: 1.35rem;
+}
+
+.landing__bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.landing__login {
+  border: 0;
+  border-radius: 999px;
+  min-height: 42px;
+  padding: 8px 22px;
+  background: var(--color-focus);
+  color: var(--color-fg);
+  font: inherit;
+  font-weight: 800;
+  box-shadow: 0 3px 0 0 var(--shadow-3d);
+  cursor: pointer;
+  transition: transform 0.05s ease;
+}
+
+.landing__login:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.locale-switcher {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 2px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-card);
+}
+
+.locale-switcher__option {
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 12px;
+  min-height: 32px;
+  background: transparent;
+  color: var(--color-muted-fg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.locale-switcher__option[aria-pressed="true"] {
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+}
+
+.day-night-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 14px;
+  border: 2px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-card);
+  color: var(--color-muted-fg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.day-night-toggle[aria-checked="true"] {
+  border-color: var(--color-primary);
+  color: var(--color-primary-strong);
+}
+
+/* ── Hero (journal-card layout) ── */
+
+.hero-journal {
+  display: grid;
+  gap: 56px;
+  align-items: start;
+  flex: 1;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: clamp(32px, 6vw, 72px) clamp(16px, 4vw, 40px) clamp(48px, 7vw, 88px);
+}
+
+.hero-journal__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 26px;
+  color: var(--landing-brand);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.hero-journal__title {
+  margin: 0;
+  max-width: 15ch;
+  color: var(--color-fg);
+  font-family: var(--app-font-display);
+  font-size: clamp(2.5rem, 4.6vw, 4rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.16;
+  text-wrap: balance;
+}
+
+.hero-journal__lead {
+  margin: 20px 0 32px;
+  max-width: 30rem;
+  color: var(--color-muted-fg);
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+/* ── Pill search + pumpkin CTA ── */
+
+.hero-search__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 560px;
+  padding: 7px 7px 7px 20px;
+  border: 2px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-card);
+  box-shadow: 0 4px 0 0 var(--shadow-3d);
+}
+
+.hero-search__bar:focus-within {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.hero-search__glyph {
+  flex: none;
+  color: var(--color-muted-fg);
+}
+
+.hero-search__input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 12px 8px;
+  background: transparent;
+  color: var(--color-fg);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.hero-search__input::placeholder {
+  color: var(--color-muted-fg);
+}
+
+.hero-search__input:focus {
+  outline: none;
+}
+
+.hero-search__cta {
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  min-height: 52px;
+  padding: 12px 26px;
+  background: var(--landing-cta);
+  color: var(--landing-cta-fg);
+  font: inherit;
+  font-weight: 800;
+  font-size: 1.02rem;
+  box-shadow: 0 4px 0 0 var(--landing-cta-press);
+  cursor: pointer;
+  transition: transform 0.05s ease;
+}
+
+.hero-search__cta:hover {
+  background: var(--landing-cta-hover);
+}
+
+.hero-search__cta:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+/* ── Try-an-example chips ── */
+
+.hero-search__examples {
+  margin-top: 44px;
+}
+
+.hero-search__examples-label {
+  margin: 0 0 10px;
+  color: var(--color-muted-fg);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.hero-search__chips {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hero-chip {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 20px;
+  color: var(--color-fg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.hero-chip:hover {
+  transform: translateY(-2px);
+}
+
+.hero-chip--mint {
+  background: var(--landing-chip-mint);
+}
+
+.hero-chip--gold {
+  background: var(--landing-chip-gold);
+}
+
+.hero-chip--plain {
+  background: transparent;
+  padding-inline: 6px;
+}
+
+/* ── Tilted scene card + fox ── */
+
+.scene-card {
+  position: relative;
+  margin-top: 40px;
+}
+
+.scene-card__fox {
+  position: absolute;
+  top: -68px;
+  right: 26px;
+  z-index: 3;
+  width: clamp(120px, 26%, 190px);
+  height: auto;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 14px rgb(70 52 30 / 30%));
+}
+
+.scene-card__frame {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 28px;
+  background: var(--color-card);
+  transform: rotate(3deg);
+  box-shadow: 0 34px 64px -26px rgb(70 52 30 / 42%), 0 10px 24px -14px rgb(70 52 30 / 25%);
+}
+
+/* ── Anime/real comparison ── */
+
+.comparison {
+  --reveal: 50%;
+  position: relative;
+  margin: 0;
+  aspect-ratio: 8 / 5;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--color-muted);
+}
+
+.comparison:focus-within {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.comparison__pane {
+  position: absolute;
+  inset: 0;
+}
+
+.comparison__pane--anime {
+  clip-path: inset(0 calc(100% - var(--reveal)) 0 0);
+}
+
+.comparison__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.comparison__tag {
+  position: absolute;
+  top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgb(61 52 40 / 25%);
+}
+
+.comparison__tag--anime {
+  left: 14px;
+}
+
+.comparison__tag--real {
+  right: 14px;
+}
+
+.comparison__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-primary);
+}
+
+.comparison__seam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--reveal);
+  width: 4px;
+  transform: translateX(-50%);
+  background: var(--color-bg);
+}
+
+.comparison__handle {
+  position: absolute;
+  top: 50%;
+  left: var(--reveal);
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 3px 10px rgb(61 52 40 / 35%);
+  pointer-events: none;
+}
+
+/* Full-cover invisible range: keeps the slider accessible without a visible
+   track that overlapped the corner tags on mobile. */
+.comparison__range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
+
+/* ── Footer ── */
+
+.landing__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding: 22px clamp(16px, 4vw, 40px);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-muted-fg);
+}
+
+.landing__footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-fg);
+  font-weight: 700;
+}
+
+.landing__footer-name {
+  color: var(--color-muted-fg);
+  font-family: var(--app-font-mono);
+  font-size: 0.85rem;
+}
+
+.landing__footer-link {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (min-width: 980px) {
+  .hero-journal {
+    grid-template-columns: minmax(0, 46fr) minmax(0, 54fr);
+    align-items: center;
+  }
+
+  .scene-card {
+    margin-top: 0;
+  }
+}

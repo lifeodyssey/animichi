@@ -101,6 +101,9 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
     devDependencies:
+      '@fontsource/noto-serif-jp':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))
@@ -1412,6 +1415,9 @@ packages:
 
   '@fontsource/noto-sans-sc@5.2.9':
     resolution: {integrity: sha512-bTUIWGBgJDpwi5qAr+x0/lcgv80IHTB9vl6s2f6EymZEa7qYV99yNRBZuKFT+SYDKVunZrjCEhWtpxqmbXWl5Q==}
+
+  '@fontsource/noto-serif-jp@5.3.0':
+    resolution: {integrity: sha512-7dRFleN7F+uuJdcMW/fJmnl6KLZSn9dHCjAVTaWjTcT4hg5V4ECbi2qgIamI6rS/+yTt16KDLU+9aJi74r6ZxQ==}
 
   '@fontsource/nunito@5.2.7':
     resolution: {integrity: sha512-pmtBq0H9ex9nk+RtJYEJOD9pag393iHETnl/PVKleF4i06cd0ttngK5ZCTgYb5eOqR3Xdlrjtev8m7bmgYprew==}
@@ -10298,6 +10304,8 @@ snapshots:
   '@floating-ui/utils@0.2.12': {}
 
   '@fontsource/noto-sans-sc@5.2.9': {}
+
+  '@fontsource/noto-serif-jp@5.3.0': {}
 
   '@fontsource/nunito@5.2.7': {}
 
