@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import structlog
 from pydantic import ValidationError
-from pydantic_ai.exceptions import UsageLimitExceeded
+from pydantic_ai.exceptions import (
+    ContentFilterError,
+    UnexpectedModelBehavior,
+    UsageLimitExceeded,
+)
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
@@ -191,13 +195,8 @@ async def run_animichi_agent(
             usage_limits=RUN_USAGE_LIMITS,
             usage=run_usage,
         )
-    except UsageLimitExceeded:
-        logger.warning(
-            "animichi_agent_usage_limit",
-            requests=run_usage.requests,
-            tool_calls=run_usage.tool_calls,
-        )
-        return _partial_result(deps, run_usage)
+    except (UsageLimitExceeded, UnexpectedModelBehavior) as error:
+        return _capped_partial_result(deps, run_usage, error)
     raw_output = run_result.output
     if isinstance(raw_output, ClarifyResponseModel):
         await _record_terminal_clarify(deps, raw_output)
@@ -239,6 +238,26 @@ def _partial_result(
         status="partial",
         success_override=False,
     )
+
+
+def _capped_partial_result(
+    deps: RuntimeDeps, run_usage: RunUsage, error: Exception
+) -> AgentResult:
+    """Honest partial for capped runs; content-filter refusals stay loud."""
+    if isinstance(error, ContentFilterError):
+        raise error
+    event = (
+        "animichi_agent_usage_limit"
+        if isinstance(error, UsageLimitExceeded)
+        else "animichi_agent_model_behavior_exhausted"
+    )
+    logger.warning(
+        event,
+        error_type=type(error).__name__,
+        requests=run_usage.requests,
+        tool_calls=run_usage.tool_calls,
+    )
+    return _partial_result(deps, run_usage)
 
 
 def _partial_message(locale: str) -> str:
