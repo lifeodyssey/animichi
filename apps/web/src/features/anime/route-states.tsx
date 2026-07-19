@@ -1,6 +1,8 @@
 import { useQueryErrorResetBoundary } from "@tanstack/react-query";
-import { useRouter } from "@tanstack/react-router";
+import { useRouter, useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "../../i18n/locales";
+import { animeCopyFor, type AnimeCopy } from "./copy";
 
 /**
  * Branded error + pending states for `/anime/:id` (NotFound style). The
@@ -19,31 +21,41 @@ function useRetry(): () => void {
   return () => void router.invalidate();
 }
 
-function AnimeErrorActions({ onRetry }: Readonly<{ onRetry: () => void }>) {
+/** The loader failed, so no loaderData: the `hl` search param is the source. */
+function useErrorLocale(): Locale {
+  const search: Readonly<Record<string, unknown>> = useSearch({ strict: false });
+  const hl = search.hl;
+  return typeof hl === "string" && isLocale(hl) ? hl : DEFAULT_LOCALE;
+}
+
+type ErrorCopyProps = Readonly<{ copy: AnimeCopy }>;
+
+function AnimeErrorActions({ copy, onRetry }: ErrorCopyProps & Readonly<{ onRetry: () => void }>) {
   return (
     <p className="m-0 flex items-center justify-center gap-4">
-      <button type="button" className="home-link" onClick={onRetry}>Try again</button>
-      <a className="home-link" href="/">Return home</a>
+      <button type="button" className="home-link" onClick={onRetry}>{copy.errorRetry}</button>
+      <a className="home-link" href="/">{copy.errorHome}</a>
     </p>
   );
 }
 
-function AnimeErrorHeading() {
+function AnimeErrorHeading({ copy }: ErrorCopyProps) {
   return (
     <>
       <p className="eyebrow">Animichi</p>
-      <h1 id="anime-error-title">Something went wrong</h1>
-      <p className="tagline">We could not load this title right now. Please try again.</p>
+      <h1 id="anime-error-title">{copy.errorTitle}</h1>
+      <p className="tagline">{copy.errorBody}</p>
     </>
   );
 }
 
 export function AnimeErrorState() {
   const handleRetry = useRetry();
+  const copy = animeCopyFor(useErrorLocale());
   return (
     <main className="app-shell hero compact" aria-labelledby="anime-error-title">
-      <AnimeErrorHeading />
-      <AnimeErrorActions onRetry={handleRetry} />
+      <AnimeErrorHeading copy={copy} />
+      <AnimeErrorActions copy={copy} onRetry={handleRetry} />
     </main>
   );
 }
