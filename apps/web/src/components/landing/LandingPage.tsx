@@ -4,6 +4,7 @@ import { LocaleSwitcher } from "../../i18n/LocaleSwitcher";
 import { LoginModal } from "../auth/LoginModal";
 import { DayNightToggle } from "./DayNightToggle";
 import { Hero } from "./Hero";
+import { MobileFoxHome } from "./MobileFoxHome";
 import { ToriiMark } from "./ToriiMark";
 
 const REPO_URL = "https://github.com/lifeodyssey/animichi";
@@ -52,12 +53,13 @@ function LandingFooter() {
   );
 }
 
-/** Marketing landing: pill header bar, journal-card hero, footer, login modal. */
+/** Marketing landing: journal-card hero on desktop, fox welcome on mobile (CSS-switched). */
 export function LandingPage() {
   const { open, openAuth, closeAuth } = useAuthModal();
   return (<main className="landing">
     <LandingBar onLogin={openAuth} />
     <Hero onStart={openAuth} />
+    <MobileFoxHome onLogin={openAuth} onStart={openAuth} />
     <LandingFooter />
     <LoginModal open={open} onClose={closeAuth} />
   </main>);
