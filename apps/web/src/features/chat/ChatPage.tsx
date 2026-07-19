@@ -5,6 +5,7 @@ import { ColdStart } from "./components/ColdStart";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { HistoryList } from "./components/HistoryList";
 import { MessageList } from "./components/MessageList";
+import { TypingGate } from "./components/TypingIndicator";
 import { currentChatConfig } from "./config";
 import { deriveEntryState, resolveRouteReference } from "./entry-state";
 import type { ChatEntryState } from "./entry-state";
@@ -66,7 +67,7 @@ function ChatBody(props: BodyProps) {
     <section className="chat-body">
       <HistoryLoadingGate history={props.history} dict={props.dict} />
       <HistoryList entries={props.history.entries} dict={props.dict} />
-      <ColdStartGate {...props} /><MessageList messages={props.chat.messages} dict={props.dict} /><div ref={anchor} aria-hidden="true" />
+      <ColdStartGate {...props} /><MessageList messages={props.chat.messages} dict={props.dict} /><TypingGate status={props.chat.status} dict={props.dict} /><div ref={anchor} aria-hidden="true" />
     </section>
   );
 }
