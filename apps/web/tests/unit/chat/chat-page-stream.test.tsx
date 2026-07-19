@@ -88,4 +88,18 @@ describe("stream error", () => {
       expect(screen.queryByRole("alert")).toBeTruthy();
     });
   });
+
+  it("retries the failed turn via regenerate instead of leaving a partial message", async () => {
+    server.use(chatStreamHandler("error"));
+    renderChatPage();
+    sendText("ユーフォ");
+    await waitFor(() => {
+      expect(screen.queryByRole("alert")).toBeTruthy();
+    });
+    server.use(chatStreamHandler("search"));
+    fireEvent.click(screen.getByRole("button", { name: ja.retry }));
+    await screen.findByText("宇治の聖地を2件、徒歩ルートにまとめました。");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getAllByText("ユーフォ")).toHaveLength(1);
+  });
 });
