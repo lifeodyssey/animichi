@@ -30,6 +30,7 @@ def mock_db() -> MagicMock:
     pool.fetch = AsyncMock(return_value=[])
     db.pool = pool
     db.points.search_points_by_location = AsyncMock(return_value=[])
+    db.session.create_owned_session = AsyncMock()
     db.session.upsert_session = AsyncMock()
     db.session.upsert_conversation = AsyncMock()
     db.session.check_session_owner = AsyncMock(return_value=True)
@@ -52,6 +53,7 @@ class TestGreetingPersistence:
         _fake = make_run_agent_stub(result)
 
         db = MagicMock()
+        db.session.create_owned_session = AsyncMock()
         db.session.upsert_session = AsyncMock()
         db.session.upsert_conversation = AsyncMock()
         db.insert_request_log = AsyncMock()

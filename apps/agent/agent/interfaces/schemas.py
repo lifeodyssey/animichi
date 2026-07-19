@@ -8,7 +8,16 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, JsonValue, TypeAdapter, model_validator
+
+JsonObject = dict[str, JsonValue]
+_JSON_OBJECT_ADAPTER = TypeAdapter(JsonObject)
+
+
+def as_json_object(value: object) -> JsonObject:
+    """Validate an arbitrary boundary value as a recursive JSON object."""
+    return _JSON_OBJECT_ADAPTER.validate_python(value)
+
 
 GRACEFUL_TERMINAL_STATUSES: frozenset[str] = frozenset(
     {"needs_clarification", "partial", "blocked", "empty", "too_large"}
@@ -110,7 +119,7 @@ class PublicAPIError(BaseModel):
 
     code: str
     message: str
-    details: dict[str, object] = Field(default_factory=dict)
+    details: JsonObject = Field(default_factory=dict)
 
 
 class PublicAPIResponse(BaseModel):
@@ -121,9 +130,9 @@ class PublicAPIResponse(BaseModel):
     intent: str
     session_id: str | None = None
     message: str = ""
-    data: dict[str, object] = Field(default_factory=dict)
-    session: dict[str, object] = Field(default_factory=dict)
-    route_history: list[dict[str, object]] = Field(default_factory=list)
+    data: JsonObject = Field(default_factory=dict)
+    session: JsonObject = Field(default_factory=dict)
+    route_history: list[JsonObject] = Field(default_factory=list)
     errors: list[PublicAPIError] = Field(default_factory=list)
     ui: dict[str, str] | None = Field(
         default=None,
@@ -133,4 +142,4 @@ class PublicAPIResponse(BaseModel):
         default=None,
         description="LLM-generated conversation title (first interaction only)",
     )
-    debug: dict[str, object] | None = None
+    debug: JsonObject | None = None

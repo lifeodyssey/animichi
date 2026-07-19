@@ -41,7 +41,19 @@ export interface ChatStreamOptions {
 
 function patchSessionId(text: string, sessionId?: string): string {
   if (!sessionId) return text;
-  return text.replaceAll('"session_id":null', `"session_id":"${sessionId}"`);
+  return text
+    .split("\n")
+    .map((line) => patchSessionIdLine(line, sessionId))
+    .join("\n");
+}
+
+/** The recordings omit the null `session_id`; inject it into full final frames. */
+function patchSessionIdLine(line: string, sessionId: string): string {
+  if (!line.startsWith('data: {"type":"data-response"')) return line;
+  const frame = JSON.parse(line.slice("data: ".length)) as { data: Record<string, unknown> };
+  if (!("success" in frame.data)) return line;
+  frame.data.session_id = sessionId;
+  return `data: ${JSON.stringify(frame)}`;
 }
 
 function corruptFinalFrame(text: string, malformed?: boolean): string {
