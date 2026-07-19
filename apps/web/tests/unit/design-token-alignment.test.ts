@@ -5,6 +5,7 @@ import globalsCss from "../../src/styles/globals.css?raw";
 import {
   alignmentMismatches,
   contrastRatio,
+  parseBlockTokens,
   parseFontFaces,
   parseTokens,
   srcForCodepoint,
@@ -14,6 +15,7 @@ import {
 
 const semanticTokens = parseTokens(globalsCss);
 const animalTokens = parseTokens(animalCss);
+const nightTokens = parseBlockTokens(globalsCss, '[data-theme="night"]');
 const fontFaces = parseFontFaces(fontsCss);
 
 const alignment: TokenMap = {
@@ -22,8 +24,8 @@ const alignment: TokenMap = {
   "--color-primary-active": "--animal-primary-color-active",
   "--color-primary-soft": "--animal-primary-color-bg",
   "--color-fg": "--animal-text-color-body",
-  "--color-card": "--animal-bg-color",
-  "--color-muted": "--animal-bg-color-secondary",
+  "--color-bg": "--animal-bg-color",
+  "--color-card": "--animal-bg-color-content",
   "--color-border": "--animal-border-color",
   "--color-focus": "--animal-focus-yellow",
   "--color-success-fg": "--animal-success-color",
@@ -67,6 +69,45 @@ describe("semantic token backfills", () => {
     "--color-map-pin-brand",
   ])("defines %s", (token) => {
     expect(tokenValue(semanticTokens, token)).not.toBe("");
+  });
+});
+
+describe("cream base triad (動森 spec)", () => {
+  it.each([
+    ["--color-bg", "#f8f8f0"],
+    ["--color-card", "#f7f3df"],
+    ["--color-muted", "#e8ddc8"],
+  ])("pins %s to %s", (token, expected) => {
+    expect(tokenValue(semanticTokens, token)).toBe(expected);
+  });
+
+  it("derives the press shadow from the 3d shadow token", () => {
+    expect(tokenValue(semanticTokens, "--shadow-press")).toContain("var(--shadow-3d)");
+  });
+});
+
+describe("night theme coverage", () => {
+  it.each([
+    "--color-primary-soft",
+    "--color-explore-bg",
+    "--color-explore-fg",
+    "--color-walk-bg",
+    "--color-walk-fg",
+    "--shadow-3d",
+  ])("overrides %s at night", (token) => {
+    expect(tokenValue(nightTokens, token)).not.toBe(tokenValue(semanticTokens, token));
+  });
+
+  it("keeps explore text readable on the night explore background", () => {
+    const foreground = tokenValue(nightTokens, "--color-explore-fg");
+    const background = tokenValue(nightTokens, "--color-explore-bg");
+    expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("keeps walk text readable on the night walk background", () => {
+    const foreground = tokenValue(nightTokens, "--color-walk-fg");
+    const background = tokenValue(nightTokens, "--color-walk-bg");
+    expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
   });
 });
 
