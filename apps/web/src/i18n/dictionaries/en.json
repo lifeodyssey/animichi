@@ -4,16 +4,25 @@
     "description": "Find real-world anime locations and plan pilgrimage routes"
   },
   "landing": {
-    "eyebrow": "Anime Pilgrimage",
+    "eyebrow": "Anime Travel Journal",
     "hero": "Animichi",
-    "hero_accent": "Pilgrimage Routes",
-    "subtitle": "Stand where your favourite scene happened. Type a title, find its spots, and build a route.",
+    "headline": "Turn anime scenes into today's walking route",
+    "lead": "Enter an anime title, station, or city. Find the real locations and plan your route.",
+    "search_placeholder": "Enter anime, station, or city",
     "cta": "Start Exploring",
+    "try_example": "Try an example",
+    "examples": [
+      "Your Name",
+      "Euphonium",
+      "Weathering with You"
+    ],
     "login": "Log in",
-    "comparison_title": "Anime vs Reality",
-    "comparison_sub": "Every spot matched against its original frame.",
+    "github": "GitHub",
+    "footer_name": "seichijunrei",
     "comparison_anime": "Anime",
+    "comparison_anime_alt": "Anime frame of the Suga Shrine stairs from Your Name.",
     "comparison_real": "Reality",
+    "comparison_real_alt": "Photo of the real Suga Shrine stairs",
     "comparison_aria": "Slider comparing the anime frame with the real location",
     "theme_day": "Day",
     "theme_night": "Night"

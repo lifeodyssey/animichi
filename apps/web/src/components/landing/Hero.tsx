@@ -1,5 +1,7 @@
 import { useDict } from "../../i18n/context";
-import { ComparisonSlider } from "./ComparisonSlider";
+import { HeroSceneCard } from "./HeroSceneCard";
+import { HeroSearch } from "./HeroSearch";
+import { ToriiMark } from "./ToriiMark";
 
 interface HeroProps {
   onStart: () => void;
@@ -7,30 +9,20 @@ interface HeroProps {
 
 function HeroCopy({ onStart }: HeroProps) {
   const landing = useDict().landing;
-  return (<div className="hero-band__copy">
-    <p className="hero-band__eyebrow">{landing.eyebrow}</p>
-    <h1 id="hero-title" className="hero-band__title">{landing.hero}<span className="hero-band__accent">{landing.hero_accent}</span></h1>
-    <p className="hero-band__subtitle">{landing.subtitle}</p>
-    <button className="ds-button ds-button--primary ds-button--large" type="button" onClick={onStart}>{landing.cta}</button>
+  return (<div className="hero-journal__copy">
+    <p className="hero-journal__eyebrow"><ToriiMark size={15} />{landing.eyebrow}</p>
+    <h1 id="hero-title" className="hero-journal__title">{landing.headline}</h1>
+    <p className="hero-journal__lead">{landing.lead}</p>
+    <HeroSearch onSubmit={() => { onStart(); }} />
   </div>);
 }
 
-function HeroShowcase() {
-  const landing = useDict().landing;
-  return (
-    <div className="hero-band__showcase">
-      <p className="hero-band__showcase-title">{landing.comparison_title}</p>
-      <p className="hero-band__showcase-sub">{landing.comparison_sub}</p>
-      <ComparisonSlider />
-    </div>
-  );
-}
-
+/** Journal-card hero: serif sell line + pill search on the left, tilted scene card on the right. */
 export function Hero({ onStart }: HeroProps) {
   return (
-    <section className="hero-band" aria-labelledby="hero-title">
+    <section className="hero-journal" aria-labelledby="hero-title">
       <HeroCopy onStart={onStart} />
-      <HeroShowcase />
+      <HeroSceneCard />
     </section>
   );
 }

@@ -16,7 +16,7 @@ afterEach(cleanup);
 describe("Landing", () => {
   it("provides the locale context and renders the hero", () => {
     render(<Landing />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("聖地巡礼");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("アニメの場面を");
     expect(document.documentElement.lang).toBe("ja");
   });
 });
