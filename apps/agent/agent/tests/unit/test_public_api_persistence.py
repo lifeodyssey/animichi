@@ -14,6 +14,7 @@ from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from agent.tests.unit.conftest_public_api import (
     install_mock_pipeline,
+    make_run_agent_stub,
 )
 
 
@@ -48,19 +49,7 @@ class TestGreetingPersistence:
             session_state=SessionState(),
         )
 
-        async def _fake(
-            *,
-            text: str,
-            db: object,
-            model: object | None = None,
-            locale: str = "ja",
-            context: dict[str, object] | None = None,
-            message_history: object | None = None,
-            on_step: object | None = None,
-            catalog: object | None = None,
-        ) -> AgentResult:
-            _ = (text, db, model, locale, context, message_history, on_step)
-            return result
+        _fake = make_run_agent_stub(result)
 
         db = MagicMock()
         db.session.upsert_session = AsyncMock()

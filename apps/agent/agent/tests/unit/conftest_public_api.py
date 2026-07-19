@@ -185,8 +185,20 @@ def make_fake_agent(
         message_history: object | None = None,
         on_step: object | None = None,
         catalog: object | None = None,
+        memory_store: object | None = None,
+        user_id: str | None = None,
     ) -> AgentResult:
-        del text, db, model, context, message_history, on_step, catalog
+        del (
+            text,
+            db,
+            model,
+            context,
+            message_history,
+            on_step,
+            catalog,
+            memory_store,
+            user_id,
+        )
         return (
             result_fn(locale=locale)
             if result_fn is not None
@@ -200,3 +212,53 @@ def install_mock_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "agent.interfaces.public_api.run_animichi_agent", make_fake_agent()
     )
+
+
+def make_run_agent_stub(
+    result: AgentResult | None = None,
+    *,
+    capture: dict[str, object] | None = None,
+    make: Callable[[str], AgentResult] | None = None,
+) -> Callable[..., Awaitable[AgentResult]]:
+    """A run_animichi_agent stand-in with the full production signature.
+
+    Centralizes the ten-parameter boilerplate. `capture` records the call
+    kwargs; the reply is `make(locale)` when given, else the fixed `result`.
+    """
+    if (result is None) == (make is None):
+        raise ValueError("provide exactly one of result / make")
+
+    async def _fake(
+        *,
+        text: str,
+        db: object,
+        model: object | None = None,
+        locale: str = "ja",
+        context: dict[str, object] | None = None,
+        message_history: object | None = None,
+        on_step: object | None = None,
+        catalog: object | None = None,
+        memory_store: object | None = None,
+        user_id: str | None = None,
+    ) -> AgentResult:
+        call: dict[str, object] = {
+            "text": text,
+            "db": db,
+            "model": model,
+            "locale": locale,
+            "context": context,
+            "message_history": message_history,
+            "on_step": on_step,
+            "catalog": catalog,
+            "memory_store": memory_store,
+            "user_id": user_id,
+        }
+        if capture is not None:
+            capture.update(call)
+        if make is not None:
+            return make(locale)
+        if result is None:  # unreachable by construction; narrows the type
+            raise AssertionError("stub misconfigured")
+        return result
+
+    return _fake

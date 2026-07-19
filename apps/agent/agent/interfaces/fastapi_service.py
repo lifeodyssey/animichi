@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from agent.agents.base import build_model_http_client
 from agent.clients.catalog_client import CatalogClient
 from agent.config.settings import Settings, get_settings
+from agent.infrastructure.memory import postgres_memory_store
 from agent.infrastructure.session import SessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import RuntimeAPI
@@ -99,6 +100,7 @@ async def _lifespan_build_runtime(
         catalog=catalog_client,
         settings=resolved_settings,
         model_http_client=model_http_client,
+        memory_store=postgres_memory_store(runtime_db),
     )
     app.state.db_client = runtime_db
     try:
