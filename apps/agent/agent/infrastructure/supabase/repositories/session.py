@@ -7,12 +7,32 @@ from collections.abc import Mapping
 
 from agent.infrastructure.supabase.client_types import AsyncPGPool, Row
 
+_CREATE_SESSION_SQL = """
+    INSERT INTO sessions (id, state, metadata) VALUES ($1, $2::jsonb, '{}'::jsonb)
+"""
+_CREATE_CONVERSATION_SQL = """
+    INSERT INTO conversations (session_id, user_id, first_query) VALUES ($1, $2, $3)
+"""
+
 
 class SessionRepository:
     """Session and conversation data access."""
 
     def __init__(self, pool: AsyncPGPool) -> None:
         self._pool = pool
+
+    async def create_owned_session(
+        self, session_id: str, user_id: str, first_query: str, state: dict[str, object]
+    ) -> None:
+        """Atomically create server session state and its ownership row."""
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                await connection.execute(
+                    _CREATE_SESSION_SQL, session_id, json.dumps(state)
+                )
+                await connection.execute(
+                    _CREATE_CONVERSATION_SQL, session_id, user_id, first_query
+                )
 
     async def get_session(self, session_id: str) -> Row | None:
         """Fetch a session by ID."""
