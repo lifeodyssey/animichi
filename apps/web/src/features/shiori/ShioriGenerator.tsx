@@ -67,24 +67,25 @@ function useDeliveredPhotos(onPhotosSanitized?: PhotosSanitizedHandler) {
   return { photos, deliver };
 }
 
+/** A new (inputs, policy) epoch immediately retires the previous batch: the
+ * empty delivery revokes stale URLs and blanks preview/export payloads until
+ * re-sanitization under the new policy completes. */
 function runIngestion(
   inputs: readonly ShioriPhotoInput[],
   retainExif: boolean,
   deliver: PhotosSanitizedHandler,
 ): () => void {
-  if (inputs.length === 0) return deliverEmpty(deliver);
+  deliver([]);
+  if (inputs.length === 0) return () => undefined;
   return trackIngestion(ingestShioriPhotos(inputs, { retainExif }), deliver);
 }
 
-function deliverEmpty(deliver: PhotosSanitizedHandler): () => void {
-  deliver([]);
-  return () => undefined;
-}
-
+/** A cancelled epoch still revokes whatever URLs its late resolution minted. */
 function trackIngestion(pending: PendingPhotos, deliver: PhotosSanitizedHandler): () => void {
   let alive = true;
   void pending.then((next) => {
     if (alive) deliver(next);
+    else revokeShioriPhotoUrls(next);
   });
   return () => { alive = false; };
 }

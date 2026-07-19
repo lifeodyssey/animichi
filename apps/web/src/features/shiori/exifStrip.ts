@@ -46,9 +46,17 @@ interface JpegWalk {
 /** Removes APPn (except APP0/JFIF) + COM segments everywhere, incl. between scans. */
 export function stripJpegMetadata(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
   const walk = startWalk(bytes);
-  while (readMarker(walk) !== EOI) stripNextSegment(walk);
+  while (nextMarker(walk) !== EOI) stripNextSegment(walk);
   finishAtEoi(walk);
   return concatBytes(walk.kept);
+}
+
+/** Markers may be padded with extra 0xFF fill bytes (ITU T.81 B.1.1.2). */
+function nextMarker(walk: JpegWalk): number {
+  while (walk.bytes[walk.offset] === 0xff && walk.bytes[walk.offset + 1] === 0xff) {
+    walk.offset += 1;
+  }
+  return readMarker(walk);
 }
 
 function startWalk(bytes: Uint8Array): JpegWalk {
@@ -138,9 +146,17 @@ async function stripJpegBlob(photo: Blob): Promise<Blob> {
 
 async function redrawWithoutMetadata(photo: Blob): Promise<Blob> {
   const bitmap = await createImageBitmap(photo);
+  try {
+    return await redrawBitmap(bitmap, photo.type);
+  } finally {
+    bitmap.close();
+  }
+}
+
+function redrawBitmap(bitmap: ImageBitmap, type: string): Promise<Blob> {
   const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
   const context = canvas.getContext("2d");
   if (!context) throw new Error("2d canvas context unavailable");
   context.drawImage(bitmap, 0, 0);
-  return canvas.convertToBlob({ type: photo.type });
+  return canvas.convertToBlob({ type });
 }
