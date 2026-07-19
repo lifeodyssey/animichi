@@ -1,5 +1,5 @@
 /**
- * Deterministic location clustering via union-find.
+ * Deterministic location clustering via a spatial grid and union-find.
  *
  * Faithful TS port of
  * `backend/agents/route_optimizer.py::cluster_by_location` (lines ~34-114),
@@ -30,6 +30,13 @@ export interface LocationCluster<P extends ClusterablePoint = ClusterablePoint> 
 }
 
 type NonEmpty<T> = [T, ...T[]];
+type SpatialGrid<P extends ClusterablePoint> = Map<string, PointNode<P>[]>;
+
+const EARTH_RADIUS_M = 6_371_000;
+const OFFSETS = [-1, 0, 1] as const;
+const NEIGHBOR_OFFSETS = OFFSETS.flatMap((x) =>
+  OFFSETS.flatMap((y) => OFFSETS.map((z) => [x, y, z] as const)),
+);
 
 /** Mutable union-find node; parent links replace unchecked numeric indexing. */
 class UnionNode {
@@ -40,6 +47,12 @@ class UnionNode {
 interface PointNode<P extends ClusterablePoint> {
   point: P;
   node: UnionNode;
+}
+
+interface SpatialCell {
+  x: number;
+  y: number;
+  z: number;
 }
 
 /** Path-compressing find — mirrors Python `_find`. */
@@ -84,20 +97,54 @@ export function clusterByLocation<P extends ClusterablePoint>(
   radiusM = 50,
 ): LocationCluster<P>[] {
   const entries = points.map((point) => ({ point, node: new UnionNode() }));
-  pairUnion(entries, radiusM);
+  if (radiusM > 0) spatialUnion(entries, radiusM);
   return buildClusters(entries);
 }
 
-function pairUnion<P extends ClusterablePoint>(
-  entries: PointNode<P>[],
-  radiusM: number,
+function spatialUnion<P extends ClusterablePoint>(entries: PointNode<P>[], radiusM: number): void {
+  const grid: SpatialGrid<P> = new Map();
+  const cellSize = chordLength(radiusM);
+  for (const entry of entries) addSpatialEntry(grid, entry, cellSize, radiusM);
+}
+
+function addSpatialEntry<P extends ClusterablePoint>(
+  grid: SpatialGrid<P>, entry: PointNode<P>, cellSize: number, radiusM: number,
 ): void {
-  // O(n^2) pairwise comparison, same iteration order as Python (i, then j>i).
-  for (const [index, left] of entries.entries()) {
-    for (const right of entries.slice(index + 1)) {
-      unionIfClose(left, right, radiusM);
-    }
-  }
+  const cell = spatialCell(entry.point, cellSize);
+  for (const neighbor of neighborEntries(grid, cell)) unionIfClose(neighbor, entry, radiusM);
+  insertEntry(grid, cellKey(cell), entry);
+}
+
+function chordLength(radiusM: number): number {
+  const angle = Math.min(radiusM / EARTH_RADIUS_M, Math.PI);
+  return 2 * Math.sin(angle / 2);
+}
+
+function spatialCell(point: ClusterablePoint, cellSize: number): SpatialCell {
+  const lat = radians(point.latitude);
+  const lng = radians(point.longitude);
+  const cosLat = Math.cos(lat);
+  return { x: Math.floor(cosLat * Math.cos(lng) / cellSize),
+    y: Math.floor(cosLat * Math.sin(lng) / cellSize), z: Math.floor(Math.sin(lat) / cellSize) };
+}
+
+function radians(degrees: number): number {
+  return degrees * Math.PI / 180;
+}
+
+function neighborEntries<P extends ClusterablePoint>(grid: SpatialGrid<P>, cell: SpatialCell): PointNode<P>[] {
+  return NEIGHBOR_OFFSETS.flatMap(([x, y, z]) =>
+    grid.get(cellKey({ x: cell.x + x, y: cell.y + y, z: cell.z + z })) ?? []);
+}
+
+function cellKey(cell: SpatialCell): string {
+  return [cell.x, cell.y, cell.z].join(":");
+}
+
+function insertEntry<P extends ClusterablePoint>(grid: SpatialGrid<P>, key: string, entry: PointNode<P>): void {
+  const bucket = grid.get(key);
+  if (bucket) bucket.push(entry);
+  else grid.set(key, [entry]);
 }
 
 function unionIfClose<P extends ClusterablePoint>(left: PointNode<P>, right: PointNode<P>, radiusM: number): void {
