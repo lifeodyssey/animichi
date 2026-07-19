@@ -25,6 +25,7 @@ app.get("/healthz", (c) =>
 // tagging its response on the way back out.
 const PUBLIC_CACHE_CONTROL = "public, max-age=300, s-maxage=3600";
 app.use("/catalog/public/*", async (c, next) => {
+  if (new URL(c.req.url).search) return c.json({ error: "unexpected query parameters" }, 400);
   await next();
   if (c.res.ok) c.res.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
 });

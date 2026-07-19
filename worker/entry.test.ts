@@ -63,6 +63,14 @@ void test("public catalog forwarding keeps only the minimal safe header allowlis
   assert.deepEqual([...cap.req.headers], [["accept", "application/json"]]);
 });
 
+void test("public anime overview rejects unexpected query parameters", async () => {
+  const app = createWorkerApp({ nextHandler: stubNext });
+  const cap: { req?: Request } = {};
+  const res = await app.request("/catalog/public/anime-overview/3302?nonce=fixed", {}, envWithCatalog(cap), stubCtx);
+  assert.equal(res.status, 400);
+  assert.equal(cap.req, undefined);
+});
+
 async function assertPublicCatalogRejected(path: string, method = "GET"): Promise<void> {
   const app = createWorkerApp({ nextHandler: stubNext });
   const cap: { req?: Request } = {};

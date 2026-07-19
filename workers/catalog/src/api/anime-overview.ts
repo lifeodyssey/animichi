@@ -25,7 +25,6 @@ const SCENE_LIMIT = 20;
 const SAMPLE_ROUTE_REGION_LIMIT = 3;
 const SAMPLE_ROUTE_POINT_CAP = 12;
 const CLUSTER_RADIUS_M = 50;
-const SCENE_CLUSTER_INPUT_CAP = 500;
 
 /** The one DB capability this handler needs: run a query, get back `{ rows }`. */
 export interface OverviewDb {
@@ -121,7 +120,7 @@ function centroid(members: OverviewRow[]): { lat: number; lng: number } {
 
 /** 名場面 ranking: co-located clusters ranked by shot count, capped. */
 function buildScenes(rows: OverviewRow[]): AnimeScene[] {
-  const scenes = clusterByLocation(rows.slice(0, SCENE_CLUSTER_INPUT_CAP), CLUSTER_RADIUS_M).map(toScene);
+  const scenes = clusterByLocation(rows, CLUSTER_RADIUS_M).map(toScene);
   scenes.sort((a, b) => b.shot_count - a.shot_count || a.id.localeCompare(b.id));
   return scenes.slice(0, SCENE_LIMIT);
 }
