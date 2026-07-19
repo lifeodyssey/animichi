@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
+from typing import Literal
+from uuid import uuid4
 
 from agent.agents.agent_result import StepRecord
 from agent.agents.tool_state import ToolState
@@ -12,13 +14,16 @@ from agent.agents.web_trust import WebResult
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
 
+StepStatus = Literal["running", "done", "error"]
+
 
 @dataclass(frozen=True)
 class StepEvent:
     """One immutable progress event delivered to runtime adapters."""
 
     tool: str
-    status: str
+    call_id: str
+    status: StepStatus
     data: dict[str, object]
     thought: str = ""
     observation: str = ""
@@ -27,6 +32,11 @@ class StepEvent:
 OnStep = Callable[[StepEvent], Awaitable[None]]
 WebSearcher = Callable[[str], Awaitable[list[WebResult]]]
 TitleTranslator = Callable[[str, str], Awaitable[TranslationResult]]
+
+
+def new_step_call_id(tool: str) -> str:
+    """Mint an identity for one deterministic, server-side tool operation."""
+    return f"{tool}-{uuid4()}"
 
 
 @dataclass

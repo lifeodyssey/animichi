@@ -25,7 +25,7 @@ os.environ.setdefault("MIMO_API_KEY", "recording-stub")
 os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
 
 if TYPE_CHECKING:
-    from agent.agents.runtime_deps import OnStep, StepEvent
+    from agent.agents.runtime_deps import OnStep, StepEvent, StepStatus
     from agent.interfaces.routes.chat_stream import ChatHandler
     from agent.interfaces.schemas import PublicAPIResponse
 
@@ -84,10 +84,10 @@ def _clarify_response() -> PublicAPIResponse:
     )
 
 
-def _step(tool: str, status: str, data: dict[str, object]) -> StepEvent:
+def _step(tool: str, status: StepStatus, data: dict[str, object]) -> StepEvent:
     from agent.agents.runtime_deps import StepEvent
 
-    return StepEvent(tool=tool, status=status, data=data)
+    return StepEvent(tool, f"{tool}-fixture", status, data)
 
 
 def _replaying_handler(
