@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic_ai import Agent, Tool
-from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
@@ -40,13 +39,43 @@ def _db() -> DatabasePort:
     return cast(DatabasePort, db)
 
 
-async def test_runner_stops_looping_tool_calls_at_usage_limit() -> None:
+async def test_runner_stops_identical_looping_early_via_repeat_guard() -> None:
     requests = 0
 
     def loop(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
         nonlocal requests
         requests += 1
         return ModelResponse(parts=[ToolCallPart("resolve_anime", {"title": "x"})])
+
+    result = await run_animichi_agent(
+        text="hello",
+        db=_db(),
+        locale="en",
+        catalog=MockCatalogClient(),
+        model=FunctionModel(loop),
+    )
+
+    # One execution plus three deflected repeats exhausts the retry budget —
+    # four model requests, far below the request cap, ending as honest partial.
+    assert requests == 4
+    assert requests < REQUEST_LIMIT
+    assert isinstance(result.output, PartialResponseModel)
+    assert (result.intent, result.success, result.status) == (
+        "partial",
+        False,
+        "partial",
+    )
+
+
+async def test_runner_stops_varied_looping_at_usage_limit() -> None:
+    requests = 0
+
+    def loop(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        nonlocal requests
+        requests += 1
+        return ModelResponse(
+            parts=[ToolCallPart("resolve_anime", {"title": f"x{requests}"})]
+        )
 
     result = await run_animichi_agent(
         text="hello",
@@ -72,7 +101,7 @@ async def test_native_run_failures_map_to_existing_error_path(
     install_mock_pipeline(monkeypatch)
     with patch(
         "agent.interfaces.public_api.run_animichi_agent",
-        new=AsyncMock(side_effect=UnexpectedModelBehavior("model retry limit reached")),
+        new=AsyncMock(side_effect=RuntimeError("native run failure")),
     ):
         response = await RuntimeAPI(MagicMock(), model_http_client=MagicMock()).handle(
             PublicAPIRequest(text="秒速5厘米的取景地在哪")
