@@ -75,16 +75,58 @@ export function chatStreamHeldOpenHandler(name: ChatStreamFixture): HttpHandler 
   });
 }
 
+export interface ControlledChatStream {
+  readonly handler: HttpHandler;
+  /** Flush the recorded final data-response frame (and close), if still open. */
+  readonly releaseFinal: () => void;
+}
+
+/** Streams the recording head, then lets the test release the final frame late. */
+export function chatStreamControlledHandler(
+  name: ChatStreamFixture,
+  sessionId: string,
+): ControlledChatStream {
+  const recorded = patchSessionId(chatStreamFixture(name), sessionId);
+  const splitAt = recorded.indexOf('data: {"type":"data-response"');
+  let release: () => void = () => undefined;
+  const handler = http.post(CHAT_URL, () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(recorded.slice(0, splitAt)));
+        release = () => {
+          flushTail(controller, recorded.slice(splitAt));
+        };
+      },
+    });
+    return new HttpResponse(body, { headers: SSE_HEADERS });
+  });
+  return {
+    handler,
+    releaseFinal: () => {
+      release();
+    },
+  };
+}
+
+function flushTail(controller: ReadableStreamDefaultController<Uint8Array>, tail: string): void {
+  try {
+    controller.enqueue(new TextEncoder().encode(tail));
+    controller.close();
+  } catch {
+    // The consumer aborted the stream first: the late frame has nowhere to go.
+  }
+}
+
+const SSE_HEADERS = {
+  "content-type": "text/event-stream",
+  "x-vercel-ai-ui-message-stream": "v1",
+};
+
 function sseResponse(
   text: string,
   { close = true }: Readonly<{ close?: boolean }> = {},
 ): HttpResponse<ReadableStream<Uint8Array>> {
-  return new HttpResponse(sseBody(text, close), {
-    headers: {
-      "content-type": "text/event-stream",
-      "x-vercel-ai-ui-message-stream": "v1",
-    },
-  });
+  return new HttpResponse(sseBody(text, close), { headers: SSE_HEADERS });
 }
 
 export const healthzOkHandler = http.get(HEALTHZ_URL, () =>

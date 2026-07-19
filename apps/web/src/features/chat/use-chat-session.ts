@@ -1,9 +1,9 @@
-import { useChat } from "@ai-sdk/react";
+import { Chat, useChat } from "@ai-sdk/react";
 import { ChatResponseDataPart } from "@seichijunrei/contract";
 import type { ChatDataPart } from "@seichijunrei/contract";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
-import { useCallback, useMemo, useRef } from "react";
+import { useRef } from "react";
 import type { RefObject } from "react";
 
 /**
@@ -49,41 +49,70 @@ function captureSessionId(ref: SessionRef, part: Readonly<{ data: ChatDataPart }
   if (typeof id === "string" && id !== "") ref.current.id = id;
 }
 
-function useCaptureSessionId(ref: SessionRef) {
-  return useCallback(
-    (part: Readonly<{ data: ChatDataPart }>) => {
-      captureSessionId(ref, part);
+/**
+ * A Chat whose transport and onData are fixed at construction: `scope` is the
+ * immutable epoch. `useChat`'s own onData delegates through a latest-render
+ * ref, so a late frame from a previous scope's stream would invoke the new
+ * scope's callback; constructing the Chat ourselves pins the callback to its
+ * epoch, and the guard drops frames once the tracker moved to another scope.
+ */
+function createScopedChat(chatUrl: string, scope: string, ref: SessionRef): Chat<ChatUIMessage> {
+  return new Chat<ChatUIMessage>({
+    id: scope,
+    transport: createSessionTransport(chatUrl, ref),
+    dataPartSchemas,
+    onData: (part) => {
+      if (ref.current.scope === scope) captureSessionId(ref, part);
     },
-    [ref],
-  );
+  });
 }
 
-function useSessionTransport(chatUrl: string, ref: SessionRef) {
-  return useMemo(
-    () =>
-      new DefaultChatTransport<ChatUIMessage>({
-        api: chatUrl,
-        headers: () => sessionHeaders(ref.current.id),
-      }),
-    [chatUrl, ref],
-  );
+function createSessionTransport(chatUrl: string, ref: SessionRef): DefaultChatTransport<ChatUIMessage> {
+  return new DefaultChatTransport({
+    api: chatUrl,
+    headers: () => sessionHeaders(ref.current.id),
+  });
+}
+
+interface ScopedChat {
+  scope: string;
+  chat: Chat<ChatUIMessage>;
+}
+
+/** Stop the outgoing scope's stream before the next scope's chat takes over. */
+function switchScopedChat(
+  previous: ScopedChat | null,
+  chatUrl: string,
+  scope: string,
+  ref: SessionRef,
+): ScopedChat {
+  void previous?.chat.stop();
+  return { scope, chat: createScopedChat(chatUrl, scope, ref) };
+}
+
+function useScopedChat(chatUrl: string, scope: string, ref: SessionRef): Chat<ChatUIMessage> {
+  const holder = useRef<ScopedChat | null>(null);
+  if (holder.current === null || holder.current.scope !== scope) {
+    holder.current = switchScopedChat(holder.current, chatUrl, scope, ref);
+  }
+  return holder.current.chat;
 }
 
 /**
  * `useChat` over `/v1/chat` (AI SDK UI message stream, spec S1.1 SD-9).
  *
  * The chat instance is scoped to the `?session=` identity: switching sessions
- * recreates it (official `id`-keyed reset), so an in-flight stream from the
- * previous session can never mix into the next one. The backend-assigned
- * `session_id` from `data-response` frames is fed back into follow-up requests
- * through the transport's dynamic `headers` function.
+ * stops the previous stream, recreates the Chat, and the construction-time
+ * epoch guard drops any frame that still arrives late — an in-flight stream
+ * from the previous session can never mix into the next one. The
+ * backend-assigned `session_id` from `data-response` frames is fed back into
+ * follow-up requests through the transport's dynamic `headers` function.
  */
 export function useChatSession(chatUrl: string, sessionId?: string) {
   const scope = scopeOf(sessionId);
   const ref = useSessionTracker(sessionId, scope);
-  const transport = useSessionTransport(chatUrl, ref);
-  const onData = useCaptureSessionId(ref);
-  return useChat<ChatUIMessage>({ id: scope, transport, dataPartSchemas, onData });
+  const chat = useScopedChat(chatUrl, scope, ref);
+  return useChat<ChatUIMessage>({ chat });
 }
 
 export type ChatSession = ReturnType<typeof useChatSession>;

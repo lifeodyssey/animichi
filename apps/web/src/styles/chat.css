@@ -84,7 +84,7 @@
 }
 
 .chat-step[data-status="error"] {
-  color: var(--color-error-fg);
+  color: var(--color-error-strong);
 }
 
 .chat-card {
@@ -117,8 +117,8 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.625rem 1rem;
-  background: var(--color-error-fg);
-  color: var(--color-primary-fg);
+  background: var(--color-error-bg);
+  color: var(--color-error-strong);
 }
 
 .chat-error-banner__retry {

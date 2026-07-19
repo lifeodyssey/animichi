@@ -5,7 +5,12 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useChatSession } from "../../../src/features/chat/use-chat-session";
 import { server } from "../../msw/node";
-import { CHAT_URL, chatStreamHandler, chatStreamHeldOpenHandler } from "../../msw/chat-handlers";
+import {
+  CHAT_URL,
+  chatStreamControlledHandler,
+  chatStreamHandler,
+  chatStreamHeldOpenHandler,
+} from "../../msw/chat-handlers";
 
 type Props = Readonly<{ sessionId?: string }>;
 
@@ -19,6 +24,13 @@ function spyingHandler(seen: (string | null)[], sessionId?: string) {
   return chatStreamHandler("search", {
     sessionId,
     spy: (request) => seen.push(request.headers.get("x-session-id")),
+  });
+}
+
+/** Let a released stream tail cross the fetch boundary and be processed. */
+async function drainLateFrames() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 25));
   });
 }
 
@@ -70,6 +82,25 @@ describe("session switch resets the chat instance", () => {
     view.rerender({ sessionId: "B" });
     expect(view.result.current.messages).toEqual([]);
     expect(view.result.current.status).toBe("ready");
+  });
+
+  it("never lets a late frame from the old stream leak its session id into B", async () => {
+    const controlled = chatStreamControlledHandler("search", "stale-A");
+    server.use(controlled.handler);
+    const view = renderSession();
+    act(() => {
+      void view.result.current.sendMessage({ text: "ユーフォ" });
+    });
+    await waitFor(() => {
+      expect(view.result.current.messages.length).toBeGreaterThan(0);
+    });
+    view.rerender({ sessionId: "B" });
+    controlled.releaseFinal();
+    await drainLateFrames();
+    const seen: (string | null)[] = [];
+    server.use(spyingHandler(seen));
+    await sendAndSettle(view, "続き");
+    expect(seen).toEqual(["B"]);
   });
 
   it("does not reset when the same session identity re-renders", async () => {

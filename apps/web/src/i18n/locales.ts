@@ -11,7 +11,7 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   en: "EN",
 };
 
-function isLocale(value: string): value is Locale {
+export function isLocale(value: string): value is Locale {
   return (LOCALES as readonly string[]).includes(value);
 }
 
