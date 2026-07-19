@@ -13,6 +13,7 @@ def build_persistence_supabase_double() -> MagicMock:
     Wires only the shared persistence writes; callers set their own read doubles.
     """
     db = MagicMock(spec=SupabaseClient)
+    db.session.create_owned_session = AsyncMock()
     db.session.upsert_session = AsyncMock()
     db.session.upsert_conversation = AsyncMock()
     db.session.update_conversation_title = AsyncMock()

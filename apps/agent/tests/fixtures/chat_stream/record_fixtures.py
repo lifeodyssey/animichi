@@ -33,55 +33,75 @@ _FIXTURE_DIR = Path(__file__).parent
 
 
 def _search_response() -> PublicAPIResponse:
-    from agent.interfaces.schemas import PublicAPIResponse
+    from agent.interfaces.response_builder import agent_result_to_response
+    from agent.tests.unit.conftest_public_api import make_result
 
-    results = {
-        "kind": "bangumi",
-        "bangumi_id": 12345,
-        "title": "響け！ユーフォニアム",
-        "row_count": 2,
-        "status": "ok",
-        "strategy": "bangumi",
-        "summary": {"count": 2, "source": "catalog", "cache": "miss"},
-        "rows": [
-            {"id": "p1", "name": "宇治橋", "lat": 34.891, "lng": 135.807, "ep": 1},
-            {"id": "p2", "name": "京阪宇治駅", "lat": 34.911, "lng": 135.806, "ep": 3},
-        ],
+    data = {
+        "results": {
+            "kind": "bangumi",
+            "bangumi_id": 12345,
+            "title": "響け！ユーフォニアム",
+            "row_count": 2,
+            "status": "ok",
+            "strategy": "bangumi",
+            "summary": {"count": 2, "source": "catalog", "cache": "miss"},
+            "rows": [
+                {
+                    "id": "p1",
+                    "name": "宇治橋",
+                    "latitude": 34.891,
+                    "longitude": 135.807,
+                    "episode": 1,
+                },
+                {
+                    "id": "p2",
+                    "name": "京阪宇治駅",
+                    "latitude": 34.911,
+                    "longitude": 135.806,
+                    "episode": 3,
+                },
+            ],
+        },
+        "route": {
+            "ordered_points": [
+                {
+                    "id": "p1",
+                    "name": "宇治橋",
+                    "bangumi_id": "12345",
+                    "latitude": 34.891,
+                    "longitude": 135.807,
+                    "episode": 1,
+                },
+                {
+                    "id": "p2",
+                    "name": "京阪宇治駅",
+                    "bangumi_id": "12345",
+                    "latitude": 34.911,
+                    "longitude": 135.806,
+                    "episode": 3,
+                },
+            ],
+            "point_count": 2,
+            "status": "ok",
+            "total_walk_minutes": 12,
+        },
     }
-    route = {
-        "ordered_points": ["p1", "p2"],
-        "point_count": 2,
-        "status": "ok",
-        "total_walk_minutes": 12,
-    }
-    return PublicAPIResponse(
-        success=True,
-        status="ok",
-        intent="plan_route",
-        message="宇治の聖地を2件、徒歩ルートにまとめました。",
-        data={"results": results, "route": route},
-        ui={"component": "RoutePlannerWizard"},
+    result = make_result(
+        "plan_route", message="宇治の聖地を2件、徒歩ルートにまとめました。", data=data
     )
+    return agent_result_to_response(result, include_debug=False)
 
 
 def _clarify_response() -> PublicAPIResponse:
-    from agent.interfaces.schemas import PublicAPIResponse
+    from agent.interfaces.response_builder import agent_result_to_response
+    from agent.tests.unit.conftest_public_api import make_result
 
-    return PublicAPIResponse(
-        success=True,
-        status="needs_clarification",
-        intent="clarify",
+    result = make_result(
+        "clarify",
         message="どの作品でしょうか？",
-        data={
-            "reason": "title_ambiguous",
-            "clarification_id": 1,
-            "candidates": [
-                {"id": "115908", "title": "涼宮ハルヒの憂鬱", "cover_url": None},
-                {"id": "117696", "title": "涼宮ハルヒの消失", "cover_url": None},
-            ],
-        },
-        ui={"component": "Clarification"},
+        data={"reason": "anime_ambiguity", "candidate_ids": ["115908", "117696"]},
     )
+    return agent_result_to_response(result, include_debug=False)
 
 
 def _step(tool: str, status: StepStatus, data: dict[str, object]) -> StepEvent:

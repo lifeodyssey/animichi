@@ -17,12 +17,12 @@ function SkeletonCard({ part, dict }: Readonly<{ part: ChatDataPart; dict: ChatD
   );
 }
 
-function IntentCard({ part }: Readonly<{ part: ChatDataPart }>) {
+function IntentCard({ part, dict }: Readonly<{ part: ChatDataPart; dict: ChatDict }>) {
   const Body = intentRegistry[part.intent];
   return (
     <article className="chat-card" data-intent={part.intent}>
       {part.message ? <p className="chat-card__message">{part.message}</p> : null}
-      <Body part={part} />
+      <Body part={part} dict={dict} />
     </article>
   );
 }
@@ -36,5 +36,5 @@ export function DataPartCard({ data, dict }: CardProps) {
   const part = parseChatDataPart(data);
   if (!part) return <FallbackCard dict={dict} />;
   if (isIntentOnly(part)) return <SkeletonCard part={part} dict={dict} />;
-  return <IntentCard part={part} />;
+  return <IntentCard part={part} dict={dict} />;
 }

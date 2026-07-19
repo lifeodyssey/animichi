@@ -79,3 +79,34 @@ describe("DataPartCard intent bodies", () => {
     expect(screen.getByText("どれ?")).toBeTruthy();
   });
 });
+
+describe("DataPartCard error intent", () => {
+  it("renders the envelope message and each error detail as an alert", () => {
+    renderPart({
+      intent: "error",
+      message: "モデルに接続できませんでした",
+      errors: [
+        { code: "provider_unavailable", message: "provider timed out" },
+        { code: "retry_exhausted", message: "all retries failed" },
+      ],
+      data: {},
+    });
+    const alert = screen.getByRole("alert");
+    expect(alert).toBeTruthy();
+    expect(screen.getByText("モデルに接続できませんでした")).toBeTruthy();
+    expect(screen.getByText("provider timed out")).toBeTruthy();
+    expect(screen.getByText("all retries failed")).toBeTruthy();
+  });
+
+  it("falls back to localized copy when the envelope has no message", () => {
+    renderPart({ intent: "error", data: {} });
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(screen.getByText(dict.errorCard)).toBeTruthy();
+  });
+
+  it("keeps the localized fallback out of the card when a message exists", () => {
+    renderPart({ intent: "error", message: "接続エラー", data: {} });
+    expect(screen.getByText("接続エラー")).toBeTruthy();
+    expect(screen.queryByText(dict.errorCard)).toBeNull();
+  });
+});
