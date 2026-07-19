@@ -2,13 +2,22 @@
  * EXIF stripping for photos entering the しおり pipeline (X6 hard AC).
  * Default = strip; retaining metadata is an explicit opt-in.
  *
- * JPEG: lossless APPn/COM segment removal (no re-encode, no quality loss,
- * deterministic and unit-verifiable). Other formats: canvas redraw, which
- * drops all metadata during re-encode.
+ * JPEG: lossless APPn/COM removal via a fail-closed segment walker that
+ * validates marker prefixes, segment lengths, byte stuffing, every scan
+ * (progressive included) and the EOI; malformed input is rejected, never
+ * passed through. Trailer bytes after EOI are discarded. Selection note:
+ * no maintained browser-grade lossless stripper exists on npm (exif-be-gone
+ * is Node-stream based; piexifjs/exifremove are unmaintained and naive), and
+ * canvas re-encode is lossy for JPEG, so the walker stays hand-written but
+ * strict. Other formats: canvas redraw, which drops all metadata.
  */
 
 const SOI = 0xffd8;
+const EOI = 0xffd9;
 const SOS = 0xffda;
+const TEM = 0xff01;
+const RST0 = 0xffd0;
+const RST7 = 0xffd7;
 const APP0 = 0xffe0;
 const APP15 = 0xffef;
 const COM = 0xfffe;
@@ -26,37 +35,90 @@ export async function sanitizePhoto(
   return redrawWithoutMetadata(photo);
 }
 
-/** Removes APP1–APP15 + COM segments; keeps APP0 (JFIF), tables and scan data intact. */
+interface JpegWalk {
+  bytes: Uint8Array;
+  view: DataView;
+  offset: number;
+  sawScan: boolean;
+  kept: Uint8Array[];
+}
+
+/** Removes APPn (except APP0/JFIF) + COM segments everywhere, incl. between scans. */
 export function stripJpegMetadata(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
-  const view = toView(bytes);
-  if (bytes.length < 2 || view.getUint16(0) !== SOI) throw new Error("not a JPEG");
-  const kept: Uint8Array[] = [bytes.subarray(0, 2)];
-  kept.push(collectKeptSegments(bytes, view, kept));
-  return concatBytes(kept);
+  const walk = startWalk(bytes);
+  while (readMarker(walk) !== EOI) stripNextSegment(walk);
+  finishAtEoi(walk);
+  return concatBytes(walk.kept);
 }
 
-function toView(bytes: Uint8Array): DataView {
-  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+function startWalk(bytes: Uint8Array): JpegWalk {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (bytes.length < 4 || view.getUint16(0) !== SOI) throw new Error("not a JPEG");
+  return { bytes, view, offset: 2, sawScan: false, kept: [bytes.subarray(0, 2)] };
 }
 
-function collectKeptSegments(bytes: Uint8Array, view: DataView, kept: Uint8Array[]): Uint8Array {
-  let offset = 2;
-  while (offset + 4 <= bytes.length && view.getUint16(offset) !== SOS) {
-    const end = segmentEnd(bytes, view, offset);
-    if (!isMetadataMarker(view.getUint16(offset))) kept.push(bytes.subarray(offset, end));
-    offset = end;
+function readMarker(walk: JpegWalk): number {
+  if (walk.offset + 2 > walk.bytes.length) throw new Error("truncated JPEG: missing EOI");
+  if (walk.bytes[walk.offset] !== 0xff) throw new Error("invalid JPEG: bad marker prefix");
+  return walk.view.getUint16(walk.offset);
+}
+
+function stripNextSegment(walk: JpegWalk): void {
+  const marker = readMarker(walk);
+  if (isStandalone(marker)) throw new Error("invalid JPEG: unexpected standalone marker");
+  const end = segmentEnd(walk);
+  if (marker === SOS) {
+    keepScan(walk, end);
+    return;
   }
-  return bytes.subarray(offset);
+  keepOrDropSegment(walk, marker, end);
 }
 
-function segmentEnd(bytes: Uint8Array, view: DataView, offset: number): number {
-  const end = offset + 2 + view.getUint16(offset + 2);
-  if (end > bytes.length) throw new Error("truncated JPEG segment");
+function isStandalone(marker: number): boolean {
+  return marker === SOI || marker === TEM || (marker >= RST0 && marker <= RST7);
+}
+
+function segmentEnd(walk: JpegWalk): number {
+  if (walk.offset + 4 > walk.bytes.length) throw new Error("truncated JPEG segment");
+  const length = walk.view.getUint16(walk.offset + 2);
+  if (length < 2) throw new Error("invalid JPEG: segment length too small");
+  const end = walk.offset + 2 + length;
+  if (end > walk.bytes.length) throw new Error("truncated JPEG segment");
   return end;
+}
+
+function keepOrDropSegment(walk: JpegWalk, marker: number, end: number): void {
+  if (!isMetadataMarker(marker)) walk.kept.push(walk.bytes.subarray(walk.offset, end));
+  walk.offset = end;
 }
 
 function isMetadataMarker(marker: number): boolean {
   return (marker > APP0 && marker <= APP15) || marker === COM;
+}
+
+function keepScan(walk: JpegWalk, headerEnd: number): void {
+  const dataEnd = entropyEnd(walk.bytes, headerEnd);
+  walk.kept.push(walk.bytes.subarray(walk.offset, dataEnd));
+  walk.offset = dataEnd;
+  walk.sawScan = true;
+}
+
+function entropyEnd(bytes: Uint8Array, from: number): number {
+  for (let i = from; i + 1 < bytes.length; i += 1) {
+    if (bytes[i] === 0xff && !isEntropyContinuation(bytes[i + 1])) return i;
+  }
+  throw new Error("truncated JPEG: unterminated scan");
+}
+
+function isEntropyContinuation(byteAfterFf: number | undefined): boolean {
+  if (byteAfterFf === undefined) return false;
+  if (byteAfterFf === 0x00 || byteAfterFf === 0xff) return true;
+  return byteAfterFf >= 0xd0 && byteAfterFf <= 0xd7;
+}
+
+function finishAtEoi(walk: JpegWalk): void {
+  if (!walk.sawScan) throw new Error("invalid JPEG: no scan data");
+  walk.kept.push(walk.bytes.subarray(walk.offset, walk.offset + 2));
 }
 
 function concatBytes(parts: readonly Uint8Array[]): Uint8Array<ArrayBuffer> {
