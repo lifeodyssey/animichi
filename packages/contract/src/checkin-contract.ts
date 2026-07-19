@@ -14,6 +14,8 @@
 
 import { oc } from "@orpc/contract";
 import { z } from "zod";
+import { pickErrors } from "./error-registry.js";
+import { requireBearer } from "./openapi-security.js";
 
 /** Full-precision GPS coordinates retained by the API and storage layer. */
 export const GpsCoordinates = z.strictObject({
@@ -135,33 +137,22 @@ export type CheckinErrorDefs = typeof CHECKIN_ERROR_DEFS;
 /** Check-in error code union. */
 export type CheckinErrorCode = keyof CheckinErrorDefs;
 
-type CheckinErrorMapItem<Code extends CheckinErrorCode> = {
-  status: CheckinErrorDefs[Code]["status"];
-  message: CheckinErrorDefs[Code]["message"];
-  data: CheckinErrorDefs[Code]["data"];
-};
-type CheckinErrorMap<Code extends CheckinErrorCode> = {
-  [Key in Code]: CheckinErrorMapItem<Key>;
-};
-
-function checkinErrorEntry<Code extends CheckinErrorCode>(
-  code: Code,
-): readonly [Code, CheckinErrorMapItem<Code>] {
-  const { status, message, data } = CHECKIN_ERROR_DEFS[code];
-  return [code, { status, message, data }];
-}
-
 /** Pick oRPC error entries while dropping registry-only category metadata. */
 export function pickCheckinErrors<const Code extends CheckinErrorCode>(
   codes: readonly Code[],
-): CheckinErrorMap<Code> {
-  return Object.fromEntries(codes.map(checkinErrorEntry)) as CheckinErrorMap<Code>;
+): ReturnType<typeof pickErrors<CheckinErrorDefs, Code>> {
+  return pickErrors(CHECKIN_ERROR_DEFS, codes);
 }
 
 /** oRPC contract for authenticated walk check-in operations. */
 export const checkinContract = {
   submitCheckin: oc
-    .route({ method: "POST", path: "/v1/users/checkins", summary: "Submit a walk check-in" })
+    .route({
+      method: "POST",
+      path: "/v1/users/checkins",
+      summary: "Submit a walk check-in",
+      spec: requireBearer,
+    })
     .input(SubmitCheckinInput)
     .errors(pickCheckinErrors([
       "CHECKIN_REPLAY_CONFLICT",
@@ -170,7 +161,12 @@ export const checkinContract = {
     ]))
     .output(WalkCheckin),
   listCheckins: oc
-    .route({ method: "GET", path: "/v1/users/checkins", summary: "List the caller's check-ins" })
+    .route({
+      method: "GET",
+      path: "/v1/users/checkins",
+      summary: "List the caller's check-ins",
+      spec: requireBearer,
+    })
     .input(ListCheckinsInput)
     .output(ListCheckinsResult),
 };
