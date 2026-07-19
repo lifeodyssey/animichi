@@ -5,7 +5,24 @@ type Props = Readonly<{ scenes: readonly AnimeScene[]; copy: AnimeCopy }>;
 
 type ItemProps = Readonly<{ scene: AnimeScene; copy: AnimeCopy }>;
 
-function SceneShot({ scene }: Readonly<{ scene: AnimeScene }>) {
+/** Only real http(s) URLs may hit `<img src>`: `src=""` requests the page itself. */
+function hasRenderableShot(url: string): boolean {
+  if (!URL.canParse(url)) return false;
+  const protocol = new URL(url).protocol;
+  return protocol === "https:" || protocol === "http:";
+}
+
+function SceneShotPlaceholder({ scene }: Readonly<{ scene: AnimeScene }>) {
+  return (
+    <div
+      role="img"
+      aria-label={scene.name}
+      className="aspect-video w-full rounded-lg bg-[var(--color-muted)]"
+    />
+  );
+}
+
+function SceneImage({ scene }: Readonly<{ scene: AnimeScene }>) {
   return (
     <img
       src={scene.screenshot_url}
@@ -14,6 +31,11 @@ function SceneShot({ scene }: Readonly<{ scene: AnimeScene }>) {
       className="aspect-video w-full rounded-lg object-cover"
     />
   );
+}
+
+function SceneShot({ scene }: Readonly<{ scene: AnimeScene }>) {
+  if (!hasRenderableShot(scene.screenshot_url)) return <SceneShotPlaceholder scene={scene} />;
+  return <SceneImage scene={scene} />;
 }
 
 function sceneMeta({ scene, copy }: ItemProps): string {

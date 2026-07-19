@@ -40,14 +40,31 @@ export function animeTitle(locale: Locale, bangumiId: string): string {
   return TITLE_BY_LOCALE[locale](bangumiId);
 }
 
+export interface AnimeHeadMeta {
+  readonly title?: string;
+  readonly name?: string;
+  readonly content?: string;
+}
+
 export interface AnimeHead {
-  meta: { title: string }[];
+  meta: AnimeHeadMeta[];
   links: HreflangLink[];
 }
 
-export function animeHead(locale: Locale, bangumiId: string, origin: string): AnimeHead {
+export interface AnimeHeadOptions {
+  readonly indexable: boolean;
+}
+
+/** Empty overviews are served but flagged noindex — no indexable soft-404s. */
+function robotsMeta(options: AnimeHeadOptions): AnimeHeadMeta[] {
+  return options.indexable ? [] : [{ name: "robots", content: "noindex" }];
+}
+
+const INDEXABLE: AnimeHeadOptions = { indexable: true };
+
+export function animeHead(locale: Locale, bangumiId: string, origin: string, options: AnimeHeadOptions = INDEXABLE): AnimeHead {
   return {
-    meta: [{ title: animeTitle(locale, bangumiId) }],
+    meta: [{ title: animeTitle(locale, bangumiId) }, ...robotsMeta(options)],
     links: animeAlternates(origin, bangumiId),
   };
 }
