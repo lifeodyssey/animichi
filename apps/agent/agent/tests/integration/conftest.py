@@ -280,8 +280,19 @@ def client(tc_db: SupabaseClient) -> AsyncIterator[_AuthedClient]:
         message_history: object | None = None,
         on_step: OnStep | None = None,
         catalog: object | None = None,
+        memory_store: object | None = None,
+        user_id: str | None = None,
     ) -> AgentResult:
-        _ = (db, model, context, message_history, on_step, catalog)
+        _ = (
+            db,
+            model,
+            context,
+            message_history,
+            on_step,
+            catalog,
+            memory_store,
+            user_id,
+        )
         return _make_agent_result(text, locale)
 
     app = _build_test_app(tc_db)
@@ -305,8 +316,10 @@ def sse_client(tc_db: SupabaseClient) -> AsyncIterator[_SSEClient]:
         message_history: object | None = None,
         on_step: OnStep | None = None,
         catalog: object | None = None,
+        memory_store: object | None = None,
+        user_id: str | None = None,
     ) -> AgentResult:
-        _ = (db, model, context, message_history, catalog)
+        _ = (db, model, context, message_history, catalog, memory_store, user_id)
         result = _make_agent_result(text, locale)
         if on_step is not None:
             data = result.session_state.model_dump(mode="json", exclude_none=True)
