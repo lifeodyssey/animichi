@@ -43,12 +43,12 @@ def test_request_limit_uses_official_max_model_requests_semantics() -> None:
 
 
 def test_direct_gates_reject_over_limit_and_repeated_trajectory() -> None:
-    calls = (*_calls(6), _calls(1)[0])
+    calls = (*_calls(10), _calls(1)[0])
     failures = direct_thrash_gate(
         [TrajectoryCase("thrash", requests=13, tool_calls=calls)]
     )
     assert any("requests=13" in failure for failure in failures)
-    assert any("tool_calls=7" in failure for failure in failures)
+    assert any("tool_calls=11" in failure for failure in failures)
     assert any("repeated identical" in failure for failure in failures)
 
 

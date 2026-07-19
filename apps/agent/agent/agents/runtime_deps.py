@@ -81,4 +81,10 @@ class RuntimeDeps:
     ref_factory: RefFactory = field(default_factory=RefFactory)
 
     tool_state: ToolState = field(default_factory=ToolState)
+
+    # Per-run repeat-guard ledger: fingerprint of every executed tool call →
+    # occurrence count. Populated by the before_tool_execute hook; never
+    # serialized into results and never shared across runs (deps are rebuilt
+    # per request).
+    seen_tool_calls: dict[str, int] = field(default_factory=dict)
     steps: list[StepRecord] = field(default_factory=list)
