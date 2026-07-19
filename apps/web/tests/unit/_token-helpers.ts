@@ -13,11 +13,12 @@ export interface FontFace {
   readonly unicodeRange: string | null;
 }
 
-export function parseTokens(css: string): TokenMap {
-  const rootBody = /:root[^{]*\{([^}]*)\}/u.exec(css)?.[1];
-  if (rootBody === undefined) throw new Error("Missing :root block");
+export function parseBlockTokens(css: string, selector: string): TokenMap {
+  const escaped = selector.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+  const body = new RegExp(`${escaped}[^{]*\\{([^}]*)\\}`, "u").exec(css)?.[1];
+  if (body === undefined) throw new Error(`Missing block: ${selector}`);
   const tokens: Record<string, string> = {};
-  const declarations = rootBody.matchAll(/(--[\w-]+)\s*:\s*([^;}]+)/gu);
+  const declarations = body.matchAll(/(--[\w-]+)\s*:\s*([^;}]+)/gu);
   for (const declaration of declarations) {
     const [, name, value] = declaration;
     if (name !== undefined && value !== undefined) tokens[name] = value.trim();
@@ -25,8 +26,19 @@ export function parseTokens(css: string): TokenMap {
   return tokens;
 }
 
+export function parseTokens(css: string): TokenMap {
+  return parseBlockTokens(css, ":root");
+}
+
 function declarationValue(body: string, property: string): string | null {
   return new RegExp(`${property}\\s*:\\s*([^;]+)`, "u").exec(body)?.[1]?.trim() ?? null;
+}
+
+export function ruleDeclaration(css: string, selector: string, property: string): string | null {
+  const escaped = selector.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+  const body = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, "u").exec(css)?.[1];
+  if (body === undefined) throw new Error(`Missing rule: ${selector}`);
+  return declarationValue(body, property);
 }
 
 function requiredDeclaration(body: string, property: string): string {
