@@ -1,0 +1,189 @@
+"""Typed deterministic red-line gates for model-initiated eval activity."""
+
+from __future__ import annotations
+
+import json
+import math
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+
+from pydantic_evals.evaluators import EvaluatorContext, MaxModelRequests
+from pydantic_evals.otel import SpanTree
+
+from agent.agents.agent_result import AgentResult
+
+REQUEST_LIMIT = 12
+# Calibrated 2026-07-20: legitimate multi-step disambiguation (sequel/season
+# cases added by #304B) needs 7-8 tool calls; this cap only bounds runaway
+# breadth. NOTE: the repeated-identical detector below reads EXECUTED steps.
+# The runtime repeat-guard deflects identical re-calls before execution, so an
+# executed repeat is evidence the guard broke — but only ONE-WAY evidence. The
+# guard keys on VALIDATED arguments (defaults filled in) while these records
+# carry the model's RAW arguments, so the detector sees `{"location":"Uji"}` and
+# `{"location":"Uji","radius_m":null}` as different calls where the guard sees
+# one. It therefore promises no more than "identical RECORDED params never
+# execute twice"; guard breakage that survives that projection is invisible
+# here. Closing the fork by recording validated args is tracked separately.
+# The comparison is also only sound while records are lossless: #443 fired on
+# two nearby searches with different locations because the rejected-search
+# recording path dropped its arguments, so both projected to "{}". Calls whose
+# arguments were not recorded are excluded from the comparison and reported as
+# their own gate failure instead of being equated.
+TOOL_CALL_LIMIT = 10
+# Calibrated 2026-07-18 (#28): two stable full-655 official-v1 runs measured
+# request_p95 = 7 (baseline run observed 7-8). The original 6 would fail every
+# healthy run; 8 = observed steady state + 1 headroom. Enforcement stays behind
+# DIRECT_GATE_ENFORCE=1 at eval time.
+REQUEST_P95_LIMIT = 8
+
+
+@dataclass(frozen=True)
+class RecordedToolCall:
+    """Canonical identity for one model-initiated tool call."""
+
+    tool: str
+    arguments: str
+    # #443: an unrecorded-argument step is an UNKNOWN call, not an empty one.
+    # Two unknowns are not evidence of a repeat, so they are excluded from the
+    # comparison instead of collapsing onto the same "{}" identity.
+    arguments_known: bool = True
+
+    @classmethod
+    def from_arguments(
+        cls, tool: str, arguments: Mapping[str, object], *, known: bool = True
+    ) -> RecordedToolCall:
+        encoded = json.dumps(
+            arguments, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        return cls(tool=tool, arguments=encoded, arguments_known=known)
+
+
+@dataclass(frozen=True)
+class TrajectoryCase:
+    """Model request usage and model-initiated calls for one eval case."""
+
+    case_id: str
+    requests: int
+    tool_calls: tuple[RecordedToolCall, ...] = field(default_factory=tuple)
+
+    @classmethod
+    def from_result(cls, case_id: str, result: AgentResult) -> TrajectoryCase:
+        requests = result.usage.requests if result.usage is not None else 0
+        calls = tuple(
+            RecordedToolCall.from_arguments(
+                step.tool, step.params, known=step.params_recorded
+            )
+            for step in result.steps
+            if step.model_initiated
+        )
+        return cls(case_id=case_id, requests=requests, tool_calls=calls)
+
+
+def direct_thrash_gate(cases: Sequence[TrajectoryCase]) -> list[str]:
+    """Return merge-blocking failures for the direct loop limits."""
+    failures = [failure for case in cases for failure in _case_failures(case)]
+    request_p95 = _request_p95(cases)
+    if request_p95 > REQUEST_P95_LIMIT:
+        failures.append(f"request_p95={request_p95} exceeds limit={REQUEST_P95_LIMIT}")
+    return failures
+
+
+def print_direct_thrash_metrics(
+    cases: Sequence[TrajectoryCase], *, include_p95: bool, enforced: bool
+) -> None:
+    """Print direct activity metrics even when they are report-only."""
+    mode = "enforced" if enforced else "report-only"
+    print(f"\nDirect thrash metrics ({mode}):")
+    for case in cases:
+        print(
+            f"{case.case_id}: requests={case.requests} "
+            f"tool_calls={len(case.tool_calls)} repeats={_repeat_count(case)} "
+            f"unrecorded_params={_unrecorded_count(case)}"
+        )
+    if include_p95:
+        print(f"request_p95={_request_p95(cases)}")
+
+
+def _case_failures(case: TrajectoryCase) -> list[str]:
+    failures: list[str] = []
+    if not _request_limit_passes(case.requests):
+        failures.append(
+            f"{case.case_id}: requests={case.requests} exceeds limit={REQUEST_LIMIT}"
+        )
+    if len(case.tool_calls) > TOOL_CALL_LIMIT:
+        failures.append(
+            f"{case.case_id}: tool_calls={len(case.tool_calls)} "
+            f"exceeds limit={TOOL_CALL_LIMIT}"
+        )
+    failures.extend(_repeat_failures(case))
+    failures.extend(_unrecorded_failures(case))
+    return failures
+
+
+def _unrecorded_failures(case: TrajectoryCase) -> list[str]:
+    """Lost arguments blind the tripwire, so they are a defect in their own right.
+
+    On every live path the bridge projects the model's own call arguments, so
+    this count is 0 in a healthy run; anything above 0 means a recording defect
+    reached the gate, not that the agent repeated itself.
+    """
+    unrecorded = _unrecorded_count(case)
+    if unrecorded == 0:
+        return []
+    return [
+        f"{case.case_id}: unrecorded_params={unrecorded} — tool arguments were "
+        "lost, so the repeat tripwire is blind for this case"
+    ]
+
+
+def _request_limit_passes(requests: int) -> bool:
+    result = MaxModelRequests(REQUEST_LIMIT).evaluate(_request_context(requests))
+    return result.value is True
+
+
+def _request_context(requests: int) -> EvaluatorContext[object, object, object]:
+    return EvaluatorContext(
+        name=None,
+        inputs=None,
+        metadata=None,
+        expected_output=None,
+        output=None,
+        duration=0.0,
+        _span_tree=SpanTree(),
+        attributes={},
+        metrics={"requests": requests},
+    )
+
+
+def _repeat_failures(case: TrajectoryCase) -> list[str]:
+    seen: set[RecordedToolCall] = set()
+    repeated: set[str] = set()
+    for call in _comparable_calls(case):
+        if call in seen:
+            repeated.add(call.tool)
+        seen.add(call)
+    return [
+        f"{case.case_id}: repeated identical tool call: {tool}"
+        for tool in sorted(repeated)
+    ]
+
+
+def _comparable_calls(case: TrajectoryCase) -> tuple[RecordedToolCall, ...]:
+    return tuple(call for call in case.tool_calls if call.arguments_known)
+
+
+def _repeat_count(case: TrajectoryCase) -> int:
+    comparable = _comparable_calls(case)
+    return len(comparable) - len(set(comparable))
+
+
+def _unrecorded_count(case: TrajectoryCase) -> int:
+    return len(case.tool_calls) - len(_comparable_calls(case))
+
+
+def _request_p95(cases: Sequence[TrajectoryCase]) -> int:
+    requests = sorted(case.requests for case in cases if case.requests > 0)
+    if not requests:
+        return 0
+    rank = math.ceil(0.95 * len(requests)) - 1
+    return requests[rank]
