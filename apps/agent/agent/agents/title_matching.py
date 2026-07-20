@@ -14,7 +14,12 @@ def normalize_title(value: str) -> str:
 
 
 def _split_script(text: str) -> list[str]:
-    """Split an alnum string into maximal Latin(ascii)-vs-CJK(non-ascii) runs."""
+    """Split an alnum string into maximal Latin(ascii)-vs-CJK(non-ascii) runs.
+
+    Keys on ``str.isascii``: accented Latin (é) groups with CJK, so "pokémon"
+    would split at the accent. Harmless today — no accented aliases exist — but
+    a Latin-script-aware key is needed before the fixture gains one.
+    """
     return ["".join(run) for _, run in groupby(text, key=str.isascii)] if text else []
 
 
