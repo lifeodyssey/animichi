@@ -305,13 +305,13 @@
     "id": "HO_conv_en_003",
     "path": "ambiguous_multi_hit",
     "tier": "edge",
-    "query": "Attack on Titan pilgrimage spots",
+    "query": "One Piece pilgrimage spots",
     "locale": "en",
     "acceptable_stages": ["clarify"],
     "expected_data_keys": ["reason", "candidates"],
     "context": null,
     "selected_point_ids": null,
-    "metadata": {"held_out_for": "convergence", "notes": "unknown title -> clarify quickly"}
+    "metadata": {"held_out_for": "convergence", "notes": "unknown franchise -> clarify quickly"}
   },
   {
     "id": "HO_conv_ja_2026",
