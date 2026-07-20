@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, screen } from "@testing-library/react";
+import { act, cleanup, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MobileFoxHome } from "../../src/components/landing/MobileFoxHome";
 import { renderWithLocale, setLanguages } from "./_i18n";
@@ -50,6 +50,18 @@ describe("MobileFoxHome", () => {
     renderWithLocale(<MobileFoxHome onLogin={onLogin} onStart={noop} />);
     screen.getByRole("button", { name: "ログイン" }).click();
     expect(onLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes a language switcher in the top bar", () => {
+    renderWithLocale(<MobileFoxHome onLogin={noop} onStart={noop} />);
+    expect(screen.getByRole("group", { name: "Language" })).toBeTruthy();
+  });
+
+  it("switches the title to Animichi when the English locale is picked", () => {
+    renderWithLocale(<MobileFoxHome onLogin={noop} onStart={noop} />);
+    expect(screen.getByRole("heading", { name: "聖地巡礼" })).toBeTruthy();
+    act(() => { screen.getByRole("button", { name: "EN" }).click(); });
+    expect(screen.getByRole("heading", { name: "Animichi" })).toBeTruthy();
   });
 });
 

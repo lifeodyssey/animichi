@@ -1,4 +1,5 @@
 import { useDict } from "../../i18n/context";
+import { LocaleSwitcher } from "../../i18n/LocaleSwitcher";
 import { ToriiMark } from "./ToriiMark";
 
 const BG_SRC = "/images/landing/shrine-approach.webp";
@@ -13,7 +14,10 @@ function MobileFoxBar({ onLogin }: { onLogin: () => void }) {
   const landing = useDict().landing;
   return (<header className="mobile-fox__bar">
     <span className="mobile-fox__badge"><ToriiMark size={22} /></span>
-    <button className="landing__login" type="button" onClick={onLogin}>{landing.login}</button>
+    <div className="mobile-fox__bar-actions">
+      <LocaleSwitcher />
+      <button className="landing__login" type="button" onClick={onLogin}>{landing.login}</button>
+    </div>
   </header>);
 }
 
