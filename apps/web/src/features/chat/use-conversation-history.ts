@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { z } from "zod";
+import { authHeaders } from "../../lib/auth/authSession";
 import { conversationMessagesUrl } from "./config";
 
 const HistoryRow = z.object({
@@ -29,8 +30,10 @@ function toEntry(row: z.infer<typeof HistoryRow>): HistoryEntry {
   return { role: row.role, content: row.content, intent: row.response_data?.intent };
 }
 
+/** Anonymous when signed out (existing behaviour); adds a Bearer token once signed in. */
 async function fetchHistory(baseUrl: string, sessionId: string): Promise<HistoryEntry[]> {
-  const response = await fetch(conversationMessagesUrl(baseUrl, sessionId));
+  const headers = await authHeaders();
+  const response = await fetch(conversationMessagesUrl(baseUrl, sessionId), { headers });
   if (!response.ok) throw new Error(`messages responded ${String(response.status)}`);
   const payload: unknown = await response.json();
   return HistoryPayload.parse(payload).messages.map(toEntry);
