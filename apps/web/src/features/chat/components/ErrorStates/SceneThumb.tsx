@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ChatDict } from "../../i18n";
 
 type Props = Readonly<{ src?: string; alt: string; ep?: number; dict: ChatDict }>;
@@ -19,6 +19,7 @@ function ScenePlaceholder({ alt, label }: Readonly<{ alt: string; label?: string
 /** D9: a scene still that degrades to a gradient placeholder + episode label. */
 export function SceneThumb({ src, alt, ep, dict }: Props) {
   const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [src]);
   if (src === undefined || failed) return <ScenePlaceholder alt={alt} label={episodeLabel(dict, ep)} />;
   return (
     <img className="chat-scene-thumb" src={src} alt={alt} loading="lazy" onError={() => { setFailed(true); }} />

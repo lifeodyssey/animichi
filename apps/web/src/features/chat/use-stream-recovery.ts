@@ -27,7 +27,7 @@ function toRecoveredMessage(entry: HistoryEntry, index: number): ChatUIMessage {
 
 async function replaceWithFinalState(baseUrl: string, chat: RecoverableChat, sessionId: string): Promise<void> {
   const entries = await fetchHistory(baseUrl, sessionId);
-  chat.setMessages(entries.map(toRecoveredMessage));
+  chat.setMessages(entries.map((entry, index) => toRecoveredMessage(entry, index)));
   chat.clearError();
 }
 

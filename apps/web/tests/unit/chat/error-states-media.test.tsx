@@ -41,6 +41,14 @@ describe("SceneThumb (D9 scene image 404)", () => {
     render(<SceneThumb alt="Uji Bridge" ep={8} dict={chatDictFor("en")} />);
     expect(screen.getByText("Ep. 8")).toBeTruthy();
   });
+
+  it("retries the image when a later render corrects the source", () => {
+    const view = render(<SceneThumb src="/scenes/gone.webp" alt="宇治橋" ep={8} dict={ja} />);
+    fireEvent.error(screen.getByRole("img", { name: "宇治橋" }));
+    expect(document.querySelector("img")).toBeNull();
+    view.rerender(<SceneThumb src="/scenes/fixed.webp" alt="宇治橋" ep={8} dict={ja} />);
+    expect(document.querySelector("img")?.getAttribute("src")).toBe("/scenes/fixed.webp");
+  });
 });
 
 describe("MapFallback (D7 map failure)", () => {

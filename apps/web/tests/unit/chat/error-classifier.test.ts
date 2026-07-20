@@ -73,6 +73,11 @@ describe("classifyFailure: failed envelopes", () => {
     const part = { intent: "plan_route", success: false, errors: [] } as ChatDataPart;
     expect(classifyFailure({ kind: "envelope", part })).toBe("D6");
   });
+
+  it("never swallows a failed clarify envelope into D6 (its card carries the recovery)", () => {
+    const part: ChatDataPart = { intent: "clarify", success: false, status: "invalid_selection" };
+    expect(classifyFailure({ kind: "envelope", part })).toBeUndefined();
+  });
 });
 
 describe("classifyFailure: empty and short result envelopes", () => {
