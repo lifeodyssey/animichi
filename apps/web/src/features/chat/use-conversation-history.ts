@@ -30,8 +30,10 @@ function toEntry(row: z.infer<typeof HistoryRow>): HistoryEntry {
   return { role: row.role, content: row.content, intent: row.response_data?.intent };
 }
 
-/** Anonymous when signed out (existing behaviour); adds a Bearer token once signed in. */
-async function fetchHistory(baseUrl: string, sessionId: string): Promise<HistoryEntry[]> {
+/** Anonymous when signed out (existing behaviour); adds a Bearer token once signed in.
+ * Also the D4/D8 recovery read: the client re-fetches the session's final
+ * state here instead of resuming a broken stream (P6 semantics). */
+export async function fetchHistory(baseUrl: string, sessionId: string): Promise<HistoryEntry[]> {
   const headers = await authHeaders();
   const response = await fetch(conversationMessagesUrl(baseUrl, sessionId), { headers });
   if (!response.ok) throw new Error(`messages responded ${String(response.status)}`);
