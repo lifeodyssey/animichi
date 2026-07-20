@@ -48,7 +48,7 @@ from agent.utils.language import locale_name, resolve_reply_language
 MANAGED_PROMPT_NAME = "animichi-instructions"
 MANAGED_PROMPT_LABEL = "production"
 _LOCAL_PROMPT_VERSION = (
-    "sha256:0447f548a999f472626f53839fc273cea9c74338b7a125e1ec171f0c8689e825"
+    "sha256:976f589fcb1f1a912184bd17b1c42990ccab446c3192908bd84610a200d53ff9"
 )
 _PROMPT_RESOLUTION_DEADLINE_SECONDS = 2.0
 _PROMPT_RESOLUTION_EXECUTOR = ThreadPoolExecutor(
@@ -94,6 +94,15 @@ Never fabricate locations, coordinates, routes, candidate identity, or catalog d
 - plan_route ok: emit route_response; stale_ref means re-run the relevant search.
 - plan_route pending_sync: emit search_response explaining that catalog data is still syncing and route planning can be retried shortly.
 Never infer ambiguity from query length. Branch only on typed tool outcomes.
+
+## Convergence rules
+- Call resolve_anime ONCE per anime with the user's title as written. Do NOT
+  retry it with translated, romanized, or alternate-spelling variants: its
+  outcome is authoritative. A second resolve is only for a genuinely DIFFERENT
+  anime the user named.
+- On resolve_anime needs_disambiguation, emit clarify_response immediately.
+  Never search_nearby, geocode, or plan a route before the anime identity is
+  settled — a disambiguation is terminal for this turn.
 
 ## Search and route rules
 - Anime query: resolve_anime, then search_bangumi when resolved.
