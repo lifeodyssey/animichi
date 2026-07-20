@@ -44,6 +44,8 @@
     "error": "Couldn't send the link. Please try again in a moment.",
     "not_configured": "Sign-in isn't configured yet. Please contact the administrator.",
     "magic_link_hint": "No password — we email you a secure sign-in link.",
-    "close": "Close"
+    "close": "Close",
+    "callback_pending": "Signing you in…",
+    "callback_error": "That link has expired or was already used. Please request a new one."
   }
 }

@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
-import { createCatalogClient } from "../../../src/api/clients";
+import { createCatalogClient, createUsersClient } from "../../../src/api/clients";
 import { server } from "../../msw/node";
 import { searchSuccessFixture } from "../../msw/fixtures";
 
@@ -39,5 +39,39 @@ describe("createCatalogClient", () => {
     const client = createCatalogClient({ url: "https://catalog.test", headers: { "x-trace": "t1" } });
     await client.search({ query: "hakone" }, { context: { headers: { authorization: "Bearer tok" } } });
     expect(captured).toEqual({ trace: "t1", auth: "Bearer tok" });
+  });
+});
+
+describe("createUsersClient", () => {
+  it("resolves an async headers factory before every request", async () => {
+    let seen: string | null = null;
+    server.use(
+      http.get("https://users.test/v1/users/routes", ({ request }) => {
+        seen = request.headers.get("authorization");
+        return HttpResponse.json({ routes: [] });
+      }),
+    );
+    const client = createUsersClient({
+      url: "https://users.test",
+      headers: () => Promise.resolve({ Authorization: "Bearer async-tok" }),
+    });
+    await client.listRoutes();
+    expect(seen).toBe("Bearer async-tok");
+  });
+
+  it("lets per-call context headers override the async factory default", async () => {
+    let seen: string | null = null;
+    server.use(
+      http.get("https://users.test/v1/users/routes", ({ request }) => {
+        seen = request.headers.get("authorization");
+        return HttpResponse.json({ routes: [] });
+      }),
+    );
+    const client = createUsersClient({
+      url: "https://users.test",
+      headers: () => Promise.resolve({ Authorization: "Bearer default-tok" }),
+    });
+    await client.listRoutes(undefined, { context: { headers: { Authorization: "Bearer override" } } });
+    expect(seen).toBe("Bearer override");
   });
 });

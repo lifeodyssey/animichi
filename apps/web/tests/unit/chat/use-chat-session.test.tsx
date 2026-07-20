@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { useChatSession } from "../../../src/features/chat/use-chat-session";
 import { server } from "../../msw/node";
 import {
@@ -11,6 +11,13 @@ import {
   chatStreamHandler,
   chatStreamHeldOpenHandler,
 } from "../../msw/chat-handlers";
+
+const { authHeaders } = vi.hoisted(() => ({ authHeaders: vi.fn().mockResolvedValue({}) }));
+vi.mock("../../../src/lib/auth/authSession", () => ({ authHeaders }));
+
+afterEach(() => {
+  authHeaders.mockReset().mockResolvedValue({});
+});
 
 type Props = Readonly<{ sessionId?: string }>;
 
@@ -110,5 +117,31 @@ describe("session switch resets the chat instance", () => {
     const count = view.result.current.messages.length;
     view.rerender({ sessionId: "A" });
     expect(view.result.current.messages.length).toBe(count);
+  });
+});
+
+describe("auth header injection", () => {
+  function authSpyingHandler(seen: (string | null)[]) {
+    return chatStreamHandler("search", {
+      spy: (request) => seen.push(request.headers.get("authorization")),
+    });
+  }
+
+  it("sends no Authorization header when signed out", async () => {
+    authHeaders.mockResolvedValue({});
+    const seen: (string | null)[] = [];
+    server.use(authSpyingHandler(seen));
+    const view = renderSession("anon-1");
+    await sendAndSettle(view, "ユーフォ");
+    expect(seen).toEqual([null]);
+  });
+
+  it("injects the Bearer token from the current session on every turn", async () => {
+    authHeaders.mockResolvedValue({ Authorization: "Bearer jwt-chat" });
+    const seen: (string | null)[] = [];
+    server.use(authSpyingHandler(seen));
+    const view = renderSession("auth-1");
+    await sendAndSettle(view, "ユーフォ");
+    expect(seen).toEqual(["Bearer jwt-chat"]);
   });
 });
