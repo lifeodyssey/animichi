@@ -5,7 +5,7 @@ export default defineConfig({
     css: true,
     include: ["tests/unit/**/*.test.ts", "tests/unit/**/*.test.tsx"],
     globalSetup: ["tests/setup/generate-route-tree.ts"],
-    setupFiles: ["tests/setup/msw-lifecycle.ts"],
+    setupFiles: ["tests/setup/auth-hermetic.ts", "tests/setup/msw-lifecycle.ts"],
     environmentOptions: { jsdom: { url: "http://localhost:3000" } },
     coverage: {
       provider: "istanbul",
