@@ -1,5 +1,6 @@
 import { createAuthClient } from "better-auth/client";
 import { magicLinkClient } from "better-auth/client/plugins";
+import { z } from "zod";
 
 /**
  * Neon Auth (Better Auth base) magic-link client.
@@ -39,5 +40,30 @@ export async function sendMagicLink(request: MagicLinkRequest): Promise<MagicLin
     return error ? "error" : "sent";
   } catch {
     return "error";
+  }
+}
+
+const TokenPayload = z.object({ token: z.string().min(1) });
+
+async function parseTokenResponse(response: Response): Promise<string | undefined> {
+  if (!response.ok) return undefined;
+  const parsed = TokenPayload.safeParse(await response.json());
+  return parsed.success ? parsed.data.token : undefined;
+}
+
+/**
+ * Exchanges the Better Auth session cookie (set by the magic-link callback
+ * on the Neon Auth origin) for a short-lived EdDSA JWT via the `jwt` plugin's
+ * `/token` endpoint. The edge worker (`worker/auth.ts`) already verifies this
+ * exact token shape against the same JWKS, so this is the one bridge the
+ * cross-origin cookie needs to become a bearer credential for `/v1/*`.
+ */
+export async function fetchAuthToken(): Promise<string | undefined> {
+  const base = baseUrl();
+  if (!base) return undefined;
+  try {
+    return await parseTokenResponse(await fetch(`${base}/token`, { credentials: "include" }));
+  } catch {
+    return undefined;
   }
 }
