@@ -7,8 +7,13 @@ import {
   isRouteEmpty,
 } from "../../lib/route-detail/dataState";
 import type { RouteDataState, RouteDetail } from "../../lib/route-detail/dataState";
+import { EXPANDED_SHEET_PX, initialMode, useRouteMode } from "../../lib/route-detail/mode";
+import type { RouteMode } from "../../lib/route-detail/mode";
+import { routeProgressLabel, toRoutePins } from "../../lib/route-detail/pinState";
 import { GoldBar } from "./GoldBar";
 import { Hero } from "./Hero";
+import { MapCard } from "./MapCard";
+import type { MapCardPayload } from "./MapCard";
 
 /**
  * The route detail shell (spec-route-detail §1): appbar → hero → map card →
@@ -29,14 +34,13 @@ interface RouteBodyProps {
   readonly copy: RouteDetailCopy;
 }
 
-function MapCardSlot({ expanded, copy }: { readonly expanded: boolean; readonly copy: RouteDetailCopy }) {
-  const minHeight = expanded ? "18rem" : "9rem";
-  return (
-    <section aria-label="地図" aria-expanded={expanded} style={{ minHeight }}
-      className="grid place-items-center rounded-2xl bg-[var(--color-muted)] text-[var(--color-muted-fg)]">
-      {copy.mapPlaceholder}
-    </section>
-  );
+function mapCardPayload(detail: RouteDetail, copy: RouteDetailCopy): MapCardPayload {
+  return {
+    schema_version: ROUTE_DETAIL_SCHEMA_VERSION,
+    pins: toRoutePins(detail),
+    progress: routeProgressLabel(detail),
+    placeholder: copy.mapPlaceholder,
+  };
 }
 
 function EmptySpots({ copy }: { readonly copy: RouteDetailCopy }) {
@@ -56,9 +60,20 @@ function TimetablePending({ copy }: { readonly copy: RouteDetailCopy }) {
   );
 }
 
-function TimetableSlot({ detail, copy }: { readonly detail: RouteDetail; readonly copy: RouteDetailCopy }) {
+interface TimetableSlotProps {
+  readonly detail: RouteDetail;
+  readonly copy: RouteDetailCopy;
+  readonly mode: RouteMode;
+}
+
+function TimetableSlot({ detail, copy, mode }: TimetableSlotProps) {
   if (isRouteEmpty(detail)) return <EmptySpots copy={copy} />;
-  return <TimetablePending copy={copy} />;
+  const sheet = mode === "expanded" ? { maxHeight: `${String(EXPANDED_SHEET_PX)}px`, overflowY: "auto" as const } : undefined;
+  return (
+    <div style={sheet} data-mode={mode}>
+      <TimetablePending copy={copy} />
+    </div>
+  );
 }
 
 function goldBarPayload(state: RouteDataState, detail: RouteDetail, copy: RouteDetailCopy) {
@@ -73,14 +88,13 @@ function GoldBarSlot({ detail, state, copy }: RouteBodyProps) {
 }
 
 function RouteDetailBody({ detail, state, copy }: RouteBodyProps) {
-  return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
-      <GoldBarSlot detail={detail} state={state} copy={copy} />
-      <Hero detail={detail} state={state} copy={copy} />
-      <MapCardSlot expanded={state === "today"} copy={copy} />
-      <TimetableSlot detail={detail} copy={copy} />
-    </main>
-  );
+  const { mode, toggle } = useRouteMode(initialMode(state));
+  return (<main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
+    <GoldBarSlot detail={detail} state={state} copy={copy} />
+    <Hero detail={detail} state={state} copy={copy} />
+    <MapCard payload={mapCardPayload(detail, copy)} copy={copy} mode={mode} onToggle={toggle} />
+    <TimetableSlot detail={detail} copy={copy} mode={mode} />
+  </main>);
 }
 
 export function RouteDetailView({ detail, locale, now }: RouteDetailViewProps) {
