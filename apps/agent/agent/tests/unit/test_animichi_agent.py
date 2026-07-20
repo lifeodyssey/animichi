@@ -36,6 +36,13 @@ def test_instructions_route_only_from_typed_outcomes() -> None:
     assert "search_nearby place_ambiguity" in _INSTRUCTIONS
 
 
+def test_instructions_bound_disambiguation_convergence() -> None:
+    assert "Call resolve_anime ONCE per anime" in _INSTRUCTIONS
+    assert "catalog resolves titles across languages" in _INSTRUCTIONS
+    assert "a disambiguation is terminal for this turn" in _INSTRUCTIONS
+    assert "Never pivot to a location search or route before" in _INSTRUCTIONS
+
+
 def test_instructions_define_compact_wrapper_and_full_qa() -> None:
     assert "brief 1-2 sentence wrapper" in _INSTRUCTIONS
     assert "FULL appropriately-long answer" in _INSTRUCTIONS

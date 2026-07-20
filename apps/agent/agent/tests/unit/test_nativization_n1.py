@@ -73,8 +73,11 @@ async def test_runner_stops_varied_looping_at_usage_limit() -> None:
     def loop(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
         nonlocal requests
         requests += 1
+        # search_bangumi is not an identity tool, so the disambiguation backstop
+        # never fires; varied args dodge the identical guard — this exercises
+        # the raw usage cap on a genuine breadth loop.
         return ModelResponse(
-            parts=[ToolCallPart("resolve_anime", {"title": f"x{requests}"})]
+            parts=[ToolCallPart("search_bangumi", {"bangumi_id": str(requests)})]
         )
 
     result = await run_animichi_agent(
