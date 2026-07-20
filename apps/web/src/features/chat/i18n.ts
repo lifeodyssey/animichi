@@ -15,6 +15,8 @@ export interface ChatDict {
   readonly preparing: string;
   readonly foxAlt: string;
   readonly thinking: string;
+  readonly waitingSubtitle: string;
+  readonly footprintDetails: string;
 }
 
 const ja: ChatDict = {
@@ -35,6 +37,8 @@ const ja: ChatDict = {
   preparing: "じゅんびちゅう…",
   foxAlt: "アニミチ",
   thinking: "考え中…",
+  waitingSubtitle: "いま さがしてるよ…",
+  footprintDetails: "詳細を見る",
 };
 
 const zh: ChatDict = {
@@ -51,6 +55,8 @@ const zh: ChatDict = {
   preparing: "准备中…",
   foxAlt: "Animichi",
   thinking: "思考中…",
+  waitingSubtitle: "正在帮你找…",
+  footprintDetails: "查看详情",
 };
 
 const en: ChatDict = {
@@ -71,6 +77,8 @@ const en: ChatDict = {
   preparing: "Getting ready…",
   foxAlt: "Animichi",
   thinking: "Thinking…",
+  waitingSubtitle: "Looking that up…",
+  footprintDetails: "View details",
 };
 
 const CHAT_DICTIONARIES: Record<Locale, ChatDict> = { ja, zh, en };
