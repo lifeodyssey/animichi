@@ -31,6 +31,15 @@
     "mobile_bg_alt": "手绘风格的鸟居与参道插画",
     "fox_alt": "举着巡礼手帐卡片迎接你的狐狸向导"
   },
+  "home": {
+    "search_placeholder": "输入作品名、车站或城市",
+    "search_cta": "生成路线",
+    "continue_title": "继续上次",
+    "continue_resume": "继续",
+    "popular_title": "人气排行",
+    "popular_empty": "暂时还没有人气作品",
+    "popular_spots": "个取景地"
+  },
   "auth": {
     "title": "登录",
     "subtitle": "输入邮箱，我们会给你发送一个登录链接。",

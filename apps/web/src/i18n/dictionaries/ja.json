@@ -31,6 +31,15 @@
     "mobile_bg_alt": "手描き風の鳥居と参道のイラスト",
     "fox_alt": "しおりカードを持って案内するキツネ"
   },
+  "home": {
+    "search_placeholder": "アニメ・駅・都市を入力",
+    "search_cta": "ルートを作る",
+    "continue_title": "続きから",
+    "continue_resume": "再開する",
+    "popular_title": "人気ランキング",
+    "popular_empty": "まだ人気の作品がありません",
+    "popular_spots": "スポット"
+  },
   "auth": {
     "title": "ログイン",
     "subtitle": "メールアドレスを入力すると、ログインリンクをお送りします。",
