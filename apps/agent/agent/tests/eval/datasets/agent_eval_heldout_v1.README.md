@@ -32,26 +32,31 @@ EVAL_DATASET=agent_eval_heldout_v1.json \
 cp /tmp/canon.bak agent/tests/eval/baselines/agent_l4_trajectory_*.json  # restore
 ```
 
-**Verdict (2026-07-21 run, live MiMo, after the alias-matching fix).**
-Generalization confirmed — held-out aggregate meets or beats the canonical
-662-case baseline on every metric:
+**Verdict (2026-07-21 run, live MiMo, after the boundary-safe alias fix).**
+Generalization confirmed — the held-out aggregate matches or beats the canonical
+662-case baseline on every metric except a small-sample locale dip (below):
 
 | metric | held-out (33) | canonical baseline |
 |---|---:|---:|
 | tool_correctness | 0.94 | 0.75 |
-| trajectory_match | 0.96 | 0.85 |
+| trajectory_match | 0.98 | 0.85 |
 | max_tool_calls | 0.94 | 0.93 |
-| locale_match | 1.00 | 0.97 |
+| locale_match | 0.94 | 0.97 |
 | argument_correctness | 1.00 | 0.87 |
 | data_keys_present | 1.00 | 0.73 |
 
-All nine 2025-2026 titles generalize cleanly, and the re-authored
-`HO_conv_en_003` (One Piece) now converges in a single tool call
-(resolve→clarify) — the convergence family is 11/11. `step_efficiency` (0.83)
-on clarify cases is a structural 0.50 (resolve + clarify = 2 steps vs an ideal
-of 1) and matches the baseline — not a regression. Live-MiMo scores carry
-run-to-run stochastic variation (e.g. trajectory_match 0.96–0.98); every run
-stays well above the canonical floor.
+All nine 2025-2026 titles generalize cleanly, and every convergence case is
+1/1 — the re-authored `HO_conv_en_003` (One Piece) and all 11 not-found titles
+converge in a single tool call. `step_efficiency` (0.83) on clarify cases is a
+structural 0.50 (resolve + clarify = 2 steps vs an ideal of 1) and matches the
+baseline — not a regression.
+
+`locale_match` is the one metric to read with care: it measures the agent's
+*response* language (LLM-stochastic, independent of the alias matcher), and over
+33 cases each miss is a 3-point swing. This run scored 0.94 (31/33 — one miss was
+the 名探偵コナン clarify case answering in ja); prior held-out runs on the same
+suite hit 0.97 and 1.00. The spread (0.94–1.00) brackets the 0.97 baseline, so
+this is sampling noise, not a generalization gap.
 
 **Corrected finding (was "known residual").** The first authoring of
 `HO_conv_en_003` used *Attack on Titan* and scored as a lone convergence
