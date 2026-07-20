@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from agent.tests.eval.direct_gates import TrajectoryCase
-from agent.tests.eval.eval_gate_flow import GateInput, _run_gate
+from agent.tests.eval.eval_gate_flow import GateInput, SmokeRequiresCappedRun, _run_gate
 from agent.tests.eval.gate import baseline_path
 
 _MODEL = "fixture"
@@ -87,4 +87,16 @@ def test_capped_report_stays_report_only_without_eval_smoke(
     failures = _run_gate(broken, _LAYER, tmp_path, capped=True)
 
     assert failures == []
+    assert _baseline_untouched(tmp_path)
+
+
+def test_smoke_without_a_capped_run_fails_loudly_instead_of_silently_ignoring(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("EVAL_SMOKE", "1")
+    clean = _gate_input(errored_count=0, trajectory=TrajectoryCase("ok", requests=5))
+
+    with pytest.raises(SmokeRequiresCappedRun, match="requires a capped run"):
+        _run_gate(clean, _LAYER, tmp_path, capped=False)
+
     assert _baseline_untouched(tmp_path)

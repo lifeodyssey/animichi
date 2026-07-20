@@ -54,8 +54,10 @@ jobs:
             # drives ci-agent's lint/type/test/coverage). agents/** carries the system prompt
             # (animichi_agent.py), the ModelRetry/output_validator/repeat-guard hooks, the
             # runner's usage-limit + error-classification guardrails, and the model-resolution
-            # glue (base.py); model_aliases.py is the concrete provider/thinking-mode registry.
-            agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py']
+            # glue (base.py); model_aliases.py is the concrete provider/thinking-mode registry;
+            # settings.py is where the production model spec actually lives (default_agent_model,
+            # model_attempt_timeout) — a PR flipping the prod model would live here, not in agents/**.
+            agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py', 'apps/agent/agent/config/settings.py']
             frontend: ['frontend/**']
             web: ['apps/web/**']
             worker: ['worker/**']
