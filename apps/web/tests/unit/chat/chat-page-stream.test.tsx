@@ -44,6 +44,19 @@ describe("send flow over the recorded search stream", () => {
   });
 });
 
+describe("B4 settled footprint", () => {
+  it("collapses the completed pipeline into an expandable footprint row", async () => {
+    server.use(chatStreamHandler("search"));
+    renderChatPage();
+    sendText("ユーフォ");
+    await screen.findByText("宇治の聖地を2件、徒歩ルートにまとめました。");
+    await waitFor(() => {
+      expect(document.querySelector(".chat-settled")).toBeTruthy();
+    });
+    expect(screen.getAllByText(ja.footprintDetails, { exact: false }).length).toBeGreaterThan(0);
+  });
+});
+
 describe("A1 example chips", () => {
   it("sends the chip text as a user message on click", async () => {
     server.use(chatStreamHandler("clarify"));
