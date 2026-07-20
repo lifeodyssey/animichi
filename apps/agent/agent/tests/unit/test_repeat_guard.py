@@ -54,7 +54,7 @@ async def _run(model: FunctionModel) -> tuple[object, list[str]]:
         return response
 
     result = await run_animichi_agent(
-        text="ハルヒの聖地を教えて",
+        text="君の名は。の聖地を教えて",
         db=MagicMock(),
         locale="ja",
         model=FunctionModel(observing),
@@ -64,7 +64,7 @@ async def _run(model: FunctionModel) -> tuple[object, list[str]]:
 
 
 async def test_identical_repeat_gets_guidance_then_recovers() -> None:
-    result, retries = await _run(_resolve_then_qa(["ハルヒ", "ハルヒ"]))
+    result, retries = await _run(_resolve_then_qa(["君の名は。", "君の名は。"]))
 
     assert any(_HINT in text for text in retries)
     executed = [step.tool for step in result.steps if step.tool == "resolve_anime"]
@@ -72,7 +72,7 @@ async def test_identical_repeat_gets_guidance_then_recovers() -> None:
 
 
 async def test_different_arguments_pass_untouched() -> None:
-    result, retries = await _run(_resolve_then_qa(["ハルヒ", "涼宮ハルヒの消失"]))
+    result, retries = await _run(_resolve_then_qa(["君の名は。", "天気の子"]))
 
     assert not any(_HINT in text for text in retries)
     executed = [step.tool for step in result.steps if step.tool == "resolve_anime"]
@@ -80,8 +80,8 @@ async def test_different_arguments_pass_untouched() -> None:
 
 
 async def test_ledger_is_scoped_to_a_single_run() -> None:
-    _, first_retries = await _run(_resolve_then_qa(["ハルヒ"]))
-    _, second_retries = await _run(_resolve_then_qa(["ハルヒ"]))
+    _, first_retries = await _run(_resolve_then_qa(["君の名は。"]))
+    _, second_retries = await _run(_resolve_then_qa(["君の名は。"]))
 
     assert not any(_HINT in text for text in first_retries)
     assert not any(_HINT in text for text in second_retries)
@@ -94,3 +94,49 @@ def test_fingerprint_is_stable_across_key_order() -> None:
     assert left == right
     assert left != _tool_call_fingerprint("resolve_anime", {"a": 2, "b": "x"})
     assert left != _tool_call_fingerprint("search_nearby", {"a": 1, "b": "x"})
+
+
+def _resolve_then_nearby() -> FunctionModel:
+    """A model that ignores the convergence rules: resolve a miss, then still
+    pivots to search_nearby (which the backstop must reject)."""
+    script = iter(
+        [
+            ToolCallPart("resolve_anime", {"title": "no-such-anime-xyz"}),
+            ToolCallPart("search_nearby", {"location": "Tokyo"}),
+        ]
+    )
+
+    def respond(messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        del messages
+        try:
+            return ModelResponse(parts=[next(script)])
+        except StopIteration:
+            return ModelResponse(
+                parts=[ToolCallPart("clarify_response", {"reason": "anime_not_found"})]
+            )
+
+    return FunctionModel(respond)
+
+
+async def test_backstop_blocks_search_after_unsettled_identity() -> None:
+    seen_retries: list[str] = []
+    model = _resolve_then_nearby()
+    original = model.function
+
+    def observing(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_retries.extend(_retry_texts(messages))
+        assert original is not None
+        response = original(messages, info)
+        assert isinstance(response, ModelResponse)
+        return response
+
+    result = await run_animichi_agent(
+        text="no-such-anime-xyz の聖地",
+        db=MagicMock(),
+        locale="ja",
+        model=FunctionModel(observing),
+        catalog=MockCatalogClient(),
+    )
+
+    assert any("anime identity is unsettled" in text for text in seen_retries)
+    assert not any(step.tool == "search_nearby" for step in result.steps)

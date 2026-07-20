@@ -38,6 +38,7 @@ from agent.agents.runtime_models import (
     SearchResponseModel,
 )
 from agent.agents.session_state import SessionState
+from agent.agents.tool_outcomes import ResolveAmbiguous, ResolveNotFound
 from agent.agents.web_tools import TOOLS as WEB_TOOLS
 from agent.infrastructure.observability import (
     record_agent_run_error,
@@ -48,7 +49,7 @@ from agent.utils.language import locale_name, resolve_reply_language
 MANAGED_PROMPT_NAME = "animichi-instructions"
 MANAGED_PROMPT_LABEL = "production"
 _LOCAL_PROMPT_VERSION = (
-    "sha256:976f589fcb1f1a912184bd17b1c42990ccab446c3192908bd84610a200d53ff9"
+    "sha256:06a56c060214574d0cc0b18c4a76a18e9656c100b710cf06e21f78d80f67f33a"
 )
 _PROMPT_RESOLUTION_DEADLINE_SECONDS = 2.0
 _PROMPT_RESOLUTION_EXECUTOR = ThreadPoolExecutor(
@@ -96,12 +97,13 @@ Never fabricate locations, coordinates, routes, candidate identity, or catalog d
 Never infer ambiguity from query length. Branch only on typed tool outcomes.
 
 ## Convergence rules
-- Call resolve_anime ONCE per anime with the user's title as written. Do NOT
-  retry it with translated, romanized, or alternate-spelling variants: its
-  outcome is authoritative. A second resolve is only for a genuinely DIFFERENT
-  anime the user named.
+- Call resolve_anime ONCE per anime with the user's title as written; the
+  catalog resolves titles across languages, so its outcome is authoritative.
+  Do NOT retry it with translated, romanized, or alternate-spelling variants
+  (translate_anime_title is for display prose, never a resolve input). A
+  second resolve is only for a genuinely DIFFERENT anime the user named.
 - On resolve_anime needs_disambiguation, emit clarify_response immediately.
-  Never search_nearby, geocode, or plan a route before the anime identity is
+  Never pivot to a location search or route before the anime identity is
   settled — a disambiguation is terminal for this turn.
 
 ## Search and route rules
@@ -429,6 +431,14 @@ _REPEAT_GUARD_HINT = (
     "result. Reuse that earlier result or call the tool with different "
     "arguments."
 )
+_POST_CLARIFY_BLOCKED = frozenset(
+    {"resolve_anime", "search_bangumi", "search_nearby", "plan_route"}
+)
+_CLARIFY_TERMINAL_HINT = (
+    "The anime identity is unsettled — resolve_anime already returned a "
+    "disambiguation or not-found outcome. Emit clarify_response now; do not "
+    "call another data tool this turn."
+)
 
 
 def _tool_call_fingerprint(tool_name: str, args: ValidatedToolArgs) -> str:
@@ -455,12 +465,30 @@ def _modern_hooks() -> Hooks[RuntimeDeps]:
         args: ValidatedToolArgs,
     ) -> ValidatedToolArgs:
         del tool_def
+        if ctx.deps.disambiguation_pending and call.tool_name in _POST_CLARIFY_BLOCKED:
+            raise ModelRetry(_CLARIFY_TERMINAL_HINT)
         fingerprint = _tool_call_fingerprint(call.tool_name, args)
         seen = ctx.deps.seen_tool_calls
         seen[fingerprint] = seen.get(fingerprint, 0) + 1
         if seen[fingerprint] > 1:
             raise ModelRetry(_REPEAT_GUARD_HINT.format(tool=call.tool_name))
         return args
+
+    @hooks.on.after_tool_execute
+    def mark_disambiguation(
+        ctx: RunContext[RuntimeDeps],
+        *,
+        call: ToolCallPart,
+        tool_def: ToolDefinition,
+        args: ValidatedToolArgs,
+        result: object,
+    ) -> object:
+        del tool_def, args
+        if call.tool_name == "resolve_anime" and isinstance(
+            result, ResolveAmbiguous | ResolveNotFound
+        ):
+            ctx.deps.disambiguation_pending = True
+        return result
 
     return hooks
 
