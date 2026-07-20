@@ -64,6 +64,10 @@ class NoEvaluatedCases(RuntimeError):
     """Raised when every eval case failed during task execution."""
 
 
+class SmokeRequiresCappedRun(RuntimeError):
+    """Raised when EVAL_SMOKE=1 is set but the run resolved to uncapped."""
+
+
 def _scores(report: AgentReport) -> ScoreMap:
     avg = report.averages()
     if avg is None:
@@ -155,9 +159,21 @@ def _run_gate(
 ) -> list[str] | None:
     if capped:
         return _run_capped_gate(gate_input)
+    _refuse_uncapped_smoke()
     enforce_direct = _direct_gate_enforced()
     _print_direct_metrics(gate_input, include_p95=True, enforced=enforce_direct)
     return _run_uncapped_gate(gate_input, layer, baselines_dir, enforce_direct)
+
+
+def _refuse_uncapped_smoke() -> None:
+    """Never silently drop EVAL_SMOKE=1 into the uncapped statistical gate."""
+    if not _smoke_enforced():
+        return
+    raise SmokeRequiresCappedRun(
+        "EVAL_SMOKE=1 requires a capped run (EVAL_MAX_CASES below the dataset "
+        f"size, currently {len(ALL_CASES)} cases) — refusing to silently fall "
+        "through to the uncapped statistical gate."
+    )
 
 
 def _run_capped_gate(gate_input: GateInput) -> list[str]:

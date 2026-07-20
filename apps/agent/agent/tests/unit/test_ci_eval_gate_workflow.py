@@ -61,6 +61,7 @@ def test_agent_behavior_filter_scopes_to_prompt_model_guardrail_files() -> None:
         "apps/agent/agent/agents/base.py",  # model-resolution glue
         "apps/agent/agent/agents/web_trust.py",  # injection-defense guardrail
         "apps/agent/agent/config/model_aliases.py",  # model-config registry
+        "apps/agent/agent/config/settings.py",  # default_agent_model, model_attempt_timeout
     ]
     excluded = [
         "apps/web/src/routes/index.tsx",
