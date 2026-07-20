@@ -39,15 +39,15 @@ jobs:
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
-      - run: uv sync --all-extras
+      - run: uv sync --frozen --all-extras
 
       - name: Run L1 full trajectory eval (uncapped — owns the statistical baseline)
-        run: uv run pytest agent/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
+        run: uv run --frozen pytest agent/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
         env:
           EVAL_MODEL: openai:mimo-v2.5@https://api.xiaomimimo.com/v1
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
 
       - name: Run translation eval
-        run: uv run pytest agent/tests/eval/test_translation.py -v -m integration --no-cov -x
+        run: uv run --frozen pytest agent/tests/eval/test_translation.py -v -m integration --no-cov -x
         env:
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
