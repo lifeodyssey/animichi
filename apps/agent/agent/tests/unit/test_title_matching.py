@@ -38,6 +38,10 @@ _ALIASES = {
         ("SPY×FAMILYの聖地ルートを教えて", "396387"),
         # Longest-alias preference must survive the glued-CJK split (parent=49294).
         ("Love Live Sunshine的沼津圣地", "165553"),
+        # The glued ambiguous parent stays unresolved (→ clarify). This is the ONE
+        # case that separates token-sequence matching from boundary-aligned
+        # substring: the latter would resolve 49294 and fail B3_zh_001's clarify.
+        ("LoveLive的圣地", None),
         # Exact normalized equality wins even when tokens differ (spaced vs hyphen).
         ("laid back camp", "328609"),
         # A genuinely unknown franchise stays unresolved.
