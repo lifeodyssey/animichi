@@ -20,6 +20,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from agent.agents.agent_result import AgentResult
 from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.runtime_deps import RuntimeDeps
+from agent.agents.tool_outcomes import TranslateTitleResult
 from agent.agents.web_tools import translate_anime_title, web_search
 from agent.domain.ports import DatabasePort
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
@@ -142,8 +143,9 @@ async def test_translate_title_injection_bypasses_null_database() -> None:
         _ctx(deps), title="響け！ユーフォニアム", target_language="zh"
     )
 
-    assert result["translated"] == "吹响悠风号"
-    assert result["source"] == "catalog"
+    assert isinstance(result, TranslateTitleResult)
+    assert result.translated == "吹响悠风号"
+    assert result.source == "catalog"
 
 
 async def test_web_search_direct_injection_returns_wrapped_results() -> None:
