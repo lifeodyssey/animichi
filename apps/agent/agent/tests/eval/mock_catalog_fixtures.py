@@ -140,8 +140,8 @@ POINT_SEEDS: tuple[PointSeed, ...] = (
 )
 
 ALIASES_BY_ID: dict[str, tuple[str, ...]] = {
-    "160209": ("君の名は", "你的名字", "your name", "kiminonawa"),
-    "115908": ("響け", "ユーフォ", "吹响悠风号", "悠风号", "sound euphonium", "eupho"),
+    "160209": ("君の名は", "你的名字", "your name", "kimi no na wa", "kiminonawa"),
+    "115908": ("響け", "ユーフォ", "吹响悠风号", "悠风号", "euphonium", "sound euphonium", "eupho"),
     "269235": ("天気の子", "天气之子", "weathering with you"),
     "324720": (
         "the first slam dunk",
