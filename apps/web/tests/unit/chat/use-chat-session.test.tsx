@@ -7,6 +7,7 @@ import { useChatSession } from "../../../src/features/chat/use-chat-session";
 import { server } from "../../msw/node";
 import {
   CHAT_URL,
+  chatHttpErrorHandler,
   chatStreamControlledHandler,
   chatStreamHandler,
   chatStreamHeldOpenHandler,
@@ -117,6 +118,25 @@ describe("session switch resets the chat instance", () => {
     const count = view.result.current.messages.length;
     view.rerender({ sessionId: "A" });
     expect(view.result.current.messages.length).toBe(count);
+  });
+});
+
+describe("failure-signal observability", () => {
+  it("exposes the captured session id for disconnect recovery", async () => {
+    server.use(chatStreamHandler("search", { sessionId: "srv-7" }));
+    const view = renderSession();
+    await sendAndSettle(view, "ユーフォ");
+    expect(view.result.current.sessionIdOf()).toBe("srv-7");
+  });
+
+  it("records the HTTP status of a rejected chat request for classification", async () => {
+    server.use(chatHttpErrorHandler(401));
+    const view = renderSession("s-1");
+    await act(async () => view.result.current.sendMessage({ text: "こんにちは" }));
+    await waitFor(() => {
+      expect(view.result.current.error).toBeTruthy();
+    });
+    expect(view.result.current.lastHttpStatus()).toBe(401);
   });
 });
 

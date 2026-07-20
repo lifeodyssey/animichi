@@ -78,6 +78,63 @@ export function chatStreamHandler(
   });
 }
 
+/** Bare HTTP failure on the chat endpoint (401 expiry → D8, 5xx → D4). */
+export function chatHttpErrorHandler(status: number): HttpHandler {
+  return http.post(CHAT_URL, () => new HttpResponse(null, { status }));
+}
+
+function droppingBody(head: string): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      if (head !== "") controller.enqueue(new TextEncoder().encode(head));
+      controller.error(new Error("connection lost"));
+    },
+  });
+}
+
+/** Replays the recording head, then drops the connection mid-stream (D4). */
+export function chatStreamDropHandler(name: ChatStreamFixture): HttpHandler {
+  const recorded = chatStreamFixture(name);
+  const head = recorded.slice(0, recorded.indexOf('data: {"type":"data-response"'));
+  return http.post(CHAT_URL, () => new HttpResponse(droppingBody(head), { headers: SSE_HEADERS }));
+}
+
+/** Drops the connection before any frame arrives (D4 before-first-chunk). */
+export function chatStreamImmediateDropHandler(): HttpHandler {
+  return http.post(CHAT_URL, () => new HttpResponse(droppingBody(""), { headers: SSE_HEADERS }));
+}
+
+export type FinalFramePatch = (envelope: Record<string, unknown>) => Record<string, unknown>;
+
+function patchFinalFrameLine(line: string, patch: FinalFramePatch): string {
+  if (!line.startsWith('data: {"type":"data-response"')) return line;
+  const frame = JSON.parse(line.slice("data: ".length)) as { data: Record<string, unknown> };
+  if (!("success" in frame.data)) return line;
+  frame.data = patch(frame.data);
+  return `data: ${JSON.stringify(frame)}`;
+}
+
+/**
+ * Replay a recording with its final full envelope transformed. D-state
+ * variants (D1/D2/D6/D9) are derived from the real capture this way until the
+ * backend error-boundary hook (issue #272's other half) ships recordings of
+ * the actual failure envelopes.
+ */
+export function chatStreamPatchedHandler(
+  name: ChatStreamFixture,
+  patch: FinalFramePatch,
+  options: ChatStreamOptions = {},
+): HttpHandler {
+  const patched = streamText(name, options)
+    .split("\n")
+    .map((line) => patchFinalFrameLine(line, patch))
+    .join("\n");
+  return http.post(CHAT_URL, ({ request }) => {
+    options.spy?.(request);
+    return sseResponse(patched);
+  });
+}
+
 /** Replays the recording up to (excluding) the first data-response frame and holds the stream open. */
 export function chatStreamHeldOpenHandler(name: ChatStreamFixture): HttpHandler {
   const recorded = chatStreamFixture(name);

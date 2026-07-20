@@ -3,7 +3,7 @@ import { ChatResponseDataPart } from "@seichijunrei/contract";
 import type { ChatDataPart } from "@seichijunrei/contract";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
-import { useRef } from "react";
+import { useCallback, useRef } from "react";
 import type { RefObject } from "react";
 import { authHeaders } from "../../lib/auth/authSession";
 
@@ -25,6 +25,7 @@ const dataPartSchemas = {
 interface SessionTracker {
   scope: string;
   id: string | undefined;
+  lastHttpStatus: number | undefined;
 }
 type SessionRef = RefObject<SessionTracker>;
 
@@ -41,9 +42,9 @@ function scopeOf(sessionId?: string): string {
 
 /** Track the server-assigned session id, reset whenever the URL identity changes. */
 function useSessionTracker(sessionId: string | undefined, scope: string): SessionRef {
-  const ref = useRef<SessionTracker>({ scope, id: sessionId });
+  const ref = useRef<SessionTracker>({ scope, id: sessionId, lastHttpStatus: undefined });
   if (ref.current.scope !== scope) {
-    ref.current = { scope, id: sessionId };
+    ref.current = { scope, id: sessionId, lastHttpStatus: undefined };
   }
   return ref;
 }
@@ -71,10 +72,21 @@ function createScopedChat(chatUrl: string, scope: string, ref: SessionRef): Chat
   });
 }
 
+/** Record each chat response's HTTP status so failures classify (401 → D8). */
+function createTrackingFetch(ref: SessionRef): typeof globalThis.fetch {
+  return async (input, init) => {
+    ref.current.lastHttpStatus = undefined;
+    const response = await globalThis.fetch(input, init);
+    ref.current.lastHttpStatus = response.status;
+    return response;
+  };
+}
+
 function createSessionTransport(chatUrl: string, ref: SessionRef): DefaultChatTransport<ChatUIMessage> {
   return new DefaultChatTransport({
     api: chatUrl,
     headers: () => sessionHeaders(ref.current.id),
+    fetch: createTrackingFetch(ref),
   });
 }
 
@@ -116,7 +128,9 @@ export function useChatSession(chatUrl: string, sessionId?: string) {
   const scope = scopeOf(sessionId);
   const ref = useSessionTracker(sessionId, scope);
   const chat = useScopedChat(chatUrl, scope, ref);
-  return useChat<ChatUIMessage>({ chat });
+  const sessionIdOf = useCallback(() => ref.current.id, [ref]);
+  const lastHttpStatus = useCallback(() => ref.current.lastHttpStatus, [ref]);
+  return { ...useChat<ChatUIMessage>({ chat }), sessionIdOf, lastHttpStatus };
 }
 
 export type ChatSession = ReturnType<typeof useChatSession>;

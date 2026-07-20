@@ -2,7 +2,8 @@
  * @vitest-environment jsdom
  */
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ChatActionsProvider } from "../../../src/features/chat/chat-actions";
 import { DataPartCard } from "../../../src/features/chat/components/DataPartCard";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 
@@ -11,7 +12,11 @@ afterEach(cleanup);
 const dict = chatDictFor("ja");
 
 function renderPart(data: unknown) {
-  return render(<DataPartCard data={data} dict={dict} />);
+  return render(
+    <ChatActionsProvider actions={{ send: vi.fn(), regenerate: vi.fn() }}>
+      <DataPartCard data={data} dict={dict} />
+    </ChatActionsProvider>,
+  );
 }
 
 describe("DataPartCard", () => {
@@ -34,6 +39,15 @@ describe("DataPartCard", () => {
     expect(screen.getByText("宇治の聖地を2件、徒歩ルートにまとめました。")).toBeTruthy();
     expect(screen.getByText("宇治橋")).toBeTruthy();
     expect(screen.getByText(/12/)).toBeTruthy();
+  });
+
+  it("appends the D3 short-route notice while keeping the spot cards", () => {
+    renderPart({
+      intent: "plan_route",
+      data: { route: { ordered_points: [{ id: "p1", name: "宇治橋" }], point_count: 1 } },
+    });
+    expect(screen.getByText("宇治橋")).toBeTruthy();
+    expect(screen.getByText(dict.errorStates.d3Notice)).toBeTruthy();
   });
 
   it("renders clarify candidates as options", () => {
@@ -80,33 +94,45 @@ describe("DataPartCard intent bodies", () => {
   });
 });
 
-describe("DataPartCard error intent", () => {
-  it("renders the envelope message and each error detail as an alert", () => {
+describe("DataPartCard failed envelopes", () => {
+  it("renders the D6 apology instead of the raw error details", () => {
     renderPart({
       intent: "error",
       message: "モデルに接続できませんでした",
       errors: [
-        { code: "provider_unavailable", message: "provider timed out" },
-        { code: "retry_exhausted", message: "all retries failed" },
+        { code: "retry_exhausted", message: "ModelRetry exhausted after output_validator rejection" },
       ],
       data: {},
     });
-    const alert = screen.getByRole("alert");
-    expect(alert).toBeTruthy();
-    expect(screen.getByText("モデルに接続できませんでした")).toBeTruthy();
-    expect(screen.getByText("provider timed out")).toBeTruthy();
-    expect(screen.getByText("all retries failed")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain(dict.errorStates.d6Message);
+    expect(screen.queryByText(/ModelRetry/)).toBeNull();
+    expect(screen.queryByText("モデルに接続できませんでした")).toBeNull();
   });
 
-  it("falls back to localized copy when the envelope has no message", () => {
-    renderPart({ intent: "error", data: {} });
-    expect(screen.getByRole("alert")).toBeTruthy();
-    expect(screen.getByText(dict.errorCard)).toBeTruthy();
+  it("routes a not-found failure onto the D1 recognition fallback", () => {
+    renderPart({
+      intent: "error",
+      errors: [{ code: "anime_not_found", message: "resolver miss" }],
+      data: {},
+    });
+    expect(screen.getByText(dict.errorStates.d1Title)).toBeTruthy();
+    expect(screen.queryByText("resolver miss")).toBeNull();
   });
 
-  it("keeps the localized fallback out of the card when a message exists", () => {
-    renderPart({ intent: "error", message: "接続エラー", data: {} });
-    expect(screen.getByText("接続エラー")).toBeTruthy();
-    expect(screen.queryByText(dict.errorCard)).toBeNull();
+  it("routes an empty search result onto the D2 no-spots fallback", () => {
+    renderPart({ intent: "search_bangumi", data: { results: { rows: [] } } });
+    expect(screen.getByText(dict.errorStates.d2Title)).toBeTruthy();
+  });
+
+  it("renders a failed clarify as candidates, not the D6 dead-loop apology", () => {
+    renderPart({
+      intent: "clarify",
+      success: false,
+      status: "invalid_selection",
+      message: "どの作品でしょうか?",
+      data: { candidates: [{ id: "1", title: "涼宮ハルヒの憂鬱" }] },
+    });
+    expect(screen.getByText("涼宮ハルヒの憂鬱")).toBeTruthy();
+    expect(screen.queryByText(dict.errorStates.d6Message)).toBeNull();
   });
 });
