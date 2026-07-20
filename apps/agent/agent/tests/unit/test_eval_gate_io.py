@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from agent.tests.eval.eval_harness import ALL_CASES, DEFAULT_MODEL_ID, METRIC_NAMES
 from agent.tests.eval.gate import (
     BaselineRecord,
     baseline_path,
@@ -72,6 +73,27 @@ def test_committed_baselines_validate() -> None:
     assert len(paths) == 3
     for path in paths:
         BaselineRecord.model_validate_json(path.read_text())
+
+
+def test_l4_trajectory_baseline_is_current_for_the_live_dataset() -> None:
+    """Card #227 AC1: the L1 baseline must track today's live dataset.
+
+    read_baseline_record returns None for a missing OR stale (wrong case count
+    or metric vocabulary) baseline — a stronger, CI-checkable "is current"
+    invariant than test_committed_baselines_validate's schema-only check.
+    """
+    record = read_baseline_record(
+        "agent_l4_trajectory",
+        DEFAULT_MODEL_ID,
+        baselines_dir=_BASELINES_DIR,
+        expected_case_count=len(ALL_CASES),
+        expected_metrics=METRIC_NAMES,
+    )
+
+    assert record is not None
+    assert record.case_count == len(ALL_CASES)
+    assert record.errored_count == 0
+    assert set(record.scores) == set(METRIC_NAMES)
 
 
 def test_read_returns_none_for_missing_file(tmp_path: Path) -> None:
