@@ -62,6 +62,9 @@ TITLE_NAMES: dict[str, TitleNames] = {
     "1608": TitleNames("スラムダンク", "灌篮高手", "Slam Dunk"),
     "49294": TitleNames("ラブライブ!", "Love Live!", "Love Live!"),
     "152091": TitleNames("聲の形", "声之形", "A Silent Voice"),
+    # Recent (2025-2026) titles — held-out generalization additions.
+    "500001": TitleNames("ダンダダン", "胆大党", "Dandadan"),
+    "500002": TitleNames("メダリスト", "金牌得主", "Medalist"),
 }
 
 POINT_SEEDS: tuple[PointSeed, ...] = (
@@ -120,6 +123,20 @@ POINT_SEEDS: tuple[PointSeed, ...] = (
     PointSeed(
         "p_koe_ogaki_park", "152091", "大垣公園", "大垣公园", 35.3587, 136.6122, 3
     ),
+    # Recent (2025-2026) titles — held-out generalization additions.
+    PointSeed("p_dandadan_1", "500001", "西新井大師", "西新井大师", 35.7768, 139.7906),
+    PointSeed("p_dandadan_2", "500001", "北千住駅", "北千住站", 35.7497, 139.8050, 2),
+    PointSeed(
+        "p_medalist_1",
+        "500002",
+        "新横浜スケートセンター",
+        "新横滨滑冰中心",
+        35.5100,
+        139.6170,
+    ),
+    PointSeed(
+        "p_medalist_2", "500002", "横浜アリーナ", "横滨竞技场", 35.5107, 139.6169, 2
+    ),
 )
 
 ALIASES_BY_ID: dict[str, tuple[str, ...]] = {
@@ -153,6 +170,8 @@ ALIASES_BY_ID: dict[str, tuple[str, ...]] = {
     "165553": ("ラブライブ! サンシャイン", "love live sunshine", "lovelive sunshine"),
     "1608": ("スラムダンク", "slam dunk legacy"),
     "49294": ("ラブライブ", "love live"),
+    "500001": ("ダンダダン", "胆大党", "dandadan"),
+    "500002": ("メダリスト", "金牌得主", "medalist"),
 }
 
 LOCATION_CENTERS: dict[str, tuple[float, float, str]] = {
