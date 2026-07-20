@@ -18,6 +18,7 @@ from pydantic_ai.common_tools.duckduckgo import (
 from pydantic_ai.tools import ToolFuncEither
 
 from agent.agents.runtime_deps import RuntimeDeps
+from agent.agents.tool_outcomes import TranslateTitleResult
 from agent.agents.translation import TranslationResult, translate_title
 from agent.agents.web_trust import (
     WebResult,
@@ -110,7 +111,7 @@ async def translate_anime_title(
     *,
     title: str,
     target_language: str,
-) -> dict[str, object]:
+) -> TranslateTitleResult:
     """Translate an anime title through catalog or tool-less localization.
 
     Chinese titles resolve through the authoritative catalog. English, Japanese,
@@ -124,15 +125,16 @@ async def translate_anime_title(
                Examples: "君の名は。", "Your Name", "你的名字"
         target_language: Target language code: "ja", "zh", or "en"
 
-    Returns: {"original": "...", "translated": "...", "source": "catalog|llm|untranslated", "confidence": 0.0-1.0}
+    Returns a TranslateTitleResult: original title, translated text, provenance
+    source (catalog|llm|untranslated), and confidence (0.0-1.0).
     """
     result = await _translate_title(ctx, title, target_language)
-    return {
-        "original": result.original,
-        "translated": result.translated,
-        "source": result.source,
-        "confidence": result.confidence,
-    }
+    return TranslateTitleResult(
+        original=result.original,
+        translated=result.translated,
+        source=result.source,
+        confidence=result.confidence,
+    )
 
 
 async def _translate_title(
