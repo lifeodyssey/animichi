@@ -33,7 +33,6 @@ export interface ChatDict {
   readonly retry: string;
   readonly historyFootprint: string;
   readonly fallbackCard: string;
-  readonly errorCard: string;
   readonly historyError: string;
   readonly preparing: string;
   readonly foxAlt: string;
@@ -122,7 +121,6 @@ const ja: ChatDict = {
   retry: "再試行",
   historyFootprint: "これまでのやり取り",
   fallbackCard: "この内容はうまく表示できませんでした",
-  errorCard: "ごめんね、エラーが起きちゃった。もう一度ためしてみてね",
   historyError: "過去の会話を読み込めませんでした",
   preparing: "じゅんびちゅう…",
   foxAlt: "アニミチ",
@@ -141,7 +139,6 @@ const zh: ChatDict = {
   retry: "重试",
   historyFootprint: "之前的对话",
   fallbackCard: "这段内容暂时无法显示",
-  errorCard: "抱歉,出错了。请再试一次",
   historyError: "无法加载之前的对话",
   preparing: "准备中…",
   foxAlt: "Animichi",
@@ -164,7 +161,6 @@ const en: ChatDict = {
   retry: "Retry",
   historyFootprint: "Earlier conversation",
   fallbackCard: "This part could not be displayed",
-  errorCard: "Sorry, something went wrong. Please try again",
   historyError: "Couldn't load this conversation",
   preparing: "Getting ready…",
   foxAlt: "Animichi",
