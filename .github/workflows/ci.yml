@@ -27,6 +27,7 @@ jobs:
       catalog: ${{ steps.f.outputs.catalog }}
       users: ${{ steps.f.outputs.users }}
       agent: ${{ steps.f.outputs.agent }}
+      agent_behavior: ${{ steps.f.outputs.agent_behavior }}
       frontend: ${{ steps.f.outputs.frontend }}
       web: ${{ steps.f.outputs.web }}
       contract: ${{ steps.f.outputs.contract }}
@@ -47,6 +48,16 @@ jobs:
             catalog: ['workers/catalog/**', 'packages/contract/**']
             users: ['workers/users/**', 'packages/contract/**']
             agent: ['apps/agent/**', 'packages/contract/**']
+            # SD-30 path-filter rule (shared verbatim with iter-1 S1.13, per the second-pass
+            # spec review): prompt/instructions + model-config + guardrail files ONLY — not
+            # every apps/agent/** change (that broader scope still gates `agent` above, which
+            # drives ci-agent's lint/type/test/coverage). agents/** carries the system prompt
+            # (animichi_agent.py), the ModelRetry/output_validator/repeat-guard hooks, the
+            # runner's usage-limit + error-classification guardrails, and the model-resolution
+            # glue (base.py); model_aliases.py is the concrete provider/thinking-mode registry;
+            # settings.py is where the production model spec actually lives (default_agent_model,
+            # model_attempt_timeout) — a PR flipping the prod model would live here, not in agents/**.
+            agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py', 'apps/agent/agent/config/settings.py']
             frontend: ['frontend/**']
             web: ['apps/web/**']
             worker: ['worker/**']
@@ -180,13 +191,19 @@ jobs:
           supabase migration list --db-url "$SUPABASE_DB_URL"
           supabase db push --dry-run --db-url "$SUPABASE_DB_URL"
 
-  # ── Agent eval (deferred — see `&& false`) ───────────────────
+  # ── Agent eval: L0 smoke (SD-30 §① — required PR gate) ────────
+  # Path-filter scope = the SD-30 rule above (`agent_behavior`): prompt/model-config/
+  # guardrail files only. Capped ~80-case trajectory run; EVAL_SMOKE=1 turns the
+  # normally report-only capped run into an enforced one — zero-errored cases plus the
+  # deterministic direct_gates (thrash) — without ever touching the statistical
+  # baseline. The uncapped L1 suite (baseline + statistical gate + translation eval)
+  # runs nightly instead of on every PR — see agent-eval-nightly.yml.
 
-  agent-eval:
-    name: Agent Eval (655 cases)
+  agent-eval-smoke:
+    name: Agent Eval (L0 smoke, ~80 cases)
     runs-on: ubuntu-latest
     needs: changes
-    if: ${{ (github.event_name != 'pull_request' || needs.changes.outputs.agent == 'true') && false }}
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.agent_behavior == 'true' }}
     defaults:
       run:
         working-directory: apps/agent
@@ -200,18 +217,15 @@ jobs:
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
-      - run: uv sync --all-extras
+      - run: uv sync --frozen --all-extras
 
-      - name: Run agent eval
-        run: uv run pytest agent/tests/eval/test_agent_eval.py -v -m integration --no-cov -x
+      - name: Run L0 smoke trajectory eval (zero-errored + direct gates)
+        run: uv run --frozen pytest agent/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
         env:
           EVAL_MODEL: openai:mimo-v2.5@https://api.xiaomimimo.com/v1
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
-
-      - name: Run translation eval
-        run: uv run pytest agent/tests/eval/test_translation.py -v -m integration --no-cov -x
-        env:
-          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          EVAL_SMOKE: "1"
+          EVAL_MAX_CASES: "80"
 
   # ── Neon test infrastructure (non-gating during calibration) ──
 

@@ -64,6 +64,10 @@ class NoEvaluatedCases(RuntimeError):
     """Raised when every eval case failed during task execution."""
 
 
+class SmokeRequiresCappedRun(RuntimeError):
+    """Raised when EVAL_SMOKE=1 is set but the run resolved to uncapped."""
+
+
 def _scores(report: AgentReport) -> ScoreMap:
     avg = report.averages()
     if avg is None:
@@ -129,10 +133,17 @@ def _write_baseline(
     )
 
 
-def _capped_notice(case_count: int) -> None:
+def _capped_mode_label(*, smoke: bool) -> str:
+    if smoke:
+        return "smoke-enforced (zero-errors + direct gates)"
+    return "report-only"
+
+
+def _capped_notice(case_count: int, *, smoke: bool) -> None:
+    label = _capped_mode_label(smoke=smoke)
     print(
-        f"\nCAPPED eval run: {case_count}/{len(ALL_CASES)} cases; "
-        "report-only (no baseline read/write/gate)."
+        f"\nCAPPED eval run: {case_count}/{len(ALL_CASES)} cases; {label} "
+        "(no baseline read/write/statistical gate)."
     )
 
 
@@ -146,12 +157,53 @@ def gate_report(
 def _run_gate(
     gate_input: GateInput, layer: str, baselines_dir: Path, *, capped: bool
 ) -> list[str] | None:
-    enforce_direct = _direct_gate_enforced() and not capped
-    _print_direct_metrics(gate_input, capped=capped, enforced=enforce_direct)
     if capped:
-        _capped_notice(gate_input.case_count)
-        return []
+        return _run_capped_gate(gate_input)
+    _refuse_uncapped_smoke()
+    enforce_direct = _direct_gate_enforced()
+    _print_direct_metrics(gate_input, include_p95=True, enforced=enforce_direct)
     return _run_uncapped_gate(gate_input, layer, baselines_dir, enforce_direct)
+
+
+def _refuse_uncapped_smoke() -> None:
+    """Never silently drop EVAL_SMOKE=1 into the uncapped statistical gate."""
+    if not _smoke_enforced():
+        return
+    raise SmokeRequiresCappedRun(
+        "EVAL_SMOKE=1 requires a capped run (EVAL_MAX_CASES below the dataset "
+        f"size, currently {len(ALL_CASES)} cases) — refusing to silently fall "
+        "through to the uncapped statistical gate."
+    )
+
+
+def _run_capped_gate(gate_input: GateInput) -> list[str]:
+    """L0 smoke tier: never touches the baseline; EVAL_SMOKE=1 makes it enforce."""
+    smoke = _smoke_enforced()
+    _print_direct_metrics(gate_input, include_p95=smoke, enforced=smoke)
+    _capped_notice(gate_input.case_count, smoke=smoke)
+    if not smoke:
+        return []
+    return _smoke_gate_failures(gate_input)
+
+
+def _smoke_gate_failures(gate_input: GateInput) -> list[str]:
+    return [
+        *_smoke_error_failures(gate_input),
+        *direct_thrash_gate(gate_input.trajectories),
+    ]
+
+
+def _smoke_error_failures(gate_input: GateInput) -> list[str]:
+    if gate_input.errored_count == 0:
+        return []
+    return [
+        f"{gate_input.errored_count}/{gate_input.case_count} cases errored "
+        "(EVAL_SMOKE requires zero errors)."
+    ]
+
+
+def _smoke_enforced() -> bool:
+    return os.environ.get("EVAL_SMOKE") == "1"
 
 
 def _run_uncapped_gate(
@@ -170,10 +222,10 @@ def _run_uncapped_gate(
 
 
 def _print_direct_metrics(
-    gate_input: GateInput, *, capped: bool, enforced: bool
+    gate_input: GateInput, *, include_p95: bool, enforced: bool
 ) -> None:
     print_direct_thrash_metrics(
-        gate_input.trajectories, include_p95=not capped, enforced=enforced
+        gate_input.trajectories, include_p95=include_p95, enforced=enforced
     )
 
 
