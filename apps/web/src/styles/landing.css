@@ -483,6 +483,16 @@
   background: var(--color-card);
 }
 
+.mobile-fox__bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-fox__bar-actions .locale-switcher__option {
+  padding: 4px 8px;
+}
+
 .mobile-fox__scene {
   position: relative;
   z-index: 1;
