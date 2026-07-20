@@ -1,4 +1,3 @@
-import type { ChatStatus } from "ai";
 import type { ChatDict } from "../i18n";
 import { FoxAvatar } from "./FoxAvatar";
 
@@ -22,11 +21,4 @@ export function TypingIndicator({ dict }: Props) {
       <TypingDots />
     </div>
   );
-}
-
-type GateProps = Readonly<{ status: ChatStatus; dict: ChatDict }>;
-
-export function TypingGate({ status, dict }: GateProps) {
-  if (status !== "submitted") return null;
-  return <TypingIndicator dict={dict} />;
 }
