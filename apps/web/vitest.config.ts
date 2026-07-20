@@ -25,6 +25,16 @@ export default defineConfig({
         // browser AC (S0.4). Same §0.6 exclude-ledger rationale as mapController.ts (surfaced when
         // routes/** entered the sweep in C0.1).
         "src/routes/_dev/map-spike.tsx",
+        // Bubble-map WebGL basemap glue: instantiates maplibre-gl (real GL context + dynamic
+        // imports), unrunnable under jsdom. Its pure inputs (bubbleGeometry) are unit-covered and
+        // the interactive bubble overlay/sheet are DOM-covered; the live mount is an S5.2 browser AC
+        // (Tester). Same §0.6 exclude-ledger rationale as mapController.ts.
+        "src/features/bubble-map/bubbleMapController.ts",
+        // BubbleMap entry only owns the ref + effect that mounts the basemap (attachBubbleMap ->
+        // bubbleMapController above); it cannot render under jsdom for the same GL reason. The
+        // testable state/overlay/sheet live in BubbleMapPanel. Same §0.6 exclude-ledger rationale
+        // as routes/_dev/map-spike.tsx.
+        "src/features/bubble-map/BubbleMap.tsx",
       ],
       thresholds: { statements: 90, branches: 90, functions: 90, lines: 90 },
     },
