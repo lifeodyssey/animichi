@@ -6,7 +6,7 @@
     "test:headed": "playwright test --headed",
     "test:public": "playwright test public-pages.spec.ts middleware-redirect.spec.ts login-modal.spec.ts",
     "test:auth": "playwright test auth-flow.spec.ts",
-    "test:web": "playwright test web-404.spec.ts"
+    "test:web": "playwright test web-404.spec.ts web-chat-error-states.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1"
