@@ -129,3 +129,17 @@ RouteToolResult: TypeAlias = Annotated[
     RouteOk | RouteEmpty | RouteStaleRef | RoutePendingSync | RouteUpstreamDown,
     Field(discriminator="status"),
 ]
+
+
+TranslateTitleSource = Literal["catalog", "llm", "untranslated"]
+
+
+class TranslateTitleResult(BaseModel):
+    """A localized title with provenance, returned by translate_anime_title."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    original: str
+    translated: str
+    source: TranslateTitleSource
+    confidence: float
