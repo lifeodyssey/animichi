@@ -161,7 +161,11 @@ export function conversationMessagesErrorHandler(sessionId: string, status: numb
 export function conversationMessagesHandler(
   sessionId: string,
   rows: readonly HistoryRowFixture[],
+  spy?: (request: Request) => void,
 ): HttpHandler {
   const url = `${TEST_ORIGIN}/v1/conversations/${encodeURIComponent(sessionId)}/messages`;
-  return http.get(url, () => HttpResponse.json({ messages: rows }));
+  return http.get(url, ({ request }) => {
+    spy?.(request);
+    return HttpResponse.json({ messages: rows });
+  });
 }
