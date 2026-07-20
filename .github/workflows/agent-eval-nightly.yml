@@ -17,6 +17,13 @@ on:
 permissions:
   contents: read
 
+# One nightly (or dispatched) run at a time — an overlapping second run would burn real
+# MIMO_API_KEY spend for no benefit. cancel-in-progress stays false: cancelling a live LLM
+# eval run wastes the tokens it already spent, so a second trigger queues instead.
+concurrency:
+  group: agent-eval-nightly
+  cancel-in-progress: false
+
 env:
   PYTHON_VERSION: "3.11"
   NODE_VERSION: "24"

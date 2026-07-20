@@ -137,6 +137,7 @@ def test_finish_cli_report_golden_and_entry_verdicts(
     expected_failures: list[str] | None,
     expected_exit: int,
 ) -> None:
+    monkeypatch.delenv("EVAL_SMOKE", raising=False)
     payload, baseline, capped = _fixture(fixture_name)
     direct_target = _configure(
         monkeypatch, tmp_path / "direct", payload, baseline, capped

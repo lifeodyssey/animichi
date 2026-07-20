@@ -128,8 +128,8 @@ cd apps/agent && uv run python -m agent.tests.eval.run_agent_eval \
   --eval-model "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"   # full 655
 EVAL_MAX_CASES=50 uv run python -m agent.tests.eval.run_agent_eval ...  # capped = report-only, no baseline/gate
 ```
-Direct thrash gates (req≤12 / tool≤6 / repeat=0 / p95≤6) are **report-only** until `DIRECT_GATE_ENFORCE=1`
-(owner calibrates first). Capped runs never read/write baselines.
+Direct thrash gates (req≤12 / tool≤10 / repeat=0 / p95≤8 — `agent/tests/eval/direct_gates.py`) are
+**report-only** until `DIRECT_GATE_ENFORCE=1` (owner calibrates first). Capped runs never read/write baselines.
 
 **CI tiering (SD-30, #228/#227).** `EVAL_SMOKE=1` turns a capped run from report-only into an
 enforced L0 gate: zero-errored cases + the deterministic direct thrash gates (unconditionally,
