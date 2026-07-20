@@ -11,6 +11,7 @@ from pydantic_ai import RunContext
 
 from agent.agents.pilgrimage_agent import pilgrimage_agent
 from agent.agents.runtime_deps import RuntimeDeps
+from agent.agents.tool_results import TranslateTitleResult
 from agent.agents.translation import translate_title
 
 
@@ -71,7 +72,7 @@ async def translate_anime_title(
     *,
     title: str,
     target_language: str,
-) -> dict[str, object]:
+) -> TranslateTitleResult:
     """Translate an anime title to a target language using authoritative sources.
 
     This tool searches Bangumi, 萌娘百科, and Wikipedia for the community-accepted
@@ -92,9 +93,9 @@ async def translate_anime_title(
         target_locale=target_language,
         db=ctx.deps.db,
     )
-    return {
-        "original": result.original,
-        "translated": result.translated,
-        "source": result.source,
-        "confidence": result.confidence,
-    }
+    return TranslateTitleResult(
+        original=result.original,
+        translated=result.translated,
+        source=result.source,
+        confidence=result.confidence,
+    )

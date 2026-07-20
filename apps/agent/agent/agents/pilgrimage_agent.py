@@ -32,6 +32,7 @@ from agent.agents.runtime_models import (
     RouteResponseModel,
     SearchResponseModel,
 )
+from agent.agents.tool_state import ToolState
 
 COMPACT_THRESHOLD = 40  # ~5 turns × 8 messages/turn
 _KEEP_RECENT = 8  # Keep latest turn fully uncompressed
@@ -311,7 +312,7 @@ def _inject_session_context(ctx: RunContext[RuntimeDeps]) -> str:
     return "\n## Current session state\n" + "\n".join(f"- {p}" for p in parts)
 
 
-def _add_resolve_context(state: dict[str, object], parts: list[str]) -> None:
+def _add_resolve_context(state: ToolState, parts: list[str]) -> None:
     resolve_data = state.get("resolve_anime")
     if not isinstance(resolve_data, dict):
         return
@@ -321,7 +322,7 @@ def _add_resolve_context(state: dict[str, object], parts: list[str]) -> None:
         parts.append(f"Current anime: {title} (bangumi_id={bid})")
 
 
-def _add_search_context(state: dict[str, object], parts: list[str]) -> None:
+def _add_search_context(state: ToolState, parts: list[str]) -> None:
     search_data = state.get("search_bangumi")
     if not isinstance(search_data, dict):
         return
@@ -332,7 +333,7 @@ def _add_search_context(state: dict[str, object], parts: list[str]) -> None:
     parts.append(f"Search results available: {row_count} spots{suffix}")
 
 
-def _add_nearby_context(state: dict[str, object], parts: list[str]) -> None:
+def _add_nearby_context(state: ToolState, parts: list[str]) -> None:
     search_nearby = state.get("search_nearby")
     if not isinstance(search_nearby, dict):
         return
@@ -340,7 +341,7 @@ def _add_nearby_context(state: dict[str, object], parts: list[str]) -> None:
     parts.append(f"Nearby search results available: {row_count} spots")
 
 
-def _add_clarify_context(state: dict[str, object], parts: list[str]) -> None:
+def _add_clarify_context(state: ToolState, parts: list[str]) -> None:
     if state.get("pending_clarify"):
         parts.append(
             "Previous turn ended with clarification "

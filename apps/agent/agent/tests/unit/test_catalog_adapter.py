@@ -1,9 +1,9 @@
 """Unit tests for the catalog payload adapter.
 
 The adapter converts typed Catalog models (PilgrimagePoint / Route) into the
-``tool_state`` payload shapes the response builder and output_validator expect
-(mirroring the legacy handler payloads), so swapping the data source is invisible
-to the rest of the agent.
+named tool-result models the response builder and output_validator expect
+(mirroring the legacy handler payloads), so swapping the data source is
+invisible to the rest of the agent.
 """
 
 from __future__ import annotations
@@ -18,6 +18,11 @@ from agent.agents.catalog_adapter import (
 from agent.agents.handlers._helpers import (
     _build_nearby_groups,
     rewrite_image_urls,
+)
+from agent.agents.tool_results import (
+    ResolveAnimeResult,
+    RouteToolResult,
+    SearchToolResult,
 )
 from agent.clients.catalog_client import PilgrimagePoint, Route
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
@@ -37,83 +42,88 @@ def _point(pid: str = "p1", bangumi_id: str = "160209") -> PilgrimagePoint:
     )
 
 
+def test_build_search_payload_returns_search_tool_result() -> None:
+    payload = build_search_payload([_point(), _point("p2")], tool="search_bangumi")
+    assert isinstance(payload, SearchToolResult)
+
+
 def test_build_search_payload_has_rows_and_row_count() -> None:
     payload = build_search_payload([_point(), _point("p2")], tool="search_bangumi")
-    assert payload["row_count"] == 2
-    assert len(payload["rows"]) == 2
+    assert payload.row_count == 2
+    assert len(payload.rows) == 2
 
 
 def test_build_search_payload_status_ok_when_points() -> None:
     payload = build_search_payload([_point()], tool="search_bangumi")
-    assert payload["status"] == "ok"
+    assert payload.status == "ok"
 
 
 def test_build_search_payload_status_empty_when_no_points() -> None:
     payload = build_search_payload([], tool="search_bangumi")
-    assert payload["status"] == "empty"
+    assert payload.status == "empty"
 
 
 def test_build_search_payload_sets_anime_title_metadata() -> None:
     payload = build_search_payload([_point()], tool="search_bangumi")
-    metadata = payload["metadata"]
-    assert isinstance(metadata, dict)
-    assert metadata["anime_title"] == "君の名は。"
+    assert payload.metadata.anime_title == "君の名は。"
 
 
 def test_build_search_payload_builds_nearby_groups() -> None:
     payload = build_search_payload([_point()], tool="search_nearby")
-    groups = payload["nearby_groups"]
-    assert isinstance(groups, list)
-    assert groups[0]["bangumi_id"] == "160209"
+    assert payload.nearby_groups[0].bangumi_id == "160209"
+
+
+def test_build_resolve_payload_returns_resolve_anime_result() -> None:
+    payload = build_resolve_payload([_point()])
+    assert isinstance(payload, ResolveAnimeResult)
 
 
 def test_build_resolve_payload_single_match_returns_bangumi_id() -> None:
     payload = build_resolve_payload([_point()])
-    assert payload["bangumi_id"] == "160209"
-    assert payload["title"] == "君の名は。"
+    assert payload.bangumi_id == "160209"
+    assert payload.title == "君の名は。"
 
 
 def test_build_resolve_payload_includes_candidates() -> None:
     payload = build_resolve_payload([_point()])
-    candidates = payload["candidates"]
-    assert isinstance(candidates, list)
-    assert candidates[0]["bangumi_id"] == "160209"
+    assert payload.candidates[0].bangumi_id == "160209"
 
 
 def test_build_resolve_payload_multiple_works_is_ambiguous() -> None:
     payload = build_resolve_payload([_point("p1", "160209"), _point("p2", "100403")])
-    assert payload["ambiguous"] is True
-    candidates = payload["candidates"]
-    assert isinstance(candidates, list)
-    assert len(candidates) == 2
+    assert payload.ambiguous is True
+    assert len(payload.candidates) == 2
 
 
 def test_build_resolve_payload_empty_when_no_points() -> None:
     payload = build_resolve_payload([])
-    assert payload == {}
+    assert payload.candidates == []
+
+
+async def test_build_route_payload_returns_route_tool_result() -> None:
+    route: Route = await MockCatalogClient().route(["p_euph_1", "p_euph_2"])
+    payload = build_route_payload(route)
+    assert isinstance(payload, RouteToolResult)
 
 
 async def test_build_route_payload_from_catalog_route() -> None:
     route: Route = await MockCatalogClient().route(["p_euph_1", "p_euph_2"])
     payload = build_route_payload(route)
-    assert payload["point_count"] == 2
-    assert payload["status"] == "ok"
-    itinerary = payload["timed_itinerary"]
-    assert isinstance(itinerary, dict)
-    assert itinerary["spot_count"] == 2
+    assert payload.point_count == 2
+    assert payload.status == "ok"
+    assert payload.timed_itinerary.spot_count == 2
 
 
 async def test_build_route_payload_summary_has_coordinate_counts() -> None:
     route: Route = await MockCatalogClient().route(["p_euph_1", "p_euph_2"])
-    summary = build_route_payload(route)["summary"]
-    assert isinstance(summary, dict)
-    assert summary["with_coordinates"] == 2
-    assert summary["without_coordinates"] == 0
+    summary = build_route_payload(route).summary
+    assert summary.with_coordinates == 2
+    assert summary.without_coordinates == 0
 
 
 def test_build_route_payload_empty_route_has_zero_points() -> None:
     payload = build_route_payload(Route())
-    assert payload["point_count"] == 0
+    assert payload.point_count == 0
 
 
 # ---------------------------------------------------------------------------

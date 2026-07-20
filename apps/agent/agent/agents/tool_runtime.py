@@ -9,7 +9,9 @@ greet/qa handlers; the catalog read path lives in ``catalog_tools``.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from typing import TypeVar
 
+from pydantic import BaseModel
 from pydantic_ai import RunContext
 
 from agent.agents.agent_result import StepRecord
@@ -17,7 +19,17 @@ from agent.agents.geo_names import localized_city_name
 from agent.agents.handlers import HandlerResult
 from agent.agents.models import PlanStep, ToolName
 from agent.agents.runtime_deps import RuntimeDeps
+from agent.agents.tool_results import (
+    ClarifyToolResult,
+    MessageToolResult,
+    SearchPreviewRow,
+    SearchToolPreview,
+    SearchToolResult,
+)
+from agent.agents.tool_state import ToolState
 from agent.agents.tools import enrich_clarify_candidates
+
+T = TypeVar("T", bound=BaseModel)
 
 
 async def _emit_step(
@@ -60,38 +72,32 @@ def _localize_city_names(data: dict[str, object], locale: str) -> None:
             row["city"] = localized_city_name(row["city"], locale)
 
 
-def _summarize_for_llm(tool: ToolName, data: dict[str, object]) -> dict[str, object]:
+def _build_preview(data: SearchToolResult) -> SearchToolPreview:
+    """Shrink a large SearchToolResult into a compact LLM-facing preview."""
+    title = data.metadata.anime_title
+    preview_rows = [
+        SearchPreviewRow(name=r.name, episode=r.episode) for r in data.rows[:5]
+    ]
+    return SearchToolPreview(
+        row_count=data.row_count,
+        status=data.status,
+        metadata=data.metadata,
+        preview=preview_rows,
+        note=f"Found {data.row_count} pilgrimage spots{' for ' + title if title else ''}. "
+        "Full data is available — proceed to return a search_response.",
+    )
+
+
+def _summarize_for_llm(tool: ToolName, data: T) -> T | SearchToolPreview:
     """Return a compact summary of tool results for the LLM.
 
     Full data is kept in tool_state and SSE events for the frontend.
     The LLM only needs enough context to decide its next action.
     """
-    if tool not in (ToolName.SEARCH_BANGUMI, ToolName.SEARCH_NEARBY):
-        return data
-
-    rows = data.get("rows")
-    if not isinstance(rows, list) or len(rows) <= 5:
-        return data
-
-    row_count = data.get("row_count", len(rows))
-    metadata = data.get("metadata")
-    title = ""
-    if isinstance(metadata, dict):
-        title = str(metadata.get("anime_title", "") or "")
-
-    preview_rows = [
-        {k: row[k] for k in ("name", "episode") if k in row}
-        for row in rows[:5]
-        if isinstance(row, dict)
-    ]
-    return {
-        "row_count": row_count,
-        "status": data.get("status", "ok"),
-        "metadata": metadata,
-        "preview": preview_rows,
-        "note": f"Found {row_count} pilgrimage spots{' for ' + title if title else ''}. "
-        "Full data is available — proceed to return a search_response.",
-    }
+    is_search_tool = tool in (ToolName.SEARCH_BANGUMI, ToolName.SEARCH_NEARBY)
+    if is_search_tool and isinstance(data, SearchToolResult) and len(data.rows) > 5:
+        return _build_preview(data)
+    return data
 
 
 async def _run_ephemeral(
@@ -99,10 +105,8 @@ async def _run_ephemeral(
     *,
     tool: ToolName,
     params: dict[str, object],
-    handler: Callable[
-        [PlanStep, dict[str, object], object, object], Awaitable[HandlerResult]
-    ],
-) -> dict[str, object]:
+    handler: Callable[[PlanStep, ToolState, object, object], Awaitable[HandlerResult]],
+) -> MessageToolResult | None:
     """Run an upstream-free handler (greet/qa) and record/emit its result.
 
     Ephemeral handlers echo their LLM-supplied payload and never touch the DB,
@@ -143,22 +147,20 @@ async def _run_ephemeral(
             observation=result.error or "",
         )
 
-    return _summarize_for_llm(tool, result.data) if result.data else {}
+    return MessageToolResult.model_validate(result.data) if result.data else None
 
 
 async def run_clarify(
     deps: RuntimeDeps, *, question: str, options: list[str] | None
-) -> dict[str, object]:
-    """Enrich candidates and record/emit a clarification request payload."""
+) -> ClarifyToolResult:
+    """Enrich candidates and record/emit a clarification request."""
     normalized_options = list(options) if options else []
     await _emit_step(deps, ToolName.CLARIFY.value, "running", {})
     candidates = await enrich_clarify_candidates(deps, normalized_options)
-    payload: dict[str, object] = {
-        "question": question,
-        "options": normalized_options,
-        "candidates": candidates,
-        "status": "needs_clarification",
-    }
+    result = ClarifyToolResult(
+        question=question, options=normalized_options, candidates=candidates
+    )
+    payload = result.model_dump(mode="json")
     deps.tool_state[ToolName.CLARIFY.value] = payload
     deps.tool_state["pending_clarify"] = True
     _record_step(
@@ -170,8 +172,4 @@ async def run_clarify(
         error=None,
     )
     await _emit_step(deps, ToolName.CLARIFY.value, "done", payload)
-    # Signal to the LLM that it must stop and return clarify_response now.
-    # Without this, some models (e.g. DeepSeek V4 Flash) continue calling
-    # search_bangumi instead of waiting for user input.
-    payload["action_required"] = "return clarify_response"
-    return payload
+    return result

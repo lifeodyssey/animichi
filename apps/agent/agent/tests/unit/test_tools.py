@@ -36,12 +36,12 @@ async def test_enrich_clarify_candidates_keeps_order_and_defaults() -> None:
         deps, ["凉宫春日的忧郁", "凉宫春日的消失"]
     )
 
-    assert [c["title"] for c in candidates] == ["凉宫春日的忧郁", "凉宫春日的消失"]
-    assert candidates[0]["cover_url"] == "https://example.com/a.jpg"
-    assert candidates[0]["spot_count"] == 12
-    assert candidates[0]["city"] == "西宫"
-    assert candidates[1]["cover_url"] is None
-    assert candidates[1]["spot_count"] == 0
+    assert [c.title for c in candidates] == ["凉宫春日的忧郁", "凉宫春日的消失"]
+    assert candidates[0].cover_url == "https://example.com/a.jpg"
+    assert candidates[0].spot_count == 12
+    assert candidates[0].city == "西宫"
+    assert candidates[1].cover_url is None
+    assert candidates[1].spot_count == 0
 
 
 async def test_enrich_clarify_candidates_falls_back_to_catalog_and_writes_through() -> (
@@ -69,7 +69,7 @@ async def test_enrich_clarify_candidates_falls_back_to_catalog_and_writes_throug
 
     # The catalog's first hit carries the bangumi_id (160209), cover, and the
     # work's point count — no Bangumi gateway is consulted.
-    assert candidates[0]["cover_url"] == "https://example.test/cover/160209.jpg"
-    assert candidates[0]["spot_count"] == 2
+    assert candidates[0].cover_url == "https://example.test/cover/160209.jpg"
+    assert candidates[0].spot_count == 2
     db.bangumi.upsert_bangumi_title.assert_awaited_once_with("你的名字", "160209")
     db.bangumi.upsert_bangumi.assert_awaited()

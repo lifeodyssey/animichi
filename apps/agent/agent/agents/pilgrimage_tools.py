@@ -26,6 +26,14 @@ from agent.agents.handlers import execute_answer_question, execute_greet_user
 from agent.agents.models import ToolName
 from agent.agents.pilgrimage_agent import pilgrimage_agent
 from agent.agents.runtime_deps import RuntimeDeps
+from agent.agents.tool_results import (
+    ClarifyToolResult,
+    MessageToolResult,
+    ResolveAnimeResult,
+    RouteToolResult,
+    SearchToolPreview,
+    SearchToolResult,
+)
 from agent.agents.tool_runtime import _run_ephemeral, run_clarify
 from agent.clients.catalog_client import CatalogClientProtocol
 
@@ -44,7 +52,9 @@ def _require_catalog(deps: RuntimeDeps) -> CatalogClientProtocol:
 
 
 @pilgrimage_agent.tool
-async def resolve_anime(ctx: RunContext[RuntimeDeps], title: str) -> dict[str, object]:
+async def resolve_anime(
+    ctx: RunContext[RuntimeDeps], title: str
+) -> ResolveAnimeResult | None:
     """Look up an anime by title and return its unique database identifier.
 
     Call this FIRST whenever the user mentions an anime by name.
@@ -82,7 +92,7 @@ async def search_bangumi(
     *,
     episode: int = -1,
     force_refresh: bool = False,
-) -> dict[str, object]:
+) -> SearchToolResult | SearchToolPreview | None:
     """Find real-world pilgrimage filming locations for a specific anime.
 
     Call this AFTER resolve_anime returns a bangumi_id.
@@ -134,7 +144,7 @@ async def search_nearby(
     *,
     location: str,
     radius: int = 0,
-) -> dict[str, object]:
+) -> SearchToolResult | SearchToolPreview | None:
     """Find anime pilgrimage spots near a real-world location using geo search.
 
     Use this for location-based queries like "宇治站附近", "spots near Kyoto".
@@ -168,7 +178,7 @@ async def plan_route(
     origin: str = "",
     pacing: str = "",
     start_time: str = "",
-) -> dict[str, object]:
+) -> RouteToolResult | None:
     """Create an optimized walking route from the pilgrimage points found by search_bangumi.
 
     IMPORTANT: You must call search_bangumi BEFORE this tool. plan_route uses
@@ -204,7 +214,9 @@ async def plan_route(
 
 
 @pilgrimage_agent.tool
-async def greet_user(ctx: RunContext[RuntimeDeps], message: str) -> dict[str, object]:
+async def greet_user(
+    ctx: RunContext[RuntimeDeps], message: str
+) -> MessageToolResult | None:
     """Respond to greetings and "what can you do?" questions.
 
     Use ONLY for: "hi", "hello", "你好", "こんにちは", "你是谁", "what can you do?",
@@ -226,7 +238,9 @@ async def greet_user(ctx: RunContext[RuntimeDeps], message: str) -> dict[str, ob
 
 
 @pilgrimage_agent.tool
-async def general_qa(ctx: RunContext[RuntimeDeps], answer: str) -> dict[str, object]:
+async def general_qa(
+    ctx: RunContext[RuntimeDeps], answer: str
+) -> MessageToolResult | None:
     """Answer general questions about anime pilgrimage (etiquette, tips, costs, planning).
 
     Use for questions like:
@@ -255,7 +269,7 @@ async def clarify(
     *,
     question: str,
     options: list[str] | None = None,
-) -> dict[str, object]:
+) -> ClarifyToolResult:
     """Ask the user a clarification question when you cannot proceed confidently.
 
     Use when:

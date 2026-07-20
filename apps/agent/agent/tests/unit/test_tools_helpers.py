@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 from agent.agents.runtime_deps import RuntimeDeps
+from agent.agents.tool_results import ClarifyCandidate
 from agent.agents.tools import (
     _candidate_from_row,
     _catalog_fallback,
@@ -53,17 +54,17 @@ def test_candidate_from_row_with_full_data() -> None:
         "city": "京都",
     }
     c = _candidate_from_row("響け", row)
-    assert c["title"] == "響け"
-    assert c["cover_url"] == "https://example.com/img.jpg"
-    assert c["spot_count"] == 5
-    assert c["city"] == "京都"
+    assert c.title == "響け"
+    assert c.cover_url == "https://example.com/img.jpg"
+    assert c.spot_count == 5
+    assert c.city == "京都"
 
 
 def test_candidate_from_row_with_empty_data() -> None:
     c = _candidate_from_row("test", {})
-    assert c["cover_url"] is None
-    assert c["spot_count"] == 0
-    assert c["city"] == ""
+    assert c.cover_url is None
+    assert c.spot_count == 0
+    assert c.city == ""
 
 
 class _FailingCatalog:
@@ -89,7 +90,7 @@ class _FailingCatalog:
 
 def test_minimal_candidate_shape() -> None:
     c = _minimal_candidate("test")
-    assert c == {"title": "test", "cover_url": None, "spot_count": 0, "city": ""}
+    assert c == ClarifyCandidate(title="test", cover_url=None, spot_count=0, city="")
 
 
 async def test_catalog_search_returns_empty_on_error() -> None:
@@ -103,9 +104,9 @@ async def test_catalog_fallback_returns_minimal_on_error() -> None:
     catalog: CatalogClientProtocol = _FailingCatalog()
     deps = RuntimeDeps(db=MagicMock(spec=[]), locale="zh", query="q", catalog=catalog)
     result = await _catalog_fallback(deps, "test")
-    assert result["title"] == "test"
-    assert result["cover_url"] is None
-    assert result["spot_count"] == 0
+    assert result.title == "test"
+    assert result.cover_url is None
+    assert result.spot_count == 0
 
 
 async def test_catalog_fallback_resolves_via_catalog() -> None:
@@ -114,8 +115,8 @@ async def test_catalog_fallback_resolves_via_catalog() -> None:
     db.bangumi.upsert_bangumi = AsyncMock(return_value=None)
     deps = RuntimeDeps(db=db, locale="zh", query="q", catalog=MockCatalogClient())
     result = await _catalog_fallback(deps, "你的名字")
-    assert result["cover_url"] == "https://example.test/cover/160209.jpg"
-    assert result["spot_count"] == 2
+    assert result.cover_url == "https://example.test/cover/160209.jpg"
+    assert result.spot_count == 2
     db.bangumi.upsert_bangumi_title.assert_awaited_once_with("你的名字", "160209")
 
 

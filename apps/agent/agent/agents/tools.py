@@ -9,6 +9,7 @@ from __future__ import annotations
 import structlog
 
 from agent.agents.runtime_deps import RuntimeDeps
+from agent.agents.tool_results import ClarifyCandidate
 from agent.clients.catalog_client import PilgrimagePoint
 
 logger = structlog.get_logger(__name__)
@@ -19,7 +20,7 @@ _IO_ERRORS = (OSError, RuntimeError, ValueError)
 
 async def enrich_clarify_candidates(
     deps: RuntimeDeps, titles: list[str]
-) -> list[dict[str, object]]:
+) -> list[ClarifyCandidate]:
     """Enrich clarify candidate titles with cover/city/spot_count.
 
     DB-first → Catalog fallback → write-through (best-effort). The clarify path
@@ -32,7 +33,7 @@ async def enrich_clarify_candidates(
 
     by_title = await _db_lookup(deps, titles)
 
-    candidates: list[dict[str, object]] = []
+    candidates: list[ClarifyCandidate] = []
     for title in titles:
         row = by_title.get(title, {})
         bangumi_id = row.get("bangumi_id")
@@ -71,22 +72,22 @@ async def _db_lookup(
     return result
 
 
-def _candidate_from_row(title: str, row: dict[str, object]) -> dict[str, object]:
-    """Build a candidate dict from a DB row."""
+def _candidate_from_row(title: str, row: dict[str, object]) -> ClarifyCandidate:
+    """Build a candidate from a DB row."""
     cover_url = row.get("cover_url")
     points_count = row.get("points_count")
     city = row.get("city")
-    return {
-        "title": title,
-        "cover_url": cover_url if isinstance(cover_url, str) and cover_url else None,
-        "spot_count": int(points_count or 0)
+    return ClarifyCandidate(
+        title=title,
+        cover_url=cover_url if isinstance(cover_url, str) and cover_url else None,
+        spot_count=int(points_count or 0)
         if isinstance(points_count, int | float)
         else 0,
-        "city": str(city or "") if isinstance(city, str | None) else "",
-    }
+        city=str(city or "") if isinstance(city, str | None) else "",
+    )
 
 
-async def _catalog_fallback(deps: RuntimeDeps, title: str) -> dict[str, object]:
+async def _catalog_fallback(deps: RuntimeDeps, title: str) -> ClarifyCandidate:
     """Resolve via the Catalog service and write-through (best-effort).
 
     The first search hit carries the candidate's ``bangumi_id`` + ``cover_url``;
@@ -102,12 +103,12 @@ async def _catalog_fallback(deps: RuntimeDeps, title: str) -> dict[str, object]:
 
     cover_url = first.cover_url or None
     await _write_through(deps, title, first.bangumi_id, cover_url)
-    return {
-        "title": title,
-        "cover_url": cover_url,
-        "spot_count": len(points),
-        "city": "",
-    }
+    return ClarifyCandidate(
+        title=title,
+        cover_url=cover_url,
+        spot_count=len(points),
+        city="",
+    )
 
 
 async def _catalog_search(deps: RuntimeDeps, title: str) -> list[PilgrimagePoint]:
@@ -119,9 +120,9 @@ async def _catalog_search(deps: RuntimeDeps, title: str) -> list[PilgrimagePoint
         return []
 
 
-def _minimal_candidate(title: str) -> dict[str, object]:
+def _minimal_candidate(title: str) -> ClarifyCandidate:
     """A safe candidate when the catalog yields no enrichment data."""
-    return {"title": title, "cover_url": None, "spot_count": 0, "city": ""}
+    return ClarifyCandidate(title=title, cover_url=None, spot_count=0, city="")
 
 
 async def _write_through(
