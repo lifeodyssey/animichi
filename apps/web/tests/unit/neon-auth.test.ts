@@ -1,4 +1,6 @@
+import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { server } from "../msw/node";
 
 const { magicLink } = vi.hoisted(() => ({ magicLink: vi.fn() }));
 
@@ -7,7 +9,7 @@ vi.mock("better-auth/client", () => ({
 }));
 vi.mock("better-auth/client/plugins", () => ({ magicLinkClient: () => ({}) }));
 
-import { isNeonAuthConfigured, sendMagicLink } from "../../src/lib/auth/neonAuth";
+import { fetchAuthToken, isNeonAuthConfigured, sendMagicLink } from "../../src/lib/auth/neonAuth";
 
 const request = { email: "fan@example.com", callbackURL: "https://app.test/auth/callback" };
 
@@ -56,5 +58,55 @@ describe("neon auth magic link", () => {
     configure();
     magicLink.mockRejectedValue(new Error("network"));
     expect(await sendMagicLink(request)).toBe("error");
+  });
+});
+
+describe("fetchAuthToken", () => {
+  it("returns undefined when Neon Auth is not configured", async () => {
+    expect(await fetchAuthToken()).toBeUndefined();
+  });
+
+  it("returns the JWT from a signed-in session's /token response", async () => {
+    configure();
+    server.use(
+      http.get("https://auth.test/neondb/auth/token", () => HttpResponse.json({ token: "jwt-xyz" })),
+    );
+    expect(await fetchAuthToken()).toBe("jwt-xyz");
+  });
+
+  it("sends the request with credentials included, so the auth cookie rides along", async () => {
+    configure();
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ token: "jwt-xyz" }), { status: 200 }),
+    );
+    await fetchAuthToken();
+    expect(spy).toHaveBeenCalledWith(
+      "https://auth.test/neondb/auth/token",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("returns undefined when there is no session (401)", async () => {
+    configure();
+    server.use(
+      http.get("https://auth.test/neondb/auth/token", () => new HttpResponse(null, { status: 401 })),
+    );
+    expect(await fetchAuthToken()).toBeUndefined();
+  });
+
+  it("returns undefined when the response body doesn't match the expected shape", async () => {
+    configure();
+    server.use(
+      http.get("https://auth.test/neondb/auth/token", () => HttpResponse.json({ nope: true })),
+    );
+    expect(await fetchAuthToken()).toBeUndefined();
+  });
+
+  it("returns undefined when the fetch throws", async () => {
+    configure();
+    server.use(
+      http.get("https://auth.test/neondb/auth/token", () => HttpResponse.error()),
+    );
+    expect(await fetchAuthToken()).toBeUndefined();
   });
 });

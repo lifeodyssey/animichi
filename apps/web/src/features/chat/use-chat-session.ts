@@ -5,6 +5,7 @@ import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import { useRef } from "react";
 import type { RefObject } from "react";
+import { authHeaders } from "../../lib/auth/authSession";
 
 /**
  * Typed UI message: the `data-response` part carries the contract envelope,
@@ -27,8 +28,11 @@ interface SessionTracker {
 }
 type SessionRef = RefObject<SessionTracker>;
 
-function sessionHeaders(sessionId?: string): Record<string, string> {
-  return sessionId ? { "x-session-id": sessionId } : {};
+/** `x-session-id` (when known) plus a Bearer token once signed in; anonymous
+ * turns simply omit Authorization, same as today. */
+async function sessionHeaders(sessionId?: string): Promise<Record<string, string>> {
+  const base: Record<string, string> = sessionId ? { "x-session-id": sessionId } : {};
+  return { ...base, ...(await authHeaders()) };
 }
 
 function scopeOf(sessionId?: string): string {

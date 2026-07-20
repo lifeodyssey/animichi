@@ -1,4 +1,5 @@
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+import { authHeaders } from "../lib/auth/authSession";
 import {
   type CatalogClient,
   type UsersClient,
@@ -33,8 +34,10 @@ function buildCatalogUtils(): CatalogUtils {
   return createCatalogUtils(createCatalogClient({ url: currentApiConfig().catalogUrl }));
 }
 
+/** The users service is authenticated by default: every request carries the
+ * current session's Bearer token (or none, anonymously) via `authHeaders`. */
 function buildUsersUtils(): UsersUtils {
-  return createUsersUtils(createUsersClient({ url: currentApiConfig().usersUrl }));
+  return createUsersUtils(createUsersClient({ url: currentApiConfig().usersUrl, headers: authHeaders }));
 }
 
 /** Catalog utils: fresh per SSR request, lazily memoized in the browser. */
