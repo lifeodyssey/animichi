@@ -131,6 +131,15 @@ EVAL_MAX_CASES=50 uv run python -m agent.tests.eval.run_agent_eval ...  # capped
 Direct thrash gates (req≤12 / tool≤6 / repeat=0 / p95≤6) are **report-only** until `DIRECT_GATE_ENFORCE=1`
 (owner calibrates first). Capped runs never read/write baselines.
 
+**CI tiering (SD-30, #228/#227).** `EVAL_SMOKE=1` turns a capped run from report-only into an
+enforced L0 gate: zero-errored cases + the deterministic direct thrash gates (unconditionally,
+independent of `DIRECT_GATE_ENFORCE`) — it still never reads or writes the baseline. CI wires this
+as `agent-eval-smoke` in `ci.yml` (`EVAL_SMOKE=1 EVAL_MAX_CASES=80`, required on PRs that touch
+`agents/**` or `config/model_aliases.py`). The uncapped L1 suite — owning the statistical baseline
+via `finish_cli_report`/`gate.py` — runs nightly + on `workflow_dispatch` only, in the standalone
+`agent-eval-nightly.yml` (never on PRs, so its cron cadence doesn't ride along with the PR/push
+matrix in `ci.yml`).
+
 **Post-redesign full-655 numbers (2026-07-17, the re-baseline candidate — NOT yet the committed baseline;
 the owner signs off per the redesign spec §7):**
 
