@@ -31,6 +31,15 @@
     "mobile_bg_alt": "Hand-drawn illustration of a torii gate and shrine approach",
     "fox_alt": "Fox guide welcoming you with a travel journal card"
   },
+  "home": {
+    "search_placeholder": "Enter an anime, station, or city",
+    "search_cta": "Build a route",
+    "continue_title": "Continue from",
+    "continue_resume": "Resume",
+    "popular_title": "Popular ranking",
+    "popular_empty": "No popular titles yet",
+    "popular_spots": "spots"
+  },
   "auth": {
     "title": "Log in",
     "subtitle": "Enter your email and we'll send you a sign-in link.",
