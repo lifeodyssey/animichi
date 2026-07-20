@@ -37,3 +37,20 @@ describe("B2a typing dots", () => {
     expect(ruleDeclaration(chatCss, ".chat-typing__dot:nth-child(3)", "animation-delay")).toBe("0.3s");
   });
 });
+
+describe("B2c mood card: gradient over semantic tokens", () => {
+  it("paints the quote over a primary-token gradient with light text", () => {
+    expect(ruleDeclaration(chatCss, ".chat-mood", "color")).toBe("var(--color-primary-fg)");
+    expect(ruleDeclaration(chatCss, ".chat-mood", "background")).toContain("var(--color-primary-strong)");
+  });
+
+  it("keeps the quote legible with a text-shadow", () => {
+    expect(ruleDeclaration(chatCss, ".chat-mood__quote", "text-shadow")).toContain("var(--shadow-3d)");
+  });
+});
+
+describe("B4 settled footprint: elapsed emphasis over a semantic token", () => {
+  it("emphasises the elapsed time with the primary-strong token", () => {
+    expect(ruleDeclaration(chatCss, ".chat-settled__elapsed", "color")).toBe("var(--color-primary-strong)");
+  });
+});

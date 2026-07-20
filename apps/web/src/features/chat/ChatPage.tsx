@@ -5,7 +5,7 @@ import { ColdStart } from "./components/ColdStart";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { HistoryList } from "./components/HistoryList";
 import { MessageList } from "./components/MessageList";
-import { TypingGate } from "./components/TypingIndicator";
+import { WaitingRitual } from "./components/WaitingRitual";
 import { currentChatConfig } from "./config";
 import { deriveEntryState, resolveRouteReference } from "./entry-state";
 import type { ChatEntryState } from "./entry-state";
@@ -18,6 +18,7 @@ import type { BackendHealth } from "./use-backend-health";
 import type { ChatSession } from "./use-chat-session";
 import { useChatSession } from "./use-chat-session";
 import { useConversationHistory } from "./use-conversation-history";
+import { useTurnTiming } from "./use-turn-timing";
 import type { ConversationHistory } from "./use-conversation-history";
 
 export interface ChatPageProps {
@@ -61,13 +62,18 @@ function HistoryLoadingGate({ history, dict }: Readonly<{ history: ConversationH
   );
 }
 
+function ChatMessages({ chat, dict }: Readonly<{ chat: ChatSession; dict: ChatDict }>) {
+  const settledDurationMs = useTurnTiming(chat.status);
+  return <MessageList messages={chat.messages} dict={dict} status={chat.status} settledDurationMs={settledDurationMs} />;
+}
+
 function ChatBody(props: BodyProps) {
   const anchor = useScrollAnchor(props.history.entries.length + props.chat.messages.length);
   return (
     <section className="chat-body">
       <HistoryLoadingGate history={props.history} dict={props.dict} />
       <HistoryList entries={props.history.entries} dict={props.dict} />
-      <ColdStartGate {...props} /><MessageList messages={props.chat.messages} dict={props.dict} /><TypingGate status={props.chat.status} dict={props.dict} /><div ref={anchor} aria-hidden="true" />
+      <ColdStartGate {...props} /><ChatMessages chat={props.chat} dict={props.dict} /><WaitingRitual status={props.chat.status} dict={props.dict} messages={props.chat.messages} /><div ref={anchor} aria-hidden="true" />
     </section>
   );
 }
