@@ -61,7 +61,7 @@ describe("LandingPage", () => {
 describe("LandingPage i18n", () => {
   it("re-renders all copy in English with no ja fallback leaking", () => {
     renderWithLocale(<LandingPage />);
-    act(() => { screen.getByRole("button", { name: "EN" }).click(); });
+    act(() => { screen.getAllByRole("button", { name: "EN" })[0]?.click(); });
     expect(screen.getAllByRole("button", { name: "Start Exploring" }).length).toBe(2);
     expect(screen.getByText("Anime Travel Journal")).toBeTruthy();
     expect(screen.queryByText("巡礼をはじめる")).toBeNull();
