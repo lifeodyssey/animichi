@@ -87,4 +87,10 @@ class RuntimeDeps:
     # before_tool_execute hook; never serialized into results and never shared
     # across runs (deps are rebuilt per request).
     seen_tool_calls: dict[str, int] = field(default_factory=dict)
+
+    # Set by the after_tool_execute hook when resolve_anime returns a
+    # disambiguation/not-found outcome: the anime identity is unsettled, so the
+    # before_tool_execute backstop rejects further identity/search/route tools
+    # this turn (deterministic guard behind the advisory convergence rules).
+    disambiguation_pending: bool = False
     steps: list[StepRecord] = field(default_factory=list)
