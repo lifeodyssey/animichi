@@ -295,6 +295,149 @@
   cursor: not-allowed;
 }
 
+/* D1-D9 fallback states (issue #272 S1.6) — semantic tokens only. */
+
+.chat-interruption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 1rem;
+  border-radius: 14px;
+  background: var(--color-error-bg);
+  color: var(--color-error-strong);
+}
+
+.chat-interruption__retry,
+.chat-session-expired__login,
+.chat-session-expired__resume {
+  border: 0;
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0.375rem 0.875rem;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  box-shadow: 0 2px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-interruption__retry:disabled,
+.chat-session-expired__resume:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.chat-session-expired {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  border-radius: 14px;
+  border-left: 4px solid var(--color-warning-fg);
+  background: var(--color-muted);
+  color: var(--color-fg);
+}
+
+.chat-session-expired__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chat-card--fallback-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.chat-fallback__subtitle {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-fallback__hint {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-fallback__retry {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  background: var(--color-card);
+  color: var(--color-fg);
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-short-route {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--color-border);
+}
+
+.chat-short-route__notice {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-spot {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.chat-scene-thumb {
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 2.25rem;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.chat-scene-thumb--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));
+  color: var(--color-primary-fg);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.chat-map-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 14px;
+  background: var(--color-muted);
+  color: var(--color-muted-fg);
+}
+
+.chat-map-fallback__doodle {
+  width: 4rem;
+  height: 2.5rem;
+  color: var(--color-primary-strong);
+}
+
+.chat-map-fallback__open {
+  font-weight: 700;
+  color: var(--color-primary-strong);
+}
+
 @keyframes chat-pulse {
   50% {
     opacity: 0.6;

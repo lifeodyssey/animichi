@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocale } from "../../i18n/context";
+import { classifyFailure } from "../../lib/chat/errorClassifier";
+import type { ChatErrorState, FailureSignal } from "../../lib/chat/errorClassifier";
+import { ChatActionsProvider } from "./chat-actions";
+import type { ChatActions } from "./chat-actions";
 import { ChatInput } from "./components/ChatInput";
 import { ColdStart } from "./components/ColdStart";
 import { ErrorBanner } from "./components/ErrorBanner";
+import { TurnFailure } from "./components/ErrorStates/TurnFailure";
+import type { TurnFailureView } from "./components/ErrorStates/TurnFailure";
 import { HistoryList } from "./components/HistoryList";
 import { MessageList } from "./components/MessageList";
 import { WaitingRitual } from "./components/WaitingRitual";
@@ -18,6 +24,8 @@ import type { BackendHealth } from "./use-backend-health";
 import type { ChatSession } from "./use-chat-session";
 import { useChatSession } from "./use-chat-session";
 import { useConversationHistory } from "./use-conversation-history";
+import { useStreamRecovery } from "./use-stream-recovery";
+import { useTurnTimeout } from "./use-turn-timeout";
 import { useTurnTiming } from "./use-turn-timing";
 import type { ConversationHistory } from "./use-conversation-history";
 
@@ -30,6 +38,7 @@ type ShellProps = Readonly<{
   dict: ChatDict;
   chat: ChatSession;
   history: ConversationHistory;
+  failure: TurnFailureView | undefined;
   onRetry: () => void;
   onSend: (text: string) => void;
 }>;
@@ -73,7 +82,7 @@ function ChatBody(props: BodyProps) {
     <section className="chat-body">
       <HistoryLoadingGate history={props.history} dict={props.dict} />
       <HistoryList entries={props.history.entries} dict={props.dict} />
-      <ColdStartGate {...props} /><ChatMessages chat={props.chat} dict={props.dict} /><WaitingRitual status={props.chat.status} dict={props.dict} messages={props.chat.messages} /><div ref={anchor} aria-hidden="true" />
+      <ColdStartGate {...props} /><ChatMessages chat={props.chat} dict={props.dict} /><TurnFailure view={props.failure} dict={props.dict} /><WaitingRitual status={props.chat.status} dict={props.dict} messages={props.chat.messages} /><div ref={anchor} aria-hidden="true" />
     </section>
   );
 }
@@ -100,29 +109,45 @@ function ChatShell(props: ShellProps) {
   );
 }
 
-function useSendText(chat: ChatSession): (text: string) => void {
-  const { sendMessage } = chat;
-  return useCallback((text: string) => void sendMessage({ text }), [sendMessage]);
+/** Send, plus the D6-style retry: drop the failed turn's partial and resubmit. */
+function useTurnActions(chat: ChatSession): ChatActions {
+  const { sendMessage, clearError, regenerate } = chat;
+  const send = useCallback((text: string) => void sendMessage({ text }), [sendMessage]);
+  const regen = useCallback(() => { clearError(); void regenerate(); }, [clearError, regenerate]);
+  return useMemo(() => ({ send, regenerate: regen }), [send, regen]);
 }
 
-/**
- * A5 retry distinguishes the two failure sources: a failed healthz probe is
- * re-probed, while a failed stream turn is regenerated (the AI SDK drops the
- * partial assistant message and resubmits the turn).
- */
-function useRetry(chat: ChatSession, retryHealth: () => void): () => void {
-  const { error, clearError, regenerate } = chat;
-  return useCallback(() => {
-    retryHealth();
-    if (!error) return;
-    clearError();
-    void regenerate();
-  }, [error, clearError, regenerate, retryHealth]);
+function turnFailureSignal(lastStatus: number | undefined): FailureSignal {
+  if (lastStatus !== undefined && lastStatus >= 400) return { kind: "http", status: lastStatus };
+  return { kind: "stream-abort" };
 }
 
-function entryStateOf(search: ChatSearch, health: BackendHealth, chat: ChatSession): ChatEntryState {
+function isActiveTurn(status: ChatSession["status"]): boolean {
+  return status === "submitted" || status === "streaming";
+}
+
+function turnFailureState(chat: ChatSession, timedOut: boolean): ChatErrorState | undefined {
+  if (isActiveTurn(chat.status)) return undefined;
+  if (timedOut) return "D5";
+  if (chat.error === undefined) return undefined;
+  return classifyFailure(turnFailureSignal(chat.lastHttpStatus())) ?? "D4";
+}
+
+/** Compose the D4/D5/D8 view: watchdog + classification + P6 recovery. */
+function useTurnFailure(chat: ChatSession, baseUrl: string): TurnFailureView | undefined {
+  const timeout = useTurnTimeout(chat.status, () => void chat.stop());
+  const recovery = useStreamRecovery(baseUrl, chat, chat.sessionIdOf);
+  const state = turnFailureState(chat, timeout.timedOut);
+  const onRetry = useCallback(() => { timeout.reset(); recovery.recover(); }, [timeout, recovery]);
+  const onExpiredResume = useCallback(() => { timeout.reset(); recovery.recoverExpired(); }, [timeout, recovery]);
+  if (state === undefined) return undefined;
+  return { state, onRetry, onExpiredResume, recovering: recovery.recovering };
+}
+
+/** A5 covers backend reachability only; stream failures render inline D-strips. */
+function entryStateOf(search: ChatSearch, health: BackendHealth): ChatEntryState {
   return deriveEntryState({
-    healthy: health.status !== "down" && chat.error === undefined,
+    healthy: health.status !== "down",
     query: search.q,
     sessionId: search.session,
     routeReference: resolveRouteReference(search.route),
@@ -143,14 +168,16 @@ function useChatState(search: ChatSearch) {
   const health = useBackendHealth(config.baseUrl);
   const chat = useChatSession(config.chatUrl, search.session);
   const history = useConversationHistory(config.baseUrl, search.session);
-  return { health, chat, history };
+  return { config, health, chat, history };
 }
 
 export function ChatPage({ search }: ChatPageProps) {
-  const { health, chat, history } = useChatState(search);
-  const onSend = useSendText(chat);
-  useAutoSendFromQuery(search, health, onSend);
-  const entry = entryStateOf(search, health, chat);
-  const onRetry = useRetry(chat, health.retry);
-  return <ChatShell entry={entry} dict={chatDictFor(useLocale())} chat={chat} history={history} onRetry={onRetry} onSend={onSend} />;
+  const { config, health, chat, history } = useChatState(search);
+  const actions = useTurnActions(chat);
+  useAutoSendFromQuery(search, health, actions.send);
+  return (
+    <ChatActionsProvider actions={actions}>
+      <ChatShell entry={entryStateOf(search, health)} dict={chatDictFor(useLocale())} chat={chat} history={history} failure={useTurnFailure(chat, config.baseUrl)} onRetry={health.retry} onSend={actions.send} />
+    </ChatActionsProvider>
+  );
 }

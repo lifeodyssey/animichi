@@ -1,15 +1,22 @@
 import type { ChatDataPart } from "@seichijunrei/contract";
+import type { ReactNode } from "react";
+import { classifyFailure } from "../../../lib/chat/errorClassifier";
+import type { ChatErrorState } from "../../../lib/chat/errorClassifier";
 import { isIntentOnly, parseChatDataPart } from "../data-parts";
 import type { ChatDict } from "../i18n";
 import { intentRegistry } from "../registry";
+import { EnvelopeFallback } from "./ErrorStates/EnvelopeFallback";
+import { ShortRouteNotice } from "./ErrorStates/ShortRouteNotice";
 
 type CardProps = Readonly<{ data: unknown; dict: ChatDict }>;
+type PartProps = Readonly<{ part: ChatDataPart; dict: ChatDict }>;
+type IntentProps = PartProps & Readonly<{ appendix?: ReactNode }>;
 
 function FallbackCard({ dict }: Readonly<{ dict: ChatDict }>) {
   return <p className="chat-card chat-card--fallback">{dict.fallbackCard}</p>;
 }
 
-function SkeletonCard({ part, dict }: Readonly<{ part: ChatDataPart; dict: ChatDict }>) {
+function SkeletonCard({ part, dict }: PartProps) {
   return (
     <p className="chat-card chat-card--skeleton" role="status" aria-busy="true" data-intent={part.intent}>
       {dict.preparing}
@@ -17,24 +24,39 @@ function SkeletonCard({ part, dict }: Readonly<{ part: ChatDataPart; dict: ChatD
   );
 }
 
-function IntentCard({ part, dict }: Readonly<{ part: ChatDataPart; dict: ChatDict }>) {
+function IntentCard({ part, dict, appendix }: IntentProps) {
   const Body = intentRegistry[part.intent];
   return (
     <article className="chat-card" data-intent={part.intent}>
       {part.message ? <p className="chat-card__message">{part.message}</p> : null}
       <Body part={part} dict={dict} />
+      {appendix}
     </article>
   );
 }
 
+type SettledProps = PartProps & Readonly<{ state: ChatErrorState | undefined }>;
+
+/**
+ * Settled envelopes classify first (issue #272 §D): a D-state renders its
+ * in-character fallback instead of — or for D3, alongside — the intent card.
+ */
+function SettledCard({ part, dict, state }: SettledProps) {
+  if (state === "D3") return <IntentCard part={part} dict={dict} appendix={<ShortRouteNotice dict={dict} />} />;
+  if (state !== undefined) return <EnvelopeFallback state={state} dict={dict} />;
+  return <IntentCard part={part} dict={dict} />;
+}
+
 /**
  * Renderer for a streamed `data-response` part. The payload is validated at
- * this trust boundary; invalid parts get the fallback card, the intent-first
- * frame gets a skeleton, and full frames render through the intent registry.
+ * this trust boundary; invalid parts get the fallback card and full frames
+ * classify then render. A skeleton covers intent-first frames — except failed
+ * intents, whose fallback shows immediately (an error never wears a skeleton).
  */
 export function DataPartCard({ data, dict }: CardProps) {
   const part = parseChatDataPart(data);
   if (!part) return <FallbackCard dict={dict} />;
-  if (isIntentOnly(part)) return <SkeletonCard part={part} dict={dict} />;
-  return <IntentCard part={part} dict={dict} />;
+  const state = classifyFailure({ kind: "envelope", part });
+  if (isIntentOnly(part) && state === undefined) return <SkeletonCard part={part} dict={dict} />;
+  return <SettledCard part={part} dict={dict} state={state} />;
 }
