@@ -36,8 +36,16 @@ function classifyFailureCode(code: string): ChatErrorState {
   return "D6";
 }
 
+/**
+ * `clarify` is exempt from the blanket `success === false` rule: the backend's
+ * invalid-selection response arrives as a failed clarify envelope whose card
+ * already carries the recovery (re-pick a candidate) — classifying it D6 would
+ * put `regenerate` behind the retry button and reproduce the same failure.
+ */
 function isFailedEnvelope(part: ChatDataPart): boolean {
-  return part.intent === "error" || part.intent === "unknown" || part.success === false;
+  if (part.intent === "error" || part.intent === "unknown") return true;
+  if (part.intent === "clarify") return false;
+  return part.success === false;
 }
 
 function resultRowCount(part: ChatDataPart): number | undefined {

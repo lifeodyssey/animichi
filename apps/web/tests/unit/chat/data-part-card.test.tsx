@@ -123,4 +123,16 @@ describe("DataPartCard failed envelopes", () => {
     renderPart({ intent: "search_bangumi", data: { results: { rows: [] } } });
     expect(screen.getByText(dict.errorStates.d2Title)).toBeTruthy();
   });
+
+  it("renders a failed clarify as candidates, not the D6 dead-loop apology", () => {
+    renderPart({
+      intent: "clarify",
+      success: false,
+      status: "invalid_selection",
+      message: "どの作品でしょうか?",
+      data: { candidates: [{ id: "1", title: "涼宮ハルヒの憂鬱" }] },
+    });
+    expect(screen.getByText("涼宮ハルヒの憂鬱")).toBeTruthy();
+    expect(screen.queryByText(dict.errorStates.d6Message)).toBeNull();
+  });
 });
