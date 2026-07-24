@@ -16,6 +16,7 @@ from pydantic_ai.profiles import ModelProfile
 
 from agent.agents.animichi_agent import build_animichi_agent
 from agent.agents.runtime_deps import RuntimeDeps, TitleTranslator, WebSearcher
+from agent.agents.runtime_models import ErrorResponseModel
 from agent.agents.translation import TranslationResult
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.eval.mock_web import MockWebSearcher
@@ -97,9 +98,14 @@ async def test_instructions_remain_cache_neutral_across_output_retry() -> None:
     assert all("Current session state" not in text for text in instructions)
 
 
-async def test_run_error_hook_records_and_reraises(
+async def test_run_error_hook_records_then_sd18_boundary_converts_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """The pre-SD-18 contract was "record telemetry, then re-raise" — proven by
+    letting a bare RuntimeError blow up the whole run. SD-18 adds a 5th hook
+    (error_boundary) composed alongside this one: telemetry recording is
+    UNCHANGED (still happens exactly once), but the run now recovers with a
+    typed ErrorResponseModel instead of propagating the raw exception."""
     recorded: list[BaseException] = []
     monkeypatch.setattr(
         "agent.agents.animichi_agent.record_agent_run_error", recorded.append
@@ -108,8 +114,10 @@ async def test_run_error_hook_records_and_reraises(
     def fail(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
         raise RuntimeError("model failed")
 
-    with pytest.raises(RuntimeError, match="model failed"):
-        await build_animichi_agent().run(
-            "fail", deps=_deps(), model=FunctionModel(fail)
-        )
+    result = await build_animichi_agent().run(
+        "fail", deps=_deps(), model=FunctionModel(fail)
+    )
+
     assert len(recorded) == 1
+    assert isinstance(recorded[0], RuntimeError)
+    assert isinstance(result.output, ErrorResponseModel)

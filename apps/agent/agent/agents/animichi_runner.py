@@ -36,6 +36,7 @@ from agent.agents.runtime_models import (
     AgentResultOutput,
     BlockedResponseModel,
     ClarifyResponseModel,
+    ErrorResponseModel,
     GreetingResponseModel,
     PartialResponseModel,
     QAResponseModel,
@@ -66,6 +67,7 @@ _STAGE_BY_OUTPUT: dict[type[AgentResultOutput], str] = {
     QAResponseModel: "general_qa",
     PartialResponseModel: "partial",
     BlockedResponseModel: "blocked",
+    ErrorResponseModel: "error",
 }
 
 _PARTIAL_MESSAGES = {
@@ -145,6 +147,13 @@ def _seed_tool_state(deps: RuntimeDeps, context: dict[str, object] | None) -> No
     )
 
 
+def _terminal_status(raw_output: AgentResultOutput) -> tuple[str | None, bool | None]:
+    """SD-18: the error-boundary hook's recovered output is a terminal failure."""
+    if isinstance(raw_output, ErrorResponseModel):
+        return "error", False
+    return None, None
+
+
 async def run_animichi_agent(
     *,
     text: str,
@@ -203,6 +212,7 @@ async def run_animichi_agent(
     else:
         deps.tool_state.session.pending_clarification = None
         deps.tool_state.session.geocode_staging = None
+    status, success_override = _terminal_status(raw_output)
     result = AgentResult(
         output=raw_output,
         intent=runtime_stage(raw_output, deps.steps),
@@ -211,6 +221,8 @@ async def run_animichi_agent(
         tool_state=deps.tool_state.to_legacy_dict(),
         new_messages=list(run_result.new_messages()),
         usage=run_usage,
+        status=status,
+        success_override=success_override,
     )
     logger.info(
         "animichi_agent_complete",
