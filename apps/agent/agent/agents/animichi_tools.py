@@ -41,6 +41,9 @@ async def resolve_anime(
     candidate IDs. For `not_found`, emit `clarify_response` asking for a corrected
     title. For `upstream_unavailable`, emit `qa_response` asking the user to retry.
     Never infer ambiguity from query length.
+
+    Do not call this again once an anime is already resolved this turn or
+    session — call `search_bangumi` directly with the known bangumi_id instead.
     """
     call_id = _call_id(ctx, "resolve_anime")
     await _emit(ctx, call_id, "resolve_anime", "running", {})
@@ -53,7 +56,11 @@ async def search_bangumi(
     ctx: RunContext[RuntimeDeps],
     bangumi_id: Annotated[str, Field(pattern=r"^\d+$")],
 ) -> SearchToolResult:
-    """Fetch points by work ID; upstream_unavailable means ask the user to retry."""
+    """Fetch points by work ID; upstream_unavailable means ask the user to retry.
+
+    Do not call this for a location-only query (use `search_nearby` instead),
+    and do not call it before `resolve_anime` has produced a bangumi_id.
+    """
     call_id = _call_id(ctx, "search_bangumi")
     await _emit(ctx, call_id, "search_bangumi", "running", {})
     result = await run_work_search(ctx, ctx.deps.catalog, bangumi_id)
@@ -113,7 +120,10 @@ TOOLS: list[Tool[RuntimeDeps] | ToolFuncEither[RuntimeDeps]] = [
         description=(
             "Plan a walking route over the exact registry result named by "
             "search_result_ref. The ref is required and has no session default. "
-            "Optional pacing is chill, normal, or packed."
+            "Optional pacing is chill, normal, or packed. Do not call this for "
+            "a request that only asks for a search, not a route, and never "
+            "invent a search_result_ref — it must come from a prior "
+            "search_bangumi or search_nearby outcome."
         ),
         docstring_format="google",
         timeout=CATALOG_TOOL_TIMEOUT_SECONDS,
