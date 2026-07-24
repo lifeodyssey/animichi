@@ -8,7 +8,9 @@ import os
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import NoReturn, cast
+from zoneinfo import ZoneInfo
 
 from logfire.variables import ResolvedVariable
 from pydantic_ai import Agent, ModelRetry, RunContext
@@ -28,6 +30,7 @@ from pydantic_ai_harness.memory import Memory, MemoryStore
 from agent.agents.agent_result import ProducedRoute, ProducedSearch, StepRecord
 from agent.agents.animichi_tools import TOOLS as ANIMICHI_TOOLS
 from agent.agents.base import resolve_model
+from agent.agents.error_boundary import error_boundary_hooks
 from agent.agents.history_compaction import native_history_compaction
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import (
@@ -49,7 +52,7 @@ from agent.utils.language import locale_name, resolve_reply_language
 MANAGED_PROMPT_NAME = "animichi-instructions"
 MANAGED_PROMPT_LABEL = "production"
 _LOCAL_PROMPT_VERSION = (
-    "sha256:06a56c060214574d0cc0b18c4a76a18e9656c100b710cf06e21f78d80f67f33a"
+    "sha256:d6941015e532fc2f240f64bc4ef056c8e7986044f7d6c0e5d773639030252cd5"
 )
 _PROMPT_RESOLUTION_DEADLINE_SECONDS = 2.0
 _PROMPT_RESOLUTION_EXECUTOR = ThreadPoolExecutor(
@@ -94,6 +97,7 @@ Never fabricate locations, coordinates, routes, candidate identity, or catalog d
 - search_nearby or plan_route upstream_unavailable: emit qa_response asking the user to retry.
 - plan_route ok: emit route_response; stale_ref means re-run the relevant search.
 - plan_route pending_sync: emit search_response explaining that catalog data is still syncing and route planning can be retried shortly.
+- Any tool result shaped `{"error": true, "message": ...}`: emit qa_response using that message, asking the user to retry.
 Never infer ambiguity from query length. Branch only on typed tool outcomes.
 
 ## Convergence rules
@@ -113,6 +117,18 @@ Never infer ambiguity from query length. Branch only on typed tool outcomes.
 - last_result_ref is an anaphora hint, never an implicit plan_route argument.
 - A greeting followed by a real query follows the real search or route path.
 - A standalone greeting, thanks, farewell, or capability question emits greeting_response.
+
+## Worked examples
+- Dual-intent ("小林家的龙女仆的圣地，然后帮我规划路线"): call resolve_anime once,
+  then search_bangumi, then plan_route with the new result_ref in the same
+  turn — do not ask the user to split this into two turns.
+- Sequel vs. original ("鬼滅の刃 無限列車編" vs "鬼滅の刃"): call resolve_anime with
+  the title exactly as written; trust its outcome as authoritative for that
+  string. A different season or movie title the user names later is a new,
+  distinct resolve_anime call, never a retry of the same one.
+- Mixed-CJK input ("我要看K-On!轻音少女的聖地"): the reply language follows the
+  current turn's dominant script (zh here), not an embedded English or
+  Japanese proper noun.
 
 ## Compact output
 Write a natural message sized to the response. For search, route, and clarify,
@@ -167,7 +183,10 @@ class _AnimichiManagedPrompt(ManagedPrompt[RuntimeDeps]):
             base = (
                 resolved.value if _prompt_failure(resolved) is None else _INSTRUCTIONS
             )
-            return f"{base.rstrip()}\n\n{_current_turn_language(_ctx)}"
+            return (
+                f"{base.rstrip()}\n\n{_current_turn_language(_ctx)}\n\n"
+                f"{_current_datetime_context(_ctx)}"
+            )
 
         return instructions
 
@@ -407,6 +426,21 @@ def _current_turn_language(ctx: RunContext[RuntimeDeps]) -> str:
     )
 
 
+_JST = ZoneInfo("Asia/Tokyo")
+
+
+def _format_jst_context(moment: datetime) -> str:
+    return (
+        f"Current date/time (JST): {moment.strftime('%Y-%m-%d %H:%M')}. Use "
+        "this for relative-time phrases like today or this afternoon "
+        "(きょう/午後)."
+    )
+
+
+def _current_datetime_context(_ctx: RunContext[RuntimeDeps]) -> str:
+    return _format_jst_context(datetime.now(_JST))
+
+
 def trusted_session_context(deps: RuntimeDeps) -> str:
     """Serialize volatile typed state into a trusted user-turn part."""
     session = deps.tool_state.session
@@ -498,6 +532,11 @@ def _modern_capabilities(
     memory: Memory[RuntimeDeps] | None,
 ) -> list[AgentCapability[RuntimeDeps]]:
     capabilities = _history_capabilities()
+    # error_boundary_hooks() precedes _modern_hooks() here so that on
+    # on_run_error, the reversed CombinedCapability traversal tries
+    # _modern_hooks()'s telemetry-then-reraise FIRST (unchanged behavior),
+    # falling through to the SD-18 typed conversion only after it re-raises.
+    capabilities.append(error_boundary_hooks())
     capabilities.append(_modern_hooks())
     if memory is not None:
         capabilities.append(memory)
@@ -513,7 +552,9 @@ def build_animichi_agent(
     managed_prompt = _managed_prompt_capability()
     _record_missing_managed_prompt_token()
     instructions: AgentInstructions[RuntimeDeps] = (
-        [_INSTRUCTIONS, _current_turn_language] if managed_prompt is None else None
+        [_INSTRUCTIONS, _current_turn_language, _current_datetime_context]
+        if managed_prompt is None
+        else None
     )
     agent: Agent[RuntimeDeps, RuntimeOutput] = Agent(
         resolve_model(None),
