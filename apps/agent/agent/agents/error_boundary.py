@@ -16,6 +16,7 @@ hook re-raises them unchanged and only converts genuinely unclassified failures.
 from __future__ import annotations
 
 import httpx
+import structlog
 from pydantic_ai import RunContext
 from pydantic_ai.agent import AgentRunResult
 from pydantic_ai.capabilities import Hooks
@@ -32,6 +33,8 @@ from pydantic_ai.tools import ToolDefinition
 from agent.agents.error_messages import build_error_message
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import ErrorResponseModel
+
+logger = structlog.get_logger(__name__)
 
 _GENERIC_FALLBACK = {
     "en": "Something went wrong on our side. Please try again later.",
@@ -65,11 +68,16 @@ async def _on_tool_execute_error(
     tool_def: ToolDefinition,
     args: object,
     error: Exception,
-) -> dict[str, object]:
+) -> ErrorResponseModel:
     """Convert an unhandled tool exception into a result the model can react to."""
-    del call, tool_def, args
-    payload = map_exception_to_error_response(error, ctx.deps.locale)
-    return payload.model_dump()
+    del tool_def, args
+    logger.warning(
+        "animichi_tool_execute_error",
+        tool=call.tool_name,
+        error_type=type(error).__name__,
+        error=str(error),
+    )
+    return map_exception_to_error_response(error, ctx.deps.locale)
 
 
 async def _on_run_error(
