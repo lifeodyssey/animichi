@@ -76,12 +76,12 @@ test-eval-fullstack:
 	cd apps/agent && EVAL_FULLSTACK=1 EVAL_MAX_CASES=$${EVAL_MAX_CASES:-50} $(PYTHON) -m agent.tests.eval.run_agent_eval
 
 lint:
-	cd apps/agent && uv run ruff check agent/
-	cd apps/agent && uv run ruff format --check agent/
+	cd apps/agent && uv run ruff check agent/ scripts/
+	cd apps/agent && uv run ruff format --check agent/ scripts/
 
 format:
-	cd apps/agent && uv run ruff format agent/
-	cd apps/agent && uv run ruff check --fix agent/
+	cd apps/agent && uv run ruff format agent/ scripts/
+	cd apps/agent && uv run ruff check --fix agent/ scripts/
 
 typecheck:
 	cd apps/agent && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ agent/tests/eval/
