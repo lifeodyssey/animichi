@@ -11,6 +11,8 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 _SCRIPT_PATH = (
     Path(__file__).resolve().parents[3] / "scripts" / "check_prompt_token_budget.py"
 )
@@ -65,3 +67,16 @@ def test_current_static_prompt_fits_within_the_sd17_budget() -> None:
 
 def test_main_returns_zero_for_the_checked_in_prompt() -> None:
     assert _MODULE.main() == 0
+
+
+def test_main_fails_loudly_when_over_budget(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(_MODULE, "check_budget", lambda *_args, **_kwargs: False)
+
+    exit_code = _MODULE.main()
+
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "EXCEEDS budget" in captured.err

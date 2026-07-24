@@ -165,6 +165,24 @@ async def test_managed_prompt_appends_current_turn_language(
     )
 
 
+async def test_managed_prompt_appends_current_datetime_after_language(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P3-4: _AnimichiManagedPrompt.get_instructions() builds its own
+    instructions() closure, separate from the default (non-managed) path —
+    prove the JST datetime context is appended there too, dynamic-last after
+    the language directive, not just on the default path."""
+    monkeypatch.setenv("ANIMICHI_MANAGED_PROMPT", "1")
+    _patch_resolution(monkeypatch, value=_INSTRUCTIONS)
+
+    rendered = await _run_and_capture_instructions()
+
+    assert "Current date/time (JST):" in rendered
+    assert rendered.index("Current turn reply language") < rendered.index(
+        "Current date/time (JST)"
+    )
+
+
 async def test_remote_content_drift_falls_back_to_checked_in_prompt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
