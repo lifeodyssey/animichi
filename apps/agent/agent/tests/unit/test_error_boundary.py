@@ -139,3 +139,28 @@ async def test_tool_execution_exception_is_converted_end_to_end() -> None:
     tool_return = _tool_returned(result.new_messages, "resolve_anime")
     assert tool_return is not None
     assert "サーバー側で問題が発生しました" in tool_return
+
+
+async def test_agent_loop_exception_is_a_terminal_error_result_end_to_end() -> None:
+    """Goes through run_animichi_agent (not build_animichi_agent().run()
+    directly), so this also proves the recovered ErrorResponseModel reaches
+    the runner's own _terminal_status/AgentResult construction, marking the
+    turn as a failed, non-retryable result (status/success), not just that
+    the underlying agent run recovers."""
+
+    def fail(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        raise RuntimeError("the model backend misbehaved")
+
+    result = await run_animichi_agent(
+        text="hello",
+        db=MagicMock(),
+        locale="zh",
+        catalog=MockCatalogClient(),
+        model=FunctionModel(fail),
+    )
+
+    assert isinstance(result.output, ErrorResponseModel)
+    assert result.output.message == "我们这边出了点问题，请稍后再试。"
+    assert result.status == "error"
+    assert result.success is False
+    assert result.intent == "error"
