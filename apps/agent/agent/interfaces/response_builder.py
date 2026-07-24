@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import asdict
 
 from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.runtime_models import ClarifyResponseModel, PartialResponseModel
+from agent.agents.runtime_models import (
+    ClarifyResponseModel,
+    ErrorResponseModel,
+    PartialResponseModel,
+)
 from agent.agents.session_state import (
     RoutePayloadState,
     SearchPayloadState,
@@ -129,6 +133,14 @@ def _response_status(result: AgentResult, data: dict[str, object]) -> str:
     return "info" if result.intent in {"general_qa", "greet_user"} else "ok"
 
 
+def _agent_error_entry(result: AgentResult) -> list[PublicAPIError]:
+    """SD-18 P3-1: a machine code for the recovered agent-loop error, parity
+    with timeout (code=timeout) / provider errors (code=provider_error)."""
+    if result.status != "error" or not isinstance(result.output, ErrorResponseModel):
+        return []
+    return [PublicAPIError(code="agent_error", message=result.message)]
+
+
 def agent_result_to_response(
     result: AgentResult, *, include_debug: bool
 ) -> PublicAPIResponse:
@@ -136,7 +148,10 @@ def agent_result_to_response(
     data = _response_data(result)
     component = _UI_MAP.get(result.intent)
     failed = [step for step in result.steps if not step.success and step.error]
-    errors = [_step_error(step, include_debug) for step in failed]
+    errors = [
+        *(_step_error(step, include_debug) for step in failed),
+        *_agent_error_entry(result),
+    ]
     response = PublicAPIResponse(
         success=result.success,
         status=_response_status(result, data),

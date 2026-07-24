@@ -11,6 +11,7 @@ from agent.agents.agent_result import (
 )
 from agent.agents.runtime_models import (
     ClarifyResponseModel,
+    ErrorResponseModel,
     QAResponseModel,
     RouteResponseModel,
     SearchResponseModel,
@@ -189,6 +190,31 @@ def test_unknown_intent_has_no_compatibility_fallback() -> None:
     response = agent_result_to_response(result, include_debug=False)
     assert response.intent == "unknown_new_stage"
     assert response.ui is None
+
+
+def test_agent_error_result_carries_a_machine_code() -> None:
+    """SD-18 P3-1: parity with timeout (code=timeout) / provider errors
+    (code=provider_error) — a code-less error defaults to D6 on the frontend."""
+    result = AgentResult(
+        output=ErrorResponseModel(message="Something went wrong."),
+        intent="error",
+        session_state=SessionState(),
+        status="error",
+        success_override=False,
+    )
+    response = agent_result_to_response(result, include_debug=False)
+    assert response.success is False
+    assert response.status == "error"
+    assert len(response.errors) == 1
+    assert response.errors[0].code == "agent_error"
+    assert response.errors[0].message == "Something went wrong."
+
+
+def test_non_error_status_never_synthesizes_an_agent_error_entry() -> None:
+    response = agent_result_to_response(
+        _result("search_bangumi", _search_state()), include_debug=False
+    )
+    assert response.errors == []
 
 
 def test_application_error_response_and_step_serialization() -> None:
