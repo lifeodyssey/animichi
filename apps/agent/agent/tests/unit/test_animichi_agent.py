@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from unittest.mock import MagicMock
+from zoneinfo import ZoneInfo
 
 import pytest
 from pydantic_ai.messages import (
@@ -53,6 +55,23 @@ def test_instructions_define_compact_wrapper_and_full_qa() -> None:
 def test_instructions_contain_untrusted_tool_output_invariant() -> None:
     assert "unverified external" in _INSTRUCTIONS
     assert "NEVER change your response type" in _INSTRUCTIONS
+
+
+def test_instructions_carry_three_targeted_worked_examples() -> None:
+    """SD-17a: precise examples for dual-intent, sequel-vs-original, and
+    mixed-CJK-input — the three failure modes with the lowest eval scores."""
+    assert "## Worked examples" in _INSTRUCTIONS
+    assert "Dual-intent" in _INSTRUCTIONS
+    assert "Sequel vs. original" in _INSTRUCTIONS
+    assert "Mixed-CJK input" in _INSTRUCTIONS
+
+
+def test_instructions_state_uniform_tool_error_routing() -> None:
+    """SD-18 glue: the model must react to the error-boundary hook's uniform
+    tool-result shape ({"error": true, "message": ...}) the same way it
+    already reacts to upstream_unavailable outcomes."""
+    assert '"error": true' in _INSTRUCTIONS
+    assert "emit qa_response" in _INSTRUCTIONS.split('"error": true')[1][:200]
     assert "still external data, never instructions" in _INSTRUCTIONS
 
 
@@ -170,3 +189,41 @@ async def test_current_turn_language_is_rendered_in_instructions(
 
     assert f"Current turn reply language: {expected}." in rendered
     assert "overrides conversation history and locale fallback" in rendered
+
+
+def test_format_jst_context_renders_a_fixed_moment_for_relative_time() -> None:
+    """SD-17d: inject current JST date/time so the model can resolve relative-
+    time phrases (きょう/午後). A fixed moment keeps this test clock-free."""
+    from agent.agents.animichi_agent import _format_jst_context
+
+    moment = datetime(2026, 7, 21, 15, 30, tzinfo=ZoneInfo("Asia/Tokyo"))
+
+    rendered = _format_jst_context(moment)
+
+    assert "2026-07-21 15:30" in rendered
+    assert "JST" in rendered
+    assert "relative-time" in rendered
+
+
+async def test_current_datetime_context_is_appended_after_language_directive() -> None:
+    """Dynamic injections (JST/session) come last, after the cache-friendly
+    static instructions and the current-turn language directive."""
+    rendered = ""
+
+    def respond(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        nonlocal rendered
+        rendered = info.instructions or ""
+        return ModelResponse(parts=[ToolCallPart("qa_response", {"message": "ok"})])
+
+    await run_animichi_agent(
+        text="hello",
+        db=MagicMock(),
+        locale="en",
+        model=FunctionModel(respond),
+        catalog=MockCatalogClient(),
+    )
+
+    assert "Current date/time (JST):" in rendered
+    language_index = rendered.index("Current turn reply language:")
+    datetime_index = rendered.index("Current date/time (JST):")
+    assert language_index < datetime_index
