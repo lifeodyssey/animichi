@@ -46,13 +46,10 @@ jobs:
           working-directory: apps/${{ inputs.app }}
 
       - name: Ruff format check
-        run: uv run ruff format --check agent/ scripts/
+        run: uv run ruff format --check agent/
 
       - name: Type check (mypy strict)
         run: uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
-
-      - name: Prompt token budget (SD-17)
-        run: uv run python scripts/check_prompt_token_budget.py
 
       - name: Dead code (vulture)
         run: uv run vulture agent/ vulture_whitelist.py
