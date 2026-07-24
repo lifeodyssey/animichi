@@ -75,6 +75,39 @@ def test_plan_route_tool_definition_requires_explicit_ref_and_optional_pacing() 
     assert "no session default" in definition.description
 
 
+def _description(tool_name: str) -> str:
+    tool = next(t for t in ANIMICHI_TOOLS if t.tool_def.name == tool_name)
+    description = tool.tool_def.description
+    assert description is not None
+    return description
+
+
+def test_resolve_anime_docstring_states_when_not_to_call_it() -> None:
+    description = _description("resolve_anime")
+    assert "Do not call this again" in description
+    assert "search_bangumi" in description.split("Do not call this again")[1]
+
+
+def test_search_bangumi_docstring_states_when_not_to_call_it() -> None:
+    description = _description("search_bangumi")
+    assert "Do not call this" in description
+    assert "search_nearby" in description
+
+
+def test_plan_route_description_states_when_not_to_call_it() -> None:
+    description = _description("plan_route")
+    assert "Do not call this" in description
+    assert "only asks for a search" in description
+
+
+def test_web_search_docstring_already_states_when_not_to_use_it() -> None:
+    """SD-17b audit: web_search already carries a counter-example — unchanged."""
+    tool = next(t for t in WEB_TOOLS if _name(t) == "web_search")
+    doc = tool.__doc__
+    assert doc is not None
+    assert "Do not use this tool to find pilgrimage locations" in doc
+
+
 def test_agent_registers_tools_at_construction() -> None:
     path = Path(__file__).parents[2] / "agents" / "animichi_agent.py"
     calls = [
