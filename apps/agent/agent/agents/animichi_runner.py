@@ -209,7 +209,10 @@ async def run_animichi_agent(
     raw_output = run_result.output
     if isinstance(raw_output, ClarifyResponseModel):
         await _record_terminal_clarify(deps, raw_output)
-    else:
+    elif not isinstance(raw_output, ErrorResponseModel):
+        # SD-18 P2-2: a recovered error is transient — a retry needs the same
+        # pending clarification/geocode staging the failed attempt saw, not a
+        # wiped one that turns the retry into a cold, un-contextualized query.
         deps.tool_state.session.pending_clarification = None
         deps.tool_state.session.geocode_staging = None
     status, success_override = _terminal_status(raw_output)

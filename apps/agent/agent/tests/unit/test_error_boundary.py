@@ -24,6 +24,12 @@ from agent.agents import error_boundary
 from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import ErrorResponseModel, QAResponseModel
+from agent.agents.session_state import (
+    GeocodeStaging,
+    OrderedCandidate,
+    PendingClarification,
+    SessionState,
+)
 from agent.clients.catalog_client import ResolveNotFound, ResolveResolved
 from agent.clients.catalog_errors import WorkNotFoundData, WorkNotFoundError
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
@@ -95,10 +101,38 @@ async def test_tool_and_run_errors_flow_through_the_one_mapper(
     run_result = await error_boundary._on_run_error(_ctx("zh"), error=loop_error)
 
     assert calls == [tool_error, loop_error]
-    assert tool_result == {"message": "我们这边出了点问题，请稍后再试。", "error": True}
+    assert isinstance(tool_result, ErrorResponseModel)
+    assert tool_result.message == "我们这边出了点问题，请稍后再试。"
+    assert tool_result.error is True
     assert isinstance(run_result, AgentRunResult)
     assert isinstance(run_result.output, ErrorResponseModel)
     assert run_result.output.message == "我们这边出了点问题，请稍后再试。"
+
+
+async def test_tool_execute_error_logs_before_converting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P2-1: a swallowed tool exception must still leave a trace — pre-PR this
+    logged pipeline_unhandled_exception at ERROR; the hook must not silently
+    convert to "please retry" with zero observability."""
+    from structlog import testing
+
+    error = ValueError("catalog client returned a malformed response")
+
+    with testing.capture_logs() as captured:
+        await error_boundary._on_tool_execute_error(
+            _ctx("en"),
+            call=ToolCallPart("resolve_anime", {"title": "x"}),
+            tool_def=ToolDefinition(name="resolve_anime"),
+            args={"title": "x"},
+            error=error,
+        )
+
+    [event] = captured
+    assert event["event"] == "animichi_tool_execute_error"
+    assert event["tool"] == "resolve_anime"
+    assert event["error_type"] == "ValueError"
+    assert event["log_level"] == "warning"
 
 
 async def test_on_run_error_reraises_exception_types_already_handled_elsewhere() -> (
@@ -164,3 +198,36 @@ async def test_agent_loop_exception_is_a_terminal_error_result_end_to_end() -> N
     assert result.status == "error"
     assert result.success is False
     assert result.intent == "error"
+
+
+async def test_recovered_error_preserves_pending_clarification_for_retry() -> None:
+    """P2-2: user answers a disambiguation card, hits a transient error, and
+    retries — the retry must still see the pending clarification/geocode
+    staging the failed attempt saw, not a cold, un-contextualized query."""
+    pending = PendingClarification(
+        reason="anime_ambiguity",
+        candidate_ids=["1", "2"],
+        ordered_candidates=[
+            OrderedCandidate(id="1", title="Anime A"),
+            OrderedCandidate(id="2", title="Anime B"),
+        ],
+        revision=1,
+    )
+    staging = GeocodeStaging(candidates=[OrderedCandidate(id="p1", title="Place")])
+    state = SessionState(pending_clarification=pending, geocode_staging=staging)
+
+    def fail(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        raise RuntimeError("transient backend hiccup")
+
+    result = await run_animichi_agent(
+        text="1番目",
+        db=MagicMock(),
+        locale="ja",
+        catalog=MockCatalogClient(),
+        model=FunctionModel(fail),
+        context={"session_state_v2": state.model_dump(mode="json")},
+    )
+
+    assert isinstance(result.output, ErrorResponseModel)
+    assert result.session_state.pending_clarification == pending
+    assert result.session_state.geocode_staging == staging
