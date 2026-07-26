@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
+from asyncpg.exceptions import UndefinedTableError
 from pydantic_ai.usage import RunUsage
 
 from agent.interfaces.usage_metering import (
@@ -135,4 +136,40 @@ async def test_a_meter_read_failure_fails_open() -> None:
 
 async def test_budget_verdict_is_inert_without_a_usage_repo() -> None:
     verdict = await anonymous_budget_verdict(object(), budget_usd=5.0, today=TODAY)
+    assert verdict.exhausted is False
+
+
+class _PgFailingRepo(_UsageRepoDouble):
+    """asyncpg's errors derive straight from Exception, not from OSError."""
+
+    async def accumulate_usage(self, **kwargs: object) -> None:
+        del kwargs
+        raise UndefinedTableError('relation "daily_usage" does not exist')
+
+    async def total_cost_usd(self, *, usage_date: date, scope: str) -> float:
+        del usage_date, scope
+        raise UndefinedTableError('relation "daily_usage" does not exist')
+
+
+async def test_a_missing_daily_usage_table_never_escapes_the_meter() -> None:
+    """A deploy that outruns its migration must not fail the turn it meters.
+
+    Metering runs from ``RuntimeAPI.handle``'s ``finally``; anything raised there
+    replaces a successful turn's return value. ``UndefinedTableError`` derives
+    from ``Exception``, so a narrower except-tuple lets it through.
+    """
+    await record_turn_usage(
+        _Db(_PgFailingRepo()),
+        usage=RunUsage(requests=1, input_tokens=100, output_tokens=50),
+        scope="anon",
+        prices=PRICES,
+        today=TODAY,
+    )
+
+
+async def test_a_postgres_read_failure_fails_the_budget_breaker_open() -> None:
+    """The breaker's contract is fail-open; a DB error must not 500 every turn."""
+    verdict = await anonymous_budget_verdict(
+        _Db(_PgFailingRepo()), budget_usd=5.0, today=TODAY
+    )
     assert verdict.exhausted is False

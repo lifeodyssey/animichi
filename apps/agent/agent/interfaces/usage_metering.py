@@ -31,7 +31,17 @@ ANONYMOUS_USER_TYPE = "anonymous"
 ANON_BUDGET_EXHAUSTED_CODE = "anon_budget_exhausted"
 
 _TOKENS_PER_MILLION = 1_000_000
-_METER_ERRORS = (OSError, RuntimeError, ValueError, TypeError)
+#: Metering is best-effort and runs from ``RuntimeAPI.handle``'s ``finally``, so
+#: nothing it raises may replace a successful turn's return value. An explicit
+#: tuple cannot express that: asyncpg's ``PostgresError`` and ``InterfaceError``
+#: derive straight from ``Exception``, so the most likely real failures — a
+#: missing ``daily_usage`` table on a deploy that outran its migration, a missing
+#: grant, a pool ``InterfaceError`` — would escape a narrower catch and surface
+#: as a user-facing turn failure. The budget read has the same requirement: its
+#: contract is to fail *open*, and a ``PostgresError`` escaping would instead
+#: 500 every anonymous turn. Both log with the exception attached, so a swallowed
+#: programming error is still visible in the logs rather than silent.
+_METER_ERRORS = Exception
 
 
 @dataclass(frozen=True)
@@ -94,7 +104,7 @@ async def record_turn_usage(
             cost_usd=usage_cost_usd(usage, prices),
         )
     except _METER_ERRORS:
-        logger.warning("daily_usage_record_failed", scope=scope)
+        logger.warning("daily_usage_record_failed", scope=scope, exc_info=True)
 
 
 async def anonymous_budget_verdict(
@@ -115,7 +125,7 @@ async def anonymous_budget_verdict(
     try:
         spent = await repo.total_cost_usd(usage_date=today or utc_today(), scope="anon")
     except _METER_ERRORS:
-        logger.warning("daily_usage_read_failed")
+        logger.warning("daily_usage_read_failed", exc_info=True)
         return BudgetVerdict(exhausted=False, spent_usd=0.0, budget_usd=budget_usd)
     return BudgetVerdict(
         exhausted=spent >= budget_usd, spent_usd=spent, budget_usd=budget_usd

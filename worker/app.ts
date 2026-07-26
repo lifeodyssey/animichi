@@ -107,6 +107,12 @@ function withAnonymousCookie(response: Response, setCookie: string | null): Resp
 /** Normalize the container ingress's breaker rejection into the shared login
  * guidance, and latch it so the edge short-circuits for the rest of the day. */
 async function guardBudget(env: Env, response: Response, dayKey: string): Promise<Response> {
+  // Check the status BEFORE touching the body. `/v1/chat` answers with an SSE
+  // StreamingResponse, so reading a clone waits for the container to finish the
+  // whole turn — passing `await response.clone().text()` as an argument would
+  // evaluate it on every response, including healthy 200s, and silently destroy
+  // streaming for every anonymous turn (while buffering it twice in memory).
+  if (response.status !== 403) return response;
   if (!isBudgetRejection(response.status, await response.clone().text())) return response;
   await latchBudget(env.EDGE_GUARD, dayKey);
   return budgetGuidanceResponse();

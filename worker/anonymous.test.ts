@@ -163,3 +163,36 @@ void test("the breaker does not touch logged-in callers", async () => {
   assert.equal(res.status, 403);
   assert.equal(captured.requests[1]?.headers.get("X-User-Type"), "human");
 });
+
+// ── streaming is not buffered by the budget guard ───────────────────────────
+// `/v1/chat` answers with an SSE StreamingResponse. Reading a clone of it waits
+// for the container to finish the entire turn, so the budget guard must decide
+// on the status alone before it ever touches the body. This test pins that: the
+// container's stream stays open, and the worker must still hand back a response.
+// Passing `await response.clone().text()` as an argument (evaluated eagerly on
+// every response, 200s included) hangs here forever.
+void test("a still-open container stream is returned without being drained", async () => {
+  const captured = { requests: [] as Request[] };
+  let release: (() => void) | undefined;
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode("data: first\n\n"));
+      release = () => { controller.close(); };
+    },
+  });
+  const container = () =>
+    new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+
+  const response = await Promise.race([
+    anonApp().fetch(
+      new Request("https://animichi.test/v1/chat", chat()),
+      anonEnv(captured, container),
+      stubCtx,
+    ),
+    new Promise<"drained">((resolve) => { setTimeout(() => { resolve("drained"); }, 1_000); }),
+  ]);
+
+  assert.notEqual(response, "drained", "the guard drained the stream instead of checking status");
+  assert.equal((response as Response).status, 200);
+  release?.();
+});

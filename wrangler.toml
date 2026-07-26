@@ -129,7 +129,7 @@ routes = [
 
 [env.production.vars]
 CATALOG_API_URL = "http://catalog.internal"
-ANON_ACCESS_ENABLED = "true"
+ANON_ACCESS_ENABLED = "false"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
