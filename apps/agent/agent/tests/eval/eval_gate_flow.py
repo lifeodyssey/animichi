@@ -39,6 +39,14 @@ from agent.tests.eval.gate import (
     read_baseline_record,
     write_baseline_record,
 )
+from agent.tests.eval.smoke_errors import (
+    SmokeError,
+    SmokeErrorSummary,
+    classify_error,
+    format_transport_notice,
+    smoke_error_failures,
+    summarize_errors,
+)
 from agent.tests.eval.stats import load_case_strata
 
 ScoreMap: TypeAlias = dict[str, float]
@@ -52,11 +60,16 @@ class GateInput:
     tier: str
     case_count: int
     evaluated_count: int
-    errored_count: int
     scores: ScoreMap
     cases: CaseScores
+    errors: tuple[SmokeError, ...] = ()
     trajectories: tuple[TrajectoryCase, ...] = ()
     strata: dict[str, str] | None = None
+
+    @property
+    def errored_count(self) -> int:
+        """Single source of truth: the classified errors are the errored cases."""
+        return len(self.errors)
 
 
 def gate_exit_code(failures: list[str] | None) -> int:
@@ -197,12 +210,16 @@ def _smoke_gate_failures(gate_input: GateInput) -> list[str]:
 
 
 def _smoke_error_failures(gate_input: GateInput) -> list[str]:
-    if gate_input.errored_count == 0:
-        return []
-    return [
-        f"{gate_input.errored_count}/{gate_input.case_count} cases errored "
-        "(EVAL_SMOKE requires zero errors)."
-    ]
+    """Name every errored case, and gate on agent errors rather than noise."""
+    summary = summarize_errors(gate_input.errors, gate_input.case_count)
+    _print_transport_notice(summary)
+    return smoke_error_failures(summary)
+
+
+def _print_transport_notice(summary: SmokeErrorSummary) -> None:
+    notice = format_transport_notice(summary)
+    if notice:
+        print(f"\n{notice}")
 
 
 def _smoke_enforced() -> bool:
@@ -265,11 +282,18 @@ def _report_gate_input(
         target.tier,
         len(CASES),
         len(report.cases),
-        len(report.failures),
         scores,
         collect_case_scores(report),
+        errors=_classified_errors(report),
         trajectories=_trajectory_cases(report),
         strata=load_case_strata(DATASET_PATH),
+    )
+
+
+def _classified_errors(report: AgentReport) -> tuple[SmokeError, ...]:
+    return tuple(
+        classify_error(str(failure.name), failure.error_message)
+        for failure in report.failures
     )
 
 
