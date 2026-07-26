@@ -205,7 +205,13 @@ class CatalogClientProtocol(Protocol):
 
 
 class CatalogClient:
-    """Async client for the Catalog RPC methods over a shared httpx client."""
+    """Async client for the Catalog RPC methods over a shared httpx client.
+
+    One client is built on first use and reused by every RPC, so the hot agent
+    path keeps httpx's pool and keep-alive. The FastAPI lifespan owns it and
+    calls :meth:`aclose` at shutdown; a closed client is never rebuilt, so a
+    late call raises instead of leaking a pool or escaping an injected seam.
+    """
 
     def __init__(
         self,
@@ -283,14 +289,17 @@ class CatalogClient:
         return IngestResult.model_validate(payload)
 
     async def aclose(self) -> None:
-        """Close the shared HTTP client (no-op when never used)."""
-        if self._client is not None and not self._client.is_closed:
-            await self._client.aclose()
-        self._client = None
+        """Close the shared HTTP client (idempotent; no-op when never used)."""
+        if self._client is None or self._client.is_closed:
+            return
+        await self._client.aclose()
 
     def _http(self) -> httpx.AsyncClient:
-        """Return the shared httpx client, creating it lazily."""
-        if self._client is None or self._client.is_closed:
+        """Return the shared httpx client, built exactly once on first use.
+
+        A closed client is deliberately never rebuilt — see ``aclose``.
+        """
+        if self._client is None:
             self._client = self._build_http_client()
         return self._client
 
