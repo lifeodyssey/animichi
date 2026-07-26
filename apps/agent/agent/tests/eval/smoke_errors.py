@@ -29,7 +29,6 @@ _TRANSPORT_TYPES = frozenset(
         "ConnectError",
         "ConnectTimeout",
         "InternalServerError",
-        "ModelHTTPError",
         "PoolTimeout",
         "RateLimitError",
         "ReadError",
@@ -40,9 +39,16 @@ _TRANSPORT_TYPES = frozenset(
         "WriteTimeout",
     }
 )
-_TRANSPORT_STATUS = re.compile(r"\b(408|409|425|429|500|502|503|504)\b")
+#: Anchored on the `status_code: N` field pydantic-ai puts in the message, not a
+#: bare number: an UnexpectedModelBehavior whose prose happens to contain "429"
+#: (a token count, an id) must not be excused as transport.
+_TRANSPORT_STATUS = re.compile(r"status_code:\s*(408|409|425|429|5\d{2})\b")
 _SECRET = re.compile(
-    r"\b(?:sk|tp|xai|key)-[A-Za-z0-9_-]{6,}"
+    # Prefixed provider keys, with `_` as well as `-` (sk_live_… is real).
+    r"\b(?:sk|tp|xai|key)[-_][A-Za-z0-9_-]{6,}"
+    # JWTs — three base64url segments; MiMo/DeepSeek do not use them today,
+    # but a BYOK provider (#284) or a gateway may put one in an error body.
+    r"|\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"
     r"|(?:bearer\s+|api[_-]?key\s*[:=]\s*|token\s*[:=]\s*)\S+",
     re.IGNORECASE,
 )
@@ -157,10 +163,18 @@ def _looks_like_type_name(head: str) -> bool:
     return head.isidentifier() and head[:1].isupper()
 
 
+#: Carry an HTTP status, so their class depends on WHICH status. pydantic-ai
+#: raises ModelHTTPError for any 4xx or 5xx alike, so treating the type as
+#: transport would excuse exactly the failures this gate exists to catch: a
+#: prompt-size or tool-schema regression surfaces as a provider 400, and a
+#: handful of those would sit under the 20% transport ceiling and merge green.
+_STATUS_BEARING_TYPES = frozenset({"ModelHTTPError", "UnexpectedModelBehavior"})
+
+
 def _error_class(error_type: str, detail: str) -> ErrorClass:
+    if error_type in _STATUS_BEARING_TYPES:
+        return "transport" if _TRANSPORT_STATUS.search(detail) else "agent"
     if error_type in _TRANSPORT_TYPES:
-        return "transport"
-    if error_type == "UnexpectedModelBehavior" and _TRANSPORT_STATUS.search(detail):
         return "transport"
     return "agent"
 

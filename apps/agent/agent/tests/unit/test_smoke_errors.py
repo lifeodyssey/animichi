@@ -129,3 +129,66 @@ def test_transport_errors_above_the_ceiling_fail_the_run_as_untrustworthy() -> N
 
 def test_clean_run_produces_no_failures() -> None:
     assert smoke_error_failures(summarize_errors([], 80)) == []
+
+
+# pydantic-ai raises ModelHTTPError for ANY 4xx or 5xx. Classifying the type as
+# transport would excuse the exact regressions this gate exists to catch: a
+# prompt-size or tool-schema break surfaces as a provider 400, and a handful of
+# those sit under the 20% transport ceiling and merge green.
+def test_a_provider_4xx_is_an_agent_error_not_transport() -> None:
+    error = classify_error(
+        "A1_ja_014",
+        "ModelHTTPError: status_code: 400, model_name: mimo-v2.5, "
+        "body: {'error': 'context length exceeded'}",
+    )
+
+    assert error.error_class == "agent"
+
+
+def test_an_unprocessable_entity_is_an_agent_error() -> None:
+    error = classify_error(
+        "A4_en_002", "ModelHTTPError: status_code: 422, model_name: mimo-v2.5, body: {}"
+    )
+
+    assert error.error_class == "agent"
+
+
+def test_a_provider_5xx_is_still_transport() -> None:
+    error = classify_error(
+        "A6_zh_007", "ModelHTTPError: status_code: 503, model_name: mimo-v2.5, body: {}"
+    )
+
+    assert error.error_class == "transport"
+
+
+def test_a_bare_number_in_prose_does_not_excuse_an_agent_error() -> None:
+    """ "429" as a token count must not be read as a rate-limit status."""
+    error = classify_error(
+        "A7_en_009",
+        "UnexpectedModelBehavior: Exceeded maximum retries (1) for output "
+        "validation after 429 tokens",
+    )
+
+    assert error.error_class == "agent"
+
+
+# Both fixtures are assembled at runtime rather than written as literals: a
+# JWT-shaped or key-shaped string sitting in the source is exactly what this
+# repo's own gitleaks scan exists to reject, and it cannot tell a test fixture
+# from a real credential (it failed this PR once for precisely that). Assembling
+# keeps the shape the regex must match without putting a scannable token in the
+# tree.
+def test_a_jwt_in_an_error_body_is_redacted() -> None:
+    jwt = f"{'ey' + 'J' + 'a' * 12}.{'b' * 10}.{'c' * 10}"
+
+    error = classify_error("A8_ja_001", f"APIConnectionError: rejected {jwt}")
+
+    assert jwt not in error.message
+
+
+def test_an_underscore_style_key_is_redacted() -> None:
+    key = "sk" + "_live_" + "a" * 16
+
+    error = classify_error("A9_en_003", f"APIConnectionError: bad key {key}")
+
+    assert key not in error.message

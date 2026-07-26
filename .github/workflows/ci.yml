@@ -57,7 +57,11 @@ jobs:
             # glue (base.py); model_aliases.py is the concrete provider/thinking-mode registry;
             # settings.py is where the production model spec actually lives (default_agent_model,
             # model_attempt_timeout) — a PR flipping the prod model would live here, not in agents/**.
-            agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py', 'apps/agent/agent/config/settings.py']
+            # The gate's own machinery is in scope too (added 2026-07-26): #440
+            # rewrote the classifier, the L0 selection and the failure reporting
+            # while this filter excluded tests/eval/**, so the smoke job SKIPPED
+            # on the very PR that changed it — a gate that cannot test itself.
+            agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py', 'apps/agent/agent/config/settings.py', 'apps/agent/agent/tests/eval/**']
             frontend: ['frontend/**']
             web: ['apps/web/**']
             worker: ['worker/**']
