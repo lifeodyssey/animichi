@@ -61,6 +61,32 @@ export interface ChatToolStepsDict {
   readonly retried: string;
 }
 
+/** Turnstile challenge copy (issue #281 S1.9): the widget label plus the
+ * retryable rejection the edge Worker returns for a bad or expired token. */
+export interface ChatTurnstileDict {
+  readonly label: string;
+  readonly failed: string;
+  readonly retry: string;
+}
+
+const jaTurnstile: ChatTurnstileDict = {
+  label: "かんたんな確認",
+  failed: "確認がうまくいかなかったみたい。もう一度ためしてね",
+  retry: "もう一度ためす",
+};
+
+const zhTurnstile: ChatTurnstileDict = {
+  label: "简单的验证",
+  failed: "验证没通过,再试一次就好",
+  retry: "再试一次",
+};
+
+const enTurnstile: ChatTurnstileDict = {
+  label: "A quick check",
+  failed: "That check didn't go through. Give it another try",
+  retry: "Try again",
+};
+
 /** Chat-page copy, kept feature-local to avoid the shared dictionary hot file. */
 export interface ChatDict {
   readonly greeting: string;
@@ -80,6 +106,7 @@ export interface ChatDict {
   readonly errorStates: ChatErrorStatesDict;
   readonly toolSteps: ChatToolStepsDict;
   readonly search: ChatSearchDict;
+  readonly turnstile: ChatTurnstileDict;
 }
 
 const jaSearch: ChatSearchDict = {
@@ -233,6 +260,7 @@ const ja: ChatDict = {
   errorStates: jaErrorStates,
   toolSteps: jaToolSteps,
   search: jaSearch,
+  turnstile: jaTurnstile,
 };
 
 const zh: ChatDict = {
@@ -253,6 +281,7 @@ const zh: ChatDict = {
   errorStates: zhErrorStates,
   toolSteps: zhToolSteps,
   search: zhSearch,
+  turnstile: zhTurnstile,
 };
 
 const en: ChatDict = {
@@ -277,6 +306,7 @@ const en: ChatDict = {
   errorStates: enErrorStates,
   toolSteps: enToolSteps,
   search: enSearch,
+  turnstile: enTurnstile,
 };
 
 const CHAT_DICTIONARIES: Record<Locale, ChatDict> = { ja, zh, en };
