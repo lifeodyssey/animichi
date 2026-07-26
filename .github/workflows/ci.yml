@@ -193,10 +193,14 @@ jobs:
 
   # ── Agent eval: L0 smoke (SD-30 §① — required PR gate) ────────
   # Path-filter scope = the SD-30 rule above (`agent_behavior`): prompt/model-config/
-  # guardrail files only. Capped ~80-case trajectory run; EVAL_SMOKE=1 turns the
-  # normally report-only capped run into an enforced one — zero-errored cases plus the
-  # deterministic direct_gates (thrash) — without ever touching the statistical
-  # baseline. The uncapped L1 suite (baseline + statistical gate + translation eval)
+  # guardrail files only. EVAL_SMOKE=1 composes the L0 set explicitly (one case per
+  # behavior path, locale-rotated across ja/zh/en, then the remaining budget spent on
+  # the P0 trilingual fill — see agent/tests/eval/l0_selection.py) and turns the
+  # normally report-only capped run into an enforced one: zero agent-originated errors
+  # plus the deterministic direct_gates (thrash), without ever touching the statistical
+  # baseline. Provider transport errors are reported but do not gate (#434); the
+  # trajectory assertions print every run and enforce under TRAJECTORY_ASSERT=1.
+  # The uncapped L1 suite (baseline + statistical gate + translation eval)
   # runs nightly instead of on every PR — see agent-eval-nightly.yml.
 
   agent-eval-smoke:
