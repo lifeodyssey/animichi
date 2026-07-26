@@ -13,7 +13,7 @@ import { server } from "../../msw/node";
 
 const URL = `${TEST_ORIGIN}/v1/photo-search`;
 
-function jpegFile(bytes: Uint8Array): File {
+function jpegFile(bytes: Uint8Array<ArrayBuffer>): File {
   return new File([bytes], "photo.jpg", { type: "image/jpeg" });
 }
 

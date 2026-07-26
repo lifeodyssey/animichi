@@ -52,7 +52,9 @@ describe("LocationPrompt (C4)", () => {
     await screen.findByText(dict.location.denied);
     const submit = screen.getByRole("button", { name: dict.location.manualSubmit });
     expect(submit.hasAttribute("disabled")).toBe(true);
-    fireEvent.submit(submit.closest("form") as HTMLFormElement);
+    const input = screen.getByRole("textbox", { name: dict.location.manualPlaceholder });
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.submit(input);
     expect(onManual).not.toHaveBeenCalled();
   });
 });
