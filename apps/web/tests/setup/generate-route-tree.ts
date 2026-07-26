@@ -4,11 +4,12 @@ import { Generator, getConfig } from "@tanstack/router-generator";
 const appRoot = fileURLToPath(new URL("../../", import.meta.url));
 
 /**
- * Vitest globalSetup: emit `src/routeTree.gen.ts` before the suite runs.
+ * Emit `src/routeTree.gen.ts`. Used as the vitest globalSetup and, via the
+ * `routes:generate` script, by `lint:oxlint` and `typecheck`.
  *
  * The TanStack Start vite plugin generates it during dev/build, but the unit
- * pool runs without that plugin, so `router.tsx` (now in the coverage sweep)
- * would fail to import the generated tree otherwise.
+ * pool runs without that plugin and a fresh checkout has never built, so both
+ * the suite and the type-aware gates would otherwise see an unresolved import.
  */
 export default async function setup(): Promise<void> {
   const config = getConfig(
@@ -21,3 +22,5 @@ export default async function setup(): Promise<void> {
   );
   await new Generator({ config, root: appRoot }).run();
 }
+
+if (import.meta.main) await setup();
