@@ -166,6 +166,26 @@
   color: var(--color-error-strong);
 }
 
+/* A step the agent re-ran (ModelRetry): visible as history, never alarming. */
+.chat-step[data-status="retried"] {
+  color: var(--color-muted-fg);
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+/* Carries the retried state to assistive tech; the strike-through carries it visually. */
+.chat-step__note {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
 .chat-card {
   padding: 0.875rem 1rem;
   border: 1px solid var(--color-border);

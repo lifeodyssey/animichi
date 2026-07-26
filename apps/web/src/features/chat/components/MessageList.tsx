@@ -1,6 +1,7 @@
 import type { ChatStatus, UIMessage } from "ai";
 import type { ChatDict } from "../i18n";
 import { formatElapsed } from "../telemetry";
+import { statusedSteps } from "../tool-steps";
 import { DataPartCard } from "./DataPartCard";
 import { SettledFootprint } from "./SettledFootprint";
 import { ToolStepBadge } from "./ToolStepBadge";
@@ -24,7 +25,9 @@ function partKey(messageId: string, part: Part, index: number): string {
 }
 
 function ToolBadges({ parts, dict }: Readonly<{ parts: readonly ToolPart[]; dict: ChatDict }>) {
-  return parts.map((part) => <ToolStepBadge key={part.toolCallId} type={part.type} state={part.state} dict={dict} />);
+  return statusedSteps(parts).map(({ step, status }) => (
+    <ToolStepBadge key={step.toolCallId} type={step.type} status={status} dict={dict} />
+  ));
 }
 
 type PipelineProps = Readonly<{

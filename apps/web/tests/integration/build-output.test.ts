@@ -14,15 +14,27 @@ const wranglerConfigPath = new URL("../../wrangler.jsonc", import.meta.url);
 interface WranglerConfig {
   main: string;
   assets: { directory: string; binding: string };
+  env?: Record<string, unknown>;
 }
+
+const DEFAULT_TARGET = "top-level";
 
 function readWranglerConfig(): WranglerConfig {
   return parse(readFileSync(wranglerConfigPath, "utf8")) as WranglerConfig;
 }
 
-function bundleWorkerToTempDir(): string {
+/** Every named env ships: staging/production via ci.yml, preview via preview.yml. */
+function buildTargets(): string[] {
+  return [DEFAULT_TARGET, ...Object.keys(readWranglerConfig().env ?? {})];
+}
+
+function envArgs(target: string): string[] {
+  return target === DEFAULT_TARGET ? [] : ["--env", target];
+}
+
+function bundleWorkerToTempDir(target: string): string {
   const outdir = mkdtempSync(join(tmpdir(), "animichi-web-bundle-"));
-  execFileSync("pnpm", ["exec", "wrangler", "deploy", "--dry-run", "--outdir", outdir], {
+  execFileSync("pnpm", ["exec", "wrangler", "deploy", "--dry-run", "--outdir", outdir, ...envArgs(target)], {
     cwd: packageRoot,
     stdio: "pipe",
     timeout: 120_000,
@@ -58,36 +70,18 @@ describe("build output", () => {
     expect(wranglerConfig.assets.binding).toBe("ASSETS");
   });
 
-  it("dry-runs the web Worker deployment", () => {
-    execFileSync("pnpm", ["exec", "wrangler", "deploy", "--dry-run"], {
-      cwd: packageRoot,
-      stdio: "pipe",
-      timeout: 120_000,
-    });
+  it("covers every wrangler env that ships", () => {
+    expect(buildTargets()).toEqual([DEFAULT_TARGET, "staging", "production", "preview"]);
   });
 
   // Regression: esbuild `keepNames` wraps functions in `__name(...)`, and seroval serialises its
   // stream helpers with Function.prototype.toString() into the inline `$tsr-stream-barrier` script,
   // where `__name` is undefined — that ReferenceError blanked every SSR route (issue #426).
-  it("bundles the Worker without esbuild keepNames wrappers", () => {
-    const bundle = readBundledWorker(bundleWorkerToTempDir());
+  // Per-env, because a `keep_names`/`build` override under one `env` block would otherwise ship
+  // the crash while the top-level bundle stayed clean.
+  it.each(buildTargets())("dry-runs %s without esbuild keepNames wrappers", (target) => {
+    const bundle = readBundledWorker(bundleWorkerToTempDir(target));
 
     expect(bundle).not.toContain("__name(");
-  });
-
-  it("dry-runs the staging web Worker deployment", () => {
-    execFileSync("pnpm", ["exec", "wrangler", "deploy", "--dry-run", "--env", "staging"], {
-      cwd: packageRoot,
-      stdio: "pipe",
-      timeout: 120_000,
-    });
-  });
-
-  it("dry-runs the production web Worker deployment", () => {
-    execFileSync("pnpm", ["exec", "wrangler", "deploy", "--dry-run", "--env", "production"], {
-      cwd: packageRoot,
-      stdio: "pipe",
-      timeout: 120_000,
-    });
   });
 });
