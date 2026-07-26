@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import logging
-import random
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError
+
+from agent.tests.eval.stats import (
+    Comparison,
+    PairedScore,
+    proportion_comparison,
+    stratified_paired_comparison,
+)
 
 logger = logging.getLogger(__name__)
 CaseScores = Mapping[str, Mapping[str, float]]
@@ -39,13 +45,14 @@ class _GateOptions:
     confidence: float
     min_effect: float
     min_paired: int
+    seed: int
 
 
 @dataclass(frozen=True)
 class _GateContext:
     current_cases: CaseScores
     baseline: BaselineRecord
-    rng: random.Random
+    strata: Mapping[str, str]
     options: _GateOptions
 
 
@@ -96,9 +103,10 @@ def bootstrap_gate(
     seed: int = 309,
     min_effect: float = 0.01,
     min_paired: int = 10,
+    strata: Mapping[str, str] | None = None,
 ) -> list[str]:
-    options = _GateOptions(iterations, confidence, min_effect, min_paired)
-    ctx = _GateContext(current_cases, baseline, random.Random(seed), options)
+    options = _GateOptions(iterations, confidence, min_effect, min_paired, seed)
+    ctx = _GateContext(current_cases, baseline, strata or {}, options)
     failures = _metric_failures(ctx)
     return [failure for failure in failures if failure is not None]
 
@@ -121,10 +129,16 @@ def error_rate_gate(
     if _has_zero_error_total(current_total, baseline):
         logger.warning("Skipping error_rate: zero total cases")
         return []
-    samples = _error_rate_samples(
-        current_errored, current_total, baseline, iterations, seed
+    baseline_total = baseline.evaluated_count + baseline.errored_count
+    comparison = proportion_comparison(
+        current_errored,
+        current_total,
+        baseline.errored_count,
+        baseline_total,
+        confidence=confidence,
+        min_effect=min_effect,
     )
-    failure = _error_rate_failure(samples, confidence, min_effect)
+    failure = _comparison_failure("error_rate", comparison)
     return [] if failure is None else [failure]
 
 
@@ -239,21 +253,39 @@ def _case_metrics(baseline: BaselineRecord) -> set[str]:
 
 
 def _metric_failure(metric: str, ctx: _GateContext) -> str | None:
-    deltas = _paired_deltas(ctx, metric)
-    if len(deltas) < ctx.options.min_paired:
-        _warn_few_pairs(metric, len(deltas), ctx.options.min_paired)
+    pairs = _paired_scores(ctx, metric)
+    if len(pairs) < ctx.options.min_paired:
+        _warn_few_pairs(metric, len(pairs), ctx.options.min_paired)
         return None
-    lower, upper = _bootstrap_ci(deltas, ctx)
-    return _failure_if_regression(metric, deltas, lower, upper, ctx.options)
+    comparison = _paired_comparison(pairs, ctx.options)
+    return _comparison_failure(metric, comparison)
 
 
-def _paired_deltas(ctx: _GateContext, metric: str) -> list[float]:
+def _paired_scores(ctx: _GateContext, metric: str) -> list[PairedScore]:
     case_ids = sorted(set(ctx.baseline.cases).intersection(ctx.current_cases))
     return [
-        _delta(ctx, metric, case_id)
+        _paired_score(ctx, metric, case_id)
         for case_id in case_ids
         if _has_metric(ctx, metric, case_id)
     ]
+
+
+def _paired_score(ctx: _GateContext, metric: str, case_id: str) -> PairedScore:
+    return PairedScore(
+        ctx.baseline.cases[case_id][metric],
+        ctx.current_cases[case_id][metric],
+        ctx.strata.get(case_id, "unstratified"),
+    )
+
+
+def _paired_comparison(pairs: list[PairedScore], options: _GateOptions) -> Comparison:
+    return stratified_paired_comparison(
+        pairs,
+        iterations=options.iterations,
+        confidence=options.confidence,
+        seed=options.seed,
+        min_effect=options.min_effect,
+    )
 
 
 def _has_metric(ctx: _GateContext, metric: str, case_id: str) -> bool:
@@ -262,100 +294,28 @@ def _has_metric(ctx: _GateContext, metric: str, case_id: str) -> bool:
     )
 
 
-def _delta(ctx: _GateContext, metric: str, case_id: str) -> float:
-    return ctx.baseline.cases[case_id][metric] - ctx.current_cases[case_id][metric]
-
-
-def _bootstrap_ci(
-    deltas: list[float],
-    ctx: _GateContext,
-) -> tuple[float, float]:
-    samples = sorted(
-        _sample_mean(deltas, ctx.rng) for _ in range(max(ctx.options.iterations, 1))
-    )
-    tail = (1.0 - ctx.options.confidence) / 2.0
-    return _percentile(samples, tail), _percentile(samples, 1.0 - tail)
-
-
-def _sample_mean(deltas: list[float], rng: random.Random) -> float:
-    total = 0.0
-    for _ in deltas:
-        total += rng.choice(deltas)
-    return total / len(deltas)
-
-
-def _percentile(values: list[float], quantile: float) -> float:
-    index = int(quantile * (len(values) - 1))
-    return values[index]
-
-
-def _error_rate_samples(
-    current_errored: int,
-    current_total: int,
-    baseline: BaselineRecord,
-    iterations: int,
-    seed: int,
-) -> list[float]:
-    rng = random.Random(seed)
-    current = _error_indicators(current_errored, current_total)
-    total = baseline.evaluated_count + baseline.errored_count
-    prior = _error_indicators(baseline.errored_count, total)
-    return sorted(
-        _sample_mean(current, rng) - _sample_mean(prior, rng)
-        for _ in range(max(iterations, 1))
-    )
-
-
-def _error_indicators(errored: int, total: int) -> list[float]:
-    return [1.0] * errored + [0.0] * (total - errored)
-
-
 def _has_zero_error_total(current_total: int, baseline: BaselineRecord) -> bool:
     baseline_total = baseline.evaluated_count + baseline.errored_count
     return current_total <= 0 or baseline_total <= 0
 
 
-def _error_rate_failure(
-    samples: list[float],
-    confidence: float,
-    min_effect: float,
-) -> str | None:
-    lower, upper = _error_rate_ci(samples, confidence)
-    if lower <= min_effect:
+def _comparison_failure(metric: str, comparison: Comparison) -> str | None:
+    message = _format_comparison(metric, comparison)
+    if comparison.verdict == "pass":
         return None
-    return _format_error_rate_failure(samples, lower, upper)
-
-
-def _error_rate_ci(samples: list[float], confidence: float) -> tuple[float, float]:
-    tail = (1.0 - confidence) / 2.0
-    return _percentile(samples, tail), _percentile(samples, 1.0 - tail)
-
-
-def _format_error_rate_failure(
-    samples: list[float],
-    lower: float,
-    upper: float,
-) -> str:
-    return f"error_rate: mean_delta={_mean(samples):.4f}, ci=[{lower:.4f}, {upper:.4f}]"
-
-
-def _failure_if_regression(
-    metric: str,
-    deltas: list[float],
-    lower: float,
-    upper: float,
-    options: _GateOptions,
-) -> str | None:
-    if lower <= options.min_effect:
+    if comparison.verdict == "indeterminate":
+        logger.warning("INDETERMINATE %s", message)
         return None
+    return message
+
+
+def _format_comparison(metric: str, comparison: Comparison) -> str:
+    interval = comparison.interval
     return (
-        f"{metric}: mean_delta={_mean(deltas):.4f}, "
-        f"ci=[{lower:.4f}, {upper:.4f}], n={len(deltas)}"
+        f"{metric}: mean_delta={comparison.estimate:.4f}, "
+        f"ci=[{interval.lower:.4f}, {interval.upper:.4f}], "
+        f"n={comparison.sample_size}, method={comparison.method}"
     )
-
-
-def _mean(values: list[float]) -> float:
-    return sum(values) / len(values)
 
 
 def _warn_few_pairs(metric: str, paired: int, min_paired: int) -> None:

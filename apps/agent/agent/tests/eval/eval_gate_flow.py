@@ -19,12 +19,14 @@ from agent.tests.eval.eval_harness import (
     CAPPED,
     CASES,
     DATASET_NAME,
+    DATASET_PATH,
     EVAL_L3,
     METRIC_NAMES,
     RESULTS_DIR,
     AgentReport,
 )
 from agent.tests.eval.eval_report import collect_scores, print_scores
+from agent.tests.eval.evaluators import accepted_chains_for_case
 from agent.tests.eval.exec_tiers import (
     EvalTierTarget,
     build_results_payload,
@@ -38,6 +40,20 @@ from agent.tests.eval.gate import (
     read_baseline_record,
     write_baseline_record,
 )
+from agent.tests.eval.smoke_errors import (
+    SmokeError,
+    SmokeErrorSummary,
+    classify_error,
+    format_transport_notice,
+    smoke_error_failures,
+    summarize_errors,
+)
+from agent.tests.eval.stats import load_case_strata
+from agent.tests.eval.trajectory_assertions import (
+    TrajectoryExpectation,
+    print_trajectory_assertions,
+    trajectory_assertion_failures,
+)
 
 ScoreMap: TypeAlias = dict[str, float]
 CaseScores: TypeAlias = dict[str, ScoreMap]
@@ -50,10 +66,17 @@ class GateInput:
     tier: str
     case_count: int
     evaluated_count: int
-    errored_count: int
     scores: ScoreMap
     cases: CaseScores
+    errors: tuple[SmokeError, ...] = ()
     trajectories: tuple[TrajectoryCase, ...] = ()
+    expectations: tuple[TrajectoryExpectation, ...] = ()
+    strata: dict[str, str] | None = None
+
+    @property
+    def errored_count(self) -> int:
+        """Single source of truth: the classified errors are the errored cases."""
+        return len(self.errors)
 
 
 def gate_exit_code(failures: list[str] | None) -> int:
@@ -190,16 +213,34 @@ def _smoke_gate_failures(gate_input: GateInput) -> list[str]:
     return [
         *_smoke_error_failures(gate_input),
         *direct_thrash_gate(gate_input.trajectories),
+        *_trajectory_assertion_failures(gate_input),
     ]
+
+
+def _trajectory_assertion_failures(gate_input: GateInput) -> list[str]:
+    """S1.13 pilot: report every case, block only once calibrated (opt-in)."""
+    enforced = _trajectory_assertions_enforced()
+    print_trajectory_assertions(gate_input.expectations, enforced=enforced)
+    if not enforced:
+        return []
+    return trajectory_assertion_failures(gate_input.expectations)
+
+
+def _trajectory_assertions_enforced() -> bool:
+    return os.environ.get("TRAJECTORY_ASSERT") == "1"
 
 
 def _smoke_error_failures(gate_input: GateInput) -> list[str]:
-    if gate_input.errored_count == 0:
-        return []
-    return [
-        f"{gate_input.errored_count}/{gate_input.case_count} cases errored "
-        "(EVAL_SMOKE requires zero errors)."
-    ]
+    """Name every errored case, and gate on agent errors rather than noise."""
+    summary = summarize_errors(gate_input.errors, gate_input.case_count)
+    _print_transport_notice(summary)
+    return smoke_error_failures(summary)
+
+
+def _print_transport_notice(summary: SmokeErrorSummary) -> None:
+    notice = format_transport_notice(summary)
+    if notice:
+        print(f"\n{notice}")
 
 
 def _smoke_enforced() -> bool:
@@ -236,7 +277,11 @@ def _gate_failures(
     enforce_direct: bool,
 ) -> list[str]:
     direct = direct_thrash_gate(gate_input.trajectories)
-    bootstrap = bootstrap_gate(gate_input.cases, baseline) if baseline else []
+    bootstrap = (
+        bootstrap_gate(gate_input.cases, baseline, strata=gate_input.strata)
+        if baseline
+        else []
+    )
     errors = error_rate_gate(
         gate_input.errored_count,
         gate_input.evaluated_count + gate_input.errored_count,
@@ -258,10 +303,30 @@ def _report_gate_input(
         target.tier,
         len(CASES),
         len(report.cases),
-        len(report.failures),
         scores,
         collect_case_scores(report),
-        _trajectory_cases(report),
+        errors=_classified_errors(report),
+        trajectories=_trajectory_cases(report),
+        expectations=_expectations(report),
+        strata=load_case_strata(DATASET_PATH),
+    )
+
+
+def _expectations(report: AgentReport) -> tuple[TrajectoryExpectation, ...]:
+    return tuple(
+        TrajectoryExpectation.from_case(
+            TrajectoryCase.from_result(str(case.name), case.output),
+            accepted_chains_for_case(case.inputs, case.metadata),
+        )
+        for case in report.cases
+        if isinstance(case.output, AgentResult)
+    )
+
+
+def _classified_errors(report: AgentReport) -> tuple[SmokeError, ...]:
+    return tuple(
+        classify_error(str(failure.name), failure.error_message)
+        for failure in report.failures
     )
 
 

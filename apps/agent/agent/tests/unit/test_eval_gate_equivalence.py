@@ -112,14 +112,25 @@ def _configure(
         ("clean_pass", [], 0),
         (
             "metric_regression",
-            ["Accuracy: mean_delta=1.0000, ci=[1.0000, 1.0000], n=10"],
+            [
+                "Accuracy: mean_delta=1.0000, ci=[1.0000, 1.0000], n=10, "
+                "method=stratified-paired-bootstrap"
+            ],
             1,
         ),
+        # A regression the exact interval can separate from the baseline blocks.
         (
             "error_rate",
-            ["error_rate: mean_delta=0.2005, ci=[0.0500, 0.4000]"],
+            [
+                "error_rate: mean_delta=0.2000, ci=[0.0904, 0.2918], n=100, "
+                "method=clopper-pearson"
+            ],
             1,
         ),
+        # AC: overlapping intervals are inconclusive, not an automatic block.
+        # 4/20 vs 0/20 is not separable at 95%; the absolute 20% ceiling still
+        # catches runs that are egregious regardless of the baseline.
+        ("error_rate_inconclusive", [], 0),
         ("missing_baseline", None, 0),
         ("stale_baseline", None, 0),
         ("capped_run", [], 0),
