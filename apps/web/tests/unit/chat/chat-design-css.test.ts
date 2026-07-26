@@ -29,6 +29,20 @@ describe("B2b running step: gold + shimmer", () => {
   });
 });
 
+describe("retried step: muted, not alarming", () => {
+  const retried = '.chat-step[data-status="retried"]';
+
+  it("mutes the retried step instead of borrowing the error token", () => {
+    expect(ruleDeclaration(chatCss, retried, "color")).toBe("var(--color-muted-fg)");
+    expect(ruleDeclaration(chatCss, retried, "text-decoration")).toBe("line-through");
+  });
+
+  it("keeps the error token reserved for terminal failures", () => {
+    const error = '.chat-step[data-status="error"]';
+    expect(ruleDeclaration(chatCss, error, "color")).toBe("var(--color-error-strong)");
+  });
+});
+
 describe("B2a typing dots", () => {
   it("bounces the dots with a staggered CSS keyframe animation", () => {
     expect(ruleDeclaration(chatCss, ".chat-typing__dot", "animation")).toContain("chat-dot-bounce");

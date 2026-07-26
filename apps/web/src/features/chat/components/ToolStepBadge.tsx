@@ -1,23 +1,22 @@
 import { HIDDEN_TOOL_STEPS, toolStepLabel } from "../i18n";
 import type { ChatDict } from "../i18n";
+import type { StepStatus } from "../tool-steps";
 
-export type StepStatus = "done" | "error" | "running";
+type Props = Readonly<{ type: string; status: StepStatus; dict: ChatDict }>;
 
-/** Tool-part `state` machine → badge status (spec S1.1: step badges ← tool parts). */
-export function stepStatus(state: string): StepStatus {
-  if (state === "output-available") return "done";
-  if (state === "output-error" || state === "output-denied") return "error";
-  return "running";
+/** The retried style is purely visual; name the state for assistive tech too. */
+function ariaLabel(label: string, status: StepStatus, dict: ChatDict): string | undefined {
+  if (status !== "retried") return undefined;
+  return `${label} · ${dict.toolSteps.retried}`;
 }
 
-type Props = Readonly<{ type: string; state: string; dict: ChatDict }>;
-
-export function ToolStepBadge({ type, state, dict }: Props) {
+export function ToolStepBadge({ type, status, dict }: Props) {
   const name = type.replace(/^tool-/, "");
   if (HIDDEN_TOOL_STEPS.has(name)) return null;
+  const label = toolStepLabel(dict, name);
   return (
-    <span className="chat-step" data-status={stepStatus(state)} data-tool={name}>
-      {toolStepLabel(dict, name)}
+    <span className="chat-step" data-status={status} data-tool={name} aria-label={ariaLabel(label, status, dict)}>
+      {label}
     </span>
   );
 }

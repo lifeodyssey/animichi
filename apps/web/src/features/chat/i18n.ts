@@ -49,6 +49,8 @@ export const HIDDEN_TOOL_STEPS: ReadonlySet<string> = new Set([
 export interface ChatToolStepsDict {
   readonly labels: Readonly<Record<ToolStepKey, string>>;
   readonly fallback: string;
+  /** Screen-reader suffix for a step the agent re-ran after a recoverable retry. */
+  readonly retried: string;
 }
 
 /** Chat-page copy, kept feature-local to avoid the shared dictionary hot file. */
@@ -82,6 +84,7 @@ const jaToolSteps: ChatToolStepsDict = {
     web_search: "ネットでしらべてるよ…",
   },
   fallback: "じゅんびしてるよ…",
+  retried: "やりなおしたよ",
 };
 
 const zhToolSteps: ChatToolStepsDict = {
@@ -95,6 +98,7 @@ const zhToolSteps: ChatToolStepsDict = {
     web_search: "在网上查一查…",
   },
   fallback: "在准备中…",
+  retried: "已重试",
 };
 
 const enToolSteps: ChatToolStepsDict = {
@@ -108,6 +112,7 @@ const enToolSteps: ChatToolStepsDict = {
     web_search: "Searching the web…",
   },
   fallback: "Working on it…",
+  retried: "retried",
 };
 
 const jaErrorStates: ChatErrorStatesDict = {
