@@ -157,9 +157,9 @@ async function assertSpots404(): Promise<void> {
 async function assertNearbyHit(): Promise<void> {
   const out = await call<{ rows: ApiPoint[] }>("nearby", { lat: 36.1019, lng: 139.6586, radius_m: 1000 });
   expect(out.rows.map((r) => r.id)).toEqual(["washinomiya", "washinomiya-torii"]);
-  expect(out.rows[0]?.distance_m).toBeGreaterThanOrEqual(0);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-  expect(out.rows[1]?.distance_m).toBeGreaterThan(out.rows[0]!.distance_m!);
+  const [nearest, farther] = out.rows;
+  expect(nearest?.distance_m).toBeGreaterThanOrEqual(0);
+  expect(farther?.distance_m).toBeGreaterThan(nearest?.distance_m ?? Number.NaN);
 }
 
 async function assertNearbyMiss(): Promise<void> {
