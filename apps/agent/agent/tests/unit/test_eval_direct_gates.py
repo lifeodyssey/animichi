@@ -101,7 +101,6 @@ def _failing_gate_input() -> GateInput:
         tier="trajectory",
         case_count=1,
         evaluated_count=1,
-        errored_count=0,
         scores={},
         cases={},
         trajectories=(TrajectoryCase("thrash", requests=13),),
