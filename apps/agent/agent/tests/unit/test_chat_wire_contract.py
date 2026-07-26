@@ -134,15 +134,40 @@ def _candidate() -> OrderedCandidate:
     )
 
 
-def _parse_with_zod(value: object) -> str:
-    result = subprocess.run(
+def _run_parser(input_text: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
         ["node", "--import", "tsx", "chat_wire_parser.ts"],
         cwd=_UNIT_DIR,
-        input=json.dumps(value),
+        input=input_text,
         text=True,
         capture_output=True,
-        check=True,
     )
+
+
+def _run_warmup() -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["node", "--import", "tsx", "chat_wire_parser.ts", "--warm"],
+        cwd=_UNIT_DIR,
+        text=True,
+        capture_output=True,
+    )
+
+
+def _require_success(result: subprocess.CompletedProcess[str], failure: str) -> None:
+    if result.returncode:
+        raise AssertionError(f"{failure}:\n{result.stderr.strip()}") from None
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _warm_tsx_loader() -> None:
+    _run_warmup()
+    result = _run_warmup()
+    _require_success(result, "tsx toolchain not ready after warm-up")
+
+
+def _parse_with_zod(value: object) -> str:
+    result = _run_parser(json.dumps(value))
+    _require_success(result, "wire contract violation")
     return result.stdout
 
 
