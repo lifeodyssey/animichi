@@ -226,6 +226,9 @@ jobs:
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
           EVAL_SMOKE: "1"
           EVAL_MAX_CASES: "80"
+          # Settings requires presence; the trajectory tier uses NullDatabase and
+          # never opens this endpoint (mirrors the python-integration job).
+          SUPABASE_DB_URL: postgresql://test:test@localhost:5432/test
 
   # ── Neon test infrastructure (non-gating during calibration) ──
 
