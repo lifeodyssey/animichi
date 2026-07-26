@@ -88,13 +88,19 @@ def _actual_tools(output: AgentResult) -> list[str]:
     return [step.tool for step in output.steps]
 
 
+def accepted_chains_for_case(
+    inputs: AgentInput, metadata: AgentExpected | None
+) -> list[tuple[str, ...]]:
+    """The model-call chains that would accept this case's trajectory."""
+    if inputs.selected_point_ids is not None:
+        return [()]
+    if inputs.selected_candidate_ids is not None:
+        return [()]
+    return _model_call_chains_for_stages(metadata.acceptable_stages if metadata else [])
+
+
 def _model_call_chains(ctx: _Ctx) -> list[tuple[str, ...]]:
-    stages = ctx.metadata.acceptable_stages if ctx.metadata else []
-    if ctx.inputs.selected_point_ids is not None:
-        return [()]
-    if ctx.inputs.selected_candidate_ids is not None:
-        return [()]
-    return _model_call_chains_for_stages(stages)
+    return accepted_chains_for_case(ctx.inputs, ctx.metadata)
 
 
 def _seeded_reason(inputs: AgentInput) -> object:
