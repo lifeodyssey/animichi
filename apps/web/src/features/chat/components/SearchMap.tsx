@@ -12,7 +12,7 @@ import { MapFallback } from "./ErrorStates/MapFallback";
 /** Injectable mount so tests (and D7 simulations) never touch WebGL. */
 export type AttachBasemap = (options: MountBasemapOptions) => () => void;
 
-interface Basemap {
+export interface Basemap {
   readonly ref: RefObject<HTMLDivElement | null>;
   readonly status: BasemapStatus;
 }
@@ -45,7 +45,7 @@ function useStablePoints(points: readonly LatLng[]): readonly LatLng[] {
   return held.current.points;
 }
 
-function useBasemap(points: readonly LatLng[], attach: AttachBasemap): Basemap {
+export function useBasemap(points: readonly LatLng[], attach: AttachBasemap): Basemap {
   const ref = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<BasemapStatus>("loading");
   const stable = useStablePoints(points);
@@ -60,7 +60,7 @@ type FrameProps = Readonly<{
   children: ReactNode;
 }>;
 
-function MapFrame({ basemap, role, label, children }: FrameProps) {
+export function MapFrame({ basemap, role, label, children }: FrameProps) {
   return (
     <div className="chat-search-map" role={role} aria-label={label}>
       <div ref={basemap.ref} className="chat-search-map__gl" aria-hidden />
@@ -69,7 +69,7 @@ function MapFrame({ basemap, role, label, children }: FrameProps) {
   );
 }
 
-function percentStyle(placement: PointPlacement): CSSProperties {
+export function percentStyle(placement: PointPlacement): CSSProperties {
   return { left: `${String(placement.leftPct)}%`, top: `${String(placement.topPct)}%` };
 }
 

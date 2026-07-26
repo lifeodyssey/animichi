@@ -12,12 +12,12 @@ function dataOf(part: ChatDataPart): PartData | undefined {
   return part.data;
 }
 
-function resultsOf(part: ChatDataPart) {
+export function resultsOf(part: ChatDataPart) {
   const data = dataOf(part);
   return data && "results" in data ? data.results : undefined;
 }
 
-function routeOf(part: ChatDataPart) {
+export function routeOf(part: ChatDataPart) {
   const data = dataOf(part);
   return data && "route" in data ? data.route : undefined;
 }
@@ -27,7 +27,7 @@ function candidatesOf(part: ChatDataPart) {
   return data && "candidates" in data ? (data.candidates ?? []) : [];
 }
 
-type SpotRow = Readonly<{
+export type SpotRow = Readonly<{
   id?: string;
   name?: string;
   screenshot_url?: string;
@@ -41,7 +41,7 @@ type SpotRow = Readonly<{
 }>;
 
 /** Streamed routes may carry spots only as `route.ordered_points` objects. */
-function routeSpotsOf(part: ChatDataPart): SpotRow[] {
+export function routeSpotsOf(part: ChatDataPart): SpotRow[] {
   const points = routeOf(part)?.ordered_points ?? [];
   const spots: SpotRow[] = [];
   for (const point of points) {
@@ -55,8 +55,10 @@ function spotsOf(part: ChatDataPart): SpotRow[] {
   return rows.length > 0 ? rows : routeSpotsOf(part);
 }
 
+/** Upstream sends `-1` as the unknown-episode sentinel, never an omission. */
 function epOf(row: SpotRow): number | undefined {
-  return row.ep ?? row.episode;
+  const raw = row.ep ?? row.episode;
+  return raw !== undefined && raw >= 0 ? raw : undefined;
 }
 
 /** The thumb renders only for rows that carry a still; D9 degrades it. */
@@ -69,7 +71,7 @@ function SpotItem({ row, dict }: Readonly<{ row: SpotRow; dict: ChatDict }>) {
   );
 }
 
-function SpotList({ part, dict }: IntentCardProps) {
+export function SpotList({ part, dict }: IntentCardProps) {
   const rows = spotsOf(part);
   if (rows.length === 0) return null;
   const items = rows.map((row) => <SpotItem key={row.id ?? row.name} row={row} dict={dict} />);
@@ -83,25 +85,6 @@ export function SearchCard({ part, dict }: IntentCardProps) {
     <div className="chat-card__body">
       {results?.title ? <p className="chat-card__title">{results.title}</p> : null}
       <SearchResult spots={toSearchSpots(spotsOf(part))} dict={dict} />
-    </div>
-  );
-}
-
-function RouteStats({ part }: Readonly<{ part: ChatDataPart }>) {
-  const route = routeOf(part);
-  if (!route) return null;
-  return (
-    <p className="chat-card__stats">
-      {route.point_count ?? 0} spots · {route.total_walk_minutes ?? "?"} min
-    </p>
-  );
-}
-
-export function RouteCard({ part, dict }: IntentCardProps) {
-  return (
-    <div className="chat-card__body">
-      <RouteStats part={part} />
-      <SpotList part={part} dict={dict} />
     </div>
   );
 }

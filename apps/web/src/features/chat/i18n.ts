@@ -1,4 +1,11 @@
 import type { Locale } from "../../i18n/locales";
+import { enRoute, jaRoute, zhRoute } from "./route-i18n";
+import type { ChatRouteDict } from "./route-i18n";
+import { enSearch, jaSearch, zhSearch } from "./search-i18n";
+import type { ChatSearchDict } from "./search-i18n";
+
+export type { ChatRouteDict } from "./route-i18n";
+export type { ChatSearchDict } from "./search-i18n";
 
 /** In-character copy for the nine D1-D9 fallback states (issue #272 S1.6). */
 export interface ChatErrorStatesDict {
@@ -21,14 +28,6 @@ export interface ChatErrorStatesDict {
   readonly d8Login: string;
   readonly d8Resume: string;
   readonly d9Episode: string;
-}
-
-/** Copy for the C3a/C3b search result cards and static map (issue #261 S1.4). */
-export interface ChatSearchDict {
-  readonly select: string;
-  readonly spotCount: string;
-  readonly areaFallback: string;
-  readonly mapLabel: string;
 }
 
 /** Tools whose step badges surface to the user as localized progress copy. */
@@ -103,32 +102,14 @@ export interface ChatDict {
   readonly thinking: string;
   readonly waitingSubtitle: string;
   readonly footprintDetails: string;
+  /** E1 badge on a superseded living-document card (issues #271/#273). */
+  readonly previousVersion: string;
   readonly errorStates: ChatErrorStatesDict;
   readonly toolSteps: ChatToolStepsDict;
   readonly search: ChatSearchDict;
   readonly turnstile: ChatTurnstileDict;
+  readonly route: ChatRouteDict;
 }
-
-const jaSearch: ChatSearchDict = {
-  select: "この聖地をえらぶ",
-  spotCount: "{count}件",
-  areaFallback: "エリア{n}",
-  mapLabel: "聖地マップ",
-};
-
-const zhSearch: ChatSearchDict = {
-  select: "选择这个圣地",
-  spotCount: "{count} 处",
-  areaFallback: "区域{n}",
-  mapLabel: "圣地地图",
-};
-
-const enSearch: ChatSearchDict = {
-  select: "Select this spot",
-  spotCount: "{count} spots",
-  areaFallback: "Area {n}",
-  mapLabel: "Spot map",
-};
 
 const jaToolSteps: ChatToolStepsDict = {
   labels: {
@@ -257,10 +238,12 @@ const ja: ChatDict = {
   thinking: "考え中…",
   waitingSubtitle: "いま さがしてるよ…",
   footprintDetails: "詳細を見る",
+  previousVersion: "以前の版",
   errorStates: jaErrorStates,
   toolSteps: jaToolSteps,
   search: jaSearch,
   turnstile: jaTurnstile,
+  route: jaRoute,
 };
 
 const zh: ChatDict = {
@@ -278,10 +261,12 @@ const zh: ChatDict = {
   thinking: "思考中…",
   waitingSubtitle: "正在帮你找…",
   footprintDetails: "查看详情",
+  previousVersion: "旧版本",
   errorStates: zhErrorStates,
   toolSteps: zhToolSteps,
   search: zhSearch,
   turnstile: zhTurnstile,
+  route: zhRoute,
 };
 
 const en: ChatDict = {
@@ -303,10 +288,12 @@ const en: ChatDict = {
   thinking: "Thinking…",
   waitingSubtitle: "Looking that up…",
   footprintDetails: "View details",
+  previousVersion: "Previous version",
   errorStates: enErrorStates,
   toolSteps: enToolSteps,
   search: enSearch,
   turnstile: enTurnstile,
+  route: enRoute,
 };
 
 const CHAT_DICTIONARIES: Record<Locale, ChatDict> = { ja, zh, en };
