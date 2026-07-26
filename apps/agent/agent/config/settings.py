@@ -116,6 +116,9 @@ class Settings(BaseSettings):
     timeout_seconds: int = Field(
         default=120, description="API request timeout (reasoning models need longer)"
     )
+    message_max_chars: int = Field(
+        default=4000, gt=0, description="Maximum characters in one user message"
+    )
     agent_deadline: float = Field(
         default=100.0, gt=0, description="Whole-run agent deadline in seconds"
     )
@@ -274,6 +277,7 @@ class Settings(BaseSettings):
             "service_port": self.service_port,
             "max_retries": self.max_retries,
             "timeout_seconds": self.timeout_seconds,
+            "message_max_chars": self.message_max_chars,
             "agent_deadline": self.agent_deadline,
             "model_attempt_timeout": self.model_attempt_timeout,
             "cache_ttl_seconds": self.cache_ttl_seconds,
