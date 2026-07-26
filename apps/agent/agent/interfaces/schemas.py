@@ -77,8 +77,6 @@ class PublicAPIRequest(BaseModel):
     @model_validator(mode="after")
     def validate_request(self) -> PublicAPIRequest:
         self.text = self.text.strip()
-        if len(self.text) > 2000:
-            raise ValueError("text must be 2000 characters or fewer")
         if self.origin is not None:
             self.origin = self.origin.strip() or None
         self.selected_point_ids = _normalize_ids(self.selected_point_ids)
