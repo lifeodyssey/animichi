@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, cast
 import structlog
 from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 from pydantic_ai import RunContext
-from pydantic_ai.agent import EventStreamHandler
 from pydantic_ai.messages import (
     AgentStreamEvent,
     FunctionToolCallEvent,
@@ -18,8 +17,6 @@ from pydantic_ai.messages import (
     RetryPromptPart,
     ToolReturnPart,
 )
-from pydantic_ai.models import Model
-from pydantic_ai.models.function import FunctionModel
 
 from agent.agents.agent_result import StepData, StepProvenance, StepRecord
 from agent.agents.runtime_deps import StepEvent, StepStatus
@@ -79,15 +76,6 @@ class ToolLifecycleRegistry:
         self.recovered_exceptions.discard(call_id)
 
 
-def tool_event_bridge_for(
-    model: Model | None,
-) -> EventStreamHandler[RuntimeDeps] | None:
-    """Skip event streaming when a plain FunctionModel cannot provide it."""
-    if isinstance(model, FunctionModel) and model.stream_function is None:
-        return None
-    return tool_event_bridge
-
-
 async def tool_event_bridge(
     ctx: RunContext[RuntimeDeps], events: AsyncIterable[AgentStreamEvent]
 ) -> None:
@@ -121,8 +109,22 @@ def register_recovered_tool_exception(
     ctx.deps.tool_lifecycle.mark_recovered_exception(call_id)
 
 
+def _call_params(event: FunctionToolCallEvent) -> dict[str, JsonValue]:
+    """Never let an odd argument shape kill the run — the siblings all guard too.
+
+    Malformed JSON already arrives as {"INVALID_JSON": raw} from pydantic-ai, so
+    the model keeps its own retry path; the residual raiser is dict-typed args
+    holding non-JSON values. Recording empty params is strictly better than
+    turning a retryable tool call into a terminal run error.
+    """
+    try:
+        return _OBJECT.validate_python(event.part.args_as_dict())
+    except ValidationError:
+        return {}
+
+
 async def _handle_call(deps: RuntimeDeps, event: FunctionToolCallEvent) -> None:
-    params = _OBJECT.validate_python(event.part.args_as_dict())
+    params = _call_params(event)
     deps.tool_lifecycle.start(event.tool_call_id, event.part.tool_name, params)
     data = cast(StepData, params)
     await _emit(
@@ -141,6 +143,11 @@ async def _handle_retry(deps: RuntimeDeps, event: FunctionToolResultEvent) -> No
     call = deps.tool_lifecycle.finish(
         event.tool_call_id, event.part.tool_name or "tool"
     )
+    # Clear provenance and any recovered mark too: `finish` only pops `active`,
+    # so a retried call would otherwise leave entries behind for a call id that
+    # will never return. Bounded today (ids never repeat, the registry is
+    # request-scoped), but "mostly reached" is not a lifecycle.
+    deps.tool_lifecycle.abandon(event.tool_call_id)
     await _emit(deps, StepEvent(call.tool, event.tool_call_id, "error", {}))
 
 

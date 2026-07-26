@@ -17,6 +17,7 @@ from agent.agents.runtime_models import (
 )
 from agent.agents.session_state import PendingClarification, SessionState
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.streaming_function_model import streaming_function_model
 
 
 def _greeting_model() -> FunctionModel:
@@ -25,7 +26,7 @@ def _greeting_model() -> FunctionModel:
             parts=[ToolCallPart("greeting_response", {"message": "Hello!"})]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 def _qa_model() -> FunctionModel:
@@ -34,7 +35,7 @@ def _qa_model() -> FunctionModel:
             parts=[ToolCallPart("qa_response", {"message": "Answer."})]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 def _clarify_model() -> FunctionModel:
@@ -46,7 +47,7 @@ def _clarify_model() -> FunctionModel:
         }
         return ModelResponse(parts=[ToolCallPart("clarify_response", payload)])
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 async def _run(model: FunctionModel) -> AgentResult:

@@ -31,6 +31,7 @@ from agent.agents.runtime_models import (
 )
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.streaming_function_model import streaming_function_model
 
 _ALLOWED_CATALOG_METHODS = {"search", "spots", "nearby", "route"}
 
@@ -66,7 +67,7 @@ def _search_driver(intent: str, *, title: str) -> FunctionModel:
             parts=[ToolCallPart("search_response", _search_output(intent))]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 async def _run(
@@ -133,7 +134,7 @@ def _unknown_anime_driver(title: str) -> FunctionModel:
             ]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 async def test_unknown_anime_returns_typed_output_via_catalog() -> None:
@@ -170,7 +171,7 @@ def _route_driver(title: str) -> FunctionModel:
             ]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 async def test_route_case_returns_route_output_via_catalog() -> None:
