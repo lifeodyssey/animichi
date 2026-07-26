@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import AsyncIterator, Callable
 from unittest.mock import AsyncMock, MagicMock
@@ -62,6 +63,35 @@ async def test_reuses_one_http_client_across_requests() -> None:
     assert client._http() is shared
     assert len(calls) == 2
     await client.aclose()
+
+
+async def test_concurrent_requests_share_lazy_http_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    barrier = asyncio.Barrier(2)
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        await barrier.wait()
+        return _response(request, 200, {"rows": [], "synced_at": ""})
+
+    constructor = MagicMock(return_value=httpx.MockTransport(handler))
+    monkeypatch.setattr(
+        "agent.clients.catalog_client.httpx.AsyncHTTPTransport", constructor
+    )
+    client = CatalogClient("https://catalog.test")
+
+    try:
+        results = await asyncio.gather(client.search("響け"), client.search("氷菓"))
+        shared = client._client
+
+        assert results == [[], []]
+        assert len(requests) == 2
+        assert shared is not None and client._http() is shared
+        constructor.assert_called_once()
+    finally:
+        await client.aclose()
 
 
 @pytest.mark.parametrize("status", [408, 429, 500, 503])
