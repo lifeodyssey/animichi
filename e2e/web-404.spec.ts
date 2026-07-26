@@ -1,8 +1,26 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 // E2E_WEB_BASE_URL targets the new apps/web app (dev :3000 / CI wrangler :8799); deliberately separate from E2E_BASE_URL in playwright.config.ts, which targets the legacy Next.js frontend on :3001 — both apps coexist until the S0.7 cutover.
 test.use({
   baseURL: process.env.E2E_WEB_BASE_URL ?? "http://localhost:3000",
+});
+
+// Issue #426: a hydration ReferenceError wiped the SSR DOM on every route, so asserting markup on
+// the 404 page alone is not enough — collect uncaught browser errors and require none.
+async function collectPageErrors(page: Page, path: string): Promise<string[]> {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(path);
+  await page.waitForLoadState("networkidle");
+  return errors;
+}
+
+test("undefined route hydrates without uncaught errors", async ({ page }) => {
+  expect(await collectPageErrors(page, "/this-route-does-not-exist")).toEqual([]);
+});
+
+test("home route hydrates without uncaught errors", async ({ page }) => {
+  expect(await collectPageErrors(page, "/")).toEqual([]);
 });
 
 test("undefined route renders a branded 404", async ({ page }) => {
