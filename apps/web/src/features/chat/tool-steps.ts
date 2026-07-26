@@ -26,8 +26,12 @@ export function statusedSteps<T extends ToolStep>(steps: readonly T[]): Statused
   return steps.map((step, index) => ({ step, status: resolve(step, steps.slice(index + 1)) }));
 }
 
+/**
+ * Only `output-error` is demotable. `output-denied` records a refusal the user
+ * themselves made; restyling it as "retried" would report "we re-ran it" where
+ * the truth is "you refused and the agent went around it".
+ */
 function resolve(step: ToolStep, later: readonly ToolStep[]): StepStatus {
-  const status = stepStatus(step.state);
-  if (status !== "error") return status;
+  if (step.state !== "output-error") return stepStatus(step.state);
   return later.some((next) => next.type === step.type) ? "retried" : "error";
 }

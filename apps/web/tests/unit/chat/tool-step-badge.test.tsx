@@ -61,23 +61,30 @@ describe("ToolStepBadge unknown-tool degradation", () => {
 describe("ToolStepBadge retried step", () => {
   it("renders the retried status without the error styling hook", () => {
     const dict = chatDictFor("ja");
-    render(<ToolStepBadge type="tool-search_bangumi" status="retried" dict={dict} />);
-    const badge = screen.getByText(dict.toolSteps.labels.search_bangumi);
-    expect(badge.getAttribute("data-status")).toBe("retried");
+    const { container } = render(<ToolStepBadge type="tool-search_bangumi" status="retried" dict={dict} />);
+    expect(container.querySelector(".chat-step")?.getAttribute("data-status")).toBe("retried");
   });
 
-  it("names the retried state for assistive tech", () => {
-    const dict = chatDictFor("en");
-    render(<ToolStepBadge type="tool-plan_route" status="retried" dict={dict} />);
-    const label = `${dict.toolSteps.labels.plan_route} · ${dict.toolSteps.retried}`;
-    expect(screen.getByLabelText(label).getAttribute("data-tool")).toBe("plan_route");
+  it.each(LOCALES)("spells the %s retried state out as text, keeping the tool name in it", (locale) => {
+    const dict = chatDictFor(locale);
+    const { container } = render(<ToolStepBadge type="tool-plan_route" status="retried" dict={dict} />);
+    const badge = container.querySelector(".chat-step");
+    expect(badge?.textContent).toContain(dict.toolSteps.labels.plan_route);
+    expect(badge?.textContent).toContain(dict.toolSteps.retried);
+    expect(screen.getByText(dict.toolSteps.retried).className).toBe("chat-step__note");
   });
 
-  it("leaves the accessible name untouched for a terminal error", () => {
+  it("does not rely on aria-label, which is prohibited on a generic element", () => {
     const dict = chatDictFor("en");
-    render(<ToolStepBadge type="tool-plan_route" status="error" dict={dict} />);
-    const badge = screen.getByText(dict.toolSteps.labels.plan_route);
-    expect(badge.getAttribute("aria-label")).toBeNull();
+    const { container } = render(<ToolStepBadge type="tool-plan_route" status="retried" dict={dict} />);
+    expect(container.querySelector(".chat-step")?.getAttribute("aria-label")).toBeNull();
+  });
+
+  it("adds no retried note to a terminal error", () => {
+    const dict = chatDictFor("en");
+    const { container } = render(<ToolStepBadge type="tool-plan_route" status="error" dict={dict} />);
+    expect(container.querySelector(".chat-step__note")).toBeNull();
+    expect(container.querySelector(".chat-step")?.textContent).toBe(dict.toolSteps.labels.plan_route);
   });
 });
 
