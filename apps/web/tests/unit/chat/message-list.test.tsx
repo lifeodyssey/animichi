@@ -39,6 +39,7 @@ describe("MessageList pipeline collapse", () => {
   it("keeps the pipeline inline while the turn is still streaming", () => {
     render(<MessageList messages={[toolMessage()]} dict={ja} status="streaming" />);
     expect(document.querySelector(".chat-settled")).toBeNull();
-    expect(screen.getByText("resolve_anime")).toBeTruthy();
+    const badge = screen.getByText(ja.toolSteps.labels.resolve_anime);
+    expect(badge.getAttribute("data-tool")).toBe("resolve_anime");
   });
 });

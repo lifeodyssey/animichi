@@ -23,8 +23,8 @@ function partKey(messageId: string, part: Part, index: number): string {
   return `${messageId}:${part.type}:${String(index)}`;
 }
 
-function ToolBadges({ parts }: Readonly<{ parts: readonly ToolPart[] }>) {
-  return parts.map((part) => <ToolStepBadge key={part.toolCallId} type={part.type} state={part.state} />);
+function ToolBadges({ parts, dict }: Readonly<{ parts: readonly ToolPart[]; dict: ChatDict }>) {
+  return parts.map((part) => <ToolStepBadge key={part.toolCallId} type={part.type} state={part.state} dict={dict} />);
 }
 
 type PipelineProps = Readonly<{
@@ -36,7 +36,7 @@ type PipelineProps = Readonly<{
 
 function Pipeline({ parts, settled, elapsedLabel, dict }: PipelineProps) {
   if (parts.length === 0) return null;
-  const badges = <ToolBadges parts={parts} />;
+  const badges = <ToolBadges parts={parts} dict={dict} />;
   if (!settled) return badges;
   return <SettledFootprint elapsedLabel={elapsedLabel} dict={dict}>{badges}</SettledFootprint>;
 }
