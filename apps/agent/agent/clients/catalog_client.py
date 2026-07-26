@@ -207,13 +207,10 @@ class CatalogClientProtocol(Protocol):
 class CatalogClient:
     """Async client for the Catalog RPC methods over a shared httpx client.
 
-    Lifecycle: one ``httpx.AsyncClient`` is built on first use and reused by
-    every RPC, so the hot agent path keeps httpx's connection pool and
-    keep-alive instead of re-handshaking per call. The owner — the FastAPI
-    lifespan in ``fastapi_service._lifespan_build_runtime`` — calls
-    :meth:`aclose` at shutdown. A closed client is never rebuilt: resurrecting
-    one would leak a pool nobody closes, and rebuilding an injected
-    ``http_client`` would silently escape its transport seam onto the network.
+    One client is built on first use and reused by every RPC, so the hot agent
+    path keeps httpx's pool and keep-alive. The FastAPI lifespan owns it and
+    calls :meth:`aclose` at shutdown; a closed client is never rebuilt, so a
+    late call raises instead of leaking a pool or escaping an injected seam.
     """
 
     def __init__(
