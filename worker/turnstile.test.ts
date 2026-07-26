@@ -177,3 +177,26 @@ void test("a request without CF-Connecting-IP still verifies with an empty remot
   await guardTurnstile(req, ENV, gate);
   assert.equal(calls[0]?.body.get("remoteip"), "");
 });
+
+// The gate must be strict about `success === true`, not merely non-false. A
+// siteverify outage or contract drift can answer `{}` or `{"success":"true"}`;
+// a loosened check (`!== false`) would let both through and open the gate on an
+// upstream failure. Without these two cases that mutation survives every test.
+void test("a siteverify body with no success field fails closed", async () => {
+  const fetchImpl: typeof fetch = () => Promise.resolve(Response.json({}));
+  const result = await verifySiteverify("t1", "", ENV.TURNSTILE_SECRET, fetchImpl);
+  assert.equal(result.ok, false);
+});
+
+void test("a stringly-typed success value fails closed", async () => {
+  const fetchImpl: typeof fetch = () => Promise.resolve(Response.json({ success: "true" }));
+  const result = await verifySiteverify("t1", "", ENV.TURNSTILE_SECRET, fetchImpl);
+  assert.equal(result.ok, false);
+});
+
+// Pin the wire name as a literal. Both sides define their own TURNSTILE_HEADER
+// constant and every other test imports the constant it is testing, so renaming
+// one side alone stays green while anonymous turns silently arrive tokenless.
+void test("the token header is literally cf-turnstile-response", () => {
+  assert.equal(TURNSTILE_HEADER, "cf-turnstile-response");
+});

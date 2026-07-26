@@ -67,3 +67,19 @@ describe("default clock argument", () => {
     expect(turnstileHeaders()).toEqual({});
   });
 });
+
+// The worker defines its own TURNSTILE_HEADER constant, and every other test on
+// both sides imports the constant it is testing — so renaming one side alone
+// leaves both suites green while anonymous turns silently arrive tokenless and
+// 403 forever. Pin the wire name as a literal on each side independently.
+describe("the cf-turnstile-response wire name", () => {
+  it("is literally cf-turnstile-response, matching the worker's constant", () => {
+    expect(TURNSTILE_HEADER).toBe("cf-turnstile-response");
+  });
+
+  it("emits that literal name as the header key", () => {
+    rememberTurnstileToken("solved", 0);
+    expect(turnstileHeaders(0)).toEqual({ "cf-turnstile-response": "solved" });
+    clearTurnstileToken();
+  });
+});
