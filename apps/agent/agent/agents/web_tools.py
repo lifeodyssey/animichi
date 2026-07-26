@@ -22,7 +22,6 @@ from agent.agents.tool_outcomes import TranslateTitleResult
 from agent.agents.translation import TranslationResult, translate_title
 from agent.agents.web_trust import (
     WebResult,
-    detect_prompt_injection,
     wrap_untrusted_web_results,
 )
 
@@ -61,14 +60,6 @@ async def _run_configured_search(
     return await _run_ddg_search(query)
 
 
-def _log_result_injections(results: list[WebResult]) -> None:
-    """Detection also covers tool returns, not just user input (log-only)."""
-    for result in results:
-        detect_prompt_injection(
-            f"{result.title} {result.body} {result.href}", source="web_search"
-        )
-
-
 async def web_search(
     ctx: RunContext[RuntimeDeps],
     *,
@@ -102,7 +93,6 @@ async def web_search(
     if not raw_results:
         return f"No results found for: {query}"
     results = [_as_web_result(raw) for raw in raw_results[:5]]
-    _log_result_injections(results)
     return wrap_untrusted_web_results(results)
 
 

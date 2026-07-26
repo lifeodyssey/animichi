@@ -17,6 +17,7 @@ from agent.agents.runtime_models import (
     SearchResponseModel,
 )
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.streaming_function_model import streaming_function_model
 
 
 def _returned(messages: list[ModelMessage], tool_name: str) -> bool:
@@ -42,7 +43,7 @@ def _search_model(*, nearby: bool = False) -> FunctionModel:
             parts=[ToolCallPart("search_response", {"message": "Found."})]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 def _route_model() -> FunctionModel:
@@ -63,7 +64,7 @@ def _route_model() -> FunctionModel:
             parts=[ToolCallPart("route_response", {"message": "Route ready."})]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 @pytest.mark.parametrize(
@@ -126,7 +127,7 @@ async def test_not_found_resolve_can_emit_terminal_clarify() -> None:
         db=MagicMock(),
         locale="en",
         catalog=MockCatalogClient(),
-        model=FunctionModel(respond),
+        model=streaming_function_model(respond),
     )
 
     assert isinstance(result.output, ClarifyResponseModel)
@@ -146,7 +147,7 @@ async def test_direct_outputs_need_no_echo_tool() -> None:
         db=MagicMock(),
         locale="en",
         catalog=MockCatalogClient(),
-        model=FunctionModel(respond),
+        model=streaming_function_model(respond),
     )
 
     assert isinstance(result.output, QAResponseModel)
@@ -165,7 +166,7 @@ async def test_standalone_greeting_uses_dedicated_output_stage() -> None:
         db=MagicMock(),
         locale="en",
         catalog=MockCatalogClient(),
-        model=FunctionModel(respond),
+        model=streaming_function_model(respond),
     )
 
     assert isinstance(result.output, GreetingResponseModel)

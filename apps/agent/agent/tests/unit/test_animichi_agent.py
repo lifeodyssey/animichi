@@ -14,7 +14,7 @@ from pydantic_ai.messages import (
     ToolCallPart,
     UserPromptPart,
 )
-from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.models.function import AgentInfo
 from pydantic_ai.models.test import TestModel
 
 from agent.agents.animichi_agent import _INSTRUCTIONS, trusted_session_context
@@ -29,6 +29,7 @@ from agent.agents.session_state import (
 )
 from agent.agents.tool_state import ToolState
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.streaming_function_model import streaming_function_model
 
 
 def test_instructions_route_only_from_typed_outcomes() -> None:
@@ -182,7 +183,7 @@ async def test_current_turn_language_is_rendered_in_instructions(
         text=query,
         db=MagicMock(),
         locale=fallback,
-        model=FunctionModel(respond),
+        model=streaming_function_model(respond),
         message_history=history,
         catalog=MockCatalogClient(),
     )
@@ -219,7 +220,7 @@ async def test_current_datetime_context_is_appended_after_language_directive() -
         text="hello",
         db=MagicMock(),
         locale="en",
-        model=FunctionModel(respond),
+        model=streaming_function_model(respond),
         catalog=MockCatalogClient(),
     )
 

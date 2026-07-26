@@ -1,28 +1,23 @@
-"""Shared StepRecord appender for the catalog tool modules."""
+"""Record the server-internal geocode substep outside model tool events."""
 
 from __future__ import annotations
 
-from agent.agents.agent_result import StepProvenance, StepRecord
+from agent.agents.agent_result import StepRecord
 from agent.agents.runtime_deps import RuntimeDeps
 
 
-def _record(
+def record_server_step(
     deps: RuntimeDeps,
     tool: str,
     params: dict[str, object],
     data: dict[str, object],
-    *,
-    success: bool = True,
-    provenance: StepProvenance | None = None,
-    model_initiated: bool = True,
 ) -> None:
     deps.steps.append(
         StepRecord(
             tool=tool,
-            success=success,
+            success=True,
             params=params,
             data=data,
-            provenance=provenance,
-            model_initiated=model_initiated,
+            model_initiated=False,
         )
     )

@@ -16,7 +16,7 @@ from pydantic_ai.messages import (
     TextPart,
     ToolCallPart,
 )
-from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.models.function import AgentInfo
 
 from agent.agents.animichi_runner import (
     REQUEST_LIMIT,
@@ -30,6 +30,7 @@ from agent.domain.ports import DatabasePort
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from agent.interfaces.routes._deps import _SCRUB_PATTERNS, setup_logfire
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.streaming_function_model import streaming_function_model
 from agent.tests.unit.conftest_public_api import install_mock_pipeline
 
 
@@ -52,7 +53,7 @@ async def test_runner_stops_identical_looping_early_via_repeat_guard() -> None:
         db=_db(),
         locale="en",
         catalog=MockCatalogClient(),
-        model=FunctionModel(loop),
+        model=streaming_function_model(loop),
     )
 
     # One execution plus three deflected repeats exhausts the retry budget —
@@ -85,7 +86,7 @@ async def test_runner_stops_varied_looping_at_usage_limit() -> None:
         db=_db(),
         locale="en",
         catalog=MockCatalogClient(),
-        model=FunctionModel(loop),
+        model=streaming_function_model(loop),
     )
 
     assert requests == REQUEST_LIMIT
@@ -133,7 +134,7 @@ async def test_tool_timeout_returns_typed_retry_prompt() -> None:
         return ModelResponse(parts=[ToolCallPart("slow_tool", {})])
 
     agent = Agent(
-        FunctionModel(respond),
+        streaming_function_model(respond),
         tools=[Tool(slow_tool, timeout=0.01)],
         output_type=str,
     )

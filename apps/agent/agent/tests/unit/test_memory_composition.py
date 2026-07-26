@@ -12,7 +12,7 @@ from pydantic_ai.messages import (
     ToolCallPart,
     UserPromptPart,
 )
-from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.models.function import AgentInfo
 from pydantic_ai.models.test import TestModel
 from pydantic_ai_harness.memory import InMemoryStore
 
@@ -24,6 +24,7 @@ from agent.agents.session_state import SessionState
 from agent.interfaces.public_api import RuntimeAPI
 from agent.interfaces.schemas import PublicAPIRequest
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.streaming_function_model import streaming_function_model
 
 _BASE_TOOLS = {
     "resolve_anime",
@@ -118,7 +119,7 @@ async def test_authenticated_memory_keeps_output_validator_active() -> None:
         db=fake_db,
         locale="en",
         catalog=MockCatalogClient(),
-        model=FunctionModel(respond),
+        model=streaming_function_model(respond),
         memory_store=InMemoryStore(),
         user_id="user-1",
     )
@@ -147,7 +148,7 @@ async def test_memory_text_stays_delimited_user_context_not_instructions() -> No
         db=MagicMock(),
         locale="en",
         catalog=MockCatalogClient(),
-        model=FunctionModel(respond),
+        model=streaming_function_model(respond),
         memory_store=store,
         user_id="user-1",
     )

@@ -54,6 +54,7 @@ class RejectedRoute:
 StepProvenance: TypeAlias = (
     ProducedSearch | RejectedSearch | ProducedRoute | RejectedRoute
 )
+StepData: TypeAlias = dict[str, object]
 
 
 @dataclass(frozen=True)
@@ -70,8 +71,8 @@ class StepRecord:
 
     tool: str
     success: bool
-    params: dict[str, object] = field(default_factory=dict)
-    data: dict[str, object] | None = None
+    params: StepData = field(default_factory=dict)
+    data: StepData | None = None
     provenance: StepProvenance | None = None
     error: str | None = None
     model_initiated: bool = True

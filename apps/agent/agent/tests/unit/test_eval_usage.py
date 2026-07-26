@@ -11,6 +11,7 @@ from agent.tests.eval.evaluators import AgentInput
 from agent.tests.eval.exec_tiers import build_results_payload
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.eval.null_database import NullDatabase
+from agent.tests.streaming_function_model import streaming_function_model
 
 
 def _qa_driver() -> FunctionModel:
@@ -24,7 +25,7 @@ def _qa_driver() -> FunctionModel:
             ]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 async def test_mock_trajectory_report_carries_usage() -> None:
