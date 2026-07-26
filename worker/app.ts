@@ -9,6 +9,8 @@ export interface Env {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
+  /** Cloudflare Turnstile secret (Worker secret binding — never process.env). */
+  TURNSTILE_SECRET: string;
   [key: string]: unknown;
 }
 
@@ -115,6 +117,14 @@ export function createWorkerApp(deps: {
     if (isPublicV1(new URL(c.req.url).pathname)) return forwardV1(c.env, c.req.raw);
     const auth = await authenticate(c.req.raw, c.env, c.executionCtx);
     if (!auth.ok) {
+      // S1.9 Turnstile wiring point (issue #281) — DORMANT.
+      // Every non-public /v1/* is still authenticated, so requiring a token
+      // here today would reject all live traffic. S1.8 (#274) opens the
+      // anonymous branch and replaces this 401 with:
+      //   const denied = await guardTurnstile(c.req.raw, c.env, turnstileGate);
+      //   return denied ?? forwardV1(c.env, c.req.raw);
+      // (`turnstileGate` = module-level createTurnstileGate() from ./turnstile.ts,
+      // so its short-lived window is shared across requests on the same isolate.)
       return c.json({ error: { code: "unauthorized", message: "Valid credentials required." } }, 401);
     }
     return forwardV1(c.env, c.req.raw, { userId: auth.userId, userType: auth.userType });
