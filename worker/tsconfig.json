@@ -14,5 +14,5 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["app.ts", "auth.ts", "turnstile.ts", "entry.test.ts", "turnstile.test.ts"]
+  "include": ["app.ts", "auth.ts", "turnstile.ts", "costBreaker.ts", "edgeGuard.ts", "guardStore.ts", "rateLimiter.ts", "entry.test.ts", "turnstile.test.ts", "anonymous.test.ts", "anonymousIdentity.test.ts", "costBreaker.test.ts", "rateLimiter.test.ts"]
 }
