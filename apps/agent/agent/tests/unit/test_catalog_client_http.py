@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -14,6 +15,7 @@ from agent.clients.catalog_errors import WorkNotFoundError
 from agent.clients.errors import APIError, TransientAPIError
 
 Handler = Callable[[httpx.Request], httpx.Response]
+AsyncHandler = Callable[[httpx.Request], Awaitable[httpx.Response]]
 
 
 class _StreamingBody(httpx.AsyncByteStream):
@@ -33,7 +35,13 @@ def _response(request: httpx.Request, status: int, payload: object) -> httpx.Res
     )
 
 
-def _install_transport(monkeypatch: pytest.MonkeyPatch, handler: Handler) -> MagicMock:
+def _ok(request: httpx.Request) -> httpx.Response:
+    return _response(request, 200, {"rows": [], "synced_at": ""})
+
+
+def _install_transport(
+    monkeypatch: pytest.MonkeyPatch, handler: Handler | AsyncHandler
+) -> MagicMock:
     constructor = MagicMock(return_value=httpx.MockTransport(handler))
     monkeypatch.setattr(
         "agent.clients.catalog_client.httpx.AsyncHTTPTransport", constructor
@@ -48,20 +56,37 @@ def _no_sleep(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
 
 
 async def test_reuses_one_http_client_across_requests() -> None:
-    calls: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        calls.append(request)
-        return _response(request, 200, {"rows": [], "synced_at": ""})
-
+    handler = MagicMock(side_effect=_ok)
     shared = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     client = CatalogClient("https://catalog.test", http_client=shared)
     await client.search("響け")
     await client.search("氷菓")
 
     assert client._http() is shared
-    assert len(calls) == 2
+    assert handler.call_count == 2
     await client.aclose()
+
+
+async def test_concurrent_requests_share_lazy_http_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    barrier = asyncio.Barrier(2)
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        await barrier.wait()
+        return _ok(request)
+
+    constructor = _install_transport(monkeypatch, handler)
+    client = CatalogClient("https://catalog.test")
+
+    try:
+        results = await asyncio.gather(client.search("響け"), client.search("氷菓"))
+
+        assert results == [[], []]
+        assert client._client is not None
+        constructor.assert_called_once()
+    finally:
+        await client.aclose()
 
 
 @pytest.mark.parametrize("status", [408, 429, 500, 503])
@@ -140,10 +165,7 @@ async def test_streaming_503_retries_without_reading_transport_body(
 
 
 async def test_aclose_closes_shared_client(monkeypatch: pytest.MonkeyPatch) -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return _response(request, 200, {"rows": [], "synced_at": ""})
-
-    _install_transport(monkeypatch, handler)
+    _install_transport(monkeypatch, _ok)
     client = CatalogClient("https://catalog.test")
     await client.search("響け")
     shared = client._client
@@ -151,7 +173,6 @@ async def test_aclose_closes_shared_client(monkeypatch: pytest.MonkeyPatch) -> N
     await client.aclose()
 
     assert shared is not None and shared.is_closed
-    assert client._client is None
 
 
 async def test_aclose_without_requests_is_noop() -> None:
@@ -160,3 +181,18 @@ async def test_aclose_without_requests_is_noop() -> None:
     await client.aclose()
 
     assert client._client is None
+
+
+async def test_closed_client_is_not_resurrected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """After shutdown a request must fail loudly, not build a leaked pool."""
+    constructor = _install_transport(monkeypatch, _ok)
+    client = CatalogClient("https://catalog.test")
+    await client.search("響け")
+    await client.aclose()
+
+    with pytest.raises(RuntimeError, match="closed"):
+        await client.search("氷菓")
+
+    constructor.assert_called_once()
