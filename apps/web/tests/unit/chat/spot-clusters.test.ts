@@ -100,4 +100,36 @@ describe("topSpots", () => {
     ]);
     expect(topSpots(spots).map((spot) => spot.id)).toEqual(["p1", "p2", "plain"]);
   });
+
+  // Upstream never omits these fields. `screenshot_url` is required in the zod
+  // contract and the catalog worker fills it with "" when there is no image;
+  // `episode` carries pydantic's -1 unknown-marker. Fixtures that omit the keys
+  // let an `=== undefined` check pass while doing nothing in production.
+  it("ranks photo-first against the real contract shape, where absence is \"\" not undefined", () => {
+    const spots = toSearchSpots([
+      { id: "blank", name: "blank", screenshot_url: "" },
+      { id: "shot", name: "shot", screenshot_url: "/1.webp" },
+    ]);
+    expect(topSpots(spots).map((spot) => spot.id)).toEqual(["shot", "blank"]);
+  });
+});
+
+describe("toSearchSpots sentinel normalization", () => {
+  it("maps an empty screenshot_url to undefined so the card falls back to D9", () => {
+    const [spot] = toSearchSpots([{ id: "s", name: "s", screenshot_url: "" }]);
+    expect(spot?.screenshotUrl).toBeUndefined();
+  });
+
+  it("maps the -1 unknown-episode sentinel to undefined so no 第-1話 badge renders", () => {
+    const [spot] = toSearchSpots([{ id: "s", name: "s", screenshot_url: "/1.webp", episode: -1 }]);
+    expect(spot?.ep).toBeUndefined();
+  });
+
+  it("keeps a real episode number, including episode zero", () => {
+    const spots = toSearchSpots([
+      { id: "a", name: "a", screenshot_url: "/1.webp", episode: 0 },
+      { id: "b", name: "b", screenshot_url: "/1.webp", episode: 7 },
+    ]);
+    expect(spots.map((spot) => spot.ep)).toEqual([0, 7]);
+  });
 });

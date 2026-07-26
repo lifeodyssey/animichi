@@ -1,7 +1,7 @@
 import type { AnimeOverviewCircle, AnimeScene } from "@seichijunrei/contract";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { BubbleMapPanel } from "./BubbleMapPanel";
-import { type BubbleMapStatus, attachBubbleMap } from "./bubbleMapController";
+import { type BasemapStatus, attachBubbleMap } from "./bubbleMapController";
 import type { BubbleMapCopy } from "./copy";
 
 type Props = Readonly<{
@@ -10,7 +10,7 @@ type Props = Readonly<{
   copy: BubbleMapCopy;
 }>;
 
-type StatusSetter = (status: BubbleMapStatus) => void;
+type StatusSetter = (status: BasemapStatus) => void;
 
 const attachToContainer = (
   container: HTMLDivElement | null,
@@ -32,7 +32,7 @@ function useBubbleMapMount(
 /** Feature entry: mounts the MapLibre basemap and renders the bubble overlay + sheet on top. */
 export function BubbleMap({ circles, scenes, copy }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [, setStatus] = useState<BubbleMapStatus>("loading");
+  const [, setStatus] = useState<BasemapStatus>("loading");
   useBubbleMapMount(containerRef, circles, setStatus);
   return <BubbleMapPanel circles={circles} scenes={scenes} copy={copy} mapContainerRef={containerRef} />;
 }

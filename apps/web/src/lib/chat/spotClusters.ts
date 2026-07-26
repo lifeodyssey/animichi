@@ -56,14 +56,23 @@ function coordOf(row: SpotRowLike): LatLng | undefined {
   return { lat, lng };
 }
 
+/** Upstream never omits these fields — it sends sentinels. `screenshot_url` is a
+ * required string that the catalog worker fills with `""` when there is no image
+ * (`r.image ?? ""`), and `episode` carries pydantic's `-1` unknown-marker. Both
+ * arrive here via the agent's full `model_dump()`, so an `=== undefined` check
+ * would never fire in production even though it passes against hand-written
+ * fixtures. Normalize the sentinels to `undefined` once, here. */
 function toSearchSpot(row: SpotRowLike, index: number): SearchSpot {
   const id = row.id ?? row.name ?? `spot-${String(index)}`;
-  const ep = row.ep ?? row.episode;
-  return { id, name: row.name ?? "", screenshotUrl: row.screenshot_url, ep, city: row.city, coord: coordOf(row) };
+  const rawEp = row.ep ?? row.episode;
+  const ep = rawEp !== undefined && rawEp >= 0 ? rawEp : undefined;
+  // Not `??`: the sentinel is the empty string, which `??` passes straight through.
+  const screenshotUrl = row.screenshot_url === "" ? undefined : row.screenshot_url;
+  return { id, name: row.name ?? "", screenshotUrl, ep, city: row.city, coord: coordOf(row) };
 }
 
 export function toSearchSpots(rows: readonly SpotRowLike[]): readonly SearchSpot[] {
-  return rows.map(toSearchSpot);
+  return rows.map((row, index) => toSearchSpot(row, index));
 }
 
 export function locatedSpots(spots: readonly SearchSpot[]): readonly LocatedSpot[] {

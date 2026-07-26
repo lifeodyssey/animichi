@@ -29,10 +29,27 @@ function attachTo(
   return attach({ container, points, onStatus, interactive: false });
 }
 
+function coordKey(points: readonly LatLng[]): string {
+  return points.map((point) => `${String(point.lat)},${String(point.lng)}`).join("|");
+}
+
+/** Callers build the point array inline, so it is a fresh reference on every
+ * render — and this card lives in the streaming chat surface, which re-renders
+ * per SSE chunk. Without this, each chunk would tear down and rebuild a MapLibre
+ * map (dynamic import + WebGL context + tile refetch); browsers cap live WebGL
+ * contexts around 16. Identity is keyed on the coordinates themselves. */
+function useStablePoints(points: readonly LatLng[]): readonly LatLng[] {
+  const key = coordKey(points);
+  const held = useRef({ key, points });
+  if (held.current.key !== key) held.current = { key, points };
+  return held.current.points;
+}
+
 function useBasemap(points: readonly LatLng[], attach: AttachBasemap): Basemap {
   const ref = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<BasemapStatus>("loading");
-  useEffect(() => attachTo(ref.current, points, setStatus, attach), [points, attach]);
+  const stable = useStablePoints(points);
+  useEffect(() => attachTo(ref.current, stable, setStatus, attach), [stable, attach]);
   return { ref, status };
 }
 
@@ -125,7 +142,10 @@ function selectAt(clusters: readonly SpotCluster[], index: number, onSelect: (cl
 function BubbleOverlay({ clusters, dict, onSelect }: OverlayProps) {
   const circles = clusters.map((cluster, index) => toCircle(cluster, index, dict));
   const bubbles = bubblePlacements(circles).map((placement, index) => (
-    <ClusterBubble key={placement.region} placement={placement} dict={dict} onClick={() => { selectAt(clusters, index, onSelect); }} />
+    // Keyed by position, not by region name: two clusters >50km apart can share
+    // a city name (府中市 exists in both Tokyo and Hiroshima), and a duplicate
+    // key silently drops one bubble.
+    <ClusterBubble key={index} placement={placement} dict={dict} onClick={() => { selectAt(clusters, index, onSelect); }} />
   ));
   return <div className="chat-search-map__overlay chat-search-map__overlay--bubbles">{bubbles}</div>;
 }

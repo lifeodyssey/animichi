@@ -3,8 +3,7 @@ import type { AnimeOverviewCircle, LatLng } from "@seichijunrei/contract";
 import type { LngLatBoundsLike, Map as MapLibreMap } from "maplibre-gl";
 import { createMapStyle } from "../map-spike/mapStyle";
 
-export type BubbleMapStatus = "loading" | "ready" | "fallback";
-export type BasemapStatus = BubbleMapStatus;
+export type BasemapStatus = "loading" | "ready" | "fallback";
 
 /** Generic basemap mount: frame the tiles around a set of coordinates. */
 export type MountBasemapOptions = Readonly<{
@@ -18,7 +17,7 @@ export type MountBasemapOptions = Readonly<{
 export type MountBubbleMapOptions = Readonly<{
   container: HTMLElement;
   circles: readonly AnimeOverviewCircle[];
-  onStatus: (status: BubbleMapStatus) => void;
+  onStatus: (status: BasemapStatus) => void;
 }>;
 
 export type BubbleMapHandle = Readonly<{ destroy: () => void }>;
