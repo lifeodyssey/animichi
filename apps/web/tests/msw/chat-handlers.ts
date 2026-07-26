@@ -78,6 +78,30 @@ export function chatStreamHandler(
   });
 }
 
+const RETRY_TOOL = "search_bangumi";
+const RETRY_ID = `${RETRY_TOOL}-retry`;
+
+function retryFrames(): string {
+  return [
+    `data: {"type":"tool-output-error","toolCallId":"${RETRY_TOOL}-fixture","errorText":"duplicate call deflected"}`,
+    `data: {"type":"tool-input-start","toolCallId":"${RETRY_ID}","toolName":"${RETRY_TOOL}"}`,
+    `data: {"type":"tool-input-available","toolCallId":"${RETRY_ID}","toolName":"${RETRY_TOOL}","input":{"bangumi_id":12345}}`,
+    `data: {"type":"tool-output-available","toolCallId":"${RETRY_ID}","output":{"row_count":2}}`,
+  ].join("\n\n");
+}
+
+/**
+ * On `ModelRetry` the agent closes the in-flight tool part as an error and re-issues the
+ * call under a fresh id (#430). No recording of that shape exists yet — the backend change
+ * is unmerged — so the sequence is derived from the real search capture, like the D-state
+ * variants above.
+ */
+export function chatStreamRetryHandler(): HttpHandler {
+  const settled = `data: {"type":"tool-output-available","toolCallId":"${RETRY_TOOL}-fixture","output":{"row_count":2}}`;
+  const recorded = chatStreamFixture("search").replace(settled, retryFrames());
+  return http.post(CHAT_URL, () => sseResponse(recorded));
+}
+
 /** Bare HTTP failure on the chat endpoint (401 expiry → D8, 5xx → D4). */
 export function chatHttpErrorHandler(status: number): HttpHandler {
   return http.post(CHAT_URL, () => new HttpResponse(null, { status }));

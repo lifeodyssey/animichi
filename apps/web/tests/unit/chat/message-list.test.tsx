@@ -29,6 +29,28 @@ describe("MessageList pure-text turn (Empty: B2a→B4, no pipeline)", () => {
   });
 });
 
+function retryMessage(retryState: string): UIMessage {
+  const failed = { type: "tool-search_bangumi", toolCallId: "t1", state: "output-error", errorText: "duplicate call" };
+  const retry = { type: "tool-search_bangumi", toolCallId: "t2", state: retryState };
+  return { id: "a3", role: "assistant", parts: [failed, retry] as unknown as UIMessage["parts"] };
+}
+
+function statusesOf(): (string | null)[] {
+  return [...document.querySelectorAll(".chat-step")].map((step) => step.getAttribute("data-status"));
+}
+
+describe("MessageList ModelRetry supersession", () => {
+  it("mutes the superseded step while the retry is still in flight", () => {
+    render(<MessageList messages={[retryMessage("input-available")]} dict={ja} status="streaming" />);
+    expect(statusesOf()).toEqual(["retried", "running"]);
+  });
+
+  it("shows no error step once the retry succeeded", () => {
+    render(<MessageList messages={[retryMessage("output-available")]} dict={ja} status="ready" />);
+    expect(statusesOf()).toEqual(["retried", "done"]);
+  });
+});
+
 describe("MessageList pipeline collapse", () => {
   it("collapses a settled tool turn into a footprint row with elapsed time", () => {
     render(<MessageList messages={[toolMessage()]} dict={ja} status="ready" settledDurationMs={9200} />);
