@@ -36,6 +36,10 @@
   --color-map-pin-green: #4caf50;
   --color-map-pin-orange: #ff9800;
   --color-map-pin-brand: #c1440e;
+  /* Route-card gold (issue #271 S1.5): star, track, and the route pill. */
+  --color-gold: #f5c31c;
+  --color-gold-soft: #fbf0cf;
+  --color-gold-fg: #6b5200;
   --shadow-3d: #bdaea0;
   --shadow-press: 0 5px 0 0 var(--shadow-3d);
   --app-font-display: "Noto Serif JP", "Hiragino Mincho ProN", Georgia, serif;
@@ -205,6 +209,8 @@ h1 {
   --color-explore-fg: #7fdcd2;
   --color-walk-bg: #1c3320;
   --color-walk-fg: #a8d5ab;
+  --color-gold-soft: #3a3117;
+  --color-gold-fg: #f0d98a;
   /* Press shadow follows via var(--shadow-3d) in :root. */
   --shadow-3d: #120d07;
 }

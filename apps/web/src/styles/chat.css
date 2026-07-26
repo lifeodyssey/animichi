@@ -591,3 +591,142 @@
   font-size: 0.8125rem;
   color: var(--color-primary-fg);
 }
+
+/* --- S1.5 route card: timed itinerary (issue #271) --- */
+
+.chat-itinerary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chat-pacing-pill {
+  align-self: flex-start;
+  padding: 0.125rem 0.625rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-muted);
+  color: var(--color-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.chat-itinerary__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-itinerary__stop {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chat-itinerary__time {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-itinerary__stop--highlight .chat-itinerary__name {
+  font-weight: 700;
+}
+
+.chat-itinerary__star {
+  color: var(--color-gold);
+}
+
+.chat-itinerary__leg {
+  display: flex;
+  padding-left: 1.5rem;
+}
+
+.chat-itinerary__capsule {
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  background: var(--color-walk-bg);
+  color: var(--color-walk-fg);
+  font-size: 0.75rem;
+}
+
+.chat-itinerary__leg[data-mode="transit"] .chat-itinerary__capsule {
+  background: var(--color-explore-bg);
+  color: var(--color-explore-fg);
+}
+
+.chat-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* --- S1.5 promoted route map --- */
+
+.chat-route-map__track {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chat-route-map__line {
+  fill: none;
+  stroke: var(--color-gold);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.chat-route-pin {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--color-bg);
+  border-radius: 50%;
+  background: var(--color-map-pin-teal);
+  color: var(--color-primary-fg);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.chat-map-pin--dimmed {
+  opacity: 0.35;
+}
+
+.chat-route-pill {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.125rem 0.625rem;
+  border: 1px solid var(--color-gold);
+  border-radius: 999px;
+  background: var(--color-gold-soft);
+  color: var(--color-gold-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* --- E1 living document: superseded cards (issues #271/#273) --- */
+
+.chat-card--superseded {
+  opacity: 0.55;
+}
+
+.chat-card__version-badge {
+  align-self: flex-start;
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-muted);
+  color: var(--color-muted-fg);
+  font-size: 0.6875rem;
+}
