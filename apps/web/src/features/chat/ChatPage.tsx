@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale } from "../../i18n/context";
 import { classifyFailure } from "../../lib/chat/errorClassifier";
 import type { ChatErrorState, FailureSignal } from "../../lib/chat/errorClassifier";
@@ -6,6 +6,8 @@ import { ChatActionsProvider } from "./chat-actions";
 import type { ChatActions } from "./chat-actions";
 import { ChatInput } from "./components/ChatInput";
 import { ColdStart } from "./components/ColdStart";
+import { DeparturePrompt } from "./components/DeparturePrompt";
+import { PhotoSearchUpload } from "./components/PhotoSearchUpload";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { SelectionTray } from "./components/SelectionTray";
 import { TurnFailure } from "./components/ErrorStates/TurnFailure";
@@ -18,11 +20,14 @@ import { deriveEntryState, resolveRouteReference } from "./entry-state";
 import type { ChatEntryState } from "./entry-state";
 import { chatDictFor } from "./i18n";
 import type { ChatDict } from "./i18n";
+import type { PhotoGps } from "./photo-search";
 import type { ChatSearch } from "./search";
 import { SpotSelectionProvider, useSpotSelectionState } from "./selection/useSpotSelection";
 import { useRecomputeTurn } from "./selection/useRecomputeTurn";
 import type { RecomputeTurn } from "./selection/useRecomputeTurn";
 import { useAutoSend } from "./use-auto-send";
+import { useDeparturePrompt } from "./use-departure-prompt";
+import type { DeparturePromptState } from "./use-departure-prompt";
 import { useBackendHealth } from "./use-backend-health";
 import type { BackendHealth } from "./use-backend-health";
 import type { ChatSession } from "./use-chat-session";
@@ -46,6 +51,9 @@ type ShellProps = Readonly<{
   recompute: RecomputeTurn;
   onRetry: () => void;
   onSend: (text: string) => void;
+  departure: DeparturePromptState;
+  baseUrl: string;
+  gps: PhotoGps | undefined;
 }>;
 
 function useScrollAnchor(itemCount: number) {
@@ -125,6 +133,14 @@ function RecomputeTray({ dict, chat, recompute }: TrayHostProps) {
   );
 }
 
+/** C2t chips render only while a route request is held for departure info. */
+function DepartureGate({ departure, dict }: Readonly<{ departure: DeparturePromptState; dict: ChatDict }>) {
+  if (departure.pending === null) return null;
+  return (
+    <DeparturePrompt dict={dict} onChip={departure.onChip} onLocated={departure.onLocated} onManualLocation={departure.onManualLocation} />
+  );
+}
+
 function ShellNotices(props: ShellProps) {
   return (
     <>
@@ -134,11 +150,22 @@ function ShellNotices(props: ShellProps) {
   );
 }
 
+/** The C2t chips and photo upload sit between the stream and the composer. */
+function ComposerExtras(props: ShellProps) {
+  return (
+    <>
+      <DepartureGate departure={props.departure} dict={props.dict} />
+      <PhotoSearchUpload dict={props.dict} baseUrl={props.baseUrl} gps={props.gps} />
+    </>
+  );
+}
+
 function ChatShell(props: ShellProps) {
   return (
     <main className="chat-page">
       <ShellNotices {...props} />
       <ChatBody {...props} />
+      <ComposerExtras {...props} />
       <RecomputeTray dict={props.dict} chat={props.chat} recompute={props.recompute} />
       <ChatInput dict={props.dict} disabled={isInputLocked(props)} onSend={props.onSend} />
     </main>
@@ -149,8 +176,28 @@ function ChatShell(props: ShellProps) {
 function useTurnActions(chat: ChatSession): ChatActions {
   const { sendMessage, clearError, regenerate } = chat;
   const send = useCallback((text: string) => void sendMessage({ text }), [sendMessage]);
+  const sendWithOrigin = useCallback((text: string, lat: number, lng: number) => {
+    void sendMessage({ text }, { body: { origin_lat: lat, origin_lng: lng } });
+  }, [sendMessage]);
   const regen = useCallback(() => { clearError(); void regenerate(); }, [clearError, regenerate]);
-  return useMemo(() => ({ send, regenerate: regen }), [send, regen]);
+  return useMemo(() => ({ send, regenerate: regen, sendWithOrigin }), [send, regen, sendWithOrigin]);
+}
+
+function makeTracked(actions: ChatActions, setGps: (gps: PhotoGps) => void): ChatActions {
+  return {
+    ...actions,
+    sendWithOrigin: (text: string, lat: number, lng: number) => {
+      setGps({ lat, lng });
+      actions.sendWithOrigin?.(text, lat, lng);
+    },
+  };
+}
+
+/** Remember granted C4 coordinates so photo search can reuse them (AC6). */
+function useOriginTracking(actions: ChatActions): { actions: ChatActions; gps: PhotoGps | undefined } {
+  const [gps, setGps] = useState<PhotoGps | undefined>(undefined);
+  const tracked = useMemo(() => makeTracked(actions, setGps), [actions]);
+  return { actions: tracked, gps };
 }
 
 function turnFailureSignal(lastStatus: number | undefined, code: string | undefined): FailureSignal {
@@ -214,19 +261,21 @@ function maskRecomputeFailure(recompute: RecomputeTurn, failure: TurnFailureView
 
 function useChatPage(search: ChatSearch) {
   const { config, health, chat, history } = useChatState(search);
-  const actions = useTurnActions(chat);
+  const { actions, gps } = useOriginTracking(useTurnActions(chat));
+  const dict = chatDictFor(useLocale());
+  const departure = useDeparturePrompt(actions, dict);
   const recompute = useRecomputeTurn(chat);
   const failure = maskRecomputeFailure(recompute, useTurnFailure(chat, config.baseUrl));
   const selection = useSpotSelectionState();
   useAutoSendFromQuery(search, health, actions.send);
-  return { health, chat, history, actions, recompute, failure, selection };
+  return { config, health, chat, history, actions, gps, dict, departure, recompute, failure, selection };
 }
 
 type PageState = ReturnType<typeof useChatPage>;
 
 function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {
   return (
-    <ChatShell entry={entryStateOf(search, page.health)} dict={chatDictFor(useLocale())} chat={page.chat} history={page.history} failure={page.failure} recompute={page.recompute} onRetry={page.health.retry} onSend={page.actions.send} />
+    <ChatShell entry={entryStateOf(search, page.health)} dict={page.dict} chat={page.chat} history={page.history} failure={page.failure} recompute={page.recompute} onRetry={page.health.retry} onSend={page.departure.onSend} departure={page.departure} baseUrl={page.config.baseUrl} gps={page.gps} />
   );
 }
 

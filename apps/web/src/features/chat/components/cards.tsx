@@ -22,7 +22,7 @@ export function routeOf(part: ChatDataPart) {
   return data && "route" in data ? data.route : undefined;
 }
 
-function candidatesOf(part: ChatDataPart) {
+export function candidatesOf(part: ChatDataPart) {
   const data = dataOf(part);
   return data && "candidates" in data ? (data.candidates ?? []) : [];
 }
@@ -86,16 +86,6 @@ export function SearchCard({ part, dict }: IntentCardProps) {
       {results?.title ? <p className="chat-card__title">{results.title}</p> : null}
       <SearchResult spots={toSearchSpots(spotsOf(part))} dict={dict} />
     </div>
-  );
-}
-
-export function ClarifyCard({ part }: IntentCardProps) {
-  return (
-    <ul className="chat-card__candidates" aria-label="candidates">
-      {candidatesOf(part).map((candidate) => (
-        <li key={candidate.id ?? candidate.title}>{candidate.title}</li>
-      ))}
-    </ul>
   );
 }
 

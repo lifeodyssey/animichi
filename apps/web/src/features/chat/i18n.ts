@@ -1,4 +1,24 @@
 import type { Locale } from "../../i18n/locales";
+import {
+  enClarify,
+  enDeparture,
+  enLocation,
+  enPhoto,
+  jaClarify,
+  jaDeparture,
+  jaLocation,
+  jaPhoto,
+  zhClarify,
+  zhDeparture,
+  zhLocation,
+  zhPhoto,
+} from "./clarify-i18n";
+import type {
+  ChatClarifyDict,
+  ChatDepartureDict,
+  ChatLocationDict,
+  ChatPhotoDict,
+} from "./clarify-i18n";
 import { enRoute, jaRoute, zhRoute } from "./route-i18n";
 import type { ChatRouteDict } from "./route-i18n";
 import { enSearch, jaSearch, zhSearch } from "./search-i18n";
@@ -6,6 +26,12 @@ import type { ChatSearchDict } from "./search-i18n";
 
 export type { ChatRouteDict } from "./route-i18n";
 export type { ChatSearchDict } from "./search-i18n";
+export type {
+  ChatClarifyDict,
+  ChatDepartureDict,
+  ChatLocationDict,
+  ChatPhotoDict,
+} from "./clarify-i18n";
 
 /** In-character copy for the nine D1-D9 fallback states (issue #272 S1.6). */
 export interface ChatErrorStatesDict {
@@ -113,6 +139,10 @@ export interface ChatDict {
   readonly search: ChatSearchDict;
   readonly turnstile: ChatTurnstileDict;
   readonly route: ChatRouteDict;
+  readonly clarify: ChatClarifyDict;
+  readonly departure: ChatDepartureDict;
+  readonly location: ChatLocationDict;
+  readonly photo: ChatPhotoDict;
 }
 
 const jaToolSteps: ChatToolStepsDict = {
@@ -260,6 +290,10 @@ const ja: ChatDict = {
   search: jaSearch,
   turnstile: jaTurnstile,
   route: jaRoute,
+  clarify: jaClarify,
+  departure: jaDeparture,
+  location: jaLocation,
+  photo: jaPhoto,
 };
 
 const zh: ChatDict = {
@@ -283,6 +317,10 @@ const zh: ChatDict = {
   search: zhSearch,
   turnstile: zhTurnstile,
   route: zhRoute,
+  clarify: zhClarify,
+  departure: zhDeparture,
+  location: zhLocation,
+  photo: zhPhoto,
 };
 
 const en: ChatDict = {
@@ -310,6 +348,10 @@ const en: ChatDict = {
   search: enSearch,
   turnstile: enTurnstile,
   route: enRoute,
+  clarify: enClarify,
+  departure: enDeparture,
+  location: enLocation,
+  photo: enPhoto,
 };
 
 const CHAT_DICTIONARIES: Record<Locale, ChatDict> = { ja, zh, en };
