@@ -7,6 +7,7 @@ from collections.abc import AsyncIterable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, cast
 
+import structlog
 from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 from pydantic_ai import RunContext
 from pydantic_ai.messages import (
@@ -30,6 +31,7 @@ _MAX_STRING = 1_024
 _MAX_ITEMS = 20
 _MAX_DEPTH = 3
 _FAILED_ERROR = "Tool execution failed"
+logger = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -46,7 +48,7 @@ class ToolLifecycleRegistry:
 
     active: dict[str, ActiveToolCall] = field(default_factory=dict)
     provenance: dict[str, StepProvenance] = field(default_factory=dict)
-    terminal_failures: set[str] = field(default_factory=set)
+    recovered_exceptions: set[str] = field(default_factory=set)
 
     def start(self, call_id: str, tool: str, params: dict[str, JsonValue]) -> None:
         self.active[call_id] = ActiveToolCall(tool, params)
@@ -60,18 +62,18 @@ class ToolLifecycleRegistry:
     def take_provenance(self, call_id: str) -> StepProvenance | None:
         return self.provenance.pop(call_id, None)
 
-    def mark_terminal_failure(self, call_id: str) -> None:
-        self.terminal_failures.add(call_id)
+    def mark_recovered_exception(self, call_id: str) -> None:
+        self.recovered_exceptions.add(call_id)
 
-    def take_terminal_failure(self, call_id: str) -> bool:
-        present = call_id in self.terminal_failures
-        self.terminal_failures.discard(call_id)
+    def take_recovered_exception(self, call_id: str) -> bool:
+        present = call_id in self.recovered_exceptions
+        self.recovered_exceptions.discard(call_id)
         return present
 
     def abandon(self, call_id: str) -> None:
         self.active.pop(call_id, None)
         self.provenance.pop(call_id, None)
-        self.terminal_failures.discard(call_id)
+        self.recovered_exceptions.discard(call_id)
 
 
 async def tool_event_bridge(
@@ -92,11 +94,19 @@ def register_tool_provenance(
     call_id = getattr(ctx, "tool_call_id", None)
     if isinstance(call_id, str):
         ctx.deps.tool_lifecycle.register_provenance(call_id, provenance)
+        return
+    logger.warning(
+        "tool_provenance_missing_call_id",
+        tool=getattr(ctx, "tool_name", None),
+        call_id_type=type(call_id).__name__,
+    )
 
 
-def register_tool_exception(ctx: RunContext[RuntimeDeps], call_id: str) -> None:
-    """Remember a hook-recovered exception until its official return event."""
-    ctx.deps.tool_lifecycle.mark_terminal_failure(call_id)
+def register_recovered_tool_exception(
+    ctx: RunContext[RuntimeDeps], call_id: str
+) -> None:
+    """Remember a recovered attempt until its official return event."""
+    ctx.deps.tool_lifecycle.mark_recovered_exception(call_id)
 
 
 async def _handle_call(deps: RuntimeDeps, event: FunctionToolCallEvent) -> None:
@@ -119,7 +129,6 @@ async def _handle_retry(deps: RuntimeDeps, event: FunctionToolResultEvent) -> No
     call = deps.tool_lifecycle.finish(
         event.tool_call_id, event.part.tool_name or "tool"
     )
-    deps.tool_lifecycle.abandon(event.tool_call_id)
     await _emit(deps, StepEvent(call.tool, event.tool_call_id, "error", {}))
 
 
@@ -128,10 +137,20 @@ async def _handle_return(deps: RuntimeDeps, part: ToolReturnPart) -> None:
     if part.outcome in {"denied", "interrupted"}:
         await _handle_unexecuted(deps, call, part.tool_call_id)
         return
-    failed = deps.tool_lifecycle.take_terminal_failure(part.tool_call_id)
-    success = part.outcome == "success" and not failed
+    if deps.tool_lifecycle.take_recovered_exception(part.tool_call_id):
+        await _handle_recovered_exception(deps, call, part)
+        return
+    success = part.outcome == "success"
     data = _project_content(part.content) if success else None
     await _complete(deps, call, part, data, success)
+
+
+async def _handle_recovered_exception(
+    deps: RuntimeDeps, call: ActiveToolCall, part: ToolReturnPart
+) -> None:
+    deps.tool_lifecycle.take_provenance(part.tool_call_id)
+    _scan_result(call.tool, part.content)
+    await _emit(deps, StepEvent(call.tool, part.tool_call_id, "error", {}))
 
 
 async def _handle_unexecuted(
@@ -148,20 +167,21 @@ async def _complete(
     data: dict[str, JsonValue] | None,
     success: bool,
 ) -> None:
-    _record(deps, call, part, data, success)
+    _record_terminal_return(deps, call, part, data, success)
     _scan_result(call.tool, part.content)
     status: StepStatus = "done" if success else "error"
     payload = cast(StepData, data or {})
     await _emit(deps, StepEvent(call.tool, part.tool_call_id, status, payload))
 
 
-def _record(
+def _record_terminal_return(
     deps: RuntimeDeps,
     call: ActiveToolCall,
     part: ToolReturnPart,
     data: dict[str, JsonValue] | None,
     success: bool,
 ) -> None:
+    """Persist only an official terminal return, never a recovered attempt."""
     provenance = deps.tool_lifecycle.take_provenance(part.tool_call_id)
     error = None if success else _FAILED_ERROR
     params = cast(StepData, call.params)
@@ -195,9 +215,16 @@ def _project_value(value: JsonValue, depth: int = 0) -> JsonValue:
     if isinstance(value, list):
         return [_project_value(item, depth + 1) for item in value[:_MAX_ITEMS]]
     if isinstance(value, dict):
-        items = list(value.items())[:_MAX_ITEMS]
-        return {key: _project_value(item, depth + 1) for key, item in items}
+        return _project_mapping(value, depth)
     return value
+
+
+def _project_mapping(value: dict[str, JsonValue], depth: int) -> dict[str, JsonValue]:
+    items = list(value.items())[:_MAX_ITEMS]
+    return {
+        sanitize_untrusted(key, max_len=_MAX_STRING): _project_value(item, depth + 1)
+        for key, item in items
+    }
 
 
 def _scan_result(tool: str, content: object) -> None:

@@ -97,15 +97,16 @@ async def test_terminal_failed_return_is_persisted_without_exception_detail() ->
     assert "provider secret" not in str(events[-1].data)
 
 
-async def test_hook_recovered_exception_overrides_successful_return_outcome() -> None:
+async def test_hook_recovered_exception_emits_error_without_failed_step() -> None:
     deps = _deps()
-    deps.tool_lifecycle.mark_terminal_failure("recovered")
+    deps.tool_lifecycle.mark_recovered_exception("recovered")
     events = await _handle(
         deps,
         _call("future_tool", "recovered", {}),
         _result("future_tool", "recovered", {"error": True}),
     )
-    _assert_failed(deps, events)
+    assert events[-1].status == "error"
+    assert deps.steps == []
 
 
 def _assert_failed(deps: RuntimeDeps, events: list[StepEvent]) -> None:
@@ -153,15 +154,17 @@ async def test_untrusted_string_projection_is_bounded_and_sanitized() -> None:
     content = events[-1].data["content"]
     assert isinstance(content, str)
     assert len(content) <= 1_024
+    assert max(map(len, events[-1].data)) <= 1_024
     assert "\x00" not in content
     assert deps.steps[0].data == events[-1].data
 
 
 async def _large_result(deps: RuntimeDeps) -> list[StepEvent]:
+    content = {"content": "x\x00" * 2_000, "k" * 2_000: "bounded"}
     return await _handle(
         deps,
         _call("translate_anime_title", "large", {"title": "x"}),
-        _result("translate_anime_title", "large", "x\x00" * 2_000),
+        _result("translate_anime_title", "large", content),
     )
 
 

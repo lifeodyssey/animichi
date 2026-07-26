@@ -171,6 +171,7 @@ async def test_tool_execution_exception_is_converted_end_to_end() -> None:
     )
 
     assert isinstance(result.output, QAResponseModel)
+    assert result.success is True
     tool_return = _tool_returned(result.new_messages, "resolve_anime")
     assert tool_return is not None
     assert "サーバー側で問題が発生しました" in tool_return
