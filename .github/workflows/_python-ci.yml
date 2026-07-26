@@ -60,8 +60,13 @@ jobs:
           local: true
           inputs: apps/${{ inputs.app }}
 
-      - name: Unit tests (coverage >= 80%)
-        run: uv run pytest agent/tests/unit/ -v --cov --cov-report=xml --cov-fail-under=80
+      # No --cov-fail-under here on purpose: a CLI value OVERRIDES the addopts in
+      # apps/agent/pytest.ini, so the hardcoded 80 meant CI enforced 80 while the
+      # repo's ratcheted floor (82, now 88) applied only to local `make test`.
+      # The two gates disagreed silently, and the ratchet rule was paper-only.
+      # The floor now lives in exactly one place: apps/agent/pytest.ini.
+      - name: Unit tests (coverage floor from apps/agent/pytest.ini)
+        run: uv run pytest agent/tests/unit/ -v --cov --cov-report=xml
 
       - name: Upload coverage
         uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
