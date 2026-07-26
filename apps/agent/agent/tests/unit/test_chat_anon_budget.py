@@ -4,13 +4,19 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
+from fastapi import FastAPI
+
 from agent.config.settings import Settings
 from agent.interfaces.public_api import RuntimeAPI
 from agent.interfaces.schemas import PublicAPIResponse
 from agent.interfaces.usage_metering import ANON_BUDGET_EXHAUSTED_CODE
 from agent.tests.unit.conftest_fastapi import async_client, build_app, build_stub_db
 
-ANON_HEADERS = {"X-User-Id": "anon_0123456789abcdef0123456789abcdef", "X-User-Type": "anonymous"}
+ANON_HEADERS = {
+    "X-User-Id": "anon_0123456789abcdef0123456789abcdef",
+    "X-User-Type": "anonymous",
+}
 HUMAN_HEADERS = {"X-User-Id": "user-1", "X-User-Type": "human"}
 BUDGET = 5.0
 
@@ -43,7 +49,7 @@ def _runtime(db: MagicMock) -> MagicMock:
     return runtime
 
 
-def _app(spent: float, budget: float = BUDGET) -> tuple[object, MagicMock]:
+def _app(spent: float, budget: float = BUDGET) -> tuple[FastAPI, MagicMock]:
     db = _db(spent)
     runtime = _runtime(db)
     settings = Settings(anon_daily_cost_budget_usd=budget)
@@ -51,8 +57,8 @@ def _app(spent: float, budget: float = BUDGET) -> tuple[object, MagicMock]:
     return app, runtime
 
 
-async def _post(app: object, headers: dict[str, str]):
-    async with async_client(app) as client:  # type: ignore[arg-type]
+async def _post(app: FastAPI, headers: dict[str, str]) -> httpx.Response:
+    async with async_client(app) as client:
         return await client.post("/v1/chat", json=_body(), headers=headers)
 
 
