@@ -7,6 +7,7 @@ import { useChatSession } from "../../../src/features/chat/use-chat-session";
 import { server } from "../../msw/node";
 import {
   CHAT_URL,
+  chatBudgetExhaustedHandler,
   chatHttpErrorHandler,
   chatStreamControlledHandler,
   chatStreamHandler,
@@ -137,6 +138,27 @@ describe("failure-signal observability", () => {
       expect(view.result.current.error).toBeTruthy();
     });
     expect(view.result.current.lastHttpStatus()).toBe(401);
+  });
+
+  it("records the rejection's error code so a 403 budget breaker is distinguishable", async () => {
+    server.use(chatBudgetExhaustedHandler());
+    const view = renderSession("s-2");
+    await act(async () => view.result.current.sendMessage({ text: "こんにちは" }));
+    await waitFor(() => {
+      expect(view.result.current.error).toBeTruthy();
+    });
+    expect(view.result.current.lastHttpStatus()).toBe(403);
+    expect(view.result.current.lastErrorCode()).toBe("anon_budget_exhausted");
+  });
+
+  it("leaves the error code unset when the rejection carries no JSON body", async () => {
+    server.use(chatHttpErrorHandler(401));
+    const view = renderSession("s-3");
+    await act(async () => view.result.current.sendMessage({ text: "こんにちは" }));
+    await waitFor(() => {
+      expect(view.result.current.error).toBeTruthy();
+    });
+    expect(view.result.current.lastErrorCode()).toBeUndefined();
   });
 });
 

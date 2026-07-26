@@ -1,7 +1,8 @@
 import type { ChatErrorState } from "../../../../lib/chat/errorClassifier";
 import type { ChatDict } from "../../i18n";
+import { BudgetExhausted } from "./BudgetExhausted";
 import { SessionExpired } from "./SessionExpired";
-import { StreamInterruption } from "./StreamInterruption";
+import { StreamInterruption, type InterruptionShape } from "./StreamInterruption";
 
 export interface TurnFailureView {
   readonly state: ChatErrorState;
@@ -12,12 +13,19 @@ export interface TurnFailureView {
 
 type Props = Readonly<{ view: TurnFailureView | undefined; dict: ChatDict }>;
 
-/** Inline turn-failure surface: the D8 expiry banner or the D4/D5 retry strip. */
+function interruptionShape(state: ChatErrorState): InterruptionShape {
+  if (state === "D5") return "D5";
+  if (state === "D10") return "D10";
+  return "D4";
+}
+
+/** Inline turn-failure surface: the D8/D11 login banners or the D4/D5/D10 retry strip. */
 export function TurnFailure({ view, dict }: Props) {
   if (!view) return null;
+  if (view.state === "D11") return <BudgetExhausted dict={dict} />;
   if (view.state === "D8") {
     return <SessionExpired dict={dict} onResume={view.onExpiredResume} recovering={view.recovering} />;
   }
-  const shape = view.state === "D5" ? "D5" : "D4";
+  const shape = interruptionShape(view.state);
   return <StreamInterruption state={shape} dict={dict} onRetry={view.onRetry} recovering={view.recovering} />;
 }

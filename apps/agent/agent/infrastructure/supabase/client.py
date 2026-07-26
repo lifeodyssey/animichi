@@ -19,6 +19,7 @@ from agent.infrastructure.supabase.repositories.messages import MessagesReposito
 from agent.infrastructure.supabase.repositories.points import PointsRepository
 from agent.infrastructure.supabase.repositories.routes import RoutesRepository
 from agent.infrastructure.supabase.repositories.session import SessionRepository
+from agent.infrastructure.supabase.repositories.usage import UsageRepository
 
 logger = structlog.get_logger(__name__)
 
@@ -30,7 +31,7 @@ class SupabaseClient:
 
     Access repositories via explicit typed properties:
     ``db.bangumi``, ``db.points``, ``db.session``, ``db.feedback``,
-    ``db.routes``, ``db.messages``.
+    ``db.routes``, ``db.messages``, ``db.usage``.
     """
 
     def __init__(
@@ -52,6 +53,7 @@ class SupabaseClient:
         self._feedback: FeedbackRepository | None = None
         self._routes: RoutesRepository | None = None
         self._messages: MessagesRepository | None = None
+        self._usage: UsageRepository | None = None
 
     async def connect(self) -> None:
         """Create the connection pool and initialise repositories."""
@@ -99,6 +101,7 @@ class SupabaseClient:
         self._feedback = FeedbackRepository(pool)
         self._routes = RoutesRepository(pool)
         self._messages = MessagesRepository(pool)
+        self._usage = UsageRepository(pool)
 
     @property
     def bangumi(self) -> BangumiRepository:
@@ -147,3 +150,9 @@ class SupabaseClient:
                 "MessagesRepository not initialized — call connect() first"
             )
         return self._messages
+
+    @property
+    def usage(self) -> UsageRepository:
+        if self._usage is None:
+            raise RuntimeError("UsageRepository not initialized — call connect() first")
+        return self._usage

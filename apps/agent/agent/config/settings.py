@@ -125,6 +125,20 @@ class Settings(BaseSettings):
     model_attempt_timeout: float = Field(
         default=45.0, gt=0, description="Per-provider model attempt timeout in seconds"
     )
+    # Anonymous daily-budget circuit breaker (X4, issue #274). The container
+    # ingress is the authoritative tier: it compares today's 'anon' spend in
+    # daily_usage against this ceiling. 0 disables the breaker entirely.
+    anon_daily_cost_budget_usd: float = Field(
+        default=0.0,
+        ge=0,
+        description="Global anonymous daily spend ceiling in USD (0 disables)",
+    )
+    model_input_cost_per_mtok_usd: float = Field(
+        default=0.0, ge=0, description="Input token price per million tokens (USD)"
+    )
+    model_output_cost_per_mtok_usd: float = Field(
+        default=0.0, ge=0, description="Output token price per million tokens (USD)"
+    )
     service_host: str = Field(default="0.0.0.0", description="HTTP service bind host")
     service_port: int = Field(default=8080, description="HTTP service bind port")
     observability_service_name: str = Field(

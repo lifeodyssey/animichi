@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { setLanguages } from "../_i18n";
 import {
+  chatBudgetExhaustedHandler,
+  chatCodelessErrorHandler,
   chatHttpErrorHandler,
   chatStreamDropHandler,
   chatStreamImmediateDropHandler,
@@ -80,6 +82,14 @@ describe("D8 session expiry", () => {
     expect(screen.getByRole("button", { name: states.d8Login })).toBeTruthy();
   });
 
+  it("keeps a codeless 403 on the expiry banner instead of promoting it to D11", async () => {
+    server.use(chatCodelessErrorHandler(403));
+    renderChatPage();
+    sendText("こんにちは");
+    expect(await screen.findByText(states.d8Message)).toBeTruthy();
+    expect(screen.queryByText(states.d11Message)).toBeNull();
+  });
+
   it("resumes in place with the session's final state after re-login", async () => {
     server.use(conversationMessagesHandler("s-1", []), chatHttpErrorHandler(401));
     renderChatPage(chatSearch({ session: "s-1" }));
@@ -90,5 +100,25 @@ describe("D8 session expiry", () => {
     fireEvent.click(screen.getByRole("button", { name: states.d8Resume }));
     expect(await screen.findByText("宇治の聖地を2件、徒歩ルートにまとめました。")).toBeTruthy();
     expect(screen.queryByText(states.d8Message)).toBeNull();
+  });
+});
+
+describe("D11 anonymous budget exhausted", () => {
+  it("tells the visitor today's allowance ran out, never that a session expired", async () => {
+    server.use(chatBudgetExhaustedHandler());
+    renderChatPage();
+    sendText("ユーフォ");
+    expect(await screen.findByText(states.d11Message)).toBeTruthy();
+    expect(screen.queryByText(states.d8Message)).toBeNull();
+    expect(screen.getByText("ユーフォ")).toBeTruthy();
+  });
+
+  it("offers login as the way forward, with nothing to resume", async () => {
+    server.use(chatBudgetExhaustedHandler());
+    renderChatPage();
+    sendText("ユーフォ");
+    await screen.findByText(states.d11Message);
+    expect(screen.getByRole("button", { name: states.d11Login })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: states.d8Resume })).toBeNull();
   });
 });

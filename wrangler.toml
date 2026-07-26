@@ -27,6 +27,11 @@
 #   LOGFIRE_TOKEN              — optional observability token
 #   CORS_ALLOWED_ORIGIN        — backend CORS allowlist
 #
+# Anonymous access (issue #274 / S1.8) — anonymous chat is OPT-IN and stays off
+# until BOTH of these are present:
+#   ANON_ACCESS_ENABLED        — "true" to open /v1/chat to anonymous callers ([vars] below)
+#   ANON_ID_SECRET             — HMAC key for the signed anonymous-id cookie (wrangler secret put)
+#
 # Frontend build-time envs (injected by GitHub Actions):
 #   NEXT_PUBLIC_SUPABASE_URL
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -48,6 +53,14 @@ routes = [
 # There is NO public /catalog/* route on the main Worker.
 [vars]
 CATALOG_API_URL = "http://catalog.internal"
+ANON_ACCESS_ENABLED = "true"
+# Per-identity burst limit (abuse control). The per-identity DAILY message
+# quota is issue #282 and is configured separately.
+ANON_RATE_LIMIT = "20"
+ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
+# Global anonymous daily spend ceiling (X4). Enforced by the container ingress
+# against the daily_usage table; 0 disables the breaker.
+ANON_DAILY_COST_BUDGET_USD = "5.0"
 
 [assets]
 directory = ".open-next/assets"
@@ -77,9 +90,21 @@ max_instances = 3
 name = "CONTAINER"
 class_name = "RuntimeContainer"
 
+# Strongly-consistent state for the edge guards (rate limiter + anonymous
+# daily-budget latch). A Durable Object, not KV: both are read-modify-write
+# counters that must be correct under concurrency, and KV is eventually
+# consistent with a 60s edge cache.
+[[durable_objects.bindings]]
+name = "EDGE_GUARD"
+class_name = "EdgeGuard"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RuntimeContainer"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["EdgeGuard"]
 
 [observability]
 enabled = false
@@ -104,6 +129,14 @@ routes = [
 
 [env.production.vars]
 CATALOG_API_URL = "http://catalog.internal"
+ANON_ACCESS_ENABLED = "false"
+# Per-identity burst limit (abuse control). The per-identity DAILY message
+# quota is issue #282 and is configured separately.
+ANON_RATE_LIMIT = "20"
+ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
+# Global anonymous daily spend ceiling (X4). Enforced by the container ingress
+# against the daily_usage table; 0 disables the breaker.
+ANON_DAILY_COST_BUDGET_USD = "5.0"
 
 [env.production.assets]
 directory = ".open-next/assets"
@@ -126,9 +159,21 @@ max_instances = 3
 name = "CONTAINER"
 class_name = "RuntimeContainer"
 
+# Strongly-consistent state for the edge guards (rate limiter + anonymous
+# daily-budget latch). A Durable Object, not KV: both are read-modify-write
+# counters that must be correct under concurrency, and KV is eventually
+# consistent with a 60s edge cache.
+[[env.production.durable_objects.bindings]]
+name = "EDGE_GUARD"
+class_name = "EdgeGuard"
+
 [[env.production.migrations]]
 tag = "v1"
 new_sqlite_classes = ["RuntimeContainer"]
+
+[[env.production.migrations]]
+tag = "v2"
+new_sqlite_classes = ["EdgeGuard"]
 
 [env.staging]
 name = "animichi-staging"
@@ -136,6 +181,14 @@ routes = []
 
 [env.staging.vars]
 CATALOG_API_URL = "http://catalog.internal"
+ANON_ACCESS_ENABLED = "true"
+# Per-identity burst limit (abuse control). The per-identity DAILY message
+# quota is issue #282 and is configured separately.
+ANON_RATE_LIMIT = "20"
+ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
+# Global anonymous daily spend ceiling (X4). Enforced by the container ingress
+# against the daily_usage table; 0 disables the breaker.
+ANON_DAILY_COST_BUDGET_USD = "5.0"
 
 [env.staging.assets]
 directory = ".open-next/assets"
@@ -158,6 +211,18 @@ max_instances = 3
 name = "CONTAINER"
 class_name = "RuntimeContainer"
 
+# Strongly-consistent state for the edge guards (rate limiter + anonymous
+# daily-budget latch). A Durable Object, not KV: both are read-modify-write
+# counters that must be correct under concurrency, and KV is eventually
+# consistent with a 60s edge cache.
+[[env.staging.durable_objects.bindings]]
+name = "EDGE_GUARD"
+class_name = "EdgeGuard"
+
 [[env.staging.migrations]]
 tag = "v1"
 new_sqlite_classes = ["RuntimeContainer"]
+
+[[env.staging.migrations]]
+tag = "v2"
+new_sqlite_classes = ["EdgeGuard"]
