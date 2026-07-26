@@ -77,6 +77,11 @@ from agent.interfaces.session_facade import (
     extract_context_delta,
     normalize_session_state,
 )
+from agent.interfaces.usage_metering import (
+    UsagePrices,
+    record_turn_usage,
+    scope_for_identity,
+)
 from agent.utils.language import detect_language, resolve_reply_language
 
 __all__ = [
@@ -190,6 +195,7 @@ class RuntimeAPI:
         *,
         model: Model | str | None = None,
         user_id: str | None = None,
+        user_type: str | None = None,
         on_step: OnStep | None = None,
     ) -> PublicAPIResponse:
         """Execute the runtime pipeline and normalize its output."""
@@ -270,6 +276,7 @@ class RuntimeAPI:
                     transport="public_api",
                 )
 
+                await self._record_usage(result, user_id, user_type)
                 await self._log_request(
                     session_id=session_id,
                     request=request,
@@ -280,6 +287,30 @@ class RuntimeAPI:
                     status=status,
                     user_message_persisted=user_message_persisted,
                 )
+
+    def _usage_prices(self) -> UsagePrices:
+        return UsagePrices(
+            input_usd_per_mtok=self._settings.model_input_cost_per_mtok_usd,
+            output_usd_per_mtok=self._settings.model_output_cost_per_mtok_usd,
+        )
+
+    async def _record_usage(
+        self, result: AgentResult | None, user_id: str | None, user_type: str | None
+    ) -> None:
+        """SD-18 metering hook: bank this turn's RunUsage into ``daily_usage``.
+
+        This is the sole data source the anonymous daily-budget breaker (X4)
+        reads, so it runs in ``handle``'s finally block — a failed turn still
+        consumed tokens and must still be charged.
+        """
+        if result is None:
+            return
+        await record_turn_usage(
+            self._db,
+            usage=result.usage,
+            scope=scope_for_identity(user_id, user_type),
+            prices=self._usage_prices(),
+        )
 
     async def _prepare_session(
         self, request: PublicAPIRequest, user_id: str | None

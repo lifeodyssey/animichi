@@ -330,7 +330,8 @@
 
 .chat-interruption__retry,
 .chat-session-expired__login,
-.chat-session-expired__resume {
+.chat-session-expired__resume,
+.chat-budget-exhausted__login {
   border: 0;
   border-radius: 10px;
   min-height: 36px;
@@ -347,7 +348,8 @@
   cursor: not-allowed;
 }
 
-.chat-session-expired {
+.chat-session-expired,
+.chat-budget-exhausted {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -360,7 +362,8 @@
   color: var(--color-fg);
 }
 
-.chat-session-expired__actions {
+.chat-session-expired__actions,
+.chat-budget-exhausted__actions {
   display: flex;
   gap: 0.5rem;
 }

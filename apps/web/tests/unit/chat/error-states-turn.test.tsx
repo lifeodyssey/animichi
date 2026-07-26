@@ -3,9 +3,11 @@
  */
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { BudgetExhausted } from "../../../src/features/chat/components/ErrorStates/BudgetExhausted";
 import { SessionExpired } from "../../../src/features/chat/components/ErrorStates/SessionExpired";
 import { StreamInterruption } from "../../../src/features/chat/components/ErrorStates/StreamInterruption";
 import { chatDictFor } from "../../../src/features/chat/i18n";
+import { LOCALES } from "../../../src/i18n/locales";
 import { renderWithLocale, setLanguages } from "../_i18n";
 
 beforeEach(() => { setLanguages(["ja"]); });
@@ -62,5 +64,28 @@ describe("SessionExpired (D8)", () => {
   it("locks the resume button while recovery is in flight", () => {
     renderWithLocale(<SessionExpired dict={ja} onResume={vi.fn()} recovering />);
     expect(screen.getByRole("button", { name: ja.errorStates.d8Resume }).hasAttribute("disabled")).toBe(true);
+  });
+});
+
+describe("BudgetExhausted (D11 anonymous daily budget)", () => {
+  it.each(LOCALES)("renders the %s budget copy, not the session-expiry copy", (locale) => {
+    const dict = chatDictFor(locale);
+    renderWithLocale(<BudgetExhausted dict={dict} />);
+    const alert = screen.getByRole("alert").textContent;
+    expect(alert).toContain(dict.errorStates.d11Message);
+    expect(alert).not.toContain(dict.errorStates.d8Message);
+  });
+
+  it("opens the login dialog inline, the same affordance D8 offers", () => {
+    renderWithLocale(<BudgetExhausted dict={ja} />);
+    fireEvent.click(screen.getByRole("button", { name: ja.errorStates.d11Login }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("offers no resume button — an anonymous visitor has no session to resume", () => {
+    renderWithLocale(<BudgetExhausted dict={ja} />);
+    expect(screen.queryByRole("button", { name: ja.errorStates.d8Resume })).toBeNull();
   });
 });

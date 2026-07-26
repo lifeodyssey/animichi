@@ -28,6 +28,10 @@ export interface ChatErrorStatesDict {
   readonly d8Login: string;
   readonly d8Resume: string;
   readonly d9Episode: string;
+  readonly d10Message: string;
+  readonly d10Retry: string;
+  readonly d11Message: string;
+  readonly d11Login: string;
 }
 
 /** Tools whose step badges surface to the user as localized progress copy. */
@@ -173,6 +177,10 @@ const jaErrorStates: ChatErrorStatesDict = {
   d8Login: "ログインする",
   d8Resume: "つづきを読み込む",
   d9Episode: "第{ep}話",
+  d10Message: "ちょっと混み合ってるみたい。少し待ってね",
+  d10Retry: "もう一度おくる",
+  d11Message: "今日はここまで。ログインすると、このつづきから一緒に旅の計画を立てられるよ",
+  d11Login: "ログインする",
 };
 
 const zhErrorStates: ChatErrorStatesDict = {
@@ -195,6 +203,10 @@ const zhErrorStates: ChatErrorStatesDict = {
   d8Login: "去登录",
   d8Resume: "继续加载",
   d9Episode: "第{ep}集",
+  d10Message: "现在有点挤,稍微等一下哦",
+  d10Retry: "再发一次",
+  d11Message: "今天就聊到这儿啦。登录之后,就能接着一起把这趟旅程规划下去",
+  d11Login: "去登录",
 };
 
 const enErrorStates: ChatErrorStatesDict = {
@@ -217,6 +229,10 @@ const enErrorStates: ChatErrorStatesDict = {
   d8Login: "Sign in",
   d8Resume: "Reload the conversation",
   d9Episode: "Ep. {ep}",
+  d10Message: "Things are a little busy — hang on a moment",
+  d10Retry: "Send again",
+  d11Message: "That's it for today. Sign in and we can keep planning this trip together",
+  d11Login: "Sign in",
 };
 
 const ja: ChatDict = {

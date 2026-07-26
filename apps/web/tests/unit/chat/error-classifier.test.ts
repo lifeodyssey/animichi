@@ -37,6 +37,20 @@ describe("classifyFailure: transport signals", () => {
     expect(classifyFailure({ kind: "http", status })).toBe(expected);
   });
 
+  it("maps the anonymous budget breaker's 403 onto D11, not the session-expiry copy", () => {
+    const signal = { kind: "http", status: 403, code: "anon_budget_exhausted" } as const;
+    expect(classifyFailure(signal)).toBe("D11");
+  });
+
+  it("leaves a 403 carrying any other error code on D8", () => {
+    expect(classifyFailure({ kind: "http", status: 403, code: "forbidden" })).toBe("D8");
+  });
+
+  it("leaves a 401 on D8 even when it carries the budget code", () => {
+    const signal = { kind: "http", status: 401, code: "anon_budget_exhausted" } as const;
+    expect(classifyFailure(signal)).toBe("D8");
+  });
+
   it("maps a mid-stream abort onto the D4 interruption state", () => {
     expect(classifyFailure({ kind: "stream-abort" })).toBe("D4");
   });
