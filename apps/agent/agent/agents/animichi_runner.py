@@ -44,7 +44,7 @@ from agent.agents.runtime_models import (
     SearchResponseModel,
 )
 from agent.agents.session_state import CurrentAnime, SessionState
-from agent.agents.tool_event_bridge import tool_event_bridge
+from agent.agents.tool_event_bridge import tool_event_bridge_for
 from agent.agents.tool_state import ToolState
 from agent.agents.web_trust import detect_prompt_injection
 from agent.clients.catalog_client import CatalogClientProtocol
@@ -204,7 +204,7 @@ async def run_animichi_agent(
             message_history=message_history or [],
             usage_limits=RUN_USAGE_LIMITS,
             usage=run_usage,
-            event_stream_handler=tool_event_bridge,
+            event_stream_handler=tool_event_bridge_for(resolved_model),
         )
     except (UsageLimitExceeded, UnexpectedModelBehavior) as error:
         return _capped_partial_result(deps, run_usage, error)

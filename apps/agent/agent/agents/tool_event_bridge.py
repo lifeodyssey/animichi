@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, cast
 import structlog
 from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 from pydantic_ai import RunContext
+from pydantic_ai.agent import EventStreamHandler
 from pydantic_ai.messages import (
     AgentStreamEvent,
     FunctionToolCallEvent,
@@ -17,6 +18,8 @@ from pydantic_ai.messages import (
     RetryPromptPart,
     ToolReturnPart,
 )
+from pydantic_ai.models import Model
+from pydantic_ai.models.function import FunctionModel
 
 from agent.agents.agent_result import StepData, StepProvenance, StepRecord
 from agent.agents.runtime_deps import StepEvent, StepStatus
@@ -74,6 +77,15 @@ class ToolLifecycleRegistry:
         self.active.pop(call_id, None)
         self.provenance.pop(call_id, None)
         self.recovered_exceptions.discard(call_id)
+
+
+def tool_event_bridge_for(
+    model: Model | None,
+) -> EventStreamHandler[RuntimeDeps] | None:
+    """Skip event streaming when a plain FunctionModel cannot provide it."""
+    if isinstance(model, FunctionModel) and model.stream_function is None:
+        return None
+    return tool_event_bridge
 
 
 async def tool_event_bridge(
