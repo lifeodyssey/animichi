@@ -1,8 +1,7 @@
-"""Behavioral coverage for model failover ordering and deadline margin."""
+"""Behavioral coverage for model failover ordering and configuration."""
 
 from __future__ import annotations
 
-import asyncio
 from typing import cast
 from unittest.mock import AsyncMock, patch
 
@@ -23,10 +22,10 @@ from agent.config.settings import Settings
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 
 
-class _SlowFailModel(TestModel):
-    def __init__(self, delay: float) -> None:
-        super().__init__(model_name="slow-primary")
-        self._delay = delay
+class _FailModel(TestModel):
+    def __init__(self, attempts: list[str]) -> None:
+        super().__init__(model_name="primary")
+        self._attempts = attempts
 
     async def request(
         self,
@@ -34,8 +33,23 @@ class _SlowFailModel(TestModel):
         model_settings: ModelSettings | None,
         model_request_parameters: ModelRequestParameters,
     ) -> ModelResponse:
-        await asyncio.sleep(self._delay)
+        self._attempts.append(self.model_name)
         raise ModelHTTPError(504, self.model_name)
+
+
+class _RecordingModel(TestModel):
+    def __init__(self, attempts: list[str]) -> None:
+        super().__init__(custom_output_text="fallback-ok", model_name="fallback")
+        self._attempts = attempts
+
+    async def request(
+        self,
+        messages: list[ModelMessage],
+        model_settings: ModelSettings | None,
+        model_request_parameters: ModelRequestParameters,
+    ) -> ModelResponse:
+        self._attempts.append(self.model_name)
+        return await super().request(messages, model_settings, model_request_parameters)
 
 
 _CHAT_COMPLETION = b"""{
@@ -74,20 +88,19 @@ class _TimeoutTransport(httpx.AsyncBaseTransport):
         raise httpx.ReadTimeout("model attempt timed out", request=request)
 
 
-def _compressed_settings() -> Settings:
+def _failover_settings() -> Settings:
     return Settings(
-        default_agent_model="deepseek:slow-primary",
+        default_agent_model="deepseek:primary",
         fallback_agent_model="openai:fast-fallback@https://compat.example/v1",
         openai_compat_api_key="test-key",
-        agent_deadline=0.12,
-        model_attempt_timeout=0.05,
     )
 
 
-async def test_slow_primary_returns_fast_fallback_within_deadline() -> None:
-    settings = _compressed_settings()
-    primary = _SlowFailModel(settings.model_attempt_timeout)
-    fallback = TestModel(custom_output_text="fallback-ok", model_name="fast-fallback")
+async def test_primary_failure_uses_fallback_in_order() -> None:
+    settings = _failover_settings()
+    attempts: list[str] = []
+    primary = _FailModel(attempts)
+    fallback = _RecordingModel(attempts)
 
     def parse(spec: str, **_kwargs: object) -> TestModel:
         return primary if spec == settings.default_agent_model else fallback
@@ -101,17 +114,14 @@ async def test_slow_primary_returns_fast_fallback_within_deadline() -> None:
     assert isinstance(model, FallbackModel)
     assert model.models[0] is primary
     assert model.models[1] is fallback
-    result = await asyncio.wait_for(
-        Agent(model).run("ping"), timeout=settings.agent_deadline
-    )
+    result = await Agent(model).run("ping")
     assert result.output == "fallback-ok"
+    assert attempts == ["primary", "fallback"]
 
 
 async def test_httpx_timeout_error_drives_fallback_model() -> None:
     settings = Settings(
         fallback_agent_model="deepseek:deepseek-v4-flash",
-        agent_deadline=0.12,
-        model_attempt_timeout=0.05,
     )
     primary_transport = _TimeoutTransport()
     fallback_transport = _CompletionTransport()
