@@ -14,12 +14,7 @@ from agent.agents.catalog_tools import (
     run_resolve,
     run_work_search,
 )
-from agent.agents.runtime_deps import (
-    RuntimeDeps,
-    StepEvent,
-    StepStatus,
-    new_step_call_id,
-)
+from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.tool_outcomes import (
     NearbyToolResult,
     ResolveResult,
@@ -45,11 +40,7 @@ async def resolve_anime(
     Do not call this again once an anime is already resolved this turn or
     session — call `search_bangumi` directly with the known bangumi_id instead.
     """
-    call_id = _call_id(ctx, "resolve_anime")
-    await _emit(ctx, call_id, "resolve_anime", "running", {})
-    result = await run_resolve(ctx, ctx.deps.catalog, title)
-    await _emit(ctx, call_id, "resolve_anime", "done", result.model_dump())
-    return result
+    return await run_resolve(ctx, ctx.deps.catalog, title)
 
 
 async def search_bangumi(
@@ -61,11 +52,7 @@ async def search_bangumi(
     Do not call this for a location-only query (use `search_nearby` instead),
     and do not call it before `resolve_anime` has produced a bangumi_id.
     """
-    call_id = _call_id(ctx, "search_bangumi")
-    await _emit(ctx, call_id, "search_bangumi", "running", {})
-    result = await run_work_search(ctx, ctx.deps.catalog, bangumi_id)
-    await _emit(ctx, call_id, "search_bangumi", "done", result.model_dump())
-    return result
+    return await run_work_search(ctx, ctx.deps.catalog, bangumi_id)
 
 
 async def search_nearby(
@@ -74,13 +61,9 @@ async def search_nearby(
     radius_m: Annotated[int | None, Field(gt=0)] = None,
 ) -> NearbyToolResult:
     """Search near a place or GPS; upstream_unavailable means retry later."""
-    call_id = _call_id(ctx, "search_nearby")
-    await _emit(ctx, call_id, "search_nearby", "running", {})
-    result = await run_nearby_search(
+    return await run_nearby_search(
         ctx, ctx.deps.catalog, location=location, radius_m=radius_m
     )
-    await _emit(ctx, call_id, "search_nearby", "done", result.model_dump())
-    return result
 
 
 async def plan_route(
@@ -89,26 +72,7 @@ async def plan_route(
     pacing: Literal["chill", "normal", "packed"] | None = None,
 ) -> RouteToolResult:
     """Plan one stored result; upstream_unavailable means retry later."""
-    call_id = _call_id(ctx, "plan_route")
-    await _emit(ctx, call_id, "plan_route", "running", {})
-    result = await run_route(ctx, ctx.deps.catalog, search_result_ref, pacing)
-    await _emit(ctx, call_id, "plan_route", "done", result.model_dump())
-    return result
-
-
-async def _emit(
-    ctx: RunContext[RuntimeDeps],
-    call_id: str,
-    tool: str,
-    status: StepStatus,
-    data: dict[str, object],
-) -> None:
-    if ctx.deps.on_step is not None:
-        await ctx.deps.on_step(StepEvent(tool, call_id, status, data))
-
-
-def _call_id(ctx: RunContext[RuntimeDeps], tool: str) -> str:
-    return ctx.tool_call_id or new_step_call_id(tool)
+    return await run_route(ctx, ctx.deps.catalog, search_result_ref, pacing)
 
 
 TOOLS: list[Tool[RuntimeDeps] | ToolFuncEither[RuntimeDeps]] = [

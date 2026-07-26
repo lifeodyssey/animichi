@@ -10,13 +10,18 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from pydantic_ai import RunContext
 from structlog import testing
 
 from agent.agents import web_tools
+from agent.agents.runtime_deps import RuntimeDeps
+from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.tool_event_helpers import project_tool_result, tool_context
 
 
-def _make_ctx() -> MagicMock:
-    return MagicMock()
+def _make_ctx() -> RunContext[RuntimeDeps]:
+    deps = RuntimeDeps(MagicMock(), "en", "query", MockCatalogClient())
+    return tool_context(deps)
 
 
 async def test_wraps_results_in_untrusted_delimiters(
@@ -93,8 +98,10 @@ async def test_injection_looking_result_logs_warning_but_is_still_returned(
         ),
     )
 
+    ctx = _make_ctx()
     with testing.capture_logs() as captured:
-        result = await web_tools.web_search(_make_ctx(), query="query")
+        result = await web_tools.web_search(ctx, query="query")
+        await project_tool_result(ctx.deps, "web_search", {"query": "query"}, result)
 
     assert any(
         event.get("event") == "prompt_injection_detected"
@@ -122,8 +129,10 @@ async def test_injection_in_href_logs_warning(
         ),
     )
 
+    ctx = _make_ctx()
     with testing.capture_logs() as captured:
-        await web_tools.web_search(_make_ctx(), query="query")
+        result = await web_tools.web_search(ctx, query="query")
+        await project_tool_result(ctx.deps, "web_search", {"query": "query"}, result)
 
     assert any(
         event.get("event") == "prompt_injection_detected"

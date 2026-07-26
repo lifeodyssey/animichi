@@ -22,6 +22,7 @@ from agent.tests.eval.exec_tiers import (
 )
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.eval.null_database import NullDatabase
+from agent.tests.streaming_function_model import streaming_function_model
 
 EvalTaskFactory = Callable[[object, Callable[[], MockCatalogClient], object], object]
 
@@ -108,7 +109,7 @@ def _search_driver(title: str) -> FunctionModel:
             )
         return ModelResponse(parts=[ToolCallPart("search_response", _search_args())])
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 def _search_args():

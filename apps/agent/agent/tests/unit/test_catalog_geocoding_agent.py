@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from pydantic_ai import RunContext
 
 from agent.agents.agent_result import RejectedRoute, RejectedSearch
 from agent.agents.catalog_route_tools import run_route
@@ -25,6 +26,7 @@ from agent.clients.catalog_client import (
 )
 from agent.clients.geocode import GeocodeSource
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.tool_event_helpers import project_tool_result, tool_context
 
 
 def _deps() -> RuntimeDeps:
@@ -33,8 +35,8 @@ def _deps() -> RuntimeDeps:
     )
 
 
-def _ctx(deps: RuntimeDeps) -> MagicMock:
-    return MagicMock(deps=deps)
+def _ctx(deps: RuntimeDeps) -> RunContext[RuntimeDeps]:
+    return tool_context(deps)
 
 
 def _place(identifier: str, kind: GeocodeKind) -> GeocodeCandidate:
@@ -130,7 +132,8 @@ async def test_geocode_step_is_server_initiated() -> None:
 async def test_place_ambiguity_stages_coords_and_pending_in_same_outcome() -> None:
     deps = _deps()
     places = [_place("a", GeocodeKind.CITY), _place("b", GeocodeKind.STATION)]
-    await run_nearby_search(_ctx(deps), _Catalog(places), "Fuchu", None)
+    outcome = await run_nearby_search(_ctx(deps), _Catalog(places), "Fuchu", None)
+    await project_tool_result(deps, "search_nearby", {"location": "Fuchu"}, outcome)
     pending = deps.tool_state.session.pending_clarification
     assert pending is not None
     assert pending.reason == "place_ambiguity"
@@ -148,6 +151,9 @@ async def test_route_never_uses_hidden_last_result_default() -> None:
     deps = _deps()
     deps.tool_state.session = SessionState()
     outcome = await run_route(_ctx(deps), MockCatalogClient(), "missing-ref", None)
+    await project_tool_result(
+        deps, "plan_route", {"search_result_ref": "missing-ref"}, outcome
+    )
     assert outcome.status == "stale_ref"
     assert deps.steps[-1].success is True
     assert isinstance(deps.steps[-1].provenance, RejectedRoute)
@@ -161,6 +167,9 @@ async def test_empty_route_is_a_successful_typed_step() -> None:
     )
 
     outcome = await run_route(_ctx(deps), MockCatalogClient(), str(ref), None)
+    await project_tool_result(
+        deps, "plan_route", {"search_result_ref": str(ref)}, outcome
+    )
 
     assert (outcome.status, deps.steps[-1].success) == ("empty", True)
     assert isinstance(deps.steps[-1].provenance, RejectedRoute)
@@ -181,6 +190,9 @@ async def test_partial_route_is_pending_sync_and_never_calls_catalog_route() -> 
     catalog = MockCatalogClient()
 
     outcome = await run_route(_ctx(deps), catalog, str(ref), None)
+    await project_tool_result(
+        deps, "plan_route", {"search_result_ref": str(ref)}, outcome
+    )
 
     assert outcome.status == "pending_sync"
     assert all(call[0] != "route" for call in catalog.calls)

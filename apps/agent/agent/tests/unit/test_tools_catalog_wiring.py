@@ -17,6 +17,7 @@ from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.web_tools import TOOLS as WEB_TOOLS
 from agent.domain.ports import BangumiRepo, DatabasePort, PointsRepo
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.streaming_function_model import streaming_function_model
 
 _TOOL_NAMES = {
     "resolve_anime",
@@ -133,7 +134,7 @@ def _resolve_then_answer() -> FunctionModel:
         )
         return ModelResponse(parts=[part])
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 def _returned(message: ModelMessage, tool: str) -> bool:

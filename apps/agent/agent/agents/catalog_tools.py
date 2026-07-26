@@ -4,11 +4,7 @@ from pydantic_ai import RunContext
 
 from agent.agents.agent_result import ProducedSearch, RejectedSearch
 from agent.agents.catalog_adapter import build_search_state
-from agent.agents.catalog_failures import (
-    CATALOG_FAILURES,
-    nearby_params,
-    nearby_upstream_down,
-)
+from agent.agents.catalog_failures import CATALOG_FAILURES
 from agent.agents.models import ToolName
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.session_state import (
@@ -18,8 +14,9 @@ from agent.agents.session_state import (
     PendingClarification,
     ResultRef,
 )
-from agent.agents.step_recording import _record
+from agent.agents.step_recording import record_server_step
 from agent.agents.title_matching import looks_like_wrong_variant
+from agent.agents.tool_event_bridge import register_tool_provenance
 from agent.agents.tool_outcomes import (
     NearbyEmpty,
     NearbyMissingLocation,
@@ -102,9 +99,6 @@ async def run_resolve(
         result = ResolveUpstreamDown()
     else:
         result = _adapt_resolve(ctx.deps, resolved, title)
-    _record(
-        ctx.deps, ToolName.RESOLVE_ANIME.value, {"title": title}, result.model_dump()
-    )
     return result
 
 
@@ -155,14 +149,7 @@ async def run_work_search(
     try:
         result = await catalog.points_by_work_id(bangumi_id)
     except CATALOG_FAILURES:
-        failure = SearchUpstreamDown()
-        _record(
-            ctx.deps,
-            ToolName.SEARCH_BANGUMI.value,
-            {"bangumi_id": bangumi_id},
-            failure.model_dump(),
-        )
-        return failure
+        return SearchUpstreamDown()
     payload = build_search_state(
         result.rows,
         kind="bangumi",
@@ -184,13 +171,8 @@ async def run_work_search(
         )
     else:
         outcome = SearchEmpty(anime_title=title, partial=payload.partial)
-    _record(
-        ctx.deps,
-        ToolName.SEARCH_BANGUMI.value,
-        {"bangumi_id": bangumi_id},
-        outcome.model_dump(),
-        provenance=ProducedSearch(outcome=outcome.outcome, result_ref=ref),
-    )
+    provenance = ProducedSearch(outcome=outcome.outcome, result_ref=ref)
+    register_tool_provenance(ctx, provenance)
     return outcome
 
 
@@ -225,12 +207,11 @@ async def _coordinates(
         _set_pending(deps, "missing_location", [])
         return NearbyMissingLocation()
     candidates = await catalog.geocode(location.strip(), limit=5)
-    _record(
+    record_server_step(
         deps,
         ToolName.GEOCODE.value,
         {"location": location.strip()},
         {"candidate_ids": [candidate.id for candidate in candidates]},
-        model_initiated=False,
     )
     if not candidates:
         _set_pending(deps, "unknown_place", [])
@@ -263,15 +244,10 @@ async def run_nearby_search(
         resolved = await _coordinates(ctx.deps, catalog, location)
     except CATALOG_FAILURES:
         _clear_pending(ctx.deps)
-        return nearby_upstream_down(ctx.deps, location, radius_m)
+        return _nearby_upstream_down(ctx)
     if not isinstance(resolved, tuple):
-        _record(
-            ctx.deps,
-            ToolName.SEARCH_NEARBY.value,
-            {},
-            resolved.model_dump(),
-            provenance=RejectedSearch(outcome=resolved.outcome),
-        )
+        rejected = RejectedSearch(outcome=resolved.outcome)
+        register_tool_provenance(ctx, rejected)
         return resolved
     coords, default_radius = resolved
     try:
@@ -280,7 +256,7 @@ async def run_nearby_search(
         )
     except CATALOG_FAILURES:
         _clear_pending(ctx.deps)
-        return nearby_upstream_down(ctx.deps, location, radius_m)
+        return _nearby_upstream_down(ctx)
     payload = build_search_state(points, kind="nearby", locale=ctx.deps.locale)
     ref = ResultRef(ctx.deps.ref_factory("search", payload.row_count))
     ctx.deps.tool_state.session.store_search_result(ref, payload)
@@ -290,11 +266,12 @@ async def run_nearby_search(
         if payload.row_count
         else NearbyEmpty()
     )
-    _record(
-        ctx.deps,
-        ToolName.SEARCH_NEARBY.value,
-        nearby_params(location, radius_m),
-        outcome.model_dump(),
-        provenance=ProducedSearch(outcome=outcome.outcome, result_ref=ref),
-    )
+    produced = ProducedSearch(outcome=outcome.outcome, result_ref=ref)
+    register_tool_provenance(ctx, produced)
+    return outcome
+
+
+def _nearby_upstream_down(ctx: RunContext[RuntimeDeps]) -> NearbyUpstreamDown:
+    outcome = NearbyUpstreamDown()
+    register_tool_provenance(ctx, RejectedSearch(outcome=outcome.outcome))
     return outcome

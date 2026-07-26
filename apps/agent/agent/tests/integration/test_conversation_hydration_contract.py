@@ -15,6 +15,8 @@ import pytest
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
+from agent.tests.streaming_function_model import streaming_function_model
+
 pytest_plugins = ("agent.tests.conftest_db",)
 
 
@@ -45,7 +47,7 @@ def _search_model() -> FunctionModel:
             ]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 def _greeting_model() -> FunctionModel:
@@ -59,7 +61,7 @@ def _greeting_model() -> FunctionModel:
             ]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 @pytest.mark.integration

@@ -10,10 +10,9 @@ from agent.agents.agent_result import ProducedRoute, RejectedRoute, StepProvenan
 from agent.agents.catalog_adapter import build_route_state
 from agent.agents.catalog_failures import CATALOG_FAILURES
 from agent.agents.catalog_tools import _clear_pending
-from agent.agents.models import ToolName
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.session_state import ResultRef, RouteRef
-from agent.agents.step_recording import _record
+from agent.agents.tool_event_bridge import register_tool_provenance
 from agent.agents.tool_outcomes import (
     RouteEmpty,
     RouteOk,
@@ -41,30 +40,8 @@ async def run_route(
     except CATALOG_FAILURES:
         _clear_pending(ctx.deps)
         outcome = RouteUpstreamDown()
-    _record_route(ctx.deps, search_result_ref, pacing, outcome)
+    register_tool_provenance(ctx, _route_provenance(outcome))
     return outcome
-
-
-def _record_route(
-    deps: RuntimeDeps,
-    search_result_ref: str,
-    pacing: Pacing | None,
-    outcome: RouteOk
-    | RouteEmpty
-    | RouteStaleRef
-    | RoutePendingSync
-    | RouteUpstreamDown,
-) -> None:
-    params: dict[str, object] = {"search_result_ref": search_result_ref}
-    if pacing is not None:
-        params["pacing"] = pacing
-    _record(
-        deps,
-        ToolName.PLAN_ROUTE.value,
-        params,
-        outcome.model_dump(),
-        provenance=_route_provenance(outcome),
-    )
 
 
 async def _route_outcome(
