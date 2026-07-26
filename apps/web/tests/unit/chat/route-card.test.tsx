@@ -73,7 +73,7 @@ describe("AC5: a 404'd scene still degrades to the D9 placeholder", () => {
 
   it("keeps the -1 episode sentinel out of the D9 placeholder label", () => {
     renderRouteCard(routePartRaw([routePoint({ id: "a", name: "宇治橋", screenshot: "/broken.webp" })]));
-    fireEvent.error(document.querySelector("img.chat-scene-thumb") as HTMLImageElement);
+    fireEvent.error(screen.getByRole("img"));
     const placeholder = document.querySelector(".chat-scene-thumb--fallback");
     expect(placeholder?.textContent).toBe("");
   });
