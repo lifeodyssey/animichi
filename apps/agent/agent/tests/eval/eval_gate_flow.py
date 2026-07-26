@@ -19,6 +19,7 @@ from agent.tests.eval.eval_harness import (
     CAPPED,
     CASES,
     DATASET_NAME,
+    DATASET_PATH,
     EVAL_L3,
     METRIC_NAMES,
     RESULTS_DIR,
@@ -38,6 +39,7 @@ from agent.tests.eval.gate import (
     read_baseline_record,
     write_baseline_record,
 )
+from agent.tests.eval.stats import load_case_strata
 
 ScoreMap: TypeAlias = dict[str, float]
 CaseScores: TypeAlias = dict[str, ScoreMap]
@@ -54,6 +56,7 @@ class GateInput:
     scores: ScoreMap
     cases: CaseScores
     trajectories: tuple[TrajectoryCase, ...] = ()
+    strata: dict[str, str] | None = None
 
 
 def gate_exit_code(failures: list[str] | None) -> int:
@@ -236,7 +239,11 @@ def _gate_failures(
     enforce_direct: bool,
 ) -> list[str]:
     direct = direct_thrash_gate(gate_input.trajectories)
-    bootstrap = bootstrap_gate(gate_input.cases, baseline) if baseline else []
+    bootstrap = (
+        bootstrap_gate(gate_input.cases, baseline, strata=gate_input.strata)
+        if baseline
+        else []
+    )
     errors = error_rate_gate(
         gate_input.errored_count,
         gate_input.evaluated_count + gate_input.errored_count,
@@ -261,7 +268,8 @@ def _report_gate_input(
         len(report.failures),
         scores,
         collect_case_scores(report),
-        _trajectory_cases(report),
+        trajectories=_trajectory_cases(report),
+        strata=load_case_strata(DATASET_PATH),
     )
 
 
