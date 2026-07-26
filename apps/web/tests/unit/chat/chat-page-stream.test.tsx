@@ -28,7 +28,9 @@ describe("send flow over the recorded search stream", () => {
     expect(await screen.findByText("ユーフォ")).toBeTruthy();
     await screen.findByText("宇治の聖地を2件、徒歩ルートにまとめました。");
     for (const tool of ["resolve_anime", "search_bangumi", "plan_route"]) {
-      expect(screen.getByText(tool).getAttribute("data-status")).toBe("done");
+      const badge = document.querySelector(`.chat-step[data-tool="${tool}"]`);
+      expect(badge?.getAttribute("data-status")).toBe("done");
+      expect(badge?.textContent).not.toBe(tool);
     }
     expect(screen.getByText("宇治橋")).toBeTruthy();
     const card = document.querySelector('[data-intent="plan_route"]');

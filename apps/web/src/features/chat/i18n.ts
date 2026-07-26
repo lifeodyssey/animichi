@@ -23,6 +23,34 @@ export interface ChatErrorStatesDict {
   readonly d9Episode: string;
 }
 
+/** Tools whose step badges surface to the user as localized progress copy. */
+export const TOOL_STEP_KEYS = [
+  "resolve_anime",
+  "search_bangumi",
+  "search_nearby",
+  "plan_route",
+  "plan_selected",
+  "plan_multi",
+  "web_search",
+] as const;
+
+export type ToolStepKey = (typeof TOOL_STEP_KEYS)[number];
+
+/**
+ * Explicit deny-list: internal agent mechanics that must never appear in the
+ * badge stream. `translate_anime_title` is plumbing (the agent translating a
+ * title to query the catalog), not user-visible progress.
+ */
+export const HIDDEN_TOOL_STEPS: ReadonlySet<string> = new Set([
+  "translate_anime_title",
+]);
+
+/** In-character progress copy for tool step badges. */
+export interface ChatToolStepsDict {
+  readonly labels: Readonly<Record<ToolStepKey, string>>;
+  readonly fallback: string;
+}
+
 /** Chat-page copy, kept feature-local to avoid the shared dictionary hot file. */
 export interface ChatDict {
   readonly greeting: string;
@@ -40,7 +68,47 @@ export interface ChatDict {
   readonly waitingSubtitle: string;
   readonly footprintDetails: string;
   readonly errorStates: ChatErrorStatesDict;
+  readonly toolSteps: ChatToolStepsDict;
 }
+
+const jaToolSteps: ChatToolStepsDict = {
+  labels: {
+    resolve_anime: "作品をしらべてるよ…",
+    search_bangumi: "聖地をさがしてるよ…",
+    search_nearby: "近くの聖地をさがしてるよ…",
+    plan_route: "ルートを組んでるよ…",
+    plan_selected: "えらんだ場所でルートを組んでるよ…",
+    plan_multi: "まとめてルートを組んでるよ…",
+    web_search: "ネットでしらべてるよ…",
+  },
+  fallback: "じゅんびしてるよ…",
+};
+
+const zhToolSteps: ChatToolStepsDict = {
+  labels: {
+    resolve_anime: "在查这部作品…",
+    search_bangumi: "在找圣地…",
+    search_nearby: "在找附近的圣地…",
+    plan_route: "在规划路线…",
+    plan_selected: "在按你选的地点排路线…",
+    plan_multi: "在把路线排到一起…",
+    web_search: "在网上查一查…",
+  },
+  fallback: "在准备中…",
+};
+
+const enToolSteps: ChatToolStepsDict = {
+  labels: {
+    resolve_anime: "Looking up the title…",
+    search_bangumi: "Finding the spots…",
+    search_nearby: "Searching nearby…",
+    plan_route: "Planning the route…",
+    plan_selected: "Routing your picks…",
+    plan_multi: "Weaving routes together…",
+    web_search: "Searching the web…",
+  },
+  fallback: "Working on it…",
+};
 
 const jaErrorStates: ChatErrorStatesDict = {
   d1Title: "ごめんね、その作品が見つからなかった…",
@@ -128,6 +196,7 @@ const ja: ChatDict = {
   waitingSubtitle: "いま さがしてるよ…",
   footprintDetails: "詳細を見る",
   errorStates: jaErrorStates,
+  toolSteps: jaToolSteps,
 };
 
 const zh: ChatDict = {
@@ -146,6 +215,7 @@ const zh: ChatDict = {
   waitingSubtitle: "正在帮你找…",
   footprintDetails: "查看详情",
   errorStates: zhErrorStates,
+  toolSteps: zhToolSteps,
 };
 
 const en: ChatDict = {
@@ -168,10 +238,20 @@ const en: ChatDict = {
   waitingSubtitle: "Looking that up…",
   footprintDetails: "View details",
   errorStates: enErrorStates,
+  toolSteps: enToolSteps,
 };
 
 const CHAT_DICTIONARIES: Record<Locale, ChatDict> = { ja, zh, en };
 
 export function chatDictFor(locale: Locale): ChatDict {
   return CHAT_DICTIONARIES[locale];
+}
+
+function isToolStepKey(name: string): name is ToolStepKey {
+  return (TOOL_STEP_KEYS as readonly string[]).includes(name);
+}
+
+export function toolStepLabel(dict: ChatDict, name: string): string {
+  if (isToolStepKey(name)) return dict.toolSteps.labels[name];
+  return dict.toolSteps.fallback;
 }
