@@ -2,10 +2,11 @@ import type { ChatDataPart } from "@seichijunrei/contract";
 
 /**
  * D1-D9 fallback states from spec-chat-page-states.md §D (issue #272 S1.6),
- * plus D10: the edge rate limiter asked us to slow down (issue #274 S1.8).
+ * plus D10 (the edge rate limiter asked us to slow down) and D11 (the
+ * anonymous daily budget is spent) from issue #274 S1.8.
  */
 export type ChatErrorState =
-  | "D1" | "D2" | "D3" | "D4" | "D5" | "D6" | "D7" | "D8" | "D9" | "D10";
+  | "D1" | "D2" | "D3" | "D4" | "D5" | "D6" | "D7" | "D8" | "D9" | "D10" | "D11";
 
 export type ImageSurface = "map" | "scene";
 
@@ -15,7 +16,7 @@ export type ImageSurface = "map" | "scene";
  * the classifier owns the mapping onto the nine fallback states.
  */
 export type FailureSignal =
-  | { readonly kind: "http"; readonly status: number }
+  | { readonly kind: "http"; readonly status: number; readonly code?: string }
   | { readonly kind: "stream-abort" }
   | { readonly kind: "timeout" }
   | { readonly kind: "envelope"; readonly part: ChatDataPart }
@@ -24,9 +25,13 @@ export type FailureSignal =
 const ROUTE_MINIMUM_POINTS = 3;
 const D1_CODE_MARKERS = ["not_found", "no_bangumi", "invalid_station"];
 
-function classifyHttpStatus(status: number): ChatErrorState {
-  // 403 also carries the anonymous daily-budget breaker (S1.8 X4), whose
-  // recovery is the same as an expired session: sign in and carry on.
+/** The breaker's wire code, shared with `worker/costBreaker.ts` (S1.8 X4). */
+export const ANON_BUDGET_EXHAUSTED_CODE = "anon_budget_exhausted";
+
+function classifyHttpStatus(status: number, code: string | undefined): ChatErrorState {
+  // The budget breaker also rejects with 403, but an anonymous visitor never
+  // had a session to expire — only its own code earns the D11 budget copy.
+  if (status === 403 && code === ANON_BUDGET_EXHAUSTED_CODE) return "D11";
   if (status === 401 || status === 403) return "D8";
   if (status === 429) return "D10";
   if (status === 408 || status === 504) return "D5";
@@ -87,9 +92,9 @@ function classifyEnvelope(part: ChatDataPart): ChatErrorState | undefined {
   return undefined;
 }
 
-/** Map one failure signal onto its D1-D9 state; healthy envelopes return undefined. */
+/** Map one failure signal onto its D-state; healthy envelopes return undefined. */
 export function classifyFailure(signal: FailureSignal): ChatErrorState | undefined {
-  if (signal.kind === "http") return classifyHttpStatus(signal.status);
+  if (signal.kind === "http") return classifyHttpStatus(signal.status, signal.code);
   if (signal.kind === "stream-abort") return "D4";
   if (signal.kind === "timeout") return "D5";
   if (signal.kind === "image") return signal.surface === "map" ? "D7" : "D9";

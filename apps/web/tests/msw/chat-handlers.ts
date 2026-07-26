@@ -107,6 +107,17 @@ export function chatHttpErrorHandler(status: number): HttpHandler {
   return http.post(CHAT_URL, () => new HttpResponse(null, { status }));
 }
 
+/** A JSON rejection carrying no error code — must not be promoted to D11. */
+export function chatCodelessErrorHandler(status: number): HttpHandler {
+  return http.post(CHAT_URL, () => HttpResponse.json({ detail: "denied" }, { status }));
+}
+
+/** The anonymous daily-budget breaker's rejection (issue #274 S1.8 X4 → D11). */
+export function chatBudgetExhaustedHandler(): HttpHandler {
+  const body = { error: { code: "anon_budget_exhausted", action: "login" } };
+  return http.post(CHAT_URL, () => HttpResponse.json(body, { status: 403 }));
+}
+
 function droppingBody(head: string): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {

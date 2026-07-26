@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { LOCALES } from "../../../src/i18n/locales";
 
-const STATES = ["d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10"] as const;
+const STATES = ["d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10", "d11"] as const;
 
 /** Wire/internal vocabulary that must never surface in user-facing fallback copy. */
 const TECHNICAL_MARKERS = [
@@ -34,6 +34,17 @@ describe("chat error-state dictionary coverage", () => {
     for (const [key, value] of errorCopyOf("ja")) {
       expect(JAPANESE_SCRIPT.test(value), `ja errorStates.${key} must contain Japanese script`).toBe(true);
     }
+  });
+
+  it.each(LOCALES)("writes the %s budget copy without borrowing the D8 expiry copy", (locale) => {
+    const states = chatDictFor(locale).errorStates;
+    expect(states.d11Message).not.toBe(states.d8Message);
+  });
+
+  it("translates the D11 budget copy instead of copying the Japanese string across", () => {
+    expect(chatDictFor("zh").errorStates.d11Message).not.toBe(chatDictFor("ja").errorStates.d11Message);
+    expect(chatDictFor("en").errorStates.d11Message).not.toBe(chatDictFor("ja").errorStates.d11Message);
+    expect(chatDictFor("zh").errorStates.d11Message).not.toBe(chatDictFor("en").errorStates.d11Message);
   });
 
   it("keeps each locale's D6 apology distinct from the others", () => {

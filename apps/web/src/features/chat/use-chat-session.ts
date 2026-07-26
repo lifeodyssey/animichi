@@ -27,8 +27,13 @@ interface SessionTracker {
   scope: string;
   id: string | undefined;
   lastHttpStatus: number | undefined;
+  lastErrorCode: string | undefined;
 }
 type SessionRef = RefObject<SessionTracker>;
+
+function emptyTracker(scope: string, sessionId: string | undefined): SessionTracker {
+  return { scope, id: sessionId, lastHttpStatus: undefined, lastErrorCode: undefined };
+}
 
 /** `x-session-id` (when known) plus a Bearer token once signed in; anonymous
  * turns simply omit Authorization and instead carry the held Turnstile token
@@ -46,9 +51,9 @@ function scopeOf(sessionId?: string): string {
 
 /** Track the server-assigned session id, reset whenever the URL identity changes. */
 function useSessionTracker(sessionId: string | undefined, scope: string): SessionRef {
-  const ref = useRef<SessionTracker>({ scope, id: sessionId, lastHttpStatus: undefined });
+  const ref = useRef<SessionTracker>(emptyTracker(scope, sessionId));
   if (ref.current.scope !== scope) {
-    ref.current = { scope, id: sessionId, lastHttpStatus: undefined };
+    ref.current = emptyTracker(scope, sessionId);
   }
   return ref;
 }
@@ -76,11 +81,35 @@ function createScopedChat(chatUrl: string, scope: string, ref: SessionRef): Chat
   });
 }
 
-/** Record each chat response's HTTP status so failures classify (401 → D8). */
+function errorCodeOf(body: unknown): string | undefined {
+  if (typeof body !== "object" || body === null) return undefined;
+  const error: unknown = (body as { error?: unknown }).error;
+  if (typeof error !== "object" || error === null) return undefined;
+  const code: unknown = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+
+/**
+ * Read the rejection's error code, which separates D8 (401/403 expiry) from
+ * D11 (403 `anon_budget_exhausted`). Only failures are parsed — a streaming
+ * 2xx body is never touched, let alone buffered.
+ */
+async function readErrorCode(response: Response): Promise<string | undefined> {
+  if (response.ok) return undefined;
+  const body: unknown = await response
+    .clone()
+    .json()
+    .catch(() => undefined);
+  return errorCodeOf(body);
+}
+
+/** Record each chat response's status and error code so failures classify. */
 function createTrackingFetch(ref: SessionRef): typeof globalThis.fetch {
   return async (input, init) => {
     ref.current.lastHttpStatus = undefined;
+    ref.current.lastErrorCode = undefined;
     const response = await globalThis.fetch(input, init);
+    ref.current.lastErrorCode = await readErrorCode(response);
     ref.current.lastHttpStatus = response.status;
     return response;
   };
@@ -134,7 +163,8 @@ export function useChatSession(chatUrl: string, sessionId?: string) {
   const chat = useScopedChat(chatUrl, scope, ref);
   const sessionIdOf = useCallback(() => ref.current.id, [ref]);
   const lastHttpStatus = useCallback(() => ref.current.lastHttpStatus, [ref]);
-  return { ...useChat<ChatUIMessage>({ chat }), sessionIdOf, lastHttpStatus };
+  const lastErrorCode = useCallback(() => ref.current.lastErrorCode, [ref]);
+  return { ...useChat<ChatUIMessage>({ chat }), sessionIdOf, lastHttpStatus, lastErrorCode };
 }
 
 export type ChatSession = ReturnType<typeof useChatSession>;

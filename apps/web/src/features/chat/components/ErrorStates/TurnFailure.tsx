@@ -1,5 +1,6 @@
 import type { ChatErrorState } from "../../../../lib/chat/errorClassifier";
 import type { ChatDict } from "../../i18n";
+import { BudgetExhausted } from "./BudgetExhausted";
 import { SessionExpired } from "./SessionExpired";
 import { StreamInterruption, type InterruptionShape } from "./StreamInterruption";
 
@@ -18,9 +19,10 @@ function interruptionShape(state: ChatErrorState): InterruptionShape {
   return "D4";
 }
 
-/** Inline turn-failure surface: the D8 expiry banner or the D4/D5/D10 retry strip. */
+/** Inline turn-failure surface: the D8/D11 login banners or the D4/D5/D10 retry strip. */
 export function TurnFailure({ view, dict }: Props) {
   if (!view) return null;
+  if (view.state === "D11") return <BudgetExhausted dict={dict} />;
   if (view.state === "D8") {
     return <SessionExpired dict={dict} onResume={view.onExpiredResume} recovering={view.recovering} />;
   }

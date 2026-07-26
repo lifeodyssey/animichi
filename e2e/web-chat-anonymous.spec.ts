@@ -70,6 +70,8 @@ test("the anonymous budget breaker guides the visitor to login instead of failin
   );
   await openChat(page);
   await send(page, "ユーフォ");
-  await expect(page.getByText(states.d8Message)).toBeVisible();
-  await expect(page.getByRole("button", { name: states.d8Login })).toBeVisible();
+  // A visitor who never had a session must not be told their session expired.
+  await expect(page.getByText(states.d11Message)).toBeVisible();
+  await expect(page.getByRole("button", { name: states.d11Login })).toBeVisible();
+  await expect(page.getByText(states.d8Message)).toHaveCount(0);
 });

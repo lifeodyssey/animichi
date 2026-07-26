@@ -117,8 +117,8 @@ function useTurnActions(chat: ChatSession): ChatActions {
   return useMemo(() => ({ send, regenerate: regen }), [send, regen]);
 }
 
-function turnFailureSignal(lastStatus: number | undefined): FailureSignal {
-  if (lastStatus !== undefined && lastStatus >= 400) return { kind: "http", status: lastStatus };
+function turnFailureSignal(lastStatus: number | undefined, code: string | undefined): FailureSignal {
+  if (lastStatus !== undefined && lastStatus >= 400) return { kind: "http", status: lastStatus, code };
   return { kind: "stream-abort" };
 }
 
@@ -130,10 +130,10 @@ function turnFailureState(chat: ChatSession, timedOut: boolean): ChatErrorState 
   if (isActiveTurn(chat.status)) return undefined;
   if (timedOut) return "D5";
   if (chat.error === undefined) return undefined;
-  return classifyFailure(turnFailureSignal(chat.lastHttpStatus())) ?? "D4";
+  return classifyFailure(turnFailureSignal(chat.lastHttpStatus(), chat.lastErrorCode())) ?? "D4";
 }
 
-/** Compose the D4/D5/D8 view: watchdog + classification + P6 recovery. */
+/** Compose the D4/D5/D8/D11 view: watchdog + classification + P6 recovery. */
 function useTurnFailure(chat: ChatSession, baseUrl: string): TurnFailureView | undefined {
   const timeout = useTurnTimeout(chat.status, () => void chat.stop());
   const recovery = useStreamRecovery(baseUrl, chat, chat.sessionIdOf);
