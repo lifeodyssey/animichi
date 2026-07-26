@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Annotated, Literal, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from agent.agents.photo_search import (
@@ -22,6 +23,7 @@ from agent.agents.photo_search import (
 )
 from agent.agents.vision_supply_router import (
     EndpointId,
+    GuidancePremise,
     VisionCapabilityRegistry,
     VisionProvider,
     QuotaTier,
@@ -42,6 +44,7 @@ from agent.infrastructure.observability.photo_search import (
 )
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
+    _error_response,
     _get_settings_from_request,
     _get_trusted_auth_context,
 )
@@ -112,15 +115,41 @@ def _locale(request: Request) -> Locale:
     return cast(Locale, value) if value in ("ja", "zh", "en") else "ja"
 
 
+@dataclass(frozen=True)
+class PhotoSearchRejection(Exception):
+    """A typed rejection turned into the service error envelope."""
+
+    status_code: int
+    code: Literal[
+        "unsupported_image_format", "invalid_image", "photo_search_quota_exhausted"
+    ]
+    message: str
+    guidance: GuidancePremise | None = None
+
+
+def _rejection_response(rejection: PhotoSearchRejection) -> JSONResponse:
+    details = (
+        {"guidance": rejection.guidance} if rejection.guidance is not None else None
+    )
+    return _error_response(
+        rejection.code,
+        rejection.message,
+        status_code=rejection.status_code,
+        details=details,
+    )
+
+
 def _decode_image(body: PhotoSearchBody) -> bytes:
     if body.mime_type not in SUPPORTED_IMAGE_TYPES:
-        raise HTTPException(
-            status_code=415, detail={"code": "unsupported_image_format"}
+        raise PhotoSearchRejection(
+            415, "unsupported_image_format", "This image format is not supported."
         )
     try:
         return base64.b64decode(body.image_base64, validate=True)
     except (binascii.Error, ValueError) as exc:
-        raise HTTPException(status_code=422, detail={"code": "invalid_image"}) from exc
+        raise PhotoSearchRejection(
+            422, "invalid_image", "The image payload could not be decoded."
+        ) from exc
 
 
 def _byok_endpoint(request: Request) -> EndpointId | None:
@@ -151,8 +180,12 @@ def _check_quota(
 ) -> None:
     if runtime.quota.consume(tier, key, _quota_limit(settings, tier)):
         return
-    detail = {"code": "photo_search_quota_exhausted", "guidance": quota_guidance(byok)}
-    raise HTTPException(status_code=429, detail=detail)
+    raise PhotoSearchRejection(
+        429,
+        "photo_search_quota_exhausted",
+        "The photo-search quota for today is used up.",
+        guidance=quota_guidance(byok),
+    )
 
 
 def _supply(runtime: PhotoSearchRuntime, byok: EndpointId | None) -> VisionSupply:
@@ -181,14 +214,18 @@ async def handle_photo_search(
     request: Request,
     body: PhotoSearchBody,
     auth: Annotated[TrustedAuthContext, Depends(_get_trusted_auth_context)],
-) -> PhotoSearchResponse:
+) -> JSONResponse:
     """Run the standalone vision pipeline and reply with a chat-shaped envelope."""
     runtime = _get_photo_runtime(request)
-    image = _decode_image(body)
     byok = _byok_endpoint(request)
     authenticated = auth.user_id is not None
-    tier = quota_tier_for(authenticated)
-    _check_quota(runtime, _get_settings_from_request(request), tier, _quota_key(auth, request), byok)
+    try:
+        image = _decode_image(body)
+        tier = quota_tier_for(authenticated)
+        settings = _get_settings_from_request(request)
+        _check_quota(runtime, settings, tier, _quota_key(auth, request), byok)
+    except PhotoSearchRejection as rejection:
+        return _rejection_response(rejection)
     return await _run_pipeline(runtime, byok, image, body, request, authenticated)
 
 
@@ -199,7 +236,7 @@ async def _run_pipeline(
     body: PhotoSearchBody,
     request: Request,
     authenticated: bool,
-) -> PhotoSearchResponse:
+) -> JSONResponse:
     outcome = await run_photo_search(
         _supply(runtime, byok),
         runtime.catalog,
@@ -209,7 +246,7 @@ async def _run_pipeline(
         authenticated,
     )
     record_photo_search(outcome.signals)
-    return outcome.response
+    return JSONResponse(outcome.response.model_dump(exclude_none=True))
 
 
 @router.post("/photo-search/confirm", status_code=204)
