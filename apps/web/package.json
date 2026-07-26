@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "routes:generate": "node tests/setup/generate-route-tree.ts",
+    "lint:oxlint": "pnpm run routes:generate && oxlint --type-aware --deny-warnings .",
     "test": "vitest run --config vitest.config.ts --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "pnpm run routes:generate && tsc --noEmit",
     "preview": "wrangler dev"
   },
   "dependencies": {
@@ -43,6 +44,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-istanbul": "4.1.10",
     "jsdom": "^29.1.1",
+    "jsonc-parser": "^3.3.1",
     "msw": "2.15.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
