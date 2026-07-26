@@ -23,6 +23,14 @@ export interface ChatErrorStatesDict {
   readonly d9Episode: string;
 }
 
+/** Copy for the C3a/C3b search result cards and static map (issue #261 S1.4). */
+export interface ChatSearchDict {
+  readonly select: string;
+  readonly spotCount: string;
+  readonly areaFallback: string;
+  readonly mapLabel: string;
+}
+
 /** Tools whose step badges surface to the user as localized progress copy. */
 export const TOOL_STEP_KEYS = [
   "resolve_anime",
@@ -71,7 +79,29 @@ export interface ChatDict {
   readonly footprintDetails: string;
   readonly errorStates: ChatErrorStatesDict;
   readonly toolSteps: ChatToolStepsDict;
+  readonly search: ChatSearchDict;
 }
+
+const jaSearch: ChatSearchDict = {
+  select: "この聖地をえらぶ",
+  spotCount: "{count}件",
+  areaFallback: "エリア{n}",
+  mapLabel: "聖地マップ",
+};
+
+const zhSearch: ChatSearchDict = {
+  select: "选择这个圣地",
+  spotCount: "{count} 处",
+  areaFallback: "区域{n}",
+  mapLabel: "圣地地图",
+};
+
+const enSearch: ChatSearchDict = {
+  select: "Select this spot",
+  spotCount: "{count} spots",
+  areaFallback: "Area {n}",
+  mapLabel: "Spot map",
+};
 
 const jaToolSteps: ChatToolStepsDict = {
   labels: {
@@ -202,6 +232,7 @@ const ja: ChatDict = {
   footprintDetails: "詳細を見る",
   errorStates: jaErrorStates,
   toolSteps: jaToolSteps,
+  search: jaSearch,
 };
 
 const zh: ChatDict = {
@@ -221,6 +252,7 @@ const zh: ChatDict = {
   footprintDetails: "查看详情",
   errorStates: zhErrorStates,
   toolSteps: zhToolSteps,
+  search: zhSearch,
 };
 
 const en: ChatDict = {
@@ -244,6 +276,7 @@ const en: ChatDict = {
   footprintDetails: "View details",
   errorStates: enErrorStates,
   toolSteps: enToolSteps,
+  search: enSearch,
 };
 
 const CHAT_DICTIONARIES: Record<Locale, ChatDict> = { ja, zh, en };
