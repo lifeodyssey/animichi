@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { setLanguages } from "../_i18n";
 import { server } from "../../msw/node";
-import { chatStreamHandler } from "../../msw/chat-handlers";
+import { chatStreamHandler, chatStreamRetryHandler } from "../../msw/chat-handlers";
 import { chatSearch, renderChatPage } from "./_chat-page";
 
 const ja = chatDictFor("ja");
@@ -43,6 +43,18 @@ describe("send flow over the recorded search stream", () => {
     sendText("ユーフォ");
     await screen.findByText("宇治の聖地を2件、徒歩ルートにまとめました。");
     expect(document.querySelectorAll('[data-intent="plan_route"]')).toHaveLength(1);
+  });
+});
+
+describe("mid-turn ModelRetry over the stream", () => {
+  it("never leaves an error step behind on a turn that ultimately succeeds", async () => {
+    server.use(chatStreamRetryHandler());
+    renderChatPage();
+    sendText("ユーフォ");
+    await screen.findByText("宇治の聖地を2件、徒歩ルートにまとめました。");
+    const steps = [...document.querySelectorAll('.chat-step[data-tool="search_bangumi"]')];
+    expect(steps.map((step) => step.getAttribute("data-status"))).toEqual(["retried", "done"]);
+    expect(document.querySelector('.chat-step[data-status="error"]')).toBeNull();
   });
 });
 
