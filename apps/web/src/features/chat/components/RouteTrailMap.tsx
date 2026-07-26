@@ -42,19 +42,19 @@ function TrackLine({ placements }: Readonly<{ placements: readonly PointPlacemen
   );
 }
 
-function DimmedPins({ spots, placements }: Readonly<{ spots: readonly LocatedSpot[]; placements: readonly PointPlacement[] }>) {
+type PinsProps = Readonly<{ placements: readonly PointPlacement[] }>;
+
+// Position-keyed (like ClusterBubble): the whole overlay recomputes from the
+// coordinate array, so index identity is stable within a placement set.
+function DimmedPins({ placements }: PinsProps) {
   return placements.map((placement, index) => (
-    <span
-      key={spots[index]?.id ?? String(index)}
-      className="chat-map-pin chat-map-pin--dimmed"
-      style={percentStyle(placement)}
-    />
+    <span key={index} className="chat-map-pin chat-map-pin--dimmed" style={percentStyle(placement)} />
   ));
 }
 
-function OrderedPins({ spots, placements }: Readonly<{ spots: readonly LocatedSpot[]; placements: readonly PointPlacement[] }>) {
+function OrderedPins({ placements }: PinsProps) {
   return placements.map((placement, index) => (
-    <span key={spots[index]?.id ?? String(index)} className="chat-route-pin" style={percentStyle(placement)}>
+    <span key={index} className="chat-route-pin" style={percentStyle(placement)}>
       {index + 1}
     </span>
   ));
@@ -66,8 +66,8 @@ function TrailOverlay(props: SpotsProps) {
   return (
     <div className="chat-search-map__overlay" aria-hidden="true">
       <TrackLine placements={route} />
-      <DimmedPins spots={props.dimmed} placements={rest} />
-      <OrderedPins spots={props.stations} placements={route} />
+      <DimmedPins placements={rest} />
+      <OrderedPins placements={route} />
     </div>
   );
 }

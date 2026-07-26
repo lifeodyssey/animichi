@@ -31,8 +31,9 @@ function timeOf(value: string): string | undefined {
 /** The gold star sits on the most-photographed station (first among ties). */
 function highlightIndex(stops: readonly TimedStop[]): number {
   let best = 0;
+  let bestPhotos = Number.NEGATIVE_INFINITY;
   for (const [index, stop] of stops.entries()) {
-    if (stop.photo_count > (stops[best]?.photo_count ?? 0)) best = index;
+    if (stop.photo_count > bestPhotos) [best, bestPhotos] = [index, stop.photo_count];
   }
   return best;
 }
@@ -54,10 +55,13 @@ function legBetween(legs: readonly TransitLeg[], fromId: string, toId: string): 
 }
 
 function pairLegs(stops: readonly TimedStop[], legs: readonly TransitLeg[]): readonly (ItineraryLeg | undefined)[] {
-  return stops.slice(1).map((next, index) => {
-    const prev = stops[index];
-    return prev ? legBetween(legs, prev.cluster_id, next.cluster_id) : undefined;
-  });
+  const pairs: (ItineraryLeg | undefined)[] = [];
+  let prev: TimedStop | undefined;
+  for (const stop of stops) {
+    if (prev) pairs.push(legBetween(legs, prev.cluster_id, stop.cluster_id));
+    prev = stop;
+  }
+  return pairs;
 }
 
 /** The sentinel for a missing export link is `""`, which `??` passes through. */

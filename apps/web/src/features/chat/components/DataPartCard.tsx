@@ -38,14 +38,18 @@ function CardMessage({ part }: Readonly<{ part: ChatDataPart }>) {
   return <p className="chat-card__message">{part.message}</p>;
 }
 
+function CardBadge({ dict, superseded }: Readonly<{ dict: ChatDict; superseded?: boolean }>) {
+  if (superseded !== true) return null;
+  return <VersionBadge dict={dict} />;
+}
+
 function IntentCard({ part, dict, appendix, superseded }: IntentProps) {
   const Body = intentRegistry[part.intent];
   return (
     <article className={cardClass(superseded)} data-intent={part.intent}>
-      {superseded === true ? <VersionBadge dict={dict} /> : null}
+      <CardBadge dict={dict} superseded={superseded} />
       <CardMessage part={part} />
-      <Body part={part} dict={dict} />
-      {appendix}
+      <Body part={part} dict={dict} />{appendix}
     </article>
   );
 }
