@@ -32,6 +32,7 @@ from agent.agents.base import (
     resolve_model,
     resolve_model_alias,
 )
+from agent.agents.error_messages import build_input_error_message
 from agent.agents.runtime_deps import OnStep, StepEvent, StepStatus, new_step_call_id
 from agent.agents.selected_route import execute_selected_route
 from agent.agents.selection import (
@@ -125,6 +126,23 @@ def default_catalog_client() -> CatalogClient:
     return CatalogClient(base_url=get_settings().catalog_api_url)
 
 
+def _input_error_response(
+    request: PublicAPIRequest, limit: int
+) -> PublicAPIResponse | None:
+    """Reject oversized text with safe localized copy."""
+    if len(request.text) <= limit:
+        return None
+    message = build_input_error_message("message_too_long", request.locale)
+    error = PublicAPIError(code=ErrorCode.INVALID_INPUT.value, message=message)
+    return PublicAPIResponse(
+        success=False,
+        status="invalid_request",
+        intent="unknown",
+        message=message,
+        errors=[error],
+    )
+
+
 class RuntimeAPI:
     """Thin interface-layer facade over the runtime agent."""
 
@@ -175,6 +193,9 @@ class RuntimeAPI:
         on_step: OnStep | None = None,
     ) -> PublicAPIResponse:
         """Execute the runtime pipeline and normalize its output."""
+        rejection = _input_error_response(request, self._settings.message_max_chars)
+        if rejection is not None:
+            return rejection
         session_id, is_new_session = await self._prepare_session(request, user_id)
         started_at = perf_counter()
         response: PublicAPIResponse | None = None
