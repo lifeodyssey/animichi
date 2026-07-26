@@ -36,7 +36,7 @@ export default defineConfig({
         // as routes/_dev/map-spike.tsx.
         "src/features/bubble-map/BubbleMap.tsx",
       ],
-      thresholds: { statements: 90, branches: 90, functions: 90, lines: 90 },
+      thresholds: { statements: 95, branches: 94, functions: 95, lines: 95 },
     },
   },
 });

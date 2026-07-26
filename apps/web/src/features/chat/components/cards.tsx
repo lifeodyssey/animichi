@@ -1,6 +1,8 @@
 import type { ChatDataPart } from "@seichijunrei/contract";
+import { toSearchSpots } from "../../../lib/chat/spotClusters";
 import type { ChatDict } from "../i18n";
 import { SceneThumb } from "./ErrorStates/SceneThumb";
+import { SearchResult } from "./SearchResult";
 
 export type IntentCardProps = Readonly<{ part: ChatDataPart; dict: ChatDict }>;
 
@@ -31,6 +33,11 @@ type SpotRow = Readonly<{
   screenshot_url?: string;
   ep?: number;
   episode?: number;
+  lat?: number;
+  lng?: number;
+  latitude?: number;
+  longitude?: number;
+  city?: string;
 }>;
 
 /** Streamed routes may carry spots only as `route.ordered_points` objects. */
@@ -69,12 +76,13 @@ function SpotList({ part, dict }: IntentCardProps) {
   return <ul className="chat-card__spots">{items}</ul>;
 }
 
+/** C3a/C3b search shape (issue #261 S1.4): spot cards + static map / bubbles. */
 export function SearchCard({ part, dict }: IntentCardProps) {
   const results = resultsOf(part);
   return (
     <div className="chat-card__body">
       {results?.title ? <p className="chat-card__title">{results.title}</p> : null}
-      <SpotList part={part} dict={dict} />
+      <SearchResult spots={toSearchSpots(spotsOf(part))} dict={dict} />
     </div>
   );
 }
