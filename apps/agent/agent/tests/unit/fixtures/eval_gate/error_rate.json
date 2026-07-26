@@ -1,1 +1,889 @@
-{"results_payload":{"model":"fixture:model","dataset":"fixture","tier":"trajectory","case_count":20,"evaluated_count":16,"errored_count":4,"scores":{"Accuracy":1.0},"cases":[{"id":"c0","scores":{"Accuracy":1.0}},{"id":"c1","scores":{"Accuracy":1.0}},{"id":"c2","scores":{"Accuracy":1.0}},{"id":"c3","scores":{"Accuracy":1.0}},{"id":"c4","scores":{"Accuracy":1.0}},{"id":"c5","scores":{"Accuracy":1.0}},{"id":"c6","scores":{"Accuracy":1.0}},{"id":"c7","scores":{"Accuracy":1.0}},{"id":"c8","scores":{"Accuracy":1.0}},{"id":"c9","scores":{"Accuracy":1.0}},{"id":"c10","scores":{"Accuracy":1.0}},{"id":"c11","scores":{"Accuracy":1.0}},{"id":"c12","scores":{"Accuracy":1.0}},{"id":"c13","scores":{"Accuracy":1.0}},{"id":"c14","scores":{"Accuracy":1.0}},{"id":"c15","scores":{"Accuracy":1.0}},{"id":"e0","error":"boom"},{"id":"e1","error":"boom"},{"id":"e2","error":"boom"},{"id":"e3","error":"boom"}]},"baseline":{"schema_version":2,"model":"fixture:model","dataset":"fixture","tier":"trajectory","case_count":20,"evaluated_count":20,"errored_count":0,"scores":{"Accuracy":1.0},"cases":{"c0":{"Accuracy":1.0},"c1":{"Accuracy":1.0},"c2":{"Accuracy":1.0},"c3":{"Accuracy":1.0},"c4":{"Accuracy":1.0},"c5":{"Accuracy":1.0},"c6":{"Accuracy":1.0},"c7":{"Accuracy":1.0},"c8":{"Accuracy":1.0},"c9":{"Accuracy":1.0},"c10":{"Accuracy":1.0},"c11":{"Accuracy":1.0},"c12":{"Accuracy":1.0},"c13":{"Accuracy":1.0},"c14":{"Accuracy":1.0},"c15":{"Accuracy":1.0},"c16":{"Accuracy":1.0},"c17":{"Accuracy":1.0},"c18":{"Accuracy":1.0},"c19":{"Accuracy":1.0}}}}
+{
+  "results_payload": {
+    "model": "fixture:model",
+    "dataset": "fixture",
+    "tier": "trajectory",
+    "case_count": 100,
+    "evaluated_count": 80,
+    "errored_count": 20,
+    "scores": {
+      "Accuracy": 1.0
+    },
+    "cases": [
+      {
+        "id": "c0",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c1",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c2",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c3",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c4",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c5",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c6",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c7",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c8",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c9",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c10",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c11",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c12",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c13",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c14",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c15",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c16",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c17",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c18",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c19",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c20",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c21",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c22",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c23",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c24",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c25",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c26",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c27",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c28",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c29",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c30",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c31",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c32",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c33",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c34",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c35",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c36",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c37",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c38",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c39",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c40",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c41",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c42",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c43",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c44",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c45",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c46",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c47",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c48",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c49",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c50",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c51",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c52",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c53",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c54",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c55",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c56",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c57",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c58",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c59",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c60",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c61",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c62",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c63",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c64",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c65",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c66",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c67",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c68",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c69",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c70",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c71",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c72",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c73",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c74",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c75",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c76",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c77",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c78",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "c79",
+        "scores": {
+          "Accuracy": 1.0
+        }
+      },
+      {
+        "id": "e0",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e1",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e2",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e3",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e4",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e5",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e6",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e7",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e8",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e9",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e10",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e11",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e12",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e13",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e14",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e15",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e16",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e17",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e18",
+        "error": "ValidationError: fixture agent failure"
+      },
+      {
+        "id": "e19",
+        "error": "ValidationError: fixture agent failure"
+      }
+    ]
+  },
+  "baseline": {
+    "schema_version": 2,
+    "model": "fixture:model",
+    "dataset": "fixture",
+    "tier": "trajectory",
+    "case_count": 100,
+    "evaluated_count": 100,
+    "errored_count": 0,
+    "scores": {
+      "Accuracy": 1.0
+    },
+    "cases": {
+      "c0": {
+        "Accuracy": 1.0
+      },
+      "c1": {
+        "Accuracy": 1.0
+      },
+      "c2": {
+        "Accuracy": 1.0
+      },
+      "c3": {
+        "Accuracy": 1.0
+      },
+      "c4": {
+        "Accuracy": 1.0
+      },
+      "c5": {
+        "Accuracy": 1.0
+      },
+      "c6": {
+        "Accuracy": 1.0
+      },
+      "c7": {
+        "Accuracy": 1.0
+      },
+      "c8": {
+        "Accuracy": 1.0
+      },
+      "c9": {
+        "Accuracy": 1.0
+      },
+      "c10": {
+        "Accuracy": 1.0
+      },
+      "c11": {
+        "Accuracy": 1.0
+      },
+      "c12": {
+        "Accuracy": 1.0
+      },
+      "c13": {
+        "Accuracy": 1.0
+      },
+      "c14": {
+        "Accuracy": 1.0
+      },
+      "c15": {
+        "Accuracy": 1.0
+      },
+      "c16": {
+        "Accuracy": 1.0
+      },
+      "c17": {
+        "Accuracy": 1.0
+      },
+      "c18": {
+        "Accuracy": 1.0
+      },
+      "c19": {
+        "Accuracy": 1.0
+      },
+      "c20": {
+        "Accuracy": 1.0
+      },
+      "c21": {
+        "Accuracy": 1.0
+      },
+      "c22": {
+        "Accuracy": 1.0
+      },
+      "c23": {
+        "Accuracy": 1.0
+      },
+      "c24": {
+        "Accuracy": 1.0
+      },
+      "c25": {
+        "Accuracy": 1.0
+      },
+      "c26": {
+        "Accuracy": 1.0
+      },
+      "c27": {
+        "Accuracy": 1.0
+      },
+      "c28": {
+        "Accuracy": 1.0
+      },
+      "c29": {
+        "Accuracy": 1.0
+      },
+      "c30": {
+        "Accuracy": 1.0
+      },
+      "c31": {
+        "Accuracy": 1.0
+      },
+      "c32": {
+        "Accuracy": 1.0
+      },
+      "c33": {
+        "Accuracy": 1.0
+      },
+      "c34": {
+        "Accuracy": 1.0
+      },
+      "c35": {
+        "Accuracy": 1.0
+      },
+      "c36": {
+        "Accuracy": 1.0
+      },
+      "c37": {
+        "Accuracy": 1.0
+      },
+      "c38": {
+        "Accuracy": 1.0
+      },
+      "c39": {
+        "Accuracy": 1.0
+      },
+      "c40": {
+        "Accuracy": 1.0
+      },
+      "c41": {
+        "Accuracy": 1.0
+      },
+      "c42": {
+        "Accuracy": 1.0
+      },
+      "c43": {
+        "Accuracy": 1.0
+      },
+      "c44": {
+        "Accuracy": 1.0
+      },
+      "c45": {
+        "Accuracy": 1.0
+      },
+      "c46": {
+        "Accuracy": 1.0
+      },
+      "c47": {
+        "Accuracy": 1.0
+      },
+      "c48": {
+        "Accuracy": 1.0
+      },
+      "c49": {
+        "Accuracy": 1.0
+      },
+      "c50": {
+        "Accuracy": 1.0
+      },
+      "c51": {
+        "Accuracy": 1.0
+      },
+      "c52": {
+        "Accuracy": 1.0
+      },
+      "c53": {
+        "Accuracy": 1.0
+      },
+      "c54": {
+        "Accuracy": 1.0
+      },
+      "c55": {
+        "Accuracy": 1.0
+      },
+      "c56": {
+        "Accuracy": 1.0
+      },
+      "c57": {
+        "Accuracy": 1.0
+      },
+      "c58": {
+        "Accuracy": 1.0
+      },
+      "c59": {
+        "Accuracy": 1.0
+      },
+      "c60": {
+        "Accuracy": 1.0
+      },
+      "c61": {
+        "Accuracy": 1.0
+      },
+      "c62": {
+        "Accuracy": 1.0
+      },
+      "c63": {
+        "Accuracy": 1.0
+      },
+      "c64": {
+        "Accuracy": 1.0
+      },
+      "c65": {
+        "Accuracy": 1.0
+      },
+      "c66": {
+        "Accuracy": 1.0
+      },
+      "c67": {
+        "Accuracy": 1.0
+      },
+      "c68": {
+        "Accuracy": 1.0
+      },
+      "c69": {
+        "Accuracy": 1.0
+      },
+      "c70": {
+        "Accuracy": 1.0
+      },
+      "c71": {
+        "Accuracy": 1.0
+      },
+      "c72": {
+        "Accuracy": 1.0
+      },
+      "c73": {
+        "Accuracy": 1.0
+      },
+      "c74": {
+        "Accuracy": 1.0
+      },
+      "c75": {
+        "Accuracy": 1.0
+      },
+      "c76": {
+        "Accuracy": 1.0
+      },
+      "c77": {
+        "Accuracy": 1.0
+      },
+      "c78": {
+        "Accuracy": 1.0
+      },
+      "c79": {
+        "Accuracy": 1.0
+      },
+      "c80": {
+        "Accuracy": 1.0
+      },
+      "c81": {
+        "Accuracy": 1.0
+      },
+      "c82": {
+        "Accuracy": 1.0
+      },
+      "c83": {
+        "Accuracy": 1.0
+      },
+      "c84": {
+        "Accuracy": 1.0
+      },
+      "c85": {
+        "Accuracy": 1.0
+      },
+      "c86": {
+        "Accuracy": 1.0
+      },
+      "c87": {
+        "Accuracy": 1.0
+      },
+      "c88": {
+        "Accuracy": 1.0
+      },
+      "c89": {
+        "Accuracy": 1.0
+      },
+      "c90": {
+        "Accuracy": 1.0
+      },
+      "c91": {
+        "Accuracy": 1.0
+      },
+      "c92": {
+        "Accuracy": 1.0
+      },
+      "c93": {
+        "Accuracy": 1.0
+      },
+      "c94": {
+        "Accuracy": 1.0
+      },
+      "c95": {
+        "Accuracy": 1.0
+      },
+      "c96": {
+        "Accuracy": 1.0
+      },
+      "c97": {
+        "Accuracy": 1.0
+      },
+      "c98": {
+        "Accuracy": 1.0
+      },
+      "c99": {
+        "Accuracy": 1.0
+      }
+    }
+  }
+}

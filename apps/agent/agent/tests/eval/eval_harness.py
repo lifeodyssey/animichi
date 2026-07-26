@@ -46,12 +46,14 @@ from agent.tests.eval.exec_tiers import (
     cap_cases,
     read_max_cases,
 )
+from agent.tests.eval.l0_selection import L0Case, select_l0_cases
 from agent.tests.eval.official_evaluators import (
     OfficialArgumentCorrectness,
     OfficialMaxToolCalls,
     OfficialToolCorrectness,
     OfficialTrajectoryMatch,
 )
+from agent.tests.eval.stats import load_case_strata
 
 Row: TypeAlias = Mapping[str, object]
 TaskFn: TypeAlias = Callable[[AgentInput], Awaitable[AgentResult]]
@@ -216,8 +218,24 @@ def load_cases() -> list[Case[AgentInput, AgentResult, AgentExpected]]:
     return [_case(row) for row in _rows(raw)]
 
 
+AgentCase: TypeAlias = Case[AgentInput, AgentResult, AgentExpected]
+
+
+def _l0_view(case: AgentCase, strata: Mapping[str, str]) -> L0Case:
+    name = str(case.name)
+    return L0Case(name, strata.get(name, "unstratified"), case.inputs.locale)
+
+
+def select_cases(cases: list[AgentCase], cap: int | None) -> list[AgentCase]:
+    """L0 smoke composes an explicit set; every other tier caps by even spread."""
+    if cap is None or os.environ.get("EVAL_SMOKE") != "1":
+        return cap_cases(cases, cap)
+    strata = load_case_strata(DATASET_PATH)
+    return select_l0_cases(cases, lambda case: _l0_view(case, strata), cap)
+
+
 ALL_CASES = load_cases()
-CASES = cap_cases(ALL_CASES, read_max_cases())
+CASES = select_cases(ALL_CASES, read_max_cases())
 CAPPED = len(CASES) < len(ALL_CASES)
 METRIC_NAMES = metric_names(
     has_nonempty_cases=any(
