@@ -59,7 +59,9 @@ class SmokeError:
     error_class: ErrorClass
 
     def format(self) -> str:
-        return f"  - {self.case_id} [{self.error_class}] {self.error_type}: {self.message}"
+        return (
+            f"  - {self.case_id} [{self.error_class}] {self.error_type}: {self.message}"
+        )
 
 
 @dataclass(frozen=True)
