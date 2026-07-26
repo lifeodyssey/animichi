@@ -15,7 +15,7 @@ from pydantic_ai import RunContext
 from pydantic_ai.agent import AgentRunResult
 from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
-from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.models.function import AgentInfo
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.usage import RunUsage
@@ -33,6 +33,7 @@ from agent.agents.session_state import (
 from agent.clients.catalog_client import ResolveNotFound, ResolveResolved
 from agent.clients.catalog_errors import WorkNotFoundData, WorkNotFoundError
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.streaming_function_model import streaming_function_model
 
 
 def _deps(locale: str = "ja") -> RuntimeDeps:
@@ -166,7 +167,7 @@ async def test_tool_execution_exception_is_converted_end_to_end() -> None:
         db=MagicMock(),
         locale="ja",
         catalog=_RaisingCatalog(),
-        model=FunctionModel(respond),
+        model=streaming_function_model(respond),
     )
 
     assert isinstance(result.output, QAResponseModel)
@@ -190,7 +191,7 @@ async def test_agent_loop_exception_is_a_terminal_error_result_end_to_end() -> N
         db=MagicMock(),
         locale="zh",
         catalog=MockCatalogClient(),
-        model=FunctionModel(fail),
+        model=streaming_function_model(fail),
     )
 
     assert isinstance(result.output, ErrorResponseModel)
@@ -224,7 +225,7 @@ async def test_recovered_error_preserves_pending_clarification_for_retry() -> No
         db=MagicMock(),
         locale="ja",
         catalog=MockCatalogClient(),
-        model=FunctionModel(fail),
+        model=streaming_function_model(fail),
         context={"session_state_v2": state.model_dump(mode="json")},
     )
 

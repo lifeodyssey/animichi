@@ -4,15 +4,18 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from uuid import uuid4
 
-from agent.agents.agent_result import StepRecord
+from agent.agents.agent_result import StepData, StepRecord
 from agent.agents.tool_state import ToolState
 from agent.agents.translation import TranslationResult
 from agent.agents.web_trust import WebResult
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.domain.ports import DatabasePort
+
+if TYPE_CHECKING:
+    from agent.agents.tool_event_bridge import ToolLifecycleRegistry
 
 StepStatus = Literal["running", "done", "error"]
 
@@ -24,7 +27,7 @@ class StepEvent:
     tool: str
     call_id: str
     status: StepStatus
-    data: dict[str, object]
+    data: StepData
     thought: str = ""
     observation: str = ""
 
@@ -37,6 +40,12 @@ TitleTranslator = Callable[[str, str], Awaitable[TranslationResult]]
 def new_step_call_id(tool: str) -> str:
     """Mint an identity for one deterministic, server-side tool operation."""
     return f"{tool}-{uuid4()}"
+
+
+def _new_tool_lifecycle() -> ToolLifecycleRegistry:
+    from agent.agents.tool_event_bridge import ToolLifecycleRegistry
+
+    return ToolLifecycleRegistry()
 
 
 @dataclass
@@ -93,4 +102,5 @@ class RuntimeDeps:
     # before_tool_execute backstop rejects further identity/search/route tools
     # this turn (deterministic guard behind the advisory convergence rules).
     disambiguation_pending: bool = False
+    tool_lifecycle: ToolLifecycleRegistry = field(default_factory=_new_tool_lifecycle)
     steps: list[StepRecord] = field(default_factory=list)

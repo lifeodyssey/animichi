@@ -14,6 +14,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from agent.agents.animichi_agent import _REPEAT_GUARD_HINT, _tool_call_fingerprint
 from agent.agents.animichi_runner import run_animichi_agent
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.streaming_function_model import streaming_function_model
 
 _HINT = _REPEAT_GUARD_HINT.format(tool="resolve_anime")
 
@@ -39,7 +40,7 @@ def _resolve_then_qa(titles: list[str]) -> FunctionModel:
         del messages
         return ModelResponse(parts=[ToolCallPart("qa_response", {"message": "ok"})])
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 async def _run(model: FunctionModel) -> tuple[object, list[str]]:
@@ -57,7 +58,7 @@ async def _run(model: FunctionModel) -> tuple[object, list[str]]:
         text="君の名は。の聖地を教えて",
         db=MagicMock(),
         locale="ja",
-        model=FunctionModel(observing),
+        model=streaming_function_model(observing),
         catalog=MockCatalogClient(),
     )
     return result, seen_retries
@@ -115,7 +116,7 @@ def _resolve_then_nearby() -> FunctionModel:
                 parts=[ToolCallPart("clarify_response", {"reason": "anime_not_found"})]
             )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 async def test_backstop_blocks_search_after_unsettled_identity() -> None:
@@ -134,7 +135,7 @@ async def test_backstop_blocks_search_after_unsettled_identity() -> None:
         text="no-such-anime-xyz の聖地",
         db=MagicMock(),
         locale="ja",
-        model=FunctionModel(observing),
+        model=streaming_function_model(observing),
         catalog=MockCatalogClient(),
     )
 

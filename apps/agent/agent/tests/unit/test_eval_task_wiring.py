@@ -17,6 +17,7 @@ from agent.agents.agent_result import AgentResult
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.eval.mock_web import MockTitleTranslator, MockWebSearcher
 from agent.tests.eval.null_database import NullDatabase
+from agent.tests.streaming_function_model import streaming_function_model
 
 Task = Callable[[object], Awaitable[AgentResult]]
 
@@ -50,7 +51,7 @@ def _web_driver(query: str) -> FunctionModel:
             return ModelResponse(parts=[ToolCallPart("web_search", {"query": query})])
         return ModelResponse(parts=[ToolCallPart("qa_response", _qa_args())])
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 def _translation_driver(title: str, locale: str) -> FunctionModel:
@@ -60,7 +61,7 @@ def _translation_driver(title: str, locale: str) -> FunctionModel:
             return ModelResponse(parts=[ToolCallPart("translate_anime_title", args)])
         return ModelResponse(parts=[ToolCallPart("qa_response", _qa_args())])
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 def _tool_return(result: AgentResult, tool_name: str) -> str:

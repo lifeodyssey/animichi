@@ -26,6 +26,7 @@ from agent.domain.ports import DatabasePort
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.eval.mock_web import MockTitleTranslator, MockWebSearcher
 from agent.tests.eval.null_database import NullDatabase
+from agent.tests.streaming_function_model import streaming_function_model
 
 
 @dataclass
@@ -102,7 +103,7 @@ def _web_driver(query: str) -> FunctionModel:
             return ModelResponse(parts=[ToolCallPart("web_search", {"query": query})])
         return ModelResponse(parts=[ToolCallPart("qa_response", _qa_args())])
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 def _qa_args() -> Mapping[str, object]:

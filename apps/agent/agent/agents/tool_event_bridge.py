@@ -1,0 +1,213 @@
+"""Translate official PydanticAI tool events into runtime lifecycle contracts."""
+
+from __future__ import annotations
+
+import json
+from collections.abc import AsyncIterable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, cast
+
+from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
+from pydantic_ai import RunContext
+from pydantic_ai.messages import (
+    AgentStreamEvent,
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
+    RetryPromptPart,
+    ToolReturnPart,
+)
+
+from agent.agents.agent_result import StepData, StepProvenance, StepRecord
+from agent.agents.runtime_deps import StepEvent, StepStatus
+from agent.agents.web_trust import detect_prompt_injection, sanitize_untrusted
+
+if TYPE_CHECKING:
+    from agent.agents.runtime_deps import RuntimeDeps
+
+_OBJECT = TypeAdapter(dict[str, JsonValue])
+_VALUE: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
+_MAX_STRING = 1_024
+_MAX_ITEMS = 20
+_MAX_DEPTH = 3
+_FAILED_ERROR = "Tool execution failed"
+
+
+@dataclass(frozen=True)
+class ActiveToolCall:
+    """Official call metadata retained until its matching result arrives."""
+
+    tool: str
+    params: dict[str, JsonValue]
+
+
+@dataclass
+class ToolLifecycleRegistry:
+    """Per-run call and provenance registry keyed only by official call ID."""
+
+    active: dict[str, ActiveToolCall] = field(default_factory=dict)
+    provenance: dict[str, StepProvenance] = field(default_factory=dict)
+    terminal_failures: set[str] = field(default_factory=set)
+
+    def start(self, call_id: str, tool: str, params: dict[str, JsonValue]) -> None:
+        self.active[call_id] = ActiveToolCall(tool, params)
+
+    def finish(self, call_id: str, tool: str) -> ActiveToolCall:
+        return self.active.pop(call_id, ActiveToolCall(tool, {}))
+
+    def register_provenance(self, call_id: str, provenance: StepProvenance) -> None:
+        self.provenance[call_id] = provenance
+
+    def take_provenance(self, call_id: str) -> StepProvenance | None:
+        return self.provenance.pop(call_id, None)
+
+    def mark_terminal_failure(self, call_id: str) -> None:
+        self.terminal_failures.add(call_id)
+
+    def take_terminal_failure(self, call_id: str) -> bool:
+        present = call_id in self.terminal_failures
+        self.terminal_failures.discard(call_id)
+        return present
+
+    def abandon(self, call_id: str) -> None:
+        self.active.pop(call_id, None)
+        self.provenance.pop(call_id, None)
+        self.terminal_failures.discard(call_id)
+
+
+async def tool_event_bridge(
+    ctx: RunContext[RuntimeDeps], events: AsyncIterable[AgentStreamEvent]
+) -> None:
+    """Drain one graph node's official event stream into request-local state."""
+    async for event in events:
+        if isinstance(event, FunctionToolCallEvent):
+            await _handle_call(ctx.deps, event)
+        elif isinstance(event, FunctionToolResultEvent):
+            await _handle_result(ctx.deps, event)
+
+
+def register_tool_provenance(
+    ctx: RunContext[RuntimeDeps], provenance: StepProvenance
+) -> None:
+    """Bind exact application provenance to the current official call ID."""
+    call_id = getattr(ctx, "tool_call_id", None)
+    if isinstance(call_id, str):
+        ctx.deps.tool_lifecycle.register_provenance(call_id, provenance)
+
+
+def register_tool_exception(ctx: RunContext[RuntimeDeps], call_id: str) -> None:
+    """Remember a hook-recovered exception until its official return event."""
+    ctx.deps.tool_lifecycle.mark_terminal_failure(call_id)
+
+
+async def _handle_call(deps: RuntimeDeps, event: FunctionToolCallEvent) -> None:
+    params = _OBJECT.validate_python(event.part.args_as_dict())
+    deps.tool_lifecycle.start(event.tool_call_id, event.part.tool_name, params)
+    data = cast(StepData, params)
+    await _emit(
+        deps, StepEvent(event.part.tool_name, event.tool_call_id, "running", data)
+    )
+
+
+async def _handle_result(deps: RuntimeDeps, event: FunctionToolResultEvent) -> None:
+    if isinstance(event.part, RetryPromptPart):
+        await _handle_retry(deps, event)
+        return
+    await _handle_return(deps, event.part)
+
+
+async def _handle_retry(deps: RuntimeDeps, event: FunctionToolResultEvent) -> None:
+    call = deps.tool_lifecycle.finish(
+        event.tool_call_id, event.part.tool_name or "tool"
+    )
+    deps.tool_lifecycle.abandon(event.tool_call_id)
+    await _emit(deps, StepEvent(call.tool, event.tool_call_id, "error", {}))
+
+
+async def _handle_return(deps: RuntimeDeps, part: ToolReturnPart) -> None:
+    call = deps.tool_lifecycle.finish(part.tool_call_id, part.tool_name)
+    if part.outcome in {"denied", "interrupted"}:
+        await _handle_unexecuted(deps, call, part.tool_call_id)
+        return
+    failed = deps.tool_lifecycle.take_terminal_failure(part.tool_call_id)
+    success = part.outcome == "success" and not failed
+    data = _project_content(part.content) if success else None
+    await _complete(deps, call, part, data, success)
+
+
+async def _handle_unexecuted(
+    deps: RuntimeDeps, call: ActiveToolCall, call_id: str
+) -> None:
+    deps.tool_lifecycle.abandon(call_id)
+    await _emit(deps, StepEvent(call.tool, call_id, "error", {}))
+
+
+async def _complete(
+    deps: RuntimeDeps,
+    call: ActiveToolCall,
+    part: ToolReturnPart,
+    data: dict[str, JsonValue] | None,
+    success: bool,
+) -> None:
+    _record(deps, call, part, data, success)
+    _scan_result(call.tool, part.content)
+    status: StepStatus = "done" if success else "error"
+    payload = cast(StepData, data or {})
+    await _emit(deps, StepEvent(call.tool, part.tool_call_id, status, payload))
+
+
+def _record(
+    deps: RuntimeDeps,
+    call: ActiveToolCall,
+    part: ToolReturnPart,
+    data: dict[str, JsonValue] | None,
+    success: bool,
+) -> None:
+    provenance = deps.tool_lifecycle.take_provenance(part.tool_call_id)
+    error = None if success else _FAILED_ERROR
+    params = cast(StepData, call.params)
+    payload = cast(StepData | None, data)
+    deps.steps.append(
+        StepRecord(call.tool, success, params, payload, provenance, error)
+    )
+
+
+async def _emit(deps: RuntimeDeps, event: StepEvent) -> None:
+    if deps.on_step is not None:
+        await deps.on_step(event)
+
+
+def _project_content(content: object) -> dict[str, JsonValue]:
+    raw = content.model_dump(mode="json") if isinstance(content, BaseModel) else content
+    try:
+        value = _project_value(_VALUE.validate_python(raw))
+    except ValidationError:
+        return {"content_type": type(content).__name__}
+    if isinstance(value, dict):
+        return value
+    return {"content": value}
+
+
+def _project_value(value: JsonValue, depth: int = 0) -> JsonValue:
+    if isinstance(value, str):
+        return sanitize_untrusted(value, max_len=_MAX_STRING)
+    if depth >= _MAX_DEPTH:
+        return "[truncated]"
+    if isinstance(value, list):
+        return [_project_value(item, depth + 1) for item in value[:_MAX_ITEMS]]
+    if isinstance(value, dict):
+        items = list(value.items())[:_MAX_ITEMS]
+        return {key: _project_value(item, depth + 1) for key, item in items}
+    return value
+
+
+def _scan_result(tool: str, content: object) -> None:
+    if isinstance(content, str):
+        detect_prompt_injection(content, source=tool)
+        return
+    raw = content.model_dump(mode="json") if isinstance(content, BaseModel) else content
+    try:
+        value = _VALUE.validate_python(raw)
+    except ValidationError:
+        return
+    text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    detect_prompt_injection(text, source=tool)

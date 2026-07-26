@@ -33,6 +33,7 @@ from agent.agents.runtime_models import (
 )
 from agent.interfaces.response_builder import _UI_MAP, agent_result_to_response
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.streaming_function_model import streaming_function_model
 
 _TOOLS = {
     "resolve_anime",
@@ -63,7 +64,7 @@ def _latest_user_prompt(messages: list[ModelMessage]) -> str:
 
 def _local_model(respond: FunctionDef) -> FunctionModel:
     profile = ModelProfile(supported_native_tools=frozenset())
-    return FunctionModel(respond, profile=profile)
+    return streaming_function_model(respond, profile=profile)
 
 
 def test_model_output_contract_excludes_plain_text() -> None:

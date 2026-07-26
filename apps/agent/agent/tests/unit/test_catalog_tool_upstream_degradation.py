@@ -33,6 +33,7 @@ from agent.agents.tool_outcomes import NearbyUpstreamDown, RouteUpstreamDown
 from agent.clients.catalog_client import GeocodeCandidate, PilgrimagePoint, Route
 from agent.clients.errors import APIError
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.tool_event_helpers import project_tool_result, tool_context
 
 
 def _deps(catalog: MockCatalogClient) -> RuntimeDeps:
@@ -90,7 +91,8 @@ async def test_geocode_api_error_becomes_nearby_upstream_down() -> None:
         SearchPayloadState(kind="nearby", rows=[PointState(id="old")], row_count=1),
     )
 
-    outcome = await run_nearby_search(MagicMock(deps=deps), catalog, "Uji", None)
+    outcome = await run_nearby_search(tool_context(deps), catalog, "Uji", None)
+    await project_tool_result(deps, "search_nearby", {"location": "Uji"}, outcome)
 
     assert isinstance(outcome, NearbyUpstreamDown)
     assert deps.steps[-1].data == {"outcome": "upstream_unavailable"}
@@ -109,7 +111,8 @@ async def test_nearby_api_error_becomes_nearby_upstream_down() -> None:
     deps.tool_state.origin_lat = 34.9
     deps.tool_state.origin_lng = 135.8
 
-    outcome = await run_nearby_search(MagicMock(deps=deps), catalog, None, None)
+    outcome = await run_nearby_search(tool_context(deps), catalog, None, None)
+    await project_tool_result(deps, "search_nearby", {"location": None}, outcome)
 
     assert isinstance(outcome, NearbyUpstreamDown)
     assert deps.steps[-1].data == {"outcome": "upstream_unavailable"}
@@ -131,7 +134,10 @@ async def test_route_api_error_becomes_route_upstream_down() -> None:
     )
     deps.tool_state.session.store_route(RouteRef("route:prior"), RoutePayloadState())
 
-    outcome = await run_route(MagicMock(deps=deps), catalog, str(ref), None)
+    outcome = await run_route(tool_context(deps), catalog, str(ref), None)
+    await project_tool_result(
+        deps, "plan_route", {"search_result_ref": str(ref)}, outcome
+    )
 
     assert isinstance(outcome, RouteUpstreamDown)
     assert deps.steps[-1].data == {"status": "upstream_unavailable"}

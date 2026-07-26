@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import cast
 from unittest.mock import MagicMock
-
-from pydantic_ai import RunContext
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.animichi_agent import _INSTRUCTIONS
@@ -21,6 +17,7 @@ from agent.clients.catalog_errors import (
 )
 from agent.interfaces.response_builder import agent_result_to_response
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.tool_event_helpers import project_tool_result, tool_context
 
 
 class _PartialCatalog(MockCatalogClient):
@@ -39,11 +36,6 @@ class _PartialCatalog(MockCatalogClient):
         )
 
 
-@dataclass
-class _Ctx:
-    deps: RuntimeDeps
-
-
 class _EmptyPartialCatalog(MockCatalogClient):
     async def points_by_work_id(self, work_id: str) -> SearchResult:
         return SearchResult(partial=True)
@@ -57,9 +49,10 @@ class _UpstreamDownCatalog(MockCatalogClient):
 async def test_partial_search_result_flows_through_tool_state_and_wire() -> None:
     catalog = _PartialCatalog()
     deps = RuntimeDeps(MagicMock(), "zh", "search", catalog)
-    ctx = cast(RunContext[RuntimeDeps], _Ctx(deps))
+    ctx = tool_context(deps)
 
     outcome = await run_work_search(ctx, catalog, "115908")
+    await project_tool_result(deps, "search_bangumi", {"bangumi_id": "115908"}, outcome)
     result = AgentResult(
         output=SearchResponseModel(message="Found preview points."),
         intent="search_bangumi",
@@ -80,9 +73,8 @@ async def test_empty_partial_search_is_projected_as_still_syncing() -> None:
     catalog = _EmptyPartialCatalog()
     deps = RuntimeDeps(MagicMock(), "en", "search", catalog)
 
-    outcome = await run_work_search(
-        cast(RunContext[RuntimeDeps], _Ctx(deps)), catalog, "115908"
-    )
+    outcome = await run_work_search(tool_context(deps), catalog, "115908")
+    await project_tool_result(deps, "search_bangumi", {"bangumi_id": "115908"}, outcome)
     result = AgentResult(
         output=SearchResponseModel(message="The catalog is still syncing."),
         intent="search_bangumi",
@@ -105,9 +97,8 @@ async def test_work_search_records_typed_upstream_down_without_a_registry_ref() 
     catalog = _UpstreamDownCatalog()
     deps = RuntimeDeps(MagicMock(), "en", "search", catalog)
 
-    outcome = await run_work_search(
-        cast(RunContext[RuntimeDeps], _Ctx(deps)), catalog, "115908"
-    )
+    outcome = await run_work_search(tool_context(deps), catalog, "115908")
+    await project_tool_result(deps, "search_bangumi", {"bangumi_id": "115908"}, outcome)
 
     assert isinstance(outcome, SearchUpstreamDown)
     assert outcome.outcome == "upstream_unavailable"

@@ -33,6 +33,7 @@ from pydantic_ai.tools import ToolDefinition
 from agent.agents.error_messages import build_error_message
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.runtime_models import ErrorResponseModel
+from agent.agents.tool_event_bridge import register_tool_exception
 
 logger = structlog.get_logger(__name__)
 
@@ -71,6 +72,7 @@ async def _on_tool_execute_error(
 ) -> ErrorResponseModel:
     """Convert an unhandled tool exception into a result the model can react to."""
     del tool_def, args
+    register_tool_exception(ctx, call.tool_call_id)
     logger.warning(
         "animichi_tool_execute_error",
         tool=call.tool_name,
