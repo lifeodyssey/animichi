@@ -61,6 +61,15 @@ describe("statusedSteps supersession (ModelRetry re-issues the same tool under a
     expect(statusedSteps(steps).map((entry) => entry.status)).toEqual(["retried", "error"]);
   });
 
+  it("never demotes a denied step, even when the same tool is called again", () => {
+    const steps = [
+      step("tool-search_bangumi", "output-denied", "call-1"),
+      step("tool-search_bangumi", "output-available", "call-2"),
+    ];
+
+    expect(statusedSteps(steps).map((entry) => entry.status)).toEqual(["error", "done"]);
+  });
+
   it("never demotes an error superseded only by a different tool", () => {
     const steps = [
       step("tool-search_bangumi", "output-error", "call-1"),

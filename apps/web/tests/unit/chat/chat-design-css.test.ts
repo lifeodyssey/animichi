@@ -41,6 +41,13 @@ describe("retried step: muted, not alarming", () => {
     const error = '.chat-step[data-status="error"]';
     expect(ruleDeclaration(chatCss, error, "color")).toBe("var(--color-error-strong)");
   });
+
+  it("hides the retried note visually while leaving it in the accessibility tree", () => {
+    const note = ".chat-step__note";
+    expect(ruleDeclaration(chatCss, note, "clip-path")).toBe("inset(50%)");
+    expect(ruleDeclaration(chatCss, note, "position")).toBe("absolute");
+    expect(ruleDeclaration(chatCss, note, "width")).toBe("1px");
+  });
 });
 
 describe("B2a typing dots", () => {

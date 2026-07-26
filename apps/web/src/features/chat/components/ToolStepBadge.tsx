@@ -4,19 +4,24 @@ import type { StepStatus } from "../tool-steps";
 
 type Props = Readonly<{ type: string; status: StepStatus; dict: ChatDict }>;
 
-/** The retried style is purely visual; name the state for assistive tech too. */
-function ariaLabel(label: string, status: StepStatus, dict: ChatDict): string | undefined {
-  if (status !== "retried") return undefined;
-  return `${label} · ${dict.toolSteps.retried}`;
+/**
+ * The retried state is otherwise conveyed by colour and `line-through` alone, so it
+ * needs a text channel. `aria-label` is prohibited on generic elements (accname §4.3.1)
+ * and `role="status"` would turn every badge into a live region, so append real text
+ * that only sighted users have hidden from them.
+ */
+function RetriedNote({ status, dict }: Readonly<{ status: StepStatus; dict: ChatDict }>) {
+  if (status !== "retried") return null;
+  return <span className="chat-step__note"> {dict.toolSteps.retried}</span>;
 }
 
 export function ToolStepBadge({ type, status, dict }: Props) {
   const name = type.replace(/^tool-/, "");
   if (HIDDEN_TOOL_STEPS.has(name)) return null;
-  const label = toolStepLabel(dict, name);
   return (
-    <span className="chat-step" data-status={status} data-tool={name} aria-label={ariaLabel(label, status, dict)}>
-      {label}
+    <span className="chat-step" data-status={status} data-tool={name}>
+      {toolStepLabel(dict, name)}
+      <RetriedNote status={status} dict={dict} />
     </span>
   );
 }
