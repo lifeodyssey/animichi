@@ -65,9 +65,21 @@ class _StubAsyncClient:
     async def __aexit__(self, *exc_info: object) -> None:
         return None
 
-    async def post(self, url: str, headers: dict[str, str], json: object) -> httpx.Response:
+    async def post(
+        self, url: str, headers: dict[str, str], json: object
+    ) -> httpx.Response:
         text = {"image_count": 1, "candidate_titles": ["リズと青い鳥"]}
-        body = {"candidates": [{"content": {"parts": [{"text": __import__("json").dumps(text, ensure_ascii=False)}]}}]}
+        body = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": __import__("json").dumps(text, ensure_ascii=False)}
+                        ]
+                    }
+                }
+            ]
+        }
         request = httpx.Request("POST", url)
         return httpx.Response(200, json=body, request=request)
 

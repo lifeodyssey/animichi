@@ -15,9 +15,7 @@ from unittest.mock import MagicMock
 from fastapi import FastAPI
 
 os.environ.setdefault("MIMO_API_KEY", "integration-test-key")
-os.environ.setdefault(
-    "SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test"
-)
+os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
 
 from agent.agents.vision_supply_router import EndpointId, VisionProvider  # noqa: E402
 from agent.config.settings import Settings  # noqa: E402
@@ -132,7 +130,9 @@ async def test_canary_miscount_falls_back_to_platform_and_demotes() -> None:
 
 
 async def test_quota_tiers_and_guidance_premises() -> None:
-    app, _ = _app(settings=Settings(photo_search_quota_anon=1, photo_search_quota_member=0))
+    app, _ = _app(
+        settings=Settings(photo_search_quota_anon=1, photo_search_quota_member=0)
+    )
     byok_headers = {"X-User-Id": "user-1", "x-byok-endpoint": _ENDPOINT}
     async with async_client(app) as client:
         first = await client.post("/v1/photo-search", json=_body(_YOURNAME))

@@ -200,7 +200,9 @@ async def _resolved_outcome(
 ) -> PhotoSearchOutcome:
     rows = (await catalog.points_by_work_id(resolved.match.bangumi_id)).rows
     response = _search_response(resolved.match, rows)
-    return PhotoSearchOutcome(response, _signals("anime_screenshot", gps, "1", len(rows)))
+    return PhotoSearchOutcome(
+        response, _signals("anime_screenshot", gps, "1", len(rows))
+    )
 
 
 async def _layer_two(

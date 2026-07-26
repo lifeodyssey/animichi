@@ -42,9 +42,7 @@ def _image_part(image: bytes) -> dict[str, object]:
 
 
 def _payload(images: list[bytes], locale: str) -> dict[str, object]:
-    parts: list[dict[str, object]] = [
-        {"text": _PROMPT.replace("{locale}", locale)}
-    ]
+    parts: list[dict[str, object]] = [{"text": _PROMPT.replace("{locale}", locale)}]
     parts.extend(_image_part(image) for image in images)
     return {
         "contents": [{"parts": parts}],

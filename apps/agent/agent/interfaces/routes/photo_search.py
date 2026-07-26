@@ -24,9 +24,9 @@ from agent.agents.photo_search import (
 from agent.agents.vision_supply_router import (
     EndpointId,
     GuidancePremise,
+    QuotaTier,
     VisionCapabilityRegistry,
     VisionProvider,
-    QuotaTier,
     VisionSupply,
     quota_guidance,
     quota_tier_for,

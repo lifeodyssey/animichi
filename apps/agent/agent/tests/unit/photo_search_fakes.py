@@ -45,7 +45,9 @@ class KeyedVisionStub:
     async def recognize(self, images: list[bytes], locale: str) -> VisionRecognition:
         self.calls += 1
         titles = list(self._mapping.get(digest(images[0]), []))
-        count = self._reported_count if self._reported_count is not None else len(images)
+        count = (
+            self._reported_count if self._reported_count is not None else len(images)
+        )
         return VisionRecognition(reported_image_count=count, candidate_titles=titles)
 
 
@@ -75,7 +77,9 @@ class FakeCatalog:
     """Resolves 君の名は。 to 160209; nearby returns one けいおん! point."""
 
     def __init__(self, nearby_points: list[PilgrimagePoint] | None = None) -> None:
-        self.nearby_points = nearby_points if nearby_points is not None else [nearby_point()]
+        self.nearby_points = (
+            nearby_points if nearby_points is not None else [nearby_point()]
+        )
         self.nearby_calls: list[tuple[float, float, int]] = []
         self.resolved_queries: list[str] = []
 
