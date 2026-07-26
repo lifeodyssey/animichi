@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { legCapsule } from "../../../src/features/chat/route-copy";
+import { legCapsule, routeStatsCopy } from "../../../src/features/chat/route-copy";
 import { LOCALES } from "../../../src/i18n/locales";
 
 const PACINGS = ["chill", "normal", "packed"] as const;
@@ -34,5 +34,24 @@ describe("legCapsule templating", () => {
     expect(legCapsule(dict, { mode: "walk", minutes: 12 })).toContain("12");
     expect(legCapsule(dict, { mode: "transit", minutes: 8 })).toContain("8");
     expect(legCapsule(dict, { mode: "walk", minutes: 12 })).not.toContain("{min}");
+  });
+});
+
+// The card's headline was hardcoded English ("N spots · M min") and rendered
+// that way to ja and zh users on the flagship deliverable of this story.
+describe("route headline stats", () => {
+  it("renders both numbers through localized copy in every locale", () => {
+    const rendered = LOCALES.map((locale) => routeStatsCopy(chatDictFor(locale), 4, 25));
+    for (const line of rendered) {
+      expect(line).toContain("4");
+      expect(line).toContain("25");
+    }
+    expect(new Set(rendered).size).toBe(LOCALES.length);
+  });
+
+  it("renders an em dash, not a bare question mark, when walking minutes are absent", () => {
+    const line = routeStatsCopy(chatDictFor("ja"), 4, undefined);
+    expect(line).toContain("—");
+    expect(line).not.toContain("?");
   });
 });

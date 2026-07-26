@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { RouteTrailMap } from "../../../src/features/chat/components/RouteTrailMap";
 import type { AttachBasemap } from "../../../src/features/chat/components/SearchMap";
 import { chatDictFor } from "../../../src/features/chat/i18n";
+import { pointPlacements } from "../../../src/features/bubble-map/bubbleGeometry";
 import type { LocatedSpot } from "../../../src/lib/chat/spotClusters";
 import { ruleDeclaration } from "../_token-helpers";
 import chatCss from "../../../src/styles/chat.css?raw";
@@ -44,6 +45,23 @@ describe("AC2: map promotion after route generation", () => {
     renderTrail();
     const pins = [...document.querySelectorAll(".chat-route-pin")];
     expect(pins.map((pin) => pin.textContent)).toEqual(["1", "2", "3"]);
+  });
+
+  // Labels alone do not pin the ordering: reversing the placements keeps the
+  // labels "1","2","3" present and leaves the polyline shape identical, so the
+  // assertion above survives that mutation. Bind each label to the position its
+  // station actually projects to.
+  it("puts pin N at station N's own position, not merely somewhere on the map", () => {
+    renderTrail();
+    const expected = pointPlacements([...STATIONS, ...OFF_ROUTE].map((s) => s.coord));
+    const pins = [...document.querySelectorAll<HTMLElement>(".chat-route-pin")];
+    const actual = pins.map((pin) => [pin.style.left, pin.style.top]);
+    expect(actual).toEqual(
+      STATIONS.map((_, index) => [
+        `${String(expected[index]?.leftPct)}%`,
+        `${String(expected[index]?.topPct)}%`,
+      ]),
+    );
   });
 
   it("dims spots that did not make the route", () => {

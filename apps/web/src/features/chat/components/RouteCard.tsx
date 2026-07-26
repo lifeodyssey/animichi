@@ -5,21 +5,18 @@ import type { LocatedSpot } from "../../../lib/chat/spotClusters";
 import type { ChatDict } from "../i18n";
 import { resultsOf, routeOf, routeSpotsOf, SpotList } from "./cards";
 import type { IntentCardProps } from "./cards";
+import { routeStatsCopy } from "../route-copy";
 import { RouteTrailMap } from "./RouteTrailMap";
 import type { AttachBasemap } from "./SearchMap";
 import { TimedItinerary } from "./TimedItinerary";
 
-type PartProps = Readonly<{ part: ChatDataPart }>;
 type RouteCardProps = IntentCardProps & Readonly<{ attach?: AttachBasemap }>;
 
-function RouteStats({ part }: PartProps) {
+function RouteStats({ part, dict }: Readonly<{ part: ChatDataPart; dict: ChatDict }>) {
   const route = routeOf(part);
   if (!route) return null;
-  return (
-    <p className="chat-card__stats">
-      {route.point_count ?? 0} spots · {route.total_walk_minutes ?? "?"} min
-    </p>
-  );
+  const copy = routeStatsCopy(dict, route.point_count ?? 0, route.total_walk_minutes ?? undefined);
+  return <p className="chat-card__stats">{copy}</p>;
 }
 
 type GateProps = Readonly<{ itinerary: TimedItineraryModel | undefined; dict: ChatDict }>;
@@ -56,7 +53,7 @@ function TrailMapGate({ part, dict, attach }: MapGateProps) {
 export function RouteCard({ part, dict, attach }: RouteCardProps) {
   return (
     <div className="chat-card__body">
-      <RouteStats part={part} />
+      <RouteStats part={part} dict={dict} />
       <ItineraryGate itinerary={routeOf(part)?.timed_itinerary} dict={dict} />
       <TrailMapGate part={part} dict={dict} attach={attach} />
       <SpotList part={part} dict={dict} />

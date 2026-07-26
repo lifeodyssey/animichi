@@ -3,6 +3,8 @@ import type { Pacing } from "@seichijunrei/contract";
 /** Copy for the S1.5 route card: pacing pill, capsules, CTA row (issue #271). */
 export interface ChatRouteDict {
   readonly pacing: Readonly<Record<Pacing, string>>;
+  /** `{spots}` spots and `{min}` total walking minutes. */
+  readonly stats: string;
   readonly walkCapsule: string;
   readonly transitCapsule: string;
   readonly highlight: string;
@@ -15,6 +17,7 @@ export interface ChatRouteDict {
 
 export const jaRoute: ChatRouteDict = {
   pacing: { chill: "ゆったり", normal: "適中", packed: "緊張" },
+  stats: "{spots}スポット・徒歩{min}分",
   walkCapsule: "徒歩{min}分",
   transitCapsule: "移動{min}分",
   highlight: "名場面スポット",
@@ -27,6 +30,7 @@ export const jaRoute: ChatRouteDict = {
 
 export const zhRoute: ChatRouteDict = {
   pacing: { chill: "悠闲", normal: "适中", packed: "紧凑" },
+  stats: "{spots} 个地点・步行 {min} 分钟",
   walkCapsule: "步行{min}分钟",
   transitCapsule: "乘车{min}分钟",
   highlight: "名场面地点",
@@ -39,6 +43,7 @@ export const zhRoute: ChatRouteDict = {
 
 export const enRoute: ChatRouteDict = {
   pacing: { chill: "Chill", normal: "Balanced", packed: "Packed" },
+  stats: "{spots} spots · {min} min walking",
   walkCapsule: "Walk {min} min",
   transitCapsule: "Transit {min} min",
   highlight: "Highlight scene",
