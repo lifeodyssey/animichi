@@ -20,9 +20,7 @@ from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from agent.tests.unit.conftest_public_api import make_result, make_run_agent_stub
 
 ANON_USER_ID = "anon_0123456789abcdef0123456789abcdef"
-PRICED = Settings(
-    model_input_cost_per_mtok_usd=2.0, model_output_cost_per_mtok_usd=8.0
-)
+PRICED = Settings(model_input_cost_per_mtok_usd=2.0, model_output_cost_per_mtok_usd=8.0)
 
 
 def _db() -> MagicMock:
