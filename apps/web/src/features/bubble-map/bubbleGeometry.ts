@@ -61,3 +61,26 @@ export function bubblePlacements(circles: readonly AnimeOverviewCircle[]): reado
   const maxCount = circlesMaxCount(circles);
   return circles.map((circle) => toPlacement(circle, lat, lng, maxCount));
 }
+
+/** A located pin projected into overlay percent space (issue #261 C3a). */
+export interface PointPlacement {
+  readonly leftPct: number;
+  readonly topPct: number;
+}
+
+interface GeoPoint {
+  readonly lat: number;
+  readonly lng: number;
+}
+
+/** Project raw coordinates into the same inset percent space the bubbles use. */
+export function pointPlacements(points: readonly GeoPoint[]): readonly PointPlacement[] {
+  if (points.length === 0) return [];
+  const lat = extent(points.map((point) => point.lat));
+  const lng = extent(points.map((point) => point.lng));
+  return points.map((point) => ({
+    leftPct: projectAxis(point.lng, lng.min, lng.max),
+    // Latitude axis is inverted: the northernmost pin sits nearest the top.
+    topPct: projectAxis(point.lat, lat.max, lat.min),
+  }));
+}
