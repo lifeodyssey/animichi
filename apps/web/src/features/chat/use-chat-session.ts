@@ -6,6 +6,7 @@ import type { UIMessage } from "ai";
 import { useCallback, useRef } from "react";
 import type { RefObject } from "react";
 import { authHeaders } from "../../lib/auth/authSession";
+import { turnstileHeaders } from "../../lib/turnstile/tokenStore";
 
 /**
  * Typed UI message: the `data-response` part carries the contract envelope,
@@ -30,10 +31,13 @@ interface SessionTracker {
 type SessionRef = RefObject<SessionTracker>;
 
 /** `x-session-id` (when known) plus a Bearer token once signed in; anonymous
- * turns simply omit Authorization, same as today. */
+ * turns simply omit Authorization and instead carry the held Turnstile token
+ * (S1.9 #281) — one solved challenge covers every turn in its window. */
 async function sessionHeaders(sessionId?: string): Promise<Record<string, string>> {
   const base: Record<string, string> = sessionId ? { "x-session-id": sessionId } : {};
-  return { ...base, ...(await authHeaders()) };
+  const auth = await authHeaders();
+  const challenge = auth.Authorization === undefined ? turnstileHeaders() : {};
+  return { ...base, ...challenge, ...auth };
 }
 
 function scopeOf(sessionId?: string): string {
