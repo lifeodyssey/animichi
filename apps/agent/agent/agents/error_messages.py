@@ -10,6 +10,8 @@ catalog service are never echoed to users — see
 
 from __future__ import annotations
 
+from typing import Literal
+
 from agent.clients.catalog_errors import (
     CatalogError,
     RouteTooManyClustersError,
@@ -17,7 +19,23 @@ from agent.clients.catalog_errors import (
     WorkNotFoundError,
 )
 
+InputError = Literal["message_too_long", "non_text_message"]
 _DEFAULT_LOCALE = "en"
+
+_INPUT_MESSAGES: dict[tuple[InputError, str], str] = {
+    (
+        "message_too_long",
+        "ja",
+    ): "メッセージが長すぎます。短くしてもう一度お試しください。",
+    ("message_too_long", "zh"): "消息太长了，请缩短后重试。",
+    (
+        "message_too_long",
+        "en",
+    ): "Your message is too long. Please shorten it and try again.",
+    ("non_text_message", "ja"): "テキストメッセージを入力してください。",
+    ("non_text_message", "zh"): "请输入文字消息。",
+    ("non_text_message", "en"): "Please enter a text message.",
+}
 
 _CODE_MESSAGES: dict[tuple[str, str], str] = {
     (
@@ -81,6 +99,14 @@ _CATEGORY_MESSAGES: dict[tuple[str, str], str] = {
     ("system", "zh"): "我们这边出了点问题，请稍后再试。",
     ("system", "en"): "Something went wrong on our side. Please try again later.",
 }
+
+
+def build_input_error_message(reason: InputError, locale: str) -> str:
+    """Return locally authored input-validation copy for one locale."""
+    message = _INPUT_MESSAGES.get((reason, locale))
+    return (
+        message if message is not None else _INPUT_MESSAGES[(reason, _DEFAULT_LOCALE)]
+    )
 
 
 def build_error_message(exc: Exception, locale: str, *, fallback: str) -> str:
