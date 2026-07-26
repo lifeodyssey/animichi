@@ -1,0 +1,65 @@
+import type { ChatDataPart, TimedItinerary as TimedItineraryModel } from "@seichijunrei/contract";
+import { itineraryView } from "../../../lib/chat/itinerary";
+import { locatedSpots, toSearchSpots } from "../../../lib/chat/spotClusters";
+import type { LocatedSpot } from "../../../lib/chat/spotClusters";
+import type { ChatDict } from "../i18n";
+import { resultsOf, routeOf, routeSpotsOf, SpotList } from "./cards";
+import type { IntentCardProps } from "./cards";
+import { RouteTrailMap } from "./RouteTrailMap";
+import type { AttachBasemap } from "./SearchMap";
+import { TimedItinerary } from "./TimedItinerary";
+
+type PartProps = Readonly<{ part: ChatDataPart }>;
+type RouteCardProps = IntentCardProps & Readonly<{ attach?: AttachBasemap }>;
+
+function RouteStats({ part }: PartProps) {
+  const route = routeOf(part);
+  if (!route) return null;
+  return (
+    <p className="chat-card__stats">
+      {route.point_count ?? 0} spots · {route.total_walk_minutes ?? "?"} min
+    </p>
+  );
+}
+
+type GateProps = Readonly<{ itinerary: TimedItineraryModel | undefined; dict: ChatDict }>;
+
+function ItineraryGate({ itinerary, dict }: GateProps) {
+  if (!itinerary || itinerary.stops.length === 0) return null;
+  return <TimedItinerary view={itineraryView(itinerary)} dict={dict} />;
+}
+
+/** Route spots in walking order, restricted to rows the map can place. */
+function routeStations(part: ChatDataPart): readonly LocatedSpot[] {
+  return locatedSpots(toSearchSpots(routeSpotsOf(part)));
+}
+
+/** Located result spots that the planner left off the route; they dim. */
+function offRouteSpots(part: ChatDataPart, stations: readonly LocatedSpot[]): readonly LocatedSpot[] {
+  const onRoute = new Set(stations.map((spot) => spot.id));
+  const rows = resultsOf(part)?.rows ?? [];
+  return locatedSpots(toSearchSpots(rows)).filter((spot) => !onRoute.has(spot.id));
+}
+
+type MapGateProps = IntentCardProps & Readonly<{ attach?: AttachBasemap }>;
+
+function TrailMapGate({ part, dict, attach }: MapGateProps) {
+  const stations = routeStations(part);
+  if (stations.length === 0) return null;
+  return <RouteTrailMap stations={stations} dimmed={offRouteSpots(part, stations)} dict={dict} attach={attach} />;
+}
+
+/**
+ * S1.5 route card (issue #271): summary stats, the timed itinerary, the
+ * promoted trail map, and the spot strip (whose stills degrade per D9).
+ */
+export function RouteCard({ part, dict, attach }: RouteCardProps) {
+  return (
+    <div className="chat-card__body">
+      <RouteStats part={part} />
+      <ItineraryGate itinerary={routeOf(part)?.timed_itinerary} dict={dict} />
+      <TrailMapGate part={part} dict={dict} attach={attach} />
+      <SpotList part={part} dict={dict} />
+    </div>
+  );
+}

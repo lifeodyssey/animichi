@@ -1,4 +1,5 @@
 import type { ChatStatus, UIMessage } from "ai";
+import { routeDocumentKey, supersededFlags } from "../../../lib/chat/supersession";
 import type { ChatDict } from "../i18n";
 import { formatElapsed } from "../telemetry";
 import { statusedSteps } from "../tool-steps";
@@ -8,20 +9,48 @@ import { ToolStepBadge } from "./ToolStepBadge";
 
 type Part = UIMessage["parts"][number];
 type ToolPart = Extract<Part, { toolCallId: string }>;
-type PartProps = Readonly<{ part: Part; dict: ChatDict }>;
+type PartProps = Readonly<{ part: Part; dict: ChatDict; superseded: boolean }>;
 
 function isToolPart(part: Part): part is ToolPart {
   return part.type.startsWith("tool-") || part.type === "dynamic-tool";
 }
 
-function MessagePart({ part, dict }: PartProps) {
+function nonToolParts(message: UIMessage): readonly Part[] {
+  return message.parts.filter((part) => !isToolPart(part));
+}
+
+function MessagePart({ part, dict, superseded }: PartProps) {
   if (part.type === "text") return <p className="chat-bubble">{part.text}</p>;
-  if (part.type === "data-response") return <DataPartCard data={part.data} dict={dict} />;
+  if (part.type === "data-response") return <DataPartCard data={part.data} dict={dict} superseded={superseded} />;
   return null;
 }
 
 function partKey(messageId: string, part: Part, index: number): string {
   return `${messageId}:${part.type}:${String(index)}`;
+}
+
+interface DataPartRef {
+  readonly key: string;
+  readonly data: unknown;
+}
+
+function messageDataParts(message: UIMessage): readonly DataPartRef[] {
+  const refs: DataPartRef[] = [];
+  for (const [index, part] of nonToolParts(message).entries()) {
+    if (part.type === "data-response") refs.push({ key: partKey(message.id, part, index), data: part.data });
+  }
+  return refs;
+}
+
+/**
+ * E1 living-document pass (issue #271, generalized for #273): collect every
+ * streamed data part in conversation order and flag the ones a newer card of
+ * the same document supersedes. Route cards are the first keyed document.
+ */
+function supersededPartKeys(messages: readonly UIMessage[]): ReadonlySet<string> {
+  const refs = messages.flatMap(messageDataParts);
+  const flags = supersededFlags(refs.map((ref) => routeDocumentKey(ref.data)));
+  return new Set(refs.filter((_, index) => flags[index] === true).map((ref) => ref.key));
 }
 
 function ToolBadges({ parts, dict }: Readonly<{ parts: readonly ToolPart[]; dict: ChatDict }>) {
@@ -44,10 +73,18 @@ function Pipeline({ parts, settled, elapsedLabel, dict }: PipelineProps) {
   return <SettledFootprint elapsedLabel={elapsedLabel} dict={dict}>{badges}</SettledFootprint>;
 }
 
-function MessageBody({ parts, messageId, dict }: Readonly<{ parts: readonly Part[]; messageId: string; dict: ChatDict }>) {
-  return parts.map((part, index) => (
-    <MessagePart key={partKey(messageId, part, index)} part={part} dict={dict} />
-  ));
+type BodyProps = Readonly<{
+  parts: readonly Part[];
+  messageId: string;
+  dict: ChatDict;
+  supersededKeys: ReadonlySet<string>;
+}>;
+
+function MessageBody({ parts, messageId, dict, supersededKeys }: BodyProps) {
+  return parts.map((part, index) => {
+    const key = partKey(messageId, part, index);
+    return <MessagePart key={key} part={part} dict={dict} superseded={supersededKeys.has(key)} />;
+  });
 }
 
 type ItemProps = Readonly<{
@@ -55,15 +92,15 @@ type ItemProps = Readonly<{
   dict: ChatDict;
   settled: boolean;
   elapsedLabel?: string;
+  supersededKeys: ReadonlySet<string>;
 }>;
 
-function MessageItem({ message, dict, settled, elapsedLabel }: ItemProps) {
+function MessageItem({ message, dict, settled, elapsedLabel, supersededKeys }: ItemProps) {
   const tools = message.parts.filter(isToolPart);
-  const rest = message.parts.filter((part) => !isToolPart(part));
   return (
     <li className={`chat-message chat-message--${message.role}`}>
       <Pipeline parts={tools} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />
-      <MessageBody parts={rest} messageId={message.id} dict={dict} />
+      <MessageBody parts={nonToolParts(message)} messageId={message.id} dict={dict} supersededKeys={supersededKeys} />
     </li>
   );
 }
@@ -83,12 +120,13 @@ type RowProps = Readonly<{
   dict: ChatDict;
   status: ChatStatus;
   settledDurationMs?: number;
+  supersededKeys: ReadonlySet<string>;
 }>;
 
-function MessageRow({ message, isLast, dict, status, settledDurationMs }: RowProps) {
+function MessageRow({ message, isLast, dict, status, settledDurationMs, supersededKeys }: RowProps) {
   const settled = !(isLast && isActive(status));
   return (
-    <MessageItem message={message} dict={dict} settled={settled} elapsedLabel={elapsedFor(isLast, settledDurationMs)} />
+    <MessageItem message={message} dict={dict} settled={settled} elapsedLabel={elapsedFor(isLast, settledDurationMs)} supersededKeys={supersededKeys} />
   );
 }
 
@@ -102,8 +140,9 @@ type ListProps = Readonly<{
 export function MessageList({ messages, dict, status, settledDurationMs }: ListProps) {
   if (messages.length === 0) return null;
   const lastIndex = messages.length - 1;
+  const supersededKeys = supersededPartKeys(messages);
   const items = messages.map((message, index) => (
-    <MessageRow key={message.id} message={message} isLast={index === lastIndex} dict={dict} status={status} settledDurationMs={settledDurationMs} />
+    <MessageRow key={message.id} message={message} isLast={index === lastIndex} dict={dict} status={status} settledDurationMs={settledDurationMs} supersededKeys={supersededKeys} />
   ));
   return <ol className="chat-messages">{items}</ol>;
 }

@@ -1,7 +1,8 @@
 import type { ChatDataPart } from "@seichijunrei/contract";
 import type { ComponentType } from "react";
-import { ClarifyCard, ProseCard, RouteCard, SearchCard } from "./components/cards";
+import { ClarifyCard, ProseCard, SearchCard } from "./components/cards";
 import type { IntentCardProps } from "./components/cards";
+import { RouteCard } from "./components/RouteCard";
 
 /**
  * intent → card body. Later chat cards extend this map, not the renderer.
