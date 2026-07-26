@@ -14,5 +14,5 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["app.ts", "auth.ts", "entry.test.ts"]
+  "include": ["app.ts", "auth.ts", "turnstile.ts", "entry.test.ts", "turnstile.test.ts"]
 }
