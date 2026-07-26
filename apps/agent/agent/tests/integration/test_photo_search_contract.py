@@ -8,28 +8,22 @@ merge — is the real wiring (issue #260 ACs 4, 6, 9, 10).
 from __future__ import annotations
 
 import base64
-import os
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 from fastapi import FastAPI
 
-os.environ.setdefault("MIMO_API_KEY", "integration-test-key")
-os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
-
-from agent.agents.vision_supply_router import EndpointId, VisionProvider  # noqa: E402
-from agent.config.settings import Settings  # noqa: E402
-from agent.infrastructure.observability.photo_search import (  # noqa: E402
-    PhotoSearchQuota,
-)
-from agent.interfaces.public_api import RuntimeAPI  # noqa: E402
-from agent.interfaces.routes.photo_search import PhotoSearchRuntime  # noqa: E402
-from agent.tests.unit.conftest_fastapi import (  # noqa: E402
+from agent.agents.vision_supply_router import EndpointId, VisionProvider
+from agent.config.settings import Settings
+from agent.infrastructure.observability.photo_search import PhotoSearchQuota
+from agent.interfaces.public_api import RuntimeAPI
+from agent.interfaces.routes.photo_search import PhotoSearchRuntime
+from agent.tests.unit.conftest_fastapi import (
     async_client,
     build_app,
     build_stub_db,
 )
-from agent.tests.unit.photo_search_fakes import (  # noqa: E402
+from agent.tests.unit.photo_search_fakes import (
     LANDSCAPE_FIXTURE,
     NEARBY_TITLE,
     UNRESOLVABLE_TITLE,
