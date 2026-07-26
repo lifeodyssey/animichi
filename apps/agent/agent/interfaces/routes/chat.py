@@ -6,18 +6,25 @@ import json
 from typing import Annotated, Literal, Never, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from starlette.responses import Response, StreamingResponse
 
 from agent.agents.error_messages import InputError, build_input_error_message
 from agent.agents.runtime_deps import OnStep
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
+    _get_db_from_request,
     _get_runtime_api,
     _get_settings_from_request,
     _require_trusted_user,
 )
 from agent.interfaces.routes.chat_stream import stream_chat
 from agent.interfaces.schemas import PublicAPIRequest, PublicAPIResponse
+from agent.interfaces.usage_metering import (
+    ANON_BUDGET_EXHAUSTED_CODE,
+    ANONYMOUS_USER_TYPE,
+    anonymous_budget_verdict,
+)
 
 router = APIRouter(prefix="/v1", tags=["chat"])
 Locale = Literal["ja", "zh", "en"]
@@ -132,12 +139,48 @@ def _runtime_request(
     )
 
 
+BUDGET_EXHAUSTED_MESSAGE = (
+    "今日はここまで。ログインすると続きから一緒に旅の計画を立てられるよ。"
+)
+
+
+def _budget_exhausted_response() -> JSONResponse:
+    """403 so the client falls into its login-recovery state, not a hard error."""
+    error = {
+        "code": ANON_BUDGET_EXHAUSTED_CODE,
+        "message": BUDGET_EXHAUSTED_MESSAGE,
+        "action": "login",
+    }
+    return JSONResponse(status_code=403, content={"error": error})
+
+
+async def _budget_rejection(
+    request: Request, auth: TrustedAuthContext
+) -> JSONResponse | None:
+    """Container-ingress circuit breaker (X4): the authoritative budget check.
+
+    Only anonymous callers are gated — logged-in traffic never reaches the
+    ``daily_usage`` read, let alone the rejection.
+    """
+    if auth.user_type != ANONYMOUS_USER_TYPE:
+        return None
+    settings = _get_settings_from_request(request)
+    verdict = await anonymous_budget_verdict(
+        _get_db_from_request(request),
+        budget_usd=settings.anon_daily_cost_budget_usd,
+    )
+    return _budget_exhausted_response() if verdict.exhausted else None
+
+
 @router.post("/chat", responses={422: {"description": "Invalid chat request"}})
 async def handle_chat(
     request: Request,
     auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
 ) -> Response:
     """Stream chat as an AI SDK UI message stream with tool + data parts."""
+    rejection = await _budget_rejection(request, auth)
+    if rejection is not None:
+        return rejection
     settings = _get_settings_from_request(request)
     body = _decode_body(await request.body())
     api_request = _runtime_request(request, body, settings.message_max_chars)
@@ -146,7 +189,10 @@ async def handle_chat(
 
     async def handler(on_step: OnStep) -> PublicAPIResponse:
         return await runtime_api.handle(
-            api_request, user_id=auth.user_id, on_step=on_step
+            api_request,
+            user_id=auth.user_id,
+            user_type=auth.user_type,
+            on_step=on_step,
         )
 
     return StreamingResponse(

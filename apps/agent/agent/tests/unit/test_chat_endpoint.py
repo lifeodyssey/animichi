@@ -165,7 +165,11 @@ async def test_chat_invalid_locale_defaults_to_ja() -> None:
 
 def _replay_runtime(response: PublicAPIResponse, steps: list[StepEvent]) -> MagicMock:
     async def _handle(
-        request: object, *, user_id: str | None = None, on_step: OnStep | None = None
+        request: object,
+        *,
+        user_id: str | None = None,
+        user_type: str | None = None,
+        on_step: OnStep | None = None,
     ) -> PublicAPIResponse:
         for step in steps:
             if on_step is not None:

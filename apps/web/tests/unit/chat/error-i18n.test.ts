@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { LOCALES } from "../../../src/i18n/locales";
 
-const STATES = ["d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9"] as const;
+const STATES = ["d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10"] as const;
 
 /** Wire/internal vocabulary that must never surface in user-facing fallback copy. */
 const TECHNICAL_MARKERS = [
@@ -22,7 +22,7 @@ function errorCopyOf(locale: (typeof LOCALES)[number]): readonly [string, string
 }
 
 describe("chat error-state dictionary coverage", () => {
-  it.each(LOCALES)("covers all nine D-states with non-empty %s copy", (locale) => {
+  it.each(LOCALES)("covers every D-state with non-empty %s copy", (locale) => {
     const entries = errorCopyOf(locale);
     for (const [, value] of entries) expect(value.length).toBeGreaterThan(0);
     for (const state of STATES) {

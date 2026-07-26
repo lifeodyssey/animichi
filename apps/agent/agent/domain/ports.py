@@ -14,6 +14,7 @@ the implementation types for structural subtyping to work.
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 from typing import Protocol, cast, runtime_checkable
 
 
@@ -129,6 +130,23 @@ class RoutesRepo(Protocol):
     ) -> str: ...
 
 
+class UsageRepo(Protocol):
+    """Daily model-usage meter operations (issue #274 / S1.8)."""
+
+    async def accumulate_usage(
+        self,
+        *,
+        usage_date: date,
+        scope: str,
+        requests: int,
+        input_tokens: int,
+        output_tokens: int,
+        cost_usd: float,
+    ) -> None: ...
+
+    async def total_cost_usd(self, *, usage_date: date, scope: str) -> float: ...
+
+
 def get_session_repo(db: object) -> SessionRepo | None:
     """Return the session repo if *db* exposes one with async upsert_session."""
     session = getattr(db, "session", None)
@@ -167,3 +185,13 @@ def has_session_repo(db: object) -> bool:
 def has_routes_repo(db: object) -> bool:
     """Return True if *db* exposes a routes repo."""
     return get_routes_repo(db) is not None
+
+
+def get_usage_repo(db: object) -> UsageRepo | None:
+    """Return the usage repo if *db* exposes one with async accumulation."""
+    usage = getattr(db, "usage", None)
+    if usage is None:
+        return None
+    if not asyncio.iscoroutinefunction(getattr(usage, "accumulate_usage", None)):
+        return None
+    return cast(UsageRepo, usage)

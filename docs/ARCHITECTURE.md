@@ -141,16 +141,42 @@ planning all go through the catalog Worker. Catalog ingest/enrichment/publish jo
 Bangumi access and decide which works are available; the runtime request path never grows the
 catalog on demand.
 
-## Auth Layer — `worker/worker.js`
+## Auth Layer — `worker/app.ts` + `worker/auth.ts`
 
-CF Worker validates credentials before proxying to the container:
+The CF Worker establishes an identity before proxying to the container. It always strips
+client-supplied `X-User-Id` / `X-User-Type` and re-injects the worker-verified values, so the
+container can trust those headers unconditionally.
 
-- `Authorization: Bearer <supabase_jwt>` → call `SUPABASE_URL/auth/v1/user`
-- `Authorization: Bearer sk_<hex>` → SHA-256 hash → lookup `api_keys` table
-- Sets `X-User-Id` + `X-User-Type` on forwarded request
-- `/healthz` and static assets bypass auth
+- `Authorization: Bearer <jwt>` → verified against the issuer JWKS (`jose`) → `X-User-Type: human`
+- `Authorization: Bearer sk_<hex>` → SHA-256 hash → lookup `api_keys` table → `X-User-Type: agent`
+- No credentials, on the anonymous allowlist → `X-User-Type: anonymous` (see below)
+- No credentials, anywhere else → 401
+- `/healthz`, the public catalog/`/v1` allowlist, and static assets bypass auth entirely
 
 API keys: stored as SHA-256 hash in `api_keys` table. Raw key shown once at creation.
+
+### Anonymous access (X5, implemented in S1.8 / issue #274)
+
+X5 previously described this as forward-looking; it is now the implemented state. `/v1/chat` is
+open to callers with no session:
+
+- **Identity** — the edge mints a random id, HMAC-signs it with `ANON_ID_SECRET`, and returns it as
+  an opaque HttpOnly `aid` cookie. The container sees it as `X-User-Id: anon_<hex>` with
+  `X-User-Type: anonymous`. A brand-new visitor is issued one on the spot; there is no
+  minimum-history threshold. A forged or wrongly-signed cookie is discarded, not trusted.
+- **Opt-in** — anonymous access stays off unless both `ANON_ACCESS_ENABLED=true` and
+  `ANON_ID_SECRET` are set; otherwise `/v1/chat` keeps its 401.
+- **Rate limiting** — `worker/rateLimiter.ts` applies a per-identity fixed window
+  (`ANON_RATE_LIMIT` / `ANON_RATE_LIMIT_WINDOW_SECONDS`) backed by the `EDGE_GUARD` Durable
+  Object, one shard per identity. Exceeding it returns a 429 the client renders as in-character
+  "少し待ってね" copy.
+- **Daily-budget circuit breaker (X4)** — every runtime turn banks its `RunUsage` into the
+  `daily_usage` table, partitioned by scope (`anon` / `user` / `byok`). The **container ingress**
+  is the authoritative tier: it compares today's `anon` spend with `ANON_DAILY_COST_BUDGET_USD`
+  and rejects with 403 `anon_budget_exhausted`, which the client renders as login guidance.
+  Logged-in traffic is never gated. The edge caches that verdict in a same-UTC-day latch so
+  subsequent anonymous requests short-circuit without a container round-trip; the latch expires
+  at the day boundary. The edge never reads `daily_usage` itself.
 
 ## Frontend Auth — `frontend/components/auth/AuthGate.tsx` + `frontend/app/auth/callback/page.tsx`
 

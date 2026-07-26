@@ -1,7 +1,11 @@
 import type { ChatDataPart } from "@seichijunrei/contract";
 
-/** D1-D9 fallback states from spec-chat-page-states.md §D (issue #272 S1.6). */
-export type ChatErrorState = "D1" | "D2" | "D3" | "D4" | "D5" | "D6" | "D7" | "D8" | "D9";
+/**
+ * D1-D9 fallback states from spec-chat-page-states.md §D (issue #272 S1.6),
+ * plus D10: the edge rate limiter asked us to slow down (issue #274 S1.8).
+ */
+export type ChatErrorState =
+  | "D1" | "D2" | "D3" | "D4" | "D5" | "D6" | "D7" | "D8" | "D9" | "D10";
 
 export type ImageSurface = "map" | "scene";
 
@@ -21,7 +25,10 @@ const ROUTE_MINIMUM_POINTS = 3;
 const D1_CODE_MARKERS = ["not_found", "no_bangumi", "invalid_station"];
 
 function classifyHttpStatus(status: number): ChatErrorState {
+  // 403 also carries the anonymous daily-budget breaker (S1.8 X4), whose
+  // recovery is the same as an expired session: sign in and carry on.
   if (status === 401 || status === 403) return "D8";
+  if (status === 429) return "D10";
   if (status === 408 || status === 504) return "D5";
   return "D4";
 }
