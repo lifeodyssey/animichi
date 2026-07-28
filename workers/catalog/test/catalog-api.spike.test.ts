@@ -113,8 +113,10 @@ beforeAll(async () => {
 }, 120_000);
 
 afterEach(() => {
-  // Undo any per-test `global.fetch` stub so non-ingest tests stay offline-safe.
+  // `restoreAllMocks` does NOT undo `stubGlobal` — without `unstubAllGlobals` a
+  // fetch stub leaks into every later test in the file. Both are needed.
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 afterAll(() => {

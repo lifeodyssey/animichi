@@ -29,11 +29,14 @@ import {
 /**
  * Resolver SQL proof against the ephemeral branch's direct cloud endpoint.
  *
- * The context carries a REAL `NeonSql` built from the spike DSN: resolve's
- * raw-SQL path (added by the July geocoding wave) is part of its contract, and
- * the old `() => Promise.resolve([])` stub silently broke it into an on-demand
- * ingest. Seeds and expectations are contract-derived — work ids that
- * `pointsByWorkId` would 400 cannot be written here (#363).
+ * GUARD: the context must carry a REAL `NeonSql` built from the spike DSN.
+ * Resolve's raw-SQL path (the July geocoding wave) is part of its contract, so
+ * stubbing `neonSql` to something like `() => Promise.resolve([])` does not
+ * fail loudly — it silently turns every resolve into a miss and an on-demand
+ * ingest. Do not stub it.
+ *
+ * Seeds and expectations are built by `./fixtures/catalog-seed`, so a work id
+ * that `pointsByWorkId` would reject with a 400 cannot be written here (#363).
  */
 const handler = new OpenAPIHandler(catalogRouter);
 

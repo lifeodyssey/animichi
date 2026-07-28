@@ -5,9 +5,15 @@
  * source of truth) at construction, so a fixture that no longer matches the wire
  * contract fails loudly HERE instead of surfacing as a downstream 400/500 in a
  * live spike run. The INSERT statements are emitted from the same records the
- * assertions read, so the seed and the expectation cannot drift apart.
+ * assertions read (with table + column names taken from the Drizzle schema), so
+ * the seed, the schema, and the expectation cannot drift apart.
+ *
+ * SCOPE: only seeds built through these builders carry that guarantee. The other
+ * spike files still hand-write their INSERTs — converting them is tracked as a
+ * follow-up to #363.
  */
 
+import { getTableColumns, getTableName } from "drizzle-orm";
 import {
   AnimeCandidate,
   Latitude,
@@ -15,6 +21,11 @@ import {
   PointsByWorkIdInput,
   ResolveOutcome,
 } from "@seichijunrei/contract";
+import { aliases, bangumi, points } from "../../src/db/schema";
+
+const bangumiColumns = getTableColumns(bangumi);
+const pointColumns = getTableColumns(points);
+const aliasColumns = getTableColumns(aliases);
 
 /** A parameterized statement: placeholder SQL plus its positional values. */
 export interface SeedStatement {
@@ -120,22 +131,32 @@ function statement(
 }
 
 export function workInsert(seeds: readonly WorkSeed[]): SeedStatement {
-  return statement("bangumi", ["id", "title"], seeds.map((s) => [s.workId, s.title]));
+  return statement(
+    getTableName(bangumi),
+    [bangumiColumns.id.name, bangumiColumns.title.name],
+    seeds.map((s) => [s.workId, s.title]),
+  );
 }
 
 /** Coordinates only — the DB trigger derives the GEOGRAPHY `location` column. */
 export function pointInsert(seeds: readonly PointSeed[]): SeedStatement {
   return statement(
-    "points",
-    ["id", "bangumi_id", "name", "latitude", "longitude"],
+    getTableName(points),
+    [
+      pointColumns.id.name, pointColumns.bangumiId.name, pointColumns.name.name,
+      pointColumns.latitude.name, pointColumns.longitude.name,
+    ],
     seeds.map((s) => [s.id, s.workId, s.name, s.latitude, s.longitude]),
   );
 }
 
 export function aliasInsert(seeds: readonly AliasSeed[]): SeedStatement {
   return statement(
-    "aliases",
-    ["work_id", "alias", "alias_normalized", "source", "priority"],
+    getTableName(aliases),
+    [
+      aliasColumns.workId.name, aliasColumns.alias.name, aliasColumns.aliasNormalized.name,
+      aliasColumns.source.name, aliasColumns.priority.name,
+    ],
     seeds.map((s) => [s.workId, s.alias, s.normalized, s.source, s.priority]),
   );
 }
