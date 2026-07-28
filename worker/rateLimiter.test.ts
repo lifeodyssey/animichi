@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { memoryGuardStore } from "./guardStore.ts";
 import {
+  authenticatedRateLimitKey,
+  authRateLimitConfigFrom,
   consumeRateLimit,
   parseWindowState,
   rateLimitConfigFrom,
@@ -88,4 +90,27 @@ void test("non-numeric or non-positive limiter config falls back to the defaults
     rateLimitConfigFrom({ ANON_RATE_LIMIT: "0", ANON_RATE_LIMIT_WINDOW_SECONDS: "abc" }),
     { limit: 20, windowSeconds: 60 },
   );
+});
+
+// ── authenticated-path limiter (issue #284 / Task 9) ────────────────────────
+
+void test("the authenticated limiter's config is independent of the anonymous one", () => {
+  assert.deepEqual(
+    authRateLimitConfigFrom({ ANON_RATE_LIMIT: "5", AUTH_RATE_LIMIT: "9", AUTH_RATE_LIMIT_WINDOW_SECONDS: "30" }),
+    { limit: 9, windowSeconds: 30 },
+  );
+});
+
+void test("authenticated limiter config falls back to the shared defaults", () => {
+  assert.deepEqual(authRateLimitConfigFrom({}), { limit: 20, windowSeconds: 60 });
+});
+
+void test("the authenticated key is derived from the user id alone", () => {
+  assert.equal(authenticatedRateLimitKey("user-a"), "authed:user-a");
+  assert.equal(authenticatedRateLimitKey("user-b"), "authed:user-b");
+});
+
+void test("the authenticated key never collides with the anon_-prefixed anonymous namespace", () => {
+  assert.notEqual(authenticatedRateLimitKey("anon_deadbeef"), "anon_deadbeef");
+  assert.match(authenticatedRateLimitKey("anon_deadbeef"), /^authed:/);
 });

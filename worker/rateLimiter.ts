@@ -42,6 +42,30 @@ export function rateLimitConfigFrom(env: Record<string, unknown>): RateLimitConf
   };
 }
 
+/** Read the authenticated-path limiter's window from config, independent of
+ * the anonymous burst limiter so each surface can be tuned separately
+ * (issue #284 / Task 9). */
+export function authRateLimitConfigFrom(env: Record<string, unknown>): RateLimitConfig {
+  return {
+    limit: positiveInt(env.AUTH_RATE_LIMIT, DEFAULT_LIMIT),
+    windowSeconds: positiveInt(env.AUTH_RATE_LIMIT_WINDOW_SECONDS, DEFAULT_WINDOW_SECONDS),
+  };
+}
+
+const AUTH_IDENTITY_PREFIX = "authed:";
+
+/**
+ * Namespace an authenticated caller's limiter key from its verified user id
+ * alone (issue #284 / T9-AC5). This is a pure function of the identity the
+ * Worker itself verified — it must never take headers, `base_url`, or any
+ * other caller-supplied input, so a forged/varied `X-BYOK-*` header can never
+ * change whose allowance is spent. The prefix also keeps this namespace
+ * disjoint from anonymous identities (always `anon_`-prefixed, see auth.ts).
+ */
+export function authenticatedRateLimitKey(userId: string): string {
+  return `${AUTH_IDENTITY_PREFIX}${userId}`;
+}
+
 /** Narrow an untyped stored value back to a window, discarding anything else. */
 export function parseWindowState(value: unknown): WindowState | null {
   if (typeof value !== "object" || value === null) return null;

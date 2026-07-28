@@ -14,7 +14,12 @@ import {
   utcDayKey,
 } from "./costBreaker.ts";
 import type { GuardNamespace } from "./guardStore.ts";
-import { checkRateLimit, rateLimitConfigFrom } from "./rateLimiter.ts";
+import {
+  authenticatedRateLimitKey,
+  authRateLimitConfigFrom,
+  checkRateLimit,
+  rateLimitConfigFrom,
+} from "./rateLimiter.ts";
 
 export interface Env {
   CATALOG: { fetch: (req: Request) => Promise<Response> };
@@ -73,6 +78,23 @@ function forwardV1(env: Env, request: Request, auth?: { userId: string; userType
   }
   const forwarded = new Request(request, { headers });
   return env.CONTAINER.get(env.CONTAINER.idFromName("default")).fetch(forwarded);
+}
+
+/**
+ * Forward an authenticated /v1 request, first spending one unit of that
+ * identity's per-identity limiter (issue #284 / Task 9). Before this, the
+ * authenticated branch called no limiter at all — login-gating BYOK removed
+ * the anonymous relay surface but left an unbounded authenticated one, since
+ * accounts are free self-serve signups. The key is the worker-verified user
+ * id only (never a header the caller controls), and the check fails open on
+ * a guard outage, matching the anonymous path's contract.
+ */
+async function authenticatedForward(
+  env: Env, request: Request, auth: { userId: string; userType: string },
+): Promise<Response> {
+  const limit = await checkRateLimit(env.EDGE_GUARD, authenticatedRateLimitKey(auth.userId), authRateLimitConfigFrom(env));
+  if (limit !== null && !limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
+  return forwardV1(env, request, auth);
 }
 
 // ── Anonymous /v1 access (issue #274 / S1.8) ───────────────────────────────
@@ -203,7 +225,7 @@ export function createWorkerApp(deps: {
     if (isPublicV1(pathname)) return forwardV1(c.env, c.req.raw);
     const auth = await authenticate(c.req.raw, c.env, c.executionCtx);
     if (auth.ok) {
-      return forwardV1(c.env, c.req.raw, { userId: auth.userId, userType: auth.userType });
+      return authenticatedForward(c.env, c.req.raw, { userId: auth.userId, userType: auth.userType });
     }
     // S1.9 Turnstile (issue #281) is MERGED but still DORMANT: the gate lives in
     // ./turnstile.ts and nothing below calls it. This branch — anonymous access

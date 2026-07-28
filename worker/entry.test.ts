@@ -119,8 +119,19 @@ void test("/img/* routes to the image proxy (bad path → 400, not OpenNext)", a
   assert.notEqual(await res.text(), "next");
 });
 
+/** An EDGE_GUARD stand-in that always allows — these tests exercise routing
+ * and header handling, not the limiter itself (see byok.test.ts / Task 9). */
+const alwaysAllowGuard = {
+  idFromName: (name: string) => name as unknown as DurableObjectId,
+  get: () => ({
+    fetch: () =>
+      Promise.resolve(new Response(JSON.stringify({ allowed: true, retryAfterSeconds: 0 }))),
+  }),
+};
+
 function envWithContainer(captured: { req?: Request }) {
   return {
+    EDGE_GUARD: alwaysAllowGuard,
     CONTAINER: {
       idFromName: () => "id",
       get: () => ({ fetch: (r: Request) => { captured.req = r; return Promise.resolve(new Response("container")); } }),
