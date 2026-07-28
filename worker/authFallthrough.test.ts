@@ -115,6 +115,7 @@ function fakeGuard() {
 function anonEnv(captured: { requests: Request[] }) {
   return {
     ANON_ACCESS_ENABLED: "true",
+    TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
     ANON_ID_SECRET: SECRET,
     EDGE_GUARD: fakeGuard(),
     CONTAINER: {
@@ -129,8 +130,16 @@ function anonEnv(captured: { requests: Request[] }) {
   } as never;
 }
 
+/** #441 is about which credential verdict may become anonymous, so the #447
+ * Turnstile gate is stubbed to a pass here; `turnstileArm.test.ts` owns it. */
+const passingGate = { check: () => Promise.resolve({ ok: true, errorCodes: [] }) };
+
 function appWith(result: AuthResult) {
-  return createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve(result) });
+  return createWorkerApp({
+    nextHandler: stubNext,
+    authenticate: () => Promise.resolve(result),
+    turnstileGate: passingGate,
+  });
 }
 
 void test("an invalid credential 401s instead of becoming anonymous", async () => {

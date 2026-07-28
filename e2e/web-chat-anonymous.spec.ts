@@ -75,3 +75,41 @@ test("the anonymous budget breaker guides the visitor to login instead of failin
   await expect(page.getByRole("button", { name: states.d11Login })).toBeVisible();
   await expect(page.getByText(states.d8Message)).toHaveCount(0);
 });
+
+/**
+ * Issue #447: the edge Turnstile gate is armed on the anonymous branch, so the
+ * anonymous entry must both carry the widget and handle the edge's retryable
+ * rejection. `api.js` is blocked here — the widget's contract with the page is
+ * the `cf-turnstile` element and its data-attributes, not Cloudflare's iframe.
+ */
+async function blockTurnstileLoader(page: Page): Promise<void> {
+  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+}
+
+test("the anonymous entry carries the challenge widget in the dock, not in the thread", async ({ page }) => {
+  await blockTurnstileLoader(page);
+  await openChat(page);
+  const widget = page.locator(".turnstile-gate .cf-turnstile");
+  await expect(widget).toHaveAttribute("data-sitekey", /^.{24}$/);
+  await expect(widget).toHaveAttribute("data-appearance", "interaction-only");
+  await expect(page.locator(".chat-input + .turnstile-gate")).toHaveCount(1);
+});
+
+test("a challenged anonymous turn offers the check retry, never a login prompt", async ({ page }) => {
+  await blockTurnstileLoader(page);
+  await page.route("**/v1/chat", (route) =>
+    route.fulfill({
+      status: 403,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        error: { code: "turnstile_required", message: "Turnstile verification required.", retryable: true },
+      }),
+    }),
+  );
+  await openChat(page);
+  await send(page, "ユーフォ");
+  await expect(page.getByText(ja.turnstile.failed)).toBeVisible();
+  await expect(page.getByRole("button", { name: ja.turnstile.retry })).toBeVisible();
+  await expect(page.getByText(states.d8Message)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: states.d8Login })).toHaveCount(0);
+});

@@ -20,6 +20,7 @@ import {
   checkRateLimit,
   rateLimitConfigFrom,
 } from "./rateLimiter.ts";
+import { type TurnstileGate, createTurnstileGate, guardTurnstile } from "./turnstile.ts";
 
 export interface Env {
   CATALOG: { fetch: (req: Request) => Promise<Response> };
@@ -185,12 +186,23 @@ async function anonymousForward(
  * anonymous access is not enabled (leaving the caller on the 401 path). The
  * limiter fails open — a guard outage must not take chat down — while the
  * budget breaker fails closed only on an explicit container verdict.
+ *
+ * Issue #447 arms the S1.9 Turnstile gate here, and the order is the point:
+ *  - AFTER `resolveAnonymous`, so a challenge is only ever raised for a caller
+ *    we would otherwise have served anonymously (anonymous access off still
+ *    means 401, never 403);
+ *  - BEFORE the limiter and the container, because the challenge is the outer
+ *    wall. Cookie-only identity is free to reset, which resets the per-identity
+ *    bucket with it; an unsolved turn must therefore cost neither a bucket slot
+ *    (legitimate visitors would pay for their own challenges) nor an LLM call.
  */
 export async function handleAnonymousV1(
-  env: Env, request: Request, nowMs: number,
+  env: Env, request: Request, nowMs: number, gate: TurnstileGate,
 ): Promise<Response | null> {
   const identity = await resolveAnonymous(request, env);
   if (identity === null) return null;
+  const challenged = await guardTurnstile(request, env, gate, identity.userId);
+  if (challenged !== null) return challenged;
   const limit = await checkRateLimit(env.EDGE_GUARD, identity.userId, rateLimitConfigFrom(env));
   if (limit !== null && !limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
   const response = await anonymousForward(env, request, identity, utcDayKey(nowMs));
@@ -253,9 +265,14 @@ async function handleImageProxy(request: Request, ctx: WorkerExecutionContext): 
 export function createWorkerApp(deps: {
   nextHandler: NextHandler;
   authenticate?: (request: Request, env: Env, ctx: WorkerExecutionContext) => Promise<AuthResult>;
+  turnstileGate?: TurnstileGate;
 }): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
   const authenticate = deps.authenticate ?? ((req, env, ctx) => realAuthenticate(req, env, fetch, ctx));
+  // One gate per app instance, built outside the request handler so its
+  // short-lived pass window is shared by every request on the same isolate —
+  // that window is what stops a visitor being re-challenged per message.
+  const turnstileGate = deps.turnstileGate ?? createTurnstileGate();
   app.get("/healthz", (c) =>
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
   );
@@ -278,24 +295,18 @@ export function createWorkerApp(deps: {
     if (auth.ok) {
       return authenticatedForward(c.env, c.req.raw, { userId: auth.userId, userType: auth.userType }, pathname);
     }
-    // S1.9 Turnstile (issue #281) is MERGED but still DORMANT: the gate lives in
-    // ./turnstile.ts and nothing below calls it. This branch — anonymous access
-    // (#274) — is the surface it was written to guard, and it ships
-    // ANON_ACCESS_ENABLED="false" in production precisely because until the gate
-    // is armed, dropping the `aid` cookie mints a fresh identity and resets the
-    // per-identity limiter, leaving the daily dollar breaker as the only guard.
-    // To arm it, wrap the anonymous branch:
-    //   const denied = await guardTurnstile(c.req.raw, c.env, turnstileGate);
-    //   if (denied !== null) return denied;
-    // (`turnstileGate` = module-level createTurnstileGate() from ./turnstile.ts,
-    // so its short-lived window is shared across requests on the same isolate.)
+    // S1.9 Turnstile (issue #281) is ARMED as of issue #447: `handleAnonymousV1`
+    // below challenges every anonymous turn before it can reach the limiter or
+    // the container. Without it, dropping the `aid` cookie mints a fresh
+    // identity and resets the per-identity limiter, leaving the daily dollar
+    // breaker as the only guard — i.e. a paid-for daily DoS.
     // Issue #441: only a caller who presented NO credential may be demoted to
     // an anonymous identity. A presented-but-unverifiable one (expired,
     // malformed, wrong key) falls straight through to the 401 below, which is
     // what puts the web client back on its token-refresh path.
     if (auth.reason === "invalid") return unauthorized(pathname);
     const anonymous = isAnonymousV1(pathname)
-      ? await handleAnonymousV1(c.env, c.req.raw, Date.now())
+      ? await handleAnonymousV1(c.env, c.req.raw, Date.now(), turnstileGate)
       : null;
     if (anonymous !== null) return anonymous;
     return c.json(UNAUTHORIZED_BODY, 401);

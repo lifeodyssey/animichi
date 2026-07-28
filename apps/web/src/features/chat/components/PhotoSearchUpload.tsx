@@ -5,6 +5,7 @@ import { ChatActionsProvider, useChatActions } from "../chat-actions";
 import type { ChatActions } from "../chat-actions";
 import type { ChatDict } from "../i18n";
 import {
+  PHOTO_CHALLENGED,
   confirmPhotoSearch,
   isOversizedPhoto,
   isSupportedPhoto,
@@ -23,7 +24,7 @@ import { DataPartCard } from "./DataPartCard";
  * through DataPartCard, sharing the text-search render path; failures show
  * on-brand copy with a retry — never a stuck spinner. */
 
-type UploadError = "unsupported" | "tooLarge" | "failed";
+type UploadError = "unsupported" | "tooLarge" | "failed" | "challenge";
 
 type UploadState =
   | { readonly kind: "idle" }
@@ -42,6 +43,7 @@ function quotaCopy(dict: ChatDict, guidance: PhotoGuidance): string {
 function errorCopy(dict: ChatDict, error: UploadError): string {
   if (error === "unsupported") return dict.photo.unsupported;
   if (error === "tooLarge") return dict.photo.tooLarge;
+  if (error === "challenge") return dict.turnstile.failed;
   return dict.photo.failed;
 }
 
@@ -106,11 +108,17 @@ function settledState(outcome: PhotoSearchOutcome): UploadState {
   return outcome.kind === "quota" ? outcome : { kind: "done", part: outcome.part };
 }
 
+/** A rejected challenge reads as its own state so the visitor is told to
+ * redo the check, not that their photo was bad (issue #447 review). */
+function uploadErrorOf(cause: unknown): UploadError {
+  return cause instanceof Error && cause.message === PHOTO_CHALLENGED ? "challenge" : "failed";
+}
+
 function runUpload(baseUrl: string, file: File, context: PhotoSearchContext, setState: SetUploadState): void {
   setState({ kind: "uploading" });
   postPhotoSearch(baseUrl, file, context)
     .then((outcome) => { setState(settledState(outcome)); })
-    .catch(() => { setState({ kind: "error", error: "failed" }); });
+    .catch((cause: unknown) => { setState({ kind: "error", error: uploadErrorOf(cause) }); });
 }
 
 function preflightError(file: File): UploadError | null {
