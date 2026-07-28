@@ -80,19 +80,35 @@ function forwardV1(env: Env, request: Request, auth?: { userId: string; userType
   return env.CONTAINER.get(env.CONTAINER.idFromName("default")).fetch(forwarded);
 }
 
+// Per-identity rate limiting on the AUTHENTICATED path (issue #284 / Task 9).
+// Before this, the authenticated branch called no limiter at all —
+// login-gating BYOK removed the anonymous relay surface but left an
+// unbounded authenticated one, since accounts are free self-serve signups.
+// Scoped to the two cost-bearing endpoints named in the spec, not every
+// authenticated /v1/* route: counting read traffic too (GET
+// /v1/conversations, /v1/*/messages, /v1/*/routes) would let a user paging
+// through session history burn the same window and 429 an unrelated,
+// in-flight chat turn — a misattributed failure, not a safety win.
+const AUTH_RATE_LIMITED_V1 = ["/v1/chat", "/v1/byok/probe"];
+
+function isAuthRateLimited(pathname: string): boolean {
+  return AUTH_RATE_LIMITED_V1.includes(pathname);
+}
+
 /**
  * Forward an authenticated /v1 request, first spending one unit of that
- * identity's per-identity limiter (issue #284 / Task 9). Before this, the
- * authenticated branch called no limiter at all — login-gating BYOK removed
- * the anonymous relay surface but left an unbounded authenticated one, since
- * accounts are free self-serve signups. The key is the worker-verified user
- * id only (never a header the caller controls), and the check fails open on
- * a guard outage, matching the anonymous path's contract.
+ * identity's per-identity limiter when the path is cost-bearing. The key is
+ * the worker-verified user id only (never a header the caller controls), and
+ * the check fails open on a guard outage, matching the anonymous path's
+ * contract.
  */
 async function authenticatedForward(
-  env: Env, request: Request, auth: { userId: string; userType: string },
+  env: Env, request: Request, auth: { userId: string; userType: string }, pathname: string,
 ): Promise<Response> {
-  const limit = await checkRateLimit(env.EDGE_GUARD, authenticatedRateLimitKey(auth.userId), authRateLimitConfigFrom(env));
+  if (!isAuthRateLimited(pathname)) return forwardV1(env, request, auth);
+  const key = authenticatedRateLimitKey(auth.userId);
+  const config = authRateLimitConfigFrom(env);
+  const limit = await checkRateLimit(env.EDGE_GUARD, key, config);
   if (limit !== null && !limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
   return forwardV1(env, request, auth);
 }
@@ -225,7 +241,7 @@ export function createWorkerApp(deps: {
     if (isPublicV1(pathname)) return forwardV1(c.env, c.req.raw);
     const auth = await authenticate(c.req.raw, c.env, c.executionCtx);
     if (auth.ok) {
-      return authenticatedForward(c.env, c.req.raw, { userId: auth.userId, userType: auth.userType });
+      return authenticatedForward(c.env, c.req.raw, { userId: auth.userId, userType: auth.userType }, pathname);
     }
     // S1.9 Turnstile (issue #281) is MERGED but still DORMANT: the gate lives in
     // ./turnstile.ts and nothing below calls it. This branch — anonymous access

@@ -61,13 +61,13 @@ ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
 # Global anonymous daily spend ceiling (X4). Enforced by the container ingress
 # against the daily_usage table; 0 disables the breaker.
 ANON_DAILY_COST_BUDGET_USD = "5.0"
-# Per-identity limit on the AUTHENTICATED /v1/* path (issue #284 / Task 9).
-# Wider than the anonymous burst limit: this window covers every authenticated
-# request (chat turns AND read traffic — GET /v1/conversations, /v1/*/messages,
-# /v1/*/routes), not just chat, so a user paging through session history must
-# not 429 an in-flight chat turn. Left unset this would silently fall back to
-# the shared ANON_RATE_LIMIT default (20/60s), which is too tight for combined
-# read+chat traffic.
+# Per-identity limit on the two cost-bearing AUTHENTICATED endpoints (issue
+# #284 / Task 9): POST /v1/chat and POST /v1/byok/probe ONLY — authenticated
+# reads (GET /v1/conversations, /v1/*/messages, /v1/*/routes) are NOT counted
+# against this window, so paging through session history never 429s an
+# unrelated in-flight chat turn. Left unset this would silently fall back to
+# the shared ANON_RATE_LIMIT default (20/60s); 60/60s gives normal chat usage
+# headroom above the anonymous burst ceiling.
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 
@@ -146,13 +146,13 @@ ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
 # Global anonymous daily spend ceiling (X4). Enforced by the container ingress
 # against the daily_usage table; 0 disables the breaker.
 ANON_DAILY_COST_BUDGET_USD = "5.0"
-# Per-identity limit on the AUTHENTICATED /v1/* path (issue #284 / Task 9).
-# Wider than the anonymous burst limit: this window covers every authenticated
-# request (chat turns AND read traffic — GET /v1/conversations, /v1/*/messages,
-# /v1/*/routes), not just chat, so a user paging through session history must
-# not 429 an in-flight chat turn. Left unset this would silently fall back to
-# the shared ANON_RATE_LIMIT default (20/60s), which is too tight for combined
-# read+chat traffic.
+# Per-identity limit on the two cost-bearing AUTHENTICATED endpoints (issue
+# #284 / Task 9): POST /v1/chat and POST /v1/byok/probe ONLY — authenticated
+# reads (GET /v1/conversations, /v1/*/messages, /v1/*/routes) are NOT counted
+# against this window, so paging through session history never 429s an
+# unrelated in-flight chat turn. Left unset this would silently fall back to
+# the shared ANON_RATE_LIMIT default (20/60s); 60/60s gives normal chat usage
+# headroom above the anonymous burst ceiling.
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 
@@ -207,13 +207,13 @@ ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
 # Global anonymous daily spend ceiling (X4). Enforced by the container ingress
 # against the daily_usage table; 0 disables the breaker.
 ANON_DAILY_COST_BUDGET_USD = "5.0"
-# Per-identity limit on the AUTHENTICATED /v1/* path (issue #284 / Task 9).
-# Wider than the anonymous burst limit: this window covers every authenticated
-# request (chat turns AND read traffic — GET /v1/conversations, /v1/*/messages,
-# /v1/*/routes), not just chat, so a user paging through session history must
-# not 429 an in-flight chat turn. Left unset this would silently fall back to
-# the shared ANON_RATE_LIMIT default (20/60s), which is too tight for combined
-# read+chat traffic.
+# Per-identity limit on the two cost-bearing AUTHENTICATED endpoints (issue
+# #284 / Task 9): POST /v1/chat and POST /v1/byok/probe ONLY — authenticated
+# reads (GET /v1/conversations, /v1/*/messages, /v1/*/routes) are NOT counted
+# against this window, so paging through session history never 429s an
+# unrelated in-flight chat turn. Left unset this would silently fall back to
+# the shared ANON_RATE_LIMIT default (20/60s); 60/60s gives normal chat usage
+# headroom above the anonymous burst ceiling.
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 

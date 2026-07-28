@@ -4,6 +4,7 @@ import { memoryGuardStore } from "./guardStore.ts";
 import {
   authenticatedRateLimitKey,
   authRateLimitConfigFrom,
+  checkRateLimit,
   consumeRateLimit,
   parseWindowState,
   rateLimitConfigFrom,
@@ -69,6 +70,35 @@ void test("consumeRateLimit lets the identity through again after the window", a
   await consumeRateLimit(store, T0, config);
   const later = await consumeRateLimit(store, T0 + 30_000, config);
   assert.equal(later.allowed, true);
+});
+
+void test("a rejected request skips the storage write (P2-3: no write amplification)", async () => {
+  let puts = 0;
+  const store = {
+    get: async () => ({ startedAtMs: T0, count: 1 }),
+    put: async () => { puts += 1; },
+  };
+  const decision = await consumeRateLimit(store, T0 + 1, { limit: 1, windowSeconds: 30 });
+  assert.equal(decision.allowed, false);
+  assert.equal(puts, 0, "a rejected request must not write an unchanged window back to storage");
+});
+
+void test("checkRateLimit fails open when the shard's fetch promise rejects", async () => {
+  const guard = {
+    idFromName: (name: string) => name,
+    get: () => ({ fetch: () => Promise.reject(new Error("connection lost")) }),
+  } as never;
+  const decision = await checkRateLimit(guard, "user-a", CONFIG);
+  assert.equal(decision, null);
+});
+
+void test("checkRateLimit fails open when the shard answers 200 with a non-JSON body", async () => {
+  const guard = {
+    idFromName: (name: string) => name,
+    get: () => ({ fetch: () => Promise.resolve(new Response("not json", { status: 200 })) }),
+  } as never;
+  const decision = await checkRateLimit(guard, "user-a", CONFIG);
+  assert.equal(decision, null);
 });
 
 void test("a corrupt stored window is treated as no window, not a crash", () => {

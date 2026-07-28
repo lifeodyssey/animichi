@@ -67,16 +67,41 @@ export function handleGuardRequest(
 
 export { budgetGuidanceResponse };
 
+/** Only a `/rate-limit` request reclaims its shard. The daily budget shard
+ * is a fixed, separate DO instance (`idFromName("budget")`, costBreaker.ts)
+ * that never receives this pathname, so it is never at risk of the early
+ * `deleteAll` below. */
+export function isRateLimitPath(pathname: string): boolean {
+  return pathname === "/rate-limit";
+}
+
+/** A per-identity rate-limit shard is stale exactly one window after its
+ * last write; reclaiming it two windows out (issue #284 / Task 9, P2-3)
+ * bounds the storage a forgotten/abandoned identity's shard occupies. */
+export function reclaimDelayMs(windowSeconds: number): number {
+  return 2 * windowSeconds * 1_000;
+}
+
 export class EdgeGuard {
+  private readonly storage: DurableObjectStorage;
   private readonly store: GuardStore;
   private readonly fallback: RateLimitConfig;
 
   constructor(ctx: DurableObjectState, env: Record<string, unknown>) {
+    this.storage = ctx.storage;
     this.store = durableGuardStore(ctx.storage);
     this.fallback = rateLimitConfigFrom(env);
   }
 
-  fetch(request: Request): Promise<Response> {
-    return handleGuardRequest(request, this.store, Date.now(), this.fallback);
+  async fetch(request: Request): Promise<Response> {
+    const response = await handleGuardRequest(request, this.store, Date.now(), this.fallback);
+    if (isRateLimitPath(new URL(request.url).pathname)) {
+      await this.storage.setAlarm(Date.now() + reclaimDelayMs(this.fallback.windowSeconds));
+    }
+    return response;
+  }
+
+  alarm(): Promise<void> {
+    return this.storage.deleteAll();
   }
 }
