@@ -28,7 +28,9 @@
       "esbuild": ">=0.28.1",
       "@vitest/expect": "4.1.10",
       "@vitest/spy": "4.1.10",
-      "uuid": ">=11.1.1"
+      "uuid": ">=11.1.1",
+      "sharp": ">=0.35.3",
+      "valibot": ">=1.4.2"
     }
   },
   "devDependencies": {
