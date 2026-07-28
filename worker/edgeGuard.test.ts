@@ -72,12 +72,13 @@ void test("when the alarm fires on a still-fresh window, it rearms rather than d
   assert.notEqual(getAlarmAt(), null, "the shard must stay guarded, not go dark");
 });
 
-void test("when the alarm fires on a stale window, it deletes only the rate-limit key — unrelated shard data (e.g. the budget latch) survives (P2-4)", async () => {
+void test("when the alarm fires on a stale window, it deletes the rate-limit AND reclaim-bookkeeping keys — but nothing else (P2-4/P3)", async () => {
   const { guard, data } = fakeCtx({});
   data.set(RATE_LIMIT_KEY, { startedAtMs: 0, count: 5 });
   data.set(RECLAIM_WINDOW_KEY, 60);
   data.set("budget-latch", { dayKey: "2026-07-29" });
   await guard.alarm();
   assert.equal(data.has(RATE_LIMIT_KEY), false, "a stale window must be swept");
+  assert.equal(data.has(RECLAIM_WINDOW_KEY), false, "the reclaim bookkeeping key must not survive forever");
   assert.deepEqual(data.get("budget-latch"), { dayKey: "2026-07-29" }, "a targeted delete, not deleteAll, leaves unrelated keys alone");
 });

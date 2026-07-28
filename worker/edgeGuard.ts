@@ -75,8 +75,8 @@ export { budgetGuidanceResponse };
 
 /** Only a `/rate-limit` request reclaims its shard. The daily budget shard
  * is a fixed, separate DO instance (`idFromName("budget")`, costBreaker.ts)
- * that never receives this pathname, so it is never at risk of the early
- * `deleteAll` below. */
+ * that never receives this pathname, so it is never at risk of being armed
+ * or swept below. */
 export function isRateLimitPath(pathname: string): boolean {
   return pathname === "/rate-limit";
 }
@@ -151,5 +151,6 @@ export class EdgeGuard {
       return;
     }
     await this.storage.delete(RATE_LIMIT_KEY);
+    await this.storage.delete(RECLAIM_WINDOW_KEY);
   }
 }
