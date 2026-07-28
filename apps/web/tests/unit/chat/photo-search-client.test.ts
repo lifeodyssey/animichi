@@ -2,7 +2,8 @@
  * @vitest-environment jsdom
  */
 import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { clearByokConfig, saveByokConfig } from "../../../src/lib/byok/byokStorage";
 import {
   MAX_PHOTO_BYTES,
   confirmPhotoSearch,
@@ -15,6 +16,10 @@ import type { PhotoSearchContext } from "../../../src/features/chat/photo-search
 import { TEST_ORIGIN } from "../../msw/fixtures";
 import { server } from "../../msw/node";
 import { bytesToText, makeJpegWithExif } from "../shiori/_jpegFixtures";
+
+afterEach(() => {
+  clearByokConfig();
+});
 
 const URL = `${TEST_ORIGIN}/v1/photo-search`;
 const CONFIRM_URL = `${TEST_ORIGIN}/v1/photo-search/confirm`;
@@ -89,6 +94,38 @@ describe("photo-search transport (P1-1/P1-4)", () => {
     expect(bodies[1]).not.toHaveProperty("gps");
   });
 
+});
+
+describe("BYOK headers on photo search (#284 P1-2 — deliberate, not inherited by accident)", () => {
+  // Ruling: photo search sharing `sessionHeaders()` with chat means a saved
+  // BYOK credential's headers reach the vision turn too. This is the
+  // *correct* semantics, not a side effect to suppress — the vision
+  // probe/badge (Task 5, D5) exists precisely so a BYOK user's image turns
+  // are answered by their own key, and T9 requires a BYOK turn to never
+  // silently fall back to the platform key. Photo search is a BYOK turn
+  // like any other, so it must carry the same headers chat does.
+  it("carries the full X-BYOK-* set on the upload request", async () => {
+    saveByokConfig({
+      provider: "openai-compatible",
+      apiKey: "sk-vision-key",
+      model: "gpt-5-vision",
+      baseUrl: "https://api.example.com/v1",
+    });
+    const headers: Headers[] = [];
+    capture([], headers);
+    await postPhotoSearch(TEST_ORIGIN, jpegFile(), CTX);
+    expect(headers[0]?.get("x-byok-provider")).toBe("openai-compatible");
+    expect(headers[0]?.get("x-byok-key")).toBe("sk-vision-key");
+    expect(headers[0]?.get("x-byok-model")).toBe("gpt-5-vision");
+    expect(headers[0]?.get("x-byok-base-url")).toBe("https://api.example.com/v1");
+  });
+
+  it("carries no X-BYOK-* headers when nothing is saved", async () => {
+    const headers: Headers[] = [];
+    capture([], headers);
+    await postPhotoSearch(TEST_ORIGIN, jpegFile(), CTX);
+    expect(headers[0]?.get("x-byok-provider")).toBeNull();
+  });
 });
 
 describe("photo-search outcomes", () => {
