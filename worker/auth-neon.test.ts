@@ -37,7 +37,7 @@ test("flag absent rejects EdDSA without fetching Neon JWKS", async () => {
   const { token } = await fixture("EdDSA", host);
   const urls: string[] = [];
   const r = await authenticate(bearer(token), BASE_ENV, stubFetch(() => new Response("", { status: 500 }), urls));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
   assert.equal(urls.includes(`${host}/.well-known/jwks.json`), false);
 });
 
@@ -47,7 +47,7 @@ test("false flag rejects EdDSA without fetching Neon JWKS", async () => {
   const urls: string[] = [];
   const env = { ...neonEnv(host), NEON_AUTH_ENABLED: "false" };
   const r = await authenticate(bearer(token), env, stubFetch(() => new Response("", { status: 500 }), urls));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
   assert.equal(urls.includes(env.NEON_AUTH_JWKS_URL), false);
 });
 
@@ -62,21 +62,21 @@ test("enabled Neon rejects wrong issuer", async () => {
   const host = "https://neon-wrong-issuer.example.test";
   const { jwk, token } = await fixture("EdDSA", "https://neon-other-issuer.example.test", host);
   const r = await authenticate(bearer(token), neonEnv(host), stubFetch(() => jwks(jwk)));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
 test("enabled Neon rejects expired token", async () => {
   const host = "https://neon-expired.example.test";
   const { jwk, token } = await fixture("EdDSA", host, host, Math.floor(Date.now() / 1000) - 60);
   const r = await authenticate(bearer(token), neonEnv(host), stubFetch(() => jwks(jwk)));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
 test("enabled Neon rejects wrong audience", async () => {
   const host = "https://neon-wrong-audience.example.test";
   const { jwk, token } = await fixture("EdDSA", host, "https://neon-other-audience.example.test");
   const r = await authenticate(bearer(token), neonEnv(host), stubFetch(() => jwks(jwk)));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
 test("enabled Neon rejects signature from another key", async () => {
@@ -84,7 +84,7 @@ test("enabled Neon rejects signature from another key", async () => {
   const trusted = await fixture("EdDSA", host);
   const untrusted = await fixture("EdDSA", host);
   const r = await authenticate(bearer(untrusted.token), neonEnv(host), stubFetch(() => jwks(trusted.jwk)));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
 test("enabled Neon coexists with Supabase", async () => {
@@ -107,7 +107,7 @@ test("enabled Neon without JWKS URL rejects without throwing", async () => {
   const { token } = await fixture("EdDSA", host);
   const env = { ...BASE_ENV, NEON_AUTH_ENABLED: "true", NEON_AUTH_ISSUER: host };
   const r = await authenticate(bearer(token), env, stubFetch(() => new Response("", { status: 500 })));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
 test("sk_ token still uses api_keys when Neon is enabled", async () => {

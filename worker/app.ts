@@ -181,6 +181,25 @@ export async function handleAnonymousV1(
   return withAnonymousCookie(response, identity.setCookie);
 }
 
+const UNAUTHORIZED_BODY = {
+  error: { code: "unauthorized", message: "Valid credentials required." },
+} as const;
+
+/** Structured, credential-free record of a rejected credential (issue #441).
+ *
+ * #441 itself only surfaced through anomalous anonymous spend. Its inverse — a
+ * 401 storm from a mis-issued or mis-refreshed token — must not be equally
+ * invisible, so every `invalid` verdict is counted at the edge. The token, the
+ * header and the identity are deliberately absent from the record. */
+function logInvalidCredential(pathname: string): void {
+  console.warn(JSON.stringify({ event: "edge_auth_invalid_credential", path: pathname }));
+}
+
+function unauthorized(pathname: string): Response {
+  logInvalidCredential(pathname);
+  return Response.json(UNAUTHORIZED_BODY, { status: 401 });
+}
+
 /** Forward a container-originated catalog request to the private CATALOG binding
  * (in-datacenter hop, never the public internet). Wired as the container's
  * outboundByHost handler in entry.ts. */
@@ -254,11 +273,16 @@ export function createWorkerApp(deps: {
     //   if (denied !== null) return denied;
     // (`turnstileGate` = module-level createTurnstileGate() from ./turnstile.ts,
     // so its short-lived window is shared across requests on the same isolate.)
+    // Issue #441: only a caller who presented NO credential may be demoted to
+    // an anonymous identity. A presented-but-unverifiable one (expired,
+    // malformed, wrong key) falls straight through to the 401 below, which is
+    // what puts the web client back on its token-refresh path.
+    if (auth.reason === "invalid") return unauthorized(pathname);
     const anonymous = isAnonymousV1(pathname)
       ? await handleAnonymousV1(c.env, c.req.raw, Date.now())
       : null;
     if (anonymous !== null) return anonymous;
-    return c.json({ error: { code: "unauthorized", message: "Valid credentials required." } }, 401);
+    return c.json(UNAUTHORIZED_BODY, 401);
   });
   app.all("*", (c) => deps.nextHandler.fetch(c.req.raw, c.env, c.executionCtx));
   return app;
