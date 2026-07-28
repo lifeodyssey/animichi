@@ -116,6 +116,49 @@ test("an anonymous 保存する tap opens the magic-link login dialog", async ({
   await expect(page.getByRole("dialog")).toBeVisible();
 });
 
+/** The mainline: send the link, then close the modal to go read the email. */
+async function sendLinkAndDismiss(page: Page): Promise<void> {
+  await page.route("**/send-magic-link*", (route) => route.fulfill({ json: { status: true } }));
+  await page.getByRole("textbox", { name: /メール|email/i }).fill("fan@example.com");
+  await page.getByRole("button", { name: /ログインリンク|Send/i }).click();
+  await expect(page.getByRole("status")).toBeVisible();
+  await page.getByRole("button", { name: /閉じる|Close/i }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}
+
+test("closing the wall after the link is sent keeps the intent — the mainline", async ({ page, context }) => {
+  const bodies: unknown[] = [];
+  await captureSaves(context, bodies);
+  await stubAuthToken(context);
+  await planRoute(page);
+  await page.getByRole("button", { name: ja.route.saveCta }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await sendLinkAndDismiss(page);
+
+  // Going to read the email is not a cancellation: the intent must still be here.
+  const stashed = await page.evaluate((key) => localStorage.getItem(key), DEFERRED_SAVE_KEY);
+  expect(stashed).toContain("p1");
+
+  const callbackTab = await context.newPage();
+  await callbackTab.goto("/auth/callback");
+  await expect.poll(() => bodies.length).toBe(1);
+});
+
+test("closing the wall before sending anything cancels the save", async ({ page, context }) => {
+  const bodies: unknown[] = [];
+  await captureSaves(context, bodies);
+  await stubAuthToken(context);
+  await planRoute(page);
+  await page.getByRole("button", { name: ja.route.saveCta }).click();
+  await page.getByRole("button", { name: /閉じる|Close/i }).click();
+  expect(await page.evaluate((key) => localStorage.getItem(key), DEFERRED_SAVE_KEY)).toBeNull();
+
+  const callbackTab = await context.newPage();
+  await callbackTab.goto("/auth/callback");
+  await callbackTab.waitForURL((url) => url.pathname === "/");
+  expect(bodies).toEqual([]);
+});
+
 test("the deferred intent survives a new tab of the same profile and replays once", async ({ page, context }) => {
   const bodies: unknown[] = [];
   await captureSaves(context, bodies);

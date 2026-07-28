@@ -139,7 +139,7 @@ function SaveCta({ save, dict, saveDeps }: Omit<ItineraryProps, "view">) {
     <>
       <SaveButton gate={gate} dict={dict} />
       <SaveFeedback gate={gate} dict={dict} />
-      {gate.loginOpen ? <LoginModal open onClose={gate.closeLogin} /> : null}
+      {gate.loginOpen ? <LoginModal open onClose={gate.closeLogin} onSent={gate.markLinkSent} /> : null}
     </>
   );
 }

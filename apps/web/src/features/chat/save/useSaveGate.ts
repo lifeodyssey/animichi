@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import { useSaveRoute } from "../../../api/hooks/use-save-route";
 import type { SaveRouteRequest, SaveRouteStatus } from "../../../api/hooks/use-save-route";
 import { fetchAuthStatus, useAuthStatus } from "../../../lib/auth/session";
@@ -29,6 +30,9 @@ export interface SaveGate {
   readonly loginOpen: boolean;
   readonly activate: () => void;
   readonly closeLogin: () => void;
+  /** The wall dispatched a magic link — the dismissal that follows is the user
+   * leaving to read their email, not a cancellation. */
+  readonly markLinkSent: () => void;
 }
 
 /** Injectable for tests; production callers rely on the defaults. */
@@ -70,23 +74,49 @@ function useActivate(action: SaveAction, target: SaveTarget | undefined, save: S
   return useCallback(() => { act(action, target, save, openLogin); }, [action, target, save, openLogin]);
 }
 
-/** Dismissing the wall is abandonment: drop the intent, or a later D8/D11 login
- * would silently save this card — possibly one #439 has already superseded. */
-function useCloseLogin(setLoginOpen: (open: boolean) => void): () => void {
+interface Wall {
+  readonly loginOpen: boolean;
+  readonly openLogin: () => void;
+  readonly closeLogin: () => void;
+  readonly markLinkSent: () => void;
+}
+
+/**
+ * The wall's own state. "A link went out" is a **ref**, not state: it never
+ * affects rendering, and React batches the form's effect with the dismissal
+ * click — a state value would still read `false` inside the click handler that
+ * flushed it, silently clearing an intent the user is about to use.
+ */
+function useWall(): Wall {
+  const [loginOpen, setLoginOpen] = useState(false);
+  const linkSent = useRef(false);
+  // Each fresh trip through the wall starts as "no link sent yet".
+  const openLogin = useCallback(() => { linkSent.current = false; setLoginOpen(true); }, []);
+  const markLinkSent = useCallback(() => { linkSent.current = true; }, []);
+  return { loginOpen, openLogin, markLinkSent, closeLogin: useCloseLogin(setLoginOpen, linkSent) };
+}
+
+/**
+ * Dismissal is only abandonment **before** a link goes out: closing the modal to
+ * go read the email is the mainline of the magic-link flow, and clearing there
+ * would break create-on-login silently. Once a link is dispatched the intent
+ * survives; the surprise-save risk that motivated clearing is already covered by
+ * consume-once plus the TTL.
+ */
+function useCloseLogin(setLoginOpen: (open: boolean) => void, linkSent: RefObject<boolean>): () => void {
   return useCallback(() => {
-    clearDeferredSave();
+    if (!linkSent.current) clearDeferredSave();
     setLoginOpen(false);
-  }, [setLoginOpen]);
+  }, [setLoginOpen, linkSent]);
 }
 
 /** Save state plus the login wall for one route card. */
 export function useSaveGate(target: SaveTarget | undefined, options: SaveGateOptions = {}): SaveGate {
   const detected = useResolvedAuthStatus(options.authStatus);
-  const [loginOpen, setLoginOpen] = useState(false);
+  const wall = useWall();
   const { status, save } = useSaveRoute(options.request);
   const action = saveAction(target, detected);
-  const openLogin = useCallback(() => { setLoginOpen(true); }, []);
   useEffect(() => { pruneDeferredSave(); }, []);
-  const activate = useActivate(action, target, save, openLogin);
-  return { action, status, loginOpen, activate, closeLogin: useCloseLogin(setLoginOpen) };
+  const activate = useActivate(action, target, save, wall.openLogin);
+  return { action, status, ...wall, activate };
 }
