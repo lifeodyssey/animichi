@@ -36,13 +36,16 @@ function isToolLike(part: PartLike): boolean {
 }
 
 /**
- * A bypass recompute turn: a `plan_selected` card whose only tool part is the
- * `plan_selected` step the backend always streams for the bypass
- * (`execute_selected_route` → `chat_stream._ToolPartTranslator`). The UI
- * suppresses that pipeline — "没经过 agent 就不演 agent 的戏". Agent-path
- * turns that ran other tools keep their badges.
+ * A bypass recompute turn: only `plan_selected` step parts, or a
+ * `plan_selected` card before any step streamed — the backend always streams
+ * that step for the bypass (`execute_selected_route` →
+ * `chat_stream._ToolPartTranslator`) and the UI suppresses it: "没经过 agent
+ * 就不演 agent 的戏". Order-independent so the step frame arriving BEFORE the
+ * data part cannot flash a badge; agent-path turns that ran other tools keep
+ * their badges.
  */
 export function isBypassTurn(parts: readonly PartLike[]): boolean {
-  if (!parts.some(isRecomputeData)) return false;
-  return parts.filter(isToolLike).every((part) => part.type === "tool-plan_selected");
+  const tools = parts.filter(isToolLike);
+  if (tools.length > 0) return tools.every((part) => part.type === "tool-plan_selected");
+  return parts.some(isRecomputeData);
 }

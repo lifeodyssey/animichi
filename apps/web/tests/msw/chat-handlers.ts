@@ -214,6 +214,13 @@ function toRecomputeStream(recording: string): string {
     .replaceAll('"intent":"plan_route"', '"intent":"plan_selected"');
 }
 
+/** Fixture self-guard: the recompute stream a test replays. Tests assert it
+ * still carries the injected `plan_selected` step frames — deleting them
+ * would silently re-certify the P1-1 false-green tree. */
+export function recomputeStreamFixture(): string {
+  return toRecomputeStream(chatStreamFixture("search"));
+}
+
 export function chatRecomputeHandler(options: ChatStreamOptions = {}): HttpHandler {
   const recorded = toRecomputeStream(streamText("search", options));
   return http.post(CHAT_URL, ({ request }) => {

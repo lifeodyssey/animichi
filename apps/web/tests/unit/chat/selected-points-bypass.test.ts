@@ -54,6 +54,10 @@ describe("isBypassTurn (bypass turns suppress their plan_selected step part)", (
     expect(isBypassTurn([data("plan_selected")])).toBe(true);
   });
 
+  it("detects the mid-stream state where only the step frame has arrived (no badge flash)", () => {
+    expect(isBypassTurn([tool("tool-plan_selected")])).toBe(true);
+  });
+
   it("ignores agent-path route intents", () => {
     expect(isBypassTurn([tool("tool-plan_route"), data("plan_route"), { type: "text" }])).toBe(false);
   });

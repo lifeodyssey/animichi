@@ -12,6 +12,7 @@ import {
   chatRecomputeHandler,
   chatStreamHeldOpenHandler,
   chatStreamPatchedHandler,
+  recomputeStreamFixture,
   searchResultsPatch,
 } from "../../msw/chat-handlers";
 import { chatSearch, renderChatPage } from "./_chat-page";
@@ -93,6 +94,12 @@ describe("AC: the tray action drives the selected_point_ids bypass", () => {
     expect(recomputeTurn?.className).toBe("chat-card");
     expect(recomputeTurn?.closest("li")?.querySelector(".chat-step")).toBeNull();
     expect(document.querySelector('article[data-intent="search_bangumi"]')?.className).toBe("chat-card");
+  });
+});
+
+describe("fixture self-guard (P1-1)", () => {
+  it("keeps the plan_selected step frames the backend always streams in the recompute fixture", () => {
+    expect(recomputeStreamFixture()).toContain('"toolName":"plan_selected"');
   });
 });
 
