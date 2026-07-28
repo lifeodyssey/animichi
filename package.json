@@ -23,14 +23,16 @@
       "postcss": ">=8.5.10",
       "ws": ">=8.21.0",
       "qs": ">=6.15.2",
-      "fast-uri": ">=3.1.2",
+      "fast-uri": ">=4.1.1",
       "hono": ">=4.12.16",
       "esbuild": ">=0.28.1",
       "@vitest/expect": "4.1.10",
       "@vitest/spy": "4.1.10",
       "uuid": ">=11.1.1",
       "sharp": ">=0.35.3",
-      "valibot": ">=1.4.2"
+      "valibot": ">=1.4.2",
+      "brace-expansion": ">=5.0.8",
+      "@hono/node-server": ">=2.0.5"
     }
   },
   "devDependencies": {
