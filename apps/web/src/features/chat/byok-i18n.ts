@@ -14,6 +14,8 @@ export interface ChatByokDict {
   readonly familyAnthropic: string;
   readonly familyGemini: string;
   readonly apiKeyLabel: string;
+  readonly apiKeyRequired: string;
+  readonly apiKeyInvalid: string;
   readonly modelLabel: string;
   readonly modelRequired: string;
   readonly baseUrlLabel: string;
@@ -38,6 +40,8 @@ export const jaByok: ChatByokDict = {
   familyAnthropic: "Anthropic",
   familyGemini: "Gemini",
   apiKeyLabel: "APIキー",
+  apiKeyRequired: "APIキーを入力してね",
+  apiKeyInvalid: "そのAPIキーは使えない文字が入ってるみたい。確認してね",
   modelLabel: "モデル名",
   modelRequired: "モデル名を入力してね",
   baseUrlLabel: "接続先URL",
@@ -62,6 +66,8 @@ export const zhByok: ChatByokDict = {
   familyAnthropic: "Anthropic",
   familyGemini: "Gemini",
   apiKeyLabel: "API 密钥",
+  apiKeyRequired: "请填写 API 密钥",
+  apiKeyInvalid: "这个 API 密钥里有不能使用的字符,请检查一下",
   modelLabel: "模型名称",
   modelRequired: "请填写模型名称",
   baseUrlLabel: "接口地址",
@@ -86,6 +92,8 @@ export const enByok: ChatByokDict = {
   familyAnthropic: "Anthropic",
   familyGemini: "Gemini",
   apiKeyLabel: "API key",
+  apiKeyRequired: "Please enter an API key",
+  apiKeyInvalid: "That API key contains characters that can't be used — please check it",
   modelLabel: "Model name",
   modelRequired: "Please enter a model name",
   baseUrlLabel: "Base URL",

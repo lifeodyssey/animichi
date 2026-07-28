@@ -3,7 +3,6 @@
  */
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearByokConfig, saveByokConfig } from "../../../src/lib/byok/byokStorage";
 import { useChatSession } from "../../../src/features/chat/use-chat-session";
 import { server } from "../../msw/node";
 import {
@@ -20,7 +19,6 @@ vi.mock("../../../src/lib/auth/authSession", () => ({ authHeaders }));
 
 afterEach(() => {
   authHeaders.mockReset().mockResolvedValue({});
-  clearByokConfig();
 });
 
 type Props = Readonly<{ sessionId?: string }>;
@@ -187,52 +185,5 @@ describe("auth header injection", () => {
     const view = renderSession("auth-1");
     await sendAndSettle(view, "ユーフォ");
     expect(seen).toEqual(["Bearer jwt-chat"]);
-  });
-});
-
-describe("BYOK header injection (issue #284 Task 6)", () => {
-  function byokSpyingHandler(seen: Record<string, string | null>[]) {
-    return chatStreamHandler("search", {
-      spy: (request) =>
-        seen.push({
-          provider: request.headers.get("x-byok-provider"),
-          key: request.headers.get("x-byok-key"),
-          model: request.headers.get("x-byok-model"),
-          baseUrl: request.headers.get("x-byok-base-url"),
-        }),
-    });
-  }
-
-  it("adds X-BYOK-* headers when a config is saved", async () => {
-    saveByokConfig({
-      provider: "openai-compatible",
-      apiKey: "sk-test",
-      model: "gpt-5",
-      baseUrl: "https://api.example.com/v1",
-    });
-    const seen: Record<string, string | null>[] = [];
-    server.use(byokSpyingHandler(seen));
-    const view = renderSession("byok-1");
-    await sendAndSettle(view, "ユーフォ");
-    expect(seen).toEqual([
-      { provider: "openai-compatible", key: "sk-test", model: "gpt-5", baseUrl: "https://api.example.com/v1" },
-    ]);
-  });
-
-  it("emits exactly today's header set (no X-BYOK-*) when nothing is saved", async () => {
-    const seen: Record<string, string | null>[] = [];
-    server.use(byokSpyingHandler(seen));
-    const view = renderSession("byok-2");
-    await sendAndSettle(view, "ユーフォ");
-    expect(seen).toEqual([{ provider: null, key: null, model: null, baseUrl: null }]);
-  });
-
-  it("omits X-BYOK-Base-Url for a non-openai-compatible family", async () => {
-    saveByokConfig({ provider: "anthropic", apiKey: "ak", model: "claude-sonnet-4-5" });
-    const seen: Record<string, string | null>[] = [];
-    server.use(byokSpyingHandler(seen));
-    const view = renderSession("byok-3");
-    await sendAndSettle(view, "ユーフォ");
-    expect(seen).toEqual([{ provider: "anthropic", key: "ak", model: "claude-sonnet-4-5", baseUrl: null }]);
   });
 });

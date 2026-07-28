@@ -1,5 +1,11 @@
 /**
  * @vitest-environment jsdom
+ *
+ * Core persistence, header emission, and vision-flag lockstep. Validation
+ * rules (model/key requirements) live in byokStorage-validation.test.ts;
+ * the SecurityError/partitioned-storage failure mode lives in
+ * byokStorage-security-error.test.ts — split out to keep each file under
+ * the repo's ~200-line test-file budget (P2③ review follow-up).
  */
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -10,7 +16,6 @@ import {
   getByokVisionSupported,
   saveByokConfig,
   setByokVisionSupported,
-  validateByokConfig,
 } from "../../src/lib/byok/byokStorage";
 import type { ByokConfig } from "../../src/lib/byok/byokStorage";
 
@@ -98,6 +103,23 @@ describe("happy path — sessionHeaders() header emission", () => {
   });
 });
 
+describe("happy path — Base-Url edge cases", () => {
+  it("omits Base-Url for openai-compatible when baseUrl is empty/whitespace (P3)", () => {
+    saveByokConfig({ ...OPENAI_CONFIG, baseUrl: "" });
+    expect(byokHeaders()).toEqual({
+      "X-BYOK-Provider": "openai-compatible",
+      "X-BYOK-Key": "sk-test-key",
+      "X-BYOK-Model": "gpt-5",
+    });
+    saveByokConfig({ ...OPENAI_CONFIG, baseUrl: "   " });
+    expect(byokHeaders()).toEqual({
+      "X-BYOK-Provider": "openai-compatible",
+      "X-BYOK-Key": "sk-test-key",
+      "X-BYOK-Model": "gpt-5",
+    });
+  });
+});
+
 describe("happy path — vision flag lockstep with clearByokConfig()", () => {
   it("keeps a set vision flag until an explicit clear", () => {
     saveByokConfig(OPENAI_CONFIG);
@@ -120,34 +142,16 @@ describe("happy path — vision flag lockstep with clearByokConfig()", () => {
     setByokVisionSupported(false);
     expect(getByokVisionSupported()).toBe(false);
   });
-});
 
-describe("happy path (OQ-1) — model requirement by family", () => {
-  it("requires a model for openai-compatible", () => {
-    expect(validateByokConfig({ ...OPENAI_CONFIG, model: "" })).toEqual({
-      ok: false,
-      error: "model_required",
-    });
-    expect(validateByokConfig({ ...OPENAI_CONFIG, model: "   " })).toEqual({
-      ok: false,
-      error: "model_required",
-    });
-  });
-
-  it("does not require a model for anthropic or gemini", () => {
-    expect(validateByokConfig({ ...ANTHROPIC_CONFIG, model: "" })).toEqual({ ok: true });
-    expect(validateByokConfig({ ...GEMINI_CONFIG, model: "" })).toEqual({ ok: true });
-  });
-
-  it("exposes a named default model constant for anthropic and gemini", () => {
-    expect(BYOK_DEFAULT_MODEL.anthropic.length).toBeGreaterThan(0);
-    expect(BYOK_DEFAULT_MODEL.gemini.length).toBeGreaterThan(0);
-  });
-
-  it("refuses to save (and does not touch storage) when the model is missing", () => {
-    const result = saveByokConfig({ ...OPENAI_CONFIG, model: "" });
-    expect(result).toEqual({ ok: false, error: "model_required" });
-    expect(getByokConfig()).toBeNull();
+  it("does not write an orphaned vision flag when no config is saved (probe-after-clear race, Opus P1-2)", () => {
+    // A probe that resolves after clearByokConfig() (or before any config was
+    // ever saved) must not leave a vision flag with nothing to attach to —
+    // otherwise a later, unrelated saveByokConfig() could inherit a stale
+    // "vision supported" flag it never earned.
+    setByokVisionSupported(true);
+    expect(getByokVisionSupported()).toBeNull();
+    saveByokConfig(OPENAI_CONFIG);
+    expect(getByokVisionSupported()).toBeNull();
   });
 });
 

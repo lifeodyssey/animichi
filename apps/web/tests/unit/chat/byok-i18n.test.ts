@@ -23,6 +23,8 @@ function allStrings(dict: ChatByokDict): readonly string[] {
     dict.familyAnthropic,
     dict.familyGemini,
     dict.apiKeyLabel,
+    dict.apiKeyRequired,
+    dict.apiKeyInvalid,
     dict.modelLabel,
     dict.modelRequired,
     dict.baseUrlLabel,
@@ -56,6 +58,9 @@ describe("BYOK panel copy (issue #284 Task 6)", () => {
     }
   });
 
+});
+
+describe("BYOK panel copy — field/message distinctness", () => {
   it("covers all three family selector labels distinctly per locale", () => {
     for (const locale of LOCALES) {
       const dict = chatDictFor(locale).byok;
@@ -68,6 +73,20 @@ describe("BYOK panel copy (issue #284 Task 6)", () => {
     for (const locale of LOCALES) {
       const dict = chatDictFor(locale).byok;
       expect(dict.modelRequired).not.toBe(dict.modelLabel);
+    }
+  });
+
+  it("keeps the key-required validation message distinct from the label", () => {
+    for (const locale of LOCALES) {
+      const dict = chatDictFor(locale).byok;
+      expect(dict.apiKeyRequired).not.toBe(dict.apiKeyLabel);
+    }
+  });
+
+  it("keeps the key-invalid message distinct from the key-required message", () => {
+    for (const locale of LOCALES) {
+      const dict = chatDictFor(locale).byok;
+      expect(dict.apiKeyInvalid).not.toBe(dict.apiKeyRequired);
     }
   });
 
