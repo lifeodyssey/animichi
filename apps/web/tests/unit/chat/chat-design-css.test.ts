@@ -97,3 +97,21 @@ describe("B4 settled footprint: elapsed emphasis over a semantic token", () => {
     expect(ruleDeclaration(chatCss, ".chat-settled__elapsed", "color")).toBe("var(--color-primary-strong)");
   });
 });
+
+describe("S1.9 Turnstile dock slot (issue #447)", () => {
+  it("paints the gate with the dock's own surface token, never a raw color", () => {
+    expect(ruleDeclaration(chatCss, ".turnstile-gate", "background")).toBe("var(--color-card)");
+    expect(ruleDeclaration(chatCss, ".turnstile-gate", "max-width")).toBe("48rem");
+  });
+
+  it("costs no vertical rhythm until the widget actually renders something", () => {
+    expect(ruleDeclaration(chatCss, ".turnstile-gate", "padding-block")).toBeNull();
+    expect(ruleDeclaration(chatCss, ".turnstile-gate .cf-turnstile:not(:empty)", "margin-block")).toBe("0.75rem");
+  });
+
+  it("styles the retry with the shared 3D press affordance and semantic tokens", () => {
+    expect(ruleDeclaration(chatCss, ".turnstile-gate__retry", "background")).toBe("var(--color-primary)");
+    expect(ruleDeclaration(chatCss, ".turnstile-gate__retry", "box-shadow")).toBe("0 3px 0 var(--shadow-3d)");
+    expect(ruleDeclaration(chatCss, ".turnstile-gate__error", "color")).toBe("var(--color-error-strong)");
+  });
+});

@@ -102,9 +102,26 @@ async function quotaOutcome(response: Response): Promise<PhotoSearchOutcome> {
   return { kind: "quota", guidance: guidanceOf(await response.json()) };
 }
 
+/** The armed edge's rejection code (`worker/turnstile.ts`, #447). */
+export const PHOTO_CHALLENGED = "photo_search_challenged";
+
+async function errorCodeOf(response: Response): Promise<string | undefined> {
+  const body: unknown = await response.json().catch(() => undefined);
+  const code = fieldOf(fieldOf(body, "error"), "code");
+  return typeof code === "string" ? code : undefined;
+}
+
+/** A challenged upload is not a broken upload: #445 put photo search on the
+ * anonymous allowlist, so the armed gate rejects it exactly like a chat turn
+ * and the visitor needs the challenge copy, not "photo search failed". */
+async function rejection(response: Response): Promise<never> {
+  const code = await errorCodeOf(response);
+  throw new Error(code === "turnstile_required" ? PHOTO_CHALLENGED : "photo_search_failed");
+}
+
 async function settleResponse(response: Response): Promise<PhotoSearchOutcome> {
   if (response.status === 429) return quotaOutcome(response);
-  if (!response.ok) throw new Error("photo_search_failed");
+  if (!response.ok) return rejection(response);
   return parseOutcome(await response.json());
 }
 

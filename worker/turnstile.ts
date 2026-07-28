@@ -20,6 +20,14 @@ export const TURNSTILE_HEADER = "cf-turnstile-response";
  * Turnstile tokens are single-use at siteverify (a replay returns
  * `timeout-or-duplicate`), so caching the pass is exactly what stops an
  * anonymous user from being re-challenged on every message.
+ *
+ * The cache is keyed by token AND identity (issue #447 review): keying it by
+ * token alone would let one solved challenge cover ANY identity for its whole
+ * window, so an attacker could drop the `aid` cookie (fresh identity, fresh
+ * rate-limit bucket) and replay the same token — turning the attack this gate
+ * exists to stop into one that merely costs a challenge every few minutes.
+ * Keyed by identity, a cookie-dropper misses the cache, siteverify sees the
+ * replay, answers `timeout-or-duplicate`, and the turn is rejected.
  */
 export const TURNSTILE_WINDOW_MS = 5 * 60_000;
 
@@ -37,12 +45,36 @@ export interface TurnstileGate {
     token: string | null,
     clientIp: string,
     secret: string,
+    identity: string,
   ) => Promise<TurnstileResult>;
 }
 
 const MISSING_TOKEN: TurnstileResult = { ok: false, errorCodes: ["missing-input-response"] };
 const WINDOW_PASS: TurnstileResult = { ok: true, errorCodes: [] };
 const BAD_RESPONSE: TurnstileResult = { ok: false, errorCodes: ["bad-siteverify-response"] };
+
+/** How long siteverify gets before the call is abandoned. Verification sits in
+ * front of every anonymous turn, so it must never hang one. */
+const SITEVERIFY_TIMEOUT_MS = 5_000;
+
+/**
+ * The deliberate FAIL-OPEN verdict (issue #447 review, P1-3).
+ *
+ * When siteverify itself is unreachable — network error, timeout, a 502 whose
+ * body is HTML — the choice is between walling out every anonymous visitor for
+ * the duration of someone else's outage and letting turns through unverified.
+ * This follows the precedent already set by the edge rate limiter (#438/#451):
+ * infrastructure failure must not take chat down, and the daily-budget breaker
+ * still caps what an unverified wave can cost. It is loud (`console.error` on
+ * every occurrence) and it is deliberately NOT cached in the pass window, so
+ * verification resumes the moment siteverify does.
+ */
+const SITEVERIFY_UNAVAILABLE: TurnstileResult = { ok: true, errorCodes: ["siteverify-unavailable"] };
+
+/** Structured, credential-free record of a verification outage. */
+function logSiteverifyUnavailable(reason: string): void {
+  console.error(JSON.stringify({ event: "edge_turnstile_siteverify_unavailable", reason }));
+}
 
 function stringsOf(value: unknown): readonly string[] {
   if (!Array.isArray(value)) return [];
@@ -57,20 +89,34 @@ function readSiteverify(body: unknown): TurnstileResult {
   return { ok: record.success === true, errorCodes: stringsOf(record["error-codes"]) };
 }
 
-/** The canonical siteverify call. Pure apart from the injected `fetchImpl`. */
+function siteverifyRequest(token: string, clientIp: string, secret: string): RequestInit {
+  return {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ secret, response: token, remoteip: clientIp }),
+    signal: AbortSignal.timeout(SITEVERIFY_TIMEOUT_MS),
+  };
+}
+
+/**
+ * The canonical siteverify call. Pure apart from the injected `fetchImpl`.
+ * Everything that can throw — the fetch itself, the timeout, a body that is not
+ * JSON — resolves to the fail-open verdict rather than escaping as a bare 500.
+ */
 export async function verifySiteverify(
   token: string,
   clientIp: string,
   secret: string,
   fetchImpl: typeof fetch,
 ): Promise<TurnstileResult> {
-  const response = await fetchImpl(SITEVERIFY_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ secret, response: token, remoteip: clientIp }),
-  });
-  const body: unknown = await response.json();
-  return readSiteverify(body);
+  try {
+    const response = await fetchImpl(SITEVERIFY_URL, siteverifyRequest(token, clientIp, secret));
+    const body: unknown = await response.json();
+    return readSiteverify(body);
+  } catch {
+    logSiteverifyUnavailable("unreachable");
+    return SITEVERIFY_UNAVAILABLE;
+  }
 }
 
 export interface TurnstileGateOptions {
@@ -98,9 +144,14 @@ function toState(options: TurnstileGateOptions): GateState {
   };
 }
 
-/** True when this exact token already passed and its window is still open. */
-function isWithinWindow(state: GateState, token: string): boolean {
-  const expiresAt = state.passed.get(token);
+/** One cache entry per (identity, token) pair — never per token alone. */
+function windowKey(identity: string, token: string): string {
+  return `${identity}\n${token}`;
+}
+
+/** True when this identity already passed this token inside the open window. */
+function isWithinWindow(state: GateState, key: string): boolean {
+  const expiresAt = state.passed.get(key);
   return expiresAt !== undefined && expiresAt > state.now();
 }
 
@@ -112,24 +163,34 @@ function prune(state: GateState): void {
   }
 }
 
+/** Only a real siteverify pass earns a window slot — never the fail-open one. */
+function isVerifiedPass(result: TurnstileResult): boolean {
+  return result.ok && result.errorCodes.length === 0;
+}
+
 async function checkToken(
   state: GateState,
   token: string | null,
   clientIp: string,
   secret: string,
+  identity: string,
 ): Promise<TurnstileResult> {
   if (token === null || token === "") return MISSING_TOKEN;
-  if (isWithinWindow(state, token)) return WINDOW_PASS;
+  const key = windowKey(identity, token);
+  if (isWithinWindow(state, key)) return WINDOW_PASS;
   prune(state);
   const result = await state.verify(token, clientIp, secret, state.fetchImpl);
-  if (result.ok) state.passed.set(token, state.now() + state.windowMs);
+  if (isVerifiedPass(result)) state.passed.set(key, state.now() + state.windowMs);
   return result;
 }
 
 /** Build a gate with its own short-lived verification window. */
 export function createTurnstileGate(options: TurnstileGateOptions = {}): TurnstileGate {
   const state = toState(options);
-  return { check: (token, clientIp, secret) => checkToken(state, token, clientIp, secret) };
+  return {
+    check: (token, clientIp, secret, identity) =>
+      checkToken(state, token, clientIp, secret, identity),
+  };
 }
 
 /**
@@ -144,18 +205,36 @@ function rejection(): Response {
   );
 }
 
+/** Wire-level marker for an environment that opened anonymous access without
+ * provisioning the secret: every anonymous turn is then rejected, which would
+ * otherwise look exactly like a bot wave. Callers still get a plain 403 — the
+ * record is edge-internal and names no token, identity or secret. */
+function logMissingSecret(): void {
+  console.error(JSON.stringify({ event: "edge_turnstile_secret_missing" }));
+}
+
+function usableSecret(secret: unknown): string | null {
+  return typeof secret === "string" && secret !== "" ? secret : null;
+}
+
 /**
  * Edge guard. Returns `null` when the caller may proceed to forward the
  * request, or a 403 Response the caller MUST return without ever touching the
- * container.
+ * container. `identity` scopes the pass window — see TURNSTILE_WINDOW_MS.
  */
 export async function guardTurnstile(
   request: Request,
   env: TurnstileEnv,
   gate: TurnstileGate,
+  identity: string,
 ): Promise<Response | null> {
+  const secret = usableSecret(env.TURNSTILE_SECRET);
+  if (secret === null) {
+    logMissingSecret();
+    return rejection();
+  }
   const token = request.headers.get(TURNSTILE_HEADER);
   const clientIp = request.headers.get("CF-Connecting-IP") ?? "";
-  const result = await gate.check(token, clientIp, env.TURNSTILE_SECRET);
+  const result = await gate.check(token, clientIp, secret, identity);
   return result.ok ? null : rejection();
 }

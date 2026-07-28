@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   TURNSTILE_HEADER,
   TURNSTILE_TOKEN_TTL_MS,
+  awaitTurnstileToken,
   clearTurnstileToken,
   currentTurnstileToken,
+  onTurnstileToken,
   rememberTurnstileToken,
   turnstileHeaders,
 } from "../../../src/lib/turnstile/tokenStore";
@@ -81,5 +83,41 @@ describe("the cf-turnstile-response wire name", () => {
     rememberTurnstileToken("solved", 0);
     expect(turnstileHeaders(0)).toEqual({ "cf-turnstile-response": "solved" });
     clearTurnstileToken();
+  });
+});
+
+describe("waiting for a token (issue #447 review)", () => {
+  it("resolves a parked caller the moment the widget solves", async () => {
+    const pending = awaitTurnstileToken();
+    rememberTurnstileToken("late-token");
+    expect(await pending).toBe("late-token");
+  });
+
+  it("resolves immediately when a token is already held", async () => {
+    rememberTurnstileToken("held-token");
+    expect(await awaitTurnstileToken()).toBe("held-token");
+  });
+
+  it("abandons parked callers when the token is cleared, leaving no live timer", async () => {
+    const pending = awaitTurnstileToken();
+    clearTurnstileToken();
+    expect(await pending).toBeUndefined();
+  });
+
+  it("gives up once the wait elapses rather than parking forever", async () => {
+    vi.useFakeTimers();
+    const pending = awaitTurnstileToken(1_000);
+    vi.advanceTimersByTime(1_001);
+    await expect(pending).resolves.toBeUndefined();
+    vi.useRealTimers();
+  });
+
+  it("notifies every subscriber and stops after unsubscribe", () => {
+    const seen: string[] = [];
+    const stop = onTurnstileToken((token) => seen.push(token));
+    rememberTurnstileToken("first");
+    stop();
+    rememberTurnstileToken("second");
+    expect(seen).toEqual(["first"]);
   });
 });

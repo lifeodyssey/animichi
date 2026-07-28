@@ -1,5 +1,6 @@
 import { authHeaders } from "../../lib/auth/authSession";
-import { turnstileHeaders } from "../../lib/turnstile/tokenStore";
+import { configuredTurnstileSiteKey } from "../../components/TurnstileGate";
+import { awaitTurnstileToken, turnstileHeaders } from "../../lib/turnstile/tokenStore";
 
 /**
  * Shared /v1 transport headers: `x-session-id` (when known) plus a Bearer
@@ -11,6 +12,25 @@ import { turnstileHeaders } from "../../lib/turnstile/tokenStore";
 export async function sessionHeaders(sessionId?: string): Promise<Record<string, string>> {
   const base: Record<string, string> = sessionId ? { "x-session-id": sessionId } : {};
   const auth = await authHeaders();
-  const challenge = auth.Authorization === undefined ? turnstileHeaders() : {};
-  return { ...base, ...challenge, ...auth };
+  if (auth.Authorization !== undefined) return { ...base, ...auth };
+  return { ...base, ...(await challengeHeaders()) };
+}
+
+/**
+ * Wait for the widget rather than walking into a 403 (issue #447 review).
+ *
+ * The edge challenges every anonymous `/v1` turn on the allowlist — chat AND
+ * photo search (#445 added `/v1/photo-search` to it) — so a request fired
+ * before the widget has solved is rejected. Chat surfaces that as a retryable
+ * challenge; photo upload has no challenge UI of its own, which is exactly why
+ * the wait lives here, in the header path both surfaces share.
+ *
+ * When this build renders no widget there is nothing to wait for, so the
+ * request goes out immediately and any rejection surfaces normally. The wait
+ * itself is bounded (`TURNSTILE_WAIT_MS`) — it delays a turn, it never hangs
+ * one.
+ */
+async function challengeHeaders(): Promise<Record<string, string>> {
+  if (configuredTurnstileSiteKey() !== undefined) await awaitTurnstileToken();
+  return turnstileHeaders();
 }

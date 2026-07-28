@@ -7,7 +7,11 @@ import { handleGuardRequest } from "./edgeGuard.ts";
 import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
 
 const SECRET = "fixed-test-hmac-key-0000000000000000";
-const ANON_ENV = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET };
+const ANON_ENV = {
+  ANON_ACCESS_ENABLED: "true",
+  ANON_ID_SECRET: SECRET,
+  TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
+};
 const NOW = Date.UTC(2026, 6, 26, 12, 0, 0);
 
 const stubNext = { fetch: () => Promise.resolve(new Response("next", { status: 200 })) };
@@ -48,8 +52,17 @@ function anonEnv(captured: { requests: Request[] }, container: () => Response, g
   } as never;
 }
 
+/** These tests are about the anonymous branch itself, so the Turnstile gate
+ * (armed in #447) is stubbed to a pass. `turnstileArm.test.ts` owns the
+ * challenge behaviour. */
+const passingGate = { check: () => Promise.resolve({ ok: true, errorCodes: [] }) };
+
 function anonApp() {
-  return createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
+  return createWorkerApp({
+    nextHandler: stubNext,
+    authenticate: () => Promise.resolve({ ok: false, reason: "absent" }),
+    turnstileGate: passingGate,
+  });
 }
 
 function chat(headers: Record<string, string> = {}) {

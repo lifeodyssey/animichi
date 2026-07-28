@@ -21,9 +21,23 @@ interface StoredToken {
 
 let stored: StoredToken | undefined;
 
+type TokenListener = (token: string) => void;
+const listeners = new Set<TokenListener>();
+
+/** How long a caller waits for the widget to hand over a fresh token before
+ * giving up. Solving is usually instant; an interactive challenge is not. */
+export const TURNSTILE_WAIT_MS = 15_000;
+
+/** Subscribe to solved tokens; returns the unsubscribe. */
+export function onTurnstileToken(listener: TokenListener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 /** Record a freshly solved token; an empty token clears the store. */
 export function rememberTurnstileToken(token: string, now: number = Date.now()): void {
   stored = token === "" ? undefined : { token, expiresAt: now + TURNSTILE_TOKEN_TTL_MS };
+  if (stored !== undefined) for (const listener of [...listeners]) listener(token);
 }
 
 export function currentTurnstileToken(now: number = Date.now()): string | undefined {
@@ -31,8 +45,44 @@ export function currentTurnstileToken(now: number = Date.now()): string | undefi
   return stored.token;
 }
 
+/** Waiters parked in `awaitTurnstileToken`, each with its own timeout. */
+const waiting = new Set<() => void>();
+
+/**
+ * Drop the held token and abandon anyone still waiting for one. Cancelling the
+ * waiters matters as much as clearing the token: each holds a pending timer,
+ * and a caller parked on a widget that will never solve (the page navigated
+ * away, the challenge was abandoned) would otherwise linger for the full
+ * timeout.
+ */
 export function clearTurnstileToken(): void {
   stored = undefined;
+  for (const abandon of [...waiting]) abandon();
+}
+
+function releaseWaiter(abandon: () => void, timer: ReturnType<typeof setTimeout>, stop: () => void): void {
+  stop();
+  clearTimeout(timer);
+  waiting.delete(abandon);
+}
+
+function waitForToken(timeoutMs: number, resolve: (token: string | undefined) => void): void {
+  const settle = (token: string | undefined) => { releaseWaiter(abandon, timer, stop); resolve(token); };
+  const abandon = () => { settle(undefined); };
+  const timer = setTimeout(abandon, timeoutMs);
+  const stop = onTurnstileToken(settle);
+  waiting.add(abandon);
+}
+
+/**
+ * The token to send with the next anonymous turn: the held one, or the next
+ * the widget solves, or `undefined` once the wait elapses. Callers use this so
+ * a request is never sent tokenless into an armed edge (issue #447 review).
+ */
+export function awaitTurnstileToken(timeoutMs: number = TURNSTILE_WAIT_MS): Promise<string | undefined> {
+  const held = currentTurnstileToken();
+  if (held !== undefined) return Promise.resolve(held);
+  return new Promise<string | undefined>((resolve) => { waitForToken(timeoutMs, resolve); });
 }
 
 /** `{}` unless an unexpired token is held. Anonymous turns only — the caller

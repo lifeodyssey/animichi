@@ -118,9 +118,18 @@ void test("user A's burst never consumes user B's allowance", async () => {
 
 void test("an anonymous caller's allowance is unaffected by authenticated traffic", async () => {
   const guard = fakeGuard();
-  const e = env(guard, { AUTH_RATE_LIMIT: "1", ANON_RATE_LIMIT: "1", ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000" });
+  const e = env(guard, {
+    AUTH_RATE_LIMIT: "1", ANON_RATE_LIMIT: "1", ANON_ACCESS_ENABLED: "true",
+    ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000",
+    TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
+  });
   await authedApp("user-a").request("/v1/chat", req("/v1/chat"), e, stubCtx);
-  const anonApp = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const) });
+  // The scope under test is the rate limiter, not the #447 Turnstile gate.
+  const anonApp = createWorkerApp({
+    nextHandler: stubNext,
+    authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
+    turnstileGate: { check: () => Promise.resolve({ ok: true, errorCodes: [] }) },
+  });
   const res = await anonApp.request("/v1/chat", { method: "POST", headers: {} }, e, stubCtx);
   assert.equal(res.status, 200);
 });
