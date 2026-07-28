@@ -24,7 +24,7 @@
 - Start Iteration 1 (backend: route_optimizer + route_export)
 - Use git worktree for isolated development
 
-## Session 2026-07-26: S1.x sprint — 8 PRs merged
+## Session 2026-07-26: S1.x sprint — 9 PRs merged
 
 Full handoff: [`handoff-2026-07-26-s1x.md`](./handoff-2026-07-26-s1x.md) — carries the
 working method, the confirmed traps, and four decisions still waiting on the owner.
@@ -34,7 +34,7 @@ working method, the confirmed traps, and four decisions still waiting on the own
 - `#436` S1.9 Cloudflare Turnstile edge gate — **dormant**, not wired to any live path
 - `#439` S1.5 route card (TimedItinerary, map promotion, Walk CTA seam)
 - `#438` S1.8 anonymous access + edge rate limiting + daily budget breaker
-- `#440` S1.13 L0 smoke gate — classified actionable failures; closes `#434`
+- `#440` S1.13 L0 smoke gate — classified actionable failures; delivers `#434`'s fix (issue stays open: non-default-branch merges don't fire `Closes`)
 - `#442` `#303` CatalogClient connection reuse
 - `#430` C1 — tool lifecycle on pydantic-ai's official event stream
 - `#433`, `#431` earlier in the session
