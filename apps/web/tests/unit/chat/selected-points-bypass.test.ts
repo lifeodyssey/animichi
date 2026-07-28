@@ -85,9 +85,11 @@ describe("AC: no second supersession implementation exists under apps/web/src", 
     expect(defining).toEqual([join(src, "lib", "chat", "supersession.ts")]);
   });
 
-  it("keeps every superseded-class producer on the one shared helper", () => {
+  it("keeps the one composed superseded-class producer in DataPartCard", () => {
+    // The composed class string is the assembly site; bare references to the
+    // class name (styles, selectors) in future files must not trip this.
     const producers = sourceFiles(src).filter((path) =>
-      readFileSync(path, "utf8").includes("chat-card--superseded"),
+      readFileSync(path, "utf8").includes("chat-card chat-card--superseded"),
     );
     expect(producers).toEqual([join(src, "features", "chat", "components", "DataPartCard.tsx")]);
   });

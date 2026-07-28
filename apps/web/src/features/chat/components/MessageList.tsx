@@ -170,10 +170,10 @@ function visibleMessages(messages: readonly UIMessage[]): readonly UIMessage[] {
 export function MessageList({ messages, dict, status, settledDurationMs }: ListProps) {
   const visible = visibleMessages(messages);
   if (visible.length === 0) return null;
-  const last = messages.at(-1);
+  const lastId = messages.at(-1)?.id;
   const supersededKeys = supersededPartKeys(visible);
   const items = visible.map((message) => (
-    <MessageRow key={message.id} message={message} isLast={message === last} dict={dict} status={status} settledDurationMs={settledDurationMs} supersededKeys={supersededKeys} />
+    <MessageRow key={message.id} message={message} isLast={message.id === lastId} dict={dict} status={status} settledDurationMs={settledDurationMs} supersededKeys={supersededKeys} />
   ));
   return <ol className="chat-messages">{items}</ol>;
 }

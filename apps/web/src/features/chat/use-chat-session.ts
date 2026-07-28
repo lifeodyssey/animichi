@@ -2,7 +2,7 @@ import { Chat, useChat } from "@ai-sdk/react";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { ChatResponseDataPart } from "@seichijunrei/contract";
 import type { ChatDataPart } from "@seichijunrei/contract";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, generateId } from "ai";
 import type { UIMessage } from "ai";
 import { useCallback, useRef } from "react";
 import type { RefObject } from "react";
@@ -173,7 +173,7 @@ function useTrackerReaders(ref: SessionRef) {
  * user utterance — the server must not persist a user row for it (the
  * skip-empty-utterance guard in `persistence.py`, #273 Task 3). */
 function recomputeMarker(): ChatUIMessage {
-  return { id: `recompute-${crypto.randomUUID()}`, role: "user", parts: [] };
+  return { id: `recompute-${generateId()}`, role: "user", parts: [] };
 }
 
 type SendHelpers = Pick<UseChatHelpers<ChatUIMessage>, "sendMessage" | "setMessages">;

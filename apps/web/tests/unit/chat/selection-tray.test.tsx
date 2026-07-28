@@ -71,6 +71,17 @@ describe("AC null/empty: the tray follows the live selection", () => {
     expect(tray()).toBeNull();
   });
 
+  it("disables the action below two picks and asks for at least two (design syncRebar)", () => {
+    render(<Harness />);
+    tick("spot-0");
+    const action = screen.getByRole<HTMLButtonElement>("button", { name: "ルートを組み直す" });
+    expect(action.disabled).toBe(true);
+    expect(screen.getByText(chatDictFor("ja").search.trayMinimum)).toBeTruthy();
+    tick("spot-1");
+    expect(action.disabled).toBe(false);
+    expect(screen.getByText(chatDictFor("ja").search.trayChanged)).toBeTruthy();
+  });
+
   it("keeps the checkboxes controlled: ticking marks exactly that card checked", () => {
     render(<Harness />);
     tick("spot-1");

@@ -15,15 +15,20 @@ type TrayProps = Readonly<{
 
 type SummaryProps = Readonly<{ dict: ChatDict; count: number; failed: boolean }>;
 
-function traySub(dict: ChatDict, failed: boolean): string {
-  return failed ? dict.search.trayFailed : dict.search.trayChanged;
+/** Design `Chat 完整状态.html` syncRebar: below two picks the bar asks for
+ * more (「2件以上選んでください」) and the action disables. */
+const MIN_SELECTION = 2;
+
+function traySub(dict: ChatDict, count: number, failed: boolean): string {
+  if (failed) return dict.search.trayFailed;
+  return count < MIN_SELECTION ? dict.search.trayMinimum : dict.search.trayChanged;
 }
 
 function TraySummary({ dict, count, failed }: SummaryProps) {
   return (
     <span className="chat-selection-tray__summary">
-      <span className="chat-selection-tray__sub">{traySub(dict, failed)}</span>
-      <span className="chat-selection-tray__count">
+      <span className="chat-selection-tray__sub">{traySub(dict, count, failed)}</span>
+      <span className="chat-selection-tray__count" role="status">
         {dict.search.traySelected.replace("{count}", String(count))}
       </span>
     </span>
@@ -36,11 +41,11 @@ function trayHidden(props: TrayProps, selected: ReadonlySet<string>): boolean {
   return props.status !== "failed" && sameIds(selected, props.lastSentIds);
 }
 
-type ActionProps = Readonly<{ dict: ChatDict; failed: boolean; fire: () => void }>;
+type ActionProps = Readonly<{ dict: ChatDict; failed: boolean; disabled: boolean; fire: () => void }>;
 
-function TrayAction({ dict, failed, fire }: ActionProps) {
+function TrayAction({ dict, failed, disabled, fire }: ActionProps) {
   return (
-    <button type="button" className="chat-selection-tray__action" onClick={fire}>
+    <button type="button" className="chat-selection-tray__action" disabled={disabled} onClick={fire}>
       {failed ? dict.search.trayRetry : dict.search.trayAction}
     </button>
   );
@@ -55,9 +60,9 @@ export function SelectionTray(props: TrayProps) {
   const { selected } = useSpotSelection();
   if (trayHidden(props, selected)) return null;
   return (
-    <div className="chat-selection-tray" role="status">
+    <div className="chat-selection-tray">
       <TraySummary dict={props.dict} count={selected.size} failed={props.status === "failed"} />
-      <TrayAction dict={props.dict} failed={props.status === "failed"} fire={() => { props.onRecompute([...selected]); }} />
+      <TrayAction dict={props.dict} failed={props.status === "failed"} disabled={selected.size < MIN_SELECTION} fire={() => { props.onRecompute([...selected]); }} />
     </div>
   );
 }

@@ -8,7 +8,9 @@ import { setLanguages } from "../_i18n";
 import { server } from "../../msw/node";
 import {
   chatHttpErrorHandler,
+  chatRecomputeControlledHandler,
   chatRecomputeHandler,
+  chatStreamHeldOpenHandler,
   chatStreamPatchedHandler,
   searchResultsPatch,
 } from "../../msw/chat-handlers";
@@ -66,11 +68,18 @@ describe("AC: the tray action drives the selected_point_ids bypass", () => {
     await waitFor(() => {
       expect(document.querySelector('article[data-intent="plan_selected"]')).toBeTruthy();
     });
-    expect(bodies).toHaveLength(2);
+    // The spy decodes bodies asynchronously — wait, don't race (#461 review).
+    await waitFor(() => {
+      expect(bodies).toHaveLength(2);
+    });
     const [search, recompute] = bodies;
     expect(search?.selected_point_ids).toBeUndefined();
     expect(recompute?.selected_point_ids).toEqual(["p1", "p3"]);
     expect(userTurns(recompute)).toBe(userTurns(search));
+    // The wire shape Task 3's persistence skip keys on: a part-less user marker.
+    const marker = recompute?.messages?.at(-1);
+    expect(marker?.role).toBe("user");
+    expect(marker?.parts).toEqual([]);
   });
 
   it("renders the recompute as footprint + card, with no tool badges and the old card dimmed", async () => {
@@ -84,6 +93,39 @@ describe("AC: the tray action drives the selected_point_ids bypass", () => {
     expect(recomputeTurn?.className).toBe("chat-card");
     expect(recomputeTurn?.closest("li")?.querySelector(".chat-step")).toBeNull();
     expect(document.querySelector('article[data-intent="search_bangumi"]')?.className).toBe("chat-card");
+  });
+});
+
+describe("P1-3: no concurrent turns from the tray", () => {
+  it("hides the tray while any turn is streaming, so it cannot fire mid-stream", async () => {
+    const bodies: SentBody[] = [];
+    await searchThenTickTwo(bodies);
+    expect(document.querySelector(".chat-selection-tray")).toBeTruthy();
+    server.use(chatStreamHeldOpenHandler("search"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "図書館は外して" } });
+    fireEvent.click(screen.getByRole("button", { name: ja.send }));
+    await waitFor(() => {
+      expect(document.querySelector(".chat-selection-tray")).toBeNull();
+    });
+    expect(screen.queryByRole("button", { name: ja.search.trayAction })).toBeNull();
+  });
+});
+
+describe("P2-6: the recompute skeleton state actually appears", () => {
+  it("shows the plan_selected skeleton until the final envelope lands", async () => {
+    const bodies: SentBody[] = [];
+    await searchThenTickTwo(bodies);
+    const controlled = chatRecomputeControlledHandler();
+    server.use(controlled.handler);
+    recomputeNow();
+    await waitFor(() => {
+      expect(document.querySelector('.chat-card--skeleton[data-intent="plan_selected"]')).toBeTruthy();
+    });
+    controlled.releaseFinal();
+    await waitFor(() => {
+      expect(document.querySelector('article[data-intent="plan_selected"]')).toBeTruthy();
+    });
+    expect(document.querySelector('.chat-card--skeleton[data-intent="plan_selected"]')).toBeNull();
   });
 });
 

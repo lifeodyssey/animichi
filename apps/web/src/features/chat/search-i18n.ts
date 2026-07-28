@@ -6,6 +6,7 @@ export interface ChatSearchDict {
   readonly areaFallback: string;
   readonly mapLabel: string;
   readonly trayChanged: string;
+  readonly trayMinimum: string;
   readonly traySelected: string;
   readonly trayAction: string;
   readonly trayFailed: string;
@@ -19,6 +20,7 @@ export const jaSearch: ChatSearchDict = {
   areaFallback: "エリア{n}",
   mapLabel: "聖地マップ",
   trayChanged: "スポットの選択が変わりました",
+  trayMinimum: "2件以上選んでください",
   traySelected: "{count}件選択中",
   trayAction: "ルートを組み直す",
   trayFailed: "組み直せなかったみたい",
@@ -32,6 +34,7 @@ export const zhSearch: ChatSearchDict = {
   areaFallback: "区域{n}",
   mapLabel: "圣地地图",
   trayChanged: "圣地的选择有变化",
+  trayMinimum: "请至少选择 2 处",
   traySelected: "已选 {count} 处",
   trayAction: "重新规划路线",
   trayFailed: "这次没排好路线",
@@ -45,6 +48,7 @@ export const enSearch: ChatSearchDict = {
   areaFallback: "Area {n}",
   mapLabel: "Spot map",
   trayChanged: "Your spot selection changed",
+  trayMinimum: "Select at least 2 spots",
   traySelected: "{count} selected",
   trayAction: "Rebuild the route",
   trayFailed: "That rebuild didn't work",

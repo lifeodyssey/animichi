@@ -103,10 +103,25 @@ function isInputLocked(props: ShellProps): boolean {
   return props.entry === "A5" || busy || historyBlocked;
 }
 
-/** The E2 sticky recompute bar docks above the composer (design `.dock`). */
-function RecomputeTray({ dict, recompute }: Readonly<{ dict: ChatDict; recompute: RecomputeTurn }>) {
+/** P1-3: the tray must not fire while ANY turn is in flight — the AI SDK's
+ * `makeRequest` has no concurrency guard, so a mid-stream tap would clobber
+ * the active response. Chat busy always reads as `busy` here. */
+function trayStatus(chat: ChatSession, recompute: RecomputeTurn): RecomputeTurn["status"] {
+  const active = chat.status === "submitted" || chat.status === "streaming";
+  return active ? "busy" : recompute.status;
+}
+
+type TrayHostProps = Readonly<{ dict: ChatDict; chat: ChatSession; recompute: RecomputeTurn }>;
+
+/** The E2 recompute bar docks above the composer (design `.dock`); the live
+ * region keeps announcing after the bar unmounts on fire (a11y handoff). */
+function RecomputeTray({ dict, chat, recompute }: TrayHostProps) {
+  const status = trayStatus(chat, recompute);
   return (
-    <SelectionTray dict={dict} status={recompute.status} lastSentIds={recompute.lastSentIds} onRecompute={recompute.fire} />
+    <>
+      <span className="chat-live-note" aria-live="polite">{status === "busy" ? dict.preparing : ""}</span>
+      <SelectionTray dict={dict} status={status} lastSentIds={recompute.lastSentIds} onRecompute={recompute.fire} />
+    </>
   );
 }
 
@@ -124,7 +139,7 @@ function ChatShell(props: ShellProps) {
     <main className="chat-page">
       <ShellNotices {...props} />
       <ChatBody {...props} />
-      <RecomputeTray dict={props.dict} recompute={props.recompute} />
+      <RecomputeTray dict={props.dict} chat={props.chat} recompute={props.recompute} />
       <ChatInput dict={props.dict} disabled={isInputLocked(props)} onSend={props.onSend} />
     </main>
   );

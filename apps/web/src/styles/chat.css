@@ -740,8 +740,6 @@
    (`selected_point_ids` bypass — no agent, no agent theater). */
 
 .chat-selection-tray {
-  position: sticky;
-  bottom: 0;
   display: flex;
   align-items: center;
   gap: 0.625rem;
@@ -772,6 +770,7 @@
 }
 
 .chat-selection-tray__action {
+  min-height: 44px;
   border: 0;
   border-radius: 999px;
   padding: 0.5625rem 1rem;
@@ -790,4 +789,18 @@
 
 .chat-settled--recompute {
   margin: 0;
+}
+
+/* Persistent polite live region: keeps announcing the recompute after the
+   tray unmounts on fire (a11y focus handoff, #461 review). */
+.chat-live-note {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
 }

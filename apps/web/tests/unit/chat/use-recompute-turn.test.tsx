@@ -62,7 +62,9 @@ describe("useRecomputeTurn", () => {
     expect(result.current.status).toBe("idle");
   });
 
-  it("stays idle when the turn settles without ever having gone active", () => {
+  // Race guard: fire() flips to busy before the SDK reports "submitted"; a
+  // settle signal seen before the turn ever went active must be ignored.
+  it("ignores a settle that arrives before the turn ever went active", () => {
     const chat = chatStub("ready");
     const { result, rerender } = renderTurn(chat);
     act(() => {
