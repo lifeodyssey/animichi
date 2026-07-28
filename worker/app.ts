@@ -14,7 +14,12 @@ import {
   utcDayKey,
 } from "./costBreaker.ts";
 import type { GuardNamespace } from "./guardStore.ts";
-import { checkRateLimit, rateLimitConfigFrom } from "./rateLimiter.ts";
+import {
+  authenticatedRateLimitKey,
+  authRateLimitConfigFrom,
+  checkRateLimit,
+  rateLimitConfigFrom,
+} from "./rateLimiter.ts";
 
 export interface Env {
   CATALOG: { fetch: (req: Request) => Promise<Response> };
@@ -73,6 +78,48 @@ function forwardV1(env: Env, request: Request, auth?: { userId: string; userType
   }
   const forwarded = new Request(request, { headers });
   return env.CONTAINER.get(env.CONTAINER.idFromName("default")).fetch(forwarded);
+}
+
+// Per-identity rate limiting on the AUTHENTICATED path (issue #284 / Task 9).
+// Previously this branch called no limiter at all; BYOK makes that unbounded
+// (free self-serve accounts, an outbound call per turn). Scoped to
+// cost-bearing routes only — counting reads (conversations/messages/routes)
+// would let paging through history 429 an unrelated in-flight chat turn.
+// /v1/runtime + /v1/runtime/stream (agent/interfaces/routes/runtime.py) run
+// a full agent turn on the house key, same cost shape as chat — they belong
+// here too; retiring these legacy routes is tracked separately.
+const AUTH_RATE_LIMITED_EXACT = ["/v1/chat", "/v1/runtime", "/v1/runtime/stream"];
+const AUTH_RATE_LIMITED_PREFIX = "/v1/byok/";
+
+/** Strip one trailing slash so "/v1/chat/" counts as "/v1/chat" — a bare
+ * exact-match let a trailing slash skip the limiter outright (P2-5). */
+function normalizeV1Path(pathname: string): string {
+  return pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+}
+
+/** BYOK routes match by prefix, not an exact list — every route under
+ * /v1/byok/ is an outbound relay by construction (P2-5). */
+export function isAuthRateLimited(pathname: string): boolean {
+  const normalized = normalizeV1Path(pathname);
+  return AUTH_RATE_LIMITED_EXACT.includes(normalized) || normalized.startsWith(AUTH_RATE_LIMITED_PREFIX);
+}
+
+/**
+ * Forward an authenticated /v1 request, first spending one unit of that
+ * identity's per-identity limiter when the path is cost-bearing. The key is
+ * the worker-verified user id only (never a header the caller controls), and
+ * the check fails open on a guard outage, matching the anonymous path's
+ * contract.
+ */
+async function authenticatedForward(
+  env: Env, request: Request, auth: { userId: string; userType: string }, pathname: string,
+): Promise<Response> {
+  if (!isAuthRateLimited(pathname)) return forwardV1(env, request, auth);
+  const key = authenticatedRateLimitKey(auth.userId);
+  const config = authRateLimitConfigFrom(env);
+  const limit = await checkRateLimit(env.EDGE_GUARD, key, config);
+  if (limit !== null && !limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
+  return forwardV1(env, request, auth);
 }
 
 // ── Anonymous /v1 access (issue #274 / S1.8) ───────────────────────────────
@@ -222,7 +269,7 @@ export function createWorkerApp(deps: {
     if (isPublicV1(pathname)) return forwardV1(c.env, c.req.raw);
     const auth = await authenticate(c.req.raw, c.env, c.executionCtx);
     if (auth.ok) {
-      return forwardV1(c.env, c.req.raw, { userId: auth.userId, userType: auth.userType });
+      return authenticatedForward(c.env, c.req.raw, { userId: auth.userId, userType: auth.userType }, pathname);
     }
     // S1.9 Turnstile (issue #281) is MERGED but still DORMANT: the gate lives in
     // ./turnstile.ts and nothing below calls it. This branch — anonymous access
