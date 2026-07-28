@@ -159,9 +159,13 @@ async def persist_messages(
     if insert_message is None:
         return
 
-    await _safe_insert_message(
-        insert_message, session_id, "user", user_text, label="insert_user_message"
-    )
+    # #273 T1: a selected_point_ids recompute carries no new utterance (the
+    # client sends a part-less marker; ``_last_user_text`` derives ""). Never
+    # persist an empty user row — history would render it as an empty bubble.
+    if user_text != "":
+        await _safe_insert_message(
+            insert_message, session_id, "user", user_text, label="insert_user_message"
+        )
 
     if persist_user_only:
         return

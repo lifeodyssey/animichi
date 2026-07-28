@@ -1,4 +1,5 @@
 import type { ChatStatus, UIMessage } from "ai";
+import { isBypassTurn } from "../../../lib/chat/selectedPointsBypass";
 import { routeDocumentKey, supersededFlags } from "../../../lib/chat/supersession";
 import type { ChatDict } from "../i18n";
 import { formatElapsed } from "../telemetry";
@@ -73,6 +74,31 @@ function Pipeline({ parts, settled, elapsedLabel, dict }: PipelineProps) {
   return <SettledFootprint elapsedLabel={elapsedLabel} dict={dict}>{badges}</SettledFootprint>;
 }
 
+type RecomputeProps = Readonly<{ settled: boolean; elapsedLabel?: string; dict: ChatDict }>;
+
+/** E2 bypass footprint (issue #273 S1.7): 「✓ 再計算 1.2s」 — no pipeline. */
+function RecomputeFootprint({ settled, elapsedLabel, dict }: RecomputeProps) {
+  if (!settled) return null;
+  return (
+    <p className="chat-settled chat-settled--recompute">
+      ✓ {dict.search.recompute}
+      {elapsedLabel ? <span className="chat-settled__elapsed"> {elapsedLabel}</span> : null}
+    </p>
+  );
+}
+
+type RailProps = Readonly<{ message: UIMessage; settled: boolean; elapsedLabel?: string; dict: ChatDict }>;
+
+/** The turn's progress rail: tool badges for agent turns; a bypass turn
+ * SUPPRESSES its streamed `plan_selected` step part and renders the
+ * footprint instead (review P1-1 — the backend always emits that part). */
+function MessageRail({ message, settled, elapsedLabel, dict }: RailProps) {
+  if (isBypassTurn(message.parts)) {
+    return <RecomputeFootprint settled={settled} elapsedLabel={elapsedLabel} dict={dict} />;
+  }
+  return <Pipeline parts={message.parts.filter(isToolPart)} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />;
+}
+
 type BodyProps = Readonly<{
   parts: readonly Part[];
   messageId: string;
@@ -96,10 +122,9 @@ type ItemProps = Readonly<{
 }>;
 
 function MessageItem({ message, dict, settled, elapsedLabel, supersededKeys }: ItemProps) {
-  const tools = message.parts.filter(isToolPart);
   return (
     <li className={`chat-message chat-message--${message.role}`}>
-      <Pipeline parts={tools} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />
+      <MessageRail message={message} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />
       <MessageBody parts={nonToolParts(message)} messageId={message.id} dict={dict} supersededKeys={supersededKeys} />
     </li>
   );
@@ -137,12 +162,18 @@ type ListProps = Readonly<{
   settledDurationMs?: number;
 }>;
 
+/** Part-less messages are recompute turn boundaries, never rendered rows. */
+function visibleMessages(messages: readonly UIMessage[]): readonly UIMessage[] {
+  return messages.filter((message) => message.parts.length > 0);
+}
+
 export function MessageList({ messages, dict, status, settledDurationMs }: ListProps) {
-  if (messages.length === 0) return null;
-  const lastIndex = messages.length - 1;
-  const supersededKeys = supersededPartKeys(messages);
-  const items = messages.map((message, index) => (
-    <MessageRow key={message.id} message={message} isLast={index === lastIndex} dict={dict} status={status} settledDurationMs={settledDurationMs} supersededKeys={supersededKeys} />
+  const visible = visibleMessages(messages);
+  if (visible.length === 0) return null;
+  const lastId = messages.at(-1)?.id;
+  const supersededKeys = supersededPartKeys(visible);
+  const items = visible.map((message) => (
+    <MessageRow key={message.id} message={message} isLast={message.id === lastId} dict={dict} status={status} settledDurationMs={settledDurationMs} supersededKeys={supersededKeys} />
   ));
   return <ol className="chat-messages">{items}</ol>;
 }

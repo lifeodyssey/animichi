@@ -11,7 +11,54 @@ from agent.interfaces.persistence import (
     _safe_insert_message,
     build_response_session,
     extract_plan_steps,
+    persist_messages,
 )
+from agent.interfaces.schemas import PublicAPIResponse
+
+
+class _Db:
+    def __init__(self) -> None:
+        self.insert_message = AsyncMock()
+
+
+def _response() -> PublicAPIResponse:
+    return PublicAPIResponse(
+        success=True, status="ok", intent="plan_selected", message="route"
+    )
+
+
+async def test_persist_messages_skips_empty_user_utterance() -> None:
+    """#273 T1: a bypass recompute carries no new utterance (marker ->
+    ``text == ""``) and must not persist an empty user row that the
+    conversation history would render as an empty bubble."""
+    db = _Db()
+    await persist_messages(
+        db=db, session_id="s1", user_text="", result=None, response=_response()
+    )
+    roles = [call.args[1] for call in db.insert_message.await_args_list]
+    assert roles == ["assistant"]
+
+
+async def test_persist_messages_inserts_genuine_user_turn() -> None:
+    db = _Db()
+    await persist_messages(
+        db=db, session_id="s1", user_text="ユーフォ", result=None, response=_response()
+    )
+    roles = [call.args[1] for call in db.insert_message.await_args_list]
+    assert roles == ["user", "assistant"]
+
+
+async def test_persist_messages_empty_utterance_failure_persists_nothing() -> None:
+    db = _Db()
+    await persist_messages(
+        db=db,
+        session_id="s1",
+        user_text="",
+        result=None,
+        response=_response(),
+        persist_user_only=True,
+    )
+    assert db.insert_message.await_args_list == []
 
 
 async def test_safe_insert_message_succeeds() -> None:

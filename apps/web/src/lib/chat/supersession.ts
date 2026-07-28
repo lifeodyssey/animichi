@@ -21,7 +21,9 @@ const ROUTE_INTENTS: ReadonlySet<string> = new Set([
   "partial",
 ]);
 
-function intentOf(data: unknown): string | undefined {
+/** Intent discriminator of a streamed `data-response` payload (shared with
+ * the E2 bypass detection in `selectedPointsBypass.ts` — one implementation). */
+export function intentOf(data: unknown): string | undefined {
   if (typeof data !== "object" || data === null || !("intent" in data)) return undefined;
   const { intent } = data;
   return typeof intent === "string" ? intent : undefined;
