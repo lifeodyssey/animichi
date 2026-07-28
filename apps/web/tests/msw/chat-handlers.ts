@@ -37,6 +37,8 @@ export interface ChatStreamOptions {
   readonly spy?: (request: Request) => void;
   /** Corrupt the recorded final frame (type-invalid `success`) to probe schema guards. */
   readonly malformedFinal?: boolean;
+  /** Serve this handler for a single request only (msw one-time handler). */
+  readonly once?: boolean;
 }
 
 function patchSessionId(text: string, sessionId?: string): string {
@@ -164,9 +166,45 @@ export function chatStreamPatchedHandler(
     .split("\n")
     .map((line) => patchFinalFrameLine(line, patch))
     .join("\n");
+  return http.post(
+    CHAT_URL,
+    ({ request }) => {
+      options.spy?.(request);
+      return sseResponse(patched);
+    },
+    { once: options.once === true },
+  );
+}
+
+/** The E2 search-results envelope: derived from the real capture, like the
+ * D-state variants, until a search_bangumi results recording ships. */
+export function searchResultsPatch(envelope: Record<string, unknown>): Record<string, unknown> {
+  const rows = [
+    { id: "p1", name: "宇治橋", latitude: 34.891, longitude: 135.807 },
+    { id: "p2", name: "京阪宇治駅", latitude: 34.911, longitude: 135.806 },
+    { id: "p3", name: "宇治神社", latitude: 34.9, longitude: 135.81 },
+  ];
+  return { ...envelope, intent: "search_bangumi", data: { results: { rows } } };
+}
+
+function stripToolFrames(recording: string): string {
+  return recording
+    .split("\n")
+    .filter((line) => !line.startsWith('data: {"type":"tool-'))
+    .join("\n")
+    .replaceAll('"intent":"plan_route"', '"intent":"plan_selected"');
+}
+
+/**
+ * The `selected_point_ids` bypass stream (issue #273 S1.7 E2): the recorded
+ * search stream with every tool frame stripped and the route re-intended as
+ * `plan_selected` — the bypass never runs the agent, so no pipeline streams.
+ */
+export function chatRecomputeHandler(options: ChatStreamOptions = {}): HttpHandler {
+  const recorded = stripToolFrames(streamText("search", options));
   return http.post(CHAT_URL, ({ request }) => {
     options.spy?.(request);
-    return sseResponse(patched);
+    return sseResponse(recorded);
   });
 }
 

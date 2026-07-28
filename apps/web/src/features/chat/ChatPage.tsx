@@ -7,6 +7,7 @@ import type { ChatActions } from "./chat-actions";
 import { ChatInput } from "./components/ChatInput";
 import { ColdStart } from "./components/ColdStart";
 import { ErrorBanner } from "./components/ErrorBanner";
+import { SelectionTray } from "./components/SelectionTray";
 import { TurnFailure } from "./components/ErrorStates/TurnFailure";
 import type { TurnFailureView } from "./components/ErrorStates/TurnFailure";
 import { HistoryList } from "./components/HistoryList";
@@ -18,6 +19,9 @@ import type { ChatEntryState } from "./entry-state";
 import { chatDictFor } from "./i18n";
 import type { ChatDict } from "./i18n";
 import type { ChatSearch } from "./search";
+import { SpotSelectionProvider, useSpotSelectionState } from "./selection/useSpotSelection";
+import { useRecomputeTurn } from "./selection/useRecomputeTurn";
+import type { RecomputeTurn } from "./selection/useRecomputeTurn";
 import { useAutoSend } from "./use-auto-send";
 import { useBackendHealth } from "./use-backend-health";
 import type { BackendHealth } from "./use-backend-health";
@@ -39,6 +43,7 @@ type ShellProps = Readonly<{
   chat: ChatSession;
   history: ConversationHistory;
   failure: TurnFailureView | undefined;
+  recompute: RecomputeTurn;
   onRetry: () => void;
   onSend: (text: string) => void;
 }>;
@@ -98,12 +103,28 @@ function isInputLocked(props: ShellProps): boolean {
   return props.entry === "A5" || busy || historyBlocked;
 }
 
+/** The E2 sticky recompute bar docks above the composer (design `.dock`). */
+function RecomputeTray({ dict, recompute }: Readonly<{ dict: ChatDict; recompute: RecomputeTurn }>) {
+  return (
+    <SelectionTray dict={dict} status={recompute.status} lastSentIds={recompute.lastSentIds} onRecompute={recompute.fire} />
+  );
+}
+
+function ShellNotices(props: ShellProps) {
+  return (
+    <>
+      {props.entry === "A5" ? <ErrorBanner dict={props.dict} onRetry={props.onRetry} /> : null}
+      <HistoryErrorGate history={props.history} dict={props.dict} />
+    </>
+  );
+}
+
 function ChatShell(props: ShellProps) {
   return (
     <main className="chat-page">
-      {props.entry === "A5" ? <ErrorBanner dict={props.dict} onRetry={props.onRetry} /> : null}
-      <HistoryErrorGate history={props.history} dict={props.dict} />
+      <ShellNotices {...props} />
       <ChatBody {...props} />
+      <RecomputeTray dict={props.dict} recompute={props.recompute} />
       <ChatInput dict={props.dict} disabled={isInputLocked(props)} onSend={props.onSend} />
     </main>
   );
@@ -171,13 +192,36 @@ function useChatState(search: ChatSearch) {
   return { config, health, chat, history };
 }
 
-export function ChatPage({ search }: ChatPageProps) {
+/** A failed recompute retries inline on the tray, never as a full-page D-state. */
+function maskRecomputeFailure(recompute: RecomputeTurn, failure: TurnFailureView | undefined): TurnFailureView | undefined {
+  return recompute.status === "failed" ? undefined : failure;
+}
+
+function useChatPage(search: ChatSearch) {
   const { config, health, chat, history } = useChatState(search);
   const actions = useTurnActions(chat);
+  const recompute = useRecomputeTurn(chat);
+  const failure = maskRecomputeFailure(recompute, useTurnFailure(chat, config.baseUrl));
+  const selection = useSpotSelectionState();
   useAutoSendFromQuery(search, health, actions.send);
+  return { health, chat, history, actions, recompute, failure, selection };
+}
+
+type PageState = ReturnType<typeof useChatPage>;
+
+function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {
   return (
-    <ChatActionsProvider actions={actions}>
-      <ChatShell entry={entryStateOf(search, health)} dict={chatDictFor(useLocale())} chat={chat} history={history} failure={useTurnFailure(chat, config.baseUrl)} onRetry={health.retry} onSend={actions.send} />
-    </ChatActionsProvider>
+    <ChatShell entry={entryStateOf(search, page.health)} dict={chatDictFor(useLocale())} chat={page.chat} history={page.history} failure={page.failure} recompute={page.recompute} onRetry={page.health.retry} onSend={page.actions.send} />
+  );
+}
+
+export function ChatPage({ search }: ChatPageProps) {
+  const page = useChatPage(search);
+  return (
+    <SpotSelectionProvider selection={page.selection}>
+      <ChatActionsProvider actions={page.actions}>
+        <ChatPageView search={search} page={page} />
+      </ChatActionsProvider>
+    </SpotSelectionProvider>
   );
 }

@@ -1,4 +1,5 @@
 import { Chat, useChat } from "@ai-sdk/react";
+import type { UseChatHelpers } from "@ai-sdk/react";
 import { ChatResponseDataPart } from "@seichijunrei/contract";
 import type { ChatDataPart } from "@seichijunrei/contract";
 import { DefaultChatTransport } from "ai";
@@ -6,6 +7,7 @@ import type { UIMessage } from "ai";
 import { useCallback, useRef } from "react";
 import type { RefObject } from "react";
 import { authHeaders } from "../../lib/auth/authSession";
+import type { SelectedPointsBody } from "../../lib/chat/selectedPointsBypass";
 import { turnstileHeaders } from "../../lib/turnstile/tokenStore";
 
 /**
@@ -157,14 +159,47 @@ function useScopedChat(chatUrl: string, scope: string, ref: SessionRef): Chat<Ch
  * backend-assigned `session_id` from `data-response` frames is fed back into
  * follow-up requests through the transport's dynamic `headers` function.
  */
+function useTrackerReaders(ref: SessionRef) {
+  const sessionIdOf = useCallback(() => ref.current.id, [ref]);
+  const lastHttpStatus = useCallback(() => ref.current.lastHttpStatus, [ref]);
+  const lastErrorCode = useCallback(() => ref.current.lastErrorCode, [ref]);
+  return { sessionIdOf, lastHttpStatus, lastErrorCode };
+}
+
+/** A part-less turn boundary. Without it ai@6.0.225 continues the previous
+ * assistant message (`createStreamingUIMessageState` reuses an assistant
+ * `lastMessage`) and the same-ID `response` part would overwrite the prior
+ * card instead of appending the E1 living-document version. It carries no
+ * user utterance — the server must not persist a user row for it (the
+ * skip-empty-utterance guard in `persistence.py`, #273 Task 3). */
+function recomputeMarker(): ChatUIMessage {
+  return { id: `recompute-${crypto.randomUUID()}`, role: "user", parts: [] };
+}
+
+type SendHelpers = Pick<UseChatHelpers<ChatUIMessage>, "sendMessage" | "setMessages">;
+
+/**
+ * E2 bypass send (issue #273 S1.7): re-submit the conversation with only a
+ * `selected_point_ids` body — no new user utterance. ai@6.0.225's
+ * `DefaultChatTransport` merges the per-call body (`{...resolvedBody,
+ * ...options.body}`), so the field reaches `_optional_ids` unchanged.
+ */
+function useSendSelectedPoints({ sendMessage, setMessages }: SendHelpers) {
+  return useCallback(
+    (body: SelectedPointsBody) => {
+      setMessages((current) => [...current, recomputeMarker()]);
+      void sendMessage(undefined, { body: { ...body } });
+    },
+    [sendMessage, setMessages],
+  );
+}
+
 export function useChatSession(chatUrl: string, sessionId?: string) {
   const scope = scopeOf(sessionId);
   const ref = useSessionTracker(sessionId, scope);
   const chat = useScopedChat(chatUrl, scope, ref);
-  const sessionIdOf = useCallback(() => ref.current.id, [ref]);
-  const lastHttpStatus = useCallback(() => ref.current.lastHttpStatus, [ref]);
-  const lastErrorCode = useCallback(() => ref.current.lastErrorCode, [ref]);
-  return { ...useChat<ChatUIMessage>({ chat }), sessionIdOf, lastHttpStatus, lastErrorCode };
+  const helpers = useChat<ChatUIMessage>({ chat });
+  return { ...helpers, sendSelectedPoints: useSendSelectedPoints(helpers), ...useTrackerReaders(ref) };
 }
 
 export type ChatSession = ReturnType<typeof useChatSession>;

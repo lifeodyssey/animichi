@@ -122,6 +122,15 @@ describe("AC error path: a failed recompute retries on the tray and keeps the se
   });
 });
 
+describe("outside a selection scope the checkboxes are inert", () => {
+  it("renders unchecked, unswitchable picks without a provider", () => {
+    render(<SearchResult spots={toSearchSpots(spotRows(2))} dict={chatDictFor("ja")} attach={attachReady} />);
+    tick("spot-0");
+    const boxes = screen.getAllByRole<HTMLInputElement>("checkbox");
+    expect(boxes.every((box) => !box.checked)).toBe(true);
+  });
+});
+
 describe("tray visibility vs. the recompute lifecycle", () => {
   it("hides while the recompute is in flight", () => {
     render(<Harness status="busy" />);

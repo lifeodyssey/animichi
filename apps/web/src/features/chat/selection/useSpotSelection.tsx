@@ -5,14 +5,12 @@ import type { ReactNode } from "react";
 export interface SpotSelection {
   readonly selected: ReadonlySet<string>;
   readonly toggle: (id: string) => void;
-  readonly clear: () => void;
 }
 
 /** Outside a selection scope (history rows, bare card tests) checkboxes are inert. */
 const DISABLED_SELECTION: SpotSelection = {
   selected: new Set<string>(),
   toggle: () => undefined,
-  clear: () => undefined,
 };
 
 const SpotSelectionContext = createContext<SpotSelection>(DISABLED_SELECTION);
@@ -29,10 +27,7 @@ export function useSpotSelectionState(): SpotSelection {
   const toggle = useCallback((id: string) => {
     setSelected((previous) => toggled(previous, id));
   }, []);
-  const clear = useCallback(() => {
-    setSelected(new Set());
-  }, []);
-  return useMemo(() => ({ selected, toggle, clear }), [selected, toggle, clear]);
+  return useMemo(() => ({ selected, toggle }), [selected, toggle]);
 }
 
 type ProviderProps = Readonly<{ selection: SpotSelection; children: ReactNode }>;
