@@ -19,7 +19,7 @@ from agent.infrastructure.egress_errors import EgressBlocked, EgressBlockReason
 from agent.infrastructure.egress_guard import (
     Resolver,
     ValidatedEndpoint,
-    _default_resolve,
+    default_resolve,
     validate_base_url,
 )
 
@@ -83,7 +83,7 @@ class GuardedAsyncTransport(httpx.AsyncBaseTransport):
     def __init__(
         self,
         *,
-        resolver: Resolver = _default_resolve,
+        resolver: Resolver = default_resolve,
         inner: httpx.AsyncBaseTransport | None = None,
         verify: ssl.SSLContext | str | bool = True,
     ) -> None:
@@ -103,7 +103,7 @@ class GuardedAsyncTransport(httpx.AsyncBaseTransport):
 
 def build_guarded_async_client(
     *,
-    resolver: Resolver = _default_resolve,
+    resolver: Resolver = default_resolve,
     timeout: httpx.Timeout | float | None = None,
     verify: ssl.SSLContext | str | bool = True,
 ) -> httpx.AsyncClient:

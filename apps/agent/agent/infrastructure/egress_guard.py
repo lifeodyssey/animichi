@@ -125,7 +125,7 @@ def _blocking_getaddrinfo(host: str, port: int) -> list[str]:
     return [str(info[4][0]) for info in infos]
 
 
-async def _default_resolve(host: str, port: int) -> list[str]:
+async def default_resolve(host: str, port: int) -> list[str]:
     """Resolve `host` once, off the event loop, with a short timeout.
 
     `abandon_on_cancel=True` is load-bearing: `getaddrinfo` is a blocking libc
@@ -238,7 +238,7 @@ async def _resolve_and_classify(
 async def validate_base_url(
     url: str | None,
     *,
-    resolver: Resolver = _default_resolve,
+    resolver: Resolver = default_resolve,
 ) -> ValidatedEndpoint:
     """Pre-flight SSRF validation. Raises `EgressBlocked` before any socket opens."""
     if url is None or not url.strip():

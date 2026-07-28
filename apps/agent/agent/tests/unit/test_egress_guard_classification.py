@@ -1,19 +1,18 @@
 """Unit tests for the SSRF egress guard's classification and shape rules (#284 T1).
 
-Transport-level rewrite/proxy tests live in `test_egress_transport_unit.py` to
-keep each file under the 200-line test-file cap.
+Transport-level rewrite/proxy tests live in `test_egress_transport_unit.py`,
+and `default_resolve`'s DNS-behaviour tests live in
+`test_egress_dns_resolution.py` — split out to keep each file under the
+200-line test-file cap.
 """
 
 from __future__ import annotations
 
 import ipaddress
-import socket
-import time
 from collections.abc import Awaitable, Callable
 
 import pytest
 
-from agent.infrastructure import egress_guard
 from agent.infrastructure.egress_guard import (
     ALLOWED_PORTS,
     EgressBlocked,
@@ -152,37 +151,6 @@ def test_cgnat_address_is_not_global_on_this_interpreter() -> None:
     range would silently lose the P1-1 protection while every other test stays
     green. Fail loudly here instead."""
     assert ipaddress.ip_address("100.64.0.1").is_global is False
-
-
-# ── P1-A: DNS resolution timeout must actually bound wall-clock time ───────
-
-
-async def test_default_resolve_dns_timeout_is_bounded(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """`abandon_on_cancel=True` is what makes this pass: without it,
-    `anyio.fail_after` cannot interrupt a thread blocked in `getaddrinfo`
-    (no cancellation hook in a blocking libc call), so the timeout would be
-    cosmetic and this test would hang for the full blocking duration."""
-    monkeypatch.setattr(egress_guard, "RESOLUTION_TIMEOUT_SECONDS", 0.15)
-
-    def _blocking_getaddrinfo(
-        *_args: object, **_kwargs: object
-    ) -> list[tuple[object, ...]]:
-        time.sleep(2.0)
-        return []
-
-    monkeypatch.setattr(socket, "getaddrinfo", _blocking_getaddrinfo)
-
-    start = time.monotonic()
-    with pytest.raises(EgressBlocked) as exc_info:
-        await egress_guard._default_resolve("blackhole.example", 443)
-    elapsed = time.monotonic() - start
-
-    assert elapsed < 1.0, (
-        "resolution must be bounded by the timeout, not the blocking call"
-    )
-    assert exc_info.value.reason is EgressBlockReason.RESOLUTION_TIMEOUT
 
 
 # ── P2-B: error messages are fixed constants, never interpolated data ──────
