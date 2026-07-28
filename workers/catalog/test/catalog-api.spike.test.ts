@@ -113,8 +113,10 @@ beforeAll(async () => {
 }, 120_000);
 
 afterEach(() => {
-  // Undo any per-test `global.fetch` stub so non-ingest tests stay offline-safe.
+  // `restoreAllMocks` does NOT undo `stubGlobal` — without `unstubAllGlobals` a
+  // fetch stub leaks into every later test in the file. Both are needed.
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 afterAll(() => {
@@ -138,9 +140,17 @@ async function assertSearchHit(): Promise<void> {
   expect(typeof out.synced_at).toBe("string");
 }
 
+/** An alias miss now calls Bangumi search (tiered ingest). Stub it to an empty
+ * result so this asserts "unknown title -> no rows" instead of live upstream health. */
 async function assertSearchMiss(): Promise<void> {
+  stubFetch(unresolvableResponse);
   const out = await call<{ rows: ApiPoint[] }>("search", { query: "no-such-anime" });
   expect(out.rows).toHaveLength(0);
+}
+
+function unresolvableResponse(url: string): Response {
+  if (url.includes("/v0/search/subjects")) return jsonResponse({ data: [] });
+  throw new Error(`unexpected upstream url: ${url}`);
 }
 
 async function assertSpotsHit(): Promise<void> {
@@ -235,19 +245,30 @@ databaseDescribe("Catalog API end-to-end (Hono app + OpenAPIHandler + Drizzle/Po
 const NEW_WORK_ID = "10380"; // Bangumi subject id (K-On!)
 const NEW_TITLE = "けいおん！";
 
-/** Stub upstream JSON for the NEW work: a Bangumi subject + two Anitabi points. */
-function stubUpstream(): void {
-  // The neon serverless driver rides global fetch too (Phase B: the DB channel
-  // is HTTP) — pass its /sql traffic through to the real fetch, init included.
+/**
+ * Route every upstream call to a canned response. The neon serverless driver
+ * rides global fetch too (Phase B: the DB channel is HTTP), so its `/sql`
+ * traffic passes through to the real fetch, init included.
+ */
+function stubFetch(route: (url: string) => Response): void {
   const realFetch = globalThis.fetch;
   const stub = vi.fn((input: string | URL | Request, init?: RequestInit) => {
     const url = input instanceof Request ? input.url : input.toString();
     if (url.includes("/sql")) return realFetch(input, init);
-    if (url.includes("/v0/subjects/")) return Promise.resolve(jsonResponse({ name: NEW_TITLE, name_cn: "轻音少女" }));
-    if (url.includes("/points/detail")) return Promise.resolve(jsonResponse(ANITABI_POINTS));
-    throw new Error(`unexpected upstream url: ${url}`);
+    return Promise.resolve(route(url));
   });
   vi.stubGlobal("fetch", stub);
+}
+
+/** Stub upstream JSON for the NEW work: a Bangumi subject + two Anitabi points. */
+function stubUpstream(): void {
+  stubFetch(newWorkResponse);
+}
+
+function newWorkResponse(url: string): Response {
+  if (url.includes("/v0/subjects/")) return jsonResponse({ name: NEW_TITLE, name_cn: "轻音少女" });
+  if (url.includes("/points/detail")) return jsonResponse(ANITABI_POINTS);
+  throw new Error(`unexpected upstream url: ${url}`);
 }
 
 // A second uncovered work, reached via the search MISS path (Bangumi search ->
@@ -264,14 +285,10 @@ const MISS_TITLE = "響け！ユーフォニアム";
  */
 function stubSearchMiss(): { urls: string[] } {
   const urls: string[] = [];
-  const realFetch = globalThis.fetch;
-  const stub = vi.fn((input: string | URL | Request, init?: RequestInit) => {
-    const url = input instanceof Request ? input.url : input.toString();
-    if (url.includes("/sql")) return realFetch(input, init);
+  stubFetch((url) => {
     urls.push(url);
-    return Promise.resolve(searchMissResponse(url));
+    return searchMissResponse(url);
   });
-  vi.stubGlobal("fetch", stub);
   return { urls };
 }
 
