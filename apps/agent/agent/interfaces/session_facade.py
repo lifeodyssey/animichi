@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from agent.agents.agent_result import AgentResult
 from agent.agents.base import create_agent, get_default_model
 from agent.agents.session_state import SessionState
+from agent.domain.fact_ledger import record_turn_facts
 from agent.domain.ports import get_session_repo
 from agent.infrastructure.session import SessionStore
 from agent.interfaces.schemas import PublicAPIRequest
@@ -169,7 +170,12 @@ def _serialize_runtime_state(state: SessionState) -> dict[str, object]:
 
 
 def extract_context_delta(result: AgentResult) -> dict[str, object]:
-    """Persist the complete typed state, including explicit empty clears."""
+    """Persist the complete typed state, including explicit empty clears.
+
+    Runs the deterministic post-turn fact-ledger recorder (OQ-4) exactly once,
+    over this turn's `result.steps`, before serialization.
+    """
+    record_turn_facts(result.session_state.fact_ledger, result.steps)
     return {"session_state_v2": _serialize_runtime_state(result.session_state)}
 
 

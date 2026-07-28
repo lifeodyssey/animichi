@@ -43,6 +43,7 @@ from agent.agents.runtime_models import (
 from agent.agents.session_state import SessionState
 from agent.agents.tool_outcomes import ResolveAmbiguous, ResolveNotFound
 from agent.agents.web_tools import TOOLS as WEB_TOOLS
+from agent.domain.fact_ledger import FactLedger
 from agent.infrastructure.observability import (
     record_agent_run_error,
     record_managed_prompt_resolution,
@@ -457,7 +458,19 @@ def trusted_session_context(deps: RuntimeDeps) -> str:
             f"Pending {pending.reason} revision {pending.revision}; "
             f"candidate_ids={pending.candidate_ids}."
         )
+    parts.extend(_fact_ledger_context(session.fact_ledger))
     return "[Trusted runtime context]\n" + "\n".join(parts)
+
+
+def _fact_ledger_context(ledger: FactLedger) -> list[str]:
+    """Named consumption point for both fact-ledger fields (OQ-3(c) gate)."""
+    parts: list[str] = []
+    constraint = ledger.active_hard_constraint()
+    if constraint is not None:
+        parts.append(f"User hard constraint: {constraint.value} pacing.")
+    for ref in ledger.active_scene_references():
+        parts.append(f"Referenced scene: {ref.value}.")
+    return parts
 
 
 _REPEAT_GUARD_HINT = (
