@@ -664,7 +664,26 @@
 .chat-cta-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
+}
+
+/* P5 save CTA (issue #273 S1.7) carries NO tone override on purpose. The design
+   sync assigns the card-foot CTAs as 「金=しおり共有(唯一) · cream=Maps/保存/
+   歩くモード」 with the standing rule 「永不同屏两金」, so 保存する inherits the base
+   .chat-chip cream press style and the gold tokens stay reserved for the single
+   share CTA per screen. A tone rule here would be that second gold. */
+
+.chat-cta-row__saved {
+  color: var(--color-primary-strong);
+  font-weight: 700;
+}
+
+.chat-cta-row__error {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-error-strong);
 }
 
 /* --- S1.5 promoted route map --- */

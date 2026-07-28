@@ -9,14 +9,14 @@ describe("useAuthCallback", () => {
   it("starts pending, then resolves to done once a token is established", async () => {
     const establish = vi.fn().mockResolvedValue("jwt-1");
     const view = renderHook(() => useAuthCallback(establish));
-    expect(view.result.current).toBe("pending");
-    await waitFor(() => { expect(view.result.current).toBe("done"); });
+    expect(view.result.current.state).toBe("pending");
+    await waitFor(() => { expect(view.result.current.state).toBe("done"); });
   });
 
   it("resolves to error when no token could be established", async () => {
     const establish = vi.fn().mockResolvedValue(undefined);
     const view = renderHook(() => useAuthCallback(establish));
-    await waitFor(() => { expect(view.result.current).toBe("error"); });
+    await waitFor(() => { expect(view.result.current.state).toBe("error"); });
   });
 
   it("ignores a late resolution after unmount", async () => {
@@ -26,6 +26,6 @@ describe("useAuthCallback", () => {
     view.unmount();
     resolve("jwt-late");
     await new Promise((r) => setTimeout(r, 10));
-    expect(view.result.current).toBe("pending");
+    expect(view.result.current.state).toBe("pending");
   });
 });

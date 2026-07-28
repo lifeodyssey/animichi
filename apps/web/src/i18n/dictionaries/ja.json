@@ -55,6 +55,9 @@
     "magic_link_hint": "パスワード不要 — 安全なログインリンクをメールでお送りします。",
     "close": "閉じる",
     "callback_pending": "ログインしています…",
-    "callback_error": "リンクの有効期限が切れたか、既に使用されています。もう一度お試しください。"
+    "callback_error": "リンクの有効期限が切れたか、既に使用されています。もう一度お試しください。",
+    "callback_save_failed": "ログインはできたけど、ルートの保存に失敗しちゃった…",
+    "callback_save_retry": "もう一度保存する",
+    "callback_save_skip": "あとでチャット画面から保存し直せるよ"
   }
 }
