@@ -6,6 +6,18 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { makeNeonSql, type CatalogDb, type NeonSql } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 import {
+  aliasInsert,
+  aliasSeed,
+  ambiguousOutcome,
+  candidateOf,
+  pointInsert,
+  pointSeed,
+  resolvedOutcome,
+  workInsert,
+  workSeed,
+  type SeedStatement,
+} from "./fixtures/catalog-seed";
+import {
   databaseDescribe,
   localDatabaseUrl,
   openDirectPool,
@@ -14,31 +26,49 @@ import {
   truncateCatalogPool,
 } from "./spike-db";
 
-/** Resolver SQL proof against the ephemeral branch's direct cloud endpoint. */
+/**
+ * Resolver SQL proof against the ephemeral branch's direct cloud endpoint.
+ *
+ * GUARD: the context must carry a REAL `NeonSql` built from the spike DSN.
+ * Resolve's raw-SQL path (the July geocoding wave) is part of its contract, so
+ * stubbing `neonSql` to something like `() => Promise.resolve([])` does not
+ * fail loudly — it silently turns every resolve into a miss and an on-demand
+ * ingest. Do not stub it.
+ *
+ * Seeds and expectations are built by `./fixtures/catalog-seed`, so a work id
+ * that `pointsByWorkId` would reject with a 400 cannot be written here (#363).
+ */
 const handler = new OpenAPIHandler(catalogRouter);
+
+const ALPHA = workSeed("1001", "Alpha");
+const BETA = workSeed("1002", "Beta");
+const ZERO = workSeed("1003", "Zero Point");
+
+const POINTS = [
+  pointSeed("a-1", ALPHA, "Alpha Point", 35, 135),
+  pointSeed("b-1", BETA, "Beta Point 1", 36, 136),
+  pointSeed("b-2", BETA, "Beta Point 2", 37, 137),
+];
+
+const ALIASES = [
+  aliasSeed(ALPHA, "Shared", "shared", "bangumi", 40),
+  aliasSeed(ALPHA, "Shared", "shared", "manual", 40),
+  aliasSeed(BETA, "Shared", "shared", "bangumi", 40),
+  aliasSeed(ZERO, "Zero", "zero", "bangumi", 40),
+];
 
 let pool: pg.Pool;
 let db: CatalogDb;
 let neonSql: NeonSql;
 
-async function seedWorks(): Promise<void> {
-  await pool.query(`INSERT INTO bangumi (id, title) VALUES
-    ('1001', 'Alpha'), ('1002', 'Beta'), ('1003', 'Zero Point')`);
+async function run(statement: SeedStatement): Promise<void> {
+  await pool.query(statement.text, statement.values);
 }
 
-async function seedPoints(): Promise<void> {
-  await pool.query(`INSERT INTO points (id, bangumi_id, name, latitude, longitude) VALUES
-    ('a-1', '1001', 'Alpha Point', 35, 135),
-    ('b-1', '1002', 'Beta Point 1', 36, 136),
-    ('b-2', '1002', 'Beta Point 2', 37, 137)`);
-}
-
-async function seedAliases(): Promise<void> {
-  await pool.query(`INSERT INTO aliases (work_id, alias, alias_normalized, source, priority) VALUES
-    ('1001', 'Shared', 'shared', 'bangumi', 40),
-    ('1001', 'Shared', 'shared', 'manual', 40),
-    ('1002', 'Shared', 'shared', 'bangumi', 40),
-    ('1003', 'Zero', 'zero', 'bangumi', 40)`);
+async function seed(): Promise<void> {
+  await run(workInsert([ALPHA, BETA, ZERO]));
+  await run(pointInsert(POINTS));
+  await run(aliasInsert(ALIASES));
 }
 
 function context(): CatalogContext {
@@ -79,9 +109,7 @@ beforeAll(async () => {
   pool = await openDirectPool();
   db = drizzle(pool) as unknown as CatalogDb;
   await truncateCatalogPool(pool);
-  await seedWorks();
-  await seedPoints();
-  await seedAliases();
+  await seed();
 }, 120_000);
 
 afterAll(async () => {
@@ -91,24 +119,16 @@ afterAll(async () => {
 
 databaseDescribe("Phase 1a resolver SQL against Postgres", () => {
   it("deduplicates work ids and orders tied candidates by derived point count", async () => {
-    await expect(call("resolve", { query: "Shared" })).resolves.toEqual({
-      outcome: "needs_disambiguation", reason: "anime_ambiguity",
-      candidates: [
-        { bangumi_id: "1002", title: "Beta", points_count: 2 },
-        { bangumi_id: "1001", title: "Alpha", points_count: 1 },
-      ],
-    });
+    await expect(call("resolve", { query: "Shared" }))
+      .resolves.toEqual(ambiguousOutcome([candidateOf(BETA, 2), candidateOf(ALPHA, 1)]));
   });
 
   it("resolves a work with zero points instead of returning not_found", async () => {
-    await expect(call("resolve", { query: "Zero" })).resolves.toEqual({
-      outcome: "resolved",
-      match: { bangumi_id: "1003", title: "Zero Point", points_count: 0 },
-    });
+    await expect(call("resolve", { query: "Zero" })).resolves.toEqual(resolvedOutcome(ZERO, 0));
   });
 
   it("returns published rows through pointsByWorkId", async () => {
-    const result = await call("points-by-work-id", { work_id: "1002" });
-    expect(pointKeys(result)).toEqual(["1002:b-1", "1002:b-2"]);
+    const result = await call("points-by-work-id", { work_id: BETA.workId });
+    expect(pointKeys(result)).toEqual([`${BETA.workId}:b-1`, `${BETA.workId}:b-2`]);
   });
 });

@@ -30,7 +30,8 @@ const toPoint = (r: NearbyRow): NearbyPoint => ({
   distanceM: r.distance_m,
 });
 
-const MAX_RADIUS_M = 50_000;
+/** Hard ceiling on the searched radius; larger requests are clamped, not rejected. */
+export const MAX_RADIUS_M = 50_000;
 const MAX_RESULTS = 200;
 
 /** Points within `radiusM` meters of (lat,lng), nearest first, with `distanceM`. */

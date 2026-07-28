@@ -19,6 +19,7 @@ from agent.infrastructure.session import SessionStore, create_session_store
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import PublicAPIResponse, RuntimeAPI
 from agent.interfaces.schemas import GRACEFUL_TERMINAL_STATUSES
+from agent.interfaces.usage_metering import ANONYMOUS_USER_TYPE
 
 if TYPE_CHECKING:
     import logfire
@@ -92,13 +93,35 @@ def _normalize_optional_header(value: str | None) -> str | None:
     return text or None
 
 
+def _reject_credentialed_anonymous(
+    user_type: str | None, credential: str | None
+) -> None:
+    """Refuse an anonymous stamp that arrived with a credential (issue #441).
+
+    The edge strips ``Authorization`` before stamping an identity, so the pair
+    can only co-occur when a presented credential failed to verify and the
+    request was demoted anyway, or when the container was reached directly.
+    Serving it anonymously would meter and rate-limit the turn under the wrong
+    identity and hide the expiry from a client built to refresh on 401.
+    """
+    if user_type != ANONYMOUS_USER_TYPE or credential is None:
+        return
+    # #441 surfaced only through anomalous anonymous spend; its inverse must not
+    # be equally invisible. The credential itself is never recorded.
+    _logger.warning("anonymous_credential_rejected")
+    raise HTTPException(status_code=401, detail="Valid credentials required.")
+
+
 def _get_trusted_auth_context(
     x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
     x_user_type: Annotated[str | None, Header(alias="X-User-Type")] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> TrustedAuthContext:
+    user_type = _normalize_optional_header(x_user_type)
+    _reject_credentialed_anonymous(user_type, _normalize_optional_header(authorization))
     return TrustedAuthContext(
         user_id=_normalize_optional_header(x_user_id),
-        user_type=_normalize_optional_header(x_user_type),
+        user_type=user_type,
     )
 
 
