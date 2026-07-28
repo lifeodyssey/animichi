@@ -3,7 +3,7 @@
 // `authenticate` reports, and the branch `createWorkerApp` takes on it.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { exportJWK, generateKeyPair, SignJWT } from "jose";
+import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
 import { authenticate, type AuthResult } from "./auth.ts";
 import { createWorkerApp } from "./app.ts";
 import { handleGuardRequest } from "./edgeGuard.ts";
@@ -19,8 +19,13 @@ const stubCtx = {
   passThroughOnException() { return undefined; },
 } as unknown as ExecutionContext;
 
+function requestedUrl(input: RequestInfo | URL): string {
+  if (input instanceof Request) return input.url;
+  return input instanceof URL ? input.href : input;
+}
+
 function stubFetch(handler: (url: string) => Response): typeof fetch {
-  return (async (input: RequestInfo | URL) => handler(String(input))) as unknown as typeof fetch;
+  return (input: RequestInfo | URL) => Promise.resolve(handler(requestedUrl(input)));
 }
 
 function bearer(token: string): Request {
@@ -36,7 +41,7 @@ async function esFixture(host: string, exp: string | number = "1h") {
   return { jwk, token };
 }
 
-function jwks(jwk: JsonWebKey): Response {
+function jwks(jwk: JWK): Response {
   return new Response(JSON.stringify({ keys: [jwk] }), { status: 200 });
 }
 
@@ -74,9 +79,11 @@ void test("a malformed bearer token reports reason invalid", async () => {
   assert.deepEqual(result, { ok: false, reason: "invalid" });
 });
 
-void test("an empty bearer token reports reason invalid", async () => {
+void test("a bearer scheme with no token reports reason absent", async () => {
+  // Header values are trimmed before we see them, so `Bearer` + whitespace is
+  // the same string as a bare scheme: nothing was actually presented.
   const result = await authenticate(bearer("   "), ENV, stubFetch(() => new Response("", { status: 500 })));
-  assert.deepEqual(result, { ok: false, reason: "invalid" });
+  assert.deepEqual(result, { ok: false, reason: "absent" });
 });
 
 void test("an unknown sk_ api key reports reason invalid", async () => {
@@ -89,7 +96,13 @@ void test("an unknown sk_ api key reports reason invalid", async () => {
 
 function fakeGuard() {
   const shards = new Map<string, GuardStore>();
-  const storeFor = (name: string) => shards.get(name) ?? shards.set(name, memoryGuardStore()).get(name)!;
+  const storeFor = (name: string) => {
+    const existing = shards.get(name);
+    if (existing) return existing;
+    const created = memoryGuardStore();
+    shards.set(name, created);
+    return created;
+  };
   return {
     idFromName: (name: string) => name as unknown as DurableObjectId,
     get: (id: DurableObjectId) => ({

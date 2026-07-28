@@ -216,7 +216,11 @@ export function createWorkerApp(deps: {
     //   if (denied !== null) return denied;
     // (`turnstileGate` = module-level createTurnstileGate() from ./turnstile.ts,
     // so its short-lived window is shared across requests on the same isolate.)
-    const anonymous = isAnonymousV1(pathname)
+    // Issue #441: only a caller who presented NO credential may be demoted to
+    // an anonymous identity. A presented-but-unverifiable one (expired,
+    // malformed, wrong key) falls straight through to the 401 below, which is
+    // what puts the web client back on its token-refresh path.
+    const anonymous = auth.reason === "absent" && isAnonymousV1(pathname)
       ? await handleAnonymousV1(c.env, c.req.raw, Date.now())
       : null;
     if (anonymous !== null) return anonymous;

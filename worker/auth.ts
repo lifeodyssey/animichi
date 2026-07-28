@@ -10,9 +10,27 @@ import { createRemoteJWKSet, customFetch, decodeJwt, decodeProtectedHeader, jwtV
  */
 export type UserType = "human" | "agent" | "anonymous";
 
+/**
+ * Why authentication produced no identity (issue #441).
+ *
+ * - `"absent"` — the caller presented no bearer credential at all. Only this
+ *   case may fall through to the anonymous handler.
+ * - `"invalid"` — a bearer credential WAS presented and failed to verify
+ *   (expired, malformed, wrong issuer/audience/algorithm, unknown API key).
+ *   Silently demoting it to an anonymous identity hides the expiry from the
+ *   client and charges the turn to the wrong meter, so it must 401.
+ *
+ * A non-Bearer `Authorization` scheme is `"absent"`: this edge has never
+ * accepted one, so an unrelated header must not start 401ing.
+ */
+export type AuthFailureReason = "absent" | "invalid";
+
 export type AuthResult =
   | { ok: true; userId: string; userType: "human" | "agent" }
-  | { ok: false };
+  | { ok: false; reason: AuthFailureReason };
+
+const ABSENT: AuthResult = { ok: false, reason: "absent" };
+const INVALID: AuthResult = { ok: false, reason: "invalid" };
 
 export interface AuthEnv {
   SUPABASE_URL: string;
@@ -40,7 +58,7 @@ function remoteJwks(url: string, f: typeof fetch): ReturnType<typeof createRemot
 function human(sub: unknown): AuthResult {
   return typeof sub === "string" && sub.length > 0
     ? { ok: true, userId: sub, userType: "human" }
-    : { ok: false };
+    : INVALID;
 }
 
 async function verifySupabase(token: string, env: AuthEnv, f: typeof fetch): Promise<AuthResult> {
@@ -51,7 +69,7 @@ async function verifySupabase(token: string, env: AuthEnv, f: typeof fetch): Pro
     });
     return human(payload.sub);
   } catch {
-    return { ok: false };
+    return INVALID;
   }
 }
 
@@ -62,7 +80,7 @@ async function verifyNeon(token: string, env: AuthEnv, f: typeof fetch): Promise
     const { payload } = await jwtVerify(token, jwks, { issuer, audience: issuer, algorithms: ["EdDSA"] });
     return human(payload.sub);
   } catch {
-    return { ok: false };
+    return INVALID;
   }
 }
 
@@ -79,7 +97,7 @@ async function verifyJwt(token: string, env: AuthEnv, f: typeof fetch): Promise<
     const useNeon = neonEnabled(env) && (header.alg === "EdDSA" || payload.iss === env.NEON_AUTH_ISSUER);
     return useNeon ? await verifyNeon(token, env, f) : await verifySupabase(token, env, f);
   } catch {
-    return { ok: false };
+    return INVALID;
   }
 }
 
@@ -125,12 +143,14 @@ export async function authenticate(
   ctx?: Pick<ExecutionContext, "waitUntil">,
 ): Promise<AuthResult> {
   const header = request.headers.get("Authorization") ?? "";
-  if (!header.startsWith("Bearer ")) return { ok: false };
+  // Header values arrive already trimmed, so a `Bearer` with an empty token is
+  // indistinguishable from a bare `Bearer` scheme and lands in ABSENT — there
+  // is no separate empty-token branch to reach.
+  if (!header.startsWith("Bearer ")) return ABSENT;
   const token = header.slice(7).trim();
-  if (!token) return { ok: false };
   if (token.startsWith("sk_")) {
     const r = await verifyApiKey(token, env, fetchImpl, ctx);
-    return r.ok ? { ok: true, userId: r.userId, userType: "agent" } : { ok: false };
+    return r.ok ? { ok: true, userId: r.userId, userType: "agent" } : INVALID;
   }
   return verifyJwt(token, env, fetchImpl);
 }
