@@ -18,11 +18,23 @@ import asyncio
 import sys
 from datetime import UTC, datetime, timedelta
 
+import asyncpg
+
 from agent.config.settings import get_settings
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+#: A single session's purge can lose a benign race — another request wrote a
+#: route between the eligibility scan and this delete, so the FK backstop
+#: fires for that one row. That is exactly the case the backstop exists to
+#: catch, not a reason to abort the sweep: everything asyncpg raises for a
+#: real database-level failure (including the FK violation) derives from
+#: this. A non-Postgres exception (a programming bug) is deliberately NOT
+#: caught here — it propagates out of the sweep and crashes the CLI with a
+#: nonzero exit, which is what should page someone.
+_EXPECTED_PER_SESSION_ERRORS = asyncpg.PostgresError
 
 
 async def purge_anonymous_sessions(
@@ -34,20 +46,35 @@ async def purge_anonymous_sessions(
 ) -> int:
     """Sweep routeless anonymous sessions inactive since the cutoff.
 
-    Per-session transaction: each purge deletes that session's conversation
-    (cascading its messages) and its session row as one unit, so the
-    `routes.session_id` FK backstop can only ever roll back one session, not
-    the whole sweep.
+    Per-session transaction AND per-session error isolation: each purge
+    deletes that session's conversation (cascading its messages) and its
+    session row as one unit, and a failure on one session (e.g. the FK
+    backstop catching a concurrent route write) is logged and skipped rather
+    than aborting the rest of the sweep.
     """
     cutoff = (now or datetime.now(UTC)) - timedelta(days=retention_days)
     session_ids = await db.session.find_purgeable_anonymous_sessions(cutoff)
     if dry_run:
         logger.info("anonymous_purge_dry_run", eligible=len(session_ids))
         return len(session_ids)
+    purged, failed = await _purge_each(db, session_ids)
+    logger.info("anonymous_sessions_purged", count=purged, failed=failed)
+    return purged
+
+
+async def _purge_each(db: SupabaseClient, session_ids: list[str]) -> tuple[int, int]:
+    purged = 0
+    failed = 0
     for session_id in session_ids:
-        await db.session.purge_session(session_id)
-    logger.info("anonymous_sessions_purged", count=len(session_ids))
-    return len(session_ids)
+        try:
+            await db.session.purge_session(session_id)
+            purged += 1
+        except _EXPECTED_PER_SESSION_ERRORS:
+            failed += 1
+            logger.warning(
+                "anonymous_session_purge_failed", session_id=session_id, exc_info=True
+            )
+    return purged, failed
 
 
 async def _main(dry_run: bool) -> None:

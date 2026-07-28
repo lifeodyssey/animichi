@@ -162,3 +162,13 @@ async def test_migrate_ownership_where_clause_only_ever_matches_the_anon_param(
     sql = pool.execute.await_args.args[0]
     assert "WHERE user_id = $2" in sql
     assert "SET user_id = $1" in sql
+
+
+async def test_migrate_ownership_survives_a_malformed_command_tag(
+    repo: SessionRepository, pool: AsyncMock
+) -> None:
+    """A command tag with no trailing row count must never raise — a parse
+    failure here would turn a successful mutation into a 500."""
+    pool.execute.return_value = ""
+    result = await repo.migrate_ownership("anon_" + "a" * 32, "user-1")
+    assert result is False

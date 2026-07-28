@@ -28,9 +28,16 @@ async def _seed_session(
 
 @pytest.mark.integration
 async def test_migration_moves_ownership_and_preserves_content(real_db) -> None:
+    """Reading state AND message history after the transition must match the
+    pre-login read exactly — the migration re-points ownership only."""
     anon = _anon_id()
     session_id = f"sess-{uuid.uuid4().hex}"
     await _seed_session(real_db, session_id, anon, "君の名はの聖地は？")
+    await real_db.messages.insert_message(session_id, "user", "君の名はの聖地は？")
+    await real_db.messages.insert_message(
+        session_id, "assistant", "3件見つかりました。"
+    )
+    messages_before = await real_db.messages.get_messages(session_id)
 
     changed = await real_db.session.migrate_ownership(anon, "real-user-1")
     assert changed is True
@@ -40,6 +47,9 @@ async def test_migration_moves_ownership_and_preserves_content(real_db) -> None:
     assert conversation["user_id"] == "real-user-1"
     state = await real_db.session.get_session_state(session_id)
     assert state == {"k": "v"}
+    messages_after = await real_db.messages.get_messages(session_id)
+    assert messages_after == messages_before
+    assert len(messages_after) == 2
 
 
 @pytest.mark.integration

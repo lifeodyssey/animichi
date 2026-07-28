@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from datetime import datetime
 
 from agent.infrastructure.supabase.client_types import AsyncPGPool, Row
+
+_COMMAND_TAG_ROW_COUNT = re.compile(r"(\d+)\s*$")
 
 _CREATE_SESSION_SQL = """
     INSERT INTO sessions (id, state, metadata) VALUES ($1, $2::jsonb, '{}'::jsonb)
@@ -14,6 +17,11 @@ _CREATE_SESSION_SQL = """
 _CREATE_CONVERSATION_SQL = """
     INSERT INTO conversations (session_id, user_id, first_query) VALUES ($1, $2, $3)
 """
+#: `updated_at = now()` is a deliberate side effect, not an incidental touch:
+#: logging in is itself activity, so a session that was already near the
+#: retention cutoff gets a fresh liveness clock instead of being purged out
+#: from under a user who just claimed it. It never *shortens* the window —
+#: only a real anon-owned row can match the WHERE clause at all.
 _MIGRATE_OWNERSHIP_SQL = """
     UPDATE conversations SET user_id = $1, updated_at = now() WHERE user_id = $2
 """
@@ -30,8 +38,14 @@ _FIND_PURGEABLE_SQL = """
 
 
 def _rows_affected(status: str) -> int:
-    """Parse asyncpg's command-tag status string (e.g. ``"UPDATE 3"``)."""
-    return int(status.rsplit(" ", maxsplit=1)[-1])
+    """Parse asyncpg's command-tag status string (e.g. ``"UPDATE 3"``).
+
+    Falls back to 0 for a tag with no trailing row count (there is no such
+    case for ``UPDATE``/``DELETE`` in practice, but this must never raise —
+    a parse failure here would turn a successful mutation into a 500).
+    """
+    match = _COMMAND_TAG_ROW_COUNT.search(status)
+    return int(match.group(1)) if match else 0
 
 
 class SessionRepository:
