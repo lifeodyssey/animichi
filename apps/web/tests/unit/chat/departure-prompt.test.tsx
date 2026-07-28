@@ -32,6 +32,22 @@ describe("needsDeparturePrompt (AC2 trigger)", () => {
   it("never triggers for a non-route question", () => {
     expect(needsDeparturePrompt("響け!ユーフォニアムの聖地は?")).toBe(false);
   });
+
+  it.each([
+    ["Plan a Your Name. route"],
+    ["Plan a route around Kamakura"],
+    ["Hamamatsu seichi route plan"],
+  ])("still triggers for en/romaji text containing a bare 'am': %s", (text) => {
+    expect(needsDeparturePrompt(text)).toBe(true);
+  });
+
+  it.each([
+    ["Plan a Kamakura route at 9am"],
+    ["plan the route for 7 pm"],
+    ["plan a route, two hours max"],
+  ])("skips when an explicit en time is stated: %s", (text) => {
+    expect(needsDeparturePrompt(text)).toBe(false);
+  });
 });
 
 function setupHook() {

@@ -7,8 +7,10 @@ const ROUTE_INTENT = /(ルート|route|路线|路線|行程|プラン|plan)/i;
 const DEPARTURE_POINT =
   /(駅|站|station|出発|出发|depart|現在地|现在地|当前位置|from\s)/i;
 
+// `am|pm` must be digit-anchored: bare matches would hit "Your Name",
+// "Kamakura", "Hamamatsu" and silence the prompt for en/romaji titles.
 const TIME_INFO =
-  /(\d{1,2}\s?[:：時时点]|午前|午後|上午|下午|早上|晚上|am|pm|朝|夜|時間|小时|hours?)/i;
+  /(\d{1,2}\s?[:：時时点]|午前|午後|上午|下午|早上|晚上|\d\s*(?:am|pm)\b|朝|夜|時間|小时|\bhours?\b)/i;
 
 export function statesDeparturePoint(text: string): boolean {
   return DEPARTURE_POINT.test(text);
