@@ -11,6 +11,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { clearByokConfig, saveByokConfig } from "../../../src/lib/byok/byokStorage";
 import { sessionHeaders } from "../../../src/features/chat/session-headers";
+import { clearTurnstileToken, rememberTurnstileToken } from "../../../src/lib/turnstile/tokenStore";
+
+/** 24 characters — the shape `configuredTurnstileSiteKey()` accepts as a real
+ * public key (see turnstile-armed-flow.test.tsx). The global
+ * `turnstile-hermetic.ts` setup stubs the site key empty for every other
+ * describe block in this file; these tests deliberately re-arm it. */
+const SITE_KEY = "0x4AAAAAAAsitekey24chars";
 
 const { authHeaders } = vi.hoisted(() => ({ authHeaders: vi.fn().mockResolvedValue({}) }));
 vi.mock("../../../src/lib/auth/authSession", () => ({ authHeaders }));
@@ -67,5 +74,38 @@ describe("sessionHeaders() BYOK injection (#284 Task 6)", () => {
     const headers = await sessionHeaders();
     expect(headers.Authorization).toBeUndefined();
     expect(headers["X-BYOK-Provider"]).toBe("gemini");
+  });
+});
+
+describe("sessionHeaders() BYOK headers vs the armed Turnstile wait (#463 rebase follow-up)", () => {
+  afterEach(() => {
+    clearTurnstileToken();
+  });
+
+  it("applies BYOK headers on top once an awaited, late-arriving challenge resolves", async () => {
+    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", SITE_KEY);
+    saveByokConfig({ provider: "gemini", apiKey: "gk", model: "gemini-2.5-flash" });
+    const pending = sessionHeaders("s-armed");
+    await Promise.resolve();
+    rememberTurnstileToken("late-token");
+    expect(await pending).toEqual({
+      "x-session-id": "s-armed",
+      "cf-turnstile-response": "late-token",
+      "X-BYOK-Provider": "gemini",
+      "X-BYOK-Key": "gk",
+      "X-BYOK-Model": "gemini-2.5-flash",
+    });
+  });
+
+  it("skips the wait once authenticated, and still applies BYOK headers", async () => {
+    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", SITE_KEY);
+    authHeaders.mockResolvedValue({ Authorization: "Bearer jwt" });
+    saveByokConfig({ provider: "anthropic", apiKey: "ak", model: "claude-sonnet-4-5" });
+    expect(await sessionHeaders()).toEqual({
+      Authorization: "Bearer jwt",
+      "X-BYOK-Provider": "anthropic",
+      "X-BYOK-Key": "ak",
+      "X-BYOK-Model": "claude-sonnet-4-5",
+    });
   });
 });

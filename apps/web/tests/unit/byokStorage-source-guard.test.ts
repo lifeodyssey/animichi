@@ -12,6 +12,12 @@
  * guard unnoticed. A full-tree recursive `readdirSync` costs single-digit
  * milliseconds on this codebase's `src/` (verified locally), so there is no
  * reason to keep the narrower scan.
+ *
+ * #463 rebase follow-up: a bare substring match false-positived on
+ * `deferredSave.ts`, whose doc comment *describes* `sessionStorage`
+ * (explaining why the P5 deferred-save feature deliberately does NOT use it)
+ * without ever touching the API. Comments are stripped before matching so
+ * only real usage counts.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -40,8 +46,18 @@ function readSource(root: string, relativePath: string): string {
   return readFileSync(`${root}/${relativePath}`, "utf8");
 }
 
+/** Strips `/** ... *\/` block comments and `//` line comments — a doc
+ * comment merely *mentioning* `sessionStorage` (e.g. to explain why a
+ * feature avoids it) must not count as usage. Naive w.r.t. `//` inside a
+ * string literal, an acceptable trade-off for this narrow guard. */
+function withoutComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//gu, "").replace(/\/\/.*$/gmu, "");
+}
+
 function filesUsingSessionStorage(root: string): readonly string[] {
-  return walkSourceFiles(root).filter((relativePath) => readSource(root, relativePath).includes("sessionStorage"));
+  return walkSourceFiles(root).filter((relativePath) =>
+    withoutComments(readSource(root, relativePath)).includes("sessionStorage"),
+  );
 }
 
 describe("no component calls sessionStorage directly for BYOK (AC1 lint-level grep, full src/ tree)", () => {
