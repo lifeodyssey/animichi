@@ -2,7 +2,7 @@
 name = "animichi"
 version = "0.1.0"
 description = "AI-powered travel assistant for anime pilgrims using Gemini LLM"
-requires-python = ">=3.11"
+requires-python = ">=3.11.10"
 authors = [
     {name = "Animichi Team", email = "team@animichi.com"}
 ]
