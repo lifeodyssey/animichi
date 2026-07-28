@@ -18,7 +18,11 @@ REQUEST_LIMIT = 12
 # breadth. NOTE: the repeated-identical detector below reads EXECUTED steps —
 # the runtime repeat-guard deflects identical re-calls before execution, so
 # post-guard this detector is a regression TRIPWIRE for the guard itself
-# (it firing means the guard broke), not a live thrash signal.
+# (it firing means the guard broke), not a live thrash signal. That inference
+# holds only while recorded params are LOSSLESS: #443 fired on two nearby
+# searches with different locations because the rejected-search recording path
+# dropped its arguments, so both projected to "{}". Calls whose arguments were
+# not recorded are therefore excluded from the comparison, never equated.
 TOOL_CALL_LIMIT = 10
 # Calibrated 2026-07-18 (#28): two stable full-655 official-v1 runs measured
 # request_p95 = 7 (baseline run observed 7-8). The original 6 would fail every
@@ -33,15 +37,19 @@ class RecordedToolCall:
 
     tool: str
     arguments: str
+    # #443: an unrecorded-argument step is an UNKNOWN call, not an empty one.
+    # Two unknowns are not evidence of a repeat, so they are excluded from the
+    # comparison instead of collapsing onto the same "{}" identity.
+    arguments_known: bool = True
 
     @classmethod
     def from_arguments(
-        cls, tool: str, arguments: Mapping[str, object]
+        cls, tool: str, arguments: Mapping[str, object], *, known: bool = True
     ) -> RecordedToolCall:
         encoded = json.dumps(
             arguments, ensure_ascii=False, sort_keys=True, separators=(",", ":")
         )
-        return cls(tool=tool, arguments=encoded)
+        return cls(tool=tool, arguments=encoded, arguments_known=known)
 
 
 @dataclass(frozen=True)
@@ -56,7 +64,9 @@ class TrajectoryCase:
     def from_result(cls, case_id: str, result: AgentResult) -> TrajectoryCase:
         requests = result.usage.requests if result.usage is not None else 0
         calls = tuple(
-            RecordedToolCall.from_arguments(step.tool, step.params)
+            RecordedToolCall.from_arguments(
+                step.tool, step.params, known=step.params_recorded
+            )
             for step in result.steps
             if step.model_initiated
         )
@@ -81,7 +91,8 @@ def print_direct_thrash_metrics(
     for case in cases:
         print(
             f"{case.case_id}: requests={case.requests} "
-            f"tool_calls={len(case.tool_calls)} repeats={_repeat_count(case)}"
+            f"tool_calls={len(case.tool_calls)} repeats={_repeat_count(case)} "
+            f"unrecorded_params={_unrecorded_count(case)}"
         )
     if include_p95:
         print(f"request_p95={_request_p95(cases)}")
@@ -124,7 +135,7 @@ def _request_context(requests: int) -> EvaluatorContext[object, object, object]:
 def _repeat_failures(case: TrajectoryCase) -> list[str]:
     seen: set[RecordedToolCall] = set()
     repeated: set[str] = set()
-    for call in case.tool_calls:
+    for call in _comparable_calls(case):
         if call in seen:
             repeated.add(call.tool)
         seen.add(call)
@@ -134,8 +145,17 @@ def _repeat_failures(case: TrajectoryCase) -> list[str]:
     ]
 
 
+def _comparable_calls(case: TrajectoryCase) -> tuple[RecordedToolCall, ...]:
+    return tuple(call for call in case.tool_calls if call.arguments_known)
+
+
 def _repeat_count(case: TrajectoryCase) -> int:
-    return len(case.tool_calls) - len(set(case.tool_calls))
+    comparable = _comparable_calls(case)
+    return len(comparable) - len(set(comparable))
+
+
+def _unrecorded_count(case: TrajectoryCase) -> int:
+    return len(case.tool_calls) - len(_comparable_calls(case))
 
 
 def _request_p95(cases: Sequence[TrajectoryCase]) -> int:

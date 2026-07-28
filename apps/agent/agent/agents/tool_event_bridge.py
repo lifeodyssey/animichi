@@ -40,6 +40,9 @@ class ActiveToolCall:
 
     tool: str
     params: dict[str, JsonValue]
+    # See StepRecord.params_recorded (#443): an unprojectable or never-seen call
+    # carries empty params that must not be read as "no arguments".
+    params_recorded: bool = True
 
 
 @dataclass
@@ -50,11 +53,11 @@ class ToolLifecycleRegistry:
     provenance: dict[str, StepProvenance] = field(default_factory=dict)
     recovered_exceptions: set[str] = field(default_factory=set)
 
-    def start(self, call_id: str, tool: str, params: dict[str, JsonValue]) -> None:
-        self.active[call_id] = ActiveToolCall(tool, params)
+    def start(self, call_id: str, call: ActiveToolCall) -> None:
+        self.active[call_id] = call
 
     def finish(self, call_id: str, tool: str) -> ActiveToolCall:
-        return self.active.pop(call_id, ActiveToolCall(tool, {}))
+        return self.active.pop(call_id, ActiveToolCall(tool, {}, params_recorded=False))
 
     def register_provenance(self, call_id: str, provenance: StepProvenance) -> None:
         self.provenance[call_id] = provenance
@@ -109,23 +112,26 @@ def register_recovered_tool_exception(
     ctx.deps.tool_lifecycle.mark_recovered_exception(call_id)
 
 
-def _call_params(event: FunctionToolCallEvent) -> dict[str, JsonValue]:
+def _call_params(event: FunctionToolCallEvent) -> ActiveToolCall:
     """Never let an odd argument shape kill the run — the siblings all guard too.
 
     Malformed JSON already arrives as {"INVALID_JSON": raw} from pydantic-ai, so
     the model keeps its own retry path; the residual raiser is dict-typed args
     holding non-JSON values. Recording empty params is strictly better than
-    turning a retryable tool call into a terminal run error.
+    turning a retryable tool call into a terminal run error — but it is flagged
+    as unrecorded (#443) so no consumer mistakes the loss for "no arguments".
     """
+    tool = event.part.tool_name
     try:
-        return _OBJECT.validate_python(event.part.args_as_dict())
+        return ActiveToolCall(tool, _OBJECT.validate_python(event.part.args_as_dict()))
     except ValidationError:
-        return {}
+        return ActiveToolCall(tool, {}, params_recorded=False)
 
 
 async def _handle_call(deps: RuntimeDeps, event: FunctionToolCallEvent) -> None:
-    params = _call_params(event)
-    deps.tool_lifecycle.start(event.tool_call_id, event.part.tool_name, params)
+    call = _call_params(event)
+    deps.tool_lifecycle.start(event.tool_call_id, call)
+    params = call.params
     data = cast(StepData, params)
     await _emit(
         deps, StepEvent(event.part.tool_name, event.tool_call_id, "running", data)
@@ -206,7 +212,15 @@ def _record_terminal_return(
     params = cast(StepData, call.params)
     payload = cast(StepData | None, data)
     deps.steps.append(
-        StepRecord(call.tool, success, params, payload, provenance, error)
+        StepRecord(
+            call.tool,
+            success,
+            params,
+            payload,
+            provenance,
+            error,
+            params_recorded=call.params_recorded,
+        )
     )
 
 
