@@ -39,6 +39,9 @@ describe("AC11: the save title is derived, bounded and localized", () => {
     const title = saveRouteTitle(chatDictFor("ja"), "あ".repeat(400), 3);
     expect(SaveRouteInput.safeParse({ title, point_ids: ["p1"] }).success).toBe(true);
     expect(title.length).toBeLessThanOrEqual(200);
+    // A naive slice of the RENDERED string would amputate the tail; the trim
+    // must land on the work title so the stop count survives.
+    expect(title).toContain("3スポットの聖地巡礼");
   });
 });
 

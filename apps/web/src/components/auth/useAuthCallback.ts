@@ -57,7 +57,8 @@ export interface AuthCallbackSession {
   readonly state: AuthCallbackState;
   /** Re-run only the create-on-login replay; the session is already redeemed. */
   readonly retrySave: () => void;
-  /** Give up on the deferred save here; the intent stays for the chat page. */
+  /** Give up on the deferred save *here*; the intent survives for the next login
+   * inside its TTL, which is what replays it. */
   readonly dismissSave: () => void;
 }
 

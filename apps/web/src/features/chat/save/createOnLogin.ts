@@ -23,8 +23,9 @@ export type DeferredReplayOutcome = "none" | "saved" | "failed";
 
 /**
  * Replay the deferred save exactly once after a login. A login that was **not**
- * initiated by a save tap finds no intent and issues no request. The intent is
- * cleared only on success, so a failed replay is never silently dropped.
+ * initiated by a save tap finds no intent and issues no request. The entry is
+ * claimed (deleted) before the request goes out so two tabs cannot both save it,
+ * and restored on failure — so a failed replay is never silently dropped.
  */
 /** Claim before sending: two tabs completing a login concurrently would
  * otherwise both read the same intent and create two rows. The loser finds
