@@ -28,9 +28,9 @@ function jwks(jwk: JsonWebKey): Response {
   return new Response(JSON.stringify({ keys: [jwk] }), { status: 200, headers: { "Content-Type": "application/json" } });
 }
 
-test("no Authorization header -> {ok:false}", async () => {
+test("no Authorization header -> {ok:false, reason:absent}", async () => {
   const r = await authenticate(new Request("https://app.example.test/v1/chat"), ENV, stubFetch(() => new Response("", { status: 200 })));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "absent" });
 });
 
 test("valid sk_ key -> agent + userId from api_keys", async () => {
@@ -45,7 +45,7 @@ test("valid sk_ key -> agent + userId from api_keys", async () => {
 test("unknown sk_ key (no rows) -> {ok:false}", async () => {
   const r = await authenticate(bearer("sk_fake_unknown"), ENV, stubFetch((url) =>
     url.includes("/rest/v1/api_keys") ? new Response("[]", { status: 200 }) : new Response("", { status: 200 })));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
 test("valid ES256 token verifies locally", async () => {
@@ -62,21 +62,21 @@ test("expired ES256 token is rejected", async () => {
   const host = "https://sb-expired.example.test";
   const { jwk, token } = await esFixture(host, `${host}/auth/v1`, Math.floor(Date.now() / 1000) - 60);
   const r = await authenticate(bearer(token), { ...ENV, SUPABASE_URL: host }, stubFetch(() => jwks(jwk)));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
 test("wrong Supabase issuer is rejected", async () => {
   const host = "https://sb-wrong-issuer.example.test";
   const { jwk, token } = await esFixture(host, "https://sb-other-issuer.example.test/auth/v1");
   const r = await authenticate(bearer(token), { ...ENV, SUPABASE_URL: host }, stubFetch(() => jwks(jwk)));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
 test("wrong Supabase audience is rejected", async () => {
   const host = "https://sb-wrong-aud.example.test";
   const { jwk, token } = await esFixture(host, undefined, "1h", "wrong-aud");
   const r = await authenticate(bearer(token), { ...ENV, SUPABASE_URL: host }, stubFetch(() => jwks(jwk)));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
 test("ES256 token signed by another key is rejected", async () => {
@@ -84,7 +84,7 @@ test("ES256 token signed by another key is rejected", async () => {
   const trusted = await esFixture(host);
   const untrusted = await esFixture(host);
   const r = await authenticate(bearer(untrusted.token), { ...ENV, SUPABASE_URL: host }, stubFetch(() => jwks(trusted.jwk)));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
 test("HS256 token is rejected even with a healthy JWKS", async () => {
@@ -95,7 +95,7 @@ test("HS256 token is rejected even with a healthy JWKS", async () => {
     .setIssuer(`${host}/auth/v1`).setAudience("authenticated").setSubject("fake-user").setIssuedAt().setExpirationTime("1h")
     .sign(new TextEncoder().encode("fake-secret-with-at-least-32-bytes"));
   const r = await authenticate(bearer(token), { ...ENV, SUPABASE_URL: host }, stubFetch(() => jwks(jwk)));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
 test("EdDSA token is rejected by the Supabase algorithm allowlist", async () => {
@@ -108,10 +108,10 @@ test("EdDSA token is rejected by the Supabase algorithm allowlist", async () => 
   const token = await new SignJWT({}).setProtectedHeader({ alg: "EdDSA", kid: jwk.kid })
     .setIssuer(`${host}/auth/v1`).setAudience("authenticated").setSubject("fake-user").setIssuedAt().setExpirationTime("1h").sign(privateKey);
   const r = await authenticate(bearer(token), { ...ENV, SUPABASE_URL: host }, stubFetch(() => jwks(jwk)));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
 test("garbage token is rejected", async () => {
   const r = await authenticate(bearer("not-a-jwt"), { ...ENV, SUPABASE_URL: "https://sb-garbage.example.test" }, stubFetch(() => new Response("", { status: 500 })));
-  assert.deepEqual(r, { ok: false });
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
