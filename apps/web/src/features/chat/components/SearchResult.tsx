@@ -3,6 +3,7 @@ import { MAX_MAP_PINS, searchMapView, topSpots } from "../../../lib/chat/spotClu
 import type { SearchSpot, SpotCluster } from "../../../lib/chat/spotClusters";
 import { attachBasemap } from "../../bubble-map/bubbleMapController";
 import { episodeTag } from "../search-copy";
+import { useSpotSelection } from "../selection/useSpotSelection";
 import type { ChatDict } from "../i18n";
 import { EnvelopeFallback } from "./ErrorStates/EnvelopeFallback";
 import { SceneThumb } from "./ErrorStates/SceneThumb";
@@ -13,10 +14,12 @@ type SpotProps = Readonly<{ spot: SearchSpot; dict: ChatDict }>;
 type GridProps = Readonly<{ spots: readonly SearchSpot[]; dict: ChatDict }>;
 type ClusterProps = Readonly<{ cluster: SpotCluster; dict: ChatDict; attach: AttachBasemap }>;
 
+/** E2 (issue #273 S1.7): the pick is controlled by the shared spot selection. */
 function SpotPick({ spot, dict }: SpotProps) {
+  const { selected, toggle } = useSpotSelection();
   return (
     <label className="chat-spot-card__pick">
-      <input type="checkbox" className="chat-spot-card__check" aria-label={`${dict.search.select}: ${spot.name}`} />
+      <input type="checkbox" className="chat-spot-card__check" checked={selected.has(spot.id)} onChange={() => { toggle(spot.id); }} aria-label={`${dict.search.select}: ${spot.name}`} />
       <span className="chat-spot-card__name">{spot.name}</span>
     </label>
   );

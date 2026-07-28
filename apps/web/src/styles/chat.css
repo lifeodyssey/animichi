@@ -733,3 +733,61 @@
   color: var(--color-muted-fg);
   font-size: 0.6875rem;
 }
+
+/* --- E2 selection tray + recompute footprint (issue #273 S1.7) ---
+   Design-sync `Chat 完整状态.html` `.rebar`: gold-bordered sticky bar docked
+   above the composer; the recompute footprint replaces the tool pipeline
+   (`selected_point_ids` bypass — no agent, no agent theater). */
+
+.chat-selection-tray {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 0 1rem 0.5rem;
+  padding: 0.5625rem 0.625rem 0.5625rem 0.875rem;
+  border: 2px solid var(--color-gold);
+  border-radius: 16px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  box-shadow: 0 3px 0 var(--shadow-3d);
+}
+
+.chat-selection-tray__summary {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-selection-tray__sub {
+  color: var(--color-muted-fg);
+  font-size: 0.71875rem;
+}
+
+.chat-selection-tray__count {
+  color: var(--color-fg);
+}
+
+.chat-selection-tray__action {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.5625rem 1rem;
+  background: var(--color-gold);
+  color: var(--color-gold-fg);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-selection-tray__action:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--shadow-3d);
+}
+
+.chat-settled--recompute {
+  margin: 0;
+}
