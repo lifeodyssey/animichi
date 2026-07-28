@@ -88,7 +88,9 @@ function WalkCtaSlot({ dict }: DictProps) {
   );
 }
 
-/** A failed save stays on the card: inline copy plus a retry, never a full page. */
+/** A retryable failure stays on the card: inline copy plus a retry, never a
+ * full page. A `permanent` 4xx gets copy without a retry — offering one would
+ * be a loop that cannot succeed. */
 function SaveError({ gate, dict }: GateProps) {
   return (
     <span className="chat-cta-row__error" role="alert">
@@ -98,10 +100,22 @@ function SaveError({ gate, dict }: GateProps) {
   );
 }
 
+function SavePermanentError({ dict }: DictProps) {
+  return <span className="chat-cta-row__error" role="alert">{dict.route.savePermanentError}</span>;
+}
+
 function SaveFeedback({ gate, dict }: GateProps) {
   if (gate.status === "saved") return <span className="chat-cta-row__saved" role="status">{dict.route.saved}</span>;
-  if (gate.status !== "error") return null;
+  if (gate.status === "permanent") return <SavePermanentError dict={dict} />;
+  if (gate.status !== "retryable") return null;
   return <SaveError gate={gate} dict={dict} />;
+}
+
+/** Saving and saved are both non-actionable: the endpoint has no dedupe key, so
+ * a second tap would create a second row. `aria-busy` carries the in-flight
+ * meaning that `disabled` alone would flatten into "unavailable". */
+function saveDisabled(gate: SaveGate): boolean {
+  return gate.action === "none" || gate.status === "saving" || gate.status === "saved";
 }
 
 /**
@@ -111,8 +125,9 @@ function SaveFeedback({ gate, dict }: GateProps) {
  * P5 invariant is visible in the DOM rather than merely asserted.
  */
 function SaveButton({ gate, dict }: GateProps) {
+  const busy = gate.status === "saving";
   return (
-    <button type="button" className="chat-chip" data-cta="save" disabled={gate.action === "none"} onClick={gate.activate}>
+    <button type="button" className="chat-chip" data-cta="save" disabled={saveDisabled(gate)} aria-busy={busy} onClick={gate.activate}>
       {dict.route.saveCta}
     </button>
   );

@@ -51,7 +51,6 @@ describe("P3: the derived title is injection- and grapheme-safe", () => {
   it("never splits a surrogate pair when truncating a long emoji title", () => {
     const title = saveRouteTitle(chatDictFor("ja"), "🎺".repeat(300), 3);
     expect(title.length).toBeLessThanOrEqual(200);
-    expect([...title].every((char) => char.codePointAt(0) !== undefined)).toBe(true);
     expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(title)).toBe(false);
   });
 

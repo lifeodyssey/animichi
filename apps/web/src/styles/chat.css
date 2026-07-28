@@ -668,14 +668,11 @@
   gap: 0.5rem;
 }
 
-/* P5 save CTA (issue #273 S1.7). The design sync assigns the card-foot CTAs as
-   「金=しおり共有(唯一) · cream=Maps/保存/歩くモード」 with the standing rule
-   「永不同屏两金」, so 保存する is a cream press button and the gold tokens stay
-   reserved for the single share CTA per screen. */
-.chat-chip[data-cta="save"] {
-  background: var(--color-card);
-  color: var(--color-fg);
-}
+/* P5 save CTA (issue #273 S1.7) carries NO tone override on purpose. The design
+   sync assigns the card-foot CTAs as 「金=しおり共有(唯一) · cream=Maps/保存/
+   歩くモード」 with the standing rule 「永不同屏两金」, so 保存する inherits the base
+   .chat-chip cream press style and the gold tokens stay reserved for the single
+   share CTA per screen. A tone rule here would be that second gold. */
 
 .chat-cta-row__saved {
   color: var(--color-primary-strong);

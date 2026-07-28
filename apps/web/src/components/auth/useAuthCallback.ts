@@ -18,20 +18,32 @@ function stateFor(outcome: DeferredReplayOutcome): AuthCallbackState {
   return outcome === "failed" ? "save-failed" : "done";
 }
 
+/** The replay must not hold the visitor on the callback screen indefinitely: a
+ * stalled users service degrades to the same surfaced-failure path as a 5xx. */
+export const REPLAY_TIMEOUT_MS = 8_000;
+
+function withTimeout(replay: Replay, ms: number): Promise<DeferredReplayOutcome> {
+  return Promise.race([
+    replay(),
+    new Promise<DeferredReplayOutcome>((resolve) => setTimeout(() => { resolve("failed"); }, ms)),
+  ]);
+}
+
 /** Create-on-login: a login the save CTA started replays its deferred intent;
  * any other login (the D8/D11 banners) finds none and saves nothing. */
 async function redeem(establish: Establish, replay: Replay): Promise<AuthCallbackState> {
   const token = await establish();
   if (!token) return "error";
-  return stateFor(await replay());
+  return stateFor(await withTimeout(replay, REPLAY_TIMEOUT_MS));
 }
 
-/** Redeems the token once, dropping the result if the component unmounted first. */
+/** Redeems the token once, dropping the result if the component unmounted first.
+ * A rejection is a failed login, not an unhandled promise. */
 function establishEffect(establish: Establish, replay: Replay, setState: SetState): () => void {
   let active = true;
-  void redeem(establish, replay).then((state) => {
-    if (active) setState(state);
-  });
+  void redeem(establish, replay)
+    .catch((): AuthCallbackState => "error")
+    .then((state) => { if (active) setState(state); });
   return () => {
     active = false;
   };
@@ -52,7 +64,9 @@ export interface AuthCallbackSession {
 function useRetrySave(replay: Replay, setState: SetState): () => void {
   return useCallback(() => {
     setState("pending");
-    void replay().then((outcome) => { setState(stateFor(outcome)); });
+    void withTimeout(replay, REPLAY_TIMEOUT_MS)
+      .catch((): DeferredReplayOutcome => "failed")
+      .then((outcome) => { setState(stateFor(outcome)); });
   }, [replay, setState]);
 }
 

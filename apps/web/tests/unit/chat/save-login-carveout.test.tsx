@@ -1,13 +1,13 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BudgetExhausted } from "../../../src/features/chat/components/ErrorStates/BudgetExhausted";
 import { SessionExpired } from "../../../src/features/chat/components/ErrorStates/SessionExpired";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { AuthCallback } from "../../../src/components/auth/AuthCallback";
-import { useAuthCallback } from "../../../src/components/auth/useAuthCallback";
+import { REPLAY_TIMEOUT_MS, useAuthCallback } from "../../../src/components/auth/useAuthCallback";
 import type { DeferredReplayOutcome } from "../../../src/features/chat/save/createOnLogin";
 import { DEFERRED_SAVE_KEY, writeDeferredSave } from "../../../src/features/chat/save/deferredSave";
 import { dictFor } from "../../../src/i18n/dictionaries";
@@ -87,6 +87,17 @@ describe("P2-1: a failed create-on-login is surfaced, not swallowed", () => {
     fireEvent.click(await screen.findByRole("button", { name: auth.callback_save_retry }));
     await waitFor(() => { expect(onDone).toHaveBeenCalledTimes(1); });
     expect(replay).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops waiting on a stalled replay instead of pinning the visitor on the callback", async () => {
+    vi.useFakeTimers();
+    const onDone = vi.fn();
+    const replay = vi.fn(() => new Promise<DeferredReplayOutcome>(() => undefined));
+    renderWithLocale(<AuthCallback onDone={onDone} establish={establish} replay={replay} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(REPLAY_TIMEOUT_MS + 1); });
+    expect(screen.getByText(auth.callback_save_failed)).toBeTruthy();
+    expect(onDone).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 
   it("lets the visitor continue, keeping the intent for the chat page", async () => {

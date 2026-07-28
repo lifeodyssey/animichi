@@ -10,10 +10,14 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import type { JsonBodyType } from "msw";
 import { ListRoutesResult, SaveRouteInput, UserRoute } from "@seichijunrei/contract";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { createElement } from "react";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthCallback } from "../../src/components/auth/AuthCallback";
+import { LocaleProvider } from "../../src/i18n/context";
 import { users } from "../../src/api/orpc";
 import { replayDeferredSave } from "../../src/features/chat/save/createOnLogin";
-import { writeDeferredSave } from "../../src/features/chat/save/deferredSave";
+import { DEFERRED_SAVE_KEY, writeDeferredSave } from "../../src/features/chat/save/deferredSave";
 
 const ROUTES_URL = "http://localhost:3000/v1/users/routes";
 const POINT_IDS = ["uji-01", "uji-02", "uji-03"];
@@ -48,10 +52,12 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+afterEach(cleanup);
+
 describe("create-on-login persists the deferred route and lists it back", () => {
   it("writes a row whose point_ids are the deferred ids, in order and non-empty", async () => {
     writeDeferredSave({ pointIds: POINT_IDS, title: TITLE });
-    expect(await replayDeferredSave()).toBe(true);
+    expect(await replayDeferredSave()).toBe("saved");
     expect(saved).toHaveLength(1);
     expect(saved[0]?.point_ids).toEqual(POINT_IDS);
     expect(saved[0]?.point_ids.length).toBeGreaterThan(0);
@@ -88,7 +94,38 @@ describe("create-on-login persists the deferred route and lists it back", () => 
   });
 
   it("does not fire at all for a login that no save tap initiated", async () => {
-    expect(await replayDeferredSave()).toBe(false);
+    expect(await replayDeferredSave()).toBe("none");
     expect(saved).toHaveLength(0);
+  });
+});
+
+describe("P1-3: the production wiring itself, with no replay injected", () => {
+  function renderCallback(onDone: () => void) {
+    const establish = () => Promise.resolve("token");
+    return render(
+      createElement(LocaleProvider, null, createElement(AuthCallback, { onDone, establish })),
+    );
+  }
+
+  it("saves through AuthCallback's own default replay and clears the intent", async () => {
+    writeDeferredSave({ pointIds: POINT_IDS, title: TITLE });
+    const onDone = vi.fn();
+    // Only `establish` is injected: `replay` keeps its production default, so a
+    // mutation that unwires it (`replay = async () => "none"`) fails here.
+    renderCallback(onDone);
+    await waitFor(() => { expect(onDone).toHaveBeenCalledTimes(1); });
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.point_ids).toEqual(POINT_IDS);
+    expect(localStorage.getItem(DEFERRED_SAVE_KEY)).toBeNull();
+  });
+
+  it("surfaces the failure rather than reporting a clean login when the save 5xxs", async () => {
+    server.use(http.post(ROUTES_URL, () => new HttpResponse(null, { status: 503 })));
+    writeDeferredSave({ pointIds: POINT_IDS, title: TITLE });
+    const onDone = vi.fn();
+    renderCallback(onDone);
+    await waitFor(() => { expect(screen.getByRole("alert")).toBeTruthy(); });
+    expect(onDone).not.toHaveBeenCalled();
+    expect(localStorage.getItem(DEFERRED_SAVE_KEY)).toBeTruthy();
   });
 });

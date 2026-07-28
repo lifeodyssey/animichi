@@ -109,6 +109,14 @@ describe("the login wall closes without saving anything", () => {
     await waitFor(() => { expect(screen.queryByRole("dialog")).toBeNull(); });
     expect(request).not.toHaveBeenCalled();
   });
+
+  it("drops the intent on dismissal, so a later unrelated login saves nothing", async () => {
+    renderCta({ authStatus: "anonymous", request: vi.fn() }, TARGET);
+    fireEvent.click(saveButton());
+    expect(localStorage.getItem(DEFERRED_SAVE_KEY)).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "閉じる" }));
+    expect(localStorage.getItem(DEFERRED_SAVE_KEY)).toBeNull();
+  });
 });
 
 describe("AC7: a failed save is retryable in place", () => {

@@ -66,14 +66,23 @@ export function writeDeferredSave(
 }
 
 /** The live intent, or `undefined` — a missing, malformed or expired entry is
- * erased rather than replayed. */
+ * erased rather than left to accumulate on a shared device. */
 export function readDeferredSave(now: number = Date.now()): DeferredSaveIntent | undefined {
   const raw = store()?.getItem(DEFERRED_SAVE_KEY);
-  const intent = raw === null || raw === undefined ? undefined : parse(raw);
-  if (intent === undefined) return undefined;
-  if (now - intent.createdAt > DEFERRED_SAVE_TTL_MS) {
+  if (raw === null || raw === undefined) return undefined;
+  const intent = parse(raw);
+  if (intent === undefined || now - intent.createdAt > DEFERRED_SAVE_TTL_MS) {
     clearDeferredSave();
     return undefined;
   }
   return intent;
+}
+
+/**
+ * Opportunistic sweep: reading is what erases a dead entry, so an app that
+ * never reads would let an abandoned intent sit on a shared device past its
+ * TTL. Callers run this once on mount; it is a single `localStorage` read.
+ */
+export function pruneDeferredSave(now: number = Date.now()): void {
+  readDeferredSave(now);
 }

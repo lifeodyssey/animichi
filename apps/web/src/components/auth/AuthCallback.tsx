@@ -17,6 +17,12 @@ function CallbackMessage({ state }: Readonly<{ state: MessageState }>) {
 
 type FailureProps = Readonly<{ auth: Dict["auth"]; session: AuthCallbackSession }>;
 
+type ActionProps = Readonly<{ label: string; className: string; onClick: () => void }>;
+
+function CallbackAction({ label, className, onClick }: ActionProps) {
+  return <button type="button" className={className} onClick={onClick}>{label}</button>;
+}
+
 /**
  * The login succeeded but create-on-login did not. The intent is still on this
  * origin, so the visitor gets a retry here plus the explicit fallback — never a
@@ -26,12 +32,8 @@ function SaveFailure({ auth, session }: FailureProps) {
   return (
     <div className="auth-callback__save-failed" role="alert">
       <p className="auth-callback__message">{auth.callback_save_failed}</p>
-      <button type="button" className="auth-callback__retry" onClick={session.retrySave}>
-        {auth.callback_save_retry}
-      </button>
-      <button type="button" className="auth-callback__skip" onClick={session.dismissSave}>
-        {auth.callback_save_skip}
-      </button>
+      <CallbackAction label={auth.callback_save_retry} className="auth-callback__retry" onClick={session.retrySave} />
+      <CallbackAction label={auth.callback_save_skip} className="auth-callback__skip" onClick={session.dismissSave} />
     </div>
   );
 }

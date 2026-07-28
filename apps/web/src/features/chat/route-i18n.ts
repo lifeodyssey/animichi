@@ -19,6 +19,8 @@ export interface ChatRouteDict {
   readonly saveUntitled: string;
   readonly saved: string;
   readonly saveError: string;
+  /** A 4xx that retrying cannot fix — no retry affordance is offered. */
+  readonly savePermanentError: string;
   readonly saveRetry: string;
   readonly timelineLabel: string;
   readonly mapLabel: string;
@@ -38,6 +40,7 @@ export const jaRoute: ChatRouteDict = {
   saveUntitled: "この作品",
   saved: "保存したよ",
   saveError: "保存できなかった…",
+  savePermanentError: "このルートは保存できないみたい。もう一度ルートを組んでみてね",
   saveRetry: "もう一度保存",
   timelineLabel: "ルートのタイムライン",
   mapLabel: "ルートマップ",
@@ -57,6 +60,7 @@ export const zhRoute: ChatRouteDict = {
   saveUntitled: "这部作品",
   saved: "已经保存好了",
   saveError: "没能保存…",
+  savePermanentError: "这条路线没法保存,重新组一次路线试试吧",
   saveRetry: "再保存一次",
   timelineLabel: "路线时间轴",
   mapLabel: "路线地图",
@@ -76,6 +80,7 @@ export const enRoute: ChatRouteDict = {
   saveUntitled: "this work",
   saved: "Saved it",
   saveError: "That didn't save…",
+  savePermanentError: "This route can't be saved. Try planning it again",
   saveRetry: "Save again",
   timelineLabel: "Route timeline",
   mapLabel: "Route map",

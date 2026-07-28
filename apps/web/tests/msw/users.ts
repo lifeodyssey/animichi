@@ -6,9 +6,10 @@ import { contractJsonHandler, orpcErrorResponse } from "./contract-handler";
 import { TEST_ORIGIN } from "./fixtures";
 
 /**
- * Contract-typed MSW swimlane for the authenticated `users.listRoutes` GET
- * route. The body is `parse()`d with the contract's `ListRoutesResult` — no
- * hand-written JSON — and the 401 handler models a logged-out caller.
+ * Contract-typed MSW swimlane for the authenticated user-route endpoints:
+ * `users.listRoutes` (GET) and `users.saveRoute` (POST). Every body is
+ * `parse()`d with the contract schema — no hand-written JSON — and the 401
+ * handler models a logged-out caller.
  */
 export const USERS_ROUTES_URL = `${TEST_ORIGIN}/v1/users/routes`;
 
@@ -37,10 +38,12 @@ export const usersRoutesUnauthorizedHandler: HttpHandler = http.get(USERS_ROUTES
   orpcErrorResponse({ code: "UNAUTHORIZED", status: 401, message: "Sign in required" }),
 );
 
-/** Saved ids: create-on-login always creates, so a fresh id per call is right. */
+/** A fixed id is enough for unit assertions; the stateful create-on-login
+ * integration swimlane (tests/integration/create-on-login.test.ts) is the one
+ * that mints a distinct id per save. */
 const SAVED_ID = "44444444-4444-4444-8444-444444444444";
 
-/** Create-on-login swimlane: `users.saveRoute` echoes the persisted row back. */
+/** `users.saveRoute` echoes the persisted row back. */
 export const usersSaveRouteHandler: HttpHandler = contractJsonHandler({
   method: "post",
   url: USERS_ROUTES_URL,

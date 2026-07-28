@@ -39,14 +39,16 @@ describe("AC4: the deferred intent lives in namespaced localStorage", () => {
     expect(readDeferredSave(1_000)).toBeUndefined();
   });
 
-  it("treats a malformed entry as absent rather than replaying garbage", () => {
+  it("treats a malformed entry as absent AND erases it", () => {
     localStorage.setItem(DEFERRED_SAVE_KEY, '{"pointIds":"nope"}');
     expect(readDeferredSave(1_000)).toBeUndefined();
+    expect(localStorage.getItem(DEFERRED_SAVE_KEY)).toBeNull();
   });
 
-  it("treats unparseable JSON as absent rather than throwing", () => {
+  it("treats unparseable JSON as absent, erasing it rather than throwing", () => {
     localStorage.setItem(DEFERRED_SAVE_KEY, "{not json");
     expect(readDeferredSave(1_000)).toBeUndefined();
+    expect(localStorage.getItem(DEFERRED_SAVE_KEY)).toBeNull();
   });
 
   it("clears the entry on demand", () => {
@@ -101,6 +103,25 @@ describe("P2-2: an unrelated login inside the TTL still completes the user's own
     await replayDeferredSave(request, 1_100);
     expect(await replayDeferredSave(request, 1_200)).toBe("none");
     expect(request).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("P2-3: two tabs completing a login concurrently save once", () => {
+  it("claims the intent before sending, so the second replay finds nothing", async () => {
+    writeDeferredSave(INTENT, 1_000);
+    const request = vi.fn().mockResolvedValue({ id: "r1" });
+    const outcomes = await Promise.all([replayDeferredSave(request, 1_100), replayDeferredSave(request, 1_100)]);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(outcomes.filter((outcome) => outcome === "saved")).toHaveLength(1);
+    expect(outcomes.filter((outcome) => outcome === "none")).toHaveLength(1);
+  });
+
+  it("restores a failed claim with its original timestamp, never extending the TTL", async () => {
+    writeDeferredSave(INTENT, 1_000);
+    const request = vi.fn().mockRejectedValue(new Error("502"));
+    await replayDeferredSave(request, 1_100);
+    expect(readDeferredSave(1_100)?.createdAt).toBe(1_000);
+    expect(readDeferredSave(1_000 + DEFERRED_SAVE_TTL_MS + 1)).toBeUndefined();
   });
 });
 

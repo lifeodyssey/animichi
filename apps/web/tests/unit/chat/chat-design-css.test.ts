@@ -15,16 +15,19 @@ describe("nook tri-color chip tiles", () => {
 });
 
 describe("P5 save CTA: cream, so the single gold CTA stays reserved", () => {
-  const save = '.chat-chip[data-cta="save"]';
-
-  it("paints the save CTA with the cream card token pair", () => {
-    expect(ruleDeclaration(chatCss, save, "background")).toBe("var(--color-card)");
-    expect(ruleDeclaration(chatCss, save, "color")).toBe("var(--color-fg)");
+  it("inherits the base chip's cream press style", () => {
+    expect(ruleDeclaration(chatCss, ".chat-chip", "background")).toBe("var(--color-card)");
+    expect(ruleDeclaration(chatCss, ".chat-chip", "color")).toBe("var(--color-fg)");
   });
 
-  it("never borrows a gold token — the design sync allows one gold CTA per screen", () => {
-    expect(ruleDeclaration(chatCss, save, "background")).not.toContain("gold");
-    expect(ruleDeclaration(chatCss, save, "color")).not.toContain("gold");
+  it("declares no tone override at all — a second gold is what the design forbids", () => {
+    const toneRules = [...chatCss.matchAll(/\.chat-chip\[data-cta="save"\][^{]*\{([^}]*)\}/g)];
+    expect(toneRules).toHaveLength(0);
+  });
+
+  it("keeps gold reserved: no chip rule spends a gold token", () => {
+    const chipRules = [...chatCss.matchAll(/\.chat-chip[^{]*\{([^}]*)\}/g)].map((match) => match[1] ?? "");
+    expect(chipRules.some((body) => body.includes("--color-gold"))).toBe(false);
   });
 
   it("keeps the saved confirmation and save error on semantic tokens", () => {

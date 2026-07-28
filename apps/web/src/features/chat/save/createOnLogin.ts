@@ -1,7 +1,8 @@
 import type { SaveRouteInput } from "@seichijunrei/contract";
 import { saveRouteRequest } from "../../../api/hooks/use-save-route";
 import type { SaveRouteRequest } from "../../../api/hooks/use-save-route";
-import { clearDeferredSave, readDeferredSave } from "./deferredSave";
+import { clearDeferredSave, readDeferredSave, writeDeferredSave } from "./deferredSave";
+import type { DeferredSaveIntent } from "./deferredSave";
 
 /**
  * Create-on-login (OQ-9 ruling (b)): the post-login replay creates a **fresh**
@@ -25,13 +26,24 @@ export type DeferredReplayOutcome = "none" | "saved" | "failed";
  * initiated by a save tap finds no intent and issues no request. The intent is
  * cleared only on success, so a failed replay is never silently dropped.
  */
+/** Claim before sending: two tabs completing a login concurrently would
+ * otherwise both read the same intent and create two rows. The loser finds
+ * nothing. */
+function claimDeferredSave(now: number): DeferredSaveIntent | undefined {
+  const intent = readDeferredSave(now);
+  if (intent !== undefined) clearDeferredSave();
+  return intent;
+}
+
 export async function replayDeferredSave(
   request: SaveRouteRequest = saveRouteRequest,
   now: number = Date.now(),
 ): Promise<DeferredReplayOutcome> {
-  const intent = readDeferredSave(now);
+  const intent = claimDeferredSave(now);
   if (intent === undefined) return "none";
   const saved = await request(toSaveInput(intent)).then(() => true, () => false);
-  if (saved) clearDeferredSave();
+  // A failure restores the entry with its ORIGINAL timestamp, so a retry never
+  // silently extends the TTL.
+  if (!saved) writeDeferredSave(intent, intent.createdAt);
   return saved ? "saved" : "failed";
 }
