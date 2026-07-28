@@ -7,6 +7,7 @@ from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Literal, cast
 
+import httpx
 import structlog
 from fastapi import Depends, Header, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
@@ -32,6 +33,8 @@ _SCRUB_PATTERNS = (
     r"(?=^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$)",
     r"api[._ -]?key",
     r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
+    r"x-byok-key",
+    r"x-byok-base-url",
 )
 _OPERATING_QUERY_FIELDS = frozenset({"query_text", "first_query"})
 _MESSAGE_CONTENT_FIELDS = frozenset(
@@ -335,5 +338,44 @@ def _instrument_logfire(app: object | None) -> None:
         from fastapi import FastAPI as _FastAPI
 
         logfire.instrument_fastapi(cast(_FastAPI, app))
+    # `instrument_httpx()` with no `client` argument is a *global* patch: it
+    # monkey-patches `httpx.AsyncHTTPTransport.handle_async_request` at the
+    # class level, so every `httpx.AsyncClient` created anywhere in the
+    # process — including a future per-request BYOK client (Task 3) — is
+    # auto-instrumented and would record `url.full` (the user's `base_url`,
+    # path and query included) on an egress span. BYOK spec (X3/P1-1), Option
+    # A: rather than accept that leak, the BYOK client is built via
+    # `build_uninstrumented_http_client()` below, which explicitly opts that
+    # one client instance back out of instrumentation, so its egress emits
+    # no span at all.
     logfire.instrument_httpx()
     logfire.instrument_asyncpg()
+
+
+def exclude_client_from_httpx_instrumentation(client: httpx.AsyncClient) -> None:
+    """Opt one ``httpx.AsyncClient`` instance out of global httpx instrumentation
+    (BYOK spec X3/P1-1, Option A).
+
+    Global instrumentation (``_instrument_logfire`` -> ``logfire.instrument_httpx()``)
+    patches ``httpx.AsyncHTTPTransport`` at the class level, so every client
+    built afterwards — including a future per-request BYOK client (Task 3) —
+    is still instrumented and would leak the caller's full ``base_url``
+    (path + query) into an egress span. This un-patches that one client
+    instance via OTel's per-client API, so its egress never becomes a span:
+    no BYOK credential or endpoint ever reaches an observability sink on the
+    outbound leg. Call it on a freshly constructed client, before first use.
+    """
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+    HTTPXClientInstrumentor.uninstrument_client(client)
+
+
+def build_uninstrumented_http_client(
+    *, transport: httpx.AsyncBaseTransport | None = None
+) -> httpx.AsyncClient:
+    """Convenience constructor: an ``httpx.AsyncClient`` pre-excluded from
+    global httpx instrumentation. See ``exclude_client_from_httpx_instrumentation``.
+    """
+    client = httpx.AsyncClient(transport=transport)
+    exclude_client_from_httpx_instrumentation(client)
+    return client
