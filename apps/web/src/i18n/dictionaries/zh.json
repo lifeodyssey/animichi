@@ -55,6 +55,9 @@
     "magic_link_hint": "无需密码 —— 我们会通过邮件发送安全的登录链接。",
     "close": "关闭",
     "callback_pending": "正在登录…",
-    "callback_error": "登录链接已失效或已被使用，请重新申请。"
+    "callback_error": "登录链接已失效或已被使用，请重新申请。",
+    "callback_save_failed": "登录成功了，但路线没能保存…",
+    "callback_save_retry": "再保存一次",
+    "callback_save_skip": "也可以稍后回到聊天页重新保存"
   }
 }

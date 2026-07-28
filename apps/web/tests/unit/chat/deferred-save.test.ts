@@ -72,15 +72,35 @@ describe("AC5: an intent older than the TTL is ignored and cleared", () => {
 describe("AC4 negative: a login not initiated by a save tap replays nothing", () => {
   it("makes no saveRoute call when no intent is present", async () => {
     const request = vi.fn();
-    expect(await replayDeferredSave(request, 1_000)).toBe(false);
+    expect(await replayDeferredSave(request, 1_000)).toBe("none");
     expect(request).not.toHaveBeenCalled();
   });
 
   it("makes no saveRoute call when the only intent has expired", async () => {
     writeDeferredSave(INTENT, 1_000);
     const request = vi.fn();
-    expect(await replayDeferredSave(request, 1_000 + DEFERRED_SAVE_TTL_MS + 1)).toBe(false);
+    expect(await replayDeferredSave(request, 1_000 + DEFERRED_SAVE_TTL_MS + 1)).toBe("none");
     expect(request).not.toHaveBeenCalled();
+  });
+});
+
+describe("P2-2: an unrelated login inside the TTL still completes the user's own save", () => {
+  it("replays a live intent even though this login was not the one that stashed it", async () => {
+    writeDeferredSave(INTENT, 1_000);
+    const request = vi.fn().mockResolvedValue({ id: "r1" });
+    // Ruled semantics: an intent can only be produced by a real 保存する tap, so
+    // replaying it within the TTL finishes a save the same user asked for. This
+    // test pins that intent so a later refactor cannot drift it silently.
+    expect(await replayDeferredSave(request, 1_000 + 60_000)).toBe("saved");
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("consumes the intent, so a second unrelated login replays nothing", async () => {
+    writeDeferredSave(INTENT, 1_000);
+    const request = vi.fn().mockResolvedValue({ id: "r1" });
+    await replayDeferredSave(request, 1_100);
+    expect(await replayDeferredSave(request, 1_200)).toBe("none");
+    expect(request).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -88,7 +108,7 @@ describe("AC3/AC7: replay semantics", () => {
   it("saves the exact deferred ids in order and clears the intent on success", async () => {
     writeDeferredSave(INTENT, 1_000);
     const request = vi.fn().mockResolvedValue({ id: "r1" });
-    expect(await replayDeferredSave(request, 1_100)).toBe(true);
+    expect(await replayDeferredSave(request, 1_100)).toBe("saved");
     expect(request).toHaveBeenCalledWith({ title: INTENT.title, point_ids: ["p1", "p2"], status: "saved" });
     expect(localStorage.getItem(DEFERRED_SAVE_KEY)).toBeNull();
   });
@@ -96,7 +116,7 @@ describe("AC3/AC7: replay semantics", () => {
   it("keeps the intent after a failed replay so it is not silently dropped", async () => {
     writeDeferredSave(INTENT, 1_000);
     const request = vi.fn().mockRejectedValue(new Error("502"));
-    expect(await replayDeferredSave(request, 1_100)).toBe(false);
+    expect(await replayDeferredSave(request, 1_100)).toBe("failed");
     expect(readDeferredSave(1_100)).toBeDefined();
   });
 });

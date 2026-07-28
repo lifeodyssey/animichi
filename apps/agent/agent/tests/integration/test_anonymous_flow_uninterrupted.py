@@ -3,9 +3,13 @@ interrupted by an auth challenge.
 
 The browser ACs pin that no login dialog opens before the 「保存する」 tap. This is
 the server-side half of the same invariant: the identical flow driven through
-the runtime endpoint returns no 401/403 and carries no ``Authorization`` header
-on any request, so the login wall is a product decision made in the client
-rather than something the backend forces.
+the runtime endpoint returns no 401/403, so the login wall is a product decision
+made in the client rather than something the backend forces.
+
+Every assertion here is on **app** behaviour — the route's declared security, the
+`_reject_credentialed_anonymous` guard, and the missing-identity status — rather
+than on headers the test itself constructed, which no production change could
+falsify.
 
 Uses ``httpx.AsyncClient`` + ``ASGITransport`` (the pattern in
 ``test_runtime_journey_contract.py``) because ``TestClient``'s portal thread
@@ -117,8 +121,52 @@ async def test_anonymous_flow_returns_no_auth_challenge(anon_client) -> None:
 
 
 @pytest.mark.integration
-async def test_anonymous_flow_sends_no_authorization_header(anon_client) -> None:
-    for text in _FLOW:
-        resp = await _turn(anon_client, text)
-        sent = {name.lower() for name in resp.request.headers}
-        assert "authorization" not in sent
+async def test_runtime_declares_no_bearer_requirement(anon_client) -> None:
+    """The route must not *demand* a credential the anonymous client cannot mint.
+
+    Asserted against the app's own OpenAPI schema rather than against headers the
+    test constructed: adding an `HTTPBearer` dependency to `/v1/runtime` — the
+    production change that would break the anonymous flow — turns this red.
+    """
+    schema = (await anon_client.get("/openapi.json")).json()
+    operation = schema["paths"]["/v1/runtime"]["post"]
+    assert not operation.get("security"), operation.get("security")
+    assert not schema.get("components", {}).get("securitySchemes")
+
+
+@pytest.mark.integration
+async def test_anonymous_stamp_with_a_credential_is_rejected(anon_client) -> None:
+    """The app enforces the flow's no-`Authorization` property; the test does not
+    merely restate its own request headers.
+
+    `_reject_credentialed_anonymous` (issue #441) refuses an anonymous stamp that
+    arrives with a credential, so a client that leaked a stale bearer into the
+    anonymous flow would be 401'd — which is exactly the interruption the P5
+    invariant forbids. Deleting that guard, or having the web client attach a
+    header while signed out, turns this red.
+    """
+    resp = await anon_client.post(
+        "/v1/runtime",
+        json={"text": _FLOW[0], "locale": "zh"},
+        headers={**_ANON_HEADERS, "Authorization": "Bearer stale-token"},
+    )
+    assert resp.status_code == 401
+
+    clean = await _turn(anon_client, _FLOW[0])
+    assert clean.status_code == 200
+
+
+@pytest.mark.integration
+async def test_identityless_request_is_never_auth_challenged(anon_client) -> None:
+    """Even with no edge-stamped identity at all, the route answers rather than
+    challenging: no 401/403 and no ``WWW-Authenticate`` for the client to react
+    to. Adding an authentication dependency here — the change that would put a
+    login in front of the anonymous flow — turns this red. The exact success
+    status is deliberately not pinned, so a future stricter *request* validation
+    stays free to return 4xx without faking an auth challenge.
+    """
+    resp = await anon_client.post(
+        "/v1/runtime", json={"text": _FLOW[0], "locale": "zh"}
+    )
+    assert resp.status_code not in _AUTH_CHALLENGES
+    assert "www-authenticate" not in {name.lower() for name in resp.headers}

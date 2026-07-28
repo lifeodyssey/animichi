@@ -144,6 +144,8 @@ test("a login the save CTA never started replays nothing", async ({ page, contex
   await captureSaves(context, bodies);
   await stubAuthToken(context);
   await page.goto("/auth/callback");
-  await page.waitForTimeout(500);
+  // Deterministic signal: the callback navigates home only once the redeem —
+  // and therefore the replay decision — has completed. No arbitrary wait.
+  await page.waitForURL((url) => url.pathname === "/");
   expect(bodies).toEqual([]);
 });

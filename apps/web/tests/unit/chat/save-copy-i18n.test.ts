@@ -42,6 +42,25 @@ describe("AC11: the save title is derived, bounded and localized", () => {
   });
 });
 
+describe("P3: the derived title is injection- and grapheme-safe", () => {
+  it("keeps a work title containing replacement patterns verbatim", () => {
+    const title = saveRouteTitle(chatDictFor("ja"), "$& $1 $` Euphonium", 3);
+    expect(title).toContain("$& $1 $` Euphonium");
+  });
+
+  it("never splits a surrogate pair when truncating a long emoji title", () => {
+    const title = saveRouteTitle(chatDictFor("ja"), "🎺".repeat(300), 3);
+    expect(title.length).toBeLessThanOrEqual(200);
+    expect([...title].every((char) => char.codePointAt(0) !== undefined)).toBe(true);
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(title)).toBe(false);
+  });
+
+  it("still produces a contract-valid title after truncation", () => {
+    const title = saveRouteTitle(chatDictFor("en"), "👨‍👩‍👧‍👦".repeat(60), 5);
+    expect(SaveRouteInput.safeParse({ title, point_ids: ["p1"] }).success).toBe(true);
+  });
+});
+
 describe("AC12: save CTA, confirmation and error copy exist in ja / zh / en", () => {
   it.each(LOCALES)("renders distinct %s save copy", (locale) => {
     const route = chatDictFor(locale).route;

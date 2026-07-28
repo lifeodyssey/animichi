@@ -13,6 +13,14 @@ export function toSaveInput(intent: Readonly<{ pointIds: readonly string[]; titl
 }
 
 /**
+ * `none` — the login was not initiated by a save tap, so there was nothing to
+ * replay. `failed` is distinct from it precisely so the auth callback can
+ * surface a failure instead of reporting a clean login and leaving a live
+ * intent to fire, unannounced, on the next login inside the TTL.
+ */
+export type DeferredReplayOutcome = "none" | "saved" | "failed";
+
+/**
  * Replay the deferred save exactly once after a login. A login that was **not**
  * initiated by a save tap finds no intent and issues no request. The intent is
  * cleared only on success, so a failed replay is never silently dropped.
@@ -20,10 +28,10 @@ export function toSaveInput(intent: Readonly<{ pointIds: readonly string[]; titl
 export async function replayDeferredSave(
   request: SaveRouteRequest = saveRouteRequest,
   now: number = Date.now(),
-): Promise<boolean> {
+): Promise<DeferredReplayOutcome> {
   const intent = readDeferredSave(now);
-  if (intent === undefined) return false;
+  if (intent === undefined) return "none";
   const saved = await request(toSaveInput(intent)).then(() => true, () => false);
   if (saved) clearDeferredSave();
-  return saved;
+  return saved ? "saved" : "failed";
 }
