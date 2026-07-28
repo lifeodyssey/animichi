@@ -49,7 +49,7 @@ function anonEnv(captured: { requests: Request[] }, container: () => Response, g
 }
 
 function anonApp() {
-  return createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false }) });
+  return createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
 }
 
 function chat(headers: Record<string, string> = {}) {
