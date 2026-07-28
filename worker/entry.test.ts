@@ -42,7 +42,7 @@ function envWithCatalog(captured: { req?: Request }) {
 
 void test("exact public anime overview GET forwards anonymously, no auth called", async () => {
   let authCalled = false;
-  const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false } as const); };
+  const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
   const app = createWorkerApp({ nextHandler: stubNext, authenticate });
   const cap: { req?: Request } = {};
   const res = await app.request("/catalog/public/anime-overview/3302", {}, envWithCatalog(cap), stubCtx);
@@ -130,7 +130,7 @@ function envWithContainer(captured: { req?: Request }) {
 
 void test("/v1 public route -> container, no auth called", async () => {
   let authCalled = false;
-  const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false } as const); };
+  const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
   const app = createWorkerApp({ nextHandler: stubNext, authenticate });
   const cap: { req?: Request } = {};
   const res = await app.request("/v1/bangumi/popular", {}, envWithContainer(cap), stubCtx);
@@ -140,7 +140,7 @@ void test("/v1 public route -> container, no auth called", async () => {
 
 void test("/v1 guide route (regex) is public -> container, no auth, client X-User stripped", async () => {
   let authCalled = false;
-  const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false } as const); };
+  const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
   const app = createWorkerApp({ nextHandler: stubNext, authenticate });
   const cap: { req?: Request } = {};
   const res = await app.request("/v1/bangumi/12345/guide", { headers: { "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
@@ -150,7 +150,7 @@ void test("/v1 guide route (regex) is public -> container, no auth, client X-Use
 });
 
 void test("/v1 authed route without creds -> 401, container not hit", async () => {
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false }) });
+  const app = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
   const cap: { req?: Request } = {};
   const res = await app.request("/v1/chat", { method: "POST" }, envWithContainer(cap), stubCtx);
   assert.equal(res.status, 401);
@@ -177,7 +177,7 @@ void test("client-forged X-User-Id is stripped on authed route (worker value win
 });
 
 void test("client-forged X-User-Id is stripped on PUBLIC route too", async () => {
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false }) });
+  const app = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
   const cap: { req?: Request } = {};
   await app.request("/v1/bangumi/popular", { headers: { "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
   assert.equal(cap.req?.headers.get("X-User-Id"), null);
@@ -187,7 +187,7 @@ void test("/v1/users/routes -> USERS with Authorization intact, no container or 
   let authCalled = false;
   let containerHit = false;
   let received: Request | undefined;
-  const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false } as const); };
+  const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
   const app = createWorkerApp({ nextHandler: stubNext, authenticate });
   const env = {
     USERS: { fetch: (req: Request) => { received = req; return Promise.resolve(new Response("users")); } },
@@ -205,7 +205,7 @@ void test("/v1/users/routes -> USERS with Authorization intact, no container or 
 
 void test("/v1/users/routes bypasses a rejecting authenticate stub", async () => {
   let received = false;
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false }) });
+  const app = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
   const env = {
     USERS: { fetch: () => { received = true; return Promise.resolve(new Response("users")); } },
   } as never;

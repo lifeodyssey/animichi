@@ -23,6 +23,15 @@ jobs:
 
   changes:
     runs-on: ubuntu-latest
+    # dorny/paths-filter resolves a pull_request's changed files through the
+    # GitHub API (listFiles), which needs `pull-requests: read`. The workflow-level
+    # `permissions: contents: read` grants only Contents+Metadata, so on a private
+    # repo the call returns "Resource not accessible by integration"; this job then
+    # fails and EVERY downstream lane (`Agent CI`, `Edge worker tests`, `Contract
+    # OpenAPI drift`, …) reports `skipping` — a green-looking PR with no suite run.
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       catalog: ${{ steps.f.outputs.catalog }}
       users: ${{ steps.f.outputs.users }}
