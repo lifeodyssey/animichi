@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from datetime import datetime
 
 from agent.infrastructure.supabase.client_types import AsyncPGPool, Row
 
@@ -13,6 +14,24 @@ _CREATE_SESSION_SQL = """
 _CREATE_CONVERSATION_SQL = """
     INSERT INTO conversations (session_id, user_id, first_query) VALUES ($1, $2, $3)
 """
+_MIGRATE_OWNERSHIP_SQL = """
+    UPDATE conversations SET user_id = $1, updated_at = now() WHERE user_id = $2
+"""
+#: Anonymous identities always carry the `anon_` prefix (worker/auth.ts); the
+#: escaped LIKE — not a `>=`/`<` range predicate — is the collation-safe match
+#: this partial scan relies on (paired with the `text_pattern_ops` index).
+_FIND_PURGEABLE_SQL = """
+    SELECT c.session_id
+    FROM conversations c
+    WHERE c.user_id LIKE 'anon\\_%' ESCAPE '\\'
+      AND c.updated_at < $1
+      AND NOT EXISTS (SELECT 1 FROM routes r WHERE r.session_id = c.session_id)
+"""
+
+
+def _rows_affected(status: str) -> int:
+    """Parse asyncpg's command-tag status string (e.g. ``"UPDATE 3"``)."""
+    return int(status.rsplit(" ", maxsplit=1)[-1])
 
 
 class SessionRepository:
@@ -176,3 +195,35 @@ class SessionRepository:
     async def delete_session_state(self, session_id: str) -> None:
         """Delete session state by session ID."""
         await self._pool.execute("DELETE FROM sessions WHERE id = $1", session_id)
+
+    async def migrate_ownership(self, from_anon_id: str, to_user_id: str) -> bool:
+        """Re-point every conversation owned by an anonymous identity to the
+        real user in a single identity-dimensional UPDATE (not INSERT — this
+        never creates a conversation). Idempotent: a second run matches zero
+        rows. Returns True iff at least one row changed."""
+        status = await self._pool.execute(
+            _MIGRATE_OWNERSHIP_SQL, to_user_id, from_anon_id
+        )
+        return _rows_affected(status) > 0
+
+    async def find_purgeable_anonymous_sessions(self, cutoff: datetime) -> list[str]:
+        """Session ids of anonymous, routeless conversations inactive since
+        cutoff. `updated_at` is read as liveness, not creation age."""
+        rows = await self._pool.fetch(_FIND_PURGEABLE_SQL, cutoff)
+        return [str(row["session_id"]) for row in rows]
+
+    async def purge_session(self, session_id: str) -> None:
+        """Delete one session's conversation (cascading its messages) and its
+        session row, in a single transaction per session. Ordering matters:
+        conversations first, sessions last — the `routes.session_id` FK is
+        the transactional backstop if the exclusion predicate is ever wrong,
+        and it can only fire on the sessions delete, rolling the whole unit
+        back rather than half-destroying a route-bearing session."""
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                await connection.execute(
+                    "DELETE FROM conversations WHERE session_id = $1", session_id
+                )
+                await connection.execute(
+                    "DELETE FROM sessions WHERE id = $1", session_id
+                )

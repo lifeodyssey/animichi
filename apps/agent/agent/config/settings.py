@@ -152,6 +152,15 @@ class Settings(BaseSettings):
     model_output_cost_per_mtok_usd: float = Field(
         default=0.0, ge=0, description="Output token price per million tokens (USD)"
     )
+    # Anonymous-session retention sweep (issue #273 Task 3). A session with no
+    # route output is purged once its conversation has gone this many days
+    # without an update; route-bearing sessions are retained permanently
+    # regardless of this window (not configurable — see purge_anonymous_sessions).
+    anonymous_session_retention_days: int = Field(
+        default=30,
+        ge=1,
+        description="Days of inactivity before a routeless anonymous session is purged",
+    )
     service_host: str = Field(default="0.0.0.0", description="HTTP service bind host")
     service_port: int = Field(default=8080, description="HTTP service bind port")
     observability_service_name: str = Field(

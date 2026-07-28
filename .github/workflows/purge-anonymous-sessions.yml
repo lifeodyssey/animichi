@@ -1,0 +1,47 @@
+# Standalone top-level workflow (see agent-eval-nightly.yml precedent) — kept
+# separate from ci.yml so this cron cadence never rides along with every
+# push/PR trigger in the main CI matrix.
+name: Purge Anonymous Sessions
+
+# Issue #273 Task 3: routeless anonymous sessions accumulate free-text queries
+# and locations with no TTL otherwise. Cadence is discretionary; daily,
+# off-peak. Needs the SUPABASE_DB_URL secret in this environment — without
+# it the job fails outright rather than silently purging nothing.
+on:
+  schedule:
+    - cron: "37 18 * * *" # 18:37 UTC daily — low-traffic, off the hour
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: purge-anonymous-sessions
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  purge:
+    name: Purge routeless anonymous sessions
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/agent
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - run: uv sync --frozen --all-extras
+
+      - name: Run the anonymous-session retention sweep
+        run: uv run --frozen python -m agent.scripts.purge_anonymous_sessions
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}

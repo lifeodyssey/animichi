@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import re
 from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Literal, cast
@@ -19,7 +20,7 @@ from agent.infrastructure.session import SessionStore, create_session_store
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import PublicAPIResponse, RuntimeAPI
 from agent.interfaces.schemas import GRACEFUL_TERMINAL_STATUSES
-from agent.interfaces.usage_metering import ANONYMOUS_USER_TYPE
+from agent.interfaces.usage_metering import ANON_USER_ID_PREFIX, ANONYMOUS_USER_TYPE
 
 if TYPE_CHECKING:
     import logfire
@@ -131,6 +132,44 @@ def _require_trusted_user(
     if auth.user_id is None:
         raise HTTPException(status_code=400, detail="X-User-Id header required.")
     return auth
+
+
+def _require_non_anonymous_user(
+    auth: Annotated[TrustedAuthContext, Depends(_get_trusted_auth_context)],
+) -> TrustedAuthContext:
+    """Reject-anonymous, not allow-list (session_migration, #273 Task 3).
+
+    Mirrors ``usage_metering.scope_for_identity``'s classification exactly:
+    anonymous is either the edge's typed marker or the ``anon_`` id prefix.
+    There is no ``"user"`` literal anywhere in the system — real humans are
+    stamped ``"human"``, ``sk_*`` API keys ``"agent"`` — so this must not be
+    an allow-list, which would 403 every genuine caller.
+    """
+    if auth.user_id is None:
+        raise HTTPException(status_code=400, detail="X-User-Id header required.")
+    is_anonymous = auth.user_type == ANONYMOUS_USER_TYPE or auth.user_id.startswith(
+        ANON_USER_ID_PREFIX
+    )
+    if is_anonymous:
+        raise HTTPException(
+            status_code=403, detail="Anonymous identity cannot migrate sessions."
+        )
+    return auth
+
+
+#: The container's own re-validation of the edge-forwarded X-Anon-Id (re-P3):
+#: anything not matching this shape is treated as missing, not as an identity,
+#: so structural safety does not depend on the edge being bug-free.
+_ANON_ID_PATTERN = re.compile(r"^anon_[0-9a-f]{32}$")
+
+
+def _get_trusted_anon_id(
+    x_anon_id: Annotated[str | None, Header(alias="X-Anon-Id")] = None,
+) -> str | None:
+    value = _normalize_optional_header(x_anon_id)
+    if value is None or not _ANON_ID_PATTERN.fullmatch(value):
+        return None
+    return value
 
 
 def _get_runtime_api(request: Request) -> RuntimeAPI:
