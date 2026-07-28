@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import ssl
+from pathlib import Path
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
@@ -21,9 +22,14 @@ from cryptography.hazmat.primitives.serialization import (
 from cryptography.x509.oid import NameOID
 
 TEST_HOSTNAME = "guarded.egress-guard.test"
+# A second name on the *same* cert (via SAN), used only by the P2-A
+# keep-alive/TLS-identity regression test: two different original hostnames
+# that happen to resolve to the same pinned IP must each get their own
+# connection/handshake, never a connection reused from the other's identity.
+TEST_HOSTNAME_B = "guarded-b.egress-guard.test"
 
 
-def write_self_signed_cert(directory: object) -> tuple[str, str]:
+def write_self_signed_cert(directory: Path) -> tuple[str, str]:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, TEST_HOSTNAME)])
     now = datetime.datetime.now(datetime.UTC)
@@ -36,13 +42,15 @@ def write_self_signed_cert(directory: object) -> tuple[str, str]:
         .not_valid_before(now - datetime.timedelta(minutes=5))
         .not_valid_after(now + datetime.timedelta(days=1))
         .add_extension(
-            x509.SubjectAlternativeName([x509.DNSName(TEST_HOSTNAME)]),
+            x509.SubjectAlternativeName(
+                [x509.DNSName(TEST_HOSTNAME), x509.DNSName(TEST_HOSTNAME_B)]
+            ),
             critical=False,
         )
         .sign(key, hashes.SHA256())
     )
-    cert_path = directory / "cert.pem"  # type: ignore[operator]
-    key_path = directory / "key.pem"  # type: ignore[operator]
+    cert_path = directory / "cert.pem"
+    key_path = directory / "key.pem"
     cert_path.write_bytes(cert.public_bytes(Encoding.PEM))
     key_path.write_bytes(
         key.private_bytes(
@@ -53,15 +61,30 @@ def write_self_signed_cert(directory: object) -> tuple[str, str]:
 
 
 class TlsProbeServer:
-    """Minimal HTTPS echo server that records the received Host + SNI."""
+    """Minimal HTTPS echo server recording per-connection Host + SNI history.
+
+    History (not a single last-value field) so tests can assert distinct
+    connections got distinct, correctly-scoped handshakes — e.g. the P2-A
+    keep-alive/TLS-identity regression, which needs to see two separate
+    connections each carrying their own request's SNI.
+    """
 
     def __init__(self, cert_path: str, key_path: str) -> None:
         self.cert_path = cert_path
         self.key_path = key_path
-        self.received_host_header: str | None = None
-        self.received_sni: str | None = None
+        self.sni_history: list[str | None] = []
+        self.host_header_history: list[str | None] = []
+        self.connection_count: int = 0
         self.port: int = 0
         self._server: asyncio.AbstractServer | None = None
+
+    @property
+    def received_sni(self) -> str | None:
+        return self.sni_history[-1] if self.sni_history else None
+
+    @property
+    def received_host_header(self) -> str | None:
+        return self.host_header_history[-1] if self.host_header_history else None
 
     async def start(self) -> None:
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -82,15 +105,18 @@ class TlsProbeServer:
         server_name: str | None,
         _ssl_context: ssl.SSLContext,
     ) -> None:
-        self.received_sni = server_name
+        self.sni_history.append(server_name)
 
     async def _handle(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
+        self.connection_count += 1
         head = await reader.readuntil(b"\r\n\r\n")
+        host_header: str | None = None
         for line in head.split(b"\r\n"):
             if line.lower().startswith(b"host:"):
-                self.received_host_header = line.split(b":", 1)[1].strip().decode()
+                host_header = line.split(b":", 1)[1].strip().decode()
+        self.host_header_history.append(host_header)
         body = b"ok"
         writer.write(
             b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s" % (len(body), body)

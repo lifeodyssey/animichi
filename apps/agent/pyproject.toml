@@ -54,6 +54,11 @@ dev = [
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0.0",
+    # Self-signed TLS fixture for the SSRF egress guard integration tests
+    # (agent/tests/integration/_egress_tls_stub.py). Previously an incidental
+    # transitive dependency (via authlib) — pinned explicitly since tests
+    # import it directly and it must not silently disappear on a dep bump.
+    "cryptography>=46.0.0",
 
     # Code Quality
     "ruff>=0.14.0",

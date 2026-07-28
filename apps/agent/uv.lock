@@ -54,6 +54,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "cryptography" },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "pytest" },
@@ -82,6 +83,7 @@ scripts = [
 requires-dist = [
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "authlib", specifier = ">=1.6.12" },
+    { name = "cryptography", marker = "extra == 'dev'", specifier = ">=46.0.0" },
     { name = "ddgs", specifier = ">=9.14.1" },
     { name = "fastapi", specifier = ">=0.139.2" },
     { name = "google-genai", specifier = ">=1.16.0" },

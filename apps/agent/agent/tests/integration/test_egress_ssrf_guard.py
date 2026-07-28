@@ -1,14 +1,19 @@
-"""Integration tests for the SSRF egress guard (#284 Task 1).
+"""Integration tests for the SSRF egress guard's transport mechanics (#284 T1).
 
 Uses a real self-signed TLS stub server (`_egress_tls_stub.py`) bound to
 127.0.0.1 so the happy-path assertion can prove `sni_hostname` actually reaches
 the TLS handshake as the *original* hostname while the socket connects to the
-*pinned* IP literal.
+*pinned* IP literal. Pure address-classification cases (AC3/AC4/AC7) live in
+`test_egress_ssrf_guard_addresses.py` to keep this file under the 200-line cap.
+
+The cert/key pair is generated once per test session (`tls_cert_files`,
+session-scoped — RSA key generation is the expensive part); the asyncio
+server itself is started fresh per test (`tls_stub_server`, function-scoped)
+for state isolation and to avoid port/history bleed between tests.
 """
 
 from __future__ import annotations
 
-import ipaddress
 import ssl
 from collections.abc import AsyncIterator, Awaitable, Callable
 
@@ -16,14 +21,11 @@ import httpx
 import pytest
 
 from agent.infrastructure import egress_guard
-from agent.infrastructure.egress_guard import (
-    EgressBlocked,
-    GuardedAsyncTransport,
-    build_guarded_async_client,
-    validate_base_url,
-)
+from agent.infrastructure.egress_guard import EgressBlocked
+from agent.infrastructure.egress_transport import GuardedAsyncTransport
 from agent.tests.integration._egress_tls_stub import (
     TEST_HOSTNAME,
+    TEST_HOSTNAME_B,
     TlsProbeServer,
     write_self_signed_cert,
 )
@@ -50,18 +52,33 @@ def _sequenced_resolver(
     return _resolve, calls
 
 
+@pytest.fixture(scope="session")
+def tls_cert_files(tmp_path_factory: pytest.TempPathFactory) -> tuple[str, str]:
+    directory = tmp_path_factory.mktemp("egress-guard-tls")
+    return write_self_signed_cert(directory)
+
+
 @pytest.fixture
 async def tls_stub_server(
-    tmp_path_factory: pytest.TempPathFactory,
+    tls_cert_files: tuple[str, str],
 ) -> AsyncIterator[TlsProbeServer]:
-    directory = tmp_path_factory.mktemp("egress-guard-tls")
-    cert_path, key_path = write_self_signed_cert(directory)
+    cert_path, key_path = tls_cert_files
     server = TlsProbeServer(cert_path, key_path)
     await server.start()
     try:
         yield server
     finally:
         await server.aclose()
+
+
+def _guarded_client_for_stub(
+    server: TlsProbeServer, resolver: Callable[[str, int], Awaitable[list[str]]]
+) -> httpx.AsyncClient:
+    trust_ctx = ssl.create_default_context(cafile=server.cert_path)
+    transport = GuardedAsyncTransport(resolver=resolver, verify=trust_ctx)
+    return httpx.AsyncClient(
+        transport=transport, trust_env=False, follow_redirects=False
+    )
 
 
 # ── AC1: happy path — pinned connect, correct Host + preserved SNI ──────────
@@ -75,13 +92,11 @@ async def test_happy_path_reaches_stub_with_original_host_and_sni(
         egress_guard, "ALLOWED_PORTS", frozenset({tls_stub_server.port})
     )
     # The stub server only binds to loopback, which the classification
-    # (correctly) denies — exercised thoroughly elsewhere (AC3/AC4/AC7). This
-    # test isolates the pinning/rewrite/TLS wiring, so acceptance is forced
-    # for the single resolved address under test.
+    # (correctly) denies — exercised thoroughly in test_egress_ssrf_guard_addresses.py.
+    # This test isolates the pinning/rewrite/TLS wiring, so acceptance is
+    # forced for the single resolved address under test.
     monkeypatch.setattr(egress_guard, "_is_address_accepted", lambda _ip: True)
-    resolver = _resolver(["127.0.0.1"])
-    trust_ctx = ssl.create_default_context(cafile=tls_stub_server.cert_path)
-    client = build_guarded_async_client(resolver=resolver, verify=trust_ctx)
+    client = _guarded_client_for_stub(tls_stub_server, _resolver(["127.0.0.1"]))
 
     response = await client.get(f"https://{TEST_HOSTNAME}:{tls_stub_server.port}/probe")
     await client.aclose()
@@ -94,39 +109,37 @@ async def test_happy_path_reaches_stub_with_original_host_and_sni(
     assert tls_stub_server.received_sni == TEST_HOSTNAME
 
 
-# ── AC3 (SD-20 case ①): IP-literal base_url rejected, no socket opened ─────
+# ── P2-A regression: distinct hostnames sharing a pinned IP never share a
+#    keep-alive connection (which would reuse a TLS session verified for the
+#    *other* hostname's SNI) ─────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize(
-    "url",
-    [
-        "http://127.0.0.1",
-        "https://127.0.0.1",
-        "https://10.0.0.5",
-        "https://169.254.169.254",
-    ],
-)
-async def test_ip_literal_base_url_rejected_without_opening_a_socket(url: str) -> None:
-    with pytest.raises(EgressBlocked):
-        await validate_base_url(url)
+async def test_distinct_hostnames_sharing_pinned_ip_get_isolated_connections(
+    tls_stub_server: TlsProbeServer,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        egress_guard, "ALLOWED_PORTS", frozenset({tls_stub_server.port})
+    )
+    monkeypatch.setattr(egress_guard, "_is_address_accepted", lambda _ip: True)
+    # Both hostnames resolve to the *same* pinned IP (the one real server).
+    client = _guarded_client_for_stub(tls_stub_server, _resolver(["127.0.0.1"]))
 
+    port = tls_stub_server.port
+    first = await client.get(f"https://{TEST_HOSTNAME}:{port}/a")
+    second = await client.get(f"https://{TEST_HOSTNAME_B}:{port}/b")
+    await client.aclose()
 
-# ── AC4 (P1-1 regression): dual-condition load-bearing cases ───────────────
-
-
-@pytest.mark.parametrize(
-    "address", ["100.100.100.200", "100.64.0.1", "64:ff9b::7f00:1"]
-)
-async def test_dual_condition_regression_addresses_are_denied(address: str) -> None:
-    with pytest.raises(EgressBlocked):
-        await validate_base_url("https://host", resolver=_resolver([address]))
-
-
-def test_cgnat_is_global_false_asserted_directly() -> None:
-    """P2-3 (rev5): folded into T1-AC4 so a build on CPython 3.11.0-3.11.9
-    (pre gh-113171) fails loudly here instead of silently losing the P1-1
-    protection while every other test stays green."""
-    assert ipaddress.ip_address("100.64.0.1").is_global is False
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert tls_stub_server.connection_count == 2, (
+        "each request must open its own connection"
+    )
+    assert tls_stub_server.sni_history == [TEST_HOSTNAME, TEST_HOSTNAME_B]
+    assert tls_stub_server.host_header_history == [
+        f"{TEST_HOSTNAME}:{port}",
+        f"{TEST_HOSTNAME_B}:{port}",
+    ]
 
 
 # ── AC5 (T4 TOCTOU): resolve-once, pin, never a later re-resolution ─────────
@@ -152,13 +165,6 @@ async def test_toctou_connects_only_to_first_resolved_address() -> None:
     assert calls[0] == 1, "must resolve exactly once per request, never re-query"
 
 
-async def test_forbidden_ip_from_injected_resolver_is_rejected() -> None:
-    with pytest.raises(EgressBlocked):
-        await validate_base_url(
-            "https://internal.example", resolver=_resolver(["10.1.2.3"])
-        )
-
-
 # ── AC6 (SD-20 case ③): redirects are refused, never followed ──────────────
 
 
@@ -181,21 +187,3 @@ async def test_redirect_response_is_refused_not_followed() -> None:
     with pytest.raises(EgressBlocked):
         await client.get("https://host.example/v1")
     await client.aclose()
-
-
-# ── AC7 (SD-20 case ④): IPv6 loopback / mapped / mixed record sets ─────────
-
-
-@pytest.mark.parametrize(
-    "addresses",
-    [
-        ["::1"],
-        ["::ffff:127.0.0.1"],
-        ["8.8.8.8", "fd00::1"],  # mixed public-A + private-AAAA
-    ],
-)
-async def test_ipv6_special_and_mixed_record_sets_are_rejected(
-    addresses: list[str],
-) -> None:
-    with pytest.raises(EgressBlocked):
-        await validate_base_url("https://host", resolver=_resolver(addresses))

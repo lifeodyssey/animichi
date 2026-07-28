@@ -1,18 +1,23 @@
-"""Unit tests for the SSRF egress guard's classification and shape rules (#284 T1)."""
+"""Unit tests for the SSRF egress guard's classification and shape rules (#284 T1).
+
+Transport-level rewrite/proxy tests live in `test_egress_transport_unit.py` to
+keep each file under the 200-line test-file cap.
+"""
 
 from __future__ import annotations
 
 import ipaddress
+import socket
+import time
 from collections.abc import Awaitable, Callable
 
-import httpx
 import pytest
 
+from agent.infrastructure import egress_guard
 from agent.infrastructure.egress_guard import (
     ALLOWED_PORTS,
     EgressBlocked,
-    GuardedAsyncTransport,
-    build_guarded_async_client,
+    EgressBlockReason,
     validate_base_url,
 )
 
@@ -31,7 +36,15 @@ def _resolver(addresses: list[str]) -> Callable[[str, int], Awaitable[list[str]]
 
 @pytest.mark.parametrize(
     "url",
-    [None, "", "   ", "host/path", "https://user:pw@host", "https://host:22"],
+    [
+        None,
+        "",
+        "   ",
+        "host/path",
+        "https://user:pw@host",
+        "https://host:22",
+        "https://",
+    ],
 )
 async def test_rejects_malformed_or_boundary_urls_individually(url: str | None) -> None:
     with pytest.raises(EgressBlocked):
@@ -75,6 +88,62 @@ async def test_ipv6_literal_host_is_accepted_when_globally_routable() -> None:
     assert endpoint.pinned_ip == "2606:4700::1"
 
 
+async def test_idna_encoding_error_is_rejected() -> None:
+    oversized_label = "a" * 64  # single DNS label max is 63 octets
+    with pytest.raises(EgressBlocked) as exc_info:
+        await validate_base_url(
+            f"https://{oversized_label}.example", resolver=_resolver(["8.8.8.8"])
+        )
+    assert exc_info.value.reason is EgressBlockReason.INVALID_HOSTNAME_ENCODING
+
+
+async def test_zero_resolved_addresses_is_rejected() -> None:
+    with pytest.raises(EgressBlocked) as exc_info:
+        await validate_base_url("https://host", resolver=_resolver([]))
+    assert exc_info.value.reason is EgressBlockReason.NO_ADDRESSES
+
+
+@pytest.mark.parametrize(
+    "hostname",
+    [
+        "animichi.com",
+        "api.animichi.com",
+        "stack-auth.com",
+        "project.stack-auth.com",
+        "animichi.com.",  # trailing root-label dot
+        "animichi.com。",  # ideographic full stop — IDNA-normalizes to "."
+        "animichi.com｡",  # halfwidth ideographic full stop — same
+        "api.animichi.com.",
+    ],
+)
+async def test_own_infrastructure_hostname_is_rejected(hostname: str) -> None:
+    """Includes the trailing-dot/full-width-dot variants (Fable review): all
+    four IDNA-encode to a string ending in a literal dot that would otherwise
+    slip past a naive suffix match, even though DNS treats the trailing root
+    dot as equivalent to none."""
+    with pytest.raises(EgressBlocked) as exc_info:
+        await validate_base_url(f"https://{hostname}", resolver=_resolver(["8.8.8.8"]))
+    assert exc_info.value.reason is EgressBlockReason.OWN_INFRASTRUCTURE
+
+
+async def test_nfkc_confusable_netloc_raises_typed_error() -> None:
+    """`urlsplit` raises a bare `ValueError` for a netloc that fails its
+    NFKC-normalization safety check (U+2100 expands to `a/c` under NFKC).
+    Uncaught, this breaks the "every rejection is EgressBlocked" contract
+    Task 3/5 depend on."""
+    with pytest.raises(EgressBlocked) as exc_info:
+        await validate_base_url(
+            "https://℀animichi.com", resolver=_resolver(["8.8.8.8"])
+        )
+    assert exc_info.value.reason is EgressBlockReason.INVALID_URL
+
+
+async def test_malformed_resolver_candidate_raises_typed_error() -> None:
+    with pytest.raises(EgressBlocked) as exc_info:
+        await validate_base_url("https://host", resolver=_resolver(["not-an-ip"]))
+    assert exc_info.value.reason is EgressBlockReason.ADDRESS_NOT_ROUTABLE
+
+
 # ── P2-3: the interpreter primitive itself, asserted directly ───────────────
 
 
@@ -85,87 +154,45 @@ def test_cgnat_address_is_not_global_on_this_interpreter() -> None:
     assert ipaddress.ip_address("100.64.0.1").is_global is False
 
 
-# ── T13 / T1-AC9: proxy-free, trust_env=False client construction ──────────
+# ── P1-A: DNS resolution timeout must actually bound wall-clock time ───────
 
 
-def test_guarded_client_has_no_proxy_mounts_even_with_proxy_env_set(
+async def test_default_resolve_dns_timeout_is_bounded(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("HTTPS_PROXY", "http://evil-proxy.test:9999")
-    monkeypatch.setenv("ALL_PROXY", "http://evil-proxy.test:9999")
+    """`abandon_on_cancel=True` is what makes this pass: without it,
+    `anyio.fail_after` cannot interrupt a thread blocked in `getaddrinfo`
+    (no cancellation hook in a blocking libc call), so the timeout would be
+    cosmetic and this test would hang for the full blocking duration."""
+    monkeypatch.setattr(egress_guard, "RESOLUTION_TIMEOUT_SECONDS", 0.15)
 
-    # Control: a default (trust_env=True) client DOES pick up the proxy env,
-    # proving the environment variables are actually in effect for this test.
-    control = httpx.AsyncClient()
-    assert len(control._mounts) > 0
+    def _blocking_getaddrinfo(
+        *_args: object, **_kwargs: object
+    ) -> list[tuple[object, ...]]:
+        time.sleep(2.0)
+        return []
 
-    client = build_guarded_async_client()
-    assert client._trust_env is False
-    assert client._mounts == {}
-    assert isinstance(client._transport, GuardedAsyncTransport)
+    monkeypatch.setattr(socket, "getaddrinfo", _blocking_getaddrinfo)
 
+    start = time.monotonic()
+    with pytest.raises(EgressBlocked) as exc_info:
+        await egress_guard._default_resolve("blackhole.example", 443)
+    elapsed = time.monotonic() - start
 
-async def test_guarded_transport_ignores_proxy_env_and_pins_to_resolved_ip(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("HTTPS_PROXY", "http://evil-proxy.test:9999")
-    recorded: dict[str, str] = {}
-
-    async def _fake_handler(request: httpx.Request) -> httpx.Response:
-        recorded["host"] = request.url.host
-        return httpx.Response(200, request=request)
-
-    transport = GuardedAsyncTransport(
-        resolver=_resolver(["8.8.8.8"]),
-        inner=httpx.MockTransport(_fake_handler),
+    assert elapsed < 1.0, (
+        "resolution must be bounded by the timeout, not the blocking call"
     )
-    client = httpx.AsyncClient(transport=transport, trust_env=False)
-    response = await client.request("GET", "https://host.example/v1")
-    assert response.status_code == 200
-    assert recorded["host"] == "8.8.8.8"
-    await client.aclose()
+    assert exc_info.value.reason is EgressBlockReason.RESOLUTION_TIMEOUT
 
 
-# ── Transport-level rewrite: Host header + sni_hostname + IPv6 bracketing ──
+# ── P2-B: error messages are fixed constants, never interpolated data ──────
 
 
-async def test_transport_rewrites_host_header_and_sni_hostname() -> None:
-    recorded: dict[str, object] = {}
-
-    async def _fake_handler(request: httpx.Request) -> httpx.Response:
-        recorded["url"] = str(request.url)
-        recorded["host_header"] = request.headers["host"]
-        recorded["sni_hostname"] = request.extensions.get("sni_hostname")
-        return httpx.Response(200, request=request)
-
-    transport = GuardedAsyncTransport(
-        resolver=_resolver(["93.184.216.34"]),
-        inner=httpx.MockTransport(_fake_handler),
-    )
-    client = httpx.AsyncClient(transport=transport, trust_env=False)
-    await client.request("GET", "https://example.com:8443/v1/chat")
-    await client.aclose()
-
-    assert recorded["url"] == "https://93.184.216.34:8443/v1/chat"
-    assert recorded["host_header"] == "example.com:8443"
-    assert recorded["sni_hostname"] == "example.com"
-
-
-async def test_transport_brackets_ipv6_host_header() -> None:
-    recorded: dict[str, object] = {}
-
-    async def _fake_handler(request: httpx.Request) -> httpx.Response:
-        recorded["url"] = str(request.url)
-        recorded["host_header"] = request.headers["host"]
-        return httpx.Response(200, request=request)
-
-    transport = GuardedAsyncTransport(
-        resolver=_resolver(["2606:4700::1"]),
-        inner=httpx.MockTransport(_fake_handler),
-    )
-    client = httpx.AsyncClient(transport=transport, trust_env=False)
-    await client.request("GET", "https://[2606:4700::1]/v1")
-    await client.aclose()
-
-    assert recorded["url"] == "https://[2606:4700::1]/v1"
-    assert recorded["host_header"] == "[2606:4700::1]"
+async def test_error_message_never_embeds_the_offending_address() -> None:
+    with pytest.raises(EgressBlocked) as exc_info:
+        await validate_base_url(
+            "https://internal.example", resolver=_resolver(["10.1.2.3"])
+        )
+    assert "10.1.2.3" not in str(exc_info.value)
+    assert exc_info.value.reason is EgressBlockReason.ADDRESS_NOT_ROUTABLE
+    assert exc_info.value.detail == "10.1.2.3"

@@ -1,31 +1,30 @@
-"""SSRF egress guard for user-influenceable outbound HTTP calls (#284 Task 1).
+"""SSRF pre-flight validation for user-influenceable outbound HTTP calls (#284 T1).
 
-Two layers, both required (see `docs/superpowers/specs/2026-07-28-284-byok-design.md`):
+`validate_base_url` is the pre-flight, request-boundary check: resolves the
+host exactly once for that call and accepts an address only under a **dual
+condition**: `ip.is_global is True` AND it trips none of the private/loopback/
+link-local/reserved/multicast/unspecified flags. Neither half is redundant —
+see the docstring on `_is_address_accepted` for the two address families each
+half alone would miss. No domain allowlist.
 
-1. `validate_base_url` — a pre-flight, resolve-once check at the request boundary.
-2. `GuardedAsyncTransport` — an `httpx` transport that re-validates at connect time,
-   pins the socket to the already-validated IP literal, preserves TLS hostname
-   verification via `sni_hostname`, and refuses every 3xx response.
-
-No domain allowlist. Acceptance is a **dual condition** on the resolved IP:
-`ip.is_global is True` AND it trips none of the private/loopback/link-local/
-reserved/multicast/unspecified flags. Neither half is redundant — see the
-docstring on `_is_address_accepted` for the two address families each half alone
-would miss.
+`GuardedAsyncTransport` (in `egress_transport.py`) is the second, independent
+layer: it re-runs this same check at connect time and pins the socket to the
+address *that* call validated — see its docstring for why that closes the
+TOCTOU/DNS-rebinding window.
 """
 
 from __future__ import annotations
 
 import ipaddress
 import socket
-import ssl
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Final
-from urllib.parse import urlsplit
+from urllib.parse import SplitResult, urlsplit
 
 import anyio
-import httpx
+
+from agent.infrastructure.egress_errors import EgressBlocked, EgressBlockReason
 
 IpAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
 
@@ -34,6 +33,12 @@ Resolver = Callable[[str, int], Awaitable[list[str]]]
 ALLOWED_SCHEME: Final[str] = "https"
 ALLOWED_PORTS: Final[frozenset[int]] = frozenset({443, 8000, 8443})
 RESOLUTION_TIMEOUT_SECONDS: Final[float] = 5.0
+
+# DNS resolution runs on its own capacity limiter, not anyio's shared default
+# thread pool (40 tokens, shared with every other `to_thread.run_sync` call in
+# the process). A `base_url` pointing at a black-hole nameserver must not be
+# able to exhaust threads other subsystems depend on.
+_DNS_THREAD_LIMITER: Final[anyio.CapacityLimiter] = anyio.CapacityLimiter(4)
 
 # Belt-and-suspenders explicit deny set for well-known cloud-metadata endpoints.
 # These IPs already fail the `is_global`/deny-flag classification below on their
@@ -50,12 +55,20 @@ _METADATA_DENY_IPS: Final[frozenset[str]] = frozenset(
 
 # Our own public-facing origins are legitimately globally routable, so every IP
 # check above passes them. Without an explicit deny, BYOK egress becomes a
-# confused-deputy path back into our own authenticated surfaces.
-OWN_INFRASTRUCTURE_HOSTNAMES: Final[frozenset[str]] = frozenset({"animichi.com"})
-
-
-class EgressBlocked(Exception):
-    """Raised whenever a candidate egress destination fails SSRF validation."""
+# confused-deputy path back into our own authenticated surfaces, where a
+# request may carry more implicit trust than it would from the open internet.
+#
+# This is a hostname-suffix match, not an IP-based one — it does not follow
+# CNAMEs and will not catch a hostname that merely *resolves to* our
+# infrastructure's IPs under a different name. Whenever a new public-facing
+# origin is added (a new custom domain, a new auth provider host, a new
+# internal service hostname), add it here in the same commit.
+OWN_INFRASTRUCTURE_HOSTNAMES: Final[frozenset[str]] = frozenset(
+    {
+        "animichi.com",  # apex + `*.animichi.com` (wrangler.toml route)
+        "stack-auth.com",  # Neon Auth (Better Auth) — per-project subdomain
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +84,17 @@ def _is_own_infrastructure(hostname: str) -> bool:
     return any(
         hostname == domain or hostname.endswith(f".{domain}")
         for domain in OWN_INFRASTRUCTURE_HOSTNAMES
+    )
+
+
+def _trips_any_deny_flag(ip: IpAddress) -> bool:
+    return (
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_reserved
+        or ip.is_multicast
+        or ip.is_unspecified
     )
 
 
@@ -91,52 +115,124 @@ def _is_address_accepted(ip: IpAddress) -> bool:
     """
     if ip.is_global is not True:
         return False
-    if (
-        ip.is_private
-        or ip.is_loopback
-        or ip.is_link_local
-        or ip.is_reserved
-        or ip.is_multicast
-        or ip.is_unspecified
-    ):
+    if _trips_any_deny_flag(ip):
         return False
     return str(ip) not in _METADATA_DENY_IPS
 
 
+def _blocking_getaddrinfo(host: str, port: int) -> list[str]:
+    infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    return [str(info[4][0]) for info in infos]
+
+
 async def _default_resolve(host: str, port: int) -> list[str]:
-    """Resolve `host` once, off the event loop, with a short timeout."""
+    """Resolve `host` once, off the event loop, with a short timeout.
 
-    def _getaddrinfo() -> list[str]:
-        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-        return [str(info[4][0]) for info in infos]
-
+    `abandon_on_cancel=True` is load-bearing: `getaddrinfo` is a blocking libc
+    call with no cancellation hook, so without it `anyio.fail_after` cannot
+    actually interrupt a thread stuck resolving a black-holed nameserver — the
+    timeout would be cosmetic. The thread is abandoned (not joined) on
+    timeout and runs on its own 4-slot limiter rather than anyio's shared
+    default thread pool, which other subsystems depend on.
+    """
     try:
         with anyio.fail_after(RESOLUTION_TIMEOUT_SECONDS):
-            return await anyio.to_thread.run_sync(_getaddrinfo)
+            return await anyio.to_thread.run_sync(
+                _blocking_getaddrinfo,
+                host,
+                port,
+                abandon_on_cancel=True,
+                limiter=_DNS_THREAD_LIMITER,
+            )
     except TimeoutError as exc:
-        raise EgressBlocked(f"DNS resolution timed out for {host!r}") from exc
+        raise EgressBlocked(EgressBlockReason.RESOLUTION_TIMEOUT, detail=host) from exc
     except OSError as exc:
-        raise EgressBlocked(f"DNS resolution failed for {host!r}: {exc}") from exc
+        raise EgressBlocked(
+            EgressBlockReason.RESOLUTION_FAILED, detail=str(exc)
+        ) from exc
+
+
+def _check_scheme_and_userinfo(parsed: SplitResult) -> None:
+    if parsed.scheme != ALLOWED_SCHEME:
+        raise EgressBlocked(EgressBlockReason.INVALID_SCHEME, detail=parsed.scheme)
+    if parsed.username or parsed.password:
+        raise EgressBlocked(EgressBlockReason.INVALID_USERINFO)
+
+
+def _encode_hostname(hostname: str) -> str:
+    """IDNA-encode to the A-label and strip a trailing root-label dot.
+
+    Normalizing the trailing dot is load-bearing, not cosmetic:
+    `"animichi.com."`, `"animichi.com。"` (ideographic full stop), and
+    `"animichi.com｡"` (halfwidth ideographic full stop) all IDNA-encode to
+    `"animichi.com."` — a string distinct from `"animichi.com"` that would
+    otherwise slip past `_is_own_infrastructure`'s suffix match even though
+    `getaddrinfo` treats a trailing root dot as equivalent to none.
+    """
+    try:
+        return hostname.encode("idna").decode("ascii").rstrip(".")
+    except UnicodeError as exc:
+        raise EgressBlocked(
+            EgressBlockReason.INVALID_HOSTNAME_ENCODING, detail=hostname
+        ) from exc
+
+
+def _check_port(port: int) -> None:
+    if port not in ALLOWED_PORTS:
+        raise EgressBlocked(EgressBlockReason.INVALID_PORT, detail=str(port))
+
+
+def _split_url(url: str) -> SplitResult:
+    try:
+        return urlsplit(url)
+    except ValueError as exc:
+        # `urlsplit` raises a bare `ValueError` for a netloc that fails its
+        # NFKC-normalization safety check (e.g. a confusable/compatibility
+        # character, such as U+2100, that expands into a different netloc
+        # under normalization). Uncaught, that would break the "every
+        # rejection is a typed EgressBlocked" contract Task 3/5 depend on.
+        raise EgressBlocked(EgressBlockReason.INVALID_URL) from exc
 
 
 def _parse_endpoint_shape(url: str) -> tuple[str, int]:
     """Scheme/userinfo/host/port shape validation, before any I/O."""
-    parsed = urlsplit(url)
-    if parsed.scheme != ALLOWED_SCHEME:
-        raise EgressBlocked(f"scheme must be {ALLOWED_SCHEME!r}, got {parsed.scheme!r}")
-    if parsed.username or parsed.password:
-        raise EgressBlocked("userinfo is not allowed in the egress URL")
-    hostname = parsed.hostname
-    if not hostname:
-        raise EgressBlocked("egress URL is missing a host")
-    try:
-        a_label = hostname.encode("idna").decode("ascii")
-    except UnicodeError as exc:
-        raise EgressBlocked(f"invalid hostname: {hostname!r}") from exc
+    parsed = _split_url(url)
+    _check_scheme_and_userinfo(parsed)
+    if not parsed.hostname:
+        raise EgressBlocked(EgressBlockReason.INVALID_HOST)
+    a_label = _encode_hostname(parsed.hostname)
     port = parsed.port or 443
-    if port not in ALLOWED_PORTS:
-        raise EgressBlocked(f"port {port} is not on the egress allowlist")
+    _check_port(port)
     return a_label, port
+
+
+def _parse_ip_address(candidate: str) -> IpAddress:
+    try:
+        return ipaddress.ip_address(candidate)
+    except ValueError as exc:
+        # A resolver is caller-suppliable (tests inject one; a future
+        # capability could source one from less-trusted config). A malformed
+        # candidate is certainly not an acceptable egress address either way.
+        raise EgressBlocked(
+            EgressBlockReason.ADDRESS_NOT_ROUTABLE, detail=candidate
+        ) from exc
+
+
+async def _resolve_and_classify(
+    hostname: str, port: int, resolver: Resolver
+) -> IpAddress:
+    addresses = await resolver(hostname, port)
+    if not addresses:
+        raise EgressBlocked(EgressBlockReason.NO_ADDRESSES, detail=hostname)
+    accepted: list[IpAddress] = []
+    for candidate in addresses:
+        ip = _parse_ip_address(candidate)
+        if not _is_address_accepted(ip):
+            raise EgressBlocked(
+                EgressBlockReason.ADDRESS_NOT_ROUTABLE, detail=candidate
+            )
+        accepted.append(ip)
+    return accepted[0]
 
 
 async def validate_base_url(
@@ -146,95 +242,12 @@ async def validate_base_url(
 ) -> ValidatedEndpoint:
     """Pre-flight SSRF validation. Raises `EgressBlocked` before any socket opens."""
     if url is None or not url.strip():
-        raise EgressBlocked("egress URL is empty")
+        raise EgressBlocked(EgressBlockReason.EMPTY_URL)
 
     hostname, port = _parse_endpoint_shape(url.strip())
 
     if _is_own_infrastructure(hostname):
-        raise EgressBlocked(f"host {hostname!r} is own infrastructure")
+        raise EgressBlocked(EgressBlockReason.OWN_INFRASTRUCTURE, detail=hostname)
 
-    addresses = await resolver(hostname, port)
-    if not addresses:
-        raise EgressBlocked(f"no addresses resolved for {hostname!r}")
-
-    accepted: list[IpAddress] = []
-    for candidate in addresses:
-        ip = ipaddress.ip_address(candidate)
-        if not _is_address_accepted(ip):
-            raise EgressBlocked(
-                f"resolved address {candidate} is not publicly routable"
-            )
-        accepted.append(ip)
-
-    return ValidatedEndpoint(hostname=hostname, port=port, pinned_ip=str(accepted[0]))
-
-
-def _format_host_header(hostname: str, port: int) -> str:
-    host_part = f"[{hostname}]" if ":" in hostname else hostname
-    return host_part if port == 443 else f"{host_part}:{port}"
-
-
-class GuardedAsyncTransport(httpx.AsyncBaseTransport):
-    """`httpx` transport enforcing SSRF validation at connect time.
-
-    Re-runs `validate_base_url` per request (covers a provider SDK appending
-    paths or a redirect target), rewrites the request to the pinned IP literal
-    while preserving the original `Host` header and TLS SNI hostname, and
-    rejects every 3xx response outright.
-    """
-
-    def __init__(
-        self,
-        *,
-        resolver: Resolver = _default_resolve,
-        inner: httpx.AsyncBaseTransport | None = None,
-        verify: ssl.SSLContext | str | bool = True,
-    ) -> None:
-        self._resolver = resolver
-        self._inner = (
-            inner
-            if inner is not None
-            else httpx.AsyncHTTPTransport(verify=verify, trust_env=False)
-        )
-
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        endpoint = await validate_base_url(str(request.url), resolver=self._resolver)
-        request.url = request.url.copy_with(host=endpoint.pinned_ip)
-        request.headers["host"] = _format_host_header(endpoint.hostname, endpoint.port)
-        request.extensions = {
-            **request.extensions,
-            "sni_hostname": endpoint.hostname,
-        }
-        response = await self._inner.handle_async_request(request)
-        if 300 <= response.status_code < 400:
-            await response.aread()
-            await response.aclose()
-            raise EgressBlocked(
-                f"redirect response ({response.status_code}) refused for {endpoint.hostname!r}"
-            )
-        return response
-
-    async def aclose(self) -> None:
-        await self._inner.aclose()
-
-
-def build_guarded_async_client(
-    *,
-    resolver: Resolver = _default_resolve,
-    timeout: httpx.Timeout | float | None = None,
-    verify: ssl.SSLContext | str | bool = True,
-) -> httpx.AsyncClient:
-    """Build the per-request BYOK transport.
-
-    `trust_env=False` and no `mounts`/`proxy` (T13): a proxy environment
-    variable would otherwise route the "pinned-IP" connection through a proxy
-    that re-resolves the hostname itself, silently voiding the pinning
-    guarantee. `verify` is exposed only so tests can pin a private test CA;
-    production callers should leave it at the default.
-    """
-    return httpx.AsyncClient(
-        transport=GuardedAsyncTransport(resolver=resolver, verify=verify),
-        trust_env=False,
-        follow_redirects=False,
-        timeout=timeout if timeout is not None else httpx.Timeout(30.0),
-    )
+    pinned = await _resolve_and_classify(hostname, port, resolver)
+    return ValidatedEndpoint(hostname=hostname, port=port, pinned_ip=str(pinned))
