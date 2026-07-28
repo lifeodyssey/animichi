@@ -11,6 +11,11 @@ on:
 
 permissions:
   contents: read
+  # dorny/paths-filter (changes job) and gitleaks-action both list PR
+  # commits/files via the API; the explicit permissions block above would
+  # otherwise zero this out and both fail with
+  # "Resource not accessible by integration" (2026-07-28, run 30370261651).
+  pull-requests: read
 
 env:
   PYTHON_VERSION: "3.11"
