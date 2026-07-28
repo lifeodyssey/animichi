@@ -160,13 +160,22 @@ function ComposerExtras(props: ShellProps) {
   );
 }
 
+/** Chips, photo upload, and the E2 tray dock between the stream and composer. */
+function ComposerDock(props: ShellProps) {
+  return (
+    <>
+      <ComposerExtras {...props} />
+      <RecomputeTray dict={props.dict} chat={props.chat} recompute={props.recompute} />
+    </>
+  );
+}
+
 function ChatShell(props: ShellProps) {
   return (
     <main className="chat-page">
       <ShellNotices {...props} />
       <ChatBody {...props} />
-      <ComposerExtras {...props} />
-      <RecomputeTray dict={props.dict} chat={props.chat} recompute={props.recompute} />
+      <ComposerDock {...props} />
       <ChatInput dict={props.dict} disabled={isInputLocked(props)} onSend={props.onSend} />
     </main>
   );
@@ -267,18 +276,30 @@ function usePhotoContext(locale: ReturnType<typeof useLocale>, chat: ChatSession
   );
 }
 
-function useChatPage(search: ChatSearch) {
-  const { config, health, chat, history } = useChatState(search);
-  const { actions, gps } = useOriginTracking(useTurnActions(chat));
+/** Tray state: the recompute turn, its masked failure, and the spot store. */
+function useTrayState(chat: ChatSession, baseUrl: string) {
+  const recompute = useRecomputeTurn(chat);
+  const failure = maskRecomputeFailure(recompute, useTurnFailure(chat, baseUrl));
+  const selection = useSpotSelectionState();
+  return { recompute, failure, selection };
+}
+
+/** Locale-bound page copy plus the photo/departure surfaces that share it. */
+function usePageSurfaces(chat: ChatSession, actions: ChatActions, gps: PhotoGps | undefined) {
   const locale = useLocale();
   const dict = chatDictFor(locale);
   const photo = usePhotoContext(locale, chat, gps);
   const departure = useDeparturePrompt(actions, dict);
-  const recompute = useRecomputeTurn(chat);
-  const failure = maskRecomputeFailure(recompute, useTurnFailure(chat, config.baseUrl));
-  const selection = useSpotSelectionState();
+  return { dict, photo, departure };
+}
+
+function useChatPage(search: ChatSearch) {
+  const { config, health, chat, history } = useChatState(search);
+  const { actions, gps } = useOriginTracking(useTurnActions(chat));
+  const surfaces = usePageSurfaces(chat, actions, gps);
+  const tray = useTrayState(chat, config.baseUrl);
   useAutoSendFromQuery(search, health, actions.send);
-  return { config, health, chat, history, actions, photo, dict, departure, recompute, failure, selection };
+  return { config, health, chat, history, actions, ...surfaces, ...tray };
 }
 
 type PageState = ReturnType<typeof useChatPage>;
