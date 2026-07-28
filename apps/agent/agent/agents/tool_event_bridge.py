@@ -57,7 +57,11 @@ class ToolLifecycleRegistry:
         self.active[call_id] = call
 
     def finish(self, call_id: str, tool: str) -> ActiveToolCall:
-        return self.active.pop(call_id, ActiveToolCall(tool, {}, params_recorded=False))
+        active = self.active.pop(call_id, None)
+        if active is not None:
+            return active
+        logger.warning("tool_call_params_unrecorded", tool=tool, call_id=call_id)
+        return ActiveToolCall(tool, {}, params_recorded=False)
 
     def register_provenance(self, call_id: str, provenance: StepProvenance) -> None:
         self.provenance[call_id] = provenance
@@ -125,6 +129,9 @@ def _call_params(event: FunctionToolCallEvent) -> ActiveToolCall:
     try:
         return ActiveToolCall(tool, _OBJECT.validate_python(event.part.args_as_dict()))
     except ValidationError:
+        logger.warning(
+            "tool_call_params_unprojectable", tool=tool, call_id=event.tool_call_id
+        )
         return ActiveToolCall(tool, {}, params_recorded=False)
 
 
@@ -213,12 +220,12 @@ def _record_terminal_return(
     payload = cast(StepData | None, data)
     deps.steps.append(
         StepRecord(
-            call.tool,
-            success,
-            params,
-            payload,
-            provenance,
-            error,
+            tool=call.tool,
+            success=success,
+            params=params,
+            data=payload,
+            provenance=provenance,
+            error=error,
             params_recorded=call.params_recorded,
         )
     )

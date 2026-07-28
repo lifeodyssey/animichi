@@ -15,14 +15,20 @@ from agent.agents.agent_result import AgentResult
 REQUEST_LIMIT = 12
 # Calibrated 2026-07-20: legitimate multi-step disambiguation (sequel/season
 # cases added by #304B) needs 7-8 tool calls; this cap only bounds runaway
-# breadth. NOTE: the repeated-identical detector below reads EXECUTED steps —
-# the runtime repeat-guard deflects identical re-calls before execution, so
-# post-guard this detector is a regression TRIPWIRE for the guard itself
-# (it firing means the guard broke), not a live thrash signal. That inference
-# holds only while recorded params are LOSSLESS: #443 fired on two nearby
-# searches with different locations because the rejected-search recording path
-# dropped its arguments, so both projected to "{}". Calls whose arguments were
-# not recorded are therefore excluded from the comparison, never equated.
+# breadth. NOTE: the repeated-identical detector below reads EXECUTED steps.
+# The runtime repeat-guard deflects identical re-calls before execution, so an
+# executed repeat is evidence the guard broke — but only ONE-WAY evidence. The
+# guard keys on VALIDATED arguments (defaults filled in) while these records
+# carry the model's RAW arguments, so the detector sees `{"location":"Uji"}` and
+# `{"location":"Uji","radius_m":null}` as different calls where the guard sees
+# one. It therefore promises no more than "identical RECORDED params never
+# execute twice"; guard breakage that survives that projection is invisible
+# here. Closing the fork by recording validated args is tracked separately.
+# The comparison is also only sound while records are lossless: #443 fired on
+# two nearby searches with different locations because the rejected-search
+# recording path dropped its arguments, so both projected to "{}". Calls whose
+# arguments were not recorded are excluded from the comparison and reported as
+# their own gate failure instead of being equated.
 TOOL_CALL_LIMIT = 10
 # Calibrated 2026-07-18 (#28): two stable full-655 official-v1 runs measured
 # request_p95 = 7 (baseline run observed 7-8). The original 6 would fail every
@@ -110,7 +116,24 @@ def _case_failures(case: TrajectoryCase) -> list[str]:
             f"exceeds limit={TOOL_CALL_LIMIT}"
         )
     failures.extend(_repeat_failures(case))
+    failures.extend(_unrecorded_failures(case))
     return failures
+
+
+def _unrecorded_failures(case: TrajectoryCase) -> list[str]:
+    """Lost arguments blind the tripwire, so they are a defect in their own right.
+
+    On every live path the bridge projects the model's own call arguments, so
+    this count is 0 in a healthy run; anything above 0 means a recording defect
+    reached the gate, not that the agent repeated itself.
+    """
+    unrecorded = _unrecorded_count(case)
+    if unrecorded == 0:
+        return []
+    return [
+        f"{case.case_id}: unrecorded_params={unrecorded} — tool arguments were "
+        "lost, so the repeat tripwire is blind for this case"
+    ]
 
 
 def _request_limit_passes(requests: int) -> bool:

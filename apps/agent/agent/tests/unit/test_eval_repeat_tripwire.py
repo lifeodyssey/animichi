@@ -47,10 +47,13 @@ def test_distinct_locations_never_read_as_a_repeated_call() -> None:
     assert direct_thrash_gate([trajectory]) == []
 
 
-def test_unrecorded_params_do_not_manufacture_a_repeat() -> None:
+def test_unrecorded_params_fail_as_a_recording_defect_not_as_a_repeat() -> None:
     trajectory = _trajectory(_unrecorded_nearby(), _unrecorded_nearby())
 
-    assert direct_thrash_gate([trajectory]) == []
+    assert direct_thrash_gate([trajectory]) == [
+        "C1_en_005: unrecorded_params=2 — tool arguments were lost, so the "
+        "repeat tripwire is blind for this case"
+    ]
 
 
 def test_identical_recorded_params_still_trip_the_guard_regression_wire() -> None:
@@ -69,6 +72,14 @@ def test_genuinely_empty_arguments_still_trip_the_wire() -> None:
     assert direct_thrash_gate([trajectory]) == [
         "C1_en_005: repeated identical tool call: search_nearby"
     ]
+
+
+def test_recorded_params_alone_keep_the_recording_gate_silent() -> None:
+    trajectory = _trajectory(_nearby("Uji"), _nearby("Kyoto"))
+
+    assert not any(
+        "unrecorded_params" in failure for failure in direct_thrash_gate([trajectory])
+    )
 
 
 def test_metrics_report_unrecorded_params_instead_of_hiding_them(

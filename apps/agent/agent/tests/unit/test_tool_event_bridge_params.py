@@ -16,6 +16,7 @@ from pydantic_ai.messages import (
     ToolCallPart,
     ToolReturnPart,
 )
+from structlog import testing
 
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.tool_event_bridge import tool_event_bridge
@@ -61,6 +62,13 @@ async def test_marks_params_unrecorded_when_no_call_event_was_seen() -> None:
     assert (deps.steps[0].params, deps.steps[0].params_recorded) == ({}, False)
 
 
+async def test_warns_in_production_when_no_call_event_was_seen() -> None:
+    deps = _deps()
+    with testing.capture_logs() as captured:
+        await _handle(deps, _result("search_nearby", "orphan"))
+    assert [entry["event"] for entry in captured] == ["tool_call_params_unrecorded"]
+
+
 async def test_marks_params_unrecorded_when_arguments_are_not_projectable() -> None:
     deps = _deps()
     await _handle(
@@ -69,6 +77,13 @@ async def test_marks_params_unrecorded_when_arguments_are_not_projectable() -> N
         _result("search_nearby", "c2"),
     )
     assert (deps.steps[0].params, deps.steps[0].params_recorded) == ({}, False)
+
+
+async def test_warns_in_production_when_arguments_are_not_projectable() -> None:
+    deps = _deps()
+    with testing.capture_logs() as captured:
+        await _handle(deps, _call("search_nearby", "c3", {"radius_m": {"x"}}))
+    assert [entry["event"] for entry in captured] == ["tool_call_params_unprojectable"]
 
 
 async def test_keeps_distinct_arguments_distinct_across_rejected_retries() -> None:
