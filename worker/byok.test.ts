@@ -65,18 +65,13 @@ function req(path: string, headers: Record<string, string> = {}) {
   return { method: "POST", headers: { Authorization: "Bearer jwt", ...headers } };
 }
 
-// ── AC1: happy path + burst → 429 ──────────────────────────────────────────
+// ── AC1: happy path counted per-identity + burst → 429 ─────────────────────
 
-void test("an authenticated /v1/chat request is counted against a per-identity limit", async () => {
-  const e = env(fakeGuard(), { AUTH_RATE_LIMIT: "1" });
-  const res = await authedApp().request("/v1/chat", req("/v1/chat"), e, stubCtx);
-  assert.equal(res.status, 200);
-});
-
-void test("a burst beyond the authenticated limit returns 429 with Retry-After", async () => {
+void test("a happy-path authenticated /v1/chat request is allowed and counted; a burst beyond the limit returns 429 with Retry-After", async () => {
   const e = env(fakeGuard(), { AUTH_RATE_LIMIT: "1" });
   const app = authedApp();
-  await app.request("/v1/chat", req("/v1/chat"), e, stubCtx);
+  const first = await app.request("/v1/chat", req("/v1/chat"), e, stubCtx);
+  assert.equal(first.status, 200, "the happy path (within the limit) must still be allowed");
   const res = await app.request("/v1/chat", req("/v1/chat"), e, stubCtx);
   assert.equal(res.status, 429);
   assert.equal(res.headers.get("Retry-After"), "60");
@@ -116,7 +111,7 @@ void test("an anonymous caller's allowance is unaffected by authenticated traffi
   const guard = fakeGuard();
   const e = { ...env(guard, { AUTH_RATE_LIMIT: "1", ANON_RATE_LIMIT: "1", ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000" }) };
   await authedApp("user-a").request("/v1/chat", req("/v1/chat"), e, stubCtx);
-  const anonApp = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false } as const) });
+  const anonApp = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const) });
   const res = await anonApp.request("/v1/chat", { method: "POST", headers: {} }, e, stubCtx);
   assert.equal(res.status, 200);
 });
@@ -148,12 +143,18 @@ void test("varying X-BYOK-* headers or base_url never changes whose allowance is
 });
 
 void test("an unauthenticated caller cannot spend an authenticated identity's allowance by forging X-BYOK-* headers", async () => {
-  const e = { ...env(fakeGuard(), { AUTH_RATE_LIMIT: "1", ANON_ACCESS_ENABLED: "false" }) };
-  const anonApp = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false } as const) });
-  const res = await anonApp.request(
+  const guard = fakeGuard();
+  const e = { ...env(guard, { AUTH_RATE_LIMIT: "1", ANON_ACCESS_ENABLED: "false" }) };
+  const anonApp = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const) });
+  const forged = await anonApp.request(
     "/v1/chat",
     { method: "POST", headers: { "X-BYOK-Provider": "openai-compatible", "X-BYOK-Key": "sk-forged" } },
     e, stubCtx,
   );
-  assert.equal(res.status, 401);
+  assert.equal(forged.status, 401);
+  // Prove the forged attempt did not touch user-a's allowance: with the
+  // window sized to exactly one request, a real authenticated request from
+  // user-a right after must still succeed.
+  const authed = await authedApp("user-a").request("/v1/chat", req("/v1/chat"), e, stubCtx);
+  assert.equal(authed.status, 200, "the forged anonymous request must not have consumed any authenticated identity's quota");
 });
