@@ -28,10 +28,18 @@ const D1_CODE_MARKERS = ["not_found", "no_bangumi", "invalid_station"];
 /** The breaker's wire code, shared with `worker/costBreaker.ts` (S1.8 X4). */
 export const ANON_BUDGET_EXHAUSTED_CODE = "anon_budget_exhausted";
 
+/** The armed edge gate's retryable rejection (`worker/turnstile.ts`, #447). */
+export const TURNSTILE_REQUIRED_CODE = "turnstile_required";
+
 function classifyHttpStatus(status: number, code: string | undefined): ChatErrorState {
   // The budget breaker also rejects with 403, but an anonymous visitor never
   // had a session to expire — only its own code earns the D11 budget copy.
   if (status === 403 && code === ANON_BUDGET_EXHAUSTED_CODE) return "D11";
+  // Same reasoning for the Turnstile gate: a challenged visitor never had a
+  // session either. When a widget is on the page ChatPage suppresses this and
+  // the challenge owns the retry; when it is not, D4's generic retry is the
+  // honest fallback — never the login banner.
+  if (status === 403 && code === TURNSTILE_REQUIRED_CODE) return "D4";
   if (status === 401 || status === 403) return "D8";
   if (status === 429) return "D10";
   if (status === 408 || status === 504) return "D5";

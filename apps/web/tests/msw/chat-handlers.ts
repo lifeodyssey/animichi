@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { http, HttpResponse } from "msw";
 import type { HttpHandler } from "msw";
+import { TURNSTILE_HEADER } from "../../src/lib/turnstile/tokenStore";
 import { TEST_ORIGIN } from "./fixtures";
 
 /**
@@ -112,6 +113,38 @@ export function chatHttpErrorHandler(status: number): HttpHandler {
 /** A JSON rejection carrying no error code — must not be promoted to D11. */
 export function chatCodelessErrorHandler(status: number): HttpHandler {
   return http.post(CHAT_URL, () => HttpResponse.json({ detail: "denied" }, { status }));
+}
+
+const TURNSTILE_REJECTION = {
+  error: { code: "turnstile_required", message: "Turnstile verification required.", retryable: true },
+};
+
+/** The armed edge gate's retryable rejection (issue #447, `worker/turnstile.ts`). */
+export function chatTurnstileRequiredHandler(spy?: (request: Request) => void): HttpHandler {
+  return http.post(CHAT_URL, ({ request }) => {
+    spy?.(request);
+    return HttpResponse.json(TURNSTILE_REJECTION, { status: 403 });
+  });
+}
+
+/**
+ * The armed edge as it actually behaves: a turn WITHOUT a solved token is
+ * challenged, a turn with one streams. A handler that answers 200 regardless
+ * cannot tell a tokenless resend from a real recovery (issue #447 review).
+ */
+export function armedChatHandler(
+  name: ChatStreamFixture,
+  seen: (string | null)[],
+  spent: readonly string[] = [],
+  options: ChatStreamOptions = {},
+): HttpHandler {
+  return http.post(CHAT_URL, ({ request }) => {
+    const token = request.headers.get(TURNSTILE_HEADER);
+    seen.push(token);
+    const usable = token !== null && token !== "" && !spent.includes(token);
+    if (!usable) return HttpResponse.json(TURNSTILE_REJECTION, { status: 403 });
+    return sseResponse(streamText(name, options));
+  });
 }
 
 /** The anonymous daily-budget breaker's rejection (issue #274 S1.8 X4 → D11). */

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TurnstileGate } from "../../components/TurnstileGate";
 import { useLocale } from "../../i18n/context";
-import { classifyFailure } from "../../lib/chat/errorClassifier";
+import { TURNSTILE_REQUIRED_CODE, classifyFailure } from "../../lib/chat/errorClassifier";
 import type { ChatErrorState, FailureSignal } from "../../lib/chat/errorClassifier";
 import { ChatActionsProvider } from "./chat-actions";
 import type { ChatActions } from "./chat-actions";
@@ -36,6 +37,8 @@ import { useConversationHistory } from "./use-conversation-history";
 import { useStreamRecovery } from "./use-stream-recovery";
 import { useTurnTimeout } from "./use-turn-timeout";
 import { useTurnTiming } from "./use-turn-timing";
+import { useTurnstileChallenge, useTurnstileReady } from "./use-turnstile-challenge";
+import type { TurnstileChallenge } from "./use-turnstile-challenge";
 import type { ConversationHistory } from "./use-conversation-history";
 
 export interface ChatPageProps {
@@ -49,6 +52,7 @@ type ShellProps = Readonly<{
   history: ConversationHistory;
   failure: TurnFailureView | undefined;
   recompute: RecomputeTurn;
+  challenge: TurnstileChallenge | undefined;
   onRetry: () => void;
   onSend: (text: string) => void;
   departure: DeparturePromptState;
@@ -160,6 +164,12 @@ function ComposerExtras(props: ShellProps) {
   );
 }
 
+/** The dock's hint slot: silent until Turnstile decides a human check is due. */
+function ChallengeGate({ dict, challenge }: Readonly<{ dict: ChatDict; challenge: TurnstileChallenge | undefined }>) {
+  if (challenge === undefined) return null;
+  return <TurnstileGate dict={dict} {...challenge} />;
+}
+
 /** Chips, photo upload, and the E2 tray dock between the stream and composer. */
 function ComposerDock(props: ShellProps) {
   return (
@@ -170,13 +180,23 @@ function ComposerDock(props: ShellProps) {
   );
 }
 
+/** Composer plus the quiet challenge slot beneath it (design sync `.hint`). */
+function Composer(props: ShellProps) {
+  return (
+    <>
+      <ChatInput dict={props.dict} disabled={isInputLocked(props)} onSend={props.onSend} />
+      <ChallengeGate dict={props.dict} challenge={props.challenge} />
+    </>
+  );
+}
+
 function ChatShell(props: ShellProps) {
   return (
     <main className="chat-page">
       <ShellNotices {...props} />
       <ChatBody {...props} />
       <ComposerDock {...props} />
-      <ChatInput dict={props.dict} disabled={isInputLocked(props)} onSend={props.onSend} />
+      <Composer {...props} />
     </main>
   );
 }
@@ -218,18 +238,28 @@ function isActiveTurn(status: ChatSession["status"]): boolean {
   return status === "submitted" || status === "streaming";
 }
 
-function turnFailureState(chat: ChatSession, timedOut: boolean): ChatErrorState | undefined {
+/**
+ * A challenged turn is NOT D8 — an anonymous visitor never had a session to
+ * expire — but the strip is only suppressed when a widget is actually on the
+ * page to offer the recovery. A misconfigured build (no site key, or an edge
+ * with no secret) rejects every turn with nothing to click, so there the
+ * generic failure must still render rather than the chat dying silently
+ * (issue #447 review, P1-3).
+ */
+function turnFailureState(chat: ChatSession, timedOut: boolean, challenged: boolean): ChatErrorState | undefined {
   if (isActiveTurn(chat.status)) return undefined;
   if (timedOut) return "D5";
   if (chat.error === undefined) return undefined;
-  return classifyFailure(turnFailureSignal(chat.lastHttpStatus(), chat.lastErrorCode())) ?? "D4";
+  const code = chat.lastErrorCode();
+  if (challenged && code === TURNSTILE_REQUIRED_CODE) return undefined;
+  return classifyFailure(turnFailureSignal(chat.lastHttpStatus(), code)) ?? "D4";
 }
 
 /** Compose the D4/D5/D8/D11 view: watchdog + classification + P6 recovery. */
-function useTurnFailure(chat: ChatSession, baseUrl: string): TurnFailureView | undefined {
+function useTurnFailure(chat: ChatSession, baseUrl: string, challenged: boolean): TurnFailureView | undefined {
   const timeout = useTurnTimeout(chat.status, () => void chat.stop());
   const recovery = useStreamRecovery(baseUrl, chat, chat.sessionIdOf);
-  const state = turnFailureState(chat, timeout.timedOut);
+  const state = turnFailureState(chat, timeout.timedOut, challenged);
   const onRetry = useCallback(() => { timeout.reset(); recovery.recover(); }, [timeout, recovery]);
   const onExpiredResume = useCallback(() => { timeout.reset(); recovery.recoverExpired(); }, [timeout, recovery]);
   if (state === undefined) return undefined;
@@ -246,10 +276,12 @@ function entryStateOf(search: ChatSearch, health: BackendHealth): ChatEntryState
   });
 }
 
-function useAutoSendFromQuery(search: ChatSearch, health: BackendHealth, send: (text: string) => void) {
+function useAutoSendFromQuery(
+  search: ChatSearch, health: BackendHealth, send: (text: string) => void, ready: boolean,
+) {
   useAutoSend({
     query: search.q,
-    enabled: health.healthy && !search.session,
+    enabled: health.healthy && ready && !search.session,
     send,
     sessionId: search.session,
   });
@@ -277,9 +309,9 @@ function usePhotoContext(locale: ReturnType<typeof useLocale>, chat: ChatSession
 }
 
 /** Tray state: the recompute turn, its masked failure, and the spot store. */
-function useTrayState(chat: ChatSession, baseUrl: string) {
+function useTrayState(chat: ChatSession, baseUrl: string, challenged: boolean) {
   const recompute = useRecomputeTurn(chat);
-  const failure = maskRecomputeFailure(recompute, useTurnFailure(chat, baseUrl));
+  const failure = maskRecomputeFailure(recompute, useTurnFailure(chat, baseUrl, challenged));
   const selection = useSpotSelectionState();
   return { recompute, failure, selection };
 }
@@ -297,16 +329,18 @@ function useChatPage(search: ChatSearch) {
   const { config, health, chat, history } = useChatState(search);
   const { actions, gps } = useOriginTracking(useTurnActions(chat));
   const surfaces = usePageSurfaces(chat, actions, gps);
-  const tray = useTrayState(chat, config.baseUrl);
-  useAutoSendFromQuery(search, health, actions.send);
-  return { config, health, chat, history, actions, ...surfaces, ...tray };
+  // `?q=` must not fire before the widget has a token to send (#447 review).
+  const challenge = useTurnstileChallenge(chat);
+  const tray = useTrayState(chat, config.baseUrl, challenge !== undefined);
+  useAutoSendFromQuery(search, health, actions.send, useTurnstileReady(challenge !== undefined));
+  return { config, health, chat, history, actions, challenge, ...surfaces, ...tray };
 }
 
 type PageState = ReturnType<typeof useChatPage>;
 
 function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {
   return (
-    <ChatShell entry={entryStateOf(search, page.health)} dict={page.dict} chat={page.chat} history={page.history} failure={page.failure} recompute={page.recompute} onRetry={page.health.retry} onSend={page.departure.onSend} departure={page.departure} baseUrl={page.config.baseUrl} photo={page.photo} />
+    <ChatShell entry={entryStateOf(search, page.health)} dict={page.dict} chat={page.chat} history={page.history} failure={page.failure} recompute={page.recompute} challenge={page.challenge} onRetry={page.health.retry} onSend={page.departure.onSend} departure={page.departure} baseUrl={page.config.baseUrl} photo={page.photo} />
   );
 }
 

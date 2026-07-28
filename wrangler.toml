@@ -31,6 +31,12 @@
 # until BOTH of these are present:
 #   ANON_ACCESS_ENABLED        — "true" to open /v1/chat to anonymous callers ([vars] below)
 #   ANON_ID_SECRET             — HMAC key for the signed anonymous-id cookie (wrangler secret put)
+#   TURNSTILE_SECRET           — REQUIRED once ANON_ACCESS_ENABLED="true" (issue #447): every
+#                                anonymous /v1/chat turn is verified at siteverify before it can
+#                                reach the limiter or the container, so an environment with
+#                                anonymous access on and no secret answers 403 turnstile_required
+#                                to everyone. Local/dev may use Cloudflare's always-passing test
+#                                pair (site 1x00000000000000000000AA / secret 1x0000000000000000000000000000000AA).
 #
 # Frontend build-time envs (injected by GitHub Actions):
 #   NEXT_PUBLIC_SUPABASE_URL

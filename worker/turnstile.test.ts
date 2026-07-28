@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   TURNSTILE_HEADER,
+  type TurnstileResult,
   createTurnstileGate,
   guardTurnstile,
   verifySiteverify,
@@ -9,6 +10,8 @@ import {
 
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const ENV = { TURNSTILE_SECRET: "test-secret-not-a-real-value" };
+/** The anonymous identity the pass window is scoped to (issue #447). */
+const ID = "anon_0123456789abcdef0123456789abcdef";
 
 interface Call {
   readonly url: string;
@@ -38,7 +41,7 @@ async function anonymousV1(
   gate: ReturnType<typeof createTurnstileGate>,
   forward: () => Response,
 ): Promise<Response> {
-  const denied = await guardTurnstile(req, ENV, gate);
+  const denied = await guardTurnstile(req, ENV, gate, ID);
   return denied ?? forward();
 }
 
@@ -58,7 +61,7 @@ void test("AC1: a solved token verifies at siteverify and the turn is forwarded"
 void test("AC1: the siteverify call matches the canonical contract exactly", async () => {
   const calls: Call[] = [];
   const gate = createTurnstileGate({ fetchImpl: stubFetch(calls, true), now: () => 0 });
-  await guardTurnstile(request("solved-token"), ENV, gate);
+  await guardTurnstile(request("solved-token"), ENV, gate, ID);
   const call = calls[0];
   assert.ok(call);
   assert.equal(call.url, SITEVERIFY_URL);
@@ -88,7 +91,7 @@ void test("AC3: the rejection envelope is retryable and leaks no siteverify code
     fetchImpl: stubFetch([], false, ["invalid-input-secret"]),
     now: () => 0,
   });
-  const res = await guardTurnstile(request("expired-token"), ENV, gate);
+  const res = await guardTurnstile(request("expired-token"), ENV, gate, ID);
   assert.ok(res);
   const body = await res.text();
   assert.match(body, /"code":"turnstile_required"/);
@@ -99,7 +102,7 @@ void test("AC3: the rejection envelope is retryable and leaks no siteverify code
 void test("AC3: a missing token is rejected without calling siteverify at all", async () => {
   const calls: Call[] = [];
   const gate = createTurnstileGate({ fetchImpl: stubFetch(calls, true), now: () => 0 });
-  const res = await guardTurnstile(request(), ENV, gate);
+  const res = await guardTurnstile(request(), ENV, gate, ID);
   assert.equal(res?.status, 403);
   assert.equal(calls.length, 0);
 });
@@ -117,11 +120,11 @@ void test("AC2: the same token is not re-verified for later turns inside the win
   const clock = { ms: 1_000 };
   const calls: Call[] = [];
   const gate = clockGate(clock, calls);
-  assert.equal(await guardTurnstile(request("t1"), ENV, gate), null);
+  assert.equal(await guardTurnstile(request("t1"), ENV, gate, ID), null);
   clock.ms = 30_000;
-  assert.equal(await guardTurnstile(request("t1"), ENV, gate), null);
+  assert.equal(await guardTurnstile(request("t1"), ENV, gate, ID), null);
   clock.ms = 60_000;
-  assert.equal(await guardTurnstile(request("t1"), ENV, gate), null);
+  assert.equal(await guardTurnstile(request("t1"), ENV, gate, ID), null);
   assert.equal(calls.length, 1);
 });
 
@@ -129,9 +132,9 @@ void test("AC2: once the window closes the token is verified again", async () =>
   const clock = { ms: 1_000 };
   const calls: Call[] = [];
   const gate = clockGate(clock, calls);
-  await guardTurnstile(request("t1"), ENV, gate);
+  await guardTurnstile(request("t1"), ENV, gate, ID);
   clock.ms = 61_001;
-  await guardTurnstile(request("t1"), ENV, gate);
+  await guardTurnstile(request("t1"), ENV, gate, ID);
   assert.equal(calls.length, 2);
 });
 
@@ -139,17 +142,69 @@ void test("AC2: a different token inside the window is verified on its own", asy
   const clock = { ms: 1_000 };
   const calls: Call[] = [];
   const gate = clockGate(clock, calls);
-  await guardTurnstile(request("t1"), ENV, gate);
-  await guardTurnstile(request("t2"), ENV, gate);
+  await guardTurnstile(request("t1"), ENV, gate, ID);
+  await guardTurnstile(request("t2"), ENV, gate, ID);
   assert.equal(calls.length, 2);
+});
+
+/** P1-1 (#447 review): the window must not be a cross-identity pass. */
+void test("another identity replaying the same token is verified again", async () => {
+  const clock = { ms: 1_000 };
+  const calls: Call[] = [];
+  const gate = clockGate(clock, calls);
+  assert.equal(await guardTurnstile(request("t1"), ENV, gate, ID), null);
+  await guardTurnstile(request("t1"), ENV, gate, "anon_ffffffffffffffffffffffffffffffff");
+  assert.equal(calls.length, 2);
+});
+
+void test("a replay whose siteverify verdict is timeout-or-duplicate is rejected", async () => {
+  const calls: Call[] = [];
+  const gate = createTurnstileGate({
+    fetchImpl: stubFetch(calls, false, ["timeout-or-duplicate"]),
+    now: () => 0,
+  });
+  const res = await guardTurnstile(request("t1"), ENV, gate, "anon_ffffffffffffffffffffffffffffffff");
+  assert.equal(res?.status, 403);
+});
+
+/** P2-1 (#447 review): an environment with anonymous access on and no secret
+ * rejects everyone; that must be distinguishable from a bot wave in the logs. */
+void test("a missing secret is recorded at the edge and never sent to siteverify", async () => {
+  const calls: Call[] = [];
+  const gate = createTurnstileGate({ fetchImpl: stubFetch(calls, true), now: () => 0 });
+  const records: string[] = [];
+  const original = console.error;
+  console.error = (line: unknown) => { records.push(String(line)); };
+  try {
+    const res = await guardTurnstile(request("t1"), { TURNSTILE_SECRET: "" }, gate, ID);
+    assert.equal(res?.status, 403);
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(JSON.parse(String(records[0])), { event: "edge_turnstile_secret_missing" });
+  assert.equal(calls.length, 0);
+});
+
+void test("the missing-secret rejection still discloses nothing to the caller", async () => {
+  const gate = createTurnstileGate({ fetchImpl: stubFetch([], true), now: () => 0 });
+  const original = console.error;
+  console.error = () => undefined;
+  try {
+    const res = await guardTurnstile(request("t1"), { TURNSTILE_SECRET: "" }, gate, ID);
+    const body = await (res as Response).text();
+    assert.match(body, /"code":"turnstile_required"/);
+    assert.doesNotMatch(body, /secret/i);
+  } finally {
+    console.error = original;
+  }
 });
 
 void test("a failed verification is never cached", async () => {
   const clock = { ms: 0 };
   const calls: Call[] = [];
   const gate = createTurnstileGate({ fetchImpl: stubFetch(calls, false), now: () => clock.ms });
-  await guardTurnstile(request("t1"), ENV, gate);
-  await guardTurnstile(request("t1"), ENV, gate);
+  await guardTurnstile(request("t1"), ENV, gate, ID);
+  await guardTurnstile(request("t1"), ENV, gate, ID);
   assert.equal(calls.length, 2);
 });
 
@@ -174,7 +229,7 @@ void test("a request without CF-Connecting-IP still verifies with an empty remot
     method: "POST",
     headers: { [TURNSTILE_HEADER]: "t1" },
   });
-  await guardTurnstile(req, ENV, gate);
+  await guardTurnstile(req, ENV, gate, ID);
   assert.equal(calls[0]?.body.get("remoteip"), "");
 });
 
@@ -199,4 +254,74 @@ void test("a stringly-typed success value fails closed", async () => {
 // one side alone stays green while anonymous turns silently arrive tokenless.
 void test("the token header is literally cf-turnstile-response", () => {
   assert.equal(TURNSTILE_HEADER, "cf-turnstile-response");
+});
+
+// ── siteverify outages (issue #447 review, P1-3) ───────────────────────────
+// Before this, a rejected fetch or a 502 HTML body escaped `verifySiteverify`
+// as an unhandled rejection and every anonymous turn became a bare 500.
+
+/** Capture console.error while running an outage case. */
+async function withErrorLog(run: () => Promise<TurnstileResult | Response | null>) {
+  const records: string[] = [];
+  const original = console.error;
+  console.error = (line: unknown) => { records.push(String(line)); };
+  try {
+    return { result: await run(), records };
+  } finally {
+    console.error = original;
+  }
+}
+
+const unreachable: typeof fetch = () => Promise.reject(new Error("network down"));
+const htmlGateway: typeof fetch = () =>
+  Promise.resolve(new Response("<html>502</html>", { status: 502 }));
+
+void test("an unreachable siteverify fails OPEN rather than 500ing the turn", async () => {
+  const { result, records } = await withErrorLog(() =>
+    verifySiteverify("t1", "", ENV.TURNSTILE_SECRET, unreachable),
+  );
+  assert.deepEqual(result, { ok: true, errorCodes: ["siteverify-unavailable"] });
+  assert.deepEqual(JSON.parse(String(records[0])), {
+    event: "edge_turnstile_siteverify_unavailable",
+    reason: "unreachable",
+  });
+});
+
+void test("a non-JSON siteverify body is an outage, not an unhandled rejection", async () => {
+  const { result } = await withErrorLog(() =>
+    verifySiteverify("t1", "", ENV.TURNSTILE_SECRET, htmlGateway),
+  );
+  assert.equal((result as TurnstileResult).ok, true);
+  assert.deepEqual((result as TurnstileResult).errorCodes, ["siteverify-unavailable"]);
+});
+
+void test("an outage lets the turn through the guard instead of throwing", async () => {
+  const gate = createTurnstileGate({ fetchImpl: unreachable, now: () => 0 });
+  const { result } = await withErrorLog(() => guardTurnstile(request("t1"), ENV, gate, ID));
+  assert.equal(result, null);
+});
+
+void test("the fail-open verdict is never cached — verification resumes at once", async () => {
+  let attempts = 0;
+  const flaky: typeof fetch = (input, init) => {
+    attempts += 1;
+    return attempts === 1 ? unreachable(input, init) : Response.json({ success: false });
+  };
+  const gate = createTurnstileGate({ fetchImpl: flaky, now: () => 0 });
+  const { result } = await withErrorLog(async () => {
+    await guardTurnstile(request("t1"), ENV, gate, ID);
+    return guardTurnstile(request("t1"), ENV, gate, ID);
+  });
+  assert.equal((result as Response | null)?.status, 403);
+  assert.equal(attempts, 2);
+});
+
+void test("siteverify is called with an abort signal so a hang cannot stall a turn", async () => {
+  let signal: AbortSignal | null | undefined;
+  const capture: typeof fetch = (_input, init) => {
+    signal = init?.signal;
+    return Promise.resolve(Response.json({ success: true }));
+  };
+  await verifySiteverify("t1", "", ENV.TURNSTILE_SECRET, capture);
+  assert.ok(signal instanceof AbortSignal);
 });

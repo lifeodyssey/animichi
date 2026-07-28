@@ -950,3 +950,57 @@
   padding: 0.2rem 0.7rem;
   cursor: pointer;
 }
+
+/* --- S1.9 Turnstile (issue #281), armed by #447 ---
+   Lives in the dock's hint slot beneath the composer, matching the design sync
+   (`Chat 初始状态.html`: .dock > .composer + .hint). `interaction-only` means
+   the widget contributes no box at all until Cloudflare actually asks for a
+   human check, so the composer keeps its rhythm; the margin below is applied
+   only once the widget has really rendered something. */
+
+.turnstile-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 48rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+  background: var(--color-card);
+}
+
+.turnstile-gate .cf-turnstile:not(:empty) {
+  margin-block: 0.75rem;
+}
+
+.turnstile-gate__error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 0.5rem 0.75rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 14px;
+  background: var(--color-error-bg);
+  color: var(--color-error-strong);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.turnstile-gate__retry {
+  min-height: 36px;
+  padding: 0 0.875rem;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  font: inherit;
+  cursor: pointer;
+}
+
+.turnstile-gate__retry:focus-visible {
+  outline: 2px solid var(--color-focus);
+}

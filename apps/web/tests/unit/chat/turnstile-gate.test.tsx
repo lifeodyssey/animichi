@@ -5,13 +5,25 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   TURNSTILE_ACTION,
+  TURNSTILE_APPEARANCE,
   TURNSTILE_CALLBACK,
+  TURNSTILE_ERROR_CALLBACK,
+  TURNSTILE_EXPIRED_CALLBACK,
   TURNSTILE_SCRIPT_SRC,
+  TURNSTILE_SIZE,
+  TURNSTILE_TEST_SITE_KEY,
   TurnstileGate,
+  configuredTurnstileSiteKey,
   currentTurnstileSiteKey,
+  resetTurnstileWidget,
   resolveTurnstileSiteKey,
 } from "../../../src/components/TurnstileGate";
 import { chatDictFor } from "../../../src/features/chat/i18n";
+import {
+  clearTurnstileToken,
+  currentTurnstileToken,
+  rememberTurnstileToken,
+} from "../../../src/lib/turnstile/tokenStore";
 import { LOCALES } from "../../../src/i18n/locales";
 
 const SITE_KEY = "0x4AAAAAAAsitekey24chars";
@@ -19,6 +31,7 @@ const ja = chatDictFor("ja");
 
 afterEach(() => {
   cleanup();
+  clearTurnstileToken();
   vi.unstubAllEnvs();
   document.head.querySelectorAll("script").forEach((node) => {
     node.remove();
@@ -63,12 +76,92 @@ describe("site key shape assertion", () => {
   });
 });
 
+describe("optional site key (issue #447 mount decision)", () => {
+  it("reports no site key for an unconfigured production build", () => {
+    expect(configuredTurnstileSiteKey({ VITE_TURNSTILE_SITE_KEY: "" }, false)).toBeUndefined();
+    expect(configuredTurnstileSiteKey({}, false)).toBeUndefined();
+  });
+
+  it("falls back to Cloudflare's always-passing test key in dev", () => {
+    expect(configuredTurnstileSiteKey({}, true)).toBe(TURNSTILE_TEST_SITE_KEY);
+    expect(TURNSTILE_TEST_SITE_KEY).toHaveLength(24);
+  });
+
+  it("prefers a configured 24-character key over the dev fallback", () => {
+    expect(configuredTurnstileSiteKey({ VITE_TURNSTILE_SITE_KEY: SITE_KEY }, true)).toBe(SITE_KEY);
+  });
+
+  it("still throws on a secret-shaped value — a wrong key must never render", () => {
+    expect(() => configuredTurnstileSiteKey({ VITE_TURNSTILE_SITE_KEY: "x".repeat(35) }, true)).toThrow(/SECRET/);
+  });
+});
+
+describe("the widget says a token is no longer good", () => {
+  it("wires the error and expired callbacks Cloudflare invokes", () => {
+    render(<TurnstileGate dict={ja} siteKey={SITE_KEY} />);
+    expect(widget().getAttribute("data-error-callback")).toBe(TURNSTILE_ERROR_CALLBACK);
+    expect(widget().getAttribute("data-expired-callback")).toBe(TURNSTILE_EXPIRED_CALLBACK);
+  });
+
+  it("drops the held token when the challenge errors or the loader never comes up", () => {
+    render(<TurnstileGate dict={ja} siteKey={SITE_KEY} />);
+    rememberTurnstileToken("doomed-token");
+    window.onAnimichiTurnstileError?.();
+    expect(currentTurnstileToken()).toBeUndefined();
+  });
+
+  it("drops the held token once it expires, so no stale token is ever sent", () => {
+    render(<TurnstileGate dict={ja} siteKey={SITE_KEY} />);
+    rememberTurnstileToken("aged-token");
+    window.onAnimichiTurnstileExpired?.();
+    expect(currentTurnstileToken()).toBeUndefined();
+  });
+
+  it("removes both callbacks on unmount", () => {
+    render(<TurnstileGate dict={ja} siteKey={SITE_KEY} />).unmount();
+    expect(window.onAnimichiTurnstileError).toBeUndefined();
+    expect(window.onAnimichiTurnstileExpired).toBeUndefined();
+  });
+});
+
+describe("re-arming after a rejection", () => {
+  it("resets the widget so the retry does not replay a spent token", () => {
+    const reset = vi.fn();
+    window.turnstile = { reset };
+    resetTurnstileWidget();
+    expect(reset).toHaveBeenCalledTimes(1);
+    window.turnstile = undefined;
+  });
+
+  it("is a no-op before the loader has defined the global", () => {
+    window.turnstile = undefined;
+    expect(() => { resetTurnstileWidget(); }).not.toThrow();
+  });
+});
+
 describe("widget embed", () => {
   it("renders cf-turnstile with the site key and the mandatory data-action", () => {
     render(<TurnstileGate dict={ja} siteKey={SITE_KEY} />);
     expect(widget().getAttribute("data-sitekey")).toBe(SITE_KEY);
     expect(widget().getAttribute("data-action")).toBe(TURNSTILE_ACTION);
     expect(widget().getAttribute("data-callback")).toBe(TURNSTILE_CALLBACK);
+  });
+
+  it("stays out of the way until a human check is genuinely required", () => {
+    render(<TurnstileGate dict={ja} siteKey={SITE_KEY} />);
+    expect(TURNSTILE_APPEARANCE).toBe("interaction-only");
+    expect(widget().getAttribute("data-appearance")).toBe(TURNSTILE_APPEARANCE);
+    expect(widget().getAttribute("data-size")).toBe(TURNSTILE_SIZE);
+  });
+
+  it("follows the app's own day/night choice rather than the OS theme", () => {
+    document.documentElement.dataset.theme = "night";
+    render(<TurnstileGate dict={ja} siteKey={SITE_KEY} />);
+    expect(widget().getAttribute("data-theme")).toBe("dark");
+    document.documentElement.dataset.theme = "day";
+    cleanup();
+    render(<TurnstileGate dict={ja} siteKey={SITE_KEY} />);
+    expect(widget().getAttribute("data-theme")).toBe("light");
   });
 
   it("loads the official api.js once, async and deferred", () => {
