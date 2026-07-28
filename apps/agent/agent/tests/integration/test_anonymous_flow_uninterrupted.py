@@ -45,7 +45,9 @@ _AUTH_CHALLENGES = (401, 403)
 
 def _clarify_result() -> AgentResult:
     candidates = [
-        OrderedCandidate(id="11291", title="凉宫春日的忧郁", points_count=2, city="西宫")
+        OrderedCandidate(
+            id="11291", title="凉宫春日的忧郁", points_count=2, city="西宫"
+        )
     ]
     state = SessionState(
         pending_clarification=PendingClarification(

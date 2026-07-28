@@ -26,7 +26,7 @@ const server = setupServer(
   http.post(ROUTES_URL, async ({ request }) => {
     const input = SaveRouteInput.parse(await request.json());
     const row = UserRoute.parse({
-      id: `11111111-1111-4111-8111-00000000000${saved.length}`,
+      id: `11111111-1111-4111-8111-00000000000${String(saved.length)}`,
       title: input.title,
       point_ids: input.point_ids,
       status: input.status,
@@ -34,7 +34,7 @@ const server = setupServer(
       updated_at: "2026-07-28T00:00:00.000Z",
     });
     saved.push(row);
-    return HttpResponse.json(row as unknown as JsonBodyType);
+    return HttpResponse.json(row);
   }),
   http.get(ROUTES_URL, () => HttpResponse.json(ListRoutesResult.parse({ routes: saved }) as JsonBodyType)),
 );
@@ -79,7 +79,7 @@ describe("create-on-login persists the deferred route and lists it back", () => 
           status: "saved",
           saved_at: null,
           updated_at: "2026-07-28T00:00:00.000Z",
-        }) as unknown as JsonBodyType);
+        }));
       }),
     );
     writeDeferredSave({ pointIds: POINT_IDS, title: TITLE });
