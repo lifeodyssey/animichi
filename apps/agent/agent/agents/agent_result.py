@@ -76,6 +76,10 @@ class StepRecord:
     provenance: StepProvenance | None = None
     error: str | None = None
     model_initiated: bool = True
+    # False when the call's arguments could not be projected (#443). Empty
+    # `params` then means "unknown", not "called with no arguments" — consumers
+    # that compare calls by arguments must not equate two unknowns.
+    params_recorded: bool = True
 
 
 @dataclass
