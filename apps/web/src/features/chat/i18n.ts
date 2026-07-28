@@ -1,4 +1,6 @@
 import type { Locale } from "../../i18n/locales";
+import { enByok, jaByok, zhByok } from "./byok-i18n";
+import type { ChatByokDict } from "./byok-i18n";
 import {
   enClarify,
   enDeparture,
@@ -28,6 +30,7 @@ import type { ChatSearchDict } from "./search-i18n";
 
 export type { ChatRouteDict } from "./route-i18n";
 export type { ChatSearchDict } from "./search-i18n";
+export type { ChatByokDict } from "./byok-i18n";
 export type {
   ChatClarifyDict,
   ChatDepartureDict,
@@ -120,6 +123,7 @@ export interface ChatDict {
   readonly departure: ChatDepartureDict;
   readonly location: ChatLocationDict;
   readonly photo: ChatPhotoDict;
+  readonly byok: ChatByokDict;
 }
 
 const jaToolSteps: ChatToolStepsDict = {
@@ -193,6 +197,7 @@ const ja: ChatDict = {
   departure: jaDeparture,
   location: jaLocation,
   photo: jaPhoto,
+  byok: jaByok,
 };
 
 const zh: ChatDict = {
@@ -220,6 +225,7 @@ const zh: ChatDict = {
   departure: zhDeparture,
   location: zhLocation,
   photo: zhPhoto,
+  byok: zhByok,
 };
 
 const en: ChatDict = {
@@ -251,6 +257,7 @@ const en: ChatDict = {
   departure: enDeparture,
   location: enLocation,
   photo: enPhoto,
+  byok: enByok,
 };
 
 const CHAT_DICTIONARIES: Record<Locale, ChatDict> = { ja, zh, en };
