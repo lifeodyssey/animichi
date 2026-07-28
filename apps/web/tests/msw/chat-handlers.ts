@@ -187,25 +187,70 @@ export function searchResultsPatch(envelope: Record<string, unknown>): Record<st
   return { ...envelope, intent: "search_bangumi", data: { results: { rows } } };
 }
 
-function stripToolFrames(recording: string): string {
+/** The real bypass step frames: `execute_selected_route` emits one
+ * `plan_selected` running/done step pair (`test_selected_route.py`), which
+ * `chat_stream._ToolPartTranslator` translates into exactly these tool
+ * chunks. The UI must prove it SUPPRESSES them — a fixture without them
+ * would certify the wrong tree (#461 review P1-1). */
+const PLAN_SELECTED_STEP_FRAMES = [
+  'data: {"type":"tool-input-start","toolCallId":"plan_selected-fixture","toolName":"plan_selected"}',
+  'data: {"type":"tool-input-available","toolCallId":"plan_selected-fixture","toolName":"plan_selected","input":{}}',
+  'data: {"type":"tool-output-available","toolCallId":"plan_selected-fixture","output":{"point_count":2}}',
+].join("\n\n");
+
+const START_STEP_FRAME = 'data: {"type":"start-step"}';
+
+/**
+ * The `selected_point_ids` bypass stream (issue #273 S1.7 E2): the recorded
+ * search stream with the agent-path tool frames replaced by the bypass's own
+ * `plan_selected` step frames, and the route re-intended as `plan_selected`.
+ */
+function toRecomputeStream(recording: string): string {
   return recording
     .split("\n")
     .filter((line) => !line.startsWith('data: {"type":"tool-'))
     .join("\n")
+    .replace(START_STEP_FRAME, `${START_STEP_FRAME}\n\n${PLAN_SELECTED_STEP_FRAMES}`)
     .replaceAll('"intent":"plan_route"', '"intent":"plan_selected"');
 }
 
-/**
- * The `selected_point_ids` bypass stream (issue #273 S1.7 E2): the recorded
- * search stream with every tool frame stripped and the route re-intended as
- * `plan_selected` — the bypass never runs the agent, so no pipeline streams.
- */
 export function chatRecomputeHandler(options: ChatStreamOptions = {}): HttpHandler {
-  const recorded = stripToolFrames(streamText("search", options));
+  const recorded = toRecomputeStream(streamText("search", options));
   return http.post(CHAT_URL, ({ request }) => {
     options.spy?.(request);
     return sseResponse(recorded);
   });
+}
+
+export interface ControlledRecomputeStream {
+  readonly handler: HttpHandler;
+  /** Flush the final full envelope (and close); the skeleton shows until then. */
+  readonly releaseFinal: () => void;
+}
+
+/** The recompute stream held open before its final full envelope, so a test
+ * can assert the skeleton state actually appeared (review P2-⑥). */
+export function chatRecomputeControlledHandler(): ControlledRecomputeStream {
+  const recorded = toRecomputeStream(chatStreamFixture("search"));
+  const splitAt = recorded.lastIndexOf('data: {"type":"data-response"');
+  let release: () => void = () => undefined;
+  const handler = http.post(CHAT_URL, () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(recorded.slice(0, splitAt)));
+        release = () => {
+          flushTail(controller, recorded.slice(splitAt));
+        };
+      },
+    });
+    return new HttpResponse(body, { headers: SSE_HEADERS });
+  });
+  return {
+    handler,
+    releaseFinal: () => {
+      release();
+    },
+  };
 }
 
 /** Replays the recording up to (excluding) the first data-response frame and holds the stream open. */

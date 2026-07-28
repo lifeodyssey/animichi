@@ -1,3 +1,5 @@
+import { intentOf } from "./supersession";
+
 /**
  * E2 recompute bypass (issue #273 S1.7): a checkbox reselection re-sends the
  * conversation with `selected_point_ids`, so `_dispatch_request` takes the
@@ -20,18 +22,27 @@ export function sameIds(selected: ReadonlySet<string>, ids: readonly string[] | 
   return ids.every((id) => selected.has(id));
 }
 
-function intentOf(data: unknown): string | undefined {
-  if (typeof data !== "object" || data === null || !("intent" in data)) return undefined;
-  const { intent } = data;
-  return typeof intent === "string" ? intent : undefined;
-}
-
 interface PartLike {
   readonly type: string;
   readonly data?: unknown;
 }
 
-/** A bypass recompute's card: `plan_selected` streamed with no tool pipeline. */
-export function hasRecomputePart(parts: readonly PartLike[]): boolean {
-  return parts.some((part) => part.type === "data-response" && intentOf(part.data) === "plan_selected");
+function isRecomputeData(part: PartLike): boolean {
+  return part.type === "data-response" && intentOf(part.data) === "plan_selected";
+}
+
+function isToolLike(part: PartLike): boolean {
+  return part.type.startsWith("tool-") || part.type === "dynamic-tool";
+}
+
+/**
+ * A bypass recompute turn: a `plan_selected` card whose only tool part is the
+ * `plan_selected` step the backend always streams for the bypass
+ * (`execute_selected_route` → `chat_stream._ToolPartTranslator`). The UI
+ * suppresses that pipeline — "没经过 agent 就不演 agent 的戏". Agent-path
+ * turns that ran other tools keep their badges.
+ */
+export function isBypassTurn(parts: readonly PartLike[]): boolean {
+  if (!parts.some(isRecomputeData)) return false;
+  return parts.filter(isToolLike).every((part) => part.type === "tool-plan_selected");
 }

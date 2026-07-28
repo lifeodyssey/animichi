@@ -1,5 +1,5 @@
 import type { ChatStatus, UIMessage } from "ai";
-import { hasRecomputePart } from "../../../lib/chat/selectedPointsBypass";
+import { isBypassTurn } from "../../../lib/chat/selectedPointsBypass";
 import { routeDocumentKey, supersededFlags } from "../../../lib/chat/supersession";
 import type { ChatDict } from "../i18n";
 import { formatElapsed } from "../telemetry";
@@ -89,14 +89,14 @@ function RecomputeFootprint({ settled, elapsedLabel, dict }: RecomputeProps) {
 
 type RailProps = Readonly<{ message: UIMessage; settled: boolean; elapsedLabel?: string; dict: ChatDict }>;
 
-/** The turn's progress rail: tool badges for agent turns, the recompute
- * footprint for `selected_point_ids` bypass turns (which run no tools). */
+/** The turn's progress rail: tool badges for agent turns; a bypass turn
+ * SUPPRESSES its streamed `plan_selected` step part and renders the
+ * footprint instead (review P1-1 — the backend always emits that part). */
 function MessageRail({ message, settled, elapsedLabel, dict }: RailProps) {
-  const tools = message.parts.filter(isToolPart);
-  if (tools.length === 0 && hasRecomputePart(message.parts)) {
+  if (isBypassTurn(message.parts)) {
     return <RecomputeFootprint settled={settled} elapsedLabel={elapsedLabel} dict={dict} />;
   }
-  return <Pipeline parts={tools} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />;
+  return <Pipeline parts={message.parts.filter(isToolPart)} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />;
 }
 
 type BodyProps = Readonly<{

@@ -23,8 +23,18 @@ function userMessage(id: string, text: string): UIMessage {
   return { id, role: "user", parts: [{ type: "text", text }] };
 }
 
-function recomputeRaw(points: readonly Record<string, unknown>[]): Record<string, unknown> {
-  return { ...routePartRaw(points), intent: "plan_selected" };
+/** The real bypass turn as streamed: the `plan_selected` step's tool part
+ * (which `chat_stream` always emits — review P1-1) plus the data part. */
+function recomputeMessage(id: string, points: readonly Record<string, unknown>[]): UIMessage {
+  const tool = {
+    type: "tool-plan_selected",
+    toolCallId: "plan_selected-fixture",
+    state: "output-available",
+    input: {},
+    output: { point_count: points.length },
+  };
+  const data = { type: "data-response", id: "response", data: { ...routePartRaw(points), intent: "plan_selected" } };
+  return { id, role: "assistant", parts: [tool, data] as unknown as UIMessage["parts"] };
 }
 
 function renderList(messages: readonly UIMessage[], status: ChatStatus = "ready") {
@@ -39,7 +49,7 @@ function ClockHarness({ status }: Readonly<{ status: ChatStatus }>) {
   const settled = useTurnTiming(status, () => undefined);
   return (
     <ChatActionsProvider actions={{ send: vi.fn(), regenerate: vi.fn() }}>
-      <MessageList messages={[assistantMessage("a1", recomputeRaw(ujiPoints().slice()))]} dict={ja} status={status} settledDurationMs={settled} />
+      <MessageList messages={[recomputeMessage("a1", ujiPoints().slice())]} dict={ja} status={status} settledDurationMs={settled} />
     </ChatActionsProvider>
   );
 }
@@ -72,7 +82,7 @@ describe("AC: the settled 再計算 footprint reads an injected, mocked clock", 
 
 describe("AC: the bypass renders no tool pipeline (no agent, no agent theater)", () => {
   it("shows the recompute footprint and zero step badges for a plan_selected turn", () => {
-    renderList([assistantMessage("a1", recomputeRaw(ujiPoints().slice()))]);
+    renderList([recomputeMessage("a1", ujiPoints().slice())]);
     expect(document.querySelector(".chat-settled--recompute")).not.toBeNull();
     expect(document.querySelector(".chat-step")).toBeNull();
   });
@@ -94,7 +104,7 @@ describe("AC multi-turn: follow-up plus recompute keep every version in order", 
       assistantMessage("a1", routePartRaw(ujiPoints().slice())),
       userMessage("u2", "図書館は外して"),
       assistantMessage("a2", routePartRaw(ujiPoints().slice(0, 2))),
-      assistantMessage("a3", recomputeRaw(ujiPoints().slice(1))),
+      recomputeMessage("a3", ujiPoints().slice(1)),
     ]);
     const cards = routeCards();
     expect(cards.map((card) => card.getAttribute("data-intent"))).toEqual([
@@ -108,7 +118,7 @@ describe("AC multi-turn: follow-up plus recompute keep every version in order", 
   it("appends the recompute card via the existing supersededFlags, badge on the prior card", () => {
     renderList([
       assistantMessage("a1", routePartRaw(ujiPoints().slice())),
-      assistantMessage("a2", recomputeRaw(ujiPoints().slice(0, 2))),
+      recomputeMessage("a2", ujiPoints().slice(0, 2)),
     ]);
     const [oldCard, newCard] = routeCards();
     expect(oldCard?.className).toBe("chat-card chat-card--superseded");

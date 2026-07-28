@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  hasRecomputePart,
+  isBypassTurn,
   sameIds,
   selectedPointsBody,
 } from "../../../src/lib/chat/selectedPointsBypass";
@@ -42,21 +42,28 @@ describe("sameIds", () => {
   });
 });
 
-describe("hasRecomputePart (bypass turns render the footprint, not the pipeline)", () => {
-  const part = (data: unknown) => ({ type: "data-response", data });
+describe("isBypassTurn (bypass turns suppress their plan_selected step part)", () => {
+  const data = (intent: unknown) => ({ type: "data-response", data: { intent } });
+  const tool = (type: string) => ({ type });
 
-  it("detects a plan_selected data part on the message", () => {
-    const message = { parts: [part({ intent: "plan_selected" })] };
-    expect(hasRecomputePart(message.parts)).toBe(true);
+  it("detects the real bypass wire shape: plan_selected card + plan_selected step part", () => {
+    expect(isBypassTurn([tool("tool-plan_selected"), data("plan_selected")])).toBe(true);
+  });
+
+  it("still detects a bypass card whose step part has not streamed yet", () => {
+    expect(isBypassTurn([data("plan_selected")])).toBe(true);
   });
 
   it("ignores agent-path route intents", () => {
-    const message = { parts: [part({ intent: "plan_route" }), { type: "text", text: "hi" }] };
-    expect(hasRecomputePart(message.parts)).toBe(false);
+    expect(isBypassTurn([tool("tool-plan_route"), data("plan_route"), { type: "text" }])).toBe(false);
+  });
+
+  it("keeps badges for an agent-path plan_selected turn that ran other tools", () => {
+    expect(isBypassTurn([tool("tool-resolve_anime"), tool("tool-plan_selected"), data("plan_selected")])).toBe(false);
   });
 
   it("ignores malformed data parts", () => {
-    expect(hasRecomputePart([part(null), part({})])).toBe(false);
+    expect(isBypassTurn([data(undefined), { type: "data-response", data: null }])).toBe(false);
   });
 });
 
