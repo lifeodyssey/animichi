@@ -29,6 +29,7 @@ function allStrings(dict: ChatByokDict): readonly string[] {
     dict.modelRequired,
     dict.baseUrlLabel,
     dict.baseUrlHelp,
+    dict.baseUrlInvalid,
     dict.save,
     dict.clear,
     dict.maskedSummary,
@@ -103,6 +104,13 @@ describe("BYOK panel copy — field/message distinctness", () => {
     for (const locale of LOCALES) {
       const dict = chatDictFor(locale).byok;
       expect(dict.baseUrlHelp).not.toBe(dict.baseUrlLabel);
+    }
+  });
+
+  it("provides base_url-invalid copy distinct from its helper text", () => {
+    for (const locale of LOCALES) {
+      const dict = chatDictFor(locale).byok;
+      expect(dict.baseUrlInvalid).not.toBe(dict.baseUrlHelp);
     }
   });
 });

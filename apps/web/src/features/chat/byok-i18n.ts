@@ -20,6 +20,7 @@ export interface ChatByokDict {
   readonly modelRequired: string;
   readonly baseUrlLabel: string;
   readonly baseUrlHelp: string;
+  readonly baseUrlInvalid: string;
   readonly save: string;
   readonly clear: string;
   readonly maskedSummary: string;
@@ -46,6 +47,7 @@ export const jaByok: ChatByokDict = {
   modelRequired: "モデル名を入力してね",
   baseUrlLabel: "接続先URL",
   baseUrlHelp: "https:// から始まるURLを入れてね",
+  baseUrlInvalid: "そのURLは使えない文字が入ってるみたい。ローマ字のアドレスを試してね",
   save: "保存する",
   clear: "解除する",
   maskedSummary: "登録ずみ(キーはひみつ)",
@@ -72,6 +74,7 @@ export const zhByok: ChatByokDict = {
   modelRequired: "请填写模型名称",
   baseUrlLabel: "接口地址",
   baseUrlHelp: "请填写以 https:// 开头的地址",
+  baseUrlInvalid: "这个地址里有不能使用的字符,请换成英文/数字格式的地址试试",
   save: "保存",
   clear: "清除",
   maskedSummary: "已保存(密钥已隐藏)",
@@ -98,6 +101,7 @@ export const enByok: ChatByokDict = {
   modelRequired: "Please enter a model name",
   baseUrlLabel: "Base URL",
   baseUrlHelp: "Enter a URL starting with https://",
+  baseUrlInvalid: "That URL contains characters that can't be used — try an ASCII/punycode address",
   save: "Save",
   clear: "Clear",
   maskedSummary: "Saved (key hidden)",

@@ -35,7 +35,7 @@ export interface ByokConfig {
   readonly baseUrl?: string;
 }
 
-export type ByokSaveError = "model_required" | "key_required" | "key_invalid";
+export type ByokSaveError = "model_required" | "key_required" | "key_invalid" | "base_url_invalid";
 export type ByokSaveResult = { readonly ok: true } | { readonly ok: false; readonly error: ByokSaveError };
 
 const CONFIG_KEY = "animichi.byok.config";
@@ -137,10 +137,28 @@ function keyInvalid(config: ByokConfig): boolean {
   return !HEADER_SAFE.test(config.apiKey);
 }
 
+/** Character-unsafe in EVERY family, not just openai-compatible: a Japanese
+ * model name on anthropic/gemini, or a CRLF-injected model on any family,
+ * would otherwise save successfully and only crash `Headers()`/`fetch()`
+ * later, at turn time — the same sticky-TypeError shape `keyInvalid` guards
+ * against, just on a different field. */
 function modelInvalid(config: ByokConfig): boolean {
-  const required = config.provider === "openai-compatible";
-  if (!required) return false;
-  return config.model.trim() === "" || !HEADER_SAFE.test(config.model);
+  const { provider, model } = config;
+  const trimmed = model.trim();
+  if (provider === "openai-compatible" && trimmed === "") return true;
+  return trimmed !== "" && !HEADER_SAFE.test(model);
+}
+
+/** openai-compatible only; empty/whitespace is absent, not invalid (P3). An
+ * internationalized domain (e.g. `https://例え.jp/v1`) fails this check —
+ * deliberately: rather than punycode-encode it here (a second, untested
+ * encoding step this module would then own), reject non-ASCII outright and
+ * let the settings panel prompt for an A-label/ASCII host, matching what
+ * the egress guard (Task 1) already expects on the wire. */
+function baseUrlInvalid(config: ByokConfig): boolean {
+  if (config.provider !== "openai-compatible") return false;
+  const baseUrl = config.baseUrl ?? "";
+  return baseUrl.trim() !== "" && !HEADER_SAFE.test(baseUrl);
 }
 
 /** Pure validation the settings panel can call before (and instead of)
@@ -149,6 +167,7 @@ export function validateByokConfig(config: ByokConfig): ByokSaveResult {
   if (keyMissing(config)) return { ok: false, error: "key_required" };
   if (keyInvalid(config)) return { ok: false, error: "key_invalid" };
   if (modelInvalid(config)) return { ok: false, error: "model_required" };
+  if (baseUrlInvalid(config)) return { ok: false, error: "base_url_invalid" };
   return { ok: true };
 }
 

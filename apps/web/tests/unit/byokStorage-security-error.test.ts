@@ -56,6 +56,17 @@ function blockGetItem(): void {
   });
 }
 
+/** The `safeSet` counterpart: Safari private-mode quota exhaustion throws
+ * `QuotaExceededError` from `.setItem()` itself, property access unaffected.
+ * Without this test, `safeSet`'s catch block was only "covered" by an
+ * accessor-level block that never reaches the method call — a false-positive
+ * signal, per review. */
+function blockSetItem(): void {
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new DOMException("quota exceeded", "QuotaExceededError");
+  });
+}
+
 afterEach(() => {
   restoreSessionStorage();
   vi.restoreAllMocks();
@@ -94,5 +105,25 @@ describe("SecurityError from a storage method call, distinct from the accessor (
     blockGetItem();
     expect(() => getByokConfig()).not.toThrow();
     expect(getByokConfig()).toBeNull();
+  });
+});
+
+describe("QuotaExceededError from .setItem() itself (P3 — genuine safeSet catch coverage)", () => {
+  it("saveByokConfig() reports ok:true (validation passed) but does not throw when the write itself fails", () => {
+    blockSetItem();
+    expect(() => saveByokConfig(OPENAI_CONFIG)).not.toThrow();
+    expect(saveByokConfig(OPENAI_CONFIG)).toEqual({ ok: true });
+    expect(getByokConfig()).toBeNull();
+  });
+
+  it("setByokVisionSupported() degrades to a no-op instead of throwing when .setItem() fails", () => {
+    // Requires a config already in storage (see the orphan-flag guard), so
+    // block .setItem() only after a real save has already succeeded.
+    saveByokConfig(OPENAI_CONFIG);
+    blockSetItem();
+    expect(() => {
+      setByokVisionSupported(true);
+    }).not.toThrow();
+    expect(getByokVisionSupported()).toBeNull();
   });
 });

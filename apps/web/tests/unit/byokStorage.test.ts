@@ -1,11 +1,10 @@
 /**
  * @vitest-environment jsdom
  *
- * Core persistence, header emission, and vision-flag lockstep. Validation
- * rules (model/key requirements) live in byokStorage-validation.test.ts;
- * the SecurityError/partitioned-storage failure mode lives in
- * byokStorage-security-error.test.ts — split out to keep each file under
- * the repo's ~200-line test-file budget (P2③ review follow-up).
+ * Core persistence, header emission, vision-flag lockstep. Validation and
+ * field-safety rules live in byokStorage-validation.test.ts /
+ * byokStorage-field-safety.test.ts; storage-failure modes live in
+ * byokStorage-security-error.test.ts (split for the ~200-line file budget).
  */
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -194,9 +193,7 @@ describe("null/empty — SSR safety and corrupt storage", () => {
   });
 });
 
-// The module-source guards (no top-level `window` access, no other file
-// touching `sessionStorage` for BYOK) live in byokStorage-source-guard.test.ts:
-// under jsdom, `import.meta.url` resolves against the configured jsdom page
-// URL rather than a real file:// path (see vitest.config.ts's
-// environmentOptions.jsdom.url), so `node:fs` reads need the plain node
-// environment instead.
+// Module-source guards (no top-level `window` access, no cross-file
+// `sessionStorage` use) live in byokStorage-source-guard.test.ts — a plain
+// node environment, since jsdom rewrites `import.meta.url` away from a real
+// `file://` path (vitest.config.ts's `environmentOptions.jsdom.url`).
