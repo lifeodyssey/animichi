@@ -26,6 +26,9 @@ jobs:
   purge:
     name: Purge routeless anonymous sessions
     runs-on: ubuntu-latest
+    # This job holds a real secret (SUPABASE_DB_URL) — bound generously in
+    # case of a hung connection pool, not because the sweep itself is slow.
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: apps/agent
@@ -39,9 +42,21 @@ jobs:
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
+      # NOTE (review round 2): a blanket `--no-build` (wheel-only, no sdist
+      # builds) was evaluated for this secret-bearing job and reverted —
+      # verified locally against the pinned uv (0.11.14): it refuses to
+      # install this project's own editable package ("marked as --no-build
+      # but has no binary distribution"), which is not optional here. The
+      # narrower `--no-build-package <name>` per third-party dependency
+      # exists but needs an explicit, maintained allowlist; tracked as a
+      # follow-up rather than shipped half-verified in this PR.
       - run: uv sync --frozen --all-extras
 
       - name: Run the anonymous-session retention sweep
+        # The script itself writes "purged=N raced=N failed=N" to
+        # $GITHUB_STEP_SUMMARY (agent.scripts.purge_anonymous_sessions.
+        # _write_step_summary) — GitHub Actions sets that path for every
+        # step automatically, no extra wiring needed here.
         run: uv run --frozen python -m agent.scripts.purge_anonymous_sessions
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}

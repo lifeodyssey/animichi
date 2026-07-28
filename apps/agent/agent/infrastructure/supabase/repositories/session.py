@@ -35,6 +35,19 @@ _FIND_PURGEABLE_SQL = """
       AND c.updated_at < $1
       AND NOT EXISTS (SELECT 1 FROM routes r WHERE r.session_id = c.session_id)
 """
+#: The DELETE re-asserts the SAME eligibility predicate the scan used
+#: (anon-owned, still older than cutoff) rather than trusting the
+#: session_id alone. This closes the find-then-delete race: if the owner
+#: logged in (migrate_ownership) or the session was otherwise touched
+#: between the scan and this delete, zero rows match here and nothing is
+#: destroyed — a stale candidate list can only ever under-delete, never
+#: over-delete.
+_PURGE_CONVERSATION_SQL = """
+    DELETE FROM conversations
+    WHERE session_id = $1
+      AND user_id LIKE 'anon\\_%' ESCAPE '\\'
+      AND updated_at < $2
+"""
 
 
 def _rows_affected(status: str) -> int:
@@ -226,18 +239,28 @@ class SessionRepository:
         rows = await self._pool.fetch(_FIND_PURGEABLE_SQL, cutoff)
         return [str(row["session_id"]) for row in rows]
 
-    async def purge_session(self, session_id: str) -> None:
+    async def purge_session(self, session_id: str, cutoff: datetime) -> bool:
         """Delete one session's conversation (cascading its messages) and its
         session row, in a single transaction per session. Ordering matters:
         conversations first, sessions last — the `routes.session_id` FK is
         the transactional backstop if the exclusion predicate is ever wrong,
         and it can only fire on the sessions delete, rolling the whole unit
-        back rather than half-destroying a route-bearing session."""
+        back rather than half-destroying a route-bearing session.
+
+        The conversation delete re-checks eligibility (anon-owned, still
+        older than `cutoff`) rather than trusting the caller's candidate
+        list — closes the find-then-delete race, so a session whose owner
+        logged in between the scan and this call is left untouched. Returns
+        True iff the session was actually purged.
+        """
         async with self._pool.acquire() as connection:
             async with connection.transaction():
-                await connection.execute(
-                    "DELETE FROM conversations WHERE session_id = $1", session_id
+                status = await connection.execute(
+                    _PURGE_CONVERSATION_SQL, session_id, cutoff
                 )
+                if _rows_affected(status) == 0:
+                    return False
                 await connection.execute(
                     "DELETE FROM sessions WHERE id = $1", session_id
                 )
+                return True

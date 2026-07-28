@@ -1,17 +1,19 @@
 """Unit tests for the retention query shape (issue #273 Task 3).
 
 Behavioral proof that the exclusion predicate is selective (not a blanket
-skip) and that real users are never touched lives in the Docker-backed
-`tests/integration/test_session_identity_transition.py`. These tests pin the
-generated SQL's structural contract with a mocked pool, so a later edit that
-deletes the route-association `NOT EXISTS` clause or swaps the collation-
-unsafe range scan back in fails immediately, without needing Postgres.
+skip), that real users are never touched, and that the index/collation
+contract holds lives in the Docker-backed integration suite
+(`tests/integration/test_session_identity_transition.py` and
+`test_session_retention_integrity.py`). These tests pin the generated SQL's
+structural contract with a mocked pool, so a later edit that deletes the
+route-association `NOT EXISTS` clause or swaps the collation-unsafe range
+scan back in fails immediately, without needing Postgres.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 
 import asyncpg
 import pytest
@@ -76,12 +78,37 @@ async def test_find_purgeable_returns_session_ids_from_rows(
     assert result == ["sess-a", "sess-b"]
 
 
+async def test_purge_session_delete_reasserts_the_anon_and_cutoff_predicate(
+    repo: SessionRepository, pool: AsyncMock
+) -> None:
+    """Race guard, structural: the conversation DELETE re-checks anon
+    ownership and the cutoff, not just session_id — so a row changed
+    between the scan and this call (e.g. by a login) cannot be matched."""
+    connection = AsyncMock()
+    connection.execute.return_value = "DELETE 0"
+    transaction = MagicMock()
+    connection.transaction = MagicMock(return_value=transaction)
+    acquire = MagicMock()
+    acquire.__aenter__ = AsyncMock(return_value=connection)
+    pool.acquire = MagicMock(return_value=acquire)
+
+    purged = await repo.purge_session("sess-a", CUTOFF)
+
+    assert purged is False
+    sql = connection.execute.await_args_list[0].args[0]
+    assert "user_id LIKE 'anon\\_%' ESCAPE '\\'" in sql
+    assert "updated_at < $2" in sql
+    assert "session_id = $1" in sql
+    # Zero rows matched -> the sessions delete must never run.
+    assert connection.execute.await_count == 1
+
+
 async def test_purge_run_with_no_eligible_rows_deletes_nothing() -> None:
     db = AsyncMock()
     db.session.find_purgeable_anonymous_sessions = AsyncMock(return_value=[])
     db.session.purge_session = AsyncMock()
-    purged = await purge_anonymous_sessions(db, retention_days=30, now=CUTOFF)
-    assert purged == 0
+    report = await purge_anonymous_sessions(db, retention_days=30, now=CUTOFF)
+    assert report.purged == 0
     db.session.purge_session.assert_not_called()
 
 
@@ -90,23 +117,40 @@ async def test_purge_run_deletes_every_eligible_session_once() -> None:
     db.session.find_purgeable_anonymous_sessions = AsyncMock(
         return_value=["sess-a", "sess-b"]
     )
-    db.session.purge_session = AsyncMock()
-    purged = await purge_anonymous_sessions(db, retention_days=30, now=CUTOFF)
-    assert purged == 2
+    db.session.purge_session = AsyncMock(return_value=True)
+    report = await purge_anonymous_sessions(db, retention_days=30, now=CUTOFF)
+    assert report.purged == 2
     assert db.session.purge_session.await_count == 2
-    db.session.purge_session.assert_any_await("sess-a")
-    db.session.purge_session.assert_any_await("sess-b")
+    expected_cutoff = CUTOFF - timedelta(days=30)
+    db.session.purge_session.assert_any_await("sess-a", expected_cutoff)
+    db.session.purge_session.assert_any_await("sess-b", expected_cutoff)
 
 
 async def test_dry_run_reports_without_deleting() -> None:
     db = AsyncMock()
     db.session.find_purgeable_anonymous_sessions = AsyncMock(return_value=["sess-a"])
     db.session.purge_session = AsyncMock()
-    purged = await purge_anonymous_sessions(
+    report = await purge_anonymous_sessions(
         db, retention_days=30, now=CUTOFF, dry_run=True
     )
-    assert purged == 1
+    assert report.purged == 1
     db.session.purge_session.assert_not_called()
+
+
+async def test_a_raced_session_is_not_counted_as_purged_or_failed() -> None:
+    """`purge_session` returning False (its own predicate matched zero rows)
+    is the find-then-delete race resolving itself — not a failure."""
+    db = AsyncMock()
+    db.session.find_purgeable_anonymous_sessions = AsyncMock(
+        return_value=["sess-a", "sess-raced"]
+    )
+    db.session.purge_session = AsyncMock(side_effect=[True, False])
+
+    report = await purge_anonymous_sessions(db, retention_days=30, now=CUTOFF)
+
+    assert report.purged == 1
+    assert report.raced == 1
+    assert report.failed == 0
 
 
 async def test_one_session_fk_race_is_isolated_the_sweep_continues() -> None:
@@ -118,15 +162,17 @@ async def test_one_session_fk_race_is_isolated_the_sweep_continues() -> None:
         return_value=["sess-a", "sess-race", "sess-b"]
     )
 
-    async def _purge(session_id: str) -> None:
+    async def _purge(session_id: str, cutoff: datetime) -> bool:
         if session_id == "sess-race":
             raise asyncpg.ForeignKeyViolationError("routes_session_id_fkey")
+        return True
 
     db.session.purge_session = AsyncMock(side_effect=_purge)
 
-    purged = await purge_anonymous_sessions(db, retention_days=30, now=CUTOFF)
+    report = await purge_anonymous_sessions(db, retention_days=30, now=CUTOFF)
 
-    assert purged == 2
+    assert report.purged == 2
+    assert report.failed == 1
     assert db.session.purge_session.await_count == 3
 
 

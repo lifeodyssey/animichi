@@ -13,7 +13,9 @@ import pytest
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.scripts.purge_anonymous_sessions import purge_anonymous_sessions
 
-pytest_plugins = ("agent.tests.conftest_db",)
+# `agent.tests.conftest_db` is already registered by the directory-level
+# `tests/integration/conftest.py` (`pytest_plugins`) — redeclaring it here
+# would be a no-op duplicate (review round 2 Sonar smell).
 
 
 def _anon_id() -> str:
@@ -95,9 +97,9 @@ async def test_retention_purges_only_the_inactive_routeless_sibling(real_db) -> 
     old_cutoff = _days_ago(40)
     await _backdate_conversation(real_db, stale, old_cutoff)
 
-    purged = await purge_anonymous_sessions(real_db, retention_days=30)
+    report = await purge_anonymous_sessions(real_db, retention_days=30)
 
-    assert purged == 1
+    assert report.purged == 1
     assert await real_db.session.get_conversation(stale) is None
     assert await real_db.session.get_conversation(fresh) is not None
 
@@ -114,9 +116,9 @@ async def test_route_bearing_session_is_retained_permanently(real_db) -> None:
     await _backdate_conversation(real_db, with_route, old_cutoff)
     await _backdate_conversation(real_db, without_route, old_cutoff)
 
-    purged = await purge_anonymous_sessions(real_db, retention_days=30)
+    report = await purge_anonymous_sessions(real_db, retention_days=30)
 
-    assert purged == 1
+    assert report.purged == 1
     assert await real_db.session.get_conversation(with_route) is not None
     assert await real_db.session.get_session(with_route) is not None
     assert await real_db.session.get_conversation(without_route) is None
@@ -131,9 +133,9 @@ async def test_purge_deletes_conversations_before_sessions_leaving_no_orphans(
     await _seed_session(real_db, session_id, anon, "orphan check")
     await _backdate_conversation(real_db, session_id, _days_ago(40))
 
-    purged = await purge_anonymous_sessions(real_db, retention_days=30)
+    report = await purge_anonymous_sessions(real_db, retention_days=30)
 
-    assert purged == 1
+    assert report.purged == 1
     assert await real_db.session.get_conversation(session_id) is None
     assert await real_db.session.get_session(session_id) is None
     messages = await real_db.pool.fetch(
@@ -154,9 +156,10 @@ async def test_purge_transaction_rolls_back_whole_unit_when_fk_backstop_fires(
     session_id = f"sess-{uuid.uuid4().hex}"
     await _seed_session(real_db, session_id, anon, "fk backstop check")
     await real_db.routes.save_route(session_id, [], ["pt-1"], {})
+    await _backdate_conversation(real_db, session_id, _days_ago(40))
 
     with pytest.raises(asyncpg.ForeignKeyViolationError):
-        await real_db.session.purge_session(session_id)
+        await real_db.session.purge_session(session_id, _days_ago(30))
 
     assert await real_db.session.get_conversation(session_id) is not None
     assert await real_db.session.get_session(session_id) is not None

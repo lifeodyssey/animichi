@@ -12,9 +12,21 @@ const stubCtx = {
 
 const authOk = () => Promise.resolve({ ok: true, userId: "real-user-1", userType: "human" } as const);
 
+/** An EDGE_GUARD stand-in that always allows (mirrors entry.test.ts): the
+ * migration route is not in AUTH_RATE_LIMITED_EXACT, but it still passes
+ * through `authenticatedForward`'s check, which reads `env.EDGE_GUARD`. */
+const alwaysAllowGuard = {
+  idFromName: (name: string) => name as unknown as DurableObjectId,
+  get: () => ({
+    fetch: () =>
+      Promise.resolve(new Response(JSON.stringify({ allowed: true, retryAfterSeconds: 0 }))),
+  }),
+};
+
 function envWithContainer(captured: { req?: Request }, body: object = { migrated: true }) {
   return {
     ...ANON_ENV,
+    EDGE_GUARD: alwaysAllowGuard,
     CONTAINER: {
       idFromName: () => "id",
       get: () => ({

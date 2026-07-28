@@ -49,7 +49,7 @@ jobs:
         run: uv run ruff format --check agent/
 
       - name: Type check (mypy strict)
-        run: uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
+        run: uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ agent/scripts/purge_anonymous_sessions.py
 
       - name: Dead code (vulture)
         run: uv run vulture agent/ vulture_whitelist.py
