@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types", "node"],
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": false,
+    "isolatedModules": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true
+  },
+  "include": ["app.ts", "auth.ts", "turnstile.ts", "costBreaker.ts", "edgeGuard.ts", "guardStore.ts", "rateLimiter.ts", "entry.test.ts", "turnstile.test.ts", "anonymous.test.ts", "authFallthrough.test.ts", "authScheme.test.ts", "anonymousIdentity.test.ts", "costBreaker.test.ts", "rateLimiter.test.ts", "byok.test.ts", "edgeGuard.test.ts", "authRateLimitScope.test.ts"]
+}
