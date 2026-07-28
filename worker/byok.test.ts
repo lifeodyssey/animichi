@@ -5,11 +5,9 @@ import { handleGuardRequest } from "./edgeGuard.ts";
 import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
 
 // Task 9 (#284): per-identity rate limiting on the authenticated /v1/* path,
-// scoped to the two cost-bearing endpoints — POST /v1/chat, POST
-// /v1/byok/probe — not every authenticated route. Previously no limiter ran
-// on this branch at all; BYOK makes that unbounded (a self-serve account can
-// drive outbound calls to a caller-chosen `base_url`). Reads (conversations
-// / messages / routes) are deliberately NOT counted — see below.
+// scoped to cost-bearing routes only (chat, byok/probe, runtime*) — not
+// every authenticated route. Previously no limiter ran here at all; BYOK
+// makes that unbounded. Reads are deliberately NOT counted — see below.
 
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 
@@ -38,9 +36,8 @@ function fakeGuard(nowMs = NOW) {
   };
 }
 
-/** Fetch rejects outright — a dropped connection / overloaded DO / mid-deploy
- * reset, not a well-formed error response. Must fail open (T9-AC4), not
- * propagate into Hono's uncaught-exception 500. */
+/** Fetch rejects outright (dropped connection / overloaded DO), not a
+ * well-formed error response — must fail open (T9-AC4), see OUTAGES below. */
 function rejectingGuard() {
   return {
     idFromName: (name: string) => name as unknown as DurableObjectId,
@@ -48,8 +45,7 @@ function rejectingGuard() {
   };
 }
 
-/** A 200 with a non-JSON body — `response.json()` throws here; must also
- * fail open, not crash the request. */
+/** A 200 with a non-JSON body — `response.json()` throws here too. */
 function nonJsonOkGuard() {
   return {
     idFromName: (name: string) => name as unknown as DurableObjectId,
@@ -57,7 +53,6 @@ function nonJsonOkGuard() {
   };
 }
 
-/** A guard whose shard always 500s — simulates a Durable Object outage. */
 function brokenGuard() {
   return {
     idFromName: (name: string) => name as unknown as DurableObjectId,
@@ -123,10 +118,7 @@ void test("user A's burst never consumes user B's allowance", async () => {
 
 void test("an anonymous caller's allowance is unaffected by authenticated traffic", async () => {
   const guard = fakeGuard();
-  const e = env(guard, {
-    AUTH_RATE_LIMIT: "1", ANON_RATE_LIMIT: "1",
-    ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000",
-  });
+  const e = env(guard, { AUTH_RATE_LIMIT: "1", ANON_RATE_LIMIT: "1", ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000" });
   await authedApp("user-a").request("/v1/chat", req("/v1/chat"), e, stubCtx);
   const anonApp = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const) });
   const res = await anonApp.request("/v1/chat", { method: "POST", headers: {} }, e, stubCtx);
@@ -144,6 +136,16 @@ void test("an authenticated read (GET /v1/conversations et al) never consumes th
   }
   const res = await app.request("/v1/chat", req("/v1/chat"), e, stubCtx);
   assert.equal(res.status, 200, "reads must not have spent the one-request /v1/chat window");
+});
+
+// legacy /v1/runtime + /v1/runtime/stream run a full agent turn on the house
+// key (same cost shape as /v1/chat) — Fable's follow-up finding.
+void test("/v1/runtime shares the /v1/chat window (same cost shape, same branch)", async () => {
+  const e = env(fakeGuard(), { AUTH_RATE_LIMIT: "1" });
+  const app = authedApp();
+  await app.request("/v1/runtime", req("/v1/runtime"), e, stubCtx);
+  const res = await app.request("/v1/chat", req("/v1/chat"), e, stubCtx);
+  assert.equal(res.status, 429, "runtime and chat must share one identity's window");
 });
 
 // ── AC4: fail-open on EVERY guard-outage shape, not just a 500 ─────────────

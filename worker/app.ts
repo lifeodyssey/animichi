@@ -81,18 +81,27 @@ function forwardV1(env: Env, request: Request, auth?: { userId: string; userType
 }
 
 // Per-identity rate limiting on the AUTHENTICATED path (issue #284 / Task 9).
-// Before this, the authenticated branch called no limiter at all —
-// login-gating BYOK removed the anonymous relay surface but left an
-// unbounded authenticated one, since accounts are free self-serve signups.
-// Scoped to the two cost-bearing endpoints named in the spec, not every
-// authenticated /v1/* route: counting read traffic too (GET
-// /v1/conversations, /v1/*/messages, /v1/*/routes) would let a user paging
-// through session history burn the same window and 429 an unrelated,
-// in-flight chat turn — a misattributed failure, not a safety win.
-const AUTH_RATE_LIMITED_V1 = ["/v1/chat", "/v1/byok/probe"];
+// Previously this branch called no limiter at all; BYOK makes that unbounded
+// (free self-serve accounts, an outbound call per turn). Scoped to
+// cost-bearing routes only — counting reads (conversations/messages/routes)
+// would let paging through history 429 an unrelated in-flight chat turn.
+// /v1/runtime + /v1/runtime/stream (agent/interfaces/routes/runtime.py) run
+// a full agent turn on the house key, same cost shape as chat — they belong
+// here too; retiring these legacy routes is tracked separately.
+const AUTH_RATE_LIMITED_EXACT = ["/v1/chat", "/v1/runtime", "/v1/runtime/stream"];
+const AUTH_RATE_LIMITED_PREFIX = "/v1/byok/";
 
-function isAuthRateLimited(pathname: string): boolean {
-  return AUTH_RATE_LIMITED_V1.includes(pathname);
+/** Strip one trailing slash so "/v1/chat/" counts as "/v1/chat" — a bare
+ * exact-match let a trailing slash skip the limiter outright (P2-5). */
+function normalizeV1Path(pathname: string): string {
+  return pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+}
+
+/** BYOK routes match by prefix, not an exact list — every route under
+ * /v1/byok/ is an outbound relay by construction (P2-5). */
+export function isAuthRateLimited(pathname: string): boolean {
+  const normalized = normalizeV1Path(pathname);
+  return AUTH_RATE_LIMITED_EXACT.includes(normalized) || normalized.startsWith(AUTH_RATE_LIMITED_PREFIX);
 }
 
 /**

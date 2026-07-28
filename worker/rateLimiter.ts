@@ -27,7 +27,7 @@ export interface RateLimitDecision {
 
 const DEFAULT_LIMIT = 20;
 const DEFAULT_WINDOW_SECONDS = 60;
-const RATE_LIMIT_KEY = "window";
+export const RATE_LIMIT_KEY = "window";
 
 function positiveInt(raw: unknown, fallback: number): number {
   const parsed = typeof raw === "string" ? Number.parseInt(raw, 10) : Number.NaN;
