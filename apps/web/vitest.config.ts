@@ -36,7 +36,9 @@ export default defineConfig({
         // as routes/_dev/map-spike.tsx.
         "src/features/bubble-map/BubbleMap.tsx",
       ],
-      thresholds: { statements: 95, branches: 94, functions: 95, lines: 95 },
+      // S1.3 (#260) ratchet: measured 98.62/94.57/99.09/99.56 after the
+      // clarify/photo-search suites landed. Ratchet UP only.
+      thresholds: { statements: 98, branches: 94, functions: 98, lines: 99 },
     },
   },
 });

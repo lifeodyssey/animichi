@@ -1,13 +1,10 @@
 import type { AnimeOverview } from "@seichijunrei/contract";
 import type { Locale } from "../../i18n/locales";
-import { JsonLd } from "../seo/JsonLd";
-import { seoOrigin } from "../seo/origin";
 import { CirclesSection } from "./CirclesSection";
 import { FactSummaryBlock } from "./FactSummaryBlock";
 import { ScenesSection } from "./ScenesSection";
 import { type AnimeCopy, animeCopyFor } from "./copy";
 import { buildFactSummary, rankScenes } from "./fact-summary";
-import { buildAnimeJsonLd } from "./structured-data";
 
 export type AnimePageProps = Readonly<{ overview: AnimeOverview; locale: Locale }>;
 
@@ -50,13 +47,12 @@ function AnimeBody({ overview, copy }: ViewProps) {
   return <AnimeFull overview={overview} copy={copy} />;
 }
 
-/** `/anime/:id` presenter: empty-but-valid overviews get the graceful empty state. */
+/**
+ * `/anime/:id` presenter: empty-but-valid overviews get the graceful empty
+ * state. JSON-LD is emitted by the route's `head()` (see `features/seo/json-ld`),
+ * not rendered here.
+ */
 export function AnimePage({ overview, locale }: AnimePageProps) {
   const copy = animeCopyFor(locale);
-  return (
-    <>
-      <JsonLd nodes={buildAnimeJsonLd(overview, locale, seoOrigin())} />
-      <AnimeBody overview={overview} copy={copy} />
-    </>
-  );
+  return <AnimeBody overview={overview} copy={copy} />;
 }

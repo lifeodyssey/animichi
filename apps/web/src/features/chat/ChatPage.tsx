@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale } from "../../i18n/context";
 import { classifyFailure } from "../../lib/chat/errorClassifier";
 import type { ChatErrorState, FailureSignal } from "../../lib/chat/errorClassifier";
@@ -6,6 +6,8 @@ import { ChatActionsProvider } from "./chat-actions";
 import type { ChatActions } from "./chat-actions";
 import { ChatInput } from "./components/ChatInput";
 import { ColdStart } from "./components/ColdStart";
+import { DeparturePrompt } from "./components/DeparturePrompt";
+import { PhotoSearchUpload } from "./components/PhotoSearchUpload";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { SelectionTray } from "./components/SelectionTray";
 import { TurnFailure } from "./components/ErrorStates/TurnFailure";
@@ -18,11 +20,14 @@ import { deriveEntryState, resolveRouteReference } from "./entry-state";
 import type { ChatEntryState } from "./entry-state";
 import { chatDictFor } from "./i18n";
 import type { ChatDict } from "./i18n";
+import type { PhotoGps, PhotoSearchContext } from "./photo-search";
 import type { ChatSearch } from "./search";
 import { SpotSelectionProvider, useSpotSelectionState } from "./selection/useSpotSelection";
 import { useRecomputeTurn } from "./selection/useRecomputeTurn";
 import type { RecomputeTurn } from "./selection/useRecomputeTurn";
 import { useAutoSend } from "./use-auto-send";
+import { useDeparturePrompt } from "./use-departure-prompt";
+import type { DeparturePromptState } from "./use-departure-prompt";
 import { useBackendHealth } from "./use-backend-health";
 import type { BackendHealth } from "./use-backend-health";
 import type { ChatSession } from "./use-chat-session";
@@ -46,6 +51,9 @@ type ShellProps = Readonly<{
   recompute: RecomputeTurn;
   onRetry: () => void;
   onSend: (text: string) => void;
+  departure: DeparturePromptState;
+  baseUrl: string;
+  photo: PhotoSearchContext;
 }>;
 
 function useScrollAnchor(itemCount: number) {
@@ -125,6 +133,14 @@ function RecomputeTray({ dict, chat, recompute }: TrayHostProps) {
   );
 }
 
+/** C2t chips render only while a route request is held for departure info. */
+function DepartureGate({ departure, dict }: Readonly<{ departure: DeparturePromptState; dict: ChatDict }>) {
+  if (departure.pending === null) return null;
+  return (
+    <DeparturePrompt dict={dict} onChip={departure.onChip} onLocated={departure.onLocated} onManualLocation={departure.onManualLocation} />
+  );
+}
+
 function ShellNotices(props: ShellProps) {
   return (
     <>
@@ -134,12 +150,32 @@ function ShellNotices(props: ShellProps) {
   );
 }
 
+/** The C2t chips and photo upload sit between the stream and the composer. */
+function ComposerExtras(props: ShellProps) {
+  return (
+    <>
+      <DepartureGate departure={props.departure} dict={props.dict} />
+      <PhotoSearchUpload dict={props.dict} baseUrl={props.baseUrl} context={props.photo} />
+    </>
+  );
+}
+
+/** Chips, photo upload, and the E2 tray dock between the stream and composer. */
+function ComposerDock(props: ShellProps) {
+  return (
+    <>
+      <ComposerExtras {...props} />
+      <RecomputeTray dict={props.dict} chat={props.chat} recompute={props.recompute} />
+    </>
+  );
+}
+
 function ChatShell(props: ShellProps) {
   return (
     <main className="chat-page">
       <ShellNotices {...props} />
       <ChatBody {...props} />
-      <RecomputeTray dict={props.dict} chat={props.chat} recompute={props.recompute} />
+      <ComposerDock {...props} />
       <ChatInput dict={props.dict} disabled={isInputLocked(props)} onSend={props.onSend} />
     </main>
   );
@@ -149,8 +185,28 @@ function ChatShell(props: ShellProps) {
 function useTurnActions(chat: ChatSession): ChatActions {
   const { sendMessage, clearError, regenerate } = chat;
   const send = useCallback((text: string) => void sendMessage({ text }), [sendMessage]);
+  const sendWithOrigin = useCallback((text: string, lat: number, lng: number) => {
+    void sendMessage({ text }, { body: { origin_lat: lat, origin_lng: lng } });
+  }, [sendMessage]);
   const regen = useCallback(() => { clearError(); void regenerate(); }, [clearError, regenerate]);
-  return useMemo(() => ({ send, regenerate: regen }), [send, regen]);
+  return useMemo(() => ({ send, regenerate: regen, sendWithOrigin }), [send, regen, sendWithOrigin]);
+}
+
+function makeTracked(actions: ChatActions, setGps: (gps: PhotoGps) => void): ChatActions {
+  return {
+    ...actions,
+    sendWithOrigin: (text: string, lat: number, lng: number) => {
+      setGps({ lat, lng });
+      actions.sendWithOrigin?.(text, lat, lng);
+    },
+  };
+}
+
+/** Remember granted C4 coordinates so photo search can reuse them (AC6). */
+function useOriginTracking(actions: ChatActions): { actions: ChatActions; gps: PhotoGps | undefined } {
+  const [gps, setGps] = useState<PhotoGps | undefined>(undefined);
+  const tracked = useMemo(() => makeTracked(actions, setGps), [actions]);
+  return { actions: tracked, gps };
 }
 
 function turnFailureSignal(lastStatus: number | undefined, code: string | undefined): FailureSignal {
@@ -212,21 +268,45 @@ function maskRecomputeFailure(recompute: RecomputeTurn, failure: TurnFailureView
   return recompute.status === "failed" ? undefined : failure;
 }
 
+/** Photo requests share chat's identity: locale, live session id, C4 gps. */
+function usePhotoContext(locale: ReturnType<typeof useLocale>, chat: ChatSession, gps: PhotoGps | undefined): PhotoSearchContext {
+  return useMemo(
+    () => ({ locale, sessionIdOf: chat.sessionIdOf, gps }),
+    [locale, chat.sessionIdOf, gps],
+  );
+}
+
+/** Tray state: the recompute turn, its masked failure, and the spot store. */
+function useTrayState(chat: ChatSession, baseUrl: string) {
+  const recompute = useRecomputeTurn(chat);
+  const failure = maskRecomputeFailure(recompute, useTurnFailure(chat, baseUrl));
+  const selection = useSpotSelectionState();
+  return { recompute, failure, selection };
+}
+
+/** Locale-bound page copy plus the photo/departure surfaces that share it. */
+function usePageSurfaces(chat: ChatSession, actions: ChatActions, gps: PhotoGps | undefined) {
+  const locale = useLocale();
+  const dict = chatDictFor(locale);
+  const photo = usePhotoContext(locale, chat, gps);
+  const departure = useDeparturePrompt(actions, dict);
+  return { dict, photo, departure };
+}
+
 function useChatPage(search: ChatSearch) {
   const { config, health, chat, history } = useChatState(search);
-  const actions = useTurnActions(chat);
-  const recompute = useRecomputeTurn(chat);
-  const failure = maskRecomputeFailure(recompute, useTurnFailure(chat, config.baseUrl));
-  const selection = useSpotSelectionState();
+  const { actions, gps } = useOriginTracking(useTurnActions(chat));
+  const surfaces = usePageSurfaces(chat, actions, gps);
+  const tray = useTrayState(chat, config.baseUrl);
   useAutoSendFromQuery(search, health, actions.send);
-  return { health, chat, history, actions, recompute, failure, selection };
+  return { config, health, chat, history, actions, ...surfaces, ...tray };
 }
 
 type PageState = ReturnType<typeof useChatPage>;
 
 function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {
   return (
-    <ChatShell entry={entryStateOf(search, page.health)} dict={chatDictFor(useLocale())} chat={page.chat} history={page.history} failure={page.failure} recompute={page.recompute} onRetry={page.health.retry} onSend={page.actions.send} />
+    <ChatShell entry={entryStateOf(search, page.health)} dict={page.dict} chat={page.chat} history={page.history} failure={page.failure} recompute={page.recompute} onRetry={page.health.retry} onSend={page.departure.onSend} departure={page.departure} baseUrl={page.config.baseUrl} photo={page.photo} />
   );
 }
 

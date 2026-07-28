@@ -1,4 +1,6 @@
+import { type JsonLdScriptTag, jsonLdScripts } from "../seo/json-ld";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../../i18n/locales";
+import type { JsonLdNode } from "./structured-data";
 
 /**
  * Head builder for `/anime/:id`: hreflang bootstrap + per-locale titles.
@@ -49,10 +51,12 @@ export interface AnimeHeadMeta {
 export interface AnimeHead {
   meta: AnimeHeadMeta[];
   links: HreflangLink[];
+  scripts: JsonLdScriptTag[];
 }
 
 export interface AnimeHeadOptions {
   readonly indexable: boolean;
+  readonly jsonLd?: readonly JsonLdNode[];
 }
 
 /** Empty overviews are served but flagged noindex — no indexable soft-404s. */
@@ -66,5 +70,6 @@ export function animeHead(locale: Locale, bangumiId: string, origin: string, opt
   return {
     meta: [{ title: animeTitle(locale, bangumiId) }, ...robotsMeta(options)],
     links: animeAlternates(origin, bangumiId),
+    scripts: jsonLdScripts(options.jsonLd ?? []),
   };
 }

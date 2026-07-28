@@ -61,6 +61,18 @@ describe("/anime/$bangumiId head", () => {
     });
   });
 
+  it("emits the JSON-LD graph as an application/ld+json script", async () => {
+    await openAnime("123");
+    await screen.findByRole("heading", { level: 1 });
+    await waitFor(() => {
+      const el = document.querySelector('script[type="application/ld+json"]');
+      expect(el).not.toBeNull();
+      const nodes = JSON.parse(el?.textContent ?? "[]") as { "@type": string }[];
+      const types = nodes.map((node) => node["@type"]);
+      expect(types).toEqual(expect.arrayContaining(["CreativeWork", "BreadcrumbList"]));
+    });
+  });
+
   it("switches content and title to zh when hl=zh is in the search", async () => {
     await openAnime("123", { hl: "zh" });
     const heading = await screen.findByRole("heading", { level: 1 });

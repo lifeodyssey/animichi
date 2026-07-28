@@ -56,4 +56,16 @@ describe("animeHead", () => {
     const head = animeHead("ja", "999", ORIGIN, { indexable: false });
     expect(head.meta).toContainEqual({ name: "robots", content: "noindex" });
   });
+
+  it("emits the JSON-LD graph as an application/ld+json head script", () => {
+    const jsonLd = [{ "@context": "https://schema.org", "@type": "CreativeWork" }] as const;
+    const head = animeHead("ja", "123", ORIGIN, { indexable: true, jsonLd });
+    expect(head.scripts).toHaveLength(1);
+    expect(head.scripts[0]?.type).toBe("application/ld+json");
+    expect(JSON.parse(head.scripts[0]?.children ?? "")).toEqual(jsonLd);
+  });
+
+  it("emits no script when there are no JSON-LD nodes", () => {
+    expect(animeHead("ja", "123", ORIGIN).scripts).toEqual([]);
+  });
 });

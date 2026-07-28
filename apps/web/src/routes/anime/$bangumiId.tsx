@@ -6,6 +6,7 @@ import { resolveOrigin } from "../../api/config";
 import { animeOverviewOptions, useAnimeOverview } from "../../api/hooks/use-anime-overview";
 import { AnimePage } from "../../features/anime/AnimePage";
 import { animeHead } from "../../features/anime/head";
+import { buildAnimeJsonLd } from "../../features/anime/structured-data";
 import { useRegisterAnimeSw } from "../../features/anime/register-sw";
 import { AnimeErrorState, AnimePendingState } from "../../features/anime/route-states";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../../i18n/locales";
@@ -63,11 +64,17 @@ export const Route = createFileRoute("/anime/$bangumiId")({
   loader: async ({ params, deps, context }) => {
     if (!BANGUMI_ID_PATTERN.test(params.bangumiId)) throw notFoundError();
     const overview = await loadOverview(context.queryClient, params.bangumiId);
-    return { locale: deps.hl ?? DEFAULT_LOCALE, indexable: overview.points_length > 0 };
+    const locale = deps.hl ?? DEFAULT_LOCALE;
+    return {
+      locale,
+      indexable: overview.points_length > 0,
+      jsonLd: buildAnimeJsonLd(overview, locale, siteOrigin()),
+    };
   },
   head: ({ loaderData, params }) =>
     animeHead(loaderData?.locale ?? DEFAULT_LOCALE, params.bangumiId, siteOrigin(), {
       indexable: loaderData?.indexable ?? true,
+      jsonLd: loaderData?.jsonLd ?? [],
     }),
   errorComponent: AnimeErrorState,
   pendingComponent: AnimePendingState,
