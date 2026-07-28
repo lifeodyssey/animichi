@@ -3,6 +3,12 @@ import type { Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
 import { SSE_HEADERS, chatStreamRecording } from "./fixtures/chat-stream";
 
+declare global {
+  interface Window {
+    onAnimichiTurnstile?: (token: string) => void;
+  }
+}
+
 /**
  * Issue #274 (S1.8) browser ACs: the whole chat round-trip is reachable without
  * a session, and the edge rate limit surfaces as in-character copy rather than
@@ -86,6 +92,17 @@ async function blockTurnstileLoader(page: Page): Promise<void> {
   await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
 }
 
+/**
+ * Hand the page a token through the widget's own callback. The transport waits
+ * for one before sending an anonymous turn, so with the real loader blocked
+ * this is what lets a turn reach the (stubbed) edge at all — and a token the
+ * edge then rejects is exactly a spent or expired one.
+ */
+async function solveChallenge(page: Page, token: string): Promise<void> {
+  await page.waitForFunction(() => typeof window.onAnimichiTurnstile === "function");
+  await page.evaluate((value) => { window.onAnimichiTurnstile?.(value); }, token);
+}
+
 test("the anonymous entry carries the challenge widget in the dock, not in the thread", async ({ page }) => {
   await blockTurnstileLoader(page);
   await openChat(page);
@@ -107,6 +124,7 @@ test("a challenged anonymous turn offers the check retry, never a login prompt",
     }),
   );
   await openChat(page);
+  await solveChallenge(page, "spent-token");
   await send(page, "ユーフォ");
   await expect(page.getByText(ja.turnstile.failed)).toBeVisible();
   await expect(page.getByRole("button", { name: ja.turnstile.retry })).toBeVisible();
