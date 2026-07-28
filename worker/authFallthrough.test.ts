@@ -152,6 +152,21 @@ void test("an invalid credential 401 carries the typed unauthorized code", async
   assert.equal(body.error.code, "unauthorized");
 });
 
+void test("an invalid credential is recorded so a 401 storm is visible", async () => {
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (line: unknown) => { warnings.push(String(line)); };
+  try {
+    await appWith({ ok: false, reason: "invalid" }).request(
+      "/v1/chat", { method: "POST" }, anonEnv({ requests: [] }), stubCtx,
+    );
+  } finally {
+    console.warn = original;
+  }
+  const record = JSON.parse(String(warnings[0])) as { event: string; path: string };
+  assert.deepEqual(record, { event: "edge_auth_invalid_credential", path: "/v1/chat" });
+});
+
 void test("an absent credential still reaches the container as anonymous", async () => {
   const captured = { requests: [] as Request[] };
   const response = await appWith({ ok: false, reason: "absent" }).request(

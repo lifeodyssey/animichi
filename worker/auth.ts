@@ -29,8 +29,17 @@ export type AuthResult =
   | { ok: true; userId: string; userType: "human" | "agent" }
   | { ok: false; reason: AuthFailureReason };
 
-const ABSENT: AuthResult = { ok: false, reason: "absent" };
-const INVALID: AuthResult = { ok: false, reason: "invalid" };
+// Frozen because both are module-level singletons shared by every request on
+// the isolate: a stray mutation would poison the verdict for all of them.
+const ABSENT: AuthResult = Object.freeze({ ok: false, reason: "absent" });
+const INVALID: AuthResult = Object.freeze({ ok: false, reason: "invalid" });
+
+/**
+ * The `Bearer` auth-scheme, matched per RFC 7235 §2.1: the scheme token is
+ * case-insensitive, and the separator may be any run of SP/HTAB. Anything
+ * else — `Basic`, `Bearerish`, a bare scheme — is not our credential format.
+ */
+const BEARER_SCHEME = /^bearer[ \t]+/i;
 
 export interface AuthEnv {
   SUPABASE_URL: string;
@@ -143,11 +152,11 @@ export async function authenticate(
   ctx?: Pick<ExecutionContext, "waitUntil">,
 ): Promise<AuthResult> {
   const header = request.headers.get("Authorization") ?? "";
-  // Header values arrive already trimmed, so a `Bearer` with an empty token is
-  // indistinguishable from a bare `Bearer` scheme and lands in ABSENT — there
-  // is no separate empty-token branch to reach.
-  if (!header.startsWith("Bearer ")) return ABSENT;
-  const token = header.slice(7).trim();
+  const scheme = BEARER_SCHEME.exec(header);
+  if (scheme === null) return ABSENT;
+  const token = header.slice(scheme[0].length).trim();
+  // A scheme with nothing behind it presented no credential at all.
+  if (!token) return ABSENT;
   if (token.startsWith("sk_")) {
     const r = await verifyApiKey(token, env, fetchImpl, ctx);
     return r.ok ? { ok: true, userId: r.userId, userType: "agent" } : INVALID;

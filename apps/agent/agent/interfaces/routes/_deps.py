@@ -104,8 +104,12 @@ def _reject_credentialed_anonymous(
     Serving it anonymously would meter and rate-limit the turn under the wrong
     identity and hide the expiry from a client built to refresh on 401.
     """
-    if user_type == ANONYMOUS_USER_TYPE and credential is not None:
-        raise HTTPException(status_code=401, detail="Valid credentials required.")
+    if user_type != ANONYMOUS_USER_TYPE or credential is None:
+        return
+    # #441 surfaced only through anomalous anonymous spend; its inverse must not
+    # be equally invisible. The credential itself is never recorded.
+    _logger.warning("anonymous_credential_rejected")
+    raise HTTPException(status_code=401, detail="Valid credentials required.")
 
 
 def _get_trusted_auth_context(

@@ -73,6 +73,19 @@ async def test_the_rejection_carries_the_authentication_error_code() -> None:
     assert response.json()["error"]["code"] == "authentication_error"
 
 
+async def test_the_rejection_is_logged_without_the_credential() -> None:
+    from structlog import testing
+
+    app, _ = _app()
+    with testing.capture_logs() as captured:
+        await _post(app, {**ANON_HEADERS, "Authorization": STALE_JWT})
+    events = [
+        entry for entry in captured if entry["event"] == "anonymous_credential_rejected"
+    ]
+    assert len(events) == 1
+    assert STALE_JWT not in str(events[0])
+
+
 async def test_a_credential_free_anonymous_turn_still_succeeds() -> None:
     app, runtime = _app()
     response = await _post(app, ANON_HEADERS)
