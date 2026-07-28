@@ -7,8 +7,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatActionsProvider } from "../../../src/features/chat/chat-actions";
 import { PhotoSearchUpload } from "../../../src/features/chat/components/PhotoSearchUpload";
 import { chatDictFor } from "../../../src/features/chat/i18n";
+import { MAX_PHOTO_BYTES } from "../../../src/features/chat/photo-search";
 import { TEST_ORIGIN } from "../../msw/fixtures";
 import { server } from "../../msw/node";
+import { makeJpegWithExif } from "../shiori/_jpegFixtures";
 
 const dict = chatDictFor("ja");
 const URL = `${TEST_ORIGIN}/v1/photo-search`;
@@ -45,15 +47,15 @@ function quotaBody(guidance: string) {
 function renderUpload(send = vi.fn()) {
   render(
     <ChatActionsProvider actions={{ send, regenerate: vi.fn() }}>
-      <PhotoSearchUpload dict={dict} baseUrl={TEST_ORIGIN} />
+      <PhotoSearchUpload dict={dict} baseUrl={TEST_ORIGIN} context={{ locale: "ja" }} />
     </ChatActionsProvider>,
   );
   return send;
 }
 
-function pickFile(type: string, name = "photo.jpg") {
+function pickFile(type: string, name = "photo.jpg", bytes: Uint8Array<ArrayBuffer> = makeJpegWithExif() as Uint8Array<ArrayBuffer>) {
   const input = screen.getByLabelText(dict.photo.upload);
-  const file = new File([new Uint8Array([255, 216, 255, 224])], name, { type });
+  const file = new File([bytes], name, { type });
   fireEvent.change(input, { target: { files: [file] } });
 }
 
@@ -103,6 +105,15 @@ describe("PhotoSearchUpload errors (AC7)", () => {
     pickFile("image/gif", "photo.gif");
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.getByText(dict.photo.unsupported)).toBeTruthy();
+    expect(seen).not.toHaveBeenCalled();
+  });
+
+  it("rejects a file over the 8MB cap before reading it — no request (P1-2)", async () => {
+    const seen = vi.fn();
+    server.use(http.post(URL, () => { seen(); return HttpResponse.json(SEARCH_ENVELOPE); }));
+    renderUpload();
+    pickFile("image/jpeg", "big.jpg", new Uint8Array(MAX_PHOTO_BYTES + 1));
+    expect(await screen.findByText(dict.photo.tooLarge)).toBeTruthy();
     expect(seen).not.toHaveBeenCalled();
   });
 

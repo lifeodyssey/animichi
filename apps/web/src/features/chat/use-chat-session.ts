@@ -6,9 +6,8 @@ import { DefaultChatTransport, generateId } from "ai";
 import type { UIMessage } from "ai";
 import { useCallback, useRef } from "react";
 import type { RefObject } from "react";
-import { authHeaders } from "../../lib/auth/authSession";
 import type { SelectedPointsBody } from "../../lib/chat/selectedPointsBypass";
-import { turnstileHeaders } from "../../lib/turnstile/tokenStore";
+import { sessionHeaders } from "./session-headers";
 
 /**
  * Typed UI message: the `data-response` part carries the contract envelope,
@@ -35,16 +34,6 @@ type SessionRef = RefObject<SessionTracker>;
 
 function emptyTracker(scope: string, sessionId: string | undefined): SessionTracker {
   return { scope, id: sessionId, lastHttpStatus: undefined, lastErrorCode: undefined };
-}
-
-/** `x-session-id` (when known) plus a Bearer token once signed in; anonymous
- * turns simply omit Authorization and instead carry the held Turnstile token
- * (S1.9 #281) — one solved challenge covers every turn in its window. */
-async function sessionHeaders(sessionId?: string): Promise<Record<string, string>> {
-  const base: Record<string, string> = sessionId ? { "x-session-id": sessionId } : {};
-  const auth = await authHeaders();
-  const challenge = auth.Authorization === undefined ? turnstileHeaders() : {};
-  return { ...base, ...challenge, ...auth };
 }
 
 function scopeOf(sessionId?: string): string {

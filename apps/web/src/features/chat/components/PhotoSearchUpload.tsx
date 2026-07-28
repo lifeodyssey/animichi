@@ -6,13 +6,14 @@ import type { ChatActions } from "../chat-actions";
 import type { ChatDict } from "../i18n";
 import {
   confirmPhotoSearch,
+  isOversizedPhoto,
   isSupportedPhoto,
   postPhotoSearch,
 } from "../photo-search";
 import type {
   PhotoConfirmSignals,
-  PhotoGps,
   PhotoGuidance,
+  PhotoSearchContext,
   PhotoSearchOutcome,
 } from "../photo-search";
 import { candidatesOf } from "./cards";
@@ -22,7 +23,7 @@ import { DataPartCard } from "./DataPartCard";
  * through DataPartCard, sharing the text-search render path; failures show
  * on-brand copy with a retry — never a stuck spinner. */
 
-type UploadError = "unsupported" | "failed";
+type UploadError = "unsupported" | "tooLarge" | "failed";
 
 type UploadState =
   | { readonly kind: "idle" }
@@ -31,7 +32,7 @@ type UploadState =
   | { readonly kind: "quota"; readonly guidance: PhotoGuidance }
   | { readonly kind: "done"; readonly part: ChatDataPart };
 
-type Props = Readonly<{ dict: ChatDict; baseUrl: string; gps?: PhotoGps }>;
+type Props = Readonly<{ dict: ChatDict; baseUrl: string; context: PhotoSearchContext }>;
 
 function quotaCopy(dict: ChatDict, guidance: PhotoGuidance): string {
   if (guidance === "switch_vision_endpoint") return dict.photo.quotaByokNoVision;
@@ -39,7 +40,9 @@ function quotaCopy(dict: ChatDict, guidance: PhotoGuidance): string {
 }
 
 function errorCopy(dict: ChatDict, error: UploadError): string {
-  return error === "unsupported" ? dict.photo.unsupported : dict.photo.failed;
+  if (error === "unsupported") return dict.photo.unsupported;
+  if (error === "tooLarge") return dict.photo.tooLarge;
+  return dict.photo.failed;
 }
 
 type ErrorProps = Readonly<{ dict: ChatDict; error: UploadError; onRetry: () => void }>;
@@ -64,32 +67,32 @@ function UploadStatus({ dict, state, onRetry }: StatusProps) {
   return null;
 }
 
-function confirmSignals(part: ChatDataPart, gps: PhotoGps | undefined): PhotoConfirmSignals {
+function confirmSignals(part: ChatDataPart, context: PhotoSearchContext): PhotoConfirmSignals {
   return {
     query_type: "anime_screenshot",
-    gps_available: gps !== undefined,
+    gps_available: context.gps !== undefined,
     layer_hit: part.intent === "search_bangumi" ? "1" : "none",
     candidates_shown: candidatesOf(part).length,
   };
 }
 
-function makeConfirmSend(actions: ChatActions, baseUrl: string, part: ChatDataPart, gps?: PhotoGps) {
+function makeConfirmSend(actions: ChatActions, baseUrl: string, part: ChatDataPart, context: PhotoSearchContext) {
   return (text: string) => {
-    confirmPhotoSearch(baseUrl, confirmSignals(part, gps));
+    confirmPhotoSearch(baseUrl, confirmSignals(part, context), context);
     actions.send(text);
   };
 }
 
 /** Selecting a candidate from a photo result fires the confirm ping (AC11). */
-function confirmingActions(actions: ChatActions, baseUrl: string, part: ChatDataPart, gps?: PhotoGps): ChatActions {
-  return { ...actions, send: makeConfirmSend(actions, baseUrl, part, gps) };
+function confirmingActions(actions: ChatActions, baseUrl: string, part: ChatDataPart, context: PhotoSearchContext): ChatActions {
+  return { ...actions, send: makeConfirmSend(actions, baseUrl, part, context) };
 }
 
-type ResultProps = Readonly<{ dict: ChatDict; baseUrl: string; part: ChatDataPart; gps?: PhotoGps }>;
+type ResultProps = Readonly<{ dict: ChatDict; baseUrl: string; part: ChatDataPart; context: PhotoSearchContext }>;
 
-function PhotoResult({ dict, baseUrl, part, gps }: ResultProps) {
+function PhotoResult({ dict, baseUrl, part, context }: ResultProps) {
   const actions = useChatActions();
-  const decorated = useMemo(() => confirmingActions(actions, baseUrl, part, gps), [actions, baseUrl, part, gps]);
+  const decorated = useMemo(() => confirmingActions(actions, baseUrl, part, context), [actions, baseUrl, part, context]);
   return (
     <ChatActionsProvider actions={decorated}>
       <DataPartCard data={part} dict={dict} />
@@ -103,26 +106,33 @@ function settledState(outcome: PhotoSearchOutcome): UploadState {
   return outcome.kind === "quota" ? outcome : { kind: "done", part: outcome.part };
 }
 
-function runUpload(baseUrl: string, file: File, gps: PhotoGps | undefined, setState: SetUploadState): void {
+function runUpload(baseUrl: string, file: File, context: PhotoSearchContext, setState: SetUploadState): void {
   setState({ kind: "uploading" });
-  postPhotoSearch(baseUrl, file, gps)
+  postPhotoSearch(baseUrl, file, context)
     .then((outcome) => { setState(settledState(outcome)); })
     .catch(() => { setState({ kind: "error", error: "failed" }); });
 }
 
-function makeUpload(baseUrl: string, gps: PhotoGps | undefined, setState: SetUploadState) {
+function preflightError(file: File): UploadError | null {
+  if (!isSupportedPhoto(file)) return "unsupported";
+  if (isOversizedPhoto(file)) return "tooLarge";
+  return null;
+}
+
+function makeUpload(baseUrl: string, context: PhotoSearchContext, setState: SetUploadState) {
   return (file: File) => {
-    if (!isSupportedPhoto(file)) {
-      setState({ kind: "error", error: "unsupported" });
+    const error = preflightError(file);
+    if (error !== null) {
+      setState({ kind: "error", error });
       return;
     }
-    runUpload(baseUrl, file, gps, setState);
+    runUpload(baseUrl, file, context, setState);
   };
 }
 
-function useUpload(baseUrl: string, gps: PhotoGps | undefined) {
+function useUpload(baseUrl: string, context: PhotoSearchContext) {
   const [state, setState] = useState<UploadState>({ kind: "idle" });
-  const upload = useMemo(() => makeUpload(baseUrl, gps, setState), [baseUrl, gps]);
+  const upload = useMemo(() => makeUpload(baseUrl, context, setState), [baseUrl, context]);
   const reset = useCallback(() => { setState({ kind: "idle" }); }, []);
   return { state, upload, reset };
 }
@@ -144,28 +154,28 @@ function UploadControl({ dict, onChange }: Readonly<{ dict: ChatDict; onChange: 
   );
 }
 
-function ResultGate({ dict, baseUrl, state, gps }: Readonly<{ dict: ChatDict; baseUrl: string; state: UploadState; gps?: PhotoGps }>) {
+function ResultGate({ dict, baseUrl, state, context }: Readonly<{ dict: ChatDict; baseUrl: string; state: UploadState; context: PhotoSearchContext }>) {
   if (state.kind !== "done") return null;
-  return <PhotoResult dict={dict} baseUrl={baseUrl} part={state.part} gps={gps} />;
+  return <PhotoResult dict={dict} baseUrl={baseUrl} part={state.part} context={context} />;
 }
 
-type OutcomeProps = Readonly<{ dict: ChatDict; baseUrl: string; state: UploadState; gps?: PhotoGps; onRetry: () => void }>;
+type OutcomeProps = Readonly<{ dict: ChatDict; baseUrl: string; state: UploadState; context: PhotoSearchContext; onRetry: () => void }>;
 
-function UploadOutcome({ dict, baseUrl, state, gps, onRetry }: OutcomeProps) {
+function UploadOutcome({ dict, baseUrl, state, context, onRetry }: OutcomeProps) {
   return (
     <>
       <UploadStatus dict={dict} state={state} onRetry={onRetry} />
-      <ResultGate dict={dict} baseUrl={baseUrl} state={state} gps={gps} />
+      <ResultGate dict={dict} baseUrl={baseUrl} state={state} context={context} />
     </>
   );
 }
 
-export function PhotoSearchUpload({ dict, baseUrl, gps }: Props) {
-  const { state, upload, reset } = useUpload(baseUrl, gps);
+export function PhotoSearchUpload({ dict, baseUrl, context }: Props) {
+  const { state, upload, reset } = useUpload(baseUrl, context);
   return (
     <div className="chat-photo">
       <UploadControl dict={dict} onChange={makeFileChange(upload)} />
-      <UploadOutcome dict={dict} baseUrl={baseUrl} state={state} gps={gps} onRetry={reset} />
+      <UploadOutcome dict={dict} baseUrl={baseUrl} state={state} context={context} onRetry={reset} />
     </div>
   );
 }

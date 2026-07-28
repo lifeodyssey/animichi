@@ -17,7 +17,7 @@ describe("clarify/departure/location/photo copy (AC12)", () => {
       ...flatten({ ...dict.location }),
       ...flatten({ ...dict.photo }),
     ];
-    expect(values).toHaveLength(4 + 6 + 5 + 8);
+    expect(values).toHaveLength(4 + 6 + 5 + 9);
     expect(values.every((value) => value.trim().length > 0)).toBe(true);
   });
 

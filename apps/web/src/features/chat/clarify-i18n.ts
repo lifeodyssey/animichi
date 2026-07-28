@@ -30,6 +30,7 @@ export interface ChatPhotoDict {
   readonly upload: string;
   readonly uploading: string;
   readonly unsupported: string;
+  readonly tooLarge: string;
   readonly failed: string;
   readonly retry: string;
   readonly processedNote: string;
@@ -113,6 +114,7 @@ export const jaPhoto: ChatPhotoDict = {
   upload: "写真から聖地をさがす",
   uploading: "写真をみてるよ…",
   unsupported: "この形式の画像はよめないみたい。JPEG・PNG・WebP でためしてね",
+  tooLarge: "この写真はおおきすぎるみたい。8MB までの写真でためしてね",
   failed: "アップロードがうまくいかなかった…",
   retry: "もう一度ためす",
   processedNote: "画像は Animichi の枠で処理",
@@ -126,6 +128,7 @@ export const zhPhoto: ChatPhotoDict = {
   upload: "用照片找圣地",
   uploading: "正在看这张照片…",
   unsupported: "读不了这种格式的图片。试试 JPEG、PNG 或 WebP 吧",
+  tooLarge: "这张照片太大了。请试试 8MB 以内的照片吧",
   failed: "上传没有成功…",
   retry: "再试一次",
   processedNote: "图片由 Animichi 的额度处理",
@@ -138,6 +141,7 @@ export const enPhoto: ChatPhotoDict = {
   upload: "Search by photo",
   uploading: "Looking at your photo…",
   unsupported: "I can't read this format. Try JPEG, PNG, or WebP",
+  tooLarge: "That photo is a bit too big. Try one under 8MB",
   failed: "The upload didn't go through…",
   retry: "Try again",
   processedNote: "Images are processed on Animichi's quota",
