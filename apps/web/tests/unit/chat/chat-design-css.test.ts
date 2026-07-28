@@ -14,6 +14,25 @@ describe("nook tri-color chip tiles", () => {
   });
 });
 
+describe("P5 save CTA: cream, so the single gold CTA stays reserved", () => {
+  const save = '.chat-chip[data-cta="save"]';
+
+  it("paints the save CTA with the cream card token pair", () => {
+    expect(ruleDeclaration(chatCss, save, "background")).toBe("var(--color-card)");
+    expect(ruleDeclaration(chatCss, save, "color")).toBe("var(--color-fg)");
+  });
+
+  it("never borrows a gold token — the design sync allows one gold CTA per screen", () => {
+    expect(ruleDeclaration(chatCss, save, "background")).not.toContain("gold");
+    expect(ruleDeclaration(chatCss, save, "color")).not.toContain("gold");
+  });
+
+  it("keeps the saved confirmation and save error on semantic tokens", () => {
+    expect(ruleDeclaration(chatCss, ".chat-cta-row__saved", "color")).toBe("var(--color-primary-strong)");
+    expect(ruleDeclaration(chatCss, ".chat-cta-row__error", "color")).toBe("var(--color-error-strong)");
+  });
+});
+
 describe("B2b running step: gold + shimmer", () => {
   const running = '.chat-step[data-status="running"]';
 

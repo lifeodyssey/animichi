@@ -1,8 +1,8 @@
 import { http, HttpResponse } from "msw";
 import type { HttpHandler, JsonBodyType } from "msw";
-import { ListRoutesResult } from "@seichijunrei/contract";
+import { ListRoutesResult, SaveRouteInput, UserRoute as UserRouteSchema } from "@seichijunrei/contract";
 import type { UserRoute } from "@seichijunrei/contract";
-import { orpcErrorResponse } from "./contract-handler";
+import { contractJsonHandler, orpcErrorResponse } from "./contract-handler";
 import { TEST_ORIGIN } from "./fixtures";
 
 /**
@@ -35,4 +35,28 @@ export const usersRoutesEmptyHandler: HttpHandler = http.get(USERS_ROUTES_URL, (
 
 export const usersRoutesUnauthorizedHandler: HttpHandler = http.get(USERS_ROUTES_URL, () =>
   orpcErrorResponse({ code: "UNAUTHORIZED", status: 401, message: "Sign in required" }),
+);
+
+/** Saved ids: create-on-login always creates, so a fresh id per call is right. */
+const SAVED_ID = "44444444-4444-4444-8444-444444444444";
+
+/** Create-on-login swimlane: `users.saveRoute` echoes the persisted row back. */
+export const usersSaveRouteHandler: HttpHandler = contractJsonHandler({
+  method: "post",
+  url: USERS_ROUTES_URL,
+  input: SaveRouteInput,
+  output: UserRouteSchema,
+  resolve: (input) => ({
+    id: input.id ?? SAVED_ID,
+    title: input.title,
+    point_ids: input.point_ids,
+    status: input.status,
+    saved_at: "2026-07-28T00:00:00.000Z",
+    updated_at: "2026-07-28T00:00:00.000Z",
+  }),
+});
+
+/** A users service that is down; the card must retry in place, not blow up. */
+export const usersSaveRouteOutageHandler: HttpHandler = http.post(USERS_ROUTES_URL, () =>
+  orpcErrorResponse({ code: "INTERNAL_SERVER_ERROR", status: 500, message: "users unavailable" }),
 );

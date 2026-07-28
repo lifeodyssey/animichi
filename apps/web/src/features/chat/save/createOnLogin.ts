@@ -1,0 +1,29 @@
+import type { SaveRouteInput } from "@seichijunrei/contract";
+import { saveRouteRequest } from "../../../api/hooks/use-save-route";
+import type { SaveRouteRequest } from "../../../api/hooks/use-save-route";
+import { clearDeferredSave, readDeferredSave } from "./deferredSave";
+
+/**
+ * Create-on-login (OQ-9 ruling (b)): the post-login replay creates a **fresh**
+ * route from the client-held point ids. There is no claim call and no route id,
+ * so `ROUTE_NOT_OWNED` is structurally unreachable on this path.
+ */
+export function toSaveInput(intent: Readonly<{ pointIds: readonly string[]; title: string }>): SaveRouteInput {
+  return { title: intent.title, point_ids: [...intent.pointIds], status: "saved" };
+}
+
+/**
+ * Replay the deferred save exactly once after a login. A login that was **not**
+ * initiated by a save tap finds no intent and issues no request. The intent is
+ * cleared only on success, so a failed replay is never silently dropped.
+ */
+export async function replayDeferredSave(
+  request: SaveRouteRequest = saveRouteRequest,
+  now: number = Date.now(),
+): Promise<boolean> {
+  const intent = readDeferredSave(now);
+  if (intent === undefined) return false;
+  const saved = await request(toSaveInput(intent)).then(() => true, () => false);
+  if (saved) clearDeferredSave();
+  return saved;
+}

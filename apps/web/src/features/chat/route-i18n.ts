@@ -11,6 +11,15 @@ export interface ChatRouteDict {
   readonly routePill: string;
   readonly walkCta: string;
   readonly openMaps: string;
+  /** P5 save CTA copy (issue #273 S1.7). */
+  readonly saveCta: string;
+  /** `{title}` resolved work, `{count}` stop count — the derived route title. */
+  readonly saveTitle: string;
+  /** Localized stand-in when the stream carried no resolved work title. */
+  readonly saveUntitled: string;
+  readonly saved: string;
+  readonly saveError: string;
+  readonly saveRetry: string;
   readonly timelineLabel: string;
   readonly mapLabel: string;
 }
@@ -24,6 +33,12 @@ export const jaRoute: ChatRouteDict = {
   routePill: "ルート",
   walkCta: "歩きモード(準備中)",
   openMaps: "Googleマップで開く",
+  saveCta: "保存する",
+  saveTitle: "{title}・{count}スポットの聖地巡礼",
+  saveUntitled: "この作品",
+  saved: "保存したよ",
+  saveError: "保存できなかった…",
+  saveRetry: "もう一度保存",
   timelineLabel: "ルートのタイムライン",
   mapLabel: "ルートマップ",
 };
@@ -37,6 +52,12 @@ export const zhRoute: ChatRouteDict = {
   routePill: "路线",
   walkCta: "步行模式(即将上线)",
   openMaps: "在 Google 地图打开",
+  saveCta: "保存路线",
+  saveTitle: "{title}・{count} 个地点的圣地巡礼",
+  saveUntitled: "这部作品",
+  saved: "已经保存好了",
+  saveError: "没能保存…",
+  saveRetry: "再保存一次",
   timelineLabel: "路线时间轴",
   mapLabel: "路线地图",
 };
@@ -50,6 +71,12 @@ export const enRoute: ChatRouteDict = {
   routePill: "Route",
   walkCta: "Walk mode (coming soon)",
   openMaps: "Open in Google Maps",
+  saveCta: "Save this route",
+  saveTitle: "{title} · a {count}-spot pilgrimage",
+  saveUntitled: "this work",
+  saved: "Saved it",
+  saveError: "That didn't save…",
+  saveRetry: "Save again",
   timelineLabel: "Route timeline",
   mapLabel: "Route map",
 };
