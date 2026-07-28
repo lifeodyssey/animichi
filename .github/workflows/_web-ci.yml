@@ -34,10 +34,13 @@ jobs:
       - name: Type check (tsc)
         run: pnpm exec tsc --noEmit
 
+      # Run the workspace-pinned oxlint directly: oxlint-action's incremental
+      # mode `git fetch`es the base branch, which needs credentials the
+      # persist-credentials:false checkout no longer has on a private repo
+      # (broke 2026-07-28 when the repo went private) — and it downloaded
+      # `latest` instead of the lockfile version anyway.
       - name: Oxlint (fast pre-pass)
-        uses: oxc-project/oxlint-action@b78c21302e4bc637e83927135c35a6684de1053e # v3.1.0
-        with:
-          working-directory: frontend
+        run: pnpm exec oxlint
 
       - name: ESLint (strict, zero warnings)
         run: pnpm exec eslint . --max-warnings=0

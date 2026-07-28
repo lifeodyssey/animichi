@@ -13,6 +13,10 @@ on:
 
 permissions:
   contents: read
+  # gitleaks-action lists PR commits via the API on pull_request events; a
+  # bare contents-read block zeroes that scope and it dies with
+  # "Resource not accessible by integration" (2026-07-28). Read-only.
+  pull-requests: read
 
 jobs:
   # ── Secret scanning ──────────────────────────────────────────
