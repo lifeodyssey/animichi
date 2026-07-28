@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { ChangeEvent } from "react";
 import type { Dict } from "../../i18n/dictionaries";
 import { useDict } from "../../i18n/context";
@@ -58,9 +59,22 @@ function FormFields({ form }: { form: MagicLinkForm }) {
   </>);
 }
 
-export function LoginForm() {
+/** Announce a dispatched link exactly once: the caller uses it to tell
+ * "closed to go read the email" apart from "cancelled". */
+function useSentOnce(status: FormStatus, onSent: (() => void) | undefined): void {
+  useEffect(() => {
+    if (status === "sent") onSent?.();
+  }, [status, onSent]);
+}
+
+export interface LoginFormProps {
+  readonly onSent?: () => void;
+}
+
+export function LoginForm({ onSent }: LoginFormProps = {}) {
   const form = useMagicLinkForm();
   const auth = useDict().auth;
+  useSentOnce(form.status, onSent);
   return (
     <form className="login-form" onSubmit={form.onSubmit} noValidate aria-label={auth.title}>
       <FormFields form={form} />

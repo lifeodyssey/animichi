@@ -55,6 +55,9 @@
     "magic_link_hint": "No password — we email you a secure sign-in link.",
     "close": "Close",
     "callback_pending": "Signing you in…",
-    "callback_error": "That link has expired or was already used. Please request a new one."
+    "callback_error": "That link has expired or was already used. Please request a new one.",
+    "callback_save_failed": "You're signed in, but the route didn't save…",
+    "callback_save_retry": "Try saving again",
+    "callback_save_skip": "You can also save it again from the chat page later"
   }
 }

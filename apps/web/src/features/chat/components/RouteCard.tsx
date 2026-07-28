@@ -6,6 +6,7 @@ import type { ChatDict } from "../i18n";
 import { resultsOf, routeOf, routeSpotsOf, SpotList } from "./cards";
 import type { IntentCardProps } from "./cards";
 import { routeStatsCopy } from "../route-copy";
+import { routeSaveTarget } from "../save/saveTarget";
 import { RouteTrailMap } from "./RouteTrailMap";
 import type { AttachBasemap } from "./SearchMap";
 import { TimedItinerary } from "./TimedItinerary";
@@ -19,11 +20,12 @@ function RouteStats({ part, dict }: Readonly<{ part: ChatDataPart; dict: ChatDic
   return <p className="chat-card__stats">{copy}</p>;
 }
 
-type GateProps = Readonly<{ itinerary: TimedItineraryModel | undefined; dict: ChatDict }>;
+type GateProps = IntentCardProps & Readonly<{ itinerary: TimedItineraryModel | undefined }>;
 
-function ItineraryGate({ itinerary, dict }: GateProps) {
+/** The card owns the part, so it derives the save payload the CTA row needs. */
+function ItineraryGate({ itinerary, part, dict }: GateProps) {
   if (!itinerary || itinerary.stops.length === 0) return null;
-  return <TimedItinerary view={itineraryView(itinerary)} dict={dict} />;
+  return <TimedItinerary view={itineraryView(itinerary)} dict={dict} save={routeSaveTarget(part, dict)} />;
 }
 
 /** Route spots in walking order, restricted to rows the map can place. */
@@ -54,7 +56,7 @@ export function RouteCard({ part, dict, attach }: RouteCardProps) {
   return (
     <div className="chat-card__body">
       <RouteStats part={part} dict={dict} />
-      <ItineraryGate itinerary={routeOf(part)?.timed_itinerary} dict={dict} />
+      <ItineraryGate itinerary={routeOf(part)?.timed_itinerary} part={part} dict={dict} />
       <TrailMapGate part={part} dict={dict} attach={attach} />
       <SpotList part={part} dict={dict} />
     </div>

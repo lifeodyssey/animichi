@@ -9,8 +9,7 @@ function authBaseUrl(): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-/** Resolve the caller's auth status; unconfigured or failing auth is anonymous. */
-export async function fetchAuthStatus(): Promise<AuthStatus> {
+async function resolveAuthStatus(): Promise<AuthStatus> {
   const base = authBaseUrl();
   if (!base) return "anonymous";
   try {
@@ -19,6 +18,17 @@ export async function fetchAuthStatus(): Promise<AuthStatus> {
   } catch {
     return "anonymous";
   }
+}
+
+/** In-flight only: several route cards mounting together must share one
+ * `getSession` round trip, but nothing is cached past settlement, so a login
+ * is never masked by a stale value. */
+let inFlight: Promise<AuthStatus> | undefined;
+
+/** Resolve the caller's auth status; unconfigured or failing auth is anonymous. */
+export function fetchAuthStatus(): Promise<AuthStatus> {
+  inFlight ??= resolveAuthStatus().finally(() => { inFlight = undefined; });
+  return inFlight;
 }
 
 export function useAuthStatus(fetcher: () => Promise<AuthStatus> = fetchAuthStatus): AuthStatus {
