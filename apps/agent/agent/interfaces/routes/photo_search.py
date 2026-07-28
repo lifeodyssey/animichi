@@ -32,7 +32,7 @@ from agent.agents.vision_supply_router import (
     quota_tier_for,
 )
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
-from agent.clients.gemini_vision import GeminiVisionProvider
+from agent.clients.gemini_vision import GeminiVisionProvider, sniff_image_mime
 from agent.config.settings import Settings
 from agent.infrastructure.observability.photo_search import (
     LayerHit,
@@ -54,6 +54,12 @@ router = APIRouter(prefix="/v1", tags=["photo-search"])
 SUPPORTED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
 Locale = Literal["ja", "zh", "en"]
 
+# 8 MiB image cap (matches the client-side pre-check); base64 expands
+# ceil(n/3)*4. The Field cap sits at 2x as a parse-time belt (422 for absurd
+# payloads); the semantic limit below it returns the typed 413.
+MAX_IMAGE_BYTES = 8 * 1024 * 1024
+MAX_IMAGE_BASE64_CHARS = ((MAX_IMAGE_BYTES + 2) // 3) * 4
+
 
 class GpsBody(BaseModel):
     lat: float
@@ -61,7 +67,7 @@ class GpsBody(BaseModel):
 
 
 class PhotoSearchBody(BaseModel):
-    image_base64: str = Field(min_length=1)
+    image_base64: str = Field(min_length=1, max_length=2 * MAX_IMAGE_BASE64_CHARS)
     mime_type: str
     gps: GpsBody | None = None
 
@@ -121,7 +127,10 @@ class PhotoSearchRejection(Exception):
 
     status_code: int
     code: Literal[
-        "unsupported_image_format", "invalid_image", "photo_search_quota_exhausted"
+        "unsupported_image_format",
+        "invalid_image",
+        "image_too_large",
+        "photo_search_quota_exhausted",
     ]
     message: str
     guidance: GuidancePremise | None = None
@@ -144,12 +153,26 @@ def _decode_image(body: PhotoSearchBody) -> bytes:
         raise PhotoSearchRejection(
             415, "unsupported_image_format", "This image format is not supported."
         )
+    if len(body.image_base64) > MAX_IMAGE_BASE64_CHARS:
+        raise PhotoSearchRejection(
+            413, "image_too_large", "The image is larger than the 8 MB limit."
+        )
+    return _validated_bytes(body.image_base64)
+
+
+def _validated_bytes(image_base64: str) -> bytes:
+    """Decode and magic-byte-check: the client's mime label is never trusted."""
     try:
-        return base64.b64decode(body.image_base64, validate=True)
+        image = base64.b64decode(image_base64, validate=True)
     except (binascii.Error, ValueError) as exc:
         raise PhotoSearchRejection(
             422, "invalid_image", "The image payload could not be decoded."
         ) from exc
+    if sniff_image_mime(image) not in SUPPORTED_IMAGE_TYPES:
+        raise PhotoSearchRejection(
+            415, "unsupported_image_format", "This image format is not supported."
+        )
+    return image
 
 
 def _byok_endpoint(request: Request) -> EndpointId | None:
@@ -164,11 +187,16 @@ def _quota_limit(settings: Settings, tier: QuotaTier) -> int | None:
 
 
 def _quota_key(auth: TrustedAuthContext, request: Request) -> QuotaKey:
+    """Meter on the edge-asserted X-User-Id (member or worker-minted anonymous).
+
+    Never `x-session-id`: that header is client-controlled (the Worker forwards
+    it for chat session continuity), so keying on it would let a caller reset
+    the meter per request. The host fallback covers direct/dev access only.
+    """
     if auth.user_id is not None:
         return QuotaKey(auth.user_id)
-    session = request.headers.get("x-session-id")
     host = request.client.host if request.client else "anon"
-    return QuotaKey(session or host)
+    return QuotaKey(host)
 
 
 def _check_quota(

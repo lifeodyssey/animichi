@@ -28,12 +28,19 @@ _PROMPT = (
 )
 
 
-def _sniff_mime(image: bytes) -> str:
-    if image.startswith(b"\x89PNG"):
+def sniff_image_mime(image: bytes) -> str | None:
+    """Strict magic-byte sniff; ``None`` when the bytes are not a supported image."""
+    if image.startswith(b"\x89PNG\r\n\x1a\n"):
         return "image/png"
-    if image.startswith(b"RIFF"):
+    if image.startswith(b"RIFF") and image[8:12] == b"WEBP":
         return "image/webp"
-    return "image/jpeg"
+    if image.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    return None
+
+
+def _sniff_mime(image: bytes) -> str:
+    return sniff_image_mime(image) or "image/jpeg"
 
 
 def _image_part(image: bytes) -> dict[str, object]:

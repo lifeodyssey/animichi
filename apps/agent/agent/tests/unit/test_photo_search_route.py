@@ -13,7 +13,10 @@ from agent.config.settings import Settings
 from agent.infrastructure.observability import photo_search as telemetry
 from agent.infrastructure.observability.photo_search import PhotoSearchQuota
 from agent.interfaces.public_api import RuntimeAPI
-from agent.interfaces.routes.photo_search import PhotoSearchRuntime
+from agent.interfaces.routes.photo_search import (
+    MAX_IMAGE_BASE64_CHARS,
+    PhotoSearchRuntime,
+)
 from agent.tests.unit.conftest_fastapi import async_client, build_app, build_stub_db
 from agent.tests.unit.photo_search_fakes import (
     YOURNAME_TITLE,
@@ -22,7 +25,8 @@ from agent.tests.unit.photo_search_fakes import (
     digest,
 )
 
-_IMAGE = b"route-image"
+# Valid JPEG magic so the route's strict sniff accepts the stub payload.
+_IMAGE = b"\xff\xd8\xff\xe0route-image"
 
 
 def _settings(anon: int | None = None, member: int | None = None) -> Settings:
@@ -72,6 +76,41 @@ async def test_undecodable_image_is_a_422() -> None:
         response = await client.post("/v1/photo-search", json=body)
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_image"
+
+
+async def test_labelled_jpeg_with_non_image_bytes_is_a_415() -> None:
+    async with async_client(_app()) as client:
+        response = await client.post(
+            "/v1/photo-search", json=_body(image=b"not-an-image")
+        )
+    assert response.status_code == 415
+    assert response.json()["error"]["code"] == "unsupported_image_format"
+
+
+async def test_oversized_image_is_a_typed_413() -> None:
+    body = {
+        "image_base64": "A" * (MAX_IMAGE_BASE64_CHARS + 4),
+        "mime_type": "image/jpeg",
+    }
+    async with async_client(_app()) as client:
+        response = await client.post("/v1/photo-search", json=body)
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "image_too_large"
+
+
+async def test_quota_key_ignores_client_controlled_session_header() -> None:
+    app = _app(settings=_settings(anon=1))
+    async with async_client(app) as client:
+        first = await client.post(
+            "/v1/photo-search", json=_body(), headers={"x-session-id": "s-1"}
+        )
+        second = await client.post(
+            "/v1/photo-search", json=_body(), headers={"x-session-id": "s-2"}
+        )
+    assert first.status_code == 200
+    assert (
+        second.status_code == 429
+    )  # rotating the session header must not reset the meter
 
 
 async def test_anon_quota_exhaustion_guides_toward_configuring_a_key() -> None:

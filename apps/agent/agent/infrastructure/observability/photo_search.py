@@ -52,6 +52,10 @@ class PhotoSearchQuota:
     Exact limits are an operations decision (issue #260: values are explicitly
     not fixed by this story); ``None`` means the cap is not yet configured and
     consumption is unmetered.
+
+    In-process only: counters reset on restart and are not shared across
+    container instances, so the cap is best-effort. Shared storage must land
+    before ops sets real limits (#446); past-day slots are also never pruned.
     """
 
     def __init__(self, clock: Clock) -> None:

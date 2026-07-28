@@ -15,13 +15,20 @@ from agent.clients.gemini_vision import (
     _payload,
     _response_text,
     _sniff_mime,
+    sniff_image_mime,
 )
 
 
 def test_sniff_mime_covers_the_supported_formats() -> None:
-    assert _sniff_mime(b"\x89PNG\r\n") == "image/png"
-    assert _sniff_mime(b"RIFFxxxxWEBP") == "image/webp"
-    assert _sniff_mime(b"\xff\xd8\xff") == "image/jpeg"
+    assert _sniff_mime(b"\x89PNG\r\n\x1a\n" + b"data") == "image/png"
+    assert _sniff_mime(b"RIFF\x00\x00\x00\x00WEBP") == "image/webp"
+    assert _sniff_mime(b"\xff\xd8\xff\xe0data") == "image/jpeg"
+
+
+def test_sniff_image_mime_rejects_non_image_bytes() -> None:
+    assert sniff_image_mime(b"not an image") is None
+    assert sniff_image_mime(b"RIFF\x00\x00\x00\x00WAVE") is None
+    assert sniff_image_mime(b"\x89PNG\r\n") is None  # truncated signature
 
 
 def test_payload_carries_canary_prompt_and_every_image() -> None:
