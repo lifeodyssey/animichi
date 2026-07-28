@@ -34,6 +34,7 @@ from agent.interfaces.routes.chat import router as chat_router
 from agent.interfaces.routes.conversations import router as conversations_router
 from agent.interfaces.routes.feedback import router as feedback_router
 from agent.interfaces.routes.health import router as health_router
+from agent.interfaces.routes.photo_search import router as photo_search_router
 from agent.interfaces.routes.runtime import router as runtime_router
 from agent.interfaces.routes.search_preview import router as search_preview_router
 
@@ -158,6 +159,7 @@ def create_fastapi_app(
             "X-User-Type",
             "x-session-id",
             "x-locale",
+            "x-byok-endpoint",
         ],
     )
     register_exception_handlers(app)
@@ -169,6 +171,7 @@ def create_fastapi_app(
     app.include_router(conversations_router)
     app.include_router(bangumi_router)
     app.include_router(search_preview_router)
+    app.include_router(photo_search_router)
     return app
 
 

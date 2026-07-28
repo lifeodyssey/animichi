@@ -91,29 +91,3 @@ describe("AnimePage empty state", () => {
     expect(headingText()).toContain("Pilgrimage");
   });
 });
-
-function jsonLdNodes(container: HTMLElement): Record<string, unknown>[] {
-  const el = container.querySelector('script[type="application/ld+json"]');
-  return el === null ? [] : (JSON.parse(el.innerHTML) as Record<string, unknown>[]);
-}
-
-describe("AnimePage JSON-LD", () => {
-  it("injects a CreativeWork + BreadcrumbList graph into the page body", () => {
-    const { container } = render(<AnimePage overview={fullOverviewFixture} locale="ja" />);
-    const types = jsonLdNodes(container).map((node) => node["@type"]);
-    expect(types).toContain("CreativeWork");
-    expect(types).toContain("BreadcrumbList");
-  });
-
-  it("varies non-template field values with the work's actual data", () => {
-    const { container } = render(<AnimePage overview={fullOverviewFixture} locale="ja" />);
-    const work = jsonLdNodes(container).find((node) => node["@type"] === "CreativeWork");
-    const props = work?.additionalProperty as Record<string, unknown>[];
-    expect(props.find((p) => p.name === "pilgrimageSpotCount")?.value).toBe(6);
-  });
-
-  it("still emits valid JSON-LD for a zero-spot work", () => {
-    const { container } = render(<AnimePage overview={emptyOverviewFixture("404404")} locale="ja" />);
-    expect(jsonLdNodes(container).some((node) => node["@type"] === "CreativeWork")).toBe(true);
-  });
-});

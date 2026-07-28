@@ -65,12 +65,16 @@ function forwardPublicCatalog(env: Env, request: Request): Promise<Response> {
 }
 
 /** Forward a /v1 request to the container's default instance. Always strips
- * client-supplied X-User-* (anti-forgery); on authed paths also strips
- * Authorization and injects the worker-verified identity. */
+ * client-supplied X-User-* (anti-forgery) and x-byok-endpoint (documented as
+ * trusted by the container but client-settable — closed until BYOK launches);
+ * on authed paths also strips Authorization and injects the worker-verified
+ * identity. `x-session-id` is intentionally forwarded: chat session continuity
+ * needs it, so the container must never treat it as a trust signal. */
 function forwardV1(env: Env, request: Request, auth?: { userId: string; userType: string }): Promise<Response> {
   const headers = new Headers(request.headers);
   headers.delete("X-User-Id");
   headers.delete("X-User-Type");
+  headers.delete("x-byok-endpoint");
   if (auth) {
     headers.delete("Authorization");
     headers.set("X-User-Id", auth.userId);
@@ -129,7 +133,10 @@ async function authenticatedForward(
 // `X-User-Type: anonymous`, subject to a per-identity burst limit and the
 // global daily-budget breaker. Everything else still 401s. Keep the allowlist
 // narrow — each entry is a surface that costs money without a login.
-const ANON_V1 = ["/v1/chat"];
+// Photo-search (issue #260) is anon-metered by design: the container reads the
+// worker-asserted X-User-Id/Type for its quota tiering, so both endpoints ride
+// the same minted-identity + rate-limit + budget gate as /v1/chat.
+const ANON_V1 = ["/v1/chat", "/v1/photo-search", "/v1/photo-search/confirm"];
 const RATE_LIMIT_MESSAGE = "リクエストが多いみたい。少し待ってね。";
 
 function isAnonymousV1(pathname: string): boolean {

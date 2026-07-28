@@ -1,6 +1,7 @@
 """Pytest configuration and shared fixtures."""
 
 import asyncio
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -16,6 +17,12 @@ logfire.configure(send_to_logfire=False, console=False)
 test_env = Path(__file__).parent / ".env.test"
 if test_env.exists():
     load_dotenv(test_env)
+
+# DB-free integration tests import app modules at collection time, which
+# instantiates Settings; provide the same zero-entropy defaults the unit
+# conftest uses so collection works without ambient env.
+os.environ.setdefault("MIMO_API_KEY", "test-key")
+os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
 
 
 @pytest.fixture(scope="session")
