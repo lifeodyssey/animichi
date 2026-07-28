@@ -44,10 +44,16 @@ function useFire(chat: ChatSession, setStatus: SetStatus, setIds: SetIds) {
   );
 }
 
-type ChatStatus = ChatSession["status"];
+type WatcherStep = Readonly<{
+  status: RecomputeStatus;
+  chatStatus: ChatSession["status"];
+  error: Error | undefined;
+  started: RefObject<boolean>;
+  setStatus: SetStatus;
+}>;
 
 /** A busy recompute settles once its turn went active and came back. */
-function settleBusy(chatStatus: ChatStatus, error: Error | undefined, started: RefObject<boolean>, setStatus: SetStatus): void {
+function settleBusy({ chatStatus, error, started, setStatus }: WatcherStep): void {
   if (isActive(chatStatus)) {
     started.current = true;
     return;
@@ -56,20 +62,20 @@ function settleBusy(chatStatus: ChatStatus, error: Error | undefined, started: R
 }
 
 /** One watcher step; a later non-recompute turn going active clears a stale verdict. */
-function stepWatcher(status: RecomputeStatus, chatStatus: ChatStatus, error: Error | undefined, started: RefObject<boolean>, setStatus: SetStatus): void {
-  if (status === "busy") {
-    settleBusy(chatStatus, error, started, setStatus);
+function stepWatcher(step: WatcherStep): void {
+  if (step.status === "busy") {
+    settleBusy(step);
     return;
   }
-  started.current = false;
-  if (status === "failed" && isActive(chatStatus)) setStatus("idle");
+  step.started.current = false;
+  if (step.status === "failed" && isActive(step.chatStatus)) step.setStatus("idle");
 }
 
 function useSettleWatcher(status: RecomputeStatus, chat: ChatSession, setStatus: SetStatus): void {
   const started = useRef(false);
   const { status: chatStatus, error } = chat;
   useEffect(() => {
-    stepWatcher(status, chatStatus, error, started, setStatus);
+    stepWatcher({ status, chatStatus, error, started, setStatus });
   }, [status, chatStatus, error, setStatus]);
 }
 
