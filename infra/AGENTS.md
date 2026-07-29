@@ -35,3 +35,10 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 - `webRoutesEnabled` defaults false. Enabling it is the route cutover and requires zone/domain
   config; do not flip it as routine cleanup.
 - No Hyperdrive: catalog reaches Neon over `@neondatabase/serverless` HTTP.
+- **`pulumi stack export` runs unmodified before every `pulumi up`** (rollback backup, #485;
+  `_deploy-component.yml`'s "Pulumi stack export" step), uploaded as a 7-day CI artifact. It is
+  **never** run with `--show-secrets` — encrypted `secure:` config must stay ciphertext in that
+  artifact. Any new sensitive value added to `index.ts`/the stack configs MUST go through
+  `config.requireSecret()` / `getSecret()` (see `pulumi-best-practices` skill §5), never a plain
+  `config.require()` or a literal — a value that isn't marked secret is exported in the clear into a
+  workflow artifact anyone with repo read access can download for 7 days.

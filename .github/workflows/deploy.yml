@@ -19,6 +19,48 @@ jobs:
         with:
           persist-credentials: false
 
+      # ── Preflight: post-deploy secrets (validates BEFORE anything deploys,
+      #    same reasoning as _deploy-component.yml's "Preflight - post-deploy
+      #    secrets" step — a failure here cannot leave a Worker half-deployed).
+      #    This workflow always targets `environment: production`, and
+      #    `wrangler.toml`'s `env.production.vars.ANON_ACCESS_ENABLED` is
+      #    "false", so TURNSTILE_SECRET/ANON_ID_SECRET are genuinely inert
+      #    here today (worker/auth.ts:anonymousEnabled requires both the flag
+      #    AND the secret) — read the live flag instead of assuming that stays
+      #    true, so this doesn't quietly go stale if the flag ever flips. ──
+      - name: Preflight - post-deploy secrets
+        shell: bash
+        env:
+          TARGET_COMPONENT: root
+          TARGET_ENVIRONMENT: production
+          POST_DEPLOY_SECRETS: |
+            TURNSTILE_SECRET
+            ANON_ID_SECRET
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+        run: |
+          anon_flag=$(awk -F'"' -v want="[env.${TARGET_ENVIRONMENT}.vars]" '
+            $0 == want { in_block=1; next }
+            /^\[/ { in_block=0 }
+            in_block && $1 ~ /^ANON_ACCESS_ENABLED[ \t]*=/ { print $2 }
+          ' wrangler.toml 2>/dev/null || true)
+          missing=0
+          while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            value="${!name-}"
+            if [ -z "$value" ]; then
+              if [ "$anon_flag" = "true" ]; then
+                echo "::error::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, where ANON_ACCESS_ENABLED=\"true\" makes it load-bearing (worker/turnstile.ts fails CLOSED). Refusing to start the deploy without it. Set it with: gh secret set $name"
+                missing=1
+              else
+                echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, but ANON_ACCESS_ENABLED is not \"true\" there, so this environment's code path never reads it. Soft warning only; the post-deploy push step will skip it."
+              fi
+            fi
+          done <<< "$POST_DEPLOY_SECRETS"
+          if [ "$missing" = "1" ]; then
+            exit 1
+          fi
+
       # ── Build frontend ──
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
@@ -120,26 +162,30 @@ jobs:
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
 
-      # ── Push post-deploy secrets (after root deploy, same reasoning and
-      #    same list-driven pattern as _deploy-component.yml: `wrangler secret
-      #    put` fallback-to-yes on a non-existent Worker would silently create
-      #    an empty shell Worker; keep this list in sync with the
-      #    post_deploy_secrets list in ci.yml's deploy-root-* jobs) ──
+      # ── Push post-deploy secrets (after root deploy — same list-driven
+      #    pattern as _deploy-component.yml, kept in sync with the
+      #    post_deploy_secrets list in ci.yml's deploy-root-* jobs. Empty
+      #    values are skipped, not failed, here: the preflight step above
+      #    already decided whether an empty value is fatal.) ──
       - name: Push post-deploy secrets to Worker
+        shell: bash
         env:
+          TARGET_COMPONENT: root
           TARGET_ENVIRONMENT: production
           POST_DEPLOY_SECRETS: |
             TURNSTILE_SECRET
             ANON_ID_SECRET
           TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
           ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           while IFS= read -r name; do
             [ -z "$name" ] && continue
             value="${!name-}"
             if [ -z "$value" ]; then
-              echo "::error::$name is empty/unset for environment=$TARGET_ENVIRONMENT. Refusing to leave the Worker running without it instead of deploying silently degraded. Set it with: gh secret set $name"
-              exit 1
+              echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — skipping the push (the preflight step already validated it is safe to skip here)."
+              continue
             fi
-            printf '%s' "$value" | npx --yes wrangler@4.79.0 secret put "$name" --env "$TARGET_ENVIRONMENT"
+            printf '%s' "$value" | npx --yes wrangler@4.112.0 secret put "$name" --env "$TARGET_ENVIRONMENT"
           done <<< "$POST_DEPLOY_SECRETS"
