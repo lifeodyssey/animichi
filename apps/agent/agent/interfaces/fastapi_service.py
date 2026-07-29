@@ -161,6 +161,15 @@ def create_fastapi_app(
             "x-session-id",
             "x-locale",
             "x-byok-endpoint",
+            # The actual BYOK headers byokStorage.ts (#467) sends. Without
+            # these, browser CORS preflight rejects them before the request
+            # ever reaches this container — this PR is the point where the
+            # container-side header contract is established, so it belongs
+            # here rather than waiting on Task 3.
+            "X-BYOK-Provider",
+            "X-BYOK-Key",
+            "X-BYOK-Model",
+            "X-BYOK-Base-Url",
         ],
     )
     register_exception_handlers(app)

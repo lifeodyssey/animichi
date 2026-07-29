@@ -147,13 +147,20 @@ def register_credential_stripping_middleware(app: FastAPI) -> None:
     Must be registered **last**. Starlette's ``add_middleware`` does
     ``user_middleware.insert(0, ...)``, and ``build_middleware_stack`` wraps
     with ``for ... in reversed(middleware)`` — so the most recently
-    registered middleware ends up **outermost**. Registering this one last
-    makes it wrap ``observability_middleware`` and every exception handler,
-    so nothing downstream of it — logs, spans, or serialized exceptions —
-    ever observes a raw sensitive header value. (rev4 correction: rev2/rev3
-    said "registered first (outermost)", which is backwards and would have
-    voided this red line while every test still passed — see the BYOK spec,
-    Task 2/P1-4.)
+    registered middleware ends up outermost *among ``app.user_middleware``*.
+    Registering this one last makes it wrap ``observability_middleware`` and
+    every exception handler, so nothing downstream of it — logs, spans, or
+    serialized exceptions — ever observes a raw sensitive header value.
+    (rev4 correction: rev2/rev3 said "registered first (outermost)", which is
+    backwards and would have voided this red line while every test still
+    passed — see the BYOK spec, Task 2/P1-4.)
+
+    Starlette's built-in ``ServerErrorMiddleware`` sits outside all of
+    ``user_middleware``, including this one — but it only reads the same
+    ``request.scope`` this middleware has already mutated, so AC4 holds
+    regardless. A pure-ASGI rewrite that stopped constructing `Request`
+    objects on top of `scope` (bypassing FastAPI's exception-handler layer
+    entirely) would need to re-verify that assumption directly.
     """
 
     @app.middleware("http")
@@ -198,7 +205,5 @@ def get_raw_sensitive_header(request: Request, name: str) -> bytes | None:
     ``strip_credential_headers`` has replaced sensitive values with
     ``[redacted]``.
     """
-    stash = getattr(request.state, _RAW_HEADERS_STATE_KEY, {})
-    if not isinstance(stash, dict):
-        return None
+    stash: dict[bytes, bytes] = getattr(request.state, _RAW_HEADERS_STATE_KEY, {})
     return stash.get(name.lower().encode())

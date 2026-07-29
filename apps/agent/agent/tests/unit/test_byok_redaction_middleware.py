@@ -5,12 +5,19 @@ Spec: docs/superpowers/specs/2026-07-28-284-byok-design.md — Task 2.
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
+import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
+import agent.interfaces.fastapi_service as fastapi_service_module
+from agent.infrastructure.session.memory import InMemorySessionStore
+from agent.infrastructure.supabase.client import SupabaseClient
+from agent.interfaces.public_api import RuntimeAPI
 from agent.interfaces.routes._middleware import (
     SENSITIVE_HEADERS,
     _split_sensitive_headers,
@@ -60,6 +67,18 @@ class TestAC3NullAndEmptyHeaders:
         assert SENSITIVE_HEADERS == frozenset(
             {"x-byok-key", "x-byok-base-url", "authorization", "cf-turnstile-response"}
         )
+
+    def test_authorization_header_is_redacted_not_dropped(self) -> None:
+        """Regression pin (#441's expired/invalid-JWT guard runs at the edge
+        worker, not this container, but a future change here that *drops*
+        Authorization instead of redacting it would silently change what any
+        container-side consumer of this header set observes)."""
+        headers = [(b"authorization", b"Bearer eyJ.fake.jwt")]
+
+        raw_values, scrubbed = _split_sensitive_headers(headers)
+
+        assert scrubbed == [(b"authorization", b"[redacted]")]
+        assert raw_values == {b"authorization": b"Bearer eyJ.fake.jwt"}
 
 
 # ── AC-8: registration order is enforced behaviourally, not by index ───────
@@ -158,3 +177,47 @@ def test_get_raw_sensitive_header_reads_only_the_stashed_value() -> None:
 
     assert captured["raw"] == b"SECRET-VALUE"
     assert captured["missing"] is None
+
+
+# ── AC-8 (Fable P1): the *real* app's registration call order, not a
+#    synthetic stand-in — a silent swap in fastapi_service.py itself must
+#    fail this test, which the synthetic tests above cannot detect. ────────
+
+
+async def test_real_app_registration_order_redacts_before_observability_slot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Replaces `register_observability_middleware` with a probe that takes
+    its *exact* call slot in `create_fastapi_app` — same position, same
+    relative order versus stripping — so this pins the production call
+    order in `fastapi_service.py`, not a hand-built substitute. Verified by
+    manually swapping the two registration lines there: this test goes red
+    (observes the raw value) when stripping is registered before
+    observability instead of after."""
+    seen: list[str | None] = []
+
+    def recording_register_observability(app: FastAPI) -> None:
+        @app.middleware("http")
+        async def _probe(
+            request: Request, call_next: RequestResponseEndpoint
+        ) -> Response:
+            seen.append(request.headers.get("x-byok-key"))
+            return await call_next(request)
+
+    monkeypatch.setattr(
+        fastapi_service_module,
+        "register_observability_middleware",
+        recording_register_observability,
+    )
+
+    db = MagicMock(spec=SupabaseClient)
+    runtime_api = RuntimeAPI(
+        db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+    )
+    app = fastapi_service_module.create_fastapi_app(runtime_api=runtime_api)
+
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url="https://test") as client:
+        await client.get("/", headers={"X-BYOK-Key": "SECRET-VALUE"})
+
+    assert seen == ["[redacted]"]
