@@ -38,9 +38,13 @@ export type SessionMigrationOutcome = "migrated" | "nothing" | "failed";
  * Mobile-first budget (#507 review P2). 8s was inherited from the deferred-save
  * replay, but this runs on a Capacitor webview on transit Wi-Fi as often as on
  * a desktop, and a single `UPDATE` behind one edge hop has no business taking
- * longer. `keepalive` lets the request outlive a callback screen the visitor
- * navigates away from, so a slow network degrades to "the server still gets it"
- * rather than "the mutation is cancelled mid-flight".
+ * longer.
+ *
+ * `keepalive` is a narrower guarantee than it may read as (#514 review round 2):
+ * an in-SPA navigation never interrupts a `fetch` anyway, so it buys nothing
+ * there. It matters for **document unload** — the visitor closing the tab or
+ * following a link away while the claim is still in flight. Cheap, and the
+ * request carries no body, so the 64KB keepalive ceiling is not in play.
  */
 export const MIGRATE_TIMEOUT_MS = 4_000;
 
