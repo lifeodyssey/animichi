@@ -12,6 +12,10 @@
 
 export const CONTAINER_ENV_KEYS = [
   "DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUPABASE_DB_URL", "ANITABI_API_URL", "CATALOG_API_URL",
+  // APP_ENV also joined CONTAINER_REQUIRED_KEYS below (issue #498): it is kept
+  // listed here too so the standard forwarding allowlist stays a complete
+  // picture of what reaches the container, but CONTAINER_REQUIRED_KEYS is what
+  // makes it fail-closed — this loop alone would silently omit it if unset.
   "APP_ENV", "CACHE_TTL_SECONDS", "CORS_ALLOWED_ORIGIN", "DEBUG",
   "DEFAULT_AGENT_MODEL", "FALLBACK_AGENT_MODEL", "GOOGLE_APPLICATION_CREDENTIALS",
   "GOOGLE_CLOUD_PROJECT", "LOG_LEVEL", "MAX_RETRIES", "OBSERVABILITY_SERVICE_NAME",
@@ -26,7 +30,18 @@ export const CONTAINER_ENV_KEYS = [
   "ANON_DAILY_MESSAGE_QUOTA",
 ];
 
-export const CONTAINER_REQUIRED_KEYS = ["DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUPABASE_DB_URL"];
+// APP_ENV joined this list in issue #498: it used to be seeded with a
+// hardcoded "production" default in buildContainerEnvVars below, which meant
+// every container reported APP_ENV=production regardless of which Cloudflare
+// environment actually deployed it — staging traces were indistinguishable
+// from production traces in Logfire, and any future `is_production` gate
+// would silently take the production branch on staging. Fail-closed (throw if
+// missing) rather than a "safer" non-production seed value, because a missing
+// wrangler.toml `[vars]`/`[env.*.vars]` entry is a deploy-config bug that
+// should break the deploy loudly, not fall back to a silently-wrong value —
+// this repo was already reviewed back for the opposite ("can't parse it, so
+// treat it as false") fail-open pattern once (#441/#443).
+export const CONTAINER_REQUIRED_KEYS = ["DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUPABASE_DB_URL", "APP_ENV"];
 
 // Container-level egress URL-hostname denylist (#284 Task 7). Split out for the
 // same reason as the env-var allowlist above: a plain `node --test` importer
@@ -112,7 +127,7 @@ export const DENIED_EGRESS_HOSTS = [
 ];
 
 export function buildContainerEnvVars(env: Record<string, unknown>): Record<string, string> {
-  const envVars: Record<string, string> = { APP_ENV: "production", SERVICE_HOST: "0.0.0.0", SERVICE_PORT: "8080" };
+  const envVars: Record<string, string> = { SERVICE_HOST: "0.0.0.0", SERVICE_PORT: "8080" };
   for (const key of CONTAINER_REQUIRED_KEYS) {
     const value = env[key];
     if (typeof value !== "string" || value.length === 0) throw new Error(`Missing required container env: ${key}`);

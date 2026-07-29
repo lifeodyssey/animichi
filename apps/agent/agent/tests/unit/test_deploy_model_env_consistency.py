@@ -16,6 +16,7 @@ _DEPLOY_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "deploy.yml"
 _REUSABLE_DEPLOY_WORKFLOW = (
     _REPO_ROOT / ".github" / "workflows" / "_deploy-component.yml"
 )
+_DOCKERFILE = _REPO_ROOT / "Dockerfile"
 
 
 def _typescript_string_list(source: str, const_name: str) -> set[str]:
@@ -73,9 +74,19 @@ def test_container_required_keys_are_forwarded_and_deployed() -> None:
     root_step = _named_workflow_step(deploy, "Deploy via Wrangler")
     provisioned = _wrangler_secret_names(root_step)
 
+    # APP_ENV (issue #498) is a deliberate exception to the
+    # "every required key is a Wrangler *secret*" invariant below: it is a
+    # plain, non-secret `wrangler.toml` `[vars]`/`[env.*.vars]` value, not
+    # something `wrangler secret put` provisions. Cloudflare exposes both
+    # kinds identically on the container's `env` binding at runtime, so
+    # buildContainerEnvVars's fail-closed check on it is still meaningful —
+    # it just isn't wired through this workflow's `secrets: |` block, because
+    # nothing needs to push it there.
+    NON_SECRET_REQUIRED_KEYS = {"APP_ENV"}
+
     assert required
     assert required <= forwarded
-    assert required <= provisioned
+    assert required - NON_SECRET_REQUIRED_KEYS <= provisioned
 
 
 def test_ci_root_deploys_match_manual_root_secrets() -> None:
@@ -87,8 +98,25 @@ def test_ci_root_deploys_match_manual_root_secrets() -> None:
     production = _named_workflow_job(ci, "deploy-root-prod")
     reusable = _REUSABLE_DEPLOY_WORKFLOW.read_text(encoding="utf-8")
 
-    assert _wrangler_secret_names(staging) == manual_secrets
+    # CORS_ALLOWED_ORIGIN is a deliberate staging exception (#527/#528): staging
+    # gets its value from wrangler.toml's [env.staging.vars] (a plain domain
+    # name, not a secret — see that block's comment), while production and the
+    # manual deploy.yml path still provision it as a real GitHub secret. This
+    # is why staging is no longer a strict match against manual_secrets.
+    STAGING_EXEMPT_SECRETS = {"CORS_ALLOWED_ORIGIN"}
+
+    assert _wrangler_secret_names(staging) == manual_secrets - STAGING_EXEMPT_SECRETS
     assert _wrangler_secret_names(production) == manual_secrets
-    assert manual_secrets <= _mapped_secret_names(staging)
+    assert manual_secrets - STAGING_EXEMPT_SECRETS <= _mapped_secret_names(staging)
     assert manual_secrets <= _mapped_secret_names(production)
     assert manual_secrets <= _mapped_secret_names(reusable)
+
+
+def test_dockerfile_does_not_hardcode_a_privileged_app_env() -> None:
+    """Issue #498's 4th touchpoint: a direct `docker run` (bypassing the
+    Worker's CONTAINER_REQUIRED_KEYS fail-closed check entirely) must not
+    silently default to a privileged environment. Settings.app_env's own
+    Field default ("development") is what applies when APP_ENV is unset.
+    """
+    dockerfile = _DOCKERFILE.read_text(encoding="utf-8")
+    assert "APP_ENV=" not in dockerfile
