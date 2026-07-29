@@ -20,7 +20,10 @@
 #   SUPABASE_DB_URL            — postgres://... for asyncpg
 #   MIMO_API_KEY               — required primary model key (MiMo V2.5)
 #   DEEPSEEK_API_KEY           — required fallback model key (DeepSeek)
-#   GEMINI_API_KEY             — optional Google-backed integration key
+#   GEMINI_API_KEY             — required by the always-mounted photo-search vision
+#                                provider (GeminiVisionProvider); missing/empty means
+#                                every photo-search request silently degrades to a
+#                                clarify miss instead of recognizing anything (#502)
 #   OPENAI_COMPAT_BASE_URL     — custom OpenAI-compatible fallback endpoint
 #   OPENAI_COMPAT_API_KEY      — custom OpenAI-compatible fallback provider key
 #   GOOGLE_MAPS_API_KEY        — optional geocoding provider key

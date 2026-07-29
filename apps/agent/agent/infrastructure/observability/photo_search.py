@@ -11,7 +11,13 @@ from pydantic import BaseModel
 
 from agent.agents.vision_supply_router import QuotaTier
 
-QueryType = Literal["anime_screenshot", "real_world_photo"]
+QueryType = Literal["anime_screenshot", "real_world_photo", "vision_unavailable"]
+# The client-submitted confirm signal (anonymous-reachable) may only claim to
+# have seen a real search outcome — never "vision_unavailable" (#502 review
+# round 2): that value backs an ops alert, and there is never a candidate
+# list to confirm on that outcome. Keeping the client type narrower prevents
+# an anonymous caller from injecting fake events into that alert source.
+ClientQueryType = Literal["anime_screenshot", "real_world_photo"]
 LayerHit = Literal["1", "2", "none"]
 QuotaKey = NewType("QuotaKey", str)
 Clock = Callable[[], datetime]

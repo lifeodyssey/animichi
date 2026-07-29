@@ -372,7 +372,17 @@ class Settings(BaseSettings):
         }
 
     def validate_api_keys(self) -> list[str]:
-        """Validate required API keys are present."""
+        """Validate required API keys are present.
+
+        This only covers the *chat* model's credential. GEMINI_API_KEY for
+        the photo-search vision provider is deliberately NOT checked here
+        (#502 review): this method feeds a non-blocking startup warning
+        only, and entangling it with the vision provider's real requirement
+        risks silently widening scope (see `validate_required_env`, the
+        cron scripts' credential skip-list). The vision provider validates
+        its own key at call time instead — see
+        `agent.clients.gemini_vision.GeminiVisionProvider`.
+        """
         missing: list[str] = []
         all_models = [
             self.default_agent_model,
