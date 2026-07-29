@@ -284,13 +284,20 @@ export const DENIED_EGRESS_HOSTS = [
   "100.100.100.200",            // Alibaba/Tencent metadata (exact; already covered above, kept explicit)
   "192.0.0.192",                // Oracle Cloud Infrastructure metadata
   "metadata.google.internal",   // GCP metadata hostname literal — glob ranges above cannot match a hostname
+  "[::1]",                      // IPv6 loopback (best-effort — see limit 4)
+  "[fd00:ec2::254]",            // AWS IMDSv2 ULA (matches egress_guard.py's own metadata-IP deny set)
+  "[::ffff:a9fe:a9fe]",         // IPv4-mapped 169.254.169.254
+  "[::ffff:6464:64c8]",         // IPv4-mapped 100.100.100.200
+  "[::ffff:c000:c0]",           // IPv4-mapped 192.0.0.192
+  "[fe80:*", "[fd00:*",         // IPv6 link-local / ULA convention prefixes (plain string prefixes)
 ];
 ```
 
 The 16 and 64 per-octet entries are generated (`Array.from({ length: 16 }, (_, i) => \`172.${16 +
 i}.*\`)`, etc.), not hand-typed, so the source stays short even though the effective list is long;
 this is what makes full-range coverage (rather than a metadata-IP-only subset) the practical
-choice here.
+choice here. The IPv6 entries are individually verified literals/prefixes, not a generated range —
+see limit 4 below for why IPv6 coverage stops there rather than being similarly exhaustive.
 
 **What actually happens on a match:** `ContainerProxy.fetch` (the `WorkerEntrypoint` that
 performs this check — see the `ContainerProxy` export note below) returns a synthesized
@@ -300,17 +307,24 @@ request itself, and the container never gets a TCP connection to the target. Fun
 equivalent for SSRF purposes (no bytes reach the target, no bytes come back), but a future
 engineer debugging a `520` from inside the container should know this policy is what produced it.
 
-Pinned by `worker/containerEnv.test.ts` (run via `pnpm run test:worker`), which ports the real
-`simpleGlobMatch`/`matchesHostList` algorithm (rather than a hand-rolled IP-in-CIDR helper — the
-mistake from the previous revision) and asserts against it: every spec Task 7 AC error-path
-address is matched, the two extra metadata endpoints are matched, three representative public
-addresses are not matched, the full 16- and 64-entry octet ranges are matched at their exact
-boundaries (and the addresses just outside those boundaries are not), and an emptied denylist
+Pinned by `worker/containerEnv.test.ts` (run via `pnpm run test:worker`), which — after two
+earlier revisions each fixed one layer of the same problem (a hand-rolled `ipInCidr()` helper that
+validated its own invented semantics, then a hand-ported copy of the real algorithm that could
+still silently drift from a future vendored change) — now **extracts and evaluates the real
+`simpleGlobMatch`/`matchesHostList` functions directly from the vendored source file at test
+time**, so every assertion runs against the actual shipped behavior with no copy in between. A
+behavioral canary asserts extraction succeeded and exercises exact-match, glob-match, and
+literal-CIDR-string-does-not-match semantics against the real functions — if a future package
+version ever adds genuine CIDR parsing, that last assertion flips and the canary fails loudly,
+rather than a source-text pin staying green while the semantics quietly change underneath it.
+Coverage assertions run against this same real, extracted matcher: every spec Task 7 AC
+error-path address is matched, the two extra metadata endpoints are matched, three representative
+public addresses are not matched, the full 16- and 64-entry octet ranges are matched at their
+exact boundaries (and the addresses just outside those boundaries are not), the concrete IPv6
+literal cases are matched, an unrelated public IPv6 literal is not, the deliberate
+subdomain-over-match is asserted as intentional rather than accidental, and an emptied denylist
 fails the coverage assertions (a mutation guard against the exact silent-no-op failure mode this
-correction exists because of). A canary test additionally asserts the vendored
-`container.js` source still contains the exact `simpleGlobMatch`/`matchesHostList` function
-signatures this port is based on, so a package upgrade that changes the algorithm is flagged
-rather than silently invalidating the port.
+correction exists because of).
 
 **Required for the policy to run at all — `ContainerProxy` export.** `applyOutboundInterception`
 (`container.js:1207`) hard-throws at container start if `ctx.exports.ContainerProxy` is undefined:
@@ -367,6 +381,39 @@ Three separate limits, stated precisely rather than glossed:
    it, every plain-HTTP outbound takes a Workers-runtime hop through `ContainerProxy` instead of
    going direct. Non-HTTP egress (`asyncpg`'s Postgres connection) is unaffected — `interceptAll`
    only applies to HTTP(S) — and is correspondingly **not** covered by this denylist either way.
+4. **IPv6 literals are not comprehensively covered.** `url.hostname` renders IPv6 in bracketed
+   compressed form (`[::1]`, `[fd00:ec2::254]`, `[::ffff:a9fe:a9fe]` — the IPv4-mapped form of
+   `169.254.169.254`), which no dotted-quad glob matches — verified directly against the real
+   vendored matcher: all three previously returned `false` against the plain-IPv4 entries above.
+   ULA (`fd00::/8`), IPv6 link-local (`fe80::/10`), and IPv4-mapped IPv6 are largely out of scope
+   for this layer by construction — IPv6 has too many equivalent textual representations
+   (zero-compression, leading-zero suppression) for a hand-built glob list to be exhaustive the way
+   the IPv4 ranges above are. `DENIED_EGRESS_HOSTS` does now include a **best-effort, individually
+   verified** set of the concretely-named cases (loopback `[::1]`; the AWS IMDSv2 ULA address
+   `[fd00:ec2::254]`, matching `egress_guard.py`'s own metadata-IP deny set; the IPv4-mapped forms
+   of all three metadata IPs above; and two plain string-prefix globs, `[fe80:*` and `[fd00:*`, for
+   the link-local and ULA convention prefixes) — this closes the concrete, named threats without
+   claiming general IPv6 coverage. DNS rebinding, general ULA/link-local addresses outside those
+   two prefixes, and any other IPv6 textual form remain the application-layer guard's job
+   (`egress_guard` already handles IPv4-mapped-IPv6 in its own resolved-address classification,
+   independent of this layer).
+
+**Two notes to stop a future contributor from "fixing" things that are already handled or already
+intentional:**
+
+- **Encoded IPv4 (decimal/octal/hex) is already closed, for free — do not add redundant entries.**
+  `ContainerProxy.fetch` runs `new URL(request.url)` before matching, and the WHATWG URL host
+  parser normalizes numeric hosts. Verified directly: `http://2852039166/`, `http://0xA9FEA9FE/`,
+  and `http://0251.0376.0251.0376/` (decimal, hex, and octal encodings of `169.254.169.254`) all
+  produce the hostname `169.254.169.254` before `deniedHosts` ever sees the request; uppercase
+  hostnames are lowercased the same way (`METADATA.GOOGLE.INTERNAL` → `metadata.google.internal`).
+  A future contributor who thinks encoded-IPv4 is a live bypass and adds entries for it would be
+  adding dead weight, not closing a gap.
+- **Prefix globs over-matching subdomains (e.g. `10.0.0.1.evil.com` matches `"10.*"`) is
+  deliberate and fail-closed.** `simpleGlobMatch`'s prefix check is a string match, not an IP
+  anchor, so any hostname that merely *starts with* a denied prefix is blocked too — this can only
+  cause an improbable legitimate hostname to be blocked, never the reverse, so it is left as-is
+  rather than "fixed" into a narrower (and more fragile) pattern.
 
 **Follow-ups, not required for Task 7's closure:** (a) turning on `interceptHttps` needs its own
 spec'd rollout (Python CA-trust wiring + a staging verification pass); (b) the DNS-rebinding gap

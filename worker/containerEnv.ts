@@ -58,10 +58,46 @@ export const CONTAINER_REQUIRED_KEYS = ["DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUP
 //   - it DOES catch the literal well-known metadata hostname
 //     `metadata.google.internal` and the two well-known non-IMDS metadata IPs
 //     below, in addition to the three glob-representable ranges.
+//   - decimal/octal/hex-encoded IPv4 (`http://2852039166/`, `0xA9FEA9FE`, etc.)
+//     and uppercase hostnames do NOT need separate entries: `ContainerProxy.fetch`
+//     runs `new URL(request.url)` before matching, and the WHATWG URL host
+//     parser normalizes all of those to the canonical dotted-decimal / lowercase
+//     form first — verified directly (`new URL("http://2852039166/").hostname
+//     === "169.254.169.254"`). Do not add redundant encoded-form entries here.
+//   - a prefix glob like `"10.*"` also matches a hostname such as
+//     `10.0.0.1.evil.com` (it is a string prefix match, not an IP anchor) — this
+//     over-match is deliberate and fail-closed (it can only cause an unlikely
+//     legitimate hostname starting with one of these prefixes to be blocked,
+//     never the reverse).
 // See `docs/ops/cloudflare-hardening.md` §6 for the full corrected spike
-// writeup and the AC disposition against this reality.
+// writeup, limit 4 (IPv6 is NOT comprehensively covered), and the AC
+// disposition against this reality.
 const RFC1918_172_BLOCK = Array.from({ length: 16 }, (_, i) => `172.${16 + i}.*`); // 172.16.0.0/12
 const CGNAT_100_BLOCK = Array.from({ length: 64 }, (_, i) => `100.${64 + i}.*`); // 100.64.0.0/10
+
+// IPv6 literals (PR #478 review, third round): `new URL(...).hostname` renders
+// IPv6 in bracketed, colon-compressed form (`[::1]`, `[fd00:ec2::254]`,
+// `[::ffff:a9fe:a9fe]` for the IPv4-mapped form of `169.254.169.254`) — no
+// dotted-quad glob above can match any of these. IPv6 has too many equivalent
+// textual representations (zero-compression, leading-zero suppression, mixed
+// case) for a hand-built glob list to be exhaustive the way the IPv4 ranges
+// above are, so this is best-effort spot coverage for the concretely-named
+// cases only, NOT general IPv6 RFC1918/ULA/link-local coverage — see limit 4
+// in `docs/ops/cloudflare-hardening.md` §6. Each exact entry below was
+// verified against Node's `new URL()` (the same WHATWG parser
+// `ContainerProxy.fetch` uses) to confirm the precise rendered form; the two
+// glob prefixes (`[fe80:` link-local, `[fd00:` ULA convention) are plain
+// string prefixes with no numeric-range math, so they carry none of the
+// off-by-one risk that the IPv4 CIDR-string mistake did.
+const IPV6_METADATA_AND_LOCAL = [
+  "[::1]", // loopback
+  "[fd00:ec2::254]", // AWS IMDSv2 ULA (matches egress_guard.py's _METADATA_DENY_IPS entry)
+  "[::ffff:a9fe:a9fe]", // IPv4-mapped 169.254.169.254 (AWS/Azure/GCP IMDS)
+  "[::ffff:6464:64c8]", // IPv4-mapped 100.100.100.200 (Alibaba/Tencent metadata)
+  "[::ffff:c000:c0]", // IPv4-mapped 192.0.0.192 (Oracle Cloud metadata)
+  "[fe80:*", // IPv6 link-local (fe80::/10 convention prefix) — glob prefix, not numeric-range math
+  "[fd00:*", // IPv6 ULA (fd00::/8 convention prefix) — glob prefix, not numeric-range math
+];
 
 export const DENIED_EGRESS_HOSTS = [
   "10.*", // RFC1918 10.0.0.0/8 — glob-exact equivalent
@@ -72,6 +108,7 @@ export const DENIED_EGRESS_HOSTS = [
   "100.100.100.200", // Alibaba/Tencent metadata (exact; already covered by the CGNAT block above, kept explicit)
   "192.0.0.192", // Oracle Cloud Infrastructure metadata
   "metadata.google.internal", // GCP metadata hostname literal (not an IP; glob ranges above cannot match this)
+  ...IPV6_METADATA_AND_LOCAL,
 ];
 
 export function buildContainerEnvVars(env: Record<string, unknown>): Record<string, string> {
