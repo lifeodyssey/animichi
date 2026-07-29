@@ -53,6 +53,10 @@ on:
         required: false
       LOGFIRE_TOKEN:
         required: false
+      LOGFIRE_TOKEN_PROD:
+        required: false
+      LOGFIRE_TOKEN_STAGING:
+        required: false
       CORS_ALLOWED_ORIGIN:
         required: false
       NEXT_PUBLIC_MAPBOX_TOKEN:
@@ -517,7 +521,12 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+          # Two dedicated Logfire projects (animichi-prod / animichi-staging) as
+          # of issue #498, selected by the target environment so staging and
+          # production traces land in separate projects rather than one shared
+          # LOGFIRE_TOKEN project. LOGFIRE_TOKEN itself stays as the fallback
+          # for any other/unlisted `inputs.environment` value.
+          LOGFIRE_TOKEN: ${{ inputs.environment == 'production' && secrets.LOGFIRE_TOKEN_PROD || (inputs.environment == 'staging' && secrets.LOGFIRE_TOKEN_STAGING) || secrets.LOGFIRE_TOKEN }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       # Deliberately NOT part of the wrangler-action `secrets:` list above (the
       # one populating `worker_secrets`): that list is uploaded via

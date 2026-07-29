@@ -224,7 +224,10 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+          # This workflow is production-only (job-level environment: production,
+          # manual workflow_dispatch), so it always uses the dedicated
+          # animichi-prod Logfire project token — see issue #498.
+          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN_PROD }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
 
       # ── Push post-deploy secrets (after root deploy — same list-driven
