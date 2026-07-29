@@ -10,22 +10,33 @@ import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
 // only from `handleAnonymousV1`. This is the property that makes BYOK's
 // quota exemption "free" (no new edge code needed): a future refactor that
 // moved the breaker onto the shared authenticated path would silently start
-// rejecting logged-in (and therefore BYOK) traffic. Proven behaviourally —
-// by latching today's budget and asserting an authenticated request still
-// succeeds — never by asserting call counts on an internal, since the
-// public contract is "the response is unaffected", not "a particular
-// function ran".
-
-const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
-const DAY_KEY = utcDayKey(NOW);
+// rejecting logged-in (and therefore BYOK) traffic.
+//
+// #479 P1 review follow-up (Fable): the first version of this file latched
+// a FIXED test day (`Date.UTC(2026, 6, 28, ...)`) while the guard's own
+// `handleGuardRequest` was driven by that SAME fixed `NOW` — so a mutation
+// that actually wired `budgetLatched(env.EDGE_GUARD, utcDayKey(Date.now()))`
+// into `authenticatedForward` was proven NOT to be caught: the mutated
+// check would read "today" from the REAL system clock, find nothing
+// latched there (only the fixed test day was latched), and pass through
+// anyway — the test stayed green for the wrong reason. Fixed two ways: (1)
+// latch the REAL current day (`utcDayKey(Date.now())`), matching what any
+// clock-driven implementation — present or future — would derive, and (2)
+// additionally assert directly on the guard's own call trace that no
+// `/budget` GET ever reached the shard, which is a stronger, mechanism-level
+// pin than the response status alone.
 
 const stubCtx = {
   waitUntil(promise: Promise<unknown>) { void promise; },
   passThroughOnException() { return undefined; },
 } as unknown as ExecutionContext;
 
-function fakeGuard() {
+/** A guard double that records every request path+method it receives, so a
+ * test can assert "the budget shard was never even asked", not just "the
+ * final response happened to be 200". */
+function fakeGuard(nowMs: number) {
   const shards = new Map<string, GuardStore>();
+  const calls: { url: string; method: string }[] = [];
   const storeFor = (name: string) => {
     const existing = shards.get(name);
     if (existing) return existing;
@@ -33,30 +44,39 @@ function fakeGuard() {
     shards.set(name, created);
     return created;
   };
-  return {
+  const namespace = {
     idFromName: (name: string) => name as unknown as DurableObjectId,
     get: (id: DurableObjectId) => ({
-      fetch: (request: Request) =>
-        handleGuardRequest(request, storeFor(String(id)), NOW, { limit: 20, windowSeconds: 60 }),
+      fetch: (request: Request) => {
+        calls.push({ url: request.url, method: request.method });
+        return handleGuardRequest(request, storeFor(String(id)), nowMs, { limit: 20, windowSeconds: 60 });
+      },
     }),
   };
+  return { namespace, calls };
 }
 
-function env(guard: ReturnType<typeof fakeGuard>): Env {
+function env(guard: ReturnType<typeof fakeGuard>["namespace"]): Env {
   return {
     EDGE_GUARD: guard,
     CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
   } as unknown as Env;
 }
 
+function budgetShardWasConsulted(calls: { url: string; method: string }[]): boolean {
+  return calls.some((call) => new URL(call.url).pathname === "/budget");
+}
+
 void test("an authenticated /v1/chat request succeeds even with today's anonymous budget latched", async () => {
-  const guard = fakeGuard();
-  await latchBudget(guard, DAY_KEY);
+  const nowMs = Date.now();
+  const { namespace: guard, calls } = fakeGuard(nowMs);
+  await latchBudget(guard, utcDayKey(nowMs));
 
   const app = createWorkerApp({
     nextHandler: { fetch: () => Promise.resolve(new Response("next", { status: 200 })) },
     authenticate: () => Promise.resolve({ ok: true, userId: "user-a", userType: "human" } as const),
   });
+  calls.length = 0; // only count calls made DURING the authenticated request below
   const res = await app.request(
     "/v1/chat",
     { method: "POST", headers: { Authorization: "Bearer jwt" } },
@@ -65,16 +85,23 @@ void test("an authenticated /v1/chat request succeeds even with today's anonymou
   );
 
   assert.equal(res.status, 200, "the latched anonymous budget must never be consulted for authenticated traffic");
+  assert.equal(
+    budgetShardWasConsulted(calls),
+    false,
+    "authenticatedForward must never call budgetLatched — reachable only from handleAnonymousV1",
+  );
 });
 
 void test("an authenticated BYOK request (X-BYOK-* headers present) is likewise unaffected by the latch", async () => {
-  const guard = fakeGuard();
-  await latchBudget(guard, DAY_KEY);
+  const nowMs = Date.now();
+  const { namespace: guard, calls } = fakeGuard(nowMs);
+  await latchBudget(guard, utcDayKey(nowMs));
 
   const app = createWorkerApp({
     nextHandler: { fetch: () => Promise.resolve(new Response("next", { status: 200 })) },
     authenticate: () => Promise.resolve({ ok: true, userId: "user-a", userType: "human" } as const),
   });
+  calls.length = 0;
   const res = await app.request(
     "/v1/chat",
     {
@@ -90,4 +117,5 @@ void test("an authenticated BYOK request (X-BYOK-* headers present) is likewise 
   );
 
   assert.equal(res.status, 200);
+  assert.equal(budgetShardWasConsulted(calls), false);
 });

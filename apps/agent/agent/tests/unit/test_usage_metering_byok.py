@@ -21,16 +21,24 @@ from agent.clients.catalog_client import CatalogClientProtocol
 from agent.config.settings import Settings
 from agent.interfaces.public_api import RuntimeAPI
 
-TODAY = date(2026, 7, 28)
-
 _PRICED_SETTINGS = Settings(
     model_input_cost_per_mtok_usd=2.0, model_output_cost_per_mtok_usd=8.0
 )
 
 
 class _UsageRepoDouble:
+    """#479 P3 review follow-up: `total_cost_usd` used to ignore its `scope`
+    argument entirely and always return `0.0` — every assertion that read
+    `verdict.spent_usd == 0.0` would have passed even if `accumulate_usage`
+    banked a BYOK turn's cost straight into the `anon` scope, because this
+    double could never report anything else. It now sums the SAME
+    `(usage_date, scope)` bucket `anonymous_budget_verdict` actually reads,
+    so a real accounting bug shows up as a non-zero `spent_usd`.
+    """
+
     def __init__(self) -> None:
         self.calls: list[tuple[date, str, int, int, float]] = []
+        self._totals: dict[tuple[date, str], float] = {}
 
     async def accumulate_usage(
         self,
@@ -44,10 +52,11 @@ class _UsageRepoDouble:
     ) -> None:
         del requests
         self.calls.append((usage_date, scope, input_tokens, output_tokens, cost_usd))
+        key = (usage_date, scope)
+        self._totals[key] = self._totals.get(key, 0.0) + cost_usd
 
     async def total_cost_usd(self, *, usage_date: date, scope: str) -> float:
-        del usage_date, scope
-        return 0.0
+        return self._totals.get((usage_date, scope), 0.0)
 
 
 class _Db:
@@ -109,7 +118,18 @@ async def test_a_non_byok_turn_is_still_priced_normally() -> None:
 
 async def test_a_byok_turn_never_moves_todays_anon_spend_total() -> None:
     """A BYOK turn banks under `byok`, so a read of today's `anon` total is
-    unaffected — the anonymous budget's denominator never sees BYOK spend."""
+    unaffected — the anonymous budget's denominator never sees BYOK spend.
+
+    #479 P3 review follow-up: both calls below must resolve `today` from the
+    SAME clock. `_record_usage` has no `today=` override (it always calls
+    `utc_today()` internally), so reading the verdict against a fixed,
+    unrelated calendar date (the original version of this test used a
+    hardcoded `TODAY` constant) would make `spent_usd == 0.0` pass for the
+    wrong reason — a date-bucket mismatch — even if a real accounting bug
+    banked the BYOK turn under `anon`. Reading with no `today=` override
+    (defaulting to the same `utc_today()`) is what actually exercises the
+    scope split.
+    """
     from agent.interfaces.usage_metering import anonymous_budget_verdict
 
     repo = _UsageRepoDouble()
@@ -118,7 +138,7 @@ async def test_a_byok_turn_never_moves_todays_anon_spend_total() -> None:
 
     await api._record_usage(_result(usage), "anon_abc", "anonymous", is_byok=True)
 
-    verdict = await anonymous_budget_verdict(_Db(repo), budget_usd=1.0, today=TODAY)
+    verdict = await anonymous_budget_verdict(_Db(repo), budget_usd=1.0)
     assert verdict.spent_usd == 0.0
     assert verdict.exhausted is False
     assert repo.calls[0][1] == "byok"

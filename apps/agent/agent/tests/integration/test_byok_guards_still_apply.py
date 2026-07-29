@@ -10,6 +10,20 @@ them:
 2. An anonymous caller presenting `X-BYOK-*` is rejected by the login gate
    *before* either anonymous guard runs — the header must not spend the
    visitor's own daily quota/budget just by being present.
+
+   AC-wording deviation, recorded here rather than silently "fixed" (#479
+   P3 review): the BYOK design spec's Task 4 AC4 literally reads "an
+   anonymous request carrying X-BYOK-* is still counted and gated by the
+   anonymous budget exactly as a normal anonymous request would be — the
+   header buys nothing". That is NOT what `chat.py::_byok_login_rejection`
+   does — it short-circuits before `_budget_rejection`/`_quota_rejection`
+   ever run, so the header is never counted at all. This was reviewed and
+   confirmed as the correct, intended behaviour (a rejected credential must
+   not touch the visitor's own quota/budget), so the code is right and the
+   spec's AC wording is stale — but the previous version of this file
+   attributed that ruling to issue #472, which does not contain it. No
+   citation is asserted here in its place; the behaviour is pinned by the
+   test below regardless of which issue first decided it.
 3. `run_animichi_agent` (the function every BYOK turn's model call goes
    through) still runs `_injection_preflight` and still dispatches through
    the singleton `animichi_agent` (which carries `output_validator`) rather
@@ -112,8 +126,9 @@ async def test_an_authenticated_byok_turn_never_reads_daily_usage() -> None:
 async def test_an_anonymous_byok_header_never_touches_the_anon_budget_or_quota() -> (
     None
 ):
-    """Regression lock (#472 combination, reviewed): the login gate
-    short-circuits *before* either anonymous guard runs, so an anonymous
+    """Regression lock (see the module docstring's AC-wording deviation
+    note): the login gate short-circuits *before* either anonymous guard
+    runs, so an anonymous
     `X-BYOK-*` request must not spend the visitor's own budget/quota read —
     the header buys nothing, but it also must not cost anything.
 
