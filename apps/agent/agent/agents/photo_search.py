@@ -228,17 +228,23 @@ async def _degrade(
     return PhotoSearchOutcome(response, _signals(query, gps, layer, len(candidates)))
 
 
-def _vision_unavailable_outcome(gps: GpsPoint | None) -> PhotoSearchOutcome:
+async def _vision_unavailable_outcome(
+    catalog: CatalogClientProtocol, gps: GpsPoint | None
+) -> PhotoSearchOutcome:
     """A provider outage is not a genuine "nothing recognized" miss (#502
-    P1-2): counting it as ``real_world_photo`` would corrupt the SD-22/23
-    success-rate signal by attributing infra failures to what users
-    photographed. The wire response still reuses ``photo_unrecognized``
-    with no candidates (same UX as a clean miss) — a distinct user-facing
-    "we're down" vs. "we don't recognize this" copy is deliberately
-    deferred to a follow-up (documented in the PR; not a silent scope cut).
+    P1-2, review round 2): counting it as ``real_world_photo`` would corrupt
+    the SD-22/23 success-rate signal by attributing infra failures to what
+    users photographed. Still runs the *same* C2 degrade path — including
+    the layer-2 nearby fallback (AC6) — so an authenticated, located user
+    sees nearby works instead of a blank slate during an outage; only the
+    telemetry signal is overridden. The wire response still reuses
+    ``photo_unrecognized`` (same UX as a clean miss) — a distinct
+    user-facing "we're down" vs. "we don't recognize this" copy is
+    deliberately deferred (follow-up #518, not a silent scope cut).
     """
-    response = _clarify("photo_unrecognized", [])
-    return PhotoSearchOutcome(response, _signals("vision_unavailable", gps, "none", 0))
+    outcome = await _degrade(catalog, [], gps)
+    signals = outcome.signals.model_copy(update={"query_type": "vision_unavailable"})
+    return PhotoSearchOutcome(outcome.response, signals)
 
 
 async def run_photo_search(
@@ -258,7 +264,7 @@ async def run_photo_search(
     try:
         call = await supply.recognize(images, locale, authenticated)
     except VisionRecognitionFailed:
-        return _vision_unavailable_outcome(gps)
+        return await _vision_unavailable_outcome(catalog, gps)
     titles = call.recognition.candidate_titles
     if titles:
         outcome = await _layer_one(catalog, titles, gps)

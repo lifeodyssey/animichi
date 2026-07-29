@@ -119,6 +119,23 @@ async def test_vision_provider_failure_uses_a_distinct_telemetry_signal() -> Non
     assert outcome.signals.gps_available is True
 
 
+async def test_vision_provider_failure_still_runs_layer_two_nearby_fallback() -> None:
+    """#502 P1-2 review round 2: layer 2 (`catalog.nearby`) doesn't depend on
+    vision at all (AC6) — an authenticated, located user must still see
+    nearby works during a vision outage, not a blank slate. Only the
+    telemetry signal changes; the degrade path itself must stay intact."""
+    catalog = FakeCatalog()
+    supply = VisionSupply(
+        platform=_DownVisionProvider(), registry=VisionCapabilityRegistry()
+    )
+    outcome = await run_photo_search(supply, catalog, [_IMAGE], _GPS, "ja", False)
+    assert isinstance(outcome.response.data, PhotoClarifyData)
+    titles = [candidate.title for candidate in outcome.response.data.candidates]
+    assert titles == [NEARBY_TITLE]
+    assert outcome.signals.layer_hit == "2"
+    assert catalog.nearby_calls == [(35.2, 136.2, 2000)]
+
+
 async def test_catalog_outage_degrades_instead_of_raising() -> None:
     outcome = await run_photo_search(
         _supply([YOURNAME_TITLE]), DownCatalog(), [_IMAGE], _GPS, "ja", False

@@ -187,3 +187,18 @@ async def test_confirm_records_user_confirmed_signal(
     attributes = counter.add.call_args.args[1]
     assert attributes["user_confirmed"] is True
     assert attributes["candidates_shown"] == 2
+
+
+async def test_confirm_rejects_the_vision_unavailable_alert_signal() -> None:
+    """#502 review round 2: the anonymous-reachable confirm endpoint must not
+    be able to inject events into the "vision unavailable" ops-alert bucket
+    — that value is server-derived only, never a real confirm outcome."""
+    body = {
+        "query_type": "vision_unavailable",
+        "gps_available": False,
+        "layer_hit": "none",
+        "candidates_shown": 0,
+    }
+    async with async_client(_app()) as client:
+        response = await client.post("/v1/photo-search/confirm", json=body)
+    assert response.status_code == 422

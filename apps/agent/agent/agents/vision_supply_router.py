@@ -40,7 +40,19 @@ _AUTH_FAILURE_STATUSES = frozenset({401, 403})
 
 
 def _is_auth_failure(exc: Exception) -> bool:
-    """An auth-shaped failure (401/403) means a bad key, not a hiccup."""
+    """An auth-shaped failure (401/403) means a bad key, not a hiccup.
+
+    Bound to httpx today even though ``VisionProvider`` is a Protocol — the
+    only concrete providers are httpx-based (#502 review round 2). When
+    #284 lands a non-HTTP provider, this should become a signal the
+    provider itself can express (e.g. raising a typed auth-failure
+    exception) rather than router-side status-code sniffing.
+
+    Known gap (accepted, not blocking): Google's API family returns 400
+    ``API_KEY_INVALID`` for a bad key, not 401 — that case is NOT
+    demoted here. Fails toward safety (an endpoint that should be demoted
+    stays live a little longer) rather than toward over-demotion.
+    """
     return (
         isinstance(exc, httpx.HTTPStatusError)
         and exc.response.status_code in _AUTH_FAILURE_STATUSES
