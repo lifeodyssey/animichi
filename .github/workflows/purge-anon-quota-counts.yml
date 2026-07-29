@@ -23,10 +23,16 @@ concurrency:
   group: purge-anon-quota-counts
   cancel-in-progress: false
 
+env:
+  PYTHON_VERSION: "3.11"
+
 jobs:
   purge:
     name: Purge stale per-identity quota counters
     runs-on: ubuntu-latest
+    # This job holds a real secret (SUPABASE_DB_URL) — bound generously in
+    # case of a hung connection pool, mirroring the anonymous-session precedent.
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: apps/agent
@@ -38,9 +44,23 @@ jobs:
         with:
           python: "true"
 
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - run: uv sync --frozen --all-extras
+
       - name: Purge rows past the retention window
+        # The script writes "anon-quota-count purge: eligible|removed=N" to
+        # $GITHUB_STEP_SUMMARY (agent.scripts.purge_anon_quota_counts._write_step_summary)
+        # — GitHub Actions sets that path for every step automatically.
         run: |
           uv run --frozen python -m agent.scripts.purge_anon_quota_counts \
             ${{ inputs.dry_run == true && '--dry-run' || '' }}
         env:
-          SUPABASE_DB_URL: ${{ secrets.NEON_DATABASE_URL }}
+          # `anon_daily_message_count` (like `sessions`/`conversations`) is
+          # read through the app's single shared connection pool
+          # (`SupabaseClient`, wired from `settings.supabase_db_url`) — the
+          # exact same DSN the anonymous-session purge uses. Previously this
+          # read `secrets.NEON_DATABASE_URL` instead, a different secret than
+          # the one the live app and its Atlas-migrated schema actually use
+          # (issue #508 review round 2).
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}

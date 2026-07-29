@@ -14,10 +14,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import sys
+import os
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
-from agent.config.settings import get_db_only_settings
+from agent.config.cron_settings import get_purge_cron_settings
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.utils.logger import get_logger
 
@@ -45,20 +46,30 @@ async def purge_anon_quota_counts(
     return removed
 
 
+def _write_step_summary(*, count: int, dry_run: bool) -> None:
+    """Best-effort: record the row count where the workflow's job summary
+    can show it, if running under GitHub Actions."""
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    label = "eligible" if dry_run else "removed"
+    Path(summary_path).open("a", encoding="utf-8").write(
+        f"anon-quota-count purge: {label}={count}\n"
+    )
+
+
 async def _main(dry_run: bool) -> None:
-    # This cron only touches the database (issue #508) — it must not fail
-    # constructing Settings on an unrelated model credential (MIMO_API_KEY).
-    settings = get_db_only_settings()
-    dsn = settings.supabase_db_url
-    if not dsn:
-        logger.error("SUPABASE_DB_URL is not set")
-        sys.exit(1)
-    async with SupabaseClient(dsn) as db:
-        await purge_anon_quota_counts(
+    # DB-only cron (issue #508): this is `PurgeCronSettings`, not the main
+    # service's `Settings` — it never resolves a model credential, and its
+    # own validator already guarantees `supabase_db_url` is non-empty here.
+    settings = get_purge_cron_settings()
+    async with SupabaseClient(settings.supabase_db_url) as db:
+        count = await purge_anon_quota_counts(
             db,
             retention_days=settings.anon_daily_message_count_retention_days,
             dry_run=dry_run,
         )
+    _write_step_summary(count=count, dry_run=dry_run)
 
 
 def _parse_args() -> argparse.Namespace:
