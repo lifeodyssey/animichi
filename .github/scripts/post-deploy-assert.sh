@@ -14,28 +14,105 @@ fail() {
   exit 1
 }
 
+# Seconds multiplied by attempt number for retry backoff (attempt * base), so
+# the total possible wait across the 4 retries in `fetch` is base*(1+2+3+4) =
+# 10*base. Overridable via env ONLY so tests can shrink real wall-clock sleeps
+# to a couple of seconds instead of the real ~50s budget — this is the one
+# place in this script that is allowed to depend on wall-clock time at all,
+# and per this repo's "mock the clock" test-quality rule
+# (AGENTS.md#cross-stack-guardrails) the actual test assertions must NOT
+# depend on how long that sleep took, only on how many requests were made.
+# Validated as a positive integer with a safe fallback so a blank/garbage/zero
+# env value can never silently turn into "no backoff at all" in a real
+# deploy — the default (5) applies whenever the override is unset, empty, or
+# not a positive integer.
+RETRY_BACKOFF_BASE_SECONDS="${POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS:-5}"
+case "${RETRY_BACKOFF_BASE_SECONDS}" in
+  '' | *[!0-9]* | 0)
+    if [ -n "${POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS:-}" ]; then
+      echo "::warning::POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS='${POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS}' is not a positive integer — falling back to the default (5)." >&2
+    fi
+    RETRY_BACKOFF_BASE_SECONDS=5
+    ;;
+esac
+
+# #522: a brand-new workers.dev hostname's first request(s) can come back as
+# a 404 that is actually CLOUDFLARE's OWN edge response, not the deployed
+# app's (observed body: `error code: 1042`) — indistinguishable from a REAL
+# 404 (this app's own branded 404 page, or a genuinely broken route) by
+# status code alone.
+#
+# The observed timeline (CI got 404 at deploy time, a human got a real 200
+# probing the same URL ~2 minutes later) is CONSISTENT with a DNS/edge-
+# propagation window on a first-ever deploy to this hostname, and 1042 is
+# documented by Cloudflare as belonging to the "Worker script errors" family
+# rather than the 5xx origin-unreachable family — but propagation is a
+# HYPOTHESIS, not a confirmed root cause. The alternative worth ruling out is
+# that 1042 came from something apps/web's own SSR did (e.g. a same-zone
+# self-fetch during error handling — 1042 is Cloudflare's code for exactly
+# that pattern), which would make this retry paper over a real intermittent
+# bug instead of a one-time propagation delay. Next time this fires in CI,
+# capture the full response headers (`curl -sSD -`), specifically `cf-ray`
+# and `server`, before concluding again that it's "just" propagation.
+#
+# Do not grep the body for the literal string "error code: 1042" to detect
+# this: that plaintext shape is undocumented, varies by the client's `Accept`
+# header, and is specific to today's error code — a different edge-error
+# family on a future first-deploy would silently bypass a hardcoded match.
+# Instead, every request in this script asks for `Accept: application/json`
+# (see the `fetch` args below). Cloudflare's documented error-response
+# contract (https://developers.cloudflare.com/fundamentals/reference/error-responses/)
+# renders ANY edge/network error it generates itself — 1xxx client/DNS-side,
+# 5xx origin-side alike — as an RFC-9457-shaped JSON body carrying a
+# top-level `"cloudflare_error": true` field when JSON is requested; an
+# origin/application response (this app's real JSON error envelopes, or its
+# branded HTML 404 — apps/web does not content-negotiate on `Accept`, so it
+# renders the same HTML regardless) never emits that field. Checking
+# BODY_FILE from THIS SAME request — not firing a second, separate request —
+# matters: two requests to a workers.dev hostname mid-propagation can land on
+# two different edge PoPs (one still stale, one already updated), so a
+# second request's verdict would not actually describe the first request's
+# response.
+is_cloudflare_edge_error() {
+  grep -q '"cloudflare_error"[[:space:]]*:[[:space:]]*true' "${BODY_FILE}"
+}
+
 # Issues a request and prints only the HTTP status code; the body lands in
 # BODY_FILE for the caller to inspect. Bounded retry/backoff on TRANSPORT
-# failures and Cloudflare edge errors (521-524 — "origin unreachable", the
-# shape of a workers.dev DNS-propagation window or a cold container start)
-# only. Never retries on an ordinary application status (200/401/403/404/…):
-# those are real, final answers from a live app, not a "not ready yet" signal,
-# and several callers below assert on non-2xx by design.
+# failures, Cloudflare edge errors (521-524 — "origin unreachable", the
+# shape of a workers.dev DNS-propagation window or a cold container start),
+# and a 404 that `is_cloudflare_edge_error` confirms (from this same
+# response's body) is Cloudflare's own edge output rather than the
+# application's. Never retries any OTHER ordinary application status
+# (200/401/403/a real 404/…): those are real, final answers from a live app,
+# not a "not ready yet" signal, and several callers below assert on non-2xx
+# by design — a 404 that is NOT confirmed as Cloudflare's own is one of those
+# real, final answers too (it is exactly what a genuinely broken route, or
+# this app's own branded 404 page, returns).
 fetch() {
   local method="$1" url="$2" auth_header="${3:-}" body="${4:-}"
-  local args=(-sS -o "${BODY_FILE}" -w '%{http_code}' --connect-timeout 10 --max-time 20 -X "${method}" "${url}")
+  local args=(-sS -o "${BODY_FILE}" -w '%{http_code}' --connect-timeout 10 --max-time 20 -X "${method}" "${url}" -H 'Accept: application/json')
   [ -n "${auth_header}" ] && args+=(-H "Authorization: ${auth_header}")
   [ -n "${body}" ] && args+=(-H "Content-Type: application/json" -d "${body}")
-  local attempt status rc
+  local attempt status rc retry_reason
   for attempt in 1 2 3 4 5; do
     status="$(curl "${args[@]}")" && rc=0 || rc=$?
+    retry_reason=""
     case "${rc}.${status}" in
-      0.521 | 0.522 | 0.523 | 0.524 | [1-9]*.*) : ;; # transport failure or CF edge-origin error — retry
+      0.521 | 0.522 | 0.523 | 0.524) retry_reason="Cloudflare edge-origin error ${status}" ;;
+      [1-9]*.*) retry_reason="transport failure rc=${rc}" ;;
+      0.404)
+        if is_cloudflare_edge_error; then
+          retry_reason="Cloudflare edge 404 (cloudflare_error:true body)"
+        else
+          echo "${status}"; return 0 # a real application 404 — final, do not retry
+        fi
+        ;;
       *) echo "${status}"; return 0 ;;
     esac
     if [ "${attempt}" -eq 5 ]; then break; fi
-    echo "attempt ${attempt}/5: transport rc=${rc} status=${status:-n/a} for ${method} ${url} — retrying (workers.dev DNS propagation / container cold start window)" >&2
-    sleep $((attempt * 5))
+    echo "attempt ${attempt}/5: ${retry_reason} (status=${status:-n/a}) for ${method} ${url} — retrying (workers.dev DNS propagation / container cold start window)" >&2
+    sleep $((attempt * RETRY_BACKOFF_BASE_SECONDS))
   done
   echo "${status:-000}"
 }

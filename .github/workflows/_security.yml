@@ -139,3 +139,24 @@ jobs:
       # .sqlfluff config lives at repo root; lint the schema dirs we own.
       - name: Lint migrations (postgres dialect)
         run: uv run sqlfluff lint ../../db/migrations ../../supabase/neon --dialect postgres
+
+  # ── Deploy-gate script tests ─────────────────────────────────
+
+  post-deploy-assert-test:
+    name: post-deploy-assert.sh (shellcheck + behavior)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: shellcheck
+        run: shellcheck .github/scripts/post-deploy-assert.sh .github/scripts/post-deploy-assert.test.sh
+        shell: bash
+      # #522: this is the gate that decides whether a real 404 (app broken,
+      # or the branded 404 page) fails a deploy immediately versus a
+      # Cloudflare edge 404 (propagation window) gets retried — behavior, not
+      # syntax, is the risk here. Drives the real script against a throwaway
+      # local mock server; no bats/JS test runner in this repo to hook into.
+      - name: post-deploy-assert.sh behavioral tests
+        run: bash .github/scripts/post-deploy-assert.test.sh
+        shell: bash

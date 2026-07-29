@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+# Behavioral tests for post-deploy-assert.sh's #522 fix: a real application
+# 404 must fail immediately, and a Cloudflare-edge 404 (cloudflare_error:true
+# body) must retry until it resolves. No mocking framework in this repo
+# (no bats, no JS test runner wired to shell scripts) — this drives the real
+# script against a throwaway Python mock server, the same way this fix was
+# verified by hand during review of #522/#523.
+#
+# Per this repo's "mock the clock" test-quality rule
+# (AGENTS.md#cross-stack-guardrails), assertions here are on the OBSERVABLE
+# BEHAVIOR that the retry logic is actually responsible for — how many
+# requests were made, and the final exit code — never on how long it took. A
+# shared CI runner's wall clock is not reliable enough to assert a duration
+# window against without intermittent flakes (this is exactly what an
+# earlier version of this file did, and it flaked in CI while passing
+# locally). `POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS` is set to a tiny
+# value purely so the retrying test cases don't spend real wall-clock minutes
+# sleeping — the assertions below do not depend on that value at all, only
+# on request counts, so an even smaller or larger override would not change
+# what these tests check.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ASSERT_SH="${SCRIPT_DIR}/post-deploy-assert.sh"
+
+CF_JSON_BODY='{"error_code":1042,"error_name":"config_error","status":404,"detail":"nope","cloudflare_error": true}'
+BRANDED_404_BODY='<!doctype html><html lang="ja"><body><main class="app-shell hero compact"><h1 id="not-found-title">404</h1><p class="tagline">Page not found</p></main></body></html>'
+LANDING_BODY='<!doctype html><html><body><main class="landing">hi</main></body></html>'
+
+fail_test() {
+  echo "FAIL: $1" >&2
+  exit 1
+}
+
+# Starts a background mock server on the given port using the given Python
+# handler body (must define class Handler(BaseHTTPRequestHandler) and serve
+# it). The handler is expected to append one line to COUNTER_FILE per request
+# it serves — request COUNT, not elapsed time, is what these tests assert on.
+# Prints nothing; caller tracks the PID via $!.
+start_mock() {
+  local port="$1" counter_file="$2" handler_body="$3"
+  python3 -c "
+import http.server, sys
+COUNTER_FILE = '${counter_file}'
+def record_request():
+    with open(COUNTER_FILE, 'a') as f:
+        f.write('1\n')
+${handler_body}
+http.server.HTTPServer(('127.0.0.1', ${port}), Handler).serve_forever()
+" &
+}
+
+# A plain TCP connect check (not a real HTTP GET) — every test case's mock
+# handler counts requests via COUNTER_FILE, so readiness polling here must
+# not itself add to that count.
+wait_for_port() {
+  local port="$1" _attempt
+  for _attempt in $(seq 1 50); do
+    (exec 3<>"/dev/tcp/127.0.0.1/${port}") 2>/dev/null && exec 3>&- 3<&- && return 0
+    sleep 0.1
+  done
+  fail_test "mock server on port ${port} never came up"
+}
+
+request_count() {
+  local counter_file="$1"
+  [ -f "${counter_file}" ] && wc -l <"${counter_file}" | tr -d ' ' || echo 0
+}
+
+stop_mock() {
+  local pid="$1"
+  kill "${pid}" 2>/dev/null || true
+  wait "${pid}" 2>/dev/null || true
+}
+
+# ── Case 1: branded application 404 -> fails immediately, exactly 1 request ─
+test_branded_404_fails_fast() {
+  local port=18801 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        self.send_response(404)
+        self.send_header('Content-Type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b'''${BRANDED_404_BODY}''')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  WEB_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" web-landing >/tmp/branded404.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -ne 0 ] || fail_test "branded 404 should have failed the gate, got exit 0"
+  [ "${requests}" -eq 1 ] || fail_test "branded 404 made ${requests} request(s) — should fail on the FIRST one, no retry"
+  grep -q "expected 200, got 404" /tmp/branded404.out || fail_test "missing expected diagnostic in output"
+  echo "PASS: branded application 404 fails immediately (${requests} request, exit ${rc})"
+}
+
+# ── Case 2: Cloudflare edge 404, never recovers -> all 5 attempts, then fails
+test_cf_edge_404_retries_then_fails() {
+  local port=18802 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        self.send_response(404)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'''${CF_JSON_BODY}''')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  WEB_URL="http://127.0.0.1:${port}" POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS=1 \
+    bash "${ASSERT_SH}" web-landing >/tmp/cfedge404.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -ne 0 ] || fail_test "a permanently-erroring CF edge should still fail the gate eventually, got exit 0"
+  [ "${requests}" -eq 5 ] || fail_test "expected exactly 5 requests (the full retry budget), got ${requests}"
+  [ "$(grep -c "Cloudflare edge 404" /tmp/cfedge404.out)" -eq 4 ] || fail_test "expected exactly 4 retry log lines (attempts 1-4 of 5), got: $(grep -c "Cloudflare edge 404" /tmp/cfedge404.out)"
+  echo "PASS: Cloudflare edge 404 retries all attempts before failing (${requests} requests, exit ${rc})"
+}
+
+# ── Case 3: Cloudflare edge 404 twice, then the real 200 -> recovers on the
+#    3rd request ────────────────────────────────────────────────────────────
+test_cf_edge_404_then_recovers() {
+  local port=18803 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+served = {'n': 0}
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        served['n'] += 1
+        if served['n'] <= 2:
+            self.send_response(404)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'''${CF_JSON_BODY}''')
+        else:
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html')
+            self.end_headers()
+            self.wfile.write(b'''${LANDING_BODY}''')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  WEB_URL="http://127.0.0.1:${port}" POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS=1 \
+    bash "${ASSERT_SH}" web-landing >/tmp/cfrecover.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -eq 0 ] || fail_test "should have recovered and passed, got exit ${rc}: $(cat /tmp/cfrecover.out)"
+  [ "${requests}" -eq 3 ] || fail_test "expected exactly 3 requests (2 CF edge 404s + the recovering 200), got ${requests}"
+  echo "PASS: recovers after 2 Cloudflare edge 404s once the real 200 lands (${requests} requests, exit ${rc})"
+}
+
+test_branded_404_fails_fast
+test_cf_edge_404_retries_then_fails
+test_cf_edge_404_then_recovers
+
+echo "All post-deploy-assert.sh #522 behavioral tests passed."
