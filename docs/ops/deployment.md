@@ -273,6 +273,13 @@ WAF rollback:
 - default session storage is in-memory unless a distributed backend is introduced later
 - OpenTelemetry exporters are opt-in and disabled by default
 - AI Gateway is documented but not yet wired in backend provider configuration
+- **CURRENTLY BROKEN — do not rely on this**: `/healthz`'s `git_branch`/`git_commit` fields are
+  always `"unknown"` in every deployed environment. `Dockerfile` never `COPY`s `.git` into the
+  image, so the `git rev-parse`/`git branch --show-current` calls in
+  `apps/agent/agent/interfaces/routes/health.py` fail every time. "Verify `/healthz` `git_branch`
+  after a deploy" (referenced in `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md:215`
+  and `docs/superpowers/specs/2026-07-28-284-byok-design.md:1080`) cannot confirm anything today —
+  tracked in issue #494.
 
 ## HISTORICAL (pre-2026-07): feat/ssr-cloudflare Post-deploy Notes
 
