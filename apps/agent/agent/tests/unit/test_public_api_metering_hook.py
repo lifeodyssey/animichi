@@ -82,6 +82,25 @@ async def test_a_logged_in_turn_is_banked_against_the_user_pool() -> None:
     assert db.usage.accumulate_usage.await_args.kwargs["scope"] == "user"
 
 
+async def test_a_byok_turn_is_banked_at_zero_cost_but_full_token_counts() -> None:
+    """#284 T3: we did not pay the provider for a BYOK turn — `cost_usd` is
+    always zero, but token counts are still recorded for observability."""
+    db = _db()
+    stub = make_run_agent_stub(_metered_result())
+    with patch("agent.interfaces.public_api.run_animichi_agent", side_effect=stub):
+        await _api(db).handle(
+            PublicAPIRequest(text="京吹の聖地"),
+            is_byok=True,
+            user_id="user-1",
+            user_type="human",
+        )
+    kwargs = db.usage.accumulate_usage.await_args.kwargs
+    assert kwargs["scope"] == "byok"
+    assert kwargs["cost_usd"] == 0.0
+    assert kwargs["input_tokens"] == 1_000_000
+    assert kwargs["output_tokens"] == 500_000
+
+
 async def test_a_turn_that_raises_after_the_agent_ran_is_still_metered() -> None:
     """Persistence blew up, but the model was already paid for."""
     db = _db()

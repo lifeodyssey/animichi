@@ -187,6 +187,7 @@ def make_fake_agent(
         message_history: object | None = None,
         on_step: object | None = None,
         catalog: object | None = None,
+        title_translator: object | None = None,
         memory_store: object | None = None,
         user_id: str | None = None,
     ) -> AgentResult:
@@ -198,6 +199,7 @@ def make_fake_agent(
             message_history,
             on_step,
             catalog,
+            title_translator,
             memory_store,
             user_id,
         )
@@ -240,6 +242,7 @@ def make_run_agent_stub(
         message_history: object | None = None,
         on_step: object | None = None,
         catalog: object | None = None,
+        title_translator: object | None = None,
         memory_store: object | None = None,
         user_id: str | None = None,
     ) -> AgentResult:
@@ -252,6 +255,7 @@ def make_run_agent_stub(
             "message_history": message_history,
             "on_step": on_step,
             "catalog": catalog,
+            "title_translator": title_translator,
             "memory_store": memory_store,
             "user_id": user_id,
         }
