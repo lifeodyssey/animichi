@@ -12,6 +12,8 @@ place", without depending on either provider's exact wire format.
 
 from __future__ import annotations
 
+import socket
+
 import httpx
 import pytest
 from pydantic_ai import Agent
@@ -23,6 +25,28 @@ from agent.agents.byok_models import ByokCredential, ByokProvider, build_byok_mo
 from agent.infrastructure.egress_transport import GuardedAsyncTransport
 
 pytestmark = pytest.mark.integration
+
+_STUB_PUBLIC_IP = "8.8.8.8"
+
+
+@pytest.fixture(autouse=True)
+def _stub_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Hermetic DNS (P2①): the `openai-compatible` family's pre-flight
+    `validate_base_url` call does a real resolution. Mirrors Task 1's own
+    pattern (`test_egress_dns_resolution.py`) of patching `socket.getaddrinfo`
+    directly — `default_resolve`'s `resolver` parameter is bound at
+    function-definition time, so reassigning the `egress_guard` module
+    attribute would have no effect on an already-bound default.
+    """
+
+    def _fake_getaddrinfo(
+        host: str, port: int, *_args: object, **_kwargs: object
+    ) -> list[tuple[object, ...]]:
+        del host
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (_STUB_PUBLIC_IP, port))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", _fake_getaddrinfo)
+
 
 _CHAT_COMPLETION = b"""{
   "id": "chatcmpl-byok",
@@ -104,6 +128,13 @@ async def test_anthropic_routes_to_the_anthropic_adapter() -> None:
         await byok_model.client.aclose()
 
 
+def _google_api_key(model: GoogleModel) -> str:
+    """The genai SDK's actual credential — not just proof a string was
+    passed somewhere, but the exact value the wire request will carry
+    (`_api_client.api_key` backs the `x-goog-api-key` request header)."""
+    return str(model.provider.client._api_client.api_key)
+
+
 async def test_gemini_routes_to_the_google_adapter() -> None:
     """T3-AC2: the gemini family builds a `GoogleModel` carrying the user's
     key, never the server's."""
@@ -113,6 +144,25 @@ async def test_gemini_routes_to_the_google_adapter() -> None:
     byok_model = await build_byok_model(credential)
     try:
         assert isinstance(byok_model.model, GoogleModel)
+        assert _google_api_key(byok_model.model) == "gemini-user-fake"
+    finally:
+        await byok_model.client.aclose()
+
+
+async def test_gemini_never_falls_back_to_a_server_side_env_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P1-2: `GoogleProvider` falls back to `os.getenv("GOOGLE_API_KEY")`
+    only when the `api_key` it receives is falsy. With a real server-side
+    env credential present, the BYOK turn must still carry the caller's own
+    key — never silently substitute the environment's."""
+    monkeypatch.setenv("GOOGLE_API_KEY", "server-side-env-key-should-never-be-used")
+    credential = ByokCredential(
+        provider="gemini", key="gemini-user-fake", model="gemini-test"
+    )
+    byok_model = await build_byok_model(credential)
+    try:
+        assert _google_api_key(byok_model.model) == "gemini-user-fake"
     finally:
         await byok_model.client.aclose()
 

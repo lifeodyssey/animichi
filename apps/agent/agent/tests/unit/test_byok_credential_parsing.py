@@ -152,3 +152,43 @@ def test_openai_compatible_blank_model_rejected() -> None:
             base_url_header=None,
         )
     assert excinfo.value.code == "invalid_request"
+
+
+def test_openai_compatible_missing_base_url_rejected() -> None:
+    """P1-3/Fable P2-1: a dedicated parse-layer message — without this, a
+    missing base_url reached `validate_base_url(None)` at model-build time
+    and failed with the generic egress-validation message instead."""
+    with pytest.raises(ByokError) as excinfo:
+        parse_byok_credential(
+            provider_header="openai-compatible",
+            key_header=b"sk-fake",
+            model_header="gpt-test",
+            base_url_header=None,
+        )
+    assert excinfo.value.code == "invalid_request"
+    assert "base-url" in excinfo.value.message.lower()
+
+
+def test_orphan_model_header_without_provider_or_key_is_rejected() -> None:
+    """P3 (both review seats): an `X-BYOK-Model` with neither provider nor
+    key is far more likely a caller mistake than a no-op — reject it rather
+    than silently falling back to the default model."""
+    with pytest.raises(ByokError) as excinfo:
+        parse_byok_credential(
+            provider_header=None,
+            key_header=None,
+            model_header="gpt-test",
+            base_url_header=None,
+        )
+    assert excinfo.value.code == "invalid_request"
+
+
+def test_orphan_base_url_header_without_provider_or_key_is_rejected() -> None:
+    with pytest.raises(ByokError) as excinfo:
+        parse_byok_credential(
+            provider_header=None,
+            key_header=None,
+            model_header=None,
+            base_url_header=b"https://example.test",
+        )
+    assert excinfo.value.code == "invalid_request"

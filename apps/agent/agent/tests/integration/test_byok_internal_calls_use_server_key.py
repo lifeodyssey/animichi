@@ -41,7 +41,7 @@ async def test_byok_turn_injects_a_server_locked_title_translator() -> None:
         "agent.interfaces.public_api.run_animichi_agent", new=AsyncMock()
     ) as run_mock:
         await api._model_request(
-            _request(), None, [], cast(Model, object()), None, None, True
+            _request(), None, [], cast(Model, object()), None, None, is_byok=True
         )
     assert run_mock.await_args.kwargs["title_translator"] is not None
 
@@ -53,7 +53,7 @@ async def test_non_byok_turn_leaves_title_translator_untouched() -> None:
         "agent.interfaces.public_api.run_animichi_agent", new=AsyncMock()
     ) as run_mock:
         await api._model_request(
-            _request(), None, [], cast(Model, object()), None, None, False
+            _request(), None, [], cast(Model, object()), None, None, is_byok=False
         )
     assert run_mock.await_args.kwargs["title_translator"] is None
 
@@ -92,7 +92,14 @@ async def test_byok_turn_forces_the_translation_gate_off_the_run_model() -> None
             ),
         ):
             await api._execute_pipeline(
-                _request(), None, [], cast(Model, object()), None, object(), None, True
+                _request(),
+                None,
+                [],
+                cast(Model, object()),
+                None,
+                object(),
+                None,
+                is_byok=True,
             )
     assert gate_mock.await_args.kwargs["model"] is None
 

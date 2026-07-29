@@ -47,7 +47,7 @@ async def test_byok_credential_rejection_maps_to_the_typed_code() -> None:
         new=AsyncMock(side_effect=ModelHTTPError(401, "byok-model")),
     ):
         _result, response, _delta = await api._execute_pipeline(
-            request, None, [], object(), None, object(), None, True
+            request, None, [], object(), None, object(), None, is_byok=True
         )
     try:
         assert response.errors[0].code == "byok_credential_rejected"
@@ -69,7 +69,7 @@ async def test_byok_credential_rejection_never_leaks_the_key_or_base_url() -> No
         new=AsyncMock(side_effect=ModelHTTPError(403, "byok-model", body=leaking_body)),
     ):
         _result, response, _delta = await api._execute_pipeline(
-            request, None, [], object(), None, object(), None, True
+            request, None, [], object(), None, object(), None, is_byok=True
         )
     try:
         body_repr = repr(response.model_dump(mode="json"))
@@ -98,7 +98,7 @@ async def test_byok_turn_never_falls_back_to_the_server_default_model() -> None:
         ),
     ):
         await api._execute_pipeline(
-            request, None, [], byok_model, None, object(), None, True
+            request, None, [], byok_model, None, object(), None, is_byok=True
         )
     await client.aclose()
 
@@ -115,7 +115,7 @@ async def test_non_byok_model_rejection_still_uses_the_generic_taxonomy() -> Non
         new=AsyncMock(side_effect=ModelHTTPError(401, "server-model")),
     ):
         _result, response, _delta = await api._execute_pipeline(
-            request, None, [], object(), None, object(), None, False
+            request, None, [], object(), None, object(), None, is_byok=False
         )
     try:
         assert response.errors[0].code != "byok_credential_rejected"

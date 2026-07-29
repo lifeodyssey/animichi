@@ -15,7 +15,7 @@ itself, since the client must stay open for the whole agent run.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final, Literal, cast
 
 import httpx
@@ -41,6 +41,7 @@ ByokProvider = Literal["openai-compatible", "anthropic", "gemini"]
 BYOK_PROVIDERS: Final[frozenset[str]] = frozenset(
     {"openai-compatible", "anthropic", "gemini"}
 )
+ByokErrorCode = Literal["invalid_request", "byok_credential_rejected"]
 
 
 class ByokError(Exception):
@@ -50,7 +51,7 @@ class ByokError(Exception):
     surface to the caller (never embeds the submitted key or `base_url`).
     """
 
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(self, code: ByokErrorCode, message: str) -> None:
         self.code = code
         self.message = message
         super().__init__(message)
@@ -58,12 +59,20 @@ class ByokError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class ByokCredential:
-    """In-memory-only BYOK credential. Never persisted, never cached."""
+    """In-memory-only BYOK credential. Never persisted, never cached.
+
+    `key`/`base_url` are excluded from `repr()` (P1-1 defense-in-depth): this
+    object is never placed in a FastAPI dependency-injected parameter (which
+    `logfire.instrument_fastapi()` would otherwise capture verbatim into
+    `fastapi.arguments.values`), but a masked repr means any other accidental
+    `repr()`/log call on this object — a debugger, a future `logger.info`,
+    an exception's local-variable dump — still can't leak the plaintext.
+    """
 
     provider: ByokProvider
-    key: str
+    key: str = field(repr=False)
     model: str
-    base_url: str | None = None
+    base_url: str | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,15 +103,23 @@ def _require_key(raw: bytes | None) -> str:
 
 
 def _require_base_url(raw: bytes | None, provider: ByokProvider) -> str | None:
-    if raw is None:
-        return None
-    text = _decode(raw)
-    if not text:
-        return None
+    text = _decode(raw) if raw is not None else ""
     if provider != "openai-compatible":
+        if text:
+            raise ByokError(
+                "invalid_request",
+                "X-BYOK-Base-Url is only valid for the openai-compatible family.",
+            )
+        return None
+    if not text:
+        # Dedicated parse-layer message (P1-3, Fable P2-1): without this, a
+        # missing base_url reached `validate_base_url(None)` at model-build
+        # time and failed with the generic egress-validation message —
+        # technically correct but confusing, since the real problem is
+        # "missing", not "SSRF-blocked".
         raise ByokError(
             "invalid_request",
-            "X-BYOK-Base-Url is only valid for the openai-compatible family.",
+            "X-BYOK-Base-Url is required for the openai-compatible family.",
         )
     if not text.lower().startswith("https://"):
         raise ByokError("invalid_request", "X-BYOK-Base-Url must be https.")
@@ -127,6 +144,18 @@ def _require_model(value: str | None, provider: ByokProvider) -> str:
     return model or _default_model_for(provider)
 
 
+def has_byok_signal(*, provider_header: str | None, key_header: bytes | None) -> bool:
+    """True if the request carries any BYOK signal at all.
+
+    Shared by `parse_byok_credential` (the `None` early-out) and the route
+    layer's login-gate check (P3), which must answer this question *before*
+    running full header-shape validation — otherwise a malformed BYOK header
+    from an anonymous caller would surface as `invalid_request` (400) instead
+    of `byok_requires_login` (403), the wrong rejection for the situation.
+    """
+    return provider_header is not None or key_header is not None
+
+
 def parse_byok_credential(
     *,
     provider_header: str | None,
@@ -138,8 +167,16 @@ def parse_byok_credential(
 
     `None` (no BYOK headers at all) is a distinct outcome from every rejection
     below: a plain request must resolve to `get_default_model()` unchanged.
+    An orphaned `X-BYOK-Model`/`X-BYOK-Base-Url` with neither provider nor key
+    (P3) is rejected rather than silently ignored — it is far more likely a
+    caller forgot the other two headers than that it means nothing.
     """
-    if provider_header is None and key_header is None:
+    if not has_byok_signal(provider_header=provider_header, key_header=key_header):
+        if model_header is not None or base_url_header is not None:
+            raise ByokError(
+                "invalid_request",
+                "X-BYOK-Model/X-BYOK-Base-Url require X-BYOK-Provider and X-BYOK-Key.",
+            )
         return None
     provider = _require_known_provider(provider_header)
     key = _require_key(key_header)
@@ -182,10 +219,27 @@ def _build_anthropic(credential: ByokCredential) -> ByokModel:
 
 
 def _build_gemini(credential: ByokCredential) -> ByokModel:
+    # `GoogleProvider.__init__` falls back to `os.getenv("GOOGLE_API_KEY")`
+    # only when the `api_key` it receives is falsy (P1-2) — `_require_nonblank_key`
+    # below is the structural guarantee that never happens here, so this call
+    # always uses `credential.key`, never a server-side env credential.
+    # Retry behaviour is left at the `google-genai` SDK default (unlike the
+    # openai-compatible family's explicit `max_retries=0`, T3-AC2 names only
+    # `AsyncOpenAI`) — pinned here as a deliberate choice, not an oversight.
     client = build_guarded_async_client()
     provider = GoogleProvider(api_key=credential.key, http_client=client)
     model: Model = GoogleModel(credential.model, provider=provider)
     return ByokModel(model=model, client=client)
+
+
+def _require_nonblank_key(credential: ByokCredential) -> None:
+    """Belt-and-suspenders (P1-2): `parse_byok_credential` already guarantees
+    a non-blank key, but `ByokCredential` can in principle be constructed
+    directly. A blank key reaching `GoogleProvider`/`AnthropicProvider` would
+    silently fall back to a server-side environment credential instead of
+    failing loudly — exactly the silent fallback this spec forbids."""
+    if not credential.key:
+        raise ByokError("invalid_request", "BYOK credential key must not be blank.")
 
 
 async def build_byok_model(credential: ByokCredential) -> ByokModel:
@@ -195,6 +249,7 @@ async def build_byok_model(credential: ByokCredential) -> ByokModel:
     guard, Task 2's httpx-instrumentation exclusion) — there is no second,
     unguarded way to build a BYOK-bound `httpx.AsyncClient` in this module.
     """
+    _require_nonblank_key(credential)
     if credential.provider == "openai-compatible":
         return await _build_openai_compatible(credential)
     if credential.provider == "anthropic":

@@ -263,7 +263,7 @@ class RuntimeAPI:
                     on_step,
                     span,
                     user_id,
-                    is_byok,
+                    is_byok=is_byok,
                 )
 
                 if session_id is None:
@@ -317,7 +317,7 @@ class RuntimeAPI:
                     transport="public_api",
                 )
 
-                await self._record_usage(result, user_id, user_type, is_byok)
+                await self._record_usage(result, user_id, user_type, is_byok=is_byok)
                 await self._log_request(
                     session_id=session_id,
                     request=request,
@@ -340,6 +340,7 @@ class RuntimeAPI:
         result: AgentResult | None,
         user_id: str | None,
         user_type: str | None,
+        *,
         is_byok: bool = False,
     ) -> None:
         """SD-18 metering hook: bank this turn's RunUsage into ``daily_usage``.
@@ -399,6 +400,7 @@ class RuntimeAPI:
         on_step: OnStep | None,
         span: object,
         user_id: str | None,
+        *,
         is_byok: bool = False,
     ) -> tuple[AgentResult | None, PublicAPIResponse, dict[str, object]]:
         """Run the pipeline (or synthetic plan) and map result to response."""
@@ -411,7 +413,7 @@ class RuntimeAPI:
                 effective_model,
                 on_step,
                 user_id,
-                is_byok,
+                is_byok=is_byok,
             )
         except TimeoutError:
             _span_record_exception(span, TimeoutError("agent timed out"))
@@ -535,6 +537,7 @@ class RuntimeAPI:
         effective_model: Model | str | None,
         on_step: OnStep | None,
         user_id: str | None = None,
+        *,
         is_byok: bool = False,
     ) -> tuple[AgentResult, Model | None, bool]:
         """Dispatch exactly one of point, candidate, or model request modes."""
@@ -549,7 +552,7 @@ class RuntimeAPI:
             result = await self._candidate_selection(request, context, on_step)
             return result, None, False
         result = await self._model_request(
-            request, context, history, model, on_step, user_id, is_byok
+            request, context, history, model, on_step, user_id, is_byok=is_byok
         )
         return result, model, True
 
@@ -604,6 +607,7 @@ class RuntimeAPI:
         model: Model | None,
         on_step: OnStep | None,
         user_id: str | None,
+        *,
         is_byok: bool = False,
     ) -> AgentResult:
         return await asyncio.wait_for(

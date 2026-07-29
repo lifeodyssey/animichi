@@ -9,10 +9,10 @@ from typing import Annotated, Literal, Never, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
+from starlette.background import BackgroundTask
 from starlette.responses import Response, StreamingResponse
 
 from agent.agents.byok_models import (
-    ByokCredential,
     ByokError,
     ByokModel,
     build_byok_model,
@@ -32,6 +32,7 @@ from agent.interfaces.routes._deps import (
     _get_db_from_request,
     _get_runtime_api,
     _get_settings_from_request,
+    _has_byok_headers,
     _require_trusted_user,
 )
 from agent.interfaces.routes.chat_stream import stream_chat
@@ -237,34 +238,55 @@ BYOK_REQUIRES_LOGIN_MESSAGE = "BYOKを使うにはログインが必要です。
 
 
 def _byok_login_rejection(
-    auth: TrustedAuthContext, byok: ByokCredential | None
+    request: Request, auth: TrustedAuthContext
 ) -> JSONResponse | None:
     """Reject a BYOK credential from an anonymous caller (#284 T3/T4).
 
     BYOK is login-gated by design (never honoured, never used to skip the
     anonymous budget) — an anonymous request presenting `X-BYOK-*` headers is
     refused outright rather than silently served either way.
+
+    Ordering (P3): this is a **presence-only** check
+    (`_has_byok_headers`) evaluated *before* `_get_byok_credential`'s full
+    header-shape validation. An anonymous caller with malformed BYOK headers
+    must see `byok_requires_login` (403) — the actually-actionable rejection
+    for their situation — not `invalid_request` (400), which would leak the
+    fact that BYOK exists and *almost* worked.
     """
-    if byok is None or auth.user_type != ANONYMOUS_USER_TYPE:
+    if auth.user_type != ANONYMOUS_USER_TYPE or not _has_byok_headers(request):
         return None
     return _error_response(
         "byok_requires_login", BYOK_REQUIRES_LOGIN_MESSAGE, status_code=403
     )
 
 
-async def _resolve_byok_model(byok: ByokCredential | None) -> ByokModel | None:
-    """Build the per-request guarded model before any streaming begins.
+async def _resolve_byok_model(request: Request) -> ByokModel | None:
+    """Parse and build the per-request guarded model before streaming begins.
 
-    Any structural/SSRF rejection here (`ByokError`) is a pre-stream 400 —
-    the response has not been constructed yet, so `HTTPException` behaves
-    normally through FastAPI's own exception handling.
+    Called directly from the route body (P1-1) — never via `Depends()` — so
+    the credential is never resolved into a FastAPI endpoint parameter that
+    `logfire.instrument_fastapi()` would otherwise capture into
+    `fastapi.arguments.values`.
+
+    Any rejection here is a pre-stream 4xx: the response has not been
+    constructed yet, so a raised `HTTPException` behaves normally through
+    FastAPI's own exception handling. `ByokError` (a client-input problem)
+    maps to its own code; anything else raised during provider/client
+    construction (P2) is still the caller's malformed input from this
+    boundary's point of view, so it maps to the same `invalid_request` shape
+    rather than an unhandled 500.
     """
+    byok = _get_byok_credential(request)
     if byok is None:
         return None
     try:
         return await build_byok_model(byok)
     except ByokError as exc:
         raise HTTPException(status_code=400, detail=exc.message) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail="Unable to construct the BYOK model."
+        ) from exc
 
 
 def _chat_handler(
@@ -274,20 +296,14 @@ def _chat_handler(
     byok_model: ByokModel | None,
 ) -> Callable[[OnStep], Awaitable[PublicAPIResponse]]:
     async def handler(on_step: OnStep) -> PublicAPIResponse:
-        try:
-            return await runtime_api.handle(
-                api_request,
-                model=byok_model.model if byok_model is not None else None,
-                is_byok=byok_model is not None,
-                user_id=auth.user_id,
-                user_type=auth.user_type,
-                on_step=on_step,
-            )
-        finally:
-            # T3-AC8: closed even when the turn raises, whether the credential
-            # was rejected or the turn failed for an unrelated reason.
-            if byok_model is not None:
-                await byok_model.client.aclose()
+        return await runtime_api.handle(
+            api_request,
+            model=byok_model.model if byok_model is not None else None,
+            is_byok=byok_model is not None,
+            user_id=auth.user_id,
+            user_type=auth.user_type,
+            on_step=on_step,
+        )
 
     return handler
 
@@ -296,10 +312,9 @@ def _chat_handler(
 async def handle_chat(
     request: Request,
     auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
-    byok: Annotated[ByokCredential | None, Depends(_get_byok_credential)] = None,
 ) -> Response:
     """Stream chat as an AI SDK UI message stream with tool + data parts."""
-    login_rejection = _byok_login_rejection(auth, byok)
+    login_rejection = _byok_login_rejection(request, auth)
     if login_rejection is not None:
         return login_rejection
     rejection = await _budget_rejection(request, auth)
@@ -312,11 +327,19 @@ async def handle_chat(
     api_request = _runtime_request(request, body, settings.message_max_chars)
     runtime_api = _get_runtime_api(request)
     await runtime_api.validate_session_owner(api_request.session_id, auth.user_id)
-    byok_model = await _resolve_byok_model(byok)
+    byok_model = await _resolve_byok_model(request)
     handler = _chat_handler(runtime_api, api_request, auth, byok_model)
 
-    return StreamingResponse(
+    response = StreamingResponse(
         stream_chat(handler),
         media_type="text/event-stream",
         headers={"x-vercel-ai-ui-message-stream": "v1"},
     )
+    if byok_model is not None:
+        # T3-AC8 (P2): cleanup via `BackgroundTask` rather than a
+        # try/finally inside the streaming handler — Starlette guarantees
+        # this runs after the response completes, including on a client
+        # disconnect mid-stream, decoupled from whether the body iterator
+        # itself ever got to run to completion.
+        response.background = BackgroundTask(byok_model.client.aclose)
+    return response
