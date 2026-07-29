@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
-# Behavioral tests for post-deploy-assert.sh. There is no shell mocking
-# framework in this repo, so these drive the real script against throwaway
-# Python mock servers.
+# Behavioral tests for post-deploy-assert.sh, driven against throwaway Python
+# mock servers (this repo has no shell mocking framework).
 #
-# Per this repo's "mock the clock" rule (AGENTS.md#cross-stack-guardrails),
-# every assertion here is on OBSERVABLE BEHAVIOR — request COUNT and exit
-# code — never on elapsed time. An earlier version asserted a duration
-# window and flaked in CI while passing locally.
-# `POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS` is lowered only so the
-# retrying cases don't sleep for real minutes; no assertion depends on it.
+# Per the "mock the clock" rule (AGENTS.md), every assertion is on OBSERVABLE
+# BEHAVIOR — request COUNT and exit code — never elapsed time; an earlier
+# version asserted a duration window and flaked in CI while passing locally.
+# `POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS` only shortens the sleeps.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,11 +20,9 @@ fail_test() {
   exit 1
 }
 
-# Starts a background mock server on the given port using the given Python
-# handler body (must define class Handler(BaseHTTPRequestHandler) and serve
-# it). The handler is expected to append one line to COUNTER_FILE per request
-# it serves — request COUNT, not elapsed time, is what these tests assert on.
-# Prints nothing; caller tracks the PID via $!.
+# Starts a background mock server. `handler_body` must define
+# class Handler(BaseHTTPRequestHandler) and append one line to COUNTER_FILE
+# per request served. Prints nothing; caller tracks the PID via $!.
 start_mock() {
   local port="$1" counter_file="$2" handler_body="$3"
   python3 -c "
@@ -120,10 +115,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 }
 
 # ── Case 3: Cloudflare edge 404 twice, then the real 200 -> recovers on the
-#    3rd request. Its edge-error branch renders JSON only when JSON is
-#    requested AND listed first (Cloudflare does true q-value negotiation:
-#    at equal q, first-listed wins), so this case guards both that
-#    application/json stays in ACCEPT_HEADER and that it stays FIRST. ──────
+#    3rd request. Its edge-error branch renders JSON only when JSON is asked
+#    for FIRST (Cloudflare negotiates on q; at equal q the first-listed type
+#    wins), so this case also guards ACCEPT_HEADER's ordering. ─────────────
 test_cf_edge_404_then_recovers() {
   local port=18803 counter_file pid rc=0 requests
   counter_file="$(mktemp)"
@@ -141,7 +135,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b'''${CF_JSON_BODY}''')
             else:
-                self.send_header('Content-Type', 'text/html')
                 self.end_headers()
                 self.wfile.write(b'<html>edge error</html>')
         else:
@@ -164,9 +157,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 }
 
 # ── Case 4: an HTML-only origin (apps/web) -> the probe must ask for
-#    text/html. Mirrors the real staging failure: apps/web answers 500
-#    {"error":"Only HTML requests are supported here"} to a JSON-only Accept.
-#    Kill `ACCEPT_HEADER` in cmd_web_landing and this case goes red.
+#    text/html. Mirrors the real staging failure — a JSON-only Accept gets
+#    500 {"error":"Only HTML requests are supported here"}. ────────────────
 test_html_only_origin_is_accepted() {
   local port=18804 counter_file pid rc=0 requests
   counter_file="$(mktemp)"
