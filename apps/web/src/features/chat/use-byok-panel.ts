@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { AuthStatus } from "../../lib/auth/session";
 import type { ChatSearch } from "./search";
 
@@ -16,6 +16,10 @@ export interface ByokPanel {
 
 export function useByokPanel(search: ChatSearch, auth: AuthStatus): ByokPanel {
   const [open, setOpen] = useState(search.settings === "byok");
+  // Also honour an in-app navigation to ?settings=byok after mount.
+  useEffect(() => {
+    if (search.settings === "byok") setOpen(true);
+  }, [search.settings]);
   const toggle = useCallback(() => { setOpen((value) => !value); }, []);
   return { open, toggle, auth };
 }

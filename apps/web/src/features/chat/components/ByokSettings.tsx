@@ -145,7 +145,7 @@ function FormBody({ byok, view }: PanelProps) {
   );
 }
 
-function useSaveSubmit(view: ByokSettingsView) {
+function makeSaveSubmit(view: ByokSettingsView) {
   return (event: { preventDefault: () => void }) => {
     event.preventDefault();
     view.save();
@@ -154,7 +154,7 @@ function useSaveSubmit(view: ByokSettingsView) {
 
 function SettingsForm({ byok, view }: PanelProps) {
   return (
-    <form className="chat-byok__form" onSubmit={useSaveSubmit(view)} noValidate>
+    <form className="chat-byok__form" onSubmit={makeSaveSubmit(view)} noValidate>
       <FormBody byok={byok} view={view} />
     </form>
   );

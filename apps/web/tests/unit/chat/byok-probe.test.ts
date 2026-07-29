@@ -19,14 +19,24 @@ afterEach(() => {
 });
 
 describe("runByokProbe — spec response shape (Task 5 contract)", () => {
-  it("maps a reachable vision-capable provider to ok/vision:true", async () => {
+  it("maps a reachable vision-capable provider to a definitive ok/vision:true", async () => {
     stubProbe(200, { vision: true, reachable: true, error_code: null });
-    expect(await runByokProbe(BASE)).toEqual({ kind: "ok", vision: true });
+    expect(await runByokProbe(BASE)).toEqual({ kind: "ok", vision: true, definitive: true });
   });
 
-  it("maps a reachable provider that rejects the image part to ok/vision:false", async () => {
+  it("maps a clean image-part rejection to a definitive ok/vision:false", async () => {
     stubProbe(200, { vision: false, reachable: true, error_code: null });
-    expect(await runByokProbe(BASE)).toEqual({ kind: "ok", vision: false });
+    expect(await runByokProbe(BASE)).toEqual({ kind: "ok", vision: false, definitive: true });
+  });
+
+  it("treats vision:false with ANY error_code as non-definitive (#479 P2-1)", async () => {
+    stubProbe(200, { vision: false, reachable: true, error_code: "rate_limited" });
+    expect(await runByokProbe(BASE)).toEqual({ kind: "ok", vision: false, definitive: false });
+  });
+
+  it("tolerates a future unknown error_code on an unreachable result (no exhaustive switch)", async () => {
+    stubProbe(200, { vision: false, reachable: false, error_code: "some_future_code" });
+    expect(await runByokProbe(BASE)).toEqual({ kind: "unreachable" });
   });
 
   it("maps a rejected credential (reachable:false + typed code) to rejected", async () => {

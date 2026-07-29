@@ -33,7 +33,7 @@ afterEach(() => {
 
 describe("ByokSettings — save-and-probe (OQ-2: one request does both)", () => {
   it("fires exactly one probe on save and renders the vision badge on success", async () => {
-    const { probe } = renderPanel({ kind: "ok", vision: true });
+    const { probe } = renderPanel({ kind: "ok", vision: true, definitive: true });
     fillAndSave();
     await waitFor(() => { expect(screen.getByText(dict.byok.visionBadge)).toBeTruthy(); });
     expect(probe).toHaveBeenCalledTimes(1);
@@ -41,14 +41,14 @@ describe("ByokSettings — save-and-probe (OQ-2: one request does both)", () => 
   });
 
   it("renders no badge when the provider has no vision support", async () => {
-    renderPanel({ kind: "ok", vision: false });
+    renderPanel({ kind: "ok", vision: false, definitive: true });
     fillAndSave();
     await waitFor(() => { expect(getByokVisionSupported()).toBe(false); });
     expect(screen.queryByText(dict.byok.visionBadge)).toBeNull();
   });
 
   it("announces the in-flight check as a status line", async () => {
-    renderPanel({ kind: "ok", vision: false });
+    renderPanel({ kind: "ok", vision: false, definitive: true });
     fillAndSave();
     expect(screen.getByRole("status").textContent).toBe(dict.byok.checking);
     await waitFor(() => { expect(screen.queryByRole("status")).toBeNull(); });
@@ -80,7 +80,7 @@ describe("ByokSettings — key-not-accepted state (T6-AC6/AC7)", () => {
   });
 
   it("shows the masked summary instead of the credential", async () => {
-    renderPanel({ kind: "ok", vision: true });
+    renderPanel({ kind: "ok", vision: true, definitive: true });
     fillAndSave();
     await waitFor(() => { expect(screen.getByText(dict.byok.maskedSummary)).toBeTruthy(); });
   });
@@ -112,9 +112,19 @@ describe("ByokSettings — probe failure taxonomy copy", () => {
   });
 });
 
+describe("ByokSettings — non-definitive probe never persists vision (#479 P2-1)", () => {
+  it("keeps the stored flag in the unprobed null state and renders no badge", async () => {
+    renderPanel({ kind: "ok", vision: false, definitive: false });
+    fillAndSave();
+    await waitFor(() => { expect(screen.queryByRole("status")).toBeNull(); });
+    expect(getByokVisionSupported()).toBeNull();
+    expect(screen.queryByText(dict.byok.visionBadge)).toBeNull();
+  });
+});
+
 describe("ByokSettings — clear (T6-AC3 lockstep)", () => {
   it("drops the credential, the vision flag, and the badge together", async () => {
-    renderPanel({ kind: "ok", vision: true });
+    renderPanel({ kind: "ok", vision: true, definitive: true });
     fillAndSave();
     await waitFor(() => { expect(screen.getByText(dict.byok.visionBadge)).toBeTruthy(); });
     fireEvent.click(screen.getByRole("button", { name: dict.byok.clear }));

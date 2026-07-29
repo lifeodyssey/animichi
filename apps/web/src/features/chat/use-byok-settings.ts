@@ -94,11 +94,22 @@ interface ProbeSink {
   readonly setPhase: (phase: ByokPhase) => void;
 }
 
+/** #479 P2-1: a non-definitive probe (any `error_code` on a 200) leaves the
+ * stored vision flag in its unprobed `null` state — `vision: false` is only
+ * persisted when the provider itself cleanly refused the image part. */
+function applyOk(outcome: Extract<ByokProbeOutcome, { kind: "ok" }>, sink: ProbeSink): void {
+  if (!outcome.definitive) {
+    sink.setVision(null);
+    return;
+  }
+  setByokVisionSupported(outcome.vision);
+  sink.setVision(outcome.vision);
+}
+
 function applyOutcome(outcome: ByokProbeOutcome, sink: ProbeSink): void {
   sink.setPhase("idle");
   if (outcome.kind === "ok") {
-    setByokVisionSupported(outcome.vision);
-    sink.setVision(outcome.vision);
+    applyOk(outcome, sink);
     return;
   }
   sink.setError(outcome.kind === "invalid" ? outcome.code : PROBE_ERRORS[outcome.kind]);
@@ -109,9 +120,9 @@ type Probe = typeof runByokProbe;
 function useProbeRun(baseUrl: string, probe: Probe, sink: ProbeSink): () => void {
   return useCallback(() => {
     sink.setPhase("checking");
-    void probe(baseUrl).then((outcome) => {
-      applyOutcome(outcome, sink);
-    });
+    void probe(baseUrl)
+      .then((outcome) => { applyOutcome(outcome, sink); })
+      .catch(() => { applyOutcome({ kind: "error" }, sink); });
   }, [baseUrl, probe, sink]);
 }
 

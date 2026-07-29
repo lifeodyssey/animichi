@@ -16,7 +16,7 @@ import { sessionHeaders } from "./session-headers";
  */
 
 export type ByokProbeOutcome =
-  | { readonly kind: "ok"; readonly vision: boolean }
+  | { readonly kind: "ok"; readonly vision: boolean; readonly definitive: boolean }
   | { readonly kind: "rejected" }
   | { readonly kind: "unreachable" }
   | { readonly kind: "invalid"; readonly code: "invalid_request" | "egress_blocked" }
@@ -32,11 +32,19 @@ const ProbeBody = z.object({
 const ErrorBody = z.object({ error: z.object({ code: z.string() }) });
 
 export function byokProbeUrl(baseUrl: string): string {
-  return `${baseUrl}/v1/byok/probe`;
+  return new URL("/v1/byok/probe", baseUrl).toString();
 }
 
+/**
+ * `definitive` (#479 review, P2-1): only a clean probe — `error_code === null`
+ * — is an authoritative verdict on vision support. The server may widen the
+ * `error_code` domain (429/404/5xx reclassifications are under review), so a
+ * `vision: false` accompanied by ANY code is treated as "not yet known", and
+ * unknown codes fall through to the default arms rather than an exhaustive
+ * switch.
+ */
 function reachableOutcome(body: z.infer<typeof ProbeBody>): ByokProbeOutcome {
-  if (body.reachable) return { kind: "ok", vision: body.vision };
+  if (body.reachable) return { kind: "ok", vision: body.vision, definitive: body.error_code === null };
   if (body.error_code === "byok_credential_rejected") return { kind: "rejected" };
   return { kind: "unreachable" };
 }
