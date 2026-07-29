@@ -20,7 +20,7 @@ export const jaSearch: ChatSearchDict = {
   spotCount: "{count}件",
   areaFallback: "エリア{n}",
   mapLabel: "聖地マップ",
-  backToOverview: "← 全体にもどる",
+  backToOverview: "← 全体に戻る",
   trayChanged: "スポットの選択が変わりました",
   trayMinimum: "2件以上選んでください",
   traySelected: "{count}件選択中",
