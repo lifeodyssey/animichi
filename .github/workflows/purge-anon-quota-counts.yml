@@ -46,8 +46,6 @@ jobs:
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
-      - run: uv sync --frozen --all-extras
-
       - name: Purge rows past the retention window
         # The script writes "anon-quota-count purge: eligible|removed=N" to
         # $GITHUB_STEP_SUMMARY (agent.scripts.purge_anon_quota_counts._write_step_summary)
