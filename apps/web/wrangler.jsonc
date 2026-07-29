@@ -13,9 +13,34 @@
     "directory": ".output/public",
     "binding": "ASSETS"
   },
+  // `vars` is non-inheritable: each env block must declare APP_ENV itself. The noindex
+  // Nitro plugin (src/server/noindex-plugin.ts) sends X-Robots-Tag on every response
+  // unless APP_ENV === "production"; tests/unit/wrangler-app-env.test.ts guards this.
+  //
+  // The top level needs APP_ENV too, and it must say "production". Both review seats
+  // found this independently, and one reproduced it: the top-level `name` above is
+  // `animichi-web`, which is the SAME Worker as `env.production.name`. A `wrangler
+  // deploy` with no `--env` therefore publishes to production — and with no top-level
+  // APP_ENV the plugin's fail-safe would fire and silently serve `noindex` on the live
+  // site. CI always passes `--env` (ci.yml) and the block-local-deploy hook stops manual
+  // deploys, so this is fenced rather than reachable; but the fence is the only thing
+  // standing between a redundant deploy and a deindexed production site, so the config
+  // states the truth instead of leaning on it.
+  "vars": { "APP_ENV": "production" },
   "env": {
-    "staging": { "name": "animichi-web-staging" },
-    "production": { "name": "animichi-web" },
-    "preview": { "name": "animichi-web-preview", "workers_dev": false, "preview_urls": true }
+    "staging": {
+      "name": "animichi-web-staging",
+      "vars": { "APP_ENV": "staging" }
+    },
+    "production": {
+      "name": "animichi-web",
+      "vars": { "APP_ENV": "production" }
+    },
+    "preview": {
+      "name": "animichi-web-preview",
+      "workers_dev": false,
+      "preview_urls": true,
+      "vars": { "APP_ENV": "preview" }
+    }
   }
 }
