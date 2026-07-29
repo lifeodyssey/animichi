@@ -435,6 +435,17 @@ jobs:
       working_directory: "."
       build_filter: frontend
       run_pulumi: false
+      # #527: CORS_ALLOWED_ORIGIN exists ONLY as a `production`-environment
+      # secret (by design — staging doesn't restrict CORS the same way; see
+      # `gh api repos/.../environments/{staging,production}/secrets`, which
+      # lists it under production only). cloudflare/wrangler-action's
+      # `uploadSecrets()` -> `getSecret()` throws `Value for secret ... not
+      # found in environment` on ANY name in `secrets:` whose env var is
+      # falsy (confirmed by reading wrangler-action's pinned dist/index.mjs,
+      # not assumed) — so including CORS_ALLOWED_ORIGIN here would hard-fail
+      # every staging deploy the moment this job actually gets to run, not
+      # silently degrade. Do not add it back without a staging-scoped
+      # CORS_ALLOWED_ORIGIN secret to match.
       worker_secrets: |
         SUPABASE_URL
         SUPABASE_ANON_KEY
@@ -445,7 +456,6 @@ jobs:
         GEMINI_API_KEY
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
-        CORS_ALLOWED_ORIGIN
       post_deploy_secrets: |
         TURNSTILE_SECRET
         ANON_ID_SECRET
@@ -461,7 +471,6 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-      CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}

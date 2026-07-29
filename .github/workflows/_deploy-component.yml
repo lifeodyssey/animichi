@@ -71,6 +71,32 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+      # #527: this job declares `environment: ${{ inputs.environment }}`
+      # above, which is what makes environment-scoped secrets resolve here
+      # at all (GitHub: "If you include environment in the reusable workflow
+      # at the job level, the environment secret will be used, and not the
+      # secret passed from the caller workflow" —
+      # https://docs.github.com/en/actions/using-workflows/reusing-workflows#access-to-secrets).
+      # #527's original diagnosis assumed this resolution was broken; a real
+      # workflow_dispatch diagnostic run (staging) proved it already works —
+      # NEON_AUTH_JWKS_URL and NEON_DATABASE_URL both resolved to their
+      # staging-environment values even when the caller job (which has no
+      # environment context of its own) passed an empty stand-in. This step
+      # keeps that verification live on every future deploy — staging AND
+      # production — printing ONLY booleans/lengths, never values, so the
+      # log itself is the ongoing proof that the two environments resolve
+      # to different secrets, per environment.
+      - name: Report resolved secret shape (booleans/lengths only, never values)
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+        run: |
+          echo "environment=$TARGET_ENVIRONMENT"
+          echo "  NEON_DATABASE_URL   set=$([ -n "$NEON_DATABASE_URL" ] && echo true || echo false) len=${#NEON_DATABASE_URL}"
+          echo "  NEON_AUTH_JWKS_URL  set=$([ -n "$NEON_AUTH_JWKS_URL" ] && echo true || echo false) len=${#NEON_AUTH_JWKS_URL}"
+          echo "  CORS_ALLOWED_ORIGIN set=$([ -n "$CORS_ALLOWED_ORIGIN" ] && echo true || echo false) len=${#CORS_ALLOWED_ORIGIN}"
       # Validates BEFORE anything deploys — including before "Atlas migrate"
       # below, which is the whole point: a failure here must land before any
       # side effect (DB migration OR Worker deploy) exists to half-apply. A
