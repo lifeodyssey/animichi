@@ -14,6 +14,28 @@ fail() {
   exit 1
 }
 
+# Seconds multiplied by attempt number for retry backoff (attempt * base), so
+# the total possible wait across the 4 retries in `fetch` is base*(1+2+3+4) =
+# 10*base. Overridable via env ONLY so tests can shrink real wall-clock sleeps
+# to a couple of seconds instead of the real ~50s budget — this is the one
+# place in this script that is allowed to depend on wall-clock time at all,
+# and per this repo's "mock the clock" test-quality rule
+# (AGENTS.md#cross-stack-guardrails) the actual test assertions must NOT
+# depend on how long that sleep took, only on how many requests were made.
+# Validated as a positive integer with a safe fallback so a blank/garbage/zero
+# env value can never silently turn into "no backoff at all" in a real
+# deploy — the default (5) applies whenever the override is unset, empty, or
+# not a positive integer.
+RETRY_BACKOFF_BASE_SECONDS="${POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS:-5}"
+case "${RETRY_BACKOFF_BASE_SECONDS}" in
+  '' | *[!0-9]* | 0)
+    if [ -n "${POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS:-}" ]; then
+      echo "::warning::POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS='${POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS}' is not a positive integer — falling back to the default (5)." >&2
+    fi
+    RETRY_BACKOFF_BASE_SECONDS=5
+    ;;
+esac
+
 # #522: a brand-new workers.dev hostname's first request(s) can come back as
 # a 404 that is actually CLOUDFLARE's OWN edge response, not the deployed
 # app's (observed body: `error code: 1042`) — indistinguishable from a REAL
@@ -90,7 +112,7 @@ fetch() {
     esac
     if [ "${attempt}" -eq 5 ]; then break; fi
     echo "attempt ${attempt}/5: ${retry_reason} (status=${status:-n/a}) for ${method} ${url} — retrying (workers.dev DNS propagation / container cold start window)" >&2
-    sleep $((attempt * 5))
+    sleep $((attempt * RETRY_BACKOFF_BASE_SECONDS))
   done
   echo "${status:-000}"
 }

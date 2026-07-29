@@ -3,9 +3,21 @@
 # 404 must fail immediately, and a Cloudflare-edge 404 (cloudflare_error:true
 # body) must retry until it resolves. No mocking framework in this repo
 # (no bats, no JS test runner wired to shell scripts) — this drives the real
-# script against a throwaway `python3 -m http.server`-style mock and asserts
-# on actual exit code + elapsed wall time, the same way this fix was verified
-# by hand during review of #522/#523.
+# script against a throwaway Python mock server, the same way this fix was
+# verified by hand during review of #522/#523.
+#
+# Per this repo's "mock the clock" test-quality rule
+# (AGENTS.md#cross-stack-guardrails), assertions here are on the OBSERVABLE
+# BEHAVIOR that the retry logic is actually responsible for — how many
+# requests were made, and the final exit code — never on how long it took. A
+# shared CI runner's wall clock is not reliable enough to assert a duration
+# window against without intermittent flakes (this is exactly what an
+# earlier version of this file did, and it flaked in CI while passing
+# locally). `POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS` is set to a tiny
+# value purely so the retrying test cases don't spend real wall-clock minutes
+# sleeping — the assertions below do not depend on that value at all, only
+# on request counts, so an even smaller or larger override would not change
+# what these tests check.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,20 +34,25 @@ fail_test() {
 
 # Starts a background mock server on the given port using the given Python
 # handler body (must define class Handler(BaseHTTPRequestHandler) and serve
-# it). Prints nothing; caller tracks the PID via $!.
+# it). The handler is expected to append one line to COUNTER_FILE per request
+# it serves — request COUNT, not elapsed time, is what these tests assert on.
+# Prints nothing; caller tracks the PID via $!.
 start_mock() {
-  local port="$1" handler_body="$2"
+  local port="$1" counter_file="$2" handler_body="$3"
   python3 -c "
 import http.server, sys
+COUNTER_FILE = '${counter_file}'
+def record_request():
+    with open(COUNTER_FILE, 'a') as f:
+        f.write('1\n')
 ${handler_body}
 http.server.HTTPServer(('127.0.0.1', ${port}), Handler).serve_forever()
 " &
 }
 
-# A plain TCP connect check (not a real HTTP GET) — some test cases' mock
-# handlers count every GET they serve to decide when to "recover", so
-# readiness polling here must not itself consume one of those counted
-# requests.
+# A plain TCP connect check (not a real HTTP GET) — every test case's mock
+# handler counts requests via COUNTER_FILE, so readiness polling here must
+# not itself add to that count.
 wait_for_port() {
   local port="$1" _attempt
   for _attempt in $(seq 1 50); do
@@ -45,12 +62,26 @@ wait_for_port() {
   fail_test "mock server on port ${port} never came up"
 }
 
-# ── Case 1: branded application 404 -> fails immediately, no retry ─────────
+request_count() {
+  local counter_file="$1"
+  [ -f "${counter_file}" ] && wc -l <"${counter_file}" | tr -d ' ' || echo 0
+}
+
+stop_mock() {
+  local pid="$1"
+  kill "${pid}" 2>/dev/null || true
+  wait "${pid}" 2>/dev/null || true
+}
+
+# ── Case 1: branded application 404 -> fails immediately, exactly 1 request ─
 test_branded_404_fails_fast() {
-  local port=18801 pid start end elapsed rc=0
-  start_mock "${port}" "
+  local port=18801 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
+        record_request()
         self.send_response(404)
         self.send_header('Content-Type', 'text/html')
         self.end_headers()
@@ -59,23 +90,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
 "
   pid=$!
   wait_for_port "${port}"
-  start=$(date +%s)
   WEB_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" web-landing >/tmp/branded404.out 2>&1 || rc=$?
-  end=$(date +%s)
-  kill "${pid}" 2>/dev/null; wait "${pid}" 2>/dev/null || true
-  elapsed=$((end - start))
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
   [ "${rc}" -ne 0 ] || fail_test "branded 404 should have failed the gate, got exit 0"
-  [ "${elapsed}" -le 3 ] || fail_test "branded 404 took ${elapsed}s — should fail fast (<=3s), not retry"
+  [ "${requests}" -eq 1 ] || fail_test "branded 404 made ${requests} request(s) — should fail on the FIRST one, no retry"
   grep -q "expected 200, got 404" /tmp/branded404.out || fail_test "missing expected diagnostic in output"
-  echo "PASS: branded application 404 fails immediately (${elapsed}s, exit ${rc})"
+  echo "PASS: branded application 404 fails immediately (${requests} request, exit ${rc})"
 }
 
-# ── Case 2: Cloudflare edge 404 -> retries all 5 attempts, then fails ──────
+# ── Case 2: Cloudflare edge 404, never recovers -> all 5 attempts, then fails
 test_cf_edge_404_retries_then_fails() {
-  local port=18802 pid start end elapsed rc=0
-  start_mock "${port}" "
+  local port=18802 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
+        record_request()
         self.send_response(404)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
@@ -84,26 +117,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
 "
   pid=$!
   wait_for_port "${port}"
-  start=$(date +%s)
-  WEB_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" web-landing >/tmp/cfedge404.out 2>&1 || rc=$?
-  end=$(date +%s)
-  kill "${pid}" 2>/dev/null; wait "${pid}" 2>/dev/null || true
-  elapsed=$((end - start))
+  WEB_URL="http://127.0.0.1:${port}" POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS=1 \
+    bash "${ASSERT_SH}" web-landing >/tmp/cfedge404.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
   [ "${rc}" -ne 0 ] || fail_test "a permanently-erroring CF edge should still fail the gate eventually, got exit 0"
-  [ "${elapsed}" -ge 40 ] || fail_test "CF edge 404 only took ${elapsed}s — expected the full ~50s retry budget (4 backoff sleeps of 5/10/15/20s), meaning it did NOT retry"
+  [ "${requests}" -eq 5 ] || fail_test "expected exactly 5 requests (the full retry budget), got ${requests}"
   [ "$(grep -c "Cloudflare edge 404" /tmp/cfedge404.out)" -eq 4 ] || fail_test "expected exactly 4 retry log lines (attempts 1-4 of 5), got: $(grep -c "Cloudflare edge 404" /tmp/cfedge404.out)"
-  echo "PASS: Cloudflare edge 404 retries all attempts before failing (${elapsed}s, exit ${rc})"
+  echo "PASS: Cloudflare edge 404 retries all attempts before failing (${requests} requests, exit ${rc})"
 }
 
-# ── Case 3: Cloudflare edge 404 twice, then the real 200 -> recovers ───────
+# ── Case 3: Cloudflare edge 404 twice, then the real 200 -> recovers on the
+#    3rd request ────────────────────────────────────────────────────────────
 test_cf_edge_404_then_recovers() {
-  local port=18803 pid start end elapsed rc=0
-  start_mock "${port}" "
-count = {'n': 0}
+  local port=18803 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+served = {'n': 0}
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
-        count['n'] += 1
-        if count['n'] <= 2:
+        record_request()
+        served['n'] += 1
+        if served['n'] <= 2:
             self.send_response(404)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
@@ -117,14 +154,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
 "
   pid=$!
   wait_for_port "${port}"
-  start=$(date +%s)
-  WEB_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" web-landing >/tmp/cfrecover.out 2>&1 || rc=$?
-  end=$(date +%s)
-  kill "${pid}" 2>/dev/null; wait "${pid}" 2>/dev/null || true
-  elapsed=$((end - start))
+  WEB_URL="http://127.0.0.1:${port}" POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS=1 \
+    bash "${ASSERT_SH}" web-landing >/tmp/cfrecover.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
   [ "${rc}" -eq 0 ] || fail_test "should have recovered and passed, got exit ${rc}: $(cat /tmp/cfrecover.out)"
-  [ "${elapsed}" -ge 10 ] && [ "${elapsed}" -le 25 ] || fail_test "expected ~15s (2 backoff sleeps of 5+10s) before recovery, got ${elapsed}s"
-  echo "PASS: recovers after 2 Cloudflare edge 404s once the real 200 lands (${elapsed}s, exit ${rc})"
+  [ "${requests}" -eq 3 ] || fail_test "expected exactly 3 requests (2 CF edge 404s + the recovering 200), got ${requests}"
+  echo "PASS: recovers after 2 Cloudflare edge 404s once the real 200 lands (${requests} requests, exit ${rc})"
 }
 
 test_branded_404_fails_fast
