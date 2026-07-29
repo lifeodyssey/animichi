@@ -23,10 +23,17 @@ RUN uv sync --no-dev
 
 FROM public.ecr.aws/docker/library/python:3.11.13-slim
 
+# APP_ENV is intentionally NOT defaulted here (issue #498 follow-up — 4th
+# touchpoint alongside wrangler.toml's three [vars] blocks): the real deploy
+# path (RuntimeContainer, see worker/containerEnv.ts) always injects it, and
+# a hardcoded "production" default here would silently claim production for
+# anyone who `docker run`s this image directly, bypassing the Worker's
+# fail-closed CONTAINER_REQUIRED_KEYS check entirely. Settings.app_env's own
+# Field default ("development") applies when APP_ENV is unset — the same
+# least-privileged-by-default convention as wrangler.toml's own [vars] block.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
-    APP_ENV=production \
     SERVICE_HOST=0.0.0.0 \
     SERVICE_PORT=8080
 

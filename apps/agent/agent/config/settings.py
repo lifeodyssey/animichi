@@ -240,9 +240,18 @@ class Settings(BaseSettings):
             if isinstance(data, dict)
             else "development"
         )
-        if v == "*" and str(app_env).lower() == "production":
+        # Deliberately `!= "development"`, not `== "production"` (issue #498
+        # follow-up): staging must be held to the same strictness as
+        # production. Before #498, APP_ENV was hardcoded to "production" for
+        # every deployed environment, so this `== "production"` check
+        # happened to also cover staging by accident. Once APP_ENV correctly
+        # reports "staging", an `== "production"` check would stop firing
+        # there and staging would silently accept a wildcard CORS origin —
+        # tightened variants (production, staging, any future non-dev
+        # environment) fail closed; only development is exempt.
+        if v == "*" and str(app_env).lower() != "development":
             raise ValueError(
-                "cors_allowed_origin must not be '*' in production. "
+                "cors_allowed_origin must not be '*' outside development. "
                 "Set CORS_ALLOWED_ORIGIN to your actual domain."
             )
         return v

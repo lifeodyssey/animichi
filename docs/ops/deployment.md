@@ -97,6 +97,11 @@ Required:
 - `SUPABASE_DB_URL`
 - `MIMO_API_KEY` for the primary `mimo-v2.5` model
 - `DEEPSEEK_API_KEY` remains deploy-required and provisioned for the dormant DeepSeek fallback
+- `APP_ENV` — forwarded from `wrangler.toml`'s per-environment `[vars]` block (`development` /
+  `staging` / `production`), NOT a GitHub secret. Fail-closed since issue #498: the Worker throws at
+  container-start if it is missing rather than seeding a hardcoded default, because a silent default
+  previously tagged every environment's Logfire traces as `production` regardless of which
+  environment actually deployed them.
 
 Production is temporarily MiMo-only while the DeepSeek account has insufficient balance. After
 recharging DeepSeek, set `FALLBACK_AGENT_MODEL=deepseek:deepseek-v4-flash` to re-enable the already
@@ -113,7 +118,41 @@ Common runtime config:
 - `TIMEOUT_SECONDS`
 - `OBSERVABILITY_SERVICE_NAME`
 - `OBSERVABILITY_SERVICE_VERSION`
-- `LOGFIRE_TOKEN` (optional — tracing/metrics export to Logfire only when set)
+- `LOGFIRE_TOKEN` (optional — tracing/metrics export to Logfire only when set). Since issue #498,
+  production and staging each write to their own Logfire project (`animichi-prod` /
+  `animichi-staging`) via **GitHub Environment-scoped secrets of the same name**
+  (`LOGFIRE_TOKEN` defined directly on the `production` and `staging` GitHub Environments), not
+  via workflow-level branching. No workflow YAML changes were needed for this: both
+  `_deploy-component.yml`'s `deploy` job (`environment: ${{ inputs.environment }}`) and
+  `deploy.yml`'s `deploy` job (`environment: production`) already ran under a job-level
+  `environment:`, and GitHub environment secrets take precedence over a same-named secret the
+  caller workflow explicitly passes through `secrets:` for a job that references that environment
+  — see [Reuse workflows](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)
+  ("If you include environment in the reusable workflow at the job level, the environment secret
+  will be used, and not the secret passed from the caller workflow"). This was confirmed empirically
+  against this repo's real GitHub Actions runners with a throwaway diagnostic workflow (three
+  differently-sized marker secrets — repo-level, `production`-environment, `staging`-environment —
+  each job resolved the environment-scoped one, not the repo-level one the caller passed): staging
+  resolved the staging marker, production resolved the production marker, in both cases overriding
+  what the caller's `secrets: LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}` line explicitly passed.
+  The repo-level `LOGFIRE_TOKEN` secret remains only as the implicit fallback for a hypothetical
+  environment with no `LOGFIRE_TOKEN` secret of its own (same convention already relied on for the
+  8-9 other secrets — `CLOUDFLARE_API_TOKEN`, `NEON_DATABASE_URL`, `PULUMI_*`, `R2_*`,
+  `NEON_AUTH_JWKS_URL` — that are defined both at repo level and per-environment).
+- `CORS_ALLOWED_ORIGIN` is defined as a **`production`-environment secret** (no repo-level copy) —
+  by the same precedence rule above, it was already reaching the container correctly in production
+  deploys. Staging gets its value a different way (#527/#528): `wrangler.toml`'s
+  `[env.staging.vars].CORS_ALLOWED_ORIGIN` sets it to the real staging web origin
+  (`https://animichi-web-staging.zhenjiazhou0127.workers.dev`) as a plain (non-secret) value, not a
+  GitHub secret — a domain name isn't a secret, and this needs no owner action to provision. Do
+  **not** add a `CORS_ALLOWED_ORIGIN` secret to the `staging` GitHub Environment: it is no longer
+  in `deploy-root-staging`'s `worker_secrets` list, so such a secret would be dead (unread), and if
+  it were ever added back to that list later, the secret would silently override the wrangler var,
+  reintroducing a second source of truth. Before #527/#528, staging had neither the secret nor the
+  var, and inherited APP_ENV's mislabeling as "production" (see above) — which made
+  `cors_allowed_origin`'s `"*"` default fail the production-strictness CORS check and **crash the
+  container at boot** rather than silently accept a wildcard origin; #527/#528 fixed this at the
+  `wrangler.toml` layer, independent of the APP_ENV fix in this same issue.
 - `GOOGLE_MAPS_API_KEY` (optional)
 - `ANON_DAILY_COST_BUDGET_USD` (optional — the global anonymous daily-dollar circuit breaker, X4/#274; `0` disables it)
 - `ANON_DAILY_MESSAGE_QUOTA` (optional — the per-identity anonymous daily message quota, S1.10/#282, a fairness/UX mechanism rather than a defense line; `0` or unset disables it, same convention as the budget ceiling above)
