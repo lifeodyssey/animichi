@@ -313,29 +313,45 @@ Steps:
 ### Pulumi rollback
 
 `_deploy-component.yml`'s "Pulumi stack export (rollback backup)" step runs `pulumi stack export`
-immediately before every `pulumi up` **that actually runs** and uploads the result as a workflow
-artifact (`pulumi-stack-export-<stack>-<run-id>`, 7-day retention — this is an hours-to-days
-recovery window, not a long-term archive). `run_pulumi` defaults to `true`, but every caller except
-`component: catalog` explicitly sets `run_pulumi: false` (see `ci.yml`), so **this step, and the
-artifact, currently only ever exist under the catalog deploy jobs** (`deploy-staging` /
-`deploy-prod`) — don't go looking for it under a root/web/users run.
+immediately before every `pulumi up` **that actually runs**, then uploads the result to the **same
+R2 bucket the Pulumi state backend already lives in** (`aws s3 cp`, using the `R2_ACCESS_KEY_ID`/
+`R2_SECRET_ACCESS_KEY` credentials already present in that step) under a `rollback-backups/`
+prefix — object key `rollback-backups/pulumi-<stack>-<run-id>.json`.
 
-**⚠️ Treat this artifact as sensitive.** It is not exported with `--show-secrets`, so encrypted
-config values stay ciphertext, but the export can still contain resource identifiers and other
-operational detail — never paste its contents into an issue or PR comment. It coexists with, and
-does not replace, the R2 Pulumi backend's own state `.bak` file; the artifact exists specifically so
-a bad `up` in one CI run can be undone without needing separate access to the R2 backend bucket.
+**This is deliberately not a GitHub Actions artifact.** This repository is **public**, and a public
+repo's workflow artifacts are downloadable by any signed-in GitHub account, not just people with
+repo access. `infra/index.ts` exports `cloudflareAccountId`/`cloudflareZoneId`/`webDomain` in
+plaintext and `catalogDatabaseUrl` as `secure:` ciphertext — publishing that as a run artifact on
+every catalog deploy would mean handing out plaintext account/zone identifiers (a targeted-abuse and
+social-engineering surface, even though not credentials themselves) and an offline-crackable Neon
+connection string, retained for however long the artifact lived. Writing to the R2 bucket instead
+keeps the backup exactly as private as the Pulumi state it's a snapshot of — no new exposure surface,
+same trust boundary, same credentials this step already holds.
+
+`run_pulumi` defaults to `true`, but every caller except `component: catalog` explicitly sets
+`run_pulumi: false` (see `ci.yml`), so **this step currently only ever runs under the catalog deploy
+jobs** (`deploy-staging` / `deploy-prod`) — don't go looking for a backup from a root/web/users run.
 
 To roll back a bad Pulumi apply:
 
-1. Download the artifact from **the same run that did the bad `pulumi up`** — the export step runs
-   immediately *before* `up` inside that one run, so the pre-apply snapshot lives in that run's own
-   artifacts, not the run before it.
-2. `pulumi stack select <staging|prod>` in `infra/`, then `pulumi stack import --file
-   <downloaded-file>` to restore that state, followed by `pulumi up` to reconcile real
-   infrastructure back to it.
+1. Fetch the object for **the same run that did the bad `pulumi up`** — the export step runs
+   immediately *before* `up` inside that one run, so the pre-apply snapshot has that run's own
+   `github.run_id` in its key, not the run before it. From `infra/`, with R2 credentials exported as
+   `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`:
+   ```
+   aws s3 cp --endpoint-url "https://<cloudflare-account-id>.r2.cloudflarestorage.com" \
+     "s3://<pulumi-state-bucket>/rollback-backups/pulumi-<stack>-<run-id>.json" ./backup.json
+   ```
+2. `pulumi stack select <staging|prod>` in `infra/`, then `pulumi stack import --file backup.json`
+   to restore that state, followed by `pulumi up` to reconcile real infrastructure back to it.
 3. This is a state-only restore; it does not undo already-applied Cloudflare API side effects that
    Pulumi doesn't track (rare, but check R2/DNS manually if in doubt).
+
+**Known gap**: no lifecycle/expiry rule is configured on the `rollback-backups/` prefix yet, so
+objects accumulate indefinitely instead of expiring after a few days the way the old GitHub-artifact
+retention window did. Adding an R2 bucket lifecycle rule is an `infra/index.ts` change (a new Pulumi
+resource, applied through the same approval-gated path as everything else here) and is out of scope
+for this change; tracked as a follow-up, not silently assumed to already exist.
 
 ### ⚠️ Database migrations do NOT roll back this way
 
@@ -363,8 +379,8 @@ tested.
    directory — export it into the shell only for the duration of the rollback (`export
    CLOUDFLARE_API_TOKEN=...`; `wrangler` reads it from that env var, no config file needed).
 3. **Verify it works now, not during the incident**: `wrangler whoami` should print the token's
-   scope; `wrangler deployments list --env staging` (read-only) against a real component confirms
-   both the token and this doc's commands actually work end to end.
+   scope; `wrangler versions list --env staging` (read-only) against a real component confirms both
+   the token and this doc's commands actually work end to end.
 4. Anyone expected to run this table during an incident needs their own token satisfying the above
    *before* they're on call for it — this whole rollback path assumes that precondition and does not
    re-derive credentials for you.

@@ -157,21 +157,50 @@ jobs:
             # token distinguishes "bad secret" (`invalid-input-secret`) from
             # "secret is fine, token just wasn't real" (`invalid-input-response`)
             # without ever needing a real Turnstile widget solve.
+            #
+            # This is deliberately NOT treated with the same fail-closed rule
+            # as the ANON_ACCESS_ENABLED parser above: a local TOML parse
+            # failure is a semantic ambiguity that never self-heals, but a
+            # failed network call to a third party is overwhelmingly a
+            # transient blip — retry with backoff, and only `invalid-input-
+            # secret` (an unambiguous, non-transient verdict) hard-fails.
+            # Exhausting retries with no verdict either way means the
+            # validator was unreachable, which is not evidence the secret
+            # itself is wrong — warn and let the deploy proceed rather than
+            # blocking, say, an unrelated production hotfix (this same check
+            # also runs in deploy.yml's manual production path) on a
+            # siteverify outage that would leave guardTurnstile 403ing every
+            # anonymous request regardless of whether this deploy happens.
             if [ "$name" = "TURNSTILE_SECRET" ] && [ "$anon_flag" = "true" ]; then
-              turnstile_probe=$(curl -sS --max-time 10 \
-                --data-urlencode "secret=$value" \
-                --data-urlencode "response=preflight-probe-not-a-real-token" \
-                https://challenges.cloudflare.com/turnstile/v0/siteverify 2>/dev/null || true)
-              # Never echo $value or $turnstile_probe: the response carries no
-              # secret field, but print only the parsed verdict on principle.
-              if printf '%s' "$turnstile_probe" | grep -q '"invalid-input-secret"'; then
+              turnstile_verdict=""
+              attempt=1
+              while [ "$attempt" -le 3 ]; do
+                # Secret piped via stdin (`secret@-`), never as a curl argv
+                # value — argv can leak through process listings on the
+                # runner; stdin doesn't. Never echo $value or the raw
+                # response: the response carries no secret field, but only
+                # the parsed verdict is printed, on principle.
+                turnstile_probe=$(printf '%s' "$value" | curl -sS --max-time 10 \
+                  --data-urlencode "secret@-" \
+                  --data-urlencode "response=preflight-probe-not-a-real-token" \
+                  https://challenges.cloudflare.com/turnstile/v0/siteverify 2>/dev/null || true)
+                if printf '%s' "$turnstile_probe" | grep -q '"invalid-input-secret"'; then
+                  turnstile_verdict="invalid"
+                  break
+                elif printf '%s' "$turnstile_probe" | grep -q '"invalid-input-response"'; then
+                  turnstile_verdict="valid"
+                  break
+                fi
+                attempt=$((attempt + 1))
+                [ "$attempt" -le 3 ] && sleep $((attempt * 2))
+              done
+              if [ "$turnstile_verdict" = "invalid" ]; then
                 echo "::error::TURNSTILE_SECRET failed Cloudflare siteverify validation for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (error-code: invalid-input-secret). This is what happens when the stored value is a Site Key (24 chars, public, meant for the client) instead of the Secret Key (35 chars, private) — or any other string siteverify doesn't recognize as a real secret. Refusing to deploy with it. Re-provision with: gh secret set TURNSTILE_SECRET"
                 missing=1
-              elif printf '%s' "$turnstile_probe" | grep -q '"invalid-input-response"'; then
+              elif [ "$turnstile_verdict" = "valid" ]; then
                 echo "TURNSTILE_SECRET passed Cloudflare siteverify validation for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (probe token was correctly rejected as invalid-input-response, meaning the secret itself was accepted)."
               else
-                echo "::error::Could not validate TURNSTILE_SECRET against Cloudflare's siteverify endpoint for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — the probe returned neither invalid-input-secret nor invalid-input-response (network failure, endpoint outage, or an unexpected response shape). Same principle as the ANON_ACCESS_ENABLED parser above: ambiguity is fail-closed, not fail-open — refusing to guess. Re-run the deploy; if this persists, check Cloudflare's status page before assuming the secret itself is bad."
-                missing=1
+                echo "::warning::Could not reach Cloudflare's siteverify endpoint to validate TURNSTILE_SECRET after 3 attempts for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (network failure, endpoint outage, or an unexpected response shape) — treating this as validator unavailability, not evidence the secret itself is wrong. Proceeding without this specific check; the empty-value check above still applies."
               fi
             fi
           done <<< "$POST_DEPLOY_SECRETS"
@@ -206,62 +235,68 @@ jobs:
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
       - name: Pulumi stack export (rollback backup)
         # Snapshot state BEFORE `up` mutates it, so a bad apply can be rolled
-        # back with `pulumi stack import` from the artifact below. #485.
+        # back with `pulumi stack import` from the R2 object this step writes.
+        # #485.
+        #
+        # Deliberately NOT a GitHub Actions artifact: this repo is a PUBLIC
+        # repository (verified — `gh repo view --json visibility`), and a
+        # public repo's workflow artifacts are downloadable by ANY logged-in
+        # GitHub account, not just people with repo access. `infra/index.ts`
+        # exports `cloudflareAccountId`/`cloudflareZoneId`/`webDomain` in
+        # PLAINTEXT and `catalogDatabaseUrl` as `secure:` ciphertext — an
+        # artifact would mean publishing the plaintext identifiers (a
+        # targeted-abuse/social-engineering surface, even though not
+        # credentials themselves) and an offline-crackable Neon connection
+        # string on every catalog deploy. Writing to the SAME R2 bucket the
+        # Pulumi backend already lives in (derived from `PULUMI_BACKEND_URL`,
+        # which is `s3://<bucket>?...` — see `pulumi login` below) keeps this
+        # exactly as private as the Pulumi state itself already is, with zero
+        # new exposure surface, using credentials (`R2_ACCESS_KEY_ID`/
+        # `R2_SECRET_ACCESS_KEY`) already present in this step's env.
+        #
         # NOTE: `run_pulumi` defaults to true and only `component: catalog`
         # jobs leave it at that default — web/users/root all pass
-        # `run_pulumi: false` (see ci.yml). So in practice this step (and the
-        # upload below) only ever runs under the catalog deploy jobs; look
-        # there for the artifact, not under a root/web/users run.
+        # `run_pulumi: false` (see ci.yml). So in practice this step only ever
+        # runs under the catalog deploy jobs; look there for the backup, not
+        # under a root/web/users run.
         if: ${{ inputs.run_pulumi }}
-        id: pulumi_export
         working-directory: infra
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
           PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
           PULUMI_STACK: ${{ inputs.pulumi_stack }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         shell: bash
         run: |
           # Same empty-guard pattern as the "Atlas migrate" step above: this
           # secret is `required: false` at the workflow_call boundary, so a
           # caller that omits it must not crash `pulumi login` with an empty
-          # backend URL. This is the ONLY legitimate reason the backup file
-          # doesn't exist afterward — everything below is a hard failure, not
-          # a silent skip, precisely so "Upload Pulumi stack export" below can
-          # tell the two cases apart instead of treating both as fail-open.
+          # backend URL.
           if [ -z "$PULUMI_BACKEND_URL" ]; then
-            echo "PULUMI_BACKEND_URL not set — skipping stack export"
-            echo "skipped=true" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "PULUMI_BACKEND_URL not set — skipping stack export"; exit 0
           fi
-          echo "skipped=false" >> "$GITHUB_OUTPUT"
           pulumi login "$PULUMI_BACKEND_URL"
           pulumi stack select "$PULUMI_STACK"
-          pulumi stack export --file "$RUNNER_TEMP/pulumi-$PULUMI_STACK-backup.json"
-          if [ ! -s "$RUNNER_TEMP/pulumi-$PULUMI_STACK-backup.json" ]; then
+          backup_file="$RUNNER_TEMP/pulumi-$PULUMI_STACK-backup.json"
+          pulumi stack export --file "$backup_file"
+          if [ ! -s "$backup_file" ]; then
             echo "::error::pulumi stack export produced no (or an empty) backup file despite PULUMI_BACKEND_URL being set. Refusing to silently proceed to 'pulumi up' without a rollback snapshot."
             exit 1
           fi
-      - name: Upload Pulumi stack export
-        if: ${{ inputs.run_pulumi }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: pulumi-stack-export-${{ inputs.pulumi_stack }}-${{ github.run_id }}
-          path: ${{ runner.temp }}/pulumi-${{ inputs.pulumi_stack }}-backup.json
-          # "warn" is only reachable for the legitimate skip case (no
-          # PULUMI_BACKEND_URL) — the export step above already hard-fails
-          # (before this step even runs) if it ran but produced no file, so
-          # this no longer needs to (and must not) paper over that case too.
-          if-no-files-found: ${{ steps.pulumi_export.outputs.skipped == 'true' && 'warn' || 'error' }}
-          # Rollback windows here are hours-to-days, not weeks — 30 days was
-          # needlessly long for a state dump that (per infra/AGENTS.md) is
-          # sensitive: not `--show-secrets`'d, so config secrets stay
-          # ciphertext, but treat the artifact itself as sensitive anyway and
-          # never paste its contents into an issue/PR. This coexists with,
-          # and does not replace, the R2 backend's own state `.bak` file.
-          retention-days: 7
+          # Same bucket as the Pulumi state backend, different prefix —
+          # `s3://<bucket>?query...` -> just the bucket name, ignoring
+          # whatever query params (endpoint/region/style) happen to be in
+          # this secret's value, since we derive the R2 endpoint from
+          # CLOUDFLARE_ACCOUNT_ID instead of parsing that.
+          bucket="${PULUMI_BACKEND_URL#s3://}"
+          bucket="${bucket%%\?*}"
+          aws s3 cp --endpoint-url "https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com" \
+            "$backup_file" "s3://$bucket/rollback-backups/pulumi-$PULUMI_STACK-$GITHUB_RUN_ID.json"
       - name: Pulumi up
         if: ${{ inputs.run_pulumi }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
