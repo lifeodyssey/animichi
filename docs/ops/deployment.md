@@ -139,11 +139,20 @@ Common runtime config:
   environment with no `LOGFIRE_TOKEN` secret of its own (same convention already relied on for the
   8-9 other secrets — `CLOUDFLARE_API_TOKEN`, `NEON_DATABASE_URL`, `PULUMI_*`, `R2_*`,
   `NEON_AUTH_JWKS_URL` — that are defined both at repo level and per-environment).
-- `CORS_ALLOWED_ORIGIN` is defined **only** as a `production`-environment secret (no repo-level or
-  `staging`-environment copy) and has been since before this issue — by the same precedence rule
-  above, it was already reaching the container correctly in production deploys; staging currently
-  has no dedicated value and falls through to the container's own `"*"` default (tracked
-  separately, see the `apps_env`/CORS note below).
+- `CORS_ALLOWED_ORIGIN` is defined as a **`production`-environment secret** (no repo-level copy) —
+  by the same precedence rule above, it was already reaching the container correctly in production
+  deploys. Staging gets its value a different way (#527/#528): `wrangler.toml`'s
+  `[env.staging.vars].CORS_ALLOWED_ORIGIN` sets it to the real staging web origin
+  (`https://animichi-web-staging.zhenjiazhou0127.workers.dev`) as a plain (non-secret) value, not a
+  GitHub secret — a domain name isn't a secret, and this needs no owner action to provision. Do
+  **not** add a `CORS_ALLOWED_ORIGIN` secret to the `staging` GitHub Environment: it is no longer
+  in `deploy-root-staging`'s `worker_secrets` list, so such a secret would be dead (unread), and if
+  it were ever added back to that list later, the secret would silently override the wrangler var,
+  reintroducing a second source of truth. Before #527/#528, staging had neither the secret nor the
+  var, and inherited APP_ENV's mislabeling as "production" (see above) — which made
+  `cors_allowed_origin`'s `"*"` default fail the production-strictness CORS check and **crash the
+  container at boot** rather than silently accept a wildcard origin; #527/#528 fixed this at the
+  `wrangler.toml` layer, independent of the APP_ENV fix in this same issue.
 - `GOOGLE_MAPS_API_KEY` (optional)
 - `ANON_DAILY_COST_BUDGET_USD` (optional — the global anonymous daily-dollar circuit breaker, X4/#274; `0` disables it)
 - `ANON_DAILY_MESSAGE_QUOTA` (optional — the per-identity anonymous daily message quota, S1.10/#282, a fairness/UX mechanism rather than a defense line; `0` or unset disables it, same convention as the budget ceiling above)

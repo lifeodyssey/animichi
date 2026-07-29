@@ -98,9 +98,16 @@ def test_ci_root_deploys_match_manual_root_secrets() -> None:
     production = _named_workflow_job(ci, "deploy-root-prod")
     reusable = _REUSABLE_DEPLOY_WORKFLOW.read_text(encoding="utf-8")
 
-    assert _wrangler_secret_names(staging) == manual_secrets
+    # CORS_ALLOWED_ORIGIN is a deliberate staging exception (#527/#528): staging
+    # gets its value from wrangler.toml's [env.staging.vars] (a plain domain
+    # name, not a secret — see that block's comment), while production and the
+    # manual deploy.yml path still provision it as a real GitHub secret. This
+    # is why staging is no longer a strict match against manual_secrets.
+    STAGING_EXEMPT_SECRETS = {"CORS_ALLOWED_ORIGIN"}
+
+    assert _wrangler_secret_names(staging) == manual_secrets - STAGING_EXEMPT_SECRETS
     assert _wrangler_secret_names(production) == manual_secrets
-    assert manual_secrets <= _mapped_secret_names(staging)
+    assert manual_secrets - STAGING_EXEMPT_SECRETS <= _mapped_secret_names(staging)
     assert manual_secrets <= _mapped_secret_names(production)
     assert manual_secrets <= _mapped_secret_names(reusable)
 
