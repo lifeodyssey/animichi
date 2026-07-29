@@ -53,6 +53,22 @@ on:
       # see the PR discussion on #493 if revisiting this.
       CLOUDFLARE_ACCOUNT_ID:
         required: true
+  # Lets an operator manually re-run a suite against an already-deployed
+  # environment from the Actions UI during a rollback (docs/ops/deployment.md
+  # § Rollback step 4) — `workflow_call`-only reusable workflows have no
+  # standalone "Re-run" affordance. The suites below are real assertions
+  # (issue #484, wired by #493), not TODO no-ops — a manual re-run here is a
+  # genuine verification step, not just "the job didn't crash".
+  workflow_dispatch:
+    inputs:
+      environment:
+        required: true
+        type: choice
+        options: [staging, production]
+      suite:
+        required: true
+        type: choice
+        options: [api, e2e, smoke]
 
 permissions:
   contents: read

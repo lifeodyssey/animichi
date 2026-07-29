@@ -89,12 +89,23 @@ jobs:
           echo "::add-mask::$POOLED_URL"
 
       - name: Migrate preview branch (atlas)
+        # #516: scope Atlas to `public` — see _deploy-component.yml's "Atlas
+        # migrate" step for the full, empirically-verified reasoning. Preview
+        # branches are created from the same project (neondatabase/create-
+        # branch-action above), so they can carry the same `neon_auth` schema
+        # Neon Auth provisions; scoping here keeps preview migrations
+        # consistent with staging/production instead of hitting the same
+        # "not clean" abort the moment a preview branch happens to include it.
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url }}
         run: |
           curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
           chmod +x /usr/local/bin/atlas
-          atlas migrate apply --dir "file://db/migrations" --url "$DATABASE_URL" --revisions-schema public
+          case "$DATABASE_URL" in
+            *\?*) scoped_url="${DATABASE_URL}&search_path=public" ;;
+            *) scoped_url="${DATABASE_URL}?search_path=public" ;;
+          esac
+          atlas migrate apply --dir "file://db/migrations" --url "$scoped_url" --revisions-schema public
 
       - name: Upload catalog preview version
         env:
