@@ -446,6 +446,9 @@ jobs:
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
         CORS_ALLOWED_ORIGIN
+      post_deploy_secrets: |
+        TURNSTILE_SECRET
+        ANON_ID_SECRET
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -460,6 +463,8 @@ jobs:
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
       CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+      TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+      ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
     concurrency: deploy-root-staging
 
   post-staging:
@@ -553,6 +558,9 @@ jobs:
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
         CORS_ALLOWED_ORIGIN
+      post_deploy_secrets: |
+        TURNSTILE_SECRET
+        ANON_ID_SECRET
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -567,6 +575,8 @@ jobs:
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
       CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+      TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+      ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
     concurrency: deploy-root-prod
 
   post-prod:

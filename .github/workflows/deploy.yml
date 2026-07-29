@@ -119,3 +119,27 @@ jobs:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+
+      # ── Push post-deploy secrets (after root deploy, same reasoning and
+      #    same list-driven pattern as _deploy-component.yml: `wrangler secret
+      #    put` fallback-to-yes on a non-existent Worker would silently create
+      #    an empty shell Worker; keep this list in sync with the
+      #    post_deploy_secrets list in ci.yml's deploy-root-* jobs) ──
+      - name: Push post-deploy secrets to Worker
+        env:
+          TARGET_ENVIRONMENT: production
+          POST_DEPLOY_SECRETS: |
+            TURNSTILE_SECRET
+            ANON_ID_SECRET
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+        run: |
+          while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            value="${!name-}"
+            if [ -z "$value" ]; then
+              echo "::error::$name is empty/unset for environment=$TARGET_ENVIRONMENT. Refusing to leave the Worker running without it instead of deploying silently degraded. Set it with: gh secret set $name"
+              exit 1
+            fi
+            printf '%s' "$value" | npx --yes wrangler@4.79.0 secret put "$name" --env "$TARGET_ENVIRONMENT"
+          done <<< "$POST_DEPLOY_SECRETS"
