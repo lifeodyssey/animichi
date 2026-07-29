@@ -105,6 +105,7 @@ max-complexity = 10
 "agent/tests/**" = ["S101", "S105", "S106", "S108", "S311", "S314", "S607"]
 "agent/config/settings.py" = ["S104"]  # FastAPI container must bind 0.0.0.0; remove with agent→Worker migration (Wave 3)
 "agent/interfaces/routes/health.py" = ["S603"]  # args is always a hardcoded list, not user input
+"agent/tests/unit/test_cron_settings.py" = ["S603"]  # sys.executable + an inlined literal probe string, not user input
 
 [tool.coverage.run]
 source = ["agent"]

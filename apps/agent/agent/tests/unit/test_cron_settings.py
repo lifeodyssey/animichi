@@ -23,11 +23,12 @@ every unit test) so these assertions exercise the real singleton, not the mock.
 
 from __future__ import annotations
 
-import inspect
+import os
+import subprocess
+import sys
 
 import pytest
 
-from agent.config import cron_settings
 from agent.config.cron_settings import get_purge_cron_settings
 from agent.config.settings import get_settings
 
@@ -55,11 +56,38 @@ class TestPurgeCronSettings:
 
     def test_never_imports_model_aliases(self) -> None:
         """Structural guard against reintroducing the leak this file exists
-        to prevent: `cron_settings.py` must never gain a dependency on
-        `agent.config.model_aliases` — that import is the entire reentrant
-        chain that poisoned `get_settings()` in round 1 of this fix."""
-        source = inspect.getsource(cron_settings)
-        assert "model_aliases" not in source
+        to prevent: constructing `PurgeCronSettings` must never pull
+        `agent.config.model_aliases` into `sys.modules` — that import is the
+        entire reentrant chain that poisoned `get_settings()` in round 1 of
+        this fix.
+
+        Runs in a fresh subprocess (not `inspect.getsource()`'s substring
+        check) so this also catches an *indirect* import — e.g. a future
+        edit to `cron_settings.py` that imports some other agent module
+        which itself transitively imports `model_aliases` — not just a
+        literal `import agent.config.model_aliases` in this one file.
+        """
+        env = dict(os.environ)
+        env["SUPABASE_DB_URL"] = "postgresql://local/test"
+        # `sys.executable` (not a literal path) is why this file carries a
+        # pyproject.toml S603 per-file-ignore, mirroring health.py's: the
+        # command is fixed at write time, not attacker-influenced input.
+        probe = (
+            "import sys\n"
+            "from agent.config.cron_settings import get_purge_cron_settings\n"
+            "get_purge_cron_settings()\n"
+            "assert 'agent.config.model_aliases' not in sys.modules, "
+            "sorted(m for m in sys.modules if m.startswith('agent.config'))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", probe],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
 
 
 class TestGetSettingsSingletonIsUnaffected:
