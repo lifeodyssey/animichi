@@ -84,6 +84,17 @@ describe("closing the wall after a link is sent is 'going to read the email'", (
     expect(localStorage.getItem(DEFERRED_SAVE_KEY)).toBeTruthy();
   });
 
+  /** The whole request latency used to be a window in which closing the modal
+   * destroyed the intent — the commit is the click, not the server's reply. */
+  it("keeps the intent when the wall is closed while the request is still in flight", () => {
+    send.mockReturnValue(new Promise(() => undefined));
+    openWall();
+    fireEvent.change(screen.getByLabelText("メールアドレス"), { target: { value: "fan@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "ログインリンクを送信" }));
+    dismiss();
+    expect(localStorage.getItem(DEFERRED_SAVE_KEY)).toContain("a");
+  });
+
   it("re-arms on the next trip: a fresh open that is cancelled clears again", async () => {
     openWall();
     await sendLink();
@@ -94,22 +105,24 @@ describe("closing the wall after a link is sent is 'going to read the email'", (
   });
 });
 
-describe("the modal reports a dispatched link to its caller", () => {
-  it("calls onSent once the magic link goes out, and not before", async () => {
-    const onSent = vi.fn();
-    renderWithLocale(<LoginModal open onClose={vi.fn()} onSent={onSent} />);
-    expect(onSent).not.toHaveBeenCalled();
+describe("the modal reports a dispatched send to its caller", () => {
+  it("calls onSendCommitted once the request goes out, and not before", async () => {
+    const onSendCommitted = vi.fn();
+    renderWithLocale(<LoginModal open onClose={vi.fn()} onSendCommitted={onSendCommitted} />);
+    expect(onSendCommitted).not.toHaveBeenCalled();
     await sendLink();
-    expect(onSent).toHaveBeenCalledTimes(1);
+    expect(onSendCommitted).toHaveBeenCalledTimes(1);
   });
 
-  it("does not report a failed send", async () => {
-    const onSent = vi.fn();
+  /** A failed send still counts: the user asked for a link and may retry, and a
+   * kept intent is bounded by consume-once + TTL while a cleared one is lost. */
+  it("still reports a send that came back as an error", async () => {
+    const onSendCommitted = vi.fn();
     send.mockResolvedValue("error");
-    renderWithLocale(<LoginModal open onClose={vi.fn()} onSent={onSent} />);
+    renderWithLocale(<LoginModal open onClose={vi.fn()} onSendCommitted={onSendCommitted} />);
     fireEvent.change(screen.getByLabelText("メールアドレス"), { target: { value: "fan@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "ログインリンクを送信" }));
     await waitFor(() => { expect(screen.getByRole("alert")).toBeTruthy(); });
-    expect(onSent).not.toHaveBeenCalled();
+    expect(onSendCommitted).toHaveBeenCalledTimes(1);
   });
 });

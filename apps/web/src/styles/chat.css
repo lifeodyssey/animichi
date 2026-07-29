@@ -499,6 +499,20 @@
   gap: 0.75rem;
 }
 
+/* C3b -> C3a drill: the way back to the 圏 overview (issue #437) */
+
+.chat-drill {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Layout only: the cream press style and tokens come from .chat-chip. */
+.chat-drill__back {
+  align-self: flex-start;
+  font-size: 0.8125rem;
+}
+
 .chat-spot-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));

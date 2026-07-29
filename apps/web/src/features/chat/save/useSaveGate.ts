@@ -30,9 +30,9 @@ export interface SaveGate {
   readonly loginOpen: boolean;
   readonly activate: () => void;
   readonly closeLogin: () => void;
-  /** The wall dispatched a magic link — the dismissal that follows is the user
+  /** The wall dispatched a send — any dismissal that follows is the user
    * leaving to read their email, not a cancellation. */
-  readonly markLinkSent: () => void;
+  readonly markSendCommitted: () => void;
 }
 
 /** Injectable for tests; production callers rely on the defaults. */
@@ -78,36 +78,41 @@ interface Wall {
   readonly loginOpen: boolean;
   readonly openLogin: () => void;
   readonly closeLogin: () => void;
-  readonly markLinkSent: () => void;
+  readonly markSendCommitted: () => void;
 }
 
 /**
- * The wall's own state. "A link went out" is a **ref**, not state: it never
- * affects rendering, and React batches the form's effect with the dismissal
- * click — a state value would still read `false` inside the click handler that
- * flushed it, silently clearing an intent the user is about to use.
+ * The wall's own state. "The user committed to a send" is a **ref**, not state:
+ * it never affects rendering, and `markSendCommitted` fires synchronously as
+ * the request is dispatched. A state value would only reach the *next* render's
+ * closures, so the dismissal handler already created for the current render
+ * would still read `false` — silently clearing an intent the user is about to
+ * use. The flag is set at dispatch, not on the reply, so the request's own
+ * latency is not a window in which closing the modal destroys the intent.
  */
 function useWall(): Wall {
   const [loginOpen, setLoginOpen] = useState(false);
-  const linkSent = useRef(false);
-  // Each fresh trip through the wall starts as "no link sent yet".
-  const openLogin = useCallback(() => { linkSent.current = false; setLoginOpen(true); }, []);
-  const markLinkSent = useCallback(() => { linkSent.current = true; }, []);
-  return { loginOpen, openLogin, markLinkSent, closeLogin: useCloseLogin(setLoginOpen, linkSent) };
+  const committed = useRef(false);
+  // Each fresh trip through the wall starts as "nothing committed yet".
+  const openLogin = useCallback(() => { committed.current = false; setLoginOpen(true); }, []);
+  const markSendCommitted = useCallback(() => { committed.current = true; }, []);
+  return { loginOpen, openLogin, markSendCommitted, closeLogin: useCloseLogin(setLoginOpen, committed) };
 }
 
 /**
- * Dismissal is only abandonment **before** a link goes out: closing the modal to
- * go read the email is the mainline of the magic-link flow, and clearing there
- * would break create-on-login silently. Once a link is dispatched the intent
- * survives; the surprise-save risk that motivated clearing is already covered by
- * consume-once plus the TTL.
+ * Dismissal is only abandonment **before** a send is dispatched: closing the
+ * modal to go read the email is the mainline of the magic-link flow, and
+ * clearing there would break create-on-login silently. Once a request is out
+ * the intent survives — including while it is still in flight, and including a
+ * send that ultimately failed, since keeping a stale intent costs nothing
+ * (consume-once plus the TTL bound it) while clearing a live one loses the
+ * user's work.
  */
-function useCloseLogin(setLoginOpen: (open: boolean) => void, linkSent: RefObject<boolean>): () => void {
+function useCloseLogin(setLoginOpen: (open: boolean) => void, committed: RefObject<boolean>): () => void {
   return useCallback(() => {
-    if (!linkSent.current) clearDeferredSave();
+    if (!committed.current) clearDeferredSave();
     setLoginOpen(false);
-  }, [setLoginOpen, linkSent]);
+  }, [setLoginOpen, committed]);
 }
 
 /** Save state plus the login wall for one route card. */

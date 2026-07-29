@@ -61,4 +61,11 @@ describe("C3a static map (AC: static map with ≤50 pins)", () => {
     renderSingle(Array.from({ length: 60 }, (_, index) => ujiRow(index, "/s.webp")));
     expect(document.querySelectorAll(".chat-map-pin")).toHaveLength(50);
   });
+
+  // Issue #437 item 2: the back chip belongs to a drill, not to a natively
+  // single-cluster result — there is no overview to return to here.
+  it("offers no drill-back chip when the result was single-cluster to begin with", () => {
+    renderSingle([ujiRow(1, "/s1.webp")]);
+    expect(screen.queryByRole("button", { name: dict.search.backToOverview })).toBeNull();
+  });
 });

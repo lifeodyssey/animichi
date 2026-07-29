@@ -13,7 +13,7 @@ function cluster(city?: string): SpotCluster {
 
 function searchValuesOf(locale: (typeof LOCALES)[number]): readonly string[] {
   const search = chatDictFor(locale).search;
-  return [search.select, search.spotCount, search.areaFallback, search.mapLabel];
+  return [search.select, search.spotCount, search.areaFallback, search.mapLabel, search.backToOverview];
 }
 
 describe("cluster names across locales (AC: i18n)", () => {
@@ -37,6 +37,12 @@ describe("count badges across locales (AC: i18n)", () => {
     expect(spotCountBadge(12, chatDictFor("ja"))).toBe("12件");
     expect(spotCountBadge(12, chatDictFor("zh"))).toBe("12 处");
     expect(spotCountBadge(12, chatDictFor("en"))).toBe("12 spots");
+  });
+
+  it("translates the C3b drill-back chip per locale (issue #437)", () => {
+    const labels = LOCALES.map((locale) => chatDictFor(locale).search.backToOverview);
+    expect(new Set(labels).size).toBe(LOCALES.length);
+    expect(labels.every((label) => label.startsWith("←"))).toBe(true);
   });
 
   it.each(LOCALES)("keeps every %s search string non-empty", (locale) => {
