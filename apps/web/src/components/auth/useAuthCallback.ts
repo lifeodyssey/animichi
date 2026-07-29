@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { replayDeferredSave } from "../../features/chat/save/createOnLogin";
 import type { DeferredReplayOutcome } from "../../features/chat/save/createOnLogin";
 import { getAuthToken } from "../../lib/auth/authSession";
+import { migrateAnonymousSession, reportMigrationFailure } from "../../lib/auth/sessionMigration";
+import type { SessionMigrationOutcome } from "../../lib/auth/sessionMigration";
 
 /**
  * `save-failed` is a *successful* login whose create-on-login replay failed. It
@@ -12,7 +14,10 @@ import { getAuthToken } from "../../lib/auth/authSession";
 export type AuthCallbackState = "pending" | "done" | "error" | "save-failed";
 type Establish = () => Promise<string | undefined>;
 type Replay = () => Promise<DeferredReplayOutcome>;
+type Migrate = (token: string) => Promise<SessionMigrationOutcome>;
 type SetState = (state: AuthCallbackState) => void;
+
+const FAILED_REPLAY: DeferredReplayOutcome = "failed";
 
 function stateFor(outcome: DeferredReplayOutcome): AuthCallbackState {
   return outcome === "failed" ? "save-failed" : "done";
@@ -22,35 +27,73 @@ function stateFor(outcome: DeferredReplayOutcome): AuthCallbackState {
  * stalled users service degrades to the same surfaced-failure path as a 5xx. */
 export const REPLAY_TIMEOUT_MS = 8_000;
 
-function withTimeout(replay: Replay, ms: number): Promise<DeferredReplayOutcome> {
+/** The migration is a single identity-dimensional `UPDATE` behind one edge hop.
+ * It gets the replay's budget for the replay's reason — a stalled service must
+ * degrade to the failure path rather than pin the visitor on this screen. */
+export const MIGRATE_TIMEOUT_MS = REPLAY_TIMEOUT_MS;
+
+function withTimeout<T>(run: () => Promise<T>, ms: number, onTimeout: T): Promise<T> {
   return Promise.race([
-    replay(),
-    new Promise<DeferredReplayOutcome>((resolve) => setTimeout(() => { resolve("failed"); }, ms)),
+    run(),
+    new Promise<T>((resolve) => setTimeout(() => { resolve(onTimeout); }, ms)),
   ]);
 }
 
+/**
+ * Issue #507: the ownership migration must not block the login, because the
+ * login already succeeded — the visitor is authenticated whatever this returns,
+ * and stranding them on an interstitial over it would be a worse outcome than
+ * the thing it reports. It is not silent either:
+ *
+ *  - the failure is recorded as a structured event, and
+ *  - it is genuinely recoverable without the visitor doing anything. The edge
+ *    retires the `aid` cookie only on `{"migrated": true}`, so a failed run
+ *    leaves the anonymous identity — and the work it owns — intact, and the
+ *    next login on this browser migrates it. A user-facing retry would buy a
+ *    prompt over a path that already self-heals.
+ */
+async function runMigration(migrate: Migrate, token: string): Promise<void> {
+  const outcome = await withTimeout(() => migrate(token), MIGRATE_TIMEOUT_MS, "failed");
+  if (outcome === "failed") reportMigrationFailure();
+}
+
 /** Create-on-login: a login the save CTA started replays its deferred intent;
- * any other login (the D8/D11 banners) finds none and saves nothing. */
-async function redeem(establish: Establish, replay: Replay): Promise<AuthCallbackState> {
+ * any other login (the D8/D11 banners) finds none and saves nothing.
+ *
+ * The migration runs **alongside** the replay, not before or after it: they
+ * share no data (the migration re-points `conversations.user_id` in the agent's
+ * database; the replay creates a *fresh* route through the users Worker from
+ * client-held point ids), and both already hold the token `establish` returned.
+ * Serialising them would double this interstitial's worst case to 16s to buy
+ * an ordering nothing depends on. When both fail the visitor sees the save
+ * failure alone — the one they asked for and can act on. */
+async function redeem(establish: Establish, replay: Replay, migrate: Migrate): Promise<AuthCallbackState> {
   const token = await establish();
   if (!token) return "error";
-  return stateFor(await withTimeout(replay, REPLAY_TIMEOUT_MS));
+  const [outcome] = await Promise.all([
+    withTimeout(replay, REPLAY_TIMEOUT_MS, FAILED_REPLAY),
+    runMigration(migrate, token),
+  ]);
+  return stateFor(outcome);
 }
 
 /** Redeems the token once, dropping the result if the component unmounted first.
  * A rejection is a failed login, not an unhandled promise. */
-function establishEffect(establish: Establish, replay: Replay, setState: SetState): () => void {
+function establishEffect(est: Establish, replay: Replay, migrate: Migrate, setState: SetState): () => void {
   let active = true;
-  void redeem(establish, replay)
+  void redeem(est, replay, migrate)
     .catch((): AuthCallbackState => "error")
     .then((state) => { if (active) setState(state); });
-  return () => {
-    active = false;
-  };
+  return () => { active = false; };
 }
 
-function useEstablishOnce(establish: Establish, replay: Replay, setState: SetState): void {
-  useEffect(() => establishEffect(establish, replay, setState), [establish, replay, setState]);
+function useEstablishOnce(
+  establish: Establish, replay: Replay, migrate: Migrate, setState: SetState,
+): void {
+  useEffect(
+    () => establishEffect(establish, replay, migrate, setState),
+    [establish, replay, migrate, setState],
+  );
 }
 
 export interface AuthCallbackSession {
@@ -65,7 +108,7 @@ export interface AuthCallbackSession {
 function useRetrySave(replay: Replay, setState: SetState): () => void {
   return useCallback(() => {
     setState("pending");
-    void withTimeout(replay, REPLAY_TIMEOUT_MS)
+    void withTimeout(replay, REPLAY_TIMEOUT_MS, FAILED_REPLAY)
       .catch((): DeferredReplayOutcome => "failed")
       .then((outcome) => { setState(stateFor(outcome)); });
   }, [replay, setState]);
@@ -74,15 +117,18 @@ function useRetrySave(replay: Replay, setState: SetState): () => void {
 /**
  * Redeems the Better Auth session cookie (set on the Neon Auth origin by the
  * magic-link verify redirect) for the app's cached bearer token, then replays a
- * deferred save when the login came from the 「保存する」 CTA. `establish` and
- * `replay` are injectable for tests; production callers rely on the defaults.
+ * deferred save when the login came from the 「保存する」 CTA, and claims the
+ * browser's anonymous sessions for the new account (#507). `establish`,
+ * `replay` and `migrate` are injectable for tests; production callers — every
+ * magic-link, OTP and OAuth login funnels through here — rely on the defaults.
  */
 export function useAuthCallback(
   establish: Establish = getAuthToken,
   replay: Replay = replayDeferredSave,
+  migrate: Migrate = migrateAnonymousSession,
 ): AuthCallbackSession {
   const [state, setState] = useState<AuthCallbackState>("pending");
-  useEstablishOnce(establish, replay, setState);
+  useEstablishOnce(establish, replay, migrate, setState);
   const dismissSave = useCallback(() => { setState("done"); }, []);
   return { state, retrySave: useRetrySave(replay, setState), dismissSave };
 }
