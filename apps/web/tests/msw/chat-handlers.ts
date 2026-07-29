@@ -153,6 +153,13 @@ export function chatBudgetExhaustedHandler(): HttpHandler {
   return http.post(CHAT_URL, () => HttpResponse.json(body, { status: 403 }));
 }
 
+/** #282 S1.10: this identity's own daily message quota, not the shared budget. */
+export function chatQuotaExhaustedHandler(resetsAt?: string): HttpHandler {
+  const data = resetsAt === undefined ? undefined : { quota_resets_at: resetsAt };
+  const body = { error: { code: "anon_quota_exhausted", action: "login", data } };
+  return http.post(CHAT_URL, () => HttpResponse.json(body, { status: 403 }));
+}
+
 function droppingBody(head: string): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {

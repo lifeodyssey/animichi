@@ -131,3 +131,45 @@ test("a challenged anonymous turn offers the check retry, never a login prompt",
   await expect(page.getByText(states.d8Message)).toHaveCount(0);
   await expect(page.getByRole("button", { name: states.d8Login })).toHaveCount(0);
 });
+
+/**
+ * Issue #282 (S1.10) browser AC: exhausting *this* identity's daily message
+ * quota withholds sending behind a login CTA without eating the draft, and
+ * names the instant the allowance returns rather than guessing at "today".
+ * Same inert-gate assumption as the D11 breaker test above.
+ */
+test("an exhausted daily quota locks sending but keeps the visitor's typed text", async ({ page }) => {
+  const resetsAt = new Date(Date.now() + 3_600_000).toISOString();
+  await page.route("**/v1/chat", (route) =>
+    route.fulfill({
+      status: 403,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        error: { code: "anon_quota_exhausted", action: "login", data: { quota_resets_at: resetsAt } },
+      }),
+    }),
+  );
+  await openChat(page);
+  await send(page, "ユーフォ");
+
+  const notice = page.getByRole("status").filter({ hasText: "メッセージはここまで" });
+  await expect(notice).toBeVisible();
+  await expect(page.getByRole("button", { name: states.d12Login })).toBeVisible();
+  // The reset instant is rendered in the reader's own timezone, not the server's.
+  await expect(notice).toContainText(new Intl.DateTimeFormat("ja", { hour: "numeric", minute: "2-digit" }).format(Date.parse(resetsAt)));
+  // Not the shared-budget copy and not an expiry — this limit is the visitor's own.
+  await expect(page.getByText(states.d11Message)).toHaveCount(0);
+  await expect(page.getByText(states.d8Message)).toHaveCount(0);
+
+  const composer = page.getByRole("textbox");
+  await composer.fill("宇治にいきたい");
+  await expect(composer).toHaveAttribute("placeholder", states.d12InputHint);
+  // The accessible name stays the ordinary placeholder; the reason is a description.
+  await expect(composer).toHaveAttribute("aria-label", ja.inputPlaceholder);
+  await expect(page.getByRole("button", { name: ja.send })).toBeDisabled();
+  await composer.press("Enter");
+  await expect(composer).toHaveValue("宇治にいきたい");
+  // The draft is parked, so the magic-link round-trip cannot lose it.
+  const parked = await page.evaluate(() => sessionStorage.getItem("animichi:chat-draft"));
+  expect(parked).toBe("宇治にいきたい");
+});

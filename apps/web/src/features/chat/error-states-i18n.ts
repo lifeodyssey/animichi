@@ -1,4 +1,4 @@
-/** In-character copy for the D1-D11 fallback states (issue #272 S1.6),
+/** In-character copy for the D1-D12 fallback states (issue #272 S1.6),
  * split from i18n.ts to keep the chat dictionary hub under the file cap. */
 
 export interface ChatErrorStatesDict {
@@ -25,6 +25,11 @@ export interface ChatErrorStatesDict {
   readonly d10Retry: string;
   readonly d11Message: string;
   readonly d11Login: string;
+  readonly d12Message: string;
+  /** Same notice, naming the instant the allowance returns (`{time}`). */
+  readonly d12MessageAt: string;
+  readonly d12Login: string;
+  readonly d12InputHint: string;
 }
 
 export const jaErrorStates: ChatErrorStatesDict = {
@@ -51,6 +56,10 @@ export const jaErrorStates: ChatErrorStatesDict = {
   d10Retry: "もう一度おくる",
   d11Message: "今日はここまで。ログインすると、このつづきから一緒に旅の計画を立てられるよ",
   d11Login: "ログインする",
+  d12Message: "今日ぶんのメッセージはここまで。ログインすれば、いま書いた文はそのまま送れるよ",
+  d12MessageAt: "今日ぶんのメッセージはここまで。{time}にまた送れるようになるよ。ログインすれば、いま書いた文をすぐ送れる",
+  d12Login: "ログインして続ける",
+  d12InputHint: "ログインすると、この文が送れるよ",
 };
 
 export const zhErrorStates: ChatErrorStatesDict = {
@@ -77,6 +86,10 @@ export const zhErrorStates: ChatErrorStatesDict = {
   d10Retry: "再发一次",
   d11Message: "今天就聊到这儿啦。登录之后,就能接着一起把这趟旅程规划下去",
   d11Login: "去登录",
+  d12Message: "今天的免费消息到这儿啦。登录之后,你刚写的这句可以直接发出去",
+  d12MessageAt: "今天的免费消息到这儿啦。{time}就能再发。登录的话,你刚写的这句现在就能发出去",
+  d12Login: "登录后继续",
+  d12InputHint: "登录之后就能把这句发出去",
 };
 
 export const enErrorStates: ChatErrorStatesDict = {
@@ -103,4 +116,8 @@ export const enErrorStates: ChatErrorStatesDict = {
   d10Retry: "Send again",
   d11Message: "That's it for today. Sign in and we can keep planning this trip together",
   d11Login: "Sign in",
+  d12Message: "That's today's free messages. Sign in and the line you just wrote goes straight out",
+  d12MessageAt: "That's today's free messages. You can send again at {time}. Sign in and the line you just wrote goes out now",
+  d12Login: "Sign in to continue",
+  d12InputHint: "Sign in and this one goes through",
 };
