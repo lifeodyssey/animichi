@@ -380,7 +380,7 @@ To roll back a bad Pulumi apply:
 objects accumulate indefinitely instead of expiring after a few days the way the old GitHub-artifact
 retention window did. Adding an R2 bucket lifecycle rule is an `infra/index.ts` change (a new Pulumi
 resource, applied through the same approval-gated path as everything else here) and is out of scope
-for this change; tracked as a follow-up, not silently assumed to already exist.
+for this change; tracked as **#521**, not silently assumed to already exist.
 
 ### ⚠️ Database migrations do NOT roll back this way
 

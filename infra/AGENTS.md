@@ -48,5 +48,5 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
   Pulumi state itself; keeping the backup there (not GitHub artifacts) is what keeps that true for
   the backup too.
 - No lifecycle/expiry rule exists yet on the `rollback-backups/` R2 prefix — objects accumulate
-  indefinitely. Adding one is a Pulumi resource change (`index.ts`), not a CI change; tracked as a
-  follow-up.
+  indefinitely. Adding one is a Pulumi resource change (`index.ts`), not a CI change; tracked as
+  **#521**.
