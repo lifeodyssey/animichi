@@ -66,3 +66,34 @@ describe("LoginForm submission", () => {
     resolve("sent");
   });
 });
+
+/**
+ * Issue #437 / #465: `onSent` used to fire from a passive effect, so it landed a
+ * scheduler tick *after* the "sent" banner reached the DOM. A caller that waits
+ * on the banner and then acts (the P5 save wall's dismissal) could therefore run
+ * before it was told a link went out — a 1-in-6 flake under load, and the same
+ * race a fast human click would hit. It must fire in the send continuation.
+ */
+describe("LoginForm sent notification timing", () => {
+  it("notifies the caller in the send continuation, not in a later effect", async () => {
+    const onSent = vi.fn();
+    let resolve!: (value: "sent") => void;
+    send.mockReturnValue(new Promise((r) => { resolve = r; }));
+    renderWithLocale(<LoginForm onSent={onSent} />);
+    fireEvent.change(screen.getByLabelText("メールアドレス"), { target: { value: "fan@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "ログインリンクを送信" }));
+    resolve("sent");
+    await Promise.resolve();
+    expect(onSent).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays silent when the send did not produce a link", async () => {
+    const onSent = vi.fn();
+    send.mockResolvedValue("error");
+    renderWithLocale(<LoginForm onSent={onSent} />);
+    fireEvent.change(screen.getByLabelText("メールアドレス"), { target: { value: "fan@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "ログインリンクを送信" }));
+    await waitFor(() => { expect(screen.getByRole("alert")).toBeTruthy(); });
+    expect(onSent).not.toHaveBeenCalled();
+  });
+});

@@ -25,12 +25,17 @@ function callbackUrl(): string {
   return `${window.location.origin}/auth/callback`;
 }
 
-function useSendMagicLink(email: string): [FormStatus, () => Promise<void>] {
+/** `onSent` fires in this continuation, alongside the status commit — never from
+ * a passive effect, which would land a tick after the banner is observable and
+ * lose a race with an immediate dismissal (issues #437 / #465). */
+function useSendMagicLink(email: string, onSent?: () => void): [FormStatus, () => Promise<void>] {
   const [status, setStatus] = useState<FormStatus>("idle");
   const submit = useCallback(async () => {
     setStatus("submitting");
-    setStatus(await sendMagicLink({ email: email.trim().toLowerCase(), callbackURL: callbackUrl() }));
-  }, [email]);
+    const result = await sendMagicLink({ email: email.trim().toLowerCase(), callbackURL: callbackUrl() });
+    setStatus(result);
+    if (result === "sent") onSent?.();
+  }, [email, onSent]);
   return [status, submit];
 }
 
@@ -45,10 +50,10 @@ function useSubmit(email: string, setValidation: SetValidation, submit: () => Pr
   }, [email, setValidation, submit]);
 }
 
-export function useMagicLinkForm(): MagicLinkForm {
+export function useMagicLinkForm(onSent?: () => void): MagicLinkForm {
   const [email, setEmail] = useState("");
   const [validation, setValidation] = useState<ValidationKey | null>(null);
-  const [status, submit] = useSendMagicLink(email);
+  const [status, submit] = useSendMagicLink(email, onSent);
   const onSubmit = useSubmit(email, setValidation, submit);
   return { email, status, validation, setEmail, onSubmit };
 }
