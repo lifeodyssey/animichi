@@ -21,7 +21,7 @@
 
 ## 分享预览
 - https://sharehtml.zhenjia.dev/s/7h4m2AU9eH （5 版迷你 hero,匿名存至 2027-06-19）
-- claimToken: `***REDACTED-CLAIM-TOKEN***`（登录后认领/管理用）
+- claimToken: 本地保管，不入库（登录后认领/管理用）
 - 本地存档:`agent-review/palette-preview.{html,png}`、`palette-compare.png`
 
 ## 参考资源

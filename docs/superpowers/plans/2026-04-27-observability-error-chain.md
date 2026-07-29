@@ -399,7 +399,7 @@ First, get the read token from Logfire web UI (or use the write token for read a
 
 ```bash
 claude mcp add logfire \
-  -e LOGFIRE_READ_TOKEN="***REDACTED-LOGFIRE-TOKEN***" \
+  -e LOGFIRE_READ_TOKEN="$LOGFIRE_READ_TOKEN" \
   -- uvx logfire-mcp@latest
 ```
 
