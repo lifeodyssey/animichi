@@ -21,10 +21,13 @@ import toml from "../wrangler.toml?raw";
 //                  public URL per deployed version, with real bindings.
 //
 // Not hypothetical. `catalog-staging.<account>.workers.dev` was answering
-// unauthenticated requests with real data. The Worker's entire security model
-// is the comment at worker/app.ts:330 ("catalog is private, reached via
-// service binding") — nothing in the request tells catalog whether a caller
-// came through the binding or off the open internet.
+// unauthenticated requests with real data, and preview.yml published the
+// per-version URLs as comments on public PRs.
+//
+// Do NOT cite worker/app.ts's "no /catalog/* route — catalog is private"
+// comment as the authority here: seventeen lines below it the same file
+// registers `/catalog/public/anime-overview/:bangumiId`. The reachability
+// story is what this file asserts, not what any comment claims.
 //
 // Parsing here is deliberately line-based rather than via a TOML library: the
 // point is to assert on the file a human edits, and adding a parser dependency
@@ -65,15 +68,15 @@ const environments = (toml: string): Section[] =>
 // policy: a reader deciding whether an environment is private should not have
 // to know wrangler's inheritance rules to answer it.
 //
-// `[env.preview]` is the one deliberate exception — per-PR previews (#305) are
-// reached through version preview URLs, so `preview_urls` is true there on
-// purpose. It is listed explicitly rather than excluded by a wildcard, so a
-// second environment cannot quietly join the exception.
+// There is no exception. `[env.preview]` briefly carried preview_urls = true
+// for per-PR previews (#305); the owner retired those on 2026-07-29 because
+// staging already serves that role, and because preview.yml published the
+// resulting public URLs on public PRs.
 const PRIVACY: Record<string, string[]> = {
   "top-level": ["workers_dev = false", "preview_urls = false"],
   "env.staging": ["workers_dev = false", "preview_urls = false"],
   "env.production": ["workers_dev = false", "preview_urls = false"],
-  "env.preview": ["workers_dev = false", "preview_urls = true"],
+  "env.preview": ["workers_dev = false", "preview_urls = false"],
 };
 
 describe("catalog has no public host", () => {

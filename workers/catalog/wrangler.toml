@@ -20,7 +20,7 @@ compatibility_flags = ["nodejs_compat"]
 # below are a deliberate policy choice enforced by
 # test/wrangler-private.worker.test.ts — a reader should not have to know the
 # inheritance rules to see that an environment is private — NOT a wrangler
-# requirement. `[env.preview]` overrides preview_urls back to true on purpose.
+# requirement. Every environment is private; there is no exception.
 workers_dev = false
 preview_urls = false
 
@@ -91,14 +91,17 @@ ENVIRONMENT = "production"
 binding = "MEDIA_BUCKET"
 bucket_name = "catalog-media"
 
-# Per-PR preview environment (issue #305). Routeless: CI deploys only the
-# one-time bootstrap that creates the Worker; previews are undeployed versions
-# reached through preview URLs. DATABASE_URL is injected per version from the
-# Neon branch preview/pr-<N> by .github/workflows/preview.yml.
+# Per-PR preview environment (issue #305). Version preview URLs are
+# `<alias>-<name>.<subdomain>.workers.dev` and are PUBLIC when enabled — and
+# `.github/workflows/preview.yml` posts them as a comment on a public PR, so
+# enabling them published the address of an unauthenticated catalog carrying a
+# DDL-privileged DATABASE_URL. Owner retired per-PR previews on 2026-07-29:
+# staging already serves that role. This block stays private like every other
+# until the machinery itself is removed (tracked separately).
 [env.preview]
 name = "catalog-preview"
 workers_dev = false
-preview_urls = true
+preview_urls = false
 
 [env.preview.vars]
 ENVIRONMENT = "preview"
