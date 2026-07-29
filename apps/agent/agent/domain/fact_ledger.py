@@ -162,9 +162,14 @@ class FactLedger(_LedgerModel):
         return len(self.model_dump_json().encode("utf-8"))
 
 
-# A same-turn supersession doesn't yet have the successor's id when the whole
-# live set is retired up front; `_TURN_SUPERSEDED` marks "no longer live"
-# without inventing a fake id. Real ids replace it once eviction runs.
+# A whole-set turn replacement has no single "successor" id for every retired
+# record — a batch of N old points can be replaced by a batch of M new ones
+# with no 1:1 correspondence between any one retired record and any one new
+# one. `_TURN_SUPERSEDED` is therefore an intentional, permanent tombstone
+# value, not a placeholder: it is never rewritten to a real record id, and it
+# only ever means "retired by a later turn's whole-set replace" rather than
+# "specifically superseded by record X" (that stronger, id-linked chain is
+# what `append_hard_constraint`'s `_supersede` still provides).
 _TURN_SUPERSEDED = FactId("__turn_superseded__")
 
 

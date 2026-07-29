@@ -149,10 +149,12 @@ def _parse_forward_compatible(raw: dict[str, object]) -> SessionState | None:
         return None
     stripped = {key: value for key, value in raw.items() if key not in droppable}
     try:
-        return SessionState.model_validate(stripped)
+        restored = SessionState.model_validate(stripped)
     except ValidationError:
         logger.warning("invalid_session_state_v2")
         return None
+    logger.warning("fact_ledger_dropped", dropped_keys=sorted(droppable))
+    return restored
 
 
 def _latest_runtime_state(interactions: list[object]) -> SessionState | None:

@@ -1,39 +1,28 @@
-"""Unit tests for the typed, bounded session fact ledger (S1.7 Task 4)."""
+"""Unit tests for the fact ledger's core append/supersede/bound behavior.
+
+Consumption-gate, envelope-serialization, and rollback-parse tests live in
+`test_fact_ledger_envelope.py` (kept separate per the ≤200-line test-file rule).
+"""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import MagicMock
 
-import pytest
-from pydantic import ValidationError
-
-from agent.agents.animichi_agent import trusted_session_context
-from agent.agents.runtime_deps import RuntimeDeps
-from agent.agents.session_state import SessionState
-from agent.agents.tool_state import ToolState
 from agent.domain.fact_ledger import (
+    _MAX_VALUE_BYTES,
     MAX_LEDGER_BYTES,
     MAX_RECORDS_PER_FIELD,
+    FactId,
     FactLedger,
     HardConstraintRecord,
     Pacing,
     SceneReferenceRecord,
+    _bound,
+    _evict_by_count,
+    _truncate,
 )
-from agent.interfaces.session_facade import _serialize_runtime_state
-from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
 _NOW = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
-
-
-def _deps(session: SessionState) -> RuntimeDeps:
-    return RuntimeDeps(
-        db=MagicMock(),
-        locale="en",
-        query="q",
-        catalog=MockCatalogClient(),
-        tool_state=ToolState(session=session),
-    )
 
 
 def test_each_field_accepts_an_independent_append_with_timestamp_and_kind() -> None:
@@ -100,28 +89,6 @@ def test_repeating_the_same_selection_is_a_no_op() -> None:
     assert len(ledger.scene_references) == 1
 
 
-def test_consumption_gate_hard_constraint_reaches_trusted_prompt_context() -> None:
-    state = SessionState()
-    state.fact_ledger.append_hard_constraint("packed", now=_NOW)
-
-    context = trusted_session_context(_deps(state))
-
-    assert "User hard constraint: packed pacing." in context
-    assert "Apply this pacing to every subsequent plan_route call" in context
-
-
-def test_consumption_gate_scene_reference_reaches_trusted_prompt_context() -> None:
-    state = SessionState()
-    state.fact_ledger.replace_scene_references(
-        [("p1", "Episode 5 — 資生堂前 @ 340s")], now=_NOW
-    )
-
-    context = trusted_session_context(_deps(state))
-
-    assert "Referenced scene: Episode 5 — 資生堂前 @ 340s." in context
-    assert "durable point of interest" in context
-
-
 def test_injection_hygiene_strips_control_characters_and_newlines() -> None:
     """A community-sourced point name must not forge extra ledger-shaped
     prompt lines when replayed into the trusted context (#473 review)."""
@@ -138,90 +105,16 @@ def test_injection_hygiene_strips_control_characters_and_newlines() -> None:
     )
 
 
-def test_fresh_empty_ledger_round_trips_without_error() -> None:
-    dumped = FactLedger().model_dump(mode="json")
+def test_truncate_never_splits_a_multibyte_codepoint() -> None:
+    """Byte-aware truncation must never leave a mangled partial UTF-8 sequence
+    at the cut point — CJK characters are 3 bytes each in UTF-8 (#473 P2)."""
+    long_value = "資" * 40  # 120 bytes, over the 96-byte cap
 
-    restored = FactLedger.model_validate(dumped)
+    truncated = _truncate(long_value)
 
-    assert restored == FactLedger()
-    assert restored.is_empty()
-
-
-def test_fresh_empty_ledger_adds_no_key_to_the_serialized_envelope() -> None:
-    dumped = _serialize_runtime_state(SessionState())
-
-    assert "fact_ledger" not in dumped
-
-
-def test_a_recorded_fact_is_present_in_the_serialized_envelope() -> None:
-    state = SessionState()
-    state.fact_ledger.append_hard_constraint("packed", now=_NOW)
-
-    dumped = _serialize_runtime_state(state)
-
-    assert "fact_ledger" in dumped
-
-
-def test_an_unparseable_fact_ledger_is_dropped_not_left_to_sink_the_session() -> None:
-    """A newer/rolled-back deploy's `fact_ledger` shape must not sink the
-    rest of an otherwise-valid typed session (#473 review's rollback ask)."""
-    from agent.interfaces.session_facade import _parse_runtime_state
-
-    dumped = SessionState().model_dump(mode="json")
-    dumped["current_anime"] = {"bangumi_id": "1", "title": "Haruhi"}
-    dumped["fact_ledger"] = {"hard_constraints": [{"not_a_real_field": True}]}
-
-    restored = _parse_runtime_state(dumped)
-
-    assert restored is not None
-    assert restored.fact_ledger.is_empty()
-    assert restored.current_anime is not None
-    assert restored.current_anime.title == "Haruhi"
-
-
-def test_parse_forward_compatible_only_drops_the_allowlisted_key() -> None:
-    from agent.interfaces.session_facade import _parse_forward_compatible
-
-    dumped = SessionState().model_dump(mode="json")
-    dumped["fact_ledger"] = "not even a dict"
-
-    restored = _parse_forward_compatible(dumped)
-
-    assert restored == SessionState()
-
-
-def test_genuine_corruption_still_returns_none_not_a_blanket_strip() -> None:
-    from agent.interfaces.session_facade import _parse_runtime_state
-
-    assert _parse_runtime_state({"unknown": True}) is None
-
-
-def test_unknown_field_is_rejected_at_the_model_boundary() -> None:
-    with pytest.raises(ValidationError, match="extra_forbidden"):
-        FactLedger.model_validate({"hard_constraints": [], "bogus": True})
-
-
-def test_malformed_record_is_rejected_at_the_model_boundary() -> None:
-    with pytest.raises(ValidationError):
-        FactLedger.model_validate(
-            {
-                "hard_constraints": [
-                    {
-                        "id": "a",
-                        "value": "chill",
-                        "recorded_at": _NOW.isoformat(),
-                        "not_a_real_field": True,
-                    }
-                ]
-            }
-        )
-
-
-def test_invalid_pacing_value_is_rejected_at_the_model_boundary() -> None:
-    with pytest.raises(ValidationError):
-        HardConstraintRecord.model_validate(
-            {"id": "a", "value": "sprint", "recorded_at": _NOW.isoformat()}
-        )
+    assert len(truncated.encode("utf-8")) <= _MAX_VALUE_BYTES
+    assert set(truncated) <= {"資", "…"}
+    assert truncated.encode("utf-8").decode("utf-8") == truncated  # never mangled
 
 
 def test_boundary_cap_evicts_oldest_superseded_and_keeps_the_live_record() -> None:
@@ -252,3 +145,47 @@ def test_many_turn_scoped_replace_rounds_stay_within_the_hard_bound() -> None:
     assert len(ledger.scene_references) == MAX_RECORDS_PER_FIELD
     assert len(ledger.active_scene_references()) == MAX_RECORDS_PER_FIELD
     assert ledger.encoded_size_bytes() < MAX_LEDGER_BYTES
+
+
+def test_evict_by_count_trims_records_with_too_few_superseded_to_reach_cap() -> None:
+    """Backstop (#473 r3): the public API always supersedes the whole prior
+    live set first, so this state can't arise there — bypass-inject it."""
+    records = [
+        SceneReferenceRecord(
+            id=FactId(f"id-{i}"), point_id=f"p{i}", value=f"v{i}", recorded_at=_NOW
+        )
+        for i in range(12)
+    ]
+    records[0].superseded_by = FactId("gone-0")
+    records[1].superseded_by = FactId("gone-1")
+
+    _evict_by_count(records)
+
+    assert len(records) == MAX_RECORDS_PER_FIELD
+    assert [r.id for r in records] == [FactId(f"id-{i}") for i in range(4, 12)]
+
+
+def test_evict_by_budget_drops_records_even_when_none_are_superseded() -> None:
+    """Byte-budget bypass (#473 r3): `model_validate` skips write-path
+    truncation, so 8 (cap-sized) oversized records still blow the 8 KiB
+    budget — proving the budget wins even over a live record."""
+    huge_value = "x" * 2000
+    ledger = FactLedger.model_validate(
+        {
+            "scene_references": [
+                {
+                    "id": f"id-{i}",
+                    "point_id": f"p{i}",
+                    "value": huge_value,
+                    "recorded_at": _NOW.isoformat(),
+                }
+                for i in range(MAX_RECORDS_PER_FIELD)
+            ]
+        }
+    )
+    assert ledger.encoded_size_bytes() > MAX_LEDGER_BYTES
+
+    _bound(ledger, ledger.scene_references)
+
+    assert ledger.encoded_size_bytes() <= MAX_LEDGER_BYTES
+    assert len(ledger.scene_references) < MAX_RECORDS_PER_FIELD
