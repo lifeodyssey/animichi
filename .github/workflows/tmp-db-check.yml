@@ -1,0 +1,36 @@
+name: TEMP DB pointer check (issue #508 verification, to be deleted)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare SUPABASE_DB_URL vs NEON_DATABASE_URL targets (no secret values printed)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          set -e
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client >/dev/null
+
+          echo "== identical DSN string? (sha256 compare, no values printed) =="
+          H1=$(printf '%s' "$SUPABASE_DB_URL" | sha256sum | cut -d' ' -f1)
+          H2=$(printf '%s' "$NEON_DATABASE_URL" | sha256sum | cut -d' ' -f1)
+          if [ "$H1" = "$H2" ]; then echo "SAME_DSN_STRING=true"; else echo "SAME_DSN_STRING=false"; fi
+
+          echo "== via SUPABASE_DB_URL =="
+          psql "$SUPABASE_DB_URL" -Atc "select current_database();" || echo "SUPABASE_DB_URL: connection failed"
+          psql "$SUPABASE_DB_URL" -Atc "select coalesce(to_regclass('public.conversations')::text, 'MISSING');" || true
+          psql "$SUPABASE_DB_URL" -Atc "select coalesce(to_regclass('public.sessions')::text, 'MISSING');" || true
+          psql "$SUPABASE_DB_URL" -Atc "select coalesce(to_regclass('public.anon_daily_message_count')::text, 'MISSING');" || true
+
+          echo "== via NEON_DATABASE_URL =="
+          psql "$NEON_DATABASE_URL" -Atc "select current_database();" || echo "NEON_DATABASE_URL: connection failed"
+          psql "$NEON_DATABASE_URL" -Atc "select coalesce(to_regclass('public.conversations')::text, 'MISSING');" || true
+          psql "$NEON_DATABASE_URL" -Atc "select coalesce(to_regclass('public.sessions')::text, 'MISSING');" || true
+          psql "$NEON_DATABASE_URL" -Atc "select coalesce(to_regclass('public.anon_daily_message_count')::text, 'MISSING');" || true
