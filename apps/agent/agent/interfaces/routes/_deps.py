@@ -32,6 +32,9 @@ _SCRUB_PATTERNS = (
     r"(?=^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$)",
     r"api[._ -]?key",
     r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
+    # Broad substring, not `x-byok-key` literally: `Header(alias=...)`
+    # surfaces the bare parameter name (`byok_key`) elsewhere. Case-insensitive.
+    r"byok",
 )
 _OPERATING_QUERY_FIELDS = frozenset({"query_text", "first_query"})
 _MESSAGE_CONTENT_FIELDS = frozenset(
@@ -335,5 +338,12 @@ def _instrument_logfire(app: object | None) -> None:
         from fastapi import FastAPI as _FastAPI
 
         logfire.instrument_fastapi(cast(_FastAPI, app))
+    # `instrument_httpx()` with no `client` arg globally patches
+    # `httpx.AsyncHTTPTransport` at the class level, so a naive per-request
+    # BYOK client would leak `url.full` (the user's `base_url`) on a span.
+    # BYOK spec X3/P1-1, Option A: `egress_transport.GuardedAsyncTransport`
+    # (Task 1) excludes itself from this patch on construction — see that
+    # module. It is the sole BYOK client transport, so there is no second,
+    # unprotected way to build one.
     logfire.instrument_httpx()
     logfire.instrument_asyncpg()

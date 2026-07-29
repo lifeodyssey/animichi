@@ -89,6 +89,19 @@ class GuardedAsyncTransport(httpx.AsyncBaseTransport):
     ) -> None:
         self._resolver = resolver
         self._inner = inner if inner is not None else _build_inner_transport(verify)
+        # BYOK spec X3/P1-1, Option A: exclude the *inner* transport from
+        # global Logfire/OTel httpx instrumentation. `logfire.instrument_httpx()`
+        # (no `client` argument) patches `httpx.AsyncHTTPTransport` at the
+        # class level — and `_inner` is exactly that class, so without this,
+        # every BYOK egress request would still be auto-instrumented via the
+        # inner call and record `url.full` (the user's `base_url`, path and
+        # query included) on a span. Excluding `client._transport` itself
+        # (a `GuardedAsyncTransport`, never an `AsyncHTTPTransport`) would be
+        # a no-op — the class-level patch only ever touches `_inner`. Applied
+        # here, not in `build_guarded_async_client`, so it protects every
+        # `GuardedAsyncTransport`, not just clients built through that one
+        # factory.
+        _exclude_from_httpx_instrumentation(self._inner)
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         endpoint = await validate_base_url(str(request.url), resolver=self._resolver)
@@ -99,6 +112,26 @@ class GuardedAsyncTransport(httpx.AsyncBaseTransport):
 
     async def aclose(self) -> None:
         await self._inner.aclose()
+
+
+def _exclude_from_httpx_instrumentation(transport: httpx.AsyncBaseTransport) -> None:
+    """Opt this transport instance out of global Logfire/OTel instrumentation.
+
+    `logfire.instrument_httpx()` with no `client` argument monkey-patches
+    `httpx.AsyncHTTPTransport.handle_async_request` at the *class* level via
+    `wrapt`. `opentelemetry`'s own `HTTPXClientInstrumentor.uninstrument_client`
+    would target `client._transport` — but that is the outer
+    `GuardedAsyncTransport`, never an `AsyncHTTPTransport` instance, so it
+    would silently do nothing. `unwrap` here is pointed at the actual
+    `AsyncHTTPTransport` object (the transport passed in, always `_inner` in
+    practice) whose class method the global patch touches.
+    """
+    from opentelemetry.instrumentation.utils import unwrap
+
+    if hasattr(transport, "handle_async_request"):
+        unwrap(transport, "handle_async_request")
+    if hasattr(transport, "handle_request"):
+        unwrap(transport, "handle_request")
 
 
 def build_guarded_async_client(
@@ -113,7 +146,11 @@ def build_guarded_async_client(
     variable would otherwise route the "pinned-IP" connection through a proxy
     that re-resolves the hostname itself, silently voiding the pinning
     guarantee. `verify` is exposed only so tests can pin a private test CA;
-    production callers should leave it at the default.
+    production callers should leave it at the default. This is the *only*
+    sanctioned way to build a BYOK client — it carries both the SSRF guard
+    (#284 Task 1) and the httpx-instrumentation exclusion (#284 Task 2,
+    X3/P1-1, applied in `GuardedAsyncTransport.__init__`); a hand-rolled
+    `httpx.AsyncClient` for BYOK traffic would have neither.
     """
     return httpx.AsyncClient(
         transport=GuardedAsyncTransport(resolver=resolver, verify=verify),
