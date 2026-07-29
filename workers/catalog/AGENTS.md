@@ -54,5 +54,10 @@ Root guide: `../../AGENTS.md`.
 
 - `*.worker.test.ts` runs inside workerd via `vitest.config.ts`; its filesystem is sandboxed.
 - `*.spike.test.ts` runs in the Node pool via `vitest.spike.config.ts` for filesystem, TCP, Docker,
-  or child-process work. Filesystem parity checks belong here, not in Worker tests.
+  or child-process work. Filesystem parity checks belong here, not in Worker tests — **unless the
+  check must never be skippable**. The spike pool's `globalSetup` skips the entire suite without
+  `NEON_API_KEY`/`NEON_PROJECT_ID`, so a guard placed there silently disappears in a CI job that
+  has no Neon credentials. Config-as-data guards that must always run belong in the worker pool,
+  reading their file via Vite's `?raw` suffix (inlined at transform time, so the sandboxed
+  filesystem never comes into it). See `test/wrangler-private.worker.test.ts`.
 - TDD via `vitest-pool-workers`; keep `test/contract-parity.worker.test.ts` green.

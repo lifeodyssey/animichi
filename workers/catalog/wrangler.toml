@@ -2,6 +2,10 @@ name = "catalog"
 main = "src/index.ts"
 compatibility_date = "2025-09-23"
 compatibility_flags = ["nodejs_compat"]
+# No public workers.dev host — reached only via the root Worker CATALOG service
+# binding. wrangler defaults workers_dev to true when no route is declared, so
+# every environment must say this explicitly (see workers/users/wrangler.toml).
+workers_dev = false
 
 # Hyperdrive binds the Worker to a pooled Postgres connection in production.
 # src/index.ts reads env.HYPERDRIVE.connectionString first, falling back to
@@ -48,6 +52,7 @@ ENVIRONMENT = "development"
 
 [env.staging]
 name = "catalog-staging"
+workers_dev = false
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
@@ -58,6 +63,7 @@ bucket_name = "catalog-media-staging"
 
 [env.production]
 name = "catalog"
+workers_dev = false
 
 [env.production.vars]
 ENVIRONMENT = "production"
