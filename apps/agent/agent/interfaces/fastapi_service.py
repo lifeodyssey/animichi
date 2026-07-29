@@ -31,6 +31,7 @@ from agent.interfaces.routes._middleware import (
     register_observability_middleware,
 )
 from agent.interfaces.routes.bangumi import router as bangumi_router
+from agent.interfaces.routes.byok import router as byok_router
 from agent.interfaces.routes.chat import router as chat_router
 from agent.interfaces.routes.conversations import router as conversations_router
 from agent.interfaces.routes.feedback import router as feedback_router
@@ -183,6 +184,7 @@ def create_fastapi_app(
     app.include_router(health_router)
     app.include_router(runtime_router)
     app.include_router(chat_router)
+    app.include_router(byok_router)
     app.include_router(feedback_router)
     app.include_router(conversations_router)
     app.include_router(bangumi_router)

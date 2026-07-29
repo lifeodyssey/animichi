@@ -12,6 +12,7 @@ to a validated IP literal.
 from __future__ import annotations
 
 import ssl
+from collections.abc import Callable
 
 import httpx
 
@@ -134,11 +135,15 @@ def _exclude_from_httpx_instrumentation(transport: httpx.AsyncBaseTransport) -> 
         unwrap(transport, "handle_request")
 
 
+TransportWrapper = Callable[[httpx.AsyncBaseTransport], httpx.AsyncBaseTransport]
+
+
 def build_guarded_async_client(
     *,
     resolver: Resolver = default_resolve,
     timeout: httpx.Timeout | float | None = None,
     verify: ssl.SSLContext | str | bool = True,
+    transport_wrapper: TransportWrapper | None = None,
 ) -> httpx.AsyncClient:
     """Build the per-request BYOK transport.
 
@@ -151,9 +156,20 @@ def build_guarded_async_client(
     (#284 Task 1) and the httpx-instrumentation exclusion (#284 Task 2,
     X3/P1-1, applied in `GuardedAsyncTransport.__init__`); a hand-rolled
     `httpx.AsyncClient` for BYOK traffic would have neither.
+
+    `transport_wrapper` (review follow-up, #479 P2): applied at construction
+    time, never as a post-hoc `client._transport = ...` reassignment — the
+    probe route (#284 Task 5) uses this to install its response-size cap
+    *before* the client is ever handed to a caller, so there is no window
+    where an unwrapped, cap-free transport exists.
     """
+    transport: httpx.AsyncBaseTransport = GuardedAsyncTransport(
+        resolver=resolver, verify=verify
+    )
+    if transport_wrapper is not None:
+        transport = transport_wrapper(transport)
     return httpx.AsyncClient(
-        transport=GuardedAsyncTransport(resolver=resolver, verify=verify),
+        transport=transport,
         trust_env=False,
         follow_redirects=False,
         timeout=timeout if timeout is not None else httpx.Timeout(30.0),
