@@ -218,6 +218,15 @@ new_sqlite_classes = ["EdgeGuard"]
 [env.staging]
 name = "animichi-staging"
 routes = []
+# No custom domain in staging. `routes = []` (a present-but-empty routes
+# component) would otherwise get workers_dev inferred to false (see
+# https://developers.cloudflare.com/workers/configuration/routing/workers-dev/),
+# leaving this Worker with NO reachable HTTP endpoint at all. Issue #484: the
+# post-staging promotion gate needs a real address to assert against
+# (/healthz, edge auth probe, anonymous Turnstile probe) — enable workers.dev
+# explicitly so staging has a stable URL: https://animichi-staging.<account
+# subdomain>.workers.dev.
+workers_dev = true
 
 [env.staging.vars]
 CATALOG_API_URL = "http://catalog.internal"

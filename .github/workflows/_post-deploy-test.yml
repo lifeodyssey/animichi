@@ -1,15 +1,30 @@
 name: post-deploy-test
 
-# Reusable post-deploy test harness. Runs a named test suite against an
-# already-deployed environment. Suites are parameterized and each is a
-# guarded step that no-ops-with-note when the target surface is not yet
-# reachable, so the structure is real and ready to fill once exposed.
+# Reusable post-deploy test harness (issue #484). Runs real HTTP assertions
+# against an already-deployed environment via .github/scripts/post-deploy-assert.sh.
+# URLs are derived from the Worker naming convention in wrangler.toml /
+# apps/web/wrangler.jsonc plus the account's workers.dev subdomain — see
+# .github/scripts/resolve-worker-url.sh. This is NOT a network liveness probe
+# used to guess the URL; it is a deterministic name -> URL mapping.
 #
-# Wiring status (2026-06-24):
-#   - catalog Worker has NO public route → api/smoke cannot hit its read
-#     API yet. Those suites emit an honest TODO instead of a fabricated pass.
-#   - e2e (Playwright in e2e/) needs the user-facing surface from the Wave 4
-#     frontend rebuild (edge/web) before it can run.
+# Status (2026-07-29, issue #484): the `changes` job upstream of every deploy
+# job (dorny/paths-filter, checkout with persist-credentials:false + shallow
+# fetch) has been exiting 128 on `push` events, so every deploy job — and
+# this job with it — has been silently SKIPPED on every push to main. Fix is
+# tracked in PR #490 (fetch-depth: 0). Until that merges and a subsequent
+# push actually deploys staging, these assertions cannot be exercised
+# end-to-end from this repo's own CI. A green run of THIS PR is not proof the
+# assertions work — the first real signal arrives on the next push-to-main
+# deploy after #490 lands. Read the job logs (status code + body head) for
+# the actual evidence, and watch that this job itself does not silently
+# SKIP again (see ci.yml `needs:` chain — that failure mode is issue #457).
+#
+# suite semantics:
+#   api    — post-staging: the staging -> production promotion gate.
+#   smoke  — post-prod: final sanity after every production deploy.
+#   e2e    — not wired into ci.yml yet (reserved for a future Playwright
+#            browser suite or a broader manual dispatch); kept as real HTTP
+#            checks so wiring it in later is a one-line ci.yml change.
 
 on:
   workflow_call:
@@ -20,6 +35,11 @@ on:
       suite:
         required: true
         type: string  # api | e2e | smoke
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: false
+      CLOUDFLARE_ACCOUNT_ID:
+        required: false
 
 permissions:
   contents: read
@@ -34,43 +54,6 @@ jobs:
         with:
           persist-credentials: false
 
-      # ── api suite ───────────────────────────────────────────────
-      # TODO: catalog needs workers.dev/temp-expose to hit its read API;
-      # wire when exposed. Until then this no-ops with a note rather than
-      # fabricating a passing test.
-      - name: API suite (TODO — catalog not publicly reachable)
-        if: ${{ inputs.suite == 'api' }}
-        shell: bash
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
-        run: |
-          echo "::notice title=post-deploy api TODO::catalog needs workers.dev/temp-expose to hit its read API; wire when exposed ($ENVIRONMENT)"
-          echo "SKIP: api suite is not wired yet — catalog Worker has no public route."
-
-      # ── e2e suite ───────────────────────────────────────────────
-      # TODO: Playwright e2e/ exists but needs the user-facing surface from
-      # the Wave 4 frontend rebuild (edge/web); wire when that lands.
-      - name: E2E suite (TODO — awaiting edge/web surface)
-        if: ${{ inputs.suite == 'e2e' }}
-        shell: bash
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
-        run: |
-          echo "::notice title=post-deploy e2e TODO::Playwright e2e/ needs the user-facing surface from the Wave 4 frontend rebuild (edge/web); wire when that lands ($ENVIRONMENT)"
-          echo "SKIP: e2e suite is not wired yet — no deployed user-facing surface."
-
-      # ── smoke suite ─────────────────────────────────────────────
-      # TODO: catalog needs workers.dev/temp-expose to hit its read API;
-      # wire when exposed. Same constraint as the api suite.
-      - name: Smoke suite (TODO — catalog not publicly reachable)
-        if: ${{ inputs.suite == 'smoke' }}
-        shell: bash
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
-        run: |
-          echo "::notice title=post-deploy smoke TODO::catalog needs workers.dev/temp-expose to hit its read API; wire when exposed ($ENVIRONMENT)"
-          echo "SKIP: smoke suite is not wired yet — catalog Worker has no public route."
-
       # ── guard against unknown suite values ──────────────────────
       - name: Unknown suite guard
         if: ${{ inputs.suite != 'api' && inputs.suite != 'e2e' && inputs.suite != 'smoke' }}
@@ -80,3 +63,98 @@ jobs:
         run: |
           echo "::error title=post-deploy unknown suite::'$SUITE' is not one of api|e2e|smoke"
           exit 1
+
+      - name: Resolve deployed URLs
+        id: urls
+        shell: bash
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          root_url="$(bash .github/scripts/resolve-worker-url.sh root "$ENVIRONMENT")"
+          web_url="$(bash .github/scripts/resolve-worker-url.sh web "$ENVIRONMENT")"
+          echo "root_url=$root_url" >> "$GITHUB_OUTPUT"
+          echo "web_url=$web_url" >> "$GITHUB_OUTPUT"
+          echo "Resolved root_url=$root_url web_url=$web_url"
+
+      # ── api suite ───────────────────────────────────────────────
+      - name: "api: /healthz reachable with status ok"
+        if: ${{ inputs.suite == 'api' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh healthz
+
+      - name: "api: edge rejects an invalid bearer token (401)"
+        if: ${{ inputs.suite == 'api' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh auth-probe
+
+      - name: "api: USERS service binding reachable through the edge"
+        if: ${{ inputs.suite == 'api' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh users-probe
+
+      - name: "api: anonymous Turnstile gate is armed (staging)"
+        if: ${{ inputs.suite == 'api' && inputs.environment == 'staging' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh anon-gate-staging
+
+      - name: "api: anonymous access stays off (production)"
+        if: ${{ inputs.suite == 'api' && inputs.environment == 'production' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh anon-disabled-production
+
+      # ── smoke suite ─────────────────────────────────────────────
+      - name: "smoke: apps/web landing page"
+        if: ${{ inputs.suite == 'smoke' }}
+        shell: bash
+        env:
+          WEB_URL: ${{ steps.urls.outputs.web_url }}
+        run: bash .github/scripts/post-deploy-assert.sh web-landing
+
+      - name: "smoke: /healthz reachable with status ok"
+        if: ${{ inputs.suite == 'smoke' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh healthz
+
+      - name: "smoke: catalog reachable via CATALOG service binding"
+        if: ${{ inputs.suite == 'smoke' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh catalog-probe
+
+      # ── e2e suite (reserved — see header) ──────────────────────
+      - name: "e2e: apps/web landing page"
+        if: ${{ inputs.suite == 'e2e' }}
+        shell: bash
+        env:
+          WEB_URL: ${{ steps.urls.outputs.web_url }}
+        run: bash .github/scripts/post-deploy-assert.sh web-landing
+
+      - name: "e2e: /healthz reachable with status ok"
+        if: ${{ inputs.suite == 'e2e' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh healthz
+
+      - name: "e2e: edge rejects an invalid bearer token (401)"
+        if: ${{ inputs.suite == 'e2e' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh auth-probe

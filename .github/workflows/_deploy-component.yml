@@ -120,9 +120,42 @@ jobs:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+      # Real per-component smoke checks (issue #484). `web` and `root` are
+      # each self-contained (no dependency on other components in the same
+      # environment) so they get a direct HTTP assertion right after their
+      # own deploy. `catalog` and `users` have NO public route in any
+      # environment by design (private, service-binding only) — their
+      # reachability through the edge is instead verified end-to-end by
+      # _post-deploy-test.yml (`catalog-probe` / `users-probe`) once every
+      # component in the environment, including `root`, is deployed.
       - name: Smoke
         env:
           COMPONENT: ${{ inputs.component }}
           ENVIRONMENT: ${{ inputs.environment }}
-        run: echo "smoke for $COMPONENT@$ENVIRONMENT — catalog has no public route; verify via service binding / wrangler tail in follow-up"
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         shell: bash
+        run: |
+          set -euo pipefail
+          case "$COMPONENT" in
+            web)
+              url="$(bash .github/scripts/resolve-worker-url.sh web "$ENVIRONMENT")"
+              echo "Resolved web@$ENVIRONMENT -> $url"
+              WEB_URL="$url" bash .github/scripts/post-deploy-assert.sh web-landing
+              ;;
+            root)
+              url="$(bash .github/scripts/resolve-worker-url.sh root "$ENVIRONMENT")"
+              echo "Resolved root@$ENVIRONMENT -> $url"
+              ROOT_URL="$url" bash .github/scripts/post-deploy-assert.sh healthz
+              ;;
+            catalog)
+              echo "::notice title=post-deploy smoke::catalog has no public route in any environment by design (private, CATALOG service binding only); reachability is verified end-to-end by _post-deploy-test.yml's catalog-probe once root is deployed in the same environment"
+              ;;
+            users)
+              echo "::notice title=post-deploy smoke::users has no public route in any environment by design (private, USERS service binding only); reachability is verified end-to-end by _post-deploy-test.yml's users-probe once root is deployed in the same environment"
+              ;;
+            *)
+              echo "::error title=post-deploy smoke::unknown component '$COMPONENT'"
+              exit 1
+              ;;
+          esac
