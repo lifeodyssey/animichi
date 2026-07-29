@@ -218,15 +218,21 @@ new_sqlite_classes = ["EdgeGuard"]
 [env.staging]
 name = "animichi-staging"
 routes = []
-# No custom domain in staging. `routes = []` (a present-but-empty routes
-# component) would otherwise get workers_dev inferred to false (see
-# https://developers.cloudflare.com/workers/configuration/routing/workers-dev/),
-# leaving this Worker with NO reachable HTTP endpoint at all. Issue #484: the
-# post-staging promotion gate needs a real address to assert against
-# (/healthz, edge auth probe, anonymous Turnstile probe) — enable workers.dev
-# explicitly so staging has a stable URL: https://animichi-staging.<account
-# subdomain>.workers.dev.
+# No custom domain in staging. Wrangler's own default-resolution logic
+# (`defaultWorkersDev = routes.length === 0`, confirmed against the 4.79/
+# 4.112 source — the published docs' "adding a routes component infers
+# workers_dev=false" note is only true for a NON-empty routes array) already
+# defaults workers_dev to true here: this Worker was already reachable at
+# https://animichi-staging.<account subdomain>.workers.dev without this line.
+# `workers_dev = true` is written explicitly anyway (issue #484) so the
+# post-staging promotion gate's assertions have a stable, intentional
+# contract instead of relying on an implicit default that a future non-empty
+# `routes` entry would silently flip to false. `preview_urls` is pinned to
+# `false` for the same reason — Cloudflare defaults it to match workers_dev,
+# and per-version preview URLs are not a surface this gate (or anything
+# else) is meant to expose.
 workers_dev = true
+preview_urls = false
 
 [env.staging.vars]
 CATALOG_API_URL = "http://catalog.internal"

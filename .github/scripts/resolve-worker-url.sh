@@ -9,7 +9,12 @@
 # Usage: resolve-worker-url.sh <root|web> <staging|production>
 # Requires CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID in the environment,
 # except for root/production which resolves to the static custom domain
-# (wrangler.toml env.production.routes) and needs neither.
+# (wrangler.toml env.production.routes) and needs neither. Only
+# CLOUDFLARE_API_TOKEN is treated as sensitive here (a bare least-privilege
+# read of GET .../workers/subdomain, distinct from the deploy-scoped token
+# `wrangler deploy` uses elsewhere in this repo's CI); CLOUDFLARE_ACCOUNT_ID
+# is not a credential and is sourced from a repository VARIABLE by the
+# callers of this script, not a secret.
 set -euo pipefail
 
 component="${1:?usage: resolve-worker-url.sh <root|web> <staging|production>}"
@@ -34,7 +39,7 @@ case "${component}.${environment}" in
     ;;
 esac
 
-response="$(curl -sS --fail-with-body \
+response="$(curl -sS --fail-with-body --connect-timeout 10 --max-time 20 --retry 3 --retry-delay 2 \
   -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
   "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain")" || {
   echo "::error title=resolve-worker-url::Cloudflare API call to fetch the account's workers.dev subdomain failed" >&2

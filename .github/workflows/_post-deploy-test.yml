@@ -19,12 +19,16 @@ name: post-deploy-test
 # the actual evidence, and watch that this job itself does not silently
 # SKIP again (see ci.yml `needs:` chain — that failure mode is issue #457).
 #
-# suite semantics:
-#   api    — post-staging: the staging -> production promotion gate.
-#   smoke  — post-prod: final sanity after every production deploy.
-#   e2e    — not wired into ci.yml yet (reserved for a future Playwright
-#            browser suite or a broader manual dispatch); kept as real HTTP
-#            checks so wiring it in later is a one-line ci.yml change.
+# `suite` is an informational label only (job/step naming) — it does NOT
+# gate which assertions run. Earlier revisions conditioned some checks on
+# `suite == 'api'`/`'smoke'` combinations that ci.yml never actually calls
+# with (post-staging always passes suite: api, post-prod always passes
+# suite: smoke), which silently dropped several assertions from whichever
+# gate actually runs in CI. Every non-environment-specific check below now
+# runs for every suite value; only the anonymous-access check branches, and
+# it branches on `environment` (the property that actually determines the
+# expected behavior — ANON_ACCESS_ENABLED differs by environment, not by
+# suite name), not on `suite`.
 
 on:
   workflow_call:
@@ -34,12 +38,13 @@ on:
         type: string
       suite:
         required: true
-        type: string  # api | e2e | smoke
+        type: string  # api | e2e | smoke — informational label, see header
+      cloudflare_account_id:
+        required: true
+        type: string
     secrets:
       CLOUDFLARE_API_TOKEN:
-        required: false
-      CLOUDFLARE_ACCOUNT_ID:
-        required: false
+        required: true
 
 permissions:
   contents: read
@@ -70,7 +75,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ inputs.environment }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
         run: |
           set -euo pipefail
           root_url="$(bash .github/scripts/resolve-worker-url.sh root "$ENVIRONMENT")"
@@ -79,82 +84,59 @@ jobs:
           echo "web_url=$web_url" >> "$GITHUB_OUTPUT"
           echo "Resolved root_url=$root_url web_url=$web_url"
 
-      # ── api suite ───────────────────────────────────────────────
-      - name: "api: /healthz reachable with status ok"
-        if: ${{ inputs.suite == 'api' }}
+      # ── checks that run for every suite/environment (issue #484 P1-2:
+      # every invocation of this workflow is a real gate, so every
+      # invocation gets the full checklist — apps/web landing and catalog
+      # reachability are both named explicitly in #484 and must not be
+      # missing from whichever suite ci.yml actually wires to a gate) ──
+      - name: "apps/web landing page"
+        shell: bash
+        env:
+          WEB_URL: ${{ steps.urls.outputs.web_url }}
+        run: bash .github/scripts/post-deploy-assert.sh web-landing
+
+      - name: "/healthz reachable with status ok"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
         run: bash .github/scripts/post-deploy-assert.sh healthz
 
-      - name: "api: edge rejects an invalid bearer token (401)"
-        if: ${{ inputs.suite == 'api' }}
+      - name: "edge rejects an invalid bearer token (401)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
         run: bash .github/scripts/post-deploy-assert.sh auth-probe
 
-      - name: "api: USERS service binding reachable through the edge"
-        if: ${{ inputs.suite == 'api' }}
+      - name: "USERS service binding reachable through the edge"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
         run: bash .github/scripts/post-deploy-assert.sh users-probe
 
-      - name: "api: anonymous Turnstile gate is armed (staging)"
-        if: ${{ inputs.suite == 'api' && inputs.environment == 'staging' }}
-        shell: bash
-        env:
-          ROOT_URL: ${{ steps.urls.outputs.root_url }}
-        run: bash .github/scripts/post-deploy-assert.sh anon-gate-staging
-
-      - name: "api: anonymous access stays off (production)"
-        if: ${{ inputs.suite == 'api' && inputs.environment == 'production' }}
-        shell: bash
-        env:
-          ROOT_URL: ${{ steps.urls.outputs.root_url }}
-        run: bash .github/scripts/post-deploy-assert.sh anon-disabled-production
-
-      # ── smoke suite ─────────────────────────────────────────────
-      - name: "smoke: apps/web landing page"
-        if: ${{ inputs.suite == 'smoke' }}
-        shell: bash
-        env:
-          WEB_URL: ${{ steps.urls.outputs.web_url }}
-        run: bash .github/scripts/post-deploy-assert.sh web-landing
-
-      - name: "smoke: /healthz reachable with status ok"
-        if: ${{ inputs.suite == 'smoke' }}
-        shell: bash
-        env:
-          ROOT_URL: ${{ steps.urls.outputs.root_url }}
-        run: bash .github/scripts/post-deploy-assert.sh healthz
-
-      - name: "smoke: catalog reachable via CATALOG service binding"
-        if: ${{ inputs.suite == 'smoke' }}
+      - name: "catalog reachable via CATALOG service binding (Neon)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
         run: bash .github/scripts/post-deploy-assert.sh catalog-probe
 
-      # ── e2e suite (reserved — see header) ──────────────────────
-      - name: "e2e: apps/web landing page"
-        if: ${{ inputs.suite == 'e2e' }}
-        shell: bash
-        env:
-          WEB_URL: ${{ steps.urls.outputs.web_url }}
-        run: bash .github/scripts/post-deploy-assert.sh web-landing
-
-      - name: "e2e: /healthz reachable with status ok"
-        if: ${{ inputs.suite == 'e2e' }}
+      - name: "agent's own Postgres connection is live (data plane)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
-        run: bash .github/scripts/post-deploy-assert.sh healthz
+        run: bash .github/scripts/post-deploy-assert.sh data-plane-probe
 
-      - name: "e2e: edge rejects an invalid bearer token (401)"
-        if: ${{ inputs.suite == 'e2e' }}
+      # ── environment-gated: ANON_ACCESS_ENABLED differs by environment,
+      # not by suite — see header note ──
+      - name: "anonymous Turnstile gate is armed (staging)"
+        if: ${{ inputs.environment == 'staging' }}
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
-        run: bash .github/scripts/post-deploy-assert.sh auth-probe
+        run: bash .github/scripts/post-deploy-assert.sh anon-gate-staging
+
+      - name: "anonymous access stays off (production)"
+        if: ${{ inputs.environment == 'production' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh anon-disabled-production

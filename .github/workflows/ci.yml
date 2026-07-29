@@ -460,9 +460,9 @@ jobs:
     with:
       environment: staging
       suite: api
+      cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   # staging validated → production (human approve via environment: production in
   # _deploy-component.yml). needs: post-staging guarantees staging passed api tests.
@@ -567,6 +567,6 @@ jobs:
     with:
       environment: production
       suite: smoke
+      cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
