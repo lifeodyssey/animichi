@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { createWorkerApp, catalogOutbound } from "./app.ts";
 import { buildContainerEnvVars } from "./containerEnv.ts";
 
@@ -239,4 +241,17 @@ void test("ANON_DAILY_MESSAGE_QUOTA reaches the container (issue #282) — wrang
 void test("an unset ANON_DAILY_MESSAGE_QUOTA is simply absent, not forwarded as an empty string", () => {
   const envVars = buildContainerEnvVars(requiredEnv());
   assert.equal("ANON_DAILY_MESSAGE_QUOTA" in envVars, false);
+});
+
+// #284 Task 7 (PR #478 review): `entry.ts` imports `Container` from
+// `@cloudflare/containers`, whose ESM build only resolves under workerd's
+// module loader (see `containerEnv.ts`'s header comment) — so this cannot be a
+// plain `import` + runtime-shape assertion under `node --test`. A source-text
+// check is the closest thing to a regression guard we can run outside
+// wrangler/workerd: `applyOutboundInterception` hard-throws at container start
+// when `ctx.exports.ContainerProxy` is undefined, so losing this export line
+// would silently make `deniedHosts` (and any outbound interception) inert.
+void test("entry.ts re-exports ContainerProxy from @cloudflare/containers", () => {
+  const entrySource = readFileSync(fileURLToPath(new URL("./entry.ts", import.meta.url)), "utf8");
+  assert.match(entrySource, /export\s*\{\s*ContainerProxy\s*\}\s*from\s*["']@cloudflare\/containers["']/);
 });

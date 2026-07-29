@@ -84,7 +84,20 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
 
 - **httpx only** — aiohttp is retired (F7). **One shared `httpx.AsyncClient` per client**, created
   lazily and closed via the FastAPI lifespan `aclose()` (`agent/interfaces/fastapi_service.py`) — never per-request.
-  Leave `trust_env` at httpx's default (`True`) so proxy/CA env vars are respected.
+  Leave `trust_env` at httpx's default (`True`) for this **shared lifespan client** so proxy/CA env
+  vars are respected. **This does not apply to BYOK/egress-guarded clients** (#284 Task 1/T13):
+  those must be built via `egress_transport.build_guarded_async_client`, which sets
+  `trust_env=False` and no `mounts`/proxy on purpose — a proxy env var would silently defeat the
+  connect-time IP pinning that closes the DNS-rebinding/TOCTOU window (T4) and the redirect-bypass
+  window (T5). **T12 note:** the guarded factory is the *only* sanctioned way to build an
+  outbound HTTP client for a user-influenceable destination (BYOK `base_url`, and any future
+  user-controlled egress) — any new outbound call site that constructs its own `httpx.AsyncClient`
+  instead of going through the factory recreates the SSRF/T13 bypass this convention exists to
+  close. See `docs/ops/cloudflare-hardening.md` §6 — `RuntimeContainer.deniedHosts` covers T12 at
+  the Worker's URL-hostname layer for plain-HTTP requests naming a denied IP/hostname literal
+  directly (not DNS rebinding, and not HTTPS); this code-review convention is the enforcement
+  point for everything that layer does not reach — HTTPS to a private/link-local/CGNAT address,
+  and any hostname that only *resolves* to one.
 - **Status-based retry** — classify by **status code, never by URL/substring**: 5xx, transport errors,
   and transient 4xx (408/429) retry with backoff; other 4xx raise immediately (`agent/clients/catalog_client.py`).
 - **Observability = logfire only** (F8). Never hand-roll OpenTelemetry or add `opentelemetry-api|sdk`
