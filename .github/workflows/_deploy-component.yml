@@ -71,7 +71,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      # #527: this job declares `environment: ${{ inputs.environment }}`
+      # #527/#528: this job declares `environment: ${{ inputs.environment }}`
       # above, which is what makes environment-scoped secrets resolve here
       # at all (GitHub: "If you include environment in the reusable workflow
       # at the job level, the environment secret will be used, and not the
@@ -81,40 +81,63 @@ jobs:
       # workflow_dispatch diagnostic run (staging) proved it already works —
       # NEON_AUTH_JWKS_URL and NEON_DATABASE_URL both resolved to their
       # staging-environment values even when the caller job (which has no
-      # environment context of its own) passed an empty stand-in. This step
-      # keeps that verification live on every future deploy — staging AND
-      # production — printing ONLY booleans/lengths, never values, so the
-      # log itself is the ongoing proof of per-environment RESOLUTION (that
-      # each environment's own secret, not a caller-passed one, is what gets
-      # used here). It deliberately does NOT claim the two environments hold
-      # different VALUES — length equality can't distinguish "same value" from
-      # "different value, same length" (our own diagnostic run showed the
-      # repo-level and staging-environment NEON_DATABASE_URL both at
-      # len=146), and a GitHub secret's content can never be read back once
-      # set, by design. Whether staging and production were actually
-      # provisioned with distinct values is a provisioning fact, not
-      # something this step — or any workflow step — can verify.
+      # environment context of its own) passed an empty stand-in.
       #
-      # deploy-root-{staging,production}'s caller-side `secrets.CORS_ALLOWED_ORIGIN`
-      # is a live example of this same override: the repo has no
-      # repo-level CORS_ALLOWED_ORIGIN, so the caller job's own expression
-      # evaluates empty for both environments — the real value (production
-      # only; staging has none, see the #527 comment on deploy-root-staging
-      # above) is injected purely by this job's `environment:` context, not
-      # by anything the caller passed. The first real production deploy's
-      # copy of this step is what finally confirms that path end-to-end.
-      - name: Report resolved secret shape (booleans/lengths only, never values)
+      # This step keeps that verification live on every future deploy —
+      # staging AND production — WITHOUT ever printing a raw value:
+      #   - NEON_DATABASE_URL / NEON_AUTH_JWKS_URL / PULUMI_BACKEND_URL /
+      #     LOGFIRE_TOKEN are high-entropy, arbitrary-content secrets where
+      #     length carries no meaning of its own. For these, print the first
+      #     8 hex chars of a sha256 of the value instead of its length: two
+      #     runs with the SAME hash prefix are, for all practical purposes,
+      #     the same secret; two DIFFERENT prefixes are provably different
+      #     values — genuine discriminating power a length check does not
+      #     have (our own earlier diagnostic run showed repo-level and
+      #     staging-environment NEON_DATABASE_URL both at len=146 — a
+      #     collision length tells you nothing). 32 bits of a preimage-
+      #     resistant hash cannot be inverted back to the secret.
+      #   - This is NOT a pattern to extend to every secret without
+      #     thinking: decide per variable whether its LENGTH carries
+      #     semantic meaning before ever printing one. `TURNSTILE_SECRET` is
+      #     the standing counter-example already documented in the
+      #     "Preflight - post-deploy secrets" step below — Site Key (24
+      #     chars) vs. Secret Key (35 chars) is itself sensitive
+      #     information, so that secret must never get a length (or hash)
+      #     line here or anywhere else in a public log.
+      #   - CORS_ALLOWED_ORIGIN is deliberately excluded from this step
+      #     entirely: as of #528 (P1-A) it is a plain `vars` entry in
+      #     `wrangler.toml` for staging (a domain name, not a secret) and
+      #     only remains a GH environment secret for production — mixing
+      #     the two sources here would need per-environment branching for
+      #     no real benefit.
+      #
+      # None of this claims the two environments hold different VALUES on
+      # its own — a matching hash prefix is strong (not certain, given
+      # truncation) evidence of equality, and a GitHub secret's content can
+      # never be read back once set, by design. What this step reliably
+      # proves is per-environment RESOLUTION (each environment's own secret,
+      # not a caller-passed one, is what gets used here); the hash prefixes
+      # additionally let a human compare two runs' output without needing
+      # the raw values. Whether staging and production were actually
+      # provisioned with distinct values remains a provisioning fact -- see
+      # the PR description's explicit "unverified" note on that point.
+      - name: Report resolved secret shape (hash prefixes / booleans only — never raw values)
         env:
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
-          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
           PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
         run: |
+          hash8() {
+            if [ -z "$1" ]; then echo "unset"; return; fi
+            printf '%s' "$1" | sha256sum | cut -c1-8
+          }
           echo "environment=$TARGET_ENVIRONMENT"
-          echo "  NEON_DATABASE_URL   set=$([ -n "$NEON_DATABASE_URL" ] && echo true || echo false) len=${#NEON_DATABASE_URL}"
-          echo "  NEON_AUTH_JWKS_URL  set=$([ -n "$NEON_AUTH_JWKS_URL" ] && echo true || echo false) len=${#NEON_AUTH_JWKS_URL}"
-          echo "  CORS_ALLOWED_ORIGIN set=$([ -n "$CORS_ALLOWED_ORIGIN" ] && echo true || echo false) len=${#CORS_ALLOWED_ORIGIN}"
+          echo "  NEON_DATABASE_URL   set=$([ -n "$NEON_DATABASE_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_DATABASE_URL")"
+          echo "  NEON_AUTH_JWKS_URL  set=$([ -n "$NEON_AUTH_JWKS_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_AUTH_JWKS_URL")"
+          echo "  PULUMI_BACKEND_URL  set=$([ -n "$PULUMI_BACKEND_URL" ] && echo true || echo false) sha256_8=$(hash8 "$PULUMI_BACKEND_URL")"
+          echo "  LOGFIRE_TOKEN       set=$([ -n "$LOGFIRE_TOKEN" ] && echo true || echo false) sha256_8=$(hash8 "$LOGFIRE_TOKEN")"
           echo "  PULUMI_BACKEND_URL  set=$([ -n "$PULUMI_BACKEND_URL" ] && echo true || echo false) len=${#PULUMI_BACKEND_URL}"
       # Validates BEFORE anything deploys — including before "Atlas migrate"
       # below, which is the whole point: a failure here must land before any
