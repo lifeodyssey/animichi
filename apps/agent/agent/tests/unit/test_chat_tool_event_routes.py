@@ -79,20 +79,26 @@ def _event_pair(
 async def _static_handler(
     _request: object,
     *,
+    model: object | None = None,
+    is_byok: bool = False,
     user_id: str | None = None,
     user_type: str | None = None,
     on_step: OnStep | None = None,
 ) -> PublicAPIResponse:
+    del model, is_byok
     return _response()
 
 
 async def _official_handler(
     _request: object,
     *,
+    model: object | None = None,
+    is_byok: bool = False,
     user_id: str | None = None,
     user_type: str | None = None,
     on_step: OnStep | None = None,
 ) -> PublicAPIResponse:
+    del model, is_byok
     deps = RuntimeDeps(MagicMock(), "en", "query", MockCatalogClient(), on_step=on_step)
     await tool_event_bridge(MagicMock(deps=deps), _events(_official_events()))
     return _response()
@@ -101,10 +107,13 @@ async def _official_handler(
 async def _timeout_handler(
     _request: object,
     *,
+    model: object | None = None,
+    is_byok: bool = False,
     user_id: str | None = None,
     user_type: str | None = None,
     on_step: OnStep | None = None,
 ) -> PublicAPIResponse:
+    del model, is_byok
     deps = RuntimeDeps(MagicMock(), "en", "query", MockCatalogClient(), on_step=on_step)
     call = ToolCallPart("web_search", {"query": "slow"}, tool_call_id="active-9")
     await tool_event_bridge(

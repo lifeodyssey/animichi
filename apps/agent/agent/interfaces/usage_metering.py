@@ -68,8 +68,18 @@ def utc_today(now: datetime | None = None) -> date:
     return (now or datetime.now(UTC)).astimezone(UTC).date()
 
 
-def scope_for_identity(user_id: str | None, user_type: str | None) -> UsageScope:
-    """Classify a turn's spend by who paid for it."""
+def scope_for_identity(
+    user_id: str | None, user_type: str | None, *, is_byok: bool = False
+) -> UsageScope:
+    """Classify a turn's spend by who paid for it.
+
+    A BYOK turn is checked first: the caller supplied and paid for the model
+    call directly, so it is never folded into the anonymous or user scopes
+    even when it also happens to carry an anonymous-shaped identity (BYOK is
+    login-gated, so in practice it never does — see `byok_requires_login`).
+    """
+    if is_byok:
+        return "byok"
     if user_type == ANONYMOUS_USER_TYPE:
         return "anon"
     if user_id is not None and user_id.startswith(ANON_USER_ID_PREFIX):

@@ -167,10 +167,13 @@ def _replay_runtime(response: PublicAPIResponse, steps: list[StepEvent]) -> Magi
     async def _handle(
         request: object,
         *,
+        model: object | None = None,
+        is_byok: bool = False,
         user_id: str | None = None,
         user_type: str | None = None,
         on_step: OnStep | None = None,
     ) -> PublicAPIResponse:
+        del model, is_byok
         for step in steps:
             if on_step is not None:
                 await on_step(step)

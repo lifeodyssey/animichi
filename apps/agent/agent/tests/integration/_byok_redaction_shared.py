@@ -29,6 +29,7 @@ BYOK_HEADER_FAMILIES: dict[str, dict[str, str]] = {
     "openai-compatible": {
         "X-BYOK-Provider": "openai-compatible",
         "X-BYOK-Key": FAKE_KEY,
+        "X-BYOK-Model": "byok-test-model",
         "X-BYOK-Base-Url": f"https://byok.example.internal{SENSITIVE_PATH}",
     },
     "anthropic": {

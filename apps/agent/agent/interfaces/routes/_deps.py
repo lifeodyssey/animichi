@@ -14,6 +14,12 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
 
+from agent.agents.byok_models import (
+    ByokCredential,
+    ByokError,
+    has_byok_signal,
+    parse_byok_credential,
+)
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.config.settings import Settings
 from agent.infrastructure.session import SessionStore, create_session_store
@@ -175,6 +181,59 @@ def _get_trusted_anon_id(
     return value
 
 
+def _raw_byok_headers(
+    request: Request,
+) -> tuple[str | None, bytes | None, str | None, bytes | None]:
+    """Read the four raw `X-BYOK-*` header values directly from `request`.
+
+    Local import breaks the import cycle: `_middleware.py` (the credential
+    stripper whose stash this reads) imports helpers from this module.
+    """
+    from agent.interfaces.routes._middleware import get_raw_sensitive_header
+
+    return (
+        _normalize_optional_header(request.headers.get("x-byok-provider")),
+        get_raw_sensitive_header(request, "x-byok-key"),
+        _normalize_optional_header(request.headers.get("x-byok-model")),
+        get_raw_sensitive_header(request, "x-byok-base-url"),
+    )
+
+
+def _has_byok_headers(request: Request) -> bool:
+    """Presence-only check, no shape validation (P1-3/P3 ordering).
+
+    Deliberately **not** a FastAPI dependency (P1-1): resolving it via
+    `Depends()` would place the result in the endpoint's `values` dict, which
+    `logfire.instrument_fastapi()` captures verbatim into
+    `fastapi.arguments.values`. This function — and `_get_byok_credential`
+    below — must be called directly from inside a route handler body instead.
+    """
+    provider_header, key_header, _model_header, _base_url_header = _raw_byok_headers(
+        request
+    )
+    return has_byok_signal(provider_header=provider_header, key_header=key_header)
+
+
+def _get_byok_credential(request: Request) -> ByokCredential | None:
+    """Parse `X-BYOK-*` headers; the key/base_url raw values never touch a log.
+
+    See `_has_byok_headers` for why this is a plain function, called from a
+    route body, never a `Depends()`-resolved endpoint parameter.
+    """
+    provider_header, key_header, model_header, base_url_header = _raw_byok_headers(
+        request
+    )
+    try:
+        return parse_byok_credential(
+            provider_header=provider_header,
+            key_header=key_header,
+            model_header=model_header,
+            base_url_header=base_url_header,
+        )
+    except ByokError as exc:
+        raise HTTPException(status_code=400, detail=exc.message) from exc
+
+
 def _get_runtime_api(request: Request) -> RuntimeAPI:
     return cast(RuntimeAPI, request.app.state.runtime_api)
 
@@ -270,6 +329,8 @@ def _http_status_for_response(response: PublicAPIResponse) -> int:
         return 400
     if codes & {"authentication_error", "invalid_credentials"}:
         return 401
+    if codes & {"byok_credential_rejected", "byok_requires_login"}:
+        return 403
     if codes & {"not_found"}:
         return 404
     if codes & {"already_exists"}:
