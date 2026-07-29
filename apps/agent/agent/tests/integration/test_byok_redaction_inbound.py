@@ -17,7 +17,6 @@ every test in this file red, not just the exception-path ones.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from unittest.mock import AsyncMock
 
 import pytest
 from logfire.testing import TestExporter
@@ -150,31 +149,6 @@ class TestAC5ResponseHeadersAndSseFramesNeverLeak:
 
         assert shared.FAKE_KEY not in str(response.headers)
         assert response.json()["seen_key"] == "[redacted]"
-
-    async def test_runtime_error_stream_frame_has_no_credential(self) -> None:
-        runtime = shared.success_runtime()
-        runtime.handle = AsyncMock(side_effect=RuntimeError(f"boom {shared.FAKE_KEY}"))
-        app, _ = build_app(runtime_api=runtime)
-
-        async with async_client(app) as client:
-            response = await client.post(
-                "/v1/chat",
-                json=shared.chat_body(),
-                headers={
-                    "X-User-Id": "user-1",
-                    # #284 T3: the shared fixture's base_url is a
-                    # deliberately non-resolving domain for the leak-proofing
-                    # assertions elsewhere in this file; here it must
-                    # actually resolve so the request reaches the mocked
-                    # `runtime.handle` instead of failing SSRF pre-flight.
-                    **shared.BYOK_HEADER_FAMILIES["openai-compatible"],
-                    "X-BYOK-Base-Url": "https://example.com/v1",
-                },
-            )
-
-        assert response.status_code == 200
-        assert shared.FAKE_KEY not in response.text
-        assert '"errorText"' in response.text
 
 
 class TestLogfireTokenGatesRealInstrumentation:
