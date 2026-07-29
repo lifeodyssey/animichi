@@ -1,4 +1,5 @@
 import { LoginModal } from "../../../components/auth/LoginModal";
+import { useChatReturnTarget } from "../return-target";
 import type { ItineraryLeg, ItineraryStation, ItineraryView } from "../../../lib/chat/itinerary";
 import type { ChatDict } from "../i18n";
 import { legCapsule } from "../route-copy";
@@ -139,9 +140,16 @@ function SaveCta({ save, dict, saveDeps }: Omit<ItineraryProps, "view">) {
     <>
       <SaveButton gate={gate} dict={dict} />
       <SaveFeedback gate={gate} dict={dict} />
-      {gate.loginOpen ? <LoginModal open onClose={gate.closeLogin} onSendCommitted={gate.markSendCommitted} /> : null}
+      <SaveLoginWall gate={gate} />
     </>
   );
+}
+
+/** The P5 save wall carries the session back (#507 review P1-1): without a
+ * return target a correct migration still lands the visitor on `/`. */
+function SaveLoginWall({ gate }: Readonly<{ gate: ReturnType<typeof useSaveGate> }>) {
+  if (!gate.loginOpen) return null;
+  return <LoginModal open onClose={gate.closeLogin} onSendCommitted={gate.markSendCommitted} returnTarget={useChatReturnTarget()} />;
 }
 
 function CtaRow({ view, dict, save, saveDeps }: ItineraryProps) {

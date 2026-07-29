@@ -39,3 +39,25 @@ export function sanitizeReturnTarget(next: unknown): string {
   const value = next.trim();
   return isSameOriginPath(value) ? value : FALLBACK;
 }
+
+/**
+ * Does this return target open a *panel* on arrival, as opposed to merely
+ * restoring a location? Today only the BYOK deep-link (`/chat?settings=byok`)
+ * does.
+ *
+ * The distinction exists because of #480 P1-2: a failed create-on-login replay
+ * must not strand a visitor who was mid-way through BYOK setup, so that case
+ * navigates instead of showing the retry surface. Once the save wall started
+ * carrying its own return target (#507 review P1-1), deriving "has a return
+ * intent" from `next !== "/"` would have applied that rule to the save journey
+ * too — silently retiring the retry/skip surface built for exactly it, in a
+ * way no test would have caught because the tests pass the flag directly. So
+ * the rule is narrowed to what #480 actually needed: a panel to get back to.
+ * A plain session return keeps the retry surface.
+ */
+export function carriesPanelIntent(next: unknown): boolean {
+  const target = sanitizeReturnTarget(next);
+  const separator = target.indexOf("?");
+  if (separator < 0) return false;
+  return new URLSearchParams(target.slice(separator + 1)).has("settings");
+}

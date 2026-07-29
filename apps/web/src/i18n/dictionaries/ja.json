@@ -58,6 +58,10 @@
     "callback_error": "リンクの有効期限が切れたか、既に使用されています。もう一度お試しください。",
     "callback_save_failed": "ログインはできたけど、ルートの保存に失敗しちゃった…",
     "callback_save_retry": "もう一度保存する",
-    "callback_save_skip": "あとでチャット画面から保存し直せるよ"
+    "callback_save_skip": "あとでチャット画面から保存し直せるよ",
+    "callback_migration_failed": "ログインできたよ。でも、ログイン前の会話をアカウントに引き継げなかった…",
+    "callback_migration_missing": "ログインできたよ。でも、ログイン前の会話が見つからなかった…別の端末でリンクを開いた?",
+    "callback_migration_retry": "もう一度引き継ぐ",
+    "callback_migration_skip": "このまま続ける"
   }
 }

@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { AuthCallback } from "../../components/auth/AuthCallback";
+import { returnTargetNamesSession } from "../../features/chat/return-target";
 import { LocaleProvider } from "../../i18n/context";
-import { sanitizeReturnTarget } from "../../lib/auth/returnTarget";
+import { carriesPanelIntent, sanitizeReturnTarget } from "../../lib/auth/returnTarget";
 
 /**
  * `next` rides the magic-link callback URL because the link may open in a
@@ -36,10 +37,10 @@ function useGoToTarget(next: string | undefined): () => void {
 
 function AuthCallbackRoute() {
   const { next } = Route.useSearch();
-  const hasReturnIntent = sanitizeReturnTarget(next) !== "/";
+  const props = { hasReturnIntent: carriesPanelIntent(next), expectsMigration: returnTargetNamesSession(next) };
   return (
     <LocaleProvider>
-      <AuthCallback onDone={useGoToTarget(next)} hasReturnIntent={hasReturnIntent} />
+      <AuthCallback onDone={useGoToTarget(next)} {...props} />
     </LocaleProvider>
   );
 }

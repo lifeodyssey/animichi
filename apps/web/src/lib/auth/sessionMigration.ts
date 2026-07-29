@@ -10,10 +10,10 @@ import { currentChatConfig } from "../../features/chat/config";
  *
  *  - the incoming real user, from the `Authorization` bearer the edge verifies;
  *  - the outgoing `anon_<hex>`, which the client **cannot** name. `aid` is an
- *    `HttpOnly`, worker-signed cookie (`worker/auth.ts:228`), unreadable from
- *    JS by construction. `credentials: "include"` is therefore the whole
- *    mechanism: the browser attaches `aid`, the edge resolves (never mints) it
- *    and forwards the result as a trusted `X-Anon-Id` on this route alone.
+ *    `HttpOnly`, worker-signed cookie (`worker/auth.ts`), unreadable from JS by
+ *    construction. `credentials: "include"` is therefore the whole mechanism:
+ *    the browser attaches `aid`, the edge resolves (never mints) it and
+ *    forwards the result as a trusted `X-Anon-Id` on this route alone.
  *
  * That is also why the base URL is `currentChatConfig().baseUrl` rather than a
  * URL of its own — it is the exact origin `/v1/chat` posts to, i.e. the origin
@@ -23,36 +23,55 @@ import { currentChatConfig } from "../../features/chat/config";
 export const SESSION_MIGRATE_PATH = "/v1/session/migrate";
 
 /**
- * `ok` covers **both** documented successes: `{"migrated": true}` and the typed
- * no-op `{"migrated": false}` (that identity owned nothing, or the caller was
- * never anonymous here). Neither is a failure, and the client has nothing to do
- * differently for either, so they are not distinguished — an unread third value
- * would be dead scaffolding.
+ * The endpoint's two documented successes are kept **distinct** (#507 review
+ * P1-2). Folding `{"migrated": false}` into a generic success hid the one case
+ * the client can actually detect: a magic link opened on a different device
+ * carries the session in its `next` target but none of this browser's `aid`
+ * cookie, so the migration correctly moves nothing — indistinguishable, once
+ * collapsed, from a visitor who simply had no anonymous history. That mismatch
+ * is also the only signal that would catch a *re-broken* wiring, which is the
+ * exact failure mode #507 was.
  */
-export type SessionMigrationOutcome = "ok" | "failed";
+export type SessionMigrationOutcome = "migrated" | "nothing" | "failed";
 
-async function post(url: string, token: string): Promise<SessionMigrationOutcome> {
-  const response = await fetch(url, {
+/**
+ * Mobile-first budget (#507 review P2). 8s was inherited from the deferred-save
+ * replay, but this runs on a Capacitor webview on transit Wi-Fi as often as on
+ * a desktop, and a single `UPDATE` behind one edge hop has no business taking
+ * longer. `keepalive` lets the request outlive a callback screen the visitor
+ * navigates away from, so a slow network degrades to "the server still gets it"
+ * rather than "the mutation is cancelled mid-flight".
+ */
+export const MIGRATE_TIMEOUT_MS = 4_000;
+
+function request(token: string): RequestInit {
+  return {
     method: "POST",
     credentials: "include",
+    keepalive: true,
     headers: { Authorization: `Bearer ${token}` },
-  });
-  return response.ok ? "ok" : "failed";
+  };
+}
+
+async function post(url: string, token: string): Promise<SessionMigrationOutcome> {
+  const response = await fetch(url, request(token));
+  if (!response.ok) return "failed";
+  const body: unknown = await response.json();
+  return (body as { migrated?: unknown }).migrated === true ? "migrated" : "nothing";
 }
 
 /**
  * Claim this browser's anonymous work for the just-authenticated user.
  *
- * Idempotent by construction on the server side, twice over — which is what
- * makes a repeated magic-link tap or a callback-page refresh harmless:
- *  1. the mutation is `UPDATE ... WHERE user_id = $from_anon`, never `INSERT`,
- *     so a second run matches zero rows and returns `{"migrated": false}`
- *     (`SessionRepository.migrate_ownership`);
- *  2. the first success makes the edge retire the `aid` cookie, so the second
- *     call arrives with no anonymous identity at all and short-circuits before
- *     touching the database (`migrate_session_ownership`'s `None` branch).
+ * Idempotent by construction on the server: the mutation is
+ * `UPDATE … WHERE user_id = $from_anon`, never `INSERT`, so a second run
+ * matches zero rows and returns `{"migrated": false}` — which makes a repeated
+ * magic-link tap, a callback refresh and a retry all harmless. Since the #507
+ * owner ruling the edge no longer retires the `aid` cookie either, so the
+ * anonymous identity survives a failure and a later attempt can still find it.
  *
- * Total: a rejected `fetch` (offline, DNS, CORS) is an outcome, not a throw.
+ * Total: a rejected `fetch` (offline, DNS, CORS) or an unparseable body is an
+ * outcome, not a throw.
  */
 export function migrateAnonymousSession(
   token: string,
@@ -64,13 +83,33 @@ export function migrateAnonymousSession(
 }
 
 /**
- * Structured, credential-free record of a migration that did not land.
- *
- * Deliberately the same shape as the edge's own `logInvalidCredential`
- * (`worker/app.ts`): a single-key JSON `event` line, no token, no identity.
- * This is the "not blocking, but not silent" half of the failure policy — see
- * `useAuthCallback`'s `runMigration` for why it is not surfaced to the visitor.
+ * Why a migration did not land. `failed` is a request that did not succeed;
+ * `nothing-migrated` is a 200 that moved no rows when the login demonstrably
+ * came from a browser with a session — the cross-device case, and the tell that
+ * the wiring has broken again.
  */
-export function reportMigrationFailure(): void {
-  console.warn(JSON.stringify({ event: "auth_session_migration_failed" }));
+export type MigrationAnomaly = "failed" | "nothing-migrated";
+
+/**
+ * Did this outcome fail the visitor? `expected` says the login's return target
+ * named a chat session, so *some* row should have moved.
+ */
+export function anomalyOf(
+  outcome: SessionMigrationOutcome,
+  expected: boolean,
+): MigrationAnomaly | undefined {
+  if (outcome === "failed") return "failed";
+  if (outcome === "nothing" && expected) return "nothing-migrated";
+  return undefined;
+}
+
+/**
+ * Structured, credential-free record. Deliberately **not** the reporting
+ * channel: `apps/web` has no telemetry sink, so a `console.warn` reaches the
+ * visitor's own devtools and nobody else (#507 review P1-3). The real outlet is
+ * the callback screen's migration-failure surface, which puts a retry in front
+ * of the one party who can act on it; this line is a developer aid beside it.
+ */
+export function reportMigrationAnomaly(anomaly: MigrationAnomaly): void {
+  console.warn(JSON.stringify({ event: "auth_session_migration", anomaly }));
 }
