@@ -12,14 +12,21 @@ stable boundaries, current entry points, and active plans only.
 | Document | Purpose |
 |----------|---------|
 | `README.md` | Repo entry point and current usage |
-| `AGENTS.md` | Repo-wide guardrails for agentic coding tools |
-| `CLAUDE.md` | Agent guide for this repo (architecture + constraints) |
-| `docs/ARCHITECTURE.md` | Current v2 runtime architecture |
-| `docs/ops/deployment.md` | Intended deployment shape for v2 |
+| `AGENTS.md` | Canonical root guide — identity, monorepo layout, cross-stack guardrails, tool routing |
+| `CLAUDE.md` | Claude Code pointer (`@AGENTS.md`) — same content as `AGENTS.md` |
+| `apps/agent/AGENTS.md` | Python agent (PydanticAI / FastAPI) conventions |
+| `workers/catalog/AGENTS.md` | Catalog Worker (Hono / oRPC / Drizzle) + data-platform conventions |
+| `workers/users/AGENTS.md` | Live user-domain Worker (Hono / oRPC / jose) conventions |
+| `packages/contract/AGENTS.md` | Cross-service oRPC/Zod contract conventions |
+| `apps/web/AGENTS.md` | TanStack Start rebuild conventions |
+| `frontend/AGENTS.md` | Frozen legacy Next.js rules (homepage-only) |
+| `db/AGENTS.md` · `e2e/AGENTS.md` · `infra/AGENTS.md` | Migrations, browser tests, and IaC conventions |
+| `.claude/rules/*.md` | Path-scoped rules loaded only for matching files |
+| `docs/ARCHITECTURE.md` | Live runtime reference (refresh pending — see Source-of-Truth notes below) |
+| `docs/ops/deployment.md` | Deployment runbook |
 | `docs/iterations/iter5/task_plan.md` | Main task tracker |
 | `docs/iterations/iter5/progress.md` | Session log |
 | `docs/iterations/iter5/findings.md` | Current design findings and rationale |
-| `frontend/AGENTS.md` | Frontend-specific agent rules (Next.js static export) |
 
 ## Rules
 
@@ -30,21 +37,44 @@ stable boundaries, current entry points, and active plans only.
 5. Planning docs may contain process detail; README and architecture docs should not.
 6. Put operational docs under `docs/ops/` and iteration artifacts under `docs/iterations/`.
 
+## Agent-docs Network
+
+- `AGENTS.md` is canonical in each documented directory; root routes to the deeper package guide.
+- Every package `AGENTS.md` has a sibling `CLAUDE.md` containing exactly `@AGENTS.md` plus newline
+  (11 bytes). Never duplicate the guide into the pointer file.
+- Package guides cover: identity/ownership, grounded commands, conventions, key entrypoints, and
+  real pitfalls. Keep root near 200 lines and package files near 120.
+- `.claude/rules/*.md` are path-scoped policy overlays, not substitutes for package guides. Their
+  YAML `paths` frontmatter must match the files whose behavior they govern.
+
 ## Single Sources Of Truth
 
-| Topic | Source |
-|-------|--------|
-| Runtime entry path | `backend/agents/pilgrimage_runner.py` |
-| Shared types (RetrievalRequest, AgentResult) | `backend/agents/models.py`, `backend/agents/agent_result.py` |
-| Agent behavior | `backend/agents/pilgrimage_agent.py` |
-| Tool registrations | `backend/agents/pilgrimage_tools.py` |
-| Selected-route path | `backend/agents/selected_route.py` |
-| SQL retrieval | `backend/agents/sql_agent.py` |
-| Configuration | `backend/config/settings.py` |
-| Auth middleware | `worker/worker.js` |
-| DB schema | `supabase/migrations/` |
-| Frontend component registry | `frontend/components/generative/registry.ts` |
-| Design tokens | `frontend/app/globals.css` |
+The one canonical topic→source map for this repo. Root `AGENTS.md` links here instead of keeping a
+second copy — two tables drift (the exact failure the Review Check below warns against). Paths are on
+the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monorepo/pre-rename and gone.
+
+| Topic | Current source of truth | Notes / was |
+|---|---|---|
+| **Why** the architecture is shaped this way | `docs/superpowers/specs/2026-06-13-architecture-adr.md` | Foundational ADR; its "全 TS on Workers" decision was later refined by the rebuild spec below |
+| **Current target** architecture (hybrid, latest) | `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md` | Latest; supersedes the ADR on agent language; rebuild in progress |
+| Live agent runtime reference | `docs/ARCHITECTURE.md` **(paths + frontend section need a refresh — separate PR)** + `apps/agent/agent/agents/animichi_runner.py` | Runtime is still Python & live; the doc's paths + frontend section are stale |
+| Agent entry | `apps/agent/agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/animichi_runner.py` | was `backend/interfaces/…` |
+| Agent shared types | `apps/agent/agent/agents/models.py`, `…/agent_result.py` | was `backend/agents/…` |
+| Agent tools | `apps/agent/agent/agents/animichi_tools.py` + `web_tools.py` | Typed `TOOLS` lists injected by `build_animichi_agent()` |
+| Catalog service (TS) + data platform | `workers/catalog/src/` — `ingest/` · `enrich/` · `publish/` · `api/` · `router.ts` | realizes the ADR's ingest→enrich→publish |
+| Cross-service contract (zod = SoT) | `packages/contract/src/` (`models.ts`, `contract.ts`, `errors.ts`) + `packages/contract/README.md` | error registry + parity guard live here |
+| User-domain service | `workers/users/` + `workers/users/AGENTS.md` | Live Hono/oRPC/jose service over Neon, `/v1/users/*` |
+| Edge worker / auth / routing | `worker/entry.ts` (+ `app.ts`, `auth.ts`) | was `worker/worker.js` |
+| Deploy wiring | `wrangler.toml` + `worker/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
+| DB — catalog/user data | **Neon** (Drizzle raw-SQL query-only over neon-http); migrations in `db/` (Atlas) | data plane; no Hyperdrive |
+| DB — auth | **Supabase** (auth-only); migrations in `supabase/migrations/` | |
+| Frontend — current (homepage-only) | `frontend/` (Next.js OpenNext) + `frontend/AGENTS.md` | chat/search trees deleted 2026-06 |
+| Frontend — rebuild target | `apps/web/` + `apps/web/AGENTS.md` (TanStack Start) | Landing + branded 404 live; spec `2026-07-06-frontend-rebuild-spec.md` |
+| Design tokens / system | `frontend/app/globals.css` + `frontend/DESIGN.md`; ref `docs/design/animal-island-ref/` | |
+| Eval | `apps/agent/agent/tests/eval/` (Python) | |
+| Testing strategy | `docs/testing-strategy.md` | |
+| Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |
+| Anonymous session purge | `docs/ops/anonymous-session-purge.md`, `.github/workflows/purge-anonymous-sessions.yml` | scheduled retention sweep, issue #273 Task 3 |
 
 ## Review Check
 

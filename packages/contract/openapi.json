@@ -1,6 +1,6 @@
 {
   "info": {
-    "title": "Seichijunrei Catalog Service",
+    "title": "Animichi Catalog Service",
     "version": "0.1.0",
     "description": "Read methods of the TS Catalog service, consumed by the Python Agent service."
   },
@@ -26,10 +26,14 @@
                         "type": "object",
                         "properties": {
                           "lat": {
-                            "type": "number"
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
                           },
                           "lng": {
-                            "type": "number"
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
                           }
                         },
                         "required": [
@@ -108,6 +112,9 @@
                           },
                           "cover_url": {
                             "type": "string"
+                          },
+                          "city": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -130,6 +137,439 @@
                   "required": [
                     "rows",
                     "synced_at"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "502",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "UPSTREAM_UNAVAILABLE"
+                        },
+                        "status": {
+                          "const": 502
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "Upstream catalog source unavailable"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "upstream": {
+                              "enum": [
+                                "bangumi",
+                                "anitabi",
+                                "unknown"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "upstream"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/resolve": {
+      "post": {
+        "operationId": "resolve",
+        "summary": "Resolve an anime title deterministically",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "outcome": {
+                          "const": "resolved"
+                        },
+                        "match": {
+                          "type": "object",
+                          "properties": {
+                            "bangumi_id": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "title_cn": {
+                              "type": "string"
+                            },
+                            "cover_url": {
+                              "type": "string"
+                            },
+                            "year": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "points_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "bangumi_id",
+                            "title"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "outcome",
+                        "match"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "outcome": {
+                          "const": "needs_disambiguation"
+                        },
+                        "reason": {
+                          "const": "anime_ambiguity"
+                        },
+                        "candidates": {
+                          "type": "array",
+                          "minItems": 2,
+                          "maxItems": 6,
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "bangumi_id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "title_cn": {
+                                "type": "string"
+                              },
+                              "cover_url": {
+                                "type": "string"
+                              },
+                              "year": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "points_count": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "bangumi_id",
+                              "title"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "outcome",
+                        "reason",
+                        "candidates"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "outcome": {
+                          "const": "not_found"
+                        },
+                        "reason": {
+                          "const": "anime_not_found"
+                        }
+                      },
+                      "required": [
+                        "outcome",
+                        "reason"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "outcome": {
+                          "const": "upstream_unavailable"
+                        },
+                        "provider": {
+                          "enum": [
+                            "bangumi",
+                            "anitabi"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "outcome",
+                        "provider"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/points-by-work-id": {
+      "post": {
+        "operationId": "pointsByWorkId",
+        "summary": "Fetch pilgrimage points by resolved work id",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "work_id": {
+                    "type": "string",
+                    "pattern": "^\\d+$"
+                  }
+                },
+                "required": [
+                  "work_id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "name_cn": {
+                            "type": "string"
+                          },
+                          "bangumi_id": {
+                            "type": "string"
+                          },
+                          "episode": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "time_seconds": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "screenshot_url": {
+                            "type": "string"
+                          },
+                          "latitude": {
+                            "type": "number"
+                          },
+                          "longitude": {
+                            "type": "number"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "title_cn": {
+                            "type": "string"
+                          },
+                          "distance_m": {
+                            "type": "number"
+                          },
+                          "origin": {
+                            "type": "string"
+                          },
+                          "cover_url": {
+                            "type": "string"
+                          },
+                          "city": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "bangumi_id",
+                          "screenshot_url",
+                          "latitude",
+                          "longitude"
+                        ]
+                      }
+                    },
+                    "synced_at": {
+                      "type": "string"
+                    },
+                    "partial": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "rows",
+                    "synced_at"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "502",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "UPSTREAM_UNAVAILABLE"
+                        },
+                        "status": {
+                          "const": 502
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "Upstream catalog source unavailable"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "upstream": {
+                              "enum": [
+                                "bangumi",
+                                "anitabi",
+                                "unknown"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "upstream"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
                   ]
                 }
               }
@@ -158,10 +598,14 @@
                         "type": "object",
                         "properties": {
                           "lat": {
-                            "type": "number"
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
                           },
                           "lng": {
-                            "type": "number"
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
                           }
                         },
                         "required": [
@@ -238,6 +682,9 @@
                         },
                         "cover_url": {
                           "type": "string"
+                        },
+                        "city": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -259,6 +706,77 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "WORK_NOT_FOUND"
+                        },
+                        "status": {
+                          "const": 404
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "No pilgrimage points for this work"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "bangumi_id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "bangumi_id"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -275,13 +793,18 @@
                 "type": "object",
                 "properties": {
                   "lat": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
                   },
                   "lng": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
                   },
                   "radius_m": {
-                    "type": "number"
+                    "type": "number",
+                    "exclusiveMinimum": 0
                   }
                 },
                 "required": [
@@ -351,6 +874,9 @@
                           },
                           "cover_url": {
                             "type": "string"
+                          },
+                          "city": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -366,6 +892,115 @@
                   },
                   "required": [
                     "rows"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/geocode": {
+      "post": {
+        "operationId": "geocode",
+        "summary": "Resolve a place name to coordinate candidates (local gazetteer)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "default": 5
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "lat": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "lng": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          },
+                          "kind": {
+                            "enum": [
+                              "station",
+                              "city",
+                              "ward",
+                              "landmark",
+                              "prefecture"
+                            ],
+                            "type": "string"
+                          },
+                          "source": {
+                            "enum": [
+                              "seed",
+                              "mlit",
+                              "geonames",
+                              "manual"
+                            ],
+                            "type": "string"
+                          },
+                          "effective_radius_m": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "exclusiveMinimum": 0
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "label",
+                          "name",
+                          "lat",
+                          "lng",
+                          "kind",
+                          "source"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "candidates"
                   ]
                 }
               }
@@ -397,10 +1032,14 @@
                         "type": "object",
                         "properties": {
                           "lat": {
-                            "type": "number"
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
                           },
                           "lng": {
-                            "type": "number"
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
                           }
                         },
                         "required": [
@@ -493,6 +1132,9 @@
                           },
                           "cover_url": {
                             "type": "string"
+                          },
+                          "city": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -518,6 +1160,19 @@
                     },
                     "anime_title_cn": {
                       "type": "string"
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "shown_cluster_count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "total_cluster_count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
                     },
                     "timed_itinerary": {
                       "type": "object",
@@ -581,7 +1236,8 @@
                               },
                               "mode": {
                                 "enum": [
-                                  "walk"
+                                  "walk",
+                                  "transit"
                                 ],
                                 "type": "string"
                               },
@@ -592,6 +1248,32 @@
                               },
                               "distance_m": {
                                 "type": "number"
+                              },
+                              "line_names": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "transfers": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "board_station": {
+                                "type": "string"
+                              },
+                              "alight_station": {
+                                "type": "string"
+                              },
+                              "summary": {
+                                "type": "string"
+                              },
+                              "attribution": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
                               }
                             },
                             "required": [
@@ -649,6 +1331,164 @@
                     "ordered_points",
                     "point_count",
                     "timed_itinerary"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "ROUTE_TOO_MANY_POINTS"
+                        },
+                        "status": {
+                          "const": 400
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "Too many point_ids for a single route"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "point_count": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "max_points": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "point_count",
+                            "max_points"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "422",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "ROUTE_TOO_MANY_CLUSTERS"
+                        },
+                        "status": {
+                          "const": 422
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "Route exceeds the maximum number of areas"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "cluster_count": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "max_clusters": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "cluster_count",
+                            "max_clusters"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
                   ]
                 }
               }
@@ -712,6 +1552,302 @@
                   },
                   "required": [
                     "status"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "502",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "UPSTREAM_UNAVAILABLE"
+                        },
+                        "status": {
+                          "const": 502
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "Upstream catalog source unavailable"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "upstream": {
+                              "enum": [
+                                "bangumi",
+                                "anitabi",
+                                "unknown"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "upstream"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/public/anime-overview/{bangumi_id}": {
+      "get": {
+        "operationId": "animeOverview",
+        "summary": "Public anime overview: bubble aggregation, 名場面 ranking, and sample routes",
+        "parameters": [
+          {
+            "name": "bangumi_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "bangumi_id": {
+                      "type": "string"
+                    },
+                    "points_length": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "circles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "region": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "lat": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "lng": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          }
+                        },
+                        "required": [
+                          "region",
+                          "count",
+                          "lat",
+                          "lng"
+                        ]
+                      }
+                    },
+                    "scenes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "screenshot_url": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "shot_count": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "lat": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "lng": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          },
+                          "city": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "screenshot_url",
+                          "shot_count",
+                          "lat",
+                          "lng"
+                        ]
+                      }
+                    },
+                    "sample_routes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "region": {
+                            "type": "string"
+                          },
+                          "point_ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "region",
+                          "point_ids"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "bangumi_id",
+                    "points_length",
+                    "circles",
+                    "scenes",
+                    "sample_routes"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "WORK_NOT_FOUND"
+                        },
+                        "status": {
+                          "const": 404
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "No pilgrimage points for this work"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "bangumi_id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "bangumi_id"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
                   ]
                 }
               }

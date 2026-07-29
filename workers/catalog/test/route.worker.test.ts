@@ -6,22 +6,8 @@ import {
   orderNearestNeighbor,
 } from "../src/lib/route";
 
-/**
- * Parity tests for the TS port of the Python deterministic route kernel
- * (`backend/agents/route_optimizer.py::nearest_neighbor_sort`,
- * `::compute_dwell_minutes`, `::build_timed_itinerary`).
- *
- * Expected values were captured by running the Python algorithm verbatim on
- * the fixtures below, so these assert behavioural PARITY with route_optimizer,
- * not merely internal consistency. Named *.worker.test.ts so the existing
- * vitest-pool-workers config picks it up; the logic is pure + runtime-agnostic.
- *
- * Fixture (3 clusters on a meridian line near 35.0N, 135.0E):
- *   a = (35.0000, 135.0)  3 photos  "Shrine"
- *   b = (35.0010, 135.0)  1 photo   "Bridge"
- *   c = (35.0020, 135.0)  2 photos  "Cafe"
- * Adjacent gap a-b == b-c == 111.1949 m (Python haversine).
- */
+// Fixture: three clusters on a meridian near 35.0N, 135.0E.
+// Adjacent gap a-b == b-c == 111.1949 m.
 
 interface RawPoint {
   id: string;
@@ -77,14 +63,14 @@ describe("computeDwellMinutes (route.ts)", () => {
   });
 });
 
-describe("buildTimedItinerary — normal pacing, no origin (Python parity)", () => {
+describe("buildTimedItinerary — normal pacing, no origin", () => {
   const it_ = buildTimedItinerary(fixture(), { startTime: "09:00", pacing: "normal" });
 
-  it("orders stops a,b,c with Python arrive/depart/dwell", () => {
+  it("orders stops a,b,c with detoured walk arrivals", () => {
     expect(it_.stops.map((s) => [s.cluster_id, s.arrive, s.depart, s.dwell_minutes])).toEqual([
       ["a", "09:00", "09:09", 9],
-      ["b", "09:10", "09:18", 8],
-      ["c", "09:19", "09:27", 8],
+      ["b", "09:11", "09:19", 8],
+      ["c", "09:21", "09:29", 8],
     ]);
   });
 
@@ -92,15 +78,15 @@ describe("buildTimedItinerary — normal pacing, no origin (Python parity)", () 
     expect(it_.stops.map((s) => s.name)).toEqual(["Shrine", "Bridge", "Cafe"]);
   });
 
-  it("emits walk legs with Python duration + distance", () => {
+  it("emits walk legs with detoured duration + raw distance", () => {
     expect(it_.legs).toEqual([
-      { from_id: "a", to_id: "b", mode: "walk", duration_minutes: 1, distance_m: 111.2 },
-      { from_id: "b", to_id: "c", mode: "walk", duration_minutes: 1, distance_m: 111.2 },
+      { from_id: "a", to_id: "b", mode: "walk", duration_minutes: 2, distance_m: 111.2 },
+      { from_id: "b", to_id: "c", mode: "walk", duration_minutes: 2, distance_m: 111.2 },
     ]);
   });
 
-  it("matches Python totals + envelope", () => {
-    expect(it_.total_minutes).toBe(27);
+  it("matches totals + envelope", () => {
+    expect(it_.total_minutes).toBe(29);
     expect(it_.total_distance_m).toBe(222.4);
     expect(it_.spot_count).toBe(3);
     expect(it_.pacing).toBe("normal");
@@ -114,7 +100,7 @@ describe("buildTimedItinerary — normal pacing, no origin (Python parity)", () 
   });
 });
 
-describe("buildTimedItinerary — packed pacing, origin near c (Python parity)", () => {
+describe("buildTimedItinerary — packed pacing, origin near c", () => {
   const it_ = buildTimedItinerary(fixture(), {
     startTime: "10:30",
     pacing: "packed",
@@ -140,33 +126,27 @@ describe("buildTimedItinerary — packed pacing, origin near c (Python parity)",
   });
 });
 
-describe("buildTimedItinerary — leg duration scales with pacing buffer (Python parity)", () => {
-  // Two clusters 1111.9 m apart. Python round(dist/80*buffer):
-  //   chill 1.2 -> 17 min, normal 1.0 -> 14 min, packed 0.8 -> 11 min.
+describe("buildTimedItinerary — walking detour coefficient", () => {
   const far = (): LocationCluster<RawPoint>[] => [
     mk("a", 35.0, 2, "Start"),
     mk("b", 35.01, 2, "End"),
   ];
 
-  it("chill buffer", () => {
-    const r = buildTimedItinerary(far(), { pacing: "chill" });
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-    expect(r.legs[0]!.duration_minutes).toBe(17);
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-    expect(r.legs[0]!.distance_m).toBe(1111.9);
-    expect(r.total_minutes).toBe(41);
-  });
-  it("normal buffer", () => {
-    const r = buildTimedItinerary(far(), { pacing: "normal" });
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-    expect(r.legs[0]!.duration_minutes).toBe(14);
-    expect(r.total_minutes).toBe(30);
-  });
-  it("packed buffer", () => {
-    const r = buildTimedItinerary(far(), { pacing: "packed" });
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-    expect(r.legs[0]!.duration_minutes).toBe(11);
-    expect(r.total_minutes).toBe(21);
+  it("pins x1.3 walking duration while keeping distance raw for each pacing", () => {
+    const cases = [
+      ["chill", 22, 46],
+      ["normal", 18, 34],
+      ["packed", 14, 24],
+    ] as const;
+    const actual = cases.map(([pacing]) => {
+      const r = buildTimedItinerary(far(), { pacing });
+      return [pacing, r.legs.at(0)?.duration_minutes, r.legs.at(0)?.distance_m, r.total_minutes];
+    });
+    expect(actual).toEqual([
+      ["chill", 22, 1111.9, 46],
+      ["normal", 18, 1111.9, 34],
+      ["packed", 14, 1111.9, 24],
+    ]);
   });
 });
 
@@ -192,8 +172,7 @@ describe("buildTimedItinerary — edge cases (Python parity)", () => {
     const r = buildTimedItinerary([mk("a", 35.0, 2, "Solo")], { pacing: "normal" });
     expect(r.legs).toEqual([]);
     expect(r.total_minutes).toBe(8);
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- test data known to exist
-    expect(r.stops[0]!.depart).toBe("09:08");
+    expect(r.stops.at(0)?.depart).toBe("09:08");
     expect(r.total_distance_m).toBe(0);
   });
 

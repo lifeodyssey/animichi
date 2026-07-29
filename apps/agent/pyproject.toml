@@ -1,12 +1,12 @@
 [project]
-name = "seichijunrei"
+name = "animichi"
 version = "0.1.0"
 description = "AI-powered travel assistant for anime pilgrims using Gemini LLM"
-requires-python = ">=3.11"
+requires-python = ">=3.11.10"
 authors = [
-    {name = "Seichijunrei Team", email = "team@seichijunrei.com"}
+    {name = "Animichi Team", email = "team@animichi.com"}
 ]
-keywords = ["anime", "travel", "ai", "gemini", "seichijunrei", "agent"]
+keywords = ["anime", "travel", "ai", "gemini", "animichi", "agent"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -21,45 +21,44 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "python-dotenv>=1.2.2",
     # Async/HTTP
-    "aiohttp>=3.14.0",
     "httpx>=0.28.0",
     # Security floors for transitive deps (open dependabot alerts)
     "urllib3>=2.7.0",
     "authlib>=1.6.12",
     "idna>=3.15",
     "starlette>=1.0.1",
+    "mcp>=1.28.1,<2",
     # Observability
     "structlog>=25.0.0",
     "rich>=14.0.0",
-    "opentelemetry-api>=1.39.0",
-    "opentelemetry-sdk>=1.39.0",
     # Google Generative AI (model-agnostic, used by pydantic-ai)
     "google-genai>=1.16.0",
     # v2: Agent Framework
-    "pydantic-ai>=1.99.0",
+    "pydantic-ai>=2.11.0",
     # v2: Database (Postgres + PostGIS)
     "asyncpg>=0.31.0",
     # HTTP runtime adapter
-    "fastapi>=0.115.0",
+    "fastapi>=0.139.2",
     "uvicorn[standard]>=0.34.0",
     "ddgs>=9.14.1",
-    "pydantic-ai-guardrails>=0.2.2",
-    "logfire[fastapi,httpx]>=4.29.0",
-    "reverse-geocoder>=1.5.1",
+    "logfire[asyncpg,fastapi,httpx,variables]>=4.29.0",
+    "pydantic-ai-harness[codemode]>=0.7.0",
 ]
 
 [project.scripts]
-seichijunrei-api = "agent.interfaces.fastapi_service:main"
+animichi-api = "agent.interfaces.fastapi_service:main"
 
 [project.optional-dependencies]
-observability = [
-    "opentelemetry-exporter-otlp>=1.39.0",
-]
 dev = [
     # Testing
     "pytest>=9.0.3",
-    "pytest-asyncio>=0.26.0",
+    "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0.0",
+    # Self-signed TLS fixture for the SSRF egress guard integration tests
+    # (agent/tests/integration/_egress_tls_stub.py). Previously an incidental
+    # transitive dependency (via authlib) — pinned explicitly since tests
+    # import it directly and it must not silently disappear on a dep bump.
+    "cryptography>=46.0.0",
 
     # Code Quality
     "ruff>=0.14.0",
@@ -122,10 +121,6 @@ omit = [
     ".uv-cache/*",
     "*/.uv-cache/*",
     "*/site-packages/*",
-    # Observability (requires external exporters)
-    "agent/infrastructure/observability/exporters.py",
-    "agent/infrastructure/observability/metrics.py",
-    "agent/infrastructure/observability/tracing.py",
 ]
 
 [tool.coverage.report]
@@ -167,8 +162,8 @@ disallow_any_explicit = false
 
 [dependency-groups]
 dev = [
+    "asyncpg-stubs>=0.30.1",
     "mypy>=1.19.1",
-    "psycopg2-binary>=2.9.11",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0.0",
@@ -176,4 +171,10 @@ dev = [
     "sqlfluff>=4.2.2",
     "testcontainers[postgres]>=4.14.2",
     "vulture>=2.16",
+]
+# One-off maintenance scripts (e.g. agent/scripts/backfill_city.py) that pull
+# heavy transitive deps (numpy+scipy via reverse-geocoder, ~70MB) we don't want
+# in the production image or the everyday dev install.
+scripts = [
+    "reverse-geocoder>=1.5.1",
 ]

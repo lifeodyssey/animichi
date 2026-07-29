@@ -1,0 +1,48 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`recorded AI SDK UI message streams > parses every clarify data-response and snapshots its v1 sequence 1`] = `
+[
+  "start",
+  "start-step",
+  "tool-input-start",
+  "tool-input-available",
+  "tool-output-available",
+  "data-response",
+  "data-response",
+  "finish-step",
+  "finish",
+  "[DONE]",
+]
+`;
+
+exports[`recorded AI SDK UI message streams > parses every error data-response and snapshots its v1 sequence 1`] = `
+[
+  "start",
+  "start-step",
+  "error",
+  "finish-step",
+  "finish",
+  "[DONE]",
+]
+`;
+
+exports[`recorded AI SDK UI message streams > parses every search data-response and snapshots its v1 sequence 1`] = `
+[
+  "start",
+  "start-step",
+  "tool-input-start",
+  "tool-input-available",
+  "tool-output-available",
+  "tool-input-start",
+  "tool-input-available",
+  "tool-output-available",
+  "tool-input-start",
+  "tool-input-available",
+  "tool-output-available",
+  "data-response",
+  "data-response",
+  "finish-step",
+  "finish",
+  "[DONE]",
+]
+`;

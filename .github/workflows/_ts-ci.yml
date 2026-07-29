@@ -1,7 +1,7 @@
 # Reusable workflow (called by ci.yml; not triggered directly). '_' prefix = internal.
 name: _ts-ci
 
-# Reusable TypeScript Worker CI: tsc + oxlint + eslint (strict) + vitest.
+# Reusable TypeScript Worker CI: tsc + strict type-aware oxlint + vitest.
 # Called by ci.yml orchestrator. component = worker dir under workers/.
 
 on:
@@ -34,13 +34,8 @@ jobs:
         run: pnpm exec tsc --noEmit
         working-directory: workers/${{ inputs.component }}
 
-      - name: Oxlint (fast pre-pass)
-        uses: oxc-project/oxlint-action@b78c21302e4bc637e83927135c35a6684de1053e # v3.1.0
-        with:
-          working-directory: workers/${{ inputs.component }}
-
-      - name: ESLint (strict, zero warnings)
-        run: pnpm exec eslint . --max-warnings=0
+      - name: Oxlint (type-aware, strict)
+        run: pnpm run lint:oxlint
         working-directory: workers/${{ inputs.component }}
 
       # TODO(type-coverage): type-coverage is not yet configured for this component.

@@ -32,7 +32,7 @@ def build_ics_calendar(
     lines: list[str] = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
-        "PRODID:-//Seichijunrei//EN",
+        "PRODID:-//Animichi//EN",
         "CALSCALE:GREGORIAN",
     ]
 

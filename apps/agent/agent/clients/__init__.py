@@ -1,19 +1,13 @@
-"""
-HTTP client implementations for external APIs.
+"""HTTP clients for external services.
 
-Provides:
-- Base HTTP client with retry, rate limiting, and caching
-- Anitabi API client for anime location data
-- Bangumi API client for anime/manga metadata
+The runtime read path is catalog-only: the agent talks to the Catalog
+service through :mod:`agent.clients.catalog_client` (httpx). Seed scripts
+use their own scripts-local helpers under ``agent/scripts/``.
 """
 
-from agent.clients.anitabi import AnitabiClient
-from agent.clients.bangumi import BangumiClient
-from agent.clients.base import BaseHTTPClient, HTTPMethod
+from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
 
 __all__ = [
-    "BaseHTTPClient",
-    "HTTPMethod",
-    "AnitabiClient",
-    "BangumiClient",
+    "CatalogClient",
+    "CatalogClientProtocol",
 ]

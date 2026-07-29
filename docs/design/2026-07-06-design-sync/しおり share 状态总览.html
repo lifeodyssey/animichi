@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>しおり + share 状态总览 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&family=Noto+Serif+JP:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0e8d8; --card:#f8f8f0; --panel:#f7f3df;
+  --tx:#794f27; --tx2:#725d42; --tx3:#9f927d;
+  --line:#e8e2d6; --line2:#c4b89e;
+  --teal:#19c8b9; --teal-text:#0e7c72;
+  --gold:#f5c31c; --gold-tx:#5c4813; --gold-deep:#d9a412; --star:#f0b429;
+  --brand:#c44a2e; --focus:#ffcc00;
+  --sh:#bdaea0; --sh2:#d4c9b4;
+  --ink:#3d2d18;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#e7dfca;font-family:'Zen Maru Gothic','Nunito','Noto Sans SC',sans-serif;color:var(--tx);padding:56px 64px 120px;}
+.canvas-head{max-width:1480px;margin:0 auto 12px;}
+.canvas-head .eyebrow{font-family:Nunito;font-weight:900;font-size:13px;letter-spacing:.22em;color:var(--tx3);text-transform:uppercase;}
+.canvas-head h1{font-size:34px;font-weight:900;margin:6px 0 10px;}
+.canvas-head p{font-size:14px;color:var(--tx2);line-height:1.8;max-width:1000px;}
+.canvas-head .brief{margin-top:14px;background:var(--panel);border:1.5px dashed var(--line2);border-radius:16px;padding:14px 18px;font-size:13px;color:var(--tx2);line-height:2;max-width:1000px;}
+.canvas-head .brief b{color:var(--tx);}
+.group{max-width:2300px;margin:72px auto 0;}
+.group>header{display:flex;align-items:baseline;gap:14px;border-bottom:2px solid var(--line2);padding-bottom:10px;margin-bottom:34px;}
+.group>header .gid{font-family:Nunito;font-weight:900;font-size:15px;color:#fff;background:var(--tx);border-radius:8px;padding:3px 10px;}
+.group>header h2{font-size:23px;font-weight:900;}
+.group>header .sub{font-size:13px;color:var(--tx3);}
+.row{display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start;}
+.frame{display:flex;flex-direction:column;gap:12px;}
+.frame .flabel{max-width:402px;}
+.frame .flabel .fid{font-family:Nunito;font-weight:900;font-size:12px;letter-spacing:.14em;color:var(--teal-text);background:#dff3f0;border:1px solid #b8e2dc;border-radius:6px;padding:2px 8px;display:inline-block;}
+.frame .flabel h3{font-size:17px;font-weight:900;margin:7px 0 3px;}
+.frame .flabel p{font-size:12.5px;color:var(--tx2);line-height:1.75;}
+.phone{width:402px;height:874px;background:var(--card);border:1.5px solid var(--line2);border-radius:36px;overflow:hidden;position:relative;box-shadow:0 10px 0 0 var(--sh2);flex-shrink:0;display:flex;flex-direction:column;}
+.note{background:var(--panel);border:1.5px dashed var(--line2);border-radius:16px;padding:16px 18px;width:330px;font-size:12.5px;color:var(--tx2);line-height:1.9;}
+.note h4{font-size:13px;color:var(--tx);margin-bottom:6px;font-weight:900;}
+.note b{color:var(--tx);}
+.note .y{background:#fdf3d0;border-radius:4px;padding:0 4px;color:var(--tx);}
+.sb{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:800 14px Nunito;flex-shrink:0;}
+.sb .dots{display:flex;gap:4px;}.sb .dots i{width:5px;height:5px;border-radius:50%;background:var(--tx2);}
+.appbar{display:flex;align-items:center;gap:10px;padding:4px 16px 8px;flex-shrink:0;}
+.appbar .back{width:36px;height:36px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font:900 15px Nunito;flex-shrink:0;}
+.appbar .at{font-size:13px;font-weight:700;color:var(--tx3);}
+.dock{position:absolute;left:0;right:0;bottom:0;padding:26px 16px 16px;background:linear-gradient(180deg,rgba(248,248,240,0),var(--card) 46%);z-index:8;display:flex;gap:10px;}
+.cta{flex:1;display:flex;align-items:center;justify-content:center;height:54px;border-radius:50px;background:var(--gold);color:var(--gold-tx);font-size:16px;font-weight:900;box-shadow:0 4px 0 0 var(--gold-deep);}
+.cta.sub{flex:0 0 128px;background:var(--card);color:var(--tx);border:1.5px solid var(--line2);box-shadow:0 4px 0 0 var(--sh2);font-size:13.5px;}
+.ann{position:absolute;z-index:9;background:#fff8e6;border:1.5px solid var(--star);color:#7a5a10;font-size:11px;font-weight:800;padding:5px 10px;border-radius:10px;box-shadow:0 2px 0 rgba(122,95,61,.2);line-height:1.5;max-width:210px;}
+
+/* ── OG card shells (display 324×576 = 30% of 1080×1920) ── */
+.og{width:324px;height:576px;border-radius:18px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:0 10px 0 0 var(--sh2);border:1.5px solid var(--line2);}
+/* A · 栞 ticket */
+.og.ticket{background:var(--card);display:flex;flex-direction:column;}
+.tk-head{display:flex;align-items:center;gap:8px;padding:14px 18px 10px;}
+.tk-head img{width:24px;height:24px;}
+.tk-head .ey{font:900 9px Nunito;letter-spacing:.24em;color:var(--tx3);}
+.tk-head .wm{margin-left:auto;font:900 10px Nunito;letter-spacing:.12em;color:var(--brand);}
+.tk-cover{height:104px;margin:0 18px;border-radius:12px;position:relative;overflow:hidden;}
+.tk-cover .ctag{position:absolute;left:8px;bottom:8px;background:rgba(61,45,24,.68);color:#fff;font:800 9px Nunito;padding:2px 7px;border-radius:6px;}
+.tk-title{font-family:'Noto Serif JP',serif;font-size:21px;font-weight:900;color:var(--ink);padding:12px 18px 2px;line-height:1.35;}
+.tk-sub{padding:0 18px 8px;font-size:10.5px;font-weight:800;color:var(--tx2);display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.tk-sub .chip{background:var(--panel);border:1px solid var(--line);border-radius:50px;padding:2px 8px;font-size:9.5px;}
+.perf{position:relative;margin:6px 0 4px;height:14px;flex-shrink:0;}
+.perf::before{content:'';position:absolute;left:22px;right:22px;top:50%;border-top:2px dashed var(--line2);}
+.perf i{position:absolute;top:0;width:14px;height:14px;border-radius:50%;background:#e7dfca;border:1.5px solid var(--line2);}
+.perf i.l{left:-8px;}.perf i.r{right:-8px;}
+.tk-tl{flex:1;padding:4px 18px 0;min-height:0;}
+.tk-row{display:grid;grid-template-columns:34px 16px 1fr 44px;column-gap:7px;align-items:center;padding:5.5px 0;}
+.tk-row .t{font:800 10.5px Nunito;color:var(--tx2);}
+.tk-row .trk{position:relative;height:100%;min-height:30px;}
+.tk-row .trk::before{content:'';position:absolute;left:50%;top:-8px;bottom:-8px;width:2px;margin-left:-1px;background:var(--line2);}
+.tk-row:first-child .trk::before{top:50%;}
+.tk-row:last-child .trk::before{bottom:50%;}
+.tk-row .d{position:absolute;left:50%;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:#fff;border:2.5px solid var(--teal);z-index:1;}
+.tk-row .d.done{background:var(--teal);}
+.tk-row .d.star{width:13px;height:13px;margin:-6.5px 0 0 -6.5px;background:var(--star);border-color:#fff;box-shadow:0 0 0 2px var(--star);}
+.tk-row .nm{font-size:12px;font-weight:900;color:var(--ink);line-height:1.3;}
+.tk-row .nm small{display:block;font:700 8.5px Nunito;color:var(--tx3);}
+.tk-row .th{width:44px;height:28px;border-radius:6px;position:relative;overflow:hidden;border:1px solid var(--line);}
+.tk-row .th .ck{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(25,200,185,.28);color:#fff;font:900 12px Nunito;}
+.tk-foot{display:flex;align-items:center;gap:10px;padding:8px 18px 14px;flex-shrink:0;}
+.tk-foot img.fox{width:40px;height:40px;}
+.tk-foot .cr{flex:1;font:700 7.5px Nunito;color:var(--tx3);line-height:1.6;}
+.tk-foot .qr{width:44px;height:44px;border-radius:6px;background:conic-gradient(var(--ink) 0 25%,#fff 0 27%,var(--ink) 0 46%,#fff 0 49%,var(--ink) 0 71%,#fff 0 74%,var(--ink) 0 100%);opacity:.85;flex-shrink:0;}
+.seal{position:absolute;right:14px;top:196px;width:74px;height:74px;border-radius:50%;background:var(--gold);color:var(--gold-tx);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;transform:rotate(8deg);box-shadow:0 3px 0 var(--gold-deep);border:2.5px dashed rgba(92,72,19,.4);}
+.seal .n{font:900 17px Nunito;line-height:1;}
+.seal .l{font-size:9px;margin-top:2px;}
+/* B · ポスター full-bleed */
+.og.poster{color:#fff;display:flex;flex-direction:column;}
+.og.poster .pbg{position:absolute;inset:0;}
+.og.poster .pgrad{position:absolute;inset:0;background:linear-gradient(180deg,rgba(43,32,18,.08) 0%,rgba(43,32,18,.42) 38%,rgba(43,32,18,.9) 72%,#2b2012 100%);}
+.po-top{position:relative;display:flex;align-items:flex-start;justify-content:space-between;padding:14px 16px;}
+.po-top .ctag{background:rgba(61,45,24,.68);color:#fff;font:800 9px Nunito;padding:3px 8px;border-radius:7px;}
+.po-ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--gold) 0 100%,rgba(255,255,255,.25) 0);display:flex;align-items:center;justify-content:center;}
+.po-ring .in{width:50px;height:50px;border-radius:50%;background:rgba(43,32,18,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.po-ring .in b{font:900 13px Nunito;color:var(--gold);line-height:1;}
+.po-ring .in s{text-decoration:none;font-size:7.5px;font-weight:800;color:rgba(255,255,255,.85);}
+.po-body{position:relative;margin-top:auto;padding:0 18px 12px;}
+.po-body .ey{font:900 9.5px Nunito;letter-spacing:.26em;opacity:.85;}
+.po-body .tt{font-family:'Noto Serif JP',serif;font-size:24px;font-weight:900;line-height:1.3;margin:4px 0 7px;text-shadow:0 1px 6px rgba(0,0,0,.35);}
+.po-body .chips{display:flex;gap:5px;flex-wrap:wrap;}
+.po-body .chips span{background:rgba(248,248,240,.16);border:1px solid rgba(248,248,240,.35);border-radius:50px;padding:2px 9px;font-size:9.5px;font-weight:800;}
+.po-list{position:relative;padding:10px 18px 0;}
+.po-row{display:flex;align-items:center;gap:8px;padding:4.5px 0;border-bottom:1px solid rgba(248,248,240,.12);}
+.po-row:last-child{border-bottom:none;}
+.po-row .t{font:800 10px Nunito;opacity:.75;width:32px;flex-shrink:0;}
+.po-row .th{width:40px;height:25px;border-radius:5px;flex-shrink:0;position:relative;overflow:hidden;}
+.po-row .nm{font-size:11.5px;font-weight:800;flex:1;line-height:1.3;}
+.po-row .ck{width:17px;height:17px;border-radius:50%;background:var(--teal);color:#fff;font:900 10px Nunito;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.po-row .ck.no{background:rgba(248,248,240,.18);border:1.5px dashed rgba(248,248,240,.5);}
+.po-foot{position:relative;display:flex;align-items:center;gap:9px;padding:10px 18px 14px;}
+.po-foot img{width:20px;height:20px;filter:brightness(0) invert(1);opacity:.9;}
+.po-foot .u{font:800 9.5px Nunito;letter-spacing:.06em;flex:1;}
+.po-foot .cr{font:700 7px Nunito;opacity:.65;text-align:right;line-height:1.5;}
+.po-foot .qr{width:38px;height:38px;border-radius:5px;background:conic-gradient(#fff 0 25%,#2b2012 0 27%,#fff 0 46%,#2b2012 0 49%,#fff 0 71%,#2b2012 0 74%,#fff 0 100%);opacity:.9;flex-shrink:0;}
+
+/* share page bits */
+.urlbar{margin:6px 16px 8px;background:var(--panel);border:1.5px solid var(--line);border-radius:50px;padding:7px 14px;display:flex;align-items:center;gap:8px;font:800 11.5px Nunito;color:var(--tx2);flex-shrink:0;}
+.urlbar i{width:10px;height:10px;border-radius:50%;border:2px solid var(--teal);font-style:normal;flex-shrink:0;}
+.shero{position:relative;height:198px;margin:0 16px;border-radius:18px;overflow:hidden;flex-shrink:0;}
+.shero .hgrad{position:absolute;inset:0;background:linear-gradient(180deg,rgba(40,30,18,0) 30%,rgba(40,30,18,.66) 100%);}
+.shero .ctag{position:absolute;top:12px;left:14px;background:rgba(61,45,24,.68);color:#fff;font:800 11px Nunito;padding:3px 9px;border-radius:8px;}
+.shero .hbody{position:absolute;left:16px;right:16px;bottom:12px;color:#fff;}
+.shero .ey{font:900 10px Nunito;letter-spacing:.2em;opacity:.85;}
+.shero .tt{font-family:'Noto Serif JP',serif;font-size:22px;font-weight:900;margin:2px 0 5px;text-shadow:0 1px 4px rgba(40,30,18,.4);}
+.shero .chips{display:flex;gap:6px;flex-wrap:wrap;}
+.shero .chips span{background:rgba(248,248,240,.92);color:var(--tx);font-size:11px;font-weight:800;padding:3px 9px;border-radius:50px;}
+.authrow{display:flex;align-items:center;gap:9px;margin:12px 18px 4px;background:#fdf8e8;border:1.5px solid var(--star);border-radius:14px;padding:9px 13px;}
+.authrow img{width:30px;height:30px;flex-shrink:0;}
+.authrow .t{font-size:12px;font-weight:900;line-height:1.5;}
+.authrow .t small{display:block;font:700 10px Nunito;color:var(--tx3);}
+.authrow .bd{margin-left:auto;background:var(--gold);color:var(--gold-tx);font-size:10.5px;font-weight:900;padding:3px 10px;border-radius:50px;box-shadow:0 2px 0 var(--gold-deep);white-space:nowrap;}
+.srow{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1.5px solid var(--line);}
+.srow:last-child{border-bottom:none;}
+.srow .th{width:72px;height:45px;border-radius:10px;position:relative;overflow:hidden;flex-shrink:0;border:1.5px solid var(--line);}
+.srow .th .ttag{position:absolute;left:4px;bottom:4px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;padding:1px 5px;border-radius:5px;}
+.srow .nm{font-size:13.5px;font-weight:900;flex:1;}
+.srow .nm small{display:block;font:700 10px Nunito;color:var(--tx3);margin-top:1px;}
+.srow .ck{width:20px;height:20px;border-radius:50%;background:var(--teal);color:#fff;font:900 11px Nunito;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.srow .ck.no{background:var(--card);border:1.5px dashed var(--line2);color:var(--tx3);font-size:9px;}
+</style>
+</head>
+<body>
+
+<div class="canvas-head">
+  <div class="eyebrow">Step 3 · Shiori + /share · State Overview</div>
+  <h1>しおり + 分享页 /s/:id — 状态总览</h1>
+  <p>環の最後の辺：<b>残す → 分享物回流</b>。しおり＝可保存的 9:16 图（OG 兼用）；/s/:id＝收到链接的人看到的公开页，金 CTA「自分用にアレンジ」→ Chat A2b，环闭合。内容主线：『君の名は。』×飛騨古川 5 spots。</p>
+  <div class="brief"><b>定案（07-03）回顾</b>：计划版（无✓）+完走版（✓+完成率）<b>都做</b> · OG 9:16＝封面帧渐变+白字+打卡清单+完成率 · 生成屏金 CTA＝画像を保存、リンクをコピー＝cream · share 金 CTA＝自分用にアレンジ · 登录墙只立在「保存」（P5）· 出典 CC BY-NC-SA 常驻。<b>07-06 重设计（用户驳回封面拼贴案）：対比図＝完走版主役，版式由枚数定——計画＝切符 / 完走 0枚＝ポスター / 1-2枚＝一枚看板 / 3枚+＝アルバム格子。対比図一律上下拼（帧上実拍下）。A/B 方向裁决废弃。</b></div>
+</div>
+
+<!-- ═══ G1 · しおり：対比図が主役 ═══ -->
+<div class="group" id="g1">
+  <header><span class="gid">G1</span><h2>しおり — 完走版＝対比図が主役（9:16 · 显示30% · 出图1080×1920）</h2><span class="sub">版式由対比図枚数定：計画＝切符 · 完走 0枚＝ポスター / 1-2枚＝一枚看板 / 3枚+＝アルバム格子</span></header>
+  <div class="row">
+
+    <div class="frame" data-screen-label="S-P 計画版·切符">
+      <div class="flabel"><span class="fid">S-P · 計画版</span>
+        <h3>計画版 — 切符（出发前唯一形态）</h3>
+        <p>还没有対比図也没有✓，时刻表就是主役：cream 打孔线切符。旅行前发给同行者。</p>
+      </div>
+      <div class="og ticket">
+        <div class="tk-head"><img src="assets/torii.svg" alt=""><span class="ey">SEICHIJUNREI · しおり</span><span class="wm">聖地巡礼</span></div>
+        <div class="tk-cover" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);"><span class="ctag">第1話 04:12</span></div>
+        <div class="tk-title">飛騨古川 半日ルート</div>
+        <div class="tk-sub"><span class="chip">君の名は。</span><span class="chip">5スポット</span><span class="chip">徒歩2.8km</span><span class="chip">9:30→13:00頃</span></div>
+        <div class="perf"><i class="l"></i><i class="r"></i></div>
+        <div class="tk-tl">
+          <div class="tk-row"><span class="t">9:30</span><span class="trk"><i class="d"></i></span><span class="nm">飛騨古川駅<small>ホーム俯瞰 · 12カット</small></span><span class="th" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);"></span></div>
+          <div class="tk-row"><span class="t">10:05</span><span class="trk"><i class="d"></i></span><span class="nm">味処古川<small>五平餅で早めの昼</small></span><span class="th" style="background:linear-gradient(135deg,#f5dccf,#e0b294);"></span></div>
+          <div class="tk-row"><span class="t">10:50</span><span class="trk"><i class="d star"></i></span><span class="nm">気多若宮神社<small>石段と鳥居 · 18カット</small></span><span class="th" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"></span></div>
+          <div class="tk-row"><span class="t">11:35</span><span class="trk"><i class="d"></i></span><span class="nm">飛騨市図書館<small>受付許可制</small></span><span class="th" style="background:linear-gradient(135deg,#dfd6f0,#b7a8dd);"></span></div>
+          <div class="tk-row"><span class="t">12:10</span><span class="trk"><i class="d"></i></span><span class="nm">さくら物産館<small>組紐体験 · ゴール</small></span><span class="th" style="background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"></span></div>
+        </div>
+        <div class="tk-foot"><img class="fox" src="assets/fox/fox-traveler.svg" alt=""><span class="cr">画像・座標：Anitabi (CC BY-NC-SA 4.0)<br>© コミックス・ウェーブ・フィルム</span><span class="qr"></span></div>
+      </div>
+    </div>
+
+    <div class="frame" data-screen-label="S-K1 完走·一枚看板">
+      <div class="flabel"><span class="fid">S-K1 · 完走 × 対比図1〜2枚</span>
+        <h3>一枚看板 — ベスト構図が全面</h3>
+        <p>対比図＝<b>上下拼</b>（帧上・実拍下，image-merge 産物原样）。1-2 枚时：最好那张全宽坐镇，第二枚缩小，行程压成一条✓帯。</p>
+      </div>
+      <div class="og ticket" style="display:flex;flex-direction:column;">
+        <div class="tk-head"><img src="assets/torii.svg" alt=""><span class="ey">SEICHIJUNREI · 完走記念</span><span class="wm">聖地巡礼</span></div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:2px 18px 8px;">
+          <span style="font-family:'Noto Serif JP',serif;font-size:16.5px;font-weight:900;color:var(--ink);">飛騨古川 半日ルート</span>
+          <span style="font:800 8.5px Nunito;color:var(--tx3);">君の名は。 · 2026.7.3</span>
+        </div>
+        <div style="padding:0 18px;">
+          <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;">
+            <div style="position:relative;">
+              <div style="height:148px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);position:relative;"><span style="position:absolute;left:8px;top:8px;background:rgba(61,45,24,.68);color:#fff;font:800 9px Nunito;padding:2px 7px;border-radius:6px;">第8話 41:12</span></div>
+              <div style="height:148px;background:linear-gradient(172deg,#b9cfa4,#7fa063);position:relative;"><span style="position:absolute;right:8px;top:7px;background:rgba(248,248,240,.9);color:var(--tx);font:800 8.5px Nunito;padding:2px 6px;border-radius:5px;">実拍 · 10:48</span><span style="position:absolute;left:8px;bottom:6px;color:rgba(255,255,255,.72);font:800 6.5px Nunito;letter-spacing:.05em;">SEICHIJUNREI × ANITABI</span></div>
+              <span style="position:absolute;left:0;right:0;top:148px;height:2px;margin-top:-1px;background:rgba(248,248,240,.85);"></span>
+            </div>
+            <div style="padding:4px 10px;font-size:10.5px;font-weight:900;background:var(--panel);display:flex;justify-content:space-between;"><span>気多若宮神社 ★ ここに立った!</span><span style="color:var(--tx3);font-weight:800;">1/2</span></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;padding:8px 18px 0;">
+          <div style="width:64px;flex-shrink:0;"><div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:34px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 5.5px Nunito;padding:1px 5px;border-radius:4px;">第1話</span></div><div style="height:34px;background:linear-gradient(172deg,#a9bdd6,#7e94b3);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 4px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:34px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:7px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">駅</span><span style="color:var(--tx3);flex-shrink:0;"></span></div></div></div>
+          <div style="flex:1;">
+            <div style="display:flex;gap:4px;align-items:center;"><i style="width:8px;height:8px;border-radius:3px;background:var(--teal);"></i><i style="width:8px;height:8px;border-radius:3px;background:var(--teal);"></i><i style="width:8px;height:8px;border-radius:3px;background:var(--teal);"></i><i style="width:8px;height:8px;border-radius:3px;background:var(--teal);"></i><i style="width:8px;height:8px;border-radius:3px;background:var(--teal);"></i><span style="font:900 9px Nunito;color:var(--teal-text);margin-left:3px;">5/5 ぜんぶ来た</span></div>
+            <div style="font:800 8px Nunito;color:var(--tx3);margin-top:3px;">9:31→12:58 · 徒歩2.8km · 五平餅うまい</div>
+          </div>
+        </div>
+        <div class="tk-foot" style="margin-top:auto;"><img class="fox" src="assets/fox/fox-cheer.svg" alt=""><span class="cr">画像・座標：Anitabi (CC BY-NC-SA 4.0)<br>© コミックス・ウェーブ・フィルム</span><span class="qr"></span></div>
+      </div>
+      <div class="ann" style="position:static;max-width:324px;">対比図規格＝image-merge 産物：横帧→<b>上下拼</b>・比率≈8:9・JPEG0.9・左下水印固定。左右split 全废。</div>
+    </div>
+
+    <div class="frame" data-screen-label="S-K4 完走·アルバム格子">
+      <div class="flabel"><span class="fid">S-K4 · 完走 × 対比図3枚+</span>
+        <h3>アルバム格子 — 2×2 + N</h3>
+        <p><b>一站可有複数枚</b>（神社×2）。cap 4 枚、超出末格「+N」。キャプション＝スポット名+打卡时刻。行程✓压成一条帯。</p>
+      </div>
+      <div class="og ticket" style="display:flex;flex-direction:column;">
+        <div class="tk-head"><img src="assets/torii.svg" alt=""><span class="ey">SEICHIJUNREI · 完走記念</span><span class="wm">聖地巡礼</span></div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:2px 18px 8px;">
+          <span style="font-family:'Noto Serif JP',serif;font-size:16.5px;font-weight:900;color:var(--ink);">飛騨古川 半日ルート</span>
+          <span style="font:800 8.5px Nunito;color:var(--tx3);">君の名は。 · 2026.7.3</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px;">
+          <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:74px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 7px Nunito;padding:1px 5px;border-radius:4px;">第8話 41:12</span></div><div style="height:74px;background:linear-gradient(172deg,#b9cfa4,#7fa063);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 6.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 5.5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:74px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:8.5px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">気多若宮神社 ★</span><span style="color:var(--tx3);flex-shrink:0;">10:48</span></div></div>
+          <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:74px;background:linear-gradient(120deg,#cfe4c4,#98bd7f);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 7px Nunito;padding:1px 5px;border-radius:4px;">第8話 41:50</span></div><div style="height:74px;background:linear-gradient(160deg,#a8c391,#718f55);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 6.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 5.5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:74px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:8.5px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">気多若宮神社</span><span style="color:var(--tx3);flex-shrink:0;">10:52</span></div></div>
+          <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:74px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 7px Nunito;padding:1px 5px;border-radius:4px;">第1話 04:12</span></div><div style="height:74px;background:linear-gradient(172deg,#a9bdd6,#7e94b3);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 6.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 5.5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:74px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:8.5px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">飛騨古川駅</span><span style="color:var(--tx3);flex-shrink:0;">9:31</span></div></div>
+          <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><span style="position:absolute;inset:0;background:rgba(61,45,24,.52);color:#fff;font:900 14px Nunito;display:flex;align-items:center;justify-content:center;z-index:2;">+1</span><div style="position:relative;"><div style="height:74px;background:linear-gradient(135deg,#fbe3ea,#eeb3c6);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 7px Nunito;padding:1px 5px;border-radius:4px;">組紐</span></div><div style="height:74px;background:linear-gradient(172deg,#e3bcc8,#b98a9b);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 6.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 5.5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:74px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:8.5px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">さくら物産館</span><span style="color:var(--tx3);flex-shrink:0;">12:58</span></div></div>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;padding:9px 18px 0;">
+          <i style="width:8px;height:8px;border-radius:3px;background:var(--teal);"></i><i style="width:8px;height:8px;border-radius:3px;background:var(--teal);"></i><i style="width:8px;height:8px;border-radius:3px;background:var(--teal);"></i><i style="width:8px;height:8px;border-radius:3px;background:var(--teal);"></i><i style="width:8px;height:8px;border-radius:3px;background:var(--teal);"></i>
+          <span style="font:900 9px Nunito;color:var(--teal-text);margin-left:3px;">5/5 ぜんぶ来た</span>
+          <span style="font:800 8px Nunito;color:var(--tx3);margin-left:auto;">9:31→12:58 · 対比図5枚</span>
+        </div>
+        <div class="tk-foot" style="margin-top:auto;"><img class="fox" src="assets/fox/fox-cheer.svg" alt=""><span class="cr">画像・座標：Anitabi (CC BY-NC-SA 4.0)<br>© コミックス・ウェーブ・フィルム</span><span class="qr"></span></div>
+      </div>
+      <div class="ann" style="position:static;max-width:324px;">一站多枚＝真数据（大吉山18カット级）。枚数与站数解耦：「対比図5枚 · 3スポット」。</div>
+    </div>
+
+    <div class="frame" data-screen-label="S-K0 完走·0枚fallback">
+      <div class="flabel"><span class="fid">S-K0 · 完走 × 対比図0枚</span>
+        <h3>ポスター fallback — 数据没有就不硬摆</h3>
+        <p>一枚対比図都没做的完走：封面帧+✓清单+完成率环。生成屏 nudge：「Walk の構図をくらべるで対比図を作ると、もっと盛れるよ」。</p>
+      </div>
+      <div class="og poster">
+        <span class="pbg" style="background:linear-gradient(160deg,#d7eccf 0%,#a8cf8e 46%,#7ba05e 100%);"></span>
+        <span class="pgrad"></span>
+        <div class="po-top"><span class="ctag">第8話 41:12 · 気多若宮神社</span>
+          <div class="po-ring"><div class="in"><b>5/5</b><s>完走</s></div></div>
+        </div>
+        <div class="po-body">
+          <div class="ey">2026.7.3 · YOUR NAME × HIDA</div>
+          <div class="tt">飛騨古川 半日ルート</div>
+          <div class="chips"><span>9:31→12:58</span><span>徒歩2.8km</span><span>ぜんぶ来た ✓</span></div>
+        </div>
+        <div class="po-list">
+          <div class="po-row"><span class="t">9:31</span><span class="th" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);"></span><span class="nm">飛騨古川駅</span><span class="ck">✓</span></div>
+          <div class="po-row"><span class="t">10:02</span><span class="th" style="background:linear-gradient(135deg,#f5dccf,#e0b294);"></span><span class="nm">味処古川</span><span class="ck">✓</span></div>
+          <div class="po-row"><span class="t">10:48</span><span class="th" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"></span><span class="nm">気多若宮神社 ★</span><span class="ck">✓</span></div>
+          <div class="po-row"><span class="t">11:34</span><span class="th" style="background:linear-gradient(135deg,#dfd6f0,#b7a8dd);"></span><span class="nm">飛騨市図書館</span><span class="ck">✓</span></div>
+          <div class="po-row"><span class="t">12:58</span><span class="th" style="background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"></span><span class="nm">さくら物産館</span><span class="ck">✓</span></div>
+        </div>
+        <div class="po-foot"><img src="assets/torii.svg" alt=""><span class="u">seichijunrei.app/s/hida-af3</span><span class="cr">Anitabi CC BY-NC-SA 4.0<br>© CWF</span><span class="qr"></span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ G2 · 生成屏（app 内） ═══ -->
+<div class="group" id="g2">
+  <header><span class="gid">G2</span><h2>生成屏 — 記念しおりを作る / しおりを共有（402×874）</h2><span class="sub">金 CTA＝画像を保存 · リンクをコピー＝cream · 登录墙只在保存</span></header>
+  <div class="row">
+
+    <div class="frame" data-screen-label="GEN-M 完走生成屏">
+      <div class="flabel"><span class="fid">GEN-M · 完走版生成</span>
+        <h3>記念しおりを作る（完走后，路线详情金 CTA 入口）</h3>
+        <p>预览＝対比図アルバム（版式随枚数自适应：勾掉到 2 枚→自动变一枚看板、0 枚→ポスター）。下方旧样式选择废弃（栞/ポスター 两缩略，金环选中）+「対比図をのせる」开关（上游 Switch 绿 ON）。生成＝端末 canvas 合成，无上传。</p>
+      </div>
+      <div class="phone">
+        <div class="sb"><span>15:24</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;">記念しおりを作る</div><div class="at">飛騨古川 半日ルート · 7/3 完走</div></div></div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+          <div style="display:flex;justify-content:center;padding:8px 0 0;">
+            <div class="og ticket" style="width:238px;height:423px;border-radius:14px;box-shadow:0 7px 0 0 var(--sh2);display:flex;flex-direction:column;">
+              <div class="tk-head" style="padding:9px 13px 5px;"><img src="assets/torii.svg" alt="" style="width:16px;height:16px;"><span class="ey" style="font-size:6px;">SEICHIJUNREI · 完走記念</span><span class="wm" style="font-size:7px;">聖地巡礼</span></div>
+              <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 13px 6px;">
+                <span style="font-family:'Noto Serif JP',serif;font-size:12px;font-weight:900;color:var(--ink);">飛騨古川 半日ルート</span>
+                <span style="font:800 6.5px Nunito;color:var(--tx3);">7.3</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 12px;">
+                <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:52px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 5.5px Nunito;padding:1px 5px;border-radius:4px;">第8話 41:12</span></div><div style="height:52px;background:linear-gradient(172deg,#b9cfa4,#7fa063);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 4px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:52px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:7px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">神社 ★</span><span style="color:var(--tx3);flex-shrink:0;">10:48</span></div></div>
+                <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:52px;background:linear-gradient(120deg,#cfe4c4,#98bd7f);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 5.5px Nunito;padding:1px 5px;border-radius:4px;">第8話 41:50</span></div><div style="height:52px;background:linear-gradient(160deg,#a8c391,#718f55);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 4px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:52px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:7px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">神社</span><span style="color:var(--tx3);flex-shrink:0;">10:52</span></div></div>
+                <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:52px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 5.5px Nunito;padding:1px 5px;border-radius:4px;">第1話 04:12</span></div><div style="height:52px;background:linear-gradient(172deg,#a9bdd6,#7e94b3);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 4px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:52px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:7px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">駅</span><span style="color:var(--tx3);flex-shrink:0;">9:31</span></div></div>
+                <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><span style="position:absolute;inset:0;background:rgba(61,45,24,.52);color:#fff;font:900 12.5px Nunito;display:flex;align-items:center;justify-content:center;z-index:2;">+1</span><div style="position:relative;"><div style="height:52px;background:linear-gradient(135deg,#fbe3ea,#eeb3c6);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 5.5px Nunito;padding:1px 5px;border-radius:4px;">組紐</span></div><div style="height:52px;background:linear-gradient(172deg,#e3bcc8,#b98a9b);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 4px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:52px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:7px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">物産館</span><span style="color:var(--tx3);flex-shrink:0;">12:58</span></div></div>
+              </div>
+              <div style="display:flex;gap:3px;align-items:center;padding:7px 13px 0;">
+                <i style="width:6px;height:6px;border-radius:2px;background:var(--teal);"></i><i style="width:6px;height:6px;border-radius:2px;background:var(--teal);"></i><i style="width:6px;height:6px;border-radius:2px;background:var(--teal);"></i><i style="width:6px;height:6px;border-radius:2px;background:var(--teal);"></i><i style="width:6px;height:6px;border-radius:2px;background:var(--teal);"></i>
+                <span style="font:900 7px Nunito;color:var(--teal-text);margin-left:2px;">5/5</span>
+                <span style="font:800 6.5px Nunito;color:var(--tx3);margin-left:auto;">9:31→12:58 · 対比図5枚</span>
+              </div>
+              <div class="tk-foot" style="margin-top:auto;padding:5px 13px 9px;"><img class="fox" src="assets/fox/fox-cheer.svg" alt="" style="width:24px;height:24px;"><span class="cr" style="font-size:5px;">Anitabi (CC BY-NC-SA 4.0)<br>© コミックス・ウェーブ・フィルム</span><span class="qr" style="width:26px;height:26px;"></span></div>
+            </div>
+          </div>
+          <div style="margin:12px 18px 0;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;"><span style="font-size:12.5px;font-weight:900;">のせる対比図 <span style="font:800 10.5px Nunito;color:var(--tx3);">5/5枚</span></span><span style="font-size:10.5px;font-weight:900;color:var(--teal-text);">選び直す</span></div>
+            <div style="display:flex;gap:7px;">
+              <div style="width:52px;position:relative;"><span style="position:absolute;right:-4px;top:-4px;width:15px;height:15px;border-radius:50%;background:var(--gold);color:var(--gold-tx);font:900 9px Nunito;display:flex;align-items:center;justify-content:center;box-shadow:0 1.5px 0 var(--gold-deep);z-index:3;">✓</span><div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:26px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 5px Nunito;padding:1px 5px;border-radius:4px;">8話</span></div><div style="height:26px;background:linear-gradient(172deg,#b9cfa4,#7fa063);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 4.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 3.5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:26px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:6.5px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">神社</span><span style="color:var(--tx3);flex-shrink:0;"></span></div></div></div>
+              <div style="width:52px;position:relative;"><span style="position:absolute;right:-4px;top:-4px;width:15px;height:15px;border-radius:50%;background:var(--gold);color:var(--gold-tx);font:900 9px Nunito;display:flex;align-items:center;justify-content:center;box-shadow:0 1.5px 0 var(--gold-deep);z-index:3;">✓</span><div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:26px;background:linear-gradient(120deg,#cfe4c4,#98bd7f);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 5px Nunito;padding:1px 5px;border-radius:4px;">8話</span></div><div style="height:26px;background:linear-gradient(160deg,#a8c391,#718f55);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 4.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 3.5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:26px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:6.5px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">神社</span><span style="color:var(--tx3);flex-shrink:0;"></span></div></div></div>
+              <div style="width:52px;position:relative;"><span style="position:absolute;right:-4px;top:-4px;width:15px;height:15px;border-radius:50%;background:var(--gold);color:var(--gold-tx);font:900 9px Nunito;display:flex;align-items:center;justify-content:center;box-shadow:0 1.5px 0 var(--gold-deep);z-index:3;">✓</span><div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:26px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 5px Nunito;padding:1px 5px;border-radius:4px;">1話</span></div><div style="height:26px;background:linear-gradient(172deg,#a9bdd6,#7e94b3);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 4.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 3.5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:26px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:6.5px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">駅</span><span style="color:var(--tx3);flex-shrink:0;"></span></div></div></div>
+              <div style="width:52px;position:relative;"><span style="position:absolute;right:-4px;top:-4px;width:15px;height:15px;border-radius:50%;background:var(--gold);color:var(--gold-tx);font:900 9px Nunito;display:flex;align-items:center;justify-content:center;box-shadow:0 1.5px 0 var(--gold-deep);z-index:3;">✓</span><div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:26px;background:linear-gradient(135deg,#fbe3ea,#eeb3c6);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 5px Nunito;padding:1px 5px;border-radius:4px;">組紐</span></div><div style="height:26px;background:linear-gradient(172deg,#e3bcc8,#b98a9b);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 4.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 3.5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:26px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:6.5px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">物産館</span><span style="color:var(--tx3);flex-shrink:0;"></span></div></div></div>
+              <div style="width:52px;position:relative;"><span style="position:absolute;right:-4px;top:-4px;width:15px;height:15px;border-radius:50%;background:var(--gold);color:var(--gold-tx);font:900 9px Nunito;display:flex;align-items:center;justify-content:center;box-shadow:0 1.5px 0 var(--gold-deep);z-index:3;">✓</span><div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:26px;background:linear-gradient(135deg,#f5dccf,#e0b294);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 5px Nunito;padding:1px 5px;border-radius:4px;">五平餅</span></div><div style="height:26px;background:linear-gradient(172deg,#dcb59c,#b08663);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 4.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 3.5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:26px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:6.5px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">味処</span><span style="color:var(--tx3);flex-shrink:0;"></span></div></div></div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 18px 0;background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:11px 14px;">
+            <span style="font-size:13px;font-weight:900;">対比図をのせる <span style="font:800 11px Nunito;color:var(--tx3);">5枚</span></span>
+            <span style="width:46px;height:26px;border-radius:50px;background:#5ec269;position:relative;box-shadow:inset 0 2px 3px rgba(0,0,0,.12);"><i style="position:absolute;right:2.5px;top:2.5px;width:21px;height:21px;border-radius:50%;background:#fff;box-shadow:0 1.5px 2px rgba(0,0,0,.2);"></i></span>
+          </div>
+          <div class="dock"><span class="cta sub">リンクをコピー</span><span class="cta">画像を保存</span></div>
+          <div class="ann" style="top:6px;right:8px;">端末で合成 · 通信なし。<br>未ログインで保存 tap→<br>P5 モーダル（確認鍵＝ゲーム黄）</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame" data-screen-label="GEN-P 计划生成屏">
+      <div class="flabel"><span class="fid">GEN-P · 计划版生成</span>
+        <h3>しおりを共有（出发前，同一屏吃计划数据）</h3>
+        <p>同一生成屏：数据无✓→计划版（切符固定，无样式选择）；<b>対比図区整体消失</b>（不摆空架子）。副标题换旅前语气。</p>
+      </div>
+      <div class="phone">
+        <div class="sb"><span>21:08</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;">しおりを共有</div><div class="at">飛騨古川 半日ルート · 出発は 7/3</div></div></div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+          <div style="display:flex;justify-content:center;padding:8px 0 0;">
+            <div class="og ticket" style="width:238px;height:423px;border-radius:14px;box-shadow:0 7px 0 0 var(--sh2);">
+              <div class="tk-head" style="padding:10px 13px 7px;"><img src="assets/torii.svg" alt="" style="width:17px;height:17px;"><span class="ey" style="font-size:6.5px;">SEICHIJUNREI · しおり</span><span class="wm" style="font-size:7.5px;">聖地巡礼</span></div>
+              <div class="tk-cover" style="height:74px;margin:0 13px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);"><span class="ctag" style="font-size:6.5px;">第1話 04:12</span></div>
+              <div class="tk-title" style="font-size:15px;padding:8px 13px 2px;">飛騨古川 半日ルート</div>
+              <div class="tk-sub" style="padding:0 13px 5px;"><span class="chip" style="font-size:7px;padding:1.5px 6px;">君の名は。</span><span class="chip" style="font-size:7px;padding:1.5px 6px;">5スポット</span><span class="chip" style="font-size:7px;padding:1.5px 6px;">9:30→13:00頃</span></div>
+              <div class="perf"><i class="l"></i><i class="r"></i></div>
+              <div class="tk-tl" style="padding:2px 13px 0;">
+                <div class="tk-row" style="padding:3.5px 0;grid-template-columns:26px 13px 1fr 33px;"><span class="t" style="font-size:7.5px;">9:30</span><span class="trk"><i class="d" style="width:7px;height:7px;margin:-3.5px 0 0 -3.5px;"></i></span><span class="nm" style="font-size:9px;">飛騨古川駅</span><span class="th" style="width:33px;height:20px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);"></span></div>
+                <div class="tk-row" style="padding:3.5px 0;grid-template-columns:26px 13px 1fr 33px;"><span class="t" style="font-size:7.5px;">10:05</span><span class="trk"><i class="d" style="width:7px;height:7px;margin:-3.5px 0 0 -3.5px;"></i></span><span class="nm" style="font-size:9px;">味処古川</span><span class="th" style="width:33px;height:20px;background:linear-gradient(135deg,#f5dccf,#e0b294);"></span></div>
+                <div class="tk-row" style="padding:3.5px 0;grid-template-columns:26px 13px 1fr 33px;"><span class="t" style="font-size:7.5px;">10:50</span><span class="trk"><i class="d star" style="width:10px;height:10px;margin:-5px 0 0 -5px;"></i></span><span class="nm" style="font-size:9px;">気多若宮神社</span><span class="th" style="width:33px;height:20px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);"></span></div>
+                <div class="tk-row" style="padding:3.5px 0;grid-template-columns:26px 13px 1fr 33px;"><span class="t" style="font-size:7.5px;">11:35</span><span class="trk"><i class="d" style="width:7px;height:7px;margin:-3.5px 0 0 -3.5px;"></i></span><span class="nm" style="font-size:9px;">飛騨市図書館</span><span class="th" style="width:33px;height:20px;background:linear-gradient(135deg,#dfd6f0,#b7a8dd);"></span></div>
+                <div class="tk-row" style="padding:3.5px 0;grid-template-columns:26px 13px 1fr 33px;"><span class="t" style="font-size:7.5px;">12:10</span><span class="trk"><i class="d" style="width:7px;height:7px;margin:-3.5px 0 0 -3.5px;"></i></span><span class="nm" style="font-size:9px;">さくら物産館</span><span class="th" style="width:33px;height:20px;background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"></span></div>
+              </div>
+              <div class="tk-foot" style="padding:5px 13px 9px;"><img class="fox" src="assets/fox/fox-traveler.svg" alt="" style="width:26px;height:26px;"><span class="cr" style="font-size:5.5px;">Anitabi (CC BY-NC-SA 4.0)<br>© コミックス・ウェーブ・フィルム</span><span class="qr" style="width:29px;height:29px;"></span></div>
+            </div>
+          </div>
+          <div style="margin:12px 18px 0;background:var(--panel);border:1.5px dashed var(--line2);border-radius:14px;padding:11px 14px;font-size:11.5px;font-weight:800;color:var(--tx2);line-height:1.7;">計画版は切符スタイル固定・選択肢なし。完走すると<b style="color:var(--tx);">対比図アルバム</b>に化けるよ。</div>
+          <div class="dock"><span class="cta sub">リンクをコピー</span><span class="cta">画像を保存</span></div>
+          <div class="ann" style="top:6px;right:8px;">✓ゼロ→自动计划版。<br>対比図行ごと消える<br>（空开关不摆）</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ G3 · /s/:id 公开分享页 ═══ -->
+<div class="group" id="g3">
+  <header><span class="gid">G3</span><h2>/s/:id 公开页 — 收到链接的人（手机×2 + 桌面）</h2><span class="sub">金 CTA＝自分用にアレンジ → Chat A2b · 环闭合</span></header>
+  <div class="row">
+
+    <div class="frame" data-screen-label="SH-M 分享页·完走">
+      <div class="flabel"><span class="fid">SH-M · 完走 share</span>
+        <h3>手机 — 作者完走版</h3>
+        <p>浏览器 URL 条示意（无 app 也能看）。完走徽章行（fox-cheer+日期+区间）→ 每站✓清单 → <b>対比図 pair grid（只显已生成的 2 件，不摆 dashed）</b>→ 金 CTA アレンジ。底部 app 促活+出典。</p>
+      </div>
+      <div class="phone">
+        <div class="sb"><span>19:42</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="urlbar"><i></i>seichijunrei.app/s/hida-af3</div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+          <div style="height:100%;overflow:hidden;padding-bottom:96px;">
+            <div class="shero" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);">
+              <div class="hgrad"></div><span class="ctag">第8話 41:12</span>
+              <div class="hbody"><div class="ey">YOUR NAME × HIDA-FURUKAWA</div><div class="tt">飛騨古川 半日ルート</div>
+                <div class="chips"><span>5スポット</span><span>徒歩2.8km</span><span style="background:#dff3f0;color:var(--teal-text);">5/5 ✓</span></div></div>
+            </div>
+            <div class="authrow">
+              <img src="assets/fox/fox-cheer.svg" alt="">
+              <span class="t">ミツハさんが完走したルート<small>2026.7.3 · 9:31→12:58 · 実際に歩けた時刻表</small></span>
+              <span class="bd">完走ずみ ✓</span>
+            </div>
+            <div style="margin:8px 18px 0;">
+              <div class="srow"><span class="th" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);"><span class="ttag">第1話 04:12</span></span><span class="nm">飛騨古川駅<small>9:31 ここに来た!</small></span><span class="ck">✓</span></div>
+              <div class="srow"><span class="th" style="background:linear-gradient(135deg,#f5dccf,#e0b294);"><span class="ttag">五平餅</span></span><span class="nm">味処古川<small>10:02 · 五平餅うまい</small></span><span class="ck">✓</span></div>
+              <div class="srow"><span class="th" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"><span class="ttag">第8話 41:12</span></span><span class="nm">気多若宮神社 ★<small>10:48 · 構図もそろえた</small></span><span class="ck">✓</span></div>
+              <div class="srow"><span class="th" style="background:linear-gradient(135deg,#dfd6f0,#b7a8dd);"><span class="ttag">第8話 43:05</span></span><span class="nm">飛騨市図書館<small>11:34 · 受付許可制</small></span><span class="ck">✓</span></div>
+              <div class="srow"><span class="th" style="background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"><span class="ttag">組紐</span></span><span class="nm">さくら物産館<small>12:58 · ゴール</small></span><span class="ck">✓</span></div>
+            </div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin:14px 18px 8px;"><span style="font-size:14px;font-weight:900;">対比図 <span style="font:800 11px Nunito;color:var(--tx3);">4枚 · 3スポット</span></span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 16px;">
+              <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:42px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 6px Nunito;padding:1px 5px;border-radius:4px;">第1話</span></div><div style="height:42px;background:linear-gradient(172deg,#a9bdd6,#7e94b3);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 5.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 4.5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:42px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:7.5px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">駅</span><span style="color:var(--tx3);flex-shrink:0;"></span></div></div>
+              <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><span style="position:absolute;right:5px;top:5px;background:var(--gold);color:var(--gold-tx);font:900 7px Nunito;padding:1px 6px;border-radius:50px;box-shadow:0 1.5px 0 var(--gold-deep);z-index:2;">×2</span><div style="position:relative;"><div style="height:42px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 6px Nunito;padding:1px 5px;border-radius:4px;">第8話</span></div><div style="height:42px;background:linear-gradient(172deg,#b9cfa4,#7fa063);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 5.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 4.5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:42px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:7.5px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">神社 ★</span><span style="color:var(--tx3);flex-shrink:0;"></span></div></div>
+              <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:42px;background:linear-gradient(135deg,#fbe3ea,#eeb3c6);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 6px Nunito;padding:1px 5px;border-radius:4px;">組紐</span></div><div style="height:42px;background:linear-gradient(172deg,#e3bcc8,#b98a9b);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 5.5px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 4.5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:42px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:7.5px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">物産館</span><span style="color:var(--tx3);flex-shrink:0;"></span></div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin:16px 18px 0;background:var(--panel);border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;">
+              <img src="assets/fox/fox-welcome.svg" alt="" style="width:34px;height:34px;">
+              <span style="font-size:11.5px;font-weight:800;color:var(--tx2);line-height:1.6;">この時刻表、そのまま使える。<br><b style="color:var(--tx);">出発地と日どりだけ、キミのに変えよう。</b></span>
+            </div>
+            <div style="margin:10px 18px 0;font:700 9.5px Nunito;color:var(--tx3);line-height:1.7;">画像・座標：Anitabi (CC BY-NC-SA 4.0) · © コミックス・ウェーブ・フィルム · 対比図は作者の実拍</div>
+          </div>
+          <div class="dock"><span class="cta sub" style="flex:0 0 108px;">地図で見る</span><span class="cta">自分用にアレンジ</span></div>
+          <div class="ann" style="top:246px;right:8px;">アレンジ→Chat A2b：<br>路線卡整卡引用入 chat，<br>出発地/時間必問重跑。环闭合</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame" data-screen-label="SH-M0 分享页·计划">
+      <div class="flabel"><span class="fid">SH-M0 · 计划 share</span>
+        <h3>手机 — 计划版（旅行前收到）</h3>
+        <p>徽章行换 fox-traveler+「7/3 に歩く予定」，无✓无 pair grid（不摆空架子），时刻＝预定。金 CTA 不变——环在旅行前就能转。</p>
+      </div>
+      <div class="phone">
+        <div class="sb"><span>21:15</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="urlbar"><i></i>seichijunrei.app/s/hida-af3</div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+          <div style="height:100%;overflow:hidden;padding-bottom:96px;">
+            <div class="shero" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);">
+              <div class="hgrad"></div><span class="ctag">第1話 04:12</span>
+              <div class="hbody"><div class="ey">YOUR NAME × HIDA-FURUKAWA</div><div class="tt">飛騨古川 半日ルート</div>
+                <div class="chips"><span>5スポット</span><span>徒歩2.8km</span><span>9:30→13:00頃</span></div></div>
+            </div>
+            <div class="authrow" style="background:var(--panel);border-color:var(--line2);">
+              <img src="assets/fox/fox-traveler.svg" alt="">
+              <span class="t">ミツハさんの旅のしおり<small>7/3 に歩く予定 · いっしょに行く？</small></span>
+            </div>
+            <div style="margin:8px 18px 0;">
+              <div class="srow"><span class="th" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);"><span class="ttag">第1話 04:12</span></span><span class="nm">飛騨古川駅<small>9:30 · ホーム俯瞰 · 12カット</small></span><span class="ck no">–</span></div>
+              <div class="srow"><span class="th" style="background:linear-gradient(135deg,#f5dccf,#e0b294);"><span class="ttag">五平餅</span></span><span class="nm">味処古川<small>10:05 · 早めの昼 30分</small></span><span class="ck no">–</span></div>
+              <div class="srow"><span class="th" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"><span class="ttag">第8話 41:12</span></span><span class="nm">気多若宮神社 ★<small>10:50 · 石段と鳥居 · 18カット</small></span><span class="ck no">–</span></div>
+              <div class="srow"><span class="th" style="background:linear-gradient(135deg,#dfd6f0,#b7a8dd);"><span class="ttag">第8話 43:05</span></span><span class="nm">飛騨市図書館<small>11:35 · 受付許可制</small></span><span class="ck no">–</span></div>
+              <div class="srow"><span class="th" style="background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"><span class="ttag">組紐</span></span><span class="nm">さくら物産館<small>12:10 · 組紐体験 · ゴール</small></span><span class="ck no">–</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin:16px 18px 0;background:var(--panel);border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;">
+              <img src="assets/fox/fox-welcome.svg" alt="" style="width:34px;height:34px;">
+              <span style="font-size:11.5px;font-weight:800;color:var(--tx2);line-height:1.6;">じぶんの街から出発するなら？<br><b style="color:var(--tx);">出発地を変えて、キミの時刻表に。</b></span>
+            </div>
+            <div style="margin:10px 18px 0;font:700 9.5px Nunito;color:var(--tx3);line-height:1.7;">画像・座標：Anitabi (CC BY-NC-SA 4.0) · © コミックス・ウェーブ・フィルム</div>
+          </div>
+          <div class="dock"><span class="cta sub" style="flex:0 0 108px;">地図で見る</span><span class="cta">自分用にアレンジ</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="row" style="margin-top:56px;">
+    <div class="frame" data-screen-label="SH-D 分享页·桌面">
+      <div class="flabel" style="max-width:1440px;"><span class="fid">SH-D · 1440</span>
+        <h3>桌面 /s/:id — 完走版</h3>
+        <p>左＝しおり卡（B ポスター）大图坐镇｜中＝清单+対比図｜右 rail＝金 CTA アレンジ（QR：手机接力开 chat）+ 促活 + 出典。桌面看的人多半在家刷 SNS——QR 把环递回手机。</p>
+      </div>
+      <div style="width:1440px;height:840px;background:var(--card);border:1.5px solid var(--line2);border-radius:24px;box-shadow:0 10px 0 0 var(--sh2);overflow:hidden;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 28px;border-bottom:1.5px solid var(--line);">
+          <img src="assets/torii.svg" alt="" style="width:26px;height:26px;">
+          <span style="font:900 15px Nunito;letter-spacing:.08em;color:var(--brand);">SEICHIJUNREI</span>
+          <span style="font-size:12px;font-weight:800;color:var(--tx3);background:var(--panel);border:1px solid var(--line);border-radius:50px;padding:3px 12px;">共有されたしおり</span>
+          <span style="margin-left:auto;font:800 12px Nunito;color:var(--tx3);">seichijunrei.app/s/hida-af3</span>
+        </div>
+        <div style="flex:1;display:flex;min-height:0;">
+          <div style="width:420px;border-right:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;background:var(--panel);">
+            <div class="og ticket" style="width:306px;height:544px;display:flex;flex-direction:column;">
+              <div class="tk-head" style="padding:12px 16px 6px;"><img src="assets/torii.svg" alt="" style="width:20px;height:20px;"><span class="ey" style="font-size:8px;">SEICHIJUNREI · 完走記念</span><span class="wm" style="font-size:9px;">聖地巡礼</span></div>
+              <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 16px 8px;">
+                <span style="font-family:'Noto Serif JP',serif;font-size:15.5px;font-weight:900;color:var(--ink);">飛騨古川 半日ルート</span>
+                <span style="font:800 8px Nunito;color:var(--tx3);">2026.7.3</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:0 15px;">
+                <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:68px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 6.5px Nunito;padding:1px 5px;border-radius:4px;">第8話 41:12</span></div><div style="height:68px;background:linear-gradient(172deg,#b9cfa4,#7fa063);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 6px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:68px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:8px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">神社 ★</span><span style="color:var(--tx3);flex-shrink:0;">10:48</span></div></div>
+                <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:68px;background:linear-gradient(120deg,#cfe4c4,#98bd7f);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 6.5px Nunito;padding:1px 5px;border-radius:4px;">第8話 41:50</span></div><div style="height:68px;background:linear-gradient(160deg,#a8c391,#718f55);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 6px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:68px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:8px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">神社</span><span style="color:var(--tx3);flex-shrink:0;">10:52</span></div></div>
+                <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:68px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 6.5px Nunito;padding:1px 5px;border-radius:4px;">第1話 04:12</span></div><div style="height:68px;background:linear-gradient(172deg,#a9bdd6,#7e94b3);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 6px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:68px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:8px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">駅</span><span style="color:var(--tx3);flex-shrink:0;">9:31</span></div></div>
+                <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><span style="position:absolute;inset:0;background:rgba(61,45,24,.52);color:#fff;font:900 13.5px Nunito;display:flex;align-items:center;justify-content:center;z-index:2;">+1</span><div style="position:relative;"><div style="height:68px;background:linear-gradient(135deg,#fbe3ea,#eeb3c6);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 6.5px Nunito;padding:1px 5px;border-radius:4px;">組紐</span></div><div style="height:68px;background:linear-gradient(172deg,#e3bcc8,#b98a9b);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 6px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 5px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:68px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:8px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">物産館</span><span style="color:var(--tx3);flex-shrink:0;">12:58</span></div></div>
+              </div>
+              <div style="display:flex;gap:4px;align-items:center;padding:9px 16px 0;">
+                <i style="width:7px;height:7px;border-radius:2.5px;background:var(--teal);"></i><i style="width:7px;height:7px;border-radius:2.5px;background:var(--teal);"></i><i style="width:7px;height:7px;border-radius:2.5px;background:var(--teal);"></i><i style="width:7px;height:7px;border-radius:2.5px;background:var(--teal);"></i><i style="width:7px;height:7px;border-radius:2.5px;background:var(--teal);"></i>
+                <span style="font:900 8.5px Nunito;color:var(--teal-text);margin-left:3px;">5/5 ぜんぶ来た</span>
+                <span style="font:800 7.5px Nunito;color:var(--tx3);margin-left:auto;">9:31→12:58 · 対比図5枚</span>
+              </div>
+              <div class="tk-foot" style="margin-top:auto;padding:6px 16px 12px;"><img class="fox" src="assets/fox/fox-cheer.svg" alt="" style="width:30px;height:30px;"><span class="cr" style="font-size:6px;">画像・座標：Anitabi (CC BY-NC-SA 4.0)<br>© コミックス・ウェーブ・フィルム</span><span class="qr" style="width:32px;height:32px;"></span></div>
+            </div>
+          </div>
+          <div style="flex:1;padding:22px 30px;<div style="flex:1;padding:22px 30px;overflow:hidden;">
+            <div class="authrow" style="margin:0 0 6px;">
+              <img src="assets/fox/fox-cheer.svg" alt="">
+              <span class="t">ミツハさんが完走したルート<small>2026.7.3 · 9:31→12:58 · 実際に歩けた時刻表</small></span>
+              <span class="bd">完走ずみ ✓</span>
+            </div>
+            <div>
+              <div class="srow"><span class="th" style="width:88px;height:55px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);"><span class="ttag">第1話 04:12</span></span><span class="nm">飛騨古川駅<small>9:31 ここに来た! · 跨線橋からホームを俯瞰</small></span><span class="ck">✓</span></div>
+              <div class="srow"><span class="th" style="width:88px;height:55px;background:linear-gradient(135deg,#f5dccf,#e0b294);"><span class="ttag">五平餅</span></span><span class="nm">味処古川<small>10:02 · テッシー行きつけ · 五平餅うまい</small></span><span class="ck">✓</span></div>
+              <div class="srow"><span class="th" style="width:88px;height:55px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);"><span class="ttag">第8話 41:12</span></span><span class="nm">気多若宮神社 ★<small>10:48 · 石段と鳥居 · 構図もそろえた</small></span><span class="ck">✓</span></div>
+              <div class="srow"><span class="th" style="width:88px;height:55px;background:linear-gradient(135deg,#dfd6f0,#b7a8dd);"><span class="ttag">第8話 43:05</span></span><span class="nm">飛騨市図書館<small>11:34 · 「糸守」を調べた閲覧室</small></span><span class="ck">✓</span></div>
+              <div class="srow"><span class="th" style="width:88px;height:55px;background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"><span class="ttag">組紐</span></span><span class="nm">さくら物産館<small>12:58 · 組紐むすんでゴール</small></span><span class="ck">✓</span></div>
+            </div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin:16px 0 8px;"><span style="font-size:15px;font-weight:900;">対比図 <span style="font:800 11.5px Nunito;color:var(--tx3);">4枚 · 3スポット · 作者の実拍</span></span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+              <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:64px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 7.5px Nunito;padding:1px 5px;border-radius:4px;">第1話 04:12</span></div><div style="height:64px;background:linear-gradient(172deg,#a9bdd6,#7e94b3);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 7px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 6px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:64px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:9px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">飛騨古川駅</span><span style="color:var(--tx3);flex-shrink:0;">9:31</span></div></div>
+              <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><span style="position:absolute;right:5px;top:5px;background:var(--gold);color:var(--gold-tx);font:900 8.5px Nunito;padding:1px 6px;border-radius:50px;box-shadow:0 1.5px 0 var(--gold-deep);z-index:2;">×2</span><div style="position:relative;"><div style="height:64px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 7.5px Nunito;padding:1px 5px;border-radius:4px;">第8話 41:12</span></div><div style="height:64px;background:linear-gradient(172deg,#b9cfa4,#7fa063);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 7px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 6px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:64px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:9px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">気多若宮神社 ★</span><span style="color:var(--tx3);flex-shrink:0;">10:48</span></div></div>
+              <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;position:relative;"><div style="position:relative;"><div style="height:64px;background:linear-gradient(135deg,#fbe3ea,#eeb3c6);position:relative;"><span style="position:absolute;left:5px;top:5px;background:rgba(61,45,24,.68);color:#fff;font:800 7.5px Nunito;padding:1px 5px;border-radius:4px;">組紐</span></div><div style="height:64px;background:linear-gradient(172deg,#e3bcc8,#b98a9b);position:relative;"><span style="position:absolute;right:5px;top:4px;background:rgba(248,248,240,.9);color:var(--tx);font:800 7px Nunito;padding:1px 4px;border-radius:4px;">実拍</span><span style="position:absolute;left:5px;bottom:4px;color:rgba(255,255,255,.7);font:800 6px Nunito;letter-spacing:.04em;">SEICHIJUNREI×ANITABI</span></div><span style="position:absolute;left:0;right:0;top:64px;height:1.5px;background:rgba(248,248,240,.85);margin-top:-0.75px;"></span></div><div style="padding:2.5px 7px;font-size:9px;font-weight:800;background:var(--panel);display:flex;justify-content:space-between;gap:4px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">さくら物産館</span><span style="color:var(--tx3);flex-shrink:0;">12:58</span></div></div>
+            </div>
+          </div>
+          <div style="width:300px;border-left:1.5px solid var(--line);padding:20px 20px;display:flex;flex-direction:column;gap:14px;background:var(--panel);">
+            <span class="cta" style="flex:none;height:52px;font-size:15px;">自分用にアレンジ</span>
+            <div style="background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:14px;text-align:center;">
+              <div style="font-size:12.5px;font-weight:900;margin-bottom:8px;">スマホでつづける</div>
+              <div style="width:104px;height:104px;margin:0 auto;border-radius:10px;background:conic-gradient(var(--tx) 0 25%,#fff 0 27%,var(--tx) 0 46%,#fff 0 49%,var(--tx) 0 71%,#fff 0 74%,var(--tx) 0 100%);opacity:.85;"></div>
+              <div style="font-size:10.5px;color:var(--tx3);font-weight:700;margin-top:8px;line-height:1.6;">読み取ると Chat が開いて<br>出発地からきき直すよ</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px;background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:11px 12px;">
+              <img src="assets/fox/fox-welcome.svg" alt="" style="width:30px;height:30px;">
+              <span style="font-size:10.5px;font-weight:800;color:var(--tx2);line-height:1.55;">AIと相棒の聖地巡礼。<br>ルートは何度でも組み直せる。</span>
+            </div>
+            <div style="font:700 9.5px Nunito;color:var(--tx3);line-height:1.7;margin-top:auto;">画像・座標：Anitabi (CC BY-NC-SA 4.0)<br>© コミックス・ウェーブ・フィルム<br>対比図は作者の実拍です</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ G4 · 规则注记 ═══ -->
+<div class="group" id="g4">
+  <header><span class="gid">G4</span><h2>施工规则</h2><span class="sub">出图规格 · 权利 · 环闭合 · 登录墙</span></header>
+  <div class="row">
+    <div class="note"><h4>出图规格（OG 兼用）</h4>
+      9:16 <b>1080×1920</b>，画布内显示 30%。封面帧源＝plan h360，出血用同帧 blur-fill 扩展（Walk B′ 同族，帧永不裁切拉伸）。文件名 <span class="y">しおり_飛騨古川_20260703.jpg</span>。生成＝端末 canvas 合成、无上传；og:image 用同一张。<b>対比図 tile＝産物原样：横帧→上下拼（帧上・実拍下）、比率≈8:9、左下水印。左右 split 表现全废。</b></div>
+    <div class="note"><h4>两形态 · 数据决定</h4>
+      ✓数＝0 → 计划版（切符）。✓≥1 → 完走版，<b>版式再由対比図枚数定</b>：0枚＝ポスター / 1-2枚＝一枚看板 / 3枚+＝アルバム格子（cap 4、末格+N）。<b>不设手动切换</b>——亮什么、长什么样都由数据定。部分完走（3/5）＝完走版骨架+环 3/5，文案「ここまで来た」。</div>
+    <div class="note"><h4>金 CTA 分配（每屏唯一）</h4>
+      生成屏＝<span class="y">画像を保存</span>（リンクをコピー＝cream）· share 页＝<span class="y">自分用にアレンジ</span>（地図で見る＝cream）· 桌面 share＝rail 顶金键。しおり卡本身无按钮——它是物，不是 UI。</div>
+    <div class="note"><h4>环闭合（アレンジ→A2b）</h4>
+      tap→Chat 开、路线卡整卡<b>引用入 chat</b>（A2b），コンちゃん第一人称：「ミツハさんのしおりだね！出発地といつ行くかだけ教えて」——出发地+时间＝必问（已裁决）重新跑管线。分享物回流＝発見，环闭合。viewer 无需登录即可アレンジ；登录墙只在「保存」（P5，确认键游戏黄）。</div>
+    <div class="note"><h4>权利 · 出典（legal 红线）</h4>
+      Anitabi CC BY-NC-SA 4.0（非商用）+ <b>©作品社名</b>——卡 footer + share 页 footer 常驻，lightbox 出典行照旧。対比図＝image-merge 产物带其水印，share 页标注「作者の実拍」。商用/品牌版水印需 itorr+版权方授权（挂 legal）。</div>
+    <div class="note"><h4>降级 · 边界</h4>
+      帧 404→渐变+「第N話 MM:SS」永不裸错 · share 页无 JS 也可读（静态优先，dock 渐进）· 対比図 0 件＝段落消失 · 路线被作者删除→share 显「このしおりは旅立ったみたい」+ fox-oops + 去 Landing · OG 抓取超时→纯色底 fallback（title+完成率文字版）。</div>
+    <div class="note"><h4>対比図数据模型 + 回刷欠账</h4>
+      対比図挂在<b>カット</b>上不挂在站上：一站 0..M 枚（大吉山18カット级）。计数口径＝「N枚 · Mスポット」。<b>回刷（入 S8 清单）</b>：路线详情 対比図段「2/5 作成ずみ」→枚数模型+×N badge · 機位ブラウザ＝有対比図のカットにバッジ+「この構図で対比図を作る」· 一切 pair 表现改上下拼。</div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,63 @@
+{
+  "meta": {
+    "title": "Animichi 圣地巡礼",
+    "description": "寻找动画圣地，规划巡礼路线"
+  },
+  "landing": {
+    "eyebrow": "动画旅行手帐",
+    "hero": "圣地巡礼",
+    "headline": "把动画场景，变成今天能走的路线",
+    "lead": "输入作品名、车站或城市，找到取景地并生成巡礼路线。",
+    "search_placeholder": "输入作品名、车站或城市",
+    "cta": "开始巡礼",
+    "try_example": "试试这些例子",
+    "examples": [
+      "你的名字",
+      "吹响吧！上低音号",
+      "天气之子"
+    ],
+    "login": "登录",
+    "github": "GitHub",
+    "footer_name": "seichijunrei",
+    "comparison_anime": "动画",
+    "comparison_anime_alt": "《你的名字》须贺神社台阶的动画画面",
+    "comparison_real": "现实",
+    "comparison_real_alt": "须贺神社台阶的实景照片",
+    "comparison_aria": "对比动画与实景的滑块",
+    "theme_day": "日间",
+    "theme_night": "夜间",
+    "fox_bubble": "这边！",
+    "mobile_lead": "从喜欢的作品出发，去到走得到的地方。跟着地图和照片，不迷路地巡礼吧。",
+    "mobile_bg_alt": "手绘风格的鸟居与参道插画",
+    "fox_alt": "举着巡礼手帐卡片迎接你的狐狸向导"
+  },
+  "home": {
+    "search_placeholder": "输入作品名、车站或城市",
+    "search_cta": "生成路线",
+    "continue_title": "继续上次",
+    "continue_resume": "继续",
+    "popular_title": "人气排行",
+    "popular_empty": "暂时还没有人气作品",
+    "popular_spots": "个取景地"
+  },
+  "auth": {
+    "title": "登录",
+    "subtitle": "输入邮箱，我们会给你发送一个登录链接。",
+    "email_label": "邮箱地址",
+    "email_placeholder": "you@example.com",
+    "submit": "发送登录链接",
+    "submitting": "发送中…",
+    "email_required": "请输入邮箱地址。",
+    "email_invalid": "邮箱地址需要包含 @（例如 you@example.com）。",
+    "sent": "登录链接已发送到你的邮箱，请查收。",
+    "error": "发送失败，请稍后再试。",
+    "not_configured": "登录尚未配置完成，请联系管理员。",
+    "magic_link_hint": "无需密码 —— 我们会通过邮件发送安全的登录链接。",
+    "close": "关闭",
+    "callback_pending": "正在登录…",
+    "callback_error": "登录链接已失效或已被使用，请重新申请。",
+    "callback_save_failed": "登录成功了，但路线没能保存…",
+    "callback_save_retry": "再保存一次",
+    "callback_save_skip": "也可以稍后回到聊天页重新保存"
+  }
+}

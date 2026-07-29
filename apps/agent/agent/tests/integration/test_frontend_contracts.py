@@ -10,12 +10,8 @@ import json
 import os
 from typing import cast
 
+import httpx
 import pytest
-
-try:
-    import aiohttp
-except ImportError:
-    aiohttp = None  # type: ignore[assignment]
 
 _API_URL = os.environ.get("SEICHI_API_URL", "")
 _API_KEY = os.environ.get("SEICHI_API_KEY", "")
@@ -33,7 +29,7 @@ _HDR: dict[str, str] = {
     "Content-Type": "application/json",
 }
 
-_TIMEOUT = aiohttp.ClientTimeout(total=30) if aiohttp else None
+_TIMEOUT = 30.0
 
 
 async def _request(
@@ -42,13 +38,12 @@ async def _request(
     body: dict[str, object] | None = None,
 ) -> tuple[int, dict[str, object]]:
     """Shared HTTP helper for POST/GET against the runtime API."""
-    assert aiohttp is not None, "aiohttp is required for contract tests"
-    kwargs: dict[str, object] = {"headers": _HDR, "timeout": _TIMEOUT}
+    kwargs: dict[str, object] = {"headers": _HDR}
     if body is not None:
         kwargs["json"] = body
-    async with aiohttp.ClientSession() as s:
-        async with getattr(s, method)(f"{_API_URL}{path}", **kwargs) as r:
-            return r.status, cast(dict[str, object], await r.json())
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        r = await getattr(client, method)(f"{_API_URL}{path}", **kwargs)
+    return r.status_code, cast(dict[str, object], r.json())
 
 
 async def _post(path: str, body: dict[str, object]) -> tuple[int, dict[str, object]]:
@@ -133,7 +128,7 @@ class TestAC1SearchBangumi:
             {"text": "響け！ユーフォニアム", "locale": "ja"},
         )
         assert status == 200
-        assert body["intent"] in ("search_bangumi", "search_by_bangumi")
+        assert body["intent"] == "search_bangumi"
 
     async def test_rows_are_present_and_non_empty(self) -> None:
         rows = await _search_euphonium()
@@ -168,7 +163,7 @@ class TestAC2SearchNearby:
     async def test_intent_is_search_nearby(self) -> None:
         status, body = await _post("/v1/runtime", _NEARBY_BODY)
         assert status == 200
-        assert body["intent"] in ("search_nearby", "search_by_location")
+        assert body["intent"] == "search_nearby"
 
     async def test_rows_have_distance_m(self) -> None:
         """Each row should include distance_m for frontend sorting."""
@@ -189,17 +184,14 @@ class TestAC2SearchNearby:
 class TestAC3ClarifyWithCandidates:
     """Ambiguous query returns clarify with REQUIRED candidates[]."""
 
-    async def test_clarify_has_question_and_options(self) -> None:
+    async def test_clarify_has_reason_and_revision(self) -> None:
         status, body = await _post("/v1/runtime", {"text": "涼宮", "locale": "zh"})
         assert status == 200
         data = cast(dict[str, object], body["data"])
-        assert (
-            data.get("status") == "needs_clarification"
-            or body.get("intent") == "clarify"
-        )
-        assert "question" in data
-        assert isinstance(data["options"], list)
-        assert len(cast(list[object], data["options"])) >= 2
+        assert body.get("intent") == "clarify"
+        assert body.get("status") == "needs_clarification"
+        assert data["reason"] == "anime_ambiguity"
+        assert isinstance(data["clarification_id"], int)
 
     async def test_clarify_has_candidates_with_metadata(self) -> None:
         """Backend must send candidates[] with structured metadata."""
@@ -210,7 +202,7 @@ class TestAC3ClarifyWithCandidates:
         cands = cast(list[dict[str, object]], data["candidates"])
         assert isinstance(cands, list) and len(cands) >= 2
         for c in cands:
-            for key in ("title", "spot_count", "city", "cover_url"):
+            for key in ("id", "title", "points_count", "city", "cover_url"):
                 assert key in c, f"candidate missing {key}"
 
 
@@ -222,7 +214,7 @@ class TestAC4PlanSelectedRoute:
 
     async def test_plan_selected_returns_route(self) -> None:
         _, body = await _search_and_plan()
-        assert body["intent"] in ("plan_selected", "plan_route")
+        assert body["intent"] == "plan_selected"
 
     async def test_route_has_ordered_points_and_count(self) -> None:
         _, body = await _search_and_plan()
@@ -250,16 +242,14 @@ class TestAC5SSEStream:
     """SSE streaming returns step events + done event with full response."""
 
     async def _stream_euphonium(self) -> list[dict[str, object]]:
-        assert aiohttp is not None
-        async with aiohttp.ClientSession() as s:
-            async with s.post(
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            r = await client.post(
                 f"{_API_URL}/v1/runtime/stream",
                 json={"text": "響け！ユーフォニアム", "locale": "ja"},
                 headers=_HDR,
-                timeout=_TIMEOUT,
-            ) as r:
-                assert r.status == 200
-                return _parse_sse(await r.text())
+            )
+        assert r.status_code == 200
+        return _parse_sse(r.text)
 
     async def test_sse_stream_returns_step_and_done_events(self) -> None:
         events = await self._stream_euphonium()

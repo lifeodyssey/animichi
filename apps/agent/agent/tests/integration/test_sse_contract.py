@@ -14,7 +14,9 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
+from pydantic_ai.models import Model
 
+from agent.agents.runtime_deps import StepEvent
 from agent.config.settings import Settings
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
@@ -75,23 +77,29 @@ def _build_runtime_api_mock(
     async def handle_side_effect(
         request: object,
         *,
+        model: Model | None = None,
         user_id: str | None = None,
         on_step: object = None,
     ) -> PublicAPIResponse:
+        del model
         if emit_steps and on_step is not None and callable(on_step):
             await on_step(
-                "search_bangumi",
-                "running",
-                {"bangumi_id": "12345"},
-                "Searching...",
-                "",
+                StepEvent(
+                    tool="search_bangumi",
+                    call_id="integration-call",
+                    status="running",
+                    data={"bangumi_id": "12345"},
+                    thought="Searching...",
+                )
             )
             await on_step(
-                "search_bangumi",
-                "done",
-                {"rows": [], "row_count": 0},
-                "",
-                "Found 0 results",
+                StepEvent(
+                    tool="search_bangumi",
+                    call_id="integration-call",
+                    status="done",
+                    data={"rows": [], "row_count": 0},
+                    observation="Found 0 results",
+                )
             )
         return canned
 

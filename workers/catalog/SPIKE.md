@@ -2,7 +2,7 @@
 
 **Card:** W0-2 (scaffold) + W1-SPK (risky-stack validation gate)
 **Date:** 2026-06-21
-**Stack:** Cloudflare Workers + Hono + oRPC + Drizzle (raw `sql`) + Postgres/PostGIS, tested with vitest + `@cloudflare/vitest-pool-workers`.
+**Stack:** Cloudflare Workers + Hono + oRPC + Drizzle (raw `sql`) + Neon/PostGIS, tested with vitest + `vitest-pool-workers`.
 
 ## Verdict: GO ✅
 
@@ -10,14 +10,17 @@ All three risk areas are proven against real components. The TS Catalog stack is
 
 | Risk | Result |
 |---|---|
-| (a) Drizzle raw `sql` + PostGIS `ST_DWithin` | **GO** — runs against real `postgis/postgis:16-3.4`, returns correct rows |
+| (a) Drizzle raw `sql` + PostGIS `ST_DWithin` | **GO** — runs against a real Neon child branch, returns correct rows |
 | (b) `vitest-pool-workers` runs Worker tests | **GO** — Hono app imported + exercised inside the workerd runtime |
-| (c) Hyperdrive (prod-only) blocker | **Mitigated** — simulated locally with a direct `pg` connection (identical query path) |
+| (c) neon-http transaction path | **GO** — Neon Local HTTP proxy exercises the production driver and batch transaction path |
 
 ## What was validated
 
 ### (a) Drizzle raw `sql` + PostGIS `ST_DWithin` — GO
-`test/postgis.spike.test.ts` spins up a real `postgis/postgis:16-3.4` container, applies a schema that mirrors the production `points` table (a `geography(Point,4326)` `location` column populated via `ST_SetSRID(ST_MakePoint(lon, lat), 4326)::geography`), inserts two real pilgrimage spots (Washinomiya / Oarai, ~95 km apart), then runs radius queries through **Drizzle's raw `sql` template** (`drizzle-orm/node-postgres`):
+`test/postgis.spike.test.ts` uses the spike session's direct Neon child-branch endpoint, creates a
+scratch table that mirrors the production geography shape, inserts two pilgrimage spots
+(Washinomiya / Oarai, about 95 km apart), then runs radius queries through **Drizzle's raw `sql`
+template** (`drizzle-orm/node-postgres`):
 
 - 10 km radius around Washinomiya → returns exactly 1 row (Washinomiya), distance < 100 m. ✅
 - 120 km radius → returns both rows, ordered nearest-first via the `<->` KNN operator. ✅
@@ -31,14 +34,18 @@ This confirms Drizzle's `sql` tagged template passes parameters correctly into P
 
 It uses `env` from `cloudflare:test` to supply Worker bindings, proving the pool wires `wrangler.toml` bindings into tests.
 
-### (c) Hyperdrive blocker — mitigated
-Hyperdrive (the Cloudflare binding that gives a Worker a pooled Postgres connection) is **only provisioned in the Cloudflare environment** — it cannot be exercised on a local dev box, and the workerd test pool has no real outbound TCP to a local Postgres.
+### (c) neon-http transaction path — GO
 
-**Mitigation:** the spike runs the PostGIS validation in a **plain Node vitest project** (`vitest.spike.config.ts`) using the `pg` driver over a direct TCP connection (port 55432, to avoid clashing with local Supabase on 54322). This exercises the *identical* Drizzle query path that prod will use; only the connection acquisition differs (direct `pg` locally vs. Hyperdrive's `connectionString` in prod). In prod, `wrangler hyperdrive create` yields a connection string that drops into the same `drizzle(pool)` setup — see the commented `[[hyperdrive]]` block in `wrangler.toml`.
+`vitest.spike.config.ts` starts one Neon Local container and forks a child from `test-base`.
+Serverless-driver tests use the local HTTP endpoint with the same `@neondatabase/serverless`
+driver as production; node-postgres tests use the child's direct cloud endpoint. The helper
+snapshots and restores process-global `neonConfig`, and every DB file truncates the pinned FK-closed
+catalog table set without `CASCADE`.
 
 ## Why two vitest configs
 
-The Worker pool (workerd) and the PostGIS spike (Node + Docker TCP + `node:child_process`) have incompatible runtimes, so they run as two configs that `npm test` runs in sequence:
+The Worker pool (workerd) and the Neon-backed spikes (Node + testcontainers) have incompatible
+runtimes, so they run as two configs that `pnpm test` runs in sequence:
 - `vitest.config.ts` → workerd pool, `*.worker.test.ts`
 - `vitest.spike.config.ts` → Node, `*.spike.test.ts`
 
@@ -51,20 +58,13 @@ The Worker pool (workerd) and the PostGIS spike (Node + Docker TCP + `node:child
 ## How to reproduce
 
 ```bash
-cd catalog
-npm install
-npm test          # runs worker tests (workerd) then the PostGIS spike (Docker)
-# requires Docker/colima up; the spike auto-pulls postgis/postgis:16-3.4,
-# starts container "catalog-spike-postgis" on :55432, and removes it after.
-npm run typecheck # tsc --noEmit, clean
-npx wrangler deploy --dry-run  # bundles, 163 KiB
+cd workers/catalog
+pnpm install
+pnpm test          # worker tests, then Neon-backed spikes
+pnpm run typecheck
 ```
 
-## Test output (latest run)
+DB spikes skip actionably when Neon credentials are absent. A live run needs Docker/Colima,
+`NEON_API_KEY`, and `NEON_PROJECT_ID`; the global setup removes its temporary branch at teardown.
 
-```
-test:worker  → Test Files 1 passed (1) | Tests 2 passed (2)
-test:spike   → Test Files 1 passed (1) | Tests 2 passed (2)   (~18s, incl. container boot)
-typecheck    → No errors found
-wrangler dry-run → Total Upload 163.73 KiB / gzip 37.16 KiB
-```
+The live counts and timings belong in CI evidence, not this stable stack verdict.

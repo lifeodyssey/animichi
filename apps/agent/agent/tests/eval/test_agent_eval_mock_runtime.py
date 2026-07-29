@@ -1,6 +1,6 @@
 """Eval: drive the LIVE agent run against the MockCatalogClient (offline).
 
-W2-A1 lands the seam that lets ``run_pilgrimage_agent`` route its data tools
+W2-A1 lands the seam that lets ``run_animichi_agent`` route its data tools
 through an injected catalog client. These cases promote a handful of the
 representative eval cases to actually drive the agent — with a deterministic
 ``FunctionModel`` standing in for the LLM — and assert:
@@ -15,6 +15,7 @@ run is fast, offline, and deterministic; the LLM is not exercised here.
 
 from __future__ import annotations
 
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -22,13 +23,15 @@ from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from agent.agents.agent_result import AgentResult
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.runtime_models import (
     QAResponseModel,
     RouteResponseModel,
     SearchResponseModel,
 )
+from agent.clients.catalog_client import CatalogClientProtocol
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
+from agent.tests.streaming_function_model import streaming_function_model
 
 _ALLOWED_CATALOG_METHODS = {"search", "spots", "nearby", "route"}
 
@@ -64,15 +67,19 @@ def _search_driver(intent: str, *, title: str) -> FunctionModel:
             parts=[ToolCallPart("search_response", _search_output(intent))]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 async def _run(
     model: FunctionModel, *, text: str
 ) -> tuple[AgentResult, MockCatalogClient]:
     catalog = MockCatalogClient()
-    result = await run_pilgrimage_agent(
-        text=text, db=MagicMock(), locale="ja", model=model, catalog=catalog
+    result = await run_animichi_agent(
+        text=text,
+        db=MagicMock(),
+        locale="ja",
+        model=model,
+        catalog=cast(CatalogClientProtocol, catalog),
     )
     return result, catalog
 
@@ -127,7 +134,7 @@ def _unknown_anime_driver(title: str) -> FunctionModel:
             ]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 async def test_unknown_anime_returns_typed_output_via_catalog() -> None:
@@ -164,7 +171,7 @@ def _route_driver(title: str) -> FunctionModel:
             ]
         )
 
-    return FunctionModel(respond)
+    return streaming_function_model(respond)
 
 
 async def test_route_case_returns_route_output_via_catalog() -> None:
@@ -173,5 +180,5 @@ async def test_route_case_returns_route_output_via_catalog() -> None:
         _route_driver("響け！ユーフォニアム"), text="響けの聖地を巡るルート"
     )
     assert isinstance(result.output, RouteResponseModel)
-    assert ("route", (("p_euph_1", "p_euph_2"),)) in catalog.calls
+    assert ("route", (("p004", "p005", "p006"), None)) in catalog.calls
     assert {name for name, _ in catalog.calls} <= _ALLOWED_CATALOG_METHODS

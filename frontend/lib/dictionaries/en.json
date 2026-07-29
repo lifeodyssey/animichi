@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Seichijunrei",
+    "title": "Animichi",
     "description": "Find anime pilgrimage spots and plan your route"
   },
   "landing": {
@@ -75,7 +75,7 @@
       "hero_auth_hint": "Log in only when you want to save or sync.",
       "walking_route": "Walking route",
       "hiw_title": "How a title becomes a route",
-      "hiw_sub": "Seichijunrei turns a title, place, or nearby location into a practical route.",
+      "hiw_sub": "Animichi turns a title, place, or nearby location into a practical route.",
       "hiw_step1_title": "Search an anime or place",
       "hiw_step1_desc": "Find your favorite title, a station, or explore what's nearby.",
       "hiw_step2_title": "Compare scene and real spot",
@@ -167,14 +167,14 @@
     "send": "Send",
     "thinking": "Thinking…",
     "thought_complete": "Done",
-    "bot_name": "Seichijunrei",
+    "bot_name": "Animichi",
     "bot_icon": "聖",
     "feedback_sent": "✓ Feedback sent",
     "feedback_placeholder": "What went wrong? (optional)",
     "feedback_good_title": "Good response",
     "feedback_bad_title": "Bad response",
     "anchor_results": "{count} results",
-    "welcome_title": "Seichijunrei",
+    "welcome_title": "Animichi",
     "welcome_subtitle": "Search by anime, explore spots near a place, or ask for a pilgrimage route that fits your trip.",
     "welcome_helper": "You can also just say hi and ask what I can help with.",
     "empty_hint": "Search for anime pilgrimage spots or plan a route",
@@ -186,7 +186,7 @@
   },
   "sidebar": {
     "logo_icon": "聖",
-    "logo_text": "Seichijunrei",
+    "logo_text": "Animichi",
     "new_chat": "+ New chat",
     "recent": "Recent searches",
     "rename_hint": "Double-click to rename",
@@ -195,7 +195,7 @@
     "footer": "Pilgrim"
   },
   "header": {
-    "title": "Seichijunrei",
+    "title": "Animichi",
     "subtitle": "Find anime locations · Plan your route",
     "map_open": "Close map",
     "map_closed": "Map"
@@ -406,7 +406,7 @@
     "other_group": "Other",
     "spots_count": "{count} spots",
     "map_unavailable": "Map unavailable — view spot locations below",
-    "meta_title": "{title} Pilgrimage Guide | Seichijunrei",
+    "meta_title": "{title} Pilgrimage Guide | Animichi",
     "meta_description": "{count} pilgrimage spots for {title} — {city}. Plan routes with AI.",
     "meta_description_no_city": "{count} pilgrimage spots for {title}. Plan routes with AI."
   },

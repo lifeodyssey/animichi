@@ -1,0 +1,63 @@
+{
+  "meta": {
+    "title": "Animichi",
+    "description": "Find real-world anime locations and plan pilgrimage routes"
+  },
+  "landing": {
+    "eyebrow": "Anime Travel Journal",
+    "hero": "Animichi",
+    "headline": "Turn anime scenes into today's walking route",
+    "lead": "Enter an anime title, station, or city. Find the real locations and plan your route.",
+    "search_placeholder": "Enter anime, station, or city",
+    "cta": "Start Exploring",
+    "try_example": "Try an example",
+    "examples": [
+      "Your Name",
+      "Euphonium",
+      "Weathering with You"
+    ],
+    "login": "Log in",
+    "github": "GitHub",
+    "footer_name": "seichijunrei",
+    "comparison_anime": "Anime",
+    "comparison_anime_alt": "Anime frame of the Suga Shrine stairs from Your Name.",
+    "comparison_real": "Reality",
+    "comparison_real_alt": "Photo of the real Suga Shrine stairs",
+    "comparison_aria": "Slider comparing the anime frame with the real location",
+    "theme_day": "Day",
+    "theme_night": "Night",
+    "fox_bubble": "This way!",
+    "mobile_lead": "From your favorite works to places you can walk. Follow maps and photos, never get lost.",
+    "mobile_bg_alt": "Hand-drawn illustration of a torii gate and shrine approach",
+    "fox_alt": "Fox guide welcoming you with a travel journal card"
+  },
+  "home": {
+    "search_placeholder": "Enter an anime, station, or city",
+    "search_cta": "Build a route",
+    "continue_title": "Continue from",
+    "continue_resume": "Resume",
+    "popular_title": "Popular ranking",
+    "popular_empty": "No popular titles yet",
+    "popular_spots": "spots"
+  },
+  "auth": {
+    "title": "Log in",
+    "subtitle": "Enter your email and we'll send you a sign-in link.",
+    "email_label": "Email address",
+    "email_placeholder": "you@example.com",
+    "submit": "Send sign-in link",
+    "submitting": "Sending…",
+    "email_required": "Please enter your email address.",
+    "email_invalid": "Email needs an @ (for example you@example.com).",
+    "sent": "We've sent a sign-in link to your inbox. Please check your email.",
+    "error": "Couldn't send the link. Please try again in a moment.",
+    "not_configured": "Sign-in isn't configured yet. Please contact the administrator.",
+    "magic_link_hint": "No password — we email you a secure sign-in link.",
+    "close": "Close",
+    "callback_pending": "Signing you in…",
+    "callback_error": "That link has expired or was already used. Please request a new one.",
+    "callback_save_failed": "You're signed in, but the route didn't save…",
+    "callback_save_retry": "Try saving again",
+    "callback_save_skip": "You can also save it again from the chat page later"
+  }
+}

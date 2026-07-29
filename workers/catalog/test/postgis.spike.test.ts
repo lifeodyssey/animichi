@@ -1,63 +1,29 @@
-import { execSync } from "node:child_process";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it } from "vitest";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { sql } from "drizzle-orm";
 import pg from "pg";
+import {
+  databaseDescribe,
+  openDirectPool,
+  truncateCatalogPool,
+} from "./spike-db";
 
 /**
  * THE SPIKE — proves the risky TS stack works end-to-end against a REAL
- * Postgres + PostGIS:
+ * the ephemeral branch's direct cloud Postgres endpoint:
  *   (a) Drizzle raw `sql` template runs a PostGIS ST_DWithin radius query.
  *   (b) The query returns the expected geographic row(s).
  *
- * Hyperdrive is prod-only; locally we connect directly with the `pg` driver
- * (Drizzle's node-postgres adapter), which validates the identical query path.
+ * This deliberately bypasses Neon Local's rejected PostgreSQL-wire proxy.
  */
-
-const CONTAINER = "catalog-spike-postgis";
-const IMAGE = "postgis/postgis:16-3.4";
-const PG_PORT = 55432; // avoid clashing with local Supabase (54322)
-const PG_PASSWORD = "spike";
-const CONN = `postgresql://postgres:${PG_PASSWORD}@127.0.0.1:${String(PG_PORT)}/postgres`;
 
 let pool: pg.Pool;
 let db: NodePgDatabase;
 
-function sh(cmd: string): string {
-  return execSync(cmd, { stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
-}
-
-function startContainer(): void {
-  const existing = sh(`docker ps -aq -f name=^${CONTAINER}$`);
-  if (existing) sh(`docker rm -f ${CONTAINER}`);
-  sh(
-    `docker run -d --name ${CONTAINER} -e POSTGRES_PASSWORD=${PG_PASSWORD} ` +
-      `-p ${String(PG_PORT)}:5432 ${IMAGE}`,
-  );
-}
-
-async function waitForReady(): Promise<void> {
-  const deadline = Date.now() + 90_000;
-  let lastErr: unknown;
-  while (Date.now() < deadline) {
-    try {
-      const probe = new pg.Pool({ connectionString: CONN, max: 1 });
-      await probe.query("SELECT 1");
-      await probe.end();
-      return;
-    } catch (err) {
-      lastErr = err;
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-  }
-  throw new Error(`Postgres not ready in time: ${String(lastErr)}`);
-}
-
 beforeAll(async () => {
-  startContainer();
-  await waitForReady();
-  pool = new pg.Pool({ connectionString: CONN });
+  pool = await openDirectPool();
   db = drizzle(pool);
+  await truncateCatalogPool(pool);
 
   // Schema mirrors the real `points` table: GEOGRAPHY(Point,4326) location.
   await db.execute(sql`CREATE EXTENSION IF NOT EXISTS postgis`);
@@ -88,14 +54,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await pool.end();
-  try {
-    sh(`docker rm -f ${CONTAINER}`);
-  } catch {
-    /* container already gone */
-  }
 });
 
-describe("PostGIS ST_DWithin via Drizzle raw sql (Hyperdrive simulated by pg)", () => {
+databaseDescribe("PostGIS ST_DWithin via Drizzle raw sql (Hyperdrive simulated by pg)", () => {
   it("finds only the spot inside a 10km radius of Washinomiya", async () => {
     const centerLat = 36.1019;
     const centerLon = 139.6586;

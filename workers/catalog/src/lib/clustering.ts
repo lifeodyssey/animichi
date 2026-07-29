@@ -1,5 +1,5 @@
 /**
- * Deterministic location clustering via union-find.
+ * Deterministic location clustering via a spatial grid and union-find.
  *
  * Faithful TS port of
  * `backend/agents/route_optimizer.py::cluster_by_location` (lines ~34-114),
@@ -29,33 +29,56 @@ export interface LocationCluster<P extends ClusterablePoint = ClusterablePoint> 
   clusterId: string;
 }
 
+type NonEmpty<T> = [T, ...T[]];
+type SpatialGrid<P extends ClusterablePoint> = Map<string, PointNode<P>[]>;
+
+const EARTH_RADIUS_M = 6_371_000;
+const OFFSETS = [-1, 0, 1] as const;
+const NEIGHBOR_OFFSETS = OFFSETS.flatMap((x) =>
+  OFFSETS.flatMap((y) => OFFSETS.map((z) => [x, y, z] as const)),
+);
+
+/** Mutable union-find node; parent links replace unchecked numeric indexing. */
+class UnionNode {
+  parent: UnionNode = this;
+  rank = 0;
+}
+
+interface PointNode<P extends ClusterablePoint> {
+  point: P;
+  node: UnionNode;
+}
+
+interface SpatialCell {
+  x: number;
+  y: number;
+  z: number;
+}
+
 /** Path-compressing find — mirrors Python `_find`. */
-function find(parent: number[], i: number): number {
-  let node = i;
-  while (parent[node] !== node) {
+function find(node: UnionNode): UnionNode {
+  let root = node;
+  while (root.parent !== root) {
     // path compression: point at grandparent
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- union-find indices bounded by n
-    parent[node] = parent[parent[node]!]!;
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- union-find indices bounded by n
-    node = parent[node]!;
+    root.parent = root.parent.parent;
+    root = root.parent;
   }
-  return node;
+  return root;
 }
 
 /** Union-by-rank — mirrors Python `_union`. */
-function union(parent: number[], rank: number[], a: number, b: number): void {
-  let ra = find(parent, a);
-  let rb = find(parent, b);
+function union(a: UnionNode, b: UnionNode): void {
+  let ra = find(a);
+  let rb = find(b);
   if (ra === rb) {
     return;
   }
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- ra/rb are valid indices from find()
-  if (rank[ra]! < rank[rb]!) {
+  if (ra.rank < rb.rank) {
     [ra, rb] = [rb, ra];
   }
-  parent[rb] = ra;
-  if (rank[ra] === rank[rb]) {
-    rank[ra] = (rank[ra] ?? 0) + 1;
+  rb.parent = ra;
+  if (ra.rank === rb.rank) {
+    ra.rank += 1;
   }
 }
 
@@ -73,79 +96,91 @@ export function clusterByLocation<P extends ClusterablePoint>(
   points: P[],
   radiusM = 50,
 ): LocationCluster<P>[] {
-  const n = points.length;
-  if (n === 0) {
-    return [];
-  }
-
-  const parent = Array.from({ length: n }, (_, i) => i);
-  const rank = new Array<number>(n).fill(0);
-
-  // O(n^2) pairwise comparison, same iteration order as Python (i, then j>i).
-  for (let i = 0; i < n; i += 1) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- index bounded by loop [0, n)
-    pairUnion(parent, rank, points, n, points[i]!, i, radiusM);
-  }
-
-  return buildClusters(points, parent);
+  const entries = points.map((point) => ({ point, node: new UnionNode() }));
+  if (radiusM > 0) spatialUnion(entries, radiusM);
+  return buildClusters(entries);
 }
 
-function pairUnion<P extends ClusterablePoint>(
-  parent: number[],
-  rank: number[],
-  points: P[],
-  n: number,
-  pi: P,
-  i: number,
-  radiusM: number,
+function spatialUnion<P extends ClusterablePoint>(entries: PointNode<P>[], radiusM: number): void {
+  const grid: SpatialGrid<P> = new Map();
+  const cellSize = chordLength(radiusM);
+  for (const entry of entries) addSpatialEntry(grid, entry, cellSize, radiusM);
+}
+
+function addSpatialEntry<P extends ClusterablePoint>(
+  grid: SpatialGrid<P>, entry: PointNode<P>, cellSize: number, radiusM: number,
 ): void {
-  for (let j = i + 1; j < n; j += 1) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- index bounded by loop [0, n)
-    const pj = points[j]!;
-    if (haversine(pi.latitude, pi.longitude, pj.latitude, pj.longitude) < radiusM) {
-      union(parent, rank, i, j);
-    }
-  }
+  const cell = spatialCell(entry.point, cellSize);
+  for (const neighbor of neighborEntries(grid, cell)) unionIfClose(neighbor, entry, radiusM);
+  insertEntry(grid, cellKey(cell), entry);
+}
+
+function chordLength(radiusM: number): number {
+  const angle = Math.min(radiusM / EARTH_RADIUS_M, Math.PI);
+  return 2 * Math.sin(angle / 2);
+}
+
+function spatialCell(point: ClusterablePoint, cellSize: number): SpatialCell {
+  const lat = radians(point.latitude);
+  const lng = radians(point.longitude);
+  const cosLat = Math.cos(lat);
+  return { x: Math.floor(cosLat * Math.cos(lng) / cellSize),
+    y: Math.floor(cosLat * Math.sin(lng) / cellSize), z: Math.floor(Math.sin(lat) / cellSize) };
+}
+
+function radians(degrees: number): number {
+  return degrees * Math.PI / 180;
+}
+
+function neighborEntries<P extends ClusterablePoint>(grid: SpatialGrid<P>, cell: SpatialCell): PointNode<P>[] {
+  return NEIGHBOR_OFFSETS.flatMap(([x, y, z]) =>
+    grid.get(cellKey({ x: cell.x + x, y: cell.y + y, z: cell.z + z })) ?? []);
+}
+
+function cellKey(cell: SpatialCell): string {
+  return [cell.x, cell.y, cell.z].join(":");
+}
+
+function insertEntry<P extends ClusterablePoint>(grid: SpatialGrid<P>, key: string, entry: PointNode<P>): void {
+  const bucket = grid.get(key);
+  if (bucket) bucket.push(entry);
+  else grid.set(key, [entry]);
+}
+
+function unionIfClose<P extends ClusterablePoint>(left: PointNode<P>, right: PointNode<P>, radiusM: number): void {
+  const distance = haversine(left.point.latitude, left.point.longitude, right.point.latitude, right.point.longitude);
+  if (distance < radiusM) union(left.node, right.node);
 }
 
 function buildClusters<P extends ClusterablePoint>(
-  points: P[],
-  parent: number[],
+  entries: PointNode<P>[],
 ): LocationCluster<P>[] {
-  const groups = new Map<number, number[]>();
-  for (let i = 0; i < points.length; i += 1) {
-    const root = find(parent, i);
+  const groups = new Map<UnionNode, NonEmpty<P>>();
+  for (const { point, node } of entries) {
+    const root = find(node);
     const bucket = groups.get(root);
     if (bucket) {
-      bucket.push(i);
+      bucket.push(point);
     } else {
-      groups.set(root, [i]);
+      groups.set(root, [point]);
     }
   }
-
-  const clusters: LocationCluster<P>[] = [];
-  for (const indices of groups.values()) {
-    clusters.push(makeCluster(points, indices));
-  }
+  const clusters = [...groups.values()].map(makeCluster);
   clusters.sort((a, b) => a.clusterId.localeCompare(b.clusterId));
   return clusters;
 }
 
 function makeCluster<P extends ClusterablePoint>(
-  points: P[],
-  indices: number[],
+  members: NonEmpty<P>,
 ): LocationCluster<P> {
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- indices are valid array positions
-  const members = indices.map((i) => points[i]!);
   const sumLat = members.reduce((acc, p) => acc + p.latitude, 0);
   const sumLng = members.reduce((acc, p) => acc + p.longitude, 0);
-  const ids = members.map((p) => p.id).sort((a, b) => a.localeCompare(b));
+  const clusterId = members.reduce((id, point) => point.id.localeCompare(id) < 0 ? point.id : id, members[0].id);
   return {
     centerLat: sumLat / members.length,
     centerLng: sumLng / members.length,
     points: members,
     photoCount: members.length,
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- ids is non-empty (at least one member)
-    clusterId: ids[0]!,
+    clusterId,
   };
 }

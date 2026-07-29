@@ -1,5 +1,5 @@
 {
-  "name": "seichijunrei-cloudflare-worker",
+  "name": "animichi-cloudflare-worker",
   "private": true,
   "packageManager": "pnpm@10.33.2",
   "engines": {
@@ -7,11 +7,14 @@
   },
   "scripts": {
     "build:frontend": "pnpm --filter ./frontend run build",
-    "deploy": "pnpm run build:frontend && npx wrangler deploy"
+    "deploy": "pnpm run build:frontend && npx wrangler deploy",
+    "lint:oxlint": "pnpm --filter catalog --filter users --filter web run lint:oxlint",
+    "test:worker": "node --test worker/entry.test.ts worker/photoSearch.test.ts worker/auth.test.ts worker/auth-neon.test.ts worker/turnstile.test.ts worker/turnstileArm.test.ts worker/turnstileReplay.test.ts worker/anonymousIdentity.test.ts worker/anonymous.test.ts worker/authFallthrough.test.ts worker/authScheme.test.ts worker/sessionMigration.test.ts worker/rateLimiter.test.ts worker/costBreaker.test.ts worker/byok.test.ts worker/byokBudgetExemption.test.ts worker/byokProbeAuth.test.ts worker/edgeGuard.test.ts worker/authRateLimitScope.test.ts worker/containerEnv.test.ts"
   },
   "dependencies": {
     "@cloudflare/containers": "^0.3.7",
-    "hono": "^4.9.10"
+    "hono": "^4.12.30",
+    "jose": "^6.2.3"
   },
   "pnpm": {
     "overrides": {
@@ -20,11 +23,23 @@
       "postcss": ">=8.5.10",
       "ws": ">=8.21.0",
       "qs": ">=6.15.2",
-      "fast-uri": ">=3.1.2",
+      "fast-uri": ">=4.1.1",
       "hono": ">=4.12.16",
       "esbuild": ">=0.28.1",
-      "@vitest/expect": "4.1.9",
-      "@vitest/spy": "4.1.9"
+      "@vitest/expect": "4.1.10",
+      "@vitest/spy": "4.1.10",
+      "uuid": ">=11.1.1",
+      "sharp": ">=0.35.3",
+      "valibot": ">=1.4.2",
+      "brace-expansion": ">=5.0.8",
+      "@hono/node-server": ">=2.0.5",
+      "minimatch": ">=10.2.6"
     }
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260718.1",
+    "@types/node": "^26.1.1",
+    "oxlint": "~1.74.0",
+    "oxlint-tsgolint": "~0.25.0"
   }
 }

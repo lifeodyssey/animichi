@@ -1,16 +1,19 @@
-# Seichijunrei Agent - Makefile
+# Animichi Agent - Makefile
 
-.PHONY: help install dev dev-local serve test test-all test-cov test-integration test-eval lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset fe-lint fe-typecheck fe-test fe-test-cov fe-build fe-check check-all e2e-setup e2e e2e-public local-login dev-stop
+.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset fe-lint fe-typecheck fe-test fe-test-cov fe-build fe-check check-all e2e-setup e2e e2e-public local-login dev-stop
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
+ATLAS_VERSION ?= 0.30.0
+export ATLAS_VERSION
 PYTHON ?= .venv/bin/python
 PYTEST ?= $(PYTHON) -m pytest
 
 help:
-	@echo "Seichijunrei Agent - Available commands:"
+	@echo "Animichi Agent - Available commands:"
 	@echo ""
 	@echo "Development:"
+	@echo "  make dev-db      Start agent-only Neon Local on postgres-wire port 5432"
 	@echo "  make dev-local   Start everything (Supabase + backend + frontend)"
 	@echo "  make dev-stop    Stop all local dev services"
 	@echo "  make local-login Open browser with magic link login"
@@ -23,6 +26,7 @@ help:
 	@echo "  make test-all    Run stable automated tests (unit + integration)"
 	@echo "  make test-cov    Run tests with coverage report"
 	@echo "  make test-eval   Run model-backed evals"
+	@echo "  make test-eval-fullstack  Run thin full-stack eval (opt-in, not a PR gate)"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint        Run linters (ruff)"
@@ -50,7 +54,7 @@ dev:
 	cd apps/agent && uv sync --extra dev
 
 serve:
-	cd apps/agent && uv run seichijunrei-api
+	cd apps/agent && uv run animichi-api
 
 test:
 	cd apps/agent && $(PYTEST) agent/tests/unit/ -v
@@ -65,18 +69,22 @@ test-integration:
 	cd apps/agent && $(PYTEST) agent/tests/integration/ -v --no-cov
 
 test-eval:
-	cd apps/agent && $(PYTEST) agent/tests/eval/test_agent_eval.py agent/tests/eval/test_translation.py -v -m integration --no-cov
+	cd apps/agent && $(PYTHON) -m agent.tests.eval.run_agent_eval
+	cd apps/agent && $(PYTEST) agent/tests/eval/test_translation.py -v -m integration --no-cov
+
+test-eval-fullstack:
+	cd apps/agent && EVAL_FULLSTACK=1 EVAL_MAX_CASES=$${EVAL_MAX_CASES:-50} $(PYTHON) -m agent.tests.eval.run_agent_eval
 
 lint:
-	cd apps/agent && uv run ruff check agent/
-	cd apps/agent && uv run ruff format --check agent/
+	cd apps/agent && uv run ruff check agent/ scripts/
+	cd apps/agent && uv run ruff format --check agent/ scripts/
 
 format:
-	cd apps/agent && uv run ruff format agent/
-	cd apps/agent && uv run ruff check --fix agent/
+	cd apps/agent && uv run ruff format agent/ scripts/
+	cd apps/agent && uv run ruff check --fix agent/ scripts/
 
 typecheck:
-	cd apps/agent && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
+	cd apps/agent && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ agent/tests/eval/ agent/scripts/purge_anonymous_sessions.py
 
 check: lint typecheck test test-integration
 
@@ -133,8 +141,26 @@ db-reset:
 
 # ── Local Dev (one-command startup) ──────────────────────────
 
+# Set NEON_DEV_BRANCH_ID for persistent mode. Leave it unset and set the
+# verified NEON_TEST_BASE_BRANCH_ID for an ephemeral child deleted on stop.
+dev-db:
+	@: "$${NEON_API_KEY:?NEON_API_KEY is required}"
+	@: "$${NEON_PROJECT_ID:?NEON_PROJECT_ID is required}"
+	@branch_env="PARENT_BRANCH_ID=$${NEON_TEST_BASE_BRANCH_ID:-}"; delete_branch=true; \
+	if [ -n "$${NEON_DEV_BRANCH_ID:-}" ]; then \
+		branch_env="BRANCH_ID=$$NEON_DEV_BRANCH_ID"; delete_branch=false; \
+	fi; \
+	if [ -z "$${branch_env#*=}" ]; then \
+		echo "Set NEON_TEST_BASE_BRANCH_ID, or NEON_DEV_BRANCH_ID for persistent mode" >&2; \
+		exit 1; \
+	fi; \
+	echo "Agent DSN: postgresql://neon:npg@localhost:5432/neondb?sslmode=require"; \
+	docker run --rm --name animichi-neon-local -p 5432:5432 \
+		-e NEON_API_KEY -e NEON_PROJECT_ID -e "$$branch_env" \
+		-e DELETE_BRANCH="$$delete_branch" neondatabase/neon_local:latest
+
 dev-local:
-	@echo "=== Seichijunrei Local Dev ==="
+	@echo "=== Animichi Local Dev ==="
 	@# 0. Kill stale processes from previous runs
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
 	@-lsof -ti :3001 | xargs kill 2>/dev/null; true
@@ -153,16 +179,16 @@ dev-local:
 		echo "✓ Data exists ($$COUNT bangumi)"; \
 	fi
 	@# 4. Start Edge Function for auth emails (with local SITE_URL)
-	@supabase functions serve send-auth-email --no-verify-jwt --env-file supabase/.env.local > /tmp/seichijunrei-edge.log 2>&1 & echo $$! > /tmp/seichijunrei-edge.pid
+	@supabase functions serve send-auth-email --no-verify-jwt --env-file supabase/.env.local > /tmp/animichi-edge.log 2>&1 & echo $$! > /tmp/animichi-edge.pid
 	@echo "✓ Edge Function started (SITE_URL=http://localhost:3001)"
 	@# 5. Start backend with .env (background, daemonized)
-	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) bash -c 'cd apps/agent && uv run uvicorn agent.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080' > /tmp/seichijunrei-backend.log 2>&1 & echo $$! > /tmp/seichijunrei-backend.pid
+	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) bash -c 'cd apps/agent && uv run uvicorn agent.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080' > /tmp/animichi-backend.log 2>&1 & echo $$! > /tmp/animichi-backend.pid
 	@# 6. Wait for backend health
 	@echo "Waiting for backend..."
 	@for i in $$(seq 1 60); do curl -s http://localhost:8080/healthz >/dev/null 2>&1 && break || sleep 2; done
-	@curl -s http://localhost:8080/healthz >/dev/null 2>&1 && echo "✓ Backend ready on :8080" || (echo "✗ Backend failed — check /tmp/seichijunrei-backend.log" && exit 1)
+	@curl -s http://localhost:8080/healthz >/dev/null 2>&1 && echo "✓ Backend ready on :8080" || (echo "✗ Backend failed — check /tmp/animichi-backend.log" && exit 1)
 	@# 7. Start frontend on :3001 (matching config.toml site_url)
-	@cd frontend && npm run dev > /tmp/seichijunrei-frontend.log 2>&1 & echo $$! > /tmp/seichijunrei-frontend.pid
+	@cd frontend && npm run dev > /tmp/animichi-frontend.log 2>&1 & echo $$! > /tmp/animichi-frontend.pid
 	@sleep 3
 	@echo "✓ Frontend starting on :3001"
 	@echo ""
@@ -176,9 +202,9 @@ dev-local:
 
 dev-stop:
 	@echo "Stopping local dev services..."
-	@-test -f /tmp/seichijunrei-edge.pid && kill $$(cat /tmp/seichijunrei-edge.pid) 2>/dev/null && rm /tmp/seichijunrei-edge.pid && echo "✓ Edge Function stopped" || true
-	@-test -f /tmp/seichijunrei-backend.pid && kill $$(cat /tmp/seichijunrei-backend.pid) 2>/dev/null && rm /tmp/seichijunrei-backend.pid && echo "✓ Backend stopped" || true
-	@-test -f /tmp/seichijunrei-frontend.pid && kill $$(cat /tmp/seichijunrei-frontend.pid) 2>/dev/null && rm /tmp/seichijunrei-frontend.pid && echo "✓ Frontend stopped" || true
+	@-test -f /tmp/animichi-edge.pid && kill $$(cat /tmp/animichi-edge.pid) 2>/dev/null && rm /tmp/animichi-edge.pid && echo "✓ Edge Function stopped" || true
+	@-test -f /tmp/animichi-backend.pid && kill $$(cat /tmp/animichi-backend.pid) 2>/dev/null && rm /tmp/animichi-backend.pid && echo "✓ Backend stopped" || true
+	@-test -f /tmp/animichi-frontend.pid && kill $$(cat /tmp/animichi-frontend.pid) 2>/dev/null && rm /tmp/animichi-frontend.pid && echo "✓ Frontend stopped" || true
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
 	@-lsof -ti :3001 | xargs kill 2>/dev/null; true
 	@echo "Done. (Supabase still running — use 'supabase stop' to shut down)"

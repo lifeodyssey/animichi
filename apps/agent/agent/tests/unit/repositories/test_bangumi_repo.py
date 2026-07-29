@@ -48,6 +48,18 @@ async def test_get_bangumi_raises_on_pool_error(
         await repo.get_bangumi("115908")
 
 
+async def test_filter_existing_ids_preserves_input_order(
+    repo: BangumiRepository, pool: AsyncMock
+) -> None:
+    pool.fetch.return_value = [{"id": "3"}, {"id": "1"}]
+    result = await repo.filter_existing_ids(["1", "missing", "3"])
+    assert result == ["1", "3"]
+    pool.fetch.assert_awaited_once_with(
+        "SELECT id FROM bangumi WHERE id = ANY($1::text[])",
+        ["1", "missing", "3"],
+    )
+
+
 async def test_list_bangumi_returns_list(
     repo: BangumiRepository, pool: AsyncMock
 ) -> None:

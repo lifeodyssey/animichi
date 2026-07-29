@@ -1,16 +1,16 @@
 <div align="center">
 
-# 聖地巡礼 Seichijunrei
+# 聖地巡礼 Animichi
 
 **アニメ聖地の検索・ルート計画を支援する AI エージェント**
 
-[![CI](https://github.com/lifeodyssey/Seichijunrei-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/Seichijunrei-agent/actions/workflows/ci.yml?query=branch%3Amain)
+[![CI](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml?query=branch%3Amain)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000.svg?logo=nextdotjs)](https://nextjs.org)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e.svg?logo=supabase)](https://supabase.com)
-[![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/Seichijunrei-agent)](https://github.com/lifeodyssey/Seichijunrei-agent/commits/main)
-[![GitHub stars](https://img.shields.io/github/stars/lifeodyssey/Seichijunrei-agent?style=flat)](https://github.com/lifeodyssey/Seichijunrei-agent)
+[![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/animichi)](https://github.com/lifeodyssey/animichi/commits/main)
+[![GitHub stars](https://img.shields.io/github/stars/lifeodyssey/animichi?style=flat)](https://github.com/lifeodyssey/animichi)
 
 [**ライブデモ**](https://seichijunrei.zhenjia.org) | [アーキテクチャ](docs/ARCHITECTURE.md) | [デプロイ](docs/ops/deployment.md)
 
@@ -25,7 +25,7 @@
 ## 仕組み
 
 ```
-ユーザー入力 → PydanticAI Agent（pilgrimage_agent）
+ユーザー入力 → PydanticAI Agent（animichi_agent）
                  ├── resolve_anime  → DB優先のタイトル検索; ミス時は Bangumi.tv API
                  ├── search_bangumi → パラメータ化 SQL → Supabase ポイント
                  ├── search_nearby  → PostGIS 地理検索
@@ -92,18 +92,18 @@ make db-diff NAME=x    # ローカル変更から diff を生成
 
 **オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-詳細は [`agent/config/settings.py`](agent/config/settings.py) と [`.env.example`](.env.example) を参照してください。
+詳細は [`apps/agent/agent/config/settings.py`](apps/agent/agent/config/settings.py) と [`.env.example`](.env.example) を参照してください。
 
 ## 使用例
 
 **Python（直接呼び出し）：**
 ```python
-from agent.agents.pilgrimage_runner import run_pilgrimage_agent
+from agent.agents.animichi_runner import run_animichi_agent
 from agent.infrastructure.supabase.client import SupabaseClient
 
 async def main() -> None:
     async with SupabaseClient(db_url) as db:
-        result = await run_pilgrimage_agent("吹響ユーフォニアムの聖地", db, locale="ja")
+        result = await run_animichi_agent("吹響ユーフォニアムの聖地", db, locale="ja")
         print(result.output)
 ```
 
@@ -125,12 +125,14 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 ## リポジトリ構成マップ
 
-- `agent/` — Python ランタイム本体。agents、interfaces、infrastructure、tests、tools を含む
-- `frontend/` — Next.js 静的エクスポートのフロントエンドと UI コンポーネント
+- `apps/agent/` — Python ランタイム本体。agents、interfaces、infrastructure、tests、tools を含む
+- `workers/catalog/` — アニメ聖地カタログ REST API を提供する Cloudflare Worker（TypeScript）
+- `packages/contract/` — catalog ↔ agent 間で共有する oRPC contract 型定義
+- `frontend/` — Next.js OpenNext-SSR のフロントエンドと UI コンポーネント
 - `worker/` — 認証とリクエストルーティングを担う Cloudflare Worker
 - `supabase/` — スキーママイグレーションと Supabase プロジェクト資産
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画
-- `Dockerfile`、`Makefile`、`pyproject.toml`、`wrangler.toml`、`package.json` — ルートに残すランタイム/ツール入口
+- `Dockerfile`、`Makefile`、`wrangler.toml`、`package.json` — ルートに残すランタイム/ツール入口
 
 ## ドキュメント
 

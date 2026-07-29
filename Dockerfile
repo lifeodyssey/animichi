@@ -1,4 +1,8 @@
-FROM public.ecr.aws/docker/library/python:3.11-slim AS builder
+# Pinned to a patch tag, not the floating `3.11-slim` — #284 Task 1 raises the
+# interpreter floor to >=3.11.10 (CPython gh-113171 fixed `ipaddress.is_global`
+# classification for CGNAT/metadata ranges in 3.11.10/3.12.4). A floating minor
+# tag could silently regress below that fix.
+FROM public.ecr.aws/docker/library/python:3.11.13-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.10.9 /uv /uvx /bin/
 
@@ -17,7 +21,7 @@ COPY apps/agent/agent /app/agent
 
 RUN uv sync --no-dev
 
-FROM public.ecr.aws/docker/library/python:3.11-slim
+FROM public.ecr.aws/docker/library/python:3.11.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

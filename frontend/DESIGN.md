@@ -116,7 +116,7 @@ components:
 
 ## Overview
 
-Seichijunrei is an anime pilgrimage (聖地巡礼) spot search and route planning service. Users discover meaningful scenes from anime, see them on a map, and turn selected spots into a realistic walking route.
+Animichi is an anime pilgrimage (聖地巡礼) spot search and route planning service. Users discover meaningful scenes from anime, see them on a map, and turn selected spots into a realistic walking route.
 
 The interface feels like a **high-quality travel planning tool** — warm, cozy, and practical. It reduces blank-page anxiety and replaces it with momentum: users feel oriented, inspired, and ready to go out.
 

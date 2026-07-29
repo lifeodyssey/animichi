@@ -52,12 +52,18 @@ coverage.xml
 # Project specific
 output/
 outputs/
+# Raw source files documented in docs/data-sources.md
+data/raw/
 *.log
 *.pdf
 *.html
 !templates/*.html
 !supabase/templates/*.html
 !docs/mockups/**/*.html
+!docs/design/**/*.html
+
+# QA/debug screenshots dumped at repo root (root-level only; frontend/ and docs/ assets unaffected)
+/*.png
 
 # Test outputs
 test_results.json
@@ -91,6 +97,7 @@ skills-lock.json
 # Misc
 images/
 !frontend/public/images/
+!apps/web/public/images/
 *.pen
 .next/
 .open-next/
@@ -123,3 +130,11 @@ backend/tests/eval/results/agent_openai-mimo-*
 !catalog/src/lib/
 !workers/catalog/src/lib/
 !workers/catalog/src/lib/**
+
+# Users TS service source — re-include (root lib/ rule is too broad)
+!workers/users/src/lib/
+!workers/users/src/lib/**
+
+# apps/web TS source — re-include (root lib/ rule is too broad)
+!apps/web/src/lib/
+!apps/web/src/lib/**

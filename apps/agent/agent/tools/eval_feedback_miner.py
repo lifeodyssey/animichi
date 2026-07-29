@@ -80,7 +80,11 @@ async def mine(
         _model = model
 
     agent: Agent[None, _MinerOutput] = Agent(
-        _model, system_prompt=_MINER_PROMPT, output_type=_MinerOutput, retries=2
+        _model,
+        name="eval_feedback_miner",
+        system_prompt=_MINER_PROMPT,
+        output_type=_MinerOutput,
+        retries=2,
     )
 
     query_list = "\n".join(

@@ -18,25 +18,37 @@
 #
 # Container runtime secrets (forwarded to Python backend):
 #   SUPABASE_DB_URL            — postgres://... for asyncpg
-#   DEEPSEEK_API_KEY           — primary agent model key (DeepSeek V4 Pro)
-#   GEMINI_API_KEY             — optional fallback model provider key
+#   MIMO_API_KEY               — required primary model key (MiMo V2.5)
+#   DEEPSEEK_API_KEY           — required fallback model key (DeepSeek)
+#   GEMINI_API_KEY             — optional Google-backed integration key
 #   OPENAI_COMPAT_BASE_URL     — custom OpenAI-compatible fallback endpoint
 #   OPENAI_COMPAT_API_KEY      — custom OpenAI-compatible fallback provider key
 #   GOOGLE_MAPS_API_KEY        — optional geocoding provider key
 #   LOGFIRE_TOKEN              — optional observability token
 #   CORS_ALLOWED_ORIGIN        — backend CORS allowlist
 #
+# Anonymous access (issue #274 / S1.8) — anonymous chat is OPT-IN and stays off
+# until BOTH of these are present:
+#   ANON_ACCESS_ENABLED        — "true" to open /v1/chat to anonymous callers ([vars] below)
+#   ANON_ID_SECRET             — HMAC key for the signed anonymous-id cookie (wrangler secret put)
+#   TURNSTILE_SECRET           — REQUIRED once ANON_ACCESS_ENABLED="true" (issue #447): every
+#                                anonymous /v1/chat turn is verified at siteverify before it can
+#                                reach the limiter or the container, so an environment with
+#                                anonymous access on and no secret answers 403 turnstile_required
+#                                to everyone. Local/dev may use Cloudflare's always-passing test
+#                                pair (site 1x00000000000000000000AA / secret 1x0000000000000000000000000000000AA).
+#
 # Frontend build-time envs (injected by GitHub Actions):
 #   NEXT_PUBLIC_SUPABASE_URL
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-name = "seichijunrei"
+name = "animichi"
 compatibility_date = "2025-03-01"
 compatibility_flags = ["nodejs_compat"]
 main = "worker/entry.ts"
 
 routes = [
-  { pattern = "seichijunrei.zhenjia.org/*", zone_name = "zhenjia.org" }
+  { pattern = "animichi.com/*", zone_name = "animichi.com" }
 ]
 
 # Plain (non-secret) vars forwarded into the RuntimeContainer (Python agent).
@@ -47,6 +59,31 @@ routes = [
 # There is NO public /catalog/* route on the main Worker.
 [vars]
 CATALOG_API_URL = "http://catalog.internal"
+ANON_ACCESS_ENABLED = "true"
+# Per-identity burst limit (abuse control). The per-identity DAILY message
+# quota is issue #282 and is configured separately.
+ANON_RATE_LIMIT = "20"
+ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
+# Global anonymous daily spend ceiling (X4). Enforced by the container ingress
+# against the daily_usage table; 0 disables the breaker.
+ANON_DAILY_COST_BUDGET_USD = "5.0"
+# Per-identity daily message quota (issue #282, S1.10) — a fairness/UX
+# mechanism, not a security defense line: it keeps one visitor's free usage
+# reasonable while the shared budget above stays open for everyone else.
+# Enforced by the container ingress against anon_daily_message_count; 0 or
+# unset disables it, the same "0 disables" convention as the budget ceiling
+# above. Default is an owner-set operations decision (20 here is a starting
+# point, not a locked-in value).
+ANON_DAILY_MESSAGE_QUOTA = "20"
+# Per-identity limit on the two cost-bearing AUTHENTICATED endpoints (issue
+# #284 / Task 9): POST /v1/chat and POST /v1/byok/probe ONLY — authenticated
+# reads (GET /v1/conversations, /v1/*/messages, /v1/*/routes) are NOT counted
+# against this window, so paging through session history never 429s an
+# unrelated in-flight chat turn. Left unset this would silently fall back to
+# the shared ANON_RATE_LIMIT default (20/60s); 60/60s gives normal chat usage
+# headroom above the anonymous burst ceiling.
+AUTH_RATE_LIMIT = "60"
+AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 
 [assets]
 directory = ".open-next/assets"
@@ -62,6 +99,11 @@ binding = "ASSETS"
 binding = "CATALOG"
 service = "catalog"
 
+# Users service for authenticated user-domain routes.
+[[services]]
+binding = "USERS"
+service = "users"
+
 [[containers]]
 class_name = "RuntimeContainer"
 image = "./Dockerfile"
@@ -71,9 +113,21 @@ max_instances = 3
 name = "CONTAINER"
 class_name = "RuntimeContainer"
 
+# Strongly-consistent state for the edge guards (rate limiter + anonymous
+# daily-budget latch). A Durable Object, not KV: both are read-modify-write
+# counters that must be correct under concurrency, and KV is eventually
+# consistent with a 60s edge cache.
+[[durable_objects.bindings]]
+name = "EDGE_GUARD"
+class_name = "EdgeGuard"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RuntimeContainer"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["EdgeGuard"]
 
 [observability]
 enabled = false
@@ -89,3 +143,143 @@ invocation_logs = true
 enabled = true
 persist = true
 head_sampling_rate = 1
+
+[env.production]
+name = "animichi"
+routes = [
+  { pattern = "animichi.com/*", zone_name = "animichi.com" }
+]
+
+[env.production.vars]
+CATALOG_API_URL = "http://catalog.internal"
+ANON_ACCESS_ENABLED = "false"
+# Per-identity burst limit (abuse control). The per-identity DAILY message
+# quota is issue #282 and is configured separately.
+ANON_RATE_LIMIT = "20"
+ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
+# Global anonymous daily spend ceiling (X4). Enforced by the container ingress
+# against the daily_usage table; 0 disables the breaker.
+ANON_DAILY_COST_BUDGET_USD = "5.0"
+# Per-identity daily message quota (issue #282, S1.10) — a fairness/UX
+# mechanism, not a security defense line: it keeps one visitor's free usage
+# reasonable while the shared budget above stays open for everyone else.
+# Enforced by the container ingress against anon_daily_message_count; 0 or
+# unset disables it, the same "0 disables" convention as the budget ceiling
+# above. Default is an owner-set operations decision (20 here is a starting
+# point, not a locked-in value).
+ANON_DAILY_MESSAGE_QUOTA = "20"
+# Per-identity limit on the two cost-bearing AUTHENTICATED endpoints (issue
+# #284 / Task 9): POST /v1/chat and POST /v1/byok/probe ONLY — authenticated
+# reads (GET /v1/conversations, /v1/*/messages, /v1/*/routes) are NOT counted
+# against this window, so paging through session history never 429s an
+# unrelated in-flight chat turn. Left unset this would silently fall back to
+# the shared ANON_RATE_LIMIT default (20/60s); 60/60s gives normal chat usage
+# headroom above the anonymous burst ceiling.
+AUTH_RATE_LIMIT = "60"
+AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
+
+[env.production.assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[[env.production.services]]
+binding = "CATALOG"
+service = "catalog"
+
+[[env.production.services]]
+binding = "USERS"
+service = "users"
+
+[[env.production.containers]]
+class_name = "RuntimeContainer"
+image = "./Dockerfile"
+max_instances = 3
+
+[[env.production.durable_objects.bindings]]
+name = "CONTAINER"
+class_name = "RuntimeContainer"
+
+# Strongly-consistent state for the edge guards (rate limiter + anonymous
+# daily-budget latch). A Durable Object, not KV: both are read-modify-write
+# counters that must be correct under concurrency, and KV is eventually
+# consistent with a 60s edge cache.
+[[env.production.durable_objects.bindings]]
+name = "EDGE_GUARD"
+class_name = "EdgeGuard"
+
+[[env.production.migrations]]
+tag = "v1"
+new_sqlite_classes = ["RuntimeContainer"]
+
+[[env.production.migrations]]
+tag = "v2"
+new_sqlite_classes = ["EdgeGuard"]
+
+[env.staging]
+name = "animichi-staging"
+routes = []
+
+[env.staging.vars]
+CATALOG_API_URL = "http://catalog.internal"
+ANON_ACCESS_ENABLED = "true"
+# Per-identity burst limit (abuse control). The per-identity DAILY message
+# quota is issue #282 and is configured separately.
+ANON_RATE_LIMIT = "20"
+ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
+# Global anonymous daily spend ceiling (X4). Enforced by the container ingress
+# against the daily_usage table; 0 disables the breaker.
+ANON_DAILY_COST_BUDGET_USD = "5.0"
+# Per-identity daily message quota (issue #282, S1.10) — a fairness/UX
+# mechanism, not a security defense line: it keeps one visitor's free usage
+# reasonable while the shared budget above stays open for everyone else.
+# Enforced by the container ingress against anon_daily_message_count; 0 or
+# unset disables it, the same "0 disables" convention as the budget ceiling
+# above. Default is an owner-set operations decision (20 here is a starting
+# point, not a locked-in value).
+ANON_DAILY_MESSAGE_QUOTA = "20"
+# Per-identity limit on the two cost-bearing AUTHENTICATED endpoints (issue
+# #284 / Task 9): POST /v1/chat and POST /v1/byok/probe ONLY — authenticated
+# reads (GET /v1/conversations, /v1/*/messages, /v1/*/routes) are NOT counted
+# against this window, so paging through session history never 429s an
+# unrelated in-flight chat turn. Left unset this would silently fall back to
+# the shared ANON_RATE_LIMIT default (20/60s); 60/60s gives normal chat usage
+# headroom above the anonymous burst ceiling.
+AUTH_RATE_LIMIT = "60"
+AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
+
+[env.staging.assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[[env.staging.services]]
+binding = "CATALOG"
+service = "catalog-staging"
+
+[[env.staging.services]]
+binding = "USERS"
+service = "users-staging"
+
+[[env.staging.containers]]
+class_name = "RuntimeContainer"
+image = "./Dockerfile"
+max_instances = 3
+
+[[env.staging.durable_objects.bindings]]
+name = "CONTAINER"
+class_name = "RuntimeContainer"
+
+# Strongly-consistent state for the edge guards (rate limiter + anonymous
+# daily-budget latch). A Durable Object, not KV: both are read-modify-write
+# counters that must be correct under concurrency, and KV is eventually
+# consistent with a 60s edge cache.
+[[env.staging.durable_objects.bindings]]
+name = "EDGE_GUARD"
+class_name = "EdgeGuard"
+
+[[env.staging.migrations]]
+tag = "v1"
+new_sqlite_classes = ["RuntimeContainer"]
+
+[[env.staging.migrations]]
+tag = "v2"
+new_sqlite_classes = ["EdgeGuard"]

@@ -31,12 +31,13 @@ export default defineConfig({
       // pool, so they are excluded from this worker-runtime coverage scope.
       exclude: ["src/ingest/**", "src/enrich/**", "src/publish/**", "src/media/**"],
       reporter: ["text", "lcov"],
-      // Modest starting floor — ratchet UP as worker tests grow (never lower).
+      // Ratcheted to the measured floor (94.69/95.63/92.69/78.37). UP only —
+      // never lower these to make a change fit.
       thresholds: {
-        lines: 60,
-        functions: 60,
-        statements: 60,
-        branches: 50,
+        lines: 94,
+        functions: 95,
+        statements: 92,
+        branches: 78,
       },
     },
   },

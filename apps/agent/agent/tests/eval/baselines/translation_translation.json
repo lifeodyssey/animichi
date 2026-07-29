@@ -1,9 +1,17 @@
 {
-  "case_count": 62,
+  "schema_version": 2,
   "model": "translation",
+  "dataset": "translation_v1",
+  "tier": "translation",
+  "repeat": 1,
+  "case_count": 62,
+  "evaluated_count": 62,
+  "errored_count": 0,
   "scores": {
     "ExactMatchEvaluator": 0.6949152542372882,
     "FuzzyMatchEvaluator": 0.8440677966101692,
     "NotOriginalEvaluator": 1.0
-  }
+  },
+  "cases": {},
+  "note": "migrated from schema-1 aggregate baseline; evaluated_count/errored_count not recorded pre-migration (assumed full, zero); per-case scores unavailable, so the paired score gate is skipped (min_paired) until the next full run rewrites this baseline"
 }

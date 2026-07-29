@@ -1,0 +1,10 @@
+config:
+  # Same Cloudflare account as prod (already committed in Pulumi.prod.yaml).
+  seichijunrei-infra:cloudflareAccountId: 021233c1880a43aa68565496100e1f8c
+  # Staging web/edge routes stay OFF until the S0.7 split-brain cutover.
+  # To enable staging routes on the staging stack:
+  #   pulumi config set webRoutesEnabled true --stack staging
+  #   pulumi config set cloudflareZoneId <animichi.com zone id> --stack staging
+  #   pulumi config set webDomain staging.animichi.com --stack staging
+  # catalogDatabaseUrl is a secret — set it per stack, never commit the raw value:
+  #   pulumi config set --secret catalogDatabaseUrl "<neon staging branch connstr>" --stack staging

@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>路线详情 状态总览 v2 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&family=Noto+Serif+JP:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0e8d8; --card:#f8f8f0; --panel:#f7f3df;
+  --tx:#794f27; --tx2:#725d42; --tx3:#9f927d;
+  --line:#e8e2d6; --line2:#c4b89e; --pill:50px;
+  --teal:#19c8b9; --teal-text:#0e7c72; --teal-deep:#0fa396;
+  --gold:#f5c31c; --gold-tx:#5c4813; --gold-deep:#d9a412; --star:#f0b429;
+  --brand:#c44a2e; --error:#e05a5a; --focus:#ffcc00;
+  --sh:#bdaea0; --sh2:#d4c9b4;
+  --map-land:#ebe6d5; --map-green:#dbe7c6; --map-water:#bcdce0; --map-road:#fdfbf2; --map-path:#8a6f4d;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:auto;}
+body{background:#e7dfca;font-family:'Zen Maru Gothic','Nunito','Noto Sans SC',sans-serif;color:var(--tx);padding:56px 64px 120px;}
+.canvas-head{max-width:1480px;margin:0 auto 12px;}
+.canvas-head .eyebrow{font-family:Nunito;font-weight:900;font-size:13px;letter-spacing:.22em;color:var(--tx3);text-transform:uppercase;}
+.canvas-head h1{font-size:34px;font-weight:900;margin:6px 0 10px;}
+.canvas-head p{font-size:14px;color:var(--tx2);line-height:1.8;max-width:960px;}
+.canvas-head .brief{margin-top:14px;background:var(--panel);border:1.5px dashed var(--line2);border-radius:16px;padding:14px 18px;font-size:13px;color:var(--tx2);line-height:2;max-width:960px;}
+.canvas-head .brief b{color:var(--tx);}
+.group{max-width:2200px;margin:72px auto 0;}
+.group>header{display:flex;align-items:baseline;gap:14px;border-bottom:2px solid var(--line2);padding-bottom:10px;margin-bottom:34px;}
+.group>header .gid{font-family:Nunito;font-weight:900;font-size:15px;color:#fff;background:var(--tx);border-radius:8px;padding:3px 10px;}
+.group>header h2{font-size:23px;font-weight:900;}
+.group>header .sub{font-size:13px;color:var(--tx3);}
+.row{display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start;}
+.frame{display:flex;flex-direction:column;gap:12px;}
+.frame .flabel{max-width:402px;}
+.frame .flabel .fid{font-family:Nunito;font-weight:900;font-size:12px;letter-spacing:.14em;color:var(--teal-text);background:#dff3f0;border:1px solid #b8e2dc;border-radius:6px;padding:2px 8px;display:inline-block;}
+.frame .flabel h3{font-size:17px;font-weight:900;margin:7px 0 3px;}
+.frame .flabel p{font-size:12.5px;color:var(--tx2);line-height:1.75;}
+.phone{width:402px;height:874px;background:var(--card);border:1.5px solid var(--line2);border-radius:36px;overflow:hidden;position:relative;box-shadow:0 10px 0 0 var(--sh2);flex-shrink:0;}
+.note{background:var(--panel);border:1.5px dashed var(--line2);border-radius:16px;padding:16px 18px;width:320px;font-size:12.5px;color:var(--tx2);line-height:1.9;}
+.note h4{font-size:13px;color:var(--tx);margin-bottom:6px;font-weight:900;}
+.note b{color:var(--tx);}
+.note .y{background:#fdf3d0;border-radius:4px;padding:0 4px;color:var(--tx);}
+
+/* ── phone innards ── */
+.sb{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:800 14px Nunito;color:var(--tx);}
+.sb .dots{display:flex;gap:4px;}.sb .dots i{width:5px;height:5px;border-radius:50%;background:var(--tx2);}
+.appbar{display:flex;align-items:center;gap:10px;padding:4px 16px 8px;}
+.appbar .back{width:36px;height:36px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--tx);font:900 15px Nunito;}
+.appbar .at{font-size:13px;font-weight:700;color:var(--tx3);}
+.seg{display:flex;gap:4px;margin:6px 16px 10px;background:var(--panel);border:1.5px solid var(--line);border-radius:50px;padding:4px;}
+.seg span{flex:1;text-align:center;padding:8px 0;border-radius:50px;font-size:13.5px;font-weight:900;color:var(--tx3);}
+.seg .on{background:#dff3f0;border:1.5px solid var(--teal);color:var(--teal-text);}
+.seg .auto{font-size:9.5px;display:block;font-weight:700;letter-spacing:.08em;margin-top:1px;}
+/* hero */
+.hero{position:relative;height:236px;margin:0 0 0;overflow:hidden;}
+.hero .hgrad{position:absolute;inset:0;background:linear-gradient(180deg,rgba(40,30,18,0) 34%,rgba(40,30,18,.62) 100%);}
+.hero .ctag{position:absolute;top:12px;left:14px;background:rgba(61,45,24,.68);color:#fff;font:800 11px Nunito;padding:3px 9px;border-radius:8px;}
+.hero .hbody{position:absolute;left:16px;right:16px;bottom:12px;color:#fff;}
+.hero .hey{font:900 10.5px Nunito;letter-spacing:.2em;opacity:.85;}
+.hero .htt{font-size:24px;font-weight:900;text-shadow:0 1px 4px rgba(40,30,18,.4);margin:2px 0 6px;}
+.hmeta{display:flex;gap:6px;flex-wrap:wrap;}
+.hmeta .mchip{background:rgba(248,248,240,.92);color:var(--tx);font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:50px;}
+.hmeta .pace{background:#e3f2d9;color:#4c7a2e;}
+/* timeline rows w/ thumbs */
+.tl{padding:6px 16px 0;}
+.trow{display:grid;grid-template-columns:46px 22px 1fr;column-gap:8px;align-items:stretch;}
+.trow .tt{font:800 14.5px Nunito;color:var(--tx);padding-top:12px;}
+.trow .tt em{display:block;font:700 10px Nunito;color:var(--tx3);font-style:normal;}
+.trk{position:relative;}
+.trk::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:2.5px;margin-left:-1.25px;background:var(--line2);}
+.trk .dot{position:absolute;left:50%;top:16px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#fff;border:3px solid var(--teal);z-index:1;}
+.trk .dot.done{background:var(--teal);border-color:var(--teal);}
+.trk .dot.star{width:18px;height:18px;margin-left:-9px;top:13px;background:var(--star);border-color:#fff;box-shadow:0 0 0 2.5px var(--star);}
+.trow.first .trk::before{top:16px;}
+.trow.last .trk::before{bottom:auto;height:22px;}
+.tcard{display:flex;gap:10px;padding:9px 0 9px;align-items:flex-start;}
+.tthumb{width:104px;height:64px;border-radius:12px;position:relative;overflow:hidden;flex-shrink:0;border:1.5px solid var(--line);}
+.tthumb .ttag{position:absolute;left:5px;bottom:5px;background:rgba(61,45,24,.68);color:#fff;font:800 9.5px Nunito;padding:2px 6px;border-radius:6px;white-space:nowrap;}
+.tthumb .chk{position:absolute;top:5px;right:5px;width:18px;height:18px;border-radius:50%;background:var(--teal);color:#fff;font:900 11px Nunito;display:flex;align-items:center;justify-content:center;}
+.tinfo{min-width:0;padding-top:2px;}
+.tinfo .nm{font-size:15px;font-weight:900;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.tinfo .meta{font-size:11.5px;color:var(--tx3);font-weight:700;margin-top:3px;line-height:1.6;}
+.schip{font-size:10px;font-weight:900;padding:1.5px 7px;border-radius:50px;white-space:nowrap;}
+.schip.now{background:#fdf3d0;color:#8a6a12;border:1px solid var(--star);}
+.schip.done{background:#dff3f0;color:var(--teal-text);}
+.schip.warn{background:#fdeaea;color:#b04545;border:1px solid #f0c8c8;}
+.walkrow{display:grid;grid-template-columns:46px 22px 1fr;column-gap:8px;}
+.walkrow .trk::before{background:transparent;border-left:2.5px dashed var(--line2);width:0;}
+.walkrow .wpill{margin:2px 0;justify-self:start;background:var(--panel);border:1.5px solid var(--line);border-radius:50px;padding:3px 11px;font-size:11px;font-weight:800;color:var(--tx2);}
+.walkrow .wpill b{color:var(--tx);}
+/* map + frame-pins */
+.map{position:relative;background:var(--map-land);overflow:hidden;}
+.map .mg{position:absolute;border-radius:50%;background:var(--map-green);}
+.map .mw{position:absolute;border-radius:40%;background:var(--map-water);}
+.map .mr{position:absolute;background:var(--map-road);border-radius:4px;}
+.fpin{position:absolute;width:48px;height:48px;border-radius:13px;border:2.5px solid #fff;box-shadow:0 3px 0 rgba(122,95,61,.32);z-index:2;}
+.fpin::after{content:'';position:absolute;left:50%;bottom:-9px;margin-left:-6px;border:6px solid transparent;border-top-color:#fff;}
+.fpin .fimg{position:absolute;inset:0;border-radius:10px;overflow:hidden;}
+.fpin .pb{position:absolute;top:-9px;right:-9px;min-width:20px;height:20px;border-radius:50%;font:900 11px Nunito;color:#fff;display:flex;align-items:center;justify-content:center;z-index:3;padding:0 4px;}
+.fpin.done .pb{background:var(--teal);}
+.fpin.cur{border-color:var(--star);box-shadow:0 0 0 3px rgba(240,180,41,.45),0 3px 0 rgba(122,95,61,.32);}
+.fpin.cur .pb{background:var(--star);color:#5c4813;}
+.fpin.dim{opacity:.55;}
+.routepill{position:absolute;top:10px;left:12px;background:var(--gold);color:var(--gold-tx);font-size:11.5px;font-weight:900;padding:5px 12px;border-radius:50px;box-shadow:0 2.5px 0 var(--gold-deep);z-index:4;}
+.mapop{position:absolute;top:10px;right:12px;background:rgba(248,248,240,.94);border:1.5px solid var(--line2);color:var(--tx);font-size:11px;font-weight:800;padding:5px 11px;border-radius:50px;z-index:4;}
+/* dock + sheet */
+.dock{position:absolute;left:0;right:0;bottom:0;padding:26px 16px 16px;background:linear-gradient(180deg,rgba(248,248,240,0),var(--card) 46%);z-index:6;}
+.cta{display:flex;align-items:center;justify-content:center;height:54px;border-radius:50px;background:var(--gold);color:var(--gold-tx);font-size:16.5px;font-weight:900;box-shadow:0 4px 0 0 var(--gold-deep);}
+.cta.sub{background:var(--card);color:var(--tx);border:1.5px solid var(--line2);box-shadow:0 4px 0 0 var(--sh2);font-size:14px;height:48px;}
+.dockrow{display:flex;gap:10px;}.dockrow>*{flex:1;}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:24px 24px 0 0;box-shadow:0 -8px 28px rgba(122,95,61,.2);z-index:5;}
+.grab{width:44px;height:5px;border-radius:3px;background:var(--line2);margin:10px auto 4px;}
+.ann{position:absolute;z-index:9;background:#fff8e6;border:1.5px solid var(--star);color:#7a5a10;font-size:11px;font-weight:800;padding:5px 10px;border-radius:10px;box-shadow:0 2px 0 rgba(122,95,61,.2);line-height:1.5;max-width:200px;}
+</style>
+</head>
+<body>
+
+<div class="canvas-head">
+  <div class="eyebrow">Route Detail · State Overview · v2</div>
+  <h1>路线详情 /routes/:id — 状态总览（重画）</h1>
+  <p>『君の名は。』× 飛騨古川 半日ルート（5 spots）。旧版存档 → <a href="路线详情 状态总览 v1.html" style="color:var(--teal-text);">v1</a></p>
+  <div class="brief"><b>07-03 定案（晚间版，取代早前 brief①）</b>：<b>单页活文档·无模式</b>——时态切换件删除，数据点亮元素（当天→黄条+地図展開、完走→✓+対比図段），金 CTA 固定 dock 随数据换文案。仍有效：②当天＝地图+照片同屏：図釘即画面 pin + sheet 行帧缩略 ③时刻表行恢复帧缩略——画面＞地点＞时刻 ④地图加高、pin＝帧图钉 ⑤DESK 拉满宽重排 ⑥MODE（静息⇄地図展開）逻辑保留。</div>
+</div>
+
+<!-- ═══ G1 · 手机三时态 ═══ -->
+<div class="group" id="g1">
+  <header><span class="gid">G1</span><h2>手机 · 单页活文档 × 三个数据快照（402×874 · 1:1）</h2><span class="sub">无模式 · 数据点亮元素 · 金 CTA 固定 dock 随数据换文案</span></header>
+  <div class="row" id="g1-row"><!-- R-PRE -->
+<div class="frame">
+  <div class="flabel"><span class="fid">快照 1 · 平日</span>
+    <h3>同一页 — 什么都没发生</h3>
+    <p>无任何切换件。hero 首屏、时刻表行带帧缩略（画面＞地点＞时刻）、地图紧凑卡（点击→地図展開，MODE 保留）。金 CTA（dock）＝しおりを共有。</p>
+  </div>
+  <div class="phone">
+    <div style="position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;">
+      <div class="sb"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;">飛騨古川 半日ルート</div><div class="at">君の名は。 · マイルート</div></div></div>
+
+      <div style="flex:1;overflow:hidden;position:relative;">
+        <div style="height:100%;overflow:hidden;padding-bottom:90px;">
+          <div class="hero" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);margin:0 16px;border-radius:18px;">
+            <div class="hgrad" style="border-radius:18px;"></div>
+            <span class="ctag">第1話 04:12</span>
+            <div class="hbody"><div class="hey">YOUR NAME × HIDA-FURUKAWA</div><div class="htt">飛騨古川 半日ルート</div>
+              <div class="hmeta"><span class="mchip pace">ゆったり</span><span class="mchip">5スポット</span><span class="mchip">徒歩2.8km</span><span class="mchip">9:30→13:00頃</span></div>
+            </div>
+          </div>
+          <div style="margin:12px 16px 4px;border:1.5px solid var(--line);border-radius:16px;overflow:hidden;position:relative;">
+            <div class="map" style="height:132px;">
+              <div class="mg" style="width:150px;height:110px;left:-40px;top:-30px;"></div>
+              <div class="mg" style="width:120px;height:90px;right:-30px;bottom:-30px;"></div>
+              <div class="mw" style="width:180px;height:26px;left:60px;top:78px;transform:rotate(-8deg);"></div>
+              <div class="mr" style="width:300px;height:6px;left:20px;top:46px;transform:rotate(4deg);"></div>
+              <div class="mr" style="width:6px;height:110px;left:150px;top:10px;transform:rotate(10deg);"></div>
+              <svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 370 132" fill="none"><path d="M40 96 C90 80 120 60 165 56 C210 52 250 40 322 34" stroke="#8a6f4d" stroke-width="2.5" stroke-dasharray="2 9" stroke-linecap="round"/></svg>
+              <span class="routepill" style="font-size:10.5px;">飛騨古川 半日ルート</span>
+              <div class="fpin" style="width:30px;height:30px;left:28px;top:78px;border-radius:9px;"><span class="fimg" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);border-radius:7px;"></span></div>
+              <div class="fpin" style="width:30px;height:30px;left:100px;top:52px;border-radius:9px;"><span class="fimg" style="background:linear-gradient(135deg,#f5dccf,#e0b294);border-radius:7px;"></span></div>
+              <div class="fpin cur" style="width:30px;height:30px;left:172px;top:34px;border-radius:9px;"><span class="fimg" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);border-radius:7px;"></span></div>
+              <div class="fpin" style="width:30px;height:30px;left:243px;top:48px;border-radius:9px;"><span class="fimg" style="background:linear-gradient(135deg,#dfd6f0,#b7a8dd);border-radius:7px;"></span></div>
+              <div class="fpin" style="width:30px;height:30px;left:312px;top:16px;border-radius:9px;"><span class="fimg" style="background:linear-gradient(135deg,#fbe3ea,#eeb3c6);border-radius:7px;"></span></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--panel);border-top:1.5px solid var(--line);"><span style="font-size:12px;font-weight:800;color:var(--tx2);">図釘はぜんぶ本編の画面</span><span style="font-size:12px;font-weight:900;color:var(--teal-text);">地図を展開 ↗</span></div>
+          </div>
+          <div class="tl">
+            <div class="trow first"><span class="tt">9:30</span><span class="trk"><i class="dot"></i></span>
+              <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);"><span class="ttag">第1話 04:12</span></span>
+                <div class="tinfo"><div class="nm">飛騨古川駅</div><div class="meta">跨線橋からホームを俯瞰 · 12カット · 滞在15分</div></div></div></div>
+            <div class="walkrow"><span></span><span class="trk"></span><span class="wpill">徒歩<b>4分</b> · 瀬戸川の鯉を横目に</span></div>
+            <div class="trow"><span class="tt">10:05</span><span class="trk"><i class="dot"></i></span>
+              <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#f5dccf,#e0b294);"><span class="ttag">五平餅</span></span>
+                <div class="tinfo"><div class="nm">味処古川</div><div class="meta">テッシー行きつけ · 早めの昼 · 滞在30分</div></div></div></div>
+            <div class="walkrow"><span></span><span class="trk"></span><span class="wpill">徒歩<b>15分</b> · ゆるい上り坂</span></div>
+            <div class="trow"><span class="tt">10:50</span><span class="trk"><i class="dot star"></i></span>
+              <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"><span class="ttag">第8話 41:12</span></span>
+                <div class="tinfo"><div class="nm">気多若宮神社 <span class="schip now">ハイライト</span></div><div class="meta">石段と鳥居 · 18カット · 滞在20分</div></div></div></div>
+            <div class="walkrow"><span></span><span class="trk"></span><span class="wpill">徒歩<b>12分</b> · 下りて市街へ</span></div>
+            <div class="trow"><span class="tt">11:35</span><span class="trk"><i class="dot"></i></span>
+              <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#dfd6f0,#b7a8dd);"><span class="ttag">第8話 43:05</span></span>
+                <div class="tinfo"><div class="nm">飛騨市図書館 <span class="schip warn">受付許可制</span></div><div class="meta">「糸守」を調べた閲覧室 · 滞在15分</div></div></div></div>
+            <div class="walkrow"><span></span><span class="trk"></span><span class="wpill">徒歩<b>6分</b></span></div>
+            <div class="trow last"><span class="tt">12:10</span><span class="trk"><i class="dot"></i></span>
+              <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"><span class="ttag">組紐</span></span>
+                <div class="tinfo"><div class="nm">さくら物産館</div><div class="meta">組紐体験30分 · ゴール13:00頃</div></div></div></div>
+          </div>
+        </div>
+        <div class="dock"><div class="dockrow"><span class="cta sub" style="flex:0 0 118px;">編集する</span><span class="cta">しおりを共有</span></div></div>
+        <div class="ann" style="top:64px;right:8px;">切換UIなし——<br>ページはいつも同じ一枚</div>
+        <div class="ann" style="top:436px;left:8px;">③行＝まず画面。<br>画面＞地点＞時刻</div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- R-LIVE -->
+<div class="frame">
+  <div class="flabel"><span class="fid">快照 2 · 当天</span>
+    <h3>同一页 — 数据说今天是巡礼日</h3>
+    <p>多一根黄条（信息，不抢 CTA），地图自动展開（MODE）：<b>地图+照片同屏</b>、図釘即画面、sheet 行带帧缩略。金 CTA 还在 dock、换文案＝歩くモードへ。</p>
+  </div>
+  <div class="phone">
+    <div style="position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;">
+      <div class="sb"><span>10:42</span><span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;">飛騨古川 半日ルート</div><div class="at">君の名は。 · 2/5 訪問ずみ</div></div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 16px 10px;background:#fdf3d0;border:1.5px solid var(--star);border-radius:50px;padding:8px 16px;"><span style="font-size:13px;font-weight:900;color:#8a6a12;">きょうは巡礼日！のこり3スポット</span><span style="font:800 11px Nunito;color:#8a6a12;">2/5 ✓</span></div>
+      <div style="flex:1;position:relative;overflow:hidden;">
+        <div class="map" style="position:absolute;inset:0;">
+          <div class="mg" style="width:220px;height:170px;left:-60px;top:-40px;"></div>
+          <div class="mg" style="width:190px;height:150px;right:-50px;top:150px;"></div>
+          <div class="mw" style="width:300px;height:34px;left:40px;top:250px;transform:rotate(-10deg);"></div>
+          <div class="mr" style="width:460px;height:8px;left:-20px;top:120px;transform:rotate(6deg);"></div>
+          <div class="mr" style="width:8px;height:300px;left:200px;top:-10px;transform:rotate(12deg);"></div>
+          <div class="mr" style="width:300px;height:6px;left:60px;top:300px;transform:rotate(-4deg);"></div>
+          <svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 400 420" fill="none"><path d="M60 330 C110 300 130 250 180 235 C230 220 260 160 330 130 C350 122 365 90 352 60" stroke="#8a6f4d" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round"/></svg>
+          <span class="routepill">飛騨古川 半日ルート · 2/5</span>
+          <span class="mapop">現在地へ ◎</span>
+          <div class="fpin done" style="left:36px;top:296px;"><span class="fimg" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);"></span><span class="pb">✓</span></div>
+          <div class="fpin done" style="left:152px;top:200px;"><span class="fimg" style="background:linear-gradient(135deg,#f5dccf,#e0b294);"></span><span class="pb">✓</span></div>
+          <div class="fpin cur" style="left:300px;top:96px;width:58px;height:58px;"><span class="fimg" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"></span><span class="pb">★</span></div>
+          <div class="fpin" style="left:224px;top:250px;"><span class="fimg" style="background:linear-gradient(135deg,#dfd6f0,#b7a8dd);"></span><span class="pb" style="background:#fff;color:var(--tx);border:1.5px solid var(--line2);">4</span></div>
+          <div class="fpin" style="left:120px;top:330px;"><span class="fimg" style="background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"></span><span class="pb" style="background:#fff;color:var(--tx);border:1.5px solid var(--line2);">5</span></div>
+          <div class="ann" style="top:64px;left:10px;">②④ 地図は目一杯高く。<br>図釘＝そのまま本編の画面</div>
+        </div>
+        <div class="sheet" style="height:378px;display:flex;flex-direction:column;">
+          <div class="grab"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 16px 8px;">
+            <div style="font-size:13px;font-weight:900;">つぎは <span style="color:var(--teal-text);">気多若宮神社</span></div>
+            <div style="display:flex;gap:3px;align-items:center;"><i style="width:9px;height:9px;border-radius:3px;background:var(--teal);"></i><i style="width:9px;height:9px;border-radius:3px;background:var(--teal);"></i><i style="width:9px;height:9px;border-radius:3px;background:#fff;border:1.5px solid var(--star);"></i><i style="width:9px;height:9px;border-radius:3px;background:var(--line);"></i><i style="width:9px;height:9px;border-radius:3px;background:var(--line);"></i><span style="font:800 11px Nunito;color:var(--tx3);margin-left:4px;">2/5</span></div>
+          </div>
+          <div class="tl" style="flex:1;overflow:hidden;padding-bottom:86px;">
+            <div class="trow first"><span class="tt">10:50<em>徒歩2分</em></span><span class="trk"><i class="dot star"></i></span>
+              <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"><span class="ttag">第8話 41:12</span></span>
+                <div class="tinfo"><div class="nm">気多若宮神社 <span class="schip now">つぎ</span></div><div class="meta">石段と鳥居 · 18カット · 滞在20分</div></div></div></div>
+            <div class="walkrow"><span></span><span class="trk"></span><span class="wpill">徒歩<b>12分</b> · 下りて市街へ</span></div>
+            <div class="trow"><span class="tt">11:35</span><span class="trk"><i class="dot"></i></span>
+              <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#dfd6f0,#b7a8dd);"><span class="ttag">第8話 43:05</span></span>
+                <div class="tinfo"><div class="nm">飛騨市図書館 <span class="schip warn">受付許可制</span></div><div class="meta">閲覧室 · 滞在15分</div></div></div></div>
+            <div class="trow last" style="opacity:.62;"><span class="tt">12:10</span><span class="trk"><i class="dot"></i></span>
+              <div class="tcard"><span class="tthumb" style="width:72px;height:46px;background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"><span class="ttag">組紐</span></span>
+                <div class="tinfo"><div class="nm" style="font-size:14px;">さくら物産館</div><div class="meta">ゴール13:00頃 · 済み2件は上に畳む</div></div></div></div>
+          </div>
+          <div class="dock" style="padding-bottom:14px;"><div class="dockrow"><span class="cta sub" style="flex:0 0 118px;">Mapsで開く</span><span class="cta">歩くモードへ</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- R-MEM -->
+<div class="frame">
+  <div class="flabel"><span class="fid">快照 3 · 完走后</span>
+    <h3>同一页 — 数据说走完了</h3>
+    <p>hero 自带完走徽章、<b>対比図段自己出现</b>（image-merge 产物，未生成＝dashed）、行上✓。金 CTA 换文案＝記念しおりを作る。</p>
+  </div>
+  <div class="phone">
+    <div style="position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;">
+      <div class="sb"><span>15:20</span><span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;">飛騨古川 半日ルート</div><div class="at">君の名は。 · 7/3 完走</div></div></div>
+
+      <div style="flex:1;overflow:hidden;position:relative;">
+        <div style="height:100%;overflow:hidden;padding-bottom:90px;">
+          <div class="hero" style="height:190px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);margin:0 16px;border-radius:18px;">
+            <div class="hgrad" style="border-radius:18px;"></div>
+            <span class="ctag">第8話 41:12</span>
+            <span style="position:absolute;top:12px;right:12px;background:var(--gold);color:var(--gold-tx);font-size:11px;font-weight:900;padding:4px 11px;border-radius:50px;box-shadow:0 2.5px 0 var(--gold-deep);">完走 5/5 ✓</span>
+            <div class="hbody"><div class="hey">2026.07.03 · YOUR NAME × HIDA</div><div class="htt" style="font-size:22px;">飛騨古川 半日ルート</div>
+              <div class="hmeta"><span class="mchip">5スポット ぜんぶ ✓</span><span class="mchip">9:31→12:58</span></div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin:14px 18px 8px;"><span style="font-size:14px;font-weight:900;">対比図 <span style="font:800 11px Nunito;color:var(--tx3);">4枚 · 3スポット</span></span><span style="font-size:11.5px;font-weight:900;color:var(--teal-text);">機位ブラウザ ↗</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 16px;">
+            <div style="border:1.5px solid var(--line);border-radius:11px;overflow:hidden;background:#fff;"><div style="position:relative;"><div style="height:40px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);position:relative;"><span style="position:absolute;left:4px;top:4px;background:rgba(61,45,24,.68);color:#fff;font:800 7.5px Nunito;padding:1px 5px;border-radius:4px;">第1話</span></div><div style="height:40px;background:linear-gradient(172deg,#a9bdd6,#7e94b3);position:relative;"><span style="position:absolute;right:4px;top:3px;background:rgba(248,248,240,.9);color:var(--tx);font:800 7px Nunito;padding:1px 4px;border-radius:4px;">実拍</span></div><span style="position:absolute;left:0;right:0;top:40px;height:1.5px;margin-top:-0.75px;background:rgba(248,248,240,.85);"></span></div><div style="padding:3px 7px;font-size:9px;font-weight:800;background:var(--panel);">駅 · 9:31</div></div>
+            <div style="border:1.5px solid var(--line);border-radius:11px;overflow:hidden;background:#fff;position:relative;"><span style="position:absolute;right:4px;top:4px;background:var(--gold);color:var(--gold-tx);font:900 8px Nunito;padding:1px 6px;border-radius:50px;box-shadow:0 1.5px 0 var(--gold-deep);z-index:2;">×2</span><div style="position:relative;"><div style="height:40px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);position:relative;"><span style="position:absolute;left:4px;top:4px;background:rgba(61,45,24,.68);color:#fff;font:800 7.5px Nunito;padding:1px 5px;border-radius:4px;">第8話</span></div><div style="height:40px;background:linear-gradient(172deg,#b9cfa4,#7fa063);position:relative;"><span style="position:absolute;right:4px;top:3px;background:rgba(248,248,240,.9);color:var(--tx);font:800 7px Nunito;padding:1px 4px;border-radius:4px;">実拍</span></div><span style="position:absolute;left:0;right:0;top:40px;height:1.5px;margin-top:-0.75px;background:rgba(248,248,240,.85);"></span></div><div style="padding:3px 7px;font-size:9px;font-weight:800;background:var(--panel);">神社 ★ · 10:48</div></div>
+            <div style="border:1.5px solid var(--line);border-radius:11px;overflow:hidden;background:#fff;"><div style="position:relative;"><div style="height:40px;background:linear-gradient(135deg,#fbe3ea,#eeb3c6);position:relative;"><span style="position:absolute;left:4px;top:4px;background:rgba(61,45,24,.68);color:#fff;font:800 7.5px Nunito;padding:1px 5px;border-radius:4px;">組紐</span></div><div style="height:40px;background:linear-gradient(172deg,#e3bcc8,#b98a9b);position:relative;"><span style="position:absolute;right:4px;top:3px;background:rgba(248,248,240,.9);color:var(--tx);font:800 7px Nunito;padding:1px 4px;border-radius:4px;">実拍</span></div><span style="position:absolute;left:0;right:0;top:40px;height:1.5px;margin-top:-0.75px;background:rgba(248,248,240,.85);"></span></div><div style="padding:3px 7px;font-size:9px;font-weight:800;background:var(--panel);">物産館 · 12:58</div></div>
+          </div>
+          <div style="margin:8px 16px 0;border:1.5px dashed var(--line2);border-radius:11px;padding:8px 12px;display:flex;align-items:center;gap:8px;color:var(--tx3);"><span style="font-size:14px;font-weight:900;">＋</span><span style="font-size:10.5px;font-weight:800;">機位ブラウザから作る（のこり14カット）</span></div>
+          <div class="tl" style="margin-top:6px;">
+            <div class="trow first"><span class="tt">9:31</span><span class="trk"><i class="dot done"></i></span>
+              <div class="tcard" style="padding:7px 0;"><span class="tthumb" style="width:72px;height:45px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);"><span class="chk">✓</span></span>
+                <div class="tinfo"><div class="nm" style="font-size:14px;">飛騨古川駅</div><div class="meta">9:31 ここに来た!</div></div></div></div>
+            <div class="trow"><span class="tt">10:02</span><span class="trk"><i class="dot done"></i></span>
+              <div class="tcard" style="padding:7px 0;"><span class="tthumb" style="width:72px;height:45px;background:linear-gradient(135deg,#f5dccf,#e0b294);"><span class="chk">✓</span></span>
+                <div class="tinfo"><div class="nm" style="font-size:14px;">味処古川</div><div class="meta">10:02 ✓ · 五平餅うまい</div></div></div></div>
+            <div class="trow last"><span class="tt">10:48</span><span class="trk"><i class="dot done"></i></span>
+              <div class="tcard" style="padding:7px 0;"><span class="tthumb" style="width:72px;height:45px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);"><span class="chk">✓</span></span>
+                <div class="tinfo"><div class="nm" style="font-size:14px;">気多若宮神社 <span class="schip done">★</span></div><div class="meta">…のこり2件も✓（下にスクロール）</div></div></div></div>
+          </div>
+        </div>
+        <div class="dock"><div class="dockrow"><span class="cta sub" style="flex:0 0 108px;">共有</span><span class="cta">記念しおりを作る</span></div></div>
+        <div class="ann" style="top:300px;right:8px;">対比図＝image-merge 深链<br>（url+pid+bid+g）· JPGで</div>
+      </div>
+    </div>
+  </div>
+</div></div>
+</div>
+
+<!-- ═══ G2 · 桌面 ═══ -->
+<div class="group" id="g2">
+  <header><span class="gid">G2</span><h2>桌面 R-DESK（1440 · 拉满宽）</h2><span class="sub">重排：hero+时刻表 | 加高地图 | QR rail 融入</span></header>
+  <div class="row" id="g2-row">
+<div class="frame">
+  <div class="flabel" style="max-width:1440px;"><span class="fid">R-DESK · 1440</span>
+    <h3>桌面 — 拉满宽三栏重排（解决「又空又挤」）</h3>
+    <p>左＝hero+帧缩略时刻表（430）｜中＝大地图（帧图钉，吃满高）｜右＝rail（270）：QR「旅へ持っていく」+ 対比図 + 出典。单页活文档同手机：状态 chip 显数据，当天/完走后元素自动点亮。</p>
+  </div>
+  <div style="width:1440px;height:860px;background:var(--card);border:1.5px solid var(--line2);border-radius:24px;box-shadow:0 10px 0 0 var(--sh2);overflow:hidden;position:relative;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;gap:14px;padding:14px 24px 10px;border-bottom:1.5px solid var(--line);">
+      <span class="back" style="width:36px;height:36px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font:900 15px Nunito;">‹</span>
+      <div><div style="font-size:18px;font-weight:900;">飛騨古川 半日ルート</div><div style="font-size:12px;color:var(--tx3);font-weight:700;">君の名は。 · マイルート</div></div>
+      <span style="background:#fdf3d0;border:1.5px solid var(--star);color:#8a6a12;font-size:12px;font-weight:900;padding:7px 15px;border-radius:50px;">出発前</span>
+      <div style="flex:1;"></div>
+      <span class="cta sub" style="height:42px;padding:0 20px;font-size:13.5px;">編集する</span>
+      <span class="cta" style="height:44px;padding:0 26px;font-size:14.5px;">しおりを共有</span>
+    </div>
+    <div style="flex:1;display:flex;min-height:0;">
+      <div style="width:430px;border-right:1.5px solid var(--line);display:flex;flex-direction:column;min-height:0;">
+        <div class="hero" style="height:168px;margin:14px 16px 0;border-radius:16px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);flex-shrink:0;">
+          <div class="hgrad" style="border-radius:16px;"></div><span class="ctag">第1話 04:12</span>
+          <div class="hbody"><div class="hey">YOUR NAME × HIDA-FURUKAWA</div><div class="htt" style="font-size:20px;">飛騨古川 半日ルート</div>
+            <div class="hmeta"><span class="mchip pace">ゆったり</span><span class="mchip">5スポット</span><span class="mchip">徒歩2.8km</span><span class="mchip">9:30→13:00頃</span></div></div>
+        </div>
+        <div class="tl" style="overflow:hidden;flex:1;">
+          <div class="trow first"><span class="tt">9:30</span><span class="trk"><i class="dot"></i></span>
+            <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);"><span class="ttag">第1話 04:12</span></span>
+              <div class="tinfo"><div class="nm">飛騨古川駅</div><div class="meta">ホーム俯瞰 · 12カット · 15分</div></div></div></div>
+          <div class="walkrow"><span></span><span class="trk"></span><span class="wpill">徒歩<b>4分</b></span></div>
+          <div class="trow"><span class="tt">10:05</span><span class="trk"><i class="dot"></i></span>
+            <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#f5dccf,#e0b294);"><span class="ttag">五平餅</span></span>
+              <div class="tinfo"><div class="nm">味処古川</div><div class="meta">早めの昼 · 30分</div></div></div></div>
+          <div class="walkrow"><span></span><span class="trk"></span><span class="wpill">徒歩<b>15分</b> · 上り坂</span></div>
+          <div class="trow"><span class="tt">10:50</span><span class="trk"><i class="dot star"></i></span>
+            <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"><span class="ttag">第8話 41:12</span></span>
+              <div class="tinfo"><div class="nm">気多若宮神社 <span class="schip now">ハイライト</span></div><div class="meta">石段と鳥居 · 18カット · 20分</div></div></div></div>
+          <div class="walkrow"><span></span><span class="trk"></span><span class="wpill">徒歩<b>12分</b></span></div>
+          <div class="trow"><span class="tt">11:35</span><span class="trk"><i class="dot"></i></span>
+            <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#dfd6f0,#b7a8dd);"><span class="ttag">第8話 43:05</span></span>
+              <div class="tinfo"><div class="nm">飛騨市図書館 <span class="schip warn">受付許可制</span></div><div class="meta">閲覧室 · 15分</div></div></div></div>
+          <div class="walkrow"><span></span><span class="trk"></span><span class="wpill">徒歩<b>6分</b></span></div>
+          <div class="trow last"><span class="tt">12:10</span><span class="trk"><i class="dot"></i></span>
+            <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"><span class="ttag">組紐</span></span>
+              <div class="tinfo"><div class="nm">さくら物産館</div><div class="meta">組紐30分 · ゴール13:00頃</div></div></div></div>
+        </div>
+      </div>
+      <div class="map" style="flex:1;position:relative;">
+        <div class="mg" style="width:340px;height:260px;left:-80px;top:-60px;"></div>
+        <div class="mg" style="width:300px;height:230px;right:-70px;bottom:60px;"></div>
+        <div class="mw" style="width:520px;height:44px;left:80px;top:420px;transform:rotate(-8deg);"></div>
+        <div class="mr" style="width:760px;height:9px;left:-20px;top:210px;transform:rotate(5deg);"></div>
+        <div class="mr" style="width:9px;height:520px;left:330px;top:-20px;transform:rotate(11deg);"></div>
+        <div class="mr" style="width:480px;height:7px;left:120px;top:500px;transform:rotate(-3deg);"></div>
+        <svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 700 700" fill="none" preserveAspectRatio="none"><path d="M100 560 C180 500 220 420 310 395 C400 370 440 270 560 220 C600 200 620 150 600 100" stroke="#8a6f4d" stroke-width="3.5" stroke-dasharray="2 10" stroke-linecap="round"/></svg>
+        <span class="routepill" style="font-size:13px;">飛騨古川 半日ルート</span>
+        <span class="mapop">地図を操作 ↗</span>
+        <div class="fpin" style="left:70px;top:520px;width:56px;height:56px;"><span class="fimg" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);"></span><span class="pb" style="background:var(--teal);">出</span></div>
+        <div class="fpin" style="left:250px;top:380px;width:56px;height:56px;"><span class="fimg" style="background:linear-gradient(135deg,#f5dccf,#e0b294);"></span><span class="pb" style="background:#fff;color:var(--tx);border:1.5px solid var(--line2);">2</span></div>
+        <div class="fpin cur" style="left:500px;top:170px;width:66px;height:66px;"><span class="fimg" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"></span><span class="pb">★</span></div>
+        <div class="fpin" style="left:410px;top:430px;width:56px;height:56px;"><span class="fimg" style="background:linear-gradient(135deg,#dfd6f0,#b7a8dd);"></span><span class="pb" style="background:#fff;color:var(--tx);border:1.5px solid var(--line2);">4</span></div>
+        <div class="fpin" style="left:230px;top:560px;width:56px;height:56px;"><span class="fimg" style="background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"></span><span class="pb" style="background:#fff;color:var(--tx);border:1.5px solid var(--line2);">5</span></div>
+        <div class="ann" style="bottom:16px;left:16px;max-width:240px;">⑤ 中央＝大地図が主役。hover 図釘→左の行がハイライト（連動）</div>
+      </div>
+      <div style="width:270px;border-left:1.5px solid var(--line);padding:16px 16px;display:flex;flex-direction:column;gap:12px;background:var(--panel);">
+        <div style="background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:14px;text-align:center;">
+          <div style="font-size:13px;font-weight:900;margin-bottom:8px;">旅へ持っていく</div>
+          <div style="width:110px;height:110px;margin:0 auto;border-radius:10px;background:conic-gradient(var(--tx) 0 25%,#fff 0 27%,var(--tx) 0 46%,#fff 0 49%,var(--tx) 0 71%,#fff 0 74%,var(--tx) 0 100%);opacity:.85;"></div>
+          <div style="font-size:11px;color:var(--tx3);font-weight:700;margin-top:8px;line-height:1.6;">スマホで読み取ると<br>このルートが開くよ</div>
+        </div>
+        <div style="background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;">
+          <div style="font-size:12.5px;font-weight:900;margin-bottom:6px;">名場面 <span style="font:800 10.5px Nunito;color:var(--tx3);">89件 / 作品全体</span></div>
+          <div style="display:flex;gap:6px;"><span style="flex:1;height:44px;border-radius:8px;background:linear-gradient(135deg,#cfe3f7,#98b8dc);"></span><span style="flex:1;height:44px;border-radius:8px;background:linear-gradient(135deg,#d7eccf,#a8cf8e);"></span><span style="flex:1;height:44px;border-radius:8px;background:linear-gradient(135deg,#dfd6f0,#b7a8dd);position:relative;"><i style="position:absolute;inset:0;border-radius:8px;background:rgba(61,45,24,.45);color:#fff;font:900 12px Nunito;font-style:normal;display:flex;align-items:center;justify-content:center;">+9</i></span></div>
+          <div style="font-size:11px;font-weight:900;color:var(--teal-text);margin-top:8px;">機位ブラウザで見る ↗</div>
+        </div>
+        <div style="font-size:10.5px;color:var(--tx3);font-weight:700;line-height:1.7;margin-top:auto;">画像・座標：Anitabi (CC BY-NC-SA 4.0)<br>© コミックス・ウェーブ・フィルム</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ═══ G4 · 规模三帧：长路线 / 多日 / 单点多帧 ═══ -->
+<div class="group" id="g4">
+  <header><span class="gid">G4</span><h2>规模态 — 地点多 · 多日 · 一点多图</h2><span class="sub">同一张活文档页，结构性解法（不靠人气数据）</span></header>
+  <div class="row">
+
+    <div class="frame">
+      <div class="flabel"><span class="fid">G4a · 長いルート</span>
+        <h3>≥7 站 → 分段手风琴</h3>
+        <p>響け！×宇治 12 站（丸一日）。时刻表按時間帯自动分段：<b>当前段展开、其余收成段头</b>（件数+徒歩+时间跨度）。段头 tap 展开；地图 fit 到展开段。</p>
+      </div>
+      <div class="phone" style="display:flex;flex-direction:column;">
+        <div class="sb"><span>9:12</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;">宇治 まる一日ルート</div><div class="at">響け！ユーフォニアム · 12スポット</div></div></div>
+        <div style="flex:1;overflow:hidden;position:relative;">
+          <div class="hero" style="height:150px;background:linear-gradient(135deg,#f7e0c0,#e0b083);margin:0 16px;border-radius:16px;">
+            <div class="hgrad" style="border-radius:16px;"></div><span class="ctag">第1話 02:44</span>
+            <div class="hbody" style="bottom:10px;"><div class="htt" style="font-size:19px;margin:0 0 5px;">宇治 まる一日ルート</div>
+              <div class="hmeta"><span class="mchip" style="background:#fdeaea;color:#b04545;">みっちり</span><span class="mchip">12スポット</span><span class="mchip">徒歩5.6km</span><span class="mchip">9:00→17:30頃</span></div></div>
+          </div>
+          <div style="margin:10px 16px 0;border:1.5px solid var(--line);border-radius:14px;overflow:hidden;">
+            <div class="map" style="height:104px;">
+              <div class="mg" style="width:130px;height:90px;left:-30px;top:-20px;"></div>
+              <div class="mw" style="width:200px;height:22px;left:80px;top:64px;transform:rotate(-6deg);"></div>
+              <div class="mr" style="width:300px;height:5px;left:20px;top:36px;transform:rotate(3deg);"></div>
+              <svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 370 104" fill="none"><path d="M30 78 C80 66 120 50 170 46 C220 42 265 30 340 22" stroke="#8a6f4d" stroke-width="2.5" stroke-dasharray="2 9" stroke-linecap="round"/></svg>
+              <div class="fpin" style="width:24px;height:24px;left:22px;top:58px;border-radius:8px;"><span class="fimg" style="background:linear-gradient(135deg,#f7e0c0,#e0b083);border-radius:6px;"></span></div>
+              <div class="fpin" style="width:24px;height:24px;left:78px;top:44px;border-radius:8px;"><span class="fimg" style="background:linear-gradient(135deg,#cfe0f0,#9db8d4);border-radius:6px;"></span></div>
+              <div class="fpin" style="width:24px;height:24px;left:134px;top:32px;border-radius:8px;"><span class="fimg" style="background:linear-gradient(135deg,#d7e8d0,#a9c99a);border-radius:6px;"></span></div>
+              <div class="fpin" style="width:24px;height:24px;left:186px;top:26px;border-radius:8px;"><span class="fimg" style="background:linear-gradient(135deg,#e8ddc8,#c9b391);border-radius:6px;"></span></div>
+              <div class="fpin" style="width:24px;height:24px;left:246px;top:16px;border-radius:8px;opacity:.4;"><span class="fimg" style="background:linear-gradient(135deg,#f5dccf,#e0b294);border-radius:6px;"></span></div>
+              <div class="fpin" style="width:24px;height:24px;left:306px;top:8px;border-radius:8px;opacity:.4;"><span class="fimg" style="background:linear-gradient(135deg,#dfd6f0,#b7a8dd);border-radius:6px;"></span></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--panel);border-top:1.5px solid var(--line);"><span style="font-size:11.5px;font-weight:800;color:var(--tx2);">展開中の段に fit · ほかはうすく</span><span style="font-size:11.5px;font-weight:900;color:var(--teal-text);">地図を展開 ↗</span></div>
+          </div>
+          <div style="margin:10px 16px 6px;background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:9px 14px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12.5px;font-weight:900;">午前 <span style="font:800 11px Nunito;color:var(--tx3);">9:00–11:40 · 4スポット · 徒歩1.2km</span></span>
+            <span style="font-size:11px;font-weight:900;color:var(--teal-text);">たたむ ∧</span>
+          </div>
+          <div class="tl">
+            <div class="trow first"><span class="tt">9:00</span><span class="trk"><i class="dot"></i></span>
+              <div class="tcard"><span class="tthumb" style="width:88px;height:54px;background:linear-gradient(135deg,#f7e0c0,#e0b083);"><span class="ttag">第1話 02:44</span></span>
+                <div class="tinfo"><div class="nm" style="font-size:14px;">京阪宇治駅</div><div class="meta">駅舎のアーチ · 6カット · 10分</div></div></div></div>
+            <div class="walkrow"><span></span><span class="trk"></span><span class="wpill">徒歩<b>5分</b> · 宇治橋をわたる</span></div>
+            <div class="trow"><span class="tt">9:25</span><span class="trk"><i class="dot"></i></span>
+              <div class="tcard"><span class="tthumb" style="width:88px;height:54px;background:linear-gradient(135deg,#cfe0f0,#9db8d4);"><span class="ttag">第1話 04:50</span></span>
+                <div class="tinfo"><div class="nm" style="font-size:14px;">宇治橋</div><div class="meta">通学路の欄干 · 9カット · 15分</div></div></div></div>
+            <div class="trow last" style="opacity:.55;"><span class="tt">9:55</span><span class="trk"><i class="dot"></i></span>
+              <div class="tcard"><span class="tthumb" style="width:88px;height:54px;background:linear-gradient(135deg,#d7e8d0,#a9c99a);"><span class="ttag">第3話</span></span>
+                <div class="tinfo"><div class="nm" style="font-size:14px;">…あと2件</div><div class="meta">中の島 · 縣神社</div></div></div></div>
+          </div>
+          <div style="margin:6px 16px;background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12.5px;font-weight:900;">午後 <span style="font:800 11px Nunito;color:var(--tx3);">12:40–15:20 · 5スポット · 大吉山ふくむ</span></span>
+            <span style="font-size:11px;font-weight:900;color:var(--tx3);">ひらく ∨</span>
+          </div>
+          <div style="margin:6px 16px;background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12.5px;font-weight:900;">夕方 <span style="font:800 11px Nunito;color:var(--tx3);">15:40–17:30 · 3スポット · 夕景の橋</span></span>
+            <span style="font-size:11px;font-weight:900;color:var(--tx3);">ひらく ∨</span>
+          </div>
+          <div class="dock"><div class="dockrow"><span class="cta sub" style="flex:0 0 118px;">編集する</span><span class="cta">しおりを共有</span></div></div>
+          <div class="ann" style="top:118px;right:8px;">段頭に件数・徒歩・時間帯。<br>スクロール位置に追随して<br>いまの段だけ展開</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame">
+      <div class="flabel"><span class="fid">G4b · 多日</span>
+        <h3>泊まり = 日でグルーピング</h3>
+        <p>ラブライブ!×沼津 2泊3日。day 段＝一级结构：完了日收起（✓+件数）、<b>きょう自动展开+金条</b>、未来日收起。数据点亮规则跨日生效；dock 随当日数据换文案。</p>
+      </div>
+      <div class="phone" style="display:flex;flex-direction:column;">
+        <div class="sb"><span>8:55</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;">沼津 2泊3日ツアー</div><div class="at">ラブライブ!サンシャイン!! · 2日目</div></div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:2px 16px 8px;background:var(--gold);border-radius:50px;padding:10px 8px 10px 16px;box-shadow:0 4px 0 var(--gold-deep);">
+          <span style="font-size:13.5px;font-weight:900;color:var(--gold-tx);">2日目だよ！内浦エリアへ</span>
+          <span style="background:#fff;border-radius:50px;padding:6px 14px;font-size:12.5px;font-weight:900;color:var(--gold-tx);">歩くモードへ →</span>
+        </div>
+        <div style="flex:1;overflow:hidden;position:relative;">
+          <div style="margin:2px 16px 0;border:1.5px solid var(--line);border-radius:14px;overflow:hidden;">
+            <div class="map" style="height:104px;">
+              <div class="mg" style="width:140px;height:90px;right:-40px;top:-24px;"></div>
+              <div class="mw" style="width:260px;height:40px;left:-20px;top:66px;transform:rotate(-4deg);"></div>
+              <div class="mr" style="width:320px;height:5px;left:10px;top:40px;transform:rotate(-6deg);"></div>
+              <svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 370 104" fill="none"><path d="M40 66 C100 58 150 44 210 40 C260 37 305 30 344 24" stroke="#8a6f4d" stroke-width="2.5" stroke-dasharray="2 9" stroke-linecap="round"/></svg>
+              <div class="fpin" style="width:24px;height:24px;left:30px;top:48px;border-radius:8px;"><span class="fimg" style="background:linear-gradient(135deg,#cfe9f2,#93c4d8);border-radius:6px;"></span><span class="pb" style="width:15px;height:15px;min-width:15px;top:-6px;right:-6px;font-size:8.5px;background:var(--star);color:#5c4813;">★</span></div>
+              <div class="fpin" style="width:24px;height:24px;left:118px;top:32px;border-radius:8px;"><span class="fimg" style="background:linear-gradient(135deg,#f2e2cf,#dcb98e);border-radius:6px;"></span></div>
+              <div class="fpin" style="width:24px;height:24px;left:196px;top:26px;border-radius:8px;"><span class="fimg" style="background:linear-gradient(135deg,#e2d8f0,#bcaadd);border-radius:6px;"></span></div>
+              <div class="fpin" style="width:24px;height:24px;left:262px;top:18px;border-radius:8px;"><span class="fimg" style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);border-radius:6px;"></span></div>
+              <div class="fpin" style="width:24px;height:24px;left:318px;top:10px;border-radius:8px;opacity:.4;"><span class="fimg" style="background:linear-gradient(135deg,#fbe3ea,#eeb3c6);border-radius:6px;"></span></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--panel);border-top:1.5px solid var(--line);"><span style="font-size:11.5px;font-weight:800;color:var(--tx2);">きょうの内浦に fit · 1日目はうすく</span><span style="font-size:11.5px;font-weight:900;color:var(--teal-text);">地図を展開 ↗</span></div>
+          </div>
+          <div style="margin:8px 16px 6px;background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12.5px;font-weight:900;">1日目 · 7/2 <span style="font:800 11px Nunito;color:var(--teal-text);">5/5 ✓ 完走</span></span>
+            <span style="font-size:11px;font-weight:900;color:var(--tx3);">ひらく ∨</span>
+          </div>
+          <div style="margin:0 16px 4px;background:#fdf8e8;border:1.5px solid var(--star);border-radius:14px;padding:9px 14px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12.5px;font-weight:900;">2日目 · 7/3 きょう <span style="font:800 11px Nunito;color:var(--tx3);">6スポット · 内浦</span></span>
+            <span style="font-size:11px;font-weight:900;color:var(--teal-text);">たたむ ∧</span>
+          </div>
+          <div class="tl">
+            <div class="trow first"><span class="tt">9:20</span><span class="trk"><i class="dot star"></i></span>
+              <div class="tcard"><span class="tthumb" style="width:88px;height:54px;background:linear-gradient(135deg,#cfe9f2,#93c4d8);"><span class="ttag">第1期1話</span></span>
+                <div class="tinfo"><div class="nm" style="font-size:14px;">内浦の桟橋 <span class="schip now">つぎ</span></div><div class="meta">千歌の家ちかく · 14カット · 20分</div></div></div></div>
+            <div class="walkrow"><span></span><span class="trk"></span><span class="wpill">バス<b>12分</b> · 木負農協前→三の浦</span></div>
+            <div class="trow"><span class="tt">10:10</span><span class="trk"><i class="dot"></i></span>
+              <div class="tcard"><span class="tthumb" style="width:88px;height:54px;background:linear-gradient(135deg,#f2e2cf,#dcb98e);"><span class="ttag">OP</span></span>
+                <div class="tinfo"><div class="nm" style="font-size:14px;">淡島マリンパーク</div><div class="meta">渡船で5分 · 60分</div></div></div></div>
+            <div class="trow last" style="opacity:.55;"><span class="tt">12:00</span><span class="trk"><i class="dot"></i></span>
+              <div class="tcard"><span class="tthumb" style="width:88px;height:54px;background:linear-gradient(135deg,#e2d8f0,#bcaadd);"><span class="ttag">第1期3話</span></span>
+                <div class="tinfo"><div class="nm" style="font-size:14px;">…あと4件</div><div class="meta">安田屋旅館 ほか</div></div></div></div>
+          </div>
+          <div style="margin:4px 16px;background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;opacity:.75;">
+            <span style="font-size:12.5px;font-weight:900;">3日目 · 7/4 <span style="font:800 11px Nunito;color:var(--tx3);">4スポット · 沼津駅前 → 帰路</span></span>
+            <span style="font-size:11px;font-weight:900;color:var(--tx3);">ひらく ∨</span>
+          </div>
+          <div class="dock"><div class="dockrow"><span class="cta sub" style="flex:0 0 108px;">共有</span><span class="cta sub" style="flex:1;">Mapsで開く</span></div></div>
+          <div class="ann" style="bottom:150px;right:8px;">きょうの段だけ自動展開<br>+金条。バス/船＝接驳 pill<br>（transit は roadmap のまま表示だけ）</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame">
+      <div class="flabel"><span class="fid">G4c · 一点多図</span>
+        <h3>1 スポット 18 カット → 機位ブラウザ sheet</h3>
+        <p>大吉山展望台（響け！聖地の王様）。时刻表行只放代表帧+「18カット」徽章；<b>tap 徽章→機位ブラウザ sheet</b>：3 列帧网格（話数 tag）+ 出典行。帧 tap→lightbox（大图 h360+出典）。列表永不被 18 张图撑爆。</p>
+      </div>
+      <div class="phone" style="display:flex;flex-direction:column;">
+        <div class="sb"><span>13:05</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;">宇治 まる一日ルート</div><div class="at">響け！ユーフォニアム</div></div></div>
+        <div style="flex:1;overflow:hidden;position:relative;">
+          <div class="tl" style="opacity:.35;">
+            <div class="trow first"><span class="tt">13:20</span><span class="trk"><i class="dot star"></i></span>
+              <div class="tcard"><span class="tthumb" style="background:linear-gradient(135deg,#d7e8d0,#a9c99a);"><span class="ttag">第8話 12:20</span></span>
+                <div class="tinfo"><div class="nm">大吉山展望台 <span class="schip now" style="border-color:var(--teal);background:#dff3f0;color:var(--teal-text);">18カット ▸</span></div><div class="meta">夜景と告白の山 · 上り20分</div></div></div></div>
+          </div>
+          <div class="sheet" style="height:596px;display:flex;flex-direction:column;transform:none;position:absolute;">
+            <div class="grab"></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;padding:2px 18px 10px;">
+              <span style="font-size:15px;font-weight:900;">大吉山展望台 <span style="font:800 11.5px Nunito;color:var(--tx3);">18カット</span></span>
+              <span style="font-size:11.5px;font-weight:900;color:var(--teal-text);">写真ありのみ ⊙</span>
+            </div>
+            <div style="display:flex;gap:6px;padding:0 18px 10px;">
+              <span style="background:#dff3f0;border:1.5px solid var(--teal);color:var(--teal-text);font-size:11px;font-weight:900;padding:4px 12px;border-radius:50px;">ぜんぶ 18</span>
+              <span style="background:var(--card);border:1.5px solid var(--line);color:var(--tx2);font-size:11px;font-weight:800;padding:4px 12px;border-radius:50px;">第8話 11</span>
+              <span style="background:var(--card);border:1.5px solid var(--line);color:var(--tx2);font-size:11px;font-weight:800;padding:4px 12px;border-radius:50px;">第11話 5</span>
+              <span style="background:var(--card);border:1.5px solid var(--line);color:var(--tx2);font-size:11px;font-weight:800;padding:4px 12px;border-radius:50px;">最終話 2</span>
+            </div>
+            <div style="flex:1;overflow:hidden;padding:0 18px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                <span style="height:74px;border-radius:11px;background:linear-gradient(135deg,#d7e8d0,#a9c99a);position:relative;border:2.5px solid var(--star);"><i style="position:absolute;left:4px;bottom:4px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">第8話 12:20</i><i style="position:absolute;top:4px;right:4px;background:var(--gold);color:var(--gold-tx);font:900 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">代表</i></span>
+                <span style="height:74px;border-radius:11px;background:linear-gradient(150deg,#c8ddc0,#96b989);position:relative;"><i style="position:absolute;right:4px;top:4px;background:var(--gold);color:var(--gold-tx);font:900 8px Nunito;font-style:normal;padding:1px 6px;border-radius:50px;box-shadow:0 1.5px 0 var(--gold-deep);">対比図✓</i><i style="position:absolute;left:4px;bottom:4px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">第8話 12:41</i></span>
+                <span style="height:74px;border-radius:11px;background:linear-gradient(120deg,#dcecd4,#aecfa0);position:relative;"><i style="position:absolute;left:4px;bottom:4px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">第8話 13:02</i></span>
+                <span style="height:74px;border-radius:11px;background:linear-gradient(135deg,#33405a,#5a6f92);position:relative;"><i style="position:absolute;left:4px;bottom:4px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">第8話 20:15 夜</i></span>
+                <span style="height:74px;border-radius:11px;background:linear-gradient(150deg,#2e3a52,#4e628a);position:relative;"><i style="position:absolute;left:4px;bottom:4px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">第8話 20:58 夜</i></span>
+                <span style="height:74px;border-radius:11px;background:linear-gradient(120deg,#3a4661,#61759c);position:relative;"><i style="position:absolute;left:4px;bottom:4px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">第8話 21:14 夜</i></span>
+                <span style="height:74px;border-radius:11px;background:linear-gradient(135deg,#e8ddc8,#c9b391);position:relative;"><i style="position:absolute;left:4px;bottom:4px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">第11話 08:30</i></span>
+                <span style="height:74px;border-radius:11px;background:linear-gradient(150deg,#e2d5bd,#c2ab85);position:relative;"><i style="position:absolute;left:4px;bottom:4px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">第11話 09:12</i></span>
+                <span style="height:74px;border-radius:11px;background:linear-gradient(120deg,#5c5470,#8a7f9e);position:relative;"><i style="position:absolute;inset:0;border-radius:9px;background:rgba(61,45,24,.5);color:#fff;font:900 13px Nunito;font-style:normal;display:flex;align-items:center;justify-content:center;">+10</i></span>
+              </div>
+              <div style="margin-top:10px;background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font-size:11px;font-weight:700;color:var(--tx2);line-height:1.6;">タップで拡大（h360）· ピンチでくらべる<br><span style="color:var(--tx3);">画像・座標：Anitabi (CC BY-NC-SA 4.0) · 出典を見る ↗</span></div>
+            </div>
+            <div class="dock" style="position:relative;padding-top:12px;"><div class="dockrow"><span class="cta sub" style="flex:0 0 138px;">代表を変える</span><span class="cta sub" style="flex:1;">この構図を目標に ★</span></div></div>
+          </div>
+          <div class="ann" style="top:96px;right:8px;">行は代表帧1枚だけ。「18カット▸」→この sheet。<br>有対比図カット＝金 badge；tap→lightboxに<br>「この構図で対比図を作る」（深链）</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ G3 · MODE 注记 + 规则 ═══ -->
+<div class="group" id="g3">
+  <header><span class="gid">G3</span><h2>MODE 注记 + 施工规则</h2><span class="sub">静息⇄地図展開 FLIP · 与工作台毕业同族</span></header>
+  <div class="row" id="g3-row">
+  <div class="note" style="width:360px;"><h4>⑥ MODE — 静息⇄地図展開（概念不换）</h4>
+    <b>时态概念已删</b>：单页活文档，数据点亮元素（当天→黄条+展開；完走→✓+対比図段）。MODE＝形态：静息（hero 首屏）⇄地図展開（地图升格+sheet）；平日/完走默认静息、当天默认展開；点地图卡→FLIP 展開（360ms，与工作台毕业同族）、grab 拖回收起。&lt;1024 不适用。</div>
+  <div class="note" style="width:320px;"><h4>画面＞地点＞时刻</h4>
+    时刻表行视觉序：<b>帧缩略（104×64）→ 站名 → meta → 时刻</b>。帧 404→渐变+「第N話 MM:SS」，永不裸错。walk 胶囊独立行（徒歩N分+沿途一句）。</div>
+  <div class="note" style="width:320px;"><h4>図釘即画面</h4>
+    pin＝48px 帧图钉（現在 58px 金环★、済み teal ✓、未访序号白底）。手机現場地图吃满 sheet 以上全部；桌面中栏地图为主役。hover 図釘⇄行连动。static-first，「地図を操作↗」才挂 GL。</div>
+  <div class="note" style="width:320px;"><h4>金 CTA 分配（每屏唯一）</h4>
+    平日＝<span class="y">しおりを共有</span> · 当天＝<span class="y">歩くモードへ</span> · 完走后＝<span class="y">記念しおりを作る</span>。編集/Maps/共有＝cream sub。dock＝sticky 底部渐变承接，内容自然下溢可滚动。</div>
+  <div class="note" style="width:320px;"><h4>长路线 / 数据边界</h4>
+    ≥7 站→分段手风琴（午前/午後）。記念 対比図段＝<b>枚数模型</b>：挂カット不挂站、1站 0..M 枚（×N badge），口径「N枚 · Mスポット」；tile＝上下拼（帧上実拍下，image-merge 产物原样）；新建入口＝機位ブラウザ（深链 url+pid+bid+g，HEIC→JPG 提示）。出典行常驻（CC BY-NC-SA 4.0）。</div>
+  <div class="note" style="width:340px;"><h4>数据点亮 · 优先级（完走＞当天＞平日）</h4>
+    同时成立时上面赢：<b>完走</b>→完走徽章+対比図段，金 CTA＝記念しおり（完走当天也不再喊去 walk）· <b>当天</b>→金条+默认展開 · <b>平日</b>→静息。部分打卡的平日：行✓与打卡时刻<b>保留</b>（活文档不改写历史），但无金条、CTA 仍＝共有。</div>
+  <div class="note" style="width:340px;"><h4>MODE × 数据 正交表</h4>
+    点地图展開<b>≠</b>「当天态」：任何日子都可展開，布局同、<b>金条不出现</b>（金条归数据管）。展開态 dock 不变（平日展開仍＝しおりを共有）。当天只是「默认」落在展開+点亮金条。收起后不自动再展開。</div>
+  <div class="note" style="width:340px;"><h4>入口链路</h4>
+    編集する→<b>Chat A2b 引用编辑</b>（带路线卡回 chat，不在详情页内改）· 行内「Nカット▸」→機位ブラウザ sheet（G4c）· 記念 dashed→image-merge 深链（url+pid+bid+g）· hero tap→lightbox（h360+出典）。</div>
+</div>
+</div>
+
+</body>
+</html>

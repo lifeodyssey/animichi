@@ -59,13 +59,31 @@ jobs:
           wranglerVersion: "4.79.0"
           workingDirectory: workers/catalog
           command: deploy
+          environment: production
           # Catalog reaches Postgres via env.DATABASE_URL until a [[hyperdrive]]
           # binding is provisioned (src/index.ts falls back to DATABASE_URL).
-          # Sourced from the existing SUPABASE_DB_URL secret.
+          # The catalog uses the Neon HTTP client, matching the CI promotion path.
           secrets: |
             DATABASE_URL
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+
+      # ── Deploy users Worker (before root — root's USERS [[services]] binding depends on it) ──
+      - name: Deploy users Worker
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.79.0"
+          workingDirectory: workers/users
+          command: deploy
+          environment: production
+          secrets: |
+            DATABASE_URL
+            NEON_AUTH_JWKS_URL
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
 
       # ── Verify Dockerfile exists before root deploy ──
       - run: test -f Dockerfile
@@ -78,11 +96,14 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4.79.0"
           command: deploy
+          environment: production
           secrets: |
             SUPABASE_URL
             SUPABASE_ANON_KEY
             SUPABASE_SERVICE_ROLE_KEY
             SUPABASE_DB_URL
+            MIMO_API_KEY
+            DEEPSEEK_API_KEY
             GEMINI_API_KEY
             GOOGLE_MAPS_API_KEY
             LOGFIRE_TOKEN
@@ -92,6 +113,8 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
