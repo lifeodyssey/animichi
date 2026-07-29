@@ -84,19 +84,38 @@ jobs:
       # environment context of its own) passed an empty stand-in. This step
       # keeps that verification live on every future deploy — staging AND
       # production — printing ONLY booleans/lengths, never values, so the
-      # log itself is the ongoing proof that the two environments resolve
-      # to different secrets, per environment.
+      # log itself is the ongoing proof of per-environment RESOLUTION (that
+      # each environment's own secret, not a caller-passed one, is what gets
+      # used here). It deliberately does NOT claim the two environments hold
+      # different VALUES — length equality can't distinguish "same value" from
+      # "different value, same length" (our own diagnostic run showed the
+      # repo-level and staging-environment NEON_DATABASE_URL both at
+      # len=146), and a GitHub secret's content can never be read back once
+      # set, by design. Whether staging and production were actually
+      # provisioned with distinct values is a provisioning fact, not
+      # something this step — or any workflow step — can verify.
+      #
+      # deploy-root-{staging,production}'s caller-side `secrets.CORS_ALLOWED_ORIGIN`
+      # is a live example of this same override: the repo has no
+      # repo-level CORS_ALLOWED_ORIGIN, so the caller job's own expression
+      # evaluates empty for both environments — the real value (production
+      # only; staging has none, see the #527 comment on deploy-root-staging
+      # above) is injected purely by this job's `environment:` context, not
+      # by anything the caller passed. The first real production deploy's
+      # copy of this step is what finally confirms that path end-to-end.
       - name: Report resolved secret shape (booleans/lengths only, never values)
         env:
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
         run: |
           echo "environment=$TARGET_ENVIRONMENT"
           echo "  NEON_DATABASE_URL   set=$([ -n "$NEON_DATABASE_URL" ] && echo true || echo false) len=${#NEON_DATABASE_URL}"
           echo "  NEON_AUTH_JWKS_URL  set=$([ -n "$NEON_AUTH_JWKS_URL" ] && echo true || echo false) len=${#NEON_AUTH_JWKS_URL}"
           echo "  CORS_ALLOWED_ORIGIN set=$([ -n "$CORS_ALLOWED_ORIGIN" ] && echo true || echo false) len=${#CORS_ALLOWED_ORIGIN}"
+          echo "  PULUMI_BACKEND_URL  set=$([ -n "$PULUMI_BACKEND_URL" ] && echo true || echo false) len=${#PULUMI_BACKEND_URL}"
       # Validates BEFORE anything deploys — including before "Atlas migrate"
       # below, which is the whole point: a failure here must land before any
       # side effect (DB migration OR Worker deploy) exists to half-apply. A
