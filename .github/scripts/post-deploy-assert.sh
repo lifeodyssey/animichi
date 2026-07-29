@@ -14,13 +14,46 @@ fail() {
   exit 1
 }
 
+# #522: a brand-new workers.dev hostname's first request(s) can bounce off
+# an edge PoP that has not yet learned the route, which Cloudflare itself
+# renders as a 404 (observed body: `error code: 1042`) — indistinguishable
+# from a REAL 404 (this app's own branded 404 page, or a genuinely broken
+# route) by status code alone. Do not grep the default body for the literal
+# string "error code: 1042": that plaintext shape is undocumented, varies by
+# the client's Accept header, and is specific to today's error code — a
+# different edge-error family on a future run would silently bypass it.
+# Instead, re-request the SAME url with `Accept: application/json`.
+# Cloudflare's documented error-response contract
+# (https://developers.cloudflare.com/fundamentals/reference/error-responses/)
+# renders ANY edge/network error it generates itself — 1xxx client/DNS-side,
+# 5xx origin-side alike — as an RFC-9457-shaped JSON body carrying a
+# top-level `"cloudflare_error": true` field when JSON is requested; an
+# origin/application response (this app's real JSON error envelopes, or its
+# branded 404) never emits that field. That marker, not a status-code- or
+# wording-specific match, is the stable signal that the body came from
+# Cloudflare's edge and not from the deployed Worker.
+is_cloudflare_edge_error() {
+  local url="$1" probe_file
+  probe_file="$(mktemp)"
+  curl -sS -o "${probe_file}" --connect-timeout 10 --max-time 20 \
+    -H 'Accept: application/json' "${url}" >/dev/null 2>&1 || true
+  local verdict=1
+  grep -q '"cloudflare_error"[[:space:]]*:[[:space:]]*true' "${probe_file}" && verdict=0
+  rm -f "${probe_file}"
+  return "${verdict}"
+}
+
 # Issues a request and prints only the HTTP status code; the body lands in
 # BODY_FILE for the caller to inspect. Bounded retry/backoff on TRANSPORT
-# failures and Cloudflare edge errors (521-524 — "origin unreachable", the
-# shape of a workers.dev DNS-propagation window or a cold container start)
-# only. Never retries on an ordinary application status (200/401/403/404/…):
-# those are real, final answers from a live app, not a "not ready yet" signal,
-# and several callers below assert on non-2xx by design.
+# failures, Cloudflare edge errors (521-524 — "origin unreachable", the
+# shape of a workers.dev DNS-propagation window or a cold container start),
+# and a 404 that `is_cloudflare_edge_error` confirms is Cloudflare's own edge
+# response rather than the application's. Never retries any OTHER ordinary
+# application status (200/401/403/a real 404/…): those are real, final
+# answers from a live app, not a "not ready yet" signal, and several callers
+# below assert on non-2xx by design — a 404 that is NOT confirmed as
+# Cloudflare's own is one of those real, final answers too (it is exactly
+# what a genuinely broken route, or this app's own branded 404 page, returns).
 fetch() {
   local method="$1" url="$2" auth_header="${3:-}" body="${4:-}"
   local args=(-sS -o "${BODY_FILE}" -w '%{http_code}' --connect-timeout 10 --max-time 20 -X "${method}" "${url}")
@@ -31,6 +64,13 @@ fetch() {
     status="$(curl "${args[@]}")" && rc=0 || rc=$?
     case "${rc}.${status}" in
       0.521 | 0.522 | 0.523 | 0.524 | [1-9]*.*) : ;; # transport failure or CF edge-origin error — retry
+      0.404)
+        if is_cloudflare_edge_error "${url}"; then
+          : # Cloudflare's own edge 404 (e.g. 1042 / propagation window) — retry
+        else
+          echo "${status}"; return 0 # a real application 404 — final, do not retry
+        fi
+        ;;
       *) echo "${status}"; return 0 ;;
     esac
     if [ "${attempt}" -eq 5 ]; then break; fi
