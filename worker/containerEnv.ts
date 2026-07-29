@@ -28,18 +28,50 @@ export const CONTAINER_ENV_KEYS = [
 
 export const CONTAINER_REQUIRED_KEYS = ["DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUPABASE_DB_URL"];
 
-// Container-level egress network policy (#284 Task 7). Split out for the same
-// reason as the env-var allowlist above: a plain `node --test` importer must not
-// pull in `entry.ts`'s `@cloudflare/containers` import chain. See
-// `docs/ops/cloudflare-hardening.md` §6 for the full spike + rationale — this is
-// `RuntimeContainer.deniedHosts` (accepts IP CIDR, enforced before any outbound
-// handler, unconditional even with `enableInternet: true`).
-export const DENIED_EGRESS_CIDRS = [
-  "10.0.0.0/8", // RFC1918
-  "172.16.0.0/12", // RFC1918
-  "192.168.0.0/16", // RFC1918
-  "169.254.0.0/16", // link-local (AWS/Azure/GCP IMDS)
-  "100.64.0.0/10", // CGNAT (Alibaba/Tencent metadata)
+// Container-level egress URL-hostname denylist (#284 Task 7). Split out for the
+// same reason as the env-var allowlist above: a plain `node --test` importer
+// must not pull in `entry.ts`'s `@cloudflare/containers` import chain.
+//
+// CORRECTION (PR #478 review, second round): `RuntimeContainer.deniedHosts` is
+// typed `string[]` but is **not** CIDR-aware. The vendored
+// `@cloudflare/containers@0.3.7` implementation
+// (`node_modules/@cloudflare/containers/dist/lib/container.js`,
+// `simpleGlobMatch`/`matchesHostList`) is a plain string-prefix/suffix glob
+// matcher on the **request URL's hostname string** (`*` = any sequence of
+// characters) — it does not parse `/`-suffixed CIDR notation at all, and it
+// never resolves DNS, so it cannot match against a hostname's *resolved* IP
+// either. An earlier revision of this file shipped literal CIDR strings like
+// `"10.0.0.0/8"`, which never matched anything (`matchesHostList` would only
+// match a hostname that is the literal string `"10.0.0.0/8"`) — a complete
+// no-op, caught only because a reviewer read the vendored matcher source
+// directly rather than trusting the type (`string[]`) or the docs prose.
+//
+// What is shipped instead: dotted-decimal glob prefixes that are the correct
+// equivalent of the target ranges *when the request URL already contains a
+// bare IPv4 literal* (e.g. `http://169.254.169.254/` — the common shape for
+// cloud-metadata SSRF, and the literal shape of the spec's Task 7 AC). This is
+// a **URL-hostname-layer denylist, not a network/CIDR policy**:
+//   - it does NOT catch DNS rebinding (a hostname that *resolves* to a denied
+//     IP but isn't itself a denied literal/glob) — that remains the
+//     application-layer guard's job (`egress_guard`/`GuardedAsyncTransport`,
+//     Task 1);
+//   - it DOES catch the literal well-known metadata hostname
+//     `metadata.google.internal` and the two well-known non-IMDS metadata IPs
+//     below, in addition to the three glob-representable ranges.
+// See `docs/ops/cloudflare-hardening.md` §6 for the full corrected spike
+// writeup and the AC disposition against this reality.
+const RFC1918_172_BLOCK = Array.from({ length: 16 }, (_, i) => `172.${16 + i}.*`); // 172.16.0.0/12
+const CGNAT_100_BLOCK = Array.from({ length: 64 }, (_, i) => `100.${64 + i}.*`); // 100.64.0.0/10
+
+export const DENIED_EGRESS_HOSTS = [
+  "10.*", // RFC1918 10.0.0.0/8 — glob-exact equivalent
+  ...RFC1918_172_BLOCK, // RFC1918 172.16.0.0/12
+  "192.168.*", // RFC1918 192.168.0.0/16 — glob-exact equivalent
+  "169.254.*", // link-local 169.254.0.0/16 — glob-exact equivalent; covers AWS/Azure/GCP IMDS IP literal
+  ...CGNAT_100_BLOCK, // CGNAT 100.64.0.0/10
+  "100.100.100.200", // Alibaba/Tencent metadata (exact; already covered by the CGNAT block above, kept explicit)
+  "192.0.0.192", // Oracle Cloud Infrastructure metadata
+  "metadata.google.internal", // GCP metadata hostname literal (not an IP; glob ranges above cannot match this)
 ];
 
 export function buildContainerEnvVars(env: Record<string, unknown>): Record<string, string> {

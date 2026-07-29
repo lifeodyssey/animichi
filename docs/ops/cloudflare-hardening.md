@@ -209,112 +209,222 @@ no live deploy was performed — deploys stay CI/CD-only per the repo's no-local
 **This clause holds: NET_ADMIN / iptables-style egress policy is confirmed unavailable on
 Cloudflare Containers today.**
 
-### Spike, clause 2 (correction — the first pass of this doc got this wrong): a declarative CIDR denylist IS available, and does not require NET_ADMIN
+### Spike, clause 2 (corrected twice now — see both corrections below): a platform-enforced URL-hostname denylist IS available, and does not require NET_ADMIN — but it is a glob matcher, not a CIDR parser
 
-An earlier version of this section additionally claimed the platform's only egress-shaping
-primitive was HTTP(S)-scoped Worker request routing (`outboundByHost`), and concluded from that
-that clause 2 of OQ-5 was also unmet. **That conclusion was wrong** and is corrected here after
-independent re-verification against `https://developers.cloudflare.com/containers/platform-details/outbound-traffic/`
-(checked 2026-07-29) and the `@cloudflare/containers@0.3.7` type definitions actually vendored in
-this repo (`node_modules/@cloudflare/containers/dist/lib/container.d.ts` — checked directly, not
-inferred from docs prose):
+An earlier version of this section claimed the platform's only egress-shaping primitive was
+HTTP(S)-scoped Worker request routing (`outboundByHost`), and concluded that clause 2 of OQ-5 was
+also unmet. **That was wrong.** The next revision corrected it to "`deniedHosts` accepts IP CIDR
+ranges" — citing the official docs' own example, `deniedHosts = ["some-nefarious-website.com",
+"141.101.64.0/18"]` — and shipped a `string[]` of literal CIDR strings (`"10.0.0.0/8"`, etc.).
+**That was also wrong, and worse: it shipped as a silent no-op.**
 
-- **`deniedHosts`** is a `Container`-class instance property (same class `RuntimeContainer`
-  already extends) that accepts **hostnames, hostname globs, and IP CIDR ranges** — the official
-  example is literally `deniedHosts = ["some-nefarious-website.com", "141.101.64.0/18"]`.
-- Per the vendored type declaration's own doc comment: *"Denied hosts are blocked unconditionally,
-  even when `enableInternet` is `true` or a catch-all outbound handler is set"* — i.e. this is
-  enforced **before** any outbound handler runs, unconditionally, and does **not** require
-  `enableInternet: false` (which would additionally restrict egress to ports 80/443 + DNS and
-  break the direct `asyncpg` Postgres hop — confirmed as a real constraint, which is why the
-  `deniedHosts`-only variant, not the `enableInternet: false` variant, is the one implemented
-  below).
-- `allowedHosts` is separately documented as *"a deny-by-default allowlist"* when set — i.e.
-  default-deny-then-allow is expressible on this platform; we are not using `allowedHosts` here
-  (an allowlist would need to enumerate every legitimate provider hostname and would be a much
-  larger, riskier change than a denylist of well-known non-routable ranges), but its existence is
-  further confirmation that clause 2 of OQ-5 is met.
+A second review round read the vendored **implementation**, not just the type declaration or the
+docs prose (`node_modules/@cloudflare/containers/dist/lib/container.js`,
+`@cloudflare/containers@0.3.7`), and found:
 
-**Corrected conclusion: OQ-5's clause 2 is met. The platform can express an egress policy (a
-declarative, platform-enforced CIDR denylist) without NET_ADMIN. The pre-authorized fallback
-("document that the application layer is the sole control") does *not* trigger, because its own
-precondition — the platform cannot express an egress policy at all — is false. Task 7 ships as
-an actual implemented policy, not a documented-acceptance closure.**
+```js
+function simpleGlobMatch(pattern, value) {
+    const parts = pattern.split('*');
+    if (parts.length === 1) return pattern === value;
+    // ... prefix/suffix/substring matching on `parts`, no numeric parsing at all
+}
+function matchesHostList(hostname, patterns) {
+    return patterns.some(pattern => simpleGlobMatch(pattern, hostname));
+}
+```
+
+`deniedHosts`/`allowedHosts` are matched against the **request URL's hostname string** with a
+plain `*`-wildcard string matcher — there is no `/`-suffix (CIDR) parsing anywhere in this
+function, and it never resolves DNS, so it cannot match a hostname's *resolved* IP either. The
+literal string `"10.0.0.0/8"` only ever matches a hostname that is exactly the eleven characters
+`10.0.0.0/8` — it does not match `10.0.0.1`, `10.5.3.200`, or anything else. The previous revision
+of `worker/entry.ts` shipped exactly that: five CIDR-notation strings that matched nothing,
+ever — a complete no-op, caught only because a reviewer decided that "the type is `string[]`"
+does not establish "the semantics are CIDR" and went and read the matcher's actual source instead
+of trusting the docs' prose example. **The type of a config field is not proof of what a runtime
+does with it — the implementation is the ground truth,** and that lesson is recorded here on
+purpose, not smoothed over.
+
+The corrected, verified claim: the Container-runtime egress control that exists without NET_ADMIN
+is a **string/glob denylist matched against the request URL's hostname**, not a CIDR-aware network
+filter. It is real, it is enforced before any outbound handler
+(`container.js:203`, `if (deniedHosts && matchesHostList(hostname, deniedHosts)) return new
+Response('Origin is disallowed', { status: 520 })` — see the "What actually happens on a match"
+note below), and it does not require `enableInternet: false`. But its coverage claim has to be
+stated in glob terms, not CIDR terms — see "What is implemented" below for exactly what that
+buys.
+
+**Corrected conclusion: OQ-5's clause 2 is met — the platform can express *a* URL-hostname-layer
+egress policy without NET_ADMIN — but it is narrower than "an egress policy" reads in the abstract.
+It is not a CIDR/network-layer filter, and it does not see resolved IPs.** The pre-authorized
+fallback ("document that the application layer is the sole control") still does not fully trigger,
+because this is a real, additional, platform-enforced control layer — but the application-layer
+guard (`egress_guard`/`GuardedAsyncTransport`) remains the layer that actually understands
+IP/network semantics (DNS resolution, `ipaddress` classification, DNS-rebinding defense). Task 7
+ships as an implemented (glob-based, URL-hostname-layer) policy plus the pre-existing
+application-layer guard — not a documented-acceptance closure, and not a claim of network-layer
+enforcement either.
 
 ### What is implemented
 
-`RuntimeContainer.deniedHosts` (`worker/entry.ts`) is set from `DENIED_EGRESS_CIDRS`
+`RuntimeContainer.deniedHosts` (`worker/entry.ts`) is set from `DENIED_EGRESS_HOSTS`
 (`worker/containerEnv.ts`, split out for the same Node-import-chain reason as
-`buildContainerEnvVars` — see that file's header comment):
+`buildContainerEnvVars` — see that file's header comment). It is a set of dotted-decimal glob
+prefixes and exact hostnames — **not CIDR strings** — chosen to be the glob-equivalent of the
+spec's target ranges when a request URL's hostname is already a bare IPv4 literal (the common
+shape for cloud-metadata SSRF, and the exact shape of the spec's Task 7 AC):
 
 ```ts
-export const DENIED_EGRESS_CIDRS = [
-  "10.0.0.0/8",       // RFC1918
-  "172.16.0.0/12",    // RFC1918
-  "192.168.0.0/16",   // RFC1918
-  "169.254.0.0/16",   // link-local (AWS/Azure/GCP IMDS)
-  "100.64.0.0/10",    // CGNAT (Alibaba/Tencent metadata)
+export const DENIED_EGRESS_HOSTS = [
+  "10.*",                       // RFC1918 10.0.0.0/8 — glob-exact equivalent
+  "172.16.*", ..., "172.31.*",  // RFC1918 172.16.0.0/12 — 16 generated entries, one per octet
+  "192.168.*",                  // RFC1918 192.168.0.0/16 — glob-exact equivalent
+  "169.254.*",                  // link-local 169.254.0.0/16 — glob-exact equivalent (AWS/Azure/GCP IMDS)
+  "100.64.*", ..., "100.127.*", // CGNAT 100.64.0.0/10 — 64 generated entries, one per octet
+  "100.100.100.200",            // Alibaba/Tencent metadata (exact; already covered above, kept explicit)
+  "192.0.0.192",                // Oracle Cloud Infrastructure metadata
+  "metadata.google.internal",   // GCP metadata hostname literal — glob ranges above cannot match a hostname
 ];
 ```
 
-Pinned by `worker/containerEnv.test.ts` (run via `pnpm run test:worker`), which asserts both the
-exact CIDR list and that it covers every address the spec's Task 7 AC error-path names
-(`169.254.169.254`, `100.100.100.200`, `10.0.0.1`) while not covering a public address
-(`1.1.1.1`).
+The 16 and 64 per-octet entries are generated (`Array.from({ length: 16 }, (_, i) => \`172.${16 +
+i}.*\`)`, etc.), not hand-typed, so the source stays short even though the effective list is long;
+this is what makes full-range coverage (rather than a metadata-IP-only subset) the practical
+choice here.
 
-### Scope and an honest limit: HTTP is covered today; HTTPS interception is a deferred, evaluated cost
+**What actually happens on a match:** `ContainerProxy.fetch` (the `WorkerEntrypoint` that
+performs this check — see the `ContainerProxy` export note below) returns a synthesized
+**`520 Origin is disallowed`** HTTP response. Nothing is "refused at the network layer" in the
+sense of a socket-level RST or connection timeout — the platform's egress proxy answers the
+request itself, and the container never gets a TCP connection to the target. Functionally
+equivalent for SSRF purposes (no bytes reach the target, no bytes come back), but a future
+engineer debugging a `520` from inside the container should know this policy is what produced it.
 
-Per the same vendored type declaration, `deniedHosts` filtering is applied as part of the
-Container runtime's outbound-HTTP interception, which is unconditional for **plain HTTP**. HTTPS
-traffic is only decrypted/inspected for filtering when `interceptHttps: true` is additionally set
-(`applyOutboundInterception`'s doc comment: *"When `interceptHttps` is enabled, also applies
-HTTPS interception"*). We evaluated turning this on and **did not**, for one concrete, evidenced
-reason: `interceptHttps` MITMs all outbound HTTPS with an ephemeral per-instance CA
-(`/etc/cloudflare/certs/cloudflare-containers-ca.crt`), which the container's Python process must
-be configured to trust (Python's `httpx`/`certifi` bundle does not trust arbitrary system CAs by
-default). Flipping this on without first wiring that trust — and verifying it in a real deploy,
-which this task cannot do — would silently break **every** production HTTPS call (MiMo, the
-DeepSeek fallback, any BYOK provider), not just close a gap. That is a materially worse failure
-mode than the gap it would close, given:
+Pinned by `worker/containerEnv.test.ts` (run via `pnpm run test:worker`), which ports the real
+`simpleGlobMatch`/`matchesHostList` algorithm (rather than a hand-rolled IP-in-CIDR helper — the
+mistake from the previous revision) and asserts against it: every spec Task 7 AC error-path
+address is matched, the two extra metadata endpoints are matched, three representative public
+addresses are not matched, the full 16- and 64-entry octet ranges are matched at their exact
+boundaries (and the addresses just outside those boundaries are not), and an emptied denylist
+fails the coverage assertions (a mutation guard against the exact silent-no-op failure mode this
+correction exists because of). A canary test additionally asserts the vendored
+`container.js` source still contains the exact `simpleGlobMatch`/`matchesHostList` function
+signatures this port is based on, so a package upgrade that changes the algorithm is flagged
+rather than silently invalidating the port.
 
-- the exact AC error-path scenario in the spec uses `http://169.254.169.254/` (plain HTTP) — the
-  shipped `deniedHosts` list already blocks this, and real cloud-metadata IMDS endpoints
-  (AWS/Azure/GCP `169.254.169.254`, Alibaba/Tencent `100.100.100.200`) are HTTP-only in practice,
-  so the highest-value SSRF targets are covered without `interceptHttps`;
-- the residual gap is an HTTPS request to a private/link-local/CGNAT IP specifically — a narrower
-  bypass than the one this section closes, and one still caught by the application-layer guard
-  (`egress_guard`/`GuardedAsyncTransport`) for the BYOK path specifically.
+**Required for the policy to run at all — `ContainerProxy` export.** `applyOutboundInterception`
+(`container.js:1207`) hard-throws at container start if `ctx.exports.ContainerProxy` is undefined:
 
-**Follow-up, not required for Task 7's closure:** turning on `interceptHttps` needs its own
-spec'd rollout (Python CA-trust wiring + a staging verification pass), tracked as a Task 7
-follow-up rather than bundled into this docs/config PR.
+```
+if (ctx.exports.ContainerProxy === undefined) {
+    throw new Error('ctx.exports.ContainerProxy is undefined, export ContainerProxy from the
+    containers package in your worker entrypoint');
+}
+```
+
+`worker/entry.ts` now re-exports it (`export { ContainerProxy } from "@cloudflare/containers";`),
+matching the pattern in Cloudflare's own `Container` class reference example. This is not a
+regression introduced by this change — the repo already exercised `outboundByHost` for
+`catalog.internal` before this PR, which also depends on the same interception machinery — but it
+was never verified as present, and `deniedHosts` makes it load-bearing for the first genuinely
+security-relevant use of this mechanism. `worker/entry.test.ts` asserts (via a source-text match,
+since `entry.ts`'s `@cloudflare/containers` import chain cannot be loaded under plain `node
+--test` — see that file's comment) that the export line is present, as a regression guard against
+silently losing it again.
+
+### Scope and an honest limit: glob-matchable plain HTTP is covered; DNS rebinding and HTTPS are not, by design of this layer
+
+Three separate limits, stated precisely rather than glossed:
+
+1. **This is a URL-hostname string match, not a network-layer IP check — DNS rebinding is out of
+   scope for this control.** A request to `http://evil.example.com/` where `evil.example.com`
+   *resolves* to `169.254.169.254` is not matched by `DENIED_EGRESS_HOSTS` at all (the hostname
+   string is `evil.example.com`, which matches none of the glob patterns) — `deniedHosts` never
+   resolves DNS to check. Defense against that shape of attack is entirely the application-layer
+   guard's job (`egress_guard`'s dual-condition `ipaddress` classification on the *resolved*
+   address, plus `GuardedAsyncTransport`'s connect-time re-validation and IP pinning — T4). This
+   control only catches requests whose URL already names a denied IP literal or the one denied
+   hostname literal (`metadata.google.internal`) directly.
+2. **Plain HTTP is covered; HTTPS is not, without an additional, deferred cost.** Per the vendored
+   type declaration, `deniedHosts` filtering runs as part of the Container runtime's outbound-HTTP
+   interception, which is unconditional for plain HTTP. HTTPS traffic is only decrypted/inspected
+   for filtering when `interceptHttps: true` is additionally set (`applyOutboundInterception`'s
+   doc comment: *"When `interceptHttps` is enabled, also applies HTTPS interception"*). We
+   evaluated turning this on and **did not**, for one concrete, evidenced reason: `interceptHttps`
+   MITMs all outbound HTTPS with an ephemeral per-instance CA
+   (`/etc/cloudflare/certs/cloudflare-containers-ca.crt`), which the container's Python process
+   must be configured to trust (`httpx`/`certifi` does not trust arbitrary system CAs by default).
+   Flipping this on without first wiring that trust — and verifying it in a real deploy, which this
+   task cannot do — would silently break **every** production HTTPS call (MiMo, the DeepSeek
+   fallback, any BYOK provider), not just close a gap. That is a materially worse failure mode than
+   the gap it would close, given the exact AC error-path scenario in the spec uses
+   `http://169.254.169.254/` (plain HTTP) — already covered — and real cloud-metadata IMDS
+   endpoints are HTTP-only in practice.
+3. **Setting `deniedHosts` promotes the container to intercept-all mode for plain HTTP.**
+   `shouldInterceptAllOutbound()` (`container.js:1121`) returns `true` whenever a denylist is
+   configured, and that promotion is sticky "until the instance restarts" — before this change the
+   container ran in cheaper per-host interception (only the `catalog.internal` binding hop); after
+   it, every plain-HTTP outbound takes a Workers-runtime hop through `ContainerProxy` instead of
+   going direct. Non-HTTP egress (`asyncpg`'s Postgres connection) is unaffected — `interceptAll`
+   only applies to HTTP(S) — and is correspondingly **not** covered by this denylist either way.
+
+**Follow-ups, not required for Task 7's closure:** (a) turning on `interceptHttps` needs its own
+spec'd rollout (Python CA-trust wiring + a staging verification pass); (b) the DNS-rebinding gap
+above is not a gap introduced by this PR — it was always the application-layer guard's job — but
+it means this section's control inventory below should not be read as "the network layer now
+handles SSRF"; it handles one narrow, real slice of it (literal IP/known-hostname requests over
+plain HTTP), on top of the guard that handles the general case.
 
 ### AC disposition
 
-The spec's three Task 7 ACs, checked against what is actually shipped here (config + unit test,
-not a live-container integration test — this task cannot deploy, so the following is what is
-verified today vs. what still needs a manual staging check before being marked fully closed):
+The spec's three Task 7 ACs, checked against what is actually shipped here (config + unit tests
+that exercise the real vendored glob algorithm, not a live-container integration test — this task
+cannot deploy, so the following is what is verified today vs. what still needs a manual staging
+check before being marked fully closed):
 
-- **Happy path** (public egress succeeds): satisfied by design — `DENIED_EGRESS_CIDRS` contains
-  no public ranges; pinned by the `1.1.1.1`-not-covered assertion in
-  `worker/containerEnv.test.ts`. Not yet verified against a live deployed instance.
+- **Happy path** (public egress succeeds): satisfied by design — none of the three representative
+  public addresses (`1.1.1.1`, `8.8.8.8`, a placeholder provider hostname) match
+  `DENIED_EGRESS_HOSTS` under the ported real matcher; pinned by
+  `worker/containerEnv.test.ts`. Not yet verified against a live deployed instance, and not yet
+  verified that `ContainerProxy` is actually reachable via `ctx.exports` at runtime (see the
+  live-verification checklist below — step 1).
 - **Null/empty** (catalog `outboundByHost` hop + the MiMo provider call still succeed):
   satisfied by design — the catalog hop is a private-hostname binding interception, a different
-  code path from `deniedHosts` entirely; the MiMo provider's public hostname resolves outside all
-  five denied CIDRs. Not yet verified against a live deployed instance.
-- **Error path** (`169.254.169.254`, `100.100.100.200`, `10.0.0.1` refused at the network layer):
-  satisfied **for plain HTTP**, matching the spec's own literal AC wording
-  (`http://169.254.169.254/`); pinned by `worker/containerEnv.test.ts`. **Not** yet satisfied for
-  HTTPS to the same addresses — see the `interceptHttps` limit above.
+  code path from `deniedHosts` entirely; the MiMo provider's public hostname does not match any
+  entry in the list. Not yet verified against a live deployed instance.
+- **Error path** (`169.254.169.254`, `100.100.100.200`, `10.0.0.1` "refused at the network
+  layer"): satisfied **for plain HTTP requests whose URL names one of these addresses or hostname
+  literals directly**, matching the spec's own literal AC wording (`http://169.254.169.254/`);
+  pinned against the real ported glob algorithm by `worker/containerEnv.test.ts`. The
+  spec's "refused at the network layer" phrasing is satisfied **in effect** (nothing reaches the
+  target, nothing comes back) but not **literally** — see "What actually happens on a match"
+  above: enforcement returns a synthesized HTTP `520`, not a refused connection. **Not** covered:
+  HTTPS to the same addresses (see limit 2 above), or a DNS name that merely *resolves* to one of
+  these addresses (see limit 1 above; that case is the application-layer guard's job, unaffected
+  by this section).
 
-A live-container verification pass (confirming the above against a real deployed instance, and
-confirming the HTTPS gap is as scoped) is recorded as a required follow-up, not fabricated as
-done here.
+A live-container verification pass is a required follow-up, not fabricated as done here. Its
+checklist, in order:
+
+1. **Confirm `ContainerProxy` is exported and reachable via `ctx.exports`, and that the container
+   starts without the `ctx.exports.ContainerProxy is undefined` throw.** This is a precondition
+   for every claim below it — if this throws or is silently unreachable, none of the `deniedHosts`
+   enforcement described in this section is active. (Whether the repo's pre-existing
+   `catalog.internal` `outboundByHost` hop already exercised this path successfully, or has a
+   latent problem of its own, is unknown before this check — either way it predates this PR.)
+2. Confirm the intercept-all promotion (limit 3 above) does not introduce a latency/availability
+   regression on the MiMo provider call now that it routes through `ContainerProxy`.
+3. Confirm the happy-path, null/empty, and error-path ACs against a real deployed instance, per the
+   AC disposition above.
+4. Confirm the HTTPS and DNS-rebinding gaps are exactly as scoped (i.e. that nothing about a real
+   deployment closes them incidentally, which would mean this section under-claims coverage rather
+   than over-claims it — the safer direction of error, but worth confirming either way).
 
 ### Defense-in-depth control inventory (what enforces this, end to end)
 
-1. **`RuntimeContainer.deniedHosts`** (this section) — the container-runtime-level CIDR denylist
-   described above; the actual Task 7 deliverable.
+1. **`RuntimeContainer.deniedHosts`** (this section) — the Worker's URL-hostname glob denylist
+   described above (plain HTTP, literal IP/hostname requests only — not CIDR-aware, not
+   DNS-rebinding-aware); the actual Task 7 deliverable.
 2. **`egress_guard.validate_base_url()`** (`apps/agent/agent/infrastructure/egress_guard.py`,
    Task 1 / #458) — SSRF pre-flight check run against any user-supplied BYOK `base_url` before a
    model client is constructed; rejects private/link-local/CGNAT/reserved targets (dual-condition
@@ -349,24 +459,26 @@ re-enabled.
 
 **T12** — "a future contributor adds a code path that builds its own HTTP client, bypassing the
 guarded factory" — is now **partially** mitigated at runtime, not solely by code review: a raw
-socket/`httpx` client making a **plain-HTTP** connection to a denied CIDR is blocked by
-`RuntimeContainer.deniedHosts` regardless of which Python code path constructed it. For an
-**HTTPS** connection to the same ranges, the only backstop today is the guarded-factory
-convention plus code review — `apps/agent/AGENTS.md`'s HTTP conventions section states this
-explicitly (previously it said the opposite: "leave `trust_env` at httpx's default (`True`)",
-without carving out the BYOK/egress-guarded path, which would have told a future contributor to
-recreate the exact T13 bypass this section closes — that has been corrected). Owner: whoever
-lands new outbound HTTP call sites in `apps/agent/agent/` must construct clients via
-`egress_transport.build_guarded_async_client`; PR review is the enforcement point for the HTTPS
-residual.
+socket/`httpx` client making a **plain-HTTP request whose URL names a denied IP or hostname
+literal directly** is blocked by `RuntimeContainer.deniedHosts` regardless of which Python code
+path constructed it. That partial mitigation does **not** extend to (a) HTTPS to the same
+addresses, or (b) a hostname that only *resolves* to a denied address (DNS rebinding) — both
+remain the guarded-factory convention's job. `apps/agent/AGENTS.md`'s HTTP conventions section
+states this explicitly (previously it said the opposite: "leave `trust_env` at httpx's default
+(`True`)", without carving out the BYOK/egress-guarded path, which would have told a future
+contributor to recreate the exact T13 bypass this section closes — that has been corrected).
+Owner: whoever lands new outbound HTTP call sites in `apps/agent/agent/` must construct clients
+via `egress_transport.build_guarded_async_client`; PR review is the enforcement point for the
+HTTPS and DNS-rebinding residuals.
 
 ### Process-level socket guard — evaluated, not implemented
 
 The spec's fallback explicitly allows an *optional* process-level guard (e.g., a Python `socket`
 patch that inspects the destination of every outbound `connect()` and rejects RFC1918/link-local/
 CGNAT targets before the OS attempts the connection) as a cheaper stand-in for a kernel policy.
-Now that `deniedHosts` closes the plain-HTTP case at the platform layer, the remaining case such a
-guard would add is the HTTPS-to-private-IP gap above. This was evaluated and **not implemented**,
+Now that `deniedHosts` closes the plain-HTTP-with-a-literal-address case at the Worker's
+URL-hostname layer, the remaining cases such a guard would add are the HTTPS-to-private-IP gap and
+the DNS-rebinding gap above. This was evaluated and **not implemented**,
 for two concrete reasons (a third reason from an earlier draft of this section — that Task 1/3
 were still unmerged — no longer holds: #458, #474, and #477 are all merged; the two reasons below
 stand on their own regardless):
@@ -398,12 +510,18 @@ Two independent follow-ups, tracked separately from Task 7's closure:
 1. **HTTPS coverage of the denylist** — wire Python CA trust for
    `/etc/cloudflare/certs/cloudflare-containers-ca.crt`, set `interceptHttps: true`, verify in a
    real staging deploy that legitimate HTTPS (MiMo) still works before enabling in production.
-2. **True kernel-level policy, if Cloudflare ever ships it** — re-check the Wrangler `containers`
-   configuration schema changelog
+2. **Resolved-IP (DNS-rebinding-aware) matching, if Cloudflare ever adds it to `deniedHosts`** —
+   today the matcher only sees the request URL's hostname string, never a resolved address; if a
+   future SDK version resolves DNS before matching, re-check whether the application-layer guard's
+   DNS-rebinding defense (T4) becomes partially redundant with this layer (it should stay either
+   way — defense-in-depth — but the residual-risk note above would need updating).
+3. **True kernel-level / network-layer policy, if Cloudflare ever ships it** — re-check the
+   Wrangler `containers` configuration schema changelog
    (`https://developers.cloudflare.com/workers/wrangler/configuration/#containers`) and the
    Containers changelog (`https://developers.cloudflare.com/changelog/product/containers/`) for a
-   `NET_ADMIN`/capability field; if one ships, it would be additive to (not a replacement for)
-   `deniedHosts`, which stays as the primary control either way.
+   `NET_ADMIN`/capability field; if one ships, it would be additive to `deniedHosts`, not a
+   replacement — the application-layer guard (`egress_guard`/`GuardedAsyncTransport`) remains the
+   layer that actually understands IP/DNS semantics regardless of what ships at the network layer.
 
 A live-container verification pass (the AC-disposition gaps above) is the immediate next step,
 independent of either follow-up.
