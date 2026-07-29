@@ -1,0 +1,27 @@
+# TEMPORARY diagnostic workflow for issue #527 — DO NOT MERGE AS-IS.
+# Same shape as _diag-527-called.yml but the caller uses `secrets: inherit`
+# instead of naming secrets explicitly — this is the candidate fix mechanism.
+# No `secrets:` block needed under workflow_call for the inherit path.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+jobs:
+  diag:
+    name: "diag(inherit, environment=${{ inputs.environment }})"
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Report resolved secret shape (booleans/lengths only)
+        env:
+          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          DIAG_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          echo "case=secrets-inherit environment=$DIAG_ENVIRONMENT"
+          echo "  NEON_AUTH_JWKS_URL   set=$([ -n "$NEON_AUTH_JWKS_URL" ] && echo true || echo false) len=${#NEON_AUTH_JWKS_URL}"
+          echo "  CORS_ALLOWED_ORIGIN  set=$([ -n "$CORS_ALLOWED_ORIGIN" ] && echo true || echo false) len=${#CORS_ALLOWED_ORIGIN}"
+          echo "  NEON_DATABASE_URL    set=$([ -n "$NEON_DATABASE_URL" ] && echo true || echo false) len=${#NEON_DATABASE_URL}"
