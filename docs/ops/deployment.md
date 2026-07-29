@@ -189,6 +189,35 @@ There are two workflow-backed deploy paths. Neither path is tag-triggered.
 
 Migrations can finish before the new container replaces the old one, so a destructive change can briefly break old code that still reads or writes the removed schema; the `route_anime` release, for example, dropped `routes.bangumi_id` in the same release that changed the writer. For schema changes where that overlap matters, use expand/contract: add the replacement first, deploy compatible readers and writers, then remove the old column in a later release. Today’s infrequent, approval-gated cadence keeps this window low-risk, but it does not make destructive same-release changes safe by construction.
 
+### ⚠️ The first successful staging/production Atlas run is a provisioning event, not a routine migration
+
+Confirmed via Neon (project `billowing-fire-22850320`, read-only queries, #516 investigation): as of
+2026-07-29, staging (`br-gentle-king-aowjem8v`) and production (`br-cold-term-aor1v6gl`) both have
+**zero** business tables in `public` — only `neon_auth` (Neon Auth's own 9 tables, unrelated to
+`db/migrations`) and, on staging, an empty orphaned `atlas_schema_revisions` schema left over from
+an earlier manual attempt that ran without `--revisions-schema public`. The full, real data plane
+(23 tables) exists only on the `test-base` branch. **Every prior "successful deploy" to staging or
+production shipped Worker code against an empty database** — the app-level effect of that had not
+previously surfaced because nothing had exercised the affected paths hard enough to notice.
+
+Once the Atlas scoping fix above lands, the first `Atlas migrate` run against staging (and,
+separately and later, production) will apply **all 11** `db/migrations/*.sql` files from scratch in
+one shot — this is a one-time provisioning event for that branch, not the incremental single-file
+apply every subsequent deploy will actually be. Reviewed all 11 files for anything that assumes a
+manual step outside the migration directory (backfills, hand-run grants, seed data) — found none;
+every `ALTER`/`DROP` is `IF EXISTS`/`IF NOT EXISTS`-guarded and every `DO $$` block is self-contained
+and idempotent, so applying them in order from empty should be safe. That review is static, not a
+substitute for watching the real run.
+
+**Before letting production follow staging through this**:
+1. After staging's first post-fix deploy, manually confirm all 23 expected tables exist in
+   `public` on the staging branch (e.g. `SELECT count(*) FROM information_schema.tables WHERE
+   table_schema = 'public'` via Neon, or `\dt` over a direct connection) — don't infer success from
+   the CI job going green alone.
+2. Only then let `deploy-prod` proceed; production is currently even more empty than staging was
+   (it doesn't even have the stray `atlas_schema_revisions` table staging had), so it faces the
+   identical one-shot 11-migration apply, not a smaller catch-up.
+
 ### Main promotion path (`.github/workflows/ci.yml`)
 
 `ci.yml` runs on pushes to `main` and `develop`, plus pull requests. Deploy jobs are narrower: they
