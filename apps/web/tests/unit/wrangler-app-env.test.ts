@@ -1,6 +1,7 @@
 import { type ParseError, parse } from "jsonc-parser";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { SERVICE_ORIGINS, serviceEnvironment } from "../../src/api/service-origins";
 // `?raw` inlines wrangler.jsonc at transform time, so this guard asserts on the
 // file a human edits and always runs in the unit pool — a skipped guard is not
 // a guard (pattern from workers/catalog/test/wrangler-private.worker.test.ts).
@@ -26,6 +27,11 @@ function parseWranglerConfig(): z.infer<typeof configSchema> {
 }
 
 const declaredEnvironments = ["staging", "production", "preview"];
+const edgeHostnames = {
+  staging: "staging.animichi.com",
+  production: "api.animichi.com",
+  preview: "staging.animichi.com",
+} as const;
 
 describe("wrangler.jsonc APP_ENV declarations (AC5)", () => {
   it("finds every environment the file actually declares", () => {
@@ -51,5 +57,21 @@ describe("wrangler.jsonc APP_ENV declarations (AC5)", () => {
     const twin = Object.entries(config.env).find(([, e]) => e.name === config.name);
     expect(twin, `no env block declares name=${String(config.name)}`).toBeDefined();
     expect(config.vars?.APP_ENV).toBe(twin?.[1].vars?.APP_ENV);
+  });
+});
+
+describe("service origin declarations", () => {
+  it("cover exactly every environment declared by wrangler", () => {
+    const environments = Object.keys(SERVICE_ORIGINS).filter((name) => name !== "local");
+    expect(environments).toEqual(Object.keys(parseWranglerConfig().env));
+  });
+
+  it.each(declaredEnvironments)("env.%s Worker hostname selects its matching origins", (name) => {
+    const worker = parseWranglerConfig().env[name]?.name;
+    expect(serviceEnvironment(`https://${String(worker)}.account.workers.dev`)).toBe(name);
+  });
+
+  it.each(Object.entries(edgeHostnames))("env.%s targets the declared edge hostname", (name, host) => {
+    expect(new URL(SERVICE_ORIGINS[name as keyof typeof edgeHostnames].edge).hostname).toBe(host);
   });
 });
