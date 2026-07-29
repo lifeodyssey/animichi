@@ -1,23 +1,14 @@
 #!/usr/bin/env bash
-# Behavioral tests for post-deploy-assert.sh's #522 fix: a real application
-# 404 must fail immediately, and a Cloudflare-edge 404 (cloudflare_error:true
-# body) must retry until it resolves. No mocking framework in this repo
-# (no bats, no JS test runner wired to shell scripts) — this drives the real
-# script against a throwaway Python mock server, the same way this fix was
-# verified by hand during review of #522/#523.
+# Behavioral tests for post-deploy-assert.sh. There is no shell mocking
+# framework in this repo, so these drive the real script against throwaway
+# Python mock servers.
 #
-# Per this repo's "mock the clock" test-quality rule
-# (AGENTS.md#cross-stack-guardrails), assertions here are on the OBSERVABLE
-# BEHAVIOR that the retry logic is actually responsible for — how many
-# requests were made, and the final exit code — never on how long it took. A
-# shared CI runner's wall clock is not reliable enough to assert a duration
-# window against without intermittent flakes (this is exactly what an
-# earlier version of this file did, and it flaked in CI while passing
-# locally). `POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS` is set to a tiny
-# value purely so the retrying test cases don't spend real wall-clock minutes
-# sleeping — the assertions below do not depend on that value at all, only
-# on request counts, so an even smaller or larger override would not change
-# what these tests check.
+# Per this repo's "mock the clock" rule (AGENTS.md#cross-stack-guardrails),
+# every assertion here is on OBSERVABLE BEHAVIOR — request COUNT and exit
+# code — never on elapsed time. An earlier version asserted a duration
+# window and flaked in CI while passing locally.
+# `POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS` is lowered only so the
+# retrying cases don't sleep for real minutes; no assertion depends on it.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -164,8 +155,44 @@ class Handler(http.server.BaseHTTPRequestHandler):
   echo "PASS: recovers after 2 Cloudflare edge 404s once the real 200 lands (${requests} requests, exit ${rc})"
 }
 
+# ── Case 4: an HTML-only origin (apps/web) -> the probe must ask for
+#    text/html. Mirrors the real staging failure: apps/web answers 500
+#    {"error":"Only HTML requests are supported here"} to a JSON-only Accept.
+#    Kill `ACCEPT_HEADER` in cmd_web_landing and this case goes red.
+test_html_only_origin_is_accepted() {
+  local port=18804 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        if 'text/html' not in self.headers.get('Accept', ''):
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{\"error\":\"Only HTML requests are supported here\"}')
+            return
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b'''${LANDING_BODY}''')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  WEB_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" web-landing >/tmp/htmlonly.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -eq 0 ] || fail_test "HTML-only origin should pass, got exit ${rc}: $(cat /tmp/htmlonly.out)"
+  [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request (no retry needed), got ${requests}"
+  echo "PASS: HTML-only origin served (${requests} request, exit ${rc})"
+}
+
 test_branded_404_fails_fast
 test_cf_edge_404_retries_then_fails
 test_cf_edge_404_then_recovers
+test_html_only_origin_is_accepted
 
-echo "All post-deploy-assert.sh #522 behavioral tests passed."
+echo "All post-deploy-assert.sh behavioral tests passed."
