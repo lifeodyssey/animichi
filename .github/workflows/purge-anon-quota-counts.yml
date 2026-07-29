@@ -1,0 +1,46 @@
+# Standalone top-level workflow (see .claude/rules/ci.md: codeql.yml / dependabot-agent.yml
+# precedent, mirrored from agent-eval-nightly.yml) — kept separate from ci.yml so this cron
+# never rides along with every push/PR trigger in the main CI matrix.
+name: Purge anon_daily_message_count (retention)
+
+# Issue #282 review: anon_daily_message_count is a pure per-day aggregate counter with no
+# dependent rows, so its retention policy is a nightly age-based DELETE, not a per-row purge
+# with an FK backstop (contrast the anonymous-session purge precedent).
+on:
+  schedule:
+    - cron: "37 19 * * *" # 19:37 UTC daily — off-hour, distinct minute from the eval nightly
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report eligible rows without deleting"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: purge-anon-quota-counts
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    name: Purge stale per-identity quota counters
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/agent
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+
+      - name: Purge rows past the retention window
+        run: |
+          uv run --frozen python -m agent.scripts.purge_anon_quota_counts \
+            ${{ inputs.dry_run == true && '--dry-run' || '' }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.NEON_DATABASE_URL }}

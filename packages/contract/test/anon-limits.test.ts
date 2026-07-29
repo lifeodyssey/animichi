@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   ANON_BUDGET_EXHAUSTED_CODE,
   ANON_QUOTA_EXHAUSTED_CODE,
+  AnonLimitErrorEnvelope,
   AnonQuotaExhaustedData,
+  readQuotaResetsAt,
 } from "../src/error-registry.js";
 
 const WORKER_BREAKER = fileURLToPath(new URL("../../../worker/costBreaker.ts", import.meta.url));
@@ -37,5 +39,53 @@ describe("anonymous quota rejection payload", () => {
 
   it("requires the reset instant — a lock with no exit is the bug it prevents", () => {
     expect(AnonQuotaExhaustedData.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("the full anonymous-limit 403 envelope", () => {
+  it("accepts the quota rejection with quota_resets_at nested under data", () => {
+    const parsed = AnonLimitErrorEnvelope.parse({
+      error: {
+        code: ANON_QUOTA_EXHAUSTED_CODE,
+        message: "quota spent",
+        action: "login",
+        data: { quota_resets_at: "2026-07-30T00:00:00Z" },
+      },
+    });
+    expect(parsed.error.data?.quota_resets_at).toBe("2026-07-30T00:00:00Z");
+  });
+
+  it("accepts the budget rejection with no data field at all", () => {
+    const parsed = AnonLimitErrorEnvelope.parse({
+      error: { code: ANON_BUDGET_EXHAUSTED_CODE, message: "budget spent", action: "login" },
+    });
+    expect(parsed.error.data).toBeUndefined();
+  });
+});
+
+describe("readQuotaResetsAt — the one blessed extraction site", () => {
+  it("reads quota_resets_at out of a quota rejection body", () => {
+    const body = {
+      error: {
+        code: ANON_QUOTA_EXHAUSTED_CODE,
+        message: "quota spent",
+        action: "login",
+        data: { quota_resets_at: "2026-07-30T00:00:00Z" },
+      },
+    };
+    expect(readQuotaResetsAt(body)).toBe("2026-07-30T00:00:00Z");
+  });
+
+  it("returns undefined for a budget rejection body (no data field)", () => {
+    const body = {
+      error: { code: ANON_BUDGET_EXHAUSTED_CODE, message: "budget spent", action: "login" },
+    };
+    expect(readQuotaResetsAt(body)).toBeUndefined();
+  });
+
+  it("returns undefined for a body that doesn't parse as the envelope at all", () => {
+    expect(readQuotaResetsAt({ nothing: "here" })).toBeUndefined();
+    expect(readQuotaResetsAt(null)).toBeUndefined();
+    expect(readQuotaResetsAt("not even an object")).toBeUndefined();
   });
 });
