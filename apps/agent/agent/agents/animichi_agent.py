@@ -467,9 +467,17 @@ def _fact_ledger_context(ledger: FactLedger) -> list[str]:
     parts: list[str] = []
     constraint = ledger.active_hard_constraint()
     if constraint is not None:
-        parts.append(f"User hard constraint: {constraint.value} pacing.")
+        parts.append(
+            f"User hard constraint: {constraint.value} pacing. Apply this "
+            "pacing to every subsequent plan_route call unless the user "
+            "explicitly changes it."
+        )
     for ref in ledger.active_scene_references():
-        parts.append(f"Referenced scene: {ref.value}.")
+        parts.append(
+            f"Referenced scene: {ref.value}. The user explicitly selected "
+            "this; treat it as a durable point of interest for follow-up "
+            "questions this session."
+        )
     return parts
 
 

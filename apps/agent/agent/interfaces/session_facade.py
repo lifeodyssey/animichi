@@ -13,7 +13,6 @@ from pydantic import ValidationError
 from agent.agents.agent_result import AgentResult
 from agent.agents.base import create_agent, get_default_model
 from agent.agents.session_state import SessionState
-from agent.domain.fact_ledger import record_turn_facts
 from agent.domain.ports import get_session_repo
 from agent.infrastructure.session import SessionStore
 from agent.interfaces.schemas import PublicAPIRequest
@@ -132,6 +131,26 @@ def _parse_runtime_state(raw: object) -> SessionState | None:
     try:
         return SessionState.model_validate(raw)
     except ValidationError:
+        return _parse_forward_compatible(raw)
+
+
+_FORWARD_COMPATIBLE_KEYS = frozenset({"fact_ledger"})
+
+
+def _parse_forward_compatible(raw: dict[str, object]) -> SessionState | None:
+    """Rollback safety: a newer deploy's `fact_ledger` key must not sink an
+    older deploy's whole typed session. Drop only that allowlisted key and
+    retry once; any other validation failure is genuine corruption and stays
+    rejected (never a blanket "strip anything unrecognized" shim).
+    """
+    droppable = set(raw) & _FORWARD_COMPATIBLE_KEYS
+    if not droppable:
+        logger.warning("invalid_session_state_v2")
+        return None
+    stripped = {key: value for key, value in raw.items() if key not in droppable}
+    try:
+        return SessionState.model_validate(stripped)
+    except ValidationError:
         logger.warning("invalid_session_state_v2")
         return None
 
@@ -166,16 +185,19 @@ def build_context_block(
 
 
 def _serialize_runtime_state(state: SessionState) -> dict[str, object]:
-    return cast(dict[str, object], state.model_dump(mode="json"))
+    """Dump the typed state; an ever-empty fact ledger adds no envelope key."""
+    dumped = cast(dict[str, object], state.model_dump(mode="json"))
+    if state.fact_ledger.is_empty():
+        dumped.pop("fact_ledger", None)
+    return dumped
 
 
 def extract_context_delta(result: AgentResult) -> dict[str, object]:
-    """Persist the complete typed state, including explicit empty clears.
+    """Query: serialize the complete typed state, including explicit empty
 
-    Runs the deterministic post-turn fact-ledger recorder (OQ-4) exactly once,
-    over this turn's `result.steps`, before serialization.
+    clears. Pure — the fact-ledger recorder is a separate command the caller
+    runs over `result.steps` before this (CQS; see `public_api.py`).
     """
-    record_turn_facts(result.session_state.fact_ledger, result.steps)
     return {"session_state_v2": _serialize_runtime_state(result.session_state)}
 
 
