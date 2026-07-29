@@ -250,19 +250,79 @@ Important: this is a documentation target only right now. Before enabling it, th
 
 ## Rollback
 
-App rollback:
+Every `_deploy-component.yml` deploy step is a plain `wrangler deploy` (not `wrangler versions
+upload`), but Cloudflare still records each one as a numbered deployment/version under the hood, so
+`wrangler rollback` and `wrangler deployments list` work against it without any change to the deploy
+step itself. `preview.yml` already exercises the same versions API (`wrangler versions
+list/upload`) for PR previews — this is the instant-rollback side of that same primitive.
 
-1. revert the offending commit on `main`
-2. rerun the appropriate workflow-backed production path from the deploy sequence above
-3. verify `/healthz`, `/v1/runtime`, and static asset delivery
+### One-command rollback per component
 
-Worker/container rollback:
+Find the last known-good deployment ID first, then roll back. Run from the repo root; `pnpm
+--filter <pkg> exec` resolves each sub-worker's own `wrangler.toml`/`wrangler.jsonc`.
 
-1. use Git history as the source of truth for `worker/worker.js`, `wrangler.toml`, and workflow changes
-2. redeploy the previous known-good revision
-3. treat database rollbacks separately; `wrangler deploy` does not undo Supabase schema changes
+| Component | Working dir | List deployments | Roll back |
+|---|---|---|---|
+| root (edge Worker + container) | `.` | `npx wrangler deployments list --env <staging\|production>` | `npx wrangler rollback [deployment-id] --env <staging\|production>` |
+| catalog | `workers/catalog` | `pnpm --filter catalog exec wrangler deployments list --env <staging\|production>` | `pnpm --filter catalog exec wrangler rollback [deployment-id] --env <staging\|production>` |
+| users | `workers/users` | `pnpm --filter users exec wrangler deployments list --env <staging\|production>` | `pnpm --filter users exec wrangler rollback [deployment-id] --env <staging\|production>` |
+| web | `apps/web` | `pnpm --filter web exec wrangler deployments list --env <staging\|production>` | `pnpm --filter web exec wrangler rollback [deployment-id] --env <staging\|production>` |
 
-WAF rollback:
+`wrangler rollback` with no ID rolls back to the deployment immediately before the current one;
+pass an explicit ID from the `deployments list` output to jump further back. This only swaps the
+running Worker version — it does not touch bindings/secrets changed since that version, and it does
+not re-run Pulumi.
+
+Steps:
+
+1. Identify the bad component(s) from the incident (which `deploy-*` job ran, or which route is
+   failing).
+2. `wrangler deployments list --env <environment>` for that component; pick the deployment ID from
+   before the bad release (or omit the ID to go back exactly one step).
+3. `wrangler rollback [deployment-id] --env <environment>` for that component.
+4. Re-run the relevant `_post-deploy-test.yml` suite (`api` for staging, the production suite for
+   prod) against the rolled-back environment to confirm.
+5. Still revert the offending commit on `main` afterward — the rollback above is a stopgap for the
+   live Worker, not a fix for the tree; the next `main` push will otherwise redeploy the bad code on
+   top of your rollback.
+
+### Pulumi rollback
+
+`_deploy-component.yml`'s "Pulumi stack export (rollback backup)" step runs `pulumi stack export`
+immediately before every `pulumi up` and uploads the result as a workflow artifact
+(`pulumi-stack-export-<stack>-<run-id>`, 30-day retention). To roll back a bad Pulumi apply:
+
+1. Download the artifact from the run immediately before the bad one (Actions tab → that run →
+   Artifacts).
+2. `pulumi stack select <staging|prod>` in `infra/`, then `pulumi stack import --file
+   <downloaded-file>` to restore that state, followed by `pulumi up` to reconcile real
+   infrastructure back to it.
+3. This is a state-only restore; it does not undo already-applied Cloudflare API side effects that
+   Pulumi doesn't track (rare, but check R2/DNS manually if in doubt).
+
+### ⚠️ Database migrations do NOT roll back this way
+
+Nothing above undoes an Atlas migration (`db/migrations`) or a Supabase migration. `wrangler
+rollback` only swaps Worker code; it cannot un-apply a schema change the new code already wrote
+data under. Roll a schema change back only by writing and applying a new forward migration that
+reverses it (expand/contract, per the schema change policy above) — never by trying to "undo" the
+old migration file. Treat any release that combined a schema change with app code as a case where
+Worker rollback alone is insufficient; check `db/migrations` for what shipped in that release before
+declaring the rollback complete.
+
+### Automating the rollback trigger
+
+No `workflow_dispatch` rollback workflow is added here beyond the manual commands above.
+`wrangler rollback`/`deployments list` already are the one-command primitive the issue asked for;
+wrapping them in a bespoke `workflow_dispatch` (component + version-id inputs) would add an
+unvalidated new code path — with untested edge cases (invalid version id, wrong environment,
+partial multi-component rollback ordering) — for an incident-response tool that most needs to be
+simple and trustworthy under pressure. The manual table above can be run by anyone with
+`CLOUDFLARE_API_TOKEN`-equivalent access locally, or pasted into a `gh workflow run` /
+`workflow_dispatch` step later once it has been exercised for real; revisit only after this manual
+path has actually been used in an incident.
+
+### WAF rollback
 
 1. disable the custom prompt-injection rule first
 2. keep the `/v1/*` rate limit in place unless it is the source of the incident
