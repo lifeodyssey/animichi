@@ -58,6 +58,10 @@
     "callback_error": "登录链接已失效或已被使用，请重新申请。",
     "callback_save_failed": "登录成功了，但路线没能保存…",
     "callback_save_retry": "再保存一次",
-    "callback_save_skip": "也可以稍后回到聊天页重新保存"
+    "callback_save_skip": "也可以稍后回到聊天页重新保存",
+    "callback_migration_failed": "登录成功了。但登录前的对话没能转到你的账号…",
+    "callback_migration_missing": "登录成功了。但没找到登录前的对话…是在另一台设备上打开链接的吗?",
+    "callback_migration_retry": "再试一次",
+    "callback_migration_skip": "先这样继续"
   }
 }

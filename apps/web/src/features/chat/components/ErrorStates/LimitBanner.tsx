@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { LoginModal } from "../../../../components/auth/LoginModal";
+import { useChatReturnTarget } from "../../return-target";
 import { FallbackRetryButton } from "./FallbackRetryButton";
 
 type Props = Readonly<{
@@ -50,7 +51,7 @@ export function LimitBanner({ block, message, loginLabel, id, role = "alert", se
     <div className={block} id={id} role={role}>
       <span>{message}</span>
       <LoginAction block={block} loginLabel={loginLabel} onLogin={login.show} secondary={secondary} />
-      <LoginModal open={login.open} onClose={login.hide} />
+      <LoginModal open={login.open} onClose={login.hide} returnTarget={useChatReturnTarget()} />
     </div>
   );
 }

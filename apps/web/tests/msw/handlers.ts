@@ -1,3 +1,4 @@
+import { http, HttpResponse } from "msw";
 import { SearchInput, SearchResult } from "@seichijunrei/contract";
 import { contractJsonHandler, orpcErrorResponse } from "./contract-handler";
 import { CATALOG_SEARCH_URL, searchSuccessFixture } from "./fixtures";
@@ -34,6 +35,17 @@ export const catalogUpstreamErrorHandler = contractJsonHandler({
   }),
 });
 
-export const handlers = [catalogSearchHandler];
+/**
+ * Default session-migration handler (#507). Every login now posts here, so the
+ * unit lane needs it to stay hermetic — `{"migrated": false}` is the endpoint's
+ * own typed no-op for a caller with no anonymous history, which is exactly what
+ * a test-tab login is.
+ */
+export const sessionMigrateHandler = http.post(
+  "*/v1/session/migrate",
+  () => HttpResponse.json({ migrated: false }),
+);
+
+export const handlers = [catalogSearchHandler, sessionMigrateHandler];
 
 export { orpcErrorResponse };

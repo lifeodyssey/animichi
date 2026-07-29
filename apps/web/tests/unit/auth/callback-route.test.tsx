@@ -6,6 +6,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getRouter } from "../../../src/router";
 import { setLanguages } from "../_i18n";
+import { dictFor } from "../../../src/i18n/dictionaries";
 
 const { getAuthToken } = vi.hoisted(() => ({ getAuthToken: vi.fn() }));
 vi.mock("../../../src/lib/auth/authSession", () => ({ getAuthToken }));
@@ -67,6 +68,26 @@ describe("/auth/callback route", () => {
 });
 
 describe("/auth/callback route — dual intent (#480 P1-2)", () => {
+  /**
+   * The #514 round-2 gap: `carriesPanelIntent` was pinned as a FUNCTION, but
+   * nothing drove it through the route. Widening `callback.tsx` back to the
+   * inline `sanitizeReturnTarget(next) !== "/"` left all 1508 unit tests green
+   * — the save wall's own return target would have silently retired the retry
+   * surface at the wiring layer, which is the exact shape of #507 itself. This
+   * pair closes it: a session return HOLDS, a panel return NAVIGATES.
+   */
+  it("holds the save-retry surface for a plain session return (#507 review P1-1)", async () => {
+    setLanguages(["ja"]);
+    getAuthToken.mockResolvedValue("jwt-callback");
+    replayDeferredSave.mockResolvedValue("failed");
+    const router = getRouter();
+    await router.navigate({ to: "/auth/callback", search: { next: "/chat?session=sess-1" } });
+    render(<RouterProvider router={router} />);
+    const retry = await screen.findByRole("button", { name: dictFor("ja").auth.callback_save_retry });
+    expect(retry).toBeTruthy();
+    expect(router.state.location.pathname).toBe("/auth/callback");
+  });
+
   it("reaches the BYOK deep link even when the deferred-save replay failed", async () => {
     getAuthToken.mockResolvedValue("jwt-callback");
     replayDeferredSave.mockResolvedValue("failed");
