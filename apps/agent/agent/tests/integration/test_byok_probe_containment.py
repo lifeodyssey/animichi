@@ -63,8 +63,10 @@ def _completion_body(content: str) -> bytes:
 _SMALL_OK_BODY = _completion_body("OK")
 #: A genuinely valid, parseable completion whose total body exceeds the
 #: 64 KiB cap — proves the cap rejects a real oversized *success*, not an
-#: incidental parse failure.
-_OVERSIZED_OK_BODY = _completion_body("x" * (66 * 1024))
+#: incidental parse failure. Only a minimal overshoot (not padded to 66 KiB):
+#: keeps JSON-parse/pydantic-validation wall-clock work small, so this test
+#: is not incidentally sensitive to unrelated load on the machine running it.
+_OVERSIZED_OK_BODY = _completion_body("x" * (64 * 1024 + 200))
 
 
 class _LyingContentLengthTransport(httpx.AsyncBaseTransport):
@@ -164,11 +166,25 @@ async def test_without_the_cap_the_oversized_body_would_have_succeeded(
     the cap it is a real SUCCESS, so the capped test above is provably the
     cap firing and not a coincidental parse failure.
 
-    Widens the timeout for this one control (unrelated to constraint (b)):
-    parsing/validating a genuinely large ~66 KiB body through the full
-    pydantic-ai/logfire pipeline under a busy full-suite run can occasionally
-    creep close to the 5s default, and this test has nothing to do with the
-    timeout — it would be a flake on an unrelated constraint.
+    #479 round-3 review follow-up: this test flaked in the full Neon
+    integration lane. Root-caused with a full traceback capture (not
+    guessed): the failure was a real `TimeoutError` raised by
+    `asyncio.timeout.__aexit__` itself, whose own internal state was
+    `<Timeout [expired]>` — i.e. `_run_probe`'s OWN 5s ceiling genuinely
+    fired, because processing this response through the full
+    pydantic-ai/openai-SDK/logfire pipeline took ≥5 real seconds under the
+    full suite's resource contention (many concurrent DB-backed tests
+    sharing this process). That is a fixture problem, not a `_run_probe`
+    correctness problem — this test isn't exercising the timeout at all, so
+    it must not share a budget with it. Widened to 30s, verified against
+    the full non-DB integration suite (not just this file in isolation,
+    which had never reproduced the flake) before being accepted as fixed.
+
+    (Separately, `_run_probe` also gained an explicit
+    `except asyncio.CancelledError: raise` as defense-in-depth against a
+    genuine external cancellation — worth keeping regardless, but it did
+    NOT fix this particular flake, since the actual exception here was a
+    real `TimeoutError`, not a `CancelledError` reaching our handler.)
     """
     monkeypatch.setattr(byok_route, "_PROBE_TIMEOUT_SECONDS", 30.0)
     body = await _probe_body(_OversizedStreamNoHeaderTransport(), apply_probe_cap=False)

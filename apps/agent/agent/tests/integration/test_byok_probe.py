@@ -11,9 +11,11 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 from agent.agents.byok_models import ByokModel
+from agent.interfaces.routes.byok import _CappedResponseTransport
 from agent.tests.integration._byok_probe_shared import (
     ANON_HEADERS,
     BYOK_HEADERS,
@@ -114,3 +116,42 @@ async def test_the_cap_transport_is_installed_at_construction_never_reassigned()
     ) as build_mock:
         await post_probe(built, HUMAN_HEADERS | BYOK_HEADERS)
     assert build_mock.await_args.kwargs["transport_wrapper"] is not None
+
+
+class _FixedInnerTransport(httpx.AsyncBaseTransport):
+    def __init__(
+        self, status_code: int, content: bytes, headers: dict[str, str]
+    ) -> None:
+        self._status_code = status_code
+        self._content = content
+        self._headers = headers
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            self._status_code,
+            content=self._content,
+            headers=self._headers,
+            request=request,
+        )
+
+
+async def test_the_cap_transport_passes_a_small_well_formed_response_through_unchanged() -> (
+    None
+):
+    """#479 P3 review follow-up: only the *rejecting* paths of
+    `_CappedResponseTransport` had coverage (the oversized/lying-header
+    cases in `test_byok_probe_containment.py`) — its SUCCESS path
+    (`_rebuild_response` reconstructing a small, under-the-cap response)
+    had none. Exercised directly against the transport, not the whole
+    route, so this is a true unit test of `handle_async_request` itself."""
+    inner = _FixedInnerTransport(
+        200, _OK_COMPLETION, {"Content-Type": "application/json"}
+    )
+    capped = _CappedResponseTransport(inner)
+    request = httpx.Request("POST", "https://byok.example.test/v1/chat/completions")
+
+    response = await capped.handle_async_request(request)
+
+    assert response.status_code == 200
+    assert await response.aread() == _OK_COMPLETION
+    assert response.headers["content-type"] == "application/json"

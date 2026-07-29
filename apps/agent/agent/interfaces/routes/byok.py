@@ -206,6 +206,21 @@ async def _run_probe(model: Model) -> ProbeResult:
             await probe_agent.run(_probe_message())
     except ModelHTTPError as exc:
         return _classify_model_http_error(exc)
+    except asyncio.CancelledError:
+        # #479 round-3 review follow-up (Fable): a genuine cancellation —
+        # the CI runner tearing down the surrounding test/request, not a
+        # provider reachability outcome — must propagate, never be folded
+        # into `provider_unreachable` by the broad clause below. Explicit
+        # even though `CancelledError` is a `BaseException`, not an
+        # `Exception`, in this Python version: some paths through
+        # pydantic-ai's `AsyncExitStack`/task-group cleanup can surface a
+        # cancellation as a *different*, `Exception`-derived error raised
+        # during that cleanup (e.g. from closing an httpx transport mid
+        # teardown) rather than the raw `CancelledError` itself, so this
+        # is defense-in-depth on the one case we CAN identify directly —
+        # never treat "the ground is shifting under us" as "the provider
+        # is unreachable".
+        raise
     except Exception:
         # Bare `except Exception` (#479 P1-2 review follow-up), not a curated
         # tuple: a connectivity failure, a timeout, the response-size cap, or

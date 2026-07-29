@@ -59,8 +59,17 @@ void test("a percent-encoded chat path is still counted (isAuthRateLimited unit)
 });
 
 void test("a malformed percent-encoding fails CLOSED (counted), not open", () => {
-  assert.equal(isAuthRateLimited("/v1/byok/probe%"), true);
-  assert.equal(isAuthRateLimited("/v1/byok/probe%zz"), true);
+  // #479 round-3 review follow-up (Opus): the original fixtures here
+  // ("/v1/byok/probe%", "/v1/byok/probe%zz") were vacuous — the malformed
+  // escape sat AFTER an already-literal, undecoded "/v1/byok/" prefix, so
+  // even a mutation that returned the RAW pathname on decode failure
+  // (instead of failing closed) would still match the prefix check and
+  // read as limited, for the wrong reason. These fixtures instead put the
+  // malformed escape INSIDE the prefix/route token itself, so only the
+  // real fail-closed branch — not an accidental prefix/exact match on the
+  // untouched raw string — can make the assertion pass.
+  assert.equal(isAuthRateLimited("/v1/%zzyok/probe"), true);
+  assert.equal(isAuthRateLimited("/v1/%zzhat"), true);
 });
 
 // ── Real `app.request` regression: the fix must hold through the actual

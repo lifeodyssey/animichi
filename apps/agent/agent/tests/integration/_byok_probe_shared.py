@@ -15,7 +15,12 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from agent.agents.byok_models import ByokCredential, ByokModel, build_byok_model
+from agent.agents.byok_models import (
+    ByokCredential,
+    ByokModel,
+    ByokProvider,
+    build_byok_model,
+)
 from agent.tests.unit.conftest_fastapi import async_client, build_app
 
 HUMAN_HEADERS = {"X-User-Id": "user-1", "X-User-Type": "human"}
@@ -95,7 +100,7 @@ class RaisingTransport(httpx.AsyncBaseTransport):
 async def byok_model_with_transport(
     transport: httpx.AsyncBaseTransport,
     *,
-    provider: str = "openai-compatible",
+    provider: ByokProvider = "openai-compatible",
     model: str = "byok-test-model",
     base_url: str | None = "https://byok.example.test/v1",
     apply_probe_cap: bool = False,
@@ -117,7 +122,7 @@ async def byok_model_with_transport(
     test built on this helper (#479 P1-3 review follow-up).
     """
     credential = ByokCredential(
-        provider=provider,  # type: ignore[arg-type]
+        provider=provider,
         key="sk-fake-secret-value",
         model=model,
         base_url=base_url,
