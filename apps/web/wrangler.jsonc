@@ -13,9 +13,23 @@
     "directory": ".output/public",
     "binding": "ASSETS"
   },
+  // `vars` is non-inheritable: each env block must declare APP_ENV itself. The noindex
+  // Nitro plugin (src/server/noindex-plugin.ts) sends X-Robots-Tag on every response
+  // unless APP_ENV === "production"; tests/unit/wrangler-app-env.test.ts guards this.
   "env": {
-    "staging": { "name": "animichi-web-staging" },
-    "production": { "name": "animichi-web" },
-    "preview": { "name": "animichi-web-preview", "workers_dev": false, "preview_urls": true }
+    "staging": {
+      "name": "animichi-web-staging",
+      "vars": { "APP_ENV": "staging" }
+    },
+    "production": {
+      "name": "animichi-web",
+      "vars": { "APP_ENV": "production" }
+    },
+    "preview": {
+      "name": "animichi-web-preview",
+      "workers_dev": false,
+      "preview_urls": true,
+      "vars": { "APP_ENV": "preview" }
+    }
   }
 }
