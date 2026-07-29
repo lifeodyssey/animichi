@@ -63,6 +63,27 @@ jobs:
               else
                 echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, but ANON_ACCESS_ENABLED is not \"true\" there, so this environment's code path never reads it. Soft warning only; the post-deploy push step will skip it."
               fi
+              continue
+            fi
+            # TURNSTILE_SECRET-specific validity probe — see the matching
+            # (fully commented) check in _deploy-component.yml's "Preflight -
+            # post-deploy secrets" step for the full reasoning. A GitHub
+            # secret is write-only, so this is the only place that ever holds
+            # the raw value and can tell a Secret Key from a Site Key.
+            if [ "$name" = "TURNSTILE_SECRET" ] && [ "$anon_flag" = "true" ]; then
+              turnstile_probe=$(curl -sS --max-time 10 \
+                --data-urlencode "secret=$value" \
+                --data-urlencode "response=preflight-probe-not-a-real-token" \
+                https://challenges.cloudflare.com/turnstile/v0/siteverify 2>/dev/null || true)
+              if printf '%s' "$turnstile_probe" | grep -q '"invalid-input-secret"'; then
+                echo "::error::TURNSTILE_SECRET failed Cloudflare siteverify validation for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (error-code: invalid-input-secret). This is what happens when the stored value is a Site Key instead of the Secret Key, or any other string siteverify doesn't recognize. Refusing to deploy with it. Re-provision with: gh secret set TURNSTILE_SECRET"
+                missing=1
+              elif printf '%s' "$turnstile_probe" | grep -q '"invalid-input-response"'; then
+                echo "TURNSTILE_SECRET passed Cloudflare siteverify validation for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT."
+              else
+                echo "::error::Could not validate TURNSTILE_SECRET against Cloudflare's siteverify endpoint for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — ambiguous result. Same fail-closed principle as the ANON_ACCESS_ENABLED parser above. Re-run the deploy; check Cloudflare's status page if this persists."
+                missing=1
+              fi
             fi
           done <<< "$POST_DEPLOY_SECRETS"
           if [ "$missing" = "1" ]; then
