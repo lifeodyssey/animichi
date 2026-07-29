@@ -1,4 +1,4 @@
-import { createApp, defineEventHandler, setResponseStatus, toWebHandler } from "h3";
+import { createApp, createRouter, defineEventHandler, setResponseStatus, toWebHandler } from "h3";
 import { createHooks } from "hookable";
 import type { NitroRuntimeHooks } from "nitropack/types";
 import { describe, expect, it } from "vitest";
@@ -18,17 +18,21 @@ function buildHandler(cloudflare?: Record<string, unknown>): (request: Request) 
     },
     onBeforeResponse: (event, response) => hooks.callHook("beforeResponse", event, response),
   });
-  app.use(
+  // A router (not app.use base mounting) keeps event.path intact — app.use
+  // strips its base, which would hide any path-conditional bug from the hook.
+  const router = createRouter();
+  router.get(
+    "/",
+    defineEventHandler(() => "<html>home</html>"),
+  );
+  router.get(
     "/missing",
     defineEventHandler((event) => {
       setResponseStatus(event, 404);
       return "<html>not found</html>";
     }),
   );
-  app.use(
-    "/",
-    defineEventHandler(() => "<html>home</html>"),
-  );
+  app.use(router);
   return toWebHandler(app);
 }
 
