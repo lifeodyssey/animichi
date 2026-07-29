@@ -143,6 +143,14 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4.112.0"
+          # #516: workers/catalog has no lockfile of its own (pnpm workspace
+          # member — the lockfile lives at repo root), so the action's
+          # auto-detection falls back to npm, which then chokes on
+          # `@seichijunrei/contract: workspace:*` in this package.json. See
+          # the fully-commented fix in _deploy-component.yml's "Deploy
+          # Worker" step for the confirmed root cause (read from
+          # dist/index.mjs at the pinned SHA, not just the docs).
+          packageManager: pnpm
           workingDirectory: workers/catalog
           command: deploy
           environment: production
@@ -161,6 +169,8 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4.112.0"
+          # #516: same lockfile-detection fallback bug as catalog above.
+          packageManager: pnpm
           workingDirectory: workers/users
           command: deploy
           environment: production
@@ -181,6 +191,11 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4.112.0"
+          # root's implicit workingDirectory (repo root) does have its own
+          # lockfile, so auto-detection already resolves to pnpm correctly
+          # here — set explicitly anyway so this doesn't silently start
+          # relying on directory-based detection again if that ever changes.
+          packageManager: pnpm
           command: deploy
           environment: production
           secrets: |
