@@ -88,7 +88,7 @@ make db-diff NAME=x    # ローカル変更から diff を生成
 | `SUPABASE_SERVICE_ROLE_KEY` | サーバーサイド Supabase 認証 |
 | `SUPABASE_ANON_KEY` | Worker エッジでの JWT 検証 |
 | `ANITABI_API_URL` | Anitabi 聖地データ API |
-| `GEMINI_API_KEY` | プランナーエージェント用 LLM |
+| `GEMINI_API_KEY` | 写真検索(photo-search)のプラットフォーム vision provider 用キー。常時マウントされ、会話モデルの選択に依存しない |
 
 **オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 

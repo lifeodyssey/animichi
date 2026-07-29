@@ -49,7 +49,7 @@ On success the Worker sets `X-User-Id` and `X-User-Type`, deletes the `Authoriza
 | `SUPABASE_SERVICE_ROLE_KEY` | Worker-only | Used for `api_keys` table lookup |
 | `NEON_AUTH_ENABLED` / `NEON_AUTH_JWKS_URL` / `NEON_AUTH_ISSUER` | Worker-only (optional) | Dual-issuer readiness — Neon Auth EdDSA JWKS verification; absent or `false` ⇒ Neon path off (default) |
 | `SUPABASE_DB_URL` | Container-only | Direct Postgres connection for asyncpg |
-| `GEMINI_API_KEY` | Container-only | LLM provider credential |
+| `GEMINI_API_KEY` | Container-only | Platform vision provider credential for photo-search (`GeminiVisionProvider`, always mounted) — an empty key means every photo-search request silently degrades to a clarify miss (#502), not a hard boot failure |
 | `ANITABI_API_URL` | Container-only | Pilgrimage data API |
 | `CORS_ALLOWED_ORIGIN` | Container-only | Backend CORS allowlist |
 | `GOOGLE_MAPS_API_KEY` | Container-only (optional) | Geocoding |

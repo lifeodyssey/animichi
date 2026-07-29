@@ -17,7 +17,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from agent.agents.catalog_failures import CATALOG_FAILURES
-from agent.agents.vision_supply_router import VisionSupply
+from agent.agents.vision_supply_router import VisionRecognitionFailed, VisionSupply
 from agent.clients.catalog_client import (
     AnimeCandidate,
     CatalogClientProtocol,
@@ -228,6 +228,25 @@ async def _degrade(
     return PhotoSearchOutcome(response, _signals(query, gps, layer, len(candidates)))
 
 
+async def _vision_unavailable_outcome(
+    catalog: CatalogClientProtocol, gps: GpsPoint | None
+) -> PhotoSearchOutcome:
+    """A provider outage is not a genuine "nothing recognized" miss (#502
+    P1-2, review round 2): counting it as ``real_world_photo`` would corrupt
+    the SD-22/23 success-rate signal by attributing infra failures to what
+    users photographed. Still runs the *same* C2 degrade path — including
+    the layer-2 nearby fallback (AC6) — so an authenticated, located user
+    sees nearby works instead of a blank slate during an outage; only the
+    telemetry signal is overridden. The wire response still reuses
+    ``photo_unrecognized`` (same UX as a clean miss) — a distinct
+    user-facing "we're down" vs. "we don't recognize this" copy is
+    deliberately deferred (follow-up #518, not a silent scope cut).
+    """
+    outcome = await _degrade(catalog, [], gps)
+    signals = outcome.signals.model_copy(update={"query_type": "vision_unavailable"})
+    return PhotoSearchOutcome(outcome.response, signals)
+
+
 async def run_photo_search(
     supply: VisionSupply,
     catalog: CatalogClientProtocol,
@@ -236,8 +255,16 @@ async def run_photo_search(
     locale: str,
     authenticated: bool,
 ) -> PhotoSearchOutcome:
-    """Upload → vision (layer 1) → resolve; misses degrade via layers 2/none."""
-    call = await supply.recognize(images, locale, authenticated)
+    """Upload → vision (layer 1) → resolve; misses degrade via layers 2/none.
+
+    A vision call that fails outright (BYOK and platform both exhausted)
+    degrades to a clarify response like a clean miss, but keeps a distinct
+    telemetry signal (``_vision_unavailable_outcome``) — never a 500.
+    """
+    try:
+        call = await supply.recognize(images, locale, authenticated)
+    except VisionRecognitionFailed:
+        return await _vision_unavailable_outcome(catalog, gps)
     titles = call.recognition.candidate_titles
     if titles:
         outcome = await _layer_one(catalog, titles, gps)

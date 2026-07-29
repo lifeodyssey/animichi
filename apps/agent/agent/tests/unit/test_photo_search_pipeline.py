@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import httpx
+
 from agent.agents.photo_search import (
     GpsPoint,
     PhotoClarifyData,
     PhotoSearchData,
     run_photo_search,
 )
-from agent.agents.vision_supply_router import VisionCapabilityRegistry, VisionSupply
+from agent.agents.vision_supply_router import (
+    VisionCapabilityRegistry,
+    VisionRecognition,
+    VisionSupply,
+)
 from agent.tests.unit.photo_search_fakes import (
     NEARBY_TITLE,
     UNRESOLVABLE_TITLE,
@@ -28,6 +34,13 @@ _GPS = GpsPoint(lat=35.2, lng=136.2)
 def _supply(titles: list[str]) -> VisionSupply:
     stub = KeyedVisionStub({digest(_IMAGE): titles})
     return VisionSupply(platform=stub, registry=VisionCapabilityRegistry())
+
+
+class _DownVisionProvider:
+    """#502: the platform vision call itself fails (dead key, timeout, ...)."""
+
+    async def recognize(self, images: list[bytes], locale: str) -> VisionRecognition:
+        raise httpx.ConnectError("connection refused")
 
 
 async def test_layer_one_resolves_and_returns_search_envelope() -> None:
@@ -76,6 +89,50 @@ async def test_layer_two_merges_nearby_works_with_vision_candidates() -> None:
     assert titles == [UNRESOLVABLE_TITLE, NEARBY_TITLE]
     assert outcome.signals.layer_hit == "2"
     assert outcome.signals.gps_available is True
+    assert catalog.nearby_calls == [(35.2, 136.2, 2000)]
+
+
+async def test_vision_provider_failure_degrades_to_clarify_instead_of_raising() -> None:
+    """#502: a blown-up vision call must reach the same clarify response as a
+    clean "nothing recognized" miss — never escape as an unhandled exception."""
+    supply = VisionSupply(
+        platform=_DownVisionProvider(), registry=VisionCapabilityRegistry()
+    )
+    outcome = await run_photo_search(supply, FakeCatalog(), [_IMAGE], None, "ja", False)
+    assert outcome.response.intent == "clarify"
+    assert isinstance(outcome.response.data, PhotoClarifyData)
+    assert outcome.response.data.reason == "photo_unrecognized"
+    assert outcome.response.data.candidates == []
+    assert outcome.signals.layer_hit == "none"
+
+
+async def test_vision_provider_failure_uses_a_distinct_telemetry_signal() -> None:
+    """#502 P1-2: a provider outage must NOT be counted the same as a clean
+    "user photographed something unrecognizable" miss — that would corrupt
+    the SD-22/23 success-rate signal by blaming infra failures on users."""
+    supply = VisionSupply(
+        platform=_DownVisionProvider(), registry=VisionCapabilityRegistry()
+    )
+    outcome = await run_photo_search(supply, FakeCatalog(), [_IMAGE], _GPS, "ja", False)
+    assert outcome.signals.query_type == "vision_unavailable"
+    assert outcome.signals.query_type != "real_world_photo"
+    assert outcome.signals.gps_available is True
+
+
+async def test_vision_provider_failure_still_runs_layer_two_nearby_fallback() -> None:
+    """#502 P1-2 review round 2: layer 2 (`catalog.nearby`) doesn't depend on
+    vision at all (AC6) — an authenticated, located user must still see
+    nearby works during a vision outage, not a blank slate. Only the
+    telemetry signal changes; the degrade path itself must stay intact."""
+    catalog = FakeCatalog()
+    supply = VisionSupply(
+        platform=_DownVisionProvider(), registry=VisionCapabilityRegistry()
+    )
+    outcome = await run_photo_search(supply, catalog, [_IMAGE], _GPS, "ja", False)
+    assert isinstance(outcome.response.data, PhotoClarifyData)
+    titles = [candidate.title for candidate in outcome.response.data.candidates]
+    assert titles == [NEARBY_TITLE]
+    assert outcome.signals.layer_hit == "2"
     assert catalog.nearby_calls == [(35.2, 136.2, 2000)]
 
 
