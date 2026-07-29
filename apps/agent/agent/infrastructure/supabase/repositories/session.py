@@ -9,7 +9,7 @@ from datetime import datetime
 
 from agent.infrastructure.supabase.client_types import AsyncPGPool, Row
 
-_COMMAND_TAG_ROW_COUNT = re.compile(r"(\d+)\s*$")
+_COMMAND_TAG_ROW_COUNT = re.compile(r"(\d+)$")
 
 _CREATE_SESSION_SQL = """
     INSERT INTO sessions (id, state, metadata) VALUES ($1, $2::jsonb, '{}'::jsonb)
@@ -57,7 +57,7 @@ def _rows_affected(status: str) -> int:
     case for ``UPDATE``/``DELETE`` in practice, but this must never raise —
     a parse failure here would turn a successful mutation into a 500).
     """
-    match = _COMMAND_TAG_ROW_COUNT.search(status)
+    match = _COMMAND_TAG_ROW_COUNT.search(status.rstrip())
     return int(match.group(1)) if match else 0
 
 

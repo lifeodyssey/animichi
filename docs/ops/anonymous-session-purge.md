@@ -74,6 +74,10 @@ someone.
 
 - `db/migrations/20260728000001_conversations_user_id_pattern_ops.sql` +
   the `supabase/migrations/` twin — the `text_pattern_ops` index the purge
-  scan's `LIKE 'anon\_%'` match depends on.
+  scan's `LIKE 'anon\_%'` match depends on. The test Postgres image and the
+  Neon test branches this runs against are both provisioned as `en_US.utf8`
+  (a non-C collation) — `tests/integration/test_session_retention_integrity.py`
+  asserts against this value directly; if the environment's collation is
+  ever intentionally changed, update both places together.
 - `apps/agent/agent/interfaces/routes/session_migration.py` — the login-time
   ownership transition this purge coexists with.

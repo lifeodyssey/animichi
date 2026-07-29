@@ -86,33 +86,36 @@ async def test_purge_session_race_a_concurrent_login_saves_the_session(
     assert await real_db.session.get_session(session_id) is not None
 
 
+#: The purge sweep's own test images/Neon branches are provisioned as
+#: en_US.utf8 (documented in docs/ops/anonymous-session-purge.md) — a
+#: non-C collation, which is exactly the condition under which a plain
+#: btree cannot service a LIKE prefix match and text_pattern_ops matters.
+_EXPECTED_COLLATION = "en_US.utf8"
+
+
 @pytest.mark.integration
 async def test_purge_predicate_hits_the_pattern_ops_index_not_a_seq_scan(
     real_db,
 ) -> None:
-    """Index/collation integrity (rev6 P1-1). Under a non-C collation, a
-    plain btree on `user_id` cannot service a LIKE prefix match at all — only
-    `text_pattern_ops` can. Recording the collation makes that context
-    explicit rather than assumed.
+    """Index/collation integrity (rev6 P1-1). Under the documented non-C
+    collation, a plain btree on `user_id` cannot service a LIKE prefix
+    match at all — only `text_pattern_ops` can.
 
-    The opclass assertion below (not the plan shape) is what catches the
-    mutation: reverting the index to default ops (drop + recreate without
-    `text_pattern_ops`) makes THIS test fail while
+    Mutation-direction verified locally: reverting the index to default ops
+    (drop + recreate without `text_pattern_ops`) makes THIS test fail while
     `test_retention_purges_only_the_inactive_routeless_sibling` (the
-    behavioral happy path) keeps passing — verified locally. The plan
-    assertion intentionally does not pin the exact index name: on a
-    populated environment (e.g. a shared Neon branch with rows accumulated
-    across the whole suite) the planner may reasonably prefer the
-    pre-existing `idx_conversations_user_id_updated_at` composite index
-    over this one — both are index scans, and choosing between two valid
-    index paths is a cost decision outside this migration's control. What
-    must always hold, regardless of which valid index wins, is that no
-    `Seq Scan` on `conversations` appears."""
+    behavioral happy path) keeps passing. Two independent assertions catch
+    it: the opclass check (structural) and the pattern-operator check
+    (behavioral) — a bare "no Seq Scan" assertion would be a tautology
+    under `enable_seqscan = off` (any btree scan, pattern-capable or not,
+    satisfies it), so this pins the actual pattern range-scan operators
+    (`~>=~` / `~<~`) that only appear in the plan when a pattern opclass
+    index services the LIKE prefix."""
     async with real_db.pool.acquire() as connection:
         collation = await connection.fetchval(
             "SELECT datcollate FROM pg_database WHERE datname = current_database()"
         )
-        assert collation
+        assert collation == _EXPECTED_COLLATION
         index_def = await connection.fetchval(
             "SELECT indexdef FROM pg_indexes "
             "WHERE indexname = 'idx_conversations_user_id_pattern'"
@@ -128,4 +131,5 @@ async def test_purge_predicate_hits_the_pattern_ops_index_not_a_seq_scan(
         finally:
             await connection.execute("SET enable_seqscan = on")
     plan_text = "\n".join(row["QUERY PLAN"] for row in plan_rows)
-    assert "Seq Scan on conversations" not in plan_text
+    assert "~>=~" in plan_text
+    assert "~<~" in plan_text
