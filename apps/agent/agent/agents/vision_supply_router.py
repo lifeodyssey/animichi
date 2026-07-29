@@ -13,9 +13,32 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, NewType, Protocol
 
+import httpx
+import structlog
 from pydantic import BaseModel, Field
 
+logger = structlog.get_logger(__name__)
+
 EndpointId = NewType("EndpointId", str)
+
+# I/O-boundary failures a vision provider call may raise: transport/timeout,
+# non-2xx status (auth failures included), and OS-level connection errors.
+# Matches the boundary convention used elsewhere (e.g. CATALOG_FAILURES,
+# agent/infrastructure/gateways/geocoding.py). Deliberately narrow: a bug in
+# provider code (TypeError, AttributeError, ...) must still surface as a 500
+# rather than being silently treated as a fallback-worthy failure.
+_VISION_CALL_FAILURES: tuple[type[Exception], ...] = (
+    httpx.HTTPError,
+    OSError,
+    RuntimeError,
+    ValueError,
+)
+
+
+class VisionRecognitionFailed(Exception):
+    """Raised when the platform vision provider fails and there is no more
+    fallback left to try (SD-19: carries no upstream-derived text)."""
+
 
 VisionProviderKind = Literal["byok", "platform"]
 QuotaTier = Literal["anon", "member"]
@@ -106,16 +129,36 @@ class VisionSupply:
             result = await self._recognize_byok(images, locale)
             if result is not None:
                 return result
-        recognition = await self.platform.recognize(images, locale)
+        try:
+            recognition = await self.platform.recognize(images, locale)
+        except _VISION_CALL_FAILURES as exc:
+            logger.warning(
+                "vision_platform_recognize_failed", error_type=type(exc).__name__
+            )
+            raise VisionRecognitionFailed from exc
         return VisionCallResult(recognition, "platform", route.provider_kind == "byok")
 
     async def _recognize_byok(
         self, images: list[bytes], locale: str
     ) -> VisionCallResult | None:
-        """D5 canary: a wrong reported count demotes the endpoint mid-call."""
+        """D5 canary: a wrong reported count demotes the endpoint mid-call.
+
+        A failed BYOK call falls back to the platform provider (by design):
+        it demotes the endpoint the same way a canary mismatch does, so a
+        dead/misconfigured key degrades quietly instead of surfacing here.
+        """
         if self.byok is None or self.byok_endpoint is None:
             return None
-        recognition = await self.byok.recognize(images, locale)
+        try:
+            recognition = await self.byok.recognize(images, locale)
+        except _VISION_CALL_FAILURES as exc:
+            logger.warning(
+                "vision_byok_recognize_failed",
+                endpoint=self.byok_endpoint,
+                error_type=type(exc).__name__,
+            )
+            self.registry.mark(self.byok_endpoint, False)
+            return None
         if recognition.reported_image_count == len(images):
             return VisionCallResult(recognition, "byok", False)
         self.registry.mark(self.byok_endpoint, False)

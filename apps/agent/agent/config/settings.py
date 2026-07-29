@@ -19,17 +19,6 @@ def _mask_secret(value: str | None, visible_chars: int = 4) -> str:
     return f"{value[:visible_chars]}...***"
 
 
-def _is_gemini_model(model_name: str | None) -> bool:
-    """Return True when a model spec uses Google Gemini directly (not via proxy)."""
-    if not isinstance(model_name, str):
-        return False
-    lower = model_name.lower()
-    # OpenAI-compat models routed through a proxy (e.g., Zeta) don't need GEMINI_API_KEY
-    if lower.startswith("openai:"):
-        return False
-    return "gemini" in lower
-
-
 def _is_openai_compat_model(model_name: str | None) -> TypeGuard[str]:
     """Return True when a model spec uses the repo's OpenAI-compatible path."""
     return isinstance(model_name, str) and model_name.lower().startswith("openai:")
@@ -372,14 +361,20 @@ class Settings(BaseSettings):
         }
 
     def validate_api_keys(self) -> list[str]:
-        """Validate required API keys are present."""
+        """Validate required API keys are present.
+
+        GEMINI_API_KEY is required unconditionally, not just when the chat
+        model happens to be Gemini: the photo-search route (always mounted,
+        no feature flag) builds a ``GeminiVisionProvider`` from this key on
+        every deployment (#502) — the requirement follows that real
+        consumer, not the conversation model choice.
+        """
         missing: list[str] = []
         all_models = [
             self.default_agent_model,
             self.fallback_agent_model,
         ]
-        uses_gemini = any(_is_gemini_model(m) for m in all_models)
-        if uses_gemini and not self.gemini_api_key:
+        if not self.gemini_api_key:
             missing.append("GEMINI_API_KEY")
         for model_name in all_models:
             issue = self._model_api_key_issue(model_name)

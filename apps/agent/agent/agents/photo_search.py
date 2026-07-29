@@ -17,7 +17,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from agent.agents.catalog_failures import CATALOG_FAILURES
-from agent.agents.vision_supply_router import VisionSupply
+from agent.agents.vision_supply_router import VisionRecognitionFailed, VisionSupply
 from agent.clients.catalog_client import (
     AnimeCandidate,
     CatalogClientProtocol,
@@ -236,8 +236,16 @@ async def run_photo_search(
     locale: str,
     authenticated: bool,
 ) -> PhotoSearchOutcome:
-    """Upload → vision (layer 1) → resolve; misses degrade via layers 2/none."""
-    call = await supply.recognize(images, locale, authenticated)
+    """Upload → vision (layer 1) → resolve; misses degrade via layers 2/none.
+
+    A vision call that fails outright (BYOK and platform both exhausted)
+    degrades exactly like a clean "nothing recognized" miss (C2): the user
+    sees the same clarify response either way, never a 500.
+    """
+    try:
+        call = await supply.recognize(images, locale, authenticated)
+    except VisionRecognitionFailed:
+        return await _degrade(catalog, [], gps)
     titles = call.recognition.candidate_titles
     if titles:
         outcome = await _layer_one(catalog, titles, gps)

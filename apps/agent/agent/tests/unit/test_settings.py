@@ -116,6 +116,7 @@ class TestAPIKeyValidation:
             default_agent_model="openai:local@http://localhost:1234/v1",
             fallback_agent_model=None,
             openai_compat_api_key="",
+            gemini_api_key="test-key",
             supabase_db_url="postgresql://local/test",
         )
 
@@ -139,12 +140,24 @@ class TestAPIKeyValidation:
         monkeypatch.delenv("DEEPSEEK_API_KEY")
         monkeypatch.setenv("MIMO_API_KEY", "prod-mimo-key")
 
-        settings = Settings(_env_file=None)
+        settings = Settings(_env_file=None, gemini_api_key="test-key")
 
         assert settings.fallback_agent_model == ""
         assert settings.validate_api_keys() == []
         missing_mimo = settings.model_copy(update={"mimo_api_key": ""})
         assert "MIMO_API_KEY" in missing_mimo.validate_api_keys()
+
+    @pytest.mark.filterwarnings("ignore::UserWarning")
+    def test_validate_api_keys_gemini_required_regardless_of_chat_model(self):
+        """#502: GEMINI_API_KEY backs the always-mounted photo-search vision
+        provider, not the chat model — it must be flagged missing even when
+        no configured model mentions Gemini at all."""
+        settings = Settings(
+            default_agent_model="deepseek:deepseek-v4-flash",
+            fallback_agent_model=None,
+            gemini_api_key="",
+        )
+        assert "GEMINI_API_KEY" in settings.validate_api_keys()
 
     def test_validate_api_keys_deepseek_inline_url(self):
         """DeepSeek with inline @url uses its provider setting, not compat config."""
