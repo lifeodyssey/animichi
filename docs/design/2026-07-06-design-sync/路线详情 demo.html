@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>路线详情 demo · 単ページ活文書 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0e8d8; --card:#f8f8f0; --panel:#f7f3df;
+  --tx:#794f27; --tx2:#725d42; --tx3:#9f927d;
+  --line:#e8e2d6; --line2:#c4b89e;
+  --teal:#19c8b9; --teal-text:#0e7c72;
+  --gold:#f5c31c; --gold-tx:#5c4813; --gold-deep:#d9a412; --star:#f0b429;
+  --sh2:#d4c9b4;
+  --map-land:#ebe6d5; --map-green:#dbe7c6; --map-water:#bcdce0; --map-road:#fdfbf2;
+  --ease:cubic-bezier(0.4,0,0.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#e7dfca;font-family:'Zen Maru Gothic','Nunito','Noto Sans SC',sans-serif;color:var(--tx);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:18px 16px 40px;}
+.demobar{display:flex;gap:8px;align-items:center;background:var(--panel);border:1.5px solid var(--line2);border-radius:50px;padding:7px 10px;margin-bottom:16px;box-shadow:0 3px 0 var(--sh2);}
+.demobar .lb{font:900 11px Nunito;letter-spacing:.14em;color:var(--tx3);padding:0 6px;}
+.demobar button{font-family:inherit;font-size:12.5px;font-weight:900;color:var(--tx2);background:var(--card);border:1.5px solid var(--line);border-radius:50px;padding:7px 14px;cursor:pointer;}
+.demobar button.on{background:#dff3f0;border-color:var(--teal);color:var(--teal-text);}
+.demobar button:active{transform:translateY(1px);}
+.hint{font-size:12px;color:var(--tx2);font-weight:700;margin-bottom:14px;}
+.hint b{color:var(--teal-text);}
+.phone{width:402px;height:874px;background:var(--card);border:1.5px solid var(--line2);border-radius:36px;overflow:hidden;position:relative;box-shadow:0 10px 0 0 var(--sh2);flex-shrink:0;display:flex;flex-direction:column;}
+.sb{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:800 14px Nunito;flex-shrink:0;}
+.sb .dots{display:flex;gap:4px;}.sb .dots i{width:5px;height:5px;border-radius:50%;background:var(--tx2);}
+.appbar{display:flex;align-items:center;gap:10px;padding:4px 16px 8px;flex-shrink:0;}
+.appbar .back{width:36px;height:36px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font:900 15px Nunito;}
+.appbar .at{font-size:13px;font-weight:700;color:var(--tx3);}
+.goldbar{display:none;align-items:center;justify-content:space-between;margin:2px 16px 10px;background:var(--gold);border-radius:50px;padding:10px 8px 10px 16px;box-shadow:0 4px 0 var(--gold-deep);flex-shrink:0;cursor:pointer;}
+.goldbar span.t{font-size:13.5px;font-weight:900;color:var(--gold-tx);}
+.goldbar span.b{background:#fff;border-radius:50px;padding:6px 14px;font-size:12.5px;font-weight:900;color:var(--gold-tx);}
+body[data-snap="today"] .goldbar{display:flex;}
+.stage{flex:1;position:relative;overflow:hidden;min-height:0;}
+.scrollc{position:absolute;inset:0;overflow-y:auto;padding-bottom:104px;scrollbar-width:none;transition:opacity .22s var(--ease);}
+.scrollc::-webkit-scrollbar{display:none;}
+.hero{position:relative;height:210px;margin:0 16px;border-radius:18px;overflow:hidden;flex-shrink:0;}
+.hero .hgrad{position:absolute;inset:0;background:linear-gradient(180deg,rgba(40,30,18,0) 34%,rgba(40,30,18,.62) 100%);}
+.hero .ctag{position:absolute;top:12px;left:14px;background:rgba(61,45,24,.68);color:#fff;font:800 11px Nunito;padding:3px 9px;border-radius:8px;}
+.hero .badge{position:absolute;top:12px;right:12px;background:var(--gold);color:var(--gold-tx);font-size:11px;font-weight:900;padding:4px 11px;border-radius:50px;box-shadow:0 2.5px 0 var(--gold-deep);display:none;}
+body[data-snap="done"] .hero .badge{display:block;}
+.hero .hbody{position:absolute;left:16px;right:16px;bottom:12px;color:#fff;}
+.hero .hey{font:900 10.5px Nunito;letter-spacing:.2em;opacity:.85;}
+.hero .htt{font-size:23px;font-weight:900;text-shadow:0 1px 4px rgba(40,30,18,.4);margin:2px 0 6px;}
+.hmeta{display:flex;gap:6px;flex-wrap:wrap;}
+.hmeta .mchip{background:rgba(248,248,240,.92);color:var(--tx);font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:50px;}
+.hmeta .pace{background:#e3f2d9;color:#4c7a2e;}
+.mapcard{margin:12px 16px 4px;border:1.5px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;background:var(--card);}
+.mapcard .cap{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--panel);border-top:1.5px solid var(--line);}
+.mapcard .cap .l{font-size:12px;font-weight:800;color:var(--tx2);}
+.mapcard .cap .r{font-size:12px;font-weight:900;color:var(--teal-text);}
+.map{position:relative;background:var(--map-land);overflow:hidden;}
+.mg{position:absolute;border-radius:50%;background:var(--map-green);}
+.mw{position:absolute;border-radius:40%;background:var(--map-water);}
+.mr{position:absolute;background:var(--map-road);border-radius:4px;}
+.fpin{position:absolute;border-radius:13px;border:2.5px solid #fff;box-shadow:0 3px 0 rgba(122,95,61,.32);z-index:2;}
+.fpin::after{content:'';position:absolute;left:50%;bottom:-9px;margin-left:-6px;border:6px solid transparent;border-top-color:#fff;}
+.fpin .fimg{position:absolute;inset:0;border-radius:10px;}
+.fpin .pb{position:absolute;top:-9px;right:-9px;min-width:20px;height:20px;border-radius:50%;font:900 11px Nunito;color:#fff;display:flex;align-items:center;justify-content:center;z-index:3;padding:0 4px;background:#fff;}
+.fpin .pb.n{color:var(--tx);border:1.5px solid var(--line2);}
+.fpin .pb.d{background:var(--teal);}
+.fpin.cur{border-color:var(--star);box-shadow:0 0 0 3px rgba(240,180,41,.45),0 3px 0 rgba(122,95,61,.32);}
+.fpin.cur .pb{background:var(--star);color:#5c4813;}
+.routepill{position:absolute;top:10px;left:12px;background:var(--gold);color:var(--gold-tx);font-size:11.5px;font-weight:900;padding:5px 12px;border-radius:50px;box-shadow:0 2.5px 0 var(--gold-deep);z-index:4;}
+.fold{position:absolute;top:10px;right:12px;background:rgba(248,248,240,.94);border:1.5px solid var(--line2);color:var(--tx);font-size:11px;font-weight:800;padding:5px 11px;border-radius:50px;z-index:4;cursor:pointer;}
+.tl{padding:6px 16px 0;}
+.trow{display:grid;grid-template-columns:46px 22px 1fr;column-gap:8px;}
+.trow .tt{font:800 14.5px Nunito;padding-top:12px;}
+.trow .tt em{display:block;font:700 10px Nunito;color:var(--tx3);font-style:normal;}
+.trk{position:relative;}
+.trk::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:2.5px;margin-left:-1.25px;background:var(--line2);}
+.trow.first .trk::before{top:16px;}
+.trow.last .trk::before{height:22px;}
+.trk .dot{position:absolute;left:50%;top:16px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#fff;border:3px solid var(--teal);z-index:1;}
+.trk .dot.done{background:var(--teal);}
+.trk .dot.star{width:18px;height:18px;margin-left:-9px;top:13px;background:var(--star);border-color:#fff;box-shadow:0 0 0 2.5px var(--star);}
+.tcard{display:flex;gap:10px;padding:9px 0;align-items:flex-start;}
+.tthumb{width:104px;height:64px;border-radius:12px;position:relative;overflow:hidden;flex-shrink:0;border:1.5px solid var(--line);}
+.tthumb .ttag{position:absolute;left:5px;bottom:5px;background:rgba(61,45,24,.68);color:#fff;font:800 9.5px Nunito;padding:2px 6px;border-radius:6px;white-space:nowrap;}
+.tthumb .chk{position:absolute;top:5px;right:5px;width:18px;height:18px;border-radius:50%;background:var(--teal);color:#fff;font:900 11px Nunito;display:none;align-items:center;justify-content:center;}
+.tinfo{min-width:0;padding-top:2px;}
+.tinfo .nm{font-size:15px;font-weight:900;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.tinfo .meta{font-size:11.5px;color:var(--tx3);font-weight:700;margin-top:3px;line-height:1.6;}
+.schip{font-size:10px;font-weight:900;padding:1.5px 7px;border-radius:50px;white-space:nowrap;}
+.schip.now{background:#fdf3d0;color:#8a6a12;border:1px solid var(--star);}
+.schip.warn{background:#fdeaea;color:#b04545;border:1px solid #f0c8c8;}
+.walkrow{display:grid;grid-template-columns:46px 22px 1fr;column-gap:8px;}
+.walkrow .wtrk{position:relative;}
+.walkrow .wtrk::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:0;border-left:2.5px dashed var(--line2);}
+.walkrow .wpill{margin:2px 0;justify-self:start;background:var(--panel);border:1.5px solid var(--line);border-radius:50px;padding:3px 11px;font-size:11px;font-weight:800;color:var(--tx2);}
+.walkrow .wpill b{color:var(--tx);}
+.pairs{margin:12px 16px 2px;display:none;}
+body[data-snap="done"] .pairs{display:block;}
+.pairs .ph{display:flex;align-items:baseline;justify-content:space-between;margin:0 2px 8px;}
+.pairs .ph .l{font-size:14px;font-weight:900;}
+.pairs .ph .l small{font:800 11px Nunito;color:var(--tx3);}
+.pairs .ph .r{font-size:11.5px;font-weight:900;color:var(--teal-text);}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.pc{border:1.5px solid var(--line);border-radius:13px;overflow:hidden;position:relative;background:#fff;}
+.pc .xn{position:absolute;right:5px;top:5px;background:var(--gold);color:var(--gold-tx);font:900 9px Nunito;padding:1px 6px;border-radius:50px;box-shadow:0 1.5px 0 var(--gold-deep);z-index:2;}
+.pc .im{display:flex;flex-direction:column;height:96px;position:relative;}
+.pc .im::after{content:'';position:absolute;left:0;right:0;top:50%;height:1.5px;margin-top:-0.75px;background:rgba(248,248,240,.85);}
+.pc .im span{flex:1;position:relative;}
+.pc .nm{padding:5px 9px;font-size:11px;font-weight:800;background:var(--panel);}
+.pc.dash{border-style:dashed;border-color:var(--line2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--tx3);min-height:86px;cursor:pointer;}
+.pc.dash .pl{font-size:16px;font-weight:900;}
+.pc.dash .tx{font-size:10.5px;font-weight:800;text-align:center;line-height:1.5;}
+.bigmap{position:absolute;inset:0;visibility:hidden;transform-origin:top left;z-index:3;}
+.stage.mapmode .bigmap{visibility:visible;}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:24px 24px 0 0;box-shadow:0 -8px 28px rgba(122,95,61,.2);z-index:5;height:352px;display:flex;flex-direction:column;transform:translateY(110%);}
+.stage.mapmode .sheet{transform:translateY(0);}
+.grab{width:44px;height:5px;border-radius:3px;background:var(--line2);margin:10px auto 4px;flex-shrink:0;}
+.sheethead{display:flex;align-items:center;justify-content:space-between;padding:2px 16px 8px;flex-shrink:0;}
+.sheethead .nx{font-size:13px;font-weight:900;}
+.sheethead .nx b{color:var(--teal-text);}
+.prog{display:flex;gap:3px;align-items:center;}
+.prog i{width:9px;height:9px;border-radius:3px;background:var(--line);}
+.prog i.d{background:var(--teal);}
+.prog i.c{background:#fff;border:1.5px solid var(--star);}
+.prog .pt{font:800 11px Nunito;color:var(--tx3);margin-left:4px;}
+.sheetbody{flex:1;overflow-y:auto;padding-bottom:96px;scrollbar-width:none;}
+.sheetbody::-webkit-scrollbar{display:none;}
+.dock{position:absolute;left:0;right:0;bottom:0;padding:26px 16px 16px;background:linear-gradient(180deg,rgba(248,248,240,0),var(--card) 46%);z-index:8;display:flex;gap:10px;}
+.cta{flex:1;display:flex;align-items:center;justify-content:center;height:54px;border-radius:50px;background:var(--gold);color:var(--gold-tx);font-size:16px;font-weight:900;box-shadow:0 4px 0 0 var(--gold-deep);cursor:pointer;transition:transform .15s var(--ease),box-shadow .15s var(--ease);}
+.cta:active{transform:translateY(3px);box-shadow:0 1px 0 0 var(--gold-deep);}
+.cta.sub{flex:0 0 118px;background:var(--card);color:var(--tx);border:1.5px solid var(--line2);box-shadow:0 4px 0 0 var(--sh2);font-size:13.5px;}
+.cta.sub:active{box-shadow:0 1px 0 0 var(--sh2);}
+.cta.sub.grow{flex:1;}
+.toast{position:absolute;left:50%;bottom:112px;transform:translate(-50%,16px);background:rgba(61,45,24,.9);color:#fff;font-size:12.5px;font-weight:800;padding:9px 18px;border-radius:50px;opacity:0;pointer-events:none;transition:all .25s var(--ease);z-index:20;white-space:nowrap;}
+.toast.show{opacity:1;transform:translate(-50%,0);}
+@media (prefers-reduced-motion: reduce){.anim *{transition-duration:.01s !important;}}
+</style>
+</head>
+<body data-snap="weekday">
+
+<div class="demobar">
+  <span class="lb">DEMO</span>
+  <a href="前端全景 - Journey Hub.dc.html" style="font:900 12px Nunito;color:var(--teal-text);text-decoration:none;background:var(--card);border:1.5px solid var(--line);border-radius:50px;padding:7px 12px;">◂ Hub</a>
+  <button data-snap-btn="weekday">平日</button>
+  <button data-snap-btn="today">きょうは巡礼日</button>
+  <button data-snap-btn="done">完走後</button>
+  <button data-view-btn="long">長いルート12</button><button data-view-btn="multi">2泊3日</button><button data-view-btn="many">18カット</button><button id="resetBtn" style="color:var(--tx3);">リセット</button>
+</div>
+<div class="hint">地図カードをタップ → <b>FLIP 展開</b>（同じページ・モードが変わるだけ）· つまみを下へドラッグ or「たたむ」で戻る · 金CTAはデータが決める</div>
+
+<div class="phone">
+  <div class="sb"><span id="clock">9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+  <div class="appbar"><span class="back">‹</span><div><div style="font-size:15px;font-weight:900;" id="rtitle">飛騨古川 半日ルート</div><div class="at" id="subline">君の名は。 · マイルート</div></div></div>
+  <div class="goldbar" id="goldbar"><span class="t">きょうは巡礼日！のこり3スポット</span><span class="b">歩くモードへ →</span></div>
+
+  <div class="stage" id="stage">
+    <div class="scrollc" id="scrollc">
+      <div class="hero" id="hero" style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);">
+        <div class="hgrad"></div><span class="ctag">第1話 04:12</span><span class="badge">完走 5/5 ✓</span>
+        <div class="hbody"><div class="hey">YOUR NAME × HIDA-FURUKAWA</div><div class="htt">飛騨古川 半日ルート</div>
+          <div class="hmeta"><span class="mchip pace">ゆったり</span><span class="mchip">5スポット</span><span class="mchip">徒歩2.8km</span><span class="mchip" id="heroTime">9:30→13:00頃</span></div></div>
+      </div>
+      <div class="mapcard" id="mapcard">
+        <div class="map" id="minimap" style="height:132px;"></div>
+        <div class="cap"><span class="l">図釘はぜんぶ本編の画面</span><span class="r">地図を展開 ↗</span></div>
+      </div>
+      <div class="pairs">
+        <div class="ph"><span class="l">対比図 <small>4枚 · 3スポット</small></span><span class="r">機位ブラウザ ↗</span></div>
+        <div class="pgrid" style="grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <div class="pc"><div class="im"><span style="background:linear-gradient(135deg,#cfe3f7,#98b8dc);"><i style="position:absolute;left:4px;top:4px;background:rgba(61,45,24,.68);color:#fff;font:800 7.5px Nunito;font-style:normal;padding:1px 5px;border-radius:4px;">第1話</i></span><span style="background:linear-gradient(172deg,#a9bdd6,#7e94b3);"><i style="position:absolute;right:4px;top:3px;background:rgba(248,248,240,.9);color:var(--tx);font:800 7px Nunito;font-style:normal;padding:1px 4px;border-radius:4px;">実拍</i></span></div><div class="nm" style="font-size:9.5px;padding:4px 8px;">駅 · 9:31</div></div>
+          <div class="pc"><span class="xn">×2</span><div class="im"><span style="background:linear-gradient(135deg,#d7eccf,#a8cf8e);"><i style="position:absolute;left:4px;top:4px;background:rgba(61,45,24,.68);color:#fff;font:800 7.5px Nunito;font-style:normal;padding:1px 5px;border-radius:4px;">第8話</i></span><span style="background:linear-gradient(172deg,#b9cfa4,#7fa063);"><i style="position:absolute;right:4px;top:3px;background:rgba(248,248,240,.9);color:var(--tx);font:800 7px Nunito;font-style:normal;padding:1px 4px;border-radius:4px;">実拍</i></span></div><div class="nm" style="font-size:9.5px;padding:4px 8px;">神社 ★ · 10:48</div></div>
+          <div class="pc"><div class="im"><span style="background:linear-gradient(135deg,#fbe3ea,#eeb3c6);"><i style="position:absolute;left:4px;top:4px;background:rgba(61,45,24,.68);color:#fff;font:800 7.5px Nunito;font-style:normal;padding:1px 5px;border-radius:4px;">組紐</i></span><span style="background:linear-gradient(172deg,#e3bcc8,#b98a9b);"><i style="position:absolute;right:4px;top:3px;background:rgba(248,248,240,.9);color:var(--tx);font:800 7px Nunito;font-style:normal;padding:1px 4px;border-radius:4px;">実拍</i></span></div><div class="nm" style="font-size:9.5px;padding:4px 8px;">物産館 · 12:58</div></div>
+        </div>
+        <div class="pc dash" data-toast="機位ブラウザへ · 深链 url+pid+bid+g · JPGで保存してね" style="margin-top:8px;min-height:0;flex-direction:row;gap:8px;padding:8px 12px;justify-content:flex-start;"><span class="pl" style="font-size:14px;">＋</span><span class="tx" style="text-align:left;">機位ブラウザから作る（のこり14カット）</span></div>
+      </div>
+      <div class="tl" id="resttl"></div>
+    </div>
+
+    <div class="bigmap map" id="bigmap">
+      <span class="routepill" id="bigpill">飛騨古川 半日ルート</span>
+      <span class="fold" id="foldBtn">たたむ ↓</span>
+    </div>
+
+    <div id="scalec" style="position:absolute;inset:0;overflow-y:auto;display:none;z-index:4;background:var(--card);scrollbar-width:none;"></div>
+
+    <div class="sheet" id="sheet">
+      <div class="grab" id="grab" style="cursor:grab;touch-action:none;"></div>
+      <div class="sheethead"><span class="nx" id="nextline"></span><span class="prog" id="prog"></span></div>
+      <div class="sheetbody"><div class="tl" id="sheettl"></div></div>
+    </div>
+
+    <div class="dock" id="dock"></div>
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<script src="scene-cut.js"></script>
+<script>
+(function(){
+  var SPOTS=[
+    {t:'9:30', n:'飛騨古川駅', tag:'第1話 04:12', g:'linear-gradient(135deg,#cfe3f7,#98b8dc)', meta:'跨線橋からホームを俯瞰 · 12カット · 滞在15分', walk:'徒歩<b>4分</b> · 瀬戸川の鯉を横目に', dt:'9:31'},
+    {t:'10:05', n:'味処古川', tag:'五平餅', g:'linear-gradient(135deg,#f5dccf,#e0b294)', meta:'テッシー行きつけ · 早めの昼 · 滞在30分', walk:'徒歩<b>15分</b> · ゆるい上り坂', dt:'10:02'},
+    {t:'10:50', n:'気多若宮神社', tag:'第8話 41:12', g:'linear-gradient(135deg,#d7eccf,#a8cf8e)', meta:'石段と鳥居 · 18カット · 滞在20分', star:true, walk:'徒歩<b>12分</b> · 下りて市街へ', dt:'10:48'},
+    {t:'11:35', n:'飛騨市図書館', tag:'第8話 43:05', g:'linear-gradient(135deg,#dfd6f0,#b7a8dd)', meta:'「糸守」を調べた閲覧室 · 滞在15分', warn:'受付許可制', walk:'徒歩<b>6分</b>', dt:'11:34'},
+    {t:'12:10', n:'さくら物産館', tag:'組紐', g:'linear-gradient(135deg,#fbe3ea,#eeb3c6)', meta:'組紐体験30分 · ゴール13:00頃', dt:'12:41'}
+  ];
+  var PINS_BIG=[{x:36,y:296},{x:152,y:200},{x:300,y:96},{x:224,y:250},{x:120,y:330}];
+  var PINS_MINI=[{x:28,y:74},{x:100,y:48},{x:172,y:30},{x:243,y:44},{x:312,y:14}];
+  var SNAPS={
+    weekday:{visited:0, cur:-1, clock:'9:41', sub:'君の名は。 · マイルート', dock:[{c:'sub',t:'編集する',href:'Chat 完整状态.html',toast:''},{c:'',t:'しおりを共有',href:'しおり demo.html',toast:''}], defMode:'rest'},
+    today:{visited:2, cur:2, clock:'10:42', sub:'君の名は。 · 2/5 訪問ずみ', dock:[{c:'sub',t:'共有',toast:'しおりリンクをコピーしたよ'},{c:'sub grow',t:'Mapsで開く',toast:'Google Maps に渡すよ'}], defMode:'map'},
+    done:{visited:5, cur:-1, clock:'15:20', sub:'君の名は。 · 7/3 完走', dock:[{c:'sub',t:'共有',toast:'しおりリンクをコピーしたよ'},{c:'',t:'記念しおりを作る',href:'しおり demo.html',toast:''}], defMode:'rest'}
+  };
+  var KEY='route-demo-v1';
+  var state={snap:'weekday', mode:'rest', view:'base', day:1, epf:'all'};
+  try{var s=JSON.parse(localStorage.getItem(KEY)); if(s&&SNAPS[s.snap]) state=s;}catch(e){}
+
+  var stage=document.getElementById('stage'), scrollc=document.getElementById('scrollc'),
+      bigmap=document.getElementById('bigmap'), sheet=document.getElementById('sheet'),
+      mapcard=document.getElementById('mapcard'), minimap=document.getElementById('minimap'),
+      dock=document.getElementById('dock'), toastEl=document.getElementById('toast');
+  var scalec=document.getElementById('scalec'), animating=false, toastTimer=null;
+  function qs(s){return document.querySelector(s);}
+
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+  function toast(msg){clearTimeout(toastTimer);toastEl.textContent=msg;toastEl.classList.add('show');toastTimer=setTimeout(function(){toastEl.classList.remove('show');},1800);}
+
+  function mapScenery(el,scale){
+    var s=scale||1;
+    el.innerHTML+='<div class="mg" style="width:'+(200*s)+'px;height:'+(150*s)+'px;left:'+(-50*s)+'px;top:'+(-30*s)+'px;"></div>'
+      +'<div class="mg" style="width:'+(170*s)+'px;height:'+(130*s)+'px;right:'+(-45*s)+'px;bottom:'+(-30*s)+'px;"></div>'
+      +'<div class="mw" style="width:'+(260*s)+'px;height:'+(30*s)+'px;left:'+(50*s)+'px;top:'+(200*s)+'px;transform:rotate(-9deg);"></div>'
+      +'<div class="mr" style="width:'+(420*s)+'px;height:7px;left:-10px;top:'+(100*s)+'px;transform:rotate(5deg);"></div>'
+      +'<div class="mr" style="width:7px;height:'+(300*s)+'px;left:'+(180*s)+'px;top:-10px;transform:rotate(11deg);"></div>';
+  }
+  function pinBadge(i,snap){
+    if(i<snap.visited) return '<span class="pb d">✓</span>';
+    if(i===snap.cur) return '<span class="pb">★</span>';
+    return '<span class="pb n">'+(i+1)+'</span>';
+  }
+  function renderMaps(){
+    var snap=SNAPS[state.snap];
+    minimap.innerHTML='';mapScenery(minimap,.62);
+    var svg='<svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 370 132" fill="none"><path d="M40 96 C90 80 120 60 165 56 C210 52 250 40 322 34" stroke="#8a6f4d" stroke-width="2.5" stroke-dasharray="2 9" stroke-linecap="round"/></svg>';
+    minimap.innerHTML+=svg;
+    PINS_MINI.forEach(function(p,i){
+      var cur=i===snap.cur?' cur':'';
+      minimap.innerHTML+='<div class="fpin'+cur+'" style="width:30px;height:30px;left:'+p.x+'px;top:'+p.y+'px;border-radius:9px;"><span class="fimg" style="background:'+SPOTS[i].g+';border-radius:7px;"></span></div>';
+    });
+    var keep='<span class="routepill" id="bigpill"></span><span class="fold" id="foldBtn">たたむ ↓</span>';
+    bigmap.innerHTML=keep;mapScenery(bigmap,1);
+    bigmap.innerHTML+='<svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 400 420" fill="none" preserveAspectRatio="none"><path d="M60 330 C110 300 130 250 180 235 C230 220 260 160 330 130 C350 122 365 90 352 60" stroke="#8a6f4d" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round"/></svg>';
+    PINS_BIG.forEach(function(p,i){
+      var cur=i===snap.cur, sz=cur?58:48;
+      bigmap.innerHTML+='<div class="fpin'+(cur?' cur':'')+'" style="width:'+sz+'px;height:'+sz+'px;left:'+p.x+'px;top:'+p.y+'px;"><span class="fimg" style="background:'+SPOTS[i].g+';"></span>'+pinBadge(i,snap)+'</div>';
+    });
+    document.getElementById('bigpill').textContent='飛騨古川 半日ルート'+(snap.visited>0&&snap.visited<5?' · '+snap.visited+'/5':'');
+    document.getElementById('foldBtn').addEventListener('click',function(e){e.stopPropagation();collapse();});
+  }
+  function rowHtml(i,snap,compact){
+    var sp=SPOTS[i], visited=i<snap.visited, cur=i===snap.cur;
+    var dot=visited?'done':(sp.star?'star':'');
+    var chips='';
+    if(cur) chips+=' <span class="schip now">つぎ</span>';
+    if(sp.warn) chips+=' <span class="schip warn">'+sp.warn+'</span>';
+    var meta=visited?(sp.dt+' ここに来た! ✓'):sp.meta;
+    var cls=(i===0?'trow first':(i===SPOTS.length-1?'trow last':'trow'));
+    var h='<div class="'+cls+'"><span class="tt">'+(visited?sp.dt:sp.t)+'</span><span class="trk"><i class="dot '+dot+'"></i></span>'
+      +'<div class="tcard"><span class="tthumb" style="background:'+sp.g+';"><span class="ttag">'+sp.tag+'</span>'
+      +'<span class="chk" style="display:'+(visited?'flex':'none')+';">✓</span></span>'
+      +'<div class="tinfo"><div class="nm">'+sp.n+chips+'</div><div class="meta">'+meta+'</div></div></div></div>';
+    if(sp.walk&&i<SPOTS.length-1&&!compact) h+='<div class="walkrow"><span></span><span class="wtrk"></span><span class="wpill">'+sp.walk+'</span></div>';
+    return h;
+  }
+  function renderLists(){
+    var snap=SNAPS[state.snap], rest='', sh='';
+    for(var i=0;i<SPOTS.length;i++){rest+=rowHtml(i,snap,false);sh+=rowHtml(i,snap,false);}
+    document.getElementById('resttl').innerHTML=rest;
+    document.getElementById('sheettl').innerHTML=sh;
+    var nx=snap.cur>=0?('つぎは <b>'+SPOTS[snap.cur].n+'</b>'):(snap.visited>=5?'ぜんぶ来たよ！':'出発前 · 9:30 スタート');
+    document.getElementById('nextline').innerHTML=nx;
+    var pg='';
+    for(var j=0;j<5;j++){pg+='<i class="'+(j<snap.visited?'d':(j===snap.cur?'c':''))+'"></i>';}
+    pg+='<span class="pt">'+snap.visited+'/5</span>';
+    document.getElementById('prog').innerHTML=pg;
+    // sheet autoscroll to current
+    var body=sheet.querySelector('.sheetbody');
+    if(snap.cur>1) body.scrollTop=snap.cur*86-20; else body.scrollTop=0;
+  }
+  function renderDock(){
+    var snap=SNAPS[state.snap];
+    dock.innerHTML='';
+    snap.dock.forEach(function(d){
+      var b=document.createElement('div');b.className='cta '+d.c;b.textContent=d.t;
+      b.addEventListener('click',function(){if(d.href){location.href=d.href;}else{toast(d.toast);}});
+      dock.appendChild(b);
+    });
+  }
+  function render(){
+    document.body.setAttribute('data-snap',state.snap);
+    var snap=SNAPS[state.snap];
+    document.getElementById('clock').textContent=snap.clock;
+    document.getElementById('subline').textContent=snap.sub;
+    document.getElementById('heroTime').textContent=snap.visited>=5?'9:31→12:58 ✓':'9:30→13:00頃';
+    document.querySelectorAll('[data-snap-btn]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-snap-btn')===state.snap);});
+    renderMaps();renderLists();renderDock();
+    stage.classList.toggle('mapmode',state.mode==='map');
+    scrollc.style.opacity=state.mode==='map'?0:1;
+    scrollc.style.pointerEvents=state.mode==='map'?'none':'auto';
+    if(state.mode==='map'){bigmap.style.transform='none';bigmap.style.visibility='visible';}
+    document.querySelectorAll('[data-view-btn]').forEach(function(b){b.classList.toggle('on',state.view===b.getAttribute('data-view-btn'));});
+    if(state.view&&state.view!=='base'){renderScaleView();}
+    else{scalec.style.display='none';dock.style.display='flex';scrollc.style.pointerEvents=state.mode==='map'?'none':'auto';document.getElementById('rtitle').textContent='飛騨古川 半日ルート';qs('#goldbar .t').textContent='きょうは巡礼日！のこり3スポット';}
+    save();
+  }
+  // ── FLIP expand / collapse ──
+  function flipRect(){
+    var cr=minimap.getBoundingClientRect(), sr=stage.getBoundingClientRect();
+    var sx=cr.width/sr.width, sy=cr.height/sr.height;
+    return 'translate('+(cr.left-sr.left)+'px,'+(cr.top-sr.top)+'px) scale('+sx+','+sy+')';
+  }
+  function expand(){
+    if(animating||state.mode==='map')return;animating=true;
+    bigmap.style.visibility='visible';bigmap.style.transition='none';bigmap.style.transform=flipRect();bigmap.style.opacity=.4;
+    requestAnimationFrame(function(){requestAnimationFrame(function(){
+      bigmap.style.transition='transform .36s var(--ease),opacity .25s var(--ease)';
+      bigmap.style.transform='none';bigmap.style.opacity=1;
+      sheet.style.transition='transform .38s var(--ease) .06s';
+      stage.classList.add('mapmode');
+      scrollc.style.opacity=0;scrollc.style.pointerEvents='none';
+      setTimeout(function(){state.mode='map';animating=false;save();},430);
+    });});
+  }
+  function collapse(){
+    if(animating||state.mode!=='map')return;animating=true;
+    sheet.style.transition='transform .3s var(--ease)';
+    bigmap.style.transition='transform .36s var(--ease) .04s,opacity .3s var(--ease) .1s';
+    bigmap.style.transform=flipRect();bigmap.style.opacity=0;
+    stage.classList.remove('mapmode');
+    scrollc.style.opacity=1;scrollc.style.pointerEvents='auto';
+    setTimeout(function(){
+      state.mode='rest';bigmap.style.visibility='hidden';bigmap.style.transition='none';bigmap.style.transform='none';bigmap.style.opacity=1;
+      animating=false;save();
+    },440);
+  }
+  mapcard.addEventListener('click',expand);
+  // grab drag
+  var grab=document.getElementById('grab'), dragY=null;
+  grab.addEventListener('pointerdown',function(e){if(state.mode!=='map')return;dragY=e.clientY;grab.setPointerCapture(e.pointerId);sheet.style.transition='none';});
+  grab.addEventListener('pointermove',function(e){if(dragY===null)return;var dy=Math.max(0,e.clientY-dragY);sheet.style.transform='translateY('+dy+'px)';});
+  grab.addEventListener('pointerup',function(e){
+    if(dragY===null)return;var dy=Math.max(0,e.clientY-dragY);dragY=null;
+    if(dy>90){sheet.style.transition='transform .3s var(--ease)';sheet.style.transform='translateY(110%)';setTimeout(collapse,60);}
+    else{sheet.style.transition='transform .25s var(--ease)';sheet.style.transform='translateY(0)';}
+  });
+  grab.addEventListener('click',function(){if(dragY===null&&state.mode==='map'){/* tap = collapse */collapse();}});
+  // goldbar
+  document.getElementById('goldbar').addEventListener('click',function(){
+    if(window.SceneCut){SceneCut.play({label:'歩くモードへ',holdMs:1500});setTimeout(function(){location.href='Walk demo.html';},1100);}
+    else{location.href='Walk demo.html';}
+  });
+  document.querySelectorAll('.pc.dash').forEach(function(d){d.addEventListener('click',function(){toast(d.getAttribute('data-toast'));});});
+  // demo bar
+  document.querySelectorAll('[data-snap-btn]').forEach(function(b){
+    b.addEventListener('click',function(){
+      state.snap=b.getAttribute('data-snap-btn');
+      state.view='base';
+      state.mode=SNAPS[state.snap].defMode;
+      render();
+      if(state.mode==='map'){sheet.style.transition='none';requestAnimationFrame(function(){sheet.style.transition='transform .38s var(--ease)';});}
+    });
+  });
+  document.getElementById('resetBtn').addEventListener('click',function(){state={snap:'weekday',mode:'rest',view:'base',day:1,epf:'all'};render();toast('リセットしたよ');});
+  // ── 規模ビュー（長いルート / 多日 / 一点多図）──
+  function THUMB(g,tag,extra){return '<span class="tthumb" style="width:88px;height:54px;background:'+g+';">'+(tag?'<span class="ttag">'+tag+'</span>':'')+(extra||'')+'</span>';}
+  var UJI={hero:{g:'linear-gradient(135deg,#f7e0c0,#e0b083)',tag:'第1話 02:44',tt:'宇治 まる一日ルート',chips:'<span class="mchip" style="background:#fdeaea;color:#b04545;">みっちり</span><span class="mchip">12スポット</span><span class="mchip">徒歩5.6km</span><span class="mchip">9:00→17:30頃</span>'},
+   secs:[
+    {h:'午前',m:'9:00–11:40 · 4スポット · 徒歩1.2km',rows:[
+      {t:'9:00',n:'京阪宇治駅',tag:'第1話 02:44',g:'linear-gradient(135deg,#f7e0c0,#e0b083)',meta:'駅舎のアーチ · 6カット · 10分'},
+      {t:'9:25',n:'宇治橋',tag:'第1話 04:50',g:'linear-gradient(135deg,#cfe0f0,#9db8d4)',meta:'通学路の欄干 · 9カット · 15分'},
+      {t:'10:05',n:'中の島',tag:'第3話 08:11',g:'linear-gradient(135deg,#d7e8d0,#a9c99a)',meta:'河原の練習場所 · 7カット · 20分'},
+      {t:'10:50',n:'縣神社',tag:'第9話 15:44',g:'linear-gradient(135deg,#e8ddc8,#c9b391)',meta:'夏祭りの参道 · 4カット · 15分'}]},
+    {h:'午後',m:'12:40–15:20 · 5スポット · 大吉山ふくむ',rows:[
+      {t:'12:40',n:'宇治神社',tag:'第2話 10:05',g:'linear-gradient(135deg,#f5dccf,#e0b294)',meta:'手水舎のうさぎ · 5カット · 15分'},
+      {t:'13:20',n:'大吉山展望台',tag:'第8話 12:20',g:'linear-gradient(135deg,#d7e8d0,#a9c99a)',meta:'夜景と告白の山 · 18カット · 40分',star:true},
+      {t:'14:20',n:'興聖寺 琴坂',tag:'第11話 03:30',g:'linear-gradient(135deg,#dfd6f0,#b7a8dd)',meta:'紅葉の坂道 · 6カット · 20分'},
+      {t:'14:55',n:'朝霧橋',tag:'第12話 18:02',g:'linear-gradient(135deg,#fbe3ea,#eeb3c6)',meta:'夕暮れの待ち合わせ · 8カット · 10分'},
+      {t:'15:10',n:'宇治川先陣の碑',tag:'第12話 19:44',g:'linear-gradient(135deg,#cfe9f2,#93c4d8)',meta:'3カット · 10分'}]},
+    {h:'夕方',m:'15:40–17:30 · 3スポット · 夕景の橋',rows:[
+      {t:'15:40',n:'京都府立宇治公園',tag:'第13話 02:10',g:'linear-gradient(135deg,#f2e2cf,#dcb98e)',meta:'5カット · 20分'},
+      {t:'16:30',n:'宇治橋 西詰',tag:'最終話 20:30',g:'linear-gradient(135deg,#f7d9c4,#e2a97e)',meta:'夕焼けの欄干 · 7カット · 20分'},
+      {t:'17:10',n:'京阪宇治駅（もどり）',tag:'最終話 22:01',g:'linear-gradient(135deg,#f7e0c0,#e0b083)',meta:'ゴール · おつかれさま'}]}
+  ]};
+  var NUMAZU={days:[
+    {l:'1日目 · 7/2',s:'5/5 ✓ 完走',done:true,rows:[
+      {t:'9:31',n:'沼津駅前',tag:'第1期2話',g:'linear-gradient(135deg,#cfe3f7,#98b8dc)',v:true},
+      {t:'11:02',n:'仲見世商店街',tag:'第1期2話',g:'linear-gradient(135deg,#f5dccf,#e0b294)',v:true},
+      {t:'14:20',n:'沼津港',tag:'OP',g:'linear-gradient(135deg,#cfe9f2,#93c4d8)',v:true}]},
+    {l:'2日目 · 7/3 きょう',s:'6スポット · 内浦',today:true,rows:[
+      {t:'9:20',n:'内浦の桟橋',tag:'第1期1話',g:'linear-gradient(135deg,#cfe9f2,#93c4d8)',cur:true,meta:'千歌の家ちかく · 14カット · 20分'},
+      {w:'バス12分 · 木負農協前→三の浦'},
+      {t:'10:10',n:'淡島マリンパーク',tag:'OP',g:'linear-gradient(135deg,#f2e2cf,#dcb98e)',meta:'渡船で5分 · 60分'},
+      {w:'渡船+徒歩18分'},
+      {t:'12:00',n:'安田屋旅館',tag:'第1期3話',g:'linear-gradient(135deg,#e2d8f0,#bcaadd)',meta:'昼食 · 50分'},
+      {t:'13:40',n:'三の浦総合案内所',tag:'第1期4話',g:'linear-gradient(135deg,#d7eccf,#a8cf8e)',meta:'ノート記帳 · 15分'}]},
+    {l:'3日目 · 7/4',s:'4スポット · 沼津駅前 → 帰路',rows:[
+      {t:'9:30',n:'ゲーマーズ沼津店',tag:'第2期1話',g:'linear-gradient(135deg,#fbe3ea,#eeb3c6)',meta:'開店と同時に'},
+      {t:'10:40',n:'マルサン書店',tag:'第1期5話',g:'linear-gradient(135deg,#e8ddc8,#c9b391)',meta:'帰りの前に'}]}
+  ]};
+  var CUTS=[
+    {ep:'e8',tag:'第8話 12:20',g:'linear-gradient(135deg,#d7e8d0,#a9c99a)',rep:true},
+    {ep:'e8',tag:'第8話 12:41',g:'linear-gradient(150deg,#c8ddc0,#96b989)',dj:true},
+    {ep:'e8',tag:'第8話 13:02',g:'linear-gradient(120deg,#dcecd4,#aecfa0)'},
+    {ep:'e8',tag:'第8話 20:15 夜',g:'linear-gradient(135deg,#33405a,#5a6f92)'},
+    {ep:'e8',tag:'第8話 20:58 夜',g:'linear-gradient(150deg,#2e3a52,#4e628a)'},
+    {ep:'e8',tag:'第8話 21:14 夜',g:'linear-gradient(120deg,#3a4661,#61759c)'},
+    {ep:'e11',tag:'第11話 08:30',g:'linear-gradient(135deg,#e8ddc8,#c9b391)',dj:true},
+    {ep:'e11',tag:'第11話 09:12',g:'linear-gradient(150deg,#e2d5bd,#c2ab85)'},
+    {ep:'e11',tag:'第11話 10:05',g:'linear-gradient(120deg,#dcd0b6,#bda67c)'},
+    {ep:'fin',tag:'最終話 20:30',g:'linear-gradient(135deg,#f7d9c4,#e2a97e)'},
+    {ep:'fin',tag:'最終話 22:01',g:'linear-gradient(150deg,#f2cdb2,#dc9c6b)'}
+  ];
+  function scaleRow(r){
+    if(r.w) return '<div class="walkrow"><span></span><span class="wtrk"></span><span class="wpill">'+r.w+'</span></div>';
+    var chips=(r.cur?' <span class="schip now">つぎ</span>':'')+(r.star?' <span class="schip now">ハイライト</span>':'');
+    return '<div class="trow"><span class="tt">'+r.t+'</span><span class="trk"><i class="dot '+(r.v?'done':(r.star||r.cur?'star':''))+'"></i></span>'
+      +'<div class="tcard">'+THUMB(r.g,r.tag,r.v?'<span class="chk" style="display:flex;">✓</span>':'')
+      +'<div class="tinfo"><div class="nm" style="font-size:14px;">'+r.n+chips+'</div><div class="meta">'+(r.meta||(r.v?r.t+' ここに来た! ✓':'—'))+'</div></div></div></div>';
+  }
+  function secHead(i,open,h,m,extra){
+    return '<div data-acc="'+i+'" style="margin:8px 16px 4px;background:'+(open?'var(--panel)':'var(--card)')+';border:1.5px solid var(--line);border-radius:14px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;'+(extra||'')+'">'
+      +'<span style="font-size:12.5px;font-weight:900;">'+h+' <span style="font:800 11px Nunito;color:var(--tx3);">'+m+'</span></span>'
+      +'<span style="font-size:11px;font-weight:900;color:'+(open?'var(--teal-text)':'var(--tx3)')+';">'+(open?'たたむ ∧':'ひらく ∨')+'</span></div>';
+  }
+  function renderScaleView(){
+    scalec.style.display='block';
+    stage.classList.remove('mapmode');sheet.style.transform='';
+    scrollc.style.pointerEvents='none';
+    var h='';
+    if(state.view==='long'){
+      document.body.setAttribute('data-snap','weekday');
+      document.getElementById('clock').textContent='9:12';
+      document.getElementById('rtitle').textContent='宇治 まる一日ルート';
+      document.getElementById('subline').textContent='響け！ユーフォニアム · 12スポット';
+      dock.style.display='flex';
+      h+='<div class="hero" style="height:150px;background:'+UJI.hero.g+';"><div class="hgrad"></div><span class="ctag">'+UJI.hero.tag+'</span><div class="hbody" style="bottom:10px;"><div class="htt" style="font-size:19px;margin:0 0 5px;">'+UJI.hero.tt+'</div><div class="hmeta">'+UJI.hero.chips+'</div></div></div>';
+      UJI.secs.forEach(function(s,i){
+        var open=state.day===i;
+        h+=secHead(i,open,s.h,s.m);
+        if(open){h+='<div class="tl">'+s.rows.map(scaleRow).join('')+'</div>';}
+      });
+      h+='<div style="height:104px;"></div>';
+    } else if(state.view==='multi'){
+      document.body.setAttribute('data-snap','today');
+      document.getElementById('clock').textContent='8:55';
+      document.getElementById('rtitle').textContent='沼津 2泊3日ツアー';
+      document.getElementById('subline').textContent='ラブライブ!サンシャイン!! · 2日目';
+      qs('#goldbar .t').textContent='2日目だよ！内浦エリアへ';
+      dock.style.display='flex';
+      NUMAZU.days.forEach(function(d,i){
+        var open=state.day===i;
+        var extra=d.today?'background:#fdf8e8;border-color:var(--star);':(d.done?'':'opacity:.85;');
+        h+=secHead(i,open,d.l,'<span style="color:'+(d.done?'var(--teal-text)':'var(--tx3)')+';">'+d.s+'</span>',extra);
+        if(open){h+='<div class="tl">'+d.rows.map(scaleRow).join('')+'</div>';}
+      });
+      h+='<div style="height:104px;"></div>';
+    } else if(state.view==='many'){
+      document.body.setAttribute('data-snap','weekday');
+      document.getElementById('clock').textContent='13:05';
+      document.getElementById('rtitle').textContent='宇治 まる一日ルート';
+      document.getElementById('subline').textContent='響け！ユーフォニアム';
+      dock.style.display='none';
+      var f=state.epf||'all';
+      var list=CUTS.filter(function(c){return f==='all'||c.ep===f;});
+      var total={all:18,e8:11,e11:5,fin:2}[f]||list.length;
+      var shown=list.slice(0,f==='all'?8:list.length);
+      var tiles=shown.map(function(c){
+        return '<span style="height:74px;border-radius:11px;background:'+c.g+';position:relative;'+(c.rep?'border:2.5px solid var(--star);':'')+'"><i style="position:absolute;left:4px;bottom:4px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">'+c.tag+'</i>'+(c.rep?'<i style="position:absolute;top:4px;right:4px;background:var(--gold);color:var(--gold-tx);font:900 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">代表</i>':'')+(c.dj?'<i style="position:absolute;top:4px;right:4px;background:var(--gold);color:var(--gold-tx);font:900 8px Nunito;font-style:normal;padding:1px 6px;border-radius:50px;box-shadow:0 1.5px 0 var(--gold-deep);">対比図✓</i>':'')+'</span>';
+      }).join('');
+      if(total>shown.length){tiles+='<span style="height:74px;border-radius:11px;background:linear-gradient(120deg,#5c5470,#8a7f9e);position:relative;"><i style="position:absolute;inset:0;border-radius:9px;background:rgba(61,45,24,.5);color:#fff;font:900 13px Nunito;font-style:normal;display:flex;align-items:center;justify-content:center;">+'+(total-shown.length)+'</i></span>';}
+      var chip=function(k,l){var on=f===k;return '<span data-chip="'+k+'" style="cursor:pointer;background:'+(on?'#dff3f0':'var(--card)')+';border:1.5px solid '+(on?'var(--teal)':'var(--line)')+';color:'+(on?'var(--teal-text)':'var(--tx2)')+';font-size:11px;font-weight:'+(on?'900':'800')+';padding:4px 12px;border-radius:50px;">'+l+'</span>';};
+      h+='<div class="tl" style="opacity:.35;margin-top:4px;"><div class="trow first"><span class="tt">13:20</span><span class="trk"><i class="dot star"></i></span><div class="tcard">'+THUMB('linear-gradient(135deg,#d7e8d0,#a9c99a)','第8話 12:20')+'<div class="tinfo"><div class="nm">大吉山展望台</div><div class="meta">夜景と告白の山 · 上り20分</div></div></div></div></div>'
+        +'<div style="position:absolute;left:0;right:0;bottom:0;top:96px;background:var(--card);border-radius:24px 24px 0 0;box-shadow:0 -8px 28px rgba(122,95,61,.2);display:flex;flex-direction:column;">'
+        +'<div class="grab"></div>'
+        +'<div style="display:flex;align-items:baseline;justify-content:space-between;padding:2px 18px 10px;"><span style="font-size:15px;font-weight:900;">大吉山展望台 <span style="font:800 11.5px Nunito;color:var(--tx3);">18カット</span></span><span style="font-size:11.5px;font-weight:900;color:var(--teal-text);">写真ありのみ ⊙</span></div>'
+        +'<div style="display:flex;gap:6px;padding:0 18px 10px;flex-wrap:wrap;">'+chip('all','ぜんぶ 18')+chip('e8','第8話 11')+chip('e11','第11話 5')+chip('fin','最終話 2')+'</div>'
+        +'<div style="flex:1;overflow-y:auto;padding:0 18px;scrollbar-width:none;"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">'+tiles+'</div>'
+        +'<div style="margin-top:10px;background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font-size:11px;font-weight:700;color:var(--tx2);line-height:1.6;">タップで拡大（h360）<br><span style="color:var(--tx3);">画像・座標：Anitabi (CC BY-NC-SA 4.0) · 出典を見る ↗</span></div><div style="height:12px;"></div></div>'
+        +'<div style="display:flex;gap:10px;padding:10px 16px 16px;"><span class="cta sub" style="flex:0 0 138px;" data-toastbtn="代表を変える：タイルをタップで選んでね">代表を変える</span><span class="cta sub" style="flex:1;" data-toastbtn="Walk の構図リストに追加したよ ★">この構図を目標に ★</span></div>'
+        +'</div>';
+    }
+    scalec.innerHTML=h;
+  }
+  scalec.addEventListener('click',function(e){
+    var acc=e.target.closest('[data-acc]');
+    if(acc){var i=+acc.getAttribute('data-acc');state.day=(state.day===i?-1:i);renderScaleView();save();return;}
+    var ch=e.target.closest('[data-chip]');
+    if(ch){state.epf=ch.getAttribute('data-chip');renderScaleView();save();return;}
+    var tb=e.target.closest('[data-toastbtn]');
+    if(tb){toast(tb.getAttribute('data-toastbtn'));}
+  });
+  document.querySelectorAll('[data-view-btn]').forEach(function(b){
+    b.addEventListener('click',function(){
+      state.view=b.getAttribute('data-view-btn');
+      state.snap=state.view==='multi'?'today':'weekday';
+      state.mode='rest';
+      state.day=state.view==='multi'?1:0;
+      state.epf='all';
+      render();
+    });
+  });
+  render();
+})();
+</script>
+</body>
+</html>

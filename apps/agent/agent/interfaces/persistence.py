@@ -9,17 +9,20 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
+import asyncpg
 import structlog
 from pydantic_core import to_jsonable_python
 
 from agent.agents.agent_result import AgentResult
+from agent.agents.session_state import PointState, RoutePayloadState, SearchPayloadState
 from agent.domain.ports import (
+    get_bangumi_repo,
     get_routes_repo,
     get_session_repo,
-    get_user_memory_repo,
 )
 from agent.infrastructure.session import SessionStore
 from agent.interfaces.schemas import (
+    GRACEFUL_TERMINAL_STATUSES,
     PublicAPIRequest,
     PublicAPIResponse,
 )
@@ -102,15 +105,11 @@ async def persist_result(
         session_state["route_history"] = route_history[-MAX_ROUTE_HISTORY:]
 
     await persist_session(db, session_store, session_id, session_state, response)
-    generated_title = await persist_user_state(
+    await persist_conversation(
         db=db,
         session_id=session_id,
         user_id=user_id,
         request=request,
-        response=response,
-        result=result,
-        context_delta=context_delta,
-        previous_state=previous_state,
     )
     await persist_messages(
         db=db,
@@ -118,22 +117,17 @@ async def persist_result(
         user_text=request.text,
         result=result,
         response=response,
-        persist_user_only=not response.success,
+        persist_user_only=(
+            not response.success and response.status not in GRACEFUL_TERMINAL_STATUSES
+        ),
     )
 
-    # TODO: re-enable session compaction with proper async task management
-    # raw_ints = session_state.get("interactions")
-    # interaction_count = len(raw_ints) if isinstance(raw_ints, list) else 0
-    # if interaction_count >= COMPACT_THRESHOLD:
-    #     _spawn_background(
-    #         compact_session_interactions(
-    #             session_id,
-    #             session_state,
-    #             session_store,
-    #         )
-    #     )
+    # DECISION(2026-07-07): session compaction stays disabled pending proper
+    # async task management — tracked in
+    # docs/superpowers/plans/2026-07-07-refactor-backlog.md; re-evaluate when
+    # conversation-history work lands.
 
-    return session_state, True, generated_title
+    return session_state, True, None
 
 
 async def _safe_insert_message(
@@ -165,9 +159,13 @@ async def persist_messages(
     if insert_message is None:
         return
 
-    await _safe_insert_message(
-        insert_message, session_id, "user", user_text, label="insert_user_message"
-    )
+    # #273 T1: a selected_point_ids recompute carries no new utterance (the
+    # client sends a part-less marker; ``_last_user_text`` derives ""). Never
+    # persist an empty user row — history would render it as an empty bubble.
+    if user_text != "":
+        await _safe_insert_message(
+            insert_message, session_id, "user", user_text, label="insert_user_message"
+        )
 
     if persist_user_only:
         return
@@ -207,81 +205,39 @@ async def persist_session(
         await session_repo.upsert_session(session_id, session_state, metadata=metadata)
 
 
-async def persist_user_state(
+async def persist_conversation(
     *,
     db: object,
     session_id: str,
     user_id: str | None,
     request: PublicAPIRequest,
-    response: PublicAPIResponse,
-    result: AgentResult | None,
-    context_delta: dict[str, object],
-    previous_state: dict[str, object],
-) -> str | None:
-    """Persist user state and return generated title (if first interaction)."""
-    if not user_id or result is None or not response.success:
-        return None
+) -> None:
+    """Persist the authenticated user's conversation index entry."""
+    if not user_id:
+        return
 
-    generated_title: str | None = None
     session_repo = get_session_repo(db)
     if session_repo is not None:
-        try:
-            await session_repo.upsert_conversation(session_id, user_id, request.text)
-        except _PERSIST_ERRORS:
-            logger.warning("upsert_conversation_failed", session_id=session_id)
-        # TODO: re-enable when conversation history feature is fully wired
-        # else:
-        #     raw_prev_ints = previous_state.get("interactions")
-        #     is_first_interaction = (
-        #         len(raw_prev_ints) == 0
-        #         if isinstance(raw_prev_ints, list) else True
-        #     )
-        #     if is_first_interaction:
-        #         generated_title = request.text.strip()[:20] or request.text[:20]
-        #         _spawn_background(
-        #             generate_and_save_title(
-        #                 session_id=session_id,
-        #                 first_query=request.text,
-        #                 response_message=response.message,
-        #                 db=db,
-        #                 user_id=user_id,
-        #             )
-        #         )
-
-    bangumi_id = context_delta.get("bangumi_id")
-    if not isinstance(bangumi_id, str):
-        return generated_title
-    user_memory_repo = get_user_memory_repo(db)
-    if user_memory_repo is None:
-        return generated_title
-
-    anime_title_raw = context_delta.get("anime_title")
-    anime_title = anime_title_raw if isinstance(anime_title_raw, str) else None
-    try:
-        await user_memory_repo.upsert_user_memory(
-            user_id,
-            bangumi_id=bangumi_id,
-            anime_title=anime_title,
-        )
-    except _PERSIST_ERRORS:
-        logger.warning("upsert_user_memory_failed", user_id=user_id)
-
-    return generated_title
+        await session_repo.upsert_conversation(session_id, user_id, request.text)
+        # DECISION(2026-07-07): auto-generated conversation titles stay
+        # disabled pending the conversation-history feature landing —
+        # tracked in docs/superpowers/plans/2026-07-07-refactor-backlog.md.
 
 
-async def load_user_memory(db: object, user_id: str | None) -> dict[str, object] | None:
-    if not user_id:
-        return None
-    user_memory_repo = get_user_memory_repo(db)
-    if user_memory_repo is None:
-        return None
-
-    try:
-        result = await user_memory_repo.get_user_memory(user_id)
-        return dict(result) if result else None
-    except _PERSIST_ERRORS:
-        logger.warning("get_user_memory_failed", user_id=user_id)
-        return None
+async def create_owned_session(
+    db: object,
+    session_id: str,
+    user_id: str,
+    first_query: str,
+    session_state: dict[str, object],
+) -> None:
+    """Create one authenticated session and ownership row atomically."""
+    session_repo = get_session_repo(db)
+    if session_repo is None:
+        raise RuntimeError("authenticated sessions require a session repository")
+    await session_repo.create_owned_session(
+        session_id, user_id, first_query, session_state
+    )
 
 
 async def load_session_state(
@@ -299,7 +255,9 @@ async def maybe_persist_route(
     result: AgentResult,
     response: PublicAPIResponse,
 ) -> dict[str, object] | None:
-    if not response.success or result.intent != "plan_route":
+    if result.provenance.route is None:
+        return None
+    if not response.success and response.status != "partial":
         return None
 
     route_data = response.data.get("route")
@@ -318,17 +276,13 @@ async def maybe_persist_route(
     if not point_ids:
         return None
 
-    plan_params = get_plan_params(result)
-    bangumi_id_raw = plan_params.get("bangumi") or infer_bangumi_id(
-        response.data.get("results")
-    )
-    if not isinstance(bangumi_id_raw, str):
+    route_state = _current_route(result)
+    if route_state is None:
         return None
-    bangumi_id = bangumi_id_raw
-
-    origin_station = plan_params.get("origin")
-    if not isinstance(origin_station, str):
-        origin_station = None
+    anime_ids = await _existing_anime_ids(
+        db, _route_anime_ids(result, route_state), session_id
+    )
+    origin_station = request.origin
     if (
         origin_station is None
         and request.origin_lat is not None
@@ -338,7 +292,7 @@ async def maybe_persist_route(
 
     route_record: dict[str, object] = {
         "route_id": None,
-        "bangumi_id": bangumi_id,
+        "anime_ids": anime_ids,
         "origin_station": origin_station,
         "point_count": len(point_ids),
         "status": response.status,
@@ -347,22 +301,71 @@ async def maybe_persist_route(
 
     routes_repo = get_routes_repo(db)
     if routes_repo is not None:
-        route_id = await routes_repo.save_route(
-            session_id,
-            bangumi_id,
-            point_ids,
-            {
-                "message": response.message,
-                "results": response.data.get("results"),
-                "route": route_data,
-            },
-            origin_station=origin_station,
-            origin_lat=request.origin_lat,
-            origin_lon=request.origin_lng,
-        )
+        try:
+            route_id = await routes_repo.save_route(
+                session_id,
+                anime_ids,
+                point_ids,
+                {
+                    "message": response.message,
+                    "results": response.data.get("results"),
+                    "route": route_data,
+                },
+                origin_station=origin_station,
+                origin_lat=request.origin_lat,
+                origin_lon=request.origin_lng,
+            )
+        except asyncpg.PostgresError:
+            logger.warning("save_route_failed", session_id=session_id)
+            return None
         route_record["route_id"] = route_id
 
     return route_record
+
+
+def _current_route(result: AgentResult) -> RoutePayloadState | None:
+    produced = result.provenance.route
+    if produced is None:
+        return None
+    return result.session_state.routes.get(produced.route_ref)
+
+
+async def _existing_anime_ids(
+    db: object, anime_ids: list[str], session_id: str
+) -> list[str]:
+    bangumi = get_bangumi_repo(db)
+    if bangumi is None:
+        return anime_ids
+    try:
+        return await bangumi.filter_existing_ids(anime_ids)
+    except asyncpg.PostgresError:
+        logger.warning("filter_route_anime_failed", session_id=session_id)
+        return []
+
+
+def _route_anime_ids(result: AgentResult, route: RoutePayloadState) -> list[str]:
+    source = (
+        result.session_state.search_results.get(route.source_ref)
+        if route.source_ref is not None
+        else None
+    )
+    if source is None:
+        return _distinct_work_ids(route.ordered_points)
+    return _search_anime_ids(source)
+
+
+def _search_anime_ids(source: SearchPayloadState) -> list[str]:
+    if source.kind == "bangumi":
+        return [source.anime_id] if source.anime_id else []
+    if source.kind == "multi":
+        omitted = set(source.omitted_work_ids or [])
+        return [item for item in source.anime_ids or [] if item not in omitted]
+    return _distinct_work_ids(source.rows)
+
+
+def _distinct_work_ids(rows: list[PointState]) -> list[str]:
+    values = (row.bangumi_id for row in rows)
+    return list(dict.fromkeys(value for value in values if value))
 
 
 def build_response_session(
@@ -373,26 +376,6 @@ def build_response_session(
     raw_rh = session_state["route_history"]
     route_history = list(raw_rh) if isinstance(raw_rh, list) else []
     return session, route_history
-
-
-def get_plan_params(result: AgentResult) -> dict[str, object]:
-    for step in result.steps:
-        if step.params:
-            return dict(step.params)
-    return {}
-
-
-def infer_bangumi_id(results: object) -> str | None:
-    if not isinstance(results, dict):
-        return None
-    rows = results.get("rows")
-    if not isinstance(rows, list) or not rows:
-        return None
-    first_row = rows[0]
-    if not isinstance(first_row, dict):
-        return None
-    bangumi_id = first_row.get("bangumi_id")
-    return str(bangumi_id) if bangumi_id is not None else None
 
 
 def extract_plan_steps(result: AgentResult | None) -> list[str] | None:

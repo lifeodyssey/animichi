@@ -2,10 +2,11 @@
  * Deterministic route-planning kernel: greedy nearest-neighbor ordering +
  * timed-itinerary construction.
  *
- * Faithful TS port of
- * `backend/agents/route_optimizer.py::nearest_neighbor_sort`,
- * `::compute_dwell_minutes`, and `::build_timed_itinerary`.
- * Pure logic — no I/O, no DB, no LLM. Deterministic for a given input.
+ * This TS module is the single owner of route ordering and timed walking
+ * estimates. Pure logic — no I/O, no DB, no LLM. Deterministic for a given
+ * input. Walking durations apply a detour coefficient on top of raw haversine
+ * distance divided by the nominal walking speed; reported distances remain raw
+ * haversine.
  *
  * Output shapes match the oRPC contract (`packages/contract/src/models.ts`):
  * `TimedStop`, `TransitLeg`, `TimedItinerary`. Leg-cache integration and the
@@ -14,6 +15,9 @@
 
 import type { LocationCluster } from "./clustering";
 import { haversine } from "./geo";
+import { WALK_DETOUR_COEFFICIENT, WALKING_SPEED_M_PER_MIN } from "./transit/constants";
+import { maybeTransitLeg } from "./transit/leg";
+import type { TransitIndex } from "./transit/graph";
 import type { Pacing, TimedItinerary, TimedStop, TransitLeg } from "../types";
 
 /**
@@ -32,6 +36,8 @@ export interface Origin {
   lng: number;
 }
 
+type NonEmpty<T> = [T, ...T[]];
+
 const DWELL_MULTIPLIERS: Record<Pacing, number> = {
   chill: 1.5,
   normal: 1,
@@ -44,8 +50,10 @@ const TRANSIT_BUFFERS: Record<Pacing, number> = {
   packed: 0.8,
 };
 
-const WALKING_SPEED_M_PER_MIN = 80;
 const VALID_PACING: ReadonlySet<string> = new Set(["chill", "normal", "packed"]);
+
+/** Maximum clusters the timed-itinerary kernel accepts. */
+export const MAX_ITINERARY_CLUSTERS = 50;
 
 /** Python `round()` — round-half-to-even (banker's), unlike `Math.round`. */
 function pyRound(value: number, digits = 0): number {
@@ -74,8 +82,9 @@ function byDistThenId(lat: number, lng: number, digits: number) {
 }
 
 /** Seed the NN walk: nearest-to-origin, else alphabetically-first clusterId. */
-function seedOrder(clusters: LocationCluster[], origin?: Origin): LocationCluster[] {
-  const remaining = [...clusters];
+function seedOrder(clusters: NonEmpty<LocationCluster>, origin?: Origin): NonEmpty<LocationCluster> {
+  const [first, ...rest] = clusters;
+  const remaining: NonEmpty<LocationCluster> = [first, ...rest];
   if (origin) {
     remaining.sort(byDistThenId(origin.lat, origin.lng, 15));
   } else {
@@ -85,18 +94,30 @@ function seedOrder(clusters: LocationCluster[], origin?: Origin): LocationCluste
 }
 
 /** Pick the next cluster: nearest to `current`, ties broken by clusterId. */
-function pickNext(remaining: LocationCluster[], current: LocationCluster): LocationCluster {
+function pickNext(remaining: NonEmpty<LocationCluster>, current: LocationCluster): LocationCluster {
   remaining.sort(byDistThenId(current.centerLat, current.centerLng, 2));
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- remaining is non-empty (caller guarantees)
-  const best = remaining[0]!;
+  const best = remaining[0];
   const bestDist = distTo(best, current.centerLat, current.centerLng);
-  const tied = remaining.filter(
-    (c) => Math.abs(distTo(c, current.centerLat, current.centerLng) - bestDist) < 0.01,
-  );
-  if (tied.length <= 1) return best;
-  tied.sort((a, b) => a.clusterId.localeCompare(b.clusterId));
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- tied is non-empty (contains at least best)
-  return tied[0]!;
+  return remaining.reduce((winner, candidate) => {
+    const tied = Math.abs(distTo(candidate, current.centerLat, current.centerLng) - bestDist) < 0.01;
+    return tied && candidate.clusterId.localeCompare(winner.clusterId) < 0 ? candidate : winner;
+  }, best);
+}
+
+/** Order a cluster tuple while preserving its non-empty type. */
+function orderNonEmpty(clusters: NonEmpty<LocationCluster>, origin?: Origin): NonEmpty<LocationCluster> {
+  const [first, ...remaining] = seedOrder(clusters, origin);
+  const result: NonEmpty<LocationCluster> = [first];
+  let current = first;
+  while (remaining.length > 0) {
+    const [candidate, ...rest] = remaining;
+    if (!candidate) break;
+    const next = pickNext([candidate, ...rest], current);
+    remaining.splice(remaining.indexOf(next), 1);
+    result.push(next);
+    current = next;
+  }
+  return result;
 }
 
 /**
@@ -108,17 +129,8 @@ export function orderNearestNeighbor(
   clusters: LocationCluster[],
   origin?: Origin,
 ): LocationCluster[] {
-  if (clusters.length <= 1) return [...clusters];
-  const remaining = seedOrder(clusters, origin);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- remaining is non-empty (length > 1 checked above)
-  const result: LocationCluster[] = [remaining.shift()!];
-  while (remaining.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- result starts with one element and only grows
-    const next = pickNext(remaining, result.at(-1)!);
-    remaining.splice(remaining.indexOf(next), 1);
-    result.push(next);
-  }
-  return result;
+  const [first, ...rest] = clusters;
+  return first ? orderNonEmpty([first, ...rest], origin) : [];
 }
 
 /**
@@ -175,15 +187,26 @@ function makeStop(cluster: LocationCluster, arrive: string, dwell: number): Time
 }
 
 /** Build the walk leg from `from` to `to`, given the pacing buffer. */
-function makeLeg(from: LocationCluster, to: LocationCluster, buffer: number): TransitLeg {
+function makeWalkLeg(from: LocationCluster, to: LocationCluster, buffer: number): TransitLeg {
   const dist = haversine(from.centerLat, from.centerLng, to.centerLat, to.centerLng);
+  const estimate = (dist * WALK_DETOUR_COEFFICIENT) / WALKING_SPEED_M_PER_MIN;
   return {
     from_id: from.clusterId,
     to_id: to.clusterId,
     mode: "walk",
-    duration_minutes: Math.max(1, pyRound((dist / WALKING_SPEED_M_PER_MIN) * buffer)),
+    duration_minutes: Math.max(1, pyRound(estimate * buffer)),
     distance_m: pyRound(dist, 1),
   };
+}
+
+function legPoint(cluster: LocationCluster) {
+  return { lat: cluster.centerLat, lng: cluster.centerLng, id: cluster.clusterId };
+}
+
+function makeLeg(from: LocationCluster, to: LocationCluster, buffer: number, transit?: TransitIndex): TransitLeg {
+  const walk = makeWalkLeg(from, to, buffer);
+  const rail = transit ? maybeTransitLeg(legPoint(from), legPoint(to), transit) : null;
+  return rail && rail.duration_minutes < walk.duration_minutes ? rail : walk;
 }
 
 /** Options for {@link buildTimedItinerary}. */
@@ -191,67 +214,79 @@ export interface ItineraryOptions {
   startTime?: string;
   pacing?: string;
   origin?: Origin;
+  transit?: TransitIndex; // Optional until production asset shipping injects an index.
 }
 
 /**
  * Build a `TimedItinerary` from `clusters`: order them by nearest-neighbor,
  * then walk through producing stops (arrive/depart/dwell), legs (walk distance
- * + duration via haversine), and totals. Throws when given over 50 clusters.
+ * via raw haversine + detoured duration estimate), and totals. Throws when
+ * given over {@link MAX_ITINERARY_CLUSTERS} clusters.
  */
 export function buildTimedItinerary(
   clusters: LocationCluster[],
   opts: ItineraryOptions = {},
 ): TimedItinerary {
-  if (clusters.length > 50) throw new Error("Too many locations to route (max 50)");
+  if (clusters.length > MAX_ITINERARY_CLUSTERS) {
+    throw new Error(`Too many locations to route (max ${String(MAX_ITINERARY_CLUSTERS)})`);
+  }
   const startTime = opts.startTime ?? "09:00";
   const pacing = safePacing(opts.pacing ?? "normal");
-  if (clusters.length === 0) {
+  const [first, ...rest] = clusters;
+  if (!first) {
     return { stops: [], legs: [], total_minutes: 0, total_distance_m: 0, pacing, start_time: startTime };
   }
-  return assembleItinerary(orderNearestNeighbor(clusters, opts.origin), startTime, pacing);
+  return assembleItinerary(orderNonEmpty([first, ...rest], opts.origin), startTime, pacing, opts.transit);
+}
+
+interface ItineraryAccumulator {
+  stops: NonEmpty<TimedStop>;
+  legs: TransitLeg[];
+  totalDistance: number;
+  current: LocationCluster;
+  currentStop: TimedStop;
 }
 
 /** Walk the ordered clusters, accumulating stops, legs, and totals. */
 function assembleItinerary(
-  ordered: LocationCluster[],
+  ordered: NonEmpty<LocationCluster>,
   startTime: string,
   pacing: Pacing,
+  transit?: TransitIndex,
 ): TimedItinerary {
   const buffer = TRANSIT_BUFFERS[pacing];
-  const stops: TimedStop[] = [];
-  const legs: TransitLeg[] = [];
-  let totalDistance = 0;
-  let currentTime = startTime;
-  for (let i = 0; i < ordered.length; i += 1) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- index bounded by loop [0, ordered.length)
-    const cluster = ordered[i]!;
-    const stop = makeStop(cluster, currentTime, computeDwellMinutes(cluster.photoCount, pacing));
-    stops.push(stop);
-    if (i < ordered.length - 1) {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- i+1 < ordered.length is guaranteed by the if condition
-      const next = ordered[i + 1]!;
-      const leg = makeLeg(cluster, next, buffer);
-      legs.push(leg);
-      totalDistance += haversine(cluster.centerLat, cluster.centerLng, next.centerLat, next.centerLng);
-      currentTime = addMinutes(stop.depart, leg.duration_minutes);
-    }
-  }
-  return finalizeItinerary(stops, legs, totalDistance, startTime, pacing);
+  const [first, ...rest] = ordered;
+  const firstStop = makeStop(first, startTime, computeDwellMinutes(first.photoCount, pacing));
+  const acc: ItineraryAccumulator = { stops: [firstStop], legs: [], totalDistance: 0, current: first, currentStop: firstStop };
+  for (const next of rest) appendCluster(acc, next, pacing, buffer, transit);
+  return finalizeItinerary(acc.stops, acc.legs, acc.totalDistance, startTime, pacing);
+}
+
+/** Append one cluster, including the inbound leg and its timed stop. */
+function appendCluster(acc: ItineraryAccumulator, next: LocationCluster, pacing: Pacing, buffer: number, transit?: TransitIndex): void {
+  const leg = makeLeg(acc.current, next, buffer, transit);
+  const arrive = addMinutes(acc.currentStop.depart, leg.duration_minutes);
+  const stop = makeStop(next, arrive, computeDwellMinutes(next.photoCount, pacing));
+  acc.totalDistance += leg.mode === "transit" ? leg.distance_m : distTo(next, acc.current.centerLat, acc.current.centerLng);
+  acc.legs.push(leg);
+  acc.stops.push(stop);
+  acc.current = next;
+  acc.currentStop = stop;
 }
 
 /** Compute totals and assemble the final `TimedItinerary`. */
 function finalizeItinerary(
-  stops: TimedStop[],
+  stops: NonEmpty<TimedStop>,
   legs: TransitLeg[],
   totalDistance: number,
   startTime: string,
   pacing: Pacing,
 ): TimedItinerary {
+  const lastStop = stops.reduce((_, stop) => stop);
   return {
     stops,
     legs,
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- stops is non-empty (assembleItinerary adds at least one stop)
-    total_minutes: minutesBetween(stops[0]!.arrive, stops.at(-1)!.depart),
+    total_minutes: minutesBetween(stops[0].arrive, lastStop.depart),
     total_distance_m: pyRound(totalDistance, 1),
     spot_count: stops.length,
     pacing,

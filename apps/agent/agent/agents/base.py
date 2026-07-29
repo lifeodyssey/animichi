@@ -1,16 +1,12 @@
-"""Base agent configuration for Pydantic AI agents.
-
-Model resolution: deepseek: → DeepSeekProvider (native),
-openai: → OpenAI-compat with per-domain API key routing.
-"""
+"""Base agent configuration and trusted model resolution."""
 
 from __future__ import annotations
 
-import os
+import re
 from typing import TypeVar, overload
-from urllib.parse import urlparse
 
 import httpx
+from openai import AsyncOpenAI
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.models import Model
@@ -18,102 +14,206 @@ from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.deepseek import DeepSeekProvider
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.settings import ModelSettings
+
+from agent.config.model_aliases import (
+    MODEL_ALIASES,
+    ModelAlias,
+    ModelAliasError,
+    ProviderKind,
+    credential_value,
+    model_alias_from_spec,
+)
+from agent.config.settings import Settings, _is_local_base_url
 
 T = TypeVar("T", bound=BaseModel)
 
-_FALLBACK_MODEL = "deepseek:deepseek-v4-flash"
+_DEFAULT_MODEL_SPEC = "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
+_MODEL_ALIAS_PATTERN = re.compile(r"[a-z0-9_-]+")
+_APP_CLIENT_HEADER = "X-App-Client"
+_LOCAL_DEV_API_KEY = "local-dev-placeholder"
 
 
-def _build_http_client() -> httpx.AsyncClient:
-    """HTTP client that ignores shell proxy env vars."""
+def build_model_http_client(settings: Settings | None = None) -> httpx.AsyncClient:
+    """Build a model transport for process or FastAPI-lifespan ownership."""
+    if settings is None:
+        from agent.config import get_settings
+
+        settings = get_settings()
+    return httpx.AsyncClient(
+        trust_env=True,
+        timeout=settings.model_attempt_timeout,
+    )
+
+
+def _resolve_http_client(client: httpx.AsyncClient | None) -> httpx.AsyncClient:
+    return client if client is not None else build_model_http_client()
+
+
+def _model_settings(alias: ModelAlias) -> ModelSettings | None:
+    if not alias.disable_thinking:
+        return None
+    return ModelSettings(extra_body={"thinking": {"type": "disabled"}})
+
+
+def _app_client_name() -> str:
     from agent.config import get_settings
 
-    timeout = float(get_settings().timeout_seconds)
-    return httpx.AsyncClient(trust_env=False, timeout=timeout)
+    app_env = get_settings().app_env.lower()
+    environment = {"production": "Prod", "staging": "Staging"}.get(app_env, "Dev")
+    return f"animichi {environment}"
 
 
-def _resolve_api_key(base_url: str) -> str | None:
-    """Match a base URL to the right API key env var by domain."""
-    host = urlparse(base_url).hostname or ""
-    domain_keys = [
-        ("xiaomimimo.com", "MIMO_API_KEY"),
-        ("deepseek.com", "DEEPSEEK_API_KEY"),
-    ]
-    for domain, env_var in domain_keys:
-        if host == domain or host.endswith(f".{domain}"):
-            return os.environ.get(env_var)
-    from agent.config import get_settings
-
-    return get_settings().openai_compat_api_key or None
+def _model_api_key(alias: ModelAlias) -> str | None:
+    api_key = credential_value(alias.credential_ref)
+    if api_key is None and _is_local_base_url(alias.fixed_base_url):
+        return _LOCAL_DEV_API_KEY
+    return api_key
 
 
-def _parse_model(spec: str) -> Model:
-    """Parse a model spec string into a concrete Model."""
-    if spec.startswith("deepseek:"):
-        name = spec.removeprefix("deepseek:")
-        provider = DeepSeekProvider(
-            api_key=os.environ.get("DEEPSEEK_API_KEY"),
-            http_client=_build_http_client(),
-        )
-        return OpenAIChatModel(name, provider=provider)
+def _sdk_client(
+    alias: ModelAlias, client: httpx.AsyncClient, *, max_retries: int
+) -> AsyncOpenAI:
+    return AsyncOpenAI(
+        base_url=alias.fixed_base_url,
+        api_key=_model_api_key(alias),
+        http_client=client,
+        max_retries=max_retries,
+        default_headers={_APP_CLIENT_HEADER: _app_client_name()},
+    )
 
-    if spec.startswith("openai:"):
-        raw = spec.removeprefix("openai:")
-        if "@" in raw:
-            name, base_url = raw.split("@", 1)
-        else:
-            from agent.config import get_settings
 
-            name, base_url = raw, get_settings().openai_compat_base_url
-        oai_provider = OpenAIProvider(
-            base_url=base_url,
-            api_key=_resolve_api_key(base_url),
-            http_client=_build_http_client(),
-        )
-        return OpenAIChatModel(name, provider=oai_provider)
+def _provider(
+    alias: ModelAlias,
+    client: httpx.AsyncClient,
+    *,
+    max_retries: int,
+) -> DeepSeekProvider | OpenAIProvider:
+    sdk_client = _sdk_client(alias, client, max_retries=max_retries)
+    if alias.provider_kind is ProviderKind.DEEPSEEK:
+        return DeepSeekProvider(openai_client=sdk_client)
+    return OpenAIProvider(openai_client=sdk_client)
 
-    raise ValueError(f"Unsupported model spec: {spec}")
+
+def _parse_model_alias(
+    alias: ModelAlias,
+    *,
+    http_client: httpx.AsyncClient | None = None,
+    disable_sdk_retries: bool = False,
+) -> Model:
+    client = _resolve_http_client(http_client)
+    provider = _provider(
+        alias,
+        client,
+        max_retries=0 if disable_sdk_retries else 2,
+    )
+    return OpenAIChatModel(
+        alias.name,
+        provider=provider,
+        settings=_model_settings(alias),
+    )
+
+
+def _parse_model(
+    spec: str,
+    *,
+    http_client: httpx.AsyncClient | None = None,
+    disable_sdk_retries: bool = False,
+) -> Model:
+    """Parse a trusted internal model spec into a concrete model."""
+    return _parse_model_alias(
+        model_alias_from_spec(spec),
+        http_client=http_client,
+        disable_sdk_retries=disable_sdk_retries,
+    )
+
+
+def _model_chain(
+    primary_spec: str,
+    fallback_spec: str | None,
+    http_client: httpx.AsyncClient | None,
+) -> Model:
+    primary = model_alias_from_spec(primary_spec)
+    if not fallback_spec:
+        return _fail_fast_model(primary_spec, http_client)
+    fallback = model_alias_from_spec(fallback_spec)
+    if primary.effective_model == fallback.effective_model:
+        return _fail_fast_model(primary_spec, http_client)
+    return FallbackModel(
+        _fail_fast_model(primary_spec, http_client),
+        _fail_fast_model(fallback_spec, http_client),
+    )
+
+
+def _fail_fast_model(spec: str, client: httpx.AsyncClient | None) -> Model:
+    return _parse_model(spec, http_client=client, disable_sdk_retries=True)
 
 
 def parse_model_spec(
-    model: Model | str, *, use_settings_fallbacks: bool = False
+    model: Model | str,
+    *,
+    use_settings_fallbacks: bool = False,
+    http_client: httpx.AsyncClient | None = None,
 ) -> Model:
-    """Public API for resolving a model spec string."""
+    """Resolve a trusted eval/test model spec; never use for caller input."""
     if not isinstance(model, str):
         return model
-    primary = _parse_model(model)
     if not use_settings_fallbacks:
-        return primary
+        return _parse_model(model, http_client=http_client)
     from agent.config import get_settings
 
-    fb = get_settings().fallback_agent_model
-    if fb and fb != model:
-        return FallbackModel(primary, _parse_model(fb))
-    return primary
+    return _model_chain(
+        model,
+        get_settings().fallback_agent_model,
+        http_client,
+    )
 
 
-def get_default_model() -> Model:
-    """Build the default model with optional fallback chain."""
+def get_default_model(*, http_client: httpx.AsyncClient | None = None) -> Model:
+    """Build the default model and its distinct optional fallback."""
     from agent.config import get_settings
 
     settings = get_settings()
-    primary = _parse_model(settings.default_agent_model or _FALLBACK_MODEL)
-
-    fallbacks: list[Model] = []
-    if settings.fallback_agent_model:
-        fallbacks.append(_parse_model(settings.fallback_agent_model))
-
-    if not fallbacks:
-        return primary
-    return FallbackModel(primary, *fallbacks)
+    primary_spec = settings.default_agent_model or _DEFAULT_MODEL_SPEC
+    return _model_chain(
+        primary_spec,
+        settings.fallback_agent_model,
+        http_client,
+    )
 
 
-def resolve_model(model: Model | str | None) -> Model:
-    """Resolve an explicit or default model."""
+def resolve_model_alias(
+    model: Model | str | None,
+    *,
+    http_client: httpx.AsyncClient | None = None,
+) -> Model | None:
+    """Resolve a caller string only through the server-owned alias allowlist."""
+    if model is None or not isinstance(model, str):
+        return model
+    if _MODEL_ALIAS_PATTERN.fullmatch(model) is None:
+        raise ModelAliasError(model)
+    alias = MODEL_ALIASES.get(model)
+    if alias is None:
+        raise ModelAliasError(model)
+    if model == "default":
+        return get_default_model(http_client=http_client)
+    return _parse_model_alias(
+        alias,
+        http_client=http_client,
+        disable_sdk_retries=True,
+    )
+
+
+def resolve_model(
+    model: Model | str | None,
+    *,
+    http_client: httpx.AsyncClient | None = None,
+) -> Model:
+    """Resolve a trusted internal raw spec or the configured default."""
     if model is None:
-        return get_default_model()
+        return get_default_model(http_client=http_client)
     if isinstance(model, str):
-        return _parse_model(model)
+        return _parse_model(model, http_client=http_client)
     return model
 
 
@@ -129,9 +229,11 @@ def describe_model(model: object) -> str:
 def create_agent(
     model: Model | str | None = None,
     *,
+    name: str,
     system_prompt: str = "",
     output_type: type[T],
     tool_retries: int = 2,
+    http_client: httpx.AsyncClient | None = None,
 ) -> Agent[None, T]: ...
 
 
@@ -139,25 +241,32 @@ def create_agent(
 def create_agent(
     model: Model | str | None = None,
     *,
+    name: str,
     system_prompt: str = "",
     output_type: None = None,
     tool_retries: int = 2,
+    http_client: httpx.AsyncClient | None = None,
 ) -> Agent[None, str]: ...
 
 
 def create_agent(
     model: Model | str | None = None,
     *,
+    name: str,
     system_prompt: str = "",
     output_type: type[T] | None = None,
     tool_retries: int = 2,
+    http_client: httpx.AsyncClient | None = None,
 ) -> Agent[None, T] | Agent[None, str]:
     """Create a Pydantic AI agent with the given configuration."""
-    selected = resolve_model(model)
+    selected = resolve_model(model, http_client=http_client)
     if output_type is None:
-        return Agent(selected, system_prompt=system_prompt, retries=tool_retries)
+        return Agent(
+            selected, name=name, system_prompt=system_prompt, retries=tool_retries
+        )
     return Agent(
         selected,
+        name=name,
         system_prompt=system_prompt,
         output_type=output_type,
         retries=tool_retries,

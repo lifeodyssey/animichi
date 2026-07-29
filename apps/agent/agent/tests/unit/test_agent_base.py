@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
+import ast
+import inspect
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel
 
-from agent.agents.base import describe_model, resolve_model
+from agent.agents.base import (
+    create_agent,
+    describe_model,
+    parse_model_spec,
+    resolve_model,
+)
 from agent.config.settings import Settings
 
 
@@ -25,6 +33,50 @@ def _test_settings() -> Settings:
         default_agent_model="deepseek:deepseek-v4-flash",
         fallback_agent_model="openai:mimo-v2.5@https://api.xiaomimimo.com/v1",
     )
+
+
+def _deepseek_extra_body() -> object:
+    return {"thinking": {"type": "disabled"}}
+
+
+def _agent_calls(path: Path) -> list[ast.Call]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    return [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "Agent"
+    ]
+
+
+def _has_non_none_name(call: ast.Call) -> bool:
+    names = {keyword.arg: keyword.value for keyword in call.keywords}
+    value = names.get("name")
+    return value is not None and not (
+        isinstance(value, ast.Constant) and value.value is None
+    )
+
+
+def _unnamed_agent_calls() -> list[str]:
+    source_root = Path(__file__).parents[2]
+    files = (path for path in source_root.rglob("*.py") if "tests" not in path.parts)
+    return [
+        f"{path.relative_to(source_root)}:{call.lineno}"
+        for path in files
+        for call in _agent_calls(path)
+        if not _has_non_none_name(call)
+    ]
+
+
+def test_every_agent_construction_has_explicit_name() -> None:
+    assert _unnamed_agent_calls() == []
+
+
+def test_create_agent_requires_name() -> None:
+    parameter = inspect.signature(create_agent).parameters["name"]
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameter.default is inspect.Parameter.empty
 
 
 class TestResolveModel:
@@ -57,6 +109,34 @@ class TestResolveModel:
         with pytest.raises(ValueError, match="Unsupported model spec"):
             with patch("agent.config.get_settings", return_value=_test_settings()):
                 resolve_model("unknown:model")
+
+    def test_deepseek_model_disables_thinking(self) -> None:
+        with patch("agent.config.get_settings", return_value=_test_settings()):
+            model = parse_model_spec("deepseek:deepseek-v4-flash")
+        assert isinstance(model, OpenAIChatModel)
+        assert model.settings is not None
+        assert model.settings.get("extra_body") == _deepseek_extra_body()
+
+    def test_deepseek_openai_compat_disables_thinking(self) -> None:
+        with patch("agent.config.get_settings", return_value=_test_settings()):
+            model = parse_model_spec("openai:deepseek-v4-pro@https://api.deepseek.com")
+        assert isinstance(model, OpenAIChatModel)
+        assert model.settings is not None
+        assert model.settings.get("extra_body") == _deepseek_extra_body()
+
+    def test_mimo_openai_compat_keeps_settings_empty(self) -> None:
+        with patch("agent.config.get_settings", return_value=_test_settings()):
+            model = parse_model_spec(
+                "openai:mimo-v2.5-pro@https://api.xiaomimimo.com/v1"
+            )
+        assert isinstance(model, OpenAIChatModel)
+        assert model.settings is None or "extra_body" not in model.settings
+
+    def test_unprofiled_openai_compat_keeps_settings_empty(self) -> None:
+        with patch("agent.config.get_settings", return_value=_test_settings()):
+            model = parse_model_spec("openai:other@https://compat.example/v1")
+        assert isinstance(model, OpenAIChatModel)
+        assert model.settings is None or "extra_body" not in model.settings
 
 
 class TestDescribeModel:

@@ -8,24 +8,21 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import importlib
-from typing import cast
 
+import asyncpg
 import structlog
 
-from agent.infrastructure.supabase.client_types import AsyncPGModule, AsyncPGPool, Row
+from agent.infrastructure.supabase.client_types import AsyncPGPool, Row
+from agent.infrastructure.supabase.repositories.anon_quota import AnonQuotaRepository
 from agent.infrastructure.supabase.repositories.bangumi import BangumiRepository
 from agent.infrastructure.supabase.repositories.feedback import FeedbackRepository
 from agent.infrastructure.supabase.repositories.messages import MessagesRepository
 from agent.infrastructure.supabase.repositories.points import PointsRepository
 from agent.infrastructure.supabase.repositories.routes import RoutesRepository
 from agent.infrastructure.supabase.repositories.session import SessionRepository
-from agent.infrastructure.supabase.repositories.user_memory import (
-    UserMemoryRepository,
-)
+from agent.infrastructure.supabase.repositories.usage import UsageRepository
 
 logger = structlog.get_logger(__name__)
-asyncpg = cast(AsyncPGModule, importlib.import_module("asyncpg"))
 
 __all__ = ["Row", "SupabaseClient"]
 
@@ -35,23 +32,30 @@ class SupabaseClient:
 
     Access repositories via explicit typed properties:
     ``db.bangumi``, ``db.points``, ``db.session``, ``db.feedback``,
-    ``db.routes``, ``db.messages``, ``db.user_memory``.
+    ``db.routes``, ``db.messages``, ``db.usage``, ``db.anon_quota``.
     """
 
     def __init__(
-        self, dsn: str, *, min_pool_size: int = 2, max_pool_size: int = 10
+        self,
+        dsn: str,
+        *,
+        min_pool_size: int = 2,
+        max_pool_size: int = 10,
+        statement_cache_size: int = 100,
     ) -> None:
         self._dsn = dsn
         self._min_pool_size = min_pool_size
         self._max_pool_size = max_pool_size
+        self._statement_cache_size = statement_cache_size
         self._pool: AsyncPGPool | None = None
         self._bangumi: BangumiRepository | None = None
         self._points: PointsRepository | None = None
         self._session: SessionRepository | None = None
         self._feedback: FeedbackRepository | None = None
-        self._user_memory: UserMemoryRepository | None = None
         self._routes: RoutesRepository | None = None
         self._messages: MessagesRepository | None = None
+        self._usage: UsageRepository | None = None
+        self._anon_quota: AnonQuotaRepository | None = None
 
     async def connect(self) -> None:
         """Create the connection pool and initialise repositories."""
@@ -62,6 +66,7 @@ class SupabaseClient:
                 self._dsn,
                 min_size=self._min_pool_size,
                 max_size=self._max_pool_size,
+                statement_cache_size=self._statement_cache_size,
             ),
             timeout=15,
         )
@@ -96,9 +101,10 @@ class SupabaseClient:
         self._points = PointsRepository(pool)
         self._session = SessionRepository(pool)
         self._feedback = FeedbackRepository(pool)
-        self._user_memory = UserMemoryRepository(pool)
         self._routes = RoutesRepository(pool)
         self._messages = MessagesRepository(pool)
+        self._usage = UsageRepository(pool)
+        self._anon_quota = AnonQuotaRepository(pool)
 
     @property
     def bangumi(self) -> BangumiRepository:
@@ -133,14 +139,6 @@ class SupabaseClient:
         return self._feedback
 
     @property
-    def user_memory(self) -> UserMemoryRepository:
-        if self._user_memory is None:
-            raise RuntimeError(
-                "UserMemoryRepository not initialized — call connect() first"
-            )
-        return self._user_memory
-
-    @property
     def routes(self) -> RoutesRepository:
         if self._routes is None:
             raise RuntimeError(
@@ -155,3 +153,17 @@ class SupabaseClient:
                 "MessagesRepository not initialized — call connect() first"
             )
         return self._messages
+
+    @property
+    def usage(self) -> UsageRepository:
+        if self._usage is None:
+            raise RuntimeError("UsageRepository not initialized — call connect() first")
+        return self._usage
+
+    @property
+    def anon_quota(self) -> AnonQuotaRepository:
+        if self._anon_quota is None:
+            raise RuntimeError(
+                "AnonQuotaRepository not initialized — call connect() first"
+            )
+        return self._anon_quota

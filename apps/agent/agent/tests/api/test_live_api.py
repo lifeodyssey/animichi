@@ -7,8 +7,8 @@ Run after starting the local stack:
   supabase start -x studio,imgproxy,vector,analytics   # + apply migrations
   (cd catalog && npx wrangler dev --port 8787)         # DATABASE_URL in .dev.vars
   CATALOG_API_URL=http://127.0.0.1:8787 \
-    DEFAULT_AGENT_MODEL=openai:mimo-v2.5-pro@https://api.xiaomimimo.com/v1 \
-    uv run seichijunrei-api                             # agent on :8080
+    DEFAULT_AGENT_MODEL=openai:mimo-v2.5@https://api.xiaomimimo.com/v1 \
+    uv run animichi-api                                 # agent on :8080
 
 Skips automatically when the stack is not reachable (CI / unit runs).
 """

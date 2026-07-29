@@ -5,7 +5,7 @@
 import type { UIMessage } from "ai";
 
 /** Metadata attached to assistant messages via messageMetadata / data parts. */
-export interface SeichijunreiMetadata {
+export interface AnimichiMetadata {
   session_id?: string;
   intent?: string;
   route_history?: Record<string, unknown>[];
@@ -13,4 +13,4 @@ export interface SeichijunreiMetadata {
 }
 
 /** Project-wide typed UIMessage with our custom metadata. */
-export type SeichijunreiMessage = UIMessage<SeichijunreiMetadata>;
+export type AnimichiMessage = UIMessage<AnimichiMetadata>;

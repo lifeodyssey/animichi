@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "animichi-web",
+  "main": ".output/server/index.mjs",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // Wrangler's esbuild pass defaults to keepNames, which rewrites functions as `__name(fn, "…")`.
+  // seroval serialises its SSR stream helpers with Function.prototype.toString(), so those wrappers
+  // land in the inline `$tsr-stream-barrier` script where `__name` does not exist — the resulting
+  // ReferenceError aborts hydration and blanks every route (issue #426).
+  "keep_names": false,
+  "assets": {
+    "directory": ".output/public",
+    "binding": "ASSETS"
+  },
+  "env": {
+    "staging": { "name": "animichi-web-staging" },
+    "production": { "name": "animichi-web" },
+    "preview": { "name": "animichi-web-preview", "workers_dev": false, "preview_urls": true }
+  }
+}

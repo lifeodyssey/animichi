@@ -1,0 +1,63 @@
+{
+  "meta": {
+    "title": "アニミチ",
+    "description": "アニメ聖地を探して、巡礼ルートを作ろう"
+  },
+  "landing": {
+    "eyebrow": "アニメ旅行ジャーナル",
+    "hero": "聖地巡礼",
+    "headline": "アニメの場面を、今日歩けるルートに変える",
+    "lead": "アニメ・駅・都市を入力して、聖地を見つけてルートを作ろう。",
+    "search_placeholder": "アニメ・駅・都市を入力",
+    "cta": "巡礼をはじめる",
+    "try_example": "例から試す",
+    "examples": [
+      "君の名は。",
+      "響け！ユーフォニアム",
+      "天気の子"
+    ],
+    "login": "ログイン",
+    "github": "GitHub",
+    "footer_name": "seichijunrei",
+    "comparison_anime": "アニメ",
+    "comparison_anime_alt": "『君の名は。』須賀神社の階段のアニメカット",
+    "comparison_real": "現実",
+    "comparison_real_alt": "須賀神社の階段の実写写真",
+    "comparison_aria": "アニメと実写を比較するスライダー",
+    "theme_day": "昼",
+    "theme_night": "夜",
+    "fox_bubble": "こっち！",
+    "mobile_lead": "好きな作品から、行ける場所へ。地図と写真で迷わず巡ろう。",
+    "mobile_bg_alt": "手描き風の鳥居と参道のイラスト",
+    "fox_alt": "しおりカードを持って案内するキツネ"
+  },
+  "home": {
+    "search_placeholder": "アニメ・駅・都市を入力",
+    "search_cta": "ルートを作る",
+    "continue_title": "続きから",
+    "continue_resume": "再開する",
+    "popular_title": "人気ランキング",
+    "popular_empty": "まだ人気の作品がありません",
+    "popular_spots": "スポット"
+  },
+  "auth": {
+    "title": "ログイン",
+    "subtitle": "メールアドレスを入力すると、ログインリンクをお送りします。",
+    "email_label": "メールアドレス",
+    "email_placeholder": "you@example.com",
+    "submit": "ログインリンクを送信",
+    "submitting": "送信中…",
+    "email_required": "メールアドレスを入力してください。",
+    "email_invalid": "メールアドレスには @ が必要です（例: you@example.com）。",
+    "sent": "ログインリンクをメールに送信しました。メールをご確認ください。",
+    "error": "送信できませんでした。しばらくしてからもう一度お試しください。",
+    "not_configured": "ログイン設定がまだ完了していません。管理者にお問い合わせください。",
+    "magic_link_hint": "パスワード不要 — 安全なログインリンクをメールでお送りします。",
+    "close": "閉じる",
+    "callback_pending": "ログインしています…",
+    "callback_error": "リンクの有効期限が切れたか、既に使用されています。もう一度お試しください。",
+    "callback_save_failed": "ログインはできたけど、ルートの保存に失敗しちゃった…",
+    "callback_save_retry": "もう一度保存する",
+    "callback_save_skip": "あとでチャット画面から保存し直せるよ"
+  }
+}

@@ -14,7 +14,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
 from agent.infrastructure.observability import (
-    get_http_tracer,
+    http_span,
     record_http_request,
 )
 from agent.interfaces.routes._deps import (
@@ -24,6 +24,13 @@ from agent.interfaces.routes._deps import (
 )
 
 logger = structlog.get_logger(__name__)
+
+SENSITIVE_HEADERS = frozenset(
+    {"x-byok-key", "x-byok-base-url", "authorization", "cf-turnstile-response"}
+)
+_SENSITIVE_HEADER_NAMES = frozenset(name.encode() for name in SENSITIVE_HEADERS)
+_REDACTED_VALUE = b"[redacted]"
+_RAW_HEADERS_STATE_KEY = "byok_raw_sensitive_headers"
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -102,10 +109,9 @@ def register_observability_middleware(app: FastAPI) -> None:
         call_next: RequestResponseEndpoint,
     ) -> Response:
         started_at = perf_counter()
-        tracer = get_http_tracer()
         status_code = 500
 
-        with tracer.start_as_current_span("http.request") as span:
+        with http_span("http.request") as span:
             span.set_attribute("http.method", request.method)
 
             try:
@@ -133,3 +139,71 @@ def register_observability_middleware(app: FastAPI) -> None:
                     route=route_path,
                     status_code=status_code,
                 )
+
+
+def register_credential_stripping_middleware(app: FastAPI) -> None:
+    """Attach the BYOK credential-stripping middleware (X3, Task 2).
+
+    Must be registered **last**. Starlette's ``add_middleware`` does
+    ``user_middleware.insert(0, ...)``, and ``build_middleware_stack`` wraps
+    with ``for ... in reversed(middleware)`` — so the most recently
+    registered middleware ends up outermost *among ``app.user_middleware``*.
+    Registering this one last makes it wrap ``observability_middleware`` and
+    every exception handler, so nothing downstream of it — logs, spans, or
+    serialized exceptions — ever observes a raw sensitive header value.
+    (rev4 correction: rev2/rev3 said "registered first (outermost)", which is
+    backwards and would have voided this red line while every test still
+    passed — see the BYOK spec, Task 2/P1-4.)
+
+    Starlette's built-in ``ServerErrorMiddleware`` sits outside all of
+    ``user_middleware``, including this one — but it only reads the same
+    ``request.scope`` this middleware has already mutated, so AC4 holds
+    regardless. A pure-ASGI rewrite that stopped constructing `Request`
+    objects on top of `scope` (bypassing FastAPI's exception-handler layer
+    entirely) would need to re-verify that assumption directly.
+    """
+
+    @app.middleware("http")
+    async def strip_credential_headers(
+        request: Request,
+        call_next: RequestResponseEndpoint,
+    ) -> Response:
+        raw_values, scrubbed_headers = _split_sensitive_headers(
+            request.scope["headers"]
+        )
+        request.scope["headers"] = scrubbed_headers
+        setattr(request.state, _RAW_HEADERS_STATE_KEY, raw_values)
+        return await call_next(request)
+
+
+def _split_sensitive_headers(
+    headers: list[tuple[bytes, bytes]],
+) -> tuple[dict[bytes, bytes], list[tuple[bytes, bytes]]]:
+    """Split raw ASGI headers into a private raw stash and a scrubbed list.
+
+    An empty sensitive-header value (present but blank) is left untouched
+    and is not stashed or redacted — there is nothing sensitive to protect,
+    and rewriting it would spuriously alter the attribute key set that
+    downstream consumers observe (T2-AC3).
+    """
+    raw_values: dict[bytes, bytes] = {}
+    scrubbed_headers: list[tuple[bytes, bytes]] = []
+    for name, value in headers:
+        if name.lower() in _SENSITIVE_HEADER_NAMES and value:
+            raw_values[name.lower()] = value
+            scrubbed_headers.append((name, _REDACTED_VALUE))
+        else:
+            scrubbed_headers.append((name, value))
+    return raw_values, scrubbed_headers
+
+
+def get_raw_sensitive_header(request: Request, name: str) -> bytes | None:
+    """Read the original, pre-redaction value of a sensitive header.
+
+    The only sanctioned caller is the BYOK credential dependency (Task 3):
+    every other consumer only ever sees ``request.scope["headers"]`` after
+    ``strip_credential_headers`` has replaced sensitive values with
+    ``[redacted]``.
+    """
+    stash: dict[bytes, bytes] = getattr(request.state, _RAW_HEADERS_STATE_KEY, {})
+    return stash.get(name.lower().encode())

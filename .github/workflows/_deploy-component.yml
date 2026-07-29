@@ -1,11 +1,17 @@
 # Reusable workflow (called by ci.yml; not triggered directly). '_' prefix = internal.
 name: deploy-component
+permissions:
+  contents: read
 on:
   workflow_call:
     inputs:
       component: { required: true, type: string }
+      working_directory: { required: true, type: string }
       environment: { required: true, type: string }
       pulumi_stack: { required: true, type: string }
+      build_filter: { required: false, type: string, default: "" }
+      run_pulumi: { required: false, type: boolean, default: true }
+      worker_secrets: { required: false, type: string, default: "" }
     secrets:
       NEON_DATABASE_URL:
         required: false
@@ -21,6 +27,30 @@ on:
         required: false
       R2_SECRET_ACCESS_KEY:
         required: false
+      NEON_AUTH_JWKS_URL:
+        required: false
+      SUPABASE_URL:
+        required: false
+      SUPABASE_ANON_KEY:
+        required: false
+      SUPABASE_SERVICE_ROLE_KEY:
+        required: false
+      SUPABASE_DB_URL:
+        required: false
+      MIMO_API_KEY:
+        required: false
+      DEEPSEEK_API_KEY:
+        required: false
+      GEMINI_API_KEY:
+        required: false
+      GOOGLE_MAPS_API_KEY:
+        required: false
+      LOGFIRE_TOKEN:
+        required: false
+      CORS_ALLOWED_ORIGIN:
+        required: false
+      NEXT_PUBLIC_MAPBOX_TOKEN:
+        required: false
 jobs:
   deploy:
     name: Deploy
@@ -31,6 +61,14 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+      - name: Build component
+        if: ${{ inputs.build_filter != '' }}
+        env:
+          BUILD_FILTER: ${{ inputs.build_filter }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+        run: pnpm --filter "$BUILD_FILTER" build
       - name: Atlas migrate
         # NOTE: secrets context is NOT allowed in step `if:` (GitHub compile-time
         # error → startup_failure). Guard inside run via the env var instead.
@@ -44,6 +82,7 @@ jobs:
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       - name: Pulumi up
+        if: ${{ inputs.run_pulumi }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         with:
           command: up
@@ -55,18 +94,32 @@ jobs:
           PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      - name: Verify root container Dockerfile
+        if: ${{ inputs.component == 'root' }}
+        run: test -f Dockerfile
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4.79.0"
-          workingDirectory: workers/${{ inputs.component }}
+          workingDirectory: ${{ inputs.working_directory }}
           command: deploy
-          secrets: |
-            DATABASE_URL
+          environment: ${{ inputs.environment }}
+          secrets: ${{ inputs.worker_secrets }}
         env:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       - name: Smoke
         env:
           COMPONENT: ${{ inputs.component }}

@@ -14,6 +14,7 @@ the implementation types for structural subtyping to work.
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 from typing import Protocol, cast, runtime_checkable
 
 
@@ -38,6 +39,8 @@ class BangumiRepo(Protocol):
     async def find_candidate_details_by_titles(
         self, titles: list[str]
     ) -> list[dict[str, object]]: ...
+
+    async def filter_existing_ids(self, bangumi_ids: list[str]) -> list[str]: ...
 
 
 class PointsRepo(Protocol):
@@ -77,6 +80,14 @@ class DatabasePort(Protocol):
 class SessionRepo(Protocol):
     """Session-related DB operations used by persistence helpers."""
 
+    async def create_owned_session(
+        self,
+        session_id: str,
+        user_id: str,
+        first_query: str,
+        session_state: dict[str, object],
+    ) -> None: ...
+
     async def upsert_session(
         self,
         session_id: str,
@@ -100,22 +111,7 @@ class SessionRepo(Protocol):
         user_id: str | None = None,
     ) -> None: ...
 
-
-class UserMemoryRepo(Protocol):
-    """User memory DB operations used by persistence helpers."""
-
-    async def get_user_memory(
-        self,
-        user_id: str,
-    ) -> dict[str, object] | None: ...
-
-    async def upsert_user_memory(
-        self,
-        user_id: str,
-        *,
-        bangumi_id: str | None = None,
-        anime_title: str | None = None,
-    ) -> None: ...
+    async def check_session_owner(self, session_id: str, user_id: str) -> bool: ...
 
 
 class RoutesRepo(Protocol):
@@ -124,14 +120,37 @@ class RoutesRepo(Protocol):
     async def save_route(
         self,
         session_id: str,
-        bangumi_id: str,
+        anime_ids: list[str],
         point_ids: list[str],
         data: dict[str, object],
         *,
         origin_station: str | None = None,
         origin_lat: float | None = None,
         origin_lon: float | None = None,
-    ) -> str | None: ...
+    ) -> str: ...
+
+
+class UsageRepo(Protocol):
+    """Daily model-usage meter operations (issue #274 / S1.8)."""
+
+    async def accumulate_usage(
+        self,
+        *,
+        usage_date: date,
+        scope: str,
+        requests: int,
+        input_tokens: int,
+        output_tokens: int,
+        cost_usd: float,
+    ) -> None: ...
+
+    async def total_cost_usd(self, *, usage_date: date, scope: str) -> float: ...
+
+
+class AnonQuotaRepo(Protocol):
+    """Per-identity anonymous daily message counter (issue #282 / S1.10)."""
+
+    async def increment_and_count(self, *, usage_date: date, anon_id: str) -> int: ...
 
 
 def get_session_repo(db: object) -> SessionRepo | None:
@@ -144,14 +163,14 @@ def get_session_repo(db: object) -> SessionRepo | None:
     return cast(SessionRepo, session)
 
 
-def get_user_memory_repo(db: object) -> UserMemoryRepo | None:
-    """Return the user_memory repo if *db* exposes one with async get_user_memory."""
-    user_memory = getattr(db, "user_memory", None)
-    if user_memory is None:
+def get_bangumi_repo(db: object) -> BangumiRepo | None:
+    """Return the bangumi repo when it exposes typed ID filtering."""
+    bangumi = getattr(db, "bangumi", None)
+    if bangumi is None:
         return None
-    if not asyncio.iscoroutinefunction(getattr(user_memory, "get_user_memory", None)):
+    if not asyncio.iscoroutinefunction(getattr(bangumi, "filter_existing_ids", None)):
         return None
-    return cast(UserMemoryRepo, user_memory)
+    return cast(BangumiRepo, bangumi)
 
 
 def get_routes_repo(db: object) -> RoutesRepo | None:
@@ -169,11 +188,26 @@ def has_session_repo(db: object) -> bool:
     return get_session_repo(db) is not None
 
 
-def has_user_memory_repo(db: object) -> bool:
-    """Return True if *db* exposes a user_memory repo."""
-    return get_user_memory_repo(db) is not None
-
-
 def has_routes_repo(db: object) -> bool:
     """Return True if *db* exposes a routes repo."""
     return get_routes_repo(db) is not None
+
+
+def get_usage_repo(db: object) -> UsageRepo | None:
+    """Return the usage repo if *db* exposes one with async accumulation."""
+    usage = getattr(db, "usage", None)
+    if usage is None:
+        return None
+    if not asyncio.iscoroutinefunction(getattr(usage, "accumulate_usage", None)):
+        return None
+    return cast(UsageRepo, usage)
+
+
+def get_anon_quota_repo(db: object) -> AnonQuotaRepo | None:
+    """Return the anon-quota repo if *db* exposes one with async increment."""
+    repo = getattr(db, "anon_quota", None)
+    if repo is None:
+        return None
+    if not asyncio.iscoroutinefunction(getattr(repo, "increment_and_count", None)):
+        return None
+    return cast(AnonQuotaRepo, repo)

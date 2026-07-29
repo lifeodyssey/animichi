@@ -34,44 +34,36 @@ def _headers() -> dict[str, str]:
 
 async def _post(path: str, body: dict[str, object]) -> tuple[int, dict[str, object]]:
     """POST JSON to the API and return (status, body)."""
-    import aiohttp
+    import httpx
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
             f"{_API_URL}{path}",
             json=body,
             headers=_headers(),
-        ) as resp:
-            status = resp.status
-            data = cast(dict[str, object], await resp.json())
-            return status, data
+        )
+    return resp.status_code, cast(dict[str, object], resp.json())
 
 
 async def _get(path: str) -> tuple[int, object]:
     """GET from the API and return (status, body)."""
-    import aiohttp
+    import httpx
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            f"{_API_URL}{path}",
-            headers=_headers(),
-        ) as resp:
-            status = resp.status
-            data = await resp.json()
-            return status, data
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(f"{_API_URL}{path}", headers=_headers())
+    return resp.status_code, resp.json()
 
 
 class TestHealthCheck:
     """Verify the health endpoint is reachable."""
 
     async def test_healthz_returns_ok(self) -> None:
-        import aiohttp
+        import httpx
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{_API_URL}/healthz") as resp:
-                assert resp.status == 200
-                body = await resp.json()
-                assert body.get("status") == "ok"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(f"{_API_URL}/healthz")
+        assert resp.status_code == 200
+        assert resp.json().get("status") == "ok"
 
 
 class TestRuntimeEndpoint:

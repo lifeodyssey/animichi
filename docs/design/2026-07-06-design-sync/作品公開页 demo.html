@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>作品公開页 demo · 図鑑型 · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&family=Noto+Serif+JP:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0e8d8; --card:#f8f8f0; --panel:#f7f3df;
+  --tx:#794f27; --tx2:#725d42; --tx3:#9f927d;
+  --line:#e8e2d6; --line2:#c4b89e;
+  --teal:#19c8b9; --teal-text:#0e7c72;
+  --gold:#f5c31c; --gold-tx:#5c4813; --gold-deep:#d9a412; --star:#f0b429;
+  --brand:#c44a2e; --sh2:#d4c9b4; --ink:#3d2d18;
+  --map-land:#ebe6d5; --map-green:#dbe7c6; --map-water:#bcdce0; --map-road:#fdfbf2;
+  --ease:cubic-bezier(0.4,0,0.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#e7dfca;font-family:'Zen Maru Gothic','Nunito','Noto Sans SC',sans-serif;color:var(--tx);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:18px 16px 40px;}
+.demobar{display:flex;gap:8px;align-items:center;background:var(--panel);border:1.5px solid var(--line2);border-radius:50px;padding:7px 10px;margin-bottom:14px;box-shadow:0 3px 0 var(--sh2);flex-wrap:wrap;justify-content:center;}
+.demobar .lb{font:900 11px Nunito;letter-spacing:.14em;color:var(--tx3);padding:0 6px;}
+.demobar button{font-family:inherit;font-size:12.5px;font-weight:900;color:var(--tx2);background:var(--card);border:1.5px solid var(--line);border-radius:50px;padding:7px 14px;cursor:pointer;}
+.demobar button.on{background:#dff3f0;border-color:var(--teal);color:var(--teal-text);}
+.demobar button:active{transform:translateY(1px);}
+.hint{font-size:12px;color:var(--tx2);font-weight:700;margin-bottom:14px;text-align:center;max-width:600px;line-height:1.7;}
+.hint b{color:var(--teal-text);}
+.phone{width:402px;height:874px;background:var(--card);border:1.5px solid var(--line2);border-radius:36px;overflow:hidden;position:relative;box-shadow:0 10px 0 0 var(--sh2);flex-shrink:0;display:flex;flex-direction:column;}
+.sb{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:800 14px Nunito;flex-shrink:0;}
+.sb .dots{display:flex;gap:4px;}.sb .dots i{width:5px;height:5px;border-radius:50%;background:var(--tx2);}
+.urlbar{margin:2px 16px 8px;background:var(--panel);border:1.5px solid var(--line);border-radius:50px;padding:7px 14px;display:flex;align-items:center;gap:8px;font:800 11.5px Nunito;color:var(--tx2);flex-shrink:0;}
+.urlbar i{width:10px;height:10px;border-radius:50%;border:2px solid var(--teal);font-style:normal;flex-shrink:0;}
+.stage{flex:1;position:relative;overflow:hidden;min-height:0;}
+.scrollc{position:absolute;inset:0;overflow-y:auto;padding-bottom:100px;scrollbar-width:none;}
+.scrollc::-webkit-scrollbar{display:none;}
+.dock{position:absolute;left:0;right:0;bottom:0;padding:26px 16px 16px;background:linear-gradient(180deg,rgba(248,248,240,0),var(--card) 46%);z-index:8;display:flex;gap:10px;}
+.cta{flex:1;display:flex;align-items:center;justify-content:center;height:54px;border-radius:50px;background:var(--gold);color:var(--gold-tx);font-size:15px;font-weight:900;box-shadow:0 4px 0 0 var(--gold-deep);cursor:pointer;transition:transform .15s var(--ease),box-shadow .15s var(--ease);}
+.cta:active{transform:translateY(3px);box-shadow:0 1px 0 0 var(--gold-deep);}
+.cta.sub{flex:0 0 96px;background:var(--card);color:var(--tx);border:1.5px solid var(--line2);box-shadow:0 4px 0 0 var(--sh2);font-size:13px;}
+.cta.sub:active{box-shadow:0 1px 0 0 var(--sh2);}
+.toast{position:absolute;left:50%;bottom:112px;transform:translate(-50%,16px);background:rgba(61,45,24,.9);color:#fff;font-size:12px;font-weight:800;padding:9px 18px;border-radius:50px;opacity:0;pointer-events:none;transition:all .25s var(--ease);z-index:30;white-space:nowrap;max-width:360px;overflow:hidden;text-overflow:ellipsis;}
+.toast.show{opacity:1;transform:translate(-50%,0);}
+.map{position:relative;background:var(--map-land);overflow:hidden;}
+.mg{position:absolute;border-radius:50%;background:var(--map-green);}
+.mw{position:absolute;border-radius:40%;background:var(--map-water);}
+.mr{position:absolute;background:var(--map-road);border-radius:4px;}
+.bub{position:absolute;border-radius:50%;background:rgba(25,200,185,.22);border:2.5px solid var(--teal);display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--teal-text);z-index:2;cursor:pointer;transition:transform .15s var(--ease);}
+.bub:active{transform:scale(.94);}
+.bub b{font-family:Nunito;font-weight:900;line-height:1;}
+.bub s{text-decoration:none;font-weight:900;}
+.fpin{position:absolute;border-radius:12px;border:2.5px solid #fff;box-shadow:0 3px 0 rgba(122,95,61,.32);z-index:2;cursor:pointer;width:40px;height:40px;}
+.fpin::after{content:'';position:absolute;left:50%;bottom:-8px;margin-left:-5px;border:5px solid transparent;border-top-color:#fff;}
+.fpin .fimg{position:absolute;inset:0;border-radius:9px;}
+.fpin .pb{position:absolute;top:-8px;right:-8px;min-width:19px;height:19px;border-radius:50%;font:900 10px Nunito;color:var(--teal-text);background:#dff3f0;border:1.5px solid var(--teal);display:flex;align-items:center;justify-content:center;z-index:3;padding:0 4px;}
+.backpill{position:absolute;top:10px;left:12px;background:rgba(248,248,240,.95);border:1.5px solid var(--line2);color:var(--tx);font-size:11.5px;font-weight:900;padding:6px 13px;border-radius:50px;z-index:5;cursor:pointer;}
+.mapop{position:absolute;top:10px;right:12px;background:rgba(248,248,240,.94);border:1.5px solid var(--line2);color:var(--tx);font-size:11px;font-weight:800;padding:5px 11px;border-radius:50px;z-index:4;}
+.toprow{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1.5px solid var(--line);cursor:pointer;}
+.toprow:last-child{border-bottom:none;}
+.toprow .rk{font:900 15px Nunito;color:var(--tx3);width:22px;text-align:center;flex-shrink:0;}
+.toprow .rk.g{color:var(--gold-deep);}
+.toprow .th{width:88px;height:55px;border-radius:10px;position:relative;overflow:hidden;flex-shrink:0;border:1.5px solid var(--line);}
+.toprow .th .ttag{position:absolute;left:4px;bottom:4px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;padding:1px 5px;border-radius:5px;}
+.toprow .nm{flex:1;min-width:0;}
+.toprow .nm .n{font-size:13.5px;font-weight:900;}
+.toprow .nm .m{font:700 10px Nunito;color:var(--tx3);margin-top:1px;}
+.toprow .ct{font:900 12px Nunito;color:var(--teal-text);background:#dff3f0;border:1px solid #b8e2dc;border-radius:50px;padding:3px 10px;flex-shrink:0;}
+.sechead{display:flex;align-items:baseline;justify-content:space-between;margin:16px 18px 8px;}
+.sechead .l{font-size:15px;font-weight:900;}
+.sechead .l small{font:800 11px Nunito;color:var(--tx3);}
+.sechead .r{font-size:11.5px;font-weight:900;color:var(--teal-text);cursor:pointer;}
+.sechead .r.off{color:var(--tx3);}
+.rcard{min-width:240px;max-width:240px;background:var(--card);border:1.5px solid var(--line);border-radius:16px;overflow:hidden;flex-shrink:0;cursor:pointer;}
+.rcard .cov{height:84px;position:relative;}
+.rcard .cov .ctag{position:absolute;left:8px;bottom:8px;background:rgba(61,45,24,.68);color:#fff;font:800 9px Nunito;padding:2px 7px;border-radius:6px;}
+.rcard .bd{padding:9px 12px 11px;}
+.rcard .bd .t{font-size:13.5px;font-weight:900;}
+.rcard .bd .m{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;}
+.rcard .bd .m span{font-size:10px;font-weight:800;background:var(--panel);border:1px solid var(--line);border-radius:50px;padding:2px 8px;color:var(--tx2);}
+.rcard .bd .m span.pace{background:#e3f2d9;color:#4c7a2e;border-color:#cfe6bd;}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:24px 24px 0 0;box-shadow:0 -8px 28px rgba(122,95,61,.2);z-index:14;transform:translateY(105%);transition:transform .32s var(--ease);display:flex;flex-direction:column;max-height:640px;}
+.sheet.show{transform:none;}
+.grab{width:44px;height:5px;border-radius:3px;background:var(--line2);margin:10px auto 4px;flex-shrink:0;cursor:pointer;}
+.shdim{position:absolute;inset:0;background:rgba(61,45,24,.25);z-index:13;opacity:0;pointer-events:none;transition:opacity .25s var(--ease);}
+.shdim.show{opacity:1;pointer-events:auto;}
+@media (prefers-reduced-motion: reduce){*{transition-duration:.01s !important;}}
+</style>
+</head>
+<body>
+
+<div class="demobar">
+  <span class="lb">DEMO</span>
+  <a href="前端全景 - Journey Hub.dc.html" style="font:900 12px Nunito;color:var(--teal-text);text-decoration:none;background:var(--card);border:1.5px solid var(--line);border-radius:50px;padding:7px 12px;">◂ Hub</a>
+  <button data-w="yourname">君の名は。89</button>
+  <button data-w="euph">響け！156</button>
+  <button data-w="btr">ぼっち 45</button>
+  <button id="resetBtn" style="color:var(--tx3);">リセット</button>
+</div>
+<div class="hint"><b>泡タップ</b>→エリア zoom（帧图钉）→ピンtap＝機位ブラウザ · TOP 行 tap も同じ sheet · <b>写真あり ⊙</b>で filter · 作品切替で圏泡が公式 r=12+26√(n/max) で伸縮、<b>ぼっち＝ルート例 0 条→段落消失</b>を確認できるよ。</div>
+
+<div class="phone">
+  <div class="sb"><span>20:12</span><span class="dots"><i></i><i></i><i></i></span></div>
+  <div class="urlbar"><i></i><span id="url">seichijunrei.app/anime/your-name</span></div>
+  <div class="stage" id="stage">
+    <div class="scrollc" id="scrollc"></div>
+    <div class="dock"><span class="cta sub" id="shareBtn">共有</span><span class="cta" id="aiBtn">AIにルートを組んでもらう</span></div>
+    <div class="shdim" id="shdim"></div>
+    <div class="sheet" id="sheet"></div>
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<script src="scene-cut.js"></script>
+<script>
+(function(){
+  function g(a,b){return 'linear-gradient(135deg,'+a+','+b+')';}
+  var WORKS={
+    yourname:{
+      title:'君の名は。', en:'YOUR NAME', url:'seichijunrei.app/anime/your-name', total:89, photo:61,
+      key:g('#cfe3f7','#7d99c0'),
+      areas:[
+        {n:'東京', c:46, x:26, y:38},
+        {n:'飛騨古川', c:31, x:66, y:62},
+        {n:'諏訪', c:12, x:52, y:20}
+      ],
+      spots:[
+        {n:'気多若宮神社', a:'飛騨古川', cuts:18, hi:true, tag:'第8話 41:12', d:'石段と鳥居', gr:g('#d7eccf','#a8cf8e'), px:70, py:40},
+        {n:'須賀神社の階段', a:'東京', cuts:16, hi:true, tag:'第3話 12:40', d:'ラストシーン', gr:g('#f2dfc4','#ddb283'), px:30, py:30},
+        {n:'飛騨古川駅', a:'飛騨古川', cuts:12, hi:true, tag:'第1話 04:12', d:'ホーム俯瞰', gr:g('#cfe3f7','#98b8dc'), px:38, py:62},
+        {n:'新宿駅前交差点', a:'東京', cuts:9, hi:true, tag:'第5話 08:22', d:'通学路', gr:g('#e6e0f0','#b7a8dd'), px:58, py:48},
+        {n:'飛騨市図書館', a:'飛騨古川', cuts:8, hi:false, tag:'第2話 18:04', d:'閲覧室（受付許可制）', gr:g('#f7e3d0','#e0b294'), px:56, py:26},
+        {n:'味処古川', a:'飛騨古川', cuts:6, hi:true, tag:'第2話 09:15', d:'五平餅', gr:g('#f5dccf','#e0b294'), px:24, py:38},
+        {n:'新宿御苑', a:'東京', cuts:5, hi:false, tag:'第6話 02:50', d:'昼休みのベンチ', gr:g('#dbe9cf','#a9c99a'), px:74, py:66},
+        {n:'立石公園', a:'諏訪', cuts:4, hi:true, tag:'予告 00:22', d:'糸守湖モデル', gr:g('#cfe0ea','#93b6c8'), px:50, py:50}
+      ],
+      routes:[
+        {t:'飛騨古川 半日ルート', a:'飛騨古川', pace:'ゆったり', m:['5スポット','徒歩2.8km'], gr:g('#cfe3f7','#98b8dc')},
+        {t:'新宿→須賀神社 夕方ルート', a:'東京・四谷', pace:'適中', m:['6スポット','徒歩3.4km'], gr:g('#f2dfc4','#ddb283')}
+      ]
+    },
+    euph:{
+      title:'響け！ユーフォニアム', en:'SOUND! EUPHONIUM', url:'seichijunrei.app/anime/euphonium', total:156, photo:118,
+      key:g('#f7e0c0','#caa06a'),
+      areas:[
+        {n:'宇治', c:118, x:56, y:46},
+        {n:'京都市', c:23, x:26, y:26},
+        {n:'大阪', c:15, x:22, y:70}
+      ],
+      spots:[
+        {n:'大吉山展望台', a:'宇治', cuts:18, hi:true, tag:'第8話 12:20', d:'夜景と告白の山', gr:g('#d7e8d0','#a9c99a'), px:66, py:30},
+        {n:'宇治橋', a:'宇治', cuts:14, hi:true, tag:'第1話 04:50', d:'通学路の欄干', gr:g('#cfe0f0','#9db8d4'), px:44, py:52},
+        {n:'京阪宇治駅', a:'宇治', cuts:11, hi:true, tag:'第1話 02:44', d:'駅舎のアーチ', gr:g('#f7e0c0','#e0b083'), px:28, py:40},
+        {n:'中の島', a:'宇治', cuts:9, hi:true, tag:'第3話 08:11', d:'河原の練習場所', gr:g('#d7e8d0','#b3cf9e'), px:56, py:66},
+        {n:'縣神社', a:'宇治', cuts:7, hi:false, tag:'第9話 15:44', d:'夏祭りの参道', gr:g('#e8ddc8','#c9b391'), px:74, py:56},
+        {n:'京都駅 大階段', a:'京都市', cuts:6, hi:true, tag:'第11話 03:30', d:'関西大会へ', gr:g('#e6e0f0','#b7a8dd'), px:40, py:28}
+      ],
+      routes:[
+        {t:'宇治 まる一日ルート', a:'宇治', pace:'みっちり', m:['12スポット','徒歩5.6km'], gr:g('#f7e0c0','#e0b083')},
+        {t:'宇治 半日ライト', a:'宇治', pace:'ゆったり', m:['6スポット','徒歩2.1km'], gr:g('#cfe0f0','#9db8d4')},
+        {t:'京都市内 半日', a:'京都市', pace:'適中', m:['5スポット','電車併用'], gr:g('#e6e0f0','#b7a8dd')}
+      ]
+    },
+    btr:{
+      title:'ぼっち・ざ・ろっく!', en:'BOCCHI THE ROCK!', url:'seichijunrei.app/anime/bocchi', total:45, photo:34,
+      key:g('#fbe3ea','#d698ae'),
+      areas:[
+        {n:'下北沢', c:32, x:48, y:44},
+        {n:'渋谷', c:8, x:74, y:30},
+        {n:'江ノ島', c:5, x:28, y:68}
+      ],
+      spots:[
+        {n:'下北沢駅前広場', a:'下北沢', cuts:9, hi:true, tag:'第1話 14:02', d:'待ち合わせ', gr:g('#fbe3ea','#eeb3c6'), px:50, py:40},
+        {n:'STARRY モデル階段', a:'下北沢', cuts:8, hi:true, tag:'第1話 18:30', d:'ライブハウスへ', gr:g('#e6e0f0','#b7a8dd'), px:32, py:56},
+        {n:'線路沿いの道', a:'下北沢', cuts:6, hi:true, tag:'第4話 06:11', d:'ギター背負って', gr:g('#dbe9cf','#a9c99a'), px:66, py:60},
+        {n:'渋谷スクランブル', a:'渋谷', cuts:5, hi:false, tag:'第8話 02:40', d:'人混みこわい', gr:g('#f2dfc4','#ddb283'), px:60, py:26},
+        {n:'江ノ島 海岸', a:'江ノ島', cuts:4, hi:true, tag:'第12話 20:15', d:'合宿の海', gr:g('#cfe0ea','#93b6c8'), px:40, py:24}
+      ],
+      routes:[]
+    }
+  };
+  var KEY='anime-demo-v1';
+  var state={w:'yourname', area:null, photoOnly:false};
+  try{var s=JSON.parse(localStorage.getItem(KEY)); if(s&&WORKS[s.w]) state=s;}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+  var scrollc=document.getElementById('scrollc'), sheet=document.getElementById('sheet'), shdim=document.getElementById('shdim'), toastEl=document.getElementById('toast');
+  var toastTimer=null;
+  function toast(m){clearTimeout(toastTimer);toastEl.textContent=m;toastEl.classList.add('show');toastTimer=setTimeout(function(){toastEl.classList.remove('show');},2000);}
+
+  function mapScenery(){
+    return '<div class="mg" style="width:190px;height:140px;left:-50px;top:-30px;"></div>'
+      +'<div class="mg" style="width:160px;height:120px;right:-40px;bottom:-30px;"></div>'
+      +'<div class="mw" style="width:250px;height:30px;left:60px;top:150px;transform:rotate(-8deg);"></div>'
+      +'<div class="mr" style="width:400px;height:6px;left:-10px;top:90px;transform:rotate(5deg);"></div>'
+      +'<div class="mr" style="width:6px;height:220px;left:190px;top:-10px;transform:rotate(12deg);"></div>';
+  }
+  function bubbleHtml(w){
+    var max=Math.max.apply(null,w.areas.map(function(a){return a.c;}));
+    return w.areas.map(function(a,i){
+      var r=(12+26*Math.sqrt(a.c/max))*1.35;
+      var fs=Math.round(r*.52), fs2=Math.max(9,Math.round(r*.26));
+      return '<div class="bub" data-area="'+a.n+'" style="width:'+(r*2)+'px;height:'+(r*2)+'px;left:calc('+a.x+'% - '+r+'px);top:calc('+a.y+'% - '+r+'px);"><b style="font-size:'+fs+'px;">'+a.c+'</b><s style="font-size:'+fs2+'px;">'+a.n+'</s></div>';
+    }).join('');
+  }
+  function pinsHtml(w,area){
+    var sp=w.spots.filter(function(s){return s.a===area;});
+    return sp.map(function(s,i){
+      return '<div class="fpin" data-spot="'+s.n+'" style="left:calc('+s.px+'% - 20px);top:calc('+s.py+'% - 20px);"><span class="fimg" style="background:'+s.gr+';"></span><span class="pb">'+s.cuts+'</span></div>';
+    }).join('');
+  }
+  function render(){
+    var w=WORKS[state.w];
+    document.getElementById('url').textContent=w.url;
+    document.querySelectorAll('[data-w]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-w')===state.w);});
+    var mapInner, mapCap;
+    if(state.area){
+      var ar=w.areas.filter(function(a){return a.n===state.area;})[0];
+      mapInner=mapScenery()+pinsHtml(w,state.area)
+        +'<span class="backpill" data-back>‹ 作品全体</span>'
+        +'<span class="mapop">地図を操作 ↗</span>';
+      mapCap='<span style="font-size:12px;font-weight:800;color:var(--tx2);">'+state.area+' · '+(ar?ar.c:'')+'件 · ピン＝カット数</span><span style="font-size:12px;font-weight:900;color:var(--teal-text);">図釘tap→機位ブラウザ</span>';
+    }else{
+      mapInner=mapScenery()+bubbleHtml(w)+'<span class="mapop">地図を操作 ↗</span>';
+      mapCap='<span style="font-size:12px;font-weight:800;color:var(--tx2);">泡をタップ→エリアの図釘へ</span><span style="font-size:12px;font-weight:900;color:var(--teal-text);">r=12+26√(n/max)</span>';
+    }
+    var spots=w.spots.slice().sort(function(a,b){return b.cuts-a.cuts;});
+    if(state.photoOnly)spots=spots.filter(function(s){return s.hi;});
+    if(state.area)spots=spots.filter(function(s){return s.a===state.area;});
+    var rows=spots.map(function(s,i){
+      return '<div class="toprow" data-spot="'+s.n+'"><span class="rk'+(i<3?' g':'')+'">'+(i+1)+'</span>'
+        +'<span class="th" style="background:'+s.gr+';"><span class="ttag">'+s.tag+'</span></span>'
+        +'<span class="nm"><span class="n">'+s.n+'</span><div class="m">'+s.a+' · '+s.d+(s.hi?'':' · 写真なし')+'</div></span>'
+        +'<span class="ct">'+s.cuts+'カット</span></div>';
+    }).join('')||'<div style="padding:16px 0;font-size:12px;font-weight:800;color:var(--tx3);">このエリアに写真ありのスポットはまだないよ</div>';
+    var routes='';
+    if(w.routes.length){
+      routes='<div class="sechead"><span class="l">ルート例 <small>この作品で歩ける</small></span><span class="r">▸</span></div>'
+        +'<div style="display:flex;gap:10px;overflow-x:auto;padding:0 16px 4px;scrollbar-width:none;">'
+        +w.routes.map(function(r){
+          return '<div class="rcard" data-route="'+r.t+'"><div class="cov" style="background:'+r.gr+';"><span class="ctag">'+r.a+'</span></div><div class="bd"><div class="t">'+r.t+'</div><div class="m">'+(r.pace?'<span class="pace">'+r.pace+'</span>':'')+r.m.map(function(x){return '<span>'+x+'</span>';}).join('')+'</div></div></div>';
+        }).join('')+'</div>';
+    }
+    scrollc.innerHTML=
+      '<div style="display:flex;align-items:center;gap:12px;margin:2px 18px 10px;">'
+      +'<div style="width:56px;height:76px;border-radius:10px;background:'+w.key+';flex-shrink:0;border:1.5px solid var(--line);position:relative;overflow:hidden;"><span style="position:absolute;inset:auto 0 0 0;background:rgba(61,45,24,.55);color:#fff;font:800 7px Nunito;text-align:center;padding:2px 0;">KEY ART</span></div>'
+      +'<div style="flex:1;"><div style="font-family:\'Noto Serif JP\',serif;font-size:21px;font-weight:900;color:var(--ink);">'+w.title+'</div>'
+      +'<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;">'
+      +'<span style="font-size:10.5px;font-weight:800;background:var(--panel);border:1px solid var(--line);border-radius:50px;padding:2px 9px;">'+w.total+'スポット</span>'
+      +'<span style="font-size:10.5px;font-weight:800;background:var(--panel);border:1px solid var(--line);border-radius:50px;padding:2px 9px;">'+w.areas.length+'エリア</span>'
+      +'<span style="font-size:10.5px;font-weight:800;background:#dff3f0;border:1px solid #b8e2dc;border-radius:50px;padding:2px 9px;color:var(--teal-text);">写真あり '+w.photo+'</span>'
+      +'</div></div></div>'
+      +'<div style="margin:0 16px;border:1.5px solid var(--line);border-radius:16px;overflow:hidden;">'
+      +'<div class="map" style="height:238px;">'+mapInner+'</div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--panel);border-top:1.5px solid var(--line);">'+mapCap+'</div></div>'
+      +'<div class="sechead"><span class="l">名場面 TOP <small>カット数順'+(state.area?' · '+state.area:'')+'</small></span><span class="r'+(state.photoOnly?'':' off')+'" data-photo>写真あり ⊙'+(state.photoOnly?' ON':'')+'</span></div>'
+      +'<div style="margin:0 18px;">'+rows+'</div>'
+      +routes
+      +'<div style="margin:14px 18px 0;font:700 9.5px Nunito;color:var(--tx3);line-height:1.7;">画像・座標：Anitabi (CC BY-NC-SA 4.0) · © 各作品の権利者 · 表示は写真あり優先</div>';
+    bind();
+    save();
+  }
+  function openSheet(name){
+    var w=WORKS[state.w];
+    var s=w.spots.filter(function(x){return x.n===name;})[0];
+    if(!s)return;
+    var nTiles=Math.min(s.cuts,5), extra=s.cuts-nTiles;
+    var tiles='';
+    for(var i=0;i<nTiles;i++){
+      var over=(i===nTiles-1&&extra>0)?'<i style="position:absolute;inset:0;border-radius:9px;background:rgba(61,45,24,.5);color:#fff;font:900 13px Nunito;font-style:normal;display:flex;align-items:center;justify-content:center;">+'+(extra+1)+'</i>':'';
+      tiles+='<span style="height:74px;border-radius:11px;background:'+s.gr+';position:relative;'+(i===0?'border:2.5px solid var(--star);':'filter:hue-rotate('+(i*14)+'deg) brightness('+(1-i*.05)+');')+'">'
+        +'<i style="position:absolute;left:4px;bottom:4px;background:rgba(61,45,24,.68);color:#fff;font:800 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">'+s.tag+'</i>'
+        +(i===0?'<i style="position:absolute;top:4px;right:4px;background:var(--gold);color:var(--gold-tx);font:900 8.5px Nunito;font-style:normal;padding:1px 5px;border-radius:5px;">代表</i>':'')
+        +over+'</span>';
+    }
+    sheet.innerHTML='<div class="grab" id="shClose"></div>'
+      +'<div style="display:flex;align-items:baseline;justify-content:space-between;padding:2px 18px 10px;"><span style="font-size:15px;font-weight:900;">'+s.n+' <span style="font:800 11.5px Nunito;color:var(--tx3);">'+s.cuts+'カット · '+s.a+'</span></span><span style="font-size:11.5px;font-weight:900;color:var(--teal-text);">'+(s.hi?'写真あり':'写真なし')+'</span></div>'
+      +'<div style="padding:0 18px 8px;"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">'+tiles+'</div>'
+      +'<div style="margin-top:10px;background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font-size:11px;font-weight:700;color:var(--tx2);line-height:1.6;">タップで拡大（h360）· 出典：Anitabi (CC BY-NC-SA 4.0) ↗</div></div>'
+      +'<div style="display:flex;gap:10px;padding:6px 16px 16px;"><span class="cta sub" style="flex:1;font-size:13px;" id="shAsk">この場所も入れて → AIに相談</span></div>';
+    sheet.classList.add('show');shdim.classList.add('show');
+    document.getElementById('shClose').addEventListener('click',closeSheet);
+    document.getElementById('shAsk').addEventListener('click',function(){closeSheet();toast('Chat へ：「'+s.n+'を入れたルートにして」');});
+  }
+  function closeSheet(){sheet.classList.remove('show');shdim.classList.remove('show');}
+  shdim.addEventListener('click',closeSheet);
+  function bind(){
+    scrollc.querySelectorAll('.bub').forEach(function(b){
+      b.addEventListener('click',function(){state.area=b.getAttribute('data-area');render();});
+    });
+    var back=scrollc.querySelector('[data-back]');
+    if(back)back.addEventListener('click',function(){state.area=null;render();});
+    var ph=scrollc.querySelector('[data-photo]');
+    if(ph)ph.addEventListener('click',function(){state.photoOnly=!state.photoOnly;render();});
+    scrollc.querySelectorAll('.toprow').forEach(function(r){
+      r.addEventListener('click',function(){openSheet(r.getAttribute('data-spot'));});
+    });
+    scrollc.querySelectorAll('.fpin').forEach(function(p){
+      p.addEventListener('click',function(){openSheet(p.getAttribute('data-spot'));});
+    });
+    scrollc.querySelectorAll('.rcard').forEach(function(c){
+      c.addEventListener('click',function(){toast('路線詳細へ：'+c.getAttribute('data-route'));setTimeout(function(){location.href='路线详情 demo.html';},450);});
+    });
+  }
+  document.querySelectorAll('[data-w]').forEach(function(b){
+    b.addEventListener('click',function(){state.w=b.getAttribute('data-w');state.area=null;closeSheet();render();});
+  });
+  document.getElementById('resetBtn').addEventListener('click',function(){state={w:'yourname',area:null,photoOnly:false};closeSheet();render();toast('リセットしたよ');});
+  document.getElementById('aiBtn').addEventListener('click',function(){
+    if(window.SceneCut){SceneCut.play({label:'ロケ地を探しています',holdMs:1500});setTimeout(function(){location.href='Chat 完整状态.html';},1100);}
+    else{location.href='Chat 完整状态.html';}
+  });
+  document.getElementById('shareBtn').addEventListener('click',function(){toast('リンクをコピーしたよ');});
+  render();
+})();
+</script>
+</body>
+</html>

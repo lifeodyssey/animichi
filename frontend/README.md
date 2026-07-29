@@ -1,6 +1,6 @@
-# Seichijunrei Frontend
+# Animichi Frontend
 
-Next.js App Router frontend for the Seichijunrei runtime.
+Next.js App Router frontend for the Animichi runtime.
 
 UI model:
 
@@ -46,13 +46,13 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-## Build (Static Export)
+## Build (OpenNext SSR)
 
-This project uses `output: "export"` and builds to `frontend/out/`:
+This project uses `@opennextjs/cloudflare` and builds to `.open-next/` (SSR, NOT `output: "export"`):
 
 ```bash
 cd frontend
 npm run build
 ```
 
-The Cloudflare Worker serves `frontend/out/` via the `ASSETS` binding (see `wrangler.toml` and `docs/ops/deployment.md`).
+The Cloudflare Worker serves `.open-next/assets` via the `ASSETS` binding (see `wrangler.toml` and `docs/ops/deployment.md`).

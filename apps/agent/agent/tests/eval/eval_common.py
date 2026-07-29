@@ -1,21 +1,33 @@
 """Shared eval infrastructure for all eval layers.
 
-Provides dataset loading, baseline management, gate enforcement,
-and model precheck utilities.
+Provides dataset loading and model precheck utilities.
 """
 
 from __future__ import annotations
 
 import json
-import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 CASE_TIMEOUT_S = 60
 
-_DEFAULT_BASELINES_DIR = Path(__file__).parent / "baselines"
+
+def real_env_updates(
+    file_values: Mapping[str, str | None],
+    environ: Mapping[str, str],
+) -> dict[str, str]:
+    """Return the .env entries to apply without clobbering the real process env.
+
+    A key is applied only when absent, so CI secrets and rotated keys always win.
+    """
+    updates: dict[str, str] = {}
+    for key, value in file_values.items():
+        if value is None:
+            continue
+        if environ.get(key) is None:
+            updates[key] = value
+    return updates
 
 
 @dataclass
@@ -58,116 +70,6 @@ def load_dataset(path: Path) -> list[EvalCase]:
     return cases
 
 
-def _build_baseline_filename(layer: str, model_id: str) -> str:
-    """Build the baseline filename for a given layer and model.
-
-    Uses ``{layer}_{safe_model}.json`` format to support multi-layer baselines.
-    Earlier versions used ``{safe_model}.json`` without a layer prefix.
-    """
-    safe_model = model_id.replace(":", "-").replace("@", "-").replace("/", "-")
-    return f"{layer}_{safe_model}.json"
-
-
-def _legacy_baseline_filename(model_id: str) -> str:
-    """Build the old-style baseline filename (no layer prefix)."""
-    safe_model = model_id.replace(":", "-").replace("@", "-").replace("/", "-")
-    return f"{safe_model}.json"
-
-
-def read_baseline(
-    layer: str,
-    model_id: str,
-    *,
-    baselines_dir: Path = _DEFAULT_BASELINES_DIR,
-    expected_case_count: int | None = None,
-) -> dict[str, float]:
-    """Read baseline scores from a JSON file.
-
-    Returns empty dict when the file is missing or case_count is stale.
-    """
-    path = baselines_dir / _build_baseline_filename(layer, model_id)
-    if not path.exists():
-        legacy = baselines_dir / _legacy_baseline_filename(model_id)
-        if legacy.exists():
-            path = legacy
-        else:
-            return {}
-    data: dict[str, object] = json.loads(path.read_text())
-    if expected_case_count is not None:
-        stored_count = data.get("case_count")
-        if stored_count is not None and stored_count != expected_case_count:
-            logger.warning(
-                "Stale baseline for %s/%s: expected %d cases, found %s",
-                layer,
-                model_id,
-                expected_case_count,
-                stored_count,
-            )
-            return {}
-    if expected_case_count is not None:
-        evaluated = data.get("evaluated_count", data.get("case_count", 0))
-        if isinstance(evaluated, int) and evaluated < expected_case_count * 0.80:
-            logger.warning(
-                "Baseline for %s/%s has too few evaluated cases: %d < 80%% of %d",
-                layer,
-                model_id,
-                evaluated,
-                expected_case_count,
-            )
-            return {}
-    scores = data.get("scores")
-    if isinstance(scores, dict):
-        return {str(k): float(v) for k, v in scores.items()}
-    return {}
-
-
-def write_baseline(
-    layer: str,
-    model_id: str,
-    scores: dict[str, float],
-    *,
-    case_count: int,
-    evaluated_count: int | None = None,
-    baselines_dir: Path = _DEFAULT_BASELINES_DIR,
-) -> None:
-    """Write baseline scores to a JSON file."""
-    baselines_dir.mkdir(parents=True, exist_ok=True)
-    path = baselines_dir / _build_baseline_filename(layer, model_id)
-    payload: dict[str, object] = {
-        "model": model_id,
-        "case_count": case_count,
-        "scores": scores,
-    }
-    if evaluated_count is not None:
-        payload["evaluated_count"] = evaluated_count
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
-
-
-def enforce_gate(
-    current: dict[str, float],
-    baseline: dict[str, float],
-    tolerance: float = 0.10,
-) -> list[str]:
-    """Compare current scores against baseline. Return failure descriptions.
-
-    Returns an empty list when all scores pass (within tolerance of baseline).
-    """
-    if not baseline:
-        return []
-    failures: list[str] = []
-    for name, score in current.items():
-        baseline_score = baseline.get(name)
-        if baseline_score is None:
-            continue
-        minimum = baseline_score - tolerance
-        if score < minimum:
-            failures.append(
-                f"{name}: {score:.1%} < baseline-{tolerance:.0%} "
-                f"({minimum:.1%}, baseline {baseline_score:.1%})"
-            )
-    return failures
-
-
 @dataclass
 class JourneyCase:
     """A single journey-eval case loaded from runtime_journey_v1.json."""
@@ -192,6 +94,13 @@ def _str_list(row: dict[str, object], key: str, *, required: bool = False) -> li
     return [str(k) for k in raw] if isinstance(raw, list) else []
 
 
+def _int_field(row: Mapping[str, object], key: str) -> int:
+    raw = row[key]
+    if isinstance(raw, int | str | bytes | bytearray):
+        return int(raw)
+    raise ValueError(f"Dataset field must be int-compatible: {key}")
+
+
 def load_journey_dataset(path: Path) -> list[JourneyCase]:
     """Load a journey-eval dataset JSON and return typed JourneyCase objects."""
     text = path.read_text()
@@ -202,7 +111,7 @@ def load_journey_dataset(path: Path) -> list[JourneyCase]:
             query=str(row["query"]),
             locale=str(row["locale"]),
             expected_stage=str(row["expected_stage"]),
-            expected_message_min_len=int(row["expected_message_min_len"]),
+            expected_message_min_len=_int_field(row, "expected_message_min_len"),
             expected_data_keys=_str_list(row, "expected_data_keys", required=True),
             expected_results_keys=_str_list(row, "expected_results_keys"),
             expected_nearby_fields=_str_list(row, "expected_nearby_fields"),

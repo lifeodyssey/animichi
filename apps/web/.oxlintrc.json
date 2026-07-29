@@ -1,0 +1,32 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "extends": ["../../.oxlintrc.json"],
+  "ignorePatterns": [
+    "node_modules/**",
+    ".output/**",
+    ".nitro/**",
+    ".tanstack/**",
+    "coverage/**",
+    "dist/**",
+    "vitest*.config.ts",
+    "vite.config.ts",
+    "**/routeTree.gen.ts"
+  ],
+  "rules": {
+    "max-lines-per-function": [
+      "error",
+      { "max": 10, "skipBlankLines": true, "skipComments": true }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["tests/**/*.ts", "tests/**/*.tsx"],
+      "rules": {
+        "max-lines-per-function": [
+          "error",
+          { "max": 50, "skipBlankLines": true, "skipComments": true }
+        ]
+      }
+    }
+  ]
+}

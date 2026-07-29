@@ -30,11 +30,10 @@ def _mock_pipeline(monkeypatch):
 @pytest.fixture
 def mock_db():
     db = MagicMock(spec=SupabaseClient)
+    db.session.create_owned_session = AsyncMock()
     db.session.upsert_session = AsyncMock()
     db.session.upsert_conversation = AsyncMock()
     db.session.update_conversation_title = AsyncMock()
-    db.user_memory.get_user_memory = AsyncMock(return_value=None)
-    db.user_memory.upsert_user_memory = AsyncMock()
     db.routes.save_route = AsyncMock(return_value="route-1")
     db.insert_message = AsyncMock()
     db.insert_request_log = AsyncMock()
@@ -67,7 +66,7 @@ class TestGeneratedTitleInResponse:
 
     # TODO: re-enable when conversation history title generation is wired back
     # async def test_first_interaction_includes_fallback_title(self, mock_db):
-    #     api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+    #     api = RuntimeAPI(mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock())
     #     response = await api.handle(
     #         PublicAPIRequest(text="響けの聖地を探して", locale="ja"),
     #         user_id="user-1",
@@ -82,15 +81,17 @@ class TestGeneratedTitleInResponse:
 
         async def _fake_greet(**kwargs):
             return _make_result(
-                intent="greet_user",
+                intent="general_qa",
                 message="你好！我是圣地巡礼助手。",
             )
 
         monkeypatch.setattr(
-            "agent.interfaces.public_api.run_pilgrimage_agent", _fake_greet
+            "agent.interfaces.public_api.run_animichi_agent", _fake_greet
         )
 
-        api = RuntimeAPI(mock_db, session_store=InMemorySessionStore())
+        api = RuntimeAPI(
+            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
+        )
         response = await api.handle(
             PublicAPIRequest(text="你好", locale="zh"),
         )

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walk demo — 歩くモード · 聖地巡礼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts.css">
+<style>
+  :root{
+    --bg:#f0e8d8; --paper:#f8f8f0; --content:#f7f3df; --ink:#794f27; --ink-body:#725d42; --ink-soft:#9f927d;
+    --teal:#19c8b9; --teal-bg:#e6f9f6; --teal-deep:#11a89b; --teal-text:#0e7c72;
+    --gold:#f5c31c; --gold-deep:#d8a812; --gold-ink:#5c4813; --star:#f0b429;
+    --line:#e8e2d6; --line2:#c4b89e;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{font-family:"Nunito","Noto Sans SC",sans-serif;background:#e9e0cc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:100vh;padding:16px;-webkit-font-smoothing:antialiased;}
+
+  .demobar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;background:#2c2722;border-radius:50px;padding:8px 14px;box-shadow:0 10px 24px -10px #0008;}
+  .demobar b{color:#ffd76a;font-size:11px;font-weight:900;letter-spacing:1px;margin-right:2px;}
+  .demobar button,.demobar a{border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:11.5px;color:#f3ead8;background:#4a4239;border-radius:50px;padding:6px 12px;text-decoration:none;}
+  .demobar button.on{background:var(--teal);color:#fff;}
+  .demobar button.gold{background:var(--gold);color:var(--gold-ink);}
+
+  .ph{position:relative;width:402px;height:874px;border-radius:46px;overflow:hidden;background:var(--bg);flex:none;
+    box-shadow:0 0 0 10px #2c2722,0 2px 0 12px #4a4239,0 30px 60px -24px rgba(61,52,40,.5);}
+  @media (max-height:960px){ .ph{transform:scale(.88);margin:-46px 0;} }
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);transition:background .3s;}
+  .sb{flex:none;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:14px;font-weight:800;color:var(--ink);}
+  .sb .r{display:flex;gap:5px;align-items:center;}
+  .sb .r i{font-style:normal;display:inline-block;width:17px;height:10px;border:1.5px solid currentColor;border-radius:3px;position:relative;opacity:.85;}
+  .sb .r i::after{content:"";position:absolute;inset:1.5px;right:35%;background:currentColor;border-radius:1px;}
+  .sb .r u{text-decoration:none;font-size:11px;font-weight:900;}
+
+  .wtop{flex:none;display:flex;align-items:center;gap:10px;padding:4px 16px 8px;}
+  .wtop .bk{width:44px;height:44px;border-radius:50%;border:2px solid var(--line);background:var(--paper);color:var(--ink);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 0 0 #bdaea0;flex:none;cursor:pointer;}
+  .wtop .bk svg{width:18px;height:18px;}
+  .wtop .rpill{flex:1;min-width:0;display:flex;align-items:center;gap:8px;background:var(--gold);color:var(--gold-ink);border-radius:50px;padding:9px 16px;font-size:14px;font-weight:900;box-shadow:0 3px 0 0 var(--gold-deep);white-space:nowrap;}
+  .wtop .rpill span:first-child{overflow:hidden;text-overflow:ellipsis;}
+  .wtop .rpill .tm{margin-left:auto;}
+  .prog{flex:none;display:flex;align-items:center;gap:10px;padding:0 20px 8px;}
+  .prog .dots{display:flex;gap:8px;}
+  .prog .d{width:16px;height:16px;border-radius:50%;background:var(--paper);border:2.5px solid var(--line2);transition:all .3s;}
+  .prog .d.v{background:var(--teal);border-color:var(--teal-deep);}
+  .prog .d.c{border-color:var(--gold-deep);box-shadow:0 0 0 3px #f5c31c55;}
+  .prog .pl{font-size:14px;font-weight:900;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .body2{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 16px;gap:10px;overflow:hidden;position:relative;}
+  .stage{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;transition:opacity .22s,transform .22s;}
+  .stage.out{opacity:0;transform:translateX(-26px);}
+  .stage.in{opacity:0;transform:translateX(26px);transition:none;}
+
+  .vb{position:relative;flex:none;height:398px;margin:0 -16px;overflow:hidden;}
+  .vb .blur{position:absolute;inset:0;filter:blur(22px) saturate(1.15) brightness(.8);transform:scale(1.35);}
+  .vb .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(28,23,18,.12) 0%,rgba(28,23,18,0) 40%,rgba(28,23,18,.6) 74%,rgba(28,23,18,.9) 100%);}
+  .vb .real{position:absolute;left:0;right:0;top:50px;aspect-ratio:16/9;box-shadow:0 14px 34px -14px rgba(0,0,0,.5);cursor:pointer;}
+  .vb .tg{position:absolute;left:12px;top:10px;background:#f7cd67;color:#fff;font-size:12px;font-weight:900;border-radius:999px;padding:3px 11px;}
+  .vb .cmp{position:absolute;right:14px;top:10px;display:inline-flex;align-items:center;gap:6px;background:#fffdf5e8;color:#3d2f1c;border-radius:50px;padding:8px 13px;font-size:12.5px;font-weight:800;cursor:pointer;border:none;font-family:inherit;}
+  .vb .cmp svg{width:15px;height:15px;}
+  .vb .film{position:absolute;left:16px;top:277px;display:flex;gap:7px;}
+  .vb .film .f{width:58px;aspect-ratio:16/9;border-radius:7px;border:1.5px solid rgba(255,253,245,.65);cursor:pointer;}
+  .vb .film .f.cur{border-color:var(--gold);border-width:2px;}
+  .vb .film .more{width:46px;aspect-ratio:16/9;border-radius:7px;border:1.5px dashed rgba(255,253,245,.65);color:#fffdf5;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .vb .nm{position:absolute;left:18px;right:18px;bottom:44px;color:#fffdf5;font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:33px;line-height:1.15;text-shadow:0 2px 10px rgba(0,0,0,.5);}
+  .vb .nm .st{color:var(--star);}
+  .vb .sub{position:absolute;left:18px;right:18px;bottom:14px;color:#f3e9d2;font-size:13.5px;font-weight:800;display:flex;gap:12px;flex-wrap:wrap;text-shadow:0 1px 5px rgba(0,0,0,.5);}
+
+  .maps{flex:none;display:flex;align-items:center;gap:12px;background:var(--paper);border:2px solid var(--line);border-radius:18px;padding:11px 15px;box-shadow:0 4px 0 0 #bdaea0;cursor:pointer;}
+  .maps .ic{width:44px;height:44px;border-radius:14px;background:var(--teal-bg);border:2px solid #bfeae3;color:var(--teal-text);display:flex;align-items:center;justify-content:center;flex:none;}
+  .maps .ic svg{width:21px;height:21px;}
+  .maps .tx{flex:1;min-width:0;}
+  .maps .tx b{display:block;font-size:16px;color:var(--ink);font-weight:800;}
+  .maps .tx span{font-size:12px;color:var(--ink-soft);font-weight:700;}
+  .maps .go{color:var(--ink-soft);font-size:18px;font-weight:900;}
+  .nextr{flex:none;display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:800;color:var(--ink-soft);padding:0 4px;}
+  .nextr b{color:var(--ink-body);}
+  .qbadge{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:900;color:#a8801a;background:#fdf1cf;border:1.5px solid #f0dca0;border-radius:999px;padding:2px 9px;}
+  .spacer{flex:1;}
+  .nearpill{flex:none;align-self:center;display:inline-flex;align-items:center;gap:8px;background:var(--paper);border:2px solid var(--line);border-radius:50px;padding:10px 18px;font-size:13.5px;font-weight:800;color:var(--ink);box-shadow:0 3px 0 0 #bdaea0;cursor:pointer;}
+  .cta{flex:none;margin:2px 0 16px;height:66px;border-radius:50px;background:var(--gold);color:var(--gold-ink);border:none;font-family:inherit;font-weight:900;font-size:21px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 6px 0 0 var(--gold-deep);cursor:pointer;transition:transform .1s,box-shadow .1s;}
+  .cta svg{width:22px;height:22px;}
+  .cta:active{transform:translateY(4px);box-shadow:0 2px 0 0 var(--gold-deep);}
+  .offbar{flex:none;display:flex;align-items:center;gap:8px;background:#fdf1cf;border:2px solid #f0dca0;color:#a8801a;border-radius:14px;padding:8px 13px;font-size:12.5px;font-weight:800;}
+  .offbar svg{width:15px;height:15px;flex:none;}
+
+  /* env */
+  .ph.sun .scr{--bg:#ffffff;--paper:#ffffff;--content:#fdf8ea;--ink:#3d2f1c;--ink-body:#4a3a24;--ink-soft:#7c6a4e;--line:#b9a97c;--line2:#a08d64;background:#fff;}
+  .ph.sun .maps,.ph.sun .nearpill,.ph.sun .wtop .bk{border-width:3px;box-shadow:0 4px 0 0 #8f7d58;}
+  .ph.sun .cta{box-shadow:0 6px 0 0 #b8860b;font-size:22px;}
+  .ph.night .scr{--bg:#241d15;--paper:#2f2820;--content:#382f24;--ink:#f3e9d2;--ink-body:#d9cbae;--ink-soft:#a3937a;--line:#4a4034;--line2:#5c5140;background:#241d15;}
+  .ph.night .maps,.ph.night .nearpill,.ph.night .wtop .bk{box-shadow:0 3px 0 0 #14100b;}
+
+  /* compare overlay */
+  .cam{position:absolute;inset:0;background:#1c1712;display:none;flex-direction:column;z-index:40;}
+  .cam.on{display:flex;}
+  .cam .view{position:relative;flex:1;overflow:hidden;}
+  .cam .live{position:absolute;inset:0;background:linear-gradient(165deg,#6f8f5c 0%,#a8c48e 40%,#d9e8c4 58%,#5e7a4c 100%);}
+  .cam .ghost{position:absolute;inset:0;opacity:.55;}
+  .cam .gridl{position:absolute;inset:0;background:
+    linear-gradient(to right,transparent calc(33% - .5px),rgba(255,255,255,.25) 33%,transparent calc(33% + .5px)),
+    linear-gradient(to right,transparent calc(66% - .5px),rgba(255,255,255,.25) 66%,transparent calc(66% + .5px)),
+    linear-gradient(to bottom,transparent calc(33% - .5px),rgba(255,255,255,.25) 33%,transparent calc(33% + .5px)),
+    linear-gradient(to bottom,transparent calc(66% - .5px),rgba(255,255,255,.25) 66%,transparent calc(66% + .5px));}
+  .cam .ttl{position:absolute;top:12px;left:14px;right:14px;display:flex;align-items:center;gap:8px;color:#ffd76a;font-size:13px;font-weight:900;text-shadow:0 1px 4px #000;}
+  .cam .ttl .x{margin-left:auto;width:38px;height:38px;border-radius:50%;background:#00000066;color:#fffdf5;display:flex;align-items:center;justify-content:center;font-size:19px;cursor:pointer;border:none;}
+  .cam .hint{position:absolute;left:50%;transform:translateX(-50%);top:56px;background:#00000055;color:#f3e9d2;font-size:10.5px;font-weight:800;border-radius:50px;padding:4px 12px;white-space:nowrap;}
+  .cam .slider{position:absolute;left:20px;right:20px;bottom:14px;display:flex;align-items:center;gap:11px;color:#f3e9d2;font-size:11.5px;font-weight:800;}
+  .cam .slider input{flex:1;accent-color:var(--gold);}
+  .cutlist{flex:none;background:#241d15;border-top:2px solid #4a4034;padding:13px 16px 18px;}
+  .cutlist h4{margin:0 0 6px;color:#f3e9d2;font-size:14px;font-weight:900;display:flex;gap:8px;}
+  .cutlist h4 span{margin-left:auto;color:#ffd76a;font-size:12px;}
+  .cutrow{display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1.5px dashed #4a4034;color:#d9cbae;font-size:13px;font-weight:800;cursor:pointer;}
+  .cutrow .ck{width:26px;height:26px;border-radius:9px;border:2.5px solid #5c5140;background:#2f2820;display:flex;align-items:center;justify-content:center;flex:none;}
+  .cutrow .ck svg{width:15px;height:15px;color:#fff;opacity:0;}
+  .cutrow.on .ck{background:var(--teal);border-color:var(--teal-deep);}
+  .cutrow.on .ck svg{opacity:1;}
+  .cutrow .th{width:56px;aspect-ratio:16/9;border-radius:7px;flex:none;border:1.5px solid #4a4034;}
+  .cutrow.cur .th{border-color:var(--gold);}
+  .cutrow .org{margin-left:auto;font-size:10px;color:#a3937a;font-weight:800;white-space:nowrap;}
+  .fold{margin-top:9px;text-align:center;border:1.5px dashed #5c5140;border-radius:50px;padding:8px;color:#a3937a;font-size:12px;font-weight:800;}
+  .mergeBtn{width:100%;margin-top:10px;height:48px;border-radius:50px;border:none;background:var(--gold);color:var(--gold-ink);font-family:inherit;font-weight:900;font-size:15px;box-shadow:0 4px 0 0 var(--gold-deep);cursor:pointer;}
+
+  /* near sheet */
+  .dim2{position:absolute;inset:0;background:rgba(28,23,18,.45);z-index:20;display:none;}
+  .dim2.on{display:block;}
+  .sheet{position:absolute;left:0;right:0;bottom:-100%;z-index:21;background:var(--paper);border-radius:28px 28px 0 0;border:2px solid var(--line);border-bottom:none;padding:10px 18px 24px;transition:bottom .28s cubic-bezier(.2,.8,.3,1);}
+  .sheet.on{bottom:0;}
+  .sheet .grab{width:44px;height:5px;border-radius:3px;background:var(--line2);margin:4px auto 12px;}
+  .sheet h4{margin:0 0 4px;font-family:"Zen Maru Gothic",sans-serif;font-size:19px;color:var(--ink);}
+  .sheet .sub2{font-size:12.5px;color:var(--ink-soft);font-weight:700;margin-bottom:8px;}
+  .nrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1.5px dashed var(--line2);}
+  .nrow:first-of-type{border-top:none;}
+  .nrow .th{width:74px;aspect-ratio:16/9;border-radius:10px;flex:none;border:2px solid var(--line);position:relative;overflow:hidden;}
+  .nrow .th i{position:absolute;left:4px;bottom:3px;font-style:normal;font-size:8.5px;font-weight:900;color:#fff;background:#f7cd67;border-radius:999px;padding:1px 6px;}
+  .nrow .bx{flex:1;min-width:0;}
+  .nrow .bx b{display:block;font-size:15px;color:var(--ink);font-weight:800;}
+  .nrow .bx span{font-size:12px;color:var(--ink-soft);font-weight:700;}
+  .nrow .add{flex:none;border:2px solid var(--line);background:var(--paper);color:var(--ink);font-family:inherit;font-weight:800;font-size:12.5px;border-radius:50px;padding:9px 14px;box-shadow:0 3px 0 0 #bdaea0;cursor:pointer;}
+  .sheet .foot{margin-top:8px;font-size:11.5px;color:var(--ink-soft);font-weight:700;text-align:center;}
+
+  .toastw{position:absolute;left:50%;transform:translateX(-50%) translateY(16px);bottom:104px;z-index:60;background:#2c2722;color:#f3ead8;font-weight:800;font-size:13.5px;border-radius:50px;padding:11px 18px;box-shadow:0 14px 30px -10px #000a;white-space:nowrap;opacity:0;transition:.25s;pointer-events:none;display:flex;gap:10px;align-items:center;}
+  .toastw.on{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
+  .toastw b{color:#7fe0d6;}
+  .toastw button{border:none;background:#4a4239;color:#ffd76a;font-family:inherit;font-weight:900;font-size:11.5px;border-radius:50px;padding:4px 10px;cursor:pointer;}
+
+  /* finish */
+  .fin{position:absolute;inset:0;background:var(--bg);z-index:30;display:none;flex-direction:column;}
+  .fin.on{display:flex;}
+  .fin .inner{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 24px 20px;gap:11px;overflow:hidden;position:relative;}
+  .fin .fox{width:150px;height:150px;filter:drop-shadow(0 10px 14px rgba(61,52,40,.3));animation:hop 2.2s ease-in-out infinite;}
+  @keyframes hop{0%,100%{transform:translateY(0);}50%{transform:translateY(-9px);}}
+  .fin h1{font-family:"Zen Maru Gothic",sans-serif;font-weight:900;font-size:34px;color:var(--ink);margin:0;}
+  .fin .cnt{font-size:15px;font-weight:900;color:var(--teal-text);}
+  .fin .grid5{display:flex;gap:7px;}
+  .fin .g{width:56px;aspect-ratio:1;border-radius:12px;border:2px solid var(--line);position:relative;overflow:hidden;}
+  .fin .g i{position:absolute;right:3px;bottom:3px;width:18px;height:18px;border-radius:50%;background:var(--teal);color:#fff;font-style:normal;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #fff;}
+  .fin .stats{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;}
+  .fin .mchip{font-size:12.5px;font-weight:800;border-radius:999px;padding:4px 12px;background:var(--content);border:1.5px solid var(--line);color:var(--ink-body);}
+  .fin .ctafin{width:100%;height:64px;border-radius:50px;background:var(--gold);color:var(--gold-ink);border:none;font-family:inherit;font-weight:900;font-size:20px;box-shadow:0 6px 0 0 var(--gold-deep);cursor:pointer;margin-top:auto;}
+  .fin .later{width:100%;height:50px;border-radius:50px;background:var(--paper);color:var(--ink);border:2px solid var(--paper);font-family:inherit;font-weight:800;font-size:15px;box-shadow:0 5px 0 0 #bdaea0;cursor:pointer;margin-bottom:12px;}
+  .conf{position:absolute;border-radius:50%;animation:fall 3.2s linear infinite;}
+  @keyframes fall{0%{transform:translateY(-30px) rotate(0);}100%{transform:translateY(560px) rotate(240deg);}}
+
+  .mchip{font-size:12.5px;font-weight:800;border-radius:999px;padding:4px 12px;background:var(--content);border:1.5px solid var(--line);color:var(--ink-body);}
+  .mchip.warn{background:#fdf1cf;border-color:#f0dca0;color:#a8801a;}
+  .hmeta{flex:none;display:flex;flex-wrap:wrap;gap:6px;}
+</style>
+</head>
+<body>
+
+<div class="demobar">
+  <b>DEMO</b>
+  <a href="前端全景 - Journey Hub.dc.html">◂ Hub</a>
+  <button id="envDay" class="on">昼</button>
+  <button id="envSun">強光</button>
+  <button id="envNight">夜間</button>
+  <button id="envOff">離線</button>
+  <button id="jumpFin" class="gold">完走屏へ</button>
+  <button id="resetBtn">リセット</button>
+  <a href="Walk 状态总览.html">状態総覧 →</a>
+</div>
+
+<div class="ph" id="ph">
+  <div class="scr">
+    <div class="sb"><span>9:41</span><span class="r"><u id="sig">5G</u><i></i></span></div>
+    <div class="wtop">
+      <span class="bk" id="backBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span>
+      <span class="rpill">▸ <span>飛騨古川 半日ルート</span><span class="tm" id="clock">10:28</span></span>
+    </div>
+    <div class="prog"><span class="dots" id="dots"></span><span class="pl" id="plabel"></span></div>
+    <div class="body2">
+      <div id="offbarSlot"></div>
+      <div class="stage" id="stage"></div>
+    </div>
+    <div class="dim2" id="dim"></div>
+    <div class="sheet" id="sheet">
+      <div class="grab"></div>
+      <h4>近くにあと 2 スポット</h4>
+      <div class="sub2">いま歩いているルートの寄り道候補（500m 圏内）</div>
+      <div class="nrow"><span class="th" style="background:linear-gradient(135deg,#d9ecec,#a9cfd1);"><i>第1話 05:30</i></span><span class="bx"><b>瀬戸川と白壁土蔵街</b><span>徒歩5分 · 鯉の泳ぐ用水路</span></span><button class="add" data-n="瀬戸川">寄り道に追加</button></div>
+      <div class="nrow"><span class="th" style="background:linear-gradient(135deg,#ead9c6,#cbb094);"><i>劇場版 12:30</i></span><span class="bx"><b>壱之町珈琲店</b><span>徒歩8分 · 古民家カフェ</span></span><button class="add" data-n="珈琲店">寄り道に追加</button></div>
+      <div class="foot">追加すると残りの時刻を自動で組み直します（再計算 · agentは通らない）</div>
+    </div>
+    <div class="cam" id="cam">
+      <div class="sb" style="color:#f3e9d2;"><span>9:41</span><span class="r"><u>5G</u><i></i></span></div>
+      <div class="view">
+        <div class="live"></div>
+        <div class="ghost" id="ghost"></div>
+        <div class="gridl"></div>
+        <div class="ttl"><svg style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span id="camTtl">構図をくらべる</span><button class="x" id="camClose">×</button></div>
+        <div class="hint">横向きに構えると全画面になります（16:9）</div>
+        <div class="slider"><span>実景</span><input type="range" id="ghostOp" min="0" max="100" value="55"><span>アニメ <b id="opv">55%</b></span></div>
+      </div>
+      <div class="cutlist">
+        <h4>主要な構図 <span id="shotCnt"></span></h4>
+        <div id="cutRows"></div>
+        <div class="fold">残り15カットをすべて見る ▸（未撮影が先 · 時間順）</div>
+        <button class="mergeBtn" id="mergeBtn">対比図を作る ↗</button>
+      </div>
+    </div>
+    <div class="fin" id="fin">
+      <div class="sb"><span>9:41</span><span class="r"><u>5G</u><i></i></span></div>
+      <div class="inner" id="finInner"></div>
+    </div>
+    <div class="toastw" id="toast"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var TICK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>';
+  var NAVI='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 19 21l-7-4-7 4z"/></svg>';
+  var CAM='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+
+  var ST=[
+    {n:'飛騨古川駅',g:'linear-gradient(135deg,#cfe3f7,#98b8dc)',cuts:[{t:'第1話 04:12',l:'跨線橋からホームを俯瞰',g:'linear-gradient(135deg,#cfe3f7,#98b8dc)'}],total:12,stay:15,meta:['滞在 15分','ホーム俯瞰は跨線橋から'],walk:'スタート地点',eta:'',arr:'9:30'},
+    {n:'味処古川',g:'linear-gradient(135deg,#f5dccf,#e0b294)',cuts:[{t:'第3話 14:02',l:'五平餅の店先',g:'linear-gradient(135deg,#f5dccf,#e0b294)'}],total:4,stay:30,meta:['滞在 30分','五平餅で早めの昼'],walk:'駅から徒歩4分',eta:'9:49着',arr:'9:49'},
+    {n:'気多若宮神社',star:1,g:'linear-gradient(160deg,#8fb87a 0%,#d7eccf 46%,#e9f2da 60%,#7fae6a 100%)',cuts:[
+      {t:'第8話 41:12',l:'石段の下から鳥居を見上げる',g:'linear-gradient(160deg,#8fb87a 0%,#d7eccf 46%,#e9f2da 60%,#7fae6a 100%)'},
+      {t:'第8話 41:30',l:'鳥居ごしの街並み',g:'linear-gradient(135deg,#d7eccf,#a8cf8e)'},
+      {t:'第8話 43:55',l:'拝殿の縁側',g:'linear-gradient(135deg,#c9dcb4,#8fae74)'}],total:18,stay:30,meta:['滞在 30分','石段 120段','雨上がりは石段すべりやすい'],walk:'味処古川から徒歩9分',eta:'10:19着',arr:'10:28'},
+    {n:'飛騨市図書館',g:'linear-gradient(135deg,#dfd6f0,#b7a8dd)',cuts:[{t:'第8話 43:05',l:'「糸守」を調べた閲覧室',g:'linear-gradient(135deg,#dfd6f0,#b7a8dd)'}],total:7,stay:15,meta:['滞在 15分','撮影は受付で許可制'],walk:'神社から徒歩7分',eta:'11:05着',arr:'10:55'},
+    {n:'さくら物産館',g:'linear-gradient(135deg,#fbe3ea,#eeb3c6)',cuts:[{t:'第8話 47:48',l:'組紐体験の座敷',g:'linear-gradient(135deg,#fbe3ea,#eeb3c6)'}],total:3,stay:30,meta:['滞在 30分','三葉の組紐体験 · ゴール'],walk:'図書館から徒歩6分',eta:'11:16着',arr:'11:16'}
+  ];
+  var KEY='walk-demo-v1';
+  var S; try{ S=JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){ S=null; }
+  if(!S||!S.v){ S={v:1,visited:[true,true,false,false,false],cur:2,shots:{},env:'day',queued:0,fin:false}; }
+  function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
+
+  var ph=document.getElementById('ph'), stage=document.getElementById('stage');
+  var toastEl=document.getElementById('toast'), toastTimer=null, undoFn=null;
+  function toast(html,undo){
+    toastEl.innerHTML=html+(undo?' <button id="undoBtn">取り消す</button>':'');
+    toastEl.classList.add('on');
+    if(undo){ undoFn=undo; var b=document.getElementById('undoBtn'); if(b) b.onclick=function(e){ e.stopPropagation(); undoFn&&undoFn(); hideToast(); }; }
+    clearTimeout(toastTimer); toastTimer=setTimeout(hideToast, undo?4000:2600);
+  }
+  function hideToast(){ toastEl.classList.remove('on'); undoFn=null; }
+
+  function shotsOf(i){ return (S.shots[i]||[]); }
+  function render(){
+    var i=S.cur, st=ST[i];
+    /* progress */
+    var d='';
+    for(var k=0;k<5;k++) d+='<span class="d'+(S.visited[k]?' v':(k===i?' c':''))+'"></span>';
+    document.getElementById('dots').innerHTML=d;
+    document.getElementById('plabel').textContent=(i+1)+'/5 '+st.n;
+    document.getElementById('clock').textContent=st.arr;
+    /* offline bar */
+    document.getElementById('offbarSlot').innerHTML = S.env==='off'
+      ? '<div class="offbar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M2 8c6-5 14-5 20 0M5 12c4-3.5 10-3.5 14 0M8.5 15.5c2-1.8 5-1.8 7 0"/><path d="M12 19v.5" stroke-width="3"/><path d="M3 3l18 18"/></svg>オフライン · 保存済みルートで案内中</div>' : '';
+    document.getElementById('sig').textContent = S.env==='off'?'—':'5G';
+    /* film */
+    var film='';
+    st.cuts.forEach(function(c,ci){ film+='<span class="f'+(ci===0?' cur':'')+'" data-c="'+ci+'" style="background:'+c.g+';"></span>'; });
+    if(st.total>st.cuts.length) film+='<span class="more" data-c="0">+'+(st.total-st.cuts.length)+'</span>';
+    /* meta */
+    var extra=st.meta.slice(2), meta='';
+    extra.forEach(function(m){ meta+='<span class="mchip'+(m.indexOf('すべり')>=0||m.indexOf('許可')>=0?' warn':'')+'">'+m+'</span>'; });
+    var mapsSub = S.env==='off' ? '静的地図で案内 · Mapsは電波復帰後' : (st.walk+(st.eta?' · '+st.eta:''));
+    var next = i<4 ? 'つぎ → <b>'+ST[i+1].n+'</b> · '+ST[i+1].walk.replace(/^.*から/,'徒歩') : 'ここがゴール · おつかれさま！';
+    var q = (S.env==='off'&&S.queued>0) ? '<span class="qbadge">同期待ち '+S.queued+'</span>' : '';
+    stage.innerHTML=
+      '<div class="vb">'
+      +'<div class="blur" style="background:'+st.cuts[0].g+';"></div><div class="shade"></div>'
+      +'<div class="real" id="realF" style="background:'+st.cuts[0].g+';"><span class="tg">'+st.cuts[0].t+'</span></div>'
+      +'<div class="film" id="film">'+film+'</div>'
+      +'<button class="cmp" id="cmpBtn">'+CAM+'構図 '+st.total+'</button>'
+      +'<div class="nm">'+st.n+(st.star?' <span class="st">★</span>':'')+'</div>'
+      +'<div class="sub">'+st.meta.slice(0,2).map(function(m){return '<span>'+m+'</span>';}).join('')+'</div>'
+      +'</div>'
+      +(meta?'<div class="hmeta">'+meta+'</div>':'')
+      +'<div class="maps" id="mapsBtn"><span class="ic">'+NAVI+'</span><span class="tx"><b>Mapsで開く</b><span>'+mapsSub+'</span></span><span class="go">↗</span></div>'
+      +'<div class="nextr">'+next+q+'</div>'
+      +'<span class="spacer"></span>'
+      +'<span class="nearpill" id="nearBtn">近くにあと 2 スポット ▸</span>'
+      +'<button class="cta" id="ctaBtn">'+TICK+' ここに来た!</button>';
+    document.getElementById('cmpBtn').onclick=function(){ openCam(0); };
+    document.getElementById('realF').onclick=function(){ openCam(0); };
+    document.getElementById('film').onclick=function(e){ var c=e.target.getAttribute('data-c'); if(c!=null) openCam(parseInt(c,10)); };
+    document.getElementById('mapsBtn').onclick=function(){
+      toast(S.env==='off'?'オフライン中 · 静的地図で案内します':'Google Maps を開きます <b>↗</b>（deep link）');
+    };
+    document.getElementById('nearBtn').onclick=openSheet;
+    document.getElementById('ctaBtn').onclick=check;
+  }
+
+  function slideTo(fn){
+    stage.classList.add('out');
+    setTimeout(function(){ fn(); stage.classList.remove('out'); stage.classList.add('in');
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ stage.classList.remove('in'); stage.style.transition=''; }); });
+    },220);
+  }
+  function check(){
+    var i=S.cur;
+    if(navigator.vibrate) navigator.vibrate(40);
+    S.visited[i]=true;
+    if(S.env==='off'){ S.queued++; }
+    var last=(i===4);
+    save();
+    if(last){ renderFin(); document.getElementById('fin').classList.add('on'); save(); return; }
+    toast(ST[i].n+' <b>✓</b> · つぎは'+ST[i+1].n+'へ', function(){
+      S.visited[i]=false; if(S.env==='off'&&S.queued>0)S.queued--; S.cur=i; save(); render();
+    });
+    setTimeout(function(){
+      if(!S.visited[i]) return; /* undone */
+      S.cur=i+1; save(); slideTo(render);
+    },700);
+  }
+
+  /* compare */
+  var camEl=document.getElementById('cam');
+  function openCam(ci){
+    var st=ST[S.cur];
+    document.getElementById('camTtl').textContent='構図をくらべる — '+st.cuts[Math.min(ci,st.cuts.length-1)].t;
+    document.getElementById('ghost').style.background=st.cuts[Math.min(ci,st.cuts.length-1)].g;
+    renderCuts(Math.min(ci,st.cuts.length-1));
+    camEl.classList.add('on');
+  }
+  function renderCuts(cur){
+    var i=S.cur, st=ST[i], got=shotsOf(i), rows='';
+    st.cuts.forEach(function(c,ci){
+      rows+='<div class="cutrow'+(got.indexOf(ci)>=0?' on':'')+(ci===cur?' cur':'')+'" data-c="'+ci+'">'
+        +'<span class="ck">'+TICK+'</span><span class="th" style="background:'+c.g+';"></span>'
+        +c.l+' · '+c.t.split(' ')[1]
+        +'<span class="org">出典 Anitabi ↗</span></div>';
+    });
+    document.getElementById('cutRows').innerHTML=rows;
+    document.getElementById('shotCnt').textContent=got.length+'/'+st.total+' 撮れた';
+    Array.prototype.forEach.call(document.querySelectorAll('.cutrow'),function(r){
+      r.onclick=function(e){
+        var ci=parseInt(r.getAttribute('data-c'),10);
+        var got=shotsOf(S.cur), ix=got.indexOf(ci);
+        if(e.target.closest('.ck')){ if(ix>=0)got.splice(ix,1); else got.push(ci); S.shots[S.cur]=got; save(); }
+        document.getElementById('ghost').style.background=ST[S.cur].cuts[ci].g;
+        document.getElementById('camTtl').textContent='構図をくらべる — '+ST[S.cur].cuts[ci].t;
+        renderCuts(ci);
+      };
+    });
+  }
+  document.getElementById('camClose').onclick=function(){ camEl.classList.remove('on'); };
+  document.getElementById('mergeBtn').onclick=function(){ location.href='対比図作成 demo.html'; };
+  document.getElementById('ghostOp').oninput=function(){
+    document.getElementById('ghost').style.opacity=this.value/100;
+    document.getElementById('opv').textContent=this.value+'%';
+  };
+
+  /* near sheet */
+  var dim=document.getElementById('dim'), sheet=document.getElementById('sheet');
+  function openSheet(){ dim.classList.add('on'); sheet.classList.add('on'); }
+  function closeSheet(){ dim.classList.remove('on'); sheet.classList.remove('on'); }
+  dim.onclick=closeSheet;
+  Array.prototype.forEach.call(document.querySelectorAll('.sheet .add'),function(b){
+    b.onclick=function(){ closeSheet(); toast(b.getAttribute('data-n')+'を追加 <b>✓</b> · 以降の時刻を再計算（+18分）'); };
+  });
+
+  /* finish */
+  function renderFin(){
+    var shots=0; Object.keys(S.shots).forEach(function(k){ shots+=S.shots[k].length; });
+    var conf='', cols=['#f5c31c','#19c8b9','#f0b429','#82d5bb','#e6883a'];
+    for(var i2=0;i2<16;i2++){ conf+='<span class="conf" style="left:'+((i2*61)%370+10)+'px;top:'+(-20-(i2*37)%160)+'px;width:'+(6+(i2%3)*3)+'px;height:'+(6+(i2%3)*3)+'px;background:'+cols[i2%5]+';animation-delay:'+((i2*0.37)%2.4)+'s;"></span>'; }
+    var g='';
+    ST.forEach(function(s){ g+='<span class="g" style="background:'+s.g+';"><i>✓</i></span>'; });
+    document.getElementById('finInner').innerHTML=conf
+      +'<img class="fox" src="assets/fox/fox-cheer.svg" alt="">'
+      +'<h1>巡礼完了！</h1>'
+      +'<div class="cnt">5 / 5 スポット · 飛騨古川 半日ルート</div>'
+      +'<div class="grid5">'+g+'</div>'
+      +'<div class="stats"><span class="mchip">徒歩 26分 · 2.0km</span><span class="mchip">所要 3時間02分</span><span class="mchip">復刻構図 '+shots+'/44</span></div>'
+      +'<button class="ctafin" id="shioriBtn">しおりを作る</button>'
+      +'<button class="later" id="laterBtn">あとで · ホームへ</button>';
+    document.getElementById('shioriBtn').onclick=function(){ location.href='しおり demo.html'; };
+    document.getElementById('laterBtn').onclick=function(){ location.href='首页 - Seichijunrei.html'; };
+  }
+
+  /* demo bar */
+  function setEnv(e){
+    S.env=e; save();
+    ph.classList.toggle('sun',e==='sun');
+    ph.classList.toggle('night',e==='night');
+    ['envDay','envSun','envNight','envOff'].forEach(function(id){ document.getElementById(id).classList.remove('on'); });
+    document.getElementById({day:'envDay',sun:'envSun',night:'envNight',off:'envOff'}[e]).classList.add('on');
+    render();
+  }
+  document.getElementById('envDay').onclick=function(){ setEnv('day'); };
+  document.getElementById('envSun').onclick=function(){ setEnv('sun'); };
+  document.getElementById('envNight').onclick=function(){ setEnv('night'); };
+  document.getElementById('envOff').onclick=function(){ setEnv('off'); };
+  document.getElementById('jumpFin').onclick=function(){
+    S.visited=[true,true,true,true,true]; S.cur=4; save(); renderFin(); document.getElementById('fin').classList.add('on');
+  };
+  document.getElementById('resetBtn').onclick=function(){
+    S={v:1,visited:[true,true,false,false,false],cur:2,shots:{},env:'day',queued:0,fin:false};
+    try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){}
+    document.getElementById('fin').classList.remove('on'); camEl.classList.remove('on'); closeSheet(); setEnv('day');
+  };
+  document.getElementById('backBtn').onclick=function(){ toast('ルート詳細へ戻る（Step 2 でつくります）'); };
+
+  /* boot */
+  setEnv(S.env||'day');
+  if(S.visited.every(function(v){return v;})){ renderFin(); document.getElementById('fin').classList.add('on'); }
+})();
+</script>
+</body>
+</html>

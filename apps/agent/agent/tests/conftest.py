@@ -3,18 +3,24 @@
 import asyncio
 import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
+import logfire
 import pytest
 from dotenv import load_dotenv
+
+# Configure logfire once so wrapper spans/metrics are quiet no-ops in tests
+# (pytest runs with filterwarnings=error; unconfigured logfire would warn).
+logfire.configure(send_to_logfire=False, console=False)
 
 # Load test environment variables
 test_env = Path(__file__).parent / ".env.test"
 if test_env.exists():
     load_dotenv(test_env)
 
-# Ensure API keys are set before any module-level imports trigger model init
-os.environ.setdefault("DEEPSEEK_API_KEY", "test-key")
+# DB-free integration tests import app modules at collection time, which
+# instantiates Settings; provide the same zero-entropy defaults the unit
+# conftest uses so collection works without ambient env.
 os.environ.setdefault("MIMO_API_KEY", "test-key")
 os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
 
@@ -25,36 +31,6 @@ def event_loop():
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
-
-
-@pytest.fixture
-def mock_settings():
-    """Mock application settings for testing."""
-    from agent.config import Settings
-
-    return Settings(
-        anitabi_api_url="https://test.anitabi.com/api",
-        app_env="test",
-        log_level="DEBUG",
-        debug=True,
-        max_retries=1,
-        timeout_seconds=5,
-        cache_ttl_seconds=60,
-        use_cache=False,
-        default_agent_model="deepseek:deepseek-v4-flash",
-        openai_compat_base_url="https://api.xiaomimimo.com/v1",
-        output_dir=Path("/tmp/test_outputs"),
-        template_dir=Path("/tmp/test_templates"),
-    )
-
-
-@pytest.fixture(autouse=True)
-def setup_test_environment(monkeypatch, mock_settings):
-    """Automatically setup test environment for all tests."""
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
-    monkeypatch.setenv("MIMO_API_KEY", "test-key")
-    with patch("agent.config.get_settings", return_value=mock_settings):
-        yield
 
 
 @pytest.fixture
@@ -149,22 +125,3 @@ def cleanup_test_files():
                 import shutil
 
                 shutil.rmtree(filepath)
-
-
-@pytest.fixture
-async def mock_aiohttp_session():
-    """Mock aiohttp session for async HTTP tests."""
-    session = MagicMock()
-    session.__aenter__ = MagicMock(return_value=session)
-    session.__aexit__ = MagicMock()
-
-    response = MagicMock()
-    response.status = 200
-    response.json = MagicMock(return_value={"success": True})
-    response.__aenter__ = MagicMock(return_value=response)
-    response.__aexit__ = MagicMock()
-
-    session.get = MagicMock(return_value=response)
-    session.post = MagicMock(return_value=response)
-
-    return session

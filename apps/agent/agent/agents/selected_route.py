@@ -2,80 +2,158 @@
 
 from __future__ import annotations
 
+import httpx
 import structlog
 
-from agent.agents.agent_result import AgentResult, StepRecord
-from agent.agents.handlers._helpers import optimize_route
-from agent.agents.messages import build_message
-from agent.agents.runtime_deps import OnStep
-from agent.agents.runtime_models import RouteDataModel, RouteModel, RouteResponseModel
-from agent.infrastructure.supabase.client import SupabaseClient
+from agent.agents.agent_result import AgentResult, ProducedRoute, StepRecord
+from agent.agents.catalog_adapter import build_route_payload, build_route_state
+from agent.agents.error_messages import build_error_message
+from agent.agents.runtime_deps import OnStep, StepEvent, StepStatus, new_step_call_id
+from agent.agents.runtime_models import RouteResponseModel
+from agent.agents.selection_messages import selected_route_message
+from agent.agents.session_state import SessionState
+from agent.clients.catalog_client import CatalogClientProtocol, Route
+from agent.clients.errors import APIError
 
 logger = structlog.get_logger(__name__)
+
+_TRANSIENT_ERRORS = (APIError, httpx.TransportError, httpx.TimeoutException)
 
 
 async def execute_selected_route(
     *,
     point_ids: list[str],
+    state: SessionState,
     origin: str | None,
     locale: str,
-    db: object,
+    catalog: CatalogClientProtocol,
     on_step: OnStep | None = None,
 ) -> AgentResult:
     """Route user-selected point IDs directly, returning AgentResult."""
-    if on_step is not None:
-        await on_step("plan_selected", "running", {}, "", "")
-
     if not point_ids:
-        return _error_result("point_ids is required", locale)
+        return _error_result("point_ids is required", locale, state)
 
-    if not isinstance(db, SupabaseClient):
-        return _error_result("get_points_by_ids not available", locale)
+    params = _build_params(point_ids, origin)
+    call_id = new_step_call_id("plan_selected")
+    await _emit_step(on_step, call_id, "running", {})
 
-    rows = [dict(row) for row in await db.points.get_points_by_ids(point_ids)]
+    try:
+        route = await catalog.route(point_ids, origin=_parse_coordinate_origin(origin))
+    except _TRANSIENT_ERRORS as exc:
+        logger.warning("selected_route_catalog_error", error=str(exc))
+        await _emit_step(on_step, call_id, "error", {})
+        # Typed CatalogError -> localized, actionable text from OUR mapping
+        # table (SD-19); anything else keeps the legacy generic fallback.
+        return _error_result(
+            build_error_message(exc, locale, fallback="Catalog route unavailable"),
+            locale,
+            state,
+        )
+
+    step, payload = _build_step(route, params)
+    if not step.success:
+        await _emit_step(on_step, call_id, "error", {})
+        return _error_result("No catalog route data", locale, state)
+    await _emit_step(on_step, call_id, "done", payload)
+    return _build_success_result(route, step, locale, state)
+
+
+def _build_params(point_ids: list[str], origin: str | None) -> dict[str, object]:
+    """Build the tool params recorded on the step for observability."""
     params: dict[str, object] = {"point_ids": point_ids}
     if origin:
         params["origin"] = origin
+    return params
 
-    result = optimize_route(rows, params, origin, tool_name="plan_selected")
 
+async def _emit_step(
+    on_step: OnStep | None,
+    call_id: str,
+    status: StepStatus,
+    payload: dict[str, object],
+) -> None:
+    """Notify the on_step callback, if any, of plan_selected progress."""
+    if on_step is None:
+        return
+    await on_step(StepEvent("plan_selected", call_id, status, payload))
+
+
+def _build_step(
+    route: Route, params: dict[str, object]
+) -> tuple[StepRecord, dict[str, object]]:
+    """Shape the catalog route into a StepRecord and its tool_state payload."""
+    payload = build_route_payload(route)
+    success = route.point_count > 0
     step = StepRecord(
         tool="plan_selected",
-        success=result.success,
+        success=success,
         params=params,
-        data=result.data or None,
-        error=result.error,
+        data=payload,
+        error=None if success else "No catalog route data",
+        model_initiated=False,
     )
+    return step, payload
 
-    if on_step is not None:
-        await on_step("plan_selected", "done", result.data, "", "")
 
-    route_model = (
-        RouteModel.model_validate(result.data) if result.data else RouteModel()
+def _build_success_result(
+    route: Route,
+    step: StepRecord,
+    locale: str,
+    state: SessionState,
+) -> AgentResult:
+    """Assemble the AgentResult returned on a successful route lookup."""
+    route_ref = state.next_route_ref("selected", 1)
+    state.store_route(
+        route_ref, build_route_state(route, source_ref=None, locale=locale)
     )
-    raw_count = result.data.get("point_count", 0) if result.data else 0
-    count = int(raw_count) if isinstance(raw_count, (int, float)) else 0
-    message = build_message("plan_selected", count, locale)
-
+    step.provenance = ProducedRoute(status="ok", route_ref=route_ref)
+    state.pending_clarification = None
+    state.geocode_staging = None
     output = RouteResponseModel(
-        intent="plan_selected",
-        message=message,
-        data=RouteDataModel(route=route_model),
+        message=selected_route_message(locale, route.point_count)
     )
     return AgentResult(
         output=output,
+        intent="plan_selected",
+        session_state=state,
         steps=[step],
-        tool_state={"plan_selected": result.data} if result.data else {},
     )
 
 
-def _error_result(error: str, locale: str) -> AgentResult:
-    output = RouteResponseModel(
-        intent="plan_selected",
-        message=error,
-        data=RouteDataModel(route=RouteModel()),
-    )
+def _error_result(error: str, locale: str, state: SessionState) -> AgentResult:
+    output = RouteResponseModel(message=error)
     return AgentResult(
         output=output,
-        steps=[StepRecord(tool="plan_selected", success=False, error=error)],
+        intent="plan_selected",
+        session_state=state,
+        steps=[
+            StepRecord(
+                tool="plan_selected",
+                success=False,
+                error=error,
+                model_initiated=False,
+            )
+        ],
+        status="error",
     )
+
+
+def _parse_coordinate_origin(origin: str | None) -> tuple[float, float] | None:
+    """Parse a coordinate origin encoded as ``lat,lng``."""
+    if origin is None:
+        return None
+
+    parts = [part.strip() for part in origin.split(",")]
+    if len(parts) != 2:
+        return None
+
+    try:
+        lat = float(parts[0])
+        lng = float(parts[1])
+    except ValueError:
+        return None
+
+    if not (-90.0 <= lat <= 90.0) or not (-180.0 <= lng <= 180.0):
+        return None
+
+    return lat, lng

@@ -1,0 +1,1254 @@
+/* Chat shell (S1.1) — Animal Island semantic tokens only, no raw palette values. */
+
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.chat-body {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 48rem;
+  margin-inline: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chat-bubble {
+  width: fit-content;
+  max-width: 42rem;
+  padding: 0.75rem 1rem;
+  border-radius: 18px;
+  background: var(--color-card);
+  box-shadow: 0 2px 0 var(--shadow-3d);
+}
+
+.chat-bubble--ai {
+  background: var(--color-primary-soft);
+}
+
+.chat-message--user .chat-bubble {
+  align-self: flex-end;
+  margin-left: auto;
+  border-bottom-right-radius: 6px;
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+}
+
+.chat-messages,
+.chat-history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.chat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chat-chip {
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-chip[data-tone="explore"] {
+  background: var(--color-explore-bg);
+  color: var(--color-explore-fg);
+}
+
+.chat-chip[data-tone="walk"] {
+  background: var(--color-walk-bg);
+  color: var(--color-walk-fg);
+}
+
+.chat-chip[data-tone="primary"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+}
+
+.chat-greeting {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.chat-fox-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-primary-soft);
+  box-shadow: 0 2px 0 var(--shadow-3d);
+}
+
+.chat-typing {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.chat-typing__dots {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.875rem 1rem;
+  border-radius: 18px;
+  border-bottom-left-radius: 6px;
+  background: var(--color-primary-soft);
+}
+
+.chat-typing__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-muted-fg);
+  animation: chat-dot-bounce 1s ease-in-out infinite;
+}
+
+.chat-typing__dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-typing__dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.chat-step {
+  display: inline-block;
+  margin-right: 0.375rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: var(--color-muted);
+  color: var(--color-muted-fg);
+}
+
+.chat-step[data-status="done"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+}
+
+.chat-step[data-status="running"] {
+  color: var(--color-fg);
+  background: linear-gradient(90deg, var(--color-muted), var(--color-card), var(--color-muted));
+  background-size: 200% 100%;
+  animation: chat-shimmer 1.4s linear infinite;
+}
+
+.chat-step[data-status="running"]::before {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.375rem;
+  border-radius: 50%;
+  background: var(--color-warning-fg);
+}
+
+.chat-step[data-status="error"] {
+  color: var(--color-error-strong);
+}
+
+/* A step the agent re-ran (ModelRetry): visible as history, never alarming. */
+.chat-step[data-status="retried"] {
+  color: var(--color-muted-fg);
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+/* Carries the retried state to assistive tech; the strike-through carries it visually. */
+.chat-step__note {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.chat-card {
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-card);
+  box-shadow: 0 3px 0 var(--shadow-3d);
+}
+
+.chat-card--skeleton {
+  background: var(--color-muted);
+  color: var(--color-muted-fg);
+  animation: chat-pulse 1.2s ease-in-out infinite;
+}
+
+.chat-card--fallback {
+  background: var(--color-muted);
+  color: var(--color-muted-fg);
+}
+
+.chat-waiting {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chat-waiting__subtitle {
+  font-size: 0.8125rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-mood {
+  margin: 0;
+  padding: 0.875rem 1rem;
+  border-radius: 14px;
+  color: var(--color-primary-fg);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));
+  box-shadow: 0 3px 0 var(--shadow-3d);
+}
+
+.chat-mood__quote {
+  margin: 0;
+  font-size: 1rem;
+  text-shadow: 0 1px 2px var(--shadow-3d);
+}
+
+.chat-mood__source {
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.chat-footprint {
+  font-size: 0.8125rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-settled {
+  font-size: 0.8125rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-settled__summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.chat-settled__elapsed {
+  font-weight: 600;
+  color: var(--color-primary-strong);
+}
+
+.chat-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 1rem;
+  background: var(--color-error-bg);
+  color: var(--color-error-strong);
+}
+
+.chat-error-banner__retry {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.375rem 0.875rem;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  cursor: pointer;
+}
+
+.chat-input {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-card);
+}
+
+.chat-input__field {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.chat-input__field:focus-visible {
+  outline: 2px solid var(--color-focus);
+}
+
+.chat-input__send {
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-input__send:disabled,
+.chat-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* D1-D9 fallback states (issue #272 S1.6) — semantic tokens only. */
+
+.chat-interruption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 1rem;
+  border-radius: 14px;
+  background: var(--color-error-bg);
+  color: var(--color-error-strong);
+}
+
+.chat-interruption__retry,
+.chat-session-expired__login,
+.chat-session-expired__resume,
+.chat-budget-exhausted__login,
+.chat-quota-exhausted__login {
+  border: 0;
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0.375rem 0.875rem;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  box-shadow: 0 2px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-interruption__retry:disabled,
+.chat-session-expired__resume:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.chat-session-expired,
+.chat-budget-exhausted,
+.chat-quota-exhausted {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  border-radius: 14px;
+  border-left: 4px solid var(--color-warning-fg);
+  background: var(--color-muted);
+  color: var(--color-fg);
+}
+
+/* D12 (#282 S1.10) is the only banner in this family where nothing failed —
+   this visitor's own allowance ran out while the surface stays healthy — so it
+   overrides just the tint with the primary invitation tokens. The warning
+   tokens stay reserved for D8/D11, where something is actually wrong. */
+.chat-quota-exhausted {
+  border-left-color: var(--color-primary-strong);
+  background: var(--color-primary-soft);
+}
+
+.chat-session-expired__actions,
+.chat-budget-exhausted__actions,
+.chat-quota-exhausted__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chat-card--fallback-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.chat-fallback__subtitle {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-fallback__hint {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-fallback__retry {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  background: var(--color-card);
+  color: var(--color-fg);
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-short-route {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--color-border);
+}
+
+.chat-short-route__notice {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-spot {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.chat-scene-thumb {
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 2.25rem;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.chat-scene-thumb--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));
+  color: var(--color-primary-fg);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.chat-map-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 14px;
+  background: var(--color-muted);
+  color: var(--color-muted-fg);
+}
+
+.chat-map-fallback__doodle {
+  width: 4rem;
+  height: 2.5rem;
+  color: var(--color-primary-strong);
+}
+
+.chat-map-fallback__open {
+  font-weight: 700;
+  color: var(--color-primary-strong);
+}
+
+@keyframes chat-pulse {
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes chat-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes chat-dot-bounce {
+  30% {
+    transform: translateY(-0.3rem);
+  }
+}
+
+/* C3a/C3b search result shapes (issue #261 S1.4) */
+
+.chat-search-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* C3b -> C3a drill: the way back to the 圏 overview (issue #437) */
+
+.chat-drill {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Layout only: the cream press style and tokens come from .chat-chip. */
+.chat-drill__back {
+  align-self: flex-start;
+  font-size: 0.8125rem;
+}
+
+.chat-spot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-spot-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+  box-shadow: 0 2px 0 var(--shadow-3d);
+}
+
+.chat-spot-card .chat-scene-thumb {
+  width: 100%;
+  height: 5rem;
+}
+
+.chat-spot-card__ep {
+  align-self: flex-start;
+  padding: 0 0.375rem;
+  border-radius: 6px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+}
+
+.chat-spot-card__pick {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--color-fg);
+}
+
+.chat-spot-card__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-search-map {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-muted);
+}
+
+.chat-search-map__gl {
+  position: absolute;
+  inset: 0;
+}
+
+.chat-search-map__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.chat-map-pin {
+  position: absolute;
+  width: 0.75rem;
+  height: 0.75rem;
+  transform: translate(-50%, -100%);
+  border-radius: 50% 50% 50% 0;
+  background: var(--color-map-pin-teal);
+  border: 2px solid var(--color-bg);
+}
+
+.chat-map-bubble {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+  font-size: 0.625rem;
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.chat-map-bubble__name {
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-map-bubble__count {
+  font-size: 0.8125rem;
+  color: var(--color-primary-fg);
+}
+
+/* --- S1.5 route card: timed itinerary (issue #271) --- */
+
+.chat-itinerary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chat-pacing-pill {
+  align-self: flex-start;
+  padding: 0.125rem 0.625rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-muted);
+  color: var(--color-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.chat-itinerary__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-itinerary__stop {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chat-itinerary__time {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-itinerary__stop--highlight .chat-itinerary__name {
+  font-weight: 700;
+}
+
+.chat-itinerary__star {
+  color: var(--color-gold);
+}
+
+.chat-itinerary__leg {
+  display: flex;
+  padding-left: 1.5rem;
+}
+
+.chat-itinerary__capsule {
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  background: var(--color-walk-bg);
+  color: var(--color-walk-fg);
+  font-size: 0.75rem;
+}
+
+.chat-itinerary__leg[data-mode="transit"] .chat-itinerary__capsule {
+  background: var(--color-explore-bg);
+  color: var(--color-explore-fg);
+}
+
+.chat-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* P5 save CTA (issue #273 S1.7) carries NO tone override on purpose. The design
+   sync assigns the card-foot CTAs as 「金=しおり共有(唯一) · cream=Maps/保存/
+   歩くモード」 with the standing rule 「永不同屏两金」, so 保存する inherits the base
+   .chat-chip cream press style and the gold tokens stay reserved for the single
+   share CTA per screen. A tone rule here would be that second gold. */
+
+.chat-cta-row__saved {
+  color: var(--color-primary-strong);
+  font-weight: 700;
+}
+
+.chat-cta-row__error {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-error-strong);
+}
+
+/* --- S1.5 promoted route map --- */
+
+.chat-route-map__track {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chat-route-map__line {
+  fill: none;
+  stroke: var(--color-gold);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.chat-route-pin {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--color-bg);
+  border-radius: 50%;
+  background: var(--color-map-pin-teal);
+  color: var(--color-primary-fg);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.chat-map-pin--dimmed {
+  opacity: 0.35;
+}
+
+.chat-route-pill {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.125rem 0.625rem;
+  border: 1px solid var(--color-gold);
+  border-radius: 999px;
+  background: var(--color-gold-soft);
+  color: var(--color-gold-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* --- E1 living document: superseded cards (issues #271/#273) --- */
+
+.chat-card--superseded {
+  opacity: 0.55;
+}
+
+.chat-card__version-badge {
+  align-self: flex-start;
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-muted);
+  color: var(--color-muted-fg);
+  font-size: 0.6875rem;
+}
+
+/* --- E2 selection tray + recompute footprint (issue #273 S1.7) ---
+   Design-sync `Chat 完整状态.html` `.rebar`: gold-bordered sticky bar docked
+   above the composer; the recompute footprint replaces the tool pipeline
+   (`selected_point_ids` bypass — no agent, no agent theater). */
+
+.chat-selection-tray {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 0 1rem 0.5rem;
+  padding: 0.5625rem 0.625rem 0.5625rem 0.875rem;
+  border: 2px solid var(--color-gold);
+  border-radius: 16px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  box-shadow: 0 3px 0 var(--shadow-3d);
+}
+
+.chat-selection-tray__summary {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-selection-tray__sub {
+  color: var(--color-muted-fg);
+  font-size: 0.71875rem;
+}
+
+.chat-selection-tray__count {
+  color: var(--color-fg);
+}
+
+.chat-selection-tray__action {
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.5625rem 1rem;
+  background: var(--color-gold);
+  color: var(--color-gold-fg);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-selection-tray__action:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--shadow-3d);
+}
+
+.chat-settled--recompute {
+  margin: 0;
+}
+
+/* Persistent polite live region: keeps announcing the recompute after the
+   tray unmounts on fire (a11y focus handoff, #461 review). */
+.chat-live-note {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+/* --- S1.3 clarification, departure chips, location prompt, photo search --- */
+
+.chat-clarify {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.chat-clarify__question {
+  color: var(--color-fg);
+}
+
+.chat-clarify__option,
+.chat-clarify__escape,
+.chat-departure__chip {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+}
+
+.chat-clarify__option:hover:not(:disabled),
+.chat-departure__chip:hover {
+  background: var(--color-primary-soft);
+}
+
+.chat-clarify__option--faded {
+  opacity: 0.35;
+  transition: opacity 0.3s ease;
+}
+
+.chat-clarify__escape {
+  color: var(--color-muted-fg);
+}
+
+.chat-clarify__hint {
+  color: var(--color-muted-fg);
+}
+
+.chat-departure {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem 1rem;
+}
+
+.chat-departure__prompt {
+  color: var(--color-fg);
+}
+
+.chat-location__allow,
+.chat-location__submit {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+}
+
+.chat-location__denied p {
+  color: var(--color-muted-fg);
+}
+
+.chat-location__manual {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chat-location__input {
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  padding: 0.35rem 0.6rem;
+}
+
+.chat-photo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.25rem 1rem;
+}
+
+.chat-photo__label {
+  color: var(--color-explore-fg);
+  background: var(--color-explore-bg);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+}
+
+.chat-photo__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.chat-photo__note {
+  color: var(--color-muted-fg);
+  font-size: 0.8em;
+}
+
+.chat-photo__error {
+  color: var(--color-error-strong);
+  background: var(--color-error-bg);
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.chat-photo__retry {
+  margin-left: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  padding: 0.2rem 0.7rem;
+  cursor: pointer;
+}
+
+/* --- S1.9 Turnstile (issue #281), armed by #447 ---
+   Lives in the dock's hint slot beneath the composer, matching the design sync
+   (`Chat 初始状态.html`: .dock > .composer + .hint). `interaction-only` means
+   the widget contributes no box at all until Cloudflare actually asks for a
+   human check, so the composer keeps its rhythm; the margin below is applied
+   only once the widget has really rendered something. */
+
+.turnstile-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 48rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+  background: var(--color-card);
+}
+
+.turnstile-gate .cf-turnstile:not(:empty) {
+  margin-block: 0.75rem;
+}
+
+.turnstile-gate__error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 0.5rem 0.75rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 14px;
+  background: var(--color-error-bg);
+  color: var(--color-error-strong);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.turnstile-gate__retry {
+  min-height: 36px;
+  padding: 0 0.875rem;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  font: inherit;
+  cursor: pointer;
+}
+
+.turnstile-gate__retry:focus-visible {
+  outline: 2px solid var(--color-focus);
+}
+
+/* BYOK settings panel (issue #284 Task 6) — semantic tokens only. The save /
+   sign-in CTAs are cream per the「一屏唯一金」rule (#462 precedent): gold stays
+   reserved for the screen's single highest-value action, which BYOK is not. */
+
+.chat-byok {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-card);
+  color: var(--color-fg);
+}
+
+.chat-byok__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.chat-byok__form,
+.chat-byok__teaser,
+.chat-byok__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chat-byok__families {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.chat-byok__family {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.chat-byok__label {
+  font-size: 0.8125rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-byok__input {
+  min-height: 40px;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.chat-byok__input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.chat-byok__help,
+.chat-byok__status {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-byok__error {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  background: var(--color-error-bg);
+  color: var(--color-error-strong);
+}
+
+.chat-byok__save,
+.chat-byok__signin,
+.chat-byok__clear {
+  align-self: flex-start;
+  min-height: 40px;
+  padding: 0.375rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-byok__save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.chat-byok__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.chat-byok__badge {
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-walk-bg);
+  color: var(--color-walk-fg);
+  font-size: 0.8125rem;
+}
+
+/* BYOK journey surfaces (#284 T8): the D13 gate + value explainer and the
+   D14 key-not-accepted strip. Warning tint family, cream CTA — no gold. */
+
+.chat-byok-upsell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-card);
+  color: var(--color-fg);
+}
+
+.chat-byok-upsell__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.chat-byok-upsell__points {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-byok-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chat-byok-gate__message,
+.chat-byok-rejected {
+  margin: 0;
+  padding: 0.625rem 1rem;
+  border-radius: 14px;
+  border-left: 4px solid var(--color-warning-fg);
+  background: var(--color-muted);
+  color: var(--color-fg);
+}
+
+.chat-input__settings {
+  min-height: 44px;
+  min-width: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-input__settings[aria-expanded="true"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+}
+
+/* Press states for the BYOK cream CTAs (DS 補全 .btn.cream.hv/.ac). */
+
+.chat-byok__save:hover,
+.chat-byok__signin:hover,
+.chat-byok__clear:hover,
+.chat-input__settings:hover,
+.chat-byok-rejected__open:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 var(--shadow-3d);
+}
+
+.chat-byok__save:active,
+.chat-byok__signin:active,
+.chat-byok__clear:active,
+.chat-input__settings:active,
+.chat-byok-rejected__open:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--shadow-3d);
+}
+
+.chat-byok__save:disabled:hover,
+.chat-byok__save:disabled:active {
+  transform: none;
+  box-shadow: 0 3px 0 var(--shadow-3d);
+}
+
+.chat-byok-rejected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.chat-byok-rejected__open {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0.375rem 0.875rem;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  box-shadow: 0 2px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-byok:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}

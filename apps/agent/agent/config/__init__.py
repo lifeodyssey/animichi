@@ -1,4 +1,4 @@
-"""Configuration module for Seichijunrei Bot."""
+"""Configuration module for Animichi Bot."""
 
 from .settings import Settings, get_settings
 

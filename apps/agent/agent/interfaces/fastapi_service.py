@@ -5,16 +5,15 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from agent.agents.base import build_model_http_client
 from agent.clients.catalog_client import CatalogClient
 from agent.config.settings import Settings, get_settings
-from agent.infrastructure.observability import (
-    setup_observability,
-    shutdown_observability,
-)
+from agent.infrastructure.memory import postgres_memory_store
 from agent.infrastructure.session import SessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import RuntimeAPI
@@ -27,16 +26,20 @@ from agent.interfaces.routes._deps import (  # noqa: F401
     setup_logfire,
 )
 from agent.interfaces.routes._middleware import (
+    register_credential_stripping_middleware,
     register_exception_handlers,
     register_observability_middleware,
 )
 from agent.interfaces.routes.bangumi import router as bangumi_router
+from agent.interfaces.routes.byok import router as byok_router
 from agent.interfaces.routes.chat import router as chat_router
 from agent.interfaces.routes.conversations import router as conversations_router
 from agent.interfaces.routes.feedback import router as feedback_router
 from agent.interfaces.routes.health import router as health_router
+from agent.interfaces.routes.photo_search import router as photo_search_router
 from agent.interfaces.routes.runtime import router as runtime_router
 from agent.interfaces.routes.search_preview import router as search_preview_router
+from agent.interfaces.routes.session_migration import router as session_migration_router
 
 # Re-export _call_optional_async for test backward compatibility.
 _call_optional_async = call_optional_async
@@ -50,20 +53,17 @@ def build_catalog_client(settings: Settings) -> CatalogClient:
 @asynccontextmanager
 async def _lifespan_with_runtime_api(
     app: FastAPI,
-    resolved_settings: Settings,
     runtime_api: RuntimeAPI,
     db: object | None,
+    model_http_client: httpx.AsyncClient,
 ) -> AsyncIterator[None]:
     """Lifespan branch: runtime_api provided externally (test / injection)."""
+    runtime_api.bind_model_http_client(model_http_client)
     app.state.runtime_api = runtime_api
     resolved_db = db if db is not None else getattr(runtime_api, "_db", None)
     if resolved_db is not None:
         app.state.db_client = resolved_db
-    try:
-        yield
-    finally:
-        if resolved_settings.observability_enabled:
-            shutdown_observability()
+    yield
 
 
 def _resolve_session_store(
@@ -87,6 +87,7 @@ async def _lifespan_build_runtime(
     resolved_settings: Settings,
     db: object | None,
     session_store: SessionStore | None,
+    model_http_client: httpx.AsyncClient,
 ) -> AsyncIterator[None]:
     """Lifespan branch: build RuntimeAPI from scratch (normal startup)."""
     runtime_db = db if db is not None else build_supabase_client(resolved_settings)
@@ -101,15 +102,17 @@ async def _lifespan_build_runtime(
         runtime_db,
         session_store=runtime_session_store,
         catalog=catalog_client,
+        settings=resolved_settings,
+        model_http_client=model_http_client,
+        memory_store=postgres_memory_store(runtime_db),
     )
     app.state.db_client = runtime_db
     try:
         yield
     finally:
+        await catalog_client.aclose()
         await call_optional_async(runtime_session_store, "close")
         await call_optional_async(runtime_db, "close")
-        if resolved_settings.observability_enabled:
-            shutdown_observability()
 
 
 def create_fastapi_app(
@@ -125,16 +128,25 @@ def create_fastapi_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.settings = resolved_settings
-        if resolved_settings.observability_enabled:
-            setup_observability(resolved_settings)
-        if runtime_api is not None:
-            async with _lifespan_with_runtime_api(
-                app, resolved_settings, runtime_api, db
+        model_http_client = build_model_http_client(resolved_settings)
+        app.state.model_http_client = model_http_client
+        try:
+            if runtime_api is not None:
+                async with _lifespan_with_runtime_api(
+                    app, runtime_api, db, model_http_client
+                ):
+                    yield
+                return
+            async with _lifespan_build_runtime(
+                app,
+                resolved_settings,
+                db,
+                session_store,
+                model_http_client,
             ):
                 yield
-            return
-        async with _lifespan_build_runtime(app, resolved_settings, db, session_store):
-            yield
+        finally:
+            await model_http_client.aclose()
 
     app = FastAPI(lifespan=lifespan)
     setup_logfire(resolved_settings, app=app)
@@ -150,17 +162,35 @@ def create_fastapi_app(
             "X-User-Type",
             "x-session-id",
             "x-locale",
+            "x-byok-endpoint",
+            # The actual BYOK headers byokStorage.ts (#467) sends. Without
+            # these, browser CORS preflight rejects them before the request
+            # ever reaches this container — this PR is the point where the
+            # container-side header contract is established, so it belongs
+            # here rather than waiting on Task 3.
+            "X-BYOK-Provider",
+            "X-BYOK-Key",
+            "X-BYOK-Model",
+            "X-BYOK-Base-Url",
         ],
     )
     register_exception_handlers(app)
     register_observability_middleware(app)
+    # Registered last (= Starlette's outermost middleware — see rev4 P1-4 in
+    # the BYOK spec, Task 2): must wrap observability_middleware and the
+    # exception handlers above, so nothing downstream ever sees a raw BYOK
+    # credential or Authorization header.
+    register_credential_stripping_middleware(app)
     app.include_router(health_router)
     app.include_router(runtime_router)
     app.include_router(chat_router)
+    app.include_router(byok_router)
     app.include_router(feedback_router)
     app.include_router(conversations_router)
     app.include_router(bangumi_router)
     app.include_router(search_preview_router)
+    app.include_router(photo_search_router)
+    app.include_router(session_migration_router)
     return app
 
 

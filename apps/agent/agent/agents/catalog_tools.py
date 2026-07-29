@@ -1,191 +1,277 @@
-"""Catalog seam for the pilgrimage agent (hybrid architecture).
-
-When ``RuntimeDeps.catalog`` is set, the data tools route through the Catalog
-service instead of the DB Retriever / upstream APIs. These helpers call the
-catalog client, shape its typed models via ``catalog_adapter``, and record/emit
-the result with the same plumbing the legacy path uses (``tool_runtime``).
-"""
-
 from __future__ import annotations
 
-import httpx
-from pydantic_ai import ModelRetry, RunContext
+from pydantic_ai import RunContext
 
-from agent.agents.catalog_adapter import (
-    SearchTool,
-    build_resolve_payload,
-    build_route_payload,
-    build_search_payload,
-)
+from agent.agents.agent_result import ProducedSearch, RejectedSearch
+from agent.agents.catalog_adapter import build_search_state
+from agent.agents.catalog_failures import CATALOG_FAILURES
 from agent.agents.models import ToolName
 from agent.agents.runtime_deps import RuntimeDeps
-from agent.agents.sql_agent import KNOWN_LOCATIONS
-from agent.agents.tool_runtime import (
-    _emit_step,
-    _localize_city_names,
-    _record_step,
-    _summarize_for_llm,
+from agent.agents.session_state import (
+    CurrentAnime,
+    GeocodeStaging,
+    OrderedCandidate,
+    PendingClarification,
+    ResultRef,
 )
-from agent.clients.catalog_client import CatalogClientProtocol, PilgrimagePoint
-from agent.clients.errors import APIError
+from agent.agents.step_recording import record_server_step
+from agent.agents.title_matching import looks_like_wrong_variant
+from agent.agents.tool_event_bridge import register_tool_provenance
+from agent.agents.tool_outcomes import (
+    NearbyEmpty,
+    NearbyMissingLocation,
+    NearbyOk,
+    NearbyPlaceAmbiguous,
+    NearbyPlaceUnresolved,
+    NearbyUpstreamDown,
+    ResolveAmbiguous,
+    ResolveNotFound,
+    ResolveResolved,
+    ResolveUpstreamDown,
+    SearchEmpty,
+    SearchOk,
+    SearchUpstreamDown,
+)
+from agent.clients.catalog_client import (
+    AnimeCandidate,
+    CatalogClientProtocol,
+    GeocodeCandidate,
+    GeocodeKind,
+)
+from agent.clients.catalog_client import (
+    ResolveAmbiguous as CatalogResolveAmbiguous,
+)
+from agent.clients.catalog_client import (
+    ResolveNotFound as CatalogResolveNotFound,
+)
+from agent.clients.catalog_client import (
+    ResolveResolved as CatalogResolveResolved,
+)
 
-_NO_DATA_ERROR = "No catalog data"
-_TRANSIENT_ERRORS = (APIError, httpx.TransportError, httpx.TimeoutException)
+
+def _candidate(candidate: AnimeCandidate) -> OrderedCandidate:
+    return OrderedCandidate(
+        id=candidate.bangumi_id,
+        title=candidate.title or candidate.title_cn or candidate.bangumi_id,
+        cover_url=candidate.cover_url or None,
+        points_count=candidate.points_count,
+    )
 
 
-async def _store_catalog_result(
-    deps: RuntimeDeps,
-    *,
-    tool: ToolName,
-    params: dict[str, object],
-    payload: dict[str, object],
-    success: bool,
-) -> dict[str, object]:
-    """Record + emit a catalog-sourced tool result, mirroring _run_handler."""
-    _record_step(
+def _place_candidate(candidate: GeocodeCandidate) -> OrderedCandidate:
+    return OrderedCandidate(
+        id=candidate.id,
+        title=candidate.label,
+        lat=candidate.lat,
+        lng=candidate.lng,
+        effective_radius_m=candidate.effective_radius_m,
+    )
+
+
+def _set_pending(
+    deps: RuntimeDeps, reason: str, candidates: list[OrderedCandidate]
+) -> None:
+    session = deps.tool_state.session
+    session.clarification_revision += 1
+    session.pending_clarification = PendingClarification.model_validate(
+        {
+            "reason": reason,
+            "candidate_ids": [candidate.id for candidate in candidates],
+            "ordered_candidates": candidates,
+            "revision": session.clarification_revision,
+        }
+    )
+    session.geocode_staging = None
+
+
+def _clear_pending(deps: RuntimeDeps) -> None:
+    deps.tool_state.session.pending_clarification = None
+    deps.tool_state.session.geocode_staging = None
+
+
+async def run_resolve(
+    ctx: RunContext[RuntimeDeps], catalog: CatalogClientProtocol, title: str
+) -> ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamDown:
+    result: ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamDown
+    try:
+        resolved = await catalog.resolve(title)
+    except CATALOG_FAILURES:
+        result = ResolveUpstreamDown()
+    else:
+        result = _adapt_resolve(ctx.deps, resolved, title)
+    return result
+
+
+def _adapt_resolve(
+    deps: RuntimeDeps, resolved: object, query: str
+) -> ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamDown:
+    if isinstance(resolved, CatalogResolveResolved):
+        return _adapt_resolved(deps, resolved, query)
+    if isinstance(resolved, CatalogResolveAmbiguous):
+        return _adapt_ambiguous(deps, resolved)
+    if isinstance(resolved, CatalogResolveNotFound):
+        return _adapt_not_found(deps)
+    _clear_pending(deps)
+    return ResolveUpstreamDown()
+
+
+def _adapt_resolved(
+    deps: RuntimeDeps, resolved: CatalogResolveResolved, query: str
+) -> ResolveResolved | ResolveNotFound:
+    match = resolved.match
+    if looks_like_wrong_variant(query, (match.title, match.title_cn)):
+        return _adapt_not_found(deps)
+    _clear_pending(deps)
+    title = match.title or match.title_cn
+    deps.tool_state.session.current_anime = CurrentAnime(
+        bangumi_id=match.bangumi_id, title=title
+    )
+    return ResolveResolved(bangumi_id=match.bangumi_id, anime_title=title)
+
+
+def _adapt_ambiguous(
+    deps: RuntimeDeps, resolved: CatalogResolveAmbiguous
+) -> ResolveAmbiguous:
+    candidates = [_candidate(candidate) for candidate in resolved.candidates]
+    _set_pending(deps, "anime_ambiguity", candidates)
+    return ResolveAmbiguous(candidate_ids=[candidate.id for candidate in candidates])
+
+
+def _adapt_not_found(deps: RuntimeDeps) -> ResolveNotFound:
+    _set_pending(deps, "anime_not_found", [])
+    return ResolveNotFound()
+
+
+async def run_work_search(
+    ctx: RunContext[RuntimeDeps], catalog: CatalogClientProtocol, bangumi_id: str
+) -> SearchOk | SearchEmpty | SearchUpstreamDown:
+    """Fetch an already-resolved work without repeating free-text resolution."""
+    try:
+        result = await catalog.points_by_work_id(bangumi_id)
+    except CATALOG_FAILURES:
+        return SearchUpstreamDown()
+    payload = build_search_state(
+        result.rows,
+        kind="bangumi",
+        anime_id=bangumi_id,
+        partial=result.partial,
+        locale=ctx.deps.locale,
+    )
+    ref = ResultRef(ctx.deps.ref_factory("search", payload.row_count))
+    ctx.deps.tool_state.session.store_search_result(ref, payload)
+    _clear_pending(ctx.deps)
+    title = payload.metadata.anime_title if payload.metadata else None
+    outcome: SearchOk | SearchEmpty
+    if payload.row_count:
+        outcome = SearchOk(
+            result_ref=str(ref),
+            row_count=payload.row_count,
+            anime_title=title,
+            partial=payload.partial,
+        )
+    else:
+        outcome = SearchEmpty(anime_title=title, partial=payload.partial)
+    provenance = ProducedSearch(outcome=outcome.outcome, result_ref=ref)
+    register_tool_provenance(ctx, provenance)
+    return outcome
+
+
+def _origin(deps: RuntimeDeps) -> tuple[float, float] | None:
+    lat = deps.tool_state.origin_lat
+    lng = deps.tool_state.origin_lng
+    return (lat, lng) if lat is not None and lng is not None else None
+
+
+def _place_pending(
+    deps: RuntimeDeps, candidates: list[GeocodeCandidate]
+) -> NearbyPlaceAmbiguous:
+    ordered = [_place_candidate(candidate) for candidate in candidates]
+    staging = GeocodeStaging(candidates=ordered)
+    deps.tool_state.session.geocode_staging = staging
+    _set_pending(deps, "place_ambiguity", staging.candidates)
+    return NearbyPlaceAmbiguous(place_candidate_ids=[item.id for item in ordered])
+
+
+async def _coordinates(
+    deps: RuntimeDeps, catalog: CatalogClientProtocol, location: str | None
+) -> (
+    tuple[tuple[float, float], int]
+    | NearbyPlaceAmbiguous
+    | NearbyPlaceUnresolved
+    | NearbyMissingLocation
+):
+    if location is None or not location.strip():
+        origin = _origin(deps)
+        if origin is not None:
+            return origin, 5_000
+        _set_pending(deps, "missing_location", [])
+        return NearbyMissingLocation()
+    candidates = await catalog.geocode(location.strip(), limit=5)
+    record_server_step(
         deps,
-        tool=tool.value,
-        success=success,
-        params=params,
-        data=payload or None,
-        error=None if success else _NO_DATA_ERROR,
+        ToolName.GEOCODE.value,
+        {"location": location.strip()},
+        {"candidate_ids": [candidate.id for candidate in candidates]},
     )
-    if success:
-        _localize_city_names(payload, deps.locale)
-        deps.tool_state[tool.value] = payload
-        await _emit_step(deps, tool.value, "done", payload)
-        return _summarize_for_llm(tool, payload)
-    await _emit_step(deps, tool.value, "failed", {"error": _NO_DATA_ERROR})
-    return {}
+    if not candidates:
+        _set_pending(deps, "unknown_place", [])
+        return NearbyPlaceUnresolved(clarification_reason="unknown_place")
+    if len(candidates) > 1:
+        return _place_pending(deps, candidates)
+    candidate = candidates[0]
+    if candidate.kind == GeocodeKind.PREFECTURE:
+        _set_pending(deps, "place_too_broad", [])
+        return NearbyPlaceUnresolved(clarification_reason="place_too_broad")
+    radius = candidate.effective_radius_m or 5_000
+    return (candidate.lat, candidate.lng), radius
 
 
-async def _run_catalog_search(
+async def run_nearby_search(
     ctx: RunContext[RuntimeDeps],
     catalog: CatalogClientProtocol,
-    *,
-    tool: ToolName,
-    query: str,
-    params: dict[str, object],
-) -> dict[str, object]:
-    """Resolve/search via catalog.search() and store the shaped payload."""
-    await _emit_step(ctx.deps, tool.value, "running", {})
+    location: str | None,
+    radius_m: int | None,
+) -> (
+    NearbyOk
+    | NearbyEmpty
+    | NearbyPlaceAmbiguous
+    | NearbyPlaceUnresolved
+    | NearbyMissingLocation
+    | NearbyUpstreamDown
+):
+    """Resolve a place into a typed outcome and a registry-backed geo result."""
     try:
-        points = await catalog.search(query)
-    except _TRANSIENT_ERRORS as exc:
-        raise ModelRetry(f"Catalog search unavailable, please retry. ({exc})") from exc
-    payload = _shape_search_or_resolve(tool, points)
-    return await _store_catalog_result(
-        ctx.deps, tool=tool, params=params, payload=payload, success=bool(payload)
-    )
-
-
-def _bangumi_search_query(state: dict[str, object], bangumi_id: str) -> str:
-    """Pick the catalog query for search_bangumi: resolved title, else id.
-
-    The catalog search path is title/query based, so prefer the title captured
-    by resolve_anime; fall back to the bangumi_id when no title is known.
-    """
-    resolve_data = state.get("resolve_anime")
-    if isinstance(resolve_data, dict):
-        title = resolve_data.get("title")
-        if isinstance(title, str) and title:
-            return title
-    return bangumi_id
-
-
-def _shape_search_or_resolve(
-    tool: ToolName, points: list[PilgrimagePoint]
-) -> dict[str, object]:
-    """Pick the resolve vs search payload shape for catalog points."""
-    if tool == ToolName.RESOLVE_ANIME:
-        return build_resolve_payload(points)
-    search_tool: SearchTool = (
-        "search_nearby" if tool == ToolName.SEARCH_NEARBY else "search_bangumi"
-    )
-    return build_search_payload(points, tool=search_tool)
-
-
-def _geocode_for_catalog(
-    location: str, state: dict[str, object]
-) -> tuple[float, float] | None:
-    """Resolve coords from session state, then deterministic KNOWN_LOCATIONS.
-
-    Stays upstream-free: no LLM, no Google Geocoding. The catalog service owns
-    richer geocoding; the agent only forwards coordinates it can resolve locally.
-    """
-    lat = state.get("origin_lat")
-    lng = state.get("origin_lng")
-    if isinstance(lat, int | float) and isinstance(lng, int | float):
-        return float(lat), float(lng)
-    return KNOWN_LOCATIONS.get(location.strip())
-
-
-async def _run_catalog_nearby(
-    ctx: RunContext[RuntimeDeps],
-    catalog: CatalogClientProtocol,
-    *,
-    location: str,
-    radius: int,
-    params: dict[str, object],
-) -> dict[str, object]:
-    """Geo-search via catalog.nearby() and store the shaped payload."""
-    coords = _geocode_for_catalog(location, ctx.deps.tool_state)
-    if coords is None:
-        raise ModelRetry(
-            f"Could not resolve coordinates for '{location}'. "
-            "Ask the user for a more specific station or city name."
+        resolved = await _coordinates(ctx.deps, catalog, location)
+    except CATALOG_FAILURES:
+        _clear_pending(ctx.deps)
+        return _nearby_upstream_down(ctx)
+    if not isinstance(resolved, tuple):
+        rejected = RejectedSearch(outcome=resolved.outcome)
+        register_tool_provenance(ctx, rejected)
+        return resolved
+    coords, default_radius = resolved
+    try:
+        points = await catalog.nearby(
+            coords[0], coords[1], radius_m=radius_m or default_radius
         )
-    await _emit_step(ctx.deps, ToolName.SEARCH_NEARBY.value, "running", {})
-    try:
-        points = await catalog.nearby(coords[0], coords[1], radius_m=radius or 5000)
-    except _TRANSIENT_ERRORS as exc:
-        raise ModelRetry(f"Catalog nearby unavailable, please retry. ({exc})") from exc
-    payload = build_search_payload(points, tool="search_nearby")
-    return await _store_catalog_result(
-        ctx.deps,
-        tool=ToolName.SEARCH_NEARBY,
-        params=params,
-        payload=payload,
-        success=bool(payload.get("rows")),
+    except CATALOG_FAILURES:
+        _clear_pending(ctx.deps)
+        return _nearby_upstream_down(ctx)
+    payload = build_search_state(points, kind="nearby", locale=ctx.deps.locale)
+    ref = ResultRef(ctx.deps.ref_factory("search", payload.row_count))
+    ctx.deps.tool_state.session.store_search_result(ref, payload)
+    _clear_pending(ctx.deps)
+    outcome: NearbyOk | NearbyEmpty = (
+        NearbyOk(result_ref=str(ref), row_count=payload.row_count)
+        if payload.row_count
+        else NearbyEmpty()
     )
+    produced = ProducedSearch(outcome=outcome.outcome, result_ref=ref)
+    register_tool_provenance(ctx, produced)
+    return outcome
 
 
-def _point_ids_from_state(state: dict[str, object]) -> list[str]:
-    """Collect point ids from the most recent search results in tool_state."""
-    search = state.get("search_bangumi") or state.get("search_nearby")
-    rows = search.get("rows") if isinstance(search, dict) else None
-    if not isinstance(rows, list):
-        return []
-    return [
-        str(row["id"])
-        for row in rows
-        if isinstance(row, dict) and isinstance(row.get("id"), str)
-    ]
-
-
-async def _run_catalog_route(
-    ctx: RunContext[RuntimeDeps],
-    catalog: CatalogClientProtocol,
-    *,
-    params: dict[str, object],
-) -> dict[str, object]:
-    """Plan a route via catalog.route() over the searched point ids."""
-    point_ids = _point_ids_from_state(ctx.deps.tool_state)
-    if not point_ids:
-        raise ModelRetry(
-            "No pilgrimage points to route. Call search_bangumi or "
-            "search_nearby first, then call plan_route."
-        )
-    await _emit_step(ctx.deps, ToolName.PLAN_ROUTE.value, "running", {})
-    try:
-        route = await catalog.route(point_ids)
-    except _TRANSIENT_ERRORS as exc:
-        raise ModelRetry(f"Catalog route unavailable, please retry. ({exc})") from exc
-    payload = build_route_payload(route)
-    return await _store_catalog_result(
-        ctx.deps,
-        tool=ToolName.PLAN_ROUTE,
-        params=params,
-        payload=payload,
-        success=route.point_count > 0,
-    )
+def _nearby_upstream_down(ctx: RunContext[RuntimeDeps]) -> NearbyUpstreamDown:
+    outcome = NearbyUpstreamDown()
+    register_tool_provenance(ctx, RejectedSearch(outcome=outcome.outcome))
+    return outcome

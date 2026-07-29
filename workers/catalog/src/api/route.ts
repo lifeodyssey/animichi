@@ -6,8 +6,9 @@
  * (`packages/contract/src/models.ts`).
  *
  * Flow: fetch points for `point_ids` (joined to bangumi for the anime title) ->
- * `clusterByLocation` (50m) -> `buildTimedItinerary` -> expand the ordered
- * clusters back to their member points (= `ordered_points`) -> `Route`.
+ * `clusterByLocation` (50m) -> deterministic 50-cluster cap ->
+ * `buildTimedItinerary` -> expand the ordered clusters back to their member
+ * points (= `ordered_points`) -> `Route`.
  *
  * Read-only: a single SELECT, no writes. Origin is forwarded to the kernel only
  * in `{lat,lng}` form; the contract's named-place string Origin would need
@@ -20,7 +21,7 @@ import type { ClusterablePoint, LocationCluster } from "../lib/clustering";
 import { clusterByLocation } from "../lib/clustering";
 import { optional } from "../lib/optional";
 import type { Origin as KernelOrigin, Pacing, TimedItinerary } from "../lib/route";
-import { buildTimedItinerary } from "../lib/route";
+import { buildTimedItinerary, MAX_ITINERARY_CLUSTERS } from "../lib/route";
 import type { Origin, PilgrimagePoint, Route } from "../types";
 
 /**
@@ -59,6 +60,7 @@ interface PointRow {
   title: string | null;
   title_cn: string | null;
   cover_url: string | null;
+  city?: string | null;
 }
 
 /** A `PilgrimagePoint` carrying the geo fields {@link clusterByLocation} needs. */
@@ -70,9 +72,10 @@ type PointCluster = LocationCluster<ClusterablePilgrimagePoint>;
 /** Plan an ordered, timed route over `point_ids`. Empty/unknown ids -> count 0. */
 export async function route(db: RouteDb, input: RouteInput): Promise<Route> {
   const points = await fetchPoints(db, input.point_ids);
-  const clusters = clusterByLocation(points, 50);
+  const allClusters = clusterByLocation(points, 50);
+  const clusters = allClusters.slice(0, MAX_ITINERARY_CLUSTERS);
   const itinerary = buildTimedItinerary(clusters, kernelOpts(input));
-  return assembleRoute(clusters, itinerary);
+  return assembleRoute(clusters, itinerary, allClusters.length);
 }
 
 /** SELECT the points for `ids` joined to their bangumi, preserving `ids` order. */
@@ -95,7 +98,7 @@ function indexRows(rows: PointRow[]): Map<string, ClusterablePilgrimagePoint> {
 function pointsQuery(ids: string[]) {
   return sql`
     SELECT p.id, p.name, p.name_cn, p.bangumi_id, p.episode, p.time_seconds,
-           p.image, p.latitude, p.longitude, p.origin,
+           p.image, p.latitude, p.longitude, p.origin, p.city,
            b.title, b.title_cn, b.cover_url
     FROM points p
     LEFT JOIN bangumi b ON b.id = p.bangumi_id
@@ -127,6 +130,7 @@ function scalarFields(r: PointRow): Omit<PilgrimagePoint, "latitude" | "longitud
       title: r.title,
       title_cn: r.title_cn,
       cover_url: r.cover_url,
+      city: r.city,
     }),
   };
 }
@@ -138,9 +142,15 @@ function kernelOpts(input: RouteInput): { pacing?: Pacing; origin?: KernelOrigin
 }
 
 /** Assemble the contract `Route` from the ordered clusters and the itinerary. */
-function assembleRoute(clusters: PointCluster[], itinerary: TimedItinerary): Route {
+function assembleRoute(clusters: PointCluster[], itinerary: TimedItinerary, totalClusters: number): Route {
   const ordered = orderPoints(clusters, itinerary);
-  return { ...animeMeta(ordered[0]), ordered_points: ordered, point_count: ordered.length, timed_itinerary: itinerary };
+  return { ...animeMeta(ordered[0]), ...truncationMeta(clusters.length, totalClusters), ordered_points: ordered, point_count: ordered.length, timed_itinerary: itinerary };
+}
+
+/** Add disclosure fields only when the deterministic cluster cap was applied. */
+function truncationMeta(shown: number, total: number): Partial<Pick<Route, "truncated" | "shown_cluster_count" | "total_cluster_count">> {
+  if (shown === total) return {};
+  return { truncated: true, shown_cluster_count: shown, total_cluster_count: total };
 }
 
 /** Expand the itinerary's ordered stops back to their member points, in order. */
