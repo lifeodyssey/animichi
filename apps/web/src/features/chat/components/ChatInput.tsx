@@ -55,7 +55,7 @@ type ToggleProps = Readonly<{ dict: ChatDict; open: boolean; onToggle?: () => vo
 function SettingsToggle({ dict, open, onToggle }: ToggleProps) {
   if (onToggle === undefined) return null;
   return (
-    <button type="button" className="chat-input__settings" aria-label={dict.byok.settingsToggle} aria-expanded={open} onClick={onToggle}>⚙</button>
+    <button type="button" className="chat-input__settings" aria-label={dict.byok.settingsToggle} aria-expanded={open} aria-controls="byok-settings-panel" onClick={onToggle}>⚙</button>
   );
 }
 

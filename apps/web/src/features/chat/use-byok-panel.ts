@@ -11,6 +11,8 @@ import type { ChatSearch } from "./search";
 export interface ByokPanel {
   readonly open: boolean;
   readonly toggle: () => void;
+  /** Open without toggling — D14's "open key settings" action (#480 P2-1). */
+  readonly show: () => void;
   readonly auth: AuthStatus;
 }
 
@@ -21,5 +23,6 @@ export function useByokPanel(search: ChatSearch, auth: AuthStatus): ByokPanel {
     if (search.settings === "byok") setOpen(true);
   }, [search.settings]);
   const toggle = useCallback(() => { setOpen((value) => !value); }, []);
-  return { open, toggle, auth };
+  const show = useCallback(() => { setOpen(true); }, []);
+  return { open, toggle, show, auth };
 }

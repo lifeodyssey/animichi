@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TurnFailure } from "../../../src/features/chat/components/ErrorStates/TurnFailure";
 import type { TurnFailureView } from "../../../src/features/chat/components/ErrorStates/TurnFailure";
@@ -16,8 +16,8 @@ function viewOf(state: ChatErrorState): TurnFailureView {
   return { state, onRetry: vi.fn(), onExpiredResume: vi.fn(), recovering: false };
 }
 
-function renderState(state: ChatErrorState): void {
-  renderWithLocale(<TurnFailure view={viewOf(state)} dict={dict} locale="ja" />);
+function renderState(state: ChatErrorState, onOpenSettings?: () => void): void {
+  renderWithLocale(<TurnFailure view={viewOf(state)} dict={dict} locale="ja" onOpenSettings={onOpenSettings} />);
 }
 
 beforeEach(() => { setLanguages(["ja-JP"]); });
@@ -60,5 +60,12 @@ describe("TurnFailure — D14 key-not-accepted (T6-AC7)", () => {
   it("offers no generic retry that would just replay the failure", () => {
     renderState("D14");
     expect(screen.queryByRole("button", { name: dict.errorStates.d4Retry })).toBeNull();
+  });
+
+  it("offers the way to the fix: an open-key-settings action (#480 P2-1)", () => {
+    const openSettings = vi.fn();
+    renderState("D14", openSettings);
+    fireEvent.click(screen.getByRole("button", { name: dict.byok.openSettings }));
+    expect(openSettings).toHaveBeenCalledTimes(1);
   });
 });

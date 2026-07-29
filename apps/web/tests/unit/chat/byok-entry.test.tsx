@@ -45,6 +45,8 @@ describe("BYOK deep-link return (T8-AC4: /chat?settings=byok)", () => {
     renderChatPage(chatSearch({ settings: "byok" }));
     expect(await screen.findByRole("heading", { name: ja.byok.title })).toBeTruthy();
     expect(settingsToggle().getAttribute("aria-expanded")).toBe("true");
+    expect(settingsToggle().getAttribute("aria-controls")).toBe("byok-settings-panel");
+    expect(document.activeElement?.id).toBe("byok-settings-panel");
   });
 
   it("keeps the panel closed for a plain /chat arrival", async () => {

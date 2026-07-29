@@ -1202,3 +1202,53 @@
   background: var(--color-primary-soft);
   color: var(--color-primary-strong);
 }
+
+/* Press states for the BYOK cream CTAs (DS 補全 .btn.cream.hv/.ac). */
+
+.chat-byok__save:hover,
+.chat-byok__signin:hover,
+.chat-byok__clear:hover,
+.chat-input__settings:hover,
+.chat-byok-rejected__open:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 var(--shadow-3d);
+}
+
+.chat-byok__save:active,
+.chat-byok__signin:active,
+.chat-byok__clear:active,
+.chat-input__settings:active,
+.chat-byok-rejected__open:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--shadow-3d);
+}
+
+.chat-byok__save:disabled:hover,
+.chat-byok__save:disabled:active {
+  transform: none;
+  box-shadow: 0 3px 0 var(--shadow-3d);
+}
+
+.chat-byok-rejected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.chat-byok-rejected__open {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0.375rem 0.875rem;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  box-shadow: 0 2px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-byok:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}

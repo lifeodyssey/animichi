@@ -3,13 +3,17 @@
  */
 import { RouterProvider } from "@tanstack/react-router";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getRouter } from "../../../src/router";
 import { setLanguages } from "../_i18n";
 
 const { getAuthToken } = vi.hoisted(() => ({ getAuthToken: vi.fn() }));
 vi.mock("../../../src/lib/auth/authSession", () => ({ getAuthToken }));
 
+const { replayDeferredSave } = vi.hoisted(() => ({ replayDeferredSave: vi.fn() }));
+vi.mock("../../../src/features/chat/save/createOnLogin", () => ({ replayDeferredSave }));
+
+beforeEach(() => { replayDeferredSave.mockResolvedValue("none"); });
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -60,6 +64,19 @@ describe("/auth/callback route", () => {
     });
   });
 
+});
+
+describe("/auth/callback route — dual intent (#480 P1-2)", () => {
+  it("reaches the BYOK deep link even when the deferred-save replay failed", async () => {
+    getAuthToken.mockResolvedValue("jwt-callback");
+    replayDeferredSave.mockResolvedValue("failed");
+    const router = getRouter();
+    await router.navigate({ to: "/auth/callback", search: { next: "/chat?settings=byok" } });
+    render(<RouterProvider router={router} />);
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/chat");
+    });
+  });
 });
 
 describe("/auth/callback route — failure", () => {

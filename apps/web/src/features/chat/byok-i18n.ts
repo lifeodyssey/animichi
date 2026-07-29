@@ -25,7 +25,6 @@ export interface ChatByokDict {
   readonly clear: string;
   readonly maskedSummary: string;
   readonly visionBadge: string;
-  readonly errorCredentialRejected: string;
   readonly errorRequiresLogin: string;
   readonly errorInvalidRequest: string;
   readonly errorEgressBlocked: string;
@@ -40,6 +39,7 @@ export interface ChatByokDict {
   readonly upsellBenefit: string;
   readonly upsellPrivacy: string;
   readonly upsellAccount: string;
+  readonly openSettings: string;
 }
 
 export const jaByok: ChatByokDict = {
@@ -60,7 +60,6 @@ export const jaByok: ChatByokDict = {
   clear: "解除する",
   maskedSummary: "登録ずみ(キーはひみつ)",
   visionBadge: "✓ 画像対応",
-  errorCredentialRejected: "このキーは使えなかったみたい。もう一度確かめてね",
   errorRequiresLogin: "自分のキーを使うにはログインしてね",
   errorInvalidRequest: "入力に不備があるみたい。確認してね",
   errorEgressBlocked: "その接続先には安全のためつなげられないよ",
@@ -75,6 +74,7 @@ export const jaByok: ChatByokDict = {
   upsellBenefit: "契約中のプロバイダのキーなら、この画面の上限を気にせず話せるよ",
   upsellPrivacy: "キーはこのブラウザだけに置かれて、サーバーには保存されないよ",
   upsellAccount: "設定にはログインが必要だよ",
+  openSettings: "キー設定をひらく",
 };
 
 export const zhByok: ChatByokDict = {
@@ -95,7 +95,6 @@ export const zhByok: ChatByokDict = {
   clear: "清除",
   maskedSummary: "已保存(密钥已隐藏)",
   visionBadge: "✓ 支持图片",
-  errorCredentialRejected: "这个密钥没能用,请再检查一下",
   errorRequiresLogin: "使用自己的密钥需要先登录",
   errorInvalidRequest: "填写的内容好像不对,请检查一下",
   errorEgressBlocked: "出于安全考虑,无法连接这个地址",
@@ -107,9 +106,10 @@ export const zhByok: ChatByokDict = {
   settingsToggle: "API 密钥设置",
   d11UseOwnKey: "使用自己的密钥",
   upsellTitle: "用自己的 API 密钥继续",
-  upsellBenefit: "使用你已订阅的服务商密钥,就不受这里的每日额度限制",
+  upsellBenefit: "用你自己付费的服务商密钥继续对话,不受这里的每日额度限制",
   upsellPrivacy: "密钥只保存在你的浏览器里,不会存到服务器上",
   upsellAccount: "设置前需要先登录",
+  openSettings: "打开密钥设置",
 };
 
 export const enByok: ChatByokDict = {
@@ -130,7 +130,6 @@ export const enByok: ChatByokDict = {
   clear: "Clear",
   maskedSummary: "Saved (key hidden)",
   visionBadge: "✓ Image support",
-  errorCredentialRejected: "That key wasn't accepted. Please double-check it",
   errorRequiresLogin: "Sign in to use your own key",
   errorInvalidRequest: "Something in that entry looks off — please check it",
   errorEgressBlocked: "That address can't be reached for safety reasons",
@@ -145,4 +144,5 @@ export const enByok: ChatByokDict = {
   upsellBenefit: "Use the provider account you already pay for — no daily cap here",
   upsellPrivacy: "Your key stays in this browser and is never stored on our server",
   upsellAccount: "You'll need to sign in to set it up",
+  openSettings: "Open key settings",
 };

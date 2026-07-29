@@ -36,9 +36,10 @@ function useGoToTarget(next: string | undefined): () => void {
 
 function AuthCallbackRoute() {
   const { next } = Route.useSearch();
+  const hasReturnIntent = sanitizeReturnTarget(next) !== "/";
   return (
     <LocaleProvider>
-      <AuthCallback onDone={useGoToTarget(next)} />
+      <AuthCallback onDone={useGoToTarget(next)} hasReturnIntent={hasReturnIntent} />
     </LocaleProvider>
   );
 }

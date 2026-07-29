@@ -3,6 +3,7 @@
  */
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ByokProbeOutcome as Outcome } from "../../../src/features/chat/byok-probe";
 import type { ByokProbeOutcome } from "../../../src/features/chat/byok-probe";
 import { ByokSettings } from "../../../src/features/chat/components/ByokSettings";
 import { chatDictFor } from "../../../src/features/chat/i18n";
@@ -119,6 +120,43 @@ describe("ByokSettings — non-definitive probe never persists vision (#479 P2-1
     await waitFor(() => { expect(screen.queryByRole("status")).toBeNull(); });
     expect(getByokVisionSupported()).toBeNull();
     expect(screen.queryByText(dict.byok.visionBadge)).toBeNull();
+  });
+});
+
+const ALL_OUTCOMES: readonly Outcome[] = [
+  { kind: "ok", vision: true, definitive: true },
+  { kind: "ok", vision: false, definitive: true },
+  { kind: "ok", vision: false, definitive: false },
+  { kind: "rejected" },
+  { kind: "unreachable" },
+  { kind: "invalid", code: "egress_blocked" },
+  { kind: "invalid", code: "invalid_request" },
+  { kind: "requires_login" },
+  { kind: "error" },
+];
+
+describe("ByokSettings — raw key never in the DOM, for EVERY outcome (#480 P3)", () => {
+  it.each(ALL_OUTCOMES)("keeps the key out of document.body after %o", async (outcome) => {
+    renderPanel(outcome);
+    fillAndSave();
+    await waitFor(() => { expect(screen.queryByRole("status")).toBeNull(); });
+    expect(document.body.innerHTML).not.toContain(KEY);
+  });
+});
+
+describe("ByokSettings — stale probe cannot paint after clear (#480 P2-2)", () => {
+  it("drops an in-flight rejection resolved after the credential was cleared", async () => {
+    let resolve!: (outcome: Outcome) => void;
+    const probe = vi.fn(() => new Promise<Outcome>((r) => { resolve = r; }));
+    render(<ByokSettings dict={dict} auth="authenticated" baseUrl="http://agent.test" probe={probe} />);
+    fillAndSave();
+    expect(screen.getByRole("status")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: dict.byok.clear }));
+    resolve({ kind: "rejected" });
+    await Promise.resolve();
+    await waitFor(() => { expect(screen.queryByRole("status")).toBeNull(); });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(getByokConfig()).toBeNull();
   });
 });
 

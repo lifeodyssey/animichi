@@ -5,6 +5,7 @@ import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sendMagicLink } from "../../../src/lib/auth/neonAuth";
 import { ByokSettings } from "../../../src/features/chat/components/ByokSettings";
+import { getByokConfig, saveByokConfig } from "../../../src/lib/byok/byokStorage";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { renderWithLocale, setLanguages } from "../_i18n";
 
@@ -20,6 +21,7 @@ function renderTeaser(): void {
 beforeEach(() => { setLanguages(["ja-JP"]); });
 afterEach(() => {
   cleanup();
+  sessionStorage.clear();
   vi.clearAllMocks();
 });
 
@@ -46,6 +48,32 @@ describe("ByokSettings — anonymous teaser (T8-AC3, touchpoint B)", () => {
     expect(send).toHaveBeenCalledWith(expect.objectContaining({
       callbackURL: "http://localhost:3000/auth/callback?next=%2Fchat%3Fsettings%3Dbyok",
     }));
+  });
+});
+
+describe("ByokSettings — lapsed session still holding a credential (P1-1)", () => {
+  function saveCredential(): void {
+    saveByokConfig({ provider: "anthropic", apiKey: "sk-lapsed-key", model: "claude-sonnet-4-5" });
+  }
+
+  it("offers a clear entry in the teaser — login is never the price of deletion", () => {
+    saveCredential();
+    renderTeaser();
+    expect(screen.getByText(dict.byok.maskedSummary)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: dict.byok.clear }));
+    expect(getByokConfig()).toBeNull();
+    expect(screen.queryByText(dict.byok.maskedSummary)).toBeNull();
+  });
+
+  it("still renders no key input while the stored credential is shown", () => {
+    saveCredential();
+    renderTeaser();
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+  });
+
+  it("shows no clear entry when nothing is stored", () => {
+    renderTeaser();
+    expect(screen.queryByRole("button", { name: dict.byok.clear })).toBeNull();
   });
 });
 

@@ -49,6 +49,8 @@ describe("sanitizeReturnTarget — T14 attack vectors (T8-AC6)", () => {
     "javascript:alert(1)",
     "data:text/html,x",
     "chat?settings=byok",
+    "/../evil",
+    "/chat/../../etc",
   ])("rejects %j in favour of /", (vector) => {
     expect(sanitizeReturnTarget(vector)).toBe("/");
   });

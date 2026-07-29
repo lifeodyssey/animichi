@@ -107,7 +107,7 @@ function ChatBody(props: BodyProps) {
     <section className="chat-body">
       <HistoryLoadingGate history={props.history} dict={props.dict} />
       <HistoryList entries={props.history.entries} dict={props.dict} />
-      <ColdStartGate {...props} /><ChatMessages chat={props.chat} dict={props.dict} /><TurnFailure view={props.failure} dict={props.dict} locale={props.locale} /><WaitingRitual status={props.chat.status} dict={props.dict} messages={props.chat.messages} /><div ref={anchor} aria-hidden="true" />
+      <ColdStartGate {...props} /><ChatMessages chat={props.chat} dict={props.dict} /><TurnFailure view={props.failure} dict={props.dict} locale={props.locale} onOpenSettings={props.byok.show} /><WaitingRitual status={props.chat.status} dict={props.dict} messages={props.chat.messages} /><div ref={anchor} aria-hidden="true" />
     </section>
   );
 }

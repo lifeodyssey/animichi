@@ -27,6 +27,9 @@ function isSameOriginPath(value: string): boolean {
   if (!value.startsWith("/")) return false;
   if (value.startsWith("//")) return false;
   if (value.includes("\\")) return false;
+  // `..` segments can only ever resolve within-origin here, but rejecting
+  // them keeps the "the honoured value IS the final path" invariant exact.
+  if (value.split("/").includes("..")) return false;
   return !hasUnsafeChar(value);
 }
 

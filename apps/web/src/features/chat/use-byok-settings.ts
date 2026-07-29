@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   BYOK_DEFAULT_MODEL,
   clearByokConfig,
@@ -116,14 +116,19 @@ function applyOutcome(outcome: ByokProbeOutcome, sink: ProbeSink): void {
 }
 
 type Probe = typeof runByokProbe;
+interface Generation { current: number }
 
-function useProbeRun(baseUrl: string, probe: Probe, sink: ProbeSink): () => void {
+/** #480 P2-2: each run claims a generation; clearing (or re-saving) bumps it,
+ * so a stale in-flight probe can never paint its outcome over the panel. */
+function useProbeRun(baseUrl: string, probe: Probe, sink: ProbeSink, generation: Generation): () => void {
   return useCallback(() => {
+    const claimed = ++generation.current;
+    const settle = (outcome: ByokProbeOutcome) => {
+      if (generation.current === claimed) applyOutcome(outcome, sink);
+    };
     sink.setPhase("checking");
-    void probe(baseUrl)
-      .then((outcome) => { applyOutcome(outcome, sink); })
-      .catch(() => { applyOutcome({ kind: "error" }, sink); });
-  }, [baseUrl, probe, sink]);
+    void probe(baseUrl).then(settle).catch(() => { settle({ kind: "error" }); });
+  }, [baseUrl, probe, sink, generation]);
 }
 
 interface PanelState {
@@ -188,17 +193,19 @@ function useSaveAction(state: PanelState, apply: Apply, runProbe: () => void): (
   return useCallback(() => { commitSave(form, apply, runProbe); }, [form, apply, runProbe]);
 }
 
-function useClearAction(apply: Apply): () => void {
+function useClearAction(apply: Apply, generation: Generation): () => void {
   return useCallback(() => {
+    generation.current += 1;
     clearByokConfig();
     apply({ ...initialState() });
-  }, [apply]);
+  }, [apply, generation]);
 }
 
 export function useByokSettings(baseUrl: string, probe: Probe = runByokProbe): ByokSettingsView {
   const [state, setState] = useState<PanelState>(initialState);
+  const generation = useRef(0);
   const apply = useCallback<Apply>((patch) => { setState((prev) => ({ ...prev, ...patch })); }, []);
-  const runProbe = useProbeRun(baseUrl, probe, useSink(apply));
+  const runProbe = useProbeRun(baseUrl, probe, useSink(apply), generation);
   const save = useSaveAction(state, apply, runProbe);
-  return { ...state, ...useFieldSetters(state, apply), save, clear: useClearAction(apply) };
+  return { ...state, ...useFieldSetters(state, apply), save, clear: useClearAction(apply, generation) };
 }

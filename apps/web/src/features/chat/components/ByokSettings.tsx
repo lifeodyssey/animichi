@@ -1,6 +1,8 @@
 import type { ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LoginModal } from "../../../components/auth/LoginModal";
 import type { AuthStatus } from "../../../lib/auth/session";
+import { clearByokConfig, getByokConfig } from "../../../lib/byok/byokStorage";
 import type { ByokProvider } from "../../../lib/byok/byokStorage";
 import { runByokProbe } from "../byok-probe";
 import { BYOK_SETUP_TARGET, useLoginDisclosure } from "../byok-journey";
@@ -160,16 +162,52 @@ function SettingsForm({ byok, view }: PanelProps) {
   );
 }
 
+/**
+ * P1-1 (#480 review): a signed-out visitor whose session lapsed may still hold
+ * a stored credential — which `byokHeaders()` keeps attaching to every turn,
+ * earning `byok_requires_login`. The teaser is their only surface, so it MUST
+ * offer deletion; login is never the price of removing your own key.
+ */
+function useStoredKey() {
+  const [stored, setStored] = useState(() => getByokConfig() !== null);
+  const clear = useCallback(() => {
+    clearByokConfig();
+    setStored(false);
+  }, []);
+  return { stored, clear };
+}
+
+function StoredKeyNotice({ byok }: Readonly<{ byok: ChatByokDict }>) {
+  const key = useStoredKey();
+  if (!key.stored) return null;
+  return (
+    <p className="chat-byok__summary">
+      <span>{byok.maskedSummary}</span>
+      <button type="button" className="chat-byok__clear" onClick={key.clear}>{byok.clear}</button>
+    </p>
+  );
+}
+
 /** T8 touchpoint B: the anonymous teaser renders NO key input at all — there
- * is no field that would silently discard input — only the value proposition
- * and a login CTA whose mailed link deep-links back to this panel. */
-function AnonymousTeaser({ byok }: Readonly<{ byok: ChatByokDict }>) {
+ * is no field that would silently discard input — only the value proposition,
+ * a login CTA whose mailed link deep-links back to this panel, and (P1-1) a
+ * clear entry for a credential left behind by a lapsed session. */
+function TeaserLogin({ byok }: Readonly<{ byok: ChatByokDict }>) {
   const login = useLoginDisclosure();
   return (
-    <div className="chat-byok__teaser">
-      <p>{byok.anonymousTeaser}</p>
+    <>
       <button type="button" className="chat-byok__signin" onClick={login.show}>{byok.signInToSetUp}</button>
       <LoginModal open={login.open} onClose={login.hide} returnTarget={BYOK_SETUP_TARGET} />
+    </>
+  );
+}
+
+function AnonymousTeaser({ byok }: Readonly<{ byok: ChatByokDict }>) {
+  return (
+    <div className="chat-byok__teaser">
+      <StoredKeyNotice byok={byok} />
+      <p>{byok.anonymousTeaser}</p>
+      <TeaserLogin byok={byok} />
     </div>
   );
 }
@@ -190,10 +228,18 @@ function AuthenticatedPanel({ dict, baseUrl, probe = runByokProbe }: Omit<Props,
   );
 }
 
+/** Move focus into the panel when it opens — the toggle and the deep-link
+ * return both land the reader at the top of what just appeared (#480 P3). */
+function usePanelFocus() {
+  const ref = useRef<HTMLElement | null>(null);
+  useEffect(() => { ref.current?.focus(); }, []);
+  return ref;
+}
+
 /** BYOK settings panel (issue #284 Task 6 UI + Task 8 touchpoint B). */
 export function ByokSettings(props: Props) {
   return (
-    <section className="chat-byok" aria-label={props.dict.byok.title}>
+    <section id="byok-settings-panel" className="chat-byok" aria-label={props.dict.byok.title} tabIndex={-1} ref={usePanelFocus()}>
       <h3 className="chat-byok__title">{props.dict.byok.title}</h3>
       <PanelBody {...props} />
     </section>
