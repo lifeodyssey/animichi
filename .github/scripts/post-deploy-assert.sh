@@ -59,15 +59,15 @@ esac
 # this: that plaintext shape is undocumented, varies by the client's `Accept`
 # header, and is specific to today's error code — a different edge-error
 # family on a future first-deploy would silently bypass a hardcoded match.
-# Instead, every request in this script asks for `Accept: application/json`
-# (see the `fetch` args below). Cloudflare's documented error-response
+# Instead, every request in this script asks for `application/json` FIRST in
+# its `Accept` header (see `ACCEPT_HEADER` / the `fetch` args below).
+# Cloudflare's documented error-response
 # contract (https://developers.cloudflare.com/fundamentals/reference/error-responses/)
 # renders ANY edge/network error it generates itself — 1xxx client/DNS-side,
 # 5xx origin-side alike — as an RFC-9457-shaped JSON body carrying a
 # top-level `"cloudflare_error": true` field when JSON is requested; an
 # origin/application response (this app's real JSON error envelopes, or its
-# branded HTML 404 — apps/web does not content-negotiate on `Accept`, so it
-# renders the same HTML regardless) never emits that field. Checking
+# branded HTML 404) never emits that field. Checking
 # BODY_FILE from THIS SAME request — not firing a second, separate request —
 # matters: two requests to a workers.dev hostname mid-propagation can land on
 # two different edge PoPs (one still stale, one already updated), so a
@@ -89,9 +89,18 @@ is_cloudflare_edge_error() {
 # by design — a 404 that is NOT confirmed as Cloudflare's own is one of those
 # real, final answers too (it is exactly what a genuinely broken route, or
 # this app's own branded 404 page, returns).
+#
+# `ACCEPT_HEADER` lets a caller widen what it will accept. It must keep
+# `application/json` FIRST so Cloudflare still renders its own edge errors as
+# JSON (the discrimination above depends on that); appending `text/html` is
+# for origins that refuse JSON-only requests. `apps/web` is one: it 500s with
+# `{"error":"Only HTML requests are supported here"}` unless `text/html`
+# appears in `Accept` (verified against animichi-web-staging on 2026-07-29 —
+# it substring-matches rather than doing q-value negotiation, so ordering is
+# free to serve Cloudflare's preference).
 fetch() {
   local method="$1" url="$2" auth_header="${3:-}" body="${4:-}"
-  local args=(-sS -o "${BODY_FILE}" -w '%{http_code}' --connect-timeout 10 --max-time 20 -X "${method}" "${url}" -H 'Accept: application/json')
+  local args=(-sS -o "${BODY_FILE}" -w '%{http_code}' --connect-timeout 10 --max-time 20 -X "${method}" "${url}" -H "Accept: ${ACCEPT_HEADER:-application/json}")
   [ -n "${auth_header}" ] && args+=(-H "Authorization: ${auth_header}")
   [ -n "${body}" ] && args+=(-H "Content-Type: application/json" -d "${body}")
   local attempt status rc retry_reason
@@ -206,7 +215,7 @@ cmd_anon_disabled_production() {
 # to render. The `landing` class only exists on LandingPage's own <main>.
 cmd_web_landing() {
   : "${WEB_URL:?WEB_URL is required}"
-  local status
+  local status ACCEPT_HEADER='application/json, text/html'
   status="$(fetch GET "${WEB_URL}/")"
   diag "${status}"
   [ "${status}" = "200" ] || fail "GET ${WEB_URL}/ expected 200, got ${status}"
