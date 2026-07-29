@@ -83,6 +83,24 @@ def test_a_recorded_fact_is_present_in_the_serialized_envelope() -> None:
     assert "fact_ledger" in dumped
 
 
+def test_fresh_empty_compaction_ledger_adds_no_key_to_the_serialized_envelope() -> None:
+    """#476 P1-2: the new field must not regress the null/empty AC at the
+    persistence layer just because it inherited `fact_ledger`'s field, not
+    its `_serialize_runtime_state` pop discipline."""
+    dumped = _serialize_runtime_state(SessionState())
+
+    assert "compaction_retained_entities" not in dumped
+
+
+def test_a_recorded_compaction_entity_is_present_in_the_serialized_envelope() -> None:
+    state = SessionState()
+    state.compaction_retained_entities.record("search_nearby", "資生堂前")
+
+    dumped = _serialize_runtime_state(state)
+
+    assert "compaction_retained_entities" in dumped
+
+
 def test_an_unparseable_fact_ledger_is_dropped_not_left_to_sink_the_session() -> None:
     """A newer/rolled-back deploy's `fact_ledger` shape must not sink the
     rest of an otherwise-valid typed session (#473 review's rollback ask)."""
@@ -100,7 +118,13 @@ def test_an_unparseable_fact_ledger_is_dropped_not_left_to_sink_the_session() ->
 
 def test_dropping_fact_ledger_logs_a_logfire_visible_warning() -> None:
     """The rollback-compat path must be observable (#473 round 3), not a
-    silent degrade — `logger.warning("fact_ledger_dropped", ...)`."""
+    silent degrade — `logger.warning("fact_ledger_dropped", ...)`.
+
+    Both allowlisted keys are dropped together (the retry is a batch of the
+    intersection, not a per-key isolation) even though only `fact_ledger` is
+    actually malformed here — `compaction_retained_entities` is present
+    (empty, valid) and gets swept along, per #476's Task 5 review.
+    """
     dumped = SessionState().model_dump(mode="json")
     dumped["fact_ledger"] = "not even a dict"
 
@@ -109,7 +133,8 @@ def test_dropping_fact_ledger_logs_a_logfire_visible_warning() -> None:
 
     assert restored == SessionState()
     mock_logger.warning.assert_called_once_with(
-        "fact_ledger_dropped", dropped_keys=["fact_ledger"]
+        "fact_ledger_dropped",
+        dropped_keys=["compaction_retained_entities", "fact_ledger"],
     )
 
 

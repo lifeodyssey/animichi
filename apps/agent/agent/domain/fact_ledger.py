@@ -23,13 +23,14 @@ long-lived session's ledger bounded regardless of session age.
 
 from __future__ import annotations
 
-import re
 import uuid
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Literal, NewType, Protocol, TypeVar, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from agent.domain.text_sanitize import truncate_text
 
 MAX_RECORDS_PER_FIELD = 8
 MAX_LEDGER_BYTES = 8 * 1024
@@ -39,8 +40,6 @@ _MAX_ID_BYTES = 96
 FactId = NewType("FactId", str)
 Pacing = Literal["chill", "normal", "packed"]
 SceneReferenceKind = Literal["episode_scene"]
-
-_CONTROL_OR_NEWLINE = re.compile(r"[\x00-\x1f\x7f]")
 
 
 class _LedgerModel(BaseModel):
@@ -79,20 +78,11 @@ def _new_id() -> FactId:
     return FactId(uuid.uuid4().hex)
 
 
-def _sanitize(value: str) -> str:
-    """Strip control characters/newlines so untrusted point text replayed into
-    the trusted prompt context cannot forge extra ledger-shaped lines."""
-    collapsed = _CONTROL_OR_NEWLINE.sub(" ", value)
-    return " ".join(collapsed.split())
-
-
 def _truncate(value: str, *, max_bytes: int = _MAX_VALUE_BYTES) -> str:
-    """Sanitize, then truncate by encoded byte length (CJK-safe, not char count)."""
-    sanitized = _sanitize(value)
-    encoded = sanitized.encode("utf-8")
-    if len(encoded) <= max_bytes:
-        return sanitized
-    return encoded[: max_bytes - 1].decode("utf-8", errors="ignore") + "…"
+    """Sanitize, then truncate by encoded byte length (CJK-safe, not char
+    count). Delegates to the shared `text_sanitize` helper (also used by
+    `compaction_retention.py`) rather than duplicating the routine."""
+    return truncate_text(value, max_bytes=max_bytes)
 
 
 class FactLedger(_LedgerModel):

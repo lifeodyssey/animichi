@@ -43,6 +43,7 @@ from agent.agents.runtime_models import (
 from agent.agents.session_state import SessionState
 from agent.agents.tool_outcomes import ResolveAmbiguous, ResolveNotFound
 from agent.agents.web_tools import TOOLS as WEB_TOOLS
+from agent.domain.compaction_retention import RetainedEntityLedger
 from agent.domain.fact_ledger import FactLedger
 from agent.infrastructure.observability import (
     record_agent_run_error,
@@ -459,6 +460,7 @@ def trusted_session_context(deps: RuntimeDeps) -> str:
             f"candidate_ids={pending.candidate_ids}."
         )
     parts.extend(_fact_ledger_context(session.fact_ledger))
+    parts.extend(_compaction_retention_context(session.compaction_retained_entities))
     return "[Trusted runtime context]\n" + "\n".join(parts)
 
 
@@ -479,6 +481,23 @@ def _fact_ledger_context(ledger: FactLedger) -> list[str]:
             "questions this session."
         )
     return parts
+
+
+def _compaction_retention_context(ledger: RetainedEntityLedger) -> list[str]:
+    """Named consumption point for Task 5's compaction-retained entities
+    (OQ-8(c)): a compacted tool call's rescued entity string is surfaced
+    here so it stays a live prompt-injection consumer, not dead scaffolding.
+
+    The value is wrapped in closing brackets (`「」`) rather than concatenated
+    bare onto the same line, so a value engineered to look like trailing
+    instruction text cannot blend into the directive sentence that follows it.
+    """
+    return [
+        f"Verbatim entity retained from an earlier {entity.tool_name} call: "
+        f"「{entity.value}」. This was compacted out of the raw conversation; "
+        "still treat it as valid context for anaphora and follow-up."
+        for entity in ledger.entities
+    ]
 
 
 _REPEAT_GUARD_HINT = (
