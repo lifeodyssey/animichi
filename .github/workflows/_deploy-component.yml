@@ -71,30 +71,13 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - name: Build component
-        if: ${{ inputs.build_filter != '' }}
-        env:
-          BUILD_FILTER: ${{ inputs.build_filter }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
-        run: pnpm --filter "$BUILD_FILTER" build
-      - name: Atlas migrate
-        # NOTE: secrets context is NOT allowed in step `if:` (GitHub compile-time
-        # error → startup_failure). Guard inside run via the env var instead.
-        run: |
-          if [ -z "$NEON_DATABASE_URL" ]; then
-            echo "NEON_DATABASE_URL not set — skipping atlas migrate"; exit 0
-          fi
-          curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
-          chmod +x /usr/local/bin/atlas
-          atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL" --revisions-schema public
-        env:
-          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-      # Validates BEFORE anything deploys — a failure here cannot leave a
-      # Worker half-deployed, unlike a failure in "Push post-deploy secrets to
-      # Worker" below (which necessarily runs after "Deploy Worker" and so
-      # cannot un-deploy a Worker that already shipped).
+      # Validates BEFORE anything deploys — including before "Atlas migrate"
+      # below, which is the whole point: a failure here must land before any
+      # side effect (DB migration OR Worker deploy) exists to half-apply. A
+      # failure in "Push post-deploy secrets to Worker" further down, by
+      # contrast, necessarily runs after "Deploy Worker" and so cannot
+      # un-deploy a Worker that already shipped — this step is what actually
+      # backs the "validates before anything deploys" claim.
       #
       # TURNSTILE_SECRET and ANON_ID_SECRET are both only read from inside
       # `handleAnonymousV1` (worker/app.ts), which `resolveAnonymous` only
@@ -120,13 +103,34 @@ jobs:
           TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
           ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
         run: |
-          anon_flag=""
-          if [ "$TARGET_COMPONENT" = "root" ]; then
-            anon_flag=$(awk -F'"' -v want="[env.${TARGET_ENVIRONMENT}.vars]" '
-              $0 == want { in_block=1; next }
-              /^\[/ { in_block=0 }
-              in_block && $1 ~ /^ANON_ACCESS_ENABLED[ \t]*=/ { print $2 }
-            ' wrangler.toml 2>/dev/null || true)
+          # Always attempted, not just for component == root: gating this on
+          # the component name meant every OTHER component was permanently
+          # stuck on the soft-warn branch below with no way to ever hard-fail
+          # — the gate loses its own basis for judgment (and silently
+          # disarms) the instant it stops being root-specific. Today only
+          # root ever populates post_deploy_secrets (this whole step is
+          # skipped otherwise via the `if:` above), so this has no live
+          # effect yet, but the check itself must not depend on component to
+          # be correct.
+          anon_flag=$(awk -F'"' -v want="[env.${TARGET_ENVIRONMENT}.vars]" '
+            $0 == want { in_block=1; next }
+            /^\[/ { in_block=0 }
+            in_block && $1 ~ /^ANON_ACCESS_ENABLED[ \t]*=/ { print $2 }
+          ' wrangler.toml 2>/dev/null || true)
+          # Ambiguity is fail-closed, not fail-open: this parser only
+          # understands one exact TOML shape (double-quoted string inside an
+          # `[env.<name>.vars]` block in wrangler.toml). Any drift from that —
+          # single-quoted or unquoted TOML values, a trailing-space section
+          # header, a wrangler.toml that doesn't exist here at all (e.g.
+          # apps/web is already wrangler.jsonc), or the root config moving to
+          # jsonc too — must NOT silently read as "" and fall through to the
+          # soft-warn branch below, which would quietly turn a hard gate into
+          # a warning exactly like the failure modes this repo has already
+          # been bitten by. Treat anything other than a clean "true"/"false"
+          # as a parse failure and stop.
+          if [ "$anon_flag" != "true" ] && [ "$anon_flag" != "false" ]; then
+            echo "::error::Could not determine ANON_ACCESS_ENABLED for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT from wrangler.toml (parsed value: '$anon_flag', expected exactly \"true\" or \"false\"). This gates whether TURNSTILE_SECRET/ANON_ID_SECRET are load-bearing here — refusing to guess. Fix the parser (or this check) if the config shape changed (e.g. moved to wrangler.jsonc, or the TOML value is no longer a plain double-quoted true/false)."
+            exit 1
           fi
           missing=0
           while IFS= read -r name; do
@@ -144,6 +148,26 @@ jobs:
           if [ "$missing" = "1" ]; then
             exit 1
           fi
+      - name: Build component
+        if: ${{ inputs.build_filter != '' }}
+        env:
+          BUILD_FILTER: ${{ inputs.build_filter }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+        run: pnpm --filter "$BUILD_FILTER" build
+      - name: Atlas migrate
+        # NOTE: secrets context is NOT allowed in step `if:` (GitHub compile-time
+        # error → startup_failure). Guard inside run via the env var instead.
+        run: |
+          if [ -z "$NEON_DATABASE_URL" ]; then
+            echo "NEON_DATABASE_URL not set — skipping atlas migrate"; exit 0
+          fi
+          curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
+          chmod +x /usr/local/bin/atlas
+          atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL" --revisions-schema public
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       # Installs the Pulumi CLI onto PATH without running a command (omitting
       # `command:` is the documented install-only mode) so the plain `pulumi`
       # steps below can use it.
@@ -159,6 +183,7 @@ jobs:
         # upload below) only ever runs under the catalog deploy jobs; look
         # there for the artifact, not under a root/web/users run.
         if: ${{ inputs.run_pulumi }}
+        id: pulumi_export
         working-directory: infra
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -172,23 +197,34 @@ jobs:
           # Same empty-guard pattern as the "Atlas migrate" step above: this
           # secret is `required: false` at the workflow_call boundary, so a
           # caller that omits it must not crash `pulumi login` with an empty
-          # backend URL.
+          # backend URL. This is the ONLY legitimate reason the backup file
+          # doesn't exist afterward — everything below is a hard failure, not
+          # a silent skip, precisely so "Upload Pulumi stack export" below can
+          # tell the two cases apart instead of treating both as fail-open.
           if [ -z "$PULUMI_BACKEND_URL" ]; then
-            echo "PULUMI_BACKEND_URL not set — skipping stack export"; exit 0
+            echo "PULUMI_BACKEND_URL not set — skipping stack export"
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
           pulumi login "$PULUMI_BACKEND_URL"
           pulumi stack select "$PULUMI_STACK"
           pulumi stack export --file "$RUNNER_TEMP/pulumi-$PULUMI_STACK-backup.json"
+          if [ ! -s "$RUNNER_TEMP/pulumi-$PULUMI_STACK-backup.json" ]; then
+            echo "::error::pulumi stack export produced no (or an empty) backup file despite PULUMI_BACKEND_URL being set. Refusing to silently proceed to 'pulumi up' without a rollback snapshot."
+            exit 1
+          fi
       - name: Upload Pulumi stack export
         if: ${{ inputs.run_pulumi }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: pulumi-stack-export-${{ inputs.pulumi_stack }}-${{ github.run_id }}
           path: ${{ runner.temp }}/pulumi-${{ inputs.pulumi_stack }}-backup.json
-          # The export step above skips (no file written) when
-          # PULUMI_BACKEND_URL is empty — don't hard-fail the job over a
-          # missing backup file in that case, just say so.
-          if-no-files-found: warn
+          # "warn" is only reachable for the legitimate skip case (no
+          # PULUMI_BACKEND_URL) — the export step above already hard-fails
+          # (before this step even runs) if it ran but produced no file, so
+          # this no longer needs to (and must not) paper over that case too.
+          if-no-files-found: ${{ steps.pulumi_export.outputs.skipped == 'true' && 'warn' || 'error' }}
           # Rollback windows here are hours-to-days, not weeks — 30 days was
           # needlessly long for a state dump that (per infra/AGENTS.md) is
           # sensitive: not `--show-secrets`'d, so config secrets stay
@@ -217,7 +253,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.79.0"
+          wranglerVersion: "4.112.0"
           workingDirectory: ${{ inputs.working_directory }}
           command: deploy
           environment: ${{ inputs.environment }}

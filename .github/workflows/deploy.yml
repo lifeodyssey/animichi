@@ -44,6 +44,14 @@ jobs:
             /^\[/ { in_block=0 }
             in_block && $1 ~ /^ANON_ACCESS_ENABLED[ \t]*=/ { print $2 }
           ' wrangler.toml 2>/dev/null || true)
+          # Ambiguity is fail-closed, not fail-open — see the matching check
+          # in _deploy-component.yml's "Preflight - post-deploy secrets" step
+          # for the full reasoning. A parse that isn't exactly "true"/"false"
+          # must not silently fall through to the soft-warn branch below.
+          if [ "$anon_flag" != "true" ] && [ "$anon_flag" != "false" ]; then
+            echo "::error::Could not determine ANON_ACCESS_ENABLED for environment=$TARGET_ENVIRONMENT from wrangler.toml (parsed value: '$anon_flag', expected exactly \"true\" or \"false\"). Refusing to guess."
+            exit 1
+          fi
           missing=0
           while IFS= read -r name; do
             [ -z "$name" ] && continue
@@ -98,7 +106,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.79.0"
+          wranglerVersion: "4.112.0"
           workingDirectory: workers/catalog
           command: deploy
           environment: production
@@ -116,7 +124,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.79.0"
+          wranglerVersion: "4.112.0"
           workingDirectory: workers/users
           command: deploy
           environment: production
@@ -136,7 +144,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.79.0"
+          wranglerVersion: "4.112.0"
           command: deploy
           environment: production
           secrets: |
