@@ -134,7 +134,7 @@ def _parse_runtime_state(raw: object) -> SessionState | None:
         return _parse_forward_compatible(raw)
 
 
-_FORWARD_COMPATIBLE_KEYS = frozenset({"fact_ledger"})
+_FORWARD_COMPATIBLE_KEYS = frozenset({"fact_ledger", "compaction_retained_entities"})
 
 
 def _parse_forward_compatible(raw: dict[str, object]) -> SessionState | None:
@@ -187,10 +187,13 @@ def build_context_block(
 
 
 def _serialize_runtime_state(state: SessionState) -> dict[str, object]:
-    """Dump the typed state; an ever-empty fact ledger adds no envelope key."""
+    """Dump the typed state; an ever-empty fact ledger or compaction-retention
+    ledger adds no envelope key."""
     dumped = cast(dict[str, object], state.model_dump(mode="json"))
     if state.fact_ledger.is_empty():
         dumped.pop("fact_ledger", None)
+    if state.compaction_retained_entities.is_empty():
+        dumped.pop("compaction_retained_entities", None)
     return dumped
 
 

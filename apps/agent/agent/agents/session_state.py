@@ -6,6 +6,7 @@ from typing import Literal, NewType, Self, TypeAlias, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from agent.domain.compaction_retention import RetainedEntityLedger
 from agent.domain.fact_ledger import FactLedger
 
 MAX_REFS = 8
@@ -205,6 +206,9 @@ class SessionState(_SessionModel):
     last_result_ref: ResultRef | None = None
     clarification_revision: int = 0
     fact_ledger: FactLedger = Field(default_factory=FactLedger)
+    compaction_retained_entities: RetainedEntityLedger = Field(
+        default_factory=RetainedEntityLedger
+    )
 
     @model_validator(mode="after")
     def _bound_restored_registries(self) -> Self:
@@ -217,6 +221,7 @@ class SessionState(_SessionModel):
         self.route_lru = _restore_lru(
             self.routes, self.route_lru, "route_lru" in fields
         )
+        self.compaction_retained_entities.enforce_bounds()
         return self
 
     def store_search_result(self, ref: ResultRef, payload: SearchPayloadState) -> None:

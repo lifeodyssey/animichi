@@ -99,6 +99,7 @@ def test_extract_delta_always_serializes_empty_state_clear() -> None:
     )
     dumped = SessionState().model_dump(mode="json")
     dumped.pop("fact_ledger")  # never-recorded ledger adds no envelope key
+    dumped.pop("compaction_retained_entities")  # ditto (#476)
     assert extract_context_delta(result) == {"session_state_v2": dumped}
 
 
