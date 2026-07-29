@@ -67,22 +67,37 @@ jobs:
             fi
             # TURNSTILE_SECRET-specific validity probe — see the matching
             # (fully commented) check in _deploy-component.yml's "Preflight -
-            # post-deploy secrets" step for the full reasoning. A GitHub
-            # secret is write-only, so this is the only place that ever holds
-            # the raw value and can tell a Secret Key from a Site Key.
+            # post-deploy secrets" step for the full reasoning, including why
+            # this retries with backoff instead of fail-closing on the first
+            # ambiguous result (network flakiness isn't the same kind of
+            # ambiguity as the local TOML-parse case above — and this is the
+            # manual production path, so an unreachable third-party validator
+            # must not block an unrelated production hotfix).
             if [ "$name" = "TURNSTILE_SECRET" ] && [ "$anon_flag" = "true" ]; then
-              turnstile_probe=$(curl -sS --max-time 10 \
-                --data-urlencode "secret=$value" \
-                --data-urlencode "response=preflight-probe-not-a-real-token" \
-                https://challenges.cloudflare.com/turnstile/v0/siteverify 2>/dev/null || true)
-              if printf '%s' "$turnstile_probe" | grep -q '"invalid-input-secret"'; then
+              turnstile_verdict=""
+              attempt=1
+              while [ "$attempt" -le 3 ]; do
+                turnstile_probe=$(printf '%s' "$value" | curl -sS --max-time 10 \
+                  --data-urlencode "secret@-" \
+                  --data-urlencode "response=preflight-probe-not-a-real-token" \
+                  https://challenges.cloudflare.com/turnstile/v0/siteverify 2>/dev/null || true)
+                if printf '%s' "$turnstile_probe" | grep -q '"invalid-input-secret"'; then
+                  turnstile_verdict="invalid"
+                  break
+                elif printf '%s' "$turnstile_probe" | grep -q '"invalid-input-response"'; then
+                  turnstile_verdict="valid"
+                  break
+                fi
+                attempt=$((attempt + 1))
+                [ "$attempt" -le 3 ] && sleep $((attempt * 2))
+              done
+              if [ "$turnstile_verdict" = "invalid" ]; then
                 echo "::error::TURNSTILE_SECRET failed Cloudflare siteverify validation for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (error-code: invalid-input-secret). This is what happens when the stored value is a Site Key instead of the Secret Key, or any other string siteverify doesn't recognize. Refusing to deploy with it. Re-provision with: gh secret set TURNSTILE_SECRET"
                 missing=1
-              elif printf '%s' "$turnstile_probe" | grep -q '"invalid-input-response"'; then
+              elif [ "$turnstile_verdict" = "valid" ]; then
                 echo "TURNSTILE_SECRET passed Cloudflare siteverify validation for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT."
               else
-                echo "::error::Could not validate TURNSTILE_SECRET against Cloudflare's siteverify endpoint for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — ambiguous result. Same fail-closed principle as the ANON_ACCESS_ENABLED parser above. Re-run the deploy; check Cloudflare's status page if this persists."
-                missing=1
+                echo "::warning::Could not reach Cloudflare's siteverify endpoint to validate TURNSTILE_SECRET after 3 attempts for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — treating this as validator unavailability, not evidence the secret itself is wrong. Proceeding without this specific check; the empty-value check above still applies."
               fi
             fi
           done <<< "$POST_DEPLOY_SECRETS"

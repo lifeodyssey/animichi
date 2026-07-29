@@ -36,9 +36,17 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
   config; do not flip it as routine cleanup.
 - No Hyperdrive: catalog reaches Neon over `@neondatabase/serverless` HTTP.
 - **`pulumi stack export` runs unmodified before every `pulumi up`** (rollback backup, #485;
-  `_deploy-component.yml`'s "Pulumi stack export" step), uploaded as a 7-day CI artifact. It is
+  `_deploy-component.yml`'s "Pulumi stack export" step), then is copied to the **R2 bucket the
+  Pulumi state backend already lives in** (`rollback-backups/` prefix) via `aws s3 cp` — deliberately
+  **not** a GitHub Actions artifact, because this repo is **public**: a public repo's workflow
+  artifacts are downloadable by any signed-in GitHub account, not just people with repo access. It is
   **never** run with `--show-secrets` — encrypted `secure:` config must stay ciphertext in that
-  artifact. Any new sensitive value added to `index.ts`/the stack configs MUST go through
+  export. Any new sensitive value added to `index.ts`/the stack configs MUST go through
   `config.requireSecret()` / `getSecret()` (see `pulumi-best-practices` skill §5), never a plain
-  `config.require()` or a literal — a value that isn't marked secret is exported in the clear into a
-  workflow artifact anyone with repo read access can download for 7 days.
+  `config.require()` or a literal — a value that isn't marked secret is exported in the clear into
+  that R2 object. The R2 bucket is only as private as the R2 credentials that already gate the
+  Pulumi state itself; keeping the backup there (not GitHub artifacts) is what keeps that true for
+  the backup too.
+- No lifecycle/expiry rule exists yet on the `rollback-backups/` R2 prefix — objects accumulate
+  indefinitely. Adding one is a Pulumi resource change (`index.ts`), not a CI change; tracked as a
+  follow-up.
