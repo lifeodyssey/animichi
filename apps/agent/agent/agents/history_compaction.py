@@ -13,6 +13,8 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
     ModelRequestPart,
+    ModelResponse,
+    ToolCallPart,
     ToolReturnPart,
 )
 from pydantic_ai_harness.compaction import (
@@ -22,6 +24,7 @@ from pydantic_ai_harness.compaction import (
 )
 
 from agent.agents.runtime_deps import RuntimeDeps
+from agent.agents.session_state import SessionState
 
 HISTORY_MAX_TOKENS = 5_500
 HISTORY_KEEP_TOKENS = 1_100
@@ -44,6 +47,50 @@ Respond only with the compact continuation context.
 """
 
 ToolSummary = Callable[[str, object], str]
+
+# Task 5 (OQ-8(c)): tool arguments that carry a literal, user-supplied entity
+# string worth rescuing verbatim across compaction — an anime title or a
+# place name, keyed by the tool call's own argument name.
+_ENTITY_ARG_FIELDS: dict[str, str] = {
+    "resolve_anime": "title",
+    "search_nearby": "location",
+}
+
+
+def _entity_from_call_args(tool_name: str, args: Mapping[str, object]) -> str | None:
+    field = _ENTITY_ARG_FIELDS.get(tool_name)
+    if field is None:
+        return None
+    value = args.get(field)
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _call_args_by_id(messages: list[ModelMessage]) -> dict[str, Mapping[str, object]]:
+    """Map each tool call's id to its own arguments, read from `ModelResponse`
+    parts. `CompactToolReturns` otherwise only sees the paired `ModelRequest`
+    tool-return message, which carries the (compact) result, not the call."""
+    lookup: dict[str, Mapping[str, object]] = {}
+    for message in messages:
+        if not isinstance(message, ModelResponse):
+            continue
+        for part in message.parts:
+            if isinstance(part, ToolCallPart):
+                lookup[part.tool_call_id] = part.args_as_dict()
+    return lookup
+
+
+def _session_of(ctx: object) -> SessionState | None:
+    """Best-effort, exception-free lookup of the live session from `ctx.deps`.
+
+    Degrades to `None` for any shape that isn't a real production
+    `RunContext[RuntimeDeps]` (including the `None` sentinel some tests pass
+    for `ctx`), matching the error-path AC: a lookup miss never raises out of
+    the compaction tier.
+    """
+    deps = getattr(ctx, "deps", None)
+    tool_state = getattr(deps, "tool_state", None)
+    session = getattr(tool_state, "session", None)
+    return session if isinstance(session, SessionState) else None
 
 
 def _mapping(content: object) -> Mapping[str, object] | None:
@@ -79,27 +126,59 @@ class CompactToolReturns(Generic[AgentDepsT]):
     async def compact(
         self, messages: list[ModelMessage], ctx: RunContext[AgentDepsT]
     ) -> list[ModelMessage]:
-        del ctx
         cutoff = max(0, len(messages) - self.keep_recent)
+        call_args = _call_args_by_id(messages)
+        session = _session_of(ctx)
         return [
-            self._compact_message(message, i < cutoff)
+            self._compact_message(message, i < cutoff, call_args, session)
             for i, message in enumerate(messages)
         ]
 
-    def _compact_message(self, message: ModelMessage, old: bool) -> ModelMessage:
+    def _compact_message(
+        self,
+        message: ModelMessage,
+        old: bool,
+        call_args: dict[str, Mapping[str, object]],
+        session: SessionState | None,
+    ) -> ModelMessage:
         if not old or not isinstance(message, ModelRequest):
             return message
-        parts = [self._compact_return(part) for part in message.parts]
+        parts = [
+            self._compact_return(part, call_args, session) for part in message.parts
+        ]
         return replace(message, parts=parts)
 
-    def _compact_return(self, part: ModelRequestPart) -> ModelRequestPart:
+    def _compact_return(
+        self,
+        part: ModelRequestPart,
+        call_args: dict[str, Mapping[str, object]],
+        session: SessionState | None,
+    ) -> ModelRequestPart:
         if (
             not isinstance(part, ToolReturnPart)
             or len(str(part.content)) <= TOOL_RETURN_MAX_CHARS
         ):
             return part
+        self._retain_entity(part, call_args, session)
         summary = self._summary(part.tool_name, part.content)
         return replace(part, content=summary)
+
+    def _retain_entity(
+        self,
+        part: ToolReturnPart,
+        call_args: dict[str, Mapping[str, object]],
+        session: SessionState | None,
+    ) -> None:
+        """Task 5 (OQ-8(c)): rescue a literal call argument verbatim into
+        session state before this tool return is shrunk to a summary."""
+        if session is None:
+            return
+        args = call_args.get(part.tool_call_id)
+        if args is None:
+            return
+        value = _entity_from_call_args(part.tool_name, args)
+        if value is not None:
+            session.compaction_retained_entities.record(part.tool_name, value)
 
     def _summary(self, tool_name: str, content: object) -> str:
         candidates = (
