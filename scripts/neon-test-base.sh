@@ -248,9 +248,17 @@ if [[ "$MODE" == "provision" ]]; then
   run_db_step "deterministic empty database create" psql -X --set=ON_ERROR_STOP=1 "service=maintenance" \
     --command="CREATE DATABASE \"${DATABASE_NAME}\" OWNER \"${DATABASE_ROLE}\";"
 fi
-PYTHONPATH="$ROOT/apps/agent" DATABASE_URL="$DATABASE_URL" ATLAS_VERSION="$ATLAS_VERSION" \
+# A `VAR=… run_db_step …` prefix would assign in the current shell (run_db_step is
+# a function, and bash rejects the assignment outright against the readonly
+# DATABASE_URL above). A subshell keeps the exports scoped to this one step without
+# putting the DSN on any command line — `env DATABASE_URL=…` would publish the
+# password in the process argv, which the pg_service/pgpass indirection exists to
+# avoid.
+(
+  export PYTHONPATH="$ROOT/apps/agent" DATABASE_URL ATLAS_VERSION
   run_db_step "Atlas ${PINNED_ATLAS_VERSION} migration apply" \
-  python3 -m agent.tests.atlas_helper apply
+    python3 -m agent.tests.atlas_helper apply
+)
 run_db_step "idempotent fixture seed" psql -X --set=ON_ERROR_STOP=1 "service=database" \
   --file="$SEED_FILE"
 run_db_step "service-role membership grant" psql -X --set=ON_ERROR_STOP=1 "service=database" \
