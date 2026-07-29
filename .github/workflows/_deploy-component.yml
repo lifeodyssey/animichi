@@ -91,6 +91,59 @@ jobs:
           atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL" --revisions-schema public
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      # Validates BEFORE anything deploys — a failure here cannot leave a
+      # Worker half-deployed, unlike a failure in "Push post-deploy secrets to
+      # Worker" below (which necessarily runs after "Deploy Worker" and so
+      # cannot un-deploy a Worker that already shipped).
+      #
+      # TURNSTILE_SECRET and ANON_ID_SECRET are both only read from inside
+      # `handleAnonymousV1` (worker/app.ts), which `resolveAnonymous` only
+      # reaches when this environment's `ANON_ACCESS_ENABLED` var is "true"
+      # (worker/auth.ts:anonymousEnabled — both flag AND secret are required).
+      # `wrangler.toml`'s `env.production.vars` currently sets it to "false",
+      # so both secrets are genuinely inert there today; hard-failing
+      # deploy-root-prod over a secret production doesn't read would be a
+      # self-inflicted outage. Read the live flag out of the checked-out
+      # `wrangler.toml` instead of hardcoding prod=off/staging=on, so this
+      # adapts automatically if the flag value changes. (If a future
+      # post_deploy_secrets entry is NOT gated by this same flag, this
+      # all-or-nothing check needs to move from "gate the whole list" to
+      # "gate per secret name.")
+      - name: Preflight - post-deploy secrets
+        if: ${{ inputs.post_deploy_secrets != '' }}
+        working-directory: ${{ inputs.working_directory }}
+        shell: bash
+        env:
+          TARGET_COMPONENT: ${{ inputs.component }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          POST_DEPLOY_SECRETS: ${{ inputs.post_deploy_secrets }}
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+        run: |
+          anon_flag=""
+          if [ "$TARGET_COMPONENT" = "root" ]; then
+            anon_flag=$(awk -F'"' -v want="[env.${TARGET_ENVIRONMENT}.vars]" '
+              $0 == want { in_block=1; next }
+              /^\[/ { in_block=0 }
+              in_block && $1 ~ /^ANON_ACCESS_ENABLED[ \t]*=/ { print $2 }
+            ' wrangler.toml 2>/dev/null || true)
+          fi
+          missing=0
+          while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            value="${!name-}"
+            if [ -z "$value" ]; then
+              if [ "$anon_flag" = "true" ]; then
+                echo "::error::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, where ANON_ACCESS_ENABLED=\"true\" makes it load-bearing (worker/turnstile.ts fails CLOSED — every anonymous request 403s without TURNSTILE_SECRET once ANON_ID_SECRET lets resolveAnonymous through at all). Refusing to start the deploy without it. Set it with: gh secret set $name"
+                missing=1
+              else
+                echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, but ANON_ACCESS_ENABLED is not \"true\" there, so this environment's code path never reads it (see worker/auth.ts:anonymousEnabled). Soft warning only; the post-deploy push step will skip it."
+              fi
+            fi
+          done <<< "$POST_DEPLOY_SECRETS"
+          if [ "$missing" = "1" ]; then
+            exit 1
+          fi
       # Installs the Pulumi CLI onto PATH without running a command (omitting
       # `command:` is the documented install-only mode) so the plain `pulumi`
       # steps below can use it.
@@ -100,6 +153,11 @@ jobs:
       - name: Pulumi stack export (rollback backup)
         # Snapshot state BEFORE `up` mutates it, so a bad apply can be rolled
         # back with `pulumi stack import` from the artifact below. #485.
+        # NOTE: `run_pulumi` defaults to true and only `component: catalog`
+        # jobs leave it at that default — web/users/root all pass
+        # `run_pulumi: false` (see ci.yml). So in practice this step (and the
+        # upload below) only ever runs under the catalog deploy jobs; look
+        # there for the artifact, not under a root/web/users run.
         if: ${{ inputs.run_pulumi }}
         working-directory: infra
         env:
@@ -109,7 +167,15 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           PULUMI_STACK: ${{ inputs.pulumi_stack }}
+        shell: bash
         run: |
+          # Same empty-guard pattern as the "Atlas migrate" step above: this
+          # secret is `required: false` at the workflow_call boundary, so a
+          # caller that omits it must not crash `pulumi login` with an empty
+          # backend URL.
+          if [ -z "$PULUMI_BACKEND_URL" ]; then
+            echo "PULUMI_BACKEND_URL not set — skipping stack export"; exit 0
+          fi
           pulumi login "$PULUMI_BACKEND_URL"
           pulumi stack select "$PULUMI_STACK"
           pulumi stack export --file "$RUNNER_TEMP/pulumi-$PULUMI_STACK-backup.json"
@@ -119,7 +185,17 @@ jobs:
         with:
           name: pulumi-stack-export-${{ inputs.pulumi_stack }}-${{ github.run_id }}
           path: ${{ runner.temp }}/pulumi-${{ inputs.pulumi_stack }}-backup.json
-          retention-days: 30
+          # The export step above skips (no file written) when
+          # PULUMI_BACKEND_URL is empty — don't hard-fail the job over a
+          # missing backup file in that case, just say so.
+          if-no-files-found: warn
+          # Rollback windows here are hours-to-days, not weeks — 30 days was
+          # needlessly long for a state dump that (per infra/AGENTS.md) is
+          # sensitive: not `--show-secrets`'d, so config secrets stay
+          # ciphertext, but treat the artifact itself as sensitive anyway and
+          # never paste its contents into an issue/PR. This coexists with,
+          # and does not replace, the R2 backend's own state `.bak` file.
+          retention-days: 7
       - name: Pulumi up
         if: ${{ inputs.run_pulumi }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
@@ -159,12 +235,20 @@ jobs:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
-      # Deliberately NOT part of the wrangler-action `secrets:` list above: this
-      # step must run strictly after "Deploy Worker" has created/updated the
-      # target Worker. `wrangler secret put` in non-interactive CI silently
-      # answers "yes" to the "Worker does not exist, create it?" prompt, which
-      # has already produced one orphaned shell Worker in this account. Putting
-      # the secret after a confirmed deploy removes that failure mode.
+      # Deliberately NOT part of the wrangler-action `secrets:` list above (the
+      # one populating `worker_secrets`): that list is uploaded via
+      # wrangler-action's own `uploadSecrets()`, which runs `wrangler secret
+      # bulk` BEFORE the `deploy` command internally (confirmed by reading
+      # cloudflare/wrangler-action's dist/index.mjs at the pinned SHA below —
+      # `uploadSecrets(...)` is called ahead of `wranglerCommands(...)`), so
+      # those 10 secrets do face the non-interactive "Worker does not exist,
+      # create it?" fallback-to-yes prompt on a first-ever deploy to a new
+      # environment. This step is different because it is a separate step we
+      # control the order of: placed after "Deploy Worker", so by the time it
+      # runs, the same job has already deployed (or updated) this exact
+      # Worker/environment — narrowing that fallback-to-yes risk for the two
+      # secrets this step manages, though it does not retroactively fix it for
+      # wrangler-action's own bulk upload of `worker_secrets`.
       #
       # List-driven: `inputs.post_deploy_secrets` is a newline list of secret
       # names for THIS component/environment's Worker (e.g. root's
@@ -174,24 +258,36 @@ jobs:
       # bash indirect-expansion lookup (`${!name}`) can find its value —
       # GitHub Actions has no dynamic `secrets.<computed-name>` lookup, so this
       # env map is the one place that still needs a per-secret line.
+      #
+      # Empty values are skipped, not failed, here — the "Preflight" step
+      # above already decided whether an empty value is fatal (flag-gated
+      # secret whose feature is off in this environment) or fine to proceed
+      # past. If this step still fails, it is a real, unexpected condition:
+      # the Worker has already been deployed by the step above and this
+      # failure does NOT undo that — it only means the secret push itself
+      # didn't complete, which is a real (if narrow) gap between deploy and
+      # push worth re-running by hand.
       - name: Push post-deploy secrets to Worker
         if: ${{ inputs.post_deploy_secrets != '' }}
         working-directory: ${{ inputs.working_directory }}
+        shell: bash
         env:
           TARGET_COMPONENT: ${{ inputs.component }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           POST_DEPLOY_SECRETS: ${{ inputs.post_deploy_secrets }}
           TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
           ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           while IFS= read -r name; do
             [ -z "$name" ] && continue
             value="${!name-}"
             if [ -z "$value" ]; then
-              echo "::error::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT. Refusing to leave the Worker running without it instead of deploying silently degraded. Set it with: gh secret set $name"
-              exit 1
+              echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — skipping the push (the preflight step already validated it is safe to skip here)."
+              continue
             fi
-            printf '%s' "$value" | npx --yes wrangler@4.79.0 secret put "$name" --env "$TARGET_ENVIRONMENT"
+            printf '%s' "$value" | npx --yes wrangler@4.112.0 secret put "$name" --env "$TARGET_ENVIRONMENT"
           done <<< "$POST_DEPLOY_SECRETS"
       # Real per-component smoke checks (issue #484). `web` and `root` are
       # each self-contained (no dependency on other components in the same

@@ -251,37 +251,61 @@ Important: this is a documentation target only right now. Before enabling it, th
 ## Rollback
 
 Every `_deploy-component.yml` deploy step is a plain `wrangler deploy` (not `wrangler versions
-upload`), but Cloudflare still records each one as a numbered deployment/version under the hood, so
-`wrangler rollback` and `wrangler deployments list` work against it without any change to the deploy
+upload`), but Cloudflare still records each one as a numbered **version** under the hood, so
+`wrangler rollback` and `wrangler versions list` work against it without any change to the deploy
 step itself. `preview.yml` already exercises the same versions API (`wrangler versions
 list/upload`) for PR previews — this is the instant-rollback side of that same primitive.
 
 ### One-command rollback per component
 
-Find the last known-good deployment ID first, then roll back. Run from the repo root; `pnpm
---filter <pkg> exec` resolves each sub-worker's own `wrangler.toml`/`wrangler.jsonc`.
+Find the last known-good **version id** first (not a "deployment id" — `wrangler rollback` takes a
+version id from `wrangler versions list`), then roll back non-interactively. Run from the repo
+root; `pnpm --filter <pkg> exec` resolves each sub-worker's own `wrangler.toml`/`wrangler.jsonc`.
+`wrangler rollback` prompts interactively for confirmation and a reason message by default — in a
+non-TTY shell that hangs rather than failing, so always pass `-y` (auto-confirm) and `-m` (reason)
+explicitly.
 
-| Component | Working dir | List deployments | Roll back |
+| Component | Working dir | List versions | Roll back |
 |---|---|---|---|
-| root (edge Worker + container) | `.` | `npx wrangler deployments list --env <staging\|production>` | `npx wrangler rollback [deployment-id] --env <staging\|production>` |
-| catalog | `workers/catalog` | `pnpm --filter catalog exec wrangler deployments list --env <staging\|production>` | `pnpm --filter catalog exec wrangler rollback [deployment-id] --env <staging\|production>` |
-| users | `workers/users` | `pnpm --filter users exec wrangler deployments list --env <staging\|production>` | `pnpm --filter users exec wrangler rollback [deployment-id] --env <staging\|production>` |
-| web | `apps/web` | `pnpm --filter web exec wrangler deployments list --env <staging\|production>` | `pnpm --filter web exec wrangler rollback [deployment-id] --env <staging\|production>` |
+| root (edge Worker + container) | `.` | `npx wrangler@4.112.0 versions list --env <staging\|production>` | `npx wrangler@4.112.0 rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
+| catalog | `workers/catalog` | `pnpm --filter catalog exec wrangler versions list --env <staging\|production>` | `pnpm --filter catalog exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
+| users | `workers/users` | `pnpm --filter users exec wrangler versions list --env <staging\|production>` | `pnpm --filter users exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
+| web | `apps/web` | `pnpm --filter web exec wrangler versions list --env <staging\|production>` | `pnpm --filter web exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 
-`wrangler rollback` with no ID rolls back to the deployment immediately before the current one;
-pass an explicit ID from the `deployments list` output to jump further back. This only swaps the
-running Worker version — it does not touch bindings/secrets changed since that version, and it does
-not re-run Pulumi.
+`wrangler rollback` with no version id rolls back to the version immediately before the current
+one; pass an explicit id from the `versions list` output to jump further back. This only swaps the
+running Worker code version — it does not touch bindings/secrets changed since that version, and it
+does not re-run Pulumi.
+
+**⚠️ root is the least certain of the four to roll back cleanly.** Unlike catalog/users/web, root
+carries two Durable Object bindings (`CONTAINER`, `EDGE_GUARD`) behind `[[migrations]]` (`v1`
+`new_sqlite_classes: RuntimeContainer`, `v2` `new_sqlite_classes: EdgeGuard`) plus a `[[containers]]`
+image. `wrangler rollback` swaps the Worker script version; it does **not** un-apply a Durable
+Object class migration or restore a deleted container image:
+- if the bad release added a DO migration, rolling back the *script* does not roll back the DO
+  storage/class binding underneath it — a version straddling that migration boundary may not start
+  cleanly, or may start against storage shaped for the newer class;
+- if `wrangler containers delete` (or an image prune) already removed the container image the old
+  version referenced, rolling back the script alone will not resurrect it — the old version will
+  fail to boot its container until the image is rebuilt and pushed back.
+
+Treat a root rollback across a DO-migration or container-image boundary as a case that needs manual
+verification (does the old version actually start? check `wrangler tail`), not a routine one-liner.
 
 Steps:
 
 1. Identify the bad component(s) from the incident (which `deploy-*` job ran, or which route is
    failing).
-2. `wrangler deployments list --env <environment>` for that component; pick the deployment ID from
-   before the bad release (or omit the ID to go back exactly one step).
-3. `wrangler rollback [deployment-id] --env <environment>` for that component.
-4. Re-run the relevant `_post-deploy-test.yml` suite (`api` for staging, the production suite for
-   prod) against the rolled-back environment to confirm.
+2. `wrangler versions list --env <environment>` for that component; pick the version id from before
+   the bad release (or omit it to go back exactly one step).
+3. `wrangler rollback <version-id> --env <environment> -y -m "<reason>"` for that component.
+4. If the rolled-back component is `root`, verify it actually started (`wrangler tail --env
+   <environment>`, `/healthz`) — see the DO-migration/container warning above. There is currently no
+   automated post-rollback check to lean on instead: `_post-deploy-test.yml`'s `api`/`e2e`/`smoke`
+   suites are still TODO no-ops (tracked separately; PR #493 is turning them into real assertions).
+   It does have a `workflow_dispatch` trigger now so it *can* be re-run manually from the Actions UI
+   during an incident, but until those suites land, re-running it confirms nothing beyond "the job
+   didn't crash" — don't treat a green re-run as verification yet.
 5. Still revert the offending commit on `main` afterward — the rollback above is a stopgap for the
    live Worker, not a fix for the tree; the next `main` push will otherwise redeploy the bad code on
    top of your rollback.
@@ -289,11 +313,24 @@ Steps:
 ### Pulumi rollback
 
 `_deploy-component.yml`'s "Pulumi stack export (rollback backup)" step runs `pulumi stack export`
-immediately before every `pulumi up` and uploads the result as a workflow artifact
-(`pulumi-stack-export-<stack>-<run-id>`, 30-day retention). To roll back a bad Pulumi apply:
+immediately before every `pulumi up` **that actually runs** and uploads the result as a workflow
+artifact (`pulumi-stack-export-<stack>-<run-id>`, 7-day retention — this is an hours-to-days
+recovery window, not a long-term archive). `run_pulumi` defaults to `true`, but every caller except
+`component: catalog` explicitly sets `run_pulumi: false` (see `ci.yml`), so **this step, and the
+artifact, currently only ever exist under the catalog deploy jobs** (`deploy-staging` /
+`deploy-prod`) — don't go looking for it under a root/web/users run.
 
-1. Download the artifact from the run immediately before the bad one (Actions tab → that run →
-   Artifacts).
+**⚠️ Treat this artifact as sensitive.** It is not exported with `--show-secrets`, so encrypted
+config values stay ciphertext, but the export can still contain resource identifiers and other
+operational detail — never paste its contents into an issue or PR comment. It coexists with, and
+does not replace, the R2 Pulumi backend's own state `.bak` file; the artifact exists specifically so
+a bad `up` in one CI run can be undone without needing separate access to the R2 backend bucket.
+
+To roll back a bad Pulumi apply:
+
+1. Download the artifact from **the same run that did the bad `pulumi up`** — the export step runs
+   immediately *before* `up` inside that one run, so the pre-apply snapshot lives in that run's own
+   artifacts, not the run before it.
 2. `pulumi stack select <staging|prod>` in `infra/`, then `pulumi stack import --file
    <downloaded-file>` to restore that state, followed by `pulumi up` to reconcile real
    infrastructure back to it.
@@ -312,15 +349,16 @@ declaring the rollback complete.
 
 ### Automating the rollback trigger
 
-No `workflow_dispatch` rollback workflow is added here beyond the manual commands above.
-`wrangler rollback`/`deployments list` already are the one-command primitive the issue asked for;
-wrapping them in a bespoke `workflow_dispatch` (component + version-id inputs) would add an
-unvalidated new code path — with untested edge cases (invalid version id, wrong environment,
-partial multi-component rollback ordering) — for an incident-response tool that most needs to be
-simple and trustworthy under pressure. The manual table above can be run by anyone with
-`CLOUDFLARE_API_TOKEN`-equivalent access locally, or pasted into a `gh workflow run` /
-`workflow_dispatch` step later once it has been exercised for real; revisit only after this manual
-path has actually been used in an incident.
+No dedicated `workflow_dispatch` rollback workflow (component + version-id inputs) is added here
+beyond the manual commands above. `wrangler rollback`/`versions list` already are the one-command
+primitive the issue asked for; wrapping them in a bespoke, never-exercised dispatch workflow would
+add untested complexity — invalid version ids, wrong environment, partial multi-component rollback
+ordering, the DO-migration/container caveat above — to an incident-response tool that most needs to
+be simple and trustworthy under pressure. The manual table above can be run by anyone with
+`CLOUDFLARE_API_TOKEN`-equivalent access locally, or pasted into a `gh workflow run` step later once
+it has been exercised for real; revisit only after this manual path has actually been used in an
+incident. (`_post-deploy-test.yml` did gain a `workflow_dispatch` trigger in this same change, since
+that one was a pure UI-affordance gap rather than new untested logic — see step 4 above.)
 
 ### WAF rollback
 
