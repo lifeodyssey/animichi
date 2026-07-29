@@ -297,10 +297,21 @@ jobs:
       # `@pulumi/pulumi` and `@pulumi/cloudflare`. `infra/pnpm-lock.yaml` is
       # committed alongside this change so `--frozen-lockfile` pins versions
       # here the same way the root lockfile does for every other package.
+      #
+      # `--ignore-scripts` disables package lifecycle scripts (pre/postinstall)
+      # for this install (SonarCloud githubactions:S6505, a real finding, not
+      # a false positive — flagged the un-flagged install on this exact PR).
+      # Verified this does NOT break the Pulumi runtime: re-ran this same
+      # install with the flag added and `pulumi preview` against it still got
+      # past SDK loading to the identical downstream config error as without
+      # the flag (neither `@pulumi/pulumi` nor `@pulumi/cloudflare` needs a
+      # lifecycle script — pnpm's own build-script gate already no-ops here
+      # too, logging "Ignored build scripts: protobufjs@7.6.5" on a plain
+      # install with no flag at all).
       - name: Install infra dependencies
         if: ${{ inputs.run_pulumi }}
         working-directory: infra
-        run: pnpm install --ignore-workspace --frozen-lockfile
+        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
       - name: Pulumi stack export (rollback backup)
         # Snapshot state BEFORE `up` mutates it, so a bad apply can be rolled
         # back with `pulumi stack import` from the R2 object this step writes.
