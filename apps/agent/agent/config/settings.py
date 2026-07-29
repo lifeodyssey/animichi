@@ -1,9 +1,6 @@
 """Application settings and configuration management."""
 
 import warnings
-from collections.abc import Iterator
-from contextlib import contextmanager
-from contextvars import ContextVar
 from functools import lru_cache
 from pathlib import Path
 from typing import TypeGuard
@@ -11,33 +8,6 @@ from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-#: Scopes `Settings()` construction to skip the model-credential check in
-#: `validate_required_env` (issue #508). The main service NEVER sets this —
-#: `get_settings()` always constructs outside any such scope, so its
-#: cached singleton keeps requiring MIMO_API_KEY/etc. exactly as before.
-#: It exists solely for DB-only cron scripts (the anonymous-session and
-#: anon-quota-count purges) that never touch the model at all: a retention
-#: job failing closed on an unrelated model credential just keeps finding
-#: new ways to break (see `get_db_only_settings` below).
-_skip_model_credential_validation: ContextVar[bool] = ContextVar(
-    "_skip_model_credential_validation", default=False
-)
-
-
-@contextmanager
-def _without_model_credential_validation() -> Iterator[None]:
-    """Construct `Settings()` without requiring a model credential.
-
-    Scoped via `ContextVar` rather than a constructor flag so it cannot leak
-    into `get_settings()`'s `lru_cache`d singleton or be passed by accident
-    from application code — the only caller is `get_db_only_settings`.
-    """
-    token = _skip_model_credential_validation.set(True)
-    try:
-        yield
-    finally:
-        _skip_model_credential_validation.reset(token)
 
 
 def _mask_secret(value: str | None, visible_chars: int = 4) -> str:
@@ -188,27 +158,14 @@ class Settings(BaseSettings):
         ge=0,
         description="Per-identity daily message cap for anonymous users (None or 0 disables)",
     )
-    # Retention for anon_daily_message_count (issue #282 review): rows older
-    # than this many UTC days are eligible for the standalone purge script
-    # (scripts/purge_anon_quota_counts.py). 30 mirrors the analogous
-    # anonymous-session retention window used elsewhere in this codebase.
-    anon_daily_message_count_retention_days: int = Field(
-        default=30, gt=0, description="Days to keep anon_daily_message_count rows"
-    )
+    # anon_daily_message_count and anonymous-session retention windows moved
+    # to `PurgeCronSettings` (agent/config/cron_settings.py, issue #508) —
+    # the only two things that ever read them are the DB-only purge crons.
     model_input_cost_per_mtok_usd: float = Field(
         default=0.0, ge=0, description="Input token price per million tokens (USD)"
     )
     model_output_cost_per_mtok_usd: float = Field(
         default=0.0, ge=0, description="Output token price per million tokens (USD)"
-    )
-    # Anonymous-session retention sweep (issue #273 Task 3). A session with no
-    # route output is purged once its conversation has gone this many days
-    # without an update; route-bearing sessions are retained permanently
-    # regardless of this window (not configurable — see purge_anonymous_sessions).
-    anonymous_session_retention_days: int = Field(
-        default=30,
-        ge=1,
-        description="Days of inactivity before a routeless anonymous session is purged",
     )
     service_host: str = Field(default="0.0.0.0", description="HTTP service bind host")
     service_port: int = Field(default=8080, description="HTTP service bind port")
@@ -316,12 +273,11 @@ class Settings(BaseSettings):
         missing: list[str] = []
         if not self.supabase_db_url:
             missing.append("SUPABASE_DB_URL")
-        if not _skip_model_credential_validation.get():
-            missing.extend(
-                credential
-                for credential in self._required_model_credentials()
-                if not self._has_api_key(credential)
-            )
+        missing.extend(
+            credential
+            for credential in self._required_model_credentials()
+            if not self._has_api_key(credential)
+        )
         if missing:
             raise ValueError(
                 f"Missing required environment variables: {', '.join(missing)}. "
@@ -510,24 +466,3 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()
-
-
-def get_db_only_settings() -> Settings:
-    """Build `Settings` for a script that only touches the database.
-
-    Issue #508: `get_settings()` hard-requires a model credential
-    (`MIMO_API_KEY`) because it resolves `default_agent_model`, but a
-    DB-only retention cron (the anonymous-session and anon-quota-count
-    purges) never constructs the agent and never needs one. Requiring it
-    anyway means the job fails constructing `Settings`, before it ever
-    reaches the database — the retention policy silently never runs.
-
-    Deliberately **not** cached: this always constructs a fresh `Settings`
-    inside `_without_model_credential_validation`, so it can never be
-    confused with — or leak into — the `get_settings()` singleton used by
-    the main service, which keeps requiring the model credential exactly
-    as before. `SUPABASE_DB_URL` is still hard-required: that's the one
-    thing these scripts actually use.
-    """
-    with _without_model_credential_validation():
-        return Settings()

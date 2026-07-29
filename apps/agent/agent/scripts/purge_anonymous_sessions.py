@@ -16,14 +16,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
-import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import asyncpg
 
-from agent.config.settings import get_db_only_settings
+from agent.config.cron_settings import get_purge_cron_settings
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.utils.logger import get_logger
 
@@ -117,14 +116,11 @@ def _write_step_summary(report: PurgeReport) -> None:
 
 
 async def _main(dry_run: bool) -> None:
-    # This cron only touches the database (issue #508) — it must not fail
-    # constructing Settings on an unrelated model credential (MIMO_API_KEY).
-    settings = get_db_only_settings()
-    dsn = settings.supabase_db_url
-    if not dsn:
-        logger.error("SUPABASE_DB_URL is not set")
-        sys.exit(1)
-    async with SupabaseClient(dsn) as db:
+    # DB-only cron (issue #508): this is `PurgeCronSettings`, not the main
+    # service's `Settings` — it never resolves a model credential, and its
+    # own validator already guarantees `supabase_db_url` is non-empty here.
+    settings = get_purge_cron_settings()
+    async with SupabaseClient(settings.supabase_db_url) as db:
         report = await purge_anonymous_sessions(
             db,
             retention_days=settings.anonymous_session_retention_days,

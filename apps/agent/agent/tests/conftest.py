@@ -9,6 +9,8 @@ import logfire
 import pytest
 from dotenv import load_dotenv
 
+from agent.config.settings import get_settings
+
 # Configure logfire once so wrapper spans/metrics are quiet no-ops in tests
 # (pytest runs with filterwarnings=error; unconfigured logfire would warn).
 logfire.configure(send_to_logfire=False, console=False)
@@ -23,6 +25,18 @@ if test_env.exists():
 # conftest uses so collection works without ambient env.
 os.environ.setdefault("MIMO_API_KEY", "test-key")
 os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
+
+
+@pytest.fixture(autouse=True)
+def _reset_get_settings_cache():
+    """`get_settings()` is `lru_cache`d process-wide, but nothing in this
+    suite pins its identity across tests — a test that builds `Settings`
+    under unusual env (a missing model credential, a fake DSN) must not
+    leave that instance cached for every test that runs after it (issue
+    #508 review: this was an unguarded landmine, not introduced by #508)."""
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture(scope="session")
