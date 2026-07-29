@@ -66,9 +66,11 @@ async function post(url: string, token: string): Promise<SessionMigrationOutcome
  * Idempotent by construction on the server: the mutation is
  * `UPDATE … WHERE user_id = $from_anon`, never `INSERT`, so a second run
  * matches zero rows and returns `{"migrated": false}` — which makes a repeated
- * magic-link tap, a callback refresh and a retry all harmless. Since the #507
- * owner ruling the edge no longer retires the `aid` cookie either, so the
- * anonymous identity survives a failure and a later attempt can still find it.
+ * magic-link tap, a callback refresh and a retry all harmless. The #507 owner
+ * ruling additionally stopped the edge retiring the `aid` cookie — which
+ * matters for exactly one failure branch, the client-timeout-but-server-
+ * succeeded race, since retirement was already gated on `didMigrate` and every
+ * other failure left the cookie standing.
  *
  * Total: a rejected `fetch` (offline, DNS, CORS) or an unparseable body is an
  * outcome, not a throw.

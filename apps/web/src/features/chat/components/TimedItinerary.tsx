@@ -146,10 +146,22 @@ function SaveCta({ save, dict, saveDeps }: Omit<ItineraryProps, "view">) {
 }
 
 /** The P5 save wall carries the session back (#507 review P1-1): without a
- * return target a correct migration still lands the visitor on `/`. */
+ * return target a correct migration still lands the visitor on `/`.
+ *
+ * The hook is read **before** the early return, not inside the JSX after it
+ * (#514 review round 2). It is inert today — `useChatReturnTarget` wraps only
+ * `useContext`, and `readContext` never joins the hook list, so no ordering can
+ * shift. But it is a Rules-of-Hooks violation, and this repo cannot catch it:
+ * the root `.oxlintrc.json` runs `plugins: ["typescript"]` with
+ * `categories.correctness: "off"`, and `apps/web` adds only
+ * `max-lines-per-function` — not one react-hooks rule is enabled anywhere, so
+ * a green lint carries no information here. The day `useChatReturnTarget` grows
+ * a `useMemo`, or React Compiler lands, this becomes a runtime crash in the
+ * headline #507 component. */
 function SaveLoginWall({ gate }: Readonly<{ gate: ReturnType<typeof useSaveGate> }>) {
+  const returnTarget = useChatReturnTarget();
   if (!gate.loginOpen) return null;
-  return <LoginModal open onClose={gate.closeLogin} onSendCommitted={gate.markSendCommitted} returnTarget={useChatReturnTarget()} />;
+  return <LoginModal open onClose={gate.closeLogin} onSendCommitted={gate.markSendCommitted} returnTarget={returnTarget} />;
 }
 
 function CtaRow({ view, dict, save, saveDeps }: ItineraryProps) {

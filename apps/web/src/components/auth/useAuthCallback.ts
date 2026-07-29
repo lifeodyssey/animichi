@@ -60,8 +60,12 @@ async function withTimeout<T>(run: () => Promise<T>, ms: number, onTimeout: T): 
  *
  * A timeout is recorded as `failed`. The `withTimeout` race does not abort the
  * request, so the server may still succeed afterwards and this becomes a false
- * negative — harmless now that the edge keeps the `aid` cookie (#507 owner
- * ruling): the retry it offers is the same idempotent zero-row `UPDATE`.
+ * negative. This is **the one** case the #507 owner ruling actually rescues:
+ * under the old edge the server's `migrated: true` would have retired the `aid`
+ * cookie, leaving the retry with no identity to present. Every other failure
+ * branch already kept its cookie — retirement was gated on `didMigrate` — so
+ * "keeping the cookie makes failures recoverable" is true for this timing race
+ * and not in general. Either way the retry is the same idempotent `UPDATE`.
  */
 async function runMigration(migrate: Migrate, token: string, expected: boolean): Promise<MigrationState> {
   const outcome = await withTimeout(() => migrate(token), MIGRATE_TIMEOUT_MS, "failed")
