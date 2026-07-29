@@ -1,6 +1,9 @@
 """Application settings and configuration management."""
 
 import warnings
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import lru_cache
 from pathlib import Path
 from typing import TypeGuard
@@ -8,6 +11,33 @@ from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+#: Scopes `Settings()` construction to skip the model-credential check in
+#: `validate_required_env` (issue #508). The main service NEVER sets this —
+#: `get_settings()` always constructs outside any such scope, so its
+#: cached singleton keeps requiring MIMO_API_KEY/etc. exactly as before.
+#: It exists solely for DB-only cron scripts (the anonymous-session and
+#: anon-quota-count purges) that never touch the model at all: a retention
+#: job failing closed on an unrelated model credential just keeps finding
+#: new ways to break (see `get_db_only_settings` below).
+_skip_model_credential_validation: ContextVar[bool] = ContextVar(
+    "_skip_model_credential_validation", default=False
+)
+
+
+@contextmanager
+def _without_model_credential_validation() -> Iterator[None]:
+    """Construct `Settings()` without requiring a model credential.
+
+    Scoped via `ContextVar` rather than a constructor flag so it cannot leak
+    into `get_settings()`'s `lru_cache`d singleton or be passed by accident
+    from application code — the only caller is `get_db_only_settings`.
+    """
+    token = _skip_model_credential_validation.set(True)
+    try:
+        yield
+    finally:
+        _skip_model_credential_validation.reset(token)
 
 
 def _mask_secret(value: str | None, visible_chars: int = 4) -> str:
@@ -286,11 +316,12 @@ class Settings(BaseSettings):
         missing: list[str] = []
         if not self.supabase_db_url:
             missing.append("SUPABASE_DB_URL")
-        missing.extend(
-            credential
-            for credential in self._required_model_credentials()
-            if not self._has_api_key(credential)
-        )
+        if not _skip_model_credential_validation.get():
+            missing.extend(
+                credential
+                for credential in self._required_model_credentials()
+                if not self._has_api_key(credential)
+            )
         if missing:
             raise ValueError(
                 f"Missing required environment variables: {', '.join(missing)}. "
@@ -479,3 +510,24 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()
+
+
+def get_db_only_settings() -> Settings:
+    """Build `Settings` for a script that only touches the database.
+
+    Issue #508: `get_settings()` hard-requires a model credential
+    (`MIMO_API_KEY`) because it resolves `default_agent_model`, but a
+    DB-only retention cron (the anonymous-session and anon-quota-count
+    purges) never constructs the agent and never needs one. Requiring it
+    anyway means the job fails constructing `Settings`, before it ever
+    reaches the database — the retention policy silently never runs.
+
+    Deliberately **not** cached: this always constructs a fresh `Settings`
+    inside `_without_model_credential_validation`, so it can never be
+    confused with — or leak into — the `get_settings()` singleton used by
+    the main service, which keeps requiring the model credential exactly
+    as before. `SUPABASE_DB_URL` is still hard-required: that's the one
+    thing these scripts actually use.
+    """
+    with _without_model_credential_validation():
+        return Settings()

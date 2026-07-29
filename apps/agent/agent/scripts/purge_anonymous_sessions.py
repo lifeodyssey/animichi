@@ -23,7 +23,7 @@ from pathlib import Path
 
 import asyncpg
 
-from agent.config.settings import get_settings
+from agent.config.settings import get_db_only_settings
 from agent.infrastructure.supabase.client import SupabaseClient
 from agent.utils.logger import get_logger
 
@@ -117,7 +117,9 @@ def _write_step_summary(report: PurgeReport) -> None:
 
 
 async def _main(dry_run: bool) -> None:
-    settings = get_settings()
+    # This cron only touches the database (issue #508) — it must not fail
+    # constructing Settings on an unrelated model credential (MIMO_API_KEY).
+    settings = get_db_only_settings()
     dsn = settings.supabase_db_url
     if not dsn:
         logger.error("SUPABASE_DB_URL is not set")
