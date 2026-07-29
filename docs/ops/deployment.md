@@ -347,6 +347,28 @@ old migration file. Treat any release that combined a schema change with app cod
 Worker rollback alone is insufficient; check `db/migrations` for what shipped in that release before
 declaring the rollback complete.
 
+### Prerequisite: a local Cloudflare API token, provisioned BEFORE an incident
+
+Every command in the table above needs a Cloudflare API token in the operator's own environment —
+this is not optional infrastructure to stand up mid-incident, it must already exist and already be
+tested.
+
+1. Create one at <https://dash.cloudflare.com/profile/api-tokens> → "Create Token" → custom token
+   with, at minimum, **`Workers Scripts:Edit`** for the account (this is what `wrangler
+   rollback`/`versions list`/`secret put` all authenticate against — the same permission
+   `CLOUDFLARE_API_TOKEN` already carries in CI). Scope it to the account, not a single zone; root's
+   rollback also needs `Workers Scripts:Edit` on the account the `catalog`/`users` Workers live in if
+   you need to roll those back too, since they're separate Workers under the same account.
+2. Store it in a password manager or the OS keychain, not a plaintext file in the repo or home
+   directory — export it into the shell only for the duration of the rollback (`export
+   CLOUDFLARE_API_TOKEN=...`; `wrangler` reads it from that env var, no config file needed).
+3. **Verify it works now, not during the incident**: `wrangler whoami` should print the token's
+   scope; `wrangler deployments list --env staging` (read-only) against a real component confirms
+   both the token and this doc's commands actually work end to end.
+4. Anyone expected to run this table during an incident needs their own token satisfying the above
+   *before* they're on call for it — this whole rollback path assumes that precondition and does not
+   re-derive credentials for you.
+
 ### Automating the rollback trigger
 
 No dedicated `workflow_dispatch` rollback workflow (component + version-id inputs) is added here
@@ -354,11 +376,15 @@ beyond the manual commands above. `wrangler rollback`/`versions list` already ar
 primitive the issue asked for; wrapping them in a bespoke, never-exercised dispatch workflow would
 add untested complexity — invalid version ids, wrong environment, partial multi-component rollback
 ordering, the DO-migration/container caveat above — to an incident-response tool that most needs to
-be simple and trustworthy under pressure. The manual table above can be run by anyone with
-`CLOUDFLARE_API_TOKEN`-equivalent access locally, or pasted into a `gh workflow run` step later once
-it has been exercised for real; revisit only after this manual path has actually been used in an
-incident. (`_post-deploy-test.yml` did gain a `workflow_dispatch` trigger in this same change, since
-that one was a pure UI-affordance gap rather than new untested logic — see step 4 above.)
+be simple and trustworthy under pressure. The manual table above can be run by anyone with the
+Cloudflare API token described just above, from their own machine; automating it is tracked
+separately as **#496** (rollback automation), including the case this section's own tradeoff doesn't
+cover — an incident where the only device on hand is a phone, where a local `wrangler` invocation
+isn't reachable at all and a `workflow_dispatch` may be the only usable primitive — and the
+precondition that the manual path above has actually been exercised at least once before automating
+it. (`_post-deploy-test.yml` did gain a `workflow_dispatch` trigger in this same change — tracked
+separately as #493 for turning its suites from TODO no-ops into real assertions — since the trigger
+itself was a pure UI-affordance gap rather than new untested rollback logic; see step 4 above.)
 
 ### WAF rollback
 
