@@ -35,7 +35,10 @@ from agent.config.byok_defaults import (
 )
 from agent.infrastructure.egress_errors import EgressBlocked
 from agent.infrastructure.egress_guard import validate_base_url
-from agent.infrastructure.egress_transport import build_guarded_async_client
+from agent.infrastructure.egress_transport import (
+    TransportWrapper,
+    build_guarded_async_client,
+)
 
 ByokProvider = Literal["openai-compatible", "anthropic", "gemini"]
 BYOK_PROVIDERS: Final[frozenset[str]] = frozenset(
@@ -194,9 +197,11 @@ async def _validate_openai_base_url(base_url: str | None) -> None:
         ) from exc
 
 
-async def _build_openai_compatible(credential: ByokCredential) -> ByokModel:
+async def _build_openai_compatible(
+    credential: ByokCredential, *, transport_wrapper: TransportWrapper | None
+) -> ByokModel:
     await _validate_openai_base_url(credential.base_url)
-    client = build_guarded_async_client()
+    client = build_guarded_async_client(transport_wrapper=transport_wrapper)
     sdk_client = AsyncOpenAI(
         base_url=credential.base_url,
         api_key=credential.key,
@@ -208,8 +213,10 @@ async def _build_openai_compatible(credential: ByokCredential) -> ByokModel:
     return ByokModel(model=model, client=client)
 
 
-def _build_anthropic(credential: ByokCredential) -> ByokModel:
-    client = build_guarded_async_client()
+def _build_anthropic(
+    credential: ByokCredential, *, transport_wrapper: TransportWrapper | None
+) -> ByokModel:
+    client = build_guarded_async_client(transport_wrapper=transport_wrapper)
     sdk_client = AsyncAnthropic(
         api_key=credential.key, http_client=client, max_retries=0
     )
@@ -218,7 +225,9 @@ def _build_anthropic(credential: ByokCredential) -> ByokModel:
     return ByokModel(model=model, client=client)
 
 
-def _build_gemini(credential: ByokCredential) -> ByokModel:
+def _build_gemini(
+    credential: ByokCredential, *, transport_wrapper: TransportWrapper | None
+) -> ByokModel:
     # `GoogleProvider.__init__` falls back to `os.getenv("GOOGLE_API_KEY")`
     # only when the `api_key` it receives is falsy (P1-2) — `_require_nonblank_key`
     # below is the structural guarantee that never happens here, so this call
@@ -226,7 +235,7 @@ def _build_gemini(credential: ByokCredential) -> ByokModel:
     # Retry behaviour is left at the `google-genai` SDK default (unlike the
     # openai-compatible family's explicit `max_retries=0`, T3-AC2 names only
     # `AsyncOpenAI`) — pinned here as a deliberate choice, not an oversight.
-    client = build_guarded_async_client()
+    client = build_guarded_async_client(transport_wrapper=transport_wrapper)
     provider = GoogleProvider(api_key=credential.key, http_client=client)
     model: Model = GoogleModel(credential.model, provider=provider)
     return ByokModel(model=model, client=client)
@@ -242,16 +251,28 @@ def _require_nonblank_key(credential: ByokCredential) -> None:
         raise ByokError("invalid_request", "BYOK credential key must not be blank.")
 
 
-async def build_byok_model(credential: ByokCredential) -> ByokModel:
+async def build_byok_model(
+    credential: ByokCredential,
+    *,
+    transport_wrapper: TransportWrapper | None = None,
+) -> ByokModel:
     """Build the per-request guarded model. Caller MUST `await client.aclose()`.
 
     Every family routes through `build_guarded_async_client` (Task 1's SSRF
     guard, Task 2's httpx-instrumentation exclusion) — there is no second,
     unguarded way to build a BYOK-bound `httpx.AsyncClient` in this module.
+
+    `transport_wrapper` (review follow-up, #479 P2): threaded straight to
+    `build_guarded_async_client` so a caller — the probe route (Task 5) —
+    can install an additional transport (its response-size cap) at
+    construction time, never via a post-construction `client._transport =`
+    reassignment.
     """
     _require_nonblank_key(credential)
     if credential.provider == "openai-compatible":
-        return await _build_openai_compatible(credential)
+        return await _build_openai_compatible(
+            credential, transport_wrapper=transport_wrapper
+        )
     if credential.provider == "anthropic":
-        return _build_anthropic(credential)
-    return _build_gemini(credential)
+        return _build_anthropic(credential, transport_wrapper=transport_wrapper)
+    return _build_gemini(credential, transport_wrapper=transport_wrapper)
