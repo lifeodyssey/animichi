@@ -125,6 +125,14 @@ describe("B4 settled footprint: elapsed emphasis over a semantic token", () => {
   });
 });
 
+describe("C3b drill-back chip (issue #437)", () => {
+  it("carries layout only, so the cream chip tokens stay the single source", () => {
+    expect(ruleDeclaration(chatCss, ".chat-drill__back", "align-self")).toBe("flex-start");
+    expect(ruleDeclaration(chatCss, ".chat-drill__back", "background")).toBeNull();
+    expect(ruleDeclaration(chatCss, ".chat-drill__back", "color")).toBeNull();
+  });
+});
+
 describe("S1.9 Turnstile dock slot (issue #447)", () => {
   it("paints the gate with the dock's own surface token, never a raw color", () => {
     expect(ruleDeclaration(chatCss, ".turnstile-gate", "background")).toBe("var(--color-card)");

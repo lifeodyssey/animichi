@@ -67,3 +67,57 @@ describe("C3b bubble overview (AC: bubbles only, area ∝ count, badge)", () => 
     expect(document.querySelectorAll(".chat-map-pin")).toHaveLength(3);
   });
 });
+
+/** Issue #437 item 2: the drill used to be a dead end with no route back. */
+describe("C3b drill-down back affordance (issue #437)", () => {
+  const back = (): HTMLElement => screen.getByRole("button", { name: dict.search.backToOverview });
+
+  it("offers no back affordance while the overview itself is showing", () => {
+    renderMulti();
+    expect(screen.queryByRole("button", { name: dict.search.backToOverview })).toBeNull();
+  });
+
+  it("shows the back chip once a cluster is drilled into", () => {
+    renderMulti();
+    fireEvent.click(screen.getByRole("button", { name: /宇治市/ }));
+    expect(back().className).toContain("chat-drill__back");
+  });
+
+  it("returns to the bubble overview when the back chip is pressed", () => {
+    renderMulti();
+    fireEvent.click(screen.getByRole("button", { name: /宇治市/ }));
+    fireEvent.click(back());
+    expect(document.querySelectorAll(".chat-map-bubble")).toHaveLength(2);
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+  });
+
+  it("lets a second cluster be drilled into after coming back", () => {
+    renderMulti();
+    fireEvent.click(screen.getByRole("button", { name: /宇治市/ }));
+    fireEvent.click(back());
+    fireEvent.click(screen.getByRole("button", { name: /新宿区/ }));
+    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+  });
+
+  // A view swap that leaves focus on <body> strands keyboard and screen-reader
+  // users at the top of the document with no announcement of what changed.
+  it("moves focus onto the back chip when a cluster is drilled into", () => {
+    renderMulti();
+    fireEvent.click(screen.getByRole("button", { name: /宇治市/ }));
+    expect(document.activeElement).toBe(back());
+  });
+
+  it("returns focus to the bubble that was drilled into", () => {
+    renderMulti();
+    fireEvent.click(screen.getByRole("button", { name: /宇治市/ }));
+    fireEvent.click(back());
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /宇治市/ }));
+  });
+
+  it("returns focus to the bubble actually chosen, not simply the first one", () => {
+    renderMulti();
+    fireEvent.click(screen.getByRole("button", { name: /新宿区/ }));
+    fireEvent.click(back());
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /新宿区/ }));
+  });
+});
