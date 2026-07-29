@@ -248,8 +248,12 @@ if [[ "$MODE" == "provision" ]]; then
   run_db_step "deterministic empty database create" psql -X --set=ON_ERROR_STOP=1 "service=maintenance" \
     --command="CREATE DATABASE \"${DATABASE_NAME}\" OWNER \"${DATABASE_ROLE}\";"
 fi
-PYTHONPATH="$ROOT/apps/agent" DATABASE_URL="$DATABASE_URL" ATLAS_VERSION="$ATLAS_VERSION" \
-  run_db_step "Atlas ${PINNED_ATLAS_VERSION} migration apply" \
+# `run_db_step` is a shell function, so a `VAR=… run_db_step …` prefix assigns in
+# the current shell rather than a subprocess — which aborts on the readonly
+# DATABASE_URL above, and would silently leak PYTHONPATH into every later step.
+# `env` keeps the assignments scoped to the python process.
+run_db_step "Atlas ${PINNED_ATLAS_VERSION} migration apply" \
+  env PYTHONPATH="$ROOT/apps/agent" DATABASE_URL="$DATABASE_URL" ATLAS_VERSION="$ATLAS_VERSION" \
   python3 -m agent.tests.atlas_helper apply
 run_db_step "idempotent fixture seed" psql -X --set=ON_ERROR_STOP=1 "service=database" \
   --file="$SEED_FILE"
