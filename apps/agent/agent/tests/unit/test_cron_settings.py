@@ -69,18 +69,22 @@ class TestPurgeCronSettings:
         """
         env = dict(os.environ)
         env["SUPABASE_DB_URL"] = "postgresql://local/test"
-        # `sys.executable` (not a literal path) is why this file carries a
-        # pyproject.toml S603 per-file-ignore, mirroring health.py's: the
-        # command is fixed at write time, not attacker-influenced input.
-        probe = (
-            "import sys\n"
-            "from agent.config.cron_settings import get_purge_cron_settings\n"
-            "get_purge_cron_settings()\n"
-            "assert 'agent.config.model_aliases' not in sys.modules, "
-            "sorted(m for m in sys.modules if m.startswith('agent.config'))\n"
-        )
+        # The probe is inlined directly into the list literal (not built up
+        # in a `probe = "..."` local first): ruff's S603 treats every
+        # `subprocess.run` argument as untrusted input unless it can see a
+        # literal at the call site, and `sys.executable` is the one
+        # non-literal element here — the exact interpreter running this
+        # test, in its venv, not attacker-influenced input.
         result = subprocess.run(
-            [sys.executable, "-c", probe],
+            [
+                sys.executable,
+                "-c",
+                "import sys\n"
+                "from agent.config.cron_settings import get_purge_cron_settings\n"
+                "get_purge_cron_settings()\n"
+                "assert 'agent.config.model_aliases' not in sys.modules, "
+                "sorted(m for m in sys.modules if m.startswith('agent.config'))\n",
+            ],
             capture_output=True,
             text=True,
             env=env,
