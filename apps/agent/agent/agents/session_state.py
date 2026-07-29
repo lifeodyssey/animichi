@@ -221,6 +221,7 @@ class SessionState(_SessionModel):
         self.route_lru = _restore_lru(
             self.routes, self.route_lru, "route_lru" in fields
         )
+        self.compaction_retained_entities.enforce_bounds()
         return self
 
     def store_search_result(self, ref: ResultRef, payload: SearchPayloadState) -> None:

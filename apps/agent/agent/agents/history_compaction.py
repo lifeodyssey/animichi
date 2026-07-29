@@ -57,12 +57,21 @@ _ENTITY_ARG_FIELDS: dict[str, str] = {
 }
 
 
-def _entity_from_call_args(tool_name: str, args: Mapping[str, object]) -> str | None:
+def _entity_from_call_args(tool_name: str, args: object) -> str | None:
+    """Extract the literal entity argument, if any. `args` may be `None`
+    (no matching `ToolCallPart`, e.g. an orphaned or already-compacted-away
+    call) — that is folded in here rather than guarded separately upstream."""
     field = _ENTITY_ARG_FIELDS.get(tool_name)
-    if field is None:
+    if field is None or not isinstance(args, Mapping):
         return None
     value = args.get(field)
     return value if isinstance(value, str) and value.strip() else None
+
+
+def _tool_calls_in(message: ModelMessage) -> list[ToolCallPart]:
+    if not isinstance(message, ModelResponse):
+        return []
+    return [part for part in message.parts if isinstance(part, ToolCallPart)]
 
 
 def _call_args_by_id(messages: list[ModelMessage]) -> dict[str, Mapping[str, object]]:
@@ -71,26 +80,25 @@ def _call_args_by_id(messages: list[ModelMessage]) -> dict[str, Mapping[str, obj
     tool-return message, which carries the (compact) result, not the call."""
     lookup: dict[str, Mapping[str, object]] = {}
     for message in messages:
-        if not isinstance(message, ModelResponse):
-            continue
-        for part in message.parts:
-            if isinstance(part, ToolCallPart):
-                lookup[part.tool_call_id] = part.args_as_dict()
+        for call in _tool_calls_in(message):
+            lookup[call.tool_call_id] = call.args_as_dict()
     return lookup
 
 
 def _session_of(ctx: object) -> SessionState | None:
-    """Best-effort, exception-free lookup of the live session from `ctx.deps`.
+    """Exception-free lookup of the live session from `ctx.deps`.
 
     Degrades to `None` for any shape that isn't a real production
-    `RunContext[RuntimeDeps]` (including the `None` sentinel some tests pass
-    for `ctx`), matching the error-path AC: a lookup miss never raises out of
-    the compaction tier.
+    `RunContext[RuntimeDeps]` (including the `None` sentinel some other
+    compaction unit tests pass for `ctx`), matching the error-path AC: a
+    lookup miss never raises out of the compaction tier.
     """
     deps = getattr(ctx, "deps", None)
-    tool_state = getattr(deps, "tool_state", None)
-    session = getattr(tool_state, "session", None)
-    return session if isinstance(session, SessionState) else None
+    return deps.tool_state.session if isinstance(deps, RuntimeDeps) else None
+
+
+def _current_anime_title(session: SessionState) -> str | None:
+    return session.current_anime.title if session.current_anime is not None else None
 
 
 def _mapping(content: object) -> Mapping[str, object] | None:
@@ -118,7 +126,19 @@ def _candidate_summary(content: object) -> str | None:
 
 @dataclass(frozen=True)
 class CompactToolReturns(Generic[AgentDepsT]):
-    """Deterministically shrink old tool returns while retaining candidates."""
+    """Deterministically shrink old tool returns while retaining candidates.
+
+    `frozen=True` only means this dataclass's own two fields never change;
+    `compact()` is not otherwise a pure transform — when `ctx.deps` carries a
+    live session (production `RuntimeDeps`), it mutates the shared
+    `session.compaction_retained_entities` ledger as a side effect (Task 5,
+    OQ-8(c)). That mutation can happen more than once per turn (once per
+    compacted `ToolReturnPart` in a multi-tool-call loop) and again on every
+    later turn, because `session_facade.build_message_history` replays every
+    past interaction's raw messages unchanged each turn rather than storing
+    a compacted version — `RetainedEntityLedger`'s dedup/oldest-wins policy
+    is what keeps that repeated replay from being observable as growth.
+    """
 
     summarize: ToolSummary
     keep_recent: int = KEEP_RECENT_MESSAGES
@@ -170,15 +190,19 @@ class CompactToolReturns(Generic[AgentDepsT]):
         session: SessionState | None,
     ) -> None:
         """Task 5 (OQ-8(c)): rescue a literal call argument verbatim into
-        session state before this tool return is shrunk to a summary."""
+        session state before this tool return is shrunk to a summary.
+
+        Skips a value that already equals `session.current_anime.title` —
+        that title is already carried, unabridged, by `current_anime` (and,
+        while still ambiguous, by `_candidate_summary`), so retaining it a
+        second time here would just double-pay the same prompt budget.
+        """
         if session is None:
             return
-        args = call_args.get(part.tool_call_id)
-        if args is None:
+        value = _entity_from_call_args(part.tool_name, call_args.get(part.tool_call_id))
+        if value is None or value == _current_anime_title(session):
             return
-        value = _entity_from_call_args(part.tool_name, args)
-        if value is not None:
-            session.compaction_retained_entities.record(part.tool_name, value)
+        session.compaction_retained_entities.record(part.tool_name, value)
 
     def _summary(self, tool_name: str, content: object) -> str:
         candidates = (

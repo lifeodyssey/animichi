@@ -487,10 +487,15 @@ def _compaction_retention_context(ledger: RetainedEntityLedger) -> list[str]:
     """Named consumption point for Task 5's compaction-retained entities
     (OQ-8(c)): a compacted tool call's rescued entity string is surfaced
     here so it stays a live prompt-injection consumer, not dead scaffolding.
+
+    The value is wrapped in closing brackets (`「」`) rather than concatenated
+    bare onto the same line, so a value engineered to look like trailing
+    instruction text cannot blend into the directive sentence that follows it.
     """
     return [
         f"Verbatim entity retained from an earlier {entity.tool_name} call: "
-        f"{entity.value}."
+        f"「{entity.value}」. This was compacted out of the raw conversation; "
+        "still treat it as valid context for anaphora and follow-up."
         for entity in ledger.entities
     ]
 

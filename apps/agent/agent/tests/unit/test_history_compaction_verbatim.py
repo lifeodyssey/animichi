@@ -1,8 +1,10 @@
 """Task 5 (#273, OQ-8(c)): compaction-time verbatim entity retention.
 
 Extends the existing `CompactToolReturns._candidate_summary` precedent —
-this covers the new, decoupled entity-retention path only. Ordinal
-candidate preservation stays covered by `test_native_history_candidates.py`.
+this covers the new, decoupled entity-retention path at the
+`CompactToolReturns.compact()` level only. `RetainedEntityLedger`'s own
+dedup/oldest-wins/byte-budget behavior lives in
+`test_compaction_retention_ledger.py` (kept separate per the ≤200-line rule).
 """
 
 from __future__ import annotations
@@ -21,12 +23,11 @@ from pydantic_ai.messages import (
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
 
-from agent.agents.animichi_agent import _summarize_tool_content
+from agent.agents.animichi_agent import _summarize_tool_content, trusted_session_context
 from agent.agents.history_compaction import CompactToolReturns
 from agent.agents.runtime_deps import RuntimeDeps
-from agent.agents.session_state import SessionState
+from agent.agents.session_state import CurrentAnime, SessionState
 from agent.agents.tool_state import ToolState
-from agent.domain.compaction_retention import RetainedEntityLedger
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 
 _LONG_CONTENT = "x" * 500
@@ -120,27 +121,30 @@ async def test_missing_call_args_degrades_without_raising() -> None:
     assert session.compaction_retained_entities.is_empty()
 
 
-def test_fresh_ledger_is_empty() -> None:
-    assert RetainedEntityLedger().is_empty()
+async def test_entity_matching_current_anime_title_is_not_double_recorded() -> None:
+    """`current_anime.title` already carries a resolved anime's title
+    verbatim; retaining the identical `resolve_anime` call argument here too
+    would just double-pay the same prompt budget (#476 P2 review)."""
+    session = SessionState()
+    session.current_anime = CurrentAnime(bangumi_id="1", title="けいおん!")
+    messages = _call_pair(
+        "resolve_anime", {"title": "けいおん!"}, _LONG_CONTENT, "call-5"
+    )
+    compact = CompactToolReturns[RuntimeDeps](_summarize_tool_content, keep_recent=0)
 
+    await compact.compact(messages, _ctx(session))
 
-def test_blank_value_after_sanitization_is_a_no_op() -> None:
-    ledger = RetainedEntityLedger()
-
-    ledger.record("search_nearby", "   \x00\x1f  ")
-
-    assert ledger.is_empty()
+    assert session.compaction_retained_entities.is_empty()
 
 
 def test_consumption_gate_retained_entity_reaches_trusted_prompt_context() -> None:
     """Named consumption point: a retained entity's live value must appear in
     the actual rendered prompt, or this ledger would be dead scaffolding."""
-    from agent.agents.animichi_agent import trusted_session_context
-
     session = SessionState()
     session.compaction_retained_entities.record("search_nearby", "資生堂前")
 
     context = trusted_session_context(_ctx(session).deps)
 
-    assert "資生堂前" in context
+    assert "「資生堂前」" in context
     assert "Verbatim entity retained from an earlier search_nearby call" in context
+    assert "still treat it as valid context for anaphora" in context

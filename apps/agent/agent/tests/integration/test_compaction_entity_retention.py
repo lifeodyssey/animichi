@@ -1,7 +1,15 @@
-"""Task 5 (#273, OQ-8(c)): compaction-retained entities survive multiple
+"""Task 5 (#273, OQ-8(c)): compaction-retained entities survive many
 compaction rounds through a real `SessionStore` round-trip — the same
 persistence path Task 4's fact ledger uses (`test_fact_ledger_persistence.py`),
 proving this retention payload is not tied to that ledger (OQ-8 decoupling).
+
+Each round replays the **full accumulated message history**, not just the
+newest pair — mirroring `session_facade.build_message_history`, which
+replays every past interaction's raw messages unchanged on every turn (old
+interactions are never rewritten to a compacted form in storage). This is
+what makes dedup load-bearing: a naive re-record on every replay of the
+same old tool call would otherwise crowd out other distinct entities via
+the count cap (#476 review).
 """
 
 from __future__ import annotations
@@ -68,22 +76,9 @@ def _call_pair(
     ]
 
 
-async def _run_compaction_turn(
-    store: InMemorySessionStore,
-    *,
-    tool_name: str,
-    args: dict[str, object],
-    call_id: str,
-    text: str,
+async def _persist_turn(
+    store: InMemorySessionStore, session: SessionState, stored: object, text: str
 ) -> None:
-    """Mirror `public_api.py`'s restore -> run -> persist sequence, with a
-    compaction round standing in for "run"."""
-    stored = await store.get(_SESSION_ID)
-    session = _restore(stored)
-    compact = CompactToolReturns[RuntimeDeps](_summarize_tool_content, keep_recent=0)
-
-    await compact.compact(_call_pair(tool_name, args, call_id), _ctx(session))
-
     result = AgentResult(
         output=QAResponseModel(message="ok"),
         intent="qa_response",
@@ -104,27 +99,53 @@ async def _run_compaction_turn(
     await store.set(_SESSION_ID, updated)
 
 
-async def test_entity_retained_in_round_one_survives_round_two() -> None:
-    store = InMemorySessionStore()
+async def _run_full_history_turn(
+    store: InMemorySessionStore,
+    *,
+    accumulated: list[ModelMessage],
+    new_pair: list[ModelMessage],
+    text: str,
+) -> list[ModelMessage]:
+    """One turn: reprocess the entire accumulated history (old + new pair)
+    through the compaction tier, then persist — matching how
+    `build_message_history` replays raw messages every turn in production."""
+    stored = await store.get(_SESSION_ID)
+    session = _restore(stored)
+    accumulated = [*accumulated, *new_pair]
+    compact = CompactToolReturns[RuntimeDeps](_summarize_tool_content, keep_recent=0)
 
-    await _run_compaction_turn(
-        store,
-        tool_name="search_nearby",
-        args={"location": "資生堂前"},
-        call_id="call-1",
-        text="資生堂前に行きたい",
+    await compact.compact(accumulated, _ctx(session))
+    await _persist_turn(store, session, stored, text)
+    return accumulated
+
+
+async def test_entity_survives_many_full_history_replays_and_a_second_round() -> None:
+    store = InMemorySessionStore()
+    accumulated: list[ModelMessage] = []
+    round_one = _call_pair("search_nearby", {"location": "資生堂前"}, "call-1")
+
+    accumulated = await _run_full_history_turn(
+        store, accumulated=accumulated, new_pair=round_one, text="資生堂前に行きたい"
     )
     stored = await store.get(_SESSION_ID)
     assert stored is not None
-    first_round = _restore(stored).compaction_retained_entities.entities
-    assert [e.value for e in first_round] == ["資生堂前"]
+    assert [
+        e.value for e in _restore(stored).compaction_retained_entities.entities
+    ] == ["資生堂前"]
 
-    await _run_compaction_turn(
-        store,
-        tool_name="resolve_anime",
-        args={"title": "けいおん!"},
-        call_id="call-2",
-        text="けいおんが見たい",
+    for i in range(7):
+        accumulated = await _run_full_history_turn(
+            store, accumulated=accumulated, new_pair=[], text=f"filler {i}"
+        )
+
+    stored = await store.get(_SESSION_ID)
+    assert stored is not None
+    entities = _restore(stored).compaction_retained_entities.entities
+    assert [e.value for e in entities] == ["資生堂前"]  # not duplicated by 7 replays
+
+    round_two = _call_pair("resolve_anime", {"title": "けいおん!"}, "call-2")
+    await _run_full_history_turn(
+        store, accumulated=accumulated, new_pair=round_two, text="けいおんが見たい"
     )
 
     stored = await store.get(_SESSION_ID)

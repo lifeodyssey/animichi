@@ -15,6 +15,7 @@ from agent.agents.session_state import (
     SearchPayloadState,
     SessionState,
 )
+from agent.domain.compaction_retention import MAX_RETAINED_ENTITIES
 
 
 def _search_payload() -> SearchPayloadState:
@@ -56,6 +57,24 @@ def test_route_lru_survives_jsonb_registry_key_reordering() -> None:
 
     assert refs[0] not in restored.routes
     assert refs[1] in restored.routes
+
+
+def test_session_state_restore_bounds_an_oversized_compaction_ledger() -> None:
+    """A persisted envelope with far more compaction-retained entities than
+    the cap (a corrupted or future-deploy payload, or an attacker-supplied
+    blob) must not bypass the bound just because it arrived through
+    `model_validate` instead of `RetainedEntityLedger.record()` (#476)."""
+    dumped = SessionState().model_dump(mode="json")
+    dumped["compaction_retained_entities"] = {
+        "entities": [
+            {"tool_name": "search_nearby", "value": f"place-{i}"} for i in range(500)
+        ]
+    }
+
+    restored = SessionState.model_validate(dumped)
+
+    assert len(restored.compaction_retained_entities.entities) == MAX_RETAINED_ENTITIES
+    assert restored.compaction_retained_entities.entities[0].value == "place-0"
 
 
 @pytest.mark.parametrize(
