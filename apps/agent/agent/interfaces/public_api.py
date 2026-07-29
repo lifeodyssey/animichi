@@ -34,7 +34,13 @@ from agent.agents.base import (
     resolve_model_alias,
 )
 from agent.agents.error_messages import build_input_error_message
-from agent.agents.runtime_deps import OnStep, StepEvent, StepStatus, new_step_call_id
+from agent.agents.runtime_deps import (
+    OnStep,
+    StepEvent,
+    StepStatus,
+    TitleTranslator,
+    new_step_call_id,
+)
 from agent.agents.selected_route import execute_selected_route
 from agent.agents.selection import (
     SelectionError,
@@ -43,7 +49,7 @@ from agent.agents.selection import (
     validate_candidate_selection,
 )
 from agent.agents.session_state import SessionState
-from agent.agents.translation import translate_text
+from agent.agents.translation import TranslationResult, translate_text, translate_title
 from agent.application.errors import ApplicationError, ErrorCode
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from agent.config.settings import Settings, get_settings
@@ -102,6 +108,37 @@ logger = structlog.get_logger(__name__)
 class _TranslationContext:
     model: Model
     usage: RunUsage
+
+
+_BYOK_CREDENTIAL_REJECTED_MESSAGE = (
+    "Your BYOK provider rejected the credential. Please check your key and try again."
+)
+
+
+def _is_byok_credential_rejection(exc: BaseException) -> bool:
+    """A provider-reported auth failure for a BYOK-supplied credential.
+
+    Only `ModelHTTPError` carries a structured `status_code`; a 401/403 here
+    means the caller's own key/base_url was rejected, never the server's.
+    """
+    return isinstance(exc, ModelHTTPError) and exc.status_code in (401, 403)
+
+
+def _byok_credential_rejected_response() -> PublicAPIResponse:
+    """Fixed, safe copy only (T7): never echoes `str(exc)`, which could carry
+    provider response body content."""
+    return PublicAPIResponse(
+        success=False,
+        status="error",
+        intent="error",
+        message=_BYOK_CREDENTIAL_REJECTED_MESSAGE,
+        errors=[
+            PublicAPIError(
+                code="byok_credential_rejected",
+                message=_BYOK_CREDENTIAL_REJECTED_MESSAGE,
+            )
+        ],
+    )
 
 
 def _is_provider_error(exc: BaseException) -> bool:
@@ -196,6 +233,7 @@ class RuntimeAPI:
         request: PublicAPIRequest,
         *,
         model: Model | str | None = None,
+        is_byok: bool = False,
         user_id: str | None = None,
         user_type: str | None = None,
         on_step: OnStep | None = None,
@@ -225,6 +263,7 @@ class RuntimeAPI:
                     on_step,
                     span,
                     user_id,
+                    is_byok,
                 )
 
                 if session_id is None:
@@ -278,7 +317,7 @@ class RuntimeAPI:
                     transport="public_api",
                 )
 
-                await self._record_usage(result, user_id, user_type)
+                await self._record_usage(result, user_id, user_type, is_byok)
                 await self._log_request(
                     session_id=session_id,
                     request=request,
@@ -297,21 +336,26 @@ class RuntimeAPI:
         )
 
     async def _record_usage(
-        self, result: AgentResult | None, user_id: str | None, user_type: str | None
+        self,
+        result: AgentResult | None,
+        user_id: str | None,
+        user_type: str | None,
+        is_byok: bool = False,
     ) -> None:
         """SD-18 metering hook: bank this turn's RunUsage into ``daily_usage``.
 
         This is the sole data source the anonymous daily-budget breaker (X4)
         reads, so it runs in ``handle``'s finally block — a failed turn still
-        consumed tokens and must still be charged.
+        consumed tokens and must still be charged. A BYOK turn's token counts
+        are still recorded for observability, but its cost is always zero —
+        we did not pay the provider for it.
         """
         if result is None:
             return
+        scope = scope_for_identity(user_id, user_type, is_byok=is_byok)
+        prices = self._usage_prices() if scope != "byok" else UsagePrices(0.0, 0.0)
         await record_turn_usage(
-            self._db,
-            usage=result.usage,
-            scope=scope_for_identity(user_id, user_type),
-            prices=self._usage_prices(),
+            self._db, usage=result.usage, scope=scope, prices=prices
         )
 
     async def _prepare_session(
@@ -355,6 +399,7 @@ class RuntimeAPI:
         on_step: OnStep | None,
         span: object,
         user_id: str | None,
+        is_byok: bool = False,
     ) -> tuple[AgentResult | None, PublicAPIResponse, dict[str, object]]:
         """Run the pipeline (or synthetic plan) and map result to response."""
         context_delta: dict[str, object] = {}
@@ -366,6 +411,7 @@ class RuntimeAPI:
                 effective_model,
                 on_step,
                 user_id,
+                is_byok,
             )
         except TimeoutError:
             _span_record_exception(span, TimeoutError("agent timed out"))
@@ -415,6 +461,9 @@ class RuntimeAPI:
             return None, application_error_response(exc), context_delta
         except Exception as exc:
             _span_record_exception(span, exc)
+            if is_byok and _is_byok_credential_rejection(exc):
+                logger.warning("byok_credential_rejected")
+                return None, _byok_credential_rejected_response(), context_delta
             error_msg = str(exc)
             if _is_provider_error(exc):
                 logger.warning("provider_error", error=error_msg[:200])
@@ -456,7 +505,14 @@ class RuntimeAPI:
                 result,
                 resolve_reply_language(request.text, request.locale),
                 on_step,
-                model=resolved_model,
+                # D18: the post-turn translation pass reuses the run's own
+                # model when it can (cheaper, same connection) — but on a
+                # BYOK turn that model is the caller's own credential, and
+                # this helper call must never be billed to it. `model=None`
+                # forces `_translation_context`'s fallback to the server
+                # default (`resolve_model(animichi_agent.model)`), which is
+                # never influenced by a per-request override.
+                model=None if is_byok else resolved_model,
             )
         response = agent_result_to_response(
             result,
@@ -479,6 +535,7 @@ class RuntimeAPI:
         effective_model: Model | str | None,
         on_step: OnStep | None,
         user_id: str | None = None,
+        is_byok: bool = False,
     ) -> tuple[AgentResult, Model | None, bool]:
         """Dispatch exactly one of point, candidate, or model request modes."""
         model = _resolve_request_model(
@@ -492,7 +549,7 @@ class RuntimeAPI:
             result = await self._candidate_selection(request, context, on_step)
             return result, None, False
         result = await self._model_request(
-            request, context, history, model, on_step, user_id
+            request, context, history, model, on_step, user_id, is_byok
         )
         return result, model, True
 
@@ -547,6 +604,7 @@ class RuntimeAPI:
         model: Model | None,
         on_step: OnStep | None,
         user_id: str | None,
+        is_byok: bool = False,
     ) -> AgentResult:
         return await asyncio.wait_for(
             run_animichi_agent(
@@ -558,11 +616,33 @@ class RuntimeAPI:
                 message_history=history,
                 on_step=on_step,
                 catalog=self._catalog,
+                title_translator=self._server_title_translator() if is_byok else None,
                 memory_store=self._memory_store,
                 user_id=user_id,
             ),
             timeout=self._settings.agent_deadline,
         )
+
+    def _server_title_translator(self) -> TitleTranslator:
+        """D18: force `translate_anime_title` onto the server key on a BYOK
+        turn. Without this override the tool inherits the active run's own
+        model via `RunContext.model` (cheap connection reuse on every other
+        turn) — which on a BYOK turn *is* the caller's credential. Passing an
+        explicit callable here bypasses that inheritance: `ctx=None` makes
+        `translate_title` fall back to `translation_agent`'s own baked-in
+        server default, never the per-request override.
+        """
+
+        async def _translate(title: str, target_language: str) -> TranslationResult:
+            return await translate_title(
+                title,
+                target_locale=target_language,
+                kind="anime_title",
+                catalog=self._catalog,
+                ctx=None,
+            )
+
+        return _translate
 
     async def _log_request(
         self,

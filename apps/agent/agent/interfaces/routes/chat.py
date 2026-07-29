@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Annotated, Literal, Never, cast
 
@@ -10,6 +11,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.responses import Response, StreamingResponse
 
+from agent.agents.byok_models import (
+    ByokCredential,
+    ByokError,
+    ByokModel,
+    build_byok_model,
+)
 from agent.agents.error_messages import InputError, build_input_error_message
 from agent.agents.runtime_deps import OnStep
 from agent.interfaces.anon_quota import (
@@ -17,8 +24,11 @@ from agent.interfaces.anon_quota import (
     QUOTA_RESETS_AT_FIELD,
     anonymous_quota_verdict,
 )
+from agent.interfaces.public_api import RuntimeAPI
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
+    _error_response,
+    _get_byok_credential,
     _get_db_from_request,
     _get_runtime_api,
     _get_settings_from_request,
@@ -223,12 +233,75 @@ async def _quota_rejection(
     return _quota_exhausted_response(verdict.resets_at) if verdict.exhausted else None
 
 
+BYOK_REQUIRES_LOGIN_MESSAGE = "BYOKを使うにはログインが必要です。"
+
+
+def _byok_login_rejection(
+    auth: TrustedAuthContext, byok: ByokCredential | None
+) -> JSONResponse | None:
+    """Reject a BYOK credential from an anonymous caller (#284 T3/T4).
+
+    BYOK is login-gated by design (never honoured, never used to skip the
+    anonymous budget) — an anonymous request presenting `X-BYOK-*` headers is
+    refused outright rather than silently served either way.
+    """
+    if byok is None or auth.user_type != ANONYMOUS_USER_TYPE:
+        return None
+    return _error_response(
+        "byok_requires_login", BYOK_REQUIRES_LOGIN_MESSAGE, status_code=403
+    )
+
+
+async def _resolve_byok_model(byok: ByokCredential | None) -> ByokModel | None:
+    """Build the per-request guarded model before any streaming begins.
+
+    Any structural/SSRF rejection here (`ByokError`) is a pre-stream 400 —
+    the response has not been constructed yet, so `HTTPException` behaves
+    normally through FastAPI's own exception handling.
+    """
+    if byok is None:
+        return None
+    try:
+        return await build_byok_model(byok)
+    except ByokError as exc:
+        raise HTTPException(status_code=400, detail=exc.message) from exc
+
+
+def _chat_handler(
+    runtime_api: RuntimeAPI,
+    api_request: PublicAPIRequest,
+    auth: TrustedAuthContext,
+    byok_model: ByokModel | None,
+) -> Callable[[OnStep], Awaitable[PublicAPIResponse]]:
+    async def handler(on_step: OnStep) -> PublicAPIResponse:
+        try:
+            return await runtime_api.handle(
+                api_request,
+                model=byok_model.model if byok_model is not None else None,
+                is_byok=byok_model is not None,
+                user_id=auth.user_id,
+                user_type=auth.user_type,
+                on_step=on_step,
+            )
+        finally:
+            # T3-AC8: closed even when the turn raises, whether the credential
+            # was rejected or the turn failed for an unrelated reason.
+            if byok_model is not None:
+                await byok_model.client.aclose()
+
+    return handler
+
+
 @router.post("/chat", responses={422: {"description": "Invalid chat request"}})
 async def handle_chat(
     request: Request,
     auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
+    byok: Annotated[ByokCredential | None, Depends(_get_byok_credential)] = None,
 ) -> Response:
     """Stream chat as an AI SDK UI message stream with tool + data parts."""
+    login_rejection = _byok_login_rejection(auth, byok)
+    if login_rejection is not None:
+        return login_rejection
     rejection = await _budget_rejection(request, auth)
     if rejection is None:
         rejection = await _quota_rejection(request, auth)
@@ -239,14 +312,8 @@ async def handle_chat(
     api_request = _runtime_request(request, body, settings.message_max_chars)
     runtime_api = _get_runtime_api(request)
     await runtime_api.validate_session_owner(api_request.session_id, auth.user_id)
-
-    async def handler(on_step: OnStep) -> PublicAPIResponse:
-        return await runtime_api.handle(
-            api_request,
-            user_id=auth.user_id,
-            user_type=auth.user_type,
-            on_step=on_step,
-        )
+    byok_model = await _resolve_byok_model(byok)
+    handler = _chat_handler(runtime_api, api_request, auth, byok_model)
 
     return StreamingResponse(
         stream_chat(handler),

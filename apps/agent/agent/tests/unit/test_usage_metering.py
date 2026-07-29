@@ -68,6 +68,17 @@ def test_logged_in_traffic_is_metered_as_user_scope() -> None:
     assert scope_for_identity("user-1", "human") == "user"
 
 
+def test_byok_turn_is_metered_as_byok_scope() -> None:
+    """#284 T3: a logged-in BYOK turn is its own scope, not folded into "user"."""
+    assert scope_for_identity("user-1", "human", is_byok=True) == "byok"
+
+
+def test_byok_flag_wins_even_over_an_anonymous_shaped_identity() -> None:
+    """BYOK is login-gated so this pairing never occurs in production, but the
+    classifier must not silently mis-scope it if it ever did."""
+    assert scope_for_identity("anon_abc", "anonymous", is_byok=True) == "byok"
+
+
 def test_cost_prices_input_and_output_tokens_separately() -> None:
     usage = RunUsage(input_tokens=1_000_000, output_tokens=500_000)
     assert usage_cost_usd(usage, PRICES) == 6.0

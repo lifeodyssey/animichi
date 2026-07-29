@@ -162,7 +162,13 @@ class TestAC5ResponseHeadersAndSseFramesNeverLeak:
                 json=shared.chat_body(),
                 headers={
                     "X-User-Id": "user-1",
+                    # #284 T3: the shared fixture's base_url is a
+                    # deliberately non-resolving domain for the leak-proofing
+                    # assertions elsewhere in this file; here it must
+                    # actually resolve so the request reaches the mocked
+                    # `runtime.handle` instead of failing SSRF pre-flight.
                     **shared.BYOK_HEADER_FAMILIES["openai-compatible"],
+                    "X-BYOK-Base-Url": "https://example.com/v1",
                 },
             )
 
