@@ -103,6 +103,16 @@ Required:
   previously tagged every environment's Logfire traces as `production` regardless of which
   environment actually deployed them.
 
+  **There is a second, unrelated `APP_ENV`** — `apps/web/wrangler.jsonc`'s per-env `vars`, read by
+  `apps/web/src/server/noindex-plugin.ts`. Same name, same meaning, **opposite behaviour when
+  absent**: the container's is fail-**closed** (throw), the web app's is fail-**open-to-noindex**
+  (assume non-production and send `X-Robots-Tag`). Both directions are deliberate — a mislabelled
+  trace is cheap, a live site that stops sending `noindex` is not, and neither is a live site that
+  starts. Do not "unify" them without deciding which cost you are choosing. Guarded by
+  `apps/web/tests/unit/wrangler-app-env.test.ts`, which also pins the top-level block: its `name` is
+  the production Worker, so a `wrangler deploy` without `--env` would otherwise publish to
+  production with no `APP_ENV` and silently deindex the site.
+
 Production is temporarily MiMo-only while the DeepSeek account has insufficient balance. After
 recharging DeepSeek, set `FALLBACK_AGENT_MODEL=deepseek:deepseek-v4-flash` to re-enable the already
 provisioned fallback path.

@@ -6,6 +6,15 @@ import type { NitroApp, NitroAppPlugin } from "nitropack/types";
 // non-production Worker carries X-Robots-Tag. Fail-safe direction: only an
 // explicit APP_ENV === "production" (a wrangler var, set per env block in
 // wrangler.jsonc) suppresses the header — missing/empty/unknown means noindex.
+//
+// Two coverage notes, both measured rather than assumed:
+//   • Responses served straight off the ASSETS binding never reach the Worker,
+//     so static files do not get the header. All HTML is Worker-rendered, so
+//     canonicalisation is covered; static assets are the account-layer's job.
+//   • A *handled* error (nitro's errorHandler marks it handled before the hook
+//     runs, h3 1.15.11) skips beforeResponse, so a staging 5xx page ships
+//     without the header. Search engines do not index 5xx, so this is recorded
+//     rather than fixed. Unhandled errors DO reach the hook.
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
