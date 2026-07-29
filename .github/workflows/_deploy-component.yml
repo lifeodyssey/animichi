@@ -91,6 +91,35 @@ jobs:
           atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL" --revisions-schema public
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      # Installs the Pulumi CLI onto PATH without running a command (omitting
+      # `command:` is the documented install-only mode) so the plain `pulumi`
+      # steps below can use it.
+      - name: Install Pulumi CLI
+        if: ${{ inputs.run_pulumi }}
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+      - name: Pulumi stack export (rollback backup)
+        # Snapshot state BEFORE `up` mutates it, so a bad apply can be rolled
+        # back with `pulumi stack import` from the artifact below. #485.
+        if: ${{ inputs.run_pulumi }}
+        working-directory: infra
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          PULUMI_STACK: ${{ inputs.pulumi_stack }}
+        run: |
+          pulumi login "$PULUMI_BACKEND_URL"
+          pulumi stack select "$PULUMI_STACK"
+          pulumi stack export --file "$RUNNER_TEMP/pulumi-$PULUMI_STACK-backup.json"
+      - name: Upload Pulumi stack export
+        if: ${{ inputs.run_pulumi }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pulumi-stack-export-${{ inputs.pulumi_stack }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/pulumi-${{ inputs.pulumi_stack }}-backup.json
+          retention-days: 30
       - name: Pulumi up
         if: ${{ inputs.run_pulumi }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
