@@ -38,6 +38,38 @@ export const AnonQuotaExhaustedData = z.object({
 /** Inferred TS type for the anonymous quota rejection payload. */
 export type AnonQuotaExhaustedData = z.infer<typeof AnonQuotaExhaustedData>;
 
+/**
+ * The full wire envelope both anonymous-limit rejections share: `code` +
+ * `message` + `action: "login"` at the top level, with `data` present only
+ * for the quota rejection (`AnonQuotaExhaustedData`) and absent for the
+ * budget breaker's envelope.
+ */
+export const AnonLimitErrorEnvelope = z.object({
+  error: z.object({
+    code: z.enum([ANON_BUDGET_EXHAUSTED_CODE, ANON_QUOTA_EXHAUSTED_CODE]),
+    message: z.string(),
+    action: z.literal("login"),
+    data: AnonQuotaExhaustedData.optional(),
+  }),
+});
+/** Inferred TS type for the anonymous-limit 403 wire envelope. */
+export type AnonLimitErrorEnvelope = z.infer<typeof AnonLimitErrorEnvelope>;
+
+/**
+ * Read `quota_resets_at` out of a parsed 403 body, if present. Returns
+ * `undefined` for the budget rejection (whose envelope has no `data`) and
+ * for anything that doesn't parse as `AnonLimitErrorEnvelope` at all — the
+ * caller should already know it is looking at an anonymous-limit rejection
+ * (e.g. `code === ANON_QUOTA_EXHAUSTED_CODE`) before reaching for this. The
+ * one blessed extraction site (issue #282 review): every consumer reads the
+ * nested shape through here instead of hand-rolling
+ * `body?.error?.data?.quota_resets_at` at each call site.
+ */
+export function readQuotaResetsAt(body: unknown): string | undefined {
+  const parsed = AnonLimitErrorEnvelope.safeParse(body);
+  return parsed.success ? parsed.data.error.data?.quota_resets_at : undefined;
+}
+
 /** Users-service error codes are feature-namespaced: ROUTE_*, CHECKIN_*, SHARE_*. */
 export type ErrorRegistryItem = {
   readonly status: number;

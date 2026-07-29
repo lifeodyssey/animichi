@@ -115,6 +115,8 @@ Common runtime config:
 - `OBSERVABILITY_SERVICE_VERSION`
 - `LOGFIRE_TOKEN` (optional — tracing/metrics export to Logfire only when set)
 - `GOOGLE_MAPS_API_KEY` (optional)
+- `ANON_DAILY_COST_BUDGET_USD` (optional — the global anonymous daily-dollar circuit breaker, X4/#274; `0` disables it)
+- `ANON_DAILY_MESSAGE_QUOTA` (optional — the per-identity anonymous daily message quota, S1.10/#282, a fairness/UX mechanism rather than a defense line; `0` or unset disables it, same convention as the budget ceiling above)
 
 Session storage:
 

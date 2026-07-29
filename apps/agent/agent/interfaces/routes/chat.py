@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Annotated, Literal, Never, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -11,6 +12,11 @@ from starlette.responses import Response, StreamingResponse
 
 from agent.agents.error_messages import InputError, build_input_error_message
 from agent.agents.runtime_deps import OnStep
+from agent.interfaces.anon_quota import (
+    ANON_QUOTA_EXHAUSTED_CODE,
+    QUOTA_RESETS_AT_FIELD,
+    anonymous_quota_verdict,
+)
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
     _get_db_from_request,
@@ -172,6 +178,51 @@ async def _budget_rejection(
     return _budget_exhausted_response() if verdict.exhausted else None
 
 
+QUOTA_EXHAUSTED_MESSAGE = "今日はここまで・ログインすると続けられるよ。"
+
+
+def _quota_exhausted_response(resets_at: datetime) -> JSONResponse:
+    """403 so the client falls into its D12 login-recovery state (issue #282).
+
+    ``quota_resets_at`` is the next UTC day boundary, ISO 8601 with a literal
+    ``Z`` — the frontend renders it in the visitor's local time instead of
+    hard-coding a mismatched reset instant (review follow-up on #282). It
+    lives under ``error.data``, matching the contract's
+    ``AnonLimitErrorEnvelope`` (`packages/contract/src/error-registry.ts`):
+    `code`/`message`/`action` are common to both anonymous-limit rejections,
+    `data` carries only the quota-specific extra field, and the budget
+    breaker's envelope (`_budget_exhausted_response` above) omits it entirely.
+    """
+    error = {
+        "code": ANON_QUOTA_EXHAUSTED_CODE,
+        "message": QUOTA_EXHAUSTED_MESSAGE,
+        "action": "login",
+        "data": {QUOTA_RESETS_AT_FIELD: resets_at.strftime("%Y-%m-%dT%H:%M:%SZ")},
+    }
+    return JSONResponse(status_code=403, content={"error": error})
+
+
+async def _quota_rejection(
+    request: Request, auth: TrustedAuthContext
+) -> JSONResponse | None:
+    """Container-ingress per-identity quota check (issue #282, S1.10).
+
+    Runs only when the shared anonymous budget (D11, above) has not already
+    rejected the turn: the global dollar breaker is the more severe, systemic
+    concern and wins ties over one visitor's own message ceiling. Only
+    anonymous callers are gated — logged-in traffic is never metered here.
+    """
+    if auth.user_type != ANONYMOUS_USER_TYPE or auth.user_id is None:
+        return None
+    settings = _get_settings_from_request(request)
+    verdict = await anonymous_quota_verdict(
+        _get_db_from_request(request),
+        anon_id=auth.user_id,
+        quota=settings.anon_daily_message_quota,
+    )
+    return _quota_exhausted_response(verdict.resets_at) if verdict.exhausted else None
+
+
 @router.post("/chat", responses={422: {"description": "Invalid chat request"}})
 async def handle_chat(
     request: Request,
@@ -179,6 +230,8 @@ async def handle_chat(
 ) -> Response:
     """Stream chat as an AI SDK UI message stream with tool + data parts."""
     rejection = await _budget_rejection(request, auth)
+    if rejection is None:
+        rejection = await _quota_rejection(request, auth)
     if rejection is not None:
         return rejection
     settings = _get_settings_from_request(request)

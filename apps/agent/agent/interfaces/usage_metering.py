@@ -7,7 +7,9 @@ exhausted. The container is deliberately the only tier that reads the table —
 the edge keeps a same-day latch of this verdict but never queries the database.
 
 Scope boundary: this is a *global dollar budget*. The per-identity daily
-message quota is issue #282 and reads the same table without changing this one.
+message quota (issue #282) lives in ``anon_quota.py`` and its own
+``anon_daily_message_count`` table — a separate durable counter, not a read
+of this module's ``daily_usage`` table.
 """
 
 from __future__ import annotations
