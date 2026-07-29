@@ -56,6 +56,19 @@ function SingleClusterView({ cluster, dict, attach }: ClusterProps) {
   );
 }
 
+type DrillProps = ClusterProps & Readonly<{ onBack: () => void }>;
+
+/** C3b→C3a keeps a way back to the 圏 overview, so the drill is not a dead end
+ * (issue #437 item 2); the funnel in the S1.4 spec reads in both directions. */
+function DrilledClusterView({ cluster, dict, attach, onBack }: DrillProps) {
+  return (
+    <div className="chat-drill">
+      <button type="button" className="chat-chip chat-drill__back" onClick={onBack}>{dict.search.backToOverview}</button>
+      <SingleClusterView cluster={cluster} dict={dict} attach={attach} />
+    </div>
+  );
+}
+
 /** No locatable spot: the D2 state (issue #272 S1.6), never a silently empty map. */
 function EmptyMapState({ spots, dict }: GridProps) {
   return (
@@ -78,6 +91,6 @@ export function SearchResult({ spots, dict, attach = attachBasemap }: SearchResu
   const [drill, setDrill] = useState<SpotCluster | null>(null);
   if (view.kind === "empty") return <EmptyMapState spots={spots} dict={dict} />;
   if (view.kind === "single") return <SingleClusterView cluster={view.cluster} dict={dict} attach={attach} />;
-  if (drill !== null) return <SingleClusterView cluster={drill} dict={dict} attach={attach} />;
+  if (drill !== null) return <DrilledClusterView cluster={drill} dict={dict} attach={attach} onBack={() => { setDrill(null); }} />;
   return <ClusterBubbleMap clusters={view.clusters} dict={dict} attach={attach} onSelect={setDrill} />;
 }
