@@ -12,6 +12,12 @@ on:
       build_filter: { required: false, type: string, default: "" }
       run_pulumi: { required: false, type: boolean, default: true }
       worker_secrets: { required: false, type: string, default: "" }
+      # Newline-separated list of secret names that must be pushed via a raw
+      # `wrangler secret put` step AFTER "Deploy Worker" (see that step for
+      # why). Each name here must also have a matching entry in `secrets:`
+      # below and in the `env:` map of the "Push post-deploy secrets" step —
+      # adding a new post-deploy secret means adding it in those three places.
+      post_deploy_secrets: { required: false, type: string, default: "" }
     secrets:
       NEON_DATABASE_URL:
         required: false
@@ -50,6 +56,10 @@ on:
       CORS_ALLOWED_ORIGIN:
         required: false
       NEXT_PUBLIC_MAPBOX_TOKEN:
+        required: false
+      TURNSTILE_SECRET:
+        required: false
+      ANON_ID_SECRET:
         required: false
 jobs:
   deploy:
@@ -120,6 +130,40 @@ jobs:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+      # Deliberately NOT part of the wrangler-action `secrets:` list above: this
+      # step must run strictly after "Deploy Worker" has created/updated the
+      # target Worker. `wrangler secret put` in non-interactive CI silently
+      # answers "yes" to the "Worker does not exist, create it?" prompt, which
+      # has already produced one orphaned shell Worker in this account. Putting
+      # the secret after a confirmed deploy removes that failure mode.
+      #
+      # List-driven: `inputs.post_deploy_secrets` is a newline list of secret
+      # names for THIS component/environment's Worker (e.g. root's
+      # TURNSTILE_SECRET + ANON_ID_SECRET). Adding a new one means: add the
+      # name to the caller's `post_deploy_secrets` list, add it to `secrets:`
+      # above, and add one line to the `env:` map immediately below so the
+      # bash indirect-expansion lookup (`${!name}`) can find its value —
+      # GitHub Actions has no dynamic `secrets.<computed-name>` lookup, so this
+      # env map is the one place that still needs a per-secret line.
+      - name: Push post-deploy secrets to Worker
+        if: ${{ inputs.post_deploy_secrets != '' }}
+        working-directory: ${{ inputs.working_directory }}
+        env:
+          TARGET_COMPONENT: ${{ inputs.component }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          POST_DEPLOY_SECRETS: ${{ inputs.post_deploy_secrets }}
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+        run: |
+          while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            value="${!name-}"
+            if [ -z "$value" ]; then
+              echo "::error::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT. Refusing to leave the Worker running without it instead of deploying silently degraded. Set it with: gh secret set $name"
+              exit 1
+            fi
+            printf '%s' "$value" | npx --yes wrangler@4.79.0 secret put "$name" --env "$TARGET_ENVIRONMENT"
+          done <<< "$POST_DEPLOY_SECRETS"
       # Real per-component smoke checks (issue #484). `web` and `root` are
       # each self-contained (no dependency on other components in the same
       # environment) so they get a direct HTTP assertion right after their
