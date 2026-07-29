@@ -173,3 +173,31 @@ async def test_returns_readable_message_on_os_error(
     result = await web_tools.web_search(_make_ctx(), query="query")
 
     assert "Search failed" in result
+
+
+async def test_translate_anime_title_uses_the_injected_translator_when_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P3-d (#284 T3/T4 review follow-up): `translate_anime_title` — the
+    D18 boundary's actual tool callsite — must call `deps.title_translator`
+    when a BYOK turn has injected the server-locked one, never fall through
+    to `translate_title` (which would inherit the run's own, BYOK, model)."""
+    from agent.agents.translation import TranslationResult
+
+    fake_result = TranslationResult(
+        original="タイトル", translated="Title", source="llm"
+    )
+    translator = AsyncMock(return_value=fake_result)
+    called_translate_title = AsyncMock()
+    monkeypatch.setattr(web_tools, "translate_title", called_translate_title)
+    deps = RuntimeDeps(
+        MagicMock(), "en", "query", MockCatalogClient(), title_translator=translator
+    )
+
+    result = await web_tools.translate_anime_title(
+        tool_context(deps), title="タイトル", target_language="en"
+    )
+
+    translator.assert_awaited_once_with("タイトル", "en")
+    called_translate_title.assert_not_awaited()
+    assert result.translated == "Title"
