@@ -28,6 +28,20 @@ export const CONTAINER_ENV_KEYS = [
 
 export const CONTAINER_REQUIRED_KEYS = ["DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUPABASE_DB_URL"];
 
+// Container-level egress network policy (#284 Task 7). Split out for the same
+// reason as the env-var allowlist above: a plain `node --test` importer must not
+// pull in `entry.ts`'s `@cloudflare/containers` import chain. See
+// `docs/ops/cloudflare-hardening.md` §6 for the full spike + rationale — this is
+// `RuntimeContainer.deniedHosts` (accepts IP CIDR, enforced before any outbound
+// handler, unconditional even with `enableInternet: true`).
+export const DENIED_EGRESS_CIDRS = [
+  "10.0.0.0/8", // RFC1918
+  "172.16.0.0/12", // RFC1918
+  "192.168.0.0/16", // RFC1918
+  "169.254.0.0/16", // link-local (AWS/Azure/GCP IMDS)
+  "100.64.0.0/10", // CGNAT (Alibaba/Tencent metadata)
+];
+
 export function buildContainerEnvVars(env: Record<string, unknown>): Record<string, string> {
   const envVars: Record<string, string> = { APP_ENV: "production", SERVICE_HOST: "0.0.0.0", SERVICE_PORT: "8080" };
   for (const key of CONTAINER_REQUIRED_KEYS) {

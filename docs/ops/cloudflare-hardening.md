@@ -175,133 +175,235 @@ After manual dashboard changes:
 ### Threat model reference
 
 This section closes **Task 7** of the BYOK design spec
-(`docs/superpowers/specs/2026-07-28-284-byok-design.md`), whose OQ-5 ruling required a **spike
-before implementation**: verify whether the Cloudflare Containers runtime grants `NET_ADMIN` /
-lets us express a kernel-level egress policy (iptables-style block of RFC1918 + `169.254.0.0/16`
-+ `100.64.0.0/10`) *behind* the application-layer SSRF guard (`egress_guard`, Task 1 / #458), as
-a second line of defense against threat **T12** in that spec's threat model ("application-layer
-guard bypassed by a code path that builds its own client").
+(`docs/superpowers/specs/2026-07-28-284-byok-design.md`, now landed in this tree — see the
+Threat Model table there for the full T1–T14 list), whose OQ-5 ruling required a **spike before
+implementation**: verify whether the Cloudflare Containers runtime "grants `NET_ADMIN` / can
+express an egress policy **at all**" — a kernel-level or platform-level block of RFC1918 +
+`169.254.0.0/16` + `100.64.0.0/10` *behind* the application-layer SSRF guard (`egress_guard`,
+Task 1 / #458), as a second line of defense against threat **T12** ("application-layer guard
+bypassed by a code path that builds its own client"). OQ-5 has two independent clauses; getting
+only the first one right is not sufficient to trigger the pre-authorized fallback — see below.
 
-### Spike conclusion: NET_ADMIN-style egress policy is NOT available — CONFIRMED, fallback triggers
+### Spike, clause 1: NET_ADMIN / iptables — CONFIRMED unavailable
 
-Evidence gathered 2026-07-29 from Cloudflare's own documentation (via the `cloudflare-docs` MCP
-tool and web search; no live deploy was performed — deploys stay CI/CD-only per the repo's
-no-local-deploy rule, and a real container-network experiment is out of scope for a docs spike):
+Evidence from Cloudflare's own documentation (via the `cloudflare-docs` MCP tool and web search;
+no live deploy was performed — deploys stay CI/CD-only per the repo's no-local-deploy rule):
 
 - **Cloudflare Containers FAQ** states explicitly: *"Cloudflare Containers do not support
   iptables manipulation. The `--iptables=false` and `--ip6tables=false` flags prevent Docker from
-  attempting to configure network rules, which would otherwise fail."* and *"Containers operate
+  attempting to configure network rules, which would otherwise fail."* and *"Containers run
   without root privileges"* (Docker-in-Docker guidance tells users to use `docker:dind-rootless`
-  precisely because the outer container has no root). No `NET_ADMIN` (or any Linux capability
-  grant) is documented anywhere in the Containers platform docs, the `Container` class reference,
-  or the Wrangler `[[containers]]` configuration schema — `instance_type`, `image`, `class_name`,
-  `max_instances`, `ssh`, and `authorized_keys` are the only per-container settings that exist
-  today (`https://developers.cloudflare.com/workers/wrangler/configuration/#containers`).
+  precisely because the outer container has no root).
+- The Wrangler `[[containers]]` configuration schema
+  (`https://developers.cloudflare.com/workers/wrangler/configuration/#containers`) exposes only
+  image/build, placement, rollout, SSH, and `constraints` settings — `image`, `class_name`,
+  `instance_type`, `max_instances`, `name`, `image_build_context`, `image_vars`,
+  `rollout_active_grace_period`, `rollout_step_percentage`, `ssh`, `authorized_keys`,
+  `constraints.regions`, `constraints.jurisdiction`. **No capability, security-context, or
+  network-policy field exists** anywhere in that schema.
 - This repo's own `wrangler.toml` `[[containers]]` block (`class_name = "RuntimeContainer"`) and
-  the `./Dockerfile` confirm there is no capability/security-context knob to set even if we wanted
-  one — the Dockerfile already runs as a non-root `appuser`, which is consistent with the
-  platform's documented no-root/no-`NET_ADMIN` posture, not something we can loosen.
-- The platform's actual egress-shaping primitive is **Worker-side outbound interception**
-  (`static outbound` / `static outboundByHost` on the `Container` class,
-  `https://developers.cloudflare.com/containers/container-class/`), which this repo already uses
-  for exactly one hop — `RuntimeContainer.outboundByHost["catalog.internal"] → env.CATALOG`
-  (see `wrangler.toml` comments). This is a real mechanism, but it is **not** the kernel/NET_ADMIN
-  control OQ-5 asked about: it is documented as HTTP(S)-scoped request interception running
-  inside the Workers runtime (a request-routing layer), not a network-layer firewall, and today
-  it is configured per-hostname (allow-list of one), not as a default-deny-then-allow egress
-  policy. Turning it into a comprehensive RFC1918/link-local/CGNAT blocklist for *all* container
-  egress would be a materially larger change (a global `outbound` catch-all handler covering every
-  destination, including the two live provider hops below) that is out of scope for this spike and
-  is called out as a future upgrade path, not a requirement, below.
+  the `./Dockerfile` are consistent with this: the Dockerfile already runs as a non-root
+  `appuser`, matching the platform's documented no-root/no-`NET_ADMIN` posture, not something we
+  can loosen from our side.
 
-**Conclusion: the strong prior holds. NET_ADMIN / iptables-style egress policy is confirmed
-unavailable on Cloudflare Containers today. The OQ-5 pre-authorized fallback triggers.**
+**This clause holds: NET_ADMIN / iptables-style egress policy is confirmed unavailable on
+Cloudflare Containers today.**
 
-### Fallback: application-layer guard is the sole enforced control
+### Spike, clause 2 (correction — the first pass of this doc got this wrong): a declarative CIDR denylist IS available, and does not require NET_ADMIN
 
-Per the OQ-5 ruling, Task 7 closes as **documented acceptance**, not as a shipped network policy.
-The three Task 7 ACs in the spec are satisfied by this documentation, not by a runtime test, and
-are not left as skipped/placeholder tests — there is nothing to skip because there is no policy
-to test.
+An earlier version of this section additionally claimed the platform's only egress-shaping
+primitive was HTTP(S)-scoped Worker request routing (`outboundByHost`), and concluded from that
+that clause 2 of OQ-5 was also unmet. **That conclusion was wrong** and is corrected here after
+independent re-verification against `https://developers.cloudflare.com/containers/platform-details/outbound-traffic/`
+(checked 2026-07-29) and the `@cloudflare/containers@0.3.7` type definitions actually vendored in
+this repo (`node_modules/@cloudflare/containers/dist/lib/container.d.ts` — checked directly, not
+inferred from docs prose):
 
-**What actually enforces the RFC1918 + `169.254.0.0/16` + `100.64.0.0/10` block today:**
+- **`deniedHosts`** is a `Container`-class instance property (same class `RuntimeContainer`
+  already extends) that accepts **hostnames, hostname globs, and IP CIDR ranges** — the official
+  example is literally `deniedHosts = ["some-nefarious-website.com", "141.101.64.0/18"]`.
+- Per the vendored type declaration's own doc comment: *"Denied hosts are blocked unconditionally,
+  even when `enableInternet` is `true` or a catch-all outbound handler is set"* — i.e. this is
+  enforced **before** any outbound handler runs, unconditionally, and does **not** require
+  `enableInternet: false` (which would additionally restrict egress to ports 80/443 + DNS and
+  break the direct `asyncpg` Postgres hop — confirmed as a real constraint, which is why the
+  `deniedHosts`-only variant, not the `enableInternet: false` variant, is the one implemented
+  below).
+- `allowedHosts` is separately documented as *"a deny-by-default allowlist"* when set — i.e.
+  default-deny-then-allow is expressible on this platform; we are not using `allowedHosts` here
+  (an allowlist would need to enumerate every legitimate provider hostname and would be a much
+  larger, riskier change than a denylist of well-known non-routable ranges), but its existence is
+  further confirmation that clause 2 of OQ-5 is met.
 
-1. **`egress_guard.validate_base_url()`** (Task 1 / #458) — SSRF pre-flight check run against any
-   user-supplied BYOK `base_url` before a model client is constructed; rejects private/link-local/
-   CGNAT targets with a `400` before any socket is opened.
-2. **The guarded `httpx` client factory** (`byok_models.py`, Task 3) — the only sanctioned way to
-   build a BYOK-path HTTP client; constructed with `trust_env=False` and no `mounts`/proxy (closes
-   **T13** — an `HTTPS_PROXY`/`ALL_PROXY` env var silently defeating IP pinning by routing through
-   a re-resolving proxy).
-3. **`X-BYOK-*` deny-capture** (Task 2) — credential headers never reach logs/spans/exception
-   payloads, so a bypass cannot be bootstrapped from leaked telemetry.
-4. **Task 9 authenticated-path rate limiting** at the Worker — bounds the blast radius of any
-   single identity hammering an egress target, independent of whether that target is blocked.
+**Corrected conclusion: OQ-5's clause 2 is met. The platform can express an egress policy (a
+declarative, platform-enforced CIDR denylist) without NET_ADMIN. The pre-authorized fallback
+("document that the application layer is the sole control") does *not* trigger, because its own
+precondition — the platform cannot express an egress policy at all — is false. Task 7 ships as
+an actual implemented policy, not a documented-acceptance closure.**
 
-**Residual risk (recorded in the threat model, not newly introduced):** **T12** — "a future
-contributor adds a code path that builds its own HTTP client, bypassing the guarded factory" — is
-only caught today by code review + the guarded-factory convention, not by a second enforcement
-layer. This is the direct consequence of the OQ-5 finding: there is no kernel-level backstop on
-this platform, so the guarded-factory pattern (single sanctioned construction path) is the actual
-mitigation for T12, and it lives entirely in application code review discipline, not runtime
-policy. Owner: whoever lands new outbound HTTP call sites in `apps/agent/agent/` must construct
-clients via the guarded factory; PR review is the enforcement point.
+### What is implemented
+
+`RuntimeContainer.deniedHosts` (`worker/entry.ts`) is set from `DENIED_EGRESS_CIDRS`
+(`worker/containerEnv.ts`, split out for the same Node-import-chain reason as
+`buildContainerEnvVars` — see that file's header comment):
+
+```ts
+export const DENIED_EGRESS_CIDRS = [
+  "10.0.0.0/8",       // RFC1918
+  "172.16.0.0/12",    // RFC1918
+  "192.168.0.0/16",   // RFC1918
+  "169.254.0.0/16",   // link-local (AWS/Azure/GCP IMDS)
+  "100.64.0.0/10",    // CGNAT (Alibaba/Tencent metadata)
+];
+```
+
+Pinned by `worker/containerEnv.test.ts` (run via `pnpm run test:worker`), which asserts both the
+exact CIDR list and that it covers every address the spec's Task 7 AC error-path names
+(`169.254.169.254`, `100.100.100.200`, `10.0.0.1`) while not covering a public address
+(`1.1.1.1`).
+
+### Scope and an honest limit: HTTP is covered today; HTTPS interception is a deferred, evaluated cost
+
+Per the same vendored type declaration, `deniedHosts` filtering is applied as part of the
+Container runtime's outbound-HTTP interception, which is unconditional for **plain HTTP**. HTTPS
+traffic is only decrypted/inspected for filtering when `interceptHttps: true` is additionally set
+(`applyOutboundInterception`'s doc comment: *"When `interceptHttps` is enabled, also applies
+HTTPS interception"*). We evaluated turning this on and **did not**, for one concrete, evidenced
+reason: `interceptHttps` MITMs all outbound HTTPS with an ephemeral per-instance CA
+(`/etc/cloudflare/certs/cloudflare-containers-ca.crt`), which the container's Python process must
+be configured to trust (Python's `httpx`/`certifi` bundle does not trust arbitrary system CAs by
+default). Flipping this on without first wiring that trust — and verifying it in a real deploy,
+which this task cannot do — would silently break **every** production HTTPS call (MiMo, the
+DeepSeek fallback, any BYOK provider), not just close a gap. That is a materially worse failure
+mode than the gap it would close, given:
+
+- the exact AC error-path scenario in the spec uses `http://169.254.169.254/` (plain HTTP) — the
+  shipped `deniedHosts` list already blocks this, and real cloud-metadata IMDS endpoints
+  (AWS/Azure/GCP `169.254.169.254`, Alibaba/Tencent `100.100.100.200`) are HTTP-only in practice,
+  so the highest-value SSRF targets are covered without `interceptHttps`;
+- the residual gap is an HTTPS request to a private/link-local/CGNAT IP specifically — a narrower
+  bypass than the one this section closes, and one still caught by the application-layer guard
+  (`egress_guard`/`GuardedAsyncTransport`) for the BYOK path specifically.
+
+**Follow-up, not required for Task 7's closure:** turning on `interceptHttps` needs its own
+spec'd rollout (Python CA-trust wiring + a staging verification pass), tracked as a Task 7
+follow-up rather than bundled into this docs/config PR.
+
+### AC disposition
+
+The spec's three Task 7 ACs, checked against what is actually shipped here (config + unit test,
+not a live-container integration test — this task cannot deploy, so the following is what is
+verified today vs. what still needs a manual staging check before being marked fully closed):
+
+- **Happy path** (public egress succeeds): satisfied by design — `DENIED_EGRESS_CIDRS` contains
+  no public ranges; pinned by the `1.1.1.1`-not-covered assertion in
+  `worker/containerEnv.test.ts`. Not yet verified against a live deployed instance.
+- **Null/empty** (catalog `outboundByHost` hop + the MiMo provider call still succeed):
+  satisfied by design — the catalog hop is a private-hostname binding interception, a different
+  code path from `deniedHosts` entirely; the MiMo provider's public hostname resolves outside all
+  five denied CIDRs. Not yet verified against a live deployed instance.
+- **Error path** (`169.254.169.254`, `100.100.100.200`, `10.0.0.1` refused at the network layer):
+  satisfied **for plain HTTP**, matching the spec's own literal AC wording
+  (`http://169.254.169.254/`); pinned by `worker/containerEnv.test.ts`. **Not** yet satisfied for
+  HTTPS to the same addresses — see the `interceptHttps` limit above.
+
+A live-container verification pass (confirming the above against a real deployed instance, and
+confirming the HTTPS gap is as scoped) is recorded as a required follow-up, not fabricated as
+done here.
+
+### Defense-in-depth control inventory (what enforces this, end to end)
+
+1. **`RuntimeContainer.deniedHosts`** (this section) — the container-runtime-level CIDR denylist
+   described above; the actual Task 7 deliverable.
+2. **`egress_guard.validate_base_url()`** (`apps/agent/agent/infrastructure/egress_guard.py`,
+   Task 1 / #458) — SSRF pre-flight check run against any user-supplied BYOK `base_url` before a
+   model client is constructed; rejects private/link-local/CGNAT/reserved targets (dual-condition
+   `is_global` + deny-flag check, T3/T6) with a `400` before any socket is opened.
+3. **`GuardedAsyncTransport` / `build_guarded_async_client`**
+   (`apps/agent/agent/infrastructure/egress_transport.py`, Task 1) — the only sanctioned way to
+   build a BYOK-path HTTP client (all three provider families — OpenAI-compatible, Anthropic,
+   Gemini — route through it via `agents/byok_models.py`, #477). It:
+   - re-validates at connect time and **pins the socket to the validated IP with a rewritten
+     `Host` header** (`_rewrite_for_pinned_endpoint`), closing the DNS-rebinding/TOCTOU window
+     (**T4**);
+   - **refuses every 3xx response** (`EgressBlockReason.REDIRECT_REFUSED`), closing the
+     redirect-based bypass (**T5**);
+   - is constructed with **`trust_env=False`** and no `mounts`/proxy, closing **T13** (a proxy env
+     var silently defeating IP pinning);
+   - **opts itself out of global Logfire/OTel httpx instrumentation**
+     (`_exclude_from_httpx_instrumentation`, Task 2 / #474) so the credential-stripping middleware
+     is not bypassed by an auto-instrumented span on this specific transport.
+4. **`X-BYOK-*` deny-capture** (Task 2 / #474) — credential headers never reach logs/spans/
+   exception payloads, so a bypass cannot be bootstrapped from leaked telemetry.
+5. **Task 9 authenticated-path rate limiting** (#451) at the Worker — bounds the blast radius of any
+   single identity hammering an egress target, independent of whether that target is blocked. This
+   bound is currently scoped to **server-key traffic**; BYOK-specific quota-exemption semantics
+   land in Task 4/5 (`feat/284-t45-exemption-probe`, unmerged at the time of writing) and will
+   change this bound once merged — re-check this item then.
+
+Production today is **MiMo-only** (the DeepSeek fallback is provisioned but disabled) — "the MiMo
+provider call" above, not "two live provider hops"; re-word this bullet if/when DeepSeek is
+re-enabled.
+
+### Residual risk (T12), and the AGENTS.md convention that backs it
+
+**T12** — "a future contributor adds a code path that builds its own HTTP client, bypassing the
+guarded factory" — is now **partially** mitigated at runtime, not solely by code review: a raw
+socket/`httpx` client making a **plain-HTTP** connection to a denied CIDR is blocked by
+`RuntimeContainer.deniedHosts` regardless of which Python code path constructed it. For an
+**HTTPS** connection to the same ranges, the only backstop today is the guarded-factory
+convention plus code review — `apps/agent/AGENTS.md`'s HTTP conventions section states this
+explicitly (previously it said the opposite: "leave `trust_env` at httpx's default (`True`)",
+without carving out the BYOK/egress-guarded path, which would have told a future contributor to
+recreate the exact T13 bypass this section closes — that has been corrected). Owner: whoever
+lands new outbound HTTP call sites in `apps/agent/agent/` must construct clients via
+`egress_transport.build_guarded_async_client`; PR review is the enforcement point for the HTTPS
+residual.
 
 ### Process-level socket guard — evaluated, not implemented
 
 The spec's fallback explicitly allows an *optional* process-level guard (e.g., a Python `socket`
 patch that inspects the destination of every outbound `connect()` and rejects RFC1918/link-local/
 CGNAT targets before the OS attempts the connection) as a cheaper stand-in for a kernel policy.
-This was evaluated and **not implemented**, for three concrete reasons:
+Now that `deniedHosts` closes the plain-HTTP case at the platform layer, the remaining case such a
+guard would add is the HTTPS-to-private-IP gap above. This was evaluated and **not implemented**,
+for two concrete reasons (a third reason from an earlier draft of this section — that Task 1/3
+were still unmerged — no longer holds: #458, #474, and #477 are all merged; the two reasons below
+stand on their own regardless):
 
 1. **Blast radius vs. benefit.** A global monkeypatch of `socket.socket.connect`/`connect_ex`
    affects every outbound connection the process makes — Postgres (`asyncpg`), the catalog
-   binding hop, both live model providers, and any future dependency — not just the BYOK path.
-   The marginal benefit over the guarded-factory pattern (which already governs every BYOK client
-   construction site) is a bypass scenario that is already mitigated by code review (T12), while
-   the downside of a global socket patch misbehaving is an outage across every network call the
-   container makes, not just BYOK.
-2. **Verification is not credible without the exact runtime.** A meaningful test of "does this
-   guard block a raw `httpx.AsyncClient().get('http://169.254.169.254/')` from *inside the built
-   container image*" requires exercising it in the actual container network namespace — not a
-   local pytest process on a developer's machine or CI runner, which have different network
-   topology (loopback/link-local addressing differs, and CI sandboxes commonly firewall
-   169.254.169.254-class addresses themselves, which would produce a false-positive "pass").
-   Standing up that verification is itself a real container deploy, which this task cannot do
-   (CI/CD-only deploy rule) — so any socket-guard test we could write today would be testing our
-   own mock, not the real bypass scenario, which fails the "no placeholder AC" bar just as much as
-   a skipped network test would.
-3. **Coupling to an unmerged dependency.** The guarded `httpx` client factory this guard would
-   need to coexist with (Task 1 `egress_guard`, Task 3 `byok_models.py`) is still in flight on
-   unmerged branches (`feat/284-t1-ssrf-guard`, `feat/284-t3-byok-model`) at the time of this
-   spike. Building a second, independent enforcement layer against a moving target risks producing
-   two guards with subtly different validation logic (e.g. IPv6-mapped IPv4, `0x`-encoded octets)
-   that drift apart over time — a known SSRF-bypass anti-pattern. The single-guard approach (guard
-   the one factory that builds every client) is deliberately the pattern already chosen in the
-   spec; a second ad hoc guard duplicates it with a different risk surface instead of adding real
-   depth.
+   binding hop, the MiMo provider call, and any future dependency — not just the BYOK path. The
+   marginal benefit over `deniedHosts` (platform layer, HTTP) plus the guarded-factory convention
+   (application layer, HTTPS, code-review-enforced) is closing one narrow HTTPS-to-private-IP
+   bypass scenario, while the downside of a global socket patch misbehaving is an outage across
+   every network call the container makes.
+2. **Two independent guards drift apart.** A process-level socket guard would duplicate
+   `egress_guard`'s validation logic (dual-condition IP classification, IPv6-mapped-IPv4 handling,
+   `0x`-encoded octets, etc.) in a second implementation. Two guards with subtly different edge-case
+   handling is a known SSRF-bypass anti-pattern in its own right — independent of whether the
+   guarded factory is merged or not, maintaining one validation implementation instead of two is
+   the safer design. The single-guard approach (guard the one factory that builds every client) is
+   deliberately the pattern the spec already chose.
 
 If a future engineer wants to revisit this, the correct home for a socket-level guard is inside
 `egress_guard` itself as a `socket.getaddrinfo` / custom `httpx` transport hook scoped **only** to
-BYOK-constructed clients (not a global patch) — which is what Task 1's `trust_env=False`
-guarded-client design already sets up the seam for.
+BYOK-constructed clients (not a global patch) — which is what the guarded-client design already
+sets up the seam for.
 
-### Upgrade path if Cloudflare adds real network-layer egress control
+### Upgrade path
 
-If Cloudflare ships `NET_ADMIN`, a security-context/capabilities field on `[[containers]]`, or a
-first-class network-policy primitive for Containers in the future:
+Two independent follow-ups, tracked separately from Task 7's closure:
 
-1. Re-open this section — check the Wrangler `containers` configuration schema changelog first
+1. **HTTPS coverage of the denylist** — wire Python CA trust for
+   `/etc/cloudflare/certs/cloudflare-containers-ca.crt`, set `interceptHttps: true`, verify in a
+   real staging deploy that legitimate HTTPS (MiMo) still works before enabling in production.
+2. **True kernel-level policy, if Cloudflare ever ships it** — re-check the Wrangler `containers`
+   configuration schema changelog
    (`https://developers.cloudflare.com/workers/wrangler/configuration/#containers`) and the
-   Containers changelog (`https://developers.cloudflare.com/changelog/product/containers/`).
-2. Add the capability to `[[containers]]` in `wrangler.toml` and an `iptables`/`nftables` rule (or
-   equivalent declarative policy) to the `Dockerfile`/entrypoint blocking RFC1918 +
-   `169.254.0.0/16` + `100.64.0.0/10` outbound.
-3. Add the integration test the original Task 7 AC called for
-   (`apps/agent/agent/tests/integration/test_egress_network_policy.py`): happy path (public egress
-   succeeds), null/empty (catalog `outboundByHost` hop + live model provider calls still succeed),
-   error path (raw `httpx.AsyncClient().get("http://169.254.169.254/")` still blocked).
-4. Downgrade T12's residual-risk note above from "code-review-only" to "code-review + runtime
-   backstop."
+   Containers changelog (`https://developers.cloudflare.com/changelog/product/containers/`) for a
+   `NET_ADMIN`/capability field; if one ships, it would be additive to (not a replacement for)
+   `deniedHosts`, which stays as the primary control either way.
 
-Until then, this documented-acceptance state is the closed state of Task 7.
+A live-container verification pass (the AC-disposition gaps above) is the immediate next step,
+independent of either follow-up.
