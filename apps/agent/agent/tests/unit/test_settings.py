@@ -2,7 +2,7 @@
 
 import pytest
 
-from agent.config.settings import Settings
+from agent.config.settings import Settings, get_db_only_settings
 
 
 class TestGCPConfiguration:
@@ -204,3 +204,50 @@ class TestAPIKeyValidation:
         )
         secrets = settings.get_secrets()
         assert secrets["openai_compat_api_key"].endswith("***")
+
+
+class TestDbOnlySettings:
+    """Issue #508: a DB-only cron (the anonymous-session and anon-quota-count
+    purges) must be able to construct `Settings` without a model credential,
+    while the main service's `get_settings()`/`Settings()` path keeps hard-
+    requiring one — this is the core regression this issue fixes."""
+
+    @pytest.mark.filterwarnings("ignore::UserWarning")
+    def test_db_only_settings_succeed_with_only_supabase_db_url(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://local/test")
+        monkeypatch.setenv("MIMO_API_KEY", "")
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+        monkeypatch.setenv("OPENAI_COMPAT_API_KEY", "")
+
+        settings = get_db_only_settings()
+
+        assert settings.supabase_db_url == "postgresql://local/test"
+        assert settings.mimo_api_key == ""
+
+    def test_db_only_settings_still_hard_require_supabase_db_url(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SUPABASE_DB_URL", "")
+        monkeypatch.setenv("MIMO_API_KEY", "test-key")
+
+        with pytest.raises(ValueError, match="SUPABASE_DB_URL"):
+            get_db_only_settings()
+
+    def test_main_service_settings_still_hard_require_a_model_credential(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The narrower fix must not weaken the main service's validation:
+        `Settings()` constructed outside `get_db_only_settings` keeps
+        requiring MIMO_API_KEY exactly as before this issue."""
+        monkeypatch.delenv("DEFAULT_AGENT_MODEL", raising=False)
+        monkeypatch.delenv("FALLBACK_AGENT_MODEL", raising=False)
+        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+
+        with pytest.raises(ValueError, match="MIMO_API_KEY"):
+            Settings(
+                _env_file=None,
+                mimo_api_key="",
+                supabase_db_url="postgresql://local/test",
+            )
