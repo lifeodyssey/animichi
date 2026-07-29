@@ -33,6 +33,7 @@ fetch() {
       0.521 | 0.522 | 0.523 | 0.524 | [1-9]*.*) : ;; # transport failure or CF edge-origin error — retry
       *) echo "${status}"; return 0 ;;
     esac
+    if [ "${attempt}" -eq 5 ]; then break; fi
     echo "attempt ${attempt}/5: transport rc=${rc} status=${status:-n/a} for ${method} ${url} — retrying (workers.dev DNS propagation / container cold start window)" >&2
     sleep $((attempt * 5))
   done

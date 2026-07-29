@@ -9,12 +9,14 @@
 # Usage: resolve-worker-url.sh <root|web> <staging|production>
 # Requires CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID in the environment,
 # except for root/production which resolves to the static custom domain
-# (wrangler.toml env.production.routes) and needs neither. Only
-# CLOUDFLARE_API_TOKEN is treated as sensitive here (a bare least-privilege
-# read of GET .../workers/subdomain, distinct from the deploy-scoped token
-# `wrangler deploy` uses elsewhere in this repo's CI); CLOUDFLARE_ACCOUNT_ID
-# is not a credential and is sourced from a repository VARIABLE by the
-# callers of this script, not a secret.
+# (wrangler.toml env.production.routes) and needs neither. Both are sourced
+# from secrets by the callers of this script (matching _deploy-component.yml,
+# which already needs the same CLOUDFLARE_ACCOUNT_ID secret for `wrangler
+# deploy` — one source for one value, not two). The read this script makes
+# (GET .../workers/subdomain) needs a narrower scope than deploy does; if
+# that scope reduction is worth doing, it should happen by provisioning a
+# separate, purpose-scoped Cloudflare token, not by relocating the account id
+# — see the discussion on issue #484 / PR #493 if revisiting this.
 set -euo pipefail
 
 component="${1:?usage: resolve-worker-url.sh <root|web> <staging|production>}"

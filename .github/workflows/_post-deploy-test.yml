@@ -39,11 +39,19 @@ on:
       suite:
         required: true
         type: string  # api | e2e | smoke — informational label, see header
-      cloudflare_account_id:
-        required: true
-        type: string
     secrets:
       CLOUDFLARE_API_TOKEN:
+        required: true
+      # Sourced from secrets, not a repo variable, to match _deploy-component.yml
+      # (single source for the same value across the repo) and because
+      # `required: true` on a workflow_call input only checks the key was
+      # passed, not that its value is non-empty — an unconfigured repo
+      # variable would resolve to "" and hard-fail this job on every run,
+      # blocking every production deploy behind it. The read scope this
+      # secret is used for here (GET .../workers/subdomain) is narrower than
+      # deploy, but that's a token-scoping concern, not an account-id one —
+      # see the PR discussion on #493 if revisiting this.
+      CLOUDFLARE_ACCOUNT_ID:
         required: true
 
 permissions:
@@ -75,7 +83,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ inputs.environment }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           root_url="$(bash .github/scripts/resolve-worker-url.sh root "$ENVIRONMENT")"
