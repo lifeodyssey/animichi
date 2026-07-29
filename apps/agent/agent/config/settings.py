@@ -158,27 +158,14 @@ class Settings(BaseSettings):
         ge=0,
         description="Per-identity daily message cap for anonymous users (None or 0 disables)",
     )
-    # Retention for anon_daily_message_count (issue #282 review): rows older
-    # than this many UTC days are eligible for the standalone purge script
-    # (scripts/purge_anon_quota_counts.py). 30 mirrors the analogous
-    # anonymous-session retention window used elsewhere in this codebase.
-    anon_daily_message_count_retention_days: int = Field(
-        default=30, gt=0, description="Days to keep anon_daily_message_count rows"
-    )
+    # anon_daily_message_count and anonymous-session retention windows moved
+    # to `PurgeCronSettings` (agent/config/cron_settings.py, issue #508) —
+    # the only two things that ever read them are the DB-only purge crons.
     model_input_cost_per_mtok_usd: float = Field(
         default=0.0, ge=0, description="Input token price per million tokens (USD)"
     )
     model_output_cost_per_mtok_usd: float = Field(
         default=0.0, ge=0, description="Output token price per million tokens (USD)"
-    )
-    # Anonymous-session retention sweep (issue #273 Task 3). A session with no
-    # route output is purged once its conversation has gone this many days
-    # without an update; route-bearing sessions are retained permanently
-    # regardless of this window (not configurable — see purge_anonymous_sessions).
-    anonymous_session_retention_days: int = Field(
-        default=30,
-        ge=1,
-        description="Days of inactivity before a routeless anonymous session is purged",
     )
     service_host: str = Field(default="0.0.0.0", description="HTTP service bind host")
     service_port: int = Field(default=8080, description="HTTP service bind port")
@@ -378,9 +365,8 @@ class Settings(BaseSettings):
         the photo-search vision provider is deliberately NOT checked here
         (#502 review): this method feeds a non-blocking startup warning
         only, and entangling it with the vision provider's real requirement
-        risks silently widening scope (see `validate_required_env`, the
-        cron scripts' credential skip-list). The vision provider validates
-        its own key at call time instead — see
+        risks silently widening scope (see `validate_required_env`). The
+        vision provider validates its own key at call time instead — see
         `agent.clients.gemini_vision.GeminiVisionProvider`.
         """
         missing: list[str] = []
