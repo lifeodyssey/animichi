@@ -25,13 +25,23 @@ void test("GET /healthz reaches the container, not OpenNext", async () => {
   assert.equal(await res.text(), "ok");
 });
 
-void test("/catalog/* is NOT publicly routed (falls through to OpenNext)", async () => {
+// The old name for this said "/catalog/* is NOT publicly routed", which was
+// never true — `/catalog/public/*` IS routed (see app.ts). The property that
+// matters, and the one asserted here, is narrower: a REAL private catalog
+// endpoint must not be reachable from the edge and must never touch the
+// CATALOG binding. `/catalog/search` is such an endpoint; the sibling case in
+// gatewayFallback.test.ts uses an invented `/catalog/public/*` path, which
+// exercises the explicit-deny branch instead of this one.
+void test("a real private catalog endpoint is unreachable and never touches the binding", async () => {
   const app = createWorkerApp({});
   let catalogHit = false;
   const env = { CATALOG: { fetch: () => { catalogHit = true; return Promise.resolve(new Response("cat")); } } } as never;
   const res = await app.request("/catalog/search", { method: "POST" }, env, stubCtx);
-  assert.equal(await res.text(), "next"); // hits OpenNext (404-able), never env.CATALOG
-  assert.equal(catalogHit, false); // security: non-allowlisted catalog path stays private
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), {
+    error: { code: "not_found", message: "No route matches this request." },
+  });
+  assert.equal(catalogHit, false); // security: the binding stays private
 });
 
 function envWithCatalog(captured: { req?: Request }) {
@@ -94,11 +104,10 @@ void test("POST cannot invoke the public anime overview", () =>
 void test("PUT cannot invoke the public anime overview", () =>
   assertPublicCatalogRejected("/catalog/public/anime-overview/3302", "PUT"));
 
-void test("unknown path falls through to OpenNext", async () => {
-  const app = createWorkerApp({});
-  const res = await app.request("/anything", {}, {}, stubCtx);
-  assert.equal(await res.text(), "next");
-});
+// (The old "unknown path falls through to OpenNext" case lived here. It is now
+// covered twice over by gatewayFallback.test.ts — `/` and `/some/legacy/page`
+// both assert the 404 status and the shared error envelope — so it was removed
+// rather than restated. Checked before deleting: the property survives.)
 
 void test("catalogOutbound forwards container requests to the CATALOG binding", async () => {
   let received: Request | null = null;
