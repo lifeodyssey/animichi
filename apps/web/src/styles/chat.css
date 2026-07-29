@@ -331,7 +331,8 @@
 .chat-interruption__retry,
 .chat-session-expired__login,
 .chat-session-expired__resume,
-.chat-budget-exhausted__login {
+.chat-budget-exhausted__login,
+.chat-quota-exhausted__login {
   border: 0;
   border-radius: 10px;
   min-height: 36px;
@@ -349,7 +350,8 @@
 }
 
 .chat-session-expired,
-.chat-budget-exhausted {
+.chat-budget-exhausted,
+.chat-quota-exhausted {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -362,8 +364,18 @@
   color: var(--color-fg);
 }
 
+/* D12 (#282 S1.10) is the only banner in this family where nothing failed —
+   this visitor's own allowance ran out while the surface stays healthy — so it
+   overrides just the tint with the primary invitation tokens. The warning
+   tokens stay reserved for D8/D11, where something is actually wrong. */
+.chat-quota-exhausted {
+  border-left-color: var(--color-primary-strong);
+  background: var(--color-primary-soft);
+}
+
 .chat-session-expired__actions,
-.chat-budget-exhausted__actions {
+.chat-budget-exhausted__actions,
+.chat-quota-exhausted__actions {
   display: flex;
   gap: 0.5rem;
 }

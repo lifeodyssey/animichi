@@ -1,12 +1,14 @@
+import { ANON_BUDGET_EXHAUSTED_CODE, ANON_QUOTA_EXHAUSTED_CODE } from "@seichijunrei/contract";
 import type { ChatDataPart } from "@seichijunrei/contract";
 
 /**
  * D1-D9 fallback states from spec-chat-page-states.md §D (issue #272 S1.6),
  * plus D10 (the edge rate limiter asked us to slow down) and D11 (the
- * anonymous daily budget is spent) from issue #274 S1.8.
+ * anonymous daily budget is spent) from issue #274 S1.8, and D12 (this
+ * visitor's own daily message quota is spent) from issue #282 S1.10.
  */
 export type ChatErrorState =
-  | "D1" | "D2" | "D3" | "D4" | "D5" | "D6" | "D7" | "D8" | "D9" | "D10" | "D11";
+  | "D1" | "D2" | "D3" | "D4" | "D5" | "D6" | "D7" | "D8" | "D9" | "D10" | "D11" | "D12";
 
 export type ImageSurface = "map" | "scene";
 
@@ -25,22 +27,39 @@ export type FailureSignal =
 const ROUTE_MINIMUM_POINTS = 3;
 const D1_CODE_MARKERS = ["not_found", "no_bangumi", "invalid_station"];
 
-/** The breaker's wire code, shared with `worker/costBreaker.ts` (S1.8 X4). */
-export const ANON_BUDGET_EXHAUSTED_CODE = "anon_budget_exhausted";
-
 /** The armed edge gate's retryable rejection (`worker/turnstile.ts`, #447). */
 export const TURNSTILE_REQUIRED_CODE = "turnstile_required";
 
+/**
+ * The two anonymous-limit wire codes are owned by `@seichijunrei/contract`
+ * (`error-registry.ts`), not redeclared here — the classifier is one of three
+ * tiers that must agree on the literals. D11 means the *whole* anonymous
+ * surface spent its dollar ceiling for the day; D12 means *this* visitor spent
+ * their own message allowance while the surface is still open, which is why
+ * only D12 locks the composer and offers login as the way to lift the ceiling.
+ */
+/**
+ * Every 403 the edge and container can send, and the state it earns. A bare
+ * 403 stays D8; each coded one is a visitor who never had a session to expire:
+ * D11 the whole anonymous surface spent its dollar ceiling, D12 this visitor
+ * spent their own message allowance, and the Turnstile gate a challenge whose
+ * recovery is the widget — when one is on the page ChatPage suppresses the
+ * strip entirely, and when it is not, D4's generic retry is the honest
+ * fallback, never the login banner.
+ */
+const FORBIDDEN_STATES: Readonly<Record<string, ChatErrorState>> = {
+  [ANON_QUOTA_EXHAUSTED_CODE]: "D12",
+  [ANON_BUDGET_EXHAUSTED_CODE]: "D11",
+  [TURNSTILE_REQUIRED_CODE]: "D4",
+};
+
+function classifyForbidden(code: string | undefined): ChatErrorState {
+  return (code === undefined ? undefined : FORBIDDEN_STATES[code]) ?? "D8";
+}
+
 function classifyHttpStatus(status: number, code: string | undefined): ChatErrorState {
-  // The budget breaker also rejects with 403, but an anonymous visitor never
-  // had a session to expire — only its own code earns the D11 budget copy.
-  if (status === 403 && code === ANON_BUDGET_EXHAUSTED_CODE) return "D11";
-  // Same reasoning for the Turnstile gate: a challenged visitor never had a
-  // session either. When a widget is on the page ChatPage suppresses this and
-  // the challenge owns the retry; when it is not, D4's generic retry is the
-  // honest fallback — never the login banner.
-  if (status === 403 && code === TURNSTILE_REQUIRED_CODE) return "D4";
-  if (status === 401 || status === 403) return "D8";
+  if (status === 403) return classifyForbidden(code);
+  if (status === 401) return "D8";
   if (status === 429) return "D10";
   if (status === 408 || status === 504) return "D5";
   return "D4";
