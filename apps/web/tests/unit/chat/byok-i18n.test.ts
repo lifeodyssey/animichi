@@ -13,6 +13,7 @@ const RAW_KEY_NAMES = [
   "byok_requires_login",
   "invalid_request",
   "egress_blocked",
+  "provider_unreachable",
 ];
 
 function allStrings(dict: ChatByokDict): readonly string[] {
@@ -41,6 +42,14 @@ function allStrings(dict: ChatByokDict): readonly string[] {
     dict.notAccepted,
     dict.anonymousTeaser,
     dict.signInToSetUp,
+    dict.checking,
+    dict.errorUnreachable,
+    dict.settingsToggle,
+    dict.d11UseOwnKey,
+    dict.upsellTitle,
+    dict.upsellBenefit,
+    dict.upsellPrivacy,
+    dict.upsellAccount,
   ];
 }
 
