@@ -75,12 +75,16 @@ jobs:
             # must not block an unrelated production hotfix).
             if [ "$name" = "TURNSTILE_SECRET" ] && [ "$anon_flag" = "true" ]; then
               turnstile_verdict=""
+              shape_seen="false"
               attempt=1
               while [ "$attempt" -le 3 ]; do
                 turnstile_probe=$(printf '%s' "$value" | curl -sS --max-time 10 \
                   --data-urlencode "secret@-" \
                   --data-urlencode "response=preflight-probe-not-a-real-token" \
                   https://challenges.cloudflare.com/turnstile/v0/siteverify 2>/dev/null || true)
+                # Shape sentinel — see the matching (fully commented) check in
+                # _deploy-component.yml for why this exists.
+                printf '%s' "$turnstile_probe" | grep -q '"success"' && shape_seen="true"
                 if printf '%s' "$turnstile_probe" | grep -q '"invalid-input-secret"'; then
                   turnstile_verdict="invalid"
                   break
@@ -96,8 +100,10 @@ jobs:
                 missing=1
               elif [ "$turnstile_verdict" = "valid" ]; then
                 echo "TURNSTILE_SECRET passed Cloudflare siteverify validation for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT."
+              elif [ "$shape_seen" = "true" ]; then
+                echo "::warning::Could not reach Cloudflare's siteverify endpoint to validate TURNSTILE_SECRET after 3 attempts for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (network failure or endpoint outage) — treating this as validator unavailability, not evidence the secret itself is wrong. Proceeding without this specific check; the empty-value check above still applies."
               else
-                echo "::warning::Could not reach Cloudflare's siteverify endpoint to validate TURNSTILE_SECRET after 3 attempts for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — treating this as validator unavailability, not evidence the secret itself is wrong. Proceeding without this specific check; the empty-value check above still applies."
+                echo "::warning::Cloudflare's siteverify response never contained a \"success\" field across 3 attempts for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — this looks like the response SHAPE changed, not just a network blip. Treating as validator-unavailable for now, but this needs someone to look at whether the probe logic itself is stale, not just retry later. Proceeding without this specific check; the empty-value check above still applies."
               fi
             fi
           done <<< "$POST_DEPLOY_SECRETS"

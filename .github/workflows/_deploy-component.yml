@@ -173,6 +173,7 @@ jobs:
             # anonymous request regardless of whether this deploy happens.
             if [ "$name" = "TURNSTILE_SECRET" ] && [ "$anon_flag" = "true" ]; then
               turnstile_verdict=""
+              shape_seen="false"
               attempt=1
               while [ "$attempt" -le 3 ]; do
                 # Secret piped via stdin (`secret@-`), never as a curl argv
@@ -184,6 +185,13 @@ jobs:
                   --data-urlencode "secret@-" \
                   --data-urlencode "response=preflight-probe-not-a-real-token" \
                   https://challenges.cloudflare.com/turnstile/v0/siteverify 2>/dev/null || true)
+                # Shape sentinel: siteverify's response always has a
+                # top-level "success" boolean today. If we never see it
+                # across every retry, that's not (only) a transient network
+                # blip — it's a sign Cloudflare's response shape changed
+                # under us, which would otherwise degrade this whole check to
+                # a permanently silent warning with no way to notice.
+                printf '%s' "$turnstile_probe" | grep -q '"success"' && shape_seen="true"
                 if printf '%s' "$turnstile_probe" | grep -q '"invalid-input-secret"'; then
                   turnstile_verdict="invalid"
                   break
@@ -199,8 +207,10 @@ jobs:
                 missing=1
               elif [ "$turnstile_verdict" = "valid" ]; then
                 echo "TURNSTILE_SECRET passed Cloudflare siteverify validation for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (probe token was correctly rejected as invalid-input-response, meaning the secret itself was accepted)."
+              elif [ "$shape_seen" = "true" ]; then
+                echo "::warning::Could not reach Cloudflare's siteverify endpoint to validate TURNSTILE_SECRET after 3 attempts for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (network failure or endpoint outage) — treating this as validator unavailability, not evidence the secret itself is wrong. Proceeding without this specific check; the empty-value check above still applies."
               else
-                echo "::warning::Could not reach Cloudflare's siteverify endpoint to validate TURNSTILE_SECRET after 3 attempts for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (network failure, endpoint outage, or an unexpected response shape) — treating this as validator unavailability, not evidence the secret itself is wrong. Proceeding without this specific check; the empty-value check above still applies."
+                echo "::warning::Cloudflare's siteverify response never contained a \"success\" field across 3 attempts for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — this looks like the response SHAPE changed, not just a network blip (this check's grep patterns assume today's known shape). Treating as validator-unavailable for now, but this needs someone to look at whether the probe logic itself is stale, not just retry later. Proceeding without this specific check; the empty-value check above still applies."
               fi
             fi
           done <<< "$POST_DEPLOY_SECRETS"
@@ -307,6 +317,16 @@ jobs:
           # backend URL.
           if [ -z "$PULUMI_BACKEND_URL" ]; then
             echo "PULUMI_BACKEND_URL not set — skipping stack export"; exit 0
+          fi
+          # Same reasoning, different failure shape: CLOUDFLARE_ACCOUNT_ID is
+          # also `required: false` at the workflow_call boundary. Without
+          # this guard, an empty value would silently build the endpoint URL
+          # as "https://.r2.cloudflarestorage.com" and let `aws s3 cp` fail
+          # with an opaque DNS/connection error instead of a clear message —
+          # fail-closed either way, but this is the readable version.
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::CLOUDFLARE_ACCOUNT_ID not set — cannot derive the R2 endpoint for the rollback backup upload. Refusing to proceed to 'pulumi up' without a rollback snapshot."
+            exit 1
           fi
           pulumi login "$PULUMI_BACKEND_URL"
           pulumi stack select "$PULUMI_STACK"
