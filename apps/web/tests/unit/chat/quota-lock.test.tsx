@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 import { act, renderHook } from "@testing-library/react";
+import { mockChatActions } from "./_actions";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ChatActions } from "../../../src/features/chat/chat-actions";
 import {
   UNLOCKED,
   lockHolds,
@@ -93,12 +93,8 @@ describe("lockedRecompute", () => {
 });
 
 describe("useLockedActions", () => {
-  function live(): ChatActions {
-    return { send: vi.fn(), regenerate: vi.fn(), sendWithOrigin: vi.fn() };
-  }
-
   it("no-ops every action the card tree can reach, not just the composer's send", () => {
-    const actions = live();
+    const actions = mockChatActions();
     const { result } = renderHook(() => useLockedActions(actions, true));
     result.current.send("ユーフォ");
     result.current.regenerate();
@@ -109,7 +105,7 @@ describe("useLockedActions", () => {
   });
 
   it("hands the live actions straight back when unlocked", () => {
-    const actions = live();
+    const actions = mockChatActions();
     const { result } = renderHook(() => useLockedActions(actions, false));
     result.current.send("ユーフォ");
     expect(actions.send).toHaveBeenCalledWith("ユーフォ");

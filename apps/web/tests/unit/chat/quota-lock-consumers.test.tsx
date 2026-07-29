@@ -3,7 +3,7 @@
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { ChatActionsProvider } from "../../../src/features/chat/chat-actions";
 import type { ChatActions } from "../../../src/features/chat/chat-actions";
 import { DataPartCard } from "../../../src/features/chat/components/DataPartCard";
@@ -11,6 +11,7 @@ import { EnvelopeFallback } from "../../../src/features/chat/components/ErrorSta
 import { ShortRouteNotice } from "../../../src/features/chat/components/ErrorStates/ShortRouteNotice";
 import { useLockedActions } from "../../../src/features/chat/quota-lock";
 import { chatDictFor } from "../../../src/features/chat/i18n";
+import { mockChatActions } from "./_actions";
 
 afterEach(cleanup);
 
@@ -25,12 +26,8 @@ function LockedTree({ actions, children }: Readonly<{ actions: ChatActions; chil
   return <ChatActionsProvider actions={useLockedActions(actions, true)}>{children}</ChatActionsProvider>;
 }
 
-function liveActions(): ChatActions {
-  return { send: vi.fn(), regenerate: vi.fn(), sendWithOrigin: vi.fn() };
-}
-
 function renderLocked(child: ReactElement): ChatActions {
-  const actions = liveActions();
+  const actions = mockChatActions();
   render(<LockedTree actions={actions}>{child}</LockedTree>);
   return actions;
 }
@@ -65,7 +62,7 @@ describe("D12 lock reaches every ChatActions consumer, not just the composer", (
 
 describe("the same consumers work normally when the quota is not spent", () => {
   it("sends the D3 chip through an unlocked provider", () => {
-    const actions = liveActions();
+    const actions = mockChatActions();
     render(
       <ChatActionsProvider actions={actions}>
         <ShortRouteNotice dict={dict} />

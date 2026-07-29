@@ -15,6 +15,10 @@ function turnFailureSignal(lastStatus: number | undefined, code: string | undefi
   return { kind: "stream-abort" };
 }
 
+/** Only the four fields classification reads — so it is testable without a
+ * whole `useChat` instance, and cannot quietly grow a new dependency. */
+export type FailingTurn = Pick<ChatSession, "status" | "error" | "lastErrorCode" | "lastHttpStatus">;
+
 function isActiveTurn(status: ChatSession["status"]): boolean {
   return status === "submitted" || status === "streaming";
 }
@@ -31,7 +35,7 @@ function suppressedByChallenge(code: string | undefined, challenged: boolean): b
   return challenged && code === TURNSTILE_REQUIRED_CODE;
 }
 
-export function turnFailureState(chat: ChatSession, timedOut: boolean, challenged: boolean): ChatErrorState | undefined {
+export function turnFailureState(chat: FailingTurn, timedOut: boolean, challenged: boolean): ChatErrorState | undefined {
   if (isActiveTurn(chat.status)) return undefined;
   if (timedOut) return "D5";
   if (chat.error === undefined) return undefined;
