@@ -253,3 +253,30 @@ export async function resolveAnonymous(
   if (verified === null) return mintAnonymousIdentity(secret);
   return { userId: `${ANON_ID_PREFIX}${verified}`, setCookie: null };
 }
+
+/**
+ * Resolve-only variant for the session-migration route (issue #273 Task 3,
+ * re-P2-1): verifies an existing `aid` cookie but never mints one. A missing
+ * or tampered cookie returns null rather than a fresh identity, so a request
+ * with no anonymous history forwards no `X-Anon-Id` and the response carries
+ * no `Set-Cookie` — minting here would silently give the migration endpoint
+ * side effects no other route has.
+ */
+export async function resolveAnonymousReadOnly(
+  request: Request,
+  env: AnonymousEnv,
+): Promise<AnonymousIdentity | null> {
+  const secret = env.ANON_ID_SECRET;
+  if (!anonymousEnabled(env) || secret === undefined) return null;
+  const cookie = readCookie(request, ANON_COOKIE);
+  if (cookie === null) return null;
+  const verified = await verifyAnonymousToken(cookie, secret);
+  if (verified === null) return null;
+  return { userId: `${ANON_ID_PREFIX}${verified}`, setCookie: null };
+}
+
+/** Rotate/clear the `aid` cookie after a successful migration (rev5 P2-b) so
+ * a shared browser's next visitor cannot inherit the consumed identity. */
+export function retireAnonymousCookie(): string {
+  return `${ANON_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+}

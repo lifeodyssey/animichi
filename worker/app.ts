@@ -5,6 +5,8 @@ import {
   type AuthResult,
   authenticate as realAuthenticate,
   resolveAnonymous,
+  resolveAnonymousReadOnly,
+  retireAnonymousCookie,
 } from "./auth.ts";
 import {
   budgetGuidanceResponse,
@@ -66,21 +68,31 @@ function forwardPublicCatalog(env: Env, request: Request): Promise<Response> {
 }
 
 /** Forward a /v1 request to the container's default instance. Always strips
- * client-supplied X-User-* (anti-forgery) and x-byok-endpoint (documented as
- * trusted by the container but client-settable — closed until BYOK launches);
- * on authed paths also strips Authorization and injects the worker-verified
- * identity. `x-session-id` is intentionally forwarded: chat session continuity
- * needs it, so the container must never treat it as a trust signal. */
-function forwardV1(env: Env, request: Request, auth?: { userId: string; userType: string }): Promise<Response> {
+ * client-supplied X-User-*, X-Anon-Id (anti-forgery), and x-byok-endpoint
+ * (documented as trusted by the container but client-settable — closed
+ * until BYOK launches); on authed paths also strips Authorization and
+ * injects the worker-verified identity. A trusted `X-Anon-Id` is set only
+ * when the caller passes one explicitly (the session-migration route,
+ * re-P2-1) — every other route forwards none. `x-session-id` is
+ * intentionally forwarded: chat session continuity needs it, so the
+ * container must never treat it as a trust signal. */
+function forwardV1(
+  env: Env,
+  request: Request,
+  auth?: { userId: string; userType: string },
+  trustedAnonId?: string | null,
+): Promise<Response> {
   const headers = new Headers(request.headers);
   headers.delete("X-User-Id");
   headers.delete("X-User-Type");
   headers.delete("x-byok-endpoint");
+  headers.delete("X-Anon-Id");
   if (auth) {
     headers.delete("Authorization");
     headers.set("X-User-Id", auth.userId);
     headers.set("X-User-Type", auth.userType);
   }
+  if (trustedAnonId) headers.set("X-Anon-Id", trustedAnonId);
   const forwarded = new Request(request, { headers });
   return env.CONTAINER.get(env.CONTAINER.idFromName("default")).fetch(forwarded);
 }
@@ -228,6 +240,39 @@ function unauthorized(pathname: string): Response {
   return Response.json(UNAUTHORIZED_BODY, { status: 401 });
 }
 
+// ── Session migration (issue #273 Task 3) ──────────────────────────────────
+//
+// The only route where the edge forwards a trusted X-Anon-Id: it resolves
+// (never mints) the caller's `aid` cookie into the header the container
+// re-validates, then — only once the container reports an actual migration —
+// rotates the cookie so a shared browser's next visitor cannot inherit the
+// consumed identity.
+
+const SESSION_MIGRATE_PATH = "/v1/session/migrate";
+
+async function didMigrate(response: Response): Promise<boolean> {
+  if (response.status !== 200) return false;
+  try {
+    const body: unknown = await response.clone().json();
+    return typeof body === "object" && body !== null && (body as { migrated?: unknown }).migrated === true;
+  } catch {
+    return false;
+  }
+}
+
+async function handleSessionMigrate(
+  env: Env,
+  request: Request,
+  auth: { userId: string; userType: string },
+): Promise<Response> {
+  const identity = await resolveAnonymousReadOnly(request, env);
+  const forwarded = await forwardV1(env, request, auth, identity?.userId ?? null);
+  if (!(await didMigrate(forwarded))) return forwarded;
+  const headers = new Headers(forwarded.headers);
+  headers.append("Set-Cookie", retireAnonymousCookie());
+  return new Response(forwarded.body, { status: forwarded.status, headers });
+}
+
 /** Forward a container-originated catalog request to the private CATALOG binding
  * (in-datacenter hop, never the public internet). Wired as the container's
  * outboundByHost handler in entry.ts. */
@@ -293,7 +338,16 @@ export function createWorkerApp(deps: {
     if (isPublicV1(pathname)) return forwardV1(c.env, c.req.raw);
     const auth = await authenticate(c.req.raw, c.env, c.executionCtx);
     if (auth.ok) {
-      return authenticatedForward(c.env, c.req.raw, { userId: auth.userId, userType: auth.userType }, pathname);
+      const identity = { userId: auth.userId, userType: auth.userType };
+      // Session migration runs ahead of the per-identity rate limiter (#284
+      // Task 9): it is an identity-only DB update, not a cost-bearing route,
+      // and is not in AUTH_RATE_LIMITED_EXACT — routing it through
+      // authenticatedForward would be a silent no-op today, but checking it
+      // first keeps that true by construction rather than by omission.
+      if (pathname === SESSION_MIGRATE_PATH) {
+        return handleSessionMigrate(c.env, c.req.raw, identity);
+      }
+      return authenticatedForward(c.env, c.req.raw, identity, pathname);
     }
     // S1.9 Turnstile (issue #281) is ARMED as of issue #447: `handleAnonymousV1`
     // below challenges every anonymous turn before it can reach the limiter or
