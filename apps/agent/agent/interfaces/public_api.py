@@ -23,7 +23,7 @@ from pydantic_ai.models import Model
 from pydantic_ai.usage import RunUsage
 from pydantic_ai_harness.memory import MemoryStore
 
-from agent.agents.agent_result import AgentResult
+from agent.agents.agent_result import AgentResult, AttributedUsage, UsagePayer
 from agent.agents.animichi_agent import animichi_agent
 from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.base import (
@@ -345,19 +345,15 @@ class RuntimeAPI:
     ) -> None:
         """SD-18 metering hook: bank this turn's RunUsage into ``daily_usage``.
 
-        This is the sole data source the anonymous daily-budget breaker (X4)
-        reads, so it runs in ``handle``'s finally block — a failed turn still
-        consumed tokens and must still be charged. A BYOK turn's token counts
-        are still recorded for observability, but its cost is always zero —
-        we did not pay the provider for it.
+        The request's primary BYOK call is zero-cost, while supplemental calls
+        are priced from their actual payer attribution.
         """
         if result is None:
             return
-        scope = scope_for_identity(user_id, user_type, is_byok=is_byok)
-        prices = self._usage_prices() if scope != "byok" else UsagePrices(0.0, 0.0)
-        await record_turn_usage(
-            self._db, usage=result.usage, scope=scope, prices=prices
-        )
+        for item in _attributed_usage(result, is_byok):
+            await _record_attributed_usage(
+                self._db, item, user_id, user_type, self._usage_prices()
+            )
 
     async def _prepare_session(
         self, request: PublicAPIRequest, user_id: str | None
@@ -515,6 +511,7 @@ class RuntimeAPI:
                 # default (`resolve_model(animichi_agent.model)`), which is
                 # never influenced by a per-request override.
                 model=None if is_byok else resolved_model,
+                isolate_platform_usage=is_byok,
             )
         response = agent_result_to_response(
             result,
@@ -765,6 +762,7 @@ async def _apply_translation_gate(
     on_step: OnStep | None,
     *,
     model: Model | None,
+    isolate_platform_usage: bool = False,
 ) -> None:
     """Translate the agent message when its language mismatches *locale*.
 
@@ -784,7 +782,7 @@ async def _apply_translation_gate(
         translated = await translate_text(
             message,
             target_locale=locale,
-            ctx=_translation_context(result, model),
+            ctx=_translation_context(result, model, isolate_platform_usage),
         )
         # Mutate the output model's message field
         object.__setattr__(result.output, "message", translated)
@@ -796,11 +794,37 @@ async def _apply_translation_gate(
 
 
 def _translation_context(
-    result: AgentResult, model: Model | None
+    result: AgentResult, model: Model | None, isolate_platform_usage: bool = False
 ) -> _TranslationContext:
     selected = model or resolve_model(animichi_agent.model)
-    usage = result.usage or RunUsage()
+    usage = _translation_usage(result, isolate_platform_usage)
     return _TranslationContext(model=selected, usage=usage)
+
+
+def _translation_usage(result: AgentResult, isolated: bool) -> RunUsage:
+    if not isolated:
+        return result.usage or RunUsage()
+    usage = RunUsage()
+    result.supplemental_usage.append(AttributedUsage(usage, "platform"))
+    return usage
+
+
+def _attributed_usage(result: AgentResult, is_byok: bool) -> list[AttributedUsage]:
+    payer: UsagePayer = "byok" if is_byok else "platform"
+    primary = [] if result.usage is None else [AttributedUsage(result.usage, payer)]
+    return [*primary, *result.supplemental_usage]
+
+
+async def _record_attributed_usage(
+    db: object,
+    item: AttributedUsage,
+    user_id: str | None,
+    user_type: str | None,
+    platform_prices: UsagePrices,
+) -> None:
+    scope = scope_for_identity(user_id, user_type, is_byok=item.payer == "byok")
+    prices = platform_prices if item.payer == "platform" else UsagePrices(0.0, 0.0)
+    await record_turn_usage(db, usage=item.usage, scope=scope, prices=prices)
 
 
 def _set_span_request_attrs(
