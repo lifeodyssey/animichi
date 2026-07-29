@@ -71,6 +71,11 @@ describe("runByokProbe — HTTP failure taxonomy", () => {
     expect(await runByokProbe(BASE)).toEqual({ kind: "error" });
   });
 
+  it("maps an unexpected 5xx to error", async () => {
+    stubProbe(500, { error: { code: "internal_error" } });
+    expect(await runByokProbe(BASE)).toEqual({ kind: "error" });
+  });
+
   it("maps a network failure to error", async () => {
     server.use(http.post(PROBE, () => HttpResponse.error()));
     expect(await runByokProbe(BASE)).toEqual({ kind: "error" });

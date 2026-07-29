@@ -1186,3 +1186,19 @@
   background: var(--color-muted);
   color: var(--color-fg);
 }
+
+.chat-input__settings {
+  min-height: 44px;
+  min-width: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-input__settings[aria-expanded="true"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+}

@@ -5,6 +5,7 @@ import type { Locale } from "../../i18n/locales";
 import { useAuthStatus } from "../../lib/auth/session";
 import { ChatActionsProvider } from "./chat-actions";
 import type { ChatActions } from "./chat-actions";
+import { ByokSettings } from "./components/ByokSettings";
 import { ChatInput } from "./components/ChatInput";
 import { ColdStart } from "./components/ColdStart";
 import { DeparturePrompt } from "./components/DeparturePrompt";
@@ -29,6 +30,8 @@ import type { RecomputeTurn } from "./selection/useRecomputeTurn";
 import { lockedRecompute, useLockedActions } from "./quota-lock";
 import type { QuotaLock } from "./quota-lock";
 import { useAutoSend } from "./use-auto-send";
+import { useByokPanel } from "./use-byok-panel";
+import type { ByokPanel } from "./use-byok-panel";
 import { useDeparturePrompt } from "./use-departure-prompt";
 import type { DeparturePromptState } from "./use-departure-prompt";
 import { useBackendHealth } from "./use-backend-health";
@@ -62,6 +65,7 @@ type ShellProps = Readonly<{
   photo: PhotoSearchContext;
   quota: QuotaLock;
   locale: Locale;
+  byok: ByokPanel;
 }>;
 
 function useScrollAnchor(itemCount: number) {
@@ -184,11 +188,18 @@ function ComposerDock(props: ShellProps) {
   );
 }
 
+/** The BYOK settings panel docks above the composer when toggled open (#284 T6). */
+function ByokPanelGate({ dict, baseUrl, byok }: Readonly<{ dict: ChatDict; baseUrl: string; byok: ByokPanel }>) {
+  if (!byok.open) return null;
+  return <ByokSettings dict={dict} auth={byok.auth} baseUrl={baseUrl} />;
+}
+
 /** Composer plus the quiet challenge slot beneath it (design sync `.hint`). */
 function Composer(props: ShellProps) {
   return (
     <>
-      <ChatInput dict={props.dict} disabled={isInputLocked(props)} quotaLocked={props.quota.locked} onSend={props.onSend} />
+      <ByokPanelGate dict={props.dict} baseUrl={props.baseUrl} byok={props.byok} />
+      <ChatInput dict={props.dict} disabled={isInputLocked(props)} quotaLocked={props.quota.locked} onSend={props.onSend} settingsOpen={props.byok.open} onToggleSettings={props.byok.toggle} />
       <ChallengeGate dict={props.dict} challenge={props.challenge} />
     </>
   );
@@ -288,23 +299,30 @@ function usePageSurfaces(chat: ChatSession, actions: ChatActions, gps: PhotoGps 
   return { dict, photo, departure, locale };
 }
 
+/** Turnstile challenge + auth-gated tray state (D12 lock, failures). */
+function useGuardedTray(chat: ChatSession, baseUrl: string, auth: ReturnType<typeof useAuthStatus>) {
+  const challenge = useTurnstileChallenge(chat);
+  const tray = useTrayState(chat, baseUrl, { challenged: challenge !== undefined, auth });
+  return { challenge, tray };
+}
+
 function useChatPage(search: ChatSearch) {
   const { config, health, chat, history } = useChatState(search);
   const { actions: live, gps } = useOriginTracking(useTurnActions(chat));
+  const auth = useAuthStatus();
   // `?q=` must not fire before the widget has a token to send (#447 review).
-  const challenge = useTurnstileChallenge(chat);
-  const tray = useTrayState(chat, config.baseUrl, { challenged: challenge !== undefined, auth: useAuthStatus() });
+  const { challenge, tray } = useGuardedTray(chat, config.baseUrl, auth);
   const actions = useLockedActions(live, tray.quota.locked);
   const surfaces = usePageSurfaces(chat, actions, gps);
   useAutoSendFromQuery(search, health, actions.send, useTurnstileReady(challenge !== undefined));
-  return { config, health, chat, history, actions, challenge, ...surfaces, ...tray };
+  return { config, health, chat, history, actions, challenge, byok: useByokPanel(search, auth), ...surfaces, ...tray };
 }
 
 type PageState = ReturnType<typeof useChatPage>;
 
 function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {
   return (
-    <ChatShell entry={entryStateOf(search, page.health)} dict={page.dict} chat={page.chat} history={page.history} failure={page.failure} recompute={page.recompute} challenge={page.challenge} onRetry={page.health.retry} onSend={page.departure.onSend} departure={page.departure} baseUrl={page.config.baseUrl} photo={page.photo} quota={page.quota} locale={page.locale} />
+    <ChatShell entry={entryStateOf(search, page.health)} dict={page.dict} chat={page.chat} history={page.history} failure={page.failure} recompute={page.recompute} challenge={page.challenge} onRetry={page.health.retry} onSend={page.departure.onSend} departure={page.departure} baseUrl={page.config.baseUrl} photo={page.photo} quota={page.quota} locale={page.locale} byok={page.byok} />
   );
 }
 

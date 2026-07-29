@@ -40,6 +40,17 @@ describe("ByokUpsell — value explainer (T8-AC2)", () => {
   });
 });
 
+describe("ByokUpsell — login modal lifecycle", () => {
+  it("closes the login modal again without losing the explainer", () => {
+    renderWithLocale(<ByokUpsell dict={dict} />);
+    fireEvent.click(screen.getByRole("button", { name: dict.byok.signInToSetUp }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText(dict.byok.upsellBenefit)).toBeTruthy();
+  });
+});
+
 describe("BudgetExhausted (D11) — BYOK secondary affordance (T8-AC1)", () => {
   it("offers both the existing sign-in action and a distinct use-your-own-key action", () => {
     renderWithLocale(<BudgetExhausted dict={dict} />);
