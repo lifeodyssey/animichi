@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { type MagicLinkResult, sendMagicLink } from "../../lib/auth/neonAuth";
+import { sanitizeReturnTarget } from "../../lib/auth/returnTarget";
 
 export type ValidationKey = "email_required" | "email_invalid";
 export type FormStatus = "idle" | "submitting" | MagicLinkResult;
@@ -22,8 +23,17 @@ export function validateEmail(email: string): ValidationKey | null {
   return trimmed.includes("@") ? null : "email_invalid";
 }
 
-function callbackUrl(): string {
-  return `${window.location.origin}/auth/callback`;
+/**
+ * Normative (issue #284 Task 8, spec P2-4): the mailed link's `callbackURL` is
+ * ALWAYS `${origin}/auth/callback`, with an already-validated relative `next`
+ * appended — never a caller-supplied absolute URL, which would move the open
+ * redirect (threat T14) up into the auth provider. A missing, invalid, or
+ * home-pointing target elides the parameter entirely.
+ */
+function callbackUrl(returnTarget?: string): string {
+  const base = `${window.location.origin}/auth/callback`;
+  const next = sanitizeReturnTarget(returnTarget);
+  return next === "/" ? base : `${base}?next=${encodeURIComponent(next)}`;
 }
 
 /**
@@ -44,13 +54,17 @@ function useLatest(callback: SendCommitted | undefined): RefObject<SendCommitted
   return ref;
 }
 
-function useSendMagicLink(email: string, onCommitted: RefObject<SendCommitted | undefined>): [FormStatus, () => Promise<void>] {
+function requestFor(email: string, returnTarget?: string) {
+  return { email: email.trim().toLowerCase(), callbackURL: callbackUrl(returnTarget) };
+}
+
+function useSendMagicLink(email: string, onCommitted: RefObject<SendCommitted | undefined>, returnTarget?: string): [FormStatus, () => Promise<void>] {
   const [status, setStatus] = useState<FormStatus>("idle");
   const submit = useCallback(async () => {
     setStatus("submitting");
     onCommitted.current?.();
-    setStatus(await sendMagicLink({ email: email.trim().toLowerCase(), callbackURL: callbackUrl() }));
-  }, [email, onCommitted]);
+    setStatus(await sendMagicLink(requestFor(email, returnTarget)));
+  }, [email, onCommitted, returnTarget]);
   return [status, submit];
 }
 
@@ -65,10 +79,10 @@ function useSubmit(email: string, setValidation: SetValidation, submit: () => Pr
   }, [email, setValidation, submit]);
 }
 
-export function useMagicLinkForm(onSendCommitted?: SendCommitted): MagicLinkForm {
+export function useMagicLinkForm(onSendCommitted?: SendCommitted, returnTarget?: string): MagicLinkForm {
   const [email, setEmail] = useState("");
   const [validation, setValidation] = useState<ValidationKey | null>(null);
-  const [status, submit] = useSendMagicLink(email, useLatest(onSendCommitted));
+  const [status, submit] = useSendMagicLink(email, useLatest(onSendCommitted), returnTarget);
   const onSubmit = useSubmit(email, setValidation, submit);
   return { email, status, validation, setEmail, onSubmit };
 }

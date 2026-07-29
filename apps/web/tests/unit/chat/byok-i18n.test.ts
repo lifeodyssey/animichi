@@ -13,35 +13,11 @@ const RAW_KEY_NAMES = [
   "byok_requires_login",
   "invalid_request",
   "egress_blocked",
+  "provider_unreachable",
 ];
 
 function allStrings(dict: ChatByokDict): readonly string[] {
-  return [
-    dict.title,
-    dict.familyLabel,
-    dict.familyOpenaiCompatible,
-    dict.familyAnthropic,
-    dict.familyGemini,
-    dict.apiKeyLabel,
-    dict.apiKeyRequired,
-    dict.apiKeyInvalid,
-    dict.modelLabel,
-    dict.modelRequired,
-    dict.baseUrlLabel,
-    dict.baseUrlHelp,
-    dict.baseUrlInvalid,
-    dict.save,
-    dict.clear,
-    dict.maskedSummary,
-    dict.visionBadge,
-    dict.errorCredentialRejected,
-    dict.errorRequiresLogin,
-    dict.errorInvalidRequest,
-    dict.errorEgressBlocked,
-    dict.notAccepted,
-    dict.anonymousTeaser,
-    dict.signInToSetUp,
-  ];
+  return Object.values(dict) as string[];
 }
 
 describe("BYOK panel copy (issue #284 Task 6)", () => {
@@ -95,8 +71,8 @@ describe("BYOK panel copy — field/message distinctness", () => {
     const ja = chatDictFor("ja").byok;
     const zh = chatDictFor("zh").byok;
     const en = chatDictFor("en").byok;
-    expect(ja.errorCredentialRejected).not.toBe(en.errorCredentialRejected);
-    expect(zh.errorCredentialRejected).not.toBe(en.errorCredentialRejected);
+    expect(ja.notAccepted).not.toBe(en.notAccepted);
+    expect(zh.notAccepted).not.toBe(en.notAccepted);
     expect(ja.errorRequiresLogin).not.toBe(en.errorRequiresLogin);
   });
 
