@@ -63,7 +63,7 @@ describe("D10 rate-limited copy", () => {
   });
 
   it("routes the D10 turn failure to the retry strip, not the login banner", () => {
-    renderWithLocale(<TurnFailure view={view()} dict={ja} />);
+    renderWithLocale(<TurnFailure view={view()} dict={ja} locale="ja" />);
     expect(screen.getByRole("alert").getAttribute("data-state")).toBe("D10");
     expect(screen.queryByRole("button", { name: ja.errorStates.d8Login })).toBeNull();
   });

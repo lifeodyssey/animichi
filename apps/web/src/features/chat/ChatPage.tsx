@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TurnstileGate } from "../../components/TurnstileGate";
 import { useLocale } from "../../i18n/context";
-import { TURNSTILE_REQUIRED_CODE, classifyFailure } from "../../lib/chat/errorClassifier";
-import type { ChatErrorState, FailureSignal } from "../../lib/chat/errorClassifier";
+import type { Locale } from "../../i18n/locales";
+import { useAuthStatus } from "../../lib/auth/session";
 import { ChatActionsProvider } from "./chat-actions";
 import type { ChatActions } from "./chat-actions";
 import { ChatInput } from "./components/ChatInput";
@@ -26,6 +26,8 @@ import type { ChatSearch } from "./search";
 import { SpotSelectionProvider, useSpotSelectionState } from "./selection/useSpotSelection";
 import { useRecomputeTurn } from "./selection/useRecomputeTurn";
 import type { RecomputeTurn } from "./selection/useRecomputeTurn";
+import { lockedRecompute, useLockedActions } from "./quota-lock";
+import type { QuotaLock } from "./quota-lock";
 import { useAutoSend } from "./use-auto-send";
 import { useDeparturePrompt } from "./use-departure-prompt";
 import type { DeparturePromptState } from "./use-departure-prompt";
@@ -34,8 +36,8 @@ import type { BackendHealth } from "./use-backend-health";
 import type { ChatSession } from "./use-chat-session";
 import { useChatSession } from "./use-chat-session";
 import { useConversationHistory } from "./use-conversation-history";
-import { useStreamRecovery } from "./use-stream-recovery";
-import { useTurnTimeout } from "./use-turn-timeout";
+import { maskRecomputeFailure, useTurnFailure } from "./use-turn-failure";
+import type { TurnFailureGate } from "./use-turn-failure";
 import { useTurnTiming } from "./use-turn-timing";
 import { useTurnstileChallenge, useTurnstileReady } from "./use-turnstile-challenge";
 import type { TurnstileChallenge } from "./use-turnstile-challenge";
@@ -58,6 +60,8 @@ type ShellProps = Readonly<{
   departure: DeparturePromptState;
   baseUrl: string;
   photo: PhotoSearchContext;
+  quota: QuotaLock;
+  locale: Locale;
 }>;
 
 function useScrollAnchor(itemCount: number) {
@@ -99,7 +103,7 @@ function ChatBody(props: BodyProps) {
     <section className="chat-body">
       <HistoryLoadingGate history={props.history} dict={props.dict} />
       <HistoryList entries={props.history.entries} dict={props.dict} />
-      <ColdStartGate {...props} /><ChatMessages chat={props.chat} dict={props.dict} /><TurnFailure view={props.failure} dict={props.dict} /><WaitingRitual status={props.chat.status} dict={props.dict} messages={props.chat.messages} /><div ref={anchor} aria-hidden="true" />
+      <ColdStartGate {...props} /><ChatMessages chat={props.chat} dict={props.dict} /><TurnFailure view={props.failure} dict={props.dict} locale={props.locale} /><WaitingRitual status={props.chat.status} dict={props.dict} messages={props.chat.messages} /><div ref={anchor} aria-hidden="true" />
     </section>
   );
 }
@@ -184,7 +188,7 @@ function ComposerDock(props: ShellProps) {
 function Composer(props: ShellProps) {
   return (
     <>
-      <ChatInput dict={props.dict} disabled={isInputLocked(props)} onSend={props.onSend} />
+      <ChatInput dict={props.dict} disabled={isInputLocked(props)} quotaLocked={props.quota.locked} onSend={props.onSend} />
       <ChallengeGate dict={props.dict} challenge={props.challenge} />
     </>
   );
@@ -229,43 +233,6 @@ function useOriginTracking(actions: ChatActions): { actions: ChatActions; gps: P
   return { actions: tracked, gps };
 }
 
-function turnFailureSignal(lastStatus: number | undefined, code: string | undefined): FailureSignal {
-  if (lastStatus !== undefined && lastStatus >= 400) return { kind: "http", status: lastStatus, code };
-  return { kind: "stream-abort" };
-}
-
-function isActiveTurn(status: ChatSession["status"]): boolean {
-  return status === "submitted" || status === "streaming";
-}
-
-/**
- * A challenged turn is NOT D8 — an anonymous visitor never had a session to
- * expire — but the strip is only suppressed when a widget is actually on the
- * page to offer the recovery. A misconfigured build (no site key, or an edge
- * with no secret) rejects every turn with nothing to click, so there the
- * generic failure must still render rather than the chat dying silently
- * (issue #447 review, P1-3).
- */
-function turnFailureState(chat: ChatSession, timedOut: boolean, challenged: boolean): ChatErrorState | undefined {
-  if (isActiveTurn(chat.status)) return undefined;
-  if (timedOut) return "D5";
-  if (chat.error === undefined) return undefined;
-  const code = chat.lastErrorCode();
-  if (challenged && code === TURNSTILE_REQUIRED_CODE) return undefined;
-  return classifyFailure(turnFailureSignal(chat.lastHttpStatus(), code)) ?? "D4";
-}
-
-/** Compose the D4/D5/D8/D11 view: watchdog + classification + P6 recovery. */
-function useTurnFailure(chat: ChatSession, baseUrl: string, challenged: boolean): TurnFailureView | undefined {
-  const timeout = useTurnTimeout(chat.status, () => void chat.stop());
-  const recovery = useStreamRecovery(baseUrl, chat, chat.sessionIdOf);
-  const state = turnFailureState(chat, timeout.timedOut, challenged);
-  const onRetry = useCallback(() => { timeout.reset(); recovery.recover(); }, [timeout, recovery]);
-  const onExpiredResume = useCallback(() => { timeout.reset(); recovery.recoverExpired(); }, [timeout, recovery]);
-  if (state === undefined) return undefined;
-  return { state, onRetry, onExpiredResume, recovering: recovery.recovering };
-}
-
 /** A5 covers backend reachability only; stream failures render inline D-strips. */
 function entryStateOf(search: ChatSearch, health: BackendHealth): ChatEntryState {
   return deriveEntryState({
@@ -295,11 +262,6 @@ function useChatState(search: ChatSearch) {
   return { config, health, chat, history };
 }
 
-/** A failed recompute retries inline on the tray, never as a full-page D-state. */
-function maskRecomputeFailure(recompute: RecomputeTurn, failure: TurnFailureView | undefined): TurnFailureView | undefined {
-  return recompute.status === "failed" ? undefined : failure;
-}
-
 /** Photo requests share chat's identity: locale, live session id, C4 gps. */
 function usePhotoContext(locale: ReturnType<typeof useLocale>, chat: ChatSession, gps: PhotoGps | undefined): PhotoSearchContext {
   return useMemo(
@@ -309,11 +271,12 @@ function usePhotoContext(locale: ReturnType<typeof useLocale>, chat: ChatSession
 }
 
 /** Tray state: the recompute turn, its masked failure, and the spot store. */
-function useTrayState(chat: ChatSession, baseUrl: string, challenged: boolean) {
+function useTrayState(chat: ChatSession, baseUrl: string, gate: TurnFailureGate) {
+  const turn = useTurnFailure(chat, baseUrl, gate);
   const recompute = useRecomputeTurn(chat);
-  const failure = maskRecomputeFailure(recompute, useTurnFailure(chat, baseUrl, challenged));
+  const failure = maskRecomputeFailure(recompute, turn.view);
   const selection = useSpotSelectionState();
-  return { recompute, failure, selection };
+  return { recompute: lockedRecompute(recompute, turn.quota.locked), failure, selection, quota: turn.quota };
 }
 
 /** Locale-bound page copy plus the photo/departure surfaces that share it. */
@@ -322,16 +285,17 @@ function usePageSurfaces(chat: ChatSession, actions: ChatActions, gps: PhotoGps 
   const dict = chatDictFor(locale);
   const photo = usePhotoContext(locale, chat, gps);
   const departure = useDeparturePrompt(actions, dict);
-  return { dict, photo, departure };
+  return { dict, photo, departure, locale };
 }
 
 function useChatPage(search: ChatSearch) {
   const { config, health, chat, history } = useChatState(search);
-  const { actions, gps } = useOriginTracking(useTurnActions(chat));
-  const surfaces = usePageSurfaces(chat, actions, gps);
+  const { actions: live, gps } = useOriginTracking(useTurnActions(chat));
   // `?q=` must not fire before the widget has a token to send (#447 review).
   const challenge = useTurnstileChallenge(chat);
-  const tray = useTrayState(chat, config.baseUrl, challenge !== undefined);
+  const tray = useTrayState(chat, config.baseUrl, { challenged: challenge !== undefined, auth: useAuthStatus() });
+  const actions = useLockedActions(live, tray.quota.locked);
+  const surfaces = usePageSurfaces(chat, actions, gps);
   useAutoSendFromQuery(search, health, actions.send, useTurnstileReady(challenge !== undefined));
   return { config, health, chat, history, actions, challenge, ...surfaces, ...tray };
 }
@@ -340,7 +304,7 @@ type PageState = ReturnType<typeof useChatPage>;
 
 function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {
   return (
-    <ChatShell entry={entryStateOf(search, page.health)} dict={page.dict} chat={page.chat} history={page.history} failure={page.failure} recompute={page.recompute} challenge={page.challenge} onRetry={page.health.retry} onSend={page.departure.onSend} departure={page.departure} baseUrl={page.config.baseUrl} photo={page.photo} />
+    <ChatShell entry={entryStateOf(search, page.health)} dict={page.dict} chat={page.chat} history={page.history} failure={page.failure} recompute={page.recompute} challenge={page.challenge} onRetry={page.health.retry} onSend={page.departure.onSend} departure={page.departure} baseUrl={page.config.baseUrl} photo={page.photo} quota={page.quota} locale={page.locale} />
   );
 }
 

@@ -5,6 +5,7 @@
  */
 
 export * from "./models.js";
+export * from "./error-registry.js";
 export * from "./chat-data-parts.js";
 export * from "./checkin-contract.js";
 export * from "./share-contract.js";

@@ -41,6 +41,19 @@ export function ruleDeclaration(css: string, selector: string, property: string)
   return declarationValue(body, property);
 }
 
+/**
+ * The LAST rule whose selector list ends with `selector` — i.e. the cascade
+ * winner when a block first joins a shared group and then overrides part of it.
+ * `ruleDeclaration` would return the shared group's value instead.
+ */
+export function lastRuleDeclaration(css: string, selector: string, property: string): string | null {
+  const escaped = selector.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+  const rules = [...css.matchAll(new RegExp(`(?:^|[\\n,])${escaped}\\s*\\{([^}]*)\\}`, "gu"))];
+  const body = rules.at(-1)?.[1];
+  if (body === undefined) throw new Error(`Missing rule: ${selector}`);
+  return declarationValue(body, property);
+}
+
 function requiredDeclaration(body: string, property: string): string {
   const value = declarationValue(body, property);
   if (value === null) throw new Error(`Missing font-face declaration: ${property}`);

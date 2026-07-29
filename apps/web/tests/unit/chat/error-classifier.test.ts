@@ -1,5 +1,6 @@
 import type { ChatDataPart } from "@seichijunrei/contract";
 import { describe, expect, it } from "vitest";
+import { ANON_BUDGET_EXHAUSTED_CODE, ANON_QUOTA_EXHAUSTED_CODE } from "@seichijunrei/contract";
 import { classifyFailure } from "../../../src/lib/chat/errorClassifier";
 
 type SearchIntent = "search_bangumi" | "search_nearby";
@@ -40,6 +41,21 @@ describe("classifyFailure: transport signals", () => {
   it("maps the anonymous budget breaker's 403 onto D11, not the session-expiry copy", () => {
     const signal = { kind: "http", status: 403, code: "anon_budget_exhausted" } as const;
     expect(classifyFailure(signal)).toBe("D11");
+  });
+
+  it("maps the per-identity quota's 403 onto D12, not the shared-budget D11", () => {
+    const signal = { kind: "http", status: 403, code: ANON_QUOTA_EXHAUSTED_CODE } as const;
+    expect(classifyFailure(signal)).toBe("D12");
+  });
+
+  it("keeps the shared-budget code on D11 so the two limits never blur", () => {
+    const signal = { kind: "http", status: 403, code: ANON_BUDGET_EXHAUSTED_CODE } as const;
+    expect(classifyFailure(signal)).toBe("D11");
+  });
+
+  it("leaves a 401 on D8 even when it carries the quota code", () => {
+    const signal = { kind: "http", status: 401, code: ANON_QUOTA_EXHAUSTED_CODE } as const;
+    expect(classifyFailure(signal)).toBe("D8");
   });
 
   it("leaves a 403 carrying any other error code on D8", () => {

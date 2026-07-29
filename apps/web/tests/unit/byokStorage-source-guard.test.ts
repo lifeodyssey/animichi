@@ -25,6 +25,16 @@ import { describe, expect, it } from "vitest";
 
 const SRC_DIR = fileURLToPath(new URL("../../src/", import.meta.url));
 const BYOK_STORAGE_RELATIVE = "lib/byok/byokStorage.ts";
+/**
+ * #282 rebase follow-up: the rule the AC states is "no *component* calls
+ * `sessionStorage` directly" — the boundary, not the single file. The D12
+ * composer draft is a second, non-secret tab-local value, so it gets its own
+ * storage module under the same discipline rather than a component reaching
+ * for the API. Adding a module here is a deliberate review decision; adding a
+ * *component* to this list would gut the guard.
+ */
+const CHAT_DRAFT_STORAGE_RELATIVE = "lib/chat/draftStorage.ts";
+const STORAGE_MODULES = [BYOK_STORAGE_RELATIVE, CHAT_DRAFT_STORAGE_RELATIVE];
 const SOURCE_EXTENSIONS = [".ts", ".tsx"];
 
 function isSourceFile(name: string): boolean {
@@ -60,9 +70,13 @@ function filesUsingSessionStorage(root: string): readonly string[] {
   );
 }
 
-describe("no component calls sessionStorage directly for BYOK (AC1 lint-level grep, full src/ tree)", () => {
-  it("finds sessionStorage used only inside byokStorage.ts across the whole src/ tree", () => {
-    expect(filesUsingSessionStorage(SRC_DIR)).toEqual([BYOK_STORAGE_RELATIVE]);
+describe("no component calls sessionStorage directly (AC1 lint-level grep, full src/ tree)", () => {
+  it("finds sessionStorage only inside the dedicated storage modules", () => {
+    expect([...filesUsingSessionStorage(SRC_DIR)].sort()).toEqual([...STORAGE_MODULES].sort());
+  });
+
+  it("keeps every allowed file in lib/, so no component can be added to the list", () => {
+    for (const module of STORAGE_MODULES) expect(module.startsWith("lib/")).toBe(true);
   });
 });
 

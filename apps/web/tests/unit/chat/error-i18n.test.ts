@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { LOCALES } from "../../../src/i18n/locales";
 
-const STATES = ["d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10", "d11"] as const;
+const STATES = ["d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10", "d11", "d12"] as const;
 
 /** Wire/internal vocabulary that must never surface in user-facing fallback copy. */
 const TECHNICAL_MARKERS = [
@@ -45,6 +45,31 @@ describe("chat error-state dictionary coverage", () => {
     expect(chatDictFor("zh").errorStates.d11Message).not.toBe(chatDictFor("ja").errorStates.d11Message);
     expect(chatDictFor("en").errorStates.d11Message).not.toBe(chatDictFor("ja").errorStates.d11Message);
     expect(chatDictFor("zh").errorStates.d11Message).not.toBe(chatDictFor("en").errorStates.d11Message);
+  });
+
+  it.each(LOCALES)("keeps the %s quota copy distinct from both neighbouring limits", (locale) => {
+    const states = chatDictFor(locale).errorStates;
+    expect(states.d12Message).not.toBe(states.d11Message);
+    expect(states.d12Message).not.toBe(states.d10Message);
+    expect(states.d12Message).not.toBe(states.d8Message);
+  });
+
+  it("translates the D12 quota copy instead of copying the Japanese string across", () => {
+    expect(chatDictFor("zh").errorStates.d12Message).not.toBe(chatDictFor("ja").errorStates.d12Message);
+    expect(chatDictFor("en").errorStates.d12Message).not.toBe(chatDictFor("ja").errorStates.d12Message);
+    expect(chatDictFor("zh").errorStates.d12Message).not.toBe(chatDictFor("en").errorStates.d12Message);
+  });
+
+  it.each(LOCALES)("gives the %s locked composer its own hint, not the ordinary placeholder", (locale) => {
+    const dict = chatDictFor(locale);
+    expect(dict.errorStates.d12InputHint).not.toBe(dict.inputPlaceholder);
+    expect(dict.errorStates.d12InputHint.length).toBeGreaterThan(0);
+  });
+
+  it.each(LOCALES)("labels the %s D12 login CTA as a way to continue, not a bare retry", (locale) => {
+    const states = chatDictFor(locale).errorStates;
+    expect(states.d12Login).not.toBe(states.d4Retry);
+    expect(states.d12Login).not.toBe(states.d10Retry);
   });
 
   it("keeps each locale's D6 apology distinct from the others", () => {

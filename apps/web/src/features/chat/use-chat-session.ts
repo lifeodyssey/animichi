@@ -29,11 +29,19 @@ interface SessionTracker {
   id: string | undefined;
   lastHttpStatus: number | undefined;
   lastErrorCode: string | undefined;
+  /** D12's `quota_resets_at`: when this identity's allowance returns. */
+  lastQuotaResetsAt: string | undefined;
 }
 type SessionRef = RefObject<SessionTracker>;
 
 function emptyTracker(scope: string, sessionId: string | undefined): SessionTracker {
-  return { scope, id: sessionId, lastHttpStatus: undefined, lastErrorCode: undefined };
+  return {
+    scope,
+    id: sessionId,
+    lastHttpStatus: undefined,
+    lastErrorCode: undefined,
+    lastQuotaResetsAt: undefined,
+  };
 }
 
 function scopeOf(sessionId?: string): string {
@@ -72,36 +80,66 @@ function createScopedChat(chatUrl: string, scope: string, ref: SessionRef): Chat
   });
 }
 
-function errorCodeOf(body: unknown): string | undefined {
+/** The rejection envelope's shape, as far as classification needs it. */
+interface RejectionDetail {
+  readonly code: string | undefined;
+  readonly quotaResetsAt: string | undefined;
+}
+
+const NO_REJECTION: RejectionDetail = { code: undefined, quotaResetsAt: undefined };
+
+function errorObjectOf(body: unknown): Record<string, unknown> | undefined {
   if (typeof body !== "object" || body === null) return undefined;
   const error: unknown = (body as { error?: unknown }).error;
   if (typeof error !== "object" || error === null) return undefined;
-  const code: unknown = (error as { code?: unknown }).code;
-  return typeof code === "string" ? code : undefined;
+  return error as Record<string, unknown>;
+}
+
+function stringField(source: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value: unknown = source?.[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function rejectionOf(body: unknown): RejectionDetail {
+  const error = errorObjectOf(body);
+  if (error === undefined) return NO_REJECTION;
+  const data = errorObjectOf({ error: error.data }) ?? error;
+  return { code: stringField(error, "code"), quotaResetsAt: stringField(data, "quota_resets_at") };
 }
 
 /**
- * Read the rejection's error code, which separates D8 (401/403 expiry) from
- * D11 (403 `anon_budget_exhausted`). Only failures are parsed — a streaming
- * 2xx body is never touched, let alone buffered.
+ * Read the rejection's error code — which separates D8 (401/403 expiry) from
+ * D11 (`anon_budget_exhausted`) and D12 (`anon_quota_exhausted`) — plus D12's
+ * `quota_resets_at`, read from `error.data` or flat on `error`. Only failures
+ * are parsed; a streaming 2xx body is never touched, let alone buffered.
  */
-async function readErrorCode(response: Response): Promise<string | undefined> {
-  if (response.ok) return undefined;
+async function readRejection(response: Response): Promise<RejectionDetail> {
+  if (response.ok) return NO_REJECTION;
   const body: unknown = await response
     .clone()
     .json()
     .catch(() => undefined);
-  return errorCodeOf(body);
+  return rejectionOf(body);
 }
 
-/** Record each chat response's status and error code so failures classify. */
+function clearRejection(ref: SessionRef): void {
+  ref.current.lastHttpStatus = undefined;
+  ref.current.lastErrorCode = undefined;
+  ref.current.lastQuotaResetsAt = undefined;
+}
+
+function recordRejection(ref: SessionRef, response: Response, rejection: RejectionDetail): void {
+  ref.current.lastErrorCode = rejection.code;
+  ref.current.lastQuotaResetsAt = rejection.quotaResetsAt;
+  ref.current.lastHttpStatus = response.status;
+}
+
+/** Record each chat response's status and rejection detail so failures classify. */
 function createTrackingFetch(ref: SessionRef): typeof globalThis.fetch {
   return async (input, init) => {
-    ref.current.lastHttpStatus = undefined;
-    ref.current.lastErrorCode = undefined;
+    clearRejection(ref);
     const response = await globalThis.fetch(input, init);
-    ref.current.lastErrorCode = await readErrorCode(response);
-    ref.current.lastHttpStatus = response.status;
+    recordRejection(ref, response, await readRejection(response));
     return response;
   };
 }
@@ -152,7 +190,8 @@ function useTrackerReaders(ref: SessionRef) {
   const sessionIdOf = useCallback(() => ref.current.id, [ref]);
   const lastHttpStatus = useCallback(() => ref.current.lastHttpStatus, [ref]);
   const lastErrorCode = useCallback(() => ref.current.lastErrorCode, [ref]);
-  return { sessionIdOf, lastHttpStatus, lastErrorCode };
+  const lastQuotaResetsAt = useCallback(() => ref.current.lastQuotaResetsAt, [ref]);
+  return { sessionIdOf, lastHttpStatus, lastErrorCode, lastQuotaResetsAt };
 }
 
 /** A part-less turn boundary. Without it ai@6.0.225 continues the previous

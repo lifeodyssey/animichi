@@ -40,9 +40,13 @@ export default defineConfig({
         // as routes/_dev/map-spike.tsx.
         "src/features/bubble-map/BubbleMap.tsx",
       ],
-      // S1.3 (#260) ratchet: measured 98.62/94.57/99.09/99.56 after the
-      // clarify/photo-search suites landed. Ratchet UP only.
-      thresholds: { statements: 98, branches: 94, functions: 98, lines: 99 },
+      // S1.10 (#282) ratchet: measured 98.61/95.48/98.94/99.49 on the tree
+      // rebased onto #462/#463/#467. Branches ratchet 94 -> 95. Functions is
+      // deliberately left at 98: the D12 files are themselves at 100%, but the
+      // freshly merged BYOK/Turnstile code dilutes the global ratio below the
+      // 99 this branch measured pre-rebase, and inventing coverage for other
+      // people's code to hold a number is not a ratchet. Ratchet UP only.
+      thresholds: { statements: 98, branches: 95, functions: 98, lines: 99 },
     },
   },
 });
