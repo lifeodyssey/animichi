@@ -97,6 +97,11 @@ Required:
 - `SUPABASE_DB_URL`
 - `MIMO_API_KEY` for the primary `mimo-v2.5` model
 - `DEEPSEEK_API_KEY` remains deploy-required and provisioned for the dormant DeepSeek fallback
+- `APP_ENV` — forwarded from `wrangler.toml`'s per-environment `[vars]` block (`development` /
+  `staging` / `production`), NOT a GitHub secret. Fail-closed since issue #498: the Worker throws at
+  container-start if it is missing rather than seeding a hardcoded default, because a silent default
+  previously tagged every environment's Logfire traces as `production` regardless of which
+  environment actually deployed them.
 
 Production is temporarily MiMo-only while the DeepSeek account has insufficient balance. After
 recharging DeepSeek, set `FALLBACK_AGENT_MODEL=deepseek:deepseek-v4-flash` to re-enable the already
@@ -113,7 +118,13 @@ Common runtime config:
 - `TIMEOUT_SECONDS`
 - `OBSERVABILITY_SERVICE_NAME`
 - `OBSERVABILITY_SERVICE_VERSION`
-- `LOGFIRE_TOKEN` (optional — tracing/metrics export to Logfire only when set)
+- `LOGFIRE_TOKEN` (optional — tracing/metrics export to Logfire only when set). Since issue #498,
+  the deploy workflows select the GitHub secret by target environment rather than always using this
+  one: `LOGFIRE_TOKEN_PROD` for `environment: production`, `LOGFIRE_TOKEN_STAGING` for
+  `environment: staging`, both forwarded into the container as this same `LOGFIRE_TOKEN` var name
+  (`worker_secrets: LOGFIRE_TOKEN` in `wrangler.toml`/CI stays unchanged — only the source GitHub
+  secret differs per environment). The original `LOGFIRE_TOKEN` secret remains as the fallback for
+  any other/unlisted environment, but is no longer used for staging or production.
 - `GOOGLE_MAPS_API_KEY` (optional)
 - `ANON_DAILY_COST_BUDGET_USD` (optional — the global anonymous daily-dollar circuit breaker, X4/#274; `0` disables it)
 - `ANON_DAILY_MESSAGE_QUOTA` (optional — the per-identity anonymous daily message quota, S1.10/#282, a fairness/UX mechanism rather than a defense line; `0` or unset disables it, same convention as the budget ceiling above)

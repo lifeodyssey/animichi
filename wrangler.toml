@@ -61,6 +61,10 @@ routes = [
 # → env.CATALOG binding (in-datacenter, no public internet round-trip).
 # There is NO public /catalog/* route on the main Worker.
 [vars]
+# Forwarded to the container as APP_ENV (issue #498) — Settings.app_env's own
+# default is "development", so the default (no-env-selected) `wrangler dev`
+# block matches that instead of silently claiming "production".
+APP_ENV = "development"
 CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "true"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
@@ -154,6 +158,9 @@ routes = [
 ]
 
 [env.production.vars]
+# Forwarded to the container as APP_ENV (issue #498) — required, see
+# containerEnv.ts CONTAINER_REQUIRED_KEYS.
+APP_ENV = "production"
 CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "false"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
@@ -238,6 +245,10 @@ workers_dev = true
 preview_urls = false
 
 [env.staging.vars]
+# Forwarded to the container as APP_ENV (issue #498) — required, see
+# containerEnv.ts CONTAINER_REQUIRED_KEYS. This is the whole point of the fix:
+# staging traces must tag "staging" in Logfire, not "production".
+APP_ENV = "staging"
 CATALOG_API_URL = "http://catalog.internal"
 # #527/#528 (P1-A): CORS_ALLOWED_ORIGIN was never provisioned for staging as
 # either a repo-level or a staging-environment GH secret. Simply removing it
