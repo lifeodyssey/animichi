@@ -111,7 +111,8 @@ jobs:
             exit 1
           fi
 
-      # ── Build frontend ──
+      # ── Node toolchain (wrangler + workspace deps; no app build — issue #537
+      # retired the legacy Next.js package, so the root Worker ships as source) ──
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
           run_install: false
@@ -123,14 +124,6 @@ jobs:
           cache: ""
 
       - run: pnpm install --frozen-lockfile
-
-      - name: Build frontend (OpenNext-SSR)
-        run: pnpm run build
-        working-directory: frontend
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
 
       # ── Apply DB migrations ──
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1

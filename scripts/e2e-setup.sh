@@ -26,7 +26,7 @@ echo ""
 echo "=== 3/5 Serving Edge Function ==="
 pkill -f "functions serve" 2>/dev/null || true
 sleep 1
-SITE_URL=http://localhost:3001 \
+SITE_URL=http://localhost:3000 \
 SMTP_HOST=host.docker.internal \
 SMTP_PORT=54325 \
 supabase functions serve send-auth-email --no-verify-jwt &
@@ -38,17 +38,13 @@ cd e2e && npm ci 2>/dev/null || npm install
 cd "$ROOT"
 echo ""
 
-echo "=== 5/5 Checking frontend ==="
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ | grep -q 200; then
-  echo "Frontend already running on :3001"
+echo "=== 5/5 Checking the web app ==="
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ | grep -q 200; then
+  echo "Web app already running on :3000"
 else
   echo ""
-  echo "⚠ Frontend not running. Start it with:"
-  echo "  cd frontend && npm run dev -- -p 3001"
-  echo ""
-  echo "Make sure frontend/.env.local has:"
-  echo "  NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321"
-  echo "  NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
+  echo "⚠ Web app not running. Start it with:"
+  echo "  pnpm --filter web dev"
 fi
 echo ""
 

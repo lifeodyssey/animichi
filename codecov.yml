@@ -16,8 +16,3 @@ coverage:
       default:
         target: 95%
         threshold: 0%
-
-ignore:
-  - "frontend/components/map/**"  # Mapbox GL requires WebGL — untestable in jsdom
-  - "frontend/lib/mock-data/**"   # Static test fixtures
-  - "frontend/components/ui/**"   # Shadcn generated components
