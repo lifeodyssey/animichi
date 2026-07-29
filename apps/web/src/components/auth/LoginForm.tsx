@@ -62,10 +62,12 @@ export interface LoginFormProps {
   /** Announced once the send is dispatched, so a caller can tell "closed to go
    * read the email" from "cancelled" — see `SendCommitted` for the timing. */
   readonly onSendCommitted?: SendCommitted;
+  /** Validated post-login destination carried in the mailed link (#284 T8). */
+  readonly returnTarget?: string;
 }
 
-export function LoginForm({ onSendCommitted }: LoginFormProps = {}) {
-  const form = useMagicLinkForm(onSendCommitted);
+export function LoginForm({ onSendCommitted, returnTarget }: LoginFormProps = {}) {
+  const form = useMagicLinkForm(onSendCommitted, returnTarget);
   const auth = useDict().auth;
   return (
     <form className="login-form" onSubmit={form.onSubmit} noValidate aria-label={auth.title}>

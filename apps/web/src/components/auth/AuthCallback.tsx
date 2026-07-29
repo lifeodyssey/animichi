@@ -40,14 +40,24 @@ function SaveFailure({ auth, session }: FailureProps) {
 
 export interface AuthCallbackProps {
   readonly onDone: () => void;
+  /** #480 P1-2 ruling: when the login carried a BYOK deep-link (`next`), a
+   * failed create-on-login replay must NOT strand the visitor here — the
+   * intent is restored to storage for a later login, and navigation to the
+   * return target still happens. Without a return intent, today's blocking
+   * retry/skip surface is preserved. */
+  readonly hasReturnIntent?: boolean;
   readonly establish?: () => Promise<string | undefined>;
   readonly replay?: () => Promise<DeferredReplayOutcome>;
 }
 
-function useDoneEffect(state: AuthCallbackState, onDone: () => void): void {
+function shouldNavigate(state: AuthCallbackState, hasReturnIntent: boolean): boolean {
+  return state === "done" || (state === "save-failed" && hasReturnIntent);
+}
+
+function useDoneEffect(state: AuthCallbackState, onDone: () => void, hasReturnIntent: boolean): void {
   useEffect(() => {
-    if (state === "done") onDone();
-  }, [state, onDone]);
+    if (shouldNavigate(state, hasReturnIntent)) onDone();
+  }, [state, onDone, hasReturnIntent]);
 }
 
 function CallbackBody({ session }: Readonly<{ session: AuthCallbackSession }>) {
@@ -58,9 +68,10 @@ function CallbackBody({ session }: Readonly<{ session: AuthCallbackSession }>) {
 }
 
 /** `/auth/callback` body: redeems the session, replays a deferred save, then
- * hands control back to the route — unless that replay failed. */
-export function AuthCallback({ onDone, establish = getAuthToken, replay }: AuthCallbackProps) {
+ * hands control back to the route — unless that replay failed AND no return
+ * intent is waiting (see `hasReturnIntent`). */
+export function AuthCallback({ onDone, hasReturnIntent = false, establish = getAuthToken, replay }: AuthCallbackProps) {
   const session = useAuthCallback(establish, replay);
-  useDoneEffect(session.state, onDone);
+  useDoneEffect(session.state, onDone, hasReturnIntent);
   return <CallbackBody session={session} />;
 }

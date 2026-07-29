@@ -1030,3 +1030,225 @@
 .turnstile-gate__retry:focus-visible {
   outline: 2px solid var(--color-focus);
 }
+
+/* BYOK settings panel (issue #284 Task 6) — semantic tokens only. The save /
+   sign-in CTAs are cream per the「一屏唯一金」rule (#462 precedent): gold stays
+   reserved for the screen's single highest-value action, which BYOK is not. */
+
+.chat-byok {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-card);
+  color: var(--color-fg);
+}
+
+.chat-byok__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.chat-byok__form,
+.chat-byok__teaser,
+.chat-byok__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chat-byok__families {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.chat-byok__family {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.chat-byok__label {
+  font-size: 0.8125rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-byok__input {
+  min-height: 40px;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.chat-byok__input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.chat-byok__help,
+.chat-byok__status {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-byok__error {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  background: var(--color-error-bg);
+  color: var(--color-error-strong);
+}
+
+.chat-byok__save,
+.chat-byok__signin,
+.chat-byok__clear {
+  align-self: flex-start;
+  min-height: 40px;
+  padding: 0.375rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-byok__save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.chat-byok__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.chat-byok__badge {
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-walk-bg);
+  color: var(--color-walk-fg);
+  font-size: 0.8125rem;
+}
+
+/* BYOK journey surfaces (#284 T8): the D13 gate + value explainer and the
+   D14 key-not-accepted strip. Warning tint family, cream CTA — no gold. */
+
+.chat-byok-upsell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-card);
+  color: var(--color-fg);
+}
+
+.chat-byok-upsell__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.chat-byok-upsell__points {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  color: var(--color-muted-fg);
+}
+
+.chat-byok-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chat-byok-gate__message,
+.chat-byok-rejected {
+  margin: 0;
+  padding: 0.625rem 1rem;
+  border-radius: 14px;
+  border-left: 4px solid var(--color-warning-fg);
+  background: var(--color-muted);
+  color: var(--color-fg);
+}
+
+.chat-input__settings {
+  min-height: 44px;
+  min-width: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-input__settings[aria-expanded="true"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+}
+
+/* Press states for the BYOK cream CTAs (DS 補全 .btn.cream.hv/.ac). */
+
+.chat-byok__save:hover,
+.chat-byok__signin:hover,
+.chat-byok__clear:hover,
+.chat-input__settings:hover,
+.chat-byok-rejected__open:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 var(--shadow-3d);
+}
+
+.chat-byok__save:active,
+.chat-byok__signin:active,
+.chat-byok__clear:active,
+.chat-input__settings:active,
+.chat-byok-rejected__open:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--shadow-3d);
+}
+
+.chat-byok__save:disabled:hover,
+.chat-byok__save:disabled:active {
+  transform: none;
+  box-shadow: 0 3px 0 var(--shadow-3d);
+}
+
+.chat-byok-rejected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.chat-byok-rejected__open {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0.375rem 0.875rem;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  box-shadow: 0 2px 0 var(--shadow-3d);
+  cursor: pointer;
+}
+
+.chat-byok:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
