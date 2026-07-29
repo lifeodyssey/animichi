@@ -94,16 +94,27 @@ jobs:
       #     values — genuine discriminating power a length check does not
       #     have (our own earlier diagnostic run showed repo-level and
       #     staging-environment NEON_DATABASE_URL both at len=146 — a
-      #     collision length tells you nothing). 32 bits of a preimage-
-      #     resistant hash cannot be inverted back to the secret.
+      #     collision length tells you nothing). For a HIGH-ENTROPY value,
+      #     32 bits of a preimage-resistant hash cannot be brute-forced back
+      #     to the secret.
       #   - This is NOT a pattern to extend to every secret without
-      #     thinking: decide per variable whether its LENGTH carries
-      #     semantic meaning before ever printing one. `TURNSTILE_SECRET` is
-      #     the standing counter-example already documented in the
-      #     "Preflight - post-deploy secrets" step below — Site Key (24
-      #     chars) vs. Secret Key (35 chars) is itself sensitive
-      #     information, so that secret must never get a length (or hash)
-      #     line here or anywhere else in a public log.
+      #     thinking: decide per variable, twice, before ever printing
+      #     anything about it —
+      #       (1) does its LENGTH carry semantic meaning on its own?
+      #           `TURNSTILE_SECRET` is the standing counter-example already
+      #           documented in the "Preflight - post-deploy secrets" step
+      #           below — Site Key (24 chars) vs. Secret Key (35 chars) is
+      #           itself sensitive information, so that secret must never
+      #           get a length (or hash) line here or anywhere else in a
+      #           public log.
+      #       (2) is the value actually HIGH-ENTROPY / unenumerable? The
+      #           hash trick above only works because a Neon connection
+      #           string or a Logfire token is drawn from a space too large
+      #           to brute-force. An enumerable value — an origin, a
+      #           hostname, a boolean-ish flag — has a small, guessable
+      #           value space; hashing it doesn't protect it, it just hands
+      #           an attacker a dictionary-attackable commitment to the
+      #           value. Never apply this pattern to that class of secret.
       #   - CORS_ALLOWED_ORIGIN is deliberately excluded from this step
       #     entirely: as of #528 (P1-A) it is a plain `vars` entry in
       #     `wrangler.toml` for staging (a domain name, not a secret) and
@@ -138,7 +149,6 @@ jobs:
           echo "  NEON_AUTH_JWKS_URL  set=$([ -n "$NEON_AUTH_JWKS_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_AUTH_JWKS_URL")"
           echo "  PULUMI_BACKEND_URL  set=$([ -n "$PULUMI_BACKEND_URL" ] && echo true || echo false) sha256_8=$(hash8 "$PULUMI_BACKEND_URL")"
           echo "  LOGFIRE_TOKEN       set=$([ -n "$LOGFIRE_TOKEN" ] && echo true || echo false) sha256_8=$(hash8 "$LOGFIRE_TOKEN")"
-          echo "  PULUMI_BACKEND_URL  set=$([ -n "$PULUMI_BACKEND_URL" ] && echo true || echo false) len=${#PULUMI_BACKEND_URL}"
       # Validates BEFORE anything deploys — including before "Atlas migrate"
       # below, which is the whole point: a failure here must land before any
       # side effect (DB migration OR Worker deploy) exists to half-apply. A
