@@ -38,6 +38,7 @@ from agent.interfaces.routes.health import router as health_router
 from agent.interfaces.routes.photo_search import router as photo_search_router
 from agent.interfaces.routes.runtime import router as runtime_router
 from agent.interfaces.routes.search_preview import router as search_preview_router
+from agent.interfaces.routes.session_migration import router as session_migration_router
 
 # Re-export _call_optional_async for test backward compatibility.
 _call_optional_async = call_optional_async
@@ -187,6 +188,7 @@ def create_fastapi_app(
     app.include_router(bangumi_router)
     app.include_router(search_preview_router)
     app.include_router(photo_search_router)
+    app.include_router(session_migration_router)
     return app
 
 

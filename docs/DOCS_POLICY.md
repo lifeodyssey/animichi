@@ -74,6 +74,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Eval | `apps/agent/agent/tests/eval/` (Python) | |
 | Testing strategy | `docs/testing-strategy.md` | |
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |
+| Anonymous session purge | `docs/ops/anonymous-session-purge.md`, `.github/workflows/purge-anonymous-sessions.yml` | scheduled retention sweep, issue #273 Task 3 |
 
 ## Review Check
 

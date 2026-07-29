@@ -84,7 +84,7 @@ format:
 	cd apps/agent && uv run ruff check --fix agent/ scripts/
 
 typecheck:
-	cd apps/agent && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ agent/tests/eval/
+	cd apps/agent && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ agent/tests/eval/ agent/scripts/purge_anonymous_sessions.py
 
 check: lint typecheck test test-integration
 
