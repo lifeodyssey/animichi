@@ -86,17 +86,26 @@ async def test_purge_session_race_a_concurrent_login_saves_the_session(
     assert await real_db.session.get_session(session_id) is not None
 
 
-#: Documented in docs/ops/anonymous-session-purge.md: the offline test
-#: image is provisioned `en_US.utf8` (a non-C collation — exactly the case
-#: a plain btree cannot service a LIKE prefix match, which is why
-#: text_pattern_ops matters there); live Neon test branches are `C.UTF-8`
-#: (confirmed against a real CI run), under which a plain btree already
-#: orders bytewise and the index is a belt-and-suspenders match rather
-#: than a strict requirement. Both are legitimate, observed values for
-#: this suite's two arms — an unrecognized third value likely means the
-#: base image or Neon's default collation changed and this list (and the
-#: runbook) needs updating alongside it.
-_KNOWN_TEST_COLLATIONS = frozenset({"en_US.utf8", "C.UTF-8"})
+#: Documented in docs/ops/anonymous-session-purge.md. Both are legitimate,
+#: observed values for this suite's two arms; an unrecognized third value
+#: likely means the base image or Neon's default collation changed and
+#: this needs updating alongside it (here and in the runbook).
+#:
+#: `en_US.utf8` (offline Docker image) is non-C: a plain btree cannot
+#: service a LIKE prefix match at all there, which is exactly the case
+#: text_pattern_ops exists for — the plan-shape assertion below is only
+#: meaningful, and only enforced, on this collation.
+#:
+#: `C.UTF-8` (live Neon test branches) already orders bytewise, so ANY
+#: btree — with or without a pattern opclass — can service the same LIKE
+#: prefix natively. Under this collation the planner is free to prefer a
+#: cheaper pre-existing index (e.g. idx_conversations_user_id_updated_at)
+#: for this query, confirmed against real CI runs on a populated shared
+#: branch — that is a correct cost decision, not a bug, so the plan-shape
+#: assertion is skipped here. The opclass check (the index exists with
+#: text_pattern_ops) still runs unconditionally in both arms.
+_NON_C_COLLATIONS = frozenset({"en_US.utf8"})
+_KNOWN_TEST_COLLATIONS = _NON_C_COLLATIONS | {"C.UTF-8"}
 
 
 @pytest.mark.integration
@@ -108,15 +117,15 @@ async def test_purge_predicate_hits_the_pattern_ops_index_not_a_seq_scan(
     LIKE prefix match at all — only `text_pattern_ops` can.
 
     Mutation-direction verified locally: reverting the index to default ops
-    (drop + recreate without `text_pattern_ops`) makes THIS test fail while
-    `test_retention_purges_only_the_inactive_routeless_sibling` (the
-    behavioral happy path) keeps passing. Two independent assertions catch
-    it: the opclass check (structural) and the pattern-operator check
-    (behavioral) — a bare "no Seq Scan" assertion would be a tautology
-    under `enable_seqscan = off` (any btree scan, pattern-capable or not,
-    satisfies it), so this pins the actual pattern range-scan operators
-    (`~>=~` / `~<~`) that only appear in the plan when a pattern opclass
-    index services the LIKE prefix — confirmed empirically on both arms."""
+    (drop + recreate without `text_pattern_ops`) makes THIS test fail on
+    the non-C arm while `test_retention_purges_only_the_inactive_routeless_
+    sibling` (the behavioral happy path) keeps passing. The opclass check
+    (structural, always) and the pattern-operator check (behavioral,
+    non-C-collation-only — see `_NON_C_COLLATIONS`) catch it; a bare "no
+    Seq Scan" assertion would be a tautology under `enable_seqscan = off`
+    (any btree scan satisfies it), so this pins the actual pattern
+    range-scan operators (`~>=~` / `~<~`) that only appear in the plan
+    when a pattern opclass index services the LIKE prefix."""
     async with real_db.pool.acquire() as connection:
         collation = await connection.fetchval(
             "SELECT datcollate FROM pg_database WHERE datname = current_database()"
@@ -128,6 +137,9 @@ async def test_purge_predicate_hits_the_pattern_ops_index_not_a_seq_scan(
         )
         assert index_def is not None
         assert "text_pattern_ops" in index_def
+
+        if collation not in _NON_C_COLLATIONS:
+            return
 
         await connection.execute("SET enable_seqscan = off")
         try:

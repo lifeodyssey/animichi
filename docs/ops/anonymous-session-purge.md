@@ -79,10 +79,15 @@ someone.
   offline Docker test image is `en_US.utf8` (non-C — the case this index
   actually matters for: a plain btree cannot service a LIKE prefix match
   there), while live Neon test branches are `C.UTF-8` (already
-  byte-ordered, so the index is a belt-and-suspenders match rather than a
-  strict requirement there). `test_session_retention_integrity.py` asserts
-  the observed collation is one of these two known values — if a third
-  value shows up, the base image or Neon's default changed and this list
-  needs updating alongside it.
+  byte-ordered, so ANY btree — with or without the pattern opclass — can
+  service the same LIKE prefix natively, and the query planner is free to
+  prefer a cheaper pre-existing index there instead — confirmed against
+  real CI runs on a populated shared Neon branch, not a bug).
+  `test_session_retention_integrity.py` asserts the observed collation is
+  one of these two known values (always) and additionally asserts the
+  pattern-opclass index is actually used in the query plan, but **only on
+  the non-C arm** where that's the architecturally correct expectation —
+  if a third collation value shows up, the base image or Neon's default
+  changed and this needs updating alongside it.
 - `apps/agent/agent/interfaces/routes/session_migration.py` — the login-time
   ownership transition this purge coexists with.
