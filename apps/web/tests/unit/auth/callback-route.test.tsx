@@ -26,6 +26,43 @@ describe("/auth/callback route", () => {
     });
   });
 
+  it("returns to a validated relative next target once the session is established (#284 T8)", async () => {
+    getAuthToken.mockResolvedValue("jwt-callback");
+    const router = getRouter();
+    await router.navigate({ to: "/auth/callback", search: { next: "/chat?settings=byok" } });
+    render(<RouterProvider router={router} />);
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/chat");
+    });
+    expect(router.state.location.search).toEqual(expect.objectContaining({ settings: "byok" }));
+  });
+
+  it.each(["https://evil.test/", "//evil.test", "/\\evil.test"])(
+    "falls back to / for the T14 vector %j instead of redirecting off-origin",
+    async (vector) => {
+      getAuthToken.mockResolvedValue("jwt-callback");
+      const router = getRouter();
+      await router.navigate({ to: "/auth/callback", search: { next: vector } });
+      render(<RouterProvider router={router} />);
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe("/");
+      });
+    },
+  );
+
+  it("keeps today's behaviour for an empty next (navigate to /)", async () => {
+    getAuthToken.mockResolvedValue("jwt-callback");
+    const router = getRouter();
+    await router.navigate({ to: "/auth/callback", search: { next: "   " } });
+    render(<RouterProvider router={router} />);
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/");
+    });
+  });
+
+});
+
+describe("/auth/callback route — failure", () => {
   it("shows an on-brand error and does not redirect when no session was established", async () => {
     setLanguages(["ja"]);
     getAuthToken.mockResolvedValue(undefined);
