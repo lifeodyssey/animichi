@@ -94,19 +94,41 @@ void test("a client-forged X-Anon-Id is overwritten by the edge's own resolution
   assert.notEqual(cap.req?.headers.get("X-Anon-Id"), "anon_" + "f".repeat(32));
 });
 
-void test("a successful migration rotates/clears the aid cookie", async () => {
+// Owner ruling (#507) REVERSING S1.7 rev5 P2-b: the migration no longer retires
+// the `aid` cookie. Retiring it minted a fresh identity on the next anonymous
+// turn and reset the per-identity quota, making "exhaust quota -> free login ->
+// log out -> new allowance" a loop the D12 banner walks visitors into. After a
+// successful migration the anonymous identity owns nothing anyway, so what a
+// shared browser inherits is an empty identity plus the day's quota count --
+// which is the point. Asserted on BOTH outcomes so a re-introduction fails here.
+
+void test("a successful migration does NOT retire the aid cookie (#507 reversal)", async () => {
   const cap: { req?: Request } = {};
   const app = createWorkerApp({ nextHandler: { fetch: () => Promise.resolve(new Response("next")) }, authenticate: authOk });
   const cookie = await anonCookieFor("anon_" + "d".repeat(32));
   const res = await app.request(
     "/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, envWithContainer(cap, { migrated: true }), stubCtx,
   );
-  const setCookie = String(res.headers.get("Set-Cookie"));
-  assert.match(setCookie, /^aid=;/);
-  assert.match(setCookie, /Max-Age=0/);
+  assert.equal(res.headers.get("Set-Cookie"), null);
 });
 
-void test("a no-op migration (migrated: false) does not rotate the cookie", async () => {
+void test("the surviving identity keeps working: a later anonymous turn reuses it", async () => {
+  const cap: { req?: Request } = {};
+  const app = createWorkerApp({ nextHandler: { fetch: () => Promise.resolve(new Response("next")) }, authenticate: authOk });
+  const anonId = "anon_" + "d".repeat(32);
+  const cookie = await anonCookieFor(anonId);
+  const migrated = await app.request(
+    "/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, envWithContainer(cap, { migrated: true }), stubCtx,
+  );
+  // Nothing in the response tells the browser to drop `aid`, so the same
+  // cookie still resolves to the same identity -- and therefore to the same
+  // per-identity quota bucket, which is what closes the log-out-for-more loop.
+  assert.equal(migrated.headers.get("Set-Cookie"), null);
+  await app.request("/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, envWithContainer(cap), stubCtx);
+  assert.equal(cap.req?.headers.get("X-Anon-Id"), anonId);
+});
+
+void test("a no-op migration (migrated: false) sets no cookie either", async () => {
   const cap: { req?: Request } = {};
   const app = createWorkerApp({ nextHandler: { fetch: () => Promise.resolve(new Response("next")) }, authenticate: authOk });
   const cookie = await anonCookieFor("anon_" + "e".repeat(32));

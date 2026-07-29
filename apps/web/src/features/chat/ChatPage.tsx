@@ -45,6 +45,7 @@ import { useTurnTiming } from "./use-turn-timing";
 import { useTurnstileChallenge, useTurnstileReady } from "./use-turnstile-challenge";
 import type { TurnstileChallenge } from "./use-turnstile-challenge";
 import type { ConversationHistory } from "./use-conversation-history";
+import { ChatReturnTargetProvider } from "./return-target";
 
 export interface ChatPageProps {
   readonly search: ChatSearch;
@@ -326,13 +327,21 @@ function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: Pag
   );
 }
 
+/** Publishes the live session id so every in-chat login wall can send the
+ * visitor back to this conversation after signing in (#507 review P1-1). */
+function withReturnTarget(search: ChatSearch, page: PageState) {
+  return (
+    <ChatReturnTargetProvider sessionIdOf={page.chat.sessionIdOf}>
+      <ChatPageView search={search} page={page} />
+    </ChatReturnTargetProvider>
+  );
+}
+
 export function ChatPage({ search }: ChatPageProps) {
   const page = useChatPage(search);
   return (
     <SpotSelectionProvider selection={page.selection}>
-      <ChatActionsProvider actions={page.actions}>
-        <ChatPageView search={search} page={page} />
-      </ChatActionsProvider>
+      <ChatActionsProvider actions={page.actions}>{withReturnTarget(search, page)}</ChatActionsProvider>
     </SpotSelectionProvider>
   );
 }

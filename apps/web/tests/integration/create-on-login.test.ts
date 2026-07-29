@@ -41,6 +41,11 @@ const server = setupServer(
     return HttpResponse.json(row);
   }),
   http.get(ROUTES_URL, () => HttpResponse.json(ListRoutesResult.parse({ routes: saved }) as JsonBodyType)),
+  // Every login now also claims the browser's anonymous sessions (#507). This
+  // suite runs with `onUnhandledRequest: "error"`, so the handler is proof the
+  // call is real: delete the client wiring and it goes unused; delete the
+  // handler and the whole suite errors.
+  http.post("http://localhost:3000/v1/session/migrate", () => HttpResponse.json({ migrated: false })),
 );
 
 beforeAll(() => { server.listen({ onUnhandledRequest: "error" }); });

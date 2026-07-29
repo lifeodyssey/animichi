@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { LoginModal } from "../../../../components/auth/LoginModal";
 import type { ChatDict } from "../../i18n";
+import { useChatReturnTarget } from "../../return-target";
 import { FallbackRetryButton } from "./FallbackRetryButton";
 
 type Props = Readonly<{ dict: ChatDict; onResume: () => void; recovering?: boolean }>;
@@ -26,12 +27,12 @@ function ExpiryActions({ dict, onLogin, onResume, recovering }: ActionProps) {
  * opens in place and resume re-reads the session's final state afterwards.
  */
 export function SessionExpired({ dict, onResume, recovering }: Props) {
-  const [loginOpen, setLoginOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   return (
     <div className="chat-session-expired" role="alert">
       <span>{dict.errorStates.d8Message}</span>
-      <ExpiryActions dict={dict} onLogin={() => { setLoginOpen(true); }} onResume={onResume} recovering={recovering} />
-      <LoginModal open={loginOpen} onClose={() => { setLoginOpen(false); }} />
+      <ExpiryActions dict={dict} onLogin={() => { setOpen(true); }} onResume={onResume} recovering={recovering} />
+      <LoginModal open={open} onClose={() => { setOpen(false); }} returnTarget={useChatReturnTarget()} />
     </div>
   );
 }
