@@ -88,7 +88,7 @@ Apply migrations in a dedicated deploy step, not at application startup.
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase auth |
 | `SUPABASE_ANON_KEY` | JWT validation at Worker edge |
 | `ANITABI_API_URL` | Anitabi pilgrimage data API |
-| `GEMINI_API_KEY` | LLM for planner agent |
+| `GEMINI_API_KEY` | Platform vision provider for photo-search (always mounted, not gated on the chat model) |
 
 **Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 

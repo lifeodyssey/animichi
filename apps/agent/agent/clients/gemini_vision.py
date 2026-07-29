@@ -13,7 +13,10 @@ import json
 
 import httpx
 
-from agent.agents.vision_supply_router import VisionRecognition
+from agent.agents.vision_supply_router import (
+    VisionProviderMisconfigured,
+    VisionRecognition,
+)
 
 GEMINI_VISION_MODEL = "gemini-2.0-flash"
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
@@ -115,6 +118,11 @@ class GeminiVisionProvider:
         self._timeout = timeout_seconds
 
     async def recognize(self, images: list[bytes], locale: str) -> VisionRecognition:
+        """#502 P1-1: fail fast on a missing key rather than wasting a round
+        trip on a guaranteed 401 — and let the caller tell "never
+        configured" apart from "the call ran and failed"."""
+        if not self._api_key:
+            raise VisionProviderMisconfigured("GEMINI_API_KEY is not configured")
         url = f"{self._base_url}/models/{self._model}:generateContent"
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             response = await client.post(

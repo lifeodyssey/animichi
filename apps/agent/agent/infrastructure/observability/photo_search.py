@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from agent.agents.vision_supply_router import QuotaTier
 
-QueryType = Literal["anime_screenshot", "real_world_photo"]
+QueryType = Literal["anime_screenshot", "real_world_photo", "vision_unavailable"]
 LayerHit = Literal["1", "2", "none"]
 QuotaKey = NewType("QuotaKey", str)
 Clock = Callable[[], datetime]

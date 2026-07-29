@@ -8,6 +8,7 @@ import pytest
 from agent.agents.vision_supply_router import (
     EndpointId,
     VisionCapabilityRegistry,
+    VisionProviderMisconfigured,
     VisionRecognition,
     VisionRecognitionFailed,
     VisionSupply,
@@ -43,6 +44,12 @@ class FailingProvider:
 
 def _transport_error() -> httpx.ConnectError:
     return httpx.ConnectError("connection refused")
+
+
+def _auth_error() -> httpx.HTTPStatusError:
+    request = httpx.Request("POST", "https://vision.example/recognize")
+    response = httpx.Response(401, request=request)
+    return httpx.HTTPStatusError("unauthorized", request=request, response=response)
 
 
 def _rec(count: int, titles: list[str]) -> VisionRecognition:
@@ -112,8 +119,9 @@ async def test_correct_canary_count_keeps_byok_answer() -> None:
     assert platform.calls == 0
 
 
-async def test_byok_transport_failure_falls_back_to_platform() -> None:
-    """#502: a dead/misconfigured BYOK key must degrade to platform, not raise."""
+async def test_byok_transient_failure_falls_back_without_demoting() -> None:
+    """#502 P2: a one-off network blip must fall back for this call only —
+    it must NOT permanently sideline an otherwise-working BYOK endpoint."""
     registry = VisionCapabilityRegistry()
     registry.mark(_ENDPOINT, True)
     byok = FailingProvider(_transport_error())
@@ -124,9 +132,45 @@ async def test_byok_transport_failure_falls_back_to_platform() -> None:
     result = await supply.recognize([b"img"], "ja", authenticated=True)
     assert result.provider_kind == "platform"
     assert result.fell_back_to_platform is True
-    assert registry.is_vision_capable(_ENDPOINT) is False
+    assert registry.is_vision_capable(_ENDPOINT) is True
     assert byok.calls == 1
     assert platform.calls == 1
+
+
+async def test_byok_auth_failure_falls_back_and_demotes() -> None:
+    """#502 P2: an auth-shaped failure (401/403) means a bad key, not a
+    hiccup — it demotes the endpoint the same way a canary mismatch does."""
+    registry = VisionCapabilityRegistry()
+    registry.mark(_ENDPOINT, True)
+    byok = FailingProvider(_auth_error())
+    platform = StubProvider(_rec(1, ["platform-title"]))
+    supply = VisionSupply(
+        platform=platform, registry=registry, byok=byok, byok_endpoint=_ENDPOINT
+    )
+    result = await supply.recognize([b"img"], "ja", authenticated=True)
+    assert result.provider_kind == "platform"
+    assert registry.is_vision_capable(_ENDPOINT) is False
+
+
+async def test_platform_misconfigured_raises_typed_recognition_failed() -> None:
+    """#502 P1-1: a provider with no credential at all must still surface as
+    a typed failure through the router, not an uncaught exception."""
+    platform = FailingProvider(VisionProviderMisconfigured("no key"))
+    supply = VisionSupply(platform=platform, registry=VisionCapabilityRegistry())
+    with pytest.raises(VisionRecognitionFailed):
+        await supply.recognize([b"img"], "ja", authenticated=False)
+
+
+async def test_provider_bug_is_not_swallowed_as_a_fallback() -> None:
+    """#502 P2: a genuine bug in provider code (not a network/auth failure)
+    must still surface as an uncaught exception — the catch tuple must stay
+    narrow, or a real bug gets silently reinterpreted as a designed
+    fallback. ValueError specifically: pydantic.ValidationError subclasses
+    it, so it must not be in the caught tuple."""
+    platform = FailingProvider(ValueError("provider validation bug"))
+    supply = VisionSupply(platform=platform, registry=VisionCapabilityRegistry())
+    with pytest.raises(ValueError, match="provider validation bug"):
+        await supply.recognize([b"img"], "ja", authenticated=False)
 
 
 async def test_platform_failure_raises_typed_recognition_failed() -> None:

@@ -23,21 +23,48 @@ EndpointId = NewType("EndpointId", str)
 
 # I/O-boundary failures a vision provider call may raise: transport/timeout,
 # non-2xx status (auth failures included), and OS-level connection errors.
-# Matches the boundary convention used elsewhere (e.g. CATALOG_FAILURES,
-# agent/infrastructure/gateways/geocoding.py). Deliberately narrow: a bug in
-# provider code (TypeError, AttributeError, ...) must still surface as a 500
-# rather than being silently treated as a fallback-worthy failure.
+# Same tuple shape as CATALOG_FAILURES (agent/agents/catalog_failures.py):
+# (APIError, OSError, RuntimeError) — swapping APIError for httpx.HTTPError
+# because vision providers call httpx directly, unlike the catalog client
+# which wraps httpx errors into APIError itself. Deliberately excludes
+# ValueError: pydantic.ValidationError is a ValueError subclass, and a
+# provider's own validation bug must still surface as a 500 rather than
+# being silently treated as a fallback-worthy failure.
 _VISION_CALL_FAILURES: tuple[type[Exception], ...] = (
     httpx.HTTPError,
     OSError,
     RuntimeError,
-    ValueError,
 )
+
+_AUTH_FAILURE_STATUSES = frozenset({401, 403})
+
+
+def _is_auth_failure(exc: Exception) -> bool:
+    """An auth-shaped failure (401/403) means a bad key, not a hiccup."""
+    return (
+        isinstance(exc, httpx.HTTPStatusError)
+        and exc.response.status_code in _AUTH_FAILURE_STATUSES
+    )
+
+
+class VisionProviderMisconfigured(Exception):
+    """Raised by a provider that has no credential to attempt a call at all
+    (e.g. an empty API key). Distinct from a call that ran and failed, so
+    ops can tell "never configured" apart from "had a bad day" (#502)."""
 
 
 class VisionRecognitionFailed(Exception):
     """Raised when the platform vision provider fails and there is no more
     fallback left to try (SD-19: carries no upstream-derived text)."""
+
+
+# BYOK providers may also raise VisionProviderMisconfigured (defensive: a
+# byok VisionProvider wired without a credential); folded into one tuple so
+# ``_call_byok`` has a single except clause mypy can verify statically.
+_BYOK_CALL_FAILURES: tuple[type[Exception], ...] = (
+    VisionProviderMisconfigured,
+    *_VISION_CALL_FAILURES,
+)
 
 
 VisionProviderKind = Literal["byok", "platform"]
@@ -129,37 +156,61 @@ class VisionSupply:
             result = await self._recognize_byok(images, locale)
             if result is not None:
                 return result
+        recognition = await self._recognize_platform(images, locale)
+        return VisionCallResult(recognition, "platform", route.provider_kind == "byok")
+
+    async def _recognize_platform(
+        self, images: list[bytes], locale: str
+    ) -> VisionRecognition:
+        """The final fallback: any failure here has nowhere left to go."""
         try:
-            recognition = await self.platform.recognize(images, locale)
+            return await self.platform.recognize(images, locale)
+        except VisionProviderMisconfigured as exc:
+            logger.error("vision_platform_misconfigured", error_type=type(exc).__name__)
+            raise VisionRecognitionFailed from exc
         except _VISION_CALL_FAILURES as exc:
             logger.warning(
                 "vision_platform_recognize_failed", error_type=type(exc).__name__
             )
             raise VisionRecognitionFailed from exc
-        return VisionCallResult(recognition, "platform", route.provider_kind == "byok")
 
     async def _recognize_byok(
         self, images: list[bytes], locale: str
     ) -> VisionCallResult | None:
-        """D5 canary: a wrong reported count demotes the endpoint mid-call.
-
-        A failed BYOK call falls back to the platform provider (by design):
-        it demotes the endpoint the same way a canary mismatch does, so a
-        dead/misconfigured key degrades quietly instead of surfacing here.
-        """
+        """D5 canary: a wrong reported count demotes the endpoint mid-call."""
         if self.byok is None or self.byok_endpoint is None:
             return None
-        try:
-            recognition = await self.byok.recognize(images, locale)
-        except _VISION_CALL_FAILURES as exc:
-            logger.warning(
-                "vision_byok_recognize_failed",
-                endpoint=self.byok_endpoint,
-                error_type=type(exc).__name__,
-            )
-            self.registry.mark(self.byok_endpoint, False)
+        endpoint = self.byok_endpoint
+        recognition = await self._call_byok(self.byok, endpoint, images, locale)
+        if recognition is None:
             return None
         if recognition.reported_image_count == len(images):
             return VisionCallResult(recognition, "byok", False)
-        self.registry.mark(self.byok_endpoint, False)
+        self.registry.mark(endpoint, False)
         return None
+
+    async def _call_byok(
+        self,
+        provider: VisionProvider,
+        endpoint: EndpointId,
+        images: list[bytes],
+        locale: str,
+    ) -> VisionRecognition | None:
+        """A failed BYOK call falls back to platform (by design). Only an
+        auth-shaped failure demotes the endpoint like a canary mismatch does;
+        a transient blip (timeout, 5xx, network hiccup) falls back for this
+        call only, so one bad network moment doesn't permanently sideline an
+        otherwise-working endpoint (#502)."""
+        try:
+            return await provider.recognize(images, locale)
+        except _BYOK_CALL_FAILURES as exc:
+            demoted = _is_auth_failure(exc)
+            if demoted:
+                self.registry.mark(endpoint, False)
+            logger.warning(
+                "vision_byok_recognize_failed",
+                endpoint=endpoint,
+                error_type=type(exc).__name__,
+                demoted=demoted,
+            )
+            return None

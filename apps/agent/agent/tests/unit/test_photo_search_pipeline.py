@@ -106,6 +106,19 @@ async def test_vision_provider_failure_degrades_to_clarify_instead_of_raising() 
     assert outcome.signals.layer_hit == "none"
 
 
+async def test_vision_provider_failure_uses_a_distinct_telemetry_signal() -> None:
+    """#502 P1-2: a provider outage must NOT be counted the same as a clean
+    "user photographed something unrecognizable" miss — that would corrupt
+    the SD-22/23 success-rate signal by blaming infra failures on users."""
+    supply = VisionSupply(
+        platform=_DownVisionProvider(), registry=VisionCapabilityRegistry()
+    )
+    outcome = await run_photo_search(supply, FakeCatalog(), [_IMAGE], _GPS, "ja", False)
+    assert outcome.signals.query_type == "vision_unavailable"
+    assert outcome.signals.query_type != "real_world_photo"
+    assert outcome.signals.gps_available is True
+
+
 async def test_catalog_outage_degrades_instead_of_raising() -> None:
     outcome = await run_photo_search(
         _supply([YOURNAME_TITLE]), DownCatalog(), [_IMAGE], _GPS, "ja", False
