@@ -119,12 +119,31 @@ Common runtime config:
 - `OBSERVABILITY_SERVICE_NAME`
 - `OBSERVABILITY_SERVICE_VERSION`
 - `LOGFIRE_TOKEN` (optional — tracing/metrics export to Logfire only when set). Since issue #498,
-  the deploy workflows select the GitHub secret by target environment rather than always using this
-  one: `LOGFIRE_TOKEN_PROD` for `environment: production`, `LOGFIRE_TOKEN_STAGING` for
-  `environment: staging`, both forwarded into the container as this same `LOGFIRE_TOKEN` var name
-  (`worker_secrets: LOGFIRE_TOKEN` in `wrangler.toml`/CI stays unchanged — only the source GitHub
-  secret differs per environment). The original `LOGFIRE_TOKEN` secret remains as the fallback for
-  any other/unlisted environment, but is no longer used for staging or production.
+  production and staging each write to their own Logfire project (`animichi-prod` /
+  `animichi-staging`) via **GitHub Environment-scoped secrets of the same name**
+  (`LOGFIRE_TOKEN` defined directly on the `production` and `staging` GitHub Environments), not
+  via workflow-level branching. No workflow YAML changes were needed for this: both
+  `_deploy-component.yml`'s `deploy` job (`environment: ${{ inputs.environment }}`) and
+  `deploy.yml`'s `deploy` job (`environment: production`) already ran under a job-level
+  `environment:`, and GitHub environment secrets take precedence over a same-named secret the
+  caller workflow explicitly passes through `secrets:` for a job that references that environment
+  — see [Reuse workflows](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)
+  ("If you include environment in the reusable workflow at the job level, the environment secret
+  will be used, and not the secret passed from the caller workflow"). This was confirmed empirically
+  against this repo's real GitHub Actions runners with a throwaway diagnostic workflow (three
+  differently-sized marker secrets — repo-level, `production`-environment, `staging`-environment —
+  each job resolved the environment-scoped one, not the repo-level one the caller passed): staging
+  resolved the staging marker, production resolved the production marker, in both cases overriding
+  what the caller's `secrets: LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}` line explicitly passed.
+  The repo-level `LOGFIRE_TOKEN` secret remains only as the implicit fallback for a hypothetical
+  environment with no `LOGFIRE_TOKEN` secret of its own (same convention already relied on for the
+  8-9 other secrets — `CLOUDFLARE_API_TOKEN`, `NEON_DATABASE_URL`, `PULUMI_*`, `R2_*`,
+  `NEON_AUTH_JWKS_URL` — that are defined both at repo level and per-environment).
+- `CORS_ALLOWED_ORIGIN` is defined **only** as a `production`-environment secret (no repo-level or
+  `staging`-environment copy) and has been since before this issue — by the same precedence rule
+  above, it was already reaching the container correctly in production deploys; staging currently
+  has no dedicated value and falls through to the container's own `"*"` default (tracked
+  separately, see the `apps_env`/CORS note below).
 - `GOOGLE_MAPS_API_KEY` (optional)
 - `ANON_DAILY_COST_BUDGET_USD` (optional — the global anonymous daily-dollar circuit breaker, X4/#274; `0` disables it)
 - `ANON_DAILY_MESSAGE_QUOTA` (optional — the per-identity anonymous daily message quota, S1.10/#282, a fairness/UX mechanism rather than a defense line; `0` or unset disables it, same convention as the budget ceiling above)
