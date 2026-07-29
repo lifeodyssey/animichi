@@ -271,6 +271,36 @@ jobs:
       - name: Install Pulumi CLI
         if: ${{ inputs.run_pulumi }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+      # #522: `pulumi up` below failed on every run with "It looks like the
+      # Pulumi SDK has not been installed" because infra/node_modules never
+      # existed. pulumi/actions@v7 stopped auto-installing project
+      # dependencies — verified against the v7 README, which states the
+      # action "will no longer run npm ci | npm install | pip3 install |
+      # pipenv install" and that this is now deferred to a dedicated
+      # dependency-installation step. `pulumi stack export` just above does
+      # NOT need this (it only serializes existing state, it never executes
+      # the Pulumi *program*), so placing the install here — after the CLI
+      # install, before `up` — changes nothing about the #485/#492 ordering
+      # guarantee that the rollback backup always lands before `up` mutates
+      # anything.
+      #
+      # `infra/` is deliberately NOT a pnpm-workspace member (absent from
+      # `pnpm-workspace.yaml`'s `packages:` list, and from `pnpm-lock.yaml`
+      # entirely). Confirmed empirically, not guessed: running a plain `pnpm
+      # install` from inside `infra/` in THIS repo prints "Scope: all 8
+      # workspace projects" and reinstalls the other workspace packages
+      # instead of infra's own — pnpm walks up to the repo-root
+      # `pnpm-workspace.yaml`, sees infra isn't a declared member, and simply
+      # ignores it rather than treating it as a standalone project. Only
+      # `--ignore-workspace` makes pnpm treat `infra/` as its own project;
+      # confirmed by the resulting `infra/node_modules` actually containing
+      # `@pulumi/pulumi` and `@pulumi/cloudflare`. `infra/pnpm-lock.yaml` is
+      # committed alongside this change so `--frozen-lockfile` pins versions
+      # here the same way the root lockfile does for every other package.
+      - name: Install infra dependencies
+        if: ${{ inputs.run_pulumi }}
+        working-directory: infra
+        run: pnpm install --ignore-workspace --frozen-lockfile
       - name: Pulumi stack export (rollback backup)
         # Snapshot state BEFORE `up` mutates it, so a bad apply can be rolled
         # back with `pulumi stack import` from the R2 object this step writes.
