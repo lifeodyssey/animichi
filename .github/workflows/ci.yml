@@ -53,6 +53,15 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          # On `push`, paths-filter diffs the event's `before` SHA against HEAD using
+          # local git (the API listFiles path is pull_request-only). The default
+          # fetch-depth of 1 leaves `before` unreachable, and `persist-credentials:
+          # false` means the action's own fallback fetch has no auth — it exits 128
+          # and every downstream lane, INCLUDING all eight deploy jobs, reports
+          # `skipping`. That is how the #483 merge to main deployed nothing while
+          # only this job showed red (2026-07-29, run 30429636371). Full history
+          # keeps the credentials hardening and makes `before` locally reachable.
+          fetch-depth: 0
           persist-credentials: false
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: f
