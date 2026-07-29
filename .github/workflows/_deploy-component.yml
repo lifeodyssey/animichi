@@ -218,13 +218,41 @@ jobs:
       - name: Atlas migrate
         # NOTE: secrets context is NOT allowed in step `if:` (GitHub compile-time
         # error → startup_failure). Guard inside run via the env var instead.
+        #
+        # #516: this Neon database also hosts `neon_auth` (9 tables Neon Auth
+        # itself provisions and owns — Atlas must never touch them) alongside
+        # `public` (the schema Atlas actually manages). Without scoping,
+        # Atlas's "is this database clean" check inspects EVERY schema it can
+        # see, finds `neon_auth` unaccounted for by db/migrations, and aborts
+        # with "connected database is not clean: found schema ...". The fix
+        # is `search_path=<schema>` on the connection URL — confirmed
+        # empirically against the exact pinned v0.30.0 binary (not guessed):
+        # a local Postgres with an extra `neon_auth`-shaped schema (+ a table
+        # in it) reproduced the identical error without this param, and
+        # applying with `search_path=public` both (a) fixed it and (b) left
+        # the other schema's table completely untouched afterward (verified
+        # with \dt). Also confirmed it tolerates the specific leftover this
+        # database has: an empty, orphaned `atlas_schema_revisions` SCHEMA
+        # (as opposed to the `public.atlas_schema_revisions` TABLE this
+        # `--revisions-schema public` flag expects) from an earlier
+        # apply that ran without this flag — `search_path=public` scopes past
+        # that stray schema too, with no separate DROP SCHEMA cleanup step
+        # needed. Deliberately NOT `--allow-dirty`: that flag suppresses the
+        # cleanliness check for the whole database, including future genuine
+        # dirtiness in `public` itself — scoping the URL only removes
+        # `neon_auth` (something Atlas was never supposed to see) from
+        # consideration, not the safety check itself.
         run: |
           if [ -z "$NEON_DATABASE_URL" ]; then
             echo "NEON_DATABASE_URL not set — skipping atlas migrate"; exit 0
           fi
           curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
           chmod +x /usr/local/bin/atlas
-          atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL" --revisions-schema public
+          case "$NEON_DATABASE_URL" in
+            *\?*) scoped_url="${NEON_DATABASE_URL}&search_path=public" ;;
+            *) scoped_url="${NEON_DATABASE_URL}?search_path=public" ;;
+          esac
+          atlas migrate apply --dir "file://db/migrations" --url "$scoped_url" --revisions-schema public
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       # Installs the Pulumi CLI onto PATH without running a command (omitting
