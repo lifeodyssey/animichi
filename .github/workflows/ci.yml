@@ -435,6 +435,16 @@ jobs:
       working_directory: "."
       build_filter: frontend
       run_pulumi: false
+      # #527/#528 (P1-A): CORS_ALLOWED_ORIGIN is NOT listed here anymore, and
+      # this is NOT "staging doesn't need CORS restriction" — that framing
+      # was reasoned, not verified, and turned out wrong. It's provisioned
+      # instead as `[env.staging.vars].CORS_ALLOWED_ORIGIN` in the root
+      # `wrangler.toml` (see the comment there for the full chain: no
+      # wildcard fallback exists, the container hardcodes
+      # `APP_ENV=production`, and an absent value reproducibly crashes the
+      # container on boot via `settings.py`'s CORS validator — verified
+      # locally, not assumed). A plain domain name belongs in `vars`, not a
+      # GH secret nobody would think to look for.
       worker_secrets: |
         SUPABASE_URL
         SUPABASE_ANON_KEY
@@ -445,7 +455,6 @@ jobs:
         GEMINI_API_KEY
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
-        CORS_ALLOWED_ORIGIN
       post_deploy_secrets: |
         TURNSTILE_SECRET
         ANON_ID_SECRET
@@ -461,7 +470,6 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-      CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
