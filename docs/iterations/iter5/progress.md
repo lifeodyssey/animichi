@@ -31,7 +31,7 @@ working method, the confirmed traps, and four decisions still waiting on the own
 
 ### Merged
 - `#435` S1.4 search content shapes + static map (C3a/C3b)
-- `#436` S1.9 Cloudflare Turnstile edge gate — **dormant**, not wired to any live path
+- `#436` S1.9 Cloudflare Turnstile edge gate — dormant as of this entry; **wired by #447** (see below)
 - `#439` S1.5 route card (TimedItinerary, map promotion, Walk CTA seam)
 - `#438` S1.8 anonymous access + edge rate limiting + daily budget breaker
 - `#440` S1.13 L0 smoke gate — classified actionable failures; delivers `#434`'s fix (issue stays open: non-default-branch merges don't fire `Closes`)
