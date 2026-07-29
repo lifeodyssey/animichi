@@ -8,7 +8,8 @@ import type { ChatDataPart } from "@seichijunrei/contract";
  * visitor's own daily message quota is spent) from issue #282 S1.10.
  */
 export type ChatErrorState =
-  | "D1" | "D2" | "D3" | "D4" | "D5" | "D6" | "D7" | "D8" | "D9" | "D10" | "D11" | "D12";
+  | "D1" | "D2" | "D3" | "D4" | "D5" | "D6" | "D7" | "D8" | "D9" | "D10" | "D11" | "D12"
+  | "D13" | "D14";
 
 export type ImageSurface = "map" | "scene";
 
@@ -31,6 +32,18 @@ const D1_CODE_MARKERS = ["not_found", "no_bangumi", "invalid_station"];
 export const TURNSTILE_REQUIRED_CODE = "turnstile_required";
 
 /**
+ * The two BYOK 403s (issue #284, Tasks 3/4 — wire literals pinned by the
+ * spec's error taxonomy; the contract registry entry lands with those tasks).
+ * D13 = an anonymous caller presented a credential (`byok_requires_login`):
+ * the journey entry, NOT the D8 session-expired story. D14 = the provider
+ * refused the credential (`byok_credential_rejected`): an explicit
+ * key-not-accepted state — the turn failed rather than silently falling back
+ * to the platform key, and the classifier must say so.
+ */
+export const BYOK_REQUIRES_LOGIN_CODE = "byok_requires_login";
+export const BYOK_CREDENTIAL_REJECTED_CODE = "byok_credential_rejected";
+
+/**
  * The two anonymous-limit wire codes are owned by `@seichijunrei/contract`
  * (`error-registry.ts`), not redeclared here — the classifier is one of three
  * tiers that must agree on the literals. D11 means the *whole* anonymous
@@ -51,6 +64,8 @@ const FORBIDDEN_STATES: Readonly<Record<string, ChatErrorState>> = {
   [ANON_QUOTA_EXHAUSTED_CODE]: "D12",
   [ANON_BUDGET_EXHAUSTED_CODE]: "D11",
   [TURNSTILE_REQUIRED_CODE]: "D4",
+  [BYOK_REQUIRES_LOGIN_CODE]: "D13",
+  [BYOK_CREDENTIAL_REJECTED_CODE]: "D14",
 };
 
 function classifyForbidden(code: string | undefined): ChatErrorState {

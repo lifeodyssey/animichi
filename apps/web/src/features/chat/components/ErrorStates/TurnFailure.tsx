@@ -1,6 +1,7 @@
 import type { Locale } from "../../../../i18n/locales";
 import type { ChatErrorState } from "../../../../lib/chat/errorClassifier";
 import type { ChatDict } from "../../i18n";
+import { ByokUpsell } from "../ByokUpsell";
 import { BudgetExhausted } from "./BudgetExhausted";
 import { QuotaExhausted } from "./QuotaExhausted";
 import { SessionExpired } from "./SessionExpired";
@@ -30,10 +31,29 @@ function LimitState({ view, dict, locale }: Readonly<{ view: TurnFailureView; di
   return <SessionExpired dict={dict} onResume={view.onExpiredResume} recovering={view.recovering} />;
 }
 
+/** D13 (#284 T8 touchpoint C): `byok_requires_login` enters the BYOK journey —
+ * a short why-line plus the value explainer — not the D8 session story. */
+function ByokRequiresLogin({ dict }: Readonly<{ dict: ChatDict }>) {
+  return (
+    <div className="chat-byok-gate">
+      <p className="chat-byok-gate__message" role="alert">{dict.byok.errorRequiresLogin}</p>
+      <ByokUpsell dict={dict} />
+    </div>
+  );
+}
+
+/** D14 (#284 T6-AC7): the provider refused the key. No retry — replaying the
+ * turn replays the failure; the fix lives in the settings panel. */
+function ByokRejected({ dict }: Readonly<{ dict: ChatDict }>) {
+  return <div className="chat-byok-rejected" role="alert">{dict.byok.notAccepted}</div>;
+}
+
 const LIMIT_STATES = new Set<ChatErrorState>(["D8", "D11", "D12"]);
 
 export function TurnFailure({ view, dict, locale }: Props) {
   if (!view) return null;
+  if (view.state === "D13") return <ByokRequiresLogin dict={dict} />;
+  if (view.state === "D14") return <ByokRejected dict={dict} />;
   if (LIMIT_STATES.has(view.state)) return <LimitState view={view} dict={dict} locale={locale} />;
   const shape = interruptionShape(view.state);
   return <StreamInterruption state={shape} dict={dict} onRetry={view.onRetry} recovering={view.recovering} />;
