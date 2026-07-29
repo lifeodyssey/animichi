@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from time import perf_counter
 from typing import cast
 from uuid import uuid4
@@ -46,6 +47,7 @@ from agent.agents.translation import translate_text
 from agent.application.errors import ApplicationError, ErrorCode
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from agent.config.settings import Settings, get_settings
+from agent.domain.fact_ledger import record_turn_facts
 from agent.domain.ports import DatabasePort, get_session_repo
 from agent.infrastructure.memory import postgres_memory_store
 from agent.infrastructure.observability import (
@@ -459,6 +461,12 @@ class RuntimeAPI:
         response = agent_result_to_response(
             result,
             include_debug=request.include_debug,
+        )
+        # Command (mutates session_state.fact_ledger) kept separate from the
+        # pure `extract_context_delta` query below (CQS) — the deterministic
+        # post-turn recorder (OQ-4), run exactly once per turn.
+        record_turn_facts(
+            result.session_state.fact_ledger, result.steps, now=datetime.now(UTC)
         )
         context_delta = extract_context_delta(result)
         return result, response, context_delta
