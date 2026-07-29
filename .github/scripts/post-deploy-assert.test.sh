@@ -121,9 +121,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 # ── Case 3: Cloudflare edge 404 twice, then the real 200 -> recovers on the
 #    3rd request. Its edge-error branch renders JSON only when JSON is
-#    requested (as Cloudflare does), so this case also guards that
-#    `application/json` stays in ACCEPT_HEADER: drop it and the probe can no
-#    longer tell an edge 404 from a real one. ────────────────────────────────
+#    requested AND listed first (Cloudflare does true q-value negotiation:
+#    at equal q, first-listed wins), so this case guards both that
+#    application/json stays in ACCEPT_HEADER and that it stays FIRST. ──────
 test_cf_edge_404_then_recovers() {
   local port=18803 counter_file pid rc=0 requests
   counter_file="$(mktemp)"
@@ -136,7 +136,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         served['n'] += 1
         if served['n'] <= 2:
             self.send_response(404)
-            if 'application/json' in self.headers.get('Accept', ''):
+            if self.headers.get('Accept', '').startswith('application/json'):
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
                 self.wfile.write(b'''${CF_JSON_BODY}''')
