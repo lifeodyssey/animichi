@@ -24,6 +24,7 @@ stable boundaries, current entry points, and active plans only.
 | `.claude/rules/*.md` | Path-scoped rules loaded only for matching files |
 | `docs/ARCHITECTURE.md` | Live runtime reference (refresh pending — see Source-of-Truth notes below) |
 | `docs/ops/deployment.md` | Deployment runbook |
+| `docs/ops/secrets.md` | What each repository secret is for, who consumes it, and rotation impact |
 | `docs/iterations/iter5/task_plan.md` | Main task tracker |
 | `docs/iterations/iter5/progress.md` | Session log |
 | `docs/iterations/iter5/findings.md` | Current design findings and rationale |
