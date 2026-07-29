@@ -177,6 +177,14 @@ open to callers with no session:
   Logged-in traffic is never gated. The edge caches that verdict in a same-UTC-day latch so
   subsequent anonymous requests short-circuit without a container round-trip; the latch expires
   at the day boundary. The edge never reads `daily_usage` itself.
+- **Per-identity daily message quota (S1.10, issue #282)** — a fairness/UX mechanism, not a
+  security defense line: the container ingress atomically increments a durable
+  `anon_daily_message_count` row keyed `(usage_date, anon_id)` and rejects with 403
+  `anon_quota_exhausted` (+ `quota_resets_at`, the next UTC midnight) once that one identity's own
+  `ANON_DAILY_MESSAGE_QUOTA` is spent, so a single visitor's free usage stays reasonable while the
+  shared budget above stays open for everyone else. `0` or unset disables it. Runs only after the
+  budget breaker above allows the turn — the global dollar ceiling is the more severe, systemic
+  concern and wins ties over one visitor's own message ceiling. Logged-in traffic is never gated.
 
 ## Frontend Auth — `frontend/components/auth/AuthGate.tsx` + `frontend/app/auth/callback/page.tsx`
 

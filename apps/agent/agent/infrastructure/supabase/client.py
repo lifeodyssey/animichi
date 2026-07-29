@@ -13,6 +13,7 @@ import asyncpg
 import structlog
 
 from agent.infrastructure.supabase.client_types import AsyncPGPool, Row
+from agent.infrastructure.supabase.repositories.anon_quota import AnonQuotaRepository
 from agent.infrastructure.supabase.repositories.bangumi import BangumiRepository
 from agent.infrastructure.supabase.repositories.feedback import FeedbackRepository
 from agent.infrastructure.supabase.repositories.messages import MessagesRepository
@@ -31,7 +32,7 @@ class SupabaseClient:
 
     Access repositories via explicit typed properties:
     ``db.bangumi``, ``db.points``, ``db.session``, ``db.feedback``,
-    ``db.routes``, ``db.messages``, ``db.usage``.
+    ``db.routes``, ``db.messages``, ``db.usage``, ``db.anon_quota``.
     """
 
     def __init__(
@@ -54,6 +55,7 @@ class SupabaseClient:
         self._routes: RoutesRepository | None = None
         self._messages: MessagesRepository | None = None
         self._usage: UsageRepository | None = None
+        self._anon_quota: AnonQuotaRepository | None = None
 
     async def connect(self) -> None:
         """Create the connection pool and initialise repositories."""
@@ -102,6 +104,7 @@ class SupabaseClient:
         self._routes = RoutesRepository(pool)
         self._messages = MessagesRepository(pool)
         self._usage = UsageRepository(pool)
+        self._anon_quota = AnonQuotaRepository(pool)
 
     @property
     def bangumi(self) -> BangumiRepository:
@@ -156,3 +159,11 @@ class SupabaseClient:
         if self._usage is None:
             raise RuntimeError("UsageRepository not initialized — call connect() first")
         return self._usage
+
+    @property
+    def anon_quota(self) -> AnonQuotaRepository:
+        if self._anon_quota is None:
+            raise RuntimeError(
+                "AnonQuotaRepository not initialized — call connect() first"
+            )
+        return self._anon_quota

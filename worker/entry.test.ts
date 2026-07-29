@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp, catalogOutbound } from "./app.ts";
+import { buildContainerEnvVars } from "./containerEnv.ts";
 
 const stubNext = {
   fetch: () => Promise.resolve(new Response("next", { status: 200 })),
@@ -224,4 +225,18 @@ void test("/v1/users/routes bypasses a rejecting authenticate stub", async () =>
   assert.equal(res.status, 200);
   assert.equal(await res.text(), "users");
   assert.equal(received, true);
+});
+
+function requiredEnv(): Record<string, string> {
+  return { DEEPSEEK_API_KEY: "k", MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x" };
+}
+
+void test("ANON_DAILY_MESSAGE_QUOTA reaches the container (issue #282) — wrangler.toml alone is not the whole contract", () => {
+  const envVars = buildContainerEnvVars({ ...requiredEnv(), ANON_DAILY_MESSAGE_QUOTA: "20" });
+  assert.equal(envVars.ANON_DAILY_MESSAGE_QUOTA, "20");
+});
+
+void test("an unset ANON_DAILY_MESSAGE_QUOTA is simply absent, not forwarded as an empty string", () => {
+  const envVars = buildContainerEnvVars(requiredEnv());
+  assert.equal("ANON_DAILY_MESSAGE_QUOTA" in envVars, false);
 });

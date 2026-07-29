@@ -147,6 +147,12 @@ class UsageRepo(Protocol):
     async def total_cost_usd(self, *, usage_date: date, scope: str) -> float: ...
 
 
+class AnonQuotaRepo(Protocol):
+    """Per-identity anonymous daily message counter (issue #282 / S1.10)."""
+
+    async def increment_and_count(self, *, usage_date: date, anon_id: str) -> int: ...
+
+
 def get_session_repo(db: object) -> SessionRepo | None:
     """Return the session repo if *db* exposes one with async upsert_session."""
     session = getattr(db, "session", None)
@@ -195,3 +201,13 @@ def get_usage_repo(db: object) -> UsageRepo | None:
     if not asyncio.iscoroutinefunction(getattr(usage, "accumulate_usage", None)):
         return None
     return cast(UsageRepo, usage)
+
+
+def get_anon_quota_repo(db: object) -> AnonQuotaRepo | None:
+    """Return the anon-quota repo if *db* exposes one with async increment."""
+    repo = getattr(db, "anon_quota", None)
+    if repo is None:
+        return None
+    if not asyncio.iscoroutinefunction(getattr(repo, "increment_and_count", None)):
+        return None
+    return cast(AnonQuotaRepo, repo)

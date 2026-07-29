@@ -146,6 +146,25 @@ class Settings(BaseSettings):
         ge=0,
         description="Global anonymous daily spend ceiling in USD (0 disables)",
     )
+    # Per-identity anonymous daily message quota (issue #282, S1.10) — a
+    # fairness/UX mechanism, not a security defense line: it keeps one
+    # visitor's free usage reasonable while ANON_DAILY_COST_BUDGET_USD stays
+    # open for everyone else. Distinct from that global dollar breaker: this
+    # ceiling is compared against one anon identity's own message count for
+    # today. None OR 0 disables the quota entirely — the same "0 disables"
+    # convention as the budget breaker.
+    anon_daily_message_quota: int | None = Field(
+        default=None,
+        ge=0,
+        description="Per-identity daily message cap for anonymous users (None or 0 disables)",
+    )
+    # Retention for anon_daily_message_count (issue #282 review): rows older
+    # than this many UTC days are eligible for the standalone purge script
+    # (scripts/purge_anon_quota_counts.py). 30 mirrors the analogous
+    # anonymous-session retention window used elsewhere in this codebase.
+    anon_daily_message_count_retention_days: int = Field(
+        default=30, gt=0, description="Days to keep anon_daily_message_count rows"
+    )
     model_input_cost_per_mtok_usd: float = Field(
         default=0.0, ge=0, description="Input token price per million tokens (USD)"
     )

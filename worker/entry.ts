@@ -1,37 +1,10 @@
 import { Container } from "@cloudflare/containers";
 import nextHandler from "./.open-next/worker.js";
 import { createWorkerApp, catalogOutbound, type Env } from "./app.ts";
+import { buildContainerEnvVars } from "./containerEnv.ts";
 
 export { DOQueueHandler, DOShardedTagCache } from "./.open-next/worker.js";
 export { EdgeGuard } from "./edgeGuard.ts";
-
-const CONTAINER_ENV_KEYS = [
-  "DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUPABASE_DB_URL", "ANITABI_API_URL", "CATALOG_API_URL",
-  "APP_ENV", "CACHE_TTL_SECONDS", "CORS_ALLOWED_ORIGIN", "DEBUG",
-  "DEFAULT_AGENT_MODEL", "FALLBACK_AGENT_MODEL", "GOOGLE_APPLICATION_CREDENTIALS",
-  "GOOGLE_CLOUD_PROJECT", "LOG_LEVEL", "MAX_RETRIES", "OBSERVABILITY_SERVICE_NAME",
-  "OBSERVABILITY_SERVICE_VERSION", "OPENAI_COMPAT_BASE_URL", "RATE_LIMIT_CALLS",
-  "RATE_LIMIT_PERIOD_SECONDS", "TIMEOUT_SECONDS", "USE_CACHE", "ZETA_API_KEY",
-  "GEMINI_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN", "OPENAI_COMPAT_API_KEY",
-  // Anonymous daily-budget circuit breaker (X4): the container ingress owns the
-  // authoritative decision because it is the only tier that reads daily_usage.
-  "ANON_DAILY_COST_BUDGET_USD", "MODEL_INPUT_COST_PER_MTOK_USD", "MODEL_OUTPUT_COST_PER_MTOK_USD",
-];
-const CONTAINER_REQUIRED_KEYS = ["DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUPABASE_DB_URL"];
-
-function buildContainerEnvVars(env: Record<string, unknown>): Record<string, string> {
-  const envVars: Record<string, string> = { APP_ENV: "production", SERVICE_HOST: "0.0.0.0", SERVICE_PORT: "8080" };
-  for (const key of CONTAINER_REQUIRED_KEYS) {
-    const value = env[key];
-    if (typeof value !== "string" || value.length === 0) throw new Error(`Missing required container env: ${key}`);
-    envVars[key] = value;
-  }
-  for (const key of CONTAINER_ENV_KEYS) {
-    const value = env[key];
-    if (typeof value === "string" && value.length > 0) envVars[key] = value;
-  }
-  return envVars;
-}
 
 export class RuntimeContainer extends Container {
   defaultPort = 8080;
