@@ -26,6 +26,7 @@ from agent.interfaces.routes._deps import (  # noqa: F401
     setup_logfire,
 )
 from agent.interfaces.routes._middleware import (
+    register_credential_stripping_middleware,
     register_exception_handlers,
     register_observability_middleware,
 )
@@ -160,10 +161,24 @@ def create_fastapi_app(
             "x-session-id",
             "x-locale",
             "x-byok-endpoint",
+            # The actual BYOK headers byokStorage.ts (#467) sends. Without
+            # these, browser CORS preflight rejects them before the request
+            # ever reaches this container — this PR is the point where the
+            # container-side header contract is established, so it belongs
+            # here rather than waiting on Task 3.
+            "X-BYOK-Provider",
+            "X-BYOK-Key",
+            "X-BYOK-Model",
+            "X-BYOK-Base-Url",
         ],
     )
     register_exception_handlers(app)
     register_observability_middleware(app)
+    # Registered last (= Starlette's outermost middleware — see rev4 P1-4 in
+    # the BYOK spec, Task 2): must wrap observability_middleware and the
+    # exception handlers above, so nothing downstream ever sees a raw BYOK
+    # credential or Authorization header.
+    register_credential_stripping_middleware(app)
     app.include_router(health_router)
     app.include_router(runtime_router)
     app.include_router(chat_router)
