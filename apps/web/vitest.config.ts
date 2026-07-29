@@ -46,6 +46,8 @@ export default defineConfig({
       // freshly merged BYOK/Turnstile code dilutes the global ratio below the
       // 99 this branch measured pre-rebase, and inventing coverage for other
       // people's code to hold a number is not a ratchet. Ratchet UP only.
+      // #437 landed on the same 94 -> 95 independently (measured 95.25), so the
+      // floor below is a converged value, not one branch's number.
       thresholds: { statements: 98, branches: 95, functions: 98, lines: 99 },
     },
   },

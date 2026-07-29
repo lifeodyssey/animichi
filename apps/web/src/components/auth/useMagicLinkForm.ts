@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import type { RefObject } from "react";
 import { type MagicLinkResult, sendMagicLink } from "../../lib/auth/neonAuth";
 
 export type ValidationKey = "email_required" | "email_invalid";
@@ -25,17 +26,31 @@ function callbackUrl(): string {
   return `${window.location.origin}/auth/callback`;
 }
 
-/** `onSent` fires in this continuation, alongside the status commit — never from
- * a passive effect, which would land a tick after the banner is observable and
- * lose a race with an immediate dismissal (issues #437 / #465). */
-function useSendMagicLink(email: string, onSent?: () => void): [FormStatus, () => Promise<void>] {
+/**
+ * Announced once per dispatched request, at the **start** of the send — the
+ * user's commitment is the click, not the server's reply. A caller that keys
+ * off dismissal (the P5 save wall) must count an in-flight request as
+ * committed, or the entire request latency is a window in which closing the
+ * modal destroys the intent. Never announced from a passive effect either:
+ * that lands a tick after the banner is observable (issues #437 / #465).
+ */
+export type SendCommitted = () => void;
+
+/** Latest-ref so a caller's inline callback cannot churn `submit`'s identity or
+ * be captured stale, mirroring `useTurnTiming`'s `reportRef`. */
+function useLatest(callback: SendCommitted | undefined): RefObject<SendCommitted | undefined> {
+  const ref = useRef(callback);
+  ref.current = callback;
+  return ref;
+}
+
+function useSendMagicLink(email: string, onCommitted: RefObject<SendCommitted | undefined>): [FormStatus, () => Promise<void>] {
   const [status, setStatus] = useState<FormStatus>("idle");
   const submit = useCallback(async () => {
     setStatus("submitting");
-    const result = await sendMagicLink({ email: email.trim().toLowerCase(), callbackURL: callbackUrl() });
-    setStatus(result);
-    if (result === "sent") onSent?.();
-  }, [email, onSent]);
+    onCommitted.current?.();
+    setStatus(await sendMagicLink({ email: email.trim().toLowerCase(), callbackURL: callbackUrl() }));
+  }, [email, onCommitted]);
   return [status, submit];
 }
 
@@ -50,10 +65,10 @@ function useSubmit(email: string, setValidation: SetValidation, submit: () => Pr
   }, [email, setValidation, submit]);
 }
 
-export function useMagicLinkForm(onSent?: () => void): MagicLinkForm {
+export function useMagicLinkForm(onSendCommitted?: SendCommitted): MagicLinkForm {
   const [email, setEmail] = useState("");
   const [validation, setValidation] = useState<ValidationKey | null>(null);
-  const [status, submit] = useSendMagicLink(email, onSent);
+  const [status, submit] = useSendMagicLink(email, useLatest(onSendCommitted));
   const onSubmit = useSubmit(email, setValidation, submit);
   return { email, status, validation, setEmail, onSubmit };
 }

@@ -1,7 +1,7 @@
 import type { ChangeEvent } from "react";
 import type { Dict } from "../../i18n/dictionaries";
 import { useDict } from "../../i18n/context";
-import { type FormStatus, type MagicLinkForm, type ValidationKey, useMagicLinkForm } from "./useMagicLinkForm";
+import { type FormStatus, type MagicLinkForm, type SendCommitted, type ValidationKey, useMagicLinkForm } from "./useMagicLinkForm";
 
 type Auth = Dict["auth"];
 
@@ -59,13 +59,13 @@ function FormFields({ form }: { form: MagicLinkForm }) {
 }
 
 export interface LoginFormProps {
-  /** Announced once per dispatched link, from the send continuation itself, so
-   * the caller can tell "closed to go read the email" from "cancelled". */
-  readonly onSent?: () => void;
+  /** Announced once the send is dispatched, so a caller can tell "closed to go
+   * read the email" from "cancelled" — see `SendCommitted` for the timing. */
+  readonly onSendCommitted?: SendCommitted;
 }
 
-export function LoginForm({ onSent }: LoginFormProps = {}) {
-  const form = useMagicLinkForm(onSent);
+export function LoginForm({ onSendCommitted }: LoginFormProps = {}) {
+  const form = useMagicLinkForm(onSendCommitted);
   const auth = useDict().auth;
   return (
     <form className="login-form" onSubmit={form.onSubmit} noValidate aria-label={auth.title}>

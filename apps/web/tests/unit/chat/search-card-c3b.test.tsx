@@ -98,4 +98,26 @@ describe("C3b drill-down back affordance (issue #437)", () => {
     fireEvent.click(screen.getByRole("button", { name: /新宿区/ }));
     expect(screen.getAllByRole("checkbox")).toHaveLength(2);
   });
+
+  // A view swap that leaves focus on <body> strands keyboard and screen-reader
+  // users at the top of the document with no announcement of what changed.
+  it("moves focus onto the back chip when a cluster is drilled into", () => {
+    renderMulti();
+    fireEvent.click(screen.getByRole("button", { name: /宇治市/ }));
+    expect(document.activeElement).toBe(back());
+  });
+
+  it("returns focus to the bubble that was drilled into", () => {
+    renderMulti();
+    fireEvent.click(screen.getByRole("button", { name: /宇治市/ }));
+    fireEvent.click(back());
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /宇治市/ }));
+  });
+
+  it("returns focus to the bubble actually chosen, not simply the first one", () => {
+    renderMulti();
+    fireEvent.click(screen.getByRole("button", { name: /新宿区/ }));
+    fireEvent.click(back());
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /新宿区/ }));
+  });
 });

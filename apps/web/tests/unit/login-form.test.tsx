@@ -68,32 +68,49 @@ describe("LoginForm submission", () => {
 });
 
 /**
- * Issue #437 / #465: `onSent` used to fire from a passive effect, so it landed a
- * scheduler tick *after* the "sent" banner reached the DOM. A caller that waits
- * on the banner and then acts (the P5 save wall's dismissal) could therefore run
- * before it was told a link went out — a 1-in-6 flake under load, and the same
- * race a fast human click would hit. It must fire in the send continuation.
+ * Issue #437 / #465: the notification used to fire from a passive effect, so it
+ * landed a scheduler tick *after* the "sent" banner reached the DOM. A caller
+ * that waits on the banner and then acts (the P5 save wall's dismissal) could
+ * run before it was told — a 1-in-6 flake under load, and the same race a fast
+ * human click would hit. The invariant asserted here is an **ordering** one:
+ * the caller is never told later than the banner is observable.
  */
-describe("LoginForm sent notification timing", () => {
-  it("notifies the caller in the send continuation, not in a later effect", async () => {
-    const onSent = vi.fn();
-    let resolve!: (value: "sent") => void;
-    send.mockReturnValue(new Promise((r) => { resolve = r; }));
-    renderWithLocale(<LoginForm onSent={onSent} />);
+describe("LoginForm send-committed notification timing", () => {
+  function submitLogin(onSendCommitted: () => void): void {
+    renderWithLocale(<LoginForm onSendCommitted={onSendCommitted} />);
     fireEvent.change(screen.getByLabelText("メールアドレス"), { target: { value: "fan@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "ログインリンクを送信" }));
-    resolve("sent");
-    await Promise.resolve();
-    expect(onSent).toHaveBeenCalledTimes(1);
+  }
+
+  it("fires before any feedback banner is observable", () => {
+    const seenBanner: (Element | null)[] = [];
+    send.mockResolvedValue("sent");
+    submitLogin(() => { seenBanner.push(screen.queryByRole("status"), screen.queryByRole("alert")); });
+    expect(seenBanner).toEqual([null, null]);
   });
 
-  it("stays silent when the send did not produce a link", async () => {
-    const onSent = vi.fn();
-    send.mockResolvedValue("error");
-    renderWithLocale(<LoginForm onSent={onSent} />);
-    fireEvent.change(screen.getByLabelText("メールアドレス"), { target: { value: "fan@example.com" } });
+  it("has already fired by the time the sent banner renders", async () => {
+    const onSendCommitted = vi.fn();
+    send.mockResolvedValue("sent");
+    submitLogin(onSendCommitted);
+    await waitFor(() => { expect(screen.getByRole("status")).toBeTruthy(); });
+    expect(onSendCommitted).toHaveBeenCalledTimes(1);
+  });
+
+  // The commitment is the click, not the reply: a caller keying dismissal off
+  // this must not have a window the width of the request's latency.
+  it("fires while the request is still in flight", () => {
+    const onSendCommitted = vi.fn();
+    send.mockReturnValue(new Promise(() => undefined));
+    submitLogin(onSendCommitted);
+    expect(onSendCommitted).toHaveBeenCalledTimes(1);
+  });
+
+  it("never fires for input the form rejects before dispatching", () => {
+    const onSendCommitted = vi.fn();
+    renderWithLocale(<LoginForm onSendCommitted={onSendCommitted} />);
     fireEvent.click(screen.getByRole("button", { name: "ログインリンクを送信" }));
-    await waitFor(() => { expect(screen.getByRole("alert")).toBeTruthy(); });
-    expect(onSent).not.toHaveBeenCalled();
+    expect(onSendCommitted).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
 });

@@ -8,6 +8,7 @@ import type { BasemapStatus, MountBasemapOptions } from "../../bubble-map/bubble
 import { clusterName, spotCountBadge } from "../search-copy";
 import type { ChatDict } from "../i18n";
 import { MapFallback } from "./ErrorStates/MapFallback";
+import { useAutoFocus } from "./useAutoFocus";
 
 /** Injectable mount so tests (and D7 simulations) never touch WebGL. */
 export type AttachBasemap = (options: MountBasemapOptions) => () => void;
@@ -105,11 +106,12 @@ function bubbleStyle(placement: BubblePlacement): CSSProperties {
   return { width: size, height: size, ...percentStyle(placement) };
 }
 
-type BubbleProps = Readonly<{ placement: BubblePlacement; dict: ChatDict; onClick: () => void }>;
+type BubbleProps = Readonly<{ placement: BubblePlacement; dict: ChatDict; onClick: () => void; refocus: boolean }>;
 
-function ClusterBubble({ placement, dict, onClick }: BubbleProps) {
+function ClusterBubble({ placement, dict, onClick, refocus }: BubbleProps) {
+  const ref = useAutoFocus<HTMLButtonElement>(refocus);
   return (
-    <button type="button" className="chat-map-bubble" style={bubbleStyle(placement)} onClick={onClick}>
+    <button ref={ref} type="button" className="chat-map-bubble" style={bubbleStyle(placement)} onClick={onClick}>
       <span className="chat-map-bubble__name">{placement.region}</span>
       <span className="chat-map-bubble__count">{spotCountBadge(placement.count, dict)}</span>
     </button>
@@ -120,7 +122,9 @@ type BubbleMapProps = Readonly<{
   clusters: readonly SpotCluster[];
   dict: ChatDict;
   attach: AttachBasemap;
-  onSelect: (cluster: SpotCluster) => void;
+  onSelect: (cluster: SpotCluster, index: number) => void;
+  /** Index of the bubble a drill was just backed out of; it reclaims focus. */
+  refocusIndex: number | null;
 }>;
 
 type OverlayProps = Omit<BubbleMapProps, "attach">;
@@ -134,30 +138,41 @@ function toCircle(cluster: SpotCluster, index: number, dict: ChatDict) {
   };
 }
 
-function selectAt(clusters: readonly SpotCluster[], index: number, onSelect: (cluster: SpotCluster) => void): void {
+function selectAt(clusters: readonly SpotCluster[], index: number, onSelect: BubbleMapProps["onSelect"]): void {
   const cluster = clusters[index];
-  if (cluster) onSelect(cluster);
+  if (cluster) onSelect(cluster, index);
 }
 
-function BubbleOverlay({ clusters, dict, onSelect }: OverlayProps) {
+function BubbleOverlay({ clusters, dict, onSelect, refocusIndex }: OverlayProps) {
   const circles = clusters.map((cluster, index) => toCircle(cluster, index, dict));
   const bubbles = bubblePlacements(circles).map((placement, index) => (
     // Keyed by position, not by region name: two clusters >50km apart can share
     // a city name (府中市 exists in both Tokyo and Hiroshima), and a duplicate
     // key silently drops one bubble.
-    <ClusterBubble key={index} placement={placement} dict={dict} onClick={() => { selectAt(clusters, index, onSelect); }} />
+    <ClusterBubble key={index} placement={placement} dict={dict} refocus={index === refocusIndex} onClick={() => { selectAt(clusters, index, onSelect); }} />
   ));
   return <div className="chat-search-map__overlay chat-search-map__overlay--bubbles">{bubbles}</div>;
 }
 
+type BubbleFallbackProps = Readonly<{ dict: ChatDict; center?: LatLng; refocus: boolean }>;
+
+/** D7 overview: no bubble survives to take focus, so the placeholder takes it. */
+function BubbleMapFallback({ dict, center, refocus }: BubbleFallbackProps) {
+  const ref = useAutoFocus<HTMLDivElement>(refocus);
+  return (
+    <div ref={ref} tabIndex={-1} className="chat-search-map__fallback">
+      <MapFallback dict={dict} lat={center?.lat} lng={center?.lng} />
+    </div>
+  );
+}
+
 /** C3b overview: bubbles only (area ∝ count) — this zoom never draws pins. */
-export function ClusterBubbleMap({ clusters, dict, attach, onSelect }: BubbleMapProps) {
+export function ClusterBubbleMap({ clusters, dict, attach, onSelect, refocusIndex }: BubbleMapProps) {
   const basemap = useBasemap(clusters.map((cluster) => cluster.center), attach);
-  const first = clusters[0];
-  if (basemap.status === "fallback") return <MapFallback dict={dict} lat={first?.center.lat} lng={first?.center.lng} />;
+  if (basemap.status === "fallback") return <BubbleMapFallback dict={dict} center={clusters[0]?.center} refocus={refocusIndex !== null} />;
   return (
     <MapFrame basemap={basemap} role="group" label={dict.search.mapLabel}>
-      <BubbleOverlay clusters={clusters} dict={dict} onSelect={onSelect} />
+      <BubbleOverlay clusters={clusters} dict={dict} onSelect={onSelect} refocusIndex={refocusIndex} />
     </MapFrame>
   );
 }

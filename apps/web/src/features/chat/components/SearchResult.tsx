@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { MAX_MAP_PINS, searchMapView, topSpots } from "../../../lib/chat/spotClusters";
 import type { SearchSpot, SpotCluster } from "../../../lib/chat/spotClusters";
 import { attachBasemap } from "../../bubble-map/bubbleMapController";
@@ -9,6 +9,7 @@ import { EnvelopeFallback } from "./ErrorStates/EnvelopeFallback";
 import { SceneThumb } from "./ErrorStates/SceneThumb";
 import { ClusterBubbleMap, StaticSpotMap } from "./SearchMap";
 import type { AttachBasemap } from "./SearchMap";
+import { useAutoFocus } from "./useAutoFocus";
 
 type SpotProps = Readonly<{ spot: SearchSpot; dict: ChatDict }>;
 type GridProps = Readonly<{ spots: readonly SearchSpot[]; dict: ChatDict }>;
@@ -59,14 +60,34 @@ function SingleClusterView({ cluster, dict, attach }: ClusterProps) {
 type DrillProps = ClusterProps & Readonly<{ onBack: () => void }>;
 
 /** C3b→C3a keeps a way back to the 圏 overview, so the drill is not a dead end
- * (issue #437 item 2); the funnel in the S1.4 spec reads in both directions. */
+ * (issue #437 item 2); the funnel in the S1.4 spec reads in both directions.
+ * The chip also takes focus, since the view it replaced held it. */
 function DrilledClusterView({ cluster, dict, attach, onBack }: DrillProps) {
+  const ref = useAutoFocus<HTMLButtonElement>(true);
   return (
     <div className="chat-drill">
-      <button type="button" className="chat-chip chat-drill__back" onClick={onBack}>{dict.search.backToOverview}</button>
+      <button ref={ref} type="button" className="chat-chip chat-drill__back" onClick={onBack}>{dict.search.backToOverview}</button>
       <SingleClusterView cluster={cluster} dict={dict} attach={attach} />
     </div>
   );
+}
+
+type Drill = Readonly<{ cluster: SpotCluster; index: number }>;
+
+interface DrillNav {
+  readonly drill: Drill | null;
+  /** Set only while returning, so a fresh drill never steals focus back. */
+  readonly refocusIndex: number | null;
+  readonly select: (cluster: SpotCluster, index: number) => void;
+  readonly back: () => void;
+}
+
+function useDrillNav(): DrillNav {
+  const [drill, setDrill] = useState<Drill | null>(null);
+  const [refocusIndex, setRefocus] = useState<number | null>(null);
+  const select = useCallback((cluster: SpotCluster, index: number) => { setRefocus(null); setDrill({ cluster, index }); }, []);
+  const back = useCallback(() => { setRefocus(drill?.index ?? null); setDrill(null); }, [drill]);
+  return { drill, refocusIndex, select, back };
 }
 
 /** No locatable spot: the D2 state (issue #272 S1.6), never a silently empty map. */
@@ -88,9 +109,9 @@ type SearchResultProps = Readonly<{ spots: readonly SearchSpot[]; dict: ChatDict
  */
 export function SearchResult({ spots, dict, attach = attachBasemap }: SearchResultProps) {
   const view = searchMapView(spots);
-  const [drill, setDrill] = useState<SpotCluster | null>(null);
+  const nav = useDrillNav();
   if (view.kind === "empty") return <EmptyMapState spots={spots} dict={dict} />;
   if (view.kind === "single") return <SingleClusterView cluster={view.cluster} dict={dict} attach={attach} />;
-  if (drill !== null) return <DrilledClusterView cluster={drill} dict={dict} attach={attach} onBack={() => { setDrill(null); }} />;
-  return <ClusterBubbleMap clusters={view.clusters} dict={dict} attach={attach} onSelect={setDrill} />;
+  if (nav.drill !== null) return <DrilledClusterView cluster={nav.drill.cluster} dict={dict} attach={attach} onBack={nav.back} />;
+  return <ClusterBubbleMap clusters={view.clusters} dict={dict} attach={attach} onSelect={nav.select} refocusIndex={nav.refocusIndex} />;
 }

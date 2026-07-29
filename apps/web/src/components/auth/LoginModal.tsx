@@ -2,13 +2,14 @@ import { useEffect } from "react";
 import type { Dict } from "../../i18n/dictionaries";
 import { useDict } from "../../i18n/context";
 import { LoginForm } from "./LoginForm";
+import type { SendCommitted } from "./useMagicLinkForm";
 
 interface LoginModalProps {
   open: boolean;
   onClose: () => void;
-  /** Fires when a magic link was dispatched, so a caller can tell a
-   * "closed to go read the email" dismissal apart from a cancellation. */
-  onSent?: () => void;
+  /** Fires once the send is dispatched, so a caller can tell a "closed to go
+   * read the email" dismissal apart from a cancellation. */
+  onSendCommitted?: SendCommitted;
 }
 
 function useEscapeToClose(open: boolean, onClose: () => void): void {
@@ -22,25 +23,25 @@ function useEscapeToClose(open: boolean, onClose: () => void): void {
   }, [open, onClose]);
 }
 
-function LoginDialog({ auth, onClose, onSent }: { auth: Dict["auth"]; onClose: () => void; onSent?: () => void }) {
+function LoginDialog({ auth, onClose, onSendCommitted }: { auth: Dict["auth"]; onClose: () => void; onSendCommitted?: SendCommitted }) {
   return (
     <div className="login-modal" role="dialog" aria-modal="true" aria-label={auth.title} onClick={(event) => { event.stopPropagation(); }}>
       <button className="login-modal__close" type="button" aria-label={auth.close} onClick={onClose}>×</button>
       <h2 className="login-modal__title">{auth.title}</h2>
       <p className="login-modal__subtitle">{auth.subtitle}</p>
-      <LoginForm onSent={onSent} />
+      <LoginForm onSendCommitted={onSendCommitted} />
     </div>
   );
 }
 
 /** Magic-link login modal wired to the Neon Auth (Better Auth) client. */
-export function LoginModal({ open, onClose, onSent }: LoginModalProps) {
+export function LoginModal({ open, onClose, onSendCommitted }: LoginModalProps) {
   const auth = useDict().auth;
   useEscapeToClose(open, onClose);
   if (!open) return null;
   return (
     <div className="login-modal__mask" role="presentation" onClick={onClose}>
-      <LoginDialog auth={auth} onClose={onClose} onSent={onSent} />
+      <LoginDialog auth={auth} onClose={onClose} onSendCommitted={onSendCommitted} />
     </div>
   );
 }
