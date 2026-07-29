@@ -236,6 +236,33 @@ preview_urls = false
 
 [env.staging.vars]
 CATALOG_API_URL = "http://catalog.internal"
+# #527/#528 (P1-A): CORS_ALLOWED_ORIGIN was never provisioned for staging as
+# either a repo-level or a staging-environment GH secret. Simply removing it
+# from ci.yml's worker_secrets (an earlier revision of this PR did that) would
+# NOT preserve staging's current behavior — there is no wildcard fallback.
+# `worker/containerEnv.ts` hardcodes `APP_ENV: "production"` for every
+# environment (confirmed: no APP_ENV var/secret exists anywhere — root,
+# staging, or production), and only forwards CORS_ALLOWED_ORIGIN to the
+# container when it is non-empty. With it absent, the container boots with
+# `app_env=production` and `cors_allowed_origin=""`'s Pydantic-validated
+# default `"*"` — and `settings.py`'s `validate_cors_origin` raises
+# ValueError on `"*"` when `app_env == "production"` (verified: reproduced
+# the exact ValidationError locally with `env -i APP_ENV=production ...`).
+# Deleting the entry would have swapped "deploy step fails loudly, before
+# anything is live" for "deploy succeeds, container crash-loops" — worse,
+# not better. A domain name isn't a secret; putting the real staging web
+# origin here (verified reachable: `curl -o /dev/null -w '%{http_code}'
+# https://animichi-web-staging.zhenjiazhou0127.workers.dev/` -> 200, and
+# matches apps/web/wrangler.jsonc's `env.staging.name` = "animichi-web-staging"
+# with no custom route, i.e. the default workers.dev URL) is more honest than
+# a GH secret nobody would think to look for, and needs no owner action.
+# `buildContainerEnvVars` forwards `vars` and `secrets` identically — this
+# is not a behavior change from the container's point of view. NOTE: the
+# root `animichi-staging` Worker has never successfully deployed yet
+# (`wrangler secret list --env staging` -> "Worker ... not found"), so there
+# is no pre-existing manually-set CORS_ALLOWED_ORIGIN secret this could
+# conflict with.
+CORS_ALLOWED_ORIGIN = "https://animichi-web-staging.zhenjiazhou0127.workers.dev"
 ANON_ACCESS_ENABLED = "true"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.

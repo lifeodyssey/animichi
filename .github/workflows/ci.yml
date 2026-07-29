@@ -435,17 +435,16 @@ jobs:
       working_directory: "."
       build_filter: frontend
       run_pulumi: false
-      # #527: CORS_ALLOWED_ORIGIN exists ONLY as a `production`-environment
-      # secret (by design — staging doesn't restrict CORS the same way; see
-      # `gh api repos/.../environments/{staging,production}/secrets`, which
-      # lists it under production only). cloudflare/wrangler-action's
-      # `uploadSecrets()` -> `getSecret()` throws `Value for secret ... not
-      # found in environment` on ANY name in `secrets:` whose env var is
-      # falsy (confirmed by reading wrangler-action's pinned dist/index.mjs,
-      # not assumed) — so including CORS_ALLOWED_ORIGIN here would hard-fail
-      # every staging deploy the moment this job actually gets to run, not
-      # silently degrade. Do not add it back without a staging-scoped
-      # CORS_ALLOWED_ORIGIN secret to match.
+      # #527/#528 (P1-A): CORS_ALLOWED_ORIGIN is NOT listed here anymore, and
+      # this is NOT "staging doesn't need CORS restriction" — that framing
+      # was reasoned, not verified, and turned out wrong. It's provisioned
+      # instead as `[env.staging.vars].CORS_ALLOWED_ORIGIN` in the root
+      # `wrangler.toml` (see the comment there for the full chain: no
+      # wildcard fallback exists, the container hardcodes
+      # `APP_ENV=production`, and an absent value reproducibly crashes the
+      # container on boot via `settings.py`'s CORS validator — verified
+      # locally, not assumed). A plain domain name belongs in `vars`, not a
+      # GH secret nobody would think to look for.
       worker_secrets: |
         SUPABASE_URL
         SUPABASE_ANON_KEY
