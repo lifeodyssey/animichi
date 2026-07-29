@@ -74,10 +74,15 @@ someone.
 
 - `db/migrations/20260728000001_conversations_user_id_pattern_ops.sql` +
   the `supabase/migrations/` twin — the `text_pattern_ops` index the purge
-  scan's `LIKE 'anon\_%'` match depends on. The test Postgres image and the
-  Neon test branches this runs against are both provisioned as `en_US.utf8`
-  (a non-C collation) — `tests/integration/test_session_retention_integrity.py`
-  asserts against this value directly; if the environment's collation is
-  ever intentionally changed, update both places together.
+  scan's `LIKE 'anon\_%'` match depends on. The two arms this test suite
+  runs on have **different** observed collations, both legitimate: the
+  offline Docker test image is `en_US.utf8` (non-C — the case this index
+  actually matters for: a plain btree cannot service a LIKE prefix match
+  there), while live Neon test branches are `C.UTF-8` (already
+  byte-ordered, so the index is a belt-and-suspenders match rather than a
+  strict requirement there). `test_session_retention_integrity.py` asserts
+  the observed collation is one of these two known values — if a third
+  value shows up, the base image or Neon's default changed and this list
+  needs updating alongside it.
 - `apps/agent/agent/interfaces/routes/session_migration.py` — the login-time
   ownership transition this purge coexists with.

@@ -86,20 +86,26 @@ async def test_purge_session_race_a_concurrent_login_saves_the_session(
     assert await real_db.session.get_session(session_id) is not None
 
 
-#: The purge sweep's own test images/Neon branches are provisioned as
-#: en_US.utf8 (documented in docs/ops/anonymous-session-purge.md) — a
-#: non-C collation, which is exactly the condition under which a plain
-#: btree cannot service a LIKE prefix match and text_pattern_ops matters.
-_EXPECTED_COLLATION = "en_US.utf8"
+#: Documented in docs/ops/anonymous-session-purge.md: the offline test
+#: image is provisioned `en_US.utf8` (a non-C collation — exactly the case
+#: a plain btree cannot service a LIKE prefix match, which is why
+#: text_pattern_ops matters there); live Neon test branches are `C.UTF-8`
+#: (confirmed against a real CI run), under which a plain btree already
+#: orders bytewise and the index is a belt-and-suspenders match rather
+#: than a strict requirement. Both are legitimate, observed values for
+#: this suite's two arms — an unrecognized third value likely means the
+#: base image or Neon's default collation changed and this list (and the
+#: runbook) needs updating alongside it.
+_KNOWN_TEST_COLLATIONS = frozenset({"en_US.utf8", "C.UTF-8"})
 
 
 @pytest.mark.integration
 async def test_purge_predicate_hits_the_pattern_ops_index_not_a_seq_scan(
     real_db,
 ) -> None:
-    """Index/collation integrity (rev6 P1-1). Under the documented non-C
-    collation, a plain btree on `user_id` cannot service a LIKE prefix
-    match at all — only `text_pattern_ops` can.
+    """Index/collation integrity (rev6 P1-1). Under a non-C collation
+    (this suite's offline arm), a plain btree on `user_id` cannot service a
+    LIKE prefix match at all — only `text_pattern_ops` can.
 
     Mutation-direction verified locally: reverting the index to default ops
     (drop + recreate without `text_pattern_ops`) makes THIS test fail while
@@ -110,12 +116,12 @@ async def test_purge_predicate_hits_the_pattern_ops_index_not_a_seq_scan(
     under `enable_seqscan = off` (any btree scan, pattern-capable or not,
     satisfies it), so this pins the actual pattern range-scan operators
     (`~>=~` / `~<~`) that only appear in the plan when a pattern opclass
-    index services the LIKE prefix."""
+    index services the LIKE prefix — confirmed empirically on both arms."""
     async with real_db.pool.acquire() as connection:
         collation = await connection.fetchval(
             "SELECT datcollate FROM pg_database WHERE datname = current_database()"
         )
-        assert collation == _EXPECTED_COLLATION
+        assert collation in _KNOWN_TEST_COLLATIONS
         index_def = await connection.fetchval(
             "SELECT indexdef FROM pg_indexes "
             "WHERE indexname = 'idx_conversations_user_id_pattern'"
