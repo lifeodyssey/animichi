@@ -49,7 +49,7 @@ class PurgeReport:
 #: this. A non-Postgres exception (a programming bug) is deliberately NOT
 #: caught here — it propagates out of the sweep and crashes the CLI with a
 #: nonzero exit, which is what should page someone.
-_EXPECTED_PER_SESSION_ERRORS = asyncpg.PostgresError
+_EXPECTED_PER_SESSION_ERRORS = asyncpg.ForeignKeyViolationError
 
 
 async def purge_anonymous_sessions(

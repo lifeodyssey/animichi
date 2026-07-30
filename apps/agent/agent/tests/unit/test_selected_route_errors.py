@@ -7,6 +7,7 @@ typed errors — while untyped failures keep the legacy fallback.
 
 from __future__ import annotations
 
+from agent.agents.agent_result import RejectedRoute
 from agent.agents.selected_route import execute_selected_route
 from agent.agents.session_state import SessionState
 from agent.clients.catalog_client import Route
@@ -33,6 +34,13 @@ class _UpstreamDownCatalog(MockCatalogClient):
         self, point_ids: list[str], *, origin: tuple[float, float] | None = None
     ) -> Route:
         raise UpstreamUnavailableError(UpstreamUnavailableData(upstream="bangumi"))
+
+
+class _MalformedCatalog(MockCatalogClient):
+    async def route(
+        self, point_ids: list[str], *, origin: tuple[float, float] | None = None
+    ) -> Route:
+        return Route.model_validate({"point_count": 1})
 
 
 async def test_too_many_clusters_returns_actionable_message_en() -> None:
@@ -78,3 +86,16 @@ async def test_retryable_error_returns_try_again_message() -> None:
     assert result.output.message == (
         "The catalog service is temporarily unavailable. Please try again in a moment."
     )
+
+
+async def test_catalog_contract_violation_is_typed_without_exposing_details() -> None:
+    result = await execute_selected_route(
+        point_ids=["p1"],
+        state=SessionState(),
+        origin=None,
+        locale="en",
+        catalog=_MalformedCatalog(),
+    )
+
+    assert result.output.message == "Catalog route unavailable"
+    assert result.steps[0].provenance == RejectedRoute(status="contract_violation")

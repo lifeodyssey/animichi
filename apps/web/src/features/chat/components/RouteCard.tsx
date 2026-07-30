@@ -3,7 +3,7 @@ import { itineraryView } from "../../../lib/chat/itinerary";
 import { locatedSpots, toSearchSpots } from "../../../lib/chat/spotClusters";
 import type { LocatedSpot } from "../../../lib/chat/spotClusters";
 import type { ChatDict } from "../i18n";
-import { resultsOf, routeOf, routeSpotsOf, SpotList } from "./cards";
+import { resultsOf, routeOf, SpotList } from "./cards";
 import type { IntentCardProps } from "./cards";
 import { routeStatsCopy } from "../route-copy";
 import { routeSaveTarget } from "../save/saveTarget";
@@ -30,7 +30,13 @@ function ItineraryGate({ itinerary, part, dict }: GateProps) {
 
 /** Route spots in walking order, restricted to rows the map can place. */
 function routeStations(part: ChatDataPart): readonly LocatedSpot[] {
-  return locatedSpots(toSearchSpots(routeSpotsOf(part)));
+  const stops = routeOf(part)?.timed_itinerary?.stops ?? [];
+  return locatedSpots(toSearchSpots(stops.map((stop) => ({
+    id: stop.cluster_id,
+    name: stop.name,
+    lat: stop.lat,
+    lng: stop.lng,
+  }))));
 }
 
 /** Located result spots that the planner left off the route; they dim. */

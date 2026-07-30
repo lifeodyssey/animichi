@@ -4,10 +4,20 @@ from __future__ import annotations
 
 import httpx
 import structlog
+from pydantic import ValidationError
 
-from agent.agents.agent_result import AgentResult, ProducedRoute, StepRecord
+from agent.agents.agent_result import (
+    AgentResult,
+    ProducedRoute,
+    RejectedRoute,
+    RouteRejectionStatus,
+    StepRecord,
+)
 from agent.agents.catalog_adapter import build_route_payload, build_route_state
-from agent.agents.error_messages import build_error_message
+from agent.agents.error_messages import (
+    CATALOG_ROUTE_UNAVAILABLE_MESSAGE,
+    build_error_message,
+)
 from agent.agents.runtime_deps import OnStep, StepEvent, StepStatus, new_step_call_id
 from agent.agents.runtime_models import RouteResponseModel
 from agent.agents.selection_messages import selected_route_message
@@ -18,6 +28,7 @@ from agent.clients.errors import APIError
 logger = structlog.get_logger(__name__)
 
 _TRANSIENT_ERRORS = (APIError, httpx.TransportError, httpx.TimeoutException)
+_ROUTE_ERRORS = _TRANSIENT_ERRORS
 
 
 async def execute_selected_route(
@@ -39,13 +50,24 @@ async def execute_selected_route(
 
     try:
         route = await catalog.route(point_ids, origin=_parse_coordinate_origin(origin))
-    except _TRANSIENT_ERRORS as exc:
+    except ValidationError:
+        logger.error("selected_route_catalog_contract_error")
+        await _emit_step(on_step, call_id, "error", {})
+        return _error_result(
+            CATALOG_ROUTE_UNAVAILABLE_MESSAGE,
+            locale,
+            state,
+            route_status="contract_violation",
+        )
+    except _ROUTE_ERRORS as exc:
         logger.warning("selected_route_catalog_error", error=str(exc))
         await _emit_step(on_step, call_id, "error", {})
         # Typed CatalogError -> localized, actionable text from OUR mapping
         # table (SD-19); anything else keeps the legacy generic fallback.
         return _error_result(
-            build_error_message(exc, locale, fallback="Catalog route unavailable"),
+            build_error_message(
+                exc, locale, fallback=CATALOG_ROUTE_UNAVAILABLE_MESSAGE
+            ),
             locale,
             state,
         )
@@ -120,7 +142,13 @@ def _build_success_result(
     )
 
 
-def _error_result(error: str, locale: str, state: SessionState) -> AgentResult:
+def _error_result(
+    error: str,
+    locale: str,
+    state: SessionState,
+    *,
+    route_status: RouteRejectionStatus = "upstream_unavailable",
+) -> AgentResult:
     output = RouteResponseModel(message=error)
     return AgentResult(
         output=output,
@@ -131,6 +159,7 @@ def _error_result(error: str, locale: str, state: SessionState) -> AgentResult:
                 tool="plan_selected",
                 success=False,
                 error=error,
+                provenance=RejectedRoute(status=route_status),
                 model_initiated=False,
             )
         ],

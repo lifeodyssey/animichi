@@ -73,8 +73,19 @@ def _user_message_text(message: object, locale: Locale, max_chars: int) -> str |
     parts = message.get("parts")
     if not isinstance(parts, list):
         _reject_input("non_text_message", locale)
-    values = [_text_part(part, locale) for part in parts]
-    return _checked_length("".join(values), max_chars, locale)
+    return _join_text_parts(parts, locale, max_chars)
+
+
+def _join_text_parts(parts: list[object], locale: Locale, max_chars: int) -> str:
+    values: list[str] = []
+    total = 0
+    for part in parts:
+        value = _text_part(part, locale)
+        total += len(value)
+        if total > max_chars:
+            _reject_input("message_too_long", locale)
+        values.append(value)
+    return "".join(values)
 
 
 def _text_part(part: object, locale: Locale) -> str:
@@ -318,8 +329,6 @@ async def handle_chat(
     if login_rejection is not None:
         return login_rejection
     rejection = await _budget_rejection(request, auth)
-    if rejection is None:
-        rejection = await _quota_rejection(request, auth)
     if rejection is not None:
         return rejection
     settings = _get_settings_from_request(request)
@@ -327,6 +336,9 @@ async def handle_chat(
     api_request = _runtime_request(request, body, settings.message_max_chars)
     runtime_api = _get_runtime_api(request)
     await runtime_api.validate_session_owner(api_request.session_id, auth.user_id)
+    rejection = await _quota_rejection(request, auth)
+    if rejection is not None:
+        return rejection
     byok_model = await _resolve_byok_model(request)
     handler = _chat_handler(runtime_api, api_request, auth, byok_model)
 
