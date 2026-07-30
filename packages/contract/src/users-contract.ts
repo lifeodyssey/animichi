@@ -110,7 +110,7 @@ export type ListRoutesResult = z.infer<typeof ListRoutesResult>;
 /** Bounded page controls for listing the caller's sessions. */
 export const ListSessionsInput = z.strictObject({
   limit: z.coerce.number().int().min(1).max(50).default(30),
-  offset: z.coerce.number().int().nonnegative().default(0),
+  offset: z.coerce.number().int().nonnegative().max(1_000).default(0),
 });
 /** Inferred session-list page controls. */
 export type ListSessionsInput = z.infer<typeof ListSessionsInput>;
