@@ -132,3 +132,30 @@ def test_dead_table_entries_are_not_actually_wired_by_a_workflow(
         "docs/ops/secrets.md 'Referenced by nothing' table lists names a workflow now "
         f"actually forwards: {sorted(resurrected)} — move these rows to 'Live'"
     )
+
+
+# A repo-relative path is one with a directory separator. Bare filenames
+# (`ci.yml`, `settings.py`) are prose shorthand, not navigation targets, and
+# several are ambiguous by design — this repo has four `wrangler.toml`.
+_DOC_PATH = re.compile(r"`([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.(?:py|ts|toml))`")
+
+
+def test_every_repo_relative_path_in_the_doc_still_exists(
+    secrets_doc_text: str,
+) -> None:
+    """The doc's file paths must resolve, not just its secret names.
+
+    The existing tests keep the *names* honest; nothing kept the *pointers*
+    honest, and the monorepo move broke them silently. That matters more here
+    than in ordinary docs because several of these paths sit inside remediation
+    instructions ("remove its references from `config/settings.py`"). A reader
+    who cannot find the file concludes the reference is already gone and skips
+    the step, leaving code reading a secret that was just deleted.
+    """
+    missing = sorted(
+        {p for p in _DOC_PATH.findall(secrets_doc_text) if not (ROOT / p).exists()}
+    )
+    assert not missing, (
+        f"docs/ops/secrets.md points at paths that do not exist: {missing} — "
+        "update them to their current location rather than deleting the reference"
+    )
