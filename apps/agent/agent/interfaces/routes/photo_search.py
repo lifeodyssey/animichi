@@ -51,6 +51,7 @@ from agent.interfaces.routes._deps import (
 )
 from agent.interfaces.usage_metering import (
     ANON_BUDGET_EXHAUSTED_CODE,
+    ANONYMOUS_USER_TYPE,
     UsagePrices,
     anonymous_budget_verdict,
     is_anonymous_identity,
@@ -226,7 +227,16 @@ def _check_quota(
 async def _budget_rejection(
     request: Request, auth: TrustedAuthContext
 ) -> JSONResponse | None:
-    if auth.user_type not in (None, "anonymous"):
+    # Route through the canonical predicate rather than testing `user_type`
+    # directly: a request carrying `X-User-Id` but no `X-User-Type` is an
+    # identified caller, and a looser check here metered them into the anonymous
+    # scope and could refuse them once the anon budget ran out. The edge sets
+    # both headers together (`worker/app.ts`), so this is defence in depth
+    # rather than a reachable path — but the same concept having two different
+    # answers in the codebase is how it stops being one.
+    if auth.user_id is not None and not is_anonymous_identity(
+        auth.user_id, auth.user_type
+    ):
         return None
     settings = _get_settings_from_request(request)
     verdict = await anonymous_budget_verdict(
@@ -239,6 +249,18 @@ async def _budget_rejection(
         status_code=403,
         content={"error": {"code": ANON_BUDGET_EXHAUSTED_CODE, "action": "login"}},
     )
+
+
+def _scope_user_type(auth: TrustedAuthContext) -> str | None:
+    """Two different absences that a blanket `or "anonymous"` conflated.
+
+    No `X-User-Id` means no identity was asserted at all — the anonymous tier.
+    An `X-User-Id` with no `X-User-Type` is an identified caller whose type
+    header went missing; `scope_for_identity` resolves that against the user-id
+    convention, so it must be passed through rather than coerced, or their
+    spend lands in the anon scope.
+    """
+    return auth.user_type if auth.user_id is not None else ANONYMOUS_USER_TYPE
 
 
 def _supply(runtime: PhotoSearchRuntime, byok: EndpointId | None) -> VisionSupply:
@@ -317,7 +339,7 @@ async def _run_pipeline(
             request.app.state.db_client,
             outcome.usage,
             auth.user_id,
-            auth.user_type or "anonymous",
+            _scope_user_type(auth),
             UsagePrices(
                 input_usd_per_mtok=settings.model_input_cost_per_mtok_usd,
                 output_usd_per_mtok=settings.model_output_cost_per_mtok_usd,
