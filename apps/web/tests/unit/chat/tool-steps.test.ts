@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { statusedSteps, stepStatus } from "../../../src/features/chat/tool-steps";
 
-function step(type: string, state: string, toolCallId: string) {
-  return { type, state, toolCallId };
+function step(type: string, state: string, toolCallId: string, input?: unknown) {
+  return { type, state, toolCallId, input };
 }
 
 describe("stepStatus", () => {
@@ -83,5 +83,32 @@ describe("statusedSteps supersession (ModelRetry re-issues the same tool under a
     const steps = [step("tool-plan_route", "output-available", "call-9")];
 
     expect(statusedSteps(steps)[0]?.step.toolCallId).toBe("call-9");
+  });
+
+  it("matches retry inputs regardless of object key order", () => {
+    const steps = [
+      step("tool-search_bangumi", "output-error", "call-1", { query: "eupho", limit: 5 }),
+      step("tool-search_bangumi", "output-available", "call-2", { limit: 5, query: "eupho" }),
+    ];
+
+    expect(statusedSteps(steps).map((entry) => entry.status)).toEqual(["retried", "done"]);
+  });
+
+  it("compares non-serialisable primitive inputs without throwing", () => {
+    const steps = [
+      step("tool-search_bangumi", "output-error", "call-1", 1n),
+      step("tool-search_bangumi", "output-available", "call-2", 1n),
+    ];
+
+    expect(statusedSteps(steps).map((entry) => entry.status)).toEqual(["retried", "done"]);
+  });
+
+  it("compares array inputs structurally", () => {
+    const steps = [
+      step("tool-search_bangumi", "output-error", "call-1", [{ query: "eupho" }]),
+      step("tool-search_bangumi", "output-available", "call-2", [{ query: "eupho" }]),
+    ];
+
+    expect(statusedSteps(steps).map((entry) => entry.status)).toEqual(["retried", "done"]);
   });
 });

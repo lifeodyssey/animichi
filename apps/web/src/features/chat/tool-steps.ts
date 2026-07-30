@@ -38,5 +38,35 @@ function resolve(step: ToolStep, later: readonly ToolStep[]): StepStatus {
 }
 
 function sameInput(left: ToolStep, right: ToolStep): boolean {
-  return JSON.stringify(left.input) === JSON.stringify(right.input);
+  return equalValue(left.input, right.input, new WeakMap<object, object>());
+}
+
+function equalValue(left: unknown, right: unknown, seen: WeakMap<object, object>): boolean {
+  if (Object.is(left, right)) return true;
+  if (!isRecord(left) || !isRecord(right)) return false;
+  const prior = seen.get(left);
+  if (prior !== undefined) return prior === right;
+  seen.set(left, right);
+  if (Array.isArray(left) || Array.isArray(right)) return equalArrays(left, right, seen);
+  return equalRecords(left, right, seen);
+}
+
+function isRecord(value: unknown): value is object {
+  return typeof value === "object" && value !== null;
+}
+
+function equalArrays(left: object, right: object, seen: WeakMap<object, object>): boolean {
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+  return left.every((value, index) => equalValue(value, right[index], seen));
+}
+
+function equalRecords(left: object, right: object, seen: WeakMap<object, object>): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) => Object.hasOwn(right, key) && equalValue(
+    (left as Record<string, unknown>)[key],
+    (right as Record<string, unknown>)[key],
+    seen,
+  ));
 }
