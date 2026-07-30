@@ -12,6 +12,7 @@ import {
 import { replayDeferredSave } from "../../../src/features/chat/save/createOnLogin";
 
 afterEach(() => {
+  vi.restoreAllMocks();
   localStorage.clear();
 });
 
@@ -68,6 +69,47 @@ describe("AC5: an intent older than the TTL is ignored and cleared", () => {
     writeDeferredSave(INTENT, 1_000);
     expect(readDeferredSave(1_000 + DEFERRED_SAVE_TTL_MS + 1)).toBeUndefined();
     expect(localStorage.getItem(DEFERRED_SAVE_KEY)).toBeNull();
+  });
+});
+
+describe("S1 hardening: storage method failures degrade to no intent", () => {
+  it("does not throw when setItem is blocked at call time", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    expect(() => {
+      writeDeferredSave(INTENT, 1_000);
+    }).not.toThrow();
+  });
+
+  it("reads no intent when getItem is blocked at call time", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    expect(readDeferredSave(1_000)).toBeUndefined();
+  });
+
+  it("does not throw when removeItem is blocked at call time", () => {
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    expect(clearDeferredSave).not.toThrow();
+  });
+
+  it("returns no malformed intent when cleanup is blocked", () => {
+    localStorage.setItem(DEFERRED_SAVE_KEY, "{not json");
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    expect(readDeferredSave(1_000)).toBeUndefined();
+  });
+
+  it("returns no expired intent when cleanup is blocked", () => {
+    writeDeferredSave(INTENT, 1_000);
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    expect(readDeferredSave(1_000 + DEFERRED_SAVE_TTL_MS + 1)).toBeUndefined();
   });
 });
 

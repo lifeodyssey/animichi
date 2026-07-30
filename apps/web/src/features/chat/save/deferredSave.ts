@@ -24,10 +24,10 @@ export interface DeferredSaveIntent {
   readonly createdAt: number;
 }
 
-/** SSR and privacy-locked browsers have no store; both read as "no intent". */
-function store(): Storage | undefined {
+/** SSR and privacy-locked browsers have no usable store; both read as "no intent". */
+function withStore<Result>(operation: (storage: Storage) => Result): Result | undefined {
   try {
-    return globalThis.localStorage;
+    return operation(globalThis.localStorage);
   } catch {
     return undefined;
   }
@@ -53,7 +53,9 @@ function parse(raw: string): DeferredSaveIntent | undefined {
 }
 
 export function clearDeferredSave(): void {
-  store()?.removeItem(DEFERRED_SAVE_KEY);
+  withStore((storage) => {
+    storage.removeItem(DEFERRED_SAVE_KEY);
+  });
 }
 
 /** Stash the intent behind the login wall; `now` is injectable for tests. */
@@ -62,13 +64,15 @@ export function writeDeferredSave(
   now: number = Date.now(),
 ): void {
   const entry: DeferredSaveIntent = { pointIds: [...intent.pointIds], title: intent.title, createdAt: now };
-  store()?.setItem(DEFERRED_SAVE_KEY, JSON.stringify(entry));
+  withStore((storage) => {
+    storage.setItem(DEFERRED_SAVE_KEY, JSON.stringify(entry));
+  });
 }
 
 /** The live intent, or `undefined` — a missing, malformed or expired entry is
  * erased rather than left to accumulate on a shared device. */
 export function readDeferredSave(now: number = Date.now()): DeferredSaveIntent | undefined {
-  const raw = store()?.getItem(DEFERRED_SAVE_KEY);
+  const raw = withStore((storage) => storage.getItem(DEFERRED_SAVE_KEY));
   if (raw === null || raw === undefined) return undefined;
   const intent = parse(raw);
   if (intent === undefined || now - intent.createdAt > DEFERRED_SAVE_TTL_MS) {
