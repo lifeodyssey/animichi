@@ -395,13 +395,16 @@ git commit -m "feat: improved error event handling in SSE parser"
 
 - [ ] **Step 1: Register Logfire MCP server with Claude Code**
 
-First, get the read token from Logfire web UI (or use the write token for read access):
+Use the hosted HTTP transport — it authenticates interactively, so no read token
+is pasted anywhere:
 
 ```bash
-claude mcp add logfire \
-  -e LOGFIRE_READ_TOKEN="***REDACTED-LOGFIRE-TOKEN***" \
-  -- uvx logfire-mcp@latest
+claude mcp add --transport http logfire https://logfire-us.pydantic.dev/mcp
 ```
+
+The older `uvx logfire-mcp@latest` form took a read token via `-e`, which is how
+a live `pylf_v1_…` token ended up committed to this file (removed 2026-07-29;
+the value itself is rotated in the Logfire console, not by deleting the line).
 
 - [ ] **Step 2: Verify MCP server is registered**
 

@@ -1,26 +1,41 @@
-# Cloudflare Workers + Containers + OpenNext (Next.js SSR)
+# Cloudflare Workers + Containers — the API gateway for animichi.
 # https://developers.cloudflare.com/workers/containers/
-# https://opennext.js.org/cloudflare
 #
-# Architecture:
-#   custom-worker.js → intercepts /v1/* (container proxy) + /img/* (image proxy)
-#                    → passes everything else to OpenNext (Next.js SSR + middleware)
-#   middleware.ts    → auth for pages (/chat, /settings) + API routes (/v1/*)
+# Architecture (issue #537 retired the bundled Next.js app; `apps/web` owns
+# every HTML surface now, so this Worker is API + image proxy only):
+#   worker/entry.ts → /v1/* (container proxy) + /v1/users/* (users Worker)
+#                   + /img/* (image proxy) + /healthz + one public catalog read
+#                   → everything else: JSON 404, no page renderer
+#
+# ROUTES: none here, deliberately. This Worker's hostnames are declared in
+# Pulumi (`infra/index.ts`) as of #541 — `animichi.com/v1/*`, `/img/*` and
+# `/healthz`, with the apex itself going to `apps/web` via a Custom Domain.
+# The repo rule is "routes belong to Pulumi, worker code belongs to wrangler";
+# an earlier version of this file claimed `animichi.com/*` here, which is what
+# made a page request land on this Worker's JSON 404.
+#
+# Until Pulumi's `webRoutesEnabled` is turned on, this Worker has no hostname
+# at all: no routes here, and `workers_dev = false` since #539. That is the
+# intended pre-cutover state, not a misconfiguration.
 #
 # Required GitHub Secrets:
 #   CLOUDFLARE_API_TOKEN       — Wrangler deploy auth
 #   CLOUDFLARE_ACCOUNT_ID      — Cloudflare account target
 #
-# Edge runtime secrets (used by middleware.ts and worker/auth.ts for /v1 auth):
+# Edge runtime secrets (used by worker/auth.ts for /v1 auth):
 #   SUPABASE_URL               — https://<project>.supabase.co (set via wrangler secret put)
 #   SUPABASE_ANON_KEY          — Public anon key for JWT validation (set via wrangler secret put)
 #   SUPABASE_SERVICE_ROLE_KEY  — Service role for sk_ API key lookup (set via wrangler secret put)
+#   NEON_AUTH_ISSUER           — public Neon Auth base URL (set in [vars] when cutover is approved)
 #
 # Container runtime secrets (forwarded to Python backend):
 #   SUPABASE_DB_URL            — postgres://... for asyncpg
 #   MIMO_API_KEY               — required primary model key (MiMo V2.5)
 #   DEEPSEEK_API_KEY           — required fallback model key (DeepSeek)
-#   GEMINI_API_KEY             — optional Google-backed integration key
+#   GEMINI_API_KEY             — required by the always-mounted photo-search vision
+#                                provider (GeminiVisionProvider); missing/empty means
+#                                every photo-search request silently degrades to a
+#                                clarify miss instead of recognizing anything (#502)
 #   OPENAI_COMPAT_BASE_URL     — custom OpenAI-compatible fallback endpoint
 #   OPENAI_COMPAT_API_KEY      — custom OpenAI-compatible fallback provider key
 #   GOOGLE_MAPS_API_KEY        — optional geocoding provider key
@@ -37,19 +52,11 @@
 #                                anonymous access on and no secret answers 403 turnstile_required
 #                                to everyone. Local/dev may use Cloudflare's always-passing test
 #                                pair (site 1x00000000000000000000AA / secret 1x0000000000000000000000000000000AA).
-#
-# Frontend build-time envs (injected by GitHub Actions):
-#   NEXT_PUBLIC_SUPABASE_URL
-#   NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 name = "animichi"
 compatibility_date = "2025-03-01"
 compatibility_flags = ["nodejs_compat"]
 main = "worker/entry.ts"
-
-routes = [
-  { pattern = "animichi.com/*", zone_name = "animichi.com" }
-]
 
 # Plain (non-secret) vars forwarded into the RuntimeContainer (Python agent).
 # CATALOG_API_URL is the base the agent's CatalogClient POSTs to as
@@ -58,8 +65,14 @@ routes = [
 # → env.CATALOG binding (in-datacenter, no public internet round-trip).
 # There is NO public /catalog/* route on the main Worker.
 [vars]
+# Forwarded to the container as APP_ENV (issue #498) — Settings.app_env's own
+# default is "development", so the default (no-env-selected) `wrangler dev`
+# block matches that instead of silently claiming "production".
+APP_ENV = "development"
 CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "true"
+NEON_AUTH_ENABLED = "false"
+NEON_AUTH_ISSUER = ""
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
@@ -84,10 +97,6 @@ ANON_DAILY_MESSAGE_QUOTA = "20"
 # headroom above the anonymous burst ceiling.
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
-
-[assets]
-directory = ".open-next/assets"
-binding = "ASSETS"
 
 # Catalog read-path service (search/spots/nearby/route).
 # This binding is reached ONLY via RuntimeContainer.outboundByHost["catalog.internal"]
@@ -146,13 +155,15 @@ head_sampling_rate = 1
 
 [env.production]
 name = "animichi"
-routes = [
-  { pattern = "animichi.com/*", zone_name = "animichi.com" }
-]
 
 [env.production.vars]
+# Forwarded to the container as APP_ENV (issue #498) — required, see
+# containerEnv.ts CONTAINER_REQUIRED_KEYS.
+APP_ENV = "production"
 CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "false"
+NEON_AUTH_ENABLED = "false"
+NEON_AUTH_ISSUER = ""
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
@@ -177,10 +188,6 @@ ANON_DAILY_MESSAGE_QUOTA = "20"
 # headroom above the anonymous burst ceiling.
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
-
-[env.production.assets]
-directory = ".open-next/assets"
-binding = "ASSETS"
 
 [[env.production.services]]
 binding = "CATALOG"
@@ -218,10 +225,58 @@ new_sqlite_classes = ["EdgeGuard"]
 [env.staging]
 name = "animichi-staging"
 routes = []
+# No custom domain in staging. Wrangler's own default-resolution logic
+# (`defaultWorkersDev = routes.length === 0`, confirmed against the 4.79/
+# 4.112 source — the published docs' "adding a routes component infers
+# workers_dev=false" note is only true for a NON-empty routes array) already
+# defaults workers_dev to true here: this Worker was already reachable at
+# https://animichi-staging.<account subdomain>.workers.dev without this line.
+# `workers_dev = true` is written explicitly anyway (issue #484) so the
+# post-staging promotion gate's assertions have a stable, intentional
+# contract instead of relying on an implicit default that a future non-empty
+# `routes` entry would silently flip to false. `preview_urls` is pinned to
+# `false` for the same reason — Cloudflare defaults it to match workers_dev,
+# and per-version preview URLs are not a surface this gate (or anything
+# else) is meant to expose.
+workers_dev = true
+preview_urls = false
 
 [env.staging.vars]
+# Forwarded to the container as APP_ENV (issue #498) — required, see
+# containerEnv.ts CONTAINER_REQUIRED_KEYS. This is the whole point of the fix:
+# staging traces must tag "staging" in Logfire, not "production".
+APP_ENV = "staging"
 CATALOG_API_URL = "http://catalog.internal"
+# #527/#528 (P1-A): CORS_ALLOWED_ORIGIN was never provisioned for staging as
+# either a repo-level or a staging-environment GH secret. Simply removing it
+# from ci.yml's worker_secrets (an earlier revision of this PR did that) would
+# NOT preserve staging's current behavior — there is no wildcard fallback.
+# `worker/containerEnv.ts` hardcodes `APP_ENV: "production"` for every
+# environment (confirmed: no APP_ENV var/secret exists anywhere — root,
+# staging, or production), and only forwards CORS_ALLOWED_ORIGIN to the
+# container when it is non-empty. With it absent, the container boots with
+# `app_env=production` and `cors_allowed_origin=""`'s Pydantic-validated
+# default `"*"` — and `settings.py`'s `validate_cors_origin` raises
+# ValueError on `"*"` when `app_env == "production"` (verified: reproduced
+# the exact ValidationError locally with `env -i APP_ENV=production ...`).
+# Deleting the entry would have swapped "deploy step fails loudly, before
+# anything is live" for "deploy succeeds, container crash-loops" — worse,
+# not better. A domain name isn't a secret; putting the real staging web
+# origin here (verified reachable: `curl -o /dev/null -w '%{http_code}'
+# https://animichi-web-staging.zhenjiazhou0127.workers.dev/` -> 200, and
+# matches apps/web/wrangler.jsonc's `env.staging.name` = "animichi-web-staging"
+# with no custom route, i.e. the default workers.dev URL) is more honest than
+# a GH secret nobody would think to look for, and needs no owner action.
+# `buildContainerEnvVars` forwards `vars` and `secrets` identically — this
+# is not a behavior change from the container's point of view. NOTE: the
+# root `animichi-staging` Worker has never successfully deployed yet
+# (`wrangler secret list --env staging` -> "Worker ... not found"), so there
+# is no pre-existing manually-set CORS_ALLOWED_ORIGIN secret this could
+# conflict with.
+CORS_ALLOWED_ORIGIN = "https://animichi-web-staging.zhenjiazhou0127.workers.dev"
 ANON_ACCESS_ENABLED = "true"
+NEON_AUTH_ENABLED = "false"
+NEON_AUTH_ISSUER = ""
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
@@ -246,10 +301,6 @@ ANON_DAILY_MESSAGE_QUOTA = "20"
 # headroom above the anonymous burst ceiling.
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
-
-[env.staging.assets]
-directory = ".open-next/assets"
-binding = "ASSETS"
 
 [[env.staging.services]]
 binding = "CATALOG"

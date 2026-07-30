@@ -1,15 +1,34 @@
 name: post-deploy-test
 
-# Reusable post-deploy test harness. Runs a named test suite against an
-# already-deployed environment. Suites are parameterized and each is a
-# guarded step that no-ops-with-note when the target surface is not yet
-# reachable, so the structure is real and ready to fill once exposed.
+# Reusable post-deploy test harness (issue #484). Runs real HTTP assertions
+# against an already-deployed environment via .github/scripts/post-deploy-assert.sh.
+# URLs are derived from the Worker naming convention in wrangler.toml /
+# apps/web/wrangler.jsonc plus the account's workers.dev subdomain — see
+# .github/scripts/resolve-worker-url.sh. This is NOT a network liveness probe
+# used to guess the URL; it is a deterministic name -> URL mapping.
 #
-# Wiring status (2026-06-24):
-#   - catalog Worker has NO public route → api/smoke cannot hit its read
-#     API yet. Those suites emit an honest TODO instead of a fabricated pass.
-#   - e2e (Playwright in e2e/) needs the user-facing surface from the Wave 4
-#     frontend rebuild (edge/web) before it can run.
+# Status (2026-07-29, issue #484): the `changes` job upstream of every deploy
+# job (dorny/paths-filter, checkout with persist-credentials:false + shallow
+# fetch) has been exiting 128 on `push` events, so every deploy job — and
+# this job with it — has been silently SKIPPED on every push to main. Fix is
+# tracked in PR #490 (fetch-depth: 0). Until that merges and a subsequent
+# push actually deploys staging, these assertions cannot be exercised
+# end-to-end from this repo's own CI. A green run of THIS PR is not proof the
+# assertions work — the first real signal arrives on the next push-to-main
+# deploy after #490 lands. Read the job logs (status code + body head) for
+# the actual evidence, and watch that this job itself does not silently
+# SKIP again (see ci.yml `needs:` chain — that failure mode is issue #457).
+#
+# `suite` is an informational label only (job/step naming) — it does NOT
+# gate which assertions run. Earlier revisions conditioned some checks on
+# `suite == 'api'`/`'smoke'` combinations that ci.yml never actually calls
+# with (post-staging always passes suite: api, post-prod always passes
+# suite: smoke), which silently dropped several assertions from whichever
+# gate actually runs in CI. Every non-environment-specific check below now
+# runs for every suite value; only the anonymous-access check branches, and
+# it branches on `environment` (the property that actually determines the
+# expected behavior — ANON_ACCESS_ENABLED differs by environment, not by
+# suite name), not on `suite`.
 
 on:
   workflow_call:
@@ -19,7 +38,37 @@ on:
         type: string
       suite:
         required: true
-        type: string  # api | e2e | smoke
+        type: string  # api | e2e | smoke — informational label, see header
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: true
+      # Sourced from secrets, not a repo variable, to match _deploy-component.yml
+      # (single source for the same value across the repo) and because
+      # `required: true` on a workflow_call input only checks the key was
+      # passed, not that its value is non-empty — an unconfigured repo
+      # variable would resolve to "" and hard-fail this job on every run,
+      # blocking every production deploy behind it. The read scope this
+      # secret is used for here (GET .../workers/subdomain) is narrower than
+      # deploy, but that's a token-scoping concern, not an account-id one —
+      # see the PR discussion on #493 if revisiting this.
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
+  # Lets an operator manually re-run a suite against an already-deployed
+  # environment from the Actions UI during a rollback (docs/ops/deployment.md
+  # § Rollback step 4) — `workflow_call`-only reusable workflows have no
+  # standalone "Re-run" affordance. The suites below are real assertions
+  # (issue #484, wired by #493), not TODO no-ops — a manual re-run here is a
+  # genuine verification step, not just "the job didn't crash".
+  workflow_dispatch:
+    inputs:
+      environment:
+        required: true
+        type: choice
+        options: [staging, production]
+      suite:
+        required: true
+        type: choice
+        options: [api, e2e, smoke]
 
 permissions:
   contents: read
@@ -34,43 +83,6 @@ jobs:
         with:
           persist-credentials: false
 
-      # ── api suite ───────────────────────────────────────────────
-      # TODO: catalog needs workers.dev/temp-expose to hit its read API;
-      # wire when exposed. Until then this no-ops with a note rather than
-      # fabricating a passing test.
-      - name: API suite (TODO — catalog not publicly reachable)
-        if: ${{ inputs.suite == 'api' }}
-        shell: bash
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
-        run: |
-          echo "::notice title=post-deploy api TODO::catalog needs workers.dev/temp-expose to hit its read API; wire when exposed ($ENVIRONMENT)"
-          echo "SKIP: api suite is not wired yet — catalog Worker has no public route."
-
-      # ── e2e suite ───────────────────────────────────────────────
-      # TODO: Playwright e2e/ exists but needs the user-facing surface from
-      # the Wave 4 frontend rebuild (edge/web); wire when that lands.
-      - name: E2E suite (TODO — awaiting edge/web surface)
-        if: ${{ inputs.suite == 'e2e' }}
-        shell: bash
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
-        run: |
-          echo "::notice title=post-deploy e2e TODO::Playwright e2e/ needs the user-facing surface from the Wave 4 frontend rebuild (edge/web); wire when that lands ($ENVIRONMENT)"
-          echo "SKIP: e2e suite is not wired yet — no deployed user-facing surface."
-
-      # ── smoke suite ─────────────────────────────────────────────
-      # TODO: catalog needs workers.dev/temp-expose to hit its read API;
-      # wire when exposed. Same constraint as the api suite.
-      - name: Smoke suite (TODO — catalog not publicly reachable)
-        if: ${{ inputs.suite == 'smoke' }}
-        shell: bash
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
-        run: |
-          echo "::notice title=post-deploy smoke TODO::catalog needs workers.dev/temp-expose to hit its read API; wire when exposed ($ENVIRONMENT)"
-          echo "SKIP: smoke suite is not wired yet — catalog Worker has no public route."
-
       # ── guard against unknown suite values ──────────────────────
       - name: Unknown suite guard
         if: ${{ inputs.suite != 'api' && inputs.suite != 'e2e' && inputs.suite != 'smoke' }}
@@ -80,3 +92,75 @@ jobs:
         run: |
           echo "::error title=post-deploy unknown suite::'$SUITE' is not one of api|e2e|smoke"
           exit 1
+
+      - name: Resolve deployed URLs
+        id: urls
+        shell: bash
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          root_url="$(bash .github/scripts/resolve-worker-url.sh root "$ENVIRONMENT")"
+          web_url="$(bash .github/scripts/resolve-worker-url.sh web "$ENVIRONMENT")"
+          echo "root_url=$root_url" >> "$GITHUB_OUTPUT"
+          echo "web_url=$web_url" >> "$GITHUB_OUTPUT"
+          echo "Resolved root_url=$root_url web_url=$web_url"
+
+      # ── checks that run for every suite/environment (issue #484 P1-2:
+      # every invocation of this workflow is a real gate, so every
+      # invocation gets the full checklist — apps/web landing and catalog
+      # reachability are both named explicitly in #484 and must not be
+      # missing from whichever suite ci.yml actually wires to a gate) ──
+      - name: "apps/web landing page"
+        shell: bash
+        env:
+          WEB_URL: ${{ steps.urls.outputs.web_url }}
+        run: bash .github/scripts/post-deploy-assert.sh web-landing
+
+      - name: "/healthz reachable with status ok"
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh healthz
+
+      - name: "edge rejects an invalid bearer token (401)"
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh auth-probe
+
+      - name: "USERS service binding reachable through the edge"
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh users-probe
+
+      - name: "catalog reachable via CATALOG service binding (Neon)"
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh catalog-probe
+
+      - name: "agent's own Postgres connection is live (data plane)"
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh data-plane-probe
+
+      # ── environment-gated: ANON_ACCESS_ENABLED differs by environment,
+      # not by suite — see header note ──
+      - name: "anonymous Turnstile gate is armed (staging)"
+        if: ${{ inputs.environment == 'staging' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh anon-gate-staging
+
+      - name: "anonymous access stays off (production)"
+        if: ${{ inputs.environment == 'production' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh anon-disabled-production

@@ -6,9 +6,11 @@ import base64
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 from fastapi import FastAPI
 
+from agent.agents.vision_supply_router import VisionRecognition
 from agent.config.settings import Settings
 from agent.infrastructure.observability import photo_search as telemetry
 from agent.infrastructure.observability.photo_search import PhotoSearchQuota
@@ -61,6 +63,37 @@ async def test_photo_search_returns_chat_shaped_search_envelope() -> None:
     assert payload["intent"] == "search_bangumi"
     assert payload["success"] is True
     assert payload["data"]["results"]["bangumi_id"] == "160209"
+
+
+class _DownVisionProvider:
+    """#502: the platform vision call raises instead of answering."""
+
+    async def recognize(self, images: list[bytes], locale: str) -> VisionRecognition:
+        raise httpx.ConnectError("connection refused")
+
+
+def _outage_app() -> FastAPI:
+    app = _app()
+    app.state.photo_search = PhotoSearchRuntime(
+        platform_provider=_DownVisionProvider(),
+        catalog=FakeCatalog(),
+        quota=PhotoSearchQuota(clock=lambda: datetime(2026, 7, 26, tzinfo=UTC)),
+    )
+    return app
+
+
+def _assert_clarify_response(response: httpx.Response) -> None:
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["intent"] == "clarify"
+    assert payload["data"]["reason"] == "photo_unrecognized"
+
+
+async def test_platform_vision_outage_degrades_to_clarify_not_500() -> None:
+    """The fallback/degrade edge must be reachable end-to-end through the route."""
+    async with async_client(_outage_app()) as client:
+        response = await client.post("/v1/photo-search", json=_body())
+    _assert_clarify_response(response)
 
 
 async def test_unsupported_mime_type_is_a_clear_415() -> None:
@@ -162,3 +195,18 @@ async def test_confirm_records_user_confirmed_signal(
     attributes = counter.add.call_args.args[1]
     assert attributes["user_confirmed"] is True
     assert attributes["candidates_shown"] == 2
+
+
+async def test_confirm_rejects_the_vision_unavailable_alert_signal() -> None:
+    """#502 review round 2: the anonymous-reachable confirm endpoint must not
+    be able to inject events into the "vision unavailable" ops-alert bucket
+    — that value is server-derived only, never a real confirm outcome."""
+    body = {
+        "query_type": "vision_unavailable",
+        "gps_available": False,
+        "layer_hit": "none",
+        "candidates_shown": 0,
+    }
+    async with async_client(_app()) as client:
+        response = await client.post("/v1/photo-search/confirm", json=body)
+    assert response.status_code == 422

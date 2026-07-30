@@ -13,7 +13,10 @@ import json
 
 import httpx
 
-from agent.agents.vision_supply_router import VisionRecognition
+from agent.agents.vision_supply_router import (
+    VisionProviderMisconfigured,
+    VisionRecognition,
+)
 
 GEMINI_VISION_MODEL = "gemini-2.0-flash"
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
@@ -108,19 +111,34 @@ class GeminiVisionProvider:
         model: str = GEMINI_VISION_MODEL,
         base_url: str = _GEMINI_BASE_URL,
         timeout_seconds: float = 30.0,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._api_key = api_key
         self._model = model
         self._base_url = base_url
         self._timeout = timeout_seconds
+        self._client = client or (
+            httpx.AsyncClient(timeout=timeout_seconds) if api_key else None
+        )
+        self._owns_client = client is None and self._client is not None
 
     async def recognize(self, images: list[bytes], locale: str) -> VisionRecognition:
+        """#502 P1-1: fail fast on a missing key rather than wasting a round
+        trip on a guaranteed 401 — and let the caller tell "never
+        configured" apart from "the call ran and failed"."""
+        if not self._api_key:
+            raise VisionProviderMisconfigured("GEMINI_API_KEY is not configured")
         url = f"{self._base_url}/models/{self._model}:generateContent"
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            response = await client.post(
-                url,
-                headers={"x-goog-api-key": self._api_key},
-                json=_payload(images, locale),
-            )
+        if self._client is None:
+            raise RuntimeError("Gemini HTTP client is not configured")
+        response = await self._client.post(
+            url,
+            headers={"x-goog-api-key": self._api_key},
+            json=_payload(images, locale),
+        )
         response.raise_for_status()
         return _parse_recognition(_response_text(response.json()))
+
+    async def aclose(self) -> None:
+        if self._owns_client and self._client is not None:
+            await self._client.aclose()

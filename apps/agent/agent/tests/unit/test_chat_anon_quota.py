@@ -147,18 +147,13 @@ async def test_an_unconfigured_quota_never_rejects_and_never_reads_the_repo() ->
     db.anon_quota.increment_and_count.assert_not_awaited()
 
 
-async def test_a_malformed_body_still_consumes_one_message_of_the_quota() -> None:
-    """Decided semantics (review follow-up): the quota check runs before
-    request-body validation in `handle_chat`, so a malformed body that goes
-    on to 422 still counts as an attempt against the visitor's daily
-    allowance — the same reasoning a rate limiter uses (it counts requests,
-    not successes). A visitor cannot get free extra attempts by sending
-    garbage; the counter and the 422 both happen on the same request."""
+async def test_a_malformed_body_is_rejected_before_quota_consumption() -> None:
+    """Malformed input cannot consume anonymous message allowance."""
     app, runtime, db = _app(next_count=1)
     async with async_client(app) as client:
         response = await client.post(
             "/v1/chat", json={"messages": "not-a-list"}, headers=ANON_HEADERS
         )
     assert response.status_code == 422
-    db.anon_quota.increment_and_count.assert_awaited_once()
+    db.anon_quota.increment_and_count.assert_not_awaited()
     assert runtime.handle.await_count == 0

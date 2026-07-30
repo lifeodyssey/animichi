@@ -12,6 +12,12 @@ on:
       build_filter: { required: false, type: string, default: "" }
       run_pulumi: { required: false, type: boolean, default: true }
       worker_secrets: { required: false, type: string, default: "" }
+      # Newline-separated list of secret names that must be pushed via a raw
+      # `wrangler secret put` step AFTER "Deploy Worker" (see that step for
+      # why). Each name here must also have a matching entry in `secrets:`
+      # below and in the `env:` map of the "Push post-deploy secrets" step —
+      # adding a new post-deploy secret means adding it in those three places.
+      post_deploy_secrets: { required: false, type: string, default: "" }
     secrets:
       NEON_DATABASE_URL:
         required: false
@@ -49,7 +55,9 @@ on:
         required: false
       CORS_ALLOWED_ORIGIN:
         required: false
-      NEXT_PUBLIC_MAPBOX_TOKEN:
+      TURNSTILE_SECRET:
+        required: false
+      ANON_ID_SECRET:
         required: false
 jobs:
   deploy:
@@ -61,26 +69,425 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+      # #527/#528: this job declares `environment: ${{ inputs.environment }}`
+      # above, which is what makes environment-scoped secrets resolve here
+      # at all (GitHub: "If you include environment in the reusable workflow
+      # at the job level, the environment secret will be used, and not the
+      # secret passed from the caller workflow" —
+      # https://docs.github.com/en/actions/using-workflows/reusing-workflows#access-to-secrets).
+      # #527's original diagnosis assumed this resolution was broken; a real
+      # workflow_dispatch diagnostic run (staging) proved it already works —
+      # NEON_AUTH_JWKS_URL and NEON_DATABASE_URL both resolved to their
+      # staging-environment values even when the caller job (which has no
+      # environment context of its own) passed an empty stand-in.
+      #
+      # This step keeps that verification live on every future deploy —
+      # staging AND production — WITHOUT ever printing a raw value:
+      #   - NEON_DATABASE_URL / NEON_AUTH_JWKS_URL / PULUMI_BACKEND_URL /
+      #     LOGFIRE_TOKEN are high-entropy, arbitrary-content secrets where
+      #     length carries no meaning of its own. For these, print the first
+      #     8 hex chars of a sha256 of the value instead of its length: two
+      #     runs with the SAME hash prefix are, for all practical purposes,
+      #     the same secret; two DIFFERENT prefixes are provably different
+      #     values — genuine discriminating power a length check does not
+      #     have (our own earlier diagnostic run showed repo-level and
+      #     staging-environment NEON_DATABASE_URL both at len=146 — a
+      #     collision length tells you nothing). For a HIGH-ENTROPY value,
+      #     32 bits of a preimage-resistant hash cannot be brute-forced back
+      #     to the secret.
+      #   - This is NOT a pattern to extend to every secret without
+      #     thinking: decide per variable, twice, before ever printing
+      #     anything about it —
+      #       (1) does its LENGTH carry semantic meaning on its own?
+      #           `TURNSTILE_SECRET` is the standing counter-example already
+      #           documented in the "Preflight - post-deploy secrets" step
+      #           below — Site Key (24 chars) vs. Secret Key (35 chars) is
+      #           itself sensitive information, so that secret must never
+      #           get a length (or hash) line here or anywhere else in a
+      #           public log.
+      #       (2) is the value actually HIGH-ENTROPY / unenumerable? The
+      #           hash trick above only works because a Neon connection
+      #           string or a Logfire token is drawn from a space too large
+      #           to brute-force. An enumerable value — an origin, a
+      #           hostname, a boolean-ish flag — has a small, guessable
+      #           value space; hashing it doesn't protect it, it just hands
+      #           an attacker a dictionary-attackable commitment to the
+      #           value. Never apply this pattern to that class of secret.
+      #   - CORS_ALLOWED_ORIGIN is deliberately excluded from this step
+      #     entirely: as of #528 (P1-A) it is a plain `vars` entry in
+      #     `wrangler.toml` for staging (a domain name, not a secret) and
+      #     only remains a GH environment secret for production — mixing
+      #     the two sources here would need per-environment branching for
+      #     no real benefit.
+      #
+      # None of this claims the two environments hold different VALUES on
+      # its own — a matching hash prefix is strong (not certain, given
+      # truncation) evidence of equality, and a GitHub secret's content can
+      # never be read back once set, by design. What this step reliably
+      # proves is per-environment RESOLUTION (each environment's own secret,
+      # not a caller-passed one, is what gets used here); the hash prefixes
+      # additionally let a human compare two runs' output without needing
+      # the raw values. Whether staging and production were actually
+      # provisioned with distinct values remains a provisioning fact -- see
+      # the PR description's explicit "unverified" note on that point.
+      - name: Report resolved secret shape (hash prefixes / booleans only — never raw values)
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+        run: |
+          hash8() {
+            if [ -z "$1" ]; then echo "unset"; return; fi
+            printf '%s' "$1" | sha256sum | cut -c1-8
+          }
+          echo "environment=$TARGET_ENVIRONMENT"
+          echo "  NEON_DATABASE_URL   set=$([ -n "$NEON_DATABASE_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_DATABASE_URL")"
+          echo "  NEON_AUTH_JWKS_URL  set=$([ -n "$NEON_AUTH_JWKS_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_AUTH_JWKS_URL")"
+          echo "  PULUMI_BACKEND_URL  set=$([ -n "$PULUMI_BACKEND_URL" ] && echo true || echo false) sha256_8=$(hash8 "$PULUMI_BACKEND_URL")"
+          echo "  LOGFIRE_TOKEN       set=$([ -n "$LOGFIRE_TOKEN" ] && echo true || echo false) sha256_8=$(hash8 "$LOGFIRE_TOKEN")"
+      # Validates BEFORE anything deploys — including before "Atlas migrate"
+      # below, which is the whole point: a failure here must land before any
+      # side effect (DB migration OR Worker deploy) exists to half-apply. A
+      # failure in "Push post-deploy secrets to Worker" further down, by
+      # contrast, necessarily runs after "Deploy Worker" and so cannot
+      # un-deploy a Worker that already shipped — this step is what actually
+      # backs the "validates before anything deploys" claim.
+      #
+      # TURNSTILE_SECRET and ANON_ID_SECRET are both only read from inside
+      # `handleAnonymousV1` (worker/app.ts), which `resolveAnonymous` only
+      # reaches when this environment's `ANON_ACCESS_ENABLED` var is "true"
+      # (worker/auth.ts:anonymousEnabled — both flag AND secret are required).
+      # `wrangler.toml`'s `env.production.vars` currently sets it to "false",
+      # so both secrets are genuinely inert there today; hard-failing
+      # deploy-root-prod over a secret production doesn't read would be a
+      # self-inflicted outage. Read the live flag out of the checked-out
+      # `wrangler.toml` instead of hardcoding prod=off/staging=on, so this
+      # adapts automatically if the flag value changes. (If a future
+      # post_deploy_secrets entry is NOT gated by this same flag, this
+      # all-or-nothing check needs to move from "gate the whole list" to
+      # "gate per secret name.")
+      - name: Preflight - post-deploy secrets
+        if: ${{ inputs.post_deploy_secrets != '' }}
+        working-directory: ${{ inputs.working_directory }}
+        shell: bash
+        env:
+          TARGET_COMPONENT: ${{ inputs.component }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          POST_DEPLOY_SECRETS: ${{ inputs.post_deploy_secrets }}
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+        run: |
+          # Always attempted, not just for component == root: gating this on
+          # the component name meant every OTHER component was permanently
+          # stuck on the soft-warn branch below with no way to ever hard-fail
+          # — the gate loses its own basis for judgment (and silently
+          # disarms) the instant it stops being root-specific. Today only
+          # root ever populates post_deploy_secrets (this whole step is
+          # skipped otherwise via the `if:` above), so this has no live
+          # effect yet, but the check itself must not depend on component to
+          # be correct.
+          anon_flag=$(awk -F'"' -v want="[env.${TARGET_ENVIRONMENT}.vars]" '
+            $0 == want { in_block=1; next }
+            /^\[/ { in_block=0 }
+            in_block && $1 ~ /^ANON_ACCESS_ENABLED[ \t]*=/ { print $2 }
+          ' wrangler.toml 2>/dev/null || true)
+          # Ambiguity is fail-closed, not fail-open: this parser only
+          # understands one exact TOML shape (double-quoted string inside an
+          # `[env.<name>.vars]` block in wrangler.toml). Any drift from that —
+          # single-quoted or unquoted TOML values, a trailing-space section
+          # header, a wrangler.toml that doesn't exist here at all (e.g.
+          # apps/web is already wrangler.jsonc), or the root config moving to
+          # jsonc too — must NOT silently read as "" and fall through to the
+          # soft-warn branch below, which would quietly turn a hard gate into
+          # a warning exactly like the failure modes this repo has already
+          # been bitten by. Treat anything other than a clean "true"/"false"
+          # as a parse failure and stop.
+          if [ "$anon_flag" != "true" ] && [ "$anon_flag" != "false" ]; then
+            echo "::error::Could not determine ANON_ACCESS_ENABLED for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT from wrangler.toml (parsed value: '$anon_flag', expected exactly \"true\" or \"false\"). This gates whether TURNSTILE_SECRET/ANON_ID_SECRET are load-bearing here — refusing to guess. Fix the parser (or this check) if the config shape changed (e.g. moved to wrangler.jsonc, or the TOML value is no longer a plain double-quoted true/false)."
+            exit 1
+          fi
+          missing=0
+          while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            value="${!name-}"
+            if [ -z "$value" ]; then
+              if [ "$anon_flag" = "true" ]; then
+                echo "::error::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, where ANON_ACCESS_ENABLED=\"true\" makes it load-bearing (worker/turnstile.ts fails CLOSED — every anonymous request 403s without TURNSTILE_SECRET once ANON_ID_SECRET lets resolveAnonymous through at all). Refusing to start the deploy without it. Set it with: gh secret set $name"
+                missing=1
+              else
+                echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, but ANON_ACCESS_ENABLED is not \"true\" there, so this environment's code path never reads it (see worker/auth.ts:anonymousEnabled). Soft warning only; the post-deploy push step will skip it."
+              fi
+              continue
+            fi
+            # TURNSTILE_SECRET-specific: a GitHub secret is write-only — once
+            # set, nobody (not even this workflow, on a later run) can read it
+            # back to eyeball whether it's actually the Turnstile Secret Key
+            # (35 chars) rather than the public Site Key (24 chars, meant to
+            # ship to the client — see apps/web/src/components/
+            # TurnstileGate.tsx). This step is the only place that ever holds
+            # the raw value, so it's the only place that can ever answer that
+            # question. Cloudflare's siteverify endpoint doubles as a
+            # validity check: probing it with a deliberately-wrong response
+            # token distinguishes "bad secret" (`invalid-input-secret`) from
+            # "secret is fine, token just wasn't real" (`invalid-input-response`)
+            # without ever needing a real Turnstile widget solve.
+            #
+            # This is deliberately NOT treated with the same fail-closed rule
+            # as the ANON_ACCESS_ENABLED parser above: a local TOML parse
+            # failure is a semantic ambiguity that never self-heals, but a
+            # failed network call to a third party is overwhelmingly a
+            # transient blip — retry with backoff, and only `invalid-input-
+            # secret` (an unambiguous, non-transient verdict) hard-fails.
+            # Exhausting retries with no verdict either way means the
+            # validator was unreachable, which is not evidence the secret
+            # itself is wrong — warn and let the deploy proceed rather than
+            # blocking, say, an unrelated production hotfix (this same check
+            # also runs in deploy.yml's manual production path) on a
+            # siteverify outage that would leave guardTurnstile 403ing every
+            # anonymous request regardless of whether this deploy happens.
+            if [ "$name" = "TURNSTILE_SECRET" ] && [ "$anon_flag" = "true" ]; then
+              turnstile_verdict=""
+              shape_seen="false"
+              attempt=1
+              while [ "$attempt" -le 3 ]; do
+                # Secret piped via stdin (`secret@-`), never as a curl argv
+                # value — argv can leak through process listings on the
+                # runner; stdin doesn't. Never echo $value or the raw
+                # response: the response carries no secret field, but only
+                # the parsed verdict is printed, on principle.
+                turnstile_probe=$(printf '%s' "$value" | curl -sS --max-time 10 \
+                  --data-urlencode "secret@-" \
+                  --data-urlencode "response=preflight-probe-not-a-real-token" \
+                  https://challenges.cloudflare.com/turnstile/v0/siteverify 2>/dev/null || true)
+                # Shape sentinel: siteverify's response always has a
+                # top-level "success" boolean today. If we never see it
+                # across every retry, that's not (only) a transient network
+                # blip — it's a sign Cloudflare's response shape changed
+                # under us, which would otherwise degrade this whole check to
+                # a permanently silent warning with no way to notice.
+                printf '%s' "$turnstile_probe" | grep -q '"success"' && shape_seen="true"
+                if printf '%s' "$turnstile_probe" | grep -q '"invalid-input-secret"'; then
+                  turnstile_verdict="invalid"
+                  break
+                elif printf '%s' "$turnstile_probe" | grep -q '"invalid-input-response"'; then
+                  turnstile_verdict="valid"
+                  break
+                fi
+                attempt=$((attempt + 1))
+                [ "$attempt" -le 3 ] && sleep $((attempt * 2))
+              done
+              if [ "$turnstile_verdict" = "invalid" ]; then
+                echo "::error::TURNSTILE_SECRET failed Cloudflare siteverify validation for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (error-code: invalid-input-secret). This is what happens when the stored value is a Site Key (24 chars, public, meant for the client) instead of the Secret Key (35 chars, private) — or any other string siteverify doesn't recognize as a real secret. Refusing to deploy with it. Re-provision with: gh secret set TURNSTILE_SECRET"
+                missing=1
+              elif [ "$turnstile_verdict" = "valid" ]; then
+                echo "TURNSTILE_SECRET passed Cloudflare siteverify validation for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (probe token was correctly rejected as invalid-input-response, meaning the secret itself was accepted)."
+              elif [ "$shape_seen" = "true" ]; then
+                echo "::warning::Could not reach Cloudflare's siteverify endpoint to validate TURNSTILE_SECRET after 3 attempts for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (network failure or endpoint outage) — treating this as validator unavailability, not evidence the secret itself is wrong. Proceeding without this specific check; the empty-value check above still applies."
+              else
+                echo "::warning::Cloudflare's siteverify response never contained a \"success\" field across 3 attempts for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — this looks like the response SHAPE changed, not just a network blip (this check's grep patterns assume today's known shape). Treating as validator-unavailable for now, but this needs someone to look at whether the probe logic itself is stale, not just retry later. Proceeding without this specific check; the empty-value check above still applies."
+              fi
+            fi
+          done <<< "$POST_DEPLOY_SECRETS"
+          if [ "$missing" = "1" ]; then
+            exit 1
+          fi
+      - name: Preflight - Vite build environment
+        if: ${{ inputs.build_filter != '' }}
+        env:
+          TARGET_COMPONENT: ${{ inputs.component }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          VITE_NEON_AUTH_BASE_URL: ${{ vars.VITE_NEON_AUTH_BASE_URL }}
+        run: |
+          # One explicit check per variable. Vite inlines these at build time, so
+          # an empty value ships a permanently broken feature rather than a
+          # runtime error anyone can fix afterwards.
+          #
+          # Names only in the log, never values: these are not secrets (Vite puts
+          # them in a public bundle by definition), but there is no reason to
+          # copy deploy configuration into a world-readable Actions log.
+          if [ -z "${VITE_TURNSTILE_SITE_KEY}" ]; then
+            echo "::error::VITE_TURNSTILE_SITE_KEY is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT. Refusing to build: anonymous chat cannot pass the edge challenge without it."
+            exit 1
+          fi
+          if [ -z "${VITE_NEON_AUTH_BASE_URL}" ]; then
+            echo "::error::VITE_NEON_AUTH_BASE_URL is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT. Refusing to build: magic-link sign-in would render as 'not configured' with no runtime remedy."
+            exit 1
+          fi
       - name: Build component
         if: ${{ inputs.build_filter != '' }}
         env:
           BUILD_FILTER: ${{ inputs.build_filter }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+          VITE_SITE_ORIGIN: ${{ vars.VITE_SITE_ORIGIN }}
+          VITE_CATALOG_URL: ${{ vars.VITE_CATALOG_URL }}
+          VITE_USERS_URL: ${{ vars.VITE_USERS_URL }}
+          VITE_AGENT_URL: ${{ vars.VITE_AGENT_URL }}
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          VITE_NEON_AUTH_BASE_URL: ${{ vars.VITE_NEON_AUTH_BASE_URL }}
         run: pnpm --filter "$BUILD_FILTER" build
       - name: Atlas migrate
         # NOTE: secrets context is NOT allowed in step `if:` (GitHub compile-time
         # error → startup_failure). Guard inside run via the env var instead.
+        #
+        # #516: this Neon database also hosts `neon_auth` (9 tables Neon Auth
+        # itself provisions and owns — Atlas must never touch them) alongside
+        # `public` (the schema Atlas actually manages). Without scoping,
+        # Atlas's "is this database clean" check inspects EVERY schema it can
+        # see, finds `neon_auth` unaccounted for by db/migrations, and aborts
+        # with "connected database is not clean: found schema ...". The fix
+        # is `search_path=<schema>` on the connection URL — confirmed
+        # empirically against the exact pinned v0.30.0 binary (not guessed):
+        # a local Postgres with an extra `neon_auth`-shaped schema (+ a table
+        # in it) reproduced the identical error without this param, and
+        # applying with `search_path=public` both (a) fixed it and (b) left
+        # the other schema's table completely untouched afterward (verified
+        # with \dt). Also confirmed it tolerates the specific leftover this
+        # database has: an empty, orphaned `atlas_schema_revisions` SCHEMA
+        # (as opposed to the `public.atlas_schema_revisions` TABLE this
+        # `--revisions-schema public` flag expects) from an earlier
+        # apply that ran without this flag — `search_path=public` scopes past
+        # that stray schema too, with no separate DROP SCHEMA cleanup step
+        # needed. Deliberately NOT `--allow-dirty`: that flag suppresses the
+        # cleanliness check for the whole database, including future genuine
+        # dirtiness in `public` itself — scoping the URL only removes
+        # `neon_auth` (something Atlas was never supposed to see) from
+        # consideration, not the safety check itself.
         run: |
           if [ -z "$NEON_DATABASE_URL" ]; then
             echo "NEON_DATABASE_URL not set — skipping atlas migrate"; exit 0
           fi
           curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
           chmod +x /usr/local/bin/atlas
-          atlas migrate apply --dir "file://db/migrations" --url "$NEON_DATABASE_URL" --revisions-schema public
+          case "$NEON_DATABASE_URL" in
+            *\?*) scoped_url="${NEON_DATABASE_URL}&search_path=public" ;;
+            *) scoped_url="${NEON_DATABASE_URL}?search_path=public" ;;
+          esac
+          atlas migrate apply --dir "file://db/migrations" --url "$scoped_url" --revisions-schema public
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      # Installs the Pulumi CLI onto PATH without running a command (omitting
+      # `command:` is the documented install-only mode) so the plain `pulumi`
+      # steps below can use it.
+      - name: Install Pulumi CLI
+        if: ${{ inputs.run_pulumi }}
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+      # #522: `pulumi up` below failed on every run with "It looks like the
+      # Pulumi SDK has not been installed" because infra/node_modules never
+      # existed. pulumi/actions@v7 stopped auto-installing project
+      # dependencies — verified against the v7 README, which states the
+      # action "will no longer run npm ci | npm install | pip3 install |
+      # pipenv install" and that this is now deferred to a dedicated
+      # dependency-installation step. `pulumi stack export` just above does
+      # NOT need this (it only serializes existing state, it never executes
+      # the Pulumi *program*), so placing the install here — after the CLI
+      # install, before `up` — changes nothing about the #485/#492 ordering
+      # guarantee that the rollback backup always lands before `up` mutates
+      # anything.
+      #
+      # `infra/` is deliberately NOT a pnpm-workspace member (absent from
+      # `pnpm-workspace.yaml`'s `packages:` list, and from `pnpm-lock.yaml`
+      # entirely). Confirmed empirically, not guessed: running a plain `pnpm
+      # install` from inside `infra/` in THIS repo prints "Scope: all 8
+      # workspace projects" and reinstalls the other workspace packages
+      # instead of infra's own — pnpm walks up to the repo-root
+      # `pnpm-workspace.yaml`, sees infra isn't a declared member, and simply
+      # ignores it rather than treating it as a standalone project. Only
+      # `--ignore-workspace` makes pnpm treat `infra/` as its own project;
+      # confirmed by the resulting `infra/node_modules` actually containing
+      # `@pulumi/pulumi` and `@pulumi/cloudflare`. `infra/pnpm-lock.yaml` is
+      # committed alongside this change so `--frozen-lockfile` pins versions
+      # here the same way the root lockfile does for every other package.
+      #
+      # `--ignore-scripts` disables package lifecycle scripts (pre/postinstall)
+      # for this install (SonarCloud githubactions:S6505, a real finding, not
+      # a false positive — flagged the un-flagged install on this exact PR).
+      # Verified this does NOT break the Pulumi runtime: re-ran this same
+      # install with the flag added and `pulumi preview` against it still got
+      # past SDK loading to the identical downstream config error as without
+      # the flag (neither `@pulumi/pulumi` nor `@pulumi/cloudflare` needs a
+      # lifecycle script — pnpm's own build-script gate already no-ops here
+      # too, logging "Ignored build scripts: protobufjs@7.6.5" on a plain
+      # install with no flag at all).
+      - name: Install infra dependencies
+        if: ${{ inputs.run_pulumi }}
+        working-directory: infra
+        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
+      - name: Pulumi stack export (rollback backup)
+        # Snapshot state BEFORE `up` mutates it, so a bad apply can be rolled
+        # back with `pulumi stack import` from the R2 object this step writes.
+        # #485.
+        #
+        # Deliberately NOT a GitHub Actions artifact: this repo is a PUBLIC
+        # repository (verified — `gh repo view --json visibility`), and a
+        # public repo's workflow artifacts are downloadable by ANY logged-in
+        # GitHub account, not just people with repo access. `infra/index.ts`
+        # exports `cloudflareAccountId`/`cloudflareZoneId`/`webDomain` in
+        # PLAINTEXT and `catalogDatabaseUrl` as `secure:` ciphertext — an
+        # artifact would mean publishing the plaintext identifiers (a
+        # targeted-abuse/social-engineering surface, even though not
+        # credentials themselves) and an offline-crackable Neon connection
+        # string on every catalog deploy. Writing to the SAME R2 bucket the
+        # Pulumi backend already lives in (derived from `PULUMI_BACKEND_URL`,
+        # which is `s3://<bucket>?...` — see `pulumi login` below) keeps this
+        # exactly as private as the Pulumi state itself already is, with zero
+        # new exposure surface, using credentials (`R2_ACCESS_KEY_ID`/
+        # `R2_SECRET_ACCESS_KEY`) already present in this step's env.
+        #
+        # NOTE: `run_pulumi` defaults to true and only `component: catalog`
+        # jobs leave it at that default — web/users/root all pass
+        # `run_pulumi: false` (see ci.yml). So in practice this step only ever
+        # runs under the catalog deploy jobs; look there for the backup, not
+        # under a root/web/users run.
+        if: ${{ inputs.run_pulumi }}
+        working-directory: infra
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          PULUMI_STACK: ${{ inputs.pulumi_stack }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          # Same empty-guard pattern as the "Atlas migrate" step above: this
+          # secret is `required: false` at the workflow_call boundary, so a
+          # caller that omits it must not crash `pulumi login` with an empty
+          # backend URL.
+          if [ -z "$PULUMI_BACKEND_URL" ]; then
+            echo "PULUMI_BACKEND_URL not set — skipping stack export"; exit 0
+          fi
+          # Same reasoning, different failure shape: CLOUDFLARE_ACCOUNT_ID is
+          # also `required: false` at the workflow_call boundary. Without
+          # this guard, an empty value would silently build the endpoint URL
+          # as "https://.r2.cloudflarestorage.com" and let `aws s3 cp` fail
+          # with an opaque DNS/connection error instead of a clear message —
+          # fail-closed either way, but this is the readable version.
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::CLOUDFLARE_ACCOUNT_ID not set — cannot derive the R2 endpoint for the rollback backup upload. Refusing to proceed to 'pulumi up' without a rollback snapshot."
+            exit 1
+          fi
+          pulumi login "$PULUMI_BACKEND_URL"
+          pulumi stack select "$PULUMI_STACK"
+          backup_file="$RUNNER_TEMP/pulumi-$PULUMI_STACK-backup.json"
+          pulumi stack export --file "$backup_file"
+          if [ ! -s "$backup_file" ]; then
+            echo "::error::pulumi stack export produced no (or an empty) backup file despite PULUMI_BACKEND_URL being set. Refusing to silently proceed to 'pulumi up' without a rollback snapshot."
+            exit 1
+          fi
+          # Same bucket as the Pulumi state backend, different prefix —
+          # `s3://<bucket>?query...` -> just the bucket name, ignoring
+          # whatever query params (endpoint/region/style) happen to be in
+          # this secret's value, since we derive the R2 endpoint from
+          # CLOUDFLARE_ACCOUNT_ID instead of parsing that.
+          bucket="${PULUMI_BACKEND_URL#s3://}"
+          bucket="${bucket%%\?*}"
+          aws s3 cp --endpoint-url "https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com" \
+            "$backup_file" "s3://$bucket/rollback-backups/pulumi-$PULUMI_STACK-$GITHUB_RUN_ID.json"
       - name: Pulumi up
         if: ${{ inputs.run_pulumi }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
@@ -102,7 +509,23 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.79.0"
+          wranglerVersion: "4.112.0"
+          # #516: without this, the action's own lockfile-based
+          # auto-detection (dist/index.mjs:detectPackageManager) only looks
+          # for a lockfile INSIDE `workingDirectory` — every pnpm workspace
+          # member (apps/web, workers/catalog, workers/users) has its
+          # lockfile at the repo ROOT, not in its own directory, so detection
+          # silently falls back to "npm". That's harmless until the fallback
+          # install path (`npm i wrangler@...`) runs inside a directory whose
+          # package.json has a `workspace:*` dependency (apps/web,
+          # workers/catalog, workers/users all do, via
+          # `@animichi/contract`) — npm doesn't understand that pnpm-only
+          # protocol and dies with EUNSUPPORTEDPROTOCOL before wrangler ever
+          # runs. Confirmed by reading dist/index.mjs at the pinned SHA below
+          # (not just the docs): `packageManager` input is read verbatim via
+          # `core.getInput("packageManager")` and, when set, is used directly
+          # instead of falling through to `detectPackageManager()`.
+          packageManager: pnpm
           workingDirectory: ${{ inputs.working_directory }}
           command: deploy
           environment: ${{ inputs.environment }}
@@ -120,9 +543,96 @@ jobs:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+      # Deliberately NOT part of the wrangler-action `secrets:` list above (the
+      # one populating `worker_secrets`): that list is uploaded via
+      # wrangler-action's own `uploadSecrets()`, which runs `wrangler secret
+      # bulk` BEFORE the `deploy` command internally (confirmed by reading
+      # cloudflare/wrangler-action's dist/index.mjs at the pinned SHA below —
+      # `uploadSecrets(...)` is called ahead of `wranglerCommands(...)`), so
+      # those 10 secrets do face the non-interactive "Worker does not exist,
+      # create it?" fallback-to-yes prompt on a first-ever deploy to a new
+      # environment. This step is different because it is a separate step we
+      # control the order of: placed after "Deploy Worker", so by the time it
+      # runs, the same job has already deployed (or updated) this exact
+      # Worker/environment — narrowing that fallback-to-yes risk for the two
+      # secrets this step manages, though it does not retroactively fix it for
+      # wrangler-action's own bulk upload of `worker_secrets`.
+      #
+      # List-driven: `inputs.post_deploy_secrets` is a newline list of secret
+      # names for THIS component/environment's Worker (e.g. root's
+      # TURNSTILE_SECRET + ANON_ID_SECRET). Adding a new one means: add the
+      # name to the caller's `post_deploy_secrets` list, add it to `secrets:`
+      # above, and add one line to the `env:` map immediately below so the
+      # bash indirect-expansion lookup (`${!name}`) can find its value —
+      # GitHub Actions has no dynamic `secrets.<computed-name>` lookup, so this
+      # env map is the one place that still needs a per-secret line.
+      #
+      # Empty values are skipped, not failed, here — the "Preflight" step
+      # above already decided whether an empty value is fatal (flag-gated
+      # secret whose feature is off in this environment) or fine to proceed
+      # past. If this step still fails, it is a real, unexpected condition:
+      # the Worker has already been deployed by the step above and this
+      # failure does NOT undo that — it only means the secret push itself
+      # didn't complete, which is a real (if narrow) gap between deploy and
+      # push worth re-running by hand.
+      - name: Push post-deploy secrets to Worker
+        if: ${{ inputs.post_deploy_secrets != '' }}
+        working-directory: ${{ inputs.working_directory }}
+        shell: bash
+        env:
+          TARGET_COMPONENT: ${{ inputs.component }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          POST_DEPLOY_SECRETS: ${{ inputs.post_deploy_secrets }}
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            value="${!name-}"
+            if [ -z "$value" ]; then
+              echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — skipping the push (the preflight step already validated it is safe to skip here)."
+              continue
+            fi
+            printf '%s' "$value" | npx --yes wrangler@4.112.0 secret put "$name" --env "$TARGET_ENVIRONMENT"
+          done <<< "$POST_DEPLOY_SECRETS"
+      # Real per-component smoke checks (issue #484). `web` and `root` are
+      # each self-contained (no dependency on other components in the same
+      # environment) so they get a direct HTTP assertion right after their
+      # own deploy. `catalog` and `users` have NO public route in any
+      # environment by design (private, service-binding only) — their
+      # reachability through the edge is instead verified end-to-end by
+      # _post-deploy-test.yml (`catalog-probe` / `users-probe`) once every
+      # component in the environment, including `root`, is deployed.
       - name: Smoke
         env:
           COMPONENT: ${{ inputs.component }}
           ENVIRONMENT: ${{ inputs.environment }}
-        run: echo "smoke for $COMPONENT@$ENVIRONMENT — catalog has no public route; verify via service binding / wrangler tail in follow-up"
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         shell: bash
+        run: |
+          set -euo pipefail
+          case "$COMPONENT" in
+            web)
+              url="$(bash .github/scripts/resolve-worker-url.sh web "$ENVIRONMENT")"
+              echo "Resolved web@$ENVIRONMENT -> $url"
+              WEB_URL="$url" bash .github/scripts/post-deploy-assert.sh web-landing
+              ;;
+            root)
+              url="$(bash .github/scripts/resolve-worker-url.sh root "$ENVIRONMENT")"
+              echo "Resolved root@$ENVIRONMENT -> $url"
+              ROOT_URL="$url" bash .github/scripts/post-deploy-assert.sh healthz
+              ;;
+            catalog)
+              echo "::notice title=post-deploy smoke::catalog has no public route in any environment by design (private, CATALOG service binding only); reachability is verified end-to-end by _post-deploy-test.yml's catalog-probe once root is deployed in the same environment"
+              ;;
+            users)
+              echo "::notice title=post-deploy smoke::users has no public route in any environment by design (private, USERS service binding only); reachability is verified end-to-end by _post-deploy-test.yml's users-probe once root is deployed in the same environment"
+              ;;
+            *)
+              echo "::error title=post-deploy smoke::unknown component '$COMPONENT'"
+              exit 1
+              ;;
+          esac

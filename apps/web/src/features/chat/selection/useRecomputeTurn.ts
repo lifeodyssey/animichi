@@ -79,9 +79,10 @@ function useSettleWatcher(status: RecomputeStatus, chat: ChatSession, setStatus:
   }, [status, chatStatus, error, setStatus]);
 }
 
-export function useRecomputeTurn(chat: ChatSession): RecomputeTurn {
+export function useRecomputeTurn(chat: ChatSession, sessionKey?: string): RecomputeTurn {
   const [status, setStatus] = useState<RecomputeStatus>("idle");
   const [lastSentIds, setLastSentIds] = useState<readonly string[]>();
+  useEffect(() => { setStatus("idle"); setLastSentIds(undefined); }, [sessionKey]);
   const fire = useFire(chat, setStatus, setLastSentIds);
   useSettleWatcher(status, chat, setStatus);
   return { status, lastSentIds, fire };

@@ -30,8 +30,7 @@ function env(containerFetch: () => Promise<Response>): { env: Env; callCount: ()
 void test("an unauthenticated POST /v1/byok/probe is rejected with 401 and never reaches the container", async () => {
   const { env: e, callCount } = env(() => Promise.resolve(new Response("ok", { status: 200 })));
   const app = createWorkerApp({
-    nextHandler: { fetch: () => Promise.resolve(new Response("next", { status: 200 })) },
-    authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
+        authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
   });
   const res = await app.request(
     "/v1/byok/probe",
@@ -47,8 +46,7 @@ void test("an unauthenticated POST /v1/byok/probe is 401 even with anonymous acc
   const { env: e, callCount } = env(() => Promise.resolve(new Response("ok", { status: 200 })));
   const withAnon = { ...e, ANON_ACCESS_ENABLED: "true" } as unknown as Env;
   const app = createWorkerApp({
-    nextHandler: { fetch: () => Promise.resolve(new Response("next", { status: 200 })) },
-    authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
+        authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
   });
   const res = await app.request("/v1/byok/probe", { method: "POST" }, withAnon, stubCtx);
   assert.equal(res.status, 401, "the probe is absent from ANON_V1 — anonymous access enablement must not admit it");

@@ -122,14 +122,14 @@ even when the mutation flag is set. Non-Neon BYO hosts still require the explici
 
 Budget against 10 concurrent branches in this project:
 
-- Standing: `main` + `staging` + `test-base` + zero or one dev branch + labeled previews.
+- Standing: `main` + `staging` + `test-base` + zero or one dev branch.
 - Ephemeral: one per live Python integration or catalog-spike session.
 - Phase C serializes catalog spikes after Python integration and uses
   `neon-tests-${{ github.ref }}` with cancellation, keeping each PR's peak at one branch.
 
-Two PRs + one local run + three previews + four standing branches is 10 (pathological); 6-8 is
-typical. Check the Neon Console before a live run. The Free plan has no paid-overage escape hatch,
-so treat its included allowance as a hard operating cap. Launch includes 10 branches and bills
+Two PRs + one local run + four standing branches is 7 (pathological); 4-6 is typical. Check the
+Neon Console before a live run. The Free plan has no paid-overage escape hatch, so treat its
+included allowance as a hard operating cap. Launch includes 10 branches and bills
 extra concurrent branches by prorated branch-hours; current rates and allowances live on the
 [Neon pricing page](https://neon.com/pricing). Phase-0 account-level cap behavior remains an
 operator observation: record quota-class failures separately from code failures.

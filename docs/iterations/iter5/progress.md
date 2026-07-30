@@ -31,13 +31,23 @@ working method, the confirmed traps, and four decisions still waiting on the own
 
 ### Merged
 - `#435` S1.4 search content shapes + static map (C3a/C3b)
-- `#436` S1.9 Cloudflare Turnstile edge gate — **dormant**, not wired to any live path
+- `#436` S1.9 Cloudflare Turnstile edge gate — dormant as of this entry; **wired by #447** (see below)
+- `#447` arms the merged Turnstile gate for anonymous `/v1` traffic; the gate
+  resolves the anonymous identity first, then challenges before rate limiting
+  or container forwarding.
 - `#439` S1.5 route card (TimedItinerary, map promotion, Walk CTA seam)
 - `#438` S1.8 anonymous access + edge rate limiting + daily budget breaker
 - `#440` S1.13 L0 smoke gate — classified actionable failures; delivers `#434`'s fix (issue stays open: non-default-branch merges don't fire `Closes`)
 - `#442` `#303` CatalogClient connection reuse
 - `#430` C1 — tool lifecycle on pydantic-ai's official event stream
 - `#433`, `#431` earlier in the session
+
+### #447 Turnstile activation detail
+
+The merged #436 gate was dormant until #447 wired it into the anonymous `/v1`
+path. The edge resolves an anonymous identity first, then challenges before
+rate limiting or container forwarding; anonymous access remains a 401 when the
+feature is disabled.
 
 Closed with evidence rather than reimplemented: `#256` (S1.1), `#258` (S1.2).
 

@@ -93,7 +93,9 @@ async def test_app_state_accessible_when_injected() -> None:
     runtime_api = RuntimeAPI(
         mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
     )
-    settings = Settings(app_env="testing")
+    # cors_allowed_origin's validator rejects "*" outside app_env=="development"
+    # (issue #498 follow-up), and this app_env=="testing" sentinel is not "development".
+    settings = Settings(app_env="testing", cors_allowed_origin="http://localhost:3000")
 
     app, _ = build_app(runtime_api=runtime_api, db=mock_db, settings=settings)
 

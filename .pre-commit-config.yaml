@@ -15,7 +15,7 @@ repos:
       - id: check-toml
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
+    rev: v0.15.21
     hooks:
       - id: ruff
         args: [--fix, apps/agent/agent/]
@@ -39,22 +39,6 @@ repos:
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
 
-      - id: frontend-typecheck
-        name: frontend typecheck
-        entry: bash -c 'cd frontend && npx tsc --noEmit'
-        language: system
-        files: ^frontend/
-        types_or: [javascript, jsx, ts, tsx]
-        pass_filenames: false
-
-      - id: frontend-lint
-        name: frontend lint
-        entry: bash -c 'cd frontend && npx eslint .'
-        language: system
-        files: ^frontend/
-        types_or: [javascript, jsx, ts, tsx]
-        pass_filenames: false
-
       # --- pre-push stage: heavy checks. Commits stay fast; CI is authoritative. ---
       - id: mypy
         name: mypy
@@ -63,15 +47,6 @@ repos:
         types: [python]
         pass_filenames: false
         always_run: true
-        stages: [pre-push]
-
-      - id: frontend-test-coverage
-        name: frontend tests + coverage (lines>=60%)
-        entry: bash -c 'cd frontend && npx vitest run --coverage'
-        language: system
-        files: ^frontend/
-        types_or: [javascript, jsx, ts, tsx]
-        pass_filenames: false
         stages: [pre-push]
 
       - id: backend-test-coverage

@@ -44,17 +44,31 @@ class ProducedRoute:
     route_ref: RouteRef
 
 
+RouteRejectionStatus: TypeAlias = Literal[
+    "empty", "stale_ref", "pending_sync", "upstream_unavailable", "contract_violation"
+]
+
+
 @dataclass(frozen=True)
 class RejectedRoute:
     """A current route outcome that did not produce a registry entry."""
 
-    status: Literal["empty", "stale_ref", "pending_sync", "upstream_unavailable"]
+    status: RouteRejectionStatus
 
 
 StepProvenance: TypeAlias = (
     ProducedSearch | RejectedSearch | ProducedRoute | RejectedRoute
 )
 StepData: TypeAlias = dict[str, object]
+UsagePayer: TypeAlias = Literal["platform", "byok"]
+
+
+@dataclass(frozen=True)
+class AttributedUsage:
+    """Usage from one model call, labeled by who paid its provider."""
+
+    usage: RunUsage
+    payer: UsagePayer
 
 
 @dataclass(frozen=True)
@@ -96,6 +110,7 @@ class AgentResult:
     status: str | None = None
     success_override: bool | None = None
     provenance: TurnProvenance = field(default_factory=TurnProvenance)
+    supplemental_usage: list[AttributedUsage] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.provenance == TurnProvenance():

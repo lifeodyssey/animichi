@@ -5,9 +5,6 @@ import { fileURLToPath } from "node:url";
 import { createWorkerApp, catalogOutbound } from "./app.ts";
 import { buildContainerEnvVars } from "./containerEnv.ts";
 
-const stubNext = {
-  fetch: () => Promise.resolve(new Response("next", { status: 200 })),
-};
 
 const stubCtx = {
   waitUntil(promise: Promise<unknown>) { void promise; },
@@ -15,7 +12,7 @@ const stubCtx = {
 } as unknown as ExecutionContext;
 
 void test("GET /healthz reaches the container, not OpenNext", async () => {
-  const app = createWorkerApp({ nextHandler: stubNext });
+  const app = createWorkerApp({});
   let containerHit = false;
   const env = {
     CONTAINER: {
@@ -28,13 +25,23 @@ void test("GET /healthz reaches the container, not OpenNext", async () => {
   assert.equal(await res.text(), "ok");
 });
 
-void test("/catalog/* is NOT publicly routed (falls through to OpenNext)", async () => {
-  const app = createWorkerApp({ nextHandler: stubNext });
+// The old name for this said "/catalog/* is NOT publicly routed", which was
+// never true — `/catalog/public/*` IS routed (see app.ts). The property that
+// matters, and the one asserted here, is narrower: a REAL private catalog
+// endpoint must not be reachable from the edge and must never touch the
+// CATALOG binding. `/catalog/search` is such an endpoint; the sibling case in
+// gatewayFallback.test.ts uses an invented `/catalog/public/*` path, which
+// exercises the explicit-deny branch instead of this one.
+void test("a real private catalog endpoint is unreachable and never touches the binding", async () => {
+  const app = createWorkerApp({});
   let catalogHit = false;
   const env = { CATALOG: { fetch: () => { catalogHit = true; return Promise.resolve(new Response("cat")); } } } as never;
   const res = await app.request("/catalog/search", { method: "POST" }, env, stubCtx);
-  assert.equal(await res.text(), "next"); // hits OpenNext (404-able), never env.CATALOG
-  assert.equal(catalogHit, false); // security: non-allowlisted catalog path stays private
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), {
+    error: { code: "not_found", message: "No route matches this request." },
+  });
+  assert.equal(catalogHit, false); // security: the binding stays private
 });
 
 function envWithCatalog(captured: { req?: Request }) {
@@ -46,7 +53,7 @@ function envWithCatalog(captured: { req?: Request }) {
 void test("exact public anime overview GET forwards anonymously, no auth called", async () => {
   let authCalled = false;
   const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate });
+  const app = createWorkerApp({ authenticate });
   const cap: { req?: Request } = {};
   const res = await app.request("/catalog/public/anime-overview/3302", {}, envWithCatalog(cap), stubCtx);
   assert.equal(await res.text(), "cat");
@@ -54,7 +61,7 @@ void test("exact public anime overview GET forwards anonymously, no auth called"
 });
 
 void test("public catalog forwarding keeps only the minimal safe header allowlist", async () => {
-  const app = createWorkerApp({ nextHandler: stubNext });
+  const app = createWorkerApp({});
   const cap: { req?: Request } = {};
   const headers = {
     Accept: "application/json", Authorization: "Bearer test-token-000",
@@ -67,7 +74,7 @@ void test("public catalog forwarding keeps only the minimal safe header allowlis
 });
 
 void test("public anime overview rejects unexpected query parameters", async () => {
-  const app = createWorkerApp({ nextHandler: stubNext });
+  const app = createWorkerApp({});
   const cap: { req?: Request } = {};
   const res = await app.request("/catalog/public/anime-overview/3302?nonce=fixed", {}, envWithCatalog(cap), stubCtx);
   assert.equal(res.status, 400);
@@ -75,7 +82,7 @@ void test("public anime overview rejects unexpected query parameters", async () 
 });
 
 async function assertPublicCatalogRejected(path: string, method = "GET"): Promise<void> {
-  const app = createWorkerApp({ nextHandler: stubNext });
+  const app = createWorkerApp({});
   const cap: { req?: Request } = {};
   const res = await app.request(path, { method }, envWithCatalog(cap), stubCtx);
   assert.equal(res.status, 404);
@@ -97,11 +104,10 @@ void test("POST cannot invoke the public anime overview", () =>
 void test("PUT cannot invoke the public anime overview", () =>
   assertPublicCatalogRejected("/catalog/public/anime-overview/3302", "PUT"));
 
-void test("unknown path falls through to OpenNext", async () => {
-  const app = createWorkerApp({ nextHandler: stubNext });
-  const res = await app.request("/anything", {}, {}, stubCtx);
-  assert.equal(await res.text(), "next");
-});
+// (The old "unknown path falls through to OpenNext" case lived here. It is now
+// covered twice over by gatewayFallback.test.ts — `/` and `/some/legacy/page`
+// both assert the 404 status and the shared error envelope — so it was removed
+// rather than restated. Checked before deleting: the property survives.)
 
 void test("catalogOutbound forwards container requests to the CATALOG binding", async () => {
   let received: Request | null = null;
@@ -113,7 +119,7 @@ void test("catalogOutbound forwards container requests to the CATALOG binding", 
 });
 
 void test("/img/* routes to the image proxy (bad path → 400, not OpenNext)", async () => {
-  const app = createWorkerApp({ nextHandler: stubNext });
+  const app = createWorkerApp({});
   // "a..b" survives URL normalization (dots not adjacent to slashes) and trips
   // handleImageProxy's ".." guard → 400, proving the request reached the image
   // handler rather than falling through to OpenNext (which would return "next").
@@ -145,7 +151,7 @@ function envWithContainer(captured: { req?: Request }) {
 void test("/v1 public route -> container, no auth called", async () => {
   let authCalled = false;
   const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate });
+  const app = createWorkerApp({ authenticate });
   const cap: { req?: Request } = {};
   const res = await app.request("/v1/bangumi/popular", {}, envWithContainer(cap), stubCtx);
   assert.equal(await res.text(), "container");
@@ -155,7 +161,7 @@ void test("/v1 public route -> container, no auth called", async () => {
 void test("/v1 guide route (regex) is public -> container, no auth, client X-User stripped", async () => {
   let authCalled = false;
   const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate });
+  const app = createWorkerApp({ authenticate });
   const cap: { req?: Request } = {};
   const res = await app.request("/v1/bangumi/12345/guide", { headers: { "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
   assert.equal(await res.text(), "container");
@@ -164,7 +170,7 @@ void test("/v1 guide route (regex) is public -> container, no auth, client X-Use
 });
 
 void test("/v1 authed route without creds -> 401, container not hit", async () => {
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
+  const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
   const cap: { req?: Request } = {};
   const res = await app.request("/v1/chat", { method: "POST" }, envWithContainer(cap), stubCtx);
   assert.equal(res.status, 401);
@@ -173,7 +179,7 @@ void test("/v1 authed route without creds -> 401, container not hit", async () =
 
 void test("/v1 authed route with valid creds -> container gets X-User, no Authorization", async () => {
   const authenticate = () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const);
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate });
+  const app = createWorkerApp({ authenticate });
   const cap: { req?: Request } = {};
   await app.request("/v1/chat", { method: "POST", headers: { Authorization: "Bearer jwt" } }, envWithContainer(cap), stubCtx);
   assert.ok(cap.req);
@@ -184,14 +190,14 @@ void test("/v1 authed route with valid creds -> container gets X-User, no Author
 
 void test("client-forged X-User-Id is stripped on authed route (worker value wins)", async () => {
   const authenticate = () => Promise.resolve({ ok: true, userId: "real", userType: "human" } as const);
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate });
+  const app = createWorkerApp({ authenticate });
   const cap: { req?: Request } = {};
   await app.request("/v1/chat", { method: "POST", headers: { Authorization: "Bearer jwt", "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
   assert.equal(cap.req?.headers.get("X-User-Id"), "real");
 });
 
 void test("client-forged X-User-Id is stripped on PUBLIC route too", async () => {
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
+  const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
   const cap: { req?: Request } = {};
   await app.request("/v1/bangumi/popular", { headers: { "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
   assert.equal(cap.req?.headers.get("X-User-Id"), null);
@@ -202,7 +208,7 @@ void test("/v1/users/routes -> USERS with Authorization intact, no container or 
   let containerHit = false;
   let received: Request | undefined;
   const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate });
+  const app = createWorkerApp({ authenticate });
   const env = {
     USERS: { fetch: (req: Request) => { received = req; return Promise.resolve(new Response("users")); } },
     CONTAINER: {
@@ -219,7 +225,7 @@ void test("/v1/users/routes -> USERS with Authorization intact, no container or 
 
 void test("/v1/users/routes bypasses a rejecting authenticate stub", async () => {
   let received = false;
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
+  const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
   const env = {
     USERS: { fetch: () => { received = true; return Promise.resolve(new Response("users")); } },
   } as never;
@@ -230,7 +236,7 @@ void test("/v1/users/routes bypasses a rejecting authenticate stub", async () =>
 });
 
 function requiredEnv(): Record<string, string> {
-  return { DEEPSEEK_API_KEY: "k", MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x" };
+  return { DEEPSEEK_API_KEY: "k", MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x", APP_ENV: "development" };
 }
 
 void test("ANON_DAILY_MESSAGE_QUOTA reaches the container (issue #282) — wrangler.toml alone is not the whole contract", () => {

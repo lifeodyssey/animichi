@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Annotated, Literal, cast
 
+import httpx
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -35,10 +36,10 @@ from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from agent.clients.gemini_vision import GeminiVisionProvider, sniff_image_mime
 from agent.config.settings import Settings
 from agent.infrastructure.observability.photo_search import (
+    ClientQueryType,
     LayerHit,
     PhotoSearchQuota,
     PhotoSearchSignals,
-    QueryType,
     QuotaKey,
     record_photo_search,
 )
@@ -48,6 +49,7 @@ from agent.interfaces.routes._deps import (
     _get_settings_from_request,
     _get_trusted_auth_context,
 )
+from agent.interfaces.usage_metering import is_anonymous_identity
 
 router = APIRouter(prefix="/v1", tags=["photo-search"])
 
@@ -73,7 +75,7 @@ class PhotoSearchBody(BaseModel):
 
 
 class PhotoConfirmBody(BaseModel):
-    query_type: QueryType
+    query_type: ClientQueryType
     gps_available: bool
     layer_hit: LayerHit
     candidates_shown: int = Field(ge=0)
@@ -93,9 +95,9 @@ class PhotoSearchRuntime:
 
 
 def build_photo_search_runtime(
-    settings: Settings, catalog: CatalogClientProtocol
+    settings: Settings, catalog: CatalogClientProtocol, client: httpx.AsyncClient
 ) -> PhotoSearchRuntime:
-    provider = GeminiVisionProvider(api_key=settings.gemini_api_key)
+    provider = GeminiVisionProvider(api_key=settings.gemini_api_key, client=client)
     return PhotoSearchRuntime(platform_provider=provider, catalog=catalog)
 
 
@@ -104,7 +106,10 @@ def _build_from_state(request: Request) -> PhotoSearchRuntime:
     catalog = getattr(request.app.state, "catalog_client", None)
     if not isinstance(catalog, CatalogClient):
         catalog = CatalogClient(base_url=settings.catalog_api_url)
-    return build_photo_search_runtime(settings, catalog)
+    client = getattr(request.app.state, "model_http_client", None)
+    if not isinstance(client, httpx.AsyncClient):
+        raise RuntimeError("photo-search requires the lifespan HTTP client")
+    return build_photo_search_runtime(settings, catalog, client)
 
 
 def _get_photo_runtime(request: Request) -> PhotoSearchRuntime:
@@ -246,7 +251,9 @@ async def handle_photo_search(
     """Run the standalone vision pipeline and reply with a chat-shaped envelope."""
     runtime = _get_photo_runtime(request)
     byok = _byok_endpoint(request)
-    authenticated = auth.user_id is not None
+    authenticated = auth.user_id is not None and not is_anonymous_identity(
+        auth.user_id, auth.user_type
+    )
     try:
         image = _decode_image(body)
         tier = quota_tier_for(authenticated)

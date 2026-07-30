@@ -8,7 +8,7 @@ set -euo pipefail
 # Prerequisites:
 #   - supabase start (with Mailpit)
 #   - supabase functions serve send-auth-email --no-verify-jwt
-#   - frontend running on localhost:3001
+#   - web app running on localhost:3000
 #
 # Usage: make local-login
 #        bash scripts/local-login.sh [email]
@@ -17,6 +17,7 @@ EMAIL="${1:-dev@seichijunrei.test}"
 SUPABASE_URL="http://127.0.0.1:54321"
 ANON_KEY="sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
 MAILPIT_URL="http://localhost:54324"
+LOCAL_WEB_ORIGIN="${LOCAL_WEB_ORIGIN:-http://localhost:3000}"
 
 echo "Sending magic link to: $EMAIL"
 
@@ -46,8 +47,9 @@ for m in d['messages']:
 " 2>/dev/null)
 
   if [ -n "$LINK" ]; then
-    # Rewrite production URL to local — Edge Function may default to prod SITE_URL
-    LOCAL_LINK=$(echo "$LINK" | sed 's|https://seichijunrei\.zhenjia\.org|http://localhost:3001|g')
+    # Rewrite the callback origin to the local web app.
+    LINK_PATH="/${LINK#*://*/}"
+    LOCAL_LINK="${LOCAL_WEB_ORIGIN%/}${LINK_PATH}"
     echo ""
     echo "✅ Magic link found!"
     echo ""

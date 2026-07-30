@@ -6,7 +6,6 @@ import {
   authenticate as realAuthenticate,
   resolveAnonymous,
   resolveAnonymousReadOnly,
-  retireAnonymousCookie,
 } from "./auth.ts";
 import {
   budgetGuidanceResponse,
@@ -22,6 +21,7 @@ import {
   checkRateLimit,
   rateLimitConfigFrom,
 } from "./rateLimiter.ts";
+import { catalogRequestAllowed } from "./catalogPolicy.ts";
 import { type TurnstileGate, createTurnstileGate, guardTurnstile } from "./turnstile.ts";
 
 export interface Env {
@@ -37,10 +37,6 @@ export interface Env {
   ANON_ACCESS_ENABLED?: string;
   ANON_ID_SECRET?: string;
   [key: string]: unknown;
-}
-
-interface NextHandler {
-  fetch: (req: Request, env: unknown, ctx: WorkerExecutionContext) => Promise<Response>;
 }
 
 type WorkerExecutionContext = Pick<ExecutionContext, "waitUntil" | "passThroughOnException">;
@@ -247,6 +243,17 @@ const UNAUTHORIZED_BODY = {
   error: { code: "unauthorized", message: "Valid credentials required." },
 } as const;
 
+/** Issue #537: with the OpenNext catch-all gone, an unmatched path has no
+ * owner on this Worker. It answers a hard 404 in the same envelope as every
+ * other edge rejection (`unauthorized`, `rate_limited`) so one client parser
+ * covers the whole surface. Deliberately NOT a friendly 200 "this is an API
+ * gateway" page: that is a soft-404 — crawlers index it and clients cannot
+ * branch on it. Also reached via `c.notFound()` on the explicit
+ * `/catalog/public/*` deny, keeping both paths on one shape. */
+const NOT_FOUND_BODY = {
+  error: { code: "not_found", message: "No route matches this request." },
+} as const;
+
 /** Structured, credential-free record of a rejected credential (issue #441).
  *
  * #441 itself only surfaced through anomalous anonymous spend. Its inverse — a
@@ -262,25 +269,34 @@ function unauthorized(pathname: string): Response {
   return Response.json(UNAUTHORIZED_BODY, { status: 401 });
 }
 
-// ── Session migration (issue #273 Task 3) ──────────────────────────────────
+// ── Session migration (issue #273 Task 3) ─────────────────────────
 //
 // The only route where the edge forwards a trusted X-Anon-Id: it resolves
 // (never mints) the caller's `aid` cookie into the header the container
-// re-validates, then — only once the container reports an actual migration —
-// rotates the cookie so a shared browser's next visitor cannot inherit the
-// consumed identity.
+// re-validates.
+//
+// **The cookie is deliberately NOT retired afterwards (owner ruling, #507 —
+// this REVERSES S1.7 rev5 P2-b; see the spec's "Decision reversal" note).**
+// Retiring it minted a fresh `anon_<hex>` on the next anonymous turn, which
+// reset the per-identity quota — so "exhaust the anonymous quota -> take the
+// free magic link -> log out -> a brand-new anonymous allowance" became a loop
+// the D12 quota banner itself walks the visitor into. Login-grants-quota is the
+// conversion funnel working as intended and stays; the log-out-for-more leg
+// converts nobody and teaches visitors not to stay signed in.
+//
+// rev5's privacy argument does not survive the migration it follows: once the
+// UPDATE lands, that anonymous identity owns nothing — every `conversations`
+// row is re-pointed at the account — so a shared browser's next visitor
+// inherits an EMPTY identity. The only thing carried across is the day's quota
+// count, which is precisely the effect being kept. (Clearing cookies or opening
+// a private window still resets identity — `mintAnonymousIdentity` uses
+// `crypto.randomUUID()` with no device binding. That path is unclosable by
+// design and is not what this addresses.)
+//
+// Keeping the cookie also makes a failed migration recoverable: the anonymous
+// identity, and the work it still owns, survive for a later retry.
 
 const SESSION_MIGRATE_PATH = "/v1/session/migrate";
-
-async function didMigrate(response: Response): Promise<boolean> {
-  if (response.status !== 200) return false;
-  try {
-    const body: unknown = await response.clone().json();
-    return typeof body === "object" && body !== null && (body as { migrated?: unknown }).migrated === true;
-  } catch {
-    return false;
-  }
-}
 
 async function handleSessionMigrate(
   env: Env,
@@ -288,17 +304,25 @@ async function handleSessionMigrate(
   auth: { userId: string; userType: string },
 ): Promise<Response> {
   const identity = await resolveAnonymousReadOnly(request, env);
-  const forwarded = await forwardV1(env, request, auth, identity?.userId ?? null);
-  if (!(await didMigrate(forwarded))) return forwarded;
-  const headers = new Headers(forwarded.headers);
-  headers.append("Set-Cookie", retireAnonymousCookie());
-  return new Response(forwarded.body, { status: forwarded.status, headers });
+  return forwardV1(env, request, auth, identity?.userId ?? null);
 }
 
 /** Forward a container-originated catalog request to the private CATALOG binding
  * (in-datacenter hop, never the public internet). Wired as the container's
- * outboundByHost handler in entry.ts. */
+ * outboundByHost handler in entry.ts.
+ *
+ * This is one of two CATALOG call sites — `forwardPublicCatalog` above is the
+ * other, serving the browser's one allowlisted GET. This one is the container's,
+ * and it is deny-by-default: the container runs an LLM, so anything it can name
+ * it can be talked into naming. */
 export function catalogOutbound(request: Request, env: Env): Promise<Response> {
+  if (!catalogRequestAllowed(request)) {
+    const { pathname } = new URL(request.url);
+    // Logged as an object, not a JSON string: Workers Logs only indexes fields
+    // of structured entries, and filtering is the entire point of this line.
+    console.warn({ event: "catalog_outbound_denied", method: request.method, pathname });
+    return Promise.resolve(Response.json({ error: "catalog_request_forbidden" }, { status: 403 }));
+  }
   return env.CATALOG.fetch(request);
 }
 
@@ -327,14 +351,23 @@ async function handleImageProxy(request: Request, ctx: WorkerExecutionContext): 
   return response;
 }
 
-/** The main Worker app. NOTE: no /catalog/* route — catalog is private (reached
- * only via the container outboundByHost binding, never the public internet). */
-export function createWorkerApp(deps: {
-  nextHandler: NextHandler;
+/** The main Worker app: a pure API gateway (`/v1`, `/healthz`, the image proxy,
+ * and the one allowlisted public catalog read). NOTE: no /catalog/* route —
+ * catalog is private (reached only via the container outboundByHost binding,
+ * never the public internet).
+ *
+ * Issue #537 removed the OpenNext catch-all that used to render the legacy
+ * Next.js homepage here; `apps/web` owns every HTML surface now. Unmatched
+ * paths answer `NOT_FOUND_BODY` instead of a page — see its comment for why
+ * that is a hard 404 and not a friendly 200. */
+type WorkerApp = Hono<{ Bindings: Env }>;
+interface WorkerDeps {
   authenticate?: (request: Request, env: Env, ctx: WorkerExecutionContext) => Promise<AuthResult>;
   turnstileGate?: TurnstileGate;
-}): Hono<{ Bindings: Env }> {
-  const app = new Hono<{ Bindings: Env }>();
+}
+
+function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
+  app.notFound(() => Response.json(NOT_FOUND_BODY, { status: 404 }));
   const authenticate = deps.authenticate ?? ((req, env, ctx) => realAuthenticate(req, env, fetch, ctx));
   // One gate per app instance, built outside the request handler so its
   // short-lived pass window is shared by every request on the same isolate —
@@ -344,7 +377,7 @@ export function createWorkerApp(deps: {
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
   );
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
-  app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", (c) => {
+  app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", async (c) => {
     if (new URL(c.req.url).search) return c.text("Unexpected query parameters", 400);
     return forwardPublicCatalog(c.env, c.req.raw);
   });
@@ -387,6 +420,10 @@ export function createWorkerApp(deps: {
     if (anonymous !== null) return anonymous;
     return c.json(UNAUTHORIZED_BODY, 401);
   });
-  app.all("*", (c) => deps.nextHandler.fetch(c.req.raw, c.env, c.executionCtx));
+}
+
+export function createWorkerApp(deps: WorkerDeps): WorkerApp {
+  const app = new Hono<{ Bindings: Env }>();
+  registerWorkerRoutes(app, deps);
   return app;
 }

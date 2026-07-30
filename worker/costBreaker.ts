@@ -36,7 +36,7 @@ export function parseBudgetLatch(value: unknown): BudgetLatch | null {
 
 /** A latch only suppresses traffic for the day it was set — it self-expires. */
 export function isLatched(latch: BudgetLatch | null, dayKey: string): boolean {
-  return latch !== null && latch.dayKey === dayKey;
+  return latch?.dayKey === dayKey;
 }
 
 export async function readBudgetLatch(store: GuardStore, dayKey: string): Promise<boolean> {

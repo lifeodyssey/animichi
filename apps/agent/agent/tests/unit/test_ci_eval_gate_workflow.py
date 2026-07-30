@@ -106,7 +106,7 @@ def test_smoke_job_sets_supabase_db_url_so_settings_import_succeeds() -> None:
         _CI_WORKFLOW.read_text(encoding="utf-8"), "agent-eval-smoke"
     )
 
-    assert "SUPABASE_DB_URL" in job
+    assert re.search(r"(?m)^\s*SUPABASE_DB_URL:\s*\S+", job)
 
 
 def test_no_disabled_eval_gate_remains_in_ci() -> None:

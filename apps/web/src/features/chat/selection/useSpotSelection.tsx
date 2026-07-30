@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 /** E2 spot selection (issue #273 S1.7): a Set keyed by result spot identity. */
@@ -22,8 +22,9 @@ function toggled(previous: ReadonlySet<string>, id: string): ReadonlySet<string>
 }
 
 /** The live selection state; owned by ChatPage, shared through the provider. */
-export function useSpotSelectionState(): SpotSelection {
+export function useSpotSelectionState(sessionKey?: string): SpotSelection {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => { setSelected(new Set()); }, [sessionKey]);
   const toggle = useCallback((id: string) => {
     setSelected((previous) => toggled(previous, id));
   }, []);

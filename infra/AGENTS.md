@@ -22,7 +22,7 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 ## Key files + entrypoints
 
-- `index.ts` — R2 media bucket, optional web/edge routes, exported catalog DB secret.
+- `index.ts` — R2 media bucket, flag-gated web Custom Domains, edge routes, www redirect, staging WAF gate, and exported catalog DB secret.
 - `Pulumi.yaml` — project metadata and base encrypted config.
 - `Pulumi.staging.yaml` · `Pulumi.prod.yaml` — live environment stacks.
 - `../.github/workflows/_deploy-component.yml` — Pulumi `up` and Worker deploy sequence.
@@ -32,6 +32,30 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 - Never run a production apply without explicit user approval; CI's `production` environment is the
   mandatory human gate.
-- `webRoutesEnabled` defaults false. Enabling it is the route cutover and requires zone/domain
-  config; do not flip it as routine cleanup.
+- `webRoutesEnabled` defaults false. **Flipping it publishes the site**, and does so atomically on
+  purpose: the Custom Domain and the narrowed `/v1/*`, `/img/*`, `/healthz` edge routes appear
+  together. Splitting them is the bug this gate exists to prevent — a hostname that resolves before
+  its routes are narrowed answers a browser navigation with the edge Worker's JSON 404. Every stack
+  gets the same Custom-Domain-plus-three-routes shape (staging included: `apps/web` calls `/v1/*`
+  relative to its own origin, so a staging hostname pointed wholly at the web Worker has no chat).
+  Prod additionally gets the www placeholder and redirect, and so requires `wwwDomain` on top of
+  `cloudflareZoneId` + `webDomain`; other stacks require `cloudflareZoneId` + `stagingDomain`.
+  Do not flip it as routine cleanup.
+- `stagingGateEnabled` defaults false. Enabling it requires `stagingDomain` and the
+  `stagingGateToken` secret.
 - No Hyperdrive: catalog reaches Neon over `@neondatabase/serverless` HTTP.
+- **`pulumi stack export` runs unmodified before every `pulumi up`** (rollback backup, #485;
+  `_deploy-component.yml`'s "Pulumi stack export" step), then is copied to the **R2 bucket the
+  Pulumi state backend already lives in** (`rollback-backups/` prefix) via `aws s3 cp` — deliberately
+  **not** a GitHub Actions artifact, because this repo is **public**: a public repo's workflow
+  artifacts are downloadable by any signed-in GitHub account, not just people with repo access. It is
+  **never** run with `--show-secrets` — encrypted `secure:` config must stay ciphertext in that
+  export. Any new sensitive value added to `index.ts`/the stack configs MUST go through
+  `config.requireSecret()` / `getSecret()` (see `pulumi-best-practices` skill §5), never a plain
+  `config.require()` or a literal — a value that isn't marked secret is exported in the clear into
+  that R2 object. The R2 bucket is only as private as the R2 credentials that already gate the
+  Pulumi state itself; keeping the backup there (not GitHub artifacts) is what keeps that true for
+  the backup too.
+- No lifecycle/expiry rule exists yet on the `rollback-backups/` R2 prefix — objects accumulate
+  indefinitely. Adding one is a Pulumi resource change (`index.ts`), not a CI change; tracked as
+  **#521**.

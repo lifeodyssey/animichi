@@ -2,6 +2,27 @@ name = "catalog"
 main = "src/index.ts"
 compatibility_date = "2025-09-23"
 compatibility_flags = ["nodejs_compat"]
+# No public host of any kind — catalog is reached only through the root
+# Worker's CATALOG service binding. Two separate doors have to be shut:
+#
+#   workers_dev  — the <name>.<subdomain>.workers.dev host. wrangler resolves
+#                  `defaultWorkersDev = routes.length === 0`, and catalog
+#                  declares no routes, so omitting this publishes the Worker.
+#   preview_urls — the per-version <prefix>-<name>.<subdomain>.workers.dev
+#                  host. When the key is absent wrangler sends no
+#                  `previews_enabled` at all, so the server keeps Cloudflare's
+#                  enabled-by-default state — a public URL per version, with
+#                  real bindings. wrangler's "unintentionally public" warning
+#                  does not save us: it early-returns under isNonInteractiveOrCI.
+#
+# Both are `inheritable` keys (wrangler 4.112 cli.js:35080 / :35088), so the
+# top-level value alone covers every environment. The per-environment repeats
+# below are a deliberate policy choice enforced by
+# test/wrangler-private.worker.test.ts — a reader should not have to know the
+# inheritance rules to see that an environment is private — NOT a wrangler
+# requirement. Every environment is private; there is no exception.
+workers_dev = false
+preview_urls = false
 
 # Hyperdrive binds the Worker to a pooled Postgres connection in production.
 # src/index.ts reads env.HYPERDRIVE.connectionString first, falling back to
@@ -48,6 +69,8 @@ ENVIRONMENT = "development"
 
 [env.staging]
 name = "catalog-staging"
+workers_dev = false
+preview_urls = false
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
@@ -58,6 +81,8 @@ bucket_name = "catalog-media-staging"
 
 [env.production]
 name = "catalog"
+workers_dev = false
+preview_urls = false
 
 [env.production.vars]
 ENVIRONMENT = "production"
@@ -65,19 +90,3 @@ ENVIRONMENT = "production"
 [[env.production.r2_buckets]]
 binding = "MEDIA_BUCKET"
 bucket_name = "catalog-media"
-
-# Per-PR preview environment (issue #305). Routeless: CI deploys only the
-# one-time bootstrap that creates the Worker; previews are undeployed versions
-# reached through preview URLs. DATABASE_URL is injected per version from the
-# Neon branch preview/pr-<N> by .github/workflows/preview.yml.
-[env.preview]
-name = "catalog-preview"
-workers_dev = false
-preview_urls = true
-
-[env.preview.vars]
-ENVIRONMENT = "preview"
-
-[[env.preview.r2_buckets]]
-binding = "MEDIA_BUCKET"
-bucket_name = "catalog-media-staging" # reuse staging cache; previews are ephemeral

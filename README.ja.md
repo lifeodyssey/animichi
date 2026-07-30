@@ -88,7 +88,7 @@ make db-diff NAME=x    # ローカル変更から diff を生成
 | `SUPABASE_SERVICE_ROLE_KEY` | サーバーサイド Supabase 認証 |
 | `SUPABASE_ANON_KEY` | Worker エッジでの JWT 検証 |
 | `ANITABI_API_URL` | Anitabi 聖地データ API |
-| `GEMINI_API_KEY` | プランナーエージェント用 LLM |
+| `GEMINI_API_KEY` | 写真検索(photo-search)のプラットフォーム vision provider 用キー。常時マウントされ、会話モデルの選択に依存しない |
 
 **オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
@@ -128,7 +128,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 - `apps/agent/` — Python ランタイム本体。agents、interfaces、infrastructure、tests、tools を含む
 - `workers/catalog/` — アニメ聖地カタログ REST API を提供する Cloudflare Worker（TypeScript）
 - `packages/contract/` — catalog ↔ agent 間で共有する oRPC contract 型定義
-- `frontend/` — Next.js OpenNext-SSR のフロントエンドと UI コンポーネント
+- `apps/web/` — TanStack Start SSR の Web アプリと UI コンポーネント
 - `worker/` — 認証とリクエストルーティングを担う Cloudflare Worker
 - `supabase/` — スキーママイグレーションと Supabase プロジェクト資産
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画
