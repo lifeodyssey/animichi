@@ -22,13 +22,8 @@ updates:
 
   - package-ecosystem: "npm"
     directories:
-      - "/apps/web"
-      - "/workers/catalog"
-      - "/workers/users"
-      - "/packages/contract"
+      - "/"
       - "/infra"
-      - "/worker"
-      - "/e2e"
     schedule:
       interval: "weekly"
       day: "monday"
