@@ -55,8 +55,6 @@ on:
         required: false
       CORS_ALLOWED_ORIGIN:
         required: false
-      NEXT_PUBLIC_MAPBOX_TOKEN:
-        required: false
       TURNSTILE_SECRET:
         required: false
       ANON_ID_SECRET:
@@ -299,9 +297,12 @@ jobs:
         if: ${{ inputs.build_filter != '' }}
         env:
           BUILD_FILTER: ${{ inputs.build_filter }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+          VITE_SITE_ORIGIN: ${{ vars.VITE_SITE_ORIGIN }}
+          VITE_CATALOG_URL: ${{ vars.VITE_CATALOG_URL }}
+          VITE_USERS_URL: ${{ vars.VITE_USERS_URL }}
+          VITE_AGENT_URL: ${{ vars.VITE_AGENT_URL }}
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          VITE_NEON_AUTH_BASE_URL: ${{ vars.VITE_NEON_AUTH_BASE_URL }}
         run: pnpm --filter "$BUILD_FILTER" build
       - name: Atlas migrate
         # NOTE: secrets context is NOT allowed in step `if:` (GitHub compile-time
