@@ -21,6 +21,7 @@ import {
   checkRateLimit,
   rateLimitConfigFrom,
 } from "./rateLimiter.ts";
+import { catalogRequestAllowed } from "./catalogPolicy.ts";
 import { type TurnstileGate, createTurnstileGate, guardTurnstile } from "./turnstile.ts";
 
 export interface Env {
@@ -303,6 +304,11 @@ async function handleSessionMigrate(
  * (in-datacenter hop, never the public internet). Wired as the container's
  * outboundByHost handler in entry.ts. */
 export function catalogOutbound(request: Request, env: Env): Promise<Response> {
+  if (!catalogRequestAllowed(request)) {
+    const { pathname } = new URL(request.url);
+    console.warn(JSON.stringify({ event: "catalog_outbound_denied", method: request.method, pathname }));
+    return Promise.resolve(Response.json({ error: "catalog_request_forbidden" }, { status: 403 }));
+  }
   return env.CATALOG.fetch(request);
 }
 
