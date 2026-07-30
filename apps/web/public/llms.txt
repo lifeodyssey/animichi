@@ -1,0 +1,19 @@
+# Animichi
+
+> Anime pilgrimage (聖地巡礼) search and route planning: find the real-world places behind anime scenes, and turn a shortlist of them into a walkable one-day route.
+
+Animichi maps anime works to the real locations they were drawn from, then orders a
+selection of those locations into a route you can actually walk. Coverage is strongest in
+Japan. The interface is available in Japanese, Simplified Chinese and English; the site is
+a single URL per page and picks its language from the visitor's browser preferences.
+
+## Pages
+
+- [Home](https://animichi.com/): search by anime title, station or city, and start a route.
+- [Anime page](https://animichi.com/anime/): one page per work at `/anime/{bangumi_id}`, listing its pilgrimage spots, the regions they cluster into, and its famous scenes.
+
+## Notes
+
+- Scene and location data comes from [Anitabi](https://anitabi.cn/) under CC BY-NC-SA 4.0; work identifiers are [Bangumi](https://bgm.tv/) ids.
+- The public API is same-origin under `https://animichi.com/v1/` and is excluded from crawling in robots.txt. It is not a documented public interface.
+- Model-training crawlers (GPTBot, ClaudeBot, Google-Extended) are disallowed. Search and citation crawlers are allowed.
