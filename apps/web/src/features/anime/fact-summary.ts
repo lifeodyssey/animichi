@@ -3,7 +3,7 @@ import type {
   AnimeOverviewCircle,
   AnimeSampleRoute,
   AnimeScene,
-} from "@seichijunrei/contract";
+} from "@animichi/contract";
 
 /**
  * Pure derivations for the anime-page fact-summary block (SD-27 v1).

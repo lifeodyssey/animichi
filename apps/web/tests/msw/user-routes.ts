@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import type { HttpHandler, JsonBodyType } from "msw";
-import { ListRoutesResult, type UserRoute } from "@seichijunrei/contract";
+import { ListRoutesResult, type UserRoute } from "@animichi/contract";
 import { orpcErrorResponse } from "./contract-handler";
 import { TEST_ORIGIN } from "./fixtures";
 

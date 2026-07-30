@@ -1,4 +1,4 @@
-import { catalogContract } from "@seichijunrei/contract";
+import { catalogContract } from "@animichi/contract";
 import { implement } from "@orpc/server";
 import { resolve as resolveHandler, resolveDb } from "./api/resolve";
 import { search as searchHandler, searchDb } from "./api/search";

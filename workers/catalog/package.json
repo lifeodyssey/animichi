@@ -18,7 +18,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "@orpc/openapi": "1.14.8",
     "@orpc/server": "1.14.8",
-    "@seichijunrei/contract": "workspace:*",
+    "@animichi/contract": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.30",
     "zod": "4.4.3"

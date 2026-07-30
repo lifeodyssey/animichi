@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { notFound } from "@tanstack/react-router";
-import type { UserRoute } from "@seichijunrei/contract";
+import type { UserRoute } from "@animichi/contract";
 import { users } from "../orpc";
 import type { RouteDetail } from "../../lib/route-detail/dataState";
 

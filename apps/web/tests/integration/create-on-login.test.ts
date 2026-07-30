@@ -9,7 +9,7 @@
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import type { JsonBodyType } from "msw";
-import { ListRoutesResult, SaveRouteInput, UserRoute } from "@seichijunrei/contract";
+import { ListRoutesResult, SaveRouteInput, UserRoute } from "@animichi/contract";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";

@@ -19,7 +19,7 @@
     "@orpc/openapi-client": "1.14.8",
     "@orpc/tanstack-query": "1.14.8",
     "@protomaps/basemaps": "^5.7.2",
-    "@seichijunrei/contract": "workspace:*",
+    "@animichi/contract": "workspace:*",
     "@tanstack/react-query": "^5.101.2",
     "@tanstack/react-router": "^1.170.18",
     "@tanstack/react-router-with-query": "^1.130.17",
