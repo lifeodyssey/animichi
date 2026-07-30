@@ -293,6 +293,29 @@ jobs:
           if [ "$missing" = "1" ]; then
             exit 1
           fi
+      - name: Preflight - Vite build environment
+        if: ${{ inputs.build_filter != '' }}
+        env:
+          TARGET_COMPONENT: ${{ inputs.component }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          VITE_NEON_AUTH_BASE_URL: ${{ vars.VITE_NEON_AUTH_BASE_URL }}
+        run: |
+          # One explicit check per variable. Vite inlines these at build time, so
+          # an empty value ships a permanently broken feature rather than a
+          # runtime error anyone can fix afterwards.
+          #
+          # Names only in the log, never values: these are not secrets (Vite puts
+          # them in a public bundle by definition), but there is no reason to
+          # copy deploy configuration into a world-readable Actions log.
+          if [ -z "${VITE_TURNSTILE_SITE_KEY}" ]; then
+            echo "::error::VITE_TURNSTILE_SITE_KEY is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT. Refusing to build: anonymous chat cannot pass the edge challenge without it."
+            exit 1
+          fi
+          if [ -z "${VITE_NEON_AUTH_BASE_URL}" ]; then
+            echo "::error::VITE_NEON_AUTH_BASE_URL is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT. Refusing to build: magic-link sign-in would render as 'not configured' with no runtime remedy."
+            exit 1
+          fi
       - name: Build component
         if: ${{ inputs.build_filter != '' }}
         env:
