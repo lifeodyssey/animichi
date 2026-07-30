@@ -68,6 +68,13 @@ def utc_today(now: datetime | None = None) -> date:
     return (now or datetime.now(UTC)).astimezone(UTC).date()
 
 
+def is_anonymous_identity(user_id: str | None, user_type: str | None) -> bool:
+    """Prefer the typed edge marker, with the ID convention as a fallback."""
+    if user_type == ANONYMOUS_USER_TYPE:
+        return True
+    return user_id is not None and user_id.startswith(ANON_USER_ID_PREFIX)
+
+
 def scope_for_identity(
     user_id: str | None, user_type: str | None, *, is_byok: bool = False
 ) -> UsageScope:
@@ -80,9 +87,7 @@ def scope_for_identity(
     """
     if is_byok:
         return "byok"
-    if user_type == ANONYMOUS_USER_TYPE:
-        return "anon"
-    if user_id is not None and user_id.startswith(ANON_USER_ID_PREFIX):
+    if is_anonymous_identity(user_id, user_type):
         return "anon"
     return "user"
 

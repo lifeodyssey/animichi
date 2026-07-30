@@ -21,6 +21,7 @@ import {
   checkRateLimit,
   rateLimitConfigFrom,
 } from "./rateLimiter.ts";
+import { catalogRequestAllowed } from "./catalogPolicy.ts";
 import { type TurnstileGate, createTurnstileGate, guardTurnstile } from "./turnstile.ts";
 
 export interface Env {
@@ -308,8 +309,20 @@ async function handleSessionMigrate(
 
 /** Forward a container-originated catalog request to the private CATALOG binding
  * (in-datacenter hop, never the public internet). Wired as the container's
- * outboundByHost handler in entry.ts. */
+ * outboundByHost handler in entry.ts.
+ *
+ * This is one of two CATALOG call sites — `forwardPublicCatalog` above is the
+ * other, serving the browser's one allowlisted GET. This one is the container's,
+ * and it is deny-by-default: the container runs an LLM, so anything it can name
+ * it can be talked into naming. */
 export function catalogOutbound(request: Request, env: Env): Promise<Response> {
+  if (!catalogRequestAllowed(request)) {
+    const { pathname } = new URL(request.url);
+    // Logged as an object, not a JSON string: Workers Logs only indexes fields
+    // of structured entries, and filtering is the entire point of this line.
+    console.warn({ event: "catalog_outbound_denied", method: request.method, pathname });
+    return Promise.resolve(Response.json({ error: "catalog_request_forbidden" }, { status: 403 }));
+  }
   return env.CATALOG.fetch(request);
 }
 
