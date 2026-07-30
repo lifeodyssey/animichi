@@ -1,1 +1,8 @@
-{ "type": "module" }
+{
+  "type": "module",
+  "name": "edge-worker",
+  "private": true,
+  "scripts": {
+    "lint:oxlint": "oxlint --type-aware --deny-warnings ."
+  }
+}
