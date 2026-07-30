@@ -40,9 +40,11 @@ describe("AC4: the deferred intent lives in namespaced localStorage", () => {
     expect(readDeferredSave(1_000)).toBeUndefined();
   });
 
-  it("treats a malformed entry as absent AND erases it", () => {
+  it("treats a malformed entry as absent AND erases it", async () => {
     localStorage.setItem(DEFERRED_SAVE_KEY, '{"pointIds":"nope"}');
-    expect(readDeferredSave(1_000)).toBeUndefined();
+    const request = vi.fn();
+    expect(await replayDeferredSave(request, 1_000)).toBe("none");
+    expect(request).not.toHaveBeenCalled();
     expect(localStorage.getItem(DEFERRED_SAVE_KEY)).toBeNull();
   });
 
@@ -72,7 +74,7 @@ describe("AC5: an intent older than the TTL is ignored and cleared", () => {
   });
 });
 
-describe("S1 hardening: storage method failures degrade to no intent", () => {
+describe("S1 hardening: storage method failures do not escape", () => {
   it("does not throw when setItem is blocked at call time", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new DOMException("blocked", "SecurityError");
@@ -82,11 +84,14 @@ describe("S1 hardening: storage method failures degrade to no intent", () => {
     }).not.toThrow();
   });
 
-  it("reads no intent when getItem is blocked at call time", () => {
+  it("reads no intent but reports a failed claim when getItem is blocked", async () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new DOMException("blocked", "SecurityError");
     });
     expect(readDeferredSave(1_000)).toBeUndefined();
+    const request = vi.fn();
+    expect(await replayDeferredSave(request, 1_000)).toBe("failed");
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("does not throw when removeItem is blocked at call time", () => {
@@ -102,7 +107,7 @@ describe("S1 hardening: storage method failures degrade to no intent", () => {
       throw new DOMException("blocked", "SecurityError");
     });
     const request = vi.fn().mockResolvedValue({ id: "r1" });
-    expect(await replayDeferredSave(request, 1_100)).toBe("none");
+    expect(await replayDeferredSave(request, 1_100)).toBe("failed");
     expect(request).not.toHaveBeenCalled();
   });
 

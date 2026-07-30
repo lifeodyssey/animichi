@@ -22,18 +22,18 @@ export type DeferredReplayOutcome = "none" | "saved" | "failed";
 
 /**
  * Replay only after `takeDeferredSave` has removed the live intent. A blocked
- * claim sends no request; a failed request restores the original intent and
- * timestamp so it can be retried without extending the TTL.
+ * claim reports failure without sending; a failed request restores the original
+ * intent and timestamp so it can be retried without extending the TTL.
  */
 export async function replayDeferredSave(
   request: SaveRouteRequest = saveRouteRequest,
   now: number = Date.now(),
 ): Promise<DeferredReplayOutcome> {
-  const intent = takeDeferredSave(now);
-  if (intent === undefined) return "none";
-  const saved = await request(toSaveInput(intent)).then(() => true, () => false);
+  const claim = takeDeferredSave(now);
+  if (claim.kind !== "claimed") return claim.kind === "failed" ? "failed" : "none";
+  const saved = await request(toSaveInput(claim.intent)).then(() => true, () => false);
   // A failure restores the entry with its ORIGINAL timestamp, so a retry never
   // silently extends the TTL.
-  if (!saved) writeDeferredSave(intent, intent.createdAt);
+  if (!saved) writeDeferredSave(claim.intent, claim.intent.createdAt);
   return saved ? "saved" : "failed";
 }

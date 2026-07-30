@@ -24,6 +24,11 @@ export interface DeferredSaveIntent {
   readonly createdAt: number;
 }
 
+export type DeferredSaveClaim =
+  | { readonly kind: "absent" }
+  | { readonly kind: "claimed"; readonly intent: DeferredSaveIntent }
+  | { readonly kind: "failed" };
+
 /** SSR and privacy-locked browsers have no usable store; both read as "no intent". */
 function withStore<Result>(operation: (storage: Storage) => Result): Result | undefined {
   try {
@@ -52,13 +57,13 @@ function parse(raw: string): DeferredSaveIntent | undefined {
   }
 }
 
-function takeFromStore(storage: Storage, now: number): DeferredSaveIntent | undefined {
+function takeFromStore(storage: Storage, now: number): DeferredSaveClaim {
   const raw = storage.getItem(DEFERRED_SAVE_KEY);
-  if (raw === null) return undefined;
+  if (raw === null) return { kind: "absent" };
   const intent = parse(raw);
   storage.removeItem(DEFERRED_SAVE_KEY);
-  if (intent === undefined || now - intent.createdAt > DEFERRED_SAVE_TTL_MS) return undefined;
-  return intent;
+  if (intent === undefined || now - intent.createdAt > DEFERRED_SAVE_TTL_MS) return { kind: "absent" };
+  return { kind: "claimed", intent };
 }
 
 export function clearDeferredSave(): void {
@@ -91,9 +96,9 @@ export function readDeferredSave(now: number = Date.now()): DeferredSaveIntent |
   return intent;
 }
 
-/** Consume a live intent only after its removal succeeds. */
-export function takeDeferredSave(now: number = Date.now()): DeferredSaveIntent | undefined {
-  return withStore((storage) => takeFromStore(storage, now));
+/** Distinguish a safe claim from absence and storage failure. */
+export function takeDeferredSave(now: number = Date.now()): DeferredSaveClaim {
+  return withStore((storage) => takeFromStore(storage, now)) ?? { kind: "failed" };
 }
 
 /**
