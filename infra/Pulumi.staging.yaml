@@ -24,8 +24,15 @@ config:
   # SAME value must reach two places: this config, and the STAGING_GATE_TOKEN
   # GitHub secret that the Playwright suite sends.
   #
-  #   pulumi config set stagingGateEnabled true             --stack staging
-  #   pulumi config set --secret stagingGateToken "<value>" --stack staging
+  #   pulumi config set cloudflareZoneId <animichi.com zone id> --stack staging
+  #   pulumi config set stagingDomain staging.animichi.com      --stack staging
+  #   pulumi config set stagingGateEnabled true                 --stack staging
+  #   pulumi config set --secret stagingGateToken "<value>"     --stack staging
+  #
+  # The first two repeat the cutover block above on purpose. The gate reads them
+  # independently of `webRoutesEnabled`, so enabling only the gate while the
+  # cutover flag is still false fails the apply on missing config — which is
+  # what following the previous version of these instructions would have done.
   #
   # ── Data plane ──────────────────────────────────────────────────────────────
   # catalogDatabaseUrl is a secret — set it per stack, never commit the raw value:
