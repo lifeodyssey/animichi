@@ -53,6 +53,15 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          # On `push`, paths-filter diffs the event's `before` SHA against HEAD using
+          # local git (the API listFiles path is pull_request-only). The default
+          # fetch-depth of 1 leaves `before` unreachable, and `persist-credentials:
+          # false` means the action's own fallback fetch has no auth — it exits 128
+          # and every downstream lane, INCLUDING all eight deploy jobs, reports
+          # `skipping`. That is how the #483 merge to main deployed nothing while
+          # only this job showed red (2026-07-29, run 30429636371). Full history
+          # keeps the credentials hardening and makes `before` locally reachable.
+          fetch-depth: 0
           persist-credentials: false
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: f
@@ -426,6 +435,16 @@ jobs:
       working_directory: "."
       build_filter: frontend
       run_pulumi: false
+      # #527/#528 (P1-A): CORS_ALLOWED_ORIGIN is NOT listed here anymore, and
+      # this is NOT "staging doesn't need CORS restriction" — that framing
+      # was reasoned, not verified, and turned out wrong. It's provisioned
+      # instead as `[env.staging.vars].CORS_ALLOWED_ORIGIN` in the root
+      # `wrangler.toml` (see the comment there for the full chain: no
+      # wildcard fallback exists, the container hardcodes
+      # `APP_ENV=production`, and an absent value reproducibly crashes the
+      # container on boot via `settings.py`'s CORS validator — verified
+      # locally, not assumed). A plain domain name belongs in `vars`, not a
+      # GH secret nobody would think to look for.
       worker_secrets: |
         SUPABASE_URL
         SUPABASE_ANON_KEY
@@ -436,7 +455,9 @@ jobs:
         GEMINI_API_KEY
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
-        CORS_ALLOWED_ORIGIN
+      post_deploy_secrets: |
+        TURNSTILE_SECRET
+        ANON_ID_SECRET
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -449,8 +470,9 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-      CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+      TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+      ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
     concurrency: deploy-root-staging
 
   post-staging:
@@ -460,6 +482,9 @@ jobs:
     with:
       environment: staging
       suite: api
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   # staging validated → production (human approve via environment: production in
   # _deploy-component.yml). needs: post-staging guarantees staging passed api tests.
@@ -541,6 +566,9 @@ jobs:
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
         CORS_ALLOWED_ORIGIN
+      post_deploy_secrets: |
+        TURNSTILE_SECRET
+        ANON_ID_SECRET
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -555,6 +583,8 @@ jobs:
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
       CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+      TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+      ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
     concurrency: deploy-root-prod
 
   post-prod:
@@ -564,3 +594,6 @@ jobs:
     with:
       environment: production
       suite: smoke
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

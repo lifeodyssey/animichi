@@ -35,10 +35,10 @@ from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from agent.clients.gemini_vision import GeminiVisionProvider, sniff_image_mime
 from agent.config.settings import Settings
 from agent.infrastructure.observability.photo_search import (
+    ClientQueryType,
     LayerHit,
     PhotoSearchQuota,
     PhotoSearchSignals,
-    QueryType,
     QuotaKey,
     record_photo_search,
 )
@@ -73,7 +73,7 @@ class PhotoSearchBody(BaseModel):
 
 
 class PhotoConfirmBody(BaseModel):
-    query_type: QueryType
+    query_type: ClientQueryType
     gps_available: bool
     layer_hit: LayerHit
     candidates_shown: int = Field(ge=0)

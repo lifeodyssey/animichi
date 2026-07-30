@@ -230,7 +230,7 @@ void test("/v1/users/routes bypasses a rejecting authenticate stub", async () =>
 });
 
 function requiredEnv(): Record<string, string> {
-  return { DEEPSEEK_API_KEY: "k", MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x" };
+  return { DEEPSEEK_API_KEY: "k", MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x", APP_ENV: "development" };
 }
 
 void test("ANON_DAILY_MESSAGE_QUOTA reaches the container (issue #282) — wrangler.toml alone is not the whole contract", () => {

@@ -9,7 +9,12 @@ export default defineConfig({
     tailwindcss(),
     tanstackStart(),
     // compatibilityDate >= 2024-09-19 selects nitropack's modern assets-binding cloudflare-module preset (not legacy Workers Sites).
-    nitroV2Plugin({ preset: "cloudflare-module", compatibilityDate: "2025-07-15" }),
+    // plugins paths resolve against srcDir (= this directory); nitroV2Plugin spreads this config into createNitro.
+    nitroV2Plugin({
+      preset: "cloudflare-module",
+      compatibilityDate: "2025-07-15",
+      plugins: ["./src/server/noindex-plugin.ts"],
+    }),
     viteReact(),
   ],
 });

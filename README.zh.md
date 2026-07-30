@@ -88,7 +88,7 @@ make db-diff NAME=x    # 从本地变更生成 diff
 | `SUPABASE_SERVICE_ROLE_KEY` | 服务端 Supabase 认证 |
 | `SUPABASE_ANON_KEY` | Worker 边缘 JWT 验证 |
 | `ANITABI_API_URL` | Anitabi 圣地数据 API |
-| `GEMINI_API_KEY` | 规划器 Agent 使用的 LLM |
+| `GEMINI_API_KEY` | 图搜(photo-search)平台视觉 provider 用密钥,始终挂载,不受对话模型选择影响 |
 
 **可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 

@@ -11,6 +11,11 @@ on:
   schedule:
     - cron: "37 18 * * *" # 18:37 UTC daily — low-traffic, off the hour
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report eligible sessions without deleting"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -57,6 +62,8 @@ jobs:
         # $GITHUB_STEP_SUMMARY (agent.scripts.purge_anonymous_sessions.
         # _write_step_summary) — GitHub Actions sets that path for every
         # step automatically, no extra wiring needed here.
-        run: uv run --frozen python -m agent.scripts.purge_anonymous_sessions
+        run: |
+          uv run --frozen python -m agent.scripts.purge_anonymous_sessions \
+            ${{ inputs.dry_run == true && '--dry-run' || '' }}
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}

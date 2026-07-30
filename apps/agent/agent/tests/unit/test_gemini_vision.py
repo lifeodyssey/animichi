@@ -8,6 +8,7 @@ from typing import Self
 import httpx
 import pytest
 
+from agent.agents.vision_supply_router import VisionProviderMisconfigured
 from agent.clients import gemini_vision
 from agent.clients.gemini_vision import (
     GeminiVisionProvider,
@@ -97,3 +98,18 @@ async def test_recognize_posts_and_parses(monkeypatch: pytest.MonkeyPatch) -> No
     recognition = await provider.recognize([b"\xff\xd8\xff"], "ja")
     assert recognition.reported_image_count == 1
     assert recognition.candidate_titles == ["リズと青い鳥"]
+
+
+async def test_recognize_with_empty_key_fails_fast_without_a_network_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#502 P1-1: an unconfigured key must not even attempt the request —
+    and must raise a type distinct from a call that ran and failed."""
+
+    def _unexpected_client(*args: object, **kwargs: object) -> None:
+        raise AssertionError("must not build an HTTP client with no API key")
+
+    monkeypatch.setattr(gemini_vision.httpx, "AsyncClient", _unexpected_client)
+    provider = GeminiVisionProvider(api_key="")
+    with pytest.raises(VisionProviderMisconfigured):
+        await provider.recognize([b"\xff\xd8\xff"], "ja")

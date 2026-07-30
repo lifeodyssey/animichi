@@ -34,6 +34,11 @@ def mock_settings(tmp_path_factory: pytest.TempPathFactory) -> Settings:
     return Settings(
         anitabi_api_url="https://test.anitabi.com/api",
         app_env="test",
+        # Explicit non-wildcard origin: cors_allowed_origin's validator rejects
+        # "*" outside app_env=="development" (issue #498 follow-up — the check
+        # widened from only-production to fail-closed everywhere-but-dev), and
+        # this fixture's app_env=="test" sentinel is not "development".
+        cors_allowed_origin="http://localhost:3000",
         log_level="DEBUG",
         debug=True,
         max_retries=1,
