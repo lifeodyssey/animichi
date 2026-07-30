@@ -17,10 +17,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+from typing import cast
 from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+from pydantic_ai.models import Model
 
 from agent.interfaces.routes import byok as byok_route
 from agent.tests.integration._byok_probe_shared import (
@@ -101,24 +103,16 @@ class _OversizedStreamNoHeaderTransport(httpx.AsyncBaseTransport):
         return response
 
 
-class _SlowTransport(httpx.AsyncBaseTransport):
-    """Sleeps past the (patched, short) timeout before ever answering.
-
-    Records whether it was entered and whether it ran to completion, so the
-    timeout test can assert that the transport was cut off *mid-sleep* rather
-    than measuring how long the probe took. See that test for why.
-    """
-
-    def __init__(self, delay_seconds: float) -> None:
-        self._delay_seconds = delay_seconds
+class _CancellableProbeAgent:
+    def __init__(self) -> None:
         self.started = False
         self.completed = False
 
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+    async def run(self, message: object) -> None:
+        del message
         self.started = True
-        await asyncio.sleep(self._delay_seconds)
+        await asyncio.sleep(0)
         self.completed = True
-        return httpx.Response(200, content=_SMALL_OK_BODY, request=request)
 
 
 async def _probe_body(
@@ -220,34 +214,25 @@ async def test_a_connection_failure_collapses_to_provider_unreachable() -> None:
 async def test_the_probe_never_exceeds_its_timeout_ceiling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Patch the timeout constant down and confirm a slower transport is
-    actually cut off, proving the timeout enforces rather than being cosmetic.
-
-    Asserted on the transport's own state — entered but never finished — not
-    on elapsed wall-clock time. The earlier `elapsed < 1.0` form flaked in the
-    Neon CI lane: under load a 0.05s ceiling can still take over a second to
-    unwind, so the assertion measured the runner rather than the code. What it
-    was really trying to say is that the sleep never completed, and that is
-    now what it says. The repo's test rules ban timing-dependent asserts for
-    exactly this reason.
-    """
-    # Leave enough setup headroom for the deadline to fire inside the transport.
-    transport = _SlowTransport(delay_seconds=10.0)
-    monkeypatch.setattr(byok_route, "_PROBE_TIMEOUT_SECONDS", 3.0)
-    body = await _probe_body(transport)
-    assert body["error_code"] == "provider_unreachable"
-    assert transport.started is True
-    assert transport.completed is False
+    """Cancel after one event-loop checkpoint, without measuring real time."""
+    probe_agent = _CancellableProbeAgent()
+    monkeypatch.setattr(byok_route, "_PROBE_TIMEOUT_SECONDS", 0.0)
+    with patch.object(byok_route, "Agent", return_value=probe_agent):
+        result = await byok_route._run_probe(cast(Model, object()))
+    assert result.error_code == "provider_unreachable"
+    assert probe_agent.started is True
+    assert probe_agent.completed is False
 
 
-async def test_without_the_patched_timeout_the_slow_transport_would_have_succeeded() -> (
-    None
-):
-    """Control: proves the slow transport is a legitimate success shape at
-    the real 5s ceiling — the fast-timeout test above is the timeout firing,
-    not an unrelated fault in the fixture."""
-    body = await _probe_body(_SlowTransport(delay_seconds=0.01))
-    assert body == {"vision": True, "reachable": True, "error_code": None}
+async def test_without_the_patched_timeout_the_probe_agent_completes() -> None:
+    """Control: the fake agent succeeds when the real five-second ceiling applies."""
+    probe_agent = _CancellableProbeAgent()
+    with patch.object(byok_route, "Agent", return_value=probe_agent):
+        result = await byok_route._run_probe(cast(Model, object()))
+    assert result == byok_route.ProbeResult(
+        vision=True, reachable=True, error_code=None
+    )
+    assert probe_agent.completed is True
 
 
 def test_the_timeout_ceiling_constant_is_at_most_five_seconds() -> None:
