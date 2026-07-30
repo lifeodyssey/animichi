@@ -486,7 +486,6 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-      NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
     concurrency: deploy-root-staging
@@ -597,7 +596,6 @@ jobs:
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
       CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
-      NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
     concurrency: deploy-root-prod
