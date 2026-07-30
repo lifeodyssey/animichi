@@ -64,7 +64,39 @@ The report is still on disk:
 Ask for findings **incrementally** rather than in one final message, and read
 the log rather than trusting the wrapper's return value.
 
-## Judging whether it is alive
+## Arm a monitor immediately after dispatching
+
+**The completion notification you get seconds after dispatching is not the
+task finishing.** It is the forwarder returning a task ID. The real work starts
+then and runs for another eight to ten minutes with nothing watching it. Treat
+that first notification as "queued", never as "done", and never report its
+contents as a result.
+
+So the step after every dispatch is to arm a wait. Not manual polling, and not
+sitting idle:
+
+```bash
+L=$(ls -t ~/.claude/plugins/data/codex-openai-codex/state/*/jobs/<task-id>*.log 2>/dev/null|head -1)
+until [ $(( $(date +%s) - $(stat -f %m "$L") )) -gt 120 ]; do sleep 30; done
+echo "stopped"; git -C <target> status --short; tail -40 "$L"
+```
+
+Run that with `run_in_background: true` so you keep working.
+
+**The condition must catch both endings.** Waiting only for a diff to appear
+means a run that dies before writing anything waits forever, and silence is
+then indistinguishable from progress. Log-goes-quiet covers finished *and*
+crashed; add the diff check only as an early exit:
+
+```bash
+until [ -n "$(git -C <target> status --porcelain)" ] \
+   || [ $(( $(date +%s) - $(stat -f %m "$L") )) -gt 120 ]; do sleep 15; done
+```
+
+The log may not exist for the first ~30 seconds. Guard for that, or the whole
+wait collapses immediately on an empty `$L`.
+
+### Judging liveness by hand
 
 Two hard signals, and only these:
 
@@ -72,12 +104,20 @@ Two hard signals, and only these:
 2. A real `git status` diff in the target directory.
 
 Task IDs, the wrapper's return message, and `/codex:status` are **not**
-evidence. `ps | grep codex` is unreliable — it has missed live processes.
+evidence. `ps | grep codex` is unreliable — it has missed live processes that
+were demonstrably still writing to their log.
 
-```bash
-L=$(ls -t ~/.claude/plugins/data/codex-openai-codex/state/*/jobs/<id>*.log|head -1)
-until [ $(( $(date +%s) - $(stat -f %m "$L") )) -gt 120 ]; do sleep 30; done
-```
+### While it runs
+
+Do not touch the target directory. Reading a half-written file leads to
+"correcting" work that was still in progress; two writers in one tree produced
+silent conflicts more than once. Pick up other work in a *different* directory,
+or wait.
+
+A quiet log is not the same as a finished job — check the tail before deciding.
+Codex sometimes stops deliberately (a missing command, a permission wall) and
+says so, which is a different outcome from a crash and calls for a different
+fix.
 
 ## What the brief must contain
 
