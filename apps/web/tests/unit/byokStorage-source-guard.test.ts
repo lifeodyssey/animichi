@@ -1,9 +1,7 @@
 /**
  * Source-level guards for the BYOK storage boundary (issue #284 Task 6,
- * AC1). Deliberately NOT jsdom: under jsdom, `import.meta.url` resolves
- * against the configured jsdom page URL rather than a real `file://` path
- * (vitest.config.ts's `environmentOptions.jsdom.url`), which breaks
- * `node:fs` reads. This file uses the default (node) environment instead.
+ * AC1). Paths are rooted at Vitest's `apps/web` working directory, so this
+ * guard is independent of the selected test environment and worker pool.
  *
  * P1 review follow-up: the grep now walks the **entire** `src/` tree instead
  * of two flat directories — the AC says "no component", not "no component in
@@ -20,10 +18,13 @@
  * only real usage counts.
  */
 import { readFileSync, readdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const SRC_DIR = fileURLToPath(new URL("../../src/", import.meta.url));
+const HERE = dirname(fileURLToPath(import.meta.url));
+
+const SRC_DIR = resolve(HERE, "../../src");
 const BYOK_STORAGE_RELATIVE = "lib/byok/byokStorage.ts";
 /**
  * #282 rebase follow-up: the rule the AC states is "no *component* calls
