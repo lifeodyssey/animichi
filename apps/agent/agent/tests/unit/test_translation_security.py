@@ -134,6 +134,7 @@ async def test_title_fallback_exception_group_returns_original() -> None:
             target_locale="zh",
             kind="anime_title",
             catalog=_catalog_miss(),
+            ctx=_parent_context(),
         )
 
     assert result.translated == "unknown"
@@ -146,6 +147,8 @@ async def test_text_fallback_exception_group_returns_original() -> None:
     agent.run = AsyncMock(side_effect=failure)
 
     with patch("agent.agents.translation.translation_agent", agent):
-        result = await translate_text("hello", target_locale="zh")
+        result = await translate_text(
+            "hello", target_locale="zh", ctx=_parent_context()
+        )
 
     assert result == "hello"

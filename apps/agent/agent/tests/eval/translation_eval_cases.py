@@ -8,11 +8,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypedDict, cast
 
+from pydantic_ai.models.test import TestModel
+from pydantic_ai.usage import RunUsage
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext
 
 from agent.agents.translation import TranslationKind
 from agent.clients.catalog_client import CatalogClientProtocol
+
+
+@dataclass(frozen=True)
+class _TranslationContext:
+    model: TestModel
+    usage: RunUsage
 
 
 @dataclass
@@ -49,6 +57,7 @@ def make_translation_task(catalog: CatalogClientProtocol) -> TaskFn:
             target_locale=inp.target_locale,
             kind=inp.kind,
             catalog=catalog,
+            ctx=_TranslationContext(model=TestModel(), usage=RunUsage()),
         )
         return TranslationOutput(
             translated=result.translated,
