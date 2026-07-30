@@ -35,6 +35,6 @@
     "production": {
       "name": "animichi-web",
       "vars": { "APP_ENV": "production" }
-    },
+    }
   }
 }

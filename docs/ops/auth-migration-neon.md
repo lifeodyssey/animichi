@@ -26,7 +26,8 @@ Secret hygiene: this doc uses placeholders only. Real values live in the operato
 
 **Neon Auth (target):**
 - Provider `better_auth` on the project's default branch, database `neondb`, schema `neon_auth` (tables: `user`, `account`, `session`, `verification`, `jwks`, `organization`, `member`, `invitation`, `project_config`). JWKS provisioned.
-- Every Neon branch gets an isolated auth environment — preview branches need their own QA user provisioning (§4).
+- Every Neon branch gets an isolated auth environment; staging and disposable test branches need
+  their own QA user provisioning (§4).
 
 ## 2. Configuration applied (2026-07-10)
 
@@ -94,9 +95,12 @@ mails inbox <id>                       # body contains the sign-in link (SendGri
 **Path C — DB token read (per-branch fallback, no inbox needed):**
 Magic-link tokens are rows in `neon_auth.verification` (`identifier` = raw token, `value` = `{"email": …}`). After requesting a magic link, reconstruct:
 `$NEON_AUTH_BASE_URL/magic-link/verify?token=<identifier>&callbackURL=<url>`.
-Useful on preview branches where only Postgres access is handy. Treat as fallback — it bypasses email delivery, so keep Path B in the suite too.
+Useful on staging or disposable test branches where only Postgres access is handy. Treat as
+fallback — it bypasses email delivery, so keep Path B in the suite too.
 
-**Preview-branch provisioning** (auth is branch-isolated): re-run `user create` for QA identities and one sign-up POST for the password user against that branch's own base URL (`neonctl neon-auth status --branch <id>`), same commands as above.
+**Branch provisioning** (auth is branch-isolated): re-run `user create` for QA identities and one
+sign-up POST for the password user against that branch's own base URL (`neonctl neon-auth status
+--branch <id>`), same commands as above.
 
 ## 5. Cutover checklist (S0.6 / S0.8 — do NOT start in this slice)
 
