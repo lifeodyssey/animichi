@@ -328,14 +328,15 @@ async def handle_chat(
     login_rejection = _byok_login_rejection(request, auth)
     if login_rejection is not None:
         return login_rejection
+    rejection = await _budget_rejection(request, auth)
+    if rejection is not None:
+        return rejection
     settings = _get_settings_from_request(request)
     body = _decode_body(await request.body())
     api_request = _runtime_request(request, body, settings.message_max_chars)
     runtime_api = _get_runtime_api(request)
     await runtime_api.validate_session_owner(api_request.session_id, auth.user_id)
-    rejection = await _budget_rejection(request, auth)
-    if rejection is None:
-        rejection = await _quota_rejection(request, auth)
+    rejection = await _quota_rejection(request, auth)
     if rejection is not None:
         return rejection
     byok_model = await _resolve_byok_model(request)
