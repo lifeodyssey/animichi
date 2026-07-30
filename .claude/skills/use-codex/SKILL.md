@@ -48,13 +48,43 @@ learned on 2026-07-30 across ~17 dispatches, none of which delivered
 end-to-end until these causes were found — and none of the causes was Codex
 writing bad code.
 
-## Codex cannot commit. Plan the whole workflow around that.
+## Whether Codex can commit is inconsistent. Always check; salvage what it left.
 
-Every `git add` fails, in every directory shape tried:
+Sometimes `git add` fails:
 
 ```
 fatal: Unable to create '.../.git/index.lock': Operation not permitted
 ```
+
+Sometimes it does not. Observed on one afternoon, same plugin, all standalone
+clones with an ordinary `.git`:
+
+| time | clone | outcome |
+|---|---|---|
+| 19:38, 19:43 | `codex-worker-lint` | **two commits, succeeded** |
+| ~19:32 | `codex-comments` | failed on `index.lock` |
+| 20:03 | `codex-committest` | failed on `index.lock` |
+
+No theory yet fits. Directory shape does not explain it — clone versus linked
+worktree was proposed and disproved, then "the sandbox blocks all `.git` writes"
+was proposed and disproved by the successes above. **Three confident causal
+rules, all wrong, all from small samples.** Do not add a fourth from one more
+observation.
+
+The operating rule does not depend on knowing why, which is why it is the thing
+to remember:
+
+1. When the job stops, run `git -C <target> log --oneline -3` **and**
+   `git -C <target> status --short`.
+2. Commit anything uncommitted yourself, immediately.
+3. Then gates and review, as below.
+
+That is correct whether it committed or not, so it never needs revising.
+
+**Keep asking for commits in the brief.** When it works you get sensible
+boundaries — the worker-lint run split "add the gate" from "fix the violations"
+without being told to. When it does not, it fails loudly at a boundary and you
+salvage. Both are better than not asking.
 
 That is the sandbox refusing to write **anything under `.git`**, not a
 filesystem permission — the same path is writable from your own shell. Verify in
