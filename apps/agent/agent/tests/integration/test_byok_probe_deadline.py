@@ -23,6 +23,7 @@ pytestmark = pytest.mark.integration
 
 _HOST = "byok.example.test"
 _PUBLIC_IP = "8.8.8.8"
+_CALLBACK_TIMEOUT_SECONDS = 1.0
 _CLEANUP_TIMEOUT_SECONDS = 1.0
 _UNREACHABLE_BODY = {
     "vision": False,
@@ -46,6 +47,8 @@ class _ControlledAsyncio:
     def __init__(self) -> None:
         self._loop = asyncio.get_running_loop()
         self._outer_timeout: asyncio.Timeout | None = None
+        self._reschedule_finished = threading.Event()
+        self._reschedule_error: RuntimeError | None = None
 
     def timeout(self, _delay: float | None) -> asyncio.Timeout:
         timeout = asyncio.timeout(None)
@@ -53,14 +56,27 @@ class _ControlledAsyncio:
             self._outer_timeout = timeout
         return timeout
 
+    @property
+    def reschedule_succeeded(self) -> bool:
+        return self._reschedule_finished.is_set() and self._reschedule_error is None
+
     def expire_outer_timeout(self) -> None:
         timeout = self._outer_timeout
         if timeout is None:
             raise RuntimeError("The shared probe timeout was not entered.")
         self._loop.call_soon_threadsafe(self._reschedule_now, timeout)
+        if not self._reschedule_finished.wait(timeout=_CALLBACK_TIMEOUT_SECONDS):
+            raise RuntimeError("The shared probe timeout callback did not finish.")
+        if self._reschedule_error is not None:
+            raise self._reschedule_error
 
     def _reschedule_now(self, timeout: asyncio.Timeout) -> None:
-        timeout.reschedule(self._loop.time())
+        try:
+            timeout.reschedule(self._loop.time())
+        except RuntimeError as exc:
+            self._reschedule_error = exc
+        finally:
+            self._reschedule_finished.set()
 
 
 class _BlockingGetAddrInfo:
@@ -102,19 +118,20 @@ class _BlockingGetAddrInfo:
 
 def _install_resolver(
     monkeypatch: pytest.MonkeyPatch, blocked_resolution: int
-) -> _BlockingGetAddrInfo:
+) -> tuple[_BlockingGetAddrInfo, _ControlledAsyncio]:
     controlled_asyncio = _ControlledAsyncio()
     resolver = _BlockingGetAddrInfo(
         blocked_resolution, controlled_asyncio.expire_outer_timeout
     )
     monkeypatch.setattr(socket, "getaddrinfo", resolver)
     monkeypatch.setattr(byok_route, "asyncio", controlled_asyncio)
-    return resolver
+    return resolver, controlled_asyncio
 
 
 def _assert_deadline_result(
     response: httpx.Response,
     resolver: _BlockingGetAddrInfo,
+    controlled_asyncio: _ControlledAsyncio,
     blocked_resolution: int,
 ) -> None:
     assert response.status_code == 200
@@ -122,6 +139,7 @@ def _assert_deadline_result(
     assert resolver.call_count == blocked_resolution
     assert resolver.started.is_set()
     assert not resolver.completed.is_set()
+    assert controlled_asyncio.reschedule_succeeded
 
 
 @pytest.mark.parametrize(
@@ -134,9 +152,11 @@ async def test_shared_deadline_cancels_each_dns_resolution(
     blocked_resolution: int,
 ) -> None:
     """The route's one deadline causally cancels DNS calls one, two, and three."""
-    resolver = _install_resolver(monkeypatch, blocked_resolution)
+    resolver, controlled_asyncio = _install_resolver(monkeypatch, blocked_resolution)
     try:
         response = await post_probe(app(), HUMAN_HEADERS | BYOK_HEADERS)
-        _assert_deadline_result(response, resolver, blocked_resolution)
+        _assert_deadline_result(
+            response, resolver, controlled_asyncio, blocked_resolution
+        )
     finally:
         resolver.cleanup()
