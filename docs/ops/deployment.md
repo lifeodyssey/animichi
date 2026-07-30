@@ -225,9 +225,10 @@ Routing defined by `wrangler.toml`:
 
 Issue #537 removed the bundled Next.js app and with it the `[assets]` binding: this Worker
 has **no** HTML surface. `apps/web` deploys as its own Worker and owns every page. The root
-Worker's `routes` still claim `animichi.com/*` — narrowing that and pointing the apex at
-`apps/web` is issue #541 (DNS + routes), which must land before `animichi.com` gets a DNS
-record.
+Worker's `routes` still claim `animichi.com/*`, so the apex has not yet been cut over to the
+web Worker. Until issue #541 changes the DNS and route ownership, the root Worker owns the
+apex request but returns its JSON 404 for page paths; `apps/web` owns HTML only on its own
+Worker hostname. That cutover must land before `animichi.com` gets a DNS record.
 
 ## Deploy Sequence
 
@@ -304,6 +305,7 @@ Do not use version tags as a deploy trigger for the current pipeline.
 **CF Worker routing** (`worker/app.ts`):
 - `/v1/*` and `/healthz` → `CONTAINER` (Durable Object → FastAPI service on port 8080)
 - `/v1/users/*` → `USERS` service binding
+- `/catalog/public/anime-overview/:id` → allowlisted anonymous catalog read
 - `/img/*` → image proxy + cache
 - Everything else → JSON `404 not_found` (no asset/page fallback since #537)
 

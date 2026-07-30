@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Annotated, Literal, cast
 
+import httpx
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -94,9 +95,9 @@ class PhotoSearchRuntime:
 
 
 def build_photo_search_runtime(
-    settings: Settings, catalog: CatalogClientProtocol
+    settings: Settings, catalog: CatalogClientProtocol, client: httpx.AsyncClient
 ) -> PhotoSearchRuntime:
-    provider = GeminiVisionProvider(api_key=settings.gemini_api_key)
+    provider = GeminiVisionProvider(api_key=settings.gemini_api_key, client=client)
     return PhotoSearchRuntime(platform_provider=provider, catalog=catalog)
 
 
@@ -105,7 +106,10 @@ def _build_from_state(request: Request) -> PhotoSearchRuntime:
     catalog = getattr(request.app.state, "catalog_client", None)
     if not isinstance(catalog, CatalogClient):
         catalog = CatalogClient(base_url=settings.catalog_api_url)
-    return build_photo_search_runtime(settings, catalog)
+    client = getattr(request.app.state, "model_http_client", None)
+    if not isinstance(client, httpx.AsyncClient):
+        raise RuntimeError("photo-search requires the lifespan HTTP client")
+    return build_photo_search_runtime(settings, catalog, client)
 
 
 def _get_photo_runtime(request: Request) -> PhotoSearchRuntime:

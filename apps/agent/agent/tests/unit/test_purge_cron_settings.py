@@ -24,8 +24,6 @@ import pytest
 from agent.config.settings import get_settings
 from agent.scripts import purge_anon_quota_counts, purge_anonymous_sessions
 
-pytestmark = pytest.mark.filterwarnings("ignore::UserWarning")
-
 
 class _ReachedDatabase(Exception):
     """Raised the moment `_main` opens `SupabaseClient` — proof it got past
