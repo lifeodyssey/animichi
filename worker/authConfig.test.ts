@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -7,6 +8,12 @@ const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const WRANGLER = readFileSync(`${ROOT}wrangler.toml`, "utf8");
 const ENV_BLOCKS = ["[vars]", "[env.production.vars]", "[env.staging.vars]"];
 const TOP_LEVEL = WRANGLER.slice(0, WRANGLER.indexOf("\n[vars]\n"));
+const READ_CONFIG_SCRIPT = `
+process.env.WRANGLER_WRITE_LOGS = "false";
+const { unstable_readConfig } = await import("wrangler");
+const config = unstable_readConfig({ config: process.argv[1], env: process.argv[2] });
+process.stdout.write(String(config.name));
+`;
 
 function blockFor(header: string): string {
   const start = WRANGLER.indexOf(`\n${header}\n`) + 1;
@@ -23,7 +30,15 @@ function countMatches(source: string, pattern: RegExp): number {
   return source.match(pattern)?.length ?? 0;
 }
 
-test("Neon Auth vars stay on their intended Wrangler paths", () => {
+function parsedWorkerName(environment: string): string {
+  return execFileSync(
+    process.execPath,
+    ["--input-type=module", "--eval", READ_CONFIG_SCRIPT, `${ROOT}wrangler.toml`, environment],
+    { encoding: "utf8" },
+  );
+}
+
+void test("Neon Auth vars stay on their intended Wrangler paths", () => {
   for (const header of ENV_BLOCKS) {
     const block = blockFor(header);
     assert.equal(hasAssignment(block, "NEON_AUTH_ENABLED", "false"), true, `${header} must keep Neon Auth off`);
@@ -31,13 +46,24 @@ test("Neon Auth vars stay on their intended Wrangler paths", () => {
   }
 });
 
-test("bare Wrangler deploy has no target, while named environments keep theirs", () => {
+void test("bare Wrangler deploy has no target, while named environments keep theirs", () => {
   assert.equal(/^name\s*=/m.test(TOP_LEVEL), false, "top-level Wrangler config must not select a deploy target");
+  assert.equal(hasAssignment(blockFor("[[containers]]"), "name", "animichi-runtimecontainer"), true);
   assert.equal(hasAssignment(blockFor("[env.production]"), "name", "animichi"), true);
   assert.equal(hasAssignment(blockFor("[env.staging]"), "name", "animichi-staging"), true);
 });
 
-test("ci.yml keeps both JWKS secret paths complete", () => {
+void test("named Wrangler environments pass the real config parser", () => {
+  const environments = [
+    ["staging", "animichi-staging"],
+    ["production", "animichi"],
+  ] as const;
+  for (const [environment, expectedName] of environments) {
+    assert.equal(parsedWorkerName(environment), expectedName);
+  }
+});
+
+void test("ci.yml keeps both JWKS secret paths complete", () => {
   const workflowText = readFileSync(`${ROOT}.github/workflows/ci.yml`, "utf8");
   assert.equal(countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL\s*$/gm), 2, "ci.yml JWKS secret lists must stay complete");
   assert.equal(
@@ -49,7 +75,7 @@ test("ci.yml keeps both JWKS secret paths complete", () => {
   assert.equal(workflowText.includes("NEON_AUTH_ISSUER"), false, "ci.yml must not turn the public issuer into a secret");
 });
 
-test("deploy.yml keeps its JWKS secret path complete", () => {
+void test("deploy.yml keeps its JWKS secret path complete", () => {
   const workflowText = readFileSync(`${ROOT}.github/workflows/deploy.yml`, "utf8");
   assert.equal(countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL\s*$/gm), 1, "deploy.yml JWKS secret list must stay complete");
   assert.equal(
@@ -61,7 +87,7 @@ test("deploy.yml keeps its JWKS secret path complete", () => {
   assert.equal(workflowText.includes("NEON_AUTH_ISSUER"), false, "deploy.yml must not turn the public issuer into a secret");
 });
 
-test("_deploy-component.yml keeps its JWKS declaration and paths complete", () => {
+void test("_deploy-component.yml keeps its JWKS declaration and paths complete", () => {
   const workflowText = readFileSync(`${ROOT}.github/workflows/_deploy-component.yml`, "utf8");
   assert.equal(countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL:\s*$/gm), 1, "_deploy-component.yml must declare JWKS");
   assert.equal(
