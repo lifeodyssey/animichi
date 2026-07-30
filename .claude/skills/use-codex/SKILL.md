@@ -289,13 +289,26 @@ fix.
 ## What the brief must contain
 
 - **Working directory, plus `pwd` / `git rev-parse --abbrev-ref HEAD` /
-  `git log --oneline -1` echoed back in the report.** Codex has written into the
-  wrong worktree before.
+  `git rev-parse --short HEAD` echoed back in the report.** Codex has written
+  into the wrong worktree before.
+
+  **Give the SHA, never an abbreviated commit message.** A brief that said
+  `# must be: 3ce90a50 infra(#529): WAF gate...` cost a whole dispatch: Codex
+  compared the ellipsis literally against the full subject line, called it a
+  mismatch, and stopped — correctly, by the instruction it was given. The SHA
+  is unambiguous; a truncated message is a trap you set for yourself.
+
 - **Every gate command in full, with `uv run` / `pnpm run` prefixes, each one
   run by you first.** A brief that says `mypy` instead of the real invocation
   wastes a whole dispatch. In this repo bare `uv run mypy` fails with "Missing
   target module" — the working command is the file list in `Makefile:87`.
-- **The current baseline numbers**, so a regression is visible.
+- **Baseline numbers measured in *this* directory**, so a regression is visible.
+
+  Never copy them from a sibling clone. "agent unit: 1668 passed" was carried
+  over from a tree that already had another batch of fixes applied; the clean
+  base is 1666, so the next run looked like it had deleted two tests and cost a
+  detour to disprove. A count reads like an objective fact and is only true of
+  the tree it was taken from.
 - **The house rules**, especially: no suppressions, the 1-10-50 caps, no `any`.
   Say explicitly that *a suggestion which can only be satisfied by silencing a
   rule is not to be actioned.*
