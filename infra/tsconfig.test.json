@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "files": [
+    "testing/harness.ts",
+    "topology-disabled.test.ts",
+    "topology-prod.test.ts",
+    "topology-staging.test.ts"
+  ]
+}

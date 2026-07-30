@@ -32,10 +32,15 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 - Never run a production apply without explicit user approval; CI's `production` environment is the
   mandatory human gate.
-- `webRoutesEnabled` defaults false. Enabling it atomically publishes the web Custom Domain,
-  narrowed production edge routes, and the www-to-apex redirect; production requires
-  `cloudflareZoneId`, `webDomain`, and `wwwDomain`, while staging requires `cloudflareZoneId` and
-  `stagingDomain`. Do not flip it as routine cleanup.
+- `webRoutesEnabled` defaults false. **Flipping it publishes the site**, and does so atomically on
+  purpose: the Custom Domain and the narrowed `/v1/*`, `/img/*`, `/healthz` edge routes appear
+  together. Splitting them is the bug this gate exists to prevent — a hostname that resolves before
+  its routes are narrowed answers a browser navigation with the edge Worker's JSON 404. Every stack
+  gets the same Custom-Domain-plus-three-routes shape (staging included: `apps/web` calls `/v1/*`
+  relative to its own origin, so a staging hostname pointed wholly at the web Worker has no chat).
+  Prod additionally gets the www placeholder and redirect, and so requires `wwwDomain` on top of
+  `cloudflareZoneId` + `webDomain`; other stacks require `cloudflareZoneId` + `stagingDomain`.
+  Do not flip it as routine cleanup.
 - `stagingGateEnabled` defaults false. Enabling it requires `stagingDomain` and the
   `stagingGateToken` secret.
 - No Hyperdrive: catalog reaches Neon over `@neondatabase/serverless` HTTP.

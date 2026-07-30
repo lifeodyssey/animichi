@@ -54,36 +54,45 @@ const catalogMediaBucket = new cloudflare.R2Bucket("catalog-media", {
 if (webRoutesEnabled) {
   const cloudflareZoneId = config.require("cloudflareZoneId");
   const webScript = stack === "prod" ? "animichi-web" : `animichi-web-${stack}`;
+  const edgeScript = stack === "prod" ? "animichi" : `animichi-${stack}`;
 
+  // The hostname this stack serves: prod owns the apex, every other stack its
+  // own subdomain. Both get the SAME split — the Custom Domain is the origin
+  // for pages, and the three routes run ahead of it for the API surfaces.
+  // Staging must not be an exception: `apps/web` calls `/v1/chat`,
+  // `/v1/photo-search`, `/v1/conversations/...` relative to its own origin, so a
+  // staging hostname pointed wholly at the web Worker has no chat at all.
+  const apexDomain =
+    stack === "prod" ? config.require("webDomain") : config.require("stagingDomain");
+
+  new cloudflare.WorkersCustomDomain("animichi-web-domain", {
+    accountId,
+    hostname: apexDomain,
+    service: webScript,
+    zoneId: cloudflareZoneId,
+  });
+
+  new cloudflare.WorkersRoute("animichi-edge-v1-route", {
+    zoneId: cloudflareZoneId,
+    pattern: `${apexDomain}/v1/*`,
+    script: edgeScript,
+  });
+
+  new cloudflare.WorkersRoute("animichi-edge-img-route", {
+    zoneId: cloudflareZoneId,
+    pattern: `${apexDomain}/img/*`,
+    script: edgeScript,
+  });
+
+  new cloudflare.WorkersRoute("animichi-edge-healthz-route", {
+    zoneId: cloudflareZoneId,
+    pattern: `${apexDomain}/healthz`,
+    script: edgeScript,
+  });
+
+  // `www` is prod-only: there is no `www.staging.animichi.com`.
   if (stack === "prod") {
-    const webDomain = config.require("webDomain");
     const wwwDomain = config.require("wwwDomain");
-    const edgeScript = "animichi";
-
-    new cloudflare.WorkersCustomDomain("animichi-web-domain", {
-      accountId,
-      hostname: webDomain,
-      service: webScript,
-      zoneId: cloudflareZoneId,
-    });
-
-    new cloudflare.WorkersRoute("animichi-edge-v1-route", {
-      zoneId: cloudflareZoneId,
-      pattern: `${webDomain}/v1/*`,
-      script: edgeScript,
-    });
-
-    new cloudflare.WorkersRoute("animichi-edge-img-route", {
-      zoneId: cloudflareZoneId,
-      pattern: `${webDomain}/img/*`,
-      script: edgeScript,
-    });
-
-    new cloudflare.WorkersRoute("animichi-edge-healthz-route", {
-      zoneId: cloudflareZoneId,
-      pattern: `${webDomain}/healthz`,
-      script: edgeScript,
-    });
 
     new cloudflare.DnsRecord("animichi-www-placeholder", {
       zoneId: cloudflareZoneId,
@@ -111,21 +120,12 @@ if (webRoutesEnabled) {
               statusCode: 301,
               preserveQueryString: true,
               targetUrl: {
-                expression: `concat("https://${webDomain}", http.request.uri.path)`,
+                expression: `concat("https://${apexDomain}", http.request.uri.path)`,
               },
             },
           },
         },
       ],
-    });
-  } else {
-    const stagingDomain = config.require("stagingDomain");
-
-    new cloudflare.WorkersCustomDomain("animichi-web-domain", {
-      accountId,
-      hostname: stagingDomain,
-      service: webScript,
-      zoneId: cloudflareZoneId,
     });
   }
 }

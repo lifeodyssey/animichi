@@ -5,10 +5,14 @@
     "target": "es2020",
     "module": "commonjs",
     "moduleResolution": "node",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "forceConsistentCasingInFileNames": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true
   },
-  "files": ["index.ts"]
+  "files": [
+    "index.ts"
+  ]
 }
