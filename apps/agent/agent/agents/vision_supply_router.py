@@ -20,6 +20,8 @@ from pydantic_ai.usage import RunUsage
 
 logger = structlog.get_logger(__name__)
 
+logger = structlog.get_logger(__name__)
+
 EndpointId = NewType("EndpointId", str)
 
 # I/O-boundary failures a vision provider call may raise: transport/timeout,
