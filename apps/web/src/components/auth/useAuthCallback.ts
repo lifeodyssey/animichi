@@ -188,9 +188,10 @@ function derivedState(state: AuthCallbackState, migration: MigrationState): Auth
  */
 export function useAuthCallback(
   establish: Establish = getAuthToken, replay: Replay = replayDeferredSave,
-  migrate: Migrate | undefined = migrateAnonymousSession, expectsMigration = false,
+  migrate?: Migrate, expectsMigration = false,
 ): AuthCallbackSession {
-  return useCallbackSession({ establish, replay, migrate, expectsMigration });
+  const resolvedMigrate = migrate ?? migrateAnonymousSession;
+  return useCallbackSession({ establish, replay, migrate: resolvedMigrate, expectsMigration });
 }
 
 function useCallbackSession(c: Collaborators): AuthCallbackSession {
