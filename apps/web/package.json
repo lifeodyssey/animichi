@@ -14,7 +14,7 @@
     "preview": "wrangler dev"
   },
   "dependencies": {
-    "@ai-sdk/react": "^3.0.227",
+    "@ai-sdk/react": "^4.0.39",
     "@orpc/client": "1.14.8",
     "@orpc/openapi-client": "1.14.8",
     "@orpc/tanstack-query": "1.14.8",
