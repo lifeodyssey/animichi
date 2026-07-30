@@ -78,7 +78,10 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
   gates yourself before dispatching; and **the wrapper times out before Codex finishes**, so read
   the report from `~/.claude/plugins/data/codex-openai-codex/state/*/jobs/*.log`, not the return
   value. Expect sound judgement and a broken process: commit its output, then verify everything.
-  **Never** `codex exec --sandbox workspace-write` (hook `block-codex-exec-codewrite` blocks it).
+  **Arm a `Monitor` right after dispatching** — the notification that arrives seconds later is the
+  forwarder returning an ID, not the job finishing; key the watch on the job log going quiet, which
+  catches a crash as well as a clean finish. **Never** `codex exec --sandbox workspace-write` (hook
+  `block-codex-exec-codewrite` blocks it).
 - **Web browsing** → `/browse` (gstack). Never `mcp__claude-in-chrome__*`.
 - **CodeGraph** — `.codegraph/` is initialized; follow the **global** CodeGraph rules in `~/.claude/CLAUDE.md`
   (spawn an Explore agent for exploration; only lightweight `codegraph_*` lookups in the main session).

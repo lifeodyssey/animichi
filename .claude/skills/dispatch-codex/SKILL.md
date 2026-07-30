@@ -72,26 +72,60 @@ then and runs for another eight to ten minutes with nothing watching it. Treat
 that first notification as "queued", never as "done", and never report its
 contents as a result.
 
-So the step after every dispatch is to arm a wait. Not manual polling, and not
-sitting idle:
+So the step after every dispatch is to arm a watch. Not manual polling, and not
+sitting idle.
 
-```bash
-L=$(ls -t ~/.claude/plugins/data/codex-openai-codex/state/*/jobs/<task-id>*.log 2>/dev/null|head -1)
-until [ $(( $(date +%s) - $(stat -f %m "$L") )) -gt 120 ]; do sleep 30; done
-echo "stopped"; git -C <target> status --short; tail -40 "$L"
+**Use the `Monitor` tool, especially with more than one job in flight.** A
+backgrounded Bash `until` loop gives you one notification when it exits, which
+means one job per loop and nothing until each finishes. `Monitor` turns every
+stdout line into its own notification, so a single watch covers all concurrent
+jobs and reports whichever one moves:
+
+```
+Monitor({
+  description: "codex jobs: progress + stalls",
+  timeout_ms: 3600000,
+  persistent: false,
+  command: `
+    S=~/.claude/plugins/data/codex-openai-codex/state
+    while true; do
+      for L in $(ls -t $S/*/jobs/*.log 2>/dev/null | head -6); do
+        age=$(( $(date +%s) - $(stat -f %m "$L") ))
+        name=$(basename "$L" .log)
+        if [ "$age" -gt 120 ]; then
+          grep -q "^STOPPED $name$" /tmp/codex-seen 2>/dev/null && continue
+          echo "STOPPED $name" | tee -a /tmp/codex-seen
+        fi
+      done
+      sleep 30
+    done`,
+})
 ```
 
-Run that with `run_in_background: true` so you keep working.
+**The filter must match failure as well as success.** A watch that only greps
+for a completion marker stays silent through a crash, a hang, or a permission
+wall — and silence is indistinguishable from progress. Watching for *the log
+going quiet* covers finished and crashed alike, which is why the loop keys on
+mtime rather than on any particular line.
 
-**The condition must catch both endings.** Waiting only for a diff to appear
-means a run that dies before writing anything waits forever, and silence is
-then indistinguishable from progress. Log-goes-quiet covers finished *and*
-crashed; add the diff check only as an early exit:
+Two things that break these watches:
+
+- The log does not exist for the first ~30 seconds. An unguarded `stat` on an
+  empty path makes the condition true immediately and the watch reports a
+  finish that never happened.
+- Every stdout line becomes a message, so a watch must de-duplicate (the `seen`
+  file above) or one stalled job floods the conversation until the monitor is
+  auto-stopped for volume.
+
+A single-job Bash fallback, when `Monitor` is overkill:
 
 ```bash
 until [ -n "$(git -C <target> status --porcelain)" ] \
    || [ $(( $(date +%s) - $(stat -f %m "$L") )) -gt 120 ]; do sleep 15; done
 ```
+
+Note the diff check is only an early exit. Removing the mtime clause would make
+a run that dies before writing anything wait forever.
 
 The log may not exist for the first ~30 seconds. Guard for that, or the whole
 wait collapses immediately on an empty `$L`.
