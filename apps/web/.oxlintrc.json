@@ -1,6 +1,7 @@
 {
   "$schema": "../../node_modules/oxlint/configuration_schema.json",
   "extends": ["../../.oxlintrc.json"],
+  "plugins": ["react", "typescript"],
   "ignorePatterns": [
     "node_modules/**",
     ".output/**",
@@ -13,6 +14,8 @@
     "**/routeTree.gen.ts"
   ],
   "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
     "max-lines-per-function": [
       "error",
       { "max": 10, "skipBlankLines": true, "skipComments": true }
