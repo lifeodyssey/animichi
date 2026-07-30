@@ -111,6 +111,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
   [ "${rc}" -ne 0 ] || fail_test "a permanently-erroring CF edge should still fail the gate eventually, got exit 0"
   [ "${requests}" -eq 5 ] || fail_test "expected exactly 5 requests (the full retry budget), got ${requests}"
   [ "$(grep -c "Cloudflare edge 404" /tmp/cfedge404.out)" -eq 4 ] || fail_test "expected exactly 4 retry log lines (attempts 1-4 of 5), got: $(grep -c "Cloudflare edge 404" /tmp/cfedge404.out)"
+  ! grep -q "transport failure" /tmp/cfedge404.out || fail_test "Cloudflare 404 was misclassified as a transport failure"
   echo "PASS: Cloudflare edge 404 retries all attempts before failing (${requests} requests, exit ${rc})"
 }
 
