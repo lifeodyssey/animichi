@@ -113,6 +113,7 @@ binding = "USERS"
 service = "users"
 
 [[containers]]
+name = "animichi-runtimecontainer"
 class_name = "RuntimeContainer"
 image = "./Dockerfile"
 max_instances = 3
