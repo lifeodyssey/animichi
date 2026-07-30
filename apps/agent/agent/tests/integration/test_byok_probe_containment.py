@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -103,13 +102,22 @@ class _OversizedStreamNoHeaderTransport(httpx.AsyncBaseTransport):
 
 
 class _SlowTransport(httpx.AsyncBaseTransport):
-    """Sleeps past the (patched, short) timeout before ever answering."""
+    """Sleeps past the (patched, short) timeout before ever answering.
+
+    Records whether it was entered and whether it ran to completion, so the
+    timeout test can assert that the transport was cut off *mid-sleep* rather
+    than measuring how long the probe took. See that test for why.
+    """
 
     def __init__(self, delay_seconds: float) -> None:
         self._delay_seconds = delay_seconds
+        self.started = False
+        self.completed = False
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        self.started = True
         await asyncio.sleep(self._delay_seconds)
+        self.completed = True
         return httpx.Response(200, content=_SMALL_OK_BODY, request=request)
 
 
@@ -212,19 +220,23 @@ async def test_a_connection_failure_collapses_to_provider_unreachable() -> None:
 async def test_the_probe_never_exceeds_its_timeout_ceiling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Mock-clock style: patch the timeout constant down to a small value
-    and confirm a slower transport is actually cut off near THAT ceiling —
-    not near its own multi-second sleep — proving the timeout enforces
-    rather than being cosmetic. Real wall-clock time is asserted, bounded
-    well under the transport's sleep duration."""
+    """Patch the timeout constant down and confirm a slower transport is
+    actually cut off, proving the timeout enforces rather than being cosmetic.
+
+    Asserted on the transport's own state — entered but never finished — not
+    on elapsed wall-clock time. The earlier `elapsed < 1.0` form flaked in the
+    Neon CI lane: under load a 0.05s ceiling can still take over a second to
+    unwind, so the assertion measured the runner rather than the code. What it
+    was really trying to say is that the sleep never completed, and that is
+    now what it says. The repo's test rules ban timing-dependent asserts for
+    exactly this reason.
+    """
+    transport = _SlowTransport(delay_seconds=2.0)
     monkeypatch.setattr(byok_route, "_PROBE_TIMEOUT_SECONDS", 0.05)
-    started = time.monotonic()
-    body = await _probe_body(_SlowTransport(delay_seconds=2.0))
-    elapsed = time.monotonic() - started
+    body = await _probe_body(transport)
     assert body["error_code"] == "provider_unreachable"
-    assert elapsed < 1.0, (
-        f"probe took {elapsed:.2f}s — the 0.05s timeout ceiling did not enforce"
-    )
+    assert transport.started is True
+    assert transport.completed is False
 
 
 async def test_without_the_patched_timeout_the_slow_transport_would_have_succeeded() -> (
