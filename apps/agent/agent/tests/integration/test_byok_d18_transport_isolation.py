@@ -104,7 +104,17 @@ async def test_end_to_end_transport_isolation_between_main_loop_and_helper() -> 
         model_http_client=cast(httpx.AsyncClient, object()),
     )
     try:
-        with patch("agent.agents.translation.resolve_model", return_value=server_model):
+        # Patch where the lookup happens, not where the function is defined:
+        # `public_api` does `from agent.agents.base import resolve_model`, so a
+        # patch on `agent.agents.translation.resolve_model` misses entirely and
+        # the helper reaches the real endpoint — the transport records nothing
+        # and this test dies on an empty `requests` list rather than a wrong
+        # key. That is how it failed when the server-model choice moved out of
+        # `translation._translation_run_scope` and into
+        # `_server_title_translator`. Retarget this string if it moves again.
+        with patch(
+            "agent.interfaces.public_api.resolve_model", return_value=server_model
+        ):
             translator = api._server_title_translator([])
             await translator("タイトル", "en")
 
