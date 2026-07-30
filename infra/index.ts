@@ -62,6 +62,18 @@ if (webRoutesEnabled) {
   // Staging must not be an exception: `apps/web` calls `/v1/chat`,
   // `/v1/photo-search`, `/v1/conversations/...` relative to its own origin, so a
   // staging hostname pointed wholly at the web Worker has no chat at all.
+  // Only two stacks have a hostname today. A third would fall into the
+  // non-prod branch and read `stagingDomain` — and the natural way to bootstrap
+  // one is copying `Pulumi.staging.yaml`, which carries `staging.animichi.com`.
+  // That stack would then claim staging's hostname with its own Workers and
+  // silently take it over on the next `pulumi up`. Fail loudly instead; adding
+  // a stack should be a deliberate edit here, not an inherited surprise.
+  if (stack !== "prod" && stack !== "staging") {
+    throw new Error(
+      `stack "${stack}" has no hostname mapping. Add one here rather than ` +
+        `letting it inherit stagingDomain — see the comment above.`,
+    );
+  }
   const apexDomain =
     stack === "prod" ? config.require("webDomain") : config.require("stagingDomain");
 

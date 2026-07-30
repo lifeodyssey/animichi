@@ -37,6 +37,7 @@ test("exactly the three API surfaces are routed to the edge Worker", () => {
     "animichi.com/v1/*",
   ]);
   for (const route of ofType(built, ROUTE)) {
+    assert.equal(route.inputs.zoneId, "zone", "a route on the wrong zone matches nothing");
     assert.equal(route.inputs.script, "animichi", `${String(route.inputs.pattern)} script`);
   }
 });

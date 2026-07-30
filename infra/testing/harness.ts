@@ -47,9 +47,15 @@ export async function buildStack(
   await import("../index.ts");
   // Resource registration is async: `new cloudflare.X()` schedules an RPC that
   // reaches `newResource` on a later tick, so the array is still empty the
-  // instant the import resolves. Drain the loop until it stops growing —
-  // reading too early is indistinguishable from "the program built nothing",
-  // which is exactly the false pass this harness must not produce.
+  // instant the import resolves. Drain until it stops growing.
+  //
+  // Three quiet ticks is a heuristic, and a slow enough registration could in
+  // principle slip past it. What keeps that from becoming a silent pass is that
+  // every test file asserts the PRESENCE of something before it asserts any
+  // absence: `topology-disabled` requires the R2 bucket, and the other two
+  // require the Custom Domain and three routes. A short read therefore fails
+  // those first, loudly, rather than quietly satisfying "no www record here".
+  // Do not add an absence-only test file without a presence anchor in it.
   for (let stable = 0; stable < 3; ) {
     const before = built.length;
     await new Promise((resolve) => setImmediate(resolve));

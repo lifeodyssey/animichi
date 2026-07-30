@@ -11,6 +11,7 @@
     "testing/harness.ts",
     "topology-disabled.test.ts",
     "topology-prod.test.ts",
-    "topology-staging.test.ts"
+    "topology-staging.test.ts",
+    "topology-unknown-stack.test.ts"
   ]
 }

@@ -40,6 +40,7 @@ test("staging gets the SAME three edge routes as prod", () => {
     "staging.animichi.com/v1/*",
   ]);
   for (const route of ofType(built, ROUTE)) {
+    assert.equal(route.inputs.zoneId, "zone", "a route on the wrong zone matches nothing");
     assert.equal(route.inputs.script, "animichi-staging");
   }
 });
@@ -76,9 +77,14 @@ test("the gate rule is sealed as a SECRET before it reaches state", () => {
   assert.equal(unseal(only(built, RULESET).inputs.rules).isSecret, true);
 });
 
-test("the www redirect on prod is NOT secret — the seal is not blanket", () => {
-  // Guards the test above from being vacuous: if every input came back sealed,
-  // the secret assertion would pass no matter what the code did.
+test("an ordinary input on this same stack is NOT sealed", () => {
+  // Control for the test above. If `unseal` reported everything as secret —
+  // a wrong sentinel, a changed wire format — that assertion would pass no
+  // matter what the code did. A route pattern is the nearest non-secret input.
+  //
+  // Named for what it does. The first version called itself "the www redirect
+  // on prod is NOT secret", which was wrong twice over: this file builds
+  // staging, and the assertion is on a route pattern, not the redirect.
   const routes = ofType(built, ROUTE);
   assert.ok(routes.length > 0);
   assert.equal(unseal(routes[0].inputs.pattern).isSecret, false);
