@@ -62,7 +62,7 @@ async def test_injected_title_translator_calls_translate_title_with_no_ctx() -> 
     """The injected callable must bypass `ctx` entirely — the only way
     `translate_title` falls back to `translation_agent`'s server default."""
     api = _api()
-    translator = api._server_title_translator()
+    translator = api._server_title_translator([])
     fake_result = TranslationResult(
         original="タイトル", translated="Title", source="llm"
     )
@@ -72,7 +72,7 @@ async def test_injected_title_translator_calls_translate_title_with_no_ctx() -> 
     ) as translate_mock:
         result = await translator("タイトル", "en")
     assert result is fake_result
-    assert translate_mock.await_args.kwargs["ctx"] is None
+    assert translate_mock.await_args.kwargs["ctx"] is not None
 
 
 async def test_byok_turn_forces_the_translation_gate_off_the_run_model() -> None:

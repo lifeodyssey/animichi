@@ -10,7 +10,8 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
 
 from agent.agents.agent_result import AgentResult
-from agent.agents.translation import TranslationContext
+from agent.agents.runtime_deps import TitleTranslator
+from agent.agents.translation import TranslationContext, TranslationResult
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.config.settings import Settings
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
@@ -106,6 +107,31 @@ async def _translated_text(
     return "已翻译"
 
 
+async def _translated_title(
+    title: str,
+    *,
+    target_locale: str,
+    kind: str,
+    catalog: CatalogClientProtocol,
+    ctx: TranslationContext | None = None,
+) -> TranslationResult:
+    del target_locale, kind, catalog
+    assert ctx is not None
+    ctx.usage.requests += 1
+    ctx.usage.input_tokens += 1_000_000
+    ctx.usage.output_tokens += 1_000_000
+    return TranslationResult(title, "Title", "llm")
+
+
+async def _run_with_title_translation(
+    *, title_translator: TitleTranslator | None = None, **kwargs: object
+) -> AgentResult:
+    del kwargs
+    assert title_translator is not None
+    await title_translator("タイトル", "en")
+    return _result("already English")
+
+
 async def test_byok_without_translation_stays_zero_cost() -> None:
     repo = UsageRepo()
     result = _result("已经是中文")
@@ -128,6 +154,35 @@ async def test_byok_platform_translation_is_billed_to_user_scope() -> None:
         await _run_pipeline(_api(repo), result, TestModel(), is_byok=True)
 
     assert translate.await_args.kwargs["ctx"].model is server_model
+    assert [(call.scope, call.cost_usd) for call in repo.calls] == [
+        ("byok", 0.0),
+        ("user", 10.0),
+    ]
+
+
+async def test_byok_title_translation_platform_usage_is_billed_to_user_scope() -> None:
+    repo = UsageRepo()
+    api = _api(repo)
+    with (
+        patch(
+            "agent.interfaces.public_api.run_animichi_agent",
+            new=AsyncMock(side_effect=_run_with_title_translation),
+        ),
+        patch(
+            "agent.interfaces.public_api.translate_title",
+            new=AsyncMock(side_effect=_translated_title),
+        ),
+    ):
+        result = await api._model_request(
+            PublicAPIRequest(text="translate title"),
+            None,
+            [],
+            TestModel(),
+            None,
+            "user-1",
+            is_byok=True,
+        )
+    await api._record_usage(result, "user-1", "human", is_byok=True)
     assert [(call.scope, call.cost_usd) for call in repo.calls] == [
         ("byok", 0.0),
         ("user", 10.0),

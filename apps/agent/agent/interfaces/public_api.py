@@ -49,7 +49,12 @@ from agent.agents.selection import (
     validate_candidate_selection,
 )
 from agent.agents.session_state import SessionState
-from agent.agents.translation import TranslationResult, translate_text, translate_title
+from agent.agents.translation import (
+    TranslationResult,
+    translate_text,
+    translate_title,
+    translation_agent,
+)
 from agent.application.errors import ApplicationError, ErrorCode
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from agent.config.settings import Settings, get_settings
@@ -607,7 +612,8 @@ class RuntimeAPI:
         *,
         is_byok: bool = False,
     ) -> AgentResult:
-        return await asyncio.wait_for(
+        supplemental_usage: list[AttributedUsage] = []
+        result = await asyncio.wait_for(
             run_animichi_agent(
                 text=request.text,
                 db=cast(DatabasePort, self._db),
@@ -617,14 +623,22 @@ class RuntimeAPI:
                 message_history=history,
                 on_step=on_step,
                 catalog=self._catalog,
-                title_translator=self._server_title_translator() if is_byok else None,
+                title_translator=(
+                    self._server_title_translator(supplemental_usage)
+                    if is_byok
+                    else None
+                ),
                 memory_store=self._memory_store,
                 user_id=user_id,
             ),
             timeout=self._settings.agent_deadline,
         )
+        result.supplemental_usage.extend(supplemental_usage)
+        return result
 
-    def _server_title_translator(self) -> TitleTranslator:
+    def _server_title_translator(
+        self, supplemental_usage: list[AttributedUsage]
+    ) -> TitleTranslator:
         """D18: force `translate_anime_title` onto the server key on a BYOK
         turn. Without this override the tool inherits the active run's own
         model via `RunContext.model` (cheap connection reuse on every other
@@ -635,13 +649,17 @@ class RuntimeAPI:
         """
 
         async def _translate(title: str, target_language: str) -> TranslationResult:
-            return await translate_title(
+            usage = RunUsage()
+            result = await translate_title(
                 title,
                 target_locale=target_language,
                 kind="anime_title",
                 catalog=self._catalog,
-                ctx=None,
+                ctx=_TranslationContext(resolve_model(translation_agent.model), usage),
             )
+            if usage.requests > 0:
+                supplemental_usage.append(AttributedUsage(usage, "platform"))
+            return result
 
         return _translate
 

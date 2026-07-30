@@ -105,7 +105,7 @@ async def test_end_to_end_transport_isolation_between_main_loop_and_helper() -> 
     )
     try:
         with patch("agent.agents.translation.resolve_model", return_value=server_model):
-            translator = api._server_title_translator()
+            translator = api._server_title_translator([])
             await translator("タイトル", "en")
 
         await Agent(byok_model.model).run("hi")
