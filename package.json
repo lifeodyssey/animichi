@@ -7,7 +7,8 @@
   },
   "scripts": {
     "lint:oxlint": "pnpm --filter catalog --filter users --filter web run lint:oxlint",
-    "test:worker": "node --test worker/entry.test.ts worker/gatewayFallback.test.ts worker/photoSearch.test.ts worker/auth.test.ts worker/auth-neon.test.ts worker/turnstile.test.ts worker/turnstileArm.test.ts worker/turnstileReplay.test.ts worker/anonymousIdentity.test.ts worker/anonymous.test.ts worker/authFallthrough.test.ts worker/authScheme.test.ts worker/sessionMigration.test.ts worker/rateLimiter.test.ts worker/costBreaker.test.ts worker/byok.test.ts worker/byokBudgetExemption.test.ts worker/byokProbeAuth.test.ts worker/edgeGuard.test.ts worker/authRateLimitScope.test.ts worker/containerEnv.test.ts worker/catalogOutbound.test.ts worker/authConfig.test.ts"
+    "test:worker": "node --test worker/entry.test.ts worker/gatewayFallback.test.ts worker/photoSearch.test.ts worker/auth.test.ts worker/auth-neon.test.ts worker/turnstile.test.ts worker/turnstileArm.test.ts worker/turnstileReplay.test.ts worker/anonymousIdentity.test.ts worker/anonymous.test.ts worker/authFallthrough.test.ts worker/authScheme.test.ts worker/sessionMigration.test.ts worker/rateLimiter.test.ts worker/costBreaker.test.ts worker/byok.test.ts worker/byokBudgetExemption.test.ts worker/byokProbeAuth.test.ts worker/edgeGuard.test.ts worker/authRateLimitScope.test.ts worker/containerEnv.test.ts worker/catalogOutbound.test.ts worker/authConfig.test.ts worker/dependabotWorkflow.test.ts",
+    "verify:dependabot": "pnpm run lint:oxlint && pnpm run test:worker && pnpm -r --if-present typecheck && pnpm --filter web build"
   },
   "dependencies": {
     "@cloudflare/containers": "^0.3.7",
@@ -36,6 +37,7 @@
     "@cloudflare/workers-types": "^5.20260718.1",
     "@types/node": "^26.1.1",
     "oxlint": "~1.74.0",
-    "oxlint-tsgolint": "~0.25.0"
+    "oxlint-tsgolint": "~0.25.0",
+    "wrangler": "4.112.0"
   }
 }
