@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 
@@ -16,20 +17,20 @@ interface PnpmLock {
 }
 
 const dependencyName = "animal-island-ui-tailwind";
-const webPackageUrl = new URL("../../package.json", import.meta.url);
-const lockfileUrl = new URL("../../../../pnpm-lock.yaml", import.meta.url);
-const setupActionUrl = new URL("../../../../.github/actions/setup/action.yml", import.meta.url);
+const webPackagePath = resolve(process.cwd(), "package.json");
+const lockfilePath = resolve(process.cwd(), "../../pnpm-lock.yaml");
+const setupActionPath = resolve(process.cwd(), "../../.github/actions/setup/action.yml");
 
-function readText(url: URL): string {
-  return readFileSync(url, "utf8");
+function readText(path: string): string {
+  return readFileSync(path, "utf8");
 }
 
 function readWebPackage(): WebPackage {
-  return JSON.parse(readText(webPackageUrl)) as WebPackage;
+  return JSON.parse(readText(webPackagePath)) as WebPackage;
 }
 
 function readPnpmLock(): PnpmLock {
-  return parse(readText(lockfileUrl)) as PnpmLock;
+  return parse(readText(lockfilePath)) as PnpmLock;
 }
 
 describe("animal-island-ui-tailwind lockfile pin", () => {
@@ -45,6 +46,6 @@ describe("animal-island-ui-tailwind lockfile pin", () => {
   });
 
   it("keeps CI install drift visible through frozen lockfile installs", () => {
-    expect(readText(setupActionUrl)).toContain("pnpm install --frozen-lockfile");
+    expect(readText(setupActionPath)).toContain("pnpm install --frozen-lockfile");
   });
 });
