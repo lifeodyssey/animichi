@@ -10,7 +10,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from agent.agents.vision_supply_router import VisionRecognition
+from agent.agents.vision_supply_router import EndpointId, VisionRecognition
 from agent.config.settings import Settings
 from agent.infrastructure.observability import photo_search as telemetry
 from agent.infrastructure.observability.photo_search import PhotoSearchQuota
@@ -72,6 +72,19 @@ class _DownVisionProvider:
         raise httpx.ConnectError("connection refused")
 
 
+class _UsageRepo:
+    def __init__(self, spent: float = 0.0) -> None:
+        self.spent = spent
+        self.calls: list[dict[str, object]] = []
+
+    async def accumulate_usage(self, **kwargs: object) -> None:
+        self.calls.append(kwargs)
+
+    async def total_cost_usd(self, **kwargs: object) -> float:
+        del kwargs
+        return self.spent
+
+
 async def test_platform_vision_outage_degrades_to_clarify_not_500() -> None:
     """The fallback/degrade edge must be reachable end-to-end through the route."""
     app = _app()
@@ -86,6 +99,45 @@ async def test_platform_vision_outage_degrades_to_clarify_not_500() -> None:
     payload = response.json()
     assert payload["intent"] == "clarify"
     assert payload["data"]["reason"] == "photo_unrecognized"
+
+
+async def test_exhausted_anonymous_budget_rejects_before_vision() -> None:
+    app = _app(settings=Settings(anon_daily_cost_budget_usd=5.0))
+    repo = _UsageRepo(spent=5.0)
+    app.state.db_client.usage = repo
+    async with async_client(app) as client:
+        response = await client.post("/v1/photo-search", json=_body())
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "anon_budget_exhausted"
+    assert app.state.photo_search.platform_provider.calls == 0
+
+
+async def test_platform_vision_is_recorded_in_the_anonymous_scope() -> None:
+    app = _app(settings=Settings(model_input_cost_per_mtok_usd=2.0))
+    repo = _UsageRepo()
+    app.state.db_client.usage = repo
+    async with async_client(app) as client:
+        response = await client.post("/v1/photo-search", json=_body())
+    assert response.status_code == 200
+    assert [(call["scope"], call["requests"]) for call in repo.calls] == [("anon", 1)]
+
+
+async def test_byok_fallback_is_recorded_as_platform_user_usage() -> None:
+    app = _app(settings=Settings(model_input_cost_per_mtok_usd=2.0))
+    repo = _UsageRepo()
+    app.state.db_client.usage = repo
+    endpoint = EndpointId("ep-1")
+    app.state.photo_search.registry.mark(endpoint, True)
+    app.state.photo_search.byok_providers[endpoint] = _DownVisionProvider()
+    headers = {
+        "X-User-Id": "user-1",
+        "X-User-Type": "human",
+        "x-byok-endpoint": "ep-1",
+    }
+    async with async_client(app) as client:
+        response = await client.post("/v1/photo-search", json=_body(), headers=headers)
+    assert response.status_code == 200
+    assert [call["scope"] for call in repo.calls] == ["user"]
 
 
 async def test_unsupported_mime_type_is_a_clear_415() -> None:

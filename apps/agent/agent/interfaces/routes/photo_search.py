@@ -42,13 +42,19 @@ from agent.infrastructure.observability.photo_search import (
     QuotaKey,
     record_photo_search,
 )
+from agent.interfaces.public_api import record_attributed_usage
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
     _error_response,
     _get_settings_from_request,
     _get_trusted_auth_context,
 )
-from agent.interfaces.usage_metering import is_anonymous_identity
+from agent.interfaces.usage_metering import (
+    ANON_BUDGET_EXHAUSTED_CODE,
+    UsagePrices,
+    anonymous_budget_verdict,
+    is_anonymous_identity,
+)
 
 router = APIRouter(prefix="/v1", tags=["photo-search"])
 
@@ -217,6 +223,24 @@ def _check_quota(
     )
 
 
+async def _budget_rejection(
+    request: Request, auth: TrustedAuthContext
+) -> JSONResponse | None:
+    if auth.user_type not in (None, "anonymous"):
+        return None
+    settings = _get_settings_from_request(request)
+    verdict = await anonymous_budget_verdict(
+        request.app.state.db_client,
+        budget_usd=settings.anon_daily_cost_budget_usd,
+    )
+    if not verdict.exhausted:
+        return None
+    return JSONResponse(
+        status_code=403,
+        content={"error": {"code": ANON_BUDGET_EXHAUSTED_CODE, "action": "login"}},
+    )
+
+
 def _supply(runtime: PhotoSearchRuntime, byok: EndpointId | None) -> VisionSupply:
     provider = runtime.byok_providers.get(byok) if byok is not None else None
     return VisionSupply(
@@ -252,12 +276,15 @@ async def handle_photo_search(
     )
     try:
         image = _decode_image(body)
+        budget_rejection = await _budget_rejection(request, auth)
+        if budget_rejection is not None:
+            return budget_rejection
         tier = quota_tier_for(authenticated)
         settings = _get_settings_from_request(request)
         _check_quota(runtime, settings, tier, _quota_key(auth, request), byok)
     except PhotoSearchRejection as rejection:
         return _rejection_response(rejection)
-    return await _run_pipeline(runtime, byok, image, body, request, authenticated)
+    return await _run_pipeline(runtime, byok, image, body, request, auth, authenticated)
 
 
 async def _run_pipeline(
@@ -266,6 +293,7 @@ async def _run_pipeline(
     image: bytes,
     body: PhotoSearchBody,
     request: Request,
+    auth: TrustedAuthContext,
     authenticated: bool,
 ) -> JSONResponse:
     outcome = await run_photo_search(
@@ -277,6 +305,18 @@ async def _run_pipeline(
         authenticated,
     )
     record_photo_search(outcome.signals)
+    if outcome.usage is not None:
+        settings = _get_settings_from_request(request)
+        await record_attributed_usage(
+            request.app.state.db_client,
+            outcome.usage,
+            auth.user_id,
+            auth.user_type or "anonymous",
+            UsagePrices(
+                input_usd_per_mtok=settings.model_input_cost_per_mtok_usd,
+                output_usd_per_mtok=settings.model_output_cost_per_mtok_usd,
+            ),
+        )
     return JSONResponse(outcome.response.model_dump(exclude_none=True))
 
 

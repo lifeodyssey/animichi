@@ -12,6 +12,7 @@ import base64
 import json
 
 import httpx
+from pydantic_ai.usage import RunUsage
 
 from agent.agents.vision_supply_router import (
     VisionProviderMisconfigured,
@@ -96,6 +97,23 @@ def _parse_recognition(text: str) -> VisionRecognition:
     )
 
 
+def _parse_usage(body: object) -> RunUsage | None:
+    if not isinstance(body, dict):
+        return None
+    metadata = body.get("usageMetadata")
+    if not isinstance(metadata, dict):
+        return None
+    return RunUsage(
+        requests=1,
+        input_tokens=_token_count(metadata.get("promptTokenCount")),
+        output_tokens=_token_count(metadata.get("candidatesTokenCount")),
+    )
+
+
+def _token_count(value: object) -> int:
+    return value if isinstance(value, int) and value >= 0 else 0
+
+
 def _string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -131,4 +149,7 @@ class GeminiVisionProvider:
                 json=_payload(images, locale),
             )
         response.raise_for_status()
-        return _parse_recognition(_response_text(response.json()))
+        body = response.json()
+        recognition = _parse_recognition(_response_text(body))
+        recognition.usage = _parse_usage(body)
+        return recognition

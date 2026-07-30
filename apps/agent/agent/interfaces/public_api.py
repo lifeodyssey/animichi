@@ -845,6 +845,16 @@ async def _record_attributed_usage(
     await record_turn_usage(db, usage=item.usage, scope=scope, prices=prices)
 
 
+async def record_attributed_usage(
+    db: object,
+    item: AttributedUsage,
+    user_id: str | None,
+    user_type: str | None,
+    platform_prices: UsagePrices,
+) -> None:
+    await _record_attributed_usage(db, item, user_id, user_type, platform_prices)
+
+
 def _set_span_request_attrs(
     span: object,
     session_id: str | None,
