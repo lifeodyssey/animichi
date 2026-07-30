@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 interface WebPackage {
   dependencies?: Record<string, string>;
@@ -17,9 +20,9 @@ interface PnpmLock {
 }
 
 const dependencyName = "animal-island-ui-tailwind";
-const webPackagePath = resolve(process.cwd(), "package.json");
-const lockfilePath = resolve(process.cwd(), "../../pnpm-lock.yaml");
-const setupActionPath = resolve(process.cwd(), "../../.github/actions/setup/action.yml");
+const webPackagePath = resolve(HERE, "../../package.json");
+const lockfilePath = resolve(HERE, "../../../../pnpm-lock.yaml");
+const setupActionPath = resolve(HERE, "../../../../.github/actions/setup/action.yml");
 
 function readText(path: string): string {
   return readFileSync(path, "utf8");

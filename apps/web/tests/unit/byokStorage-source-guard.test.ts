@@ -18,10 +18,13 @@
  * only real usage counts.
  */
 import { readFileSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const SRC_DIR = resolve(process.cwd(), "src");
+const HERE = dirname(fileURLToPath(import.meta.url));
+
+const SRC_DIR = resolve(HERE, "../../src");
 const BYOK_STORAGE_RELATIVE = "lib/byok/byokStorage.ts";
 /**
  * #282 rebase follow-up: the rule the AC states is "no *component* calls
