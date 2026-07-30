@@ -28,6 +28,13 @@ describe("Users Worker routes wire", () => {
     expect(await listed.json()).toMatchObject({ routes: [{ title: "Tokyo" }] });
   });
 
+  it("lists sessions through the authenticated users endpoint", async () => {
+    const { app, headers } = await setup();
+    const response = await app.request("/v1/users/sessions?limit=1", { headers }, TEST_ENV);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ sessions: [], next_offset: null });
+  });
+
   it.each([
     [{ point_ids: [] }, "missing title"],
     [{ title: "", point_ids: [] }, "empty title"],

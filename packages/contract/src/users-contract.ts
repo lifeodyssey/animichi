@@ -107,8 +107,44 @@ export const ListRoutesResult = z.object({ routes: z.array(UserRoute) });
 /** Inferred list-routes result. */
 export type ListRoutesResult = z.infer<typeof ListRoutesResult>;
 
+/** Bounded page controls for listing the caller's sessions. */
+export const ListSessionsInput = z.strictObject({
+  limit: z.coerce.number().int().min(1).max(50).default(30),
+  offset: z.coerce.number().int().nonnegative().default(0),
+});
+/** Inferred session-list page controls. */
+export type ListSessionsInput = z.infer<typeof ListSessionsInput>;
+
+/** Conversation summary for one authenticated session. */
+export const UserSession = z.strictObject({
+  session_id: z.string().min(1),
+  title: z.string().nullable(),
+  first_query: z.string(),
+  created_at: z.iso.datetime({ offset: true }),
+  updated_at: z.iso.datetime({ offset: true }),
+});
+/** Inferred authenticated session summary. */
+export type UserSession = z.infer<typeof UserSession>;
+
+/** One bounded page of the caller's sessions. */
+export const ListSessionsResult = z.strictObject({
+  sessions: z.array(UserSession).max(50),
+  next_offset: z.number().int().nonnegative().nullable(),
+});
+/** Inferred session-list result. */
+export type ListSessionsResult = z.infer<typeof ListSessionsResult>;
+
 /** oRPC contract for authenticated user-route operations. */
 export const usersContract = {
+  listSessions: oc
+    .route({
+      method: "GET",
+      path: "/v1/users/sessions",
+      summary: "List the caller's sessions",
+      spec: requireBearer,
+    })
+    .input(ListSessionsInput)
+    .output(ListSessionsResult),
   listRoutes: oc
     .route({
       method: "GET",
