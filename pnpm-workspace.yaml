@@ -1,5 +1,4 @@
 packages:
-  - "frontend"          # legacy Next.js homepage — retired at apps/web cutover (S0.7)
   - "worker"            # CF edge worker — future workers/edge
   - "workers/*"
   - "apps/*"

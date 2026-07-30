@@ -201,5 +201,6 @@ if (stagingGateEnabled && stack === "staging") {
   });
 }
 
+
 export const wave0 = pulumi.output("spike-validated");
 export const catalogBucketName = catalogMediaBucket.name;

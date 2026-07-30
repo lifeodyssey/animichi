@@ -11,7 +11,7 @@ from pydantic_ai.exceptions import FallbackExceptionGroup
 from pydantic_ai.models import Model
 from pydantic_ai.usage import RunUsage
 
-from agent.agents.base import create_agent, resolve_model
+from agent.agents.base import create_agent
 from agent.agents.title_matching import looks_like_wrong_variant
 from agent.clients.catalog_client import (
     CatalogClientProtocol,
@@ -73,7 +73,7 @@ async def translate_title(
     target_locale: str,
     kind: TranslationKind,
     catalog: CatalogClientProtocol,
-    ctx: TranslationContext | None = None,
+    ctx: TranslationContext,
 ) -> TranslationResult:
     """Translate by semantic kind, using catalog only for Chinese anime titles."""
     catalog_title = await _catalog_zh_title(catalog, title, target_locale, kind)
@@ -115,7 +115,7 @@ async def _translate_title_with_llm(
     title: str,
     target_locale: str,
     kind: TranslationKind,
-    ctx: TranslationContext | None,
+    ctx: TranslationContext,
 ) -> str | None:
     translated = await _run_translation(_title_prompt(title, target_locale, kind), ctx)
     if translated is None:
@@ -138,7 +138,7 @@ async def translate_text(
     text: str,
     *,
     target_locale: str,
-    ctx: TranslationContext | None = None,
+    ctx: TranslationContext,
 ) -> str:
     """Translate a general UI or clarification string without tools."""
     if not text:
@@ -148,10 +148,9 @@ async def translate_text(
     return translated or text
 
 
-async def _run_translation(prompt: str, ctx: TranslationContext | None) -> str | None:
-    model, usage = _translation_run_scope(ctx)
+async def _run_translation(prompt: str, ctx: TranslationContext) -> str | None:
     try:
-        result = await translation_agent.run(prompt, usage=usage, model=model)
+        result = await translation_agent.run(prompt, usage=ctx.usage, model=ctx.model)
     except (FallbackExceptionGroup, OSError, RuntimeError, ValueError) as exc:
         logger.warning("translation_agent_failed", error=str(exc))
         return None
@@ -173,11 +172,3 @@ def _result(
         "translation_complete", original=original, source=source, confidence=confidence
     )
     return TranslationResult(original, translated, source, confidence)
-
-
-def _translation_run_scope(
-    ctx: TranslationContext | None,
-) -> tuple[Model, RunUsage]:
-    if ctx is not None:
-        return ctx.model, ctx.usage
-    return resolve_model(translation_agent.model), RunUsage()

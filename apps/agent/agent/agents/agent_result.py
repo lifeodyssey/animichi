@@ -55,6 +55,15 @@ StepProvenance: TypeAlias = (
     ProducedSearch | RejectedSearch | ProducedRoute | RejectedRoute
 )
 StepData: TypeAlias = dict[str, object]
+UsagePayer: TypeAlias = Literal["platform", "byok"]
+
+
+@dataclass(frozen=True)
+class AttributedUsage:
+    """Usage from one model call, labeled by who paid its provider."""
+
+    usage: RunUsage
+    payer: UsagePayer
 
 
 @dataclass(frozen=True)
@@ -96,6 +105,7 @@ class AgentResult:
     status: str | None = None
     success_override: bool | None = None
     provenance: TurnProvenance = field(default_factory=TurnProvenance)
+    supplemental_usage: list[AttributedUsage] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.provenance == TurnProvenance():

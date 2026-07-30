@@ -73,8 +73,7 @@ void test("an authenticated /v1/chat request succeeds even with today's anonymou
   await latchBudget(guard, utcDayKey(nowMs));
 
   const app = createWorkerApp({
-    nextHandler: { fetch: () => Promise.resolve(new Response("next", { status: 200 })) },
-    authenticate: () => Promise.resolve({ ok: true, userId: "user-a", userType: "human" } as const),
+        authenticate: () => Promise.resolve({ ok: true, userId: "user-a", userType: "human" } as const),
   });
   calls.length = 0; // only count calls made DURING the authenticated request below
   const res = await app.request(
@@ -98,8 +97,7 @@ void test("an authenticated BYOK request (X-BYOK-* headers present) is likewise 
   await latchBudget(guard, utcDayKey(nowMs));
 
   const app = createWorkerApp({
-    nextHandler: { fetch: () => Promise.resolve(new Response("next", { status: 200 })) },
-    authenticate: () => Promise.resolve({ ok: true, userId: "user-a", userType: "human" } as const),
+        authenticate: () => Promise.resolve({ ok: true, userId: "user-a", userType: "human" } as const),
   });
   calls.length = 0;
   const res = await app.request(

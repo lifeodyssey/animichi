@@ -16,11 +16,10 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
 - `workers/catalog/`   — TS Worker: anime catalog API + data platform (ingest/enrich/publish). → `workers/catalog/AGENTS.md`
 - `workers/users/`     — LIVE Hono/oRPC/jose user-data Worker; 21 tests + CI lane. → `workers/users/AGENTS.md`
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
-- `frontend/`          — Next.js (OpenNext-SSR), **homepage-only** (chat/search deleted 2026-06). → `frontend/AGENTS.md`
-- `apps/web/`          — TanStack Start SSR app: landing + branded 404; cutover build-out. → `apps/web/AGENTS.md`
-- `worker/`            — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy.
+- `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
+- `worker/`            — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy. No page fallback — unmatched paths 404.
 - `db/`                — Atlas/Neon migrations; Supabase migrations stay auth-only. → `db/AGENTS.md`
-- `e2e/`               — Playwright legacy + cutover browser suites. → `e2e/AGENTS.md`
+- `e2e/`               — Playwright browser suite for `apps/web`. → `e2e/AGENTS.md`
 - `infra/`             — Pulumi Cloudflare IaC. → `infra/AGENTS.md`
 
 ## Package managers
@@ -31,7 +30,7 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
 
 - `make check`         — lint + typecheck + unit + integration; the DB arm defaults offline. **Run before AND after any change.**
 - `make dev-db`        — agent-only Neon Local postgres-wire proxy on `:5432`; not for Workers.
-- `make dev-local`     — Supabase + backend + frontend, one command (never start services individually).
+- `make dev-local`     — Supabase + backend + web app, one command (never start services individually).
 - `make local-login`   — browser magic-link login for local dev.
 - `make test` — hermetic Python unit tests. `make test-integration` uses the offline Docker arm by
   default; select live Neon with `TEST_DB=neon`, or a disposable BYO database with
@@ -46,9 +45,9 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
 - **No `Any`** — Python: `object` + `isinstance()`; TS: no `any`. No `dict[str, object]` — model it.
 - **No suppression without user approval** — no `eslint-disable` / `@ts-ignore` / `type: ignore` /
   `noqa` / `pragma: no cover` / `continue-on-error` / `skip`. Fix the code; don't silence the rule.
-- **TypeScript gate (live packages)** — TypeScript 7.0.2 direct + type-aware oxlint/tsgolint with
-  `--deny-warnings`; ESLint remains only inside the frozen `frontend/` package.
-- **Coverage floors ratchet UP only** — frontend lines≥72 / stmts≥68 / fns≥62 / branches≥59; backend ≥82.
+- **TypeScript gate** — TypeScript 7.0.2 direct + type-aware oxlint/tsgolint with
+  `--deny-warnings` across every package. ESLint left the repo with `frontend/` (#537).
+- **Coverage floors ratchet UP only** — backend ≥82; `apps/web` floors live in `apps/web/AGENTS.md`.
 - **Test quality**: mock the clock (no timing-dependent asserts); no conditional logic in tests
   (split them); ≤200 lines per test file; ≤5 mocks per test.
 - **No local deploy** (hook `block-local-deploy`) — CI/CD only: staging = merge to `main`; prod =

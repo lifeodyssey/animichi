@@ -16,7 +16,6 @@ output
 .DS_Store
 CLAUDE.md
 docs
-frontend
 node_modules
 tests
 .mypy_cache

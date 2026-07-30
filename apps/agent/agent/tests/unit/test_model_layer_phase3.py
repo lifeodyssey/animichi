@@ -20,7 +20,6 @@ from agent.agents.base import (
     resolve_model_alias,
 )
 from agent.agents.route_area_splitter import split_into_areas
-from agent.agents.translation import _translation_run_scope, translation_agent
 from agent.config.model_aliases import (
     CredentialRef,
     ModelAlias,
@@ -166,10 +165,13 @@ async def test_override_helpers_forward_the_shared_client() -> None:
         create.return_value.run = AsyncMock(return_value=result)
         await _generate_title("session", "query", "response", http_client=client)
     default.assert_called_once_with(http_client=client)
-    with patch("agent.agents.translation.resolve_model", return_value=model) as resolve:
-        selected, _ = _translation_run_scope(None)
-    assert selected is model
-    resolve.assert_called_once_with(translation_agent.model)
+    # The translation arm of this test asserted `_translation_run_scope(None)`
+    # resolved the server default. That helper is gone: passing no context was
+    # exactly the path that minted a `RunUsage` nobody held, so platform spend
+    # went unrecorded (#532). The guarantee it was reaching for — internal
+    # translation runs on the server model — now lives in
+    # `test_injected_title_translator_runs_on_the_server_model`, asserted on the
+    # context that is actually supplied rather than on its absence.
     with patch(
         "agent.agents.route_area_splitter.route_planner_agent.run", new=AsyncMock()
     ) as run:

@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-router";
 import { NotFound } from "../components/NotFound";
 import { THEME_BOOTSTRAP_SCRIPT } from "../components/theme-bootstrap";
+import { SITE_ICON_LINKS, SITE_META } from "../features/seo/head";
+import { SITE_DESCRIPTION, SITE_TITLE } from "../features/seo/site";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../i18n/locales";
 import globalsUrl from "../styles/globals.css?url";
 
@@ -20,16 +22,19 @@ type RootDocumentProps = Readonly<{
   children: ReactNode;
 }>;
 
-const rootHead = {
-  links: [{ rel: "stylesheet", href: globalsUrl }],
+export const rootHead = {
+  links: [{ rel: "stylesheet", href: globalsUrl }, ...SITE_ICON_LINKS],
   // Pre-hydration theme init: every route honors the stored preference,
   // and the landing page cannot flash the day default.
   scripts: [{ children: THEME_BOOTSTRAP_SCRIPT }],
+  // Social-card defaults live at the root so every route has a card; deeper
+  // routes override `title` only, which is why og:title stays the site title.
   meta: [
     { charSet: "utf-8" },
     { name: "viewport", content: "width=device-width, initial-scale=1" },
-    { title: "Animichi" },
-    { name: "description", content: "Anime pilgrimage routes in minutes." },
+    { title: SITE_TITLE },
+    { name: "description", content: SITE_DESCRIPTION },
+    ...SITE_META,
   ],
 };
 
