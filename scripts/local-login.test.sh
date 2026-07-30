@@ -32,12 +32,12 @@ EOF
 
 chmod +x "${MOCK_BIN}/curl" "${MOCK_BIN}/python3" "${MOCK_BIN}/open" "${MOCK_BIN}/sleep"
 
-LOCAL_WEB_ORIGIN='http://local&host\dev' \
+LOCAL_WEB_ORIGIN='https://local&host\dev' \
 LOCAL_LOGIN_CAPTURE="${CAPTURE}" \
 PATH="${MOCK_BIN}:${PATH}" \
   bash "${SCRIPT}" fixture@example.test >/dev/null
 
-expected='http://local&host\dev/auth/v1/verify?token=fixture&next=local\path'
+expected='https://local&host\dev/auth/v1/verify?token=fixture&next=local\path'
 actual="$(<"${CAPTURE}")"
 [[ "${actual}" == "${expected}" ]] || {
   printf 'expected rewritten URL %q, got %q\n' "${expected}" "${actual}" >&2
