@@ -48,7 +48,8 @@ for m in d['messages']:
 
   if [ -n "$LINK" ]; then
     # Rewrite the callback origin to the local web app.
-    LOCAL_LINK=$(echo "$LINK" | sed -E "s|^https?://[^/]+|${LOCAL_WEB_ORIGIN}|")
+    LINK_PATH="/${LINK#*://*/}"
+    LOCAL_LINK="${LOCAL_WEB_ORIGIN%/}${LINK_PATH}"
     echo ""
     echo "✅ Magic link found!"
     echo ""
