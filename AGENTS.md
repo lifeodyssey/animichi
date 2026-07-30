@@ -70,9 +70,18 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
   ship/PR → `/ship` · qa → `/qa` · review → `/review` · docs → `/document-release` · retro → `/retro` ·
   design system → `/design-consultation` · visual → `/design-review` · architecture → `/plan-eng-review` ·
   quality → `/health` · brainstorm → `/office-hours`. TDD: `/backend-tdd` (Python), `/frontend-tdd` (React).
-- **Codex** — delegate code-writing / deep investigation to Codex via **`/codex`** (`use-codex`) or
-  **`codex:codex-rescue`** (Skill, or Agent `subagent_type="codex:codex-rescue"`) — the managed app-server
-  runtime. **Never** `codex exec --sandbox workspace-write` (hook `block-codex-exec-codewrite` blocks it).
+- **Codex** — delegate code-writing / deep investigation via **`codex:codex-rescue`**; review via
+  `/codex:review`; images via `/codex:imagegen`. **Read `.claude/skills/use-codex/SKILL.md` first** —
+  short, and skipping it costs whole dispatches. Four facts it exists for: **never run the raw CLI
+  concurrently or in a loop** (403/429 is connection contention, not a rate limit — retrying burns
+  quota; hook `guard-codex.sh` enforces it, and `block-codex-exec-codewrite` blocks raw code edits);
+  **Codex cannot commit** — its sandbox refuses every write under `.git`, worktree or clone alike, so
+  ask for changes left in the working tree and commit them yourself the moment the job stops;
+  **its sandbox has no network**, so build the environment and verify the gates yourself first;
+  and **the forwarder returns before Codex finishes**, so arm a `Monitor` keyed on the job log going
+  quiet and read the report from `~/.claude/plugins/data/codex-openai-codex/state/*/jobs/*.log`
+  rather than the return value. Expect sound judgement and a broken process — commit its output,
+  then re-run every gate yourself.
 - **Web browsing** → `/browse` (gstack). Never `mcp__claude-in-chrome__*`.
 - **CodeGraph** — `.codegraph/` is initialized; follow the **global** CodeGraph rules in `~/.claude/CLAUDE.md`
   (spawn an Explore agent for exploration; only lightweight `codegraph_*` lookups in the main session).

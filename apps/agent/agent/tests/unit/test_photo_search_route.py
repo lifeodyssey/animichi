@@ -72,20 +72,28 @@ class _DownVisionProvider:
         raise httpx.ConnectError("connection refused")
 
 
-async def test_platform_vision_outage_degrades_to_clarify_not_500() -> None:
-    """The fallback/degrade edge must be reachable end-to-end through the route."""
+def _outage_app() -> FastAPI:
     app = _app()
     app.state.photo_search = PhotoSearchRuntime(
         platform_provider=_DownVisionProvider(),
         catalog=FakeCatalog(),
         quota=PhotoSearchQuota(clock=lambda: datetime(2026, 7, 26, tzinfo=UTC)),
     )
-    async with async_client(app) as client:
-        response = await client.post("/v1/photo-search", json=_body())
+    return app
+
+
+def _assert_clarify_response(response: httpx.Response) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["intent"] == "clarify"
     assert payload["data"]["reason"] == "photo_unrecognized"
+
+
+async def test_platform_vision_outage_degrades_to_clarify_not_500() -> None:
+    """The fallback/degrade edge must be reachable end-to-end through the route."""
+    async with async_client(_outage_app()) as client:
+        response = await client.post("/v1/photo-search", json=_body())
+    _assert_clarify_response(response)
 
 
 async def test_unsupported_mime_type_is_a_clear_415() -> None:

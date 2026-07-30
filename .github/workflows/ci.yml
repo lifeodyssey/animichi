@@ -45,6 +45,7 @@ jobs:
       web: ${{ steps.f.outputs.web }}
       contract: ${{ steps.f.outputs.contract }}
       worker: ${{ steps.f.outputs.worker }}
+      infra: ${{ steps.f.outputs.infra }}
       migrations: ${{ steps.f.outputs.migrations }}
       neon_agent: ${{ steps.f.outputs.neon_agent }}
       neon_catalog: ${{ steps.f.outputs.neon_catalog }}
@@ -86,6 +87,7 @@ jobs:
             agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py', 'apps/agent/agent/config/settings.py', 'apps/agent/agent/tests/eval/**']
             web: ['apps/web/**']
             worker: ['worker/**']
+            infra: ['infra/**']
             migrations: ['supabase/migrations/**', 'db/**']
             neon_agent: ['apps/agent/**']
             neon_catalog: ['workers/catalog/**']
@@ -153,6 +155,33 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - run: pnpm run test:worker
+
+  ci-infra:
+    name: Infra CI
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.infra == 'true' }}
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: infra/pnpm-lock.yaml
+      - name: Install infra dependencies
+        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
+      - name: Verify infra lockfile matches package manifest
+        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts --lockfile-only
+      - name: Typecheck infra
+        run: npm run typecheck
 
   # ── Security (cross-language; always runs, no affected gate) ──
 
@@ -457,7 +486,6 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-      NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
     concurrency: deploy-root-staging
@@ -568,7 +596,6 @@ jobs:
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
       CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
-      NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
     concurrency: deploy-root-prod

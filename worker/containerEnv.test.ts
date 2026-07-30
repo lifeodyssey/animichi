@@ -41,8 +41,9 @@ function extractRealMatcher(): { matchesHostList: (hostname: string, patterns: s
   // Deliberate: evaluating the real vendored algorithm (read from disk, not
   // untrusted network input) so the tests below run against actual shipped
   // behavior rather than a hand-written copy of it — see the file header.
-  const factory = new Function(`${globHelpersSource}\nreturn { matchesHostList };`);
-  return factory() as { matchesHostList: (hostname: string, patterns: string[]) => boolean };
+  const factory = Reflect.construct(Function, [`${globHelpersSource}\nreturn { matchesHostList };`]) as unknown as
+    () => { matchesHostList: (hostname: string, patterns: string[]) => boolean };
+  return factory();
 }
 
 const { matchesHostList } = extractRealMatcher();
@@ -92,13 +93,13 @@ void test("DENIED_EGRESS_HOSTS does NOT match public addresses (spec Task 7 AC h
 
 void test("DENIED_EGRESS_HOSTS covers the full RFC1918 172.16/12 and CGNAT 100.64/10 octet ranges", () => {
   for (let octet = 16; octet <= 31; octet++) {
-    assert.equal(matchesHostList(`172.${octet}.1.1`, DENIED_EGRESS_HOSTS), true, `172.${octet}.*`);
+    assert.equal(matchesHostList(`172.${String(octet)}.1.1`, DENIED_EGRESS_HOSTS), true, `172.${String(octet)}.*`);
   }
   assert.equal(matchesHostList("172.32.1.1", DENIED_EGRESS_HOSTS), false, "172.32.0.0/12 boundary is public");
   assert.equal(matchesHostList("172.15.1.1", DENIED_EGRESS_HOSTS), false, "172.15.0.0/12 boundary is public");
 
   for (let octet = 64; octet <= 127; octet++) {
-    assert.equal(matchesHostList(`100.${octet}.1.1`, DENIED_EGRESS_HOSTS), true, `100.${octet}.*`);
+    assert.equal(matchesHostList(`100.${String(octet)}.1.1`, DENIED_EGRESS_HOSTS), true, `100.${String(octet)}.*`);
   }
   assert.equal(matchesHostList("100.63.1.1", DENIED_EGRESS_HOSTS), false, "100.64.0.0/10 lower boundary is public");
   assert.equal(matchesHostList("100.128.1.1", DENIED_EGRESS_HOSTS), false, "100.64.0.0/10 upper boundary is public");
@@ -210,12 +211,12 @@ function appEnvInBlock(header: string): string {
   const headerLineRegex = new RegExp(`^${escapeRegExp(header)}$`, "m");
   const headerMatch = headerLineRegex.exec(wranglerToml);
   assert.notEqual(headerMatch, null, `wrangler.toml must contain a "${header}" section header line`);
-  const headerIndex = (headerMatch as RegExpExecArray).index;
+  const headerIndex = headerMatch.index;
   const nextHeaderIndex = wranglerToml.indexOf("\n[", headerIndex + header.length);
   const block = wranglerToml.slice(headerIndex, nextHeaderIndex === -1 ? undefined : nextHeaderIndex);
   const match = /^APP_ENV\s*=\s*"([^"]+)"/m.exec(block);
   assert.notEqual(match, null, `"${header}" must set APP_ENV`);
-  return (match as RegExpExecArray)[1];
+  return match[1];
 }
 
 void test("wrangler.toml [vars] (default, wrangler dev) sets APP_ENV to development", () => {

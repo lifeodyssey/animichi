@@ -91,7 +91,7 @@ void test("a client-forged X-Anon-Id is overwritten by the edge's own resolution
     stubCtx,
   );
   assert.equal(cap.req?.headers.get("X-Anon-Id"), "anon_" + "c".repeat(32));
-  assert.notEqual(cap.req?.headers.get("X-Anon-Id"), "anon_" + "f".repeat(32));
+  assert.notEqual(cap.req.headers.get("X-Anon-Id"), "anon_" + "f".repeat(32));
 });
 
 // Owner ruling (#507) REVERSING S1.7 rev5 P2-b: the migration no longer retires
