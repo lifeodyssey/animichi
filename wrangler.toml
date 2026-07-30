@@ -50,10 +50,6 @@ compatibility_date = "2025-03-01"
 compatibility_flags = ["nodejs_compat"]
 main = "worker/entry.ts"
 
-routes = [
-  { pattern = "animichi.com/*", zone_name = "animichi.com" }
-]
-
 # Plain (non-secret) vars forwarded into the RuntimeContainer (Python agent).
 # CATALOG_API_URL is the base the agent's CatalogClient POSTs to as
 # `{CATALOG_API_URL}/catalog/<method>`. The container reaches catalog over the
@@ -153,9 +149,6 @@ head_sampling_rate = 1
 
 [env.production]
 name = "animichi"
-routes = [
-  { pattern = "animichi.com/*", zone_name = "animichi.com" }
-]
 
 [env.production.vars]
 # Forwarded to the container as APP_ENV (issue #498) — required, see

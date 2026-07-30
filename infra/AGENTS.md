@@ -22,7 +22,7 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 ## Key files + entrypoints
 
-- `index.ts` — R2 media bucket, optional web/edge routes, staging WAF gate, and exported catalog DB secret.
+- `index.ts` — R2 media bucket, flag-gated web Custom Domains, edge routes, www redirect, staging WAF gate, and exported catalog DB secret.
 - `Pulumi.yaml` — project metadata and base encrypted config.
 - `Pulumi.staging.yaml` · `Pulumi.prod.yaml` — live environment stacks.
 - `../.github/workflows/_deploy-component.yml` — Pulumi `up` and Worker deploy sequence.
@@ -32,8 +32,10 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 - Never run a production apply without explicit user approval; CI's `production` environment is the
   mandatory human gate.
-- `webRoutesEnabled` defaults false. Enabling it is the route cutover and requires zone/domain
-  config; do not flip it as routine cleanup.
+- `webRoutesEnabled` defaults false. Enabling it atomically publishes the web Custom Domain,
+  narrowed production edge routes, and the www-to-apex redirect; production requires
+  `cloudflareZoneId`, `webDomain`, and `wwwDomain`, while staging requires `cloudflareZoneId` and
+  `stagingDomain`. Do not flip it as routine cleanup.
 - `stagingGateEnabled` defaults false. Enabling it requires `stagingDomain` and the
   `stagingGateToken` secret.
 - No Hyperdrive: catalog reaches Neon over `@neondatabase/serverless` HTTP.

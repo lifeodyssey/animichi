@@ -9,8 +9,7 @@ import * as cloudflare from "@pulumi/cloudflare";
 //
 // Wave 2 (Task 4): catalog infra added below.
 // Wave 2+ will declare real infra parameterized per stack (prod / staging) —
-// R2 (media + Pulumi state), Workers routes (web `/*`, edge `/v1/*`+`/img/*`),
-// DNS, secrets.
+// R2 (media + Pulumi state), Worker routes/custom domains, DNS, secrets.
 // See docs/superpowers/specs/2026-06-23-platform-monorepo-cf-deploy-design.md
 
 const config = new pulumi.Config();
@@ -19,12 +18,16 @@ const mediaBucketName = stack === "prod" ? "catalog-media" : `catalog-media-${st
 const accountId = config.require("cloudflareAccountId");
 const webRoutesEnabled = config.getBoolean("webRoutesEnabled") ?? false;
 
-// Route topology remains in Pulumi (split-brain rule). Root wrangler routes
-// stay until S0.7 cutover flips this flag and removes route entries there.
+// Custom Domains own the web origins because they provide the originless Worker
+// hostname and certificate; explicit routes then take precedence for the edge
+// API paths. One flag gates DNS and those narrowed routes together, so enabling
+// it cannot publish the apex while it still falls through to the edge JSON 404.
 // Keep this false by default; enabling requires:
 //   pulumi config set webRoutesEnabled true
 //   pulumi config set cloudflareZoneId <zone id>
 //   pulumi config set webDomain <domain>
+//   pulumi config set stagingDomain staging.animichi.com
+//   pulumi config set wwwDomain www.animichi.com
 
 // ── Catalog: Neon DATABASE_URL (managed secret — stored in Pulumi config) ────
 // Optional and operator-set per stack via:
@@ -50,33 +53,81 @@ const catalogMediaBucket = new cloudflare.R2Bucket("catalog-media", {
 
 if (webRoutesEnabled) {
   const cloudflareZoneId = config.require("cloudflareZoneId");
-  const webDomain = config.require("webDomain");
   const webScript = stack === "prod" ? "animichi-web" : `animichi-web-${stack}`;
-  const edgeScript = stack === "prod" ? "animichi" : `animichi-${stack}`;
 
-  new cloudflare.WorkersRoute("animichi-web-route", {
-    zoneId: cloudflareZoneId,
-    pattern: `${webDomain}/*`,
-    script: webScript,
-  });
+  if (stack === "prod") {
+    const webDomain = config.require("webDomain");
+    const wwwDomain = config.require("wwwDomain");
+    const edgeScript = "animichi";
 
-  new cloudflare.WorkersRoute("animichi-edge-v1-route", {
-    zoneId: cloudflareZoneId,
-    pattern: `${webDomain}/v1/*`,
-    script: edgeScript,
-  });
+    new cloudflare.WorkersCustomDomain("animichi-web-domain", {
+      accountId,
+      hostname: webDomain,
+      service: webScript,
+      zoneId: cloudflareZoneId,
+    });
 
-  new cloudflare.WorkersRoute("animichi-edge-img-route", {
-    zoneId: cloudflareZoneId,
-    pattern: `${webDomain}/img/*`,
-    script: edgeScript,
-  });
+    new cloudflare.WorkersRoute("animichi-edge-v1-route", {
+      zoneId: cloudflareZoneId,
+      pattern: `${webDomain}/v1/*`,
+      script: edgeScript,
+    });
 
-  new cloudflare.WorkersRoute("animichi-edge-healthz-route", {
-    zoneId: cloudflareZoneId,
-    pattern: `${webDomain}/healthz`,
-    script: edgeScript,
-  });
+    new cloudflare.WorkersRoute("animichi-edge-img-route", {
+      zoneId: cloudflareZoneId,
+      pattern: `${webDomain}/img/*`,
+      script: edgeScript,
+    });
+
+    new cloudflare.WorkersRoute("animichi-edge-healthz-route", {
+      zoneId: cloudflareZoneId,
+      pattern: `${webDomain}/healthz`,
+      script: edgeScript,
+    });
+
+    new cloudflare.DnsRecord("animichi-www-placeholder", {
+      zoneId: cloudflareZoneId,
+      name: wwwDomain,
+      type: "A",
+      content: "192.0.2.0",
+      proxied: true,
+      ttl: 1,
+    });
+
+    new cloudflare.Ruleset("animichi-www-redirect", {
+      zoneId: cloudflareZoneId,
+      name: "www to apex redirect",
+      kind: "zone",
+      phase: "http_request_dynamic_redirect",
+      description: "Redirect the placeholder www hostname to the apex.",
+      rules: [
+        {
+          action: "redirect",
+          expression: `http.host eq "${wwwDomain}"`,
+          description: "Redirect www traffic to the apex hostname.",
+          enabled: true,
+          actionParameters: {
+            fromValue: {
+              statusCode: 301,
+              preserveQueryString: true,
+              targetUrl: {
+                expression: `concat("https://${webDomain}", http.request.uri.path)`,
+              },
+            },
+          },
+        },
+      ],
+    });
+  } else {
+    const stagingDomain = config.require("stagingDomain");
+
+    new cloudflare.WorkersCustomDomain("animichi-web-domain", {
+      accountId,
+      hostname: stagingDomain,
+      service: webScript,
+      zoneId: cloudflareZoneId,
+    });
+  }
 }
 
 // ── Staging: WAF gate ─────────────────────────────────────────────────────────
