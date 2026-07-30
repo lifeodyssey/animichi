@@ -1,8 +1,52 @@
-# Dispatching Codex
+---
+name: use-codex
+description: >
+  How to use OpenAI Codex from Claude Code — which transport to use, how not to
+  burn quota, and how to actually get finished work back out. Read before
+  delegating a coding task, requesting a Codex review, or generating an image.
+  Merges and supersedes the machine-local `~/.claude/skills/use-codex`.
+allowed-tools:
+  - Bash
+  - Read
+  - AskUserQuestion
+---
 
-Invoke before handing any coding task to Codex. Everything here was learned the
-expensive way on 2026-07-30: **17 dispatches, zero that delivered end-to-end**,
-until the causes below were found. None of them was Codex being bad at code.
+# Using Codex from Claude Code
+
+## Never run the raw CLI concurrently or in a loop
+
+The most expensive rule here, and it predates the rest. Two raw `codex` CLI
+processes fight over the same ChatGPT Codex websocket and fail with `403` /
+`429` — **connection contention, not a resettable rate limit** — while each one
+still burns quota. A single call is fine; a second concurrent one is not, and
+retrying the failure just spends more. The `guard-codex.sh` PreToolUse hook
+enforces this and will block a second invocation or a looped one.
+
+Post-mortem: on 2026-06-03 landing work ran image generations concurrently
+inside a background retry loop. Cascading 403/429, ~235 PNGs piled up in
+`~/.codex/generated_images/`, quota burned, and the owner's own Codex sessions
+were disrupted. **None of the retries helped.**
+
+## Which transport
+
+- **Code, review, diagnosis** → the managed plugin: `/codex:rescue`,
+  `/codex:review`, `/codex:adversarial-review`; manage with `/codex:status`,
+  `/codex:result`, `/codex:cancel`. It serialises work over one app-server
+  connection, so it cannot hit the contention above. Never drive the raw CLI to
+  edit code — tried, abandoned as slow and unpredictable, and blocked by the
+  `block-codex-exec-codewrite` hook.
+- **Images** → `/codex:imagegen`, also managed. **This changed on 2026-07-30**:
+  the fork `lifeodyssey/codex-plugin-cc` adds that command, and the local
+  marketplace now points there (plugin 1.0.7). The older note — "verified that
+  the companion cannot generate images, so use a single raw call" — was true of
+  upstream 1.0.6 and is now **superseded**. If `/codex:imagegen` is missing, the
+  marketplace has drifted back to upstream; fix that rather than reaching for
+  the raw CLI.
+
+Everything below is about getting finished work out of a dispatch. It was
+learned on 2026-07-30 across ~17 dispatches, none of which delivered
+end-to-end until these causes were found — and none of the causes was Codex
+writing bad code.
 
 ## Codex cannot commit. Plan the whole workflow around that.
 
@@ -15,6 +59,24 @@ fatal: Unable to create '.../.git/index.lock': Operation not permitted
 That is the sandbox refusing to write **anything under `.git`**, not a
 filesystem permission — the same path is writable from your own shell. Verify in
 one line before theorising: `touch <dir>/.git/probe && rm <dir>/.git/probe`.
+
+Measured directly, 2026-07-30, plugin 1.0.7, in a standalone clone:
+
+| from inside Codex | result |
+|---|---|
+| `git add <file>` | `Operation not permitted`, exit 128 |
+| `touch .git/probe-file` | `Operation not permitted`, exit 1 |
+| `git config --local user.probe test` | `could not lock config file .git/config`, exit 255 |
+| `ls -ld .git` | succeeds |
+
+The last two are what make the rule precise: `git config` writes `.git/config`,
+not the index, and it fails too — so this is not index locking, it is the whole
+directory. Reads and listing are allowed.
+
+Re-run that probe after any plugin upgrade before assuming the rule still holds.
+It was re-run on the 1.0.6 → 1.0.7 upgrade, which included upstream's `db52e28`
+("Remove shell expansion for git commands") and looked likely to change it.
+It did not.
 
 **Do not ask Codex to "commit as you go".** It cannot, it will hit the wall
 partway through, and — obeying the instruction — it stops there, leaving less
