@@ -157,6 +157,7 @@ class _ErrorEnvelope(BaseModel):
 
     defined: bool = False
     code: str = ""
+    status: int = 0
     message: str = ""
     data: object = None
 
@@ -211,7 +212,12 @@ def parse_catalog_error(status_code: int, body: object, url: str) -> APIError:
     """
     envelope = _parse_envelope(body)
     builder = _BUILDERS.get(envelope.code) if envelope is not None else None
-    if envelope is None or envelope.defined is not True or builder is None:
+    if (
+        envelope is None
+        or envelope.defined is not True
+        or envelope.status != status_code
+        or builder is None
+    ):
         return _status_fallback(status_code, url)
     _log_wire_message(envelope, url)
     return builder(envelope.data)

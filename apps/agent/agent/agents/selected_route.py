@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import httpx
 import structlog
+from pydantic import ValidationError
 
 from agent.agents.agent_result import AgentResult, ProducedRoute, StepRecord
 from agent.agents.catalog_adapter import build_route_payload, build_route_state
@@ -18,6 +19,7 @@ from agent.clients.errors import APIError
 logger = structlog.get_logger(__name__)
 
 _TRANSIENT_ERRORS = (APIError, httpx.TransportError, httpx.TimeoutException)
+_ROUTE_ERRORS = (*_TRANSIENT_ERRORS, ValidationError)
 
 
 async def execute_selected_route(
@@ -39,7 +41,7 @@ async def execute_selected_route(
 
     try:
         route = await catalog.route(point_ids, origin=_parse_coordinate_origin(origin))
-    except _TRANSIENT_ERRORS as exc:
+    except _ROUTE_ERRORS as exc:
         logger.warning("selected_route_catalog_error", error=str(exc))
         await _emit_step(on_step, call_id, "error", {})
         # Typed CatalogError -> localized, actionable text from OUR mapping

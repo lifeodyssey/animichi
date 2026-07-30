@@ -45,7 +45,7 @@ export const catalogDatabaseUrl = config.getSecret("catalogDatabaseUrl");
 const catalogMediaBucket = new cloudflare.R2Bucket("catalog-media", {
   accountId,
   name: mediaBucketName,
-  location: "APAC",
+  location: "apac",
 });
 
 if (webRoutesEnabled) {

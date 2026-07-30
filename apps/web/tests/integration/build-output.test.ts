@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -43,9 +43,9 @@ function bundleWorkerToTempDir(target: string): string {
 }
 
 function readBundledWorker(outdir: string): string {
-  const entry = readdirSync(outdir).find((name) => name.endsWith(".js"));
-  if (!entry) throw new Error(`no bundled worker emitted in ${outdir}`);
-  return readFileSync(join(outdir, entry), "utf8");
+  const entry = join(outdir, "index.js");
+  if (!existsSync(entry)) throw new Error(`no bundled worker emitted in ${outdir}`);
+  return readFileSync(entry, "utf8");
 }
 
 describe("build output", () => {

@@ -3,6 +3,7 @@ export type StepStatus = "done" | "error" | "retried" | "running";
 export interface ToolStep {
   readonly type: string;
   readonly state: string;
+  readonly input?: unknown;
 }
 
 export interface StatusedStep<T extends ToolStep> {
@@ -33,5 +34,9 @@ export function statusedSteps<T extends ToolStep>(steps: readonly T[]): Statused
  */
 function resolve(step: ToolStep, later: readonly ToolStep[]): StepStatus {
   if (step.state !== "output-error") return stepStatus(step.state);
-  return later.some((next) => next.type === step.type) ? "retried" : "error";
+  return later.some((next) => next.type === step.type && sameInput(step, next)) ? "retried" : "error";
+}
+
+function sameInput(left: ToolStep, right: ToolStep): boolean {
+  return JSON.stringify(left.input) === JSON.stringify(right.input);
 }

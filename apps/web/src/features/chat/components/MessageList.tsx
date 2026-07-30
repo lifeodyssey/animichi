@@ -1,6 +1,7 @@
 import type { ChatStatus, UIMessage } from "ai";
 import { isBypassTurn } from "../../../lib/chat/selectedPointsBypass";
 import { routeDocumentKey, supersededFlags } from "../../../lib/chat/supersession";
+import { HIDDEN_TOOL_STEPS } from "../i18n";
 import type { ChatDict } from "../i18n";
 import { formatElapsed } from "../telemetry";
 import { statusedSteps } from "../tool-steps";
@@ -55,9 +56,11 @@ function supersededPartKeys(messages: readonly UIMessage[]): ReadonlySet<string>
 }
 
 function ToolBadges({ parts, dict }: Readonly<{ parts: readonly ToolPart[]; dict: ChatDict }>) {
-  return statusedSteps(parts).map(({ step, status }) => (
-    <ToolStepBadge key={step.toolCallId} type={step.type} status={status} dict={dict} />
-  ));
+  const badges = statusedSteps(parts).flatMap(({ step, status }) => {
+    if (HIDDEN_TOOL_STEPS.has(step.type.replace(/^tool-/, ""))) return [];
+    return [<ToolStepBadge key={step.toolCallId} type={step.type} status={status} dict={dict} />];
+  });
+  return badges;
 }
 
 type PipelineProps = Readonly<{
