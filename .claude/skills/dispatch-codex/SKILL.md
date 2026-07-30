@@ -4,38 +4,57 @@ Invoke before handing any coding task to Codex. Everything here was learned the
 expensive way on 2026-07-30: **17 dispatches, zero that delivered end-to-end**,
 until the causes below were found. None of them was Codex being bad at code.
 
-## The one that explains most of the failures
+## Codex cannot commit. Plan the whole workflow around that.
 
-**Give Codex a `git clone`, never a linked worktree.**
-
-A linked worktree keeps its git metadata in the *parent* repo's
-`.git/worktrees/<name>/`, which is outside Codex's writable root. Reads work, so
-`git status` and `git diff` succeed and everything looks fine — then every
-`git add` dies with:
+Every `git add` fails, in every directory shape tried:
 
 ```
-fatal: Unable to create '.../.git/worktrees/<name>/index.lock': Operation not permitted
+fatal: Unable to create '.../.git/index.lock': Operation not permitted
 ```
 
-This is why "Codex never commits its work" looked like a discipline problem for
-a whole day. It was never able to.
+That is the sandbox refusing to write **anything under `.git`**, not a
+filesystem permission — the same path is writable from your own shell. Verify in
+one line before theorising: `touch <dir>/.git/probe && rm <dir>/.git/probe`.
+
+**Do not ask Codex to "commit as you go".** It cannot, it will hit the wall
+partway through, and — obeying the instruction — it stops there, leaving less
+finished work than if you had never asked.
+
+Instead:
+
+1. Ask for **all changes left in the working tree**, plus a written deliverable
+   (`TRIAGE.md`, a report file) for anything that is analysis rather than code.
+   A finding that exists only in the report can be lost; a file cannot.
+2. **You** commit, immediately, the moment the job stops. `git add -A` in the
+   target directory is the first thing you run, before reading anything.
+3. Then run the gates and review, as below.
+
+> **A correction, kept on purpose.** An earlier version of this skill blamed
+> linked-worktree metadata living outside the writable root, and told you to use
+> `git clone` instead. That was inferred from a single error message naming
+> `.git/worktrees/<name>/index.lock`, and it is **wrong**: a standalone clone
+> fails identically on its own in-tree `.git/index.lock`. The clone changed the
+> path in the error and nothing else. Kept because the reasoning was plausible
+> enough that someone will reconstruct it.
+
+A different failure with a similar flavour: `failed to initialize sqlite state
+runtime under ~/.codex`, which kills the run before it reads any code. A fresh
+working directory (hence a new broker) is the only fix found, and that one *is*
+about where you point it.
+
+### Prepare the environment either way
+
+Worktree or clone, build it fully before dispatching — the sandbox has no
+network (below):
 
 ```bash
-git clone --local --no-hardlinks -q . <dest>
-cd <dest> && git remote set-url origin <github url> && git fetch -q origin main
-git reset --hard origin/main && git checkout -b <branch>
+git worktree add -b <branch> <dest> origin/main
+cd <dest> && pnpm install --frozen-lockfile --ignore-scripts
+(cd apps/agent && uv sync)
 ```
 
-Two traps in that recipe:
-
-- `git clone --local .` clones your **local** `main`, which is very likely
-  stale. Reset to `origin/main` or Codex builds on the wrong base.
-- The clone has no `node_modules` / `.venv`. Install before dispatching — the
-  sandbox has no network (below).
-
-A related symptom with the same shape: `failed to initialize sqlite state
-runtime under ~/.codex`. That one kills the run before it reads any code, and a
-fresh broker (new working directory) is the only fix found so far.
+If you do clone, note `git clone --local .` copies your **local** `main`, which
+is very likely stale — reset to `origin/main` or Codex builds on the wrong base.
 
 ## The sandbox has no network
 
@@ -187,7 +206,8 @@ already exports.
 
 So: **take the code, verify everything.**
 
-1. Commit the output first — even in a clone, assume it may die mid-step.
+1. Commit the output first, yourself — Codex cannot, so an uncommitted tree is
+   the normal end state, not a sign the run went wrong.
 2. Run every gate yourself. Never trust a "gates pass" claim; one report said
    "Mypy: NOT RUN" while the summary read as success.
 3. Mutation-test the tests it wrote. Assert the mutation landed on the intended

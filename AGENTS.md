@@ -72,9 +72,9 @@ integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec
   quality → `/health` · brainstorm → `/office-hours`. TDD: `/backend-tdd` (Python), `/frontend-tdd` (React).
 - **Codex** — delegate code-writing / deep investigation via **`codex:codex-rescue`** (Skill, or Agent
   `subagent_type="codex:codex-rescue"`). **Read `.claude/skills/dispatch-codex/SKILL.md` first** — it
-  is short, and skipping it costs whole dispatches. The three that matter most: give Codex a
-  **`git clone`, never a linked worktree** (worktree git metadata is outside its writable root, so
-  every `git add` fails); **its sandbox has no network**, so build the environment and verify the
+  is short, and skipping it costs whole dispatches. The three that matter most: **Codex cannot commit** — its sandbox
+  refuses every write under `.git`, in a worktree or a clone alike, so ask for changes left in the
+  working tree and commit them yourself the moment the job stops; **its sandbox has no network**, so build the environment and verify the
   gates yourself before dispatching; and **the wrapper times out before Codex finishes**, so read
   the report from `~/.claude/plugins/data/codex-openai-codex/state/*/jobs/*.log`, not the return
   value. Expect sound judgement and a broken process: commit its output, then verify everything.
