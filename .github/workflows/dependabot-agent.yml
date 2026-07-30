@@ -61,7 +61,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: "pnpm"
 
-      - run: pnpm install --frozen-lockfile
+      # `--ignore-scripts` disables package lifecycle scripts (pre/postinstall).
+      # This lane installs dependency versions nobody has reviewed yet, so a
+      # compromised release's postinstall would run on a runner holding the repo
+      # token. pnpm 10 already blocks them absent an `onlyBuiltDependencies`
+      # allowlist; the flag keeps that true if one is ever added.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
 
       # ── TypeScript workspace checks ──
       - name: Web + worker quality
@@ -120,7 +125,7 @@ jobs:
             Your task:
             1. Run the failing checks to see the exact errors:
                - Backend: cd apps/agent && uv run ruff check agent/ && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ && uv run pytest agent/tests/unit/ -v --no-cov
-               - Web + worker: pnpm install --frozen-lockfile && pnpm run lint:oxlint && pnpm run test:worker
+               - Web + worker: pnpm install --frozen-lockfile --ignore-scripts && pnpm run lint:oxlint && pnpm run test:worker
             2. Analyze the errors — they are likely caused by breaking changes in the upgraded dependency
             3. Fix the code to work with the new dependency version
             4. Re-run the checks to verify your fixes work
@@ -155,7 +160,7 @@ jobs:
           uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
           uv run pytest agent/tests/unit/ -v --no-cov
           uv run python -c "from agent.agents.pipeline import run_pipeline; print('pipeline OK')"
-          cd ../.. && pnpm install --frozen-lockfile && pnpm run lint:oxlint && pnpm run test:worker && pnpm --filter web build
+          cd ../.. && pnpm install --frozen-lockfile --ignore-scripts && pnpm run lint:oxlint && pnpm run test:worker && pnpm --filter web build
 
       - name: Report result
         if: always()
