@@ -44,11 +44,16 @@ class ProducedRoute:
     route_ref: RouteRef
 
 
+RouteRejectionStatus: TypeAlias = Literal[
+    "empty", "stale_ref", "pending_sync", "upstream_unavailable", "contract_violation"
+]
+
+
 @dataclass(frozen=True)
 class RejectedRoute:
     """A current route outcome that did not produce a registry entry."""
 
-    status: Literal["empty", "stale_ref", "pending_sync", "upstream_unavailable"]
+    status: RouteRejectionStatus
 
 
 StepProvenance: TypeAlias = (
