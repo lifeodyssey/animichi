@@ -31,7 +31,9 @@ const stubCtx = {
 function singleUseSiteverify(calls: string[]): typeof fetch {
   const spent = new Set<string>();
   return (_input, init) => {
-    const token = new URLSearchParams(String(init?.body)).get("response") ?? "";
+    const rawBody = init?.body;
+    const bodyText = rawBody instanceof URLSearchParams ? rawBody.toString() : typeof rawBody === "string" ? rawBody : "";
+    const token = new URLSearchParams(bodyText).get("response") ?? "";
     calls.push(token);
     const fresh = !spent.has(token);
     spent.add(token);

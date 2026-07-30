@@ -22,9 +22,12 @@ interface Call {
 /** A siteverify stub that records every call and answers with a fixed verdict. */
 function stubFetch(calls: Call[], success: boolean, errorCodes: string[] = []): typeof fetch {
   return (input, init) => {
-    const body = new URLSearchParams(String(init?.body));
+    const rawBody = init?.body;
+    const bodyText = rawBody instanceof URLSearchParams ? rawBody.toString() : typeof rawBody === "string" ? rawBody : "";
+    const body = new URLSearchParams(bodyText);
     const headers = new Headers(init?.headers);
-    calls.push({ url: String(input), contentType: headers.get("Content-Type"), body });
+    const inputUrl = input instanceof Request ? input.url : input.toString();
+    calls.push({ url: inputUrl, contentType: headers.get("Content-Type"), body });
     return Promise.resolve(Response.json({ success, "error-codes": errorCodes }));
   };
 }
@@ -191,7 +194,8 @@ void test("the missing-secret rejection still discloses nothing to the caller", 
   console.error = () => undefined;
   try {
     const res = await guardTurnstile(request("t1"), { TURNSTILE_SECRET: "" }, gate, ID);
-    const body = await (res as Response).text();
+    assert.ok(res);
+    const body = await res.text();
     assert.match(body, /"code":"turnstile_required"/);
     assert.doesNotMatch(body, /secret/i);
   } finally {
@@ -291,8 +295,8 @@ void test("a non-JSON siteverify body is an outage, not an unhandled rejection",
   const { result } = await withErrorLog(() =>
     verifySiteverify("t1", "", ENV.TURNSTILE_SECRET, htmlGateway),
   );
-  assert.equal((result as TurnstileResult).ok, true);
-  assert.deepEqual((result as TurnstileResult).errorCodes, ["siteverify-unavailable"]);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errorCodes, ["siteverify-unavailable"]);
 });
 
 void test("an outage lets the turn through the guard instead of throwing", async () => {
