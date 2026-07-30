@@ -36,11 +36,5 @@
       "name": "animichi-web",
       "vars": { "APP_ENV": "production" }
     },
-    "preview": {
-      "name": "animichi-web-preview",
-      "workers_dev": false,
-      "preview_urls": true,
-      "vars": { "APP_ENV": "preview" }
-    }
   }
 }
