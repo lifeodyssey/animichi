@@ -18,20 +18,24 @@ test("Dependabot gate checks repository structure without assuming uv is preinst
   assert.equal(stepNamed("Verify gate contract").includes("command -v uv"), false);
 });
 
-test("Dependabot syncs both Python phases from the agent project", () => {
-  const agentSync = /- run: uv sync --all-extras\n\s+working-directory: apps\/agent/g;
-  assert.equal(WORKFLOW.match(agentSync)?.length, 2);
+test("Dependabot installs locked Python wheels without running build scripts", () => {
+  const safeSync =
+    /- run: uv sync --python "\$PYTHON_VERSION" --all-extras --locked --no-build --no-install-project\n\s+working-directory: apps\/agent/g;
+  assert.equal(WORKFLOW.match(safeSync)?.length, 1);
+  assert.doesNotMatch(WORKFLOW, /- run: uv sync --all-extras\n/);
+  assert.doesNotMatch(WORKFLOW, /uv run (?!--no-sync)/);
 });
 
-test("Dependabot uses one Node verification command in all three phases", () => {
+test("Dependabot uses the shared Node verification command", () => {
   assert.match(PACKAGE_JSON, /"verify:dependabot": "[^"]*typecheck[^"]*web build"/);
-  assert.equal(WORKFLOW.match(/pnpm run verify:dependabot/g)?.length, 3);
+  assert.equal(WORKFLOW.match(/pnpm run verify:dependabot/g)?.length, 1);
 });
 
 test("Dependabot reports success only for two successful quality outcomes", () => {
   const report = stepNamed("Report verification outcomes");
   assert.match(report, /\[ "\$BACKEND_OUTCOME" = "success" \] && \[ "\$WEB_OUTCOME" = "success" \]/);
   assert.match(report, /verification incomplete/);
+  assert.doesNotMatch(WORKFLOW, /continue-on-error/);
 });
 
 test("Dependabot leaves verified upgrades for manual review", () => {
@@ -39,4 +43,24 @@ test("Dependabot leaves verified upgrades for manual review", () => {
   assert.match(WORKFLOW, allGreen);
   assert.match(stepNamed("Report verified upgrade"), /ready for manual review/);
   assert.doesNotMatch(WORKFLOW, /gh pr merge/);
+});
+
+test("Dependabot reports incomplete verification without an autonomous writer", () => {
+  const report = stepNamed("Report incomplete or failed verification");
+  assert.match(WORKFLOW, /!cancelled\(\)/);
+  assert.match(WORKFLOW, /github\.event\.pull_request\.user\.login == 'dependabot\[bot\]'/);
+  assert.match(WORKFLOW, /needs\.verify\.result != 'success'/);
+  assert.match(WORKFLOW, /needs\.verify\.outputs\.gate_contract_ok != 'success'/);
+  assert.match(WORKFLOW, /needs\.verify\.outputs\.backend_ok != 'success'/);
+  assert.match(WORKFLOW, /needs\.verify\.outputs\.web_ok != 'success'/);
+  assert.match(report, /gh pr comment/);
+  assert.doesNotMatch(WORKFLOW, /contents: write/);
+  assert.doesNotMatch(WORKFLOW, /claude-code-action|anthropic_api_key|Agent Fix/);
+});
+
+test("Dependabot runs tests from source without installing the local project", () => {
+  const backend = stepNamed("Backend quality + tests");
+  assert.match(backend, /uv run --no-sync python -m pytest/);
+  assert.match(backend, /SUPABASE_DB_URL: postgresql:\/\/test:test@127\.0\.0\.1:5432\/test/);
+  assert.match(backend, /MIMO_API_KEY: test-only/);
 });
