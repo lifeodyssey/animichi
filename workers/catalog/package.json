@@ -20,7 +20,7 @@
     "@orpc/server": "1.14.8",
     "@seichijunrei/contract": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.30",
+    "hono": "^4.12.31",
     "zod": "4.4.3"
   },
   "devDependencies": {
