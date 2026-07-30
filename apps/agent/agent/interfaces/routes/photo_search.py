@@ -48,6 +48,7 @@ from agent.interfaces.routes._deps import (
     _get_settings_from_request,
     _get_trusted_auth_context,
 )
+from agent.interfaces.usage_metering import is_anonymous_identity
 
 router = APIRouter(prefix="/v1", tags=["photo-search"])
 
@@ -246,7 +247,9 @@ async def handle_photo_search(
     """Run the standalone vision pipeline and reply with a chat-shaped envelope."""
     runtime = _get_photo_runtime(request)
     byok = _byok_endpoint(request)
-    authenticated = auth.user_id is not None
+    authenticated = auth.user_id is not None and not is_anonymous_identity(
+        auth.user_id, auth.user_type
+    )
     try:
         image = _decode_image(body)
         tier = quota_tier_for(authenticated)
