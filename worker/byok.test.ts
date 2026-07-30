@@ -11,7 +11,6 @@ import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
 
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 
-const stubNext = { fetch: () => Promise.resolve(new Response("next", { status: 200 })) };
 const stubCtx = {
   waitUntil(promise: Promise<unknown>) { void promise; },
   passThroughOnException() { return undefined; },
@@ -73,7 +72,6 @@ function env(guard = fakeGuard(), extra: Record<string, unknown> = {}): Env {
 
 function authedApp(userId = "user-a") {
   return createWorkerApp({
-    nextHandler: stubNext,
     authenticate: () => Promise.resolve({ ok: true, userId, userType: "human" } as const),
   });
 }
@@ -126,7 +124,6 @@ void test("an anonymous caller's allowance is unaffected by authenticated traffi
   await authedApp("user-a").request("/v1/chat", req("/v1/chat"), e, stubCtx);
   // The scope under test is the rate limiter, not the #447 Turnstile gate.
   const anonApp = createWorkerApp({
-    nextHandler: stubNext,
     authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
     turnstileGate: { check: () => Promise.resolve({ ok: true, errorCodes: [] }) },
   });
@@ -193,7 +190,7 @@ void test("varying X-BYOK-* headers or base_url never changes whose allowance is
 void test("an unauthenticated caller cannot spend an authenticated identity's allowance by forging X-BYOK-* headers", async () => {
   const guard = fakeGuard();
   const e = env(guard, { AUTH_RATE_LIMIT: "1", ANON_ACCESS_ENABLED: "false" });
-  const anonApp = createWorkerApp({ nextHandler: stubNext, authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const) });
+  const anonApp = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const) });
   const forged = await anonApp.request(
     "/v1/chat",
     { method: "POST", headers: { "X-BYOK-Provider": "openai-compatible", "X-BYOK-Key": "sk-forged" } },

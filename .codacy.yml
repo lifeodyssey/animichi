@@ -6,13 +6,6 @@ engines:
     enabled: true
 
 exclude_paths:
-  - "frontend/tests/__snapshots__/**"
-  - "frontend/lib/mock-data/**"
-  - "frontend/components/ui/**"
-  - "frontend/components/map/**"
-  - "frontend/public/**"
-  - "frontend/coverage/**"
-  - "frontend/out/**"
   - "agent/tests/eval/**"
   - "docs/**"
   - "**/*.snap"

@@ -141,3 +141,22 @@ async def test_translation_gate_shares_parent_scope_with_toolless_agent(
     ctx = translate.await_args.kwargs["ctx"]
     assert ctx.model is model
     assert ctx.usage is result.usage
+
+
+async def test_public_translation_accumulates_requests_in_caller_usage(
+    mock_db: MagicMock,
+) -> None:
+    result = _search_result(locale="zh", message="3件の聖地が見つかりました。")
+    result.usage = RunUsage()
+    model = TestModel(custom_output_text="找到了3处圣地。")
+
+    with patch(
+        "agent.interfaces.public_api.run_animichi_agent",
+        new=AsyncMock(return_value=result),
+    ):
+        response = await RuntimeAPI(mock_db, model_http_client=MagicMock()).handle(
+            PublicAPIRequest(text="查找圣地", locale="zh"), model=model
+        )
+
+    assert response.message != "3件の聖地が見つかりました。"
+    assert result.usage.requests == 1

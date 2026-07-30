@@ -22,7 +22,7 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 ## Key files + entrypoints
 
-- `index.ts` — R2 media bucket, optional web/edge routes, exported catalog DB secret.
+- `index.ts` — R2 media bucket, optional web/edge routes, staging WAF gate, and exported catalog DB secret.
 - `Pulumi.yaml` — project metadata and base encrypted config.
 - `Pulumi.staging.yaml` · `Pulumi.prod.yaml` — live environment stacks.
 - `../.github/workflows/_deploy-component.yml` — Pulumi `up` and Worker deploy sequence.
@@ -34,6 +34,8 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
   mandatory human gate.
 - `webRoutesEnabled` defaults false. Enabling it is the route cutover and requires zone/domain
   config; do not flip it as routine cleanup.
+- `stagingGateEnabled` defaults false. Enabling it requires `stagingDomain` and the
+  `stagingGateToken` secret.
 - No Hyperdrive: catalog reaches Neon over `@neondatabase/serverless` HTTP.
 - **`pulumi stack export` runs unmodified before every `pulumi up`** (rollback backup, #485;
   `_deploy-component.yml`'s "Pulumi stack export" step), then is copied to the **R2 bucket the

@@ -79,5 +79,64 @@ if (webRoutesEnabled) {
   });
 }
 
+// ── Staging: WAF gate ─────────────────────────────────────────────────────────
+// staging runs the same app as production *with anonymous access on*
+// (`ANON_ACCESS_ENABLED = "true"`, root wrangler.toml), so there is no login to
+// keep strangers out. A WAF custom rule gates the hostname instead.
+//
+// Why WAF and not Cloudflare Access: Access would do the same job, but the
+// Playwright suite runs against staging and would need a service token. A
+// header is cheaper. Both sit ahead of the Worker either way — custom rules run
+// in `http_request_firewall_custom`, and Cloudflare's own docs are explicit
+// that "Workers runs after the Cloudflare WAF and Cloudflare Access". A blocked
+// request never reaches our code and is not billed as a Worker invocation.
+//
+// Two ways in: the `animichi_staging` cookie (set once per browser by hand) or
+// the `x-staging-key` header (CI, curl). No regex — `matches` is Business+ and
+// this zone is on Free, which allows 5 custom rules.
+//
+// This only works because `workers_dev = false` everywhere (#539): a
+// `*.workers.dev` hostname is not on the zone and would bypass the WAF outright.
+const stagingGateEnabled = config.getBoolean("stagingGateEnabled") ?? false;
+
+// The stack check keeps this resource meaningful only on staging, even if the
+// flag is accidentally enabled on another stack.
+if (stagingGateEnabled && stack === "staging") {
+  const gateZoneId = config.require("cloudflareZoneId");
+  const stagingDomain = config.require("stagingDomain");
+  const gateToken = config.requireSecret("stagingGateToken");
+
+  // `pulumi.interpolate` already propagates secretness from `gateToken`, so the
+  // explicit `pulumi.secret` is belt-and-braces — kept because the cost of
+  // being wrong here is high and asymmetric. Per `AGENTS.md`, every `pulumi up`
+  // is preceded by a `pulumi stack export` copied into R2; a value that is not
+  // marked secret lands in that object in the clear. This repository is public,
+  // so the token must never be reconstructible from anything we publish.
+  // Parenthesised deliberately. Cloudflare's own examples omit them and rely on
+  // `not` binding tighter than `and`, which is correct — but the two failure
+  // modes of getting this wrong are "block every request to staging" and "block
+  // none of them", and neither is visible until the rule is live. Explicit
+  // grouping costs nothing and removes the question.
+  const gateExpression = pulumi.secret(
+    pulumi.interpolate`(http.host eq "${stagingDomain}") and not (http.cookie contains "animichi_staging=${gateToken}") and not (any(http.request.headers["x-staging-key"][*] eq "${gateToken}"))`,
+  );
+
+  new cloudflare.Ruleset("staging-access-gate", {
+    zoneId: gateZoneId,
+    name: "staging access gate",
+    kind: "zone",
+    phase: "http_request_firewall_custom",
+    description: "Restrict the staging hostname to holders of the gate token.",
+    rules: [
+      {
+        action: "block",
+        expression: gateExpression,
+        description: "Block staging traffic carrying neither the gate cookie nor the gate header",
+        enabled: true,
+      },
+    ],
+  });
+}
+
 export const wave0 = pulumi.output("spike-validated");
 export const catalogBucketName = catalogMediaBucket.name;
