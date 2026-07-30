@@ -6,7 +6,6 @@ export const CATALOG_OUTBOUND_ALLOWLIST = [
   "POST /catalog/nearby",
   "POST /catalog/geocode",
   "POST /catalog/route",
-  "POST /catalog/ingest",
 ] as const;
 
 const CATALOG_OUTBOUND_ROUTES = new Set<string>(CATALOG_OUTBOUND_ALLOWLIST);

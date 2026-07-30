@@ -11,7 +11,6 @@ const EXPECTED_CATALOG_CALLS = [
   "POST /catalog/nearby",
   "POST /catalog/geocode",
   "POST /catalog/route",
-  "POST /catalog/ingest",
 ];
 
 function catalogEnv(received: Request[]): never {
