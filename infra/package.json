@@ -2,6 +2,9 @@
   "name": "infra",
   "private": true,
   "main": "index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@pulumi/pulumi": "^3.0.0",
     "@pulumi/cloudflare": "^6.0.0"
