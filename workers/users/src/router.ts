@@ -1,4 +1,4 @@
-import { usersContract } from "@seichijunrei/contract";
+import { usersContract } from "@animichi/contract";
 import { implement } from "@orpc/server";
 import {
   claimRoutes as claimHandler,

@@ -1,4 +1,4 @@
-import type { SaveRouteInput } from "@seichijunrei/contract";
+import type { SaveRouteInput } from "@animichi/contract";
 import { ORPCError } from "@orpc/server";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";

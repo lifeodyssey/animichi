@@ -1,5 +1,5 @@
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { AnimeOverviewCircle, LatLng } from "@seichijunrei/contract";
+import type { AnimeOverviewCircle, LatLng } from "@animichi/contract";
 import type { LngLatBoundsLike, Map as MapLibreMap } from "maplibre-gl";
 import { createMapStyle } from "../map-spike/mapStyle";
 

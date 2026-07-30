@@ -1,4 +1,4 @@
-import type { ChatDataPart } from "@seichijunrei/contract";
+import type { ChatDataPart } from "@animichi/contract";
 import { useCallback, useState } from "react";
 import { sendWithOriginOf, useChatActions } from "../chat-actions";
 import type { ChatDict } from "../i18n";

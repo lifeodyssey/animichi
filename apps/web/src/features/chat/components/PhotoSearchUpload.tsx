@@ -1,4 +1,4 @@
-import type { ChatDataPart } from "@seichijunrei/contract";
+import type { ChatDataPart } from "@animichi/contract";
 import { useCallback, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import { ChatActionsProvider, useChatActions } from "../chat-actions";

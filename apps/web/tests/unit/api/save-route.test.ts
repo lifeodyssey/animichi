@@ -6,7 +6,7 @@ import { act, renderHook } from "@testing-library/react";
 import { createElement } from "react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { SaveRouteInput } from "@seichijunrei/contract";
+import type { SaveRouteInput } from "@animichi/contract";
 import { classifySaveFailure, saveRouteRequest, useSaveRoute } from "../../../src/api/hooks/use-save-route";
 import { server } from "../../msw/node";
 import { usersSaveRouteHandler, usersSaveRouteOutageHandler } from "../../msw/users";

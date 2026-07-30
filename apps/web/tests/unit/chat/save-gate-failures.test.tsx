@@ -3,7 +3,7 @@
  */
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { UserRoute } from "@seichijunrei/contract";
+import type { UserRoute } from "@animichi/contract";
 import { TimedItinerary } from "../../../src/features/chat/components/TimedItinerary";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { DEFERRED_SAVE_KEY, DEFERRED_SAVE_TTL_MS, readDeferredSave, writeDeferredSave } from "../../../src/features/chat/save/deferredSave";

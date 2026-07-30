@@ -20,7 +20,7 @@ import {
   Longitude,
   PointsByWorkIdInput,
   ResolveOutcome,
-} from "@seichijunrei/contract";
+} from "@animichi/contract";
 import { aliases, bangumi, points } from "../../src/db/schema";
 
 const bangumiColumns = getTableColumns(bangumi);

@@ -37,7 +37,7 @@ landing page and branded 404 through a Cloudflare SSR bundle. Root guide: `../..
 - MSW has three swimlanes (`tests/msw/`): `node.ts` (`setupServer`, component/loader unit tests),
   `browser.ts` (`setupWorker`, client-navigation tests). SSR is deliberately NOT covered by MSW —
   it is validated against a real local Worker + backend at the G1 gate. Handlers never hand-write
-  JSON: `contract-handler.ts` `parse()`s requests and responses against the `@seichijunrei/contract`
+  JSON: `contract-handler.ts` `parse()`s requests and responses against the `@animichi/contract`
   zod schemas and builds oRPC-typed error envelopes.
 
 ## Key files + entrypoints

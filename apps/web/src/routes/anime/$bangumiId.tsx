@@ -1,7 +1,7 @@
 import { ORPCError } from "@orpc/client";
 import type { QueryClient } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import type { AnimeOverview } from "@seichijunrei/contract";
+import type { AnimeOverview } from "@animichi/contract";
 import { resolveOrigin } from "../../api/config";
 import { animeOverviewOptions, useAnimeOverview } from "../../api/hooks/use-anime-overview";
 import { AnimePage } from "../../features/anime/AnimePage";

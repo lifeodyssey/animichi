@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { TimedItinerary } from "@seichijunrei/contract";
+import type { TimedItinerary } from "@animichi/contract";
 import type { ShioriLayout } from "../layoutSelector";
 import type { ShioriMeta } from "../types";
 import { shioriTimeWindow } from "../timeWindow";
