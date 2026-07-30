@@ -5,8 +5,6 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const WRANGLER = readFileSync(`${ROOT}wrangler.toml`, "utf8");
-const WORKFLOWS = [".github/workflows/ci.yml", ".github/workflows/deploy.yml", ".github/workflows/_deploy-component.yml"]
-  .map((path) => readFileSync(`${ROOT}${path}`, "utf8"));
 const ENV_BLOCKS = ["[vars]", "[env.production.vars]", "[env.staging.vars]"];
 
 function blockFor(header: string): string {
@@ -24,21 +22,46 @@ function countMatches(source: string, pattern: RegExp): number {
   return source.match(pattern)?.length ?? 0;
 }
 
-test("Neon Auth vars and JWKS secret stay on their intended deployment paths", () => {
+test("Neon Auth vars stay on their intended Wrangler paths", () => {
   for (const header of ENV_BLOCKS) {
     const block = blockFor(header);
     assert.equal(hasAssignment(block, "NEON_AUTH_ENABLED", "false"), true, `${header} must keep Neon Auth off`);
     assert.equal(hasAssignment(block, "NEON_AUTH_ISSUER", ""), true, `${header} must declare the public issuer slot`);
   }
+});
 
-  const workflowText = WORKFLOWS.join("\n");
-  assert.equal(countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL\s*$/gm), 3, "JWKS secret lists must stay complete");
+test("ci.yml keeps both JWKS secret paths complete", () => {
+  const workflowText = readFileSync(`${ROOT}.github/workflows/ci.yml`, "utf8");
+  assert.equal(countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL\s*$/gm), 2, "ci.yml JWKS secret lists must stay complete");
   assert.equal(
     countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL: \$\{\{ secrets\.NEON_AUTH_JWKS_URL \}\}$/gm),
-    5,
-    "JWKS secret mappings must stay complete",
+    2,
+    "ci.yml JWKS secret mappings must stay complete",
   );
-  assert.equal(countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL:\s*$/gm), 1, "reusable workflow must declare JWKS");
-  assert.equal(workflowText.includes("NEON_AUTH_ENABLED"), false, "the disabled public var must not become a secret");
-  assert.equal(workflowText.includes("NEON_AUTH_ISSUER"), false, "the public issuer must not become a secret");
+  assert.equal(workflowText.includes("NEON_AUTH_ENABLED"), false, "ci.yml must not turn the disabled public var into a secret");
+  assert.equal(workflowText.includes("NEON_AUTH_ISSUER"), false, "ci.yml must not turn the public issuer into a secret");
+});
+
+test("deploy.yml keeps its JWKS secret path complete", () => {
+  const workflowText = readFileSync(`${ROOT}.github/workflows/deploy.yml`, "utf8");
+  assert.equal(countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL\s*$/gm), 1, "deploy.yml JWKS secret list must stay complete");
+  assert.equal(
+    countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL: \$\{\{ secrets\.NEON_AUTH_JWKS_URL \}\}$/gm),
+    1,
+    "deploy.yml JWKS secret mapping must stay complete",
+  );
+  assert.equal(workflowText.includes("NEON_AUTH_ENABLED"), false, "deploy.yml must not turn the disabled public var into a secret");
+  assert.equal(workflowText.includes("NEON_AUTH_ISSUER"), false, "deploy.yml must not turn the public issuer into a secret");
+});
+
+test("_deploy-component.yml keeps its JWKS declaration and paths complete", () => {
+  const workflowText = readFileSync(`${ROOT}.github/workflows/_deploy-component.yml`, "utf8");
+  assert.equal(countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL:\s*$/gm), 1, "_deploy-component.yml must declare JWKS");
+  assert.equal(
+    countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL: \$\{\{ secrets\.NEON_AUTH_JWKS_URL \}\}$/gm),
+    2,
+    "_deploy-component.yml JWKS secret mappings must stay complete",
+  );
+  assert.equal(workflowText.includes("NEON_AUTH_ENABLED"), false, "_deploy-component.yml must not turn the disabled public var into a secret");
+  assert.equal(workflowText.includes("NEON_AUTH_ISSUER"), false, "_deploy-component.yml must not turn the public issuer into a secret");
 });
