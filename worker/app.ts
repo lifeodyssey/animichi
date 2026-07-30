@@ -360,11 +360,13 @@ async function handleImageProxy(request: Request, ctx: WorkerExecutionContext): 
  * Next.js homepage here; `apps/web` owns every HTML surface now. Unmatched
  * paths answer `NOT_FOUND_BODY` instead of a page — see its comment for why
  * that is a hard 404 and not a friendly 200. */
-export function createWorkerApp(deps: {
+type WorkerApp = Hono<{ Bindings: Env }>;
+interface WorkerDeps {
   authenticate?: (request: Request, env: Env, ctx: WorkerExecutionContext) => Promise<AuthResult>;
   turnstileGate?: TurnstileGate;
-}): Hono<{ Bindings: Env }> {
-  const app = new Hono<{ Bindings: Env }>();
+}
+
+function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
   app.notFound(() => Response.json(NOT_FOUND_BODY, { status: 404 }));
   const authenticate = deps.authenticate ?? ((req, env, ctx) => realAuthenticate(req, env, fetch, ctx));
   // One gate per app instance, built outside the request handler so its
@@ -375,7 +377,7 @@ export function createWorkerApp(deps: {
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
   );
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
-  app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", (c) => {
+  app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", async (c) => {
     if (new URL(c.req.url).search) return c.text("Unexpected query parameters", 400);
     return forwardPublicCatalog(c.env, c.req.raw);
   });
@@ -418,5 +420,10 @@ export function createWorkerApp(deps: {
     if (anonymous !== null) return anonymous;
     return c.json(UNAUTHORIZED_BODY, 401);
   });
+}
+
+export function createWorkerApp(deps: WorkerDeps): WorkerApp {
+  const app = new Hono<{ Bindings: Env }>();
+  registerWorkerRoutes(app, deps);
   return app;
 }
