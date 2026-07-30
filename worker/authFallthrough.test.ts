@@ -13,7 +13,6 @@ const ENV = { SUPABASE_URL: "https://sb-441.example.test", SUPABASE_SERVICE_ROLE
 const SECRET = "fixed-test-hmac-key-0000000000000000";
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 
-const stubNext = { fetch: () => Promise.resolve(new Response("next", { status: 200 })) };
 const stubCtx = {
   waitUntil(promise: Promise<unknown>) { void promise; },
   passThroughOnException() { return undefined; },
@@ -136,7 +135,6 @@ const passingGate = { check: () => Promise.resolve({ ok: true, errorCodes: [] })
 
 function appWith(result: AuthResult) {
   return createWorkerApp({
-    nextHandler: stubNext,
     authenticate: () => Promise.resolve(result),
     turnstileGate: passingGate,
   });

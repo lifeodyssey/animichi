@@ -51,7 +51,7 @@ async function anonCookieFor(userId: string): Promise<string> {
 
 void test("a valid aid cookie reaches the container as X-Anon-Id, exactly", async () => {
   const cap: { req?: Request } = {};
-  const app = createWorkerApp({ nextHandler: { fetch: () => Promise.resolve(new Response("next")) }, authenticate: authOk });
+  const app = createWorkerApp({ authenticate: authOk });
   const cookie = await anonCookieFor("anon_" + "a".repeat(32));
   await app.request("/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, envWithContainer(cap), stubCtx);
   assert.equal(cap.req?.headers.get("X-Anon-Id"), "anon_" + "a".repeat(32));
@@ -59,7 +59,7 @@ void test("a valid aid cookie reaches the container as X-Anon-Id, exactly", asyn
 
 void test("no aid cookie -> no X-Anon-Id forwarded, and no Set-Cookie on the response", async () => {
   const cap: { req?: Request } = {};
-  const app = createWorkerApp({ nextHandler: { fetch: () => Promise.resolve(new Response("next")) }, authenticate: authOk });
+  const app = createWorkerApp({ authenticate: authOk });
   const res = await app.request(
     "/v1/session/migrate", { method: "POST" }, envWithContainer(cap, { migrated: false }), stubCtx,
   );
@@ -69,7 +69,7 @@ void test("no aid cookie -> no X-Anon-Id forwarded, and no Set-Cookie on the res
 
 void test("a tampered aid cookie -> no X-Anon-Id forwarded, and no Set-Cookie on the response", async () => {
   const cap: { req?: Request } = {};
-  const app = createWorkerApp({ nextHandler: { fetch: () => Promise.resolve(new Response("next")) }, authenticate: authOk });
+  const app = createWorkerApp({ authenticate: authOk });
   const res = await app.request(
     "/v1/session/migrate",
     { method: "POST", headers: { Cookie: `aid=${"a".repeat(32)}.${"b".repeat(64)}` } },
@@ -82,7 +82,7 @@ void test("a tampered aid cookie -> no X-Anon-Id forwarded, and no Set-Cookie on
 
 void test("a client-forged X-Anon-Id is overwritten by the edge's own resolution", async () => {
   const cap: { req?: Request } = {};
-  const app = createWorkerApp({ nextHandler: { fetch: () => Promise.resolve(new Response("next")) }, authenticate: authOk });
+  const app = createWorkerApp({ authenticate: authOk });
   const cookie = await anonCookieFor("anon_" + "c".repeat(32));
   await app.request(
     "/v1/session/migrate",
@@ -104,7 +104,7 @@ void test("a client-forged X-Anon-Id is overwritten by the edge's own resolution
 
 void test("a successful migration does NOT retire the aid cookie (#507 reversal)", async () => {
   const cap: { req?: Request } = {};
-  const app = createWorkerApp({ nextHandler: { fetch: () => Promise.resolve(new Response("next")) }, authenticate: authOk });
+  const app = createWorkerApp({ authenticate: authOk });
   const cookie = await anonCookieFor("anon_" + "d".repeat(32));
   const res = await app.request(
     "/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, envWithContainer(cap, { migrated: true }), stubCtx,
@@ -114,7 +114,7 @@ void test("a successful migration does NOT retire the aid cookie (#507 reversal)
 
 void test("the surviving identity keeps working: a later anonymous turn reuses it", async () => {
   const cap: { req?: Request } = {};
-  const app = createWorkerApp({ nextHandler: { fetch: () => Promise.resolve(new Response("next")) }, authenticate: authOk });
+  const app = createWorkerApp({ authenticate: authOk });
   const anonId = "anon_" + "d".repeat(32);
   const cookie = await anonCookieFor(anonId);
   const migrated = await app.request(
@@ -130,7 +130,7 @@ void test("the surviving identity keeps working: a later anonymous turn reuses i
 
 void test("a no-op migration (migrated: false) sets no cookie either", async () => {
   const cap: { req?: Request } = {};
-  const app = createWorkerApp({ nextHandler: { fetch: () => Promise.resolve(new Response("next")) }, authenticate: authOk });
+  const app = createWorkerApp({ authenticate: authOk });
   const cookie = await anonCookieFor("anon_" + "e".repeat(32));
   const res = await app.request(
     "/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, envWithContainer(cap, { migrated: false }), stubCtx,
@@ -140,7 +140,7 @@ void test("a no-op migration (migrated: false) sets no cookie either", async () 
 
 void test("X-Anon-Id is stripped on every OTHER /v1 route, even with a valid cookie", async () => {
   const cap: { req?: Request } = {};
-  const app = createWorkerApp({ nextHandler: { fetch: () => Promise.resolve(new Response("next")) }, authenticate: authOk });
+  const app = createWorkerApp({ authenticate: authOk });
   const cookie = await anonCookieFor("anon_" + "b".repeat(32));
   await app.request(
     "/v1/chat", { method: "POST", headers: { Cookie: cookie, "X-Anon-Id": "anon_" + "b".repeat(32) } }, envWithContainer(cap), stubCtx,

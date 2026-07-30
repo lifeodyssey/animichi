@@ -18,7 +18,6 @@ const TURNSTILE_SECRET = "fixed-test-turnstile-secret-0000000";
 const ANON_ENV = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET, TURNSTILE_SECRET };
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 
-const stubNext = { fetch: () => Promise.resolve(new Response("next", { status: 200 })) };
 const stubCtx = {
   waitUntil(promise: Promise<unknown>) { void promise; },
   passThroughOnException() { return undefined; },
@@ -80,7 +79,7 @@ function armedApp(gate: TurnstileGate, authenticated = false) {
   const auth = authenticated
     ? () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const)
     : () => Promise.resolve({ ok: false, reason: "absent" } as const);
-  return createWorkerApp({ nextHandler: stubNext, authenticate: auth, turnstileGate: gate });
+  return createWorkerApp({ authenticate: auth, turnstileGate: gate });
 }
 
 function chat(headers: Record<string, string> = {}) {

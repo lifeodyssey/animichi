@@ -14,7 +14,6 @@ const ANON_ENV = {
 };
 const NOW = Date.UTC(2026, 6, 26, 12, 0, 0);
 
-const stubNext = { fetch: () => Promise.resolve(new Response("next", { status: 200 })) };
 const stubCtx = {
   waitUntil(promise: Promise<unknown>) { void promise; },
   passThroughOnException() { return undefined; },
@@ -59,7 +58,6 @@ const passingGate = { check: () => Promise.resolve({ ok: true, errorCodes: [] })
 
 function anonApp() {
   return createWorkerApp({
-    nextHandler: stubNext,
     authenticate: () => Promise.resolve({ ok: false, reason: "absent" }),
     turnstileGate: passingGate,
   });
@@ -169,7 +167,6 @@ void test("the breaker does not touch logged-in callers", async () => {
   const env = anonEnv(captured, breakerTripped, fakeGuard());
   await anonApp().request("/v1/chat", chat(), env, stubCtx);
   const app = createWorkerApp({
-    nextHandler: stubNext,
     authenticate: () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const),
   });
   const res = await app.request("/v1/chat", chat({ Authorization: "Bearer jwt" }), env, stubCtx);

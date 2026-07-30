@@ -6,8 +6,10 @@ export default defineConfig({
   timeout: 30_000,
   retries: 0,
   use: {
-    // E2E_BASE_URL targets the legacy Next.js frontend (:3001); apps/web specs use E2E_WEB_BASE_URL instead (see web-404.spec.ts) until the S0.7 cutover.
-    baseURL: process.env.E2E_BASE_URL || "http://localhost:3001",
+    // Issue #537 retired the legacy Next.js frontend, so `apps/web` is the only
+    // browser surface left. Specs still set their own `E2E_WEB_BASE_URL` base
+    // (see web-404.spec.ts); this is the shared default they agree with.
+    baseURL: process.env.E2E_WEB_BASE_URL || "http://localhost:3000",
     headless: true,
     screenshot: "only-on-failure",
     trace: "on-first-retry",

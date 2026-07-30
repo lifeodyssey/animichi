@@ -1,6 +1,6 @@
 # Animichi Agent - Makefile
 
-.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset fe-lint fe-typecheck fe-test fe-test-cov fe-build fe-check check-all e2e-setup e2e e2e-public local-login dev-stop
+.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset test-worker e2e-setup e2e local-login dev-stop
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -14,7 +14,7 @@ help:
 	@echo ""
 	@echo "Development:"
 	@echo "  make dev-db      Start agent-only Neon Local on postgres-wire port 5432"
-	@echo "  make dev-local   Start everything (Supabase + backend + frontend)"
+	@echo "  make dev-local   Start everything (Supabase + backend + web app)"
 	@echo "  make dev-stop    Stop all local dev services"
 	@echo "  make local-login Open browser with magic link login"
 	@echo "  make install     Install production dependencies"
@@ -42,7 +42,6 @@ help:
 	@echo "E2E Testing:"
 	@echo "  make e2e-setup   Start Supabase + Edge Function + seed data"
 	@echo "  make e2e         Run all Playwright E2E tests"
-	@echo "  make e2e-public  Run E2E tests that don't need email"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean       Remove build artifacts and caches"
@@ -88,28 +87,10 @@ typecheck:
 
 check: lint typecheck test test-integration
 
-# ── Frontend ──────────────────────────────────────────────────
+# ── Edge worker ───────────────────────────────────────────────
 
-fe-lint:
-	cd frontend && npx eslint .
-
-fe-typecheck:
-	cd frontend && npx tsc --noEmit
-
-fe-test:
-	cd frontend && npx vitest run
-
-fe-test-cov:
-	cd frontend && npx vitest run --coverage
-
-fe-build:
-	cd frontend && npm run build
-
-fe-check: fe-lint fe-typecheck fe-test
-
-# ── Full check (backend + frontend) ──────────────────────────
-
-check-all: check fe-check
+test-worker:
+	pnpm run test:worker
 
 clean:
 	rm -rf __pycache__ .pytest_cache .coverage htmlcov coverage.xml
@@ -163,7 +144,7 @@ dev-local:
 	@echo "=== Animichi Local Dev ==="
 	@# 0. Kill stale processes from previous runs
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
-	@-lsof -ti :3001 | xargs kill 2>/dev/null; true
+	@-lsof -ti :3000 | xargs kill 2>/dev/null; true
 	@# 1. Verify Supabase is running (start if not)
 	@supabase status 2>&1 | grep -q "running" || (echo "Starting Supabase..." && supabase start --exclude vector,analytics --ignore-health-check)
 	@# 2. Wait for DB to be ready
@@ -180,20 +161,20 @@ dev-local:
 	fi
 	@# 4. Start Edge Function for auth emails (with local SITE_URL)
 	@supabase functions serve send-auth-email --no-verify-jwt --env-file supabase/.env.local > /tmp/animichi-edge.log 2>&1 & echo $$! > /tmp/animichi-edge.pid
-	@echo "✓ Edge Function started (SITE_URL=http://localhost:3001)"
+	@echo "✓ Edge Function started (SITE_URL=http://localhost:3000)"
 	@# 5. Start backend with .env (background, daemonized)
 	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) bash -c 'cd apps/agent && uv run uvicorn agent.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080' > /tmp/animichi-backend.log 2>&1 & echo $$! > /tmp/animichi-backend.pid
 	@# 6. Wait for backend health
 	@echo "Waiting for backend..."
 	@for i in $$(seq 1 60); do curl -s http://localhost:8080/healthz >/dev/null 2>&1 && break || sleep 2; done
 	@curl -s http://localhost:8080/healthz >/dev/null 2>&1 && echo "✓ Backend ready on :8080" || (echo "✗ Backend failed — check /tmp/animichi-backend.log" && exit 1)
-	@# 7. Start frontend on :3001 (matching config.toml site_url)
-	@cd frontend && npm run dev > /tmp/animichi-frontend.log 2>&1 & echo $$! > /tmp/animichi-frontend.pid
+	@# 7. Start the web app on :3000 (matching config.toml site_url)
+	@pnpm --filter web dev > /tmp/animichi-web.log 2>&1 & echo $$! > /tmp/animichi-web.pid
 	@sleep 3
-	@echo "✓ Frontend starting on :3001"
+	@echo "✓ Web app starting on :3000"
 	@echo ""
 	@echo "=== Ready ==="
-	@echo "  Frontend:  http://localhost:3001"
+	@echo "  Web app:   http://localhost:3000"
 	@echo "  Backend:   http://localhost:8080/healthz"
 	@echo "  Mailpit:   http://localhost:54324"
 	@echo "  Studio:    http://localhost:54323"
@@ -204,9 +185,9 @@ dev-stop:
 	@echo "Stopping local dev services..."
 	@-test -f /tmp/animichi-edge.pid && kill $$(cat /tmp/animichi-edge.pid) 2>/dev/null && rm /tmp/animichi-edge.pid && echo "✓ Edge Function stopped" || true
 	@-test -f /tmp/animichi-backend.pid && kill $$(cat /tmp/animichi-backend.pid) 2>/dev/null && rm /tmp/animichi-backend.pid && echo "✓ Backend stopped" || true
-	@-test -f /tmp/animichi-frontend.pid && kill $$(cat /tmp/animichi-frontend.pid) 2>/dev/null && rm /tmp/animichi-frontend.pid && echo "✓ Frontend stopped" || true
+	@-test -f /tmp/animichi-web.pid && kill $$(cat /tmp/animichi-web.pid) 2>/dev/null && rm /tmp/animichi-web.pid && echo "✓ Web app stopped" || true
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
-	@-lsof -ti :3001 | xargs kill 2>/dev/null; true
+	@-lsof -ti :3000 | xargs kill 2>/dev/null; true
 	@echo "Done. (Supabase still running — use 'supabase stop' to shut down)"
 
 # ── E2E Testing ──────────────────────────────────────────────
@@ -216,9 +197,6 @@ e2e-setup:
 
 e2e:
 	cd e2e && npx playwright test
-
-e2e-public:
-	cd e2e && npx playwright test public-pages.spec.ts middleware-redirect.spec.ts login-modal.spec.ts
 
 local-login:
 	bash scripts/local-login.sh

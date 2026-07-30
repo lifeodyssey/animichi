@@ -112,8 +112,7 @@ function env(guard: ReturnType<typeof fakeGuard>): Env {
 
 function authedApp() {
   return createWorkerApp({
-    nextHandler: { fetch: () => Promise.resolve(new Response("next", { status: 200 })) },
-    authenticate: () => Promise.resolve({ ok: true, userId: "user-a", userType: "human" } as const),
+        authenticate: () => Promise.resolve({ ok: true, userId: "user-a", userType: "human" } as const),
   });
 }
 
