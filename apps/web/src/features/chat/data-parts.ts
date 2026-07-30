@@ -1,5 +1,5 @@
-import { ChatResponseDataPart } from "@seichijunrei/contract";
-import type { ChatDataPart } from "@seichijunrei/contract";
+import { ChatResponseDataPart } from "@animichi/contract";
+import type { ChatDataPart } from "@animichi/contract";
 
 /**
  * Trust boundary for streamed `data-response` parts: everything crossing from

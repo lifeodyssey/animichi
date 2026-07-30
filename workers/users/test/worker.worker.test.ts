@@ -1,4 +1,4 @@
-import { UserRoute } from "@seichijunrei/contract";
+import { UserRoute } from "@animichi/contract";
 import { describe, expect, it } from "vitest";
 import { createUsersApp } from "../src/index";
 import { authTools, fakeDb, TEST_ENV } from "./helpers";

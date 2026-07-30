@@ -1,4 +1,4 @@
-import type { ChatDataPart } from "@seichijunrei/contract";
+import type { ChatDataPart } from "@animichi/contract";
 import type { Locale } from "../../i18n/locales";
 import { sanitizePhoto } from "../shiori/exifStrip";
 import { parseChatDataPart } from "./data-parts";

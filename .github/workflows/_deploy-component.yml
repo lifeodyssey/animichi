@@ -522,7 +522,7 @@ jobs:
           # install path (`npm i wrangler@...`) runs inside a directory whose
           # package.json has a `workspace:*` dependency (apps/web,
           # workers/catalog, workers/users all do, via
-          # `@seichijunrei/contract`) — npm doesn't understand that pnpm-only
+          # `@animichi/contract`) — npm doesn't understand that pnpm-only
           # protocol and dies with EUNSUPPORTEDPROTOCOL before wrangler ever
           # runs. Confirmed by reading dist/index.mjs at the pinned SHA below
           # (not just the docs): `packageManager` input is read verbatim via

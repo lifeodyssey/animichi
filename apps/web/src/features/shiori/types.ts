@@ -1,4 +1,4 @@
-import type { TimedItinerary } from "@seichijunrei/contract";
+import type { TimedItinerary } from "@animichi/contract";
 
 /** A 対比図 composite selected onto the しおり. */
 export interface ShioriPhoto {

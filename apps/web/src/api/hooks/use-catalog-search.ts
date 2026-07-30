@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { SearchInput } from "@seichijunrei/contract";
+import type { SearchInput } from "@animichi/contract";
 import { catalog } from "../orpc";
 
 /**

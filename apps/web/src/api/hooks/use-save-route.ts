@@ -1,6 +1,6 @@
 import { QueryClientContext } from "@tanstack/react-query";
 import { useCallback, useContext, useRef, useState } from "react";
-import type { SaveRouteInput, UserRoute } from "@seichijunrei/contract";
+import type { SaveRouteInput, UserRoute } from "@animichi/contract";
 import { users } from "../orpc";
 
 /** The one transport call behind both the in-chat save and create-on-login. */

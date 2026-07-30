@@ -1,4 +1,4 @@
-import type { LatLng } from "@seichijunrei/contract";
+import type { LatLng } from "@animichi/contract";
 
 /** C3a shows at most this many spot cards (spec-chat-page-states §C3a). */
 export const TOP_SPOT_COUNT = 6;

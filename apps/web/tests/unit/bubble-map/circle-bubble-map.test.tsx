@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import type { AnimeOverviewCircle } from "@seichijunrei/contract";
+import type { AnimeOverviewCircle } from "@animichi/contract";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";

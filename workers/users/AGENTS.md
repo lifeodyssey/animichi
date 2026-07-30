@@ -34,7 +34,7 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
 - **timestamptz** returns raw strings under workerd → normalize `new Date(v).toISOString()` at the
   boundary.
 - zod value imports only at the contract/handler boundary; internals `import type` from
-  `@seichijunrei/contract`.
+  `@animichi/contract`.
 
 ## Config / secrets
 

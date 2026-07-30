@@ -1,5 +1,5 @@
 /**
- * @seichijunrei/contract — public entrypoint.
+ * @animichi/contract — public entrypoint.
  *
  * Re-exports shared models, including resolver outcomes, and the Catalog oRPC contract.
  */
