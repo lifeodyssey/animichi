@@ -19,7 +19,6 @@ stable boundaries, current entry points, and active plans only.
 | `workers/users/AGENTS.md` | Live user-domain Worker (Hono / oRPC / jose) conventions |
 | `packages/contract/AGENTS.md` | Cross-service oRPC/Zod contract conventions |
 | `apps/web/AGENTS.md` | TanStack Start rebuild conventions |
-| `frontend/AGENTS.md` | Frozen legacy Next.js rules (homepage-only) |
 | `db/AGENTS.md` · `e2e/AGENTS.md` · `infra/AGENTS.md` | Migrations, browser tests, and IaC conventions |
 | `.claude/rules/*.md` | Path-scoped rules loaded only for matching files |
 | `docs/ARCHITECTURE.md` | Live runtime reference (refresh pending — see Source-of-Truth notes below) |
@@ -57,7 +56,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 |---|---|---|
 | **Why** the architecture is shaped this way | `docs/superpowers/specs/2026-06-13-architecture-adr.md` | Foundational ADR; its "全 TS on Workers" decision was later refined by the rebuild spec below |
 | **Current target** architecture (hybrid, latest) | `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md` | Latest; supersedes the ADR on agent language; rebuild in progress |
-| Live agent runtime reference | `docs/ARCHITECTURE.md` **(paths + frontend section need a refresh — separate PR)** + `apps/agent/agent/agents/animichi_runner.py` | Runtime is still Python & live; the doc's paths + frontend section are stale |
+| Live agent runtime reference | `docs/ARCHITECTURE.md` **(paths need a refresh — separate PR)** + `apps/agent/agent/agents/animichi_runner.py` | Runtime is still Python & live; the doc's paths are stale |
 | Agent entry | `apps/agent/agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/animichi_runner.py` | was `backend/interfaces/…` |
 | Agent shared types | `apps/agent/agent/agents/models.py`, `…/agent_result.py` | was `backend/agents/…` |
 | Agent tools | `apps/agent/agent/agents/animichi_tools.py` + `web_tools.py` | Typed `TOOLS` lists injected by `build_animichi_agent()` |
@@ -68,9 +67,8 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Deploy wiring | `wrangler.toml` + `worker/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
 | DB — catalog/user data | **Neon** (Drizzle raw-SQL query-only over neon-http); migrations in `db/` (Atlas) | data plane; no Hyperdrive |
 | DB — auth | **Supabase** (auth-only); migrations in `supabase/migrations/` | |
-| Frontend — current (homepage-only) | `frontend/` (Next.js OpenNext) + `frontend/AGENTS.md` | chat/search trees deleted 2026-06 |
-| Frontend — rebuild target | `apps/web/` + `apps/web/AGENTS.md` (TanStack Start) | Landing + branded 404 live; spec `2026-07-06-frontend-rebuild-spec.md` |
-| Design tokens / system | `frontend/app/globals.css` + `frontend/DESIGN.md`; ref `docs/design/animal-island-ref/` | |
+| Web app (the only browser surface) | `apps/web/` + `apps/web/AGENTS.md` (TanStack Start) | Legacy `frontend/` retired in #537; spec `2026-07-06-frontend-rebuild-spec.md` |
+| Design tokens / system | `apps/web/` (animal-island-ui-tailwind); ref `docs/design/animal-island-ref/` | |
 | Eval | `apps/agent/agent/tests/eval/` (Python) | |
 | Testing strategy | `docs/testing-strategy.md` | |
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |

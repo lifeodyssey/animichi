@@ -11,8 +11,6 @@ downloads/
 eggs/
 .eggs/
 lib/
-!frontend/lib/
-!frontend/lib/**
 lib64/
 parts/
 sdist/
@@ -62,7 +60,7 @@ data/raw/
 !docs/mockups/**/*.html
 !docs/design/**/*.html
 
-# QA/debug screenshots dumped at repo root (root-level only; frontend/ and docs/ assets unaffected)
+# QA/debug screenshots dumped at repo root (root-level only; docs/ assets unaffected)
 /*.png
 
 # Test outputs
@@ -96,7 +94,6 @@ skills-lock.json
 
 # Misc
 images/
-!frontend/public/images/
 !apps/web/public/images/
 *.pen
 .next/
@@ -111,13 +108,11 @@ node_modules
 .sandbox-env/
 .sandbox-venv/
 .remember/
-frontend/.env.local.bak
 
 # Agent / tool scratch dirs (not source)
 .codex/
 .baoyu-skills/
 .impeccable/
-frontend/.impeccable/
 
 # Large design-probe / mockup image artifacts (kept on disk, not in git)
 docs/design/redesign-probes/

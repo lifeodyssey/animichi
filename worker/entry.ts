@@ -1,9 +1,7 @@
 import { Container } from "@cloudflare/containers";
-import nextHandler from "./.open-next/worker.js";
 import { createWorkerApp, catalogOutbound, type Env } from "./app.ts";
 import { buildContainerEnvVars, DENIED_EGRESS_HOSTS } from "./containerEnv.ts";
 
-export { DOQueueHandler, DOShardedTagCache } from "./.open-next/worker.js";
 export { EdgeGuard } from "./edgeGuard.ts";
 // Required for `deniedHosts`/outbound interception to actually run (#284 Task 7,
 // PR #478 review): `applyOutboundInterception` hard-throws when
@@ -53,4 +51,4 @@ RuntimeContainer.outboundByHost = {
   "catalog.internal": (request: Request, env: Env) => catalogOutbound(request, env),
 };
 
-export default createWorkerApp({ nextHandler });
+export default createWorkerApp({});

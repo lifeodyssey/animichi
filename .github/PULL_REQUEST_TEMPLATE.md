@@ -18,8 +18,8 @@ Test type: unit | integration | eval | browser | api
 
 - [ ] `make check` passes (lint + typecheck + test)
 - [ ] Every AC row above has a test type and a test file present in this PR's diff
-- [ ] Coverage thresholds were NOT lowered (frontend `vitest.config.ts`, backend `pytest.ini`) — thresholds may only be ratcheted UP; if this PR raises coverage, floors are updated to the new value
-- [ ] No suppressions added (`eslint-disable`, `@ts-ignore`, `type: ignore`, `noqa`, `pragma: no cover`, `continue-on-error`, `skip`) — if a rule fired, the code was fixed instead
+- [ ] Coverage thresholds were NOT lowered (`apps/web/vitest.config.ts`, backend `pytest.ini`) — thresholds may only be ratcheted UP; if this PR raises coverage, floors are updated to the new value
+- [ ] No suppressions added (`@ts-ignore`, `type: ignore`, `noqa`, `pragma: no cover`, `continue-on-error`, `skip`, oxlint inline config) — if a rule fired, the code was fixed instead
 - [ ] No hardcoded secrets; design tokens used (no raw Tailwind palette colors)
 
 ## Notes for Reviewer

@@ -43,7 +43,7 @@ The deployment target stays intentionally thin. The Worker owns routing and edge
 
 | Layer | Responsibility | Secrets/config it should see |
 |---|---|---|
-| Frontend build | Static export only | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+| Web app (`apps/web`) | SSR browser surface, deployed as its own Worker on its own route | none of this Worker's secrets |
 | Worker edge | Route match, JWT/API-key auth, identity injection | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (+ optional `NEON_AUTH_*`) |
 | Container runtime | Backend service, DB, model/provider calls | `SUPABASE_DB_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `ANITABI_API_URL`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
 
@@ -171,15 +171,6 @@ Session storage:
 
 - the backend currently uses the in-memory session store only
 
-### Frontend build-time env
-
-Required during `frontend` build only:
-
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-These are injected in GitHub Actions during the static export step and are not runtime container secrets.
-
 ## Container Path
 
 Build the image locally:
@@ -227,8 +218,16 @@ Requirements:
 Routing defined by `wrangler.toml`:
 
 - `/v1/*` and `/healthz` run through the Worker and proxy to `CONTAINER`
+- `/v1/users/*` goes to the `USERS` service binding (it verifies its own JWT)
+- `/catalog/public/anime-overview/:id` is the one allowlisted anonymous catalog read
 - `/img/*` runs through the Worker image proxy/cache
-- everything else goes to `ASSETS` (`frontend/out/`)
+- everything else answers a JSON `404 not_found`
+
+Issue #537 removed the bundled Next.js app and with it the `[assets]` binding: this Worker
+has **no** HTML surface. `apps/web` deploys as its own Worker and owns every page. The root
+Worker's `routes` still claim `animichi.com/*` — narrowing that and pointing the apex at
+`apps/web` is issue #541 (DNS + routes), which must land before `animichi.com` gets a DNS
+record.
 
 ## Deploy Sequence
 
@@ -293,7 +292,8 @@ On a push to `main`, the current promotion chain is:
 `environment: production`, so it requires the same GitHub environment approval before the job runs.
 Its current order is:
 
-1. build the frontend with `pnpm run build` in `frontend`
+1. install workspace dependencies (`pnpm install --frozen-lockfile`); there is no app build
+   step — the root Worker ships as TypeScript source
 2. apply Supabase migrations with `supabase db push`
 3. deploy the catalog Worker first, because the root Worker service binding depends on it
 4. verify `Dockerfile` exists
@@ -301,9 +301,11 @@ Its current order is:
 
 Do not use version tags as a deploy trigger for the current pipeline.
 
-**CF Worker routing** (`worker/worker.js`):
+**CF Worker routing** (`worker/app.ts`):
 - `/v1/*` and `/healthz` → `CONTAINER` (Durable Object → FastAPI service on port 8080)
-- Everything else → `ASSETS` (Next.js static export from `frontend/out/`)
+- `/v1/users/*` → `USERS` service binding
+- `/img/*` → image proxy + cache
+- Everything else → JSON `404 not_found` (no asset/page fallback since #537)
 
 ## WAF and Edge Hardening
 

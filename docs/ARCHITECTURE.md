@@ -186,54 +186,16 @@ open to callers with no session:
   budget breaker above allows the turn — the global dollar ceiling is the more severe, systemic
   concern and wins ties over one visitor's own message ceiling. Logged-in traffic is never gated.
 
-## Frontend Auth — `frontend/components/auth/AuthGate.tsx` + `frontend/app/auth/callback/page.tsx`
+## Web App
 
-Both frontend Supabase clients use `flowType: 'implicit'`. This is intentional:
+The browser surface is `apps/web/` (TanStack Start, deployed as its own Cloudflare Worker).
+Its layout, routing, design tokens, and auth wiring are documented in `apps/web/AGENTS.md` —
+that package is the source of truth, not this file.
 
-- Magic links redirect to `/auth/callback/#access_token=...` (hash fragment)
-- `getSession()` on the callback page extracts the session from the hash automatically
-- Works regardless of which browser opens the magic link (no `code_verifier` in localStorage required)
-
-PKCE (`flowType: 'pkce'`) was the previous default but failed cross-browser: the verifier stored in browser A is not available when the email link opens in browser B.
-
-## Frontend Architecture
-
-### Three-Column Layout
-
-```
-┌─────────┬──────────────────┬──────────────────────┐
-│ Sidebar │ Chat Panel 360px │ Result Panel flex-1  │
-│ 240px   │                  │                      │
-│ History │ user messages    │ GenerativeUIRenderer │
-│ New     │ bot: text only   │ (active result)      │
-│         │ + ◈ anchor cards │                      │
-│         │ [input]          │ empty: faint map bg  │
-└─────────┴──────────────────┴──────────────────────┘
-```
-
-`◈` anchor click sets `activeMessageId` in AppShell → drives `ResultPanel`. On mobile: opens `ConversationDrawer` (vaul bottom sheet) or `ResultSheet`.
-
-### Generative UI Registry
-
-```typescript
-// frontend/components/generative/registry.ts
-export const COMPONENT_REGISTRY: Record<string, ComponentRenderer> = {
-  PilgrimageGrid:     ...,  // search results grid
-  NearbyMap:          ...,  // geo-based nearby map
-  RouteVisualization: ...,  // route display
-  RoutePlannerWizard: ...,  // route planning wizard
-  GeneralAnswer:      ...,  // QA text response
-  Clarification:      ...,  // disambiguation UI
-}
-```
-
-Adding a new component: register in `COMPONENT_REGISTRY` only. No routing changes.
-
-### Locale Detection
-
-Locale is detected client-side from `localStorage` (key `locale`) via `lib/i18n.ts detectLocale()`. Supported values: `ja`, `zh`, `en` (default: `ja`). There is no URL-based locale routing (no `app/[lang]/` path segments).
-
-Design tokens: see `frontend/AGENTS.md`.
+Issue #537 deleted the legacy `frontend/` Next.js package and the root Worker's OpenNext
+fallback with it. The root Worker (`worker/app.ts`) is now an API gateway only: `/v1/*`,
+`/v1/users/*`, `/healthz`, `/img/*`, one allowlisted public catalog read, and a JSON
+`404 not_found` for everything else. It serves no HTML.
 
 ## Eval Infrastructure
 
@@ -253,5 +215,4 @@ Design tokens: see `frontend/AGENTS.md`.
 - Selected-route path bypasses the agent entirely (`execute_selected_route`)
 - Retrieval is structured-first — no semantic/vector search
 - DB is source of truth for anime catalog — no hardcoded lists
-- Frontend component additions require only a registry entry
 - Auth is enforced at the CF Worker edge — container is not auth-aware
