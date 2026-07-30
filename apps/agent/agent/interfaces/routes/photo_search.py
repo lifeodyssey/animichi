@@ -274,11 +274,17 @@ async def handle_photo_search(
     authenticated = auth.user_id is not None and not is_anonymous_identity(
         auth.user_id, auth.user_type
     )
+    # The budget check runs before the image is decoded. It needs only `auth`,
+    # and a breaker that fires after the work it is meant to prevent is most of
+    # a breaker that does not work. The visible consequence: a caller who is both
+    # over budget and sending a malformed image now gets 403 rather than 400 —
+    # the correct precedence, since being over budget is the reason we are not
+    # looking at their image at all.
+    budget_rejection = await _budget_rejection(request, auth)
+    if budget_rejection is not None:
+        return budget_rejection
     try:
         image = _decode_image(body)
-        budget_rejection = await _budget_rejection(request, auth)
-        if budget_rejection is not None:
-            return budget_rejection
         tier = quota_tier_for(authenticated)
         settings = _get_settings_from_request(request)
         _check_quota(runtime, settings, tier, _quota_key(auth, request), byok)
