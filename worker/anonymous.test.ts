@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
-import { ANON_ID_PREFIX, anonymousEnabled, resolveAnonymous } from "./auth.ts";
 import { ANON_BUDGET_EXHAUSTED_CODE } from "./costBreaker.ts";
 import { handleGuardRequest } from "./edgeGuard.ts";
 import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
@@ -76,7 +75,7 @@ void test("an anonymous /v1/chat reaches the container marked anonymous", async 
   );
   assert.equal(await res.text(), "container");
   assert.equal(captured.requests[0]?.headers.get("X-User-Type"), "anonymous");
-  assert.match(String(captured.requests[0]?.headers.get("X-User-Id")), /^anon_[0-9a-f]{32}$/);
+  assert.match(String(captured.requests[0].headers.get("X-User-Id")), /^anon_[0-9a-f]{32}$/);
 });
 
 void test("the anonymous branch sets the identity cookie on the response", async () => {
@@ -109,7 +108,7 @@ void test("non-allowlisted /v1 paths still 401 for anonymous callers", async () 
 void test("with anonymous access disabled /v1/chat keeps its 401", async () => {
   const captured = { requests: [] as Request[] };
   const env = { ...(anonEnv(captured, () => new Response("container")) as object), ANON_ACCESS_ENABLED: "false" };
-  const res = await anonApp().request("/v1/chat", chat(), env as never, stubCtx);
+  const res = await anonApp().request("/v1/chat", chat(), env, stubCtx);
   assert.equal(res.status, 401);
   assert.equal(captured.requests.length, 0);
 });
@@ -118,9 +117,9 @@ void test("exceeding the burst limit returns a friendly 429, not a bare status",
   const captured = { requests: [] as Request[] };
   const env = { ...(anonEnv(captured, () => new Response("container")) as object), ANON_RATE_LIMIT: "1" };
   const cookie = String(
-    (await anonApp().request("/v1/chat", chat(), env as never, stubCtx)).headers.get("Set-Cookie"),
+    (await anonApp().request("/v1/chat", chat(), env, stubCtx)).headers.get("Set-Cookie"),
   ).split(";")[0] ?? "";
-  const res = await anonApp().request("/v1/chat", chat({ Cookie: cookie }), env as never, stubCtx);
+  const res = await anonApp().request("/v1/chat", chat({ Cookie: cookie }), env, stubCtx);
   assert.equal(res.status, 429);
   assert.equal(res.headers.get("Retry-After"), "60");
   const body = (await res.json()) as { error: { code: string; message: string } };
@@ -132,10 +131,10 @@ void test("a separate anonymous identity is not affected by another's burst limi
   const captured = { requests: [] as Request[] };
   const env = { ...(anonEnv(captured, () => new Response("container")) as object), ANON_RATE_LIMIT: "1" };
   const cookie = String(
-    (await anonApp().request("/v1/chat", chat(), env as never, stubCtx)).headers.get("Set-Cookie"),
+    (await anonApp().request("/v1/chat", chat(), env, stubCtx)).headers.get("Set-Cookie"),
   ).split(";")[0] ?? "";
-  await anonApp().request("/v1/chat", chat({ Cookie: cookie }), env as never, stubCtx);
-  const other = await anonApp().request("/v1/chat", chat(), env as never, stubCtx);
+  await anonApp().request("/v1/chat", chat({ Cookie: cookie }), env, stubCtx);
+  const other = await anonApp().request("/v1/chat", chat(), env, stubCtx);
   assert.equal(other.status, 200);
 });
 

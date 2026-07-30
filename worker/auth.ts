@@ -225,7 +225,7 @@ async function verifyAnonymousToken(token: string, secret: string): Promise<stri
 }
 
 function anonymousCookie(token: string): string {
-  return `${ANON_COOKIE}=${token}; Path=/; Max-Age=${ANON_COOKIE_MAX_AGE_SECONDS}; HttpOnly; Secure; SameSite=Lax`;
+  return `${ANON_COOKIE}=${token}; Path=/; Max-Age=${String(ANON_COOKIE_MAX_AGE_SECONDS)}; HttpOnly; Secure; SameSite=Lax`;
 }
 
 async function mintAnonymousIdentity(secret: string): Promise<AnonymousIdentity> {

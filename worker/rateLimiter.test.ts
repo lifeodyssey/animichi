@@ -75,8 +75,8 @@ void test("consumeRateLimit lets the identity through again after the window", a
 void test("a rejected request skips the storage write (P2-3: no write amplification)", async () => {
   let puts = 0;
   const store = {
-    get: async () => ({ startedAtMs: T0, count: 1 }),
-    put: async () => { puts += 1; },
+    get: () => Promise.resolve({ startedAtMs: T0, count: 1 }),
+    put: () => { puts += 1; return Promise.resolve(); },
   };
   const decision = await consumeRateLimit(store, T0 + 1, { limit: 1, windowSeconds: 30 });
   assert.equal(decision.allowed, false);

@@ -32,7 +32,7 @@ void test("catalog outbound forwards every allowlisted method and path", async (
   const received: Request[] = [];
   for (const route of EXPECTED_CATALOG_CALLS) {
     const [method, pathname] = route.split(" ");
-    const request = new Request(`http://catalog.internal${pathname}`, { method });
+    const request = new Request(`http://catalog.internal${pathname ?? ""}`, { method });
     assert.equal((await catalogOutbound(request, catalogEnv(received))).status, 200);
   }
   assert.equal(received.length, EXPECTED_CATALOG_CALLS.length);
