@@ -57,11 +57,11 @@ jobs:
           SUPABASE_DB_URL: postgresql://test:test@127.0.0.1:5432/test
           MIMO_API_KEY: test-only
         run: |
-          uv run --no-sync ruff format --check agent/
-          uv run --no-sync ruff check agent/
-          uv run --no-sync mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
-          uv run --no-sync python -m pytest agent/tests/unit/ -v --no-cov
-          uv run --no-sync python -c "from agent.interfaces.fastapi_service import create_fastapi_app; print('fastapi OK')"
+          uv run --no-build --no-sync ruff format --check agent/
+          uv run --no-build --no-sync ruff check agent/
+          uv run --no-build --no-sync mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
+          uv run --no-build --no-sync python -m pytest agent/tests/unit/ -v --no-cov
+          uv run --no-build --no-sync python -c "from agent.interfaces.fastapi_service import create_fastapi_app; print('fastapi OK')"
 
       # ── Node setup (pnpm workspace; the web package lives in apps/web) ──
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9

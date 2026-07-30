@@ -23,7 +23,7 @@ test("Dependabot installs locked Python wheels without running build scripts", (
     /- run: uv sync --python "\$PYTHON_VERSION" --all-extras --locked --no-build --no-install-project\n\s+working-directory: apps\/agent/g;
   assert.equal(WORKFLOW.match(safeSync)?.length, 1);
   assert.doesNotMatch(WORKFLOW, /- run: uv sync --all-extras\n/);
-  assert.doesNotMatch(WORKFLOW, /uv run (?!--no-sync)/);
+  assert.doesNotMatch(WORKFLOW, /uv run (?!--no-build --no-sync)/);
 });
 
 test("Dependabot uses the shared Node verification command", () => {
@@ -60,7 +60,7 @@ test("Dependabot reports incomplete verification without an autonomous writer", 
 
 test("Dependabot runs tests from source without installing the local project", () => {
   const backend = stepNamed("Backend quality + tests");
-  assert.match(backend, /uv run --no-sync python -m pytest/);
+  assert.match(backend, /uv run --no-build --no-sync python -m pytest/);
   assert.match(backend, /SUPABASE_DB_URL: postgresql:\/\/test:test@127\.0\.0\.1:5432\/test/);
   assert.match(backend, /MIMO_API_KEY: test-only/);
 });
