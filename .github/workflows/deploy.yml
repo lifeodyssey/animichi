@@ -141,7 +141,9 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.112.0"
+          # Reuse the workspace-locked Wrangler installed above. An explicit
+          # duplicate version can drift and trigger wrangler-action's
+          # mutating package-install fallback inside a frozen workspace.
           # #516: workers/catalog has no lockfile of its own (pnpm workspace
           # member — the lockfile lives at repo root), so the action's
           # auto-detection falls back to npm, which then chokes on
@@ -167,7 +169,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.112.0"
           # #516: same lockfile-detection fallback bug as catalog above.
           packageManager: pnpm
           workingDirectory: workers/users
@@ -189,7 +190,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.112.0"
           # root's implicit workingDirectory (repo root) does have its own
           # lockfile, so auto-detection already resolves to pnpm correctly
           # here — set explicitly anyway so this doesn't silently start
@@ -245,5 +245,5 @@ jobs:
               echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — skipping the push (the preflight step already validated it is safe to skip here)."
               continue
             fi
-            printf '%s' "$value" | npx --yes wrangler@4.112.0 secret put "$name" --env "$TARGET_ENVIRONMENT"
+            printf '%s' "$value" | pnpm exec wrangler secret put "$name" --env "$TARGET_ENVIRONMENT"
           done <<< "$POST_DEPLOY_SECRETS"
