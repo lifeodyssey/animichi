@@ -7,9 +7,16 @@
 #                   + /img/* (image proxy) + /healthz + one public catalog read
 #                   → everything else: JSON 404, no page renderer
 #
-# NOTE: `routes` below still claims `animichi.com/*`. Narrowing it (and pointing
-# the apex at `apps/web`) is issue #541's DNS + routes work; the apex has no DNS
-# record today, so nothing is served from it either way.
+# ROUTES: none here, deliberately. This Worker's hostnames are declared in
+# Pulumi (`infra/index.ts`) as of #541 — `animichi.com/v1/*`, `/img/*` and
+# `/healthz`, with the apex itself going to `apps/web` via a Custom Domain.
+# The repo rule is "routes belong to Pulumi, worker code belongs to wrangler";
+# an earlier version of this file claimed `animichi.com/*` here, which is what
+# made a page request land on this Worker's JSON 404.
+#
+# Until Pulumi's `webRoutesEnabled` is turned on, this Worker has no hostname
+# at all: no routes here, and `workers_dev = false` since #539. That is the
+# intended pre-cutover state, not a misconfiguration.
 #
 # Required GitHub Secrets:
 #   CLOUDFLARE_API_TOKEN       — Wrangler deploy auth
@@ -49,10 +56,6 @@ name = "animichi"
 compatibility_date = "2025-03-01"
 compatibility_flags = ["nodejs_compat"]
 main = "worker/entry.ts"
-
-routes = [
-  { pattern = "animichi.com/*", zone_name = "animichi.com" }
-]
 
 # Plain (non-secret) vars forwarded into the RuntimeContainer (Python agent).
 # CATALOG_API_URL is the base the agent's CatalogClient POSTs to as
@@ -149,9 +152,6 @@ head_sampling_rate = 1
 
 [env.production]
 name = "animichi"
-routes = [
-  { pattern = "animichi.com/*", zone_name = "animichi.com" }
-]
 
 [env.production.vars]
 # Forwarded to the container as APP_ENV (issue #498) — required, see

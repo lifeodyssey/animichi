@@ -1,10 +1,39 @@
 config:
   # Same Cloudflare account as prod (already committed in Pulumi.prod.yaml).
   seichijunrei-infra:cloudflareAccountId: 021233c1880a43aa68565496100e1f8c
-  # Staging web/edge routes stay OFF until the S0.7 split-brain cutover.
-  # To enable staging routes on the staging stack:
-  #   pulumi config set webRoutesEnabled true --stack staging
+  #
+  # ── Hostname cutover (#541), OFF today ──────────────────────────────────────
+  # Flipping `webRoutesEnabled` PUBLISHES staging: it creates the Custom Domain
+  # and the /v1, /img, /healthz edge routes together. One flag on purpose — a
+  # hostname that resolves before its routes are narrowed answers a browser
+  # navigation with the edge Worker's JSON 404.
+  #
+  #   pulumi config set webRoutesEnabled true                   --stack staging
   #   pulumi config set cloudflareZoneId <animichi.com zone id> --stack staging
-  #   pulumi config set webDomain staging.animichi.com --stack staging
+  #   pulumi config set stagingDomain staging.animichi.com      --stack staging
+  #
+  # The key is `stagingDomain`, NOT `webDomain`. `webDomain` is the prod apex and
+  # is read only on the prod stack. An earlier version of this comment said
+  # `webDomain` here; following it would leave `stagingDomain` unset and fail the
+  # apply with "Missing required configuration variable".
+  #
+  # ── Staging access gate (#529/#559), OFF today ──────────────────────────────
+  # A WAF rule blocking staging traffic that carries neither the
+  # `animichi_staging` cookie nor the `x-staging-key` header. The token is a
+  # value you invent (`openssl rand -base64 32`), not one issued by anybody. The
+  # SAME value must reach two places: this config, and the STAGING_GATE_TOKEN
+  # GitHub secret that the Playwright suite sends.
+  #
+  #   pulumi config set cloudflareZoneId <animichi.com zone id> --stack staging
+  #   pulumi config set stagingDomain staging.animichi.com      --stack staging
+  #   pulumi config set stagingGateEnabled true                 --stack staging
+  #   pulumi config set --secret stagingGateToken "<value>"     --stack staging
+  #
+  # The first two repeat the cutover block above on purpose. The gate reads them
+  # independently of `webRoutesEnabled`, so enabling only the gate while the
+  # cutover flag is still false fails the apply on missing config — which is
+  # what following the previous version of these instructions would have done.
+  #
+  # ── Data plane ──────────────────────────────────────────────────────────────
   # catalogDatabaseUrl is a secret — set it per stack, never commit the raw value:
   #   pulumi config set --secret catalogDatabaseUrl "<neon staging branch connstr>" --stack staging
