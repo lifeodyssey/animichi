@@ -1,4 +1,4 @@
-h1:W3IXU2wlInCAxpa0TCyYLWpJjl1LOzMHyZHEZUK9nmk=
+h1:Ng+YorPb5+fj8UmmoMXgibQsc1KXDykdj+DS9FOPNp4=
 20260623000001_init.sql h1:j96dtVbOQB/5eNuug4tZpdgURdZ5h0Zh4Vka7/dy1A0=
 20260713000001_user_routes.sql h1:th9ag/cdiRp9plYQraVBGIuRXeH4g5R3XvCuGZeFx8Q=
 20260714000001_catalog_geocoding.sql h1:EwkJGRPfg5camebXRzw+5xRVf6TWu23t3/tnw91uPwY=
@@ -10,3 +10,4 @@ h1:W3IXU2wlInCAxpa0TCyYLWpJjl1LOzMHyZHEZUK9nmk=
 20260726000001_daily_usage.sql h1:sBFx7wFXsR8SKXqny7S87YZiamGNDA0FXMrSV3EXj7c=
 20260728000001_conversations_user_id_pattern_ops.sql h1:7SCuWtKAHlYDv4EINCwR6NYWw/qJ7afcC3+rUoqHuaM=
 20260729000001_anon_daily_message_quota.sql h1:Z6fxATy3/W6M5CKVdC6rwcscKOWbwx88vIyf0bnZDpk=
+20260730000001_catalog_database_roles.sql h1:O60PYCRA6Db1z3Gua+R84eB/qbBW0Cq28zjqJXDh1B4=
