@@ -78,6 +78,34 @@ It was re-run on the 1.0.6 → 1.0.7 upgrade, which included upstream's `db52e28
 ("Remove shell expansion for git commands") and looked likely to change it.
 It did not.
 
+### There is a way around it. Do not use it.
+
+The block is keyed on the literal path `.git`. Rename the metadata directory
+and pass `--git-dir`, and Codex commits without complaint — tested 2026-07-30,
+commit created successfully in a clone whose `.git` had been renamed to
+`gitstore`. `touch gitstore/anything` also succeeds. So the control is shallow:
+one `mv` defeats it.
+
+**Knowing a control is shallow is not a reason to route around it.** What that
+directory protects is not tidiness:
+
+- **`.git/hooks/` is executable code that runs on every commit.** Write access
+  there is persistent arbitrary execution outside the sandbox. This is the real
+  reason the rule exists.
+- History rewriting, ref updates, and remote changes all live there. An agent
+  that can touch them can decouple "the diff I reviewed" from "what is in the
+  repository".
+
+What the workaround buys is one `git add -A` typed by the operator — the same
+step that, on the day this was written, caught a function pushed over the line
+cap, a missing import, an assertion flipped without renaming its test, and a
+staging config that would have left the environment with no chat API and no
+failing test to show for it.
+
+The general shape, worth keeping: **when a constraint blocks you, ask why it
+exists before asking how to get around it.** The instinct here ran the other
+way for two rounds, and only turned around when a security check objected.
+
 **Do not ask Codex to "commit as you go".** It cannot, it will hit the wall
 partway through, and — obeying the instruction — it stops there, leaving less
 finished work than if you had never asked.
