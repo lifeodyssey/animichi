@@ -36,7 +36,6 @@ jobs:
           test -f apps/agent/agent/interfaces/fastapi_service.py
           test ! -e apps/agent/agent/agents/pipeline.py
           test ! -d frontend
-          command -v uv
 
       # ── Python setup ──
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
@@ -46,6 +45,7 @@ jobs:
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
       - run: uv sync --all-extras
+        working-directory: apps/agent
 
       # ── Backend checks ──
       - name: Backend quality + tests
@@ -81,11 +81,7 @@ jobs:
       - name: Web + worker quality
         id: web
         continue-on-error: true
-        run: |
-          pnpm run lint:oxlint
-          pnpm run test:worker
-          pnpm -r --if-present typecheck
-          pnpm --filter web build
+        run: pnpm run verify:dependabot
 
       - name: Report verification outcomes
         if: always()
@@ -101,16 +97,18 @@ jobs:
             echo "- Web + workspace quality: ${WEB_OUTCOME}"
             if [ "$CONTRACT_OUTCOME" != "success" ]; then
               echo "- Classification: **gate configuration error**; expected paths or imports are stale."
+            elif [ "$BACKEND_OUTCOME" = "success" ] && [ "$WEB_OUTCOME" = "success" ]; then
+              echo "- Classification: **verification passed**."
             elif [ "$BACKEND_OUTCOME" = "failure" ] || [ "$WEB_OUTCOME" = "failure" ]; then
               echo "- Classification: **upgrade verification failure**; the gate contract is valid."
             else
-              echo "- Classification: **verification passed**."
+              echo "- Classification: **verification incomplete**; setup stopped before every quality step completed."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # ── Stage 2: Auto-merge if everything passed ──────────────
-  auto-merge:
-    name: Auto Merge
+  # ── Stage 2: Report a verified upgrade for manual review ──
+  ready-for-review:
+    name: Ready for Review
     needs: verify
     if: >-
       needs.verify.outputs.gate_contract_ok == 'success' &&
@@ -120,13 +118,11 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - name: Comment and auto-merge
+      - name: Report verified upgrade
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr comment "$PR_URL" --body "All checks passed — auto-approved by Dependabot Agent."
-          gh pr merge "$PR_URL" --squash --auto
+        run: gh pr comment "$PR_URL" --body "All upgrade checks passed; ready for manual review."
 
   # ── Stage 3: Claude Code fixes if verify failed ──────────
   agent-fix:
@@ -159,7 +155,7 @@ jobs:
             Your task:
             1. Run the failing checks to see the exact errors:
                - Backend: cd apps/agent && uv run ruff check agent/ && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ && uv run pytest agent/tests/unit/ -v --no-cov
-               - Web + worker: pnpm install --frozen-lockfile --ignore-scripts && pnpm run lint:oxlint && pnpm run test:worker
+               - Web + worker: pnpm install --frozen-lockfile --ignore-scripts && pnpm run verify:dependabot
             2. Analyze the errors — they are likely caused by breaking changes in the upgraded dependency
             3. Fix the code to work with the new dependency version
             4. Re-run the checks to verify your fixes work
@@ -175,7 +171,10 @@ jobs:
         with:
           version: "latest"
 
-      - run: uv python install ${{ env.PYTHON_VERSION }} && uv sync --all-extras
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - run: uv sync --all-extras
+        working-directory: apps/agent
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
@@ -193,7 +192,7 @@ jobs:
           uv run ruff check agent/
           uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
           uv run pytest agent/tests/unit/ -v --no-cov
-          cd ../.. && pnpm install --frozen-lockfile --ignore-scripts && pnpm run lint:oxlint && pnpm run test:worker && pnpm --filter web build
+          cd ../.. && pnpm install --frozen-lockfile --ignore-scripts && pnpm run verify:dependabot
 
       - name: Report result
         if: always()
