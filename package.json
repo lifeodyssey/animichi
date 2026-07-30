@@ -12,8 +12,8 @@
   },
   "dependencies": {
     "@cloudflare/containers": "^0.3.7",
-    "hono": "^4.12.30",
-    "jose": "^6.2.3"
+    "hono": "^4.12.31",
+    "jose": "^6.2.4"
   },
   "pnpm": {
     "overrides": {
@@ -34,10 +34,10 @@
     }
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260718.1",
+    "@cloudflare/workers-types": "^5.20260723.1",
     "@types/node": "^26.1.1",
-    "oxlint": "~1.74.0",
+    "oxlint": "~1.75.0",
     "oxlint-tsgolint": "~0.25.0",
-    "wrangler": "4.112.0"
+    "wrangler": "4.114.0"
   }
 }
