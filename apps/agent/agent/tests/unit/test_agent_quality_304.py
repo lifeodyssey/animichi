@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
+from pydantic_ai.usage import RunUsage
 
 from agent.agents.catalog_tools import run_resolve
 from agent.agents.runtime_deps import RuntimeDeps
@@ -34,6 +36,12 @@ _PENDING_EVAL_IDS = {
         "Q304_T_ALIAS_001",
     },
 }
+
+
+@dataclass(frozen=True)
+class _TranslationContext:
+    model: TestModel
+    usage: RunUsage
 
 
 def _deps(catalog: MockCatalogClient) -> RuntimeDeps:
@@ -92,6 +100,7 @@ async def test_place_name_translation_never_uses_anime_retrieval() -> None:
             target_locale="zh",
             kind="place_name",
             catalog=catalog,
+            ctx=_TranslationContext(model=translator.model, usage=RunUsage()),
         )
 
     catalog.resolve.assert_not_awaited()
