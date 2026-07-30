@@ -19,6 +19,7 @@ jobs:
     permissions:
       contents: read
     outputs:
+      gate_contract_ok: ${{ steps.gate-contract.outcome }}
       backend_ok: ${{ steps.backend.outcome }}
       web_ok: ${{ steps.web.outcome }}
     steps:
@@ -26,6 +27,16 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           persist-credentials: false
+
+      - name: Verify gate contract
+        id: gate-contract
+        run: |
+          test -f apps/web/package.json
+          test -f pnpm-lock.yaml
+          test -f apps/agent/agent/interfaces/fastapi_service.py
+          test ! -e apps/agent/agent/agents/pipeline.py
+          test ! -d frontend
+          command -v uv
 
       # ── Python setup ──
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
@@ -46,12 +57,9 @@ jobs:
           uv run ruff check agent/
           uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
           uv run pytest agent/tests/unit/ -v --no-cov
-          uv run python -c "from agent.agents.pipeline import run_pipeline; print('pipeline OK')"
           uv run python -c "from agent.interfaces.fastapi_service import create_fastapi_app; print('fastapi OK')"
 
-      # ── Node setup (pnpm workspace — issue #537 removed the npm-only
-      # `frontend` package, whose `frontend/package-lock.json` cache key had
-      # never existed in the first place) ──
+      # ── Node setup (pnpm workspace; the web package lives in apps/web) ──
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
           run_install: false
@@ -59,7 +67,8 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       # `--ignore-scripts` disables package lifecycle scripts (pre/postinstall).
       # This lane installs dependency versions nobody has reviewed yet, so a
@@ -75,13 +84,38 @@ jobs:
         run: |
           pnpm run lint:oxlint
           pnpm run test:worker
+          pnpm -r --if-present typecheck
           pnpm --filter web build
+
+      - name: Report verification outcomes
+        if: always()
+        env:
+          CONTRACT_OUTCOME: ${{ steps.gate-contract.outcome }}
+          BACKEND_OUTCOME: ${{ steps.backend.outcome }}
+          WEB_OUTCOME: ${{ steps.web.outcome }}
+        run: |
+          {
+            echo "### Dependabot gate diagnostics"
+            echo "- Gate contract: ${CONTRACT_OUTCOME}"
+            echo "- Backend quality + tests: ${BACKEND_OUTCOME}"
+            echo "- Web + workspace quality: ${WEB_OUTCOME}"
+            if [ "$CONTRACT_OUTCOME" != "success" ]; then
+              echo "- Classification: **gate configuration error**; expected paths or imports are stale."
+            elif [ "$BACKEND_OUTCOME" = "failure" ] || [ "$WEB_OUTCOME" = "failure" ]; then
+              echo "- Classification: **upgrade verification failure**; the gate contract is valid."
+            else
+              echo "- Classification: **verification passed**."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ── Stage 2: Auto-merge if everything passed ──────────────
   auto-merge:
     name: Auto Merge
     needs: verify
-    if: needs.verify.outputs.backend_ok == 'success' && needs.verify.outputs.web_ok == 'success'
+    if: >-
+      needs.verify.outputs.gate_contract_ok == 'success' &&
+      needs.verify.outputs.backend_ok == 'success' &&
+      needs.verify.outputs.web_ok == 'success'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -159,7 +193,6 @@ jobs:
           uv run ruff check agent/
           uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
           uv run pytest agent/tests/unit/ -v --no-cov
-          uv run python -c "from agent.agents.pipeline import run_pipeline; print('pipeline OK')"
           cd ../.. && pnpm install --frozen-lockfile --ignore-scripts && pnpm run lint:oxlint && pnpm run test:worker && pnpm --filter web build
 
       - name: Report result
