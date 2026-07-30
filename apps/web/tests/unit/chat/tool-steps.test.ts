@@ -85,6 +85,9 @@ describe("statusedSteps supersession (ModelRetry re-issues the same tool under a
     expect(statusedSteps(steps)[0]?.step.toolCallId).toBe("call-9");
   });
 
+});
+
+describe("statusedSteps retry matching (which inputs count as the same call)", () => {
   it("matches retry inputs regardless of object key order", () => {
     const steps = [
       step("tool-search_bangumi", "output-error", "call-1", { query: "eupho", limit: 5 }),
