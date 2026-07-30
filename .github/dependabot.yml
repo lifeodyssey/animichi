@@ -1,14 +1,19 @@
 version: 2
 
 updates:
-  - package-ecosystem: "pip"
-    directory: "/"
+  - package-ecosystem: "uv"
+    directory: "/apps/agent"
     schedule:
       interval: "weekly"
       day: "monday"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    groups:
+      uv-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
     labels:
       - "dependencies"
       - "python"
@@ -16,27 +21,25 @@ updates:
       prefix: "deps(py)"
 
   - package-ecosystem: "npm"
-    directory: "/"
+    directories:
+      - "/apps/web"
+      - "/workers/catalog"
+      - "/workers/users"
+      - "/packages/contract"
+      - "/infra"
+      - "/worker"
+      - "/e2e"
     schedule:
       interval: "weekly"
       day: "monday"
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "javascript"
-    commit-message:
-      prefix: "deps(js)"
-
-  - package-ecosystem: "npm"
-    directory: "/infra"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
+    groups:
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
     labels:
       - "dependencies"
       - "javascript"
@@ -49,6 +52,12 @@ updates:
       interval: "monthly"
     cooldown:
       default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      github-actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
     labels:
       - "dependencies"
       - "ci"
