@@ -67,7 +67,7 @@ importers:
       '@protomaps/basemaps':
         specifier: ^5.7.2
         version: 5.7.2
-      '@seichijunrei/contract':
+      '@animichi/contract':
         specifier: workspace:*
         version: link:../../packages/contract
       '@tanstack/react-query':
@@ -221,7 +221,7 @@ importers:
       '@orpc/server':
         specifier: 1.14.8
         version: 1.14.8(@opentelemetry/api@1.9.1)(crossws@0.3.5)(ws@8.21.1)
-      '@seichijunrei/contract':
+      '@animichi/contract':
         specifier: workspace:*
         version: link:../../packages/contract
       drizzle-orm:
@@ -276,7 +276,7 @@ importers:
       '@orpc/server':
         specifier: 1.14.8
         version: 1.14.8(@opentelemetry/api@1.9.1)(crossws@0.3.5)(ws@8.21.1)
-      '@seichijunrei/contract':
+      '@animichi/contract':
         specifier: workspace:*
         version: link:../../packages/contract
       drizzle-orm:

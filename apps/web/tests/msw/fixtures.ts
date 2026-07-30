@@ -1,4 +1,4 @@
-import type { PilgrimagePoint, SearchResult } from "@seichijunrei/contract";
+import type { PilgrimagePoint, SearchResult } from "@animichi/contract";
 
 /** Base origin the unit MSW swimlane serves; matches the jsdom `location.origin`. */
 export const TEST_ORIGIN = "http://localhost:3000";

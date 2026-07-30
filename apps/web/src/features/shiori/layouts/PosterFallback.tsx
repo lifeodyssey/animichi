@@ -1,4 +1,4 @@
-import type { TimedStop } from "@seichijunrei/contract";
+import type { TimedStop } from "@animichi/contract";
 import type { ShioriRouteProps } from "../types";
 import { ShioriFrame, ShioriHeader } from "./ShioriChrome";
 

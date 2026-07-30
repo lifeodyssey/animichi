@@ -1,4 +1,4 @@
-import type { PilgrimagePoint } from "@seichijunrei/contract";
+import type { PilgrimagePoint } from "@animichi/contract";
 import { useCatalogSearch } from "../api/hooks/use-catalog-search";
 
 type Props = Readonly<{ query: string }>;

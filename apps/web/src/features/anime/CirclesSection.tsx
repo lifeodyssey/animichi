@@ -1,4 +1,4 @@
-import type { AnimeOverviewCircle } from "@seichijunrei/contract";
+import type { AnimeOverviewCircle } from "@animichi/contract";
 import type { AnimeCopy } from "./copy";
 
 type Props = Readonly<{ circles: readonly AnimeOverviewCircle[]; copy: AnimeCopy }>;

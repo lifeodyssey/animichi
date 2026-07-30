@@ -1,5 +1,5 @@
 {
-  "name": "@seichijunrei/contract",
+  "name": "@animichi/contract",
   "version": "0.1.0",
   "private": true,
   "description": "Typed oRPC contract between the Python Agent service (client) and the TS Catalog service (server). Single source of truth for cross-service types.",

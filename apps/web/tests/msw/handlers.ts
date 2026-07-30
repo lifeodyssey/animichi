@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import { SearchInput, SearchResult } from "@seichijunrei/contract";
+import { SearchInput, SearchResult } from "@animichi/contract";
 import { contractJsonHandler, orpcErrorResponse } from "./contract-handler";
 import { CATALOG_SEARCH_URL, searchSuccessFixture } from "./fixtures";
 

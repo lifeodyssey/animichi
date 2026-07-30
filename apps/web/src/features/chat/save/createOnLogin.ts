@@ -1,4 +1,4 @@
-import type { SaveRouteInput } from "@seichijunrei/contract";
+import type { SaveRouteInput } from "@animichi/contract";
 import { saveRouteRequest } from "../../../api/hooks/use-save-route";
 import type { SaveRouteRequest } from "../../../api/hooks/use-save-route";
 import { clearDeferredSave, readDeferredSave, writeDeferredSave } from "./deferredSave";
