@@ -77,6 +77,20 @@ is_cloudflare_edge_error() {
   grep -q '"cloudflare_error"[[:space:]]*:[[:space:]]*true' "${BODY_FILE}"
 }
 
+cloudflare_404_retry_reason() {
+  is_cloudflare_edge_error || return 1
+  echo "Cloudflare edge 404 (cloudflare_error:true body)"
+}
+
+retry_reason_for() {
+  case "${1}.${2}" in
+    0.521 | 0.522 | 0.523 | 0.524) echo "Cloudflare edge-origin error ${2}" ;;
+    [1-9]*.*) echo "transport failure rc=${1}" ;;
+    0.404) cloudflare_404_retry_reason ;;
+    *) return 1 ;;
+  esac
+}
+
 # Issues a request and prints only the HTTP status code; the body lands in
 # BODY_FILE for the caller to inspect. Bounded retry/backoff on TRANSPORT
 # failures, Cloudflare edge errors (521-524 — "origin unreachable", the
@@ -106,19 +120,9 @@ fetch() {
   local attempt status rc retry_reason
   for attempt in 1 2 3 4 5; do
     status="$(curl "${args[@]}")" && rc=0 || rc=$?
-    retry_reason=""
-    case "${rc}.${status}" in
-      0.521 | 0.522 | 0.523 | 0.524) retry_reason="Cloudflare edge-origin error ${status}" ;;
-      [1-9]*.*) retry_reason="transport failure rc=${rc}" ;;
-      0.404)
-        if is_cloudflare_edge_error; then
-          retry_reason="Cloudflare edge 404 (cloudflare_error:true body)"
-        else
-          echo "${status}"; return 0 # a real application 404 — final, do not retry
-        fi
-        ;;
-      *) echo "${status}"; return 0 ;;
-    esac
+    if ! retry_reason="$(retry_reason_for "${rc}" "${status}")"; then
+      echo "${status}"; return 0
+    fi
     if [ "${attempt}" -eq 5 ]; then break; fi
     echo "attempt ${attempt}/5: ${retry_reason} (status=${status:-n/a}) for ${method} ${url} — retrying (workers.dev DNS propagation / container cold start window)" >&2
     sleep $((attempt * RETRY_BACKOFF_BASE_SECONDS))
