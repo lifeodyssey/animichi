@@ -53,7 +53,6 @@
 #                                to everyone. Local/dev may use Cloudflare's always-passing test
 #                                pair (site 1x00000000000000000000AA / secret 1x0000000000000000000000000000000AA).
 
-name = "animichi"
 compatibility_date = "2025-03-01"
 compatibility_flags = ["nodejs_compat"]
 main = "worker/entry.ts"

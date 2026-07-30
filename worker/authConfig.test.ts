@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const WRANGLER = readFileSync(`${ROOT}wrangler.toml`, "utf8");
 const ENV_BLOCKS = ["[vars]", "[env.production.vars]", "[env.staging.vars]"];
+const TOP_LEVEL = WRANGLER.slice(0, WRANGLER.indexOf("\n[vars]\n"));
 
 function blockFor(header: string): string {
   const start = WRANGLER.indexOf(`\n${header}\n`) + 1;
@@ -28,6 +29,12 @@ test("Neon Auth vars stay on their intended Wrangler paths", () => {
     assert.equal(hasAssignment(block, "NEON_AUTH_ENABLED", "false"), true, `${header} must keep Neon Auth off`);
     assert.equal(hasAssignment(block, "NEON_AUTH_ISSUER", ""), true, `${header} must declare the public issuer slot`);
   }
+});
+
+test("bare Wrangler deploy has no target, while named environments keep theirs", () => {
+  assert.equal(/^name\s*=/m.test(TOP_LEVEL), false, "top-level Wrangler config must not select a deploy target");
+  assert.equal(hasAssignment(blockFor("[env.production]"), "name", "animichi"), true);
+  assert.equal(hasAssignment(blockFor("[env.staging]"), "name", "animichi-staging"), true);
 });
 
 test("ci.yml keeps both JWKS secret paths complete", () => {
