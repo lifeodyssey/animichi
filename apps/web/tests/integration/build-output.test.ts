@@ -23,7 +23,7 @@ function readWranglerConfig(): WranglerConfig {
   return parse(readFileSync(wranglerConfigPath, "utf8")) as WranglerConfig;
 }
 
-/** Every named env ships: staging/production via ci.yml, preview via preview.yml. */
+/** Every named env ships through the staging/production deployment workflow. */
 function buildTargets(): string[] {
   return [DEFAULT_TARGET, ...Object.keys(readWranglerConfig().env ?? {})];
 }
@@ -71,7 +71,7 @@ describe("build output", () => {
   });
 
   it("covers every wrangler env that ships", () => {
-    expect(buildTargets()).toEqual([DEFAULT_TARGET, "staging", "production", "preview"]);
+    expect(buildTargets()).toEqual([DEFAULT_TARGET, "staging", "production"]);
   });
 
   // Regression: esbuild `keepNames` wraps functions in `__name(...)`, and seroval serialises its

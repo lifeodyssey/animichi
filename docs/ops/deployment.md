@@ -333,8 +333,7 @@ Important: this is a documentation target only right now. Before enabling it, th
 Every `_deploy-component.yml` deploy step is a plain `wrangler deploy` (not `wrangler versions
 upload`), but Cloudflare still records each one as a numbered **version** under the hood, so
 `wrangler rollback` and `wrangler versions list` work against it without any change to the deploy
-step itself. `preview.yml` already exercises the same versions API (`wrangler versions
-list/upload`) for PR previews — this is the instant-rollback side of that same primitive.
+step itself. This is the instant-rollback side of the same versions primitive used by deployment.
 
 ### One-command rollback per component
 
