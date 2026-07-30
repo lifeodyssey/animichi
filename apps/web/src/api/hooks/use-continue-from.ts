@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { UserRoute } from "@seichijunrei/contract";
+import type { UserRoute } from "@animichi/contract";
 import { users } from "../orpc";
 
 /**

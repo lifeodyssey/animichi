@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { UserRoute } from "@seichijunrei/contract";
+import type { UserRoute } from "@animichi/contract";
 import { pickContinueFrom } from "../../../src/api/hooks/use-continue-from";
 
 function makeRoute(overrides: Partial<UserRoute>): UserRoute {

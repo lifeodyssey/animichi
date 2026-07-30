@@ -1,7 +1,7 @@
 import { Chat, useChat } from "@ai-sdk/react";
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { ChatResponseDataPart } from "@seichijunrei/contract";
-import type { ChatDataPart } from "@seichijunrei/contract";
+import { ChatResponseDataPart } from "@animichi/contract";
+import type { ChatDataPart } from "@animichi/contract";
 import { DefaultChatTransport, generateId } from "ai";
 import type { UIMessage } from "ai";
 import { useCallback, useRef } from "react";

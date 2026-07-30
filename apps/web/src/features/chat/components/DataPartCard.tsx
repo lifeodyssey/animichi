@@ -1,4 +1,4 @@
-import type { ChatDataPart } from "@seichijunrei/contract";
+import type { ChatDataPart } from "@animichi/contract";
 import type { ReactNode } from "react";
 import { classifyFailure } from "../../../lib/chat/errorClassifier";
 import type { ChatErrorState } from "../../../lib/chat/errorClassifier";

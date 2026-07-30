@@ -1,7 +1,7 @@
 import { http, HttpResponse } from "msw";
 import type { HttpHandler, JsonBodyType } from "msw";
-import { ListRoutesResult, SaveRouteInput, UserRoute as UserRouteSchema } from "@seichijunrei/contract";
-import type { UserRoute } from "@seichijunrei/contract";
+import { ListRoutesResult, SaveRouteInput, UserRoute as UserRouteSchema } from "@animichi/contract";
+import type { UserRoute } from "@animichi/contract";
 import { contractJsonHandler, orpcErrorResponse } from "./contract-handler";
 import { TEST_ORIGIN } from "./fixtures";
 

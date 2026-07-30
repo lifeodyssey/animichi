@@ -1,4 +1,4 @@
-# @seichijunrei/contract
+# @animichi/contract
 
 Single source of truth for the types exchanged between the **Python Agent service** (client) and the **TS Catalog service** (server).
 
@@ -66,7 +66,7 @@ Until P5 wires up the pnpm workspace, catalog imports the contract via a relativ
 import type { ... } from "../../packages/contract/src/models";
 ```
 
-After the workspace link lands, switch to `@seichijunrei/contract/models`.
+After the workspace link lands, switch to `@animichi/contract/models`.
 
 ## Error contract
 

@@ -1,4 +1,4 @@
-import type { TimedStop } from "@seichijunrei/contract";
+import type { TimedStop } from "@animichi/contract";
 import { completedTotals, isStopCheckedIn } from "./dataState";
 import type { RouteDetail } from "./dataState";
 
