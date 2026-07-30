@@ -174,12 +174,11 @@ class CompactToolReturns(Generic[AgentDepsT]):
         call_args: dict[str, Mapping[str, object]],
         session: SessionState | None,
     ) -> ModelRequestPart:
-        if (
-            not isinstance(part, ToolReturnPart)
-            or len(str(part.content)) <= TOOL_RETURN_MAX_CHARS
-        ):
+        if not isinstance(part, ToolReturnPart):
             return part
         self._retain_entity(part, call_args, session)
+        if len(str(part.content)) <= TOOL_RETURN_MAX_CHARS:
+            return part
         summary = self._summary(part.tool_name, part.content)
         return replace(part, content=summary)
 

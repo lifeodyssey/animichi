@@ -21,6 +21,7 @@ from agent.clients.catalog_errors import (
 
 InputError = Literal["message_too_long", "non_text_message"]
 _DEFAULT_LOCALE = "en"
+CATALOG_ROUTE_UNAVAILABLE_MESSAGE = "Catalog route unavailable"
 
 _INPUT_MESSAGES: dict[tuple[InputError, str], str] = {
     (

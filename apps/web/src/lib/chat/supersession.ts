@@ -34,7 +34,7 @@ function hasRoute(data: unknown): boolean {
   if (typeof data !== "object" || data === null || !("data" in data)) return false;
   const inner = data.data;
   if (typeof inner !== "object" || inner === null || !("route" in inner)) return false;
-  return inner.route !== undefined && inner.route !== null;
+  return typeof inner.route === "object" && inner.route !== null && Object.keys(inner.route).length > 0;
 }
 
 /**
