@@ -4,8 +4,6 @@
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
-    "test:public": "playwright test public-pages.spec.ts middleware-redirect.spec.ts login-modal.spec.ts",
-    "test:auth": "playwright test auth-flow.spec.ts",
     "test:web": "playwright test web-404.spec.ts web-chat-error-states.spec.ts web-chat-anonymous.spec.ts web-chat-save-login-wall.spec.ts"
   },
   "devDependencies": {

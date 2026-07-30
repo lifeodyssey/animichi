@@ -308,7 +308,7 @@ def _report_gate_input(
         errors=_classified_errors(report),
         trajectories=_trajectory_cases(report),
         expectations=_expectations(report),
-        strata=load_case_strata(DATASET_PATH),
+        strata=load_case_strata(DATASET_PATH) if not CAPPED else None,
     )
 
 

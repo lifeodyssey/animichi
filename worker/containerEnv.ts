@@ -87,8 +87,8 @@ export const CONTAINER_REQUIRED_KEYS = ["DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUP
 // See `docs/ops/cloudflare-hardening.md` §6 for the full corrected spike
 // writeup, limit 4 (IPv6 is NOT comprehensively covered), and the AC
 // disposition against this reality.
-const RFC1918_172_BLOCK = Array.from({ length: 16 }, (_, i) => `172.${16 + i}.*`); // 172.16.0.0/12
-const CGNAT_100_BLOCK = Array.from({ length: 64 }, (_, i) => `100.${64 + i}.*`); // 100.64.0.0/10
+const RFC1918_172_BLOCK = Array.from({ length: 16 }, (_, i) => `172.${String(16 + i)}.*`); // 172.16.0.0/12
+const CGNAT_100_BLOCK = Array.from({ length: 64 }, (_, i) => `100.${String(64 + i)}.*`); // 100.64.0.0/10
 
 // IPv6 literals (PR #478 review, third round): `new URL(...).hostname` renders
 // IPv6 in bracketed, colon-compressed form (`[::1]`, `[fd00:ec2::254]`,

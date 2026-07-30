@@ -25,7 +25,7 @@ function parseWranglerConfig(): z.infer<typeof configSchema> {
   return configSchema.parse(raw);
 }
 
-const declaredEnvironments = ["staging", "production", "preview"];
+const declaredEnvironments = ["staging", "production"];
 
 describe("wrangler.jsonc APP_ENV declarations (AC5)", () => {
   it("finds every environment the file actually declares", () => {

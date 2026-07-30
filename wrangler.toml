@@ -1,20 +1,32 @@
-# Cloudflare Workers + Containers + OpenNext (Next.js SSR)
+# Cloudflare Workers + Containers — the API gateway for animichi.
 # https://developers.cloudflare.com/workers/containers/
-# https://opennext.js.org/cloudflare
 #
-# Architecture:
-#   custom-worker.js → intercepts /v1/* (container proxy) + /img/* (image proxy)
-#                    → passes everything else to OpenNext (Next.js SSR + middleware)
-#   middleware.ts    → auth for pages (/chat, /settings) + API routes (/v1/*)
+# Architecture (issue #537 retired the bundled Next.js app; `apps/web` owns
+# every HTML surface now, so this Worker is API + image proxy only):
+#   worker/entry.ts → /v1/* (container proxy) + /v1/users/* (users Worker)
+#                   + /img/* (image proxy) + /healthz + one public catalog read
+#                   → everything else: JSON 404, no page renderer
+#
+# ROUTES: none here, deliberately. This Worker's hostnames are declared in
+# Pulumi (`infra/index.ts`) as of #541 — `animichi.com/v1/*`, `/img/*` and
+# `/healthz`, with the apex itself going to `apps/web` via a Custom Domain.
+# The repo rule is "routes belong to Pulumi, worker code belongs to wrangler";
+# an earlier version of this file claimed `animichi.com/*` here, which is what
+# made a page request land on this Worker's JSON 404.
+#
+# Until Pulumi's `webRoutesEnabled` is turned on, this Worker has no hostname
+# at all: no routes here, and `workers_dev = false` since #539. That is the
+# intended pre-cutover state, not a misconfiguration.
 #
 # Required GitHub Secrets:
 #   CLOUDFLARE_API_TOKEN       — Wrangler deploy auth
 #   CLOUDFLARE_ACCOUNT_ID      — Cloudflare account target
 #
-# Edge runtime secrets (used by middleware.ts and worker/auth.ts for /v1 auth):
+# Edge runtime secrets (used by worker/auth.ts for /v1 auth):
 #   SUPABASE_URL               — https://<project>.supabase.co (set via wrangler secret put)
 #   SUPABASE_ANON_KEY          — Public anon key for JWT validation (set via wrangler secret put)
 #   SUPABASE_SERVICE_ROLE_KEY  — Service role for sk_ API key lookup (set via wrangler secret put)
+#   NEON_AUTH_ISSUER           — public Neon Auth base URL (set in [vars] when cutover is approved)
 #
 # Container runtime secrets (forwarded to Python backend):
 #   SUPABASE_DB_URL            — postgres://... for asyncpg
@@ -40,19 +52,11 @@
 #                                anonymous access on and no secret answers 403 turnstile_required
 #                                to everyone. Local/dev may use Cloudflare's always-passing test
 #                                pair (site 1x00000000000000000000AA / secret 1x0000000000000000000000000000000AA).
-#
-# Frontend build-time envs (injected by GitHub Actions):
-#   NEXT_PUBLIC_SUPABASE_URL
-#   NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 name = "animichi"
 compatibility_date = "2025-03-01"
 compatibility_flags = ["nodejs_compat"]
 main = "worker/entry.ts"
-
-routes = [
-  { pattern = "animichi.com/*", zone_name = "animichi.com" }
-]
 
 # Plain (non-secret) vars forwarded into the RuntimeContainer (Python agent).
 # CATALOG_API_URL is the base the agent's CatalogClient POSTs to as
@@ -67,6 +71,8 @@ routes = [
 APP_ENV = "development"
 CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "true"
+NEON_AUTH_ENABLED = "false"
+NEON_AUTH_ISSUER = ""
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
@@ -91,10 +97,6 @@ ANON_DAILY_MESSAGE_QUOTA = "20"
 # headroom above the anonymous burst ceiling.
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
-
-[assets]
-directory = ".open-next/assets"
-binding = "ASSETS"
 
 # Catalog read-path service (search/spots/nearby/route).
 # This binding is reached ONLY via RuntimeContainer.outboundByHost["catalog.internal"]
@@ -153,9 +155,6 @@ head_sampling_rate = 1
 
 [env.production]
 name = "animichi"
-routes = [
-  { pattern = "animichi.com/*", zone_name = "animichi.com" }
-]
 
 [env.production.vars]
 # Forwarded to the container as APP_ENV (issue #498) — required, see
@@ -163,6 +162,8 @@ routes = [
 APP_ENV = "production"
 CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "false"
+NEON_AUTH_ENABLED = "false"
+NEON_AUTH_ISSUER = ""
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
@@ -187,10 +188,6 @@ ANON_DAILY_MESSAGE_QUOTA = "20"
 # headroom above the anonymous burst ceiling.
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
-
-[env.production.assets]
-directory = ".open-next/assets"
-binding = "ASSETS"
 
 [[env.production.services]]
 binding = "CATALOG"
@@ -278,6 +275,8 @@ CATALOG_API_URL = "http://catalog.internal"
 # conflict with.
 CORS_ALLOWED_ORIGIN = "https://animichi-web-staging.zhenjiazhou0127.workers.dev"
 ANON_ACCESS_ENABLED = "true"
+NEON_AUTH_ENABLED = "false"
+NEON_AUTH_ISSUER = ""
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
@@ -302,10 +301,6 @@ ANON_DAILY_MESSAGE_QUOTA = "20"
 # headroom above the anonymous burst ceiling.
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
-
-[env.staging.assets]
-directory = ".open-next/assets"
-binding = "ASSETS"
 
 [[env.staging.services]]
 binding = "CATALOG"

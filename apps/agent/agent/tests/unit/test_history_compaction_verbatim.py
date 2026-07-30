@@ -80,14 +80,16 @@ async def test_no_extractable_entity_writes_no_retention_payload() -> None:
     assert session.compaction_retained_entities.is_empty()
 
 
-async def test_short_return_needs_no_compaction_and_retains_nothing() -> None:
+async def test_short_return_retains_extractable_entity_without_compaction() -> None:
     session = SessionState()
     messages = _call_pair("search_nearby", {"location": "資生堂前"}, "ok", "call-3")
     compact = CompactToolReturns[RuntimeDeps](_summarize_tool_content, keep_recent=0)
 
     await compact.compact(messages, _ctx(session))
 
-    assert session.compaction_retained_entities.is_empty()
+    entities = session.compaction_retained_entities.entities
+    assert len(entities) == 1
+    assert entities[0].value == "資生堂前"
 
 
 async def test_extraction_failure_degrades_without_raising() -> None:

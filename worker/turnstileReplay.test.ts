@@ -22,7 +22,6 @@ const ANON_ENV = {
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 const SOLVED = "solved-token";
 
-const stubNext = { fetch: () => Promise.resolve(new Response("next", { status: 200 })) };
 const stubCtx = {
   waitUntil(promise: Promise<unknown>) { void promise; },
   passThroughOnException() { return undefined; },
@@ -32,7 +31,9 @@ const stubCtx = {
 function singleUseSiteverify(calls: string[]): typeof fetch {
   const spent = new Set<string>();
   return (_input, init) => {
-    const token = new URLSearchParams(String(init?.body)).get("response") ?? "";
+    const rawBody = init?.body;
+    const bodyText = rawBody instanceof URLSearchParams ? rawBody.toString() : typeof rawBody === "string" ? rawBody : "";
+    const token = new URLSearchParams(bodyText).get("response") ?? "";
     calls.push(token);
     const fresh = !spent.has(token);
     spent.add(token);
@@ -78,7 +79,6 @@ function anonEnv(captured: { requests: Request[] }) {
 /** The real gate, wired exactly as `createWorkerApp` builds its default. */
 function realGateApp(calls: string[]) {
   return createWorkerApp({
-    nextHandler: stubNext,
     authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
     turnstileGate: createTurnstileGate({ fetchImpl: singleUseSiteverify(calls) }),
   });

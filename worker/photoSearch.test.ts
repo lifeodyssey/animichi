@@ -11,7 +11,6 @@ import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
 const SECRET = "fixed-test-hmac-key-0000000000000000";
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 
-const stubNext = { fetch: () => Promise.resolve(new Response("next", { status: 200 })) };
 const stubCtx = {
   waitUntil(promise: Promise<unknown>) { void promise; },
   passThroughOnException() { return undefined; },
@@ -60,7 +59,7 @@ function envWith(captured: { requests: Request[] }, anonEnabled: boolean) {
 
 void test("authed /v1/photo-search forwards with worker identity, byok stripped, session kept", async () => {
   const authenticate = () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const);
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate, turnstileGate: passingGate });
+  const app = createWorkerApp({ authenticate, turnstileGate: passingGate });
   const cap = { requests: [] as Request[] };
   const headers = {
     Authorization: "Bearer jwt",
@@ -81,7 +80,6 @@ void test("authed /v1/photo-search forwards with worker identity, byok stripped,
 
 void test("unauthenticated /v1/photo-search with anon disabled -> 401, container not hit", async () => {
   const app = createWorkerApp({
-    nextHandler: stubNext,
     authenticate: () => Promise.resolve({ ok: false }),
     turnstileGate: passingGate,
   });
@@ -93,7 +91,6 @@ void test("unauthenticated /v1/photo-search with anon disabled -> 401, container
 
 void test("unauthenticated /v1/photo-search with anon enabled -> minted anonymous identity", async () => {
   const app = createWorkerApp({
-    nextHandler: stubNext,
     authenticate: () => Promise.resolve({ ok: false }),
     turnstileGate: passingGate,
   });
@@ -108,7 +105,6 @@ void test("unauthenticated /v1/photo-search with anon enabled -> minted anonymou
 
 void test("/v1/photo-search/confirm rides the same gate (401 when anon disabled)", async () => {
   const app = createWorkerApp({
-    nextHandler: stubNext,
     authenticate: () => Promise.resolve({ ok: false }),
     turnstileGate: passingGate,
   });
@@ -120,7 +116,7 @@ void test("/v1/photo-search/confirm rides the same gate (401 when anon disabled)
 
 void test("/v1/photo-search/confirm forwards for an authed caller", async () => {
   const authenticate = () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const);
-  const app = createWorkerApp({ nextHandler: stubNext, authenticate, turnstileGate: passingGate });
+  const app = createWorkerApp({ authenticate, turnstileGate: passingGate });
   const cap = { requests: [] as Request[] };
   const res = await app.request("/v1/photo-search/confirm", { method: "POST" }, envWith(cap, false), stubCtx);
   assert.equal(await res.text(), "container");
@@ -129,7 +125,6 @@ void test("/v1/photo-search/confirm forwards for an authed caller", async () => 
 
 void test("x-byok-endpoint is stripped on the anonymous path too", async () => {
   const app = createWorkerApp({
-    nextHandler: stubNext,
     authenticate: () => Promise.resolve({ ok: false }),
     turnstileGate: passingGate,
   });

@@ -17,6 +17,7 @@ _REUSABLE_DEPLOY_WORKFLOW = (
     _REPO_ROOT / ".github" / "workflows" / "_deploy-component.yml"
 )
 _DOCKERFILE = _REPO_ROOT / "Dockerfile"
+_NON_SECRET_REQUIRED_KEYS = {"APP_ENV"}
 
 
 def _typescript_string_list(source: str, const_name: str) -> set[str]:
@@ -66,27 +67,22 @@ def _mapped_secret_names(source: str) -> set[str]:
     return {name for name, secret in mappings if name == secret}
 
 
-def test_container_required_keys_are_forwarded_and_deployed() -> None:
+def _required_deploy_keys() -> tuple[set[str], set[str], set[str]]:
     entrypoint = _ENTRYPOINT.read_text(encoding="utf-8")
     required = _typescript_string_list(entrypoint, "CONTAINER_REQUIRED_KEYS")
     forwarded = _typescript_string_list(entrypoint, "CONTAINER_ENV_KEYS")
     deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
-    root_step = _named_workflow_step(deploy, "Deploy via Wrangler")
-    provisioned = _wrangler_secret_names(root_step)
+    provisioned = _wrangler_secret_names(
+        _named_workflow_step(deploy, "Deploy via Wrangler")
+    )
+    return required, forwarded, provisioned
 
-    # APP_ENV (issue #498) is a deliberate exception to the
-    # "every required key is a Wrangler *secret*" invariant below: it is a
-    # plain, non-secret `wrangler.toml` `[vars]`/`[env.*.vars]` value, not
-    # something `wrangler secret put` provisions. Cloudflare exposes both
-    # kinds identically on the container's `env` binding at runtime, so
-    # buildContainerEnvVars's fail-closed check on it is still meaningful —
-    # it just isn't wired through this workflow's `secrets: |` block, because
-    # nothing needs to push it there.
-    NON_SECRET_REQUIRED_KEYS = {"APP_ENV"}
 
+def test_container_required_keys_are_forwarded_and_deployed() -> None:
+    required, forwarded, provisioned = _required_deploy_keys()
     assert required
     assert required <= forwarded
-    assert required - NON_SECRET_REQUIRED_KEYS <= provisioned
+    assert required - _NON_SECRET_REQUIRED_KEYS <= provisioned
 
 
 def test_ci_root_deploys_match_manual_root_secrets() -> None:

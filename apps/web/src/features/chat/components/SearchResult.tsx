@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MAX_MAP_PINS, searchMapView, topSpots } from "../../../lib/chat/spotClusters";
 import type { SearchSpot, SpotCluster } from "../../../lib/chat/spotClusters";
 import { attachBasemap } from "../../bubble-map/bubbleMapController";
@@ -82,11 +82,12 @@ interface DrillNav {
   readonly back: () => void;
 }
 
-function useDrillNav(): DrillNav {
+function useDrillNav(spots: readonly SearchSpot[]): DrillNav {
   const [drill, setDrill] = useState<Drill | null>(null);
   const [refocusIndex, setRefocus] = useState<number | null>(null);
   const select = useCallback((cluster: SpotCluster, index: number) => { setRefocus(null); setDrill({ cluster, index }); }, []);
   const back = useCallback(() => { setRefocus(drill?.index ?? null); setDrill(null); }, [drill]);
+  useEffect(() => { setDrill(null); setRefocus(null); }, [spots]);
   return { drill, refocusIndex, select, back };
 }
 
@@ -109,7 +110,7 @@ type SearchResultProps = Readonly<{ spots: readonly SearchSpot[]; dict: ChatDict
  */
 export function SearchResult({ spots, dict, attach = attachBasemap }: SearchResultProps) {
   const view = searchMapView(spots);
-  const nav = useDrillNav();
+  const nav = useDrillNav(spots);
   if (view.kind === "empty") return <EmptyMapState spots={spots} dict={dict} />;
   if (view.kind === "single") return <SingleClusterView cluster={view.cluster} dict={dict} attach={attach} />;
   if (nav.drill !== null) return <DrilledClusterView cluster={nav.drill.cluster} dict={dict} attach={attach} onBack={nav.back} />;

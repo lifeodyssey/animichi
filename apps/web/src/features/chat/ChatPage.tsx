@@ -3,7 +3,7 @@ import { TurnstileGate } from "../../components/TurnstileGate";
 import { useLocale } from "../../i18n/context";
 import type { Locale } from "../../i18n/locales";
 import { useAuthStatus } from "../../lib/auth/session";
-import { ChatActionsProvider } from "./chat-actions";
+import { ChatActionsProvider, sendWithOriginOf } from "./chat-actions";
 import type { ChatActions } from "./chat-actions";
 import { ByokSettings } from "./components/ByokSettings";
 import { ChatInput } from "./components/ChatInput";
@@ -233,7 +233,7 @@ function makeTracked(actions: ChatActions, setGps: (gps: PhotoGps) => void): Cha
     ...actions,
     sendWithOrigin: (text: string, lat: number, lng: number) => {
       setGps({ lat, lng });
-      actions.sendWithOrigin?.(text, lat, lng);
+      sendWithOriginOf(actions)(text, lat, lng);
     },
   };
 }
@@ -283,11 +283,11 @@ function usePhotoContext(locale: ReturnType<typeof useLocale>, chat: ChatSession
 }
 
 /** Tray state: the recompute turn, its masked failure, and the spot store. */
-function useTrayState(chat: ChatSession, baseUrl: string, gate: TurnFailureGate) {
+function useTrayState(chat: ChatSession, baseUrl: string, gate: TurnFailureGate, sessionKey: string | undefined) {
   const turn = useTurnFailure(chat, baseUrl, gate);
-  const recompute = useRecomputeTurn(chat);
+  const recompute = useRecomputeTurn(chat, sessionKey);
   const failure = maskRecomputeFailure(recompute, turn.view);
-  const selection = useSpotSelectionState();
+  const selection = useSpotSelectionState(sessionKey);
   return { recompute: lockedRecompute(recompute, turn.quota.locked), failure, selection, quota: turn.quota };
 }
 
@@ -301,9 +301,9 @@ function usePageSurfaces(chat: ChatSession, actions: ChatActions, gps: PhotoGps 
 }
 
 /** Turnstile challenge + auth-gated tray state (D12 lock, failures). */
-function useGuardedTray(chat: ChatSession, baseUrl: string, auth: ReturnType<typeof useAuthStatus>) {
+function useGuardedTray(chat: ChatSession, baseUrl: string, auth: ReturnType<typeof useAuthStatus>, sessionKey: string | undefined) {
   const challenge = useTurnstileChallenge(chat);
-  const tray = useTrayState(chat, baseUrl, { challenged: challenge !== undefined, auth });
+  const tray = useTrayState(chat, baseUrl, { challenged: challenge !== undefined, auth }, sessionKey);
   return { challenge, tray };
 }
 
@@ -312,7 +312,7 @@ function useChatPage(search: ChatSearch) {
   const { actions: live, gps } = useOriginTracking(useTurnActions(chat));
   const auth = useAuthStatus();
   // `?q=` must not fire before the widget has a token to send (#447 review).
-  const { challenge, tray } = useGuardedTray(chat, config.baseUrl, auth);
+  const { challenge, tray } = useGuardedTray(chat, config.baseUrl, auth, search.session);
   const actions = useLockedActions(live, tray.quota.locked);
   const surfaces = usePageSurfaces(chat, actions, gps);
   useAutoSendFromQuery(search, health, actions.send, useTurnstileReady(challenge !== undefined));

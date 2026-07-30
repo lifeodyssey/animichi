@@ -19,7 +19,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from pydantic_ai.models import Model
 
-from agent.agents.translation import TranslationResult
+from agent.agents.base import resolve_model
+from agent.agents.translation import TranslationResult, translation_agent
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.interfaces.public_api import RuntimeAPI
 
@@ -58,11 +59,20 @@ async def test_non_byok_turn_leaves_title_translator_untouched() -> None:
     assert run_mock.await_args.kwargs["title_translator"] is None
 
 
-async def test_injected_title_translator_calls_translate_title_with_no_ctx() -> None:
-    """The injected callable must bypass `ctx` entirely — the only way
-    `translate_title` falls back to `translation_agent`'s server default."""
+async def test_injected_title_translator_runs_on_the_server_model() -> None:
+    """The injected callable must not spend the user's BYOK key on our own
+    internal translation — it runs on `translation_agent`'s server default.
+
+    This used to be asserted as `ctx is None`, because passing no context was
+    how the server default got selected. That proxy was also why the platform
+    spend went unrecorded: `_translation_run_scope(None)` minted a `RunUsage`
+    nobody held. The context is now supplied *with* the server model and an
+    owned usage sink, so the assertion moved to the property that was always
+    the point — which model runs — rather than the mechanism that happened to
+    select it.
+    """
     api = _api()
-    translator = api._server_title_translator()
+    translator = api._server_title_translator([])
     fake_result = TranslationResult(
         original="タイトル", translated="Title", source="llm"
     )
@@ -72,7 +82,9 @@ async def test_injected_title_translator_calls_translate_title_with_no_ctx() -> 
     ) as translate_mock:
         result = await translator("タイトル", "en")
     assert result is fake_result
-    assert translate_mock.await_args.kwargs["ctx"] is None
+    ctx = translate_mock.await_args.kwargs["ctx"]
+    assert ctx is not None
+    assert ctx.model is resolve_model(translation_agent.model)
 
 
 async def test_byok_turn_forces_the_translation_gate_off_the_run_model() -> None:

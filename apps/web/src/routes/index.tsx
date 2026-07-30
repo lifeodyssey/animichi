@@ -2,10 +2,12 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppHome } from "../components/home/AppHome";
 import { makeSearchHandler } from "../components/home/search-target";
 import { LandingPage } from "../components/landing/LandingPage";
+import { homeHead } from "../features/seo/head";
 import { LocaleProvider } from "../i18n/context";
 import { useAuthStatus } from "../lib/auth/session";
 
 export const Route = createFileRoute("/")({
+  head: homeHead,
   component: HomeRoute,
 });
 
