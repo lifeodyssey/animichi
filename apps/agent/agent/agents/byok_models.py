@@ -201,6 +201,10 @@ async def _build_openai_compatible(
     credential: ByokCredential, *, transport_wrapper: TransportWrapper | None
 ) -> ByokModel:
     await _validate_openai_base_url(credential.base_url)
+    # No `await` between this construction and the return: the probe route runs
+    # this inside `asyncio.timeout`, and cancellation is only delivered at an
+    # await point. An await added below would let the deadline fire after the
+    # client exists but before the caller can hold it, leaking the connection.
     client = build_guarded_async_client(transport_wrapper=transport_wrapper)
     sdk_client = AsyncOpenAI(
         base_url=credential.base_url,

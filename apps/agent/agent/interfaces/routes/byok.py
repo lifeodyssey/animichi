@@ -324,12 +324,16 @@ async def handle_byok_probe(
         return _error_response(
             "invalid_request", "X-BYOK-* headers are required.", status_code=400
         )
+    byok_model = None
     try:
-        byok_model = await _resolve_probe_model(credential)
+        async with asyncio.timeout(_PROBE_TIMEOUT_SECONDS):
+            byok_model = await _resolve_probe_model(credential)
+            result = await _run_probe(byok_model.model)
     except _RouteRejection as rejection:
         return rejection.response
-    try:
-        result = await _run_probe(byok_model.model)
+    except TimeoutError:
+        return _probe_response(_unreachable_result())
     finally:
-        await byok_model.client.aclose()
+        if byok_model is not None:
+            await byok_model.client.aclose()
     return _probe_response(result)
