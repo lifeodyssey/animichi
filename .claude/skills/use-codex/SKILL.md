@@ -52,7 +52,7 @@ writing bad code.
 
 Sometimes `git add` fails:
 
-```
+```text
 fatal: Unable to create '.../.git/index.lock': Operation not permitted
 ```
 
@@ -86,76 +86,55 @@ boundaries — the worker-lint run split "add the gate" from "fix the violations
 without being told to. When it does not, it fails loudly at a boundary and you
 salvage. Both are better than not asking.
 
-That is the sandbox refusing to write **anything under `.git`**, not a
-filesystem permission — the same path is writable from your own shell. Verify in
-one line before theorising: `touch <dir>/.git/probe && rm <dir>/.git/probe`.
-
-Measured directly, 2026-07-30, plugin 1.0.7, in a standalone clone:
+When it does fail, it fails hard rather than flakily — measured 2026-07-30 in a
+clone where it did fail:
 
 | from inside Codex | result |
 |---|---|
 | `git add <file>` | `Operation not permitted`, exit 128 |
 | `touch .git/probe-file` | `Operation not permitted`, exit 1 |
-| `git config --local user.probe test` | `could not lock config file .git/config`, exit 255 |
+| `git config --local user.probe test` | `could not lock config file`, exit 255 |
 | `ls -ld .git` | succeeds |
 
-The last two are what make the rule precise: `git config` writes `.git/config`,
-not the index, and it fails too — so this is not index locking, it is the whole
-directory. Reads and listing are allowed.
-
-Re-run that probe after any plugin upgrade before assuming the rule still holds.
-It was re-run on the 1.0.6 → 1.0.7 upgrade, which included upstream's `db52e28`
-("Remove shell expansion for git commands") and looked likely to change it.
-It did not.
+`git config` writes `.git/config`, not the index, and it fails too — so when the
+block is on, the whole directory is unwritable, not just the lock. Reads are
+fine. Useful to know because it rules out "retry and it will work": in a run
+where writes are blocked, they stay blocked.
 
 ### There is a way around it. Do not use it.
 
-The block is keyed on the literal path `.git`. Rename the metadata directory
-and pass `--git-dir`, and Codex commits without complaint — tested 2026-07-30,
-commit created successfully in a clone whose `.git` had been renamed to
-`gitstore`. `touch gitstore/anything` also succeeds. So the control is shallow:
-one `mv` defeats it.
+The block is keyed on the literal path `.git`. Rename the metadata directory and
+pass `--git-dir`, and Codex commits without complaint — tested, a commit landed
+in a clone whose `.git` had been renamed to `gitstore`, and
+`touch gitstore/anything` succeeded too. So the control is shallow: one `mv`
+defeats it.
 
 **Knowing a control is shallow is not a reason to route around it.** What that
 directory protects is not tidiness:
 
 - **`.git/hooks/` is executable code that runs on every commit.** Write access
-  there is persistent arbitrary execution outside the sandbox. This is the real
+  there is persistent arbitrary execution outside the sandbox. That is the real
   reason the rule exists.
-- History rewriting, ref updates, and remote changes all live there. An agent
-  that can touch them can decouple "the diff I reviewed" from "what is in the
-  repository".
+- History rewriting, ref updates and remote changes all live there. An agent
+  able to touch them can decouple the diff that was reviewed from what lands in
+  the repository.
 
-What the workaround buys is one `git add -A` typed by the operator — the same
+Against that, the workaround saves one `git add -A` typed by the operator — the
 step that, on the day this was written, caught a function pushed over the line
 cap, a missing import, an assertion flipped without renaming its test, and a
-staging config that would have left the environment with no chat API and no
-failing test to show for it.
+staging config that would have shipped with no chat API and no failing test.
 
-The general shape, worth keeping: **when a constraint blocks you, ask why it
-exists before asking how to get around it.** The instinct here ran the other
-way for two rounds, and only turned around when a security check objected.
+The transferable part: **when a constraint blocks you, ask why it exists before
+asking how to get around it.** The instinct here ran the other way for two
+rounds and only turned around when a security check objected.
 
-**Do not ask Codex to "commit as you go".** It cannot, it will hit the wall
-partway through, and — obeying the instruction — it stops there, leaving less
-finished work than if you had never asked.
+> **Two corrections, kept on purpose.** This section first blamed linked-worktree
+> metadata living outside the writable root and prescribed a standalone clone —
+> inferred from one error message, and wrong: a clone fails identically. It then
+> said the sandbox blocks all `.git` writes always — also wrong, disproved by the
+> successes in the table above. Both are recorded because each was plausible
+> enough to be reconstructed by the next person from the same evidence.
 
-Instead:
-
-1. Ask for **all changes left in the working tree**, plus a written deliverable
-   (`TRIAGE.md`, a report file) for anything that is analysis rather than code.
-   A finding that exists only in the report can be lost; a file cannot.
-2. **You** commit, immediately, the moment the job stops. `git add -A` in the
-   target directory is the first thing you run, before reading anything.
-3. Then run the gates and review, as below.
-
-> **A correction, kept on purpose.** An earlier version of this skill blamed
-> linked-worktree metadata living outside the writable root, and told you to use
-> `git clone` instead. That was inferred from a single error message naming
-> `.git/worktrees/<name>/index.lock`, and it is **wrong**: a standalone clone
-> fails identically on its own in-tree `.git/index.lock`. The clone changed the
-> path in the error and nothing else. Kept because the reasoning was plausible
-> enough that someone will reconstruct it.
 
 A different failure with a similar flavour: `failed to initialize sqlite state
 runtime under ~/.codex`, which kills the run before it reads any code. A fresh
@@ -196,7 +175,7 @@ to ten. A finished, correct report can therefore be lost entirely.
 
 The report is still on disk:
 
-```
+```text
 ~/.claude/plugins/data/codex-openai-codex/state/<dir>/jobs/<task-id>.log
 ```
 
@@ -220,7 +199,7 @@ means one job per loop and nothing until each finishes. `Monitor` turns every
 stdout line into its own notification, so a single watch covers all concurrent
 jobs and reports whichever one moves:
 
-```
+```text
 Monitor({
   description: "codex jobs: progress + stalls",
   timeout_ms: 3600000,
@@ -259,12 +238,27 @@ Two things that break these watches:
 A single-job Bash fallback, when `Monitor` is overkill:
 
 ```bash
-until [ -n "$(git -C <target> status --porcelain)" ] \
-   || [ $(( $(date +%s) - $(stat -f %m "$L") )) -gt 120 ]; do sleep 15; done
+S=~/.claude/plugins/data/codex-openai-codex/state
+TARGET=/path/to/clone            # the directory Codex was pointed at
+until [ -n "$(git -C "$TARGET" status --porcelain)" ]; do
+  L=$(ls -t $S/*/jobs/*.log 2>/dev/null | head -1)
+  [ -n "$L" ] && [ $(( $(date +%s) - $(stat -f %m "$L") )) -gt 120 ] && break
+  sleep 15
+done
+git -C "$TARGET" log --oneline -3; git -C "$TARGET" status --short
 ```
 
-Note the diff check is only an early exit. Removing the mtime clause would make
-a run that dies before writing anything wait forever.
+`$L` is resolved **inside** the loop, not before it: the log does not exist for
+the first ~30 seconds, and an unguarded `stat` on an empty path makes the
+condition true immediately, reporting a finish that never happened. The `-n "$L"`
+guard is what keeps the wait alive through that window.
+
+The diff check is the early exit and the mtime check is the real terminator.
+Drop the mtime clause and a run that dies before writing anything waits forever.
+
+An earlier version of this snippet used `$L` without ever assigning it — caught
+by a review bot on the pull request that introduced it. Documentation that
+cannot run is worse than none, because it is copied.
 
 The log may not exist for the first ~30 seconds. Guard for that, or the whole
 wait collapses immediately on an empty `$L`.
