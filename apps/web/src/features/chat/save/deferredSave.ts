@@ -52,6 +52,15 @@ function parse(raw: string): DeferredSaveIntent | undefined {
   }
 }
 
+function takeFromStore(storage: Storage, now: number): DeferredSaveIntent | undefined {
+  const raw = storage.getItem(DEFERRED_SAVE_KEY);
+  if (raw === null) return undefined;
+  const intent = parse(raw);
+  storage.removeItem(DEFERRED_SAVE_KEY);
+  if (intent === undefined || now - intent.createdAt > DEFERRED_SAVE_TTL_MS) return undefined;
+  return intent;
+}
+
 export function clearDeferredSave(): void {
   withStore((storage) => {
     storage.removeItem(DEFERRED_SAVE_KEY);
@@ -80,6 +89,11 @@ export function readDeferredSave(now: number = Date.now()): DeferredSaveIntent |
     return undefined;
   }
   return intent;
+}
+
+/** Consume a live intent only after its removal succeeds. */
+export function takeDeferredSave(now: number = Date.now()): DeferredSaveIntent | undefined {
+  return withStore((storage) => takeFromStore(storage, now));
 }
 
 /**

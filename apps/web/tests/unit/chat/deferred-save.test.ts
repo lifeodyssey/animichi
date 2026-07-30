@@ -96,6 +96,16 @@ describe("S1 hardening: storage method failures degrade to no intent", () => {
     expect(clearDeferredSave).not.toThrow();
   });
 
+  it("does not replay a live intent when claiming it is blocked", async () => {
+    writeDeferredSave(INTENT, 1_000);
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    const request = vi.fn().mockResolvedValue({ id: "r1" });
+    expect(await replayDeferredSave(request, 1_100)).toBe("none");
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it("returns no malformed intent when cleanup is blocked", () => {
     localStorage.setItem(DEFERRED_SAVE_KEY, "{not json");
     vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
