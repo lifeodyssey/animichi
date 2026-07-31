@@ -24,10 +24,15 @@ export interface DeferredSaveIntent {
   readonly createdAt: number;
 }
 
-/** SSR and privacy-locked browsers have no store; both read as "no intent". */
-function store(): Storage | undefined {
+export type DeferredSaveClaim =
+  | { readonly kind: "absent" }
+  | { readonly kind: "claimed"; readonly intent: DeferredSaveIntent }
+  | { readonly kind: "failed" };
+
+/** Return `undefined` when the storage accessor or operation cannot be used. */
+function withStore<Result>(operation: (storage: Storage) => Result): Result | undefined {
   try {
-    return globalThis.localStorage;
+    return operation(globalThis.localStorage);
   } catch {
     return undefined;
   }
@@ -52,8 +57,32 @@ function parse(raw: string): DeferredSaveIntent | undefined {
   }
 }
 
+function isLive(intent: DeferredSaveIntent | undefined, now: number): intent is DeferredSaveIntent {
+  return intent !== undefined && now - intent.createdAt <= DEFERRED_SAVE_TTL_MS;
+}
+
+function removeForClaim(storage: Storage): boolean {
+  try {
+    storage.removeItem(DEFERRED_SAVE_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function takeFromStore(storage: Storage, now: number): DeferredSaveClaim {
+  const raw = storage.getItem(DEFERRED_SAVE_KEY);
+  if (raw === null) return { kind: "absent" };
+  const intent = parse(raw);
+  const live = isLive(intent, now);
+  if (!removeForClaim(storage)) return live ? { kind: "failed" } : { kind: "absent" };
+  return live ? { kind: "claimed", intent } : { kind: "absent" };
+}
+
 export function clearDeferredSave(): void {
-  store()?.removeItem(DEFERRED_SAVE_KEY);
+  withStore((storage) => {
+    storage.removeItem(DEFERRED_SAVE_KEY);
+  });
 }
 
 /** Stash the intent behind the login wall; `now` is injectable for tests. */
@@ -62,20 +91,28 @@ export function writeDeferredSave(
   now: number = Date.now(),
 ): void {
   const entry: DeferredSaveIntent = { pointIds: [...intent.pointIds], title: intent.title, createdAt: now };
-  store()?.setItem(DEFERRED_SAVE_KEY, JSON.stringify(entry));
+  withStore((storage) => {
+    storage.setItem(DEFERRED_SAVE_KEY, JSON.stringify(entry));
+  });
 }
 
 /** The live intent, or `undefined` — a missing, malformed or expired entry is
  * erased rather than left to accumulate on a shared device. */
 export function readDeferredSave(now: number = Date.now()): DeferredSaveIntent | undefined {
-  const raw = store()?.getItem(DEFERRED_SAVE_KEY);
+  const raw = withStore((storage) => storage.getItem(DEFERRED_SAVE_KEY));
   if (raw === null || raw === undefined) return undefined;
   const intent = parse(raw);
-  if (intent === undefined || now - intent.createdAt > DEFERRED_SAVE_TTL_MS) {
+  if (!isLive(intent, now)) {
     clearDeferredSave();
     return undefined;
   }
   return intent;
+}
+
+/** Distinguish a safe claim from absence and storage failure. */
+export function takeDeferredSave(now: number = Date.now()): DeferredSaveClaim {
+  if (!("localStorage" in globalThis)) return { kind: "absent" };
+  return withStore((storage) => takeFromStore(storage, now)) ?? { kind: "failed" };
 }
 
 /**
