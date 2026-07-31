@@ -1,4 +1,4 @@
-import type { AnimeOverviewCircle } from "@seichijunrei/contract";
+import type { AnimeOverviewCircle } from "@animichi/contract";
 import type { CSSProperties, Ref } from "react";
 import type { BubbleMapCopy } from "./copy";
 import { type BubblePlacement, bubblePlacements, hasBubbles } from "./bubbleGeometry";

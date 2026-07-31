@@ -8,7 +8,7 @@ import {
   type UsersContract,
   catalogContract,
   usersContract,
-} from "@seichijunrei/contract";
+} from "@animichi/contract";
 import type { ApiClientContext } from "./context";
 
 export type CatalogClient = JsonifiedClient<ContractRouterClient<CatalogContract, ApiClientContext>>;

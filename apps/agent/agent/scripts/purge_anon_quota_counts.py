@@ -53,9 +53,19 @@ def _write_step_summary(*, count: int, dry_run: bool) -> None:
     if not summary_path:
         return
     label = "eligible" if dry_run else "removed"
-    Path(summary_path).open("a", encoding="utf-8").write(
-        f"anon-quota-count purge: {label}={count}\n"
+    _append_step_summary(
+        Path(summary_path), f"anon-quota-count purge: {label}={count}\n"
     )
+
+
+def _append_step_summary(path: Path, line: str) -> None:
+    try:
+        with path.open("a", encoding="utf-8") as summary:
+            summary.write(line)
+    except OSError as exc:
+        logger.warning(
+            "anon_quota_step_summary_write_failed", error_type=type(exc).__name__
+        )
 
 
 async def _main(dry_run: bool) -> None:

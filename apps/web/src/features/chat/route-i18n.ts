@@ -1,4 +1,4 @@
-import type { Pacing } from "@seichijunrei/contract";
+import type { Pacing } from "@animichi/contract";
 
 /** Copy for the S1.5 route card: pacing pill, capsules, CTA row (issue #271). */
 export interface ChatRouteDict {

@@ -1,4 +1,4 @@
-import type { ChatDataPart } from "@seichijunrei/contract";
+import type { ChatDataPart } from "@animichi/contract";
 import type { ComponentType } from "react";
 import { ProseCard, SearchCard } from "./components/cards";
 import type { IntentCardProps } from "./components/cards";

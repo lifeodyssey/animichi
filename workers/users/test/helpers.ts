@@ -1,4 +1,4 @@
-import type { RouteStatus } from "@seichijunrei/contract";
+import type { RouteStatus } from "@animichi/contract";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import {

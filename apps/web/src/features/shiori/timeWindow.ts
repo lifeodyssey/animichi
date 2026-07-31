@@ -1,4 +1,4 @@
-import type { TimedItinerary } from "@seichijunrei/contract";
+import type { TimedItinerary } from "@animichi/contract";
 
 /** First arrival → last departure, e.g. "09:31→12:58"; null when there are no stops. */
 export function shioriTimeWindow(itinerary: TimedItinerary): string | null {

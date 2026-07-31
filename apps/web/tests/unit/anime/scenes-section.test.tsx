@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import type { AnimeScene } from "@seichijunrei/contract";
+import type { AnimeScene } from "@animichi/contract";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { ScenesSection } from "../../../src/features/anime/ScenesSection";

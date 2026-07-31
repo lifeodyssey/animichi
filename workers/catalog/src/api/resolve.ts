@@ -1,5 +1,5 @@
 /** Deterministic anime-title resolver over the alias index and Bangumi MISS path. */
-import { MAX_CANDIDATES } from "@seichijunrei/contract/constants";
+import { MAX_CANDIDATES } from "@animichi/contract/constants";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import { parseBangumi, type BangumiRow } from "../enrich/parse";

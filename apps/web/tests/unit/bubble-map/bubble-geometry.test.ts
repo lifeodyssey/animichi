@@ -1,4 +1,4 @@
-import type { AnimeOverviewCircle } from "@seichijunrei/contract";
+import type { AnimeOverviewCircle } from "@animichi/contract";
 import { describe, expect, it } from "vitest";
 import {
   type BubblePlacement,

@@ -90,6 +90,13 @@ def _decode(raw: bytes) -> str:
     return raw.decode("utf-8", errors="strict").strip()
 
 
+def _decode_header(raw: bytes, name: str) -> str:
+    try:
+        return _decode(raw)
+    except UnicodeDecodeError as exc:
+        raise ByokError("invalid_request", f"{name} must be valid UTF-8.") from exc
+
+
 def _require_known_provider(value: str | None) -> ByokProvider:
     if value not in BYOK_PROVIDERS:
         raise ByokError("invalid_request", "Unknown or missing X-BYOK-Provider.")
@@ -99,14 +106,14 @@ def _require_known_provider(value: str | None) -> ByokProvider:
 def _require_key(raw: bytes | None) -> str:
     if raw is None:
         raise ByokError("invalid_request", "X-BYOK-Key is required.")
-    key = _decode(raw)
+    key = _decode_header(raw, "X-BYOK-Key")
     if not key:
         raise ByokError("invalid_request", "X-BYOK-Key must not be blank.")
     return key
 
 
 def _require_base_url(raw: bytes | None, provider: ByokProvider) -> str | None:
-    text = _decode(raw) if raw is not None else ""
+    text = _decode_header(raw, "X-BYOK-Base-Url") if raw is not None else ""
     if provider != "openai-compatible":
         if text:
             raise ByokError(
@@ -201,6 +208,10 @@ async def _build_openai_compatible(
     credential: ByokCredential, *, transport_wrapper: TransportWrapper | None
 ) -> ByokModel:
     await _validate_openai_base_url(credential.base_url)
+    # No `await` between this construction and the return: the probe route runs
+    # this inside `asyncio.timeout`, and cancellation is only delivered at an
+    # await point. An await added below would let the deadline fire after the
+    # client exists but before the caller can hold it, leaking the connection.
     client = build_guarded_async_client(transport_wrapper=transport_wrapper)
     sdk_client = AsyncOpenAI(
         base_url=credential.base_url,

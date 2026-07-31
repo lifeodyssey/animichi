@@ -7,7 +7,7 @@ import {
   type AnimeOverview,
   type ResolveOutcome,
   type SearchResult,
-} from "@seichijunrei/contract";
+} from "@animichi/contract";
 import { implement } from "@orpc/server";
 import { expectTypeOf } from "vitest";
 import type { CatalogContext } from "../src/router";

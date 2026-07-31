@@ -1,4 +1,4 @@
-import type { AnimeOverview, AnimeScene } from "@seichijunrei/contract";
+import type { AnimeOverview, AnimeScene } from "@animichi/contract";
 import type { Locale } from "../../i18n/locales";
 import { animeTitle } from "./head";
 

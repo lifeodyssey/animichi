@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -102,15 +101,38 @@ class _OversizedStreamNoHeaderTransport(httpx.AsyncBaseTransport):
         return response
 
 
-class _SlowTransport(httpx.AsyncBaseTransport):
-    """Sleeps past the (patched, short) timeout before ever answering."""
+class _TimeoutControl:
+    CancelledError = asyncio.CancelledError
 
-    def __init__(self, delay_seconds: float) -> None:
-        self._delay_seconds = delay_seconds
+    def __init__(self) -> None:
+        self.entries: list[tuple[float, asyncio.Timeout]] = []
+
+    def timeout(self, delay: float) -> asyncio.Timeout:
+        context = asyncio.timeout(None)
+        self.entries.append((delay, context))
+        return context
+
+    def expire_outer(self) -> None:
+        assert len(self.entries) == 2
+        self.entries[0][1].reschedule(asyncio.get_running_loop().time())
+
+
+class _TimeoutCancellationTransport(httpx.AsyncBaseTransport):
+    def __init__(self, control: _TimeoutControl) -> None:
+        self._control = control
+        self.started = False
+        self.cancelled = False
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        await asyncio.sleep(self._delay_seconds)
-        return httpx.Response(200, content=_SMALL_OK_BODY, request=request)
+        del request
+        self.started = True
+        self._control.expire_outer()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            self.cancelled = True
+            raise
+        raise AssertionError("unreachable")
 
 
 async def _probe_body(
@@ -212,37 +234,33 @@ async def test_a_connection_failure_collapses_to_provider_unreachable() -> None:
 async def test_the_probe_never_exceeds_its_timeout_ceiling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Mock-clock style: patch the timeout constant down to a small value
-    and confirm a slower transport is actually cut off near THAT ceiling —
-    not near its own multi-second sleep — proving the timeout enforces
-    rather than being cosmetic. Real wall-clock time is asserted, bounded
-    well under the transport's sleep duration."""
-    monkeypatch.setattr(byok_route, "_PROBE_TIMEOUT_SECONDS", 0.05)
-    started = time.monotonic()
-    body = await _probe_body(_SlowTransport(delay_seconds=2.0))
-    elapsed = time.monotonic() - started
-    assert body["error_code"] == "provider_unreachable"
-    assert elapsed < 1.0, (
-        f"probe took {elapsed:.2f}s — the 0.05s timeout ceiling did not enforce"
-    )
-
-
-async def test_without_the_patched_timeout_the_slow_transport_would_have_succeeded() -> (
-    None
-):
-    """Control: proves the slow transport is a legitimate success shape at
-    the real 5s ceiling — the fast-timeout test above is the timeout firing,
-    not an unrelated fault in the fixture."""
-    body = await _probe_body(_SlowTransport(delay_seconds=0.01))
-    assert body == {"vision": True, "reachable": True, "error_code": None}
+    """Expire the real outer timeout after transport entry, without waiting."""
+    control = _TimeoutControl()
+    transport = _TimeoutCancellationTransport(control)
+    monkeypatch.setattr(byok_route, "asyncio", control)
+    body = await _probe_body(transport)
+    assert body == {
+        "vision": False,
+        "reachable": False,
+        "error_code": "provider_unreachable",
+    }
+    assert transport.started is True
+    assert transport.cancelled is True
+    assert [delay for delay, _ in control.entries] == [
+        byok_route._PROBE_TIMEOUT_SECONDS,
+        byok_route._PROBE_TIMEOUT_SECONDS,
+    ]
+    assert control.entries[0][1].expired() is True
+    assert control.entries[1][1].expired() is False
 
 
 def test_the_timeout_ceiling_constant_is_at_most_five_seconds() -> None:
-    """Direct value pin, independent of the monkeypatched behavioural test
-    above: `test_the_probe_never_exceeds_its_timeout_ceiling` overrides this
-    constant at test time, so it alone cannot catch the *default* silently
-    growing (e.g. 5.0 -> 500.0) in production — this test reads the real
-    module constant directly."""
+    """Pin the default independently of the behavioural duration threading.
+
+    The cancellation test proves both timeout contexts receive this constant,
+    but it deliberately controls when they expire. This assertion separately
+    prevents the production ceiling itself from growing silently.
+    """
     assert byok_route._PROBE_TIMEOUT_SECONDS <= 5.0
 
 

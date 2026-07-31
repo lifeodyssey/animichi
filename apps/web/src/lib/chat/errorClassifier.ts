@@ -1,5 +1,5 @@
-import { ANON_BUDGET_EXHAUSTED_CODE, ANON_QUOTA_EXHAUSTED_CODE } from "@seichijunrei/contract";
-import type { ChatDataPart } from "@seichijunrei/contract";
+import { ANON_BUDGET_EXHAUSTED_CODE, ANON_QUOTA_EXHAUSTED_CODE } from "@animichi/contract";
+import type { ChatDataPart } from "@animichi/contract";
 
 /**
  * D1-D9 fallback states from spec-chat-page-states.md §D (issue #272 S1.6),
@@ -44,7 +44,7 @@ export const BYOK_REQUIRES_LOGIN_CODE = "byok_requires_login";
 export const BYOK_CREDENTIAL_REJECTED_CODE = "byok_credential_rejected";
 
 /**
- * The two anonymous-limit wire codes are owned by `@seichijunrei/contract`
+ * The two anonymous-limit wire codes are owned by `@animichi/contract`
  * (`error-registry.ts`), not redeclared here — the classifier is one of three
  * tiers that must agree on the literals. D11 means the *whole* anonymous
  * surface spent its dollar ceiling for the day; D12 means *this* visitor spent

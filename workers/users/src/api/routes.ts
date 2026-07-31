@@ -7,7 +7,7 @@ import type {
   RouteStatus,
   SaveRouteInput,
   UserRoute,
-} from "@seichijunrei/contract";
+} from "@animichi/contract";
 import { sql } from "drizzle-orm";
 import type { DbExecutor } from "../db/client";
 import { routeNotFound, routeNotOwned } from "../lib/errors";

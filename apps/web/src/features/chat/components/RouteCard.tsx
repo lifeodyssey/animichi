@@ -1,4 +1,4 @@
-import type { ChatDataPart, TimedItinerary as TimedItineraryModel } from "@seichijunrei/contract";
+import type { ChatDataPart, TimedItinerary as TimedItineraryModel } from "@animichi/contract";
 import { itineraryView } from "../../../lib/chat/itinerary";
 import { locatedSpots, toSearchSpots } from "../../../lib/chat/spotClusters";
 import type { LocatedSpot } from "../../../lib/chat/spotClusters";
