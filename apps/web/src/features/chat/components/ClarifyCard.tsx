@@ -17,6 +17,7 @@ type Phase =
   | { readonly kind: "open" }
   | { readonly kind: "chosen"; readonly id: string }
   | { readonly kind: "rephrase" };
+type OptionState = "available" | "selected" | "unselected" | "dismissed";
 
 function reasonOf(part: ChatDataPart): string | undefined {
   const data = part.data;
@@ -27,10 +28,15 @@ function candidateKey(candidate: Candidate): string {
   return candidate.id ?? candidate.title ?? "";
 }
 
+function optionState(phase: Phase, key: string): OptionState {
+  if (phase.kind === "open") return "available";
+  if (phase.kind === "rephrase") return "dismissed";
+  return phase.id === key ? "selected" : "unselected";
+}
+
 function optionClass(phase: Phase, key: string): string {
-  const faded =
-    phase.kind === "rephrase" || (phase.kind === "chosen" && phase.id !== key);
-  return faded ? "chat-clarify__option chat-clarify__option--faded" : "chat-clarify__option";
+  const state = optionState(phase, key);
+  return state === "selected" || state === "available" ? "chat-clarify__option" : "chat-clarify__option chat-clarify__option--faded";
 }
 
 type OptionProps = Readonly<{
@@ -43,7 +49,7 @@ function CandidateOption({ candidate, phase, onChoose }: OptionProps) {
   const key = candidateKey(candidate);
   return (
     <li>
-      <button type="button" className={optionClass(phase, key)} disabled={phase.kind !== "open"} onClick={() => { onChoose(candidate); }}>
+      <button type="button" className={optionClass(phase, key)} data-state={optionState(phase, key)} disabled={phase.kind !== "open"} onClick={() => { onChoose(candidate); }}>
         {candidate.title}
       </button>
     </li>
