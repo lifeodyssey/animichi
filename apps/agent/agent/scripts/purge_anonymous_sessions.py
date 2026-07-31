@@ -112,7 +112,18 @@ def _write_step_summary(report: PurgeReport) -> None:
         f"anonymous-session purge: purged={report.purged} "
         f"raced={report.raced} failed={report.failed}\n"
     )
-    Path(summary_path).open("a", encoding="utf-8").write(line)
+    _append_step_summary(Path(summary_path), line)
+
+
+def _append_step_summary(path: Path, line: str) -> None:
+    try:
+        with path.open("a", encoding="utf-8") as summary:
+            summary.write(line)
+    except OSError as exc:
+        logger.warning(
+            "anonymous_session_step_summary_write_failed",
+            error_type=type(exc).__name__,
+        )
 
 
 async def _main(dry_run: bool) -> None:
