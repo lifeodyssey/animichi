@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import type { HttpHandler, JsonBodyType } from "msw";
-import { AnimeOverview, AnimeOverviewInput } from "@seichijunrei/contract";
+import { AnimeOverview, AnimeOverviewInput } from "@animichi/contract";
 import { orpcErrorResponse } from "./contract-handler";
 import { TEST_ORIGIN } from "./fixtures";
 

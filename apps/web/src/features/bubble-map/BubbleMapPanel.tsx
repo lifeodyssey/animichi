@@ -1,4 +1,4 @@
-import type { AnimeOverviewCircle, AnimeScene } from "@seichijunrei/contract";
+import type { AnimeOverviewCircle, AnimeScene } from "@animichi/contract";
 import { type Ref, useState } from "react";
 import { CircleBubbleMap } from "./CircleBubbleMap";
 import { SpotSheet } from "./SpotSheet";

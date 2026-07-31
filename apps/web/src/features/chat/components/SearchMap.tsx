@@ -1,4 +1,4 @@
-import type { LatLng } from "@seichijunrei/contract";
+import type { LatLng } from "@animichi/contract";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject } from "react";
 import type { LocatedSpot, SpotCluster } from "../../../lib/chat/spotClusters";

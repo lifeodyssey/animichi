@@ -1,4 +1,4 @@
-import type { TimedItinerary } from "@seichijunrei/contract";
+import type { TimedItinerary } from "@animichi/contract";
 import { selectShioriLayout, type ShioriLayout, type ShioriStatus } from "./layoutSelector";
 import { shioriTimeWindow } from "./timeWindow";
 import type { ShioriMeta, ShioriPhoto } from "./types";

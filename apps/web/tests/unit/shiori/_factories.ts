@@ -1,4 +1,4 @@
-import type { TimedItinerary, TimedStop } from "@seichijunrei/contract";
+import type { TimedItinerary, TimedStop } from "@animichi/contract";
 import type { ShioriMeta, ShioriPhoto, ShioriPhotoInput } from "../../../src/features/shiori/types";
 import { makeJpegBlobWithExif } from "./_jpegFixtures";
 

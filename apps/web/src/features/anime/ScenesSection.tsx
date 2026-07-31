@@ -1,4 +1,4 @@
-import type { AnimeScene } from "@seichijunrei/contract";
+import type { AnimeScene } from "@animichi/contract";
 import type { AnimeCopy } from "./copy";
 
 type Props = Readonly<{ scenes: readonly AnimeScene[]; copy: AnimeCopy }>;

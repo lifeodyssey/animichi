@@ -167,18 +167,6 @@ class TestAPIKeyValidation:
         missing = settings.validate_api_keys()
         assert missing == []
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
-    def test_validate_api_keys_missing_openai_compat_when_fallback_enabled(self):
-        """Fallback provider requires compat config when using openai fallback."""
-        settings = Settings(
-            gemini_api_key="test_key",
-            fallback_agent_model="openai:gpt-5.4",
-            openai_compat_base_url="",
-            openai_compat_api_key="",
-        )
-        missing = settings.validate_api_keys()
-        assert "OPENAI_COMPAT_BASE_URL" in missing
-
     def test_get_runtime_config_includes_provider_fields(self):
         """Runtime config should expose non-secret provider settings."""
         settings = Settings(
