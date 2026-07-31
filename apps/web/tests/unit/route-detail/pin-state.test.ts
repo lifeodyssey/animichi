@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { TimedItinerary, TimedStop } from "@seichijunrei/contract";
+import type { TimedItinerary, TimedStop } from "@animichi/contract";
 import type { RouteDetail } from "../../../src/lib/route-detail/dataState";
 import {
   pinBadge,

@@ -124,7 +124,6 @@ class TestGetSettingsSingletonIsUnaffected:
 
         assert get_settings.cache_info().currsize == 0
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_get_settings_still_raises_after_a_purge_cron_settings_call(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

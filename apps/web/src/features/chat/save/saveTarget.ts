@@ -1,4 +1,4 @@
-import type { ChatDataPart } from "@seichijunrei/contract";
+import type { ChatDataPart } from "@animichi/contract";
 import { routeOf } from "../components/cards";
 import type { SpotRow } from "../components/cards";
 import type { ChatDict } from "../i18n";

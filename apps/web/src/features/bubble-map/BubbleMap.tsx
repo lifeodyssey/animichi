@@ -1,4 +1,4 @@
-import type { AnimeOverviewCircle, AnimeScene } from "@seichijunrei/contract";
+import type { AnimeOverviewCircle, AnimeScene } from "@animichi/contract";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { BubbleMapPanel } from "./BubbleMapPanel";
 import { type BasemapStatus, attachBubbleMap } from "./bubbleMapController";

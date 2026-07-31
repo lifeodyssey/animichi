@@ -3,9 +3,16 @@ import subprocess
 import unittest
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).parents[2]
 CONFIG = REPO_ROOT / ".github/dependabot.yml"
+WORKFLOW = REPO_ROOT / ".github/workflows/dependabot-agent.yml"
+GATE_STEP_ORDER = (
+    "- uses: pnpm/action-setup@",
+    "- uses: actions/setup-node@",
+    "- run: pnpm install --frozen-lockfile --ignore-scripts",
+    "- name: Backend quality + tests",
+    "- name: Web + worker quality",
+)
 
 
 def ecosystem_blocks(name: str) -> list[str]:
@@ -35,6 +42,11 @@ def pnpm_lockfile_domains() -> list[str]:
     return sorted("/" if parent == "." else f"/{parent}" for parent in parents)
 
 
+def gate_step_positions() -> list[int]:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    return [workflow.index(marker) for marker in GATE_STEP_ORDER]
+
+
 class DependabotConfigTest(unittest.TestCase):
     def test_npm_updates_cover_all_pnpm_lockfile_domains(self) -> None:
         npm_blocks = ecosystem_blocks("npm")
@@ -42,6 +54,12 @@ class DependabotConfigTest(unittest.TestCase):
         self.assertEqual(
             sorted(configured_directories(npm_blocks[0])), pnpm_lockfile_domains()
         )
+
+
+class DependabotWorkflowTest(unittest.TestCase):
+    def test_node_dependencies_precede_cross_language_backend_tests(self) -> None:
+        positions = gate_step_positions()
+        self.assertEqual(positions, sorted(positions))
 
 
 if __name__ == "__main__":

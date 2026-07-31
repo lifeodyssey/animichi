@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
@@ -509,7 +509,10 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.112.0"
+          # The setup action already installed the Wrangler declared by this
+          # workspace package. The pinned wrangler-action reuses that version
+          # when this input is omitted; duplicating it here made a Dependabot
+          # update fall into the action's mutating `pnpm add` fallback.
           # #516: without this, the action's own lockfile-based
           # auto-detection (dist/index.mjs:detectPackageManager) only looks
           # for a lockfile INSIDE `workingDirectory` — every pnpm workspace
@@ -519,7 +522,7 @@ jobs:
           # install path (`npm i wrangler@...`) runs inside a directory whose
           # package.json has a `workspace:*` dependency (apps/web,
           # workers/catalog, workers/users all do, via
-          # `@seichijunrei/contract`) — npm doesn't understand that pnpm-only
+          # `@animichi/contract`) — npm doesn't understand that pnpm-only
           # protocol and dies with EUNSUPPORTEDPROTOCOL before wrangler ever
           # runs. Confirmed by reading dist/index.mjs at the pinned SHA below
           # (not just the docs): `packageManager` input is read verbatim via
@@ -595,7 +598,7 @@ jobs:
               echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — skipping the push (the preflight step already validated it is safe to skip here)."
               continue
             fi
-            printf '%s' "$value" | npx --yes wrangler@4.112.0 secret put "$name" --env "$TARGET_ENVIRONMENT"
+            printf '%s' "$value" | pnpm exec wrangler secret put "$name" --env "$TARGET_ENVIRONMENT"
           done <<< "$POST_DEPLOY_SECRETS"
       # Real per-component smoke checks (issue #484). `web` and `root` are
       # each self-contained (no dependency on other components in the same

@@ -1,5 +1,5 @@
-import { ChatResponseDataPart } from "@seichijunrei/contract";
-import type { ChatDataPart, TimedItinerary, TimedStop, TransitLeg } from "@seichijunrei/contract";
+import { ChatResponseDataPart } from "@animichi/contract";
+import type { ChatDataPart, TimedItinerary, TimedStop, TransitLeg } from "@animichi/contract";
 
 /** Contract-validated fixtures for the S1.5 route card tests (issue #271). */
 

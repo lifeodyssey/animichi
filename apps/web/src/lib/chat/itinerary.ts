@@ -1,4 +1,4 @@
-import type { Pacing, TimedItinerary, TimedStop, TransitLeg } from "@seichijunrei/contract";
+import type { Pacing, TimedItinerary, TimedStop, TransitLeg } from "@animichi/contract";
 
 /** One station row on the S1.5 route timeline (issue #271 AC: HH:MM granularity). */
 export interface ItineraryStation {

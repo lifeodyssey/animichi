@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SaveRouteInput } from "@seichijunrei/contract";
+import { SaveRouteInput } from "@animichi/contract";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { saveRouteTitle } from "../../../src/features/chat/route-copy";
 import { routeSaveTarget } from "../../../src/features/chat/save/saveTarget";

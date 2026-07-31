@@ -1,4 +1,4 @@
-import type { AnimeOverviewCircle } from "@seichijunrei/contract";
+import type { AnimeOverviewCircle } from "@animichi/contract";
 
 export const MIN_BUBBLE_RADIUS = 14;
 export const MAX_BUBBLE_RADIUS = 44;

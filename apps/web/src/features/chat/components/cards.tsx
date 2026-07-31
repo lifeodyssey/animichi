@@ -1,4 +1,4 @@
-import type { ChatDataPart } from "@seichijunrei/contract";
+import type { ChatDataPart } from "@animichi/contract";
 import { toSearchSpots } from "../../../lib/chat/spotClusters";
 import type { ChatDict } from "../i18n";
 import { SceneThumb } from "./ErrorStates/SceneThumb";

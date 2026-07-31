@@ -23,13 +23,21 @@ const FIVE_CANDIDATES = [
   { id: "5", title: "劇場版 響け!" },
 ];
 
-function renderClarify(data: Record<string, unknown>, send = vi.fn()) {
-  render(
-    <ChatActionsProvider actions={{ send, regenerate: vi.fn() }}>
+function clarifyElement(data: Record<string, unknown>, send = vi.fn(), cardKey = "clarify") {
+  return (
+    <ChatActionsProvider key={cardKey} actions={{ send, regenerate: vi.fn() }}>
       <DataPartCard data={{ intent: "clarify", data }} dict={dict} />
-    </ChatActionsProvider>,
+    </ChatActionsProvider>
   );
+}
+
+function renderClarify(data: Record<string, unknown>, send = vi.fn()) {
+  render(clarifyElement(data, send));
   return send;
+}
+
+function optionState(name: string): string | null {
+  return screen.getByRole("button", { name }).getAttribute("data-state");
 }
 
 describe("ClarifyCard (C2, AC1)", () => {
@@ -40,24 +48,32 @@ describe("ClarifyCard (C2, AC1)", () => {
     expect(screen.getByRole("button", { name: dict.clarify.escapeHatch })).toBeTruthy();
   });
 
-  it("sends the chosen candidate and fades the rest", () => {
+  it("marks each initial candidate as available", () => {
+    renderClarify({ candidates: FIVE_CANDIDATES.slice(0, 2) });
+    expect(optionState("響け!ユーフォニアム")).toBe("available");
+    expect(optionState("響け!ユーフォニアム2")).toBe("available");
+  });
+
+  it("marks the chosen candidate selected and the rest unselected", () => {
     const send = renderClarify({ candidates: FIVE_CANDIDATES.slice(0, 4) });
     fireEvent.click(screen.getByRole("button", { name: "リズと青い鳥" }));
     expect(send).toHaveBeenCalledWith("リズと青い鳥");
-    const chosen = screen.getByRole("button", { name: "リズと青い鳥" });
-    expect(chosen.className).not.toContain("--faded");
+    expect(optionState("リズと青い鳥")).toBe("selected");
     const other = screen.getByRole("button", { name: "響け!ユーフォニアム" });
-    expect(other.className).toContain("chat-clarify__option--faded");
+    expect(optionState("響け!ユーフォニアム")).toBe("unselected");
     expect(other.hasAttribute("disabled")).toBe(true);
   });
 
-  it("escape hatch fades everything and invites a rephrase without sending", () => {
-    const send = renderClarify({ candidates: FIVE_CANDIDATES.slice(0, 2) });
+  it("dismisses candidates for rephrase and resets a newly keyed card", () => {
+    const data = { candidates: FIVE_CANDIDATES.slice(0, 2) };
+    const send = vi.fn();
+    const view = render(clarifyElement(data, send, "message-1:data-response:0"));
     fireEvent.click(screen.getByRole("button", { name: dict.clarify.escapeHatch }));
     expect(send).not.toHaveBeenCalled();
     expect(screen.getByText(dict.clarify.rephraseHint)).toBeTruthy();
-    const option = screen.getByRole("button", { name: "響け!ユーフォニアム" });
-    expect(option.className).toContain("chat-clarify__option--faded");
+    expect(optionState("響け!ユーフォニアム")).toBe("dismissed");
+    view.rerender(clarifyElement(data, send, "message-2:data-response:0"));
+    expect(optionState("響け!ユーフォニアム")).toBe("available");
   });
 });
 
