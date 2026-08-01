@@ -283,7 +283,9 @@ On a push to `main`, the current promotion chain is:
    intentionally skipped component as green. A failed or cancelled component fails its lane and
    blocks promotion. The `agnix` check remains warn-only inside `Repository Quality`; its warning
    policy is explicit and does not mask failures from the security reusable workflow or CI contract
-   test.
+   test. `Codecov Patch` is deliberately only the stable upload/policy precondition: it does not
+   calculate changed-line coverage locally. The GitHub ruleset must require the external Codecov
+   `codecov/patch` status as the real 95% changed-line verdict as well as this stable context.
 2. `deploy-staging` calls `_deploy-component.yml` with `component: catalog`,
    `environment: staging`, and `pulumi_stack: staging`.
 3. `_deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the
