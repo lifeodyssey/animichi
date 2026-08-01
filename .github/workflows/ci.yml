@@ -50,6 +50,7 @@ jobs:
       neon_agent: ${{ steps.f.outputs.neon_agent }}
       neon_catalog: ${{ steps.f.outputs.neon_catalog }}
       neon_migrations: ${{ steps.f.outputs.neon_migrations }}
+      cross_stack: ${{ steps.f.outputs.cross_stack }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -92,12 +93,16 @@ jobs:
             neon_agent: ['apps/agent/**']
             neon_catalog: ['workers/catalog/**']
             neon_migrations: ['db/migrations/**']
+            # The cross-stack browser lane exercises emitted apps/web output
+            # and the edge-facing worker together. Keep its scope broad enough
+            # to catch contract and deployment wiring changes.
+            cross_stack: ['apps/**', 'worker/**', 'workers/**', 'packages/contract/**', 'db/**', 'infra/**', '.github/workflows/**', '.github/actions/**']
 
   # ── Stage 1: Component CI (reusable workflows, all parallel) ──
   # affected-only on PRs; full run on push/tag.
 
   ci-agent:
-    name: Agent CI
+    name: Agent component CI
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.agent == 'true' }}
     uses: ./.github/workflows/_python-ci.yml
@@ -124,7 +129,7 @@ jobs:
     name: Contract OpenAPI drift
     runs-on: ubuntu-latest
     needs: changes
-    if: ${{ needs.changes.outputs.contract == 'true' }}
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.contract == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -139,13 +144,13 @@ jobs:
           git diff --cached --exit-code -- packages/contract/openapi.json packages/contract/users-openapi.json
 
   ci-web:
-    name: Web app CI
+    name: Web component CI
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.web == 'true' }}
     uses: ./.github/workflows/_webapp-ci.yml
 
   ci-worker:
-    name: Edge worker tests
+    name: Edge worker component CI
     runs-on: ubuntu-latest
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.worker == 'true' }}
@@ -157,7 +162,7 @@ jobs:
       - run: pnpm run test:worker
 
   ci-infra:
-    name: Infra CI
+    name: Infra component CI
     runs-on: ubuntu-latest
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.infra == 'true' }}
@@ -375,6 +380,138 @@ jobs:
         run: pnpm run test:spike
         working-directory: workers/catalog
 
+  # ── Stable required contexts ─────────────────────────────────
+  # Component jobs above remain affected-only on pull requests. These lane
+  # jobs are the branch-protection contract: every lane is created on every
+  # workflow run and accepts an intentionally skipped component as green.
+  # A failed or cancelled component still fails its lane and blocks promotion.
+
+  web-ci-gate:
+    name: Web CI
+    needs: [ci-web]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify Web component result
+        env:
+          STATUSES: ${{ needs.ci-web.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Web CI" "$STATUSES"
+
+  backend-ci-gate:
+    name: Backend CI
+    needs: [ci-catalog, ci-users, contract-openapi-drift, ci-worker]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify backend component results
+        env:
+          STATUSES: >-
+            ${{ needs.ci-catalog.result }}
+            ${{ needs.ci-users.result }}
+            ${{ needs.contract-openapi-drift.result }}
+            ${{ needs.ci-worker.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Backend CI" "$STATUSES"
+
+  agent-ci-gate:
+    name: Agent CI
+    needs: [ci-agent, agent-eval-smoke]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify agent component results
+        env:
+          STATUSES: >-
+            ${{ needs.ci-agent.result }}
+            ${{ needs.agent-eval-smoke.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Agent CI" "$STATUSES"
+
+  infra-db-ci-gate:
+    name: Infra & DB CI
+    needs: [ci-infra, db-validate]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify infra and migration results
+        env:
+          STATUSES: >-
+            ${{ needs.ci-infra.result }}
+            ${{ needs.db-validate.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Infra & DB CI" "$STATUSES"
+
+  # The reusable workflow is intentionally broad and is independently
+  # path-filtered by `changes.cross_stack`; its result is folded into a stable
+  # lane below so documentation-only PRs still receive a required check.
+  ci-cross-stack-e2e:
+    name: Cross-stack E2E component
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.cross_stack == 'true' }}
+    uses: ./.github/workflows/_cross-stack-e2e.yml
+
+  cross-stack-e2e-gate:
+    name: Cross-stack E2E
+    needs: [ci-cross-stack-e2e]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify cross-stack result
+        env:
+          STATUSES: ${{ needs.ci-cross-stack-e2e.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Cross-stack E2E" "$STATUSES"
+
+  repository-quality-gate:
+    name: Repository Quality
+    needs: [security, agnix]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify repository-quality component results
+        env:
+          STATUSES: >-
+            ${{ needs.security.result }}
+            ${{ needs.agnix.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Repository Quality" "$STATUSES"
+      - name: Verify CI contract
+        run: ruby .github/scripts/test_ci_contract.rb
+
+  codecov-patch-gate:
+    name: Codecov Patch
+    needs: [ci-agent, ci-catalog, ci-users, ci-web, ci-worker]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify component coverage results
+        env:
+          STATUSES: >-
+            ${{ needs.ci-agent.result }}
+            ${{ needs.ci-catalog.result }}
+            ${{ needs.ci-users.result }}
+            ${{ needs.ci-web.result }}
+            ${{ needs.ci-worker.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Codecov Patch" "$STATUSES"
+      - name: Verify patch coverage policy
+        run: ruby .github/scripts/test_codecov_patch.rb
+
   # ── Stage 3: Deploy (CI-green gated, push-main promotion path) ──
   # Promotion: push main → CI → staging → post-staging (api) → prod (human gate) → post-prod.
   # A single push to main drives the full pipeline; no separate tag trigger needed.
@@ -383,7 +520,7 @@ jobs:
   # push main → staging
   deploy-staging:
     name: Deploy staging
-    needs: [ci-agent, ci-catalog, ci-web, ci-worker, db-validate, security]
+    needs: [agent-ci-gate, backend-ci-gate, web-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
@@ -404,7 +541,7 @@ jobs:
 
   deploy-web-staging:
     name: Deploy web staging
-    needs: [ci-agent, ci-catalog, ci-web, ci-worker, db-validate, security]
+    needs: [agent-ci-gate, backend-ci-gate, web-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
@@ -421,7 +558,7 @@ jobs:
 
   deploy-users-staging:
     name: Deploy users staging
-    needs: [deploy-staging, ci-users]
+    needs: [deploy-staging]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:

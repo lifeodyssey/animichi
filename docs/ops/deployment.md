@@ -277,8 +277,13 @@ only start when `github.event_name == 'push'` and `github.ref == 'refs/heads/mai
 
 On a push to `main`, the current promotion chain is:
 
-1. component CI, worker tests, DB migration dry-run, and security jobs run first. The agnix job is
-   warn-only and is intentionally outside the deploy `needs:` chain.
+1. The seven stable required lanes run first: `Web CI`, `Backend CI`, `Agent CI`, `Infra & DB CI`,
+   `Cross-stack E2E`, `Repository Quality`, and `Codecov Patch`. Their component jobs remain
+   affected-only on pull requests, while each stable lane is always created and treats an
+   intentionally skipped component as green. A failed or cancelled component fails its lane and
+   blocks promotion. The `agnix` check remains warn-only inside `Repository Quality`; its warning
+   policy is explicit and does not mask failures from the security reusable workflow or CI contract
+   test.
 2. `deploy-staging` calls `_deploy-component.yml` with `component: catalog`,
    `environment: staging`, and `pulumi_stack: staging`.
 3. `_deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the
