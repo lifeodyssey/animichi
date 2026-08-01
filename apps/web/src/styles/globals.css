@@ -3,6 +3,7 @@
 @import "./landing.css";
 @import "./shiori.css";
 @import "./chat.css";
+@import "./privacy.css";
 
 :root {
   color-scheme: light;
