@@ -146,7 +146,9 @@ def test_mapbox_token_is_not_claimed_as_a_live_consumer(
 # A repo-relative path is one with a directory separator. Bare filenames
 # (`ci.yml`, `settings.py`) are prose shorthand, not navigation targets, and
 # several are ambiguous by design — this repo has four `wrangler.toml`.
-_DOC_PATH = re.compile(r"`([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.(?:py|ts|toml))`")
+_DOC_PATH = re.compile(
+    r"`([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.(?:py|ts|toml|ya?ml))`"
+)
 
 
 def test_every_repo_relative_path_in_the_doc_still_exists(
