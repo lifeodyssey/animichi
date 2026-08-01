@@ -28,7 +28,7 @@ test("staging targets the stack-suffixed Workers, not the production ones", () =
   assert.equal(domain.inputs.service, "animichi-web-staging");
 });
 
-test("staging gets the SAME three edge routes as prod", () => {
+test("staging gets the SAME API and map routes as prod", () => {
   // The bug this exists to prevent: a staging hostname pointed wholly at the
   // web Worker. `apps/web` calls `/v1/chat` on its own origin, so that
   // configuration leaves staging with no chat API at all — and nothing else
@@ -37,6 +37,7 @@ test("staging gets the SAME three edge routes as prod", () => {
   assert.deepEqual(patterns, [
     "staging.animichi.com/healthz",
     "staging.animichi.com/img/*",
+    "staging.animichi.com/tiles/*",
     "staging.animichi.com/v1/*",
   ]);
   for (const route of ofType(built, ROUTE)) {
@@ -88,4 +89,11 @@ test("an ordinary input on this same stack is NOT sealed", () => {
   const routes = ofType(built, ROUTE);
   assert.ok(routes.length > 0);
   assert.equal(unseal(routes[0].inputs.pattern).isSecret, false);
+});
+
+test("staging map bucket is isolated from production", () => {
+  const buckets = ofType(built, "cloudflare:index/r2Bucket:R2Bucket");
+  assert.equal(buckets.length, 2);
+  assert.deepEqual(buckets.map((bucket) => bucket.inputs.name), ["catalog-media-staging", "map-tiles-staging"]);
+  assert.equal(buckets.every((bucket) => bucket.inputs.accountId === "acct"), true);
 });

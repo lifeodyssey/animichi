@@ -15,6 +15,8 @@ import * as cloudflare from "@pulumi/cloudflare";
 const config = new pulumi.Config();
 const stack = pulumi.getStack();
 const mediaBucketName = stack === "prod" ? "catalog-media" : `catalog-media-${stack}`;
+const mapTilesBucketName =
+  stack === "prod" ? "map-tiles" : stack === "staging" ? "map-tiles-staging" : `map-tiles-${stack}`;
 const accountId = config.require("cloudflareAccountId");
 const webRoutesEnabled = config.getBoolean("webRoutesEnabled") ?? false;
 
@@ -51,6 +53,17 @@ const catalogMediaBucket = new cloudflare.R2Bucket("catalog-media", {
   location: "apac",
 });
 
+// Map tiles, glyphs, sprites, and style JSON are private R2 objects. The edge
+// Worker is the sole public reader through `/tiles/*`; there is intentionally
+// no R2 public bucket/domain configuration here. Production and staging use
+// stable names consumed by their matching wrangler environment; an unrecognised
+// preview stack gets an isolated suffix instead of sharing either live bucket.
+const mapTilesBucket = new cloudflare.R2Bucket("map-tiles", {
+  accountId,
+  name: mapTilesBucketName,
+  location: "apac",
+});
+
 if (webRoutesEnabled) {
   const cloudflareZoneId = config.require("cloudflareZoneId");
   const webScript = stack === "prod" ? "animichi-web" : `animichi-web-${stack}`;
@@ -58,7 +71,7 @@ if (webRoutesEnabled) {
 
   // The hostname this stack serves: prod owns the apex, every other stack its
   // own subdomain. Both get the SAME split — the Custom Domain is the origin
-  // for pages, and the three routes run ahead of it for the API surfaces.
+  // for pages, and the four routes run ahead of it for the API/map surfaces.
   // Staging must not be an exception: `apps/web` calls `/v1/chat`,
   // `/v1/photo-search`, `/v1/conversations/...` relative to its own origin, so a
   // staging hostname pointed wholly at the web Worker has no chat at all.
@@ -93,6 +106,12 @@ if (webRoutesEnabled) {
   new cloudflare.WorkersRoute("animichi-edge-img-route", {
     zoneId: cloudflareZoneId,
     pattern: `${apexDomain}/img/*`,
+    script: edgeScript,
+  });
+
+  new cloudflare.WorkersRoute("animichi-edge-tiles-route", {
+    zoneId: cloudflareZoneId,
+    pattern: `${apexDomain}/tiles/*`,
     script: edgeScript,
   });
 
@@ -204,3 +223,4 @@ if (stagingGateEnabled && stack === "staging") {
 
 export const wave0 = pulumi.output("spike-validated");
 export const catalogBucketName = catalogMediaBucket.name;
+export const tilesBucketName = mapTilesBucket.name;

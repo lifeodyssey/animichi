@@ -5,8 +5,10 @@ import type { SourceMode } from "./sourceMode";
 
 const ATTRIBUTION = "© OpenStreetMap contributors, Protomaps";
 const SOURCE_ID = "protomaps";
-// Protomaps basemap assets; production copies these to R2 same-origin with the tiles.
-const BASEMAP_ASSETS = "https://protomaps.github.io/basemaps-assets";
+/** Same-origin R2 proxy. The bucket remains private; the edge Worker exposes only this prefix. */
+export const TILE_ASSET_BASE_URL = "/tiles";
+export const TILE_GLYPH_URL = `${TILE_ASSET_BASE_URL}/fonts/{fontstack}/{range}.pbf`;
+export const TILE_SPRITE_URL = `${TILE_ASSET_BASE_URL}/sprites/v4/light`;
 
 const workerSource = () => {
   return { type: "vector" as const, tiles: [TILE_ZXY_URL], minzoom: 0, maxzoom: 15, attribution: ATTRIBUTION };
@@ -23,8 +25,8 @@ export const createMapStyle = (mode: SourceMode, tilePath: string = TILE_PMTILES
   return {
     version: 8,
     name: "animichi-map-spike",
-    glyphs: `${BASEMAP_ASSETS}/fonts/{fontstack}/{range}.pbf`,
-    sprite: `${BASEMAP_ASSETS}/sprites/v4/light`,
+    glyphs: TILE_GLYPH_URL,
+    sprite: TILE_SPRITE_URL,
     sources: { [SOURCE_ID]: mode === "worker" ? workerSource() : pmtilesSource(tilePath) },
     layers: layers(SOURCE_ID, brandLight(), { lang: "ja" }),
   };
