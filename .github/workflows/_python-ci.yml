@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   PYTHON_VERSION: "3.11"
@@ -72,4 +73,5 @@ jobs:
         uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
         with:
           files: apps/${{ inputs.app }}/coverage.xml
-          fail_ci_if_error: false
+          fail_ci_if_error: true
+          use_oidc: true

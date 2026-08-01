@@ -286,6 +286,8 @@ On a push to `main`, the current promotion chain is:
    test. `Codecov Patch` is deliberately only the stable upload/policy precondition: it does not
    calculate changed-line coverage locally. The GitHub ruleset must require the external Codecov
    `codecov/patch` status as the real 95% changed-line verdict as well as this stable context.
+   Coverage upload jobs use GitHub OIDC and fail closed when Codecov cannot authenticate or publish;
+   they do not silently accept a tokenless upload failure.
 2. `deploy-staging` calls `_deploy-component.yml` with `component: catalog`,
    `environment: staging`, and `pulumi_stack: staging`.
 3. `_deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the

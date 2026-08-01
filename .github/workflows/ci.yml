@@ -105,6 +105,9 @@ jobs:
     name: Agent component CI
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.agent == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/_python-ci.yml
     with:
       app: agent
@@ -113,6 +116,9 @@ jobs:
     name: Catalog CI
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.catalog == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/_ts-ci.yml
     with:
       component: catalog
@@ -121,6 +127,9 @@ jobs:
     name: Users CI
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.users == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/_ts-ci.yml
     with:
       component: users
@@ -147,6 +156,9 @@ jobs:
     name: Web component CI
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.web == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/_webapp-ci.yml
 
   ci-worker:
