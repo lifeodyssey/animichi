@@ -140,9 +140,6 @@ importers:
       h3:
         specifier: ^1.15.11
         version: 1.15.11
-      hookable:
-        specifier: ^5.5.3
-        version: 5.5.3
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1(@noble/hashes@2.2.0)
