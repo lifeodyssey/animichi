@@ -67,7 +67,8 @@ imitate when adding a new secret produces exactly the wrong number of touchpoint
 
 1. **Container secret chain** (the one most new secrets need) — a GitHub secret forwarded into
    the Python agent as an env var. Reference implementation: `MIMO_API_KEY`.
-   1. `gh secret set <NAME>` at the intended repository/environment scope.
+   1. Provision the GitHub repository/environment secret through the approved CI/CD
+      administration path; a developer workstation must not mutate shared-environment secrets.
    2. Reusable CI path: `.github/workflows/_deploy-component.yml` — declare under
       `workflow_call.secrets`, add the name to the calling `ci.yml` job's `secrets:` map and
       `worker_secrets` list, and pass it in the `env:` map of the "Deploy Worker" step. A
@@ -82,9 +83,10 @@ imitate when adding a new secret produces exactly the wrong number of touchpoint
    Cloudflare secret store, read by `worker/*.ts` directly; never forwarded into the container.
    Reference implementation: `ANON_ID_SECRET` / `TURNSTILE_SECRET` — as of the same-day
    `_deploy-component.yml` change that wired them in (2026-07-29), the push itself now runs
-   inside CI's "Push post-deploy secrets to Worker" step (`wrangler secret put`, driven by the
-   `post_deploy_secrets` input), not by a human running `wrangler secret put` locally.
-   1. `gh secret set <NAME>`
+   inside CI's "Push post-deploy secrets to Worker" step (driven by the `post_deploy_secrets`
+   input), not by a human running a secret mutation command locally.
+   1. Provision the GitHub repository/environment secret through the approved CI/CD
+      administration path; a developer workstation must not mutate shared-environment secrets.
    2. `.github/workflows/_deploy-component.yml` — declare under `secrets:`, add the name to the
       calling job's `post_deploy_secrets` list, and add one line to the "Push post-deploy
       secrets" step's `env:` (GitHub Actions has no dynamic `secrets.<computed-name>` lookup,
@@ -159,13 +161,19 @@ whichever forwarding list applies (`CONTAINER_ENV_KEYS`, `post_deploy_secrets`, 
 - Never paste a value into chat, a PR body, an issue, or a commit message. This repository
   has burned two secrets that way (a Turnstile secret on 2026-07-26, a Logfire read token
   on 2026-07-29) — in both cases the leak happened while *reporting* a rotation.
-- Prefer flows that keep the value out of process arguments: `openssl rand -hex 32 | gh secret set
-  <NAME> --body-file -` (or an equivalent stdin/body-file flow), `wrangler secret put` fed from
-  stdin, and interactive OAuth (`claude mcp add --transport http`, `logfire auth`) over a pasted
-  token. A `--body "..."` command-line value can be exposed through process listings, `/proc`,
-  shell tracing, or an accidentally persisted command history; stdin avoids argv exposure but
-  does not make the value magically public-proof, so never echo it or write it to a shared file.
+- Shared-environment deploys and secret writes are **CI-only**. Developers must not run
+  deployment or secret-mutation commands from a workstation; the reviewed `_deploy-component.yml`
+  and `deploy.yml` workflows are the supported write paths. The `wrangler secret put` shape below
+  is an implementation sketch inside those workflows, not a local runbook:
+  `printf '%s' "$value" | pnpm exec wrangler secret put "$name" --env "$TARGET_ENVIRONMENT"`.
+- Keep values out of process arguments in every approved provisioning path. A GitHub secret
+  body-file/stdin interface (for example, `openssl rand -hex 32 | gh secret set <NAME>
+  --body-file -`) avoids placing the value in argv; this is CI/admin automation guidance, not a
+  command for developer workstations. A `--body "..."` value can be exposed through process
+  listings, `/proc`, shell tracing, or persisted command history. Stdin avoids argv exposure but
+  does not make the value public-proof, so never echo it or write it to a shared file.
 - When a value must be identified, quote a prefix and a length (`pylf_v…[55 chars]`), never
   the whole thing.
-- `wrangler secret put` in a non-TTY answers "yes" to "Worker does not exist, create it?"
-  and silently creates a stray Worker. Only run it **after** a confirmed deploy.
+- In the CI workflow's non-TTY `wrangler secret put`, Wrangler answers "yes" to "Worker does
+  not exist, create it?" and can silently create a stray Worker. The workflow must run this only
+  **after** a confirmed deploy; developers must not run it locally.
