@@ -38,11 +38,17 @@
 }
 
 .privacy-page__updated,
+.privacy-page__version,
 .privacy-page__intro,
 .privacy-page__section p {
   margin: 0;
   color: var(--color-muted-fg);
   line-height: 1.8;
+}
+
+.privacy-page__version {
+  font-size: 0.9rem;
+  font-weight: 800;
 }
 
 .privacy-page__intro {
