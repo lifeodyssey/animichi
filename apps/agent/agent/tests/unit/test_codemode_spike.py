@@ -5,8 +5,9 @@ from __future__ import annotations
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.profiles import ModelProfile
+from pydantic_ai_harness import CodeMode
 from pydantic_evals import Case
-from pydantic_monty import Monty
+from pydantic_monty import Monty, MontyRepl
 
 from agent.agents import animichi_agent as production_module
 from agent.agents.agent_result import AgentResult
@@ -52,6 +53,15 @@ async def _surface(arm: Arm) -> tuple[dict[str, str], dict[str, object]]:
     agent = build_rematch_arm(arm)
     await agent.run("hello", deps=_deps(), model=_function_model(observed))
     return observed, agent.output_json_schema()
+
+
+def test_codemode_imports_and_constructs_with_monty_repl() -> None:
+    """Keep the locked Harness/Monty CodeMode combination importable."""
+    capability = CodeMode(tools=RAW_TOOL_NAMES, dynamic_catalog=False)
+
+    assert MontyRepl is not None
+    assert capability.tools == RAW_TOOL_NAMES
+    assert capability.dynamic_catalog is False
 
 
 async def test_rematch_arms_share_contract_and_only_codemode_wraps_tools() -> None:
