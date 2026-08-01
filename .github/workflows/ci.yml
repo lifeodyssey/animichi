@@ -388,7 +388,7 @@ jobs:
 
   web-ci-gate:
     name: Web CI
-    needs: [ci-web]
+    needs: [changes, ci-web]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -398,11 +398,12 @@ jobs:
       - name: Verify Web component result
         env:
           STATUSES: ${{ needs.ci-web.result }}
-        run: bash .github/scripts/assert-ci-needs.sh "Web CI" "$STATUSES"
+          CHANGES_STATUS: ${{ needs.changes.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Web CI" "$CHANGES_STATUS $STATUSES"
 
   backend-ci-gate:
     name: Backend CI
-    needs: [ci-catalog, ci-users, contract-openapi-drift, ci-worker]
+    needs: [changes, ci-catalog, ci-users, contract-openapi-drift, ci-worker]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -412,6 +413,7 @@ jobs:
       - name: Verify backend component results
         env:
           STATUSES: >-
+            ${{ needs.changes.result }}
             ${{ needs.ci-catalog.result }}
             ${{ needs.ci-users.result }}
             ${{ needs.contract-openapi-drift.result }}
@@ -420,7 +422,7 @@ jobs:
 
   agent-ci-gate:
     name: Agent CI
-    needs: [ci-agent, agent-eval-smoke]
+    needs: [changes, ci-agent, agent-eval-smoke]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -430,13 +432,14 @@ jobs:
       - name: Verify agent component results
         env:
           STATUSES: >-
+            ${{ needs.changes.result }}
             ${{ needs.ci-agent.result }}
             ${{ needs.agent-eval-smoke.result }}
         run: bash .github/scripts/assert-ci-needs.sh "Agent CI" "$STATUSES"
 
   infra-db-ci-gate:
     name: Infra & DB CI
-    needs: [ci-infra, db-validate]
+    needs: [changes, ci-infra, db-validate]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -446,6 +449,7 @@ jobs:
       - name: Verify infra and migration results
         env:
           STATUSES: >-
+            ${{ needs.changes.result }}
             ${{ needs.ci-infra.result }}
             ${{ needs.db-validate.result }}
         run: bash .github/scripts/assert-ci-needs.sh "Infra & DB CI" "$STATUSES"
@@ -461,7 +465,7 @@ jobs:
 
   cross-stack-e2e-gate:
     name: Cross-stack E2E
-    needs: [ci-cross-stack-e2e]
+    needs: [changes, ci-cross-stack-e2e]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -470,12 +474,14 @@ jobs:
           persist-credentials: false
       - name: Verify cross-stack result
         env:
-          STATUSES: ${{ needs.ci-cross-stack-e2e.result }}
+          STATUSES: >-
+            ${{ needs.changes.result }}
+            ${{ needs.ci-cross-stack-e2e.result }}
         run: bash .github/scripts/assert-ci-needs.sh "Cross-stack E2E" "$STATUSES"
 
   repository-quality-gate:
     name: Repository Quality
-    needs: [security, agnix]
+    needs: [changes, security, agnix]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -485,6 +491,7 @@ jobs:
       - name: Verify repository-quality component results
         env:
           STATUSES: >-
+            ${{ needs.changes.result }}
             ${{ needs.security.result }}
             ${{ needs.agnix.result }}
         run: bash .github/scripts/assert-ci-needs.sh "Repository Quality" "$STATUSES"
@@ -493,7 +500,7 @@ jobs:
 
   codecov-patch-gate:
     name: Codecov Patch
-    needs: [ci-agent, ci-catalog, ci-users, ci-web, ci-worker]
+    needs: [changes, ci-agent, ci-catalog, ci-users, ci-web, ci-worker]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -507,6 +514,7 @@ jobs:
       - name: Verify component coverage results
         env:
           STATUSES: >-
+            ${{ needs.changes.result }}
             ${{ needs.ci-agent.result }}
             ${{ needs.ci-catalog.result }}
             ${{ needs.ci-users.result }}
