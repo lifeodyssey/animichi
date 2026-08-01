@@ -42,3 +42,15 @@ abort "stable lanes must observe changes status" unless ci_source.scan("${{ need
 
 gate_script = File.read(".github/scripts/assert-ci-needs.sh")
 abort "lane status checker must require changes success" unless gate_script.include?("changes_status")
+
+%w[_python-ci.yml _ts-ci.yml _webapp-ci.yml].each do |workflow_name|
+  source = File.read(".github/workflows/#{workflow_name}")
+  abort "#{workflow_name} must grant Codecov OIDC" unless source.include?("id-token: write")
+  abort "#{workflow_name} must fail when Codecov upload fails" unless source.include?("fail_ci_if_error: true")
+  abort "#{workflow_name} must use Codecov OIDC" unless source.include?("use_oidc: true")
+end
+
+%w[ci-agent ci-catalog ci-users ci-web].each do |job_id|
+  permissions = jobs.fetch(job_id).fetch("permissions")
+  abort "#{job_id} must grant Codecov OIDC" unless permissions.fetch("id-token") == "write"
+end
