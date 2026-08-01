@@ -500,6 +500,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # This stable context is a policy/upload precondition, not a local
+      # reimplementation of Codecov's changed-line calculation. The real 95%
+      # patch verdict is the external `codecov/patch` status produced after the
+      # component uploads; the repository ruleset must require both contexts.
       - name: Verify component coverage results
         env:
           STATUSES: >-

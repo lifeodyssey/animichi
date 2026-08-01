@@ -29,3 +29,6 @@ cross_stack = jobs.fetch("changes").fetch("outputs").fetch("cross_stack")
 abort "changes must expose cross_stack output" unless cross_stack.include?("cross_stack")
 
 puts "CI contract: seven stable lanes and staging dependencies are present"
+
+ci_source = File.read(".github/workflows/ci.yml")
+abort "Codecov lane must defer changed-line calculation to codecov/patch" unless ci_source.include?("codecov/patch")
