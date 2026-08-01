@@ -59,18 +59,29 @@ const MIME_TYPES: Readonly<Record<string, string>> = {
 };
 
 const errorResponse = (status: number, code: string, request: Request): Response => {
-  return Response.json({ error: code }, { status, headers: responseHeaders(request) });
+  return Response.json({ error: code }, { status, headers: errorHeaders(request) });
 };
 
-const responseHeaders = (request: Request): Headers => {
+const corsHeaders = (request: Request): Headers => {
   const headers = new Headers({
     "Access-Control-Allow-Headers": "Range",
     "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
     "Access-Control-Allow-Origin": "*",
-    "Cache-Control": "public, max-age=86400, immutable",
     Vary: "Origin",
   });
   if (request.headers.has("Origin")) headers.set("Access-Control-Expose-Headers", "Accept-Ranges, Content-Length, Content-Range, ETag");
+  return headers;
+};
+
+const responseHeaders = (request: Request): Headers => {
+  const headers = corsHeaders(request);
+  headers.set("Cache-Control", "public, max-age=86400, immutable");
+  return headers;
+};
+
+const errorHeaders = (request: Request): Headers => {
+  const headers = corsHeaders(request);
+  headers.set("Cache-Control", "no-store");
   return headers;
 };
 
@@ -134,7 +145,10 @@ const cache = (): Cache | null => {
   return caches.default;
 };
 
-const cacheKey = (request: Request): Request => new Request(new URL(request.url).origin + new URL(request.url).pathname, request);
+const cacheKey = (request: Request): Request => {
+  const url = new URL(request.url);
+  return new Request(url.origin + url.pathname, { method: "GET" });
+};
 
 const cacheHit = async (request: Request): Promise<Response | null> => {
   const storage = cache();
@@ -143,7 +157,7 @@ const cacheHit = async (request: Request): Promise<Response | null> => {
 
 const cachePut = (request: Request, response: Response, ctx: TileExecutionContext): void => {
   const storage = cache();
-  if (storage) ctx.waitUntil(storage.put(cacheKey(request), response.clone()));
+  if (storage) ctx.waitUntil(storage.put(cacheKey(request), response.clone()).catch(() => undefined));
 };
 
 const setRangeHeaders = (headers: Headers, object: TileObject, range: TileRange | null): void => {
@@ -192,7 +206,7 @@ const fetchAsset = async (asset: TileAsset, request: Request, bucket: TileBucket
   const object = await bucket.get(asset.key, range === null ? undefined : { range });
   if (!object) return missingResponse(asset, request);
   const response = objectResponse(asset, object, request, range);
-  if (range === null && response.status === 200) cachePut(request, response, ctx);
+  if (request.method === "GET" && range === null && response.status === 200) cachePut(request, response, ctx);
   return response;
 };
 
