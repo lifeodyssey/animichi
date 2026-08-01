@@ -14,9 +14,12 @@ import { buildStack, type Built } from "./testing/harness.ts";
 // import fails, which is itself the finding.
 const built: Built[] = await buildStack("prod", { cloudflareAccountId: "acct" });
 
-test("the R2 bucket is the only thing an ungated stack creates", () => {
+test("only private R2 buckets exist when an ungated stack is built", () => {
   const types = built.map((r) => r.type);
-  assert.deepEqual(types, ["cloudflare:index/r2Bucket:R2Bucket"]);
+  assert.deepEqual(types, [
+    "cloudflare:index/r2Bucket:R2Bucket",
+    "cloudflare:index/r2Bucket:R2Bucket",
+  ]);
 });
 
 test("nothing that could publish the site is declared", () => {

@@ -11,6 +11,8 @@ describe("createMapStyle", () => {
     expect(style.version).toBe(8);
     expect(style.layers.length).toBeGreaterThan(0);
     expect(source(style)).toBeDefined();
+    expect(style.glyphs).toBe("/tiles/fonts/{fontstack}/{range}.pbf");
+    expect(style.sprite).toBe("/tiles/sprites/v4/light");
   });
 
   it("references the pmtiles archive via the pmtiles:// protocol by default", () => {
