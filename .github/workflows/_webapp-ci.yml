@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   webapp-ci:
@@ -37,7 +38,8 @@ jobs:
         with:
           files: apps/web/coverage/lcov.info
           flags: web
-          fail_ci_if_error: false
+          fail_ci_if_error: true
+          use_oidc: true
 
       # Runs the browser AC (branded 404) against the same artifact the integration step built.
       - name: Install Playwright browser
