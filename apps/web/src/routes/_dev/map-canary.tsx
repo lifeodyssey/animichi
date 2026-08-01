@@ -52,7 +52,7 @@ const UnmountButton = ({ mounted, onUnmount }: Readonly<{ mounted: boolean; onUn
 };
 
 const CanaryContainer = ({ containerRef }: Readonly<{ containerRef: RefObject<HTMLDivElement | null> }>) => {
-  return <div ref={containerRef} data-testid="maplibre-canary-container" />;
+  return <div ref={containerRef} />;
 };
 
 interface CanaryViewProps {
@@ -65,7 +65,7 @@ interface CanaryViewProps {
 
 function CanaryView({ containerRef, mode, mounted, onUnmount, status }: CanaryViewProps) {
   return (
-    <main aria-label="MapLibre v5 canary" data-mode={mode} data-status={status} data-testid="maplibre-canary">
+    <main aria-label="MapLibre v5 canary" data-mode={mode} data-status={status}>
       <h1>MapLibre v5 canary</h1>
       <p role="status" aria-live="polite">Status: {status}</p>
       <UnmountButton mounted={mounted} onUnmount={onUnmount} />
