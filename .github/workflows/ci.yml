@@ -497,6 +497,8 @@ jobs:
         run: bash .github/scripts/assert-ci-needs.sh "Repository Quality" "$STATUSES"
       - name: Verify CI contract
         run: ruby .github/scripts/test_ci_contract.rb
+      - name: Verify lane failure paths
+        run: bash .github/scripts/assert-ci-needs.test.sh
 
   codecov-patch-gate:
     name: Codecov Patch

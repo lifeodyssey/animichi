@@ -39,3 +39,6 @@ ci_source = File.read(".github/workflows/ci.yml")
 abort "Codecov lane must defer changed-line calculation to codecov/patch" unless ci_source.include?("codecov/patch")
 abort "cross_stack filter must include browser-suite changes" unless ci_source.include?("e2e/**")
 abort "stable lanes must observe changes status" unless ci_source.scan("${{ needs.changes.result }}").length >= expected.length
+
+gate_script = File.read(".github/scripts/assert-ci-needs.sh")
+abort "lane status checker must require changes success" unless gate_script.include?("changes_status")
