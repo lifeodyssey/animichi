@@ -159,7 +159,8 @@ async def test_memory_text_stays_delimited_user_context_not_instructions() -> No
         if isinstance(part, UserPromptPart) and not isinstance(part.content, str)
         for item in part.content
         if isinstance(item, TextContent)
-        and item.metadata == "pydantic-ai-harness.memory.v1"
+        and item.metadata is not None
+        and item.metadata.startswith("pydantic-ai-harness.memory.v1")
     ]
 
     assert len(injected) == 1
