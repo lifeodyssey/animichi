@@ -11,12 +11,12 @@ const ctx = {
 
 type RecordedGet = Readonly<{ key: string; options?: Readonly<{ range?: Readonly<Record<string, number>> }> }>;
 
-const tileObject = (body = "tile", range?: Readonly<{ offset: number; length: number }>) => {
+const tileObject = (body = "tile", range?: Readonly<{ offset: number; length: number }>, size = body.length) => {
   const response = new Response(body);
   return {
     body: response.body,
     etag: "etag-tile",
-    size: body.length,
+    size,
     range,
   };
 };
@@ -95,6 +95,23 @@ void test("Range requests pass through to R2 and return 206", async () => {
   assert.equal(response.status, 206);
   assert.equal(response.headers.get("Content-Range"), "bytes 8-15/9");
   assert.deepEqual(seen, { key: "tiles/uji-kyoto.pmtiles", options: { range: { offset: 8, length: 8 } } });
+});
+
+void test("suffix Range requests use the R2 suffix form and return 206", async () => {
+  let seen: RecordedGet | undefined;
+  const app = createWorkerApp({});
+  const response = await app.request(
+    "/tiles/uji-kyoto.pmtiles",
+    { headers: { Range: "bytes=-4" } },
+    envFor((key, options) => {
+      seen = { key, options: options as RecordedGet["options"] };
+      return Promise.resolve(tileObject("tail", { offset: 6, length: 4 }, 10));
+    }),
+    ctx,
+  );
+  assert.equal(response.status, 206);
+  assert.equal(response.headers.get("Content-Range"), "bytes 6-9/10");
+  assert.deepEqual(seen, { key: "tiles/uji-kyoto.pmtiles", options: { range: { suffix: 4 } } });
 });
 
 void test("HEAD returns metadata without a response body", async () => {
