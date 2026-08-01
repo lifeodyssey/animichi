@@ -1,6 +1,7 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { AnimeOverviewCircle, LatLng } from "@animichi/contract";
 import type { LngLatBoundsLike, Map as MapLibreMap } from "maplibre-gl";
+import { attachMapLibre, mountMapLibre, type MapLibreHandle } from "../maplibre/maplibreAdapter";
 import { createMapStyle } from "../map-spike/mapStyle";
 
 export type BasemapStatus = "loading" | "ready" | "fallback";
@@ -20,16 +21,7 @@ export type MountBubbleMapOptions = Readonly<{
   onStatus: (status: BasemapStatus) => void;
 }>;
 
-export type BubbleMapHandle = Readonly<{ destroy: () => void }>;
-
-let protocolReady = false;
-
-const registerProtocol = async (gl: typeof import("maplibre-gl")): Promise<void> => {
-  if (protocolReady) return;
-  const { Protocol } = await import("pmtiles");
-  gl.addProtocol("pmtiles", new Protocol({ metadata: true }).tile);
-  protocolReady = true;
-};
+export type BubbleMapHandle = MapLibreHandle;
 
 const pointsBounds = (points: readonly LatLng[]): LngLatBoundsLike => {
   const lngs = points.map((point) => point.lng);
@@ -46,61 +38,33 @@ const fitToPoints = (map: MapLibreMap, points: readonly LatLng[]): void => {
   map.fitBounds(pointsBounds(points), { padding: 64, maxZoom: 12, animate: false });
 };
 
-const createMap = (gl: typeof import("maplibre-gl"), options: MountBasemapOptions): MapLibreMap => {
-  return new gl.Map({
-    container: options.container,
-    style: createMapStyle("pmtiles"),
-    interactive: options.interactive ?? true,
-    attributionControl: { compact: true },
-  });
-};
-
-const onMapLoad = (map: MapLibreMap, options: MountBasemapOptions): void => {
+const onBasemapLoad = (options: MountBasemapOptions, map: MapLibreMap): (() => void) | undefined => {
   fitToPoints(map, options.points);
   options.onStatus("ready");
+  return undefined;
 };
 
-const wireEvents = (map: MapLibreMap, options: MountBasemapOptions): void => {
-  map.on("load", () => { onMapLoad(map, options); });
-  map.on("error", () => { options.onStatus("fallback"); });
-};
+const mountOptions = (options: MountBasemapOptions) => ({
+  attributionControl: { compact: true },
+  container: options.container,
+  interactive: options.interactive ?? true,
+  onError: () => { options.onStatus("fallback"); },
+  onLoad: ({ map }: { map: MapLibreMap }) => onBasemapLoad(options, map),
+  registerPmtiles: true,
+  style: createMapStyle("pmtiles"),
+});
 
 export const mountBasemap = async (options: MountBasemapOptions): Promise<BubbleMapHandle> => {
-  const gl = await import("maplibre-gl");
-  await registerProtocol(gl);
-  const map = createMap(gl, options);
-  wireEvents(map, options);
-  return { destroy: () => { map.remove(); } };
+  return mountMapLibre(mountOptions(options));
 };
 
-interface Attachment {
-  handle: BubbleMapHandle | null;
-  active: boolean;
-}
-
-const storeHandle = (attachment: Attachment, handle: BubbleMapHandle): void => {
-  if (!attachment.active) {
-    handle.destroy();
-    return;
-  }
-  attachment.handle = handle;
-};
-
-// A failed mount (no WebGL context, import failure) degrades like a tile failure.
-const reportMountFailure = (attachment: Attachment, options: MountBasemapOptions): void => {
-  if (attachment.active) options.onStatus("fallback");
-};
-
-// Bridges the async mount into React's synchronous effect-cleanup contract.
 export const attachBasemap = (options: MountBasemapOptions): (() => void) => {
-  const attachment: Attachment = { handle: null, active: true };
-  void mountBasemap(options)
-    .then((handle) => { storeHandle(attachment, handle); })
-    .catch(() => { reportMountFailure(attachment, options); });
-  return () => {
-    attachment.active = false;
-    attachment.handle?.destroy();
-  };
+  try {
+    return attachMapLibre(mountOptions(options));
+  } catch {
+    options.onStatus("fallback");
+    return () => { /* Mount failed before a handle was allocated. */ };
+  }
 };
 
 const circlePoints = (circles: readonly AnimeOverviewCircle[]): readonly LatLng[] => {
