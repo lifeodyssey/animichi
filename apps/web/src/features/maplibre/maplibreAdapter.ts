@@ -27,6 +27,7 @@ export type MapLibreHandle = Readonly<{
 
 interface ProtocolRegistration {
   gl: MapLibreModule;
+  removed: boolean;
   users: number;
 }
 
@@ -39,6 +40,7 @@ const releaseProtocol = (registration: ProtocolRegistration): void => {
   try {
     if (typeof registration.gl.removeProtocol === "function") registration.gl.removeProtocol("pmtiles");
   } finally {
+    registration.removed = true;
     protocolRegistration = null;
   }
 };
@@ -56,7 +58,7 @@ const leaseProtocol = (registration: ProtocolRegistration): () => void => {
 const createProtocolRegistration = async (gl: MapLibreModule): Promise<ProtocolRegistration> => {
   const { Protocol } = await import("pmtiles");
   gl.addProtocol("pmtiles", new Protocol({ metadata: true }).tile);
-  return { gl, users: 0 };
+  return { gl, removed: false, users: 0 };
 };
 
 const pendingProtocolRegistration = (gl: MapLibreModule): Promise<ProtocolRegistration> => {
@@ -72,6 +74,15 @@ const validateRegistration = (registration: ProtocolRegistration, gl: MapLibreMo
   return registration;
 };
 
+const usableRegistration = (gl: MapLibreModule): ProtocolRegistration | null => {
+  const registration = protocolRegistration;
+  if (registration === null) return null;
+  const validated = validateRegistration(registration, gl);
+  if (!validated.removed) return validated;
+  protocolRegistration = null;
+  return null;
+};
+
 const awaitProtocolRegistration = async (gl: MapLibreModule): Promise<ProtocolRegistration> => {
   const pending = pendingProtocolRegistration(gl);
   return pending.then((registration) => {
@@ -84,11 +95,12 @@ const awaitProtocolRegistration = async (gl: MapLibreModule): Promise<ProtocolRe
 };
 
 const registerPmtilesProtocol = async (gl: MapLibreModule): Promise<ProtocolRegistration> => {
-  if (protocolRegistration !== null) {
-    if (protocolRegistration.gl !== gl) throw new Error("MapLibre module changed while PMTiles is mounted");
-    return protocolRegistration;
-  }
+  const current = usableRegistration(gl);
+  if (current !== null) return current;
   const registration = await awaitProtocolRegistration(gl);
+  if (registration.removed) return registerPmtilesProtocol(gl);
+  const live = usableRegistration(gl);
+  if (live !== null) return live;
   protocolRegistration = registration;
   return registration;
 };
@@ -120,7 +132,7 @@ const bestEffort = (action: () => void): void => {
 
 const removeMap = (map: MapLibreMap, releaseProtocolLease: (() => void) | undefined): void => {
   try {
-    map.remove();
+    bestEffort(() => { map.remove(); });
   } finally {
     releaseProtocolLease?.();
   }
@@ -175,6 +187,7 @@ class MapLifecycle implements MapLibreHandle {
   readonly map: MapLibreMap;
   private active = true;
   private failed = false;
+  private loaded = false;
   private loadCleanup: (() => void) | undefined;
   private readonly options: MapLifecycleOptions;
 
@@ -194,15 +207,16 @@ class MapLifecycle implements MapLibreHandle {
     }
   };
 
+  private readonly handleReady = (): void => {
+    const cleanup = this.options.onLoad?.({ gl: this.options.gl, map: this.map });
+    this.loadCleanup = typeof cleanup === "function" ? cleanup : undefined;
+    this.loaded = true;
+    this.options.onReady?.();
+  };
+
   private readonly reportReady = (): void => {
-    if (!this.active || this.failed) return;
-    try {
-      const cleanup = this.options.onLoad?.({ gl: this.options.gl, map: this.map });
-      this.loadCleanup = typeof cleanup === "function" ? cleanup : undefined;
-      this.options.onReady?.();
-    } catch {
-      this.reportError();
-    }
+    if (!this.active || this.failed || this.loaded) return;
+    try { this.handleReady(); } catch { this.reportError(); }
   };
 
   private readonly dispose = (): void => {

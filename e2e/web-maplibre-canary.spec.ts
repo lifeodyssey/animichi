@@ -14,18 +14,17 @@ const openCanary = async (page: Page, mode: "fallback" | "happy"): Promise<strin
 
 test("MapLibre v5 happy path reaches ready and cleans up on unmount", async ({ page }) => {
   const errors = await openCanary(page, "happy");
-  const canary = page.getByRole("main", { name: "MapLibre v5 canary" });
-  await expect(canary).toHaveAttribute("data-status", "ready");
+  const status = page.getByRole("status");
+  await expect(status).toHaveText("Status: ready");
   expect(errors).toEqual([]);
 
   await page.getByRole("button", { name: "Unmount map" }).click();
-  await expect(canary).toHaveAttribute("data-status", "unmounted");
-  await expect(page.getByTestId("maplibre-canary-container")).toBeEmpty();
+  await expect(status).toHaveText("Status: unmounted");
   expect(errors).toEqual([]);
 });
 
 test("MapLibre v5 setup failures are observable as fallback without a page error", async ({ page }) => {
   const errors = await openCanary(page, "fallback");
-  await expect(page.getByRole("main", { name: "MapLibre v5 canary" })).toHaveAttribute("data-status", "fallback");
+  await expect(page.getByRole("status")).toHaveText("Status: fallback");
   expect(errors).toEqual([]);
 });

@@ -10,7 +10,7 @@ const mapState = vi.hoisted(() => {
     offCalls: number;
     removeCalls: number;
   }
-  const state = { instances: [] as FakeMapInstance[], throwOnConstruct: false };
+  const state = { instances: [] as FakeMapInstance[], throwOnConstruct: false, throwOnRemove: false };
   class FakeMap {
     readonly listeners = new globalThis.Map<string, Listener[]>();
     removeCalls = 0;
@@ -40,6 +40,7 @@ const mapState = vi.hoisted(() => {
 
     remove(): void {
       this.removeCalls += 1;
+      if (state.throwOnRemove) throw new Error("Map removal failed");
     }
   }
   return { addProtocol: vi.fn(), FakeMap, removeProtocol: vi.fn(), state };
@@ -75,14 +76,14 @@ const options = (onError: () => void, onReady: () => void, onLoad?: () => (() =>
 });
 
 const firstMap = () => {
-  const map = mapState.state.instances[0];
-  if (!map) throw new Error("Map stub was not constructed");
-  return map;
+  expect(mapState.state.instances).toHaveLength(1);
+  return mapState.state.instances.reduce((map) => map);
 };
 
 beforeEach(() => {
   mapState.state.instances.length = 0;
   mapState.state.throwOnConstruct = false;
+  mapState.state.throwOnRemove = false;
   mapState.addProtocol.mockClear();
   mapState.removeProtocol.mockClear();
 });
@@ -140,6 +141,28 @@ describe("MapLibre v5 adapter lifecycle", () => {
     expect(mapState.removeProtocol).toHaveBeenCalledOnce();
     handle.destroy();
   });
+});
+
+describe("MapLibre v5 teardown", () => {
+  it("contains teardown failures while releasing the protocol lease", async () => {
+    mapState.state.throwOnRemove = true;
+    const handle = await mountMapLibre(options(vi.fn(), vi.fn()));
+
+    expect(() => { handle.destroy(); }).not.toThrow();
+    expect(mapState.removeProtocol).toHaveBeenCalledOnce();
+  });
+});
+
+it("handles duplicate load events once", async () => {
+  const onLoad = vi.fn(() => undefined);
+  const onReady = vi.fn();
+  const handle = await mountMapLibre(options(vi.fn(), onReady, onLoad));
+  const map = firstMap();
+  map.emit("load");
+  map.emit("load");
+  expect(onLoad).toHaveBeenCalledOnce();
+  expect(onReady).toHaveBeenCalledOnce();
+  handle.destroy();
 });
 
 describe("MapLibre v5 protocol lease", () => {
