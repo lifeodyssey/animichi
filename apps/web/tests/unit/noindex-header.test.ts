@@ -7,14 +7,14 @@ type WorkerEnv = Record<string, string>;
 
 type BeforeResponseHook = NitroRuntimeHooks["beforeResponse"];
 
-type TestHooks = {
+interface TestHooks {
   hook: (name: "beforeResponse", callback: BeforeResponseHook) => void;
   callHook: (
     name: "beforeResponse",
     event: Parameters<BeforeResponseHook>[0],
     response: Parameters<BeforeResponseHook>[1],
   ) => Promise<void>;
-};
+}
 
 function createTestHooks(): TestHooks {
   const handlers: BeforeResponseHook[] = [];
