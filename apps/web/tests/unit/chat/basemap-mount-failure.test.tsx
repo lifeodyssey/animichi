@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * Issue #437 item 1: the `.catch` in `attachBasemap` was only reachable through a
+ * Issue #437 item 1: the adapter's async failure path was only reachable through a
  * real WebGL/import failure, and every other suite injects a fake `attach`. Here the
  * maplibre module itself is stubbed so the real controller runs and its failure path
  * drives the D7 placeholder.

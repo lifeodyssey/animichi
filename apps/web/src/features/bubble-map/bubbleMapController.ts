@@ -59,12 +59,7 @@ export const mountBasemap = async (options: MountBasemapOptions): Promise<Bubble
 };
 
 export const attachBasemap = (options: MountBasemapOptions): (() => void) => {
-  try {
-    return attachMapLibre(mountOptions(options));
-  } catch {
-    options.onStatus("fallback");
-    return () => { /* Mount failed before a handle was allocated. */ };
-  }
+  return attachMapLibre(mountOptions(options));
 };
 
 const circlePoints = (circles: readonly AnimeOverviewCircle[]): readonly LatLng[] => {
