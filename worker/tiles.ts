@@ -21,7 +21,10 @@ type TileAsset = Readonly<{
   contentType: string;
 }>;
 
-type TileRange = Readonly<{ offset: number; length?: number; suffix?: number }>;
+type TileRange =
+  | Readonly<{ offset: number; length?: number }>
+  | Readonly<{ offset?: number; length: number }>
+  | Readonly<{ suffix: number }>;
 
 type TileGetOptions = Readonly<{ range?: TileRange }>;
 
@@ -122,7 +125,7 @@ const parseRange = (value: string | null): TileRange | null | undefined => {
     return { offset, ...(end === undefined ? {} : { length: end - offset + 1 }) };
   }
   const suffix = SUFFIX_RANGE_PATTERN.exec(value);
-  if (suffix && Number(suffix[1]) > 0) return { offset: 0, suffix: Number(suffix[1]) };
+  if (suffix && Number(suffix[1]) > 0) return { suffix: Number(suffix[1]) };
   return undefined;
 };
 
