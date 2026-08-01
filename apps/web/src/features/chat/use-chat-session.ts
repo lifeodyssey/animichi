@@ -16,8 +16,8 @@ import { sessionHeaders } from "./session-headers";
  */
 export type ChatUIMessage = UIMessage<unknown, { response: ChatDataPart }>;
 
-// ai@7.0.47 looks the schema up by the stripped name ("response") when
-// validating whole messages but by the full chunk type ("data-response")
+// AI SDK 7.x (verified at 7.0.47) looks the schema up by the stripped name
+// ("response") when validating whole messages but by the full chunk type ("data-response")
 // while streaming, so the schema is registered under both keys.
 const dataPartSchemas = {
   response: ChatResponseDataPart,
@@ -194,8 +194,8 @@ function useTrackerReaders(ref: SessionRef) {
   return { sessionIdOf, lastHttpStatus, lastErrorCode, lastQuotaResetsAt };
 }
 
-/** A part-less turn boundary. Without it ai@7.0.47 continues the previous
- * assistant message (`createStreamingUIMessageState` reuses an assistant
+/** A part-less turn boundary. Without the marker, AI SDK 7.x (verified at 7.0.47) continues the
+ * previous assistant message (`createStreamingUIMessageState` reuses an assistant
  * `lastMessage`) and the same-ID `response` part would overwrite the prior
  * card instead of appending the E1 living-document version. It carries no
  * user utterance — the server must not persist a user row for it (the
@@ -208,7 +208,7 @@ type SendHelpers = Pick<UseChatHelpers<ChatUIMessage>, "sendMessage" | "setMessa
 
 /**
  * E2 bypass send (issue #273 S1.7): re-submit the conversation with only a
- * `selected_point_ids` body — no new user utterance. ai@7.0.47's
+ * `selected_point_ids` body — no new user utterance. AI SDK 7.x (verified at 7.0.47)'s
  * `DefaultChatTransport` merges the per-call body (`{...resolvedBody,
  * ...options.body}`), so the field reaches `_optional_ids` unchanged.
  */
