@@ -19,6 +19,7 @@ expected.each do |job_id, name|
   job = jobs.fetch(job_id)
   abort "#{job_id} must expose '#{name}'" unless job.fetch("name") == name
   abort "#{job_id} must always run to publish a required context" unless job.fetch("if").include?("always()")
+  abort "#{job_id} must fail when path detection fails" unless Array(job.fetch("needs")).include?("changes")
 end
 
 deploy_needs = Array(jobs.fetch("deploy-staging").fetch("needs"))
