@@ -24,7 +24,7 @@ jobs:
         run: pnpm --filter web test:integration
 
       - name: Install Playwright browser
-        run: pnpm --ignore-scripts --dir e2e exec playwright install --with-deps chromium
+        run: pnpm --dir e2e --config.ignore-scripts=true exec playwright install --with-deps chromium
 
       - name: Exercise emitted Worker routes
         shell: bash
