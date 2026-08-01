@@ -34,11 +34,11 @@ function applyNoindexHeader(event: H3Event): void {
   setResponseHeader(event, "X-Robots-Tag", "noindex, nofollow");
 }
 
-type NoindexHookHost = {
+interface NoindexHookHost {
   hooks: {
     hook: (name: "beforeResponse", callback: NitroRuntimeHooks["beforeResponse"]) => unknown;
   };
-};
+}
 
 export function registerNoindexHook(nitroApp: NoindexHookHost): void {
   nitroApp.hooks.hook("beforeResponse", applyNoindexHeader);
