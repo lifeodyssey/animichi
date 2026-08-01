@@ -39,6 +39,11 @@ export default defineConfig({
         // testable state/overlay/sheet live in BubbleMapPanel. Same §0.6 exclude-ledger rationale
         // as routes/_dev/map-spike.tsx.
         "src/features/bubble-map/BubbleMap.tsx",
+        // Shared MapLibre adapter owns the browser-only WebGL lifecycle. Its state machine is
+        // exercised by the browser canary and adapter unit tests with a deterministic module stub.
+        "src/features/maplibre/maplibreAdapter.ts",
+        // The canary route is a browser-only smoke surface for the adapter, not an SSR/jsdom page.
+        "src/routes/_dev/map-canary.tsx",
       ],
       // S1.10 (#282) ratchet: measured 98.61/95.48/98.94/99.49 on the tree
       // rebased onto #462/#463/#467. Branches ratchet 94 -> 95. Functions is
