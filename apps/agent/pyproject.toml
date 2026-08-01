@@ -38,13 +38,13 @@ dependencies = [
     # v2: Database (Postgres + PostGIS)
     "asyncpg>=0.31.0",
     # HTTP runtime adapter
-    "fastapi>=0.139.2",
+    "fastapi>=0.140.0",
     "uvicorn[standard]>=0.51.0",
     "ddgs>=9.14.1",
     "logfire[asyncpg,fastapi,httpx,variables]>=4.38.0",
     "pydantic-ai-harness[codemode]>=0.10.0",
     # Harness 0.10 CodeMode imports MontyRepl; Monty 0.0.19 removed it.
-    "pydantic-monty>=0.0.16,<0.0.19",
+    "pydantic-monty>=0.0.19,<0.0.20",
 ]
 
 [project.scripts]
