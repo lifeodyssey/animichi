@@ -1,16 +1,36 @@
 import { createApp, createRouter, defineEventHandler, setResponseStatus, toWebHandler } from "h3";
-import { createHooks } from "hookable";
 import type { NitroRuntimeHooks } from "nitropack/types";
 import { describe, expect, it } from "vitest";
 import noindexPlugin, { registerNoindexHook } from "../../src/server/noindex-plugin";
 
 type WorkerEnv = Record<string, string>;
 
+type BeforeResponseHook = NitroRuntimeHooks["beforeResponse"];
+
+type TestHooks = {
+  hook: (name: "beforeResponse", callback: BeforeResponseHook) => void;
+  callHook: (
+    name: "beforeResponse",
+    event: Parameters<BeforeResponseHook>[0],
+    response: Parameters<BeforeResponseHook>[1],
+  ) => Promise<void>;
+};
+
+function createTestHooks(): TestHooks {
+  const handlers: BeforeResponseHook[] = [];
+  return {
+    hook: (_name, callback) => handlers.push(callback),
+    callHook: async (_name, event, response) => {
+      for (const handler of handlers) await handler(event, response);
+    },
+  };
+}
+
 // Mirrors the wiring nitropack 2.13.4 uses in dist/runtime/internal/app.mjs:
 // plugins register on nitroApp.hooks, and the h3 app's onBeforeResponse calls
 // hooks.callHook("beforeResponse", event, response) for every response.
 function buildHandler(cloudflare?: Record<string, unknown>): (request: Request) => Promise<Response> {
-  const hooks = createHooks<NitroRuntimeHooks>();
+  const hooks = createTestHooks();
   registerNoindexHook({ hooks });
   const app = createApp({
     onRequest: (event) => {
