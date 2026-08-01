@@ -21,7 +21,7 @@ function createTestHooks(): TestHooks {
   return {
     hook: (_name, callback) => handlers.push(callback),
     callHook: async (_name, event, response) => {
-      for (const handler of handlers) await handler(event, response);
+      for (const handler of [...handlers]) await handler(event, response);
     },
   };
 }
