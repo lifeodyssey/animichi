@@ -7,7 +7,8 @@ test.use({
 const openCanary = async (page: Page, mode: "fallback" | "happy"): Promise<string[]> => {
   const errors: string[] = [];
   page.on("pageerror", (error) => { errors.push(error.message); });
-  await page.goto(`/_dev/map-canary?mode=${mode}`);
+  // `_dev` is a pathless TanStack route segment; the public URL is `/map-canary`.
+  await page.goto(`/map-canary?mode=${mode}`);
   return errors;
 };
 
