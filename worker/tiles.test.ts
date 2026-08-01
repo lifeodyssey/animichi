@@ -63,6 +63,7 @@ void test("a missing glyph or style asset is a hard 404", async () => {
     ctx,
   );
   assert.equal(response.status, 404);
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.deepEqual(await response.json(), { error: "tile_not_found" });
 });
 
@@ -127,6 +128,40 @@ void test("HEAD returns metadata without a response body", async () => {
   assert.equal(await response.text(), "");
 });
 
+void test("cache writes are GET-only and HEAD uses the GET cache key", async () => {
+  const matches: string[] = [];
+  const puts: string[] = [];
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "caches");
+  Object.defineProperty(globalThis, "caches", {
+    configurable: true,
+    value: {
+      default: {
+        match: (request: Request) => {
+          matches.push(request.method);
+          return Promise.resolve(null);
+        },
+        put: (request: Request) => {
+          puts.push(request.method);
+          return Promise.resolve();
+        },
+      },
+    },
+  });
+  try {
+    const app = createWorkerApp({});
+    const get = () => Promise.resolve(tileObject("archive"));
+    const head = await app.request("/tiles/uji-kyoto.pmtiles", { method: "HEAD" }, envFor(get), ctx);
+    const response = await app.request("/tiles/uji-kyoto.pmtiles", {}, envFor(get), ctx);
+    assert.equal(head.status, 200);
+    assert.equal(response.status, 200);
+    assert.deepEqual(matches, ["GET", "GET"]);
+    assert.deepEqual(puts, ["GET"]);
+  } finally {
+    if (previous) Object.defineProperty(globalThis, "caches", previous);
+    else Reflect.deleteProperty(globalThis, "caches");
+  }
+});
+
 void test("invalid paths and methods cannot read arbitrary R2 objects", async () => {
   let reads = 0;
   const app = createWorkerApp({});
@@ -150,6 +185,7 @@ void test("R2 failures are a retryable 503 for MapLibre fallback", async () => {
     ctx,
   );
   assert.equal(response.status, 503);
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.deepEqual(await response.json(), { error: "tile_storage_unavailable" });
 });
 
@@ -157,5 +193,6 @@ void test("a missing binding fails closed instead of falling through to another 
   const app = createWorkerApp({});
   const response = await app.request("/tiles/uji-kyoto.pmtiles", {}, {}, ctx);
   assert.equal(response.status, 503);
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.deepEqual(await response.json(), { error: "tile_storage_unavailable" });
 });
