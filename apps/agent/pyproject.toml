@@ -38,7 +38,7 @@ dependencies = [
     # v2: Database (Postgres + PostGIS)
     "asyncpg>=0.31.0",
     # HTTP runtime adapter
-    "fastapi>=0.139.2",
+    "fastapi>=0.141.1",
     "uvicorn[standard]>=0.51.0",
     "ddgs>=9.14.1",
     "logfire[asyncpg,fastapi,httpx,variables]>=4.38.0",
