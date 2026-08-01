@@ -143,6 +143,7 @@ async def test_authenticated_memory_keeps_output_validator_active() -> None:
     [
         (_MEMORY_METADATA, True),
         (f"{_MEMORY_METADATA}:scope", True),
+        (f"{_MEMORY_METADATA}scope", False),
         ("pydantic-ai-harness.memory.v10:scope", False),
     ],
 )
