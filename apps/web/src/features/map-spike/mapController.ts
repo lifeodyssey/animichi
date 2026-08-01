@@ -101,10 +101,5 @@ export const mountMapSpike = async (options: MountOptions): Promise<MapHandle> =
 };
 
 export const attachMapSpike = (options: MountOptions): (() => void) => {
-  try {
-    return attachMapLibre(mountOptions(options));
-  } catch {
-    options.onStatus("fallback");
-    return () => { /* Mount failed before a handle was allocated. */ };
-  }
+  return attachMapLibre(mountOptions(options));
 };

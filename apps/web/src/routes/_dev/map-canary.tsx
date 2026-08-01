@@ -47,8 +47,8 @@ function useCanaryMount(containerRef: RefObject<HTMLDivElement | null>, mode: Ca
   }, [containerRef, mode, mounted, setStatus]);
 }
 
-const UnmountButton = ({ mounted, setMounted }: Readonly<{ mounted: boolean; setMounted: (mounted: boolean) => void }>) => {
-  return <button type="button" disabled={!mounted} onClick={() => { setMounted(false); }}>Unmount map</button>;
+const UnmountButton = ({ mounted, onUnmount }: Readonly<{ mounted: boolean; onUnmount: () => void }>) => {
+  return <button type="button" disabled={!mounted} onClick={onUnmount}>Unmount map</button>;
 };
 
 const CanaryContainer = ({ containerRef }: Readonly<{ containerRef: RefObject<HTMLDivElement | null> }>) => {
@@ -59,16 +59,16 @@ interface CanaryViewProps {
   containerRef: RefObject<HTMLDivElement | null>;
   mode: CanaryMode;
   mounted: boolean;
-  setMounted: (mounted: boolean) => void;
+  onUnmount: () => void;
   status: CanaryStatus;
 }
 
-function CanaryView({ containerRef, mode, mounted, setMounted, status }: CanaryViewProps) {
+function CanaryView({ containerRef, mode, mounted, onUnmount, status }: CanaryViewProps) {
   return (
-    <main data-mode={mode} data-status={status} data-testid="maplibre-canary">
+    <main aria-label="MapLibre v5 canary" data-mode={mode} data-status={status} data-testid="maplibre-canary">
       <h1>MapLibre v5 canary</h1>
-      <p aria-live="polite">Status: {status}</p>
-      <UnmountButton mounted={mounted} setMounted={setMounted} />
+      <p role="status" aria-live="polite">Status: {status}</p>
+      <UnmountButton mounted={mounted} onUnmount={onUnmount} />
       <CanaryContainer containerRef={containerRef} />
     </main>
   );
@@ -79,6 +79,7 @@ function MapCanaryRoute() {
   const [mode] = useState<CanaryMode>(readMode);
   const [mounted, setMounted] = useState(true);
   const [status, setStatus] = useState<CanaryStatus>("loading");
+  const handleUnmount = (): void => { setMounted(false); };
   useCanaryMount(containerRef, mode, mounted, setStatus);
-  return <CanaryView containerRef={containerRef} mode={mode} mounted={mounted} setMounted={setMounted} status={status} />;
+  return <CanaryView containerRef={containerRef} mode={mode} mounted={mounted} onUnmount={handleUnmount} status={status} />;
 }
