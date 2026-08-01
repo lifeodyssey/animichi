@@ -3,6 +3,9 @@
 This is the canonical deployment runbook for the current runtime.
 The root `DEPLOYMENT.md` file remains as a compatibility pointer for older links.
 
+This file covers non-secret runtime config. For what each GitHub secret is, who consumes it,
+and rotation impact, see [`secrets.md`](./secrets.md).
+
 ## Edge Topology
 
 ```text
