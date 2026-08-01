@@ -96,7 +96,7 @@ jobs:
             # The cross-stack browser lane exercises emitted apps/web output
             # and the edge-facing worker together. Keep its scope broad enough
             # to catch contract and deployment wiring changes.
-            cross_stack: ['apps/**', 'worker/**', 'workers/**', 'packages/contract/**', 'db/**', 'infra/**', '.github/workflows/**', '.github/actions/**']
+            cross_stack: ['apps/**', 'worker/**', 'workers/**', 'packages/contract/**', 'db/**', 'infra/**', 'e2e/**', '.github/workflows/**', '.github/actions/**']
 
   # ── Stage 1: Component CI (reusable workflows, all parallel) ──
   # affected-only on PRs; full run on push/tag.

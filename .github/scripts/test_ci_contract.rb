@@ -26,6 +26,10 @@ deploy_needs = Array(jobs.fetch("deploy-staging").fetch("needs"))
 missing = expected.keys - deploy_needs
 abort "deploy-staging is missing stable lanes: #{missing.join(', ')}" unless missing.empty?
 
+web_deploy_needs = Array(jobs.fetch("deploy-web-staging").fetch("needs"))
+missing = expected.keys - web_deploy_needs
+abort "deploy-web-staging is missing stable lanes: #{missing.join(', ')}" unless missing.empty?
+
 cross_stack = jobs.fetch("changes").fetch("outputs").fetch("cross_stack")
 abort "changes must expose cross_stack output" unless cross_stack.include?("cross_stack")
 
@@ -33,3 +37,5 @@ puts "CI contract: seven stable lanes and staging dependencies are present"
 
 ci_source = File.read(".github/workflows/ci.yml")
 abort "Codecov lane must defer changed-line calculation to codecov/patch" unless ci_source.include?("codecov/patch")
+abort "cross_stack filter must include browser-suite changes" unless ci_source.include?("e2e/**")
+abort "stable lanes must observe changes status" unless ci_source.scan("${{ needs.changes.result }}").length >= expected.length
