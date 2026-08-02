@@ -123,6 +123,163 @@ h1 {
   }
 }
 
+/*
+ * S0.7 static splash: the only clock is a discrete CSS visibility change.
+ * There is no scene-cut, transition, or JS timer; the 320ms delay leaves a
+ * 480ms margin inside the 800ms cold-mobile budget for a slow stylesheet.
+ */
+.app-splash {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  overflow: hidden;
+  background: #f0e8d8;
+  isolation: isolate;
+  animation: app-splash-dismiss 1ms step-end 320ms forwards;
+}
+
+@keyframes app-splash-dismiss {
+  from { opacity: 1; visibility: visible; pointer-events: auto; }
+  to { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+
+.app-splash__frame.phone {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.app-splash__frame.day {
+  background: linear-gradient(180deg, #f4f0e2 0%, #f0e8d8 55%, #e9dfc8 100%);
+  color: #794f27;
+}
+
+.app-splash__frame.night {
+  display: none;
+  background: linear-gradient(180deg, #20180e 0%, #241b0f 55%, #1c150c 100%);
+  color: #f2e6cf;
+}
+
+@media (prefers-color-scheme: dark) {
+  .app-splash__frame.day { display: none; }
+  .app-splash__frame.night { display: flex; }
+  .app-splash { background: #20180e; }
+}
+
+.app-splash__status {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 42px;
+  padding: 0 22px;
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.app-splash__dots {
+  font-size: 0.48rem;
+  letter-spacing: 0.2rem;
+  opacity: 0.7;
+}
+
+.app-splash__middle {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 56px;
+}
+
+.app-splash__middle img {
+  display: block;
+  width: 92px;
+  height: 92px;
+}
+
+.app-splash__wordmark {
+  margin-top: 18px;
+  color: #c44a2e;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.34em;
+}
+
+.app-splash__middle strong {
+  margin-top: 6px;
+  font-family: var(--app-font-display);
+  font-size: 2.25rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.app-splash__tagline {
+  margin-top: 10px;
+  color: #9f927d;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.app-splash__frame.night .app-splash__tagline { color: #a2916f; }
+
+.app-splash__footer {
+  position: absolute;
+  right: 0;
+  bottom: 26px;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.app-splash__footer img {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+
+.app-splash__ground {
+  width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(90deg, rgb(122 95 61 / 30%) 0 8px, transparent 8px 18px);
+}
+
+.app-splash__frame.night .app-splash__ground { background: repeating-linear-gradient(90deg, rgb(242 230 207 / 28%) 0 8px, transparent 8px 18px); }
+
+.app-splash__footer small {
+  color: #9f927d;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.app-splash__frame.night .app-splash__footer small { color: #8a7a5c; }
+
+.app-splash__bar {
+  width: 132px;
+  height: 5px;
+  margin-top: 2px;
+  border-radius: 3px;
+  background: rgb(122 95 61 / 35%);
+}
+
+.app-splash__frame.night .app-splash__bar { background: rgb(242 230 207 / 30%); }
+
 
 .map-spike {
   display: grid;
@@ -214,6 +371,16 @@ h1 {
   /* Press shadow follows via var(--shadow-3d) in :root. */
   --shadow-3d: #120d07;
 }
+
+/* A stored app choice wins over the OS hint after the bootstrap script runs. */
+[data-theme="day"] .app-splash__frame.day,
+[data-theme="light"] .app-splash__frame.day { display: flex; }
+[data-theme="day"] .app-splash__frame.night,
+[data-theme="light"] .app-splash__frame.night { display: none; }
+[data-theme="night"] .app-splash__frame.day,
+[data-theme="dark"] .app-splash__frame.day { display: none; }
+[data-theme="night"] .app-splash__frame.night,
+[data-theme="dark"] .app-splash__frame.night { display: flex; }
 
 /* Landing styles live in landing.css (imported above). */
 
