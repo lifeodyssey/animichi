@@ -2,7 +2,7 @@
  * Alias normalization + multi-source priority ranking.
  *
  * Feeds the `aliases` catalog table
- * (`supabase/migrations/20260620230000_ingest_infrastructure.sql`):
+ * (`db/migrations/20260623000001_init.sql`):
  *   work_id, alias, alias_normalized, source, priority.
  *
  * `alias_normalized` is the NFKC-folded form used for exact-match lookup

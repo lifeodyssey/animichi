@@ -1,6 +1,6 @@
 /**
  * Version garbage collection over `cluster_version`
- * (`supabase/migrations/20260620230000_ingest_infrastructure.sql`).
+ * (`db/migrations/20260623000001_init.sql`).
  *
  * Keeps the newest `keep` versions for a work and deletes the rest. The current
  * row (is_current=true) is NEVER deleted, even if it falls outside the keep

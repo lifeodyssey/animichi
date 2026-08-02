@@ -6,9 +6,9 @@ import { serveImage } from "./media/img";
 
 export interface Env {
   ENVIRONMENT?: string;
-  /** Cloudflare Hyperdrive binding (prod): pooled Postgres connection string. */
+  /** Optional pooled connection binding when a deployment provides one. */
   HYPERDRIVE?: { connectionString: string };
-  /** Plain Postgres connection string (local/test fallback when no Hyperdrive). */
+  /** Neon Postgres connection string used by the current catalog deployment. */
   DATABASE_URL?: string;
   /** R2 bucket for lazy-cached pilgrimage point photos (see media/img.ts). */
   MEDIA_BUCKET?: R2Bucket;
@@ -32,7 +32,7 @@ app.use("/catalog/public/*", async (c, next) => {
 
 const apiHandler = new OpenAPIHandler(catalogRouter);
 
-/** The Postgres connection string for this request: Hyperdrive in prod, else DATABASE_URL. */
+/** Prefer an explicitly provided pooled binding; otherwise use the Neon URL. */
 function connectionString(env?: Env): string | undefined {
   return env?.HYPERDRIVE?.connectionString ?? env?.DATABASE_URL;
 }
