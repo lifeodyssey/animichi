@@ -20,6 +20,9 @@ export default defineConfig({
       // 100%->90% analytics-real ratchet: the denominator now includes routes).
       exclude: [
         "src/routeTree.gen.ts",
+        // Storybook fixtures exercise the component catalog and are covered by
+        // the Storybook build, not this Istanbul unit-test denominator.
+        "src/**/*.stories.{ts,tsx}",
         // WebGL map glue: instantiates maplibre-gl (requires a real GL context + dynamic imports),
         // unrunnable under jsdom. Its pure inputs (style/layers/pins/geometry) are unit-covered; the
         // live mount is covered by S0.4's browser ACs (Tester). Per campaign plan §0.6 exclude ledger.
