@@ -18,6 +18,7 @@
     ],
     "login": "Log in",
     "github": "GitHub",
+    "footer_nav": "Footer links",
     "footer_name": "seichijunrei",
     "comparison_anime": "Anime",
     "comparison_anime_alt": "Anime frame of the Suga Shrine stairs from Your Name.",
@@ -29,7 +30,8 @@
     "fox_bubble": "This way!",
     "mobile_lead": "From your favorite works to places you can walk. Follow maps and photos, never get lost.",
     "mobile_bg_alt": "Hand-drawn illustration of a torii gate and shrine approach",
-    "fox_alt": "Fox guide welcoming you with a travel journal card"
+    "fox_alt": "Fox guide welcoming you with a travel journal card",
+    "privacy": "Privacy policy"
   },
   "home": {
     "search_placeholder": "Enter an anime, station, or city",
@@ -63,5 +65,30 @@
     "callback_migration_missing": "You're signed in, but none of the chats you started before signing in were found — did you open the link on another device?",
     "callback_migration_retry": "Try again",
     "callback_migration_skip": "Continue anyway"
+  },
+  "privacy": {
+    "title": "Privacy policy",
+    "updated": "Last updated: 2 August 2026",
+    "version": "Policy version: 2026-08-02 (recorded when data is collected)",
+    "intro": "Animichi is an anime pilgrimage guide. This short notice explains what the rebuilt web app needs to provide search, route planning, and sign-in.",
+    "account_heading": "Account and sign-in",
+    "account_body": "When you request a magic link, your email address is sent to Neon Auth (Better Auth) so it can send and manage your sign-in session. Animichi receives the resulting authentication token and uses it only for your account and user-data requests.",
+    "product_heading": "Searches and saved work",
+    "product_body": "Queries, selected spots, saved routes, and chat history are sent to the Animichi services needed to answer your request or keep your account in sync. Do not enter secrets or sensitive personal information into a route query.",
+    "browser_heading": "Your browser",
+    "browser_body": "The app stores preferences such as the day/night theme in your browser. BYOK credentials, when enabled, stay in this browser and are sent only with the request you start; they are not stored by Animichi servers.",
+    "improvement_heading": "Evaluation and service improvement",
+    "improvement_body": "Conversations, tool results, uploaded images, and location data in them may be selected for evaluation and service improvement. The maximum retention period is 365 days, and the active policy version is recorded when data is collected.",
+    "security_heading": "Credential and payload safeguards",
+    "security_body": "API keys, Authorization headers, cookies, magic-link URLs, and access tokens are always excluded. After credential scrubbing, any raw evaluation payload is encrypted with AES-256-GCM using an environment-held secret.",
+    "evaluation_heading": "Evaluation choices and deletion",
+    "evaluation_body": "Rejected samples are deleted immediately. Approved evaluation fixtures are manually de-identified and are never written automatically from production. A thumbs-up or thumbs-down click is feedback, not consent to use private content.",
+    "sharing_heading": "Sharing and third parties",
+    "sharing_body": "A shared route is public to anyone who has its share link. Hosting, authentication, and data services may process the minimum data needed to operate the product; their own terms and privacy notices also apply.",
+    "choices_heading": "Your choices",
+    "choices_body": "You can stop using the app, clear browser storage, or request account-data help through the project repository. We will not ask for a password through a magic-link email.",
+    "contact": "Privacy questions or deletion requests",
+    "contact_link": "Open an issue on GitHub",
+    "back_home": "Back to Animichi"
   }
 }

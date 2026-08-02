@@ -443,6 +443,19 @@
   text-decoration: none;
 }
 
+.landing__footer-link:hover,
+.landing__footer-link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.landing__footer-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
 /* ── Mobile fox welcome (hidden on desktop; CSS-only switch keeps SSR stable) ── */
 
 .mobile-fox {
