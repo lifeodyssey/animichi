@@ -4,11 +4,17 @@ Detail level: **fully elaborated**. Story count: 10 (exceeds the "3-8" guideline
 
 Precondition (not a story, an external blocker): **PR #206 (the atlas CI fix) must merge first**, otherwise this iteration's CI baseline can't be trusted.
 
+> **S0.9 authority amendment (2026-08-02):** This supersedes older SD-1 wording. The Neon
+> migration authority is `db/migrations/*.sql` plus generated `db/migrations/atlas.sum`, applied
+> by pinned Atlas. Drizzle remains runtime query/type metadata only; there is no
+> `atlas-provider-drizzle` desired-state generation or Drizzle migration runner. Supabase
+> migrations are frozen auth/legacy compatibility history, not a second Neon source.
+
 Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} → S0.6 → S0.7 → S0.8 → S0.9 (wrap-up). **S0.10** (contract enforcement + hygiene sweep) is independent and can run in parallel at any point — no hard dependency; the dead-eval-dataset deletions only soft-touch S0.1's eval gating.
 
 **How the SD-interview's final conclusions affect this iteration (see main spec §②, inputs §7's full text SD-0~SD-11)**:
 - **SD-0 (domain, finalized)**: `animichi.com` is finalized, no longer pending; S0.8 hardcodes this domain directly rather than leaving a parameter blank awaiting a decision. **`aninavi.app` disposition (settled per SD-30 review, Codex P2 / Fable P2-4)**: execute a 301 → `animichi.com` **if the `aninavi.app` domain is actually held at execution time**; otherwise record an explicit no-op in the ops log (`docs/ops/`) — this is a manual-ops decision with an ops-log record, not an executor judgment call left dangling.
-- **SD-1** (migration chain): on the Neon side, confirmed as "dual-chain + atlas-provider-drizzle" (the Drizzle TS schema is the single source of truth); S0.9 adds `docs/ops/migrations.md` to record the boundary and the CI steps.
+- **SD-1** (migration chain): S0.9 records the converged authority: Neon catalog/user schema is authored in `db/migrations/*.sql` with generated `atlas.sum`; Drizzle TS files provide query/type metadata only, and the frozen Supabase directory is auth/legacy compatibility rather than a second Neon source.
 - **SD-6** (the edge worker): `worker/` is already TS with 16 test cases (**measured 2026-07-07: `entry.test.ts`'s 11 + `auth.test.ts`'s 5 = 16 — this is the authoritative count, correcting the "15" figure in the inputs SD-6 line**); verification found the only real gap is that these tests were never wired into any CI job — S0.3 adds a new CI job for this; it isn't building tests from scratch.
 - **SD-4** (the agent runtime): both the Pyodide path and the "TS rewrite" path under D7 are **REJECTED**, finalized; S0.9's documentation consolidation must state this explicitly (not just "REJECTED," but clearly stating "both REJECTED").
 
@@ -200,14 +206,14 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 
 **Design basis**: none.
 
-**Releasable statement**: `docs/ARCHITECTURE.md`, `docs/todo.md`, `docs/ops/deployment.md`, the root `AGENTS.md`/`CLAUDE.md`, the `wrangler.toml` comments, the CI comments, and `docs/testing-strategy.md` are all rewritten to describe apps/web + TanStack Start + MapLibre (no longer frontend/ + Next.js + OpenNext + Mapbox); D7 is documented as **both REJECTED** (neither Pyodide nor the TS rewrite — not "in progress"); X5's forward-looking statement about the edge auth model is written in; a new `docs/ops/migrations.md` (SD-1) records the boundary and CI steps between the Neon chain (Drizzle+atlas-provider-drizzle) and the Supabase chain (the supabase CLI).
+**Releasable statement**: `docs/ARCHITECTURE.md`, `docs/todo.md`, `docs/ops/deployment.md`, the root `AGENTS.md`/`CLAUDE.md`, the `wrangler.toml` comments, the CI comments, and `docs/testing-strategy.md` are all rewritten to describe apps/web + TanStack Start + MapLibre (no longer frontend/ + Next.js + OpenNext + Mapbox); D7 is documented as **both REJECTED** (neither Pyodide nor the TS rewrite — not "in progress"); X5's forward-looking statement about the edge auth model is written in; a new `docs/ops/migrations.md` (SD-1) records that `db/migrations/*.sql` plus `atlas.sum` are the Neon authority, Drizzle is query/type-only, and Supabase remains an auth/legacy compatibility surface.
 
 **AC**:
 - Grepping `docs/ARCHITECTURE.md` and `docs/ops/deployment.md` for "Next.js"/"OpenNext"/"Mapbox" returns zero hits after the rewrite (asserted by a repo-hygiene test script) -> unit
 - `docs/testing-strategy.md`'s coverage-numbers section is rewritten to "see the actual vitest.config.ts values from Iteration 0 for apps/web's coverage floor," not a stale hardcoded percentage -> unit
 - D7's three generations of self-overturned documentation are consolidated into one clear passage explicitly labeled "both REJECTED" (Pyodide + the TS rewrite) (a test asserts the string "REJECTED" appears near both the "Pyodide" and the "TS rewrite" descriptions in `ARCHITECTURE.md`) -> unit
 - X5's target auth model ("the edge lets anonymous+Turnstile+quota-tagged traffic through") is written into `docs/ARCHITECTURE.md`'s auth chapter as a forward-looking statement (to be backfilled as an accomplished-fact description once S1.8 lands; this story only states the direction) -> unit
-- **New from SD-1 (backfilled from SD-1; the dual-chain + atlas-provider-drizzle decision, replacing the original X13 "drop atlas" claim, which has since been withdrawn)**: `docs/ops/migrations.md` exists and covers at least three things — the Neon chain (`workers/catalog/src/db/schema.ts` as the single source of truth → atlas-provider-drizzle generates the desired state → `atlas migrate diff/lint/apply` versioned migrations), the Supabase chain (the supabase CLI, unchanged, unaffected by this migration chain), and the corresponding CI steps -> unit
+- **New from SD-1 (backfilled from SD-1; the S0.9 Atlas-authority amendment supersedes the original X13 wording)**: `docs/ops/migrations.md` exists and covers at least three things — the Neon chain (`db/migrations/*.sql` plus generated `atlas.sum` → pinned `atlas migrate validate/apply`), the runtime boundary (catalog/users Drizzle files are query/type metadata only), the Supabase auth/legacy compatibility surface, and the corresponding CI steps -> unit
 
 **Files changed**: `docs/ARCHITECTURE.md`, `docs/todo.md`, `docs/ops/deployment.md`, `AGENTS.md`/`CLAUDE.md`, `wrangler.toml` (comments), `.github/workflows/*.yml` (comments), `docs/testing-strategy.md`, `docs/ops/migrations.md` (new).
 
