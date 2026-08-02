@@ -535,11 +535,14 @@ itself was a pure UI-affordance gap rather than new untested rollback logic; see
 ## HISTORICAL (pre-2026-07): feat/ssr-cloudflare Post-deploy Notes
 
 This section records the old feat/ssr-cloudflare merge runbook. It is not the current deployment
-trigger; do not tag for current deploys. Use the workflow paths above instead.
+trigger or an executable migration procedure. **Historical only; no longer current.** The current
+Neon migration authority is `db/migrations/` applied by pinned Atlas before the Worker rollout;
+use [`migrations.md`](./migrations.md) and the workflow paths above instead.
 
 After the old feat/ssr-cloudflare merge, operators used these checks:
 
-1. **Apply DB migrations** — Supabase CLI auto-applies on deploy:
+1. **Historical Supabase schema event (not a current apply)** — the old Supabase CLI path recorded
+   these legacy schema files:
    - `20260509200000_fix_wrong_bangumi_ids.sql` — delete wrong seed IDs
    - `20260510170000_add_bangumi_platform.sql` — add platform column
    - `20260510180000_add_points_city.sql` — add city column to points
