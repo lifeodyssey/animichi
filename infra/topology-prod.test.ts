@@ -29,11 +29,12 @@ test("the apex serves the web Worker, not the edge Worker", () => {
   assert.equal(domain.inputs.service, "animichi-web");
 });
 
-test("exactly the three API surfaces are routed to the edge Worker", () => {
+test("the API and map asset surfaces are routed to the edge Worker", () => {
   const patterns = ofType(built, ROUTE).map((r) => r.inputs.pattern).sort();
   assert.deepEqual(patterns, [
     "animichi.com/healthz",
     "animichi.com/img/*",
+    "animichi.com/tiles/*",
     "animichi.com/v1/*",
   ]);
   for (const route of ofType(built, ROUTE)) {
@@ -78,4 +79,11 @@ test("the staging WAF gate stays off on prod", () => {
   // this file could emit.
   const rulesets = ofType(built, RULESET).map((r) => r.name);
   assert.deepEqual(rulesets, ["animichi-www-redirect"]);
+});
+
+test("production map bucket is private and uses the stable Wrangler name", () => {
+  const buckets = ofType(built, "cloudflare:index/r2Bucket:R2Bucket");
+  assert.equal(buckets.length, 2);
+  assert.deepEqual(buckets.map((bucket) => bucket.inputs.name), ["catalog-media", "map-tiles"]);
+  assert.equal(buckets.every((bucket) => bucket.inputs.accountId === "acct"), true);
 });

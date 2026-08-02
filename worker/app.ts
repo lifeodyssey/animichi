@@ -23,12 +23,14 @@ import {
 } from "./rateLimiter.ts";
 import { catalogRequestAllowed } from "./catalogPolicy.ts";
 import { type TurnstileGate, createTurnstileGate, guardTurnstile } from "./turnstile.ts";
+import { handleTiles, type TileBucket } from "./tiles.ts";
 
 export interface Env {
   CATALOG: { fetch: (req: Request) => Promise<Response> };
   USERS: { fetch: (req: Request) => Promise<Response> };
   CONTAINER: DurableObjectNamespace;
   EDGE_GUARD: GuardNamespace;
+  MAP_TILES?: TileBucket;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
@@ -351,8 +353,9 @@ async function handleImageProxy(request: Request, ctx: WorkerExecutionContext): 
   return response;
 }
 
-/** The main Worker app: a pure API gateway (`/v1`, `/healthz`, the image proxy,
- * and the one allowlisted public catalog read). NOTE: no /catalog/* route —
+/** The main Worker app: a pure API and asset gateway (`/v1`, `/healthz`, the
+ * image and private R2 tile proxies, and one allowlisted public catalog read).
+ * NOTE: no /catalog/* route —
  * catalog is private (reached only via the container outboundByHost binding,
  * never the public internet).
  *
@@ -376,6 +379,7 @@ function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
   app.get("/healthz", (c) =>
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
   );
+  app.all("/tiles/*", (c) => handleTiles(c.req.raw, c.env.MAP_TILES, c.executionCtx));
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
   app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", async (c) => {
     if (new URL(c.req.url).search) return c.text("Unexpected query parameters", 400);

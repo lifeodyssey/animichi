@@ -14,8 +14,7 @@ import {
  * Drizzle read/query schema for the Catalog service.
  *
  * Query-only: column names and types mirror the live Postgres schema exactly
- * (supabase/migrations/20260402120000_remote_schema.sql +
- * 20260620230000_ingest_infrastructure.sql). The pipeline cards own all
+ * (db/migrations/20260623000001_init.sql). The pipeline cards own all
  * inserts/updates; nothing here exposes write helpers.
  *
  * `location` is PostGIS GEOGRAPHY(Point,4326). Drizzle has no native geography

@@ -18,7 +18,8 @@ const geography = customType<{ data: string; driverData: string }>({
 
 /**
  * Typing only — queries go through the raw sql tagged template (workerd
- * gotcha); this schema is also the future atlas-provider-drizzle source.
+ * gotcha). The Atlas SQL files under db/migrations are authoritative; this
+ * schema never generates or applies migrations.
  */
 export const routes = pgTable("routes", {
   id: uuid("id").primaryKey().defaultRandom(),

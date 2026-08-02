@@ -8,6 +8,7 @@ import {
   useMatches,
 } from "@tanstack/react-router";
 import { NotFound } from "../components/NotFound";
+import { Splash } from "../components/Splash";
 import { THEME_BOOTSTRAP_SCRIPT } from "../components/theme-bootstrap";
 import { SITE_ICON_LINKS, SITE_META } from "../features/seo/head";
 import { SITE_DESCRIPTION, SITE_TITLE } from "../features/seo/site";
@@ -79,7 +80,7 @@ function RootDocument({ children }: RootDocumentProps) {
   return (
     <html lang={lang}>
       <head><HeadContent /></head>
-      <body>{children}<Scripts /></body>
+      <body><Splash />{children}<Scripts /></body>
     </html>
   );
 }

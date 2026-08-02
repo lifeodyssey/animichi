@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   webapp-ci:
@@ -33,11 +34,12 @@ jobs:
         run: pnpm --filter web test
 
       - name: Upload coverage
-        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: apps/web/coverage/lcov.info
           flags: web
-          fail_ci_if_error: false
+          fail_ci_if_error: true
+          use_oidc: true
 
       # Runs the browser AC (branded 404) against the same artifact the integration step built.
       - name: Install Playwright browser
@@ -48,5 +50,5 @@ jobs:
           pnpm --filter web exec wrangler dev --port 8799 &
           WRANGLER_PID=$!
           for _ in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8799/ && break; sleep 1; done
-          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts
+          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts
           kill "$WRANGLER_PID"

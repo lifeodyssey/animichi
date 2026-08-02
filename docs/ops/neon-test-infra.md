@@ -90,14 +90,12 @@ push to `main` that changes `db/migrations/**` or
 deterministic rebuild; that mode drops and recreates the target database after the same identity
 rails pass.
 
-## Twin-migration rule
+## Migration source rule
 
-`db/migrations/` is the integration-test schema source. Any new
-`supabase/migrations/*.sql` migration that an integration test touches **must land in the same
-change with an auth-stripped Atlas twin under `db/migrations/`**. Remove Supabase-only roles, RLS,
-policies, and auth grants from the twin while preserving the data-plane tables, indexes, foreign
-keys, backfills, and `agent_svc` grants. Regenerate `db/migrations/atlas.sum`, then refresh
-`test-base`.
+`db/migrations/` is the integration-test and Neon data-plane schema source. New catalog/user
+changes are authored there directly, and `atlas.sum` is regenerated in the same change. The
+older `supabase/migrations/` files are frozen compatibility history for the remaining Supabase
+surface; do not create an auth-stripped twin or copy a new data-plane change into both trees.
 
 Never reintroduce Python migration splitting, statement filtering, pgvector neutralization, or
 swallowed migration failures. Atlas owns ordering, checksums, transactions, and the revision

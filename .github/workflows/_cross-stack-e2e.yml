@@ -1,0 +1,45 @@
+# Reusable emitted-worker browser smoke lane. It deliberately runs against the
+# same `.output` artifact that the web deploy workflow publishes, not a Vite
+# dev server, so route/asset regressions fail before staging promotion.
+name: _cross-stack-e2e
+
+on:
+  workflow_call: {}
+
+permissions:
+  contents: read
+
+jobs:
+  cross-stack-e2e:
+    name: Cross-stack E2E runner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Build emitted web Worker
+        run: pnpm --filter web test:integration
+
+      - name: Install Playwright browser
+        run: |
+          test -x node_modules/.bin/playwright
+          node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Exercise emitted Worker routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter web exec wrangler dev --port 8799 &
+          wrangler_pid=$!
+          trap 'kill "$wrangler_pid" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:8799/; then
+              break
+            fi
+            sleep 1
+          done
+          curl -sf -o /dev/null http://localhost:8799/ || exit 1
+          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts

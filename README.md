@@ -67,16 +67,22 @@ make check             # lint + typecheck + test
 
 ## Database Migrations
 
-Uses the Supabase CLI for all schema changes:
+Neon catalog and user schema changes are versioned in `db/migrations/` and applied by the
+pinned Atlas CLI. `db/migrations/atlas.sum` is generated metadata and must be regenerated in
+the same change. Drizzle schemas in the Workers are runtime query/type metadata only; they do
+not generate or apply migrations. The remaining Supabase migration directory is reserved for
+auth/legacy compatibility work and is not a source for new Neon tables.
 
 ```bash
-make db-list           # list applied migrations
-make db-push-dry       # dry-run migration
-make db-push           # apply migrations
-make db-diff NAME=x    # generate diff from local changes
+make db-list           # list checked-in Atlas migrations
+make db-hash           # regenerate db/migrations/atlas.sum
+make db-validate       # verify the checksum and SQL structure
+make db-push-dry       # dry-run against NEON_DATABASE_URL
+make db-push           # apply against NEON_DATABASE_URL
 ```
 
-Apply migrations in a dedicated deploy step, not at application startup.
+See [`docs/ops/migrations.md`](docs/ops/migrations.md) for the boundary, CI gates, and deploy
+order. Apply migrations in a dedicated deploy step, not at application startup.
 
 ## Environment
 
@@ -130,7 +136,8 @@ result = client.search("Hibike Euphonium locations", locale="en")
 - `packages/contract/` — shared oRPC contract types (catalog ↔ agent)
 - `apps/web/` — TanStack Start SSR web app and UI components
 - `worker/` — Cloudflare Worker entrypoint for auth and request routing
-- `supabase/` — schema migrations and Supabase project assets
+- `db/migrations/` — Atlas migrations and generated checksum for the Neon data plane
+- `supabase/` — auth/legacy compatibility migrations and Supabase project assets
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans
 - `Dockerfile`, `Makefile`, `wrangler.toml`, `package.json` — root runtime and tooling entrypoints that stay at the repository root
 
@@ -138,6 +145,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 - [Architecture](docs/ARCHITECTURE.md) — full system design reference
 - [Deployment](docs/ops/deployment.md) — Cloudflare Workers + Containers deploy guide
+- [Migrations](docs/ops/migrations.md) — Atlas authority and Drizzle query/type boundary
 - [Ops docs](docs/ops/README.md) — operational runbooks and environment procedures
 - [Iteration artifacts](docs/iterations/README.md) — task plans, progress logs, and findings by iteration
 - [Implementation plans](docs/superpowers/plans/) — implementation plans kept in place for execution history

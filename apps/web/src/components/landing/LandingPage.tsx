@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import type { Dict } from "../../i18n/dictionaries";
 import { useDict } from "../../i18n/context";
 import { LocaleSwitcher } from "../../i18n/LocaleSwitcher";
 import { LoginModal } from "../auth/LoginModal";
@@ -43,12 +44,19 @@ function LandingBar({ onLogin }: { onLogin: () => void }) {
   );
 }
 
+function FooterLinks({ landing }: { landing: Dict["landing"] }) {
+  return <nav className="landing__footer-links" aria-label={landing.footer_nav}>
+    <a className="landing__footer-link" href="/privacy">{landing.privacy}</a>
+    <a className="landing__footer-link" href={REPO_URL} target="_blank" rel="noreferrer">{landing.github}</a>
+  </nav>;
+}
+
 function LandingFooter() {
   const landing = useDict().landing;
   return (
     <footer className="landing__footer">
       <span className="landing__footer-brand"><ToriiMark size={16} />{landing.hero}<span className="landing__footer-name">{landing.footer_name}</span></span>
-      <a className="landing__footer-link" href={REPO_URL} target="_blank" rel="noreferrer">{landing.github}</a>
+      <FooterLinks landing={landing} />
     </footer>
   );
 }

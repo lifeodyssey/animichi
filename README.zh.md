@@ -67,16 +67,20 @@ make check             # lint + 类型检查 + 测试
 
 ## 数据库迁移
 
-使用 Supabase CLI 管理所有 schema 变更：
+Neon catalog 与 user 数据面的 schema 变更统一记录在 `db/migrations/`，由固定版本的
+Atlas CLI 应用；`db/migrations/atlas.sum` 是生成的完整性清单，必须和迁移文件一起更新。
+Worker 中的 Drizzle schema 仅用于运行时查询和类型，不生成也不执行迁移。剩余的
+Supabase 迁移目录只服务 auth/旧版兼容面，不能作为 Neon 新表的来源。
 
 ```bash
-make db-list           # 列出已应用的迁移
-make db-push-dry       # 迁移预演
-make db-push           # 执行迁移
-make db-diff NAME=x    # 从本地变更生成 diff
+make db-list           # 列出仓库中的 Atlas 迁移
+make db-hash           # 重新生成 db/migrations/atlas.sum
+make db-validate       # 校验 checksum 与 SQL 结构
+make db-push-dry       # 对 NEON_DATABASE_URL 做 dry-run
+make db-push           # 对 NEON_DATABASE_URL 应用迁移
 ```
 
-迁移应在部署时的专用步骤中执行，而非应用启动时。
+边界、CI 门禁和部署顺序见 [`docs/ops/migrations.md`](docs/ops/migrations.md)。迁移应在部署时的专用步骤中执行，而非应用启动时。
 
 ## 环境变量
 
@@ -130,7 +134,8 @@ result = client.search("Hibike Euphonium locations", locale="en")
 - `packages/contract/` — catalog 与 agent 之间共享的 oRPC contract 类型
 - `apps/web/` — TanStack Start SSR Web 应用与 UI 组件
 - `worker/` — Cloudflare Worker 入口，负责认证与请求路由
-- `supabase/` — schema 迁移与 Supabase 项目资产
+- `db/migrations/` — Neon 数据面的 Atlas 迁移与生成的 checksum
+- `supabase/` — auth/旧版兼容迁移与 Supabase 项目资产
 - `docs/` — 架构文档、运维文档、迭代资料与实现计划
 - `Dockerfile`、`Makefile`、`wrangler.toml`、`package.json` — 保留在根目录的运行与工具入口文件
 
@@ -138,6 +143,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 - [架构文档](docs/ARCHITECTURE.md) — 系统设计参考
 - [部署指南](docs/ops/deployment.md) — Cloudflare Workers + Containers 部署
+- [迁移边界](docs/ops/migrations.md) — Atlas authority 与 Drizzle 查询/类型边界
 - [运维文档](docs/ops/README.md) — 运维手册与环境流程
 - [迭代资料](docs/iterations/README.md) — 按迭代归档的 task plan、progress、findings
 - [实现计划](docs/superpowers/plans/) — 保持原位的实现计划历史

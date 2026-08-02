@@ -4,7 +4,8 @@
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
-    "test:web": "playwright test web-404.spec.ts web-chat-error-states.spec.ts web-chat-anonymous.spec.ts web-chat-save-login-wall.spec.ts"
+    "test:web": "playwright test web-404.spec.ts web-chat-error-states.spec.ts web-chat-anonymous.spec.ts web-chat-save-login-wall.spec.ts web-splash.spec.ts",
+    "test:perf-mobile-cold": "playwright test web-splash.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1"

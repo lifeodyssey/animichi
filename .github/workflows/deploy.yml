@@ -125,15 +125,26 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # ── Apply DB migrations ──
-      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
-        with:
-          version: "2.26.9"
+      # ── Validate the migration authority before a manual code redeploy ──
+      # Production schema changes run in the approval-gated main promotion
+      # (`_deploy-component.yml`), which applies db/migrations with Atlas before
+      # the catalog/users Worker rollout. This manual hotfix path is deliberately
+      # non-mutating at the database layer; it must not revive the old
+      # legacy Supabase all-schema push path.
+      - name: Install pinned Atlas CLI
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/atlas-bin"
+          curl --proto '=https' --tlsv1.2 -sSfL \
+            "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" \
+            -o "$RUNNER_TEMP/atlas-bin/atlas"
+          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas" \
+            | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
+          echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
 
-      - name: Apply database migrations
-        run: supabase db push --db-url "$SUPABASE_DB_URL"
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      - name: Validate Atlas migration directory
+        run: atlas migrate validate --dir file://db/migrations
 
       # ── Deploy catalog Worker FIRST (before root, as root's [[services]] binding depends on it) ──
       - name: Deploy catalog Worker
@@ -155,9 +166,9 @@ jobs:
           workingDirectory: workers/catalog
           command: deploy
           environment: production
-          # Catalog reaches Postgres via env.DATABASE_URL until a [[hyperdrive]]
-          # binding is provisioned (src/index.ts falls back to DATABASE_URL).
-          # The catalog uses the Neon HTTP client, matching the CI promotion path.
+          # The catalog uses env.DATABASE_URL with the Neon HTTP client, matching
+          # the CI promotion path. A pooled binding is optional and not required
+          # by the current deployment topology.
           secrets: |
             DATABASE_URL
         env:

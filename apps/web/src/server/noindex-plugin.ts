@@ -1,5 +1,5 @@
 import { type H3Event, setResponseHeader } from "h3";
-import type { NitroApp, NitroAppPlugin } from "nitropack/types";
+import type { NitroAppPlugin, NitroRuntimeHooks } from "nitropack/types";
 
 // Nitro runtime plugin: staging/preview must never become the canonical site
 // while animichi.com has no DNS (issue #538), so every response from a
@@ -34,7 +34,13 @@ function applyNoindexHeader(event: H3Event): void {
   setResponseHeader(event, "X-Robots-Tag", "noindex, nofollow");
 }
 
-export function registerNoindexHook(nitroApp: Pick<NitroApp, "hooks">): void {
+interface NoindexHookHost {
+  hooks: {
+    hook: (name: "beforeResponse", callback: NitroRuntimeHooks["beforeResponse"]) => unknown;
+  };
+}
+
+export function registerNoindexHook(nitroApp: NoindexHookHost): void {
   nitroApp.hooks.hook("beforeResponse", applyNoindexHeader);
 }
 

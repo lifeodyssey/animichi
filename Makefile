@@ -1,6 +1,6 @@
 # Animichi Agent - Makefile
 
-.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset test-worker e2e-setup e2e local-login dev-stop
+.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry test-worker e2e-setup e2e local-login dev-stop
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -35,9 +35,13 @@ help:
 	@echo "  make check       Run all checks (lint + typecheck + test)"
 	@echo ""
 	@echo "Database:"
-	@echo "  make db-list     Show Supabase migration status"
-	@echo "  make db-push-dry  Dry-run Supabase migrations"
-	@echo "  make db-push     Apply Supabase migrations"
+	@echo "  make db-new NAME=x  Create a timestamped Atlas migration"
+	@echo "  make db-list        List checked-in Atlas migrations"
+	@echo "  make db-hash        Regenerate db/migrations/atlas.sum"
+	@echo "  make db-validate    Validate Atlas checksums and SQL"
+	@echo "  make db-push-dry    Dry-run Atlas migrations against Neon"
+	@echo "  make db-push        Apply Atlas migrations against Neon"
+	@echo "  db-diff/db-pull/db-reset are retired; use the Atlas targets above"
 	@echo ""
 	@echo "E2E Testing:"
 	@echo "  make e2e-setup   Start Supabase + Edge Function + seed data"
@@ -102,23 +106,28 @@ clean:
 build:
 	cd apps/agent && uv build
 
-db-diff:
-	supabase db diff -f $(NAME) --schema public
+ATLAS_MIGRATIONS := file://db/migrations
+
+db-new:
+	@test -n "$(NAME)" || (echo "NAME is required (for example: make db-new NAME=add_routes_index)" >&2; exit 1)
+	atlas migrate new "$(NAME)" --dir $(ATLAS_MIGRATIONS)
 
 db-list:
-	supabase migration list --db-url $$SUPABASE_DB_URL
+	atlas migrate ls --dir $(ATLAS_MIGRATIONS)
 
-db-pull:
-	supabase db pull $(NAME) --schema public
+db-hash:
+	atlas migrate hash --dir $(ATLAS_MIGRATIONS)
+
+db-validate:
+	atlas migrate validate --dir $(ATLAS_MIGRATIONS)
 
 db-push-dry:
-	supabase db push --dry-run --db-url $$SUPABASE_DB_URL
+	@: "$${NEON_DATABASE_URL:?NEON_DATABASE_URL is required}"
+	atlas migrate apply --dry-run --dir $(ATLAS_MIGRATIONS) --url "$${NEON_DATABASE_URL}" --revisions-schema public
 
 db-push:
-	supabase db push --db-url $$SUPABASE_DB_URL
-
-db-reset:
-	supabase db reset
+	@: "$${NEON_DATABASE_URL:?NEON_DATABASE_URL is required}"
+	atlas migrate apply --dir $(ATLAS_MIGRATIONS) --url "$${NEON_DATABASE_URL}" --revisions-schema public
 
 # ── Local Dev (one-command startup) ──────────────────────────
 

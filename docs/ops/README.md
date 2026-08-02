@@ -10,6 +10,7 @@ Use this directory for:
 
 Current canonical docs:
 - `deployment.md` — Cloudflare Workers + Containers deployment runbook (topology, auth flow, env boundaries, rollback)
+- `migrations.md` — Neon Atlas migration authority, Drizzle query/type boundary, CI, and deployment order
 - `cloudflare-hardening.md` — WAF rate limiting, prompt-injection filtering, rollback for edge rules, container-level egress network policy (#284 Task 7)
 - `anonymous-session-purge.md` — scheduled anonymous-session retention sweep (cron cadence, required secret, reading a run)
 

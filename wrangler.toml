@@ -2,13 +2,14 @@
 # https://developers.cloudflare.com/workers/containers/
 #
 # Architecture (issue #537 retired the bundled Next.js app; `apps/web` owns
-# every HTML surface now, so this Worker is API + image proxy only):
+# every HTML surface now, so this Worker is API + asset proxy only):
 #   worker/entry.ts → /v1/* (container proxy) + /v1/users/* (users Worker)
-#                   + /img/* (image proxy) + /healthz + one public catalog read
+#                   + /img/* (image proxy) + /tiles/* (private R2 proxy)
+#                   + /healthz + one public catalog read
 #                   → everything else: JSON 404, no page renderer
 #
 # ROUTES: none here, deliberately. This Worker's hostnames are declared in
-# Pulumi (`infra/index.ts`) as of #541 — `animichi.com/v1/*`, `/img/*` and
+# Pulumi (`infra/index.ts`) as of #541 — `animichi.com/v1/*`, `/img/*`, `/tiles/*` and
 # `/healthz`, with the apex itself going to `apps/web` via a Custom Domain.
 # The repo rule is "routes belong to Pulumi, worker code belongs to wrangler";
 # an earlier version of this file claimed `animichi.com/*` here, which is what
@@ -112,6 +113,15 @@ service = "catalog"
 binding = "USERS"
 service = "users"
 
+# Map assets remain private in R2.  The edge Worker is the only public reader;
+# `/tiles/*` is routed to this Worker by Pulumi once the web hostname is enabled.
+# Local/default and staging deliberately point at the staging bucket so a
+# command without an explicit production environment cannot read production
+# map data.
+[[r2_buckets]]
+binding = "MAP_TILES"
+bucket_name = "map-tiles-staging"
+
 [[containers]]
 name = "animichi-runtimecontainer"
 class_name = "RuntimeContainer"
@@ -197,6 +207,10 @@ service = "catalog"
 binding = "USERS"
 service = "users"
 
+[[env.production.r2_buckets]]
+binding = "MAP_TILES"
+bucket_name = "map-tiles"
+
 [[env.production.containers]]
 class_name = "RuntimeContainer"
 image = "./Dockerfile"
@@ -240,6 +254,10 @@ routes = []
 # else) is meant to expose.
 workers_dev = true
 preview_urls = false
+
+[[env.staging.r2_buckets]]
+binding = "MAP_TILES"
+bucket_name = "map-tiles-staging"
 
 [env.staging.vars]
 # Forwarded to the container as APP_ENV (issue #498) — required, see

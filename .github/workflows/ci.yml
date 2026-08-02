@@ -50,6 +50,7 @@ jobs:
       neon_agent: ${{ steps.f.outputs.neon_agent }}
       neon_catalog: ${{ steps.f.outputs.neon_catalog }}
       neon_migrations: ${{ steps.f.outputs.neon_migrations }}
+      cross_stack: ${{ steps.f.outputs.cross_stack }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -88,18 +89,25 @@ jobs:
             web: ['apps/web/**']
             worker: ['worker/**']
             infra: ['infra/**']
-            migrations: ['supabase/migrations/**', 'db/**']
+            migrations: ['supabase/migrations/**', 'db/**', 'docs/ops/migrations.md', 'docs/ops/deployment.md', 'README*', 'Makefile', 'worker/migrationBoundary.test.ts', '.github/workflows/ci.yml', '.github/workflows/deploy.yml']
             neon_agent: ['apps/agent/**']
             neon_catalog: ['workers/catalog/**']
             neon_migrations: ['db/migrations/**']
+            # The cross-stack browser lane exercises emitted apps/web output
+            # and the edge-facing worker together. Keep its scope broad enough
+            # to catch contract and deployment wiring changes.
+            cross_stack: ['apps/**', 'worker/**', 'workers/**', 'packages/contract/**', 'db/**', 'infra/**', 'e2e/**', '.github/workflows/**', '.github/actions/**']
 
   # ── Stage 1: Component CI (reusable workflows, all parallel) ──
   # affected-only on PRs; full run on push/tag.
 
   ci-agent:
-    name: Agent CI
+    name: Agent component CI
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.agent == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/_python-ci.yml
     with:
       app: agent
@@ -108,6 +116,9 @@ jobs:
     name: Catalog CI
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.catalog == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/_ts-ci.yml
     with:
       component: catalog
@@ -116,6 +127,9 @@ jobs:
     name: Users CI
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.users == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/_ts-ci.yml
     with:
       component: users
@@ -124,7 +138,7 @@ jobs:
     name: Contract OpenAPI drift
     runs-on: ubuntu-latest
     needs: changes
-    if: ${{ needs.changes.outputs.contract == 'true' }}
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.contract == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -139,13 +153,16 @@ jobs:
           git diff --cached --exit-code -- packages/contract/openapi.json packages/contract/users-openapi.json
 
   ci-web:
-    name: Web app CI
+    name: Web component CI
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.web == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/_webapp-ci.yml
 
   ci-worker:
-    name: Edge worker tests
+    name: Edge worker component CI
     runs-on: ubuntu-latest
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.worker == 'true' }}
@@ -157,7 +174,7 @@ jobs:
       - run: pnpm run test:worker
 
   ci-infra:
-    name: Infra CI
+    name: Infra component CI
     runs-on: ubuntu-latest
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.infra == 'true' }}
@@ -211,29 +228,61 @@ jobs:
       - name: Lint AI agent configs
         run: npx --yes agnix@0.37.5 .
 
-  # ── DB migrations (dry-run) ──────────────────────────────────
+  # ── DB migrations (Atlas validation + optional Neon dry-run) ──
 
   db-validate:
-    name: DB Migrations (dry-run)
+    name: DB Migrations (Atlas)
     runs-on: ubuntu-latest
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.migrations == 'true' }}
     env:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Install pinned Atlas CLI
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/atlas-bin"
+          curl --proto '=https' --tlsv1.2 -sSfL \
+            "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" \
+            -o "$RUNNER_TEMP/atlas-bin/atlas"
+          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas" \
+            | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
+          echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
+
+      - name: Run migration boundary guard
+        run: node --test worker/migrationBoundary.test.ts
+
+      - name: Validate Atlas migration directory
+        run: atlas migrate validate --dir file://db/migrations
+
+      - name: Dry-run Neon migrations
+        if: env.NEON_DATABASE_URL != ''
+        run: |
+          case "$NEON_DATABASE_URL" in
+            *\?*) scoped_url="${NEON_DATABASE_URL}&search_path=public" ;;
+            *) scoped_url="${NEON_DATABASE_URL}?search_path=public" ;;
+          esac
+          atlas migrate apply --dry-run --dir "file://db/migrations" \
+            --url "$scoped_url" --revisions-schema public
+
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        if: env.SUPABASE_DB_URL != ''
         with:
           version: "2.26.9"
 
-      - name: Validate migrations
+      - name: Validate frozen Supabase auth/compatibility migrations
         if: env.SUPABASE_DB_URL != ''
-        run: |
-          supabase migration list --db-url "$SUPABASE_DB_URL"
-          supabase db push --dry-run --db-url "$SUPABASE_DB_URL"
+        run: supabase migration list --db-url "$SUPABASE_DB_URL"
 
   # ── Agent eval: L0 smoke (SD-30 §① — required PR gate) ────────
   # Path-filter scope = the SD-30 rule above (`agent_behavior`): prompt/model-config/
@@ -375,6 +424,152 @@ jobs:
         run: pnpm run test:spike
         working-directory: workers/catalog
 
+  # ── Stable required contexts ─────────────────────────────────
+  # Component jobs above remain affected-only on pull requests. These lane
+  # jobs are the branch-protection contract: every lane is created on every
+  # workflow run and accepts an intentionally skipped component as green.
+  # A failed or cancelled component still fails its lane and blocks promotion.
+
+  web-ci-gate:
+    name: Web CI
+    needs: [changes, ci-web]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify Web component result
+        env:
+          STATUSES: ${{ needs.ci-web.result }}
+          CHANGES_STATUS: ${{ needs.changes.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Web CI" "$CHANGES_STATUS $STATUSES"
+
+  backend-ci-gate:
+    name: Backend CI
+    needs: [changes, ci-catalog, ci-users, contract-openapi-drift, ci-worker]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify backend component results
+        env:
+          STATUSES: >-
+            ${{ needs.changes.result }}
+            ${{ needs.ci-catalog.result }}
+            ${{ needs.ci-users.result }}
+            ${{ needs.contract-openapi-drift.result }}
+            ${{ needs.ci-worker.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Backend CI" "$STATUSES"
+
+  agent-ci-gate:
+    name: Agent CI
+    needs: [changes, ci-agent, agent-eval-smoke]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify agent component results
+        env:
+          STATUSES: >-
+            ${{ needs.changes.result }}
+            ${{ needs.ci-agent.result }}
+            ${{ needs.agent-eval-smoke.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Agent CI" "$STATUSES"
+
+  infra-db-ci-gate:
+    name: Infra & DB CI
+    needs: [changes, ci-infra, db-validate]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify infra and migration results
+        env:
+          STATUSES: >-
+            ${{ needs.changes.result }}
+            ${{ needs.ci-infra.result }}
+            ${{ needs.db-validate.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Infra & DB CI" "$STATUSES"
+
+  # The reusable workflow is intentionally broad and is independently
+  # path-filtered by `changes.cross_stack`; its result is folded into a stable
+  # lane below so documentation-only PRs still receive a required check.
+  ci-cross-stack-e2e:
+    name: Cross-stack E2E component
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.cross_stack == 'true' }}
+    uses: ./.github/workflows/_cross-stack-e2e.yml
+
+  cross-stack-e2e-gate:
+    name: Cross-stack E2E
+    needs: [changes, ci-cross-stack-e2e]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify cross-stack result
+        env:
+          STATUSES: >-
+            ${{ needs.changes.result }}
+            ${{ needs.ci-cross-stack-e2e.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Cross-stack E2E" "$STATUSES"
+
+  repository-quality-gate:
+    name: Repository Quality
+    needs: [changes, security, agnix]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify repository-quality component results
+        env:
+          STATUSES: >-
+            ${{ needs.changes.result }}
+            ${{ needs.security.result }}
+            ${{ needs.agnix.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Repository Quality" "$STATUSES"
+      - name: Verify CI contract
+        run: ruby .github/scripts/test_ci_contract.rb
+      - name: Verify lane failure paths
+        run: bash .github/scripts/assert-ci-needs.test.sh
+
+  codecov-patch-gate:
+    name: Codecov Patch
+    needs: [changes, ci-agent, ci-catalog, ci-users, ci-web, ci-worker]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # This stable context is a policy/upload precondition, not a local
+      # reimplementation of Codecov's changed-line calculation. The real 95%
+      # patch verdict is the external `codecov/patch` status produced after the
+      # component uploads; the repository ruleset must require both contexts.
+      - name: Verify component coverage results
+        env:
+          STATUSES: >-
+            ${{ needs.changes.result }}
+            ${{ needs.ci-agent.result }}
+            ${{ needs.ci-catalog.result }}
+            ${{ needs.ci-users.result }}
+            ${{ needs.ci-web.result }}
+            ${{ needs.ci-worker.result }}
+        run: bash .github/scripts/assert-ci-needs.sh "Codecov Patch" "$STATUSES"
+      - name: Verify patch coverage policy
+        run: ruby .github/scripts/test_codecov_patch.rb
+
   # ── Stage 3: Deploy (CI-green gated, push-main promotion path) ──
   # Promotion: push main → CI → staging → post-staging (api) → prod (human gate) → post-prod.
   # A single push to main drives the full pipeline; no separate tag trigger needed.
@@ -383,7 +578,7 @@ jobs:
   # push main → staging
   deploy-staging:
     name: Deploy staging
-    needs: [ci-agent, ci-catalog, ci-web, ci-worker, db-validate, security]
+    needs: [agent-ci-gate, backend-ci-gate, web-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
@@ -404,7 +599,7 @@ jobs:
 
   deploy-web-staging:
     name: Deploy web staging
-    needs: [ci-agent, ci-catalog, ci-web, ci-worker, db-validate, security]
+    needs: [agent-ci-gate, backend-ci-gate, web-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
@@ -421,7 +616,7 @@ jobs:
 
   deploy-users-staging:
     name: Deploy users staging
-    needs: [deploy-staging, ci-users]
+    needs: [deploy-staging]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:

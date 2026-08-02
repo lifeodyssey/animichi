@@ -1,5 +1,6 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Map as MapLibreMap, Marker } from "maplibre-gl";
+import { attachMapLibre, mountMapLibre, type MapLibreHandle, type MapLibreModule } from "../maplibre/maplibreAdapter";
 import { createMapStyle } from "./mapStyle";
 import { routeLayer, ROUTE_SOURCE_ID, routeSource } from "./mapLayers";
 import { pinLabel } from "./pins";
@@ -13,18 +14,7 @@ export type MountOptions = Readonly<{
   onStatus: (status: MapStatus) => void;
 }>;
 
-export type MapHandle = Readonly<{ destroy: () => void }>;
-
-let protocolReady = false;
-
-const registerProtocol = async (gl: typeof import("maplibre-gl")): Promise<void> => {
-  if (protocolReady) {
-    return;
-  }
-  const { Protocol } = await import("pmtiles");
-  gl.addProtocol("pmtiles", new Protocol({ metadata: true }).tile);
-  protocolReady = true;
-};
+export type MapHandle = MapLibreHandle;
 
 const markerElement = (spot: Spot, index: number): HTMLElement => {
   const element = document.createElement("div");
@@ -36,69 +26,80 @@ const markerElement = (spot: Spot, index: number): HTMLElement => {
 
 const addRoute = (map: MapLibreMap): void => {
   map.addSource(ROUTE_SOURCE_ID, routeSource());
-  map.addLayer(routeLayer());
+  try {
+    map.addLayer(routeLayer());
+  } catch (error) {
+    map.removeSource(ROUTE_SOURCE_ID);
+    throw error;
+  }
 };
 
-const addMarkers = (gl: typeof import("maplibre-gl"), map: MapLibreMap): Marker[] => {
-  return SPOTS.map((spot, index) =>
-    new gl.Marker({ element: markerElement(spot, index), anchor: "bottom" })
-      .setLngLat([...spot.coord])
-      .addTo(map),
-  );
+const addMarker = (gl: MapLibreModule, map: MapLibreMap, spot: Spot, index: number): Marker => {
+  return new gl.Marker({ element: markerElement(spot, index), anchor: "bottom" }).setLngLat([...spot.coord]).addTo(map);
 };
 
-const createMap = (gl: typeof import("maplibre-gl"), options: MountOptions): MapLibreMap => {
-  return new gl.Map({
-    container: options.container,
-    style: createMapStyle(options.mode),
-    center: [...UJI_CENTER],
-    zoom: UJI_ZOOM,
-    attributionControl: { compact: true },
-  });
+const addMarkers = (gl: MapLibreModule, map: MapLibreMap): Marker[] => {
+  const markers: Marker[] = [];
+  try {
+    SPOTS.forEach((spot, index) => { markers.push(addMarker(gl, map, spot, index)); });
+  } catch (error) {
+    markers.forEach((marker) => marker.remove());
+    throw error;
+  }
+  return markers;
 };
 
-const onMapLoad = (gl: typeof import("maplibre-gl"), map: MapLibreMap, onStatus: MountOptions["onStatus"]): void => {
+const mapStyle = (options: MountOptions) => createMapStyle(options.mode);
+
+const cleanupMap = (map: MapLibreMap, markers: readonly Marker[]): void => {
+  markers.forEach((marker) => marker.remove());
+  if (map.getLayer(ROUTE_SOURCE_ID)) map.removeLayer(ROUTE_SOURCE_ID);
+  if (map.getSource(ROUTE_SOURCE_ID)) map.removeSource(ROUTE_SOURCE_ID);
+};
+
+const loadMarkers = (options: MountOptions, gl: MapLibreModule, map: MapLibreMap): Marker[] => {
+  let markers: Marker[] = [];
+  try {
+    markers = addMarkers(gl, map);
+    options.onStatus("ready");
+    return markers;
+  } catch (error) {
+    return cleanupAndThrow(map, markers, error);
+  }
+};
+
+const cleanupAndThrow = (map: MapLibreMap, markers: readonly Marker[], error: unknown): never => {
+  cleanupMap(map, markers);
+  throw error;
+};
+
+const loadMap = (options: MountOptions, gl: MapLibreModule, map: MapLibreMap): (() => void) => {
   addRoute(map);
-  addMarkers(gl, map);
-  onStatus("ready");
+  const markers = loadMarkers(options, gl, map);
+  return () => { cleanupMap(map, markers); };
 };
 
-const wireEvents = (gl: typeof import("maplibre-gl"), map: MapLibreMap, options: MountOptions): void => {
-  map.on("load", () => { onMapLoad(gl, map, options.onStatus); });
-  map.on("error", () => { options.onStatus("fallback"); });
-};
+const cameraOptions = () => ({
+  center: { lng: UJI_CENTER[0], lat: UJI_CENTER[1] },
+  zoom: UJI_ZOOM,
+});
 
-const buildHandle = (map: MapLibreMap): MapHandle => ({ destroy: () => { map.remove(); } });
+const mountOptions = (options: MountOptions) => ({
+  ...cameraOptions(),
+  attributionControl: { compact: true },
+  container: options.container,
+  interactive: true,
+  onError: () => { options.onStatus("fallback"); },
+  onLoad: ({ gl, map }: { gl: MapLibreModule; map: MapLibreMap }) => loadMap(options, gl, map),
+  registerPmtiles: options.mode === "pmtiles",
+  style: mapStyle(options),
+});
 
 export const mountMapSpike = async (options: MountOptions): Promise<MapHandle> => {
-  const gl = await import("maplibre-gl");
-  await registerProtocol(gl);
-  const map = createMap(gl, options);
-  wireEvents(gl, map, options);
-  return buildHandle(map);
+  const setup = mountOptions(options);
+  return mountMapLibre(setup);
 };
 
-interface Attachment {
-  handle: MapHandle | null;
-  active: boolean;
-}
-
-const storeHandle = (attachment: Attachment, handle: MapHandle): void => {
-  if (!attachment.active) {
-    handle.destroy();
-    return;
-  }
-  attachment.handle = handle;
-};
-
-// Bridges the async mount into React's synchronous effect-cleanup contract.
 export const attachMapSpike = (options: MountOptions): (() => void) => {
-  const attachment: Attachment = { handle: null, active: true };
-  void mountMapSpike(options).then((handle) => {
-    storeHandle(attachment, handle);
-  });
-  return () => {
-    attachment.active = false;
-    attachment.handle?.destroy();
-  };
+  return attachMapLibre(mountOptions(options));
 };
