@@ -67,16 +67,21 @@ make check             # lint + 型チェック + テスト
 
 ## データベースマイグレーション
 
-スキーマ変更には Supabase CLI を使用します：
+Neon の catalog/user データ面のスキーマ変更は `db/migrations/` に記録し、固定した
+Atlas CLI で適用します。`db/migrations/atlas.sum` は生成される整合性マニフェストなので、
+マイグレーションと同じ変更で再生成してください。Worker の Drizzle schema は実行時の
+クエリ/型情報だけを提供し、マイグレーションを生成・適用しません。残る Supabase の
+マイグレーションは auth/旧版互換用で、Neon の新しいテーブルのソースではありません。
 
 ```bash
-make db-list           # 適用済みマイグレーション一覧
-make db-push-dry       # ドライラン
-make db-push           # マイグレーション適用
-make db-diff NAME=x    # ローカル変更から diff を生成
+make db-list           # リポジトリ内の Atlas マイグレーション一覧
+make db-hash           # db/migrations/atlas.sum を再生成
+make db-validate       # checksum と SQL 構造を検証
+make db-push-dry       # NEON_DATABASE_URL に対する dry-run
+make db-push           # NEON_DATABASE_URL に適用
 ```
 
-マイグレーションはアプリ起動時ではなく、デプロイ時の専用ステップで適用してください。
+境界、CI ゲート、デプロイ順序は [`docs/ops/migrations.md`](docs/ops/migrations.md) を参照してください。マイグレーションはアプリ起動時ではなく、デプロイ時の専用ステップで適用してください。
 
 ## 環境変数
 
@@ -130,7 +135,8 @@ result = client.search("Hibike Euphonium locations", locale="en")
 - `packages/contract/` — catalog ↔ agent 間で共有する oRPC contract 型定義
 - `apps/web/` — TanStack Start SSR の Web アプリと UI コンポーネント
 - `worker/` — 認証とリクエストルーティングを担う Cloudflare Worker
-- `supabase/` — スキーママイグレーションと Supabase プロジェクト資産
+- `db/migrations/` — Neon データ面の Atlas マイグレーションと生成 checksum
+- `supabase/` — auth/旧版互換マイグレーションと Supabase プロジェクト資産
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画
 - `Dockerfile`、`Makefile`、`wrangler.toml`、`package.json` — ルートに残すランタイム/ツール入口
 
@@ -138,6 +144,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 
 - [アーキテクチャ](docs/ARCHITECTURE.md) — システム設計リファレンス
 - [デプロイ](docs/ops/deployment.md) — Cloudflare Workers + Containers デプロイガイド
+- [マイグレーション境界](docs/ops/migrations.md) — Atlas authority と Drizzle のクエリ/型境界
 - [運用ドキュメント](docs/ops/README.md) — 運用手順と環境向けランブック
 - [イテレーション資料](docs/iterations/README.md) — task plan、progress、findings の保存場所
 - [実装計画](docs/superpowers/plans/) — 既存位置を維持する実装計画の履歴

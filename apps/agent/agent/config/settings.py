@@ -220,8 +220,8 @@ class Settings(BaseSettings):
         description="Base URL for the OpenAI-compatible provider",
     )
 
-    # Migrations are managed by Supabase CLI (supabase db push).
-    # No application-level migration runner needed.
+    # No application-level migration runner. Neon schema changes are applied by Atlas from
+    # db/migrations in the deployment workflow; see docs/ops/migrations.md.
 
     # CORS
     cors_allowed_origin: str = Field(

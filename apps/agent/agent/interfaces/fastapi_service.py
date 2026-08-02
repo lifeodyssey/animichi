@@ -93,9 +93,9 @@ async def _lifespan_build_runtime(
     runtime_db = db if db is not None else build_supabase_client(resolved_settings)
     runtime_session_store = _resolve_session_store(session_store, runtime_db)
     await call_optional_async(runtime_db, "connect")
-    # Migrations are managed by Supabase CLI (`supabase db push` in CI/CD).
-    # Local dev: `supabase start` applies migrations automatically.
-    # See: deploy.yml and https://supabase.com/docs/guides/deployment/database-migrations
+    # Schema changes are never applied by the application. Neon catalog/user migrations run
+    # through Atlas from db/migrations; the remaining Supabase compatibility surface has its
+    # own operator path. See docs/ops/migrations.md.
     catalog_client = build_catalog_client(resolved_settings)
     app.state.catalog_client = catalog_client
     app.state.runtime_api = RuntimeAPI(

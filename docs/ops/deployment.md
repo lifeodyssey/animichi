@@ -14,7 +14,7 @@ Browser
   ├─ /img/* ─────────────────────────────────────▶ Worker image proxy/cache
   ├─ /healthz ───────────────────────────────────▶ Worker → RuntimeContainer → FastAPI service
   ├─ /catalog/* ─────────────────────────────────▶ Worker → CATALOG service binding → catalog Worker
-  │                                                          └─ Postgres/PostGIS via Hyperdrive (`HYPERDRIVE`)
+  │                                                          └─ Neon Postgres/PostGIS via neon-http (`DATABASE_URL`)
   └─ /v1/* ── auth at Worker edge ───────────────▶ Worker → RuntimeContainer → FastAPI service
                                                             ├─ Supabase Postgres (`SUPABASE_DB_URL`)
                                                             ├─ Anitabi API (`ANITABI_API_URL`)
@@ -24,7 +24,7 @@ Browser
                                                                   (`DEEPSEEK_API_KEY` remains provisioned)
 ```
 
-The hybrid topology runs two Workers. The main `seichijunrei` Worker
+The hybrid topology runs the edge Worker plus the catalog and users Workers. The main `seichijunrei` Worker
 (`worker/entry.js`) routes `/catalog/*` to the separate `catalog` Worker
 (`catalog/wrangler.toml`) via a wrangler service binding (`env.CATALOG.fetch`).
 The Python agent in the container cannot use that JS-only binding, so it reaches
@@ -33,6 +33,10 @@ container as a plain var) points at the deployed host, and `CatalogClient` POSTs
 to `{CATALOG_API_URL}/catalog/<method>`, which the main Worker forwards to the
 catalog Worker. Deploy order: catalog Worker first (so `service = "catalog"`
 resolves), then the main Worker.
+
+Catalog and users Workers query Neon through the `neon-http` driver. Drizzle supplies runtime
+query/type metadata only; the checked-in Atlas directory is the only Neon schema authority. See
+[`migrations.md`](./migrations.md) before changing a table or deploy step.
 
 - `interfaces/fastapi_service.py` exposes `GET /healthz`
 - `interfaces/fastapi_service.py` exposes `POST /v1/runtime`
@@ -239,7 +243,14 @@ There are two workflow-backed deploy paths. Neither path is tag-triggered.
 
 ### Schema change policy
 
-Migrations can finish before the new container replaces the old one, so a destructive change can briefly break old code that still reads or writes the removed schema; the `route_anime` release, for example, dropped `routes.bangumi_id` in the same release that changed the writer. For schema changes where that overlap matters, use expand/contract: add the replacement first, deploy compatible readers and writers, then remove the old column in a later release. Today’s infrequent, approval-gated cadence keeps this window low-risk, but it does not make destructive same-release changes safe by construction.
+Neon migrations run from `db/migrations/` before the Worker rollout, but the old container can
+still serve traffic while that step is running. A destructive change can therefore briefly break
+old code that still reads or writes the removed schema; the `route_anime` release, for example,
+dropped `routes.bangumi_id` in the same release that changed the writer. For schema changes where
+that overlap matters, use expand/contract: add the replacement first, deploy compatible readers
+and writers, then remove the old column in a later release. Today’s infrequent, approval-gated
+cadence keeps this window low-risk, but it does not make destructive same-release changes safe by
+construction. The full authoring/apply boundary is [`migrations.md`](./migrations.md).
 
 ### ⚠️ The first successful staging/production Atlas run is a provisioning event, not a routine migration
 
@@ -307,10 +318,17 @@ Its current order is:
 
 1. install workspace dependencies (`pnpm install --frozen-lockfile`); there is no app build
    step — the root Worker ships as TypeScript source
-2. apply Supabase migrations with `supabase db push`
+2. validate the checked-in Neon migration directory with pinned Atlas (the manual path does not
+   mutate the database)
 3. deploy the catalog Worker first, because the root Worker service binding depends on it
-4. verify `Dockerfile` exists
-5. deploy the root Worker/container with Wrangler
+4. deploy the users Worker before the root Worker, because the root `USERS` binding depends on it
+5. verify `Dockerfile` exists
+6. deploy the root Worker/container with Wrangler
+
+The approval-gated main promotion (`_deploy-component.yml`) applies `db/migrations/` before its
+catalog/users rollout. This manual path does not apply either the Neon or frozen Supabase
+compatibility directory; an explicitly approved auth migration follows the separate Supabase
+owner/runbook and must not be used to change Neon catalog or user tables.
 
 Do not use version tags as a deploy trigger for the current pipeline.
 
