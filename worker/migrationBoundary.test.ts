@@ -46,6 +46,10 @@ void test("README points operators to the migration runbook", () => {
     assert.match(source, /docs\/ops\/migrations\.md/);
     assert.doesNotMatch(source, /Supabase CLI for all schema changes|使用 Supabase CLI 管理所有 schema 变更|スキーマ変更には Supabase CLI を使用/);
   }
+  const makefile = read("Makefile");
+  assert.match(makefile, /\.PHONY:[\s\S]*db-new[\s\S]*db-hash[\s\S]*db-validate/);
+  assert.doesNotMatch(makefile, /\.PHONY:[^\n]*\bdb-diff\b/);
+  assert.match(makefile, /db-diff\/db-pull\/db-reset are retired/);
 });
 
 void test("historical deployment notes cannot look like the current migration path", () => {
