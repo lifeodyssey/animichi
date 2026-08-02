@@ -47,3 +47,10 @@ void test("README points operators to the migration runbook", () => {
     assert.doesNotMatch(source, /Supabase CLI for all schema changes|使用 Supabase CLI 管理所有 schema 变更|スキーマ変更には Supabase CLI を使用/);
   }
 });
+
+void test("historical deployment notes cannot look like the current migration path", () => {
+  const deployment = read("docs/ops/deployment.md");
+  assert.match(deployment, /HISTORICAL[\s\S]*Historical only; no longer current/i);
+  assert.match(deployment, /current\s+Neon migration authority[\s\S]*db\/migrations[\s\S]*Atlas/i);
+  assert.match(deployment, /Historical Supabase schema event \(not a current apply\)/);
+});
