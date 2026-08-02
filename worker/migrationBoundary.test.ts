@@ -17,6 +17,16 @@ void test("Atlas files are the only Neon migration authority", () => {
   }
   assert.match(read("docs/ops/migrations.md"), /db\/migrations\/\*\.sql.*atlas\.sum/s);
   assert.match(read("docs/ops/migrations.md"), /Drizzle[\s\S]*metadata.*only/s);
+  for (const path of [
+    "docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md",
+    "docs/superpowers/specs/2026-07-06-frontend-rebuild/iter-0.md",
+  ]) {
+    const source = read(path);
+    assert.match(source, /S0\.9 authority amendment \(2026-08-02\)/, `${path} needs the S0.9 amendment`);
+    assert.match(source, /db\/migrations\/\*\.sql[\s\S]*atlas\.sum/);
+    assert.match(source, /Drizzle[\s\S]*runtime query\/type metadata only/);
+    assert.doesNotMatch(source, /dual-chain\s*\+\s*atlas-provider-drizzle|Drizzle TS schema.*single source/i);
+  }
 });
 
 void test("Drizzle schemas cannot become migration runners", () => {
