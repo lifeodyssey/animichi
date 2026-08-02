@@ -56,6 +56,11 @@ describe("LandingPage", () => {
     const link = screen.getByRole("link", { name: "GitHub" });
     expect(link.getAttribute("href")).toContain("github.com");
   });
+
+  it("exposes the localized privacy policy from the footer", () => {
+    renderWithLocale(<LandingPage />);
+    expect(screen.getByRole("link", { name: "プライバシーポリシー" }).getAttribute("href")).toBe("/privacy");
+  });
 });
 
 describe("LandingPage i18n", () => {
