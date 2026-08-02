@@ -1,6 +1,6 @@
 # Animichi Agent - Makefile
 
-.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack lint format typecheck check clean build db-diff db-list db-pull db-push db-push-dry db-reset test-worker e2e-setup e2e local-login dev-stop
+.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry test-worker e2e-setup e2e local-login dev-stop
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -35,9 +35,13 @@ help:
 	@echo "  make check       Run all checks (lint + typecheck + test)"
 	@echo ""
 	@echo "Database:"
-	@echo "  make db-list     Show Supabase migration status"
-	@echo "  make db-push-dry  Dry-run Supabase migrations"
-	@echo "  make db-push     Apply Supabase migrations"
+	@echo "  make db-new NAME=x  Create a timestamped Atlas migration"
+	@echo "  make db-list        List checked-in Atlas migrations"
+	@echo "  make db-hash        Regenerate db/migrations/atlas.sum"
+	@echo "  make db-validate    Validate Atlas checksums and SQL"
+	@echo "  make db-push-dry    Dry-run Atlas migrations against Neon"
+	@echo "  make db-push        Apply Atlas migrations against Neon"
+	@echo "  db-diff/db-pull/db-reset are retired; use the Atlas targets above"
 	@echo ""
 	@echo "E2E Testing:"
 	@echo "  make e2e-setup   Start Supabase + Edge Function + seed data"
