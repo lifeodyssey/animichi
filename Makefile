@@ -102,23 +102,28 @@ clean:
 build:
 	cd apps/agent && uv build
 
-db-diff:
-	supabase db diff -f $(NAME) --schema public
+ATLAS_MIGRATIONS := file://db/migrations
+
+db-new:
+	@test -n "$(NAME)" || (echo "NAME is required (for example: make db-new NAME=add_routes_index)" >&2; exit 1)
+	atlas migrate new "$(NAME)" --dir $(ATLAS_MIGRATIONS)
 
 db-list:
-	supabase migration list --db-url $$SUPABASE_DB_URL
+	atlas migrate ls --dir $(ATLAS_MIGRATIONS)
 
-db-pull:
-	supabase db pull $(NAME) --schema public
+db-hash:
+	atlas migrate hash --dir $(ATLAS_MIGRATIONS)
+
+db-validate:
+	atlas migrate validate --dir $(ATLAS_MIGRATIONS)
 
 db-push-dry:
-	supabase db push --dry-run --db-url $$SUPABASE_DB_URL
+	@: "$${NEON_DATABASE_URL:?NEON_DATABASE_URL is required}"
+	atlas migrate apply --dry-run --dir $(ATLAS_MIGRATIONS) --url "$${NEON_DATABASE_URL}" --revisions-schema public
 
 db-push:
-	supabase db push --db-url $$SUPABASE_DB_URL
-
-db-reset:
-	supabase db reset
+	@: "$${NEON_DATABASE_URL:?NEON_DATABASE_URL is required}"
+	atlas migrate apply --dir $(ATLAS_MIGRATIONS) --url "$${NEON_DATABASE_URL}" --revisions-schema public
 
 # ── Local Dev (one-command startup) ──────────────────────────
 

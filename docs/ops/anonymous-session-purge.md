@@ -72,9 +72,10 @@ someone.
 
 ## Related
 
-- `db/migrations/20260728000001_conversations_user_id_pattern_ops.sql` +
-  the `supabase/migrations/` twin — the `text_pattern_ops` index the purge
-  scan's `LIKE 'anon\_%'` match depends on. The two arms this test suite
+- `db/migrations/20260728000001_conversations_user_id_pattern_ops.sql` — the
+  Atlas-authoritative migration that creates the `text_pattern_ops` index the purge
+  scan's `LIKE 'anon\_%'` match depends on. The frozen Supabase compatibility file is
+  not a second source. The two arms this test suite
   runs on have **different** observed collations, both legitimate: the
   offline Docker test image is `en_US.utf8` (non-C — the case this index
   actually matters for: a plain btree cannot service a LIKE prefix match

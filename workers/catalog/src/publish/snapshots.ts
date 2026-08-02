@@ -1,6 +1,6 @@
 /**
  * Route-snapshot storage over `route_snapshots`
- * (`supabase/migrations/20260620230000_ingest_infrastructure.sql`):
+ * (`db/migrations/20260623000001_init.sql`):
  *   id, work_id, cluster_version, payload JSONB, created_at.
  *
  * A snapshot is bound to a specific cluster_version so a route computed against

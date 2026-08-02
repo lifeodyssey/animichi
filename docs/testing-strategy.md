@@ -411,9 +411,10 @@ dependencies and failure modes differ.
 
 The test fixture never parses, filters, splits, or swallows migration SQL. Atlas 0.30.0 applies
 `db/migrations/` transactionally and records revisions in `public.atlas_schema_revisions`; tests
-then assert required tables, extensions, the `vector(1024)` column, and its HNSW index. Any
-Supabase migration exercised by integration tests must land with an auth-stripped Atlas twin in
-the same change. See `docs/ops/neon-test-infra.md` for the twin rule and `test-base` refresh.
+then assert required tables, extensions, the `vector(1024)` column, and its HNSW index. New
+catalog/user schema changes are authored in `db/migrations/` directly; the older Supabase
+compatibility files are not a second source and do not require an Atlas twin. See
+`docs/ops/neon-test-infra.md` for the source rule and `test-base` refresh.
 
 ### SQL Review Standards
 

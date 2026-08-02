@@ -2,7 +2,7 @@
  * Raw-zone storage for the ingest pipeline.
  *
  * UPSERTs upstream payloads verbatim into `raw_anitabi` / `raw_bangumi`
- * (`supabase/migrations/20260620230000_ingest_infrastructure.sql`):
+ * (`db/migrations/20260623000001_init.sql`):
  *   work_id (PK), payload JSONB, fetched_at.
  *
  * The raw zone is the replayable source of truth — it is written once per fetch
