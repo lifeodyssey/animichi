@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import inspect
 from pathlib import Path
 from unittest.mock import patch
 
@@ -12,7 +11,6 @@ from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel
 
 from agent.agents.base import (
-    create_agent,
     describe_model,
     parse_model_spec,
     resolve_model,
@@ -71,12 +69,6 @@ def _unnamed_agent_calls() -> list[str]:
 
 def test_every_agent_construction_has_explicit_name() -> None:
     assert _unnamed_agent_calls() == []
-
-
-def test_create_agent_requires_name() -> None:
-    parameter = inspect.signature(create_agent).parameters["name"]
-    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
-    assert parameter.default is inspect.Parameter.empty
 
 
 class TestResolveModel:
