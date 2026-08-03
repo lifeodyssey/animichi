@@ -36,7 +36,7 @@ jobs:
       #    This workflow always targets `environment: production`, and
       #    `wrangler.toml`'s `env.production.vars.ANON_ACCESS_ENABLED` is
       #    "false", so TURNSTILE_SECRET/ANON_ID_SECRET are genuinely inert
-      #    here today (worker/auth.ts:anonymousEnabled requires both the flag
+      #    here today (workers/edge/auth.ts:anonymousEnabled requires both the flag
       #    AND the secret) — read the live flag instead of assuming that stays
       #    true, so this doesn't quietly go stale if the flag ever flips. ──
       - name: Preflight - post-deploy secrets
@@ -69,7 +69,7 @@ jobs:
             value="${!name-}"
             if [ -z "$value" ]; then
               if [ "$anon_flag" = "true" ]; then
-                echo "::error::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, where ANON_ACCESS_ENABLED=\"true\" makes it load-bearing (worker/turnstile.ts fails CLOSED). Refusing to start the deploy without it. Set it with: gh secret set $name"
+                echo "::error::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, where ANON_ACCESS_ENABLED=\"true\" makes it load-bearing (workers/edge/turnstile.ts fails CLOSED). Refusing to start the deploy without it. Set it with: gh secret set $name"
                 missing=1
               else
                 echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, but ANON_ACCESS_ENABLED is not \"true\" there, so this environment's code path never reads it. Soft warning only; the post-deploy push step will skip it."

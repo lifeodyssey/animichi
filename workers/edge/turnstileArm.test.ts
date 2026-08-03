@@ -8,7 +8,7 @@ import { TURNSTILE_HEADER, type TurnstileGate, type TurnstileResult } from "./tu
 /**
  * Issue #447: the S1.9 gate (#436) is ARMED on the anonymous branch.
  *
- * `worker/turnstile.test.ts` pins the gate in isolation; this file pins the
+ * `turnstile.test.ts` pins the gate in isolation; this file pins the
  * composition — that an anonymous `/v1/chat` really is challenged, in the right
  * order relative to the 401 path, the rate limiter and the container.
  */

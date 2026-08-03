@@ -23,7 +23,7 @@ import toml from "../wrangler.toml?raw";
 // Not hypothetical. `catalog-staging.<account>.workers.dev` was answering
 // unauthenticated requests with real data.
 //
-// Do NOT cite worker/app.ts's "no /catalog/* route — catalog is private"
+// Do NOT cite workers/edge/app.ts's "no /catalog/* route — catalog is private"
 // comment as the authority here: seventeen lines below it the same file
 // registers `/catalog/public/anime-overview/:bangumiId`. The reachability
 // story is what this file asserts, not what any comment claims.

@@ -25,7 +25,7 @@ _CREATE_CONVERSATION_SQL = """
 _MIGRATE_OWNERSHIP_SQL = """
     UPDATE conversations SET user_id = $1, updated_at = now() WHERE user_id = $2
 """
-#: Anonymous identities always carry the `anon_` prefix (worker/auth.ts); the
+#: Anonymous identities always carry the `anon_` prefix (workers/edge/auth.ts); the
 #: escaped LIKE — not a `>=`/`<` range predicate — is the collation-safe match
 #: this partial scan relies on (paired with the `text_pattern_ops` index).
 _FIND_PURGEABLE_SQL = """

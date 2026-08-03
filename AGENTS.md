@@ -19,7 +19,7 @@ edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth
 - `workers/maintenance/` — Scheduled agent-domain Neon retention; no public route. → `workers/maintenance/AGENTS.md`
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
-- `worker/`            — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy. No page fallback — unmatched paths 404.
+- `workers/edge/`      — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy. No page fallback — unmatched paths 404.
 - `db/`                — Atlas/Neon migrations; Supabase migrations stay auth-only. → `db/AGENTS.md`
 - `e2e/`               — Playwright browser suite for `apps/web`. → `e2e/AGENTS.md`
 - `infra/`             — Pulumi Cloudflare IaC. → `infra/AGENTS.md`

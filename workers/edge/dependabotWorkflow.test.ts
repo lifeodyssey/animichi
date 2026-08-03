@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const WORKFLOW = readFileSync(`${ROOT}.github/workflows/dependabot-agent.yml`, "utf8");
 const PACKAGE_JSON = readFileSync(`${ROOT}package.json`, "utf8");
 const DEPLOY_WORKFLOWS = ["_deploy-component.yml", "deploy.yml"].map((name) =>

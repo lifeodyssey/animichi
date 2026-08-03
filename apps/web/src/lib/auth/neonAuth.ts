@@ -49,7 +49,7 @@ export async function sendMagicLink(request: MagicLinkRequest): Promise<MagicLin
 /**
  * Exchanges the Better Auth session cookie (set by the magic-link callback
  * on the Neon Auth origin) for an EdDSA JWT via Better Auth's `jwtClient`.
- * The edge worker (`worker/auth.ts`) verifies this token against the same JWKS.
+ * The edge worker (`workers/edge/auth.ts`) verifies this token against the same JWKS.
  */
 export async function fetchAuthToken(): Promise<string | undefined> {
   const base = baseUrl();

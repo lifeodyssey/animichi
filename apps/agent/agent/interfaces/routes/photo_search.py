@@ -236,7 +236,7 @@ async def _budget_rejection(
     # directly: a request carrying `X-User-Id` but no `X-User-Type` is an
     # identified caller, and a looser check here metered them into the anonymous
     # scope and could refuse them once the anon budget ran out. The edge sets
-    # both headers together (`worker/app.ts`), so this is defence in depth
+    # both headers together (`workers/edge/app.ts`), so this is defence in depth
     # rather than a reachable path — but the same concept having two different
     # answers in the codebase is how it stops being one.
     if auth.user_id is not None and not is_anonymous_identity(

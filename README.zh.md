@@ -132,7 +132,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 - `workers/catalog/` — 动漫圣地目录 REST API 的 Cloudflare Worker（TypeScript）
 - `packages/contract/` — catalog 与 agent 之间共享的 oRPC contract 类型
 - `apps/web/` — TanStack Start SSR Web 应用与 UI 组件
-- `worker/` — Cloudflare Worker 入口，负责认证与请求路由
+- `workers/edge/` — Cloudflare Worker 入口，负责认证与请求路由
 - `db/migrations/` — Neon 数据面的 Atlas 迁移与生成的 checksum
 - `supabase/` — auth/旧版兼容迁移与 Supabase 项目资产
 - `docs/` — 架构文档、运维文档、迭代资料与实现计划
