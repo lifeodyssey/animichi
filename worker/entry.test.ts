@@ -249,6 +249,16 @@ void test("an unset ANON_DAILY_MESSAGE_QUOTA is simply absent, not forwarded as 
   assert.equal("ANON_DAILY_MESSAGE_QUOTA" in envVars, false);
 });
 
+void test("photo-search quota settings reach the container", () => {
+  const envVars = buildContainerEnvVars({
+    ...requiredEnv(),
+    PHOTO_SEARCH_QUOTA_ANON: "3",
+    PHOTO_SEARCH_QUOTA_MEMBER: "8",
+  });
+  assert.equal(envVars.PHOTO_SEARCH_QUOTA_ANON, "3");
+  assert.equal(envVars.PHOTO_SEARCH_QUOTA_MEMBER, "8");
+});
+
 // #284 Task 7 (PR #478 review): `entry.ts` imports `Container` from
 // `@cloudflare/containers`, whose ESM build only resolves under workerd's
 // module loader (see `containerEnv.ts`'s header comment) — so this cannot be a

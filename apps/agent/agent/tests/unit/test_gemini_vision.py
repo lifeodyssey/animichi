@@ -78,6 +78,7 @@ class _StubAsyncClient:
     ) -> httpx.Response:
         text = {"image_count": 1, "candidate_titles": ["リズと青い鳥"]}
         body = {
+            "usageMetadata": {"promptTokenCount": 12, "candidatesTokenCount": 7},
             "candidates": [
                 {
                     "content": {
@@ -86,7 +87,7 @@ class _StubAsyncClient:
                         ]
                     }
                 }
-            ]
+            ],
         }
         request = httpx.Request("POST", url)
         return httpx.Response(200, json=body, request=request)
@@ -98,6 +99,9 @@ async def test_recognize_posts_and_parses(monkeypatch: pytest.MonkeyPatch) -> No
     recognition = await provider.recognize([b"\xff\xd8\xff"], "ja")
     assert recognition.reported_image_count == 1
     assert recognition.candidate_titles == ["リズと青い鳥"]
+    assert recognition.usage is not None
+    assert recognition.usage.input_tokens == 12
+    assert recognition.usage.output_tokens == 7
 
 
 async def test_recognize_with_empty_key_fails_fast_without_a_network_call(
