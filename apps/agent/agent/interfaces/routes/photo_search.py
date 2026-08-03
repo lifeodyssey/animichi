@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from agent.interfaces.routes.chat import BUDGET_EXHAUSTED_MESSAGE
 from agent.agents.photo_search import (
     GpsPoint,
     PhotoSearchResponse,
@@ -251,7 +252,13 @@ async def _budget_rejection(
         return None
     return JSONResponse(
         status_code=403,
-        content={"error": {"code": ANON_BUDGET_EXHAUSTED_CODE, "action": "login"}},
+        content={
+            "error": {
+                "code": ANON_BUDGET_EXHAUSTED_CODE,
+                "message": BUDGET_EXHAUSTED_MESSAGE,
+                "action": "login",
+            }
+        },
     )
 
 
