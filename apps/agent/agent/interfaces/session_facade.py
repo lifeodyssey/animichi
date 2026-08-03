@@ -6,21 +6,15 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import cast
 
-import httpx
 import structlog
 from pydantic import ValidationError
 
 from agent.agents.agent_result import AgentResult
-from agent.agents.base import create_agent, get_default_model
 from agent.agents.session_state import SessionState
-from agent.domain.ports import get_session_repo
-from agent.infrastructure.session import SessionStore
 from agent.interfaces.schemas import PublicAPIRequest
 
 logger = structlog.get_logger(__name__)
 
-COMPACT_THRESHOLD = 8
-COMPACT_KEEP_RECENT = 2
 MAX_INTERACTIONS = 20
 MAX_ROUTE_HISTORY = 10
 
@@ -204,132 +198,6 @@ def extract_context_delta(result: AgentResult) -> dict[str, object]:
     runs over `result.steps` before this (CQS; see `public_api.py`).
     """
     return {"session_state_v2": _serialize_runtime_state(result.session_state)}
-
-
-async def compact_session_interactions(
-    session_id: str,
-    session_state: dict[str, object],
-    session_store: SessionStore,
-    *,
-    http_client: httpx.AsyncClient,
-) -> None:
-    """Compress old interaction prose while retaining recent typed deltas."""
-    current = await _current_storage_state(session_id, session_state, session_store)
-    interactions = _list(current.get("interactions"))
-    if len(interactions) < COMPACT_THRESHOLD:
-        return
-    compacted = interactions[:-COMPACT_KEEP_RECENT]
-    summary = await _summarize(
-        compacted,
-        as_str_or_none(current.get("summary")),
-        http_client=http_client,
-    )
-    if summary is None:
-        return
-    updated = {
-        **current,
-        "interactions": interactions[-COMPACT_KEEP_RECENT:],
-        "summary": summary[:300],
-        "updated_at": datetime.now(UTC).isoformat(),
-    }
-    await _save_compaction(session_id, updated, session_store)
-
-
-async def _current_storage_state(
-    session_id: str, fallback: dict[str, object], store: SessionStore
-) -> dict[str, object]:
-    latest = await store.get(session_id)
-    return normalize_session_state(latest if latest is not None else fallback)
-
-
-async def _summarize(
-    entries: list[object],
-    previous: str | None,
-    *,
-    http_client: httpx.AsyncClient,
-) -> str | None:
-    lines = ["Merge these interaction notes into a concise session summary:"]
-    if previous:
-        lines.insert(0, f"Existing summary: {previous}")
-    lines.extend(_summary_line(entry) for entry in entries)
-    agent = create_agent(
-        get_default_model(http_client=http_client),
-        name="session_compactor",
-        system_prompt="Summarize the session in 1-2 sentences in its language.",
-        tool_retries=1,
-    )
-    try:
-        result = await agent.run("\n".join(lines))
-    except (OSError, RuntimeError, ValueError):
-        logger.warning("compact_llm_failed")
-        return None
-    return as_str_or_none(getattr(result, "output", None))
-
-
-def _summary_line(entry: object) -> str:
-    if not isinstance(entry, dict):
-        return f"- [unknown] {str(entry).strip()[:120]}"
-    return f"- [{entry.get('intent') or 'unknown'}] {str(entry.get('text') or '').strip()[:120]}"
-
-
-async def _save_compaction(
-    session_id: str, state: dict[str, object], store: SessionStore
-) -> None:
-    try:
-        await store.set(session_id, state)
-    except (OSError, RuntimeError):
-        logger.warning("compact_write_failed", session_id=session_id)
-
-
-async def generate_and_save_title(
-    *,
-    session_id: str,
-    first_query: str,
-    response_message: str,
-    db: object,
-    user_id: str | None = None,
-    http_client: httpx.AsyncClient,
-) -> str:
-    """Generate, persist, and return a compact conversation title."""
-    title = await _generate_title(
-        session_id,
-        first_query,
-        response_message,
-        http_client=http_client,
-    )
-    repository = get_session_repo(db)
-    if repository is None:
-        return title
-    try:
-        await repository.update_conversation_title(session_id, title, user_id=user_id)
-    except TypeError:
-        await repository.update_conversation_title(session_id, title)
-    except (OSError, RuntimeError):
-        logger.warning("update_conversation_title_failed", session_id=session_id)
-    return title
-
-
-async def _generate_title(
-    session_id: str,
-    query: str,
-    response: str,
-    *,
-    http_client: httpx.AsyncClient,
-) -> str:
-    fallback = query.strip()[:20] or query[:20]
-    agent = create_agent(
-        get_default_model(http_client=http_client),
-        name="conversation_title",
-        system_prompt="Generate a <=15 character title in the query language. Output only it.",
-        tool_retries=1,
-    )
-    try:
-        result = await agent.run(f"Query: {query}\nResponse summary: {response[:200]}")
-    except (OSError, RuntimeError, ValueError):
-        logger.warning("conversation_title_generation_failed", session_id=session_id)
-        return fallback
-    candidate = as_str_or_none(result.output)
-    return candidate[:20] if candidate else fallback
 
 
 def as_str_or_none(value: object) -> str | None:
