@@ -71,7 +71,13 @@ test("the anonymous budget breaker guides the visitor to login instead of failin
     route.fulfill({
       status: 403,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ error: { code: "anon_budget_exhausted", action: "login" } }),
+      body: JSON.stringify({
+        error: {
+          code: "anon_budget_exhausted",
+          message: "今日はここまで。ログインすると続きから一緒に旅の計画を立てられるよ。",
+          action: "login",
+        },
+      }),
     }),
   );
   await openChat(page);
@@ -145,7 +151,12 @@ test("an exhausted daily quota locks sending but keeps the visitor's typed text"
       status: 403,
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        error: { code: "anon_quota_exhausted", action: "login", data: { quota_resets_at: resetsAt } },
+        error: {
+          code: "anon_quota_exhausted",
+          message: "今日はここまで・ログインすると続けられるよ。",
+          action: "login",
+          data: { quota_resets_at: resetsAt },
+        },
       }),
     }),
   );
