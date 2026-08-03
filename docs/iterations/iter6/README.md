@@ -14,3 +14,9 @@ Milestone:iter6 — cleanup campaign(#635-#655 + #665 + #666)
 
 方法论授权(owner):两侧统一 TDD / DDD(战略层)/ SOLID / OOP / Clean Architecture;
 战术 DDD 不在授权内;依赖规则一律机器守卫。
+
+## 决议与调研档案
+
+- [decisions-2026-08-03.md](./decisions-2026-08-03.md) — 全域决议册(方法论/secrets/DB/CI-CD/网络/CF-native)
+- [spec-infra-governance.md](./spec-infra-governance.md) — infra 治理 spec(#674,8 卡)
+- [audit-cf-native-v2.md](./audit-cf-native-v2.md) — CF 全目录对照审计
