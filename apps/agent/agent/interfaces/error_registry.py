@@ -121,12 +121,24 @@ def internal_error_response() -> PublicAPIResponse:
     )
 
 
+# Which status wins when one response carries several error codes. Caller-
+# fixable problems outrank server faults so the actionable one surfaces, and 504
+# outranks the 500 family because a timeout is the more specific diagnosis.
+# Declared here rather than inferred from registry iteration order, so
+# reordering the registry cannot silently change API status behaviour.
+_STATUS_PRECEDENCE: tuple[int, ...] = (400, 401, 403, 404, 409, 429, 504, 500)
+
+
 def http_status_for_error_codes(codes: Iterable[str]) -> int:
     values = set(codes)
-    for code, spec in ERROR_RESPONSE_REGISTRY.items():
-        if str(code) in values:
-            return spec.http_status
-    return ERROR_RESPONSE_REGISTRY[ErrorCode.INTERNAL_ERROR].http_status
+    matched = {
+        spec.http_status
+        for code, spec in ERROR_RESPONSE_REGISTRY.items()
+        if str(code) in values
+    }
+    if not matched:
+        return ERROR_RESPONSE_REGISTRY[ErrorCode.INTERNAL_ERROR].http_status
+    return min(matched, key=_STATUS_PRECEDENCE.index)
 
 
 def error_code_for_http_status(status_code: int) -> str:
