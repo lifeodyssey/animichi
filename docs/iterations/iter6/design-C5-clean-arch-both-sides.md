@@ -60,7 +60,7 @@ users 侧对应规则:`src/index.ts`/`src/router.ts` 禁 `./db/*` 值引之外�
 - **P0(先行快照,TDD 前置)**:为 `handle()` 六条路径(模型轮/点选/候选选/timeout/provider_error/byok 拒绝)落 characterization test——fake model + C4 窄 Protocol double,断言 `PublicAPIResponse.model_dump()` 全字段快照 + repo 调用记录。迁移期间此套件一行不许改(变异验证:任一用例体注释掉须变红)。
 - **P1**:usage_metering/anon_quota/persistence/session_facade/response_builder/schemas 整文件迁 `application/`,纯 mv+import 改写,`make check` 前后各跑。**与 C4-B2 撞文件(persistence/session_facade),必须排在 C4-B2 之后**。
 - **P2**:public_api.py 拆用例(§1 表),RuntimeAPI 退役为 routes/_deps 组合根装配;SessionStore/MemoryStore 港口化。排 C4-B3 之后(同文件)。
-- **P3**:import-linter 上 CI(P1 后违例即 0-2,ignore 清单只留 eval tools 两条并开 issue 销账)。
+- **P3**:import-linter 上 CI。ignore 清单分两类,别混:**常设 sanctioned 豁免**(组合根 fastapi_service/routes._deps 两条 + observability/egress 横切面两条,§1 契约里的 4 条——是架构决定,长期保留)与**债务豁免**(eval tools 两条,开 issue 销账,销完清零)。P1 后债务违例即 0-2,P3 完成时 ignore 清单 = 常设 4 条 + 债务 ≤2 条。
 - **T1(TS,与 P* 全程可并行)**:users `lib/rows.ts` 抽取(先给 toUserRoute 快照测试:draft/null saved_at/Date 与 string 双形态)→ catalog ingest 门面 + 2 处真违例改线 → oxlint 规则落 .oxlintrc.json。
 
 ## 4. 明确不做(及理由)
