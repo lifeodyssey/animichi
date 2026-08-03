@@ -9,7 +9,7 @@
 **目标态**:ESC 为唯一真源,GH env 只留 bootstrap 凭证。结构(层叠继承,官方 best practice"base → provider → stack"):
 
 ```text
-animichi/base            # 非密 config + 共享名(ANITABI_API_URL 等)
+animichi/base            # 非密 config + 共享名(CORS_ALLOWED_ORIGIN 等)
 animichi/cloudflare      # CF 三 token(§2)+ ACCOUNT_ID
 animichi/staging         # imports: base, cloudflare; env 专值+secret
 animichi/prod            # 同上; PULUMI_CONFIG_PASSPHRASE 保留(state 留 R2,见下勘误)

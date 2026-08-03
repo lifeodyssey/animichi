@@ -26,7 +26,6 @@ Cloudflare Edge (Worker: worker/worker.js)
        ▼
      RuntimeContainer (Durable Object → Python FastAPI on port 8080)
        ├─ Supabase Postgres (SUPABASE_DB_URL)
-       ├─ Anitabi API (ANITABI_API_URL)
        └─ Gemini model provider (GEMINI_API_KEY)
 ```
 
@@ -50,7 +49,6 @@ On success the Worker sets `X-User-Id` and `X-User-Type`, deletes the `Authoriza
 | `NEON_AUTH_ENABLED` / `NEON_AUTH_JWKS_URL` / `NEON_AUTH_ISSUER` | Worker-only (optional) | Dual-issuer readiness — Neon Auth EdDSA JWKS verification; absent or `false` ⇒ Neon path off (default) |
 | `SUPABASE_DB_URL` | Container-only | Direct Postgres connection for asyncpg |
 | `GEMINI_API_KEY` | Container-only | Platform vision provider credential for photo-search (`GeminiVisionProvider`, always mounted) — an empty key means every photo-search request silently degrades to a clarify miss (#502), not a hard boot failure |
-| `ANITABI_API_URL` | Container-only | Pilgrimage data API |
 | `CORS_ALLOWED_ORIGIN` | Container-only | Backend CORS allowlist |
 | `GOOGLE_MAPS_API_KEY` | Container-only (optional) | Geocoding |
 | `LOGFIRE_TOKEN` | Container-only (optional) | Observability |
