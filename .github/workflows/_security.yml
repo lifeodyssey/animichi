@@ -189,6 +189,10 @@ jobs:
     timeout-minutes: 15
     name: Semgrep (SAST)
     runs-on: ubuntu-latest
+    env:
+      # Semgrep ships wheels, so --no-build is safe here (unlike apps/agent's
+      # own editable package — see the uv sync comments elsewhere in this file).
+      SEMGREP_VERSION: "1.172.0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -197,10 +201,10 @@ jobs:
         with:
           python: "true"
       - name: Install Semgrep
-        run: uv tool install semgrep
+        run: uv tool install --no-build "semgrep==$SEMGREP_VERSION"
         shell: bash
       - name: Run Semgrep
-        run: uv tool run semgrep --config p/python --config p/typescript --config p/javascript --error .
+        run: uv tool run --no-build semgrep --config p/python --config p/typescript --config p/javascript --error .
         shell: bash
 
   # ── SQL migration lint ───────────────────────────────────────
@@ -219,10 +223,12 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           python: "true"
-      - run: uv sync --all-extras
+      # --no-build rejected: this project's own editable package has no wheel
+      # (see purge-anonymous-sessions.yml's NOTE and _python-ci.yml).
+      - run: uv sync --frozen --all-extras
       # .sqlfluff config lives at repo root; lint the schema dirs we own.
       - name: Lint migrations (postgres dialect)
-        run: uv run sqlfluff lint ../../db/migrations ../../supabase/neon --dialect postgres
+        run: uv run --frozen sqlfluff lint ../../db/migrations ../../supabase/neon --dialect postgres
 
   # ── Deploy-gate script tests ─────────────────────────────────
 

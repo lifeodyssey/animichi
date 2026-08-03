@@ -39,7 +39,12 @@ jobs:
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
-      - run: uv sync --all-extras
+      # --no-build is deliberately not added here: this project's own editable
+      # package has no wheel, so a blanket --no-build refuses to install it
+      # ("marked as --no-build but has no binary distribution", verified
+      # locally against the pinned uv). See purge-anonymous-sessions.yml's
+      # NOTE (review round 2) for the same finding on the same project.
+      - run: uv sync --frozen --all-extras
 
       - name: Ruff lint
         uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
@@ -48,13 +53,13 @@ jobs:
           working-directory: apps/${{ inputs.app }}
 
       - name: Ruff format check
-        run: uv run ruff format --check agent/
+        run: uv run --frozen ruff format --check agent/
 
       - name: Type check (mypy strict)
         run: uv run --frozen mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ agent/scripts/purge_anonymous_sessions.py
 
       - name: Dead code (vulture)
-        run: uv run vulture agent/ vulture_whitelist.py
+        run: uv run --frozen vulture agent/ vulture_whitelist.py
 
       - name: Dependency audit (pip-audit)
         uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
@@ -68,7 +73,7 @@ jobs:
       # The two gates disagreed silently, and the ratchet rule was paper-only.
       # The floor now lives in exactly one place: apps/agent/pytest.ini.
       - name: Unit tests (coverage floor from apps/agent/pytest.ini)
-        run: uv run pytest agent/tests/unit/ -v --cov --cov-report=xml
+        run: uv run --frozen pytest agent/tests/unit/ -v --cov --cov-report=xml
 
       - name: Upload coverage
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
