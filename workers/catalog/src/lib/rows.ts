@@ -11,9 +11,16 @@ export function nullableString(row: Record<string, unknown>, key: string): strin
   return value;
 }
 
+function coerceFiniteNumber(raw: unknown): number | null {
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+  if (typeof raw !== "string" || raw.trim() === "") return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
 export function requiredNumber(row: Record<string, unknown>, key: string): number {
-  const value = Number(row[key]);
-  if (!Number.isFinite(value)) throw new Error(`Catalog row ${key} is not numeric`);
+  const value = coerceFiniteNumber(row[key]);
+  if (value === null) throw new Error(`Catalog row ${key} is not numeric`);
   return value;
 }
 
