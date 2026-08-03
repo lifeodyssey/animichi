@@ -24,13 +24,20 @@ const fulfillSpritePng = (route: Route) => route.fulfill({
   status: 200,
 });
 
-const fulfillEmptyGlyphs = (route: Route) => route.fulfill({ body: Buffer.alloc(0), status: 204 });
+const fulfillEmptyAsset = (route: Route) => route.fulfill({ status: 204 });
 
 export const routeRenderedMap = async (page: Page): Promise<void> => {
   await page.route("**/tiles/**/*.mvt", fulfillEarthTile);
   await page.route("**/tiles/sprites/v4/light*.json", fulfillSpriteJson);
   await page.route("**/tiles/sprites/v4/light*.png", fulfillSpritePng);
-  await page.route("**/tiles/fonts/**/*.pbf", fulfillEmptyGlyphs);
+  await page.route("**/tiles/fonts/**/*.pbf", fulfillEmptyAsset);
+};
+
+export const routeEmptyMap = async (page: Page): Promise<void> => {
+  await page.route("**/tiles/**/*.mvt", fulfillEmptyAsset);
+  await page.route("**/tiles/sprites/v4/light*.json", fulfillSpriteJson);
+  await page.route("**/tiles/sprites/v4/light*.png", fulfillSpritePng);
+  await page.route("**/tiles/fonts/**/*.pbf", fulfillEmptyAsset);
 };
 
 export interface MapFrame {
