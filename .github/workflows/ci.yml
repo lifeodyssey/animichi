@@ -361,6 +361,8 @@ jobs:
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
+      # --no-build rejected: this project's own editable package has no wheel
+      # (see purge-anonymous-sessions.yml's NOTE and _python-ci.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Run L0 smoke trajectory eval (zero-errored + direct gates)
@@ -416,7 +418,9 @@ jobs:
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
-      - run: uv sync --all-extras
+      # --no-build rejected: this project's own editable package has no wheel
+      # (see purge-anonymous-sessions.yml's NOTE and _python-ci.yml).
+      - run: uv sync --frozen --all-extras
 
       - name: Install pinned Atlas CLI
         shell: bash
@@ -434,7 +438,7 @@ jobs:
       - name: Run Neon integration tests
         env:
           TEST_DB: neon
-        run: uv run pytest agent/tests/integration -q --no-cov
+        run: uv run --frozen pytest agent/tests/integration -q --no-cov
 
   catalog-spikes:
     timeout-minutes: 30
