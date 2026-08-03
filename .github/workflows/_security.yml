@@ -87,10 +87,28 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: zizmorcore/zizmor-action@6fc4b006235f201fdab3722e17240ab420d580e5 # v0.6.1
+      # zizmor's online audits (impostor-commit) resolve every third-party action
+      # ref against the GitHub API, which makes our CI availability a function of
+      # theirs — four red runs on 2026-08-03 were all upstream 502s, none of them
+      # our code. zizmor >=0.10 caches those lookups persistently, but the
+      # official zizmor-action runs zizmor inside a Docker container whose HOME
+      # is unrelated to the runner's, so a host-side actions/cache mount is
+      # invisible to it — and it exposes no --cache-dir passthrough. Calling the
+      # version-pinned CLI directly is the only way to get a warm cache.
+      # Cache key is content-based:
+      # any workflow edit re-audits, an unchanged tree reuses yesterday's answers.
+      - name: Restore zizmor audit cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          # Lint the whole workflow tree; do not upload SARIF (no code scanning).
-          advanced-security: false
+          path: ~/.cache/zizmor
+          key: zizmor-${{ runner.os }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
+          restore-keys: zizmor-${{ runner.os }}-
+      - name: Install zizmor
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v7.1.1
+      - name: Audit workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uvx zizmor@1.5.2 --cache-dir ~/.cache/zizmor .
 
   actionlint:
     name: actionlint (GHA semantics)
