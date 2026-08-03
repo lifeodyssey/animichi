@@ -1,7 +1,7 @@
 # Deployment
 
 This is the canonical deployment runbook for the current runtime.
-The root `DEPLOYMENT.md` file remains as a compatibility pointer for older links.
+The old root `DEPLOYMENT.md` compatibility pointer was removed in iter6 A6 (#640); this file is the only deployment runbook.
 
 This file covers non-secret runtime config. For what each GitHub secret is, who consumes it,
 and rotation impact, see [`secrets.md`](./secrets.md).
