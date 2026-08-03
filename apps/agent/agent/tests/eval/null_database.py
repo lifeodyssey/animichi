@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import NoReturn
 
-from agent.domain.ports import BangumiRepo, DatabasePort, PointsRepo
+from agent.domain.ports import BangumiRepo, CatalogLookup, PointsRepo
 
 _DB_FREE_MESSAGE = "trajectory tier is DB-free — unexpected DB access"
 
@@ -63,7 +63,7 @@ _POINTS_REPO: PointsRepo = _NullPointsRepo()
 
 
 class NullDatabase:
-    """DatabasePort implementation for trajectory evals that must not hit DB."""
+    """CatalogLookup implementation for trajectory evals that must not hit DB."""
 
     @property
     def bangumi(self) -> BangumiRepo:
@@ -74,4 +74,4 @@ class NullDatabase:
         return _POINTS_REPO
 
 
-_NULL_DATABASE: DatabasePort = NullDatabase()
+_NULL_DATABASE: CatalogLookup = NullDatabase()

@@ -59,13 +59,21 @@ from agent.application.errors import ApplicationError, ErrorCode
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from agent.config.settings import Settings, get_settings
 from agent.domain.fact_ledger import record_turn_facts
-from agent.domain.ports import DatabasePort, get_session_repo
+from agent.domain.ports import CatalogLookup, UsageMeter
 from agent.infrastructure.memory import postgres_memory_store
 from agent.infrastructure.observability import (
     record_runtime_request,
     runtime_span,
 )
 from agent.infrastructure.session import SessionStore, create_session_store
+from agent.interfaces.db_repos import (
+    bangumi_repo,
+    messages_repo,
+    request_audit_repo,
+    routes_repo,
+    session_repo,
+    usage_repo,
+)
 from agent.interfaces.error_registry import (
     internal_error_response,
     public_error_response,
@@ -200,6 +208,15 @@ class RuntimeAPI:
         self._settings = settings or get_settings()
         self._model_http_client = model_http_client
         self._memory_store = memory_store
+        # Iter6 C4: resolved once here instead of reflected on every call.
+        # Each is `None` when *db* does not expose that repo — never probed
+        # again downstream (see `agent.interfaces.db_repos`).
+        self._session_repo = session_repo(db)
+        self._bangumi_repo = bangumi_repo(db)
+        self._routes_repo = routes_repo(db)
+        self._usage_repo = usage_repo(db)
+        self._messages_repo = messages_repo(db)
+        self._request_audit_repo = request_audit_repo(db)
 
     def bind_model_http_client(self, client: httpx.AsyncClient) -> None:
         """Bind the client owned by the surrounding application lifespan."""
@@ -216,10 +233,8 @@ class RuntimeAPI:
         """Hide sessions that are not owned by the authenticated user."""
         if session_id is None or user_id is None:
             return
-        session_repo = get_session_repo(self._db)
-        if session_repo is None or not await session_repo.check_session_owner(
-            session_id, user_id
-        ):
+        repo = self._session_repo
+        if repo is None or not await repo.check_session_owner(session_id, user_id):
             raise HTTPException(status_code=404, detail="Conversation not found.")
 
     async def handle(
@@ -271,7 +286,10 @@ class RuntimeAPI:
                     user_message_persisted,
                     generated_title,
                 ) = await persist_result(
-                    db=self._db,
+                    session_repo=self._session_repo,
+                    routes_repo=self._routes_repo,
+                    bangumi_repo=self._bangumi_repo,
+                    messages_repo=self._messages_repo,
                     session_store=self._session_store,
                     session_id=session_id,
                     request=request,
@@ -346,7 +364,7 @@ class RuntimeAPI:
             return
         for item in _attributed_usage(result, is_byok):
             await _record_attributed_usage(
-                self._db, item, user_id, user_type, self._usage_prices()
+                self._usage_repo, item, user_id, user_type, self._usage_prices()
             )
 
     async def _prepare_session(
@@ -358,7 +376,9 @@ class RuntimeAPI:
             return session_id, False
         session_id = uuid4().hex
         state = normalize_session_state(None)
-        await create_owned_session(self._db, session_id, user_id, request.text, state)
+        await create_owned_session(
+            self._session_repo, session_id, user_id, request.text, state
+        )
         return session_id, True
 
     async def _load_session(
@@ -563,7 +583,16 @@ class RuntimeAPI:
         result = await asyncio.wait_for(
             run_animichi_agent(
                 text=request.text,
-                db=cast(DatabasePort, self._db),
+                # Iter6 C4 design note: replacing this cast with an
+                # `isinstance(self._db, CatalogLookup)` guard changes
+                # behavior for tests that patch `run_animichi_agent` itself
+                # (the db value is then never dereferenced) — see the C4 PR
+                # description for the flagged contradiction with the
+                # behavior-equivalence constraint. Kept as the one
+                # deliberately-retained cast; every other DatabasePort/
+                # CatalogLookup cast and getattr accessor in this module is
+                # gone.
+                db=cast(CatalogLookup, self._db),
                 model=model,
                 locale=request.locale,
                 context=context,
@@ -626,7 +655,7 @@ class RuntimeAPI:
         if not user_message_persisted and session_id and request.text:
             try:
                 await persist_messages(
-                    db=self._db,
+                    messages_repo=self._messages_repo,
                     session_id=session_id,
                     user_text=request.text,
                     result=None,
@@ -642,12 +671,11 @@ class RuntimeAPI:
                     session_id=session_id,
                 )
 
-        insert_request_log = getattr(self._db, "insert_request_log", None)
-        if insert_request_log is None:
+        if self._request_audit_repo is None:
             return
 
         try:
-            await insert_request_log(
+            await self._request_audit_repo.insert_request_log(
                 session_id=session_id,
                 query_text=request.text,
                 locale=request.locale,
@@ -778,7 +806,7 @@ def _attributed_usage(result: AgentResult, is_byok: bool) -> list[AttributedUsag
 
 
 async def _record_attributed_usage(
-    db: object,
+    usage_repo: UsageMeter | None,
     item: AttributedUsage,
     user_id: str | None,
     user_type: str | None,
@@ -786,17 +814,19 @@ async def _record_attributed_usage(
 ) -> None:
     scope = scope_for_identity(user_id, user_type, is_byok=item.payer == "byok")
     prices = platform_prices if item.payer == "platform" else UsagePrices(0.0, 0.0)
-    await record_turn_usage(db, usage=item.usage, scope=scope, prices=prices)
+    await record_turn_usage(usage_repo, usage=item.usage, scope=scope, prices=prices)
 
 
 async def record_attributed_usage(
-    db: object,
+    usage_repo: UsageMeter | None,
     item: AttributedUsage,
     user_id: str | None,
     user_type: str | None,
     platform_prices: UsagePrices,
 ) -> None:
-    await _record_attributed_usage(db, item, user_id, user_type, platform_prices)
+    await _record_attributed_usage(
+        usage_repo, item, user_id, user_type, platform_prices
+    )
 
 
 def _set_span_request_attrs(

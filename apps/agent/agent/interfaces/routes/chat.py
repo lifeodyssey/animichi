@@ -23,6 +23,7 @@ from agent.interfaces.anon_quota import (
     QUOTA_RESETS_AT_FIELD,
     anonymous_quota_verdict,
 )
+from agent.interfaces.db_repos import anon_quota_repo, usage_repo
 from agent.interfaces.public_api import RuntimeAPI
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
@@ -125,7 +126,7 @@ async def _budget_rejection(
         return None
     settings = _get_settings_from_request(request)
     verdict = await anonymous_budget_verdict(
-        _get_db_from_request(request),
+        usage_repo(_get_db_from_request(request)),
         budget_usd=settings.anon_daily_cost_budget_usd,
     )
     return _budget_exhausted_response() if verdict.exhausted else None
@@ -159,7 +160,7 @@ async def _quota_rejection(
         return None
     settings = _get_settings_from_request(request)
     verdict = await anonymous_quota_verdict(
-        _get_db_from_request(request),
+        anon_quota_repo(_get_db_from_request(request)),
         anon_id=auth.user_id,
         quota=settings.anon_daily_message_quota,
     )

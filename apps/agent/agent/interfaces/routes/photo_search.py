@@ -43,6 +43,7 @@ from agent.infrastructure.observability.photo_search import (
     QuotaKey,
     record_photo_search,
 )
+from agent.interfaces.db_repos import usage_repo
 from agent.interfaces.public_api import record_attributed_usage
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
@@ -245,7 +246,7 @@ async def _budget_rejection(
         return None
     settings = _get_settings_from_request(request)
     verdict = await anonymous_budget_verdict(
-        request.app.state.db_client,
+        usage_repo(request.app.state.db_client),
         budget_usd=settings.anon_daily_cost_budget_usd,
     )
     if not verdict.exhausted:
@@ -347,7 +348,7 @@ async def _run_pipeline(
     if outcome.usage is not None:
         settings = _get_settings_from_request(request)
         await record_attributed_usage(
-            request.app.state.db_client,
+            usage_repo(request.app.state.db_client),
             outcome.usage,
             auth.user_id,
             _scope_user_type(auth),
