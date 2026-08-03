@@ -40,6 +40,10 @@ export const routeEmptyMap = async (page: Page): Promise<void> => {
   await page.route("**/tiles/fonts/**/*.pbf", fulfillEmptyAsset);
 };
 
+export const routeTileOutage = async (page: Page, status: 404 | 500): Promise<void> => {
+  await page.route("**/tiles/**", (route) => route.fulfill({ body: "tile outage", status }));
+};
+
 export interface MapFrame {
   readonly backgroundPixels: number;
   readonly earthPixels: number;

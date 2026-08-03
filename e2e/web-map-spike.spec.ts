@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { readMapFrame, routeEmptyMap, routeRenderedMap } from "./fixtures/map-spike";
+import { readMapFrame, routeEmptyMap, routeRenderedMap, routeTileOutage } from "./fixtures/map-spike";
 
 const FIRST_TILE_BUDGET_MS = 3_000;
 const PROFILE = {
@@ -59,4 +59,33 @@ test("out-of-bounds 204 tiles paint only the plain background", async ({ page })
   expect(frame.backgroundPixels).toBe(frame.sampledPixels);
   expect(frame.earthPixels).toBe(0);
   console.info(`[map-spike] out-of-bounds-background elapsed_ms=${elapsedMs.toFixed(1)}`);
+});
+
+async function expectIllustrationFallback(page: Page, status: 404 | 500): Promise<void> {
+  await routeTileOutage(page, status);
+  const failedAsset = page.waitForResponse((response) => response.url().includes("/tiles/"));
+  const startedAt = performance.now();
+  await page.goto("/map-spike?source=worker", { waitUntil: "commit" });
+  const response = await failedAsset;
+  const stage = page.locator(".map-spike__stage");
+  await expect(stage).toHaveAttribute("data-status", "fallback");
+  const elapsedMs = performance.now() - startedAt;
+  const illustration = stage.getByRole("img", { name: "宇治エリアの巡礼ルート図" });
+  await expect(illustration).toBeVisible();
+  await expect(illustration.locator("polyline")).toHaveCount(1);
+  await expect(illustration.locator("circle")).toHaveCount(5);
+  await expect(stage.locator(".maplibregl-canvas")).toHaveCount(0);
+  const box = await illustration.boundingBox();
+  expect(box?.width ?? 0).toBeGreaterThan(300);
+  expect(box?.height ?? 0).toBeGreaterThan(200);
+  expect(response.status()).toBe(status);
+  console.info(`[map-spike] tile-outage-${status.toString()} elapsed_ms=${elapsedMs.toFixed(1)}`);
+}
+
+test("404 tile outage visibly renders IllustrationBasemap", async ({ page }) => {
+  await expectIllustrationFallback(page, 404);
+});
+
+test("500 tile outage visibly renders IllustrationBasemap", async ({ page }) => {
+  await expectIllustrationFallback(page, 500);
 });
