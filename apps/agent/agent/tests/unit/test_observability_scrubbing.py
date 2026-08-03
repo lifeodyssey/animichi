@@ -16,7 +16,7 @@ from agent.interfaces.routes._deps import (
 
 
 class _NoOpSafeKeys(set[str]):
-    def difference_update(self, *others: object) -> None:
+    def difference_update(self, *_ignored: object) -> None:
         return None
 
 
