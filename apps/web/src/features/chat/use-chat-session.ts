@@ -1,11 +1,12 @@
 import { Chat, useChat } from "@ai-sdk/react";
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { ChatResponseDataPart } from "@animichi/contract";
+import { AnonLimitErrorEnvelope, ChatResponseDataPart, readQuotaResetsAt } from "@animichi/contract";
 import type { ChatDataPart } from "@animichi/contract";
 import { DefaultChatTransport, generateId } from "ai";
 import type { UIMessage } from "ai";
 import { useCallback, useRef } from "react";
 import type { RefObject } from "react";
+import { z } from "zod";
 import type { SelectedPointsBody } from "../../lib/chat/selectedPointsBypass";
 import { sessionHeaders } from "./session-headers";
 
@@ -88,38 +89,21 @@ interface RejectionDetail {
 
 const NO_REJECTION: RejectionDetail = { code: undefined, quotaResetsAt: undefined };
 
-function errorObjectOf(body: unknown): Record<string, unknown> | undefined {
-  if (typeof body !== "object" || body === null) return undefined;
-  const error: unknown = (body as { error?: unknown }).error;
-  if (typeof error !== "object" || error === null) return undefined;
-  return error as Record<string, unknown>;
-}
-
-function stringField(source: Record<string, unknown> | undefined, key: string): string | undefined {
-  const value: unknown = source?.[key];
-  return typeof value === "string" ? value : undefined;
-}
-
-function rejectionOf(body: unknown): RejectionDetail {
-  const error = errorObjectOf(body);
-  if (error === undefined) return NO_REJECTION;
-  const data = errorObjectOf({ error: error.data }) ?? error;
-  return { code: stringField(error, "code"), quotaResetsAt: stringField(data, "quota_resets_at") };
-}
+const RejectionCodeEnvelope = z.object({ error: z.object({ code: z.string() }) });
 
 /**
  * Read the rejection's error code — which separates D8 (401/403 expiry) from
  * D11 (`anon_budget_exhausted`) and D12 (`anon_quota_exhausted`) — plus D12's
- * `quota_resets_at`, read from `error.data` or flat on `error`. Only failures
- * are parsed; a streaming 2xx body is never touched, let alone buffered.
+ * `quota_resets_at`, read through the shared contract. Only failures are
+ * parsed; a streaming 2xx body is never touched, let alone buffered.
  */
 async function readRejection(response: Response): Promise<RejectionDetail> {
   if (response.ok) return NO_REJECTION;
-  const body: unknown = await response
-    .clone()
-    .json()
-    .catch(() => undefined);
-  return rejectionOf(body);
+  const body: unknown = await response.clone().json().catch(() => undefined);
+  const limit = AnonLimitErrorEnvelope.safeParse(body);
+  const rejection = RejectionCodeEnvelope.safeParse(body);
+  const code = limit.success ? limit.data.error.code : rejection.data?.error.code;
+  return { code, quotaResetsAt: readQuotaResetsAt(body) };
 }
 
 function clearRejection(ref: SessionRef): void {
