@@ -43,13 +43,21 @@ from agent.infrastructure.observability.photo_search import (
     QuotaKey,
     record_photo_search,
 )
+from agent.interfaces.public_api import record_attributed_usage
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
     _error_response,
     _get_settings_from_request,
     _get_trusted_auth_context,
 )
-from agent.interfaces.usage_metering import is_anonymous_identity
+from agent.interfaces.routes.chat import BUDGET_EXHAUSTED_MESSAGE
+from agent.interfaces.usage_metering import (
+    ANON_BUDGET_EXHAUSTED_CODE,
+    ANONYMOUS_USER_TYPE,
+    UsagePrices,
+    anonymous_budget_verdict,
+    is_anonymous_identity,
+)
 
 router = APIRouter(prefix="/v1", tags=["photo-search"])
 
@@ -221,6 +229,51 @@ def _check_quota(
     )
 
 
+async def _budget_rejection(
+    request: Request, auth: TrustedAuthContext
+) -> JSONResponse | None:
+    # Route through the canonical predicate rather than testing `user_type`
+    # directly: a request carrying `X-User-Id` but no `X-User-Type` is an
+    # identified caller, and a looser check here metered them into the anonymous
+    # scope and could refuse them once the anon budget ran out. The edge sets
+    # both headers together (`worker/app.ts`), so this is defence in depth
+    # rather than a reachable path — but the same concept having two different
+    # answers in the codebase is how it stops being one.
+    if auth.user_id is not None and not is_anonymous_identity(
+        auth.user_id, auth.user_type
+    ):
+        return None
+    settings = _get_settings_from_request(request)
+    verdict = await anonymous_budget_verdict(
+        request.app.state.db_client,
+        budget_usd=settings.anon_daily_cost_budget_usd,
+    )
+    if not verdict.exhausted:
+        return None
+    return JSONResponse(
+        status_code=403,
+        content={
+            "error": {
+                "code": ANON_BUDGET_EXHAUSTED_CODE,
+                "message": BUDGET_EXHAUSTED_MESSAGE,
+                "action": "login",
+            }
+        },
+    )
+
+
+def _scope_user_type(auth: TrustedAuthContext) -> str | None:
+    """Two different absences that a blanket `or "anonymous"` conflated.
+
+    No `X-User-Id` means no identity was asserted at all — the anonymous tier.
+    An `X-User-Id` with no `X-User-Type` is an identified caller whose type
+    header went missing; `scope_for_identity` resolves that against the user-id
+    convention, so it must be passed through rather than coerced, or their
+    spend lands in the anon scope.
+    """
+    return auth.user_type if auth.user_id is not None else ANONYMOUS_USER_TYPE
+
+
 def _supply(runtime: PhotoSearchRuntime, byok: EndpointId | None) -> VisionSupply:
     provider = runtime.byok_providers.get(byok) if byok is not None else None
     return VisionSupply(
@@ -254,6 +307,15 @@ async def handle_photo_search(
     authenticated = auth.user_id is not None and not is_anonymous_identity(
         auth.user_id, auth.user_type
     )
+    # The budget check runs before the image is decoded. It needs only `auth`,
+    # and a breaker that fires after the work it is meant to prevent is most of
+    # a breaker that does not work. The visible consequence: a caller who is both
+    # over budget and sending a malformed image now gets 403 rather than 400 —
+    # the correct precedence, since being over budget is the reason we are not
+    # looking at their image at all.
+    budget_rejection = await _budget_rejection(request, auth)
+    if budget_rejection is not None:
+        return budget_rejection
     try:
         image = _decode_image(body)
         tier = quota_tier_for(authenticated)
@@ -261,7 +323,7 @@ async def handle_photo_search(
         _check_quota(runtime, settings, tier, _quota_key(auth, request), byok)
     except PhotoSearchRejection as rejection:
         return _rejection_response(rejection)
-    return await _run_pipeline(runtime, byok, image, body, request, authenticated)
+    return await _run_pipeline(runtime, byok, image, body, request, auth, authenticated)
 
 
 async def _run_pipeline(
@@ -270,6 +332,7 @@ async def _run_pipeline(
     image: bytes,
     body: PhotoSearchBody,
     request: Request,
+    auth: TrustedAuthContext,
     authenticated: bool,
 ) -> JSONResponse:
     outcome = await run_photo_search(
@@ -281,6 +344,18 @@ async def _run_pipeline(
         authenticated,
     )
     record_photo_search(outcome.signals)
+    if outcome.usage is not None:
+        settings = _get_settings_from_request(request)
+        await record_attributed_usage(
+            request.app.state.db_client,
+            outcome.usage,
+            auth.user_id,
+            _scope_user_type(auth),
+            UsagePrices(
+                input_usd_per_mtok=settings.model_input_cost_per_mtok_usd,
+                output_usd_per_mtok=settings.model_output_cost_per_mtok_usd,
+            ),
+        )
     return JSONResponse(outcome.response.model_dump(exclude_none=True))
 
 

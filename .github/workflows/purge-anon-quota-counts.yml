@@ -1,14 +1,13 @@
-# Standalone top-level workflow (see .claude/rules/ci.md: codeql.yml / dependabot-agent.yml
-# precedent, mirrored from agent-eval-nightly.yml) — kept separate from ci.yml so this cron
-# never rides along with every push/PR trigger in the main CI matrix.
+# DEPRECATED: superseded by workers/maintenance's Cloudflare Cron Trigger at
+# "37 19 * * *". Its GHA schedule is disabled so a hosted runner no longer
+# receives a database credential. Keep this manual fallback only until staging
+# records one verified real Cron Trigger run, then delete this workflow.
 name: Purge anon_daily_message_count (retention)
 
 # Issue #282 review: anon_daily_message_count is a pure per-day aggregate counter with no
 # dependent rows, so its retention policy is a nightly age-based DELETE, not a per-row purge
 # with an FK backstop (contrast the anonymous-session purge precedent).
 on:
-  schedule:
-    - cron: "37 19 * * *" # 19:37 UTC daily — off-hour, distinct minute from the eval nightly
   workflow_dispatch:
     inputs:
       dry_run:

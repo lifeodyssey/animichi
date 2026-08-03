@@ -50,7 +50,7 @@ abort "lane status checker must require changes success" unless gate_script.incl
   abort "#{workflow_name} must use Codecov OIDC" unless source.include?("use_oidc: true")
 end
 
-%w[ci-agent ci-catalog ci-users ci-web].each do |job_id|
+%w[ci-agent ci-catalog ci-users ci-maintenance ci-web].each do |job_id|
   permissions = jobs.fetch(job_id).fetch("permissions")
   abort "#{job_id} must grant Codecov OIDC" unless permissions.fetch("id-token") == "write"
 end

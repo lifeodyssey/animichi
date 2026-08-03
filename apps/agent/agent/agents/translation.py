@@ -11,7 +11,7 @@ from pydantic_ai.exceptions import FallbackExceptionGroup
 from pydantic_ai.models import Model
 from pydantic_ai.usage import RunUsage
 
-from agent.agents.base import create_agent
+from agent.agents.base import resolve_model
 from agent.agents.title_matching import looks_like_wrong_variant
 from agent.clients.catalog_client import (
     CatalogClientProtocol,
@@ -60,10 +60,11 @@ Station, Shrine, Temple, Park, or Garden. Return only the translated text,
 without explanations, provenance labels, confidence scores, or quotes.
 """
 
-translation_agent: Agent[None, str] = create_agent(
+translation_agent: Agent[None, str] = Agent(
+    resolve_model(None),
     name="translation",
     system_prompt=_TRANSLATION_INSTRUCTIONS,
-    tool_retries=1,
+    retries=1,
 )
 
 

@@ -24,6 +24,10 @@ from agent.clients.catalog_client import CatalogClientProtocol
 from agent.config.settings import Settings
 from agent.infrastructure.session import SessionStore, create_session_store
 from agent.infrastructure.supabase.client import SupabaseClient
+from agent.interfaces.error_registry import (
+    error_code_for_http_status,
+    http_status_for_error_codes,
+)
 from agent.interfaces.public_api import PublicAPIResponse, RuntimeAPI
 from agent.interfaces.schemas import GRACEFUL_TERMINAL_STATUSES
 from agent.interfaces.usage_metering import ANON_USER_ID_PREFIX, ANONYMOUS_USER_TYPE
@@ -294,21 +298,7 @@ def _contains_json_invalid_error(errors_obj: object) -> bool:
 
 
 def _http_error_code(status_code: int) -> str:
-    if status_code == 400:
-        return "invalid_request"
-    if status_code == 401:
-        return "authentication_error"
-    if status_code == 403:
-        return "forbidden"
-    if status_code == 404:
-        return "not_found"
-    if status_code == 409:
-        return "already_exists"
-    if status_code == 429:
-        return "rate_limited"
-    if status_code >= 500:
-        return "internal_error"
-    return "http_error"
+    return error_code_for_http_status(status_code)
 
 
 def _http_status_for_response(response: PublicAPIResponse) -> int:
@@ -317,30 +307,7 @@ def _http_status_for_response(response: PublicAPIResponse) -> int:
     if response.status in GRACEFUL_TERMINAL_STATUSES:
         return 200
 
-    codes = {error.code for error in response.errors}
-
-    if codes & {
-        "invalid_input",
-        "invalid_model_alias",
-        "invalid_selection",
-        "missing_required_field",
-        "invalid_format",
-    }:
-        return 400
-    if codes & {"authentication_error", "invalid_credentials"}:
-        return 401
-    if codes & {"byok_credential_rejected", "byok_requires_login"}:
-        return 403
-    if codes & {"not_found"}:
-        return 404
-    if codes & {"already_exists"}:
-        return 409
-    if codes & {"rate_limited"}:
-        return 429
-    if codes & {"timeout"}:
-        return 504
-
-    return 500
+    return http_status_for_error_codes(error.code for error in response.errors)
 
 
 # -- lifespan infrastructure helpers -----------------------------------
@@ -375,7 +342,6 @@ def setup_logfire(settings: Settings, app: object | None = None) -> None:
     """
     import logfire
 
-    variables = _managed_prompt_variables()
     _enable_message_content_scrubbing()
     scrubbing = logfire.ScrubbingOptions(
         callback=_preserve_operating_query,
@@ -388,7 +354,6 @@ def setup_logfire(settings: Settings, app: object | None = None) -> None:
         send_to_logfire="if-token-present",
         console=False,
         scrubbing=scrubbing,
-        variables=variables,
     )
     if _has_logfire_token():
         _instrument_logfire(app)
@@ -417,17 +382,8 @@ def _enable_message_content_scrubbing() -> None:
     # Coupled to logfire._internal SAFE_KEYS until its public API supports
     # recursive scrubbing of PydanticAI and GenAI message attributes.
     BaseScrubber.SAFE_KEYS.difference_update(_MESSAGE_CONTENT_FIELDS)
-
-
-def _managed_prompt_variables() -> logfire.VariablesOptions | None:
-    import os
-
-    import logfire
-
-    credentials = _has_logfire_token() and bool(os.environ.get("LOGFIRE_API_KEY"))
-    if os.environ.get("ANIMICHI_MANAGED_PROMPT") != "1" or not credentials:
-        return None
-    return logfire.VariablesOptions(timeout=(1.0, 1.0))
+    if not _MESSAGE_CONTENT_FIELDS.isdisjoint(BaseScrubber.SAFE_KEYS):
+        raise RuntimeError("Logfire private SAFE_KEYS mutation did not take effect.")
 
 
 def _instrument_logfire(app: object | None) -> None:

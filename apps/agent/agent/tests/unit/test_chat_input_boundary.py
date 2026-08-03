@@ -72,14 +72,29 @@ async def test_message_over_limit_is_rejected_before_runtime() -> None:
     runtime.handle.assert_not_awaited()
 
 
-async def test_non_text_message_is_rejected_before_runtime() -> None:
+@pytest.mark.parametrize("part", [{"type": "image"}, 7])
+async def test_non_text_message_is_rejected_before_runtime(part: object) -> None:
     runtime = _runtime()
     app, _ = build_app(runtime_api=runtime)
-    body = {"messages": [{"role": "user", "parts": [{"type": "image"}]}]}
+    body = {"messages": [{"role": "user", "parts": [part]}]}
     async with async_client(app) as client:
         response = await _post(client, body)
     assert response.status_code == 422
     assert _error_message(response) == "テキストメッセージを入力してください。"
+    runtime.handle.assert_not_awaited()
+
+
+async def test_length_error_precedes_a_later_invalid_part() -> None:
+    runtime = _runtime()
+    app, _ = build_app(runtime_api=runtime, settings=Settings(message_max_chars=1))
+    parts = [{"type": "text", "text": "xx"}, {"type": "image"}]
+    async with async_client(app) as client:
+        response = await _post(client, {"messages": [{"role": "user", "parts": parts}]})
+    assert response.status_code == 422
+    assert (
+        _error_message(response)
+        == "メッセージが長すぎます。短くしてもう一度お試しください。"
+    )
     runtime.handle.assert_not_awaited()
 
 

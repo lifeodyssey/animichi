@@ -3,16 +3,34 @@ import type {
   ClaimRoutesResult,
   DeleteRouteInput,
   DeleteRouteResult,
+  ListSessionsInput,
+  ListSessionsResult,
   ListRoutesResult,
   RouteStatus,
   SaveRouteInput,
   UserRoute,
+  UserSession,
 } from "@animichi/contract";
 import { sql } from "drizzle-orm";
 import type { DbExecutor } from "../db/client";
 import { routeNotFound, routeNotOwned } from "../lib/errors";
 
+/** ListSessionsInput caps offset at 1000 (packages/contract users-contract.ts). */
+const MAX_LIST_OFFSET = 1_000;
+
 type RecordRow = Record<string, unknown>;
+
+function toSession(value: unknown): UserSession {
+  if (!isRecord(value)) throw new Error("invalid session row");
+  const { session_id, first_query, title } = value;
+  if (typeof session_id !== "string" || typeof first_query !== "string") {
+    throw new Error("invalid session row");
+  }
+  return {
+    session_id, title: typeof title === "string" ? title : null,
+    first_query, created_at: iso(value.created_at), updated_at: iso(value.updated_at),
+  };
+}
 
 function isRecord(value: unknown): value is RecordRow {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -58,6 +76,24 @@ export async function listRoutes(db: DbExecutor, userId: string): Promise<ListRo
     FROM routes WHERE user_id = ${userId} ORDER BY updated_at DESC
   `);
   return { routes: result.rows.map(toUserRoute) };
+}
+
+/** List conversation-backed sessions owned by a user, newest first. */
+export async function listSessions(
+  db: DbExecutor, userId: string, input: ListSessionsInput,
+): Promise<ListSessionsResult> {
+  const result = await db.execute(sql`
+    SELECT session_id, title, first_query, created_at, updated_at
+    FROM conversations WHERE user_id = ${userId}
+    ORDER BY updated_at DESC, session_id DESC
+    LIMIT ${input.limit + 1} OFFSET ${input.offset}
+  `);
+  const rows = result.rows.slice(0, input.limit).map(toSession);
+  const next = input.offset + input.limit;
+  // Must stay within ListSessionsInput's offset cap (packages/contract users-contract.ts): a
+  // next_offset the contract would reject is worse than ending pagination early.
+  const hasMore = result.rows.length > input.limit && next <= MAX_LIST_OFFSET;
+  return { sessions: rows, next_offset: hasMore ? next : null };
 }
 
 async function createRoute(

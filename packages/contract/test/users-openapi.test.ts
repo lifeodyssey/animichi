@@ -1,3 +1,4 @@
+import { ListSessionsInput } from "../src/users-contract.js";
 import { describe, expect, it } from "vitest";
 import usersOpenApi from "../users-openapi.json";
 
@@ -8,6 +9,10 @@ const resolveSchema = usersOpenApi.paths["/v1/users/shares/resolve/{token}"]
 const itinerary = resolveSchema.properties.itinerary.properties;
 
 describe("users OpenAPI security", () => {
+  it("rejects session offsets beyond the resource-safety limit", () => {
+    expect(ListSessionsInput.safeParse({ offset: 1_001 }).success).toBe(false);
+  });
+
   it("defines HTTP bearer JWT authentication", () => {
     expect(usersOpenApi.components.securitySchemes).toEqual({
       bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
@@ -16,6 +21,7 @@ describe("users OpenAPI security", () => {
 
   it("requires bearer authentication for users, check-in, and share mutations", () => {
     expect(usersOpenApi.paths["/v1/users/routes"].get.security).toEqual(BEARER_SECURITY);
+    expect(usersOpenApi.paths["/v1/users/sessions"].get.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/routes"].post.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/routes/{id}"].delete.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/routes/claim"].post.security).toEqual(BEARER_SECURITY);

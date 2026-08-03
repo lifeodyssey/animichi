@@ -15,7 +15,6 @@ from agent.infrastructure.observability.runtime import (
     http_span,
     record_agent_run_error,
     record_http_request,
-    record_managed_prompt_resolution,
     record_runtime_request,
     runtime_span,
 )
@@ -24,7 +23,6 @@ __all__ = [
     "http_span",
     "record_agent_run_error",
     "record_http_request",
-    "record_managed_prompt_resolution",
     "record_runtime_request",
     "runtime_span",
 ]

@@ -12,6 +12,7 @@ import {
 } from "../ingest/sources";
 import { normalizeAlias } from "../lib/alias";
 import { optional } from "../lib/optional";
+import { nullableString, requiredNumber, requiredString } from "../lib/rows";
 import type { AnimeCandidate, ResolveOutcome } from "../types";
 
 export { MAX_CANDIDATES };
@@ -238,23 +239,4 @@ function readStoredCandidate(row: Record<string, unknown>): AnimeCandidate {
     air_date: nullableString(row, "air_date"), summary: null, rating: null, eps_count: null,
   };
   return rowCandidate(parsed, requiredNumber(row, "points_count"));
-}
-
-function requiredString(row: Record<string, unknown>, key: string): string {
-  const value = row[key];
-  if (typeof value !== "string") throw new Error(`Catalog row ${key} is not a string`);
-  return value;
-}
-
-function nullableString(row: Record<string, unknown>, key: string): string | null {
-  const value = row[key];
-  if (value === null || value === undefined) return null;
-  if (typeof value !== "string") throw new Error(`Catalog row ${key} is not nullable text`);
-  return value;
-}
-
-function requiredNumber(row: Record<string, unknown>, key: string): number {
-  const value = Number(row[key]);
-  if (!Number.isFinite(value)) throw new Error(`Catalog row ${key} is not numeric`);
-  return value;
 }

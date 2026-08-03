@@ -16,16 +16,16 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
-    "@orpc/openapi": "1.14.8",
-    "@orpc/server": "1.14.8",
+    "@orpc/openapi": "1.14.10",
+    "@orpc/server": "1.14.10",
     "@animichi/contract": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.31",
+    "hono": "^4.12.32",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.18.8",
-    "@cloudflare/workers-types": "^5.20260723.1",
+    "@cloudflare/workers-types": "^5.20260727.1",
     "@types/pg": "^8.20.0",
     "@vitest/coverage-istanbul": "4.1.10",
     "pg": "^8.22.0",

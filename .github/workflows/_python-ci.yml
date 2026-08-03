@@ -22,6 +22,7 @@ env:
 
 jobs:
   python-ci:
+    timeout-minutes: 20
     name: Python CI
     runs-on: ubuntu-latest
     defaults:

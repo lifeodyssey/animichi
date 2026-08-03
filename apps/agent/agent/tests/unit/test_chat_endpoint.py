@@ -163,6 +163,18 @@ async def test_chat_invalid_locale_defaults_to_ja() -> None:
     assert runtime.handle.await_args.args[0].locale == "ja"
 
 
+async def test_chat_body_validation_remains_content_type_agnostic() -> None:
+    runtime = _runtime()
+    app, _ = build_app(runtime_api=runtime)
+    headers = {"X-User-Id": "user-1", "Content-Type": "text/plain"}
+    async with async_client(app) as client:
+        response = await client.post(
+            "/v1/chat", content=json.dumps(_body()).encode(), headers=headers
+        )
+    assert response.status_code == 200
+    assert runtime.handle.await_args.args[0].text == "京吹"
+
+
 def _replay_runtime(response: PublicAPIResponse, steps: list[StepEvent]) -> MagicMock:
     async def _handle(
         request: object,

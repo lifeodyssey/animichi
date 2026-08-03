@@ -10,7 +10,8 @@
     ".": "./src/index.ts",
     "./models": "./src/models.ts",
     "./contract": "./src/contract.ts",
-    "./constants": "./src/constants.ts"
+    "./constants": "./src/constants.ts",
+    "./jwt": "./src/jwt.ts"
   },
   "scripts": {
     "emit:openapi": "node --import tsx scripts/emit-openapi.ts",
@@ -18,9 +19,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@orpc/contract": "1.14.8",
-    "@orpc/openapi": "1.14.8",
-    "@orpc/zod": "1.14.8",
+    "@orpc/contract": "1.14.10",
+    "@orpc/openapi": "1.14.10",
+    "@orpc/zod": "1.14.10",
+    "jose": "^6.2.4",
     "zod": "4.4.3"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
+import { verifyEdDsaJwt } from "@animichi/contract/jwt";
 import {
   createRemoteJWKSet,
-  jwtVerify,
   type JWTVerifyGetKey,
 } from "jose";
 
@@ -36,9 +36,8 @@ export async function verifyBearer(
   if (!token) return null;
   try {
     const base = issuerFromJwksUrl(jwksUrl);
-    const { payload } = await jwtVerify(token, getKey ?? cachedRemote(jwksUrl), {
-      algorithms: ["EdDSA"], issuer: base, audience: base,
-    });
+    const key = getKey ?? cachedRemote(jwksUrl);
+    const payload = await verifyEdDsaJwt({ token, key, issuer: base, audience: base });
     return typeof payload.sub === "string" && payload.sub.length > 0
       ? { userId: payload.sub }
       : null;

@@ -29,6 +29,12 @@ from pathlib import Path
 
 import pytest
 
+READS: tuple[str, ...] = (
+    ".github/workflows/**",
+    "docs/ops/secrets.md",
+    "worker/containerEnv.ts",
+)
+
 ROOT = Path(__file__).resolve().parents[5]
 WORKFLOWS_DIR = ROOT / ".github" / "workflows"
 CONTAINER_ENV_FILE = ROOT / "worker" / "containerEnv.ts"

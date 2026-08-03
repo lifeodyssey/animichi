@@ -22,8 +22,12 @@ function blockFor(header: string): string {
   return WRANGLER.slice(start, next === -1 ? undefined : next);
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function hasAssignment(block: string, key: string, value: string): boolean {
-  return new RegExp(`^${key}\\s*=\\s*"${value}"$`, "m").test(block);
+  return new RegExp(`^${key}\\s*=\\s*"${escapeRegExp(value)}"$`, "m").test(block);
 }
 
 function countMatches(source: string, pattern: RegExp): number {
@@ -38,12 +42,29 @@ function parsedWorkerName(environment: string): string {
   );
 }
 
-void test("Neon Auth vars stay on their intended Wrangler paths", () => {
-  for (const header of ENV_BLOCKS) {
+const STAGING_NEON_ISSUER =
+  "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth";
+
+// SD-31 staging cutover (owner-approved 2026-08-03, #312 slice 1): staging
+// verifies Neon Auth; root defaults and production stay off until their own
+// cutover is approved.
+void test("root and production keep Neon Auth off until their cutover", () => {
+  for (const header of ["[vars]", "[env.production.vars]"]) {
     const block = blockFor(header);
     assert.equal(hasAssignment(block, "NEON_AUTH_ENABLED", "false"), true, `${header} must keep Neon Auth off`);
     assert.equal(hasAssignment(block, "NEON_AUTH_ISSUER", ""), true, `${header} must declare the public issuer slot`);
   }
+});
+
+void test("staging pins the approved Neon Auth issuer and JWKS", () => {
+  const staging = blockFor("[env.staging.vars]");
+  assert.equal(hasAssignment(staging, "NEON_AUTH_ENABLED", "true"), true, "staging cutover must stay on");
+  assert.equal(hasAssignment(staging, "NEON_AUTH_ISSUER", STAGING_NEON_ISSUER), true, "staging must pin the Neon issuer");
+  assert.equal(
+    hasAssignment(staging, "NEON_AUTH_JWKS_URL", `${STAGING_NEON_ISSUER}/.well-known/jwks.json`),
+    true,
+    "staging must pin the JWKS endpoint derived from the issuer",
+  );
 });
 
 void test("bare Wrangler deploy has no target, while named environments keep theirs", () => {

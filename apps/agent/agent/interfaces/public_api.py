@@ -66,6 +66,11 @@ from agent.infrastructure.observability import (
     runtime_span,
 )
 from agent.infrastructure.session import SessionStore, create_session_store
+from agent.interfaces.error_registry import (
+    internal_error_response,
+    public_error_response,
+    timeout_error_response,
+)
 from agent.interfaces.persistence import (
     build_response_session,
     create_owned_session,
@@ -74,10 +79,7 @@ from agent.interfaces.persistence import (
     persist_messages,
     persist_result,
 )
-from agent.interfaces.response_builder import (
-    agent_result_to_response,
-    application_error_response,
-)
+from agent.interfaces.response_builder import agent_result_to_response
 from agent.interfaces.schemas import (
     PublicAPIError,
     PublicAPIRequest,
@@ -115,11 +117,6 @@ class _TranslationContext:
     usage: RunUsage
 
 
-_BYOK_CREDENTIAL_REJECTED_MESSAGE = (
-    "Your BYOK provider rejected the credential. Please check your key and try again."
-)
-
-
 def _is_byok_credential_rejection(exc: BaseException) -> bool:
     """A provider-reported auth failure for a BYOK-supplied credential.
 
@@ -132,17 +129,9 @@ def _is_byok_credential_rejection(exc: BaseException) -> bool:
 def _byok_credential_rejected_response() -> PublicAPIResponse:
     """Fixed, safe copy only (T7): never echoes `str(exc)`, which could carry
     provider response body content."""
-    return PublicAPIResponse(
-        success=False,
-        status="error",
+    return public_error_response(
+        "byok_credential_rejected",
         intent="error",
-        message=_BYOK_CREDENTIAL_REJECTED_MESSAGE,
-        errors=[
-            PublicAPIError(
-                code="byok_credential_rejected",
-                message=_BYOK_CREDENTIAL_REJECTED_MESSAGE,
-            )
-        ],
     )
 
 
@@ -421,47 +410,27 @@ class RuntimeAPI:
             logger.warning("agent_timeout", text=request.text[:50])
             return (
                 None,
-                PublicAPIResponse(
-                    success=False,
-                    status="timeout",
-                    intent="error",
-                    message="The request took too long. Please try again.",
-                    errors=[
-                        PublicAPIError(
-                            code=ErrorCode.TIMEOUT.value,
-                            message=(
-                                "Agent execution timed out after "
-                                f"{self._settings.agent_deadline:.0f} seconds."
-                            ),
-                        )
-                    ],
-                ),
+                timeout_error_response(self._settings.agent_deadline),
                 context_delta,
             )
         except ModelAliasError as exc:
             _span_record_exception(span, exc)
             return (
                 None,
-                PublicAPIResponse(
-                    success=False,
-                    status="error",
-                    intent="unknown",
-                    message=str(exc),
-                    errors=[
-                        PublicAPIError(
-                            code="invalid_model_alias",
-                            message=str(exc),
-                        )
-                    ],
-                ),
+                public_error_response("invalid_model_alias"),
                 context_delta,
             )
         except SelectionError as exc:
             _span_record_exception(span, exc)
-            return None, _invalid_selection_response(str(exc)), context_delta
+            return None, _invalid_selection_response(), context_delta
         except ApplicationError as exc:
             _span_record_exception(span, exc)
-            return None, application_error_response(exc), context_delta
+            details = as_json_object(exc.details)
+            return (
+                None,
+                public_error_response(exc.error_code, details=details),
+                context_delta,
+            )
         except Exception as exc:
             _span_record_exception(span, exc)
             if is_byok and _is_byok_credential_rejection(exc):
@@ -472,35 +441,13 @@ class RuntimeAPI:
                 logger.warning("provider_error", error=error_msg[:200])
                 return (
                     None,
-                    PublicAPIResponse(
-                        success=False,
-                        status="provider_error",
-                        intent="error",
-                        message="The AI service is temporarily unavailable. Please try again in a moment.",
-                        errors=[
-                            PublicAPIError(
-                                code="provider_error",
-                                message=error_msg[:500],
-                            )
-                        ],
-                    ),
+                    public_error_response("provider_error", intent="error"),
                     context_delta,
                 )
             logger.error("pipeline_unhandled_exception", exc_info=exc)
             return (
                 None,
-                PublicAPIResponse(
-                    success=False,
-                    status="error",
-                    intent="unknown",
-                    message="The runtime failed before producing a pipeline result.",
-                    errors=[
-                        PublicAPIError(
-                            code=ErrorCode.INTERNAL_ERROR.value,
-                            message="An internal error occurred. Please try again.",
-                        )
-                    ],
-                ),
+                internal_error_response(),
                 context_delta,
             )
         if model_path:
@@ -762,14 +709,11 @@ def _resolve_request_model(
     return resolve_model_alias(model, http_client=http_client)
 
 
-def _invalid_selection_response(message: str) -> PublicAPIResponse:
+def _invalid_selection_response(_message: str | None = None) -> PublicAPIResponse:
     """Return a typed stale/invalid selection response without mutating state."""
-    return PublicAPIResponse(
-        success=False,
-        status="invalid_request",
+    return public_error_response(
+        "invalid_selection",
         intent="clarify",
-        message=message,
-        errors=[PublicAPIError(code="invalid_selection", message=message)],
         ui={"component": "Clarification"},
     )
 
@@ -843,6 +787,16 @@ async def _record_attributed_usage(
     scope = scope_for_identity(user_id, user_type, is_byok=item.payer == "byok")
     prices = platform_prices if item.payer == "platform" else UsagePrices(0.0, 0.0)
     await record_turn_usage(db, usage=item.usage, scope=scope, prices=prices)
+
+
+async def record_attributed_usage(
+    db: object,
+    item: AttributedUsage,
+    user_id: str | None,
+    user_type: str | None,
+    platform_prices: UsagePrices,
+) -> None:
+    await _record_attributed_usage(db, item, user_id, user_type, platform_prices)
 
 
 def _set_span_request_attrs(

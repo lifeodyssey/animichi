@@ -2,7 +2,6 @@
 
 import warnings
 from functools import lru_cache
-from pathlib import Path
 from typing import TypeGuard
 from urllib.parse import urlparse
 
@@ -90,32 +89,15 @@ class Settings(BaseSettings):
     )
 
     # API Endpoints
-    anitabi_api_url: str = Field(
-        default="https://api.anitabi.cn/bangumi", description="Anitabi API base URL"
-    )
     catalog_api_url: str = Field(
         default="http://localhost:8787",
         description="Catalog service base URL (read path for resolved spot data)",
-    )
-
-    # Optional Google Cloud configuration used by Google-backed integrations.
-    google_cloud_project: str | None = Field(
-        default=None,
-        description="Google Cloud project ID",
-    )
-    google_application_credentials: str | None = Field(
-        default=None,
-        description="Path to service account key",
     )
 
     # Application Settings
     app_env: str = Field(default="development", description="Application environment")
     log_level: str = Field(default="INFO", description="Logging level")
     debug: bool = Field(default=False, description="Debug mode")
-    max_retries: int = Field(default=3, description="Maximum API retry attempts")
-    timeout_seconds: int = Field(
-        default=120, description="API request timeout (reasoning models need longer)"
-    )
     message_max_chars: int = Field(
         default=4000, gt=0, description="Maximum characters in one user message"
     )
@@ -177,26 +159,7 @@ class Settings(BaseSettings):
         default="0.1.0",
         description="Service version reported to observability backends",
     )
-    # Cache Settings
-    cache_ttl_seconds: int = Field(default=3600, description="Cache TTL in seconds")
-    use_cache: bool = Field(default=True, description="Enable caching")
-
-    # Output Paths
-    output_dir: Path = Field(default=Path("outputs"), description="Output directory")
-    template_dir: Path = Field(
-        default=Path("templates"), description="Template directory"
-    )
-
-    # Rate Limiting
-    rate_limit_calls: int = Field(default=100, description="Rate limit calls")
-    rate_limit_period_seconds: int = Field(default=60, description="Rate limit period")
-
     # Supabase
-    supabase_url: str = Field(default="", description="Supabase project URL")
-    supabase_anon_key: str = Field(default="", description="Supabase anon key")
-    supabase_service_role_key: str = Field(
-        default="", description="Supabase service role key"
-    )
     supabase_db_url: str = Field(
         default="", description="Direct Postgres DSN for asyncpg"
     )
@@ -326,45 +289,12 @@ class Settings(BaseSettings):
             "debug": self.debug,
             "service_host": self.service_host,
             "service_port": self.service_port,
-            "max_retries": self.max_retries,
-            "timeout_seconds": self.timeout_seconds,
             "message_max_chars": self.message_max_chars,
             "agent_deadline": self.agent_deadline,
             "model_attempt_timeout": self.model_attempt_timeout,
-            "cache_ttl_seconds": self.cache_ttl_seconds,
-            "use_cache": self.use_cache,
-            "google_cloud_project": self.google_cloud_project or "(not set)",
-            "gcp_auth_mode": "service_account" if self.uses_service_account else "adc",
             "default_agent_model": self.default_agent_model,
             "fallback_agent_model": self.fallback_agent_model or "(not set)",
             "openai_compat_base_url": self.openai_compat_base_url,
-        }
-
-    def get_feature_flags(self) -> dict[str, bool]:
-        """Get all feature flags.
-
-        Returns:
-            Dictionary of feature flag names to their boolean values.
-        """
-        return {
-            "use_cache": self.use_cache,
-            "debug": self.debug,
-        }
-
-    def get_secrets(self) -> dict[str, str]:
-        """Get masked secret information (safe to log for debugging).
-
-        Returns:
-            Dictionary of secret names to their masked values.
-        """
-        return {
-            "deepseek_api_key": _mask_secret(self.deepseek_api_key),
-            "mimo_api_key": _mask_secret(self.mimo_api_key),
-            "gemini_api_key": _mask_secret(self.gemini_api_key),
-            "openai_compat_api_key": _mask_secret(self.openai_compat_api_key),
-            "google_application_credentials": _mask_secret(
-                self.google_application_credentials
-            ),
         }
 
     def validate_api_keys(self) -> list[str]:
@@ -414,30 +344,6 @@ class Settings(BaseSettings):
             "OPENAI_COMPAT_API_KEY": self.openai_compat_api_key,
         }
         return bool(values.get(credential_env))
-
-    def validate_gcp_config(self) -> list[str]:
-        """Validate GCP configuration.
-
-        Returns:
-            List of missing/invalid configuration items.
-
-        This check only validates whether project-level Google integrations have
-        enough configuration to run.
-        """
-        issues = []
-        if not self.google_cloud_project:
-            issues.append("GOOGLE_CLOUD_PROJECT is required")
-        return issues
-
-    @property
-    def uses_service_account(self) -> bool:
-        """Check if using service account authentication (production mode)."""
-        return bool(self.google_application_credentials)
-
-    @property
-    def uses_adc(self) -> bool:
-        """Check if using Application Default Credentials (local dev mode)."""
-        return not self.google_application_credentials
 
     @model_validator(mode="after")
     def _warn_missing_api_keys(self) -> "Settings":

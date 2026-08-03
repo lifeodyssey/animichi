@@ -22,6 +22,37 @@ from agent.clients.catalog_errors import (
 InputError = Literal["message_too_long", "non_text_message"]
 _DEFAULT_LOCALE = "en"
 CATALOG_ROUTE_UNAVAILABLE_MESSAGE = "Catalog route unavailable"
+INTERNAL_ERROR_DETAIL_MESSAGE = "An internal error occurred. Please try again."
+
+_PUBLIC_ERROR_MESSAGES: dict[str, str] = {
+    "invalid_request": "The request is invalid.",
+    "invalid_input": "Invalid input.",
+    "invalid_model_alias": "Invalid model alias.",
+    "invalid_selection": "Invalid selection.",
+    "missing_required_field": "A required field is missing.",
+    "invalid_format": "The request format is invalid.",
+    "authentication_error": "Authentication failed.",
+    "invalid_credentials": "Invalid credentials.",
+    "forbidden": "Access is forbidden.",
+    "byok_credential_rejected": (
+        "Your BYOK provider rejected the credential. Please check your key and try again."
+    ),
+    "byok_requires_login": "BYOKを使うにはログインが必要です。",
+    "not_found": "The requested resource was not found.",
+    "already_exists": "The resource already exists.",
+    "rate_limited": "Too many requests. Please try again later.",
+    "timeout": "The request took too long. Please try again.",
+    "internal_error": "The runtime failed before producing a pipeline result.",
+    "unknown_error": "An unknown error occurred. Please try again.",
+    "external_service_error": "An external service failed. Please try again.",
+    "service_unavailable": "The service is temporarily unavailable. Please try again.",
+    "configuration_error": "The service is temporarily unavailable. Please try again.",
+    "missing_config": "The service is temporarily unavailable. Please try again.",
+    "provider_error": (
+        "The AI service is temporarily unavailable. Please try again in a moment."
+    ),
+    "http_error": "The request failed.",
+}
 
 _INPUT_MESSAGES: dict[tuple[InputError, str], str] = {
     (
@@ -108,6 +139,16 @@ def build_input_error_message(reason: InputError, locale: str) -> str:
     return (
         message if message is not None else _INPUT_MESSAGES[(reason, _DEFAULT_LOCALE)]
     )
+
+
+def public_error_message(code: str) -> str:
+    """Return server-authored copy for one public error code."""
+    return _PUBLIC_ERROR_MESSAGES[code]
+
+
+def build_timeout_error_message(deadline_seconds: float) -> str:
+    """Return safe timeout detail without using upstream exception text."""
+    return f"Agent execution timed out after {deadline_seconds:.0f} seconds."
 
 
 def build_error_message(exc: Exception, locale: str, *, fallback: str) -> str:

@@ -59,8 +59,8 @@ async def test_reuses_one_http_client_across_requests() -> None:
     handler = MagicMock(side_effect=_ok)
     shared = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     client = CatalogClient("https://catalog.test", http_client=shared)
-    await client.search("響け")
-    await client.search("氷菓")
+    await client.points_by_work_id("8000")
+    await client.points_by_work_id("8001")
 
     assert client._http() is shared
     assert handler.call_count == 2
@@ -80,9 +80,11 @@ async def test_concurrent_requests_share_lazy_http_client(
     client = CatalogClient("https://catalog.test")
 
     try:
-        results = await asyncio.gather(client.search("響け"), client.search("氷菓"))
+        results = await asyncio.gather(
+            client.points_by_work_id("8000"), client.points_by_work_id("8001")
+        )
 
-        assert results == [[], []]
+        assert [result.rows for result in results] == [[], []]
         assert client._client is not None
         constructor.assert_called_once()
     finally:
@@ -103,9 +105,9 @@ async def test_retryable_status_then_success(
 
     sleep = _no_sleep(monkeypatch)
     _install_transport(monkeypatch, handler)
-    points = await CatalogClient("https://catalog.test").search("響け")
+    result = await CatalogClient("https://catalog.test").points_by_work_id("8000")
 
-    assert points == []
+    assert result.rows == []
     assert attempts == 2
     sleep.assert_awaited_once_with(1.0)
 
@@ -123,7 +125,7 @@ async def test_does_not_retry_on_non_transient_4xx(
     sleep = _no_sleep(monkeypatch)
     _install_transport(monkeypatch, handler)
     with pytest.raises(APIError, match="HTTP 404"):
-        await CatalogClient("https://catalog.test").search("響け")
+        await CatalogClient("https://catalog.test").points_by_work_id("8000")
 
     assert attempts == 1
     sleep.assert_not_awaited()
@@ -142,7 +144,7 @@ async def test_streaming_404_maps_buffered_server_envelope(
     _install_transport(monkeypatch, lambda request: _response(request, 404, body))
 
     with pytest.raises(WorkNotFoundError, match="8000"):
-        await CatalogClient("https://catalog.test").spots("8000")
+        await CatalogClient("https://catalog.test").points_by_work_id("8000")
 
 
 async def test_streaming_503_retries_without_reading_transport_body(
@@ -159,7 +161,7 @@ async def test_streaming_503_retries_without_reading_transport_body(
     _install_transport(monkeypatch, handler)
 
     with pytest.raises(TransientAPIError, match="HTTP 503"):
-        await CatalogClient("https://catalog.test").search("響け")
+        await CatalogClient("https://catalog.test").points_by_work_id("8000")
 
     assert attempts == 3
 
@@ -167,7 +169,7 @@ async def test_streaming_503_retries_without_reading_transport_body(
 async def test_aclose_closes_shared_client(monkeypatch: pytest.MonkeyPatch) -> None:
     _install_transport(monkeypatch, _ok)
     client = CatalogClient("https://catalog.test")
-    await client.search("響け")
+    await client.points_by_work_id("8000")
     shared = client._client
 
     await client.aclose()
@@ -189,10 +191,10 @@ async def test_closed_client_is_not_resurrected(
     """After shutdown a request must fail loudly, not build a leaked pool."""
     constructor = _install_transport(monkeypatch, _ok)
     client = CatalogClient("https://catalog.test")
-    await client.search("響け")
+    await client.points_by_work_id("8000")
     await client.aclose()
 
     with pytest.raises(RuntimeError, match="closed"):
-        await client.search("氷菓")
+        await client.points_by_work_id("8001")
 
     constructor.assert_called_once()

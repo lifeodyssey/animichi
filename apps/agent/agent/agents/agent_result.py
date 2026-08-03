@@ -13,7 +13,6 @@ from pydantic_ai.usage import RunUsage
 
 from agent.agents.runtime_models import AgentResultOutput
 from agent.agents.session_state import ResultRef, RouteRef, SessionState
-from agent.agents.tool_state import LegacyPayload
 
 
 @dataclass(frozen=True)
@@ -104,7 +103,6 @@ class AgentResult:
     intent: str
     session_state: SessionState
     steps: list[StepRecord] = field(default_factory=list)
-    tool_state: LegacyPayload = field(default_factory=dict)
     new_messages: list[ModelMessage] = field(default_factory=list)
     usage: RunUsage | None = None
     status: str | None = None

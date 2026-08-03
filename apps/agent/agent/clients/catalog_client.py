@@ -1,9 +1,5 @@
 """Typed async client for the Catalog service.
 
-The Catalog service owns the resolved pilgrimage read path. This typed adapter
-mirrors ``packages/contract`` for search, spots, nearby, route, and ingest RPCs
-over one shared ``httpx.AsyncClient``.
-
 Endpoint convention: ``{base_url}/catalog/<method>`` (POST, JSON body).
 
 Retry policy: 5xx responses, transport errors, and the transient 4xx codes
@@ -170,20 +166,9 @@ class IngestResult(BaseModel):
 
 @runtime_checkable
 class CatalogClientProtocol(Protocol):
-    """Structural contract for the Catalog read path (search/spots/nearby/route).
-
-    Both the live :class:`CatalogClient` and the test ``MockCatalogClient``
-    satisfy this Protocol, so the agent depends on the abstraction — never on a
-    concrete client, the DB, or upstream Anitabi/Bangumi clients.
-    """
-
-    async def search(self, query: str) -> list[PilgrimagePoint]: ...
-
     async def resolve(self, query: str) -> ResolveOutcome: ...
 
     async def points_by_work_id(self, work_id: str) -> SearchResult: ...
-
-    async def spots(self, bangumi_id: str) -> PilgrimagePoint: ...
 
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
@@ -200,8 +185,6 @@ class CatalogClientProtocol(Protocol):
         origin: tuple[float, float] | None = None,
         pacing: Literal["chill", "normal", "packed"] | None = None,
     ) -> Route: ...
-
-    async def ingest(self, bangumi_id: str) -> IngestResult: ...
 
 
 class CatalogClient:
@@ -226,11 +209,6 @@ class CatalogClient:
         self._max_retries = max_retries
         self._client = http_client
 
-    async def search(self, query: str) -> list[PilgrimagePoint]:
-        """Resolve a free-text query to its pilgrimage points."""
-        payload = await self._rpc("search", {"query": query})
-        return _parse_rows(payload)
-
     async def resolve(self, query: str) -> ResolveOutcome:
         """Resolve free text to a deterministic typed anime outcome."""
         payload = await self._rpc("resolve", {"query": query})
@@ -240,11 +218,6 @@ class CatalogClient:
         """Fetch published points for an already-resolved work id."""
         payload = await self._rpc("points-by-work-id", {"work_id": work_id})
         return SearchResult.model_validate(payload)
-
-    async def spots(self, bangumi_id: str) -> PilgrimagePoint:
-        """Return a single pilgrimage point for the given work id."""
-        payload = await self._rpc("spots", {"bangumi_id": bangumi_id})
-        return _parse_point(payload)
 
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
@@ -277,16 +250,6 @@ class CatalogClient:
             body["pacing"] = pacing
         payload = await self._rpc("route", body)
         return Route.model_validate(payload)
-
-    async def ingest(self, bangumi_id: str) -> IngestResult:
-        """Ingest a not-yet-cataloged work on demand by its bangumi id.
-
-        Retried transient failures (5xx, 408/429, transport errors) may
-        re-send this write; safe to retry because it relies on the catalog
-        side performing an idempotent upsert keyed by ``bangumi_id``.
-        """
-        payload = await self._rpc("ingest", {"bangumi_id": bangumi_id})
-        return IngestResult.model_validate(payload)
 
     async def aclose(self) -> None:
         """Close the shared HTTP client (idempotent; no-op when never used)."""
@@ -419,11 +382,3 @@ def _parse_rows(payload: JSONDict) -> list[PilgrimagePoint]:
     if not isinstance(rows, list):
         raise APIError("Expected 'rows' to be a JSON array of points")
     return [PilgrimagePoint.model_validate(row) for row in rows]
-
-
-def _parse_point(payload: JSONDict) -> PilgrimagePoint:
-    """Validate a ``{"point": {...}, "distance_m"?: float}`` envelope."""
-    point = payload.get("point")
-    if not isinstance(point, dict):
-        raise APIError("Expected 'point' to be a JSON object")
-    return PilgrimagePoint.model_validate(point)

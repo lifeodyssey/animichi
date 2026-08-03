@@ -253,9 +253,7 @@ void test("a stringly-typed success value fails closed", async () => {
   assert.equal(result.ok, false);
 });
 
-// Pin the wire name as a literal. Both sides define their own TURNSTILE_HEADER
-// constant and every other test imports the constant it is testing, so renaming
-// one side alone stays green while anonymous turns silently arrive tokenless.
+// Pin the shared contract value to Cloudflare's canonical wire name.
 void test("the token header is literally cf-turnstile-response", () => {
   assert.equal(TURNSTILE_HEADER, "cf-turnstile-response");
 });

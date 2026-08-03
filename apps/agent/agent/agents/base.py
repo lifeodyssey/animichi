@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import re
-from typing import TypeVar, overload
 
 import httpx
 from openai import AsyncOpenAI
-from pydantic import BaseModel
-from pydantic_ai import Agent
 from pydantic_ai.models import Model
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -25,8 +22,6 @@ from agent.config.model_aliases import (
     model_alias_from_spec,
 )
 from agent.config.settings import Settings, _is_local_base_url
-
-T = TypeVar("T", bound=BaseModel)
 
 _DEFAULT_MODEL_SPEC = "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
 _MODEL_ALIAS_PATTERN = re.compile(r"[a-z0-9_-]+")
@@ -223,51 +218,3 @@ def describe_model(model: object) -> str:
         return f"fallback({', '.join(m.model_name for m in model.models)})"
     label = getattr(model, "model_name", None)
     return label if isinstance(label, str) and label else type(model).__name__
-
-
-@overload
-def create_agent(
-    model: Model | str | None = None,
-    *,
-    name: str,
-    system_prompt: str = "",
-    output_type: type[T],
-    tool_retries: int = 2,
-    http_client: httpx.AsyncClient | None = None,
-) -> Agent[None, T]: ...
-
-
-@overload
-def create_agent(
-    model: Model | str | None = None,
-    *,
-    name: str,
-    system_prompt: str = "",
-    output_type: None = None,
-    tool_retries: int = 2,
-    http_client: httpx.AsyncClient | None = None,
-) -> Agent[None, str]: ...
-
-
-def create_agent(
-    model: Model | str | None = None,
-    *,
-    name: str,
-    system_prompt: str = "",
-    output_type: type[T] | None = None,
-    tool_retries: int = 2,
-    http_client: httpx.AsyncClient | None = None,
-) -> Agent[None, T] | Agent[None, str]:
-    """Create a Pydantic AI agent with the given configuration."""
-    selected = resolve_model(model, http_client=http_client)
-    if output_type is None:
-        return Agent(
-            selected, name=name, system_prompt=system_prompt, retries=tool_retries
-        )
-    return Agent(
-        selected,
-        name=name,
-        system_prompt=system_prompt,
-        output_type=output_type,
-        retries=tool_retries,
-    )

@@ -10,6 +10,7 @@ from starlette.types import Message, Receive
 
 from agent.interfaces.routes import chat
 from agent.interfaces.routes._deps import TrustedAuthContext
+from agent.interfaces.routes.chat_body import ChatBody
 
 
 def _request(receive: Receive) -> Request:
@@ -41,6 +42,7 @@ async def test_budget_rejection_precedes_body_read_and_session_validation(
     result = await chat.handle_chat(
         request,
         TrustedAuthContext("anon_0123456789abcdef0123456789abcdef", "anonymous"),
+        ChatBody(messages=[]),
     )
 
     assert result is rejection

@@ -41,7 +41,7 @@ async def test_catalog_budget_nests_inside_tool_and_agent_timeouts(
     )
 
     with pytest.raises(TransientAPIError, match="exceeded 80.0s"):
-        await CatalogClient("https://catalog.test").search("氷菓")
+        await CatalogClient("https://catalog.test").points_by_work_id("8000")
 
     assert deadlines == [CATALOG_TOTAL_TIMEOUT_SECONDS]
     assert CATALOG_REQUEST_TIMEOUT_SECONDS < CATALOG_TOTAL_TIMEOUT_SECONDS

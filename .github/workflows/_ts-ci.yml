@@ -18,6 +18,7 @@ permissions:
 
 jobs:
   ts-ci:
+    timeout-minutes: 20
     name: TS CI
     runs-on: ubuntu-latest
     steps:
