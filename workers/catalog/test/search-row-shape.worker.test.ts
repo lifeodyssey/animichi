@@ -55,28 +55,8 @@ describe("search joined-row output shape", () => {
     `);
   });
 
-  it("snapshots the current pass-through of an invalid numeric field", async () => {
-    await expect(runSearch({ ...NORMAL_ROW, latitude: "not-a-number" })).resolves.toMatchInlineSnapshot(`
-      {
-        "rows": [
-          {
-            "bangumi_id": "1",
-            "city": "Kuki",
-            "cover_url": "https://image.anitabi.cn/cover1.jpg",
-            "episode": 3,
-            "id": "spot-1",
-            "latitude": "not-a-number",
-            "longitude": 139.6586,
-            "name": "鷲宮神社",
-            "name_cn": "鹫宫神社",
-            "screenshot_url": "https://image.anitabi.cn/p1.jpg",
-            "time_seconds": 120,
-            "title": "らき☆すた",
-            "title_cn": "幸运星",
-          },
-        ],
-        "synced_at": "2026-06-20T00:00:00.000Z",
-      }
-    `);
+  it("rejects an invalid numeric field at the joined-row boundary", async () => {
+    await expect(runSearch({ ...NORMAL_ROW, latitude: "not-a-number" }))
+      .rejects.toThrow("Catalog row latitude is not numeric");
   });
 });
