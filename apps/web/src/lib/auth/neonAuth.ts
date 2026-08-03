@@ -56,6 +56,10 @@ export async function fetchAuthToken(): Promise<string | undefined> {
   if (!base) return undefined;
   try {
     const { data, error } = await neonAuthClient(base).token();
+    // No null-guard on `data`: better-auth types the success branch as
+    // non-nullable with a required `token`, and type-aware oxlint rejects the
+    // check as provably dead (`no-unnecessary-condition`). A review bot asked
+    // for one; the type system says the shape it fears cannot occur here.
     return error ? undefined : data.token;
   } catch {
     return undefined;
