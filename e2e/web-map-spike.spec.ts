@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { readMapFrame, routeRenderedMap } from "./fixtures/map-spike";
+import { readMapFrame, routeEmptyMap, routeRenderedMap } from "./fixtures/map-spike";
 
 const FIRST_TILE_BUDGET_MS = 3_000;
 const PROFILE = {
@@ -42,4 +42,21 @@ test("first real map tile paints within 3s under perf-mobile-cold", async ({ pag
   expect(frame.renderer).toContain("SwiftShader");
   expect(elapsedMs).toBeLessThanOrEqual(FIRST_TILE_BUDGET_MS);
   console.info(`[map-spike] first-tile elapsed_ms=${elapsedMs.toFixed(1)}`);
+});
+
+test("out-of-bounds 204 tiles paint only the plain background", async ({ page }) => {
+  await routeEmptyMap(page);
+  const emptyTile = page.waitForResponse((response) => response.url().endsWith(".mvt"));
+  const startedAt = performance.now();
+  await page.goto("/map-spike?source=worker", { waitUntil: "commit" });
+  const response = await emptyTile;
+  await expect(page.locator(".map-spike__stage")).toHaveAttribute("data-status", "ready");
+  const elapsedMs = performance.now() - startedAt;
+  await expect(page.locator(".map-spike__gl")).toHaveCSS("opacity", "1");
+  const frame = await readMapFrame(page);
+  expect(response.status()).toBe(204);
+  expect(frame.sampledPixels).toBeGreaterThan(0);
+  expect(frame.backgroundPixels).toBe(frame.sampledPixels);
+  expect(frame.earthPixels).toBe(0);
+  console.info(`[map-spike] out-of-bounds-background elapsed_ms=${elapsedMs.toFixed(1)}`);
 });
