@@ -55,7 +55,14 @@
 #                                pair (site 1x00000000000000000000AA / secret 1x0000000000000000000000000000000AA).
 
 compatibility_date = "2025-03-01"
-compatibility_flags = ["nodejs_compat"]
+# `enable_ctx_exports` is required for the `ctx.exports` loopback-binding API
+# (docs: workers/runtime-apis/context#exports — "you must use the
+# enable_ctx_exports compatibility flag", on by default only in future).
+# @cloudflare/containers reaches ctx.exports.ContainerProxy when starting the
+# RuntimeContainer; without the flag the export exists but the API does not,
+# and every container start fails with "ctx.exports is undefined" — staging
+# /healthz 500 on the first real root deploy (run 30795617682).
+compatibility_flags = ["nodejs_compat", "enable_ctx_exports"]
 main = "worker/entry.ts"
 
 # Plain (non-secret) vars forwarded into the RuntimeContainer (Python agent).
