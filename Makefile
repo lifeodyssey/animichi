@@ -1,6 +1,6 @@
 # Animichi Agent - Makefile
 
-.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry test-worker e2e-setup e2e local-login dev-stop
+.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry test-worker e2e-setup e2e local-login dev-stop
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -27,6 +27,7 @@ help:
 	@echo "  make test-cov    Run tests with coverage report"
 	@echo "  make test-eval   Run model-backed evals"
 	@echo "  make test-eval-fullstack  Run thin full-stack eval (opt-in, not a PR gate)"
+	@echo "  make test-docs   Run deterministic documentation guardrails"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint        Run linters (ruff)"
@@ -78,7 +79,10 @@ test-eval:
 test-eval-fullstack:
 	cd apps/agent && EVAL_FULLSTACK=1 EVAL_MAX_CASES=$${EVAL_MAX_CASES:-50} $(PYTHON) -m agent.tests.eval.run_agent_eval
 
-lint:
+test-docs:
+	cd apps/agent && uv run pytest agent/tests/eval/test_documentation_guardrails.py -q --no-cov
+
+lint: test-docs
 	cd apps/agent && uv run ruff check agent/ scripts/
 	cd apps/agent && uv run ruff format --check agent/ scripts/
 
