@@ -142,10 +142,9 @@ def make_result(
     message: str = "該当する巡礼地が見つかりませんでした。",
     data: Mapping[str, object] | None = None,
     steps: list[StepRecord] | None = None,
-    tool_state: dict[str, object] | None = None,
 ) -> AgentResult:
     """Build a compact output plus its authoritative typed registry."""
-    del locale, tool_state
+    del locale
     payload = (
         dict(data) if data is not None else {"results": {"rows": [], "row_count": 0}}
     )
