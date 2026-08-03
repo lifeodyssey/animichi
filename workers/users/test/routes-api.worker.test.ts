@@ -83,7 +83,7 @@ describe("user session handlers", () => {
   });
 
   it("caps next_offset at the contract offset ceiling", async () => {
-    const rows = Array.from({ length: 1050 }, (_, i) => row({ session_id: `s-${i}` }));
+    const rows = Array.from({ length: 1050 }, (_, i) => row({ session_id: `s-${String(i)}` }));
     const result = await listSessions(fakeDb(rows).db, "user-a", { limit: 30, offset: 980 });
     expect(result.next_offset).toBeNull();
   });
