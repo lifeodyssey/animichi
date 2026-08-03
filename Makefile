@@ -80,7 +80,7 @@ test-eval-fullstack:
 	cd apps/agent && EVAL_FULLSTACK=1 EVAL_MAX_CASES=$${EVAL_MAX_CASES:-50} $(PYTHON) -m agent.tests.eval.run_agent_eval
 
 test-docs:
-	cd apps/agent && uv run pytest agent/tests/eval/test_documentation_guardrails.py -q --no-cov
+	cd apps/agent && uv run pytest agent/tests/unit/test_documentation_guardrails.py -q --no-cov
 
 lint: test-docs
 	cd apps/agent && uv run ruff check agent/ scripts/
