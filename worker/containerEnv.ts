@@ -11,7 +11,7 @@
  */
 
 export const CONTAINER_ENV_KEYS = [
-  "DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUPABASE_DB_URL", "ANITABI_API_URL", "CATALOG_API_URL",
+  "DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUPABASE_DB_URL", "CATALOG_API_URL",
   // APP_ENV also joined CONTAINER_REQUIRED_KEYS below (issue #498): it is kept
   // listed here too so the standard forwarding allowlist stays a complete
   // picture of what reaches the container, but CONTAINER_REQUIRED_KEYS is what

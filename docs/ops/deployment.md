@@ -17,7 +17,6 @@ Browser
   │                                                          └─ Neon Postgres/PostGIS via neon-http (`DATABASE_URL`)
   └─ /v1/* ── auth at Worker edge ───────────────▶ Worker → RuntimeContainer → FastAPI service
                                                             ├─ Supabase Postgres (`SUPABASE_DB_URL`)
-                                                            ├─ Anitabi API (`ANITABI_API_URL`)
                                                             ├─ catalog read path (`CATALOG_API_URL` → /catalog/*)
                                                             └─ MiMo primary (`MIMO_API_KEY`)
                                                                └─ DeepSeek fallback temporarily disabled
@@ -57,7 +56,7 @@ The deployment target stays intentionally thin. The Worker owns routing and edge
 |---|---|---|
 | Web app (`apps/web`) | SSR browser surface, deployed as its own Worker on its own route | none of this Worker's secrets |
 | Worker edge | Route match, JWT/API-key auth, identity injection | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (+ optional `NEON_AUTH_*`) |
-| Container runtime | Backend service, DB, model/provider calls | `SUPABASE_DB_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `ANITABI_API_URL`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
+| Container runtime | Backend service, DB, model/provider calls | `SUPABASE_DB_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
 | Maintenance Worker | Scheduled agent-domain retention; no public route | `AGENT_DATABASE_URL` only |
 
 Current hardening rule: the Worker strips the raw `Authorization` header before proxying and forwards only trusted `X-User-Id` / `X-User-Type` identity headers to the container.
@@ -139,7 +138,6 @@ provisioned fallback path.
 
 Common runtime config:
 
-- `ANITABI_API_URL`
 - `CORS_ALLOWED_ORIGIN`
 - `DEFAULT_AGENT_MODEL`
 - `FALLBACK_AGENT_MODEL` (empty by default for MiMo-only operation)
@@ -204,7 +202,6 @@ Run the image locally:
 ```bash
 docker run --rm -p 8080:8080 \
   -e SUPABASE_DB_URL \
-  -e ANITABI_API_URL \
   -e MIMO_API_KEY \
   -e DEEPSEEK_API_KEY \
   -e CORS_ALLOWED_ORIGIN \
