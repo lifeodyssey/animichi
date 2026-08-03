@@ -1,7 +1,7 @@
 """Export negative feedback from Supabase to pydantic-evals compatible dataset.
 
-Usage:
-    python scripts/feedback_to_eval.py --since 2026-03-01 \
+Usage (from apps/agent):
+    uv run python agent/scripts/feedback_to_eval.py --since 2026-03-01 \
         --output tests/eval/cases/feedback_regression.json
 
 Requires SUPABASE_DB_URL in environment.
