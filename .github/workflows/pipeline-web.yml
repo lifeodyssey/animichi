@@ -1,0 +1,138 @@
+name: pipeline-web
+
+on:
+  pull_request:
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - ".github/actions/**"
+      - ".github/scripts/**"
+      - ".github/workflows/pipeline-web.yml"
+      - ".oxlintrc.json"
+      - "apps/web/**"
+      - "e2e/**"
+      - "package.json"
+      - "packages/contract/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: Web / lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Type check (tsc)
+        run: pnpm --filter web typecheck
+      - name: Oxlint (type-aware, strict)
+        run: pnpm --filter web run lint:oxlint
+
+  test:
+    name: Web / test
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Unit tests (vitest, coverage gate)
+        run: pnpm --filter web test
+      - name: Upload coverage
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: apps/web/coverage/lcov.info
+          flags: web
+          fail_ci_if_error: true
+          use_oidc: true
+
+  build:
+    name: Web / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WEB_ARTIFACT_NAME: bundle-web-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Build + output-layout integration test
+        run: pnpm --filter web test:integration
+      - name: Package build artifact
+        run: |
+          ARTIFACT_DIR="$RUNNER_TEMP/bundle-web"
+          mkdir -p "$ARTIFACT_DIR"
+          tar -C apps/web -czf "$ARTIFACT_DIR/web-output.tar.gz" .output
+          ARTIFACT_SHA256="$(sha256sum "$ARTIFACT_DIR/web-output.tar.gz" | cut -d ' ' -f1)"
+          printf '{"commit_sha":"%s","sha256":"%s"}\n' "$GITHUB_SHA" "$ARTIFACT_SHA256" \
+            > "$ARTIFACT_DIR/.artifact-meta.json"
+      - name: Upload build artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.WEB_ARTIFACT_NAME }}
+          path: |
+            ${{ runner.temp }}/bundle-web/web-output.tar.gz
+            ${{ runner.temp }}/bundle-web/.artifact-meta.json
+          if-no-files-found: error
+          include-hidden-files: true
+      - name: Isolate original build output
+        run: mv apps/web/.output "$RUNNER_TEMP/original-web-output"
+      - name: Download build artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.WEB_ARTIFACT_NAME }}
+          path: ${{ runner.temp }}/downloaded-web-artifact
+      - name: Verify and restore build artifact
+        run: |
+          META_PATH="$RUNNER_TEMP/downloaded-web-artifact/.artifact-meta.json"
+          BUNDLE_PATH="$RUNNER_TEMP/downloaded-web-artifact/web-output.tar.gz"
+          META_COMMIT_SHA="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["commit_sha"])' "$META_PATH")"
+          META_SHA256="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["sha256"])' "$META_PATH")"
+          test "$META_COMMIT_SHA" = "$GITHUB_SHA"
+          printf '%s  %s\n' "$META_SHA256" "$BUNDLE_PATH" | sha256sum --check --strict
+          tar -C apps/web -xzf "$BUNDLE_PATH"
+
+      # PR and merge-queue runs may only restore this release-reachable cache.
+      # The trusted push-to-main run is the sole writer.
+      - name: Resolve Playwright version
+        run: |
+          PLAYWRIGHT_VERSION="$(pnpm --dir e2e exec playwright --version)"
+          echo "PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION#Version }" >> "$GITHUB_ENV"
+        shell: bash
+      - name: Restore Playwright browser cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
+      - name: Install Playwright browser
+        run: pnpm --dir e2e exec playwright install --with-deps chromium
+      - name: Save Playwright browser cache
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
+      - name: Browser test (branded 404 on downloaded worker)
+        run: |
+          pnpm --filter web exec wrangler dev --port 8799 &
+          WRANGLER_PID=$!
+          for _ in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8799/ && break; sleep 1; done
+          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts
+          kill "$WRANGLER_PID"
