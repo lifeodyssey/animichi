@@ -7,6 +7,7 @@ import pytest
 from agent.tests.unit.documentation_guardrails import (
     HISTORICAL_MARKER,
     REPO_ROOT,
+    _coverage_key_drift,
     assert_retired_technologies_are_historical,
     check_retired_technology_docs,
     documented_coverage_thresholds,
@@ -30,6 +31,21 @@ def test_canonical_docs_only_allow_marked_retired_technology() -> None:
     check_retired_technology_docs(REPO_ROOT)
 
 
+def test_coverage_key_drift_names_the_unexpected_key() -> None:
+    live = live_coverage_thresholds(REPO_ROOT)
+
+    assert _coverage_key_drift({**live, "Frontend vibes": 1}) == (
+        "unexpected Frontend vibes"
+    )
+
+
+def test_coverage_key_drift_names_the_missing_key() -> None:
+    live = dict(live_coverage_thresholds(REPO_ROOT))
+    del live["Backend total"]
+
+    assert _coverage_key_drift(live) == "missing Backend total"
+
+
 def test_documented_coverage_thresholds_match_live_configs() -> None:
     assert documented_coverage_thresholds(REPO_ROOT) == live_coverage_thresholds(
         REPO_ROOT
@@ -48,6 +64,6 @@ def test_documented_coverage_thresholds_match_live_configs() -> None:
     ),
 )
 def test_architecture_records_d7_decision(fact: str) -> None:
-    architecture = (REPO_ROOT / "docs/ARCHITECTURE.md").read_text()
+    architecture = (REPO_ROOT / "docs/ARCHITECTURE.md").read_text(encoding="utf-8")
 
     assert fact in extract_d7_section(architecture)

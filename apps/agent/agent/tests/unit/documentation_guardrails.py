@@ -70,11 +70,23 @@ def check_retired_technology_docs(repo_root: Path) -> None:
         )
 
 
+def _coverage_key_drift(values: dict[str, int]) -> str:
+    missing = sorted(_COVERAGE_KEYS.difference(values))
+    unexpected = sorted(values.keys() - _COVERAGE_KEYS)
+    parts = []
+    if missing:
+        parts.append(f"missing {', '.join(missing)}")
+    if unexpected:
+        parts.append(f"unexpected {', '.join(unexpected)}")
+    return "; ".join(parts)
+
+
 def _require_coverage_keys(values: dict[str, int], source: str) -> dict[str, int]:
     if values.keys() == _COVERAGE_KEYS:
         return values
-    missing = sorted(_COVERAGE_KEYS.difference(values))
-    raise ValueError(f"{source}: missing coverage thresholds: {', '.join(missing)}")
+    raise ValueError(
+        f"{source}: coverage threshold keys drifted: {_coverage_key_drift(values)}"
+    )
 
 
 def documented_coverage_thresholds(repo_root: Path) -> dict[str, int]:

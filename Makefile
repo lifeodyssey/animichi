@@ -82,9 +82,16 @@ test-eval-fullstack:
 test-docs:
 	cd apps/agent && uv run pytest agent/tests/unit/test_documentation_guardrails.py -q --no-cov
 
-lint: test-docs
+# test-docs is deliberately NOT a prerequisite here: the doc guardrails are
+# ordinary unit tests, so `make test` and CI's `pytest agent/tests/unit/` both
+# already execute them. Keeping the dependency made `make check` run them twice.
+# The target stays as a fast standalone loop while editing docs.
+lint:
 	cd apps/agent && uv run ruff check agent/ scripts/
 	cd apps/agent && uv run ruff format --check agent/ scripts/
+	# vulture runs in CI (_python-ci.yml); without it here a dead-code finding
+	# reaches CI as a bare "exit code 3" after `make check` was green locally.
+	cd apps/agent && uv run vulture agent/ vulture_whitelist.py
 
 format:
 	cd apps/agent && uv run ruff format agent/ scripts/
