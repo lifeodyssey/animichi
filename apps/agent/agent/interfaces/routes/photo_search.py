@@ -17,7 +17,6 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from agent.interfaces.routes.chat import BUDGET_EXHAUSTED_MESSAGE
 from agent.agents.photo_search import (
     GpsPoint,
     PhotoSearchResponse,
@@ -51,6 +50,7 @@ from agent.interfaces.routes._deps import (
     _get_settings_from_request,
     _get_trusted_auth_context,
 )
+from agent.interfaces.routes.chat import BUDGET_EXHAUSTED_MESSAGE
 from agent.interfaces.usage_metering import (
     ANON_BUDGET_EXHAUSTED_CODE,
     ANONYMOUS_USER_TYPE,
