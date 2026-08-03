@@ -7,8 +7,9 @@ stack-specific rules live in per-package `AGENTS.md` files and in `.claude/rules
 Animichi is an anime pilgrimage search + route-planning service. **Hybrid microservices**: a
 Python PydanticAI agent (FastAPI, Cloudflare container) + TypeScript Cloudflare Workers (catalog +
 users) + a TanStack web app (rebuild in progress). Data plane = Neon;
-auth = **Neon Auth (Better Auth) live** in `apps/web` + edge dual-issuer verification (SD-31);
-Supabase auth remains only in legacy local-dev/E2E paths (#561) — **do not add new Supabase-auth code**.
+auth = **Neon Auth (Better Auth) integrated in `apps/web`** (SD-31); edge dual-issuer verification is
+implemented but **flag-gated OFF** (`NEON_AUTH_ENABLED`, cutover pending) — Supabase still verifies
+edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth code**.
 
 ## Monorepo layout
 
