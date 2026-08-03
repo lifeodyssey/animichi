@@ -16,6 +16,8 @@ import os
 import sys
 from datetime import datetime
 
+from agent.infrastructure.safe_output_path import resolve_output_path
+
 
 async def fetch_bad_feedback(dsn: str, since: str) -> list[dict]:
     """Fetch all 'bad' feedback records since the given date."""
@@ -73,10 +75,10 @@ async def main_async(args: argparse.Namespace) -> None:
 
     cases = to_eval_cases(rows)
 
-    # Ensure output directory exists
-    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
+    safe_output = resolve_output_path(args.output)
+    safe_output.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(args.output, "w", encoding="utf-8") as f:
+    with open(safe_output, "w", encoding="utf-8") as f:
         json.dump(cases, f, ensure_ascii=False, indent=2, default=str)
 
     print(f"Exported {len(cases)} feedback cases to {args.output}")
