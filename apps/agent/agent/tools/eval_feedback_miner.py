@@ -1,8 +1,8 @@
 """Mine bad-feedback rows and suggest prompt improvements.
 
-Usage:
-    uv run python tools/eval_feedback_miner.py
-    uv run python tools/eval_feedback_miner.py --limit 50 --output suggestions.md
+Usage (from apps/agent):
+    uv run python agent/tools/eval_feedback_miner.py
+    uv run python agent/tools/eval_feedback_miner.py --limit 50 --output suggestions.md
 """
 
 from __future__ import annotations
