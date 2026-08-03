@@ -9,13 +9,13 @@ from __future__ import annotations
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
-from agent.config import get_settings
 from agent.domain.entities import Coordinates, Point
 from agent.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 BANGUMI_API_BASE = "https://api.bgm.tv"
+ANITABI_API_BASE = "https://api.anitabi.cn/bangumi"
 _USER_AGENT = "Animichi/1.0 (https://github.com/lifeodyssey/animichi)"
 _HEADERS = {"User-Agent": _USER_AGENT, "Accept": "application/json"}
 
@@ -92,7 +92,7 @@ async def fetch_subject(subject_id: int) -> BangumiSubject:
 
 async def fetch_points(bangumi_id: str) -> list[Point]:
     """GET /{id}/points/detail from the Anitabi API, parsed to Point entities."""
-    base = get_settings().anitabi_api_url.rstrip("/")
+    base = ANITABI_API_BASE.rstrip("/")
     url = f"{base}/{bangumi_id}/points/detail"
     async with httpx.AsyncClient(timeout=30.0, headers=_HEADERS) as client:
         response = await client.get(url, params={"haveImage": "true"})

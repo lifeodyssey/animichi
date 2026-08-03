@@ -25,14 +25,11 @@ os.environ.setdefault("OPENAI_COMPAT_BASE_URL", "https://api.xiaomimimo.com/v1")
 
 
 @pytest.fixture
-def mock_settings(tmp_path_factory: pytest.TempPathFactory) -> Settings:
+def mock_settings() -> Settings:
     """Build deterministic application settings for unit tests."""
     from agent.config import Settings
 
-    output_dir = tmp_path_factory.mktemp("test_outputs")
-    template_dir = tmp_path_factory.mktemp("test_templates")
     return Settings(
-        anitabi_api_url="https://test.anitabi.com/api",
         app_env="test",
         # Explicit non-wildcard origin: cors_allowed_origin's validator rejects
         # "*" outside app_env=="development" (issue #498 follow-up — the check
@@ -41,10 +38,6 @@ def mock_settings(tmp_path_factory: pytest.TempPathFactory) -> Settings:
         cors_allowed_origin="http://localhost:3000",
         log_level="DEBUG",
         debug=True,
-        max_retries=1,
-        timeout_seconds=5,
-        cache_ttl_seconds=60,
-        use_cache=False,
         # Settings reads .env for omitted fields, so pin the complete model layer.
         default_agent_model="deepseek:deepseek-v4-flash",
         fallback_agent_model=None,
@@ -54,8 +47,6 @@ def mock_settings(tmp_path_factory: pytest.TempPathFactory) -> Settings:
         openai_compat_base_url="https://api.xiaomimimo.com/v1",
         agent_deadline=100.0,
         model_attempt_timeout=45.0,
-        output_dir=output_dir,
-        template_dir=template_dir,
     )
 
 
