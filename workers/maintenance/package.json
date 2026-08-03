@@ -1,0 +1,24 @@
+{
+  "name": "maintenance",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Animichi scheduled maintenance Worker for agent-domain Neon retention",
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "test": "npm run test:worker",
+    "test:worker": "vitest run --config vitest.config.ts --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260723.1",
+    "@vitest/coverage-istanbul": "4.1.10",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.114.0"
+  }
+}
