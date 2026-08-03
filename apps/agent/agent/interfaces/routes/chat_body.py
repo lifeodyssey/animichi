@@ -168,6 +168,13 @@ class ChatBody(BaseModel):
     def preserve_lazy_history(cls, value: object) -> object:
         return _prepared_messages(value)
 
+    @field_validator("origin_lat", "origin_lng", mode="before")
+    @classmethod
+    def widen_integer_coordinates(cls, value: object) -> object:
+        if isinstance(value, int) and not isinstance(value, bool):
+            return float(value)
+        return value
+
     def last_user_text(self, limit: int) -> str:
         for message in reversed(self.messages):
             if isinstance(message, AISDKUserMessage):
