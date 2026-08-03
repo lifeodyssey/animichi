@@ -1,3 +1,5 @@
+> **基线注记(2026-08-03)**:本 spec 的「current state」段以 2026-07-29 基线核验;其中「deploy.yml 构建/部署 frontend/」的描述已随 #537(legacy frontend 退役)过时——现 deploy.yml 无 app build,root worker 以源码直发。使用本 spec 指导 CI/CD 改动时以现行 workflow 为准。
+
 # CI/CD Rebuild — Spec
 
 | | |
