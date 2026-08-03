@@ -1,4 +1,3 @@
--- Auth-stripped Atlas twin of supabase/migrations/20260729000001_anon_daily_message_quota.sql.
 -- Per-identity anonymous daily message quota (issue #282, S1.10).
 --
 -- `daily_usage` (20260726000001) meters a *global* dollar ceiling across the
