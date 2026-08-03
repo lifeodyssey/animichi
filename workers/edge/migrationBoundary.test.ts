@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const MIGRATIONS = `${ROOT}db/migrations/`;
 const read = (path: string): string => readFileSync(`${ROOT}${path}`, "utf8");
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

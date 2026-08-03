@@ -79,11 +79,12 @@ jobs:
           filters: |
             contract: ['packages/contract/**']
             catalog: ['workers/catalog/**', 'packages/contract/**']
-            # workers/users/test/eddsa-shared-primitive.worker.test.ts asserts worker/auth.ts
-            # (the edge /v1 EdDSA consumer) still delegates to the shared contract verifier —
-            # scoping this filter to workers/users/** + packages/contract/** alone would let a
-            # regression land in worker/auth.ts while ci-users skips (issue #647).
-            users: ['workers/users/**', 'packages/contract/**', 'worker/auth.ts']
+            # workers/users/test/eddsa-shared-primitive.worker.test.ts asserts
+            # workers/edge/auth.ts (the edge /v1 EdDSA consumer) still delegates to the
+            # shared contract verifier — scoping this filter to workers/users/** +
+            # packages/contract/** alone would let a regression land in
+            # workers/edge/auth.ts while ci-users skips (issue #647).
+            users: ['workers/users/**', 'packages/contract/**', 'workers/edge/auth.ts']
             # workers/maintenance/test/config.worker.test.ts asserts against the deploy
             # wiring itself — ci.yml, deploy.yml, _deploy-component.yml, both deprecated
             # fallback workflows and docs/ops/secrets.md are read verbatim by that test.
@@ -95,7 +96,7 @@ jobs:
             maintenance: ['workers/maintenance/**', '.github/workflows/ci.yml', '.github/workflows/deploy.yml', '.github/workflows/_deploy-component.yml', '.github/workflows/purge-anon-quota-counts.yml', '.github/workflows/purge-anonymous-sessions.yml', 'docs/ops/secrets.md']
             # Agent unit tests assert cross-package workflow, documentation, Worker, and
             # web coverage config. The read-set meta-check protects these extra entries.
-            agent: ['apps/agent/**', 'packages/contract/**', '.github/workflows/**', 'apps/web/vitest.config.ts', 'docs/ARCHITECTURE.md', 'docs/ops/deployment.md', 'docs/ops/secrets.md', 'docs/testing-strategy.md', 'worker/containerEnv.ts']
+            agent: ['apps/agent/**', 'packages/contract/**', '.github/workflows/**', 'apps/web/vitest.config.ts', 'docs/ARCHITECTURE.md', 'docs/ops/deployment.md', 'docs/ops/secrets.md', 'docs/testing-strategy.md', 'workers/edge/containerEnv.ts']
             # SD-30 path-filter rule (shared verbatim with iter-1 S1.13, per the second-pass
             # spec review): prompt/instructions + model-config + guardrail files ONLY — not
             # every apps/agent/** change (that broader scope still gates `agent` above, which
@@ -111,21 +112,21 @@ jobs:
             # on the very PR that changed it — a gate that cannot test itself.
             agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py', 'apps/agent/agent/config/settings.py', 'apps/agent/agent/tests/eval/**']
             # apps/web/tests/unit/chat/turnstile-constants-guard.test.ts reads
-            # worker/turnstile.ts + packages/contract/src/constants.ts to assert the
-            # edge worker and this app still share the Turnstile header/TTL constants
+            # workers/edge/turnstile.ts + packages/contract/src/constants.ts to assert
+            # the edge worker and this app still share the Turnstile header/TTL constants
             # (issue #647); without these two entries a regression in either file
             # would land while ci-web skips.
-            web: ['apps/web/**', 'worker/turnstile.ts', 'packages/contract/**']
-            worker: ['worker/**']
+            web: ['apps/web/**', 'workers/edge/turnstile.ts', 'packages/contract/**']
+            worker: ['workers/edge/**']
             infra: ['infra/**']
-            migrations: ['supabase/migrations/**', 'db/**', 'docs/ops/migrations.md', 'docs/ops/deployment.md', 'README*', 'Makefile', 'worker/migrationBoundary.test.ts', '.github/workflows/ci.yml', '.github/workflows/deploy.yml']
+            migrations: ['supabase/migrations/**', 'db/**', 'docs/ops/migrations.md', 'docs/ops/deployment.md', 'README*', 'Makefile', 'workers/edge/migrationBoundary.test.ts', '.github/workflows/ci.yml', '.github/workflows/deploy.yml']
             neon_agent: ['apps/agent/**']
             neon_catalog: ['workers/catalog/**']
             neon_migrations: ['db/migrations/**']
             # The cross-stack browser lane exercises emitted apps/web output
             # and the edge-facing worker together. Keep its scope broad enough
             # to catch contract and deployment wiring changes.
-            cross_stack: ['apps/**', 'worker/**', 'workers/**', 'packages/contract/**', 'db/**', 'infra/**', 'e2e/**', '.github/workflows/**', '.github/actions/**']
+            cross_stack: ['apps/**', 'workers/**', 'packages/contract/**', 'db/**', 'infra/**', 'e2e/**', '.github/workflows/**', '.github/actions/**']
 
   # ── Stage 1: Component CI (reusable workflows, all parallel) ──
   # affected-only on PRs; full run on push/tag.
@@ -305,7 +306,7 @@ jobs:
           echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
 
       - name: Run migration boundary guard
-        run: node --test worker/migrationBoundary.test.ts
+        run: node --test workers/edge/migrationBoundary.test.ts
 
       - name: Validate Atlas migration directory
         run: atlas migrate validate --dir file://db/migrations

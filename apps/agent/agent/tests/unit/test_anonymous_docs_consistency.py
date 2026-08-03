@@ -17,7 +17,7 @@ from agent.interfaces.usage_metering import (
 )
 
 ARCHITECTURE = Path(__file__).resolve().parents[5] / "docs" / "ARCHITECTURE.md"
-WORKER = Path(__file__).resolve().parents[5] / "worker"
+WORKER = Path(__file__).resolve().parents[5] / "workers" / "edge"
 
 
 @pytest.fixture(scope="module")
@@ -26,7 +26,7 @@ def architecture() -> str:
 
 
 def test_the_auth_section_names_the_real_worker_modules(architecture: str) -> None:
-    assert "`worker/app.ts` + `worker/auth.ts`" in architecture
+    assert "`workers/edge/app.ts` + `workers/edge/auth.ts`" in architecture
 
 
 def test_x5_is_documented_as_implemented_rather_than_forward_looking(

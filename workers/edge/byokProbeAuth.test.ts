@@ -5,7 +5,7 @@ import { createWorkerApp, type Env } from "./app.ts";
 // #284 Task 5 / #479 P1 review follow-up (Fable): T5-AC5 — "an
 // unauthenticated POST /v1/byok/probe is rejected with 401 at the edge, and
 // no container handler runs" — had ZERO test coverage. Every existing case
-// in worker/byok.test.ts is already authenticated; none of them exercise the
+// in byok.test.ts is already authenticated; none of them exercise the
 // unauthenticated path this AC is actually about. `/v1/byok/probe` is not in
 // `ANON_V1`, so an unauthenticated caller must fall straight to the generic
 // 401, never reaching CONTAINER.fetch.

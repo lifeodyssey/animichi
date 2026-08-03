@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const WRANGLER = readFileSync(`${ROOT}wrangler.toml`, "utf8");
 const ENV_BLOCKS = ["[vars]", "[env.production.vars]", "[env.staging.vars]"];
 const TOP_LEVEL = WRANGLER.slice(0, WRANGLER.indexOf("\n[vars]\n"));

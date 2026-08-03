@@ -27,7 +27,7 @@ logger = structlog.get_logger(__name__)
 
 UsageScope = Literal["anon", "user", "byok"]
 
-#: Prefix the edge stamps on every anonymous ``X-User-Id`` (worker/auth.ts).
+#: Prefix the edge stamps on every anonymous ``X-User-Id`` (workers/edge/auth.ts).
 ANON_USER_ID_PREFIX = "anon_"
 ANONYMOUS_USER_TYPE = "anonymous"
 ANON_BUDGET_EXHAUSTED_CODE = "anon_budget_exhausted"

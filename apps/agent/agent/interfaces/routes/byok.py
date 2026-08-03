@@ -7,7 +7,7 @@ configured model accepts an image part, so configuring a key costs the user
 exactly one probe request instead of two.
 
 Authenticated route only (login-gated like the rest of BYOK): not listed in
-`worker/app.ts`'s `ANON_V1`, so an unauthenticated caller is rejected at the
+`workers/edge/app.ts`'s `ANON_V1`, so an unauthenticated caller is rejected at the
 edge with a 401 before this ever runs (T5-AC5). The container repeats the
 login gate anyway (defense in depth, mirrors `chat.py::_byok_login_rejection`)
 in case this route is ever reached directly.

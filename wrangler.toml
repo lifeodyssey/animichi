@@ -3,7 +3,7 @@
 #
 # Architecture (issue #537 retired the bundled Next.js app; `apps/web` owns
 # every HTML surface now, so this Worker is API + asset proxy only):
-#   worker/entry.ts → /v1/* (container proxy) + /v1/users/* (users Worker)
+#   workers/edge/entry.ts → /v1/* (container proxy) + /v1/users/* (users Worker)
 #                   + /img/* (image proxy) + /tiles/* (private R2 proxy)
 #                   + /healthz + one public catalog read
 #                   → everything else: JSON 404, no page renderer
@@ -23,7 +23,7 @@
 #   CLOUDFLARE_API_TOKEN       — Wrangler deploy auth
 #   CLOUDFLARE_ACCOUNT_ID      — Cloudflare account target
 #
-# Edge runtime secrets (used by worker/auth.ts for /v1 auth):
+# Edge runtime secrets (used by workers/edge/auth.ts for /v1 auth):
 #   SUPABASE_URL               — https://<project>.supabase.co (set via wrangler secret put)
 #   SUPABASE_ANON_KEY          — Public anon key for JWT validation (set via wrangler secret put)
 #   SUPABASE_SERVICE_ROLE_KEY  — Service role for sk_ API key lookup (set via wrangler secret put)
@@ -63,7 +63,7 @@ compatibility_date = "2025-03-01"
 # and every container start fails with "ctx.exports is undefined" — staging
 # /healthz 500 on the first real root deploy (run 30795617682).
 compatibility_flags = ["nodejs_compat", "enable_ctx_exports"]
-main = "worker/entry.ts"
+main = "workers/edge/entry.ts"
 
 # Plain (non-secret) vars forwarded into the RuntimeContainer (Python agent).
 # CATALOG_API_URL is the base the agent's CatalogClient POSTs to as
@@ -276,7 +276,7 @@ CATALOG_API_URL = "http://catalog.internal"
 # either a repo-level or a staging-environment GH secret. Simply removing it
 # from ci.yml's worker_secrets (an earlier revision of this PR did that) would
 # NOT preserve staging's current behavior — there is no wildcard fallback.
-# `worker/containerEnv.ts` hardcodes `APP_ENV: "production"` for every
+# `workers/edge/containerEnv.ts` hardcodes `APP_ENV: "production"` for every
 # environment (confirmed: no APP_ENV var/secret exists anywhere — root,
 # staging, or production), and only forwards CORS_ALLOWED_ORIGIN to the
 # container when it is non-empty. With it absent, the container boots with
@@ -303,7 +303,7 @@ ANON_ACCESS_ENABLED = "true"
 # SD-31 staging cutover (owner-approved 2026-08-03, #312 slice 1): edge verifies
 # Neon Auth (Better Auth) tokens against the staging branch's JWKS. Migrated
 # users only — legacy Supabase tokens still verify via the dual-issuer
-# fallback in worker/auth.ts (non-EdDSA + non-Neon issuer → verifySupabase).
+# fallback in workers/edge/auth.ts (non-EdDSA + non-Neon issuer → verifySupabase).
 NEON_AUTH_ENABLED = "true"
 NEON_AUTH_ISSUER = "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth"
 NEON_AUTH_JWKS_URL = "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"

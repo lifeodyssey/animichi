@@ -27,7 +27,7 @@ Cloudflare Cron Triggers ──────────────────�
 ```
 
 The hybrid topology runs the edge Worker plus the catalog, users, and scheduled maintenance Workers. The main `seichijunrei` Worker
-(`worker/entry.js`) routes `/catalog/*` to the separate `catalog` Worker
+(`workers/edge/entry.js`) routes `/catalog/*` to the separate `catalog` Worker
 (`catalog/wrangler.toml`) via a wrangler service binding (`env.CATALOG.fetch`).
 The Python agent in the container cannot use that JS-only binding, so it reaches
 the catalog over the public origin: `CATALOG_API_URL` (forwarded into the
@@ -63,7 +63,7 @@ Current hardening rule: the Worker strips the raw `Authorization` header before 
 
 ## Auth Flow
 
-Worker auth is implemented in `worker/auth.ts`:
+Worker auth is implemented in `workers/edge/auth.ts`:
 
 - JWT flow: `authenticate()` verifies the token signature locally against the issuer JWKS (jose `createRemoteJWKSet`, cached per isolate) — no per-request `/auth/v1/user` round-trip. Supabase tokens verify as ES256/RS256 against `SUPABASE_URL/auth/v1/.well-known/jwks.json` (issuer `SUPABASE_URL/auth/v1`, audience `authenticated`, `exp` checked); the injected `X-User-Id` is the token `sub`.
 - Dual-issuer readiness: a flag-gated Neon Auth (Better Auth, EdDSA) verification path exists but is OFF by default — active only when `NEON_AUTH_ENABLED=true` and both `NEON_AUTH_JWKS_URL` and `NEON_AUTH_ISSUER` are set. Tokens route by `alg`/`iss`, so Supabase and Neon issuers coexist without a cutover.
@@ -347,7 +347,7 @@ owner/runbook and must not be used to change Neon catalog or user tables.
 
 Do not use version tags as a deploy trigger for the current pipeline.
 
-**CF Worker routing** (`worker/app.ts`):
+**CF Worker routing** (`workers/edge/app.ts`):
 - `/v1/*` and `/healthz` → `CONTAINER` (Durable Object → FastAPI service on port 8080)
 - `/v1/users/*` → `USERS` service binding
 - `/catalog/public/anime-overview/:id` → allowlisted anonymous catalog read

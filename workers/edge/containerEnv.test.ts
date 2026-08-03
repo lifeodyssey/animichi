@@ -28,7 +28,7 @@ import { CONTAINER_ENV_KEYS, CONTAINER_REQUIRED_KEYS, DENIED_EGRESS_HOSTS, build
 // mean what this file assumes — there is no port to fall out of sync.
 
 const VENDORED_CONTAINER_JS_PATH = fileURLToPath(
-  new URL("../node_modules/@cloudflare/containers/dist/lib/container.js", import.meta.url),
+  new URL("../../node_modules/@cloudflare/containers/dist/lib/container.js", import.meta.url),
 );
 
 function extractRealMatcher(): { matchesHostList: (hostname: string, patterns: string[]) => boolean } {
@@ -191,7 +191,7 @@ void test("mutation guard: buildContainerEnvVars never seeds APP_ENV on its own"
 // wrangler.toml three-touchpoint check (feedback_env_var_three_touchpoints):
 // each of the three environment blocks must set its own APP_ENV value, and
 // they must not all collapse to the same (formerly hardcoded) "production".
-const WRANGLER_TOML_PATH = fileURLToPath(new URL("../wrangler.toml", import.meta.url));
+const WRANGLER_TOML_PATH = fileURLToPath(new URL("../../wrangler.toml", import.meta.url));
 const wranglerToml = readFileSync(WRANGLER_TOML_PATH, "utf8");
 
 // Full regex-metacharacter escape (CodeQL js/incomplete-sanitization: the

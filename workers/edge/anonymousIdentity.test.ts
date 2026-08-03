@@ -63,4 +63,3 @@ void test("a cookie signed with a different secret is rejected", async () => {
   );
   assert.notEqual(identity?.userId, other?.userId);
 });
-

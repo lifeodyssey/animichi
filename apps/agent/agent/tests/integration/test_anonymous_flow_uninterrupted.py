@@ -35,7 +35,7 @@ from agent.interfaces.fastapi_service import create_fastapi_app
 from agent.interfaces.public_api import RuntimeAPI
 
 # The edge stamps anonymous callers with this exact wire format
-# (``worker/anonymous.test.ts`` pins ``^anon_[0-9a-f]{32}$``).
+# (``workers/edge/anonymous.test.ts`` pins ``^anon_[0-9a-f]{32}$``).
 _ANON_HEADERS = {
     "X-User-Id": "anon_0123456789abcdef0123456789abcdef",
     "X-User-Type": "anonymous",

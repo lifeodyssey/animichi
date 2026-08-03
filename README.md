@@ -134,7 +134,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 - `workers/catalog/` — Cloudflare Worker: anime catalog REST API (TypeScript)
 - `packages/contract/` — shared oRPC contract types (catalog ↔ agent)
 - `apps/web/` — TanStack Start SSR web app and UI components
-- `worker/` — Cloudflare Worker entrypoint for auth and request routing
+- `workers/edge/` — Cloudflare Worker entrypoint for auth and request routing
 - `db/migrations/` — Atlas migrations and generated checksum for the Neon data plane
 - `supabase/` — auth/legacy compatibility migrations and Supabase project assets
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans

@@ -137,8 +137,8 @@ describe("a login drives the session-migration endpoint end to end", () => {
  * and a silent rename of either path would recreate it exactly.
  */
 describe("the posted path is the one the edge routes on", () => {
-  it("matches worker/app.ts's SESSION_MIGRATE_PATH literal", () => {
-    const edge = readFileSync(resolve(import.meta.dirname, "../../../../worker/app.ts"), "utf8");
+  it("matches workers/edge/app.ts's SESSION_MIGRATE_PATH literal", () => {
+    const edge = readFileSync(resolve(import.meta.dirname, "../../../../workers/edge/app.ts"), "utf8");
     expect(edge).toContain(`const SESSION_MIGRATE_PATH = "${SESSION_MIGRATE_PATH}"`);
   });
 });

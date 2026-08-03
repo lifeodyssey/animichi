@@ -1,5 +1,4 @@
 packages:
-  - "worker"            # CF edge worker — future workers/edge
   - "workers/*"
   - "apps/*"
   - "packages/*"
