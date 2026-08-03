@@ -80,6 +80,19 @@ def assigned_reads(node: ast.stmt) -> ast.expr | None:
     return node.value if isinstance(target, ast.Name) and target.id == "READS" else None
 
 
+def eval_literal(text: str, source: str) -> object:
+    # A READS assignment is only known to be *some* expression: `READS = helper()`
+    # parses fine and then raises a bare ValueError here. MetaCheckError subclasses
+    # ValueError, and catching a subclass does not catch its parent, so without
+    # this the caller's handler is bypassed and the script dies on a traceback.
+    try:
+        return cast(object, ast.literal_eval(text))
+    except (ValueError, SyntaxError) as error:
+        raise MetaCheckError(
+            f"{source}: READS must be a literal list of strings ({error})"
+        ) from error
+
+
 def literal_reads(value: object, source: str) -> tuple[str, ...]:
     reads = string_sequence(value, source)
     if not reads or len(reads) != len(set(reads)):
@@ -92,7 +105,7 @@ def python_reads(path: Path, source: str) -> tuple[str, ...]:
     values = tuple(value for node in tree.body if (value := assigned_reads(node)))
     if len(values) != 1:
         raise MetaCheckError(f"{source}: expected one module-level READS declaration")
-    return literal_reads(cast(object, ast.literal_eval(values[0])), source)
+    return literal_reads(eval_literal(values[0], source), source)
 
 
 def typescript_reads(path: Path, source: str) -> tuple[str, ...]:
@@ -101,7 +114,7 @@ def typescript_reads(path: Path, source: str) -> tuple[str, ...]:
         raise MetaCheckError(
             f"{source}: expected one exported literal READS declaration"
         )
-    return literal_reads(cast(object, ast.literal_eval(matches[0])), source)
+    return literal_reads(eval_literal(matches[0], source), source)
 
 
 def component_for(path: Path) -> str:
@@ -166,21 +179,23 @@ def changes_filters(workflow: YamlMap) -> YamlMap:
     return yaml_document(source, f"{CI_WORKFLOW}: dorny filters")
 
 
+def unreadable_gate(condition: str, check: ConfigCheck, marker: str) -> MetaCheckError:
+    return MetaCheckError(
+        f"{CI_WORKFLOW}: {check.job} has a path gate this check cannot read.\n"
+        f"  expected the `if:` to contain both {marker!r} and "
+        f"\"github.event_name != 'pull_request'\"\n"
+        f"  actual: {condition}\n"
+        "Refusing rather than assuming coverage: an unreadable gate is "
+        "exactly how a guard ends up never running. If the rewrite is "
+        "intentional, teach this function the new form."
+    )
+
+
 def validate_lane_condition(condition: str, check: ConfigCheck) -> None:
     marker = f"needs.changes.outputs.{check.component} == 'true'"
-    if (
-        marker not in condition
-        or "github.event_name != 'pull_request'" not in condition
-    ):
-        raise MetaCheckError(
-            f"{CI_WORKFLOW}: {check.job} has a path gate this check cannot read.\n"
-            f"  expected the `if:` to contain both {marker!r} and "
-            f"\"github.event_name != 'pull_request'\"\n"
-            f"  actual: {condition}\n"
-            "Refusing rather than assuming coverage: an unreadable gate is "
-            "exactly how a guard ends up never running. If the rewrite is "
-            "intentional, teach this function the new form."
-        )
+    pr_guard = "github.event_name != 'pull_request'"
+    if marker not in condition or pr_guard not in condition:
+        raise unreadable_gate(condition, check, marker)
 
 
 def lane_paths(
@@ -259,12 +274,13 @@ def filter_failures(check: ConfigCheck, path_filter: PathFilter) -> tuple[str, .
 
 
 def collect_failures(workflow: YamlMap, lanes: YamlMap) -> tuple[str, ...]:
-    failures = []
-    for check in discover_checks():
-        for event in EVENTS:
-            for path_filter in active_filters(workflow, lanes, check, event):
-                failures.extend(filter_failures(check, path_filter))
-    return tuple(failures)
+    return tuple(
+        failure
+        for check in discover_checks()
+        for event in EVENTS
+        for path_filter in active_filters(workflow, lanes, check, event)
+        for failure in filter_failures(check, path_filter)
+    )
 
 
 def run_check() -> int:
