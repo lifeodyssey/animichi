@@ -16,6 +16,7 @@ edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth
 - `apps/agent/`        — Python PydanticAI agent (FastAPI container). uv. → `apps/agent/AGENTS.md`
 - `workers/catalog/`   — TS Worker: anime catalog API + data platform (ingest/enrich/publish). → `workers/catalog/AGENTS.md`
 - `workers/users/`     — LIVE Hono/oRPC/jose user-data Worker; 21 tests + CI lane. → `workers/users/AGENTS.md`
+- `workers/maintenance/` — Scheduled agent-domain Neon retention; no public route. → `workers/maintenance/AGENTS.md`
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
 - `worker/`            — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy. No page fallback — unmatched paths 404.

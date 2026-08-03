@@ -40,6 +40,7 @@ jobs:
     outputs:
       catalog: ${{ steps.f.outputs.catalog }}
       users: ${{ steps.f.outputs.users }}
+      maintenance: ${{ steps.f.outputs.maintenance }}
       agent: ${{ steps.f.outputs.agent }}
       agent_behavior: ${{ steps.f.outputs.agent_behavior }}
       web: ${{ steps.f.outputs.web }}
@@ -71,6 +72,7 @@ jobs:
             contract: ['packages/contract/**']
             catalog: ['workers/catalog/**', 'packages/contract/**']
             users: ['workers/users/**', 'packages/contract/**']
+            maintenance: ['workers/maintenance/**']
             agent: ['apps/agent/**', 'packages/contract/**']
             # SD-30 path-filter rule (shared verbatim with iter-1 S1.13, per the second-pass
             # spec review): prompt/instructions + model-config + guardrail files ONLY — not
@@ -133,6 +135,17 @@ jobs:
     uses: ./.github/workflows/_ts-ci.yml
     with:
       component: users
+
+  ci-maintenance:
+    name: Maintenance CI
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.maintenance == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/_ts-ci.yml
+    with:
+      component: maintenance
 
   contract-openapi-drift:
     name: Contract OpenAPI drift
@@ -447,7 +460,7 @@ jobs:
 
   backend-ci-gate:
     name: Backend CI
-    needs: [changes, ci-catalog, ci-users, contract-openapi-drift, ci-worker]
+    needs: [changes, ci-catalog, ci-users, ci-maintenance, contract-openapi-drift, ci-worker]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -460,6 +473,7 @@ jobs:
             ${{ needs.changes.result }}
             ${{ needs.ci-catalog.result }}
             ${{ needs.ci-users.result }}
+            ${{ needs.ci-maintenance.result }}
             ${{ needs.contract-openapi-drift.result }}
             ${{ needs.ci-worker.result }}
         run: bash .github/scripts/assert-ci-needs.sh "Backend CI" "$STATUSES"
@@ -546,7 +560,7 @@ jobs:
 
   codecov-patch-gate:
     name: Codecov Patch
-    needs: [changes, ci-agent, ci-catalog, ci-users, ci-web, ci-worker]
+    needs: [changes, ci-agent, ci-catalog, ci-users, ci-maintenance, ci-web, ci-worker]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -564,6 +578,7 @@ jobs:
             ${{ needs.ci-agent.result }}
             ${{ needs.ci-catalog.result }}
             ${{ needs.ci-users.result }}
+            ${{ needs.ci-maintenance.result }}
             ${{ needs.ci-web.result }}
             ${{ needs.ci-worker.result }}
         run: bash .github/scripts/assert-ci-needs.sh "Codecov Patch" "$STATUSES"
@@ -656,6 +671,24 @@ jobs:
       NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
     concurrency: deploy-users-staging
 
+  deploy-maintenance-staging:
+    name: Deploy maintenance staging
+    needs: [deploy-staging]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: maintenance
+      environment: staging
+      pulumi_stack: staging
+      working_directory: workers/maintenance
+      run_pulumi: false
+      worker_secrets: AGENT_DATABASE_URL
+    secrets:
+      AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    concurrency: deploy-maintenance-staging
+
   deploy-root-staging:
     name: Deploy root staging
     needs: [deploy-staging, deploy-users-staging]
@@ -715,7 +748,7 @@ jobs:
 
   post-staging:
     name: Post-deploy (staging)
-    needs: [deploy-staging, deploy-web-staging, deploy-users-staging, deploy-root-staging]
+    needs: [deploy-staging, deploy-web-staging, deploy-users-staging, deploy-maintenance-staging, deploy-root-staging]
     uses: ./.github/workflows/_post-deploy-test.yml
     with:
       environment: staging
@@ -785,6 +818,23 @@ jobs:
       NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
     concurrency: deploy-users-prod
 
+  deploy-maintenance-prod:
+    name: Deploy maintenance production
+    needs: [post-staging, deploy-prod]
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: maintenance
+      environment: production
+      pulumi_stack: prod
+      working_directory: workers/maintenance
+      run_pulumi: false
+      worker_secrets: AGENT_DATABASE_URL
+    secrets:
+      AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    concurrency: deploy-maintenance-prod
+
   deploy-root-prod:
     name: Deploy root production
     needs: [post-staging, deploy-users-prod]
@@ -829,7 +879,7 @@ jobs:
 
   post-prod:
     name: Post-deploy (production)
-    needs: [deploy-prod, deploy-web-prod, deploy-users-prod, deploy-root-prod]
+    needs: [deploy-prod, deploy-web-prod, deploy-users-prod, deploy-maintenance-prod, deploy-root-prod]
     uses: ./.github/workflows/_post-deploy-test.yml
     with:
       environment: production

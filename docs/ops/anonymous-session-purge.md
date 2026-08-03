@@ -27,30 +27,21 @@ rest of the sweep continues. See `agent/scripts/purge_anonymous_sessions.py`
 docstrings and `agent/infrastructure/supabase/repositories/session.py`
 (`purge_session`) for the mechanics.
 
-## Trigger: `.github/workflows/purge-anonymous-sessions.yml`
+## Trigger: `workers/maintenance`
 
-- **Cron cadence:** `37 18 * * *` (18:37 UTC daily, off-peak, off the hour —
-  matches the `agent-eval-nightly.yml` precedent). Discretionary; change the
-  `cron:` line to retune.
-- **Scheduled workflows only run from the repository's default branch.**
-  Merging this workflow file to a non-default branch (or a stale PR base)
-  will never fire the cron — only `workflow_dispatch` works off-branch. If
-  the sweep appears to have stopped running, confirm the workflow file is
-  actually present on `main`/the default branch, not just on a feature
-  branch or an unmerged PR.
-- **Manual trigger:** `workflow_dispatch` — run it on demand from the Actions
-  tab, or `gh workflow run purge-anonymous-sessions.yml`.
-- **Required secret:** `SUPABASE_DB_URL` in this workflow's GitHub Actions
-  environment. Without it, `Settings` fails fast (`SUPABASE_DB_URL is not
-  set`) and the job goes red — this is deliberate: a missing secret must
-  **fail loudly**, not silently report "nothing to purge" (which is
-  indistinguishable from a healthy day with no eligible sessions).
-- **Local dry run:**
-  ```bash
-  cd apps/agent
-  SUPABASE_DB_URL=... uv run python -m agent.scripts.purge_anonymous_sessions --dry-run
-  ```
-  Reports the eligible-session count without deleting anything.
+The shared trigger/deploy/secret runbook is [`maintenance-worker.md`](./maintenance-worker.md).
+
+- **Cron cadence:** `37 18 * * *` (18:37 UTC daily), configured identically in
+  the default, staging, and production `wrangler.toml` environments.
+- **Required secret:** `AGENT_DATABASE_URL`, provisioned separately on the
+  `staging` and `production` GitHub Environments and uploaded to the same-named
+  Cloudflare Worker secret binding by CI.
+- **Verification:** inspect the staging Worker's Cron Trigger Past Events and
+  structured `anonymous_sessions_purged` log. Keep the deprecated manual GHA
+  fallback until one real staging event succeeds; then delete that workflow.
+- **Local/manual fallback:** `.github/workflows/purge-anonymous-sessions.yml`
+  remains `workflow_dispatch`-only during that verification window and retains
+  its `--dry-run` option. It has no schedule and is not the production trigger.
 
 ## Reading a run
 

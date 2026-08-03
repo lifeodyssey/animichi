@@ -21,6 +21,8 @@ on:
     secrets:
       NEON_DATABASE_URL:
         required: false
+      AGENT_DATABASE_URL:
+        required: false
       CLOUDFLARE_API_TOKEN:
         required: false
       CLOUDFLARE_PULUMI_API_TOKEN:
@@ -71,6 +73,17 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+      - name: Preflight - maintenance database secret
+        if: ${{ inputs.component == 'maintenance' }}
+        shell: bash
+        env:
+          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          if [ -z "$AGENT_DATABASE_URL" ]; then
+            echo "::error::AGENT_DATABASE_URL is empty/unset for the maintenance Worker in environment=$TARGET_ENVIRONMENT. Refusing to deploy a scheduled purge that cannot reach the agent data plane."
+            exit 1
+          fi
       # #527/#528: this job declares `environment: ${{ inputs.environment }}`
       # above, which is what makes environment-scoped secrets resolve here
       # at all (GitHub: "If you include environment in the reusable workflow
@@ -539,6 +552,7 @@ jobs:
           secrets: ${{ inputs.worker_secrets }}
         env:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -637,6 +651,9 @@ jobs:
               ;;
             users)
               echo "::notice title=post-deploy smoke::users has no public route in any environment by design (private, USERS service binding only); reachability is verified end-to-end by _post-deploy-test.yml's users-probe once root is deployed in the same environment"
+              ;;
+            maintenance)
+              echo "::notice title=post-deploy smoke::maintenance is scheduled-only with no public route; verify its first staging invocation in Cloudflare Cron Trigger Past Events before deleting the deprecated GHA fallbacks"
               ;;
             *)
               echo "::error title=post-deploy smoke::unknown component '$COMPONENT'"

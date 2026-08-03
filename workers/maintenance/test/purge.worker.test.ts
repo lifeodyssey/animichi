@@ -87,7 +87,9 @@ describe("anonymous session retention", () => {
       ["sess-a", SESSION_CUTOFF],
     );
   });
+});
 
+describe("anonymous session race handling", () => {
   it("isolates an FK race and continues the sweep", async () => {
     const db = database();
     const fkViolation = Object.assign(new Error("routes_session_id_fkey"), { code: "23503" });
@@ -116,5 +118,14 @@ describe("anonymous session retention", () => {
       .mockRejectedValueOnce(new Error("boom"));
 
     await expect(purgeAnonymousSessions(db)).rejects.toThrow("boom");
+  });
+
+  it("rejects a malformed candidate row", async () => {
+    const db = database();
+    vi.mocked(db.query).mockResolvedValueOnce(result(1, [{ session_id: 42 }]));
+
+    await expect(purgeAnonymousSessions(db)).rejects.toThrow(
+      "Purge candidate has no string session_id",
+    );
   });
 });
