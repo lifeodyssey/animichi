@@ -374,7 +374,7 @@ jobs:
           if [ -z "$NEON_DATABASE_URL" ]; then
             echo "NEON_DATABASE_URL not set — skipping atlas migrate"; exit 0
           fi
-          curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
+          curl -sSfL --proto '=https' --proto-redir '=https' "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
           chmod +x /usr/local/bin/atlas
           case "$NEON_DATABASE_URL" in
             *\?*) scoped_url="${NEON_DATABASE_URL}&search_path=public" ;;
