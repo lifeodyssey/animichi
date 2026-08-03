@@ -127,11 +127,16 @@ jobs:
         with:
           run_install: false
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6.4.0 # zizmor: ignore[cache-poisoning]
-        # Justification: workflow_dispatch only — no untrusted code can trigger this. cache: "" disables caching.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6.4.0
+        # No `cache:` key at all. `cache: ""` still counts as opting in to
+        # setup-node's cache machinery, which zizmor's cache-poisoning audit
+        # flags because this workflow reaches a deploy step; omitting the key
+        # is the only way to be genuinely cache-free. The former
+        # `zizmor: ignore` sat on this line while the finding anchors on the
+        # deploy step below, so it never applied — and suppression is banned
+        # here anyway.
         with:
           node-version: "24"
-          cache: ""
 
       - run: pnpm install --frozen-lockfile
 
