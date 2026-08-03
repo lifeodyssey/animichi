@@ -9,14 +9,12 @@ from agent.agents.models import TimedItinerary, TimedStop, TransitLeg
 from agent.agents.title_matching import best_alias_match
 from agent.clients.catalog_client import (
     AnimeCandidate,
-    IngestResult,
     PilgrimagePoint,
     ResolveNotFound,
     ResolveResolved,
     Route,
     SearchResult,
 )
-from agent.clients.errors import APIError
 from agent.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
 from agent.tests.eval.mock_catalog_fixtures import (
     FIXTURE_POINTS,
@@ -49,13 +47,6 @@ class MockCatalogClient:
     def __init__(self) -> None:
         self.calls: list[tuple[str, tuple[object, ...]]] = []
 
-    async def search(self, query: str) -> list[PilgrimagePoint]:
-        self.calls.append(("search", (query,)))
-        bangumi_id = self._match_title(query)
-        if bangumi_id is None or bangumi_id not in FIXTURE_POINTS:
-            return []
-        return [point.model_copy(deep=True) for point in FIXTURE_POINTS[bangumi_id]]
-
     async def resolve(self, query: str) -> ResolveResolved | ResolveNotFound:
         self.calls.append(("resolve", (query,)))
         bangumi_id = self._match_title(query)
@@ -78,13 +69,6 @@ class MockCatalogClient:
             point.model_copy(deep=True) for point in FIXTURE_POINTS.get(work_id, [])
         ]
         return SearchResult(rows=rows, synced_at="fixture")
-
-    async def spots(self, bangumi_id: str) -> PilgrimagePoint:
-        self.calls.append(("spots", (bangumi_id,)))
-        points = FIXTURE_POINTS.get(bangumi_id)
-        if not points:
-            raise APIError(f"No catalog point for bangumi_id={bangumi_id!r}")
-        return points[0].model_copy(deep=True)
 
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
@@ -111,13 +95,6 @@ class MockCatalogClient:
             if pid in _POINT_INDEX
         ]
         return _build_route(ordered)
-
-    async def ingest(self, bangumi_id: str) -> IngestResult:
-        self.calls.append(("ingest", (bangumi_id,)))
-        status = "ingested" if bangumi_id in FIXTURE_POINTS else "empty"
-        return IngestResult(
-            status=status, point_count=len(FIXTURE_POINTS.get(bangumi_id, []))
-        )
 
     async def near_location(self, name: str) -> list[PilgrimagePoint]:
         center = self._match_location(name)
