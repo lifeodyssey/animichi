@@ -5,11 +5,11 @@
 
 ## 第一步:CF 产品目录枚举(dashboard 可见开发者面全集)
 
-**Developer platform**: Workers(GA)· Pages(GA,维护模式,官方推 Workers)· Durable Objects(GA)· Containers(GA 2025-06)· Queues(GA,$0.40/M ops)· KV(GA)· D1(GA,serverless SQLite)· Workflows(GA)· **Pipelines(open beta**,流式摄取→SQL 变换→R2 Iceberg/Parquet;定价已公布未开始计费)· **Secrets Store(仍 beta**,账户级 secrets,100/账户)· **Workers VPC(beta**,2025-09 公告 VPC Services、2026-04 VPC Networks public beta;beta 期免费)· Workers for Platforms · Sandbox SDK · Artifacts
-**AI**: Workers AI(GA,按 token 计费)· AI Gateway(GA,LLM 代理/缓存/BYOK)· AI Search/AutoRAG · Vectorize(GA,仅 paid)· **Browser Run(原 Browser Rendering;REST API GA 2025-04,Playwright GA 2025-09**,免费档 10min/天,$0.09/browser-hr)· Agents SDK · AI Crawl Control
-**存储/数据库**: R2(GA,零 egress)· R2 Data Catalog/R2 SQL(open beta)· Hyperdrive(GA,TCP 连接池+查询缓存)· **托管 Postgres/MySQL = PlanetScale 合作(2026 新**:dashboard 内建库、CF 账单代收、经 Hyperdrive 接入 — 非 CF 自营数据库)
-**媒体/实时**: Stream(GA,视频托管)· Images(GA;Free 档 5k unique transformations/月,可变换 R2 内图)· **Realtime 系列(RealtimeKit SDK / Realtime SFU / TURN**,WebRTC 音视频,GA)· MoQ
-**Email**: **Email Service = Email Routing(GA,收)+ Email Sending(public beta 2026-04-16**,`env.EMAIL.send()`,Workers Paid;2026-06 加 SMTP submission beta)
+**Developer platform**: Workers(GA)· Pages(GA,维护模式,官方推 Workers)· Durable Objects(GA)· Containers(GA 2025-06)· Queues(GA,$0.40/M ops)· KV(GA)· D1(GA,serverless SQLite)· Workflows(GA)· **Pipelines**(open beta,流式摄取→SQL 变换→R2 Iceberg/Parquet;定价已公布未开始计费)· **Secrets Store**(仍 beta,账户级 secrets,100/账户)· **Workers VPC**(beta,2025-09 公告 VPC Services、2026-04 VPC Networks public beta;beta 期免费)· Workers for Platforms · Sandbox SDK · Artifacts
+**AI**: Workers AI(GA,按 token 计费)· AI Gateway(GA,LLM 代理/缓存/BYOK)· AI Search/AutoRAG · Vectorize(GA,仅 paid)· **Browser Run**(原 Browser Rendering;REST API GA 2025-04,Playwright GA 2025-09,免费档 10min/天,$0.09/browser-hr)· Agents SDK · AI Crawl Control
+**存储/数据库**: R2(GA,零 egress)· R2 Data Catalog/R2 SQL(open beta)· Hyperdrive(GA,TCP 连接池+查询缓存)· **托管 Postgres/MySQL = PlanetScale 合作**(2026 新:dashboard 内建库、CF 账单代收、经 Hyperdrive 接入 — 非 CF 自营数据库)
+**媒体/实时**: Stream(GA,视频托管)· Images(GA;Free 档 5k unique transformations/月,可变换 R2 内图)· **Realtime 系列**(RealtimeKit SDK / Realtime SFU / TURN,WebRTC 音视频,GA)· MoQ
+**Email**: **Email Service** = Email Routing(GA,收)+ Email Sending(public beta 2026-04-16,`env.EMAIL.send()`,Workers Paid;2026-06 加 SMTP submission beta)
 **安全/边缘**: Turnstile(GA)· WAF/DDoS/Bots/Rate Limiting/API Shield · Access/Zero Trust 全家桶 · Page Shield/Client-side Security · Snippets(GA)
 **网络**: Tunnel · Cloudflare Mesh/WAN · Magic Transit · Spectrum · Load Balancing/Health Checks · Argo · Internal DNS
 **其他**: Zaraz · Waiting Room · Cache/Cache Reserve · Web Analytics · Logpush/Log Explorer · Registrar/DNS · Terraform/Pulumi provider
@@ -29,7 +29,7 @@
 ### B. 该用而未用(逐项评估)
 | 产品 | 现状 | 成熟度 | 定价 | 迁移成本 | 判定 |
 |---|---|---|---|---|---|
-| **Images** | 手写 `/img/*` 代理 `worker/app.ts:331,383` + lazy-R2 原图直出 `media/img.ts`(无缩放/格式协商) | GA | Free 5k unique 变换/月;超出 $0.50/1k;可直接变换 R2 图 | 低:R2 已是源,加 transformations 或 binding 即可,现有 URL 结构可保留 | **该用**。photo-search/点位卡片全是原图字节直出,AVIF/宽度裁剪是白捡的带宽与 LCP;free 档大概率够 |
+| **Images** | 手写 `/img/*` 代理 `worker/app.ts:331,383` + lazy-R2 原图直出 `media/img.ts`(无缩放/格式协商) | GA | Free:5k unique 变换/月,**超出后新变换直接失败(错误 9422),不是付费溢出**;Paid:前 5k 含,之后 $0.50/1k;可直接变换 R2 图 | 低:R2 已是源,加 transformations 或 binding 即可,现有 URL 结构可保留 | **该用**。photo-search/点位卡片全是原图字节直出,AVIF/宽度裁剪是白捡的带宽与 LCP;free 档大概率够 |
 | **Email Sending** | 无发件能力;Neon Auth 走 Neon 共享发件域(不可品牌化、限流共享) | public beta(2026-04);Routing GA | Workers Paid 含;发到已验证地址免费 | 中:需 animichi.com DNS 先上线(目前零记录),Better Auth `sendMagicLink` 换成 `env.EMAIL.send()` 一个函数 | **该用**(排在 SD-31 auth 割接 + 域名上线之后)。beta 风险可接受:magic-link 丢失可重试 |
 | **AI Gateway** | agent 直连 MiMo/Gemini;#284 BYOK 刚做了逐请求注入 | GA | 免费(缓存/日志/限流);付费加高级功能 | 低:改 base_url 即可,容器内 Python 也能走 | **该用-轻量**。给 MiMo/Gemini/BYOK 统一加缓存、审计与故障转移面板,与 Logfire 互补不冲突 |
 | **Workers AI(vision,番剧识别)** | photo-search 走 MiMo/Gemini vision(`worker/photoSearch.test.ts`、#479 vision/probe) | GA;llama-3.2-11b-vision $0.049/M in;kimi-k2.6 带 vision $0.95/M in | 按 token | 低(仅 Workers 侧可用 binding;容器内走 REST) | **观望→spike**。通用开源 vision 模型认「圣地实拍照→具体番剧」能力存疑,Gemini 仍是上限;价值是廉价预筛/降级层。先拿 eval 集对 llama-3.2-11b-vision 跑一轮再定 |
@@ -64,7 +64,7 @@
 4. **Browser Rendering 已更名 Browser Run**,REST API 自 2025-04 起 GA 且有免费档 —— v1 若按「beta/仅付费」评估需更新。
 
 ## 行动清单(按收益/成本比排序)
-1. **Images transformations 接管 photo 出图**(该用,~半天):`/img/*` 与 media/img.ts 出口加 `/cdn-cgi/image/` 或 binding,AVIF+宽度裁剪,free 档起步。移动端 LCP 直接受益。
+1. **Images transformations 接管 photo 出图**(该用,~半天):`/img/*` 与 media/img.ts 出口加 `/cdn-cgi/image/` 或 binding,AVIF+宽度裁剪,free 档起步(Free 超限=新变换失败 9422 而非计费,需加用量监控,逼近 5k/月即升 Paid)。移动端 LCP 直接受益。
 2. **AI Gateway 前置 MiMo/Gemini/BYOK**(该用-轻量,~半天):统一缓存/限流/故障转移,顺手给 #284 BYOK 加审计面。
 3. **Email Sending 接 Better Auth magic-link**(该用,依赖域名上线 + SD-31 割接,~1 天):摆脱 Neon 共享发件域;顺带把 animichi.com DNS 债一起清。
 4. **Workers AI vision spike**(观望→spike,~半天):用现有 photo-search eval 集测 llama-3.2-11b-vision 当廉价预筛层,数据说话。

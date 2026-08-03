@@ -30,7 +30,7 @@
 ## CI/CD
 
 - **per-package pipelines**(pipeline-agent/catalog/users/web/edge/infra.yml)+ **`reusable-*` 命名模板**;全留 monorepo(GH 约束:reusable 必须平铺 .github/workflows/);弃 `_` 前缀。底稿=cicd-rebuild-spec pipeline 章节(#679)。
-- **Artifact promotion = git-SHA 不可变 tag**(build-once,staging→prod 同 tag 提升;digest 引用卡内 spike)。
+- **Artifact promotion = git-SHA 不可变 tag**(build-once,staging→prod 同 tag 提升;digest 引用卡内 spike;兜底双重建仅 spike 失败期间临时用,digest mismatch **阻断** prod 非告警)。
 - **告警全套**(#678):GHA 失败通知 + Logfire alert 规则 + CF 健康检查(随 C6 生效)。
 - **回滚 = 分层手册**(#680):Worker 平台秒回滚止血,容器 tag 重部,迁移走 revert 链;不建自动化。
 - Workers Builds 不替代 GHA(无审批门/编排);merge queue 评估在 #671。
