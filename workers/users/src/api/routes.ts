@@ -15,6 +15,9 @@ import { sql } from "drizzle-orm";
 import type { DbExecutor } from "../db/client";
 import { routeNotFound, routeNotOwned } from "../lib/errors";
 
+/** ListSessionsInput caps offset at 1000 (packages/contract users-contract.ts). */
+const MAX_LIST_OFFSET = 1_000;
+
 type RecordRow = Record<string, unknown>;
 
 function toSession(value: unknown): UserSession {
@@ -86,7 +89,11 @@ export async function listSessions(
     LIMIT ${input.limit + 1} OFFSET ${input.offset}
   `);
   const rows = result.rows.slice(0, input.limit).map(toSession);
-  return { sessions: rows, next_offset: result.rows.length > input.limit ? input.offset + input.limit : null };
+  const next = input.offset + input.limit;
+  // Must stay within ListSessionsInput's offset cap (packages/contract users-contract.ts): a
+  // next_offset the contract would reject is worse than ending pagination early.
+  const hasMore = result.rows.length > input.limit && next <= MAX_LIST_OFFSET;
+  return { sessions: rows, next_offset: hasMore ? next : null };
 }
 
 async function createRoute(

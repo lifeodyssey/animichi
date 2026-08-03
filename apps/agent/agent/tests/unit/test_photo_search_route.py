@@ -16,6 +16,7 @@ from agent.config.settings import Settings
 from agent.infrastructure.observability import photo_search as telemetry
 from agent.infrastructure.observability.photo_search import PhotoSearchQuota
 from agent.interfaces.public_api import RuntimeAPI
+from agent.interfaces.routes.chat import BUDGET_EXHAUSTED_MESSAGE
 from agent.interfaces.routes.photo_search import (
     MAX_IMAGE_BASE64_CHARS,
     PhotoSearchRuntime,
@@ -153,6 +154,8 @@ async def test_exhausted_anonymous_budget_rejects_before_vision() -> None:
         response = await client.post("/v1/photo-search", json=_body())
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "anon_budget_exhausted"
+    assert response.json()["error"]["message"] == BUDGET_EXHAUSTED_MESSAGE
+    assert response.json()["error"]["action"] == "login"
     assert app.state.photo_search.platform_provider.calls == 0
 
 
