@@ -579,7 +579,13 @@ jobs:
   deploy-staging:
     name: Deploy staging
     needs: [agent-ci-gate, backend-ci-gate, web-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
+    # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
+    # that do not touch agent_behavior paths) propagates through the always()
+    # gates and would silently skip every deploy — the bug that kept staging
+    # undeployed for three runs. Gate failures still block: they surface as
+    # failure(), not skipped.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: catalog
@@ -601,7 +607,13 @@ jobs:
   deploy-web-staging:
     name: Deploy web staging
     needs: [agent-ci-gate, backend-ci-gate, web-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
+    # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
+    # that do not touch agent_behavior paths) propagates through the always()
+    # gates and would silently skip every deploy — the bug that kept staging
+    # undeployed for three runs. Gate failures still block: they surface as
+    # failure(), not skipped.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: web
@@ -619,7 +631,13 @@ jobs:
   deploy-users-staging:
     name: Deploy users staging
     needs: [deploy-staging]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
+    # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
+    # that do not touch agent_behavior paths) propagates through the always()
+    # gates and would silently skip every deploy — the bug that kept staging
+    # undeployed for three runs. Gate failures still block: they surface as
+    # failure(), not skipped.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: users
@@ -641,7 +659,13 @@ jobs:
   deploy-root-staging:
     name: Deploy root staging
     needs: [deploy-staging, deploy-users-staging]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
+    # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
+    # that do not touch agent_behavior paths) propagates through the always()
+    # gates and would silently skip every deploy — the bug that kept staging
+    # undeployed for three runs. Gate failures still block: they surface as
+    # failure(), not skipped.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: root
