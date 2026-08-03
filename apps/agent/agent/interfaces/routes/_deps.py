@@ -375,7 +375,6 @@ def setup_logfire(settings: Settings, app: object | None = None) -> None:
     """
     import logfire
 
-    variables = _managed_prompt_variables()
     _enable_message_content_scrubbing()
     scrubbing = logfire.ScrubbingOptions(
         callback=_preserve_operating_query,
@@ -388,7 +387,6 @@ def setup_logfire(settings: Settings, app: object | None = None) -> None:
         send_to_logfire="if-token-present",
         console=False,
         scrubbing=scrubbing,
-        variables=variables,
     )
     if _has_logfire_token():
         _instrument_logfire(app)
@@ -417,17 +415,6 @@ def _enable_message_content_scrubbing() -> None:
     # Coupled to logfire._internal SAFE_KEYS until its public API supports
     # recursive scrubbing of PydanticAI and GenAI message attributes.
     BaseScrubber.SAFE_KEYS.difference_update(_MESSAGE_CONTENT_FIELDS)
-
-
-def _managed_prompt_variables() -> logfire.VariablesOptions | None:
-    import os
-
-    import logfire
-
-    credentials = _has_logfire_token() and bool(os.environ.get("LOGFIRE_API_KEY"))
-    if os.environ.get("ANIMICHI_MANAGED_PROMPT") != "1" or not credentials:
-        return None
-    return logfire.VariablesOptions(timeout=(1.0, 1.0))
 
 
 def _instrument_logfire(app: object | None) -> None:
