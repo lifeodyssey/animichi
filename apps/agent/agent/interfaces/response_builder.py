@@ -15,6 +15,7 @@ from agent.agents.session_state import (
     SearchPayloadState,
 )
 from agent.application.errors import ApplicationError
+from agent.interfaces.error_registry import public_error_response
 from agent.interfaces.schemas import (
     JsonObject,
     PublicAPIError,
@@ -175,18 +176,9 @@ def _step_error(step: StepRecord, include_debug: bool) -> PublicAPIError:
 
 def application_error_response(exc: ApplicationError) -> PublicAPIResponse:
     """Map an application error to a failed public response."""
-    return PublicAPIResponse(
-        success=False,
-        status="error",
-        intent="unknown",
-        message=exc.message,
-        errors=[
-            PublicAPIError(
-                code=exc.error_code.value,
-                message=exc.message,
-                details=exc.details,
-            )
-        ],
+    return public_error_response(
+        exc.error_code,
+        details=as_json_object(exc.details),
     )
 
 
