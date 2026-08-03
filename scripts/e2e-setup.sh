@@ -34,7 +34,7 @@ sleep 5
 echo ""
 
 echo "=== 4/5 Installing E2E dependencies ==="
-cd e2e && npm ci 2>/dev/null || npm install
+cd e2e && npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
 cd "$ROOT"
 echo ""
 
