@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent.tests.eval.documentation_guardrails import (
+from agent.tests.unit.documentation_guardrails import (
     HISTORICAL_MARKER,
     REPO_ROOT,
     assert_retired_technologies_are_historical,
