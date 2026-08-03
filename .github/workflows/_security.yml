@@ -77,6 +77,21 @@ jobs:
       - name: Verify pnpm lockfile domains stay covered
         run: python3 .github/scripts/test_dependabot_config.py
 
+  config-read-sets:
+    timeout-minutes: 5
+    name: Config check read-set trigger coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: false
+          prune-cache: true
+      - name: Verify config checks run for every file they read
+        run: uv run --script .github/scripts/test_config_read_sets.py
+
   # ── GitHub Actions security ──────────────────────────────────
 
   zizmor:
