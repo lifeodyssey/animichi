@@ -22,6 +22,7 @@ on:
       NEON_DATABASE_URL:
         required: false
       CLOUDFLARE_API_TOKEN:
+        required: false
       CLOUDFLARE_PULUMI_API_TOKEN:
         required: false
       CLOUDFLARE_ACCOUNT_ID:
