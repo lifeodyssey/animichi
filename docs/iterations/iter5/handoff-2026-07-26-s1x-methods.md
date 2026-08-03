@@ -6,7 +6,7 @@ Repo: `lifeodyssey/animichi`. Integration branch: **`feat/frontend-rebuild`** (N
 Working clone: `/private/tmp/claude-501/-Users-lumimamini-Documents-Seichijunrei-agent/0f5350ba-3042-4bc6-a55f-cbe2e4a860bd/scratchpad/animichi`
 Worktrees live as siblings: `scratchpad/wt-<n>`.
 
-⚠️ `/Users/lumimamini/Documents/Seichijunrei-agent` is a **different, legacy repo**. Its `CLAUDE.md` does not describe animichi. animichi's own `AGENTS.md` is authoritative (`CLAUDE.md` there is an 11-byte `@AGENTS.md` pointer).
+⚠️ `/Users/lumimamini/Documents/Seichijunrei-agent` **is** this same `lifeodyssey/animichi` repo (its `origin` remote points here) — not a separate legacy clone. Its `CLAUDE.md` is the 11-byte `@AGENTS.md` pointer described below; animichi's own `AGENTS.md` is authoritative. (Corrected 2026-08-03/04 — a prior revision of this note claimed the opposite and pointed later agents at a `/private/tmp` clone that had already been cleaned up.)
 
 ---
 
@@ -67,7 +67,7 @@ Both were dispatched with the full constraint set (see "Working method" below). 
 
 ## 🔴 Four decisions waiting on the owner
 
-1. **Rotate the Turnstile secret.** It appeared in this session's transcript. Rotation needs no code change — two CLI lines (`gh secret set` / `npx wrangler secret put ... --env=""`).
+1. **Rotate the Turnstile secret.** It appeared in this session's transcript. Rotation needs no code change, but do NOT run `gh secret set` / `npx wrangler secret put` locally — this repo is CI/CD-only (no local deploy), and this exact command in a non-interactive shell is what created the stray Worker described in decision 2 below. Rotate the secret through the CI/CD-managed channel instead (see `docs/ops/deployment.md`).
 2. **A stray empty Cloudflare Worker named `animichi`** was created as a side effect of `wrangler secret put` in a non-TTY shell (it prints `Using fallback value in non-interactive context: yes` and creates the Worker). My recommendation: **leave it** — the real deploy uploads code to the same name and the secret binding survives; deleting means re-injecting. Do not delete unilaterally.
 3. **#273 — start it in parallel?** It is the cleanest remaining candidate (no file overlap with anything in flight).
 4. **Production `ANON_ACCESS_ENABLED`.** I set it to `"false"` for production only (dev/staging stay `"true"`). Reason: until Turnstile is armed, dropping the `aid` cookie mints a fresh identity and resets the per-identity limiter, so the only real guard is the daily dollar breaker — an attacker can burn the whole budget daily and wall out legitimate visitors. Turning it on is the owner's call.
