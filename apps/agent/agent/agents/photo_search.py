@@ -11,11 +11,12 @@ contract shapes so rendering shares the text-search path.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from pydantic import BaseModel
 
+from agent.agents.agent_result import AttributedUsage
 from agent.agents.catalog_failures import CATALOG_FAILURES
 from agent.agents.vision_supply_router import VisionRecognitionFailed, VisionSupply
 from agent.clients.catalog_client import (
@@ -95,6 +96,7 @@ class PhotoSearchResponse(BaseModel):
 class PhotoSearchOutcome:
     response: PhotoSearchResponse
     signals: PhotoSearchSignals
+    usage: AttributedUsage | None = None
 
 
 def _point(row: PilgrimagePoint) -> PhotoPoint:
@@ -266,8 +268,11 @@ async def run_photo_search(
     except VisionRecognitionFailed:
         return await _vision_unavailable_outcome(catalog, gps)
     titles = call.recognition.candidate_titles
+    usage = AttributedUsage(
+        call.usage, "byok" if call.provider_kind == "byok" else "platform"
+    )
     if titles:
         outcome = await _layer_one(catalog, titles, gps)
         if outcome is not None:
-            return outcome
-    return await _degrade(catalog, titles, gps)
+            return replace(outcome, usage=usage)
+    return replace(await _degrade(catalog, titles, gps), usage=usage)

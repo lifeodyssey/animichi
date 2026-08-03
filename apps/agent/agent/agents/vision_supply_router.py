@@ -16,6 +16,7 @@ from typing import Literal, NewType, Protocol
 import httpx
 import structlog
 from pydantic import BaseModel, Field
+from pydantic_ai.usage import RunUsage
 
 logger = structlog.get_logger(__name__)
 
@@ -89,6 +90,7 @@ class VisionRecognition(BaseModel):
 
     reported_image_count: int
     candidate_titles: list[str] = Field(default_factory=list)
+    usage: RunUsage | None = None
 
 
 class VisionProvider(Protocol):
@@ -146,6 +148,7 @@ class VisionCallResult:
     recognition: VisionRecognition
     provider_kind: VisionProviderKind
     fell_back_to_platform: bool
+    usage: RunUsage
 
 
 @dataclass
@@ -160,6 +163,10 @@ class VisionSupply:
     def route(self, authenticated: bool) -> VisionRoute:
         return choose_vision_route(self.byok_endpoint, self.registry, authenticated)
 
+    @staticmethod
+    def _usage(recognition: VisionRecognition) -> RunUsage:
+        return recognition.usage or RunUsage(requests=1)
+
     async def recognize(
         self, images: list[bytes], locale: str, authenticated: bool
     ) -> VisionCallResult:
@@ -169,7 +176,12 @@ class VisionSupply:
             if result is not None:
                 return result
         recognition = await self._recognize_platform(images, locale)
-        return VisionCallResult(recognition, "platform", route.provider_kind == "byok")
+        return VisionCallResult(
+            recognition,
+            "platform",
+            route.provider_kind == "byok",
+            self._usage(recognition),
+        )
 
     async def _recognize_platform(
         self, images: list[bytes], locale: str
@@ -197,7 +209,9 @@ class VisionSupply:
         if recognition is None:
             return None
         if recognition.reported_image_count == len(images):
-            return VisionCallResult(recognition, "byok", False)
+            return VisionCallResult(
+                recognition, "byok", False, self._usage(recognition)
+            )
         self.registry.mark(endpoint, False)
         return None
 
