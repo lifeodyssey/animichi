@@ -8,6 +8,6 @@
     "test:perf-mobile-cold": "playwright test web-splash.spec.ts web-map-spike.spec.ts --grep @perf-mobile-cold"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1"
+    "@playwright/test": "^1.62.0"
   }
 }
