@@ -108,12 +108,15 @@ jobs:
           key: zizmor-${{ runner.os }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
           restore-keys: zizmor-${{ runner.os }}-
       - name: Install zizmor
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v7.1.1
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           # setup-uv's own cache defaults to auto-on and is read-write, which
           # zizmor's cache-poisoning audit rejects in this workflow. zizmor is a
           # single small download; the uv cache buys nothing here.
           enable-cache: false
+          # Required by .github/scripts/test_dependabot_config.py for every
+          # setup-uv call site (kept consistent even with the cache disabled).
+          prune-cache: true
       - name: Audit workflows
         env:
           GH_TOKEN: ${{ github.token }}
