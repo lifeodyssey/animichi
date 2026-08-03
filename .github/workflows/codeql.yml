@@ -19,6 +19,11 @@ on:
   schedule:
     - cron: '37 18 * * 0'
 
+# Least-privilege default for every job in this file (GitHub hardening
+# guide): jobs that need more declare it themselves at job level.
+permissions:
+  contents: read
+
 jobs:
   analyze:
     timeout-minutes: 20

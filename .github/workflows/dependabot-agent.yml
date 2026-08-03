@@ -10,6 +10,11 @@ env:
   NODE_VERSION: "24"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# Least-privilege default for every job in this file (GitHub hardening
+# guide): jobs that need more declare it themselves at job level.
+permissions:
+  contents: read
+
 jobs:
   # ── Stage 1: Quick verify (no AI cost) ────────────────────
   verify:
