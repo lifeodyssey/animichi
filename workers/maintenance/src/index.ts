@@ -36,9 +36,9 @@ function databaseUrl(env: ScheduledEnvironment): string {
 }
 
 async function runCron(cron: string, db: DatabaseClient, now: Date): Promise<void> {
-  if (cron === ANON_QUOTA_CRON) return void (await purgeAnonQuotaCounts(db, now));
-  if (cron === ANONYMOUS_SESSIONS_CRON) return void (await purgeAnonymousSessions(db, now));
-  throw new Error(`Unknown maintenance cron: ${cron}`);
+  if (cron === ANON_QUOTA_CRON) await purgeAnonQuotaCounts(db, now);
+  else if (cron === ANONYMOUS_SESSIONS_CRON) await purgeAnonymousSessions(db, now);
+  else throw new Error(`Unknown maintenance cron: ${cron}`);
 }
 
 export function createScheduledHandler(
