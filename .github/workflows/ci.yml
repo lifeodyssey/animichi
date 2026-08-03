@@ -79,7 +79,11 @@ jobs:
           filters: |
             contract: ['packages/contract/**']
             catalog: ['workers/catalog/**', 'packages/contract/**']
-            users: ['workers/users/**', 'packages/contract/**']
+            # workers/users/test/eddsa-shared-primitive.worker.test.ts asserts worker/auth.ts
+            # (the edge /v1 EdDSA consumer) still delegates to the shared contract verifier —
+            # scoping this filter to workers/users/** + packages/contract/** alone would let a
+            # regression land in worker/auth.ts while ci-users skips (issue #647).
+            users: ['workers/users/**', 'packages/contract/**', 'worker/auth.ts']
             # workers/maintenance/test/config.worker.test.ts asserts against the deploy
             # wiring itself — ci.yml, deploy.yml, _deploy-component.yml, both deprecated
             # fallback workflows and docs/ops/secrets.md are read verbatim by that test.
@@ -106,7 +110,12 @@ jobs:
             # while this filter excluded tests/eval/**, so the smoke job SKIPPED
             # on the very PR that changed it — a gate that cannot test itself.
             agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py', 'apps/agent/agent/config/settings.py', 'apps/agent/agent/tests/eval/**']
-            web: ['apps/web/**']
+            # apps/web/tests/unit/chat/turnstile-constants-guard.test.ts reads
+            # worker/turnstile.ts + packages/contract/src/constants.ts to assert the
+            # edge worker and this app still share the Turnstile header/TTL constants
+            # (issue #647); without these two entries a regression in either file
+            # would land while ci-web skips.
+            web: ['apps/web/**', 'worker/turnstile.ts', 'packages/contract/**']
             worker: ['worker/**']
             infra: ['infra/**']
             migrations: ['supabase/migrations/**', 'db/**', 'docs/ops/migrations.md', 'docs/ops/deployment.md', 'README*', 'Makefile', 'worker/migrationBoundary.test.ts', '.github/workflows/ci.yml', '.github/workflows/deploy.yml']

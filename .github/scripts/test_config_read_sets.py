@@ -24,6 +24,8 @@ CHECK_PATHS = (
     "apps/agent/agent/tests/unit/test_documentation_guardrails.py",
     "apps/agent/agent/tests/unit/test_secrets_docs_consistency.py",
     "workers/maintenance/test/config.worker.test.ts",
+    "workers/users/test/eddsa-shared-primitive.worker.test.ts",
+    "apps/web/tests/unit/chat/turnstile-constants-guard.test.ts",
 )
 TS_READS = re.compile(
     r"export\s+const\s+READS\s*=\s*(\[[^]]*])\s+as\s+const\s*;", re.DOTALL
