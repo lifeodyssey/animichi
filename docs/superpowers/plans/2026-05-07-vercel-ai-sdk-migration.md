@@ -1,3 +1,5 @@
+> **HISTORICAL(2026-08-03 注)**:本计划写于旧仓库布局时代(backend/ + frontend/ + npm),路径与现布局(apps/agent + apps/web + pnpm)不符,不可直接执行;归档裁决见 iter6 A6(#640)。
+
 # Vercel AI SDK v6 Data Stream Protocol Migration — Implementation Cards
 
 ## Iteration Config

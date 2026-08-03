@@ -13,9 +13,10 @@
 5. **docs 瘦身**:**filter-repo 彻底重写历史**,接受 SHA 变更/重 clone 代价。
 6. **staging 卡点**:operator 并行处理(VITE 变量 + CF token + DNS + 凭证轮换),与本战役互不阻塞。
 
-## 拟开 issue 清单(草案,待 grill 后定稿)
+## issue 清单(已定稿并开卡:iter6 #635-#655,S 线 #656/#657)
 
 ### A. 立即可做(纯删除/纯文档,零行为变化)
+
 | # | 内容 | 来源 |
 |---|---|---|
 | A1 | 修根 AGENTS.md:删 frontend/ 幽灵条目(覆盖率/ESLint 条款) | 结构 P0-1 |
@@ -26,6 +27,7 @@
 | A6 | docs 归档:specs/plans 批量入 archive、死文档删除、TODOS 并入 task_plan | 结构 P1-5/6/8 |
 
 ### B. 小改动(行为等价重构/一致性)
+
 | # | 内容 | 来源 |
 |---|---|---|
 | B1 | web 配额信封解析改走契约包 AnonLimitErrorEnvelope(现零引用,注释失实) | TS #1 |
@@ -35,10 +37,11 @@
 | B5 | authSession 硬编码 15min TTL → 读 JWT exp;评估 better-auth jwtClient | TS #6 |
 | B6 | pmtiles 租约状态机 80 行 → 10 行惰性注册 | TS #3 |
 | B7 | pickNext 双打平规则二选一(改前跑全量 query 差分) | TS #5 |
-| B8 | gemini_vision REST 手写 → google-genai SDK 或独立小 Agent(顺带解 #518 文案区分) | Py 评审+实测 |
+| B8 | ~~gemini_vision REST 重写~~ **由 S 线 vision 重设计卡(#656)取代,不在 iter6**;Gemini 供给链在 S4.8 替代方案部署并验收前保持原样 | grill 决策 2 |
 | B9 | Turnstile header/窗口常量入契约包;EdDSA 校验两处提公共 | TS #7/#9 |
 
 ### C. 结构迁移(大 diff、纯机械、需独立窗口)
+
 | # | 内容 | 来源 |
 |---|---|---|
 | C1 | apps/agent → src/animichi 布局 + 包名对齐;双 tests/scripts 归一;spikes 出包;application/tools 目录正名 | 结构+讨论 |
@@ -47,17 +50,18 @@
 | C4 | 类型收敛:db reflection DI → DatabasePort Protocol;session 信封 → SessionEnvelope 模型 | Py #9/10 |
 
 ### D. 决策依赖(先 grill / 先 eval)
+
 | # | 内容 | 依赖 |
 |---|---|---|
 | D1 | vision 供应商对比 eval(MiMo vs gemini-flash 认番剧命中率) | 决策 2 |
-| D2 | 1-10-50 规约:补 worker/catalog lint 强制 或 修订规约 | 决策 6 |
+| D2 | ~~1-10-50 规约裁决~~ **已决**(grill 决策 4):现规约全线强制+存量全拆(L1 卡);L1 验收=oxlint 规则全 workspace 生效且零豁免 | 决策 6 |
 | D3 | logfire _internal scrubbing 耦合:启动断言 + 版本区间锁 | Py #14 |
 
 ## S0 符合性核验结果(2026-08-03 第四路报告)
 
 **可安全关闭**:#231(S0.2)、#263(S0.10)、#248(S0.7)。已关的 #228、#244 复核无误。
 **可关但注记取代**:#234(tag-deploy→push-main+手动 dispatch;NextHandler 层随 #537 消亡)、
-#246(Supabase→Neon Auth = SD-31 决策;两条 browser AC 实际只有 unit 覆盖)。
+\#246(Supabase→Neon Auth = SD-31 决策;两条 browser AC 实际只有 unit 覆盖)。
 
 **不能关(完成是虚的)**:
 - **#262 S0.9 最虚**:5 条 AC 只实 2 条,且都是 #274/迁移边界工作顺带兑现;缺:Next.js 零残留 hygiene 守卫、testing-strategy.md 覆盖率段重写(仍写着 "Frontend tests ❌ None")、D7 "both REJECTED" 段落+断言。
@@ -67,6 +71,7 @@
 **测试诚实度**:未发现造假;splash 800ms(CDP 节流真测)、token 漂移 fixture、migrationBoundary(连 CI 命令文本都断言)是真守卫。两处名不副实:`test:perf-mobile-cold` 命名、S0.4/S0.6 的 browser AC 用 unit 顶替(test-type 契约失守)。
 
 ### E. S0 缺口回填(新增拟开卡)
+
 | # | 内容 | 来源 |
 |---|---|---|
 | E1 | S0.9 真·完成:hygiene 守卫脚本 + testing-strategy 覆盖率段重写 + D7 REJECTED 段落 | #262 |

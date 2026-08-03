@@ -1,3 +1,5 @@
+> **HISTORICAL SNAPSHOT(2026-08-03 注)**:本文是 2026-07-26 会话交接的原始记录,含当时的本机路径与本地操作指引,仅作历史证据保存,不是可执行 runbook;生产操作一律走 CI/CD(docs/ops/deployment.md)。
+
 # Handoff — animichi S1.x sprint (2026-07-26)
 
 Repo: `lifeodyssey/animichi`. Integration branch: **`feat/frontend-rebuild`** (NOT `main`).
