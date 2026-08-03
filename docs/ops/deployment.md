@@ -1,7 +1,7 @@
 # Deployment
 
 This is the canonical deployment runbook for the current runtime.
-The root `DEPLOYMENT.md` file remains as a compatibility pointer for older links.
+The old root `DEPLOYMENT.md` compatibility pointer was removed in iter6 A6 (#640); this file is the only deployment runbook.
 
 This file covers non-secret runtime config. For what each GitHub secret is, who consumes it,
 and rotation impact, see [`secrets.md`](./secrets.md).
@@ -22,9 +22,12 @@ Browser
                                                             └─ MiMo primary (`MIMO_API_KEY`)
                                                                └─ DeepSeek fallback temporarily disabled
                                                                   (`DEEPSEEK_API_KEY` remains provisioned)
+
+Cloudflare Cron Triggers ─────────────────────────▶ maintenance Worker
+                                                   └─ agent-domain Neon via `AGENT_DATABASE_URL`
 ```
 
-The hybrid topology runs the edge Worker plus the catalog and users Workers. The main `seichijunrei` Worker
+The hybrid topology runs the edge Worker plus the catalog, users, and scheduled maintenance Workers. The main `seichijunrei` Worker
 (`worker/entry.js`) routes `/catalog/*` to the separate `catalog` Worker
 (`catalog/wrangler.toml`) via a wrangler service binding (`env.CATALOG.fetch`).
 The Python agent in the container cannot use that JS-only binding, so it reaches
@@ -34,8 +37,10 @@ to `{CATALOG_API_URL}/catalog/<method>`, which the main Worker forwards to the
 catalog Worker. Deploy order: catalog Worker first (so `service = "catalog"`
 resolves), then the main Worker.
 
-Catalog and users Workers query Neon through the `neon-http` driver. Drizzle supplies runtime
-query/type metadata only; the checked-in Atlas directory is the only Neon schema authority. See
+Catalog and users Workers query Neon through Drizzle's `neon-http` driver, which supplies their
+runtime query/type metadata. The maintenance Worker has no ORM: it calls `neon()` from
+`@neondatabase/serverless` directly (`workers/maintenance/src/database.ts`) and issues raw SQL.
+The checked-in Atlas directory is the only Neon schema authority for all three. See
 [`migrations.md`](./migrations.md) before changing a table or deploy step.
 
 - `interfaces/fastapi_service.py` exposes `GET /healthz`
@@ -53,6 +58,7 @@ The deployment target stays intentionally thin. The Worker owns routing and edge
 | Web app (`apps/web`) | SSR browser surface, deployed as its own Worker on its own route | none of this Worker's secrets |
 | Worker edge | Route match, JWT/API-key auth, identity injection | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (+ optional `NEON_AUTH_*`) |
 | Container runtime | Backend service, DB, model/provider calls | `SUPABASE_DB_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `ANITABI_API_URL`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
+| Maintenance Worker | Scheduled agent-domain retention; no public route | `AGENT_DATABASE_URL` only |
 
 Current hardening rule: the Worker strips the raw `Authorization` header before proxying and forwards only trusted `X-User-Id` / `X-User-Type` identity headers to the container.
 
@@ -96,6 +102,13 @@ Required at deploy time:
 - optional: `NEON_AUTH_ENABLED`, `NEON_AUTH_JWKS_URL`, `NEON_AUTH_ISSUER` (dual-issuer readiness; leave unset to keep the Neon path off)
 
 These secrets stay in the Worker environment and are not forwarded into the container runtime. `SUPABASE_ANON_KEY` is no longer required at the edge — the JWT path verifies against the public Supabase JWKS and sends no `apikey` header.
+
+### Maintenance Worker
+
+`workers/maintenance` requires `AGENT_DATABASE_URL` as a Cloudflare secret binding. CI resolves the
+same-named secret from the selected GitHub Environment, so staging and production receive distinct
+agent-domain Neon DSNs. Schedules and cutover verification are in
+[`maintenance-worker.md`](./maintenance-worker.md).
 
 ### Container runtime
 
@@ -230,6 +243,7 @@ Routing defined by `wrangler.toml`:
 - `/img/*` runs through the Worker image proxy/cache
 - everything else answers a JSON `404 not_found`
 
+<!-- historical: retired in #537 -->
 Issue #537 removed the bundled Next.js app and with it the `[assets]` binding: this Worker
 has **no** HTML surface. `apps/web` deploys as its own Worker and owns every page. The root
 Worker's `routes` still claim `animichi.com/*`, so the apex has not yet been cut over to the
@@ -305,10 +319,13 @@ On a push to `main`, the current promotion chain is:
    repo, runs the shared setup action, applies Atlas migrations when `NEON_DATABASE_URL` is set,
    runs `pulumi up` in `infra/`, deploys `workers/${{ inputs.component }}` with Wrangler, and runs
    the component smoke step.
-4. `post-staging` runs the API post-deploy suite against staging.
-5. `deploy-prod` calls `_deploy-component.yml` with `environment: production` and
-   `pulumi_stack: prod`. The GitHub `production` environment is the human approval gate.
-6. `post-prod` runs the production smoke post-deploy suite.
+4. `deploy-maintenance-staging` deploys the scheduled Worker after the catalog job has applied Atlas
+   migrations; the web, users, and root staging deploys complete in the same promotion stage.
+5. `post-staging` runs the API post-deploy suite against staging.
+6. `deploy-prod` and the other production component jobs deploy catalog, web, users, maintenance,
+   and root with `environment: production`; `pulumi_stack: prod` remains catalog-only. The GitHub
+   `production` environment is the human approval gate.
+7. `post-prod` runs the production smoke post-deploy suite.
 
 ### Manual production path (`.github/workflows/deploy.yml`)
 
@@ -322,8 +339,9 @@ Its current order is:
    mutate the database)
 3. deploy the catalog Worker first, because the root Worker service binding depends on it
 4. deploy the users Worker before the root Worker, because the root `USERS` binding depends on it
-5. verify `Dockerfile` exists
-6. deploy the root Worker/container with Wrangler
+5. deploy the scheduled maintenance Worker with `AGENT_DATABASE_URL`
+6. verify `Dockerfile` exists
+7. deploy the root Worker/container with Wrangler
 
 The approval-gated main promotion (`_deploy-component.yml`) applies `db/migrations/` before its
 catalog/users rollout. This manual path does not apply either the Neon or frozen Supabase
@@ -381,6 +399,7 @@ explicitly.
 | root (edge Worker + container) | `.` | `npx wrangler@4.112.0 versions list --env <staging\|production>` | `npx wrangler@4.112.0 rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 | catalog | `workers/catalog` | `pnpm --filter catalog exec wrangler versions list --env <staging\|production>` | `pnpm --filter catalog exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 | users | `workers/users` | `pnpm --filter users exec wrangler versions list --env <staging\|production>` | `pnpm --filter users exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
+| maintenance | `workers/maintenance` | `pnpm --filter maintenance exec wrangler versions list --env <staging\|production>` | `pnpm --filter maintenance exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 | web | `apps/web` | `pnpm --filter web exec wrangler versions list --env <staging\|production>` | `pnpm --filter web exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 
 `wrangler rollback` with no version id rolls back to the version immediately before the current
@@ -388,7 +407,7 @@ one; pass an explicit id from the `versions list` output to jump further back. T
 running Worker code version — it does not touch bindings/secrets changed since that version, and it
 does not re-run Pulumi.
 
-**⚠️ root is the least certain of the four to roll back cleanly.** Unlike catalog/users/web, root
+**⚠️ root is the least certain of the five to roll back cleanly.** Unlike catalog/users/maintenance/web, root
 carries two Durable Object bindings (`CONTAINER`, `EDGE_GUARD`) behind `[[migrations]]` (`v1`
 `new_sqlite_classes: RuntimeContainer`, `v2` `new_sqlite_classes: EdgeGuard`) plus a `[[containers]]`
 image. `wrangler rollback` swaps the Worker script version; it does **not** un-apply a Durable

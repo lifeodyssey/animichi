@@ -75,6 +75,7 @@ permissions:
 
 jobs:
   post-deploy-test:
+    timeout-minutes: 30
     name: Post-deploy ${{ inputs.suite }} (${{ inputs.environment }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}

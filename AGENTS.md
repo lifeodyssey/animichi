@@ -7,14 +7,16 @@ stack-specific rules live in per-package `AGENTS.md` files and in `.claude/rules
 Animichi is an anime pilgrimage search + route-planning service. **Hybrid microservices**: a
 Python PydanticAI agent (FastAPI, Cloudflare container) + TypeScript Cloudflare Workers (catalog +
 users) + a TanStack web app (rebuild in progress). Data plane = Neon;
-auth = Supabase **today → migrating to Neon Auth** (decided, SD-31; provisioned but not yet
-integrated — **do not add new Supabase-auth code**; see the ADR / rebuild-spec for the target).
+auth = **Neon Auth (Better Auth) integrated in `apps/web`** (SD-31); edge dual-issuer verification is
+implemented but **flag-gated OFF** (`NEON_AUTH_ENABLED`, cutover pending) — Supabase still verifies
+edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth code**.
 
 ## Monorepo layout
 
 - `apps/agent/`        — Python PydanticAI agent (FastAPI container). uv. → `apps/agent/AGENTS.md`
 - `workers/catalog/`   — TS Worker: anime catalog API + data platform (ingest/enrich/publish). → `workers/catalog/AGENTS.md`
 - `workers/users/`     — LIVE Hono/oRPC/jose user-data Worker; 21 tests + CI lane. → `workers/users/AGENTS.md`
+- `workers/maintenance/` — Scheduled agent-domain Neon retention; no public route. → `workers/maintenance/AGENTS.md`
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
 - `worker/`            — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy. No page fallback — unmatched paths 404.
@@ -125,6 +127,22 @@ Planner → Executor → Reviewer → Tester. Role definitions live in `.claude/
 annotation (`unit`|`integration`|`eval`|`browser`|`api`) plus a test in the PR diff
 (`ac_total == ac_with_test`); Reviewer wants Codecov patch ≥95%. In worktrees, use
 `uv tool run ruff format`. Hooks: `block-secrets-in-pr`, `block-local-deploy`, `block-codex-exec-codewrite`.
+
+## PR 合并前的两路检查(hook 强制)
+
+合并任何 PR 前,**行级线程与顶层评论都要看**——它们是两种对象,查一路会漏另一路:
+
+| 载体 | 查法 | 典型内容 |
+|---|---|---|
+| review threads(行级) | GraphQL `reviewThreads(isResolved:false)` | coderabbit/qodo 的逐行建议 |
+| issue comments(顶层) | `gh pr view <n> --json comments` | **qodo 的 Code Review 汇总(Bugs/Rule violations 计数)、SonarCloud Quality Gate、codecov** |
+
+2026-08-03 的教训:只查前者、连合 24 个 PR,而 qodo 的 Bugs 计数与 SonarCloud 的失败门一直没人看——因为它们不产生线程,前者的计数永远显示零。
+
+`~/.claude/hooks/check-pr-comments.sh`(**全局** hook,对所有仓库生效)在 `gh pr merge` 前强制两路检查:有未解决线程、或顶层出现非零 Bugs/Rule violations、或 Quality Gate Failed 即拦截。判定完成后留一条含「线程判定」或「findings triaged」的评论即可放行:
+`gh issue comment <PR 号> -R <owner/name> --body '线程判定: ...'`(PR 也是 issue,这条对 PR 生效)。
+该评论必须来自 OWNER / MEMBER / COLLABORATOR —— 否则任何能评论的人(包括被判定的机器人自己)
+都能清掉自己的 findings。hook 只坚持判断被记录下来,判断本身仍归人。
 
 ## File placement
 

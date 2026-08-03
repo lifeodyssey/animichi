@@ -20,6 +20,19 @@ Entry path: `HTTP service → RuntimeAPI → run_animichi_agent() → animichi_a
 
 No hardcoded anime list. DB is source of truth.
 
+## D7 — both REJECTED
+
+D7 is final: neither proposed replacement for the agent runtime will proceed.
+
+- **Pyodide path: REJECTED.** The agent will not move into a Python Cloudflare Worker.
+- **TS rewrite path: REJECTED.** The agent will not be rewritten in TypeScript.
+
+The settled runtime is the **Python FastAPI container** with a **warm-keeping strategy**. Keeping
+the container makes X2's warm p95 ≤3s **first-token SLO** a hard requirement. The TypeScript
+comparison found the Vercel AI SDK path feasible, but it would require project-owned retry
+infrastructure and give up the existing PydanticAI `ModelRetry` and `output_validator` safety
+mechanisms. This section consolidates the successive D7 proposals under the final SD-4 ruling.
+
 ## Request Modes — `interfaces/schemas.py`
 
 `PublicAPIRequest` accepts exactly one runtime mode per turn: user `text`, direct
@@ -192,6 +205,7 @@ The browser surface is `apps/web/` (TanStack Start, deployed as its own Cloudfla
 Its layout, routing, design tokens, and auth wiring are documented in `apps/web/AGENTS.md` —
 that package is the source of truth, not this file.
 
+<!-- historical: retired in #537 -->
 Issue #537 deleted the legacy `frontend/` Next.js package and the root Worker's OpenNext
 fallback with it. The root Worker (`worker/app.ts`) is now an API gateway only: `/v1/*`,
 `/v1/users/*`, `/healthz`, `/img/*`, one allowlisted public catalog read, and a JSON

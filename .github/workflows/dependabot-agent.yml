@@ -10,9 +10,15 @@ env:
   NODE_VERSION: "24"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# Least-privilege default for every job in this file (GitHub hardening
+# guide): jobs that need more declare it themselves at job level.
+permissions:
+  contents: read
+
 jobs:
   # ── Stage 1: Quick verify (no AI cost) ────────────────────
   verify:
+    timeout-minutes: 20
     name: Verify Upgrade
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
@@ -114,6 +120,7 @@ jobs:
 
   # ── Stage 2: Report a verified upgrade for manual review ──
   ready-for-review:
+    timeout-minutes: 20
     name: Ready for Review
     needs: verify
     if: >-
@@ -132,6 +139,7 @@ jobs:
 
   # ── Stage 3: Fail closed and request human intervention ──
   needs-manual-review:
+    timeout-minutes: 20
     name: Needs Manual Review
     needs: verify
     if: >-

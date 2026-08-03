@@ -22,11 +22,19 @@ env:
   NODE_VERSION: "24"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# One in-flight run per ref: a new push to a PR cancels the previous
+# run (wasted work), while pushes to main queue instead of cancelling
+# so a deploy is never killed mid-flight.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
 
   # ── Affected detection ────────────────────────────────────────
 
   changes:
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     # dorny/paths-filter resolves a pull_request's changed files through the
     # GitHub API (listFiles), which needs `pull-requests: read`. The workflow-level
@@ -40,6 +48,7 @@ jobs:
     outputs:
       catalog: ${{ steps.f.outputs.catalog }}
       users: ${{ steps.f.outputs.users }}
+      maintenance: ${{ steps.f.outputs.maintenance }}
       agent: ${{ steps.f.outputs.agent }}
       agent_behavior: ${{ steps.f.outputs.agent_behavior }}
       web: ${{ steps.f.outputs.web }}
@@ -71,7 +80,18 @@ jobs:
             contract: ['packages/contract/**']
             catalog: ['workers/catalog/**', 'packages/contract/**']
             users: ['workers/users/**', 'packages/contract/**']
-            agent: ['apps/agent/**', 'packages/contract/**']
+            # workers/maintenance/test/config.worker.test.ts asserts against the deploy
+            # wiring itself — ci.yml, deploy.yml, _deploy-component.yml, both deprecated
+            # fallback workflows and docs/ops/secrets.md are read verbatim by that test.
+            # Scoping the filter to workers/maintenance/** alone would let a change to any
+            # of those files break the assertion while ci-maintenance skips: the same
+            # "a gate that cannot test itself" failure the agent_behavior filter above
+            # already had to fix. READS declarations are enforced by the unfiltered
+            # config-read-sets security job.
+            maintenance: ['workers/maintenance/**', '.github/workflows/ci.yml', '.github/workflows/deploy.yml', '.github/workflows/_deploy-component.yml', '.github/workflows/purge-anon-quota-counts.yml', '.github/workflows/purge-anonymous-sessions.yml', 'docs/ops/secrets.md']
+            # Agent unit tests assert cross-package workflow, documentation, Worker, and
+            # web coverage config. The read-set meta-check protects these extra entries.
+            agent: ['apps/agent/**', 'packages/contract/**', '.github/workflows/**', 'apps/web/vitest.config.ts', 'docs/ARCHITECTURE.md', 'docs/ops/deployment.md', 'docs/ops/secrets.md', 'docs/testing-strategy.md', 'worker/containerEnv.ts']
             # SD-30 path-filter rule (shared verbatim with iter-1 S1.13, per the second-pass
             # spec review): prompt/instructions + model-config + guardrail files ONLY — not
             # every apps/agent/** change (that broader scope still gates `agent` above, which
@@ -134,7 +154,19 @@ jobs:
     with:
       component: users
 
+  ci-maintenance:
+    name: Maintenance CI
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.maintenance == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/_ts-ci.yml
+    with:
+      component: maintenance
+
   contract-openapi-drift:
+    timeout-minutes: 20
     name: Contract OpenAPI drift
     runs-on: ubuntu-latest
     needs: changes
@@ -162,6 +194,7 @@ jobs:
     uses: ./.github/workflows/_webapp-ci.yml
 
   ci-worker:
+    timeout-minutes: 20
     name: Edge worker component CI
     runs-on: ubuntu-latest
     needs: changes
@@ -174,6 +207,7 @@ jobs:
       - run: pnpm run test:worker
 
   ci-infra:
+    timeout-minutes: 20
     name: Infra component CI
     runs-on: ubuntu-latest
     needs: changes
@@ -215,6 +249,7 @@ jobs:
   # deploy `needs:` chain so it never gates a release. Promote to blocking once proven.
 
   agnix:
+    timeout-minutes: 15
     name: Agent config lint (agnix, warn-only)
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -231,6 +266,7 @@ jobs:
   # ── DB migrations (Atlas validation + optional Neon dry-run) ──
 
   db-validate:
+    timeout-minutes: 20
     name: DB Migrations (Atlas)
     runs-on: ubuntu-latest
     needs: changes
@@ -297,6 +333,7 @@ jobs:
   # runs nightly instead of on every PR — see agent-eval-nightly.yml.
 
   agent-eval-smoke:
+    timeout-minutes: 45
     name: Agent Eval (L0 smoke, ~80 cases)
     runs-on: ubuntu-latest
     needs: changes
@@ -330,6 +367,7 @@ jobs:
   # ── Neon test infrastructure (non-gating during calibration) ──
 
   python-integration:
+    timeout-minutes: 30
     name: Python integration (Neon)
     runs-on: ubuntu-latest
     permissions:
@@ -389,6 +427,7 @@ jobs:
         run: uv run pytest agent/tests/integration -q --no-cov
 
   catalog-spikes:
+    timeout-minutes: 30
     name: Catalog spikes (Neon)
     runs-on: ubuntu-latest
     permissions:
@@ -431,6 +470,7 @@ jobs:
   # A failed or cancelled component still fails its lane and blocks promotion.
 
   web-ci-gate:
+    timeout-minutes: 5
     name: Web CI
     needs: [changes, ci-web]
     if: ${{ always() }}
@@ -446,8 +486,9 @@ jobs:
         run: bash .github/scripts/assert-ci-needs.sh "Web CI" "$CHANGES_STATUS $STATUSES"
 
   backend-ci-gate:
+    timeout-minutes: 5
     name: Backend CI
-    needs: [changes, ci-catalog, ci-users, contract-openapi-drift, ci-worker]
+    needs: [changes, ci-catalog, ci-users, ci-maintenance, contract-openapi-drift, ci-worker]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -460,11 +501,13 @@ jobs:
             ${{ needs.changes.result }}
             ${{ needs.ci-catalog.result }}
             ${{ needs.ci-users.result }}
+            ${{ needs.ci-maintenance.result }}
             ${{ needs.contract-openapi-drift.result }}
             ${{ needs.ci-worker.result }}
         run: bash .github/scripts/assert-ci-needs.sh "Backend CI" "$STATUSES"
 
   agent-ci-gate:
+    timeout-minutes: 5
     name: Agent CI
     needs: [changes, ci-agent, agent-eval-smoke]
     if: ${{ always() }}
@@ -482,6 +525,7 @@ jobs:
         run: bash .github/scripts/assert-ci-needs.sh "Agent CI" "$STATUSES"
 
   infra-db-ci-gate:
+    timeout-minutes: 5
     name: Infra & DB CI
     needs: [changes, ci-infra, db-validate]
     if: ${{ always() }}
@@ -508,6 +552,7 @@ jobs:
     uses: ./.github/workflows/_cross-stack-e2e.yml
 
   cross-stack-e2e-gate:
+    timeout-minutes: 5
     name: Cross-stack E2E
     needs: [changes, ci-cross-stack-e2e]
     if: ${{ always() }}
@@ -524,6 +569,7 @@ jobs:
         run: bash .github/scripts/assert-ci-needs.sh "Cross-stack E2E" "$STATUSES"
 
   repository-quality-gate:
+    timeout-minutes: 5
     name: Repository Quality
     needs: [changes, security, agnix]
     if: ${{ always() }}
@@ -545,8 +591,9 @@ jobs:
         run: bash .github/scripts/assert-ci-needs.test.sh
 
   codecov-patch-gate:
+    timeout-minutes: 5
     name: Codecov Patch
-    needs: [changes, ci-agent, ci-catalog, ci-users, ci-web, ci-worker]
+    needs: [changes, ci-agent, ci-catalog, ci-users, ci-maintenance, ci-web, ci-worker]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -564,6 +611,7 @@ jobs:
             ${{ needs.ci-agent.result }}
             ${{ needs.ci-catalog.result }}
             ${{ needs.ci-users.result }}
+            ${{ needs.ci-maintenance.result }}
             ${{ needs.ci-web.result }}
             ${{ needs.ci-worker.result }}
         run: bash .github/scripts/assert-ci-needs.sh "Codecov Patch" "$STATUSES"
@@ -579,7 +627,13 @@ jobs:
   deploy-staging:
     name: Deploy staging
     needs: [agent-ci-gate, backend-ci-gate, web-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
+    # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
+    # that do not touch agent_behavior paths) propagates through the always()
+    # gates and would silently skip every deploy — the bug that kept staging
+    # undeployed for three runs. Gate failures still block: they surface as
+    # failure(), not skipped.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: catalog
@@ -590,6 +644,7 @@ jobs:
     secrets:
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
       PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
@@ -600,7 +655,13 @@ jobs:
   deploy-web-staging:
     name: Deploy web staging
     needs: [agent-ci-gate, backend-ci-gate, web-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
+    # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
+    # that do not touch agent_behavior paths) propagates through the always()
+    # gates and would silently skip every deploy — the bug that kept staging
+    # undeployed for three runs. Gate failures still block: they surface as
+    # failure(), not skipped.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: web
@@ -611,13 +672,20 @@ jobs:
       run_pulumi: false
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     concurrency: deploy-web-staging
 
   deploy-users-staging:
     name: Deploy users staging
     needs: [deploy-staging]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
+    # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
+    # that do not touch agent_behavior paths) propagates through the always()
+    # gates and would silently skip every deploy — the bug that kept staging
+    # undeployed for three runs. Gate failures still block: they surface as
+    # failure(), not skipped.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: users
@@ -631,14 +699,39 @@ jobs:
     secrets:
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
     concurrency: deploy-users-staging
 
+  deploy-maintenance-staging:
+    name: Deploy maintenance staging
+    needs: [deploy-staging]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: maintenance
+      environment: staging
+      pulumi_stack: staging
+      working_directory: workers/maintenance
+      run_pulumi: false
+      worker_secrets: AGENT_DATABASE_URL
+    secrets:
+      AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    concurrency: deploy-maintenance-staging
+
   deploy-root-staging:
     name: Deploy root staging
     needs: [deploy-staging, deploy-users-staging]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
+    # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
+    # that do not touch agent_behavior paths) propagates through the always()
+    # gates and would silently skip every deploy — the bug that kept staging
+    # undeployed for three runs. Gate failures still block: they surface as
+    # failure(), not skipped.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: root
@@ -671,6 +764,7 @@ jobs:
         ANON_ID_SECRET
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -687,7 +781,7 @@ jobs:
 
   post-staging:
     name: Post-deploy (staging)
-    needs: [deploy-staging, deploy-web-staging, deploy-users-staging, deploy-root-staging]
+    needs: [deploy-staging, deploy-web-staging, deploy-users-staging, deploy-maintenance-staging, deploy-root-staging]
     uses: ./.github/workflows/_post-deploy-test.yml
     with:
       environment: staging
@@ -711,6 +805,7 @@ jobs:
     secrets:
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
       PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
@@ -731,6 +826,7 @@ jobs:
       run_pulumi: false
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     concurrency: deploy-web-prod
 
@@ -750,9 +846,27 @@ jobs:
     secrets:
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
     concurrency: deploy-users-prod
+
+  deploy-maintenance-prod:
+    name: Deploy maintenance production
+    needs: [post-staging, deploy-prod]
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: maintenance
+      environment: production
+      pulumi_stack: prod
+      working_directory: workers/maintenance
+      run_pulumi: false
+      worker_secrets: AGENT_DATABASE_URL
+    secrets:
+      AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    concurrency: deploy-maintenance-prod
 
   deploy-root-prod:
     name: Deploy root production
@@ -780,6 +894,7 @@ jobs:
         ANON_ID_SECRET
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -797,7 +912,7 @@ jobs:
 
   post-prod:
     name: Post-deploy (production)
-    needs: [deploy-prod, deploy-web-prod, deploy-users-prod, deploy-root-prod]
+    needs: [deploy-prod, deploy-web-prod, deploy-users-prod, deploy-maintenance-prod, deploy-root-prod]
     uses: ./.github/workflows/_post-deploy-test.yml
     with:
       environment: production

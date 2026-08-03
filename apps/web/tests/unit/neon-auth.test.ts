@@ -1,13 +1,16 @@
-import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { server } from "../msw/node";
 
-const { magicLink } = vi.hoisted(() => ({ magicLink: vi.fn() }));
+const { createAuthClient, jwtClient, magicLink, token } = vi.hoisted(() => ({
+  createAuthClient: vi.fn(),
+  jwtClient: vi.fn(() => ({ id: "jwt" })),
+  magicLink: vi.fn(),
+  token: vi.fn(),
+}));
 
 vi.mock("better-auth/client", () => ({
-  createAuthClient: () => ({ signIn: { magicLink } }),
+  createAuthClient,
 }));
-vi.mock("better-auth/client/plugins", () => ({ magicLinkClient: () => ({}) }));
+vi.mock("better-auth/client/plugins", () => ({ jwtClient, magicLinkClient: () => ({}) }));
 
 import { fetchAuthToken, isNeonAuthConfigured, sendMagicLink } from "../../src/lib/auth/neonAuth";
 
@@ -18,6 +21,7 @@ beforeEach(() => {
   // machine's apps/web/.env.local) so "unset" cases don't false-red. Passing
   // undefined deletes the key from import.meta.env (vitest vi.stubEnv contract).
   vi.stubEnv("VITE_NEON_AUTH_BASE_URL", undefined);
+  createAuthClient.mockReturnValue({ signIn: { magicLink }, token });
 });
 
 afterEach(() => {
@@ -68,45 +72,36 @@ describe("fetchAuthToken", () => {
 
   it("returns the JWT from a signed-in session's /token response", async () => {
     configure();
-    server.use(
-      http.get("https://auth.test/neondb/auth/token", () => HttpResponse.json({ token: "jwt-xyz" })),
-    );
+    token.mockResolvedValue({ data: { token: "jwt-xyz" }, error: null });
     expect(await fetchAuthToken()).toBe("jwt-xyz");
   });
 
-  it("sends the request with credentials included, so the auth cookie rides along", async () => {
+  it("uses jwtClient with cross-origin credentials included", async () => {
     configure();
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ token: "jwt-xyz" }), { status: 200 }),
-    );
+    token.mockResolvedValue({ data: { token: "jwt-xyz" }, error: null });
     await fetchAuthToken();
-    expect(spy).toHaveBeenCalledWith(
-      "https://auth.test/neondb/auth/token",
-      expect.objectContaining({ credentials: "include" }),
-    );
+    expect(jwtClient).toHaveBeenCalledTimes(1);
+    expect(createAuthClient).toHaveBeenCalledWith(expect.objectContaining({
+      baseURL: "https://auth.test/neondb/auth",
+      fetchOptions: { credentials: "include" },
+    }));
   });
 
-  it("returns undefined when there is no session (401)", async () => {
+  it("returns undefined when jwtClient reports no session", async () => {
     configure();
-    server.use(
-      http.get("https://auth.test/neondb/auth/token", () => new HttpResponse(null, { status: 401 })),
-    );
+    token.mockResolvedValue({ data: null, error: { status: 401 } });
     expect(await fetchAuthToken()).toBeUndefined();
   });
 
-  it("returns undefined when the response body doesn't match the expected shape", async () => {
+  it("returns undefined when jwtClient returns no token data", async () => {
     configure();
-    server.use(
-      http.get("https://auth.test/neondb/auth/token", () => HttpResponse.json({ nope: true })),
-    );
+    token.mockResolvedValue({ data: null, error: null });
     expect(await fetchAuthToken()).toBeUndefined();
   });
 
-  it("returns undefined when the fetch throws", async () => {
+  it("returns undefined when jwtClient throws", async () => {
     configure();
-    server.use(
-      http.get("https://auth.test/neondb/auth/token", () => HttpResponse.error()),
-    );
+    token.mockRejectedValue(new Error("network"));
     expect(await fetchAuthToken()).toBeUndefined();
   });
 });

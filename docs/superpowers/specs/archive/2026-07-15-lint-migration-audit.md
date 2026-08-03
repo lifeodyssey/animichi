@@ -1,7 +1,7 @@
 # Lint engine migration L1 parity audit
 
-Date: 2026-07-15  
-Branch: `feat/lint-oxlint-migration`  
+Date: 2026-07-15
+Branch: `feat/lint-oxlint-migration`
 Scope: `workers/catalog`, `workers/users`, and `apps/web`; retired `frontend/` and config-less `packages/contract` are intentionally excluded.
 
 ## Method

@@ -149,14 +149,18 @@ export function armedChatHandler(
 
 /** The anonymous daily-budget breaker's rejection (issue #274 S1.8 X4 → D11). */
 export function chatBudgetExhaustedHandler(): HttpHandler {
-  const body = { error: { code: "anon_budget_exhausted", action: "login" } };
+  const body = {
+    error: { code: "anon_budget_exhausted", message: "Anonymous budget exhausted.", action: "login" },
+  };
   return http.post(CHAT_URL, () => HttpResponse.json(body, { status: 403 }));
 }
 
 /** #282 S1.10: this identity's own daily message quota, not the shared budget. */
 export function chatQuotaExhaustedHandler(resetsAt?: string): HttpHandler {
   const data = resetsAt === undefined ? undefined : { quota_resets_at: resetsAt };
-  const body = { error: { code: "anon_quota_exhausted", action: "login", data } };
+  const body = {
+    error: { code: "anon_quota_exhausted", message: "Anonymous quota exhausted.", action: "login", data },
+  };
   return http.post(CHAT_URL, () => HttpResponse.json(body, { status: 403 }));
 }
 

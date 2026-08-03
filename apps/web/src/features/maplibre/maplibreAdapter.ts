@@ -25,84 +25,22 @@ export type MapLibreHandle = Readonly<{
   map: MapLibreMap;
 }>;
 
-interface ProtocolRegistration {
-  gl: MapLibreModule;
-  removed: boolean;
-  users: number;
-}
+let pmtilesRegistration: Promise<void> | undefined;
 
-let protocolRegistration: ProtocolRegistration | null = null;
-let protocolRegistrationPromise: Promise<ProtocolRegistration> | null = null;
-
-const releaseProtocol = (registration: ProtocolRegistration): void => {
-  if (registration.users > 0) registration.users -= 1;
-  if (registration.users !== 0 || protocolRegistration !== registration) return;
-  try {
-    if (typeof registration.gl.removeProtocol === "function") registration.gl.removeProtocol("pmtiles");
-  } finally {
-    registration.removed = true;
-    protocolRegistration = null;
-  }
-};
-
-const leaseProtocol = (registration: ProtocolRegistration): () => void => {
-  registration.users += 1;
-  let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    releaseProtocol(registration);
-  };
-};
-
-const createProtocolRegistration = async (gl: MapLibreModule): Promise<ProtocolRegistration> => {
-  const { Protocol } = await import("pmtiles");
-  gl.addProtocol("pmtiles", new Protocol({ metadata: true }).tile);
-  return { gl, removed: false, users: 0 };
-};
-
-const pendingProtocolRegistration = (gl: MapLibreModule): Promise<ProtocolRegistration> => {
-  return protocolRegistrationPromise ?? (protocolRegistrationPromise = createProtocolRegistration(gl));
-};
-
-const clearPendingRegistration = (pending: Promise<ProtocolRegistration>): void => {
-  if (protocolRegistrationPromise === pending) protocolRegistrationPromise = null;
-};
-
-const validateRegistration = (registration: ProtocolRegistration, gl: MapLibreModule): ProtocolRegistration => {
-  if (registration.gl !== gl) throw new Error("MapLibre module changed while PMTiles was registering");
-  return registration;
-};
-
-const usableRegistration = (gl: MapLibreModule): ProtocolRegistration | null => {
-  const registration = protocolRegistration;
-  if (registration === null) return null;
-  const validated = validateRegistration(registration, gl);
-  if (!validated.removed) return validated;
-  protocolRegistration = null;
-  return null;
-};
-
-const awaitProtocolRegistration = async (gl: MapLibreModule): Promise<ProtocolRegistration> => {
-  const pending = pendingProtocolRegistration(gl);
-  return pending.then((registration) => {
-    clearPendingRegistration(pending);
-    return validateRegistration(registration, gl);
-  }, (error: unknown) => {
-    clearPendingRegistration(pending);
+// Cache the in-flight promise, not a boolean: a flag set before the dynamic
+// import resolves lets a concurrent mount build a map while the protocol is
+// still missing, and a flag left true after a failed import would skip
+// registration for the rest of the session. Awaiting the shared promise
+// serialises callers; clearing it on failure keeps the next mount retryable.
+const registerPmtilesProtocol = (gl: MapLibreModule): Promise<void> => {
+  pmtilesRegistration ??= (async () => {
+    const { Protocol } = await import("pmtiles");
+    gl.addProtocol("pmtiles", new Protocol({ metadata: true }).tile);
+  })().catch((error: unknown) => {
+    pmtilesRegistration = undefined;
     throw error;
   });
-};
-
-const registerPmtilesProtocol = async (gl: MapLibreModule): Promise<ProtocolRegistration> => {
-  const current = usableRegistration(gl);
-  if (current !== null) return current;
-  const registration = await awaitProtocolRegistration(gl);
-  if (registration.removed) return registerPmtilesProtocol(gl);
-  const live = usableRegistration(gl);
-  if (live !== null) return live;
-  protocolRegistration = registration;
-  return registration;
+  return pmtilesRegistration;
 };
 
 const mapOptions = (options: MapLibreMountOptions): MapOptions => ({
@@ -236,21 +174,16 @@ class MapLifecycle implements MapLibreHandle {
   };
 }
 
-const createMap = (gl: MapLibreModule, options: MapLibreMountOptions, release: () => void): MapLibreMap => {
-  try {
-    return new gl.Map(mapOptions(options));
-  } catch (error) {
-    release();
-    throw error;
-  }
+const createMap = (gl: MapLibreModule, options: MapLibreMountOptions): MapLibreMap => {
+  return new gl.Map(mapOptions(options));
 };
 
 export const mountMapLibre = async (options: MapLibreMountOptions): Promise<MapLibreHandle> => {
   browserOnly();
   const gl = await import("maplibre-gl");
-  const release = options.registerPmtiles ? leaseProtocol(await registerPmtilesProtocol(gl)) : () => undefined;
-  const map = createMap(gl, options, release);
-  return new MapLifecycle({ ...options, gl, map, releaseProtocolLease: release });
+  if (options.registerPmtiles) await registerPmtilesProtocol(gl);
+  const map = createMap(gl, options);
+  return new MapLifecycle({ ...options, gl, map });
 };
 
 interface Attachment {

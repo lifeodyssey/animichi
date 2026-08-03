@@ -22,6 +22,7 @@ jobs:
   # ── Secret scanning ──────────────────────────────────────────
 
   gitleaks:
+    timeout-minutes: 15
     name: gitleaks (secret scan)
     runs-on: ubuntu-latest
     steps:
@@ -37,6 +38,7 @@ jobs:
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   trufflehog:
+    timeout-minutes: 15
     name: TruffleHog (verified secrets)
     runs-on: ubuntu-latest
     steps:
@@ -51,6 +53,7 @@ jobs:
   # ── Dependency / lockfile CVE scanning ───────────────────────
 
   osv-scanner:
+    timeout-minutes: 15
     name: osv-scanner (lockfile CVE)
     runs-on: ubuntu-latest
     steps:
@@ -64,6 +67,7 @@ jobs:
             ./
 
   dependabot-config:
+    timeout-minutes: 15
     name: Dependabot pnpm coverage
     runs-on: ubuntu-latest
     steps:
@@ -73,11 +77,35 @@ jobs:
       - name: Verify pnpm lockfile domains stay covered
         run: python3 .github/scripts/test_dependabot_config.py
 
+  config-read-sets:
+    timeout-minutes: 5
+    name: Config check read-set trigger coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: false
+          prune-cache: true
+      # --locked pins to the committed script lockfile; --no-build refuses to
+      # build a source distribution, which would execute its setup script.
+      - name: Verify config checks run for every file they read
+        run: uv run --script --locked --no-build .github/scripts/test_config_read_sets.py
+
   # ── GitHub Actions security ──────────────────────────────────
 
   zizmor:
+    timeout-minutes: 15
     name: zizmor (GHA security)
     runs-on: ubuntu-latest
+    env:
+      # One pin, three uses: cache key, restore-keys prefix, and the CLI call.
+      # Keeping the version inside the key namespace means a zizmor upgrade
+      # starts from a cold cache instead of restoring another version's
+      # response format through the broad restore-keys prefix.
+      ZIZMOR_VERSION: 1.5.2
     # advanced-security: false (below) → no SARIF upload → security-events not
     # needed. Requesting it caused startup_failure: a reusable job cannot request
     # more than the caller (ci.yml) grants (contents: read → security-events: none).
@@ -87,12 +115,51 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: zizmorcore/zizmor-action@6fc4b006235f201fdab3722e17240ab420d580e5 # v0.6.1
+      # zizmor's online audits (impostor-commit) resolve every third-party action
+      # ref against the GitHub API, which makes our CI availability a function of
+      # theirs — four red runs on 2026-08-03 were all upstream 502s, none of them
+      # our code. zizmor >=0.10 caches those lookups persistently, but the
+      # official zizmor-action runs zizmor inside a Docker container whose HOME
+      # is unrelated to the runner's, so a host-side actions/cache mount is
+      # invisible to it — and it exposes no --cache-dir passthrough. Calling the
+      # version-pinned CLI directly is the only way to get a warm cache.
+      # Cache key is content-based:
+      # any workflow edit re-audits, an unchanged tree reuses yesterday's answers.
+      # restore-only (never save): zizmor's own cache-poisoning audit flags a
+      # read-write actions/cache in any workflow whose artifacts can reach a
+      # release path. Restore-only keeps the speed-up while leaving the cache
+      # writable solely by the trusted main-branch run below.
+      - name: Restore zizmor audit cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          # Lint the whole workflow tree; do not upload SARIF (no code scanning).
-          advanced-security: false
+          path: ~/.cache/zizmor
+          key: zizmor-${{ runner.os }}-${{ env.ZIZMOR_VERSION }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
+          restore-keys: zizmor-${{ runner.os }}-${{ env.ZIZMOR_VERSION }}-
+      - name: Install zizmor
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          # setup-uv's own cache defaults to auto-on and is read-write, which
+          # zizmor's cache-poisoning audit rejects in this workflow. zizmor is a
+          # single small download; the uv cache buys nothing here.
+          enable-cache: false
+          # Required by .github/scripts/test_dependabot_config.py for every
+          # setup-uv call site (kept consistent even with the cache disabled).
+          prune-cache: true
+      - name: Audit workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uvx zizmor@"$ZIZMOR_VERSION" --cache-dir ~/.cache/zizmor .
+      # Only main-branch runs may write the shared cache — a PR (including a
+      # fork PR) can read it but never poison it.
+      - name: Save zizmor audit cache
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/zizmor
+          key: zizmor-${{ runner.os }}-${{ env.ZIZMOR_VERSION }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
 
   actionlint:
+    timeout-minutes: 15
     name: actionlint (GHA semantics)
     runs-on: ubuntu-latest
     steps:
@@ -102,9 +169,14 @@ jobs:
       - name: Download actionlint
         run: |
           ACTIONLINT_VERSION="1.7.7"
-          ACTIONLINT_URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          curl -sSfL -o actionlint.tar.gz "${ACTIONLINT_URL}"
-          tar -xzf actionlint.tar.gz actionlint
+          ACTIONLINT_ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          ACTIONLINT_CHECKSUMS="actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          ACTIONLINT_BASE_URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          curl -sSfL -o "${ACTIONLINT_ARCHIVE}" "${ACTIONLINT_BASE_URL}/${ACTIONLINT_ARCHIVE}"
+          curl -sSfL -o "${ACTIONLINT_CHECKSUMS}" "${ACTIONLINT_BASE_URL}/${ACTIONLINT_CHECKSUMS}"
+          grep -F "  ${ACTIONLINT_ARCHIVE}" "${ACTIONLINT_CHECKSUMS}" > actionlint.sha256
+          sha256sum -c actionlint.sha256
+          tar -xzf "${ACTIONLINT_ARCHIVE}" actionlint
           chmod +x actionlint
         shell: bash
       - name: Run actionlint
@@ -114,6 +186,7 @@ jobs:
   # ── Static analysis (SAST) ───────────────────────────────────
 
   semgrep:
+    timeout-minutes: 15
     name: Semgrep (SAST)
     runs-on: ubuntu-latest
     steps:
@@ -133,6 +206,7 @@ jobs:
   # ── SQL migration lint ───────────────────────────────────────
 
   sqlfluff:
+    timeout-minutes: 15
     name: sqlfluff (SQL lint)
     runs-on: ubuntu-latest
     defaults:
@@ -153,6 +227,7 @@ jobs:
   # ── Deploy-gate script tests ─────────────────────────────────
 
   post-deploy-assert-test:
+    timeout-minutes: 30
     name: post-deploy-assert.sh (shellcheck + behavior)
     runs-on: ubuntu-latest
     steps:

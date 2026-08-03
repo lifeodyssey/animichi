@@ -1,6 +1,5 @@
 import { createAuthClient } from "better-auth/client";
-import { magicLinkClient } from "better-auth/client/plugins";
-import { z } from "zod";
+import { jwtClient, magicLinkClient } from "better-auth/client/plugins";
 
 /**
  * Neon Auth (Better Auth base) magic-link client.
@@ -29,7 +28,11 @@ export function isNeonAuthConfigured(): boolean {
 }
 
 function neonAuthClient(baseURL: string) {
-  return createAuthClient({ baseURL, plugins: [magicLinkClient()] });
+  return createAuthClient({
+    baseURL,
+    fetchOptions: { credentials: "include" },
+    plugins: [magicLinkClient(), jwtClient()],
+  });
 }
 
 export async function sendMagicLink(request: MagicLinkRequest): Promise<MagicLinkResult> {
@@ -43,26 +46,21 @@ export async function sendMagicLink(request: MagicLinkRequest): Promise<MagicLin
   }
 }
 
-const TokenPayload = z.object({ token: z.string().min(1) });
-
-async function parseTokenResponse(response: Response): Promise<string | undefined> {
-  if (!response.ok) return undefined;
-  const parsed = TokenPayload.safeParse(await response.json());
-  return parsed.success ? parsed.data.token : undefined;
-}
-
 /**
  * Exchanges the Better Auth session cookie (set by the magic-link callback
- * on the Neon Auth origin) for a short-lived EdDSA JWT via the `jwt` plugin's
- * `/token` endpoint. The edge worker (`worker/auth.ts`) already verifies this
- * exact token shape against the same JWKS, so this is the one bridge the
- * cross-origin cookie needs to become a bearer credential for `/v1/*`.
+ * on the Neon Auth origin) for an EdDSA JWT via Better Auth's `jwtClient`.
+ * The edge worker (`worker/auth.ts`) verifies this token against the same JWKS.
  */
 export async function fetchAuthToken(): Promise<string | undefined> {
   const base = baseUrl();
   if (!base) return undefined;
   try {
-    return await parseTokenResponse(await fetch(`${base}/token`, { credentials: "include" }));
+    const { data, error } = await neonAuthClient(base).token();
+    // No null-guard on `data`: better-auth types the success branch as
+    // non-nullable with a required `token`, and type-aware oxlint rejects the
+    // check as provably dead (`no-unnecessary-condition`). A review bot asked
+    // for one; the type system says the shape it fears cannot occur here.
+    return error ? undefined : data.token;
   } catch {
     return undefined;
   }

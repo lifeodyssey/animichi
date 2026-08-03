@@ -84,7 +84,6 @@ beforeEach(() => {
   mapState.state.instances.length = 0;
   mapState.state.throwOnConstruct = false;
   mapState.state.throwOnRemove = false;
-  mapState.addProtocol.mockClear();
   mapState.removeProtocol.mockClear();
 });
 
@@ -105,7 +104,6 @@ describe("MapLibre v5 adapter lifecycle", () => {
     expect(cleanup).toHaveBeenCalledOnce();
     expect(map.offCalls).toBe(2);
     expect(map.removeCalls).toBe(1);
-    expect(mapState.removeProtocol).toHaveBeenCalledOnce();
   });
 
   it("turns an error into one fallback and never reports ready after failure", async () => {
@@ -121,7 +119,6 @@ describe("MapLibre v5 adapter lifecycle", () => {
     expect(onError).toHaveBeenCalledOnce();
     expect(onReady).not.toHaveBeenCalled();
     expect(map.removeCalls).toBe(1);
-    expect(mapState.removeProtocol).toHaveBeenCalledOnce();
     handle.destroy();
   });
 
@@ -138,18 +135,16 @@ describe("MapLibre v5 adapter lifecycle", () => {
     expect(onError).toHaveBeenCalledOnce();
     expect(cleanup).toHaveBeenCalledOnce();
     expect(map.removeCalls).toBe(1);
-    expect(mapState.removeProtocol).toHaveBeenCalledOnce();
     handle.destroy();
   });
 });
 
 describe("MapLibre v5 teardown", () => {
-  it("contains teardown failures while releasing the protocol lease", async () => {
+  it("contains map teardown failures", async () => {
     mapState.state.throwOnRemove = true;
     const handle = await mountMapLibre(options(vi.fn(), vi.fn()));
 
     expect(() => { handle.destroy(); }).not.toThrow();
-    expect(mapState.removeProtocol).toHaveBeenCalledOnce();
   });
 });
 
@@ -165,19 +160,6 @@ it("handles duplicate load events once", async () => {
   handle.destroy();
 });
 
-describe("MapLibre v5 protocol lease", () => {
-  it("keeps the shared PMTiles protocol until every map releases its lease", async () => {
-    const first = await mountMapLibre(options(vi.fn(), vi.fn()));
-    const second = await mountMapLibre(options(vi.fn(), vi.fn()));
-
-    expect(mapState.addProtocol).toHaveBeenCalledOnce();
-    first.destroy();
-    expect(mapState.removeProtocol).not.toHaveBeenCalled();
-    second.destroy();
-    expect(mapState.removeProtocol).toHaveBeenCalledOnce();
-  });
-});
-
 describe("MapLibre v5 adapter failure handling", () => {
   it("reports constructor failure through the attachment fallback path", async () => {
     mapState.state.throwOnConstruct = true;
@@ -186,7 +168,6 @@ describe("MapLibre v5 adapter failure handling", () => {
 
     await vi.waitFor(() => { expect(onError).toHaveBeenCalledOnce(); });
     detach();
-    expect(mapState.removeProtocol).toHaveBeenCalledOnce();
   });
 
   it("destroys a handle that resolves after React already detached", async () => {
