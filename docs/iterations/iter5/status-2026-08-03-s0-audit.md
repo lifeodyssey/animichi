@@ -1,11 +1,11 @@
 # Animichi 进度盘点 — 2026-08-03
 
 对照 S0 卡片 × origin/main 代码 × 8/2 staging handoff 的全量核对结果。
-上一份记录:[handoff-2026-08-02-staging-blocked](/private/tmp/handoff-animichi-2026-08-02-staging-blocked.md)(暂在 tmp,未入库)。
+上一份记录:[handoff-2026-08-02-staging-blocked](./handoff-2026-08-02-staging-blocked.md)。
 
 ## 全景
 
-```
+```text
 S0 (基建)   8/10 卡实质完成;缺口 = S0.3 staging 验证 + S0.8 域名/ops(刻意推迟到 prod 后)
 S1 (chat)   代码卡全部 CLOSED(含 iter5 遗留 #260/#282/#284/#273);未在任何真实环境验证
 S2-S6       尚未开工,约 15 张开放卡
@@ -36,10 +36,10 @@ S2-S6       尚未开工,约 15 张开放卡
 2. `Deploy root staging` — Cloudflare token 缺 account 级 `Containers Edit`,Containers API 403。
 3. `staging.animichi.com` 无 DNS 解析(关联 #541/#325)。
 4. 会话中曾泄漏一个凭证,operator 需轮换。
-5. 待决定:docs commit `de070569`(`/private/tmp/animichi-docs-staging-prereqs.lYMpUk/repo`,
-   仅 `docs/ops/deployment.md` 23 行)是否推成 draft PR。
+5. 待决定:docs commit `de070569`(operator 本机临时 clone 中,仅 `docs/ops/deployment.md` 23 行)
+   是否推成 draft PR。
 
-新发现(handoff 之后):8/2 晚 `Purge anon_daily_message_count` retention 定时任务失败,待排查。
+新发现(handoff 之后):8/2 晚 `Purge anon_daily_message_count` retention 定时任务失败,已立案跟踪。
 
 ## 分支与文档卫生
 
@@ -50,7 +50,7 @@ S2-S6       尚未开工,约 15 张开放卡
 
 ## 执行链
 
-```
+```text
 operator:配 2 个 VITE 变量 + 换 CF token + 轮换泄漏凭证 + DNS
   → rerun staging,逐 job 验收(DNS/HTTPS/JWKS//tiles/*)
   → staging 全绿 → production approval → S0 生产 smoke
