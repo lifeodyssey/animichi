@@ -7,7 +7,7 @@ import {
 } from "../src/index";
 import type { DatabaseClient } from "../src/purge";
 
-const ENV = { AGENT_DATABASE_URL: "postgresql://agent.example/animichi" };
+const ENV = { AGENT_DATABASE_URL: "postgresql://user:password@agent.example/animichi" };
 const NOW = new Date("2026-07-26T23:59:58.321Z");
 
 function dependencies(db: DatabaseClient): HandlerDependencies {
@@ -54,5 +54,11 @@ describe("scheduled handler", () => {
     await expect(createScheduledHandler(deps)({ cron: "0 0 * * *" }, ENV)).rejects.toThrow(
       "Unknown maintenance cron: 0 0 * * *",
     );
+  });
+
+  it("constructs the default dependencies without opening a database connection", async () => {
+    await expect(
+      createScheduledHandler()({ cron: "0 0 * * *" }, ENV),
+    ).rejects.toThrow("Unknown maintenance cron: 0 0 * * *");
   });
 });

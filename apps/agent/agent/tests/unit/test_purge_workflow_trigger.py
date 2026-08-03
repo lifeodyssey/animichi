@@ -1,11 +1,4 @@
-"""The purge sweep must have a scheduled trigger (issue #273 Task 3, P1-5).
-
-Follows the agent-eval-nightly.yml precedent: a standalone workflow with a
-`schedule:` cron trigger that invokes the purge CLI as a module. Parsed with
-`yaml.safe_load` rather than string containment (review round 2) — a broken
-or reformatted YAML file with the right substrings anywhere in it would
-otherwise still pass.
-"""
+"""The purge sweep uses a Worker cron while GHA remains a manual fallback."""
 
 from __future__ import annotations
 
@@ -14,12 +7,9 @@ from typing import cast
 
 import yaml
 
-WORKFLOW = (
-    Path(__file__).resolve().parents[5]
-    / ".github"
-    / "workflows"
-    / "purge-anonymous-sessions.yml"
-)
+ROOT = Path(__file__).resolve().parents[5]
+WORKFLOW = ROOT / ".github" / "workflows" / "purge-anonymous-sessions.yml"
+WRANGLER_CONFIG = ROOT / "workers" / "maintenance" / "wrangler.toml"
 
 #: PyYAML's default (YAML 1.1) resolver parses the unquoted `on:` workflow
 #: key as the boolean `True`, not the string `"on"` — a well-known gotcha.
@@ -42,15 +32,16 @@ def test_workflow_parses_as_valid_yaml_with_the_expected_top_level_shape() -> No
     assert {"name", "jobs", _ON} <= doc.keys()
 
 
-def test_workflow_has_a_cron_schedule_trigger() -> None:
+def test_workflow_schedule_is_disabled_during_worker_cutover() -> None:
     doc = _load()
     triggers = doc[_ON]
     assert isinstance(triggers, dict)
-    assert "schedule" in triggers
-    schedule = triggers["schedule"]
-    assert isinstance(schedule, list) and len(schedule) == 1
-    assert "cron" in schedule[0]
-    assert isinstance(schedule[0]["cron"], str)
+    assert "schedule" not in triggers
+
+
+def test_worker_owns_the_original_cron_schedule() -> None:
+    source = WRANGLER_CONFIG.read_text(encoding="utf-8")
+    assert source.count('crons = ["37 18 * * *", "37 19 * * *"]') == 3
 
 
 def test_workflow_also_allows_manual_dispatch() -> None:

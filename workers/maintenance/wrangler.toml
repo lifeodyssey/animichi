@@ -1,0 +1,40 @@
+name = "maintenance"
+main = "src/index.ts"
+compatibility_date = "2026-08-03"
+compatibility_flags = ["nodejs_compat"]
+
+# Scheduled-only Worker: no workers.dev or preview URL may expose this database mutator.
+workers_dev = false
+preview_urls = false
+
+[observability]
+enabled = true
+
+[triggers]
+crons = ["37 18 * * *", "37 19 * * *"]
+
+# Secret values are uploaded by CI from the same-named GitHub Environment secret.
+[secrets]
+required = ["AGENT_DATABASE_URL"]
+
+[env.staging]
+name = "maintenance-staging"
+workers_dev = false
+preview_urls = false
+
+[env.staging.triggers]
+crons = ["37 18 * * *", "37 19 * * *"]
+
+[env.staging.secrets]
+required = ["AGENT_DATABASE_URL"]
+
+[env.production]
+name = "maintenance"
+workers_dev = false
+preview_urls = false
+
+[env.production.triggers]
+crons = ["37 18 * * *", "37 19 * * *"]
+
+[env.production.secrets]
+required = ["AGENT_DATABASE_URL"]

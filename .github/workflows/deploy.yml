@@ -19,6 +19,16 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Preflight - maintenance database secret
+        shell: bash
+        env:
+          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+        run: |
+          if [ -z "$AGENT_DATABASE_URL" ]; then
+            echo "::error::AGENT_DATABASE_URL is empty/unset for the maintenance Worker in environment=production. Refusing to deploy a scheduled purge that cannot reach the agent data plane."
+            exit 1
+          fi
+
       # ── Preflight: post-deploy secrets (validates BEFORE anything deploys,
       #    same reasoning as _deploy-component.yml's "Preflight - post-deploy
       #    secrets" step — a failure here cannot leave a Worker half-deployed).
@@ -191,6 +201,21 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+
+      # ── Deploy scheduled maintenance Worker (private, agent-domain Neon) ──
+      - name: Deploy maintenance Worker
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          packageManager: pnpm
+          workingDirectory: workers/maintenance
+          command: deploy
+          environment: production
+          secrets: |
+            AGENT_DATABASE_URL
+        env:
+          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
 
       # ── Verify Dockerfile exists before root deploy ──
       - run: test -f Dockerfile
