@@ -86,9 +86,12 @@ jobs:
             # Scoping the filter to workers/maintenance/** alone would let a change to any
             # of those files break the assertion while ci-maintenance skips: the same
             # "a gate that cannot test itself" failure the agent_behavior filter above
-            # already had to fix. Keep this list in sync with that test's imports.
+            # already had to fix. READS declarations are enforced by the unfiltered
+            # config-read-sets security job.
             maintenance: ['workers/maintenance/**', '.github/workflows/ci.yml', '.github/workflows/deploy.yml', '.github/workflows/_deploy-component.yml', '.github/workflows/purge-anon-quota-counts.yml', '.github/workflows/purge-anonymous-sessions.yml', 'docs/ops/secrets.md']
-            agent: ['apps/agent/**', 'packages/contract/**']
+            # Agent unit tests assert cross-package workflow, documentation, Worker, and
+            # web coverage config. The read-set meta-check protects these extra entries.
+            agent: ['apps/agent/**', 'packages/contract/**', '.github/workflows/**', 'apps/web/vitest.config.ts', 'docs/ARCHITECTURE.md', 'docs/ops/deployment.md', 'docs/ops/secrets.md', 'docs/testing-strategy.md', 'worker/containerEnv.ts']
             # SD-30 path-filter rule (shared verbatim with iter-1 S1.13, per the second-pass
             # spec review): prompt/instructions + model-config + guardrail files ONLY — not
             # every apps/agent/** change (that broader scope still gates `agent` above, which

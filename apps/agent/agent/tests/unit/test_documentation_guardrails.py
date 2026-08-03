@@ -15,6 +15,14 @@ from agent.tests.unit.documentation_guardrails import (
     live_coverage_thresholds,
 )
 
+READS: tuple[str, ...] = (
+    "apps/agent/pytest.ini",
+    "apps/web/vitest.config.ts",
+    "docs/ARCHITECTURE.md",
+    "docs/ops/deployment.md",
+    "docs/testing-strategy.md",
+)
+
 
 def test_unmarked_retired_technology_fails() -> None:
     with pytest.raises(ValueError, match="Next.js"):

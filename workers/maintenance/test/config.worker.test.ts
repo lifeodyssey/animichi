@@ -7,6 +7,16 @@ import secretsDocs from "../../../docs/ops/secrets.md?raw";
 import wranglerConfig from "../wrangler.toml?raw";
 import { describe, expect, it } from "vitest";
 
+export const READS = [
+  ".github/workflows/_deploy-component.yml",
+  ".github/workflows/ci.yml",
+  ".github/workflows/deploy.yml",
+  ".github/workflows/purge-anon-quota-counts.yml",
+  ".github/workflows/purge-anonymous-sessions.yml",
+  "docs/ops/secrets.md",
+  "workers/maintenance/wrangler.toml",
+] as const;
+
 const REQUIRED_DSN = 'required = ["AGENT_DATABASE_URL"]';
 const CRONS = 'crons = ["37 18 * * *", "37 19 * * *"]';
 
