@@ -243,6 +243,7 @@ Routing defined by `wrangler.toml`:
 - `/img/*` runs through the Worker image proxy/cache
 - everything else answers a JSON `404 not_found`
 
+<!-- historical: retired in #537 -->
 Issue #537 removed the bundled Next.js app and with it the `[assets]` binding: this Worker
 has **no** HTML surface. `apps/web` deploys as its own Worker and owns every page. The root
 Worker's `routes` still claim `animichi.com/*`, so the apex has not yet been cut over to the

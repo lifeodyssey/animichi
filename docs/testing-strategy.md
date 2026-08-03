@@ -521,34 +521,23 @@ Beyond AC-defined scenarios, Evaluator proactively generates:
 
 ## Coverage Targets & CI
 
-### Current State (as of 2026-07-18)
+### Enforced coverage floors
 
-| Area | Status | Notes |
-|------|--------|-------|
-| Backend unit coverage | ✅ Enforced | `pytest.ini` requires at least 82% |
-| Backend coverage upload | ⚠️ Weak | Codecov configured but `continue-on-error: true` |
-| Backend integration | ⚠️ Calibrating | Phase C Neon job is non-gating until 10 consecutive greens |
-| Frontend tests | ❌ None | No vitest, no test runner, no coverage |
-| Eval in CI | ⚠️ Partial | `eval` job exists but separate from merge gate |
+The configuration files are authoritative. This table mirrors their live numeric values so the
+documentation guard can detect drift; change a floor in its config and this table in the same
+commit.
 
-### Targets
+| Metric | Configured floor (%) | Source of truth |
+|--------|----------------------|-----------------|
+| Backend total | `87` | `apps/agent/pytest.ini`, `[pytest] addopts` → `--cov-fail-under` |
+| Frontend statements | `98` | `apps/web/vitest.config.ts`, `test.coverage.thresholds.statements` |
+| Frontend branches | `95` | `apps/web/vitest.config.ts`, `test.coverage.thresholds.branches` |
+| Frontend functions | `98` | `apps/web/vitest.config.ts`, `test.coverage.thresholds.functions` |
+| Frontend lines | `99` | `apps/web/vitest.config.ts`, `test.coverage.thresholds.lines` |
 
-| Layer | Current | Target | Enforcement |
-|-------|---------|--------|-------------|
-| Backend unit | ≥82% | **≥82%, ratchet up only** | `--cov-fail-under=82` |
-| Backend integration | ~20% | **50%** | CI must-pass (remove `continue-on-error`) |
-| Frontend unit+component | **0%** | **60%** | New vitest job with `--coverage` |
-| E2E journeys | **0** | **8 journeys** | Evaluator runs pre-merge |
-| Eval Layer 1 | existing | **100% pass** | Deterministic, must pass |
-| Eval Layer 2 | existing | **baseline + 10pp** | Block merge on regression |
-| Eval Layer 3 | existing | **monitor only** | Does not block |
-
-### Coverage Rules
-
-1. `make test-coverage` generates report (pytest-cov + vitest --coverage)
-2. **PR cannot decrease coverage** (ratchet: only up, never down)
-3. **New files must have > 70% coverage**
-4. Exclude: `__init__.py`, migration files, `config/`, `__pycache__/`
+Backend exclusions and reporting rules remain in `apps/agent/pytest.ini`. Frontend inclusion,
+exclusion, reporter, and ratchet details remain in `apps/web/vitest.config.ts`; this document does
+not define a second coverage policy.
 
 ### CI Pipeline (target state)
 
