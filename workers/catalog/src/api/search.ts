@@ -33,6 +33,9 @@ import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import { normalizeAlias } from "../lib/alias";
 import { optional } from "../lib/optional";
+import {
+  nullableNumber, nullableString, nullableTimestamp, requiredNumber, requiredString,
+} from "../lib/rows";
 import { ingestWork } from "../ingest/orchestrator";
 import type { FetchLike } from "../ingest/sources";
 import type { Origin, PilgrimagePoint } from "../types";
@@ -216,6 +219,17 @@ async function firstWorkId(db: CatalogDb, normalized: string): Promise<string | 
   return (result.rows as { work_id: string }[])[0]?.work_id;
 }
 
+function readWorkPointRow(row: Record<string, unknown>): WorkPointRow {
+  return {
+    id: requiredString(row, "id"), name: requiredString(row, "name"),
+    name_cn: nullableString(row, "name_cn"), bangumi_id: nullableString(row, "bangumi_id"),
+    episode: nullableNumber(row, "episode"), time_seconds: nullableNumber(row, "time_seconds"),
+    image: nullableString(row, "image"), latitude: requiredNumber(row, "latitude"), longitude: requiredNumber(row, "longitude"),
+    title: nullableString(row, "title"), title_cn: nullableString(row, "title_cn"), cover_url: nullableString(row, "cover_url"),
+    city: nullableString(row, "city"), synced_at: nullableTimestamp(row, "synced_at"),
+  };
+}
+
 /** Select the work's points joined to its bangumi title metadata. */
 async function selectPoints(db: CatalogDb, workId: string): Promise<WorkPointRow[]> {
   const result = await db.execute(sql`
@@ -225,5 +239,5 @@ async function selectPoints(db: CatalogDb, workId: string): Promise<WorkPointRow
     FROM points p LEFT JOIN bangumi b ON p.bangumi_id = b.id
     WHERE p.bangumi_id = ${workId}
   `);
-  return result.rows as unknown as WorkPointRow[];
+  return result.rows.map(readWorkPointRow);
 }
