@@ -15,8 +15,8 @@ every contract change and commit both outputs. CI reruns emission and fails on c
 ## Conventions
 
 - Zod schemas and oRPC contracts live in `src/`; export public types through `src/index.ts`.
-- `zod@4.4.3` and `@orpc/*@1.14.8` are one coupled exact-pin set across this package,
-  `workers/catalog`, and `workers/users`. Change them together.
+- `zod@4.4.3` and `@orpc/*@1.14.10` are one coupled exact-pin set across this package,
+  `workers/catalog`, `workers/users`, and `apps/web`. Change them together.
 - Catalog internals use type-only hand-mirrors so Zod stays out of the Worker bundle; Python models
   remain hand-written because their sentinel defaults intentionally differ.
 - Semantic contract freeze is the red line: do not change wire meaning without an approved story.
