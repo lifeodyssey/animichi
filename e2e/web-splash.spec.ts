@@ -31,7 +31,7 @@ async function expectSplashWithinBudget(page: Page): Promise<void> {
   await expect(page.locator("main").first()).toBeVisible();
 }
 
-test("light system mode renders the day splash and clears it within 800ms", async ({ page }) => {
+test("light system mode renders the day splash and clears it within 800ms", { tag: "@perf-mobile-cold" }, async ({ page }) => {
   await applyPerfMobileCold(page);
   await expectSplashWithinBudget(page);
   await expect(page.locator(".app-splash__frame.day")).toHaveCSS("display", "flex");
@@ -40,7 +40,7 @@ test("light system mode renders the day splash and clears it within 800ms", asyn
 test.describe("dark system mode", () => {
   test.use({ colorScheme: "dark" });
 
-  test("renders the night splash and clears it within 800ms", async ({ page }) => {
+  test("renders the night splash and clears it within 800ms", { tag: "@perf-mobile-cold" }, async ({ page }) => {
     await applyPerfMobileCold(page);
     await expectSplashWithinBudget(page);
     await expect(page.locator(".app-splash__frame.night")).toHaveCSS("display", "flex");
