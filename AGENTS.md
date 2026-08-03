@@ -128,6 +128,19 @@ annotation (`unit`|`integration`|`eval`|`browser`|`api`) plus a test in the PR d
 (`ac_total == ac_with_test`); Reviewer wants Codecov patch ≥95%. In worktrees, use
 `uv tool run ruff format`. Hooks: `block-secrets-in-pr`, `block-local-deploy`, `block-codex-exec-codewrite`.
 
+## PR 合并前的两路检查(hook 强制)
+
+合并任何 PR 前,**行级线程与顶层评论都要看**——它们是两种对象,查一路会漏另一路:
+
+| 载体 | 查法 | 典型内容 |
+|---|---|---|
+| review threads(行级) | GraphQL `reviewThreads(isResolved:false)` | coderabbit/qodo 的逐行建议 |
+| issue comments(顶层) | `gh pr view <n> --json comments` | **qodo 的 Code Review 汇总(Bugs/Rule violations 计数)、SonarCloud Quality Gate、codecov** |
+
+2026-08-03 的教训:只查前者、连合 24 个 PR,而 qodo 的 Bugs 计数与 SonarCloud 的失败门一直没人看——因为它们不产生线程,前者的计数永远显示零。
+
+`~/.claude/hooks/check-pr-comments.sh`(**全局** hook,对所有仓库生效)在 `gh pr merge` 前强制两路检查:有未解决线程、或顶层出现非零 Bugs/Rule violations、或 Quality Gate Failed 即拦截。判定完成后在 PR 上留一条含「线程判定」或「findings triaged」的评论即可放行——hook 只坚持判断被记录下来,判断本身仍归人。
+
 ## File placement
 
 Never save working files to the repo root. Doc placement + the doc-change checklist → `docs/DOCS_POLICY.md`.
