@@ -17,7 +17,7 @@ from datetime import UTC, date, datetime, time, timedelta
 
 import structlog
 
-from agent.domain.ports import get_anon_quota_repo
+from agent.domain.ports import AnonQuotaCounter
 from agent.interfaces.usage_metering import utc_today
 
 logger = structlog.get_logger(__name__)
@@ -64,7 +64,7 @@ def next_utc_midnight(day: date) -> datetime:
 
 
 async def anonymous_quota_verdict(
-    db: object,
+    anon_quota_repo: AnonQuotaCounter | None,
     *,
     anon_id: str,
     quota: int | None,
@@ -84,11 +84,10 @@ async def anonymous_quota_verdict(
     """
     resolved_today = today or utc_today()
     resets_at = next_utc_midnight(resolved_today)
-    repo = get_anon_quota_repo(db)
-    if not quota or repo is None or not _ANON_ID_PATTERN.fullmatch(anon_id):
+    if not quota or anon_quota_repo is None or not _ANON_ID_PATTERN.fullmatch(anon_id):
         return QuotaVerdict(exhausted=False, count=0, quota=quota, resets_at=resets_at)
     try:
-        count = await repo.increment_and_count(
+        count = await anon_quota_repo.increment_and_count(
             usage_date=resolved_today, anon_id=anon_id
         )
     except _QUOTA_ERRORS:

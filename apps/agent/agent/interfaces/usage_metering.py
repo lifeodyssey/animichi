@@ -21,7 +21,7 @@ from typing import Literal
 import structlog
 from pydantic_ai.usage import RunUsage
 
-from agent.domain.ports import get_usage_repo
+from agent.domain.ports import UsageMeter
 
 logger = structlog.get_logger(__name__)
 
@@ -100,7 +100,7 @@ def usage_cost_usd(usage: RunUsage, prices: UsagePrices) -> float:
 
 
 async def record_turn_usage(
-    db: object,
+    usage_repo: UsageMeter | None,
     *,
     usage: RunUsage | None,
     scope: UsageScope,
@@ -108,11 +108,10 @@ async def record_turn_usage(
     today: date | None = None,
 ) -> None:
     """Accumulate one turn into ``daily_usage``; best-effort, never fatal."""
-    repo = get_usage_repo(db)
-    if repo is None or usage is None:
+    if usage_repo is None or usage is None:
         return
     try:
-        await repo.accumulate_usage(
+        await usage_repo.accumulate_usage(
             usage_date=today or utc_today(),
             scope=scope,
             requests=usage.requests,
@@ -125,7 +124,7 @@ async def record_turn_usage(
 
 
 async def anonymous_budget_verdict(
-    db: object,
+    usage_repo: UsageMeter | None,
     *,
     budget_usd: float,
     today: date | None = None,
@@ -136,11 +135,12 @@ async def anonymous_budget_verdict(
     unavailable meter must not take the anonymous surface down, and the edge
     latch only ever caches an explicit ``exhausted`` verdict.
     """
-    repo = get_usage_repo(db)
-    if budget_usd <= 0 or repo is None:
+    if budget_usd <= 0 or usage_repo is None:
         return BudgetVerdict(exhausted=False, spent_usd=0.0, budget_usd=budget_usd)
     try:
-        spent = await repo.total_cost_usd(usage_date=today or utc_today(), scope="anon")
+        spent = await usage_repo.total_cost_usd(
+            usage_date=today or utc_today(), scope="anon"
+        )
     except _METER_ERRORS:
         logger.warning("daily_usage_read_failed", exc_info=True)
         return BudgetVerdict(exhausted=False, spent_usd=0.0, budget_usd=budget_usd)

@@ -15,11 +15,7 @@ from pydantic_core import to_jsonable_python
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.session_state import PointState, RoutePayloadState, SearchPayloadState
-from agent.domain.ports import (
-    get_bangumi_repo,
-    get_routes_repo,
-    get_session_repo,
-)
+from agent.domain.ports import BangumiRepo, ConversationLog, RouteArchive, SessionRepo
 from agent.infrastructure.session import SessionStore
 from agent.interfaces.schemas import (
     GRACEFUL_TERMINAL_STATUSES,
@@ -56,7 +52,10 @@ _PERSIST_ERRORS = (OSError, RuntimeError, ValueError, TypeError)
 
 async def persist_result(
     *,
-    db: object,
+    session_repo: SessionRepo | None,
+    routes_repo: RouteArchive | None,
+    bangumi_repo: BangumiRepo | None,
+    messages_repo: ConversationLog | None,
     session_store: SessionStore,
     session_id: str,
     request: PublicAPIRequest,
@@ -91,7 +90,8 @@ async def persist_result(
     route_record = None
     if result is not None:
         route_record = await maybe_persist_route(
-            db=db,
+            bangumi_repo=bangumi_repo,
+            routes_repo=routes_repo,
             session_id=session_id,
             request=request,
             result=result,
@@ -104,15 +104,17 @@ async def persist_result(
         route_history.append(route_record)
         session_state["route_history"] = route_history[-MAX_ROUTE_HISTORY:]
 
-    await persist_session(db, session_store, session_id, session_state, response)
+    await persist_session(
+        session_repo, session_store, session_id, session_state, response
+    )
     await persist_conversation(
-        db=db,
+        session_repo=session_repo,
         session_id=session_id,
         user_id=user_id,
         request=request,
     )
     await persist_messages(
-        db=db,
+        messages_repo=messages_repo,
         session_id=session_id,
         user_text=request.text,
         result=result,
@@ -147,17 +149,26 @@ async def _safe_insert_message(
 
 async def persist_messages(
     *,
-    db: object,
+    messages_repo: ConversationLog | None,
     session_id: str,
     user_text: str,
     result: AgentResult | None,
     response: PublicAPIResponse,
     persist_user_only: bool = False,
 ) -> None:
-    """Persist user and bot messages to conversation_messages (best-effort)."""
-    insert_message = getattr(db, "insert_message", None)
-    if insert_message is None:
+    """Persist user and bot messages to conversation_messages (best-effort).
+
+    Issue #663: this used to reflect ``getattr(db, "insert_message", None)``,
+    which only matched a ``SupabaseClient`` that exposed a flat top-level
+    ``insert_message`` method. The real implementation lives on the nested
+    ``messages`` repo (``MessagesRepository.insert_message``), so the probe
+    always missed in production and every turn's messages silently went
+    unwritten. ``messages_repo`` is now the exact typed repo, resolved once
+    by the caller (``agent.interfaces.db_repos.messages_repo``).
+    """
+    if messages_repo is None:
         return
+    insert_message = messages_repo.insert_message
 
     # #273 T1: a selected_point_ids recompute carries no new utterance (the
     # client sends a part-less marker; ``_last_user_text`` derives ""). Never
@@ -187,7 +198,7 @@ async def persist_messages(
 
 
 async def persist_session(
-    db: object,
+    session_repo: SessionRepo | None,
     session_store: SessionStore,
     session_id: str,
     session_state: dict[str, object],
@@ -195,7 +206,6 @@ async def persist_session(
 ) -> None:
     await session_store.set(session_id, session_state)
 
-    session_repo = get_session_repo(db)
     if session_repo is not None:
         metadata = {
             "intent": response.intent,
@@ -207,7 +217,7 @@ async def persist_session(
 
 async def persist_conversation(
     *,
-    db: object,
+    session_repo: SessionRepo | None,
     session_id: str,
     user_id: str | None,
     request: PublicAPIRequest,
@@ -216,7 +226,6 @@ async def persist_conversation(
     if not user_id:
         return
 
-    session_repo = get_session_repo(db)
     if session_repo is not None:
         await session_repo.upsert_conversation(session_id, user_id, request.text)
         # DECISION(2026-07-07): auto-generated conversation titles stay
@@ -225,14 +234,13 @@ async def persist_conversation(
 
 
 async def create_owned_session(
-    db: object,
+    session_repo: SessionRepo | None,
     session_id: str,
     user_id: str,
     first_query: str,
     session_state: dict[str, object],
 ) -> None:
     """Create one authenticated session and ownership row atomically."""
-    session_repo = get_session_repo(db)
     if session_repo is None:
         raise RuntimeError("authenticated sessions require a session repository")
     await session_repo.create_owned_session(
@@ -249,7 +257,8 @@ async def load_session_state(
 
 async def maybe_persist_route(
     *,
-    db: object,
+    bangumi_repo: BangumiRepo | None,
+    routes_repo: RouteArchive | None,
     session_id: str,
     request: PublicAPIRequest,
     result: AgentResult,
@@ -280,7 +289,7 @@ async def maybe_persist_route(
     if route_state is None:
         return None
     anime_ids = await _existing_anime_ids(
-        db, _route_anime_ids(result, route_state), session_id
+        bangumi_repo, _route_anime_ids(result, route_state), session_id
     )
     origin_station = request.origin
     if (
@@ -299,7 +308,6 @@ async def maybe_persist_route(
         "created_at": datetime.now(UTC).isoformat(),
     }
 
-    routes_repo = get_routes_repo(db)
     if routes_repo is not None:
         try:
             route_id = await routes_repo.save_route(
@@ -331,13 +339,12 @@ def _current_route(result: AgentResult) -> RoutePayloadState | None:
 
 
 async def _existing_anime_ids(
-    db: object, anime_ids: list[str], session_id: str
+    bangumi_repo: BangumiRepo | None, anime_ids: list[str], session_id: str
 ) -> list[str]:
-    bangumi = get_bangumi_repo(db)
-    if bangumi is None:
+    if bangumi_repo is None:
         return anime_ids
     try:
-        return await bangumi.filter_existing_ids(anime_ids)
+        return await bangumi_repo.filter_existing_ids(anime_ids)
     except asyncpg.PostgresError:
         logger.warning("filter_route_anime_failed", session_id=session_id)
         return []
