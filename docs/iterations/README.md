@@ -17,5 +17,3 @@ Previous iteration (iter5):
 - `docs/iterations/iter5/task_plan.md`
 - `docs/iterations/iter5/progress.md`
 - `docs/iterations/iter5/findings.md`
-
-Implementation plans created for execution stay under `docs/superpowers/plans/`.
