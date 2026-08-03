@@ -2,29 +2,18 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
-from collections.abc import Callable
-from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass, field
 from datetime import datetime
-from typing import NoReturn, cast
+from typing import NoReturn
 from zoneinfo import ZoneInfo
 
-from logfire.variables import ResolvedVariable
 from pydantic_ai import Agent, ModelRetry, RunContext
-from pydantic_ai.agent import AgentInstructions, AgentRunResult
-from pydantic_ai.capabilities import (
-    AgentCapability,
-    Hooks,
-    WrapRunHandler,
-)
+from pydantic_ai.capabilities import AgentCapability, Hooks
 from pydantic_ai.capabilities.hooks import ValidatedToolArgs
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.output import ToolOutput
 from pydantic_ai.tools import ToolDefinition
-from pydantic_ai_harness.logfire import ManagedPrompt
 from pydantic_ai_harness.memory import Memory, MemoryStore
 
 from agent.agents.agent_result import ProducedRoute, ProducedSearch, StepRecord
@@ -45,21 +34,9 @@ from agent.agents.tool_outcomes import ResolveAmbiguous, ResolveNotFound
 from agent.agents.web_tools import TOOLS as WEB_TOOLS
 from agent.domain.compaction_retention import RetainedEntityLedger
 from agent.domain.fact_ledger import FactLedger
-from agent.infrastructure.observability import (
-    record_agent_run_error,
-    record_managed_prompt_resolution,
-)
+from agent.infrastructure.observability import record_agent_run_error
 from agent.utils.language import locale_name, resolve_reply_language
 
-MANAGED_PROMPT_NAME = "animichi-instructions"
-MANAGED_PROMPT_LABEL = "production"
-_LOCAL_PROMPT_VERSION = (
-    "sha256:d6941015e532fc2f240f64bc4ef056c8e7986044f7d6c0e5d773639030252cd5"
-)
-_PROMPT_RESOLUTION_DEADLINE_SECONDS = 2.0
-_PROMPT_RESOLUTION_EXECUTOR = ThreadPoolExecutor(
-    max_workers=4, thread_name_prefix="managed-prompt"
-)
 USER_MEMORY_GUIDANCE = (
     "Remember stable user preferences, visited pilgrimage points, language, and "
     "tastes; do not remember one-off searches."
@@ -163,124 +140,6 @@ results conflict, prefer verified sources over unverified ones.
 """
 
 
-class _PromptResolutionTimeout(TimeoutError):
-    """Application wall-clock deadline expired during prompt resolution."""
-
-
-@dataclass
-class _AnimichiManagedPrompt(ManagedPrompt[RuntimeDeps]):
-    """ManagedPrompt with Animichi's blank-value and telemetry contract."""
-
-    resolution_deadline: float = field(
-        default_factory=lambda: _PROMPT_RESOLUTION_DEADLINE_SECONDS
-    )
-
-    def get_instructions(
-        self,
-    ) -> Callable[[RunContext[RuntimeDeps]], str | None]:
-        def instructions(_ctx: RunContext[RuntimeDeps]) -> str | None:
-            resolved = self.resolved
-            if resolved is None:
-                return None
-            base = (
-                resolved.value if _prompt_failure(resolved) is None else _INSTRUCTIONS
-            )
-            return (
-                f"{base.rstrip()}\n\n{_current_turn_language(_ctx)}\n\n"
-                f"{_current_datetime_context(_ctx)}"
-            )
-
-        return instructions
-
-    async def wrap_run(
-        self, ctx: RunContext[RuntimeDeps], *, handler: WrapRunHandler
-    ) -> AgentRunResult[RuntimeOutput]:
-        async def observed_handler() -> AgentRunResult[RuntimeOutput]:
-            _record_prompt_resolution(self)
-            return cast(AgentRunResult[RuntimeOutput], await handler())
-
-        resolved = await _resolve_prompt(self, ctx)
-        with resolved:
-            token = self._resolved.set(resolved)
-            try:
-                return await observed_handler()
-            finally:
-                self._resolved.reset(token)
-
-
-async def _resolve_prompt(
-    prompt: _AnimichiManagedPrompt, ctx: RunContext[RuntimeDeps]
-) -> ResolvedVariable[str]:
-    future = _submit_prompt_resolution(prompt, ctx)
-    try:
-        wrapped = asyncio.wrap_future(future)
-        return await asyncio.wait_for(wrapped, timeout=prompt.resolution_deadline)
-    except TimeoutError:
-        future.cancel()
-        return _prompt_fallback(prompt, _PromptResolutionTimeout("deadline expired"))
-    except Exception as exc:
-        return _prompt_fallback(prompt, exc)
-
-
-def _submit_prompt_resolution(
-    prompt: _AnimichiManagedPrompt, ctx: RunContext[RuntimeDeps]
-) -> Future[ResolvedVariable[str]]:
-    targeting = (
-        prompt.targeting_key(ctx)
-        if callable(prompt.targeting_key)
-        else prompt.targeting_key
-    )
-    attributes = (
-        prompt.attributes(ctx) if callable(prompt.attributes) else prompt.attributes
-    )
-    return _PROMPT_RESOLUTION_EXECUTOR.submit(
-        prompt._variable.get,
-        targeting_key=targeting,
-        attributes=attributes,
-        label=prompt.label,
-    )
-
-
-def _prompt_fallback(
-    prompt: _AnimichiManagedPrompt, exception: Exception
-) -> ResolvedVariable[str]:
-    return ResolvedVariable(
-        name=prompt._variable.name,
-        value=_INSTRUCTIONS,
-        exception=exception,
-        reason="other_error",
-    )
-
-
-def _record_prompt_resolution(prompt: _AnimichiManagedPrompt) -> None:
-    resolved = prompt.resolved
-    if resolved is None:
-        return
-    failure = _prompt_failure(resolved)
-    source = "local" if failure else "remote"
-    version = _LOCAL_PROMPT_VERSION if source == "local" else str(resolved.version)
-    label = resolved.label or MANAGED_PROMPT_LABEL
-    record_managed_prompt_resolution(
-        source=source, version=version, label=label, failure=failure
-    )
-
-
-def _prompt_failure(resolved: ResolvedVariable[str]) -> str | None:
-    if resolved.reason in {"code_default", "missing_config", "no_provider"}:
-        return "remote_unavailable"
-    if isinstance(resolved.exception, _PromptResolutionTimeout):
-        return "timeout"
-    if resolved.exception is not None:
-        return type(resolved.exception).__name__
-    if resolved.label != MANAGED_PROMPT_LABEL:
-        return "label_mismatch"
-    if not resolved.value.strip():
-        return "blank_remote_value"
-    if resolved.value != _INSTRUCTIONS:
-        return "content_mismatch"
-    return None
-
-
 def _summarize_tool_content(tool_name: str, content: object) -> str:
     """Extract key info from tool result for compressed history."""
     data = _parse_content_to_dict(content)
@@ -342,46 +201,6 @@ def _input_guard_enabled() -> bool:
     """Keep trajectory-changing input blocking opt-in until evals align."""
     # The canonical eval contracts must be aligned before this can default on.
     return os.environ.get("ANIMICHI_INPUT_GUARD", "0") == "1"
-
-
-def _managed_prompt_enabled() -> bool:
-    """Require an explicit opt-in and the token needed for remote resolution."""
-    return os.environ.get("ANIMICHI_MANAGED_PROMPT") == "1" and all(
-        os.environ.get(name) for name in ("LOGFIRE_TOKEN", "LOGFIRE_API_KEY")
-    )
-
-
-def _managed_prompt_capability() -> _AnimichiManagedPrompt | None:
-    if not _managed_prompt_enabled():
-        return None
-    return _AnimichiManagedPrompt(
-        MANAGED_PROMPT_NAME,
-        default=_INSTRUCTIONS,
-        label=MANAGED_PROMPT_LABEL,
-    )
-
-
-def _record_missing_managed_prompt_token() -> None:
-    requested = os.environ.get("ANIMICHI_MANAGED_PROMPT") == "1"
-    if not requested:
-        return
-    failure = _missing_managed_prompt_credential()
-    if failure is None:
-        return
-    record_managed_prompt_resolution(
-        source="local",
-        version=_LOCAL_PROMPT_VERSION,
-        label=MANAGED_PROMPT_LABEL,
-        failure=failure,
-    )
-
-
-def _missing_managed_prompt_credential() -> str | None:
-    if not os.environ.get("LOGFIRE_TOKEN"):
-        return "missing_logfire_token"
-    if not os.environ.get("LOGFIRE_API_KEY"):
-        return "missing_logfire_api_key"
-    return None
 
 
 def _output_types() -> list[ToolOutput[RuntimeOutput]]:
@@ -568,7 +387,6 @@ def _modern_hooks() -> Hooks[RuntimeDeps]:
 
 
 def _modern_capabilities(
-    managed_prompt: _AnimichiManagedPrompt | None,
     memory: Memory[RuntimeDeps] | None,
 ) -> list[AgentCapability[RuntimeDeps]]:
     capabilities = _history_capabilities()
@@ -580,8 +398,6 @@ def _modern_capabilities(
     capabilities.append(_modern_hooks())
     if memory is not None:
         capabilities.append(memory)
-    if managed_prompt is not None:
-        capabilities.append(managed_prompt)
     return capabilities
 
 
@@ -589,22 +405,15 @@ def build_animichi_agent(
     *, memory: Memory[RuntimeDeps] | None = None
 ) -> Agent[RuntimeDeps, RuntimeOutput]:
     """Construct the single production composition of the runtime agent."""
-    managed_prompt = _managed_prompt_capability()
-    _record_missing_managed_prompt_token()
-    instructions: AgentInstructions[RuntimeDeps] = (
-        [_INSTRUCTIONS, _current_turn_language, _current_datetime_context]
-        if managed_prompt is None
-        else None
-    )
     agent: Agent[RuntimeDeps, RuntimeOutput] = Agent(
         resolve_model(None),
         name="animichi",
         deps_type=RuntimeDeps,
         output_type=_output_types(),
-        instructions=instructions,
+        instructions=[_INSTRUCTIONS, _current_turn_language, _current_datetime_context],
         tools=[*ANIMICHI_TOOLS, *WEB_TOOLS],
         retries=2,
-        capabilities=_modern_capabilities(managed_prompt, memory),
+        capabilities=_modern_capabilities(memory),
     )
     agent.output_validator(validate_output)
     return agent

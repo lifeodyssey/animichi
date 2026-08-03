@@ -32,8 +32,8 @@ bypass the model through `execute_selected_route()`, `execute_multi_selection()`
   `trusted_session_context()` instead of the pre-redesign `before_model_request` hook.
 - `web_search` + `translate_anime_title` are regular constructor-injected tools; the pre-redesign
   keyword `ToolSearch` deferral and `ANIMICHI_MODERN_COMPOSITION` rollback switch are retired.
-- ManagedPrompt is default-off and needs all three gates: `ANIMICHI_MANAGED_PROMPT=1`,
-  `LOGFIRE_TOKEN`, and `LOGFIRE_API_KEY`; otherwise local instructions win.
+- The ManagedPrompt remote extension point has been removed. Production instructions always use
+  the checked-in local `_INSTRUCTIONS` plus current-turn language and datetime context.
 
 ## Tools and outputs
 

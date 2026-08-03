@@ -16,7 +16,6 @@ export EVAL_MODEL='openai:mimo-v2.5@https://api.xiaomimimo.com/v1'
 export EVAL_MAX_CASES=80
 export EVAL_CONCURRENCY=10
 export EVAL_L3=0
-export ANIMICHI_MANAGED_PROMPT=0
 export ANIMICHI_SPIKE_OUT_BASE="$PWD/agent/spikes/codemode"
 
 uv run python -m agent.spikes.codemode.rematch --arm control
@@ -36,12 +35,11 @@ fixtures do not connect to it.
 
 ## Teaching treatment
 
-ARM B keeps the production instructions (from ManagedPrompt when explicitly enabled, otherwise
-the local prompt), current-turn language directive, hooks, native history compaction, dependencies,
-tools, typed outputs, retries, and output validator. Its only treatment is `CodeMode` plus an
-addendum telling MiMo to use one whole `run_code` script, showing one resolve → search → plan route
-example with branching/error handling, and restating the Monty restrictions that caused Wave-2
-failures. The commands above pin local instructions so both arms avoid remote prompt variance.
+ARM B keeps the production local instructions, current-turn language directive, hooks, native
+history compaction, dependencies, tools, typed outputs, retries, and output validator. Its only
+treatment is `CodeMode` plus an addendum telling MiMo to use one whole `run_code` script, showing
+one resolve → search → plan route example with branching/error handling, and restating the Monty
+restrictions that caused Wave-2 failures. Both arms use the same checked-in instructions.
 
 ## Verdict
 
