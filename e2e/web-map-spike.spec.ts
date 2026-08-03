@@ -28,7 +28,7 @@ async function applyPerfMobileCold(page: Page): Promise<void> {
   await client.send("Emulation.setCPUThrottlingRate", { rate: 4 });
 }
 
-test("first real map tile paints within 3s under perf-mobile-cold", async ({ page }) => {
+test("first real map tile paints within 3s under perf-mobile-cold", { tag: "@perf-mobile-cold" }, async ({ page }) => {
   await routeRenderedMap(page);
   await applyPerfMobileCold(page);
   const startedAt = performance.now();
