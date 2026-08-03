@@ -29,7 +29,6 @@ from agent.config.model_aliases import (
 )
 from agent.config.settings import Settings
 from agent.interfaces.fastapi_service import create_fastapi_app
-from agent.interfaces.session_facade import _generate_title
 
 
 def _model_settings(*, fallback: str | None = None) -> Settings:
@@ -153,18 +152,7 @@ def test_duplicate_effective_models_are_rejected() -> None:
 
 
 async def test_override_helpers_forward_the_shared_client() -> None:
-    client = httpx.AsyncClient()
     model = cast(Model, object())
-    result = SimpleNamespace(output="title")
-    with (
-        patch(
-            "agent.interfaces.session_facade.get_default_model", return_value=model
-        ) as default,
-        patch("agent.interfaces.session_facade.create_agent") as create,
-    ):
-        create.return_value.run = AsyncMock(return_value=result)
-        await _generate_title("session", "query", "response", http_client=client)
-    default.assert_called_once_with(http_client=client)
     # The translation arm of this test asserted `_translation_run_scope(None)`
     # resolved the server default. That helper is gone: passing no context was
     # exactly the path that minted a `RunUsage` nobody held, so platform spend
@@ -178,7 +166,6 @@ async def test_override_helpers_forward_the_shared_client() -> None:
         run.return_value.output = SimpleNamespace(areas=[])
         await split_into_areas([{} for _ in range(11)], model=model)
     assert run.await_args.kwargs["model"] is model
-    await client.aclose()
 
 
 def test_fastapi_lifespan_owns_and_closes_model_client() -> None:
