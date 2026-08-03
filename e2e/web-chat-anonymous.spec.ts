@@ -23,11 +23,52 @@ test.use({
 const ja = chatDictFor("ja");
 const states = ja.errorStates;
 
+/**
+ * Issue #447: the edge Turnstile gate is armed on the anonymous branch, so
+ * every anonymous turn the transport sends waits on `awaitTurnstileToken()`
+ * (`session-headers.ts`) before it goes out. `challenges.cloudflare.com` is
+ * ALWAYS blocked here — never left to the real network — so no test in this
+ * file depends on Cloudflare's widget actually being reachable from wherever
+ * it runs. Left unblocked, an unreachable loader would not just slow a run:
+ * every test that sends a message would burn `TURNSTILE_WAIT_MS` (15s)
+ * waiting for a token that never arrives, and then still fail its own
+ * (5s-default) UI assertion — a real observed failure mode, not a
+ * hypothetical one (confirmed by blocking the loader and timing the run
+ * before this fix landed).
+ */
+async function blockTurnstileLoader(page: Page): Promise<void> {
+  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+}
+
 async function openChat(page: Page): Promise<void> {
+  await blockTurnstileLoader(page);
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.goto("/chat");
   await hydrated;
+}
+
+/**
+ * Hand the page a token through the widget's own callback. The transport waits
+ * for one before sending an anonymous turn, so with the real loader blocked
+ * this is what lets a turn reach the (stubbed) edge at all — and a token the
+ * edge then rejects is exactly a spent or expired one.
+ */
+async function solveChallenge(page: Page, token: string): Promise<void> {
+  await page.waitForFunction(() => typeof window.onAnimichiTurnstile === "function");
+  await page.evaluate((value) => { window.onAnimichiTurnstile?.(value); }, token);
+}
+
+/**
+ * Arm a pre-solved token before a test's first `send()`, so the transport's
+ * `awaitTurnstileToken()` wait resolves from `currentTurnstileToken()`
+ * synchronously instead of parking on a callback that (loader blocked) would
+ * never fire. Every test in this file that expects a message to actually
+ * reach the mocked `/v1/chat` route needs this — the two Turnstile-specific
+ * tests below arm their own token deliberately instead, to exercise that path.
+ */
+async function armTurnstileToken(page: Page): Promise<void> {
+  await solveChallenge(page, "e2e-fixture-token");
 }
 
 async function send(page: Page, text: string): Promise<void> {
@@ -42,6 +83,7 @@ test("an anonymous visitor completes a full chat round-trip with no login prompt
     return route.fulfill({ status: 200, headers: SSE_HEADERS, body: chatStreamRecording("search") });
   });
   await openChat(page);
+  await armTurnstileToken(page);
   await send(page, "ユーフォ");
   await expect(page.getByText("宇治の聖地を2件、徒歩ルートにまとめました。")).toBeVisible();
   await expect(page.getByText("宇治橋")).toBeVisible();
@@ -59,6 +101,7 @@ test("a rate-limited anonymous turn shows the wait copy, not a bare 429", async 
     }),
   );
   await openChat(page);
+  await armTurnstileToken(page);
   await send(page, "ユーフォ");
   await expect(page.getByText(states.d10Message)).toBeVisible();
   await expect(page.getByRole("button", { name: states.d10Retry })).toBeVisible();
@@ -81,6 +124,7 @@ test("the anonymous budget breaker guides the visitor to login instead of failin
     }),
   );
   await openChat(page);
+  await armTurnstileToken(page);
   await send(page, "ユーフォ");
   // A visitor who never had a session must not be told their session expired.
   await expect(page.getByText(states.d11Message)).toBeVisible();
@@ -88,29 +132,7 @@ test("the anonymous budget breaker guides the visitor to login instead of failin
   await expect(page.getByText(states.d8Message)).toHaveCount(0);
 });
 
-/**
- * Issue #447: the edge Turnstile gate is armed on the anonymous branch, so the
- * anonymous entry must both carry the widget and handle the edge's retryable
- * rejection. `api.js` is blocked here — the widget's contract with the page is
- * the `cf-turnstile` element and its data-attributes, not Cloudflare's iframe.
- */
-async function blockTurnstileLoader(page: Page): Promise<void> {
-  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
-}
-
-/**
- * Hand the page a token through the widget's own callback. The transport waits
- * for one before sending an anonymous turn, so with the real loader blocked
- * this is what lets a turn reach the (stubbed) edge at all — and a token the
- * edge then rejects is exactly a spent or expired one.
- */
-async function solveChallenge(page: Page, token: string): Promise<void> {
-  await page.waitForFunction(() => typeof window.onAnimichiTurnstile === "function");
-  await page.evaluate((value) => { window.onAnimichiTurnstile?.(value); }, token);
-}
-
 test("the anonymous entry carries the challenge widget in the dock, not in the thread", async ({ page }) => {
-  await blockTurnstileLoader(page);
   await openChat(page);
   const widget = page.locator(".turnstile-gate .cf-turnstile");
   await expect(widget).toHaveAttribute("data-sitekey", /^.{24}$/);
@@ -119,7 +141,6 @@ test("the anonymous entry carries the challenge widget in the dock, not in the t
 });
 
 test("a challenged anonymous turn offers the check retry, never a login prompt", async ({ page }) => {
-  await blockTurnstileLoader(page);
   await page.route("**/v1/chat", (route) =>
     route.fulfill({
       status: 403,
@@ -161,6 +182,7 @@ test("an exhausted daily quota locks sending but keeps the visitor's typed text"
     }),
   );
   await openChat(page);
+  await armTurnstileToken(page);
   await send(page, "ユーフォ");
 
   const notice = page.getByRole("status").filter({ hasText: "メッセージはここまで" });
