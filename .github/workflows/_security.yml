@@ -152,9 +152,14 @@ jobs:
       - name: Download actionlint
         run: |
           ACTIONLINT_VERSION="1.7.7"
-          ACTIONLINT_URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          curl -sSfL -o actionlint.tar.gz "${ACTIONLINT_URL}"
-          tar -xzf actionlint.tar.gz actionlint
+          ACTIONLINT_ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          ACTIONLINT_CHECKSUMS="actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          ACTIONLINT_BASE_URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          curl -sSfL -o "${ACTIONLINT_ARCHIVE}" "${ACTIONLINT_BASE_URL}/${ACTIONLINT_ARCHIVE}"
+          curl -sSfL -o "${ACTIONLINT_CHECKSUMS}" "${ACTIONLINT_BASE_URL}/${ACTIONLINT_CHECKSUMS}"
+          grep -F "  ${ACTIONLINT_ARCHIVE}" "${ACTIONLINT_CHECKSUMS}" > actionlint.sha256
+          sha256sum -c actionlint.sha256
+          tar -xzf "${ACTIONLINT_ARCHIVE}" actionlint
           chmod +x actionlint
         shell: bash
       - name: Run actionlint
