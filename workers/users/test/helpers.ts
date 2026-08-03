@@ -57,11 +57,12 @@ export interface FakeRouteRow {
   id: string;
   session_id: string | null;
   user_id: string | null;
-  title: string;
+  title: string | null;
   point_ids: string[];
   status: RouteStatus;
   saved_at: string | null;
   updated_at: string;
+  first_query?: string;
 }
 
 const NOW = "2026-07-13T04:00:00.000Z";
@@ -88,6 +89,7 @@ function insertRow(values: unknown[]): FakeRouteRow {
     status,
     saved_at: status === "draft" ? null : NOW,
     updated_at: NOW,
+    first_query: "",
   };
 }
 
@@ -136,6 +138,22 @@ export function fakeDb(seed: FakeRouteRow[] = []): { db: DbExecutor; rows: FakeR
     }
     if (text.includes("set user_id")) {
       return Promise.resolve({ rows: claimRows(rows, values) });
+    }
+    if (text.includes("from conversations")) {
+      const userId = values[0];
+      const matches = rows.filter((item) => item.user_id === userId);
+      matches.sort((a, b) => b.updated_at.localeCompare(a.updated_at) ||
+        (b.id.localeCompare(a.id)));
+      const limit = Number(values[1]);
+      const offset = Number(values[2]);
+      const page = matches.slice(offset, offset + limit).map((item) => ({
+        session_id: item.id,
+        title: item.title,
+        first_query: item.first_query ?? "",
+        created_at: item.updated_at,
+        updated_at: item.updated_at,
+      }));
+      return Promise.resolve({ rows: page });
     }
     if (text.includes("update routes")) {
       const [id, userId] = values.slice(-2);

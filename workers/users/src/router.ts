@@ -4,6 +4,7 @@ import {
   claimRoutes as claimHandler,
   deleteRoute as deleteHandler,
   listRoutes as listHandler,
+  listSessions as listSessionsHandler,
   saveRoute as saveHandler,
 } from "./api/routes";
 import type { DbExecutor } from "./db/client";
@@ -16,6 +17,9 @@ const os = implement(usersContract).$context<UsersContext>();
 const listRoutes = os.listRoutes.handler(async ({ context }) =>
   listHandler(context.db, context.userId),
 );
+const listSessions = os.listSessions.handler(async ({ input, context }) =>
+  listSessionsHandler(context.db, context.userId, input),
+);
 const saveRoute = os.saveRoute.handler(async ({ input, context }) =>
   saveHandler(context.db, context.userId, input),
 );
@@ -27,6 +31,6 @@ const claimRoutes = os.claimRoutes.handler(async ({ input, context }) =>
 );
 
 /** Users service oRPC implementation. */
-export const usersRouter = { listRoutes, saveRoute, deleteRoute, claimRoutes };
+export const usersRouter = { listSessions, listRoutes, saveRoute, deleteRoute, claimRoutes };
 /** Users router type. */
 export type UsersRouter = typeof usersRouter;
