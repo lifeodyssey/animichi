@@ -1,5 +1,7 @@
 # Seichijunrei — Progress Log
 
+> 2026-08-03 状态盘点(S0 逐卡审计 + staging 卡点):[status-2026-08-03-s0-audit.md](./status-2026-08-03-s0-audit.md)
+
 ## Session 2026-04-05: Full Project Review + Planning
 
 ### Completed
