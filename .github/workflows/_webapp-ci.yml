@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   webapp-ci:
+    timeout-minutes: 20
     name: Web app CI
     runs-on: ubuntu-latest
     steps:
