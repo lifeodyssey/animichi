@@ -1,18 +1,17 @@
+import {
+  TURNSTILE_HEADER,
+  TURNSTILE_TOKEN_TTL_MS,
+} from "@animichi/contract/constants";
+
+export { TURNSTILE_HEADER, TURNSTILE_TOKEN_TTL_MS };
+
 /**
  * In-memory holder for the current Turnstile token (S1.9 / issue #281).
  *
- * Mirrors the edge's short-lived window (`worker/turnstile.ts`
- * TURNSTILE_WINDOW_MS): one solved challenge covers every message sent inside
- * it, so an anonymous user is not re-challenged per message. Module state
- * only — a reload re-renders the widget and mints a fresh token.
+ * One solved challenge covers every message inside the shared contract's
+ * short-lived window, so an anonymous user is not re-challenged per message.
+ * Module state only — a reload re-renders the widget and mints a fresh token.
  */
-
-/** Kept a touch under the edge window so the client stops offering a token
- * slightly before the Worker would stop honouring it. */
-export const TURNSTILE_TOKEN_TTL_MS = 4 * 60_000;
-
-/** Request header carrying the token — must match `TURNSTILE_HEADER`. */
-export const TURNSTILE_HEADER = "cf-turnstile-response";
 
 interface StoredToken {
   readonly token: string;
