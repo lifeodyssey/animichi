@@ -12,12 +12,9 @@ from pydantic_ai_harness import CodeMode
 from agent.agents.animichi_agent import (
     _INSTRUCTIONS,
     RuntimeOutput,
-    _AnimichiManagedPrompt,
     _current_turn_language,
-    _managed_prompt_capability,
     _modern_capabilities,
     _output_types,
-    _record_missing_managed_prompt_token,
     build_animichi_agent,
     validate_output,
 )
@@ -66,35 +63,27 @@ Filesystem, environment, and timing access are unavailable in this rematch.
 """
 
 
-def _taught_instructions(
-    managed: _AnimichiManagedPrompt | None,
-) -> AgentInstructions[RuntimeDeps]:
-    if managed is not None:
-        return CODEMODE_TEACHING_ADDENDUM
+def _taught_instructions() -> AgentInstructions[RuntimeDeps]:
     return [_INSTRUCTIONS, CODEMODE_TEACHING_ADDENDUM, _current_turn_language]
 
 
-def _taught_capabilities(
-    managed: _AnimichiManagedPrompt | None,
-) -> list[AgentCapability[RuntimeDeps]]:
-    capabilities = _modern_capabilities(managed, memory=None)
+def _taught_capabilities() -> list[AgentCapability[RuntimeDeps]]:
+    capabilities = _modern_capabilities(memory=None)
     capabilities.append(CodeMode(tools=RAW_TOOL_NAMES, dynamic_catalog=False))
     return capabilities
 
 
 def build_taught_codemode_agent() -> Agent[RuntimeDeps, RuntimeOutput]:
     """Build the treatment arm from the current production fixtures."""
-    managed = _managed_prompt_capability()
-    _record_missing_managed_prompt_token()
     agent: Agent[RuntimeDeps, RuntimeOutput] = Agent(
         resolve_model(None),
         name="animichi-codemode-taught-rematch",
         deps_type=RuntimeDeps,
         output_type=_output_types(),
-        instructions=_taught_instructions(managed),
+        instructions=_taught_instructions(),
         tools=RAW_TOOLS,
         retries=2,
-        capabilities=_taught_capabilities(managed),
+        capabilities=_taught_capabilities(),
     )
     agent.output_validator(validate_output)
     return agent

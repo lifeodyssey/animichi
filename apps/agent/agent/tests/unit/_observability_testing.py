@@ -98,9 +98,8 @@ def patch_configure_with_test_sinks(
         send_to_logfire: bool | Literal["if-token-present"] | None = None,
         console: bool | None = None,
         scrubbing: logfire.ScrubbingOptions | None = None,
-        variables: object | None = None,
     ) -> logfire.Logfire:
-        del send_to_logfire, console, variables
+        del send_to_logfire, console
         configure_call.scrubbing = scrubbing
         return real_configure(
             service_name=service_name,
