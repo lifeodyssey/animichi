@@ -25,13 +25,22 @@ export type MapLibreHandle = Readonly<{
   map: MapLibreMap;
 }>;
 
-let pmtilesRegistered = false;
+let pmtilesRegistration: Promise<void> | undefined;
 
-const registerPmtilesProtocol = async (gl: MapLibreModule): Promise<void> => {
-  if (pmtilesRegistered) return;
-  pmtilesRegistered = true;
-  const { Protocol } = await import("pmtiles");
-  gl.addProtocol("pmtiles", new Protocol({ metadata: true }).tile);
+// Cache the in-flight promise, not a boolean: a flag set before the dynamic
+// import resolves lets a concurrent mount build a map while the protocol is
+// still missing, and a flag left true after a failed import would skip
+// registration for the rest of the session. Awaiting the shared promise
+// serialises callers; clearing it on failure keeps the next mount retryable.
+const registerPmtilesProtocol = (gl: MapLibreModule): Promise<void> => {
+  pmtilesRegistration ??= (async () => {
+    const { Protocol } = await import("pmtiles");
+    gl.addProtocol("pmtiles", new Protocol({ metadata: true }).tile);
+  })().catch((error: unknown) => {
+    pmtilesRegistration = undefined;
+    throw error;
+  });
+  return pmtilesRegistration;
 };
 
 const mapOptions = (options: MapLibreMountOptions): MapOptions => ({
