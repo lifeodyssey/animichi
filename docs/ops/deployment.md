@@ -27,7 +27,7 @@ Cloudflare Cron Triggers ──────────────────�
 ```
 
 The hybrid topology runs the edge Worker plus the catalog, users, and scheduled maintenance Workers. The main `seichijunrei` Worker
-(`workers/edge/entry.js`) routes `/catalog/*` to the separate `catalog` Worker
+(`workers/edge/entry.ts`) routes `/catalog/*` to the separate `catalog` Worker
 (`catalog/wrangler.toml`) via a wrangler service binding (`env.CATALOG.fetch`).
 The Python agent in the container cannot use that JS-only binding, so it reaches
 the catalog over the public origin: `CATALOG_API_URL` (forwarded into the
