@@ -139,7 +139,10 @@ annotation (`unit`|`integration`|`eval`|`browser`|`api`) plus a test in the PR d
 
 2026-08-03 的教训:只查前者、连合 24 个 PR,而 qodo 的 Bugs 计数与 SonarCloud 的失败门一直没人看——因为它们不产生线程,前者的计数永远显示零。
 
-`~/.claude/hooks/check-pr-comments.sh`(**全局** hook,对所有仓库生效)在 `gh pr merge` 前强制两路检查:有未解决线程、或顶层出现非零 Bugs/Rule violations、或 Quality Gate Failed 即拦截。判定完成后在 PR 上留一条含「线程判定」或「findings triaged」的评论即可放行——hook 只坚持判断被记录下来,判断本身仍归人。
+`~/.claude/hooks/check-pr-comments.sh`(**全局** hook,对所有仓库生效)在 `gh pr merge` 前强制两路检查:有未解决线程、或顶层出现非零 Bugs/Rule violations、或 Quality Gate Failed 即拦截。判定完成后留一条含「线程判定」或「findings triaged」的评论即可放行:
+`gh issue comment <PR 号> -R <owner/name> --body '线程判定: ...'`(PR 也是 issue,这条对 PR 生效)。
+该评论必须来自 OWNER / MEMBER / COLLABORATOR —— 否则任何能评论的人(包括被判定的机器人自己)
+都能清掉自己的 findings。hook 只坚持判断被记录下来,判断本身仍归人。
 
 ## File placement
 
