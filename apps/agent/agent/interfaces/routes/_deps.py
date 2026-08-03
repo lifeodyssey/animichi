@@ -382,6 +382,8 @@ def _enable_message_content_scrubbing() -> None:
     # Coupled to logfire._internal SAFE_KEYS until its public API supports
     # recursive scrubbing of PydanticAI and GenAI message attributes.
     BaseScrubber.SAFE_KEYS.difference_update(_MESSAGE_CONTENT_FIELDS)
+    if not _MESSAGE_CONTENT_FIELDS.isdisjoint(BaseScrubber.SAFE_KEYS):
+        raise RuntimeError("Logfire private SAFE_KEYS mutation did not take effect.")
 
 
 def _instrument_logfire(app: object | None) -> None:
