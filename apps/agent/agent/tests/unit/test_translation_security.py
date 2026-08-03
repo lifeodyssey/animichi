@@ -24,7 +24,7 @@ from agent.clients.catalog_client import (
     CatalogClientProtocol,
     ResolveNotFound,
 )
-from agent.domain.ports import DatabasePort
+from agent.domain.ports import CatalogLookup
 
 
 @dataclass(frozen=True)
@@ -86,7 +86,7 @@ async def test_text_run_inherits_parent_usage_and_model() -> None:
 async def test_title_tool_threads_catalog_and_parent_context() -> None:
     catalog = cast(CatalogClientProtocol, _catalog_miss())
     deps = RuntimeDeps(
-        db=cast(DatabasePort, object()),
+        db=cast(CatalogLookup, object()),
         locale="zh",
         query="title",
         catalog=catalog,
@@ -108,7 +108,7 @@ async def test_title_tool_threads_catalog_and_parent_context() -> None:
 async def test_injected_title_translator_override_still_wins() -> None:
     catalog = cast(CatalogClientProtocol, _catalog_miss())
     deps = RuntimeDeps(
-        db=cast(DatabasePort, object()), locale="zh", query="title", catalog=catalog
+        db=cast(CatalogLookup, object()), locale="zh", query="title", catalog=catalog
     )
     translator = AsyncMock(
         return_value=TranslationResult("君の名は。", "你的名字。", "catalog")

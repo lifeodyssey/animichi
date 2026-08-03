@@ -16,7 +16,9 @@ from agent.interfaces.persistence import (
 from agent.interfaces.schemas import PublicAPIResponse
 
 
-class _Db:
+class _MessagesRepo:
+    """Minimal ``ConversationLog`` double (issue #663 shape)."""
+
     def __init__(self) -> None:
         self.insert_message = AsyncMock()
 
@@ -31,34 +33,55 @@ async def test_persist_messages_skips_empty_user_utterance() -> None:
     """#273 T1: a bypass recompute carries no new utterance (marker ->
     ``text == ""``) and must not persist an empty user row that the
     conversation history would render as an empty bubble."""
-    db = _Db()
+    messages = _MessagesRepo()
     await persist_messages(
-        db=db, session_id="s1", user_text="", result=None, response=_response()
+        messages_repo=messages,
+        session_id="s1",
+        user_text="",
+        result=None,
+        response=_response(),
     )
-    roles = [call.args[1] for call in db.insert_message.await_args_list]
+    roles = [call.args[1] for call in messages.insert_message.await_args_list]
     assert roles == ["assistant"]
 
 
 async def test_persist_messages_inserts_genuine_user_turn() -> None:
-    db = _Db()
+    messages = _MessagesRepo()
     await persist_messages(
-        db=db, session_id="s1", user_text="ユーフォ", result=None, response=_response()
+        messages_repo=messages,
+        session_id="s1",
+        user_text="ユーフォ",
+        result=None,
+        response=_response(),
     )
-    roles = [call.args[1] for call in db.insert_message.await_args_list]
+    roles = [call.args[1] for call in messages.insert_message.await_args_list]
     assert roles == ["user", "assistant"]
 
 
 async def test_persist_messages_empty_utterance_failure_persists_nothing() -> None:
-    db = _Db()
+    messages = _MessagesRepo()
     await persist_messages(
-        db=db,
+        messages_repo=messages,
         session_id="s1",
         user_text="",
         result=None,
         response=_response(),
         persist_user_only=True,
     )
-    assert db.insert_message.await_args_list == []
+    assert messages.insert_message.await_args_list == []
+
+
+async def test_persist_messages_is_noop_without_a_messages_repo() -> None:
+    """A ``None`` repo (e.g. an eval double that never persists) must not
+    raise — this is the explicit "repo absent" contract iter6 C4 replaces
+    the getattr probe with."""
+    await persist_messages(
+        messages_repo=None,
+        session_id="s1",
+        user_text="hello",
+        result=None,
+        response=_response(),
+    )
 
 
 async def test_safe_insert_message_succeeds() -> None:

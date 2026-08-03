@@ -45,11 +45,6 @@ class _UsageRepoDouble:
         return self.total
 
 
-class _Db:
-    def __init__(self, usage: object) -> None:
-        self.usage = usage
-
-
 class _FailingRepo(_UsageRepoDouble):
     async def total_cost_usd(self, *, usage_date: date, scope: str) -> float:
         del usage_date, scope
@@ -96,29 +91,25 @@ def test_utc_today_reads_the_injected_clock_in_utc() -> None:
 async def test_record_turn_usage_banks_the_turn_under_its_scope() -> None:
     repo = _UsageRepoDouble()
     usage = RunUsage(input_tokens=1_000_000, output_tokens=0)
-    await record_turn_usage(
-        _Db(repo), usage=usage, scope="anon", prices=PRICES, today=TODAY
-    )
+    await record_turn_usage(repo, usage=usage, scope="anon", prices=PRICES, today=TODAY)
     assert repo.calls == [(TODAY, "anon", 2.0)]
 
 
 async def test_record_turn_usage_ignores_a_turn_without_usage() -> None:
     repo = _UsageRepoDouble()
-    await record_turn_usage(
-        _Db(repo), usage=None, scope="anon", prices=PRICES, today=TODAY
-    )
+    await record_turn_usage(repo, usage=None, scope="anon", prices=PRICES, today=TODAY)
     assert repo.calls == []
 
 
 async def test_record_turn_usage_is_a_noop_without_a_usage_repo() -> None:
     await record_turn_usage(
-        object(), usage=RunUsage(), scope="anon", prices=PRICES, today=TODAY
+        None, usage=RunUsage(), scope="anon", prices=PRICES, today=TODAY
     )
 
 
 async def test_budget_verdict_trips_once_spend_reaches_the_ceiling() -> None:
     verdict = await anonymous_budget_verdict(
-        _Db(_UsageRepoDouble(total=5.0)), budget_usd=5.0, today=TODAY
+        _UsageRepoDouble(total=5.0), budget_usd=5.0, today=TODAY
     )
     assert verdict.exhausted is True
     assert verdict.spent_usd == 5.0
@@ -126,27 +117,27 @@ async def test_budget_verdict_trips_once_spend_reaches_the_ceiling() -> None:
 
 async def test_budget_verdict_allows_spend_below_the_ceiling() -> None:
     verdict = await anonymous_budget_verdict(
-        _Db(_UsageRepoDouble(total=4.99)), budget_usd=5.0, today=TODAY
+        _UsageRepoDouble(total=4.99), budget_usd=5.0, today=TODAY
     )
     assert verdict.exhausted is False
 
 
 async def test_a_zero_budget_disables_the_breaker() -> None:
     verdict = await anonymous_budget_verdict(
-        _Db(_UsageRepoDouble(total=99.0)), budget_usd=0.0, today=TODAY
+        _UsageRepoDouble(total=99.0), budget_usd=0.0, today=TODAY
     )
     assert verdict.exhausted is False
 
 
 async def test_a_meter_read_failure_fails_open() -> None:
     verdict = await anonymous_budget_verdict(
-        _Db(_FailingRepo(total=99.0)), budget_usd=5.0, today=TODAY
+        _FailingRepo(total=99.0), budget_usd=5.0, today=TODAY
     )
     assert verdict.exhausted is False
 
 
 async def test_budget_verdict_is_inert_without_a_usage_repo() -> None:
-    verdict = await anonymous_budget_verdict(object(), budget_usd=5.0, today=TODAY)
+    verdict = await anonymous_budget_verdict(None, budget_usd=5.0, today=TODAY)
     assert verdict.exhausted is False
 
 
@@ -170,7 +161,7 @@ async def test_a_missing_daily_usage_table_never_escapes_the_meter() -> None:
     from ``Exception``, so a narrower except-tuple lets it through.
     """
     await record_turn_usage(
-        _Db(_PgFailingRepo()),
+        _PgFailingRepo(),
         usage=RunUsage(requests=1, input_tokens=100, output_tokens=50),
         scope="anon",
         prices=PRICES,
@@ -181,6 +172,6 @@ async def test_a_missing_daily_usage_table_never_escapes_the_meter() -> None:
 async def test_a_postgres_read_failure_fails_the_budget_breaker_open() -> None:
     """The breaker's contract is fail-open; a DB error must not 500 every turn."""
     verdict = await anonymous_budget_verdict(
-        _Db(_PgFailingRepo()), budget_usd=5.0, today=TODAY
+        _PgFailingRepo(), budget_usd=5.0, today=TODAY
     )
     assert verdict.exhausted is False

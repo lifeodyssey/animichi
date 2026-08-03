@@ -14,11 +14,11 @@ from agent.agents.base import MODEL_ALIASES, ModelAliasError, resolve_model_alia
 from agent.agents.runtime_models import QAResponseModel
 from agent.clients.catalog_client import CatalogClientProtocol
 from agent.config.settings import Settings
-from agent.domain.ports import DatabasePort
+from agent.domain.ports import CatalogLookup
 
 
-def _db() -> DatabasePort:
-    return cast(DatabasePort, object())
+def _db() -> CatalogLookup:
+    return cast(CatalogLookup, object())
 
 
 def _catalog() -> CatalogClientProtocol:

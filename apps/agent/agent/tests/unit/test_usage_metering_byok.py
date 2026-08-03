@@ -137,7 +137,7 @@ async def test_a_byok_turn_never_moves_todays_anon_spend_total() -> None:
 
     await api._record_usage(_result(usage), "anon_abc", "anonymous", is_byok=True)
 
-    verdict = await anonymous_budget_verdict(_Db(repo), budget_usd=1.0)
+    verdict = await anonymous_budget_verdict(repo, budget_usd=1.0)
     assert verdict.spent_usd == 0.0
     assert verdict.exhausted is False
     assert repo.calls[0][1] == "byok"

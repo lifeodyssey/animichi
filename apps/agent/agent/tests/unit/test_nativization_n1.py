@@ -26,7 +26,7 @@ from agent.agents.animichi_runner import (
 from agent.agents.animichi_tools import CATALOG_TOOL_TIMEOUT_SECONDS, TOOLS
 from agent.agents.runtime_models import PartialResponseModel
 from agent.config.settings import Settings
-from agent.domain.ports import DatabasePort
+from agent.domain.ports import CatalogLookup
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from agent.interfaces.routes._deps import _SCRUB_PATTERNS, setup_logfire
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
@@ -34,10 +34,10 @@ from agent.tests.streaming_function_model import streaming_function_model
 from agent.tests.unit.conftest_public_api import install_mock_pipeline
 
 
-def _db() -> DatabasePort:
+def _db() -> CatalogLookup:
     db = MagicMock()
     db.bangumi.find_candidate_details_by_titles = AsyncMock(return_value=[])
-    return cast(DatabasePort, db)
+    return cast(CatalogLookup, db)
 
 
 async def test_runner_stops_identical_looping_early_via_repeat_guard() -> None:

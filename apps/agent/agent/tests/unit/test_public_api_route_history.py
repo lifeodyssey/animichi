@@ -108,15 +108,17 @@ async def test_request_log_called_after_response(
         "agent.interfaces.public_api.run_animichi_agent", fake_run_agent
     )
     db = MagicMock()
-    db.upsert_session = AsyncMock()
-    db.insert_request_log = AsyncMock(return_value="log-1")
+    db.session.upsert_session = AsyncMock()
+    # #663: the real repo lives at `db.feedback`, not a flat
+    # `db.insert_request_log` — that was the production bug.
+    db.feedback.insert_request_log = AsyncMock(return_value="log-1")
 
     await RuntimeAPI(db=db, model_http_client=MagicMock()).handle(
         PublicAPIRequest(text="吹響の聖地", locale="ja", session_id="s1")
     )
 
-    kwargs = db.insert_request_log.call_args.kwargs
-    assert db.insert_request_log.await_count == 1
+    kwargs = db.feedback.insert_request_log.call_args.kwargs
+    assert db.feedback.insert_request_log.await_count == 1
     assert (kwargs["query_text"], kwargs["locale"], kwargs["intent"]) == (
         "吹響の聖地",
         "ja",

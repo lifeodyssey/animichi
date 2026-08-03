@@ -100,7 +100,8 @@ async def test_route_intents_derive_associations_from_typed_state(
     db = MagicMock()
     db.routes.save_route = AsyncMock(return_value="route-id")
     record = await maybe_persist_route(
-        db=db,
+        bangumi_repo=None,
+        routes_repo=db.routes,
         session_id="session-id",
         request=PublicAPIRequest(text="route these"),
         result=result,
@@ -122,7 +123,8 @@ async def test_route_persistence_filters_missing_anime_foreign_keys() -> None:
     db.bangumi.filter_existing_ids = AsyncMock(return_value=["1"])
     db.routes.save_route = AsyncMock(return_value="route-id")
     record = await maybe_persist_route(
-        db=db,
+        bangumi_repo=db.bangumi,
+        routes_repo=db.routes,
         session_id="session-id",
         request=PublicAPIRequest(text="route these"),
         result=result,
@@ -142,7 +144,8 @@ async def test_route_persistence_swallows_foreign_key_violation() -> None:
         side_effect=asyncpg.ForeignKeyViolationError("missing bangumi")
     )
     record = await maybe_persist_route(
-        db=db,
+        bangumi_repo=db.bangumi,
+        routes_repo=db.routes,
         session_id="session-id",
         request=PublicAPIRequest(text="route this"),
         result=result,
