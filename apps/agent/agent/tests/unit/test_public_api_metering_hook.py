@@ -16,6 +16,7 @@ from pydantic_ai.usage import RunUsage
 
 from agent.agents.agent_result import AgentResult
 from agent.config.settings import Settings
+from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from agent.tests.unit.conftest_public_api import make_result, make_run_agent_stub
 
@@ -25,7 +26,7 @@ PRICED = Settings(model_input_cost_per_mtok_usd=2.0, model_output_cost_per_mtok_
 
 def _db() -> MagicMock:
     """A db double whose repos are async, with a recording usage meter."""
-    db = MagicMock()
+    db = MagicMock(spec=SupabaseClient)
     db.pool.fetch = AsyncMock(return_value=[])
     db.session = AsyncMock()
     db.routes = AsyncMock()

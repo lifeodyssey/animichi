@@ -12,6 +12,7 @@ from pydantic_ai.exceptions import ModelHTTPError
 from agent.agents.agent_result import AgentResult
 from agent.application.errors import InvalidInputError
 from agent.config.settings import Settings
+from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces.public_api import (
     PublicAPIRequest,
     PublicAPIResponse,
@@ -33,7 +34,7 @@ def _mock_pipeline(monkeypatch):
 
 @pytest.fixture
 def mock_db():
-    db = MagicMock()
+    db = MagicMock(spec=SupabaseClient)
     pool = AsyncMock()
     pool.fetch = AsyncMock(return_value=[])
     db.pool = pool

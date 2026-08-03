@@ -56,7 +56,9 @@ class TestGreetingPersistence:
         db.session.create_owned_session = AsyncMock()
         db.session.upsert_session = AsyncMock()
         db.session.upsert_conversation = AsyncMock()
-        db.insert_request_log = AsyncMock()
+        # #663: the real repo lives at `db.feedback`, not a flat
+        # `db.insert_request_log` — that was the production bug.
+        db.feedback.insert_request_log = AsyncMock()
 
         session_store = MagicMock()
         session_store.get = AsyncMock(return_value=None)
@@ -78,7 +80,7 @@ class TestGreetingPersistence:
         session_store.set.assert_awaited_once()
         db.session.upsert_session.assert_awaited_once()
         db.session.upsert_conversation.assert_awaited_once()
-        db.insert_request_log.assert_awaited_once()
+        db.feedback.insert_request_log.assert_awaited_once()
 
 
 class TestRuntimeAPISession:
