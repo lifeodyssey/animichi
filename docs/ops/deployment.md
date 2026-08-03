@@ -37,8 +37,10 @@ to `{CATALOG_API_URL}/catalog/<method>`, which the main Worker forwards to the
 catalog Worker. Deploy order: catalog Worker first (so `service = "catalog"`
 resolves), then the main Worker.
 
-Catalog, users, and maintenance Workers query Neon through the `neon-http` driver. Drizzle supplies
-runtime query/type metadata for catalog/users only; the checked-in Atlas directory is the only Neon schema authority. See
+Catalog and users Workers query Neon through Drizzle's `neon-http` driver, which supplies their
+runtime query/type metadata. The maintenance Worker has no ORM: it calls `neon()` from
+`@neondatabase/serverless` directly (`workers/maintenance/src/database.ts`) and issues raw SQL.
+The checked-in Atlas directory is the only Neon schema authority for all three. See
 [`migrations.md`](./migrations.md) before changing a table or deploy step.
 
 - `interfaces/fastapi_service.py` exposes `GET /healthz`

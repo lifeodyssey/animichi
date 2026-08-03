@@ -72,7 +72,14 @@ jobs:
             contract: ['packages/contract/**']
             catalog: ['workers/catalog/**', 'packages/contract/**']
             users: ['workers/users/**', 'packages/contract/**']
-            maintenance: ['workers/maintenance/**']
+            # workers/maintenance/test/config.worker.test.ts asserts against the deploy
+            # wiring itself — ci.yml, deploy.yml, _deploy-component.yml, both deprecated
+            # fallback workflows and docs/ops/secrets.md are read verbatim by that test.
+            # Scoping the filter to workers/maintenance/** alone would let a change to any
+            # of those files break the assertion while ci-maintenance skips: the same
+            # "a gate that cannot test itself" failure the agent_behavior filter above
+            # already had to fix. Keep this list in sync with that test's imports.
+            maintenance: ['workers/maintenance/**', '.github/workflows/ci.yml', '.github/workflows/deploy.yml', '.github/workflows/_deploy-component.yml', '.github/workflows/purge-anon-quota-counts.yml', '.github/workflows/purge-anonymous-sessions.yml', 'docs/ops/secrets.md']
             agent: ['apps/agent/**', 'packages/contract/**']
             # SD-30 path-filter rule (shared verbatim with iter-1 S1.13, per the second-pass
             # spec review): prompt/instructions + model-config + guardrail files ONLY — not
