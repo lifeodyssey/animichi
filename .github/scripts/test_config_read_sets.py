@@ -172,7 +172,15 @@ def validate_lane_condition(condition: str, check: ConfigCheck) -> None:
         marker not in condition
         or "github.event_name != 'pull_request'" not in condition
     ):
-        raise MetaCheckError(f"{CI_WORKFLOW}: {check.job} has an unknown path gate")
+        raise MetaCheckError(
+            f"{CI_WORKFLOW}: {check.job} has a path gate this check cannot read.\n"
+            f"  expected the `if:` to contain both {marker!r} and "
+            f"\"github.event_name != 'pull_request'\"\n"
+            f"  actual: {condition}\n"
+            "Refusing rather than assuming coverage: an unreadable gate is "
+            "exactly how a guard ends up never running. If the rewrite is "
+            "intentional, teach this function the new form."
+        )
 
 
 def lane_paths(

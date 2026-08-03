@@ -89,8 +89,10 @@ jobs:
         with:
           enable-cache: false
           prune-cache: true
+      # --locked pins to the committed script lockfile; --no-build refuses to
+      # build a source distribution, which would execute its setup script.
       - name: Verify config checks run for every file they read
-        run: uv run --script .github/scripts/test_config_read_sets.py
+        run: uv run --script --locked --no-build .github/scripts/test_config_read_sets.py
 
   # ── GitHub Actions security ──────────────────────────────────
 
