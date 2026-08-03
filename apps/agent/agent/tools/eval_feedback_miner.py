@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
+from agent.infrastructure.safe_output_path import resolve_output_path
+
 load_dotenv()
 
 _DEFAULT_MODEL = os.environ.get(
@@ -112,7 +114,8 @@ async def run(
         )
     text = "\n".join(lines)
     if output:
-        with open(output, "w") as f:
+        safe_output = resolve_output_path(output)
+        with open(safe_output, "w") as f:
             f.write(text)
         print(f"Suggestions written to {output}")
     else:
