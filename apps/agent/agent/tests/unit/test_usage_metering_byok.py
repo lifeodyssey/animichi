@@ -81,7 +81,6 @@ def _result(usage: RunUsage) -> AgentResult:
         intent="qa",
         session_state=object(),
         steps=[],
-        tool_state={},
         new_messages=[],
         usage=usage,
     )
