@@ -271,7 +271,7 @@ jobs:
         with:
           node-version: "24"
       - name: Lint AI agent configs
-        run: npx --yes agnix@0.37.5 .
+        run: npx --ignore-scripts --yes agnix@0.37.5 .
 
   # ── DB migrations (Atlas validation + optional Neon dry-run) ──
 

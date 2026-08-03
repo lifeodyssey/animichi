@@ -139,7 +139,7 @@ jobs:
         with:
           node-version: "24"
 
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile --ignore-scripts
 
       # ── Validate the migration authority before a manual code redeploy ──
       # Production schema changes run in the approval-gated main promotion
