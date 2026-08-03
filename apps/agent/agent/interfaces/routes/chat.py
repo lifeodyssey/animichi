@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Annotated, Literal, Never, cast
+from typing import Annotated, Never
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -32,8 +31,16 @@ from agent.interfaces.routes._deps import (
     _get_db_from_request,
     _get_runtime_api,
     _get_settings_from_request,
+    _get_trusted_auth_context,
     _has_byok_headers,
     _require_trusted_user,
+)
+from agent.interfaces.routes.chat_body import (
+    ChatBody,
+    ChatBodyRoute,
+    ChatMessageError,
+    Locale,
+    request_locale,
 )
 from agent.interfaces.routes.chat_stream import stream_chat
 from agent.interfaces.schemas import PublicAPIRequest, PublicAPIResponse
@@ -43,64 +50,29 @@ from agent.interfaces.usage_metering import (
     anonymous_budget_verdict,
 )
 
-router = APIRouter(prefix="/v1", tags=["chat"])
-Locale = Literal["ja", "zh", "en"]
+_PREFLIGHT_STATE = "chat_body_preflight_complete"
 
 
-def _locale(request: Request) -> Locale:
-    value = request.headers.get("x-locale", "ja")
-    return cast(Locale, value) if value in ("ja", "zh", "en") else "ja"
+def _chat_auth_from_request(request: Request) -> TrustedAuthContext:
+    auth = _get_trusted_auth_context(
+        request.headers.get("x-user-id"),
+        request.headers.get("x-user-type"),
+        request.headers.get("authorization"),
+    )
+    return _require_trusted_user(auth)
 
 
-def _messages(body: dict[str, object]) -> list[object]:
-    value = body.get("messages")
-    if not isinstance(value, list):
-        raise HTTPException(status_code=422, detail="messages must be a list")
-    return value
+def _chat_auth(request: Request) -> TrustedAuthContext:
+    auth = getattr(request.state, "chat_auth", None)
+    return (
+        auth
+        if isinstance(auth, TrustedAuthContext)
+        else _chat_auth_from_request(request)
+    )
 
 
-def _last_user_text(messages: list[object], locale: Locale, max_chars: int) -> str:
-    for message in reversed(messages):
-        text = _user_message_text(message, locale, max_chars)
-        if text is not None:
-            return text
-    return ""
-
-
-def _user_message_text(message: object, locale: Locale, max_chars: int) -> str | None:
-    if not isinstance(message, dict) or message.get("role") != "user":
-        return None
-    parts = message.get("parts")
-    if not isinstance(parts, list):
-        _reject_input("non_text_message", locale)
-    return _join_text_parts(parts, locale, max_chars)
-
-
-def _join_text_parts(parts: list[object], locale: Locale, max_chars: int) -> str:
-    values: list[str] = []
-    total = 0
-    for part in parts:
-        value = _text_part(part, locale)
-        total += len(value)
-        if total > max_chars:
-            _reject_input("message_too_long", locale)
-        values.append(value)
-    return "".join(values)
-
-
-def _text_part(part: object, locale: Locale) -> str:
-    if not isinstance(part, dict) or part.get("type") != "text":
-        _reject_input("non_text_message", locale)
-    value = part.get("text")
-    if not isinstance(value, str):
-        _reject_input("non_text_message", locale)
-    return value
-
-
-def _checked_length(text: str, max_chars: int, locale: Locale) -> str:
-    if len(text) > max_chars:
-        _reject_input("message_too_long", locale)
-    return text
+def _preflight_complete(request: Request) -> bool:
+    return getattr(request.state, _PREFLIGHT_STATE, False) is True
 
 
 def _reject_input(reason: InputError, locale: Locale) -> Never:
@@ -108,62 +80,21 @@ def _reject_input(reason: InputError, locale: Locale) -> Never:
     raise HTTPException(status_code=422, detail=message)
 
 
-def _optional_ids(body: dict[str, object], field: str) -> list[str] | None:
-    value = body.get(field)
-    if value is None:
-        return None
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise HTTPException(status_code=422, detail=f"{field} must be a string list")
-    return value
-
-
-def _clarification_id(body: dict[str, object]) -> int | None:
-    value = body.get("clarification_id")
-    if value is None or isinstance(value, int) and not isinstance(value, bool):
-        return value
-    raise HTTPException(status_code=422, detail="clarification_id must be an integer")
-
-
-def _optional_string(body: dict[str, object], field: str) -> str | None:
-    value = body.get(field)
-    if value is None or isinstance(value, str):
-        return value
-    raise HTTPException(status_code=422, detail=f"{field} must be a string")
-
-
-def _optional_float(body: dict[str, object], field: str) -> float | None:
-    value = body.get(field)
-    if value is None:
-        return None
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        raise HTTPException(status_code=422, detail=f"{field} must be a number")
-    return float(value)
-
-
-def _decode_body(raw: bytes) -> dict[str, object]:
+def _chat_text(body: ChatBody, limit: int, locale: Locale) -> str:
     try:
-        value: object = json.loads(raw)
-    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-        raise HTTPException(status_code=422, detail="invalid JSON body") from exc
-    if not isinstance(value, dict):
-        raise HTTPException(status_code=422, detail="request body must be an object")
-    return value
+        return body.last_user_text(limit)
+    except ChatMessageError as exc:
+        _reject_input(exc.reason, locale)
 
 
-def _runtime_request(
-    request: Request, body: dict[str, object], max_chars: int
-) -> PublicAPIRequest:
-    locale = _locale(request)
+def _runtime_request(request: Request, body: ChatBody, limit: int) -> PublicAPIRequest:
+    locale = request_locale(request)
+    text = _chat_text(body, limit, locale)
     return PublicAPIRequest(
-        text=_last_user_text(_messages(body), locale, max_chars),
+        text=text,
         session_id=request.headers.get("x-session-id"),
         locale=locale,
-        selected_point_ids=_optional_ids(body, "selected_point_ids"),
-        selected_candidate_ids=_optional_ids(body, "selected_candidate_ids"),
-        clarification_id=_clarification_id(body),
-        origin=_optional_string(body, "origin"),
-        origin_lat=_optional_float(body, "origin_lat"),
-        origin_lng=_optional_float(body, "origin_lng"),
+        **body.model_dump(exclude={"messages"}),
     )
 
 
@@ -204,17 +135,7 @@ QUOTA_EXHAUSTED_MESSAGE = "今日はここまで・ログインすると続け�
 
 
 def _quota_exhausted_response(resets_at: datetime) -> JSONResponse:
-    """403 so the client falls into its D12 login-recovery state (issue #282).
-
-    ``quota_resets_at`` is the next UTC day boundary, ISO 8601 with a literal
-    ``Z`` — the frontend renders it in the visitor's local time instead of
-    hard-coding a mismatched reset instant (review follow-up on #282). It
-    lives under ``error.data``, matching the contract's
-    ``AnonLimitErrorEnvelope`` (`packages/contract/src/error-registry.ts`):
-    `code`/`message`/`action` are common to both anonymous-limit rejections,
-    `data` carries only the quota-specific extra field, and the budget
-    breaker's envelope (`_budget_exhausted_response` above) omits it entirely.
-    """
+    """Return the D12 login recovery envelope with its next UTC reset."""
     error = {
         "code": ANON_QUOTA_EXHAUSTED_CODE,
         "message": QUOTA_EXHAUSTED_MESSAGE,
@@ -251,24 +172,21 @@ BYOK_REQUIRES_LOGIN_MESSAGE = "BYOKを使うにはログインが必要です。
 def _byok_login_rejection(
     request: Request, auth: TrustedAuthContext
 ) -> JSONResponse | None:
-    """Reject a BYOK credential from an anonymous caller (#284 T3/T4).
-
-    BYOK is login-gated by design (never honoured, never used to skip the
-    anonymous budget) — an anonymous request presenting `X-BYOK-*` headers is
-    refused outright rather than silently served either way.
-
-    Ordering (P3): this is a **presence-only** check
-    (`_has_byok_headers`) evaluated *before* `_get_byok_credential`'s full
-    header-shape validation. An anonymous caller with malformed BYOK headers
-    must see `byok_requires_login` (403) — the actually-actionable rejection
-    for their situation — not `invalid_request` (400), which would leak the
-    fact that BYOK exists and *almost* worked.
-    """
+    """Reject anonymous BYOK presence before parsing its credential shape."""
     if auth.user_type != ANONYMOUS_USER_TYPE or not _has_byok_headers(request):
         return None
     return _error_response(
         "byok_requires_login", BYOK_REQUIRES_LOGIN_MESSAGE, status_code=403
     )
+
+
+async def _body_preflight(
+    request: Request, auth: TrustedAuthContext
+) -> JSONResponse | None:
+    rejection = _byok_login_rejection(request, auth)
+    if rejection is not None:
+        return rejection
+    return await _budget_rejection(request, auth)
 
 
 async def _resolve_byok_model(request: Request) -> ByokModel | None:
@@ -319,20 +237,37 @@ def _chat_handler(
     return handler
 
 
+async def _route_preflight(request: Request) -> JSONResponse | None:
+    auth = _chat_auth_from_request(request)
+    rejection = await _body_preflight(request, auth)
+    if rejection is not None:
+        return rejection
+    request.state.chat_auth = auth
+    setattr(request.state, _PREFLIGHT_STATE, True)
+    return None
+
+
+class ChatRoute(ChatBodyRoute):
+    async def preflight(self, request: Request) -> Response | None:
+        return await _route_preflight(request)
+
+
+router = APIRouter(prefix="/v1", tags=["chat"], route_class=ChatRoute)
+
+
 @router.post("/chat", responses={422: {"description": "Invalid chat request"}})
 async def handle_chat(
     request: Request,
-    auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
+    auth: Annotated[TrustedAuthContext, Depends(_chat_auth)],
+    body: ChatBody,
 ) -> Response:
     """Stream chat as an AI SDK UI message stream with tool + data parts."""
-    login_rejection = _byok_login_rejection(request, auth)
-    if login_rejection is not None:
-        return login_rejection
-    rejection = await _budget_rejection(request, auth)
+    rejection = (
+        None if _preflight_complete(request) else await _body_preflight(request, auth)
+    )
     if rejection is not None:
         return rejection
     settings = _get_settings_from_request(request)
-    body = _decode_body(await request.body())
     api_request = _runtime_request(request, body, settings.message_max_chars)
     runtime_api = _get_runtime_api(request)
     await runtime_api.validate_session_owner(api_request.session_id, auth.user_id)
