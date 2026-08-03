@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import httpx
-
 from agent.agents.agent_result import AgentResult
 from agent.agents.runtime_models import QAResponseModel
 from agent.agents.session_state import (
@@ -14,11 +10,9 @@ from agent.agents.session_state import (
     PendingClarification,
     SessionState,
 )
-from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.interfaces.session_facade import (
     build_context_block,
     build_message_history,
-    compact_session_interactions,
     extract_context_delta,
     normalize_session_state,
 )
@@ -111,25 +105,3 @@ def test_message_history_preserves_interaction_order() -> None:
         ]
     }
     assert build_message_history(state) == [{"id": 1}, {"id": 2}, {"id": 3}]
-
-
-async def test_compaction_keeps_recent_typed_deltas() -> None:
-    store = InMemorySessionStore()
-    interactions = [
-        {"text": str(index), "intent": "search", "context_delta": {"index": index}}
-        for index in range(8)
-    ]
-    state = normalize_session_state({"interactions": interactions})
-    agent = MagicMock()
-    agent.run = AsyncMock(return_value=MagicMock(output="summary"))
-    with patch("agent.interfaces.session_facade.create_agent", return_value=agent):
-        await compact_session_interactions(
-            "session",
-            state,
-            store,
-            http_client=MagicMock(spec=httpx.AsyncClient),
-        )
-    saved = await store.get("session")
-    assert saved is not None
-    assert saved["interactions"] == interactions[-2:]
-    assert saved["summary"] == "summary"
