@@ -22,6 +22,15 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Build emitted web Worker
+        env:
+          # Cloudflare's published always-passing TEST site key (public, not a
+          # secret — see `TurnstileGate.tsx`'s `TURNSTILE_TEST_SITE_KEY`).
+          # Vite inlines this at build time; without it a production build
+          # renders no `cf-turnstile` widget at all, and
+          # `web-chat-anonymous.spec.ts`'s two Turnstile-dock assertions fail
+          # not because of a code bug but because the emitted bundle never got
+          # a site key to embed.
+          VITE_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
         run: pnpm --filter web test:integration
 
       - name: Resolve Playwright version
@@ -62,4 +71,4 @@ jobs:
             sleep 1
           done
           curl -sf -o /dev/null http://localhost:8799/ || exit 1
-          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts
+          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts web-chat-anonymous.spec.ts
