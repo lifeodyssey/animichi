@@ -7,18 +7,21 @@ import pytest
 from agent.interfaces.routes.chat_body import ChatBody
 from agent.tests.unit.conftest_fastapi import async_client, build_app
 
-_HISTORY_BODY = {
-    "messages": [
+
+def make_chat_body(*messages: object, **fields: object) -> dict[str, object]:
+    return {"messages": list(messages), **fields}
+
+
+def make_history_body() -> dict[str, object]:
+    return make_chat_body(
         {"role": "user", "parts": [{"type": "image"}]},
         {"role": "assistant", "parts": [{"type": "tool-result"}]},
         7,
-        {
-            "role": "user",
-            "parts": [{"type": "text", "text": "latest", "extra": True}],
-        },
-    ],
-    "client_only": "ignored",
-}
+        {"role": "user", "parts": [{"type": "text", "text": "latest", "extra": True}]},
+        client_only="ignored",
+    )
+
+
 _DEFAULT_OPTIONAL_FIELDS = {
     "selected_point_ids": None,
     "selected_candidate_ids": None,
@@ -95,6 +98,12 @@ async def test_auth_rejection_precedes_invalid_json() -> None:
 
 
 def test_chat_body_ignores_extra_and_unread_history_messages() -> None:
-    body = ChatBody.model_validate(_HISTORY_BODY)
+    body = ChatBody.model_validate(make_history_body())
     assert body.last_user_text(100) == "latest"
     assert body.model_dump(exclude={"messages"}) == _DEFAULT_OPTIONAL_FIELDS
+
+
+def test_chat_body_accepts_integer_coordinates() -> None:
+    body = ChatBody.model_validate(make_chat_body(origin_lat=35, origin_lng=139))
+    assert body.origin_lat == 35.0
+    assert body.origin_lng == 139.0
