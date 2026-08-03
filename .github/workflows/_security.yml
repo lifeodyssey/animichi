@@ -83,6 +83,12 @@ jobs:
     timeout-minutes: 15
     name: zizmor (GHA security)
     runs-on: ubuntu-latest
+    env:
+      # One pin, three uses: cache key, restore-keys prefix, and the CLI call.
+      # Keeping the version inside the key namespace means a zizmor upgrade
+      # starts from a cold cache instead of restoring another version's
+      # response format through the broad restore-keys prefix.
+      ZIZMOR_VERSION: 1.5.2
     # advanced-security: false (below) → no SARIF upload → security-events not
     # needed. Requesting it caused startup_failure: a reusable job cannot request
     # more than the caller (ci.yml) grants (contents: read → security-events: none).
@@ -110,8 +116,8 @@ jobs:
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/zizmor
-          key: zizmor-${{ runner.os }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
-          restore-keys: zizmor-${{ runner.os }}-
+          key: zizmor-${{ runner.os }}-${{ env.ZIZMOR_VERSION }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
+          restore-keys: zizmor-${{ runner.os }}-${{ env.ZIZMOR_VERSION }}-
       - name: Install zizmor
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
@@ -125,7 +131,7 @@ jobs:
       - name: Audit workflows
         env:
           GH_TOKEN: ${{ github.token }}
-        run: uvx zizmor@1.5.2 --cache-dir ~/.cache/zizmor .
+        run: uvx zizmor@"$ZIZMOR_VERSION" --cache-dir ~/.cache/zizmor .
       # Only main-branch runs may write the shared cache — a PR (including a
       # fork PR) can read it but never poison it.
       - name: Save zizmor audit cache
@@ -133,7 +139,7 @@ jobs:
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/zizmor
-          key: zizmor-${{ runner.os }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
+          key: zizmor-${{ runner.os }}-${{ env.ZIZMOR_VERSION }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
 
   actionlint:
     timeout-minutes: 15
