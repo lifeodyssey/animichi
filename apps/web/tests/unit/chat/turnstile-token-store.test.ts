@@ -70,10 +70,7 @@ describe("default clock argument", () => {
   });
 });
 
-// The worker defines its own TURNSTILE_HEADER constant, and every other test on
-// both sides imports the constant it is testing — so renaming one side alone
-// leaves both suites green while anonymous turns silently arrive tokenless and
-// 403 forever. Pin the wire name as a literal on each side independently.
+// Pin the shared contract value to Cloudflare's canonical wire name.
 describe("the cf-turnstile-response wire name", () => {
   it("is literally cf-turnstile-response, matching the worker's constant", () => {
     expect(TURNSTILE_HEADER).toBe("cf-turnstile-response");

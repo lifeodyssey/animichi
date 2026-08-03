@@ -1,5 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { verifyEdDsaJwt } from "@animichi/contract/jwt";
 import { createRemoteJWKSet, customFetch, decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
 
 /**
@@ -86,7 +87,7 @@ async function verifyNeon(token: string, env: AuthEnv, f: typeof fetch): Promise
   try {
     const issuer = env.NEON_AUTH_ISSUER ?? "";
     const jwks = remoteJwks(env.NEON_AUTH_JWKS_URL ?? "", f);
-    const { payload } = await jwtVerify(token, jwks, { issuer, audience: issuer, algorithms: ["EdDSA"] });
+    const payload = await verifyEdDsaJwt({ token, key: jwks, issuer, audience: issuer });
     return human(payload.sub);
   } catch {
     return INVALID;

@@ -1,5 +1,9 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { TURNSTILE_HEADER, TURNSTILE_WINDOW_MS } from "@animichi/contract/constants";
+
+export { TURNSTILE_HEADER, TURNSTILE_WINDOW_MS };
+
 /**
  * Cloudflare Turnstile edge gate (S1.9 / issue #281).
  *
@@ -11,9 +15,6 @@
 
 /** Cloudflare's canonical server-side verification endpoint. */
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
-
-/** Request header carrying the widget token (not a form field, not a body key). */
-export const TURNSTILE_HEADER = "cf-turnstile-response";
 
 /**
  * How long one successful verification keeps covering follow-up turns.
@@ -29,8 +30,6 @@ export const TURNSTILE_HEADER = "cf-turnstile-response";
  * Keyed by identity, a cookie-dropper misses the cache, siteverify sees the
  * replay, answers `timeout-or-duplicate`, and the turn is rejected.
  */
-export const TURNSTILE_WINDOW_MS = 5 * 60_000;
-
 export interface TurnstileResult {
   readonly ok: boolean;
   readonly errorCodes: readonly string[];
