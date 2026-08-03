@@ -11,6 +11,7 @@ env:
 
 jobs:
   deploy:
+    timeout-minutes: 30
     name: Deploy to Production
     runs-on: ubuntu-latest
     environment: production

@@ -22,6 +22,7 @@ jobs:
   # ── Secret scanning ──────────────────────────────────────────
 
   gitleaks:
+    timeout-minutes: 15
     name: gitleaks (secret scan)
     runs-on: ubuntu-latest
     steps:
@@ -37,6 +38,7 @@ jobs:
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   trufflehog:
+    timeout-minutes: 15
     name: TruffleHog (verified secrets)
     runs-on: ubuntu-latest
     steps:
@@ -51,6 +53,7 @@ jobs:
   # ── Dependency / lockfile CVE scanning ───────────────────────
 
   osv-scanner:
+    timeout-minutes: 15
     name: osv-scanner (lockfile CVE)
     runs-on: ubuntu-latest
     steps:
@@ -64,6 +67,7 @@ jobs:
             ./
 
   dependabot-config:
+    timeout-minutes: 15
     name: Dependabot pnpm coverage
     runs-on: ubuntu-latest
     steps:
@@ -76,6 +80,7 @@ jobs:
   # ── GitHub Actions security ──────────────────────────────────
 
   zizmor:
+    timeout-minutes: 15
     name: zizmor (GHA security)
     runs-on: ubuntu-latest
     # advanced-security: false (below) → no SARIF upload → security-events not
@@ -131,6 +136,7 @@ jobs:
           key: zizmor-${{ runner.os }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
 
   actionlint:
+    timeout-minutes: 15
     name: actionlint (GHA semantics)
     runs-on: ubuntu-latest
     steps:
@@ -152,6 +158,7 @@ jobs:
   # ── Static analysis (SAST) ───────────────────────────────────
 
   semgrep:
+    timeout-minutes: 15
     name: Semgrep (SAST)
     runs-on: ubuntu-latest
     steps:
@@ -171,6 +178,7 @@ jobs:
   # ── SQL migration lint ───────────────────────────────────────
 
   sqlfluff:
+    timeout-minutes: 15
     name: sqlfluff (SQL lint)
     runs-on: ubuntu-latest
     defaults:
@@ -191,6 +199,7 @@ jobs:
   # ── Deploy-gate script tests ─────────────────────────────────
 
   post-deploy-assert-test:
+    timeout-minutes: 30
     name: post-deploy-assert.sh (shellcheck + behavior)
     runs-on: ubuntu-latest
     steps:

@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   cross-stack-e2e:
+    timeout-minutes: 30
     name: Cross-stack E2E runner
     runs-on: ubuntu-latest
     steps:

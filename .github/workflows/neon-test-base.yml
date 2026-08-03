@@ -17,6 +17,7 @@ env:
 
 jobs:
   test-base:
+    timeout-minutes: 20
     name: Refresh Neon test-base
     runs-on: ubuntu-latest
     permissions:

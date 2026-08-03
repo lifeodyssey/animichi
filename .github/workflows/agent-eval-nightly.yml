@@ -31,6 +31,7 @@ env:
 
 jobs:
   agent-eval-full:
+    timeout-minutes: 45
     name: Agent Eval (L1 full, uncapped)
     runs-on: ubuntu-latest
     defaults:
