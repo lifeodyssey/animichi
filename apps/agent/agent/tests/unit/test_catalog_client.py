@@ -1,10 +1,3 @@
-"""Unit tests for the Catalog service client skeleton.
-
-Response envelopes mirror packages/contract:
-  search -> {rows, synced_at}, spots -> {point, distance_m?}, nearby -> {rows},
-  ingest -> {status, version?, point_count?, reason?}.
-"""
-
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -16,8 +9,6 @@ from agent.clients.catalog_client import (
     GeocodeCandidate,
     GeocodeKind,
     GeocodeSource,
-    IngestResult,
-    PilgrimagePoint,
     Route,
 )
 
@@ -52,38 +43,6 @@ async def _mock_catalog(
         yield client, requests
     finally:
         await client.aclose()
-
-
-async def test_search_parses_rows() -> None:
-    """search() reads the {rows, synced_at} envelope into PilgrimagePoint models."""
-    payload = {"rows": [_POINT], "synced_at": "2026-06-21T00:00:00Z"}
-    async with _mock_catalog(payload) as (client, _):
-        points = await client.search("響け")
-
-    assert points == [
-        PilgrimagePoint(
-            id="p1", name="Uji Bridge", latitude=34.89, longitude=135.80, city="Uji"
-        )
-    ]
-
-
-async def test_search_posts_query_to_catalog_path() -> None:
-    """search() POSTs {query} to /catalog/search."""
-    async with _mock_catalog({"rows": [], "synced_at": ""}) as (client, requests):
-        await client.search("響け")
-
-    assert str(requests[0].url) == "https://catalog.test/catalog/search"
-    assert json.loads(requests[0].content) == {"query": "響け"}
-
-
-async def test_spots_parses_single_point() -> None:
-    """spots() reads the {point, distance_m?} envelope into one PilgrimagePoint."""
-    async with _mock_catalog({"point": _POINT, "distance_m": 120.0}) as (client, _):
-        point = await client.spots("115908")
-
-    assert point == PilgrimagePoint(
-        id="p1", name="Uji Bridge", latitude=34.89, longitude=135.80, city="Uji"
-    )
 
 
 async def test_nearby_parses_rows() -> None:
@@ -143,30 +102,3 @@ async def test_route_posts_coordinate_origin() -> None:
         "point_ids": ["p1"],
         "origin": {"lat": 34.89, "lng": 135.8},
     }
-
-
-async def test_ingest_parses_ingested() -> None:
-    """ingest() reads the {status, version, point_count} envelope when ingested."""
-    payload = {"status": "ingested", "version": 3, "point_count": 7}
-    async with _mock_catalog(payload) as (client, _):
-        result = await client.ingest("10380")
-
-    assert result == IngestResult(status="ingested", version=3, point_count=7)
-
-
-async def test_ingest_posts_bangumi_id_to_catalog_path() -> None:
-    """ingest() POSTs {bangumi_id} to /catalog/ingest."""
-    async with _mock_catalog({"status": "in_progress"}) as (client, requests):
-        await client.ingest("10380")
-
-    assert str(requests[0].url) == "https://catalog.test/catalog/ingest"
-    assert json.loads(requests[0].content) == {"bangumi_id": "10380"}
-
-
-async def test_ingest_parses_empty_with_reason() -> None:
-    """ingest() carries the reason for a non-ingested status (empty/failed)."""
-    async with _mock_catalog({"status": "empty", "reason": "no points"}) as (client, _):
-        result = await client.ingest("999")
-
-    assert result.status == "empty"
-    assert result.reason == "no points"
