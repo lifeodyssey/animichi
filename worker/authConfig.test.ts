@@ -38,12 +38,26 @@ function parsedWorkerName(environment: string): string {
   );
 }
 
+const STAGING_NEON_ISSUER =
+  "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth";
+
 void test("Neon Auth vars stay on their intended Wrangler paths", () => {
-  for (const header of ENV_BLOCKS) {
+  // SD-31 staging cutover (owner-approved 2026-08-03, #312 slice 1): staging
+  // verifies Neon Auth; root defaults and production stay off until their own
+  // cutover is approved.
+  for (const header of ["[vars]", "[env.production.vars]"]) {
     const block = blockFor(header);
     assert.equal(hasAssignment(block, "NEON_AUTH_ENABLED", "false"), true, `${header} must keep Neon Auth off`);
     assert.equal(hasAssignment(block, "NEON_AUTH_ISSUER", ""), true, `${header} must declare the public issuer slot`);
   }
+  const staging = blockFor("[env.staging.vars]");
+  assert.equal(hasAssignment(staging, "NEON_AUTH_ENABLED", "true"), true, "staging cutover must stay on");
+  assert.equal(hasAssignment(staging, "NEON_AUTH_ISSUER", STAGING_NEON_ISSUER), true, "staging must pin the Neon issuer");
+  assert.equal(
+    hasAssignment(staging, "NEON_AUTH_JWKS_URL", `${STAGING_NEON_ISSUER}/.well-known/jwks.json`),
+    true,
+    "staging must pin the JWKS endpoint derived from the issuer",
+  );
 });
 
 void test("bare Wrangler deploy has no target, while named environments keep theirs", () => {

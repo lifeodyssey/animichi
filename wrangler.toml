@@ -293,8 +293,13 @@ CATALOG_API_URL = "http://catalog.internal"
 # conflict with.
 CORS_ALLOWED_ORIGIN = "https://animichi-web-staging.zhenjiazhou0127.workers.dev"
 ANON_ACCESS_ENABLED = "true"
-NEON_AUTH_ENABLED = "false"
-NEON_AUTH_ISSUER = ""
+# SD-31 staging cutover (owner-approved 2026-08-03, #312 slice 1): edge verifies
+# Neon Auth (Better Auth) tokens against the staging branch's JWKS. Migrated
+# users only — legacy Supabase tokens still verify via the dual-issuer
+# fallback in worker/auth.ts (non-EdDSA + non-Neon issuer → verifySupabase).
+NEON_AUTH_ENABLED = "true"
+NEON_AUTH_ISSUER = "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth"
+NEON_AUTH_JWKS_URL = "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
