@@ -28,10 +28,12 @@ describe("maintenance deployment configuration", () => {
     expect(secretsDocs).toContain("| `AGENT_DATABASE_URL` |");
   });
 
-  it("keeps both deprecated workflows as manual-only fallbacks", () => {
-    expect(quotaWorkflow).toContain("DEPRECATED");
-    expect(quotaWorkflow).not.toMatch(/^\s+schedule:/m);
-    expect(sessionWorkflow).toContain("DEPRECATED");
-    expect(sessionWorkflow).not.toMatch(/^\s+schedule:/m);
+  it.each([
+    ["purge-anon-quota-counts.yml", quotaWorkflow],
+    ["purge-anonymous-sessions.yml", sessionWorkflow],
+  ])("keeps %s as a manual-only deprecated fallback", (_name, workflow) => {
+    expect(workflow).toContain("DEPRECATED");
+    expect(workflow).not.toMatch(/^\s+schedule:/m);
+    expect(workflow).toMatch(/^\s+workflow_dispatch:/m);
   });
 });
