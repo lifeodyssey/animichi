@@ -39,36 +39,36 @@ async def _cleanup(pool: asyncpg.Pool, anon_ids: list[str]) -> None:
     )
 
 
-async def test_agent_svc_holds_the_grants_the_repo_needs(db_pool: asyncpg.Pool) -> None:
-    """The migration's GRANT actually took — `has_table_privilege` probes the
-    grant layer directly (same pattern as `test_service_roles.py`), catching
-    a typo'd role name or a forgotten GRANT that a mocked unit test can't.
+# The repo's four operations against this table (issue #661): the UPSERT
+# (`increment_and_count`) needs SELECT/INSERT/UPDATE; the retention purge
+# (`purge_older_than`) needs DELETE. One parametrize case per privilege keeps
+# each test body under the 1-10-50 function-length limit *and* makes a
+# missing grant self-diagnosing — a failure names the exact privilege that's
+# missing (`test_agent_svc_holds_the_grant[DELETE]`) instead of a single
+# bundled assertion that only says "grants are wrong".
+_REPO_PRIVILEGES = ("SELECT", "INSERT", "UPDATE", "DELETE")
 
-    DELETE is asserted here (issue #661) because the sibling
+
+@pytest.mark.parametrize("privilege", _REPO_PRIVILEGES)
+async def test_agent_svc_holds_the_grant(db_pool: asyncpg.Pool, privilege: str) -> None:
+    """The migration's GRANT actually took — `has_table_privilege` probes the
+    grant layer directly (same pattern as `test_service_roles.py`), catching a
+    typo'd role name or a forgotten GRANT that a mocked unit test can't.
+
+    DELETE is covered here because the sibling
     `test_purge_older_than_removes_stale_rows_and_keeps_recent_ones` below
     calls `repo.purge_older_than()` through the unscoped `db_pool` fixture,
     not as `agent_svc` — so it stayed green through 20260729000001 shipping
     without a DELETE grant, and only the real retention cron (running as
     `agent_svc`) ever hit "permission denied for table
-    anon_daily_message_count". This probe is the one that would have caught it.
+    anon_daily_message_count". This is the probe that would have caught it.
     """
     async with db_pool.acquire() as conn:
-        select = await conn.fetchval(
-            "SELECT has_table_privilege('agent_svc', 'public.anon_daily_message_count', 'SELECT')"
+        held = await conn.fetchval(
+            "SELECT has_table_privilege('agent_svc', 'public.anon_daily_message_count', $1)",
+            privilege,
         )
-        insert = await conn.fetchval(
-            "SELECT has_table_privilege('agent_svc', 'public.anon_daily_message_count', 'INSERT')"
-        )
-        update = await conn.fetchval(
-            "SELECT has_table_privilege('agent_svc', 'public.anon_daily_message_count', 'UPDATE')"
-        )
-        delete = await conn.fetchval(
-            "SELECT has_table_privilege('agent_svc', 'public.anon_daily_message_count', 'DELETE')"
-        )
-    assert select is True
-    assert insert is True
-    assert update is True
-    assert delete is True
+    assert held is True
 
 
 async def test_the_same_key_increments_across_calls(db_pool: asyncpg.Pool) -> None:
