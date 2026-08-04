@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import cached_property
 from time import perf_counter
 from typing import cast
 from uuid import uuid4
@@ -59,7 +60,15 @@ from agent.application.errors import ApplicationError, ErrorCode
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from agent.config.settings import Settings, get_settings
 from agent.domain.fact_ledger import record_turn_facts
-from agent.domain.ports import CatalogLookup, UsageMeter
+from agent.domain.ports import (
+    BangumiRepo,
+    CatalogLookup,
+    ConversationLog,
+    RequestAudit,
+    RouteArchive,
+    SessionRepo,
+    UsageMeter,
+)
 from agent.infrastructure.memory import postgres_memory_store
 from agent.infrastructure.observability import (
     record_runtime_request,
@@ -208,19 +217,46 @@ class RuntimeAPI:
         self._settings = settings or get_settings()
         self._model_http_client = model_http_client
         self._memory_store = memory_store
-        # Iter6 C4: resolved once here instead of reflected on every call.
-        # Each is `None` when *db* does not expose that repo — never probed
-        # again downstream (see `agent.interfaces.db_repos`).
-        self._session_repo = session_repo(db)
-        self._bangumi_repo = bangumi_repo(db)
-        self._routes_repo = routes_repo(db)
-        self._usage_repo = usage_repo(db)
-        self._messages_repo = messages_repo(db)
-        self._request_audit_repo = request_audit_repo(db)
 
     def bind_model_http_client(self, client: httpx.AsyncClient) -> None:
         """Bind the client owned by the surrounding application lifespan."""
         self._model_http_client = client
+
+    # Iter6 C4: each repo is resolved at most once *per instance*, lazily,
+    # on first actual use — never reflected on every call. `cached_property`
+    # (not eager resolution in `__init__`) is deliberate: a `db` whose pool
+    # hasn't been connected yet raises `RuntimeError` from these properties
+    # (`SupabaseClient.session`/`.bangumi`/etc — "call connect() first"), and
+    # that must surface where a caller can catch it — inside a request
+    # handled by `handle()`, wrapped by FastAPI's exception handlers, not
+    # while merely constructing the `RuntimeAPI` facade itself (which is not
+    # request-scoped and has no exception handler around it). Eagerly
+    # resolving all seven in `__init__` was tried first and reverted after
+    # `test_unconnected_client_surfaces_error` caught it turning a clean 500
+    # into an app-construction-time crash — see the C4 PR discussion.
+    @cached_property
+    def _session_repo(self) -> SessionRepo | None:
+        return session_repo(self._db)
+
+    @cached_property
+    def _bangumi_repo(self) -> BangumiRepo | None:
+        return bangumi_repo(self._db)
+
+    @cached_property
+    def _routes_repo(self) -> RouteArchive | None:
+        return routes_repo(self._db)
+
+    @cached_property
+    def _usage_repo(self) -> UsageMeter | None:
+        return usage_repo(self._db)
+
+    @cached_property
+    def _messages_repo(self) -> ConversationLog | None:
+        return messages_repo(self._db)
+
+    @cached_property
+    def _request_audit_repo(self) -> RequestAudit | None:
+        return request_audit_repo(self._db)
 
     @property
     def model_http_client(self) -> httpx.AsyncClient:

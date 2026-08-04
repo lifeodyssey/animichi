@@ -47,7 +47,23 @@ def _spawn_background(coro: object) -> None:
 # asyncpg raises asyncpg.PostgresError (subclass of Exception) for SQL errors
 # and OSError for connection issues. We also catch RuntimeError (pool closed)
 # and ValueError (malformed data).
-_PERSIST_ERRORS = (OSError, RuntimeError, ValueError, TypeError)
+#
+# asyncpg.PostgresError is included deliberately (iter6 C4 review follow-up):
+# once #663's fix made persist_messages actually write, an anonymous turn
+# (no user_id, so persist_conversation never creates the owning `conversations`
+# row) hits a real ForeignKeyViolationError on `conversation_messages` — a
+# schema fact the #663 bug had been silently hiding since the insert never
+# ran. conversation_messages is scoped to authenticated conversation history
+# by design (mirrors maybe_persist_route's existing `except
+# asyncpg.PostgresError` around save_route); message persistence for
+# anonymous turns degrades to a logged no-op rather than crashing the turn.
+_PERSIST_ERRORS = (
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    asyncpg.PostgresError,
+)
 
 
 async def persist_result(
