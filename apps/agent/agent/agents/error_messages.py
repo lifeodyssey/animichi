@@ -23,6 +23,13 @@ InputError = Literal["message_too_long", "non_text_message"]
 _DEFAULT_LOCALE = "en"
 CATALOG_ROUTE_UNAVAILABLE_MESSAGE = "Catalog route unavailable"
 INTERNAL_ERROR_DETAIL_MESSAGE = "An internal error occurred. Please try again."
+# `service_unavailable`, `configuration_error`, and `missing_config` are distinct
+# error codes that share one public-facing message: none of them expose actionable
+# detail to the user, so the runtime state behind them is intentionally
+# indistinguishable at the trust boundary (SD-19).
+_SERVICE_UNAVAILABLE_MESSAGE = (
+    "The service is temporarily unavailable. Please try again."
+)
 
 _PUBLIC_ERROR_MESSAGES: dict[str, str] = {
     "invalid_request": "The request is invalid.",
@@ -45,9 +52,9 @@ _PUBLIC_ERROR_MESSAGES: dict[str, str] = {
     "internal_error": "The runtime failed before producing a pipeline result.",
     "unknown_error": "An unknown error occurred. Please try again.",
     "external_service_error": "An external service failed. Please try again.",
-    "service_unavailable": "The service is temporarily unavailable. Please try again.",
-    "configuration_error": "The service is temporarily unavailable. Please try again.",
-    "missing_config": "The service is temporarily unavailable. Please try again.",
+    "service_unavailable": _SERVICE_UNAVAILABLE_MESSAGE,
+    "configuration_error": _SERVICE_UNAVAILABLE_MESSAGE,
+    "missing_config": _SERVICE_UNAVAILABLE_MESSAGE,
     "provider_error": (
         "The AI service is temporarily unavailable. Please try again in a moment."
     ),

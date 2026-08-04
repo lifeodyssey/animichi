@@ -100,7 +100,6 @@ class TestAPIKeyValidation:
     def test_validate_api_keys_all_present(self):
         """Test that no keys are reported missing when all are set."""
         settings = Settings(
-            gemini_api_key="test_key",
             openai_compat_api_key="compat_key",
             openai_compat_base_url="https://api.univibe.cc/openai",
         )
@@ -110,7 +109,6 @@ class TestAPIKeyValidation:
     def test_get_runtime_config_includes_provider_fields(self):
         """Runtime config should expose non-secret provider settings."""
         settings = Settings(
-            gemini_api_key="test_key",
             openai_compat_api_key="compat_key",
             default_agent_model="openai:deepseek-v4-pro@https://api.deepseek.com",
             fallback_agent_model="openai:gpt-5.4",

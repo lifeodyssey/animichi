@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib
+import os
 import subprocess
 from datetime import UTC, datetime
 
@@ -21,6 +23,20 @@ router = APIRouter(tags=["health"])
 _STARTED_AT = datetime.now(UTC).isoformat()
 
 
+def _baked_build_info() -> tuple[str, str]:
+    """Return (commit, branch) from the CI-generated build_info.py, or empty."""
+    try:
+        build_info = importlib.import_module("agent.build_info")
+    except (
+        Exception
+    ):  # diagnostic path: any import failure must fall back, never crash startup
+        return "", ""
+    return (
+        str(getattr(build_info, "GIT_COMMIT", "")),
+        str(getattr(build_info, "GIT_BRANCH", "")),
+    )
+
+
 def _git_short(args: list[str]) -> str:
     """Run a git command and return stdout stripped, or 'unknown' on failure."""
     try:
@@ -30,8 +46,23 @@ def _git_short(args: list[str]) -> str:
         return "unknown"
 
 
-_GIT_COMMIT = _git_short(["git", "rev-parse", "--short", "HEAD"])
-_GIT_BRANCH = _git_short(["git", "branch", "--show-current"])
+def _git_info(baked: str, env_name: str, args: list[str]) -> str:
+    """Resolve build metadata: baked value, then env, then git, then 'unknown'."""
+    if baked:
+        return baked
+    env_value = os.environ.get(env_name)
+    if env_value:
+        return env_value
+    return _git_short(args)
+
+
+_BUILT_GIT_COMMIT, _BUILT_GIT_BRANCH = _baked_build_info()
+_GIT_COMMIT = _git_info(
+    _BUILT_GIT_COMMIT, "GIT_COMMIT", ["git", "rev-parse", "--short", "HEAD"]
+)
+_GIT_BRANCH = _git_info(
+    _BUILT_GIT_BRANCH, "GIT_BRANCH", ["git", "branch", "--show-current"]
+)
 
 
 @router.get("/")

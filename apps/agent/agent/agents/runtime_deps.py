@@ -12,7 +12,7 @@ from agent.agents.tool_state import ToolState
 from agent.agents.translation import TranslationResult
 from agent.agents.web_trust import WebResult
 from agent.clients.catalog_client import CatalogClientProtocol
-from agent.domain.ports import DatabasePort
+from agent.domain.ports import CatalogLookup
 
 if TYPE_CHECKING:
     from agent.agents.tool_event_bridge import ToolLifecycleRegistry
@@ -72,7 +72,7 @@ class RefFactory:
 class RuntimeDeps:
     """Deps container injected into pilgrimage agent runs."""
 
-    db: DatabasePort
+    db: CatalogLookup
     locale: str
     query: str
 

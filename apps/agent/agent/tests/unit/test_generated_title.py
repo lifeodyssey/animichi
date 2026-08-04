@@ -35,8 +35,11 @@ def mock_db():
     db.session.upsert_conversation = AsyncMock()
     db.session.update_conversation_title = AsyncMock()
     db.routes.save_route = AsyncMock(return_value="route-1")
-    db.insert_message = AsyncMock()
-    db.insert_request_log = AsyncMock()
+    # #663: the real repos are nested (db.messages / db.feedback), not flat
+    # db.insert_message / db.insert_request_log — that flat shape was the
+    # production bug.
+    db.messages.insert_message = AsyncMock()
+    db.feedback.insert_request_log = AsyncMock()
     return db
 
 

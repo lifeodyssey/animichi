@@ -30,7 +30,7 @@ from agent.interfaces.error_registry import (
 )
 from agent.interfaces.public_api import PublicAPIResponse, RuntimeAPI
 from agent.interfaces.schemas import GRACEFUL_TERMINAL_STATUSES
-from agent.interfaces.usage_metering import ANON_USER_ID_PREFIX, ANONYMOUS_USER_TYPE
+from agent.interfaces.usage_metering import is_anonymous_identity
 
 if TYPE_CHECKING:
     import logfire
@@ -108,7 +108,7 @@ def _normalize_optional_header(value: str | None) -> str | None:
 
 
 def _reject_credentialed_anonymous(
-    user_type: str | None, credential: str | None
+    user_id: str | None, user_type: str | None, credential: str | None
 ) -> None:
     """Refuse an anonymous stamp that arrived with a credential (issue #441).
 
@@ -117,8 +117,13 @@ def _reject_credentialed_anonymous(
     request was demoted anyway, or when the container was reached directly.
     Serving it anonymously would meter and rate-limit the turn under the wrong
     identity and hide the expiry from a client built to refresh on 401.
+
+    Routes through `is_anonymous_identity` rather than a bare `user_type`
+    literal (issue #741 sibling fix): an `anon_`-prefixed `X-User-Id` with a
+    missing or mistyped `X-User-Type` is anonymous by the ID convention too,
+    and would otherwise slip past this check carrying a credential.
     """
-    if user_type != ANONYMOUS_USER_TYPE or credential is None:
+    if not is_anonymous_identity(user_id, user_type) or credential is None:
         return
     # #441 surfaced only through anomalous anonymous spend; its inverse must not
     # be equally invisible. The credential itself is never recorded.
@@ -132,9 +137,12 @@ def _get_trusted_auth_context(
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> TrustedAuthContext:
     user_type = _normalize_optional_header(x_user_type)
-    _reject_credentialed_anonymous(user_type, _normalize_optional_header(authorization))
+    user_id = _normalize_optional_header(x_user_id)
+    _reject_credentialed_anonymous(
+        user_id, user_type, _normalize_optional_header(authorization)
+    )
     return TrustedAuthContext(
-        user_id=_normalize_optional_header(x_user_id),
+        user_id=user_id,
         user_type=user_type,
     )
 
@@ -152,18 +160,18 @@ def _require_non_anonymous_user(
 ) -> TrustedAuthContext:
     """Reject-anonymous, not allow-list (session_migration, #273 Task 3).
 
-    Mirrors ``usage_metering.scope_for_identity``'s classification exactly:
-    anonymous is either the edge's typed marker or the ``anon_`` id prefix.
-    There is no ``"user"`` literal anywhere in the system — real humans are
-    stamped ``"human"``, ``sk_*`` API keys ``"agent"`` — so this must not be
-    an allow-list, which would 403 every genuine caller.
+    Delegates to `is_anonymous_identity` — the single canonical predicate,
+    also `usage_metering.scope_for_identity`'s classification — rather than
+    re-deriving the same "typed marker or `anon_` id prefix" union inline
+    (issue #741 sibling cleanup: a second hand-written copy of that union is
+    exactly how a divergent third definition creeps in). There is no
+    ``"user"`` literal anywhere in the system — real humans are stamped
+    ``"human"``, ``sk_*`` API keys ``"agent"`` — so this must not be an
+    allow-list, which would 403 every genuine caller.
     """
     if auth.user_id is None:
         raise HTTPException(status_code=400, detail="X-User-Id header required.")
-    is_anonymous = auth.user_type == ANONYMOUS_USER_TYPE or auth.user_id.startswith(
-        ANON_USER_ID_PREFIX
-    )
-    if is_anonymous:
+    if is_anonymous_identity(auth.user_id, auth.user_type):
         raise HTTPException(
             status_code=403, detail="Anonymous identity cannot migrate sessions."
         )

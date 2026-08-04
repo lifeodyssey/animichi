@@ -14,6 +14,7 @@ from __future__ import annotations
 from datetime import date
 from typing import cast
 
+import pytest
 from pydantic_ai.usage import RunUsage
 
 from agent.agents.agent_result import AgentResult
@@ -115,7 +116,9 @@ async def test_a_non_byok_turn_is_still_priced_normally() -> None:
     assert cost_usd > 0.0
 
 
-async def test_a_byok_turn_never_moves_todays_anon_spend_total() -> None:
+async def test_a_byok_turn_never_moves_todays_anon_spend_total(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """A BYOK turn banks under `byok`, so a read of today's `anon` total is
     unaffected — the anonymous budget's denominator never sees BYOK spend.
 
@@ -125,11 +128,18 @@ async def test_a_byok_turn_never_moves_todays_anon_spend_total() -> None:
     unrelated calendar date (the original version of this test used a
     hardcoded `TODAY` constant) would make `spent_usd == 0.0` pass for the
     wrong reason — a date-bucket mismatch — even if a real accounting bug
-    banked the BYOK turn under `anon`. Reading with no `today=` override
-    (defaulting to the same `utc_today()`) is what actually exercises the
-    scope split.
+    banked the BYOK turn under `anon`. The two calls must agree on "today" by
+    construction, not by both racing the real wall clock across the same UTC
+    midnight — so the clock is pinned here rather than left on
+    `datetime.now(UTC)` (repo rule: mock the clock, no timing-dependent
+    asserts).
     """
     from agent.interfaces.usage_metering import anonymous_budget_verdict
+
+    fixed_today = date(2026, 8, 3)
+    monkeypatch.setattr(
+        "agent.interfaces.usage_metering.utc_today", lambda now=None: fixed_today
+    )
 
     repo = _UsageRepoDouble()
     api = _api(_Db(repo))
@@ -137,7 +147,8 @@ async def test_a_byok_turn_never_moves_todays_anon_spend_total() -> None:
 
     await api._record_usage(_result(usage), "anon_abc", "anonymous", is_byok=True)
 
-    verdict = await anonymous_budget_verdict(_Db(repo), budget_usd=1.0)
+    verdict = await anonymous_budget_verdict(repo, budget_usd=1.0)
     assert verdict.spent_usd == 0.0
     assert verdict.exhausted is False
     assert repo.calls[0][1] == "byok"
+    assert repo.calls[0][0] == fixed_today

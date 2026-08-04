@@ -26,11 +26,13 @@ jobs:
         with:
           persist-credentials: false
 
+      # `./.github/actions/setup`'s `pnpm install` already resolves and links
+      # packages/contract (workspace:* dep of every workers/* component) —
+      # no separate install needed here. A prior `npm install` step in
+      # packages/contract was redundant AND uncovered by Dependabot (only
+      # "/" and "/infra" are registered npm ecosystems), so removed rather
+      # than papering over it with a second, unmaintained lockfile.
       - uses: ./.github/actions/setup
-
-      - name: Install contract deps
-        run: npm install
-        working-directory: packages/contract
 
       - name: Type check (tsc)
         run: pnpm exec tsc --noEmit

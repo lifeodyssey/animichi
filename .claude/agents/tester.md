@@ -72,7 +72,7 @@ Return verdict and evidence ONLY. Orchestrator decides what to do with the resul
 ```json
 {
   "verdict": "approve" | "request_changes",
-  "tests_written": ["e2e/route.spec.ts", "apps/agent/agent/tests/integration/test_runtime_api.py"],
+  "tests_written": ["e2e/web-chat-anonymous.spec.ts", "apps/agent/agent/tests/integration/test_api_contract.py"],
   "blocking_findings": [],
   "evidence": [
     {"type": "browser", "ac": "...", "passed": true, "screenshot": "..."},

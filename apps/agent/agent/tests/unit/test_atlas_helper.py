@@ -1,4 +1,8 @@
-"""Static contract tests for the shared Atlas invocation."""
+"""Static contract tests for the shared Atlas invocation.
+
+Self-heal / cache-provisioning behavior lives in test_atlas_self_heal.py — kept
+separate so this file stays under the repo's 200-line test-file ceiling.
+"""
 
 import hashlib
 from pathlib import Path

@@ -60,7 +60,7 @@ The model emits exactly one of five typed outputs: `ClarifyResponseModel`, `Sear
   paths bypass it.
 - Pydantic tool schemas constrain model arguments; `output_validator` rejects fabricated output or
   provenance that was not produced by the current turn.
-- The container trusts auth headers forwarded by the edge worker (`worker/`); it does not re-authenticate.
+- The container trusts auth headers forwarded by the edge worker (`workers/edge/`); it does not re-authenticate.
 - Injection defense (SD-19): tool/envelope text is **untrusted** — never show an upstream `message` to
   users, embed it in prompts, or store it on `str()`. User-facing text comes from `agents/error_messages.py`.
 

@@ -1,3 +1,19 @@
+# Manual production deploy — thin caller of _deploy-component.yml (issue #486).
+#
+# Six jobs mirror the production promotion stage of ci.yml (deploy-prod … post-prod)
+# so the manual path and the CI path exercise identical inputs. Every `with:` /
+# `secrets:` / `concurrency:` line here must stay verbatim-identical to ci.yml's
+# corresponding job (the guard apps/agent/agent/tests/unit/
+# test_deploy_model_env_consistency.py enforces the root job's secret lists).
+# Allowed deltas: `needs:` / `if:` that reference ci.yml-only jobs are dropped;
+# post-prod keeps needs on the five deploy jobs.
+#
+# The GitHub `production` environment approval gate lives inside
+# _deploy-component.yml (`environment: ${{ inputs.environment }}` at the job
+# level), so no separate approval block is needed here.
+#
+# Concurrency groups are shared with ci.yml's prod jobs: a manual dispatch and a
+# CI promotion of the same component can never deploy concurrently.
 name: Deploy (Manual)
 
 on:
@@ -10,282 +26,135 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  deploy:
-    timeout-minutes: 30
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
-      - name: Preflight - maintenance database secret
-        shell: bash
-        env:
-          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
-        run: |
-          if [ -z "$AGENT_DATABASE_URL" ]; then
-            echo "::error::AGENT_DATABASE_URL is empty/unset for the maintenance Worker in environment=production. Refusing to deploy a scheduled purge that cannot reach the agent data plane."
-            exit 1
-          fi
+  deploy-prod:
+    name: Deploy production
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: catalog
+      environment: production
+      pulumi_stack: prod
+      working_directory: workers/catalog
+      worker_secrets: DATABASE_URL
+    secrets:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    concurrency: deploy-prod
 
-      # ── Preflight: post-deploy secrets (validates BEFORE anything deploys,
-      #    same reasoning as _deploy-component.yml's "Preflight - post-deploy
-      #    secrets" step — a failure here cannot leave a Worker half-deployed).
-      #    This workflow always targets `environment: production`, and
-      #    `wrangler.toml`'s `env.production.vars.ANON_ACCESS_ENABLED` is
-      #    "false", so TURNSTILE_SECRET/ANON_ID_SECRET are genuinely inert
-      #    here today (worker/auth.ts:anonymousEnabled requires both the flag
-      #    AND the secret) — read the live flag instead of assuming that stays
-      #    true, so this doesn't quietly go stale if the flag ever flips. ──
-      - name: Preflight - post-deploy secrets
-        shell: bash
-        env:
-          TARGET_COMPONENT: root
-          TARGET_ENVIRONMENT: production
-          POST_DEPLOY_SECRETS: |
-            TURNSTILE_SECRET
-            ANON_ID_SECRET
-          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
-          ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
-        run: |
-          anon_flag=$(awk -F'"' -v want="[env.${TARGET_ENVIRONMENT}.vars]" '
-            $0 == want { in_block=1; next }
-            /^\[/ { in_block=0 }
-            in_block && $1 ~ /^ANON_ACCESS_ENABLED[ \t]*=/ { print $2 }
-          ' wrangler.toml 2>/dev/null || true)
-          # Ambiguity is fail-closed, not fail-open — see the matching check
-          # in _deploy-component.yml's "Preflight - post-deploy secrets" step
-          # for the full reasoning. A parse that isn't exactly "true"/"false"
-          # must not silently fall through to the soft-warn branch below.
-          if [ "$anon_flag" != "true" ] && [ "$anon_flag" != "false" ]; then
-            echo "::error::Could not determine ANON_ACCESS_ENABLED for environment=$TARGET_ENVIRONMENT from wrangler.toml (parsed value: '$anon_flag', expected exactly \"true\" or \"false\"). Refusing to guess."
-            exit 1
-          fi
-          missing=0
-          while IFS= read -r name; do
-            [ -z "$name" ] && continue
-            value="${!name-}"
-            if [ -z "$value" ]; then
-              if [ "$anon_flag" = "true" ]; then
-                echo "::error::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, where ANON_ACCESS_ENABLED=\"true\" makes it load-bearing (worker/turnstile.ts fails CLOSED). Refusing to start the deploy without it. Set it with: gh secret set $name"
-                missing=1
-              else
-                echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, but ANON_ACCESS_ENABLED is not \"true\" there, so this environment's code path never reads it. Soft warning only; the post-deploy push step will skip it."
-              fi
-              continue
-            fi
-            # TURNSTILE_SECRET-specific validity probe — see the matching
-            # (fully commented) check in _deploy-component.yml's "Preflight -
-            # post-deploy secrets" step for the full reasoning, including why
-            # this retries with backoff instead of fail-closing on the first
-            # ambiguous result (network flakiness isn't the same kind of
-            # ambiguity as the local TOML-parse case above — and this is the
-            # manual production path, so an unreachable third-party validator
-            # must not block an unrelated production hotfix).
-            if [ "$name" = "TURNSTILE_SECRET" ] && [ "$anon_flag" = "true" ]; then
-              turnstile_verdict=""
-              shape_seen="false"
-              attempt=1
-              while [ "$attempt" -le 3 ]; do
-                turnstile_probe=$(printf '%s' "$value" | curl -sS --max-time 10 \
-                  --data-urlencode "secret@-" \
-                  --data-urlencode "response=preflight-probe-not-a-real-token" \
-                  https://challenges.cloudflare.com/turnstile/v0/siteverify 2>/dev/null || true)
-                # Shape sentinel — see the matching (fully commented) check in
-                # _deploy-component.yml for why this exists.
-                printf '%s' "$turnstile_probe" | grep -q '"success"' && shape_seen="true"
-                if printf '%s' "$turnstile_probe" | grep -q '"invalid-input-secret"'; then
-                  turnstile_verdict="invalid"
-                  break
-                elif printf '%s' "$turnstile_probe" | grep -q '"invalid-input-response"'; then
-                  turnstile_verdict="valid"
-                  break
-                fi
-                attempt=$((attempt + 1))
-                [ "$attempt" -le 3 ] && sleep $((attempt * 2))
-              done
-              if [ "$turnstile_verdict" = "invalid" ]; then
-                echo "::error::TURNSTILE_SECRET failed Cloudflare siteverify validation for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (error-code: invalid-input-secret). This is what happens when the stored value is a Site Key instead of the Secret Key, or any other string siteverify doesn't recognize. Refusing to deploy with it. Re-provision with: gh secret set TURNSTILE_SECRET"
-                missing=1
-              elif [ "$turnstile_verdict" = "valid" ]; then
-                echo "TURNSTILE_SECRET passed Cloudflare siteverify validation for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT."
-              elif [ "$shape_seen" = "true" ]; then
-                echo "::warning::Could not reach Cloudflare's siteverify endpoint to validate TURNSTILE_SECRET after 3 attempts for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT (network failure or endpoint outage) — treating this as validator unavailability, not evidence the secret itself is wrong. Proceeding without this specific check; the empty-value check above still applies."
-              else
-                echo "::warning::Cloudflare's siteverify response never contained a \"success\" field across 3 attempts for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — this looks like the response SHAPE changed, not just a network blip. Treating as validator-unavailable for now, but this needs someone to look at whether the probe logic itself is stale, not just retry later. Proceeding without this specific check; the empty-value check above still applies."
-              fi
-            fi
-          done <<< "$POST_DEPLOY_SECRETS"
-          if [ "$missing" = "1" ]; then
-            exit 1
-          fi
+  deploy-web-prod:
+    name: Deploy web production
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: web
+      environment: production
+      pulumi_stack: prod
+      working_directory: apps/web
+      build_filter: web
+      run_pulumi: false
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    concurrency: deploy-web-prod
 
-      # ── Node toolchain (wrangler + workspace deps; no app build — issue #537
-      # retired the legacy Next.js package, so the root Worker ships as source) ──
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with:
-          run_install: false
+  deploy-users-prod:
+    name: Deploy users production
+    # mirrors ci.yml's intra-prod ordering (root routes to users; users must be live first)
+    needs: [deploy-prod]
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: users
+      environment: production
+      pulumi_stack: prod
+      working_directory: workers/users
+      run_pulumi: false
+      worker_secrets: |
+        DATABASE_URL
+        NEON_AUTH_JWKS_URL
+    secrets:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+    concurrency: deploy-users-prod
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6.4.0
-        # No `cache:` key at all. `cache: ""` still counts as opting in to
-        # setup-node's cache machinery, which zizmor's cache-poisoning audit
-        # flags because this workflow reaches a deploy step; omitting the key
-        # is the only way to be genuinely cache-free. The former
-        # `zizmor: ignore` sat on this line while the finding anchors on the
-        # deploy step below, so it never applied — and suppression is banned
-        # here anyway.
-        with:
-          node-version: "24"
+  deploy-maintenance-prod:
+    name: Deploy maintenance production
+    # mirrors ci.yml's intra-prod ordering (root routes to users; users must be live first)
+    needs: [deploy-prod]
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: maintenance
+      environment: production
+      pulumi_stack: prod
+      working_directory: workers/maintenance
+      run_pulumi: false
+      worker_secrets: AGENT_DATABASE_URL
+    secrets:
+      AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    concurrency: deploy-maintenance-prod
 
-      - run: pnpm install --frozen-lockfile
+  deploy-root-prod:
+    name: Deploy root production
+    # mirrors ci.yml's intra-prod ordering (root routes to users; users must be live first)
+    needs: [deploy-users-prod]
+    uses: ./.github/workflows/_deploy-component.yml
+    with:
+      component: root
+      environment: production
+      pulumi_stack: prod
+      working_directory: "."
+      run_pulumi: false
+      worker_secrets: |
+        SUPABASE_URL
+        SUPABASE_ANON_KEY
+        SUPABASE_SERVICE_ROLE_KEY
+        SUPABASE_DB_URL
+        MIMO_API_KEY
+        DEEPSEEK_API_KEY
+        GOOGLE_MAPS_API_KEY
+        LOGFIRE_TOKEN
+        CORS_ALLOWED_ORIGIN
+      optional_worker_secrets: |
+        POST_DEPLOY_DIAG_TOKEN
+      post_deploy_secrets: |
+        TURNSTILE_SECRET
+        ANON_ID_SECRET
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+      LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+      CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+      TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+      ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+      POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
+    concurrency: deploy-root-prod
 
-      # ── Validate the migration authority before a manual code redeploy ──
-      # Production schema changes run in the approval-gated main promotion
-      # (`_deploy-component.yml`), which applies db/migrations with Atlas before
-      # the catalog/users Worker rollout. This manual hotfix path is deliberately
-      # non-mutating at the database layer; it must not revive the old
-      # legacy Supabase all-schema push path.
-      - name: Install pinned Atlas CLI
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/atlas-bin"
-          curl --proto '=https' --tlsv1.2 -sSfL \
-            "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" \
-            -o "$RUNNER_TEMP/atlas-bin/atlas"
-          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas" \
-            | sha256sum --check --strict
-          chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
-          echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
-
-      - name: Validate Atlas migration directory
-        run: atlas migrate validate --dir file://db/migrations
-
-      # ── Deploy catalog Worker FIRST (before root, as root's [[services]] binding depends on it) ──
-      - name: Deploy catalog Worker
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Reuse the workspace-locked Wrangler installed above. An explicit
-          # duplicate version can drift and trigger wrangler-action's
-          # mutating package-install fallback inside a frozen workspace.
-          # #516: workers/catalog has no lockfile of its own (pnpm workspace
-          # member — the lockfile lives at repo root), so the action's
-          # auto-detection falls back to npm, which then chokes on
-          # `@animichi/contract: workspace:*` in this package.json. See
-          # the fully-commented fix in _deploy-component.yml's "Deploy
-          # Worker" step for the confirmed root cause (read from
-          # dist/index.mjs at the pinned SHA, not just the docs).
-          packageManager: pnpm
-          workingDirectory: workers/catalog
-          command: deploy
-          environment: production
-          # The catalog uses env.DATABASE_URL with the Neon HTTP client, matching
-          # the CI promotion path. A pooled binding is optional and not required
-          # by the current deployment topology.
-          secrets: |
-            DATABASE_URL
-        env:
-          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-
-      # ── Deploy users Worker (before root — root's USERS [[services]] binding depends on it) ──
-      - name: Deploy users Worker
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # #516: same lockfile-detection fallback bug as catalog above.
-          packageManager: pnpm
-          workingDirectory: workers/users
-          command: deploy
-          environment: production
-          secrets: |
-            DATABASE_URL
-            NEON_AUTH_JWKS_URL
-        env:
-          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
-
-      # ── Deploy scheduled maintenance Worker (private, agent-domain Neon) ──
-      - name: Deploy maintenance Worker
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          packageManager: pnpm
-          workingDirectory: workers/maintenance
-          command: deploy
-          environment: production
-          secrets: |
-            AGENT_DATABASE_URL
-        env:
-          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
-
-      # ── Verify Dockerfile exists before root deploy ──
-      - run: test -f Dockerfile
-
-      # ── Deploy root (edge + container) ──
-      - name: Deploy via Wrangler
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # root's implicit workingDirectory (repo root) does have its own
-          # lockfile, so auto-detection already resolves to pnpm correctly
-          # here — set explicitly anyway so this doesn't silently start
-          # relying on directory-based detection again if that ever changes.
-          packageManager: pnpm
-          command: deploy
-          environment: production
-          secrets: |
-            SUPABASE_URL
-            SUPABASE_ANON_KEY
-            SUPABASE_SERVICE_ROLE_KEY
-            SUPABASE_DB_URL
-            MIMO_API_KEY
-            DEEPSEEK_API_KEY
-            GEMINI_API_KEY
-            GOOGLE_MAPS_API_KEY
-            LOGFIRE_TOKEN
-            CORS_ALLOWED_ORIGIN
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
-
-      # ── Push post-deploy secrets (after root deploy — same list-driven
-      #    pattern as _deploy-component.yml, kept in sync with the
-      #    post_deploy_secrets list in ci.yml's deploy-root-* jobs. Empty
-      #    values are skipped, not failed, here: the preflight step above
-      #    already decided whether an empty value is fatal.) ──
-      - name: Push post-deploy secrets to Worker
-        shell: bash
-        env:
-          TARGET_COMPONENT: root
-          TARGET_ENVIRONMENT: production
-          POST_DEPLOY_SECRETS: |
-            TURNSTILE_SECRET
-            ANON_ID_SECRET
-          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
-          ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          while IFS= read -r name; do
-            [ -z "$name" ] && continue
-            value="${!name-}"
-            if [ -z "$value" ]; then
-              echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — skipping the push (the preflight step already validated it is safe to skip here)."
-              continue
-            fi
-            printf '%s' "$value" | pnpm exec wrangler secret put "$name" --env "$TARGET_ENVIRONMENT"
-          done <<< "$POST_DEPLOY_SECRETS"
+  post-prod:
+    name: Post-deploy (production)
+    needs: [deploy-prod, deploy-web-prod, deploy-users-prod, deploy-maintenance-prod, deploy-root-prod]
+    uses: ./.github/workflows/_post-deploy-test.yml
+    with:
+      environment: production
+      suite: smoke
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}

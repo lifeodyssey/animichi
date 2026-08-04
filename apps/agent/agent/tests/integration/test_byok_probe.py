@@ -99,6 +99,31 @@ async def test_anonymous_caller_with_byok_headers_is_rejected() -> None:
     assert response.json()["error"]["code"] == "byok_requires_login"
 
 
+@pytest.mark.parametrize(
+    "user_type_header",
+    [{}, {"X-User-Type": "authenticated"}],
+    ids=["missing_user_type", "wrong_user_type_value"],
+)
+async def test_anon_id_prefix_gates_the_probe_without_the_literal_anonymous_type(
+    user_type_header: dict[str, str],
+) -> None:
+    """Regression (issue #741 sibling fix): `_probe_login_rejection` mirrors
+    `chat.py::_byok_login_rejection`'s (formerly bare `user_type` literal)
+    gate. An `anon_`-prefixed X-User-Id with a missing or mistyped
+    X-User-Type is anonymous by the ID convention even though it never
+    equals the literal string "anonymous" — every other test in this file
+    pairs the two, which is why this blind spot went uncovered."""
+    built = app()
+    headers = {"X-User-Id": "anon_0123456789abcdef0123456789abcdef"} | user_type_header
+    with patch(
+        "agent.interfaces.routes.byok.build_byok_model",
+        AsyncMock(side_effect=AssertionError("must not resolve a BYOK model")),
+    ):
+        response = await post_probe(built, headers | BYOK_HEADERS)
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "byok_requires_login"
+
+
 async def test_the_cap_transport_is_installed_at_construction_never_reassigned() -> (
     None
 ):

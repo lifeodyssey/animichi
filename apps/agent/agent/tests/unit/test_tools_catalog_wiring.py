@@ -15,7 +15,7 @@ from agent.agents.animichi_tools import CATALOG_TOOL_TIMEOUT_SECONDS
 from agent.agents.animichi_tools import TOOLS as ANIMICHI_TOOLS
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.web_tools import TOOLS as WEB_TOOLS
-from agent.domain.ports import BangumiRepo, DatabasePort, PointsRepo
+from agent.domain.ports import BangumiRepo, CatalogLookup, PointsRepo
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.streaming_function_model import streaming_function_model
 
@@ -39,7 +39,7 @@ class _ExplodingDB:
         raise AssertionError("catalog tool touched the database")
 
 
-def _no_db() -> DatabasePort:
+def _no_db() -> CatalogLookup:
     return _ExplodingDB()
 
 

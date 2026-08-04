@@ -12,6 +12,15 @@ on:
       build_filter: { required: false, type: string, default: "" }
       run_pulumi: { required: false, type: boolean, default: true }
       worker_secrets: { required: false, type: string, default: "" }
+      optional_worker_secrets:
+        description: >-
+          Newline list of secret NAMES that are uploaded only when their value
+          is non-empty. For diagnostic-only secrets: a missing value must
+          never fail the deploy — the post-deploy check reports it loudly
+          instead. Names listed here must NOT also appear in worker_secrets.
+        type: string
+        required: false
+        default: ""
       # Newline-separated list of secret names that must be pushed via a raw
       # `wrangler secret put` step AFTER "Deploy Worker" (see that step for
       # why). Each name here must also have a matching entry in `secrets:`
@@ -51,8 +60,6 @@ on:
         required: false
       DEEPSEEK_API_KEY:
         required: false
-      GEMINI_API_KEY:
-        required: false
       GOOGLE_MAPS_API_KEY:
         required: false
       LOGFIRE_TOKEN:
@@ -62,6 +69,16 @@ on:
       TURNSTILE_SECRET:
         required: false
       ANON_ID_SECRET:
+        required: false
+      # Shared bearer secret gating GET /internal/auth-config (issue #709
+      # review follow-up). Pushed via `worker_secrets` below (not
+      # `post_deploy_secrets`): unlike TURNSTILE_SECRET/ANON_ID_SECRET it is
+      # not conditionally load-bearing on ANON_ACCESS_ENABLED, so it does not
+      # belong in that flag-gated preflight/push pair — see the
+      # "Preflight - post-deploy secrets" step's own comment for why that
+      # pairing is deliberately narrow to the Turnstile/anonymous-identity
+      # secrets, not a generic "add any new secret here" list.
+      POST_DEPLOY_DIAG_TOKEN:
         required: false
 jobs:
   deploy:
@@ -172,9 +189,9 @@ jobs:
       # backs the "validates before anything deploys" claim.
       #
       # TURNSTILE_SECRET and ANON_ID_SECRET are both only read from inside
-      # `handleAnonymousV1` (worker/app.ts), which `resolveAnonymous` only
+      # `handleAnonymousV1` (workers/edge/app.ts), which `resolveAnonymous` only
       # reaches when this environment's `ANON_ACCESS_ENABLED` var is "true"
-      # (worker/auth.ts:anonymousEnabled — both flag AND secret are required).
+      # (workers/edge/auth.ts:anonymousEnabled — both flag AND secret are required).
       # `wrangler.toml`'s `env.production.vars` currently sets it to "false",
       # so both secrets are genuinely inert there today; hard-failing
       # deploy-root-prod over a secret production doesn't read would be a
@@ -230,10 +247,10 @@ jobs:
             value="${!name-}"
             if [ -z "$value" ]; then
               if [ "$anon_flag" = "true" ]; then
-                echo "::error::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, where ANON_ACCESS_ENABLED=\"true\" makes it load-bearing (worker/turnstile.ts fails CLOSED — every anonymous request 403s without TURNSTILE_SECRET once ANON_ID_SECRET lets resolveAnonymous through at all). Refusing to start the deploy without it. Set it with: gh secret set $name"
+                echo "::error::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, where ANON_ACCESS_ENABLED=\"true\" makes it load-bearing (workers/edge/turnstile.ts fails CLOSED — every anonymous request 403s without TURNSTILE_SECRET once ANON_ID_SECRET lets resolveAnonymous through at all). Refusing to start the deploy without it. Set it with: gh secret set $name"
                 missing=1
               else
-                echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, but ANON_ACCESS_ENABLED is not \"true\" there, so this environment's code path never reads it (see worker/auth.ts:anonymousEnabled). Soft warning only; the post-deploy push step will skip it."
+                echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, but ANON_ACCESS_ENABLED is not \"true\" there, so this environment's code path never reads it (see workers/edge/auth.ts:anonymousEnabled). Soft warning only; the post-deploy push step will skip it."
               fi
               continue
             fi
@@ -374,12 +391,23 @@ jobs:
           if [ -z "$NEON_DATABASE_URL" ]; then
             echo "NEON_DATABASE_URL not set — skipping atlas migrate"; exit 0
           fi
-          curl -sSfL "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
+          curl -sSfL --proto '=https' --proto-redir '=https' "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
+          # Hardcoded, not fetched alongside the binary from the same channel
+          # (that would only prove the download wasn't corrupted in transit,
+          # not that the upstream artifact itself is the one this repo
+          # reviewed). Keep synchronized with
+          # apps/agent/agent/tests/atlas_helper.py's ATLAS_LINUX_AMD64_SHA256
+          # and ci.yml's two "Install pinned Atlas CLI" steps — all four
+          # pin the same v0.30.0 linux/amd64 artifact.
+          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  /usr/local/bin/atlas" \
+            | sha256sum --check --strict
           chmod +x /usr/local/bin/atlas
           case "$NEON_DATABASE_URL" in
             *\?*) scoped_url="${NEON_DATABASE_URL}&search_path=public" ;;
             *) scoped_url="${NEON_DATABASE_URL}?search_path=public" ;;
           esac
+          # 486: the manual thin-caller path has no db-validate job, so validate here (cheap, seconds) before mutating.
+          atlas migrate validate --dir "file://db/migrations"
           atlas migrate apply --dir "file://db/migrations" --url "$scoped_url" --revisions-schema public
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
@@ -522,6 +550,80 @@ jobs:
       - name: Verify root container Dockerfile
         if: ${{ inputs.component == 'root' }}
         run: test -f Dockerfile
+      - name: Resolve effective worker secrets
+        id: effective_secrets
+        # Optional (diagnostic-only) secrets are appended to the upload list
+        # only when their value is present. wrangler-action's uploadSecrets()
+        # hard-fails on any listed name whose env value is empty — which is
+        # correct for load-bearing secrets and wrong for diagnostics: on
+        # 2026-08-04 an unconfigured POST_DEPLOY_DIAG_TOKEN blocked every
+        # staging deploy (run 30895422110). A diagnostic credential must not
+        # be able to block delivery; the post-deploy check owns that failure.
+        shell: bash
+        env:
+          REQUIRED_LIST: ${{ inputs.worker_secrets }}
+          OPTIONAL_LIST: ${{ inputs.optional_worker_secrets }}
+          # Same env block as the Deploy Worker step below — the indirect
+          # `${!name}` expansion above looks up OPTIONAL_LIST names here, so
+          # every secret that could be optional must be present in env.
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+          POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
+        run: |
+          effective="$REQUIRED_LIST"
+          while IFS= read -r name; do
+            name="${name//$'\r'/}"          # tolerate CRLF checkouts
+            name="${name#"${name%%[![:space:]]*}"}"   # ltrim
+            name="${name%"${name##*[![:space:]]}"}"   # rtrim
+            [ -z "$name" ] && continue
+            if ! [[ "$name" =~ ^[A-Z][A-Z0-9_]*$ ]]; then
+              echo "::warning title=optional secret ignored::'$name' is not a valid secret name (expected ^[A-Z][A-Z0-9_]*$); skipping"
+              continue
+            fi
+            if [ -n "${!name:-}" ]; then
+              effective="$effective"$'\n'"$name"
+            else
+              echo "::warning title=optional secret skipped::$name is unset; deploy continues, post-deploy check will report it"
+            fi
+          done <<< "$OPTIONAL_LIST"
+          {
+            echo "list<<EOF"
+            printf '%s\n' "$effective" | sed '/^[[:space:]]*$/d'
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      # #494: bake git metadata into the container image. The root image is
+      # built by the "Deploy Worker" step below (`wrangler deploy`, driven by
+      # wrangler.toml's [[containers]] image = "./Dockerfile"), and wrangler
+      # cannot pass `--build-arg` through to docker (workers-sdk #12991). So we
+      # write apps/agent/agent/build_info.py into the build context instead;
+      # the Dockerfile's existing `COPY apps/agent/agent /app/agent` ships it
+      # into the image at build time. The file is gitignored (#494) and
+      # regenerated on every deploy, so it never goes stale in a PR.
+      - name: Bake git build info for root container
+        if: ${{ inputs.component == 'root' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Whitelist-sanitize: a ref name may contain characters that break a
+          # quoted Python literal; GITHUB_SHA is hex and safe as-is.
+          branch="${GITHUB_REF_NAME//[^A-Za-z0-9._\/-]/-}"
+          mkdir -p apps/agent/agent
+          cat > apps/agent/agent/build_info.py <<EOF
+          """Build-time git metadata baked by CI (#494). Do not edit."""
+
+          GIT_COMMIT = "${GITHUB_SHA::7}"
+          GIT_BRANCH = "${branch}"
+          EOF
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
@@ -550,7 +652,7 @@ jobs:
           workingDirectory: ${{ inputs.working_directory }}
           command: deploy
           environment: ${{ inputs.environment }}
-          secrets: ${{ inputs.worker_secrets }}
+          secrets: ${{ steps.effective_secrets.outputs.list }}
         env:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
@@ -561,10 +663,10 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+          POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
       # Deliberately NOT part of the wrangler-action `secrets:` list above (the
       # one populating `worker_secrets`): that list is uploaded via
       # wrangler-action's own `uploadSecrets()`, which runs `wrangler secret

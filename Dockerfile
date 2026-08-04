@@ -15,11 +15,19 @@ WORKDIR /app
 
 COPY apps/agent/pyproject.toml apps/agent/uv.lock /app/
 
-RUN uv sync --no-dev --no-install-project
+# --no-build is safe only here: --no-install-project skips the local editable
+# package (the one thing in this project with no wheel), so it doesn't hit
+# the failure documented on the second `uv sync` below and in
+# .github/workflows/purge-anonymous-sessions.yml's NOTE.
+RUN uv sync --no-dev --no-install-project --frozen --no-build
 
 COPY apps/agent/agent /app/agent
 
-RUN uv sync --no-dev
+# --no-build rejected here: this `uv sync` installs the local editable
+# project itself, which has no wheel ("marked as --no-build but has no
+# binary distribution", verified locally) — same finding as the reusable
+# Python CI workflows and purge-anonymous-sessions.yml.
+RUN uv sync --no-dev --frozen
 
 FROM public.ecr.aws/docker/library/python:3.11.13-slim
 
@@ -42,6 +50,18 @@ WORKDIR /app
 COPY --from=builder /app /app
 
 RUN useradd -r -s /bin/false appuser
+
+# #494: build-time git metadata. The CI deploy path builds this image through
+# `wrangler deploy` (wrangler.toml [[containers]] image = "./Dockerfile"), which
+# cannot pass `--build-arg` (workers-sdk #12991) — CI instead bakes
+# apps/agent/agent/build_info.py before deploying, and the existing COPY of
+# that directory ships it into /app/agent. These ARG/ENV pairs cover manual
+# `docker build --build-arg GIT_COMMIT=... GIT_BRANCH=...` builds; empty
+# defaults keep a plain build healthy (health.py falls through to git).
+ARG GIT_COMMIT=""
+ARG GIT_BRANCH=""
+ENV GIT_COMMIT=${GIT_COMMIT} \
+    GIT_BRANCH=${GIT_BRANCH}
 USER appuser
 
 EXPOSE 8080

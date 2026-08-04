@@ -93,8 +93,6 @@ order. Apply migrations in a dedicated deploy step, not at application startup.
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase auth |
 | `SUPABASE_ANON_KEY` | JWT validation at Worker edge |
-| `ANITABI_API_URL` | Anitabi pilgrimage data API |
-| `GEMINI_API_KEY` | Platform vision provider for photo-search (always mounted, not gated on the chat model) |
 
 **Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
@@ -135,7 +133,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 - `workers/catalog/` — Cloudflare Worker: anime catalog REST API (TypeScript)
 - `packages/contract/` — shared oRPC contract types (catalog ↔ agent)
 - `apps/web/` — TanStack Start SSR web app and UI components
-- `worker/` — Cloudflare Worker entrypoint for auth and request routing
+- `workers/edge/` — Cloudflare Worker entrypoint for auth and request routing
 - `db/migrations/` — Atlas migrations and generated checksum for the Neon data plane
 - `supabase/` — auth/legacy compatibility migrations and Supabase project assets
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans

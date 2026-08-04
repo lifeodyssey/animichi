@@ -23,6 +23,7 @@ from agent.interfaces.anon_quota import (
     QUOTA_RESETS_AT_FIELD,
     anonymous_quota_verdict,
 )
+from agent.interfaces.db_repos import anon_quota_repo, usage_repo
 from agent.interfaces.public_api import RuntimeAPI
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
@@ -46,8 +47,8 @@ from agent.interfaces.routes.chat_stream import stream_chat
 from agent.interfaces.schemas import PublicAPIRequest, PublicAPIResponse
 from agent.interfaces.usage_metering import (
     ANON_BUDGET_EXHAUSTED_CODE,
-    ANONYMOUS_USER_TYPE,
     anonymous_budget_verdict,
+    is_anonymous_identity,
 )
 
 _PREFLIGHT_STATE = "chat_body_preflight_complete"
@@ -120,12 +121,20 @@ async def _budget_rejection(
 
     Only anonymous callers are gated — logged-in traffic never reaches the
     ``daily_usage`` read, let alone the rejection.
+
+    Routes through `is_anonymous_identity` rather than a bare
+    `user_type != ANONYMOUS_USER_TYPE` check (issue #741): a literal check
+    only catches a caller whose `X-User-Type` is exactly `"anonymous"`; an
+    `anon_`-prefixed `X-User-Id` with a missing or mistyped `X-User-Type` is
+    anonymous by the ID convention too, and `is_anonymous_identity` is what
+    the rest of this module and `usage_metering.scope_for_identity` already
+    treat as ground truth.
     """
-    if auth.user_type != ANONYMOUS_USER_TYPE:
+    if not is_anonymous_identity(auth.user_id, auth.user_type):
         return None
     settings = _get_settings_from_request(request)
     verdict = await anonymous_budget_verdict(
-        _get_db_from_request(request),
+        usage_repo(_get_db_from_request(request)),
         budget_usd=settings.anon_daily_cost_budget_usd,
     )
     return _budget_exhausted_response() if verdict.exhausted else None
@@ -154,12 +163,15 @@ async def _quota_rejection(
     rejected the turn: the global dollar breaker is the more severe, systemic
     concern and wins ties over one visitor's own message ceiling. Only
     anonymous callers are gated — logged-in traffic is never metered here.
+
+    Routes through `is_anonymous_identity` rather than a bare `user_type`
+    literal (issue #741) for the same reason as `_budget_rejection` above.
     """
-    if auth.user_type != ANONYMOUS_USER_TYPE or auth.user_id is None:
+    if auth.user_id is None or not is_anonymous_identity(auth.user_id, auth.user_type):
         return None
     settings = _get_settings_from_request(request)
     verdict = await anonymous_quota_verdict(
-        _get_db_from_request(request),
+        anon_quota_repo(_get_db_from_request(request)),
         anon_id=auth.user_id,
         quota=settings.anon_daily_message_quota,
     )
@@ -172,8 +184,25 @@ BYOK_REQUIRES_LOGIN_MESSAGE = "BYOKを使うにはログインが必要です。
 def _byok_login_rejection(
     request: Request, auth: TrustedAuthContext
 ) -> JSONResponse | None:
-    """Reject anonymous BYOK presence before parsing its credential shape."""
-    if auth.user_type != ANONYMOUS_USER_TYPE or not _has_byok_headers(request):
+    """Reject anonymous BYOK presence before parsing its credential shape.
+
+    Routes through `is_anonymous_identity` — the single canonical "is this
+    caller anonymous" predicate, also used above by `_budget_rejection` and
+    `_quota_rejection` — rather than a bare `user_type != ANONYMOUS_USER_TYPE`
+    check (issue #741, mirrors the #656 fix in `photo_search_guards.py`). A
+    literal check only catches a caller whose `X-User-Type` is exactly
+    `"anonymous"`; an `anon_`-prefixed `X-User-Id` with a missing or
+    mistyped `X-User-Type` is anonymous by the ID convention too, and
+    `is_anonymous_identity` is what quota metering already treats as ground
+    truth. Without this, that same caller would clear the login gate here
+    yet still resolve to the "anon" scope for billing — one request, two
+    different identity verdicts, and the gap between them was a BYOK bypass
+    for anonymous callers (confirmed in production: the request reached
+    `build_byok_model` and returned 400 egress-validation instead of 403).
+    """
+    if not is_anonymous_identity(auth.user_id, auth.user_type) or not _has_byok_headers(
+        request
+    ):
         return None
     return _error_response(
         "byok_requires_login", BYOK_REQUIRES_LOGIN_MESSAGE, status_code=403

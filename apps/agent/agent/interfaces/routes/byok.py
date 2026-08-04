@@ -7,7 +7,7 @@ configured model accepts an image part, so configuring a key costs the user
 exactly one probe request instead of two.
 
 Authenticated route only (login-gated like the rest of BYOK): not listed in
-`worker/app.ts`'s `ANON_V1`, so an unauthenticated caller is rejected at the
+`workers/edge/app.ts`'s `ANON_V1`, so an unauthenticated caller is rejected at the
 edge with a 401 before this ever runs (T5-AC5). The container repeats the
 login gate anyway (defense in depth, mirrors `chat.py::_byok_login_rejection`)
 in case this route is ever reached directly.
@@ -66,7 +66,7 @@ from agent.interfaces.routes._deps import (
     _has_byok_headers,
     _require_trusted_user,
 )
-from agent.interfaces.usage_metering import ANONYMOUS_USER_TYPE
+from agent.interfaces.usage_metering import is_anonymous_identity
 
 logger = structlog.get_logger(__name__)
 
@@ -254,7 +254,17 @@ def _probe_response(result: ProbeResult) -> JSONResponse:
 def _probe_login_rejection(
     auth: TrustedAuthContext, request: Request
 ) -> JSONResponse | None:
-    if auth.user_type != ANONYMOUS_USER_TYPE or not _has_byok_headers(request):
+    """Mirrors `chat.py::_byok_login_rejection` — including its fix (#741).
+
+    Routes through `is_anonymous_identity` rather than a bare
+    `user_type != ANONYMOUS_USER_TYPE` check: an `anon_`-prefixed
+    `X-User-Id` with a missing or mistyped `X-User-Type` is anonymous by the
+    ID convention too, and a literal check here would let that caller reach
+    the real credential-probing model call.
+    """
+    if not is_anonymous_identity(auth.user_id, auth.user_type) or not _has_byok_headers(
+        request
+    ):
         return None
     return _error_response(
         "byok_requires_login", "BYOKを使うにはログインが必要です。", status_code=403

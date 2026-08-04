@@ -48,7 +48,7 @@ from agent.agents.tool_event_bridge import tool_event_bridge
 from agent.agents.tool_state import ToolState
 from agent.agents.web_trust import detect_prompt_injection
 from agent.clients.catalog_client import CatalogClientProtocol
-from agent.domain.ports import DatabasePort
+from agent.domain.ports import CatalogLookup
 
 logger = structlog.get_logger(__name__)
 
@@ -158,7 +158,7 @@ def _terminal_status(raw_output: AgentResultOutput) -> tuple[str | None, bool | 
 async def run_animichi_agent(
     *,
     text: str,
-    db: DatabasePort,
+    db: CatalogLookup,
     locale: str,
     catalog: CatalogClientProtocol,
     model: Model | str | None = None,
