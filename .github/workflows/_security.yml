@@ -234,14 +234,16 @@ jobs:
 
   post-deploy-assert-test:
     timeout-minutes: 30
-    name: post-deploy-assert.sh (shellcheck + behavior)
+    name: post-deploy smoke scripts (shellcheck + behavior)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: shellcheck
-        run: shellcheck .github/scripts/post-deploy-assert.sh .github/scripts/post-deploy-assert.test.sh
+        run: |
+          shellcheck .github/scripts/post-deploy-assert.sh .github/scripts/post-deploy-assert.test.sh \
+            .github/scripts/resolve-worker-url.sh .github/scripts/resolve-worker-url.test.sh
         shell: bash
       # #522: this is the gate that decides whether a real 404 (app broken,
       # or the branded 404 page) fails a deploy immediately versus a
@@ -250,4 +252,12 @@ jobs:
       # local mock server; no bats/JS test runner in this repo to hook into.
       - name: post-deploy-assert.sh behavioral tests
         run: bash .github/scripts/post-deploy-assert.test.sh
+        shell: bash
+      # #695: resolve-worker-url.sh is the thing that decides WHAT the smoke
+      # gate above even probes. Same throwaway-mock-server approach, this
+      # time mocking the Cloudflare API instead of the deployed app —
+      # including a direct comparison against a frozen snapshot of the
+      # pre-#695 hardcoded behavior (see the test file header).
+      - name: resolve-worker-url.sh behavioral tests
+        run: bash .github/scripts/resolve-worker-url.test.sh
         shell: bash

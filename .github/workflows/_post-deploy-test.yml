@@ -2,10 +2,15 @@ name: post-deploy-test
 
 # Reusable post-deploy test harness (issue #484). Runs real HTTP assertions
 # against an already-deployed environment via .github/scripts/post-deploy-assert.sh.
-# URLs are derived from the Worker naming convention in wrangler.toml /
-# apps/web/wrangler.jsonc plus the account's workers.dev subdomain — see
-# .github/scripts/resolve-worker-url.sh. This is NOT a network liveness probe
-# used to guess the URL; it is a deterministic name -> URL mapping.
+# URLs are resolved by .github/scripts/resolve-worker-url.sh, which reads the
+# Worker script name from wrangler.toml / apps/web/wrangler.jsonc and then
+# queries Cloudflare for that exact script's ACTUAL live state — its
+# attached Custom Domain if one exists, else its workers.dev URL if that's
+# enabled (issue #695: this used to be a hardcoded hostname table, which
+# silently kept probing a stale address whenever the real deploy target
+# changed underneath it — a different Cloudflare account, or #541's
+# domain cutover). This is NOT a network liveness probe used to guess the
+# URL; it is a read of Cloudflare's own routing state for this Worker.
 #
 # Status (2026-07-29, issue #484): the `changes` job upstream of every deploy
 # job (dorny/paths-filter, checkout with persist-credentials:false + shallow
@@ -48,9 +53,11 @@ on:
       # passed, not that its value is non-empty — an unconfigured repo
       # variable would resolve to "" and hard-fail this job on every run,
       # blocking every production deploy behind it. The read scope this
-      # secret is used for here (GET .../workers/subdomain) is narrower than
-      # deploy, but that's a token-scoping concern, not an account-id one —
-      # see the PR discussion on #493 if revisiting this.
+      # secret is used for here (resolve-worker-url.sh's GET calls against
+      # .../workers/domains, .../workers/scripts/{name}/subdomain, and
+      # .../workers/subdomain — issue #695) is narrower than deploy, but
+      # that's a token-scoping concern, not an account-id one — see the PR
+      # discussion on #493 if revisiting this.
       CLOUDFLARE_ACCOUNT_ID:
         required: true
   # Lets an operator manually re-run a suite against an already-deployed
