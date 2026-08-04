@@ -5,11 +5,19 @@ Covers: GET /healthz, CORS middleware, create_fastapi_app state.
 
 from __future__ import annotations
 
+import importlib
+import re
+import sys
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
+
+from pytest import MonkeyPatch
 
 from agent.config.settings import Settings
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.interfaces.public_api import RuntimeAPI
+from agent.interfaces.routes import health
 from agent.tests.unit.conftest_fastapi import (
     async_client,
     build_app,
@@ -106,3 +114,72 @@ async def test_app_state_accessible_when_injected() -> None:
     assert app.state.runtime_api is runtime_api
     assert app.state.settings is settings
     assert app.state.db_client is mock_db
+
+
+# ---------------------------------------------------------------------------
+# #494: /healthz git_commit / git_branch resolve baked build_info.py -> env
+# vars -> git shell-out -> "unknown". The values are captured at module load,
+# so each test sets up its condition, reloads the module, then asserts
+# through the endpoint.
+# ---------------------------------------------------------------------------
+
+
+async def test_healthz_reports_baked_build_info(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setitem(
+        sys.modules,
+        "agent.build_info",
+        SimpleNamespace(GIT_COMMIT="baked0ab", GIT_BRANCH="baked-branch"),
+    )
+    importlib.reload(health)
+    app, _ = build_app()
+    async with async_client(app) as client:
+        resp = await client.get("/healthz")
+
+    body = resp.json()
+    assert body["git_commit"] == "baked0ab"
+    assert body["git_branch"] == "baked-branch"
+
+
+async def test_healthz_reports_git_env_vars(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("GIT_COMMIT", "env0000")
+    monkeypatch.setenv("GIT_BRANCH", "env-branch")
+    importlib.reload(health)
+    app, _ = build_app()
+    async with async_client(app) as client:
+        resp = await client.get("/healthz")
+
+    body = resp.json()
+    assert body["git_commit"] == "env0000"
+    assert body["git_branch"] == "env-branch"
+
+
+async def test_healthz_git_fallback_returns_real_commit(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GIT_COMMIT", raising=False)
+    monkeypatch.delenv("GIT_BRANCH", raising=False)
+    monkeypatch.delitem(sys.modules, "agent.build_info", raising=False)
+    importlib.reload(health)
+    app, _ = build_app()
+    async with async_client(app) as client:
+        resp = await client.get("/healthz")
+
+    body = resp.json()
+    assert re.fullmatch(r"[0-9a-f]{7,}", body["git_commit"])
+
+
+async def test_healthz_git_absent_returns_unknown(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("GIT_COMMIT", raising=False)
+    monkeypatch.delenv("GIT_BRANCH", raising=False)
+    monkeypatch.delitem(sys.modules, "agent.build_info", raising=False)
+    monkeypatch.chdir(tmp_path)
+    importlib.reload(health)
+    app, _ = build_app()
+    async with async_client(app) as client:
+        resp = await client.get("/healthz")
+
+    body = resp.json()
+    assert body["git_commit"] == "unknown"
+    assert body["git_branch"] == "unknown"
