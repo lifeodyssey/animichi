@@ -166,3 +166,15 @@ async def test_aclose_geocoding_client_closes_and_resets_client(
 
     client.aclose.assert_awaited_once()
     assert geocoding._client is None
+
+
+async def test_aclose_geocoding_client_ignores_close_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = MagicMock()
+    client.aclose = AsyncMock(side_effect=RuntimeError("boom"))
+    monkeypatch.setattr(geocoding, "_client", client)
+
+    await geocoding.aclose_geocoding_client()
+
+    assert geocoding._client is None
