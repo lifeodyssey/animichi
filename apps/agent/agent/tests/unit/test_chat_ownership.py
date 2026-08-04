@@ -44,8 +44,6 @@ class _ChatOwnershipHarness:
         self.db.session.check_session_owner = AsyncMock(side_effect=self._owns)
         self.db.session.create_owned_session.side_effect = self._create_owned
         self.db.session.upsert_conversation.side_effect = self._claim
-        self.db.insert_message = AsyncMock()
-        self.db.insert_request_log = AsyncMock()
         self.app, _ = build_app(runtime_api=_runtime(self.db, self.store), db=self.db)
 
     async def _owns(self, session_id: str, user_id: str) -> bool:
@@ -81,7 +79,7 @@ class _ChatOwnershipHarness:
             self.owners[session_id],
             deepcopy(state),
             self.db.session.upsert_conversation.await_count,
-            self.db.insert_message.await_count,
+            self.db.messages.insert_message.await_count,
         )
 
 

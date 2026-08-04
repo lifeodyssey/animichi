@@ -28,17 +28,23 @@ per-repo ``getattr`` + ``iscoroutinefunction`` + ``cast`` survives (one
 ``cast`` per repo, each narrowing to that repo's own Protocol — never a
 `cast(DatabasePort, ...)`-style aggregate), but it no longer lives in
 ``domain/ports.py`` as a reflective aggregate-adjacent API — it is seven
-tiny, single-purpose, non-exported functions consolidated here, each called
-exactly once (from ``RuntimeAPI.__init__``) instead of scattered across call
-sites, and every downstream consumer takes the resolved Protocol directly as
-a typed parameter.
+tiny, single-purpose, non-exported functions consolidated here instead of
+scattered across call sites, and every downstream consumer takes the
+resolved Protocol directly as a typed parameter.
 
-``RuntimeAPI`` (``agent.interfaces.public_api``) is the sole caller: it
-resolves every repo it needs exactly once, in its constructor, and every
-downstream function (``persistence.py``, ``usage_metering.py``,
-``anon_quota.py``) takes the typed repo directly as a parameter instead of
-the raw ``db``. "Repo absent" is expressed by the extractor returning
-``None``, never by a runtime probe deeper in the call chain.
+Callers: ``RuntimeAPI.__init__`` (``agent.interfaces.public_api``) is the
+primary one — it resolves every repo it needs exactly once, in its
+constructor, and every downstream function (``persistence.py``,
+``usage_metering.py``, ``anon_quota.py``) takes the typed repo directly as a
+parameter instead of the raw ``db``. ``usage_repo``/``anon_quota_repo`` also
+have two direct callers outside ``RuntimeAPI``: the anonymous-budget and
+per-identity-quota gates in ``agent.interfaces.routes.chat`` and
+``agent.interfaces.routes.photo_search`` read them straight off
+``request.app.state.db_client`` before those container-ingress checks run
+(they gate a turn before ``RuntimeAPI.handle`` is even called, so there is no
+``RuntimeAPI`` instance yet to resolve them on). "Repo absent" is expressed
+by the extractor returning ``None`` to whichever of these callers invoked
+it, never by a runtime probe deeper in the call chain.
 """
 
 from __future__ import annotations
