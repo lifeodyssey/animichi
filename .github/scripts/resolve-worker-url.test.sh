@@ -17,6 +17,17 @@
 # real, live workers.dev URL instead. Case 4 then proves the forward
 # direction: once a Custom Domain appears in the mock (the #541 cutover),
 # the NEW script picks it up with no code change.
+#
+# Cases 5 and 6 (added on review round 2) cover the same failure MODE one
+# layer down, inside the Cloudflare API calls themselves rather than the
+# URL table: Case 5 proves a 200-with-`success:false` response (a real
+# thing Cloudflare does — bad token scope, missing resource, etc.) fails
+# loudly instead of being read as "no Custom Domain found" and silently
+# falling back to a plausible-but-wrong workers.dev guess. Case 6 proves
+# the Custom Domains lookup finds the target Worker's domain via
+# server-side filtering (`?service=<name>`) regardless of how many OTHER
+# domains the account has — not via client-side pagination that could
+# silently stop short of the right page.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -77,7 +88,7 @@ test_resolves_workers_dev_when_no_custom_domain() {
   local port=18901 pid rc=0 out
   start_mock "${port}" "
 ROUTES = {
-    '/accounts/mock-account/workers/domains?per_page=50': '${NO_CUSTOM_DOMAINS}',
+    '/accounts/mock-account/workers/domains?service=animichi-staging': '${NO_CUSTOM_DOMAINS}',
     '/accounts/mock-account/workers/scripts/animichi-staging/subdomain': '{\"success\":true,\"result\":{\"enabled\":true}}',
     '/accounts/mock-account/workers/subdomain': '{\"success\":true,\"result\":{\"subdomain\":\"mock-subdomain\"}}',
 }
@@ -98,7 +109,7 @@ test_resolves_custom_domain_when_attached() {
   local port=18902 pid rc=0 out
   start_mock "${port}" "
 ROUTES = {
-    '/accounts/mock-account/workers/domains?per_page=50': '{\"success\":true,\"result\":[{\"service\":\"animichi-web\",\"hostname\":\"app.animichi.com\",\"zone_id\":\"z\",\"zone_name\":\"animichi.com\"}]}',
+    '/accounts/mock-account/workers/domains?service=animichi-web': '{\"success\":true,\"result\":[{\"service\":\"animichi-web\",\"hostname\":\"app.animichi.com\",\"zone_id\":\"z\",\"zone_name\":\"animichi.com\"}]}',
 }
 "
   pid=$!
@@ -135,7 +146,7 @@ test_old_script_would_have_lied_new_script_does_not() {
   local port=18903 pid rc_new=0 out_old out_new
   start_mock "${port}" "
 ROUTES = {
-    '/accounts/mock-account/workers/domains?per_page=50': '${NO_CUSTOM_DOMAINS}',
+    '/accounts/mock-account/workers/domains?service=animichi': '${NO_CUSTOM_DOMAINS}',
     '/accounts/mock-account/workers/scripts/animichi/subdomain': '{\"success\":true,\"result\":{\"enabled\":true}}',
     '/accounts/mock-account/workers/subdomain': '{\"success\":true,\"result\":{\"subdomain\":\"mock-subdomain\"}}',
 }
@@ -166,7 +177,7 @@ test_fails_loudly_when_unreachable() {
   local port=18904 pid rc=0 out
   start_mock "${port}" "
 ROUTES = {
-    '/accounts/mock-account/workers/domains?per_page=50': '${NO_CUSTOM_DOMAINS}',
+    '/accounts/mock-account/workers/domains?service=animichi-web': '${NO_CUSTOM_DOMAINS}',
     '/accounts/mock-account/workers/scripts/animichi-web/subdomain': '{\"success\":true,\"result\":{\"enabled\":false}}',
 }
 "
@@ -180,9 +191,81 @@ ROUTES = {
   echo "PASS: fails loudly instead of guessing when the Worker has no reachable URL"
 }
 
+# ── Case 5 (mutation-proof, review round 2 #1): Cloudflare answers HTTP 200
+#    with `success:false` (insufficient token scope, resource not found,
+#    etc — a real thing CF does, not a hypothetical). `result` on such a
+#    response is typically `null`/absent. Before this case existed, an
+#    unchecked script would read that as "no Custom Domain" and silently
+#    fall through to workers.dev, reporting a plausible-looking URL that
+#    has nothing to do with why the API call actually failed — the exact
+#    "quietly probes the wrong target and calls it success" failure mode
+#    issue #695 exists to remove, one layer up (the API call itself,
+#    instead of the URL table). The fix must fail loudly and surface the
+#    `errors` array instead. ──────────────────────────────────────────────
+test_fails_loudly_on_cf_success_false() {
+  local port=18905 pid rc=0 out
+  start_mock "${port}" "
+ROUTES = {
+    '/accounts/mock-account/workers/domains?service=animichi-web': '{\"success\":false,\"result\":null,\"errors\":[{\"code\":10000,\"message\":\"Authentication error\"}]}',
+}
+"
+  pid=$!
+  wait_for_port "${port}"
+  out="$(CLOUDFLARE_API_BASE_URL="http://127.0.0.1:${port}" CLOUDFLARE_API_TOKEN=t CLOUDFLARE_ACCOUNT_ID=mock-account \
+    bash "${RESOLVE_SH}" web production 2>&1)" || rc=$?
+  stop_mock "${pid}"
+  [ "${rc}" -ne 0 ] || fail_test "expected failure on success:false, got exit 0 (silently fell back to a guess): ${out}"
+  echo "${out}" | grep -q "success:false" || fail_test "missing the success:false diagnostic in output: ${out}"
+  echo "${out}" | grep -q "Authentication error" || fail_test "missing CF's own errors array in the diagnostic: ${out}"
+  echo "PASS: fails loudly and surfaces CF's errors array on a 200-with-success:false response"
+  echo "  real output: ${out}"
+}
+
+# ── Case 6 (mutation-proof, review round 2 #2): the Custom Domains request
+#    is filtered server-side (`?service=<worker_name>`), not fetched
+#    unfiltered-then-paginated. This mock proves that filtering is what
+#    actually happens, not an accident of a large-enough page size: the
+#    UNFILTERED path (what a client-side-pagination implementation would
+#    hit first) is wired to return a target-domains list that does NOT
+#    include this Worker's domain — standing in for "the real domain sits
+#    past whatever page boundary a per_page cap drew". Only the FILTERED
+#    path has the correct answer. If resolve-worker-url.sh ever regressed
+#    to requesting the unfiltered/paginated shape, this test would get the
+#    wrong hostname (or fall through to workers.dev) instead of the
+#    Custom Domain that is actually attached. ───────────────────────────
+test_finds_target_domain_via_server_side_filter_not_pagination() {
+  local port=18906 pid rc=0 out other_domains_json
+  other_domains_json="$(python3 -c "
+import json
+others = [{'service': f'unrelated-worker-{i}', 'hostname': f'unrelated-{i}.animichi.com', 'zone_id': 'z', 'zone_name': 'animichi.com'} for i in range(50)]
+print(json.dumps({'success': True, 'result': others}))
+")"
+  start_mock "${port}" "
+ROUTES = {
+    # What an UNFILTERED, page-capped request would see: 50 OTHER workers'
+    # Custom Domains, none of which is ours — i.e. our domain is 'past the
+    # page boundary' from this request's point of view.
+    '/accounts/mock-account/workers/domains?per_page=50': '${other_domains_json}',
+    # What the ACTUAL (filtered) request sees: exactly our Worker's domain.
+    '/accounts/mock-account/workers/domains?service=animichi-web-staging': '{\"success\":true,\"result\":[{\"service\":\"animichi-web-staging\",\"hostname\":\"staging.animichi.com\",\"zone_id\":\"z\",\"zone_name\":\"animichi.com\"}]}',
+}
+"
+  pid=$!
+  wait_for_port "${port}"
+  out="$(CLOUDFLARE_API_BASE_URL="http://127.0.0.1:${port}" CLOUDFLARE_API_TOKEN=t CLOUDFLARE_ACCOUNT_ID=mock-account \
+    bash "${RESOLVE_SH}" web staging)" || rc=$?
+  stop_mock "${pid}"
+  [ "${rc}" -eq 0 ] || fail_test "expected success via the filtered request, got exit ${rc}"
+  [ "${out}" = "https://staging.animichi.com" ] || fail_test "expected the filtered Custom Domain, got: ${out} (this would happen if the script fell back to the unfiltered/paginated shape instead)"
+  echo "PASS: finds the target Worker's Custom Domain via server-side filtering, unaffected by how many other domains the account has"
+  echo "  real output: ${out}"
+}
+
 test_resolves_workers_dev_when_no_custom_domain
 test_resolves_custom_domain_when_attached
 test_old_script_would_have_lied_new_script_does_not
 test_fails_loudly_when_unreachable
+test_fails_loudly_on_cf_success_false
+test_finds_target_domain_via_server_side_filter_not_pagination
 
 echo "All resolve-worker-url.sh behavioral tests passed."
