@@ -66,7 +66,7 @@ from agent.interfaces.routes._deps import (
     _has_byok_headers,
     _require_trusted_user,
 )
-from agent.interfaces.usage_metering import ANONYMOUS_USER_TYPE
+from agent.interfaces.usage_metering import is_anonymous_identity
 
 logger = structlog.get_logger(__name__)
 
@@ -254,7 +254,17 @@ def _probe_response(result: ProbeResult) -> JSONResponse:
 def _probe_login_rejection(
     auth: TrustedAuthContext, request: Request
 ) -> JSONResponse | None:
-    if auth.user_type != ANONYMOUS_USER_TYPE or not _has_byok_headers(request):
+    """Mirrors `chat.py::_byok_login_rejection` — including its fix (#741).
+
+    Routes through `is_anonymous_identity` rather than a bare
+    `user_type != ANONYMOUS_USER_TYPE` check: an `anon_`-prefixed
+    `X-User-Id` with a missing or mistyped `X-User-Type` is anonymous by the
+    ID convention too, and a literal check here would let that caller reach
+    the real credential-probing model call.
+    """
+    if not is_anonymous_identity(auth.user_id, auth.user_type) or not _has_byok_headers(
+        request
+    ):
         return None
     return _error_response(
         "byok_requires_login", "BYOKを使うにはログインが必要です。", status_code=403

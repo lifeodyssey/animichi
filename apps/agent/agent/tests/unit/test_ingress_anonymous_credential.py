@@ -98,3 +98,40 @@ async def test_a_logged_in_stamp_is_unaffected_by_a_lingering_credential() -> No
     response = await _post(app, {**HUMAN_HEADERS, "Authorization": STALE_JWT})
     assert response.status_code == 200
     assert runtime.handle.await_count == 1
+
+
+async def test_anon_id_prefix_with_missing_type_is_still_rejected_with_credential() -> (
+    None
+):
+    """Regression (issue #741 sibling fix): an `anon_`-prefixed X-User-Id
+    carrying no X-User-Type header is anonymous by the ID convention, same
+    as `X-User-Type: anonymous` — a bare `user_type != ANONYMOUS_USER_TYPE`
+    check would have let this combination through with its stale credential
+    still attached, the exact blind spot none of this file's other tests
+    (all paired X-User-Id + X-User-Type: anonymous) covered."""
+    app, runtime = _app()
+    response = await _post(
+        app,
+        {
+            "X-User-Id": "anon_0123456789abcdef0123456789abcdef",
+            "Authorization": STALE_JWT,
+        },
+    )
+    assert response.status_code == 401
+    assert runtime.handle.await_count == 0
+
+
+async def test_anon_id_prefix_with_wrong_type_is_still_rejected_with_credential() -> (
+    None
+):
+    app, runtime = _app()
+    response = await _post(
+        app,
+        {
+            "X-User-Id": "anon_0123456789abcdef0123456789abcdef",
+            "X-User-Type": "authenticated",
+            "Authorization": STALE_JWT,
+        },
+    )
+    assert response.status_code == 401
+    assert runtime.handle.await_count == 0
