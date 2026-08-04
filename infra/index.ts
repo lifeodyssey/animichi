@@ -191,10 +191,19 @@ const stagingGateEnabled = config.getBoolean("stagingGateEnabled") ?? false;
 // clause (entries are space-separated inside the braces; plain IPs are allowed
 // alongside CIDRs). Empty list → no clause. Anything else is interpolated into
 // a firewall expression, so a non-IP entry must fail the build loudly.
+export function validateIpEntry(entry: string): boolean {
+  const v4 = entry.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?:\/(\d{1,2}))?$/);
+  if (v4 !== null) {
+    return !v4.slice(1, 5).some((octet) => Number(octet) > 255) && (v4[5] === undefined || Number(v4[5]) <= 32);
+  }
+  const v6 = entry.match(/^[0-9a-fA-F:]+(?:\/(\d{1,3}))?$/);
+  return v6 !== null && (v6[1] === undefined || Number(v6[1]) <= 128);
+}
+
 export function buildIpClause(raw: string): string {
   const entries = raw.split(",").map((entry) => entry.trim()).filter((entry) => entry.length > 0);
   if (entries.length === 0) return "";
-  const invalid = entries.find((entry) => !/^[0-9a-fA-F.:\/]+$/.test(entry));
+  const invalid = entries.find((entry) => !validateIpEntry(entry));
   if (invalid !== undefined) {
     throw new Error(`stagingAllowedIps entry "${invalid}" is not a valid IP or CIDR`);
   }
@@ -226,7 +235,7 @@ if (stagingGateEnabled && stack === "staging") {
   // none of them", and neither is visible until the rule is live. Explicit
   // grouping costs nothing and removes the question.
   const gateExpression = pulumi.secret(
-    pulumi.interpolate`(http.host eq "${stagingDomain}") and not (http.cookie contains "animichi_staging=${gateToken}") and not (any(http.request.headers["x-staging-key"][*] eq "${gateToken}"))${ipClause} and not (starts_with(http.request.uri.path, "/staging-gate/exchange"))`,
+    pulumi.interpolate`(http.host eq "${stagingDomain}") and not (http.cookie contains "animichi_staging=${gateToken}") and not (any(http.request.headers["x-staging-key"][*] eq "${gateToken}"))${ipClause} and not (http.request.uri.path eq "/staging-gate/exchange")`,
   );
 
   new cloudflare.Ruleset("staging-access-gate", {

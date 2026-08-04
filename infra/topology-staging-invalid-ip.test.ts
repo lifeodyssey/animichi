@@ -39,6 +39,20 @@ test("buildIpClause throws on a non-IP entry", () => {
   );
 });
 
+test("buildIpClause throws on an out-of-range IPv4 octet", () => {
+  assert.throws(
+    () => buildIpClause("999.1.1.1"),
+    /stagingAllowedIps entry "999\.1\.1\.1" is not a valid IP or CIDR/,
+  );
+});
+
+test("buildIpClause throws on an out-of-range CIDR prefix", () => {
+  assert.throws(
+    () => buildIpClause("10.0.0.0/40"),
+    /stagingAllowedIps entry "10\.0\.0\.0\/40" is not a valid IP or CIDR/,
+  );
+});
+
 test("buildIpClause joins valid entries space-separated", () => {
   assert.equal(
     buildIpClause(" 1.2.3.4, 203.0.113.0/24 , "),
