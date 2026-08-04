@@ -13,7 +13,13 @@ import pytest
 
 from agent.infrastructure.observability import photo_search as telemetry
 from agent.tests.unit.conftest_fastapi import async_client
-from agent.tests.unit.photo_search_route_fixtures import app_, body_, down_model
+from agent.tests.unit.photo_search_route_fixtures import (
+    app_,
+    body_,
+    confirm_body,
+    down_model,
+    post_photo_search_confirm,
+)
 
 
 async def test_photo_search_returns_chat_shaped_search_envelope() -> None:
@@ -41,14 +47,10 @@ async def test_confirm_records_user_confirmed_signal(
 ) -> None:
     counter = MagicMock()
     monkeypatch.setattr(telemetry, "_photo_searches", counter)
-    body = {
-        "query_type": "anime_screenshot",
-        "gps_available": False,
-        "layer_hit": "1",
-        "candidates_shown": 2,
-    }
-    async with async_client(app_()) as client:
-        response = await client.post("/v1/photo-search/confirm", json=body)
+    body = confirm_body(
+        query_type="anime_screenshot", layer_hit="1", candidates_shown=2
+    )
+    response = await post_photo_search_confirm(app_(), body=body)
     assert response.status_code == 204
     attributes = counter.add.call_args.args[1]
     assert attributes["user_confirmed"] is True
@@ -59,12 +61,8 @@ async def test_confirm_rejects_the_vision_unavailable_alert_signal() -> None:
     """#502 review round 2: the anonymous-reachable confirm endpoint must not
     be able to inject events into the "vision unavailable" ops-alert bucket
     — that value is server-derived only, never a real confirm outcome."""
-    body = {
-        "query_type": "vision_unavailable",
-        "gps_available": False,
-        "layer_hit": "none",
-        "candidates_shown": 0,
-    }
-    async with async_client(app_()) as client:
-        response = await client.post("/v1/photo-search/confirm", json=body)
+    body = confirm_body(
+        query_type="vision_unavailable", layer_hit="none", candidates_shown=0
+    )
+    response = await post_photo_search_confirm(app_(), body=body)
     assert response.status_code == 422
