@@ -11,15 +11,21 @@ import asyncio
 import os
 from dataclasses import dataclass, field
 
-from dotenv import load_dotenv
-
 from agent.infrastructure.safe_output_path import resolve_output_path
 
-load_dotenv()
 
-_DEFAULT_MODEL = os.environ.get(
-    "EVAL_MODEL", "openai:qwen3.5-9b@http://localhost:1234/v1"
-)
+def _default_model() -> str:
+    """Resolve the eval model from the environment at call time.
+
+    Deliberately lazy: a module-level ``load_dotenv()`` would run on every
+    import of this module (including from the unit test suite, which
+    imports it for coverage of ``run()``'s output-path guard) and pollute
+    the whole pytest process's environment with real secrets from the
+    repo-root ``.env`` for the remainder of the run — see #732, where this
+    was the actual source of a "random" CORS test failure two directories
+    away. ``load_dotenv()`` now only runs under the CLI entry point below.
+    """
+    return os.environ.get("EVAL_MODEL", "openai:qwen3.5-9b@http://localhost:1234/v1")
 
 
 @dataclass
@@ -73,7 +79,7 @@ async def mine(
         print("No bad feedback rows found.")
         return []
 
-    model = model_id or _DEFAULT_MODEL
+    model = model_id or _default_model()
     if isinstance(model, str) and "@" in model:
         name, base_url = model.split("@", 1)
         name = name.removeprefix("openai:")
@@ -124,6 +130,10 @@ async def run(
 
 if __name__ == "__main__":
     import argparse
+
+    from dotenv import load_dotenv
+
+    load_dotenv()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=100)
