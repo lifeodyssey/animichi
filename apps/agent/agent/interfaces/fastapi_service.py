@@ -114,8 +114,10 @@ async def _lifespan_build_runtime(
     try:
         yield
     finally:
-        await catalog_client.aclose()
-        await aclose_geocoding_client()
+        try:
+            await catalog_client.aclose()
+        finally:
+            await aclose_geocoding_client()
         await call_optional_async(runtime_session_store, "close")
         await call_optional_async(runtime_db, "close")
 
