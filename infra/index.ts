@@ -315,6 +315,14 @@ if (stagingGateEnabled && stack === "staging") {
   const gateZoneId = config.require("cloudflareZoneId");
   const stagingDomain = config.require("stagingDomain");
   const gateToken = config.requireSecret("stagingGateToken");
+  const gateTokenValidated = gateToken.apply((t) => {
+    if (!/^[A-Za-z0-9+/=_-]{16,}$/.test(t)) {
+      throw new Error(
+        "stagingGateToken must be >=16 chars of base64/hex/url-safe characters (no quotes, backslashes, or line breaks).",
+      );
+    }
+    return t;
+  });
 
   // #769: known-human egress IPs (CIDRs, comma-separated). Secret so the list
   // never lands readable in the public repo or an exported stack backup.
@@ -334,7 +342,7 @@ if (stagingGateEnabled && stack === "staging") {
   // none of them", and neither is visible until the rule is live. Explicit
   // grouping costs nothing and removes the question.
   const gateExpression = pulumi.secret(
-    pulumi.interpolate`(http.host eq "${stagingDomain}") and not (http.cookie contains "animichi_staging=${gateToken}") and not (any(http.request.headers["x-staging-key"][*] eq "${gateToken}"))${ipClause} and not (http.request.uri.path eq "/staging-gate/exchange")`,
+    pulumi.interpolate`(http.host eq "${stagingDomain}") and not (http.cookie contains "animichi_staging=${gateTokenValidated}") and not (any(http.request.headers["x-staging-key"][*] eq "${gateTokenValidated}"))${ipClause} and not (http.request.uri.path eq "/staging-gate/exchange")`,
   );
 
   new cloudflare.Ruleset("staging-access-gate", {
