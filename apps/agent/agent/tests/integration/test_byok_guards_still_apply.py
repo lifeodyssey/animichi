@@ -96,7 +96,7 @@ async def test_an_authenticated_byok_turn_never_reads_daily_usage() -> None:
     `total_cost_usd` is called at all, and even with the budget/quota
     actually configured on (non-default) — a default-disabled budget would
     never touch the repo either way, which would make this test pass even
-    if the `auth.user_type != ANONYMOUS_USER_TYPE` early-return regressed."""
+    if `_budget_rejection`'s `is_anonymous_identity` early-return regressed."""
     from agent.config.settings import Settings
 
     db = build_stub_db()
