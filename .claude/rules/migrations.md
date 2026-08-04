@@ -11,5 +11,5 @@ paths:
 - New migration: `atlas migrate diff <name> --dir file://db/migrations --to <schema-source>
   --dev-url <ephemeral-neon-branch>`; commit the `.sql` + updated `atlas.sum`. Use a throwaway **Neon
   branch** as `--dev-url`; never diff against prod.
-- CI applies on deploy (`_deploy-component.yml`, gated on `NEON_DATABASE_URL`):
+- CI applies on deploy (`reusable-deploy-component.yml`, gated on `NEON_DATABASE_URL`):
   `atlas migrate apply --dir file://db/migrations --url "$NEON_DATABASE_URL" --revisions-schema public`.

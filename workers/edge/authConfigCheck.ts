@@ -11,8 +11,8 @@ export interface AuthConfigDiagEnv extends AuthEnv {
    * review follow-up). Provisioned as a GitHub environment secret, pushed
    * to the Worker the same way TURNSTILE_SECRET/ANON_ID_SECRET are, and
    * handed to post-deploy-assert.sh's auth-config-check as
-   * POST_DEPLOY_DIAG_TOKEN — see .github/workflows/_deploy-component.yml
-   * and _post-deploy-test.yml. */
+   * POST_DEPLOY_DIAG_TOKEN — see .github/workflows/reusable-deploy-component.yml
+   * and reusable-post-deploy-test.yml. */
   POST_DEPLOY_DIAG_TOKEN?: string;
 }
 
