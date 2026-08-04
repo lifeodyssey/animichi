@@ -17,6 +17,12 @@ import { createWorkerApp } from "./app.ts";
 const ISSUER = "https://a.example.invalid/db/auth";
 const MATCHING_JWKS = `${ISSUER}/.well-known/jwks.json`;
 const DRIFTED_JWKS = "https://b.example.invalid/.well-known/jwks.json";
+// A URL that CONTAINS the real, matching JWKS URL as a substring but is not
+// equal to it — the exact shape CodeQL's "incomplete URL substring
+// sanitization" query warns about (`arbitrary hosts may come before or
+// after it`). authConfigStatus must reject this with strict equality, not
+// merely check for it as a substring.
+const SUBSTRING_BYPASS_JWKS = `https://evil.example.invalid/?x=${MATCHING_JWKS}`;
 const DIAG_TOKEN = "fixed-test-diag-token-0000000000000000";
 
 function diagRequest(auth?: string): Request {
@@ -50,6 +56,14 @@ void test("Neon Auth enabled and JWKS points elsewhere (drift) reports false", (
   const status = authConfigStatus({
     SUPABASE_URL: "s", SUPABASE_SERVICE_ROLE_KEY: "k",
     NEON_AUTH_ENABLED: "true", NEON_AUTH_ISSUER: ISSUER, NEON_AUTH_JWKS_URL: DRIFTED_JWKS,
+  });
+  assert.deepEqual(status, { neonAuthEnabled: true, jwksIssuerMatch: false });
+});
+
+void test("a JWKS URL that merely CONTAINS the matching URL as a substring is rejected, not matched", () => {
+  const status = authConfigStatus({
+    SUPABASE_URL: "s", SUPABASE_SERVICE_ROLE_KEY: "k",
+    NEON_AUTH_ENABLED: "true", NEON_AUTH_ISSUER: ISSUER, NEON_AUTH_JWKS_URL: SUBSTRING_BYPASS_JWKS,
   });
   assert.deepEqual(status, { neonAuthEnabled: true, jwksIssuerMatch: false });
 });
@@ -101,10 +115,24 @@ void test("an authenticated GET /internal/auth-config exposes the verdict and ne
     NEON_AUTH_ENABLED: "true", NEON_AUTH_ISSUER: ISSUER, NEON_AUTH_JWKS_URL: DRIFTED_JWKS,
   };
   const res = await app.request("/internal/auth-config", { headers: { Authorization: `Bearer ${DIAG_TOKEN}` } }, env);
-  const body = (await res.json()) as { neonAuthEnabled: boolean; jwksIssuerMatch: boolean | null };
+  const body: unknown = await res.json();
   assert.equal(res.status, 200);
+  assert.equal(typeof body === "object" && body !== null, true, "response body must be a JSON object");
+  // Proves no URL leaked WITHOUT a substring/`.includes()` check on the
+  // serialized body (CodeQL: "Incomplete URL substring sanitization" — a
+  // substring check here would itself be exactly the flagged pattern, and
+  // is strictly weaker anyway: it only rules out that one literal string,
+  // not any string at all). Every value in the response must be a boolean
+  // or null; a URL is neither, so this rules out ANY string leaking, not
+  // just the two specific ones this test happens to know about. Checked
+  // BEFORE the deepEqual below narrows `body`'s type to the literal
+  // expected shape, which would otherwise make this loop check a type the
+  // compiler (rightly, for the type it infers) considers unreachable.
+  for (const [key, value] of Object.entries(body as Record<string, unknown>)) {
+    assert.equal(
+      typeof value === "boolean" || value === null, true,
+      `response field "${key}" is a ${typeof value}, not boolean/null — a string value here could leak a URL`,
+    );
+  }
   assert.deepEqual(body, { neonAuthEnabled: true, jwksIssuerMatch: false });
-  const raw = JSON.stringify(body);
-  assert.equal(raw.includes(ISSUER), false, "response body must never include the real issuer URL");
-  assert.equal(raw.includes(DRIFTED_JWKS), false, "response body must never include the real JWKS URL");
 });
