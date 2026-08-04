@@ -71,7 +71,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm exec wrangler versions list
+        run: pnpm exec wrangler versions list --env production
       - name: Rollback
         if: ${{ inputs.version_id != '' }}
         working-directory: ${{ steps.resolve-directory.outputs.working_directory }}
@@ -79,6 +79,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           VERSION_ID: ${{ inputs.version_id }}
-        run: pnpm exec wrangler rollback "$VERSION_ID" --message "manual rollback via rollback.yml" --yes
+        run: pnpm exec wrangler rollback "$VERSION_ID" --env production --message "manual rollback via rollback.yml" --yes
       - name: Verification reminder
         run: echo "Rollback submitted. Verify via the URLs in docs/ops/deployment.md"
