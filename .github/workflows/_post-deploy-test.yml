@@ -157,6 +157,18 @@ jobs:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
         run: bash .github/scripts/post-deploy-assert.sh data-plane-probe
 
+      # Issue #709: NEON_AUTH_JWKS_URL (secret) vs NEON_AUTH_ISSUER (var) can
+      # only be compared config-time in workers/edge/authConfig.test.ts,
+      # which never sees the secret's real deployed value. This reads the
+      # DEPLOYED Worker's own verdict (GET /internal/auth-config); it is
+      # unconditional (not environment-gated) because the check self-detects
+      # via neonAuthEnabled and no-ops wherever Neon Auth is off.
+      - name: "Neon Auth JWKS matches issuer (secret drift check)"
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+        run: bash .github/scripts/post-deploy-assert.sh auth-config-check
+
       # ── environment-gated: ANON_ACCESS_ENABLED differs by environment,
       # not by suite — see header note ──
       - name: "anonymous Turnstile gate is armed (staging)"

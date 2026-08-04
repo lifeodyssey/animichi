@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { type AuthResult, authenticate as realAuthenticate } from "./auth.ts";
+import { authConfigStatus } from "./authConfigCheck.ts";
 import type { Env, WorkerExecutionContext } from "./env.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardV1 } from "./forward.ts";
 import { handleAnonymousV1 } from "./anonymous-flow.ts";
@@ -40,6 +41,9 @@ function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
   app.get("/healthz", (c) =>
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
   );
+  // Post-deploy secret-drift check (issue #709): booleans only, no secret
+  // values — see authConfigCheck.ts for why this must run inside the Worker.
+  app.get("/internal/auth-config", (c) => c.json(authConfigStatus(c.env)));
   app.all("/tiles/*", (c) => handleTiles(c.req.raw, c.env.MAP_TILES, c.executionCtx));
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
   app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", async (c) => {

@@ -264,8 +264,34 @@ cmd_data_plane_probe() {
   jq -e '.bangumi | length > 0' "${BODY_FILE}" >/dev/null || fail "bangumi/popular returned an empty array — either this environment's seed data is genuinely empty (adjust this check if so) or the query silently returned nothing"
 }
 
+# NEON_AUTH_JWKS_URL is a GitHub environment SECRET; NEON_AUTH_ISSUER is a
+# `wrangler.toml` VAR. workers/edge/authConfig.test.ts pins their relationship
+# (jwks == ${issuer}/.well-known/jwks.json) at CONFIG time, but it can only
+# ever see the var — never the secret's real deployed value (issue #709).
+# This probe reads workers/edge/authConfigCheck.ts's verdict from the
+# DEPLOYED Worker's own bound env via GET /internal/auth-config, which
+# exposes booleans only (never the URLs themselves — see #673). A secret
+# rotated/copy-pasted wrong (drift) makes every Neon Auth token fail
+# verification: fail-closed (no bad token is ever accepted), but silent
+# until someone tries to log in. When Neon Auth is disabled in this
+# environment there is nothing to check.
+cmd_auth_config_check() {
+  : "${ROOT_URL:?ROOT_URL is required}"
+  local status enabled match
+  status="$(fetch GET "${ROOT_URL}/internal/auth-config")"
+  diag "${status}"
+  [ "${status}" = "200" ] || fail "GET ${ROOT_URL}/internal/auth-config expected 200, got ${status}"
+  enabled="$(jq -r '.neonAuthEnabled' "${BODY_FILE}")"
+  if [ "${enabled}" != "true" ]; then
+    echo "Neon Auth is disabled in this environment (neonAuthEnabled=false) — nothing to check."
+    return 0
+  fi
+  match="$(jq -r '.jwksIssuerMatch' "${BODY_FILE}")"
+  [ "${match}" = "true" ] || fail "NEON_AUTH_JWKS_URL does not match \${NEON_AUTH_ISSUER}/.well-known/jwks.json in the DEPLOYED Worker's actual bound env (issue #709) — every Neon Auth token will fail verification (fail-closed: logins break, no bad token is accepted). This means the JWKS secret has drifted from the issuer var — check for a bad rotation or a cross-environment copy-paste."
+}
+
 main() {
-  local cmd="${1:?usage: post-deploy-assert.sh <healthz|auth-probe|users-probe|anon-gate-staging|anon-disabled-production|web-landing|catalog-probe|data-plane-probe>}"
+  local cmd="${1:?usage: post-deploy-assert.sh <healthz|auth-probe|users-probe|anon-gate-staging|anon-disabled-production|web-landing|catalog-probe|data-plane-probe|auth-config-check>}"
   case "${cmd}" in
     healthz) cmd_healthz ;;
     auth-probe) cmd_auth_probe ;;
@@ -275,6 +301,7 @@ main() {
     web-landing) cmd_web_landing ;;
     catalog-probe) cmd_catalog_probe ;;
     data-plane-probe) cmd_data_plane_probe ;;
+    auth-config-check) cmd_auth_config_check ;;
     *) fail "unknown check: ${cmd}" ;;
   esac
 }
