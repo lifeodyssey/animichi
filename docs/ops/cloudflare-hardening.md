@@ -26,8 +26,8 @@ Cloudflare Edge (Worker: worker/worker.js)
        ▼
      RuntimeContainer (Durable Object → Python FastAPI on port 8080)
        ├─ Supabase Postgres (SUPABASE_DB_URL)
-       ├─ Anitabi API (ANITABI_API_URL)
-       └─ Gemini model provider (GEMINI_API_KEY)
+       └─ MiMo/DeepSeek model provider (MIMO_API_KEY / DEEPSEEK_API_KEY) —
+          photo-search recognition rides this same chat model (#656)
 ```
 
 ## Auth Flow
@@ -49,8 +49,6 @@ On success the Worker sets `X-User-Id` and `X-User-Type`, deletes the `Authoriza
 | `SUPABASE_SERVICE_ROLE_KEY` | Worker-only | Used for `api_keys` table lookup |
 | `NEON_AUTH_ENABLED` / `NEON_AUTH_JWKS_URL` / `NEON_AUTH_ISSUER` | Worker-only (optional) | Dual-issuer readiness — Neon Auth EdDSA JWKS verification; absent or `false` ⇒ Neon path off (default) |
 | `SUPABASE_DB_URL` | Container-only | Direct Postgres connection for asyncpg |
-| `GEMINI_API_KEY` | Container-only | Platform vision provider credential for photo-search (`GeminiVisionProvider`, always mounted) — an empty key means every photo-search request silently degrades to a clarify miss (#502), not a hard boot failure |
-| `ANITABI_API_URL` | Container-only | Pilgrimage data API |
 | `CORS_ALLOWED_ORIGIN` | Container-only | Backend CORS allowlist |
 | `GOOGLE_MAPS_API_KEY` | Container-only (optional) | Geocoding |
 | `LOGFIRE_TOKEN` | Container-only (optional) | Observability |
@@ -238,7 +236,7 @@ plain `*`-wildcard string matcher — there is no `/`-suffix (CIDR) parsing anyw
 function, and it never resolves DNS, so it cannot match a hostname's *resolved* IP either. The
 literal string `"10.0.0.0/8"` only ever matches a hostname that is exactly the eleven characters
 `10.0.0.0/8` — it does not match `10.0.0.1`, `10.5.3.200`, or anything else. The previous revision
-of `worker/entry.ts` shipped exactly that: five CIDR-notation strings that matched nothing,
+of `workers/edge/entry.ts` shipped exactly that: five CIDR-notation strings that matched nothing,
 ever — a complete no-op, caught only because a reviewer decided that "the type is `string[]`"
 does not establish "the semantics are CIDR" and went and read the matcher's actual source instead
 of trusting the docs' prose example. **The type of a config field is not proof of what a runtime
@@ -267,8 +265,8 @@ enforcement either.
 
 ### What is implemented
 
-`RuntimeContainer.deniedHosts` (`worker/entry.ts`) is set from `DENIED_EGRESS_HOSTS`
-(`worker/containerEnv.ts`, split out for the same Node-import-chain reason as
+`RuntimeContainer.deniedHosts` (`workers/edge/entry.ts`) is set from `DENIED_EGRESS_HOSTS`
+(`workers/edge/containerEnv.ts`, split out for the same Node-import-chain reason as
 `buildContainerEnvVars` — see that file's header comment). It is a set of dotted-decimal glob
 prefixes and exact hostnames — **not CIDR strings** — chosen to be the glob-equivalent of the
 spec's target ranges when a request URL's hostname is already a bare IPv4 literal (the common
@@ -307,7 +305,7 @@ request itself, and the container never gets a TCP connection to the target. Fun
 equivalent for SSRF purposes (no bytes reach the target, no bytes come back), but a future
 engineer debugging a `520` from inside the container should know this policy is what produced it.
 
-Pinned by `worker/containerEnv.test.ts` (run via `pnpm run test:worker`), which — after two
+Pinned by `workers/edge/containerEnv.test.ts` (run via `pnpm run test:worker`), which — after two
 earlier revisions each fixed one layer of the same problem (a hand-rolled `ipInCidr()` helper that
 validated its own invented semantics, then a hand-ported copy of the real algorithm that could
 still silently drift from a future vendored change) — now **extracts and evaluates the real
@@ -336,12 +334,12 @@ if (ctx.exports.ContainerProxy === undefined) {
 }
 ```
 
-`worker/entry.ts` now re-exports it (`export { ContainerProxy } from "@cloudflare/containers";`),
+`workers/edge/entry.ts` now re-exports it (`export { ContainerProxy } from "@cloudflare/containers";`),
 matching the pattern in Cloudflare's own `Container` class reference example. This is not a
 regression introduced by this change — the repo already exercised `outboundByHost` for
 `catalog.internal` before this PR, which also depends on the same interception machinery — but it
 was never verified as present, and `deniedHosts` makes it load-bearing for the first genuinely
-security-relevant use of this mechanism. `worker/entry.test.ts` asserts (via a source-text match,
+security-relevant use of this mechanism. `workers/edge/entry.test.ts` asserts (via a source-text match,
 since `entry.ts`'s `@cloudflare/containers` import chain cannot be loaded under plain `node
 --test` — see that file's comment) that the export line is present, as a regression guard against
 silently losing it again.
@@ -432,7 +430,7 @@ check before being marked fully closed):
 - **Happy path** (public egress succeeds): satisfied by design — none of the three representative
   public addresses (`1.1.1.1`, `8.8.8.8`, a placeholder provider hostname) match
   `DENIED_EGRESS_HOSTS` under the ported real matcher; pinned by
-  `worker/containerEnv.test.ts`. Not yet verified against a live deployed instance, and not yet
+  `workers/edge/containerEnv.test.ts`. Not yet verified against a live deployed instance, and not yet
   verified that `ContainerProxy` is actually reachable via `ctx.exports` at runtime (see the
   live-verification checklist below — step 1).
 - **Null/empty** (catalog `outboundByHost` hop + the MiMo provider call still succeed):
@@ -442,7 +440,7 @@ check before being marked fully closed):
 - **Error path** (`169.254.169.254`, `100.100.100.200`, `10.0.0.1` "refused at the network
   layer"): satisfied **for plain HTTP requests whose URL names one of these addresses or hostname
   literals directly**, matching the spec's own literal AC wording (`http://169.254.169.254/`);
-  pinned against the real ported glob algorithm by `worker/containerEnv.test.ts`. The
+  pinned against the real ported glob algorithm by `workers/edge/containerEnv.test.ts`. The
   spec's "refused at the network layer" phrasing is satisfied **in effect** (nothing reaches the
   target, nothing comes back) but not **literally** — see "What actually happens on a match"
   above: enforcement returns a synthesized HTTP `520`, not a refused connection. **Not** covered:

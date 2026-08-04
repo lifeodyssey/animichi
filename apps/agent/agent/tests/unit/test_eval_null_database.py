@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 
 import pytest
 
-from agent.domain.ports import DatabasePort
+from agent.domain.ports import CatalogLookup
 from agent.tests.eval.null_database import NullDatabase
 
 RepoCall = Callable[[NullDatabase], Awaitable[object]]
@@ -46,7 +46,7 @@ async def _upsert_points_batch(db: NullDatabase) -> object:
 
 
 def test_null_database_satisfies_database_port() -> None:
-    assert isinstance(NullDatabase(), DatabasePort)
+    assert isinstance(NullDatabase(), CatalogLookup)
 
 
 @pytest.mark.parametrize(

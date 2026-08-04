@@ -148,7 +148,7 @@ jobs:
       - name: Audit workflows
         env:
           GH_TOKEN: ${{ github.token }}
-        run: uvx zizmor@"$ZIZMOR_VERSION" --cache-dir ~/.cache/zizmor .
+        run: uvx --no-build zizmor@"$ZIZMOR_VERSION" --cache-dir ~/.cache/zizmor .
       # Only main-branch runs may write the shared cache — a PR (including a
       # fork PR) can read it but never poison it.
       - name: Save zizmor audit cache
@@ -172,8 +172,8 @@ jobs:
           ACTIONLINT_ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           ACTIONLINT_CHECKSUMS="actionlint_${ACTIONLINT_VERSION}_checksums.txt"
           ACTIONLINT_BASE_URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
-          curl -sSfL -o "${ACTIONLINT_ARCHIVE}" "${ACTIONLINT_BASE_URL}/${ACTIONLINT_ARCHIVE}"
-          curl -sSfL -o "${ACTIONLINT_CHECKSUMS}" "${ACTIONLINT_BASE_URL}/${ACTIONLINT_CHECKSUMS}"
+          curl -sSfL --proto '=https' --proto-redir '=https' -o "${ACTIONLINT_ARCHIVE}" "${ACTIONLINT_BASE_URL}/${ACTIONLINT_ARCHIVE}"
+          curl -sSfL --proto '=https' --proto-redir '=https' -o "${ACTIONLINT_CHECKSUMS}" "${ACTIONLINT_BASE_URL}/${ACTIONLINT_CHECKSUMS}"
           grep -F "  ${ACTIONLINT_ARCHIVE}" "${ACTIONLINT_CHECKSUMS}" > actionlint.sha256
           sha256sum -c actionlint.sha256
           tar -xzf "${ACTIONLINT_ARCHIVE}" actionlint
@@ -189,6 +189,10 @@ jobs:
     timeout-minutes: 15
     name: Semgrep (SAST)
     runs-on: ubuntu-latest
+    env:
+      # Semgrep ships wheels, so --no-build is safe here (unlike apps/agent's
+      # own editable package — see the uv sync comments elsewhere in this file).
+      SEMGREP_VERSION: "1.172.0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -197,10 +201,10 @@ jobs:
         with:
           python: "true"
       - name: Install Semgrep
-        run: uv tool install semgrep
+        run: uv tool install --no-build "semgrep==$SEMGREP_VERSION"
         shell: bash
       - name: Run Semgrep
-        run: uv tool run semgrep --config p/python --config p/typescript --config p/javascript --error .
+        run: uv tool run --no-build semgrep --config p/python --config p/typescript --config p/javascript --error .
         shell: bash
 
   # ── SQL migration lint ───────────────────────────────────────
@@ -219,23 +223,27 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           python: "true"
-      - run: uv sync --all-extras
+      # --no-build rejected: this project's own editable package has no wheel
+      # (see purge-anonymous-sessions.yml's NOTE and _python-ci.yml).
+      - run: uv sync --frozen --all-extras
       # .sqlfluff config lives at repo root; lint the schema dirs we own.
       - name: Lint migrations (postgres dialect)
-        run: uv run sqlfluff lint ../../db/migrations ../../supabase/neon --dialect postgres
+        run: uv run --frozen sqlfluff lint ../../db/migrations ../../supabase/neon --dialect postgres
 
   # ── Deploy-gate script tests ─────────────────────────────────
 
   post-deploy-assert-test:
     timeout-minutes: 30
-    name: post-deploy-assert.sh (shellcheck + behavior)
+    name: post-deploy smoke scripts (shellcheck + behavior)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: shellcheck
-        run: shellcheck .github/scripts/post-deploy-assert.sh .github/scripts/post-deploy-assert.test.sh
+        run: |
+          shellcheck .github/scripts/post-deploy-assert.sh .github/scripts/post-deploy-assert.test.sh \
+            .github/scripts/resolve-worker-url.sh .github/scripts/resolve-worker-url.test.sh
         shell: bash
       # #522: this is the gate that decides whether a real 404 (app broken,
       # or the branded 404 page) fails a deploy immediately versus a
@@ -244,4 +252,12 @@ jobs:
       # local mock server; no bats/JS test runner in this repo to hook into.
       - name: post-deploy-assert.sh behavioral tests
         run: bash .github/scripts/post-deploy-assert.test.sh
+        shell: bash
+      # #695: resolve-worker-url.sh is the thing that decides WHAT the smoke
+      # gate above even probes. Same throwaway-mock-server approach, this
+      # time mocking the Cloudflare API instead of the deployed app —
+      # including a direct comparison against a frozen snapshot of the
+      # pre-#695 hardcoded behavior (see the test file header).
+      - name: resolve-worker-url.sh behavioral tests
+        run: bash .github/scripts/resolve-worker-url.test.sh
         shell: bash

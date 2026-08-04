@@ -30,7 +30,7 @@ from agent.agents.animichi_agent import animichi_agent
 from agent.agents.base import parse_model_spec
 from agent.agents.runtime_deps import TitleTranslator, WebSearcher
 from agent.clients.catalog_client import CatalogClientProtocol
-from agent.domain.ports import DatabasePort
+from agent.domain.ports import CatalogLookup
 from agent.tests.eval.eval_common import real_env_updates
 from agent.tests.eval.evaluators import (
     AgentExpected,
@@ -314,7 +314,7 @@ async def _selection_task(inp: AgentInput) -> AgentResult:
 
 async def _agent_task(
     inp: AgentInput,
-    db: DatabasePort,
+    db: CatalogLookup,
     catalog_factory: CatalogFactory,
     model: Model,
     web_searcher: WebSearcher | None,
@@ -336,7 +336,7 @@ async def _agent_task(
 
 
 def make_agent_task(
-    db: DatabasePort,
+    db: CatalogLookup,
     catalog_factory: CatalogFactory,
     model: Model | None = None,
     *,
@@ -359,7 +359,7 @@ def make_agent_task(
 
 def _target_task(target: EvalTierTarget, model: Model | None) -> TaskFn:
     return make_agent_task(
-        cast(DatabasePort, target.db),
+        cast(CatalogLookup, target.db),
         cast(CatalogFactory, target.catalog_factory),
         model,
         web_searcher=target.web_mocks.web_searcher,

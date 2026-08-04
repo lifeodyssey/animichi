@@ -55,6 +55,10 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
 
+      # `playwright install` is the Playwright CLI's own browser-binary
+      # downloader, not an npm/pnpm package install — it has no
+      # --ignore-scripts flag (verified: `playwright install --help` lists
+      # none) and runs no npm lifecycle scripts.
       - name: Install Playwright browser
         run: pnpm --dir e2e exec playwright install --with-deps chromium
 

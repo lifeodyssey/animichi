@@ -1,6 +1,6 @@
 # C5 — 两侧 Clean Architecture 用例层归位(#666,建立在 C4 九张 Protocol 之上)
 
-**结论:Python 侧把 `interfaces/` 里的 6 个应用服务模块 + `RuntimeAPI` 编排整体迁入 `agent/application/`(interfaces 只剩 fastapi/routes/chat_wire 三类 wire 适配),依赖收 C4 窄 Protocol;守护不变量 = "wire 层不含业务决策、application 不 import infrastructure(组合根除外)",用 **import-linter layers+forbidden 契约**钉死(现存违例 6,起步 ignore-ratchet)。TS 侧不造 class 仪式:catalog `api/*` 与 users `api/routes.ts` 的函数模块**已是用例**,只做两件事——users 行映射抽 `lib/rows.ts`(与 B4 协同)+ catalog 封死 `api→ingest 内部件` 深入口;约束用 **oxlint `no-restricted-imports`**(零新依赖,复用 L1 的 --deny-warnings 门)。**
+**结论:Python 侧把 `interfaces/` 里的 6 个应用服务模块 + `RuntimeAPI` 编排整体迁入 `agent/application/`(interfaces 只剩 fastapi/routes/chat_wire 三类 wire 适配),依赖收 C4 窄 Protocol;守护不变量 = "wire 层不含业务决策、application 不 import infrastructure(组合根除外)",用 **import-linter layers+forbidden 契约**钉死(现存违例 4,起步 ignore-ratchet)。TS 侧不造 class 仪式:catalog `api/*` 与 users `api/routes.ts` 的函数模块**已是用例**,只做两件事——users 行映射抽 `lib/rows.ts`(与 B4 协同)+ catalog 封死 `api→ingest 内部件` 深入口;约束用 **oxlint `no-restricted-imports`**(零新依赖,复用 L1 的 --deny-warnings 门)。**
 
 ## 1. Python(apps/agent)用例层重建
 
@@ -41,7 +41,7 @@ ignore_imports = [  # 组合根 + 明文 sanctioned 横切面(F8 observability�
   "* -> agent.infrastructure.observability.*", "* -> agent.infrastructure.egress_*",
 ]
 ```
-**现存违例实测(上述豁免后)= 6**:public_api.py:63(memory)/:68(session)、persistence.py:23(session)、session_facade.py:17(session)——即 SessionStore/MemoryStore 港口化解决 4 处;tools/eval_feedback_miner.py:61 + eval_scorer.py:83(lazy import SupabaseClient,dev 工具,改收窄参数)。layers 契约今天即 0 违例(agents/domain 上行已测为零)。**方案对比**:import-linter vs 自写 AST 检查——选 import-linter:声明式契约 + `ignore_imports` 白名单可逐条销账(与 L1 的 overrides 销账法同构)、社区维护;自写 AST 脚本要自担 300 行维护 + 无 ratchet 语义,唯一优势(检查 getattr 反射)C4 已用窄 Protocol 根治。
+**现存违例实测(上述豁免后)= 4**:public_api.py:63(memory)/:68(session)、persistence.py:23(session)、session_facade.py:17(session)——即 SessionStore/MemoryStore 港口化解决全部 4 处。(原第 5/6 条 `tools/eval_feedback_miner.py:61` + `eval_scorer.py:83` 已随 #746 删除——两个零消费者、从未被真实调用过的 dev 工具连带其接口漂移一并清场,债务违例清单少了 2 条,不再需要为其收窄参数。)layers 契约今天即 0 违例(agents/domain 上行已测为零)。**方案对比**:import-linter vs 自写 AST 检查——选 import-linter:声明式契约 + `ignore_imports` 白名单可逐条销账(与 L1 的 overrides 销账法同构)、社区维护;自写 AST 脚本要自担 300 行维护 + 无 ratchet 语义,唯一优势(检查 getattr 反射)C4 已用窄 Protocol 根治。
 
 ## 2. TS 侧同构(函数模块即用例,不造 class)
 
@@ -60,13 +60,13 @@ users 侧对应规则:`src/index.ts`/`src/router.ts` 禁 `./db/*` 值引之外�
 - **P0(先行快照,TDD 前置)**:为 `handle()` 六条路径(模型轮/点选/候选选/timeout/provider_error/byok 拒绝)落 characterization test——fake model + C4 窄 Protocol double,断言 `PublicAPIResponse.model_dump()` 全字段快照 + repo 调用记录。迁移期间此套件一行不许改(变异验证:任一用例体注释掉须变红)。
 - **P1**:usage_metering/anon_quota/persistence/session_facade/response_builder/schemas 整文件迁 `application/`,纯 mv+import 改写,`make check` 前后各跑。**与 C4-B2 撞文件(persistence/session_facade),必须排在 C4-B2 之后**。
 - **P2**:public_api.py 拆用例(§1 表),RuntimeAPI 退役为 routes/_deps 组合根装配;SessionStore/MemoryStore 港口化。排 C4-B3 之后(同文件)。
-- **P3**:import-linter 上 CI。ignore 清单分两类,别混:**常设 sanctioned 豁免**(组合根 fastapi_service/routes._deps 两条 + observability/egress 横切面两条,§1 契约里的 4 条——是架构决定,长期保留)与**债务豁免**(eval tools 两条,开 issue 销账,销完清零)。P1 后债务违例即 0-2,P3 完成时 ignore 清单 = 常设 4 条 + 债务 ≤2 条。
+- **P3**:import-linter 上 CI。ignore 清单只有一类:**常设 sanctioned 豁免**(组合根 fastapi_service/routes._deps 两条 + observability/egress 横切面两条,§1 契约里的 4 条——是架构决定,长期保留)。原计划的**债务豁免**(eval tools 两条)已不再需要——#746 删除了那两个零消费者工具,不留 shim,连带该项技术债一并清零,无需再开销账 issue。P1 的 SessionStore/MemoryStore 港口化解决剩余全部 4 处违例,P3 完成时 ignore 清单 = 常设 4 条,债务豁免条目为 0。
 - **T1(TS,与 P* 全程可并行)**:users `lib/rows.ts` 抽取(先给 toUserRoute 快照测试:draft/null saved_at/Date 与 string 双形态)→ catalog ingest 门面 + 2 处真违例改线 → oxlint 规则落 .oxlintrc.json。
 
 ## 4. 明确不做(及理由)
 
 - **战术 DDD(聚合根/领域事件/CQRS)**:owner 已裁;单写者、无并发不变量竞争,聚合根守护的不变量(所有权/singleflight)现由 `assertOwner`+DB 唯一约束已守住,仪式无增益。CQS 注释级实践(public_api.py:526-531)保留即可。
-- **edge worker(worker/)不套用例层**:纯转发/鉴权域,无应用状态;其拆分归 C2 卡(app.ts 按信任域)。
+- **edge worker(workers/edge/,原 worker/,C2 #652 已改名+按信任域拆分完成)不套用例层**:纯转发/鉴权域,无应用状态。
 - **frontend apps/web**:TanStack 路由即边界,cutover 期不叠架构改造;rebuild 完成后另立卡。
 - **catalog api/* 改 class 用例、users 引 repository 类**:TS/Hono 惯用函数模块 + 参数注入已满足 DIP,class 仪式违反 1-10-50 的精神。
 

@@ -17,7 +17,6 @@ Browser
   │                                                          └─ Neon Postgres/PostGIS via neon-http (`DATABASE_URL`)
   └─ /v1/* ── auth at Worker edge ───────────────▶ Worker → RuntimeContainer → FastAPI service
                                                             ├─ Supabase Postgres (`SUPABASE_DB_URL`)
-                                                            ├─ Anitabi API (`ANITABI_API_URL`)
                                                             ├─ catalog read path (`CATALOG_API_URL` → /catalog/*)
                                                             └─ MiMo primary (`MIMO_API_KEY`)
                                                                └─ DeepSeek fallback temporarily disabled
@@ -28,7 +27,7 @@ Cloudflare Cron Triggers ──────────────────�
 ```
 
 The hybrid topology runs the edge Worker plus the catalog, users, and scheduled maintenance Workers. The main `seichijunrei` Worker
-(`worker/entry.js`) routes `/catalog/*` to the separate `catalog` Worker
+(`workers/edge/entry.ts`) routes `/catalog/*` to the separate `catalog` Worker
 (`catalog/wrangler.toml`) via a wrangler service binding (`env.CATALOG.fetch`).
 The Python agent in the container cannot use that JS-only binding, so it reaches
 the catalog over the public origin: `CATALOG_API_URL` (forwarded into the
@@ -57,14 +56,14 @@ The deployment target stays intentionally thin. The Worker owns routing and edge
 |---|---|---|
 | Web app (`apps/web`) | SSR browser surface, deployed as its own Worker on its own route | none of this Worker's secrets |
 | Worker edge | Route match, JWT/API-key auth, identity injection | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (+ optional `NEON_AUTH_*`) |
-| Container runtime | Backend service, DB, model/provider calls | `SUPABASE_DB_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `ANITABI_API_URL`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
+| Container runtime | Backend service, DB, model/provider calls | `SUPABASE_DB_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
 | Maintenance Worker | Scheduled agent-domain retention; no public route | `AGENT_DATABASE_URL` only |
 
 Current hardening rule: the Worker strips the raw `Authorization` header before proxying and forwards only trusted `X-User-Id` / `X-User-Type` identity headers to the container.
 
 ## Auth Flow
 
-Worker auth is implemented in `worker/auth.ts`:
+Worker auth is implemented in `workers/edge/auth.ts`:
 
 - JWT flow: `authenticate()` verifies the token signature locally against the issuer JWKS (jose `createRemoteJWKSet`, cached per isolate) — no per-request `/auth/v1/user` round-trip. Supabase tokens verify as ES256/RS256 against `SUPABASE_URL/auth/v1/.well-known/jwks.json` (issuer `SUPABASE_URL/auth/v1`, audience `authenticated`, `exp` checked); the injected `X-User-Id` is the token `sub`.
 - Dual-issuer readiness: a flag-gated Neon Auth (Better Auth, EdDSA) verification path exists but is OFF by default — active only when `NEON_AUTH_ENABLED=true` and both `NEON_AUTH_JWKS_URL` and `NEON_AUTH_ISSUER` are set. Tokens route by `alg`/`iss`, so Supabase and Neon issuers coexist without a cutover.
@@ -139,7 +138,6 @@ provisioned fallback path.
 
 Common runtime config:
 
-- `ANITABI_API_URL`
 - `CORS_ALLOWED_ORIGIN`
 - `DEFAULT_AGENT_MODEL`
 - `FALLBACK_AGENT_MODEL` (empty by default for MiMo-only operation)
@@ -204,7 +202,6 @@ Run the image locally:
 ```bash
 docker run --rm -p 8080:8080 \
   -e SUPABASE_DB_URL \
-  -e ANITABI_API_URL \
   -e MIMO_API_KEY \
   -e DEEPSEEK_API_KEY \
   -e CORS_ALLOWED_ORIGIN \
@@ -350,7 +347,7 @@ owner/runbook and must not be used to change Neon catalog or user tables.
 
 Do not use version tags as a deploy trigger for the current pipeline.
 
-**CF Worker routing** (`worker/app.ts`):
+**CF Worker routing** (`workers/edge/app.ts`):
 - `/v1/*` and `/healthz` → `CONTAINER` (Durable Object → FastAPI service on port 8080)
 - `/v1/users/*` → `USERS` service binding
 - `/catalog/public/anime-overview/:id` → allowlisted anonymous catalog read

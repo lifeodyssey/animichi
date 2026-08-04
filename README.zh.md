@@ -91,8 +91,6 @@ make db-push           # 对 NEON_DATABASE_URL 应用迁移
 | `SUPABASE_URL` | Supabase 项目 URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | 服务端 Supabase 认证 |
 | `SUPABASE_ANON_KEY` | Worker 边缘 JWT 验证 |
-| `ANITABI_API_URL` | Anitabi 圣地数据 API |
-| `GEMINI_API_KEY` | 图搜(photo-search)平台视觉 provider 用密钥,始终挂载,不受对话模型选择影响 |
 
 **可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
@@ -133,7 +131,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 - `workers/catalog/` — 动漫圣地目录 REST API 的 Cloudflare Worker（TypeScript）
 - `packages/contract/` — catalog 与 agent 之间共享的 oRPC contract 类型
 - `apps/web/` — TanStack Start SSR Web 应用与 UI 组件
-- `worker/` — Cloudflare Worker 入口，负责认证与请求路由
+- `workers/edge/` — Cloudflare Worker 入口，负责认证与请求路由
 - `db/migrations/` — Neon 数据面的 Atlas 迁移与生成的 checksum
 - `supabase/` — auth/旧版兼容迁移与 Supabase 项目资产
 - `docs/` — 架构文档、运维文档、迭代资料与实现计划

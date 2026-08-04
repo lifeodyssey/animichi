@@ -79,7 +79,12 @@ jobs:
           filters: |
             contract: ['packages/contract/**']
             catalog: ['workers/catalog/**', 'packages/contract/**']
-            users: ['workers/users/**', 'packages/contract/**']
+            # workers/users/test/eddsa-shared-primitive.worker.test.ts asserts
+            # workers/edge/auth.ts (the edge /v1 EdDSA consumer) still delegates to the
+            # shared contract verifier — scoping this filter to workers/users/** +
+            # packages/contract/** alone would let a regression land in
+            # workers/edge/auth.ts while ci-users skips (issue #647).
+            users: ['workers/users/**', 'packages/contract/**', 'workers/edge/auth.ts']
             # workers/maintenance/test/config.worker.test.ts asserts against the deploy
             # wiring itself — ci.yml, deploy.yml, _deploy-component.yml, both deprecated
             # fallback workflows and docs/ops/secrets.md are read verbatim by that test.
@@ -91,7 +96,7 @@ jobs:
             maintenance: ['workers/maintenance/**', '.github/workflows/ci.yml', '.github/workflows/deploy.yml', '.github/workflows/_deploy-component.yml', '.github/workflows/purge-anon-quota-counts.yml', '.github/workflows/purge-anonymous-sessions.yml', 'docs/ops/secrets.md']
             # Agent unit tests assert cross-package workflow, documentation, Worker, and
             # web coverage config. The read-set meta-check protects these extra entries.
-            agent: ['apps/agent/**', 'packages/contract/**', '.github/workflows/**', 'apps/web/vitest.config.ts', 'docs/ARCHITECTURE.md', 'docs/ops/deployment.md', 'docs/ops/secrets.md', 'docs/testing-strategy.md', 'worker/containerEnv.ts']
+            agent: ['apps/agent/**', 'packages/contract/**', '.github/workflows/**', 'apps/web/vitest.config.ts', 'docs/ARCHITECTURE.md', 'docs/ops/deployment.md', 'docs/ops/secrets.md', 'docs/testing-strategy.md', 'workers/edge/containerEnv.ts']
             # SD-30 path-filter rule (shared verbatim with iter-1 S1.13, per the second-pass
             # spec review): prompt/instructions + model-config + guardrail files ONLY — not
             # every apps/agent/** change (that broader scope still gates `agent` above, which
@@ -106,17 +111,22 @@ jobs:
             # while this filter excluded tests/eval/**, so the smoke job SKIPPED
             # on the very PR that changed it — a gate that cannot test itself.
             agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py', 'apps/agent/agent/config/settings.py', 'apps/agent/agent/tests/eval/**']
-            web: ['apps/web/**']
-            worker: ['worker/**']
+            # apps/web/tests/unit/chat/turnstile-constants-guard.test.ts reads
+            # workers/edge/turnstile.ts + packages/contract/src/constants.ts to assert
+            # the edge worker and this app still share the Turnstile header/TTL constants
+            # (issue #647); without these two entries a regression in either file
+            # would land while ci-web skips.
+            web: ['apps/web/**', 'workers/edge/turnstile.ts', 'packages/contract/**']
+            worker: ['workers/edge/**']
             infra: ['infra/**']
-            migrations: ['supabase/migrations/**', 'db/**', 'docs/ops/migrations.md', 'docs/ops/deployment.md', 'README*', 'Makefile', 'worker/migrationBoundary.test.ts', '.github/workflows/ci.yml', '.github/workflows/deploy.yml']
+            migrations: ['supabase/migrations/**', 'db/**', 'docs/ops/migrations.md', 'docs/ops/deployment.md', 'README*', 'Makefile', 'workers/edge/migrationBoundary.test.ts', '.github/workflows/ci.yml', '.github/workflows/deploy.yml']
             neon_agent: ['apps/agent/**']
             neon_catalog: ['workers/catalog/**']
             neon_migrations: ['db/migrations/**']
             # The cross-stack browser lane exercises emitted apps/web output
             # and the edge-facing worker together. Keep its scope broad enough
             # to catch contract and deployment wiring changes.
-            cross_stack: ['apps/**', 'worker/**', 'workers/**', 'packages/contract/**', 'db/**', 'infra/**', 'e2e/**', '.github/workflows/**', '.github/actions/**']
+            cross_stack: ['apps/**', 'workers/**', 'packages/contract/**', 'db/**', 'infra/**', 'e2e/**', '.github/workflows/**', '.github/actions/**']
 
   # ── Stage 1: Component CI (reusable workflows, all parallel) ──
   # affected-only on PRs; full run on push/tag.
@@ -233,6 +243,53 @@ jobs:
         run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts --lockfile-only
       - name: Typecheck infra
         run: npm run typecheck
+      - name: Infra topology tests
+        run: npm test
+      - name: Check Pulumi preview prerequisites
+        id: pulumi_gate
+        env:
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          missing=()
+          for name in \
+            PULUMI_BACKEND_URL \
+            PULUMI_CONFIG_PASSPHRASE \
+            CLOUDFLARE_PULUMI_API_TOKEN \
+            CLOUDFLARE_ACCOUNT_ID \
+            R2_ACCESS_KEY_ID \
+            R2_SECRET_ACCESS_KEY
+          do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=pulumi preview skipped::Pulumi preview prerequisites are not fully configured; missing: ${missing[*]}. The deploy path will still take a pre-up state backup, but infra changes merge without a plan diff."
+          fi
+      - name: Pulumi preview (staging)
+        if: ${{ steps.pulumi_gate.outputs.ready == 'true' }}
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          command: preview
+          stack-name: staging
+          work-dir: infra
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
 
   # ── Security (cross-language; always runs, no affected gate) ──
 
@@ -247,21 +304,67 @@ jobs:
   # `continue-on-error` is an intentional warn-only gate policy (not a code-quality
   # suppression): it surfaces context-doc rot without failing CI. Kept out of the
   # deploy `needs:` chain so it never gates a release. Promote to blocking once proven.
+  #
+  # NOTE (2026-08-04, #738): this step does NOT go through npm/npx at all — do not
+  # "simplify" it back to `npx agnix@0.37.5 .`. History:
+  #
+  # 1. agnix ships no prebuilt binary in its npm tarball; its own `postinstall` hook
+  #    (install.js) is the only thing that fetches the platform binary from its
+  #    GitHub release. #723 (S6505 hardening, commit 2d1a50c6) added
+  #    --ignore-scripts to the old `npx --yes agnix@0.37.5 .` invocation, believing
+  #    it a no-behavior-change formalization, and recorded a local verification
+  #    that it "still runs and reports its usual findings."
+  # 2. That verification was a false positive: it ran on a machine with a stale npx
+  #    cache (binary already present from an earlier unrestricted run), so
+  #    postinstall never needed to fire. Every GitHub Actions runner starts with an
+  #    empty npx cache, so --ignore-scripts deterministically skipped the fetch
+  #    there and every run failed with "agnix binary not found" — bisected exactly
+  #    to that commit (run 30876322672, success, vs. 30877440998, failure, the
+  #    first run after 2d1a50c6 landed) and reproduced locally by clearing
+  #    ~/.npm/_npx and rerunning both flag variants.
+  # 3. Dropping --ignore-scripts (the first fix attempted) restored the lint but
+  #    reopened the exact npm-lifecycle-script execution surface S6505 exists to
+  #    close, which SonarCloud correctly flagged again on that revision.
+  #
+  # This step resolves both: it downloads the same GitHub-release tarball
+  # install.js would have fetched (the linux/x86_64 target, matching ubuntu-latest),
+  # but verifies it against a sha256 pinned in THIS file rather than the
+  # `.sha256` sidecar published alongside it in the same release. Per #723's own
+  # standard (see the Atlas CLI pin a few jobs down, and
+  # apps/agent/agent/tests/atlas_helper.py), a same-channel checksum only proves
+  # the bytes weren't corrupted in transit — it can't prove the published artifact
+  # is the one that was reviewed. The hash below was computed independently
+  # (`shasum -a 256`) against a fresh download on 2026-08-04 and cross-checked
+  # against the release's own `.sha256` sidecar (matched); it now lives here,
+  # decoupled from that channel. No `npm`/`npx`, so no lifecycle scripts run at
+  # all — S6505 doesn't apply to this step anymore.
 
   agnix:
     timeout-minutes: 15
     name: Agent config lint (agnix, warn-only)
     runs-on: ubuntu-latest
     continue-on-error: true
+    env:
+      AGNIX_VERSION: "0.37.5"
+      AGNIX_SHA256: "312e81a2caf58ef47004f5c708a0fadf0c4758eda99814f8c37a82c925c47cf2"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
+      - name: Install pinned agnix binary
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/agnix-bin"
+          curl --proto '=https' --tlsv1.2 -sSfL \
+            "https://github.com/agent-sh/agnix/releases/download/v${AGNIX_VERSION}/agnix-x86_64-unknown-linux-gnu.tar.gz" \
+            -o "$RUNNER_TEMP/agnix-bin/agnix.tar.gz"
+          echo "$AGNIX_SHA256  $RUNNER_TEMP/agnix-bin/agnix.tar.gz" \
+            | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/agnix-bin/agnix.tar.gz" -C "$RUNNER_TEMP/agnix-bin"
+          chmod +x "$RUNNER_TEMP/agnix-bin/agnix"
+          echo "$RUNNER_TEMP/agnix-bin" >> "$GITHUB_PATH"
       - name: Lint AI agent configs
-        run: npx --yes agnix@0.37.5 .
+        run: agnix .
 
   # ── DB migrations (Atlas validation + optional Neon dry-run) ──
 
@@ -296,7 +399,7 @@ jobs:
           echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
 
       - name: Run migration boundary guard
-        run: node --test worker/migrationBoundary.test.ts
+        run: node --test workers/edge/migrationBoundary.test.ts
 
       - name: Validate Atlas migration directory
         run: atlas migrate validate --dir file://db/migrations
@@ -351,6 +454,8 @@ jobs:
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
+      # --no-build rejected: this project's own editable package has no wheel
+      # (see purge-anonymous-sessions.yml's NOTE and _python-ci.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Run L0 smoke trajectory eval (zero-errored + direct gates)
@@ -406,7 +511,9 @@ jobs:
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
-      - run: uv sync --all-extras
+      # --no-build rejected: this project's own editable package has no wheel
+      # (see purge-anonymous-sessions.yml's NOTE and _python-ci.yml).
+      - run: uv sync --frozen --all-extras
 
       - name: Install pinned Atlas CLI
         shell: bash
@@ -424,7 +531,7 @@ jobs:
       - name: Run Neon integration tests
         env:
           TEST_DB: neon
-        run: uv run pytest agent/tests/integration -q --no-cov
+        run: uv run --frozen pytest agent/tests/integration -q --no-cov
 
   catalog-spikes:
     timeout-minutes: 30
@@ -756,9 +863,10 @@ jobs:
         SUPABASE_DB_URL
         MIMO_API_KEY
         DEEPSEEK_API_KEY
-        GEMINI_API_KEY
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
+      optional_worker_secrets: |
+        POST_DEPLOY_DIAG_TOKEN
       post_deploy_secrets: |
         TURNSTILE_SECRET
         ANON_ID_SECRET
@@ -772,11 +880,11 @@ jobs:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+      POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
     concurrency: deploy-root-staging
 
   post-staging:
@@ -789,6 +897,7 @@ jobs:
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
 
   # staging validated → production (human approve via environment: production in
   # _deploy-component.yml). needs: post-staging guarantees staging passed api tests.
@@ -885,10 +994,11 @@ jobs:
         SUPABASE_DB_URL
         MIMO_API_KEY
         DEEPSEEK_API_KEY
-        GEMINI_API_KEY
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
         CORS_ALLOWED_ORIGIN
+      optional_worker_secrets: |
+        POST_DEPLOY_DIAG_TOKEN
       post_deploy_secrets: |
         TURNSTILE_SECRET
         ANON_ID_SECRET
@@ -902,12 +1012,12 @@ jobs:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
       CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+      POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
     concurrency: deploy-root-prod
 
   post-prod:
@@ -920,3 +1030,4 @@ jobs:
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}

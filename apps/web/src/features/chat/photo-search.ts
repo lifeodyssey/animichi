@@ -102,7 +102,7 @@ async function quotaOutcome(response: Response): Promise<PhotoSearchOutcome> {
   return { kind: "quota", guidance: guidanceOf(await response.json()) };
 }
 
-/** The armed edge's rejection code (`worker/turnstile.ts`, #447). */
+/** The armed edge's rejection code (`workers/edge/turnstile.ts`, #447). */
 export const PHOTO_CHALLENGED = "photo_search_challenged";
 
 async function errorCodeOf(response: Response): Promise<string | undefined> {

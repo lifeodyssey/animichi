@@ -92,8 +92,6 @@ make db-push           # NEON_DATABASE_URL に適用
 | `SUPABASE_URL` | Supabase プロジェクト URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | サーバーサイド Supabase 認証 |
 | `SUPABASE_ANON_KEY` | Worker エッジでの JWT 検証 |
-| `ANITABI_API_URL` | Anitabi 聖地データ API |
-| `GEMINI_API_KEY` | 写真検索(photo-search)のプラットフォーム vision provider 用キー。常時マウントされ、会話モデルの選択に依存しない |
 
 **オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
@@ -134,7 +132,7 @@ result = client.search("Hibike Euphonium locations", locale="en")
 - `workers/catalog/` — アニメ聖地カタログ REST API を提供する Cloudflare Worker（TypeScript）
 - `packages/contract/` — catalog ↔ agent 間で共有する oRPC contract 型定義
 - `apps/web/` — TanStack Start SSR の Web アプリと UI コンポーネント
-- `worker/` — 認証とリクエストルーティングを担う Cloudflare Worker
+- `workers/edge/` — 認証とリクエストルーティングを担う Cloudflare Worker
 - `db/migrations/` — Neon データ面の Atlas マイグレーションと生成 checksum
 - `supabase/` — auth/旧版互換マイグレーションと Supabase プロジェクト資産
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画

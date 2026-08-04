@@ -205,7 +205,8 @@ What `deploy.yml` actually bypasses is different, and worse:
   (`ci.yml:493`); `deploy.yml` has no such edge.
 - It **duplicates ~140 lines** of preflight/secret-push logic by copy-paste
   (`deploy.yml:31-112` vs `_deploy-component.yml:173-297`) — incident #5's exact shape.
-- It builds and deploys `frontend/` (the **frozen legacy** package) as the production root.
+- It deploys the root `worker/` (the CF edge worker) as source, with no app build step — `frontend/`
+  was retired by #537 and is not built or deployed by this workflow (`deploy.yml:125-126`).
 
 So the gate to preserve is intact; the missing gate is *"production may only receive a commit that
 passed CI and staging"* (§5.4).

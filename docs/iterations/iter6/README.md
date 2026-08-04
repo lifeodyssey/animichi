@@ -1,6 +1,6 @@
 # iter6 — cleanup campaign
 
-计划与决策记录:[../iter5/plan-2026-08-03-cleanup-campaign.md](../iter5/plan-2026-08-03-cleanup-campaign.md)
+计划与决策记录:[plan-2026-08-03-cleanup-campaign.md](./plan-2026-08-03-cleanup-campaign.md)
 Milestone:iter6 — cleanup campaign(#635-#655 + #665 + #666)
 
 ## Wave 3 设计稿(owner 批准 2026-08-03)

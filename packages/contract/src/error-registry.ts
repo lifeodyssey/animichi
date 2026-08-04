@@ -20,7 +20,7 @@ import { z } from "zod";
  * "today", which is wrong across every timezone but the server's.
  */
 
-/** Global anonymous daily-dollar breaker (X4); mirror: `worker/costBreaker.ts`. */
+/** Global anonymous daily-dollar breaker (X4); mirror: `workers/edge/costBreaker.ts`. */
 export const ANON_BUDGET_EXHAUSTED_CODE = "anon_budget_exhausted";
 
 /** Per-identity daily message quota (S1.10). */

@@ -22,7 +22,7 @@ from agent.agents.animichi_runner import run_animichi_agent
 from agent.agents.runtime_deps import RuntimeDeps
 from agent.agents.tool_outcomes import TranslateTitleResult
 from agent.agents.web_tools import translate_anime_title, web_search
-from agent.domain.ports import DatabasePort
+from agent.domain.ports import CatalogLookup
 from agent.tests.eval.mock_catalog_client import MockCatalogClient
 from agent.tests.eval.mock_web import MockTitleTranslator, MockWebSearcher
 from agent.tests.eval.null_database import NullDatabase
@@ -40,7 +40,7 @@ def _ctx(deps: RuntimeDeps) -> RunContext[RuntimeDeps]:
 
 def _deps(*, db: object | None = None) -> RuntimeDeps:
     return RuntimeDeps(
-        db=cast(DatabasePort, db or MagicMock()),
+        db=cast(CatalogLookup, db or MagicMock()),
         locale="zh",
         query="test",
         catalog=MockCatalogClient(),

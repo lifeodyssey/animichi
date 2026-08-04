@@ -154,7 +154,7 @@ planning all go through the catalog Worker. Catalog ingest/enrichment/publish jo
 Bangumi access and decide which works are available; the runtime request path never grows the
 catalog on demand.
 
-## Auth Layer — `worker/app.ts` + `worker/auth.ts`
+## Auth Layer — `workers/edge/app.ts` + `workers/edge/auth.ts`
 
 The CF Worker establishes an identity before proxying to the container. It always strips
 client-supplied `X-User-Id` / `X-User-Type` and re-injects the worker-verified values, so the
@@ -179,7 +179,7 @@ open to callers with no session:
   minimum-history threshold. A forged or wrongly-signed cookie is discarded, not trusted.
 - **Opt-in** — anonymous access stays off unless both `ANON_ACCESS_ENABLED=true` and
   `ANON_ID_SECRET` are set; otherwise `/v1/chat` keeps its 401.
-- **Rate limiting** — `worker/rateLimiter.ts` applies a per-identity fixed window
+- **Rate limiting** — `workers/edge/rateLimiter.ts` applies a per-identity fixed window
   (`ANON_RATE_LIMIT` / `ANON_RATE_LIMIT_WINDOW_SECONDS`) backed by the `EDGE_GUARD` Durable
   Object, one shard per identity. Exceeding it returns a 429 the client renders as in-character
   "少し待ってね" copy.
@@ -207,7 +207,7 @@ that package is the source of truth, not this file.
 
 <!-- historical: retired in #537 -->
 Issue #537 deleted the legacy `frontend/` Next.js package and the root Worker's OpenNext
-fallback with it. The root Worker (`worker/app.ts`) is now an API gateway only: `/v1/*`,
+fallback with it. The root Worker (`workers/edge/app.ts`) is now an API gateway only: `/v1/*`,
 `/v1/users/*`, `/healthz`, `/img/*`, one allowlisted public catalog read, and a JSON
 `404 not_found` for everything else. It serves no HTML.
 
@@ -218,9 +218,12 @@ fallback with it. The root Worker (`worker/app.ts`) is now an API gateway only: 
 | `supabase/migrations/20260402124000_operational_tables.sql` | Logs every request: plan_steps, intent, latency_ms |
 | `tests/eval/datasets/plan_quality_v1.json` | 50+ cases × 3 locales |
 | `tests/eval/test_plan_quality.py` | pydantic_evals harness; uses animichi_agent; Iter 3 gate: ≥ baseline + 10pp |
-| `tools/eval_scorer.py` | Batch LLM judge; writes `plan_quality_score` back to DB |
-| `tools/eval_feedback_miner.py` | Mines `feedback(rating='bad')` → LLM prompt suggestions |
 | `clients/python/seichijunrei_client.py` | Sync/async Python client for agent/CLI use |
+
+<!-- historical: agent/tools/eval_scorer.py and agent/tools/eval_feedback_miner.py were removed in
+#746 — hand-rolled eval-era tools with zero consumers, superseded by the official-v1 evaluator
+(#354, docs/testing-strategy.md). Their entries were already stale here: the eval harness they
+described (Iter 3 gate) predates the current evaluator. -->
 
 ## Design Rules
 

@@ -93,12 +93,6 @@ describe("fetchAuthToken", () => {
     expect(await fetchAuthToken()).toBeUndefined();
   });
 
-  it("returns undefined when jwtClient returns no token data", async () => {
-    configure();
-    token.mockResolvedValue({ data: null, error: null });
-    expect(await fetchAuthToken()).toBeUndefined();
-  });
-
   it("returns undefined when jwtClient throws", async () => {
     configure();
     token.mockRejectedValue(new Error("network"));

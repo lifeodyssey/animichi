@@ -189,7 +189,7 @@ function TurnstileWidget({ siteKey }: Readonly<{ siteKey: string }>) {
 
 /**
  * The Turnstile widget. Verification itself is server-side at the edge
- * (`worker/turnstile.ts`) — this only collects the token and hands it to the
+ * (`workers/edge/turnstile.ts`) — this only collects the token and hands it to the
  * store the chat transport reads.
  */
 function useTurnstileWidget(onToken: ((token: string) => void) | undefined): void {

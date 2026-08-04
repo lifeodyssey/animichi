@@ -1,9 +1,19 @@
 # 地图栈 ADR · MapLibre GL + PMTiles 自托管(R2 + Workers)——调研与决策全记录
 
+> **归档说明(2026-08-04,PR #727)**:本文档已归档,记录的是 2026-07-11 决策当时的事实,
+> 不因后续变化而改写正文。文中提到的 spike 目录 `docs/superpowers/spikes/map-stack/` 已在
+> PR #727 删除——原因是其 `package-lock.json` 被 osv-scanner 标出 5 条 undici 高危 CVE,
+> 且该目录的 npm 生态从未被 `.github/dependabot.yml` 覆盖(只覆盖 `/` 与 `/infra`),锁文件会
+> 持续腐烂;删除时机合理是因为 spike 证明的决策已完全生产化——见
+> `apps/web/src/features/maplibre/`、`apps/web/src/features/map-spike/`、
+> `apps/web/src/features/bubble-map/`、`apps/web/src/routes/_dev/map-spike.tsx`,以及
+> 简版决策记录 `docs/adr/0001-map-stack-maplibre-protomaps.md`(该文档为活文档,已同步更新
+> 指针)。正文中所有指向该已删除目录的路径标注为「路径已删除」,原文不做增删。
+>
 > 状态:ACCEPTED(2026-07-11,S0.4 / issue #237;X1 既定方向经本轮调研 + spike 验证后确认)
 > 决策人:用户(经 spec X1 冻结方向);本文档 = 选型证据链 + 需求映射 + 分阶段策略
 > 简版决策记录:`docs/adr/0001-map-stack-maplibre-protomaps.md`(本文是它的调研附录)
-> Spike 代码:`docs/superpowers/spikes/map-stack/`(独立可运行,不依赖 apps/web)
+> Spike 代码:`docs/superpowers/spikes/map-stack/`(独立可运行,不依赖 apps/web)【路径已删除,见文首归档说明】
 > 关联:spec `2026-07-06-frontend-rebuild/iter-0.md` S0.4;被 block:S1.4 / S1.5 / S2.2 / S5.2 / S6.2;离线伏笔:S3.6 / S3.10
 
 ## 1. 背景与约束
@@ -99,7 +109,10 @@ Walk mode 还要求**离线**可用。约束按重要度排:
   建议直接全日本一步到位,免得"点位刚好在 bbox 外"这类边界折腾。
 - 更新:后续交付 `scripts/build-pmtiles.sh`(spec 对 S0.4 点名的产物,apps/web 接线时一并落地;
   月度手动或 cron)重新 extract + 上传;spike 内已有其雏形
-  `docs/superpowers/spikes/map-stack/scripts/fetch-tiles.sh`。地图数据不更新也不腐坏。
+  `docs/superpowers/spikes/map-stack/scripts/fetch-tiles.sh`【路径已删除,见文首归档说明;
+  其核心步骤(pmtiles CLI 探测最近日构建 + bbox extract)已搬运保存到
+  `docs/adr/0001-map-stack-maplibre-protomaps.md` 的"仍待接线"条目下,供
+  `scripts/build-pmtiles.sh` 正式交付时复用】。地图数据不更新也不腐坏。
 
 ### D3 · 服务形状 = edge worker 新增 `/tiles/*` ZXY 端点(照抄 `/img/*` 模式)
 
@@ -221,7 +234,7 @@ spec 最低要求的 Kansai+Kanto z15 ≈ **0.5GB**,日本全域 z15 ≈ **2.4GB
 
 ## 8. Spike 结论与范围说明
 
-Spike(`docs/superpowers/spikes/map-stack/`,Codex 实现,独立 Vite + TS 项目)已全部验证
+Spike(`docs/superpowers/spikes/map-stack/`【路径已删除,见文首归档说明】,Codex 实现,独立 Vite + TS 项目)已全部验证
 (真 Chrome QA:console 零错误零警告;AC2/AC3 语义、离线 FileSource、worker 模式
 `/tiles/{z}/{x}/{y}.mvt` 200/204 均实测通过;无 WebGL 的 headless 下按 D4 停留插画层):
 
@@ -232,8 +245,8 @@ Spike(`docs/superpowers/spikes/map-stack/`,Codex 实现,独立 Vite + TS 项目)
 3. **离线**:pmtiles → Blob → `FileSource` 全离线渲染(D5 可行性)。
 4. **`/tiles/*` Worker**:Protomaps 官方 worker 形状 + `wrangler dev` 本地 R2 模拟
    (`--local` binding,无需真桶),证明 D3 服务形状与 `/img/*` 同构。
-5. **供应链**:spike 内 `scripts/fetch-tiles.sh` 远程 extract(§6 实测数字的来源;
-   生产版 `scripts/build-pmtiles.sh` 随 apps/web 接线交付)。
+5. **供应链**:spike 内 `scripts/fetch-tiles.sh`【路径已删除,见文首归档说明】远程 extract
+   (§6 实测数字的来源;生产版 `scripts/build-pmtiles.sh` 随 apps/web 接线交付)。
 
 **范围说明**:iter-0 S0.4 的 releasable statement 提及 apps/web 内 demo route 与生产
 R2 桶;因 apps/web 骨架(S0.2)由并行工序建设中,本 PR 交付 ADR + 独立 spike,
