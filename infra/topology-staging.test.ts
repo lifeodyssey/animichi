@@ -63,7 +63,7 @@ test("the WAF gate blocks, and matches the staging host", () => {
   // #769: the allowlist clause is space-separated inside the braces, and the
   // exchange path passes through ahead of any future endpoint existing.
   assert.match(expression, /not \(ip\.src in \{1\.2\.3\.4 203\.0\.113\.0\/24\}\)/);
-  assert.match(expression, /not \(starts_with\(http\.request\.uri\.path, "\/staging-gate\/exchange"\)\)/);
+  assert.match(expression, /not \(http\.request\.uri\.path eq "\/staging-gate\/exchange"\)/);
 });
 
 test("the gate rule is sealed as a SECRET before it reaches state", () => {
