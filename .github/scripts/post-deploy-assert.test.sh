@@ -191,9 +191,93 @@ class Handler(http.server.BaseHTTPRequestHandler):
   echo "PASS: HTML-only origin served (${requests} request, exit ${rc})"
 }
 
+# ── Case 5: Neon Auth disabled -> passes, no drift verdict needed ──────────
+test_auth_config_check_disabled_passes() {
+  local port=18805 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{\"neonAuthEnabled\": false, \"jwksIssuerMatch\": null}')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  ROOT_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-disabled.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -eq 0 ] || fail_test "Neon Auth disabled should pass trivially, got exit ${rc}: $(cat /tmp/authcfg-disabled.out)"
+  [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request, got ${requests}"
+  grep -q "nothing to check" /tmp/authcfg-disabled.out || fail_test "missing expected diagnostic in output"
+  echo "PASS: Neon Auth disabled passes trivially (${requests} request, exit ${rc})"
+}
+
+# ── Case 6: JWKS matches the issuer-derived URL -> passes ──────────────────
+test_auth_config_check_matching_passes() {
+  local port=18806 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{\"neonAuthEnabled\": true, \"jwksIssuerMatch\": true}')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  ROOT_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-match.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -eq 0 ] || fail_test "matching JWKS/issuer should pass, got exit ${rc}: $(cat /tmp/authcfg-match.out)"
+  [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request, got ${requests}"
+  echo "PASS: matching JWKS/issuer passes (${requests} request, exit ${rc})"
+}
+
+# ── Case 7: JWKS drifted from the issuer -> fails with a clear diagnostic ──
+test_auth_config_check_drift_fails() {
+  local port=18807 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{\"neonAuthEnabled\": true, \"jwksIssuerMatch\": false}')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  ROOT_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-drift.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -ne 0 ] || fail_test "drifted JWKS/issuer should fail the gate, got exit 0"
+  [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request (no retry needed on a 200), got ${requests}"
+  grep -q "does not match" /tmp/authcfg-drift.out || fail_test "missing expected drift diagnostic in output"
+  grep -q "issue #709" /tmp/authcfg-drift.out || fail_test "missing issue reference in diagnostic"
+  echo "PASS: drifted JWKS/issuer fails with a clear diagnostic (${requests} request, exit ${rc})"
+}
+
 test_branded_404_fails_fast
 test_cf_edge_404_retries_then_fails
 test_cf_edge_404_then_recovers
 test_html_only_origin_is_accepted
+test_auth_config_check_disabled_passes
+test_auth_config_check_matching_passes
+test_auth_config_check_drift_fails
 
 echo "All post-deploy-assert.sh behavioral tests passed."
