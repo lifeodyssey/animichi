@@ -108,7 +108,7 @@ test("DNSSEC is enabled on the zone", () => {
   assert.equal(only(built, ZONE_DNSSEC).inputs.zoneId, "zone");
 });
 
-test("the API rate limit dampens /v1 bursts on the apex", () => {
+test("the API rate limit dampens /v1 bursts across the zone", () => {
   const ruleset = ofType(built, RULESET).find((r) => r.name === "animichi-api-rate-limit");
   assert.ok(ruleset, "rate limit ruleset missing");
   assert.equal(ruleset.inputs.phase, "http_ratelimit");
@@ -119,7 +119,10 @@ test("the API rate limit dampens /v1 bursts on the apex", () => {
   assert.equal(ratelimit.period, 10);
   assert.equal(ratelimit.requestsPerPeriod, 60);
   assert.equal(ratelimit.mitigationTimeout, 10);
-  assert.match(String(rule.expression), /http\.host eq "animichi\.com"/);
+  // Zone-scoped per PR #776: on this zone only the apex serves `/v1/*` (www
+  // 301-redirects in http_request_dynamic_redirect, before http_ratelimit),
+  // so a bare path match equals the apex match with no config coupling.
+  assert.doesNotMatch(String(rule.expression), /http\.host/, "must not match a host");
   assert.match(String(rule.expression), /starts_with\(http\.request\.uri\.path, "\/v1\/"\)/);
 });
 

@@ -52,17 +52,13 @@ test("staging gets the SAME API and map routes as prod", () => {
 test("no www placeholder and no redirect on staging", () => {
   assert.deepEqual(ofType(built, DNS).filter((r) => r.inputs.name === "www.animichi.com"), []);
   const rulesets = ofType(built, RULESET).map((r) => r.name).sort();
-  assert.deepEqual(rulesets, ["animichi-api-rate-limit", "staging-access-gate"]);
+  assert.deepEqual(rulesets, ["staging-access-gate"]);
 });
 
-test("the apex CAA issuers pin the staging host, not prod's", () => {
-  const caa = ofType(built, DNS).filter((r) => r.inputs.type === "CAA");
-  assert.equal(caa.length, 4);
-  for (const record of caa) {
-    assert.equal(record.inputs.name, "staging.animichi.com");
-    assert.equal(record.inputs.zoneId, "zone");
-    assert.equal((record.inputs.data as { tag: string }).tag, "issue");
-  }
+test("staging declares no CAA records — prod owns the zone certificates", () => {
+  // PR #776: zone hardening is prod-only. A staging CAA record would pin a
+  // hostname on the same zone the prod stack manages.
+  assert.deepEqual(ofType(built, DNS).filter((r) => r.inputs.type === "CAA"), []);
 });
 
 test("the WAF gate blocks, and matches the staging host", () => {
@@ -99,13 +95,15 @@ test("the gate rule is sealed as a SECRET before it reaches state", () => {
   assert.equal(unseal(gate.inputs.rules).isSecret, true);
 });
 
-test("zone hardening applies to staging too", () => {
-  assert.equal(only(built, ZONE_DNSSEC).inputs.zoneId, "zone");
-  const setting = only(built, ZONE_SETTING);
-  assert.equal(setting.inputs.settingId, "security_header");
-  const sts = (setting.inputs.value as Record<string, unknown>)
-    .strict_transport_security as Record<string, unknown>;
-  assert.equal(sts.include_subdomains, false);
+test("staging owns none of the zone-hardening resources", () => {
+  // PR #776: prod is the single owner of zone metadata. Two stacks declaring
+  // the same zone resources (DNSSEC, security header, rate-limit ruleset)
+  // would fight over them on `pulumi up`, so staging must expect NONE of them
+  // even with zoneId and routes configured.
+  assert.deepEqual(ofType(built, ZONE_DNSSEC), []);
+  assert.deepEqual(ofType(built, ZONE_SETTING), []);
+  const rateLimit = ofType(built, RULESET).find((r) => r.name === "animichi-api-rate-limit");
+  assert.equal(rateLimit, undefined, "staging must not declare the rate-limit ruleset");
 });
 
 test("an ordinary input on this same stack is NOT sealed", () => {
