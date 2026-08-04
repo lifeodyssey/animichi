@@ -7,6 +7,8 @@ repository-wide coverage gate green.
 
 from __future__ import annotations
 
+import asyncio
+import threading
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -223,6 +225,31 @@ async def test_call_optional_async_awaits_async_method() -> None:
 async def test_call_optional_async_ignores_missing_method() -> None:
     target = SimpleNamespace()
     await _call_optional_async(target, "close")
+
+
+def test_lifespan_startup_does_not_block_on_db_connect() -> None:
+    """Issue #694: the pool connect runs in the background, not before yield.
+
+    Startup completes while ``connect`` is still blocked (a hang here means
+    the readiness probe regressed to waiting on the database), and shutdown
+    still awaits the connect task.
+    """
+    release = threading.Event()
+
+    async def slow_connect() -> None:
+        await asyncio.to_thread(release.wait)
+
+    db = MagicMock(spec=SupabaseClient)
+    db.connect = slow_connect
+    app = create_fastapi_app(
+        db=db,
+        session_store=InMemorySessionStore(),
+        settings=Settings(),
+    )
+    with TestClient(app) as client:
+        response = client.get("/healthz")
+        assert response.status_code == 200
+        release.set()
 
 
 def test_require_supabase_returns_client_when_valid(mock_db: MagicMock) -> None:
