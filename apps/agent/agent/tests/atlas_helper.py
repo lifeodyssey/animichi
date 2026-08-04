@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import os
 import platform
@@ -120,13 +121,35 @@ def _global_atlas_matching_pin() -> Path | None:
     return Path(executable) if installed == PINNED_ATLAS_VERSION else None
 
 
+def _fetch_atlas_artifact(url: str) -> bytes:
+    response = httpx.get(
+        url, timeout=ATLAS_DOWNLOAD_TIMEOUT_SECONDS, follow_redirects=True
+    )
+    response.raise_for_status()
+    return response.content
+
+
+def _write_verified_binary(
+    tmp_destination: Path, destination: Path, payload: bytes, system: str, machine: str
+) -> None:
+    tmp_destination.write_bytes(payload)
+    verify_atlas_checksum(tmp_destination, system, machine)
+    executable_bits = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+    tmp_destination.chmod(tmp_destination.stat().st_mode | executable_bits)
+    tmp_destination.replace(destination)
+
+
 def _download_pinned_atlas(system: str, machine: str) -> Path:
     """Fetch, checksum-verify, and cache the pinned Atlas binary.
 
     The sha256 compared here is the digest already committed in this file
     (recorded once from the official release and human-reviewed) — never a
     checksums file fetched over the same channel as the binary, which would
-    only prove transport integrity, not artifact identity (#723).
+    only prove transport integrity, not artifact identity (#723). Every step
+    from "decided to download" to "binary is executable" — the HTTP fetch,
+    `mkdir`, the write, the checksum, `chmod`, and the atomic `replace` — is
+    inside one failure boundary: any of them raising must read as "the
+    integration arm did NOT run", never as an unrelated filesystem error.
     """
     artifact = ATLAS_ARTIFACTS.get((system, machine))
     if artifact is None:
@@ -137,31 +160,21 @@ def _download_pinned_atlas(system: str, machine: str) -> Path:
         )
     artifact_name, _ = artifact
     destination = _cached_atlas_binary(system, machine)
-    destination.parent.mkdir(parents=True, exist_ok=True)
     tmp_destination = destination.with_suffix(".download")
     url = f"{ATLAS_RELEASE_BASE_URL}/{artifact_name}"
     try:
-        response = httpx.get(url, timeout=ATLAS_DOWNLOAD_TIMEOUT_SECONDS)
-        response.raise_for_status()
-        tmp_destination.write_bytes(response.content)
-    except (httpx.HTTPError, OSError) as error:
-        tmp_destination.unlink(missing_ok=True)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        payload = _fetch_atlas_artifact(url)
+        _write_verified_binary(tmp_destination, destination, payload, system, machine)
+    except (httpx.HTTPError, OSError, RuntimeError) as error:
+        with contextlib.suppress(OSError):
+            tmp_destination.unlink(missing_ok=True)
         raise RuntimeError(
-            "integration test arm did NOT run: could not download the pinned "
-            f"Atlas {PINNED_ATLAS_VERSION} binary from {url} ({error}) — this is "
-            "not an unrelated environment blip, the integration arm has not "
-            "executed; check network access and retry, or install Atlas "
-            f"{PINNED_ATLAS_VERSION} manually and put it on PATH"
+            "integration test arm did NOT run: could not prepare the pinned "
+            f"Atlas {PINNED_ATLAS_VERSION} binary ({error}); check network access, "
+            f"disk space, and write permissions under {ATLAS_CACHE_DIR}, or install "
+            f"Atlas {PINNED_ATLAS_VERSION} manually and put it on PATH"
         ) from error
-    try:
-        verify_atlas_checksum(tmp_destination, system, machine)
-    except RuntimeError as error:
-        tmp_destination.unlink(missing_ok=True)
-        raise RuntimeError(f"integration test arm did NOT run: {error}") from error
-    tmp_destination.chmod(
-        tmp_destination.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-    )
-    tmp_destination.replace(destination)
     return destination
 
 
@@ -192,7 +205,13 @@ def ensure_pinned_atlas() -> Path | None:
         try:
             verify_atlas_checksum(cached, system, machine)
         except RuntimeError:
-            cached.unlink(missing_ok=True)
+            with contextlib.suppress(OSError):
+                cached.unlink(missing_ok=True)
+        except OSError as error:
+            raise RuntimeError(
+                "integration test arm did NOT run: could not read the cached "
+                f"Atlas binary at {cached} to verify it ({error})"
+            ) from error
         else:
             return cached.parent
     return _download_pinned_atlas(system, machine).parent
