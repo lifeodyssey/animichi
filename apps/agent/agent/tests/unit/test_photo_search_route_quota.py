@@ -18,6 +18,7 @@ from agent.tests.unit.photo_search_route_fixtures import (
     UsageRepo,
     app_,
     body_,
+    post_photo_search,
     settings_,
     titles_model,
 )
@@ -68,17 +69,11 @@ async def test_identified_caller_without_user_type_is_not_metered_as_anonymous()
 
 async def test_quota_key_ignores_client_controlled_session_header() -> None:
     app = app_(settings=settings_(anon=1))
-    async with async_client(app) as client:
-        first = await client.post(
-            "/v1/photo-search", json=body_(), headers={"x-session-id": "s-1"}
-        )
-        second = await client.post(
-            "/v1/photo-search", json=body_(), headers={"x-session-id": "s-2"}
-        )
+    first = await post_photo_search(app, headers={"x-session-id": "s-1"})
+    second = await post_photo_search(app, headers={"x-session-id": "s-2"})
     assert first.status_code == 200
-    assert (
-        second.status_code == 429
-    )  # rotating the session header must not reset the meter
+    # rotating the session header must not reset the meter
+    assert second.status_code == 429
 
 
 async def test_anon_quota_exhaustion_guides_toward_configuring_a_key() -> None:
@@ -135,17 +130,12 @@ async def test_a_rejected_byok_resolution_never_spends_the_quota_slot() -> None:
     `_prepare_turn` now resolves BYOK (a rejecting guard) before consuming
     quota — proven here by a same-tier follow-up request still succeeding."""
     app = app_(settings=settings_(member=1))
-    async with async_client(app) as client:
-        rejected = await client.post(
-            "/v1/photo-search", json=body_(), headers=_MALFORMED_OPENAI_COMPAT_BYOK
-        )
-        assert rejected.status_code == 400
-        assert rejected.json()["error"]["code"] == "invalid_request"
-        following = await client.post(
-            "/v1/photo-search",
-            json=body_(),
-            headers={"X-User-Id": "user-1", "X-User-Type": "human"},
-        )
+    rejected = await post_photo_search(app, headers=_MALFORMED_OPENAI_COMPAT_BYOK)
+    assert rejected.status_code == 400
+    assert rejected.json()["error"]["code"] == "invalid_request"
+    following = await post_photo_search(
+        app, headers={"X-User-Id": "user-1", "X-User-Type": "human"}
+    )
     assert following.status_code == 200
 
 
@@ -160,9 +150,6 @@ async def test_quota_rejection_after_byok_resolves_still_closes_its_client() -> 
         "agent.interfaces.routes.photo_search.build_byok_model",
         AsyncMock(return_value=byok_model),
     ):
-        async with async_client(app) as client:
-            response = await client.post(
-                "/v1/photo-search", json=body_(), headers=BYOK_HEADERS
-            )
+        response = await post_photo_search(app, headers=BYOK_HEADERS)
     assert response.status_code == 429
     fake_client.aclose.assert_awaited_once()
