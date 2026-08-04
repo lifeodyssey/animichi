@@ -109,6 +109,31 @@ max-complexity = 10
 "agent/config/settings.py" = ["S104"]  # FastAPI container must bind 0.0.0.0; remove with agent→Worker migration (Wave 3)
 "agent/interfaces/routes/health.py" = ["S603"]  # args is always a hardcoded list, not user input
 
+[tool.pytest.ini_options]
+# Pytest configuration for Animichi Bot
+
+# Test discovery patterns
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Test paths
+testpaths = ["agent/tests"]
+
+# Pytest options
+addopts = "-ra --strict-markers --strict-config --cov=agent --cov-branch --cov-report=term-missing:skip-covered --cov-report=html --cov-report=xml --cov-fail-under=87 --maxfail=1 --tb=short --asyncio-mode=auto -v"
+
+# Custom markers (must live under [tool.pytest.ini_options]; previously misplaced under [coverage:report])
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "e2e: End-to-end tests",
+    "api: Live API tests against a running local stack (auto-skip if unreachable)",
+    "slow: Slow tests",
+    "requires_api: Tests that require API access",
+    "asyncio: Async tests",
+]
+
 [tool.coverage.run]
 source = ["agent"]
 omit = [
@@ -124,6 +149,7 @@ omit = [
     ".uv-cache/*",
     "*/.uv-cache/*",
     "*/site-packages/*",
+    "*/conftest.py",
 ]
 
 [tool.coverage.report]

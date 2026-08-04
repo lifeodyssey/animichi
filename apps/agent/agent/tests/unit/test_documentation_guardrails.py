@@ -16,7 +16,7 @@ from agent.tests.unit.documentation_guardrails import (
 )
 
 READS: tuple[str, ...] = (
-    "apps/agent/pytest.ini",
+    "apps/agent/pyproject.toml",
     "apps/web/vitest.config.ts",
     "docs/ARCHITECTURE.md",
     "docs/ops/deployment.md",

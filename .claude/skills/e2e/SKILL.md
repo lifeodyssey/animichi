@@ -40,18 +40,22 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH
 
 | Command | What | Time |
 |---------|------|------|
-| `make e2e` | All 18 tests | ~16s |
+| `make e2e` | All 34 tests | ~16s |
 | `make e2e-public` | 12 tests (no email) | ~4s |
 | `cd e2e && npx playwright test --headed --workers=1` | Watch in browser | ~20s |
 
-## Tests (18)
+## Tests (34)
 
 | File | # | Covers |
 |------|---|--------|
-| `public-pages.spec.ts` | 3 | Landing, Guide load, CTA button |
-| `middleware-redirect.spec.ts` | 4 | /chat→/login, /settings→/login, query preserved, public passthrough |
-| `login-modal.spec.ts` | 5 | Landing modal, ?login=true, Guide CTA modal, hint text, backdrop close |
-| `auth-flow-local.spec.ts` | 6 | Email arrival, magic link login, en/ja/zh locale email content |
+| `web-404.spec.ts` | 3 | Home/undefined route hydration, branded 404 |
+| `web-chat-anonymous.spec.ts` | 6 | Anonymous chat round-trip, rate-limit wait copy, quota breaker → login, challenge retry, daily-quota lock |
+| `web-chat-error-states.spec.ts` | 9 | D1–D6/D8/D9 error cards (recognition, zero spots, short route, interruption, timeout, validation, session expiry, scene-image 404) |
+| `web-chat-save-login-wall.spec.ts` | 6 | Save intent, magic-link login wall, deferred replay across tabs |
+| `web-chat-selection.spec.ts` | 2 | Multi-spot selection tray, inline recompute retry |
+| `web-map-spike.spec.ts` | 4 | Tile paint budget, 204/404/500 tile outage rendering |
+| `web-maplibre-canary.spec.ts` | 2 | MapLibre v5 happy path, setup-failure fallback |
+| `web-splash.spec.ts` | 2 | Day/night splash render + clear
 
 ## Locale Email Tests
 
