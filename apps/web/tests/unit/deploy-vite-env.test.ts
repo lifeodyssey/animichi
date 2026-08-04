@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const workflow = readFileSync(
-  fileURLToPath(new URL("../../../../.github/workflows/_deploy-component.yml", import.meta.url)),
+  fileURLToPath(new URL("../../../../.github/workflows/reusable-deploy-component.yml", import.meta.url)),
   "utf8",
 );
 const sourceFiles = import.meta.glob("../../src/**/*.{ts,tsx}", {
