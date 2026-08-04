@@ -5,7 +5,14 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from agent.agents.vision_supply_router import VisionRecognition
+from pydantic_ai.usage import RunUsage
+
+from agent.agents.photo_vision import (
+    RecognizeCall,
+    VisionCallResult,
+    VisionProviderKind,
+    VisionRecognitionFailed,
+)
 from agent.clients.catalog_client import (
     AnimeCandidate,
     PilgrimagePoint,
@@ -32,23 +39,26 @@ def digest(image: bytes) -> str:
     return hashlib.sha256(image).hexdigest()
 
 
-class KeyedVisionStub:
-    """Maps exact image bytes to recognised titles; count matches by default."""
+def recognize_stub(
+    titles: list[str], provider_kind: VisionProviderKind = "platform"
+) -> RecognizeCall:
+    """A `RecognizeCall` that always answers with a fixed candidate list —
+    stands in for a resolved `agent.agents.photo_vision.recognize_photo`
+    closure in pipeline tests that don't care how recognition happened."""
 
-    def __init__(
-        self, mapping: dict[str, list[str]], reported_count: int | None = None
-    ) -> None:
-        self._mapping = mapping
-        self._reported_count = reported_count
-        self.calls = 0
+    async def call() -> VisionCallResult:
+        return VisionCallResult(titles, provider_kind, RunUsage(requests=1))
 
-    async def recognize(self, images: list[bytes], locale: str) -> VisionRecognition:
-        self.calls += 1
-        titles = list(self._mapping.get(digest(images[0]), []))
-        count = (
-            self._reported_count if self._reported_count is not None else len(images)
-        )
-        return VisionRecognition(reported_image_count=count, candidate_titles=titles)
+    return call
+
+
+def recognize_unavailable() -> RecognizeCall:
+    """A `RecognizeCall` standing in for both providers being exhausted."""
+
+    async def call() -> VisionCallResult:
+        raise VisionRecognitionFailed()
+
+    return call
 
 
 def suga_shrine_point() -> PilgrimagePoint:

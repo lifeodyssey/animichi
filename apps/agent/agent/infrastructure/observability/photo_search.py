@@ -9,8 +9,7 @@ from typing import Literal, NewType
 import logfire
 from pydantic import BaseModel
 
-from agent.agents.vision_supply_router import QuotaTier
-
+QuotaTier = Literal["anon", "member"]
 QueryType = Literal["anime_screenshot", "real_world_photo", "vision_unavailable"]
 # The client-submitted confirm signal (anonymous-reachable) may only claim to
 # have seen a real search outcome — never "vision_unavailable" (#502 review

@@ -1,17 +1,26 @@
-"""Unit tests for the /v1/photo-search boundary (validation, quota, confirm)."""
+"""Unit tests for the /v1/photo-search boundary (validation, quota, confirm).
+
+BYOK model resolution is patched at `agent.interfaces.routes.photo_search.
+build_byok_model` — the same pattern `test_byok_chat_routing.py` uses for
+`/v1/chat` — so these tests exercise the route's own wiring (header parsing,
+quota, usage attribution) without needing a real provider credential.
+"""
 
 from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 from fastapi import FastAPI
+from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
+from pydantic_ai.models import Model
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from agent.agents.vision_supply_router import EndpointId, VisionRecognition
+from agent.agents.byok_models import ByokModel
 from agent.config.settings import Settings
 from agent.infrastructure.observability import photo_search as telemetry
 from agent.infrastructure.observability.photo_search import PhotoSearchQuota
@@ -22,31 +31,58 @@ from agent.interfaces.routes.photo_search import (
     PhotoSearchRuntime,
 )
 from agent.tests.unit.conftest_fastapi import async_client, build_app, build_stub_db
-from agent.tests.unit.photo_search_fakes import (
-    YOURNAME_TITLE,
-    FakeCatalog,
-    KeyedVisionStub,
-    digest,
-)
+from agent.tests.unit.photo_search_fakes import FakeCatalog
 
 # Valid JPEG magic so the route's strict sniff accepts the stub payload.
 _IMAGE = b"\xff\xd8\xff\xe0route-image"
+
+BYOK_HEADERS = {
+    "X-User-Id": "user-1",
+    "X-User-Type": "human",
+    "X-BYOK-Provider": "anthropic",
+    "X-BYOK-Key": "sk-fake-secret-value",
+}
+
+
+def _titles_model(titles: list[str]) -> Model:
+    def fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        tool = info.output_tools[0]
+        return ModelResponse(
+            parts=[ToolCallPart(tool_name=tool.name, args={"candidate_titles": titles})]
+        )
+
+    return FunctionModel(fn)
+
+
+def _down_model() -> Model:
+    def fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        raise httpx.ConnectError("connection refused")
+
+    return FunctionModel(fn)
 
 
 def _settings(anon: int | None = None, member: int | None = None) -> Settings:
     return Settings(photo_search_quota_anon=anon, photo_search_quota_member=member)
 
 
-def _app(settings: Settings | None = None) -> FastAPI:
-    runtime = MagicMock(spec=RuntimeAPI)
-    runtime._db = build_stub_db()
-    app, _ = build_app(runtime_api=runtime, settings=settings)
-    stub = KeyedVisionStub({digest(_IMAGE): [YOURNAME_TITLE]})
-    app.state.photo_search = PhotoSearchRuntime(
-        platform_provider=stub,
+def _runtime(platform_model: Model) -> PhotoSearchRuntime:
+    return PhotoSearchRuntime(
+        platform_model=platform_model,
         catalog=FakeCatalog(),
         quota=PhotoSearchQuota(clock=lambda: datetime(2026, 7, 26, tzinfo=UTC)),
     )
+
+
+def _app(
+    settings: Settings | None = None, platform_model: Model | None = None
+) -> FastAPI:
+    runtime = MagicMock(spec=RuntimeAPI)
+    runtime._db = build_stub_db()
+    app, _ = build_app(runtime_api=runtime, settings=settings)
+    model = (
+        platform_model if platform_model is not None else _titles_model(["君の名は。"])
+    )
+    app.state.photo_search = _runtime(model)
     return app
 
 
@@ -55,6 +91,18 @@ def _body(mime: str = "image/jpeg", image: bytes = _IMAGE) -> dict[str, object]:
         "image_base64": base64.b64encode(image).decode("ascii"),
         "mime_type": mime,
     }
+
+
+def _fake_byok_model(model: Model) -> tuple[ByokModel, AsyncMock]:
+    fake_client = AsyncMock(spec=httpx.AsyncClient)
+    return ByokModel(model=model, client=fake_client), fake_client
+
+
+def _patched_build(byok_model: ByokModel) -> object:
+    return patch(
+        "agent.interfaces.routes.photo_search.build_byok_model",
+        AsyncMock(return_value=byok_model),
+    )
 
 
 async def test_photo_search_returns_chat_shaped_search_envelope() -> None:
@@ -67,21 +115,14 @@ async def test_photo_search_returns_chat_shaped_search_envelope() -> None:
     assert payload["data"]["results"]["bangumi_id"] == "160209"
 
 
-class _DownVisionProvider:
-    """#502: the platform vision call raises instead of answering."""
-
-    async def recognize(self, images: list[bytes], locale: str) -> VisionRecognition:
-        raise httpx.ConnectError("connection refused")
-
-
-def _outage_app() -> FastAPI:
-    app = _app()
-    app.state.photo_search = PhotoSearchRuntime(
-        platform_provider=_DownVisionProvider(),
-        catalog=FakeCatalog(),
-        quota=PhotoSearchQuota(clock=lambda: datetime(2026, 7, 26, tzinfo=UTC)),
-    )
-    return app
+async def test_platform_vision_outage_degrades_to_clarify_not_500() -> None:
+    """The fallback/degrade edge must be reachable end-to-end through the route."""
+    async with async_client(_app(platform_model=_down_model())) as client:
+        response = await client.post("/v1/photo-search", json=_body())
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["intent"] == "clarify"
+    assert payload["data"]["reason"] == "photo_unrecognized"
 
 
 @dataclass(frozen=True)
@@ -132,20 +173,6 @@ class _UsageRepo:
         return self.spent
 
 
-def _assert_clarify_response(response: httpx.Response) -> None:
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["intent"] == "clarify"
-    assert payload["data"]["reason"] == "photo_unrecognized"
-
-
-async def test_platform_vision_outage_degrades_to_clarify_not_500() -> None:
-    """The fallback/degrade edge must be reachable end-to-end through the route."""
-    async with async_client(_outage_app()) as client:
-        response = await client.post("/v1/photo-search", json=_body())
-    _assert_clarify_response(response)
-
-
 async def test_exhausted_anonymous_budget_rejects_before_vision() -> None:
     app = _app(settings=Settings(anon_daily_cost_budget_usd=5.0))
     repo = _UsageRepo(spent=5.0)
@@ -156,7 +183,6 @@ async def test_exhausted_anonymous_budget_rejects_before_vision() -> None:
     assert response.json()["error"]["code"] == "anon_budget_exhausted"
     assert response.json()["error"]["message"] == BUDGET_EXHAUSTED_MESSAGE
     assert response.json()["error"]["action"] == "login"
-    assert app.state.photo_search.platform_provider.calls == 0
 
 
 async def test_platform_vision_is_recorded_in_the_anonymous_scope() -> None:
@@ -170,21 +196,56 @@ async def test_platform_vision_is_recorded_in_the_anonymous_scope() -> None:
 
 
 async def test_byok_fallback_is_recorded_as_platform_user_usage() -> None:
+    """The BYOK model fails (any I/O-boundary failure); recognition falls
+    back to platform, and the usage attribution follows the model that
+    actually answered — mirrors the old canary-demotion test's outcome
+    without the demotion registry (#656)."""
     app = _app(settings=Settings(model_input_cost_per_mtok_usd=2.0))
     repo = _UsageRepo()
     app.state.db_client.usage = repo
-    endpoint = EndpointId("ep-1")
-    app.state.photo_search.registry.mark(endpoint, True)
-    app.state.photo_search.byok_providers[endpoint] = _DownVisionProvider()
-    headers = {
-        "X-User-Id": "user-1",
-        "X-User-Type": "human",
-        "x-byok-endpoint": "ep-1",
-    }
-    async with async_client(app) as client:
-        response = await client.post("/v1/photo-search", json=_body(), headers=headers)
+    byok_model, fake_client = _fake_byok_model(_down_model())
+    with _patched_build(byok_model):
+        async with async_client(app) as client:
+            response = await client.post(
+                "/v1/photo-search", json=_body(), headers=BYOK_HEADERS
+            )
     assert response.status_code == 200
     assert [call.scope for call in repo.calls] == ["user"]
+    fake_client.aclose.assert_awaited_once()
+
+
+async def test_byok_success_is_recorded_as_byok_scope_with_zero_platform_cost() -> None:
+    app = _app(settings=Settings(model_input_cost_per_mtok_usd=2.0))
+    repo = _UsageRepo()
+    app.state.db_client.usage = repo
+    byok_model, fake_client = _fake_byok_model(_titles_model(["君の名は。"]))
+    with _patched_build(byok_model):
+        async with async_client(app) as client:
+            response = await client.post(
+                "/v1/photo-search", json=_body(), headers=BYOK_HEADERS
+            )
+    assert response.status_code == 200
+    assert [(call.scope, call.cost_usd) for call in repo.calls] == [("byok", 0.0)]
+    fake_client.aclose.assert_awaited_once()
+
+
+async def test_anonymous_byok_headers_are_rejected_before_any_model_call() -> None:
+    anon_headers = {
+        "X-User-Id": "anon_0123456789abcdef0123456789abcdef",
+        "X-User-Type": "anonymous",
+        "X-BYOK-Provider": "anthropic",
+        "X-BYOK-Key": "sk-fake-secret-value",
+    }
+    with patch(
+        "agent.interfaces.routes.photo_search.build_byok_model",
+        AsyncMock(side_effect=AssertionError("must not resolve a BYOK model")),
+    ):
+        async with async_client(_app()) as client:
+            response = await client.post(
+                "/v1/photo-search", json=_body(), headers=anon_headers
+            )
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "byok_requires_login"
 
 
 async def test_unsupported_mime_type_is_a_clear_415() -> None:
@@ -249,11 +310,14 @@ async def test_anon_quota_exhaustion_guides_toward_configuring_a_key() -> None:
     assert error["details"]["guidance"] == "configure_vision_key"
 
 
-async def test_byok_without_vision_guides_toward_switching_endpoint() -> None:
+async def test_byok_present_but_quota_exhausted_guides_toward_switching_endpoint() -> (
+    None
+):
     app = _app(settings=_settings(member=0))
-    headers = {"X-User-Id": "user-1", "x-byok-endpoint": "ep-1"}
     async with async_client(app) as client:
-        response = await client.post("/v1/photo-search", json=_body(), headers=headers)
+        response = await client.post(
+            "/v1/photo-search", json=_body(), headers=BYOK_HEADERS
+        )
     assert response.status_code == 429
     assert response.json()["error"]["details"]["guidance"] == "switch_vision_endpoint"
 
