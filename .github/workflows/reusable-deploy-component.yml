@@ -727,7 +727,7 @@ jobs:
       # own deploy. `catalog` and `users` have NO public route in any
       # environment by design (private, service-binding only) — their
       # reachability through the edge is instead verified end-to-end by
-      # _post-deploy-test.yml (`catalog-probe` / `users-probe`) once every
+      # reusable-post-deploy-test.yml (`catalog-probe` / `users-probe`) once every
       # component in the environment, including `root`, is deployed.
       - name: Smoke
         env:
@@ -750,10 +750,10 @@ jobs:
               ROOT_URL="$url" bash .github/scripts/post-deploy-assert.sh healthz
               ;;
             catalog)
-              echo "::notice title=post-deploy smoke::catalog has no public route in any environment by design (private, CATALOG service binding only); reachability is verified end-to-end by _post-deploy-test.yml's catalog-probe once root is deployed in the same environment"
+              echo "::notice title=post-deploy smoke::catalog has no public route in any environment by design (private, CATALOG service binding only); reachability is verified end-to-end by reusable-post-deploy-test.yml's catalog-probe once root is deployed in the same environment"
               ;;
             users)
-              echo "::notice title=post-deploy smoke::users has no public route in any environment by design (private, USERS service binding only); reachability is verified end-to-end by _post-deploy-test.yml's users-probe once root is deployed in the same environment"
+              echo "::notice title=post-deploy smoke::users has no public route in any environment by design (private, USERS service binding only); reachability is verified end-to-end by reusable-post-deploy-test.yml's users-probe once root is deployed in the same environment"
               ;;
             maintenance)
               echo "::notice title=post-deploy smoke::maintenance is scheduled-only with no public route; verify its first staging invocation in Cloudflare Cron Trigger Past Events before deleting the deprecated GHA fallbacks"

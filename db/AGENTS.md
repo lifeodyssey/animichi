@@ -20,7 +20,7 @@ migrations remain under `supabase/migrations/`. Root guide: `../AGENTS.md`.
 
 - `migrations/*.sql` — ordered schema and data migrations.
 - `migrations/atlas.sum` — Atlas integrity manifest.
-- `../.github/workflows/_deploy-component.yml` — deploy-time apply gate.
+- `../.github/workflows/reusable-deploy-component.yml` — deploy-time apply gate.
 - `../docs/data-sources.md` — gazetteer provenance and regeneration inputs.
 
 ## Pitfalls
