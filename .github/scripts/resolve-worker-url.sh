@@ -85,11 +85,30 @@ resolve_worker_name() {
 worker_name="$(resolve_worker_name)"
 [ -n "${worker_name}" ] || fail "could not resolve a Worker name for ${component}/${environment} from wrangler config"
 
-cf_get() {
-  local path="$1"
-  curl -sS --fail-with-body --connect-timeout 10 --max-time 20 --retry 3 --retry-delay 2 \
+# Every Cloudflare API v4 response, including a plain HTTP 200, carries its
+# own success/errors envelope — `success: false` on a 200 is how CF reports
+# an insufficient token scope, a missing resource, etc. `curl --fail-with-body`
+# alone only catches TRANSPORT failures (a non-2xx status); it does NOT know
+# CF's own envelope shape, so a 200-with-success:false response would sail
+# straight through unnoticed. Left unchecked, that response's `result`
+# is typically `null` or `[]` — which downstream jq code (`.result[] |
+# select(...)`, `.result.enabled // false`) reads as "no Custom Domain" /
+# "workers.dev not enabled", not as an error. That is the exact "quietly
+# reports a plausible-looking wrong URL" failure mode issue #695 exists to
+# remove — just one layer up, in the API call instead of the URL table.
+# `cf_get_checked` is the one place that parses `.result` for every caller
+# below, so this check cannot be bypassed by a call site forgetting it.
+cf_get_checked() {
+  local path="$1" purpose="$2" response success errors
+  response="$(curl -sS --fail-with-body --connect-timeout 10 --max-time 20 --retry 3 --retry-delay 2 \
     -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-    "${API_BASE}${path}"
+    "${API_BASE}${path}")" || fail "Cloudflare API call failed (transport error) while trying to ${purpose}"
+  success="$(echo "${response}" | jq -r '.success // false' 2>/dev/null)" || fail "Cloudflare API response was not valid JSON while trying to ${purpose}: ${response}"
+  if [ "${success}" != "true" ]; then
+    errors="$(echo "${response}" | jq -c '.errors // []' 2>/dev/null || echo '(unparseable)')"
+    fail "Cloudflare API returned success:false while trying to ${purpose} — errors: ${errors}"
+  fi
+  echo "${response}"
 }
 
 # 1) Ground truth for a Custom Domain (issue #541 hostname cutover): if
@@ -98,9 +117,17 @@ cf_get() {
 # wanted. This is what makes the cutover need zero changes here: today this
 # list is empty for every Worker in this repo (per #541, no DNS/route
 # exists yet), so this branch is a no-op until the day it isn't.
-custom_domain_response="$(cf_get "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/domains?per_page=50")" || {
-  fail "Cloudflare API call to list Custom Domains failed"
-}
+#
+# Filtered server-side with `?service=<worker_name>` (confirmed as a
+# documented query parameter of this endpoint — see
+# developers.cloudflare.com/api/resources/workers/subresources/domains/methods/list/)
+# rather than fetched unfiltered and paginated client-side: filtering at
+# the source means there is no page boundary this script could ever fall
+# on the wrong side of, which a client-side per_page cap would not
+# guarantee no matter how large.
+custom_domain_response="$(cf_get_checked \
+  "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/domains?service=${worker_name}" \
+  "list Custom Domains for ${worker_name}")"
 custom_hostname="$(echo "${custom_domain_response}" \
   | jq -r --arg name "${worker_name}" '[.result[] | select(.service == $name)][0].hostname // empty')"
 
@@ -116,18 +143,18 @@ fi
 # exactly this after DNS cutover). Guessing "workers.dev is reachable"
 # without checking this would be the same class of stale-address bug this
 # script exists to remove.
-subdomain_status_response="$(cf_get "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${worker_name}/subdomain")" || {
-  fail "Cloudflare API call to check workers.dev enablement for ${worker_name} failed"
-}
+subdomain_status_response="$(cf_get_checked \
+  "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${worker_name}/subdomain" \
+  "check workers.dev enablement for ${worker_name}")"
 workers_dev_enabled="$(echo "${subdomain_status_response}" | jq -r '.result.enabled // false')"
 
 if [ "${workers_dev_enabled}" != "true" ]; then
   fail "${worker_name} (${component}/${environment}) has neither a Custom Domain nor workers.dev enabled — there is no reachable URL for the post-deploy smoke gate to probe. If a Custom Domain cutover just happened, this is expected right up until Cloudflare's Custom Domain is actually attached; if not, this Worker is unreachable and that is itself a real deploy problem."
 fi
 
-account_subdomain_response="$(cf_get "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain")" || {
-  fail "Cloudflare API call to fetch the account's workers.dev subdomain failed"
-}
+account_subdomain_response="$(cf_get_checked \
+  "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" \
+  "fetch the account's workers.dev subdomain")"
 account_subdomain="$(echo "${account_subdomain_response}" | jq -er '.result.subdomain')" || {
   fail "Cloudflare API response did not contain result.subdomain: ${account_subdomain_response}"
 }
