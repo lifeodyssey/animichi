@@ -15,6 +15,7 @@ const built: Built[] = await buildStack("staging", {
   stagingDomain: "staging.animichi.com",
   stagingGateEnabled: "true",
   stagingGateToken: "test-token-not-a-real-secret",
+  stagingAllowedIps: "1.2.3.4, 203.0.113.0/24",
 });
 
 const CUSTOM_DOMAIN = "cloudflare:index/workersCustomDomain:WorkersCustomDomain";
@@ -59,6 +60,10 @@ test("the WAF gate blocks, and matches the staging host", () => {
   assert.match(expression, /http\.host eq "staging\.animichi\.com"/);
   assert.match(expression, /not \(http\.cookie contains "animichi_staging=/);
   assert.match(expression, /not \(any\(http\.request\.headers\["x-staging-key"\]/);
+  // #769: the allowlist clause is space-separated inside the braces, and the
+  // exchange path passes through ahead of any future endpoint existing.
+  assert.match(expression, /not \(ip\.src in \{1\.2\.3\.4 203\.0\.113\.0\/24\}\)/);
+  assert.match(expression, /not \(starts_with\(http\.request\.uri\.path, "\/staging-gate\/exchange"\)\)/);
 });
 
 test("the gate rule is sealed as a SECRET before it reaches state", () => {

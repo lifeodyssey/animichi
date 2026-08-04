@@ -175,13 +175,31 @@ if (webRoutesEnabled) {
 // that "Workers runs after the Cloudflare WAF and Cloudflare Access". A blocked
 // request never reaches our code and is not billed as a Worker invocation.
 //
-// Two ways in: the `animichi_staging` cookie (set once per browser by hand) or
-// the `x-staging-key` header (CI, curl). No regex — `matches` is Business+ and
-// this zone is on Free, which allows 5 custom rules.
+// Three ways in: an allowlisted source IP (`stagingAllowedIps` — the #769 human
+// path), the legacy `animichi_staging` cookie (set once per browser by hand) or
+// `x-staging-key` header (CI, curl) — #769 card 3 removes the cookie/header
+// path — and the future OIDC exchange endpoint `/staging-gate/exchange` (card 2
+// builds it; passing the WAF is harmless before it exists because unmatched
+// paths 404 at the edge worker). No regex — `matches` is Business+ and this
+// zone is on Free, which allows 5 custom rules.
 //
 // This only works because `workers_dev = false` everywhere (#539): a
 // `*.workers.dev` hostname is not on the zone and would bypass the WAF outright.
 const stagingGateEnabled = config.getBoolean("stagingGateEnabled") ?? false;
+
+// #769: parse the staging allowlist into a Cloudflare `ip.src in { ... }`
+// clause (entries are space-separated inside the braces; plain IPs are allowed
+// alongside CIDRs). Empty list → no clause. Anything else is interpolated into
+// a firewall expression, so a non-IP entry must fail the build loudly.
+export function buildIpClause(raw: string): string {
+  const entries = raw.split(",").map((entry) => entry.trim()).filter((entry) => entry.length > 0);
+  if (entries.length === 0) return "";
+  const invalid = entries.find((entry) => !/^[0-9a-fA-F.:\/]+$/.test(entry));
+  if (invalid !== undefined) {
+    throw new Error(`stagingAllowedIps entry "${invalid}" is not a valid IP or CIDR`);
+  }
+  return ` and not (ip.src in {${entries.join(" ")}})`;
+}
 
 // The stack check keeps this resource meaningful only on staging, even if the
 // flag is accidentally enabled on another stack.
@@ -189,6 +207,12 @@ if (stagingGateEnabled && stack === "staging") {
   const gateZoneId = config.require("cloudflareZoneId");
   const stagingDomain = config.require("stagingDomain");
   const gateToken = config.requireSecret("stagingGateToken");
+
+  // #769: known-human egress IPs (CIDRs, comma-separated). Secret so the list
+  // never lands readable in the public repo or an exported stack backup.
+  const allowedIps = config.getSecret("stagingAllowedIps");
+
+  const ipClause = (allowedIps ?? pulumi.output("")).apply(buildIpClause);
 
   // `pulumi.interpolate` already propagates secretness from `gateToken`, so the
   // explicit `pulumi.secret` is belt-and-braces — kept because the cost of
@@ -202,7 +226,7 @@ if (stagingGateEnabled && stack === "staging") {
   // none of them", and neither is visible until the rule is live. Explicit
   // grouping costs nothing and removes the question.
   const gateExpression = pulumi.secret(
-    pulumi.interpolate`(http.host eq "${stagingDomain}") and not (http.cookie contains "animichi_staging=${gateToken}") and not (any(http.request.headers["x-staging-key"][*] eq "${gateToken}"))`,
+    pulumi.interpolate`(http.host eq "${stagingDomain}") and not (http.cookie contains "animichi_staging=${gateToken}") and not (any(http.request.headers["x-staging-key"][*] eq "${gateToken}"))${ipClause} and not (starts_with(http.request.uri.path, "/staging-gate/exchange"))`,
   );
 
   new cloudflare.Ruleset("staging-access-gate", {
@@ -215,7 +239,7 @@ if (stagingGateEnabled && stack === "staging") {
       {
         action: "block",
         expression: gateExpression,
-        description: "Block staging traffic carrying neither the gate cookie nor the gate header",
+        description: "Block staging traffic without an allowlisted source IP, the gate cookie/header, or the exchange path",
         enabled: true,
       },
     ],
