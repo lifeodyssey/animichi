@@ -249,6 +249,7 @@ jobs:
             GOOGLE_MAPS_API_KEY
             LOGFIRE_TOKEN
             CORS_ALLOWED_ORIGIN
+            POST_DEPLOY_DIAG_TOKEN
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -259,6 +260,7 @@ jobs:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+          POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
 
       # ── Push post-deploy secrets (after root deploy — same list-driven
       #    pattern as _deploy-component.yml, kept in sync with the

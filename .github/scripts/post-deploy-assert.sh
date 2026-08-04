@@ -275,12 +275,31 @@ cmd_data_plane_probe() {
 # verification: fail-closed (no bad token is ever accepted), but silent
 # until someone tries to log in. When Neon Auth is disabled in this
 # environment there is nothing to check.
+#
+# The route is gated by POST_DEPLOY_DIAG_TOKEN (a shared bearer secret —
+# review follow-up on this same issue): even a booleans-only response still
+# tells an anonymous caller whether Neon Auth is currently broken in this
+# environment, which is itself a signal worth denying. Without the right
+# token the Worker answers the same 404 as any unmapped path
+# (workers/edge/app.ts), so a missing/wrong POST_DEPLOY_DIAG_TOKEN here
+# surfaces as an ordinary "expected 200, got 404" failure below — it is not
+# distinguished from "the route doesn't exist" on purpose, matching what the
+# Worker itself reveals to a caller without the secret.
 cmd_auth_config_check() {
   : "${ROOT_URL:?ROOT_URL is required}"
+  # Deliberately NOT `: "${POST_DEPLOY_DIAG_TOKEN:?...}"` here: that pattern
+  # (used for ROOT_URL above, and elsewhere in this script) relies on bash's
+  # unset-parameter fatal-error path to abort with a nonzero exit code, but
+  # combined with the `trap ... EXIT` at the top of this file that path
+  # silently reports exit 0 instead — a real bash quirk, verified locally:
+  # `set -euo pipefail; trap "true" EXIT; : "${FOO:?required}"` prints the
+  # error text but still exits 0. An explicit check + `fail` (a normal exit
+  # 1, not a parameter-expansion error) sidesteps it.
+  [ -n "${POST_DEPLOY_DIAG_TOKEN:-}" ] || fail "POST_DEPLOY_DIAG_TOKEN is required"
   local status enabled match
-  status="$(fetch GET "${ROOT_URL}/internal/auth-config")"
+  status="$(fetch GET "${ROOT_URL}/internal/auth-config" "Bearer ${POST_DEPLOY_DIAG_TOKEN}")"
   diag "${status}"
-  [ "${status}" = "200" ] || fail "GET ${ROOT_URL}/internal/auth-config expected 200, got ${status}"
+  [ "${status}" = "200" ] || fail "GET ${ROOT_URL}/internal/auth-config expected 200, got ${status} — either the route itself is broken, or POST_DEPLOY_DIAG_TOKEN here does not match what was pushed to the deployed Worker"
   enabled="$(jq -r '.neonAuthEnabled' "${BODY_FILE}")"
   if [ "${enabled}" != "true" ]; then
     echo "Neon Auth is disabled in this environment (neonAuthEnabled=false) — nothing to check."
