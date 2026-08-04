@@ -20,8 +20,9 @@ from agent.tests.unit.conftest_fastapi import async_client, build_app, build_stu
 
 pytestmark = pytest.mark.integration
 
+ANON_ID = "anon_0123456789abcdef0123456789abcdef"
 ANON_HEADERS = {
-    "X-User-Id": "anon_0123456789abcdef0123456789abcdef",
+    "X-User-Id": ANON_ID,
     "X-User-Type": "anonymous",
 }
 BYOK_HEADERS = {
@@ -51,59 +52,60 @@ def _app() -> tuple[FastAPI, MagicMock]:
     return app, runtime
 
 
+def _unresolvable_byok_model() -> object:
+    """Patched onto `build_byok_model` so a login-gate regression that lets
+    the caller through would fail loudly (an assertion) instead of silently
+    constructing a real credential path."""
+    return patch(
+        "agent.interfaces.routes.chat.build_byok_model",
+        AsyncMock(side_effect=AssertionError("must not resolve a BYOK model")),
+    )
+
+
+async def _post_chat(headers: dict[str, str]) -> tuple[object, MagicMock]:
+    app, runtime = _app()
+    with _unresolvable_byok_model():
+        async with async_client(app) as client:
+            response = await client.post("/v1/chat", json=_body(), headers=headers)
+    return response, runtime
+
+
+async def _assert_login_gate_rejects(headers: dict[str, str]) -> None:
+    response, runtime = await _post_chat(headers)
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "byok_requires_login"
+    assert runtime.handle.await_count == 0
+
+
 async def test_malformed_byok_headers_from_anonymous_caller_still_get_403() -> None:
     """`X-BYOK-Key` blank (would 400 for a logged-in caller) — for an
     anonymous caller this must resolve to the login gate first."""
-    app, runtime = _app()
     headers = ANON_HEADERS | {
         "X-BYOK-Provider": "openai-compatible",
         "X-BYOK-Key": "   ",
     }
-    async with async_client(app) as client:
-        response = await client.post("/v1/chat", json=_body(), headers=headers)
-    assert response.status_code == 403
-    assert response.json()["error"]["code"] == "byok_requires_login"
-    assert runtime.handle.await_count == 0
+    await _assert_login_gate_rejects(headers)
 
 
-@pytest.mark.parametrize(
-    "user_type_header",
-    [{}, {"X-User-Type": "authenticated"}],
-    ids=["missing_user_type", "wrong_user_type_value"],
-)
-async def test_anon_id_prefix_gates_byok_even_without_the_literal_anonymous_type(
-    user_type_header: dict[str, str],
-) -> None:
+async def test_anon_id_prefix_gates_byok_when_x_user_type_is_missing() -> None:
+    """Regression (issue #741, production bypass): an `anon_`-prefixed
+    X-User-Id is anonymous by that ID convention even with no X-User-Type
+    header at all — the blind spot every pre-#741 test in this file missed
+    by always pairing the two headers. See
+    `test_anon_id_prefix_gates_byok_when_x_user_type_is_wrong` for the
+    mistyped-value sibling and the fuller regression writeup."""
+    headers = {"X-User-Id": ANON_ID} | BYOK_HEADERS
+    await _assert_login_gate_rejects(headers)
+
+
+async def test_anon_id_prefix_gates_byok_when_x_user_type_is_wrong() -> None:
     """Regression (issue #741, production bypass): the login gate must use
     the same `is_anonymous_identity` predicate quota metering already
-    trusts. An `anon_`-prefixed X-User-Id with a missing or mistyped
-    X-User-Type is anonymous by that convention even though it never equals
-    the literal string "anonymous" — before the fix, a caller shaped
-    exactly like this cleared `_byok_login_rejection`'s bare
-    `user_type != ANONYMOUS_USER_TYPE` check and reached the real
-    `build_byok_model` call (observed in production as a 400
-    egress-validation response instead of the expected 403).
-
-    Every existing test in this file pairs `X-User-Id` with an exact
-    `X-User-Type: anonymous` — this is the blind spot none of them covered.
-    """
-    app, runtime = _app()
-    headers = (
-        {"X-User-Id": "anon_0123456789abcdef0123456789abcdef"}
-        | user_type_header
-        | {
-            "X-BYOK-Provider": "openai-compatible",
-            "X-BYOK-Key": "sk-fake-secret-value",
-            "X-BYOK-Model": "byok-test-model",
-            "X-BYOK-Base-Url": "https://byok.example.test/v1",
-        }
-    )
-    with patch(
-        "agent.interfaces.routes.chat.build_byok_model",
-        AsyncMock(side_effect=AssertionError("must not resolve a BYOK model")),
-    ):
-        async with async_client(app) as client:
-            response = await client.post("/v1/chat", json=_body(), headers=headers)
-    assert response.status_code == 403
-    assert response.json()["error"]["code"] == "byok_requires_login"
-    assert runtime.handle.await_count == 0
+    trusts, not a bare `user_type != ANONYMOUS_USER_TYPE` literal — an
+    `anon_`-prefixed X-User-Id stays anonymous by that convention even when
+    X-User-Type is present but mistyped (here: "authenticated"). Before the
+    fix, a caller shaped exactly like this cleared the old check and reached
+    the real `build_byok_model` call (observed in production as a 400
+    egress-validation response instead of the expected 403)."""
+    headers = {"X-User-Id": ANON_ID, "X-User-Type": "authenticated"} | BYOK_HEADERS
+    await _assert_login_gate_rejects(headers)
