@@ -175,9 +175,3 @@ dev = [
     "testcontainers[postgres]>=4.14.2",
     "vulture>=2.16",
 ]
-# One-off maintenance scripts (e.g. agent/scripts/backfill_city.py) that pull
-# heavy transitive deps (numpy+scipy via reverse-geocoder, ~70MB) we don't want
-# in the production image or the everyday dev install.
-scripts = [
-    "reverse-geocoder>=1.5.1",
-]
