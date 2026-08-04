@@ -14,6 +14,68 @@ export type { Env } from "./env.ts";
 export { catalogOutbound } from "./forward.ts";
 export { isAuthRateLimited } from "./routing-policy.ts";
 
+/** Container cold-start hardening (issue #694): while a container is still
+ * starting, its fetch answers a 500 whose body carries this marker (or throws
+ * an error that does). /healthz retries briefly instead of failing the
+ * readiness probe, then passes the final failure through unchanged. */
+const NOT_RUNNING_MARKER = "not running";
+const NOT_RUNNING_RETRIES = 3;
+
+/** Backoff before the 2nd and 3rd attempts: 400ms then 800ms (issue #694). */
+function startupBackoffMs(attempt: number): number {
+  return attempt === 1 ? 400 : 800;
+}
+
+function realSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isNotRunningError(error: unknown): error is Error {
+  return error instanceof Error && error.message.includes(NOT_RUNNING_MARKER);
+}
+
+async function isNotRunningResponse(response: Response): Promise<boolean> {
+  if (response.status !== 500) return false;
+  return (await response.clone().text()).includes(NOT_RUNNING_MARKER);
+}
+
+/** One container fetch attempt: the response to return, or the failure to
+ * retry (re-thrown immediately when it is not a cold-start failure). */
+async function containerFetchAttempt(
+  fetchFn: (request: Request) => Promise<Response>,
+  request: Request,
+): Promise<{ ok: true; response: Response } | { ok: false; failure: Response | Error }> {
+  try {
+    const response = await fetchFn(request);
+    if (!(await isNotRunningResponse(response))) return { ok: true, response };
+    return { ok: false, failure: response };
+  } catch (error) {
+    if (!isNotRunningError(error)) throw error;
+    return { ok: false, failure: error };
+  }
+}
+
+function finalFailureResponse(failure: Response | Error): Response {
+  if (failure instanceof Error) throw failure;
+  return failure;
+}
+
+async function fetchContainerWithStartupRetry(
+  fetchFn: (request: Request) => Promise<Response>,
+  request: Request,
+  sleep: (ms: number) => Promise<void>,
+): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const lastAttempt = attempt === NOT_RUNNING_RETRIES - 1;
+    if (attempt > 0) await sleep(startupBackoffMs(attempt));
+    const outcome = await containerFetchAttempt(fetchFn, request.clone());
+    if (lastAttempt) {
+      return outcome.ok ? outcome.response : finalFailureResponse(outcome.failure);
+    }
+    if (outcome.ok) return outcome.response;
+  }
+}
+
 /** The main Worker app: a pure API and asset gateway (`/v1`, `/healthz`, the
  * image and private R2 tile proxies, and one allowlisted public catalog read).
  * NOTE: no /catalog/* route —
@@ -28,6 +90,8 @@ type WorkerApp = Hono<{ Bindings: Env }>;
 interface WorkerDeps {
   authenticate?: (request: Request, env: Env, ctx: WorkerExecutionContext) => Promise<AuthResult>;
   turnstileGate?: TurnstileGate;
+  /** Injectable sleep for the container cold-start retry (tests avoid real waits). */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
@@ -37,9 +101,14 @@ function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
   // short-lived pass window is shared by every request on the same isolate —
   // that window is what stops a visitor being re-challenged per message.
   const turnstileGate = deps.turnstileGate ?? createTurnstileGate();
-  app.get("/healthz", (c) =>
-    c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
-  );
+  app.get("/healthz", (c) => {
+    const container = c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default"));
+    return fetchContainerWithStartupRetry(
+      (request) => container.fetch(request),
+      c.req.raw,
+      deps.sleep ?? realSleep,
+    );
+  });
   app.all("/tiles/*", (c) => handleTiles(c.req.raw, c.env.MAP_TILES, c.executionCtx));
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
   app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", async (c) => {
