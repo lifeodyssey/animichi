@@ -6,9 +6,10 @@ import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const WORKFLOW = readFileSync(`${ROOT}.github/workflows/dependabot-agent.yml`, "utf8");
 const PACKAGE_JSON = readFileSync(`${ROOT}package.json`, "utf8");
-const DEPLOY_WORKFLOWS = ["_deploy-component.yml", "deploy.yml"].map((name) =>
+const DEPLOY_WORKFLOWS = ["_deploy-component.yml"].map((name) =>
   readFileSync(`${ROOT}.github/workflows/${name}`, "utf8"),
 );
+const DEPLOY_CALLER = readFileSync(`${ROOT}.github/workflows/deploy.yml`, "utf8");
 interface PackageManifest {
   devDependencies?: Record<string, string>;
 }
@@ -61,6 +62,8 @@ void test("Dependabot uses the shared Node verification command", () => {
 });
 
 void test("deploy workflows use the locked workspace Wrangler", () => {
+  // #486 thin caller: deploy.yml only invokes the reusable pipeline, which owns the wrangler-action steps.
+  assert.match(DEPLOY_CALLER, /uses: \.\/\.github\/workflows\/_deploy-component\.yml/);
   DEPLOY_WORKFLOWS.forEach(assertUsesLockedWrangler);
 });
 
