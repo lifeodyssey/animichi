@@ -1,56 +1,135 @@
 #!/usr/bin/env bash
 # Resolve the public HTTPS base URL for a deployed component in a given
-# environment. This does NOT probe the network to guess whether a URL is
-# live — it derives the URL from the Worker naming convention fixed in
-# wrangler.toml / apps/web/wrangler.jsonc, plus the account's workers.dev
-# subdomain (an account-level Cloudflare API property, independent of
-# whether any particular Worker has been deployed yet). See issue #484.
+# environment — for the post-deploy smoke gate (issue #484, hardened by
+# #695). This does NOT probe application-layer HTTP to guess whether a URL
+# is live; it queries Cloudflare's own account state for what this Worker
+# script is ACTUALLY reachable on right now, so the smoke gate always probes
+# the real deploy target instead of a hardcoded guess about where it used to
+# be (or where we expect it to be someday).
+#
+# Why "ask Cloudflare" instead of a static component/environment -> URL
+# table (the previous version of this script, and the literal
+# `animichi-staging.<personal-account>.workers.dev` this replaces, per
+# issue #695): a static table is correct only until something it doesn't
+# know about changes underneath it — a different Cloudflare account's
+# workers.dev subdomain, or (issue #541) a Custom Domain getting attached to
+# a Worker that used to answer only on workers.dev. Both are silent
+# failures of the worst kind: the OLD address usually keeps answering, so
+# the gate reports success while verifying the wrong thing. Querying
+# Cloudflare's live Custom-Domain and workers.dev-enablement state for this
+# exact Worker script removes the table entirely — there is nothing left to
+# go stale, and #541's cutover requires zero edits here: the next run just
+# sees the Custom Domain that now exists and uses it.
+#
+# Concretely, the previous version of this script hardcoded root/production
+# to `https://animichi.com` unconditionally — but per issue #541, that
+# hostname has NO DNS record at all today, so that branch was already
+# wrong in the opposite direction: it assumed a cutover that hasn't
+# happened yet, rather than (as #695 describes) missing one that already
+# has. Same defect class either way: a static assumption about where a
+# Worker lives, disconnected from Cloudflare's actual state.
 #
 # Usage: resolve-worker-url.sh <root|web> <staging|production>
-# Requires CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID in the environment,
-# except for root/production which resolves to the static custom domain
-# (wrangler.toml env.production.routes) and needs neither. Both are sourced
-# from secrets by the callers of this script (matching _deploy-component.yml,
-# which already needs the same CLOUDFLARE_ACCOUNT_ID secret for `wrangler
-# deploy` — one source for one value, not two). The read this script makes
-# (GET .../workers/subdomain) needs a narrower scope than deploy does; if
-# that scope reduction is worth doing, it should happen by provisioning a
-# separate, purpose-scoped Cloudflare token, not by relocating the account id
-# — see the discussion on issue #484 / PR #493 if revisiting this.
+# Requires CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID in the environment
+# (same secrets `wrangler deploy` already needs — one source for one value,
+# not two; see issue #484 / PR #493 if revisiting the token-scoping
+# question). CLOUDFLARE_API_BASE_URL is an optional override, used ONLY by
+# resolve-worker-url.test.sh to point at a local mock instead of the real
+# Cloudflare API — production callers never set it and get the real
+# https://api.cloudflare.com/client/v4.
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+API_BASE="${CLOUDFLARE_API_BASE_URL:-https://api.cloudflare.com/client/v4}"
 
 component="${1:?usage: resolve-worker-url.sh <root|web> <staging|production>}"
 environment="${2:?usage: resolve-worker-url.sh <root|web> <staging|production>}"
 
-if [ "${component}" = "root" ] && [ "${environment}" = "production" ]; then
-  # wrangler.toml [env.production] routes — custom domain, no workers.dev.
-  echo "https://animichi.com"
+: "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required to resolve the deployed Worker URL}"
+: "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID is required to resolve the deployed Worker URL}"
+
+fail() {
+  echo "::error title=resolve-worker-url::$1" >&2
+  exit 1
+}
+
+# The Worker SCRIPT NAME is still read from this repo's own wrangler config
+# (not re-hardcoded here) — that name is a structural identifier fixed at
+# deploy time (`wrangler deploy --env <environment>` publishes to exactly
+# this script), not a hostname that moves when infra changes. Reading it
+# from the same file `wrangler deploy` reads keeps this script from ever
+# drifting out of sync with what actually got deployed.
+resolve_worker_name() {
+  case "${component}" in
+    root)
+      awk -v want="[env.${environment}]" '
+        $0 == want { found=1; next }
+        found && /^\[/ { exit }
+        found && /^name[[:space:]]*=/ { print; exit }
+      ' "${REPO_ROOT}/wrangler.toml" | sed -E 's/^name[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/'
+      ;;
+    web)
+      # wrangler.jsonc comments in this repo are always whole-line (never
+      # trailing after a value) — confirmed by reading the file — so
+      # stripping `//`-prefixed lines before handing it to jq is safe here.
+      grep -v '^[[:space:]]*//' "${REPO_ROOT}/apps/web/wrangler.jsonc" \
+        | jq -r --arg env "${environment}" '.env[$env].name // empty'
+      ;;
+    *)
+      fail "unknown component: ${component}"
+      ;;
+  esac
+}
+
+worker_name="$(resolve_worker_name)"
+[ -n "${worker_name}" ] || fail "could not resolve a Worker name for ${component}/${environment} from wrangler config"
+
+cf_get() {
+  local path="$1"
+  curl -sS --fail-with-body --connect-timeout 10 --max-time 20 --retry 3 --retry-delay 2 \
+    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+    "${API_BASE}${path}"
+}
+
+# 1) Ground truth for a Custom Domain (issue #541 hostname cutover): if
+# Cloudflare has a Custom Domain attached to this exact Worker script, that
+# IS the real deploy target — full stop, no workers.dev fallback needed or
+# wanted. This is what makes the cutover need zero changes here: today this
+# list is empty for every Worker in this repo (per #541, no DNS/route
+# exists yet), so this branch is a no-op until the day it isn't.
+custom_domain_response="$(cf_get "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/domains?per_page=50")" || {
+  fail "Cloudflare API call to list Custom Domains failed"
+}
+custom_hostname="$(echo "${custom_domain_response}" \
+  | jq -r --arg name "${worker_name}" '[.result[] | select(.service == $name)][0].hostname // empty')"
+
+if [ -n "${custom_hostname}" ]; then
+  echo "https://${custom_hostname}"
   exit 0
 fi
 
-: "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required to resolve the workers.dev subdomain}"
-: "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID is required to resolve the workers.dev subdomain}"
+# 2) No Custom Domain — fall back to workers.dev, but ask Cloudflare
+# per-script whether it is actually enabled for THIS Worker (not just
+# whether the account has a workers.dev subdomain configured at all — a
+# Worker can have workers.dev explicitly disabled, e.g. #541 step 6 does
+# exactly this after DNS cutover). Guessing "workers.dev is reachable"
+# without checking this would be the same class of stale-address bug this
+# script exists to remove.
+subdomain_status_response="$(cf_get "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${worker_name}/subdomain")" || {
+  fail "Cloudflare API call to check workers.dev enablement for ${worker_name} failed"
+}
+workers_dev_enabled="$(echo "${subdomain_status_response}" | jq -r '.result.enabled // false')"
 
-case "${component}.${environment}" in
-  root.staging) worker_name="animichi-staging" ;;      # wrangler.toml [env.staging] name, workers_dev = true
-  web.staging) worker_name="animichi-web-staging" ;;   # apps/web/wrangler.jsonc env.staging.name
-  web.production) worker_name="animichi-web" ;;        # apps/web/wrangler.jsonc env.production.name
-  *)
-    echo "::error title=resolve-worker-url::unknown component/environment pair: ${component}/${environment}" >&2
-    exit 1
-    ;;
-esac
+if [ "${workers_dev_enabled}" != "true" ]; then
+  fail "${worker_name} (${component}/${environment}) has neither a Custom Domain nor workers.dev enabled — there is no reachable URL for the post-deploy smoke gate to probe. If a Custom Domain cutover just happened, this is expected right up until Cloudflare's Custom Domain is actually attached; if not, this Worker is unreachable and that is itself a real deploy problem."
+fi
 
-response="$(curl -sS --fail-with-body --connect-timeout 10 --max-time 20 --retry 3 --retry-delay 2 \
-  -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-  "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain")" || {
-  echo "::error title=resolve-worker-url::Cloudflare API call to fetch the account's workers.dev subdomain failed" >&2
-  exit 1
+account_subdomain_response="$(cf_get "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain")" || {
+  fail "Cloudflare API call to fetch the account's workers.dev subdomain failed"
+}
+account_subdomain="$(echo "${account_subdomain_response}" | jq -er '.result.subdomain')" || {
+  fail "Cloudflare API response did not contain result.subdomain: ${account_subdomain_response}"
 }
 
-subdomain="$(echo "${response}" | jq -er '.result.subdomain')" || {
-  echo "::error title=resolve-worker-url::Cloudflare API response did not contain result.subdomain: ${response}" >&2
-  exit 1
-}
-
-echo "https://${worker_name}.${subdomain}.workers.dev"
+echo "https://${worker_name}.${account_subdomain}.workers.dev"
