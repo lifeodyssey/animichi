@@ -237,6 +237,8 @@ run_auth_config_check() {
   echo "${rc}"
 }
 
+assert_output_contains() { local needle="$1" label="$2"; grep -q "${needle}" "${out}" || fail_test "missing ${label}"; }
+
 # ── Case 5: Neon Auth disabled -> passes, no drift verdict needed ──────────
 test_auth_config_check_disabled_passes() {
   local port=18805 out=/tmp/authcfg-disabled.out counter_file pid rc requests
@@ -297,6 +299,10 @@ test_auth_config_check_wrong_token_denied() {
 
 # ── Case 9: no POST_DEPLOY_DIAG_TOKEN at all -> the script itself refuses
 #    to run rather than silently sending an unauthenticated request ────────
+# The failure message must make a MISSING CREDENTIAL unmistakable (not a
+# broken route) and carry the remediation command, per the 2026-08-04
+# optional-secret change: a diagnostic credential must not be able to
+# block delivery, so the deploy proceeds and THIS check owns reporting it.
 test_auth_config_check_missing_token_refuses_to_run() {
   local port=18809 out=/tmp/authcfg-notoken.out counter_file pid rc requests
   counter_file="$(mktemp)"; rm -f "${counter_file}"
@@ -306,13 +312,9 @@ test_auth_config_check_missing_token_refuses_to_run() {
   stop_mock "${pid}"; requests="$(request_count "${counter_file}")"; rm -f "${counter_file}"
   [ "${rc}" -ne 0 ] || fail_test "a missing POST_DEPLOY_DIAG_TOKEN should refuse to run, got exit 0"
   [ "${requests}" -eq 0 ] || fail_test "expected zero requests — the script must refuse before ever calling the Worker, got ${requests}"
-  # The failure message must make a MISSING CREDENTIAL unmistakable (not a
-  # broken route) and carry the remediation command, per the 2026-08-04
-  # optional-secret change: a diagnostic credential must not be able to
-  # block delivery, so the deploy proceeds and THIS check owns reporting it.
-  grep -q "did NOT run" "${out}" || fail_test "missing the 'did NOT run' framing in output"
-  grep -q "deploy itself succeeded" "${out}" || fail_test "missing the 'deploy itself succeeded' reassurance in output"
-  grep -q "gh secret set POST_DEPLOY_DIAG_TOKEN" "${out}" || fail_test "missing the gh secret set remediation command in output"
+  assert_output_contains "did NOT run" "the 'did NOT run' framing in output"
+  assert_output_contains "deploy itself succeeded" "the 'deploy itself succeeded' reassurance in output"
+  assert_output_contains "gh secret set POST_DEPLOY_DIAG_TOKEN" "the gh secret set remediation command in output"
   echo "PASS: a missing POST_DEPLOY_DIAG_TOKEN refuses to run before making any request (${requests} requests, exit ${rc})"
 }
 

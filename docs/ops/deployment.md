@@ -382,6 +382,18 @@ upload`), but Cloudflare still records each one as a numbered **version** under 
 `wrangler rollback` and `wrangler versions list` work against it without any change to the deploy
 step itself. This is the instant-rollback side of the same versions primitive used by deployment.
 
+### CI one-command path (rollback.yml)
+
+Run a production rollback through CI with:
+`gh workflow run rollback.yml -f component=<name> -f version_id=<id>`
+
+For inspection only, use the same command without `version_id`; it lists versions only:
+`gh workflow run rollback.yml -f component=<name>`
+
+The workflow waits on the `production` environment approval and shares the prod deploy concurrency
+groups, so it cannot race a deploy. The per-component table below remains the reference for what
+each rollback does and its caveats.
+
 ### One-command rollback per component
 
 Find the last known-good **version id** first (not a "deployment id" — `wrangler rollback` takes a

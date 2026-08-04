@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TURNSTILE_REQUIRED_CODE } from "../../../src/lib/chat/errorClassifier";
-import { turnFailureState } from "../../../src/features/chat/use-turn-failure";
+import { maskRecomputeFailure, turnFailureState } from "../../../src/features/chat/use-turn-failure";
 import type { FailingTurn } from "../../../src/features/chat/use-turn-failure";
+import type { TurnFailureView } from "../../../src/features/chat/components/ErrorStates/TurnFailure";
+import type { RecomputeTurn } from "../../../src/features/chat/selection/useRecomputeTurn";
+import type { ChatErrorState } from "../../../src/lib/chat/errorClassifier";
 
 /**
  * Classification-level guards for the two suppressions that decide whether an
@@ -19,6 +22,12 @@ function settledTurn(code: string | undefined, status = 403): FailingTurn {
     lastErrorCode: () => code,
     lastHttpStatus: () => status,
   };
+}
+
+const failedRecompute: RecomputeTurn = { status: "failed", lastSentIds: undefined, fire: vi.fn() };
+
+function failureView(state: ChatErrorState): TurnFailureView {
+  return { state, onRetry: vi.fn(), onExpiredResume: vi.fn(), recovering: false };
 }
 
 describe("Turnstile suppression (#447 P1-3)", () => {
@@ -51,5 +60,26 @@ describe("turnFailureState's other gates", () => {
   it("reports nothing for a turn that never failed", () => {
     const clean = { ...settledTurn(undefined), error: undefined };
     expect(turnFailureState(clean, false, false)).toBeUndefined();
+  });
+});
+
+describe("maskRecomputeFailure", () => {
+  it("surfaces D12 after a failed recompute", () => {
+    const failure = failureView("D12");
+    expect(maskRecomputeFailure(failedRecompute, failure)).toBe(failure);
+  });
+
+  it("surfaces D13 after a failed recompute", () => {
+    const failure = failureView("D13");
+    expect(maskRecomputeFailure(failedRecompute, failure)).toBe(failure);
+  });
+
+  it("surfaces D14 after a failed recompute", () => {
+    const failure = failureView("D14");
+    expect(maskRecomputeFailure(failedRecompute, failure)).toBe(failure);
+  });
+
+  it("masks a retryable failure after a failed recompute", () => {
+    expect(maskRecomputeFailure(failedRecompute, failureView("D4"))).toBeUndefined();
   });
 });
