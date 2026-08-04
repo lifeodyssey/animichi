@@ -1,16 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const EDGE_DIR = fileURLToPath(new URL(".", import.meta.url));
 const testFiles = readdirSync(EDGE_DIR).filter((name) => name.endsWith(".test.ts"));
-const THIS_FILE = "testInventory.test.ts";
 
-// Floor: 27 .test.ts files existed when the test:worker script switched from
-// an explicit list to `node --test "workers/edge/*.test.ts"` (#558). Bump this
-// floor when files are legitimately removed; never lower it to silence a miss.
-const MIN_TEST_FILES = 27;
+// Floor ratchet: 28 .test.ts files (including this one) when #558 switched the
+// runner to a glob. The floor RISES when new test files are added; it may only
+// be lowered in the same PR that legitimately deletes a test file, with review.
+const MIN_TEST_FILES = 28;
 
 void test("testInventory: the worker test directory holds at least the pinned floor of test files", () => {
   assert.equal(
@@ -21,6 +20,9 @@ void test("testInventory: the worker test directory holds at least the pinned fl
   );
 });
 
-void test("testInventory: this file is part of the listing the glob reaches (self-check)", () => {
-  assert.equal(testFiles.includes(THIS_FILE), true);
+void test("testInventory: the runner script targets this directory via the glob", () => {
+  const rootPkg = JSON.parse(
+    readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+  ) as { scripts: Record<string, string> };
+  assert.equal(rootPkg.scripts["test:worker"].includes("workers/edge/*.test.ts"), true);
 });
