@@ -25,7 +25,7 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 - `index.ts` — R2 media bucket, flag-gated web Custom Domains, edge routes, www redirect, staging WAF gate, and exported catalog DB secret.
 - `Pulumi.yaml` — project metadata and base encrypted config.
 - `Pulumi.staging.yaml` · `Pulumi.prod.yaml` — live environment stacks.
-- `../.github/workflows/_deploy-component.yml` — Pulumi `up` and Worker deploy sequence.
+- `../.github/workflows/reusable-deploy-component.yml` — Pulumi `up` and Worker deploy sequence.
 - `../docs/ops/deployment.md` — environment and approval runbook.
 
 ## Pitfalls
@@ -45,7 +45,7 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
   `stagingGateToken` secret.
 - No Hyperdrive: catalog reaches Neon over `@neondatabase/serverless` HTTP.
 - **`pulumi stack export` runs unmodified before every `pulumi up`** (rollback backup, #485;
-  `_deploy-component.yml`'s "Pulumi stack export" step), then is copied to the **R2 bucket the
+  `reusable-deploy-component.yml`'s "Pulumi stack export" step), then is copied to the **R2 bucket the
   Pulumi state backend already lives in** (`rollback-backups/` prefix) via `aws s3 cp` — deliberately
   **not** a GitHub Actions artifact, because this repo is **public**: a public repo's workflow
   artifacts are downloadable by any signed-in GitHub account, not just people with repo access. It is

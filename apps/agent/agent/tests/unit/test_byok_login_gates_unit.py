@@ -1,6 +1,6 @@
 """Unit-level coverage for the BYOK login gates (#741 codecov patch gap).
 
-CI's coverage floor (`.github/workflows/_python-ci.yml`) runs only
+CI's coverage floor (`.github/workflows/reusable-python-ci.yml`) runs only
 `agent/tests/unit/` — the integration suite (`agent/tests/integration/`,
 where `test_byok_login_gate_ordering.py` and `test_byok_probe.py` already
 pin both gates' behaviour end-to-end) never contributes to the uploaded

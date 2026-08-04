@@ -1,6 +1,6 @@
 import ciWorkflow from "../../../.github/workflows/ci.yml?raw";
 import deployWorkflow from "../../../.github/workflows/deploy.yml?raw";
-import reusableDeploy from "../../../.github/workflows/_deploy-component.yml?raw";
+import reusableDeploy from "../../../.github/workflows/reusable-deploy-component.yml?raw";
 import quotaWorkflow from "../../../.github/workflows/purge-anon-quota-counts.yml?raw";
 import sessionWorkflow from "../../../.github/workflows/purge-anonymous-sessions.yml?raw";
 import secretsDocs from "../../../docs/ops/secrets.md?raw";
@@ -8,7 +8,7 @@ import wranglerConfig from "../wrangler.toml?raw";
 import { describe, expect, it } from "vitest";
 
 export const READS = [
-  ".github/workflows/_deploy-component.yml",
+  ".github/workflows/reusable-deploy-component.yml",
   ".github/workflows/ci.yml",
   ".github/workflows/deploy.yml",
   ".github/workflows/purge-anon-quota-counts.yml",
@@ -33,7 +33,7 @@ describe("maintenance deployment configuration", () => {
     expect(reusableDeploy).toContain("AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}");
     expect(ciWorkflow).toContain("component: maintenance");
     expect(ciWorkflow).toContain("AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}");
-    // #486 thin caller: deploy.yml passes inputs/secrets; env and Atlas live in _deploy-component.yml.
+    // #486 thin caller: deploy.yml passes inputs/secrets; env and Atlas live in reusable-deploy-component.yml.
     expect(deployWorkflow).toContain("working_directory: workers/maintenance");
     expect(deployWorkflow).toContain("AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}");
     expect(secretsDocs).toContain("| `AGENT_DATABASE_URL` |");
