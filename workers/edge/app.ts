@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { type AuthResult, authenticate as realAuthenticate } from "./auth.ts";
-import { authConfigStatus, isDiagAuthorized } from "./authConfigCheck.ts";
 import type { Env, WorkerExecutionContext } from "./env.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardV1 } from "./forward.ts";
 import { handleAnonymousV1 } from "./anonymous-flow.ts";
@@ -40,14 +39,6 @@ function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
   const turnstileGate = deps.turnstileGate ?? createTurnstileGate();
   app.get("/healthz", (c) =>
     c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default")).fetch(c.req.raw),
-  );
-  // Post-deploy secret-drift check (issue #709): booleans only, no secret
-  // values — see authConfigCheck.ts for why this must run inside the Worker.
-  // Gated by a shared bearer secret (review follow-up, same issue): an
-  // unauthorized request gets the same 404 as any unmapped path — this
-  // route's existence, not just its payload, is not for public consumption.
-  app.get("/internal/auth-config", (c) =>
-    isDiagAuthorized(c.req.raw, c.env) ? c.json(authConfigStatus(c.env)) : c.notFound(),
   );
   app.all("/tiles/*", (c) => handleTiles(c.req.raw, c.env.MAP_TILES, c.executionCtx));
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
