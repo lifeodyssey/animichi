@@ -5,6 +5,7 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
+ROOT="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "${ROOT}")"
 cd "${ROOT}"
 
 TOTAL_FILES=0
@@ -48,8 +49,13 @@ is_candidate() {
 }
 
 resolves() {
-  local base="$1" cand="${2%/}"
-  [ -e "${base}/${cand}" ]
+  local base="$1" cand="${2%/}" real
+  [ -e "${base}/${cand}" ] || return 1
+  real="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "${base}/${cand}")"
+  case "${real}" in
+    "${ROOT}"|"${ROOT}"/*) return 0 ;;
+  esac
+  return 1
 }
 
 # Gitignored candidates (build output like apps/web/.output/, generated
@@ -58,7 +64,7 @@ resolves() {
 # must run from the repo root against BOTH resolution bases. Keep any
 # trailing slash: a dir-only pattern like `.codegraph/` requires it.
 gitignored() {
-  git check-ignore --no-index -q "$1" 2>/dev/null
+  git check-ignore -q -- "$1" 2>/dev/null
 }
 
 check_file() {
