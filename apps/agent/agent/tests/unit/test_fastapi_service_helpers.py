@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from agent.config.settings import Settings
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
+from agent.interfaces import fastapi_service
 from agent.interfaces.fastapi_service import (
     _call_optional_async,
     _contains_json_invalid_error,
@@ -315,3 +316,39 @@ def test_setup_logfire_configures_without_instrumenting_when_token_not_set(
     logfire_mock.instrument_fastapi.assert_not_called()
     logfire_mock.instrument_httpx.assert_not_called()
     logfire_mock.instrument_asyncpg.assert_not_called()
+
+
+class _DoneTaskStub(asyncio.Task[object]):
+    """Minimal done-task stand-in exposing only what the callback reads."""
+
+    def __init__(self, outcome: Exception | None) -> None:
+        self._outcome = outcome
+
+    def cancelled(self) -> bool:
+        return False
+
+    def exception(self) -> Exception | None:
+        return self._outcome
+
+
+def test_log_connect_failure_warns_when_background_connect_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    warning = MagicMock()
+    monkeypatch.setattr(fastapi_service, "logger", SimpleNamespace(warning=warning))
+
+    fastapi_service._log_connect_failure(_DoneTaskStub(RuntimeError("boom")))
+
+    warning.assert_called_once()
+    assert warning.call_args.kwargs["error"].args == ("boom",)
+
+
+def test_log_connect_failure_is_silent_when_connect_succeeded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    warning = MagicMock()
+    monkeypatch.setattr(fastapi_service, "logger", SimpleNamespace(warning=warning))
+
+    fastapi_service._log_connect_failure(_DoneTaskStub(None))
+
+    warning.assert_not_called()
