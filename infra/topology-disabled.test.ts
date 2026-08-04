@@ -22,11 +22,14 @@ test("only private R2 buckets exist when an ungated stack is built", () => {
   ]);
 });
 
-test("nothing that could publish the site is declared", () => {
-  const publishing = built.filter((r) => /workersCustomDomain|workersRoute|dnsRecord|ruleset/i.test(r.type));
+test("nothing that could publish the site or harden the zone is declared", () => {
+  const publishing = built.filter((r) =>
+    /workersCustomDomain|workersRoute|dnsRecord|ruleset|zoneDnssec|zoneSetting/i.test(r.type),
+  );
   assert.deepEqual(
     publishing.map((r) => `${r.type} ${r.name}`),
     [],
-    "a resource here means the default-off flag no longer gates the cutover",
+    "a resource here means the default-off flag no longer gates the cutover, or hardening " +
+      "activates without the zoneId config",
   );
 });

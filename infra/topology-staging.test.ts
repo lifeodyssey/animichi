@@ -22,6 +22,8 @@ const CUSTOM_DOMAIN = "cloudflare:index/workersCustomDomain:WorkersCustomDomain"
 const ROUTE = "cloudflare:index/workersRoute:WorkersRoute";
 const DNS = "cloudflare:index/dnsRecord:DnsRecord";
 const RULESET = "cloudflare:index/ruleset:Ruleset";
+const ZONE_DNSSEC = "cloudflare:index/zoneDnssec:ZoneDnssec";
+const ZONE_SETTING = "cloudflare:index/zoneSetting:ZoneSetting";
 
 test("staging targets the stack-suffixed Workers, not the production ones", () => {
   const domain = only(built, CUSTOM_DOMAIN);
@@ -48,13 +50,21 @@ test("staging gets the SAME API and map routes as prod", () => {
 });
 
 test("no www placeholder and no redirect on staging", () => {
-  assert.deepEqual(ofType(built, DNS), []);
-  const rulesets = ofType(built, RULESET).map((r) => r.name);
+  assert.deepEqual(ofType(built, DNS).filter((r) => r.inputs.name === "www.animichi.com"), []);
+  const rulesets = ofType(built, RULESET).map((r) => r.name).sort();
   assert.deepEqual(rulesets, ["staging-access-gate"]);
 });
 
+test("staging declares no CAA records — prod owns the zone certificates", () => {
+  // PR #776: zone hardening is prod-only. A staging CAA record would pin a
+  // hostname on the same zone the prod stack manages.
+  assert.deepEqual(ofType(built, DNS).filter((r) => r.inputs.type === "CAA"), []);
+});
+
 test("the WAF gate blocks, and matches the staging host", () => {
-  const rules = unseal(only(built, RULESET).inputs.rules).value as Record<string, unknown>[];
+  const gate = ofType(built, RULESET).find((r) => r.name === "staging-access-gate");
+  assert.ok(gate, "staging access gate missing");
+  const rules = unseal(gate.inputs.rules).value as Record<string, unknown>[];
   assert.equal(rules[0].action, "block");
   const expression = String(rules[0].expression);
   assert.match(expression, /http\.host eq "staging\.animichi\.com"/);
@@ -80,7 +90,20 @@ test("the gate rule is sealed as a SECRET before it reaches state", () => {
   // fails this test. That is the correct sensitivity for a defence-in-depth
   // invariant: it asserts the property (sealed), not either mechanism, so
   // refactoring one away stays green while actually losing the seal goes red.
-  assert.equal(unseal(only(built, RULESET).inputs.rules).isSecret, true);
+  const gate = ofType(built, RULESET).find((r) => r.name === "staging-access-gate");
+  assert.ok(gate, "staging access gate missing");
+  assert.equal(unseal(gate.inputs.rules).isSecret, true);
+});
+
+test("staging owns none of the zone-hardening resources", () => {
+  // PR #776: prod is the single owner of zone metadata. Two stacks declaring
+  // the same zone resources (DNSSEC, security header, rate-limit ruleset)
+  // would fight over them on `pulumi up`, so staging must expect NONE of them
+  // even with zoneId and routes configured.
+  assert.deepEqual(ofType(built, ZONE_DNSSEC), []);
+  assert.deepEqual(ofType(built, ZONE_SETTING), []);
+  const rateLimit = ofType(built, RULESET).find((r) => r.name === "animichi-api-rate-limit");
+  assert.equal(rateLimit, undefined, "staging must not declare the rate-limit ruleset");
 });
 
 test("an ordinary input on this same stack is NOT sealed", () => {
