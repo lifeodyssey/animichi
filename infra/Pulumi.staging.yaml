@@ -5,11 +5,11 @@ config:
   seichijunrei-infra:cloudflareZoneId: 44fdcc54545c1152a8e730137b671be4
   seichijunrei-infra:stagingDomain: staging.animichi.com
   #
-  # ── Hostname cutover (#541), OFF today ──────────────────────────────────────
-  # Flipping `webRoutesEnabled` PUBLISHES staging: it creates the Custom Domain
-  # and the /v1, /img, /healthz edge routes together. One flag on purpose — a
-  # hostname that resolves before its routes are narrowed answers a browser
-  # navigation with the edge Worker's JSON 404.
+  # ── Hostname cutover (#541), ENABLED 2026-08-05 ─────────────────────────────
+  # `webRoutesEnabled` PUBLISHED staging: it created the Custom Domain and the
+  # /v1, /img, /healthz edge routes together. One flag on purpose — a hostname
+  # that resolves before its routes are narrowed answers a browser navigation
+  # with the edge Worker's JSON 404.
   #
   #   pulumi config set webRoutesEnabled true                   --stack staging
   #   pulumi config set cloudflareZoneId <animichi.com zone id> --stack staging
