@@ -11,11 +11,20 @@ conversion in the concrete repositories. Protocol signatures must mirror
 the implementation types for structural subtyping to work.
 
 Iter6 C4: this module used to also carry seven ``get_*_repo``/``has_*_repo``
-reflective accessors (``getattr`` + ``iscoroutinefunction`` + ``cast``). They
-are gone — callers now take the narrow Protocol they need directly as a
-parameter, and the one composition root (``fastapi_service._lifespan_build_runtime``)
-wires ``SupabaseClient``'s typed ``@property`` attributes into them. "Repo
-absent" is expressed by the parameter being ``None``, not by a runtime probe.
+reflective accessors (``getattr`` + ``iscoroutinefunction`` + ``cast``,
+duplicated per repo). They are gone from *this* module — callers
+(``persistence.py``, ``usage_metering.py``, ``anon_quota.py``) now take the
+narrow Protocol they need directly as a parameter instead of a raw
+``db: object``. The extraction itself still needs one ``getattr`` +
+``iscoroutinefunction`` + ``cast`` per repo (an isinstance-only, zero-getattr
+version was tried and reverted — it silently broke on this codebase's plain
+``MagicMock()`` test doubles; see the module docstring in
+``agent.interfaces.db_repos`` for why) — that logic now lives consolidated
+in ``agent/interfaces/db_repos.py``, called once per repo from
+``RuntimeAPI.__init__`` (``agent.interfaces.public_api``), not scattered
+across call sites. "Repo absent" is expressed by the resolved parameter
+being ``None`` everywhere *downstream* of that one resolution point, never
+by a second runtime probe deeper in the call chain.
 """
 
 from __future__ import annotations
