@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import contractJwtSource from "../../../packages/contract/src/jwt.ts?raw";
-import edgeAuthSource from "../../../worker/auth.ts?raw";
+import edgeAuthSource from "../../../workers/edge/auth.ts?raw";
 import usersJwtSource from "../src/auth/jwt.ts?raw";
 
 /**
- * Neon Auth EdDSA verification lived twice — `worker/auth.ts` (edge `/v1`) and
+ * Neon Auth EdDSA verification lived twice — `workers/edge/auth.ts` (edge `/v1`) and
  * `workers/users/src/auth/jwt.ts` (this service's own JWKS check) each called
  * `jose.jwtVerify` with a hand-typed `algorithms: ["EdDSA"]` restriction. Two
  * engineers keeping the same cryptographic policy in sync by memory is exactly
@@ -38,7 +38,7 @@ import usersJwtSource from "../src/auth/jwt.ts?raw";
  */
 export const READS = [
   "packages/contract/src/jwt.ts",
-  "worker/auth.ts",
+  "workers/edge/auth.ts",
   "workers/users/src/auth/jwt.ts",
 ] as const;
 
@@ -100,7 +100,7 @@ describe("EdDSA verification stays a single shared primitive (issue #647)", () =
   });
 
   it("neither consumer hand-rolls its own EdDSA algorithm restriction (any quote style)", () => {
-    // `worker/auth.ts` legitimately reads a JWT header's `alg` field to decide
+    // `workers/edge/auth.ts` legitimately reads a JWT header's `alg` field to decide
     // *whether* to route to the Neon verifier — that is routing logic, not a
     // second implementation of the crypto policy. What must never reappear is
     // an inline `algorithms: [...]` array containing "EdDSA", the literal
