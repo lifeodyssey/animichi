@@ -133,3 +133,7 @@ backend/tests/eval/results/agent_openai-mimo-*
 # apps/web TS source — re-include (root lib/ rule is too broad)
 !apps/web/src/lib/
 !apps/web/src/lib/**
+
+# Pinned Atlas CLI self-heal cache (#730) — downloaded, checksum-verified
+# binary for `make test-integration`; never checked in, never the global install.
+/.cache/atlas/
