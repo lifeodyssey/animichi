@@ -124,8 +124,7 @@ jobs:
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
         CORS_ALLOWED_ORIGIN
-      optional_worker_secrets: |
-        POST_DEPLOY_DIAG_TOKEN
+      optional_worker_secrets: ""
       post_deploy_secrets: |
         TURNSTILE_SECRET
         ANON_ID_SECRET
@@ -144,7 +143,6 @@ jobs:
       CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
-      POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
     concurrency: deploy-root-prod
 
   post-prod:
@@ -157,4 +155,3 @@ jobs:
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}

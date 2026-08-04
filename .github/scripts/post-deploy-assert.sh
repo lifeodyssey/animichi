@@ -267,95 +267,11 @@ cmd_data_plane_probe() {
 # NEON_AUTH_JWKS_URL is a GitHub environment SECRET; NEON_AUTH_ISSUER is a
 # `wrangler.toml` VAR. workers/edge/authConfig.test.ts pins their relationship
 # (jwks == ${issuer}/.well-known/jwks.json) at CONFIG time, but it can only
-# ever see the var — never the secret's real deployed value (issue #709).
-# This probe reads workers/edge/authConfigCheck.ts's verdict from the
-# DEPLOYED Worker's own bound env via GET /internal/auth-config, which
-# exposes booleans only (never the URLs themselves — see #673). A secret
-# rotated/copy-pasted wrong (drift) makes every Neon Auth token fail
-# verification: fail-closed (no bad token is ever accepted), but silent
-# until someone tries to log in. When Neon Auth is disabled in this
-# environment there is nothing to check.
-#
-# The route is gated by POST_DEPLOY_DIAG_TOKEN (a shared bearer secret —
-# review follow-up on this same issue): even a booleans-only response still
-# tells an anonymous caller whether Neon Auth is currently broken in this
-# environment, which is itself a signal worth denying. Without the right
-# token the Worker answers the same 404 as any unmapped path
-# (workers/edge/app.ts), so a missing/wrong POST_DEPLOY_DIAG_TOKEN here
-# surfaces as an ordinary "expected 200, got 404" failure below — it is not
-# distinguished from "the route doesn't exist" on purpose, matching what the
-# Worker itself reveals to a caller without the secret.
-# Three states, not two, per field (issue #709 review follow-up): a literal
-# "true" is confirmed-enabled, a literal "false" is the legitimate
-# "not enabled here" pass, and EVERYTHING ELSE (missing field, null, a
-# renamed key, a response that stopped matching
-# workers/edge/authConfigCheck.ts::AuthConfigStatus) is "undetermined" —
-# `jq -r '.neonAuthEnabled'` on a missing/null field prints the literal
-# string "null", which a plain `!= "true"` check would have silently folded
-# into "disabled, skip". A green run must mean the drift check actually ran
-# and passed, never "the response shape drifted and this check gave up
-# quietly". Split from cmd_auth_config_check (1-10-50) — this function only
-# classifies BODY_FILE, never prints or fails; auth_config_report below owns
-# every user-facing message so each stays in exactly one place.
-auth_config_verdict() {
-  local enabled
-  enabled="$(jq -r '.neonAuthEnabled' "${BODY_FILE}")"
-  case "${enabled}" in
-    true) auth_config_match_verdict ;;
-    false) echo "disabled" ;;
-    *) echo "enabled_undetermined" ;;
-  esac
-}
-
-# Second half of auth_config_verdict, split out for the same 1-10-50 reason:
-# only reached once neonAuthEnabled=true, so jwksIssuerMatch is the thing
-# that actually answers "did the secret drift".
-auth_config_match_verdict() {
-  local match
-  match="$(jq -r '.jwksIssuerMatch' "${BODY_FILE}")"
-  case "${match}" in
-    true) echo "match" ;;
-    false) echo "drift" ;;
-    *) echo "match_undetermined" ;;
-  esac
-}
-
-# One message per verdict, each preserving the full diagnostic — deliberately
-# not collapsed into fewer/shorter strings just to shrink this function; see
-# the PR discussion on issue #709 for why an "undetermined" verdict earning
-# only a generic message would defeat the point of distinguishing it at all.
-auth_config_report() {
-  case "$1" in
-    match) : ;;
-    disabled) echo "Neon Auth is disabled in this environment (neonAuthEnabled=false) — nothing to check." ;;
-    drift) fail "NEON_AUTH_JWKS_URL does not match \${NEON_AUTH_ISSUER}/.well-known/jwks.json in the DEPLOYED Worker's actual bound env (issue #709) — every Neon Auth token will fail verification (fail-closed: logins break, no bad token is accepted). This means the JWKS secret has drifted from the issuer var — check for a bad rotation or a cross-environment copy-paste." ;;
-    enabled_undetermined) fail "GET ${ROOT_URL}/internal/auth-config's neonAuthEnabled field is not a literal true/false — the drift check could NOT be determined, this is NOT evidence Neon Auth is fine. A green run must mean the JWKS/issuer comparison actually ran; this run means it did not. Check that the response still matches workers/edge/authConfigCheck.ts::AuthConfigStatus's shape (issue #709)." ;;
-    match_undetermined) fail "GET ${ROOT_URL}/internal/auth-config's jwksIssuerMatch field is not a literal true/false while neonAuthEnabled=true — the drift check could NOT be determined, this is NOT the same as confirmed-matching or confirmed-drifted. Check that the response still matches workers/edge/authConfigCheck.ts::AuthConfigStatus's shape (issue #709)." ;;
-  esac
-}
-
-cmd_auth_config_check() {
-  : "${ROOT_URL:?ROOT_URL is required}"
-  # Deliberately NOT `: "${POST_DEPLOY_DIAG_TOKEN:?...}"` here: that pattern
-  # (used for ROOT_URL above, and elsewhere in this script) relies on bash's
-  # unset-parameter fatal-error path to abort with a nonzero exit code, but
-  # combined with the `trap ... EXIT` at the top of this file that path
-  # silently reports exit 0 instead — a real bash quirk, verified locally:
-  # `set -euo pipefail; trap "true" EXIT; : "${FOO:?required}"` prints the
-  # error text but still exits 0. An explicit check + `fail` (a normal exit
-  # 1, not a parameter-expansion error) sidesteps it.
-  if [ -z "${POST_DEPLOY_DIAG_TOKEN:-}" ]; then
-    fail "auth-config drift check did NOT run: POST_DEPLOY_DIAG_TOKEN is not configured for this environment (${TARGET_ENVIRONMENT:-<environment>}). The deploy itself succeeded. To enable the check: gh secret set POST_DEPLOY_DIAG_TOKEN --env ${TARGET_ENVIRONMENT:-<environment>} --body \"\$(openssl rand -hex 32)\""
-  fi
-  local status
-  status="$(fetch GET "${ROOT_URL}/internal/auth-config" "Bearer ${POST_DEPLOY_DIAG_TOKEN}")"
-  diag "${status}"
-  [ "${status}" = "200" ] || fail "GET ${ROOT_URL}/internal/auth-config expected 200, got ${status} — either the route itself is broken, or POST_DEPLOY_DIAG_TOKEN here does not match what was pushed to the deployed Worker"
-  auth_config_report "$(auth_config_verdict)"
-}
-
+# ever see the var — never the secret's real deployed value. The runtime
+# drift check (GET /internal/auth-config, issue #709) was retired 2026-08-04
+# by owner ruling: the real-path staging login E2E replaces it later.
 main() {
-  local cmd="${1:?usage: post-deploy-assert.sh <healthz|auth-probe|users-probe|anon-gate-staging|anon-disabled-production|web-landing|catalog-probe|data-plane-probe|auth-config-check>}"
+  local cmd="${1:?usage: post-deploy-assert.sh <healthz|auth-probe|users-probe|anon-gate-staging|anon-disabled-production|web-landing|catalog-probe|data-plane-probe>}"
   case "${cmd}" in
     healthz) cmd_healthz ;;
     auth-probe) cmd_auth_probe ;;
@@ -365,7 +281,6 @@ main() {
     web-landing) cmd_web_landing ;;
     catalog-probe) cmd_catalog_probe ;;
     data-plane-probe) cmd_data_plane_probe ;;
-    auth-config-check) cmd_auth_config_check ;;
     *) fail "unknown check: ${cmd}" ;;
   esac
 }
