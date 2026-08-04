@@ -70,16 +70,6 @@ on:
         required: false
       ANON_ID_SECRET:
         required: false
-      # Shared bearer secret gating GET /internal/auth-config (issue #709
-      # review follow-up). Pushed via `worker_secrets` below (not
-      # `post_deploy_secrets`): unlike TURNSTILE_SECRET/ANON_ID_SECRET it is
-      # not conditionally load-bearing on ANON_ACCESS_ENABLED, so it does not
-      # belong in that flag-gated preflight/push pair — see the
-      # "Preflight - post-deploy secrets" step's own comment for why that
-      # pairing is deliberately narrow to the Turnstile/anonymous-identity
-      # secrets, not a generic "add any new secret here" list.
-      POST_DEPLOY_DIAG_TOKEN:
-        required: false
 jobs:
   deploy:
     timeout-minutes: 30
@@ -552,13 +542,13 @@ jobs:
         run: test -f Dockerfile
       - name: Resolve effective worker secrets
         id: effective_secrets
-        # Optional (diagnostic-only) secrets are appended to the upload list
-        # only when their value is present. wrangler-action's uploadSecrets()
-        # hard-fails on any listed name whose env value is empty — which is
-        # correct for load-bearing secrets and wrong for diagnostics: on
-        # 2026-08-04 an unconfigured POST_DEPLOY_DIAG_TOKEN blocked every
-        # staging deploy (run 30895422110). A diagnostic credential must not
-        # be able to block delivery; the post-deploy check owns that failure.
+        # Optional secrets are appended to the upload list only when their
+        # value is present. wrangler-action's uploadSecrets() hard-fails on
+        # any listed name whose env value is empty — which is correct for
+        # load-bearing secrets and wrong for optional ones: on 2026-08-04 an
+        # unconfigured optional secret blocked every staging deploy (run
+        # 30895422110). An optional secret must not be able to block
+        # delivery.
         shell: bash
         env:
           REQUIRED_LIST: ${{ inputs.worker_secrets }}
@@ -578,7 +568,6 @@ jobs:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
-          POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
         run: |
           effective="$REQUIRED_LIST"
           while IFS= read -r name; do
@@ -666,7 +655,6 @@ jobs:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
           CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
-          POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
       # Deliberately NOT part of the wrangler-action `secrets:` list above (the
       # one populating `worker_secrets`): that list is uploaded via
       # wrangler-action's own `uploadSecrets()`, which runs `wrangler secret
