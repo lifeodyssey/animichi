@@ -5,6 +5,8 @@
 
 ## Overview
 
+*Agent file references below are relative to `apps/agent/agent/` (monorepo move, #306-era); worker and web paths are repo-root relative.*
+
 ```
 User text → RuntimeAPI.handle() → run_animichi_agent() → animichi_agent.run()
   → catalog/web tools → AgentResult (typed output + steps + SessionState)
@@ -166,6 +168,8 @@ container can trust those headers unconditionally.
 - No credentials, anywhere else → 401
 - `/healthz`, the public catalog/`/v1` allowlist, and static assets bypass auth entirely
 
+Dual-issuer verification for Neon Auth (Better Auth) is implemented but flag-gated OFF (`NEON_AUTH_ENABLED`, SD-31 cutover pending) — Supabase remains the verifying issuer today and backs local-dev/E2E (#561).
+
 API keys: stored as SHA-256 hash in `api_keys` table. Raw key shown once at creation.
 
 ### Anonymous access (X5, implemented in S1.8 / issue #274)
@@ -215,15 +219,15 @@ fallback with it. The root Worker (`workers/edge/app.ts`) is now an API gateway 
 
 | Path | Purpose |
 |---|---|
-| `supabase/migrations/20260402124000_operational_tables.sql` | Logs every request: plan_steps, intent, latency_ms |
-| `tests/eval/datasets/plan_quality_v1.json` | 50+ cases × 3 locales |
-| `tests/eval/test_plan_quality.py` | pydantic_evals harness; uses animichi_agent; Iter 3 gate: ≥ baseline + 10pp |
-| `clients/python/seichijunrei_client.py` | Sync/async Python client for agent/CLI use |
+| `tests/eval/run_agent_eval.py` | Official-v1 runner: 8 metrics, statistical baseline + gate, streams per-case status |
+| `tests/eval/datasets/agent_eval_v3.json` | Primary suite (~655 cases, 60 paths, 3 locales) |
+| `tests/eval/datasets/agent_eval_heldout_v1.json` | Held-out overfit guard (#416) |
+| `tests/eval/datasets/injection_g1_v1.json` | Indirect-injection defense cases |
+| `tests/eval/direct_gates.py` | Deterministic thrash gates (req/tool/repeat/p95) |
 
-<!-- historical: agent/tools/eval_scorer.py and agent/tools/eval_feedback_miner.py were removed in
-#746 — hand-rolled eval-era tools with zero consumers, superseded by the official-v1 evaluator
-(#354, docs/testing-strategy.md). Their entries were already stale here: the eval harness they
-described (Iter 3 gate) predates the current evaluator. -->
+CI tiering (SD-30): `EVAL_SMOKE=1` capped run is an enforced L0 lane in `ci.yml`; the uncapped L1
+suite owns the baseline and runs nightly via `agent-eval-nightly.yml`. Model, cost, and the run
+recipe live in `apps/agent/AGENTS.md`; strategy in `docs/testing-strategy.md`.
 
 ## Design Rules
 
