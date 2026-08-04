@@ -47,7 +47,7 @@ on:
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
-      # Sourced from secrets, not a repo variable, to match _deploy-component.yml
+      # Sourced from secrets, not a repo variable, to match reusable-deploy-component.yml
       # (single source for the same value across the repo) and because
       # `required: true` on a workflow_call input only checks the key was
       # passed, not that its value is non-empty — an unconfigured repo
@@ -62,7 +62,7 @@ on:
         required: true
       # Shared bearer secret for GET /internal/auth-config (issue #709
       # review follow-up): the same value pushed to the deployed Worker via
-      # _deploy-component.yml's `worker_secrets`. required:false, not true —
+      # reusable-deploy-component.yml's `worker_secrets`. required:false, not true —
       # this workflow_call schema is shared by every environment/suite this
       # workflow runs for, and a hard `required: true` here would fail the
       # job outright before auth-config-check's own env-var check ever gets
