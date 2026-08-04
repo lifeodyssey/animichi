@@ -247,9 +247,13 @@ def test_lifespan_startup_does_not_block_on_db_connect() -> None:
         settings=Settings(),
     )
     with TestClient(app) as client:
-        response = client.get("/healthz")
-        assert response.status_code == 200
-        release.set()
+        try:
+            response = client.get("/healthz")
+            assert response.status_code == 200
+        finally:
+            # Release the connect task before the TestClient exits and awaits
+            # it, so a failing assertion cannot hang the shutdown await.
+            release.set()
 
 
 def test_require_supabase_returns_client_when_valid(mock_db: MagicMock) -> None:
