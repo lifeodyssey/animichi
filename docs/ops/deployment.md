@@ -151,7 +151,7 @@ Common runtime config:
   `animichi-staging`) via **GitHub Environment-scoped secrets of the same name**
   (`LOGFIRE_TOKEN` defined directly on the `production` and `staging` GitHub Environments), not
   via workflow-level branching. No workflow YAML changes were needed for this: both
-  `_deploy-component.yml`'s `deploy` job (`environment: ${{ inputs.environment }}`) and
+  `reusable-deploy-component.yml`'s `deploy` job (`environment: ${{ inputs.environment }}`) and
   `deploy.yml`'s `deploy` job (`environment: production`) already ran under a job-level
   `environment:`, and GitHub environment secrets take precedence over a same-named secret the
   caller workflow explicitly passes through `secrets:` for a job that references that environment
@@ -299,8 +299,10 @@ only start when `github.event_name == 'push'` and `github.ref == 'refs/heads/mai
 
 On a push to `main`, the current promotion chain is:
 
-1. The seven stable required lanes run first: `Web CI`, `Backend CI`, `Agent CI`, `Infra & DB CI`,
-   `Cross-stack E2E`, `Repository Quality`, and `Codecov Patch`. Their component jobs remain
+1. The six stable required lanes run first: `Backend CI`, `Agent CI`, `Infra & DB CI`,
+   `Cross-stack E2E`, `Repository Quality`, and `Codecov Patch` (the `apps/web` suite lives in its
+   own `pipeline-web.yml` workflow — its `Web / lint`, `Web / test`, and `Web / build` contexts join
+   the required set via the same ruleset flip that retires `Web CI`). Their component jobs remain
    affected-only on pull requests, while each stable lane is always created and treats an
    intentionally skipped component as green. A failed or cancelled component fails its lane and
    blocks promotion. The `agnix` check remains warn-only inside `Repository Quality`; its warning
@@ -309,10 +311,13 @@ On a push to `main`, the current promotion chain is:
    calculate changed-line coverage locally. The GitHub ruleset must require the external Codecov
    `codecov/patch` status as the real 95% changed-line verdict as well as this stable context.
    Coverage upload jobs use GitHub OIDC and fail closed when Codecov cannot authenticate or publish;
-   they do not silently accept a tokenless upload failure.
-2. `deploy-staging` calls `_deploy-component.yml` with `component: catalog`,
+   they do not silently accept a tokenless upload failure. Accepted tradeoff:
+   `deploy-web-staging` no longer waits on the web typecheck/lint/vitest lane, because GitHub cannot
+   express `needs:` across workflows — protection comes from the required merge contexts instead,
+   plus the future merge queue.
+2. `deploy-staging` calls `reusable-deploy-component.yml` with `component: catalog`,
    `environment: staging`, and `pulumi_stack: staging`.
-3. `_deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the
+3. `reusable-deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the
    repo, runs the shared setup action, applies Atlas migrations when `NEON_DATABASE_URL` is set,
    runs `pulumi up` in `infra/`, deploys `workers/${{ inputs.component }}` with Wrangler, and runs
    the component smoke step.
@@ -340,7 +345,7 @@ Its current order is:
 6. verify `Dockerfile` exists
 7. deploy the root Worker/container with Wrangler
 
-The approval-gated main promotion (`_deploy-component.yml`) applies `db/migrations/` before its
+The approval-gated main promotion (`reusable-deploy-component.yml`) applies `db/migrations/` before its
 catalog/users rollout. This manual path does not apply either the Neon or frozen Supabase
 compatibility directory; an explicitly approved auth migration follows the separate Supabase
 owner/runbook and must not be used to change Neon catalog or user tables.
@@ -377,10 +382,22 @@ Important: this is a documentation target only right now. Before enabling it, th
 
 ## Rollback
 
-Every `_deploy-component.yml` deploy step is a plain `wrangler deploy` (not `wrangler versions
+Every `reusable-deploy-component.yml` deploy step is a plain `wrangler deploy` (not `wrangler versions
 upload`), but Cloudflare still records each one as a numbered **version** under the hood, so
 `wrangler rollback` and `wrangler versions list` work against it without any change to the deploy
 step itself. This is the instant-rollback side of the same versions primitive used by deployment.
+
+### CI one-command path (rollback.yml)
+
+Run a production rollback through CI with:
+`gh workflow run rollback.yml -f component=<name> -f version_id=<id>`
+
+For inspection only, use the same command without `version_id`; it lists versions only:
+`gh workflow run rollback.yml -f component=<name>`
+
+The workflow waits on the `production` environment approval and shares the prod deploy concurrency
+groups, so it cannot race a deploy. The per-component table below remains the reference for what
+each rollback does and its caveats.
 
 ### One-command rollback per component
 
@@ -428,7 +445,7 @@ Steps:
 3. `wrangler rollback <version-id> --env <environment> -y -m "<reason>"` for that component.
 4. If the rolled-back component is `root`, verify it actually started (`wrangler tail --env
    <environment>`, `/healthz`) — see the DO-migration/container warning above. There is currently no
-   automated post-rollback check to lean on instead: `_post-deploy-test.yml`'s `api`/`e2e`/`smoke`
+   automated post-rollback check to lean on instead: `reusable-post-deploy-test.yml`'s `api`/`e2e`/`smoke`
    suites are still TODO no-ops (tracked separately; PR #493 is turning them into real assertions).
    It does have a `workflow_dispatch` trigger now so it *can* be re-run manually from the Actions UI
    during an incident, but until those suites land, re-running it confirms nothing beyond "the job
@@ -439,7 +456,7 @@ Steps:
 
 ### Pulumi rollback
 
-`_deploy-component.yml`'s "Pulumi stack export (rollback backup)" step runs `pulumi stack export`
+`reusable-deploy-component.yml`'s "Pulumi stack export (rollback backup)" step runs `pulumi stack export`
 immediately before every `pulumi up` **that actually runs**, then uploads the result to the **same
 R2 bucket the Pulumi state backend already lives in** (`aws s3 cp`, using the `R2_ACCESS_KEY_ID`/
 `R2_SECRET_ACCESS_KEY` credentials already present in that step) under a `rollback-backups/`
@@ -525,7 +542,7 @@ separately as **#496** (rollback automation), including the case this section's 
 cover — an incident where the only device on hand is a phone, where a local `wrangler` invocation
 isn't reachable at all and a `workflow_dispatch` may be the only usable primitive — and the
 precondition that the manual path above has actually been exercised at least once before automating
-it. (`_post-deploy-test.yml` did gain a `workflow_dispatch` trigger in this same change — tracked
+it. (`reusable-post-deploy-test.yml` did gain a `workflow_dispatch` trigger in this same change — tracked
 separately as #493 for turning its suites from TODO no-ops into real assertions — since the trigger
 itself was a pure UI-affordance gap rather than new untested rollback logic; see step 4 above.)
 

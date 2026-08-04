@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import httpx
+import structlog
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from agent.agents.base import build_model_http_client
 from agent.clients.catalog_client import CatalogClient
 from agent.config.settings import Settings, get_settings
+from agent.infrastructure.gateways.geocoding import aclose_geocoding_client
 from agent.infrastructure.memory import postgres_memory_store
 from agent.infrastructure.session import SessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
@@ -41,8 +44,19 @@ from agent.interfaces.routes.runtime import router as runtime_router
 from agent.interfaces.routes.search_preview import router as search_preview_router
 from agent.interfaces.routes.session_migration import router as session_migration_router
 
+logger = structlog.get_logger(__name__)
+
 # Re-export _call_optional_async for test backward compatibility.
 _call_optional_async = call_optional_async
+
+
+def _log_connect_failure(task: asyncio.Task[object]) -> None:
+    """Warn immediately when the background pool connect fails (issue #694)."""
+    if not task.cancelled() and task.exception() is not None:
+        logger.warning(
+            "database pool connect failed in the background",
+            error=task.exception(),
+        )
 
 
 def build_catalog_client(settings: Settings) -> CatalogClient:
@@ -63,7 +77,10 @@ async def _lifespan_with_runtime_api(
     resolved_db = db if db is not None else getattr(runtime_api, "_db", None)
     if resolved_db is not None:
         app.state.db_client = resolved_db
-    yield
+    try:
+        yield
+    finally:
+        await aclose_geocoding_client()
 
 
 def _resolve_session_store(
@@ -81,6 +98,41 @@ def _resolve_session_store(
     )
 
 
+async def _close_clients(catalog_client: CatalogClient) -> None:
+    """Close catalog then geocoding clients; both attempts run."""
+    try:
+        await catalog_client.aclose()
+    finally:
+        await aclose_geocoding_client()
+
+
+async def _close_stores(
+    runtime_session_store: SessionStore,
+    runtime_db: object,
+) -> None:
+    """Close session store then db; both attempts run."""
+    try:
+        await call_optional_async(runtime_session_store, "close")
+    finally:
+        await call_optional_async(runtime_db, "close")
+
+
+async def _close_runtime_resources(
+    connect_task: asyncio.Task[object],
+    catalog_client: CatalogClient,
+    runtime_session_store: SessionStore,
+    runtime_db: object,
+) -> None:
+    """Close runtime resources; every close attempt still runs."""
+    try:
+        await connect_task
+    finally:
+        try:
+            await _close_clients(catalog_client)
+        finally:
+            await _close_stores(runtime_session_store, runtime_db)
+
+
 @asynccontextmanager
 async def _lifespan_build_runtime(
     app: FastAPI,
@@ -92,7 +144,6 @@ async def _lifespan_build_runtime(
     """Lifespan branch: build RuntimeAPI from scratch (normal startup)."""
     runtime_db = db if db is not None else build_supabase_client(resolved_settings)
     runtime_session_store = _resolve_session_store(session_store, runtime_db)
-    await call_optional_async(runtime_db, "connect")
     # Schema changes are never applied by the application. Neon catalog/user migrations run
     # through Atlas from db/migrations; the remaining Supabase compatibility surface has its
     # own operator path. See docs/ops/migrations.md.
@@ -107,12 +158,18 @@ async def _lifespan_build_runtime(
         memory_store=postgres_memory_store(runtime_db),
     )
     app.state.db_client = runtime_db
+    # The pool connect must not gate the container's readiness (issue #694):
+    # it runs in the background so the port binds immediately. Until it
+    # completes, DB work surfaces the client's "call connect() first" as a
+    # clean 500 — see RuntimeAPI's lazy-repo comment in public_api.py.
+    connect_task = asyncio.create_task(call_optional_async(runtime_db, "connect"))
+    connect_task.add_done_callback(_log_connect_failure)
     try:
         yield
     finally:
-        await catalog_client.aclose()
-        await call_optional_async(runtime_session_store, "close")
-        await call_optional_async(runtime_db, "close")
+        await _close_runtime_resources(
+            connect_task, catalog_client, runtime_session_store, runtime_db
+        )
 
 
 def create_fastapi_app(

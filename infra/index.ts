@@ -157,10 +157,109 @@ if (webRoutesEnabled) {
               },
             },
           },
-        },
-      ],
-    });
+      },
+    ],
+  });
   }
+
+}
+
+// ── Zone hardening: DNSSEC, CAA, API rate limit, HSTS ───────────────────────
+// Owner ruling 2026-08-05 (prod security review), restructured per PR #776:
+// these four are zone-scoped, and prod is the single owner of zone metadata.
+// They started inside the `webRoutesEnabled` block, which meant staging and
+// prod would BOTH declare the same zone resources and fight over them on
+// `pulumi up`, and hardening was wrongly coupled to the publish flag.
+// Guarded on the zoneId alone: a prod stack without the config simply skips —
+// hardening activates when prod gains its zone config, independent of
+// publishing. Public repo: no secrets, emails, or IPs — none of these
+// resources need any.
+//
+// Note on the v6 resource names: `ZoneDnssec` (not `ZoneDnssecConfig`) and
+// `ZoneSetting` with `settingId` were both confirmed against the local
+// `@pulumi/cloudflare` v6 typings.
+const hardeningZoneId = stack === "prod" ? config.get("cloudflareZoneId") : undefined;
+if (hardeningZoneId) {
+  const webDomain = config.get("webDomain");
+
+  // DNSSEC signing on the zone. Cloudflare holds the keys and publishes the DS
+  // record; there is deliberately nothing Pulumi-visible beyond the zone.
+  new cloudflare.ZoneDnssec("animichi-dnssec", {
+    zoneId: hardeningZoneId,
+  });
+
+  // CAA: restrict who may issue certificates for the domain to Cloudflare's
+  // Universal SSL certificate partners — letsencrypt.org, pki.goog, ssl.com,
+  // and digicert.com, each encoded as its own record (one tag per record).
+  // Universal SSL keeps working because CF's partner CAs are listed.
+  // The records pin the apex hostname, which prod sets via `webDomain`; until
+  // that config exists they are skipped while DNSSEC, the rate limit, and
+  // HSTS activate on the zoneId alone.
+  if (webDomain !== undefined) {
+    const caaIssuers = [
+      { name: "animichi-caa-letsencrypt", value: "letsencrypt.org" },
+      { name: "animichi-caa-pki-goog", value: "pki.goog; cansignhttpexchanges=yes" },
+      { name: "animichi-caa-ssl-com", value: "ssl.com" },
+      { name: "animichi-caa-digicert", value: "digicert.com; cansignhttpexchanges=yes" },
+    ];
+    for (const { name, value } of caaIssuers) {
+      new cloudflare.DnsRecord(name, {
+        zoneId: hardeningZoneId,
+        name: webDomain,
+        type: "CAA",
+        ttl: 1,
+        data: { flags: 0, tag: "issue", value },
+      });
+    }
+  }
+
+  // One rate-limit rule (the Free plan allows exactly one): a broad
+  // brute-force damper on the API surface — `/v1/*` — keyed by IP + colo,
+  // challenging bursts past 60 requests per 10s for 10s. Turnstile and
+  // per-route quotas do fine-grained control; this only shaves floods.
+  // Scoped to the zone WITHOUT a host match: on this zone only the apex
+  // serves `/v1/*` (www is a placeholder that 301-redirects in
+  // `http_request_dynamic_redirect`, which runs before `http_ratelimit`), so
+  // a bare path match is equivalent to the apex match and needs no `webDomain`
+  // dependency.
+  new cloudflare.Ruleset("animichi-api-rate-limit", {
+    zoneId: hardeningZoneId,
+    name: "zone /v1 rate limit",
+    kind: "zone",
+    phase: "http_ratelimit",
+    description: "Broad rate-limit damper on the /v1 API surface.",
+    rules: [
+      {
+        action: "managed_challenge",
+        expression: `starts_with(http.request.uri.path, "/v1/")`,
+        description: "Challenge bursts past 60 requests per 10s on /v1.",
+        enabled: true,
+        ratelimit: {
+          characteristics: ["ip.src", "cf.colo.id"],
+          period: 10,
+          requestsPerPeriod: 60,
+          mitigationTimeout: 10,
+        },
+      },
+    ],
+  });
+
+  // HSTS on the zone. `include_subdomains` false because the staging subdomain
+  // policy may differ from prod; `preload` false deliberately — preloading is
+  // near-irreversible (removing a domain from the preload list takes months),
+  // so it must be a conscious follow-up decision, not a default.
+  new cloudflare.ZoneSetting("animichi-security-header", {
+    zoneId: hardeningZoneId,
+    settingId: "security_header",
+    value: {
+      strict_transport_security: {
+        enabled: true,
+        max_age: 15552000,
+        include_subdomains: false,
+        preload: false,
+      },
+    },
+  });
 }
 
 // ── Staging: WAF gate ─────────────────────────────────────────────────────────
@@ -175,13 +274,40 @@ if (webRoutesEnabled) {
 // that "Workers runs after the Cloudflare WAF and Cloudflare Access". A blocked
 // request never reaches our code and is not billed as a Worker invocation.
 //
-// Two ways in: the `animichi_staging` cookie (set once per browser by hand) or
-// the `x-staging-key` header (CI, curl). No regex — `matches` is Business+ and
-// this zone is on Free, which allows 5 custom rules.
+// Three ways in: an allowlisted source IP (`stagingAllowedIps` — the #769 human
+// path), the legacy `animichi_staging` cookie (set once per browser by hand) or
+// `x-staging-key` header (CI, curl) — #769 card 3 removes the cookie/header
+// path — and the future OIDC exchange endpoint `/staging-gate/exchange` (card 2
+// builds it; passing the WAF is harmless before it exists because unmatched
+// paths 404 at the edge worker). No regex — `matches` is Business+ and this
+// zone is on Free, which allows 5 custom rules.
 //
 // This only works because `workers_dev = false` everywhere (#539): a
 // `*.workers.dev` hostname is not on the zone and would bypass the WAF outright.
 const stagingGateEnabled = config.getBoolean("stagingGateEnabled") ?? false;
+
+// #769: parse the staging allowlist into a Cloudflare `ip.src in { ... }`
+// clause (entries are space-separated inside the braces; plain IPs are allowed
+// alongside CIDRs). Empty list → no clause. Anything else is interpolated into
+// a firewall expression, so a non-IP entry must fail the build loudly.
+export function validateIpEntry(entry: string): boolean {
+  const v4 = entry.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?:\/(\d{1,2}))?$/);
+  if (v4 !== null) {
+    return !v4.slice(1, 5).some((octet) => Number(octet) > 255) && (v4[5] === undefined || Number(v4[5]) <= 32);
+  }
+  const v6 = entry.match(/^[0-9a-fA-F:]+(?:\/(\d{1,3}))?$/);
+  return v6 !== null && (v6[1] === undefined || Number(v6[1]) <= 128);
+}
+
+export function buildIpClause(raw: string): string {
+  const entries = raw.split(",").map((entry) => entry.trim()).filter((entry) => entry.length > 0);
+  if (entries.length === 0) return "";
+  const invalid = entries.find((entry) => !validateIpEntry(entry));
+  if (invalid !== undefined) {
+    throw new Error(`stagingAllowedIps entry "${invalid}" is not a valid IP or CIDR`);
+  }
+  return ` and not (ip.src in {${entries.join(" ")}})`;
+}
 
 // The stack check keeps this resource meaningful only on staging, even if the
 // flag is accidentally enabled on another stack.
@@ -189,6 +315,20 @@ if (stagingGateEnabled && stack === "staging") {
   const gateZoneId = config.require("cloudflareZoneId");
   const stagingDomain = config.require("stagingDomain");
   const gateToken = config.requireSecret("stagingGateToken");
+  const gateTokenValidated = gateToken.apply((t) => {
+    if (!/^[A-Za-z0-9+/=_-]{16,}$/.test(t)) {
+      throw new Error(
+        "stagingGateToken must be >=16 chars of base64/hex/url-safe characters (no quotes, backslashes, or line breaks).",
+      );
+    }
+    return t;
+  });
+
+  // #769: known-human egress IPs (CIDRs, comma-separated). Secret so the list
+  // never lands readable in the public repo or an exported stack backup.
+  const allowedIps = config.getSecret("stagingAllowedIps");
+
+  const ipClause = (allowedIps ?? pulumi.output("")).apply(buildIpClause);
 
   // `pulumi.interpolate` already propagates secretness from `gateToken`, so the
   // explicit `pulumi.secret` is belt-and-braces — kept because the cost of
@@ -202,7 +342,7 @@ if (stagingGateEnabled && stack === "staging") {
   // none of them", and neither is visible until the rule is live. Explicit
   // grouping costs nothing and removes the question.
   const gateExpression = pulumi.secret(
-    pulumi.interpolate`(http.host eq "${stagingDomain}") and not (http.cookie contains "animichi_staging=${gateToken}") and not (any(http.request.headers["x-staging-key"][*] eq "${gateToken}"))`,
+    pulumi.interpolate`(http.host eq "${stagingDomain}") and not (http.cookie contains "animichi_staging=${gateTokenValidated}") and not (any(http.request.headers["x-staging-key"][*] eq "${gateTokenValidated}"))${ipClause} and not (http.request.uri.path eq "/staging-gate/exchange")`,
   );
 
   new cloudflare.Ruleset("staging-access-gate", {
@@ -215,8 +355,42 @@ if (stagingGateEnabled && stack === "staging") {
       {
         action: "block",
         expression: gateExpression,
-        description: "Block staging traffic carrying neither the gate cookie nor the gate header",
+        description: "Block staging traffic without an allowlisted source IP, the gate cookie/header, or the exchange path",
         enabled: true,
+      },
+    ],
+  });
+}
+
+// ── Staging: per-host config settings (CI smoke) ─────────────────────────────
+// The IP-allowlist gate above is the staging hostname's protection. The WAF's
+// browser-facing defenses would fight it here: a Browser Integrity Check (BIC)
+// or Security Level challenge on the staging host makes the Playwright smoke
+// suite (and any curl) answer a challenge instead of the app. One zone-scoped
+// ruleset turns both off for the staging hostname only — every other hostname
+// on the zone keeps the defaults. Gated on the web routes so preview stacks
+// stay clean: this is meaningful only where the staging hostname actually
+// serves the app.
+if (webRoutesEnabled && stack === "staging") {
+  const settingsZoneId = config.require("cloudflareZoneId");
+  const settingsDomain = config.require("stagingDomain");
+
+  new cloudflare.Ruleset("staging-http-config-settings", {
+    zoneId: settingsZoneId,
+    name: "staging http config settings",
+    kind: "zone",
+    phase: "http_config_settings",
+    description: "Per-host config overrides for the staging hostname.",
+    rules: [
+      {
+        action: "set_config",
+        expression: `http.host eq "${settingsDomain}"`,
+        description: "staging: CI smoke must not be browser-challenged; the IP-allowlist gate owns protection here",
+        enabled: true,
+        actionParameters: {
+          bic: false,
+          securityLevel: "essentially_off",
+        },
       },
     ],
   });
