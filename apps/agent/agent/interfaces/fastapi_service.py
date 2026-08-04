@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import httpx
+import structlog
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -43,8 +44,19 @@ from agent.interfaces.routes.runtime import router as runtime_router
 from agent.interfaces.routes.search_preview import router as search_preview_router
 from agent.interfaces.routes.session_migration import router as session_migration_router
 
+logger = structlog.get_logger(__name__)
+
 # Re-export _call_optional_async for test backward compatibility.
 _call_optional_async = call_optional_async
+
+
+def _log_connect_failure(task: asyncio.Task[object]) -> None:
+    """Warn immediately when the background pool connect fails (issue #694)."""
+    if not task.cancelled() and task.exception() is not None:
+        logger.warning(
+            "database pool connect failed in the background",
+            error=task.exception(),
+        )
 
 
 def build_catalog_client(settings: Settings) -> CatalogClient:
@@ -102,6 +114,7 @@ async def _lifespan_build_runtime(
     # completes, DB work surfaces the client's "call connect() first" as a
     # clean 500 — see RuntimeAPI's lazy-repo comment in public_api.py.
     connect_task = asyncio.create_task(call_optional_async(runtime_db, "connect"))
+    connect_task.add_done_callback(_log_connect_failure)
     # Schema changes are never applied by the application. Neon catalog/user migrations run
     # through Atlas from db/migrations; the remaining Supabase compatibility surface has its
     # own operator path. See docs/ops/migrations.md.

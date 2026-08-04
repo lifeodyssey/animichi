@@ -18,7 +18,8 @@ export { isAuthRateLimited } from "./routing-policy.ts";
  * starting, its fetch answers a 500 whose body carries this marker (or throws
  * an error that does). /healthz retries briefly instead of failing the
  * readiness probe, then passes the final failure through unchanged. */
-const NOT_RUNNING_MARKER = "not running";
+// Exact phrase from the error string raised by @cloudflare/containers start().
+const NOT_RUNNING_MARKER = "The container is not running";
 const NOT_RUNNING_RETRIES = 3;
 
 /** Backoff before the 2nd and 3rd attempts: 400ms then 800ms (issue #694). */
