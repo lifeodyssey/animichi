@@ -375,6 +375,15 @@ jobs:
             echo "NEON_DATABASE_URL not set — skipping atlas migrate"; exit 0
           fi
           curl -sSfL --proto '=https' --proto-redir '=https' "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
+          # Hardcoded, not fetched alongside the binary from the same channel
+          # (that would only prove the download wasn't corrupted in transit,
+          # not that the upstream artifact itself is the one this repo
+          # reviewed). Keep synchronized with
+          # apps/agent/agent/tests/atlas_helper.py's ATLAS_LINUX_AMD64_SHA256
+          # and ci.yml's two "Install pinned Atlas CLI" steps — all four
+          # pin the same v0.30.0 linux/amd64 artifact.
+          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  /usr/local/bin/atlas" \
+            | sha256sum --check --strict
           chmod +x /usr/local/bin/atlas
           case "$NEON_DATABASE_URL" in
             *\?*) scoped_url="${NEON_DATABASE_URL}&search_path=public" ;;
