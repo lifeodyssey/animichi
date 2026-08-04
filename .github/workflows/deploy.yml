@@ -226,6 +226,59 @@ jobs:
       # ── Verify Dockerfile exists before root deploy ──
       - run: test -f Dockerfile
 
+      # ── Resolve effective worker secrets for the root deploy ──
+      - name: Resolve effective worker secrets
+        id: effective_secrets
+        # Optional (diagnostic-only) secrets are appended to the upload list
+        # only when their value is present. wrangler-action's uploadSecrets()
+        # hard-fails on any listed name whose env value is empty — which is
+        # correct for load-bearing secrets and wrong for diagnostics: on
+        # 2026-08-04 an unconfigured POST_DEPLOY_DIAG_TOKEN blocked every
+        # staging deploy (run 30895422110). A diagnostic credential must not
+        # be able to block delivery; the post-deploy check owns that failure.
+        shell: bash
+        env:
+          REQUIRED_LIST: |
+            SUPABASE_URL
+            SUPABASE_ANON_KEY
+            SUPABASE_SERVICE_ROLE_KEY
+            SUPABASE_DB_URL
+            MIMO_API_KEY
+            DEEPSEEK_API_KEY
+            GOOGLE_MAPS_API_KEY
+            LOGFIRE_TOKEN
+            CORS_ALLOWED_ORIGIN
+          OPTIONAL_LIST: |
+            POST_DEPLOY_DIAG_TOKEN
+          # Same env block as the Deploy via Wrangler step below — the
+          # indirect `${!name}` expansion above looks up OPTIONAL_LIST names
+          # here.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+          POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
+        run: |
+          effective="$REQUIRED_LIST"
+          while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            if [ -n "${!name:-}" ]; then
+              effective="$effective"$'\n'"$name"
+            else
+              echo "::warning title=optional secret skipped::$name is unset; deploy continues, post-deploy check will report it"
+            fi
+          done <<< "$OPTIONAL_LIST"
+          {
+            echo "list<<EOF"
+            printf '%s\n' "$effective" | sed '/^[[:space:]]*$/d'
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       # ── Deploy root (edge + container) ──
       - name: Deploy via Wrangler
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
@@ -239,17 +292,7 @@ jobs:
           packageManager: pnpm
           command: deploy
           environment: production
-          secrets: |
-            SUPABASE_URL
-            SUPABASE_ANON_KEY
-            SUPABASE_SERVICE_ROLE_KEY
-            SUPABASE_DB_URL
-            MIMO_API_KEY
-            DEEPSEEK_API_KEY
-            GOOGLE_MAPS_API_KEY
-            LOGFIRE_TOKEN
-            CORS_ALLOWED_ORIGIN
-            POST_DEPLOY_DIAG_TOKEN
+          secrets: ${{ steps.effective_secrets.outputs.list }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

@@ -344,7 +344,9 @@ cmd_auth_config_check() {
   # `set -euo pipefail; trap "true" EXIT; : "${FOO:?required}"` prints the
   # error text but still exits 0. An explicit check + `fail` (a normal exit
   # 1, not a parameter-expansion error) sidesteps it.
-  [ -n "${POST_DEPLOY_DIAG_TOKEN:-}" ] || fail "POST_DEPLOY_DIAG_TOKEN is required"
+  if [ -z "${POST_DEPLOY_DIAG_TOKEN:-}" ]; then
+    fail "auth-config drift check did NOT run: POST_DEPLOY_DIAG_TOKEN is not configured for this environment (${TARGET_ENVIRONMENT:-<environment>}). The deploy itself succeeded. To enable the check: gh secret set POST_DEPLOY_DIAG_TOKEN --env ${TARGET_ENVIRONMENT:-<environment>} --body \"\$(openssl rand -hex 32)\""
+  fi
   local status
   status="$(fetch GET "${ROOT_URL}/internal/auth-config" "Bearer ${POST_DEPLOY_DIAG_TOKEN}")"
   diag "${status}"

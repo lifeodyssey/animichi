@@ -306,7 +306,13 @@ test_auth_config_check_missing_token_refuses_to_run() {
   stop_mock "${pid}"; requests="$(request_count "${counter_file}")"; rm -f "${counter_file}"
   [ "${rc}" -ne 0 ] || fail_test "a missing POST_DEPLOY_DIAG_TOKEN should refuse to run, got exit 0"
   [ "${requests}" -eq 0 ] || fail_test "expected zero requests — the script must refuse before ever calling the Worker, got ${requests}"
-  grep -q "POST_DEPLOY_DIAG_TOKEN is required" "${out}" || fail_test "missing expected diagnostic in output"
+  # The failure message must make a MISSING CREDENTIAL unmistakable (not a
+  # broken route) and carry the remediation command, per the 2026-08-04
+  # optional-secret change: a diagnostic credential must not be able to
+  # block delivery, so the deploy proceeds and THIS check owns reporting it.
+  grep -q "did NOT run" "${out}" || fail_test "missing the 'did NOT run' framing in output"
+  grep -q "deploy itself succeeded" "${out}" || fail_test "missing the 'deploy itself succeeded' reassurance in output"
+  grep -q "gh secret set POST_DEPLOY_DIAG_TOKEN" "${out}" || fail_test "missing the gh secret set remediation command in output"
   echo "PASS: a missing POST_DEPLOY_DIAG_TOKEN refuses to run before making any request (${requests} requests, exit ${rc})"
 }
 
