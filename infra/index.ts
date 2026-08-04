@@ -157,10 +157,91 @@ if (webRoutesEnabled) {
               },
             },
           },
-        },
-      ],
+      },
+    ],
+  });
+  }
+
+  // ── Zone hardening: DNSSEC, CAA, API rate limit, HSTS ───────────────────────
+  // Owner ruling 2026-08-05 (prod security review). All four are zone-scoped
+  // and belong here with the routes: they need `cloudflareZoneId`, which only
+  // becomes available once a stack opts into owning the zone, and none of them
+  // publish anything by themselves. Public repo: no secrets, emails, or IPs —
+  // none of these resources need any.
+  //
+  // Note on the v6 resource names: `ZoneDnssec` (not `ZoneDnssecConfig`) and
+  // `ZoneSetting` with `settingId` were both confirmed against the local
+  // `@pulumi/cloudflare` v6 typings.
+
+  // DNSSEC signing on the zone. Cloudflare holds the keys and publishes the DS
+  // record; there is deliberately nothing Pulumi-visible beyond the zone.
+  new cloudflare.ZoneDnssec("animichi-dnssec", {
+    zoneId: cloudflareZoneId,
+  });
+
+  // CAA: restrict who may issue certificates for the domain to Cloudflare's
+  // Universal SSL certificate partners — letsencrypt.org, pki.goog, ssl.com,
+  // and digicert.com, each encoded as its own record (one tag per record).
+  // Universal SSL keeps working because CF's partner CAs are listed.
+  const caaIssuers = [
+    { name: "animichi-caa-letsencrypt", value: "letsencrypt.org" },
+    { name: "animichi-caa-pki-goog", value: "pki.goog; cansignhttpexchanges=yes" },
+    { name: "animichi-caa-ssl-com", value: "ssl.com" },
+    { name: "animichi-caa-digicert", value: "digicert.com; cansignhttpexchanges=yes" },
+  ];
+  for (const { name, value } of caaIssuers) {
+    new cloudflare.DnsRecord(name, {
+      zoneId: cloudflareZoneId,
+      name: apexDomain,
+      type: "CAA",
+      ttl: 1,
+      data: { flags: 0, tag: "issue", value },
     });
   }
+
+  // One rate-limit rule (the Free plan allows exactly one): a broad
+  // brute-force damper on the API surface — the apex under `/v1/*` — keyed by
+  // IP + colo, challenging bursts past 60 requests per 10s for 10s. Turnstile
+  // and per-route quotas do fine-grained control; this only shaves floods.
+  new cloudflare.Ruleset("animichi-api-rate-limit", {
+    zoneId: cloudflareZoneId,
+    name: "apex /v1 rate limit",
+    kind: "zone",
+    phase: "http_ratelimit",
+    description: "Broad rate-limit damper on the /v1 API surface.",
+    rules: [
+      {
+        action: "managed_challenge",
+        expression:
+          `(http.host eq "${apexDomain}") and (starts_with(http.request.uri.path, "/v1/"))`,
+        description: "Challenge bursts past 60 requests per 10s on /v1.",
+        enabled: true,
+        ratelimit: {
+          characteristics: ["ip.src", "cf.colo.id"],
+          period: 10,
+          requestsPerPeriod: 60,
+          mitigationTimeout: 10,
+        },
+      },
+    ],
+  });
+
+  // HSTS on the zone. `include_subdomains` false because the staging subdomain
+  // policy may differ from prod; `preload` false deliberately — preloading is
+  // near-irreversible (removing a domain from the preload list takes months),
+  // so it must be a conscious follow-up decision, not a default.
+  new cloudflare.ZoneSetting("animichi-security-header", {
+    zoneId: cloudflareZoneId,
+    settingId: "security_header",
+    value: {
+      strict_transport_security: {
+        enabled: true,
+        max_age: 15552000,
+        include_subdomains: false,
+        preload: false,
+      },
+    },
+  });
 }
 
 // ── Staging: WAF gate ─────────────────────────────────────────────────────────

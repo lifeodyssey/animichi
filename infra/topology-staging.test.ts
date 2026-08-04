@@ -22,6 +22,8 @@ const CUSTOM_DOMAIN = "cloudflare:index/workersCustomDomain:WorkersCustomDomain"
 const ROUTE = "cloudflare:index/workersRoute:WorkersRoute";
 const DNS = "cloudflare:index/dnsRecord:DnsRecord";
 const RULESET = "cloudflare:index/ruleset:Ruleset";
+const ZONE_DNSSEC = "cloudflare:index/zoneDnssec:ZoneDnssec";
+const ZONE_SETTING = "cloudflare:index/zoneSetting:ZoneSetting";
 
 test("staging targets the stack-suffixed Workers, not the production ones", () => {
   const domain = only(built, CUSTOM_DOMAIN);
@@ -48,13 +50,25 @@ test("staging gets the SAME API and map routes as prod", () => {
 });
 
 test("no www placeholder and no redirect on staging", () => {
-  assert.deepEqual(ofType(built, DNS), []);
-  const rulesets = ofType(built, RULESET).map((r) => r.name);
-  assert.deepEqual(rulesets, ["staging-access-gate"]);
+  assert.deepEqual(ofType(built, DNS).filter((r) => r.inputs.name === "www.animichi.com"), []);
+  const rulesets = ofType(built, RULESET).map((r) => r.name).sort();
+  assert.deepEqual(rulesets, ["animichi-api-rate-limit", "staging-access-gate"]);
+});
+
+test("the apex CAA issuers pin the staging host, not prod's", () => {
+  const caa = ofType(built, DNS).filter((r) => r.inputs.type === "CAA");
+  assert.equal(caa.length, 4);
+  for (const record of caa) {
+    assert.equal(record.inputs.name, "staging.animichi.com");
+    assert.equal(record.inputs.zoneId, "zone");
+    assert.equal((record.inputs.data as { tag: string }).tag, "issue");
+  }
 });
 
 test("the WAF gate blocks, and matches the staging host", () => {
-  const rules = unseal(only(built, RULESET).inputs.rules).value as Record<string, unknown>[];
+  const gate = ofType(built, RULESET).find((r) => r.name === "staging-access-gate");
+  assert.ok(gate, "staging access gate missing");
+  const rules = unseal(gate.inputs.rules).value as Record<string, unknown>[];
   assert.equal(rules[0].action, "block");
   const expression = String(rules[0].expression);
   assert.match(expression, /http\.host eq "staging\.animichi\.com"/);
@@ -80,7 +94,18 @@ test("the gate rule is sealed as a SECRET before it reaches state", () => {
   // fails this test. That is the correct sensitivity for a defence-in-depth
   // invariant: it asserts the property (sealed), not either mechanism, so
   // refactoring one away stays green while actually losing the seal goes red.
-  assert.equal(unseal(only(built, RULESET).inputs.rules).isSecret, true);
+  const gate = ofType(built, RULESET).find((r) => r.name === "staging-access-gate");
+  assert.ok(gate, "staging access gate missing");
+  assert.equal(unseal(gate.inputs.rules).isSecret, true);
+});
+
+test("zone hardening applies to staging too", () => {
+  assert.equal(only(built, ZONE_DNSSEC).inputs.zoneId, "zone");
+  const setting = only(built, ZONE_SETTING);
+  assert.equal(setting.inputs.settingId, "security_header");
+  const sts = (setting.inputs.value as Record<string, unknown>)
+    .strict_transport_security as Record<string, unknown>;
+  assert.equal(sts.include_subdomains, false);
 });
 
 test("an ordinary input on this same stack is NOT sealed", () => {
