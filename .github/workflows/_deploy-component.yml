@@ -406,6 +406,8 @@ jobs:
             *\?*) scoped_url="${NEON_DATABASE_URL}&search_path=public" ;;
             *) scoped_url="${NEON_DATABASE_URL}?search_path=public" ;;
           esac
+          # 486: the manual thin-caller path has no db-validate job, so validate here (cheap, seconds) before mutating.
+          atlas migrate validate --dir "file://db/migrations"
           atlas migrate apply --dir "file://db/migrations" --url "$scoped_url" --revisions-schema public
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}

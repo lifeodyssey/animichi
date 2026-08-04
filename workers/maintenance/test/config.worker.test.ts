@@ -33,7 +33,8 @@ describe("maintenance deployment configuration", () => {
     expect(reusableDeploy).toContain("AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}");
     expect(ciWorkflow).toContain("component: maintenance");
     expect(ciWorkflow).toContain("AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}");
-    expect(deployWorkflow).toContain("workingDirectory: workers/maintenance");
+    // #486 thin caller: deploy.yml passes inputs/secrets; env and Atlas live in _deploy-component.yml.
+    expect(deployWorkflow).toContain("working_directory: workers/maintenance");
     expect(deployWorkflow).toContain("AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}");
     expect(secretsDocs).toContain("| `AGENT_DATABASE_URL` |");
   });
