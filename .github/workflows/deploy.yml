@@ -1,4 +1,4 @@
-# Manual production deploy — thin caller of _deploy-component.yml (issue #486).
+# Manual production deploy — thin caller of reusable-deploy-component.yml (issue #486).
 #
 # Six jobs mirror the production promotion stage of ci.yml (deploy-prod … post-prod)
 # so the manual path and the CI path exercise identical inputs. Every `with:` /
@@ -9,7 +9,7 @@
 # post-prod keeps needs on the five deploy jobs.
 #
 # The GitHub `production` environment approval gate lives inside
-# _deploy-component.yml (`environment: ${{ inputs.environment }}` at the job
+# reusable-deploy-component.yml (`environment: ${{ inputs.environment }}` at the job
 # level), so no separate approval block is needed here.
 #
 # Concurrency groups are shared with ci.yml's prod jobs: a manual dispatch and a
@@ -29,7 +29,7 @@ jobs:
 
   deploy-prod:
     name: Deploy production
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: catalog
       environment: production
@@ -49,7 +49,7 @@ jobs:
 
   deploy-web-prod:
     name: Deploy web production
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: web
       environment: production
@@ -67,7 +67,7 @@ jobs:
     name: Deploy users production
     # mirrors ci.yml's intra-prod ordering (root routes to users; users must be live first)
     needs: [deploy-prod]
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: users
       environment: production
@@ -89,7 +89,7 @@ jobs:
     name: Deploy maintenance production
     # mirrors ci.yml's intra-prod ordering (root routes to users; users must be live first)
     needs: [deploy-prod]
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: maintenance
       environment: production
@@ -107,7 +107,7 @@ jobs:
     name: Deploy root production
     # mirrors ci.yml's intra-prod ordering (root routes to users; users must be live first)
     needs: [deploy-users-prod]
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: root
       environment: production
@@ -150,7 +150,7 @@ jobs:
   post-prod:
     name: Post-deploy (production)
     needs: [deploy-prod, deploy-web-prod, deploy-users-prod, deploy-maintenance-prod, deploy-root-prod]
-    uses: ./.github/workflows/_post-deploy-test.yml
+    uses: ./.github/workflows/reusable-post-deploy-test.yml
     with:
       environment: production
       suite: smoke

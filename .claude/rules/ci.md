@@ -4,8 +4,8 @@ paths:
 ---
 # GitHub Actions authoring rules
 
-- **Layering**: reusable composites are `_*.yml`; the top-level `ci.yml` / `deploy.yml` are the callers
-  that route the reusables per changed package (path filters). Shared logic goes in a `_`-file, not
+- **Layering**: reusable composites are `reusable-*.yml`; the top-level `ci.yml` / `deploy.yml` are the callers
+  that route the reusables per changed package (path filters). Shared logic goes in a `reusable-*` file, not
   copy-paste. (`codeql.yml` / `dependabot-agent.yml` are standalone top-level workflows.)
 - **Pin every third-party action by full 40-char commit SHA** + a trailing `# vX.Y.Z`. Never a floating
   tag/branch.
