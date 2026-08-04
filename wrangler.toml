@@ -35,7 +35,7 @@
 #   DEEPSEEK_API_KEY           — required fallback model key (DeepSeek)
 #   (photo-search recognition rides the same chat model credentials above —
 #   #656 retired the standalone GEMINI_API_KEY-backed vision provider in favor
-#   of the main agent's multimodal input, agent/agents/photo_vision.py)
+#   of the main agent's multimodal input, apps/agent/agent/agents/photo_vision.py)
 #   OPENAI_COMPAT_BASE_URL     — custom OpenAI-compatible fallback endpoint
 #   OPENAI_COMPAT_API_KEY      — custom OpenAI-compatible fallback provider key
 #   GOOGLE_MAPS_API_KEY        — optional geocoding provider key
