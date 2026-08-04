@@ -18,7 +18,7 @@ export default defineConfig({
     headless: true,
     screenshot: "only-on-failure",
     trace: "on-first-retry",
-    ...(stagingGateToken ? { storageState: "e2e/.auth/staging-gate.json" } : {}),
+    ...(stagingGateToken ? { storageState: "./.auth/staging-gate.json" } : {}),
   },
   projects: [
     {

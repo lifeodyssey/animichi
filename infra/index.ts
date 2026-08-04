@@ -217,9 +217,9 @@ if (stagingGateEnabled && stack === "staging") {
   const stagingDomain = config.require("stagingDomain");
   const gateToken = config.requireSecret("stagingGateToken");
   const gateTokenValidated = gateToken.apply((t) => {
-    if (!/^[A-Za-z0-9_-]{16,}$/.test(t)) {
+    if (!/^[A-Za-z0-9+/=_-]{16,}$/.test(t)) {
       throw new Error(
-        "stagingGateToken must be >=16 chars of [A-Za-z0-9_-]: it is interpolated into a quoted WAF expression and an HTTP header, where quotes or CR/LF would break the rule.",
+        "stagingGateToken must be >=16 chars of base64/hex/url-safe characters (no quotes, backslashes, or line breaks).",
       );
     }
     return t;
