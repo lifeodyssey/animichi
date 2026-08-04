@@ -257,6 +257,22 @@ jobs:
   # `continue-on-error` is an intentional warn-only gate policy (not a code-quality
   # suppression): it surfaces context-doc rot without failing CI. Kept out of the
   # deploy `needs:` chain so it never gates a release. Promote to blocking once proven.
+  #
+  # NOTE (2026-08-04, #738): do NOT add --ignore-scripts to the npx invocation below.
+  # agnix ships no prebuilt binary in its npm tarball — its own `postinstall` hook
+  # (install.js) is the only thing that fetches the platform binary from its GitHub
+  # release and verifies its sha256 before use. #723 (S6505 hardening) added
+  # --ignore-scripts here on the assumption it was a no-behavior-change formalization;
+  # that assumption was verified against a machine with a stale npx cache (binary
+  # already present from an earlier unrestricted run), so the postinstall skip went
+  # unnoticed locally. On every CI runner the npx cache starts empty, so
+  # --ignore-scripts deterministically skips the fetch and every run fails with
+  # "agnix binary not found" — bisected exactly to that commit (run 30876322672,
+  # success, vs. 30877440998, failure, first run after 2d1a50c6 landed) and
+  # reproduced locally by clearing ~/.npm/_npx and rerunning both flag variants.
+  # --ignore-scripts buys no real protection here anyway: running agnix at all means
+  # executing its downloaded binary, so the trust boundary is the same with or
+  # without the flag — only the flag also breaks the intended install path.
 
   agnix:
     timeout-minutes: 15
@@ -271,7 +287,7 @@ jobs:
         with:
           node-version: "24"
       - name: Lint AI agent configs
-        run: npx --ignore-scripts --yes agnix@0.37.5 .
+        run: npx --yes agnix@0.37.5 .
 
   # ── DB migrations (Atlas validation + optional Neon dry-run) ──
 
