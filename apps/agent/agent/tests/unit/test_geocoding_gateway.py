@@ -158,14 +158,16 @@ async def test_sequential_fetches_reuse_the_same_httpx_client(
 async def test_aclose_geocoding_client_closes_and_resets_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _, client, _ = _install_httpx(monkeypatch, payload={"results": [_RESULT]})
+    _, client, constructor = _install_httpx(monkeypatch, payload={"results": [_RESULT]})
     await GoogleGeocodingGateway().geocode_candidates("藤沢駅")
-
+    fresh_client = MagicMock()
+    constructor.return_value = fresh_client
     await geocoding.aclose_geocoding_client()
     await geocoding.aclose_geocoding_client()
-
+    new_client = geocoding._get_client()
     client.aclose.assert_awaited_once()
-    assert geocoding._client is None
+    assert new_client is not client
+    assert geocoding._client is fresh_client
 
 
 async def test_aclose_geocoding_client_ignores_close_failure(
