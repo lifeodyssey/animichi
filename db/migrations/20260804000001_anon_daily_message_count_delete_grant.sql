@@ -1,0 +1,14 @@
+-- Fix #661: `anon_daily_message_count` (20260729000001) granted agent_svc only
+-- SELECT/INSERT/UPDATE, never DELETE. The retention purge
+-- (agent/scripts/purge_anon_quota_counts.py -> AnonQuotaRepository.purge_older_than,
+-- and its port in workers/maintenance/src/purge.ts) runs
+-- `DELETE FROM anon_daily_message_count ...` as agent_svc, so every purge attempt
+-- would fail closed with "permission denied for table anon_daily_message_count"
+-- even after the cron's UndefinedTableError (missing DSN cutover) is fixed —
+-- the same gap the daily_usage twin (20260726000001) also has, though nothing
+-- purges that table yet so it is not load-bearing there today.
+--
+-- Append-only per docs/ops/migrations.md: 20260729000001 already reached a
+-- shared environment, so this ships as its own migration instead of editing
+-- the applied file.
+GRANT DELETE ON anon_daily_message_count TO agent_svc;
