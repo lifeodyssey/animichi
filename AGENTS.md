@@ -62,7 +62,7 @@ edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth
 - Architecture **why** → `docs/superpowers/specs/2026-06-13-architecture-adr.md`
 - Current **target** (hybrid, latest; wins over the ADR on agent language) →
   `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md`
-- Live runtime **reference** → `docs/ARCHITECTURE.md` *(paths + frontend section pending a refresh — separate PR)*
+- Live runtime **reference** → `docs/ARCHITECTURE.md`
 - Deploy runbook → `docs/ops/deployment.md`
 - **Single Source-of-Truth table + doc-change rules** → `docs/DOCS_POLICY.md` (the one canonical topic→path map)
 

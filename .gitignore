@@ -65,6 +65,7 @@ data/raw/
 
 # Test outputs
 test_results.json
+e2e/.auth/
 
 # Git worktrees
 .worktrees/
