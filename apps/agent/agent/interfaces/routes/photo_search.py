@@ -2,12 +2,17 @@
 
 Anonymous requests are allowed (metered on the anon tier); the Worker edge
 still owns real auth, and this route only reads the trusted headers.
+
+Recognition itself rides the main agent's multimodal input (``BinaryContent``,
+`agent.agents.photo_vision`) instead of a standalone Gemini REST client + a
+BYOK-canary router (#656) — this route's own job is unchanged: decode/validate
+the upload, enforce budget/quota (`photo_search_guards`), resolve a BYOK model
+from the real ``X-BYOK-*`` headers (mirroring `agent.interfaces.routes.chat`),
+and hand a bound recognition closure to `agent.agents.photo_search.run_photo_search`.
 """
 
 from __future__ import annotations
 
-import base64
-import binascii
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Annotated, Literal, cast
@@ -16,60 +21,50 @@ import httpx
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from pydantic_ai.models import Model
 
-from agent.agents.photo_search import (
-    GpsPoint,
-    PhotoSearchResponse,
-    run_photo_search,
-)
-from agent.agents.vision_supply_router import (
-    EndpointId,
-    GuidancePremise,
-    QuotaTier,
-    VisionCapabilityRegistry,
-    VisionProvider,
-    VisionSupply,
-    quota_guidance,
-    quota_tier_for,
-)
+from agent.agents.base import get_default_model
+from agent.agents.byok_models import ByokError, ByokModel, build_byok_model
+from agent.agents.photo_search import GpsPoint, PhotoSearchResponse, run_photo_search
+from agent.agents.photo_vision import RecognizeCall, VisionCallResult, recognize_photo
 from agent.clients.catalog_client import CatalogClient, CatalogClientProtocol
-from agent.clients.gemini_vision import GeminiVisionProvider, sniff_image_mime
 from agent.config.settings import Settings
 from agent.infrastructure.observability.photo_search import (
     ClientQueryType,
     LayerHit,
     PhotoSearchQuota,
     PhotoSearchSignals,
-    QuotaKey,
     record_photo_search,
 )
 from agent.interfaces.db_repos import usage_repo
 from agent.interfaces.public_api import record_attributed_usage
 from agent.interfaces.routes._deps import (
     TrustedAuthContext,
-    _error_response,
+    _get_byok_credential,
     _get_settings_from_request,
     _get_trusted_auth_context,
+    _has_byok_headers,
 )
-from agent.interfaces.routes.chat import BUDGET_EXHAUSTED_MESSAGE
-from agent.interfaces.usage_metering import (
-    ANON_BUDGET_EXHAUSTED_CODE,
-    ANONYMOUS_USER_TYPE,
-    UsagePrices,
-    anonymous_budget_verdict,
-    is_anonymous_identity,
+from agent.interfaces.routes.photo_search_guards import (
+    MAX_IMAGE_BASE64_CHARS,
+    PhotoSearchRejection,
+    _budget_rejection,
+    _byok_login_rejection,
+    _check_quota,
+    _decode_image,
+    _quota_key,
+    _quota_limit,
+    _quota_tier_for,
+    _rejection_response,
+    _scope_user_type,
 )
+from agent.interfaces.usage_metering import UsagePrices, is_anonymous_identity
+
+__all__ = ["MAX_IMAGE_BASE64_CHARS", "PhotoSearchRuntime", "build_photo_search_runtime"]
 
 router = APIRouter(prefix="/v1", tags=["photo-search"])
 
-SUPPORTED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
 Locale = Literal["ja", "zh", "en"]
-
-# 8 MiB image cap (matches the client-side pre-check); base64 expands
-# ceil(n/3)*4. The Field cap sits at 2x as a parse-time belt (422 for absurd
-# payloads); the semantic limit below it returns the typed 413.
-MAX_IMAGE_BYTES = 8 * 1024 * 1024
-MAX_IMAGE_BASE64_CHARS = ((MAX_IMAGE_BYTES + 2) // 3) * 4
 
 
 class GpsBody(BaseModel):
@@ -94,20 +89,20 @@ class PhotoConfirmBody(BaseModel):
 class PhotoSearchRuntime:
     """Per-app photo-search wiring, injectable for tests."""
 
-    platform_provider: VisionProvider
+    platform_model: Model
     catalog: CatalogClientProtocol
-    registry: VisionCapabilityRegistry = field(default_factory=VisionCapabilityRegistry)
     quota: PhotoSearchQuota = field(
         default_factory=lambda: PhotoSearchQuota(clock=lambda: datetime.now(UTC))
     )
-    byok_providers: dict[EndpointId, VisionProvider] = field(default_factory=dict)
 
 
 def build_photo_search_runtime(
     settings: Settings, catalog: CatalogClientProtocol, client: httpx.AsyncClient
 ) -> PhotoSearchRuntime:
-    provider = GeminiVisionProvider(api_key=settings.gemini_api_key, client=client)
-    return PhotoSearchRuntime(platform_provider=provider, catalog=catalog)
+    del settings  # kept for signature symmetry with `_build_from_state`
+    return PhotoSearchRuntime(
+        platform_model=get_default_model(http_client=client), catalog=catalog
+    )
 
 
 def _build_from_state(request: Request) -> PhotoSearchRuntime:
@@ -135,154 +130,33 @@ def _locale(request: Request) -> Locale:
     return cast(Locale, value) if value in ("ja", "zh", "en") else "ja"
 
 
-@dataclass(frozen=True)
-class PhotoSearchRejection(Exception):
-    """A typed rejection turned into the service error envelope."""
-
-    status_code: int
-    code: Literal[
-        "unsupported_image_format",
-        "invalid_image",
-        "image_too_large",
-        "photo_search_quota_exhausted",
-    ]
-    message: str
-    guidance: GuidancePremise | None = None
-
-
-def _rejection_response(rejection: PhotoSearchRejection) -> JSONResponse:
-    details = (
-        {"guidance": rejection.guidance} if rejection.guidance is not None else None
-    )
-    return _error_response(
-        rejection.code,
-        rejection.message,
-        status_code=rejection.status_code,
-        details=details,
-    )
-
-
-def _decode_image(body: PhotoSearchBody) -> bytes:
-    if body.mime_type not in SUPPORTED_IMAGE_TYPES:
-        raise PhotoSearchRejection(
-            415, "unsupported_image_format", "This image format is not supported."
-        )
-    if len(body.image_base64) > MAX_IMAGE_BASE64_CHARS:
-        raise PhotoSearchRejection(
-            413, "image_too_large", "The image is larger than the 8 MB limit."
-        )
-    return _validated_bytes(body.image_base64)
-
-
-def _validated_bytes(image_base64: str) -> bytes:
-    """Decode and magic-byte-check: the client's mime label is never trusted."""
+async def _resolve_byok_model(request: Request) -> ByokModel | None:
+    """Parse and build the per-request guarded model, same contract as
+    `agent.interfaces.routes.chat._resolve_byok_model`. The caller MUST
+    `await .client.aclose()` once the turn is over."""
+    byok = _get_byok_credential(request)
+    if byok is None:
+        return None
     try:
-        image = base64.b64decode(image_base64, validate=True)
-    except (binascii.Error, ValueError) as exc:
+        return await build_byok_model(byok)
+    except ByokError as exc:
+        raise PhotoSearchRejection(400, "invalid_request", exc.message) from exc
+    except Exception as exc:
         raise PhotoSearchRejection(
-            422, "invalid_image", "The image payload could not be decoded."
+            400, "invalid_request", "Unable to construct the BYOK model."
         ) from exc
-    if sniff_image_mime(image) not in SUPPORTED_IMAGE_TYPES:
-        raise PhotoSearchRejection(
-            415, "unsupported_image_format", "This image format is not supported."
-        )
-    return image
 
 
-def _byok_endpoint(request: Request) -> EndpointId | None:
-    value = request.headers.get("x-byok-endpoint")
-    return EndpointId(value) if value else None
-
-
-def _quota_limit(settings: Settings, tier: QuotaTier) -> int | None:
-    if tier == "member":
-        return settings.photo_search_quota_member
-    return settings.photo_search_quota_anon
-
-
-def _quota_key(auth: TrustedAuthContext, request: Request) -> QuotaKey:
-    """Meter on the edge-asserted X-User-Id (member or worker-minted anonymous).
-
-    Never `x-session-id`: that header is client-controlled (the Worker forwards
-    it for chat session continuity), so keying on it would let a caller reset
-    the meter per request. The host fallback covers direct/dev access only.
-    """
-    if auth.user_id is not None:
-        return QuotaKey(auth.user_id)
-    host = request.client.host if request.client else "anon"
-    return QuotaKey(host)
-
-
-def _check_quota(
+def _recognize_call(
     runtime: PhotoSearchRuntime,
-    settings: Settings,
-    tier: QuotaTier,
-    key: QuotaKey,
-    byok: EndpointId | None,
-) -> None:
-    if runtime.quota.consume(tier, key, _quota_limit(settings, tier)):
-        return
-    raise PhotoSearchRejection(
-        429,
-        "photo_search_quota_exhausted",
-        "The photo-search quota for today is used up.",
-        guidance=quota_guidance(byok),
-    )
+    byok_model: Model | None,
+    images: list[bytes],
+    locale: str,
+) -> RecognizeCall:
+    async def call() -> VisionCallResult:
+        return await recognize_photo(runtime.platform_model, byok_model, images, locale)
 
-
-async def _budget_rejection(
-    request: Request, auth: TrustedAuthContext
-) -> JSONResponse | None:
-    # Route through the canonical predicate rather than testing `user_type`
-    # directly: a request carrying `X-User-Id` but no `X-User-Type` is an
-    # identified caller, and a looser check here metered them into the anonymous
-    # scope and could refuse them once the anon budget ran out. The edge sets
-    # both headers together (`workers/edge/app.ts`), so this is defence in depth
-    # rather than a reachable path — but the same concept having two different
-    # answers in the codebase is how it stops being one.
-    if auth.user_id is not None and not is_anonymous_identity(
-        auth.user_id, auth.user_type
-    ):
-        return None
-    settings = _get_settings_from_request(request)
-    verdict = await anonymous_budget_verdict(
-        usage_repo(request.app.state.db_client),
-        budget_usd=settings.anon_daily_cost_budget_usd,
-    )
-    if not verdict.exhausted:
-        return None
-    return JSONResponse(
-        status_code=403,
-        content={
-            "error": {
-                "code": ANON_BUDGET_EXHAUSTED_CODE,
-                "message": BUDGET_EXHAUSTED_MESSAGE,
-                "action": "login",
-            }
-        },
-    )
-
-
-def _scope_user_type(auth: TrustedAuthContext) -> str | None:
-    """Two different absences that a blanket `or "anonymous"` conflated.
-
-    No `X-User-Id` means no identity was asserted at all — the anonymous tier.
-    An `X-User-Id` with no `X-User-Type` is an identified caller whose type
-    header went missing; `scope_for_identity` resolves that against the user-id
-    convention, so it must be passed through rather than coerced, or their
-    spend lands in the anon scope.
-    """
-    return auth.user_type if auth.user_id is not None else ANONYMOUS_USER_TYPE
-
-
-def _supply(runtime: PhotoSearchRuntime, byok: EndpointId | None) -> VisionSupply:
-    provider = runtime.byok_providers.get(byok) if byok is not None else None
-    return VisionSupply(
-        platform=runtime.platform_provider,
-        registry=runtime.registry,
-        byok=provider,
-        byok_endpoint=byok,
-    )
+    return call
 
 
 def _gps(body: PhotoSearchBody) -> GpsPoint | None:
@@ -304,10 +178,12 @@ async def handle_photo_search(
 ) -> JSONResponse:
     """Run the standalone vision pipeline and reply with a chat-shaped envelope."""
     runtime = _get_photo_runtime(request)
-    byok = _byok_endpoint(request)
     authenticated = auth.user_id is not None and not is_anonymous_identity(
         auth.user_id, auth.user_type
     )
+    login_rejection = _byok_login_rejection(auth, request)
+    if login_rejection is not None:
+        return login_rejection
     # The budget check runs before the image is decoded. It needs only `auth`,
     # and a breaker that fires after the work it is meant to prevent is most of
     # a breaker that does not work. The visible consequence: a caller who is both
@@ -317,33 +193,41 @@ async def handle_photo_search(
     budget_rejection = await _budget_rejection(request, auth)
     if budget_rejection is not None:
         return budget_rejection
+    byok_model: ByokModel | None = None
     try:
-        image = _decode_image(body)
-        tier = quota_tier_for(authenticated)
+        image = _decode_image(body.image_base64, body.mime_type)
         settings = _get_settings_from_request(request)
-        _check_quota(runtime, settings, tier, _quota_key(auth, request), byok)
+        tier = _quota_tier_for(authenticated)
+        has_byok = _has_byok_headers(request)
+        quota_ok = runtime.quota.consume(
+            tier, _quota_key(auth, request), _quota_limit(settings, tier)
+        )
+        _check_quota(quota_ok, has_byok)
+        byok_model = await _resolve_byok_model(request)
     except PhotoSearchRejection as rejection:
         return _rejection_response(rejection)
-    return await _run_pipeline(runtime, byok, image, body, request, auth, authenticated)
+    return await _run_pipeline(runtime, byok_model, image, body, request, auth)
 
 
 async def _run_pipeline(
     runtime: PhotoSearchRuntime,
-    byok: EndpointId | None,
+    byok_model: ByokModel | None,
     image: bytes,
     body: PhotoSearchBody,
     request: Request,
     auth: TrustedAuthContext,
-    authenticated: bool,
 ) -> JSONResponse:
-    outcome = await run_photo_search(
-        _supply(runtime, byok),
-        runtime.catalog,
+    recognize = _recognize_call(
+        runtime,
+        byok_model.model if byok_model is not None else None,
         [image],
-        _gps(body),
         _locale(request),
-        authenticated,
     )
+    try:
+        outcome = await run_photo_search(recognize, runtime.catalog, _gps(body))
+    finally:
+        if byok_model is not None:
+            await byok_model.client.aclose()
     record_photo_search(outcome.signals)
     if outcome.usage is not None:
         settings = _get_settings_from_request(request)

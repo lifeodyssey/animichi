@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 from agent.agents.agent_result import AttributedUsage
 from agent.agents.catalog_failures import CATALOG_FAILURES
-from agent.agents.vision_supply_router import VisionRecognitionFailed, VisionSupply
+from agent.agents.photo_vision import RecognizeCall, VisionRecognitionFailed
 from agent.clients.catalog_client import (
     AnimeCandidate,
     CatalogClientProtocol,
@@ -250,24 +250,26 @@ async def _vision_unavailable_outcome(
 
 
 async def run_photo_search(
-    supply: VisionSupply,
+    recognize: RecognizeCall,
     catalog: CatalogClientProtocol,
-    images: list[bytes],
     gps: GpsPoint | None,
-    locale: str,
-    authenticated: bool,
 ) -> PhotoSearchOutcome:
     """Upload → vision (layer 1) → resolve; misses degrade via layers 2/none.
+
+    ``recognize`` is a zero-arg callable already bound to the images, locale,
+    and resolved model(s) for this turn (`agent.agents.photo_vision`) — the
+    route builds it once BYOK/platform model resolution is done, keeping this
+    pipeline's own logic ignorant of *how* recognition happens.
 
     A vision call that fails outright (BYOK and platform both exhausted)
     degrades to a clarify response like a clean miss, but keeps a distinct
     telemetry signal (``_vision_unavailable_outcome``) — never a 500.
     """
     try:
-        call = await supply.recognize(images, locale, authenticated)
+        call = await recognize()
     except VisionRecognitionFailed:
         return await _vision_unavailable_outcome(catalog, gps)
-    titles = call.recognition.candidate_titles
+    titles = call.candidate_titles
     usage = AttributedUsage(
         call.usage, "byok" if call.provider_kind == "byok" else "platform"
     )
