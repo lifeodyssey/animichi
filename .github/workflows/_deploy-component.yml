@@ -614,12 +614,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Whitelist-sanitize: a ref name may contain characters that break a
+          # quoted Python literal; GITHUB_SHA is hex and safe as-is.
+          branch="${GITHUB_REF_NAME//[^A-Za-z0-9._\/-]/-}"
           mkdir -p apps/agent/agent
           cat > apps/agent/agent/build_info.py <<EOF
           """Build-time git metadata baked by CI (#494). Do not edit."""
 
           GIT_COMMIT = "${GITHUB_SHA::7}"
-          GIT_BRANCH = "${GITHUB_REF_NAME}"
+          GIT_BRANCH = "${branch}"
           EOF
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0

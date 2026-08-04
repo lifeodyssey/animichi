@@ -27,7 +27,9 @@ def _baked_build_info() -> tuple[str, str]:
     """Return (commit, branch) from the CI-generated build_info.py, or empty."""
     try:
         build_info = importlib.import_module("agent.build_info")
-    except ImportError:
+    except (
+        Exception
+    ):  # diagnostic path: any import failure must fall back, never crash startup
         return "", ""
     return (
         str(getattr(build_info, "GIT_COMMIT", "")),
