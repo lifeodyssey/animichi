@@ -363,6 +363,110 @@ class Handler(http.server.BaseHTTPRequestHandler):
   echo "PASS: a missing POST_DEPLOY_DIAG_TOKEN refuses to run before making any request (${requests} requests, exit ${rc})"
 }
 
+# ── Case 10: neonAuthEnabled MISSING from the response -> FAILS with an
+#    "unable to determine" diagnostic, never silently treated as disabled
+#    (issue #709 review follow-up: a plain `!= "true"` check would have
+#    made this indistinguishable from a legitimate "false") ────────────────
+test_auth_config_check_missing_enabled_field_fails() {
+  local port=18810 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+DIAG_TOKEN = '${DIAG_TOKEN}'
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
+            self.send_response(404)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{}')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${DIAG_TOKEN}" \
+    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-missingfield.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -ne 0 ] || fail_test "a response missing neonAuthEnabled entirely should fail the gate, got exit 0"
+  [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request, got ${requests}"
+  grep -q "could NOT be determined" /tmp/authcfg-missingfield.out || fail_test "missing the 'could not be determined' diagnostic — a missing field must not read as a mismatch verdict or as disabled"
+  echo "PASS: a response with no neonAuthEnabled field fails with an 'unable to determine' diagnostic (${requests} request, exit ${rc})"
+}
+
+# ── Case 11: neonAuthEnabled is JSON null -> FAILS the same way ────────────
+test_auth_config_check_null_enabled_field_fails() {
+  local port=18811 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+DIAG_TOKEN = '${DIAG_TOKEN}'
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
+            self.send_response(404)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{\"neonAuthEnabled\": null, \"jwksIssuerMatch\": null}')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${DIAG_TOKEN}" \
+    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-nullfield.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -ne 0 ] || fail_test "neonAuthEnabled:null should fail the gate, got exit 0"
+  [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request, got ${requests}"
+  grep -q "could NOT be determined" /tmp/authcfg-nullfield.out || fail_test "missing the 'could not be determined' diagnostic for a null neonAuthEnabled"
+  echo "PASS: neonAuthEnabled:null fails with an 'unable to determine' diagnostic (${requests} request, exit ${rc})"
+}
+
+# ── Case 12: neonAuthEnabled is the literal false -> still PASSES (the
+#    legitimate "not enabled here" state must not get caught by the
+#    fail-closed fix above) ─────────────────────────────────────────────────
+test_auth_config_check_literal_false_still_passes() {
+  local port=18812 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+DIAG_TOKEN = '${DIAG_TOKEN}'
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
+            self.send_response(404)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{\"neonAuthEnabled\": false, \"jwksIssuerMatch\": null}')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${DIAG_TOKEN}" \
+    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-literalfalse.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -eq 0 ] || fail_test "a literal neonAuthEnabled:false should still pass (it is a real 'not enabled' state), got exit ${rc}: $(cat /tmp/authcfg-literalfalse.out)"
+  [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request, got ${requests}"
+  grep -q "nothing to check" /tmp/authcfg-literalfalse.out || fail_test "missing expected diagnostic in output"
+  echo "PASS: a literal neonAuthEnabled:false still passes, not caught by the fail-closed fix (${requests} request, exit ${rc})"
+}
+
 test_branded_404_fails_fast
 test_cf_edge_404_retries_then_fails
 test_cf_edge_404_then_recovers
@@ -372,5 +476,8 @@ test_auth_config_check_matching_passes
 test_auth_config_check_drift_fails
 test_auth_config_check_wrong_token_denied
 test_auth_config_check_missing_token_refuses_to_run
+test_auth_config_check_missing_enabled_field_fails
+test_auth_config_check_null_enabled_field_fails
+test_auth_config_check_literal_false_still_passes
 
 echo "All post-deploy-assert.sh behavioral tests passed."
