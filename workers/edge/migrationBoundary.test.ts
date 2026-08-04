@@ -44,8 +44,10 @@ void test("CI and deploy workflows use Atlas, never the old all-schema push", ()
   const promotion = read(".github/workflows/_deploy-component.yml");
   assert.match(ci, /atlas migrate validate --dir file:\/\/db\/migrations/);
   assert.match(ci, /atlas migrate apply --dry-run[\s\S]*--revisions-schema public/);
-  assert.match(deploy, /atlas migrate validate --dir file:\/\/db\/migrations/);
-  assert.match(promotion, /atlas migrate apply --dir ["']?file:\/\/db\/migrations/);
+  // #486 thin caller: the manual path cannot skip Atlas — every job runs the reusable pipeline.
+  assert.match(deploy, /uses: \.\/\.github\/workflows\/_deploy-component\.yml/);
+  assert.match(promotion, /atlas migrate apply --dir ["']?file:\/\/db\/migrations[\s\S]*--revisions-schema public/);
+  assert.match(promotion, /atlas migrate validate --dir ["']?file:\/\/db\/migrations/);
   assert.doesNotMatch(ci, /supabase db push/);
   assert.doesNotMatch(deploy, /supabase db push/);
 });
