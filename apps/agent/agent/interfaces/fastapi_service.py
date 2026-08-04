@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from agent.agents.base import build_model_http_client
 from agent.clients.catalog_client import CatalogClient
 from agent.config.settings import Settings, get_settings
+from agent.infrastructure.gateways.geocoding import aclose_geocoding_client
 from agent.infrastructure.memory import postgres_memory_store
 from agent.infrastructure.session import SessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
@@ -63,7 +64,10 @@ async def _lifespan_with_runtime_api(
     resolved_db = db if db is not None else getattr(runtime_api, "_db", None)
     if resolved_db is not None:
         app.state.db_client = resolved_db
-    yield
+    try:
+        yield
+    finally:
+        await aclose_geocoding_client()
 
 
 def _resolve_session_store(
@@ -111,6 +115,7 @@ async def _lifespan_build_runtime(
         yield
     finally:
         await catalog_client.aclose()
+        await aclose_geocoding_client()
         await call_optional_async(runtime_session_store, "close")
         await call_optional_async(runtime_db, "close")
 

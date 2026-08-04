@@ -12,6 +12,7 @@ import structlog
 logger = structlog.get_logger(__name__)
 
 _GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
+_client: httpx.AsyncClient | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,13 +64,30 @@ def _build_params(address: str) -> dict[str, str] | None:
     return {"address": address, "key": api_key, "region": "jp", "language": "ja"}
 
 
+def _get_client() -> httpx.AsyncClient:
+    """Return the lazily created shared geocoding client."""
+    global _client
+    if _client is None:
+        _client = httpx.AsyncClient(timeout=10.0)
+    return _client
+
+
+async def aclose_geocoding_client() -> None:
+    """Close the shared geocoding client and reset its module state."""
+    global _client
+    if _client is None:
+        return
+    client = _client
+    _client = None
+    await client.aclose()
+
+
 async def _fetch_geocode_body(params: Mapping[str, str]) -> object | None:
     """GET the geocode endpoint and return the parsed body, or None on error.
 
     Proxy configuration (HTTPS_PROXY) is honored via httpx ``trust_env``.
     """
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.get(_GEOCODE_URL, params=params)
+    response = await _get_client().get(_GEOCODE_URL, params=params)
     if response.status_code != 200:
         logger.warning("google_geocoding_http_error", status=response.status_code)
         return None
