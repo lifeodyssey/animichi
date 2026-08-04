@@ -22,11 +22,23 @@ from __future__ import annotations
 import importlib
 import sys
 from collections.abc import Iterator
+from types import ModuleType
 from unittest.mock import MagicMock
 
 import pytest
 
 _TOOL_MODULES = ["agent.tools.eval_feedback_miner", "agent.tools.eval_scorer"]
+
+
+def _restore_module(name: str, module: ModuleType | None) -> None:
+    sys.modules.pop(name, None)
+    if module is not None:
+        sys.modules[name] = module
+
+
+def _restore_modules(saved: dict[str, ModuleType | None]) -> None:
+    for name, module in saved.items():
+        _restore_module(name, module)
 
 
 @pytest.fixture
@@ -38,10 +50,7 @@ def _fresh_import(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
     try:
         yield spy
     finally:
-        for name, module in saved.items():
-            sys.modules.pop(name, None)
-            if module is not None:
-                sys.modules[name] = module
+        _restore_modules(saved)
 
 
 @pytest.mark.parametrize("module_name", _TOOL_MODULES)
