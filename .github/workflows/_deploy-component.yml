@@ -580,7 +580,14 @@ jobs:
         run: |
           effective="$REQUIRED_LIST"
           while IFS= read -r name; do
+            name="${name//$'\r'/}"          # tolerate CRLF checkouts
+            name="${name#"${name%%[![:space:]]*}"}"   # ltrim
+            name="${name%"${name##*[![:space:]]}"}"   # rtrim
             [ -z "$name" ] && continue
+            if ! [[ "$name" =~ ^[A-Z][A-Z0-9_]*$ ]]; then
+              echo "::warning title=optional secret ignored::'$name' is not a valid secret name (expected ^[A-Z][A-Z0-9_]*$); skipping"
+              continue
+            fi
             if [ -n "${!name:-}" ]; then
               effective="$effective"$'\n'"$name"
             else
