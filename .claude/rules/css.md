@@ -10,7 +10,7 @@ Relocated from the root context file — scoped here so it only loads when editi
 - Read `apps/web/AGENTS.md` before any design or UI work — it is the design-system source of truth.
 - Animal Island UI reference: `docs/design/animal-island-ref/` (color / typography / interaction /
   component specs) — read before component-redesign work.
-- Tokens live in `frontend/app/globals.css :root`; registered in `@theme inline` for Tailwind utilities.
+- Tokens live in `apps/web/src/styles/globals.css :root`; registered in `@theme inline` for Tailwind utilities.
 - Use semantic Tailwind classes (`bg-primary`, `text-foreground`, `border-border`) — never `bg-[var(--color-*)]`.
 - Never use `style={{ }}` for values with Tailwind equivalents (color, spacing, font, radius, opacity).
 - Never use `space-y-*` / `space-x-*` — use `flex flex-col gap-*` (shadcn rule).
