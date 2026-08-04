@@ -195,16 +195,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
 # (workers/edge/app.ts + authConfigCheck.ts::isDiagAuthorized, issue #709
 # review follow-up): a request whose Authorization header doesn't carry
 # exactly `Bearer ${DIAG_TOKEN}` gets the same 404 an unmapped path would, not
-# a 401/403 that would confirm the route exists. This is what lets cases 8
-# and 9 below stand in for hitting a real deployed Worker with no/wrong
-# credentials.
+# a 401/403 that would confirm the route exists. This is what lets the
+# wrong-token case below stand in for hitting a real deployed Worker with a
+# wrong credential.
 DIAG_TOKEN="test-post-deploy-diag-token-not-a-real-secret"
 
-# ── Case 5: Neon Auth disabled -> passes, no drift verdict needed ──────────
-test_auth_config_check_disabled_passes() {
-  local port=18805 counter_file pid rc=0 requests
-  counter_file="$(mktemp)"
-  rm -f "${counter_file}"
+# Shared boilerplate for every auth-config-check case below (qodo/1-10-50
+# follow-up on issue #709): each test_auth_config_check_* function differs
+# only in the mock's JSON body, the token the script is invoked with, and
+# the pass/fail assertions specific to its own failure mode — never in how
+# the mock server or the script invocation itself works. Factoring THAT out
+# is what got each test function back under 10 lines without merging the
+# distinct failure modes into fewer, less specific tests.
+start_auth_config_mock() {
+  local port="$1" counter_file="$2" response_body="$3"
   start_mock "${port}" "${counter_file}" "
 DIAG_TOKEN = '${DIAG_TOKEN}'
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -217,50 +221,45 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
-        self.wfile.write(b'{\"neonAuthEnabled\": false, \"jwksIssuerMatch\": null}')
+        self.wfile.write(b'''${response_body}''')
     def log_message(self, *a): pass
 "
-  pid=$!
-  wait_for_port "${port}"
-  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${DIAG_TOKEN}" \
-    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-disabled.out 2>&1 || rc=$?
-  stop_mock "${pid}"
-  requests="$(request_count "${counter_file}")"
-  rm -f "${counter_file}"
-  [ "${rc}" -eq 0 ] || fail_test "Neon Auth disabled should pass trivially, got exit ${rc}: $(cat /tmp/authcfg-disabled.out)"
+}
+
+# Runs post-deploy-assert.sh auth-config-check against the mock on ${port}
+# with POST_DEPLOY_DIAG_TOKEN=${token} (pass "" for "unset", per the shell's
+# own `-n` treatment of an empty string), writing combined output to
+# ${out_file} and printing the exit code for the caller to capture.
+run_auth_config_check() {
+  local port="$1" token="$2" out_file="$3" rc=0
+  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${token}" \
+    bash "${ASSERT_SH}" auth-config-check >"${out_file}" 2>&1 || rc=$?
+  echo "${rc}"
+}
+
+# ── Case 5: Neon Auth disabled -> passes, no drift verdict needed ──────────
+test_auth_config_check_disabled_passes() {
+  local port=18805 out=/tmp/authcfg-disabled.out counter_file pid rc requests
+  counter_file="$(mktemp)"; rm -f "${counter_file}"
+  start_auth_config_mock "${port}" "${counter_file}" '{"neonAuthEnabled": false, "jwksIssuerMatch": null}'
+  pid=$!; wait_for_port "${port}"
+  rc="$(run_auth_config_check "${port}" "${DIAG_TOKEN}" "${out}")"
+  stop_mock "${pid}"; requests="$(request_count "${counter_file}")"; rm -f "${counter_file}"
+  [ "${rc}" -eq 0 ] || fail_test "Neon Auth disabled should pass trivially, got exit ${rc}: $(cat "${out}")"
   [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request, got ${requests}"
-  grep -q "nothing to check" /tmp/authcfg-disabled.out || fail_test "missing expected diagnostic in output"
+  grep -q "nothing to check" "${out}" || fail_test "missing expected diagnostic in output"
   echo "PASS: Neon Auth disabled passes trivially (${requests} request, exit ${rc})"
 }
 
 # ── Case 6: JWKS matches the issuer-derived URL, correct token -> passes ───
 test_auth_config_check_matching_passes() {
-  local port=18806 counter_file pid rc=0 requests
-  counter_file="$(mktemp)"
-  rm -f "${counter_file}"
-  start_mock "${port}" "${counter_file}" "
-DIAG_TOKEN = '${DIAG_TOKEN}'
-class Handler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        record_request()
-        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
-            self.send_response(404)
-            self.end_headers()
-            return
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(b'{\"neonAuthEnabled\": true, \"jwksIssuerMatch\": true}')
-    def log_message(self, *a): pass
-"
-  pid=$!
-  wait_for_port "${port}"
-  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${DIAG_TOKEN}" \
-    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-match.out 2>&1 || rc=$?
-  stop_mock "${pid}"
-  requests="$(request_count "${counter_file}")"
-  rm -f "${counter_file}"
-  [ "${rc}" -eq 0 ] || fail_test "matching JWKS/issuer with the correct credential should pass, got exit ${rc}: $(cat /tmp/authcfg-match.out)"
+  local port=18806 out=/tmp/authcfg-match.out counter_file pid rc requests
+  counter_file="$(mktemp)"; rm -f "${counter_file}"
+  start_auth_config_mock "${port}" "${counter_file}" '{"neonAuthEnabled": true, "jwksIssuerMatch": true}'
+  pid=$!; wait_for_port "${port}"
+  rc="$(run_auth_config_check "${port}" "${DIAG_TOKEN}" "${out}")"
+  stop_mock "${pid}"; requests="$(request_count "${counter_file}")"; rm -f "${counter_file}"
+  [ "${rc}" -eq 0 ] || fail_test "matching JWKS/issuer with the correct credential should pass, got exit ${rc}: $(cat "${out}")"
   [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request, got ${requests}"
   echo "PASS: matching JWKS/issuer with the correct credential passes (${requests} request, exit ${rc})"
 }
@@ -268,35 +267,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
 # ── Case 7: JWKS drifted from the issuer, correct token -> fails with a
 #    clear diagnostic ───────────────────────────────────────────────────────
 test_auth_config_check_drift_fails() {
-  local port=18807 counter_file pid rc=0 requests
-  counter_file="$(mktemp)"
-  rm -f "${counter_file}"
-  start_mock "${port}" "${counter_file}" "
-DIAG_TOKEN = '${DIAG_TOKEN}'
-class Handler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        record_request()
-        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
-            self.send_response(404)
-            self.end_headers()
-            return
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(b'{\"neonAuthEnabled\": true, \"jwksIssuerMatch\": false}')
-    def log_message(self, *a): pass
-"
-  pid=$!
-  wait_for_port "${port}"
-  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${DIAG_TOKEN}" \
-    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-drift.out 2>&1 || rc=$?
-  stop_mock "${pid}"
-  requests="$(request_count "${counter_file}")"
-  rm -f "${counter_file}"
+  local port=18807 out=/tmp/authcfg-drift.out counter_file pid rc requests
+  counter_file="$(mktemp)"; rm -f "${counter_file}"
+  start_auth_config_mock "${port}" "${counter_file}" '{"neonAuthEnabled": true, "jwksIssuerMatch": false}'
+  pid=$!; wait_for_port "${port}"
+  rc="$(run_auth_config_check "${port}" "${DIAG_TOKEN}" "${out}")"
+  stop_mock "${pid}"; requests="$(request_count "${counter_file}")"; rm -f "${counter_file}"
   [ "${rc}" -ne 0 ] || fail_test "drifted JWKS/issuer should fail the gate, got exit 0"
   [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request (no retry needed on a 200), got ${requests}"
-  grep -q "does not match" /tmp/authcfg-drift.out || fail_test "missing expected drift diagnostic in output"
-  grep -q "issue #709" /tmp/authcfg-drift.out || fail_test "missing issue reference in diagnostic"
+  { grep -q "does not match" "${out}" && grep -q "issue #709" "${out}"; } || fail_test "missing the expected drift diagnostic (with an issue #709 reference) in output"
   echo "PASS: drifted JWKS/issuer fails with a clear diagnostic (${requests} request, exit ${rc})"
 }
 
@@ -304,62 +283,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
 #    real Worker's gate) denies with 404, and the assert script fails
 #    plainly instead of silently treating it as "route disabled" ──────────
 test_auth_config_check_wrong_token_denied() {
-  local port=18808 counter_file pid rc=0 requests
-  counter_file="$(mktemp)"
-  rm -f "${counter_file}"
-  start_mock "${port}" "${counter_file}" "
-DIAG_TOKEN = '${DIAG_TOKEN}'
-class Handler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        record_request()
-        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
-            self.send_response(404)
-            self.end_headers()
-            return
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(b'{\"neonAuthEnabled\": true, \"jwksIssuerMatch\": true}')
-    def log_message(self, *a): pass
-"
-  pid=$!
-  wait_for_port "${port}"
-  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="wrong-token-not-provisioned" \
-    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-wrongtoken.out 2>&1 || rc=$?
-  stop_mock "${pid}"
-  requests="$(request_count "${counter_file}")"
-  rm -f "${counter_file}"
+  local port=18808 out=/tmp/authcfg-wrongtoken.out counter_file pid rc requests
+  counter_file="$(mktemp)"; rm -f "${counter_file}"
+  start_auth_config_mock "${port}" "${counter_file}" '{"neonAuthEnabled": true, "jwksIssuerMatch": true}'
+  pid=$!; wait_for_port "${port}"
+  rc="$(run_auth_config_check "${port}" "wrong-token-not-provisioned" "${out}")"
+  stop_mock "${pid}"; requests="$(request_count "${counter_file}")"; rm -f "${counter_file}"
   [ "${rc}" -ne 0 ] || fail_test "a wrong POST_DEPLOY_DIAG_TOKEN should fail the gate (denied by the Worker), got exit 0"
   [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request (a 404 is not retried), got ${requests}"
-  grep -q "expected 200, got 404" /tmp/authcfg-wrongtoken.out || fail_test "missing expected diagnostic in output"
-  grep -q "POST_DEPLOY_DIAG_TOKEN" /tmp/authcfg-wrongtoken.out || fail_test "diagnostic does not point at the credential as a likely cause"
+  { grep -q "expected 200, got 404" "${out}" && grep -q "POST_DEPLOY_DIAG_TOKEN" "${out}"; } || fail_test "missing expected diagnostic pointing at POST_DEPLOY_DIAG_TOKEN as the likely cause"
   echo "PASS: a wrong POST_DEPLOY_DIAG_TOKEN is denied by the gate and fails plainly (${requests} request, exit ${rc})"
 }
 
 # ── Case 9: no POST_DEPLOY_DIAG_TOKEN at all -> the script itself refuses
 #    to run rather than silently sending an unauthenticated request ────────
 test_auth_config_check_missing_token_refuses_to_run() {
-  local port=18809 counter_file pid rc=0 requests
-  counter_file="$(mktemp)"
-  rm -f "${counter_file}"
-  start_mock "${port}" "${counter_file}" "
-class Handler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        record_request()
-        self.send_response(404)
-        self.end_headers()
-    def log_message(self, *a): pass
-"
-  pid=$!
-  wait_for_port "${port}"
-  (unset POST_DEPLOY_DIAG_TOKEN; ROOT_URL="http://127.0.0.1:${port}" \
-    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-notoken.out 2>&1) || rc=$?
-  stop_mock "${pid}"
-  requests="$(request_count "${counter_file}")"
-  rm -f "${counter_file}"
+  local port=18809 out=/tmp/authcfg-notoken.out counter_file pid rc requests
+  counter_file="$(mktemp)"; rm -f "${counter_file}"
+  start_auth_config_mock "${port}" "${counter_file}" '{"neonAuthEnabled": true, "jwksIssuerMatch": true}'
+  pid=$!; wait_for_port "${port}"
+  rc="$(run_auth_config_check "${port}" "" "${out}")"
+  stop_mock "${pid}"; requests="$(request_count "${counter_file}")"; rm -f "${counter_file}"
   [ "${rc}" -ne 0 ] || fail_test "a missing POST_DEPLOY_DIAG_TOKEN should refuse to run, got exit 0"
   [ "${requests}" -eq 0 ] || fail_test "expected zero requests — the script must refuse before ever calling the Worker, got ${requests}"
-  grep -q "POST_DEPLOY_DIAG_TOKEN is required" /tmp/authcfg-notoken.out || fail_test "missing expected diagnostic in output"
+  grep -q "POST_DEPLOY_DIAG_TOKEN is required" "${out}" || fail_test "missing expected diagnostic in output"
   echo "PASS: a missing POST_DEPLOY_DIAG_TOKEN refuses to run before making any request (${requests} requests, exit ${rc})"
 }
 
@@ -368,67 +315,29 @@ class Handler(http.server.BaseHTTPRequestHandler):
 #    (issue #709 review follow-up: a plain `!= "true"` check would have
 #    made this indistinguishable from a legitimate "false") ────────────────
 test_auth_config_check_missing_enabled_field_fails() {
-  local port=18810 counter_file pid rc=0 requests
-  counter_file="$(mktemp)"
-  rm -f "${counter_file}"
-  start_mock "${port}" "${counter_file}" "
-DIAG_TOKEN = '${DIAG_TOKEN}'
-class Handler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        record_request()
-        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
-            self.send_response(404)
-            self.end_headers()
-            return
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(b'{}')
-    def log_message(self, *a): pass
-"
-  pid=$!
-  wait_for_port "${port}"
-  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${DIAG_TOKEN}" \
-    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-missingfield.out 2>&1 || rc=$?
-  stop_mock "${pid}"
-  requests="$(request_count "${counter_file}")"
-  rm -f "${counter_file}"
+  local port=18810 out=/tmp/authcfg-missingfield.out counter_file pid rc requests
+  counter_file="$(mktemp)"; rm -f "${counter_file}"
+  start_auth_config_mock "${port}" "${counter_file}" '{}'
+  pid=$!; wait_for_port "${port}"
+  rc="$(run_auth_config_check "${port}" "${DIAG_TOKEN}" "${out}")"
+  stop_mock "${pid}"; requests="$(request_count "${counter_file}")"; rm -f "${counter_file}"
   [ "${rc}" -ne 0 ] || fail_test "a response missing neonAuthEnabled entirely should fail the gate, got exit 0"
   [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request, got ${requests}"
-  grep -q "could NOT be determined" /tmp/authcfg-missingfield.out || fail_test "missing the 'could not be determined' diagnostic — a missing field must not read as a mismatch verdict or as disabled"
+  grep -q "could NOT be determined" "${out}" || fail_test "missing the 'could not be determined' diagnostic — a missing field must not read as a mismatch verdict or as disabled"
   echo "PASS: a response with no neonAuthEnabled field fails with an 'unable to determine' diagnostic (${requests} request, exit ${rc})"
 }
 
 # ── Case 11: neonAuthEnabled is JSON null -> FAILS the same way ────────────
 test_auth_config_check_null_enabled_field_fails() {
-  local port=18811 counter_file pid rc=0 requests
-  counter_file="$(mktemp)"
-  rm -f "${counter_file}"
-  start_mock "${port}" "${counter_file}" "
-DIAG_TOKEN = '${DIAG_TOKEN}'
-class Handler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        record_request()
-        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
-            self.send_response(404)
-            self.end_headers()
-            return
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(b'{\"neonAuthEnabled\": null, \"jwksIssuerMatch\": null}')
-    def log_message(self, *a): pass
-"
-  pid=$!
-  wait_for_port "${port}"
-  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${DIAG_TOKEN}" \
-    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-nullfield.out 2>&1 || rc=$?
-  stop_mock "${pid}"
-  requests="$(request_count "${counter_file}")"
-  rm -f "${counter_file}"
+  local port=18811 out=/tmp/authcfg-nullfield.out counter_file pid rc requests
+  counter_file="$(mktemp)"; rm -f "${counter_file}"
+  start_auth_config_mock "${port}" "${counter_file}" '{"neonAuthEnabled": null, "jwksIssuerMatch": null}'
+  pid=$!; wait_for_port "${port}"
+  rc="$(run_auth_config_check "${port}" "${DIAG_TOKEN}" "${out}")"
+  stop_mock "${pid}"; requests="$(request_count "${counter_file}")"; rm -f "${counter_file}"
   [ "${rc}" -ne 0 ] || fail_test "neonAuthEnabled:null should fail the gate, got exit 0"
   [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request, got ${requests}"
-  grep -q "could NOT be determined" /tmp/authcfg-nullfield.out || fail_test "missing the 'could not be determined' diagnostic for a null neonAuthEnabled"
+  grep -q "could NOT be determined" "${out}" || fail_test "missing the 'could not be determined' diagnostic for a null neonAuthEnabled"
   echo "PASS: neonAuthEnabled:null fails with an 'unable to determine' diagnostic (${requests} request, exit ${rc})"
 }
 
@@ -436,34 +345,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
 #    legitimate "not enabled here" state must not get caught by the
 #    fail-closed fix above) ─────────────────────────────────────────────────
 test_auth_config_check_literal_false_still_passes() {
-  local port=18812 counter_file pid rc=0 requests
-  counter_file="$(mktemp)"
-  rm -f "${counter_file}"
-  start_mock "${port}" "${counter_file}" "
-DIAG_TOKEN = '${DIAG_TOKEN}'
-class Handler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        record_request()
-        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
-            self.send_response(404)
-            self.end_headers()
-            return
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(b'{\"neonAuthEnabled\": false, \"jwksIssuerMatch\": null}')
-    def log_message(self, *a): pass
-"
-  pid=$!
-  wait_for_port "${port}"
-  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${DIAG_TOKEN}" \
-    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-literalfalse.out 2>&1 || rc=$?
-  stop_mock "${pid}"
-  requests="$(request_count "${counter_file}")"
-  rm -f "${counter_file}"
-  [ "${rc}" -eq 0 ] || fail_test "a literal neonAuthEnabled:false should still pass (it is a real 'not enabled' state), got exit ${rc}: $(cat /tmp/authcfg-literalfalse.out)"
+  local port=18812 out=/tmp/authcfg-literalfalse.out counter_file pid rc requests
+  counter_file="$(mktemp)"; rm -f "${counter_file}"
+  start_auth_config_mock "${port}" "${counter_file}" '{"neonAuthEnabled": false, "jwksIssuerMatch": null}'
+  pid=$!; wait_for_port "${port}"
+  rc="$(run_auth_config_check "${port}" "${DIAG_TOKEN}" "${out}")"
+  stop_mock "${pid}"; requests="$(request_count "${counter_file}")"; rm -f "${counter_file}"
+  [ "${rc}" -eq 0 ] || fail_test "a literal neonAuthEnabled:false should still pass (it is a real 'not enabled' state), got exit ${rc}: $(cat "${out}")"
   [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request, got ${requests}"
-  grep -q "nothing to check" /tmp/authcfg-literalfalse.out || fail_test "missing expected diagnostic in output"
+  grep -q "nothing to check" "${out}" || fail_test "missing expected diagnostic in output"
   echo "PASS: a literal neonAuthEnabled:false still passes, not caught by the fail-closed fix (${requests} request, exit ${rc})"
 }
 
