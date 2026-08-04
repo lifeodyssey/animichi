@@ -1,9 +1,8 @@
 import { chromium } from "@playwright/test";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
+const here = __dirname;
 const stagingGateStatePath = path.join(here, ".auth/staging-gate.json");
 const stagingCookieDefaults = {
   path: "/",
