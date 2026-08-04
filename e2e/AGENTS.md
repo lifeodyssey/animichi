@@ -27,7 +27,8 @@ Root guide: `../AGENTS.md`.
 ## Pitfalls
 
 - There is no magic-link E2E right now: #537 deleted `auth-flow-local.spec.ts` along with the
-  legacy login page it drove, and `fixtures/email.ts` with it. Recover that fixture from git
-  history when Neon Auth (#312) gives `apps/web` a login route worth testing.
+  legacy login page it drove and its email fixture with it. The remaining `e2e/fixtures/` hold
+  only `chat-stream.ts` and `map-spike.ts`; recover the magic-link fixture from git history when
+  Neon Auth (#312) gives `apps/web` a login route worth testing.
 - Before running, inspect `http://localhost:8080/healthz` and confirm `git_branch` is the intended
   checkout. The endpoint exposes the runtime's actual branch and commit.
