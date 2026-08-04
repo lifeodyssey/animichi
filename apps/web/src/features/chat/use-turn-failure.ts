@@ -111,15 +111,14 @@ export function useTurnFailure(chat: ChatSession, baseUrl: string, gate: TurnFai
 }
 
 /**
- * A failed recompute retries inline on the tray, never as a full-page D-state
- * — except D12, which the tray cannot recover from: its retry would re-send
- * the same bypass into the same exhausted quota forever. The quota banner and
- * its lock must surface even when the refusal arrived on a recompute turn.
+ * The tray can recover only failures where an inline retry is meaningful.
+ * D12 (quota lock), D13 (login journey), and D14 (key rejected, no retry)
+ * must surface as full states even on recompute turns.
  */
 export function maskRecomputeFailure(
   recompute: RecomputeTurn,
   failure: TurnFailureView | undefined,
 ): TurnFailureView | undefined {
-  if (failure?.state === "D12") return failure;
+  if (failure?.state === "D12" || failure?.state === "D13" || failure?.state === "D14") return failure;
   return recompute.status === "failed" ? undefined : failure;
 }

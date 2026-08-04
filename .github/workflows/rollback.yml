@@ -1,0 +1,84 @@
+name: Rollback (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Worker component to roll back
+        required: true
+        type: choice
+        options:
+          - root
+          - web
+          - catalog
+          - users
+          - maintenance
+      version_id:
+        description: Worker Version ID to roll back to
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ inputs.component == 'catalog' && 'deploy-prod' || format('deploy-{0}-prod', inputs.component) }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  rollback:
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Resolve working directory
+        id: resolve-directory
+        shell: bash
+        env:
+          COMPONENT: ${{ inputs.component }}
+        run: |
+          case "$COMPONENT" in
+            root) directory="." ;;
+            web) directory="apps/web" ;;
+            catalog) directory="workers/catalog" ;;
+            users) directory="workers/users" ;;
+            maintenance) directory="workers/maintenance" ;;
+            *)
+              echo "::error::Unsupported component: $COMPONENT"
+              exit 1
+              ;;
+          esac
+          echo "working_directory=$directory" >> "$GITHUB_OUTPUT"
+      - name: List versions
+        working-directory: ${{ steps.resolve-directory.outputs.working_directory }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler versions list --env production
+      - name: Rollback
+        if: ${{ inputs.version_id != '' }}
+        working-directory: ${{ steps.resolve-directory.outputs.working_directory }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VERSION_ID: ${{ inputs.version_id }}
+        run: pnpm exec wrangler rollback "$VERSION_ID" --env production --message "manual rollback via rollback.yml" --yes
+      - name: Verification reminder
+        run: echo "Rollback submitted. Verify via the URLs in docs/ops/deployment.md"
