@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
+import agent.infrastructure.gateways.geocoding as geocoding
 from agent.infrastructure.gateways.geocoding import (
     GeocodingCandidate,
     GoogleGeocodingGateway,
@@ -24,20 +25,18 @@ def _install_httpx(
     status_code: int = 200,
     payload: object = None,
     error: Exception | None = None,
-) -> AsyncMock:
-    response = MagicMock()
-    response.status_code = status_code
-    response.json = MagicMock(return_value=payload)
+) -> tuple[AsyncMock, MagicMock, MagicMock]:
+    monkeypatch.setattr(geocoding, "_client", None, raising=False)
+    response = httpx.Response(status_code, json=payload)
     get = AsyncMock(return_value=response, side_effect=error)
     client = MagicMock()
     client.get = get
-    client.__aenter__ = AsyncMock(return_value=client)
-    client.__aexit__ = AsyncMock(return_value=False)
+    client.aclose = AsyncMock()
+    constructor = MagicMock(return_value=client)
     monkeypatch.setattr(
-        "agent.infrastructure.gateways.geocoding.httpx.AsyncClient",
-        MagicMock(return_value=client),
+        "agent.infrastructure.gateways.geocoding.httpx.AsyncClient", constructor
     )
-    return get
+    return get, client, constructor
 
 
 @pytest.fixture(autouse=True)
@@ -131,7 +130,7 @@ async def test_caps_results_at_max_results(
 async def test_sends_address_and_key_params(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    get = _install_httpx(monkeypatch, payload={"results": [_RESULT]})
+    get, _, _ = _install_httpx(monkeypatch, payload={"results": [_RESULT]})
 
     await GoogleGeocodingGateway().geocode_candidates("藤沢駅")
 
@@ -139,3 +138,31 @@ async def test_sends_address_and_key_params(
     assert params["address"] == "藤沢駅"
     assert params["key"] == "test-key"
     assert params["region"] == "jp"
+
+
+async def test_sequential_fetches_reuse_the_same_httpx_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, client, constructor = _install_httpx(monkeypatch, payload={"results": [_RESULT]})
+    gateway = GoogleGeocodingGateway()
+
+    await gateway.geocode_candidates("藤沢駅")
+    first_client = geocoding._client
+    await gateway.geocode_candidates("鎌倉駅")
+
+    assert first_client is client
+    assert geocoding._client is first_client
+    constructor.assert_called_once_with(timeout=10.0)
+
+
+async def test_aclose_geocoding_client_closes_and_resets_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, client, _ = _install_httpx(monkeypatch, payload={"results": [_RESULT]})
+    await GoogleGeocodingGateway().geocode_candidates("藤沢駅")
+
+    await geocoding.aclose_geocoding_client()
+    await geocoding.aclose_geocoding_client()
+
+    client.aclose.assert_awaited_once()
+    assert geocoding._client is None
