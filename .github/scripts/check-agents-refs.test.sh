@@ -27,6 +27,22 @@ run_check() {
   echo "${rc}"
 }
 
+# ── Case 10: '..'-escape that resolves OUTSIDE the repo (parent dir) must not
+#    count as resolved — the canonicalized path must stay under the repo root ──
+test_parent_escape_not_resolved() {
+  local repo out=/tmp/agents-ref-case10.out rc esc
+  repo="$(mktemp -d)"
+  esc="agents-ref-escape-$$.md"
+  printf 'escape doc\n' > "${repo}/../${esc}"
+  printf 'AGENTS.md\n`../%s`\n' "${esc}" > "${repo}/AGENTS.md"
+  commit_fixture "${repo}"
+  rc="$(run_check "${repo}" "${out}")"
+  rm -rf "${repo}" "${repo}/../${esc}"
+  [ "${rc}" -ne 0 ] || fail_test "parent-directory escape must not resolve, got exit 0"
+  grep -q "AGENTS.md:2: broken reference \`../${esc}\`" "${out}" || fail_test "escape reference must be reported as broken: $(cat "${out}")"
+  echo "PASS: parent-directory escape reference is not resolved"
+}
+
 # ── Case 1: root-relative reference to an existing file -> passes ──────────
 test_root_relative_existing_passes() {
   local repo out=/tmp/agents-ref-case1.out rc
@@ -154,5 +170,6 @@ test_absolute_url_path_skipped
 test_bare_filename_skipped
 test_extensionless_nondirectory_skipped
 test_gitignored_candidate_skipped
+test_parent_escape_not_resolved
 
 echo "All check-agents-refs.sh behavioral tests passed."

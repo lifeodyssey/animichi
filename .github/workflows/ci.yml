@@ -312,6 +312,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: AGENTS.md reference check self-tests
+        run: bash .github/scripts/check-agents-refs.test.sh
       - name: AGENTS.md reference check
         run: bash .github/scripts/check-agents-refs.sh
 
