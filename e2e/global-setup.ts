@@ -1,10 +1,14 @@
 import { chromium } from "@playwright/test";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 
-const stagingGateStatePath = "e2e/.auth/staging-gate.json";
+const here = path.dirname(fileURLToPath(import.meta.url));
+const stagingGateStatePath = path.join(here, ".auth/staging-gate.json");
 const stagingCookieDefaults = {
   path: "/",
   secure: true,
-  httpOnly: false,
+  httpOnly: true,
   sameSite: "Lax" as const,
 };
 
@@ -41,6 +45,7 @@ async function writeStorageState(token: string, hostname: string): Promise<void>
   try {
     const context = await browser.newContext();
     await context.addCookies([createStagingCookie(token, hostname)]);
+    await fs.promises.mkdir(path.dirname(stagingGateStatePath), { recursive: true });
     await context.storageState({ path: stagingGateStatePath });
   } finally {
     await browser.close();
