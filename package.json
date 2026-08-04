@@ -18,20 +18,24 @@
   },
   "pnpm": {
     "overrides": {
-      "postcss": ">=8.5.10",
+      "postcss": ">=8.5.23",
       "ws": ">=8.21.0",
       "qs": ">=6.15.2",
       "fast-uri": ">=4.1.1",
-      "hono": ">=4.12.16",
+      "hono": ">=4.12.34",
       "esbuild": ">=0.28.1",
       "@vitest/expect": "4.1.10",
       "@vitest/spy": "4.1.10",
       "uuid": ">=11.1.1",
       "sharp": ">=0.35.3",
       "valibot": ">=1.4.2",
-      "brace-expansion": ">=5.0.8",
+      "brace-expansion": ">=5.0.9",
       "@hono/node-server": ">=2.0.5",
-      "minimatch": ">=10.2.6"
+      "minimatch": ">=10.2.6",
+      "testcontainers>undici": "8.9.0",
+      "miniflare>undici": "7.29.0",
+      "jsdom>undici": "7.29.0",
+      "@ai-sdk/provider-utils>undici": "7.29.0"
     }
   },
   "devDependencies": {
