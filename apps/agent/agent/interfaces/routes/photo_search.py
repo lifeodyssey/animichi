@@ -147,6 +147,43 @@ async def _resolve_byok_model(request: Request) -> ByokModel | None:
         ) from exc
 
 
+def _consume_quota(
+    runtime: PhotoSearchRuntime,
+    request: Request,
+    auth: TrustedAuthContext,
+    authenticated: bool,
+) -> None:
+    settings = _get_settings_from_request(request)
+    tier = _quota_tier_for(authenticated)
+    quota_ok = runtime.quota.consume(
+        tier, _quota_key(auth, request), _quota_limit(settings, tier)
+    )
+    _check_quota(quota_ok, _has_byok_headers(request))
+
+
+async def _prepare_turn(
+    runtime: PhotoSearchRuntime,
+    request: Request,
+    auth: TrustedAuthContext,
+    body: PhotoSearchBody,
+    authenticated: bool,
+) -> tuple[bytes, ByokModel | None]:
+    """Every rejecting guard — image validation, then BYOK resolution — runs
+    before the quota slot is spent (#739 review): a request this turn is
+    about to refuse anyway must never cost the caller their daily allowance.
+    Quota is the last check because it is the only one with no rejection
+    reason left to discover once it passes."""
+    image = _decode_image(body.image_base64, body.mime_type)
+    byok_model = await _resolve_byok_model(request)
+    try:
+        _consume_quota(runtime, request, auth, authenticated)
+    except PhotoSearchRejection:
+        if byok_model is not None:
+            await byok_model.client.aclose()
+        raise
+    return image, byok_model
+
+
 def _recognize_call(
     runtime: PhotoSearchRuntime,
     byok_model: Model | None,
@@ -193,17 +230,10 @@ async def handle_photo_search(
     budget_rejection = await _budget_rejection(request, auth)
     if budget_rejection is not None:
         return budget_rejection
-    byok_model: ByokModel | None = None
     try:
-        image = _decode_image(body.image_base64, body.mime_type)
-        settings = _get_settings_from_request(request)
-        tier = _quota_tier_for(authenticated)
-        has_byok = _has_byok_headers(request)
-        quota_ok = runtime.quota.consume(
-            tier, _quota_key(auth, request), _quota_limit(settings, tier)
+        image, byok_model = await _prepare_turn(
+            runtime, request, auth, body, authenticated
         )
-        _check_quota(quota_ok, has_byok)
-        byok_model = await _resolve_byok_model(request)
     except PhotoSearchRejection as rejection:
         return _rejection_response(rejection)
     return await _run_pipeline(runtime, byok_model, image, body, request, auth)
