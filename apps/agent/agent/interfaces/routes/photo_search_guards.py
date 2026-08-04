@@ -176,9 +176,24 @@ async def _budget_rejection(
 def _byok_login_rejection(
     auth: TrustedAuthContext, request: Request
 ) -> JSONResponse | None:
-    """Reject anonymous BYOK presence before parsing its credential shape
-    (mirrors `agent.interfaces.routes.chat._byok_login_rejection`)."""
-    if auth.user_type != ANONYMOUS_USER_TYPE or not _has_byok_headers(request):
+    """Reject anonymous BYOK presence before parsing its credential shape.
+
+    Routes through `is_anonymous_identity` — the single canonical "is this
+    caller anonymous" predicate (also used below by `_scope_user_type`'s
+    sibling logic and by the route's own `authenticated` computation) —
+    rather than a bare `user_type != ANONYMOUS_USER_TYPE` check. A literal
+    check only catches a caller whose `X-User-Type` is exactly
+    `"anonymous"`; an `anon_`-prefixed `X-User-Id` with a missing or
+    mistyped `X-User-Type` is anonymous by the ID convention too, and
+    `is_anonymous_identity` is what the rest of this module (and quota
+    metering) already treats as ground truth. Without this, that same
+    caller would clear the login gate here yet still resolve to the "anon"
+    scope for billing — one request, two different identity verdicts, and
+    the gap between them is a BYOK-vision bypass for anonymous callers.
+    """
+    if not is_anonymous_identity(auth.user_id, auth.user_type) or not _has_byok_headers(
+        request
+    ):
         return None
     return _error_response(
         "byok_requires_login", BYOK_REQUIRES_LOGIN_MESSAGE, status_code=403

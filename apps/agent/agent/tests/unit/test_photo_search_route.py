@@ -248,6 +248,39 @@ async def test_anonymous_byok_headers_are_rejected_before_any_model_call() -> No
     assert response.json()["error"]["code"] == "byok_requires_login"
 
 
+@pytest.mark.parametrize(
+    "user_type_header",
+    [{}, {"X-User-Type": "human_typo"}],
+    ids=["missing_user_type", "wrong_user_type_value"],
+)
+async def test_anon_id_prefix_gates_byok_even_without_the_literal_anonymous_type(
+    user_type_header: dict[str, str],
+) -> None:
+    """Regression (coordinator review, #739): the login gate must use the
+    same `is_anonymous_identity` predicate quota metering already trusts.
+    An `anon_`-prefixed X-User-Id with a missing or mistyped X-User-Type is
+    anonymous by that convention even though it never equals the literal
+    string "anonymous" — a caller shaped exactly like this cleared the old
+    gate (200, real BYOK model resolution attempted) and only the quota/
+    usage-scope logic downstream classified them as anonymous."""
+    headers = {
+        "X-User-Id": "anon_0123456789abcdef0123456789abcdef",
+        "X-BYOK-Provider": "anthropic",
+        "X-BYOK-Key": "sk-fake-secret-value",
+        **user_type_header,
+    }
+    with patch(
+        "agent.interfaces.routes.photo_search.build_byok_model",
+        AsyncMock(side_effect=AssertionError("must not resolve a BYOK model")),
+    ):
+        async with async_client(_app()) as client:
+            response = await client.post(
+                "/v1/photo-search", json=_body(), headers=headers
+            )
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "byok_requires_login"
+
+
 async def test_unsupported_mime_type_is_a_clear_415() -> None:
     async with async_client(_app()) as client:
         response = await client.post("/v1/photo-search", json=_body(mime="image/gif"))
