@@ -30,16 +30,6 @@ def _typescript_string_list(source: str, const_name: str) -> set[str]:
     return set(re.findall(r'["\']([A-Z][A-Z0-9_]*)["\']', assignment["body"]))
 
 
-def _named_workflow_step(source: str, name: str) -> str:
-    step = re.search(
-        rf"(?ms)^(?P<indent>[ ]*)-\s+name:\s*{re.escape(name)}\s*$"
-        rf"(?P<body>.*?)(?=^(?P=indent)-\s+|\Z)",
-        source,
-    )
-    assert step is not None, f"missing workflow step: {name}"
-    return step["body"]
-
-
 def _named_workflow_job(source: str, job_id: str) -> str:
     job = re.search(
         rf"(?ms)^  {re.escape(job_id)}:\s*$\n(?P<body>.*?)(?=^  [a-zA-Z0-9_-]+:\s*$|\Z)",
@@ -51,11 +41,13 @@ def _named_workflow_job(source: str, job_id: str) -> str:
 
 def _wrangler_secret_names(step: str) -> set[str]:
     # Since the optional-secret change, a deploy's names live in up to two
-    # blocks (e.g. `worker_secrets` + `optional_worker_secrets` on the CI
-    # side, `REQUIRED_LIST` + `OPTIONAL_LIST` on the manual deploy.yml side).
-    # Optional names are still provisioned secrets and belong in the same
-    # consistency accounting, so the union across every found block is what a
-    # deploy provisions.
+    # blocks (`worker_secrets` + `optional_worker_secrets`) on both the CI
+    # callers and the manual deploy.yml caller. The old deploy.yml inline
+    # `REQUIRED_LIST`/`OPTIONAL_LIST` step was superseded by the reusable
+    # workflow's own optional handling (issue #486), so this helper only ever
+    # sees caller-job bodies now. Optional names are still provisioned secrets
+    # and belong in the same consistency accounting, so the union across every
+    # found block is what a deploy provisions.
     blocks = re.findall(
         r"(?m)^[ \t]+(?:worker_secrets|optional_worker_secrets|secrets|REQUIRED_LIST|OPTIONAL_LIST):\s*\|\s*$\n"
         r"(?P<body>(?:^[ \t]+[A-Z][A-Z0-9_]*[ \t]*$\n?)+)",
@@ -82,11 +74,13 @@ def _required_deploy_keys() -> tuple[set[str], set[str], set[str]]:
     required = _typescript_string_list(entrypoint, "CONTAINER_REQUIRED_KEYS")
     forwarded = _typescript_string_list(entrypoint, "CONTAINER_ENV_KEYS")
     deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
-    # The literal secret-name lists moved into the "Resolve effective worker
-    # secrets" step when POST_DEPLOY_DIAG_TOKEN became optional; the "Deploy via
-    # Wrangler" step now consumes them indirectly via its `secrets:` output.
+    # The manual path is now a thin caller of _deploy-component.yml (issue
+    # #486): the literal secret-name lists live in the deploy-root-prod JOB's
+    # `worker_secrets`/`optional_worker_secrets` inputs. The old inline
+    # "Resolve effective worker secrets" step is gone — the reusable workflow
+    # owns optional-secret resolution now.
     provisioned = _wrangler_secret_names(
-        _named_workflow_step(deploy, "Resolve effective worker secrets")
+        _named_workflow_job(deploy, "deploy-root-prod")
     )
     return required, forwarded, provisioned
 
@@ -100,9 +94,12 @@ def test_container_required_keys_are_forwarded_and_deployed() -> None:
 
 def test_ci_root_deploys_match_manual_root_secrets() -> None:
     deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
-    # The literal lists live in the "Resolve effective worker secrets" step.
-    root_step = _named_workflow_step(deploy, "Resolve effective worker secrets")
-    manual_secrets = _wrangler_secret_names(root_step)
+    # The literal lists live in the deploy-root-prod JOB (a thin caller of
+    # _deploy-component.yml); the reusable workflow owns optional-secret
+    # resolution, so there is no inline "Resolve effective worker secrets"
+    # step to read anymore (issue #486).
+    root_job = _named_workflow_job(deploy, "deploy-root-prod")
+    manual_secrets = _wrangler_secret_names(root_job)
     ci = _CI_WORKFLOW.read_text(encoding="utf-8")
     staging = _named_workflow_job(ci, "deploy-root-staging")
     production = _named_workflow_job(ci, "deploy-root-prod")
