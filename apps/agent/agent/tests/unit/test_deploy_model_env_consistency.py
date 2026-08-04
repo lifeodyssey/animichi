@@ -50,13 +50,23 @@ def _named_workflow_job(source: str, job_id: str) -> str:
 
 
 def _wrangler_secret_names(step: str) -> set[str]:
-    secrets = re.search(
-        r"(?m)^[ \t]+(?:worker_)?secrets:\s*\|\s*$\n"
+    # Since the optional-secret change, a deploy's names live in up to two
+    # blocks (e.g. `worker_secrets` + `optional_worker_secrets` on the CI
+    # side, `REQUIRED_LIST` + `OPTIONAL_LIST` on the manual deploy.yml side).
+    # Optional names are still provisioned secrets and belong in the same
+    # consistency accounting, so the union across every found block is what a
+    # deploy provisions.
+    blocks = re.findall(
+        r"(?m)^[ \t]+(?:worker_secrets|optional_worker_secrets|secrets|REQUIRED_LIST|OPTIONAL_LIST):\s*\|\s*$\n"
         r"(?P<body>(?:^[ \t]+[A-Z][A-Z0-9_]*[ \t]*$\n?)+)",
         step,
     )
-    assert secrets is not None, "missing Wrangler secrets block"
-    return set(re.findall(r"(?m)^[ \t]+([A-Z][A-Z0-9_]*)[ \t]*$", secrets["body"]))
+    assert blocks, "missing Wrangler secrets block"
+    return {
+        name
+        for body in blocks
+        for name in re.findall(r"(?m)^[ \t]+([A-Z][A-Z0-9_]*)[ \t]*$", body)
+    }
 
 
 def _mapped_secret_names(source: str) -> set[str]:
@@ -72,8 +82,11 @@ def _required_deploy_keys() -> tuple[set[str], set[str], set[str]]:
     required = _typescript_string_list(entrypoint, "CONTAINER_REQUIRED_KEYS")
     forwarded = _typescript_string_list(entrypoint, "CONTAINER_ENV_KEYS")
     deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
+    # The literal secret-name lists moved into the "Resolve effective worker
+    # secrets" step when POST_DEPLOY_DIAG_TOKEN became optional; the "Deploy via
+    # Wrangler" step now consumes them indirectly via its `secrets:` output.
     provisioned = _wrangler_secret_names(
-        _named_workflow_step(deploy, "Deploy via Wrangler")
+        _named_workflow_step(deploy, "Resolve effective worker secrets")
     )
     return required, forwarded, provisioned
 
@@ -87,7 +100,8 @@ def test_container_required_keys_are_forwarded_and_deployed() -> None:
 
 def test_ci_root_deploys_match_manual_root_secrets() -> None:
     deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
-    root_step = _named_workflow_step(deploy, "Deploy via Wrangler")
+    # The literal lists live in the "Resolve effective worker secrets" step.
+    root_step = _named_workflow_step(deploy, "Resolve effective worker secrets")
     manual_secrets = _wrangler_secret_names(root_step)
     ci = _CI_WORKFLOW.read_text(encoding="utf-8")
     staging = _named_workflow_job(ci, "deploy-root-staging")
