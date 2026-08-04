@@ -177,6 +177,7 @@ jobs:
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
           POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
         run: bash .github/scripts/post-deploy-assert.sh auth-config-check
 
       # ── environment-gated: ANON_ACCESS_ENABLED differs by environment,

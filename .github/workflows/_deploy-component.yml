@@ -12,6 +12,15 @@ on:
       build_filter: { required: false, type: string, default: "" }
       run_pulumi: { required: false, type: boolean, default: true }
       worker_secrets: { required: false, type: string, default: "" }
+      optional_worker_secrets:
+        description: >-
+          Newline list of secret NAMES that are uploaded only when their value
+          is non-empty. For diagnostic-only secrets: a missing value must
+          never fail the deploy — the post-deploy check reports it loudly
+          instead. Names listed here must NOT also appear in worker_secrets.
+        type: string
+        required: false
+        default: ""
       # Newline-separated list of secret names that must be pushed via a raw
       # `wrangler secret put` step AFTER "Deploy Worker" (see that step for
       # why). Each name here must also have a matching entry in `secrets:`
@@ -539,6 +548,50 @@ jobs:
       - name: Verify root container Dockerfile
         if: ${{ inputs.component == 'root' }}
         run: test -f Dockerfile
+      - name: Resolve effective worker secrets
+        id: effective_secrets
+        # Optional (diagnostic-only) secrets are appended to the upload list
+        # only when their value is present. wrangler-action's uploadSecrets()
+        # hard-fails on any listed name whose env value is empty — which is
+        # correct for load-bearing secrets and wrong for diagnostics: on
+        # 2026-08-04 an unconfigured POST_DEPLOY_DIAG_TOKEN blocked every
+        # staging deploy (run 30895422110). A diagnostic credential must not
+        # be able to block delivery; the post-deploy check owns that failure.
+        shell: bash
+        env:
+          REQUIRED_LIST: ${{ inputs.worker_secrets }}
+          OPTIONAL_LIST: ${{ inputs.optional_worker_secrets }}
+          # Same env block as the Deploy Worker step below — the indirect
+          # `${!name}` expansion above looks up OPTIONAL_LIST names here, so
+          # every secret that could be optional must be present in env.
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
+          POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
+        run: |
+          effective="$REQUIRED_LIST"
+          while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            if [ -n "${!name:-}" ]; then
+              effective="$effective"$'\n'"$name"
+            else
+              echo "::warning title=optional secret skipped::$name is unset; deploy continues, post-deploy check will report it"
+            fi
+          done <<< "$OPTIONAL_LIST"
+          {
+            echo "list<<EOF"
+            printf '%s\n' "$effective" | sed '/^[[:space:]]*$/d'
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
@@ -567,7 +620,7 @@ jobs:
           workingDirectory: ${{ inputs.working_directory }}
           command: deploy
           environment: ${{ inputs.environment }}
-          secrets: ${{ inputs.worker_secrets }}
+          secrets: ${{ steps.effective_secrets.outputs.list }}
         env:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
