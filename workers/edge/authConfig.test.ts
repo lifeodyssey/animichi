@@ -111,10 +111,12 @@ void test("deploy.yml keeps its JWKS secret path complete", () => {
 void test("_deploy-component.yml keeps its JWKS declaration and paths complete", () => {
   const workflowText = readFileSync(`${ROOT}.github/workflows/_deploy-component.yml`, "utf8");
   assert.equal(countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL:\s*$/gm), 1, "_deploy-component.yml must declare JWKS");
+  // PR #751's resolve step legitimately repeats the env block for bash indirect expansion,
+  // so NEON_AUTH_JWKS_URL appears once in wrangler env, once in the post-deploy env, and once in the resolve-step env.
   assert.equal(
     countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL: \$\{\{ secrets\.NEON_AUTH_JWKS_URL \}\}$/gm),
-    2,
-    "_deploy-component.yml JWKS secret mappings must stay complete",
+    3,
+    "_deploy-component.yml JWKS secret mappings must stay complete (wrangler env + post-deploy env + resolve-step env)",
   );
   assert.equal(workflowText.includes("NEON_AUTH_ENABLED"), false, "_deploy-component.yml must not turn the disabled public var into a secret");
   assert.equal(workflowText.includes("NEON_AUTH_ISSUER"), false, "_deploy-component.yml must not turn the public issuer into a secret");
