@@ -73,13 +73,20 @@ def _get_client() -> httpx.AsyncClient:
 
 
 async def aclose_geocoding_client() -> None:
-    """Close the shared geocoding client and reset its module state."""
+    """Close the shared geocoding client and reset its module state.
+
+    Module-level ownership is safe across overlapping app instances because
+    close is idempotent and the next _get_client() lazily recreates.
+    """
     global _client
     if _client is None:
         return
     client = _client
     _client = None
-    await client.aclose()
+    try:
+        await client.aclose()
+    except Exception as exc:
+        logger.warning("geocoding_client_close_failed", error=str(exc))
 
 
 async def _fetch_geocode_body(params: Mapping[str, str]) -> object | None:
