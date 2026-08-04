@@ -65,6 +65,8 @@ jobs:
 
   deploy-users-prod:
     name: Deploy users production
+    # mirrors ci.yml's intra-prod ordering (root routes to users; users must be live first)
+    needs: [deploy-prod]
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: users
@@ -85,6 +87,8 @@ jobs:
 
   deploy-maintenance-prod:
     name: Deploy maintenance production
+    # mirrors ci.yml's intra-prod ordering (root routes to users; users must be live first)
+    needs: [deploy-prod]
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: maintenance
@@ -101,6 +105,8 @@ jobs:
 
   deploy-root-prod:
     name: Deploy root production
+    # mirrors ci.yml's intra-prod ordering (root routes to users; users must be live first)
+    needs: [deploy-users-prod]
     uses: ./.github/workflows/_deploy-component.yml
     with:
       component: root
