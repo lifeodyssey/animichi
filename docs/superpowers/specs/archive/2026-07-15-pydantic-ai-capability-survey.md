@@ -2,7 +2,9 @@
 
 - **Date**: 2026-07-15 · **Status**: survey(read-only,零代码变更)
 - **Source of truth**: `apps/agent/.venv/lib/python3.13/site-packages/` 安装态源码逐树走查——`pydantic_ai 2.9.1`(slim+full)、`pydantic_ai_harness 0.7.0`、`pydantic_evals 2.9.1`、`pydantic_graph 2.9.1`(已装)、`pydantic_monty 0.0.18`(CodeMode 沙箱)、`pydantic_handlebars 0.2.1`(prompt 模板)、`logfire 4.37.0`;用法交叉引用 = `apps/agent/agent` 全量 import/调用点 grep
-- **前提信条(本文所有 verdict 均已按其过滤)**:structured-first 无向量(SD-29,视觉通道豁免)· agent 工具 upstream-free(AST 测试强制)· MiMo/DeepSeek 纯文本 OpenAI-compat 网关 · W1-W3 已采集合 · CodeMode 已按预注册判据否决(9.1% < 40%)
+- **前提信条(本文所有 verdict 均已按其过滤)**:structured-first 无向量(SD-29,视觉通道豁免)· agent 工具 upstream-free(AST 测试强制)· MiMo/DeepSeek 纯文本 OpenAI-compat 网关〔**[勘误 2026-08-04 #656]** 错误前提,见文首——MiMo 实测支持 image_url〕· W1-W3 已采集合 · CodeMode 已按预注册判据否决(9.1% < 40%)
+
+> **勘误(2026-08-04,#656)**:本文「MiMo/DeepSeek 纯文本 OpenAI-compat 网关」「多模态输入…不可达」两条 verdict(见下方 §0 前提信条、`ImageUrl`/`BinaryContent` 行、§9 结论第 9 条)**均为误判**。实测:`mimo-v2.5` 端点对 OpenAI-compatible `image_url` 消息可用——发送 1×1 红色 PNG 后模型能正确识别颜色,图片未被网关静默丢弃。#656 已据此把照片识别从独立 Gemini vision 供给层改为主 agent 走 `BinaryContent` 多模态输入(`apps/agent/agent/agents/photo_vision.py`),不再需要模型阵容层面引入新 vision 模型这一决策。本文按 archive 只进不出规则保留原文,以下三处原文不改,仅加行内标注。
 
 **普查头条**:harness 0.7.0 中 `experimental/*` 已全部变成 `warn_moved` 弃用垫片——**Planning / SubAgents / Memory / Compaction 家族 / RepoContext / Docs / DynamicWorkflow / StepPersistence / OverflowingToolOutput / Media / RuntimeAuthoring 全部毕业为顶层稳定 API,仅 `acp` 仍 `warn_experimental`**。W2 spec 当时"SubAgents/Planning/compaction 观望(experimental)"的前提已过期,相关 verdict 本文按新事实重判。
 
@@ -61,7 +63,7 @@ Verdict 词表:`in-use` 已采 · `adopt-now` 建议立即小改采纳 · `small
 
 | 能力 | 一句话 | 我们的用法 | Verdict |
 |---|---|---|---|
-| `ImageUrl`/`AudioUrl`/`VideoUrl`/`DocumentUrl`/`BinaryContent`/`FilePart` | 多模态输入(messages.py:292-521) | NONE | reject-for-now:MiMo/DeepSeek 文本网关;"截图找圣地"是真实产品想象但属模型阵容决策(§4-9) |
+| `ImageUrl`/`AudioUrl`/`VideoUrl`/`DocumentUrl`/`BinaryContent`/`FilePart` | 多模态输入(messages.py:292-521) | NONE | reject-for-now:MiMo/DeepSeek 文本网关;"截图找圣地"是真实产品想象但属模型阵容决策(§4-9)〔**[勘误 2026-08-04 #656]** MiMo 实测支持 `image_url`,`BinaryContent` 已在 #656 采纳用于照片识别〕 |
 | 历史管理(ProcessHistory + 官方 compaction 家族) | 见 1f harness | 自研两段 | §2-1 / §3-3 |
 
 ### 1e. 编排/集成/UI
@@ -158,7 +160,7 @@ Verdict 词表:`in-use` 已采 · `adopt-now` 建议立即小改采纳 · `small
 6. **`RuntimeAuthoring`**:让模型在运行时编写并注册真实 capability——与本仓信任边界(LLM 输出永远是数据不是指令)正面冲突,生产不采,永不。
 7. **`ACP`**:harness 唯一 experimental 遗留,终端/编辑器协议,与产品无关。
 8. **`ui.ag_ui` / A2A**:前端已定 Vercel AI SDK(v6 wire,v7 等价零成本);A2A extra 未安装且无多 agent 需求。
-9. **多模态输入(`ImageUrl`/`BinaryContent` 等)+ `ImageGeneration`/`XSearch` 能力**:MiMo/DeepSeek 纯文本网关下不可达;"用户发截图找圣地"是真实的产品想象,但那是模型阵容(vision 模型入列)的 product-decision,不是本 SDK 面的采纳项;XSearch 无场景。
+9. **多模态输入(`ImageUrl`/`BinaryContent` 等)+ `ImageGeneration`/`XSearch` 能力**:MiMo/DeepSeek 纯文本网关下不可达;"用户发截图找圣地"是真实的产品想象,但那是模型阵容(vision 模型入列)的 product-decision,不是本 SDK 面的采纳项;XSearch 无场景。〔**[勘误 2026-08-04 #656]** 「纯文本网关下不可达」错误——`mimo-v2.5` 实测支持 OpenAI-compatible `image_url`(1×1 红 PNG 正确识别,图片未被静默丢弃),不需要模型阵容层面新引入 vision 模型;`BinaryContent` 已在 #656 采纳,替换了原本独立的 Gemini vision 供给层〕
 10. **`MCP`(client/`MCPToolset`)**:catalog 契约=oRPC,无 MCP 服务器可消费;引入=平行契约面,违背 single-source-of-truth。
 11. **`NativeOutput` 全面切换**:意图路由与 output_validator 都键在 ToolOutput 工具名上,是三轮 wave 打磨过的裁决机制;NativeOutput 最多允许一次网关兼容性 spike(§1a),不做默认方向。
 
