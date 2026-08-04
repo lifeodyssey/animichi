@@ -14,7 +14,7 @@ _ENTRYPOINT = _REPO_ROOT / "workers" / "edge" / "containerEnv.ts"
 _CI_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
 _DEPLOY_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "deploy.yml"
 _REUSABLE_DEPLOY_WORKFLOW = (
-    _REPO_ROOT / ".github" / "workflows" / "_deploy-component.yml"
+    _REPO_ROOT / ".github" / "workflows" / "reusable-deploy-component.yml"
 )
 _DOCKERFILE = _REPO_ROOT / "Dockerfile"
 _NON_SECRET_REQUIRED_KEYS = {"APP_ENV"}
@@ -74,7 +74,7 @@ def _required_deploy_keys() -> tuple[set[str], set[str], set[str]]:
     required = _typescript_string_list(entrypoint, "CONTAINER_REQUIRED_KEYS")
     forwarded = _typescript_string_list(entrypoint, "CONTAINER_ENV_KEYS")
     deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
-    # The manual path is now a thin caller of _deploy-component.yml (issue
+    # The manual path is now a thin caller of reusable-deploy-component.yml (issue
     # #486): the literal secret-name lists live in the deploy-root-prod JOB's
     # `worker_secrets`/`optional_worker_secrets` inputs. The old inline
     # "Resolve effective worker secrets" step is gone — the reusable workflow
@@ -95,7 +95,7 @@ def test_container_required_keys_are_forwarded_and_deployed() -> None:
 def test_ci_root_deploys_match_manual_root_secrets() -> None:
     deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
     # The literal lists live in the deploy-root-prod JOB (a thin caller of
-    # _deploy-component.yml); the reusable workflow owns optional-secret
+    # reusable-deploy-component.yml); the reusable workflow owns optional-secret
     # resolution, so there is no inline "Resolve effective worker secrets"
     # step to read anymore (issue #486).
     root_job = _named_workflow_job(deploy, "deploy-root-prod")

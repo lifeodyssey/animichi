@@ -86,14 +86,14 @@ jobs:
             # workers/edge/auth.ts while ci-users skips (issue #647).
             users: ['workers/users/**', 'packages/contract/**', 'workers/edge/auth.ts']
             # workers/maintenance/test/config.worker.test.ts asserts against the deploy
-            # wiring itself — ci.yml, deploy.yml, _deploy-component.yml, both deprecated
+            # wiring itself — ci.yml, deploy.yml, reusable-deploy-component.yml, both deprecated
             # fallback workflows and docs/ops/secrets.md are read verbatim by that test.
             # Scoping the filter to workers/maintenance/** alone would let a change to any
             # of those files break the assertion while ci-maintenance skips: the same
             # "a gate that cannot test itself" failure the agent_behavior filter above
             # already had to fix. READS declarations are enforced by the unfiltered
             # config-read-sets security job.
-            maintenance: ['workers/maintenance/**', '.github/workflows/ci.yml', '.github/workflows/deploy.yml', '.github/workflows/_deploy-component.yml', '.github/workflows/purge-anon-quota-counts.yml', '.github/workflows/purge-anonymous-sessions.yml', 'docs/ops/secrets.md']
+            maintenance: ['workers/maintenance/**', '.github/workflows/ci.yml', '.github/workflows/deploy.yml', '.github/workflows/reusable-deploy-component.yml', '.github/workflows/purge-anon-quota-counts.yml', '.github/workflows/purge-anonymous-sessions.yml', 'docs/ops/secrets.md']
             # Agent unit tests assert cross-package workflow, documentation, Worker, and
             # web coverage config. The read-set meta-check protects these extra entries.
             agent: ['apps/agent/**', 'packages/contract/**', '.github/workflows/**', 'apps/web/vitest.config.ts', 'docs/ARCHITECTURE.md', 'docs/ops/deployment.md', 'docs/ops/secrets.md', 'docs/testing-strategy.md', 'workers/edge/containerEnv.ts']
@@ -138,7 +138,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/_python-ci.yml
+    uses: ./.github/workflows/reusable-python-ci.yml
     with:
       app: agent
 
@@ -149,7 +149,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/_ts-ci.yml
+    uses: ./.github/workflows/reusable-ts-ci.yml
     with:
       component: catalog
 
@@ -160,7 +160,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/_ts-ci.yml
+    uses: ./.github/workflows/reusable-ts-ci.yml
     with:
       component: users
 
@@ -171,7 +171,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/_ts-ci.yml
+    uses: ./.github/workflows/reusable-ts-ci.yml
     with:
       component: maintenance
 
@@ -201,7 +201,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/_webapp-ci.yml
+    uses: ./.github/workflows/reusable-webapp-ci.yml
 
   ci-worker:
     timeout-minutes: 20
@@ -295,7 +295,7 @@ jobs:
 
   security:
     name: Security
-    uses: ./.github/workflows/_security.yml
+    uses: ./.github/workflows/reusable-security.yml
     secrets:
       GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
@@ -406,7 +406,7 @@ jobs:
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
       # --no-build rejected: this project's own editable package has no wheel
-      # (see purge-anonymous-sessions.yml's NOTE and _python-ci.yml).
+      # (see purge-anonymous-sessions.yml's NOTE and reusable-python-ci.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Run L0 smoke trajectory eval (zero-errored + direct gates)
@@ -463,7 +463,7 @@ jobs:
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
       # --no-build rejected: this project's own editable package has no wheel
-      # (see purge-anonymous-sessions.yml's NOTE and _python-ci.yml).
+      # (see purge-anonymous-sessions.yml's NOTE and reusable-python-ci.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Install pinned Atlas CLI
@@ -607,7 +607,7 @@ jobs:
     name: Cross-stack E2E component
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.cross_stack == 'true' }}
-    uses: ./.github/workflows/_cross-stack-e2e.yml
+    uses: ./.github/workflows/reusable-cross-stack-e2e.yml
 
   cross-stack-e2e-gate:
     timeout-minutes: 5
@@ -679,7 +679,7 @@ jobs:
   # ── Stage 3: Deploy (CI-green gated, push-main promotion path) ──
   # Promotion: push main → CI → staging → post-staging (api) → prod (human gate) → post-prod.
   # A single push to main drives the full pipeline; no separate tag trigger needed.
-  # Human approval is enforced by `environment: production` in _deploy-component.yml.
+  # Human approval is enforced by `environment: production` in reusable-deploy-component.yml.
 
   # push main → staging
   deploy-staging:
@@ -692,7 +692,7 @@ jobs:
     # undeployed for three runs. Gate failures still block: they surface as
     # failure(), not skipped.
     if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: catalog
       environment: staging
@@ -720,7 +720,7 @@ jobs:
     # undeployed for three runs. Gate failures still block: they surface as
     # failure(), not skipped.
     if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: web
       environment: staging
@@ -744,7 +744,7 @@ jobs:
     # undeployed for three runs. Gate failures still block: they surface as
     # failure(), not skipped.
     if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: users
       environment: staging
@@ -766,7 +766,7 @@ jobs:
     name: Deploy maintenance staging
     needs: [deploy-staging]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: maintenance
       environment: staging
@@ -790,7 +790,7 @@ jobs:
     # undeployed for three runs. Gate failures still block: they surface as
     # failure(), not skipped.
     if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: root
       environment: staging
@@ -841,7 +841,7 @@ jobs:
   post-staging:
     name: Post-deploy (staging)
     needs: [deploy-staging, deploy-web-staging, deploy-users-staging, deploy-maintenance-staging, deploy-root-staging]
-    uses: ./.github/workflows/_post-deploy-test.yml
+    uses: ./.github/workflows/reusable-post-deploy-test.yml
     with:
       environment: staging
       suite: api
@@ -851,11 +851,11 @@ jobs:
       POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
 
   # staging validated → production (human approve via environment: production in
-  # _deploy-component.yml). needs: post-staging guarantees staging passed api tests.
+  # reusable-deploy-component.yml). needs: post-staging guarantees staging passed api tests.
   deploy-prod:
     name: Deploy production
     needs: post-staging
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: catalog
       environment: production
@@ -876,7 +876,7 @@ jobs:
   deploy-web-prod:
     name: Deploy web production
     needs: post-staging
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: web
       environment: production
@@ -893,7 +893,7 @@ jobs:
   deploy-users-prod:
     name: Deploy users production
     needs: [post-staging, deploy-prod]
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: users
       environment: production
@@ -914,7 +914,7 @@ jobs:
   deploy-maintenance-prod:
     name: Deploy maintenance production
     needs: [post-staging, deploy-prod]
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: maintenance
       environment: production
@@ -931,7 +931,7 @@ jobs:
   deploy-root-prod:
     name: Deploy root production
     needs: [post-staging, deploy-users-prod]
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: root
       environment: production
@@ -974,7 +974,7 @@ jobs:
   post-prod:
     name: Post-deploy (production)
     needs: [deploy-prod, deploy-web-prod, deploy-users-prod, deploy-maintenance-prod, deploy-root-prod]
-    uses: ./.github/workflows/_post-deploy-test.yml
+    uses: ./.github/workflows/reusable-post-deploy-test.yml
     with:
       environment: production
       suite: smoke

@@ -224,7 +224,7 @@ jobs:
         with:
           python: "true"
       # --no-build rejected: this project's own editable package has no wheel
-      # (see purge-anonymous-sessions.yml's NOTE and _python-ci.yml).
+      # (see purge-anonymous-sessions.yml's NOTE and reusable-python-ci.yml).
       - run: uv sync --frozen --all-extras
       # .sqlfluff config lives at repo root; lint the schema dirs we own.
       - name: Lint migrations (postgres dialect)
