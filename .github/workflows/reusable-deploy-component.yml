@@ -724,7 +724,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           # First cold start after an image change takes minutes; base 12 →
-          # sleep budget 12*(1+2+3+4)=120s plus 4×20s request timeouts ≈ 200s ceiling, still bounded.
+          # sleep budget 12*(1+2+3+4)=120s plus 5×20s request timeouts ≈ 220s ceiling, still bounded.
           POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS: "12"
         shell: bash
         run: |
