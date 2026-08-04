@@ -3,7 +3,12 @@
 > 状态:ACCEPTED(2026-07-11)
 > 范围:S0.4(issue #237);blocks S1.4 / S1.5 / S2.2 / S5.2 / S6.2;离线伏笔 S3.6 / S3.10
 > 调研全文(决策矩阵、需求映射、成本账、风险):`docs/superpowers/specs/2026-07-11-map-stack-adr.md`
-> Spike:`docs/superpowers/spikes/map-stack/`(独立可运行)
+> Spike:`docs/superpowers/spikes/map-stack/` 已删除(PR #727,2026-08-04;5 条 undici CVE +
+> 目录从未被 Dependabot 覆盖会持续腐烂;其证明的决策已生产化,见下方"已落地"条目)。
+> 现在看实现:`apps/web/src/features/maplibre/`(引擎适配层)、
+> `apps/web/src/features/map-spike/`(纯逻辑 style/layers/pins/geometry)、
+> `apps/web/src/features/bubble-map/`(D S5.2 消费者)、
+> `apps/web/src/routes/_dev/map-spike.tsx`(挂载点)。
 >
 > 本目录(`docs/adr/`)自本条起为架构决策记录统一归档处(修复 report C「无统一 ADR 目录」缺口)。
 > 早于本目录的 ADR 存于 `docs/superpowers/specs/`(如 2026-06-13-architecture-adr.md、2026-04-15-api-adr.md),不迁移。
@@ -47,5 +52,13 @@
   `maplibre-gl` 经动态 `import()` 独立分包(build 实测 `maplibre-gl.mjs` 与 route chunk 分离)。
 - **仍待接线**:生产 `[[r2_buckets]]` 绑定 + edge `/tiles/*` 端点(backend enabler,归 root `wrangler.toml`/edge worker,由并行基建/ops 卡负责)与
   `perf-mobile-cold` 正式测量(S0.4 browser AC,Tester 后验:首 tile ≤3s、越界空 tile、R2 故障降级插画层)。
+  **也仍待交付**:`scripts/build-pmtiles.sh`(D2 点名的月度数据更新脚本,§6 成本账的
+  维护责任)。已删除的 spike 里有它的雏形 `scripts/fetch-tiles.sh`;核心步骤搬运至此,
+  免得连同目录一起丢失——正式脚本应在此基础上加 rclone 上传 R2 与 cron:
+  1. 依赖 `pmtiles` CLI(`brew install pmtiles`,或 go-pmtiles release)。
+  2. 探测最近可用的 Protomaps 日构建:从今天 UTC 日期起倒推最多 7 天,逐个探测
+     `https://build.protomaps.com/<YYYYMMDD>.pmtiles` 是否存在(`curl -fsI`),取第一个命中的。
+  3. 按 bbox 远程提取区域包(无需下载整个 planet 文件):
+     `pmtiles extract https://build.protomaps.com/<date>.pmtiles <输出路径> --bbox=<west,south,east,north>`。
 - **coverage 例外账(计划 §0.6)**:`src/features/map-spike/mapController.ts` 因需真实 WebGL 上下文 + 动态 import,jsdom 下不可运行,
   按文件从 unit coverage 排除;其纯输入(style/layers/pins/geometry)+ `MapSpike` 展示层已 100% 单测,live 挂载归 browser AC。
