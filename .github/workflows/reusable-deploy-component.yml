@@ -582,7 +582,7 @@ jobs:
             if [ -n "${!name:-}" ]; then
               effective="$effective"$'\n'"$name"
             else
-              echo "::warning title=optional secret skipped::$name is unset; deploy continues, post-deploy check will report it"
+              echo "::warning title=optional secret skipped::$name is unset; deploy continues without it"
             fi
           done <<< "$OPTIONAL_LIST"
           {
