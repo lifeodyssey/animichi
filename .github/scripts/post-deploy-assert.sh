@@ -300,13 +300,37 @@ cmd_auth_config_check() {
   status="$(fetch GET "${ROOT_URL}/internal/auth-config" "Bearer ${POST_DEPLOY_DIAG_TOKEN}")"
   diag "${status}"
   [ "${status}" = "200" ] || fail "GET ${ROOT_URL}/internal/auth-config expected 200, got ${status} — either the route itself is broken, or POST_DEPLOY_DIAG_TOKEN here does not match what was pushed to the deployed Worker"
+  # Three states, not two (issue #709 review follow-up): a literal "true"
+  # runs the drift assertion, a literal "false" is the legitimate
+  # "not enabled here" pass, and EVERYTHING ELSE (missing field, null, a
+  # renamed key, a response that stopped matching
+  # workers/edge/authConfigCheck.ts::AuthConfigStatus) must FAIL rather than
+  # be treated as "false" by accident — `jq -r '.neonAuthEnabled'` on a
+  # missing/null field prints the literal string "null", which a plain
+  # `!= "true"` check would have silently folded into "disabled, skip". A
+  # green run here must mean the drift check actually ran and passed, never
+  # "the response shape drifted and this check gave up quietly".
   enabled="$(jq -r '.neonAuthEnabled' "${BODY_FILE}")"
-  if [ "${enabled}" != "true" ]; then
-    echo "Neon Auth is disabled in this environment (neonAuthEnabled=false) — nothing to check."
-    return 0
-  fi
+  case "${enabled}" in
+    true) ;;
+    false)
+      echo "Neon Auth is disabled in this environment (neonAuthEnabled=false) — nothing to check."
+      return 0
+      ;;
+    *)
+      fail "GET ${ROOT_URL}/internal/auth-config's neonAuthEnabled field is not a literal true/false (got: '${enabled}') — the drift check could NOT be determined, this is NOT evidence Neon Auth is fine. A green run must mean the JWKS/issuer comparison actually ran; this run means it did not. Check that the response still matches workers/edge/authConfigCheck.ts::AuthConfigStatus's shape (issue #709)."
+      ;;
+  esac
   match="$(jq -r '.jwksIssuerMatch' "${BODY_FILE}")"
-  [ "${match}" = "true" ] || fail "NEON_AUTH_JWKS_URL does not match \${NEON_AUTH_ISSUER}/.well-known/jwks.json in the DEPLOYED Worker's actual bound env (issue #709) — every Neon Auth token will fail verification (fail-closed: logins break, no bad token is accepted). This means the JWKS secret has drifted from the issuer var — check for a bad rotation or a cross-environment copy-paste."
+  case "${match}" in
+    true) ;;
+    false)
+      fail "NEON_AUTH_JWKS_URL does not match \${NEON_AUTH_ISSUER}/.well-known/jwks.json in the DEPLOYED Worker's actual bound env (issue #709) — every Neon Auth token will fail verification (fail-closed: logins break, no bad token is accepted). This means the JWKS secret has drifted from the issuer var — check for a bad rotation or a cross-environment copy-paste."
+      ;;
+    *)
+      fail "GET ${ROOT_URL}/internal/auth-config's jwksIssuerMatch field is not a literal true/false (got: '${match}') while neonAuthEnabled=true — the drift check could NOT be determined, this is NOT the same as confirmed-matching or confirmed-drifted. Check that the response still matches workers/edge/authConfigCheck.ts::AuthConfigStatus's shape (issue #709)."
+      ;;
+  esac
 }
 
 main() {
