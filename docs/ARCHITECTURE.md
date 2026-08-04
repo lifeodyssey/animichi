@@ -218,9 +218,12 @@ fallback with it. The root Worker (`workers/edge/app.ts`) is now an API gateway 
 | `supabase/migrations/20260402124000_operational_tables.sql` | Logs every request: plan_steps, intent, latency_ms |
 | `tests/eval/datasets/plan_quality_v1.json` | 50+ cases × 3 locales |
 | `tests/eval/test_plan_quality.py` | pydantic_evals harness; uses animichi_agent; Iter 3 gate: ≥ baseline + 10pp |
-| `tools/eval_scorer.py` | Batch LLM judge; writes `plan_quality_score` back to DB |
-| `tools/eval_feedback_miner.py` | Mines `feedback(rating='bad')` → LLM prompt suggestions |
 | `clients/python/seichijunrei_client.py` | Sync/async Python client for agent/CLI use |
+
+<!-- historical: agent/tools/eval_scorer.py and agent/tools/eval_feedback_miner.py were removed in
+#746 — hand-rolled eval-era tools with zero consumers, superseded by the official-v1 evaluator
+(#354, docs/testing-strategy.md). Their entries were already stale here: the eval harness they
+described (Iter 3 gate) predates the current evaluator. -->
 
 ## Design Rules
 
