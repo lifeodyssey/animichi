@@ -29,7 +29,10 @@ const built: Built[] = await buildStack("staging", {
 const { buildIpClause } = await import("./index.ts");
 
 test("the gate ruleset still builds when the allowlist is absent", () => {
-  assert.equal(ofType(built, RULESET).length, 1);
+  const gates = ofType(built, RULESET).filter(
+    (r) => r.inputs.phase === "http_request_firewall_custom",
+  );
+  assert.equal(gates.length, 1);
 });
 
 test("buildIpClause throws on a non-IP entry", () => {
