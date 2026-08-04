@@ -38,8 +38,11 @@ cd e2e && npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
 # --ignore-scripts above skips ALL lifecycle scripts, including the one that
 # would otherwise fetch Playwright's browser binaries — download it
 # explicitly instead (same command _webapp-ci.yml uses in CI) so we still
-# never run an arbitrary postinstall script.
-npx playwright install --with-deps chromium
+# never run an arbitrary postinstall script. --no-install forces npx to use
+# the lockfile-pinned node_modules/.bin/playwright rather than fetching and
+# running a package on demand, which is the exact risk --ignore-scripts is
+# here to close.
+npx --no-install playwright install --with-deps chromium
 cd "$ROOT"
 echo ""
 
