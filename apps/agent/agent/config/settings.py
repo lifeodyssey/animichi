@@ -18,17 +18,6 @@ def _mask_secret(value: str | None, visible_chars: int = 4) -> str:
     return f"{value[:visible_chars]}...***"
 
 
-def _is_gemini_model(model_name: str | None) -> bool:
-    """Return True when a model spec uses Google Gemini directly (not via proxy)."""
-    if not isinstance(model_name, str):
-        return False
-    lower = model_name.lower()
-    # OpenAI-compat models routed through a proxy (e.g., Zeta) don't need GEMINI_API_KEY
-    if lower.startswith("openai:"):
-        return False
-    return "gemini" in lower
-
-
 def _is_openai_compat_model(model_name: str | None) -> TypeGuard[str]:
     """Return True when a model spec uses the repo's OpenAI-compatible path."""
     return isinstance(model_name, str) and model_name.lower().startswith("openai:")
@@ -82,7 +71,6 @@ class Settings(BaseSettings):
         default="", description="DeepSeek API key (required when fallback is enabled)"
     )
     mimo_api_key: str = Field(default="", description="MiMo API key (required)")
-    gemini_api_key: str = Field(default="", description="Gemini API key for LLM agents")
     openai_compat_api_key: str = Field(
         default="",
         description="API key for the OpenAI-compatible fallback provider",
@@ -300,22 +288,18 @@ class Settings(BaseSettings):
     def validate_api_keys(self) -> list[str]:
         """Validate required API keys are present.
 
-        This only covers the *chat* model's credential. GEMINI_API_KEY for
-        the photo-search vision provider is deliberately NOT checked here
-        (#502 review): this method feeds a non-blocking startup warning
-        only, and entangling it with the vision provider's real requirement
-        risks silently widening scope (see `validate_required_env`). The
-        vision provider validates its own key at call time instead — see
-        `agent.clients.gemini_vision.GeminiVisionProvider`.
+        This only covers the *chat* model's credential. This method feeds a
+        non-blocking startup warning only (see `validate_required_env` for
+        the fail-fast check). Photo-search recognition (#656) shares this
+        same chat-model credential — it rides the main agent's multimodal
+        input (`agent.agents.photo_vision`) instead of a separate provider
+        key, so there is nothing vision-specific left to validate here.
         """
         missing: list[str] = []
         all_models = [
             self.default_agent_model,
             self.fallback_agent_model,
         ]
-        uses_gemini = any(_is_gemini_model(m) for m in all_models)
-        if uses_gemini and not self.gemini_api_key:
-            missing.append("GEMINI_API_KEY")
         for model_name in all_models:
             issue = self._model_api_key_issue(model_name)
             if issue is not None and issue not in missing:
@@ -366,7 +350,6 @@ class Settings(BaseSettings):
             f"log_level={self.log_level!r}, "
             f"deepseek_api_key={_mask_secret(self.deepseek_api_key)}, "
             f"mimo_api_key={_mask_secret(self.mimo_api_key)}, "
-            f"gemini_api_key={_mask_secret(self.gemini_api_key)}, "
             f"openai_compat_api_key={_mask_secret(self.openai_compat_api_key)}"
             f")"
         )

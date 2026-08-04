@@ -816,7 +816,6 @@ jobs:
         SUPABASE_DB_URL
         MIMO_API_KEY
         DEEPSEEK_API_KEY
-        GEMINI_API_KEY
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
       post_deploy_secrets: |
@@ -832,7 +831,6 @@ jobs:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
@@ -945,7 +943,6 @@ jobs:
         SUPABASE_DB_URL
         MIMO_API_KEY
         DEEPSEEK_API_KEY
-        GEMINI_API_KEY
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
         CORS_ALLOWED_ORIGIN
@@ -962,7 +959,6 @@ jobs:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
       CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
