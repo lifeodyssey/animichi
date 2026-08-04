@@ -191,15 +191,29 @@ class Handler(http.server.BaseHTTPRequestHandler):
   echo "PASS: HTML-only origin served (${requests} request, exit ${rc})"
 }
 
+# Every auth-config-check mock below simulates the REAL Worker's gate
+# (workers/edge/app.ts + authConfigCheck.ts::isDiagAuthorized, issue #709
+# review follow-up): a request whose Authorization header doesn't carry
+# exactly `Bearer ${DIAG_TOKEN}` gets the same 404 an unmapped path would, not
+# a 401/403 that would confirm the route exists. This is what lets cases 8
+# and 9 below stand in for hitting a real deployed Worker with no/wrong
+# credentials.
+DIAG_TOKEN="test-post-deploy-diag-token-not-a-real-secret"
+
 # ── Case 5: Neon Auth disabled -> passes, no drift verdict needed ──────────
 test_auth_config_check_disabled_passes() {
   local port=18805 counter_file pid rc=0 requests
   counter_file="$(mktemp)"
   rm -f "${counter_file}"
   start_mock "${port}" "${counter_file}" "
+DIAG_TOKEN = '${DIAG_TOKEN}'
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         record_request()
+        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
+            self.send_response(404)
+            self.end_headers()
+            return
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
@@ -208,7 +222,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 "
   pid=$!
   wait_for_port "${port}"
-  ROOT_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-disabled.out 2>&1 || rc=$?
+  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${DIAG_TOKEN}" \
+    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-disabled.out 2>&1 || rc=$?
   stop_mock "${pid}"
   requests="$(request_count "${counter_file}")"
   rm -f "${counter_file}"
@@ -218,15 +233,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
   echo "PASS: Neon Auth disabled passes trivially (${requests} request, exit ${rc})"
 }
 
-# ── Case 6: JWKS matches the issuer-derived URL -> passes ──────────────────
+# ── Case 6: JWKS matches the issuer-derived URL, correct token -> passes ───
 test_auth_config_check_matching_passes() {
   local port=18806 counter_file pid rc=0 requests
   counter_file="$(mktemp)"
   rm -f "${counter_file}"
   start_mock "${port}" "${counter_file}" "
+DIAG_TOKEN = '${DIAG_TOKEN}'
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         record_request()
+        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
+            self.send_response(404)
+            self.end_headers()
+            return
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
@@ -235,24 +255,31 @@ class Handler(http.server.BaseHTTPRequestHandler):
 "
   pid=$!
   wait_for_port "${port}"
-  ROOT_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-match.out 2>&1 || rc=$?
+  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${DIAG_TOKEN}" \
+    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-match.out 2>&1 || rc=$?
   stop_mock "${pid}"
   requests="$(request_count "${counter_file}")"
   rm -f "${counter_file}"
-  [ "${rc}" -eq 0 ] || fail_test "matching JWKS/issuer should pass, got exit ${rc}: $(cat /tmp/authcfg-match.out)"
+  [ "${rc}" -eq 0 ] || fail_test "matching JWKS/issuer with the correct credential should pass, got exit ${rc}: $(cat /tmp/authcfg-match.out)"
   [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request, got ${requests}"
-  echo "PASS: matching JWKS/issuer passes (${requests} request, exit ${rc})"
+  echo "PASS: matching JWKS/issuer with the correct credential passes (${requests} request, exit ${rc})"
 }
 
-# ── Case 7: JWKS drifted from the issuer -> fails with a clear diagnostic ──
+# ── Case 7: JWKS drifted from the issuer, correct token -> fails with a
+#    clear diagnostic ───────────────────────────────────────────────────────
 test_auth_config_check_drift_fails() {
   local port=18807 counter_file pid rc=0 requests
   counter_file="$(mktemp)"
   rm -f "${counter_file}"
   start_mock "${port}" "${counter_file}" "
+DIAG_TOKEN = '${DIAG_TOKEN}'
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         record_request()
+        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
+            self.send_response(404)
+            self.end_headers()
+            return
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
@@ -261,7 +288,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 "
   pid=$!
   wait_for_port "${port}"
-  ROOT_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-drift.out 2>&1 || rc=$?
+  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="${DIAG_TOKEN}" \
+    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-drift.out 2>&1 || rc=$?
   stop_mock "${pid}"
   requests="$(request_count "${counter_file}")"
   rm -f "${counter_file}"
@@ -272,6 +300,69 @@ class Handler(http.server.BaseHTTPRequestHandler):
   echo "PASS: drifted JWKS/issuer fails with a clear diagnostic (${requests} request, exit ${rc})"
 }
 
+# ── Case 8: wrong POST_DEPLOY_DIAG_TOKEN -> the mock (standing in for the
+#    real Worker's gate) denies with 404, and the assert script fails
+#    plainly instead of silently treating it as "route disabled" ──────────
+test_auth_config_check_wrong_token_denied() {
+  local port=18808 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+DIAG_TOKEN = '${DIAG_TOKEN}'
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        if self.headers.get('Authorization') != f'Bearer {DIAG_TOKEN}':
+            self.send_response(404)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{\"neonAuthEnabled\": true, \"jwksIssuerMatch\": true}')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  ROOT_URL="http://127.0.0.1:${port}" POST_DEPLOY_DIAG_TOKEN="wrong-token-not-provisioned" \
+    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-wrongtoken.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -ne 0 ] || fail_test "a wrong POST_DEPLOY_DIAG_TOKEN should fail the gate (denied by the Worker), got exit 0"
+  [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request (a 404 is not retried), got ${requests}"
+  grep -q "expected 200, got 404" /tmp/authcfg-wrongtoken.out || fail_test "missing expected diagnostic in output"
+  grep -q "POST_DEPLOY_DIAG_TOKEN" /tmp/authcfg-wrongtoken.out || fail_test "diagnostic does not point at the credential as a likely cause"
+  echo "PASS: a wrong POST_DEPLOY_DIAG_TOKEN is denied by the gate and fails plainly (${requests} request, exit ${rc})"
+}
+
+# ── Case 9: no POST_DEPLOY_DIAG_TOKEN at all -> the script itself refuses
+#    to run rather than silently sending an unauthenticated request ────────
+test_auth_config_check_missing_token_refuses_to_run() {
+  local port=18809 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        self.send_response(404)
+        self.end_headers()
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  (unset POST_DEPLOY_DIAG_TOKEN; ROOT_URL="http://127.0.0.1:${port}" \
+    bash "${ASSERT_SH}" auth-config-check >/tmp/authcfg-notoken.out 2>&1) || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -ne 0 ] || fail_test "a missing POST_DEPLOY_DIAG_TOKEN should refuse to run, got exit 0"
+  [ "${requests}" -eq 0 ] || fail_test "expected zero requests — the script must refuse before ever calling the Worker, got ${requests}"
+  grep -q "POST_DEPLOY_DIAG_TOKEN is required" /tmp/authcfg-notoken.out || fail_test "missing expected diagnostic in output"
+  echo "PASS: a missing POST_DEPLOY_DIAG_TOKEN refuses to run before making any request (${requests} requests, exit ${rc})"
+}
+
 test_branded_404_fails_fast
 test_cf_edge_404_retries_then_fails
 test_cf_edge_404_then_recovers
@@ -279,5 +370,7 @@ test_html_only_origin_is_accepted
 test_auth_config_check_disabled_passes
 test_auth_config_check_matching_passes
 test_auth_config_check_drift_fails
+test_auth_config_check_wrong_token_denied
+test_auth_config_check_missing_token_refuses_to_run
 
 echo "All post-deploy-assert.sh behavioral tests passed."

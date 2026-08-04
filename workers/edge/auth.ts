@@ -40,7 +40,7 @@ const INVALID: AuthResult = Object.freeze({ ok: false, reason: "invalid" });
  * case-insensitive, and the separator may be any run of SP/HTAB. Anything
  * else — `Basic`, `Bearerish`, a bare scheme — is not our credential format.
  */
-const BEARER_SCHEME = /^bearer[ \t]+/i;
+export const BEARER_SCHEME = /^bearer[ \t]+/i;
 
 export interface AuthEnv {
   SUPABASE_URL: string;
@@ -212,7 +212,7 @@ async function hmacHex(secret: string, message: string): Promise<string> {
   return Array.from(new Uint8Array(signature)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function constantTimeEqual(left: string, right: string): boolean {
+export function constantTimeEqual(left: string, right: string): boolean {
   if (left.length !== right.length) return false;
   let difference = 0;
   for (let i = 0; i < left.length; i += 1) difference |= left.charCodeAt(i) ^ right.charCodeAt(i);

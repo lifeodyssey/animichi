@@ -60,6 +60,15 @@ on:
       # discussion on #493 if revisiting this.
       CLOUDFLARE_ACCOUNT_ID:
         required: true
+      # Shared bearer secret for GET /internal/auth-config (issue #709
+      # review follow-up): the same value pushed to the deployed Worker via
+      # _deploy-component.yml's `worker_secrets`. required:false, not true —
+      # this workflow_call schema is shared by every environment/suite this
+      # workflow runs for, and a hard `required: true` here would fail the
+      # job outright before auth-config-check's own env-var check ever gets
+      # a chance to produce its clearer diagnostic.
+      POST_DEPLOY_DIAG_TOKEN:
+        required: false
   # Lets an operator manually re-run a suite against an already-deployed
   # environment from the Actions UI during a rollback (docs/ops/deployment.md
   # § Rollback step 4) — `workflow_call`-only reusable workflows have no
@@ -167,6 +176,7 @@ jobs:
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh auth-config-check
 
       # ── environment-gated: ANON_ACCESS_ENABLED differs by environment,
