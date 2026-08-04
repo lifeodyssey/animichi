@@ -299,72 +299,23 @@ jobs:
     secrets:
       GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
-  # ── Agent-config lint (agnix, warn-only) ─────────────────────
-  # Non-blocking drift gate for CLAUDE.md / AGENTS.md / .claude/rules / hooks / MCP.
-  # `continue-on-error` is an intentional warn-only gate policy (not a code-quality
-  # suppression): it surfaces context-doc rot without failing CI. Kept out of the
-  # deploy `needs:` chain so it never gates a release. Promote to blocking once proven.
-  #
-  # NOTE (2026-08-04, #738): this step does NOT go through npm/npx at all — do not
-  # "simplify" it back to `npx agnix@0.37.5 .`. History:
-  #
-  # 1. agnix ships no prebuilt binary in its npm tarball; its own `postinstall` hook
-  #    (install.js) is the only thing that fetches the platform binary from its
-  #    GitHub release. #723 (S6505 hardening, commit 2d1a50c6) added
-  #    --ignore-scripts to the old `npx --yes agnix@0.37.5 .` invocation, believing
-  #    it a no-behavior-change formalization, and recorded a local verification
-  #    that it "still runs and reports its usual findings."
-  # 2. That verification was a false positive: it ran on a machine with a stale npx
-  #    cache (binary already present from an earlier unrestricted run), so
-  #    postinstall never needed to fire. Every GitHub Actions runner starts with an
-  #    empty npx cache, so --ignore-scripts deterministically skipped the fetch
-  #    there and every run failed with "agnix binary not found" — bisected exactly
-  #    to that commit (run 30876322672, success, vs. 30877440998, failure, the
-  #    first run after 2d1a50c6 landed) and reproduced locally by clearing
-  #    ~/.npm/_npx and rerunning both flag variants.
-  # 3. Dropping --ignore-scripts (the first fix attempted) restored the lint but
-  #    reopened the exact npm-lifecycle-script execution surface S6505 exists to
-  #    close, which SonarCloud correctly flagged again on that revision.
-  #
-  # This step resolves both: it downloads the same GitHub-release tarball
-  # install.js would have fetched (the linux/x86_64 target, matching ubuntu-latest),
-  # but verifies it against a sha256 pinned in THIS file rather than the
-  # `.sha256` sidecar published alongside it in the same release. Per #723's own
-  # standard (see the Atlas CLI pin a few jobs down, and
-  # apps/agent/agent/tests/atlas_helper.py), a same-channel checksum only proves
-  # the bytes weren't corrupted in transit — it can't prove the published artifact
-  # is the one that was reviewed. The hash below was computed independently
-  # (`shasum -a 256`) against a fresh download on 2026-08-04 and cross-checked
-  # against the release's own `.sha256` sidecar (matched); it now lives here,
-  # decoupled from that channel. No `npm`/`npx`, so no lifecycle scripts run at
-  # all — S6505 doesn't apply to this step anymore.
+  # ── Agent-config reference check (#745) ───────────────────
+  # Replaces agnix with one narrow, provable rule: every backtick path in
+  # AGENTS.md / CLAUDE.md / .claude/rules resolves against the repo root.
+  # Blocking because trustworthy — agnix's 63% false-positive rate gated nothing.
 
   agnix:
-    timeout-minutes: 15
-    name: Agent config lint (agnix, warn-only)
+    timeout-minutes: 5
+    name: AGENTS.md reference check
     runs-on: ubuntu-latest
-    continue-on-error: true
-    env:
-      AGNIX_VERSION: "0.37.5"
-      AGNIX_SHA256: "312e81a2caf58ef47004f5c708a0fadf0c4758eda99814f8c37a82c925c47cf2"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install pinned agnix binary
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/agnix-bin"
-          curl --proto '=https' --tlsv1.2 -sSfL \
-            "https://github.com/agent-sh/agnix/releases/download/v${AGNIX_VERSION}/agnix-x86_64-unknown-linux-gnu.tar.gz" \
-            -o "$RUNNER_TEMP/agnix-bin/agnix.tar.gz"
-          echo "$AGNIX_SHA256  $RUNNER_TEMP/agnix-bin/agnix.tar.gz" \
-            | sha256sum --check --strict
-          tar -xzf "$RUNNER_TEMP/agnix-bin/agnix.tar.gz" -C "$RUNNER_TEMP/agnix-bin"
-          chmod +x "$RUNNER_TEMP/agnix-bin/agnix"
-          echo "$RUNNER_TEMP/agnix-bin" >> "$GITHUB_PATH"
-      - name: Lint AI agent configs
-        run: agnix .
+      - name: AGENTS.md reference check self-tests
+        run: bash .github/scripts/check-agents-refs.test.sh
+      - name: AGENTS.md reference check
+        run: bash .github/scripts/check-agents-refs.sh
 
   # ── DB migrations (Atlas validation + optional Neon dry-run) ──
 

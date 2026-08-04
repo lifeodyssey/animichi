@@ -20,7 +20,7 @@ User text → `RuntimeAPI.handle()` → `run_animichi_agent()` → `animichi_age
 bypass the model through `execute_selected_route()`, `execute_multi_selection()`, or
 `execute_place_selection()`.
 
-- Entry: `agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/animichi_runner.py`.
+- Entry: `agent/interfaces/fastapi_service.py` → `public_api.py` → `agent/agents/animichi_runner.py`.
 - Agent constructor: `build_animichi_agent()`; PydanticAI name: `animichi`.
 - Shared types: `agent/agents/models.py`, `agent/agents/agent_result.py`.
 
@@ -37,8 +37,8 @@ bypass the model through `execute_selected_route()`, `execute_multi_selection()`
 
 ## Tools and outputs
 
-Four catalog data tools live in `agents/animichi_tools.py`; two web-facing tools live in
-`agents/web_tools.py`. Catalog tools return discriminated outcomes and record current-turn
+Four catalog data tools live in `agent/agents/animichi_tools.py`; two web-facing tools live in
+`agent/agents/web_tools.py`. Catalog tools return discriminated outcomes and record current-turn
 provenance. They never ingest data or call anime APIs directly.
 
 | Tool | Description |
@@ -62,7 +62,7 @@ The model emits exactly one of five typed outputs: `ClarifyResponseModel`, `Sear
   provenance that was not produced by the current turn.
 - The container trusts auth headers forwarded by the edge worker (`workers/edge/`); it does not re-authenticate.
 - Injection defense (SD-19): tool/envelope text is **untrusted** — never show an upstream `message` to
-  users, embed it in prompts, or store it on `str()`. User-facing text comes from `agents/error_messages.py`.
+  users, embed it in prompts, or store it on `str()`. User-facing text comes from `agent/agents/error_messages.py`.
 
 ## Type safety
 
@@ -111,7 +111,7 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
 
 - Unit tests are hermetic: the autouse fixture sets `pydantic_ai.models.ALLOW_MODEL_REQUESTS=False`
   and installs test models/keys. `.env` is not needed for `make test`; it is needed for live evals.
-- `MIMO_API_KEY` is selected by `_resolve_api_key()` in `agents/base.py` only for
+- `MIMO_API_KEY` is selected by `_resolve_api_key()` in `agent/agents/base.py` only for
   `xiaomimimo.com` model endpoints; do not reuse a generic key by accident.
 - Official eval entry: `agent/tests/eval/run_agent_eval.py`. It streams one status line per case,
   persists reports, creates/enforces statistical baselines, and exits nonzero on gate regression or
@@ -127,7 +127,7 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
 ## Eval: cost, run recipe, and the post-redesign baseline (2026-07-17)
 
 **Model + cost.** The eval model is MiMo `mimo-v2.5` (`openai:mimo-v2.5@https://api.xiaomimimo.com/v1`,
-credential `MIMO_API_KEY`; thinking param OFF — pinned in `config/model_aliases.py`).
+credential `MIMO_API_KEY`; thinking param OFF — pinned in `agent/config/model_aliases.py`).
 MiMo pay-as-you-go (permanent rate since 2026-05-27): **$1 / M input, $3 / M output, $0.20 / M cached input**.
 
 Measured full run (655 cases, trajectory tier, ~21 min): **6.40 M input + 0.31 M output tokens, 2,341 requests**
@@ -148,7 +148,7 @@ Direct thrash gates (req≤12 / tool≤10 / repeat=0 / p95≤8 — `agent/tests/
 enforced L0 gate: zero-errored cases + the deterministic direct thrash gates (unconditionally,
 independent of `DIRECT_GATE_ENFORCE`) — it still never reads or writes the baseline. CI wires this
 as `agent-eval-smoke` in `ci.yml` (`EVAL_SMOKE=1 EVAL_MAX_CASES=80`, required on PRs that touch
-`agents/**` or `config/model_aliases.py`). The uncapped L1 suite — owning the statistical baseline
+`agents/**` or `agent/config/model_aliases.py`). The uncapped L1 suite — owning the statistical baseline
 via `finish_cli_report`/`gate.py` — runs nightly + on `workflow_dispatch` only, in the standalone
 `agent-eval-nightly.yml` (never on PRs, so its cron cadence doesn't ride along with the PR/push
 matrix in `ci.yml`).
