@@ -529,13 +529,13 @@ commit.
 
 | Metric | Configured floor (%) | Source of truth |
 |--------|----------------------|-----------------|
-| Backend total | `87` | `apps/agent/pytest.ini`, `[pytest] addopts` → `--cov-fail-under` |
+| Backend total | `87` | `apps/agent/pyproject.toml`, `[tool.pytest.ini_options] addopts` → `--cov-fail-under` |
 | Frontend statements | `98` | `apps/web/vitest.config.ts`, `test.coverage.thresholds.statements` |
 | Frontend branches | `95` | `apps/web/vitest.config.ts`, `test.coverage.thresholds.branches` |
 | Frontend functions | `98` | `apps/web/vitest.config.ts`, `test.coverage.thresholds.functions` |
 | Frontend lines | `99` | `apps/web/vitest.config.ts`, `test.coverage.thresholds.lines` |
 
-Backend exclusions and reporting rules remain in `apps/agent/pytest.ini`. Frontend inclusion,
+Backend exclusions and reporting rules remain in `apps/agent/pyproject.toml`. Frontend inclusion,
 exclusion, reporter, and ratchet details remain in `apps/web/vitest.config.ts`; this document does
 not define a second coverage policy.
 

@@ -50,6 +50,18 @@ WORKDIR /app
 COPY --from=builder /app /app
 
 RUN useradd -r -s /bin/false appuser
+
+# #494: build-time git metadata. The CI deploy path builds this image through
+# `wrangler deploy` (wrangler.toml [[containers]] image = "./Dockerfile"), which
+# cannot pass `--build-arg` (workers-sdk #12991) — CI instead bakes
+# apps/agent/agent/build_info.py before deploying, and the existing COPY of
+# that directory ships it into /app/agent. These ARG/ENV pairs cover manual
+# `docker build --build-arg GIT_COMMIT=... GIT_BRANCH=...` builds; empty
+# defaults keep a plain build healthy (health.py falls through to git).
+ARG GIT_COMMIT=""
+ARG GIT_BRANCH=""
+ENV GIT_COMMIT=${GIT_COMMIT} \
+    GIT_BRANCH=${GIT_BRANCH}
 USER appuser
 
 EXPOSE 8080

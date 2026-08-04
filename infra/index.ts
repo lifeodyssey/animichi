@@ -47,11 +47,13 @@ export const catalogDatabaseUrl = config.getSecret("catalogDatabaseUrl");
 // lazy-cached pilgrimage point photos. Pulumi owns the bucket; wrangler.toml
 // references it by name (bucket_name = "catalog-media").
 // catalog has NO public route — it is a service-binding target from edge Worker.
+// #487: deleteBeforeReplace avoids account-global name collisions during replacement.
+// protect prevents accidental deletion of unrecoverable bucket data.
 const catalogMediaBucket = new cloudflare.R2Bucket("catalog-media", {
   accountId,
   name: mediaBucketName,
   location: "apac",
-});
+}, { protect: true, deleteBeforeReplace: true });
 
 // Map tiles, glyphs, sprites, and style JSON are private R2 objects. The edge
 // Worker is the sole public reader through `/tiles/*`; there is intentionally
@@ -62,7 +64,7 @@ const mapTilesBucket = new cloudflare.R2Bucket("map-tiles", {
   accountId,
   name: mapTilesBucketName,
   location: "apac",
-});
+}, { protect: true, deleteBeforeReplace: true });
 
 if (webRoutesEnabled) {
   const cloudflareZoneId = config.require("cloudflareZoneId");
@@ -95,31 +97,31 @@ if (webRoutesEnabled) {
     hostname: apexDomain,
     service: webScript,
     zoneId: cloudflareZoneId,
-  });
+  }, { deleteBeforeReplace: true });
 
   new cloudflare.WorkersRoute("animichi-edge-v1-route", {
     zoneId: cloudflareZoneId,
     pattern: `${apexDomain}/v1/*`,
     script: edgeScript,
-  });
+  }, { deleteBeforeReplace: true });
 
   new cloudflare.WorkersRoute("animichi-edge-img-route", {
     zoneId: cloudflareZoneId,
     pattern: `${apexDomain}/img/*`,
     script: edgeScript,
-  });
+  }, { deleteBeforeReplace: true });
 
   new cloudflare.WorkersRoute("animichi-edge-tiles-route", {
     zoneId: cloudflareZoneId,
     pattern: `${apexDomain}/tiles/*`,
     script: edgeScript,
-  });
+  }, { deleteBeforeReplace: true });
 
   new cloudflare.WorkersRoute("animichi-edge-healthz-route", {
     zoneId: cloudflareZoneId,
     pattern: `${apexDomain}/healthz`,
     script: edgeScript,
-  });
+  }, { deleteBeforeReplace: true });
 
   // `www` is prod-only: there is no `www.staging.animichi.com`.
   if (stack === "prod") {

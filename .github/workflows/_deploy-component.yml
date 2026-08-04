@@ -601,6 +601,29 @@ jobs:
             printf '%s\n' "$effective" | sed '/^[[:space:]]*$/d'
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+      # #494: bake git metadata into the container image. The root image is
+      # built by the "Deploy Worker" step below (`wrangler deploy`, driven by
+      # wrangler.toml's [[containers]] image = "./Dockerfile"), and wrangler
+      # cannot pass `--build-arg` through to docker (workers-sdk #12991). So we
+      # write apps/agent/agent/build_info.py into the build context instead;
+      # the Dockerfile's existing `COPY apps/agent/agent /app/agent` ships it
+      # into the image at build time. The file is gitignored (#494) and
+      # regenerated on every deploy, so it never goes stale in a PR.
+      - name: Bake git build info for root container
+        if: ${{ inputs.component == 'root' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Whitelist-sanitize: a ref name may contain characters that break a
+          # quoted Python literal; GITHUB_SHA is hex and safe as-is.
+          branch="${GITHUB_REF_NAME//[^A-Za-z0-9._\/-]/-}"
+          mkdir -p apps/agent/agent
+          cat > apps/agent/agent/build_info.py <<EOF
+          """Build-time git metadata baked by CI (#494). Do not edit."""
+
+          GIT_COMMIT = "${GITHUB_SHA::7}"
+          GIT_BRANCH = "${branch}"
+          EOF
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:

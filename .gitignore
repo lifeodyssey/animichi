@@ -116,8 +116,12 @@ node_modules
 
 # Large design-probe / mockup image artifacts (kept on disk, not in git)
 docs/design/redesign-probes/
-docs/mockups/
+docs/mockups/*
 docs/mockups/previous-design-contact-sheet.jpg
+!docs/mockups/review-boards/
+!docs/mockups/review-boards/**
+!docs/mockups/landing-hero/
+!docs/mockups/landing-hero/**
 backend/tests/eval/results/agent_openai-mimo-*
 *.tsbuildinfo
 
@@ -137,3 +141,12 @@ backend/tests/eval/results/agent_openai-mimo-*
 # Pinned Atlas CLI self-heal cache (#730) — downloaded, checksum-verified
 # binary for `make test-integration`; never checked in, never the global install.
 /.cache/atlas/
+
+# tool-generated local state (rebuildable)
+.codegraph/
+test-results/
+
+# CI-generated build metadata (#494) — written into the checkout just before
+# `wrangler deploy` builds the root container; never committed (a committed
+# copy would go stale with the deploy).
+/apps/agent/agent/build_info.py

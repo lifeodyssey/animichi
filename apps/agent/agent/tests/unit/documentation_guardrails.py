@@ -96,10 +96,12 @@ def documented_coverage_thresholds(repo_root: Path) -> dict[str, int]:
 
 
 def _backend_coverage_threshold(repo_root: Path) -> int:
-    text = _read(repo_root / "apps/agent/pytest.ini")
+    text = _read(repo_root / "apps/agent/pyproject.toml")
     match = _BACKEND_COVERAGE.search(text)
     if match is None:
-        raise ValueError("apps/agent/pytest.ini: backend coverage threshold missing")
+        raise ValueError(
+            "apps/agent/pyproject.toml: backend coverage threshold missing"
+        )
     return int(match.group(1))
 
 
