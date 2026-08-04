@@ -12,13 +12,15 @@ import os
 import sys
 from dataclasses import dataclass
 
-from dotenv import load_dotenv
 
-load_dotenv()
+def _default_model() -> str:
+    """Resolve the eval model from the environment at call time.
 
-_DEFAULT_MODEL = os.environ.get(
-    "EVAL_MODEL", "openai:qwen3.5-9b@http://localhost:1234/v1"
-)
+    Deliberately lazy — see the matching note in ``agent/tools/eval_feedback_miner.py``
+    (#732): a module-level ``load_dotenv()`` leaks real repo-root secrets into
+    the whole pytest process the moment this module is imported/collected.
+    """
+    return os.environ.get("EVAL_MODEL", "openai:qwen3.5-9b@http://localhost:1234/v1")
 
 
 @dataclass
@@ -87,7 +89,7 @@ async def run(limit: int = 200, model_id: str | None = None) -> None:
     client = SupabaseClient.__new__(SupabaseClient)
     client.pool = pool
 
-    model = model_id or _DEFAULT_MODEL
+    model = model_id or _default_model()
     rows = await client.fetch_request_log_unscored(limit=limit)
     print(f"Scoring {len(rows)} unscored rows with model={model}")
 
@@ -109,6 +111,10 @@ async def run(limit: int = 200, model_id: str | None = None) -> None:
 
 if __name__ == "__main__":
     import argparse
+
+    from dotenv import load_dotenv
+
+    load_dotenv()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=200)
