@@ -5,7 +5,7 @@
 
 ## Overview
 
-*Agent file references below are relative to `apps/agent/agent/` (monorepo move, #306-era); worker and web paths are repo-root relative.*
+*Agent file references below are relative to `apps/agent/src/animichi/` (src-layout, #651); worker and web paths are repo-root relative.*
 
 ```
 User text → RuntimeAPI.handle() → run_animichi_agent() → animichi_agent.run()
@@ -183,7 +183,7 @@ open to callers with no session:
   minimum-history threshold. A forged or wrongly-signed cookie is discarded, not trusted.
 - **Opt-in** — anonymous access stays off unless both `ANON_ACCESS_ENABLED=true` and
   `ANON_ID_SECRET` are set; otherwise `/v1/chat` keeps its 401.
-- **Rate limiting** — `workers/edge/rateLimiter.ts` applies a per-identity fixed window
+- **Rate limiting** — `workers/edge/rate-limiter.ts` applies a per-identity fixed window
   (`ANON_RATE_LIMIT` / `ANON_RATE_LIMIT_WINDOW_SECONDS`) backed by the `EDGE_GUARD` Durable
   Object, one shard per identity. Exceeding it returns a 429 the client renders as in-character
   "少し待ってね" copy.

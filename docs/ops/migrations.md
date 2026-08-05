@@ -95,4 +95,4 @@ the raw DSN and tokens out of logs and PRs.
 - [`docs/ops/deployment.md`](./deployment.md) — deployment sequence and rollback limits
 - [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — PR/static and promotion gates
 - [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) — manual production path
-- [`workers/edge/migrationBoundary.test.ts`](../../workers/edge/migrationBoundary.test.ts) — static boundary guard
+- [`workers/edge/migration-boundary.test.ts`](../../workers/edge/migration-boundary.test.ts) — static boundary guard

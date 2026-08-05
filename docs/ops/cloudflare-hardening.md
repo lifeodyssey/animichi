@@ -266,7 +266,7 @@ enforcement either.
 ### What is implemented
 
 `RuntimeContainer.deniedHosts` (`workers/edge/entry.ts`) is set from `DENIED_EGRESS_HOSTS`
-(`workers/edge/containerEnv.ts`, split out for the same Node-import-chain reason as
+(`workers/edge/container-env.ts`, split out for the same Node-import-chain reason as
 `buildContainerEnvVars` — see that file's header comment). It is a set of dotted-decimal glob
 prefixes and exact hostnames — **not CIDR strings** — chosen to be the glob-equivalent of the
 spec's target ranges when a request URL's hostname is already a bare IPv4 literal (the common
@@ -305,7 +305,7 @@ request itself, and the container never gets a TCP connection to the target. Fun
 equivalent for SSRF purposes (no bytes reach the target, no bytes come back), but a future
 engineer debugging a `520` from inside the container should know this policy is what produced it.
 
-Pinned by `workers/edge/containerEnv.test.ts` (run via `pnpm run test:worker`), which — after two
+Pinned by `workers/edge/container-env.test.ts` (run via `pnpm run test:worker`), which — after two
 earlier revisions each fixed one layer of the same problem (a hand-rolled `ipInCidr()` helper that
 validated its own invented semantics, then a hand-ported copy of the real algorithm that could
 still silently drift from a future vendored change) — now **extracts and evaluates the real
@@ -430,7 +430,7 @@ check before being marked fully closed):
 - **Happy path** (public egress succeeds): satisfied by design — none of the three representative
   public addresses (`1.1.1.1`, `8.8.8.8`, a placeholder provider hostname) match
   `DENIED_EGRESS_HOSTS` under the ported real matcher; pinned by
-  `workers/edge/containerEnv.test.ts`. Not yet verified against a live deployed instance, and not yet
+  `workers/edge/container-env.test.ts`. Not yet verified against a live deployed instance, and not yet
   verified that `ContainerProxy` is actually reachable via `ctx.exports` at runtime (see the
   live-verification checklist below — step 1).
 - **Null/empty** (catalog `outboundByHost` hop + the MiMo provider call still succeed):
@@ -440,7 +440,7 @@ check before being marked fully closed):
 - **Error path** (`169.254.169.254`, `100.100.100.200`, `10.0.0.1` "refused at the network
   layer"): satisfied **for plain HTTP requests whose URL names one of these addresses or hostname
   literals directly**, matching the spec's own literal AC wording (`http://169.254.169.254/`);
-  pinned against the real ported glob algorithm by `workers/edge/containerEnv.test.ts`. The
+  pinned against the real ported glob algorithm by `workers/edge/container-env.test.ts`. The
   spec's "refused at the network layer" phrasing is satisfied **in effect** (nothing reaches the
   target, nothing comes back) but not **literally** — see "What actually happens on a match"
   above: enforcement returns a synthesized HTTP `520`, not a refused connection. **Not** covered:
@@ -470,12 +470,12 @@ checklist, in order:
 1. **`RuntimeContainer.deniedHosts`** (this section) — the Worker's URL-hostname glob denylist
    described above (plain HTTP, literal IP/hostname requests only — not CIDR-aware, not
    DNS-rebinding-aware); the actual Task 7 deliverable.
-2. **`egress_guard.validate_base_url()`** (`apps/agent/agent/infrastructure/egress_guard.py`,
+2. **`egress_guard.validate_base_url()`** (`apps/agent/src/animichi/infrastructure/egress_guard.py`,
    Task 1 / #458) — SSRF pre-flight check run against any user-supplied BYOK `base_url` before a
    model client is constructed; rejects private/link-local/CGNAT/reserved targets (dual-condition
    `is_global` + deny-flag check, T3/T6) with a `400` before any socket is opened.
 3. **`GuardedAsyncTransport` / `build_guarded_async_client`**
-   (`apps/agent/agent/infrastructure/egress_transport.py`, Task 1) — the only sanctioned way to
+   (`apps/agent/src/animichi/infrastructure/egress_transport.py`, Task 1) — the only sanctioned way to
    build a BYOK-path HTTP client (all three provider families — OpenAI-compatible, Anthropic,
    Gemini — route through it via `agents/byok_models.py`, #477). It:
    - re-validates at connect time and **pins the socket to the validated IP with a rewritten
@@ -512,7 +512,7 @@ remain the guarded-factory convention's job. `apps/agent/AGENTS.md`'s HTTP conve
 states this explicitly (previously it said the opposite: "leave `trust_env` at httpx's default
 (`True`)", without carving out the BYOK/egress-guarded path, which would have told a future
 contributor to recreate the exact T13 bypass this section closes — that has been corrected).
-Owner: whoever lands new outbound HTTP call sites in `apps/agent/agent/` must construct clients
+Owner: whoever lands new outbound HTTP call sites in `apps/agent/src/animichi/` must construct clients
 via `egress_transport.build_guarded_async_client`; PR review is the enforcement point for the
 HTTPS and DNS-rebinding residuals.
 

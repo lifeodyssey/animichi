@@ -1,0 +1,365 @@
+"""Application settings and configuration management."""
+
+import warnings
+from functools import lru_cache
+from typing import TypeGuard
+from urllib.parse import urlparse
+
+from pydantic import Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _mask_secret(value: str | None, visible_chars: int = 4) -> str:
+    """Mask a secret value, showing only the first few characters."""
+    if not value:
+        return "(empty)"
+    if len(value) <= visible_chars:
+        return "***"
+    return f"{value[:visible_chars]}...***"
+
+
+def _is_openai_compat_model(model_name: str | None) -> TypeGuard[str]:
+    """Return True when a model spec uses the repo's OpenAI-compatible path."""
+    return isinstance(model_name, str) and model_name.lower().startswith("openai:")
+
+
+def _openai_model_base_url(model_name: str | None, default: str) -> str | None:
+    """Resolve an OpenAI-compatible model's explicit or configured base URL."""
+    if not _is_openai_compat_model(model_name):
+        return None
+    raw = model_name.removeprefix("openai:")
+    _, separator, inline_base_url = raw.partition("@")
+    return inline_base_url if separator else default
+
+
+def _credential_env_for_model(model_name: str | None, default: str) -> str | None:
+    """Resolve the deployment credential required by one trusted model spec."""
+    from animichi.config.model_aliases import CredentialRef, credential_ref_for_base_url
+
+    if isinstance(model_name, str) and model_name.startswith("deepseek:"):
+        return CredentialRef.DEEPSEEK_API_KEY.name
+    base_url = _openai_model_base_url(model_name, default)
+    return credential_ref_for_base_url(base_url).name if base_url else None
+
+
+def _is_local_base_url(base_url: str | None) -> bool:
+    """Return True when a compat base URL targets a local/dev endpoint."""
+    if not base_url:
+        return False
+    parsed = urlparse(base_url)
+    return parsed.hostname in {"localhost", "127.0.0.1"}
+
+
+def _required_model_credential(model_name: str | None, default: str) -> str | None:
+    """Return the credential needed to boot one configured model."""
+    base_url = _openai_model_base_url(model_name, default)
+    credential = _credential_env_for_model(model_name, default)
+    if credential == "OPENAI_COMPAT_API_KEY" and _is_local_base_url(base_url):
+        return None
+    return credential
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+    )
+
+    # API Keys
+    deepseek_api_key: str = Field(
+        default="", description="DeepSeek API key (required when fallback is enabled)"
+    )
+    mimo_api_key: str = Field(default="", description="MiMo API key (required)")
+    openai_compat_api_key: str = Field(
+        default="",
+        description="API key for the OpenAI-compatible fallback provider",
+    )
+
+    # API Endpoints
+    catalog_api_url: str = Field(
+        default="http://localhost:8787",
+        description="Catalog service base URL (read path for resolved spot data)",
+    )
+
+    # Application Settings
+    app_env: str = Field(default="development", description="Application environment")
+    log_level: str = Field(default="INFO", description="Logging level")
+    debug: bool = Field(default=False, description="Debug mode")
+    message_max_chars: int = Field(
+        default=4000, gt=0, description="Maximum characters in one user message"
+    )
+    # Photo-search per-use quota (SD-26 D6). Exact values are an operations
+    # decision (issue #260): None means "not yet configured" and disables
+    # metering for that tier rather than inventing a default.
+    photo_search_quota_anon: int | None = Field(
+        default=None,
+        ge=0,
+        description="Daily photo-search cap for anonymous users (ops-set)",
+    )
+    photo_search_quota_member: int | None = Field(
+        default=None,
+        ge=0,
+        description="Daily photo-search cap for logged-in users (ops-set)",
+    )
+    agent_deadline: float = Field(
+        default=100.0, gt=0, description="Whole-run agent deadline in seconds"
+    )
+    model_attempt_timeout: float = Field(
+        default=45.0, gt=0, description="Per-provider model attempt timeout in seconds"
+    )
+    # Anonymous daily-budget circuit breaker (X4, issue #274). The container
+    # ingress is the authoritative tier: it compares today's 'anon' spend in
+    # daily_usage against this ceiling. 0 disables the breaker entirely.
+    anon_daily_cost_budget_usd: float = Field(
+        default=0.0,
+        ge=0,
+        description="Global anonymous daily spend ceiling in USD (0 disables)",
+    )
+    # Per-identity anonymous daily message quota (issue #282, S1.10) — a
+    # fairness/UX mechanism, not a security defense line: it keeps one
+    # visitor's free usage reasonable while ANON_DAILY_COST_BUDGET_USD stays
+    # open for everyone else. Distinct from that global dollar breaker: this
+    # ceiling is compared against one anon identity's own message count for
+    # today. None OR 0 disables the quota entirely — the same "0 disables"
+    # convention as the budget breaker.
+    anon_daily_message_quota: int | None = Field(
+        default=None,
+        ge=0,
+        description="Per-identity daily message cap for anonymous users (None or 0 disables)",
+    )
+    # anon_daily_message_count and anonymous-session retention windows moved
+    # to `PurgeCronSettings` (agent/config/cron_settings.py, issue #508) —
+    # the only two things that ever read them are the DB-only purge crons.
+    model_input_cost_per_mtok_usd: float = Field(
+        default=0.0, ge=0, description="Input token price per million tokens (USD)"
+    )
+    model_output_cost_per_mtok_usd: float = Field(
+        default=0.0, ge=0, description="Output token price per million tokens (USD)"
+    )
+    service_host: str = Field(default="0.0.0.0", description="HTTP service bind host")
+    service_port: int = Field(default=8080, description="HTTP service bind port")
+    observability_service_name: str = Field(
+        default="animichi-runtime",
+        description="Service name reported to observability backends",
+    )
+    observability_service_version: str = Field(
+        default="0.1.0",
+        description="Service version reported to observability backends",
+    )
+    # Supabase
+    supabase_db_url: str = Field(
+        default="", description="Direct Postgres DSN for asyncpg"
+    )
+
+    # Session storage (in-memory only)
+
+    # Agent model
+    default_agent_model: str = Field(
+        default="openai:mimo-v2.5@https://api.xiaomimimo.com/v1",
+        description="Default primary LLM model (MiMo V2.5)",
+    )
+    # Temporarily MiMo-only: the DeepSeek fallback is disabled pending a DeepSeek
+    # account recharge (402 Insufficient Balance). Re-enable by setting this back to
+    # `deepseek:deepseek-v4-flash` (the key + worker wiring are already provisioned).
+    fallback_agent_model: str | None = Field(
+        default="",
+        description="Optional fallback model; empty keeps the runtime MiMo-only",
+    )
+    openai_compat_base_url: str = Field(
+        default="https://api.xiaomimimo.com/v1",
+        description="Base URL for the OpenAI-compatible provider",
+    )
+
+    # No application-level migration runner. Neon schema changes are applied by Atlas from
+    # db/migrations in the deployment workflow; see docs/ops/migrations.md.
+
+    # CORS
+    cors_allowed_origin: str = Field(
+        default="*",
+        description="Allowed CORS origin. Set to actual domain in production.",
+    )
+
+    @field_validator("cors_allowed_origin")
+    @classmethod
+    def validate_cors_origin(cls, v: str, info: object) -> str:
+        """Reject wildcard CORS in production."""
+        # info.data is available during model validation with all prior fields
+        data = getattr(info, "data", {})
+        app_env = (
+            data.get("app_env", "development")
+            if isinstance(data, dict)
+            else "development"
+        )
+        # Deliberately `!= "development"`, not `== "production"` (issue #498
+        # follow-up): staging must be held to the same strictness as
+        # production. Before #498, APP_ENV was hardcoded to "production" for
+        # every deployed environment, so this `== "production"` check
+        # happened to also cover staging by accident. Once APP_ENV correctly
+        # reports "staging", an `== "production"` check would stop firing
+        # there and staging would silently accept a wildcard CORS origin —
+        # tightened variants (production, staging, any future non-dev
+        # environment) fail closed; only development is exempt.
+        if v == "*" and str(app_env).lower() != "development":
+            raise ValueError(
+                "cors_allowed_origin must not be '*' outside development. "
+                "Set CORS_ALLOWED_ORIGIN to your actual domain."
+            )
+        return v
+
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, v: str) -> str:
+        """Validate log level is valid."""
+        valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        v = v.upper()
+        if v not in valid_levels:
+            raise ValueError(f"Invalid log level: {v}. Must be one of {valid_levels}")
+        return v
+
+    @model_validator(mode="after")
+    def validate_model_timeout_budget(self) -> "Settings":
+        """Reserve wall-clock margin after two sequential provider attempts."""
+        if 2 * self.model_attempt_timeout >= self.agent_deadline * 0.95:
+            raise ValueError(
+                "two model_attempt_timeout budgets plus 5% margin must fit "
+                "inside agent_deadline"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_required_env(self) -> "Settings":
+        """Fail fast with clear errors if critical env vars are missing."""
+        missing: list[str] = []
+        if not self.supabase_db_url:
+            missing.append("SUPABASE_DB_URL")
+        missing.extend(
+            credential
+            for credential in self._required_model_credentials()
+            if not self._has_api_key(credential)
+        )
+        if missing:
+            raise ValueError(
+                f"Missing required environment variables: {', '.join(missing)}. "
+                "Check your .env file or run from the project root."
+            )
+        return self
+
+    def _required_model_credentials(self) -> list[str]:
+        required: list[str] = []
+        for model_name in (self.default_agent_model, self.fallback_agent_model):
+            credential = _required_model_credential(
+                model_name, self.openai_compat_base_url
+            )
+            if credential is not None and credential not in required:
+                required.append(credential)
+        return required
+
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production environment."""
+        return self.app_env.lower() == "production"
+
+    @property
+    def is_development(self) -> bool:
+        """Check if running in development environment."""
+        return self.app_env.lower() == "development"
+
+    def get_runtime_config(self) -> dict[str, str | int | float | bool]:
+        """Get non-secret runtime configuration (safe to log).
+
+        Returns:
+            Dictionary of runtime config values that can be safely logged.
+        """
+        return {
+            "app_env": self.app_env,
+            "log_level": self.log_level,
+            "debug": self.debug,
+            "service_host": self.service_host,
+            "service_port": self.service_port,
+            "message_max_chars": self.message_max_chars,
+            "agent_deadline": self.agent_deadline,
+            "model_attempt_timeout": self.model_attempt_timeout,
+            "default_agent_model": self.default_agent_model,
+            "fallback_agent_model": self.fallback_agent_model or "(not set)",
+            "openai_compat_base_url": self.openai_compat_base_url,
+        }
+
+    def validate_api_keys(self) -> list[str]:
+        """Validate required API keys are present.
+
+        This only covers the *chat* model's credential. This method feeds a
+        non-blocking startup warning only (see `validate_required_env` for
+        the fail-fast check). Photo-search recognition (#656) shares this
+        same chat-model credential — it rides the main agent's multimodal
+        input (`animichi.agents.photo_vision`) instead of a separate provider
+        key, so there is nothing vision-specific left to validate here.
+        """
+        missing: list[str] = []
+        all_models = [
+            self.default_agent_model,
+            self.fallback_agent_model,
+        ]
+        for model_name in all_models:
+            issue = self._model_api_key_issue(model_name)
+            if issue is not None and issue not in missing:
+                missing.append(issue)
+        return missing
+
+    def _model_api_key_issue(self, model_name: str | None) -> str | None:
+        base_url = _openai_model_base_url(model_name, self.openai_compat_base_url)
+        if _is_openai_compat_model(model_name) and not base_url:
+            return "OPENAI_COMPAT_BASE_URL"
+        credential_env = _credential_env_for_model(
+            model_name, self.openai_compat_base_url
+        )
+        if credential_env == "OPENAI_COMPAT_API_KEY" and _is_local_base_url(base_url):
+            return None
+        return (
+            credential_env
+            if credential_env and not self._has_api_key(credential_env)
+            else None
+        )
+
+    def _has_api_key(self, credential_env: str) -> bool:
+        values = {
+            "DEEPSEEK_API_KEY": self.deepseek_api_key,
+            "MIMO_API_KEY": self.mimo_api_key,
+            "OPENAI_COMPAT_API_KEY": self.openai_compat_api_key,
+        }
+        return bool(values.get(credential_env))
+
+    @model_validator(mode="after")
+    def _warn_missing_api_keys(self) -> "Settings":
+        """Warn about missing API keys at startup (non-blocking)."""
+        missing = self.validate_api_keys()
+        if missing:
+            warnings.warn(
+                f"Missing API keys: {', '.join(missing)}. Some features may not work.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return self
+
+    def __repr__(self) -> str:
+        """Return string representation with masked secrets."""
+        return (
+            f"Settings("
+            f"app_env={self.app_env!r}, "
+            f"debug={self.debug}, "
+            f"log_level={self.log_level!r}, "
+            f"deepseek_api_key={_mask_secret(self.deepseek_api_key)}, "
+            f"mimo_api_key={_mask_secret(self.mimo_api_key)}, "
+            f"openai_compat_api_key={_mask_secret(self.openai_compat_api_key)}"
+            f")"
+        )
+
+    def __str__(self) -> str:
+        """Return string representation with masked secrets."""
+        return self.__repr__()
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Get cached settings instance."""
+    return Settings()

@@ -1,0 +1,34 @@
+[
+  {
+    "id": "MEM19_PREFERENCE_001",
+    "setup_turn": "I prefer quiet temples and uncrowded pilgrimage spots.",
+    "later_turn": "What kind of pilgrimage stop would suit me?",
+    "locale": "en",
+    "expected": "Uses the durable quiet and uncrowded preference without asking again.",
+    "tags": ["issue-19", "pending-eval", "user-memory", "preference"]
+  },
+  {
+    "id": "MEM19_VISITED_001",
+    "setup_turn": "I have already visited the Euphonium pilgrimage points around Uji Station.",
+    "later_turn": "Suggest a next stop that is new for me.",
+    "locale": "en",
+    "expected": "Avoids presenting the remembered Uji Station points as unvisited.",
+    "tags": ["issue-19", "pending-eval", "user-memory", "visited-place"]
+  },
+  {
+    "id": "MEM19_LANGUAGE_001",
+    "setup_turn": "For trip planning, I prefer Traditional Chinese replies.",
+    "later_turn": "Plan my next anime pilgrimage.",
+    "locale": "zh",
+    "expected": "Uses Traditional Chinese while preserving current-turn locale authority.",
+    "tags": ["issue-19", "pending-eval", "user-memory", "language"]
+  },
+  {
+    "id": "MEM19_ONE_OFF_001",
+    "setup_turn": "Search for Your Name locations once for my friend.",
+    "later_turn": "What tastes or preferences do you remember about me?",
+    "locale": "en",
+    "expected": "Does not treat the one-off search as a durable personal preference.",
+    "tags": ["issue-19", "pending-eval", "user-memory", "negative"]
+  }
+]

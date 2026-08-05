@@ -7,8 +7,8 @@ name: Agent Eval (L1 nightly)
 
 # SD-30 §① trigger axis: the uncapped L1 full suite runs nightly + on manual dispatch —
 # never on PRs (see ci.yml's agent-eval-smoke for the PR-gated, capped L0 tier). This job
-# owns the statistical baseline (agent/tests/eval/baselines/agent_l4_trajectory_<model>.json)
-# via the existing finish_cli_report bootstrap/paired-comparison gate (agent/tests/eval/gate.py).
+# owns the statistical baseline (src/animichi/tests/eval/baselines/agent_l4_trajectory_<model>.json)
+# via the existing finish_cli_report bootstrap/paired-comparison gate (src/animichi/tests/eval/gate.py).
 on:
   schedule:
     - cron: "14 19 * * *" # 19:14 UTC daily (~03:14 next-day CST) — low-traffic, off the hour
@@ -48,16 +48,16 @@ jobs:
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
       # --no-build rejected: this project's own editable package has no wheel
-      # (see purge-anonymous-sessions.yml's NOTE and reusable-python-ci.yml).
+      # (see purge-anonymous-sessions.yml's NOTE and pipeline-agent.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Run L1 full trajectory eval (uncapped — owns the statistical baseline)
-        run: uv run --frozen pytest agent/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
+        run: uv run --frozen pytest src/animichi/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
         env:
           EVAL_MODEL: openai:mimo-v2.5@https://api.xiaomimimo.com/v1
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
 
       - name: Run translation eval
-        run: uv run --frozen pytest agent/tests/eval/test_translation.py -v -m integration --no-cov -x
+        run: uv run --frozen pytest src/animichi/tests/eval/test_translation.py -v -m integration --no-cov -x
         env:
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}

@@ -162,7 +162,7 @@ fallback for them). It is **not** a hard switch: legacy Supabase tokens keep ver
 **What the flip changed (staging only, `[env.staging.vars]` in `wrangler.toml`):**
 `NEON_AUTH_ENABLED` `false → "true"`, with the pinned `NEON_AUTH_ISSUER` and derived
 `NEON_AUTH_JWKS_URL`. Root `[vars]` and `[env.production.vars]` stay `"false"` — prod cutover is a
-separate owner-approved step. Locked by `workers/edge/authConfig.test.ts` (staging stays on, prod
+separate owner-approved step. Locked by `workers/edge/auth-config.test.ts` (staging stays on, prod
 stays off, CI/deploy workflows keep their JWKS secret paths).
 
 **Prerequisite reality (as of the deploy above):** the flip is **not** yet functionally live on
@@ -172,7 +172,7 @@ Consequence: with `NEON_AUTH_ENABLED = "true"`, real Neon Auth tokens are **reje
 today (the Neon path fails closed on the placeholder JWKS), while Supabase tokens are **unaffected**
 (dual mode still verifies them on the Supabase path) — a silent no-op, not an outage. Filling in the
 real issuer is an **owner-sequenced step**: it requires synchronized changes to the issuer-pinning
-tests in `workers/edge/authConfig.test.ts` (which assert the exact placeholder string), plus
+tests in `workers/edge/auth-config.test.ts` (which assert the exact placeholder string), plus
 re-deploy. Worth converging on in that step: `workers/users` derives its issuer from a single secret
 via `issuerFromJwksUrl()` (`workers/users/src/auth/jwt.ts`), while the edge needs a separate
 plaintext issuer var — the edge's split-var design is the root cause of this placeholder gap.
@@ -180,7 +180,7 @@ plaintext issuer var — the edge's split-var design is the root cause of this p
 What is genuinely in place — `NEON_AUTH_JWKS_URL` is **dual-source**, and the two sources feed
 different consumers (rotate the right one):
 - **Checked-in var** — `[env.staging.vars]` in `wrangler.toml` (line 308), pinned by
-  `workers/edge/authConfig.test.ts`; consumed **only** by the edge worker's staging dual-issuer
+  `workers/edge/auth-config.test.ts`; consumed **only** by the edge worker's staging dual-issuer
   path (`workers/edge/auth.ts`). Root `[vars]`/`[env.production.vars]` leave it empty and the root
   worker's `worker_secrets` lists never upload a JWKS secret, so the edge worker has no Neon path
   in production.

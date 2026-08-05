@@ -94,14 +94,14 @@ make db-push           # 对 NEON_DATABASE_URL 应用迁移
 
 **可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-详见 [`apps/agent/agent/config/settings.py`](apps/agent/agent/config/settings.py) 和 [`.env.example`](.env.example)。
+详见 [`apps/agent/src/animichi/config/settings.py`](apps/agent/src/animichi/config/settings.py) 和 [`.env.example`](.env.example)。
 
 ## 使用示例
 
 **Python（直接调用）：**
 ```python
-from agent.agents.animichi_runner import run_animichi_agent
-from agent.infrastructure.supabase.client import SupabaseClient
+from animichi.agents.animichi_runner import run_animichi_agent
+from animichi.infrastructure.supabase.client import SupabaseClient
 
 async def main() -> None:
     async with SupabaseClient(db_url) as db:
@@ -119,7 +119,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 
 **Python 客户端：**
 ```python
-from agent.clients.python.seichijunrei_client import SeichijunreiClient
+from animichi.clients.python.seichijunrei_client import SeichijunreiClient
 
 client = SeichijunreiClient(api_key="sk_your_key_here")
 result = client.search("Hibike Euphonium locations", locale="en")

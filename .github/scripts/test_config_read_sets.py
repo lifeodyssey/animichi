@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["PyYAML==6.0.3"]
 # ///
-"""Assert config-consistency read sets are covered by their CI trigger sets."""
+"""Assert config-consistency read sets are covered by their pipeline triggers."""
 
 from __future__ import annotations
 
@@ -18,11 +18,10 @@ import yaml
 
 REPO_ROOT = Path(__file__).parents[2]
 WORKFLOWS_DIR = REPO_ROOT / ".github/workflows"
-CI_WORKFLOW = WORKFLOWS_DIR / "ci.yml"
-EVENTS = ("push", "pull_request")
+EVENT = "push"
 CHECK_PATHS = (
-    "apps/agent/agent/tests/unit/test_documentation_guardrails.py",
-    "apps/agent/agent/tests/unit/test_secrets_docs_consistency.py",
+    "apps/agent/src/animichi/tests/unit/test_documentation_guardrails.py",
+    "apps/agent/src/animichi/tests/unit/test_secrets_docs_consistency.py",
     "workers/maintenance/test/config.worker.test.ts",
     "workers/users/test/eddsa-shared-primitive.worker.test.ts",
     "apps/web/tests/unit/chat/turnstile-constants-guard.test.ts",
@@ -30,11 +29,14 @@ CHECK_PATHS = (
 TS_READS = re.compile(
     r"export\s+const\s+READS\s*=\s*(\[[^]]*])\s+as\s+const\s*;", re.DOTALL
 )
-# Component lanes that left ci.yml for their own workflow (CI-1 union method,
-# commit 688bfacc): pipeline-web.yml owns the apps/web suite. Its pull_request
-# trigger is pathless (merge_group compatibility), so PR coverage is
-# unconditional; the workflow's push paths must carry the read closure.
+# Every config-check component owns a pipeline workflow (CI-1 union method,
+# S0-v2 B4). Its pull_request trigger is pathless (merge_group compatibility),
+# so PR coverage is unconditional; the workflow's push paths must carry the
+# read closure — that is what this script asserts.
 COMPONENT_WORKFLOWS: dict[str, str] = {
+    "agent": "pipeline-agent.yml",
+    "maintenance": "pipeline-maintenance.yml",
+    "users": "pipeline-users.yml",
     "web": "pipeline-web.yml",
 }
 YamlMap = Mapping[str, object]
@@ -49,10 +51,6 @@ class ConfigCheck:
     path: Path
     component: str
     reads: tuple[str, ...]
-
-    @property
-    def job(self) -> str:
-        return f"ci-{self.component}"
 
 
 @dataclass(frozen=True)
@@ -151,116 +149,42 @@ def workflow_documents() -> dict[Path, YamlMap]:
     }
 
 
-def job_mapping(workflow: YamlMap, job: str) -> YamlMap:
-    jobs = yaml_mapping(workflow.get("jobs"), f"{CI_WORKFLOW}: jobs")
-    return yaml_mapping(jobs.get(job), f"{CI_WORKFLOW}: job {job}")
+def check_workflow_path(check: ConfigCheck) -> Path:
+    try:
+        name = COMPONENT_WORKFLOWS[check.component]
+    except KeyError as error:
+        raise MetaCheckError(
+            f"{check.path}: component '{check.component}' has no pipeline workflow "
+            f"registered in COMPONENT_WORKFLOWS"
+        ) from error
+    return WORKFLOWS_DIR / name
 
 
-def trigger_paths(workflow: YamlMap, event: str) -> tuple[str, ...] | None:
-    triggers = yaml_mapping(workflow.get("on"), f"{CI_WORKFLOW}: on")
-    config = triggers.get(event)
+def push_paths(workflow: YamlMap, source: str) -> tuple[str, ...] | None:
+    triggers = yaml_mapping(workflow.get("on"), f"{source}: on")
+    config = triggers.get(EVENT)
     if not isinstance(config, Mapping) or "paths" not in config:
         return None
-    event_config = yaml_mapping(config, f"{CI_WORKFLOW}: on.{event}")
-    return string_sequence(
-        event_config.get("paths"), f"{CI_WORKFLOW}: on.{event}.paths"
-    )
+    event_config = yaml_mapping(config, f"{source}: on.{EVENT}")
+    return string_sequence(event_config.get("paths"), f"{source}: on.{EVENT}.paths")
 
 
-def workflow_steps(workflow: YamlMap) -> Sequence[object]:
-    changes = job_mapping(workflow, "changes")
-    steps = changes.get("steps")
-    if not isinstance(steps, Sequence) or isinstance(steps, str):
-        raise MetaCheckError(f"{CI_WORKFLOW}: changes.steps must be a sequence")
-    return cast(Sequence[object], steps)
-
-
-def changes_filter_source(workflow: YamlMap) -> str:
-    for index, value in enumerate(workflow_steps(workflow)):
-        step = yaml_mapping(value, f"{CI_WORKFLOW}: changes.steps[{index}]")
-        if str(step.get("uses", "")).startswith("dorny/paths-filter@"):
-            with_block = yaml_mapping(step.get("with"), "dorny/paths-filter with")
-            return str(with_block.get("filters", ""))
-    raise MetaCheckError(f"{CI_WORKFLOW}: dorny/paths-filter step missing")
-
-
-def changes_filters(workflow: YamlMap) -> YamlMap:
-    source = changes_filter_source(workflow)
-    return yaml_document(source, f"{CI_WORKFLOW}: dorny filters")
-
-
-def unreadable_gate(condition: str, check: ConfigCheck, marker: str) -> MetaCheckError:
+def unreadable_gate(condition: str, check: ConfigCheck) -> MetaCheckError:
     return MetaCheckError(
-        f"{CI_WORKFLOW}: {check.job} has a path gate this check cannot read.\n"
-        f"  expected the `if:` to contain both {marker!r} and "
-        f"\"github.event_name != 'pull_request'\"\n"
-        f"  actual: {condition}\n"
+        f"{check.path}: the {check.component} lane has a path gate this check "
+        "cannot read.\n"
+        f"  expected the pull_request trigger to be pathless, got: {condition}\n"
         "Refusing rather than assuming coverage: an unreadable gate is "
         "exactly how a guard ends up never running. If the rewrite is "
         "intentional, teach this function the new form."
     )
 
 
-def validate_lane_condition(condition: str, check: ConfigCheck) -> None:
-    marker = f"needs.changes.outputs.{check.component} == 'true'"
-    pr_guard = "github.event_name != 'pull_request'"
-    if marker not in condition or pr_guard not in condition:
-        raise unreadable_gate(condition, check, marker)
-
-
-def lane_paths(
-    workflow: YamlMap, filters: YamlMap, check: ConfigCheck
-) -> tuple[str, ...] | None:
-    condition = str(job_mapping(workflow, check.job).get("if", ""))
-    if not condition:
-        return None
-    validate_lane_condition(condition, check)
-    return string_sequence(
-        filters.get(check.component), f"dorny filter {check.component}"
-    )
-
-
-def direct_filter(
-    workflow_path: Path, workflow: YamlMap, event: str
-) -> PathFilter | None:
-    paths = trigger_paths(workflow, event)
-    if paths is None:
-        return None
-    return PathFilter(event, f"on.{event}.paths", paths, workflow_path)
-
-
-def lane_filter(
-    workflow: YamlMap, lanes: YamlMap, check: ConfigCheck
-) -> PathFilter | None:
-    paths = lane_paths(workflow, lanes, check)
-    if paths is None:
-        return None
-    return PathFilter("pull_request", f"dorny:{check.component}", paths, CI_WORKFLOW)
-
-
-def check_workflow_path(check: ConfigCheck) -> Path:
-    return WORKFLOWS_DIR / COMPONENT_WORKFLOWS.get(check.component, CI_WORKFLOW.name)
-
-
-def active_filters(
-    workflow_docs: dict[Path, YamlMap],
-    lanes: YamlMap,
-    check: ConfigCheck,
-    event: str,
-) -> tuple[PathFilter, ...]:
-    workflow_path = check_workflow_path(check)
-    workflow = workflow_docs[workflow_path]
-    is_ci_lane = workflow_path == CI_WORKFLOW
-    direct = direct_filter(workflow_path, workflow, event)
-    # The dorny lane filter only gates ci.yml lanes; a dedicated component
-    # workflow (pipeline-web.yml) is itself the lane, and its pathless
-    # pull_request trigger already covers the event unconditionally.
-    lane = (
-        lane_filter(workflow, lanes, check)
-        if is_ci_lane and event == "pull_request"
-        else None
-    )
-    return tuple(path_filter for path_filter in (direct, lane) if path_filter)
+def validate_pathless_pr(workflow: YamlMap, source: str, check: ConfigCheck) -> None:
+    triggers = yaml_mapping(workflow.get("on"), f"{source}: on")
+    config = triggers.get("pull_request")
+    if isinstance(config, Mapping) and "paths" in config:
+        raise unreadable_gate(str(config), check)
 
 
 def github_glob_matches(pattern: str, path: str) -> bool:
@@ -288,11 +212,7 @@ def read_is_covered(read: str, patterns: tuple[str, ...]) -> bool:
 
 
 def filter_failures(check: ConfigCheck, path_filter: PathFilter) -> tuple[str, ...]:
-    lane = (
-        check.job
-        if path_filter.workflow_path == CI_WORKFLOW
-        else f"{check.component} lane"
-    )
+    lane = f"{check.component} lane"
     missing = tuple(
         read for read in check.reads if not read_is_covered(read, path_filter.patterns)
     )
@@ -304,28 +224,49 @@ def filter_failures(check: ConfigCheck, path_filter: PathFilter) -> tuple[str, .
     )
 
 
-def collect_failures(
-    workflow_docs: dict[Path, YamlMap], lanes: YamlMap
+def validate_lane_triggers(
+    workflow: YamlMap, source: str, check: ConfigCheck
 ) -> tuple[str, ...]:
-    return tuple(
-        failure
-        for check in discover_checks()
-        for event in EVENTS
-        for path_filter in active_filters(workflow_docs, lanes, check, event)
-        for failure in filter_failures(check, path_filter)
+    validate_pathless_pr(workflow, source, check)
+    patterns = push_paths(workflow, source)
+    if patterns is None:
+        raise MetaCheckError(
+            f"{source}: the {check.component} lane must declare push paths "
+            "carrying its read closure"
+        )
+    return patterns
+
+
+def lane_failures(
+    check: ConfigCheck, workflow_docs: dict[Path, YamlMap]
+) -> tuple[str, ...]:
+    path = check_workflow_path(check)
+    if path not in workflow_docs:
+        raise MetaCheckError(
+            f"{check.path}: component '{check.component}' is registered to "
+            f"{path.name}, which does not exist in {WORKFLOWS_DIR}"
+        )
+    patterns = validate_lane_triggers(workflow_docs[path], str(path), check)
+    return filter_failures(
+        check, PathFilter(EVENT, f"on.{EVENT}.paths", patterns, path)
     )
+
+
+def collect_failures(workflow_docs: dict[Path, YamlMap]) -> tuple[str, ...]:
+    failures: list[str] = []
+    for check in discover_checks():
+        failures.extend(lane_failures(check, workflow_docs))
+    return tuple(failures)
 
 
 def run_check() -> int:
     workflow_docs = workflow_documents()
-    failures = collect_failures(
-        workflow_docs, changes_filters(workflow_docs[CI_WORKFLOW])
-    )
+    failures = collect_failures(workflow_docs)
     if failures:
         print("Config read-set trigger coverage failed:\n" + "\n".join(failures))
         return 1
     count = len(discover_checks())
-    print(f"OK: {count} config check read sets are covered for push and pull_request")
+    print(f"OK: {count} config check read sets are covered for push")
     return 0
 
 
