@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from typing import TypedDict, cast
 
 import httpx
 
@@ -11,6 +12,7 @@ from agent.agents.agent_result import (
     AgentResult,
     ProducedRoute,
     ProducedSearch,
+    StepData,
     StepProvenance,
     StepRecord,
     TurnProvenance,
@@ -46,6 +48,19 @@ _FETCH_ERRORS = (
 
 class SelectionError(ValueError):
     """A stale or invalid candidate selection."""
+
+
+class _ServerStepPayload(TypedDict, total=False):
+    """Deterministic payload recorded on a server-initiated selection step.
+
+    Keys mirror the wire keys emitted through ``StepRecord.params/data``
+    (PublicAPIResponse steps, chat stream), so names are contract-stable.
+    """
+
+    route_ref: str
+    bangumi_id: str
+    status: str
+    result_ref: str
 
 
 @dataclass(frozen=True)
@@ -178,14 +193,14 @@ def _fetch_steps(
 def _server_step(
     tool: str,
     is_success: bool,
-    data: dict[str, object],
+    data: _ServerStepPayload,
     provenance: StepProvenance | None = None,
 ) -> StepRecord:
     return StepRecord(
         tool=tool,
         is_success=is_success,
-        params=data,
-        data=data,
+        params=cast(StepData, data),
+        data=cast(StepData, data),
         provenance=provenance,
         error=None if is_success else "Catalog fetch failed",
         model_initiated=False,

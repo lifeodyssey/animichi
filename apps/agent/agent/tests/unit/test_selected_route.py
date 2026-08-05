@@ -9,7 +9,7 @@ import pytest
 
 from agent.agents.agent_result import AgentResult
 from agent.agents.catalog_adapter import build_search_payload
-from agent.agents.runtime_deps import StepEvent
+from agent.agents.runtime_deps import OnStep, StepEvent
 from agent.agents.selected_route import execute_selected_route
 from agent.agents.session_state import ResultRef, SearchPayloadState, SessionState
 from agent.clients.catalog_client import PilgrimagePoint, Route
@@ -43,6 +43,26 @@ def _ordered_rows(result: AgentResult) -> list[dict[str, object]]:
 
 def _euphonium_points() -> list[PilgrimagePoint]:
     return [point.model_copy(deep=True) for point in FIXTURE_POINTS["115908"]]
+
+
+def _spy_events() -> tuple[list[tuple[str, str]], OnStep]:
+    events: list[tuple[str, str]] = []
+
+    async def _record(event: StepEvent) -> None:
+        events.append((event.tool, event.status))
+
+    return events, _record
+
+
+async def _run_empty_route(on_step: OnStep | None) -> AgentResult:
+    return await execute_selected_route(
+        point_ids=["ghost"],
+        state=SessionState(),
+        origin=None,
+        locale="en",
+        catalog=MockCatalogClient(),
+        on_step=on_step,
+    )
 
 
 async def test_selected_route_rows_keep_catalog_point_fields() -> None:
@@ -130,13 +150,7 @@ async def test_selected_route_emits_running_and_done_steps() -> None:
 
 
 async def test_selected_route_empty_route_returns_error() -> None:
-    result = await execute_selected_route(
-        point_ids=["ghost"],
-        state=SessionState(),
-        origin=None,
-        locale="en",
-        catalog=MockCatalogClient(),
-    )
+    result = await _run_empty_route(on_step=None)
 
     assert result.success is False
     assert result.status == "error"
@@ -145,19 +159,8 @@ async def test_selected_route_empty_route_returns_error() -> None:
 
 
 async def test_selected_route_empty_route_emits_error_step() -> None:
-    events: list[tuple[str, str]] = []
-
-    async def _record(event: StepEvent) -> None:
-        events.append((event.tool, event.status))
-
-    await execute_selected_route(
-        point_ids=["ghost"],
-        state=SessionState(),
-        origin=None,
-        locale="en",
-        catalog=MockCatalogClient(),
-        on_step=_record,
-    )
+    events, on_step = _spy_events()
+    await _run_empty_route(on_step=on_step)
 
     assert events == [("plan_selected", "running"), ("plan_selected", "error")]
 
