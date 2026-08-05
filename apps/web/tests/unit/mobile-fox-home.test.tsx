@@ -65,6 +65,30 @@ describe("MobileFoxHome", () => {
   });
 });
 
+/** Elements the mobile-fox-home.html mockup's settled scene actually shows. */
+describe("MobileFoxHome mockup parity", () => {
+  it("shows the brand wordmark next to the badge", () => {
+    renderWithLocale(<MobileFoxHome onLogin={noop} onStart={noop} />);
+    expect(screen.getByText("聖地巡礼", { selector: ".mobile-fox__wordmark" })).toBeTruthy();
+  });
+
+  it("renders the decorative sticker stack from the mockup scene", () => {
+    const { container } = renderWithLocale(<MobileFoxHome onLogin={noop} onStart={noop} />);
+    const stickers = container.querySelector(".mobile-fox__stickers");
+    expect(stickers).not.toBeNull();
+    expect(stickers?.getAttribute("aria-hidden")).toBe("true");
+    expect(stickers?.querySelector("svg")).not.toBeNull();
+  });
+
+  it("renders the route-stamp chip beside the CTA", () => {
+    const { container } = renderWithLocale(<MobileFoxHome onLogin={noop} onStart={noop} />);
+    const stamp = container.querySelector(".mobile-fox__stamp");
+    expect(stamp).not.toBeNull();
+    expect(stamp?.getAttribute("aria-hidden")).toBe("true");
+    expect(stamp?.querySelector("svg")).not.toBeNull();
+  });
+});
+
 describe("MobileFoxHome i18n", () => {
   it("renders English copy when the browser locale is English", () => {
     setLanguages(["en-US"]);

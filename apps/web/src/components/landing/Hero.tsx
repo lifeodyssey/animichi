@@ -4,7 +4,9 @@ import { HeroSearch } from "./HeroSearch";
 import { ToriiMark } from "./ToriiMark";
 
 interface HeroProps {
-  onStart: () => void;
+  /** Carries the search query: the landing is not a navigation surface, so the
+   * caller decides what to do with it (login-with-return-target, navigate…). */
+  onStart: (query: string) => void;
 }
 
 function HeroCopy({ onStart }: HeroProps) {
@@ -13,7 +15,7 @@ function HeroCopy({ onStart }: HeroProps) {
     <p className="hero-journal__eyebrow"><ToriiMark size={15} />{landing.eyebrow}</p>
     <h1 id="hero-title" className="hero-journal__title">{landing.headline}</h1>
     <p className="hero-journal__lead">{landing.lead}</p>
-    <HeroSearch onSubmit={() => { onStart(); }} />
+    <HeroSearch onSubmit={onStart} />
   </div>);
 }
 

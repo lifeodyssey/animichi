@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import type { Dict } from "../../i18n/dictionaries";
 import { useDict } from "../../i18n/context";
 import { LocaleSwitcher } from "../../i18n/LocaleSwitcher";
 import { LoginModal } from "../auth/LoginModal";
+import { chatSearchPath } from "../home/search-target";
 import { DayNightToggle } from "./DayNightToggle";
 import { Hero } from "./Hero";
 import { MobileFoxHome } from "./MobileFoxHome";
@@ -10,17 +11,23 @@ import { ToriiMark } from "./ToriiMark";
 
 const REPO_URL = "https://github.com/lifeodyssey/animichi";
 
-interface AuthModal {
+interface SearchLoginState {
   open: boolean;
-  openAuth: () => void;
+  returnTarget: string | undefined;
+  openSearch: (query: string) => void;
+  openPlain: () => void;
   closeAuth: () => void;
 }
 
-function useAuthModal(): AuthModal {
+/** Login-modal state plus the query-preserving return target: the hero search
+ * carries `/chat?q=…` (journey §1-A②), plain logins deliberately carry none. */
+function useSearchLogin(): SearchLoginState {
   const [open, setOpen] = useState(false);
-  const openAuth = useCallback(() => { setOpen(true); }, []);
-  const closeAuth = useCallback(() => { setOpen(false); }, []);
-  return { open, openAuth, closeAuth };
+  const [returnTarget, setReturnTarget] = useState<string | undefined>(undefined);
+  const openSearch = (query: string) => { setReturnTarget(chatSearchPath(query)); setOpen(true); };
+  const openPlain = () => { setReturnTarget(undefined); setOpen(true); };
+  const closeAuth = () => { setOpen(false); };
+  return { open, returnTarget, openSearch, openPlain, closeAuth };
 }
 
 function BarActions({ onLogin }: { onLogin: () => void }) {
@@ -63,12 +70,12 @@ function LandingFooter() {
 
 /** Marketing landing: journal-card hero on desktop, fox welcome on mobile (CSS-switched). */
 export function LandingPage() {
-  const { open, openAuth, closeAuth } = useAuthModal();
+  const { open, returnTarget, openSearch, openPlain, closeAuth } = useSearchLogin();
   return (<main className="landing">
-    <LandingBar onLogin={openAuth} />
-    <Hero onStart={openAuth} />
-    <MobileFoxHome onLogin={openAuth} onStart={openAuth} />
+    <LandingBar onLogin={openPlain} />
+    <Hero onStart={openSearch} />
+    <MobileFoxHome onLogin={openPlain} onStart={openPlain} />
     <LandingFooter />
-    <LoginModal open={open} onClose={closeAuth} />
+    <LoginModal open={open} onClose={closeAuth} returnTarget={returnTarget} />
   </main>);
 }
