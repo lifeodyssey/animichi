@@ -10,6 +10,7 @@ import {
 import { NotFound } from "../components/NotFound";
 import { Splash } from "../components/Splash";
 import { THEME_BOOTSTRAP_SCRIPT } from "../components/theme-bootstrap";
+import { cfWebAnalyticsScripts } from "../features/seo/analytics";
 import { SITE_ICON_LINKS, SITE_META } from "../features/seo/head";
 import { SITE_DESCRIPTION, SITE_TITLE } from "../features/seo/site";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../i18n/locales";
@@ -26,8 +27,13 @@ type RootDocumentProps = Readonly<{
 export const rootHead = {
   links: [{ rel: "stylesheet", href: globalsUrl }, ...SITE_ICON_LINKS],
   // Pre-hydration theme init: every route honors the stored preference,
-  // and the landing page cannot flash the day default.
-  scripts: [{ children: THEME_BOOTSTRAP_SCRIPT }],
+  // and the landing page cannot flash the day default. The Cloudflare Web
+  // Analytics beacon joins the head only in production builds with an
+  // injected token (see features/seo/analytics.ts).
+  scripts: [
+    { children: THEME_BOOTSTRAP_SCRIPT },
+    ...cfWebAnalyticsScripts(import.meta.env.VITE_CF_BEACON_TOKEN, import.meta.env.PROD),
+  ],
   // Social-card defaults live at the root so every route has a card; deeper
   // routes override `title` only, which is why og:title stays the site title.
   meta: [

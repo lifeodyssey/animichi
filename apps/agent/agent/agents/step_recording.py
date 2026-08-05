@@ -15,7 +15,7 @@ def record_server_step(
     deps.steps.append(
         StepRecord(
             tool=tool,
-            success=True,
+            is_success=True,
             params=params,
             data=data,
             model_initiated=False,

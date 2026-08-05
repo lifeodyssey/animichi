@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
-import app, { closeDbPools } from "../src/index";
+import { app, closeDbPools, IngestEntrypoint } from "../src/index";
 import {
   databaseDescribe,
   localDatabaseUrl,
@@ -9,6 +9,21 @@ import {
   restoreNeonConfig,
   truncateCatalog,
 } from "./spike-db";
+
+// The Node spike pool has no workerd runtime; stub the runtime module so
+// `src/index.ts` (which now exports the `IngestEntrypoint` named entrypoint)
+// loads in plain Node.
+vi.mock("cloudflare:workers", () => ({
+  WorkerEntrypoint: class WorkerEntrypoint {
+    readonly ctx: unknown;
+    readonly env: unknown;
+
+    constructor(ctx: unknown, env: unknown) {
+      this.ctx = ctx;
+      this.env = env;
+    }
+  },
+}));
 
 /**
  * End-to-end proof for the wired Catalog service (Wave 2 capstone).
@@ -323,16 +338,19 @@ const ANITABI_POINTS = [
 ];
 
 databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> search)", () => {
-  it("POST /ingest publishes the work, then /search returns the fresh points", async () => {
+  it("IngestEntrypoint publishes the work, then /search returns the fresh points", async () => {
     stubUpstream();
 
-    const ingested = await call<{ status: string; version?: number; point_count?: number }>(
-      "ingest",
-      { bangumi_id: NEW_WORK_ID },
+    const entrypoint = new IngestEntrypoint(
+      {} as unknown as ExecutionContext,
+      { ENVIRONMENT: "test", DATABASE_URL: localDatabaseUrl() },
     );
-    expect(ingested.status).toBe("ingested");
-    expect(ingested.version).toBe(1);
-    expect(ingested.point_count).toBe(ANITABI_POINTS.length);
+    const ingested = await entrypoint.ingestWork(NEW_WORK_ID);
+    expect(ingested).toEqual({
+      status: "ingested",
+      version: 1,
+      pointCount: ANITABI_POINTS.length,
+    });
 
     const found = await call<{ rows: ApiPoint[] }>("search", { query: NEW_TITLE });
     expect(found.rows.map((r) => r.id).sort()).toEqual(["sakuragaoka-gate", "toyosato-hall"]);

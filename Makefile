@@ -1,6 +1,6 @@
 # Animichi Agent - Makefile
 
-.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry test-worker e2e-setup e2e local-login dev-stop
+.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -47,6 +47,7 @@ help:
 	@echo "E2E Testing:"
 	@echo "  make e2e-setup   Start Supabase + Edge Function + seed data"
 	@echo "  make e2e         Run all Playwright E2E tests"
+	@echo "  make visual-check  Pixel-level mockup comparison (PAGE=landing-day MODE=day RATIO=0.01)"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean       Remove build artifacts and caches"
@@ -89,7 +90,7 @@ test-docs:
 lint:
 	cd apps/agent && uv run ruff check agent/ scripts/
 	cd apps/agent && uv run ruff format --check agent/ scripts/
-	# vulture runs in CI (_python-ci.yml); without it here a dead-code finding
+	# vulture runs in CI (reusable-python-ci.yml); without it here a dead-code finding
 	# reaches CI as a bare "exit code 3" after `make check` was green locally.
 	cd apps/agent && uv run vulture agent/ vulture_whitelist.py
 
@@ -220,6 +221,32 @@ e2e:
 
 local-login:
 	bash scripts/local-login.sh
+
+# ── Visual comparison (S0-v2 C3) ─────────────────────────────
+# User-facing params: PAGE (frame key or partial key), MODE (day|night),
+# RATIO (pixel budget). PAGE defaults to the one proven frame.
+
+PAGE ?= landing-day
+MODE ?= day
+RATIO ?= 0.01
+VISUAL_PLAYWRIGHT_IMAGE ?= mcr.microsoft.com/playwright:v1.62.0-noble
+VISUAL_DOCKER_ENV := $(if $(E2E_WEB_BASE_URL),-e E2E_WEB_BASE_URL="$(E2E_WEB_BASE_URL)",)
+
+visual-canonicalize:
+	@echo "visual-canonicalize: regenerating frozen canonical mockups"
+	node --experimental-strip-types e2e/visual/canonicalize-cli.ts --out e2e/visual/canonical --fonts apps/web/src/styles/fonts.css
+
+visual-check: visual-canonicalize
+	@echo "visual-check: PAGE=$(PAGE) MODE=$(MODE) RATIO=$(RATIO)"
+	@if docker info >/dev/null 2>&1; then \
+	  echo "visual-check: running in Playwright docker image $(VISUAL_PLAYWRIGHT_IMAGE)"; \
+	  docker run --rm --network host -v "$$(pwd)":/work -w /work/e2e \
+	    -e VISUAL_CHECK=1 -e VISUAL_PAGE="$(PAGE)" -e VISUAL_MODE="$(MODE)" -e VISUAL_RATIO="$(RATIO)" \
+	    $(VISUAL_DOCKER_ENV) "$(VISUAL_PLAYWRIGHT_IMAGE)" npx playwright test --project=visual --grep @visual; \
+	else \
+	  echo "WARNING: docker unavailable — visual baselines are host-rendered, not container-rendered"; \
+	  cd e2e && VISUAL_CHECK=1 VISUAL_PAGE="$(PAGE)" VISUAL_MODE="$(MODE)" VISUAL_RATIO="$(RATIO)" npx playwright test --project=visual --grep @visual; \
+	fi
 
 # ── Setup ────────────────────────────────────────────────────
 

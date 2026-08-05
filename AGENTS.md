@@ -62,7 +62,7 @@ edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth
 - Architecture **why** → `docs/superpowers/specs/2026-06-13-architecture-adr.md`
 - Current **target** (hybrid, latest; wins over the ADR on agent language) →
   `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md`
-- Live runtime **reference** → `docs/ARCHITECTURE.md` *(paths + frontend section pending a refresh — separate PR)*
+- Live runtime **reference** → `docs/ARCHITECTURE.md`
 - Deploy runbook → `docs/ops/deployment.md`
 - **Single Source-of-Truth table + doc-change rules** → `docs/DOCS_POLICY.md` (the one canonical topic→path map)
 
@@ -122,11 +122,13 @@ edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth
 
 ## Harness (4-role agent system)
 
-Planner → Executor → Reviewer → Tester. Role definitions live in `.claude/agents/`; orchestration via
-`/iteration-planning` + `/iteration-execution`. **Quality Ratchet**: every AC carries a test-type
-annotation (`unit`|`integration`|`eval`|`browser`|`api`) plus a test in the PR diff
-(`ac_total == ac_with_test`); Reviewer wants Codecov patch ≥95%. In worktrees, use
-`uv tool run ruff format`. Hooks: `block-secrets-in-pr`, `block-local-deploy`, `block-codex-exec-codewrite`.
+Canonical workflow: `docs/workflow.md` (Matt flow × Policy C, per-stage machine-judgeable triggers).
+Role definitions live in `.claude/agents/`:
+- planner — grilling → to-spec → to-tickets (blocking edges); spec dual-review (Fable + Codex GPT Sol xhigh) before owner sign-off.
+- executor — **opencode CLI** via one `opencode serve` instance (model `ds-flash-max` → `luna-max`), brief-driven, never commits.
+- reviewer — card-level final review: one Opus 5 seat reading diff vs brief, verdict to a verdict file; spec-level: dual seats. **Mutation testing is the only valid green-light proof.**
+- tester — Playwright Test Agents pipeline (planner/generator/healer, promotion gates) + staging validation with evidence.
+**Quality Ratchet**: every AC carries a test-type (`unit`|`integration`|`eval`|`browser`|`api`) and a test in the PR diff (`ac_total == ac_with_test`); Reviewer wants Codecov patch ≥95%. Merge requires the two-way comment gate + fresh-head gate. Hooks: `block-secrets-in-pr`, `block-local-deploy`, `block-codex-exec-codewrite`.
 
 ## PR 合并前的两路检查(hook 强制)
 

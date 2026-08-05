@@ -4,4 +4,7 @@ node_modules
 .tanstack
 coverage
 dist
+lighthouse-reports
+.lighthouseci
+storybook-static
 src/routeTree.gen.ts

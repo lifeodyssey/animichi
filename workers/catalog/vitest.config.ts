@@ -21,6 +21,9 @@ export default defineConfig({
   ],
   test: {
     include: ["test/**/*.worker.test.ts"],
+    // The 41-file pool shares one machine; module imports are slow enough that
+    // vitest's 5s default budget blew out (scheduling, not test runtime).
+    testTimeout: 20_000,
     coverage: {
       // The workerd pool runs JS instrumented in-runtime, so V8 coverage is not
       // available — istanbul is the supported provider for vitest-pool-workers.

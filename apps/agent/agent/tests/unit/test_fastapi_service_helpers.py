@@ -7,6 +7,8 @@ repository-wide coverage gate green.
 
 from __future__ import annotations
 
+import asyncio
+import threading
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -16,8 +18,10 @@ from fastapi.testclient import TestClient
 from agent.config.settings import Settings
 from agent.infrastructure.session.memory import InMemorySessionStore
 from agent.infrastructure.supabase.client import SupabaseClient
+from agent.interfaces import fastapi_service
 from agent.interfaces.fastapi_service import (
     _call_optional_async,
+    _close_runtime_resources,
     _contains_json_invalid_error,
     _http_error_code,
     create_fastapi_app,
@@ -225,6 +229,98 @@ async def test_call_optional_async_ignores_missing_method() -> None:
     await _call_optional_async(target, "close")
 
 
+def _closable_mock(events: list[str], tag: str, attr: str = "close") -> AsyncMock:
+    """Build a mock whose close method records ``tag`` into ``events``."""
+    mock = AsyncMock()
+    setattr(mock, attr, AsyncMock(side_effect=lambda: events.append(tag)))
+    return mock
+
+
+def _failing_close(events: list[str], tag: str, message: str) -> AsyncMock:
+    """Record ``tag`` then raise, so the attempted close is observable."""
+
+    def record_and_fail() -> None:
+        events.append(tag)
+        raise RuntimeError(message)
+
+    return AsyncMock(side_effect=record_and_fail)
+
+
+def _close_stub_bundle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[list[str], asyncio.Task[object], AsyncMock, AsyncMock, AsyncMock]:
+    """Build _close_runtime_resources stubs recording close order."""
+    events: list[str] = []
+    catalog = _closable_mock(events, "catalog", "aclose")
+    monkeypatch.setattr(
+        fastapi_service,
+        "aclose_geocoding_client",
+        AsyncMock(side_effect=lambda: events.append("geocoding")),
+    )
+    session_store = _closable_mock(events, "session")
+    db = _closable_mock(events, "db")
+    connect_task = asyncio.create_task(asyncio.sleep(0))
+    return events, connect_task, catalog, session_store, db
+
+
+@pytest.mark.asyncio
+async def test_close_runtime_resources_isolates_close_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failing session-store close must not skip the db close."""
+    events, connect_task, catalog, session_store, db = _close_stub_bundle(monkeypatch)
+    session_store.close = _failing_close(events, "session", "session close failed")
+
+    with pytest.raises(RuntimeError, match="session close failed"):
+        await _close_runtime_resources(connect_task, catalog, session_store, db)
+
+    assert events == ["catalog", "geocoding", "session", "db"]
+
+
+@pytest.mark.asyncio
+async def test_close_runtime_resources_catalog_failure_still_closes_stores(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failing catalog close must not skip geocoding/session/db closes."""
+    events, connect_task, catalog, session_store, db = _close_stub_bundle(monkeypatch)
+    catalog.aclose = _failing_close(events, "catalog", "catalog close failed")
+
+    with pytest.raises(RuntimeError, match="catalog close failed"):
+        await _close_runtime_resources(connect_task, catalog, session_store, db)
+
+    assert events == ["catalog", "geocoding", "session", "db"]
+
+
+@staticmethod
+def test_lifespan_startup_does_not_block_on_db_connect() -> None:
+    """Issue #694: the pool connect runs in the background, not before yield.
+
+    Startup completes while ``connect`` is still blocked (a hang here means
+    the readiness probe regressed to waiting on the database), and shutdown
+    still awaits the connect task.
+    """
+    release = threading.Event()
+
+    async def slow_connect() -> None:
+        await asyncio.to_thread(release.wait)
+
+    db = MagicMock(spec=SupabaseClient)
+    db.connect = slow_connect
+    app = create_fastapi_app(
+        db=db,
+        session_store=InMemorySessionStore(),
+        settings=Settings(),
+    )
+    with TestClient(app) as client:
+        try:
+            response = client.get("/healthz")
+            assert response.status_code == 200
+        finally:
+            # Release the connect task before the TestClient exits and awaits
+            # it, so a failing assertion cannot hang the shutdown await.
+            release.set()
+
+
 def test_require_supabase_returns_client_when_valid(mock_db: MagicMock) -> None:
     result = _require_supabase(mock_db)
     assert result is mock_db
@@ -284,3 +380,39 @@ def test_setup_logfire_configures_without_instrumenting_when_token_not_set(
     logfire_mock.instrument_fastapi.assert_not_called()
     logfire_mock.instrument_httpx.assert_not_called()
     logfire_mock.instrument_asyncpg.assert_not_called()
+
+
+class _DoneTaskStub(asyncio.Task[object]):
+    """Minimal done-task stand-in exposing only what the callback reads."""
+
+    def __init__(self, outcome: Exception | None) -> None:
+        self._outcome = outcome
+
+    def cancelled(self) -> bool:
+        return False
+
+    def exception(self) -> Exception | None:
+        return self._outcome
+
+
+def test_log_connect_failure_warns_when_background_connect_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    warning = MagicMock()
+    monkeypatch.setattr(fastapi_service, "logger", SimpleNamespace(warning=warning))
+
+    fastapi_service._log_connect_failure(_DoneTaskStub(RuntimeError("boom")))
+
+    warning.assert_called_once()
+    assert warning.call_args.kwargs["error"].args == ("boom",)
+
+
+def test_log_connect_failure_is_silent_when_connect_succeeded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    warning = MagicMock()
+    monkeypatch.setattr(fastapi_service, "logger", SimpleNamespace(warning=warning))
+
+    fastapi_service._log_connect_failure(_DoneTaskStub(None))
+
+    warning.assert_not_called()

@@ -111,7 +111,7 @@ async def test_budget_verdict_trips_once_spend_reaches_the_ceiling() -> None:
     verdict = await anonymous_budget_verdict(
         _UsageRepoDouble(total=5.0), budget_usd=5.0, today=TODAY
     )
-    assert verdict.exhausted is True
+    assert verdict.is_exhausted is True
     assert verdict.spent_usd == 5.0
 
 
@@ -119,26 +119,26 @@ async def test_budget_verdict_allows_spend_below_the_ceiling() -> None:
     verdict = await anonymous_budget_verdict(
         _UsageRepoDouble(total=4.99), budget_usd=5.0, today=TODAY
     )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
 
 
 async def test_a_zero_budget_disables_the_breaker() -> None:
     verdict = await anonymous_budget_verdict(
         _UsageRepoDouble(total=99.0), budget_usd=0.0, today=TODAY
     )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
 
 
 async def test_a_meter_read_failure_fails_open() -> None:
     verdict = await anonymous_budget_verdict(
         _FailingRepo(total=99.0), budget_usd=5.0, today=TODAY
     )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
 
 
 async def test_budget_verdict_is_inert_without_a_usage_repo() -> None:
     verdict = await anonymous_budget_verdict(None, budget_usd=5.0, today=TODAY)
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
 
 
 class _PgFailingRepo(_UsageRepoDouble):
@@ -174,4 +174,4 @@ async def test_a_postgres_read_failure_fails_the_budget_breaker_open() -> None:
     verdict = await anonymous_budget_verdict(
         _PgFailingRepo(), budget_usd=5.0, today=TODAY
     )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False

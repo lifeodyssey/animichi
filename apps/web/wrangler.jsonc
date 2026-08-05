@@ -30,6 +30,13 @@
   "env": {
     "staging": {
       "name": "animichi-web-staging",
+      // #541 step 6: staging answers only on the staging.animichi.com Custom
+      // Domain (created by Pulumi); the workers.dev host is off because it
+      // would bypass the staging WAF gate (workers.dev is not on the zone).
+      // `preview_urls` is off for the same reason: per-version preview URLs
+      // bypass the WAF the same way.
+      "workers_dev": false,
+      "preview_urls": false,
       "vars": { "APP_ENV": "staging" }
     },
     "production": {

@@ -6,10 +6,11 @@ import { fileURLToPath } from "node:url";
 const EDGE_DIR = fileURLToPath(new URL(".", import.meta.url));
 const testFiles = readdirSync(EDGE_DIR).filter((name) => name.endsWith(".test.ts"));
 
-// Floor ratchet: 28 .test.ts files (including this one) when #558 switched the
-// runner to a glob. The floor RISES when new test files are added; it may only
-// be lowered in the same PR that legitimately deletes a test file, with review.
-const MIN_TEST_FILES = 28;
+// Floor ratchet: 27 .test.ts files (including this one) when #558 switched the
+// runner to a glob and #766 retired the auth-config drift diagnostic's test
+// file. The floor RISES when new test files are added; it may only be lowered
+// in the same PR that legitimately deletes a test file, with review.
+const MIN_TEST_FILES = 27;
 
 void test("testInventory: the worker test directory holds at least the pinned floor of test files", () => {
   assert.equal(

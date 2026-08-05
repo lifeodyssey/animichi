@@ -15,8 +15,6 @@ export interface Env {
   TURNSTILE_SECRET: string;
   ANON_ACCESS_ENABLED?: string;
   ANON_ID_SECRET?: string;
-  /** Shared bearer secret gating GET /internal/auth-config (issue #709). */
-  POST_DEPLOY_DIAG_TOKEN?: string;
   [key: string]: unknown;
 }
 
