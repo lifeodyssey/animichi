@@ -10,7 +10,6 @@ import { z } from "zod";
 import { pickCatalogErrors } from "./errors.js";
 import {
   AnimeOverview,
-  IngestResult,
   Latitude,
   Longitude,
   Origin,
@@ -107,12 +106,6 @@ export const RouteInput = z.object({
 });
 export type RouteInput = z.infer<typeof RouteInput>;
 
-/** ingest(bangumi_id) -> IngestResult */
-export const IngestInput = z.object({
-  bangumi_id: z.string(),
-});
-export type IngestInput = z.infer<typeof IngestInput>;
-
 /** animeOverview(bangumi_id) -> AnimeOverview (public, anonymous, read-only GET) */
 export const AnimeOverviewInput = z.object({
   bangumi_id: z.string().regex(/^\d+$/),
@@ -161,11 +154,6 @@ export const catalogContract = {
     .input(RouteInput)
     .errors(pickCatalogErrors(["ROUTE_TOO_MANY_CLUSTERS", "ROUTE_TOO_MANY_POINTS"]))
     .output(Route),
-  ingest: oc
-    .route({ method: "POST", path: "/catalog/ingest", summary: "Ingest a not-yet-cataloged work on demand by bangumi id" })
-    .input(IngestInput)
-    .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
-    .output(IngestResult),
   animeOverview: oc
     .route({
       method: "GET",

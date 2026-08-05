@@ -9,9 +9,8 @@ import { route as routeHandler } from "./api/route";
 import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
 import { animeOverview as animeOverviewHandler, AnimeOverviewNotFoundError } from "./api/anime-overview";
 import type { CatalogDb, NeonSql } from "./db/client";
-import { ingestWork, type IngestResult as OrchestratorResult } from "./ingest/orchestrator";
 import { routeTooManyPoints, workNotFound } from "./lib/errors";
-import type { IngestResult, Origin } from "./types";
+import type { Origin } from "./types";
 
 /** Per-request dependencies injected by the Hono boundary in `index.ts`. */
 export interface CatalogContext {
@@ -72,24 +71,9 @@ const route = os.route.handler(async ({ input, context }) => {
   return routeHandler(context.db, input);
 });
 
-const ingest = os.ingest.handler(async ({ input, context }) =>
-  toIngestResult(
-    await ingestWork(context.db, input.bangumi_id, { fetchImpl: context.fetchImpl }),
-  ),
-);
-
 const animeOverview = os.animeOverview.handler(async ({ input, context }) =>
   callAnimeOverview(context.db, input),
 );
-
-/** Map the orchestrator union (camelCase) onto the snake_case wire shape. */
-function toIngestResult(result: OrchestratorResult): IngestResult {
-  if (result.status === "ingested") {
-    return { status: "ingested", version: result.version, point_count: result.pointCount };
-  }
-  if (result.status === "in_progress") return { status: "in_progress" };
-  return { status: result.status, reason: result.reason };
-}
 
 /** Run `spots`, translating a no-points work into an oRPC 404 (else 500). */
 async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Origin }) {
@@ -119,7 +103,6 @@ export const catalogRouter = {
   nearby,
   geocode,
   route,
-  ingest,
   animeOverview,
 };
 export type CatalogRouter = typeof catalogRouter;

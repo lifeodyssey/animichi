@@ -20,7 +20,6 @@ import type {
   TimedStop as ContractTimedStop,
   TransitLeg as ContractTransitLeg,
   TimedItinerary as ContractTimedItinerary,
-  IngestResult as ContractIngestResult,
   Route as ContractRoute,
   Pacing as ContractPacing,
   Origin as ContractOrigin,
@@ -38,7 +37,6 @@ import type {
   GeocodeResult as ContractGeocodeResult,
   SearchResult as ContractSearchResult,
 } from "../../../packages/contract/src/contract";
-import type { CatalogContract } from "../../../packages/contract/src/contract";
 
 import type {
   CatalogErrorCode as ContractCatalogErrorCode,
@@ -55,7 +53,6 @@ import type {
   TimedStop as LocalTimedStop,
   TransitLeg as LocalTransitLeg,
   TimedItinerary as LocalTimedItinerary,
-  IngestResult as LocalIngestResult,
   Route as LocalRoute,
   Pacing as LocalPacing,
   Origin as LocalOrigin,
@@ -89,14 +86,6 @@ type LocalErrorSpec = {
   [Code in keyof LocalCatalogErrors]: Pick<LocalCatalogErrors[Code], "status" | "category" | "message">;
 };
 
-type IngestErrorMap = CatalogContract["ingest"]["~orpc"]["errorMap"];
-interface ExpectedIngestErrors {
-  UPSTREAM_UNAVAILABLE: Pick<
-    ContractCatalogErrorDefs["UPSTREAM_UNAVAILABLE"],
-    "status" | "message" | "data"
-  >;
-}
-
 // --- PilgrimagePoint ---
 const _pp_a: ContractPilgrimagePoint = null as unknown as ContractPilgrimagePoint;
 const _pp_b: LocalPilgrimagePoint = null as unknown as ContractPilgrimagePoint;
@@ -114,10 +103,6 @@ const _tl_attr_b: LocalTransitLeg["attribution"] = null as unknown as ContractTr
 // --- TimedItinerary ---
 const _ti_a: ContractTimedItinerary = null as unknown as ContractTimedItinerary;
 const _ti_b: LocalTimedItinerary = null as unknown as ContractTimedItinerary;
-
-// --- IngestResult ---
-const _ir_a: ContractIngestResult = null as unknown as ContractIngestResult;
-const _ir_b: LocalIngestResult = null as unknown as ContractIngestResult;
 
 // --- Route ---
 const _r_a: ContractRoute = null as unknown as LocalRoute;
@@ -168,8 +153,6 @@ const _ecat_a: ContractErrorCategory = null as unknown as LocalErrorCategory;
 const _ecat_b: LocalErrorCategory = null as unknown as ContractErrorCategory;
 const _err_spec_a: ContractErrorSpec = null as unknown as LocalErrorSpec;
 const _err_spec_b: LocalErrorSpec = null as unknown as ContractErrorSpec;
-const _ingest_err_a: IngestErrorMap = null as unknown as ExpectedIngestErrors;
-const _ingest_err_b: ExpectedIngestErrors = null as unknown as IngestErrorMap;
 
 const _rtmc_a: ContractRouteTooManyClustersData = null as unknown as LocalRouteTooManyClustersData;
 const _rtmc_b: LocalRouteTooManyClustersData = null as unknown as ContractRouteTooManyClustersData;
@@ -182,13 +165,12 @@ const _uu_b: LocalUpstreamUnavailableData = null as unknown as ContractUpstreamU
 
 // Silence "declared but never read" errors from strict tsc.
 void _pp_a; void _pp_b; void _ts_a; void _ts_b; void _tl_a; void _tl_b; void _tl_attr_a; void _tl_attr_b; void _ti_a; void _ti_b;
-void _ir_a; void _ir_b; void _r_a; void _r_b; void _pac_a; void _pac_b; void _orig_a; void _orig_b;
+void _r_a; void _r_b; void _pac_a; void _pac_b; void _orig_a; void _orig_b;
 void _sr_a; void _sr_b;
 void _ac_a; void _ac_b; void _ro_a; void _ro_b;
 void _aoc_a; void _aoc_b; void _asc_a; void _asc_b; void _asr_a; void _asr_b; void _aov_a; void _aov_b;
 void _gc_a; void _gc_b; void _gc_radius_a; void _gc_radius_b; void _gi_a; void _gi_b; void _gr_a; void _gr_b;
 void _ecc_a; void _ecc_b; void _ecat_a; void _ecat_b; void _err_spec_a; void _err_spec_b;
-void _ingest_err_a; void _ingest_err_b;
 void _rtmc_a; void _rtmc_b; void _rtmp_a; void _rtmp_b; void _wnf_a; void _wnf_b; void _uu_a; void _uu_b;
 
 import { describe, it, expect } from "vitest";
