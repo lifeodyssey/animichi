@@ -1,14 +1,23 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import type { ReactElement } from "react";
-import { ComingSoonPopup, type ComingSoonPopupProps } from "./ComingSoonPopup";
+import { useEffect } from "react";
+import type { ReactElement, ReactNode } from "react";
+import { ComingSoonPopup } from "./ComingSoonPopup";
 
-/** Pin navigator.languages so the LocaleProvider decorator detects the story's locale. */
-function withLanguages(langs: string[]): (props: ComingSoonPopupProps) => ReactElement {
-  return (props) => {
+/** Pins navigator.languages for the story's lifetime, restoring the original descriptor on unmount. */
+function LocalePin({ langs, children }: { langs: string[]; children: ReactNode }): ReactElement {
+  useEffect(() => {
+    const original = Object.getOwnPropertyDescriptor(navigator, "languages");
     Object.defineProperty(navigator, "languages", { value: langs, configurable: true });
-    return <ComingSoonPopup {...props} />;
-  };
+    return () => {
+      if (original) Object.defineProperty(navigator, "languages", original);
+    };
+  }, [langs]);
+  return <>{children}</>;
+}
+
+function withLanguages(langs: string[]): Decorator {
+  return (Story) => <LocalePin langs={langs}><Story /></LocalePin>;
 }
 
 const meta = { title: "Landing/ComingSoonPopup", component: ComingSoonPopup, parameters: { layout: "centered" } } satisfies Meta<typeof ComingSoonPopup>;
@@ -17,15 +26,15 @@ type Story = StoryObj<typeof meta>;
 
 export const Japanese: Story = {
   args: { open: true, onClose: fn() },
-  render: withLanguages(["ja-JP"]),
+  decorators: [withLanguages(["ja-JP"])],
 };
 
 export const Chinese: Story = {
   args: { open: true, onClose: fn() },
-  render: withLanguages(["zh-CN"]),
+  decorators: [withLanguages(["zh-CN"])],
 };
 
 export const English: Story = {
   args: { open: true, onClose: fn() },
-  render: withLanguages(["en-US"]),
+  decorators: [withLanguages(["en-US"])],
 };
