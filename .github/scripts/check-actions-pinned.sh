@@ -17,9 +17,11 @@
 # 1. Require SHA pinning at repo level (Settings > Actions > General > "Require
 #    SHA-pinned actions", or the API). Measured shape (design-CI-1-pipeline-
 #    refactor.md): GET /actions/permissions returns sha_pinning_required:false
-#    today. The operator must flip it:
+#    today. The operator must flip it — note the PUT needs the full permissions
+#    object: `enabled` is a required boolean, and `-F` (not `-f`) sends typed
+#    booleans instead of strings, which the API rejects:
 #      gh api -X PUT repos/lifeodyssey/animichi/actions/permissions \
-#        -f sha_pinning_required=true
+#        -F enabled=true -F allowed_actions=all -F sha_pinning_required=true
 #    then verify: gh api repos/lifeodyssey/animichi/actions/permissions
 #    (expected: sha_pinning_required=true). The card's "workflow-sha-pinning
 #    style endpoint" phrasing is the Settings checkbox; if the PUT above 404s,
