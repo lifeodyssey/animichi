@@ -94,8 +94,8 @@ importers:
         specifier: ^7.0.47
         version: 7.0.47(zod@4.4.3)
       animal-island-ui-tailwind:
-        specifier: ^1.0.16
-        version: 1.0.16(e7c774c7a5a9a33f5ea432ce9eba998a)
+        specifier: ^1.4.1
+        version: 1.4.1(e7c774c7a5a9a33f5ea432ce9eba998a)
       better-auth:
         specifier: ^1.6.25
         version: 1.6.25(@cloudflare/workers-types@5.20260727.1)(@opentelemetry/api@1.9.1)(@tanstack/react-start@1.168.32(esbuild@0.28.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.1.5)(rollup@4.62.2)(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)))(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260727.1)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(kysely@0.29.4)(pg@8.22.0))(next@16.2.12(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.0)(@types/node@26.1.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(pg@8.22.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(vitest@4.1.10)
@@ -879,17 +879,17 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@fontsource/noto-sans-sc@5.2.9':
-    resolution: {integrity: sha512-bTUIWGBgJDpwi5qAr+x0/lcgv80IHTB9vl6s2f6EymZEa7qYV99yNRBZuKFT+SYDKVunZrjCEhWtpxqmbXWl5Q==}
+  '@fontsource/noto-sans-sc@5.3.0':
+    resolution: {integrity: sha512-HeqIlGm0+ohOKxZLuHj1qW6r6avHH0OWdKERAcSDI0RQ+MXrteuLKA+M+5eOA8rYy0MFvOR5AT0fQo2rUkye0Q==}
 
   '@fontsource/noto-serif-jp@5.3.0':
     resolution: {integrity: sha512-7dRFleN7F+uuJdcMW/fJmnl6KLZSn9dHCjAVTaWjTcT4hg5V4ECbi2qgIamI6rS/+yTt16KDLU+9aJi74r6ZxQ==}
 
-  '@fontsource/nunito@5.2.7':
-    resolution: {integrity: sha512-pmtBq0H9ex9nk+RtJYEJOD9pag393iHETnl/PVKleF4i06cd0ttngK5ZCTgYb5eOqR3Xdlrjtev8m7bmgYprew==}
+  '@fontsource/nunito@5.3.0':
+    resolution: {integrity: sha512-vw9TaTQJ/zpEpKrsODuPmOvaVjXgdda6B+xXA4YqjrdeJ62MLgVoDerdRXFQHyBnSCt2yQ2nHKCHPP/Pv7Xq4Q==}
 
-  '@fontsource/zen-maru-gothic@5.2.8':
-    resolution: {integrity: sha512-6RkH33+rgEJy1hkUdDAf+3PyQ7oUjX3vj7cekmfx/bT/9BEPd07FqrjcGBQDe4uWmUebEKuIZep3phDjsnJ6vA==}
+  '@fontsource/zen-maru-gothic@5.3.0':
+    resolution: {integrity: sha512-BuigfmzszMR3AOyAMSocQZ9bEq9o5sGCMOC/laI4TMpba1/KB1jxsdNFXWMUz02wVPd4vAVuMhsV00AQizFj3w==}
 
   '@formatjs/ecma402-abstract@2.3.6':
     resolution: {integrity: sha512-HJnTFeRM2kVFVr5gr5kH1XP6K0JcJtE7Lzvtr3FS/so5f1kpsqqqxy5JF+FRaO6H2qmcMfAUIox7AJteieRtVw==}
@@ -3353,8 +3353,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  animal-island-ui-tailwind@1.0.16:
-    resolution: {integrity: sha512-e8VJVAbgHRiYuX6Du4l80ZgT2IEaaiqryyobTKY14qQTuwfkJBLevJMBi5tWH/TNlCWiis4zwCEdToY/6Xc6oQ==}
+  animal-island-ui-tailwind@1.4.1:
+    resolution: {integrity: sha512-unceci4gHe6DVDiGmt2T50WxQoOwOn/RhOwr+K1hq/4cC57L27FPVATgmuNpSYxNbSVx9lxASKuSf9Kl7EwpUw==}
     peerDependencies:
       '@radix-ui/react-accordion': ^1.2.0
       '@radix-ui/react-checkbox': ^1.3.0
@@ -3559,8 +3559,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  baseline-browser-mapping@2.11.11:
-    resolution: {integrity: sha512-/yImnXwyTvgMkhgekLHok/Rx5vO6E0BmStWlSqKWMVm2a2ITuZ1Tn+9bgLS+gZRdZmWtd8nxuhHpdmCUOWsTQQ==}
+  baseline-browser-mapping@2.11.12:
+    resolution: {integrity: sha512-r7WnVImvVCeFpf2DOXfy41aPWzeNg3H/A2X4dKmy1QL0MSyyk/e7z8ihJ3N6Nn2PsdhkVlqnEfnUE4a05P2aTA==}
     engines: {node: '>=6.0.0'}
     hasBin: true
 
@@ -7261,13 +7261,13 @@ snapshots:
   '@floating-ui/utils@0.2.12':
     optional: true
 
-  '@fontsource/noto-sans-sc@5.2.9': {}
+  '@fontsource/noto-sans-sc@5.3.0': {}
 
   '@fontsource/noto-serif-jp@5.3.0': {}
 
-  '@fontsource/nunito@5.2.7': {}
+  '@fontsource/nunito@5.3.0': {}
 
-  '@fontsource/zen-maru-gothic@5.2.8': {}
+  '@fontsource/zen-maru-gothic@5.3.0': {}
 
   '@formatjs/ecma402-abstract@2.3.6':
     dependencies:
@@ -9604,11 +9604,11 @@ snapshots:
       '@ai-sdk/provider-utils': 5.0.18(zod@4.4.3)
       zod: 4.4.3
 
-  animal-island-ui-tailwind@1.0.16(e7c774c7a5a9a33f5ea432ce9eba998a):
+  animal-island-ui-tailwind@1.4.1(e7c774c7a5a9a33f5ea432ce9eba998a):
     dependencies:
-      '@fontsource/noto-sans-sc': 5.2.9
-      '@fontsource/nunito': 5.2.7
-      '@fontsource/zen-maru-gothic': 5.2.8
+      '@fontsource/noto-sans-sc': 5.3.0
+      '@fontsource/nunito': 5.3.0
+      '@fontsource/zen-maru-gothic': 5.3.0
       class-variance-authority: 0.7.1
       clsx: 2.1.1
       react: 19.2.8
@@ -9775,7 +9775,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.43: {}
 
-  baseline-browser-mapping@2.11.11:
+  baseline-browser-mapping@2.11.12:
     optional: true
 
   basic-ftp@5.3.1: {}
@@ -11321,7 +11321,7 @@ snapshots:
     dependencies:
       '@next/env': 16.2.12
       '@swc/helpers': 0.5.15
-      baseline-browser-mapping: 2.11.11
+      baseline-browser-mapping: 2.11.12
       caniuse-lite: 1.0.30001806
       postcss: 8.5.25
       react: 19.2.8
