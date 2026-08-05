@@ -43,8 +43,8 @@
   --color-gold-fg: #6b5200;
   --shadow-3d: #bdaea0;
   --shadow-press: 0 5px 0 0 var(--shadow-3d);
-  --app-font-display: "Noto Serif JP", "Hiragino Mincho ProN", Georgia, serif;
-  --app-font-body: "Nunito", "Zen Maru Gothic", "Noto Sans SC", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
+  --app-font-display: "Noto Serif JP", "Noto Serif JP fallback", "Hiragino Mincho ProN", Georgia, serif;
+  --app-font-body: "Nunito", "Nunito fallback", "Zen Maru Gothic", "Zen Maru Gothic fallback", "Noto Sans SC", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
   --app-font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
 }
 

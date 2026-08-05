@@ -55,6 +55,88 @@
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
 
+/* ── Metric-aligned fallbacks (C8: landing CLS) ─────────────────────────────
+   font-display: swap renders the first local font until the webfont arrives;
+   if their metrics differ, line boxes and wrap points change and the page
+   shifts. Each face below pins the pre-load render to the webfont's metrics
+   (size-adjust/ascent-override/descent-override per css-fonts-4 §5.9, same
+   math as fontaine/@capsizecss/unpack) so the swap is invisible.
+
+   Values measured 2026-08-05 with @capsizecss/unpack 3.1.0 + fontaine 4.4.2
+   against apps/web/public/fonts/*.woff2 and macOS system faces (Arial.ttf,
+   Hiragino Sans GB.ttc, ヒラギノ明朝 ProN.ttc):
+     Nunito 700            asc 1011 / desc 353 / gap 0 / xAvg(latin) 470
+     Nunito 500            asc 1011 / desc 353 / gap 0 / xAvg(latin) 456
+     Arial (fontdata)      asc 1854 / desc 434 / gap 67 / 2048 / xAvg 913
+     Zen Maru Gothic 700   asc 1160 / desc 288 / gap 0 / xAvg(latin) 447
+     Zen Maru Gothic 500   asc 1160 / desc 288 / gap 0 / xAvg(latin) 445
+     Noto Serif JP 700     asc 1151 / desc 286 / gap 0 / xAvg(latin) 514
+   size-adjust for the CJK pairs is 100% by design: the first-screen text is
+   Japanese and both fonts advance CJK glyphs at a full 1000/em — the
+   capsizecss "latin" xAvg would mis-scale the actual text. Hiragino Sans /
+   Mincho ProN share 880/-120/500 native boxes; on Linux CI the local() miss
+   skips these faces and system Noto Sans CJK JP (1160/288/0) matches Zen
+   Maru natively. Nunito/Arial use the latin-subset average (Nunito 700:
+   size 470/445.8, overrides 1.011/1.0543; Nunito 500: size 456/445.8,
+   overrides 1.011/1.0229).
+   ───────────────────────────────────────────────────────────────────────── */
+
+@font-face {
+  font-family: "Nunito fallback";
+  font-style: normal;
+  font-weight: 500;
+  src: local("Arial");
+  size-adjust: 102.29%;
+  ascent-override: 98.84%;
+  descent-override: 34.51%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Nunito fallback";
+  font-style: normal;
+  font-weight: 700;
+  src: local("Arial");
+  size-adjust: 105.43%;
+  ascent-override: 95.90%;
+  descent-override: 33.48%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Zen Maru Gothic fallback";
+  font-style: normal;
+  font-weight: 500;
+  src: local("Hiragino Sans");
+  size-adjust: 100%;
+  ascent-override: 116%;
+  descent-override: 28.8%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Zen Maru Gothic fallback";
+  font-style: normal;
+  font-weight: 700;
+  src: local("Hiragino Sans");
+  size-adjust: 100%;
+  ascent-override: 116%;
+  descent-override: 28.8%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Noto Serif JP fallback";
+  font-style: normal;
+  font-weight: 700;
+  src: local("Hiragino Mincho ProN");
+  size-adjust: 100%;
+  ascent-override: 115.1%;
+  descent-override: 28.6%;
+  line-gap-override: 0%;
+}
+
+
 @font-face {
   font-family: "Zen Maru Gothic";
   font-style: normal;
