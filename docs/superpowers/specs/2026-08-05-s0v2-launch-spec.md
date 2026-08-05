@@ -108,6 +108,19 @@
 56. As the owner, I want 重写前有可恢复性实证的全量备份、重写后 CI/部署/覆盖率在新 SHA 上全绿, so that 这次不可逆操作有回路。
 57. As a developer, I want 重写的连带(ruleset 先拆后建、codecov 基线重置、文档内 commit 链接修复、worktree 重建)有 checklist 逐项执行, so that 不炸出隐性断链。(注:旧 SHA 在 GitHub 的 PR refs 中仍可达,本轨是表述性清洗而非密码学清除——已知且接受。)
 
+### 代码结构收口(Track H,owner 终核纳入)
+
+59a. As a developer, I want Python agent 代码迁入标准 `src/` 布局, so that 包边界、工具链默认与生态惯例对齐(#651)。
+59b. As a developer, I want 数据库与会话面收敛为显式类型(端口协议 + 封套模型,消灭 dict 混装), so that 跨层契约由类型系统守卫(#654)。
+59c. As a developer, I want 1-10-50 在全线以 lint 强制、存量破线文件完成拆分, so that 结构约束从「新代码约定」变成「全仓不变量」(#655)。
+
+### Auth cutover(Track I,owner 终核纳入)
+
+59d. As a 用户, I want 登录走 Neon Auth(Better Auth)全链(magic link→JWT→edge 验证→用户数据), so that 认证栈收敛到目标架构(#561)。
+59e. As the owner, I want edge 双 issuer 验证的开关(NEON_AUTH_ENABLED)在 staging 翻转并验证后再 prod, so that 切换可灰度、可回退。
+59f. As a developer, I want 本地开发与 E2E 的 auth 依赖同步迁移(替代 Supabase appliance 的路径), so that 切换后 `make dev-local`/`make e2e` 依然一条命令能跑。
+59g. As the owner, I want Supabase 面(config/functions/templates/migrations)在验证期后退役并从仓库清出, so that 不再维护两套 auth 基建。
+
 ### 文档与交接
 
 58. As the owner, I want 一份 integration 文档(env/secrets 三级分布、域名拓扑、数据链路、部署链、本地开发)作为单一事实来源, so that 任何新会话/新 agent 不用考古就能上手。
@@ -178,10 +191,15 @@
 
 **Sequencing(排波依据,/to-tickets 按此拆)**
 - spec 审核期即可先行:Track 0(止血)、Track A(大扫除无争议项)。
-- 签核后并行五轨:B(CI)∥ C(landing→prod)∥ D(测试+数据)∥ F(agent 体系)∥ G(命名)。
+- 签核后并行:B(CI)∥ C(landing→prod)∥ D(测试+数据)∥ F(agent 体系)∥ G(命名)∥ I(auth cutover)。
+- **Track H(结构收口)与 G(命名)同波协同**:布局迁移(#651)按命名公约执行,一次 churn——
+  G 公约先落,H 迁移紧随,#655 lint 强制最后压轴(存量已迁完才可全线开闸)。
+- **Track I(auth)**:独立线,风险高——staging 全链验证(GOAL A ②换 Neon Auth 判据)→
+  local-dev/E2E 依赖迁移 → prod 翻转 → Supabase 面退役(退役并入 Track A 的删除纪律);
+  I 的 staging 翻转先于 C 的 prod 发布为佳(prod 首发即目标 auth 栈,避免上线后再切)。
 - 轨内硬依赖:C 的域名/生产发布依赖「landing 修复 + 视觉收敛 + showcase 开关」全部就绪;
   B 的九包复制依赖双车道收敛先行;D 的 cron 依赖 ingest 收口与退避;G 的批量重命名依赖公约与分级清单。
-- Track E(历史)终局单独窗口:其余全部关账、0 open PR 之后。
+- Track E(历史)终局单独窗口:其余全部关账(含 H/I)、0 open PR 之后。
 - Track 0.1 的实现归属:staging 免挑战规则由 **staging stack** 持有(gate ruleset 同款先例)。
 
 **过程规约**
@@ -213,10 +231,10 @@
 - chat/photo-search/Walk 在 **prod** 开放(staging 全功能继续;GOAL A 五条真实走通验证在 staging 完成并附证据)
 - Graduation 转场动画、Walk Mode、任何 S1+ 功能
 - 引入新的编排工具(只做任务单格式与首个任务原子)
-- `src/animichi` 布局迁移、Python 类型收敛、1-10-50 存量拆分(iter6 Track D 卡:#651/#654/#655)
-- Supabase→Neon Auth cutover(#561)
 - 上游数据的删除同步(delete-not-in-set)、聚类落库、城市回填(挂账,不进本轮)
 - 密码学意义上的历史清除(GitHub 侧旧 SHA 经 PR refs 仍可达,接受)
+
+(owner 终核修订 2026-08-05:原列此处的代码结构三卡与 auth cutover **移入范围**,见 Track H/I。)
 
 ## Further Notes
 
