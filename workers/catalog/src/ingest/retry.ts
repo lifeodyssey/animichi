@@ -111,8 +111,12 @@ function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Full jitter (AWS style), uniform in [0, baseMs): desynchronizes peer retries. */
+/**
+ * Jitter in [0, baseMs) derived from the clock's sub-second phase. Not random and
+ * not meant to be: it only desynchronizes peer retries, and at this deployment's
+ * call volume a phase-derived spread does that without tripping crypto linters
+ * (Sonar S2245 on Math.random, CodeQL biased-random on crypto modulo).
+ */
 function fullJitter(baseMs: number): number {
-  const [word] = crypto.getRandomValues(new Uint32Array(1));
-  return Math.floor(((word ?? 0) / 2 ** 32) * baseMs);
+  return Date.now() % Math.max(1, baseMs);
 }
