@@ -74,6 +74,9 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - name: Build + output-layout integration test
+        env:
+          # showcase.ts fails closed at module init — CI builds are never showcase.
+          VITE_SHOWCASE_MODE: "false"
         run: pnpm --filter web test:integration
       - name: Package build artifact
         run: |

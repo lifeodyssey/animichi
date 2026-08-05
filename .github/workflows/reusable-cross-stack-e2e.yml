@@ -31,6 +31,9 @@ jobs:
           # not because of a code bug but because the emitted bundle never got
           # a site key to embed.
           VITE_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
+          # showcase.ts fails closed at module init — every build path must
+          # declare the mode explicitly; CI builds are never showcase.
+          VITE_SHOWCASE_MODE: "false"
         run: pnpm --filter web test:integration
 
       - name: Resolve Playwright version

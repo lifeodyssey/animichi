@@ -90,5 +90,12 @@
     "contact": "隐私问题或删除请求",
     "contact_link": "在 GitHub 提交 Issue",
     "back_home": "返回 Animichi"
+  },
+  "coming_soon": {
+    "badge": "准备中",
+    "title": "正在准备中",
+    "body": "这个功能正在准备中。准备好了就会马上开放，请再稍等一小会儿哦。",
+    "action": "知道了",
+    "close": "关闭"
   }
 }
