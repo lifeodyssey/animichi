@@ -1,16 +1,23 @@
 /**
  * @vitest-environment jsdom
  */
-import { act, cleanup, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LandingPage } from "../../src/components/landing/LandingPage";
+import { sendMagicLink } from "../../src/lib/auth/neonAuth";
 import { renderWithLocale, setLanguages } from "./_i18n";
+
+vi.mock("../../src/lib/auth/neonAuth", () => ({ sendMagicLink: vi.fn() }));
+const send = vi.mocked(sendMagicLink);
 
 beforeEach(() => {
   setLanguages(["ja-JP"]);
   window.localStorage.clear();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
 
 describe("LandingPage", () => {
   it("renders the journal eyebrow, serif headline, and search CTA", () => {
@@ -71,5 +78,52 @@ describe("LandingPage i18n", () => {
     expect(screen.getByText("Anime Travel Journal")).toBeTruthy();
     expect(screen.queryByText("巡礼をはじめる")).toBeNull();
     expect(screen.queryByText("アニメ旅行ジャーナル")).toBeNull();
+  });
+});
+
+/** Journey §1-A②: landing search keeps the query so post-login lands on
+ * `/chat?q=…` (A2 optimistic render, no retyping). */
+describe("LandingPage hero query preservation", () => {
+  function submitLoginFromModal(): void {
+    fireEvent.change(screen.getByLabelText("メールアドレス"), { target: { value: "fan@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "ログインリンクを送信" }));
+  }
+
+  it("carries a submitted query through login as a /chat?q= return target", async () => {
+    send.mockResolvedValue("sent");
+    renderWithLocale(<LandingPage />);
+    fireEvent.change(screen.getByRole("textbox", { name: "アニメ・駅・都市を入力" }), { target: { value: "君の名は。" } });
+    act(() => { screen.getAllByRole("button", { name: "巡礼をはじめる" })[0]?.click(); });
+    submitLoginFromModal();
+    await waitFor(() => { expect(send).toHaveBeenCalled(); });
+    const encodedTarget = encodeURIComponent(`/chat?q=${encodeURIComponent("君の名は。")}`);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      callbackURL: `${window.location.origin}/auth/callback?next=${encodedTarget}`,
+    }));
+  });
+
+  it("sends no return target when the hero search is submitted empty", async () => {
+    send.mockResolvedValue("sent");
+    renderWithLocale(<LandingPage />);
+    act(() => { screen.getAllByRole("button", { name: "巡礼をはじめる" })[0]?.click(); });
+    submitLoginFromModal();
+    await waitFor(() => { expect(send).toHaveBeenCalled(); });
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      callbackURL: `${window.location.origin}/auth/callback`,
+    }));
+  });
+
+  it("does not carry a stale query after the plain login button is used", async () => {
+    send.mockResolvedValue("sent");
+    renderWithLocale(<LandingPage />);
+    fireEvent.change(screen.getByRole("textbox", { name: "アニメ・駅・都市を入力" }), { target: { value: "君の名は。" } });
+    act(() => { screen.getAllByRole("button", { name: "巡礼をはじめる" })[0]?.click(); });
+    act(() => { screen.getByRole("button", { name: "閉じる" }).click(); });
+    act(() => { screen.getAllByRole("button", { name: "ログイン" })[0]?.click(); });
+    submitLoginFromModal();
+    await waitFor(() => { expect(send).toHaveBeenCalled(); });
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      callbackURL: `${window.location.origin}/auth/callback`,
+    }));
   });
 });
