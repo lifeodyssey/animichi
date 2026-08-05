@@ -94,7 +94,7 @@ def build_search_state(
     *,
     kind: Literal["bangumi", "nearby"],
     anime_id: str | None = None,
-    partial: bool = False,
+    is_partial: bool = False,
     locale: str,
 ) -> SearchPayloadState:
     """Adapt catalog points into the sole typed response carrier."""
@@ -114,7 +114,7 @@ def build_search_state(
         metadata=SearchMetadataState.model_validate(metadata) if metadata else None,
         nearby_groups=[NearbyGroupState.model_validate(group) for group in groups],
         anime_id=anime_id,
-        partial=partial,
+        partial=is_partial,
     )
 
 

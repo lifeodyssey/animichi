@@ -65,11 +65,11 @@ def case_assertion_failures(expectation: TrajectoryExpectation) -> list[str]:
 
 
 def print_trajectory_assertions(
-    expectations: Sequence[TrajectoryExpectation], *, enforced: bool
+    expectations: Sequence[TrajectoryExpectation], *, is_enforced: bool
 ) -> None:
     """Print the assertion verdict even when it is report-only."""
     failures = trajectory_assertion_failures(expectations)
-    mode = "enforced" if enforced else "report-only"
+    mode = "enforced" if is_enforced else "report-only"
     print(f"\nTrajectory assertions ({mode}): {len(failures)} violation(s)")
     for failure in failures:
         print(f"  - {failure}")

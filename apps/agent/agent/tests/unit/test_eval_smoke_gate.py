@@ -52,7 +52,7 @@ def test_smoke_gate_passes_on_clean_capped_report(
     monkeypatch.setenv("EVAL_SMOKE", "1")
     clean = _gate_input(trajectory=TrajectoryCase("ok", requests=5))
 
-    failures = _run_gate(clean, _LAYER, tmp_path, capped=True)
+    failures = _run_gate(clean, _LAYER, tmp_path, is_capped=True)
 
     assert failures == []
     assert _baseline_untouched(tmp_path)
@@ -66,7 +66,7 @@ def test_smoke_gate_fails_on_errored_case(
         errors=(_AGENT_ERROR,), trajectory=TrajectoryCase("e0", requests=5)
     )
 
-    failures = _run_gate(errored, _LAYER, tmp_path, capped=True)
+    failures = _run_gate(errored, _LAYER, tmp_path, is_capped=True)
 
     assert failures is not None
     assert any("1/1 cases errored inside the agent" in f for f in failures)
@@ -85,7 +85,7 @@ def test_smoke_gate_stays_green_on_a_provider_transport_error(
         case_count=80,
     )
 
-    failures = _run_gate(blipped, _LAYER, tmp_path, capped=True)
+    failures = _run_gate(blipped, _LAYER, tmp_path, is_capped=True)
 
     assert failures == []
     assert _baseline_untouched(tmp_path)
@@ -97,7 +97,7 @@ def test_smoke_gate_fails_on_direct_gate_violation(
     monkeypatch.setenv("EVAL_SMOKE", "1")
     thrashing = _gate_input(trajectory=TrajectoryCase("thrash", requests=13))
 
-    failures = _run_gate(thrashing, _LAYER, tmp_path, capped=True)
+    failures = _run_gate(thrashing, _LAYER, tmp_path, is_capped=True)
 
     assert failures is not None and any("requests=13" in f for f in failures)
     assert _baseline_untouched(tmp_path)
@@ -111,7 +111,7 @@ def test_capped_report_stays_report_only_without_eval_smoke(
         errors=(_AGENT_ERROR,), trajectory=TrajectoryCase("thrash", requests=13)
     )
 
-    failures = _run_gate(broken, _LAYER, tmp_path, capped=True)
+    failures = _run_gate(broken, _LAYER, tmp_path, is_capped=True)
 
     assert failures == []
     assert _baseline_untouched(tmp_path)
@@ -124,6 +124,6 @@ def test_smoke_without_a_capped_run_fails_loudly_instead_of_silently_ignoring(
     clean = _gate_input(trajectory=TrajectoryCase("ok", requests=5))
 
     with pytest.raises(SmokeRequiresCappedRun, match="requires a capped run"):
-        _run_gate(clean, _LAYER, tmp_path, capped=False)
+        _run_gate(clean, _LAYER, tmp_path, is_capped=False)
 
     assert _baseline_untouched(tmp_path)

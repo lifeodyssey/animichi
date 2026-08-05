@@ -177,17 +177,17 @@ def _fetch_steps(
 
 def _server_step(
     tool: str,
-    success: bool,
+    is_success: bool,
     data: dict[str, object],
     provenance: StepProvenance | None = None,
 ) -> StepRecord:
     return StepRecord(
         tool=tool,
-        success=success,
+        is_success=is_success,
         params=data,
         data=data,
         provenance=provenance,
-        error=None if success else "Catalog fetch failed",
+        error=None if is_success else "Catalog fetch failed",
         model_initiated=False,
     )
 

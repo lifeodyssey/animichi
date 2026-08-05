@@ -41,7 +41,7 @@ def _seed_current_search(deps: RuntimeDeps) -> None:
     deps.steps.append(
         StepRecord(
             tool="search_bangumi",
-            success=True,
+            is_success=True,
             params={"bangumi_id": "1"},
             provenance=ProducedSearch(outcome="ok", result_ref=ref),
         )
