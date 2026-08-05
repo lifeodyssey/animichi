@@ -2,10 +2,15 @@
 # Supply-chain pinning gate (S0-v2 B3): every `uses:` in
 # .github/workflows/*.yml|*.yaml and .github/actions/**/*.yml|*.yaml must
 # reference a full 40-char commit SHA. Local `./` action/workflow paths are
-# allowed; `docker://` images cannot be SHA-pinned and are allowed only with a
-# trailing `#` comment. `uses:` is recognized only at the start of a YAML
-# mapping entry (anchored match), so `run:` scripts merely containing the text
-# and commented-out lines (e.g. CodeQL's `# uses: actions/setup-example@v1`
+# allowed. `docker://` images must be digest-pinned
+# (`docker://image@sha256:<64-hex>`); an exemption exists only for images that
+# genuinely cannot be digest-pinned, in which case the trailing `#` comment
+# must state the reason (it must contain both "cannot" and "digest"). This
+# repo currently has no docker:// uses at all. `uses:` is recognized only at
+# the start of a YAML mapping entry (anchored match) and only outside block
+# scalars: `run: |`/`run: >` literal and folded blocks are skipped by
+# tracking their indentation, so workflow snippets echoed inside scripts and
+# commented-out lines (e.g. CodeQL's `# uses: actions/setup-example@v1`
 # example) are ignored by the same rule.
 #
 # ── Operator toggles — merge-PR body MUST instruct, never do them from code ──
@@ -68,6 +73,27 @@ line_has_trailing_comment() {
   return 1
 }
 
+# Prints the text after the trailing comment's '#' (leading whitespace and
+# the '#' itself stripped). Only call when line_has_trailing_comment passed.
+trailing_comment() {
+  local line="$1" ref="$2"
+  printf '%s' "${line#*"${ref}"}" | sed 's/^[[:space:]]*#//'
+}
+
+# Counts leading whitespace characters (spaces or tabs) of a line.
+leading_indent() {
+  printf '%s' "${1}" | sed 's/[^[:space:]].*//' | wc -c | tr -d ' '
+}
+
+# True when the line is a mapping value that opens a literal (`|`) or folded
+# (`>`) block scalar, e.g. `run: |`, `if: >-`, `worker_secrets: |+`. Chomping
+# and explicit-indentation indicators (`|2`, `>-`) are accepted; a comment
+# after the indicator is allowed. Not a full YAML parser — a line whose value
+# is a plain string containing `|` does not match.
+block_indicator() {
+  printf '%s' "${1}" | grep -qE '^[[:space:]]*[^#].*:[[:space:]]*[|>][+-]?[0-9]*([[:space:]]*#.*)?$'
+}
+
 bad() {
   local file="$1" line_no="$2" msg="$3"
   TOTAL_BAD=$((TOTAL_BAD + 1))
@@ -83,10 +109,18 @@ check_line() {
       ;;
     ./*) return 0 ;;
     docker://*)
-      if line_has_trailing_comment "${line}" "${ref}"; then
+      if printf '%s' "${ref}" | grep -Eq '^docker://[^[:space:]]+@sha256:[0-9a-f]{64}$'; then
         return 0
       fi
-      bad "${file}" "${line_no}" "uses: ${ref} — docker:// cannot be SHA-pinned; add a trailing '# pinned by <image>@<digest>' comment"
+      if line_has_trailing_comment "${line}" "${ref}"; then
+        local comment
+        comment="$(trailing_comment "${line}" "${ref}")"
+        if printf '%s' "${comment}" | grep -qi 'cannot' \
+          && printf '%s' "${comment}" | grep -qi 'digest'; then
+          return 0
+        fi
+      fi
+      bad "${file}" "${line_no}" "uses: ${ref} — docker:// must be digest-pinned (docker://image@sha256:<64-hex>); if digest-pinning is impossible, state why in a trailing comment containing 'cannot' and 'digest'"
       return 0
       ;;
   esac
@@ -102,11 +136,36 @@ check_line() {
 }
 
 check_file() {
-  local file="$1" line_no line
-  while IFS=: read -r line_no line; do
-    TOTAL_USES=$((TOTAL_USES + 1))
-    check_line "${file}" "${line_no}" "${line}" "$(uses_ref "${line}")"
-  done < <(grep -nE '^[[:space:]]*(-[[:space:]]*)?uses:[[:space:]]+' -- "${file}")
+  local file="$1" line_no=0 line indent in_block=0 block_indent=-1
+  while IFS= read -r line; do
+    line_no=$((line_no + 1))
+    # Block-scalar tracking: lines indented deeper than the block's first
+    # content line are literal/folded text, never `uses:` entries. A blank
+    # line stays inside the block; a dedent ends it.
+    if [ "${in_block}" -eq 1 ]; then
+      if [ -z "${line}" ]; then
+        continue
+      fi
+      indent="$(leading_indent "${line}")"
+      if [ "${block_indent}" -eq -1 ]; then
+        block_indent="${indent}"
+        continue
+      fi
+      if [ "${indent}" -ge "${block_indent}" ]; then
+        continue
+      fi
+      in_block=0
+      block_indent=-1
+    fi
+    if block_indicator "${line}"; then
+      in_block=1
+      block_indent=-1
+    fi
+    if printf '%s' "${line}" | grep -qE '^[[:space:]]*(-[[:space:]]*)?uses:[[:space:]]+'; then
+      TOTAL_USES=$((TOTAL_USES + 1))
+      check_line "${file}" "${line_no}" "${line}" "$(uses_ref "${line}")"
+    fi
+  done < "${file}"
 }
 
 main() {
