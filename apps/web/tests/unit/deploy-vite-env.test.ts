@@ -24,8 +24,20 @@ const preflightMatch = /- name: Preflight - Vite build environment[\s\S]*?(?=\n 
   workflow,
 );
 const preflightStep = preflightMatch?.[0] ?? "";
+// The shape rules themselves live in .github/scripts/vite-env-preflight.sh
+// (behavioral tests: vite-env-preflight.test.sh) — this step just passes the
+// variable names to the script. Every injected name must be on that run line:
+// the script runs universal secret-shape checks on every name passed to it,
+// not just the required ones.
 const preflightedNames = new Set(
-  [...preflightStep.matchAll(/if \[ -z "\$\{(VITE_[A-Z0-9_]+)\}" \]/g)].map((match) => match[1]),
+  [
+    ...(/run: bash \.github\/scripts\/vite-env-preflight\.sh(?: |\n)([\s\S]*)/.exec(preflightStep)?.[1] ?? "").matchAll(
+      /\b(VITE_[A-Z0-9_]+)/g,
+    ),
+  ].map((match) => match[1]),
+);
+const preflightEnvNames = new Set(
+  [...preflightStep.matchAll(/^\s+(VITE_[A-Z0-9_]+): \$\{\{ vars\.\1 \}\}$/gm)].map((match) => match[1]),
 );
 
 // Required means "an empty value ships a broken feature", not "the code crashes
@@ -33,15 +45,16 @@ const preflightedNames = new Set(
 // why they need a build-time gate: the degradation is invisible in CI and
 // surfaces as a dead sign-in form in production (#506).
 //
-// The four omitted names (VITE_SITE_ORIGIN, VITE_CATALOG_URL, VITE_USERS_URL,
-// VITE_AGENT_URL) fall back to the current origin, which is correct for a
-// same-origin deploy — empty there is a real configuration, not a hole.
+// The five optional names (VITE_SITE_ORIGIN, VITE_CATALOG_URL, VITE_USERS_URL,
+// VITE_AGENT_URL, VITE_CF_BEACON_TOKEN) may be empty — the first four fall back
+// to the current origin (correct for a same-origin deploy) and the beacon token
+// merely disables analytics. They still reach the script, whose universal
+// secret-shape rules apply to every name passed, optional or not.
 //
 // VITE_SHOWCASE_MODE is required because showcase.ts (features/config) throws
 // at module init on any value other than exactly "true"/"false" — an unset or
 // malformed value fails the whole SSR bundle, and the preflight additionally
 // validates the allowed values, not just presence.
-const requiredViteNames = ["VITE_NEON_AUTH_BASE_URL", "VITE_SHOWCASE_MODE", "VITE_TURNSTILE_SITE_KEY"];
 
 describe("deploy workflow Vite build environment", () => {
   it("injects every VITE_* read by apps/web/src", () => {
@@ -49,8 +62,20 @@ describe("deploy workflow Vite build environment", () => {
     expect([...readNames].sort()).toEqual([...injectedNames].sort());
   });
 
-  it("preflights every required VITE_* value before the build", () => {
+  it("preflights every VITE_* the build step injects", () => {
     expect(preflightStep).not.toBe("");
-    expect([...preflightedNames].sort()).toEqual([...requiredViteNames].sort());
+    expect([...preflightEnvNames].sort()).toEqual([...injectedNames].sort());
+  });
+
+  it("passes every injected VITE_* name to the preflight script", () => {
+    // Equality, not superset: a VITE_* that is injected but not preflighted
+    // silently escapes the universal secret-shape checks — the exact drift
+    // this suite exists to catch.
+    expect([...preflightedNames].sort()).toEqual([...injectedNames].sort());
+  });
+
+  it("keeps Vite shape checks in a testable script, not inline YAML", () => {
+    expect(preflightStep).toMatch(/vite-env-preflight\.sh/);
+    expect(preflightStep).not.toMatch(/if \[ -z "\$\{VITE_/);
   });
 });

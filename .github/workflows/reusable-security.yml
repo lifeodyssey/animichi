@@ -224,7 +224,8 @@ jobs:
       - name: shellcheck
         run: |
           shellcheck .github/scripts/post-deploy-assert.sh .github/scripts/post-deploy-assert.test.sh \
-            .github/scripts/resolve-worker-url.sh .github/scripts/resolve-worker-url.test.sh
+            .github/scripts/resolve-worker-url.sh .github/scripts/resolve-worker-url.test.sh \
+            .github/scripts/vite-env-preflight.sh .github/scripts/vite-env-preflight.test.sh
         shell: bash
       # #522: this is the gate that decides whether a real 404 (app broken,
       # or the branded 404 page) fails a deploy immediately versus a
@@ -241,4 +242,13 @@ jobs:
       # pre-#695 hardcoded behavior (see the test file header).
       - name: resolve-worker-url.sh behavioral tests
         run: bash .github/scripts/resolve-worker-url.test.sh
+        shell: bash
+      # B5: vite-env-preflight.sh is the gate that refuses to BUILD when a
+      # VITE_* variable holds a secret-shaped value (the 2026-08-05 Turnstile
+      # SECRET-in-a-site-key-slot incident shipped exactly this way). Shape
+      # rules are fail-closed by design — a broken length comparison must be
+      # caught here, by mutation, before it silently disarms the gate in
+      # reusable-deploy-component.yml.
+      - name: vite-env-preflight.sh behavioral tests
+        run: bash .github/scripts/vite-env-preflight.test.sh
         shell: bash
