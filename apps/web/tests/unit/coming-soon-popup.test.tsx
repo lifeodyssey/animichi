@@ -10,6 +10,20 @@ beforeEach(() => { setLanguages(["ja-JP"]); });
 afterEach(cleanup);
 
 describe("ComingSoonPopup", () => {
+  it("closes when Escape is pressed inside the dialog", () => {
+    const onClose = vi.fn();
+    renderWithLocale(<ComingSoonPopup open onClose={onClose} />);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("ignores non-Escape keys inside the dialog", () => {
+    const onClose = vi.fn();
+    renderWithLocale(<ComingSoonPopup open onClose={onClose} />);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "a" });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("renders nothing while closed", () => {
     renderWithLocale(<ComingSoonPopup open={false} onClose={vi.fn()} />);
     expect(screen.queryByRole("dialog")).toBeNull();
