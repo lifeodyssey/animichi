@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const WRANGLER = readFileSync(`${ROOT}wrangler.toml`, "utf8");
-const ENV_BLOCKS = ["[vars]", "[env.production.vars]", "[env.staging.vars]"];
 const TOP_LEVEL = WRANGLER.slice(0, WRANGLER.indexOf("\n[vars]\n"));
 const READ_CONFIG_SCRIPT = `
 process.env.WRANGLER_WRITE_LOGS = "false";

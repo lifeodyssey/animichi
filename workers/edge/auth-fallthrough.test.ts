@@ -6,8 +6,8 @@ import assert from "node:assert/strict";
 import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
 import { authenticate, type AuthResult } from "./auth.ts";
 import { createWorkerApp } from "./app.ts";
-import { handleGuardRequest } from "./edgeGuard.ts";
-import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
+import { handleGuardRequest } from "./edge-guard.ts";
+import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
 
 const ENV = { SUPABASE_URL: "https://sb-441.example.test", SUPABASE_SERVICE_ROLE_KEY: "service" };
 const SECRET = "fixed-test-hmac-key-0000000000000000";
@@ -130,7 +130,7 @@ function anonEnv(captured: { requests: Request[] }) {
 }
 
 /** #441 is about which credential verdict may become anonymous, so the #447
- * Turnstile gate is stubbed to a pass here; `turnstileArm.test.ts` owns it. */
+ * Turnstile gate is stubbed to a pass here; `turnstile-arm.test.ts` owns it. */
 const passingGate = { check: () => Promise.resolve({ ok: true, errorCodes: [] }) };
 
 function appWith(result: AuthResult) {
