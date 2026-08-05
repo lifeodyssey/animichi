@@ -1,9 +1,26 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { http } from "msw";
+import type { HttpHandler } from "msw";
+import { sseResponse } from "./chat-sse";
 import { TEST_ORIGIN } from "./fixtures";
 
 export const CHAT_URL = `${TEST_ORIGIN}/v1/chat`;
 export const HEALTHZ_URL = `${TEST_ORIGIN}/healthz`;
+
+/** Every recording ends with one final full envelope frame. */
+export const FINAL_FRAME_MARKER = 'data: {"type":"data-response"';
+
+/** Offset of the final-frame marker; `last` picks the final occurrence. */
+export function finalFrameOffset(recorded: string, last = false): number {
+  return last ? recorded.lastIndexOf(FINAL_FRAME_MARKER) : recorded.indexOf(FINAL_FRAME_MARKER);
+}
+
+/** The recording up to (excluding) its first final data-response frame. */
+export function recordingHead(name: ChatStreamFixture): string {
+  const recorded = chatStreamFixture(name);
+  return recorded.slice(0, finalFrameOffset(recorded));
+}
 
 /** Vitest runs with cwd = apps/web; the recordings live in the agent package. */
 const FIXTURE_DIR = join(process.cwd(), "..", "agent", "tests", "fixtures", "chat_stream");
@@ -27,7 +44,7 @@ export interface ChatStreamOptions {
 
 /** Map the recorded final envelope's `data`; any other line passes through. */
 export function mapFinalFrameData(line: string, apply: (data: Record<string, unknown>) => Record<string, unknown>): string {
-  if (!line.startsWith('data: {"type":"data-response"')) return line;
+  if (!line.startsWith(FINAL_FRAME_MARKER)) return line;
   const frame = JSON.parse(line.slice("data: ".length)) as { data: Record<string, unknown> };
   if (!("success" in frame.data)) return line;
   frame.data = apply(frame.data);
@@ -55,5 +72,17 @@ export function streamText(name: ChatStreamFixture, options: ChatStreamOptions):
   return corruptFinalFrame(
     patchSessionId(chatStreamFixture(name), options.sessionId),
     options.malformedFinal,
+  );
+}
+
+/** A chat POST that observes the request, then streams a prebuilt SSE body. */
+export function chatStreamPost(body: string, options: ChatStreamOptions = {}): HttpHandler {
+  return http.post(
+    CHAT_URL,
+    ({ request }) => {
+      options.spy?.(request);
+      return sseResponse(body);
+    },
+    { once: options.once === true },
   );
 }

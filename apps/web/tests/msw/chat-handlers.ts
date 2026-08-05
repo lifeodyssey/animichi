@@ -1,7 +1,7 @@
 import { http, HttpResponse } from "msw";
 import type { HttpHandler } from "msw";
 import { TURNSTILE_HEADER } from "../../src/lib/turnstile/tokenStore";
-import { CHAT_URL, HEALTHZ_URL, chatStreamFixture, streamText } from "./chat-stream-base";
+import { CHAT_URL, HEALTHZ_URL, chatStreamFixture, chatStreamPost, recordingHead, streamText } from "./chat-stream-base";
 import type { ChatStreamFixture, ChatStreamOptions } from "./chat-stream-base";
 import { sseResponse, SSE_HEADERS } from "./chat-sse";
 import { TEST_ORIGIN } from "./fixtures";
@@ -34,10 +34,7 @@ export function chatStreamHandler(
   name: ChatStreamFixture,
   options: ChatStreamOptions = {},
 ): HttpHandler {
-  return http.post(CHAT_URL, ({ request }) => {
-    options.spy?.(request);
-    return sseResponse(streamText(name, options));
-  });
+  return chatStreamPost(streamText(name, options), options);
 }
 
 const RETRY_TOOL = "search_bangumi";
@@ -134,9 +131,7 @@ function droppingBody(head: string): ReadableStream<Uint8Array> {
 
 /** Replays the recording head, then drops the connection mid-stream (D4). */
 export function chatStreamDropHandler(name: ChatStreamFixture): HttpHandler {
-  const recorded = chatStreamFixture(name);
-  const head = recorded.slice(0, recorded.indexOf('data: {"type":"data-response"'));
-  return http.post(CHAT_URL, () => new HttpResponse(droppingBody(head), { headers: SSE_HEADERS }));
+  return http.post(CHAT_URL, () => new HttpResponse(droppingBody(recordingHead(name)), { headers: SSE_HEADERS }));
 }
 
 /** Drops the connection before any frame arrives (D4 before-first-chunk). */

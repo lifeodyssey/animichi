@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import type { HttpHandler } from "msw";
-import { CHAT_URL, chatStreamFixture, mapFinalFrameData, patchSessionId, streamText } from "./chat-stream-base";
+import { CHAT_URL, chatStreamFixture, chatStreamPost, finalFrameOffset, mapFinalFrameData, patchSessionId, recordingHead, streamText } from "./chat-stream-base";
 import type { ChatStreamFixture, ChatStreamOptions } from "./chat-stream-base";
 import { heldSse, SSE_HEADERS, sseResponse } from "./chat-sse";
 
@@ -25,14 +25,7 @@ export function chatStreamPatchedHandler(
     .split("\n")
     .map((line) => patchFinalFrameLine(line, patch))
     .join("\n");
-  return http.post(
-    CHAT_URL,
-    ({ request }) => {
-      options.spy?.(request);
-      return sseResponse(patched);
-    },
-    { once: options.once === true },
-  );
+  return chatStreamPost(patched, options);
 }
 
 /** The E2 search-results envelope: derived from the real capture, like the
@@ -73,19 +66,20 @@ function toRecomputeStream(recording: string): string {
     .replaceAll('"intent":"plan_route"', '"intent":"plan_selected"');
 }
 
+/** The recompute stream derived from the recorded search capture. */
+function recomputeRecording(): string {
+  return toRecomputeStream(chatStreamFixture("search"));
+}
+
 /** Fixture self-guard: the recompute stream a test replays. Tests assert it
  * still carries the injected `plan_selected` step frames — deleting them
  * would silently re-certify the P1-1 false-green tree. */
 export function recomputeStreamFixture(): string {
-  return toRecomputeStream(chatStreamFixture("search"));
+  return recomputeRecording();
 }
 
 export function chatRecomputeHandler(options: ChatStreamOptions = {}): HttpHandler {
-  const recorded = toRecomputeStream(streamText("search", options));
-  return http.post(CHAT_URL, ({ request }) => {
-    options.spy?.(request);
-    return sseResponse(recorded);
-  });
+  return chatStreamPost(toRecomputeStream(streamText("search", options)), options);
 }
 
 export interface ControlledChatStream {
@@ -115,17 +109,13 @@ function controlledChatHandler(recorded: string, splitAt: number): ControlledCha
 }
 
 export function chatRecomputeControlledHandler(): ControlledRecomputeStream {
-  const recorded = toRecomputeStream(chatStreamFixture("search"));
-  return controlledChatHandler(recorded, recorded.lastIndexOf('data: {"type":"data-response"'));
+  const recorded = recomputeRecording();
+  return controlledChatHandler(recorded, finalFrameOffset(recorded, true));
 }
 
 /** Replays the recording up to (excluding) the first data-response frame and holds the stream open. */
 export function chatStreamHeldOpenHandler(name: ChatStreamFixture): HttpHandler {
-  const recorded = chatStreamFixture(name);
-  const head = recorded.slice(0, recorded.indexOf('data: {"type":"data-response"'));
-  return http.post(CHAT_URL, () => {
-    return sseResponse(head, { close: false });
-  });
+  return http.post(CHAT_URL, () => sseResponse(recordingHead(name), { close: false }));
 }
 
 /** Streams the recording head, then lets the test release the final frame late. */
@@ -134,5 +124,5 @@ export function chatStreamControlledHandler(
   sessionId: string,
 ): ControlledChatStream {
   const recorded = patchSessionId(chatStreamFixture(name), sessionId);
-  return controlledChatHandler(recorded, recorded.indexOf('data: {"type":"data-response"'));
+  return controlledChatHandler(recorded, finalFrameOffset(recorded));
 }
