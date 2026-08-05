@@ -52,7 +52,7 @@ test("staging gets the SAME API and map routes as prod", () => {
 test("no www placeholder and no redirect on staging", () => {
   assert.deepEqual(ofType(built, DNS).filter((r) => r.inputs.name === "www.animichi.com"), []);
   const rulesets = ofType(built, RULESET).map((r) => r.name).sort();
-  assert.deepEqual(rulesets, ["staging-access-gate"]);
+  assert.deepEqual(rulesets, ["staging-access-gate", "staging-http-config-settings"]);
 });
 
 test("staging declares no CAA records — prod owns the zone certificates", () => {
@@ -74,6 +74,18 @@ test("the WAF gate blocks, and matches the staging host", () => {
   // exchange path passes through ahead of any future endpoint existing.
   assert.match(expression, /not \(ip\.src in \{1\.2\.3\.4 203\.0\.113\.0\/24\}\)/);
   assert.match(expression, /not \(http\.request\.uri\.path eq "\/staging-gate\/exchange"\)/);
+});
+
+test("staging builds exactly one http_config_settings ruleset with bic=false", () => {
+  const settings = ofType(built, RULESET).filter((r) => r.inputs.phase === "http_config_settings");
+  assert.equal(settings.length, 1);
+  const rule = (unseal(settings[0].inputs.rules).value as Record<string, unknown>[])[0];
+  assert.equal(rule.action, "set_config");
+  assert.equal(String(rule.expression), 'http.host eq "staging.animichi.com"');
+  const params = rule.actionParameters as Record<string, unknown>;
+  assert.equal(params.bic, false);
+  assert.equal(params.securityLevel, "essentially_off");
+  assert.equal(settings[0].inputs.zoneId, "zone");
 });
 
 test("the gate rule is sealed as a SECRET before it reaches state", () => {
