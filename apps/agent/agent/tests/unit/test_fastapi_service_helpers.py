@@ -229,27 +229,66 @@ async def test_call_optional_async_ignores_missing_method() -> None:
     await _call_optional_async(target, "close")
 
 
-@pytest.mark.asyncio
-async def test_close_runtime_resources_isolates_close_failures() -> None:
-    """A failing session-store close must not skip the db close."""
+def _closable_mock(events: list[str], tag: str, attr: str = "close") -> AsyncMock:
+    """Build a mock whose close method records ``tag`` into ``events``."""
+    mock = AsyncMock()
+    setattr(mock, attr, AsyncMock(side_effect=lambda: events.append(tag)))
+    return mock
+
+
+def _failing_close(events: list[str], tag: str, message: str) -> AsyncMock:
+    """Record ``tag`` then raise, so the attempted close is observable."""
+
+    def record_and_fail() -> None:
+        events.append(tag)
+        raise RuntimeError(message)
+
+    return AsyncMock(side_effect=record_and_fail)
+
+
+def _close_stub_bundle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[list[str], asyncio.Task[object], AsyncMock, AsyncMock, AsyncMock]:
+    """Build _close_runtime_resources stubs recording close order."""
     events: list[str] = []
-
-    async def session_close() -> None:
-        events.append("session")
-        raise RuntimeError("session close failed")
-
-    db = MagicMock()
-    db.close = AsyncMock(side_effect=lambda: events.append("db"))
-    catalog = MagicMock()
-    catalog.aclose = AsyncMock(side_effect=lambda: events.append("catalog"))
-    session_store = MagicMock()
-    session_store.close = session_close
+    catalog = _closable_mock(events, "catalog", "aclose")
+    monkeypatch.setattr(
+        fastapi_service,
+        "aclose_geocoding_client",
+        AsyncMock(side_effect=lambda: events.append("geocoding")),
+    )
+    session_store = _closable_mock(events, "session")
+    db = _closable_mock(events, "db")
     connect_task = asyncio.create_task(asyncio.sleep(0))
+    return events, connect_task, catalog, session_store, db
+
+
+@pytest.mark.asyncio
+async def test_close_runtime_resources_isolates_close_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failing session-store close must not skip the db close."""
+    events, connect_task, catalog, session_store, db = _close_stub_bundle(monkeypatch)
+    session_store.close = _failing_close(events, "session", "session close failed")
 
     with pytest.raises(RuntimeError, match="session close failed"):
         await _close_runtime_resources(connect_task, catalog, session_store, db)
 
-    assert events == ["catalog", "session", "db"]
+    assert events == ["catalog", "geocoding", "session", "db"]
+
+
+@pytest.mark.asyncio
+async def test_close_runtime_resources_catalog_failure_still_closes_stores(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failing catalog close must not skip geocoding/session/db closes."""
+    events, connect_task, catalog, session_store, db = _close_stub_bundle(monkeypatch)
+    catalog.aclose = _failing_close(events, "catalog", "catalog close failed")
+
+    with pytest.raises(RuntimeError, match="catalog close failed"):
+        await _close_runtime_resources(connect_task, catalog, session_store, db)
+
+    assert events == ["catalog", "geocoding", "session", "db"]
 
 
 @staticmethod
