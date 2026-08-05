@@ -866,6 +866,10 @@ jobs:
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # STAGING_GATE_TOKEN is deliberately NOT passed here: this job has no
+      # environment, so the expression would resolve empty. The called
+      # workflow's job declares `environment:` and resolves the staging
+      # environment secret itself (see its STAGING_GATE_TOKEN comment).
 
   # staging validated → production (human approve via environment: production in
   # reusable-deploy-component.yml). needs: post-staging guarantees staging passed api tests.
@@ -996,3 +1000,6 @@ jobs:
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # STAGING_GATE_TOKEN is deliberately NOT passed here — same reason as
+      # post-staging: the called workflow's job-level `environment:` resolves
+      # it (empty on production, which the called workflow tolerates).
