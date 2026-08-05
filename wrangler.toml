@@ -29,15 +29,19 @@
 #   SUPABASE_SERVICE_ROLE_KEY  — Service role for sk_ API key lookup (set via wrangler secret put)
 #   NEON_AUTH_ISSUER           — public Neon Auth base URL (set in [vars] when cutover is approved)
 #
-# Container runtime secrets (forwarded to Python backend):
+# Container runtime secrets (forwarded to Python backend). Production model
+# policy is MiMo-only (#684): MIMO_API_KEY is the one live model credential.
+# The DeepSeek and generic OpenAI-compat fallbacks stay wired but DISABLED
+# (settings.fallback_agent_model is empty; re-enabling is a config flip, not a
+# secret add) — so their keys remain provisioned, not deleted:
 #   SUPABASE_DB_URL            — postgres://... for asyncpg
 #   MIMO_API_KEY               — required primary model key (MiMo V2.5)
-#   DEEPSEEK_API_KEY           — required fallback model key (DeepSeek)
+#   DEEPSEEK_API_KEY           — wired-but-disabled fallback model key (DeepSeek)
 #   (photo-search recognition rides the same chat model credentials above —
-#   #656 retired the standalone GEMINI_API_KEY-backed vision provider in favor
-#   of the main agent's multimodal input, apps/agent/src/animichi/agents/photo_vision.py)
-#   OPENAI_COMPAT_BASE_URL     — custom OpenAI-compatible fallback endpoint
-#   OPENAI_COMPAT_API_KEY      — custom OpenAI-compatible fallback provider key
+#   #656 retired the standalone Gemini vision provider in favor of the main
+#   agent's multimodal input, apps/agent/src/animichi/agents/photo_vision.py)
+#   OPENAI_COMPAT_BASE_URL     — OpenAI-compatible endpoint (MiMo transport)
+#   OPENAI_COMPAT_API_KEY      — wired-but-disabled compat fallback provider key
 #   GOOGLE_MAPS_API_KEY        — optional geocoding provider key
 #   LOGFIRE_TOKEN              — optional observability token
 #   CORS_ALLOWED_ORIGIN        — backend CORS allowlist
